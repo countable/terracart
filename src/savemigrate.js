@@ -3,25 +3,50 @@
 //
 // migrate(save) mutates `save` in place: backfills slots/defaults added since a
 // save was created, re-derives maxEnergy from armor, applies the history-size
-// cap, and runs the data migrations (inv string→object, stash fold, discovery
-// counter→badge stack, venison→meat, golden→shiny rename, flute→honey rename,
-// released golden flag, the sapling review seed, cobble stones→street metres).
+// cap, and runs the surviving data migrations (flute→honey rename, cobble
+// stones→street metres).
+//
+// WHAT IS NOT HERE ANY MORE, AND THE RULE THAT DECIDES IT. A migration exists
+// to carry a save across a shape change, and it has to be retired eventually or
+// this file grows without bound — every one of them runs on every boot of every
+// save forever. The problem was that nothing could say WHEN: there was no
+// version on the record, `SAVE_VERSION_KEY` lives in the localStorage key and
+// was never bumped, and `stampStartedAt` deliberately stamps a played legacy
+// save `0`, so it cannot date one either. "Nothing writes this shape any more"
+// was provable; "no live save still holds it" was not.
+//
+// `save.schema` (SAVE_SCHEMA below) is that missing criterion. It is stamped on
+// every save that passes through here, so a shape retired later can be judged
+// on the number rather than on a guess. The pre-schema migrations were retired
+// against an explicit decision that saves old enough to still need them are
+// FORFEIT (Sep 2026): inv string→object, the `stash` fold, the `discovery`
+// counter→badge stack, venison→meat, golden→shiny (both the item ids and the
+// released-animal flag), the shopDeals/shopOffers and tributedCastles deletes,
+// and the free-wooden-tool strip. A save carrying one of those shapes now
+// loads with that field inert rather than converted.
+//
+// The Sep 2026 pair below is deliberately KEPT: those shapes are days old, not
+// years, so they belong to live players rather than to forfeit saves.
 //
 // Returns `needsPersist`: true iff a REAL data migration changed something and
 // the save should be re-written now. Idempotent defaults (slot backfills, the
-// maxEnergy re-derive, the history cap, the starter-tool strip) deliberately do
-// NOT force a persist — they ride along on the next save event, exactly as the
-// original create() did. The scene keeps the offline-rest restoration + runtime
-// field init around the call; only the pure save-shape work moves here.
+// maxEnergy re-derive, the history cap) deliberately do NOT force a persist —
+// they ride along on the next save event, exactly as the original create() did.
+// The scene keeps the offline-rest restoration + runtime field init around the
+// call; only the pure save-shape work moves here.
 //
-// Depends on globals: maxEnergyFromArmor + STARTING_ENERGY (items.js), and
-// Inventory.add (inventory.js) for the stash / sapling grants. ShopsMath
+// Depends on globals: maxEnergyFromArmor + STARTING_ENERGY (items.js). ShopsMath
 // (shops_math.js) is used too, for the shop-state GC below, but that module
 // loads AFTER this one in index.html — the call is runtime-guarded so a
 // headless load of just this file (no ShopsMath) still works.
 
 (function (root) {
   'use strict';
+
+  // The save-shape generation. Bump this when a migration is ADDED, so the one
+  // after it can tell which saves have already been through it — that is the
+  // whole point of the field, and the thing this file spent its life without.
+  const SAVE_SCHEMA = 1;
 
   function migrate(save) {
     let needsPersist = false;
@@ -73,13 +98,12 @@
       const cleaned = save.chopped.filter((id) => !!id);
       if (cleaned.length !== save.chopped.length) save.chopped = cleaned;
     }
-    // Per-shop bucket state replaces the old shopDeals/shopOffers; offerSalt is a
-    // once-per-save random so identical worlds differ across players.
+    // Per-shop bucket state; offerSalt is a once-per-save random so identical
+    // worlds differ across players. (This replaced shopDeals/shopOffers, whose
+    // deletes retired with the rest of the pre-schema migrations.)
     if (!save.shopState) {
       save.shopState = {};
       save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
-      delete save.shopDeals;
-      delete save.shopOffers;
     }
     if (save.offerSalt == null) {
       save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
@@ -107,20 +131,10 @@
     save.maxEnergy = maxE;
     if (!Number.isFinite(save.energy)) save.energy = maxE;
     save.energy = Math.min(maxE, Math.max(0, save.energy));
-    // Restored-houses / forts default to empty objects; a stale tributedCastles
-    // map (the gate is now read off deliveryCount) is dead weight — drop it.
+    // Restored-houses / forts default to empty objects.
     if (!save.restoredHouses || typeof save.restoredHouses !== 'object') save.restoredHouses = {};
-    if (save.tributedCastles) delete save.tributedCastles;
     if (!save.unlockedForts || typeof save.unlockedForts !== 'object') save.unlockedForts = {};
     if (!save.openedCastles || typeof save.openedCastles !== 'object') save.openedCastles = {};
-    // One-time: strip the old free WOODEN (tier-1) pick/axe so existing players
-    // also start the forge loop. Upgraded tools were earned — left alone. Gated
-    // so a re-forged wooden tool isn't re-wiped on the next reload.
-    if (!save.starterToolsStripped) {
-      if (save.relics?.pick?.tier === 1) save.relics.pick = null;
-      if (save.relics?.axe?.tier === 1) save.relics.axe = null;
-      save.starterToolsStripped = true;
-    }
     // Soft cap on unbounded history fields so a heavy player can't balloon the
     // save past the localStorage quota and silently break writes. `placedRocks`
     // is deliberately EXEMPT: unlike the others (which just re-arm a respawn —
@@ -193,56 +207,21 @@
       needsPersist = true;
     }
     if (!save.streets || typeof save.streets !== 'object') save.streets = {};
-    // Older save: inv as a string array → {id,count} objects (else sel.count -= 1
-    // yields NaN and stacks become uncountable).
-    if (save.inv && typeof save.inv[0] === 'string') {
-      save.inv = save.inv.filter(Boolean).map((id) => ({ id, count: 1 }));
-      needsPersist = true;
-    }
-    // Older save: a `stash` object → fold into inv stacks.
-    if (save.stash) {
-      for (const [id, n] of Object.entries(save.stash)) {
-        if (n > 0 && typeof Inventory !== 'undefined') Inventory.add(save, id, n);
-      }
-      delete save.stash;
-      needsPersist = true;
-    }
-    // Older save: the `discovery` counter → a 'discovery' inventory stack.
-    // The badge item is capExempt (inventory.js) so every banked point fits
-    // regardless of bag tier. Runs after the inv string→object migration so
-    // Inventory.add always sees object stacks.
-    if (save.discovery !== undefined) {
-      const n = save.discovery;
-      if (typeof n === 'number' && n > 0 && typeof Inventory !== 'undefined') {
-        Inventory.add(save, 'discovery', n);
-      }
-      delete save.discovery;
-      needsPersist = true;
-    }
-    // Rename: venison → meat (fold counts) so hunting loot survives the rework.
-    if (Array.isArray(save.inv)) {
-      const merged = [];
-      let meatCount = 0;
-      for (const s of save.inv) {
-        if (!s) continue;
-        if (s.id === 'venison') { meatCount += (s.count ?? 0); needsPersist = true; }
-        else if (s.id === 'meat') { meatCount += (s.count ?? 0); }
-        else merged.push(s);
-      }
-      if (meatCount > 0) merged.push({ id: 'meat', count: meatCount });
-      save.inv = merged;
-    }
-    // Rename: golden_<kind> → shiny_<kind> (fold counts). 'goldenfish' has no
-    // underscore so it's never matched. Also flute → honey: the lure consumable
-    // was renamed (Sep 2026) because a flute that vanishes after one tune read
-    // wrong; a jar of honey the animals eat does not. Same lure, same price.
-    if (Array.isArray(save.inv)) {
+    // Rename: flute → honey. The lure consumable was renamed (Sep 2026) because
+    // a flute that vanishes after one tune read wrong; a jar of honey the
+    // animals eat does not. Same lure, same price.
+    //
+    // The rebuild is guarded on actually FINDING a flute, which the venison
+    // fold that used to sit here was not — and since save.selSlot is a
+    // positional index into save.inv, that unguarded rebuild silently moved
+    // the player's selection on every boot of every save carrying meat. A
+    // migration that rewrites the bag must not run when it has nothing to do.
+    if (Array.isArray(save.inv) && save.inv.some((s) => s && s.id === 'flute')) {
       const byId = new Map();
       const out = [];
       for (const s of save.inv) {
         if (!s) continue;
-        const id = (s.id && s.id.startsWith('golden_')) ? 'shiny_' + s.id.slice(7)
-          : s.id === 'flute' ? 'honey' : s.id;
+        const id = s.id === 'flute' ? 'honey' : s.id;
         if (id !== s.id) needsPersist = true;
         const prev = byId.get(id);
         if (prev) { prev.count = (prev.count ?? 0) + (s.count ?? 0); }
@@ -250,11 +229,12 @@
       }
       save.inv = out;
     }
-    // Migrate the stored `golden` flag on released animals to `shiny`.
-    if (Array.isArray(save.released)) {
-      for (const r of save.released) {
-        if (r && r.golden !== undefined) { r.shiny = r.golden; delete r.golden; needsPersist = true; }
-      }
+    // Stamp the save-shape generation (see SAVE_SCHEMA). A save that reaches
+    // here has been through every migration this build carries, so the next
+    // retirement can read the number instead of guessing at the shape.
+    if (save.schema !== SAVE_SCHEMA) {
+      save.schema = SAVE_SCHEMA;
+      needsPersist = true;
     }
     // Date the save (see stampStartedAt) and settle whether it has ever
     // brought in a crop (stampHarvested) — the pest amnesty reads the latter.

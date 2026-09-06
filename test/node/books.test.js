@@ -491,6 +491,40 @@ test('tips: the Ring claim is the one the code actually enforces', () => {
     'the tip names the gate that exists');
 });
 
+test('tips: melee reach is re-derived from Combat.MELEE_REACH_CELLS', () => {
+  // The number a tip quotes comes from the module that owns it — retyping is
+  // how the stale ones got there (the Bow/Staff tip outlived a halved cadence).
+  const tip = PLAY_TIPS.find((t) => /Swinging reaches/i.test(t));
+  assert.truthy(tip, 'the melee reach is documented — nothing on an item can say it');
+  const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five'];
+  assert.truthy(tip.includes(`${WORDS[Combat.MELEE_REACH_CELLS]} cell`),
+    `the tip must quote Combat.MELEE_REACH_CELLS (${Combat.MELEE_REACH_CELLS}): ${tip}`);
+  // And it must say the thing that makes the rule readable: that the LIT reach
+  // is bigger and is not what a swing uses.
+  assert.truthy(/light reaches further/i.test(tip),
+    'the tip separates the working reach from the fighting one');
+  // The sword's own line agrees rather than promising the lit reach — it used
+  // to read 'auto-fights foes in reach', which is exactly the reach it no
+  // longer has.
+  assert.truthy(/adjacent/.test(RELIC_DEFS.sword.blurb),
+    `the sword blurb says how far it swings: ${RELIC_DEFS.sword.blurb}`);
+  assert.falsy(/in reach/.test(RELIC_DEFS.sword.blurb),
+    'and never claims the lit reach again');
+});
+
+test('tips: Home\'s ward is documented, rout and all', () => {
+  const tip = PLAY_TIPS.find((t) => /turns enemies away inside its circle/i.test(t));
+  assert.truthy(tip, 'Home warding enemies is invisible and derived — Book or nowhere');
+  assert.truthy(/cannot bite/i.test(tip),
+    'the ward switches the bite off, which is the half that makes it a ward');
+  assert.truthy(/runs clear off the screen/i.test(tip),
+    'and striking a warded foe routes it to the sim bubble edge');
+  // No number is quoted, on purpose: the ring is HOME_R and the rout is
+  // CREATURE_SIM_CELLS, and a player reads both off the picture (the lit
+  // circle IS the safe circle). A tip that retyped either could go stale.
+  assert.falsy(/\d/.test(tip), `the ward tip quotes no number to drift: ${tip}`);
+});
+
 test('tips: no tip promises a mechanic that does not exist', () => {
   // Gather luck (ring/amulet on tree/rock/fruit yields) was never switched on
   // and has since been deleted outright, so neither the Book nor a blurb may

@@ -1340,9 +1340,11 @@ class MapScene extends Phaser.Scene {
       loadSave()
     );
     // All one-time save-shape migrations — slot/default backfills, the maxEnergy
-    // re-derive, the history cap, and the data migrations (inv string→object,
-    // stash fold, venison→meat, golden→shiny, released golden flag, the sapling
-    // review seed) — live in savemigrate.js so they're testable headlessly.
+    // re-derive, the history cap, the surviving data migrations (flute→honey,
+    // cobble stones→street metres) and the save.schema stamp — live in
+    // savemigrate.js so they're testable headlessly. The pre-schema ones were
+    // retired against a decision that saves that old are forfeit; see the
+    // header there for the list and for why save.schema now exists.
     // Returns true iff a real data migration changed something and the save
     // should be re-persisted now. Runs before any in-memory Set is mirrored off
     // a save array below, so the HISTORY_CAP trim above actually sticks — build
@@ -1393,24 +1395,6 @@ class MapScene extends Phaser.Scene {
     // Transient runtime state — not persisted.
     this.pairyCompass = null;   // { targetId, x, y, until } when active
     if (needsMigrationPersist) persistSave(this.save);
-
-    // Drop the dead dragon_potion slot left over from the build that renamed
-    // it to dragon_powder. A migration, not a grant: it only ever REMOVES a
-    // stack no handler can spend any more.
-    //
-    // This used to also push one dragon_powder into the bag ("TEST SEED", so
-    // the transform could be tried without finding one in the wild). That ran
-    // on a brand-new save too, which made a tier-8 transform consumable the
-    // first and ONLY thing in a new player's bag — the sole count pip on the
-    // opening screen, on a tab the fresh-save default doesn't even show, and
-    // flatly against the starter crates' premise that the bag starts empty.
-    // The dev affordance it existed for is now the ☰ › Developer › "Give
-    // Dragon Powder" button, which is where a dev affordance belongs.
-    if (!this.save.gotDragonTestPowder) {
-      this.save.gotDragonTestPowder = true;
-      this.save.inv = (this.save.inv || []).filter(s => !s || s.id !== 'dragon_potion');
-      persistSave(this.save);
-    }
 
     this.cameras.main.setBackgroundColor('#222');
     // Everything below this line is in LOGICAL px; the camera is what maps
@@ -1525,29 +1509,6 @@ class MapScene extends Phaser.Scene {
     // GPS is actually watching — sensors now start only after the opening
     // story + the location CTA, so arming it here would count story-reading
     // time against the fix and could silently skip the capture.)
-
-    // One-time migration: older saves used pWorldX/cellM for cell indices, which
-    // drifts vs the rendered (tile-pixel-basis) cells. Remap tilled keys and
-    // snap planted positions to the unified basis so they line up visually.
-    if (!this.save.coordSchema || this.save.coordSchema < 2) {
-      const remapped = new Set();
-      for (const key of this.tilledSet) {
-        const [ox, oy] = key.split('_').map(Number);
-        const cwmx = (ox + 0.5) * this.cellM;
-        const cwmy = (oy + 0.5) * this.cellM;
-        const { cellIX, cellIY } = worldMetersToAbsCell(this, cwmx, cwmy);
-        remapped.add(cellKeyFromAbsCell(cellIX, cellIY));
-      }
-      this.tilledSet = remapped;
-      this.save.tilled = [...remapped];
-      for (const p of (this.save.planted || [])) {
-        const { cellIX, cellIY } = worldMetersToAbsCell(this, p.x, p.y);
-        const c = absCellCenterMeters(this, cellIX, cellIY);
-        p.x = c.x; p.y = c.y;
-      }
-      this.save.coordSchema = 2;
-      persistSave(this.save);
-    }
 
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
@@ -3889,31 +3850,14 @@ class MapScene extends Phaser.Scene {
         creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id, shiny: !!r.shiny });
       }
     }
-    // DERELICT LAIRS — hard mode only (Difficulty.get().derelictLairs). Every
-    // unclaimed structure past a ring around home holds a garrison of immobile
-    // slimes, more of them the bigger the building and the further out it is
-    // (src/lairs.js owns every number). Placed here, in the tile's own spawn
-    // pass, so a rebuild re-lays the identical set — the module seeds its OWN
-    // rng off (tx, ty) and takes no draws from the stream above, exactly as
-    // Traps.spawnSurface does below, so every existing world seed is untouched.
-    //
-    // Distance is measured from the FROZEN starter anchor, never the live Home
-    // resolver: a Home the player later adopts somewhere else would re-rank
-    // every ruin in the world and the garrisons would silently change size
-    // behind them (lairs.test.js pins that the resolver is not read here), and
-    // the anchor is the one point that is both stable and available at tile
-    // build time (the pest amnesty reads it for the same reason).
-    if (typeof Lairs !== 'undefined' && Difficulty.get().derelictLairs && !window.__TEST_MODE) {
-      const lairHome = this._starterTrailAnchor();
-      for (const g of Lairs.spawnForTile(entry, tx, ty, {
-        cellM: this.cellM,
-        tileEdgeM: this.tileEdgeM,
-        homeM: lairHome,
-        isClaimed: (key) => this.isClaimedKey(key),
-        caughtSet,
-        spawnOpts: _spawnOpts,
-      })) creatures.push(g);
-    }
+    // DERELICT LAIRS need the tile's shared spawn options AFTER this pass has
+    // finished — the garrisons are woken lazily as the player comes near a ruin
+    // (the residency pass in update()), not seated here, because
+    // every tier-9 house is a wreck and a city tile holds thousands of them.
+    // Stash the one object rather than let that pass rebuild a near-copy: the
+    // road rule has to be THE shared rule (CLAUDE.md), not a second reading of
+    // it, and the POI anchors are already gathered here.
+    entry._spawnOpts = _spawnOpts;
     entry._spawned = true;
     // KEEP creatures the entry already carries. On a rebuild they are the live
     // ones — mid-wander positions, tamed pets, work in progress — handed over
@@ -6494,6 +6438,47 @@ class MapScene extends Phaser.Scene {
       this.advanceGrowth();
     }
 
+    // DERELICT LAIRS — hard mode only. Wake the garrisons of ruins the player
+    // has come near and sleep the ones they have left behind (src/lairs.js owns
+    // every number). Throttled: the wake ring stands 4 cells outside the sleep
+    // ring, which is ~20 seconds of walking, so half a second between passes
+    // has margin to spare and this never runs on the ~30 frames between.
+    //   Measured from the FEET, never the camera anchor — a peek drag must not
+    // wake a ruin the player has not walked to (CLAUDE.md's camera rule).
+    //   Surface only: buildingShapes is a surface tile's data, and the world is
+    // GPS-mirrored, so a cave level must not wake the ruins above it.
+    if (typeof Lairs !== 'undefined' && Difficulty.get().derelictLairs &&
+        (this.depth || 0) === 0 && !window.__TEST_MODE &&
+        performance.now() - (this._lastLairT || 0) > 500) {
+      this._lastLairT = performance.now();
+      const lairHome = this._starterTrailAnchor();
+      if (lairHome) {
+        const pc = this.playerToWorldCell();
+        const ring = [];
+        for (let dty = -1; dty <= 1; dty++) {
+          for (let dtx = -1; dtx <= 1; dtx++) {
+            const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
+            if (e) ring.push({ entry: e, tx: pc.tx + dtx, ty: pc.ty + dty });
+          }
+        }
+        // Wounds survive a sleep/wake cycle. In memory only, like every other
+        // creature's _hp (combat.js) — this covers walking out of the wake ring
+        // and back, not a reload, so a guard you softened up is still softened
+        // up when you come round the corner again.
+        this._lairHp = this._lairHp || new Map();
+        Lairs.stepResidency(ring, {
+          cellM: this.cellM,
+          tileEdgeM: this.tileEdgeM,
+          playerM: { x: this.startWorldM.x + this.playerM.x,
+                     y: this.startWorldM.y + this.playerM.y },
+          homeM: lairHome,
+          isClaimed: (key) => this.isClaimedKey(key),
+          caughtSet: setOf(this.save.caught),
+          hpMemo: this._lairHp,
+        });
+      }
+    }
+
     this.wanderCreatures();
     // Fight tick — bow/staff auto-fire, shots in flight, sword auto-engage.
     // Runs AFTER the creatures have moved (so shots resolve against where the
@@ -6714,8 +6699,11 @@ class MapScene extends Phaser.Scene {
     if (relics.sword && this.save.activeWeapon === 'sword' && !this._workProgress && enemies.length) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
-        const fc = worldMetersToAbsCell(this, c.x, c.y);
-        if (!cellInReach(this, fc.cellIX, fc.cellIY)) continue;
+        // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
+        // swings as far as a monster bites and no further. This used to be
+        // cellInReach, so an auto-engaging sword picked up a foe 2.5 cells off
+        // — 5.5 with the Inner Light upgrades — and fought it the whole way in.
+        if (!Combat.inMeleeReach(c.x, c.y, px, py, this.cellM)) continue;
         const d2 = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py);
         if (d2 < bestD2) { bestD2 = d2; best = c; }
       }
@@ -6952,6 +6940,24 @@ class MapScene extends Phaser.Scene {
     if (!(amount > 0)) return false;
     const left = Combat.damage(c, amount);
     c._lastDamagedT = Date.now();
+    // ROUTED FROM THE DOORSTEP. Home's ward already turns an enemy inside the
+    // ring around and switches its bite off (wanderCreatures' homeWard), but
+    // the ring is only HOME_R — four cells — so a foe walked out, stopped
+    // being warded on the doorstep's edge and came straight back at you. Hit
+    // one while it is being warded and it does not merely leave the ring, it
+    // RUNS: the ward radius becomes CREATURE_SIM_CELLS for this foe alone
+    // until it is out, which is the edge of the sim bubble — as far as
+    // anything is driven in this game, and far enough that the yard is quiet
+    // for a while rather than for a step. The flag clears itself on the first
+    // tick it is outside (see wanderCreatures), so nothing about it persists.
+    if (!c._routedFromHome && Combat.isEnemy(c)) {
+      const home = this.homeWorldPos();
+      if (home) {
+        const r = HOME_R * this.cellM;
+        const hx = c.x - home.x, hy = c.y - home.y;
+        if (hx * hx + hy * hy <= r * r) c._routedFromHome = true;
+      }
+    }
     const now = performance.now();
     c._hurtUntilT = now + ENEMY_HEALTH_RING_MS;
     // Damage numbers. Accumulate-and-beat rather than pop-per-call: a shot
@@ -7291,10 +7297,20 @@ class MapScene extends Phaser.Scene {
       // diamond, so a crow still sitting inside the lit range read as "got
       // away" while it hadn't visually left it.
       const tc = worldMetersToAbsCell(this, c.x, c.y);
-      const outOfRange = (typeof cellInReach === 'function')
-        ? !cellInReach(this, tc.cellIX, tc.cellIY)
-        : ((c.x - (this.startWorldM.x + this.playerM.x)) ** 2
-           + (c.y - (this.startWorldM.y + this.playerM.y)) ** 2) > (reachRadiusM(this)) ** 2;
+      // A FIGHT breaks off at arm's length (Combat.MELEE_REACH_CELLS), a HUNT
+      // at the lit reach. Same wheel, two ranges, because they are two things:
+      // a crow you are running down stays yours while it is in the light, but
+      // a foe that has backed out of swinging distance is no longer being hit
+      // — and without this you could engage at one cell and keep landing blows
+      // out to five as it walked away.
+      const outOfRange = wp.combat
+        ? !Combat.inMeleeReach(c.x, c.y,
+            this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y,
+            this.cellM)
+        : (typeof cellInReach === 'function')
+          ? !cellInReach(this, tc.cellIX, tc.cellIY)
+          : ((c.x - (this.startWorldM.x + this.playerM.x)) ** 2
+             + (c.y - (this.startWorldM.y + this.playerM.y)) ** 2) > (reachRadiusM(this)) ** 2;
       if (outOfRange) {
         wp._outSinceT = wp._outSinceT ?? now;
         if (now - wp._outSinceT >= 1000) {     // 1 s grace — matches the catch wheel
@@ -7478,6 +7494,10 @@ class MapScene extends Phaser.Scene {
     // which is what switches the ward off.
     const homePos = this.homeWorldPos();
     const HOME_WARD_R2 = (HOME_R * this.cellM) * (HOME_R * this.cellM);
+    // The radius a foe STRUCK inside the ring is driven out to instead — the
+    // sim bubble's own edge (CREATURE_SIM_CELLS), so "it ran off" means it is
+    // gone rather than circling the doormat. Set by _damageEnemy.
+    const HOME_ROUT_R2 = (CREATURE_SIM_CELLS * this.cellM) * (CREATURE_SIM_CELLS * this.cellM);
     // Pest spawn: if the player has any planted crop and there are NO wild
     // crows already near the player, spawn one off-screen every ~90 s. The
     // crow's wander loop targets the nearest crop and destroys it on contact
@@ -7566,16 +7586,25 @@ class MapScene extends Phaser.Scene {
       // Combat.isEnemy is the registered-hostile test (the wild slime, every
       // cave monster), so a kind added to the monster table is warded the day
       // it ships, and a sapphire-tamed slime is a pet and walks where it likes.
+      // A foe hit while it was being warded keeps being warded all the way out
+      // to the bubble's edge (_routedFromHome, set in _damageEnemy) — same
+      // away-from-Home angle, same bite switched off, just a bigger ring.
+      const homeD2 = homePos
+        ? (c.x - homePos.x) * (c.x - homePos.x) + (c.y - homePos.y) * (c.y - homePos.y)
+        : Infinity;
       const homeWard = !!homePos && !isTame && Combat.isEnemy(c) &&
-        (c.x - homePos.x) * (c.x - homePos.x) +
-        (c.y - homePos.y) * (c.y - homePos.y) <= HOME_WARD_R2;
+        homeD2 <= (c._routedFromHome ? HOME_ROUT_R2 : HOME_WARD_R2);
+      // Out at last: it rejoins the ordinary rules and may hunt again.
+      if (c._routedFromHome && homeD2 > HOME_ROUT_R2) c._routedFromHome = false;
       // Slime energy steal: a slime sitting on/near the player drains 1 energy
       // on a per-slime cooldown. Accumulated across all slimes this frame and
       // surfaced with one throttled flash after the loop (see below) so a swarm
       // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
       // independent of the slime's slow step cadence.
       if (c.kind === 'slime' && !isTame && !shadowed && !homeWard) {
-        const STEAL_R = this.cellM;   // 1 cell — adjacent only
+        // The same one cell the player now swings at (Combat.MELEE_REACH_CELLS)
+        // — one number for "melee is arm's length", read by both sides.
+        const STEAL_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + 1000;   // 3 energy/sec

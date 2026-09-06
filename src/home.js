@@ -24,7 +24,8 @@
 //     (of which the first 7 walk delivery.js SCRIPTED_WISHLISTS — five
 //      single-item asks, then the starter pair, then the flower trio)
 //   • Starter loot crates (wood/rockfruit/seeds) app.js  STARTER_LOOT
-//   • Starting money / no free tools …… items.js STARTING_MONEY, app.js starterToolsStripped
+//   • Starting money / no free tools …… items.js STARTING_MONEY; a fresh save's
+//                                        relic slots all default to null
 //   • Fort unlock cost ………………………… app.js  FORT_UNLOCK_WOOD
 //
 // Exposed as a global (no bundler): HomeArea

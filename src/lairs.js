@@ -34,24 +34,49 @@
 // the whole point — that THIS ruin is held — would be gone by the time the
 // player got close enough to see it.
 //
-// GENERATED, NEVER STORED — the traps.js contract, for the same reasons. Where
-// a lair is and what is in it is a pure function of the tile's coordinates
-// through WorldGen.makeRng, so a tile evicted and rebuilt lays the identical
-// garrison, and the ONLY thing that reaches the save is the id of a guard the
-// player has killed (save.caught, via the ordinary resolveDefeat path — a lair
-// guard is an enemy like any other and pays its bounty). This module seeds its
-// OWN rng stream off (tx, ty) rather than drawing from spawnInTile's, because
-// taking numbers out of that long chain would re-roll every world seed
-// downstream of it.
+// ── WHY THE GARRISON IS WOKEN, NOT SPAWNED ───────────────────────────────
 //
-// THE TILE BUDGET IS NOT OPTIONAL. Every tier-9 house is a wreck until the
-// player rebuilds it (app.js `_isHouseWreck`), so "derelict structure" is very
-// nearly "building" — and a dense city tile carries thousands. At 1..5 guards
-// each that is tens of thousands of creatures on one tile, which is not a
-// difficulty setting, it is a hang. LAIR_TILE_BUDGET caps the total and it is
-// spent LARGEST TIER FIRST, so the castles and forts — the landmarks a player
-// actually walks toward — always hold their garrison and the long tail of
-// wrecked houses fills whatever is left.
+// Every tier-9 house is a wreck until the player rebuilds it (app.js
+// `_isHouseWreck`), so "derelict structure" is very nearly "building", and a
+// dense city tile carries thousands of them. Materialising a garrison for all
+// of them at tile-build time is tens of thousands of creature objects on one
+// tile — memory, and a per-frame `forEachItemNear` walk over every one of them.
+// The first cut of this module answered that with a per-tile budget, which
+// bought the frame rate at the price of most ruins simply being empty.
+//
+// The answer instead is RESIDENCY. Nothing is materialised at build time: a
+// tile keeps only an INDEX of its eligible structures (`buildIndex`, one small
+// record per footprint, bucketed on a coarse grid), and `stepResidency` — run
+// on a throttle from update() — wakes the garrisons of structures within
+// LAIR_WAKE_CELLS of the player and puts back to sleep the ones past
+// LAIR_SLEEP_CELLS. Live creatures then track what is actually AROUND the
+// player rather than what a tile happens to contain, so a city block and a
+// hamlet cost the same to stand in.
+//
+// The wake ring clears every other radius that matters, which is what makes
+// the seam invisible: it is outside the sim bubble (a guard is resident well
+// before wanderCreatures will think for it), outside the sprite cull (before
+// it can be drawn), and outside bow range (before it can be shot). The gap
+// between wake and sleep is hysteresis — one ring would thrash a garrison on
+// and off while the player stood on it.
+//
+// ── GENERATED, NEVER STORED — and now PER STRUCTURE ──────────────────────
+//
+// The traps.js contract: a lair is a pure function of the world, and the only
+// thing that ever reaches the save is the id of a guard the player has killed
+// (save.caught, through the ordinary resolveDefeat path — a lair guard is an
+// enemy like any other and pays its bounty).
+//
+// Residency sharpens that from per-TILE to per-STRUCTURE. A garrison is seeded
+// from its own building's identity — `structureKey`, the footprint's centre in
+// ABSOLUTE cell coordinates, the same shape a castle already mints its claim
+// key from — so it depends on nothing but the building itself. That is what
+// makes waking safe, and it retires a whole class of hazard the per-tile stream
+// had: the draw no longer depends on the ORDER the polygons come in (a rebuild
+// that adds an Overpass building would have shifted every index after it), on
+// how many guards a neighbouring ruin happened to seat, or on which of them the
+// player had already killed. Wake a ruin at any time, in any order, from any
+// tile build, and it holds exactly what it held before.
 //
 // Node-testable: no DOM, no Phaser. WorldGen is read for makeRng / isSpawnCell
 // (the shared spawn rule — see the road-mask invariant in CLAUDE.md), and a
@@ -80,14 +105,11 @@
   // Guards at the NEAR ring, by the world's own building tier. Everything
   // else in this module is derived from these four numbers.
   const TIER_GUARDS = {
-    9:  1,   // T.BUILDING      — a wrecked house
-    11: 2,   // T.BUILDING_MED  — a fort
+    9:  1,   // T.BUILDING       — a wrecked house
+    11: 2,   // T.BUILDING_MED   — a fort
     12: 3,   // T.BUILDING_LARGE — a castle
   };
-  // Largest-first, so the tile budget below is spent on the landmarks. Frozen
-  // at load rather than sorted per tile: three entries, and a tile build has
-  // no business sorting anything it can look up.
-  const TIER_ORDER = [12, 11, 9];
+  const TIERS = [9, 11, 12];
   const MAX_TIER_GUARDS = Math.max(...Object.values(TIER_GUARDS));
   // The distance multiplier — NOT a tuned number. It is exactly what carries
   // the biggest structure from its near figure to the ceiling, so the ceiling
@@ -120,12 +142,37 @@
     { kind: 'purple_slime', minT: 0.67 },
   ];
 
-  // ── The tile budget ──────────────────────────────────────────────────────
-  // See the header. In the same order of magnitude as the slimes a hard-mode
-  // tile already carries (BIOME_FAUNA slime base 50, doubled by
-  // Difficulty.slimeCountMul), so a tile whose budget binds is not carrying
-  // an unusual population — it is carrying a differently ARRANGED one.
-  const LAIR_TILE_BUDGET = 60;
+  // ── Residency ────────────────────────────────────────────────────────────
+  // How close the player must come for a ruin's garrison to exist, and how far
+  // they must go for it to stop existing. The wake ring has to clear every
+  // radius that could reveal a garrison that is not there yet — the sim bubble
+  // (app.js CREATURE_SIM_CELLS, 12: a creature outside it does not think), the
+  // sprite cull (VIEW_CELLS/2 + 1, whose corner is under 10), and bow range
+  // (Combat SHOT_SPECS bow, 8) — so nothing is ever woken in view or shot at
+  // before it is woken. `assertRingsClear` is the check, called by the test.
+  const LAIR_WAKE_CELLS = 16;
+  // And the gap to sleep is hysteresis. One ring would wake and sleep a
+  // garrison every pass while the player stood on it.
+  const LAIR_SLEEP_CELLS = 20;
+  // The most guards that may be woken around the player at once. This is the
+  // cap that the per-tile budget was reaching for and missing: what matters is
+  // not how many a TILE holds — the player is never standing in all of it —
+  // but how many are around them now, which is the same question on a city
+  // block and in a hamlet. In the same order as the surface slimes a hard-mode
+  // tile already puts within the wake ring, several times over.
+  //   Nothing is ever un-woken to make room: a garrison already standing must
+  // not blink out because the player walked toward a different ruin. The cap
+  // only refuses NEW wakes, nearest ruin first, and walking away frees it.
+  const LAIR_LIVE_MAX = 40;
+  // The coarse grid the index buckets structures on, in cells. Sized to the
+  // wake ring so a residency pass reads a 3×3 block of buckets instead of
+  // walking every footprint on the tile.
+  const LAIR_BUCKET_CELLS = 16;
+  // Footprints taken into the index per residency pass — see indexChunk. About
+  // half a millisecond's worth on the densest tile the build tests use, so even
+  // a cold first slice stays well inside a frame.
+  const LAIR_INDEX_CHUNK = 500;
+
   // How far outside a structure's own footprint a guard is seated, in cells.
   // Not ON the footprint: the spec's fauna rule is that nothing stands on a
   // building footing, and a slime drawn over a roof reads as a bug however it
@@ -136,12 +183,6 @@
   // which is the same answer the fauna spawner gives, and better than
   // pushing a guard somewhere it does not belong.
   const LAIR_SEAT_TRIES = 8;
-  // Strides for the scattered bucket walk in spawnForTile — the first one
-  // that does not divide the bucket length is coprime with it, so stepping by
-  // it visits every entry exactly once. Primes, largest first, so a short
-  // bucket still gets a wide stride; 1 is the fallback for a length that
-  // divides them all, which only happens below the smallest of them.
-  const STRIDE_PRIMES = [31, 17, 7, 3, 2];
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
@@ -183,6 +224,13 @@
     return ks[Math.min(ks.length - 1, Math.floor(rng() * ks.length))];
   }
 
+  // THE STRUCTURE'S OWN IDENTITY, and the seed of its garrison: the centre of
+  // its footprint in ABSOLUTE cell coordinates. Same shape worldgen already
+  // mints a castle's claim key from, and for the same reason — it is a fact
+  // about the building, so it survives a tile rebuild, an eviction, a change
+  // in polygon order, and a garrison woken from a different tile of the ring.
+  function structureKey(acx, acy) { return `${acx}_${acy}`; }
+
   // The bounding box of a buildingShapes ring (tile-local metres), or null.
   // The same read _houseBlastGeometry does — a building's SOURCE polygon is
   // the real outline, where the object's own x/y is only its icon's cell.
@@ -201,138 +249,329 @@
              halfW: (x1 - x0) / 2, halfH: (y1 - y0) / 2 };
   }
 
-  // ── The pass ─────────────────────────────────────────────────────────────
-  // Returns the creature objects to push into entry.creatures — the same shape
-  // spawnInTile builds, plus `immobile`. Pure: it reads the entry and the
-  // options, and writes nothing.
+  // ── The index ────────────────────────────────────────────────────────────
+  // One record per lair-eligible footprint on the tile, bucketed on a coarse
+  // grid. No rng, no creatures, no save read — just where the structures are,
+  // so a residency pass can ask "which ruins are near the player" without
+  // walking a city's worth of polygons every time. Built once per tile entry
+  // and cached on it; a rebuilt entry is a new object and simply builds a new
+  // one (CLAUDE.md's rebuild contract — there is nothing here worth carrying).
+  function newIndex(cellM) {
+    return { bucketM: LAIR_BUCKET_CELLS * cellM, buckets: new Map(), next: 0, done: false };
+  }
+
+  // Take up to `limit` more footprints into `idx`, resuming where the last
+  // call stopped. THE INDEX IS SLICED because this is the only pass over every
+  // building on the tile and a dense one carries thousands: built in one go it
+  // is ~7ms on a 6000-building tile, which is a dropped frame the first time
+  // the player walks into a city. update() has no slicer of its own (the
+  // rasterizer's is upstream of here), so the pass carries its own cursor and
+  // spends a slice of it per residency pass instead. A half-indexed tile just
+  // wakes fewer ruins for a second or two, and the wake ring is four cells
+  // outside the sleep ring — twenty seconds of walking — so nothing shows.
   //
-  //   entry      the tile cache entry (grid, cellsPerEdge, roadMask, buildingShapes)
-  //   tx, ty     tile coords — the seed, and the tile-local → absolute origin
-  //   opts:
-  //     cellM, tileEdgeM   the tile's basis
-  //     homeM              {x, y} absolute metres — the FROZEN starter anchor,
-  //                        never a live player position (see the header)
-  //     isClaimed(key)     the caller's claim test (app.js isClaimedKey)
-  //     caughtSet          Set of ids already defeated — a guard in it is not
-  //                        re-seated, so a cleared lair stays cleared
-  //     spawnOpts          the shared WorldGen.isSpawnCell options, ROAD MASK
-  //                        INCLUDED (CLAUDE.md's road invariant)
-  //     budget             optional override of LAIR_TILE_BUDGET (tests)
-  function spawnForTile(entry, tx, ty, opts) {
-    const o = opts || {};
-    const WG = root.WorldGen;
-    const cellM = o.cellM, tileEdgeM = o.tileEdgeM, home = o.homeM;
-    if (!WG || !entry || !entry.grid || !(cellM > 0) || !(tileEdgeM > 0)) return [];
-    // No anchor yet (a fresh save still waiting on its first fix) means no
-    // distance to measure, so no lair — exactly as the pest amnesty declines
-    // to place anything it cannot centre. The tile lays them on its next
-    // build, once the anchor has frozen.
-    if (!home || !Number.isFinite(home.x) || !Number.isFinite(home.y)) return [];
-    const shapes = entry.buildingShapes;
-    if (!shapes || !shapes.length) return [];
-
-    // Own stream, off the tile's coordinates — never the caller's rng (see
-    // the header). The salt is this module's own so it cannot collide with
-    // the trap streams or the tile's fauna stream.
-    const rng = WG.makeRng(((tx * 0x27d4eb2d) ^ (ty * 0xc2b2ae35) ^ 0x6c078965) >>> 0);
-    const N = entry.cellsPerEdge;
+  // Two allocations it deliberately avoids, both paid per building: a bucket
+  // key STRING (`bucketKey` packs the two grid coordinates into one integer)
+  // and the structure's `sid` string (derived at wake time, for the handful of
+  // candidates that ever reach the wake ring). The bbox is inlined for the
+  // same reason — ringBox allocates a record this would copy and drop.
+  function indexChunk(idx, entry, tx, ty, cellM, tileEdgeM, limit) {
+    const shapes = (entry && entry.buildingShapes) || [];
     const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
-    const isClaimed = typeof o.isClaimed === 'function' ? o.isClaimed : () => false;
-    const caught = o.caughtSet;
-    let budget = Number.isFinite(o.budget) ? o.budget : LAIR_TILE_BUDGET;
-    const out = [];
-
-    // Bucket the shapes by tier in ONE walk, so the three passes below are a
-    // lookup rather than three filters of the whole list — a dense tile
-    // carries thousands of these and the post-rasterize path has no slicer to
-    // hand a frame back from (CLAUDE.md).
-    const buckets = new Map();
-    for (const tier of TIER_ORDER) buckets.set(tier, []);
-    for (let si = 0; si < shapes.length; si++) {
+    const bucketM = idx.bucketM, buckets = idx.buckets;
+    const end = Math.min(shapes.length, idx.next + (limit > 0 ? limit : shapes.length));
+    for (let si = idx.next; si < end; si++) {
       const sh = shapes[si];
-      const b = sh && buckets.get(sh.tier);
-      if (b) b.push(si);
-    }
-
-    // Largest tier first — the budget belongs to the landmarks.
-    for (const tier of TIER_ORDER) {
-      if (budget <= 0) break;
-      const bucket = buckets.get(tier);
-      if (!bucket.length) continue;
-      // WALK THE BUCKET SCATTERED, NOT IN ORDER. worldgen pushes building
-      // polygons in the order it rasterized them, which is broadly spatial —
-      // so a budget spent front-to-back would garrison one CORNER of the tile
-      // and leave the rest of it empty, and the player would learn to read the
-      // seam rather than the buildings. A seeded start plus a stride coprime
-      // to the bucket length visits every entry exactly once in an order
-      // spread across the whole list, in O(n) and with no shuffle to allocate.
-      const len = bucket.length;
-      let step = 1;
-      for (const p of STRIDE_PRIMES) { if (len % p !== 0) { step = p; break; } }
-      const off = Math.floor(rng() * len);
-      for (let k = 0; k < len; k++) {
-        if (budget <= 0) break;
-        const si = bucket[(off + k * step) % len];
-        const sh = shapes[si];
-        // A structure the player has taken back is not derelict any more —
-        // the same isClaimedKey test the derelict wash reads, so what is lit
-        // as yours is what holds no monsters.
-        if (sh.key && isClaimed(sh.key)) continue;
-        const box = ringBox(sh.ring);
-        if (!box) continue;
-        const wx = ox + box.cx, wy = oy + box.cy;
-        const distM = Math.hypot(wx - home.x, wy - home.y);
-        const t = ramp(distM, cellM);
-        if (t < 0) continue;                       // inside the near ring
-        const cap = capFor(tier, distM, cellM);
-        if (cap <= 0) continue;
-        const n = countFor(cap, rng);
-        // Seat them on a ring just clear of the footprint, spread evenly with
-        // a seeded jitter so a garrison does not read as a drawn circle.
-        const seatR = Math.hypot(box.halfW, box.halfH) + LAIR_RING_PAD_CELLS * cellM;
-        // THE DRAWS BELOW MUST NOT DEPEND ON THE SAVE. Every guard rolls its
-        // kind and its seat whether or not it survives the two filters after,
-        // and a guard that found a seat spends the tile's budget even when the
-        // player has already killed it. Skipping the roll for a defeated guard
-        // would take numbers out of this stream, so clearing one lair would
-        // re-seat every guard the tile lays after it — the world would rearrange
-        // itself behind the player, which is exactly what "generated, never
-        // stored" is supposed to rule out. The cost of holding that line is one
-        // budget slot left standing empty at a cleared lair; the alternative is
-        // a tile that is a different tile depending on what you have done.
-        for (let i = 0; i < n; i++) {
-          const id = `lair_${tx}_${ty}_${si}_${i}`;
-          const kind = kindFor(t, rng);
-          let seat = null;
-          for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
-            const ang = (i / n) * Math.PI * 2 + (rng() - 0.5) * 0.8 + a * 0.7;
-            const r = seatR * (1 + rng() * 0.35);
-            const lx = box.cx + Math.cos(ang) * r;
-            const ly = box.cy + Math.sin(ang) * r;
-            const ix = Math.floor(lx / cellM), iy = Math.floor(ly / cellM);
-            if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
-            // The ONE shared spawn rule, road mask included — a guard on the
-            // carriageway is the bug CLAUDE.md's road invariant is about, and
-            // this pass gets the mask by passing the tile's own spawnOpts
-            // rather than re-deriving "is this a road" from the terrain.
-            if (!WG.isSpawnCell(entry.grid, N, N, ix, iy, o.spawnOpts)) continue;
-            seat = { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM };
-          }
-          if (!seat) continue;              // ringed by water / road / building
-          budget--;                          // spent by the seat, not by the push
-          if (caught && caught.has(id)) continue;   // this one is already dead
-          if (budget < 0) continue;          // tile budget exhausted mid-structure
-          out.push({ x: seat.x, y: seat.y, kind, id, shiny: false, immobile: true });
-        }
+      if (!sh || !TIER_GUARDS[sh.tier]) continue;
+      const ring = sh.ring;
+      if (!ring || ring.length < 6) continue;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (let i = 0; i < ring.length; i += 2) {
+        const rx = ring[i], ry = ring[i + 1];
+        if (rx < x0) x0 = rx;
+        if (rx > x1) x1 = rx;
+        if (ry < y0) y0 = ry;
+        if (ry > y1) y1 = ry;
       }
+      if (!Number.isFinite(x0) || !Number.isFinite(y0)) continue;
+      const lx = (x0 + x1) / 2, ly = (y0 + y1) / 2;
+      // Absolute centre — the world point the player's distance is measured
+      // to, and (as a cell) the structure's identity.
+      const wx = ox + lx, wy = oy + ly;
+      const cand = {
+        acx: Math.floor(wx / cellM), acy: Math.floor(wy / cellM),
+        tier: sh.tier, key: sh.key || null,
+        wx, wy,                                  // absolute metres
+        lx, ly,                                  // tile-local metres (seating)
+        // The origin of the tile THIS SHAPE BELONGS TO, carried rather than
+        // re-derived from wx: a footprint whose centre sits a metre the wrong
+        // side of the seam would otherwise be seated against the neighbour's
+        // origin while indexed against this tile's grid.
+        ox, oy,
+        halfW: (x1 - x0) / 2, halfH: (y1 - y0) / 2,
+      };
+      const bk = bucketKey(Math.floor(wx / bucketM), Math.floor(wy / bucketM));
+      const b = buckets.get(bk);
+      if (b) b.push(cand); else buckets.set(bk, [cand]);
+    }
+    idx.next = end;
+    idx.done = end >= shapes.length;
+    return idx;
+  }
+
+  // The whole tile in one go — what a test wants, and what a small tile costs
+  // anyway. The shipping path goes through indexFor, which slices.
+  function buildIndex(entry, tx, ty, cellM, tileEdgeM) {
+    return indexChunk(newIndex(cellM), entry, tx, ty, cellM, tileEdgeM, Infinity);
+  }
+
+  // Two bucket-grid coordinates packed into one integer. A tile is 220 cells
+  // and a bucket 16, so the per-tile span is tiny; the range here is what a
+  // world coordinate needs, and a collision across it would only ever merge
+  // two buckets (a correctness no-op — the distance test is exact).
+  const BUCKET_SPAN = 1 << 16;
+  function bucketKey(bx, by) { return (bx + 32768) * BUCKET_SPAN + (by + 32768); }
+
+  // Cached accessor — one slice per residency pass until the tile is fully
+  // indexed, then free. A rebuilt entry is a new object and simply starts a new
+  // index (CLAUDE.md's rebuild contract: there is nothing here worth carrying,
+  // and the buildingShapes it is derived from are new too).
+  function indexFor(entry, tx, ty, cellM, tileEdgeM) {
+    let idx = entry._lairIndex;
+    if (!idx) idx = entry._lairIndex = newIndex(cellM);
+    if (!idx.done) indexChunk(idx, entry, tx, ty, cellM, tileEdgeM, LAIR_INDEX_CHUNK);
+    return idx;
+  }
+
+  // ── Waking one ruin ──────────────────────────────────────────────────────
+  // The guards of ONE structure, seeded from that structure alone. Returns the
+  // creature objects to add — the same shape spawnInTile builds, plus
+  // `immobile` and the lair's own centre (so the sleep pass can measure a
+  // guard's distance without looking its building back up).
+  function garrisonFor(entry, cand, opts) {
+    const WG = root.WorldGen;
+    const o = opts || {};
+    const cellM = o.cellM, tileEdgeM = o.tileEdgeM;
+    if (!WG || !entry || !entry.grid || !(cellM > 0) || !(tileEdgeM > 0)) return [];
+    const home = o.homeM;
+    if (!home || !Number.isFinite(home.x) || !Number.isFinite(home.y)) return [];
+    const distM = Math.hypot(cand.wx - home.x, cand.wy - home.y);
+    const t = ramp(distM, cellM);
+    if (t < 0) return [];
+    const cap = capFor(cand.tier, distM, cellM);
+    if (cap <= 0) return [];
+
+    // ONE STREAM PER STRUCTURE, seeded from the structure's own key. Nothing
+    // outside this building can move a single number in it.
+    const rng = WG.makeRng(hashKey(cand.sid));
+    const n = countFor(cap, rng);
+    const N = entry.cellsPerEdge;
+    const ox = cand.ox, oy = cand.oy;
+    const caught = o.caughtSet;
+    const hpMemo = o.hpMemo;
+    const spawnOpts = entry._spawnOpts || o.spawnOpts;
+    const seatR = Math.hypot(cand.halfW, cand.halfH) + LAIR_RING_PAD_CELLS * cellM;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const id = `lair_${cand.sid}_${i}`;
+      const kind = kindFor(t, rng);
+      let seat = null;
+      for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
+        const ang = (i / n) * Math.PI * 2 + (rng() - 0.5) * 0.8 + a * 0.7;
+        const r = seatR * (1 + rng() * 0.35);
+        const lx = cand.lx + Math.cos(ang) * r;
+        const ly = cand.ly + Math.sin(ang) * r;
+        const ix = Math.floor(lx / cellM), iy = Math.floor(ly / cellM);
+        if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
+        // The ONE shared spawn rule, road mask included — a guard on the
+        // carriageway is the bug CLAUDE.md's road invariant is about. The
+        // options come off THE ENTRY (spawnInTile stashes the very object it
+        // spawned the tile's fauna, traps and treasure with), never rebuilt
+        // here: a second reading of "is this a road" is how the two drift.
+        if (!WG.isSpawnCell(entry.grid, N, N, ix, iy, spawnOpts)) continue;
+        seat = { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM };
+      }
+      if (!seat) continue;                    // ringed by water / road / building
+      // Already killed. The draws above ran anyway — see the note below.
+      if (caught && caught.has(id)) continue;
+      const g = {
+        x: seat.x, y: seat.y, kind, id, shiny: false,
+        immobile: true, lair: cand.sid, lairX: cand.wx, lairY: cand.wy,
+      };
+      // A guard the player wounded and walked away from comes back wounded.
+      // Session-only, like every other creature's `_hp` (combat.js) — it is
+      // the sleep/wake cycle this covers, not a reload.
+      if (hpMemo && hpMemo.has(id)) g._hp = hpMemo.get(id);
+      out.push(g);
     }
     return out;
   }
 
+  // A 32-bit hash of the structure key, for makeRng. Two neighbouring
+  // buildings differ in one cell coordinate, so the mixing matters more here
+  // than the range does.
+  function hashKey(sid) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < sid.length; i++) {
+      h ^= sid.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return h >>> 0;
+  }
+
+  // ── The residency pass ───────────────────────────────────────────────────
+  // Run on a throttle from app.js update(). Mutates each entry's `creatures`
+  // in place: garrisons within the wake ring are added, garrisons past the
+  // sleep ring are removed. Returns a small report for the tests.
+  //
+  //   ring   [{ entry, tx, ty }] — the player's 3×3 tile neighbourhood
+  //   opts   cellM, tileEdgeM, playerM {x,y}, homeM {x,y},
+  //          isClaimed(key), caughtSet, hpMemo (Map id → hp, session-only),
+  //          liveMax (test override)
+  function stepResidency(ring, opts) {
+    const o = opts || {};
+    const cellM = o.cellM, tileEdgeM = o.tileEdgeM, p = o.playerM;
+    const report = { woken: 0, slept: 0, live: 0 };
+    if (!ring || !ring.length || !(cellM > 0) || !(tileEdgeM > 0) || !p) return report;
+    const wakeR = LAIR_WAKE_CELLS * cellM, wakeR2 = wakeR * wakeR;
+    const sleepR2 = (LAIR_SLEEP_CELLS * cellM) * (LAIR_SLEEP_CELLS * cellM);
+    const liveMax = Number.isFinite(o.liveMax) ? o.liveMax : LAIR_LIVE_MAX;
+    const isClaimed = typeof o.isClaimed === 'function' ? o.isClaimed : () => false;
+    const hpMemo = o.hpMemo;
+
+    // ── Sleep, and count what is left standing ──────────────────────────
+    // One compacting walk per entry — never a splice per removal, which is
+    // the quadratic CLAUDE.md's tile-build rule warns about in the other
+    // direction.
+    //
+    // THE RESIDENT SET IS NOT REBUILT FROM THE CREATURES. It has to outlive
+    // them: a ruin the player has CLEARED holds no creatures at all, and one
+    // whose seats were all refused never had any, and neither may be re-rolled
+    // on every pass for the rest of the session. So the set persists, a wake
+    // adds to it, and only the sleep below takes anything out. A rebuilt entry
+    // is a new object and arrives without one (CLAUDE.md's rebuild contract) —
+    // it is derived from the carried creatures that once, which loses only the
+    // memory of the empty ruins and costs one re-roll each.
+    const caught = o.caughtSet;
+    let live = 0;
+    for (const t of ring) {
+      const entry = t && t.entry;
+      if (!entry) continue;
+      const arr = entry.creatures;
+      if (!entry._lairResident) {
+        const derived = new Set();
+        if (arr) for (const c of arr) { if (c && c.lair) derived.add(c.lair); }
+        entry._lairResident = derived;
+      }
+      if (!arr || !arr.length) continue;
+      const resident = entry._lairResident;
+      const slept = new Set(), kept = new Set();
+      let w = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const c = arr[i];
+        if (c && c.lair) {
+          const dx = c.lairX - p.x, dy = c.lairY - p.y;
+          if (dx * dx + dy * dy > sleepR2) {
+            // Remember the wound before letting it go, then drop it.
+            if (hpMemo && Number.isFinite(c._hp)) hpMemo.set(c.id, c._hp);
+            slept.add(c.lair);
+            report.slept++;
+            continue;
+          }
+          kept.add(c.lair);
+          // A DEAD guard is still in the array — resolveDefeat marks
+          // save.caught and leaves the object for the caught filters
+          // downstream — but it is not a monster standing anywhere, so it must
+          // not hold the live cap shut. A district the player has cleared
+          // should let the next ruin in, not stay full of corpses.
+          if (!(caught && caught.has(c.id))) live++;
+        }
+        arr[w++] = c;
+      }
+      arr.length = w;
+      // A lair leaves the resident set only when its LAST guard slept — never
+      // when its last guard was killed.
+      for (const sid of slept) if (!kept.has(sid)) resident.delete(sid);
+    }
+
+    // ── Wake, nearest ruin first ────────────────────────────────────────
+    // Gather the candidates in range across the ring, then take them in order
+    // of distance so the cap, when it binds, refuses the FURTHEST — the ones
+    // the player is least likely to be looking at.
+    if (live >= liveMax) { report.live = live; return report; }
+    const near = [];
+    for (const t of ring) {
+      const entry = t && t.entry;
+      if (!entry || !entry.grid) continue;
+      // A tile whose spawn pass has not run yet has no shared spawn options,
+      // and the road rule is not something to approximate — skip it and pick
+      // it up on the next pass.
+      if (!entry._spawnOpts) continue;
+      const idx = indexFor(entry, t.tx, t.ty, cellM, tileEdgeM);
+      const resident = entry._lairResident;
+      if (!resident) continue;          // set by the sleep pass above
+      const bm = idx.bucketM;
+      const bx0 = Math.floor((p.x - wakeR) / bm), bx1 = Math.floor((p.x + wakeR) / bm);
+      const by0 = Math.floor((p.y - wakeR) / bm), by1 = Math.floor((p.y + wakeR) / bm);
+      for (let by = by0; by <= by1; by++) {
+        for (let bx = bx0; bx <= bx1; bx++) {
+          const b = idx.buckets.get(bucketKey(bx, by));
+          if (!b) continue;
+          for (const cand of b) {
+            const dx = cand.wx - p.x, dy = cand.wy - p.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 > wakeR2) continue;
+            // The structure's own key, built HERE rather than in the index:
+            // only the few candidates that reach the wake ring ever need it,
+            // and the index runs over every building on the tile.
+            if (!cand.sid) cand.sid = structureKey(cand.acx, cand.acy);
+            if (resident.has(cand.sid)) continue;
+            // A structure the player has taken back is not derelict any more —
+            // the same isClaimedKey test the derelict wash reads, so what is
+            // lit as yours is what holds no monsters.
+            if (cand.key && isClaimed(cand.key)) continue;
+            near.push({ d2, cand, entry, resident });
+          }
+        }
+      }
+    }
+    near.sort((a, b) => a.d2 - b.d2);
+    for (const n of near) {
+      if (live >= liveMax) break;
+      const guards = garrisonFor(n.entry, n.cand, o);
+      // Mark it resident even when it woke EMPTY — a ruin the player has
+      // cleared, or one with nowhere to stand, must not be re-rolled on every
+      // pass for the rest of the session.
+      n.resident.add(n.cand.sid);
+      if (!guards.length) continue;
+      if (!n.entry.creatures) n.entry.creatures = [];
+      for (const g of guards) n.entry.creatures.push(g);
+      live += guards.length;
+      report.woken += guards.length;
+    }
+    report.live = live;
+    return report;
+  }
+
+  // The rings this module depends on clearing, for the test to check against
+  // the numbers app.js and combat.js actually own. Waking a garrison inside
+  // any of these would let the player watch one appear, or shoot at a ruin
+  // that is still empty.
+  function assertRingsClear(simCells, cullCornerCells, shotCells) {
+    return LAIR_WAKE_CELLS > simCells &&
+           LAIR_WAKE_CELLS > cullCornerCells &&
+           LAIR_WAKE_CELLS > shotCells &&
+           LAIR_SLEEP_CELLS > LAIR_WAKE_CELLS;
+  }
+
   root.Lairs = {
-    LAIR_MIN_HOME_CELLS, LAIR_FAR_M, LAIR_MAX_PER_STRUCTURE,
-    LAIR_SLACK, LAIR_TILE_BUDGET, LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES,
-    TIER_GUARDS, TIER_ORDER, MAX_TIER_GUARDS, FAR_MUL, KIND_LADDER,
-    ramp, capFor, countFor, kindsAt, kindFor, ringBox, spawnForTile,
+    LAIR_MIN_HOME_CELLS, LAIR_FAR_M, LAIR_MAX_PER_STRUCTURE, LAIR_SLACK,
+    LAIR_WAKE_CELLS, LAIR_SLEEP_CELLS, LAIR_LIVE_MAX, LAIR_BUCKET_CELLS,
+    LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
+    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, FAR_MUL, KIND_LADDER,
+    ramp, capFor, countFor, kindsAt, kindFor, structureKey, hashKey, ringBox,
+    bucketKey,
+    newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency,
+    assertRingsClear,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

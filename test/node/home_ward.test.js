@@ -165,6 +165,72 @@ test('ward: away-from-home actually LEAVES, from anywhere in the ring', () => {
   }
 });
 
+test('ward: a foe struck on the doorstep is routed to the sim bubble\'s edge', () => {
+  // Home's ring is only HOME_R (4 cells), so a warded foe walked out, stopped
+  // being warded the moment it crossed, and turned straight back around — the
+  // yard was quiet for a step. Hit one WHILE it is being warded and the ward
+  // radius becomes CREATURE_SIM_CELLS for that foe alone until it is out: the
+  // edge of the sim bubble, which is as far as anything is driven in this game.
+  assert.gt(CREATURE_SIM_CELLS, HOME_R,
+    'the rout is a bigger ring than the ward, or it would not be a rout');
+
+  // The mark is set where the damage is BANKED — _damageEnemy is the one place
+  // every source of player damage funnels through (melee wheel, bow, staff,
+  // a turret), so no route can rout and another not.
+  const dmg = app.slice(app.indexOf('  _damageEnemy(c, amount) {'));
+  const head = dmg.slice(0, dmg.indexOf('\n  }\n'));
+  assert.truthy(/c\._routedFromHome = true;/.test(head),
+    'a hit inside the ring marks the foe routed');
+  assert.truthy(/this\.homeWorldPos\(\)/.test(head),
+    'against the SHARED resolver — surface-only and memoised, not a second '
+    + 'idea of where Home is');
+  assert.truthy(/HOME_R \* this\.cellM/.test(head),
+    'and the mark is set by the WARD ring: routed means it was being warded');
+  assert.truthy(/Combat\.isEnemy\(c\)/.test(head),
+    'a pet is never routed from its own home');
+
+  // The bigger ring is the sim bubble's own radius, derived not retyped.
+  assert.truthy(
+    /const HOME_ROUT_R2 = \(CREATURE_SIM_CELLS \* this\.cellM\) \* \(CREATURE_SIM_CELLS \* this\.cellM\);/
+      .test(app),
+    'the rout radius IS CREATURE_SIM_CELLS — the 12-cell edge, one number');
+
+  // And the ward branch reads it, so a routed foe keeps the same treatment
+  // (away-from-Home angle, bite switched off) all the way out.
+  assert.truthy(
+    /homeD2 <= \(c\._routedFromHome \? HOME_ROUT_R2 : HOME_WARD_R2\)/.test(app),
+    'one ward, two radii — the routed foe is warded to the bubble edge');
+  assert.truthy(/if \(c\._routedFromHome && homeD2 > HOME_ROUT_R2\) c\._routedFromHome = false;/
+    .test(app),
+    'and it clears itself once out, so nothing about the rout persists');
+});
+
+test('ward: the routed foe is driven by the SAME angle, so it cannot stall', () => {
+  // The rout changes the RADIUS and nothing else: still away-from-HOME, still
+  // an angle rather than a refused target cell. Away-from-player would shove a
+  // foe around the ring, and a cell test would reject all six attempts for one
+  // deep inside a 12-cell ring and freeze it on the doormat — which is exactly
+  // the stall the ward's own comment warns about, made twelve cells wide.
+  const ward = app.slice(app.indexOf('} else if (homeWard) {') + 1);
+  const branch = ward.slice(0, ward.indexOf('} else if'));
+  assert.truthy(/Math\.atan2\(c\.y - homePos\.y, c\.x - homePos\.x\)/.test(branch),
+    'away from HOME, at any radius');
+  assert.falsy(/continue;/.test(branch),
+    'an angle, never a refused cell — a 12-cell refusal ring would stall it');
+
+  // Geometry: from anywhere inside the routed ring, one step away-from-home
+  // strictly increases the distance, so it always makes progress out.
+  const step = 0.6;
+  for (const d of [0.1, 1, 6, 11.9]) {
+    for (const jit of [-0.4, 0, 0.4]) {      // the branch's ±0.4 rad jitter
+      const a = Math.atan2(0, d) + jit;      // foe due east of Home at distance d
+      const nx = d + Math.cos(a) * step, ny = Math.sin(a) * step;
+      assert.gt(Math.hypot(nx, ny), d,
+        `a routed foe ${d} cells out still moves outward at jitter ${jit}`);
+    }
+  }
+});
+
 test('ward: the ring is one number, and Home out-rests and out-reaches a fire', () => {
   const m = app.match(/const HOME_R = ([\d.]+);/);
   assert.truthy(m, 'HOME_R is a plain literal, liftable by run.js');

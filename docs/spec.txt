@@ -65,16 +65,36 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    WorldGen.isSpawnCell with the tile's own spawn options, so never on a road
    band and never on the building itself. A ruin with nowhere to stand holds
    fewer, never a guard somewhere wrong.
-   GENERATED, NEVER STORED (the traps.js contract): a pure function of (tx, ty)
-   through its own makeRng stream, so a rebuilt tile lays the identical
-   garrison and only save.caught (a guard the player killed) reaches disk. The
-   draw must not read the save — a defeated guard still rolls and still spends
-   its budget slot, or clearing one lair would re-seat every guard laid after.
-   LAIR_TILE_BUDGET (60) caps the total per tile — every tier-9 house is a
-   wreck until rebuilt, so an uncapped pass would seat thousands on a city
-   tile. It is spent LARGEST TIER FIRST (landmarks always hold their garrison)
-   and each tier's bucket is walked on a seeded coprime stride, so a bound
-   budget is spread across the tile instead of filling one corner of it.
+   GENERATED, NEVER STORED (the traps.js contract), and PER STRUCTURE: a
+   garrison is seeded from its own building's identity — Lairs.structureKey,
+   the footprint's centre in ABSOLUTE cell coords, the same shape a castle
+   mints its claim key from — so it depends on nothing but the building. Not
+   on the order the polygons arrive in (a rebuild that adds an Overpass
+   building shifts every index), not on what a neighbouring ruin seated, not
+   on which guards the player has already killed. Only save.caught reaches
+   disk.
+   NOTHING IS MATERIALISED AT TILE BUILD. Every tier-9 house is a wreck until
+   rebuilt, so "derelict structure" is very nearly "building" and a city tile
+   carries thousands — seating them all is tens of thousands of creatures on
+   one tile. Instead the tile keeps only an INDEX of its eligible footprints
+   (Lairs.buildIndex, one small record each, bucketed on a LAIR_BUCKET_CELLS
+   grid, and SLICED at LAIR_INDEX_CHUNK footprints per pass because update()
+   has no slicer of its own), and Lairs.stepResidency — throttled from
+   update(), measured from the FEET — wakes the garrisons within
+   LAIR_WAKE_CELLS (16) of the player and sleeps those past LAIR_SLEEP_CELLS
+   (20). Live monsters therefore track what is AROUND the player, not what a
+   tile contains, so a city block and a hamlet cost the same to stand in.
+   The wake ring clears every other ring on purpose — the sim bubble
+   (CREATURE_SIM_CELLS 12), the sprite cull and bow range — so nothing is ever
+   woken in view or shot at before it exists; the wake/sleep gap is hysteresis.
+   LAIR_LIVE_MAX (40) caps what may be woken around the player, nearest ruin
+   first, and it only refuses NEW wakes: a garrison already standing is never
+   un-woken to make room. A dead guard does not hold the cap shut.
+   A ruin that woke EMPTY (cleared, or ringed by water) stays in the entry's
+   resident set so it is not re-rolled every pass. A wound survives a
+   sleep/wake cycle (an in-memory hp memo on the scene), so retreating out of
+   the wake ring and back is not a free reset — a reload still heals, like
+   every other creature.
    IMMOBILE means the movement step only: app.js wanderCreatures returns on
    `c.immobile` BELOW the leech and the monster attack, so a guard still drains
    you, still shoots if its kind does, and still dies and pays its bounty.
