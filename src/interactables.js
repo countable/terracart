@@ -390,7 +390,9 @@ const INTERACTABLES = {
       // standard open-and-loot path. They never go into save.opened — they're
       // gated by save.coinBurstClaimed[id+YYYYMMDD] so they refresh daily, and
       // produce world-scattered coin pickups instead of inventory loot.
-      if (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') {
+      // A cave-level mirror of one (worldgen.js caveChestsFrom, o.depth > 0)
+      // is a plain chest: the burst is a street thing.
+      if ((o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') && !(o.depth > 0)) {
         if (typeof scene._coinBurstInteract === 'function') {
           scene._coinBurstInteract(sx, sy, o);
           return true;
@@ -439,7 +441,7 @@ const INTERACTABLES = {
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).
       const held = save.chestHold && save.chestHold[o.id];
-      const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y) : 2;
+      const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth) : 2;
       const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }

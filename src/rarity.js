@@ -47,7 +47,7 @@
     // of bumps for these. flora maps to the produce 'flowers' item via picker
     // routing, but we treat it as a small-qty class.
     singleStackClasses: ['relic', 'animal', 'consumable', 'sapling'],
-    // Chest tier 1..4 modifiers. Applied on top of the biome's classBias to
+    // Chest tier 1..5 modifiers. Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
     // across different biomes. See CHEST_TIER_BY_CATEGORY in loot.js for
@@ -75,6 +75,11 @@
       2: { chainSteps: 1, chainMax: 2, maxTier: 5, relicCap: 2 },
       3: { chainSteps: 2, chainMax: 3, maxTier: 7, relicCap: 4 },
       4: { chainSteps: 3, chainMax: 4, maxTier: 7, relicCap: 7, relicChainMax: 4 },
+      // T5 is the CAVE tier: a chest two or more levels underground rises past
+      // the surface's T4 (loot.js chestTier, CHEST_TIER_DEPTH_STEP). One more
+      // deterministic step than T4 and a chain that reaches T5 on its own;
+      // the absolute ceilings are already the top of the ladder.
+      5: { chainSteps: 4, chainMax: 5, maxTier: 7, relicCap: 7, relicChainMax: 5 },
     },
     // (classChainBoostMul removed — chain is deterministic and applies the
     // same 33/67 qty-vs-tier split to every class. Mineral no longer gets a
@@ -98,7 +103,7 @@
     // ── Chests: BIOME × TIER ─────────────────────────────────────
     // A chest has TWO orthogonal axes:
     //   - biome (POI category): drives the classBias — WHAT it contains
-    //   - tier 1..4 (one of the 4 chest spritesheets): drives the curve
+    //   - tier 1..5 (T5 only underground, see loot.js chestTier): drives the curve
     //     — HOW MUCH and HOW RARE the contents are
     // Biome rows declare classBias only; the tier modifier (CHEST_TIER_MOD
     // below) supplies chainSteps / chainMax / maxTier / relicCap. Call sites:
@@ -441,7 +446,7 @@
       // milestone-gated by the player's harvest/catch progress — the same
       // picker fishing uses. rollGearUpgrade returns a {relic|armor} upgrade,
       // or {gold} consolation when the player already owns a finer one. The
-      // chest's tier (opts.tier, 1-4) drives the preferred reward tier.
+      // chest's tier (opts.tier, 1-5) drives the preferred reward tier.
       if (contextKey.startsWith('chest:')) {
         const chestT = (opts && opts.tier) || 2;
         return rollGearUpgrade(rng, save?.relics, chestT, save?.armor);
@@ -505,7 +510,7 @@
   // Dedicated relic/armor jackpot picker — used by fishing (2% cast jackpot)
   // and by the chest relic path in pickReward. Guarantees a gear result (relic
   // or armor upgrade, or consolation gold). Moved here from loot.js; replaces
-  // the old pickChestRelic. `chestT` 1-4 drives the preferred/ceiling tier.
+  // the old pickChestRelic. `chestT` 1-5 drives the preferred/ceiling tier.
   function rollGearUpgrade(rng, currentRelics, chestT = 2, currentArmor = null) {
     const random = rng || Math.random;
     const allowed = chestRelicAllowedTiers();
