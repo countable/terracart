@@ -257,7 +257,10 @@ try {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_trailCounterAt(ix, iy) {', '_activatePathStone(tx, ty, ix, iy) {']
+  const methods = ['_trailCounterAt(ix, iy) {', '_pathStoneAt(tx, ty, ix, iy) {',
+                   '_activatePathStone(tx, ty, ix, iy) {',
+                   '_resetTrailSight() {', '_rebuildTrailSight(p, reachM, now) {',
+                   '_sweepCobbleTrails() {']
     .map(lift).join(',\n');
   // The seating reads two app.js module constants that don't exist in this
   // context. Carry them across as SOURCE TEXT rather than retyping the
@@ -272,11 +275,13 @@ try {
   };
   vm.runInContext(
     `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
-    `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};`,
+    `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};\n` +
+    `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};`,
     ctx, { filename: 'app.js#TRAIL_COUNTER_LIFT_PX' });
   vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_trailCounterAt' });
-  for (const k of ['_trailCounterAt', '_activatePathStone']) {
+  for (const k of ['_trailCounterAt', '_pathStoneAt', '_activatePathStone',
+                   '_resetTrailSight', '_rebuildTrailSight', '_sweepCobbleTrails']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
       process.exit(2);

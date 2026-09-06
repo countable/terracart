@@ -108,7 +108,7 @@
 // light and count, so a "10/10" could land after three visible stones had come
 // on and the number meant nothing the player could see.
 (() => {
-const { _activatePathStone } = __trailCounter;
+const { _pathStoneAt, _activatePathStone } = __trailCounter;
 const T = WorldGen.T;
 const N = 51;
 
@@ -116,7 +116,8 @@ const N = 51;
 const withTile = (fn, terrain = T.PATH) => {
   const key = WorldGen.tileKey(0, 0);
   WorldGen.tileCache.set(key, { grid: new Uint8Array(N * N).fill(terrain), cellsPerEdge: N });
-  const scene = { save: {}, cellM: 7, cellsPerTile: N, _activatePathStone };
+  const scene = { save: {}, cellM: 7, cellsPerTile: N,
+                  _pathStoneAt, _activatePathStone };
   try { return fn(scene, key); } finally { WorldGen.tileCache.delete(key); }
 };
 
@@ -164,7 +165,7 @@ test('trail stones: the save keeps a flat list of lit cells, nothing per path', 
 });
 
 test('trail stones: an uncached tile lights nothing', () => {
-  const scene = { save: {}, cellM: 7, _activatePathStone };
+  const scene = { save: {}, cellM: 7, _pathStoneAt, _activatePathStone };
   assert.eq(scene._activatePathStone(9, 9, 3, 3), false, 'no grid, no stone');
 });
 })();
@@ -392,5 +393,152 @@ test('trail counter: the number wears the lit stone\'s own colour', () => {
     .test(APP_JS_SRC), 'and the counter is drawn in it, at the stone');
   assert.falsy(/`\$\{pos\}\/\$\{target\}`, \{ tier: 'note', color: UI_TREASURE_INK \}/
     .test(APP_JS_SRC), 'the old centred treasure-ink toast is gone');
+});
+})();
+
+// ── A stone has to be IN SIGHT, and the walk home doesn't count ───────────
+// Cobbles light by SIGHT now, not by clipping the edge of the bubble in
+// passing: a stone must sit inside the lit reach, CONTINUOUSLY, for
+// PATH_STONE_DWELL_MS before it comes on. Two things fall out of that and both
+// are pinned here — leaving the reach restarts the clock from zero, and the
+// auto-walk home (the character walking ITSELF back to the GPS fix) earns no
+// sight at all, because that is the game moving the body rather than the
+// player looking at anything.
+//
+// The sweep is lifted out of app.js and run for real against the shipping
+// reach maths (coords.js) and the real activation primitive, so a rule that
+// drifts here is a rule that drifted in the game.
+(() => {
+const { _pathStoneAt, _activatePathStone, _resetTrailSight,
+        _rebuildTrailSight, _sweepCobbleTrails } = __trailCounter;
+const T = WorldGen.T;
+const N = 51;
+// One cell, in the stub's metre frame — playerReachCell goes through
+// originPx / mPerPx / TILE_PX, which is a different scale from cellM.
+const STEP_M = (WorldGen.TILE_PX / N) * 10;
+
+// A scene sitting mid-tile on a solid footpath, with the banking half stubbed
+// so the test reads what the sweep decided rather than what the ladder did.
+const sweepScene = (over) => Object.assign({
+  depth: 0,
+  save: { energy: 10, reachUpgrades: 0 },
+  cellM: 7,
+  cellsPerTile: N,
+  mPerPx: 10,
+  originPx: { x: 0, y: 0 },
+  startWorldM: { x: 0, y: 0 },
+  feetOffsetM: 0,
+  playerM: { x: 25.5 * STEP_M, y: 25.5 * STEP_M },
+  banked: [],
+  _bankTrailStones(lit, at) { this.banked.push({ lit, at }); },
+  _pathStoneAt, _activatePathStone, _resetTrailSight,
+  _rebuildTrailSight, _sweepCobbleTrails,
+}, over || {});
+
+// Run `fn` with the clock frozen, over a tile of solid footpath.
+const withPath = (fn) => {
+  const key = WorldGen.tileKey(0, 0);
+  WorldGen.tileCache.set(key, { grid: new Uint8Array(N * N).fill(T.PATH), cellsPerEdge: N });
+  const realNow = Date.now;
+  let t = 1e12;
+  Date.now = () => t;
+  try { return fn({ at: (ms) => { t = 1e12 + ms; } }); }
+  finally { Date.now = realNow; WorldGen.tileCache.delete(key); }
+};
+const litCount = (s) => Object.values(s.save.pathStones || {})
+  .reduce((n, list) => n + list.length, 0);
+
+test('trail sight: a cobble seen for less than two seconds lights nothing', () => {
+  withPath((clock) => {
+    const s = sweepScene();
+    clock.at(0);                       s._sweepCobbleTrails();
+    clock.at(PATH_STONE_DWELL_MS - 1); s._sweepCobbleTrails();
+    assert.eq(litCount(s), 0, 'still dark a millisecond short');
+    assert.eq(s.banked.length, 0, 'and nothing banked');
+  });
+});
+
+test('trail sight: two seconds in the bubble and the stones come on', () => {
+  withPath((clock) => {
+    const s = sweepScene();
+    clock.at(0);                   s._sweepCobbleTrails();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepCobbleTrails();
+    const lit = litCount(s);
+    assert.gt(lit, 0, 'the reach really does cover some drawn stones');
+    assert.eq(s.banked.length, 1, 'one bank for the whole disc, not one each');
+    assert.eq(s.banked[0].lit, lit, 'and it banked exactly what lit');
+    // Standing there longer lights nothing more — the disc is spent.
+    clock.at(PATH_STONE_DWELL_MS * 5); s._sweepCobbleTrails();
+    assert.eq(litCount(s), lit, 'a spent disc stays spent');
+    assert.eq(s.banked.length, 1, 'and banks nothing twice');
+  });
+});
+
+test('trail sight: leaving the bubble restarts the clock from zero', () => {
+  withPath((clock) => {
+    const s = sweepScene();
+    clock.at(0);    s._sweepCobbleTrails();
+    // Walk well clear, then come back: the stones by the start are new again.
+    clock.at(1500); s.playerM.x += 8 * STEP_M; s._sweepCobbleTrails();
+    clock.at(1600); s.playerM.x -= 8 * STEP_M; s._sweepCobbleTrails();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepCobbleTrails();
+    assert.eq(litCount(s), 0, 'the first look bought nothing');
+    clock.at(1600 + PATH_STONE_DWELL_MS); s._sweepCobbleTrails();
+    assert.gt(litCount(s), 0, 'two seconds from the RETURN, not from the first glimpse');
+  });
+});
+
+test('trail sight: the auto-walk home earns none of it', () => {
+  withPath((clock) => {
+    const s = sweepScene({ _driftingHome: true });
+    clock.at(0);                       s._sweepCobbleTrails();
+    clock.at(PATH_STONE_DWELL_MS * 3); s._sweepCobbleTrails();
+    assert.eq(litCount(s), 0, 'a character walking itself home lights nothing');
+    assert.eq(s.banked.length, 0, 'and banks nothing');
+  });
+});
+
+test('trail sight: a drift home mid-watch drops the clock it was holding', () => {
+  withPath((clock) => {
+    const s = sweepScene();
+    clock.at(0);    s._sweepCobbleTrails();
+    // One frame of the walk home, then the player takes over again.
+    clock.at(1900); s._driftingHome = true;  s._sweepCobbleTrails();
+    clock.at(1901); s._driftingHome = false; s._sweepCobbleTrails();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepCobbleTrails();
+    assert.eq(litCount(s), 0, 'the interrupted watch bought nothing');
+    clock.at(1901 + PATH_STONE_DWELL_MS); s._sweepCobbleTrails();
+    assert.gt(litCount(s), 0, 'the clock restarted when the player did');
+  });
+});
+
+test('trail sight: no light, no watch — a cave and a flat battery bank nothing', () => {
+  withPath((clock) => {
+    for (const over of [{ depth: 2 }, { save: { energy: 0, reachUpgrades: 0 } }]) {
+      const s = sweepScene(over);
+      clock.at(0);                       s._sweepCobbleTrails();
+      clock.at(PATH_STONE_DWELL_MS * 2); s._sweepCobbleTrails();
+      assert.eq(litCount(s), 0, 'nothing lit');
+      assert.eq(s._trailSight, null, 'and no watch list left behind');
+    }
+  });
+});
+
+test('trail sight: only stones in reach are ever watched', () => {
+  withPath((clock) => {
+    const s = sweepScene();
+    clock.at(0); s._sweepCobbleTrails();
+    const p = playerReachCell(s);
+    assert.gt(s._trailSight.size, 0, 'something is being watched');
+    for (const { ix, iy } of s._trailSight.values()) {
+      assert.truthy(cellInReach(s, ix, iy), `(${ix},${iy}) is inside the lit reach`);
+      assert.truthy(s._pathStoneAt(Math.floor(ix / N), Math.floor(iy / N), ix, iy),
+        `(${ix},${iy}) is a stone the renderer actually draws`);
+    }
+    // The watch is measured off the REACH CELL, never a camera anchor.
+    assert.truthy(/const p = playerReachCell\(this\);/.test(APP_JS_SRC),
+      'the sweep measures from the reach cell');
+    assert.eq(typeof p.cellIX, 'number', 'which is a cell');
+  });
 });
 })();

@@ -67,6 +67,13 @@ const CELL_PX = 32;
 // cell, so the number clears the pebble it belongs to without floating off
 // into the cell above it.
 const TRAIL_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
+// How long a cobble has to stay IN SIGHT — inside the lit reach, continuously —
+// before it lights. Walking past a trail at the edge of the bubble no longer
+// harvests it in the frame it clips: the stones you bank are the ones you
+// actually spent a moment beside. Leave the reach and the clock restarts from
+// zero (see _sweepCobbleTrails); the same reset covers the auto-walk home,
+// which is the character moving itself and never the player looking.
+const PATH_STONE_DWELL_MS = 2000;
 const WALK_M_S = 1.4;
 // Auto-walk catch-up ramp (see _followStep): metres of body-to-target gap that
 // buy one extra × of walk pace. The body chases at (1 + dist / this) × walk,
@@ -5423,10 +5430,11 @@ class MapScene extends Phaser.Scene {
           this._fireAccrueE = 0;
         }
       }
-      // Cobble trails light by PROXIMITY, not by footfall: every path or road
-      // cobble inside the player's lit reach comes on as they walk past. The
-      // sweep memoises on the reach cell itself, so this costs one string
-      // compare per frame while standing still.
+      // Cobble trails light by SIGHT, not by footfall: a path or road cobble
+      // that has been inside the player's lit reach for PATH_STONE_DWELL_MS
+      // comes on. The scan half memoises on the reach cell, so a frame spent
+      // standing still costs one string compare plus a walk of the small
+      // in-sight map.
       this._sweepCobbleTrails();
     }
 
@@ -10982,11 +10990,14 @@ class MapScene extends Phaser.Scene {
   // ─── Cobble-trail activation ─────────────────────────────────────
   // A STONE is a cobble cell that DRAWS a pebble — footpath and street alike,
   // thinned by the renderer to one per Render.COBBLE_SPACING_M — and it LIGHTS
-  // THE MOMENT IT ENTERS THE PLAYER'S LIT REACH. There is no tap and no step to
-  // make: walk near a trail and the stones inside the lit bubble come on
-  // together, several at a time, which is what the reach circle is already
-  // telling you it covers. Lit stones draw at full opacity in UI_TRAIL_LIT
-  // (render.js looks them up via _isPathStoneActive).
+  // ONCE IT HAS BEEN IN THE PLAYER'S LIT REACH FOR PATH_STONE_DWELL_MS. There
+  // is no tap and no step to make: linger near a trail and the stones inside
+  // the lit bubble come on together, several at a time, which is what the reach
+  // circle is already telling you it covers. Sight has to be CONTINUOUS — clip
+  // the edge of the bubble in passing and the clock restarts next time — and
+  // the auto-walk home earns none of it (see _sweepCobbleTrails). Lit stones
+  // draw at full opacity in UI_TRAIL_LIT (render.js looks them up via
+  // _isPathStoneActive).
   //
   // Counted and drawn are the SAME set: only a cell the renderer puts a pebble
   // on is a stone. Every cobble cell used to count, so a "10/10" could land
@@ -11024,15 +11035,19 @@ class MapScene extends Phaser.Scene {
     return setOf(lit).has(`${lix}_${liy}`);
   }
 
-  // Light the cobble under abs cell (ix, iy). The PRIMITIVE: it records the
-  // stone and its flash and nothing else — no counter, no prize, no save
-  // write — because one step lights a whole disc of cells at once and the
-  // sweep banks them ONCE between them, not once each.
-  // Returns true if this cell was newly lit.
-  _activatePathStone(tx, ty, ix, iy) {
+  // Is there an UNLIT stone at abs cell (ix, iy)? Returns { tileKey, cellKey }
+  // — the tile-local address the save records it under — or null when this
+  // cell is not a stone the player can still claim.
+  //
+  // ONE rule, read by both halves of the sweep: the sight pass asks it to
+  // decide what the dwell clock is counting, and _activatePathStone asks it
+  // again at the moment of lighting. If the two asked different questions, a
+  // cell could sit out its two seconds and then refuse to light (or worse,
+  // light something the timer was never watching).
+  _pathStoneAt(tx, ty, ix, iy) {
     const tileKey = WorldGen.tileKey(tx, ty);
     const entry = WorldGen.tileCache.get(tileKey);
-    if (!entry || !entry.grid) return false;
+    if (!entry || !entry.grid) return null;
     // ABS → tile-local conversion (mirrors _isPathStoneActive — see comment
     // there for the rationale).
     const N = entry.cellsPerEdge;
@@ -11042,20 +11057,33 @@ class MapScene extends Phaser.Scene {
     // Is there a stone here at all? Cobble terrain (worldgen), and a pebble
     // actually drawn on it (render.js). Asking the grid is what let the trail
     // name pass go: the terrain already says which cells are cobbles.
-    if (!WorldGen.isCobbleTerrain(type)) return false;
+    if (!WorldGen.isCobbleTerrain(type)) return null;
     if (typeof Render !== 'undefined' && Render.cobbleShown
-        && !Render.cobbleShown(ix, iy, type, this.cellM)) return false;
+        && !Render.cobbleShown(ix, iy, type, this.cellM)) return null;
     const cellKey = `${lix}_${liy}`;
+    const lit = this.save.pathStones && this.save.pathStones[tileKey];
+    if (lit && setOf(lit).has(cellKey)) return null;   // already claimed
+    return { tileKey, cellKey };
+  }
+
+  // Light the cobble under abs cell (ix, iy). The PRIMITIVE: it records the
+  // stone and its flash and nothing else — no counter, no prize, no save
+  // write — because one step lights a whole disc of cells at once and the
+  // sweep banks them ONCE between them, not once each.
+  // Returns true if this cell was newly lit.
+  _activatePathStone(tx, ty, ix, iy) {
+    const stone = this._pathStoneAt(tx, ty, ix, iy);
+    if (!stone) return false;
     this.save.pathStones = this.save.pathStones || {};
-    const lit = this.save.pathStones[tileKey] = this.save.pathStones[tileKey] || [];
-    if (setOf(lit).has(cellKey)) return false;
-    lit.push(cellKey);
+    const lit = this.save.pathStones[stone.tileKey]
+      = this.save.pathStones[stone.tileKey] || [];
+    lit.push(stone.cellKey);
     // Record a short-lived "just lit" flash for render.js's cobble pass (see
     // PATH_STONE_FLASH_MS there) — a scale-pop plays on this exact cell so
     // lighting reads as an event, not just a silent opacity change next
     // frame. Keyed by ABS cell so it survives the tx/ty → tile-local
-    // conversion above. Pruned here (not every frame) — a sweep only runs
-    // when the player's reach cell moves, so this map never grows unbounded.
+    // conversion above. Pruned here (not every frame) — only a stone that
+    // actually lights gets an entry, so this map never grows unbounded.
     this._pathStoneFlashes = this._pathStoneFlashes || new Map();
     const flashNow = performance.now();
     // Prune window must stay comfortably above render.js's PATH_STONE_FLASH_MS
@@ -11069,44 +11097,93 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
-  // THE SWEEP. Lights every stone inside the player's lit reach, then banks
-  // them all at once: one counter pop, one prize check, one save write however
-  // many stones came on.
+  // Forget every stone the sight pass was watching. A cell whose clock is
+  // dropped here starts its two seconds over the next time it comes into
+  // reach — which is the point: sight has to be CONTINUOUS.
+  _resetTrailSight() {
+    this._trailSweepKey = null;
+    this._trailSight = null;
+  }
+
+  // Every unlit stone currently inside the lit reach, mapped to the moment it
+  // came into sight. A cell already being watched keeps its original stamp
+  // (the clock runs while the player walks along a path); a cell that has left
+  // the bubble is simply absent from the new map, so coming back starts it
+  // fresh.
   //
   // Measured from the REACH CELL, never the camera anchor (QC rules: a peek
   // drag must not light stones three cells further than the arm reaches).
   // cellInReach is the same gate the lit silhouette in render.js draws with,
   // so what looks lit is exactly what counts.
-  _sweepCobbleTrails() {
-    // Cave levels carry no cobbles at all, so don't pay for the scan down
-    // there.
-    if ((this.depth ?? 0) > 0) { this._trailSweepKey = null; return; }
-    const reachM = reachRadiusM(this);
-    if (!(reachM > 0)) { this._trailSweepKey = null; return; }   // 0 energy: no light, no claim
-    const p = playerReachCell(this);
-    // Memoised on the reach CELL plus the radius: standing still finds nothing
-    // new, and the only things that can bring fresh cells into the bubble are
-    // moving to another cell or the reach itself changing (an upgrade, a
-    // potion, running out of energy).
-    const sweepKey = `${p.cellIX},${p.cellIY},${Math.round(reachM)}`;
-    if (this._trailSweepKey === sweepKey) return;
-    this._trailSweepKey = sweepKey;
+  _rebuildTrailSight(p, reachM, now) {
+    const prev = this._trailSight;
+    const next = new Map();
     const r = Math.ceil(reachM / this.cellM);
     const N = this.cellsPerTile;
-    // How many stones this sweep lit, and the nearest of them — the counter
-    // belongs on the stone the player just walked up to rather than on one at
-    // the far edge of the bubble.
-    let lit = 0, at = null, bestD2 = Infinity;
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
         const ix = p.cellIX + dx, iy = p.cellIY + dy;
         if (!cellInReach(this, ix, iy)) continue;
         const tx = Math.floor(ix / N), ty = Math.floor(iy / N);
-        if (!this._activatePathStone(tx, ty, ix, iy)) continue;
-        lit += 1;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; at = { ix, iy }; }
+        if (!this._pathStoneAt(tx, ty, ix, iy)) continue;
+        const key = `${ix},${iy}`;
+        const was = prev && prev.get(key);
+        next.set(key, { ix, iy, t: was ? was.t : now });
       }
+    }
+    return next;
+  }
+
+  // THE SWEEP. Lights every stone that has been IN SIGHT — inside the player's
+  // lit reach, continuously — for PATH_STONE_DWELL_MS, then banks them all at
+  // once: one counter pop, one prize check, one save write however many stones
+  // came on.
+  //
+  // Two halves, because the dwell needs both. The SCAN (which cells are stones
+  // in reach right now) is memoised on the reach CELL plus the radius: standing
+  // still finds nothing new, and the only things that can bring fresh cells
+  // into the bubble are moving to another cell or the reach itself changing (an
+  // upgrade, a potion, running out of energy). The RIPEN pass runs every frame
+  // over that small map, because the thing it is waiting on is the clock, not
+  // the player.
+  //
+  // NOT WHILE AUTO-WALKING. When the stick is let go the character walks itself
+  // back to the GPS fix (_driftHome) — that is the game moving the body, not
+  // the player looking at anything, so it banks nothing and drops the clocks it
+  // was holding. Sight is something the player spends, not something a
+  // cutscene collects on their behalf.
+  _sweepCobbleTrails() {
+    // Cave levels carry no cobbles at all, so don't pay for the scan down
+    // there.
+    if ((this.depth ?? 0) > 0) { this._resetTrailSight(); return; }
+    if (this._driftingHome) { this._resetTrailSight(); return; }
+    const reachM = reachRadiusM(this);
+    if (!(reachM > 0)) { this._resetTrailSight(); return; }   // 0 energy: no light, no claim
+    const p = playerReachCell(this);
+    const now = Date.now();
+    const sweepKey = `${p.cellIX},${p.cellIY},${Math.round(reachM)}`;
+    if (this._trailSweepKey !== sweepKey || !this._trailSight) {
+      this._trailSweepKey = sweepKey;
+      this._trailSight = this._rebuildTrailSight(p, reachM, now);
+    }
+    const sight = this._trailSight;
+    if (!sight.size) return;
+    // How many stones this sweep lit, and the nearest of them — the counter
+    // belongs on the stone the player just walked up to rather than on one at
+    // the far edge of the bubble.
+    const N = this.cellsPerTile;
+    let lit = 0, at = null, bestD2 = Infinity;
+    for (const [key, s] of sight) {
+      if (now - s.t < PATH_STONE_DWELL_MS) continue;
+      // Ripe: it lights now or it never will (a cell that lost its stone under
+      // a rebuilt tile), so it leaves the watch list either way.
+      sight.delete(key);
+      const tx = Math.floor(s.ix / N), ty = Math.floor(s.iy / N);
+      if (!this._activatePathStone(tx, ty, s.ix, s.iy)) continue;
+      lit += 1;
+      const dx = s.ix - p.cellIX, dy = s.iy - p.cellIY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) { bestD2 = d2; at = { ix: s.ix, iy: s.iy }; }
     }
     if (!lit) return;
     this._bankTrailStones(lit, at);
@@ -11189,6 +11266,9 @@ class MapScene extends Phaser.Scene {
   // most generous lowtier curve) plus Trail.rollBonusFor extra chain steps —
   // one, and one more per prize already won, so a longer walk lands a better
   // find — while still not competing with the actual T4 epic POI chests.
+  // Those bonus steps buy TIER only: the QUANTITY on the card is the chest
+  // curve's own standard roll, not something the walk inflates (a bonus that
+  // fell through to a quantity bracket is what pinned the ceremony at "× 2").
   // Routed through showChestRewardModal so it shares the same fanfare +
   // sparkles as chest opens. `onDismiss` walks the prize queue on.
   //
