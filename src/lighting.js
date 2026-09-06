@@ -13,15 +13,19 @@
 //   Lighting.radiusCells(kind)    — a row's radius, resolving the fire's
 //   Lighting.sourceKind(scene, o) — which row a world object lights as, or null
 //   Lighting.playerKind(scene)    — which row the PLAYER lights as: 'player',
-//                                   or 'torch' while a Torch burns
+//                                   or 'handtorch' while a Torch burns
 //   Lighting.beginFrame(scene)    — empty the frame's light list
 //   Lighting.consider(scene, o, dx, dy, halfM) — offer a scanned object
+//   Lighting.beginCells(scene)     — reset the CELL lights (the lit cobbles)
+//   Lighting.considerCobble(scene, dx, dy, id, flashT) — a lit stone, from drawCells
 //   Lighting.collectFires(scene, ax, ay, halfM) — add the placed campfires
 //   Lighting.collectPlayer(scene, ax, ay, halfM) — add the player's torch, if lit
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
 //   Lighting.daylight(scene, now) — 0..1 from the real sun at the player
 //   Lighting.playerCookieAlpha(t, prof) — the player ramp, sampled
+//   Lighting.plateauLevel(prof, t)  — the plateau's light at t of the way to the rim
+//   Lighting.plateauCellPath(ctx, sx, sy, …) — one reach cell's rounded plateau path
 //   Lighting.draw(scene)          — paint the lightmap (Phaser)
 //
 // ── The model ─────────────────────────────────────────────────────────────
@@ -57,7 +61,11 @@
 // maths, so the sharp edge of the lit area IS the staircase the white outline
 // traces and the tap gate accepts. Only the falloff outside it is a circle.
 // The outline itself stays on reachGfx: it marks what you can touch; the
-// light is only light.
+// light is only light. Inside the staircase the plateau is not flat: it is
+// the player's own lamp, full at the feet and easing down PLATEAU_FALL of
+// the way by the reach rim (plateauLevel), so the lit area reads as light
+// thrown from the body rather than a cut-out — the step down at its edge
+// is still the biggest thing in the picture.
 //
 // ── The numbers are DERIVED, not tuned ────────────────────────────────────
 // profile() reproduces the old wash for the white channel from the same two
@@ -87,31 +95,38 @@
   //
   // The Torch (a T1 consumable, useTorch in app.js) doesn't change the reach
   // plateau — that is the Inner Light, and the tap gate's — it widens the
-  // FALLOFF: while it burns the collector stamps the `torch` cookie at the
+  // FALLOFF: while it burns the collector stamps the `handtorch` cookie at the
   // player's feet ON TOP of the ramp (light adds), white like the player's
   // own light, out to TORCH_RADIUS_MUL player radii. Nothing here asks the
   // depth: a torch by night on the surface is fine, and free.
   const TORCH_RADIUS_MUL = 2;
+  // The lit-cobble violet (util.js UI_TRAIL_LIT) as a number, with the same
+  // literal fallback particles.js carries so the module loads standalone.
+  const TRAIL_LIT = (typeof UI_TRAIL_LIT === 'string')
+    ? parseInt(UI_TRAIL_LIT.replace('#', ''), 16) : 0x9a8cff;
+
   const KINDS = {
     // The player: white, out to the furthest visible pixel (the viewport's
-    // half-diagonal — ramping past it only spends the ramp where nobody
-    // sees). `peak` is DERIVED per depth (profile().edge at the plateau's
+    // half-diagonal) plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay
+    // just lit under a peek (see draw()). `peak` is DERIVED per depth (profile().edge at the plateau's
     // edge, the old falloff), so the row carries none: it is never baked as
     // a kind cookie, the ramp is its picture.
-    player:   { radiusCells: () => Math.hypot(viewCells(), viewCells()) / 2, colour: 0xffffff, peak: null, flicker: 0 },
-    // The player with a Torch lit: the same white, TORCH_RADIUS_MUL times as
-    // far, breathing like the fire it is. Stamped at the feet in ADDITION to
+    player:   { radiusCells: () => Math.hypot(viewCells(), viewCells()) / 2 + PLAYER_RAMP_PAST_CORNER_CELLS,
+                colour: 0xffffff, peak: null, flicker: 0 },
+    // The player with a Torch ITEM lit (`handtorch` — `torch` below is the
+    // cave torch stake): the same white, TORCH_RADIUS_MUL times as far,
+    // breathing like the fire it is. Stamped at the feet in ADDITION to
     // the ramp, so the plateau is untouched and only the dark around it lifts.
-    torch:    { radiusCells: () => radiusCells('player') * TORCH_RADIUS_MUL, colour: 0xffffff, peak: 0.85, flicker: 0.12 },
+    handtorch: { radiusCells: () => radiusCells('player') * TORCH_RADIUS_MUL, colour: 0xffffff, peak: 0.85, flicker: 0.12 },
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
     // house — it is the one light the player always comes back to.
-    trailer:  { radiusCells: 4.0, colour: 0xffd28a, peak: 0.85, flicker: 0 },
+    trailer:  { radiusCells: 4.0, colour: 0xffd28a, peak: 1.00, flicker: 0 },
     // A building the player has taken back: a restored wreck, an unsealed
     // fort, the turrets of a claimed castle. Keyed on the SAME test the
     // derelict wash uses (scene.isClaimedKey), so a house lights the frame its
     // wash lifts.
-    building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.70, flicker: 0 },
+    building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.84, flicker: 0 },
     // A placed campfire (burned from a coal). Breathes.
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
                 colour: 0xff9a3c, peak: 0.95, flicker: 0.18 },
@@ -125,6 +140,41 @@
     // throb in lockstep. Small, so it marks the place rather than lighting
     // the block.
     poi:      { radiusCells: 2.0, colour: 0xcfe2ff, peak: 0.75, flicker: 0, pulse: 0.5 },
+    // A cave torch (worldgen.js caveTorchesFrom — planted where a lowtier
+    // street-furniture POI stands overhead, the one chest class that does not
+    // mirror underground). A real flame: warm, a little smaller than a
+    // campfire, and it breathes like one. Bright enough to read a cave
+    // junction by from across the level.
+    torch:    { radiusCells: 2.5, colour: 0xffa54a, peak: 0.90, flicker: 0.22 },
+    // A wild mushroom — the faint one. Every `mushroom` wildplant glows, on
+    // the surface as well as in the caves (where spawnCaveMushrooms scatters
+    // the blue luminous kind): a cool, small, slow-breathing light that marks
+    // a forage spot in the dark without lighting anything around it. The
+    // torch/mushroom pair is deliberately far apart in both radius and peak
+    // — lighting.test.js pins the order — so a lit cave reads as "a torch
+    // there, some fungus here", never two of the same lamp.
+    mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.40, flicker: 0, pulse: 0.35 },
+    // A LIT COBBLE — a trail stone the player has walked past. The stone's
+    // own art is recoloured and haloed (app.js bakes it in UI_TRAIL_LIT), but
+    // that art sits under the lightmap and goes as dark as the ground after
+    // sunset; this row is what keeps a walked trail GLOWING behind the player
+    // at night and in the far field, one small violet pool per stone,
+    // breathing slowly like a POI so a long street of them shimmers rather
+    // than sits. The same constant the stone and its counter are drawn in
+    // (TRAIL_LIT below), so the glow can't drift off the stone's colour.
+    // Tiny — under a mushroom's reach — because a road can carry dozens in
+    // view, and a trail should read as a string of lights, not a floodlit
+    // strip. Collected by drawCells (considerCobble), not sourceKind: a
+    // stone is a cell, not an object.
+    cobble:   { radiusCells: 1.0, colour: TRAIL_LIT, peak: 0.45, flicker: 0, pulse: 0.30 },
+    // The BLAST as a stone comes on: a wide, near-white flash stamped over
+    // the stone for the length of render.js's scale-pop (PATH_STONE_FLASH_MS),
+    // swelling as it fades — considerCobble drives its alpha and scale off
+    // the pop's own clock, so the light and the art can't fall out of step.
+    // This is the one light that shows INSIDE the reach plateau by day: the
+    // plateau sits a few percent under white, and a peak this high tips a
+    // cell to full white for the first frames, which is the flash.
+    cobbleFlash: { radiusCells: 2.5, colour: 0xe4defc, peak: 1.0, flicker: 0 },
   };
 
   // Seconds per POI breath. Slow on purpose (see the row above).
@@ -311,6 +361,25 @@
     return prof.edge * (1 - Math.pow(t, FALLOFF_P));
   }
 
+  // The plateau's own falloff: how much of the lit level the player's lamp
+  // has given up by the reach rim. A little — the rim of the reach area is
+  // a touch darker than the feet, so the lit area reads as light thrown from
+  // the body — and quadratic in the distance, so the middle stays flat and
+  // the easing gathers at the edge. It is a fraction of `lit` (the derived
+  // level), not a fixed alpha, so it scales with the depth's bubble; the
+  // step down to `edge` at the staircase stays larger than this fall at
+  // every depth and hour (lighting.test.js pins it), because that step is
+  // the affordance and this is only shading.
+  const PLATEAU_FALL = 0.18;
+  const PLATEAU_STOPS = 6;
+
+  // The plateau's total light (ramp + cell fill) at t = distance / rim,
+  // 0 at the feet, 1 at the reach rim; clamped flat past it.
+  function plateauLevel(prof, t) {
+    const u = Math.max(0, Math.min(1, t));
+    return prof.lit * (1 - PLATEAU_FALL * u * u);
+  }
+
   // ── Collecting the frame's lights ────────────────────────────────────────
   // Positions are metres from the CAMERA ANCHOR, exactly as drawObjects
   // measures its sprites (dx, dy) — a light is a world-drawn thing, so it
@@ -328,6 +397,10 @@
       return (scene.isClaimedKey && scene.isClaimedKey(o.castle)) ? 'building' : null;
     }
     if (o.kind === '_fire') return 'fire';
+    if (o.kind === 'torch') return 'torch';
+    // A wildplant has no `kind` — it is offered as itself from drawObjects'
+    // wildplant scan, and only the mushroom is a light.
+    if (o.kind === undefined && o.crop) return o.crop === 'mushroom' ? 'mushroom' : null;
     // Opened chests are the CALLER's to drop (drawObjects already builds the
     // per-frame Set of save.opened it culls the sprite with).
     if (o.kind === 'chest') return o.crate ? null : 'poi';
@@ -335,16 +408,43 @@
   }
 
   // Which row the player lights as this frame. The ramp is always drawn
-  // (the player's own light); 'torch' is the row the collector ADDS on top
+  // (the player's own light); 'handtorch' is the row the collector ADDS on top
   // of it while app.js's Torch timer runs (scene.isTorchActive — in memory,
   // never on the save, like the dragon's minute).
   function playerKind(scene) {
-    return (scene && typeof scene.isTorchActive === 'function' && scene.isTorchActive()) ? 'torch' : 'player';
+    return (scene && typeof scene.isTorchActive === 'function' && scene.isTorchActive()) ? 'handtorch' : 'player';
   }
 
   function beginFrame(scene) {
     if (!scene._lights) scene._lights = [];
     scene._lights.length = 0;
+  }
+
+  // The CELL lights — the lit cobbles — live on their own list, because the
+  // cell pass (drawCells) runs BEFORE the object pass (drawObjects) and
+  // beginFrame resets the object list at the top of the latter; a stone
+  // pushed onto scene._lights would be gone before draw() read it.
+  function beginCells(scene) {
+    if (!scene._cellLights) scene._cellLights = [];
+    scene._cellLights.length = 0;
+  }
+
+  // Offer one lit cobble at (dx, dy) metres from the camera anchor. `flashT`
+  // is where the stone is through its scale-pop, 0..1, or null once it has
+  // settled: while it pops, a second light — the blast — is stamped over the
+  // stone, swelling from about half its radius to its full one as it fades
+  // out, so the moment a stone comes on reads as a flash of light and not
+  // only as the art jumping. `a` and `s` are alpha / scale multipliers draw()
+  // applies on top of the row's own. Returns the number of lights kept.
+  const FLASH_SCALE_FROM = 0.45;
+  function considerCobble(scene, dx, dy, id, flashT) {
+    if (!scene._cellLights) scene._cellLights = [];
+    scene._cellLights.push({ kind: 'cobble', dx, dy, id });
+    if (flashT == null || !(flashT < 1)) return 1;
+    const t = Math.max(0, flashT);
+    scene._cellLights.push({ kind: 'cobbleFlash', dx, dy, id,
+                             a: (1 - t) * (1 - t), s: FLASH_SCALE_FROM + (1 - FLASH_SCALE_FROM) * t });
+    return 2;
   }
 
   function inRange(scene, dx, dy, kind, halfM) {
@@ -437,9 +537,12 @@
   }
 
   // The player's RAMP: flat at `edge` out to the reach radius, then the
-  // falloff to zero at the viewport's half-diagonal (the furthest visible
-  // pixel — ramping past it only spends the ramp where nobody sees). The
-  // PLATEAU is not in here: it is painted per reach cell in draw(), so the
+  // falloff to zero PLAYER_RAMP_PAST_CORNER_CELLS beyond the viewport's
+  // half-diagonal. It used to land on zero exactly at the corner, which put
+  // the far field of the frame at the ambient floor with nothing of the
+  // player's light left in it; one cell past keeps the corners just lit,
+  // and the ramp still ends on zero so a peek finds no edge past it (the
+  // ambient beyond is the value it lands on). The PLATEAU is not in here: it is painted per reach cell in draw(), so the
   // sharp edge of the lit area is the same staircase the reach outline
   // traces and the tap gate accepts (cellInReach), not a circle near it.
   // Rebaked only when its inputs move: the reach radius (energy / depth /
@@ -449,6 +552,7 @@
   // so nothing is lost and the canvas is a quarter the bytes.
   const RAMP_STOPS = 16;
   const PLAYER_COOKIE_SCALE = 2;
+  const PLAYER_RAMP_PAST_CORNER_CELLS = 1;
 
   function ensurePlayerCookie(scene, prof, r0, rMax) {
     const key = `${Math.round(r0)}|${Math.round(rMax)}|${prof.edge.toFixed(3)}`;
@@ -480,17 +584,36 @@
     return st;
   }
 
-  // The colour the reach cells are filled with, at alpha (lit - edge), so that
-  // on top of the ramp's flat `edge` of white they land on exactly
-  // lit × litColour per channel — the plateau level, pink when tired.
-  function plateauCellColour(prof) {
-    const f = prof.lit - prof.edge;
+  // The colour the reach cells are filled with, at alpha (level - edge), so
+  // that on top of the ramp's flat `edge` of white they land on exactly
+  // level × litColour per channel — the plateau level, pink when tired.
+  // `level` defaults to the full lit level (the feet); the gradient in draw()
+  // asks for each stop's plateauLevel.
+  function plateauCellColour(prof, level) {
+    const L = level == null ? prof.lit : level;
+    const f = L - prof.edge;
     if (f <= 0) return 0xffffff;
     const ch = (sh) => {
-      const target = prof.lit * (((prof.litColour >> sh) & 255) / 255);
+      const target = L * (((prof.litColour >> sh) & 255) / 255);
       return Math.round(255 * Math.max(0, Math.min(1, (target - prof.edge) / f)));
     };
     return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+  }
+
+  // The plateau's fill: a radial gradient about the feet, each stop the
+  // cell colour at that stop's level. The rim is the furthest a reach cell's
+  // corner can sit from the reach radius (half a cell's diagonal), so the
+  // darkest of the plateau is its true extremity; past it the last stop
+  // continues flat. Clipped by the per-cell path, so the staircase is exact.
+  function plateauFill(ctx, prof, cx, cy, r0) {
+    const rim = r0 + CELL_PX * Math.SQRT1_2;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rim);
+    for (let i = 0; i <= PLATEAU_STOPS; i++) {
+      const t = i / PLATEAU_STOPS;
+      const level = plateauLevel(prof, t);
+      g.addColorStop(t, rgba(plateauCellColour(prof, level), level - prof.edge));
+    }
+    return g;
   }
 
   // A fire's breath: two sines at unrelated rates, phased by where it stands
@@ -515,6 +638,44 @@
     return a;
   }
 
+  // One reach cell's contribution to the plateau path, at screen px (sx, sy)
+  // with the cell's edge exposure (top/bot/lft/rgt: that neighbour is out of
+  // reach) and its diagonals' reach (dTL..dBR). The cell's outline is walked
+  // clockwise from the top edge's midpoint; an OUTER corner (ReachCorner.convex)
+  // is rounded with arcTo — the arc tangent to both edges R in from the
+  // corner — and an INNER corner (ReachCorner.fillet) gets the sliver between
+  // the corner point and that same arc, drawn in the empty cell above/below,
+  // as its own subpath. Corner geometry comes from coords.js' ReachCorner, the
+  // rule the white outline (render.js) rounds by too; with no rule loaded the
+  // cell is a plain square.
+  function plateauCellPath(ctx, sx, sy, top, bot, lft, rgt, dTL, dTR, dBL, dBR) {
+    const RC = (typeof ReachCorner !== 'undefined') ? ReachCorner : null;
+    if (!RC) { ctx.rect(sx, sy, CELL_PX, CELL_PX); return; }
+    const R = RC.R;
+    const x1 = sx + CELL_PX, y1 = sy + CELL_PX;
+    ctx.moveTo(sx + CELL_PX / 2, sy);
+    if (RC.convex(rgt, top)) ctx.arcTo(x1, sy, x1, y1, R); else ctx.lineTo(x1, sy);
+    if (RC.convex(rgt, bot)) ctx.arcTo(x1, y1, sx, y1, R); else ctx.lineTo(x1, y1);
+    if (RC.convex(lft, bot)) ctx.arcTo(sx, y1, sx, sy, R); else ctx.lineTo(sx, y1);
+    if (RC.convex(lft, top)) ctx.arcTo(sx, sy, x1, sy, R); else ctx.lineTo(sx, sy);
+    ctx.closePath();
+    if (RC.fillet(lft, top, dTL)) filletPath(ctx, sx, sy, +1, -1, R);
+    if (RC.fillet(rgt, top, dTR)) filletPath(ctx, x1, sy, -1, -1, R);
+    if (RC.fillet(lft, bot, dBL)) filletPath(ctx, sx, y1, +1, +1, R);
+    if (RC.fillet(rgt, bot, dBR)) filletPath(ctx, x1, y1, -1, +1, R);
+  }
+  // The fillet at corner point (px, py): ix runs along the owning cell's
+  // horizontal edge, iy into the empty cell. The arc is tangent to that edge
+  // R along it and to the diagonal cell's vertical edge R up/down it, so the
+  // sliver between the corner and the arc is exactly what the outline's
+  // fillet arc traces.
+  function filletPath(ctx, px, py, ix, iy, R) {
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + ix * R, py);
+    ctx.arcTo(px, py, px, py + iy * R, R);
+    ctx.closePath();
+  }
+
   // Paint this frame's lightmap: the ambient floor, the player's ramp at the
   // feet-on-the-fix point, the plateau over every reach cell, then every
   // collected light at its anchored screen position. `ax, ay` are the camera
@@ -528,7 +689,8 @@
     const now = Date.now();
     const prof = profile(scene, daylight(scene, now));
     const k = CELL_PX / scene.cellM;                 // metres → screen px
-    // The ramp's extent: the player row's radius (the viewport's half-diagonal).
+    // The ramp's extent: the player row's radius — the viewport's half-
+    // diagonal plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay lit.
     const rMax = radiusCells('player') * CELL_PX;
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     const r0 = Math.max(0, reachM * k);
@@ -563,7 +725,18 @@
       const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
       const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
       const half = (VIEW_CELLS - 1) / 2;
-      ctx.fillStyle = rgba(plateauCellColour(prof), prof.lit - prof.edge);
+      // The neighbour probe for the corner rounding — the same test again, so
+      // a corner is rounded by exactly the cells the loop below lights.
+      const inReach = (c, r) => {
+        const ddx = (baseCellIX + (c - half) - rp.cellIX) * scene.cellM;
+        const ddy = (baseCellIY + (r - half) - rp.cellIY) * scene.cellM;
+        return ddx * ddx + ddy * ddy <= reachM2;
+      };
+      ctx.fillStyle = plateauFill(ctx, prof, ps.x - ox, ps.y - oy, r0);
+      // ONE path, ONE fill: the cells abut on integer px so the union fills
+      // seamlessly, and under 'lighter' a single fill adds the plateau once
+      // (a fillet a second cell repeated would not double up either).
+      ctx.beginPath();
       for (let row = -1; row <= VIEW_CELLS; row++) {
         for (let col = -1; col <= VIEW_CELLS; col++) {
           const absIX = baseCellIX + (col - half);
@@ -574,23 +747,31 @@
           // cellScreenXY's expression (render.js), in lightmap-local px.
           const sx = Math.round(scene.viewCenterX + (col - half - fracX + 0.5) * CELL_PX - CELL_PX / 2) - ox;
           const sy = Math.round(scene.viewCenterY + (row - half - fracY + 0.5) * CELL_PX - CELL_PX / 2) - oy;
-          ctx.fillRect(sx, sy, CELL_PX, CELL_PX);
+          plateauCellPath(ctx, sx, sy,
+            !inReach(col, row - 1), !inReach(col, row + 1), !inReach(col - 1, row), !inReach(col + 1, row),
+            inReach(col - 1, row - 1), inReach(col + 1, row - 1), inReach(col - 1, row + 1), inReach(col + 1, row + 1));
         }
       }
+      ctx.fill();
     }
 
-    // The lights.
-    for (const L of scene._lights) {
+    // The lights: the objects' (drawObjects' scan + the fires), then the
+    // cells' (the lit cobbles, from drawCells). A light may carry its own
+    // alpha / scale multipliers (`a`, `s` — the cobble blast drives both off
+    // the pop's clock) on top of the row's flicker.
+    const stamp = (L) => {
       const row = KINDS[L.kind];
       const ck = ensureKindCookie(scene, L.kind);
-      const a = flickerAlpha(row, L.dx, L.dy, now, L.id);
-      const sc = row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1;
+      const a = flickerAlpha(row, L.dx, L.dy, now, L.id) * (L.a == null ? 1 : L.a);
+      const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
       const d = 2 * ck.R * sc;
-      ctx.globalAlpha = a;
+      ctx.globalAlpha = Math.max(0, Math.min(1, a));
       ctx.drawImage(ck.canvas,
         scene.viewCenterX + L.dx * k - ox - d / 2,
         scene.viewCenterY + L.dy * k - oy - d / 2, d, d);
-    }
+    };
+    for (const L of scene._lights) stamp(L);
+    if (scene._cellLights) for (const L of scene._cellLights) stamp(L);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     tex.refresh();
@@ -601,8 +782,9 @@
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
+    PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires,
-    collectPlayer,
-    flickerAlpha, draw,
+    collectPlayer, beginCells, considerCobble, TRAIL_LIT,
+    flickerAlpha, plateauCellPath, draw,
   };
 })(window);

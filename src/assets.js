@@ -180,6 +180,14 @@ const ASSETS = {
   // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
   // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
   bonfire:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bonfire.png', frameWidth: 16, frameHeight: 32 },
+  // Cave torch — 64×32 = 4 cols of 16×32 frames: a wooden stake with a wrapped
+  // head and a small flame, authored in the bonfire's palette (no torch on any
+  // shipped sheet). Planted on a cave level where a lowtier street-furniture
+  // POI stands overhead (worldgen.js caveTorchesFrom) — the one kind of chest
+  // that does NOT mirror underground, so the spot gets a light instead of a
+  // box. Decorative: no interaction. The `torch` render spec cycles the 4
+  // frames for a flicker and Lighting.KINDS.torch is its light.
+  torch:       { kind: 'spritesheet', path: 'assets/Objects/Wilderness/torch.png', frameWidth: 16, frameHeight: 32 },
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Currently used for the fishing-junk boot icon.

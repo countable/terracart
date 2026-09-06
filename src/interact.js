@@ -535,7 +535,9 @@ const TAP_HANDLERS = [
     // which also means you can still kill the very slime that's draining you
     // when low on energy.
 
-    // Secret: slime can be tamed with a sapphire (hinted only via book tips).
+    // Secret: slime can be tamed with a sapphire. Hinted in ONE place — the
+    // closing riddle in PLAY_TIPS — and nowhere else: ITEM_EFFECTS.sapphire
+    // names the portal, which is the sapphire's advertised use.
     // Checked before the enemy branch below so the sapphire path wins over the
     // combat wheel — otherwise you'd stab the slime you meant to befriend.
     if (target.kind === 'slime') {
@@ -871,7 +873,15 @@ const TAP_HANDLERS = [
     if (tooFar(ctx, coin.x, coin.y)) return 'far';
     bestEntry.coinDrops.splice(bestIdx, 1);
     addMoney(save, 1);
-    scene.flash('+$1', sx, sy);
+    // The "+$1" lands ON the cell the coin was picked from, like every other
+    // number on the map (app.js _popCellNumber) — not at the finger, which
+    // is over the coin only until it lifts. A stub scene has no cell pops.
+    if (typeof scene._popCellNumber === 'function') {
+      const cc = worldMetersToAbsCell(scene, coin.x, coin.y);
+      scene._popCellNumber('+$1', UI_GOLD, cc.cellIX, cc.cellIY);
+    } else {
+      scene.flash('+$1', sx, sy);
+    }
     ctx.dirty = true;   // money changed — persist
     return true;
   }},
@@ -1213,6 +1223,7 @@ const TAP_HANDLERS = [
       // gets here first, so this only fires on a tap inside that window or
       // after the tab was backgrounded. Wrong either way.)
       scene.flash(`🌱 ${stageReadout()} — water it`, sx, sy);
+      scene._burstAtWorld?.('sprout', cwmx, cwmy);
       return true;
     }
     if (Crops.isMature(p)) {
@@ -1256,10 +1267,25 @@ const TAP_HANDLERS = [
         if (filled) save.canCharges -= 1;
       }
       ctx.dirty = true;
-      // Water the plant AND report its growth progress so the player can see
-      // how close it is to harvest (e.g. "Pairy 2/5").
-      scene.flash((jumped ? `🌱 sprang ahead! ${stageReadout()}` : stageReadout())
+      // Say what the tap DID, like every other farm action does ('tilled',
+      // 'planted …', 'harvested …'): until Sep 2026 this read only the stage
+      // readout — "Pairy 2/5 — 15m" — which is the same line a tap on an
+      // already-watered plant gives, so nothing told the player the watering
+      // had happened. With no can the verb also says HOW: bare hands are the
+      // tool, and naming them is the only hint the game gives that a better
+      // one exists. Kept to three words — the flash also carries the stage
+      // readout and the wait, and "you water by cupping your hands" ran the
+      // line off the screen.
+      // Then the growth readout, so the player can see how close it is to
+      // harvest (e.g. "Pairy 2/5").
+      const how = can?.tier ? 'watered' : 'watered by hand';
+      scene.flash((jumped ? `🌱 sprang ahead! ${stageReadout()}`
+                          : `💧 ${how} — ${stageReadout()}`)
                   + growthLeft(), sx, sy);
+      // The visual cue: a sprinkle of drops onto the cell (particles.js
+      // 'water'). A jump adds the sprout burst on top — two things happened.
+      scene._burstAtWorld?.('water', cwmx, cwmy);
+      if (jumped) scene._burstAtWorld?.('sprout', cwmx, cwmy);
       return true;
     }
     // Already watered and still growing: the stage readout plus the wait left.
@@ -1385,8 +1411,8 @@ const TAP_HANDLERS = [
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);
       // Cave walls take the shared BASE table (interactables.js
-      // plainRockBaseDrop) — no ring/amulet luck applied, unlike the
-      // mineralrock isPlain branch, which layers its own luck on top.
+      // plainRockBaseDrop) as-is, unlike the mineralrock isPlain branch, which
+      // layers its own bar-chance loop on top.
       // `stones` is null deliberately: a wall face draws no rock sprite, so it
       // promises no particular number of stones and keeps the flat randInt(1,3)
       // rather than inheriting a rock variant's count.

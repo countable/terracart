@@ -185,6 +185,7 @@
       placedRocks: (sv.placedRocks || []).length,
       brokenRocks: (sv.brokenRocks || []).length,
       foundTreasures: (sv.foundTreasures || []).length,
+      sprungTraps: (sv.sprungTraps || []).length,
       chopped: (sv.chopped || []).length,
       relics: sv.relics ? Object.fromEntries(Object.entries(sv.relics).map(
         ([k, v]) => [k, v && v.tier])) : {},
@@ -400,6 +401,7 @@
     sv.placedRocks = [];
     sv.brokenRocks = [];
     sv.foundTreasures = [];
+    sv.sprungTraps = [];
     sv.scarecrows = [];
     // Per-creature produce cooldown (lastProduce[id] = epoch ms). Without
     // clearing this, a chicken/cow that yielded an egg/milk earlier in

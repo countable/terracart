@@ -141,36 +141,6 @@ test('fruittree: a tree already stamped with a non-fruit species repairs itself 
   assert.eq(peach.species, 'peach', 'a peach tree stays a peach tree');
 });
 
-// --- Gather luck flag -------------------------------------------------------
-test('gather luck: OFF by default → zeroed multipliers', () => {
-  assert.eq(gatherLuckEnabled(), false, 'flag defaults off');
-  const lk = gatherLuck({ relics: { ring: { tier: 7 }, amulet: { tier: 7 } } }, ['ring', 'amulet']);
-  assert.eq(lk.tierP, 0, 'no ring tierP when off');
-  assert.eq(lk.bonusP, 0, 'no amulet bonusP when off');
-});
-
-test('gather luck: ON wires declared ring/amulet into the roll', () => {
-  // ringLuck / amuletBracketChance are IIFE-private in rarity.js; inject stubs
-  // so gatherLuck (which resolves them as free globals) can read them.
-  globalThis.ringLuck = () => 0.5;
-  globalThis.amuletBracketChance = () => 1;   // always grant the bonus
-  globalThis.window.GATHER_LUCK_ENABLED = true;
-  try {
-    const lk = gatherLuck({ relics: {} }, ['ring', 'amulet']);
-    assert.eq(lk.tierP, 0.5, 'ring tierP wired through');
-    assert.eq(lk.bonusP, 1, 'amulet bonusP wired through');
-    // A fruit harvest with bonusP=1 always adds the +1 bonus fruit → 2-3.
-    const scene = makeScene();
-    const o = { kind: 'fruittree', id: 'ft-luck', x: 0, y: 0, species: 'apple' };
-    runInteractable(makeCtx(scene, {}), o);
-    assert.inRange(scene.invCount('apple'), 2, 3, 'amulet bonus fruit applied');
-  } finally {
-    globalThis.window.GATHER_LUCK_ENABLED = false;   // restore for later tests
-    delete globalThis.ringLuck;
-    delete globalThis.amuletBracketChance;
-  }
-});
-
 test('registry: unknown kinds are not handled (driver returns false)', () => {
   const scene = makeScene();
   assert.eq(runInteractable(makeCtx(scene, {}), { kind: 'not-a-thing', id: 'x' }), false);

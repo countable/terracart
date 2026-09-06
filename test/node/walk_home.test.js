@@ -116,6 +116,18 @@ function walkHomeScene(awayM, opts = {}) {
     _driftingHome: false,
     _gpsAwayM: __walkHome._gpsAwayM,
     syncMoveTarget: __walkHome.syncMoveTarget,
+    _placeBodyOnFix: __walkHome._placeBodyOnFix,
+    _carveLanding: __walkHome._carveLanding,
+    // What the placement's landing carve reads: the cell under the feet. The
+    // surface never asks; underground `landing` says what the fix stands in
+    // (25 = CAVE_WALL) and `dug` records what the shipping dig was told.
+    startWorldM: { x: 0, y: 0 },
+    feetOffsetM: 0,
+    cellsPerTile: 16,
+    cellAt: () => ({ tx: 3, ty: 4, ix: 5, iy: 6, loaded: opts.landing != null,
+                     type: opts.landing ?? 0 }),
+    dug: [],
+    digCaveWall(tx, ty, ix, iy, cellIX, cellIY) { this.dug.push([tx, ty, ix, iy, cellIX, cellIY]); },
     // A warp snaps the peek camera home; this scene never peeks (no peekM), so
     // the real method early-outs — it just has to be here to be called.
     clearPeek: __walkHome.clearPeek,
@@ -169,13 +181,54 @@ test('walk home: distance decides HOW the return is made, never when it starts',
     'the debounce still owns when the return begins');
 });
 
-test('walk home: the body is never placed underground', () => {
-  // A snap below the surface would drop the player inside solid rock — the same
-  // reason the GPS fix path is surface-only. Down there the body mines its way.
-  const scene = walkHomeScene(500, { depth: 2 });
+// ── Underground ───────────────────────────────────────────────────────────
+// Until Sep 2026 the walk home was surface-only, so a stick walk down a cave
+// parked the character that far off the GPS for good: every later fix
+// re-targeted fix + offset and nothing ever bled the offset away. The one real
+// reason to keep it out of the caves was the far snap dropping the body inside
+// solid rock; the placement now carves its landing cell instead.
+
+test('walk home: underground the offset bleeds just as it does on the surface', () => {
+  const scene = walkHomeScene(30, { depth: 2, landing: 24 });
   drift(scene);
-  assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 500,
-    'underground the return stays a walk, however far');
+  assert.lt(Math.hypot(scene._manualOffsetM.x, scene._manualOffsetM.y), 30,
+    'a cave walk home has to close the gap the stick opened');
+  assert.truthy(scene._driftingHome, 'and it counts as walking home');
+  assert.eq(scene.dug.length, 0, 'a walked return digs nothing');
+});
+
+test('walk home: underground a half-kilometre return is placed, same as the surface', () => {
+  const scene = walkHomeScene(500, { depth: 2, landing: 24 /* CAVE_FLOOR */ });
+  drift(scene);
+  assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 0,
+    'the body should be standing on the fix after one frame');
+  assert.eq(scene.dug.length, 0, 'landing on open floor digs nothing');
+});
+
+test('walk home: a body placed into rock has its landing cell carved', () => {
+  const scene = walkHomeScene(500, { depth: 2, landing: 25 /* CAVE_WALL */ });
+  drift(scene);
+  assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 0, 'placed on the fix');
+  assert.eq(scene.dug.length, 1, 'the wall under the feet is dug out — never a body inside rock');
+  assert.eq(scene.dug[0].join(','), '3,4,5,6,53,70',
+    'through the shipping digCaveWall with the absolute cell (tx*N+ix, ty*N+iy)');
+});
+
+test('walk home: a placement onto an unloaded tile carves once the grid lands', () => {
+  // "Too far" usually means the tile under the fix isn't loaded yet, so the
+  // snap can't know what it landed in. The tile loader re-asks per cave tile,
+  // scoped to the tile that just arrived.
+  const scene = walkHomeScene(500, { depth: 2 });   // landing: unloaded
+  drift(scene);
+  assert.eq(scene.dug.length, 0, 'nothing to carve while the cell is unknown');
+  scene.cellAt = () => ({ tx: 3, ty: 4, ix: 5, iy: 6, loaded: true, type: 25 });
+  __walkHome._carveLanding.call(scene, { tx: 9, ty: 9 });
+  assert.eq(scene.dug.length, 0, 'a different tile arriving is not the one under the feet');
+  __walkHome._carveLanding.call(scene, { tx: 3, ty: 4 });
+  assert.eq(scene.dug.length, 1, 'the tile under the feet arriving carves the pocket');
+  scene.depth = 0;
+  __walkHome._carveLanding.call(scene);
+  assert.eq(scene.dug.length, 1, 'the surface never digs');
 });
 
 // ── Pace ──────────────────────────────────────────────────────────────────
@@ -225,7 +278,7 @@ test('walk home countdown: only shown when there is a walk to count down to', ()
   assert.eq(count({ offset: 0 }), null, 'standing on the fix: nothing to walk back');
   assert.eq(count({}, { _stickPushed: () => true }), null, 'stick still pushed: no walk pending');
   assert.eq(count({}, { _workProgress: { auto: false } }), null, 'mid-wheel: busy, not idle');
-  assert.eq(count({ depth: 2 }), null, 'underground there is no walk home');
+  assert.truthy(count({ depth: 2 }) > 0, 'underground the walk home is the same promise');
   assert.eq(count({ noGps: true }), null, 'no fix driving: nothing to return to');
   assert.eq(count({}, { _gpsManualOverride: true }), null, 'keyboard takeover owns the target');
 });

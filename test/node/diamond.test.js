@@ -35,10 +35,10 @@ test('diamond: is the T7 mineral at the top of the gem ladder, with a price and 
   assert.truthy(PRICES.diamond < PRICES.crimson_bar, 'but a smelted crimson bar still out-prices it');
   assert.truthy(/frost/i.test(ITEM_EFFECTS.diamond || ''), 'ITEM_EFFECTS names it the Frost jewel');
   assert.truthy(!('icon' in it), 'no emoji icon field — it renders as its sprite everywhere');
-  assert.truthy(PLAY_TIPS.some(t => /\bDiamonds?\b/.test(t) && /Frost/.test(t) && /jewel/i.test(t)),
-    'a Book tip says the diamond is what Frost jewelry is cut around');
-  assert.truthy(PLAY_TIPS.some(t => /\bDiamonds?\b/.test(t) && /deep|ore/i.test(t)),
-    '…and that it comes from the deepest ore');
+  // Where it comes from and what it is for live on the item line, not in a
+  // Book tip (a tip that restates a description is a wasted read).
+  assert.truthy(/ore/i.test(ITEM_EFFECTS.diamond) && /jewel/i.test(ITEM_EFFECTS.diamond), 'the line says where and what for');
+  assert.falsy(PLAY_TIPS.some(t => /\bDiamonds?\b/.test(t)), 'no Book tip restates it');
 });
 
 test('diamond: two-table icon rule — MINERAL_ICON_SHEET → ICON_SHEETS → the real 112×64 gem sheet', () => {

@@ -784,9 +784,19 @@ COBBLE TRAILS (path + road stones)
  - a lit stone draws at FULL opacity in a recoloured violet-blue (UI_TRAIL_LIT,
    baked per road/path frame, not a tint — setTint is a no-op under the Canvas
    fallback) while unlit cobbles sit at 57% grey, so a walked trail visibly
-   lights up as you go. Lighting plays a scale-pop on each stone, big enough to
-   catch out of the corner of the eye now that stones light several cells out
-   rather than one under your feet.
+   lights up as you go. AND IT GLOWS: the baked copy carries a soft violet halo
+   of the stone's own silhouette in a padded margin (render.js
+   LIT_COBBLE_GLOW_PAD; drawn LIT_COBBLE_GLOW_SCALE larger so the stone keeps
+   its cell size) and a white-hot core added over its middle, and every lit
+   stone is a small breathing light on the lightmap (Lighting.KINDS.cobble, in
+   the same violet) so the walked trail still glows behind you after dark.
+   Lighting one is a BLAST: the scale-pop on the stone (PATH_STONE_FLASH_MS),
+   a wide near-white flash on the lightmap swelling as it fades on the pop's
+   own clock (Lighting.KINDS.cobbleFlash, via considerCobble), stone chips
+   AND a ring of violet sparks off the cell (particles.js stone + trailspark)
+   — big enough to catch out of the corner of the eye now that stones light
+   several cells out rather than one under your feet. Until Sep 2026 it was
+   the recolour and the chips alone, "a dull lavender".
  - ONE LADDER FOR THE WHOLE WORLD. Every stone lit anywhere adds to a single
    running count (save.trail = { stones, prizes }); the first treasure lands at
    Trail.GOAL_STEP (10) stones, the next at 20, the next at 30, and so on. At
@@ -804,7 +814,12 @@ COBBLE TRAILS (path + road stones)
  - each sweep pops a small violet COUNTER — stones banked over the current goal
    ("7/10") — ON the nearest stone it just lit, in the same colour the stone
    lights up in, seated through the projection so a peek drag keeps it on its
-   cobble. One counter per sweep, however many stones the step swept up.
+   cobble. One counter per sweep, however many stones the step swept up. On
+   the sweep that PAYS it reads the goal just completed, full ("10/10",
+   Trail.readout), never the carried remainder against the next rung — the
+   ladder grows, and "3/20" beside a prize that paid at 10 read as a
+   disagreement. The prize modal's header is "Thou hast traveled far"; the
+   count it paid at is the pick's flavour line.
  - each prize is a lowtier-chest roll at tier 4 through the unified rarity
    picker, shown with the chest reward fanfare, AND IT IS A CHOICE: two rolls
    are offered and the player keeps one (Trail.PRIZE_CHOICES). The options must
@@ -1264,7 +1279,7 @@ DIALOGS
    where you are and not at all when you don't.
  - The label is the CATEGORY; the flavour line underneath still carries the
    specific offer. A caller may override the label for a one-off outcome
-   ("30 cobbles walked") and keep the kind's icon.
+   (the trail prize's "Thou hast traveled far") and keep the kind's icon.
  - MODAL_KINDS (src/app.js) is the whole taxonomy: quest, treasure, trail,
    shop, trade, forge, relics, delivery, build, wizard, farm, stats, energy,
    rest, use, note. The header is built by makeModalShell and injected in
@@ -1523,11 +1538,11 @@ not threading another branch through the dispatcher.
                        harvest, chest ceremony, well refill, shop/shrine UIs)
    A single runInteractable(ctx, o) driver walks gate → spend → work-wheel, or
    defers to custom. Adding a new interactable = adding a row.
- - GATHER LUCK is a declarative `luck` field on each registry entry (which relic
-   slots — ring/amulet — modify its rolls). Gather drops (wood, ore, gems, fruit)
-   can therefore become luck-aware like chest loot. It is gated behind a flag
-   (GATHER_LUCK_DEFAULT, OFF) so the RNG stream + outcomes stay byte-for-byte
-   identical to the pre-luck behaviour until deliberately enabled.
+ - LUCK (ring → rarer pulls, amulet → bigger stacks) applies to CHEST/treasure
+   loot only, read off `save` by pickReward() in rarity.js. Gather drops (wood,
+   ore, gems, fruit) are not luck-aware: the registry carried a declarative
+   `luck` field and a GATHER_LUCK_DEFAULT flag for it that shipped OFF and was
+   never turned on, and both were removed rather than left as dead weight.
  - PURE CORES extracted from app.js for headless testing (no scene, no DOM); the
    scene keeps thin wrappers that own only the side effects (persistSave, DOM
    rebuilds, flashes):

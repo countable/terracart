@@ -59,6 +59,11 @@ const GROUND = [
   'letterContainer',   // road name lettering
   'roadGeomContainer',
   'padContainer',      // treasure plinths
+  // Traps (src/traps.js) lie FLAT on the ground, so they are ground
+  // decoration — and being below the lightmap is load-bearing, not incidental:
+  // a hidden trap has to be spottable in daylight and invisible in an unlit
+  // cave cell, and the lightmap is what decides which.
+  'trapContainer',
   'shadowContainer',
   'atmosGroundGfx',    // biome haze over the ground
 ];
@@ -84,8 +89,11 @@ const LIGHT = 'lightMap';
 // label layer, which is otherwise crisp UI and would name a shop the player has
 // never found.
 const FOG = 'fogContainer';
+// The particle-burst layer (src/particles.js): gold stars off a fanfare,
+// chips off a lighting cobble, leaf flecks off a growing crop.
+const FX = 'fxContainer';
 const BELOW_FOG = [...GROUND, ...SPRITES,
-  'reachGfx', LIGHT, 'atmosRimGfx', 'labelContainer', 'tierGfx'];
+  'reachGfx', LIGHT, 'atmosRimGfx', FX, 'labelContainer', 'tierGfx'];
 
 const CHECKS = [
   {
@@ -147,6 +155,22 @@ const CHECKS = [
       if (idx(layers, 'labelContainer') < light) {
         throw new Error('labelContainer draws below the lightmap — POI name tablets are UI and ' +
           'must stay crisp in the dark.');
+      }
+    },
+  },
+  {
+    name: 'layers: the particle bursts sit above the lightmap and below the labels',
+    run: () => {
+      const layers = displayLayers();
+      const fx = idx(layers, FX);
+      if (fx < idx(layers, LIGHT)) {
+        throw new Error(`${FX} draws below ${LIGHT} — a burst is bright by definition, and a gold ` +
+          'star multiplied by the night dim is a grey smudge. Move fxContainer after lightMap in ' +
+          'MapScene.create().');
+      }
+      if (fx > idx(layers, 'labelContainer')) {
+        throw new Error(`${FX} draws above labelContainer — a puff of chips over a POI name ` +
+          'tablet is noise on UI. Move fxContainer before labelContainer.');
       }
     },
   },
@@ -213,7 +237,7 @@ const CHECKS = [
       if (start < 0) {
         throw new Error('render.js no longer routes the reach passes through a lighting layer');
       }
-      const end = src.indexOf('if (rgt) gr.lineBetween', start);
+      const end = src.indexOf('Render.reachOutlineCell(gr, sx, sy', start);
       if (end < 0) throw new Error('could not find the end of the reach block in render.js');
       const block = src.slice(start, end);
       // A bare `g.` in this block means a pass slipped back onto the terrain

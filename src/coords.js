@@ -18,6 +18,7 @@
 //   timedOverlayRebuild(label, fn)           — one rebuild under the boot profiler
 //   lonLatToLocalM(scene, lon, lat)          — a GPS fix in playerM's frame
 //   localMToLonLat(scene, mx, my)            — and back out to lon/lat
+//   REACH_CORNER_PX / ReachCorner            — the lit boundary's corner rule
 
 function cellKeyFromAbsCell(absIX, absIY) {
   return `${absIX}_${absIY}`;
@@ -231,6 +232,42 @@ function cellInReach(scene, cellIX, cellIY) {
   const dy = (cellIY - p.cellIY) * scene.cellM;
   return dx * dx + dy * dy <= reachM * reachM;
 }
+
+// ─── The lit boundary's corners ──────────────────────────────────────────────
+// The reach silhouette is a staircase of whole cells, and TWO passes draw its
+// edge: the lightmap plateau (lighting.js draw(), the bright area's sharp
+// edge) and the white outline over it (render.js drawCells, the tap
+// affordance). Its corners are rounded by REACH_CORNER_PX — a smidge, so the
+// edge reads as a shape rather than a grid — and both passes derive their
+// corner geometry from the ONE rule here, so the line can't round a corner
+// the light leaves square (the roadOverlayWidthM discipline).
+//
+// Look at one corner of a reach cell with three flags:
+//   h — the neighbour across the corner's VERTICAL edge (left / right) is out
+//       of reach, i.e. that vertical edge is exposed
+//   v — the neighbour across the corner's HORIZONTAL edge (above / below) is
+//       out of reach, i.e. that horizontal edge is exposed
+//   d — the DIAGONAL cell is in reach
+// Then the corner is one of:
+//   convex   both edges exposed — an OUTER corner, rounded off inside the cell.
+//   fillet   the horizontal edge exposed, the cell beside lit and the diagonal
+//            too — an INNER corner, where the diagonal cell's vertical edge
+//            meets this cell's horizontal one. A fillet of radius R is added in
+//            the empty cell above / below. The diagonal cell sees the same
+//            corner with h and v swapped; only the cell whose HORIZONTAL edge
+//            is exposed owns the fillet, so it is drawn once.
+//   (else)   square — the edge runs straight through it.
+// shortenH / shortenV say whether the cell's own horizontal / vertical edge
+// stops R short of the corner, because a round (its own outer corner, or a
+// fillet from either side) continues it there.
+const REACH_CORNER_PX = 2;
+const ReachCorner = {
+  R: REACH_CORNER_PX,
+  convex: (h, v) => h && v,
+  fillet: (h, v, d) => v && !h && d,
+  shortenH: (h, d) => h || d,
+  shortenV: (v, d) => v || d,
+};
 
 // ─── GPS ⇄ the local metre frame ─────────────────────────────────────────────
 // The world is drawn in Web-Mercator: every tile, object and cell lives at

@@ -58,7 +58,11 @@ const FILES = [
   // read Difficulty.get() at call time and app.js pins it at boot.
   'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'trail.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
+  'mvt.js', 'util.js', 'particles.js', 'trail.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
+  // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
+  // loads either side of worldgen.js; index.html puts it first, so do we.
+  'traps.js',
+  'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
@@ -87,7 +91,10 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  INTERACTABLES, runInteractable, gatherLuck, gatherLuckEnabled,
+  INTERACTABLES, runInteractable,
+  // The lit boundary's corner rule (coords.js) — read by the plateau fill and
+  // the reach outline; reach_corners.test.js drives both through it.
+  REACH_CORNER_PX, ReachCorner,
   isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
@@ -96,6 +103,9 @@ const BRIDGE = `;Object.assign(globalThis, {
   // SHIPPING table rather than its own copies of it.
   houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
   HomeArea,
+  // The lit cobble's halo: the pad the baker (app.js) reads and the scale the
+  // drawer (render.js) applies — cobble_glow.test.js pins them as one pair.
+  LIT_COBBLE_GLOW_PAD, LIT_COBBLE_GLOW_SCALE, LIT_COBBLE_FRAMES, litCobbleTexKey,
   itemValue, randInt, pickFromArray, isShiny,
   TRAILER_SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
@@ -207,6 +217,10 @@ try {
                    // The stick's countdown to that walk — same gates, so it's
                    // tested against the same stub scene.
                    '_walkHomeCountdownS() {',
+                   // The far return PLACES the body, and underground that
+                   // placement carves the landing cell — lift both so the
+                   // cave case runs the shipping dig, not a stub of it.
+                   '_placeBodyOnFix() {', '_carveLanding(onlyTile = null) {',
                    // syncMoveTarget snaps the peek camera back (a warp lands on
                    // ground the peek knows nothing about), so the real method
                    // comes along rather than being stubbed out here.
@@ -215,7 +229,7 @@ try {
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
   for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS',
-                   'clearPeek']) {
+                   '_placeBodyOnFix', '_carveLanding', 'clearPeek']) {
     if (typeof ctx.__walkHome[k] !== 'function') {
       console.error(`__walkHome.${k} did not come back as a function — update run.js`);
       process.exit(2);
@@ -269,7 +283,14 @@ try {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_trailCounterAt(ix, iy) {', '_pathStoneAt(tx, ty, ix, iy) {',
+  // _cellToastAt is the ONE cell→toast seating the trail counter and the
+  // energy pops share; _energyPopAt / _cellAtScreen / playerScreen are the
+  // energy pop's own placement (energy_pop.test.js drives them on the same
+  // stub scene).
+  const methods = ['_trailCounterAt(ix, iy) {', '_cellToastAt(ix, iy, liftPx) {',
+                   '_energyPopAt(ix, iy) {', '_isPlayerCell(ix, iy) {',
+                   '_cellAtScreen(sx, sy) {', 'playerScreen() {',
+                   '_pathStoneAt(tx, ty, ix, iy) {',
                    '_activatePathStone(tx, ty, ix, iy) {',
                    '_resetTrailSight() {', '_rebuildTrailSight(p, reachM, now) {',
                    '_sweepCobbleTrails() {']
@@ -296,11 +317,19 @@ try {
     `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
     `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};\n` +
     `globalThis.pathStoneLocal = ${localFn[0].trim()};\n` +
-    `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};`,
+    `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};\n` +
+    // The energy pop's seating: derived from the walker's art, in the order
+    // app.js declares them (the head clearance reads the two before it).
+    `globalThis.PLAYER_FEET_DROP_PX = ${constOf('PLAYER_FEET_DROP_PX')};\n` +
+    `globalThis.PLAYER_FRAME_PX = ${constOf('PLAYER_FRAME_PX')};\n` +
+    `globalThis.ENERGY_POP_LIFT_PX = ${constOf('ENERGY_POP_LIFT_PX')};\n` +
+    `globalThis.ENERGY_POP_HEAD_PX = ${constOf('ENERGY_POP_HEAD_PX')};`,
     ctx, { filename: 'app.js#TRAIL_COUNTER_LIFT_PX' });
   vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_trailCounterAt' });
-  for (const k of ['_trailCounterAt', '_pathStoneAt', '_activatePathStone',
+  for (const k of ['_trailCounterAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
+                   '_cellAtScreen',
+                   'playerScreen', '_pathStoneAt', '_activatePathStone',
                    '_resetTrailSight', '_rebuildTrailSight', '_sweepCobbleTrails']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
@@ -988,6 +1017,9 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+// interact.js loads headlessly, but the burst call sites in its crop handler are
+// pinned as source text (particles.test.js) beside the app.js ones.
+ctx.INTERACT_JS_SRC = readSrc('interact.js');
 // items.js loads fine, but its PLAY_TIPS / comments are prose the rope test
 // sweeps as text, and a new icon's PNG has to exist on disk at the size the
 // ICON_SHEETS row claims — the two-table rule (docs/QC_RULES.md §1) is a
@@ -1017,9 +1049,40 @@ ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   vm.runInContext(m[0], ctx, { filename: 'app.js#renderScale' });
 }
 ctx.RENDER_SRC = readSrc('render.js');
+// textures.js loads headlessly (plain canvas-2D drawing against whatever ctx
+// it is handed) — in its OWN context, since its module constants share names
+// with the stubs above. tilled_bed.test.js runs drawTilledTex from here
+// against a recording 2D context (the test vm has no require()).
+ctx.TILLED_TEX = (() => {
+  const c = vm.createContext({ window: {}, console });
+  vm.runInContext(readSrc('textures.js')
+    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR };',
+    c, { filename: 'textures.js#tilled' });
+  return c.__x;
+})();
+// textures.js as TEXT, for the makers that need a scene to run: traps.test.js
+// pins that both trap textures are baked one cell square off the one TRAP_PX.
+ctx.TEXTURES_SRC = readSrc('textures.js');
+// The trap art. Same trick as TILLED_TEX above — its own context, since the
+// module's constants collide with the stubs here — but these makers take a
+// SCENE, so traps.test.js hands them a stub whose createCanvas returns a
+// recording 2D context and runs the real drawing code.
+ctx.TRAP_TEX = (() => {
+  const c = vm.createContext({ window: {}, console });
+  vm.runInContext(readSrc('textures.js')
+    + '\nglobalThis.__x = { makeHiddenTrapTexture, makeSprungTrapTexture, makeTrapTextures, TRAP_PX };',
+    c, { filename: 'textures.js#traps' });
+  return c.__x;
+})();
+// The texture catalog, as text: assets.js is not bundled (it is data for the
+// Phaser loader), so a test that needs to know a sheet is declared pins it.
+ctx.ASSETS_SRC = readSrc('assets.js');
 // lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as
 // source text — draw() is the one Phaser-bound function in the module.
 ctx.LIGHTING_SRC = readSrc('lighting.js');
+// reach_corners.test.js pins that the lit boundary's corner radius is
+// coords.js' one number, read by both passes that draw the edge.
+ctx.COORDS_SRC = readSrc('coords.js');
 // multiplayer.js draws peers with the same feet-on-the-fix seating app.js
 // gives the local player; feet_anchor.test.js pins both as text.
 ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');

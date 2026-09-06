@@ -21,6 +21,11 @@
 //                    you face (SHOT[].aim below). A hit drains the same HP
 //                    pool the melee wheel does.
 //   bare hands     — still work, still slow (the 9 s tier-0 rung).
+//   monster arrows — a ranged monster (the goblin archer) shoots a visible
+//                    arrow AT the player at the turret's cadence; it flies as
+//                    a bow arrow and hits the player (monsterShot below,
+//                    stepShots' `hostile` lane; app.js wanderCreatures fires
+//                    it and _shotHitsPlayer takes the hit).
 //   castle turrets — every `tower` object on screen with the player looses a
 //                    Wood-tier bow arrow at the nearest enemy on screen, at
 //                    one fifth the player's cadence (TURRET / turretTick
@@ -327,13 +332,21 @@
   // reads as hitting the wall, and it is then dropped.
   // `opts.cellM` sizes the sampling; it falls back to the hit radius, which is
   // just under a cell.
+  //
+  // `opts.hostileTargets` — what a HOSTILE shot (a monster's arrow, flagged
+  // `hostile` by monsterShot) can hit: the player, handed over as a marker
+  // `{ id, x, y }` at the feet. A hostile shot never sweeps `enemies` (an
+  // archer can't shoot its own pack) and a friendly one never sweeps the
+  // player; the two lists never mix, whichever order the shots sit in.
   function stepShots(shots, dt, enemies, hitRadiusM, onHit, opts) {
     const alive = [];
     const r2 = hitRadiusM * hitRadiusM;
     const blocked = opts && opts.blocked;
+    const hostileTargets = (opts && opts.hostileTargets) || [];
     const sampleM = Math.max(0.01,
       ((opts && opts.cellM) || hitRadiusM) * BLOCK_SAMPLE_CELLS);
     for (const s of shots) {
+      const targets = s.hostile ? hostileTargets : enemies;
       const sr2 = s.radiusM != null ? s.radiusM * s.radiusM : r2;
       const step = s.speedMps * dt;
       // How far of this frame's step the shot actually gets to travel: all of
@@ -358,7 +371,7 @@
         // Piercing: damage every foe inside the radius ONCE each, keep flying.
         // The per-shot hit ledger is what stops a slow bolt re-hitting the
         // same foe on every frame it spends crossing them.
-        for (const e of enemies) {
+        for (const e of targets) {
           const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
           if (d2 > sr2) continue;
           const key = e.id != null ? e.id : e;
@@ -369,7 +382,7 @@
         }
       } else {
         let hit = null, bestD2 = sr2;
-        for (const e of enemies) {
+        for (const e of targets) {
           const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
           if (d2 <= bestD2) { bestD2 = d2; hit = e; }
         }
@@ -458,6 +471,31 @@
     return shots;
   }
 
+  // ── Monster arrows ───────────────────────────────────────────────────────
+  // A RANGED monster (MONSTERS[kind].range > 1 — the goblin archer and its
+  // giant) attacks with a visible arrow, not the silent energy leech the
+  // melee kinds land: app.js (wanderCreatures) looses one at the player
+  // whenever they are inside the kind's range with a clear line of fire
+  // (lineOfFire — the same rock that stops your arrow stops theirs), and the
+  // arrow flies exactly as a bow arrow does, joining the one shot list. It is
+  // flagged `hostile`, which is what makes stepShots sweep it against the
+  // PLAYER (opts.hostileTargets) rather than the enemy list. Its damage is the
+  // kind's `dmg` — one arrow is one hit of the table — and its cadence is the
+  // castle turret's (MONSTER_SHOT_INTERVAL_MS = TURRET.fireIntervalMs), so an
+  // archer and a turret trade arrows at the same pace. A distinct colour
+  // keeps a shot coming AT you legible from one going out.
+  const MONSTER_SHOT_INTERVAL_MS = TURRET.fireIntervalMs;
+  const HOSTILE_ARROW_COLOR = 0xb0f08a;
+  function monsterShot(x, y, targetX, targetY, cellM, dmg) {
+    const heading = { x: targetX - x, y: targetY - y };
+    const shot = spawnShot('bow', x, y, heading, cellM, dmg, 1);
+    if (!shot) return null;
+    shot.hostile = true;
+    shot.color = HOSTILE_ARROW_COLOR;
+    shot.aimDistM = Math.hypot(heading.x, heading.y);
+    return shot;
+  }
+
   // Is there a clear line from (x0,y0) to (x1,y1)? Sampled at the same
   // resolution a shot's flight is, through the same caller-supplied world
   // test, so what stops an arrow stops a line of fire.
@@ -499,6 +537,7 @@
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
+    MONSTER_SHOT_INTERVAL_MS, HOSTILE_ARROW_COLOR, monsterShot,
   };
   root.Combat = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

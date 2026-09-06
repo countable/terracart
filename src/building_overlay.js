@@ -136,14 +136,14 @@
   // clean in the same repaint the claim epoch already forces.
   //
   // The colour is DERIVED, not picked: the unclaimed shade run over the already
-  // shaded floor twice more. That transform is a lerp half-way to
+  // shaded floor twice more. That transform is a lerp a third of the way to
   // textures.js's own green wash each time, so three shades deep lands a dark
   // green that is by construction the same green the rest of a derelict wears —
   // retune UNCLAIMED_SHADE and the slime follows it instead of drifting into a
   // second green of its own. SLIME_FALLBACK is only reached when textures.js
   // isn't loaded at all (the headless suite), where the shade is a no-op.
   const SLIME_FALLBACK = 0x1e3b24;      // = textures.js UNCLAIMED_SHADE.wash
-  const SLIME_FALLBACK_A = 0.75;        // ≈ where three halvings land
+  const SLIME_FALLBACK_A = 0.73;        // ≈ where three 35% lerps land (1 − 0.65³)
   // Translucent, so the floor's own material grains through the stain: growth
   // ON the cobbles rather than a hole cut in them. Each splotch is painted once
   // per building, so unlike the whole-footprint wash this can't double up on

@@ -60,8 +60,8 @@ test('acorn: is a T2 sapling that grows a maple, with a price, an effect line an
   assert.truthy(PRICES.acorn < PRICES.apple, 'cheaper than the apple it is shaken loose beside');
   assert.truthy(/maple/i.test(ITEM_EFFECTS.acorn || '') && /wood/i.test(ITEM_EFFECTS.acorn || ''),
     'ITEM_EFFECTS says what it grows and what that is for');
-  assert.truthy(PLAY_TIPS.some(t => /\bAcorn\b/.test(t) && /maple/i.test(t) && /wood/i.test(t)),
-    'a Book tip covers the acorn → maple → wood loop');
+  // The acorn → maple → wood loop is on the item line; no Book tip restates it.
+  assert.falsy(PLAY_TIPS.some(t => /\bAcorn\b/.test(t)), 'no Book tip restates the acorn');
 });
 
 test('acorn: the sapling registry knows maple, and only registered species survive the re-inject', () => {

@@ -68,11 +68,12 @@
   by `PEEK_MAX_CELLS` cells, the drag's own clamp — or the peek pulls its outer
   edge into view. The distance falloff shipped stopping exactly at the viewport
   half-diagonal, so a drag put a hard circular arc of the darkness's own edge
-  across the corner of the map. The fix is not to retune the ramp: it still ends
-  at the half-diagonal, and the rings simply continue past it flat at the alpha
-  the ramp reaches there (`render.js` › `Render.falloffRadii` — one helper, two
-  radii, so the margin can't drift from the clamp). **When you cache a layer
-  about the viewport centre and slide it, give it the peek margin.**
+  across the corner of the map. The lightmap (`src/lighting.js`) is drawn at
+  the player's screen point every frame rather than slid, and its ramp ends ON
+  ZERO — `PLAYER_RAMP_PAST_CORNER_CELLS` (one cell) beyond the half-diagonal,
+  so the corners stay just lit — with the ambient floor past it the same value,
+  so there is no edge for a peek to find. **When you cache a layer about the
+  viewport centre and slide it, give it the peek margin.**
   **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js` drives the
   lifted shipping code: the projection round-trip under a peek, that a tap lands
   in the cell it was drawn over, that reach is unmoved by the camera, that a
@@ -137,6 +138,21 @@
   handing over three — if a loot path rolls a quantity, its flash prints that
   quantity.
   **Audit it:** `node test/node/run.js` › `test/node/rock_yield.test.js`.
+
+- **A tilled cell is one BAKED bed, never a per-frame rounded path.** The
+  soil is the `tilled_N` texture (`textures.js` › `drawTilledTex`): an opaque
+  pad inset `TILLED_INSET_PX` from every edge with `TILLED_CORNER_PX` corners
+  and a transparent ring, so each cell reads as its own bed with the ground
+  colour showing between neighbours, and `render.js` paints NO soil fill under
+  it. Until Sep 2026 it painted one — and at a sand/residential zone corner it
+  was a `fillRoundedRect` wearing the ZONE's radii, which Phaser tessellates
+  into ~400 points and triangulates every frame (cellGfx is cleared each
+  frame). Any shape a cell wears every frame belongs in its texture, not in a
+  Graphics path. The watered darkening is a TINT on that pad sprite
+  (`WATERED_TINT`), set on every frame the pool sprite is reused: a wash under
+  an opaque pad is hidden, and one over it darkens the ground ring too.
+  **Audit it:** `node test/node/run.js` › `test/node/tilled_bed.test.js` runs
+  the real `drawTilledTex` against a recording 2D context.
 
 - **The creature "crown" rule (work wheel).** Creatures are exempt from the
   one-cell rule above (they're feet-anchored moving actors), but the
@@ -301,6 +317,50 @@
   pins the formatter and sweeps the call-site sources for a re-grown ladder or
   a fresh unquantified "tomorrow" / "later".
 
+- **An energy number lands ON ITS CELL, by the player.** Every `+N⚡` / `−N⚡`
+  goes through `app.js` › `_popEnergy(delta, { ix, iy })`: the absolute cell
+  the change belongs to (the plot a till paid for, the wall a dig cost — a
+  spend resolves it from the TAP via `_cellAtScreen`), defaulting to the
+  player's own cell when the change is to the body (a rest tick, a slime's
+  leech, the offline refill). It seats through the projection
+  (`_energyPopAt` → `_cellToastAt` / `playerScreen`, never `viewCenterX/Y`),
+  hangs just clear of the cell's top edge — or of the player's HEAD on their
+  own cell, `ENERGY_POP_HEAD_PX`, derived from the walker's frame and feet
+  drop, `_isPlayerCell(ix, iy)` being the test that picks the body — so where
+  the number hangs is what tells the reader WHICH cell. **The number is the
+  whole mark: nothing is drawn on the ground.** A thin outline used to tick on
+  the cell under it in the same ink, which read as a flash of red or green
+  damage on whatever you had just tapped; it was removed in Sep 2026 along
+  with `_flashCellOutline`, and adding a ring back is the bug returning.
+  It wears the `cell` toast tier: bold, stroked and
+  drop-shadowed, no chip, because it sits on any ground at all. Until Sep
+  2026 the rest splash was a note at the viewport centre minus 70px and the
+  drains sat 40px above the same point — nowhere in particular, and under a
+  peek drag two cells from anyone. **When you add an energy gain or loss the
+  player can see, pop it with `_popEnergy` and name the cell** — a `flash` of
+  a ⚡ number at the viewport centre is the bug coming back.
+  **Every other number on the map is the same thing.** `_popEnergy` is the
+  ⚡ face of `_popCellNumber(text, color, ix, iy)`, which the coin pickup's
+  `+$1` uses on the coin's cell (it used to flash at the finger, which is
+  over the coin only until it lifts). The foe's `-N` (`_popDamageNumber`)
+  stays on the foe's health bar — that IS its cell — but is a `damage` row
+  of the same `TOAST_TIER` table, so it wears the same stroke and shadow;
+  it was a hand-set `add.text` beside the table with no shadow. **A number
+  drawn on the map is a `_toast` tier, never its own `add.text`**, and it
+  names the cell or the foe it is about.
+  **And the body flinches.** A blow on the player (the slime leech, a
+  monster's melee, an arrow in `_shotHitsPlayer`) calls `_flashPlayerHit`
+  at the instant it lands — never from the throttled pop, which rolls a
+  second of bites into one number — and `_updatePlayerAura` flicks the
+  character red for `HIT_FLASH_MS` on TWO channels: the sprite tint and the
+  halo's red texture, because `setTint` is a no-op under Phaser's Canvas
+  fallback and a tint-only flinch is invisible there. **When you add a
+  drain on the body, call `_flashPlayerHit` where the loss is banked.**
+  **Audit it:** `test/node/hit_flash.test.js`.
+  **Audit it:** `node test/node/run.js` › `test/node/energy_pop.test.js` runs
+  the lifted seating on a stub scene (cell edge, head clearance, peek) and
+  pins the call sites and the tiers as source text.
+
 - **Working is not resting.** The passive rests in `app.js` update() — Home
   (`HOME_FULL_REST_S`) and campfire warmth (`FIRE_FULL_REST_S`) — pause while
   a work wheel runs (`const working = !!this._workProgress`). Until Sep 2026
@@ -314,6 +374,27 @@
   gate it on `working`.**
   **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js` pins
   both gates as source text and shows the ungated rest out-earning the till.
+
+- **A trap is generated, never stored — until it is sprung.** Where the traps
+  are (`src/traps.js`) is a pure function of the tile's coordinates, and its
+  depth underground, through `WorldGen.makeRng` — like the X-mark scatter and
+  the cave rocks. The ONLY thing that ever reaches the save is
+  `save.sprungTraps`: the ids of the ones the player has stepped on, which is
+  what keeps a discovered trap discovered across a reload, a tile eviction and
+  a rebuild. Each spawner seeds its OWN stream rather than drawing from the
+  caller's, because `spawnInTile` and `spawnCaveCreatures` are long chains off
+  one rng and taking numbers out of them would re-roll every world seed
+  downstream. Surface traps go ON THE VERGE, never on the road: roadside-ness
+  is `Traps.isRoadside` over **`entry.roadMask`** and the seat is cleared by
+  `WorldGen.isSpawnCell` with the tile's own `_spawnOpts` — the road rule
+  above, not a copy of it. Cave traps sit around the up-staircases (the
+  monsters' and coins' anchors) and never under an object sprite, since down
+  there the art is the only warning. The per-frame tick reads
+  `playerToWorldCell()` — the FEET, never the peek anchor — and both costs pop
+  through `_popEnergy` on the trap's own cell.
+  **Audit it:** `node test/node/run.js` › `test/node/traps.test.js`, which also
+  runs both procedural textures against a recording 2D context and fails if the
+  hidden one stops being subtle or either leaves its cell.
 
 - **Light ADDS, darkness doesn't — the lightmap is the only lighting pass.**
   Until Sep 2026 the lighting was five Graphics workarounds for "Phaser has no
@@ -336,6 +417,15 @@
   `cellInReach`'s own expressions over every reach cell, so it IS the
   staircase the white outline traces and the tap gate accepts; only the
   falloff outside it is a circle. A circle for the plateau is the bug.
+  Inside the staircase the plateau is NOT flat: the fill is a radial
+  gradient about the feet (`plateauFill`), full `lit` at the player and
+  `PLATEAU_FALL` of it gone by the reach rim (`plateauLevel`, quadratic so
+  the middle stays flat), clipped by the per-cell path so the edge is still
+  exact. It is shading, not a second falloff: the test pins that the step
+  off the plateau to `edge` outweighs the fall across it at every depth and
+  hour. Deepen the look through `PLATEAU_FALL`; if the rim ever needs to be
+  darker than that step, that is a reach-affordance change, not a lighting
+  tweak.
   **The numbers are derived, not tuned:** `Lighting.profile` builds the
   ambient, the plateau and the edge level from the same
   `Render.reachDimColor` / `reachDimAlpha` the old wash painted with plus the
@@ -372,6 +462,44 @@
   derived levels, the table, the collector, the source pins) and
   `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
   the labels).
+
+- **What an item DOES is written on the ITEM, not in the Book.** There are
+  four description surfaces, and the player reads every one while HOLDING the
+  thing, exactly when the answer is wanted: `ITEM_EFFECTS[id]` (the `✦ …` line
+  under the selected stack), `RELIC_DEFS[slot].blurb` (the same line for a
+  relic, plus the Stats panel's per-slot row), the Eat button's `+N⚡` for a
+  food, and the Stats panel's `+N max energy` for armour. **`PLAY_TIPS` is not
+  one of them.** A Book is a consumable: spending one to be told what the
+  inventory bar was already showing is a wasted read, and the two copies drift.
+  Until Sep 2026 a THIRD of the list was that — the Rope tip and
+  `ITEM_EFFECTS.rope` said the same sentence twice, the Hoe tip was its blurb
+  reworded, and one tip explained what a Book does, which you could only read
+  by burning a Book. The drift was real and shipped: the Bow/Staff tip still
+  said "one shot a second" long after `Combat.FIRE_INTERVAL_MS` was halved to
+  2000, and the tool tip still said a Wood relic was "three times quicker"
+  after `TOOL_DURATION_MS[1]` moved 3000 → 4000 ms (it is 2.25×).
+  A tip carries what no single item can — where things grow, how a shop or a
+  gate behaves, what an animal wants, what a readout means, a riddle. **When a
+  tip and a description overlap, the description wins and the tip goes**; if the
+  tip carried a fact the line didn't, move the fact onto the line (keep it
+  short — the `✦` row is `nowrap` + ellipsis, so ~55 chars is the ceiling).
+  **The one exception is the one SECRET.** What an item secretly does is not a
+  description — printing it spoils it. `ITEM_EFFECTS.sapphire` read `Offer to a
+  slime to tame it` until Sep 2026: the game's single real secret, on the
+  inventory bar the instant anyone held a sapphire, while the gem's ADVERTISED
+  use (the portal down, its own Portal button) went undescribed. The line names
+  the portal now, and the taming is hinted in exactly one place — the closing
+  riddle in `PLAY_TIPS`, which says "creature" before it says "slime". Nothing
+  else names it: `ANIMAL_FOOD.slime` is unreachable through `animalLikesFood`
+  in practice (a slime is an enemy, so `interact.js` takes the sapphire branch
+  and then the combat branch long before the favourite-food path), so no
+  "it wants X" hint can leak it. **When an item has a secret use, its ✦ line
+  describes the open one.**
+  **Audit it:** `node test/node/run.js` › `test/node/item_descriptions.test.js`
+  sweeps every tip against every description for word overlap (three distinct
+  words is a restatement), re-checks that the sweep still catches the six real
+  tips deleted in the prune, pins that the facts they carried landed on the
+  items, and pins the sapphire's one-hint rule.
 
 ## Testing
 

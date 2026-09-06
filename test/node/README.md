@@ -22,7 +22,7 @@ folder. It's the right home for anything that's a pure function of its inputs:
 - `loot.test.js`     — `pickReward` (seeded PRNG → deterministic), reward
   validity, ring luck.
 - `registry.test.js` — the `INTERACTABLES` registry driven through
-  `runInteractable()` against a stub scene (gates, loot, gather-luck flag).
+  `runInteractable()` against a stub scene (gates, loot).
 
 It does **not** replace the browser harness (`test/harness.html` +
 `run_tests.py`). Anything that needs the live Phaser scene, real tile

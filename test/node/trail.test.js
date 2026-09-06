@@ -41,6 +41,29 @@
     assert.eq(T.progress(3, 2).target, 30, 'after two prizes it wants 30');
   });
 
+  test('trail: the counter on a paying sweep reads the goal it completed, full', () => {
+    // The ladder grows by GOAL_STEP a rung, so the moment the first prize
+    // opened the stone read "3/20" — the carried remainder against the next
+    // goal — beside a ceremony that had paid at 10. The paying sweep's
+    // readout is the completed goal, full; the remainder shows next sweep.
+    assert.eq(T.readout(T.bank(8, 0, 5)).pos, 10, 'the first goal, complete');
+    assert.eq(T.readout(T.bank(8, 0, 5)).target, 10, 'and the target is that goal');
+    const next = T.bank(8, 0, 5);
+    assert.eq(T.readout({ stones: next.stones, prizes: next.prizes, owed: 0 }).target, 20,
+      'the next sweep reads against the next rung');
+    assert.eq(T.readout({ stones: next.stones, prizes: next.prizes, owed: 0 }).pos, 3,
+      'with the carried remainder');
+    // A sweep that crosses two goals at once reads the LAST one it completed.
+    const two = T.bank(9, 0, 22);
+    assert.eq(two.owed, 2);
+    assert.eq(T.readout(two).target, 20, 'the second rung, full');
+    assert.eq(T.readout(two).pos, 20);
+    // No payout: plain progress.
+    const p = T.readout(T.bank(0, 0, 7));
+    assert.eq(p.pos, 7); assert.eq(p.target, 10);
+    assert.eq(T.readout(null).target, 10, 'nothing banked reads as a fresh rung');
+  });
+
   test('trail: banking stones counts them and pays on the goal', () => {
     let st = T.bank(0, 0, 9);
     assert.eq(st.stones, 9, 'nine banked');
@@ -312,6 +335,24 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   // The modal shell gives an actions dialog no tap-to-dismiss, so a stray tap
   // can't drop the prize — pin that the offer really is the actions variant.
   assert.truthy(/Take your pick/.test(body), 'the offer names itself as a pick');
+  // The header: "Thou hast traveled far", one constant for all three shapes
+  // of the ceremony, with the count it paid at on the pick's flavour line.
+  assert.truthy(/const TRAIL_PRIZE_HEADER = 'Thou hast traveled far';/.test(app), 'the header constant');
+  assert.truthy(/const header = TRAIL_PRIZE_HEADER;/.test(body), 'the ceremony uses it');
+  assert.eq((body.match(/header,/g) || []).length, 3, 'all three shapes carry the header');
+  assert.truthy(/sub: `\$\{walked\} cobbles walked · \$\{choices\.length\} finds — one is yours`/.test(body),
+    'the pick says how far the walk was');
+  assert.falsy(/cobbles walked`;/.test(body), 'the count is no longer the header');
+});
+
+test('trail counter: the stone reads Trail.readout of the bank, not raw progress', () => {
+  const app = APP_JS_SRC;
+  const at = app.indexOf('  _bankTrailStones(lit, at) {');
+  assert.gt(at, 0, 'found the bank');
+  const body = app.slice(at, app.indexOf('\n  }\n', at));
+  assert.truthy(/const \{ pos, target \} = Trail\.readout\(out\);/.test(body),
+    'the paying sweep reads the completed goal, full');
+  assert.falsy(/Trail\.progress\(/.test(body), 'raw progress is not what the stone shows');
 });
 })();
 // ── The counter lands ON the stone ────────────────────────────────────────
@@ -321,7 +362,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
 // because it is a PROJECTION — the thing a peek drag breaks when someone
 // measures it off the player instead of the camera anchor.
 (() => {
-const { _trailCounterAt } = __trailCounter;
+const { _trailCounterAt, _cellToastAt } = __trailCounter;
 const near = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
 
 // Same shape as peek_drag.test.js's scene — round numbers, shipping cellM.
@@ -337,6 +378,7 @@ const counterScene = (over) => Object.assign({
   viewCenterY: 200,
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); },
   _trailCounterAt,
+  _cellToastAt,
 }, over || {});
 
 // The cell the player is standing in, so the maths below has a known answer.
@@ -431,6 +473,10 @@ const sweepScene = (over) => Object.assign({
   playerM: { x: 25.5 * STEP_M, y: 25.5 * STEP_M },
   banked: [],
   _bankTrailStones(lit, at) { this.banked.push({ lit, at }); },
+  // The stone-chip burst (src/particles.js) the sweep fires per lit cobble —
+  // recorded, so the test can pin one puff per stone that came on.
+  bursts: [],
+  _burstAtCell(kind, ix, iy) { this.bursts.push({ kind, ix, iy }); },
   _pathStoneAt, _activatePathStone, _resetTrailSight,
   _rebuildTrailSight, _sweepCobbleTrails,
 }, over || {});
@@ -467,6 +513,12 @@ test('trail sight: two seconds in the bubble and the stones come on', () => {
     assert.gt(lit, 0, 'the reach really does cover some drawn stones');
     assert.eq(s.banked.length, 1, 'one bank for the whole disc, not one each');
     assert.eq(s.banked[0].lit, lit, 'and it banked exactly what lit');
+    // Two bursts per stone: the chips and the spark ring of the blast.
+    const chips = s.bursts.filter((b) => b.kind === 'stone');
+    const sparks = s.bursts.filter((b) => b.kind === 'trailspark');
+    assert.eq(chips.length, lit, 'one stone-chip burst per stone that came on');
+    assert.eq(sparks.length, lit, 'and one spark ring per stone');
+    assert.eq(s.bursts.length, lit * 2, 'nothing else');
     // Standing there longer lights nothing more — the disc is spent.
     clock.at(PATH_STONE_DWELL_MS * 5); s._sweepCobbleTrails();
     assert.eq(litCount(s), lit, 'a spent disc stays spent');

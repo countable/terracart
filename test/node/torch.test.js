@@ -48,11 +48,8 @@ test('torch: a T1 consumable with a price, an effect line and a Book tip', () =>
   assert.truthy(/^Use /.test(ITEM_EFFECTS.torch || ''), 'an ITEM_EFFECTS line that starts "Use"');
   assert.truthy(/light/i.test(ITEM_EFFECTS.torch), 'and says it is light');
   assert.falsy('icon' in it, 'no emoji icon field (QC_RULES §1)');
-  assert.truthy(PLAY_TIPS.some(t => /\bTorch\b/.test(t) && /light/i.test(t)), 'a Book tip covers the torch');
-  const tips = ITEMS_JS_SRC;
-  const under = tips.indexOf('── Underground'), shops = tips.indexOf('── Shops / trade');
-  const tip = tips.indexOf("'A Torch throws");
-  assert.truthy(under > 0 && tip > under && tip < shops, 'the tip sits in the Underground group');
+  // What the torch does is on the torch (its ✦ line); no Book tip repeats it.
+  assert.falsy(PLAY_TIPS.some(t => /\bTorch\b/.test(t)), 'no Book tip restates the item');
 });
 
 test('torch: two-table icon rule — MINERAL_ICON_SHEET → ICON_SHEETS → a real 16×16 PNG', () => {
@@ -74,21 +71,23 @@ test('torch: two-table icon rule — MINERAL_ICON_SHEET → ICON_SHEETS → a re
 
 // ── The light row: derived from the player's ──────────────────────────────
 test('torch: a KINDS row, TORCH_RADIUS_MUL player radii of the player\'s own white', () => {
-  const P = Lighting.KINDS.player, T = Lighting.KINDS.torch;
+  const P = Lighting.KINDS.player, T = Lighting.KINDS.handtorch;
   assert.truthy(P, 'the player has a row');
   assert.truthy(T, 'and so does the torch');
   assert.eq(Lighting.TORCH_RADIUS_MUL, 2, 'twice the player\'s radius');
-  assert.eq(Lighting.radiusCells('torch'), Lighting.radiusCells('player') * Lighting.TORCH_RADIUS_MUL,
+  assert.eq(Lighting.radiusCells('handtorch'), Lighting.radiusCells('player') * Lighting.TORCH_RADIUS_MUL,
     'the torch radius IS the player radius × TORCH_RADIUS_MUL — one derivation, not a second number');
   assert.eq(T.colour, P.colour, 'the same colour as the player\'s own light');
   assert.eq(P.colour, 0xffffff, 'which is white');
   assert.gt(T.peak, 0, 'a real cookie');
   assert.gt(T.flicker, 0, 'it is a flame: it breathes');
-  assert.gt(Lighting.radiusCells('torch'), Lighting.radiusCells('trailer'), 'and it throws further than Home');
+  assert.gt(Lighting.radiusCells('handtorch'), Lighting.radiusCells('trailer'), 'and it throws further than Home');
   // The player row's radius is the ramp's extent — the viewport's half-
-  // diagonal — the same number draw() used to compute for rMax.
+  // diagonal plus the past-corner margin — the same number draw() used to
+  // compute for rMax.
   const near = (a, b, m) => { if (Math.abs(a - b) > 1e-9) throw new Error(`${m}: ${a} vs ${b}`); };
-  near(Lighting.radiusCells('player'), Math.hypot(VIEW_CELLS, VIEW_CELLS) / 2, 'the player row is the ramp');
+  near(Lighting.radiusCells('player'), Math.hypot(VIEW_CELLS, VIEW_CELLS) / 2 + Lighting.PLAYER_RAMP_PAST_CORNER_CELLS,
+    'the player row is the ramp');
   assert.truthy(/const rMax = radiusCells\('player'\) \* CELL_PX;/.test(LIGHTING_SRC),
     'draw() reads the ramp\'s extent off the row, not a second copy of the maths');
   assert.truthy(/const white = KINDS\.player\.colour;/.test(LIGHTING_SRC), 'and the ramp\'s colour');
@@ -103,14 +102,14 @@ test('torch: the collector emits `torch` for the player while it burns, `player`
   assert.eq(s._lights.length, 0, 'the ramp IS the player row: no cookie on top of it');
 
   const t = scene({ isTorchActive: () => true });
-  assert.eq(Lighting.playerKind(t), 'torch', 'lit: the torch row');
-  assert.eq(Lighting.sourceKind(t, { kind: 'player' }), 'torch');
+  assert.eq(Lighting.playerKind(t), 'handtorch', 'lit: the torch row');
+  assert.eq(Lighting.sourceKind(t, { kind: 'player' }), 'handtorch');
   Lighting.beginFrame(t);
   // The anchor is the player plus a peek of (2, -3) m: the light is measured
   // from the anchor, like every world-drawn thing, so it slides with the peek.
-  assert.eq(Lighting.collectPlayer(t, 103 + 2, 196 - 3, HALF_M), 'torch');
+  assert.eq(Lighting.collectPlayer(t, 103 + 2, 196 - 3, HALF_M), 'handtorch');
   assert.eq(t._lights.length, 1, 'one torch');
-  assert.eq(t._lights[0].kind, 'torch');
+  assert.eq(t._lights[0].kind, 'handtorch');
   assert.eq(t._lights[0].dx, -2, 'at the feet, in anchor metres');
   assert.eq(t._lights[0].dy, 3);
   assert.eq(Lighting.playerKind(scene()), 'player', 'a scene with no isTorchActive at all is unlit');
@@ -120,7 +119,7 @@ test('torch: the collector emits `torch` for the player while it burns, `player`
 test('torch: the cull pads by the torch\'s own radius', () => {
   // The player can't be off-screen, but the rule is the rule: the collector
   // asks inRange with the torch row, and that row's radius is what pads it.
-  const R = Lighting.radiusCells('torch') * 5;
+  const R = Lighting.radiusCells('handtorch') * 5;
   const far = scene({ isTorchActive: () => true, playerM: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 } });
   Lighting.beginFrame(far);
   Lighting.collectPlayer(far, HALF_M + R - 1, 0, HALF_M);
@@ -147,7 +146,7 @@ test('torch: the plateau is untouched — reach, the profile and the tap gate ig
   assert.truthy(/ctx\.drawImage\(player\.canvas,/.test(draw), 'the ramp is still drawn — the torch adds to it');
   const pk = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('function playerKind('), LIGHTING_SRC.indexOf('function beginFrame('));
   assert.falsy(/depth/.test(pk), 'playerKind never asks the depth — a torch by night on the surface is fine, and free');
-  assert.eq(Lighting.playerKind(scene({ depth: 0, isTorchActive: () => true })), 'torch', 'lit on the surface too');
+  assert.eq(Lighting.playerKind(scene({ depth: 0, isTorchActive: () => true })), 'handtorch', 'lit on the surface too');
 });
 
 // ── app.js: the timer, the readout, the Use button ─────────────────────────

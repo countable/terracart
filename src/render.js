@@ -11,11 +11,11 @@
 // Depends on:
 //   app.js       — MapScene fields used per-frame (read unless noted):
 //                    Graphics:   cellGfx, tierGfx
-//                    Containers: padContainer,
+//                    Containers: padContainer, trapContainer,
 //                                worldContainer (aliased as objectsContainer /
 //                                plantedContainer / creaturesContainer — one
 //                                shared, depth-sorted layer)
-//                    Pools:      cobblePool, noisePool, padPool,
+//                    Pools:      cobblePool, noisePool, padPool, trapPool,
 //                                letterPool, objectPool, padPool,
 //                                plantedPool, creaturePool, chestLabelPool
 //                                (chestLabelPool may be pushed to)
@@ -25,14 +25,14 @@
 //                                originPx, mPerPx
 //                    State:      tilledSet, placedRockSet, brokenRockSet,
 //                                save (.foundTreasures, .planted, .picked,
-//                                .caught, .opened, .tilled — and .tilled is
-//                                written-back when self-healing orphaned
-//                                tilled cells)
+//                                .caught, .opened, .sprungTraps, .tilled —
+//                                and .tilled is written-back when self-healing
+//                                orphaned tilled cells)
 //                    Helpers:    playerToWorldCell, neighborNonRoadColor,
 //                                absCellCenterMeters
 //                    Phaser:     this.add, this.textures
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
-//   textures.js  — BIOME_TEX, TILLED_COLOR, TILLED_VARIANTS, PAD_SHAPES
+//   textures.js  — BIOME_TEX, TILLED_VARIANTS, PAD_SHAPES
 //   items.js     — CROP_SPRITE, CROP_ROW, CROPS_SHEET_COLS,
 //                  SPRING_CROPS_COLS, MAX_GROWTH_STAGE
 //   loot.js      — POI_CLASS_FALLBACK, CHEST_TIER_COLOR,
@@ -261,6 +261,55 @@ function peekPxOf(scene) {
 // Returns a shared scratch object (not a fresh one) — drawCells calls this up
 // to VIEW_CELLS² times per pass, several times a frame, so this avoids an
 // allocation per cell; read sx/sy out of it before the next call.
+// The reach outline of ONE cell at screen px (sx, sy): its exposed edges
+// (top/bot/lft/rgt: that neighbour is out of reach), with the corners rounded
+// by ReachCorner (coords.js) — the same rule the lightmap plateau fills by, so
+// the white line rounds exactly the corners the light does. An exposed edge
+// stops R short of a corner a round continues (ReachCorner.shortenH/V); an
+// OUTER corner gets a quarter-arc inside the cell, an INNER corner a fillet
+// arc in the empty cell above/below, owned by this cell's horizontal edge so
+// each is drawn once (dTL..dBR: the diagonals' reach). At R = 2 px the arc is
+// two segments through its 45° point — a true arc is invisible at that size
+// and Phaser's ARC command would batch a hundred points per corner.
+// Without the rule loaded the edges are drawn full length, square.
+Render.reachOutlineCell = function reachOutlineCell(gr, sx, sy, top, bot, lft, rgt, dTL, dTR, dBL, dBR) {
+  const x1 = sx + CELL_PX, y1 = sy + CELL_PX;
+  const RC = (typeof ReachCorner !== 'undefined') ? ReachCorner : null;
+  if (!RC) {
+    if (top) gr.lineBetween(sx, sy, x1, sy);
+    if (bot) gr.lineBetween(sx, y1, x1, y1);
+    if (lft) gr.lineBetween(sx, sy, sx, y1);
+    if (rgt) gr.lineBetween(x1, sy, x1, y1);
+    return;
+  }
+  const R = RC.R;
+  if (top) gr.lineBetween(sx + (RC.shortenH(lft, dTL) ? R : 0), sy, x1 - (RC.shortenH(rgt, dTR) ? R : 0), sy);
+  if (bot) gr.lineBetween(sx + (RC.shortenH(lft, dBL) ? R : 0), y1, x1 - (RC.shortenH(rgt, dBR) ? R : 0), y1);
+  if (lft) gr.lineBetween(sx, sy + (RC.shortenV(top, dTL) ? R : 0), sx, y1 - (RC.shortenV(bot, dBL) ? R : 0));
+  if (rgt) gr.lineBetween(x1, sy + (RC.shortenV(top, dTR) ? R : 0), x1, y1 - (RC.shortenV(bot, dBR) ? R : 0));
+  reachCornerArcs(gr, sx, sy, +1, +1, R, RC.convex(lft, top), RC.fillet(lft, top, dTL));
+  reachCornerArcs(gr, x1, sy, -1, +1, R, RC.convex(rgt, top), RC.fillet(rgt, top, dTR));
+  reachCornerArcs(gr, sx, y1, +1, -1, R, RC.convex(lft, bot), RC.fillet(lft, bot, dBL));
+  reachCornerArcs(gr, x1, y1, -1, -1, R, RC.convex(rgt, bot), RC.fillet(rgt, bot, dBR));
+};
+// The round at corner point (px, py); (ix, iy) points INTO the cell. A convex
+// arc joins (px, py + iy·R) on the vertical edge to (px + ix·R, py) on the
+// horizontal one, bowing toward the corner; a fillet joins (px + ix·R, py) on
+// this cell's horizontal edge to (px, py − iy·R) on the diagonal cell's
+// vertical edge, bowing the same way into the empty cell.
+const ARC_MID = 1 - Math.SQRT1_2;   // the 45° point's inset from the corner, per R
+function reachCornerArcs(gr, px, py, ix, iy, R, convex, fillet) {
+  const m = R * ARC_MID;
+  if (convex) {
+    gr.lineBetween(px, py + iy * R, px + ix * m, py + iy * m);
+    gr.lineBetween(px + ix * m, py + iy * m, px + ix * R, py);
+  }
+  if (fillet) {
+    gr.lineBetween(px + ix * R, py, px + ix * m, py - iy * m);
+    gr.lineBetween(px + ix * m, py - iy * m, px, py - iy * R);
+  }
+}
+
 const _cellScreenXY = { x: 0, y: 0 };
 function cellScreenXY(scene, ox, oy, fracX, fracY) {
   _cellScreenXY.x = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
@@ -364,6 +413,9 @@ const _WAVE_TABLE = (() => {
 // Flat-only terrain types (no tileset art) get rounded corners at zone
 // boundaries. Module-level: the membership never changes, and drawCells runs
 // every frame — rebuilding a 12-element Set 60 times a second bought nothing.
+// Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
+// (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
+const WATERED_TINT = 0xc7c7c7;
 const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 30]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, unmapped fog
 // Road copiar.png is a 5x4 grid of 16x16 frames. Only frames 0-8, 10-11, 15-16
 // contain art. Each road tier picks ONE frame so the same road class reads
@@ -383,6 +435,18 @@ const litCobbleTexKey = (f) => `cobble_lit_${f}`;
 // Every frame that can be lit: the three vehicle tiers plus the path pebble.
 // Roads are claimable trails now too, so all four need a lit copy.
 const LIT_COBBLE_FRAMES = [ROAD_FRAME[7], ROAD_FRAME[13], ROAD_FRAME[14], PATH_FRAME];
+// The lit stone GLOWS. Its baked copy (app.js create()) is padded by
+// LIT_COBBLE_GLOW_PAD of the frame's width on every side and carries a soft
+// violet halo in that margin, under the recoloured stone — so drawCells draws
+// a lit stone LIT_COBBLE_GLOW_SCALE times the size an unlit one is, which
+// keeps the STONE itself at its cell size and lets the halo spill around it.
+// One pair, both sides: the baker pads by the first, the drawer scales by the
+// second, and the second is derived from the first so a wider halo can't
+// shrink the stone (cobble_glow.test.js pins it). Until Sep 2026 a lit
+// cobble was the same grey pebble in a flat lavender — the recolour alone
+// read as "slightly different gravel", not as something that had come on.
+const LIT_COBBLE_GLOW_PAD = 0.5;
+const LIT_COBBLE_GLOW_SCALE = 1 + 2 * LIT_COBBLE_GLOW_PAD;
 // Fog of war — the wash over land the player has never visited.
 //
 // Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
@@ -769,7 +833,7 @@ const _washCells = [];
 // headless fallback: render.js loads in the node suite, textures.js can't.
 const _USH = (typeof UNCLAIMED_SHADE !== 'undefined') ? UNCLAIMED_SHADE : null;
 const UNCLAIMED_WASH = _USH ? _USH.wash : 0x1e3b24;
-const UNCLAIMED_WASH_A = _USH ? _USH.washA : 0.5;
+const UNCLAIMED_WASH_A = _USH ? _USH.washA : 0.35;
 const UNCLAIMED_MURK = _USH ? _USH.murk : 0x05070c;
 const UNCLAIMED_MURK_A = _USH ? _USH.murkA : 0.12;
 // White lerped UNCLAIMED_WASH_A of the way to the wash — the multiply tint that
@@ -1064,6 +1128,14 @@ Render.drawCells = function drawCells(scene) {
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
+  // The lit cobbles' own light (src/lighting.js): a small violet glow on the
+  // lightmap under every lit stone, and a brief bright blast on one that has
+  // just come on. Collected here, in the cell pass, because a stone is a CELL
+  // and never crosses drawObjects' scan; kept on its own list (beginCells /
+  // considerCobble) because drawObjects runs after this pass and resets the
+  // object lights at its top.
+  const LIGHTS = (typeof Lighting !== 'undefined') ? Lighting : null;
+  if (LIGHTS) LIGHTS.beginCells(scene);
   // (ROAD_FRAME / PATH_FRAME are module-level — see above.)
   // Cobble tiles (road cluster + path pebble alike) draw at 57% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
@@ -1438,15 +1510,9 @@ Render.drawCells = function drawCells(scene) {
         }
       }
 
-      // Repaint base color for tilled cells (yellow-brown soil, replaces underlying terrain color).
-      if (isTilled) {
-        g.fillStyle(TILLED_COLOR, 1);
-        if (tl || tr || bl || br) {
-          g.fillRoundedRect(sx, sy, CELL_PX, CELL_PX, { tl, tr, bl, br });
-        } else {
-          g.fillRect(sx, sy, CELL_PX, CELL_PX);
-        }
-      }
+      // (No soil fill for a tilled cell: the `tilled_N` texture below is an
+      // opaque, inset, rounded bed — see textures.js TILLED_INSET_PX — and the
+      // terrain colour just painted is what shows in the ring around it.)
 
       // Procedural texture overlay for every ground cell.
       // All terrain types — including water and sand — use a procedural biome
@@ -1500,6 +1566,12 @@ Render.drawCells = function drawCells(scene) {
           ns.setDisplaySize(CELL_PX, CELL_PX)
             .setPosition(Math.round(sx), Math.round(sy))
             .setVisible(true);
+          // Watered soil reads a shade darker (damp). The pad is an opaque
+          // sprite now, so the tint goes on the sprite — a wash on the cell
+          // graphics under it would be hidden, and one over it would darken
+          // the ground ring too. The pool is reused every frame, so the tint
+          // is set on every path, not only the watered one.
+          ns.setTint(isWatered ? WATERED_TINT : 0xffffff);
         } else {
           ns.setVisible(false);
         }
@@ -1600,6 +1672,7 @@ Render.drawCells = function drawCells(scene) {
           // reads as an event. Pure transform, no extra sprite/pool, so it's
           // renderer-agnostic like the recolour it plays over.
           let flashMul = 1;
+          let flashT = null;                        // 0..1 through the pop, null at rest
           if (active && scene._pathStoneFlashes) {
             const flashAt = scene._pathStoneFlashes.get(cellKeyFromAbsCell(absCellIX, absCellIY));
             if (flashAt != null) {
@@ -1607,8 +1680,16 @@ Render.drawCells = function drawCells(scene) {
               if (ft < 1) {
                 const decay = (1 - ft) * (1 - ft);   // ease-out: snaps in, settles slowly
                 flashMul = 1 + PATH_STONE_FLASH_BOUNCE * decay;
+                flashT = ft;
               }
             }
+          }
+          // A lit stone is a light: its glow on the lightmap, and the blast
+          // while it pops. Metres from the camera anchor, like every light —
+          // the cell's centre is (ox + 0.5 - fracX) cells from it.
+          if (active && LIGHTS) {
+            LIGHTS.considerCobble(scene, (ox + 0.5 - fracX) * scene.cellM,
+                                  (oy + 0.5 - fracY) * scene.cellM, tilledKey, flashT);
           }
           // Swap texture key — 'pier' for plank, the lit copy of this frame
           // for a claimed stone, 'cobble' for everything else. Pool sprites
@@ -1625,7 +1706,9 @@ Render.drawCells = function drawCells(scene) {
           // Alpha is set on every draw, not just for the translucent kinds:
           // pool slots are reused across cell types, so a slot that carried a
           // cobble last frame would keep COBBLE_ALPHA on a pier plank the next.
-          const dsize = size * flashMul;
+          // The lit copy carries its halo in a padded margin, so it is drawn
+          // LIT_COBBLE_GLOW_SCALE larger to keep the stone at its cell size.
+          const dsize = size * flashMul * (useActiveTex ? LIT_COBBLE_GLOW_SCALE : 1);
           cs.setDisplaySize(dsize, dsize)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
             .setTint(0xffffff)
@@ -1636,11 +1719,6 @@ Render.drawCells = function drawCells(scene) {
         }
       }
 
-      // Subtle darker tint for watered tilled cells (just enough to read as damp soil).
-      if (isWatered) {
-        g.fillStyle(0x000000, 0.22);
-        g.fillRect(Math.round(sx), Math.round(sy), CELL_PX, CELL_PX);
-      }
     }
   }
   // Building outline pass — runs AFTER all cells are filled so a neighbour
@@ -2028,10 +2106,9 @@ Render.drawCells = function drawCells(scene) {
       const bot = !isReach(col, row + 1);
       const lft = !isReach(col - 1, row);
       const rgt = !isReach(col + 1, row);
-      if (top) gr.lineBetween(sx, sy, sx + CELL_PX, sy);
-      if (bot) gr.lineBetween(sx, sy + CELL_PX, sx + CELL_PX, sy + CELL_PX);
-      if (lft) gr.lineBetween(sx, sy, sx, sy + CELL_PX);
-      if (rgt) gr.lineBetween(sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX);
+      if (!top && !bot && !lft && !rgt) continue;   // interior: nothing to trace
+      Render.reachOutlineCell(gr, sx, sy, top, bot, lft, rgt,
+        isReach(col - 1, row - 1), isReach(col + 1, row - 1), isReach(col - 1, row + 1), isReach(col + 1, row + 1));
     }
   }
 
@@ -2302,7 +2379,7 @@ Render.drawObjects = function drawObjects(scene) {
     sx: scene.viewCenterX + (dx / scene.cellM) * CELL_PX,
     sy: scene.viewCenterY + (dy / scene.cellM) * CELL_PX,
   });
-  const objList = [], creatureList = [], plantedList = [];
+  const objList = [], creatureList = [], plantedList = [], trapList = [];
   // The frame's light sources (src/lighting.js). Filled by the tile scan
   // below as it passes each restored building, then by the campfire list and
   // the player inside Lighting.draw at the end of this pass. Reset here so a
@@ -2315,6 +2392,10 @@ Render.drawObjects = function drawObjects(scene) {
   // below, so anything at Z_OVERLAY is guaranteed to sit above all of them.
   const Z_OVERLAY = 10000;
   const pickedSet = setOf(scene.save.picked);
+  // Traps the player has already sprung — the one bit of trap state that is
+  // stored at all (see src/traps.js), and all the renderer needs to pick
+  // between the two textures.
+  const sprungSet = setOf(scene.save.sprungTraps);
   // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
   // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
   // tiles — and any two chests that land in the same 5 m cell — collapse to a single
@@ -2371,7 +2452,7 @@ Render.drawObjects = function drawObjects(scene) {
           // its light reaches further than its art: offered to the lightmap
           // before the sprite cull, with its own radius as the margin, so a
           // lantern a cell off-screen still lights the edge it stands past.
-          if (LIGHTS && (o.kind === 'house' || o.kind === 'tower')) LIGHTS.consider(scene, o, dx, dy, halfM);
+          if (LIGHTS && (o.kind === 'house' || o.kind === 'tower' || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);
           if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
           if (o.kind === 'chest' && isDupChest(o)) continue;
           // A live POI is a light too — offered AFTER the dedup (a per-frame
@@ -2405,8 +2486,28 @@ Render.drawObjects = function drawObjects(scene) {
           _boot_scanned++;
           if (pickedSet.has(wp.id)) continue;
           const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
+          // A mushroom is a (faint) light as well as a sprite — offered before
+          // the cull like a building, with its own radius as the margin. The
+          // wildplant goes as itself: Lighting.sourceKind reads its crop.
+          if (LIGHTS && wp.crop === 'mushroom') LIGHTS.consider(scene, wp, dx, dy, halfM);
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
-          plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id }, dx, dy });
+          plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id,
+                                  _cave: wp._cave, _ix: wp._ix, _iy: wp._iy }, dx, dy });
+          _boot_kept++;
+        }
+      }
+      // Traps (src/traps.js) — flat marks on the ground, so they take the same
+      // 3×3 scan and the same cull as everything else, and go to their own
+      // pool below. A trap is never dropped from the list: the hidden one is
+      // drawn too (that faint scuff is the whole affordance), just in the
+      // subtle texture. Which of the two it wears is the ONLY thing the save
+      // decides — sprungSet, built once per frame like pickedSet.
+      if (entry.traps) {
+        for (const tr of entry.traps) {
+          _boot_scanned++;
+          const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
+          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          trapList.push({ tr, dx, dy, sprung: sprungSet.has(tr.id) });
           _boot_kept++;
         }
       }
@@ -2693,19 +2794,23 @@ Render.drawObjects = function drawObjects(scene) {
     houseArtScale(o.area, _houseFrameW(o), _houseRole(o) === 'fort',
                   scene.cellM, CELL_PX);
 
-  // Height in px from the house's ground point (sy) up to the TOP of its drawn
-  // art — what a badge has to clear to sit above the roof rather than on it.
-  // Mirrors the placement the sprite pass uses: every role but the wizard is
-  // centred on sy (origin y 0.5, no nudge), so the art reaches half its scaled
-  // height above; the wizard tower is foot-anchored half a cell lower and
-  // reaches its full scaled height up from there. Falls back to the pre-measure
-  // constant when the frame can't be read.
-  const _houseTopPx = (o) => {
-    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 20;
+  // Height in px from the house's ground point (sy) up to the MIDLINE of its
+  // drawn art — where a tag hung ON the building's face sits. Mirrors the
+  // placement the sprite pass uses: every role but the wizard is centred on sy
+  // (origin y 0.5, no nudge), so its midline IS sy; the wizard tower is
+  // foot-anchored half a cell lower and reaches its full scaled height up from
+  // there, so its midline is half that height above the foot.
+  // The open/busy plaque used to clear the TOP of the art by 3px instead. On
+  // the plain house the frame's top rows are the tip of a steep gable (6px
+  // wide at row 0 of 72), so "just above the roof" was a tag floating over a
+  // peak, a full storey off the shopfront — and every role read as too high.
+  // A sign belongs on the building, not over it.
+  const _houseMidPx = (o) => {
+    if (_houseRole(o) !== 'wizard') return 0;
+    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 0;
     const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
-    if (!fr || !fr.height) return 20;
-    const h = fr.height * _houseScale(o);
-    return _houseRole(o) === 'wizard' ? h - CELL_PX * 0.5 : h * 0.5;
+    if (!fr || !fr.height) return 0;
+    return (fr.height * _houseScale(o)) * 0.5 - CELL_PX * 0.5;
   };
 
   // Ripe fruit waiting to be drawn ON its tree — filled by the fruittree
@@ -2789,6 +2894,13 @@ Render.drawObjects = function drawObjects(scene) {
     // sprite vertically frame-to-frame; the flame still rises out the top.
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
+             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0 },
+    // Cave torch — 16×32 like the campfire, same scale, same flicker cadence
+    // (the 4 frames differ only in the flame, so seat off frame 0 and the
+    // stake never bobs). Its light is Lighting.KINDS.torch — offered to the
+    // lightmap in the object scan above the sprite cull.
+    torch: { key: 'torch',
+             frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
@@ -3097,6 +3209,7 @@ Render.drawObjects = function drawObjects(scene) {
   // a floating slab).
   const SEATED_SHADOW_KINDS = new Set([
     'tree', 'fruittree', 'chest', 'mineralrock', 'well', 'pole', '_scarecrow', '_fire',
+    'torch',
   ]);
   // Ground geometry for a seated sprite: where its art actually meets the
   // cell, and how wide that contact is. Returns null — i.e. no shadow — when
@@ -3328,6 +3441,26 @@ Render.drawObjects = function drawObjects(scene) {
     if (!shape) continue;
     padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
   }
+  // ── Traps ─────────────────────────────────────────────────────────────────
+  // One sprite per trap, centred on its cell, scale 1 — both textures are
+  // baked exactly one cell square (textures.js TRAP_PX), so the mark lands on
+  // the cell it belongs to and cannot spill onto a neighbour. No seat pass and
+  // no shadow: these lie flat ON the ground, they don't stand up off it.
+  // Drawn into trapContainer, which sits under the sprites AND under the
+  // lightmap — a hidden trap in an unlit cave cell is genuinely unlit, which
+  // is the difference between the two halves of this feature.
+  if (scene.trapPool && scene.trapContainer) {
+    Render.renderPool(scene, scene.trapPool, scene.trapContainer, trapList, (s, item) => {
+      const { dx, dy, sprung } = item;
+      const { sx, sy } = project(dx, dy);
+      setTextureIfDifferent(s, sprung ? 'trap_open' : 'trap_hidden');
+      s.setOrigin(0.5, 0.5)
+       .setScale(1)
+       .setPosition(Math.round(sx), Math.round(sy))
+       .setAlpha(1).setTint(0xffffff);
+    });
+  }
+
   // The POI "ping" is not drawn here any more: a live POI is a LIGHT (kind
   // 'poi' in src/lighting.js), offered to the lightmap from the tile scan
   // above, so the place reads from across the map by its own slow breath in
@@ -3787,14 +3920,16 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setText(label).setVisible(true);
     setColorOnce(tx, ink);
     setBgColorOnce(tx, '#f3e9c6');
-    // Origin (0.5, 1): y is the plaque's bottom. Houses are CENTRED on their
-    // cell now, so the roof reaches half the scaled sprite height above sy —
-    // the old flat -20 landed the plaque ON the gable. Measure the art and
-    // clear it by 3px (falling back to the old offset when the frame can't
-    // be read). -10 on x nudges it off-centre so it reads as hanging from a
-    // bracket on the left rather than dead-centred on the gable.
+    // Origin (0.5, 1): y is the plaque's bottom. It hangs ON the shopfront:
+    // bottom edge 2px below the art's midline (_houseMidPx — sy itself for
+    // every centred role), so the tag sits at the eaves over the door, above
+    // the name sign that hangs from the doorstep (sy + 12 and down), and
+    // never over the roof. It sat 3px above the art's TOP until Sep 2026 and
+    // read as floating off the building — see _houseMidPx. -10 on x nudges
+    // it off-centre so it reads as hanging from a bracket on the left rather
+    // than dead-centred over the door.
     tx.setPosition(Math.round(clampTextX(sx - 10, tx.width, CANVAS_W)),
-                   Math.round(sy) - _houseTopPx(o) - 3);
+                   Math.round(sy) - Math.round(_houseMidPx(o)) + 2);
     // Soft, low-opacity drop shadow so the tag looks like it hangs in
     // front of the building rather than being painted onto it. NOT the
     // hard 1-px outline of the previous version — that competed too
@@ -3945,7 +4080,12 @@ Render.drawObjects = function drawObjects(scene) {
       // overrides the default 0 — needed for sheets whose first cell
       // is empty (mushroom_world's frame 0 is fully transparent).
       setTextureIfDifferent(s, ov.sheet);
-      if (ov.variants && ov.variants > 1) {
+      if (p._cave && ov.caveFrames) {
+        // Grown underground: the crop's cave look (the luminous mushroom
+        // caps), one of the variants off the same stable cell hash.
+        const h = ((p._ix ?? 0) * 73856093) ^ ((p._iy ?? 0) * 19349663);
+        s.setFrame(ov.caveFrames[Math.abs(h) % ov.caveFrames.length]);
+      } else if (ov.variants && ov.variants > 1) {
         // Hash off the wildplant's stable _ix/_iy (or wildId for picked
         // entries) so the variant survives reloads.
         const h = ((p._ix ?? 0) * 73856093) ^ ((p._iy ?? 0) * 19349663)

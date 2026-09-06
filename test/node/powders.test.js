@@ -50,8 +50,9 @@ test('powders: three consumables with tiers, prices, effect lines and a Book tip
     assert.truthy(!('icon' in it), `${id}: no emoji icon field (QC_RULES §1)`);
   }
   assert.truthy(PRICES.growth_powder < PRICES.dragon_powder, 'a T2 utility is cheaper than the T3 dragon');
-  assert.truthy(PLAY_TIPS.some(t => /Growth/.test(t) && /Shadow/.test(t) && /Frost/.test(t)),
-    'one Book tip covers all three powders');
+  // Each powder's ✦ line is its description; no Book tip restates them.
+  assert.falsy(PLAY_TIPS.some(t => /Growth Powder|Shadow Powder|Frost Powder|\bPowders\b/.test(t)),
+    'no Book tip restates the powders');
 });
 
 test('powders: two-table icon rule — the powder row of Potions.png, each heap its own frame', () => {
