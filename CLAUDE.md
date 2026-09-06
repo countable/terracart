@@ -616,14 +616,21 @@
   not the price. Use `favourite` when a PLACE should be known for a thing; use
   `dropWeight` when a thing should simply be commoner everywhere.
   **THE ORDER IS THE CURRICULUM.** `PLAY_TIPS` is READ FRONT TO BACK — `app.js`
-  `readBook` walks it one page per Book, bookmarked in `save.tipsRead` — so
+  `_bookRead` walks it one page per Book, bookmarked in `save.tipsRead` — so
   where a tip sits decides WHEN in a playthrough it is taught, and adding one
-  is a placement decision rather than an append. The blocks run by *when a
-  player first meets the thing*: the first hour (energy, the on-screen
-  readouts, the farm), the village economy and its animals, what you find while
-  roaming, fighting, the caves you go looking for, the gates that take hours to
-  reach — and the single riddle last, so the secret is the end of the course
-  rather than a 1-in-72 accident. It used to be a uniform random draw with no
+  is a placement decision rather than an append. The pages run by **when a tip
+  first becomes ACTIONABLE**, which is not the same as grouping it by subject,
+  and the difference is the whole point: grouping by subject put 'A ruined
+  house can be rebuilt' at page 63 as a "progression gate" when rebuilding is
+  starter-chain STEP FOUR — so what your first rebuild becomes was taught
+  forty-six pages before the fact that you could rebuild at all — and left
+  chests, which most players open minutes in, behind the entire village
+  economy and twelve consecutive pages of animal husbandry. The stages: the
+  first ten minutes, the starter loop, what is already lying around, the
+  village economy, the land you walk over, animals, fighting, underground, the
+  long gates — and the single riddle last, so the secret is the end of the
+  course rather than a 1-in-72 accident. **Ask when the player can first ACT
+  on a tip, not what it is about.** It used to be a uniform random draw with no
   memory, which threw the ordering away, put a repeat inside the first ~10
   reads and needed ~370 books to cover the list. The directional chest hint is
   gated on the course being finished for the same reason: at a 50% flip, every

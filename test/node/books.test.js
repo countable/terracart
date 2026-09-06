@@ -203,33 +203,47 @@ test('course: the reader is told where they are in it', () => {
     'the title states the page and the total — the ordering is visible, not implied');
 });
 
-test('course: the blocks run in first-encounter order, not subject order', () => {
-  // The order IS the teaching schedule now, so it is pinned. Each entry is a
-  // tip that can only belong to its block, and they must appear in this
-  // sequence: the first hour, then the village, then roaming, then fighting,
-  // then the caves, then the long gates, then the riddle.
+test('course: the pages run in the order the player needs them', () => {
+  // The order IS the teaching schedule, so it is pinned — by WHEN A TIP FIRST
+  // BECOMES ACTIONABLE, which is not the same as grouping it by subject. Two
+  // inversions this caught: rebuilding a wreck is starter-chain step 4 but sat
+  // at page 63, forty-six pages AFTER the tip about what your first rebuild
+  // becomes; and chests, which a player opens in the first minutes, sat behind
+  // the whole village economy and twelve pages of animal husbandry.
   const idx = (re) => PLAY_TIPS.findIndex((t) => re.test(t));
-  const basics    = idx(/first time raises your maximum energy/i);
-  const screen    = idx(/bar over a foe is its health/i);
-  const farm      = idx(/climbs one stage every 15 minutes/i);
-  const village   = idx(/ending in 9 is a Blacksmith/i);
-  const animals   = idx(/Chickens peck at any seed/i);
-  const roaming   = idx(/Treasure X marks are buried in car parks/i);
-  const fighting  = idx(/Only one weapon is ever in play/i);
-  const caves     = idx(/Goblins hold the deep/i);
-  const gates     = idx(/castle vault stays shut/i);
-  const secret    = idx(/old texts speak of a gem/i);
-  const seq = { basics, screen, farm, village, animals, roaming, fighting, caves, gates, secret };
+  const seq = {
+    energy:   idx(/Actions cost energy/i),
+    screen:   idx(/bar over a foe is its health/i),
+    snares:   idx(/Snares lie hidden/i),
+    till:     idx(/Tilling refuses a cell/i),
+    rebuild:  idx(/A ruined house can be rebuilt/i),
+    smithy:   idx(/first wreck you rebuild/i),
+    chests:   idx(/Treasure X marks are buried in car parks/i),
+    village:  idx(/ending in 9 is a Blacksmith/i),
+    land:     idx(/Wild rock grows in residential streets/i),
+    animals:  idx(/Feeding an animal its favourite/i),
+    fighting: idx(/Only one weapon is ever in play/i),
+    caves:    idx(/Tap a staircase to go down/i),
+    gates:    idx(/Forts are sealed/i),
+    secret:   idx(/old texts speak of a gem/i),
+  };
   for (const [k, v] of Object.entries(seq)) assert.gt(v, -1, `${k} tip is still in the list`);
   const names = Object.keys(seq);
   for (let i = 1; i < names.length; i++) {
     assert.gt(seq[names[i]], seq[names[i - 1]],
       `${names[i]} is taught after ${names[i - 1]}`);
   }
-  // Literacy is early: what the health bar means arrives long before the caves.
-  assert.lt(screen, PLAY_TIPS.length / 4, 'the screen readouts are taught in the first quarter');
+  // The cause comes before its consequence: you are told a wreck can be
+  // rebuilt before you are told what your first rebuild turns into.
+  assert.lt(seq.rebuild, seq.smithy, 'rebuilding is taught before what it becomes');
+  // Literacy and safety are first-session: what the bar over a foe means, and
+  // that the verge you are walking on hides snares.
+  assert.lt(seq.screen, PLAY_TIPS.length / 5, 'the screen readouts come in the first fifth');
+  assert.lt(seq.snares, PLAY_TIPS.length / 5, 'and so does the warning about snares');
+  // Chests are everywhere from minute one — they precede the shop address rules.
+  assert.lt(seq.chests, seq.village, 'chests are taught before the village economy');
   // And the one secret is the very last page — earned, not stumbled into.
-  assert.eq(secret, PLAY_TIPS.length - 1, 'the riddle closes the course');
+  assert.eq(seq.secret, PLAY_TIPS.length - 1, 'the riddle closes the course');
 });
 
 test('tips: the list is substantial and every entry is a real sentence', () => {
