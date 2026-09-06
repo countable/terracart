@@ -115,6 +115,17 @@ test('blacksmithRecipe: tools use the tier bar (≥5), jewelry uses gems+bar', (
   assert.eq(ringT3[0].id, 'ruby', 'ring uses rubies');
   assert.eq(ringT3[0].qty, 2, 'geometric ramp: 2^(3-2)=2');
   assert.eq(ringT3[1].id, 'iron_bar', 'plus the tier bar');
+  // Below the Frost tier every slot keeps its own gem, up to 16 at T6.
+  const staffT6 = Gear.blacksmithRecipe('relic', 'staff', 6);
+  assert.eq(staffT6[0].id, 'emerald', 'T6 staff still wants emeralds');
+  assert.eq(staffT6[0].qty, 16, '2^(6-2)=16');
+  // At T7 every jewelry slot is cut around diamonds instead — same quantity.
+  for (const slot of ['ring', 'staff', 'amulet']) {
+    const t7 = Gear.blacksmithRecipe('relic', slot, 7);
+    assert.eq(t7[0].id, 'diamond', `T7 ${slot} wants diamonds`);
+    assert.eq(t7[0].qty, 32, '2^(7-2)=32 — the ramp is unchanged');
+    assert.eq(t7[1].id, 'frost_bar', 'plus the frost bar');
+  }
 });
 
 test('smeltingRecipe + smeltUnlockedBars: T5+ bars, always available', () => {
