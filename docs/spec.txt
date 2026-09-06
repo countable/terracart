@@ -772,7 +772,17 @@ COMBAT
               the surface a standing tree/bush or an unbroken mineral rock.
               Free to fire — no energy cost.
      staff  — RANGED, a PIERCING BOLT: same heading rules as the bow (2.0
-              cells/s, 7-cell range), but a bolt ignores the world entirely
+              cells/s), but its RANGE IS THE PLAYER'S OWN REACH PLUS ONE CELL
+              (Combat.rangeCellsFor off coords.js reachCells — so it grows
+              with the Inner Light upgrades and tightens half a cell for every
+              level underground; SHOT.staff.rangeCells is only the standing
+              fallback for a caller with no scene, and equals reach+1 at a new
+              save). It was a flat 7 cells until Sep 2026, most of an 11-cell
+              viewport: a weapon that SEEKS and fires the moment anything
+              hostile is on screen cleared the street at no risk. One resolver
+              feeds both the trigger and the flight, so a bolt can never be
+              loosed at a foe it would die short of. A bolt ignores the world
+              entirely
               (goes through rock and timber alike) and damages EVERY foe on
               its line once each, not just the first. Costs 1 ENERGY per bolt
               (silently skipped if you can't afford it — an auto-firing weapon
@@ -1210,10 +1220,11 @@ GEAR: RELICS & ARMOR
               while an enemy is on screen, WHEN ACTIVE; stops in the first
               foe hit and at solid ground); lowers buy prices (T7 = par)
               whether active or not
-     staff  — RANGED weapon, a piercing bolt (as the bow, shorter reach, but
-              ignores the world and hits every foe on its line; costs 1
-              energy/bolt, fires every 4 s against the bow's 2 s, and lands
-              double an arrow's damage per second); no price effect
+     staff  — RANGED weapon, a piercing bolt (as the bow, but it reaches only
+              one cell past your own reach — see COMBAT — and ignores the
+              world, hitting every foe on its line; costs 1 energy/bolt, fires
+              every 4 s against the bow's 2 s, and lands double an arrow's
+              damage per second); no price effect
      (only ONE of the three auto-fights at a time — save.activeWeapon, see
      COMBAT. None of them touches the crow/deer HUNT wheel: that is the bug
      net's — see FAUNA.)

@@ -866,6 +866,7 @@ const PLAY_TIPS = [
   'Only one weapon is ever in play. Tap another in the Relics tab to make it the one that answers a foe.',
   'Worn armour soaks what a blow takes off your bar, and a set stacks: the pool covers half a hit, then half of what is left, four times over. It can never soak a blow to nothing — something always gets through.',
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
+  'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
   'Anything hostile you put down pays coins for its trouble — about a coin per 5 hit points, and a little more for every level down.',
   'Castle towers fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate.',
   // ── Underground, which you go looking for ───────────────────

@@ -6652,7 +6652,12 @@ class MapScene extends Phaser.Scene {
         // spent: a staff whose nearest foe is still beyond its range keeps
         // both its energy and its cadence (left due, so it fires the instant
         // one steps in).
-        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM);
+        // The staff's range is the player's own reach plus a cell (Combat's
+        // rangeCellsFor) — the live one, so it tightens underground with the
+        // ring it is derived from. Handed to the spawn below as well, so the
+        // bolt flies exactly as far as the check that loosed it.
+        const reach = reachCells(this);
+        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM, reach);
         if (!heading) continue;
         // The staff draws energy per bolt (Combat.SHOT.staff.energyCost — the
         // price of its pierce + double punch). No energy → no bolt, SILENTLY:
@@ -6666,7 +6671,7 @@ class MapScene extends Phaser.Scene {
         // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
                                       Combat.shotDamage(relics, slot) * dmgMul,
-                                      relics[slot].tier);
+                                      relics[slot].tier, reach);
         if (shot) this._shots.push(shot);
       }
     } else {

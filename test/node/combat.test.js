@@ -341,9 +341,13 @@ test('combat: staff doubles the bow per second — and quadruples it per shot', 
 });
 
 test('combat: staff bolts pierce — every foe on the line is struck once, arrows stop', () => {
+  // Both foes stand inside the SHORTER of the two weapons' ranges (the staff's,
+  // which is the player's reach plus a cell), so this measures piercing rather
+  // than range — derived, so it survives a retune of either.
+  const reachM = (c) => Combat.rangeCellsFor('staff') * COMBAT_CELL_M;
   const foes = [
-    { kind: 'goblin', id: 'near', x: 15, y: 0 },
-    { kind: 'goblin', id: 'far',  x: 35, y: 0 },
+    { kind: 'goblin', id: 'near', x: reachM() * 0.4, y: 0 },
+    { kind: 'goblin', id: 'far',  x: reachM() * 0.9, y: 0 },
   ];
   const run = (slot) => {
     let live = [Combat.spawnShot(slot, 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 3)];
@@ -360,9 +364,11 @@ test('combat: staff bolts pierce — every foe on the line is struck once, arrow
 });
 
 test('combat: staff bolts ignore walls; arrows do not', () => {
-  const wallFrom = 2 * COMBAT_CELL_M;
+  // The wall sits one cell out and the foe behind it, both inside the staff's
+  // (reach-derived) range — otherwise this would be measuring the range.
+  const wallFrom = 1 * COMBAT_CELL_M;
   const wall = { blocked: (x) => x >= wallFrom && x < wallFrom + COMBAT_CELL_M, cellM: COMBAT_CELL_M };
-  const behind = { kind: 'goblin', id: 'behind', x: 5 * COMBAT_CELL_M, y: 0 };
+  const behind = { kind: 'goblin', id: 'behind', x: Combat.rangeCellsFor('staff') * COMBAT_CELL_M * 0.9, y: 0 };
   const run = (slot) => {
     let live = [Combat.spawnShot(slot, 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 3)];
     let hits = 0, steps = 0;
@@ -665,7 +671,8 @@ test('combat: the radius a bolt HITS with and the radius it DRAWS share one scal
 test('combat: a Frost bolt sweeps up a foe a Wood bolt flies past', () => {
   // A foe standing 0.5 cells off the line: outside a Wood bolt's 0.35-cell
   // sweep, inside a Frost bolt's 0.7.
-  const off = { kind: 'goblin', id: 'off', x: 28, y: 0.5 * COMBAT_CELL_M };
+  const off = { kind: 'goblin', id: 'off',
+                x: Combat.rangeCellsFor('staff') * COMBAT_CELL_M * 0.9, y: 0.5 * COMBAT_CELL_M };
   const fly = (tier) => {
     let live = [Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, tier)];
     const struck = [];
@@ -784,7 +791,70 @@ test('combat: every melee gate the player has runs the shared test', () => {
 
 test('combat: the RANGED weapons keep their range', () => {
   for (const slot of Combat.RANGED_SLOTS) {
-    assert.gt(Combat.SHOT[slot].rangeCells, Combat.MELEE_REACH_CELLS,
+    assert.gt(Combat.rangeCellsFor(slot), Combat.MELEE_REACH_CELLS,
       `${slot} still reaches past a fist — that is what it is for`);
   }
+});
+
+// ── The staff's range is the player's reach, plus one ───────────────────────
+// A seeking weapon that fires the moment anything hostile is on screen fights
+// the street for you at no risk: the staff's 7 flat cells were most of the
+// viewport. Its range is now the ring the player can already act in, plus a
+// cell — derived from coords.js' own reachCells, so it grows with the Inner
+// Light upgrades and tightens as the dark takes the reach back underground.
+
+test('staff range: one cell past the player\'s live reach', () => {
+  const scene = (over) => ({ depth: 0, save: {}, ...over });
+  for (const over of [{}, { save: { reachUpgrades: 3 } }, { save: { reachUpgrades: 6 } },
+                      { depth: 1 }, { depth: 4 }]) {
+    const s = scene(over);
+    const reach = reachCells(s);
+    assert.eq(Combat.rangeCellsFor('staff', reach), reach + 1,
+      `staff at reach ${reach}`);
+  }
+  assert.eq(Combat.SHOT.staff.rangeFromReach, 1, 'one cell beyond, and only one');
+  // The bow does NOT follow the reach: it is the weapon you buy to hit what
+  // you cannot punch, and it is aimed by turning rather than by seeking.
+  assert.eq(Combat.SHOT.bow.rangeFromReach, undefined, 'the bow keeps a flat range');
+  assert.eq(Combat.rangeCellsFor('bow', 99), Combat.SHOT.bow.rangeCells, 'whatever the reach');
+});
+
+test('staff range: it tightens underground and grows with the Inner Light', () => {
+  const at = (over) => Combat.rangeCellsFor('staff', reachCells({ depth: 0, save: {}, ...over }));
+  assert.gt(at({ save: { reachUpgrades: 6 } }), at({}), 'the upgrades carry the bolt further');
+  assert.lt(Combat.rangeCellsFor('staff', reachCells({ depth: 3, save: {} })), at({}),
+    'and three levels down it is shorter than it is on the surface');
+  // Nowhere near the old flat 7 — that was most of an 11-cell viewport.
+  assert.lt(at({ save: { reachUpgrades: 6 } }), 7, 'even fully upgraded, it is under the old range');
+});
+
+test('staff range: the flat number is the standing fallback, and it agrees at spawn', () => {
+  // A caller with no scene to ask (a headless spawn, the turret path) gets the
+  // flat rangeCells — which is the derived value at a NEW SAVE's reach, so the
+  // two cannot say different things about the same player.
+  assert.eq(Combat.rangeCellsFor('staff'), Combat.SHOT.staff.rangeCells, 'no reach → the flat number');
+  assert.eq(Combat.SHOT.staff.rangeCells,
+    reachCells({ depth: 0, save: {} }) + Combat.SHOT.staff.rangeFromReach,
+    'and the flat number IS reach+1 at the start');
+});
+
+test('staff range: the trigger and the flight are the same number', () => {
+  // A bolt loosed at a foe its flight would die short of is a wasted energy
+  // spend; a bolt that flies further than the check that loosed it is a range
+  // nobody declared. One resolver feeds both.
+  const reach = reachCells({ depth: 0, save: { reachUpgrades: 2 } });
+  const rangeM = Combat.rangeCellsFor('staff', reach) * COMBAT_CELL_M;
+  const inside  = { kind: 'goblin', id: 'in',  x: rangeM * 0.95, y: 0 };
+  const outside = { kind: 'goblin', id: 'out', x: rangeM * 1.05, y: 0 };
+  assert.eq(Combat.shotHeading('staff', 0, 0, { x: 1, y: 0 }, [outside], COMBAT_CELL_M, reach), null,
+    'a foe past reach+1 draws no bolt, and no energy');
+  const h = Combat.shotHeading('staff', 0, 0, { x: 1, y: 0 }, [inside], COMBAT_CELL_M, reach);
+  assert.truthy(h, 'one inside it does');
+  const shot = Combat.spawnShot('staff', 0, 0, h, COMBAT_CELL_M, 3, 1, reach);
+  assert.eq(shot.rangeM, rangeM, 'and the bolt flies exactly the range that loosed it');
+  // The same reach, at both call sites, in the shipping loop.
+  assert.truthy(/const reach = reachCells\(this\);/.test(APP_JS_SRC), 'app.js reads the live reach');
+  assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, enemies, this\.cellM, reach\)/.test(APP_JS_SRC),
+    'and hands it to the trigger');
+  assert.truthy(/relics\[slot\]\.tier, reach\);/.test(APP_JS_SRC), 'and to the spawn');
 });

@@ -323,14 +323,42 @@
   //           The compass is coarse and jittery on a phone, and a spell
   //           that missed because you were standing a few degrees off read
   //           as broken rather than skilful.
+  //
+  // And they differ in RANGE, which for the staff is not a flat number at all.
+  // `rangeFromReach` says the slot's range IS the player's own reach plus this
+  // many cells — resolved per shot against the LIVE reach (rangeCellsFor
+  // below), so it shrinks as the dark takes the reach back underground and
+  // grows with the Inner Light upgrades. A seeking weapon that fires the
+  // moment anything hostile is on screen fights the whole street for you at
+  // no risk; one cell past the ring you can already act in makes a bolt
+  // something you loose at a foe that has closed on you. The flat
+  // `rangeCells` beside it is the standing fallback for a caller with no
+  // scene to ask (and is the value at the starting reach, 2.5 + 1, so the two
+  // agree where a new save begins). The BOW keeps a flat range: it is the
+  // weapon you buy to hit what you cannot punch, and it does not aim itself.
   const SHOT = {
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
              phaseMs: 0, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS },
-    staff: { speedCps: 2.0, rangeCells: 7, color: 0x9ad6ff, dotPx: 3,
+    staff: { speedCps: 2.0, rangeCells: 3.5, rangeFromReach: 1,
+             color: 0x9ad6ff, dotPx: 3,
              phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest',
              growsWithTier: true,
              fireIntervalMs: FIRE_INTERVAL_MS * STAFF_BEAT_MUL },
   };
+  // The range a slot is firing at, in cells. ONE resolver — the range that
+  // decides whether to loose a bolt (shotHeading) and the range that stops it
+  // (spawnShot's rangeM) are the same number by construction, so a staff can
+  // never fire at a foe its bolt would die short of. `reachCells` is the
+  // player's live reach (coords.js reachCells — the ring, not reachRadiusM's
+  // potion/zero-energy special cases: this is a fight, and combat has not
+  // followed the lit reach since MELEE_REACH_CELLS above). Omitted, a slot
+  // falls back to its flat rangeCells.
+  function rangeCellsFor(slot, reachCells) {
+    const spec = SHOT[slot];
+    if (!spec) return 0;
+    if (spec.rangeFromReach == null || reachCells == null) return spec.rangeCells;
+    return reachCells + spec.rangeFromReach;
+  }
   // The beat a slot fires on. One reader for the cadence clock (app.js
   // stepShots) and the damage pricing (shotDamage) alike, so a slot's rate
   // and its per-shot damage cannot drift apart.
@@ -418,10 +446,10 @@
   // Resolve the heading a slot fires along: the compass `facing` for a
   // 'compass' slot, the line to the nearest foe for a 'nearest' one. Returns
   // null when there is nothing to fire at, and app.js fires nothing then.
-  function shotHeading(slot, x, y, facing, enemies, cellM) {
+  function shotHeading(slot, x, y, facing, enemies, cellM, reachCells) {
     const spec = SHOT[slot];
     if (!spec) return null;
-    if (spec.aim === 'nearest') return aimAtNearest(x, y, enemies, spec.rangeCells * cellM);
+    if (spec.aim === 'nearest') return aimAtNearest(x, y, enemies, rangeCellsFor(slot, reachCells) * cellM);
     return facing || null;
   }
 
@@ -431,7 +459,10 @@
   // `tier` is the firing relic's tier and sizes the shot (boltScale above):
   // `radiusM` is what stepShots sweeps foes with and `dotPx` what app.js
   // draws, both stamped here so they can't disagree. Omitted, it is tier 1.
-  function spawnShot(slot, x, y, dir, cellM, dmg, tier) {
+  // `reachCells` is the caster's live reach, for the slots whose range is
+  // derived from it (rangeCellsFor) — the same value shotHeading was handed,
+  // so the bolt flies exactly as far as the check that loosed it.
+  function spawnShot(slot, x, y, dir, cellM, dmg, tier, reachCells) {
     const mag = Math.hypot(dir?.x || 0, dir?.y || 0);
     if (!(mag > 0)) return null;
     const spec = SHOT[slot];
@@ -439,7 +470,7 @@
       slot, x, y,
       vx: dir.x / mag, vy: dir.y / mag,
       speedMps: spec.speedCps * cellM,
-      rangeM: spec.rangeCells * cellM,
+      rangeM: rangeCellsFor(slot, reachCells) * cellM,
       travelledM: 0,
       damage: dmg,
       pierce: !!spec.pierce,
@@ -689,7 +720,7 @@
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
-    RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
+    RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
