@@ -81,6 +81,58 @@ test('copy: "bag full" is one line raised from both call sites', () => {
   assert.truthy(/bag/i.test(msg) && /\.$/.test(msg), 'it is a sentence about the bag: ' + msg);
 });
 
+// ── Refusals: the register, and the way out ─────────────────────────────────
+// A refusal is the line a player reads most, and it has one job beyond saying
+// no: telling them what would make it a yes. These were the last of the
+// lowercase debug fragments — 'too tired', 'no deal', 'nobody home', 'not
+// enough to smelt' — and three of the four named the state and stopped there.
+
+test('copy: the out-of-energy refusal is one line, and it names the remedy', () => {
+  assert.truthy(/const TOO_TIRED_MSG = '[^']+';/.test(APP_JS_SRC), 'app.js owns one constant');
+  // Declared once, used at all three refusal sites (the stick, the cave dig,
+  // and the shared spendEnergy gate).
+  assert.eq((APP_JS_SRC.match(/TOO_TIRED_MSG/g) || []).length, 4,
+    'one declaration, three call sites');
+  assert.falsy(/flash\('too tired'/.test(APP_JS_SRC), 'the bare fragment is gone');
+  const msg = APP_JS_SRC.match(/const TOO_TIRED_MSG = '([^']+)';/)[1];
+  assert.truthy(/^[A-Z]/.test(msg) && /\.$/.test(msg), 'it is a sentence: ' + msg);
+  // Energy comes back three ways (eat / Home / a campfire) and the line has to
+  // point at them, or the player is told to solve a problem they cannot see.
+  assert.truthy(/eat/i.test(msg) && /rest/i.test(msg), 'and it names the way out: ' + msg);
+});
+
+test('copy: a shop with nothing to offer says WHEN, not just no', () => {
+  // shortDuration's rule: a wait the player can read gets a number. The
+  // blacksmith's own version of this line has quoted shopWaitLabel for a
+  // while; the storefront and the trader said a bare 'no deal'.
+  assert.falsy(/flash\('no deal'/.test(APP_JS_SRC), 'the bare fragment is gone');
+  const waits = APP_JS_SRC.match(/Come back \$\{this\.shopWaitLabel\(house\)\}/g) || [];
+  assert.eq(waits.length, 2, 'both the storefront and the trader now name the wait');
+});
+
+test('copy: a short smelt names the ingredient and the shortfall', () => {
+  assert.falsy(/flash\('not enough to smelt'/.test(APP_JS_SRC), 'the bare fragment is gone');
+  assert.truthy(/const missing = recipe\.find\(r => heldCount\(r\.id\) < r\.qty \* q\);/.test(APP_JS_SRC),
+    'it finds which ingredient is short');
+  assert.truthy(/Need \$\{short\} more \$\{name\} to smelt that\./.test(APP_JS_SRC),
+    'and says how many more of it are wanted');
+});
+
+test('copy: no player-facing refusal is a bare lowercase fragment', () => {
+  // The sweep that keeps the register from regrowing. A flash whose literal
+  // starts lowercase and carries no interpolation is the shape every one of
+  // these bugs took.
+  const bad = [];
+  for (const m of APP_JS_SRC.matchAll(/this\.flash\('([a-z][^']{4,})'/g)) {
+    const msg = m[1];
+    // Debug/diagnostic lines are not player copy — they are behind __TEST_MODE
+    // or the tap-diagnostics flag and read like the tools they are.
+    if (/^(cycle reset|following the white arrow|no individual trees|loading)/.test(msg)) continue;
+    bad.push(msg);
+  }
+  assert.eq(bad.length, 0, 'lowercase fragments left in player copy: ' + bad.join(' | '));
+});
+
 // ── Flavour prose does not quote relic tiers ────────────────────────────────
 
 test('copy: a consumable dialog reads as a sensation, not a stat line', () => {

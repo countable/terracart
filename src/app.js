@@ -789,6 +789,13 @@ if (typeof window !== 'undefined') {
 // sentence twice in two registers. A Bag relic is what fixes it, so the line
 // names the fix rather than just the wall.
 const BAG_FULL_MSG = 'No room in your bag — sell, eat, or carry a bigger one.';
+// The other line every player meets constantly: an action they cannot afford.
+// It was a bare lowercase fragment at three call sites — the stick, the cave
+// dig and the shared spendEnergy gate — and it named the STATE without the
+// remedy, so a player at 1⚡ was told "too tired" and left to work out that
+// energy comes back from food, from their own home, and from a campfire. Three
+// words longer, and it is the whole answer.
+const TOO_TIRED_MSG = 'Too tired — eat, or rest at home or a fire.';
 
 // --- Economy tuning ---
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
@@ -8524,7 +8531,7 @@ class MapScene extends Phaser.Scene {
       const now = Date.now();
       if (now - (this._steerTiredFlashAt || 0) > 3000) {
         this._steerTiredFlashAt = now;
-        this.flash('too tired', this.viewCenterX, this.viewCenterY);
+        this.flash(TOO_TIRED_MSG, this.viewCenterX, this.viewCenterY);
       }
       return;
     }
@@ -8955,7 +8962,7 @@ class MapScene extends Phaser.Scene {
     // Charge at COMPLETION instead (in the wheel callback below): a dug wall
     // always costs, an interrupted one costs nothing — and isn't dug.
     if (cost > (this.save.energy ?? 0)) {
-      this.flash('too tired', this.viewCenterX, this.viewCenterY);
+      this.flash(TOO_TIRED_MSG, this.viewCenterX, this.viewCenterY);
       this._followPaused = true;   // out of energy — stop chewing the wall
       return;
     }
@@ -10078,7 +10085,7 @@ class MapScene extends Phaser.Scene {
     if (cost <= 0) return true;
     const r = Energy.spend(this.save, cost);
     if (!r.ok) {
-      if (sx != null && sy != null) this.flash('too tired', sx, sy);
+      if (sx != null && sy != null) this.flash(TOO_TIRED_MSG, sx, sy);
       return false;
     }
     const at = cell || this._cellAtScreen(sx, sy);
@@ -10096,7 +10103,7 @@ class MapScene extends Phaser.Scene {
     // Energy.crossedTired owns the reach-potion guard + 30%-threshold math; this
     // wrapper only fires the flash (defaulting to the view centre).
     if (Energy.crossedTired(this.save, before)) {
-      this.flash('getting tired…', sx != null ? sx : this.viewCenterX,
+      this.flash('Getting tired…', sx != null ? sx : this.viewCenterX,
                                     sy != null ? sy : this.viewCenterY);
     }
   }
@@ -10935,7 +10942,11 @@ class MapScene extends Phaser.Scene {
     const sel = this.save.inv[this.save.selSlot];
     const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
     if (isHome) {
-      if (!hasSel) { this.flash('home sweet home', sx, sy); return; }
+      // Tapping your own home empty-handed is the one moment the game can
+      // say what home is FOR. Selling is home-only — the single most
+      // easily-missed rule in the economy — and this tap was answering it
+      // with a stock phrase and nothing else.
+      if (!hasSel) { this.flash('Home sweet home. Pick a stack to sell it here.', sx, sy); return; }
       // noSell items (the Discovery badge) never enter the sell modal — the
       // wizard tower is the only place they're worth anything.
       if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
@@ -11190,7 +11201,7 @@ class MapScene extends Phaser.Scene {
     // above). buildShopOffer always returns a cash offer.
     const offer = this.buildShopOffer(id, baseValue, { house });
     if (!offer) {
-      this.flash('no deal', sx, sy);
+      this.flash(`"Nothing worth selling today. Come back ${this.shopWaitLabel(house)}."`, sx, sy);
       return;
     }
     // Cash purchases hand over exactly ONE unit — the ×2 TRADE_OFFER_QTY
@@ -11875,7 +11886,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const wanted = this.wantedProduce(house);
-    if (!wanted.length) { this.flash('nobody home', sx, sy); return; }
+    if (!wanted.length) { this.flash('Nobody home.', sx, sy); return; }
     const single = wanted.length === 1;
     const invCount = (id) => Inventory.count(this.save, id);
     // Full set requires at least one of every wanted item. maxSets is how many
@@ -12210,7 +12221,15 @@ class MapScene extends Phaser.Scene {
       onAccept: (n) => {
         const q = Math.max(1, Math.min(n ?? 1, cap));
         if (q < 1 || !recipe.every(r => heldCount(r.id) >= r.qty * q)) {
-          this.flash('not enough to smelt', sx, sy); return;
+          // Name the ingredient and the shortfall — 'not enough to smelt'
+          // made the player close the modal and count their own bag, with
+          // the recipe line right there on screen in red.
+          const missing = recipe.find(r => heldCount(r.id) < r.qty * q);
+          const short = missing ? (missing.qty * q) - heldCount(missing.id) : 0;
+          const name = missing ? (ITEM_BY_ID[missing.id]?.name || missing.id) : '';
+          this.flash(missing ? `Need ${short} more ${name} to smelt that.`
+                             : 'Not enough to smelt.', sx, sy);
+          return;
         }
         for (const r of recipe) consume(r.id, r.qty * q);
         this.addToInv(target, q);
@@ -12429,7 +12448,7 @@ class MapScene extends Phaser.Scene {
 
   presentTraderOffer(sx, sy, house, recordDeal) {
     const offer = this.peekOrBuildTraderOffer(house);
-    if (!offer) { this.flash('no deal', sx, sy); return; }
+    if (!offer) { this.flash(`"No trade in me today. Come back ${this.shopWaitLabel(house)}."`, sx, sy); return; }
     const giveItem = ITEM_BY_ID[offer.giveId];
     const askItem  = ITEM_BY_ID[offer.askId];
     const heldCount = () => Inventory.count(this.save, offer.askId);
