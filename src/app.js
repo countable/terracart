@@ -3965,6 +3965,12 @@ class MapScene extends Phaser.Scene {
     // Density scales with the game mode (Difficulty.PROFILES.trapCountMul:
     // 10x easy, 100x hard) — the base 10..18/tile rate reads as too rare to
     // ever meet in practice.
+    // Kept ON THE ENTRY so the density can be re-rolled later without rebuilding
+    // a second copy of the rule (see _relayTraps): the how-to card is answered
+    // AFTER the starter tile is built, and a copy of these options here and
+    // there is exactly how the road mask drifts out of one of them. A rebuilt
+    // entry drops it along with `_spawned`, and this pass puts it back.
+    entry._spawnOpts = _spawnOpts;
     entry.traps = (typeof Traps !== 'undefined' && !window.__TEST_MODE)
       ? Traps.spawnSurface(entry.grid, entry.roadMask, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
           Difficulty.get().trapCountMul)
@@ -10175,12 +10181,64 @@ class MapScene extends Phaser.Scene {
     // _placeHomeGreeter swaps a wrong-kind greeter for this mode's own.
     const home = this._starterTileEntry();
     if (home) this._placeHomeGreeter(home.entry, home.tx, home.ty);
+    // And the same race for the TRAPS, which is the one the player notices:
+    // trapCountMul is 10x on easy against 100x on hard, so a starter tile laid
+    // before the card was answered carries a TENTH of hard mode's verge — about
+    // two traps a screen instead of nineteen — on the one tile a new hard save
+    // spends its first minutes walking over. Re-lay every cached surface tile
+    // at the density the answer just chose.
+    this._relayTrapsForMode();
     persistSave(this.save);
     this.updateObjectiveDOM();
     this.buildInventoryDOM();
     if (this.updateHUD) this.updateHUD();
     return true;
   }
+  // ── The trap density race ──────────────────────────────────────────────────
+  // Re-lay the roadside traps on every cached SURFACE tile at the active mode's
+  // density. The card is answered after boot, so tiles built first were laid at
+  // the default-easy rate; this is the trap half of the same repair the crates
+  // and the greeter above get.
+  //
+  // Safe to re-run because a trap is GENERATED, NEVER STORED (CLAUDE.md): the
+  // placement is a pure function of (tx, ty) and the count, and the only thing
+  // on disk is `save.sprungTraps`. It goes through the tile's OWN `_spawnOpts`
+  // — the shared object spawnInTile handed every other spawner — so the road
+  // rule stays the one in WorldGen.isSpawnCell rather than a copy of it.
+  //
+  // Surface only, and only tiles that have already spawned: cave traps are
+  // flat-scaled by Traps.DUNGEON_DENSITY_MUL regardless of mode, so there is
+  // nothing down there for a mode answer to change, and WorldGen.tileCache is
+  // repointed at the current depth.
+  //
+  // A trap the player has ALREADY SPRUNG is carried across. The new roll draws
+  // a different rng sequence (the reservoir size moves with the count), so it
+  // need not land on the old cells — and a trap that has bitten you is one you
+  // can see, which must not blink out from under you.
+  _relayTrapsForMode() {
+    if (typeof Traps === 'undefined' || window.__TEST_MODE) return;
+    if ((this.depth || 0) !== 0) return;
+    const mul = Difficulty.get().trapCountMul;
+    const sprung = setOf(this.save.sprungTraps);
+    WorldGen.tileCache?.forEach?.((entry, key) => {
+      if (!entry || !entry.grid || !entry.roadMask || !entry._spawned) return;
+      if (!entry._spawnOpts) return;
+      const [, sx, sy] = String(key).split('/');
+      const tx = Number(sx), ty = Number(sy);
+      if (!Number.isFinite(tx) || !Number.isFinite(ty)) return;
+      const N = entry.cellsPerEdge;
+      const laid = Traps.spawnSurface(entry.grid, entry.roadMask, N, N, tx, ty,
+        this.tileEdgeM, entry._spawnOpts, mul);
+      // Keep any already-discovered trap the new roll missed, one per cell.
+      const cells = new Set(laid.map((t) => t._iy * N + t._ix));
+      for (const t of (entry.traps || [])) {
+        if (!sprung.has(t.id) || cells.has(t._iy * N + t._ix)) continue;
+        laid.push(t);
+      }
+      entry.traps = laid;
+    });
+  }
+
   // The cached tile entry holding the frozen starter anchor, with its tile
   // coords — or null when the anchor hasn't resolved, the tile isn't cached,
   // or we're underground (tileCache is repointed down there). Three passes
