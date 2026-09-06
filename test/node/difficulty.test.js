@@ -174,4 +174,28 @@
       'hard mode retires the starter ladder for good');
     assert.truthy(/_stripStarterCrates\(entry\)/.test(app), 'and sweeps the supply crates');
   });
+
+  test('difficulty: hard mode also blacks out on the SURFACE, easy mode never does', () => {
+    const app = APP_JS_SRC;
+    // The update() gate: surface exhaustion only fires under Difficulty.isHard().
+    const gate = /this\.depth === 0 && Difficulty\.isHard\(\)[\s\S]{0,200}this\._passOutOnSurface\(\)/;
+    assert.truthy(gate.test(app),
+      'a hard-mode save passes out on the surface too, gated on Difficulty.isHard()');
+    // _passOutOnSurface pays the same half-purse cost as the underground
+    // blackout, floored — never negative, never a second cost the game
+    // invented for hard mode alone.
+    const body = (() => {
+      const a = app.indexOf('_passOutOnSurface() {');
+      const b = app.indexOf('\n  }\n', a);
+      assert.truthy(a > 0 && b > a, 'found _passOutOnSurface in app.js');
+      return app.slice(a, b);
+    })();
+    assert.truthy(/Math\.floor\(\(this\.save\.money \?\? 0\) \/ 2\)/.test(body),
+      'half the purse, same formula as the underground blackout');
+    assert.truthy(/addMoney\(this\.save, -lost\)/.test(body), 'and it is actually spent');
+    // Depth, position and any in-progress work are untouched — unlike the
+    // underground version, there is no cave to escape.
+    assert.falsy(/this\.depth = 0|WorldGen\.setDepth\(0\)|cancelWorkProgress/.test(body),
+      'the surface version does not relocate the player or cancel work');
+  });
 })();
