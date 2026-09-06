@@ -39,8 +39,10 @@
   // stage; after advancing it needs re-watering (watered_t reset to 0), so a
   // single call advances each plant by at most one stage and a long-idle plant
   // catches up over subsequent waterings rather than all at once. Mutates
-  // save.planted; returns true iff anything changed.
-  function advanceGrowth(save, now = Date.now()) {
+  // save.planted; returns true iff anything changed. Pass an array as
+  // `advanced` to be told WHICH plants moved — the scene bursts leaf flecks
+  // on the ones in view (app.js advanceGrowth → _burstAtWorld 'sprout').
+  function advanceGrowth(save, now = Date.now(), advanced = null) {
     let mutated = false;
     for (const p of save.planted || []) {
       if (!p.watered_t) continue;
@@ -49,6 +51,7 @@
       p.stage = (p.stage ?? 0) + 1;
       p.watered_t = 0;
       mutated = true;
+      if (advanced) advanced.push(p);
     }
     return mutated;
   }
@@ -91,8 +94,9 @@
 
   // Water every planted crop within `radius` metres of world point (pwx, pwy).
   // Returns { n, jumped } — how many were watered, and how many the can pushed
-  // a stage on.
-  function waterWithin(save, pwx, pwy, radius, now = Date.now(), relics = null, rng = Math.random) {
+  // a stage on. Pass an array as `jumpedPlants` to be told which ones jumped
+  // (the scene bursts a 'sprout' on each — the same cue the tap gives).
+  function waterWithin(save, pwx, pwy, radius, now = Date.now(), relics = null, rng = Math.random, jumpedPlants = null) {
     const r2 = radius * radius;
     let n = 0, jumped = 0;
     for (const p of save.planted || []) {
@@ -101,7 +105,7 @@
       const r = waterOne(save, p, relics, now, rng);
       if (!r) continue;
       n++;
-      if (r === 'jumped') jumped++;
+      if (r === 'jumped') { jumped++; if (jumpedPlants) jumpedPlants.push(p); }
     }
     return { n, jumped };
   }
