@@ -12,7 +12,8 @@
 //   RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName
 //   POI_CATEGORY
 //   PAD_CATEGORIES, padShapeKeyForPoi
-//   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, chestTier
+//   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, CHEST_TIER_HOME_RINGS_M,
+//   chestTierHomeDrop, chestTier
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
 //   STAND_NEVER_CLASSES,
 //   standWordItem, standNameItems, produceStandFor
@@ -228,8 +229,31 @@ const CHEST_TIER_COLOR = {
   3: 0x5f89ff, // lighter blue (10% lighter than 0x4d7cff) — rare
   4: 0xc77dff, // violet — epic
 };
-function chestTier(poiClass) {
-  return CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
+// Chests near Home are DEMOTED. The base tier above is what the POI class
+// promises; a chest standing inside one of these rings around the spawn origin
+// (HomeArea.worldM — the same world-metre frame every object's x/y lives in)
+// loses one tier per ring it is inside, cumulatively: within 700 m is one
+// tier down, within 350 m is two. The floor is T1, so a lowtier box (T1
+// already) is untouched and a T2 park chest within 700 m of Home reads and
+// pays as a plain box. Rings are radii in metres, largest first; the test in
+// test/node/chest_tier.test.js walks the boundaries.
+const CHEST_TIER_HOME_RINGS_M = [700, 350];
+// Tier drop for a chest at world-metres (x, y). 0 when the origin isn't
+// known yet (HomeArea.worldM null — a headless test or a pre-origin build).
+function chestTierHomeDrop(x, y) {
+  if (typeof HomeArea === 'undefined' || !HomeArea.worldM
+      || !Number.isFinite(x) || !Number.isFinite(y)) return 0;
+  let drop = 0;
+  for (const r of CHEST_TIER_HOME_RINGS_M) if (HomeArea.isNear(x, y, r)) drop++;
+  return drop;
+}
+// Effective tier (1-4) of a chest of POI class `poiClass` at world-metres
+// (x, y). Every reader — the sprite/gem in render.js, the loot roll in
+// interactables.js — resolves the tier through here so a chest can't draw as
+// one tier and pay as another. Omit x/y for the class's undemoted base tier.
+function chestTier(poiClass, x, y) {
+  const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
+  return Math.max(1, base - chestTierHomeDrop(x, y));
 }
 
 // === Themed produce / food stands ==========================================
