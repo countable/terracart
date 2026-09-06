@@ -474,8 +474,16 @@ const TAP_HANDLERS = [
     let target = null, bestD2 = Infinity;
     WorldGen.forEachItem('creatures', (c) => {
       if (save.caught.includes(c.id)) return;
-      const [frame, scale, lift] = SPRITE[c.kind] || SPRITE.chicken;
-      const halfW = HALF_W[c.kind] ?? 2.0;
+      // A giant monster is its base kind's box scaled by the same number the
+      // renderer draws it with (SpriteLayout.GIANT_ART_SCALE), so the tappable
+      // area stays the drawn body.
+      const bk = (typeof SpriteLayout !== 'undefined' && SpriteLayout.baseKind)
+        ? SpriteLayout.baseKind(c.kind) : c.kind;
+      const gMul = (typeof SpriteLayout !== 'undefined' && SpriteLayout.isGiantKind
+        && SpriteLayout.isGiantKind(c.kind)) ? SpriteLayout.GIANT_ART_SCALE : 1;
+      const [frame, baseScale, lift] = SPRITE[bk] || SPRITE.chicken;
+      const scale = baseScale * gMul;
+      const halfW = (HALF_W[bk] ?? 2.0) * gMul;
       const spanPx = frame * scale;
       const topM = (ORIGIN_Y * spanPx + lift) * px2m;        // feet → top of frame
       const botM = (1 - ORIGIN_Y) * spanPx * px2m + 0.3;     // small under-feet pad

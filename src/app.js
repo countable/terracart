@@ -339,6 +339,30 @@ const MONSTERS = {
   goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.0, minDepth: 2, weight: 3 },
   goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 0.8, minDepth: 3, weight: 2 },
 };
+// ── GIANTS ──────────────────────────────────────────────────────────────────
+// Every kind above has a GIANT form, `giant_<kind>`: GIANT_HP_MUL (4×) the HP,
+// introduced GIANT_DEPTH_STEP (2) levels deeper than its base kind, at half
+// the base kind's spawn share. Damage, range and speed are the base kind's —
+// it is a bigger, tougher body of the same foe, not a new one. Derived here
+// from the literal rather than authored, so a kind added above has a giant
+// the moment it has stats, and the doubling below reaches the giants too.
+// There is no giant art: SpriteLayout.creatureArt draws the base kind's sheet
+// at GIANT_ART_SCALE (1.8), and everything that seats on the body (wheel,
+// health bar, tap box, shadow) resolves through the same helper. A giant's
+// kill credits the BASE kind's quest (resolveDefeat), and its elite roll gets
+// the +2 tier of its deeper introduction for free (eliteRollBonus).
+const GIANT_HP_MUL = 4;
+const GIANT_DEPTH_STEP = 2;
+for (const [kind, m] of Object.entries(MONSTERS)) {
+  MONSTERS[`giant_${kind}`] = {
+    ...m,
+    name: `Giant ${m.name}`,
+    hp: m.hp * GIANT_HP_MUL,
+    minDepth: m.minDepth + GIANT_DEPTH_STEP,
+    weight: Math.max(1, Math.ceil((m.weight || 1) / 2)),
+    giant: kind,
+  };
+}
 // The first slime is the tutorial; everything past it is a real fight.
 //
 // The wild surface slime is the only enemy above ground and the first one
@@ -6029,7 +6053,10 @@ class MapScene extends Phaser.Scene {
       this.flash(`${victim.kind} defeated`, this.viewCenterX, this.viewCenterY - 60);
     }
     if (typeof Quests !== 'undefined') {
-      const qDone = Quests.onKill(save, victim.kind);
+      // A giant is its base kind for the bounty board: "defeat 3 goblins" is
+      // satisfied by a giant goblin, which is a goblin and then some.
+      const questKind = MONSTERS[victim.kind]?.giant || victim.kind;
+      const qDone = Quests.onKill(save, questKind);
       if (qDone) this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
     }
     persistSave(save);
