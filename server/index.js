@@ -73,7 +73,8 @@ function num(v, fallback = 0) {
 
 function createRelay(server) {
   const wss = new WebSocketServer({ server, maxPayload: 1024 });
-  const clients = new Map();   // id → { ws, id, name, color, x, y, fx, fy, m, d, alive, budget }
+  const clients = new Map();   // id → { ws, id, name, color, x, y, fx, fy, m, d, lastPingAt }
+                               // (the liveness flag + frame budget live on ws itself: ws.alive / ws.budget)
   let nextId = 1;
 
   const peerView = (c) => ({ id: c.id, name: c.name, color: c.color, x: c.x, y: c.y, fx: c.fx, fy: c.fy, m: c.m, d: c.d });
@@ -179,4 +180,5 @@ if (require.main === module) {
   server.listen(PORT, () => console.log(`terracart relay listening on :${PORT}`));
 }
 
-module.exports = { createServer, createRelay, cleanName, cleanLabel, cleanColor, INTEREST_PX, NAME_MAX, LABEL_MAX, MAX_MSGS_PER_S, PING_GAP_MS };
+// What server/test.js drives; nothing else requires this module.
+module.exports = { createServer, cleanName, cleanLabel, INTEREST_PX, MAX_MSGS_PER_S };

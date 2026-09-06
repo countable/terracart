@@ -116,6 +116,4 @@ async function runTests(scene) {
   const sum = document.getElementById('summary');
   sum.className = 'summary ' + (failed === 0 ? 'ok' : 'fail');
   sum.textContent = `${passed} passed, ${failed} failed (${window.__tests.length} total)`;
-  // Expose result for any outer scraper.
-  window.__testResults = { passed, failed, total: window.__tests.length };
 }

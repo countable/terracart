@@ -12,9 +12,8 @@
 //
 // Depends on:
 //   app.js       — MapScene methods (flash, flashLoot, addToInv, shopInteract,
-//                  catchCreature, screenToWorldMeters, cellAt, worldMetersToAbsCell,
-//                  absCellCenterMeters, buildInventoryDOM);
-//                  module-level helpers (distM2, isTillable, isTillableCell).
+//                  catchCreature, screenToWorldMeters, cellAt, buildInventoryDOM);
+//                  module-level helpers (distM2, isTillable, isTillableCell)
 //   coords.js    — worldMetersToAbsCell, absCellCenterMeters, sameAbsCell,
 //                  cellInReach (tap targeting is cell-bounded, see below)
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
@@ -28,8 +27,9 @@
 //   interactTap(scene, sx, sy)  — top-level dispatcher; MapScene.handleWorldTap forwards to this
 
 // Decrement the selected inventory stack by `n` (default 1). If it hits zero,
-// splice it out and clamp selSlot so it still points at a valid slot. Used by
-// every handler that consumes a held item (plant, release-animal, place-rock).
+// splice it out and leave the hand EMPTY (selSlot = -1) — the stack that
+// slides into its index is not something the player chose. Used by every
+// handler that consumes a held item (plant, release-animal, place-rock).
 // Caller is responsible for setting ctx.dirty and calling buildInventoryDOM.
 function consumeSelected(save, n = 1) {
   const sel = save.inv[save.selSlot];
@@ -37,9 +37,7 @@ function consumeSelected(save, n = 1) {
   sel.count -= n;
   if (sel.count > 0) return;
   save.inv.splice(save.selSlot, 1);
-  if (save.selSlot >= save.inv.length) {
-    save.selSlot = Math.max(0, save.inv.length - 1);
-  }
+  save.selSlot = -1;
 }
 
 // Unique id for an animal/slime released (or tamed) at a spot. `extra`
@@ -154,6 +152,7 @@ function findClosestItem(layer, px, py, reach, accept, offset) {
 // passed the cell gate) could still trip this Euclidean gate at the reach edge,
 // flashing "Just out of reach" only some of the time depending on where the
 // foot sat and cardinal-vs-diagonal geometry. Going cell-based removes that drift.
+//
 // THERE IS ONE REACH GATE. This used to keep the Euclidean rule described above
 // alive behind a `typeof cellInReach === 'function'` guard, as a fallback for
 // the helpers "somehow" being unavailable — but coords.js declares them at the
@@ -250,9 +249,9 @@ function equipGearReward(reward, save, scene) {
 
 // Grant ONE buried-treasure roll: the pickReward('treasure:default') payout
 // with every branch it can take — an item (low-tier seeds bundled up, jackpot
-// fanfare on a big hit), a gold sum, or the fallback dollar if rarity.js is
-// somehow absent — plus the consolation coins the picker couldn't fold into
-// the item's quantity.
+// fanfare on a big hit), a gold sum, or the fallback dollar if the pool comes
+// back empty — plus the consolation coins the picker couldn't fold into the
+// item's quantity.
 //
 // Factored out of the X-mark handler so a monster's rare drop pays the SAME
 // table: two copies of this would be two loot pools to retune, and the whole
@@ -260,23 +259,19 @@ function equipGearReward(reward, save, scene) {
 //   mark — the glyph the loot flash leads with ('✕' dug up, '💀' off a kill)
 // Sets no dirty flag and does not persist; the caller owns that.
 function grantTreasureRoll(scene, save, sx, sy, mark) {
-  const reward = (typeof pickReward === 'function')
-    ? pickReward('treasure:default', save) : null;
+  const reward = pickReward('treasure:default', save);
   if (!reward) {
-    // Shouldn't happen — context exists — but bail safely if rarity.js
-    // is missing or the pool is empty.
+    // Shouldn't happen — context exists — but bail safely if the pool is empty.
     addMoney(save, 1);
     scene.flashLoot(`${mark} → $1`, '#ffe066');
     return;
   }
   if (reward.kind === 'item') {
     // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
-    if (typeof isLowTierSeed === 'function' && isLowTierSeed(reward.id)) {
-      reward.qty += LOW_TIER_SEED_QTY_BONUS;
-    }
+    if (isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
     scene.addToInv(reward.id, reward.qty);
     const item = ITEM_BY_ID[reward.id];
-    const ti = (typeof tierInfo === 'function') ? tierInfo(reward.id) : null;
+    const ti = tierInfo(reward.id);
     const color = ti?.color || '#ffe066';
     const label = `${mark} → ${item?.name || reward.id}${reward.qty > 1 ? ` ×${reward.qty}` : ''}`;
     scene.flashLoot(label, color, 1, reward.id);
@@ -294,24 +289,6 @@ function grantTreasureRoll(scene, save, sx, sy, mark) {
     addMoney(save, reward.consolation);
     scene.flash(`+$${reward.consolation}`, sx, sy + 16);
   }
-}
-
-// Shared work-queue launcher for tool-driven interactions (chop, mine, pick).
-// Looks up the correct duration from toolDurationMs (falling back to 9s
-// bare-hands / 3s T1 if the helper isn't available), optionally pre-spends
-// energy (returning true without starting if the player can't afford it),
-// then starts the progress wheel. Always returns true (consumed the tap).
-//   relicSlot  — the relic key passed to toolDurationMs ('axe', 'pick', etc.)
-//   energyCost — energy to spend up-front (0 / falsy = free)
-//   onComplete — callback fired when the wheel finishes
-function startToolWork(ctx, x, y, relicSlot, energyCost, onComplete) {
-  const { scene, save, sx, sy } = ctx;
-  const durMs = (typeof toolDurationMs === 'function')
-    ? toolDurationMs(save.relics, relicSlot)
-    : (save.relics?.[relicSlot] ? 4000 : 9000);
-  if (energyCost && !scene.spendEnergy(energyCost, sx, sy)) return true;
-  scene.startWorkProgress(x, y, onComplete, durMs, energyCost || 0, relicSlot);
-  return true;
 }
 
 // Shared "drop a held item onto an empty tillable cell" path for the
@@ -503,10 +480,10 @@ const TAP_HANDLERS = [
     // it in place instead of catching or fighting. Checked before the slime /
     // DEFEAT / favourite-food paths so mango always wins. Already-tame pets
     // (id starts with 'released_') skip this and fall through to petting.
-    const _isReleased = typeof target.id === 'string' && target.id.startsWith('released_');
+    const isTame = typeof target.id === 'string' && target.id.startsWith('released_');
     const _mangoSel = getSelectedSlot(save);
     // Underground monsters can't be befriended — they're DEFEAT-only foes.
-    if (!_isReleased && !isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
+    if (!isTame && !isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
       const doMangoTame = () => tameInPlace(scene, save, target,
         `🥭 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, 'mango', 1.2);
       confirmFeed(scene, 'mango', target.kind, doMangoTame);
@@ -560,19 +537,14 @@ const TAP_HANDLERS = [
     // 'released_' animal, so tapping the slime you'd just befriended with a
     // sapphire killed it. A pet of any kind falls through to petting below.
     const HUNT_KINDS = new Set(['crow', 'deer']);
-    if (!_isReleased && HUNT_KINDS.has(target.kind)) {
+    if (!isTame && HUNT_KINDS.has(target.kind)) {
       const r = save.relics || {};
       const weaponTier = Math.max(r.sword?.tier || 0, r.bow?.tier || 0, r.staff?.tier || 0);
       const bestWeapon = ['sword', 'bow', 'staff'].reduce((b, w) => (r[w]?.tier || 0) > (r[b]?.tier || 0) ? w : b, 'sword');
       const weaponSlot = weaponTier > 0 ? bestWeapon : null;
       // Weapon uses the shared spec tool ladder via toolDurationMs (wood 4s …
       // frost .3s). No weapon = tier 0 (bare hands): 9s — slow but always possible.
-      // The fallback (items.js not loaded yet) walks the same geometric curve
-      // rather than a straight line, so a load-order stumble can't hand out a
-      // ladder with a different SHAPE from the real one.
-      const durMs = (typeof toolDurationMs === 'function')
-        ? toolDurationMs(r, weaponSlot)
-        : (weaponTier > 0 ? Math.round(4000 * Math.pow(300 / 4000, (weaponTier - 1) / 6)) : 9000);
+      const durMs = toolDurationMs(r, weaponSlot);
       // Rare shiny fauna have DOUBLE HP — the work wheel takes twice as long,
       // so a shiny crow/deer is markedly tougher to bring down than its plain
       // kind. (Enemies never reach here, and neither slimes nor monsters ever
@@ -606,8 +578,7 @@ const TAP_HANDLERS = [
     // a brief species-specific happy interaction (cluck / purr / etc.),
     // arms a petting-boost timer that gives the next produce roll a +50%
     // double chance, and — for cats — kicks off a 5-minute follow timer
-    // the wander loop honours.
-    const isTame = typeof target.id === 'string' && target.id.startsWith('released_');
+    // the wander loop honours. (isTame is decided above, before the mango path.)
     // A tame PRODUCER (cow / chicken) fed PLANT PRODUCE must fall through to the
     // produce path below — that's where milk / eggs are granted and where the
     // petting boost armed here is consumed. Without this exception the isTame
@@ -623,8 +594,7 @@ const TAP_HANDLERS = [
       // Petting accepts the favourite OR plant produce as a treat. Treats
       // get consumed; an empty-handed pet is free. animalLikesFood handles
       // species-specific quirks (e.g. tame chicken accepts any seed).
-      const likesTame = (typeof animalLikesFood === 'function')
-        && sel && animalLikesFood(target.kind, sel.id);
+      const likesTame = sel && animalLikesFood(target.kind, sel.id);
       const isTreat = sel && (sel.count ?? 0) > 0
         && (likesTame || isPlantProduce);
       // Pet the animal: arm the +50% double-yield boost and (for treats) eat
@@ -668,8 +638,7 @@ const TAP_HANDLERS = [
     // below. animalLikesFood handles the chicken-eats-any-seed special case.
     // Guarded on !isTame so an already-tame cow fed its favourite (pairy, which
     // is also plant produce) doesn't re-tame — it falls through to milk instead.
-    const likes = (typeof animalLikesFood === 'function') && sel
-      && animalLikesFood(target.kind, sel.id);
+    const likes = sel && animalLikesFood(target.kind, sel.id);
     if (!isTame && sel && likes && (sel.count ?? 0) > 0) {
       const favId = sel.id;
       const doTame = () => tameInPlace(scene, save, target,
@@ -754,17 +723,14 @@ const TAP_HANDLERS = [
     // the wheel by tier; bare hands take the tier-0 (9s) time — long enough
     // that a slow target usually slips out of reach and escapes. Butterflies
     // catch bare-handed too — no tool gate.
-    let catchMs = (typeof toolDurationMs === 'function')
-      ? toolDurationMs(save.relics, 'bugnet')
-      : (save.relics?.bugnet ? 4000 : 9000);
+    let catchMs = toolDurationMs(save.relics, 'bugnet');
     // Rare shiny fauna have DOUBLE HP — the catch wheel runs twice as long, so
     // a shiny animal (which also flees at 2× speed) is much harder to net: it
     // has more time to slip out of reach and escape. Plain kinds are unchanged.
     if (target.shiny) catchMs *= 2;
     // Catching costs energy (refunded if the player cancels the wheel; not
     // refunded if the animal escapes the player's reach — the attempt was made).
-    const catchCost = (typeof effectiveCatchCost === 'function')
-      ? effectiveCatchCost(save.relics) : (ENERGY_COST?.catch ?? 0);
+    const catchCost = effectiveCatchCost(save.relics);
     if (catchCost && !scene.spendEnergy(catchCost, sx, sy)) return true;
     const victim = target;
     scene.startCatchProgress(victim, catchMs, () => {
@@ -826,10 +792,15 @@ const TAP_HANDLERS = [
         // Chopping a shrub is real felling work — charge the shared 9/3/1 tool
         // curve off the axe tier (9 bare-handed, 3 with a Wood axe … 1 frost).
         // rockfruit debris stays free to gather.
-        const workCost = (wp.crop === 'shrub' && typeof toolEnergyExpected === 'function')
+        const workCost = wp.crop === 'shrub'
           ? probEnergy(toolEnergyExpected(save.relics?.axe?.tier || 0))
           : 0;
-        startToolWork(ctx, wp.x, wp.y, reqRelic, workCost, award);
+        // Same pipeline as interactables.js runInteractable: pre-spend the
+        // energy (an unaffordable tap is consumed without starting), then run
+        // the wheel on the relic's tool ladder, refunding the cost on cancel.
+        const durMs = toolDurationMs(save.relics, reqRelic);
+        if (workCost && !scene.spendEnergy(workCost, sx, sy)) return true;
+        scene.startWorkProgress(wp.x, wp.y, award, durMs, workCost || 0, reqRelic);
       } else {
         award();
         ctx.dirty = true;
@@ -964,7 +935,7 @@ const TAP_HANDLERS = [
   // reachable area depend only on which cell you're in, not where in it you
   // stand, so the 3-cell cardinal reach is consistent everywhere.
   { name: 'cell-resolve', try: (ctx) => {
-    const { scene, wm, pWorldX, pWorldY, sx, sy } = ctx;
+    const { scene, wm, sx, sy } = ctx;
     const cell = scene.cellAt(wm.x, wm.y);
     if (!cell.loaded) { scene.flash('loading…', sx, sy); return true; }
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, wm.x, wm.y);
@@ -1296,8 +1267,7 @@ const TAP_HANDLERS = [
     // improves the catch table + skunk rate + energy per cast; bare hands fish
     // at tier 0 (higher skunk rate, minnow-heavy weights) so only owning a rod
     // improves the catch (spec §FISHING).
-    const fishCost = (typeof effectiveFishCost === 'function')
-      ? effectiveFishCost(save.relics) : (ENERGY_COST?.fish ?? 9);
+    const fishCost = effectiveFishCost(save.relics);
     if (!scene.spendEnergy(fishCost, sx, sy)) return true;
     // A rod owner can't reach 'can-refill' (the rod owns water taps), so top
     // the can up here as part of the cast so owning a rod never costs you your
@@ -1327,27 +1297,21 @@ const TAP_HANDLERS = [
       // milestone gating was removed, so this always yields a gear roll. An
       // upgrade auto-equips; a dupe cashes out as consolation gold.
       if (Math.random() < 0.02) {
-        const reward = (typeof rollGearUpgrade === 'function')
-          ? rollGearUpgrade(undefined, save, save.relics, 2, save.armor)
-          : null;
+        const reward = rollGearUpgrade(undefined, save.relics, 2, save.armor);
         if (reward?.kind === 'relic' || reward?.kind === 'armor') {
           equipGearReward(reward, save, scene);
           persistSave(save);
-          const label = (typeof gearName === 'function')
-            ? gearName(reward.kind, reward.slot, reward.tier)
-            : `${reward.slot} T${reward.tier}`;
+          const label = gearName(reward.kind, reward.slot, reward.tier);
           scene.flashLoot(`✨ ${label} (equipped!)`, '#ffe066', 1.6);
           return;
         }
         if (reward?.kind === 'gold') {
-          const label = (typeof gearName === 'function')
-            ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier)
-            : `${reward.slot} T${reward.tier}`;
+          const label = gearName(reward.gearKind || 'relic', reward.slot, reward.tier);
           scene.flashLoot(`✨ ${label} (already better)`, '#aaa', 1.2);
           persistSave(save);
           return;
         }
-        // reward null (no milestones yet) — fall through to fish table.
+        // reward null (no relic defs) — fall through to the fish table.
       }
       // 6% per cast → junk pull (old boot). Below the relic jackpot in the
       // order so the 2% jackpot wins the cast outright when both would
@@ -1386,12 +1350,10 @@ const TAP_HANDLERS = [
   { name: 'cave-wall', try: (ctx) => {
     const { scene, save, sx, sy, cell, cellIX, cellIY, cwmx, cwmy } = ctx;
     if ((scene.depth ?? 0) <= 0) return false;
-    if (cell.type !== 25 /* CAVE_WALL */) return false;
-    const cost = (typeof effectivePickCost === 'function') ? effectivePickCost(save.relics) : 0;
+    if (cell.type !== TERRAIN.CAVE_WALL) return false;
+    const cost = effectivePickCost(save.relics);
     if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
-    const durMs = (typeof toolDurationMs === 'function')
-      ? toolDurationMs(save.relics, 'pick')
-      : (save.relics?.pick ? 4000 : 9000);
+    const durMs = toolDurationMs(save.relics, 'pick');
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);
       // Cave walls take the shared BASE table (interactables.js
@@ -1452,7 +1414,6 @@ const TAP_HANDLERS = [
       save.fruittrees = save.fruittrees || [];
       const id = `pft_${Math.round(cwmx)}_${Math.round(cwmy)}`;
       const planted_t = Date.now();
-      const species = item.grows === 'peach' ? 'peach' : 'apple';
       if (!save.fruittrees.some(f => f.id === id)) {
         save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t, id });
       }
@@ -1471,7 +1432,7 @@ const TAP_HANDLERS = [
       if (entry) {
         entry.objects = entry.objects || [];
         if (!entry.objects.some(o => o.id === id)) {
-          entry.objects.push({ kind: 'fruittree', x: cwmx, y: cwmy, species, id, planted: true, planted_t });
+          entry.objects.push({ kind: 'fruittree', x: cwmx, y: cwmy, species: item.grows, id, planted: true, planted_t });
         }
       }
       consumeSelected(save);
@@ -1523,15 +1484,13 @@ const TAP_HANDLERS = [
     }
     if (blocker) { scene.flash(`occupied: ${blocker}`, sx, sy); return true; }
     // Hoe relic discounts (and sometimes zeroes out) the till cost.
-    const tillCost = (typeof effectiveTillCost === 'function')
-      ? effectiveTillCost(save.relics) : (ENERGY_COST?.till ?? 0);
+    const tillCost = effectiveTillCost(save.relics);
     if (!scene.spendEnergy(tillCost, sx, sy)) return true;
     // Tilling runs a WORK WHEEL. Duration follows the shared tool ladder via the
     // hoe slot (bare hands 9s; a Hoe relic speeds it by tier). GRASSLAND-biome
     // cells till in HALF the time (spec §cells). Energy is pre-spent and refunds
     // if the player cancels the wheel.
-    let tillMs = (typeof toolDurationMs === 'function')
-      ? toolDurationMs(save.relics, 'hoe') : (save.relics?.hoe ? 4000 : 9000);
+    let tillMs = toolDurationMs(save.relics, 'hoe');
     // Global 2× tilling speed-up — applied on top of the tool-tier ladder and
     // the grassland half-time below, so every till is twice as fast everywhere.
     tillMs = Math.round(tillMs / 2);
@@ -1575,23 +1534,10 @@ function interactTap(scene, sx, sy) {
     return;
   }
   const wm = scene.screenToWorldMeters(sx, sy);
-  const pWorldX = scene.startWorldM.x + scene.playerM.x;
-  // Reach is measured from the character's visible feet, not the sprite center,
-  // so the reachable area is symmetric around what the user perceives as "the player".
-  const pWorldY = scene.startWorldM.y + scene.playerM.y + scene.feetOffsetM;
-  // pWorldX/Y are the FEET (pWorldY already carries feetOffsetM), which is what
-  // makes the reach box snap to a new row exactly when the sprite's feet cross
-  // a cell gridline — matching what the player sees. Earlier this measured from
-  // the BODY, which made the box jump while the feet were still mid-tile ("the
-  // rangebox moves up when I cross the centre of a tile, not a gridline"). The
-  // visual outline in render.js is feet-based too, so the two stay synced.
-  //
-  // The player's CELL CENTRE used to be computed here and handed down on ctx as
-  // a pair of centre coordinates. Nothing reads it any more: its consumer was the
-  // Euclidean distance in tooFar's removed fallback. The live gate asks whether
-  // a CELL is lit, which needs no centre point on either side.
-  const ctx = { scene, save: scene.save, wm, pWorldX, pWorldY,
-                sx, sy, dirty: false };
+  // The player's position is NOT carried on ctx: every reach test goes through
+  // tooFar → cellInReach (coords.js), which reads the player's feet cell off
+  // the scene itself, so the handlers only need the tap.
+  const ctx = { scene, save: scene.save, wm, sx, sy, dirty: false };
   let consumedBy = null;
   for (const h of TAP_HANDLERS) {
     const consumed = h.try(ctx);

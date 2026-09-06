@@ -294,12 +294,21 @@ test('consumeSelected: splices out the stack when count reaches 0', () => {
   assert.eq(save.inv[0].id, 'wood', 'remaining stack is wood');
 });
 
-test('consumeSelected: clamps selSlot when it falls off the end after splice', () => {
-  // selSlot points at the last item; splicing it must pull selSlot back to 0.
+test('consumeSelected: spending the last of a stack empties the hand', () => {
+  // selSlot points at the last item; splicing it leaves NOTHING selected —
+  // never the neighbouring stack the player didn't pick.
   const save = { inv: [{ id: 'wood', count: 2 }, { id: 'coal', count: 1 }], selSlot: 1 };
   consumeSelected(save);
   assert.eq(save.inv.length, 1, 'coal stack removed');
-  assert.eq(save.selSlot, 0, 'selSlot clamped to last valid index');
+  assert.eq(save.selSlot, -1, 'nothing in hand');
+});
+
+test('consumeSelected: the stack that slides into the emptied index is not auto-selected', () => {
+  const save = { inv: [{ id: 'coal', count: 1 }, { id: 'wood', count: 2 }], selSlot: 0 };
+  consumeSelected(save);
+  assert.eq(save.inv.length, 1, 'coal stack removed');
+  assert.eq(save.inv[0].id, 'wood', 'wood now sits at index 0');
+  assert.eq(save.selSlot, -1, 'but it is not in hand');
 });
 
 test('consumeSelected: no-op when selSlot points to an empty slot', () => {

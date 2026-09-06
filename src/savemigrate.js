@@ -27,11 +27,14 @@
     let needsPersist = false;
 
     // --- Slot / default backfills (idempotent; don't force a persist) --------
-    // Stats / equipment: add energy + relic/armor slots to older saves.
-    save.relics = save.relics || {
-      pick: null, axe: null, ring: null, amulet: null, sword: null, bow: null, staff: null,
-    };
-    for (const slot of ['axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
+    // Stats / equipment: add energy + relic/armor slots to older saves. The
+    // slot list is RELIC_DEFS (items.js, loaded before this file) so a new
+    // relic slot is backfilled the moment it is declared; the literal is only
+    // for a headless load of this file on its own.
+    const relicSlots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS)
+      : ['pick', 'axe', 'ring', 'amulet', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+    save.relics = save.relics || {};
+    for (const slot of relicSlots) {
       if (save.relics[slot] === undefined) save.relics[slot] = null;
     }
     // Only one weapon fights at a time (combat.js); older saves predate the
@@ -147,7 +150,6 @@
         if (cells.size) flat[tileKey] = [...cells];
       }
       save.pathStones = flat;
-      if (!save.trail) save.trail = { stones: 0, prizes: 0 };
       needsPersist = true;
     }
     if (!save.trail) save.trail = { stones: 0, prizes: 0 };
@@ -270,5 +272,5 @@
     return true;
   }
 
-  root.SaveMigrate = { migrate, hasPlayed, stampStartedAt, stampHarvested };
+  root.SaveMigrate = { migrate, hasPlayed };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

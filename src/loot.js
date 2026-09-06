@@ -250,7 +250,7 @@ const STAND_ITEM_FRAME = {
   // meat (red, 2)
   meat: 2,
   // fish (teal, 3)
-  salmon: 3, bass: 3, trout: 3, minnow: 3, goldenfish: 3,
+  salmon: 3, bass: 3, trout: 3, minnow: 3,
   // coffee / bakery (brown, 4)
   coffee: 4,
   // dairy / egg (pale yellow, 5)

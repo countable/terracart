@@ -310,6 +310,12 @@ function mulTint(a, b) {
   const ch = (sh) => Math.round((((a >> sh) & 0xff) * ((b >> sh) & 0xff)) / 255) << sh;
   return ch(16) | ch(8) | ch(0);
 }
+// Packed 0xRRGGBB → CSS '#rrggbb', for the canvas overlays (road_overlay.js,
+// building_overlay.js) that hand a Phaser-style int to a 2D context. One copy
+// here rather than a local per file. `>>> 0` keeps a sign-bit int positive.
+function cssOf(c) {
+  return '#' + (c >>> 0).toString(16).padStart(6, '0');
+}
 const fontSerif = (spec) => `${spec} ${FONT_SERIF_STACK}`;
 
 // PALETTE. Named roles, not shades — reach for the role that fits rather than

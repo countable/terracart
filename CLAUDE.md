@@ -62,10 +62,22 @@
   shadow, halo, facing arrow, sword swing — reads `scene.playerScreen()`, never
   `viewCenterX/Y`. **When you add a world-drawn layer, anchor it; when you add a
   reach or gate test, don't.**
+  A third case sits beside those two: a layer too expensive to rebuild per frame
+  is cached about `viewCenterX/Y` and SLID by the peek (`setPosition(-peekPx)`)
+  instead. That is fine, but a slid image must be drawn WIDER than the frame —
+  by `PEEK_MAX_CELLS` cells, the drag's own clamp — or the peek pulls its outer
+  edge into view. The distance falloff shipped stopping exactly at the viewport
+  half-diagonal, so a drag put a hard circular arc of the darkness's own edge
+  across the corner of the map. The fix is not to retune the ramp: it still ends
+  at the half-diagonal, and the rings simply continue past it flat at the alpha
+  the ramp reaches there (`render.js` › `Render.falloffRadii` — one helper, two
+  radii, so the margin can't drift from the clamp). **When you cache a layer
+  about the viewport centre and slide it, give it the peek margin.**
   **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js` drives the
   lifted shipping code: the projection round-trip under a peek, that a tap lands
-  in the cell it was drawn over, that reach is unmoved by the camera, and that a
-  pointer which dragged taps nothing.
+  in the cell it was drawn over, that reach is unmoved by the camera, that a
+  pointer which dragged taps nothing, and that no viewport corner escapes the
+  falloff rings at any peek angle.
 
 - **The painter rule: the LOWER object (centre of mass) renders in front.**
   World sprites already obey it via the screen-row z-order in
@@ -114,8 +126,9 @@
   answer is the same discipline as `roadOverlayWidthM`: **one table both sides
   read**. `SpriteLayout.PLAIN_ROCK_VARIANTS` carries `col` (what render.js
   draws) beside `stones` (what `plainRockBaseDrop` pays, `stones + randInt(0,1)`),
-  and both callers resolve the variant through `SpriteLayout.plainRockVariant`
-  so they can't pick different rocks. A surface with no rock sprite promises
+  and both callers (`SpriteLayout.plainRockFrame` for the draw,
+  `SpriteLayout.plainRockStones` for the drop) resolve the variant through the
+  one internal `plainRockVariant` so they can't pick different rocks. A surface with no rock sprite promises
   nothing and passes `stones = null` for the old flat roll — that's the cave
   WALL dig, not a rock. Note the pair is one connected blob, so no pixel pass
   can count it: `stones` is authored, and the tripwire if the sheet is re-cut

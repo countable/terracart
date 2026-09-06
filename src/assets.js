@@ -4,6 +4,9 @@
 const ASSETS = {
   idle:    { kind: 'spritesheet', path: 'assets/Character/Idle.png',           frameWidth: 32, frameHeight: 32 },
   walk:    { kind: 'spritesheet', path: 'assets/Character/Walk.png',           frameWidth: 32, frameHeight: 32 },
+  // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
+  // row 0 (frames 0-7) is the wing-flap we loop while transformed.
+  dragon:  { kind: 'spritesheet', path: 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', frameWidth: 96, frameHeight: 96 },
   trees:   { kind: 'spritesheet', path: 'assets/Objects/Maple Tree.png',       frameWidth: 32, frameHeight: 48 },
   house:   {
     kind: 'image', path: 'assets/Objects/House.png',
@@ -11,6 +14,10 @@ const ASSETS = {
     // "front" frame for the right-hand cabin so we only render that.
     onLoad: (scene) => { scene.textures.get('house').add('front', 0, 148, 3, 72, 95); },
   },
+  // Cave staircases (the surface→cave entrance and the cave's way back up).
+  // ?v= busts the SW/browser cache when the art changes.
+  stair_down: { kind: 'image', path: 'assets/Objects/stair_down.png?v=2' },
+  stair_up:   { kind: 'image', path: 'assets/Objects/stair_up.png?v=1' },
   // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
   // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
   // 32×32 made every "frame" a 2×2 cluster of mini-chickens — so each
@@ -19,6 +26,15 @@ const ASSETS = {
   // the top row form the idle animation pair.
   chicken: { kind: 'spritesheet', path: 'assets/Farm Animals/Chicken Red.png',        frameWidth: 16, frameHeight: 16 },
   cow:     { kind: 'spritesheet', path: 'assets/Farm Animals/Female Cow Brown.png',   frameWidth: 32, frameHeight: 32 },
+  // Pet body sheets — 32×32 RPG-Maker-style anim grids (4 cols × 12-13 rows).
+  // Row 0 is the down-walk cycle, which we loop as the idle anim. Source
+  // PNGs are copied out of the gitignored Sprites/ dump into Objects/Pets/
+  // so the tree builds without the raw asset pack (same pattern as
+  // Objects/Wilderness/). Originals were Sprites/Animals/Pets/Cats/1/Ginger.png
+  // and Sprites/Animals/Pets/Dogs/Premade/4/1.png (grey); swap with sibling
+  // sheets from those folders if we ever want colour variety.
+  cat:     { kind: 'spritesheet', path: 'assets/Objects/Pets/cat.png', frameWidth: 32, frameHeight: 32 },
+  dog:     { kind: 'spritesheet', path: 'assets/Objects/Pets/dog.png', frameWidth: 32, frameHeight: 32 },
   // trunk.png: 32x64, two 32x32 frames stacked. Frame 0 = closed, frame 1 = open (lid up).
   chest:   { kind: 'spritesheet', path: 'assets/Objects/trunk.png',            frameWidth: 32, frameHeight: 32 },
   // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame

@@ -11,13 +11,11 @@
 //   RARITY_TUNING            — knob constants (boost/jackpot/qty)
 //   LOOT_CONTEXTS            — per-context (chest:food, shop:trader, …) shape
 //   ITEMS_BY_CLASS_TIER      — { class → { tier → [id, …] } }
-//   CLASS_MAX_TIER           — { class → highest baseTier present }
 //   pickReward(key, save, rng)        → { kind:'item'|'relic'|'armor'|'gold', … }
 //                                        (chest contexts roll relic OR armor via rollGearUpgrade)
 //   reconcileRelicOffer(rolled, save, rng) → walk-up ladder for dupes
 //                                             (relic by default; pass rolled.kind
 //                                             'armor' for an armor slot)
-//   weightedPick(map, rng)            → string key (small helper, reused on balancing page)
 
 (function (global) {
   // ────────────────────────────────────────────────────────────────
@@ -87,7 +85,8 @@
   // ────────────────────────────────────────────────────────────────
   // Per-context picking shape. Each row owns:
   //   classBias — weights for which item-class the reward comes from
-  //   boostP    — base probability the boost chain takes another step
+  //   chainSteps / chainMax — how many deterministic boost steps fire, and the
+  //               tier the chain alone can climb to (see pickReward)
   //   maxTier   — hard ceiling on rolled item tier (clamps jackpot)
   //   relicCap  — hard ceiling on relic tier when class === 'relic'
   //               (0 = relics never offered, even if classBias allowed them)
@@ -102,7 +101,7 @@
     //   - tier 1..4 (one of the 4 chest spritesheets): drives the curve
     //     — HOW MUCH and HOW RARE the contents are
     // Biome rows declare classBias only; the tier modifier (CHEST_TIER_MOD
-    // below) supplies boostP / chainMax / maxTier / relicCap. Call sites:
+    // below) supplies chainSteps / chainMax / maxTier / relicCap. Call sites:
     //   pickReward('chest:' + biome, save, rng, { tier: chestTier(poiClass) })
     // The picker merges the biome row with the tier mod at pick time.
     // Relic share is roughly half what it used to be — relics were turning
@@ -210,8 +209,7 @@
   // without needing an entry in ITEMS_BY_CLASS_TIER.
 
   // ────────────────────────────────────────────────────────────────
-  // Helpers. weightedPick is exported because the balancing dashboard
-  // re-uses it for "what would this context give me" simulations.
+  // Helpers.
   // ────────────────────────────────────────────────────────────────
   function weightedPick(weightsObj, rng) {
     const keys = Object.keys(weightsObj);
@@ -345,15 +343,7 @@
       ? Math.min(ctx.relicChainMax ?? finalCap, finalCap)
       : Math.min(ctx.chainMax ?? finalCap, finalCap);
     // Deterministic chain. The context declares how many boost steps fire
-    // (chainSteps), plus any ROLL BONUS the caller asked for — an extra step
-    // or two for a reward that cost the player more than walking up to a box
-    // (opts.rollBonus; the cobble-trail prize spends Trail.PRIZE_ROLL_BONUS on
-    // it). A bonus step is worth the same as one of the context's own: a
-    // tier-up while the chain is under its cap, a quantity bracket after that,
-    // and the context's maxTier / chainMax still bound the result, so a bonus
-    // can lift a roll toward its ceiling but never above it. It does not touch
-    // a gear roll — those go through rollGearUpgrade on the chest tier alone.
-    // Each step:
+    // (chainSteps), each one a tier-up or a quantity bracket:
     //   • 33% chance: qty-up (bracket++ if below cap, else nothing).
     //   • 67% chance: tier-up if below chainCap, else qty-up (fallback).
     // The chain never 'misses' — every step does something, which lets the
@@ -363,8 +353,7 @@
     // already at 3, or the class is single-stack so the bump never converts
     // to actual qty. Each wasted bump pays out small consolation coins.
     let wastedQtyBumps = 0;
-    const chainSteps = (ctx.chainSteps ?? 0)
-      + Math.max(0, Math.floor((opts && opts.rollBonus) || 0));
+    const chainSteps = ctx.chainSteps ?? 0;
     const luck = ringLuck(save);
     const qtyP = Math.max(0, Math.min(0.95, (RARITY_TUNING.chainQtyP ?? 0.33) - luck));
     for (let i = 0; i < chainSteps; i++) {
@@ -372,6 +361,28 @@
       if (!goQty && tier < chainCap) tier += 1;
       else if (bracket < 3) bracket += 1;
       else wastedQtyBumps += 1;        // both axes maxed
+    }
+    // ROLL BONUS — extra steps the caller paid for (opts.rollBonus; the
+    // cobble-trail prize spends Trail.PRIZE_ROLL_BONUS on it, one more for
+    // every prize already won). These buy TIER AND NOTHING ELSE.
+    //
+    // They used to be ordinary chain steps, and a step that can't find tier
+    // headroom falls through to a quantity bracket — so the trail prize, which
+    // already rolls the T4 curve at its own chainMax, spent its bonus on the
+    // stack every time and handed over "× 2" of a T4 item on roughly every
+    // other prize. The player reads that as the reward's quantity being fixed
+    // at two, which is exactly what it was. A longer walk is supposed to buy a
+    // BETTER find, not a bigger pile of the same one: the quantity a prize
+    // shows is the context's own standard roll, and a bonus with nowhere left
+    // to climb pays consolation coins instead of padding the stack.
+    //
+    // The context's maxTier / chainMax still bound the result, so a bonus can
+    // lift a roll toward its ceiling but never above it. It does not touch a
+    // gear roll — those go through rollGearUpgrade on the chest tier alone.
+    const bonusSteps = Math.max(0, Math.floor((opts && opts.rollBonus) || 0));
+    for (let i = 0; i < bonusSteps; i++) {
+      if (tier < chainCap) tier += 1;
+      else wastedQtyBumps += 1;        // no headroom left — pay it out in coins
     }
     // Amulet: per-tier extra bracket roll (folded in here rather than a
     // post-multiply, so it stops doubling unbounded).
@@ -421,7 +432,7 @@
       // chest's tier (opts.tier, 1-4) drives the preferred reward tier.
       if (contextKey.startsWith('chest:')) {
         const chestT = (opts && opts.tier) || 2;
-        return rollGearUpgrade(rng, save, save?.relics, chestT, save?.armor);
+        return rollGearUpgrade(rng, save?.relics, chestT, save?.armor);
       }
       const slot = slots[Math.floor(rng() * slots.length)];
       // Relics deduct one tier off whatever the chain rolled — a T2 chest
@@ -480,23 +491,18 @@
   }
 
   // Dedicated relic/armor jackpot picker — used by fishing (2% cast jackpot)
-  // and formerly by the chest handler. Guarantees a gear result (relic or armor
-  // upgrade, or consolation gold). Moved here from loot.js; replaces the old
-  // pickChestRelic. `chestT` 1-4 drives the preferred/ceiling tier.
-  function rollGearUpgrade(rng, progress, currentRelics, chestT = 2, currentArmor = null) {
+  // and by the chest relic path in pickReward. Guarantees a gear result (relic
+  // or armor upgrade, or consolation gold). Moved here from loot.js; replaces
+  // the old pickChestRelic. `chestT` 1-4 drives the preferred/ceiling tier.
+  function rollGearUpgrade(rng, currentRelics, chestT = 2, currentArmor = null) {
     const random = rng || Math.random;
-    const allowed = chestRelicAllowedTiers(progress);
+    const allowed = chestRelicAllowedTiers();
     if (!allowed.length || !Object.keys(_RELIC_DEFS).length) return null;
+    // preferred is clamped to 1..7 and every tier 1..7 is allowed, so the
+    // capped pool is never empty.
     const preferred = Math.min(7, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
-    let weighted;
-    if (preferred > Math.max(...allowed)) {
-      const baseTiers = allowed.filter(t => t <= 3);
-      const pool = baseTiers.length ? baseTiers : allowed;
-      weighted = pool.map(t => ({ t, w: 1 }));
-    } else {
-      const capped = allowed.filter(t => t <= preferred);
-      weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
-    }
+    const capped = allowed.filter(t => t <= preferred);
+    const weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
     const total = weighted.reduce((a, b) => a + b.w, 0);
     let r = random() * total;
     let pickedTier = weighted[0].t;
@@ -519,10 +525,8 @@
   global.RARITY_TUNING          = RARITY_TUNING;
   global.LOOT_CONTEXTS          = LOOT_CONTEXTS;
   global.ITEMS_BY_CLASS_TIER    = ITEMS_BY_CLASS_TIER;
-  global.CLASS_MAX_TIER         = CLASS_MAX_TIER;
   global.pickReward             = pickReward;
   global.reconcileRelicOffer    = reconcileRelicOffer;
-  global.weightedPick           = weightedPick;
   global.chestRelicAllowedTiers = chestRelicAllowedTiers;
   global.rollGearUpgrade        = rollGearUpgrade;
 })(window);
