@@ -1213,6 +1213,7 @@ const TAP_HANDLERS = [
       // gets here first, so this only fires on a tap inside that window or
       // after the tab was backgrounded. Wrong either way.)
       scene.flash(`🌱 ${stageReadout()} — water it`, sx, sy);
+      scene._burstAtWorld?.('sprout', cwmx, cwmy);
       return true;
     }
     if (Crops.isMature(p)) {
@@ -1260,6 +1261,7 @@ const TAP_HANDLERS = [
       // how close it is to harvest (e.g. "Pairy 2/5").
       scene.flash((jumped ? `🌱 sprang ahead! ${stageReadout()}` : stageReadout())
                   + growthLeft(), sx, sy);
+      if (jumped) scene._burstAtWorld?.('sprout', cwmx, cwmy);
       return true;
     }
     // Already watered and still growing: the stage readout plus the wait left.

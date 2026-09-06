@@ -1576,6 +1576,13 @@ class MapScene extends Phaser.Scene {
     try { this.lightTex.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     this.lightMap = this.add.image(this.viewLeft, this.viewTop, 'lightmap')
       .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    // PARTICLE BURSTS (src/particles.js) — the one-shot puffs: gold stars off
+    // a jackpot / shiny banner, violet chips off a cobble as it lights, leaf
+    // flecks off a crop reaching its next stage. ABOVE the lightmap because a
+    // burst is bright by definition (a gold star multiplied by the night dim
+    // is a grey smudge), BELOW the labels and the fog. The emitters
+    // themselves are created lazily on first burst and parked in here.
+    this.fxContainer = this.add.container(0, 0);
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle
@@ -1897,6 +1904,7 @@ class MapScene extends Phaser.Scene {
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);
+    this.fxContainer.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
     this.fogContainer.setMask(mask);
@@ -5999,7 +6007,12 @@ class MapScene extends Phaser.Scene {
   // a single tick advances each plant by at most one stage; a long-idle
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
-    if (Crops.advanceGrowth(this.save)) persistSave(this.save);
+    const advanced = [];
+    if (!Crops.advanceGrowth(this.save, Date.now(), advanced)) return;
+    persistSave(this.save);
+    // Leaf flecks off each plant that grew — _burstAtWorld drops the ones
+    // outside the viewport, which on a 15-minute hold is most of them.
+    for (const p of advanced) this._burstAtWorld('sprout', p.x, p.y);
   }
 
   // ── COMBAT ───────────────────────────────────────────────────────────────
@@ -8760,21 +8773,38 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // Radial ✦ burst behind a fanfare. Was written out twice, identically bar
-  // the count and the throw distance.
-  _starburst(x, y, count, dist, duration) {
-    for (let i = 0; i < count; i++) {
-      const a = (i / count) * Math.PI * 2;
-      const sx = x + Math.cos(a) * 12, sy = y - 18 + Math.sin(a) * 12;
-      const star = this.add.text(sx, sy, '✦', {
-        font: fontMono('bold 18px'), color: UI_GOLD,
-        stroke: UI_SHADOW, strokeThickness: 2,
-      }).setOrigin(0.5, 0.5).setDepth(TOAST_TIER.fanfare.depth + 1).setAlpha(0.95);
-      this.tweens.add({
-        targets: star, x: sx + Math.cos(a) * dist, y: sy + Math.sin(a) * dist,
-        alpha: 0, duration, ease: 'Sine.Out', onComplete: () => star.destroy(),
-      });
-    }
+  // ── Particle bursts (src/particles.js) ─────────────────────────────────
+  // Three entry points, one per kind of position. All of them end in
+  // Particles.burst, which owns the presets, the lazy emitters and the
+  // reduced-motion gate; these only answer "where on screen?".
+  //
+  // At a SCREEN point — a toast's own x/y (the jackpot and shiny banners).
+  // The old _starburst (eight tweened ✦ Text objects) lived here.
+  _burstAt(kind, x, y) {
+    if (typeof Particles === 'undefined') return 0;
+    return Particles.burst(this, kind, x, y);
+  }
+
+  // At a WORLD point (absolute metres — a planted crop's x/y). Projected
+  // through worldMetersToScreen at fire time, never off the player, so a peek
+  // drag can't tear the puff off the thing it marks (QC rules: "where do I
+  // DRAW this?" goes through the projection). Gated on the viewport with a
+  // cell of margin: the crop tick advances plants the player is nowhere near,
+  // and a burst nobody sees still costs the pool.
+  _burstAtWorld(kind, wmx, wmy) {
+    if (typeof Particles === 'undefined' || !this.worldMetersToScreen) return 0;
+    if (!this.startWorldM || !this.originPx) return 0;
+    const p = this.worldMetersToScreen(wmx, wmy);
+    if (!p || !Particles.onScreen(this, p.x, p.y, CELL_PX)) return 0;
+    return Particles.burst(this, kind, p.x, p.y);
+  }
+
+  // At an absolute CELL (a cobble that just lit): its centre, then as above.
+  _burstAtCell(kind, ix, iy) {
+    if (ix == null || iy == null || typeof absCellCenterMeters !== 'function') return 0;
+    if (!this.startWorldM || !this.originPx) return 0;
+    const c = absCellCenterMeters(this, ix, iy);
+    return this._burstAtWorld(kind, c.x, c.y);
   }
 
   // Small status message, placed where the player tapped so it stays attached
@@ -8922,7 +8952,7 @@ class MapScene extends Phaser.Scene {
       const t = this._toast(`✨ JACKPOT +${n} ✨`,
         { tier: 'fanfare', color: UI_GOLD, bg: '#3a1f5a' });
       this.tweens.add({ targets: t, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
-      this._starburst(t.x, t.y, 6, 70, 900);
+      this._burstAt('jackpot', t.x, t.y);
     } catch (_) {}
   }
 
@@ -8965,7 +8995,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
-  // banner + a money line + a Discovery line, with a starburst. Call AFTER the
+  // banner + a money line + a Discovery line, with a star burst. Call AFTER the
   // loot/catch flash so it stacks above (depth 110). `title` is the headline —
   // the elite kill wears its own.
   flashShiny(money, isNew = true, title = '✨ SHINY FIND ✨') {
@@ -8985,7 +9015,7 @@ class MapScene extends Phaser.Scene {
         tier: 'sub', color: UI_GOLD_DEEP, originY: 0,
         y: banner.y + 8, stack: false,
       });
-      this._starburst(banner.x, banner.y, 8, 80, 950);
+      this._burstAt('shiny', banner.x, banner.y);
     } catch (_) {}
   }
 
@@ -9596,7 +9626,11 @@ class MapScene extends Phaser.Scene {
     const pWY = this.startWorldM.y + this.playerM.y;
     // The can's jump roll applies here too — a rainberry soaking the whole
     // plot is still the player watering, so it is still worth owning a can.
-    return Crops.waterWithin(this.save, pWX, pWY, radius, Date.now(), this.save.relics);
+    const jumpedPlants = [];
+    const out = Crops.waterWithin(this.save, pWX, pWY, radius, Date.now(), this.save.relics,
+                                  Math.random, jumpedPlants);
+    for (const p of jumpedPlants) this._burstAtWorld('sprout', p.x, p.y);
+    return out;
   }
 
   // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.
@@ -11623,6 +11657,9 @@ class MapScene extends Phaser.Scene {
       const tx = Math.floor(s.ix / N), ty = Math.floor(s.iy / N);
       if (!this._activatePathStone(tx, ty, s.ix, s.iy)) continue;
       lit += 1;
+      // Stone chips off the cobble as it comes on — one puff per stone, on
+      // the stone (projected), beside render.js's scale-pop of the art.
+      this._burstAtCell('stone', s.ix, s.iy);
       const dx = s.ix - p.cellIX, dy = s.iy - p.cellIY;
       const d2 = dx * dx + dy * dy;
       if (d2 < bestD2) { bestD2 = d2; at = { ix: s.ix, iy: s.iy }; }

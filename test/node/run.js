@@ -58,7 +58,7 @@ const FILES = [
   // read Difficulty.get() at call time and app.js pins it at boot.
   'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'trail.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
+  'mvt.js', 'util.js', 'particles.js', 'trail.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
@@ -988,6 +988,9 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+// interact.js loads headlessly, but the burst call sites in its crop handler are
+// pinned as source text (particles.test.js) beside the app.js ones.
+ctx.INTERACT_JS_SRC = readSrc('interact.js');
 // items.js loads fine, but its PLAY_TIPS / comments are prose the rope test
 // sweeps as text, and a new icon's PNG has to exist on disk at the size the
 // ICON_SHEETS row claims — the two-table rule (docs/QC_RULES.md §1) is a

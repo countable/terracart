@@ -84,8 +84,11 @@ const LIGHT = 'lightMap';
 // label layer, which is otherwise crisp UI and would name a shop the player has
 // never found.
 const FOG = 'fogContainer';
+// The particle-burst layer (src/particles.js): gold stars off a fanfare,
+// chips off a lighting cobble, leaf flecks off a growing crop.
+const FX = 'fxContainer';
 const BELOW_FOG = [...GROUND, ...SPRITES,
-  'reachGfx', LIGHT, 'atmosRimGfx', 'labelContainer', 'tierGfx'];
+  'reachGfx', LIGHT, 'atmosRimGfx', FX, 'labelContainer', 'tierGfx'];
 
 const CHECKS = [
   {
@@ -147,6 +150,22 @@ const CHECKS = [
       if (idx(layers, 'labelContainer') < light) {
         throw new Error('labelContainer draws below the lightmap — POI name tablets are UI and ' +
           'must stay crisp in the dark.');
+      }
+    },
+  },
+  {
+    name: 'layers: the particle bursts sit above the lightmap and below the labels',
+    run: () => {
+      const layers = displayLayers();
+      const fx = idx(layers, FX);
+      if (fx < idx(layers, LIGHT)) {
+        throw new Error(`${FX} draws below ${LIGHT} — a burst is bright by definition, and a gold ` +
+          'star multiplied by the night dim is a grey smudge. Move fxContainer after lightMap in ' +
+          'MapScene.create().');
+      }
+      if (fx > idx(layers, 'labelContainer')) {
+        throw new Error(`${FX} draws above labelContainer — a puff of chips over a POI name ` +
+          'tablet is noise on UI. Move fxContainer before labelContainer.');
       }
     },
   },

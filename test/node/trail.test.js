@@ -431,6 +431,10 @@ const sweepScene = (over) => Object.assign({
   playerM: { x: 25.5 * STEP_M, y: 25.5 * STEP_M },
   banked: [],
   _bankTrailStones(lit, at) { this.banked.push({ lit, at }); },
+  // The stone-chip burst (src/particles.js) the sweep fires per lit cobble —
+  // recorded, so the test can pin one puff per stone that came on.
+  bursts: [],
+  _burstAtCell(kind, ix, iy) { this.bursts.push({ kind, ix, iy }); },
   _pathStoneAt, _activatePathStone, _resetTrailSight,
   _rebuildTrailSight, _sweepCobbleTrails,
 }, over || {});
@@ -467,6 +471,8 @@ test('trail sight: two seconds in the bubble and the stones come on', () => {
     assert.gt(lit, 0, 'the reach really does cover some drawn stones');
     assert.eq(s.banked.length, 1, 'one bank for the whole disc, not one each');
     assert.eq(s.banked[0].lit, lit, 'and it banked exactly what lit');
+    assert.eq(s.bursts.length, lit, 'one stone-chip burst per stone that came on');
+    assert.truthy(s.bursts.every((b) => b.kind === 'stone'), 'in the stone preset');
     // Standing there longer lights nothing more — the disc is spent.
     clock.at(PATH_STONE_DWELL_MS * 5); s._sweepCobbleTrails();
     assert.eq(litCount(s), lit, 'a spent disc stays spent');
