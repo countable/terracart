@@ -425,9 +425,13 @@ const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
 // `hpMul` is the instance's multiplier over the kind's HP — Combat.eliteMul:
 // an elite has twice the pool, so it pays twice the per-HP wage, by the same
 // rule that makes a goblin pay more than a slime.
+// Hard mode pays MORE per kill (Difficulty.bountyMul, 1.5×) on top of the
+// HP scaling creatureMaxHp already applies — the one income the mode raises
+// while it cuts every other, so fighting is what a hard-mode purse runs on.
 function enemyBounty(kind, depth, hpMul = 1) {
   if (!Combat.isEnemyKind(kind)) return 0;
-  return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP))
+  const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().bountyMul : 1;
+  return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP * modeMul))
        + Math.floor(Math.max(0, depth || 0) * ENEMY_DEPTH_BONUS);
 }
 // Chance a defeated CAVE MONSTER also drops a buried-treasure roll — literally
@@ -1115,6 +1119,10 @@ class MapScene extends Phaser.Scene {
     // a save array below, so the HISTORY_CAP trim above actually sticks — build
     // a mirror from the pre-trim array and the next rewrite un-trims it.
     const needsMigrationPersist = SaveMigrate.migrate(this.save);
+    // Pin the game mode for the pure modules (prices, enemy HP, offline rest
+    // read Difficulty.get(), not the save). Unset — a fresh save the how-to
+    // card hasn't asked yet — reads as easy until chooseMode() runs.
+    if (typeof Difficulty !== 'undefined') Difficulty.setMode(this.save.mode);
     // Chests left for later because the bag was full: { [chestId]: {id, n} }.
     // The chest stays out of save.opened (so it still renders + reopens) and
     // remembers exactly what it rolled, so reopening can't re-roll the loot.
@@ -2274,6 +2282,11 @@ class MapScene extends Phaser.Scene {
     window.__tutorialActive = () =>
       typeof Quests !== 'undefined' && !Quests.starterHidden(this.save);
     window.__disableTutorial = () => this.dismissObjective();
+    // The card's two CTAs — "Easy mode, enable tutorial" / "Hard mode, no
+    // tutorial" — pick the save's game mode (difficulty.js). __gameMode is
+    // null until a choice is made, which is what makes the card ask.
+    window.__gameMode = () => (Difficulty.isMode(this.save.mode) ? this.save.mode : null);
+    window.__chooseMode = (mode) => this.chooseMode(mode);
 
     // First arrival in the world — show the how-to card over the live map, so
     // the reach bubble and the objective chip it points at are visible behind
@@ -3421,7 +3434,10 @@ class MapScene extends Phaser.Scene {
     for (const sp of FAUNA_ORDER) {
       const cfg = BIOME_FAUNA[sp];
       if (!cfg) continue;
-      const n = cfg.base + (cfg.range ? Math.floor(rng() * cfg.range) : 0);
+      let n = cfg.base + (cfg.range ? Math.floor(rng() * cfg.range) : 0);
+      // Hard mode doubles the surface slimes (Difficulty.slimeCountMul); the
+      // extra ids just count on past the easy ones, so seeds still reproduce.
+      if (sp === 'slime') n = Math.round(n * Difficulty.get().slimeCountMul);
       const primary  = new Set(cfg.primary);
       const fallback = new Set(cfg.fallback || cfg.primary);
       const primN = Math.round(n * (cfg.share ?? 0.8));
@@ -3488,6 +3504,7 @@ class MapScene extends Phaser.Scene {
       _trailAnchor.y >= ty0 && _trailAnchor.y < ty0 + this.tileEdgeM;
     if (isStarterTile) {
       this._placeStarterTrail(entry, tx, ty);
+      this._stripStarterCrates(entry);      // hard mode: no supply handout
     } else {
       // Any tile arriving can complete a starter-home plan that was deferred
       // (or left short) because the map around spawn was still streaming —
@@ -3643,6 +3660,8 @@ class MapScene extends Phaser.Scene {
   _pestFreeZone(tx, ty) {
     const sv = this.save;
     if (!sv || sv.hasHarvested) return null;   // first crop is in: the map is itself again
+    // Hard mode never had the grace: the pests are in the yard from minute one.
+    if (typeof Difficulty !== 'undefined' && !Difficulty.get().pestAmnesty) return null;
     // The frozen trail anchor is where the player actually started; startWorldM
     // is the projection origin, which is the same thing until a save's home
     // capture puts them somewhere else (see _starterTrailAnchor).
@@ -3672,7 +3691,10 @@ class MapScene extends Phaser.Scene {
     if ((this.depth || 0) !== 0) return;     // tileCache is repointed underground
     const tx = Math.floor(x / this.tileEdgeM), ty = Math.floor(y / this.tileEdgeM);
     const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-    if (e && (!e.status || e.status === 'ready') && e.grid) this._placeStarterTrail(e, tx, ty);
+    if (e && (!e.status || e.status === 'ready') && e.grid) {
+      this._placeStarterTrail(e, tx, ty);
+      this._stripStarterCrates(e);          // hard mode: no supply handout
+    }
   }
 
   // Starter crate trail + tutorial-pocket clearing around the frozen anchor
@@ -4918,7 +4940,9 @@ class MapScene extends Phaser.Scene {
     // odds each), so 2 anchors on a tile is typical, not an edge case.
     // The 160 cap is a dead-but-harmless safety net at today's depths — keep
     // it in case a much deeper level or a MONSTERS-table change changes that.
-    const count = Math.min(160, 50 + depth * 10);
+    // Hard mode packs the level tighter (Difficulty.monsterCountMul, 1.5×) —
+    // still under the cap at every depth that exists today.
+    const count = Math.min(160, Math.round((50 + depth * 10) * Difficulty.get().monsterCountMul));
     for (let i = 0; i < count; i++) {
       const kind = bag[Math.floor(rng() * bag.length)];
       for (let attempt = 0; attempt < 20; attempt++) {
@@ -4934,7 +4958,9 @@ class MapScene extends Phaser.Scene {
         // the renderer already tints and sparkles; combat.js reads it as
         // double HP and damage (Combat.isElite), and resolveDefeat pays the
         // badge-or-treasure it promises.
-        creatures.push({ x: wmx, y: wmy, kind, id, shiny: isShiny(id, SHINY_RATE.monster) });
+        // (Hard mode rolls elite three times as often — Difficulty.eliteRateMul.)
+        creatures.push({ x: wmx, y: wmy, kind, id,
+          shiny: isShiny(id, SHINY_RATE.monster * Difficulty.get().eliteRateMul) });
         break;
       }
     }
@@ -6445,7 +6471,7 @@ class MapScene extends Phaser.Scene {
     // business running on the ~5400 frames between pest windows.
     if (now - this._lastPestT > 90000) {
       const hasCrowCrop = this.save.planted && this.save.planted.some(crowEatsCrop);
-      if (hasCrowCrop && this.save.hasHarvested) {
+      if (hasCrowCrop && (this.save.hasHarvested || !Difficulty.get().pestAmnesty)) {
         this._lastPestT = now;
         // Count nearby wild (non-released, not-yet-caught) crows.
         let wildCrows = 0;
@@ -6506,7 +6532,8 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + 1000;   // 3 energy/sec
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            const slimeDmg = (this.save.shieldPotionUntil ?? 0) > now ? 2 : 3;
+            // Hard mode doubles the leech (Difficulty.enemyDmgMul), shield or not.
+            const slimeDmg = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3) * Difficulty.get().enemyDmgMul;
             this.save.energy = Math.max(0, before - slimeDmg);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
             this._warnIfTiring(before);
@@ -6536,7 +6563,7 @@ class MapScene extends Phaser.Scene {
           if (before > 0) {
             // An elite (shiny) monster hits for double — Combat.eliteMul is
             // the one multiplier its HP is scaled by too.
-            const dmg = m.dmg * Combat.eliteMul(c);
+            const dmg = m.dmg * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
             const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
             this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
@@ -8057,7 +8084,8 @@ class MapScene extends Phaser.Scene {
     this.syncMoveTarget();
     this.cameras.main.setBackgroundColor('#222');
     this.ensureTilesAround().catch(() => {});
-    const lost = Math.floor((this.save.money ?? 0) / 2);
+    // Half the purse on easy, three quarters on hard (Difficulty.passOutLossFrac).
+    const lost = Math.floor((this.save.money ?? 0) * Difficulty.get().passOutLossFrac);
     if (lost > 0) addMoney(this.save, -lost);
     persistSave(this.save);
     this.showChestRewardModal({
@@ -8712,6 +8740,56 @@ class MapScene extends Phaser.Scene {
     Quests.starterDismiss(this.save);
     persistSave(this.save);
     this.updateObjectiveDOM();
+  }
+
+  // The how-to card's answer: which game this save plays (difficulty.js).
+  // Chosen ONCE — the card only asks while save.mode is unset — because the
+  // two modes price the same haul differently and a switch mid-game would be
+  // a free arbitrage. Everything the mode changes is read live through
+  // Difficulty.get(); the only things done HERE are the ones that can't be
+  // read at use time because they already happened at boot or tile build:
+  // the starting purse, the starter ladder, and the supply crates the starter
+  // tile seated before the player answered.
+  chooseMode(mode) {
+    if (typeof Difficulty === 'undefined' || !Difficulty.isMode(mode)) return false;
+    if (Difficulty.isMode(this.save.mode)) return false;   // already answered — the card never re-asks
+    const prof = Difficulty.PROFILES[mode];
+    this.save.mode = mode;
+    Difficulty.setMode(mode);
+    // The purse: a fresh save opened at STARTING_MONEY (the easy figure). Only
+    // a save that has not been played is re-pursed — the first-run card is the
+    // only path here, but the guard keeps a reset-then-answer honest.
+    if (typeof SaveMigrate !== 'undefined' && !SaveMigrate.hasPlayed(this.save)) {
+      this.save.money = prof.startingMoney;
+    }
+    if (!prof.tutorial && typeof Quests !== 'undefined') {
+      // Finished, not dismissed: a dismissed ladder keeps tracking and paying
+      // its step rewards underneath (questEvent), and "no tutorial" means no
+      // tutorial money either. This also retires the arrow, the starter plot
+      // carve and the home provisioning, which all gate on starterHidden.
+      Quests.starterSkipAll(this.save);
+      this._starterGoalMemo = null;
+    }
+    if (!prof.starterCrates) {
+      // The starter tile built (and seated its crates) before the card could
+      // ask. Sweep every cached tile now; _placeStarterTrail's call sites
+      // strip any tile built from here on.
+      WorldGen.tileCache?.forEach?.((entry) => this._stripStarterCrates(entry));
+    }
+    persistSave(this.save);
+    this.updateObjectiveDOM();
+    this.buildInventoryDOM();
+    if (this.updateHUD) this.updateHUD();
+    return true;
+  }
+  // Hard mode has no supply handout: drop the starter crates (the `crate: true`
+  // chests _placeStarterTrail seats) from a tile. The relic chest at the end of
+  // the trail is TREASURE, not supplies, and stays. Idempotent; a no-op on easy.
+  _stripStarterCrates(entry) {
+    if (typeof Difficulty === 'undefined' || Difficulty.get().starterCrates) return;
+    if (!entry || !Array.isArray(entry.objects)) return;
+    const kept = entry.objects.filter(o => !(o.kind === 'chest' && o.crate));
+    if (kept.length !== entry.objects.length) entry.objects = kept;
   }
 
   // Report a gameplay event to the starter ladder. Called from the site that

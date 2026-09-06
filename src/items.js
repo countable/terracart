@@ -1046,8 +1046,12 @@ function sellMultiplier(relics) {
 // One number, one place: every home sale goes through trailerSellPrice, so the
 // price the modal quotes and the cash addMoney pays can't drift apart.
 const TRAILER_SELL_MUL = 0.75;
+// Hard mode takes a further cut here (Difficulty.sellMul, 0.6): the SAME
+// place, so the quote and the payout still can't drift, and the stand floor
+// (which prices off sellMultiplier, not this) only widens.
 function trailerSellMultiplier(relics) {
-  return sellMultiplier(relics) * TRAILER_SELL_MUL;
+  const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().sellMul : 1;
+  return sellMultiplier(relics) * TRAILER_SELL_MUL * modeMul;
 }
 // Cash the trailer pays for ONE unit of an item listed at baseValue. Ceil and
 // a $1 floor, same as every other price path — so a $1 item still sells for $1
@@ -1065,10 +1069,15 @@ function bestWeaponTier(relics) {
 // Bow relic: shrinks the random buy-cash markup. Without one, the trader still
 // wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0× (the player
 // buys at par).
+// Hard mode scales the whole range (Difficulty.buyMul, 1.5×): the bow still
+// closes the spread the same way, it just closes on 1.5× par instead of par.
+// Applied HERE so every reader — the trader's roll, the castle's pricing —
+// asks one function and gets the same answer.
 function buyMarkupRange(relics) {
   const t = bestWeaponTier(relics);
   const f = 1 - t / 7;   // 1 → 0 as tier rises
-  return { lo: 1 + 0.2 * f, hi: 1 + 2.0 * f };
+  const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().buyMul : 1;
+  return { lo: (1 + 0.2 * f) * modeMul, hi: (1 + 2.0 * f) * modeMul };
 }
 
 // === Per-crop loot tier config (used by chests + treasure marks) ===

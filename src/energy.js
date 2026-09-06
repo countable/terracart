@@ -67,13 +67,20 @@
   // Convert an offline/background gap (ms) into restored energy. Mutates
   // save.energy, returns the amount gained (0 if none) so the wrapper can decide
   // whether to redraw / splash.
+  //
+  // Hard mode caps how FULL a night away can leave you (Difficulty
+  // .offlineRestCapFrac, 0.5): the rest still refills at the same rate, it
+  // just stops at half the bar. It never takes energy — a player who saved
+  // above the cap wakes with what they had.
   function applyOfflineRest(save, gapMs) {
     if (!(gapMs > 0)) return 0;
     const maxE = maxEnergy(save);
     const restored = Math.floor(maxE * (gapMs / OFFLINE_FULL_REST_MS));
     if (restored <= 0) return 0;
     const before = save.energy ?? 0;
-    save.energy = Math.min(maxE, before + restored);
+    const capFrac = (typeof Difficulty !== 'undefined') ? Difficulty.get().offlineRestCapFrac : 1;
+    const cap = Math.max(before, Math.floor(maxE * capFrac));
+    save.energy = Math.min(cap, before + restored);
     return save.energy - before;
   }
 
