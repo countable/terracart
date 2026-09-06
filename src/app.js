@@ -348,9 +348,12 @@ const MONSTERS = {
 // the moment it has stats, and the doubling below reaches the giants too.
 // There is no giant art: SpriteLayout.creatureArt draws the base kind's sheet
 // at GIANT_ART_SCALE (1.8), and everything that seats on the body (wheel,
-// health bar, tap box, shadow) resolves through the same helper. A giant's
-// kill credits the BASE kind's quest (resolveDefeat), and its elite roll gets
-// the +2 tier of its deeper introduction for free (eliteRollBonus).
+// health bar, tap box, shadow) resolves through the same helper. For the
+// quest board and the Discovery ledger a giant is ITS OWN KIND — a giant
+// goblin job wants giant goblins, and an elite giant goblin banks its own
+// badge beside the elite goblin's (resolveDefeat credits victim.kind as-is;
+// quests.js QUEST_ENEMIES lists the giants). Its elite roll gets the +2 tier
+// of its deeper introduction for free (eliteRollBonus).
 const GIANT_HP_MUL = 4;
 const GIANT_DEPTH_STEP = 2;
 for (const [kind, m] of Object.entries(MONSTERS)) {
@@ -5740,8 +5743,11 @@ class MapScene extends Phaser.Scene {
         const eCost = Combat.SHOT[slot].energyCost || 0;
         if (eCost && !this.spendEnergy(eCost)) continue;
         this._nextShotT[slot] = now + Combat.FIRE_INTERVAL_MS;
+        // The tier sizes the shot too (a staff bolt grows with it — both its
+        // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
-                                      Combat.shotDamage(relics, slot) * dmgMul);
+                                      Combat.shotDamage(relics, slot) * dmgMul,
+                                      relics[slot].tier);
         if (shot) this._shots.push(shot);
       }
     } else {
@@ -5824,13 +5830,15 @@ class MapScene extends Phaser.Scene {
       // have them skim under the bodies they're hitting. Lift the streak to
       // roughly chest height so it leaves the archer and crosses the foe.
       const hx = Math.round(head.x), hy = Math.round(head.y) - SHOT_DRAW_LIFT_PX;
-      if (spec.dotPx) {
+      if (s.dotPx) {
         // The staff bolt is a fat glowing dot, not a streak — a bolt reads as
-        // a thrown thing, an arrow as a flying line.
+        // a thrown thing, an arrow as a flying line. Its radius is the shot's
+        // own (stamped by Combat.spawnShot from the staff's tier, off the same
+        // scale as the radius it hits with), never the spec's base dotPx.
         g.fillStyle(spec.color, 0.95);
-        g.fillCircle(hx, hy, spec.dotPx);
+        g.fillCircle(hx, hy, s.dotPx);
         g.lineStyle(1, 0xffffff, 0.5);
-        g.strokeCircle(hx, hy, spec.dotPx);
+        g.strokeCircle(hx, hy, s.dotPx);
         continue;
       }
       // The tail trails a fixed number of SCREEN pixels back along the
@@ -6072,10 +6080,9 @@ class MapScene extends Phaser.Scene {
       this.flash(`${victim.kind} defeated`, this.viewCenterX, this.viewCenterY - 60);
     }
     if (typeof Quests !== 'undefined') {
-      // A giant is its base kind for the bounty board: "defeat 3 goblins" is
-      // satisfied by a giant goblin, which is a goblin and then some.
-      const questKind = MONSTERS[victim.kind]?.giant || victim.kind;
-      const qDone = Quests.onKill(save, questKind);
+      // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
+      // never credit toward its base kind's.
+      const qDone = Quests.onKill(save, victim.kind);
       if (qDone) this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
     }
     persistSave(save);
