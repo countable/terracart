@@ -427,6 +427,13 @@ const MONSTER_HIT_MS = 2000;
 // archer deals per minute exactly what it dealt before its hits became a
 // visible arrow, and a change to either cadence keeps that correspondence.
 const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;
+// FIRE WARD DEPTH CAP: a campfire only turns away the WEAKEST cave-dwellers —
+// those introduced at the first cave level (MONSTERS[kind].minDepth <= 1),
+// the same tier as the surface slime it already deters. A goblin (minDepth 2)
+// or goblin archer (minDepth 3) — and their giants, pushed GIANT_DEPTH_STEP
+// deeper still — are past what a lit campfire can plausibly hold off; only
+// Home's stronger ward (HOME_R, surface only) turns those around.
+const FIRE_WARD_MAX_DEPTH = 1;
 
 // combat.js owns the fight maths (HP, melee dps, bow/staff shots) and is loaded
 // before this file so headless tests can use it without Phaser. It needs the
@@ -7719,10 +7726,15 @@ class MapScene extends Phaser.Scene {
           // such cells get bounced by the attempt loop until they pick a
           // different direction.
           if ((c.kind === 'crow' || c.kind === 'deer') && this._nearAny('scarecrows', tx, ty, 4)) continue;
-          // Fire aversion (slime only) — a lit campfire repels slimes exactly
-          // like a scarecrow repels crows/deer, so slimes can't ooze into (or
-          // steal energy across) the warm ring around a campfire.
-          if (c.kind === 'slime' && this._nearAny('fires', tx, ty, 4)) continue;
+          // Fire aversion — a lit campfire repels the surface slime exactly
+          // like a scarecrow repels crows/deer, so it can't ooze into (or
+          // steal energy across) the warm ring around a campfire. Extended to
+          // the cave's own entry-level monsters (FIRE_WARD_MAX_DEPTH): a
+          // goblin or its archer is undeterred by firelight, only the cave
+          // slime and purple slime it's a tier above.
+          const fireAverts = c.kind === 'slime' ||
+            (isMon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH);
+          if (fireAverts && this._nearAny('fires', tx, ty, 4)) continue;
           foundValidTarget = true;
           break;
         }
@@ -9511,7 +9523,8 @@ class MapScene extends Phaser.Scene {
 
   // True if world point (wx,wy) is within `cells` cells of ANY entry (a {x,y})
   // in save[listKey]. Shared by fauna aversion: scarecrows repel crows/deer and
-  // campfires repel slimes, both at the same radius, so the wander/flight target
+  // campfires repel the surface slime plus the cave's entry-level monsters
+  // (FIRE_WARD_MAX_DEPTH), all at the same radius, so the wander/flight target
   // pickers funnel through one check instead of three copies of the loop.
   _nearAny(listKey, wx, wy, cells) {
     const list = this.save[listKey];

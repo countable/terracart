@@ -1,10 +1,12 @@
 // HOME IS A CAMPFIRE YOU OWN.
 //
 // A placed campfire does three things on one ring: it lights (Lighting.KINDS
-// .fire), it rests you (FIRE_REST_R / FIRE_FULL_REST_S) and it repels slimes.
-// Home does the same three on ONE ring of its own, HOME_R — and keeps the one
-// thing a fire hasn't, the trade panel, which is a TAP on the building and no
-// part of the ring at all.
+// .fire), it rests you (FIRE_REST_R / FIRE_FULL_REST_S) and it repels the
+// surface slime plus the cave's own entry-level monsters (FIRE_WARD_MAX_DEPTH).
+// Home does the same three on ONE ring of its own, HOME_R — reaching every
+// registered enemy, not just the weak ones — and keeps the one thing a fire
+// hasn't, the trade panel, which is a TAP on the building and no part of the
+// ring at all.
 //
 // The three must be ONE number or they drift, which is the roadOverlayWidthM
 // discipline: the lit circle IS the safe circle IS the circle you recover in,
@@ -172,5 +174,42 @@ test('ward: the ring is one number, and Home out-rests and out-reaches a fire', 
   // Selling is untouched by any of this: the trade panel is a tap on the
   // building, not an effect of the ring.
   assert.falsy(/homeWard[^\n]*shop/i.test(app), 'the ward knows nothing about the shop');
+});
+
+// ── The fire ward's depth cap ────────────────────────────────────────────
+// A campfire's ward reaches past the surface slime into the cave, but only
+// its entry-level monsters (FIRE_WARD_MAX_DEPTH) — a goblin (minDepth 2) or
+// its archer (minDepth 3), and their giants pushed GIANT_DEPTH_STEP deeper
+// still, are undeterred by firelight. Only Home's stronger ward reaches
+// those, and Home does not exist underground (homeWorldPos returns null off
+// the surface — see the "no Home, no ring" test above), so a goblin met in a
+// cave is never warded by anything.
+
+test('fire ward: the depth cap is a named number, and the real table agrees with it', () => {
+  assert.eq(FIRE_WARD_MAX_DEPTH, 1, 'only the first cave level is warded off by fire');
+  assert.lte(MONSTERS.cave_slime.minDepth, FIRE_WARD_MAX_DEPTH, 'cave slime is warded');
+  assert.lte(MONSTERS.purple_slime.minDepth, FIRE_WARD_MAX_DEPTH, 'purple slime is warded');
+  assert.gt(MONSTERS.goblin.minDepth, FIRE_WARD_MAX_DEPTH, "a goblin is past a campfire's reach");
+  assert.gt(MONSTERS.goblin_archer.minDepth, FIRE_WARD_MAX_DEPTH, 'so is its archer');
+  // Giants are pushed GIANT_DEPTH_STEP deeper than their base kind, so none of
+  // them ever qualify even if a future base kind's minDepth were lowered to 1.
+  for (const kind of Object.keys(MONSTERS)) {
+    if (!MONSTERS[kind].giant) continue;
+    assert.gt(MONSTERS[kind].minDepth, FIRE_WARD_MAX_DEPTH, `${kind} is never warded by a campfire`);
+  }
+});
+
+test('fire ward: wanderCreatures reads the same cap the table is built on', () => {
+  assert.truthy(
+    /const fireAverts = c\.kind === 'slime' \|\|\s*\(isMon && \(mon\.minDepth \|\| 1\) <= FIRE_WARD_MAX_DEPTH\);/.test(wander),
+    'the surface slime and any monster at or under the depth cap are averted');
+  assert.truthy(/if \(fireAverts && this\._nearAny\('fires', tx, ty, 4\)\) continue;/.test(wander),
+    "a refused target cell, exactly like the scarecrow ward above it — a fire never triggers a home-style flee");
+  // The fire ward never gates a monster's ATTACK the way homeWard does — it
+  // only keeps a warded kind from wandering closer, so a monster already in
+  // range when the fire is lit can still land its hit. Weaker than Home on
+  // purpose: a campfire is a field expedient, not a doorstep.
+  assert.falsy(/isMonster\(c\.kind\) && !shadowed && !homeWard && !fireAverts/.test(wander),
+    "a monster's attack check is untouched by the fire ward");
 });
 })();

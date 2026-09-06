@@ -1175,10 +1175,14 @@ CONSUMABLES
  - BOOK: select it and tap Read — ~50% a play tip, ~50% a directional
    hint to the nearest unopened chest ("about N paces northwest"). Consumed.
  - CAMPFIRE: select a COAL and tap an empty bare (tillable) cell to light a fire
-   (consumes the coal). A fire is a safe, slow outdoor recovery spot: it refills
-   energy within 3 cells (full bar in 360s, see REST) and repels slimes within
-   4 cells, so it doubles as a perimeter ward in the wild. One fire per cell;
-   it persists in save.fires until you tap it to extinguish (no coal refund).
+   (consumes the coal). A fire is a safe, slow recovery spot: it refills energy
+   within 3 cells (full bar in 360s, see REST) and repels the surface slime
+   within 4 cells, so it doubles as a perimeter ward in the wild. Placeable
+   underground too, where it wards the cave's own entry-level monsters (cave
+   slime, purple slime) the same way — but a goblin or its archer, from the
+   2nd cave level down, is undeterred by firelight (see FIRE_WARD_MAX_DEPTH,
+   app.js). One fire per cell; it persists in save.fires until you tap it to
+   extinguish (no coal refund).
 
 ================================================================================
 INVENTORY
