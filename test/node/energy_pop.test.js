@@ -1,4 +1,4 @@
-// Energy pops land ON THE CELL they belong to, right by the player.
+// Numbers on the map land ON THE CELL they belong to, right by the player.
 //
 // Every "+N⚡" / "−N⚡" goes through app.js _popEnergy, which seats it on an
 // absolute cell — the plot a till paid for, the wall a dig cost, the player's
@@ -6,7 +6,9 @@
 // ticks a thin outline on that cell so the reader knows WHICH cell it was.
 // Until Sep 2026 the rest splash was a 'note' at the viewport centre minus
 // 70px (two cells over anyone's head, and under a peek drag two cells from
-// nowhere) and the drains sat 40px above the same point.
+// nowhere) and the drains sat 40px above the same point. The coin pickup's
+// "+$1" is the same cell pop, and the foe's "-N" damage number wears the
+// same dress (stroke + drop shadow) from the same toast table.
 //
 // The placement (_energyPopAt / _cellToastAt / _cellAtScreen / playerScreen)
 // is lifted out of app.js by run.js and run for real on a stub scene, the same
@@ -125,16 +127,47 @@ test('energy pop: a tap\'s screen point resolves to the cell it was over, peek o
 });
 
 // ── Wiring, pinned as source text ──────────────────────────────────────────
-test('energy pop: the tier is bold, stroked AND drop-shadowed, with no chip', () => {
-  // The row runs to the next tier's key (its shadow is a nested brace).
-  const m = app.match(/\n  energy:\s*\{([\s\S]*?)\n  \w+:\s*\{/);
-  assert.truthy(m, 'TOAST_TIER has an energy row');
-  const row = m[1];
-  assert.truthy(/font: 'bold \d+px'/.test(row), 'bold');
+// A tier's row runs to the next tier's key (its shadow is a nested brace).
+const tierRow = (name) => {
+  const m = app.match(new RegExp(`\\n  ${name}:\\s*\\{([\\s\\S]*?)\\n  \\w+:\\s*\\{`));
+  assert.truthy(m, `TOAST_TIER has a ${name} row`);
+  return m[1];
+};
+const assertMapNumberDress = (row, what) => {
+  assert.truthy(/font: 'bold \d+px'/.test(row), `${what}: bold`);
   const stroke = row.match(/stroke: (\d+)/);
-  assert.truthy(stroke && Number(stroke[1]) > 0, 'a stroke outline');
-  assert.truthy(/shadow: \{ offsetX: \d+, offsetY: \d+, blur: \d+ \}/.test(row), 'a drop shadow');
-  assert.truthy(/bg: null/.test(row), 'no chip — it sits on the map over the cell');
+  assert.truthy(stroke && Number(stroke[1]) > 0, `${what}: a stroke outline`);
+  assert.truthy(/shadow: \{ offsetX: \d+, offsetY: \d+, blur: \d+ \}/.test(row), `${what}: a drop shadow`);
+  assert.truthy(/bg: null/.test(row), `${what}: no chip — it sits on the map over the thing`);
+};
+
+test('energy pop: the cell tier is bold, stroked AND drop-shadowed, with no chip', () => {
+  assertMapNumberDress(tierRow('cell'), 'cell');
+});
+
+test('damage pop: the foe\'s "-N" wears the same dress, from the same table', () => {
+  // The enemy damage number used to be a hand-set add.text (bold 11px, a
+  // stroke, NO drop shadow) beside the toast table; now it is a tier of it.
+  assertMapNumberDress(tierRow('damage'), 'damage');
+  const m = app.match(/\n  _popDamageNumber\(c, amount\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(m, '_popDamageNumber exists');
+  const body = m[1];
+  assert.truthy(/this\._toast\(`-\$\{amount\}`, \{\s*\n\s*tier: 'damage'/.test(body), 'a damage toast');
+  assert.falsy(/this\.add\.text\(/.test(body), 'no bespoke text builder');
+  assert.truthy(/this\.worldMetersToScreen\(c\.x, c\.y\)/.test(body), 'still projected off the foe');
+  assert.truthy(/stack: false/.test(body), 'does not stack — its own scatter keeps hits apart');
+  assert.truthy(/mask: this\.enemyHealthGfx\?\.mask/.test(body), 'clipped to the map viewport');
+  assert.truthy(/if \(opts\.mask\) t\.setMask\(opts\.mask\);/.test(app), '_toast honours a mask');
+});
+
+test('coin pop: the "+$1" lands on the cell the coin was picked from', () => {
+  const src = INTERACT_SRC;
+  assert.truthy(/const cc = worldMetersToAbsCell\(scene, coin\.x, coin\.y\);\s*\n\s*scene\._popCellNumber\('\+\$1', UI_GOLD, cc\.cellIX, cc\.cellIY\);/.test(src),
+    'the coin cell, in gold, through the cell pop');
+  // The flash at the finger survives ONLY as the stub-scene fallback.
+  assert.truthy(/\} else \{\s*\n\s*scene\.flash\('\+\$1', sx, sy\);\s*\n\s*\}/.test(src),
+    'the flash at the finger is the else branch of the cell pop');
+  assert.eq((src.match(/scene\.flash\('\+\$1'/g) || []).length, 1, 'and the only one');
 });
 
 test('energy pop: every energy readout goes through _popEnergy, on a cell', () => {
@@ -163,11 +196,15 @@ test('energy pop: _popEnergy seats through the projection and ticks the cell', (
   const m = app.match(/\n  _popEnergy\(delta, opts = \{\}\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_popEnergy exists');
   const body = m[1];
-  assert.truthy(/const at = this\._energyPopAt\(ix, iy\);/.test(body), 'seated by _energyPopAt');
-  assert.truthy(/this\._flashCellOutline\(ix, iy, color\)/.test(body), 'outlines the cell');
-  assert.truthy(/tier: 'energy'/.test(body), 'wears the energy tier');
+  assert.truthy(/return this\._popCellNumber\(text, color, ix, iy\);/.test(body), 'is a cell number');
   assert.falsy(/viewCenter[XY]/.test(body), 'never measures off the viewport centre');
   assert.truthy(/playerReachCell\(this\)/.test(body), 'defaults to the player\'s own cell');
+  const cm = app.match(/\n  _popCellNumber\(text, color, ix, iy\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(cm, '_popCellNumber exists');
+  assert.truthy(/const at = this\._energyPopAt\(ix, iy\);/.test(cm[1]), 'seated by _energyPopAt');
+  assert.truthy(/this\._flashCellOutline\(ix, iy, color\)/.test(cm[1]), 'outlines the cell');
+  assert.truthy(/tier: 'cell'/.test(cm[1]), 'wears the cell tier');
+  assert.falsy(/viewCenter[XY]/.test(cm[1]), 'never measures off the viewport centre');
   // And the seating helpers project, never off the body for a cell.
   const seat = app.match(/\n  _energyPopAt\(ix, iy\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(/this\.playerScreen\(\)/.test(seat[1]), 'the body pop reads playerScreen');
@@ -181,7 +218,7 @@ test('energy pop: the cell tick lives and dies on the tier\'s own clock', () => 
   const m = app.match(/\n  _flashCellOutline\(ix, iy, color\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_flashCellOutline exists');
   const body = m[1];
-  assert.truthy(/const S = TOAST_TIER\.energy;/.test(body), 'reads the energy tier');
+  assert.truthy(/const S = TOAST_TIER\.cell;/.test(body), 'reads the cell tier');
   assert.truthy(/duration: S\.fade, delay: S\.hold/.test(body), 'holds and fades with the number');
   assert.truthy(/strokeRoundedRect\(/.test(body), 'a thin outline on the cell');
   assert.truthy(/absCellCenterMeters\(this, ix, iy\)/.test(body) && /this\.worldMetersToScreen\(/.test(body),
