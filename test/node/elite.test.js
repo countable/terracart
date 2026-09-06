@@ -96,10 +96,12 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   const app = APP_JS_SRC;
   assert.inRange(SHINY_RATE.monster, 0.001, 0.5, 'monsters have a shiny rate');
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
-  assert.truthy(/creatures\.push\(\{ x: wmx, y: wmy, kind, id, shiny: isShiny\(id, SHINY_RATE\.monster\) \}\)/.test(spawn),
+  // (Hard mode multiplies the rate — Difficulty.eliteRateMul — at the same
+  // site; the id and the base rate are what this pins.)
+  assert.truthy(/creatures\.push\(\{ x: wmx, y: wmy, kind, id,\s*shiny: isShiny\(id, SHINY_RATE\.monster \* Difficulty\.get\(\)\.eliteRateMul\) \}\)/.test(spawn),
     'spawnCaveCreatures stamps shiny off the stable id at the monster rate');
-  assert.truthy(/const dmg = m\.dmg \* Combat\.eliteMul\(c\);/.test(app),
-    'the monster hit is scaled by Combat.eliteMul');
+  assert.truthy(/const dmg = m\.dmg \* Combat\.eliteMul\(c\) \* Difficulty\.get\(\)\.enemyDmgMul;/.test(app),
+    'the monster hit is scaled by Combat.eliteMul (and the mode)');
   assert.truthy(/c\._hp = Combat\.maxHp\(c\);/.test(app), 'the heal refills to the instance max');
   assert.falsy(/c\._hp = Combat\.creatureMaxHp\(c\.kind\)/.test(app),
     'nothing refills a creature from the KIND max any more');

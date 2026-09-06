@@ -66,10 +66,16 @@
   // creatureMaxHp so the pet fight and the player fight can't drift apart.
   const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 15 };
 
+  // Hard mode scales ENEMY pools (Difficulty.enemyHpMul, 1.5×) here, in the
+  // one place both the wheel and the bounty read — so a hard-mode foe takes
+  // 1.5× as long at any weapon tier AND pays 1.5× the wage, by the same
+  // derivation an elite or a giant does. Game (crow, deer) and pets are not
+  // enemies and keep their fauna HP whatever the mode.
   function creatureMaxHp(kind) {
     const m = MONSTER_STATS[kind];
-    if (m && Number.isFinite(m.hp)) return m.hp;
-    return FAUNA_HP[kind] ?? 10;
+    const base = (m && Number.isFinite(m.hp)) ? m.hp : (FAUNA_HP[kind] ?? 10);
+    if (!isEnemyKind(kind) || typeof Difficulty === 'undefined') return base;
+    return Math.round(base * Difficulty.get().enemyHpMul);
   }
 
   // ── Elites ───────────────────────────────────────────────────────────────
