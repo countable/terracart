@@ -264,7 +264,7 @@
       p.rect(0, 0, 7, 5, T.SCHOOL);          // top-left
       p.rect(0, 6, 7, 5, T.INDUSTRIAL);      // bottom-left
       p.rect(8, 0, 8, 11, T.COMMERCIAL);     // right column — big enough to read the hedge maze
-      for (let dx = 0; dx < 16; dx++) { p.cell(dx, 11, T.PATH); p.pathName(dx, 11, 'Garden Path'); }
+      for (let dx = 0; dx < 16; dx++) p.cell(dx, 11, T.PATH);
     },
     populate(s) {
       s.chest('school', 'Sandbox School', 3, 2);       // round pad
@@ -395,7 +395,6 @@
     const wildplants = [];
     const creatures = [];
     const roadLabels = {};
-    const pathNames = {};
 
     // Helper: cell index → world metres at cell centre.
     const wmAt = (ix, iy) => ({
@@ -403,7 +402,7 @@
       y: ty * tileEdgeM + (iy + 0.5) * cellM,
     });
 
-    populate({ grid, objects, wildplants, creatures, roadLabels, pathNames,
+    populate({ grid, objects, wildplants, creatures, roadLabels,
                cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM });
 
     return {
@@ -414,7 +413,6 @@
       creatures,
       parkingTreasures: [],
       roadLabels,
-      pathNames,
       treasure: null,
       tileEdgeM,
       cellsPerEdge,
@@ -593,7 +591,7 @@
   }
 
   function populateSandbox(originIX, originIY, c) {
-    const { grid, objects, wildplants, creatures, roadLabels, pathNames,
+    const { grid, objects, wildplants, creatures, roadLabels,
             cellsPerEdge, wmAt, tx, ty } = c;
     const baseId = `sb_${tx}_${ty}`;
 
@@ -615,7 +613,6 @@
           cell: setCell,
           rect,
           roadLabel: (dx, dy, text) => { roadLabels[`${ix0 + dx}_${iy0 + dy}`] = { text, angle: 0 }; },
-          pathName: (dx, dy, name) => { pathNames[`${ix0 + dx}_${iy0 + dy}`] = name; },
         });
       }
       // 3. static interactables

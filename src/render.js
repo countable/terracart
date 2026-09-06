@@ -123,8 +123,9 @@ const isRoadType = (t) => t === 7 || t === 13 || t === 14;
 // (pathStonePct below), not authored as a percentage: a cell is
 // tileEdgeM / cellsPerEdge across, which drifts with latitude, so a fixed
 // percentage would put the stones further apart the further north you played.
-// Paired with Trail.PRIZE_WALK_M — a prize is 200 m of path and a stone is
-// every 20 m of it, so about ten stones light up between prizes.
+// Paired with Trail.GOAL_STEP — the first prize wants ten stones and a stone is
+// every 20 m of path, so the first walk is a couple of hundred metres. Only a
+// DRAWN stone counts (see cobbleShown below), so this spacing is the walk.
 //
 // The roll is permanent and does NOT consult `active`: a cell that rolled no
 // stone stays bare even once lit, because a stone popping into existence where

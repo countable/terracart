@@ -239,8 +239,9 @@ try {
 // THE TRAIL COUNTER lands on the cobble that lit, not at the screen centre, so
 // its seating is a projection question — and projections are exactly what the
 // peek drag breaks when someone measures them off the player instead of the
-// camera anchor. Both halves (where the number goes, and which stone is a
-// VISIBLE one to put it on) are lifted and run for real in trail.test.js.
+// camera anchor. Lifted with it: the activation primitive, which is where
+// "a stone is a cobble cell the renderer actually draws a pebble on" is
+// enforced. Both run for real on a stub scene in trail.test.js.
 {
   const src = readSrc('app.js');
   const lift = (sig) => {
@@ -252,7 +253,7 @@ try {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_trailCounterAt(ix, iy) {', '_cobbleDrawnAt(tileKey, ix, iy) {']
+  const methods = ['_trailCounterAt(ix, iy) {', '_activatePathStone(tx, ty, ix, iy) {']
     .map(lift).join(',\n');
   // The seating reads two app.js module constants that don't exist in this
   // context. Carry them across as SOURCE TEXT rather than retyping the
@@ -271,7 +272,7 @@ try {
     ctx, { filename: 'app.js#TRAIL_COUNTER_LIFT_PX' });
   vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_trailCounterAt' });
-  for (const k of ['_trailCounterAt', '_cobbleDrawnAt']) {
+  for (const k of ['_trailCounterAt', '_activatePathStone']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
       process.exit(2);

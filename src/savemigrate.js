@@ -124,6 +124,33 @@
     }
 
     // --- Data migrations (these DO force a persist) --------------------------
+    // Cobble trails: per-PATH counters → ONE ladder. The old shape was
+    //   save.pathStones[tileKey][trailName] = { stones: ["ix_iy"…], prizes, done }
+    // — a counter, a prize count and a "finished" flag for every named way on
+    // every tile. The ladder is global now (src/trail.js), so a tile keeps only
+    // WHICH stones are lit, as a flat list, and the count lives in save.trail.
+    //
+    // Prizes already won do NOT carry into the new ladder: they were paid on a
+    // different rule (a short cul-de-sac paid the same as a mile of high
+    // street), so carrying them would hand a veteran a 400-stone first goal for
+    // walks they were never asked to make. Everyone starts at the first rung;
+    // what they already collected, they keep.
+    if (save.pathStones && typeof save.pathStones === 'object'
+        && Object.values(save.pathStones).some((v) => v && !Array.isArray(v))) {
+      const flat = {};
+      for (const [tileKey, tile] of Object.entries(save.pathStones)) {
+        if (Array.isArray(tile)) { if (tile.length) flat[tileKey] = tile; continue; }
+        const cells = new Set();
+        for (const rec of Object.values(tile || {})) {
+          for (const c of ((rec && rec.stones) || [])) cells.add(c);
+        }
+        if (cells.size) flat[tileKey] = [...cells];
+      }
+      save.pathStones = flat;
+      if (!save.trail) save.trail = { stones: 0, prizes: 0 };
+      needsPersist = true;
+    }
+    if (!save.trail) save.trail = { stones: 0, prizes: 0 };
     // Older save: inv as a string array → {id,count} objects (else sel.count -= 1
     // yields NaN and stacks become uncountable).
     if (save.inv && typeof save.inv[0] === 'string') {

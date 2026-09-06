@@ -1,209 +1,176 @@
-// Cobble trails — the segment arithmetic (src/trail.js) and the worldgen
-// naming pass that decides WHICH cells belong to which trail.
+// Cobble trails — ONE LADDER for the whole world (src/trail.js) and the
+// counter that reports it. Prizes used to be per named way per tile, each with
+// its own segment length, remainder and "too short to pay" floor; now a stone
+// is a stone wherever it is picked up.
 //
 // app.js can't load headlessly (it needs Phaser), which is exactly why the
 // arithmetic lives in trail.js: these run the real shipping numbers, not a
 // copy of them that would drift the moment someone retunes the feel.
 
-// ── The segment ladder ────────────────────────────────────────────────────
+// ── The ladder ────────────────────────────────────────────────────────────
 (() => {
   const T = Trail;
-  const S = T.SEGMENT_CELLS;
+  const S = T.GOAL_STEP;
 
-  test('trail: a prize is about 200 metres of walking', () => {
-    // The ladder is a DISTANCE wearing a cell count. trail.js loads before
-    // worldgen.js so it can't do this division itself — this is the tripwire
-    // that keeps the written-out number and the real cell size together.
-    assert.eq(T.PRIZE_WALK_M, 200, 'the walk a prize costs');
-    assert.eq(S, Math.round(T.PRIZE_WALK_M / WorldGen.CELL_M),
-      `SEGMENT_CELLS is ${T.PRIZE_WALK_M}m of ${WorldGen.CELL_M}m cells`);
-    const walkM = S * WorldGen.CELL_M;
-    assert.inRange(walkM, T.PRIZE_WALK_M - 10, T.PRIZE_WALK_M + 10,
-      `a segment is ${walkM}m on the ground`);
+  test('trail: the first prize wants ten stones', () => {
+    // The user-facing promise. Pinned as a literal so a retune is a deliberate
+    // edit here.
+    assert.eq(S, 10, 'GOAL_STEP');
+    assert.eq(T.goalFor(0), 10, 'the first goal');
   });
 
-  test('trail: about ten pebbles light up between prizes', () => {
+  test('trail: each prize asks ten more stones than the last', () => {
+    for (const [won, want] of [[0, 10], [1, 20], [2, 30], [9, 100]]) {
+      assert.eq(T.goalFor(won), want, `after ${won} prizes the goal is ${want}`);
+    }
+  });
+
+  test('trail: a stone is about twenty metres of walking', () => {
     // The two halves of the same feel: render.js draws one stone per
-    // COBBLE_SPACING_M of path, the ladder pays per PRIZE_WALK_M of it, so the
-    // player watches ~10 stones come on and then gets something. Neither
-    // number means anything without the other, so they're pinned together.
-    assert.eq(Render.COBBLE_SPACING_M, 20, 'metres between pebbles');
-    const pct = Render.pathStonePct(WorldGen.CELL_M);
-    assert.eq(pct, Math.round(100 * WorldGen.CELL_M / Render.COBBLE_SPACING_M),
-      'the share is derived from the cell size, not authored');
-    const stones = S * pct / 100;
-    assert.inRange(stones, 8, 12, `${stones} stones drawn per prize`);
+    // COBBLE_SPACING_M and only a drawn stone counts, so the first prize is a
+    // couple of hundred metres and the tenth is a proper expedition. Neither
+    // number means anything without the other, so they are pinned together.
+    assert.eq(Render.COBBLE_SPACING_M, 20, 'metres between stones');
+    const firstWalkM = T.goalFor(0) * Render.COBBLE_SPACING_M;
+    assert.inRange(firstWalkM, 150, 250, `the first prize is ${firstWalkM}m`);
   });
 
-  test('trail: the pebble share follows the cell size', () => {
-    // Cell size drifts with latitude (tileEdgeM / cellsPerEdge), which is why
-    // the share is computed rather than authored: the SPACING is what stays
-    // put, so smaller cells mean more of them per metre and a smaller share
-    // carrying a stone. Never zero and never over 100 — a cell wider than the
-    // spacing simply draws every stone.
-    assert.lt(Render.pathStonePct(3.5), Render.pathStonePct(7),
-      'half-size cells need half the share for the same spacing');
-    assert.eq(Render.pathStonePct(40), 100, 'a huge cell draws every stone');
-    assert.gt(Render.pathStonePct(0.1), 0, 'and a tiny one still draws some');
+  test('trail: the counter reads stones banked over the current goal', () => {
+    assert.eq(T.progress(0, 0).target, 10, 'a fresh save wants 10');
+    assert.eq(T.progress(7, 0).pos, 7, 'and reads what has been banked');
+    assert.eq(T.progress(3, 2).target, 30, 'after two prizes it wants 30');
   });
 
-  test('trail: a short trail counts against its own length', () => {
-    // The canonical example: a 9-cell trail reads 1/9 … 9/9, never 1/S.
-    for (let c = 1; c <= 9; c++) {
-      const p = T.progress(9, c);
-      assert.eq(p.pos, c, `stone ${c} is at position ${c}`);
-      assert.eq(p.target, 9, 'and the target is the trail itself');
+  test('trail: banking stones counts them and pays on the goal', () => {
+    let st = T.bank(0, 0, 9);
+    assert.eq(st.stones, 9, 'nine banked');
+    assert.eq(st.owed, 0, 'and nothing owed yet');
+    st = T.bank(st.stones, st.prizes, 1);
+    assert.eq(st.owed, 1, 'the tenth stone pays');
+    assert.eq(st.prizes, 1, 'one prize won');
+    assert.eq(st.stones, 0, 'and the count starts again');
+  });
+
+  test('trail: the remainder carries into the next goal', () => {
+    // A sweep lights a whole disc of stones at once, so a goal is routinely
+    // crossed mid-sweep — the stones past it belong to the next walk, not to
+    // the bin.
+    const st = T.bank(8, 0, 5);
+    assert.eq(st.prizes, 1, 'the goal was crossed');
+    assert.eq(st.stones, 3, 'and the three stones past it carried over');
+    assert.eq(st.owed, 1, 'one prize owed');
+  });
+
+  test('trail: one sweep can cross more than one goal', () => {
+    // 10 for the first, 20 for the second, 30 for the third = 60, and each
+    // crossing lengthens the next goal — so this is a loop over the NEW goal,
+    // not a division.
+    const st = T.bank(0, 0, 60);
+    assert.eq(st.prizes, 3, 'three prizes');
+    assert.eq(st.owed, 3, 'all three owed at once');
+    assert.eq(st.stones, 0, 'exactly consumed');
+    const one = T.bank(0, 0, 29);
+    assert.eq(one.prizes, 1, '29 stones is one prize');
+    assert.eq(one.stones, 19, 'and 19 toward the next');
+  });
+
+  test('trail: banking is defensive about junk', () => {
+    // A hand-edited or half-migrated save must not mint prizes.
+    assert.eq(T.bank(0, 0, 0).owed, 0, 'no stones, no prize');
+    assert.eq(T.bank(-5, -5, -5).owed, 0, 'negatives read as zero');
+    assert.eq(T.bank(0, 0, 1000).prizes, 13, 'a huge sweep still walks the ladder');
+  });
+
+  test('trail: the reward improves with every prize, then stops climbing', () => {
+    // opts.rollBonus is extra boost-chain steps; one to begin with and one more
+    // per prize won. Capped, because a chain step stops buying tiers at the
+    // context ceiling and turns into consolation coins after that.
+    assert.eq(T.rollBonusFor(0), T.PRIZE_ROLL_BONUS, 'the first prize gets the base bonus');
+    assert.eq(T.rollBonusFor(1), T.PRIZE_ROLL_BONUS + 1, 'the second gets one more');
+    assert.eq(T.rollBonusFor(3), T.PRIZE_ROLL_BONUS + 3, 'and so on');
+    assert.eq(T.rollBonusFor(99), T.PRIZE_ROLL_BONUS_MAX, 'up to the cap');
+    assert.gt(T.PRIZE_ROLL_BONUS_MAX, T.PRIZE_ROLL_BONUS, 'which leaves room to climb');
+  });
+
+  test('trail: nothing per-path survives', () => {
+    // The old machinery: a segment cap, a per-trail counter, a minimum trail
+    // length, a prizes-earned-per-trail sum. Its absence is the feature.
+    for (const gone of ['SEGMENT_CELLS', 'MIN_TRAIL_CELLS', 'segmentIndex',
+                        'segmentTarget', 'maxPrizes', 'prizesEarned', 'qualifies']) {
+      assert.eq(T[gone], undefined, `Trail.${gone} is gone`);
     }
-  });
-
-  test('trail: a long trail counts in segments and restarts', () => {
-    const total = 2 * S + 12;            // two full segments and a remainder
-    assert.eq(T.progress(total, 1).target, S, 'first segment wants a full one');
-    assert.eq(T.progress(total, S).pos, S, 'the S-th stone closes it');
-    assert.eq(T.progress(total, S + 1).pos, 1, 'the next restarts the count');
-    assert.eq(T.progress(total, S + 1).target, S, 'and wants a full one too');
-    assert.eq(T.progress(total, 2 * S + 1).pos, 1, 'and again on the third');
-    assert.eq(T.progress(total, 2 * S + 1).target, 12, 'but the remainder wants 12');
-    assert.eq(T.progress(total, total).pos, 12, 'the last stone closes it');
-  });
-
-  test('trail: prizes = ceil(length / segment)', () => {
-    for (const [total, want] of [[1, 1], [S - 1, 1], [S, 1], [S + 1, 2],
-                                 [2 * S, 2], [2 * S + 1, 3], [10 * S, 10]]) {
-      assert.eq(T.maxPrizes(total), want, `a ${total}-cell trail offers ${want}`);
-    }
-  });
-
-  test('trail: a prize lands on every segment boundary, remainder included', () => {
-    // Two full segments and a 12-cell tail: paid at S, at 2S, and again when
-    // the tail is lit.
-    const total = 2 * S + 12;
-    const paid = [];
-    let last = 0;
-    for (let c = 1; c <= total; c++) {
-      const n = T.prizesEarned(total, c);
-      if (n > last) { paid.push(c); last = n; }
-    }
-    assert.eq(paid.join(','), `${S},${2 * S},${total}`, 'prizes on each boundary');
-    assert.eq(last, T.maxPrizes(total), 'and they add up to the trail\'s total');
-  });
-
-  test('trail: an exact multiple pays no extra prize at the end', () => {
-    // Two whole segments — the remainder branch must not fire a third one
-    // when the last stone is also the last of a full segment.
-    assert.eq(T.prizesEarned(2 * S, 2 * S), 2, 'two prizes, not three');
-    assert.eq(T.prizesEarned(2 * S, 2 * S), T.maxPrizes(2 * S), 'matches the ceiling');
-  });
-
-  test('trail: prizes never exceed the ceiling, even over-claimed', () => {
-    // Defensive: a stale save could carry more stones than the rebuilt tile's
-    // trail has cells. It must not mint prizes out of that.
-    assert.eq(T.prizesEarned(9, 99), T.maxPrizes(9), 'capped at the ceiling');
-    assert.eq(T.prizesEarned(0, 5), 0, 'a zero-length trail pays nothing');
-    assert.eq(T.prizesEarned(S, 0), 0, 'and an unwalked one pays nothing');
-  });
-
-  test('trail: a stub too short to be worth walking pays nothing', () => {
-    // Every cobble cell is named now (roads included), so without this floor
-    // a two-cell service stub would pop the full treasure ceremony.
-    assert.eq(T.MIN_TRAIL_CELLS, 8, 'the floor');
-    assert.falsy(T.qualifies(7), 'a 7-cell stub does not qualify');
-    assert.truthy(T.qualifies(8), 'an 8-cell trail does');
   });
 })();
 
-// ── Which cells belong to which trail, through the real rasterizer ────────
-(function () {
+// ── Only a DRAWN stone lights and counts ──────────────────────────────────
+// The activation primitive, lifted out of app.js and run for real. A cobble
+// cell the renderer thinned away is not a stone: every cobble cell used to
+// light and count, so a "10/10" could land after three visible stones had come
+// on and the number meant nothing the player could see.
+(() => {
+const { _activatePathStone } = __trailCounter;
 const T = WorldGen.T;
-const CPE = 64;
-const TILE_EDGE_M = CPE * 7;
-const EXTENT = 4096;
-const CELL_MVT = EXTENT / CPE;
-const cellToMvt = (c) => c * CELL_MVT + CELL_MVT / 2;
-const line = (cells) => cells.map(([cx, cy]) => ({ x: cellToMvt(cx), y: cellToMvt(cy) }));
-const whole = () => line([[0, 0], [CPE - 1, 0], [CPE - 1, CPE - 1], [0, CPE - 1]]);
+const N = 51;
 
-// A park with a named footpath across the middle and a named street down the
-// side, crossing each other — the case that a plain flood fill over the cobble
-// mask gets wrong (it would merge both into one component).
-function build() {
-  return WorldGen.rasterizeTile([
-    { name: 'landuse', features: [
-      { type: 3, tags: { class: 'park' }, geom: [whole()] },
-    ] },
-    { name: 'transportation', features: [
-      { type: 2, tags: { class: 'path' },   geom: [line([[8, 30], [56, 30]])] },
-      { type: 2, tags: { class: 'street' }, geom: [line([[30, 8], [30, 56]])] },
-    ] },
-    { name: 'transportation_name', features: [
-      { type: 2, tags: { name: 'Mill Lane' },  geom: [line([[8, 30], [56, 30]])] },
-      { type: 2, tags: { name: 'Oak Street' }, geom: [line([[30, 8], [30, 56]])] },
-    ] },
-  ], CPE, 0, 0, TILE_EDGE_M);
-}
+// A tile of solid footpath, cached where the shipping code looks for it.
+const withTile = (fn, terrain = T.PATH) => {
+  const key = WorldGen.tileKey(0, 0);
+  WorldGen.tileCache.set(key, { grid: new Uint8Array(N * N).fill(terrain), cellsPerEdge: N });
+  const scene = { save: {}, cellM: 7, cellsPerTile: N, _activatePathStone };
+  try { return fn(scene, key); } finally { WorldGen.tileCache.delete(key); }
+};
 
-const ROADISH = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH]);
-
-test('trail names: a ROAD cell is claimable, not just a path cell', () => {
-  // This is the whole "road cobbles work too now" change: before it, only
-  // terrain 8 landed in pathNames and a street lit nothing.
-  const e = build();
-  let roadNamed = 0;
-  for (let cy = 0; cy < CPE; cy++) {
-    for (let cx = 0; cx < CPE; cx++) {
-      const t = e.grid[cy * CPE + cx];
-      if (t !== T.PATH && ROADISH.has(t) && e.pathNames[`${cx}_${cy}`]) roadNamed++;
+test('trail stones: a cell the renderer draws no pebble on never lights', () => {
+  withTile((scene) => {
+    let lit = 0, drawn = 0;
+    // Inside ONE tile: past cellsPerEdge the abs cell wraps to a local key
+    // already lit, which is a real thing (a neighbouring tile) but not what
+    // this test is asking about.
+    for (let ix = 0; ix < N; ix++) {
+      const shown = Render.cobbleShown(ix, 4, T.PATH, scene.cellM);
+      if (shown) drawn++;
+      if (scene._activatePathStone(0, 0, ix, 4)) lit++;
+      assert.eq(scene._activatePathStone(0, 0, ix, 4), false, 'and never lights twice');
     }
-  }
-  assert.gt(roadNamed, 20, 'the street\'s cells carry a trail name');
+    assert.eq(lit, drawn, 'exactly the drawn stones lit');
+    assert.gt(drawn, 0, 'some of the row really is drawn');
+    assert.lt(drawn, N, 'and some of it really is thinned away');
+  });
 });
 
-test('trail names: every cobble cell gets a name, and nothing else does', () => {
-  const e = build();
-  for (let cy = 0; cy < CPE; cy++) {
-    for (let cx = 0; cx < CPE; cx++) {
-      const t = e.grid[cy * CPE + cx];
-      const named = !!e.pathNames[`${cx}_${cy}`];
-      if (ROADISH.has(t)) assert.truthy(named, `cobble ${cx},${cy} is named`);
-      else assert.falsy(named, `non-cobble ${cx},${cy} is not`);
-    }
-  }
+test('trail stones: ground that is not a cobble is not a stone', () => {
+  withTile((scene) => {
+    let lit = 0;
+    for (let ix = 0; ix < N; ix++) if (scene._activatePathStone(0, 0, ix, 4)) lit++;
+    assert.eq(lit, 0, 'a park lights nothing at all');
+  }, T.PARK);
 });
 
-test('trail names: two crossing streets stay two trails', () => {
-  // A flood fill over the cobble mask would swallow both into one component
-  // at the junction — a 400-cell blob with a single name. The wavefront keeps
-  // each way's own identity.
-  const e = build();
-  const names = new Set(Object.values(e.pathNames));
-  assert.truthy(names.has('Mill Lane'), 'the footpath kept its name');
-  assert.truthy(names.has('Oak Street'), 'and the street kept its own');
-  // Each name owns a run of cells long enough to actually pay out.
-  const count = (n) => Object.values(e.pathNames).filter((v) => v === n).length;
-  assert.gt(count('Mill Lane'), Trail.MIN_TRAIL_CELLS, 'Mill Lane is walkable');
-  assert.gt(count('Oak Street'), Trail.MIN_TRAIL_CELLS, 'so is Oak Street');
+test('trail stones: a street is a trail too', () => {
+  withTile((scene) => {
+    let lit = 0;
+    for (let ix = 0; ix < N; ix++) if (scene._activatePathStone(0, 0, ix, 6)) lit++;
+    assert.gt(lit, 0, 'road cobbles light as well as footpath ones');
+  }, T.ROAD);
 });
 
-test('trail names: an unnamed way still becomes its own trail', () => {
-  // No transportation_name layer at all: the synthetic pass has to name the
-  // component, or the way would be unclaimable.
-  const e = WorldGen.rasterizeTile([
-    { name: 'landuse', features: [
-      { type: 3, tags: { class: 'park' }, geom: [whole()] },
-    ] },
-    { name: 'transportation', features: [
-      { type: 2, tags: { class: 'path' }, geom: [line([[8, 20], [56, 20]])] },
-    ] },
-  ], CPE, 0, 0, TILE_EDGE_M);
-  const names = new Set(Object.values(e.pathNames));
-  assert.eq(names.size, 1, 'one trail');
-  const only = [...names][0];
-  assert.truthy(only.startsWith('trail#'), `synthetic id, got "${only}"`);
+test('trail stones: the save keeps a flat list of lit cells, nothing per path', () => {
+  withTile((scene, key) => {
+    for (let ix = 0; ix < N; ix++) scene._activatePathStone(0, 0, ix, 4);
+    const tile = scene.save.pathStones[key];
+    assert.truthy(Array.isArray(tile), 'a plain array of "ix_iy"');
+    assert.truthy(tile.every((k) => /^\d+_\d+$/.test(k)), 'and nothing else in it');
+  });
+});
+
+test('trail stones: an uncached tile lights nothing', () => {
+  const scene = { save: {}, cellM: 7, _activatePathStone };
+  assert.eq(scene._activatePathStone(9, 9, 3, 3), false, 'no grid, no stone');
 });
 })();
 
 // ── The prize is a CHOICE ─────────────────────────────────────────────────
-// A segment pays two rolls and the player keeps ONE. Two rules carry it:
+// A prize pays two rolls and the player keeps ONE. Two rules carry it:
 // the options must actually differ (Trail.rollChoices), and NOTHING may be
 // granted until the player picks — the roll they turn down was never theirs.
 // The second rule is the one that would silently break: the option not taken
@@ -335,7 +302,7 @@ test('trail prize: an unrecognised reward draws no card and pays nothing', () =>
 // without choosing — is pinned as source text.
 test('trail prize: the payout hangs off the button, not the offer', () => {
   const app = APP_JS_SRC;
-  const at = app.indexOf('_firePathCompletionReward(name, onDismiss) {');
+  const at = app.indexOf('_firePathCompletionReward(n, onDismiss) {');
   assert.gt(at, 0, 'found the prize path');
   const body = app.slice(at, app.indexOf('\n  _trailChoiceLabel', at));
   assert.truthy(/actions: choices\.map\(/.test(body), 'the choice opens as an actions modal');
@@ -346,15 +313,14 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   assert.truthy(/Take your pick/.test(body), 'the offer names itself as a pick');
 });
 })();
-
 // ── The counter lands ON the stone ────────────────────────────────────────
-// The "N/M" is drawn over the cobble that just lit, in the blue that stone
+// The "N/M" is drawn over the cobble that just lit, in the colour that stone
 // lights up in, instead of popping at the screen centre in the pale treasure
-// ink. Two halves, both lifted out of app.js and run for real: where the
-// number goes (_trailCounterAt) and which of the freshly lit stones is a
-// VISIBLE one to put it on (_cobbleDrawnAt).
+// ink. The seating (_trailCounterAt) is lifted out of app.js and run for real,
+// because it is a PROJECTION — the thing a peek drag breaks when someone
+// measures it off the player instead of the camera anchor.
 (() => {
-const { _trailCounterAt, _cobbleDrawnAt } = __trailCounter;
+const { _trailCounterAt } = __trailCounter;
 const near = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
 
 // Same shape as peek_drag.test.js's scene — round numbers, shipping cellM.
@@ -369,7 +335,7 @@ const counterScene = (over) => Object.assign({
   viewCenterX: 176,
   viewCenterY: 200,
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); },
-  _trailCounterAt, _cobbleDrawnAt,
+  _trailCounterAt,
 }, over || {});
 
 // The cell the player is standing in, so the maths below has a known answer.
@@ -414,44 +380,15 @@ test('trail counter: an unprojectable cell falls back to the centred toast', () 
   assert.eq(Object.keys(ok._trailCounterAt(null, null)).length, 0, 'no cell, no override');
 });
 
-test('trail counter: the stone it picks is one the renderer actually draws', () => {
-  // The renderer thins the pebbles (COBBLE_SPACING_M), so a lit cell is not
-  // necessarily a visible one and a number over bare ground reads as a bug.
-  // Both sides must answer with the same rule, for every cell.
-  const N = 51;
-  const grid = new Uint8Array(N * N).fill(8);          // all footpath
-  const s = counterScene();
-  const key = WorldGen.tileKey(0, 0);
-  WorldGen.tileCache.set(key, { grid, cellsPerEdge: N });
-  try {
-    let drawn = 0;
-    for (let i = 0; i < 40; i++) {
-      const want = Render.cobbleShown(i, 3, 8, s.cellM);
-      assert.eq(s._cobbleDrawnAt(key, i, 3), want, `cell ${i} agrees with the draw pass`);
-      if (want) drawn++;
-    }
-    assert.gt(drawn, 0, 'and some of them really do draw a stone');
-    assert.lt(drawn, 40, 'while others are thinned away');
-  } finally {
-    WorldGen.tileCache.delete(key);
-  }
-});
-
-test('trail counter: an uncached tile still gets a counter', () => {
-  // Better a number at a stone we cannot check than no number at all.
-  const s = counterScene();
-  assert.truthy(s._cobbleDrawnAt('0/0/0', 3, 3), 'defaults to drawn');
-});
-
-test('trail counter: the number wears the lit stone\'s own blue', () => {
+test('trail counter: the number wears the lit stone\'s own colour', () => {
   // One constant, two readers: app.js bakes the lit-cobble texture from
   // UI_TRAIL_LIT and the counter is drawn in it, so the stone and the number
   // over it can never end up different blues. Pinned as source text — app.js
   // needs Phaser and can't load headlessly.
-  assert.eq(UI_TRAIL_LIT, '#5ec8ff', 'the lit blue');
+  assert.eq(UI_TRAIL_LIT, '#9a8cff', 'the lit violet');
   assert.truthy(/const LIT_COBBLE_BLUE = UI_TRAIL_LIT;/.test(APP_JS_SRC),
     'the lit-cobble texture is baked from it');
-  assert.truthy(/tier: 'note', color: UI_TRAIL_LIT, \.\.\.this\._trailCounterAt\(ix, iy\)/
+  assert.truthy(/color: UI_TRAIL_LIT,\s*\n\s*\.\.\.this\._trailCounterAt\(/
     .test(APP_JS_SRC), 'and the counter is drawn in it, at the stone');
   assert.falsy(/`\$\{pos\}\/\$\{target\}`, \{ tier: 'note', color: UI_TREASURE_INK \}/
     .test(APP_JS_SRC), 'the old centred treasure-ink toast is gone');
