@@ -398,9 +398,12 @@ Combat.registerMonsters(MONSTERS);
 // kinds keep spawning; at the surface it contributes nothing.
 const ENEMY_COIN_PER_HP  = 1 / 5;
 const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
-function enemyBounty(kind, depth) {
+// `hpMul` is the instance's multiplier over the kind's HP — Combat.eliteMul:
+// an elite has twice the pool, so it pays twice the per-HP wage, by the same
+// rule that makes a goblin pay more than a slime.
+function enemyBounty(kind, depth, hpMul = 1) {
   if (!Combat.isEnemyKind(kind)) return 0;
-  return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * ENEMY_COIN_PER_HP))
+  return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP))
        + Math.floor(Math.max(0, depth || 0) * ENEMY_DEPTH_BONUS);
 }
 // Chance a defeated CAVE MONSTER also drops a buried-treasure roll — literally
@@ -411,6 +414,18 @@ function enemyBounty(kind, depth) {
 // something you turn up underground, and the surface slime in your potatoes is
 // not standing on one.
 const MONSTER_TREASURE_CHANCE = 0.10;
+// An ELITE (shiny) monster is a different deal: its kill ALWAYS pays past the
+// wage — a Discovery badge the first time that kind is slain, and after that
+// a roll on the relic-biased 'treasure:elite' pool (rarity.js), never the 10%
+// roll above. The roll's tier is COMMENSURATE with the foe: each level below
+// the first and each level of the kind's own introduction depth buys one
+// tier-only step (pickReward's opts.rollBonus), so a goblin archer (minDepth
+// 3) met at depth 3 rolls four steps higher than a cave slime at depth 1.
+const ELITE_TREASURE_CONTEXT = 'treasure:elite';
+function eliteRollBonus(kind, depth) {
+  const intro = Math.max(1, MONSTERS[kind]?.minDepth || 1);
+  return Math.max(0, (depth || 0) - 1) + (intro - 1);
+}
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
 // What a tame pet hunts (wanderCreatures' prey scan) — hoisted so the per-step
@@ -4888,7 +4903,12 @@ class MapScene extends Phaser.Scene {
         if (caughtSet.has(id)) break;   // already defeated — stays dead
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
-        creatures.push({ x: wmx, y: wmy, kind, id });
+        // ~5% spawn as ELITES — the shiny variant, stamped off the stable id
+        // like a shiny animal so it survives reloads. The same `shiny` flag
+        // the renderer already tints and sparkles; combat.js reads it as
+        // double HP and damage (Combat.isElite), and resolveDefeat pays the
+        // badge-or-treasure it promises.
+        creatures.push({ x: wmx, y: wmy, kind, id, shiny: isShiny(id, SHINY_RATE.monster) });
         break;
       }
     }
@@ -5980,15 +6000,26 @@ class MapScene extends Phaser.Scene {
       // crops, and for a long time killing one paid nothing, which is the gap
       // this branch closes by asking Combat what an enemy is rather than
       // asking the cave-monster table.
-      const coins = enemyBounty(victim.kind, this.depth);
+      const coins = enemyBounty(victim.kind, this.depth, Combat.eliteMul(victim));
       if (coins > 0) addMoney(save, coins);
       const name = MONSTERS[victim.kind]?.name || 'Slime';
-      this.flash(`⚔️ ${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
+      const elite = Combat.isElite(victim);
+      this.flash(`⚔️ ${elite ? 'Elite ' : ''}${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
         this.viewCenterX, this.viewCenterY - 60);
-      // One in ten cave monsters also drops a buried-treasure roll — the same
-      // table an X pays, so a lucky kill reads as finding one. Underground
-      // only; see MONSTER_TREASURE_CHANCE.
-      if (isMonster(victim.kind) && Math.random() < MONSTER_TREASURE_CHANCE) {
+      if (elite) {
+        // An elite always pays past the wage: the kind's Discovery badge the
+        // first time, a relic-biased treasure roll at a depth-commensurate
+        // tier every time after (see ELITE_TREASURE_CONTEXT / eliteRollBonus).
+        if (this._bankDiscovery(victim.kind)) {
+          this.flashShiny(coins, true, '✨ ELITE SLAIN ✨');
+        } else {
+          grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
+            ELITE_TREASURE_CONTEXT, { rollBonus: eliteRollBonus(victim.kind, this.depth) });
+        }
+      } else if (isMonster(victim.kind) && Math.random() < MONSTER_TREASURE_CHANCE) {
+        // One in ten plain cave monsters also drops a buried-treasure roll —
+        // the same table an X pays, so a lucky kill reads as finding one.
+        // Underground only; see MONSTER_TREASURE_CHANCE.
         grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀');
       }
     } else {
@@ -6474,7 +6505,10 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + MONSTER_HIT_MS;
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(m.dmg / 2) : m.dmg;
+            // An elite (shiny) monster hits for double — Combat.eliteMul is
+            // the one multiplier its HP is scaled by too.
+            const dmg = m.dmg * Combat.eliteMul(c);
+            const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
             this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
             this._warnIfTiring(before);
@@ -6522,7 +6556,8 @@ class MapScene extends Phaser.Scene {
       // whole step cadence (hop duration + any pause) is halved, so they cover
       // ground twice as fast. isShiny() is keyed off the creature id, so the
       // status is stable across reloads (matches the shiny-tint in render).
-      // Monsters never go shiny, so their cadence comes purely from SPEED.
+      // An ELITE monster hits harder, not faster: its cadence comes purely
+      // from SPEED, so the shiny check is for animals only.
       const shinyFast = (!isMon && isShiny(c.id, SHINY_RATE.animal)) ? 0.5 : 1;
       // stepMs = animation duration of the hop itself (short burst).
       const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
@@ -6557,10 +6592,11 @@ class MapScene extends Phaser.Scene {
           }
         }
         // HP healing: if 20 min since last damage, restore to max. Max comes
-        // from Combat.creatureMaxHp so a monster wounded by an arrow heals back
-        // to ITS hit points, not the 10-HP fallback a local table gave it.
+        // from Combat.maxHp so a monster wounded by an arrow heals back to ITS
+        // hit points — the kind's, doubled for an elite — not the 10-HP
+        // fallback a local table gave it.
         if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
-          c._hp = Combat.creatureMaxHp(c.kind);
+          c._hp = Combat.maxHp(c);
           c._lastDamagedT = null;
         }
 
@@ -8459,31 +8495,41 @@ class MapScene extends Phaser.Scene {
     const money = Math.max(10, Math.round(value * 10));
     addMoney(this.save, money);
     // Discovery badge: at most ONE per type of interactable (keyed by baseId —
-    // the species/kind/produce id). The first shiny of a given type banks a
-    // Discovery badge — a normal inventory stack (id 'discovery', cap-exempt so
-    // a full bag can never eat one); later shinies of the same type still pay
-    // the cash windfall but don't re-award the badge. Added silent so the
-    // fanfare moment doesn't hijack the player's selected tab/stack; the
-    // explicit rebuild below makes the new badge count show immediately.
-    const found = this.save.discovered = this.save.discovered || {};
-    const isNew = !found[baseId];
-    if (isNew) {
-      found[baseId] = 1;
-      this.addToInv('discovery', 1, true);
-    }
+    // the species/kind/produce id); later shinies of the same type still pay
+    // the cash windfall but don't re-award the badge.
+    const isNew = this._bankDiscovery(baseId);
     persistSave(this.save);
-    if (isNew && this.buildInventoryDOM) this.buildInventoryDOM();
     this.flashShiny(money, isNew);
     return money;
   }
 
+  // THE BADGE LEDGER. One Discovery badge per key, ever: `save.discovered` is
+  // the set of keys already banked, and this is the only thing that writes it
+  // or hands out the 'discovery' stack. Keys are whatever "a thing you can
+  // discover once" is — a shiny type's base item id, an elite monster's kind,
+  // `house:<id>` for a household's first delivery — all in the one map, so
+  // there is one answer to "has this been discovered". Returns true when the
+  // badge was banked just now, false when the key was already in the ledger.
+  // The badge is a normal inventory stack (id 'discovery', cap-exempt so a
+  // full bag can never eat one), added silent so the moment doesn't hijack the
+  // player's selected tab/stack; the rebuild makes the new count show at once.
+  _bankDiscovery(key) {
+    const found = this.save.discovered = this.save.discovered || {};
+    if (found[key]) return false;
+    found[key] = 1;
+    this.addToInv('discovery', 1, true);
+    if (this.buildInventoryDOM) this.buildInventoryDOM();
+    return true;
+  }
+
   // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
   // banner + a money line + a Discovery line, with a starburst. Call AFTER the
-  // loot/catch flash so it stacks above (depth 110).
-  flashShiny(money, isNew = true) {
+  // loot/catch flash so it stacks above (depth 110). `title` is the headline —
+  // the elite kill wears its own.
+  flashShiny(money, isNew = true, title = '✨ SHINY FIND ✨') {
     if (!this.add) return;
     try {
-      const banner = this._toast('✨ SHINY FIND ✨',
+      const banner = this._toast(title,
         { tier: 'fanfare', color: UI_GOLD_PALE, bg: '#7a5200' });
       this.tweens.add({ targets: banner, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
       // Hangs BELOW the headline (originY 0) rather than above it, which is
@@ -10368,6 +10414,10 @@ class MapScene extends Phaser.Scene {
         // Gates the castle vault and ramps the delivery produce tier (see
         // delivery.js / shopGateInfo).
         this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
+        // The FIRST delivery to this household is a discovery: one Discovery
+        // badge per house, ever, through the same ledger a shiny find uses
+        // (keyed `house:<id>` so a house can't collide with an item id).
+        const firstHere = this._bankDiscovery(`house:${house.id}`);
         // Mark this household satisfied for the rest of the UTC day — it stops
         // asking (shows "happy" instead of a wishlist) and wants its bundle
         // again tomorrow. Prune stale day stamps so the map stays small over weeks.
@@ -10381,6 +10431,7 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, wanted[0]);
+        if (firstHere) this.flash('🔆 +1 Discovery — first delivery here', sx, sy - 24);
       },
     });
   }

@@ -120,8 +120,14 @@ function makeRng32(seed) {
 // yellow-tinted ("shiny") version. Harvesting / catching one pays a 10× money
 // bonus plus a Discovery badge (a 'discovery' inventory stack), all with a
 // fanfare popup.
-// Spawn rates per category. Tuned per the design: flora + trees 1%, animals 5%.
-const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05 };
+// Cave monsters go shiny too — an ELITE: the same gold sheen and sparkle, with
+// double HP and double damage (combat.js › ELITE_MUL). Killing one banks a
+// Discovery badge the first time per kind and a relic-biased treasure roll
+// every time after (app.js › resolveDefeat). The surface slime, the tutorial
+// foe, never does.
+// Spawn rates per category. Tuned per the design: flora + trees 1%, animals
+// and monsters 5%.
+const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05 };
 // Deterministic [0,1) hash off a stable id string (FNV-1a). Returns the SAME
 // value for the same id every time, so a flora/tree's shiny status survives
 // reloads + tile re-rasterise WITHOUT storing anything on the object or save.

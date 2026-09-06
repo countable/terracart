@@ -373,8 +373,10 @@ const ITEMS = [
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
-  // Discovery badge — earned once per shiny TYPE found (awardShinyBonus), spent
-  // at the wizard tower on Inner Lights. Lives as a normal inventory stack so
+  // Discovery badge — earned once per discoverable KEY (app.js _bankDiscovery:
+  // a shiny type found, an elite monster kind slain, a household's first
+  // delivery), spent at the wizard tower on Inner Lights. Lives as a normal
+  // inventory stack so
   // the player can see / count their badges, but it's deliberately walled off
   // from the rest of the economy:
   //   kind 'badge'    → in no rarity.js classBias, so chests / shops / traders /

@@ -382,7 +382,8 @@ try {
     ctx, { filename: 'monsters-baseline.js' });
   vm.runInContext(block
     + '\n;Object.assign(globalThis, { MONSTERS, isMonster, enemyBounty, CAVE_ENEMY_MUL,'
-    + ' ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, MONSTER_TREASURE_CHANCE });',
+    + ' ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, MONSTER_TREASURE_CHANCE,'
+    + ' ELITE_TREASURE_CONTEXT, eliteRollBonus });',
     ctx, { filename: 'monsters.js' });
 }
 

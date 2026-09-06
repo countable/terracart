@@ -4338,9 +4338,9 @@ Render.drawObjects = function drawObjects(scene) {
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     }
-    // Rare shiny animals wear the warm sheen; underground monsters wear their
-    // per-kind placeholder tint. Pooled sprites keep their last tint, so set an
-    // explicit colour every frame (white for the common, plain case).
+    // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
+    // sheen. Pooled sprites keep their last tint, so set an explicit colour
+    // every frame (white for the common, plain case).
     s.setTint(c.shiny ? SHINY_TINT : 0xffffff);
   });
 
