@@ -111,15 +111,21 @@ function fixedChestReward(fixedLoot, save) {
   return { kind: 'item', id: fixedLoot.id, qty: fixedLoot.qty, consolation: 0 };
 }
 
-// Plain-rock base drop: 1-3 rockfruit + a 20% chance of one coal. Shared by
-// the mineralrock 'isPlain' branch below AND the cave-wall dig handler in
+// Plain-rock base drop: rockfruit + a 20% chance of one coal. Shared by the
+// mineralrock 'isPlain' branch below AND the cave-wall dig handler in
 // interact.js (loaded after this module, so the runtime reference is safe) —
 // both used to hardcode this table separately. Only the BASE table lives
 // here: mineralrock layers its own ring/amulet luck + bar-chance loop on top
 // afterward, while cave walls take the base table as-is (no luck applied) —
 // that split is deliberate, not an oversight, so don't fold the luck back in.
-function plainRockBaseDrop(scene) {
-  const qty = randInt(1, 3);
+//
+// `stones` is HOW MANY STONES THE SPRITE SHOWS (SpriteLayout.plainRockStones —
+// 2 for the pair variant, 1 for the singles); the rock pays out that many plus
+// a coin-flip bonus, so what you see is what you get. Pass null for a face with
+// no rock sprite to promise anything — the cave WALL dig, which keeps the flat
+// randInt(1,3) this table had for every rock before Sep 2026.
+function plainRockBaseDrop(scene, stones) {
+  const qty = (stones == null) ? randInt(1, 3) : stones + randInt(0, 1);
   scene.addToInv('rockfruit', qty);
   if (Math.random() < 0.20) scene.addToInv('coal', 1);
   return qty;
@@ -227,10 +233,14 @@ const INTERACTABLES = {
       const isCave = o.caveVariant != null;
       const isPlain = isCave || (o.yieldTier || 1) <= 1;
       if (isPlain) {
-        // Plain rock — stone (1-3 rockfruit), coal on ~20% (shared base table,
-        // see plainRockBaseDrop), plus a small per-tier chance (1/(2·t²) from
+        // Plain rock — stone, coal on ~20% (shared base table, see
+        // plainRockBaseDrop), plus a small per-tier chance (1/(2·t²) from
         // copper) of cracking open a bar — ring-luck-scaled, on top of the base.
-        plainRockBaseDrop(scene);
+        // The stone count follows the ART: the pair-of-stones variant drops
+        // 2-3, a single stone 1-2. Both numbers come off the one table in
+        // sprite_layout.js that render.js picks the frame from, so the rock the
+        // player sees and the rocks they get can't disagree.
+        const qty = plainRockBaseDrop(scene, SpriteLayout.plainRockStones(o));
         let flashId = 'rockfruit';
         for (let t = 2; t <= 7; t++) {
           // Ring nudges the bar chance up (×(1+tierP)); ×1 when luck is off.
@@ -241,10 +251,17 @@ const INTERACTABLES = {
         }
         // Amulet luck: a chance at a bonus stone. Short-circuits before
         // Math.random() when bonusP is 0, so the off-path RNG stream is intact.
-        if (bonusP && Math.random() < bonusP) scene.addToInv('rockfruit', 1);
+        let stoneQty = qty;
+        if (bonusP && Math.random() < bonusP) { scene.addToInv('rockfruit', 1); stoneQty++; }
         persistSave(save);
         const item = ITEM_BY_ID[flashId];
-        scene.flashLoot(`+1 ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
+        // Report the REAL count. A bar upstages the stones in the toast and
+        // only ever drops one at a time, so it stays "+1"; stones say how many
+        // actually went in the bag — this line read "+1 Rock" while handing
+        // over three, the one loot path that under-reported itself (the cave
+        // wall's own toast in interact.js has always flashed its qty).
+        const flashQty = (flashId === 'rockfruit') ? stoneQty : 1;
+        scene.flashLoot(`+${flashQty} ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
         return;
       }
       // Ore-bearing rock — exactly ONE bar of the indicated type, plus a coal
@@ -300,9 +317,10 @@ const INTERACTABLES = {
         const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;
         const elapsed = Date.now() - (o.planted_t || 0);
         if (elapsed < 4 * FRUIT_STAGE_MS) {
-          const msLeft = 4 * FRUIT_STAGE_MS - elapsed;
-          const daysLeft = Math.ceil(msLeft / FRUIT_STAGE_MS);
-          const left = daysLeft > 1 ? `${daysLeft}d` : `${Math.max(1, Math.ceil(msLeft / 3600000))}h`;
+          // Largest-unit notation via the shared shortDuration (util.js) — the
+          // hand-rolled d/h ladder that used to live here couldn't say "40m"
+          // on the last stretch and read "1h" for anything under one.
+          const left = shortDuration(4 * FRUIT_STAGE_MS - elapsed);
           scene.flash(`Still growing — ${left}`, sx, sy);
           return true;
         }
@@ -310,13 +328,21 @@ const INTERACTABLES = {
       save.fruitPicked = save.fruitPicked || {};
       const pickedAt = save.fruitPicked[o.id];
       if (pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS) {
-        const msLeft = FRUIT_RESPAWN_MS - (Date.now() - pickedAt);
-        const hrsLeft = Math.ceil(msLeft / 3600000);
-        const left = hrsLeft > 1 ? `${hrsLeft}h` : `${Math.max(1, Math.ceil(msLeft / 60000))}m`;
+        const left = shortDuration(FRUIT_RESPAWN_MS - (Date.now() - pickedAt));
         scene.flash(`Picked — ripe again in ${left}`, sx, sy);
         return true;
       }
       save.fruitPicked[o.id] = Date.now();
+      // A fruit tree's species IS the item it hands out, so it must be one.
+      // The starter provisioning once tamed the fruit tree nearest spawn into
+      // species 'pine' (home.js makeStarterUsable — fixed there), and 'pine'
+      // is not an item: the pick flashed "harvested pine" and Inventory.add
+      // dropped it on the floor. The source is fixed, but the bin objects a
+      // tile is rebuilt from are shared for the session and a stale cached
+      // home.js can still stamp them, so the tree repairs itself here: a
+      // species that is not a produce item reverts to apple, in place, so the
+      // pick, the flash and the shiny bonus all agree on one real fruit.
+      if (!ITEM_BY_ID[o.species] || ITEM_BY_ID[o.species].kind !== 'produce') o.species = 'apple';
       let n = randInt(1, 2);
       // Amulet luck: a chance at one bonus fruit (short-circuits before
       // Math.random() when luck is off, keeping the off-path identical).
@@ -364,7 +390,9 @@ const INTERACTABLES = {
       // standard open-and-loot path. They never go into save.opened — they're
       // gated by save.coinBurstClaimed[id+YYYYMMDD] so they refresh daily, and
       // produce world-scattered coin pickups instead of inventory loot.
-      if (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') {
+      // A cave-level mirror of one (worldgen.js caveChestsFrom, o.depth > 0)
+      // is a plain chest: the burst is a street thing.
+      if ((o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') && !(o.depth > 0)) {
         if (typeof scene._coinBurstInteract === 'function') {
           scene._coinBurstInteract(sx, sy, o);
           return true;
@@ -378,7 +406,7 @@ const INTERACTABLES = {
       // never goes into save.opened — a market doesn't get "picked clean".
       const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
       if (stand && typeof scene.presentMarketStandOffer === 'function') {
-        scene.presentMarketStandOffer(sx, sy, o, stand);
+        scene.presentMarketStandOffer(sx, sy, stand);
         return true;
       }
       if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
@@ -413,7 +441,7 @@ const INTERACTABLES = {
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).
       const held = save.chestHold && save.chestHold[o.id];
-      const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
+      const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth) : 2;
       const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
@@ -573,6 +601,24 @@ const INTERACTABLES = {
 //             'skip', e.g. a chopped tree stump that shouldn't block the cell)
 //   true    — the tap was consumed (gate blocked, work started, or custom done)
 //   false   — `o.kind` is not registered (caller falls through to other blocks)
+// ── Tool-gate fade ──────────────────────────────────────────────────────────
+// A tree or rock the player's current tool can't work is drawn at half alpha,
+// so what is reachable NOW reads at a glance instead of by tapping everything
+// and reading refusals. "Can't work" is the entry's own tierShort — the same
+// number the tap gate refuses on (and offers the slow grind at exactly 1) — so
+// the fade and the refusal can never disagree. Kinds without a tool gate
+// (fruit trees, chests, plants) are never faded; nor is a bush (axe tier 0) or
+// a plain rock (ungated). render.js applies it in the tree / mineralrock
+// `after` hooks; it lives here so it reads the shipping gate, not a copy.
+const TOOL_GATED_ALPHA = 0.5;
+function isToolGated(o, save) {
+  const def = INTERACTABLES[o.kind];
+  return !!(def && def.tierShort && def.tierShort(o, save || {}) > 0);
+}
+function toolGatedAlpha(o, save) {
+  return isToolGated(o, save) ? TOOL_GATED_ALPHA : 1;
+}
+
 function runInteractable(ctx, o) {
   const def = INTERACTABLES[o.kind];
   if (!def) return false;
@@ -621,9 +667,7 @@ function runInteractable(ctx, o) {
   }
 
   const cost = def.energy ? def.energy(save, o) : 0;
-  const durMs = (typeof toolDurationMs === 'function')
-    ? toolDurationMs(save.relics, def.tool)
-    : (save.relics?.[def.tool] ? 4000 : 9000);
+  const durMs = toolDurationMs(save.relics, def.tool);
   if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
   // cost is passed through as the refund amount if the player cancels mid-work.
   scene.startWorkProgress(o.x, o.y, () => def.complete(ctx, o), durMs, cost || 0, def.tool);

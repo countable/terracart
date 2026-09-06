@@ -1516,12 +1516,14 @@ test('weapons: sell modal honours the sword multiplier', (scene) => {
   scene.save.restoredHouses[house.id] = true;
   teleport(scene, house.x, house.y - 2);
   const shopMul = 1;   // home shop has no specialty bonus
-  const expected = Math.max(1, Math.ceil(PRICES.potato * sellMultiplier(scene.save.relics) * shopMul));
+  // The trailer pays the sword-scaled price less its 25% haircut
+  // (trailerSellPrice / TRAILER_SELL_MUL, items.js).
+  const expected = trailerSellPrice(PRICES.potato * shopMul, scene.save.relics);
   scene.shopInteract(0, 0, house);
   const modal = document.getElementById('offer-modal');
   assert.truthy(modal, 'sell modal opened');
   assert.truthy(modal.innerHTML.includes(`+$${expected}`),
-    `sells potato at $${expected} with T7 sword (mul=1.0, shopMul=${shopMul})`);
+    `sells potato at $${expected} with T7 sword (mul=1.0 × 0.75 trailer, shopMul=${shopMul})`);
   document.getElementById('offer-modal')?.remove();
 });
 
@@ -1542,11 +1544,11 @@ test('buildRelicOffer never offers a same-or-lower tier than equipped', (scene) 
 // Consumables, watering can, hoe, mineral drops — new this round.
 // ───────────────────────────────────────────────────────────────────────
 
-test('flute consumable is registered with the right shape', () => {
-  const f = ITEM_BY_ID['flute'];
-  assert.truthy(f, 'flute item exists');
+test('honey consumable is registered with the right shape', () => {
+  const f = ITEM_BY_ID['honey'];
+  assert.truthy(f, 'honey item exists');
   assert.eq(f.kind, 'consumable', 'kind=consumable');
-  assert.truthy(PRICES.flute > 0, 'has a sell price');
+  assert.truthy(PRICES.honey > 0, 'has a sell price');
 });
 
 test('book consumable is registered with the right shape', () => {
@@ -1588,18 +1590,18 @@ test('readBook consumes one Book and opens a modal', (scene) => {
   m?.remove();
 });
 
-test('playFlute consumes one Flute and re-anchors nearby creatures', (scene) => {
-  scene.save.inv = [{ id: 'flute', count: 1 }];
+test('useHoney consumes one Honey and re-anchors nearby creatures', (scene) => {
+  scene.save.inv = [{ id: 'honey', count: 1 }];
   scene.save.selSlot = 0;
   const pWX = scene.startWorldM.x + scene.playerM.x;
   const pWY = scene.startWorldM.y + scene.playerM.y;
-  const target = { x: pWX + 10, y: pWY, kind: 'chicken', id: 'test_flute_chick' };
+  const target = { x: pWX + 10, y: pWY, kind: 'chicken', id: 'test_honey_chick' };
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
   entry.creatures.push(target);
   document.getElementById('message-modal')?.remove();
-  scene.playFlute();
-  assert.eq(scene.save.inv.find(s => s?.id === 'flute'), undefined, 'flute consumed');
+  scene.useHoney();
+  assert.eq(scene.save.inv.find(s => s?.id === 'honey'), undefined, 'honey consumed');
   const homeDist = Math.hypot((target._homeX ?? target.x) - pWX, (target._homeY ?? target.y) - pWY);
   assert.lt(homeDist, 6, 'chicken home pulled close to player');
   entry.creatures.pop();
@@ -1646,7 +1648,7 @@ test('watering can: watering writes canBoost to the planted crop', (scene) => {
   scene.save.planted = [];
   scene.save.tilled = [];
   scene.tilledSet = new Set();
-  // Empty inventory so leftover food/flute from a prior test can't confuse
+  // Empty inventory so leftover food/honey from a prior test can't confuse
   // any selected-item handler (eat / use-consumable taps are gone — both
   // moved to persistent buttons — but plant/release still read the slot).
   scene.save.inv = [];
@@ -2612,10 +2614,11 @@ test('treasure: tapping the X within reach marks it found and grants loot', (sce
   assert.truthy(scene.save.foundTreasures.includes(tr.id), 'treasure id in foundTreasures');
   const gotLoot = (scene.save.money > moneyBefore) || (scene.save.inv.length > invBefore);
   assert.truthy(gotLoot, 'either money grew or an inv stack appeared');
-  // Tapping it again: no double dip. Clear the selection first — looting an
-  // item auto-selects it, and a second tap on the player's own cell with a
-  // plantable seed selected would PLANT it (emptying the stack), which has
-  // nothing to do with the treasure no-double-dip behaviour under test here.
+  // Tapping it again: no double dip. Looting never selects the item (empty
+  // hands stay empty), but clear the selection defensively anyway — a second
+  // tap on the player's own cell with a plantable seed selected would PLANT
+  // it (emptying the stack), which has nothing to do with the treasure
+  // no-double-dip behaviour under test here.
   scene.save.selSlot = -1;
   const moneyMid = scene.save.money;
   const invMid = scene.save.inv.length;
