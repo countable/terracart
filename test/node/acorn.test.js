@@ -2,18 +2,20 @@
 //
 // Felling a tree can leave an acorn — a sapling that plants a new TIMBER tree
 // (not a fruit tree), so clearing a wood is not a one-way trade. The chance is
-// the axe's: 5% bare-handed up to 25% with a Frost axe. The tree it plants
-// grows on the clock, and one function (treeGrowthStage) hands that stage to
-// the renderer, the axe gate and the wood yield alike.
+// the axe's: 10% bare-handed up to a guaranteed 100% with a Frost axe,
+// GEOMETRIC between (each tier multiplies the last tier's chance by the same
+// ratio). The tree it plants grows on the clock, and one function
+// (treeGrowthStage) hands that stage to the renderer, the axe gate and the
+// wood yield alike.
 
-test('acorn: the drop chance runs 5% bare-handed to 25% at Frost', () => {
+test('acorn: the drop chance runs 10% bare-handed to 100% at Frost', () => {
   assert.eq(acornDropChance(null), ACORN_P_BASE, 'no relics at all = bare hands');
   assert.eq(acornDropChance({}), ACORN_P_BASE, 'no axe = bare hands');
-  assert.eq(acornDropChance({ axe: { tier: 0 } }), 0.05, 'tier 0 is the 5% floor');
-  assert.eq(Math.round(acornDropChance({ axe: { tier: 7 } }) * 1000) / 1000, 0.25,
-    'a Frost axe is the 25% ceiling');
-  assert.eq(ACORN_P_BASE, 0.05, 'the floor is a named number');
-  assert.eq(ACORN_P_FROST, 0.25, 'and so is the ceiling');
+  assert.eq(acornDropChance({ axe: { tier: 0 } }), 0.10, 'tier 0 is the 10% floor');
+  assert.eq(Math.round(acornDropChance({ axe: { tier: 7 } }) * 1000) / 1000, 1.0,
+    'a Frost axe is a guaranteed drop');
+  assert.eq(ACORN_P_BASE, 0.10, 'the floor is a named number');
+  assert.eq(ACORN_P_FROST, 1.0, 'and so is the ceiling');
 });
 
 test('acorn: every rung of the axe is worth something, and none overshoots', () => {
@@ -24,9 +26,22 @@ test('acorn: every rung of the axe is worth something, and none overshoots', () 
     assert.inRange(p, ACORN_P_BASE, ACORN_P_FROST, `T${tier} stays inside the ladder`);
     prev = p;
   }
-  // The ladder is linear, so the middle rung sits exactly halfway.
+  // The ladder is geometric, so each rung's ratio to the one before it is the
+  // same constant — never a flat step.
+  let prevP = acornDropChance({ axe: { tier: 0 } });
+  let ratio = null;
+  for (let tier = 1; tier <= 7; tier++) {
+    const p = acornDropChance({ axe: { tier } });
+    const r = p / prevP;
+    if (ratio === null) ratio = r;
+    else assert.lt(Math.abs(r - ratio), 1e-9, `T${tier - 1}→T${tier} keeps the same ratio`);
+    prevP = p;
+  }
+  // The midpoint tier sits at the GEOMETRIC mean of the two ends, not the
+  // arithmetic mean.
   const mid = acornDropChance({ axe: { tier: 3.5 } });
-  assert.lt(Math.abs(mid - (ACORN_P_BASE + ACORN_P_FROST) / 2), 1e-9, 'linear between the ends');
+  assert.lt(Math.abs(mid - Math.sqrt(ACORN_P_BASE * ACORN_P_FROST)), 1e-9,
+    'geometric mean between the ends');
 });
 
 test('acorn: a tier past Frost cannot push the chance past the ceiling', () => {
