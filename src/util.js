@@ -292,34 +292,6 @@ function treeWoodMul(o) {
   return size === 'full' ? 4 : size === 'medium' ? 2 : 1;
 }
 
-// === Planted trees (saplings + the acorn) ==================================
-// A planted sapling is a `fruittree` object carrying `planted_t`; it climbs
-// PLANTED_TREE_STAGES stages of PLANTED_TREE_STAGE_MS each (1 day/stage → 4
-// days to maturity) and the stage is read off the clock, never stored. The
-// render spec picks the art from it and the tap handlers gate on it, so it is
-// ONE function here rather than the same floor/min in each file.
-const PLANTED_TREE_STAGE_MS = 24 * 60 * 60 * 1000;
-const PLANTED_TREE_STAGES = 4;
-function plantedTreeStage(o, now) {
-  const t = (now == null) ? Date.now() : now;
-  return Math.min(PLANTED_TREE_STAGES,
-    Math.floor((t - ((o && o.planted_t) || 0)) / PLANTED_TREE_STAGE_MS));
-}
-// The maple a planted ACORN grows into is a fruittree by plumbing (it lives in
-// save.fruittrees and re-injects through spawnInTile) but a TREE by nature: it
-// bears no fruit and, once grown, is felled for wood exactly like the wild
-// maple drawn from the same sheet. So its growth stages map onto the maple
-// sheet's live frames (1 sprout, 2 young, 3 mature — 0 and 4 are stumps),
-// and everything that would draw or fell it works from the size-less maple
-// `tree` object it stands for at that stage: render.js scales it with
-// treeScale, and interactables.js gates, times and pays it through the tree
-// entry — one axe tier, one wheel, one wood roll, none of them re-stated.
-const MAPLE_GROW_FRAMES = [1, 1, 2, 2, 3];   // planted stage 0..4 → maple frame
-function plantedMapleView(o, stage) {
-  const s = Math.max(0, Math.min(PLANTED_TREE_STAGES, stage | 0));
-  return { ...o, kind: 'tree', species: 'maple', size: undefined, variant: MAPLE_GROW_FRAMES[s] };
-}
-
 // === Shared look: fonts + palette ==========================================
 // One home for the typefaces and colours the game draws with, so a new call
 // site can't quietly invent a seventh gold or a second monospace stack. The

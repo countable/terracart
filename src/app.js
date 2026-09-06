@@ -3917,12 +3917,9 @@ class MapScene extends Phaser.Scene {
             ft.y < t0y || ft.y >= t0y + this.tileEdgeM) continue;
         if ((entry.objects || []).some(o => o.id === ft.id)) continue;
         entry.objects = entry.objects || [];
-        // Species comes off the sapling registry (items.js plantedTreeSpecies)
-        // — apple / peach, or the acorn's maple, which render.js draws off the
-        // maple sheet and the fruittree tap handler fells for wood.
         entry.objects.push({
           kind: 'fruittree', x: ft.x, y: ft.y,
-          species: plantedTreeSpecies(ft.species),
+          species: ft.species === 'peach' ? 'peach' : 'apple',
           id: ft.id, planted: true, planted_t: ft.planted_t,
         });
       }

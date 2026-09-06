@@ -102,13 +102,8 @@ test('fruit overlay: the tree’s frame does not depend on whether it is bearing
 test('fruit overlay: a picked tree is not dimmed — the fruit is simply gone', () => {
   // The 0.7 alpha on a regrowing tree was the other half of "the sprite
   // changes when you pick it".
-  // The one alpha the hook may set is the shared tool-gate fade on the
-  // acorn's MAPLE (a tree that is felled, not picked — see acorn.test.js);
-  // a fruit tree's own branch never touches alpha, and no literal ever does.
-  assert.truthy(!/setAlpha\((?!toolGatedAlpha\()/.test(RENDER_FRUITTREE_SPEC_SRC),
-    'the fruittree hook no longer touches alpha (only the maple\'s shared tool-gate fade)');
-  const fruitBranch = RENDER_FRUITTREE_SPEC_SRC.slice(RENDER_FRUITTREE_SPEC_SRC.indexOf('_ftBearing(o)'));
-  assert.truthy(!/setAlpha/.test(fruitBranch), 'the fruit branch itself sets no alpha');
+  assert.truthy(!/setAlpha/.test(RENDER_FRUITTREE_SPEC_SRC),
+    'the fruittree hook no longer touches alpha');
 });
 
 test('fruit overlay: the fruit is placed off the tree sprite, not by hand', () => {

@@ -92,44 +92,6 @@ function plainRockBaseDrop(scene, stones) {
   return qty;
 }
 
-// ---- Wood + acorns ----------------------------------------------------------
-// One wood roll for every felling — the wild `tree` entry and the planted
-// maple (the acorn's fruittree, see the fruittree entry) both pay through it,
-// so a grown maple can't drift from the wild one drawn off the same frame.
-// randInt(2,3) bundles × the size class's multiplier (treeWoodMul: full 4×,
-// medium 2×, small/bush 1×); amulet luck adds one more bundle on bonusP.
-// bonusP is 0 when gather-luck is off, so the && short-circuits before
-// Math.random() and the yield is identical to the un-luck path.
-function rollTreeWood(o) {
-  return randInt(2, 3) * treeWoodMul(o);
-}
-// Chance that felling a WILD tree also shakes an acorn loose (items.js
-// `acorn` — the sapling that grows a maple). Only a tree at its mature canopy
-// — size class medium or full, i.e. not a bush, a sprout or a young maple —
-// has one to drop: the class is treeSizeClass, the same read the axe gate and
-// the wood multiplier make, so what looks grown is what drops seed.
-const ACORN_DROP_P = 0.25;
-function treeDropsAcorn(o) {
-  const cls = treeSizeClass(o);
-  return cls === 'medium' || cls === 'full';
-}
-// A felled PLANTED tree leaves nothing behind — no stump object, no
-// save.chopped id — because its cell must be free to plant again: the entry
-// comes out of save.fruittrees (so spawnInTile and a tile REBUILD never
-// re-inject it) and the object out of whichever live tile holds it.
-function removePlantedTree(save, o) {
-  if (Array.isArray(save.fruittrees)) {
-    save.fruittrees = save.fruittrees.filter((f) => f.id !== o.id);
-  }
-  const cache = (typeof WorldGen !== 'undefined') && WorldGen && WorldGen.tileCache;
-  if (!cache || typeof cache.values !== 'function') return;
-  for (const e of cache.values()) {
-    if (!e || !Array.isArray(e.objects)) continue;
-    const i = e.objects.findIndex((x) => x.kind === 'fruittree' && x.id === o.id);
-    if (i >= 0) { e.objects.splice(i, 1); return; }
-  }
-}
-
 const INTERACTABLES = {
   // ---- Tree: chop with an axe for wood -------------------------------------
   // Bigger / harder trees demand a sturdier axe and pay out proportionally more
@@ -156,7 +118,8 @@ const INTERACTABLES = {
       ? effectiveChopCost(save.relics, o) : 0,
     complete: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      const wood = rollTreeWood(o);
+      const woodMul = treeWoodMul(o);
+      const wood = randInt(2, 3) * woodMul;
       o.chopped = true;
       save.chopped = save.chopped || [];
       if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
@@ -170,14 +133,6 @@ const INTERACTABLES = {
       scene.flash(o.size === 'bush' ? `🌿 Cleared a bush.`
                 : `${conifer ? '🌲' : '🌳'} Felled ${treeSpeciesName(o)} tree.`, sx, sy);
       scene.flashLoot(`+${wood} ${ITEM_BY_ID.wood?.name || 'Wood'}`, undefined, 1, 'wood');
-      // A grown tree may shake an acorn loose (ACORN_DROP_P) — the sapling
-      // that grows a maple. Its own toast, after the wood's, with the count
-      // it actually hands over (one).
-      if (treeDropsAcorn(o) && Math.random() < ACORN_DROP_P) {
-        scene.addToInv('acorn', 1);
-        persistSave(save);
-        scene.flashLoot(`+1 ${ITEM_BY_ID.acorn?.name || 'Acorn'}`, '#a7ffb0', 1, 'acorn');
-      }
       // Rare shiny tree — 10× wood value in cash + a discovery point.
       if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus('wood', sx, sy);
     },
@@ -299,21 +254,16 @@ const INTERACTABLES = {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
       const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // one harvest per 24h
-      // The acorn's maple is a fruittree by plumbing only — it is felled, not
-      // picked. Branch before the fruit path, and before the species repair
-      // below (which would turn a maple into an apple).
-      if (o.species === 'maple') return plantedMapleTap(ctx, o);
       // A planted sapling can't be harvested until it has matured (reached its
-      // fruiting stage). 4 days sprout→fruit (PLANTED_TREE_STAGES × 1-day
-      // PLANTED_TREE_STAGE_MS, util.js — the same clock render.js draws from).
+      // fruiting stage). 4 days sprout→fruit (4 × 1-day stages).
       if (o.planted) {
+        const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;
         const elapsed = Date.now() - (o.planted_t || 0);
-        const matureMs = PLANTED_TREE_STAGES * PLANTED_TREE_STAGE_MS;
-        if (elapsed < matureMs) {
+        if (elapsed < 4 * FRUIT_STAGE_MS) {
           // Largest-unit notation via the shared shortDuration (util.js) — the
           // hand-rolled d/h ladder that used to live here couldn't say "40m"
           // on the last stretch and read "1h" for anything under one.
-          const left = shortDuration(matureMs - elapsed);
+          const left = shortDuration(4 * FRUIT_STAGE_MS - elapsed);
           scene.flash(`Still growing — ${left}`, sx, sy);
           return true;
         }
@@ -612,12 +562,6 @@ function toolGatedAlpha(o, save) {
 function runInteractable(ctx, o) {
   const def = INTERACTABLES[o.kind];
   if (!def) return false;
-  return runInteractableDef(ctx, o, def);
-}
-// The pipeline itself, over an explicit entry. runInteractable looks the entry
-// up by kind; the planted maple (plantedMapleTap) hands in the tree entry with
-// its own `complete` so a grown acorn is gated, timed and paid as a tree.
-function runInteractableDef(ctx, o, def) {
   const { scene, save, sx, sy } = ctx;
 
   if (def.spent && def.spent(o, ctx)) {
@@ -663,44 +607,4 @@ function runInteractableDef(ctx, o, def) {
   // cost is passed through as the refund amount if the player cancels mid-work.
   scene.startWorkProgress(o.x, o.y, () => def.complete(ctx, o), durMs, cost || 0, def.tool);
   return true;
-}
-
-// ---- Planted maple (the acorn's tree) ---------------------------------------
-// A `fruittree` of species 'maple' is a TREE that happens to have been planted:
-// it grows on the fruit sapling's clock (plantedTreeStage), and while it is
-// growing a tap only reports the wait. Once grown it is felled, not picked —
-// through the wild `tree` entry's own gate / energy / wheel, run over the
-// size-less maple `tree` object the sapling stands for at maturity
-// (util.js plantedMapleView — the same object render.js draws it from), so a
-// grown acorn demands the axe, takes the time and pays the wood of the wild
-// maple showing the same frame. Only `complete` is its own: the felled tree
-// comes OUT of the world (removePlantedTree) rather than leaving a stump, so
-// the cell is free to plant again.
-function plantedMapleTap(ctx, o) {
-  const { scene, save, sx, sy } = ctx;
-  if (o.chopped) return 'skip';   // felled this session but not yet swept out
-  const stage = plantedTreeStage(o);
-  if (o.planted && stage < PLANTED_TREE_STAGES) {
-    const left = shortDuration(PLANTED_TREE_STAGES * PLANTED_TREE_STAGE_MS
-                               - (Date.now() - (o.planted_t || 0)));
-    scene.flash(`Still growing — ${left}`, sx, sy);
-    return true;
-  }
-  const view = plantedMapleView(o, PLANTED_TREE_STAGES);
-  const treeDef = INTERACTABLES.tree;
-  return runInteractableDef(ctx, view, {
-    ...treeDef,
-    spent: undefined,   // the felled tree is removed, never a spent stump
-    complete: (c, v) => {
-      const wood = rollTreeWood(v, c.luck);
-      o.chopped = true;
-      removePlantedTree(save, o);
-      scene.addToInv('wood', wood);
-      persistSave(save);
-      c.dirty = true;
-      scene.flash(`🌳 Felled your ${treeSpeciesName(v)} tree.`, sx, sy);
-      scene.flashLoot(`+${wood} ${ITEM_BY_ID.wood?.name || 'Wood'}`, undefined, 1, 'wood');
-      if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus('wood', sx, sy);
-    },
-  });
 }
