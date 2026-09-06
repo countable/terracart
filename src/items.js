@@ -3,12 +3,13 @@
 // in one place and changes to the crop roster don't require editing logic.
 //
 // Depends on:
-//   nothing external. Pure data + a small lookup helper. Must load BEFORE
+//   util.js (fnv1a, for the per-cell sprite-variant hash). Pure data + small
+//   lookup helpers otherwise. Must load BEFORE
 //   loot.js (tierInfo falls back to SEED_TIER for raw seed ids) and app.js.
 //
 // Exports as globals:
 //   CROP_ROW, MAX_GROWTH_STAGE, PRODUCE_COL, SEEDBOX_COL, CROPS_SHEET_COLS
-//   SPRING_CROPS_COLS, CROP_SPRITE, inventoryIconSource
+//   SPRING_CROPS_COLS, CROP_SPRITE, wildplantFrame, inventoryIconSource
 //   CROP_NAMES, ITEMS, ITEM_BY_ID
 //   PRICES, BUY_LIST, STARTING_MONEY
 //   SEED_TIER  (loot tier config; co-located with the crops it describes)
@@ -78,10 +79,20 @@ const CROP_SPRITE = {
   // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
   // stays `frame`.
   mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.36, caveFrames: [127, 128] },
-  // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
-  // sets ._variant from a stable hash of its cell coords so the same cell
-  // always renders the same shell, and the beach reads as a varied mix.
-  shell: { sheet: 'shell_sheet', custom: true, variants: 12 },
+  // Shell — the beach pickup, and the one crop whose LOOK varies per cell.
+  // Shell.png is 48×64 = 3 cols × 4 rows of 16×16, and only the TOP ROW is
+  // shell art: three cowries (pink, gold, blue). Row 1 repeats those three
+  // with a white keyline (a highlight state, not a fourth shell), frames 6
+  // and 9 are flat one-colour silhouettes (mask rows) and 7, 8, 10 and 11 are
+  // blank — the same layout Gemstones.png uses (see MINERAL_ICON_SHEET below).
+  // So `frames` LISTS the three frames that carry a shell rather than counting
+  // them: a count is a claim about the sheet that the sheet does not make.
+  // This said `variants: 12` until Sep 2026 and the renderer drew
+  // `hash % 12`, so most shells on a beach picked a blank frame — a pickup
+  // you could tap but not see, which is what "no shells on beaches" was.
+  // tools/sprite_audit.js decodes the real PNG and fails if a declared frame
+  // is transparent (or a flat mask row), so a re-cut sheet can't do it again.
+  shell: { sheet: 'shell_sheet', custom: true, frames: [0, 1, 2] },
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct
   // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
   // They spawn sparsely on a matching biome (see the per-biome flora in
@@ -94,6 +105,38 @@ const CROP_SPRITE = {
   wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.13 },  // red wild rose (row 1, col 8)
   starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.13 },  // glowing purple star-flower (row 4, col 14)
 };
+
+// ── Which frame does THIS wild plant draw? ─────────────────────────────────
+// The custom-sheet crops whose look varies per cell — the shell's three
+// cowries, the mushroom's two luminous cave caps — resolve their frame HERE,
+// so the "which look does this cell get" hash cannot differ between the two
+// branches that ask, and so the frame can only ever be one the crop declares.
+//
+// The key is the wildplant's own ID (`wp_<tx>_<ty>_<ix>_<iy>`, minted per cell
+// by the rasterizer), hashed as a STRING, falling back to the tile-local cell
+// for the wildplants that carry no id. It has to be stable, because the same
+// cell must show the same shell across a reload and a tile rebuild — and it
+// has to be the WHOLE id: until Sep 2026 the renderer hashed `id.length`
+// (one number for a whole tile, since every id in a tile is nearly the same
+// length) XORed with `_ix`/`_iy`, which the rasterizer's occupancy pass
+// deletes before the entry is ever drawn. So every shell in a tile drew the
+// same frame, picked off its id's LENGTH — usually one of the blank ones.
+// Salted so it can't line up with the other id-derived hashes (shinyHash01).
+function wildplantVariantHash(p) {
+  const id = (p && (p.wildId || p.id));
+  const key = id != null ? String(id) : `${(p && p._ix) ?? 0}_${(p && p._iy) ?? 0}`;
+  return fnv1a(key + '#variant');
+}
+function wildplantFrame(p) {
+  const ov = CROP_SPRITE[p && p.crop];
+  if (!ov || !ov.custom) return 0;
+  // Grown underground: the crop's cave look (mushroom's blue caps), off the
+  // same hash — same crop, same item, only the art says it grew in the dark.
+  const list = (p && p._cave && ov.caveFrames) ? ov.caveFrames : ov.frames;
+  if (!list || !list.length) return ov.frame ?? 0;
+  if (list.length === 1) return list[0];
+  return list[wildplantVariantHash(p) % list.length];
+}
 
 // Resolve the same icon source the inventory uses for an item id.
 // Returns { sheet, frame } where frame is the 16x16 frame index in the spritesheet,
@@ -192,8 +235,9 @@ const MINERAL_ICON_SHEET = {
   meat:         { sheet: 'icon_meat',    frame: 0 },
   rabbit_pelt:  { sheet: 'icon_pelt',    frame: 0 },
   crow_feather: { sheet: 'icon_feather', frame: 0 },
-  // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png is a 12-frame variant
-  // sheet; frame 0 is the canonical cowrie used for the inventory icon.
+  // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png carries three shells
+  // on its top row (see CROP_SPRITE.shell); frame 0 is the pink cowrie, the
+  // canonical one used for the inventory icon.
   shell:        { sheet: 'shell_sheet', frame: 0 },
   // Wild flowers ('flowers' produce) — props.png (22 cols × 12 rows of 16×16).
   // Frame 12 (col 12, row 0) is the pink blossom. Like egg/milk it has no
@@ -227,11 +271,12 @@ function inventoryIconSource(itemId) {
     return { sheet: 'springcrops', frame: ov.row * 14 + col };
   }
   if (ov && ov.custom) {
-    // Custom sheets (longgrass→props, mushroom→mushroom_world, shell→
-    // shell_sheet). ov.frame is honoured so sheets with multiple cells
-    // (e.g. mushroom_world whose frame 0 is empty) can point at the right
-    // cell. Shells use the variants path in the renderer.
-    return { sheet: ov.sheet, frame: ov.frame ?? 0 };
+    // Custom sheets (longgrass→props, mushroom→props, shell→shell_sheet).
+    // ov.frame is honoured so sheets whose frame 0 is empty can point at the
+    // right cell; a crop that varies per cell in the world (shell) has no
+    // single `frame`, so the icon is the FIRST frame it declares — never a
+    // bare 0, which on such a sheet may be no art at all.
+    return { sheet: ov.sheet, frame: ov.frame ?? (ov.frames && ov.frames[0]) ?? 0 };
   }
   // Generic seed bag = col SEEDBOX_COL, row 15 of crops.png (== 15*9 + 8 = 143).
   if (item.kind === 'seed') return { sheet: 'crops', frame: 15 * CROPS_SHEET_COLS + SEEDBOX_COL };
@@ -435,9 +480,9 @@ const ITEMS = [
   { id: 'meat',         name: 'Meat',         kind: 'produce' },
   { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'produce' },
   { id: 'crow_feather', name: 'Crow Feather', kind: 'produce' },
-  // Beach pickup — shells spawn as wildplant debris on sand cells
-  // (DEBRIS_CROP[2] = 'shell' in worldgen.js). 12 visual variants in
-  // shell_sheet, hashed off the spawn cell coord.
+  // Beach pickup — shells spawn as wildplant debris on sand cells (the sand
+  // family's only flora, src/biome_profiles.js). Three visual variants in
+  // shell_sheet, picked per cell by wildplantFrame above.
   { id: 'shell',        name: 'Shell',        kind: 'produce', crop: 'shell' },
   // Fishing junk pull — old leather boot. T1, low sell, no eat. Joke drop
   // from the rod's loot table at small weight; mostly a flavour moment.
