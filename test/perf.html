@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <base href="/" />
+  <title>terracart perf</title>
+  <!--
+    Render-loop profiling page. Boots the real game in TEST_MODE with the
+    sandbox world (open with ?sandbox=true) and installs the same window.__boot
+    profiler index.html has, so every per-frame B.tick / B.count in the game
+    records here. Driven headless by tools/perf_loop.js, which reads
+    window.__perfSnap() and takes a CPU profile; can also be opened by hand in
+    a browser (serve the repo root, visit /test/perf.html?sandbox=true) and
+    inspected with window.__perfSnap() in the console.
+    See test/findings/render-loop-audit-2026-09-06.md for the baseline.
+  -->
+  <style>
+    html, body { margin: 0; padding: 0; background: #111; }
+    #frame { position: absolute; inset: 0; overflow: hidden; }
+    #game  { width: 390px; height: 844px; background: #000; position: absolute; top: 0; left: 0; }
+  </style>
+  <script>
+    // Same profiler API index.html installs (window.__boot), so every
+    // B.tick / B.count call site in the game records here.
+    (function () {
+      const t = () => performance.now();
+      const B = {
+        marks: [], spans: [], long: [],
+        mark(name) { B.marks.push({ name, t: t() }); },
+        begin(name) {
+          const t0 = t(); B.openNames.add(name);
+          return (note) => { B.openNames.delete(name); B.spans.push({ name, t: t0, ms: t() - t0, note }); };
+        },
+        live: { n: 0, sum: 0, worst: 0, over50: 0, over100: 0, over250: 0, buckets: new Int32Array(9) },
+        hitches: [], work: {}, counts: {}, windows: [], _winCur: null, device: null,
+        openNames: new Set(),
+        tick(name, ms) {
+          let w = B.work[name];
+          if (!w) w = B.work[name] = { n: 0, sum: 0, worst: 0 };
+          w.n++; w.sum += ms; if (ms > w.worst) w.worst = ms;
+        },
+        count(name, n) {
+          let w = B.counts[name];
+          if (!w) w = B.counts[name] = { n: 0, sum: 0, worst: 0 };
+          w.n++; w.sum += n; if (n > w.worst) w.worst = n;
+        },
+        frame(ms) {
+          const L = B.live;
+          L.n++; L.sum += ms; if (ms > L.worst) L.worst = ms;
+          const E = [16, 33, 50, 83, 133, 250, 500, 1000];
+          let i = 0; while (i < E.length && ms > E[i]) i++;
+          L.buckets[i]++;
+          if (ms > 100 && B.hitches.length < 400) {
+            B.hitches.push({ t: Math.round(t()), ms: Math.round(ms),
+              during: B.openNames.size ? [...B.openNames].join(' + ') : 'nothing (render/update)' });
+          }
+        },
+        reset() {
+          B.work = {}; B.counts = {}; B.hitches = [];
+          B.live = { n: 0, sum: 0, worst: 0, over50: 0, over100: 0, over250: 0, buckets: new Int32Array(9) };
+        },
+      };
+      window.__boot = B;
+      let last = t();
+      (function loop() { const now = t(); B.frame(now - last); last = now; requestAnimationFrame(loop); })();
+    })();
+    window.__TEST_MODE = true;
+  </script>
+  <script>
+    // Fully offline: the sandbox pre-seeds the 3x3 tiles around the player,
+    // and every other tile fetch answers 504 (the shape worldgen tolerates).
+    const realFetch = window.fetch;
+    window.fetch = (input, init) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (/\/\d+\/\d+\/\d+\.pbf(\?|$)/.test(url) || /tiles\.json/.test(url)) {
+        return Promise.resolve(new Response('', { status: 504 }));
+      }
+      return realFetch(input, init);
+    };
+  </script>
+</head>
+<body>
+  <div id="frame">
+    <div id="game">
+      <div id="banner"></div>
+      <div id="money"></div>
+      <div id="hud"></div>
+      <details id="menu"><summary>☰</summary>
+        <div class="items"><button id="reset-save">Reset save</button></div>
+      </details>
+    </div>
+  </div>
+  <script>
+    document.write([
+      '/vendor/phaser.js', '/src/mvt.js', '/src/difficulty.js', '/src/util.js', '/src/particles.js', '/src/sprite_layout.js', '/src/placed_floor.js',
+      '/src/home.js', '/src/coords.js', '/src/fog.js', '/src/biome_profiles.js', '/src/worldgen.js',
+      '/src/textures.js', '/src/save.js', '/src/items.js', '/src/inventory.js', '/src/energy.js', '/src/crops.js', '/src/delivery.js', '/src/savemigrate.js', '/src/gear.js', '/src/shops_math.js', '/src/shops.js', '/src/rarity.js',
+      '/src/loot.js', '/src/quests.js', '/src/interactables.js', '/src/combat.js', '/src/interact.js', '/src/lighting.js', '/src/render.js',
+      '/src/multiplayer.js', '/src/road_overlay.js', '/src/building_overlay.js', '/src/assets.js',
+      '/src/sandbox.js', '/src/testtools.js', '/src/geo.js', '/src/app.js',
+    ].map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
+  </script>
+  <script>
+    window.__perfReady = (async () => {
+      const t0 = Date.now();
+      while (!window.__scene || !window.__scene.cellsPerTile) {
+        if (Date.now() - t0 > 20000) throw new Error('scene never booted');
+        await new Promise(r => setTimeout(r, 50));
+      }
+      const pc0 = window.__scene.playerToWorldCell();
+      const startKey = WorldGen.tileKey(pc0.tx, pc0.ty);
+      while (!WorldGen.tileCache.get(startKey)?.grid) {
+        if (Date.now() - t0 > 30000) throw new Error('start tile never loaded');
+        await new Promise(r => setTimeout(r, 50));
+      }
+      // Let the neighbour ring build so a walk doesn't measure tile builds.
+      await new Promise(r => setTimeout(r, 6000));
+      return true;
+    })();
+    // Snapshot of the profiler's per-frame stats.
+    window.__perfSnap = () => {
+      const B = window.__boot;
+      const s = window.__scene;
+      const objs = { tiles: WorldGen.tileCache.size };
+      let n = 0, w = 0, c = 0;
+      for (const e of WorldGen.tileCache.values()) { n += (e.objects || []).length; w += (e.wildplants || []).length; c += (e.creatures || []).length; }
+      objs.objects = n; objs.wildplants = w; objs.creatures = c;
+      const disp = { total: s.children.list.length };
+      const countKids = (root) => { let k = 0; const walk = (o) => { k++; if (o.list) o.list.forEach(walk); }; root.list.forEach(walk); return k; };
+      disp.deep = countKids(s.children);
+      // Graphics command counts per named layer: what Phaser re-tessellates every frame.
+      // Phaser 3.87 Graphics.Commands: opcode -> [name, arity incl. the opcode].
+      const OPS = { 0: ['ARC', 7], 1: ['BEGIN_PATH', 1], 2: ['CLOSE_PATH', 1], 3: ['FILL_RECT', 5], 4: ['LINE_TO', 3], 5: ['MOVE_TO', 3],
+        6: ['LINE_STYLE', 4], 7: ['FILL_STYLE', 3], 8: ['FILL_PATH', 1], 9: ['STROKE_PATH', 1], 10: ['FILL_TRIANGLE', 7], 11: ['STROKE_TRIANGLE', 7],
+        14: ['SAVE', 1], 15: ['RESTORE', 1], 16: ['TRANSLATE', 3], 17: ['SCALE', 3], 18: ['ROTATE', 2], 19: ['SET_TEXTURE', 3], 20: ['CLEAR_TEXTURE', 1],
+        21: ['GRADIENT_FILL_STYLE', 6], 22: ['GRADIENT_LINE_STYLE', 7] };
+      const gfx = {};
+      const GNAMES = ['cellGfx','borderGfx','gridGfx','reachGfx','rampartFrontGfx','rampartBackGfx','atmosGroundGfx','atmosRimGfx','facingGfx','footprintGfx','projGfx','enemyHealthGfx','swordSwingGfx','walkHomeGfx'];
+      for (const n of GNAMES) {
+        const g = s[n]; if (!g || !g.commandBuffer) continue;
+        const cb = g.commandBuffer; const cnt = {}; let i = 0;
+        while (i < cb.length) { const op = OPS[cb[i]]; if (!op) break; cnt[op[0]] = (cnt[op[0]] || 0) + 1; i += op[1]; }
+        gfx[n] = { len: cb.length, arcs: cnt.ARC || 0, fills: cnt.FILL_PATH || 0, rects: cnt.FILL_RECT || 0, lines: cnt.LINE_TO || 0, ...cnt };
+      }
+      const pools = {}; for (const n of ['noisePool','cobblePool','letterPool','objectPool','plantedPool','creaturePool','shadowPool','creatureShadowPool','padPool','chestLabelPool','shopLabelPool','sparkPool','coinPool','plantedTimerPool','fruitPool','towerPool']) if (s[n]) pools[n] = s[n].length;
+      pools.worldContainerChildren = s.worldContainer ? s.worldContainer.list.length : -1;
+      objs.gfx = gfx; objs.pools = pools;
+      return {
+        live: { n: B.live.n, avg: B.live.sum / B.live.n, worst: B.live.worst, buckets: Array.from(B.live.buckets) },
+        work: B.work, counts: B.counts, hitches: B.hitches.slice(0, 20), objs, disp,
+        renderer: s.game.renderer.type === Phaser.WEBGL ? 'WebGL' : 'Canvas',
+        playerM: { ...s.playerM }, depth: s.depth,
+      };
+    };
+  </script>
+</body>
+</html>

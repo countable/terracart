@@ -346,15 +346,22 @@
                caughtKinds: { cow: 1 } };
     }
 
-    // Header: show class bias, boostP, maxTier, relicCap, and a 1000-sample
-    // distribution (class mix, tier histogram, jackpot rate).
+    // Header: show class bias, the boost chain, maxTier, relicCap, and a
+    // 1000-sample distribution (class mix, tier histogram, jackpot rate).
     function renderRarityHeader() {
       initRarityControls();
       const key = document.getElementById('rar-ctx').value;
-      const ctx = LOOT_CONTEXTS[key];
+      let ctx = LOOT_CONTEXTS[key];
       if (!ctx) return;
       const save = fakeSaveFromControls();
       const opts = pickerOptsFromControls();
+      // Chest rows carry classBias only — chainSteps / chainMax / maxTier /
+      // relicCap come from the chest-tier modifier pickReward merges in
+      // (rarity.js RARITY_TUNING.chestTierMod), so merge the same way here.
+      if (key.startsWith('chest:') && typeof RARITY_TUNING !== 'undefined') {
+        const mods = RARITY_TUNING.chestTierMod || {};
+        ctx = { ...ctx, ...(mods[opts?.tier] || mods[2] || {}) };
+      }
       // 1000-pull sample for the distribution columns.
       const N = 1000;
       const clsTally = {}, tierTally = {};
@@ -380,8 +387,9 @@
         `<tr><th>classBias<br><span class="muted">(declared)</span></th>` +
         `<td><span class="muted">measured →</span><br>${clsMix}<br><br>` +
         `<span class="muted">declared →</span><br>${fmtBias}</td></tr>`,
-        `<tr><th>boostP / maxTier / relicCap</th>` +
-        `<td>boostP ${ctx.boostP} &middot; maxTier T${ctx.maxTier} &middot; relicCap T${ctx.relicCap}</td></tr>`,
+        `<tr><th>chain / maxTier / relicCap</th>` +
+        `<td>chain ${ctx.chainSteps} step${ctx.chainSteps === 1 ? '' : 's'} (max T${ctx.chainMax})` +
+        ` &middot; maxTier T${ctx.maxTier} &middot; relicCap T${ctx.relicCap}</td></tr>`,
         `<tr><th>tier histogram</th><td>${tierHist}</td></tr>`,
         `<tr><th>jackpot rate</th>` +
         `<td>any jackpot (fanfare): ${(jackpot1 / N * 100).toFixed(1)}%<br>` +

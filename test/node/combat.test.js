@@ -19,6 +19,14 @@
 //  3. A SHOT THAT PASSES A FOE HITS IT, AND A SHOT THAT DOESN'T, DOESN'T —
 //     including at range, where the compass heading is coarse.
 //
+//  4. THE STAFF SEEKS, THE BOW DOESN'T. A staff bolt is loosed at the NEAREST
+//     enemy in range whatever way the body faces (SHOT.staff.aim), while an
+//     arrow still flies down the compass. The staff used to fire along the
+//     compass too, and a spell that missed because a phone compass sat a few
+//     degrees off read as broken — so the aim mode is pinned, and so is the
+//     hold-fire when the nearest foe is beyond the bolt's range (each bolt
+//     costs energy; one that could never arrive would just burn it).
+//
 // The monster stat table lives in app.js, which this headless runner doesn't
 // load — but run.js lifts the table out as text and registers it through the
 // same seam app.js uses, so the REAL one is already in hand here.
@@ -386,6 +394,105 @@ test('combat: the nearest foe on the line takes the shot', () => {
       (e) => struck.push(e.id));
   }
   assert.eq(struck.join(','), 'near', 'the front rank takes it, and it stops there');
+});
+
+// ── Aiming: the staff seeks, the bow doesn't ────────────────────────────────
+
+test('combat: the staff aims at the nearest foe, the bow along the compass', () => {
+  assert.eq(Combat.SHOT.staff.aim, 'nearest', 'the staff seeks');
+  assert.eq(Combat.SHOT.bow.aim, 'compass', 'the bow is aimed by turning');
+  const near = { kind: 'goblin', id: 'near', x: 0,  y: -14 };   // two cells north
+  const far  = { kind: 'goblin', id: 'far',  x: 28, y: 0 };     // four cells east
+  const facing = { x: 1, y: 0 };                                // body faces east
+  const bow = Combat.shotHeading('bow', 0, 0, facing, [far, near], COMBAT_CELL_M);
+  assert.eq(bow, facing, 'the bow fires where the compass points, foes or not');
+  const staff = Combat.shotHeading('staff', 0, 0, facing, [far, near], COMBAT_CELL_M);
+  assert.truthy(staff && staff.x === 0 && staff.y === -14,
+    'the staff turns its back on the compass and lines up on the nearest foe');
+});
+
+test('combat: a staff bolt lands on the nearest foe, not the one you face', () => {
+  const near = { kind: 'goblin', id: 'near', x: 0,  y: -14 };
+  const far  = { kind: 'goblin', id: 'far',  x: 28, y: 0 };
+  const heading = Combat.shotHeading('staff', 0, 0, { x: 1, y: 0 }, [far, near], COMBAT_CELL_M);
+  let live = [Combat.spawnShot('staff', 0, 0, heading, COMBAT_CELL_M, 3)];
+  const struck = [];
+  while (live.length) {
+    live = Combat.stepShots(live, 1 / 60, [near, far], Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M,
+      (e) => struck.push(e.id));
+  }
+  assert.eq(struck.join(','), 'near', 'the bolt went north to the near foe and never east');
+});
+
+test('combat: the staff holds fire while the nearest foe is beyond its range', () => {
+  const beyond = { kind: 'goblin', id: 'b', x: (Combat.SHOT.staff.rangeCells + 1) * COMBAT_CELL_M, y: 0 };
+  assert.eq(Combat.shotHeading('staff', 0, 0, { x: 1, y: 0 }, [beyond], COMBAT_CELL_M), null,
+    'no heading → no bolt, no energy spent');
+  const inside = { kind: 'goblin', id: 'i', x: (Combat.SHOT.staff.rangeCells - 1) * COMBAT_CELL_M, y: 0 };
+  assert.truthy(Combat.shotHeading('staff', 0, 0, { x: 1, y: 0 }, [beyond, inside], COMBAT_CELL_M),
+    'one steps inside → it fires');
+  assert.eq(Combat.shotHeading('staff', 0, 0, { x: 1, y: 0 }, [], COMBAT_CELL_M), null,
+    'nothing on screen → nothing to aim at');
+  assert.eq(Combat.aimAtNearest(5, 5, [{ x: 5, y: 5 }]), null,
+    'a foe standing on your feet gives no direction, and no shot stuck on them');
+});
+
+test('combat: the staff still needs no compass at all', () => {
+  // A player whose phone has no heading yet (facing zero-length) can still
+  // cast: the staff's heading comes from the foe, not the sensor.
+  const foe = { kind: 'goblin', id: 'f', x: 14, y: 14 };
+  const h = Combat.shotHeading('staff', 0, 0, { x: 0, y: 0 }, [foe], COMBAT_CELL_M);
+  assert.truthy(h && Combat.spawnShot('staff', 0, 0, h, COMBAT_CELL_M, 1), 'fires with a dead compass');
+  assert.eq(Combat.spawnShot('bow', 0, 0, Combat.shotHeading('bow', 0, 0, { x: 0, y: 0 }, [foe], COMBAT_CELL_M), COMBAT_CELL_M, 1),
+    null, 'the bow, with no heading, still cannot');
+});
+
+// ── Bolt size by tier ───────────────────────────────────────────────────────
+
+test('combat: a staff bolt grows with the tier, Wood base to double at Frost', () => {
+  assert.eq(Combat.boltScale('staff', 1), 1, 'Wood is the base size');
+  assert.eq(Combat.boltScale('staff', Combat.MAX_TIER), Combat.BOLT_MAX_TIER_MUL, 'Frost is the cap');
+  let prev = 0;
+  for (let t = 1; t <= Combat.MAX_TIER; t++) {
+    const sc = Combat.boltScale('staff', t);
+    assert.truthy(sc > prev, `tier ${t} is bigger than tier ${t - 1}`);
+    prev = sc;
+  }
+  assert.eq(Combat.boltScale('staff', undefined), 1, 'no tier → Wood');
+  assert.eq(Combat.boltScale('staff', 99), Combat.BOLT_MAX_TIER_MUL, 'over the top clamps to Frost');
+  assert.eq(Combat.boltScale('bow', 7), 1, 'an arrow is an arrow at every tier');
+});
+
+test('combat: the radius a bolt HITS with and the radius it DRAWS share one scale', () => {
+  const wood  = Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 1);
+  const frost = Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 7);
+  assert.inRange(wood.radiusM - Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M, -1e-9, 1e-9,
+    'a Wood bolt sweeps the old flat hit radius');
+  assert.inRange(wood.dotPx - Combat.SHOT.staff.dotPx, -1e-9, 1e-9, 'and draws at the base dot');
+  const mul = Combat.BOLT_MAX_TIER_MUL;
+  assert.inRange(frost.radiusM / wood.radiusM - mul, -1e-9, 1e-9, 'Frost sweeps ×mul');
+  assert.inRange(frost.dotPx / wood.dotPx - mul, -1e-9, 1e-9, 'and draws ×mul — the same number');
+  const arrow = Combat.spawnShot('bow', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 7);
+  assert.inRange(arrow.radiusM - Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M, -1e-9, 1e-9,
+    'a Frost arrow still sweeps the flat compass radius');
+  assert.eq(arrow.dotPx, 0, 'an arrow is a streak, not a dot');
+});
+
+test('combat: a Frost bolt sweeps up a foe a Wood bolt flies past', () => {
+  // A foe standing 1.5 cells off the line: outside a Wood bolt's 0.9-cell
+  // sweep, inside a Frost bolt's 1.8.
+  const off = { kind: 'goblin', id: 'off', x: 28, y: 1.5 * COMBAT_CELL_M };
+  const fly = (tier) => {
+    let live = [Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, tier)];
+    const struck = [];
+    while (live.length) {
+      live = Combat.stepShots(live, 1 / 60, [off], Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M,
+        (e) => struck.push(e.id));
+    }
+    return struck.join(',');
+  };
+  assert.eq(fly(1), '', 'Wood: a miss');
+  assert.eq(fly(7), 'off', 'Frost: the wider bolt catches it — its own radius wins over the flat one handed in');
 });
 
 // ── Health ring ─────────────────────────────────────────────────────────────
