@@ -38,6 +38,50 @@ function randInt(min, max, rng) {
   return min + Math.floor((rng ?? Math.random)() * (max - min + 1));
 }
 
+// === Countdown notation =====================================================
+// ONE way to write "how long is left" anywhere in the game. Every timed thing
+// the player can see — a crop's stage badge, a fruit tree's regrow, a shop's
+// hourly bucket, an animal's produce cooldown, the dragon buff, the walk-home
+// stick — renders through shortDuration(), so a wait never reads as a bare
+// number in one place and "43m" in another. This is the same discipline as
+// roadOverlayWidthM: one table both sides read.
+//
+// The format is deliberately tiny: the LARGEST unit that applies, and nothing
+// below it — "20d", "3h", "30m", "12s". Never "1h 5m", never "0m". The unit
+// letter is always present (that is the point of the helper), so a two-glyph
+// number plus one letter is the widest it ever gets at a sane duration, which
+// is what lets it sit in a 9px corner badge and on the move-pad's cap alike.
+//
+// Rounding is UP at every step, and it CASCADES: 59.5 minutes is "1h", not
+// "60m", because each unit is re-derived from the one below it after that
+// unit's own ceil. A wait that has not actually elapsed never reads "0" — the
+// smallest non-zero duration is "1s" — so the label can't promise a thing is
+// ready while the gate still refuses it. Only a genuinely finished (or
+// negative) duration gives "0s"; callers that want a "✓" test for that
+// themselves rather than string-matching this.
+function shortDuration(ms) {
+  if (!(ms > 0)) return '0s';
+  const s = Math.ceil(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.ceil(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.ceil(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.ceil(h / 24)}d`;
+}
+
+// Milliseconds from `now` to the next UTC midnight — the reset the game's
+// day-gated things actually run on. Delivery wishlists (Delivery.dayKey), the
+// castle's daily favour and the coin-burst POIs all key off a UTC "YYYYMMDD"
+// stamp, so "come back tomorrow" can mean anything from a minute to 24 hours.
+// Feeding this to shortDuration() turns that into the honest number ("in 23h",
+// "in 40m"). Use it wherever a UTC day key is the gate; a LOCAL-midnight gate
+// would need its own helper, and there isn't one because there isn't one.
+function msToNextUtcDay(now = Date.now()) {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  return DAY_MS - (now % DAY_MS);
+}
+
 // === Shared hashing / seeded RNG ============================================
 // One FNV-1a implementation for every id-derived hash in the game (the shiny
 // roll below, the shop bucket offset, the delivery day-seed + theme pick, and

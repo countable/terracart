@@ -5180,9 +5180,8 @@ class MapScene extends Phaser.Scene {
       if (!dragonActive) this.dragonTimerText.setVisible(false);
     }
     if (dragonActive) {
-      const secs = Math.max(0, Math.ceil((this._dragonUntil - Date.now()) / 1000));
       this.dragonTimerText
-        .setText(`${secs}s`)
+        .setText(shortDuration(this._dragonUntil - Date.now()))
         // Over the head: measured from the SPRITE CENTRE (the player's screen
         // point is the feet, and the body rises playerFeetNudgeY above it).
         .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - 35)
@@ -7221,7 +7220,8 @@ class MapScene extends Phaser.Scene {
     const claimedKey = poi.id + dayKey;
     this.save.coinBurstClaimed = this.save.coinBurstClaimed || {};
     if (this.save.coinBurstClaimed[claimedKey] === 1) {
-      this.flash('Already used today.', sx, sy);
+      // Same UTC day key as the dayKey above, so the reset is msToNextUtcDay.
+      this.flash(`Already used — back in ${shortDuration(msToNextUtcDay())}.`, sx, sy);
       return;
     }
     // Mark BEFORE spawning so a double-tap can't double-spawn.
@@ -7620,7 +7620,10 @@ class MapScene extends Phaser.Scene {
     const el = this._movePadCountdownEl;
     if (!el || !el.isConnected) return;
     const s = this._walkHomeCountdownS();
-    const text = s == null ? '' : String(s);
+    // _walkHomeCountdownS stays a NUMBER (the tests drive it directly); the
+    // unit is put on here, at the one place that writes the DOM, so the cap
+    // reads "5s" like every other countdown in the game rather than a bare 5.
+    const text = s == null ? '' : shortDuration(s * 1000);
     if (text === this._movePadCountdownText) return;
     this._movePadCountdownText = text;
     el.textContent = text;
@@ -9436,10 +9439,13 @@ class MapScene extends Phaser.Scene {
     // the tap handler will enforce.
     const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
     const isStarterSmith = this.isStarterBlacksmith(house);
-    const { dealCap, ready: shopReady, waitMin } = this.shopReadiness(house);
+    const { dealCap, ready: shopReady, waitMs } = this.shopReadiness(house);
     if (house && !shopReady) {
       const kindLabel = isCastle ? 'castle' : (house.tier === 11) ? 'fort' : 'house';
-      this.flash(`${kindLabel} busy — try again in ${waitMin}m`, sx, sy);
+      // Same notation, same number as the plaque over the roof (render.js
+      // formats info.waitMs through shortDuration too), so the tap and the
+      // label can't disagree about how long the wait is.
+      this.flash(`${kindLabel} busy — try again in ${shortDuration(waitMs)}`, sx, sy);
       return;
     }
     // Record a deal against this house — called from inside the accept path.
@@ -9575,7 +9581,11 @@ class MapScene extends Phaser.Scene {
       }
       const offer = this.peekOrBuildRelicOffer(house);
       if (offer) { this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house); return; }
-      this.flash('"Anvil\'s resting, friend. Try again later."', sx, sy);
+      // "Later" is a real number: the offer is rolled per hourly bucket, so
+      // the anvil wakes when this house's bucket rolls over. Without it this
+      // was the one shop message that named no wait at all, and a player could
+      // only find out by tapping again.
+      this.flash(`"Anvil's resting, friend. Try again ${this.shopWaitLabel(house)}."`, sx, sy);
       return;
     }
     // Traders are barter-only with their own seeded offer (qty scales to a
@@ -10322,7 +10332,10 @@ class MapScene extends Phaser.Scene {
     // Already fed today — the household is happy and won't take another
     // bundle until tomorrow. They'll want a fresh one on the next day.
     if (this.isHouseSatisfied(house)) {
-      this.flash('happy — come back tomorrow', sx, sy);
+      // "Tomorrow" is the UTC day rollover (Delivery.dayKey), which can be
+      // twenty hours off or twenty minutes — so say which. Same notation as
+      // every other wait in the game.
+      this.flash(`happy — back in ${shortDuration(msToNextUtcDay())}`, sx, sy);
       return;
     }
     const wanted = this.wantedProduce(house);
@@ -10429,6 +10442,18 @@ class MapScene extends Phaser.Scene {
   }
   shopReadiness(house) {
     return ShopsMath.readiness(this.save, house, this.shopDealCap(house));
+  }
+  // "How long until this house has something new" in the shared largest-unit
+  // notation ("47m", "1h"). Offers and deal caps both roll on the house's own
+  // hourly bucket, so one label serves the busy plaque, the busy tap and the
+  // blacksmith's resting anvil — which is not rate-limited but is waiting on
+  // exactly the same rollover.
+  // Returns the whole clause ("in 47m", or "later" when there is no bucket to
+  // count to — a synthetic building with no id), so the sentence still reads
+  // either way rather than promising "in 0s".
+  shopWaitLabel(house) {
+    const ms = ShopsMath.msToNextBucket(house);
+    return ms > 0 ? `in ${shortDuration(ms)}` : 'later';
   }
   // Flower charm: 0.5 while this building holds an unexpired charm (bought
   // with a Flowers gift — see the flower-gift branch in shopInteract), else 1.
@@ -11360,14 +11385,17 @@ class MapScene extends Phaser.Scene {
   // relics: it's home turf, so instead of a trade it's a favour, once a day.
   presentCastleServiceOffer(sx, sy, house) {
     if (this._castleServiceUsedToday(house)) {
-      this.flash('Thank you for visiting us, my lord. Come back tomorrow.', sx, sy);
+      // The favour is one per UTC day (_castleServiceDayKey === Delivery.dayKey),
+      // so the castellan names the wait rather than saying "tomorrow".
+      this.flash(`Thank you for visiting us, my lord. Come back in ${shortDuration(msToNextUtcDay())}.`,
+                 sx, sy);
       return;
     }
     this.showOfferModal({
       kind: 'shop',
       title: 'Thank you for visiting us, my lord.',
       get: 'One favour a day — your call.',
-      blurb: "Whichever you pick, it won't be on offer again until tomorrow.",
+      blurb: `Whichever you pick, it won't be on offer again for ${shortDuration(msToNextUtcDay())}.`,
       canAfford: true,
       acceptLabel: 'Rest',
       secondary: {
@@ -11496,7 +11524,7 @@ class MapScene extends Phaser.Scene {
     // blacksmithRecipe — keeps every other smithy on the original ladder.
     const recipe = opts.recipe || this.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
     if (!recipe) {
-      this.flash('"Anvil\'s resting, friend. Try again later."', sx, sy);
+      this.flash(`"Anvil's resting, friend. Try again ${this.shopWaitLabel(house)}."`, sx, sy);
       return;
     }
     const name = gearName(offer.kind, offer.slot, offer.tier);

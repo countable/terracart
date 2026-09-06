@@ -78,19 +78,34 @@
     return n;
   }
 
+  // Milliseconds until this house's NEXT hourly bucket opens. Every house has
+  // its own id-derived offset into the hour, so this is per-house, not "top of
+  // the hour". Exposed because two callers besides readiness() need the raw
+  // wait to write it in the shared largest-unit notation (util.js
+  // shortDuration): the busy plaque over the roof, and the blacksmith whose
+  // anvil is "resting" — that one is not rate-limited at all, it simply has no
+  // offer this bucket, so its wait is the bucket roll and nothing else.
+  function msToNextBucket(house, now = Date.now()) {
+    if (!house || !house.id) return 0;
+    const offset = bucketOffset(house.id);
+    return (bucket(house.id, now) + 1) * HOUR - offset - now;
+  }
+
   // Snapshot readiness: ready when a new deal would be accepted now; else
-  // waitMin = wall-clock minutes until the next bucket. `cap` is supplied by the
-  // caller (dealCap with the scene's isStarterBlacksmith flag).
+  // waitMs / waitMin = wall-clock time until the next bucket. `cap` is supplied
+  // by the caller (dealCap with the scene's isStarterBlacksmith flag).
+  // waitMs is what the labels format (it can say "1h" on a full bucket, where
+  // rounded minutes could only ever say "60m"); waitMin stays for callers that
+  // want the number rather than the notation.
   function readiness(save, house, cap, now = Date.now()) {
     if (cap === Infinity || !house || !house.id) {
-      return { dealCap: cap, ready: true, waitMin: 0 };
+      return { dealCap: cap, ready: true, waitMs: 0, waitMin: 0 };
     }
     const cur = bucketState(save, house, now);
-    if (cur.deals < cap) return { dealCap: cap, ready: true, waitMin: 0 };
-    const offset = bucketOffset(house.id);
-    const nextBucketStart = (cur.bucket + 1) * HOUR - offset;
-    const waitMin = Math.max(1, Math.ceil((nextBucketStart - now) / 60000));
-    return { dealCap: cap, ready: false, waitMin };
+    if (cur.deals < cap) return { dealCap: cap, ready: true, waitMs: 0, waitMin: 0 };
+    const waitMs = Math.max(0, msToNextBucket(house, now));
+    const waitMin = Math.max(1, Math.ceil(waitMs / 60000));
+    return { dealCap: cap, ready: false, waitMs, waitMin };
   }
 
   // Deterministic 0..1 RNG keyed by (house.id offset, bucket, rerolls, offerSalt,
@@ -162,6 +177,6 @@
     return Math.max(1, Math.ceil(baseValue * standBuyMul(save && save.relics)));
   }
 
-  root.ShopsMath = { HOUR, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, rng, buyPrice,
+  root.ShopsMath = { HOUR, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

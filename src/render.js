@@ -3850,7 +3850,7 @@ Render.drawObjects = function drawObjects(scene) {
       scene.labelContainer.add(tx);
       scene.shopReadyPool.push(tx);
     }
-    const label = info.ready ? 'open' : `${info.waitMin}m`;
+    const label = info.ready ? 'open' : shortDuration(info.waitMs);
     // Sepia ink on cream parchment for "open"; dim rust on cream for
     // "busy". Muted to read as a tag, not a callout.
     const ink = info.ready ? '#27521e' : '#5f2a2a';
@@ -4079,7 +4079,11 @@ Render.drawObjects = function drawObjects(scene) {
     }
     const { sx, sy } = project(dx, dy);
     const remaining = STAGE_HOLD_MS - (now - p.watered_t);
-    const label = remaining <= 0 ? '✓' : String(Math.max(1, Math.ceil(remaining / 60000)));
+    // Largest-unit notation (util.js shortDuration) — the badge used to print
+    // a BARE minutes number, the one timer in the game with no unit on it, so
+    // "7" over a crop and "7m" over a house meant the same thing and didn't
+    // look like it. ✓ once the hold has elapsed (tap to advance).
+    const label = remaining <= 0 ? '✓' : shortDuration(remaining);
     // Bottom-right of the tile, inset 1px so the badge sits just inside the
     // cell border (origin (1,1) was set at pool creation).
     t.setText(label)

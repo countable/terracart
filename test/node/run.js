@@ -840,6 +840,22 @@ ctx.INTERACT_SRC = readSrc('interact.js');
 // raw tile fetch in it goes through the resolver — a text pin, like the above.
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');
 
+// ── Countdown notation: the source of every file that owns a timed readout ──
+// duration_notation.test.js sweeps these for hand-rolled "${n}m" / "${n}h"
+// ladders and for the unquantified "tomorrow" / "later" copy the shared
+// shortDuration() notation replaced. The labels live inside Phaser scene
+// methods and per-frame draw passes that can't be called headlessly, so the
+// pin is on the source text — the same trick feet_anchor.test.js uses. A file
+// that grows a new countdown belongs in this map.
+ctx.DURATION_SOURCES = {
+  'app.js': readSrc('app.js'),
+  'interact.js': readSrc('interact.js'),
+  'interactables.js': readSrc('interactables.js'),
+  'render.js': readSrc('render.js'),
+  'shops_math.js': readSrc('shops_math.js'),
+  'util.js': readSrc('util.js'),
+};
+
 // ── In-context test framework: test() / assert / makeScene ────────────────
 vm.runInContext(`
   globalThis.__tests = [];
