@@ -110,6 +110,32 @@ test('lighting: what lights is what is yours', () => {
   assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', poiClass: 'shop' }), 'poi', 'a POI is a place, and glows');
   assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', crate: true }), null,
     'a loose supply crate is a pickup, not a place — no pad, no light');
+  assert.eq(Lighting.sourceKind(s, { kind: 'torch', id: 'torch_bus_1_d1' }), 'torch', 'a cave torch burns');
+  assert.eq(Lighting.sourceKind(s, { crop: 'mushroom', id: 'cwp_1_0_0_3_3', _cave: true }), 'mushroom',
+    'a cave mushroom glows — offered as the wildplant itself, no kind');
+  assert.eq(Lighting.sourceKind(s, { crop: 'mushroom', id: 'wp_0_0_3_3' }), 'mushroom',
+    'and so does a surface one: the crop is the light, not the depth');
+  assert.eq(Lighting.sourceKind(s, { crop: 'longgrass', id: 'wp_0_0_4_4' }), null, 'grass is not a lamp');
+  assert.eq(Lighting.sourceKind(s, { kind: 'mineralrock', crop: 'mushroom', id: 'r' }), null,
+    'a kind that is not a light stays dark whatever else is on it');
+});
+
+test('lighting: a torch and a mushroom glow to different degrees', () => {
+  // The user's brief: torches AND mushrooms, each lit, "to different degrees".
+  // A torch is a flame — warm, a campfire's little sibling, breathing; a
+  // mushroom is a faint cool spot that marks a forage in the dark. The two
+  // must stay far apart on BOTH axes or a lit cave reads as one lamp twice.
+  const torch = Lighting.KINDS.torch, mush = Lighting.KINDS.mushroom;
+  assert.gt(Lighting.radiusCells('torch'), Lighting.radiusCells('mushroom') * 1.5, 'a torch reaches well past a mushroom');
+  assert.gt(torch.peak, mush.peak * 1.5, 'and burns far brighter at the centre');
+  assert.lt(Lighting.radiusCells('torch'), Lighting.radiusCells('fire'), 'but a torch is smaller than a campfire');
+  assert.lt(Lighting.radiusCells('mushroom'), Lighting.radiusCells('poi'), 'a mushroom is smaller than a POI\'s marker light');
+  assert.gt(torch.flicker, 0, 'a flame flickers');
+  assert.eq(mush.flicker, 0, 'a mushroom does not — it breathes slowly, like a POI');
+  assert.gt(mush.pulse, 0, 'a mushroom breathes');
+  // Warm vs cool: the torch leads on red, the mushroom on blue.
+  assert.gt(ch(torch.colour, 16), ch(torch.colour, 0), 'torch: red over blue');
+  assert.gt(ch(mush.colour, 0), ch(mush.colour, 16), 'mushroom: blue over red');
 });
 
 test('lighting: a POI breathes slowly, on its own phase', () => {
@@ -260,9 +286,15 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   const start = r.indexOf('Render.drawObjects = function drawObjects(scene)');
   const body = r.slice(start, r.indexOf('\n};', start));
   assert.truthy(/LIGHTS\.beginFrame\(scene\)/.test(body), 'the frame list is reset before the scan');
-  const offer = body.indexOf("if (LIGHTS && (o.kind === 'house' || o.kind === 'tower')) LIGHTS.consider(scene, o, dx, dy, halfM);");
+  const offer = body.indexOf("if (LIGHTS && (o.kind === 'house' || o.kind === 'tower' || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);");
   const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;');
-  assert.truthy(offer > 0 && cull > offer, 'buildings are offered BEFORE the sprite cull drops them');
+  assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
+  // The mushroom is a wildplant, scanned in its own loop: offered as itself,
+  // before that loop's cull, so its little glow can still show from a cell
+  // off-screen.
+  const wpOffer = body.indexOf("if (LIGHTS && wp.crop === 'mushroom') LIGHTS.consider(scene, wp, dx, dy, halfM);");
+  const wpCull = body.indexOf('if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;', wpOffer);
+  assert.truthy(wpOffer > 0 && wpCull > wpOffer, 'mushrooms are offered BEFORE the wildplant cull');
   assert.truthy(/LIGHTS\.draw\(scene, pWorldX, pWorldY, halfM\);\s*$/.test(body),
     'the map is drawn last, from the camera anchor drawObjects measures with');
 });
