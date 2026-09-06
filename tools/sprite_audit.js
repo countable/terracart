@@ -204,6 +204,21 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   treeCtx, { filename: 'util.js' });
 const treeScale = treeCtx.treeScale;
 
+// ── And the bush's scale from items.js, for the same reason ────────────────
+// A bush is one species at one size, so the bush-tier TREE and the `shrub`
+// wildplant must draw at the same size — CROP_SPRITE.shrub.scale is the one
+// number both render.js branches read. Copying it here as a literal made a
+// third place to change it, which is how a table drifts.
+// A top-level `const` in a script lands in the script scope, not on the global
+// object (unlike a `function`, which is why treeScale above needs no bridge),
+// so hand it over explicitly.
+const itemsCtx = { Math, console };
+vm.createContext(itemsCtx);
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
+  itemsCtx, { filename: 'items.js' });
+vm.runInContext('globalThis.CROP_SPRITE = CROP_SPRITE;', itemsCtx);
+const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
+
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const SHEETS = {
@@ -229,32 +244,41 @@ const SHEETS = {
 };
 
 // ── Scenarios: one row per representative (sprite, variant). key/frameIdx pick
-//    the ART_BOUNDS entry; origin/scale mirror the RENDER_SPEC branch the
-//    renderer seats with (scaleYMul covers fruit trees' 1.10 Y stretch).
+//    the ART_BOUNDS entry; scale mirrors the RENDER_SPEC branch the renderer
+//    seats with (scaleYMul covers fruit trees' 1.10 Y stretch).
+//
+//    There is deliberately no `origin` column. The seat maths measures the art
+//    relative to the anchor and then subtracts exactly that, so the ORIGIN
+//    CANCELS: a seated frame lands in the same place at [0.5,0.5] as at
+//    [0.406,0.62]. A column that cannot change an outcome only invites drift,
+//    and it had: this table said the pole anchored at 0.25 while RENDER_SPEC
+//    said 0.5, and nothing noticed for the good reason that nothing could.
+//    SEAT_ANCHOR below stands in for all of them.
 const t = (species, size) => treeScale({ species, size });
+const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
-  { name: 'maple sprout',    key: 'trees',         frameIdx: 1, origin: [0.5, 0.95], scale: t('maple', 'small') },
-  { name: 'maple young',     key: 'trees',         frameIdx: 2, origin: [0.5, 0.95], scale: t('maple', 'medium') },
-  { name: 'maple small',     key: 'trees',         frameIdx: 3, origin: [0.5, 0.95], scale: t('maple', 'small') },
-  { name: 'maple medium',    key: 'trees',         frameIdx: 3, origin: [0.5, 0.95], scale: t('maple', 'medium') },
-  { name: 'maple large',     key: 'trees',         frameIdx: 3, origin: [0.5, 0.95], scale: t('maple', 'large') },
-  { name: 'pine small',      key: 'pine_tree',     frameIdx: 3, origin: [0.5, 0.92], scale: t('pine', 'small') },
-  { name: 'pine medium',     key: 'pine_tree',     frameIdx: 3, origin: [0.5, 0.92], scale: t('pine', 'medium') },
-  { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, origin: [0.5, 0.92], scale: t('pine', 'large') },
-  { name: 'birch medium',    key: 'birch_tree',    frameIdx: 3, origin: [0.5, 0.92], scale: t('birch', 'medium') },
-  { name: 'mahogany medium', key: 'mahogany_tree', frameIdx: 3, origin: [0.5, 0.92], scale: t('mahogany', 'medium') },
-  { name: 'bush',            key: 'bushes',        frameIdx: 0, origin: [0.5, 0.9],  scale: 0.667 /* = CROP_SPRITE.shrub.scale (render.js); a bush is one size */ },
-  { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, origin: [0.5, 0.95], scale: 0.85 * 0.625, scaleYMul: 1.10 },
-  { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, origin: [0.5, 0.95], scale: 0.85, scaleYMul: 1.10 },
-  { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 3, origin: [0.5, 0.95], scale: 0.85, scaleYMul: 1.10 },
-  { name: 'chest',           key: 'chest',         frameIdx: 0, origin: [0.5, 0.9],  scale: 0.9 },
-  { name: 'crate (box)',     key: 'box',           frameIdx: 0, origin: [0.5, 0.9],  scale: 1.53 },
-  { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, origin: [0.5, 0.5], scale: 1.6 },
-  { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   origin: [0.5, 0.5], scale: 1.6 },
-  { name: 'well',            key: 'well',          frameIdx: 0, origin: [0.406, 0.62], scale: 0.9 },
-  { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, origin: [0.25, 0.95], scale: 2.0 },
-  { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, origin: [0.5, 0.5],  scale: 0.455 },
-  { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, origin: [0.5, 0.82], scale: 1.1 },
+  { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
+  { name: 'maple young',     key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },
+  { name: 'maple small',     key: 'trees',         frameIdx: 3, scale: t('maple', 'small') },
+  { name: 'maple medium',    key: 'trees',         frameIdx: 3, scale: t('maple', 'medium') },
+  { name: 'maple large',     key: 'trees',         frameIdx: 3, scale: t('maple', 'large') },
+  { name: 'pine small',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'small') },
+  { name: 'pine medium',     key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'medium') },
+  { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },
+  { name: 'birch medium',    key: 'birch_tree',    frameIdx: 3, scale: t('birch', 'medium') },
+  { name: 'mahogany medium', key: 'mahogany_tree', frameIdx: 3, scale: t('mahogany', 'medium') },
+  { name: 'bush',            key: 'bushes',        frameIdx: 0, scale: SHRUB_SCALE },
+  { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
+  { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
+  { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
+  { name: 'chest',           key: 'chest',         frameIdx: 0, scale: 0.9 },
+  { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 1.53 },
+  { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.6 },
+  { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   scale: 1.6 },
+  { name: 'well',            key: 'well',          frameIdx: 0, scale: 0.9 },
+  { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, scale: 2.0 },
+  { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, scale: 0.455 },
+  { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, scale: 1.1 },
 ];
 
 // ── Evaluate one scenario against the rule ─────────────────────────────────
@@ -285,9 +309,10 @@ function evaluate(s) {
   // Seat with the SAME maths the renderer uses, then measure the real art box.
   const box = table || { ...fresh, fw: sheet.fw, fh: sheet.fh };
   const scaleX = s.scale, scaleY = s.scale * (s.scaleYMul || 1);
-  const { dxPx, dyPx, fits } = seatInCell(box, s.origin[0], s.origin[1], scaleX, scaleY);
-  const tlx = dxPx - s.origin[0] * sheet.fw * scaleX;
-  const tly = dyPx - s.origin[1] * sheet.fh * scaleY;
+  const [ox, oy] = SEAT_ANCHOR;
+  const { dxPx, dyPx, fits } = seatInCell(box, ox, oy, scaleX, scaleY);
+  const tlx = dxPx - ox * sheet.fw * scaleX;
+  const tly = dyPx - oy * sheet.fh * scaleY;
   const left = tlx + fresh.minX * scaleX, right = tlx + fresh.maxX * scaleX;
   const top = tly + fresh.minY * scaleY, bottom = tly + fresh.maxY * scaleY;
   const artH = bottom - top, centerX = (left + right) / 2;

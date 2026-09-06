@@ -289,10 +289,14 @@
       pointer-events: none;
       z-index: 99;
     }
-    /* Fixed 352×844 native size — 352 = VIEW_CELLS × CELL_PX so the 11×11
+    /* Fixed 352×844 LOGICAL size — 352 = VIEW_CELLS × CELL_PX so the 11×11
        map view fills the canvas with no side padding. We scale the whole game
        (canvas + overlays) with a CSS transform from JS so it fits any viewport
-       while keeping a single coordinate system internally. */
+       while keeping a single coordinate system internally.
+       The canvas INSIDE this box is a different question: its backing store is
+       sized to the real device pixels this box covers, so the picture is 1:1
+       with the screen rather than a 352-wide buffer blown up. See the
+       canvas-resolution note beside W/H in src/app.js. */
     #game {
       width: 352px; height: 844px;
       background: #000;
@@ -1299,20 +1303,34 @@
       return { s, top, stickBottom };
     }
 
-    // The visible slice of the 844-tall box, in GAME px — modals size and
-    // centre against THIS, not against the box (see makeModalShell). The box
-    // is taller than most viewports, so a box-centred dialog hangs off the
-    // bottom and a box-relative max-height never actually caps it.
+    // Publish the layout numbers that nothing downstream can derive for itself.
+    //
+    // --view-top / --view-h: the visible slice of the 844-tall box, in GAME px
+    // — modals size and centre against THIS, not against the box (see
+    // makeModalShell). The box is taller than most viewports, so a box-centred
+    // dialog hangs off the bottom and a box-relative max-height never actually
+    // caps it.
     //
     // `top` may now be POSITIVE (the box starts below the viewport's top edge)
     // because the map is placed against the chrome budget rather than pinned
     // to 0. When it is, the visible region starts at the box's own top — a
     // negative --view-top would centre dialogs above the box and clip them.
-    function publishViewBox(root, top, s, vh) {
+    //
+    // __gameCssScale: the CSS transform this layout just put on #game. app.js
+    // sizes the canvas backing store to scale x devicePixelRatio so the canvas
+    // is 1:1 with the screen rather than a 352-wide buffer blown up — see the
+    // canvas-resolution note beside W/H in src/app.js. Published rather than
+    // read back off getComputedStyle because a matrix() string is a lossy way
+    // to ask a question we already know the answer to, and because the game
+    // needs to be TOLD when it changes rather than poll for it.
+    function publishLayout(root, top, s, vh) {
       const viewTop = Math.max(0, -top / s);
       const viewH   = Math.min(BOX_H - viewTop, (vh - Math.max(0, top)) / s);
       root.style.setProperty('--view-top', viewTop + 'px');
       root.style.setProperty('--view-h',   Math.max(0, viewH) + 'px');
+      window.__gameCssScale = s;
+      // app.js installs this once the game exists; fitGame runs before it does.
+      window.__onGameScaleChange?.(s);
     }
 
     // Is there enough HEIGHT to lay the game out at all?
@@ -1413,7 +1431,7 @@
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
         g.style.top  = top + 'px';
-        publishViewBox(root, top, s, vh);
+        publishLayout(root, top, s, vh);
         root.style.setProperty('--stick-bottom', stickBottom + 'px');
         document.body.classList.toggle('phone-preview', left > 0);
         root.style.setProperty('--phone-left',  left  + 'px');
@@ -1438,7 +1456,7 @@
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
         g.style.top  = top + 'px';
-        publishViewBox(root, top, s, vh);
+        publishLayout(root, top, s, vh);
         root.style.setProperty('--stick-bottom', stickBottom + 'px');
         document.body.classList.add('phone-preview');
         root.style.setProperty('--phone-left',  left  + 'px');
@@ -2319,7 +2337,7 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=4"></script>
-  <script src="src/util.js?v=23"></script>
+  <script src="src/util.js?v=24"></script>
   <script src="src/trail.js?v=3"></script>
   <script src="src/sprite_layout.js?v=11"></script>
   <script src="src/placed_floor.js?v=1"></script>
@@ -2345,7 +2363,7 @@
   <script src="src/interactables.js?v=16"></script>
   <script src="src/combat.js?v=4"></script>
   <script src="src/interact.js?v=235"></script>
-  <script src="src/render.js?v=338"></script>
+  <script src="src/render.js?v=339"></script>
   <script src="src/multiplayer.js?v=8"></script>
   <script src="src/road_overlay.js?v=14"></script>
   <script src="src/building_overlay.js?v=5"></script>
@@ -2409,7 +2427,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=475';
+      const APP_SRC = 'src/app.js?v=476';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

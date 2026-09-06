@@ -272,3 +272,60 @@ test('tap/drag: the slop is big enough for a shaky finger, small enough to aim',
   assert.gte(PEEK_DRAG_SLOP_PX, 4, 'a rolling finger still taps');
   assert.lt(PEEK_DRAG_SLOP_PX, CELL_PX / 2, 'a tap never turns into a drag');
 });
+
+// ── The canvas is not the grid ──────────────────────────────────────────────
+// The canvas backing store is RENDER_SCALE× the logical 352×844 grid so the
+// picture is 1:1 with the screen (src/app.js, the canvas-resolution note by
+// W/H). Phaser reports pointer positions in THAT space, and everything the tap
+// path does with them — the cell hit test, the reach gate, the drag slop — is
+// in logical px. So the conversion is not cosmetic: leave it out on a DPR-3
+// phone and every tap lands three times too far down and right, which on an
+// 11-cell view means off the map entirely.
+//
+// These drive the shipped `_gamePt` and the shipped `endPeekPointer` at the
+// scales real devices actually produce (2 = a retina laptop, 3 = a modern
+// phone), by reassigning the same RENDER_SCALE binding app.js re-reads on
+// resize. Restored to 1 afterwards so nothing below inherits a scaled grid.
+
+test('hidpi: a pointer converts from canvas px to logical px', () => {
+  const s = peekScene();
+  for (const rs of [1, 2, 3]) {
+    RENDER_SCALE = rs;
+    const g = s._gamePt({ x: 120 * rs, y: 130 * rs });
+    assert.eq(g.x, 120, `x at ${rs}x`);
+    assert.eq(g.y, 130, `y at ${rs}x`);
+  }
+  RENDER_SCALE = 1;
+});
+
+test('hidpi: a tap lands on the same logical point at every canvas scale', () => {
+  for (const rs of [1, 2, 3]) {
+    RENDER_SCALE = rs;
+    const s = tapScene({ _peekDragging: false });
+    // The same physical spot on the glass, reported in that scale's canvas px.
+    s.endPeekPointer({ id: 1, x: 120 * rs, y: 130 * rs });
+    assert.eq(s.taps.length, 1, `the tap fired at ${rs}x`);
+    assert.eq(s.taps[0].sx, 120, `x is logical, not canvas, at ${rs}x`);
+    assert.eq(s.taps[0].sy, 130, `y is logical, not canvas, at ${rs}x`);
+  }
+  RENDER_SCALE = 1;
+});
+
+test('hidpi: the drag slop is measured in logical px, not canvas px', () => {
+  // A finger that rolled just under the slop is a TAP. Measured in raw canvas
+  // px it would clear the slop on any HiDPI screen, so the same shaky tap that
+  // works on a desktop would silently become a drag — and tap nothing — on a
+  // phone. The slop is a human-hand distance; it has to stay in the grid the
+  // hand sees.
+  const roll = PEEK_DRAG_SLOP_PX - 1;
+  for (const rs of [1, 2, 3]) {
+    RENDER_SCALE = rs;
+    const s = tapScene();
+    s._peekDownX = 100; s._peekDownY = 100;
+    s._peekFromM = { x: 0, y: 0 };
+    const at = s._gamePt({ x: (100 + roll) * rs, y: 100 * rs });
+    assert.lt(Math.hypot(at.x - s._peekDownX, at.y - s._peekDownY),
+              PEEK_DRAG_SLOP_PX, `a sub-slop roll stays a tap at ${rs}x`);
+  }
+  RENDER_SCALE = 1;
+});

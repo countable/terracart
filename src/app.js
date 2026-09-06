@@ -144,6 +144,62 @@ const PROVISIONAL_ORIGIN_KEYS = ['starterCratesAt', 'starterPlotAt', 'starterHom
 // entirely. 25 km is well past a day's walk and well past any GPS error.
 const ORIGIN_STRANDED_M = 25000;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
+
+// ── Canvas resolution ─────────────────────────────────────────────────
+// W × H is the LOGICAL grid — the coordinate system every other line in this
+// codebase thinks in. It is NOT the canvas's pixel count.
+//
+// The canvas backing store is W × H times renderScale(), and the main camera is
+// zoomed by the same factor, so a logical point p lands at p × renderScale()
+// device px. That factor is the exact CSS→device ratio of the canvas
+// (index.html's fitGame transform × devicePixelRatio), which makes the backing
+// store exactly the size of the screen area the canvas covers: the browser
+// composites it 1:1, with no resampling step at all.
+//
+// Until then the canvas was a fixed 352×844 buffer that #game's CSS transform
+// blew up. On a DPR-3 phone that is under a third of the screen's linear
+// resolution, magnified by a FRACTIONAL factor with nearest-neighbour — so
+// every terrain cell edge, road band, building outline, progress ring and
+// label was drawn coarse and then re-chunked unevenly on the way to the glass.
+//
+// Sprites do not change in LOOK: pixel art magnified by renderScale() through
+// the pixelArt NEAREST filter is precisely what the CSS upscale was already
+// doing to them. What sharpens is everything drawn as geometry rather than as
+// a texture — which, on this screen, is most of it.
+//
+// The cap is a guard, not a tuning knob: every real device lands under it
+// (DPR 3 × the ~1.12 a 393-wide phone scales by is 3.35), and it only stops a
+// pathologically high DPR from asking the GPU for a 7-megapixel buffer.
+//
+// "1:1" is exact to within the buffer's own integer size: canvas.width/height
+// are integers, so H × RENDER_SCALE truncates (844 × 3.3494 = 2826.92 → 2826)
+// and the logical box's bottom edge falls a fraction of a device pixel outside
+// the buffer. Measured on a 393-wide DPR-3 phone that is 0.92 device px — a
+// third of a CSS px, at the bottom of the 844-tall box, which is HUD chrome
+// drawn in the DOM rather than on the canvas. There is no rounding that avoids
+// it: the canvas's LAYOUT box is fractional too, so an integer buffer sized to
+// anything else would be resampled to reach it.
+const RENDER_SCALE_MAX = 4;
+// Never below 1 — a viewport narrower than 352 CSS px still gets the full
+// logical grid rather than a canvas coarser than the one it replaced.
+function renderScale() {
+  const css = window.__gameCssScale || 1;      // published by index.html fitGame
+  const dpr = window.devicePixelRatio || 1;
+  return Math.min(RENDER_SCALE_MAX, Math.max(1, css * dpr));
+}
+// Live value: read by the pointer conversion below and re-applied on resize.
+// A `let` because devicePixelRatio changes when a window moves between
+// monitors and fitGame's scale changes on every resize and rotation.
+let RENDER_SCALE = renderScale();
+// Point a camera at the logical grid. Origin (0,0) makes Phaser's camera
+// matrix a PURE scale — with the default 0.5 origin the same result needs a
+// compensating scroll of (W/2)(1-zoom), a second number to keep in sync for no
+// gain. Scroll stays 0, so logical (x, y) is device (x·RENDER_SCALE, ···).
+function applyRenderScale(cam) {
+  cam.originX = 0;
+  cam.originY = 0;
+  cam.setScroll(0, 0).setZoom(RENDER_SCALE);
+}
 // How far above dead-centre every dialog rides (game px, in #game's 844-tall
 // box). Reserved as bottom padding on the shared modal wrap so the flex-centred
 // box lifts clear of the bottom inventory/HUD cluster. See makeModalShell —
@@ -1120,6 +1176,9 @@ class MapScene extends Phaser.Scene {
     }
 
     this.cameras.main.setBackgroundColor('#222');
+    // Everything below this line is in LOGICAL px; the camera is what maps
+    // them onto the device-resolution canvas (see the note by W/H).
+    applyRenderScale(this.cameras.main);
     this.viewCenterX = W / 2;
     this.viewCenterY = H / 2 - 150;           // raise map clear of the TWO-bar inventory HUD (type tabs + item slots) and the Eat button beneath it
     this.viewLeft = this.viewCenterX - (VIEW_CELLS / 2) * CELL_PX;
@@ -2101,17 +2160,19 @@ class MapScene extends Phaser.Scene {
       // Phaser (the stuck-touch case the sweeper below exists for) would
       // otherwise own the map forever and swallow every tap after it.
       if (this._peekPointerId !== null && this._peekPointer?.isDown) return;
+      const down = this._gamePt(p);
       this._peekPointer = p;
       this._peekPointerId = p.id;
-      this._peekDownX = p.x;
-      this._peekDownY = p.y;
+      this._peekDownX = down.x;
+      this._peekDownY = down.y;
       this._peekDragging = false;
       this._peekReturning = false;     // a new grab cancels the spring-back
       this._peekFromM = { x: this.peekM.x, y: this.peekM.y };
     });
     this.input.on('pointermove', (p) => {
       if (p.id !== this._peekPointerId || !p.isDown) return;
-      const dx = p.x - this._peekDownX, dy = p.y - this._peekDownY;
+      const at = this._gamePt(p);
+      const dx = at.x - this._peekDownX, dy = at.y - this._peekDownY;
       if (!this._peekDragging && Math.hypot(dx, dy) < PEEK_DRAG_SLOP_PX) return;
       this._peekDragging = true;
       // Measured from where the camera was when the finger landed, so grabbing
@@ -2124,8 +2185,9 @@ class MapScene extends Phaser.Scene {
       const wasDrag = this._peekDragging;
       this._releasePeek();
       if (wasDrag) return;             // dragged the map; nothing was tapped
-      if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, p.x, p.y)) return;
-      this.handleWorldTap(p.x, p.y);
+      const up = this._gamePt(p);
+      if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, up.x, up.y)) return;
+      this.handleWorldTap(up.x, up.y);
     };
     this.input.on('pointerup', endPeekPointer);
     // A touch that ends off the canvas (or is stolen by the browser) never
@@ -2904,12 +2966,12 @@ class MapScene extends Phaser.Scene {
       // Safari in particular changes innerHeight as its toolbar collapses,
       // which moves the scale with it.
       try {
-        const g = document.getElementById('game');
-        const m = g && getComputedStyle(g).transform.match(/matrix\(([-\d.]+)/);
         const vv = window.visualViewport;
         out.push(`layout: inner=${window.innerWidth}x${window.innerHeight}`
           + (vv ? ` visual=${Math.round(vv.width)}x${Math.round(vv.height)}` : '')
-          + ` dpr=${window.devicePixelRatio} scale=${m ? (+m[1]).toFixed(4) : '?'}`
+          + ` dpr=${window.devicePixelRatio}`
+          + ` scale=${(window.__gameCssScale || 1).toFixed(4)}`
+          + ` canvas=${game.canvas.width}x${game.canvas.height}@${RENDER_SCALE.toFixed(2)}`
           + ` standalone=${!!(window.navigator.standalone
               || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))}`);
       } catch (_) {}
@@ -7157,6 +7219,16 @@ class MapScene extends Phaser.Scene {
       x: this.viewCenterX - this.peekM.x * k,
       y: this.viewCenterY - this.peekM.y * k,
     };
+  }
+
+  // A Phaser pointer's position in LOGICAL px. Phaser reports pointer positions
+  // in CANVAS px — the backing store, which is RENDER_SCALE× the logical grid
+  // (see the canvas-resolution note by W/H) — while every gate downstream is
+  // logical: the drag slop, the peek metres, interactTap's cell hit test,
+  // Multiplayer.consumeTap. So a pointer converts here, once, on the way in,
+  // and there is one place to look when the map stops answering taps.
+  _gamePt(p) {
+    return { x: p.x / RENDER_SCALE, y: p.y / RENDER_SCALE };
   }
 
   // Is the camera off the player right now (drag live, or still springing back)?
@@ -13285,7 +13357,14 @@ class MapScene extends Phaser.Scene {
 const game = window.__game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: W, height: H,
+  // The canvas BACKING STORE, in device px — see the canvas-resolution note by
+  // W/H. With Scale.NONE, Phaser sets canvas.width to the game size and the
+  // canvas's CSS size to game size × zoom, so the reciprocal zoom lays a
+  // device-resolution buffer back out at the logical 352×844 that #game's own
+  // transform expects. The camera zoom that puts logical coordinates back on
+  // that buffer is applied in create() (applyRenderScale).
+  width: W * RENDER_SCALE, height: H * RENDER_SCALE,
+  zoom: 1 / RENDER_SCALE,
   backgroundColor: '#000',
   pixelArt: true,
   scene: [MapScene],
@@ -13314,3 +13393,30 @@ const game = window.__game = new Phaser.Game({
   // stick + tap + one stray finger.
   input: { activePointers: 3 },
 });
+
+// Follow the screen. fitGame re-runs on resize, orientationchange and visual-
+// viewport changes, and publishes its scale through this hook; devicePixelRatio
+// moves too, when a window is dragged between monitors or the browser zooms. If
+// the canvas didn't follow, it would keep a backing store sized for the old
+// screen and the 1:1 match — the whole point of the exercise — would quietly
+// lapse into a fractional rescale until the next reload.
+//
+// The epsilon is not a tuning knob: resizing a WebGL drawing buffer reallocates
+// it, and fitGame fires on every resize event, so a scale that wobbles in the
+// last decimal (iOS Safari's toolbar collapsing mid-scroll does exactly this)
+// must not reallocate the buffer on every frame of the wobble. A change too
+// small to see is a change not worth paying for.
+window.__onGameScaleChange = () => {
+  const next = renderScale();
+  if (Math.abs(next - RENDER_SCALE) < 0.01) return;
+  RENDER_SCALE = next;
+  // setZoom first: ScaleManager.resize reads the CURRENT zoom to work out the
+  // canvas's CSS size, so a stale one would lay the new buffer out at the wrong
+  // number of CSS px and #game's transform would compound the error.
+  game.scale.setZoom(1 / RENDER_SCALE);
+  game.scale.resize(W * RENDER_SCALE, H * RENDER_SCALE);
+  // The resize grows each camera to the new buffer but leaves its transform
+  // alone, so the zoom is still the OLD render scale — which would draw the
+  // logical grid at the wrong size on a correctly-sized canvas. Re-point it.
+  for (const scene of game.scene.getScenes(true)) applyRenderScale(scene.cameras.main);
+};

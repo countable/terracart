@@ -86,6 +86,10 @@ const BRIDGE = `;Object.assign(globalThis, {
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
+  // The building roof-scale curve — house_scale.test.js asserts against the
+  // SHIPPING baselines rather than its own copies of them.
+  houseArtScale, HOUSE_BASE_SCALE, FORT_BASE_SCALE, FORT_FIT, FORT_MAX_SCALE,
+  HOUSE_MIN_CELLS,
   HomeArea,
   itemValue, randInt, pickFromArray, isShiny,
   TRAILER_SELL_MUL,
@@ -298,7 +302,7 @@ try {
     return src.slice(start + 1, end + 4);
   };
   const methods = ['playerScreen() {', 'isPeeking() {', '_setPeekFromDrag(dxPx, dyPx) {',
-                   '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {']
+                   '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {', '_gamePt(p) {']
     .map(lift).join(',\n');
   // The tap-or-drag decision itself, straight out of create()'s input wiring.
   const relSig = '    const endPeekPointer = (p) => {';
@@ -308,6 +312,11 @@ try {
     console.error('Could not lift endPeekPointer out of src/app.js — update run.js');
     process.exit(2);
   }
+  // _gamePt divides by RENDER_SCALE (app.js's canvas-resolution constant, a
+  // module-level `let` the browser sets from the live screen). Seed it at 1 —
+  // the logical grid — so every existing expectation reads in game px; the
+  // HiDPI cases below reassign it to drive the same shipped line at 2× and 3×.
+  ctx.RENDER_SCALE = 1;
   // Rebound as a method so `this` is the stub scene rather than a closed-over
   // one; the body is otherwise the shipped text, character for character.
   const release = 'endPeekPointer(p) {'
@@ -315,7 +324,7 @@ try {
   vm.runInContext(`globalThis.__peek = {\n${methods},\n${release}\n};`, ctx,
                   { filename: 'app.js#peek' });
   for (const k of ['playerScreen', 'isPeeking', '_setPeekFromDrag', '_releasePeek',
-                   'clearPeek', '_tickPeek', 'endPeekPointer']) {
+                   'clearPeek', '_tickPeek', '_gamePt', 'endPeekPointer']) {
     if (typeof ctx.__peek[k] !== 'function') {
       console.error(`__peek.${k} did not come back as a function — update run.js`);
       process.exit(2);
@@ -909,6 +918,21 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+// index.html is what actually MEASURES the screen — the CSS scale app.js sizes
+// the canvas from is published by its fitGame. canvas_scale.test.js pins the
+// two halves of that handshake against each other; nothing else can, because
+// each half is unreachable from the other's language.
+ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+// The canvas-resolution rule itself (app.js, the note beside W/H): lifted so
+// canvas_scale.test.js drives the shipping cap/floor rather than a copy of it.
+{
+  const m = ctx.APP_JS_SRC.match(/const RENDER_SCALE_MAX = \d+;[\s\S]*?\nfunction renderScale\(\) \{[\s\S]*?\n\}/);
+  if (!m) {
+    console.error('Could not lift renderScale() out of src/app.js — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext(m[0], ctx, { filename: 'app.js#renderScale' });
+}
 ctx.RENDER_SRC = readSrc('render.js');
 // multiplayer.js draws peers with the same feet-on-the-fix seating app.js
 // gives the local player; feet_anchor.test.js pins both as text.
