@@ -87,7 +87,7 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  INTERACTABLES, runInteractable, gatherLuck, gatherLuckEnabled,
+  INTERACTABLES, runInteractable,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill and
   // the reach outline; reach_corners.test.js drives both through it.
   REACH_CORNER_PX, ReachCorner,
