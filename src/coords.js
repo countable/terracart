@@ -13,6 +13,9 @@
 //   peekM(scene)                             — the peek-drag camera offset
 //   viewAnchorWorldM(scene)                  — world point the viewport centres on
 //   viewAnchorCell(scene)                    — that point's { tx, ty, cx, cy }
+//   overlayFrame(scene, entryReady)          — a geometry overlay's draw frame
+//   overlayProjection(scene, fracX, fracY)   — …and its cell-snapped projection
+//   timedOverlayRebuild(label, fn)           — one rebuild under the boot profiler
 //   lonLatToLocalM(scene, lon, lat)          — a GPS fix in playerM's frame
 //   localMToLonLat(scene, mx, my)            — and back out to lon/lat
 
@@ -100,6 +103,64 @@ function viewAnchorCell(scene) {
   const ty = Math.floor(wy / tilePx);
   const cps = tilePx / scene.cellsPerTile;
   return { tx, ty, cx: (wx - tx * tilePx) / cps, cy: (wy - ty * tilePx) / cps };
+}
+
+// ─── The geometry overlays' frame ───────────────────────────────────────────
+// road_overlay.js and building_overlay.js both cache a canvas drawn at the
+// cell-snapped CAMERA ANCHOR and scroll it by the sub-cell fraction every
+// frame, rebuilding only when the anchor crosses a cell or a tile's data
+// lands. They open their draw() identically, so the opening lives here once:
+// the anchor's cell, its sub-cell fraction, the absolute base cell the pass
+// projects from, and the 3×3 ring of tiles whose data is in hand — which is
+// also the readiness half of each overlay's cache key. `entryReady(entry)` is
+// the overlay's own test (the decoded MVT layers for the roads, the source
+// building rings for the footprints); a tile with no tileEdgeM is never ready.
+function overlayFrame(scene, entryReady) {
+  const pc = viewAnchorCell(scene);
+  const fracX = pc.cx - Math.floor(pc.cx);
+  const fracY = pc.cy - Math.floor(pc.cy);
+  const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
+  const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
+  const tiles = [];
+  let ready = '';
+  for (let dty = -1; dty <= 1; dty++) {
+    for (let dtx = -1; dtx <= 1; dtx++) {
+      const tx = pc.tx + dtx, ty = pc.ty + dty;
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      if (!entry || !entry.tileEdgeM || !entryReady(entry)) continue;
+      tiles.push({ tx, ty, entry });
+      ready += `${dtx}${dty}|`;
+    }
+  }
+  return { pc, fracX, fracY, baseCellIX, baseCellIY, tiles, ready };
+}
+
+// The rebuild's projection: world metres → screen px, measured from the
+// camera anchor and snapped to the cell (the container re-applies the
+// sub-cell offset), plus the padded viewport the pass culls against — a full
+// cell wider than the sub-cell scroll can ever reveal, on every side.
+function overlayProjection(scene, fracX, fracY) {
+  const a = viewAnchorWorldM(scene);
+  const projX = (wmx) => scene.viewCenterX + ((wmx - a.x) / scene.cellM) * CELL_PX + fracX * CELL_PX;
+  const projY = (wmy) => scene.viewCenterY + ((wmy - a.y) / scene.cellM) * CELL_PX + fracY * CELL_PX;
+  const PAD = CELL_PX * 2;
+  return {
+    projX, projY,
+    minX: scene.viewLeft - PAD, maxX: scene.viewLeft + scene.viewSize + PAD,
+    minY: scene.viewTop  - PAD, maxY: scene.viewTop  + scene.viewSize + PAD,
+  };
+}
+
+// One overlay rebuild, ticked into the boot profiler under `label` when the
+// profiler is on. Only the rebuild is timed — draw() runs every frame, but
+// the key check only rebuilds on a cell crossing or a tile load, so the
+// cheap early-out frames never touch the tick.
+function timedOverlayRebuild(label, fn) {
+  const B = window.__boot;
+  if (!B) { fn(); return; }
+  const t0 = performance.now();
+  fn();
+  B.tick(label, performance.now() - t0);
 }
 
 // Player's "reach origin" — the absolute cell the visual reach silhouette

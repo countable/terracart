@@ -56,8 +56,11 @@
 //     startWorldM, playerM, cellM, cellsPerTile, depth, textures,
 //     viewCenterX/Y, viewLeft, viewTop, viewSize
 //     helpers: playerToWorldCell(), isClaimedKey()
-//   worldgen.js — WorldGen.tileCache, WorldGen.tileKey;
+//   worldgen.js — WorldGen.tileCache, WorldGen.tileKey, WorldGen.makeRng;
 //                 per-tile `entry.buildingShapes` + `entry.tileEdgeM`
+//   coords.js   — overlayFrame / overlayProjection / timedOverlayRebuild (the
+//                 camera-anchored draw frame both geometry overlays share)
+//   biome_profiles.js — BiomeProfiles.mixHex (the one colour lerp)
 //   render.js   — Render.BUILDING_FACE_COLOR / BUILDING_FACE_PX (the tiled
 //                 pass's own wall colours + depths, so the two can't drift)
 //   textures.js — CASTLE_STONE / CASTLE_STONE_UNCLAIMED, unclaimedShade
@@ -65,9 +68,8 @@
 //
 // Exports as globals:
 //   BuildingOverlay.draw(scene)       — per-frame entry point (cheap when cached)
-//   BuildingOverlay.invalidate(scene) — force a rebuild on the next draw
 //   BuildingOverlay.enabled()         — is the polygonal mode on?
-//   BuildingOverlay.setEnabled(scene, on)
+//   BuildingOverlay.setEnabled(scene, on) — flip the mode (forces a rebuild)
 (function (global) {
   const CASTLE = 12;   // BUILDING_LARGE — the one tier that draws a rampart
 
@@ -87,12 +89,10 @@
   // comment above them in render.js) — so a missing table can't silently
   // introduce a third set of numbers.
   const FACE_MUL = 0.4;
-  const dim = (c, m) => {
-    const r = Math.round(((c >> 16) & 255) * m);
-    const g = Math.round(((c >> 8) & 255) * m);
-    const b = Math.round((c & 255) * m);
-    return (r << 16) | (g << 8) | b;
-  };
+  // Colour maths is BiomeProfiles.mixHex, the one lerp every module shares;
+  // scaling a colour by `m` is the lerp from black.
+  const mix = BiomeProfiles.mixHex;
+  const dim = (c, m) => mix(0x000000, c, m);
   const faceColor = (tier) => {
     const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_COLOR) || null;
     return (tbl && tbl[tier] != null) ? tbl[tier] : dim(floorColor(tier), FACE_MUL);
@@ -160,10 +160,6 @@
   const SLIME_TRIES = 6;                     // rejection sampling per splotch
   const SLIME_CACHE_MAX = 2048;
 
-  const mix = (a, b, t) => {
-    const ch = (sh) => Math.round(((a >> sh) & 255) * (1 - t) + ((b >> sh) & 255) * t);
-    return (ch(16) << 16) | (ch(8) << 8) | ch(0);
-  };
   const slimeColor = (floor, shade) => {
     const s = shade(shade(floor));
     return s === floor ? mix(floor, SLIME_FALLBACK, SLIME_FALLBACK_A) : s;
@@ -186,16 +182,9 @@
     for (let i = 0; i < ring.length; i++) eat(Math.round(ring[i] * 16));
     return h >>> 0;
   };
-  // mulberry32 — small, fast, and deterministic from that seed.
-  const rngFrom = (seed) => {
-    let a = seed >>> 0;
-    return () => {
-      a = (a + 0x6d2b79f5) >>> 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  };
+  // …fed to worldgen's mulberry32 (WorldGen.makeRng) — small, fast, and
+  // deterministic from that seed.
+  const rngFrom = (seed) => WorldGen.makeRng(seed);
 
   // Shoelace area and a ray-cast containment test, both on the PROJECTED ring.
   // Area drives the splotch count off the real footprint rather than its
@@ -306,7 +295,7 @@
     color: luma(floor) >= LUMA_FLIP ? style.color : 0xffffff,
   });
 
-  const cssOf = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
+  // cssOf (int → '#rrggbb') comes from util.js.
   const rgbaOf = (c, a) =>
     `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${a})`;
 
@@ -543,43 +532,19 @@
     }
 
     // Camera anchor, not the body — a peek drag slides these footprints with
-    // the ground they're painted on (coords.js viewAnchorCell).
-    const pc = viewAnchorCell(scene);
-    const fracX = pc.cx - Math.floor(pc.cx);
-    const fracY = pc.cy - Math.floor(pc.cy);
-    const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
-    const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
-
+    // the ground they're painted on (coords.js overlayFrame → viewAnchorCell).
     // Rebuild key: the snapped camera cell, which of the 3×3 tiles have their
     // shapes in hand (so a tile that finishes loading repaints even while the
     // player stands still), and the claim epoch — restoring a wreck or taking
     // a castle has to lift the shade off that footprint on the next frame.
-    const tiles = [];
-    let ready = '';
-    for (let dty = -1; dty <= 1; dty++) {
-      for (let dtx = -1; dtx <= 1; dtx++) {
-        const tx = pc.tx + dtx, ty = pc.ty + dty;
-        const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-        if (!entry || !entry.buildingShapes || !entry.tileEdgeM) continue;
-        tiles.push({ tx, ty, entry });
-        ready += `${dtx}${dty}|`;
-      }
-    }
+    const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
+      overlayFrame(scene, (entry) => !!entry.buildingShapes);
     const key = `${baseCellIX},${baseCellIY},${ready},${claimEpoch(scene)}`;
     if (key !== scene._buildingGeomKey) {
       scene._buildingGeomKey = key;
       scene._buildingGeomPainted = true;
-      // Only the rebuild is timed, same reasoning as the road overlay: draw()
-      // runs every frame but the key check above only rebuilds on a cell
-      // crossing, a tile load, or a claim change.
-      const B = window.__boot;
-      if (B) {
-        const t0 = performance.now();
-        rebuild(scene, tiles, fracX, fracY);
-        B.tick('building overlay rebuild', performance.now() - t0);
-      } else {
-        rebuild(scene, tiles, fracX, fracY);
-      }
+      timedOverlayRebuild('building overlay rebuild',
+        () => rebuild(scene, tiles, fracX, fracY));
     }
     if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   }
@@ -598,16 +563,9 @@
   function rebuild(scene, tiles, fracX, fracY) {
     const g = fillTarget(scene);
     g.clear();
-    const _a = viewAnchorWorldM(scene);
-    const pWorldX = _a.x;
-    const pWorldY = _a.y;
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
-    // the same one the road overlay strokes with.
-    const projX = (wmx) => scene.viewCenterX + ((wmx - pWorldX) / scene.cellM) * CELL_PX + fracX * CELL_PX;
-    const projY = (wmy) => scene.viewCenterY + ((wmy - pWorldY) / scene.cellM) * CELL_PX + fracY * CELL_PX;
-    const PAD = CELL_PX * 2;
-    const minX = scene.viewLeft - PAD, maxX = scene.viewLeft + scene.viewSize + PAD;
-    const minY = scene.viewTop - PAD, maxY = scene.viewTop + scene.viewSize + PAD;
+    // the same one the road overlay strokes with — and its padded cull bounds.
+    const { projX, projY, minX, maxX, minY, maxY } = overlayProjection(scene, fracX, fracY);
 
     // Per-pass memo of ownerKey → claimed, the same one the tiled pass keeps:
     // a footprint asks the save once instead of once per shape.
@@ -702,5 +660,5 @@
     if (g.commit) g.commit();
   }
 
-  global.BuildingOverlay = { draw, invalidate, enabled, setEnabled };
+  global.BuildingOverlay = { draw, enabled, setEnabled };
 })(window);
