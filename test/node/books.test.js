@@ -289,6 +289,34 @@ test('tips: the first-taste bonus is documented, because it is in the cap', () =
   assert.truthy(someTip(/first time raises your maximum energy/i), 'and a tip says so');
 });
 
+test('tips: the armour tip quotes the real mitigation ladder', () => {
+  // What a PIECE soaks (tier²) is printed on the piece itself — the Stats
+  // panel row and the shop offer, off armorSlotReduction — so the tip carries
+  // only what no single piece can: that the pool halves as it is spent, how
+  // many times, and that a blow always gets through. Every one of those is
+  // re-derived from combat.js here rather than retyped.
+  const tip = PLAY_TIPS.find((t) => /armour soaks/i.test(t));
+  assert.truthy(tip, 'there is an armour tip');
+  assert.eq(Combat.MITIGATION_ROUNDS, 4, 'the ladder really is four rounds');
+  assert.truthy(/four times/i.test(tip), 'and the tip says four');
+  assert.eq(Combat.MIN_PLAYER_DAMAGE, 1, 'a blow always lands for at least 1');
+  assert.truthy(/never soak a blow to nothing/i.test(tip), 'and the tip says so');
+  // The two halving claims, read off the shipping function rather than the
+  // loop. A pool of 1 is spent entirely in round one and halves away to
+  // nothing, so it measures round one alone: exactly 1 off a big blow.
+  assert.eq(Combat.mitigate(40, 1), 39, 'round one spends the pool against the hit');
+  // A pool of 2 spends 2, then halves to 1 and spends that — the pool halving
+  // between rounds, which is the part of the rule only a Book can carry.
+  assert.eq(Combat.mitigate(40, 2), 40 - 2 - 1, 'and the pool halves between rounds');
+  // A pool that can cover half the blow takes exactly half in round one
+  // (rounded down), so a full ladder never gets past the geometric floor.
+  assert.eq(Combat.mitigate(40, 1e9), 3, 'even an unlimited pool leaves 40 → 20 → 10 → 5 → 3');
+  assert.truthy(/half/i.test(tip), 'which is what the tip promises');
+  // And no tip may claim armour lengthens the bar — that rule is retired.
+  assert.falsy(/armou?r[^.]*max(imum)? energy/i.test(TIPS_BLOB),
+    'no tip still says armour raises the energy cap');
+});
+
 test('tips: the bare-hand ladder quotes the real TOOL_DURATION_MS ratios', () => {
   const bare = toolDurationMs({}, 'pick');
   assert.eq(bare / TOOL_DURATION_MS[1], 2.25, 'a Wood relic is 2.25× quicker, not 3×');
