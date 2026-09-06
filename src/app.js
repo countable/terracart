@@ -348,9 +348,12 @@ const MONSTERS = {
 // the moment it has stats, and the doubling below reaches the giants too.
 // There is no giant art: SpriteLayout.creatureArt draws the base kind's sheet
 // at GIANT_ART_SCALE (1.8), and everything that seats on the body (wheel,
-// health bar, tap box, shadow) resolves through the same helper. A giant's
-// kill credits the BASE kind's quest (resolveDefeat), and its elite roll gets
-// the +2 tier of its deeper introduction for free (eliteRollBonus).
+// health bar, tap box, shadow) resolves through the same helper. For the
+// quest board and the Discovery ledger a giant is ITS OWN KIND — a giant
+// goblin job wants giant goblins, and an elite giant goblin banks its own
+// badge beside the elite goblin's (resolveDefeat credits victim.kind as-is;
+// quests.js QUEST_ENEMIES lists the giants). Its elite roll gets the +2 tier
+// of its deeper introduction for free (eliteRollBonus).
 const GIANT_HP_MUL = 4;
 const GIANT_DEPTH_STEP = 2;
 for (const [kind, m] of Object.entries(MONSTERS)) {
@@ -6073,10 +6076,9 @@ class MapScene extends Phaser.Scene {
       this.flash(`${victim.kind} defeated`, this.viewCenterX, this.viewCenterY - 60);
     }
     if (typeof Quests !== 'undefined') {
-      // A giant is its base kind for the bounty board: "defeat 3 goblins" is
-      // satisfied by a giant goblin, which is a goblin and then some.
-      const questKind = MONSTERS[victim.kind]?.giant || victim.kind;
-      const qDone = Quests.onKill(save, questKind);
+      // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
+      // never credit toward its base kind's.
+      const qDone = Quests.onKill(save, victim.kind);
       if (qDone) this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
     }
     persistSave(save);
