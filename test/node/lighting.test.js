@@ -49,12 +49,19 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
     const dimA = Render.reachDimAlpha(s);
     // The floor is where the old wash + falloff landed at the corner…
     near(p.farA, 1 - (1 - dimA) * (1 - Lighting.FALLOFF_A), 1e-12, `farA @${depth}`);
-    assert.eq(p.ambient, Lighting.mixToWhite(Render.reachDimColor(s), p.farA), `ambient @${depth}`);
+    // …scaled by the contrast knob, and by nothing else…
+    assert.eq(p.ambient, Lighting.scaleColour(Lighting.mixToWhite(Render.reachDimColor(s), p.farA), Lighting.AMBIENT_K),
+      `ambient @${depth}`);
     // …the cookie just outside the plateau lifts it back to the flat wash…
     near((1 - p.farA) + p.edge, 1 - dimA, 1e-12, `edge restores the wash @${depth}`);
     // …and inside the plateau to the lit level (full daylight on the surface).
     near((1 - p.farA) + p.lit, 1 - Lighting.litDim(depth), 1e-12, `lit level @${depth}`);
   }
+  // The contrast knob darkens the FLOOR only: the ramp's edge level is the
+  // old wash's, so the reach step is untouched and only the dark got darker.
+  assert.inRange(Lighting.AMBIENT_K, 0.3, 0.6, 'a real darkening, not black and not the old floor');
+  const lum = (c) => (0.299 * ch(c, 16) + 0.587 * ch(c, 8) + 0.114 * ch(c, 0)) / 255;
+  assert.lt(lum(Lighting.profile(scene()).ambient), 0.10, 'a totally unlit surface cell is under 10% luminance');
   assert.eq(Lighting.litDim(0), 0, 'the surface bubble is full daylight');
   assert.gt(Lighting.litDim(2), Lighting.litDim(1), 'the bubble dims with every level down');
   const surf = Lighting.profile(scene()), cave = Lighting.profile(scene({ depth: 1 }));

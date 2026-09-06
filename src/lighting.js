@@ -55,10 +55,11 @@
 // light is only light.
 //
 // ── The numbers are DERIVED, not tuned ────────────────────────────────────
-// profile() reproduces the old wash exactly for the white channel from the
-// same two sources the ground pass painted with — Render.reachDimAlpha /
-// reachDimColor — plus the falloff pair (FALLOFF_A, FALLOFF_P) that lived
-// beside the rings. Retune a look by changing those; adding a factor here
+// profile() reproduces the old wash for the white channel from the same two
+// sources the ground pass painted with — Render.reachDimAlpha / reachDimColor
+// — plus the falloff pair (FALLOFF_A, FALLOFF_P) that lived beside the rings.
+// The ONE deliberate departure is AMBIENT_K, which darkens the floor alone
+// for contrast. Retune a look by changing those; another factor in here
 // breaks the correspondence test/node/lighting.test.js pins.
 (function (window) {
   'use strict';
@@ -121,6 +122,15 @@
   const FALLOFF_A = 0.90;
   const FALLOFF_P = 1.5;
 
+  // The CONTRAST knob: how much of the derived floor survives. The derivation
+  // below lands the far field where the old wash + rings did (~15-19% on the
+  // surface, biome-tinted), and that read as too bright once real lights were
+  // in the world — "totally unlit areas should be darker" (Sep 2026). This
+  // scales the AMBIENT only: the ramp and the plateau are untouched, so the
+  // reach edge and the mid-field keep their step and only the dark gets dark.
+  // 1.0 is the old picture exactly; lower is more contrast.
+  const AMBIENT_K = 0.45;
+
   // Underground the lit bubble itself is dimmer than daylight, deepening
   // slightly per level so descents feel progressively gloomier. (The
   // surrounding rock is far darker still, so the bubble stays readable.)
@@ -142,6 +152,10 @@
     const ch = (sh) => Math.round(255 * (1 - alpha) + ((colour >> sh) & 255) * alpha);
     return (ch(16) << 16) | (ch(8) << 8) | ch(0);
   }
+  function scaleColour(colour, k) {
+    const ch = (sh) => Math.round(((colour >> sh) & 255) * k);
+    return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+  }
 
   function lowEnergy(scene) {
     const sv = scene.save || {};
@@ -157,7 +171,8 @@
   //   dimA       the flat out-of-reach wash (0.38 surface; 0.74+ underground)
   //   farA       what the corner landed on once the falloff rings stacked on
   //              that wash: 1 - (1-dimA)(1-FALLOFF_A)
-  //   ambient    the lightmap's floor — mixToWhite(dimColour, farA)
+  //   ambient    the lightmap's floor — mixToWhite(dimColour, farA), then
+  //              scaled by AMBIENT_K for contrast (the ramp is not)
   //   edge       the player cookie just OUTSIDE the plateau, so that
   //              ambient + edge == 1 - dimA (the old wash, exactly)
   //   lit        the cookie INSIDE the plateau, so that
@@ -172,7 +187,7 @@
     const dimA = R ? R.reachDimAlpha(scene) : 0.38;
     const dimColour = R ? R.reachDimColor(scene) : 0x000000;
     const farA = 1 - (1 - dimA) * (1 - FALLOFF_A);
-    const ambient = mixToWhite(dimColour, farA);
+    const ambient = scaleColour(mixToWhite(dimColour, farA), AMBIENT_K);
     const edge = (1 - dimA) * FALLOFF_A;
     const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA));
     const litColour = lowEnergy(scene) ? mixToWhite(LOW_ENERGY_TINT, LOW_ENERGY_A) : 0xffffff;
@@ -446,8 +461,8 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, FALLOFF_A, FALLOFF_P, litDim, POI_PULSE_PERIOD_S,
-    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite,
+    KINDS, radiusCells, FALLOFF_A, FALLOFF_P, AMBIENT_K, litDim, POI_PULSE_PERIOD_S,
+    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, beginFrame, consider, collectFires,
     flickerAlpha, draw,
   };
