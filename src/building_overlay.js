@@ -148,13 +148,15 @@
   // ON the cobbles rather than a hole cut in them. Each splotch is painted once
   // per building, so unlike the whole-footprint wash this can't double up on
   // itself.
-  const SLIME_ALPHA = 0.6;
-  // One splotch per ~44×44 px of floor — about two on a small house, a dozen
-  // across a derelict block — with a hard cap so a cathedral-sized footprint
-  // stays speckled instead of turning solid.
-  const SLIME_PER_PX2 = 1 / (44 * 44);
-  const SLIME_MAX = 14;
-  const SLIME_MIN_R = 4, SLIME_MAX_R = 11;   // px
+  const SLIME_ALPHA = 0.8;
+  // One splotch per ~30×30 px of floor — four or five on a small house, a
+  // couple of dozen across a derelict block — with a hard cap so a
+  // cathedral-sized footprint stays speckled instead of turning solid.
+  // (Was 44×44 and capped at 14: at that density a wreck read as merely dim
+  // with a stain or two, not as overgrown.)
+  const SLIME_PER_PX2 = 1 / (30 * 30);
+  const SLIME_MAX = 28;
+  const SLIME_MIN_R = 5, SLIME_MAX_R = 11;   // px
   const SLIME_LOBES = 9;                     // points around one blob
   const SLIME_WOBBLE = 0.45;                 // radius jitter, ± of the mean
   const SLIME_TRIES = 6;                     // rejection sampling per splotch

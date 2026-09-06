@@ -529,7 +529,7 @@ test('building overlay: a big wreck is speckled, a shed gets a splotch or two', 
   BuildingOverlay.draw(scene);
   const [shed, block] = scene.buildingGeomGfx.only('slime');
   assert.gt(block.blobs.length, shed.blobs.length, 'the count comes off the floor area');
-  assert.lte(block.blobs.length, 14, 'and is capped, so a big block stays speckled');
+  assert.lte(block.blobs.length, 28, 'and is capped, so a big block stays speckled');
   // A splotch can never be most of a shed.
   const spanOf = (blob) => {
     let x0 = Infinity, x1 = -Infinity;
