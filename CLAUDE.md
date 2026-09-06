@@ -166,6 +166,32 @@
   quantity.
   **Audit it:** `node test/node/run.js` › `test/node/rock_yield.test.js`.
 
+- **A frame index is not a frame COUNT — list the art, never count the cells.**
+  A sprite sheet is a grid, and nothing in the renderer can tell a cell holding
+  a sprite from one holding nothing. `CROP_SPRITE.shell` said `variants: 12`
+  because Shell.png is 3×4 — but only its TOP ROW is shells (three cowries);
+  the rest is three keyline duplicates, two flat mask rows and four BLANK
+  cells, the same layout `Gemstones.png` has. So the beaches were empty: the
+  renderer drew `hash % 12` and most shells landed on a blank frame — a pickup
+  you could tap but not see. The answer is the `PLAIN_ROCK_VARIANTS`
+  discipline: **`frames: [0, 1, 2]`**, the frames that carry art, listed.
+  **And the hash must read the whole KEY.** The same pass hashed `_ix`/`_iy` —
+  which `rasterizeTile`'s occupancy pass DELETES before the entry is ever
+  drawn — XORed with the wildplant id's `.length`, one number for a whole tile,
+  so every shell on a beach drew the same frame chosen by how many digits its
+  cell index happened to have. One resolver owns it now
+  (**`items.js` › `wildplantFrame`**, off `util.js`'s `fnv1a` of the id, the
+  same stable key a reload and a tile rebuild both reproduce), and the
+  renderer asks it rather than rolling its own. The shiny twinkle's phase was
+  the same `.length` hash one function over — a "desync" that put every shiny
+  in a tile in unison. **When a look varies per cell, hash the id, not its
+  shape; and when a crop varies, list its frames.**
+  **Audit it:** `node test/node/run.js` › `test/node/shell_variants.test.js`
+  (the resolver over a real rasterized beach) and `node tools/sprite_audit.js`
+  › `wildFrameRows`, which decodes the real PNG behind every frame a
+  `CROP_SPRITE` entry declares and fails if it is off the sheet, transparent,
+  or a single flat colour — and refuses a bare `variants` count outright.
+
 - **A tilled cell is one BAKED bed, never a per-frame rounded path.** The
   soil is the `tilled_N` texture (`textures.js` › `drawTilledTex`): an opaque
   pad inset `TILLED_INSET_PX` from every edge with `TILLED_CORNER_PX` corners
