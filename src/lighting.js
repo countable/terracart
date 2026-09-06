@@ -85,8 +85,10 @@
   //
   // The campfire's radius is FIRE_REST_R — the same ring that warms the player
   // and repels slimes (app.js) — so "stand in the light" and "stand in the
-  // warmth" are one rule. It is resolved at call time because app.js defines
-  // it after this file loads; lighting.test.js pins the two are equal.
+  // warmth" are one rule. HOME's radius is HOME_R by the same rule, and it
+  // carries a third effect on the same ring: nothing hostile stays inside it.
+  // Both are resolved at call time because app.js defines them after this file
+  // loads; lighting.test.js pins each against its constant.
   //
   // The player's own light is the RAMP (ensurePlayerCookie + the plateau in
   // draw()), not a cookie — but it has a row too, so the one thing derived
@@ -120,8 +122,11 @@
     handtorch: { radiusCells: () => radiusCells('player') * TORCH_RADIUS_MUL, colour: 0xffffff, peak: 0.85, flicker: 0.12 },
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
-    // house — it is the one light the player always comes back to.
-    trailer:  { radiusCells: 4.0, colour: 0xffd28a, peak: 1.00, flicker: 0 },
+    // house — it is the one light the player always comes back to, and the lit
+    // circle is literally the safe circle: HOME_R is also the ring that rests
+    // the player (HOME_FULL_REST_S) and turns enemies around.
+    trailer:  { radiusCells: () => (typeof HOME_R !== 'undefined' ? HOME_R : 4),
+                colour: 0xffd28a, peak: 1.00, flicker: 0 },
     // A building the player has taken back: a restored wreck, an unsealed
     // fort, the turrets of a claimed castle. Keyed on the SAME test the
     // derelict wash uses (scene.isClaimedKey), so a house lights the frame its

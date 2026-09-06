@@ -501,6 +501,35 @@
   tips deleted in the prune, pins that the facts they carried landed on the
   items, and pins the sapphire's one-hint rule.
 
+- **Home is a CAMPFIRE YOU OWN, and its ring is ONE number.** A placed
+  campfire lights, warms and repels on one radius (`FIRE_REST_R` — the
+  `Lighting.KINDS.fire` row resolves to it). Home does the same three on
+  **`HOME_R`**: the `trailer` light row resolves to it, `isRestingAtHome` is a
+  plain distance test against it (`HOME_FULL_REST_S`), and `wanderCreatures`'
+  `homeWard` turns every `Combat.isEnemy` foe inside it around and switches
+  its bite off while it leaves. The lit circle IS the safe circle IS the
+  circle you recover in, so the player reads the whole rule off the picture —
+  three numbers would drift and two of them would be invisible.
+  Home keeps the one thing a fire hasn't: the trade panel, which is a TAP on
+  the building and no part of the ring.
+  Two shapes to avoid. The rest was **two special cases that agreed on
+  nothing** — an adopted house counted only from INSIDE (a building cell plus
+  a nearest-house scan), the trailer only from its own snapped cell, and
+  neither rested you on the DOORSTEP, which is where the player stands to work
+  the starter plot. And the ward is an **angle away from HOME**, never a
+  refused target cell like the scarecrow's: a foe deep inside the ring would
+  have all six attempts rejected and freeze on the doormat (the stall the
+  "surrounded by scarecrows" comment warns about), and away-from-PLAYER would
+  drive a foe on the far side straight through the door.
+  Where Home IS comes from **`homeWorldPos()`** — surface-only (the world is
+  GPS-mirrored, so a Home must not ward a cave below it) and memoised on the
+  home id, because all three effects ask every frame and the adopted-house
+  branch is a walk of every object in every cached tile. Only a HIT is
+  memoised; a miss just means the tile isn't loaded yet.
+  **When you add an effect to Home, put it on `HOME_R`.**
+  **Audit it:** `node test/node/run.js` › `test/node/home_ward.test.js` (the
+  rest ring and the resolver run for real on a stub scene; the ward is pinned
+  as source text) and `test/node/lighting.test.js` for the light radius.
 - **And what NO item can say is written in the Book — truthfully, and often
   enough to be read.** The rule above says what to take OUT of `PLAY_TIPS`; this
   is what has to go IN. A mechanic the player cannot discover by looking at it —

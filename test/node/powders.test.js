@@ -171,8 +171,10 @@ test('shadow: one `shadowed` read gates BOTH the pursuit and the hit in wanderCr
   const w = m[1];
   assert.truthy(/const shadowed = this\.isShadowActive\(\);/.test(w), 'read once per tick');
   // The hits.
-  assert.truthy(/if \(c\.kind === 'slime' && !isTame && !shadowed\) \{/.test(w), 'the slime leech is gated');
-  assert.truthy(/if \(isMonster\(c\.kind\) && !shadowed\) \{\n\s*const m = MONSTERS\[c\.kind\];/.test(w),
+  // Other conjuncts may join these gates (Home's ward does — home_ward.test.js),
+  // so pin that !shadowed is IN the gate, not that it is the whole of it.
+  assert.truthy(/if \(c\.kind === 'slime' && !isTame && !shadowed[^)]*\) \{/.test(w), 'the slime leech is gated');
+  assert.truthy(/if \(isMonster\(c\.kind\) && !shadowed[^)]*\) \{\n\s*const m = MONSTERS\[c\.kind\];/.test(w),
     'the monster drain is gated');
   // The pursuits.
   assert.truthy(/if \(!shadowed && Math\.random\(\) < 0\.5 && distToPlayer > 0\.5 \* this\.cellM\) \{/.test(w),
@@ -207,8 +209,8 @@ test('frost: a frozen creature is skipped in the wander step before it can hit o
   const w = m[1];
   const gate = w.indexOf('if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;');
   assert.truthy(gate >= 0, 'the frozen gate');
-  assert.truthy(gate < w.indexOf("if (c.kind === 'slime' && !isTame && !shadowed) {"), 'before the slime leech');
-  assert.truthy(gate < w.indexOf('if (isMonster(c.kind) && !shadowed) {'), 'before the monster drain');
+  assert.truthy(gate < w.search(/if \(c\.kind === 'slime' && !isTame && !shadowed[^)]*\) \{/), 'before the slime leech');
+  assert.truthy(gate < w.search(/if \(isMonster\(c\.kind\) && !shadowed[^)]*\) \{/), 'before the monster drain');
   assert.truthy(gate < w.indexOf('if (now >= c._nextChooseT) {'), 'before the step is chosen');
   assert.truthy(gate < w.indexOf('c.x = c._startX + (c._targetX - c._startX) * u;'), 'before the hop is interpolated');
   // The ice tint rides the same flag.

@@ -35,9 +35,12 @@ function scene(over) {
 }
 const HALF_M = (11 / 2 + 1) * 5;   // drawObjects' halfM at cellM 5
 
-test('lighting: a campfire lights exactly the ring that warms you', () => {
+test('lighting: a fire and a Home light exactly the ring they warm you in', () => {
   assert.eq(Lighting.radiusCells('fire'), FIRE_REST_R,
     'the fire light radius is FIRE_REST_R — stand in the light, stand in the warmth');
+  assert.eq(Lighting.radiusCells('trailer'), HOME_R,
+    "Home's light radius is HOME_R — the ring that lights you is the ring that "
+    + 'rests you and the ring nothing hostile will stand in');
   assert.gt(Lighting.radiusCells('trailer'), Lighting.radiusCells('building'),
     'Home throws more light than a plain restored house');
 });
