@@ -66,10 +66,49 @@
     assert.eq(SpriteLayout.creatureArt('giant_nessie'), undefined, 'a giant of nothing has no art');
   });
 
-  test('giants: the shipping consumers resolve a giant to its base kind', () => {
+  test('giants: a different kind on the quest board and in the Discovery ledger', () => {
+    // Every monster kind, giants included, is a kill target the board can
+    // name, with a name to print.
+    for (const kind of Object.keys(MONSTERS)) {
+      assert.includes(QUEST_ENEMIES, kind, kind + ' is a quest target');
+    }
+    for (const kind of giantKinds) {
+      assert.truthy(QUEST_ENEMIES.includes(kind), kind + ' is on the board');
+      assert.truthy(QUEST_ENEMIES.indexOf(kind) > QUEST_ENEMIES.indexOf(MONSTERS[kind].giant),
+        kind + ' comes up later than its base kind');
+    }
+    // A high enough rank actually rolls a giant job.
+    let giantJobs = 0;
+    for (let g = 0; g < 200; g++) {
+      const q = Quests.generate(g % QUEST_SLOTS, g + 3, 20, 11);
+      if (q.verb === 'kill' && /^giant_/.test(q.target)) giantJobs++;
+      if (q.verb === 'kill') assert.falsy(/undefined/.test(q.body), 'the giant is named: ' + q.body);
+    }
+    assert.gt(giantJobs, 0, 'a veteran board offers giant jobs');
+    // Rank 0 still opens with the surface slime only.
+    for (let g = 3; g < 40; g++) {
+      const q = Quests.generate(g % QUEST_SLOTS, g, 0, 11);
+      if (q.verb === 'kill') assert.eq(q.target, 'slime', 'rank 0 asks for the surface slime');
+    }
+    // No cross-credit either way.
+    const save = { quests: { slots: [], gen: 0, done: 0 }, relicSalt: 1 };
+    const q = Quests.board(save)[0];
+    q.verb = 'kill'; q.event = 'kill'; q.target = 'goblin'; q.need = 2; q.have = 0;
+    assert.falsy(Quests.onKill(save, 'giant_goblin'), 'a giant goblin is not a goblin');
+    assert.eq(q.have, 0, 'no credit');
+    assert.truthy(Quests.onKill(save, 'goblin'), 'a goblin is');
+    q.target = 'giant_goblin'; q.have = 0;
+    assert.falsy(Quests.onKill(save, 'goblin'), 'a goblin is not a giant goblin');
+    assert.truthy(Quests.onKill(save, 'giant_goblin'), 'a giant goblin is');
+    // The kill path credits the kind as-is, and the elite badge is keyed the
+    // same way — so an elite giant goblin is a discovery of its own.
     const app = APP_JS_SRC;
-    assert.truthy(/const questKind = MONSTERS\[victim\.kind\]\?\.giant \|\| victim\.kind;/.test(app),
-      'a giant kill credits the base kind\'s quest');
+    assert.truthy(/const qDone = Quests\.onKill\(save, victim\.kind\);/.test(app), 'quest credit is the kind as-is');
+    assert.falsy(/\.giant \|\| victim\.kind/.test(app), 'no fold to the base kind anywhere');
+    assert.truthy(/if \(this\._bankDiscovery\(victim\.kind\)\)/.test(app), 'the elite badge is keyed by the kind as-is');
+  });
+
+  test('giants: the shipping consumers resolve a giant to its base kind for ART only', () => {
     const render = RENDER_SRC;
     assert.truthy(/const bk = baseKind\(c\.kind\);/.test(render), 'render.js picks the sheet by base kind');
     assert.truthy(/CRITTER_SHADOW_W\[baseKind\(c\.kind\)\] \|\| 18\) \* giantMul\(c\.kind\)/.test(render),
