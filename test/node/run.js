@@ -383,7 +383,7 @@ try {
   vm.runInContext(block
     + '\n;Object.assign(globalThis, { MONSTERS, isMonster, enemyBounty, CAVE_ENEMY_MUL,'
     + ' ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, MONSTER_TREASURE_CHANCE,'
-    + ' ELITE_TREASURE_CONTEXT, eliteRollBonus });',
+    + ' ELITE_TREASURE_CONTEXT, eliteRollBonus, GIANT_HP_MUL, GIANT_DEPTH_STEP });',
     ctx, { filename: 'monsters.js' });
 }
 

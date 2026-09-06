@@ -4216,15 +4216,18 @@ Render.drawObjects = function drawObjects(scene) {
   // kind used to share left the slime hanging 11px above its own contact
   // shadow (it read as flying) and sank the cow 3px into hers. A kind with no
   // entry keeps 0.9.
-  const CA = (typeof SpriteLayout !== 'undefined' && SpriteLayout.CREATURE_ART)
-    ? SpriteLayout.CREATURE_ART : {};
-  const creatureFoot = (typeof SpriteLayout !== 'undefined' && SpriteLayout.creatureFoot)
-    || ((kind) => 0.9);
+  const SL = (typeof SpriteLayout !== 'undefined') ? SpriteLayout : null;
+  const creatureFoot = (SL && SL.creatureFoot) || ((kind) => 0.9);
   // Every kind drawn below has a CREATURE_ART entry (pinned by
-  // test/node/creature_wheel.test.js), so the scale is the table's; the `?? 1`
-  // only covers a bare harness with no SpriteLayout loaded.
-  const creatureScale = (kind) => CA[kind]?.scale ?? 1;
-  const creatureFloat = (kind) => CA[kind]?.float ?? 0;
+  // test/node/creature_wheel.test.js), so the scale is the table's — resolved
+  // through SpriteLayout.creatureArt so a GIANT monster draws its base kind's
+  // sheet at GIANT_ART_SCALE; the `?? 1` only covers a bare harness with no
+  // SpriteLayout loaded.
+  const creatureScale = (SL && SL.creatureScale) || ((kind) => 1);
+  const creatureFloat = (SL && SL.creatureFloat) || ((kind) => 0);
+  // A giant's sheet, frame count and shadow are its base kind's.
+  const baseKind = (SL && SL.baseKind) || ((kind) => kind);
+  const giantMul = (kind) => (SL && SL.isGiantKind && SL.isGiantKind(kind)) ? SL.GIANT_ART_SCALE : 1;
   // The ground line a creature stands on, relative to its cell centre. Shared
   // with the shadow pass below so the sprite and its shadow can never drift:
   // with the origin above, placing the sprite at sy + this lands the art's
@@ -4291,11 +4294,14 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFlipX(!!c._faceFlip);
     } else if (isMonster(c.kind)) {
       const m = MONSTERS[c.kind];
-      const texKey = c.kind === 'purple_slime' ? 'purple_slime'
-                   : c.kind === 'goblin' ? 'goblin'
-                   : c.kind === 'goblin_archer' ? 'goblin_archer'
+      // A giant (giant_goblin …) is drawn on its base kind's sheet; the size
+      // comes from creatureScale via SpriteLayout.creatureArt.
+      const bk = baseKind(c.kind);
+      const texKey = bk === 'purple_slime' ? 'purple_slime'
+                   : bk === 'goblin' ? 'goblin'
+                   : bk === 'goblin_archer' ? 'goblin_archer'
                    : 'slime';
-      const frameCount = (c.kind === 'goblin' || c.kind === 'goblin_archer') ? 6 : 4;
+      const frameCount = (bk === 'goblin' || bk === 'goblin_archer') ? 6 : 4;
       if (s.texture.key !== texKey) { s.anims?.stop(); s.setTexture(texKey, 0); }
       s.setFrame(Math.floor(performance.now() / 160) % frameCount);
       if (c._hopSeed == null) {
@@ -4359,7 +4365,7 @@ Render.drawObjects = function drawObjects(scene) {
       const { c, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
-      const w = CRITTER_SHADOW_W[c.kind] || 18;
+      const w = (CRITTER_SHADOW_W[baseKind(c.kind)] || 18) * giantMul(c.kind);
       // Airborne kinds sit higher off the ground, so their shadow reads
       // smaller and fainter — the standard "how high is it" cue.
       const airborne = c.kind === 'butterfly' || c.kind === 'crow';
