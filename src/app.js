@@ -2017,23 +2017,15 @@ class MapScene extends Phaser.Scene {
       font: fontMono('bold 13px'), color: UI_GOLD,
       stroke: '#5a1400', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // Walk-target marker. Movement is target-follow at every depth: GPS fixes
-    // and steering input move a free-flying target (this._targetM) and the
-    // opaque body (this.player) walks toward it — underground it also passes
-    // through rock, which the body mines out. This small dot marks where that
-    // target is, UNDERGROUND ONLY: down there it's a cursor the player steers
-    // ahead of the dig. On the surface the target is the GPS fix, which the
-    // crosshair (gpsGhost) already marks, so the dot only read as a grey blob
-    // floating ahead of an auto-walking character — see the marker block in
-    // update(), which is the one place its visibility is decided. A plain
-    // marker, not a player-shaped sprite — the only player sprites on the map
-    // belong to real bodies (this.player, and any other live player — see
-    // multiplayer.js).
-    this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY, 5, 0xffffff, 0.55)
-      .setStrokeStyle(1.5, 0x000000, 0.4)
-      .setDepth(10)
-      .setVisible(false)
-      .setMask(mask);
+    // There is NO walk-target marker. Movement is target-follow at every depth:
+    // GPS fixes and steering input move a free-flying target (this._targetM)
+    // and the opaque body (this.player) walks toward it — underground it also
+    // passes through rock, which the body mines out. A small grey dot used to
+    // mark that target (surface first, then underground only), and at every
+    // depth it read as a blob floating ahead of an auto-walking character —
+    // the character walking itself over is the whole message. The ONE ground
+    // marker beside the body is the GPS crosshair (gpsGhost, below): where you
+    // REALLY are, shown at every depth once the body has left it.
     // Warning halo behind the player: red when the tank is empty, near-black
     // when the stick has walked them a long way off the GPS. Pulses so it reads
     // as a live warning rather than a smudge under the sprite. Depth 9.7 puts
@@ -4959,6 +4951,45 @@ class MapScene extends Phaser.Scene {
         break;
       }
     }
+    // Loose coins on the cave floor: a handful per level tile, scattered the
+    // same way as the fauna (around the entrances, so the ~2-cell torch bubble
+    // actually meets them) and picked up with the same tap as a coin-burst
+    // coin (interact.js 'coindrop'). They ride entry.coinDrops like the burst
+    // coins do — the renderer and the tap handler already walk that list at
+    // every depth, since WorldGen.tileCache is repointed per level — but with
+    // NO expiresAt: a coin found by digging should still be there when the
+    // torch swings back. In-memory only, like every coinDrop: a fresh build of
+    // the level lays a fresh handful, which is the trickle intended. The seeded
+    // rng keeps the draw order of the monsters and rabbits above untouched.
+    // Not on a staircase or a rock: the coin handler wins the tap, but a coin
+    // under a rock sprite reads as a rock. Guarded like `creatures` — a tile
+    // REBUILT under the player (see CLAUDE.md) carries coinDrops across and
+    // re-runs this pass, so it must not lay a second handful onto the first.
+    if (!entry.coinDrops) {
+      const CAVE_COINS_MIN = 4, CAVE_COINS_MAX = 8;   // per level tile — a trickle, not a burst
+      const coins = [];
+      const taken = new Set();
+      for (const o of (entry.objects || [])) {
+        const cx = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
+        const cy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
+        taken.add(cy * N + cx);
+      }
+      const coinN = CAVE_COINS_MIN + Math.floor(rng() * (CAVE_COINS_MAX - CAVE_COINS_MIN + 1));
+      for (let i = 0; i < coinN; i++) {
+        for (let attempt = 0; attempt < 20; attempt++) {
+          const { cx, cy } = randCell();
+          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+          const idx = cy * N + cx;
+          if (entry.grid[idx] !== 24 /* CAVE_FLOOR */ || taken.has(idx)) continue;
+          taken.add(idx);
+          const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
+          const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
+          coins.push({ kind: 'coindrop', x: wmx, y: wmy, id: `cavecoin_${depth}_${tx}_${ty}_${i}` });
+          break;
+        }
+      }
+      entry.coinDrops = coins;
+    }
     entry._spawned = true;
     entry.creatures = entry.creatures || creatures;
   }
@@ -5311,42 +5342,15 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // Walk-target marker: UNDERGROUND ONLY. Down there the target is a cursor
-    // the player is actively steering — it leads the body through rock and the
-    // body mines its way after it, so while the two are apart the marker is the
-    // only thing saying where the dig is headed (the compass arrow rides it,
-    // below). On the SURFACE the target is just the GPS fix, and the marker was
-    // a second blob for a point the crosshair (gpsGhost) already marks: it
-    // showed up as a grey dot a few metres ahead whenever a fix landed and the
-    // body auto-walked to catch up, which is every fix you take a step on.
-    // Hidden there — the character walking itself over is the whole message.
-    // When target and body are basically coincident — arrived — hide it too, so
-    // nothing diverges.
-    const markerDiv = this.cellM * 0.5;
-    if (this._targetM && this.depth > 0) {
-      const gdx = this._targetM.x - this.playerM.x;
-      const gdy = this._targetM.y - this.playerM.y;
-      const diverged = (gdx * gdx + gdy * gdy) > markerDiv ** 2;
-      if (diverged) {
-        const p = worldMetersToScreen(this,
-          this.startWorldM.x + this._targetM.x,
-          this.startWorldM.y + this._targetM.y);
-        // On the point itself: the marker is a ground mark, and the ground
-        // point is where a body's FEET would stand (feet-on-the-fix).
-        this.targetGhost.setPosition(Math.round(p.x), Math.round(p.y)).setVisible(true);
-      } else {
-        this.targetGhost.setVisible(false);
-      }
-    } else if (this.targetGhost.visible) {
-      this.targetGhost.setVisible(false);
-    }
-
     // GPS ghost: where you REALLY are, whenever the character isn't standing
     // there. One cell of slack keeps it off screen for ordinary GPS jitter (a
     // fix wanders a few metres while you stand still) so it appears only when
-    // the stick has genuinely walked you off your position. Surface only —
-    // underground the fix isn't where you are in any useful sense.
-    if (this.gpsM && this.depth === 0) {
+    // the stick has genuinely walked you off your position. At EVERY depth:
+    // a descent GPS-mirrors the world coordinates (changeDepth), so underground
+    // the fix is still the point over your head that the dig has wandered off
+    // from, and it is the one ground marker the map keeps — the walk target
+    // itself (this._targetM) draws nothing, see the gpsGhost block in create().
+    if (this.gpsM) {
       const rdx = this.gpsM.x - this.playerM.x;
       const rdy = this.gpsM.y - this.playerM.y;
       if ((rdx * rdx + rdy * rdy) > this.cellM ** 2) {
@@ -5422,14 +5426,10 @@ class MapScene extends Phaser.Scene {
     }
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
-    // pointing in the compass heading (or last movement, as fallback).
-    // Normally it rides the player's head at the viewport center. Underground,
-    // while the target is out ahead leading the body through rock, the compass
-    // rides the TARGET instead — the player is steering that, so the
-    // device-orientation arrow belongs over it (targetGhost was positioned and
-    // its visibility decided in the walk-target-marker block above). On the
-    // surface the arrow stays on the player: up there the target is just the
-    // GPS fix drifting a few metres about, not something being steered.
+    // pointing in the compass heading (or last movement, as fallback). It
+    // rides the player's head at every depth. (It used to jump onto the
+    // walk-target dot underground while the dig was out ahead of the body;
+    // that dot is gone — the body's own heading says where the dig is going.)
     this.facingGfx.clear();
     const fmag = Math.hypot(this.facing.x, this.facing.y);
     if (fmag > 0.001) {
@@ -5449,14 +5449,7 @@ class MapScene extends Phaser.Scene {
       const HEAD_DY = -1;
       // The sprite's centre is its ground point plus playerFeetNudgeY (the
       // feet are on the point, the body rises above it).
-      let cx = pScreen.x, cy = pScreen.y + this.playerFeetNudgeY - HEAD_DY;
-      if (this.depth > 0 && this.targetGhost.visible) {
-        // Anchor over the target marker's head. targetGhost sits on the
-        // ground point; a body standing there would have its centre the
-        // same nudge above it, so apply the identical offset.
-        cx = this.targetGhost.x;
-        cy = this.targetGhost.y + this.playerFeetNudgeY - HEAD_DY;
-      }
+      const cx = pScreen.x, cy = pScreen.y + this.playerFeetNudgeY - HEAD_DY;
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
       const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
@@ -7506,7 +7499,6 @@ class MapScene extends Phaser.Scene {
     this._steerDistAccrue = 0;
     this._steerCostAccrue = 0;
     this._followPaused = false;
-    if (this.targetGhost) this.targetGhost.setVisible(false);
   }
   // How far the character is standing from the player's REAL position, in
   // metres. That gap is what stick walking buys and what the map's warnings are
