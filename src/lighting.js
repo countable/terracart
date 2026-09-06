@@ -71,9 +71,12 @@
 // profile() reproduces the old wash for the white channel from the same two
 // sources the ground pass painted with — Render.reachDimAlpha / reachDimColor
 // — plus the falloff pair (FALLOFF_A, FALLOFF_P) that lived beside the rings.
-// The ONE deliberate departure is AMBIENT_K, which darkens the floor alone
-// for contrast. Retune a look by changing those; another factor in here
-// breaks the correspondence test/node/lighting.test.js pins.
+// Two deliberate departures sit on top: AMBIENT_K, which darkens the floor
+// alone for contrast, and PLAYER_OUTPUT_K, which dims the player's own ramp
+// and plateau alone (the RADIUS — the ramp's reach and the corners it just
+// lights — is untouched; only how much of the reproduced wash the player's
+// body gives back is scaled). Retune a look by changing those; another
+// factor in here breaks the correspondence test/node/lighting.test.js pins.
 (function (window) {
   'use strict';
 
@@ -111,15 +114,15 @@
     // The player: white, out to the furthest visible pixel (the viewport's
     // half-diagonal) plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay
     // just lit under a peek (see draw()). `peak` is DERIVED per depth (profile().edge at the plateau's
-    // edge, the old falloff), so the row carries none: it is never baked as
-    // a kind cookie, the ramp is its picture.
+    // edge, the old falloff, scaled by PLAYER_OUTPUT_K), so the row carries
+    // none: it is never baked as a kind cookie, the ramp is its picture.
     player:   { radiusCells: () => Math.hypot(viewCells(), viewCells()) / 2 + PLAYER_RAMP_PAST_CORNER_CELLS,
                 colour: 0xffffff, peak: null, flicker: 0 },
     // The player with a Torch ITEM lit (`handtorch` — `torch` below is the
     // cave torch stake): the same white, TORCH_RADIUS_MUL times as far,
     // breathing like the fire it is. Stamped at the feet in ADDITION to
     // the ramp, so the plateau is untouched and only the dark around it lifts.
-    handtorch: { radiusCells: () => radiusCells('player') * TORCH_RADIUS_MUL, colour: 0xffffff, peak: 0.85, flicker: 0.12 },
+    handtorch: { radiusCells: () => radiusCells('player') * TORCH_RADIUS_MUL, colour: 0xffffff, peak: 0.95, flicker: 0.12 },
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
     // house — it is the one light the player always comes back to, and the lit
@@ -131,10 +134,10 @@
     // fort, the turrets of a claimed castle. Keyed on the SAME test the
     // derelict wash uses (scene.isClaimedKey), so a house lights the frame its
     // wash lifts.
-    building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.84, flicker: 0 },
+    building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.95, flicker: 0 },
     // A placed campfire (burned from a coal). Breathes.
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
-                colour: 0xff9a3c, peak: 0.95, flicker: 0.18 },
+                colour: 0xff9a3c, peak: 1.00, flicker: 0.18 },
     // A live POI — a chest with something still in it (loose supply crates
     // are excluded for the reason they get no pad: a transient pickup is not
     // a place). This is what the old halo "ping" was for: places read as
@@ -144,13 +147,13 @@
     // a strobe), each on its own phase hashed from its id so a street doesn't
     // throb in lockstep. Small, so it marks the place rather than lighting
     // the block.
-    poi:      { radiusCells: 2.0, colour: 0xcfe2ff, peak: 0.75, flicker: 0, pulse: 0.5 },
+    poi:      { radiusCells: 2.0, colour: 0xcfe2ff, peak: 0.88, flicker: 0, pulse: 0.5 },
     // A cave torch (worldgen.js caveTorchesFrom — planted where a lowtier
     // street-furniture POI stands overhead, the one chest class that does not
     // mirror underground). A real flame: warm, a little smaller than a
     // campfire, and it breathes like one. Bright enough to read a cave
     // junction by from across the level.
-    torch:    { radiusCells: 2.5, colour: 0xffa54a, peak: 0.90, flicker: 0.22 },
+    torch:    { radiusCells: 2.5, colour: 0xffa54a, peak: 1.00, flicker: 0.22 },
     // A wild mushroom — the faint one. Every `mushroom` wildplant glows, on
     // the surface as well as in the caves (where spawnCaveMushrooms scatters
     // the blue luminous kind): a cool, small, slow-breathing light that marks
@@ -158,7 +161,7 @@
     // torch/mushroom pair is deliberately far apart in both radius and peak
     // — lighting.test.js pins the order — so a lit cave reads as "a torch
     // there, some fungus here", never two of the same lamp.
-    mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.40, flicker: 0, pulse: 0.35 },
+    mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.50, flicker: 0, pulse: 0.35 },
     // A LIT COBBLE — a trail stone the player has walked past. The stone's
     // own art is recoloured and haloed (app.js bakes it in UI_TRAIL_LIT), but
     // that art sits under the lightmap and goes as dark as the ground after
@@ -171,7 +174,7 @@
     // view, and a trail should read as a string of lights, not a floodlit
     // strip. Collected by drawCells (considerCobble), not sourceKind: a
     // stone is a cell, not an object.
-    cobble:   { radiusCells: 1.0, colour: TRAIL_LIT, peak: 0.45, flicker: 0, pulse: 0.30 },
+    cobble:   { radiusCells: 1.0, colour: TRAIL_LIT, peak: 0.58, flicker: 0, pulse: 0.30 },
     // The BLAST as a stone comes on: a wide, near-white flash stamped over
     // the stone for the length of render.js's scale-pop (PATH_STONE_FLASH_MS),
     // swelling as it fades — considerCobble drives its alpha and scale off
@@ -219,6 +222,16 @@
   // reach edge and the mid-field keep their step and only the dark gets dark.
   // 1.0 is the old picture exactly; lower is more contrast.
   const AMBIENT_K = 0.45;
+
+  // The PLAYER'S OWN OUTPUT knob: how much of the reproduced-wash levels
+  // (`edge`, `lit`) the player's ramp and plateau actually throw. It scales
+  // both by the same factor, so the falloff's shape and the plateau's own
+  // easing (PLATEAU_FALL) are untouched and `lit > edge` still holds at every
+  // depth — only the body's light is dimmer, never the RADIUS it reaches
+  // (radiusCells('player') and TORCH_RADIUS_MUL off it are unaffected, so a
+  // dimmer player still lights exactly as far). 1.0 is the old picture
+  // exactly; lower is a dimmer body light at the same reach.
+  const PLAYER_OUTPUT_K = 0.8;
 
   // ── Time of day ───────────────────────────────────────────────────────────
   // The surface picture above is HIGH NOON. As the real sun goes down where
@@ -327,10 +340,10 @@
   //              that wash: 1 - (1-dimA)(1-FALLOFF_A)
   //   ambient    the lightmap's floor — mixToWhite(dimColour, farA), then
   //              scaled by AMBIENT_K for contrast (the ramp is not)
-  //   edge       the player cookie just OUTSIDE the plateau, so that
-  //              ambient + edge == 1 - dimA (the old wash, exactly)
-  //   lit        the cookie INSIDE the plateau, so that
-  //              ambient + lit == 1 - litDim(depth) (1 on the surface)
+  //   edge       the player cookie just OUTSIDE the plateau — the old wash,
+  //              exactly, scaled by PLAYER_OUTPUT_K: ambient + edge/K == 1 - dimA
+  //   lit        the cookie INSIDE the plateau — likewise scaled:
+  //              ambient + lit/K == 1 - litDim(depth) (1 on the surface)
   //   litColour  white, or the low-energy pink
   //   night      1 - daylight on the surface, always 0 underground; moves
   //              dimA toward NIGHT_DIM_A and drains dimColour (see above)
@@ -352,8 +365,8 @@
     }
     const farA = 1 - (1 - dimA) * (1 - FALLOFF_A);
     const ambient = scaleColour(mixToWhite(dimColour, farA), AMBIENT_K);
-    const edge = (1 - dimA) * FALLOFF_A;
-    const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA));
+    const edge = (1 - dimA) * FALLOFF_A * PLAYER_OUTPUT_K;
+    const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA)) * PLAYER_OUTPUT_K;
     const litColour = lowEnergy(scene) ? mixToWhite(LOW_ENERGY_TINT, LOW_ENERGY_A) : 0xffffff;
     return { depth, dimA, dimColour, farA, ambient, edge, lit, litColour, night };
   }
@@ -783,7 +796,7 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, PLAYER_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
