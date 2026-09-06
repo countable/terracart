@@ -829,6 +829,10 @@ const PLAY_TIPS = [
   'One stone in ten gathered off the ground hides a gemfruit.',
   'Every new kind of thing you discover banks a Discovery badge. Only the wizard values those.',
   'A shiny flower or tree is worth ten times the money, and banks a Discovery badge with it.',
+  // Fishing: available from the first water tile with nothing in hand, so it
+  // is taught here beside the other things already lying around — and what
+  // the ✦ row on the rod cannot carry is which fish arrives at which tier.
+  'A Wood rod puts bass in the water, Iron the trout, Platinum the salmon — and a goldenfish rises for nothing under Frost.',
   // ── The village economy, once you have a house to trade with ───
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
   'Addresses ending 2 or 6 are Produce Shops, stocked with crops. Endings 1 and 8 are Traders, who barter only.',
@@ -976,7 +980,8 @@ const ENERGY_COST = {
                          // out-tiers your pick — see the rock-break handler.
   rockPlace: 1,
   catch: 9,              // bare-handed; Wood bug net → 3, Frost → 1 (effectiveCatchCost)
-  fish: 9,               // bare-handed cast; Wood rod → 3, Frost → 1 (effectiveFishCost)
+  fish: 9,               // the CURVE's bare-handed rung; a cast pays it × FISH_COST_MULT
+                         // (18 bare-handed, 6 with a Wood rod, 2 with a Frost — effectiveFishCost)
   chop: 9,               // PER tree-size unit, bare-handed; cut down by axe tier
                          // (see effectiveChopCost). small/medium/full = ×1/2/4.
 };
@@ -1095,11 +1100,15 @@ const RELIC_DEFS = {
              effectKey: 'bugCatch',  blurb: 'catch + hunt animals faster' },
   // Fishing Rod — standard 32×16 weapon sheet per tier folder.
   // NOT a gate, the way the net stopped being one: a bare-handed cast works
-  // (interact.js 'fishing'), it just runs 9 s instead of 3 and skunks far more
-  // often. What the tier buys is the catch table and the energy per cast, so
-  // 'catch fish from water' described a permission the rod does not grant.
+  // (interact.js 'fishing'), it just runs 9 s instead of 3, costs double and
+  // skunks nine casts in ten. What the tier buys is the catch table, the
+  // strike rate and the energy per cast, so 'catch fish from water' described
+  // a permission the rod does not grant. The blurb names the bare-handed
+  // CEILING rather than the ladder (which fish arrives at which tier is the
+  // Book's — a ✦ row cannot carry five species), because that ceiling is what
+  // tells the player a rod is worth buying at all.
   rod:     { slot: 'rod',    name: 'Fishing Rod', icon: 'Fishing Rod.png', baseCost: 90,
-             effectKey: 'fishing',   blurb: 'quicker casts, rarer fish — bare hands manage, slowly' },
+             effectKey: 'fishing',   blurb: 'quicker, cheaper casts — bare hands land only minnows' },
   // Bags — raise the per-stack inventory cap. No bag = 9; each tier adds ~34,
   // tier 7 = 249. Icon lives under Extras (single image, tier shown via badge).
   bags:    { slot: 'bags',   name: 'Bag',         icon: 'Bags.png',        baseCost: 70,
@@ -1246,12 +1255,77 @@ function acornDropChance(relics) {
 function effectiveCatchCost(relics, rng) {
   return probEnergy(toolEnergyExpected(relics?.bugnet?.tier || 0), rng);
 }
-// Fishing Rod: bare-handed cast expects 9, a Wood rod 3, a Frost rod 1. The rod
-// ALSO improves the catch table. Cast TIME is locked (9s bare / 3s any rod —
-// see the fishing handler in interact.js), so tier buys cheaper + better
-// casts, never faster ones.
+// ── FISHING ────────────────────────────────────────────────────────────────
+// Everything a cast rolls, in one place: what it costs, how often it whiffs,
+// what junk it pulls and WHICH FISH the rod can land. The handler
+// (interact.js 'fishing') spends and flashes; the numbers are here so they can
+// be read and tested without a scene.
+//
+// Sep 2026 — fishing paid too well. A Wood rod landed three species in the
+// first minutes at 3⚡ a cast, which made a water tile a better living than
+// anything the land offered. Four dials, one direction:
+//   • the whiff DOUBLES (FISH_WHIFF_MULT),
+//   • the cast COSTS double (FISH_COST_MULT),
+//   • the boot DOUBLES (FISH_BOOT_CHANCE, 6% → 12%),
+//   • and a species is now GATED on the rod (minTier below) — with bare hands
+//     the water holds minnows and nothing else, and each better rod is what
+//     puts the next fish in it.
+// Cast TIME is untouched and still locked (9s bare / 3s with any rod — see the
+// handler): tier buys cheaper, likelier and better catches, never faster ones.
+
+// The whiff ("nothing biting…") ladder. The pre-Sep-2026 curve is kept whole
+// and DOUBLED rather than retyped, so what changed stays legible: it fell from
+// 55% bare-handed by 5 points a tier to a 20% floor. Doubled, the top of that
+// runs past certainty, so FISH_WHIFF_MAX caps it — a cast is never hopeless,
+// and the flat stretch it leaves over tiers 0-2 is the point: below an Iron rod
+// the water mostly gives you nothing, and what a Wood rod buys is the bass
+// (see FISH_SPECIES), not a better strike rate.
+const FISH_WHIFF_BASE = 0.55, FISH_WHIFF_PER_TIER = 0.05, FISH_WHIFF_FLOOR = 0.20;
+const FISH_WHIFF_MULT = 2;
+const FISH_WHIFF_MAX = 0.90;
+function fishWhiffChance(tier) {
+  const base = Math.max(FISH_WHIFF_FLOOR, FISH_WHIFF_BASE - (tier || 0) * FISH_WHIFF_PER_TIER);
+  return Math.min(FISH_WHIFF_MAX, base * FISH_WHIFF_MULT);
+}
+// What a cast costs, and what it pulls up instead of a fish. The jackpot is
+// unchanged — it is the reason to fish at all once the fish stop paying.
+const FISH_COST_MULT = 2;
+const FISH_JACKPOT_CHANCE = 0.02;   // → a gear roll (rollGearUpgrade)
+const FISH_BOOT_CHANCE = 0.12;      // → an Old Boot (was 0.06)
+// The catch table. `minTier` is the rod a species needs before it is IN the
+// water at all — one species per odd tier, so every rod up the ladder opens
+// exactly one new fish and a Frost rod is what the goldenfish is for. `w` is
+// the weight once it is available: base + per × tier, so a species also gets
+// commoner as the rod improves (and the minnow thins out, floored so it never
+// leaves the pool entirely).
+const FISH_SPECIES = [
+  { id: 'minnow',     minTier: 0, base: 10,   per: -1.0, floor: 0.5 },
+  { id: 'bass',       minTier: 1, base: 3,    per: 0.5 },
+  { id: 'trout',      minTier: 3, base: 1,    per: 0.5 },
+  { id: 'salmon',     minTier: 5, base: 0.3,  per: 0.3 },
+  { id: 'goldenfish', minTier: 7, base: 0.05, per: 0.15 },
+];
+// The weighted pool a rod of this tier is fishing: [{ id, w }], commonest
+// first. Never empty — the minnow's minTier is 0, so bare hands still fish.
+function fishTable(tier) {
+  const t = tier || 0;
+  return FISH_SPECIES
+    .filter((f) => t >= f.minTier)
+    .map((f) => ({ id: f.id, w: Math.max(f.floor ?? 0, f.base + f.per * t) }));
+}
+// One catch off that pool. `rng` is injected so tests can pin the roll.
+function rollFish(tier, rng) {
+  const table = fishTable(tier);
+  const total = table.reduce((a, b) => a + b.w, 0);
+  let r = ((rng || Math.random)()) * total;
+  for (const f of table) { r -= f.w; if (r <= 0) return f.id; }
+  return table[table.length - 1].id;
+}
+// Fishing Rod: the shared 9/3/1 tool curve × FISH_COST_MULT, so a bare-handed
+// cast expects 18, a Wood rod 6 and a Frost rod 2. The multiplier is fishing's
+// own — chop / mine / catch keep the plain ladder.
 function effectiveFishCost(relics, rng) {
-  return probEnergy(toolEnergyExpected(relics?.rod?.tier || 0), rng);
+  return probEnergy(FISH_COST_MULT * toolEnergyExpected(relics?.rod?.tier || 0), rng);
 }
 // Hoe relic: each tier (1-7) gives a 12% chance of FREE tilling AND shaves
 // floor(tier/3) energy off the base 2-cost (floored at 1). Tier 7 ≈ 84% free

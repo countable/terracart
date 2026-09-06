@@ -658,14 +658,30 @@ FISHING
    3s with any rod, regardless of tier (an exception to the WORK WHEEL ladder
    — tier-scaled 0.3s casts made high-tier fishing an unbounded money
    faucet).
- - per cast: a "skunk" (nothing) chance that falls with rod tier (T1 ~50% →
-   T7 20%); else a weighted catch — mostly fish (minnow → bass → trout → salmon
-   → goldenfish, rarer more likely at high tier), with a small relic chance
-   (~2%) that follows the same milestone gating as chests. Higher relic tiers
-   are possible but exponentially rarer; rod tier raises the odds of better
-   fish, not relics (gear reward handled per GEAR). 6% per cast: an old boot
-   (junk gag).
- - fishing costs 5 energy.
+ - per cast: a "skunk" (nothing) chance that falls with rod tier; else a
+   weighted catch — mostly fish, with a small relic chance (~2%) that follows
+   the same milestone gating as chests. Higher relic tiers are possible but
+   exponentially rarer; rod tier raises the odds of better fish, not relics
+   (gear reward handled per GEAR). 12% per cast: an old boot (junk gag).
+ - WHICH FISH ARE IN THE WATER IS THE ROD'S. Each species carries a minimum
+   rod tier (items.js FISH_SPECIES) and is not in the pool below it: minnow
+   bare-handed, bass at Wood, trout at Iron, salmon at Platinum, goldenfish
+   only at Frost. One species per rung, so every rod up the ladder opens
+   exactly one new fish; the weights then make it commoner as the tier climbs
+   (and thin the minnow out). Sep 2026 — before that every species was in the
+   water at every tier and a Wood rod landed three of them in the first
+   minutes.
+ - THE FOUR DIALS ARE ONE SET, in items.js' FISHING block, and the handler
+   (interact.js 'fishing') reads them rather than carrying its own copies:
+   fishWhiffChance (the old 55%→20% ladder DOUBLED, capped at
+   FISH_WHIFF_MAX = 90% since doubling runs past certainty — so tiers 0-2 sit
+   flat at the cap and what a Wood rod buys is the bass, not a better strike
+   rate), FISH_COST_MULT, FISH_BOOT_CHANCE and FISH_SPECIES. All four moved in
+   the same direction in Sep 2026: fishing was out-earning every activity on
+   land. Pinned by test/node/fishing.test.js.
+ - a cast costs the shared 9/3/1 tool curve × FISH_COST_MULT (2) — 18 energy
+   bare-handed, 6 with a Wood rod, 2 with a Frost one. The multiplier is
+   fishing's own; chop / mine / catch keep the plain curve.
 
 ================================================================================
 CREATURES
