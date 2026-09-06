@@ -11,6 +11,33 @@
 
 ## Subagent rules
 
+- **Delegate by default, and pick the model to match the work.** The Agent
+  tool takes a `model` parameter — use it deliberately rather than letting
+  everything inherit the parent's:
+  - **haiku** — running the test suite (`node test/node/run.js`,
+    `node tools/sprite_audit.js`) and reporting back which tests failed and
+    with what message; and any other **token-heavy, judgement-light** job:
+    grepping the tree for every call site of a symbol, reading a long file to
+    answer one question, summarising a big diff, sweeping for stale comments.
+    The point of these is to keep a wall of output OUT of the parent's
+    context — so ask for the conclusion (the failing assertions, the file:line
+    list), never the raw dump.
+  - **sonnet** — clear and obvious dev work: a change whose shape is already
+    decided and whose files are already known. Adding a constant and its
+    call sites, a mechanical rename, writing a test against a spec you hand
+    it, a self-contained module extraction, applying a fix you have already
+    diagnosed.
+  - **opus** — complicated dev work: anything needing a design decision, a
+    diagnosis, or a read across several of the QC invariants below. A bug
+    with no known cause, a change that touches the tile pipeline / lighting /
+    coords split, a balance change where the numbers are derived rather than
+    tuned, or any task you would struggle to write a precise brief for.
+  If you cannot tell whether a task is sonnet-obvious or opus-hard, it is
+  opus-hard: a subagent that guesses wrong on this codebase's invariants
+  costs more to unpick than it saved.
+- **The parent still owns the finish.** Whatever the model, a subagent's
+  report is input, not a result — the parent re-runs the tests, reads the
+  diff, and does every git operation (see below).
 - **Subagents must NOT run any `git` commands.** No `git add`, `git commit`,
   `git push`, `git stash`, `git checkout`. The parent agent handles every
   git operation. Give the subagent the commit SHA / branch state it needs
@@ -564,10 +591,24 @@
   other respect (tier, pad, cave mirror) on purpose: the split moved the loot,
   not the price. Use `favourite` when a PLACE should be known for a thing; use
   `dropWeight` when a thing should simply be commoner everywhere.
+  **THE ORDER IS THE CURRICULUM.** `PLAY_TIPS` is READ FRONT TO BACK — `app.js`
+  `readBook` walks it one page per Book, bookmarked in `save.tipsRead` — so
+  where a tip sits decides WHEN in a playthrough it is taught, and adding one
+  is a placement decision rather than an append. The blocks run by *when a
+  player first meets the thing*: the first hour (energy, the on-screen
+  readouts, the farm), the village economy and its animals, what you find while
+  roaming, fighting, the caves you go looking for, the gates that take hours to
+  reach — and the single riddle last, so the secret is the end of the course
+  rather than a 1-in-72 accident. It used to be a uniform random draw with no
+  memory, which threw the ordering away, put a repeat inside the first ~10
+  reads and needed ~370 books to cover the list. The directional chest hint is
+  gated on the course being finished for the same reason: at a 50% flip, every
+  hint was a read that taught nothing new. **Put a new tip with the moment the
+  player first needs it, and don't re-randomise the draw.**
   **Audit it:** `node test/node/run.js` › `test/node/books.test.js` re-derives
   every number a tip quotes from the module that owns it, blacklists each stale
-  sentence by name, and measures the school chest's book rate against every
-  other chest.
+  sentence by name, pins the front-to-back read and the block order, and
+  measures the school chest's book rate against every other chest.
 
 ## Testing
 

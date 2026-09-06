@@ -427,6 +427,13 @@ const MONSTER_HIT_MS = 2000;
 // archer deals per minute exactly what it dealt before its hits became a
 // visible arrow, and a change to either cadence keeps that correspondence.
 const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;
+// FIRE WARD DEPTH CAP: a campfire only turns away the WEAKEST cave-dwellers —
+// those introduced at the first cave level (MONSTERS[kind].minDepth <= 1),
+// the same tier as the surface slime it already deters. A goblin (minDepth 2)
+// or goblin archer (minDepth 3) — and their giants, pushed GIANT_DEPTH_STEP
+// deeper still — are past what a lit campfire can plausibly hold off; only
+// Home's stronger ward (HOME_R, surface only) turns those around.
+const FIRE_WARD_MAX_DEPTH = 1;
 
 // combat.js owns the fight maths (HP, melee dps, bow/staff shots) and is loaded
 // before this file so headless tests can use it without Phaser. It needs the
@@ -516,6 +523,16 @@ const DOG_PREY = new Set(['deer', 'slime']);
 // slime branch in wanderCreatures) — it is only the SPEED that came down.
 const SLIME_STEP_MUL = 1.5;    // × the base wander cadence: a longer, lazier beat
 const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
+// ── The doorstep greeter ─────────────────────────────────────────────────────
+// How far from the starting trailer the mode's guaranteed creature is seated
+// (`_placeHomeGreeter`; the kind is Difficulty.get().homeGreeter — a chicken on
+// easy, a slime on hard). Chebyshev cells, so the band is a square ring.
+// The floor keeps it off the player's own cell and out of the trailer's
+// doorway — a slime spawned underfoot would start leeching before the first
+// frame drew — and the ceiling keeps it inside the 11-cell viewport, so it is
+// on screen when the map paints and reads as "this is what lives here".
+const HOME_GREETER_MIN_CELLS = 2;
+const HOME_GREETER_MAX_CELLS = 5;
 // ── Home is pest-free until the first harvest ────────────────────────────
 // A slime sits on your crops and drains 3 energy a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
@@ -779,6 +796,13 @@ if (typeof window !== 'undefined') {
 // sentence twice in two registers. A Bag relic is what fixes it, so the line
 // names the fix rather than just the wall.
 const BAG_FULL_MSG = 'No room in your bag — sell, eat, or carry a bigger one.';
+// The other line every player meets constantly: an action they cannot afford.
+// It was a bare lowercase fragment at three call sites — the stick, the cave
+// dig and the shared spendEnergy gate — and it named the STATE without the
+// remedy, so a player at 1⚡ was told "too tired" and left to work out that
+// energy comes back from food, from their own home, and from a campfire. Three
+// words longer, and it is the whole answer.
+const TOO_TIRED_MSG = 'Too tired — eat, or rest at home or a fire.';
 
 // --- Economy tuning ---
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
@@ -3838,11 +3862,10 @@ class MapScene extends Phaser.Scene {
           if (caughtSet.has(id)) return;
           // ~5% of wild animals spawn as the rare shiny variant — stamped at
           // spawn off the stable id so it survives reloads and rides along
-          // through tame/release/re-catch. Slimes are energy pests with no
-          // catch/hunt payoff, so they never go shiny (a shiny slime would
-          // promise a reward it can't pay).
-          const shiny = kindStr !== 'slime' && isShiny(id, SHINY_RATE.animal);
-          creatures.push({ x: wmx, y: wmy, kind: kindStr, id, shiny });
+          // through tame/release/re-catch. The slime exception (an energy pest
+          // with no catch payout never goes shiny) lives in faunaShiny, so the
+          // doorstep greeter below obeys it through the same call.
+          creatures.push({ x: wmx, y: wmy, kind: kindStr, id, shiny: faunaShiny(kindStr, id) });
           return;
         }
       }
@@ -3948,6 +3971,7 @@ class MapScene extends Phaser.Scene {
     if (isStarterTile) {
       this._placeStarterTrail(entry, tx, ty);
       this._stripStarterCrates(entry);      // hard mode: no supply handout
+      this._placeHomeGreeter(entry, tx, ty); // the mode's doorstep creature
     } else {
       // Any tile arriving can complete a starter-home plan that was deferred
       // (or left short) because the map around spawn was still streaming —
@@ -4145,11 +4169,11 @@ class MapScene extends Phaser.Scene {
     sv.starterCratesAt = { x, y };
     if (typeof persistSave === 'function') persistSave(sv);
     if ((this.depth || 0) !== 0) return;     // tileCache is repointed underground
-    const tx = Math.floor(x / this.tileEdgeM), ty = Math.floor(y / this.tileEdgeM);
-    const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-    if (e && (!e.status || e.status === 'ready') && e.grid) {
-      this._placeStarterTrail(e, tx, ty);
-      this._stripStarterCrates(e);          // hard mode: no supply handout
+    const home = this._starterTileEntry();
+    if (home) {
+      this._placeStarterTrail(home.entry, home.tx, home.ty);
+      this._stripStarterCrates(home.entry);                       // hard mode: no supply handout
+      this._placeHomeGreeter(home.entry, home.tx, home.ty);       // the mode's doorstep creature
     }
     // The pond's band reaches into the neighbours, which may have spawned
     // before there was an anchor to measure it from — run the pass over
@@ -7797,10 +7821,15 @@ class MapScene extends Phaser.Scene {
           // such cells get bounced by the attempt loop until they pick a
           // different direction.
           if ((c.kind === 'crow' || c.kind === 'deer') && this._nearAny('scarecrows', tx, ty, 4)) continue;
-          // Fire aversion (slime only) — a lit campfire repels slimes exactly
-          // like a scarecrow repels crows/deer, so slimes can't ooze into (or
-          // steal energy across) the warm ring around a campfire.
-          if (c.kind === 'slime' && this._nearAny('fires', tx, ty, 4)) continue;
+          // Fire aversion — a lit campfire repels the surface slime exactly
+          // like a scarecrow repels crows/deer, so it can't ooze into (or
+          // steal energy across) the warm ring around a campfire. Extended to
+          // the cave's own entry-level monsters (FIRE_WARD_MAX_DEPTH): a
+          // goblin or its archer is undeterred by firelight, only the cave
+          // slime and purple slime it's a tier above.
+          const fireAverts = c.kind === 'slime' ||
+            (isMon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH);
+          if (fireAverts && this._nearAny('fires', tx, ty, 4)) continue;
           foundValidTarget = true;
           break;
         }
@@ -8609,7 +8638,7 @@ class MapScene extends Phaser.Scene {
       const now = Date.now();
       if (now - (this._steerTiredFlashAt || 0) > 3000) {
         this._steerTiredFlashAt = now;
-        this.flash('too tired', this.viewCenterX, this.viewCenterY);
+        this.flash(TOO_TIRED_MSG, this.viewCenterX, this.viewCenterY);
       }
       return;
     }
@@ -9040,7 +9069,7 @@ class MapScene extends Phaser.Scene {
     // Charge at COMPLETION instead (in the wheel callback below): a dug wall
     // always costs, an interrupted one costs nothing — and isn't dug.
     if (cost > (this.save.energy ?? 0)) {
-      this.flash('too tired', this.viewCenterX, this.viewCenterY);
+      this.flash(TOO_TIRED_MSG, this.viewCenterX, this.viewCenterY);
       this._followPaused = true;   // out of energy — stop chewing the wall
       return;
     }
@@ -9589,7 +9618,8 @@ class MapScene extends Phaser.Scene {
 
   // True if world point (wx,wy) is within `cells` cells of ANY entry (a {x,y})
   // in save[listKey]. Shared by fauna aversion: scarecrows repel crows/deer and
-  // campfires repel slimes, both at the same radius, so the wander/flight target
+  // campfires repel the surface slime plus the cave's entry-level monsters
+  // (FIRE_WARD_MAX_DEPTH), all at the same radius, so the wander/flight target
   // pickers funnel through one check instead of three copies of the loop.
   _nearAny(listKey, wx, wy, cells) {
     const list = this.save[listKey];
@@ -9932,12 +9962,132 @@ class MapScene extends Phaser.Scene {
       // strip any tile built from here on.
       WorldGen.tileCache?.forEach?.((entry) => this._stripStarterCrates(entry));
     }
+    // Same race for the doorstep greeter: a save reads as EASY until the card
+    // is answered, so a starter tile built first is standing a chicken there.
+    // _placeHomeGreeter swaps a wrong-kind greeter for this mode's own.
+    const home = this._starterTileEntry();
+    if (home) this._placeHomeGreeter(home.entry, home.tx, home.ty);
     persistSave(this.save);
     this.updateObjectiveDOM();
     this.buildInventoryDOM();
     if (this.updateHUD) this.updateHUD();
     return true;
   }
+  // The cached tile entry holding the frozen starter anchor, with its tile
+  // coords — or null when the anchor hasn't resolved, the tile isn't cached,
+  // or we're underground (tileCache is repointed down there). Three passes
+  // need "the starter tile, right now" — the crate strip, the greeter, and the
+  // retro-place when the anchor freezes late — and asking three different ways
+  // is how one of them ends up looking at a tile the others don't.
+  //
+  // Reads only the FROZEN anchor, never _starterTrailAnchor(): that getter
+  // freezes one as a side effect when the origin looks trustworthy, and its
+  // callers are all points where a tile is being built (so a GPS fix has
+  // landed). chooseMode is not — the card can be answered at boot, before the
+  // first fix, and freezing there would pin home to the default projection
+  // origin while the player is actually somewhere else. With no anchor yet
+  // there is simply nothing cached to act on, and spawnInTile does the work
+  // when the real starter tile builds.
+  _starterTileEntry() {
+    if ((this.depth || 0) !== 0) return null;
+    const anchor = this.save.starterCratesAt;
+    if (!anchor || !Number.isFinite(anchor.x)) return null;
+    const tx = Math.floor(anchor.x / this.tileEdgeM);
+    const ty = Math.floor(anchor.y / this.tileEdgeM);
+    const entry = WorldGen.tileCache?.get?.(WorldGen.tileKey(tx, ty));
+    if (!entry || (entry.status && entry.status !== 'ready') || !entry.grid) return null;
+    return { entry, tx, ty };
+  }
+
+  // ── The doorstep greeter ───────────────────────────────────────────────────
+  // ONE creature guaranteed beside the starting trailer, whatever the tile's
+  // biome roll gave it: a chicken on easy, a slime on hard
+  // (Difficulty.get().homeGreeter). It is the first living thing a new save
+  // sees, and it says which game this is before any text does — a bird you can
+  // feed and catch, or a pest already in the yard.
+  //
+  // Seated by the SHARED spawn rule (WorldGen.isSpawnCell over the tile's own
+  // roadMask), nearest valid cell first, in the HOME_GREETER_* ring. The
+  // fallback pass drops only the residential-frontage clause — never the road
+  // mask: "always" does not license standing an animal on the carriageway, and
+  // a greeter with nowhere legal to stand simply isn't seated.
+  //
+  // Deliberately NOT routed through the pest amnesty (_pestFreeZone): the mode
+  // that seats a slime is the mode with no amnesty, and an amnesty that pushed
+  // this one away would quietly undo the guarantee.
+  //
+  // Idempotent, and self-correcting on the mode. It runs from spawnInTile (the
+  // starter tile's build), from _setStarterCratesAt (the anchor freezing after
+  // that tile already spawned) and from chooseMode (the card answered after the
+  // tile was built with the default-easy chicken) — so a greeter of the WRONG
+  // kind is removed and replaced rather than left standing beside the right one.
+  // Killed or caught, it stays gone: save.caught is checked by id.
+  _placeHomeGreeter(entry, tx, ty) {
+    if (typeof Difficulty === 'undefined') return;
+    const kind = Difficulty.get().homeGreeter;
+    // Only a tile that has already rolled its fauna — seating onto a
+    // not-yet-spawned entry would hand spawnInTile a non-empty creatures array
+    // and its `entry.creatures || creatures` would keep MY one and drop the
+    // whole tile's roll.
+    if (!entry || !entry.grid || !entry._spawned) return;
+    const anchor = this.save.starterCratesAt || this._starterTrailAnchor();
+    if (!anchor || !Number.isFinite(anchor.x)) return;
+    entry.creatures = entry.creatures || [];
+    // One greeter per starter tile: drop any left by an earlier mode. A PET is
+    // never swept — a sapphire-tamed slime is re-minted with a `released_` id
+    // (interact.js `releasedId`) that carries none of this tag, but the guard
+    // is here anyway because sweeping someone's pet is not a bug worth finding
+    // out about in the field.
+    const tag = `_greeter_${tx}_${ty}`;
+    const id = `${kind || ''}${tag}`;
+    const stale = entry.creatures.filter(c => typeof c.id === 'string'
+      && c.id.endsWith(tag) && c.id !== id && !c.id.startsWith('released_'));
+    if (stale.length) entry.creatures = entry.creatures.filter(c => !stale.includes(c));
+    if (!kind) return;                                   // a mode with no greeter
+    if (entry.creatures.some(c => c.id === id)) return;   // already standing
+    if (this.save.caught?.includes(id)) return;           // dealt with, stays gone
+
+    const N = entry.cellsPerEdge;
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const ax = Math.floor((anchor.x - tx0) / this.cellM);
+    const ay = Math.floor((anchor.y - ty0) / this.cellM);
+    // Cells already carrying something drawn — a chicken standing inside a
+    // starter crate reads as a bug whichever the renderer draws second.
+    const occupied = new Set();
+    const cellKeyAt = (wx, wy) =>
+      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM);
+    for (const o of (entry.objects || [])) occupied.add(cellKeyAt(o.x, o.y));
+    for (const w of (entry.wildplants || [])) occupied.add(cellKeyAt(w.x, w.y));
+    const opts = { roadMask: entry.roadMask };
+    const onRoad = (cx, cy) => !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
+    const standable = (cx, cy) =>
+      cx >= 0 && cx < N && cy >= 0 && cy < N &&
+      !occupied.has(cx + ',' + cy) &&
+      !faunaBlocksCell(entry.grid[cy * N + cx]);
+    // Nearest cell in the ring that `accept`s, scanned in a fixed order so the
+    // same anchor always seats it in the same place.
+    const pick = (accept) => {
+      let best = null, bestD = Infinity;
+      for (let cy = ay - HOME_GREETER_MAX_CELLS; cy <= ay + HOME_GREETER_MAX_CELLS; cy++) {
+        for (let cx = ax - HOME_GREETER_MAX_CELLS; cx <= ax + HOME_GREETER_MAX_CELLS; cx++) {
+          const d = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));
+          if (d < HOME_GREETER_MIN_CELLS || d >= bestD) continue;
+          if (!standable(cx, cy) || !accept(cx, cy)) continue;
+          best = { cx, cy }; bestD = d;
+        }
+      }
+      return best;
+    };
+    const seat = pick((cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts))
+              || pick((cx, cy) => !onRoad(cx, cy));
+    if (!seat) return;
+    entry.creatures.push({
+      x: tx0 + (seat.cx + 0.5) * this.cellM,
+      y: ty0 + (seat.cy + 0.5) * this.cellM,
+      kind, id, shiny: faunaShiny(kind, id),
+    });
+  }
+
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
   // chests _placeStarterTrail seats) from a tile. The relic chest at the end of
   // the trail is TREASURE, not supplies, and stays. Idempotent; a no-op on easy.
@@ -10043,7 +10193,7 @@ class MapScene extends Phaser.Scene {
     if (cost <= 0) return true;
     const r = Energy.spend(this.save, cost);
     if (!r.ok) {
-      if (sx != null && sy != null) this.flash('too tired', sx, sy);
+      if (sx != null && sy != null) this.flash(TOO_TIRED_MSG, sx, sy);
       return false;
     }
     const at = cell || this._cellAtScreen(sx, sy);
@@ -10061,7 +10211,7 @@ class MapScene extends Phaser.Scene {
     // Energy.crossedTired owns the reach-potion guard + 30%-threshold math; this
     // wrapper only fires the flash (defaulting to the view centre).
     if (Energy.crossedTired(this.save, before)) {
-      this.flash('getting tired…', sx != null ? sx : this.viewCenterX,
+      this.flash('Getting tired…', sx != null ? sx : this.viewCenterX,
                                     sy != null ? sy : this.viewCenterY);
     }
   }
@@ -10116,17 +10266,25 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // Read a book (consumed): pick a random tip from PLAY_TIPS, OR — 50% of the
-  // time when an unopened chest exists within ~250 paces — reveal directional
-  // hint to the nearest one ("about 47 paces northwest"). Either way it's
-  // never useless: even repeat-readers learn something or get a hint.
-  readBook() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'book' || (sel.count ?? 0) <= 0) return false;
-    let body;
-    let title = '📖 You crack open the book';
-    // Try the directional-hint branch first (coin flip).
-    if (Math.random() < 0.5) {
+  // Pick the Book's payload: a directional chest hint, or the next page of
+  // the PLAY_TIPS curriculum. Returns { title, body } and — for a page —
+  // advances save.tipsRead, so the caller must persist afterward. Shared by
+  // readBook (a book already sitting in an older save) and addToInv's
+  // auto-read on pickup, so the two paths can't drift.
+  //
+  // THE COURSE COMES FIRST. The directional chest hint is a coin flip against
+  // the tip, which was fine while tips were drawn at random — one payload was
+  // as good as the other. Against an ORDERED list it competes with the
+  // teaching: every hint is a book that taught nothing new, so a 50% flip
+  // doubles the books needed to finish the course. So the hint only offers
+  // itself once there is nothing left to teach (every page read at least
+  // once). Nothing is lost by that — finding chests has its own dedicated
+  // item, the Pairy, which reveals the nearest unfound one for five minutes
+  // — and it gives the Book a second life instead of a rival payload.
+  _bookRead() {
+    const coursePending = (this.save.tipsRead ?? 0) < PLAY_TIPS.length;
+    // Try the directional-hint branch first (coin flip), once the course is done.
+    if (!coursePending && Math.random() < 0.5) {
       const chest = this.findNearestUnopenedChest();
       if (chest) {
         const pWX = this.startWorldM.x + this.playerM.x;
@@ -10140,15 +10298,44 @@ class MapScene extends Phaser.Scene {
           const dirs = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
           const dir = dirs[Math.round(ang / 45) % 8];
           const placeName = chest.name ? rusticifyName(chest.name) : 'a chest';
-          body = `"${placeName} lies about ${paces} paces ${dir}."`;
+          return { title: '📖 You crack open the book', body: `"${placeName} lies about ${paces} paces ${dir}."` };
         }
       }
     }
-    if (!body) {
-      // Generic tip from the pool.
-      const tip = PLAY_TIPS[Math.floor(Math.random() * PLAY_TIPS.length)];
-      body = `"${tip}"`;
-    }
+    // IN ORDER, NOT AT RANDOM. PLAY_TIPS is a curriculum — it runs from what
+    // a player meets in the first hour (energy, the readouts, the farm) out
+    // to the gates they reach hours later, and ends on the one riddle. A
+    // uniform draw threw that ordering away and, worse, had no memory: with
+    // 72 tips the birthday problem puts a repeat inside the first ~10 reads,
+    // and reading the whole list took ~370 books on average. So the Book
+    // walks the list instead, one page per read, and `save.tipsRead` is the
+    // bookmark — persisted by the caller so it survives a reload, and
+    // defaulted so a save from before this starts at page one.
+    //
+    // The cursor is stored UNWRAPPED and wrapped at read time: the list
+    // grows, and a modulo taken at write time would scramble the bookmark
+    // every time a tip was added.
+    const read = this.save.tipsRead ?? 0;
+    const page = read % PLAY_TIPS.length;
+    this.save.tipsRead = read + 1;
+    // Say the real number (QC: a quantity the player can see gets stated).
+    // It also makes the ordering legible — a reader can tell they are being
+    // taught a course rather than handed a random line — and tells them how
+    // much is left. Past the last page the book comes round again from the
+    // top, which is the best re-read order for the same reason it was the
+    // best first-read order.
+    return {
+      title: `📖 The book falls open at page ${page + 1} of ${PLAY_TIPS.length}`,
+      body: `"${PLAY_TIPS[page]}"`,
+    };
+  }
+
+  // Read a book (consumed). Kept for saves that already have one sitting in
+  // inventory from before books started auto-reading on pickup (addToInv).
+  readBook() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'book' || (sel.count ?? 0) <= 0) return false;
+    const { title, body } = this._bookRead();
     return this._finishConsumable(title, body);
   }
 
@@ -10869,7 +11056,11 @@ class MapScene extends Phaser.Scene {
     const sel = this.save.inv[this.save.selSlot];
     const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
     if (isHome) {
-      if (!hasSel) { this.flash('home sweet home', sx, sy); return; }
+      // Tapping your own home empty-handed is the one moment the game can
+      // say what home is FOR. Selling is home-only — the single most
+      // easily-missed rule in the economy — and this tap was answering it
+      // with a stock phrase and nothing else.
+      if (!hasSel) { this.flash('Home sweet home. Pick a stack to sell it here.', sx, sy); return; }
       // noSell items (the Discovery badge) never enter the sell modal — the
       // wizard tower is the only place they're worth anything.
       if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
@@ -11124,7 +11315,7 @@ class MapScene extends Phaser.Scene {
     // above). buildShopOffer always returns a cash offer.
     const offer = this.buildShopOffer(id, baseValue, { house });
     if (!offer) {
-      this.flash('no deal', sx, sy);
+      this.flash(`"Nothing worth selling today. Come back ${this.shopWaitLabel(house)}."`, sx, sy);
       return;
     }
     // Cash purchases hand over exactly ONE unit — the ×2 TRADE_OFFER_QTY
@@ -11809,7 +12000,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const wanted = this.wantedProduce(house);
-    if (!wanted.length) { this.flash('nobody home', sx, sy); return; }
+    if (!wanted.length) { this.flash('Nobody home.', sx, sy); return; }
     const single = wanted.length === 1;
     const invCount = (id) => Inventory.count(this.save, id);
     // Full set requires at least one of every wanted item. maxSets is how many
@@ -12144,7 +12335,15 @@ class MapScene extends Phaser.Scene {
       onAccept: (n) => {
         const q = Math.max(1, Math.min(n ?? 1, cap));
         if (q < 1 || !recipe.every(r => heldCount(r.id) >= r.qty * q)) {
-          this.flash('not enough to smelt', sx, sy); return;
+          // Name the ingredient and the shortfall — 'not enough to smelt'
+          // made the player close the modal and count their own bag, with
+          // the recipe line right there on screen in red.
+          const missing = recipe.find(r => heldCount(r.id) < r.qty * q);
+          const short = missing ? (missing.qty * q) - heldCount(missing.id) : 0;
+          const name = missing ? (ITEM_BY_ID[missing.id]?.name || missing.id) : '';
+          this.flash(missing ? `Need ${short} more ${name} to smelt that.`
+                             : 'Not enough to smelt.', sx, sy);
+          return;
         }
         for (const r of recipe) consume(r.id, r.qty * q);
         this.addToInv(target, q);
@@ -12363,7 +12562,7 @@ class MapScene extends Phaser.Scene {
 
   presentTraderOffer(sx, sy, house, recordDeal) {
     const offer = this.peekOrBuildTraderOffer(house);
-    if (!offer) { this.flash('no deal', sx, sy); return; }
+    if (!offer) { this.flash(`"No trade in me today. Come back ${this.shopWaitLabel(house)}."`, sx, sy); return; }
     const giveItem = ITEM_BY_ID[offer.giveId];
     const askItem  = ITEM_BY_ID[offer.askId];
     const heldCount = () => Inventory.count(this.save, offer.askId);
@@ -14309,6 +14508,23 @@ class MapScene extends Phaser.Scene {
   // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
   // flash. Returns the count actually accepted so callers can adjust narration.
   addToInv(id, n = 1, silent = false) {
+    // A book triggers its read (a page of the course, or a chest hint) the
+    // instant it's picked up rather than waiting in the bag for a manual
+    // Read tap — see readBook / _bookRead. It never occupies an inventory
+    // slot, so it skips Inventory.add entirely; it still counts as
+    // "accepted" for callers that adjust their pickup narration off the
+    // return value.
+    if (id === 'book') {
+      if (n <= 0) return 0;
+      if (!silent) {
+        for (let i = 0; i < n; i++) {
+          const { title, body } = this._bookRead();
+          this.showMessageModal({ title, body });
+        }
+        persistSave(this.save);   // _bookRead advances save.tipsRead
+      }
+      return n;
+    }
     const r = Inventory.add(this.save, id, n);
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
     if (!silent) {

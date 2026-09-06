@@ -244,7 +244,7 @@
   const SHOT = {
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
              phaseMs: 0, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS },
-    staff: { speedCps: 3.2, rangeCells: 7, color: 0x9ad6ff, dotPx: 3,
+    staff: { speedCps: 2.0, rangeCells: 7, color: 0x9ad6ff, dotPx: 3,
              phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest',
              growsWithTier: true,
              fireIntervalMs: FIRE_INTERVAL_MS * STAFF_BEAT_MUL },
@@ -259,10 +259,14 @@
   // Damage weight per slot: a staff bolt lands double an arrow's share.
   const SHOT_DMG_MUL = { bow: 1, staff: 2 };
   // How close a shot has to pass to a foe's feet to count as a hit, in cells.
-  // Deliberately generous: the heading comes off a phone COMPASS, which is
-  // coarse and jittery, so a strict hit box would make the whole mechanic read
-  // as broken. Just under a cell puts a foe eight cells out inside a ~7° cone.
-  const HIT_RADIUS_CELLS = 0.9;
+  // Both weapons now sweep the SAME tight radius: a shot has to actually
+  // reach a foe, not just pass somewhere in its neighbourhood. The bow used
+  // to carry a much wider radius (0.9 cells) to forgive a phone COMPASS
+  // heading being coarse and jittery, but that forgiveness is exactly what
+  // made a shot look like it "hit" a foe it visibly missed — so the bow now
+  // takes the same collision precision the staff does, at the cost of the
+  // compass needing to actually be lined up.
+  const HIT_RADIUS_CELLS = 0.35;
 
   // ── Bolt size by tier ────────────────────────────────────────────────────
   // A slot flagged `growsWithTier` (the staff) fires a bigger shot the better
@@ -272,9 +276,8 @@
   // what app.js paints) come off the SAME `boltScale`, stamped onto the shot
   // by spawnShot — the roadOverlayWidthM discipline: a bolt drawn twice as
   // fat had better sweep twice as wide, and a single number keeps them from
-  // drifting apart. The bow's arrow is not flagged: its forgiveness is for
-  // the compass, not a property of the arrow, and stays HIT_RADIUS_CELLS at
-  // every tier.
+  // drifting apart. The bow's arrow is not flagged: it stays at
+  // HIT_RADIUS_CELLS at every tier.
   const MAX_TIER = 7;
   const BOLT_MAX_TIER_MUL = 2;
   function boltScale(slot, tier) {
