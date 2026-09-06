@@ -636,10 +636,11 @@ const TAP_HANDLERS = [
       // lose their in-memory _pettedUntilT (a performance.now value that also
       // resets to ~0 on reload), so the produce path below reads the persisted
       // copy; otherwise the boost would silently never survive a tile change.
+      const PET_BOOST_MS = 10 * 60 * 1000;
       const doPet = () => {
-        target._pettedUntilT = performance.now() + 10 * 60 * 1000;
+        target._pettedUntilT = performance.now() + PET_BOOST_MS;
         save.petBoost = save.petBoost || {};
-        save.petBoost[target.id] = Date.now() + 10 * 60 * 1000;
+        save.petBoost[target.id] = Date.now() + PET_BOOST_MS;
         if (target.kind === 'cat') {
           target._followUntilT = performance.now() + 5 * 60 * 1000;
         }
@@ -647,7 +648,10 @@ const TAP_HANDLERS = [
           consumeSelected(save);
           scene.buildInventoryDOM();
         }
-        scene.flashLoot(`💗 ${sound}`, '#ff8aff', 0.85);
+        // The boost is timed, so the flash says for how long — before this it
+        // was the one buff in the game with no readout at all, and a player
+        // who petted a cow had no way to know the double-yield window.
+        scene.flashLoot(`💗 ${sound} — ${shortDuration(PET_BOOST_MS)}`, '#ff8aff', 0.85);
         persistSave(save);
       };
       // A treat is FED → confirm what's going to the pet first. An empty-handed
@@ -699,10 +703,9 @@ const TAP_HANDLERS = [
           // Still on cooldown — refuse without consuming the produce. Bail
           // before the confirm dialog so we don't ask about a feed that can't
           // happen yet.
-          const remainMs = PRODUCE_COOLDOWN_MS - (now - lastT);
-          const mins = Math.max(1, Math.ceil(remainMs / 60000));
+          const left = shortDuration(PRODUCE_COOLDOWN_MS - (now - lastT));
           const verb = target.kind === 'chicken' ? 'laid' : 'milked';
-          scene.flash(`already ${verb} (${mins}m)`, sx, sy);
+          scene.flash(`already ${verb} — in ${left}`, sx, sy);
           return true;
         }
         const feedId = sel.id;
@@ -985,21 +988,11 @@ const TAP_HANDLERS = [
     return false;
   }},
 
-  // 2a-path) Path-stone tap. Tapping a named pedestrian-path cell claims
-  // it (same effect as stepping on it). Doesn't consume the tap — falls
-  // through so any other handler on the same cell still fires (e.g. a
-  // wildplant on the cell next to the path). The activation method is
-  // a no-op if the cell isn't a named path or is already claimed.
-  { name: 'path-stone', try: (ctx) => {
-    const { scene, cellIX, cellIY, cwmx, cwmy, cell } = ctx;
-    if (!cell || cell.type !== TERRAIN.PATH) return false;
-    const ctx_tx = Math.floor(cwmx / scene.tileEdgeM);
-    const ctx_ty = Math.floor(cwmy / scene.tileEdgeM);
-    if (typeof scene._activatePathStone === 'function') {
-      scene._activatePathStone(ctx_tx, ctx_ty, cellIX, cellIY);
-    }
-    return false;   // don't consume — let downstream handlers run
-  }},
+  // (There used to be a 'path-stone' handler here that claimed the cobble a
+  // tap landed on. Cobbles light by PROXIMITY now — app.js _sweepCobbleTrails
+  // lights every one inside the player's reach as they walk past — so the tap
+  // has nothing left to do, and a handler that claimed only the single tapped
+  // cell would be strictly worse than the sweep that already claimed it.)
 
   // 2a) Building-zone tap — runs AFTER cell-resolve so we already know the
   // player is within tap range of the cell. If that cell is a building tile
@@ -1203,6 +1196,15 @@ const TAP_HANDLERS = [
       return `${CROP_NAMES?.[p.crop] || p.crop} ${stage + 1}/${MAX_GROWTH_STAGE + 1}`;
     };
     const stageHoldMs = Crops.STAGE_HOLD_MS;   // single source of truth in crops.js
+    // The wait to the next stage, in the shared largest-unit notation — or ''
+    // when the plant isn't counting down (unwatered, or ripe). The corner
+    // badge over the cell has always shown this number; the tap that reads the
+    // plant out loud did not, so a player who tapped instead of squinting at
+    // the badge was told the stage and nothing about the wait.
+    const growthLeft = () => {
+      if (!p.watered_t || Crops.isMature(p)) return '';
+      return ` — ${shortDuration(stageHoldMs - (Date.now() - p.watered_t))}`;
+    };
     const sinceWater = p.watered_t ? Date.now() - p.watered_t : Infinity;
     if (p.watered_t && sinceWater >= stageHoldMs && !Crops.isMature(p)) {
       p.stage = (p.stage ?? 0) + 1;
@@ -1260,11 +1262,12 @@ const TAP_HANDLERS = [
       ctx.dirty = true;
       // Water the plant AND report its growth progress so the player can see
       // how close it is to harvest (e.g. "Pairy 2/5").
-      scene.flash(jumped ? `🌱 sprang ahead! ${stageReadout()}` : stageReadout(), sx, sy);
+      scene.flash((jumped ? `🌱 sprang ahead! ${stageReadout()}` : stageReadout())
+                  + growthLeft(), sx, sy);
       return true;
     }
-    // Already watered and still growing: show the growth-stage readout.
-    scene.flash(stageReadout(), sx, sy);
+    // Already watered and still growing: the stage readout plus the wait left.
+    scene.flash(stageReadout() + growthLeft(), sx, sy);
     return true;
   }},
 

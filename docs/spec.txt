@@ -390,21 +390,20 @@ INTERACTION MODEL
      5)  world object standing in the tapped cell: chest, well, tree, fruit
          tree, mineral rock, ground stack, house/tower (shop), shrine
      6)  resolve the tapped cell (bail if unloaded / out of reach)
-     7)  path-stone claim (non-consuming — falls through)
-     8)  building-zone tap → a tap on any BUILDING cell snaps to the nearest
+     7)  building-zone tap → a tap on any BUILDING cell snaps to the nearest
          house/tower sprite within 30m and routes to its shop (this is how a
          footprint larger than the sprite's own cell stays tappable)
-     9)  release a selected animal onto the cell
-    10)  pick up a placed rock / placed scarecrow
-    11)  place a held rock / scarecrow on an empty tilled-able cell
-    12)  break a natural rock cell (needs energy; pickaxe speeds it up)
-    13)  planted cell → harvest / advance / water / nag
-    14)  refill watering can from a WATER cell
-    15)  fish a WATER cell (bare-handed OK; rod speeds it) — also tops up the can
-    16)  tilled empty cell + seed → plant; with no seed selected it says so and
+     8)  release a selected animal onto the cell
+     9)  pick up a placed rock / placed scarecrow
+    10)  place a held rock / scarecrow on an empty tilled-able cell
+    11)  break a natural rock cell (needs energy; pickaxe speeds it up)
+    12)  planted cell → harvest / advance / water / nag
+    13)  refill watering can from a WATER cell
+    14)  fish a WATER cell (bare-handed OK; rod speeds it) — also tops up the can
+    15)  tilled empty cell + seed → plant; with no seed selected it says so and
          LEAVES THE SOIL ALONE (the un-till toggle is gone — see FARMING LOOP)
-    17)  untilled tillable cell → till it
-    18)  non-tillable terrain → flavour label (water / building / road / path)
+    16)  untilled tillable cell → till it
+    17)  non-tillable terrain → flavour label (water / building / road / path)
  - the auto-till fallthrough refuses to till any cell occupied by a wildplant,
    crop, placed rock, building, tree, or chest, so a near-miss never silently
    tills under something.
@@ -747,15 +746,41 @@ TREASURE MARKS (X on the ground)
    spawn near a road.
 
 ================================================================================
-PATH STONES
+COBBLE TRAILS (path + road stones)
 ================================================================================
- - stepping on (or tapping) a named pedestrian-path cell claims that stone
-   automatically — no item, no UI. A claimed stone draws at FULL opacity in a
-   recoloured treasure blue-white (not just less see-through — a genuinely
-   different, lit-looking stone, since a plain alpha bump barely read as
-   "claimed" next to the unclaimed ones) while unclaimed cobbles sit at 57%
-   grey, so a walked path visibly lights up as you go. Claiming plays a brief
-   scale-pop on that exact stone so it reads as an event, not a silent swap.
+ - every cobble cell — footpath AND road alike — is a "stone" that LIGHTS THE
+   MOMENT IT ENTERS THE PLAYER'S LIT REACH. No tap, no footfall: walk near a
+   trail and every stone inside the lit bubble comes on at once, which is what
+   the reach circle already says it covers. (It used to want a tap on, or a
+   step into, each individual cell — fiddly on a phone, and with a road's
+   sparse cobbles it was unwalkable in practice.) The gate is the same
+   coords.js cellInReach the lit silhouette draws with, measured from the
+   PLAYER, not the camera anchor — a peek drag lights nothing extra.
+ - a lit stone draws at FULL opacity in a recoloured BRIGHT BLUE (a saturated
+   sky blue baked per road/path frame, not a tint — setTint is a no-op under
+   the Canvas fallback) while unlit cobbles sit at 57% grey, so a walked trail
+   visibly lights up as you go. Lighting plays a scale-pop on each stone; the
+   pop swells the stone by its own width again, big enough to catch out of the
+   corner of the eye now that stones light several cells out rather than one
+   under your feet.
+ - each stone that comes on pops a small blue COUNTER by the player, in the
+   same place and shape as the rest-energy splash: the position inside the
+   current segment over that segment's length ("1/9", "7/20"). One counter per
+   trail per step, however many stones the step swept up.
+ - PRIZES ARE PER 20 STONES, and they are treasure only — the old "every 2nd
+   stone pays a coin" money drip is gone. The requirement caps at 20 and
+   RESTARTS, so a trail of N cells offers ceil(N / 20) prizes and the last
+   segment is the short remainder: a 45-cell street pays at 20, at 40, and
+   again when its final 5 light. Without the cap a road would ask for its
+   whole length across the tile and pay once, which in practice meant never.
+   Each prize is a lowtier-chest roll at tier 4 through the unified rarity
+   picker, shown with the chest reward fanfare; a step wide enough to cross
+   two boundaries queues the ceremonies rather than stacking modals.
+   The arithmetic — segment length, counter position, prizes owed — lives in
+   src/trail.js so the headless suite pins the shipping numbers.
+ - a trail under 8 cells lights but shows no counter and pays nothing. Every
+   cobble cell carries a name now, so without that floor a two-cell service
+   stub would pop the full treasure ceremony.
  - WHICH CELLS ARE PATH AT ALL is geometric. A cell becomes PATH only where
    at least one full cell width of way lies inside it — the path runs THROUGH
    the cell rather than clipping its corner or stopping just inside. Measured
@@ -771,19 +796,26 @@ PATH STONES
    draws orthogonal arms only). Its span is ~0 by construction, so gating it
    deletes it — a 45-degree footpath measured 31 orphaned cells of 65. It sits
    between two cells the line genuinely crosses and is always painted.
+ - WHICH TRAIL A CELL BELONGS TO is a WAVEFRONT, not a flood fill. The
+   transportation_name centreline march names only the cells lying exactly on
+   the polyline; every one of those seeds a multi-source BFS over the cobble
+   mask, and an unnamed cobble cell joins whichever named way reaches it
+   first. A plain flood fill would swallow a tile's whole road network into
+   ONE component (every street meets every other at a junction) and give it a
+   single name. Cells in a component that caught no OSM name at all fall
+   through to a synthetic per-tile "trail#<tile>_<n>" id, shown as
+   HIDDEN TRAIL. Both passes are 8-connected: Bresenham's diagonal steps leave
+   consecutive cells touching only at a corner, and a 4-connected walk would
+   shatter a staircase footpath into 1-cell components that never pay.
+   Names are keyed PER TILE, so a trail crossing N tiles offers its prizes
+   separately on each.
  - Of the cells that ARE path, only ~50% draw a decorative pebble sprite (a
    stone on every single 7m cell read as a paved strip, not scattered stepping
-   stones) — a PURELY decorative, permanent per-cell roll on top of the
-   geometry above: claiming still counts toward the path whether or not that
-   cell ever had a visible stone, and a cell that rolled no stone stays bare
-   even once claimed (it never pops one in — that would read as a bug, not
-   as "lighting up").
-   Every 2nd claimed stone on the same named path awards 1 coin
-   (a 30-stone path pays 15 coins total; a single stone pays nothing).
- - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)
-   fires a one-time completion reward via the unified rarity picker (lowtier
-   chest curve at tier 4), shown with the chest reward fanfare. This is on top
-   of the per-10-stone coins.
+   stones), and a road cell draws its cluster 15% of the time — a PURELY
+   decorative, permanent per-cell roll on top of the geometry above: lighting
+   still counts that cell toward the trail whether or not it ever had a
+   visible stone, and a cell that rolled no stone stays bare even once lit
+   (it never pops one in — that would read as a bug, not as "lighting up").
 
 ================================================================================
 WELLS / FOUNTAINS
@@ -1204,7 +1236,7 @@ DIALOGS
    where you are and not at all when you don't.
  - The label is the CATEGORY; the flavour line underneath still carries the
    specific offer. A caller may override the label for a one-off outcome
-   ("MILL LANE complete") and keep the kind's icon.
+   ("MILL LANE walked") and keep the kind's icon.
  - MODAL_KINDS (src/app.js) is the whole taxonomy: quest, treasure, trail,
    shop, trade, forge, relics, delivery, build, wizard, farm, stats, energy,
    rest, use, note. The header is built by makeModalShell and injected in

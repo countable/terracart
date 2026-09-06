@@ -266,6 +266,28 @@
   **Audit it:** `node test/node/run.js` › `test/node/feet_anchor.test.js`
   pins the seating as source text (app.js can't load headlessly).
 
+- **Every wait the player can read is `shortDuration`.** One notation, one
+  helper: the LARGEST unit that applies, an integer, and a unit letter —
+  `20d`, `3h`, `30m`, `12s`. Never a compound (`1h 5m`), never a bare number,
+  never `0m` while the gate still refuses (the ceil cascades, so 59.5 minutes
+  is `1h` and the smallest pending wait is `1s`). It lives in
+  **`src/util.js`** › `shortDuration`, beside `msToNextUtcDay` — the companion
+  for anything gated on a UTC day key (`Delivery.dayKey`, the castle favour,
+  the coin-burst POIs), because "come back tomorrow" is twenty hours or twenty
+  minutes and the player can't tell which.
+  Until Sep 2026 there were FIVE shapes for the same question: the fruit tree
+  rolled its own `d`/`h` ladder, the produce cooldown printed `(43m)`, the shop
+  plaque `12m`, the crop badge a **bare `7`** with no unit at all, and the
+  delivery house, the castle, the coin-burst POI and the resting anvil gave no
+  number whatsoever. A shop's wait is the one number two call sites both draw
+  (`ShopsMath.readiness().waitMs` for the plaque, `shopWaitLabel` for the tap),
+  so both format the same ms — the `roadOverlayWidthM` discipline again.
+  **When you add a timed thing, format its wait with `shortDuration`** — and if
+  it has no readout at all, that is the bug, not a style choice.
+  **Audit it:** `node test/node/run.js` › `test/node/duration_notation.test.js`
+  pins the formatter and sweeps the call-site sources for a re-grown ladder or
+  a fresh unquantified "tomorrow" / "later".
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always

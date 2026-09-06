@@ -317,9 +317,10 @@ const INTERACTABLES = {
         const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;
         const elapsed = Date.now() - (o.planted_t || 0);
         if (elapsed < 4 * FRUIT_STAGE_MS) {
-          const msLeft = 4 * FRUIT_STAGE_MS - elapsed;
-          const daysLeft = Math.ceil(msLeft / FRUIT_STAGE_MS);
-          const left = daysLeft > 1 ? `${daysLeft}d` : `${Math.max(1, Math.ceil(msLeft / 3600000))}h`;
+          // Largest-unit notation via the shared shortDuration (util.js) — the
+          // hand-rolled d/h ladder that used to live here couldn't say "40m"
+          // on the last stretch and read "1h" for anything under one.
+          const left = shortDuration(4 * FRUIT_STAGE_MS - elapsed);
           scene.flash(`Still growing — ${left}`, sx, sy);
           return true;
         }
@@ -327,9 +328,7 @@ const INTERACTABLES = {
       save.fruitPicked = save.fruitPicked || {};
       const pickedAt = save.fruitPicked[o.id];
       if (pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS) {
-        const msLeft = FRUIT_RESPAWN_MS - (Date.now() - pickedAt);
-        const hrsLeft = Math.ceil(msLeft / 3600000);
-        const left = hrsLeft > 1 ? `${hrsLeft}h` : `${Math.max(1, Math.ceil(msLeft / 60000))}m`;
+        const left = shortDuration(FRUIT_RESPAWN_MS - (Date.now() - pickedAt));
         scene.flash(`Picked — ripe again in ${left}`, sx, sy);
         return true;
       }
