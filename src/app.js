@@ -10836,7 +10836,14 @@ class MapScene extends Phaser.Scene {
   // offered item's base price). Seeded by (house, bucket, rerolls) so the
   // offer is stable until the player buys, walks away through a bucket flip,
   // or pays the re-roll cost.
-  peekOrBuildTraderOffer(house) {
+  //
+  // The GIVE side is drawn first and on its own (traderGivePick) because the
+  // sign over the roof names the trader for it — "Rockfruit Trader" (render.js
+  // _houseSignText via Shops.roleLabel). Both read the same pick off the same
+  // rng lane, so the sign can't advertise a different item than the modal
+  // hands over; the ask side is drawn afterwards from the same stream, so the
+  // offer itself is unchanged by the split.
+  traderGivePick(house) {
     if (!house?.id) return null;
     const rng = this.shopRng(house, 'trader');
     // Same houseSeed produce-vs-buylist coin flip the generic path uses.
@@ -10850,6 +10857,19 @@ class MapScene extends Phaser.Scene {
       giveId = BUY_LIST[Math.floor(rng() * BUY_LIST.length)] || BUY_LIST[0];
     }
     if (!giveId) return null;
+    return { rng, giveId };
+  }
+  // Display name of what a trader currently offers, for its sign — null when
+  // there is no offer to name (the sign then falls back to a bare "Trader").
+  traderGoodsName(house) {
+    const pick = this.traderGivePick(house);
+    if (!pick) return null;
+    return ITEM_BY_ID[pick.giveId]?.name || pick.giveId;
+  }
+  peekOrBuildTraderOffer(house) {
+    const pick = this.traderGivePick(house);
+    if (!pick) return null;
+    const { rng, giveId } = pick;
     const baseValue = Math.max(1, PRICES[giveId] ?? 1);
     // Target trade value the trader considers appropriate.
     const target = baseValue * (1.0 + rng());

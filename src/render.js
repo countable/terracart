@@ -3639,9 +3639,14 @@ Render.drawObjects = function drawObjects(scene) {
   // roles no longer track the street address, so it would mislabel them.
   //
   // The produce shop's sign follows its STOCK: the tutorial's first one carries
-  // seeds, not produce, so it signs "Seed Shop" (see Shops.roleLabel).
+  // seeds, not produce, so it signs "Seed Shop" (see Shops.roleLabel). The
+  // trader's sign follows its OFFER: it is named for the item it barters away
+  // ("Rockfruit Trader" — scene.traderGoodsName reads the same seeded pick the
+  // barter modal hands over), and carries no street numeral, since which house
+  // number a trader occupies says nothing about what it sells.
   const _roleLabel = (role, o) => Shops.roleLabel(role,
-    role === 'market' && typeof scene.isFirstMarket === 'function' && scene.isFirstMarket(o));
+    role === 'market' && typeof scene.isFirstMarket === 'function' && scene.isFirstMarket(o),
+    role === 'trader' && typeof scene.traderGoodsName === 'function' ? scene.traderGoodsName(o) : null);
   const _houseSignText = (o) => {
     // Wrecks have no sign — their identity is hidden until the player
     // restores them. Once _houseRole stops returning 'wreck', the
@@ -3658,6 +3663,7 @@ Render.drawObjects = function drawObjects(scene) {
     const role = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
     const label = role ? _roleLabel(role, o) : null;
     if (label) {
+      if (role === 'trader') return label;   // named for its goods, not its address
       return `${label} ${Shops.toRoman((o.address ?? 0) + 1)}`;
     }
     // No specialty? Still give the building a label so the map reads as a

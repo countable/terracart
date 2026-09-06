@@ -30,12 +30,41 @@ test('shop naming: the produce shop is named for its stock, not "Market"', () =>
 
 test('shop naming: the other roles keep their names, and unknown roles get none', () => {
   assert.eq(Shops.roleLabel('blacksmith'), 'Blacksmith');
-  assert.eq(Shops.roleLabel('trader'), 'Trader');
+  assert.eq(Shops.roleLabel('trader'), 'Trader', 'a trader with no offer to name is a bare Trader');
   assert.eq(Shops.roleLabel('wizard'), 'Wizard');
   assert.eq(Shops.roleLabel('plain'), null, 'a plain house has no shop sign');
   assert.eq(Shops.roleLabel(null), null, 'no role → no label');
   // seedStock only ever touches the produce shop.
   assert.eq(Shops.roleLabel('blacksmith', true), 'Blacksmith', 'seedStock is market-only');
+});
+
+// The trader is named for the item it barters away, not its street number: a
+// "Trader XXVI" sign told the player nothing about whether the walk over was
+// worth it. The goods name comes from the same seeded give-pick the barter
+// modal hands over (app.js traderGivePick), so sign and deal can't disagree.
+test('shop naming: the trader is named for its goods, never its address', () => {
+  assert.eq(Shops.roleLabel('trader', false, 'Rockfruit'), 'Rockfruit Trader');
+  assert.eq(Shops.roleLabel('trader', false, 'Potato Seed'), 'Potato Seed Trader');
+  assert.eq(Shops.roleLabel('trader', false, null), 'Trader', 'no goods → bare Trader');
+  assert.eq(Shops.roleLabel('trader', false, ''), 'Trader', 'empty goods → bare Trader');
+  // goods only ever touches the trader.
+  assert.eq(Shops.roleLabel('market', false, 'Rockfruit'), 'Produce Shop', 'goods is trader-only');
+  assert.eq(Shops.roleLabel('blacksmith', false, 'Rockfruit'), 'Blacksmith', 'goods is trader-only');
+  assert.eq(Shops.roleLabel('wizard', false, 'Rockfruit'), 'Wizard', 'goods is trader-only');
+
+  // render.js: the sign asks the scene for the goods and skips the numeral.
+  assert.truthy(/role === 'trader' && typeof scene\.traderGoodsName === 'function' \? scene\.traderGoodsName\(o\)/.test(render),
+    'the map sign passes the trader\'s goods into Shops.roleLabel');
+  assert.truthy(/if \(role === 'trader'\) return label;/.test(render),
+    'a trader sign carries no address numeral');
+
+  // app.js: ONE give-pick feeds both the sign and the barter modal.
+  const pickCalls = app.match(/this\.traderGivePick\(house\)/g) || [];
+  assert.eq(pickCalls.length, 2, 'traderGoodsName and peekOrBuildTraderOffer both read traderGivePick');
+  assert.truthy(/traderGoodsName\(house\) \{[\s\S]{0,400}?ITEM_BY_ID\[pick\.giveId\]\?\.name/.test(app),
+    'the sign names the offered item by its catalogue name');
+  assert.falsy(/peekOrBuildTraderOffer\(house\) \{[\s\S]{0,300}?BUY_LIST\[Math\.floor/.test(app),
+    'the modal no longer rolls its own give item beside the sign\'s');
 });
 
 test('shop naming: the role KEY is untouched — saves still say "market"', () => {
