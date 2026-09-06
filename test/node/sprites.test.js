@@ -246,12 +246,14 @@ test('CROP_SPRITE: starflower is props frame 102 (row 4, col 14 → 4*22+14=102)
   assert.eq(4 * 22 + 14, 102, 'frame derivation');
 });
 
-// ── CROP_SPRITE: shell uses shell_sheet with 12 variants ──────────────────
+// ── CROP_SPRITE: shell lists the three frames that carry a shell ──────────
+// Shell.png is a 3×4 grid, but only its top row is shell art — see
+// test/node/shell_variants.test.js for what counting the cells instead cost.
 
-test('CROP_SPRITE: shell uses shell_sheet, custom: true, 12 variants', () => {
+test('CROP_SPRITE: shell uses shell_sheet, custom: true, frames 0-2', () => {
   assert.eq(CROP_SPRITE['shell'].sheet, 'shell_sheet');
   assert.eq(CROP_SPRITE['shell'].custom, true);
-  assert.eq(CROP_SPRITE['shell'].variants, 12);
+  assert.eq(CROP_SPRITE['shell'].frames.join(','), '0,1,2');
 });
 
 // ── Structural invariants for CROP_ROW ────────────────────────────────────

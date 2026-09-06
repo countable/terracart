@@ -154,7 +154,11 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // and banked partial damage from a fight broken off mid-beat.
   const app = APP_JS_SRC;
   const wheel = app.slice(app.indexOf('    if (wp.combat) {'));
-  assert.truthy(/if \(now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS;/.test(wheel),
+  // The reach conjunct in front of the cadence is the OTHER gate on the same
+  // blow (see the melee-reach test below) — a swing must be both due and in
+  // range — so the pin allows it and still refuses a blow that lands without
+  // spending the clock.
+  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS;/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
   assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\.isDragonActive\(\) \? 2 : 1\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
@@ -174,13 +178,81 @@ test('combat: the surface slime oozes slowly enough to walk away from', () => {
   const hop = Number(/const SLIME_HOP_CELLS = ([\d.]+);/.exec(app)?.[1]);
   const beat = Number(/const STEP_MS = (\d+);/.exec(app)?.[1]);
   assert.truthy(mul > 0 && hop > 0 && beat > 0, 'the gait constants are readable');
-  assert.truthy(/c\.kind === 'slime' \? STEP_MS \* SLIME_STEP_MUL/.test(app),
+  assert.truthy(/c\.kind === 'slime' \? STEP_MS \* \(charging \? 1 : SLIME_STEP_MUL\)/.test(app),
     'the cadence branch reads the constant');
   assert.truthy(/const stepM = c\.kind === 'slime' \? STEP_M \* SLIME_HOP_CELLS/.test(app),
     'and so does the hop distance');
   const mps = (hop * COMBAT_CELL_M) / ((beat * mul) / 1000);
   assert.lt(mps, 0.7, `a slime oozes at ${mps.toFixed(2)} m/s — well under a walking pace`);
   assert.gt(mps, 0.15, 'but it still closes on you eventually');
+  // A CHARGE drops the lazy beat and keeps the hop, so it is the same gait
+  // read at the base cadence — no third constant, and still walk-away-able.
+  const charge = (hop * COMBAT_CELL_M) / (beat / 1000);
+  assert.eq(charge, mps * mul, 'a charge is the ooze without the lazy beat');
+  assert.lt(charge, 1.0,
+    `a charging slime moves at ${charge.toFixed(2)} m/s — still slower than a walk`);
+});
+
+test('combat: a struck slime CHARGES, unless it is warded', () => {
+  // Hitting one used to cost nothing: it went back to its 50/50 meander, and a
+  // PET's bite actively shoved it away (the flee override was written for birds
+  // and ran for every prey kind). Pinned as source text — app.js never loads
+  // headlessly — plus the one predicate, which is pure enough to lift.
+  const app = APP_JS_SRC;
+  const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+
+  // The state is DERIVED from the damage stamp both paths already set, so
+  // "the player or their pet hit it" cannot drift from the damage itself.
+  const fn = /function slimeCharging\(c\) \{([\s\S]*?)\n\}/.exec(app);
+  assert.truthy(fn, 'slimeCharging is there to read');
+  assert.truthy(/_lastDamagedT/.test(fn[1]),
+    'it reads the one damage stamp, not a second aggro flag');
+  assert.truthy(/STRUCK_REACTION_MS/.test(fn[1]), 'and the shared reaction window');
+  const win = Number(/const STRUCK_REACTION_MS = (\d+);/.exec(app)?.[1]);
+  const beat = Number(/const STEP_MS = (\d+);/.exec(app)?.[1]);
+  assert.gt(win, beat, 'a reaction must outlast the wander step it interrupts');
+
+  // The charge itself: every hop at the player, on the monsters' own jitter.
+  const chain = app.slice(app.indexOf("} else if (c.kind === 'slime') {"));
+  const head = code(chain.slice(0, chain.indexOf("} else if (isMon)")));
+  assert.truthy(/if \(charging && distToPlayer/.test(head),
+    'a struck slime commits every hop to the player');
+  assert.truthy(/STALK_JITTER/.test(head),
+    'on the committed stalk spread, not the meander\'s');
+  assert.falsy(/Math\.random\(\) < 0\.5[\s\S]*if \(charging/.test(head),
+    'the charge is decided before the coin flip, not after it');
+
+  // IF NOT WARDED — the three that switch it off.
+  const gate = /const charging = ([^;]+);/.exec(app)?.[1] || '';
+  for (const ward of ['!isTame', '!homeWard', '!shadowed']) {
+    assert.truthy(gate.includes(ward), `the charge is off when ${ward}`);
+  }
+  // Home's ward is checked EARLIER in the same chain, so a warded slime is
+  // walking out whether or not it has been hit.
+  assert.lt(app.indexOf('} else if (homeWard) {'),
+    app.indexOf("} else if (c.kind === 'slime') {"),
+    'the ward branch outranks the charge branch');
+  // The campfire's ward needs no clause: it refuses the target CELL.
+  assert.truthy(/const fireAverts = c\.kind === 'slime'/.test(app),
+    'a lit campfire still refuses every cell inside its ring');
+
+  // A pet's bite provokes the same charge instead of pushing it away.
+  const bite = app.slice(app.indexOf('tgt._lastDamagedT = Date.now();'));
+  const biteHead = code(bite.slice(0, bite.indexOf('if (tgt._hp <= 0)')));
+  assert.truthy(/if \(!slimeCharging\(tgt\)\) \{/.test(biteHead),
+    'a pet only pushes away prey that does not charge');
+  assert.truthy(/tgt\._nextChooseT = 0;/.test(biteHead),
+    'and either way the prey reacts on the next tick');
+  assert.falsy(/_fleeUntilT\s*=\s*now \+ \d+/.test(biteHead),
+    'the flee window is the shared constant, not a hand-typed number');
+
+  // And the player's own blow turns it round at once — but only once.
+  const dmg = app.slice(app.indexOf('_damageEnemy(c, amount) {'));
+  const dmgHead = code(dmg.slice(0, dmg.indexOf('_routedFromHome')));
+  assert.truthy(/const wasCharging = slimeCharging\(c\);[\s\S]*c\._lastDamagedT = Date\.now\(\);/
+    .test(dmgHead), 'the "was it already charging" question is asked before the stamp');
+  assert.truthy(/if \(!wasCharging && c\.kind === 'slime'\) c\._nextChooseT = 0;/.test(dmgHead),
+    'a blow re-aims a slime that was not already charging, and only that one');
 });
 
 test('combat: bow and staff no longer shorten the melee wheel', () => {
@@ -690,6 +762,20 @@ test('combat: every melee gate the player has runs the shared test', () => {
     'a fight you have engaged ends when the foe backs out of swinging distance');
   assert.truthy(/cellInReach/.test(wheelHead),
     'and a hunt still runs to the lit reach — same wheel, two ranges');
+
+  // The BLOW itself, every interval, not just the engage. The break-off above
+  // is a 1 s grace and MELEE_INTERVAL_MS is 1 s, so an ungated swing landed a
+  // free hit at any distance on every break-off — and none at all on a foe
+  // that kept dipping back into reach, because that resets the grace.
+  const swing = APP_JS_SRC.slice(APP_JS_SRC.indexOf('if (wp.combat) {\n      const c = wp.combat;'));
+  const swingHead = code(swing.slice(0, swing.indexOf('const blow = Combat.meleeSwingDamage')));
+  assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM\)/.test(swingHead),
+    'a blow only lands while the foe is within swinging distance');
+  assert.truthy(/inSwing && now >= this\._nextBlowT/.test(swingHead),
+    'the reach test gates the blow alongside the cadence, not instead of it');
+  assert.falsy(/_nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS/.test(
+    code(swing.slice(0, swing.indexOf('if (inSwing')))),
+    'a missed swing must not spend the blow clock — a foe that closes is hit at once');
 
   // The surface slime reads the one number rather than its own copy of it.
   assert.truthy(/const STEAL_R = Combat\.meleeReachM\(this\.cellM\);/.test(APP_JS_SRC),

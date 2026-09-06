@@ -577,6 +577,44 @@ const DOG_PREY = new Set(['deer', 'slime']);
 // slime branch in wanderCreatures) — it is only the SPEED that came down.
 const SLIME_STEP_MUL = 1.5;    // × the base wander cadence: a longer, lazier beat
 const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
+// ── Struck, a slime CHARGES ──────────────────────────────────────────────────
+// How long a creature keeps reacting to a hit. ONE window, two opposite
+// reactions, because the two kinds of prey are opposite: a crow or a deer that
+// is struck RUNS (the flee override in wanderCreatures), and a slime that is
+// struck COMES AT YOU. Same number for both — being hit is one event — and it
+// outlasts the wander step it interrupts, which is what the flee's original
+// hand-typed 8000 was picked for.
+//
+// A charge is NOT a new speed. The slime keeps its hop (SLIME_HOP_CELLS) and
+// drops the lazy BEAT it ambles on (SLIME_STEP_MUL), and every hop of the
+// charge goes at the player at the monsters' own stalk jitter instead of half
+// of them meandering off — so it closes several times faster than an
+// unprovoked slime while still, deliberately, being slower than a walk. The
+// gait note above is the thing that must not be undone: you can always walk
+// away from a slime. You just can't stab one and stroll off any more.
+//
+// Until Sep 2026 nothing at all came of hitting one: the slime went back to
+// its 50/50 meander, and a PET's bite actively pushed it AWAY — the flee
+// override was written for birds and applied to every prey kind, so a dog
+// worrying a slime shoved it out of its own owner's reach.
+const STRUCK_REACTION_MS = 8000;
+// The spread on a COMMITTED approach, in radians: tight enough to read as a
+// line rather than a meander. The cave monsters stalk on it (a flyer doubles
+// it, which is what makes a bat careen), and a charging slime borrows it —
+// once it has been hit, it moves like the things that hunt you.
+const STALK_JITTER = 0.8;
+// Is this slime still coming for whoever hit it? Derived from `_lastDamagedT`
+// — the stamp BOTH damage paths already set, the player's blows and shots via
+// _damageEnemy and a pet's teeth in wanderCreatures — so "the player or their
+// pet hit it" needs no second flag and cannot drift from the damage that
+// caused it. WHERE it is asked is what makes it "if not warded": the charge is
+// read below Home's ward in the angle chain (a warded slime is walking out and
+// cannot bite), a lit campfire's ring still refuses every target cell inside
+// it, and a shadowed player is not there to be charged at.
+function slimeCharging(c) {
+  return c.kind === 'slime' && c._lastDamagedT != null
+    && Date.now() - c._lastDamagedT < STRUCK_REACTION_MS;
+}
 // ── The creature sim bubble ──────────────────────────────────────────────────
 // The radius, in cells from the player's FEET, inside which a creature thinks:
 // wanderCreatures culls on it before anything else, and beyond it a creature is
@@ -873,6 +911,16 @@ const BAG_FULL_MSG = 'Bag full — sell or eat first.';
 // energy comes back from food, from their own home, and from a campfire. Three
 // words longer, and it is the whole answer.
 const TOO_TIRED_MSG = 'Too tired — eat or rest.';
+
+// What the Eat button wears while the bite cooldown holds (Energy.canEat, ten
+// seconds between mouthfuls — see syncEatButton). The ready face is the HUD's
+// success green (UI_GREEN on a #4a8c4a edge); these are that same pair drained
+// toward the chrome, so the waiting button reads as the SAME control counting
+// down rather than a different, disabled one. Deliberately not the control
+// gold: in this palette gold means "a thing you press", which is exactly what
+// this is not for the next few seconds.
+const EAT_COOLING_INK  = '#6f8f74';
+const EAT_COOLING_EDGE = '#37522f';
 
 // --- Economy tuning ---
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
@@ -1211,8 +1259,8 @@ const ICON_SHEETS = {
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
   icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
   icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
-  // Beach pickup — 48×64 = 3×4 of 16×16. Frame 0 is the canonical
-  // cowrie used as the inventory icon.
+  // Beach pickup — 48×64 = 3×4 of 16×16, only the top row shell art (see
+  // CROP_SPRITE.shell). Frame 0 is the canonical cowrie, the inventory icon.
   shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
   // ALL props seasons — 352×192 of 16×16. 22 cols × 12 rows. Frame 0
   // (top-left grass tuft) backs the longgrass inventory icon now
@@ -2991,7 +3039,10 @@ class MapScene extends Phaser.Scene {
       'Energy pays for tilling, chopping, mining and walking off the GPS.<br><br>'
       + '• <b>Eat</b> — select any food in the bag and use the Eat button.<br>'
       + '• <b>Rest</b> — it refills slowly on its own over time.<br>'
-      + '• <b>Armor</b> — each piece raises the cap (currently ' + max + ').';
+      + '• <b>Taste</b> — every new food eaten for the first time raises the '
+      + 'cap by one, for good (currently ' + max + ').<br><br>'
+      + 'Armor does not lengthen this bar — it soaks the damage attacks take '
+      + 'off it.';
     box.appendChild(body);
     const close = mkBtn('Got it');
     close.style.marginTop = '12px';
@@ -6095,6 +6146,11 @@ class MapScene extends Phaser.Scene {
     } else if (this.torchTimerText.visible) {
       this.torchTimerText.setVisible(false);
     }
+    // The fourth countdown, and the only one that isn't over the player's head:
+    // the bite cooldown lives ON the Eat button, so it is DOM rather than a
+    // Phaser label (see _tickEatButton). No-ops in a frame where no food is
+    // selected — the button doesn't exist then.
+    this._tickEatButton();
     let vx = 0, vy = 0;
     const k = this.keys;
     let wasd = false;
@@ -6715,14 +6771,18 @@ class MapScene extends Phaser.Scene {
 
   // A monster's arrow lands. The same energy hit the melee leech deals
   // (wanderCreatures' monster branch) — the shield potion halves it at the
-  // moment of impact, the loss rolls into the throttled "monsters hit -N⚡"
-  // flash so a volley reads as one pop — only delivered by a shot you could
-  // see coming rather than a silent drain at range.
+  // moment of impact, worn armour soaks what is left, and the loss rolls into
+  // the throttled "monsters hit -N⚡" flash so a volley reads as one pop —
+  // only delivered by a shot you could see coming rather than a silent drain
+  // at range.
   _shotHitsPlayer(shot) {
     const now = performance.now();
     const before = this.save.energy ?? 0;
     if (!(before > 0) || !(shot.damage > 0)) return false;
-    const dmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(shot.damage / 2) : shot.damage;
+    const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(shot.damage / 2) : shot.damage;
+    // One arrow can carry several hits of the kind's table (shot.hits,
+    // MONSTER_ARROW_HITS) — armour soaks each of them, not the bundle.
+    const dmg = Combat.playerDamage(shielded, this.save.armor, shot.hits);
     this.save.energy = Math.max(0, before - dmg);
     this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
     this._flashPlayerHit();
@@ -6939,7 +6999,18 @@ class MapScene extends Phaser.Scene {
   _damageEnemy(c, amount) {
     if (!(amount > 0)) return false;
     const left = Combat.damage(c, amount);
+    // Asked BEFORE the stamp below, which is what makes it "was it already
+    // charging" rather than "is it a slime".
+    const wasCharging = slimeCharging(c);
     c._lastDamagedT = Date.now();
+    // TURN NOW. A struck slime charges (slimeCharging), but the charge is only
+    // read when it chooses its next hop, and its beat is the longest in the
+    // game — so without this it finishes ambling away for up to 7.5 s before it
+    // reacts to being stabbed. Only on the FIRST hit of a charge: the melee
+    // wheel lands a blow a SECOND, and re-choosing on every blow would restart
+    // the hop it is part-way through each time, leaving a slime under constant
+    // fire twitching on the spot instead of closing.
+    if (!wasCharging && c.kind === 'slime') c._nextChooseT = 0;
     // ROUTED FROM THE DOORSTEP. Home's ward already turns an enemy inside the
     // ring around and switches its bite off (wanderCreatures' homeWard), but
     // the ring is only HOME_R — four cells — so a foe walked out, stopped
@@ -7343,15 +7414,31 @@ class MapScene extends Phaser.Scene {
       // Killed by something else mid-swing (a shot, a tame dog) — nothing left
       // to fight, and the kill has already paid out.
       if (this.save.caught?.includes(c.id)) { this.cancelWorkProgress(); return; }
-      if (now >= this._nextBlowT) {
+      // EVERY BLOW IS ARM'S LENGTH, not just the one that opened the fight.
+      // The three gates above (tap, auto-engage, break-off) all measure
+      // Combat.inMeleeReach, but the swing below used to sit past all of them
+      // and land on the clock alone — and the break-off is a 1 s GRACE, which
+      // is exactly MELEE_INTERVAL_MS. So every fight paid out one free hit at
+      // whatever distance the foe had got to, and a foe hovering ON the
+      // boundary never broke off at all: each dip back inside resets
+      // `_outSinceT` to null, so the grace never ripened and the blows kept
+      // landing from outside swinging distance indefinitely. That is the
+      // "I can hit a slime more than one cell away" the reach fix was supposed
+      // to have ended — the grace decides whether the FIGHT is still on, this
+      // decides whether a swing can LAND, and they are not the same question.
+      // `_nextBlowT` is deliberately NOT advanced when the swing misses: the
+      // clock is the scene's, so a foe that closes again is hit at once rather
+      // than being granted a fresh interval of safety by having stepped out.
+      const px = this.startWorldM.x + this.playerM.x;
+      const py = this.startWorldM.y + this.playerM.y;
+      const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM);
+      if (inSwing && now >= this._nextBlowT) {
         this._nextBlowT = now + Combat.MELEE_INTERVAL_MS;
         // A blade to actually swing — bare hands (no sword owned) has none, so
         // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
         // The slash rides the blow itself now rather than its own throttle:
         // one cadence, so the arc and the damage it earns can't drift apart.
         if (this.save.relics?.sword) {
-          const px = this.startWorldM.x + this.playerM.x;
-          const py = this.startWorldM.y + this.playerM.y;
           const dx = c.x - px, dy = c.y - py;
           const d = Math.hypot(dx, dy) || 1;
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
@@ -7611,7 +7698,11 @@ class MapScene extends Phaser.Scene {
           const before = this.save.energy ?? 0;
           if (before > 0) {
             // Hard mode doubles the leech (Difficulty.enemyDmgMul), shield or not.
-            const slimeDmg = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3) * Difficulty.get().enemyDmgMul;
+            // WORN ARMOUR SOAKS WHAT IS LEFT (Combat.playerDamage — the mode and
+            // the potion scale the blow, armour spends its pool against the
+            // result), and never to nothing: a bite always costs at least 1.
+            const slimeRaw = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3) * Difficulty.get().enemyDmgMul;
+            const slimeDmg = Combat.playerDamage(slimeRaw, this.save.armor);
             this.save.energy = Math.max(0, before - slimeDmg);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
             this._flashPlayerHit();
@@ -7648,7 +7739,11 @@ class MapScene extends Phaser.Scene {
           // cadence costs the archer none of its damage per minute.
           c._nextShotT = now + Combat.MONSTER_SHOT_INTERVAL_MS;
           const dmg = m.dmg * MONSTER_ARROW_HITS * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
-          const shot = Combat.monsterShot(c.x, c.y, px, py, this.cellM, dmg);
+          // The arrow carries its hit COUNT as well as its damage, so armour
+          // can soak the volley one hit at a time when it lands
+          // (_shotHitsPlayer) — mitigating the bundle in one lump would make
+          // the slow archer the one foe armour barely helps against.
+          const shot = Combat.monsterShot(c.x, c.y, px, py, this.cellM, dmg, MONSTER_ARROW_HITS);
           if (shot) this._shots.push(shot);
         } else if (clear && m.range <= 1 && ddx * ddx + ddy * ddy <= R * R
                    && (!c._nextStealT || now >= c._nextStealT)) {
@@ -7658,7 +7753,10 @@ class MapScene extends Phaser.Scene {
             // An elite (shiny) monster hits for double — Combat.eliteMul is
             // the one multiplier its HP is scaled by too.
             const dmg = m.dmg * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
-            const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
+            const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
+            // Worn armour soaks the rest — see the slime leech above; the same
+            // pool, the same floor of 1.
+            const monDmg = Combat.playerDamage(shielded, this.save.armor);
             this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
             this._flashPlayerHit();
@@ -7720,12 +7818,20 @@ class MapScene extends Phaser.Scene {
       // An ELITE monster hits harder, not faster: its cadence comes purely
       // from SPEED, so the shiny check is for animals only.
       const shinyFast = (!isMon && isShiny(c.id, SHINY_RATE.animal)) ? 0.5 : 1;
+      // CHARGING: hit by the player or their pet within STRUCK_REACTION_MS and
+      // not warded off. Resolved once here because both halves of the charge
+      // read it — the quickened beat just below and the committed angle in the
+      // chain — and they must not disagree about whether this is a charge.
+      // A tamed slime is a pet and never charges its owner; `homeWard` and
+      // `shadowed` are the two wards that switch it off (the campfire's is a
+      // refused target cell, so it needs nothing here).
+      const charging = !isTame && !homeWard && !shadowed && slimeCharging(c);
       // stepMs = animation duration of the hop itself (short burst).
       const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
                    : deerFleeing ? 340
                    : isMon ? STEP_MS / mon.speed
-                   : c.kind === 'slime' ? STEP_MS * SLIME_STEP_MUL
+                   : c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
                    : STEP_MS) * shinyFast;
       // Slimes ooze in short, lazy hops (SLIME_HOP_CELLS — see the gait note
       // beside the constant); rabbits hop 0.5/1.4 cells; butterflies dart
@@ -7838,10 +7944,20 @@ class MapScene extends Phaser.Scene {
             c._hp   = Combat.damage(c, 1);
             tgt._lastDamagedT = Date.now();
             c._lastDamagedT   = Date.now();
-            // Push prey away from pet; force immediate direction-change.
-            tgt._fleeAngle   = Math.atan2(tgt.y - c.y, tgt.x - c.x);
-            tgt._fleeUntilT  = now + 8000;   // > one wander step so flee fires
+            // React to the bite immediately either way — but WHICH reaction
+            // depends on the prey. A bird or a deer runs (the flee override
+            // below). A SLIME charges, at the player: it is an enemy, not
+            // game, and the flee this block used to set on every prey kind
+            // alike was shoving it out of the reach of the person whose dog
+            // had just bitten it. slimeCharging reads `_lastDamagedT`, stamped
+            // just above, so the pet's teeth provoke exactly what the player's
+            // sword does.
             tgt._nextChooseT = 0;            // interrupt current step immediately
+            if (!slimeCharging(tgt)) {
+              // Push prey away from pet.
+              tgt._fleeAngle  = Math.atan2(tgt.y - c.y, tgt.x - c.x);
+              tgt._fleeUntilT = now + STRUCK_REACTION_MS;  // outlasts one wander step
+            }
             if (tgt._hp <= 0) {
               // Auto-defeat the prey — the SAME outcome as the player killing
               // it, by calling the one payout path rather than re-implementing
@@ -7891,11 +8007,18 @@ class MapScene extends Phaser.Scene {
             angle = Math.atan2(c.y - homePos.y, c.x - homePos.x)
                   + (Math.random() - 0.5) * 0.8;
           } else if (c.kind === 'slime') {
-            // Lazily drawn to the player: about half its hops amble toward
-            // them (heavy ±0.7 rad jitter so it's a meander, not a beeline),
-            // the rest are aimless. Slimes ignore home-bias — they roam free
-            // and home in on whoever's nearby.
-            if (!shadowed && Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
+            // STRUCK: it charges. Every hop at the player, on the monsters'
+            // stalk jitter — no coin flip, no meander. Below the homeWard
+            // branch above on purpose: a slime being walked out of Home's ring
+            // is warded whether or not you hit it, which is the whole point of
+            // the ring.
+            if (charging && distToPlayer > 0.5 * this.cellM) {
+              angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER;
+            // Otherwise lazily drawn to the player: about half its hops amble
+            // toward them (heavy ±0.7 rad jitter so it's a meander, not a
+            // beeline), the rest are aimless. Slimes ignore home-bias — they
+            // roam free and home in on whoever's nearby.
+            } else if (!shadowed && Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
               angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 1.4;
             } else {
               angle = Math.random() * Math.PI * 2;
@@ -7906,7 +8029,8 @@ class MapScene extends Phaser.Scene {
             // wide jitter so they read as erratic. The archer closes in too —
             // its range only lets it start draining sooner, not hang back.
             if (!shadowed && distToPlayer > 0.5 * this.cellM) {
-              angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * (mon.fly ? 1.6 : 0.8);
+              angle = Math.atan2(dyp, dxp)
+                    + (Math.random() - 0.5) * (mon.fly ? STALK_JITTER * 2 : STALK_JITTER);
             } else {
               angle = Math.random() * Math.PI * 2;
             }
@@ -10932,6 +11056,13 @@ class MapScene extends Phaser.Scene {
     const locked = this._zeroEnergyLocked();
     const featherRevive = locked && sel.id === 'crow_feather';
     if (locked && !featherRevive) return false;
+    // The bite cooldown (Energy.canEat — ten seconds between mouthfuls). The
+    // same expression the Eat button greys itself on, so a tap can never do
+    // what the button says it won't; the countdown ON the button is the whole
+    // feedback, which is why this refuses silently rather than flashing a
+    // toast over the cell the player is looking at. Potions never reach here —
+    // they are drunk through syncConsumableButton's own methods.
+    if (!Energy.canEat(this.save)) return false;
     const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
     if (!featherRevive && restore == null) return false;
     // First taste of a new edible permanently grows the bar: +1 max energy per
@@ -10970,6 +11101,8 @@ class MapScene extends Phaser.Scene {
       extra = `\n☕ amulet buzz: +${COFFEE_AMULET_BOOST} tier, 3 min`;
     }
     if (firstTaste) extra += `\n🍽 first taste: +1 max ⚡`;
+    // Armed only now, after a bite has actually landed.
+    Energy.startEatCooldown(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();
     this.updateEnergyDOM();
@@ -11186,9 +11319,10 @@ class MapScene extends Phaser.Scene {
       const def = gearDef(kind, slot);
       if (!def) return '';
       if (kind === 'armor') {
-        const per = ARMOR_DEFS?.[slot]?.energyPerTier ?? 0;
-        if (tierOrZero > 0) return `+${per * tierOrZero} max energy`;
-        return `+${per}/tier max energy`;
+        // What a piece SOAKS — the one number items.js authors, never a second
+        // copy of the formula. An empty slot previews the rule.
+        if (tierOrZero > 0) return `−${armorSlotReduction(tierOrZero)} damage soaked`;
+        return 'Soaks damage — one per tier';
       }
       // Relics: per-slot blurb. Add a quantitative tier-scaled hint where
       // the formula is cheap to evaluate without re-deriving game balance.
@@ -12525,7 +12659,7 @@ class MapScene extends Phaser.Scene {
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = offer.kind === 'relic'
       ? (gearDef(offer.kind, offer.slot)?.blurb || '')
-      : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
+      : `−${armorSlotReduction(offer.tier)} damage soaked`;
     // Flower charm halves the asking price for the charm window (floor $1).
     const price = Math.max(1, Math.ceil(offer.price * this.shopCharmMul(house)));
     this.showOfferModal({
@@ -15512,9 +15646,49 @@ class MapScene extends Phaser.Scene {
     const restore = (sel && typeof FOOD_ENERGY !== 'undefined') ? FOOD_ENERGY[sel.id] : null;
     const existing = document.getElementById('eat-btn');
     if (restore == null && !featherRevive) { existing?.remove(); return; }
-    const iconHtml = this.iconSpanHTML(sel.id, 20);
-    const label = featherRevive ? `${iconHtml} Use → 25%⚡` : `${iconHtml} Eat +${restore}⚡`;
-    if (existing) { existing.innerHTML = label; return; }
+    // THE COOLDOWN IS SHOWN ON THE BUTTON, in the two shapes the rest of the
+    // game already uses for a wait: the exact number (shortDuration — every
+    // wait the player can read goes through it) and a bar that fills as the
+    // wait runs out. The bar is what makes it readable at a glance mid-chew;
+    // the number is what makes it readable to the second. Both come off
+    // Energy.eatCooldownLeft, the same call eatSelected refuses on — one
+    // expression, so the greyed face and the refused tap can't disagree.
+    // Potions have their own Drink button (syncConsumableButton) and never
+    // appear here, which is the whole of their exemption.
+    const cdLeft = Energy.eatCooldownLeft(this.save);
+    const cooling = cdLeft > 0;
+    // Held so _tickEatButton knows when the readout has actually changed and
+    // this rebuild is worth running again (it drives the bar every frame, but
+    // the label only moves on the whole second).
+    this._eatCdShown = cooling ? shortDuration(cdLeft) : '';
+    // While the gate refuses, the wait REPLACES the "+N⚡" it would otherwise
+    // advertise: the restore isn't the actionable number until the bar fills.
+    const text = cooling ? `Eat ${this._eatCdShown}`
+      : featherRevive ? 'Use → 25%⚡'
+      : `Eat +${restore}⚡`;
+    const btn = existing || this._makeEatButton();
+    // The icon is rebuilt only when the SELECTED STACK changes, not on every
+    // repaint: this method now runs once a second for the whole cooldown, and
+    // re-writing a background-image span at that cadence is churn for a glyph
+    // that hasn't moved. The countdown itself is text, so it costs nothing.
+    if (btn.dataset.id !== sel.id) {
+      btn.dataset.id = sel.id;
+      btn.querySelector('.eat-ico').innerHTML = this.iconSpanHTML(sel.id, 20);
+    }
+    btn.querySelector('.eat-txt').textContent = text;
+    // Ready is the button's own green; cooling is that same green gone dim —
+    // never the control gold, which in this palette means "a thing you press"
+    // and would read as a different button rather than the same one waiting.
+    btn.style.color = cooling ? EAT_COOLING_INK : UI_GREEN;
+    btn.style.borderColor = cooling ? EAT_COOLING_EDGE : '#4a8c4a';
+    btn.style.cursor = cooling ? 'default' : 'pointer';
+    this._paintEatCooldownBar(btn, cdLeft);
+  }
+
+  // Build the Eat button's element once. Split out of syncEatButton because
+  // the button is no longer a bare label — it carries the cooldown bar as a
+  // child, so a plain `innerHTML = label` on the whole button would wipe it.
+  _makeEatButton() {
     const btn = document.createElement('button');
     btn.id = 'eat-btn';
     // Bottom-right, BELOW the inventory bar (the bar bottom sits at
@@ -15522,21 +15696,71 @@ class MapScene extends Phaser.Scene {
     // underneath). Right-anchored to --phone-right so the button tucks
     // inside the simulated phone column on desktop.
     btn.className = 'hud-action';
+    // overflow:hidden clips the cooldown bar to the rounded corners; the
+    // fixed position is also what makes the bar's absolute placement resolve
+    // against the button rather than the page.
     btn.style.cssText =
       'position:fixed;' +
       'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
       'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
-      'display:flex;align-items:center;gap:6px;' +
+      'display:flex;align-items:center;overflow:hidden;' +
       'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      'color:#a7ffb0;border:2px solid #4a8c4a;' +
+      `color:${UI_GREEN};border:2px solid #4a8c4a;` +
       'font:700 12px ui-monospace,monospace;';
-    btn.innerHTML = label;
+    // The bar sits along the BOTTOM EDGE rather than washing over the face:
+    // a shroud across a button this small swallows its own label, and the
+    // label is carrying the exact number.
+    const bar = document.createElement('span');
+    bar.className = 'eat-cd';
+    bar.style.cssText =
+      'position:absolute;left:0;bottom:0;height:3px;width:0;' +
+      `background:${UI_GREEN};pointer-events:none;`;
+    const lbl = document.createElement('span');
+    lbl.className = 'eat-lbl';
+    lbl.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    const ico = document.createElement('span');
+    ico.className = 'eat-ico';
+    ico.style.cssText = 'display:flex;align-items:center;';
+    const txt = document.createElement('span');
+    txt.className = 'eat-txt';
+    lbl.append(ico, txt);
+    btn.append(bar, lbl);
+    // NOT `disabled` while cooling: a disabled button swallows the tap without
+    // running this handler, so the stopPropagation below never fires and the
+    // press falls through to the world underneath — tilling the ground behind
+    // the button. eatSelected owns the refusal instead.
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.eatSelected();
       this.syncEatButton();   // refresh count / hide if stack ran out
     });
     document.body.appendChild(btn);
+    return btn;
+  }
+
+  // Size the cooldown bar. It FILLS as the wait runs down — a full bar is a
+  // ready button — so the growing green and the shrinking number both point
+  // the same way: toward the next bite.
+  _paintEatCooldownBar(btn, leftMs) {
+    const bar = btn.querySelector('.eat-cd');
+    if (!bar) return;
+    const done = 1 - Math.max(0, Math.min(1, leftMs / Energy.EAT_COOLDOWN_MS));
+    // Hidden outright when there is nothing to count: a permanently full bar
+    // under a ready button is just a green line with no meaning.
+    bar.style.width = leftMs > 0 ? `${done * 100}%` : '0';
+  }
+
+  // Drive that readout. The bar is re-sized every frame (one style write on an
+  // element that only exists while food is selected) so it climbs smoothly;
+  // the full rebuild runs only when the whole-second reading changes — which
+  // includes the tick the wait ends on, and that is what un-greys the button.
+  _tickEatButton() {
+    const btn = document.getElementById('eat-btn');
+    if (!btn) { this._eatCdShown = null; return; }
+    const left = Energy.eatCooldownLeft(this.save);
+    this._paintEatCooldownBar(btn, left);
+    const shown = left > 0 ? shortDuration(left) : '';
+    if (shown !== this._eatCdShown) this.syncEatButton();
   }
 
   // Book / Honey Read / Use button. Mirror of syncEatButton — sits next

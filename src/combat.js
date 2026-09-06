@@ -99,6 +99,69 @@
     return Math.round(base * Difficulty.get().enemyHpMul);
   }
 
+  // ── Armour: what a blow costs the PLAYER ─────────────────────────────────
+  // Every hit the player takes — the surface slime's leech, a cave monster's
+  // melee, a goblin archer's arrow — is spent against the worn set's pool
+  // before it reaches the bar. The pool is `armorReduction(save.armor)`
+  // (items.js: each worn piece contributes its TIER), and it is spent over
+  // MITIGATION_ROUNDS passes:
+  //
+  //   round 1  soak up to HALF the incoming damage, paying out of the pool
+  //   round 2  halve what is LEFT of the pool, soak up to half of what is
+  //            left of the blow
+  //   …        MITIGATION_ROUNDS times in all
+  //
+  // Halves round DOWN, so a hit is never soaked to nothing by the arithmetic,
+  // and MIN_PLAYER_DAMAGE is the floor: no attack ever lands for zero, however
+  // good the armour.
+  //
+  // THE POOL IS SPENT, NOT RE-CHARGED — the single most important line here.
+  // It shipped for a day handing each round the whole halved pool afresh, so a
+  // pool of P could soak P + P/2 + P/4 + P/8 ≈ 1.9P in total: a full Wood set
+  // (4) removed SEVEN points from a blow, which is most of anything this game
+  // throws, and every tier above Wood was indistinguishable because they all
+  // bottomed out at the floor. Now what survives a round is halved before the
+  // next one, so the total soak can never exceed the pool and a piece is worth
+  // exactly what it says it is worth. The halving still bites: it decays the
+  // UNSPENT remainder, which is what stops a big pool carrying its full weight
+  // into every round of a long blow.
+  //
+  // Between the two rules — a linear per-piece tier and a pool spent once —
+  // armour lives on the same scale as the damage (1..16 across the whole
+  // game), so every rung of the ladder tells. A T1 piece is a flat −1 on
+  // every blow; a full Frost set takes a 24-point elite giant's swing to 5.
+  //
+  // Nothing here is the difficulty mode's or the shield potion's business:
+  // both scale the blow BEFORE it arrives (app.js), and armour spends against
+  // whatever is left — so a hard-mode hit is soaked as a hard-mode hit.
+  const MITIGATION_ROUNDS = 4;
+  const MIN_PLAYER_DAMAGE = 1;
+  function mitigate(damage, reduction) {
+    if (!(damage > 0)) return 0;
+    let left = damage;
+    let pool = Math.max(0, Math.floor(reduction || 0));
+    for (let i = 0; i < MITIGATION_ROUNDS; i++) {
+      const soaked = Math.min(pool, Math.floor(left / 2));
+      left -= soaked;
+      // What is LEFT of the pool, halved — never the pool handed out again.
+      pool = Math.floor((pool - soaked) / 2);
+      if (pool <= 0) break;      // nothing left to spend; the rest is a no-op
+    }
+    return Math.max(MIN_PLAYER_DAMAGE, left);
+  }
+
+  // The one call site shape app.js uses: a blow of `damage` against the worn
+  // set. `hits` is for a monster ARROW, which carries several hits of the
+  // table in one projectile (app.js MONSTER_ARROW_HITS) — armour soaks each
+  // of those hits, not the bundle, or a slow archer would out-damage a melee
+  // kind against armour precisely because its damage arrives in one lump.
+  function playerDamage(damage, armor, hits = 1) {
+    const n = Math.max(1, Math.round(hits || 1));
+    const reduction = (typeof armorReduction === 'function') ? armorReduction(armor) : 0;
+    if (n === 1) return mitigate(damage, reduction);
+    return n * mitigate(damage / n, reduction);
+  }
+
   // ── Elites ───────────────────────────────────────────────────────────────
   // A SHINY cave monster is an elite: one multiplier over the kind's HP and
   // damage, the same shape as CAVE_ENEMY_MUL in app.js so the dps identity
@@ -582,13 +645,17 @@
   // keeps a shot coming AT you legible from one going out.
   const MONSTER_SHOT_INTERVAL_MS = TURRET.fireIntervalMs;
   const HOSTILE_ARROW_COLOR = 0xb0f08a;
-  function monsterShot(x, y, targetX, targetY, cellM, dmg) {
+  function monsterShot(x, y, targetX, targetY, cellM, dmg, hits = 1) {
     const heading = { x: targetX - x, y: targetY - y };
     const shot = spawnShot('bow', x, y, heading, cellM, dmg, 1);
     if (!shot) return null;
     shot.hostile = true;
     shot.color = HOSTILE_ARROW_COLOR;
     shot.aimDistM = Math.hypot(heading.x, heading.y);
+    // How many hits of the kind's table this one arrow is carrying — armour
+    // soaks them one at a time (playerDamage above), so a bundled volley is
+    // mitigated exactly as the melee cadence it stands in for would be.
+    shot.hits = Math.max(1, Math.round(hits || 1));
     return shot;
   }
 
@@ -629,6 +696,7 @@
     isEnemyKind, isEnemy, hp, damage, hpFraction,
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
+    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,

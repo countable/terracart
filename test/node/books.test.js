@@ -289,6 +289,36 @@ test('tips: the first-taste bonus is documented, because it is in the cap', () =
   assert.truthy(someTip(/first time raises your maximum energy/i), 'and a tip says so');
 });
 
+test('tips: the armour tip quotes the real mitigation ladder', () => {
+  // What a PIECE soaks (tier²) is printed on the piece itself — the Stats
+  // panel row and the shop offer, off armorSlotReduction — so the tip carries
+  // only what no single piece can: that the pool halves as it is spent, how
+  // many times, and that a blow always gets through. Every one of those is
+  // re-derived from combat.js here rather than retyped.
+  const tip = PLAY_TIPS.find((t) => /armour soaks/i.test(t));
+  assert.truthy(tip, 'there is an armour tip');
+  assert.eq(Combat.MITIGATION_ROUNDS, 4, 'the ladder really is four rounds');
+  assert.truthy(/four times/i.test(tip), 'and the tip says four');
+  assert.eq(Combat.MIN_PLAYER_DAMAGE, 1, 'a blow always lands for at least 1');
+  assert.truthy(/never soak a blow to nothing/i.test(tip), 'and the tip says so');
+  // The halving claims, read off the shipping function rather than the loop.
+  // Round one soaks up to half the blow out of the pool: against a 40-point
+  // hit a pool of 12 can only spend what it has.
+  assert.eq(Combat.mitigate(40, 12), 40 - 12, 'round one spends the pool against the hit');
+  // Whatever the pool does NOT spend is halved before the next round, so a
+  // pool bigger than half the blow cannot carry its full weight forward: of a
+  // pool of 30, round one spends 20 (half the blow), the 10 left over halves
+  // to 5, and round two spends that — 25 soaked out of a pool of 30.
+  assert.eq(Combat.mitigate(40, 30), 40 - 20 - 5, 'and the pool halves between rounds');
+  // Four rounds is the ceiling: even an unlimited pool only halves the blow
+  // four times, so armour asymptotes at 1/16th rather than at nothing.
+  assert.eq(Combat.mitigate(40, 1e9), 3, 'even an unlimited pool leaves 40 → 20 → 10 → 5 → 3');
+  assert.truthy(/half/i.test(tip), 'which is what the tip promises');
+  // And no tip may claim armour lengthens the bar — that rule is retired.
+  assert.falsy(/armou?r[^.]*max(imum)? energy/i.test(TIPS_BLOB),
+    'no tip still says armour raises the energy cap');
+});
+
 test('tips: the bare-hand ladder quotes the real TOOL_DURATION_MS ratios', () => {
   const bare = toolDurationMs({}, 'pick');
   assert.eq(bare / TOOL_DURATION_MS[1], 2.25, 'a Wood relic is 2.25× quicker, not 3×');
@@ -523,6 +553,31 @@ test('tips: Home\'s ward is documented, rout and all', () => {
   // CREATURE_SIM_CELLS, and a player reads both off the picture (the lit
   // circle IS the safe circle). A tip that retyped either could go stale.
   assert.falsy(/\d/.test(tip), `the ward tip quotes no number to drift: ${tip}`);
+});
+
+test('tips: a struck slime charges, and the tip quotes STRUCK_REACTION_MS', () => {
+  const tip = PLAY_TIPS.find((t) => /Strike a slime/i.test(t));
+  assert.truthy(tip, 'what a hit turns a slime into is invisible until it happens — Book or nowhere');
+  // The window is app.js', so it is re-derived rather than retyped. Spelt in
+  // words, like every other duration the Book quotes.
+  const m = APP_JS_SRC.match(/const STRUCK_REACTION_MS = (\d+);/);
+  assert.truthy(m, 'app.js still owns the reaction window');
+  const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
+    'eight', 'nine', 'ten'];
+  const secs = Number(m[1]) / 1000;
+  assert.truthy(tip.includes(`${WORDS[secs]} second`),
+    `the tip must quote STRUCK_REACTION_MS (${secs}s): ${tip}`);
+  // Both provokers, because a pet's bite used to do the OPPOSITE.
+  assert.truthy(/pet/i.test(tip), 'a pet\'s bite provokes the charge too');
+  // And the wards it does not beat — the half that keeps Home worth having.
+  assert.truthy(/home/i.test(tip) && /fire/i.test(tip),
+    'the tip names the two wards that still turn a charging slime back');
+  // No tip may still say a slime is only ever escapable — the pest tip's
+  // "walk away" is true of an unprovoked one and this page is what qualifies it.
+  const pest = PLAY_TIPS.find((t) => /drains 3 energy a second/i.test(t));
+  assert.truthy(pest, 'the pest tip is still there');
+  assert.lt(PLAY_TIPS.indexOf(pest), PLAY_TIPS.indexOf(tip),
+    'what a slime does is taught before what hitting one does');
 });
 
 test('tips: no tip promises a mechanic that does not exist', () => {

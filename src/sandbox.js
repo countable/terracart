@@ -47,7 +47,7 @@
 //
 // Dependencies (globals):
 //   WorldGen — Z, tileCache, cellsPerEdgeForLat, tileEdgeMeters, makeRng
-//   ITEMS / RELIC_DEFS / ARMOR_DEFS / maxEnergyFromArmor — for the test kit
+//   ITEMS / RELIC_DEFS / ARMOR_DEFS — for the test kit
 //   fnv1a (util.js) — shared FNV-1a hash, for the flora-placer's seed
 //
 // Exports as a global:
@@ -725,8 +725,8 @@
                      cellsPerEdge, tileEdgeM, cellM);
   }
 
-  // Equip one of every relic + armor piece at T3 (see note above). Armor raises
-  // max energy, so re-derive it and top the bar up.
+  // Equip one of every relic + armor piece at T3 (see note above), and top the
+  // energy bar up so nothing is gated behind a half-empty tank.
   function grantSandboxGear(scene) {
     if (typeof RELIC_DEFS === 'undefined' || typeof ARMOR_DEFS === 'undefined') return;
     const TIER = 3;
@@ -739,10 +739,9 @@
     const armor = {};
     for (const slot of Object.keys(ARMOR_DEFS)) armor[slot] = { tier: TIER };
     scene.save.armor = armor;
-    if (typeof maxEnergyFromArmor === 'function') {
-      scene.save.maxEnergy = maxEnergyFromArmor(armor);
-    }
-    scene.save.energy = scene.save.maxEnergy || scene.save.energy;
+    scene.save.energy = (typeof Energy !== 'undefined')
+      ? Energy.maxEnergy(scene.save)
+      : (scene.save.maxEnergy || scene.save.energy);
     if (typeof scene.updateHUD === 'function') scene.updateHUD();
     if (typeof scene.persistSave === 'function') scene.persistSave();
   }

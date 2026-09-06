@@ -113,8 +113,8 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
     'and the arrow carries that many hits');
   const hitMs = Number(app.match(/const MONSTER_HIT_MS = (\d+);/)[1]);
   assert.eq(Combat.MONSTER_SHOT_INTERVAL_MS / hitMs, 5, 'five hits an arrow at today\'s cadences');
-  assert.truthy(/const shot = Combat\.monsterShot\(c\.x, c\.y, px, py, this\.cellM, dmg\);\s*\n\s*if \(shot\) this\._shots\.push\(shot\);/.test(app),
-    'the arrow joins the one shot list');
+  assert.truthy(/const shot = Combat\.monsterShot\(c\.x, c\.y, px, py, this\.cellM, dmg, MONSTER_ARROW_HITS\);\s*\n\s*if \(shot\) this\._shots\.push\(shot\);/.test(app),
+    'the arrow joins the one shot list, carrying its hit COUNT as well as its damage');
   assert.truthy(/\} else if \(clear && m\.range <= 1 && ddx \* ddx \+ ddy \* ddy <= R \* R/.test(app),
     'the melee leech is now for range-1 kinds only — an archer never double-dips');
   assert.truthy(/const playerTarget = \{ id: 'player', x: px, y: py \};/.test(app),
@@ -124,8 +124,14 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   assert.truthy(/hostileTargets: \[playerTarget\]/.test(app), 'and is handed to stepShots');
   const hit = app.slice(app.indexOf('  _shotHitsPlayer(shot) {'), app.indexOf('  _turretFire('));
   assert.truthy(hit.length > 0, '_shotHitsPlayer exists');
-  assert.truthy(/const dmg = \(this\.save\.shieldPotionUntil \?\? 0\) > now \? Math\.ceil\(shot\.damage \/ 2\) : shot\.damage;/.test(hit),
+  assert.truthy(/const shielded = \(this\.save\.shieldPotionUntil \?\? 0\) > now \? Math\.ceil\(shot\.damage \/ 2\) : shot\.damage;/.test(hit),
     'the shield potion halves it at impact');
+  // …and worn armour soaks what is left, PER HIT of the bundle — mitigating
+  // the whole volley in one lump would make the slow archer the one foe
+  // armour barely helps against, which is exactly the parity
+  // MONSTER_ARROW_HITS exists to preserve.
+  assert.truthy(/const dmg = Combat\.playerDamage\(shielded, this\.save\.armor, shot\.hits\);/.test(hit),
+    'armour soaks each carried hit, not the bundle');
   assert.truthy(/this\.save\.energy = Math\.max\(0, before - dmg\);/.test(hit), 'it comes off energy');
   assert.truthy(/this\._monsterDmgAccum = \(this\._monsterDmgAccum \|\| 0\) \+ \(before - this\.save\.energy\);/.test(hit),
     'and rolls into the monsters-hit flash');

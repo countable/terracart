@@ -3,12 +3,13 @@
 // in one place and changes to the crop roster don't require editing logic.
 //
 // Depends on:
-//   nothing external. Pure data + a small lookup helper. Must load BEFORE
+//   util.js (fnv1a, for the per-cell sprite-variant hash). Pure data + small
+//   lookup helpers otherwise. Must load BEFORE
 //   loot.js (tierInfo falls back to SEED_TIER for raw seed ids) and app.js.
 //
 // Exports as globals:
 //   CROP_ROW, MAX_GROWTH_STAGE, PRODUCE_COL, SEEDBOX_COL, CROPS_SHEET_COLS
-//   SPRING_CROPS_COLS, CROP_SPRITE, inventoryIconSource
+//   SPRING_CROPS_COLS, CROP_SPRITE, wildplantFrame, inventoryIconSource
 //   CROP_NAMES, ITEMS, ITEM_BY_ID
 //   PRICES, BUY_LIST, STARTING_MONEY
 //   SEED_TIER  (loot tier config; co-located with the crops it describes)
@@ -78,10 +79,20 @@ const CROP_SPRITE = {
   // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
   // stays `frame`.
   mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.36, caveFrames: [127, 128] },
-  // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
-  // sets ._variant from a stable hash of its cell coords so the same cell
-  // always renders the same shell, and the beach reads as a varied mix.
-  shell: { sheet: 'shell_sheet', custom: true, variants: 12 },
+  // Shell — the beach pickup, and the one crop whose LOOK varies per cell.
+  // Shell.png is 48×64 = 3 cols × 4 rows of 16×16, and only the TOP ROW is
+  // shell art: three cowries (pink, gold, blue). Row 1 repeats those three
+  // with a white keyline (a highlight state, not a fourth shell), frames 6
+  // and 9 are flat one-colour silhouettes (mask rows) and 7, 8, 10 and 11 are
+  // blank — the same layout Gemstones.png uses (see MINERAL_ICON_SHEET below).
+  // So `frames` LISTS the three frames that carry a shell rather than counting
+  // them: a count is a claim about the sheet that the sheet does not make.
+  // This said `variants: 12` until Sep 2026 and the renderer drew
+  // `hash % 12`, so most shells on a beach picked a blank frame — a pickup
+  // you could tap but not see, which is what "no shells on beaches" was.
+  // tools/sprite_audit.js decodes the real PNG and fails if a declared frame
+  // is transparent (or a flat mask row), so a re-cut sheet can't do it again.
+  shell: { sheet: 'shell_sheet', custom: true, frames: [0, 1, 2] },
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct
   // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
   // They spawn sparsely on a matching biome (see the per-biome flora in
@@ -94,6 +105,38 @@ const CROP_SPRITE = {
   wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.13 },  // red wild rose (row 1, col 8)
   starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.13 },  // glowing purple star-flower (row 4, col 14)
 };
+
+// ── Which frame does THIS wild plant draw? ─────────────────────────────────
+// The custom-sheet crops whose look varies per cell — the shell's three
+// cowries, the mushroom's two luminous cave caps — resolve their frame HERE,
+// so the "which look does this cell get" hash cannot differ between the two
+// branches that ask, and so the frame can only ever be one the crop declares.
+//
+// The key is the wildplant's own ID (`wp_<tx>_<ty>_<ix>_<iy>`, minted per cell
+// by the rasterizer), hashed as a STRING, falling back to the tile-local cell
+// for the wildplants that carry no id. It has to be stable, because the same
+// cell must show the same shell across a reload and a tile rebuild — and it
+// has to be the WHOLE id: until Sep 2026 the renderer hashed `id.length`
+// (one number for a whole tile, since every id in a tile is nearly the same
+// length) XORed with `_ix`/`_iy`, which the rasterizer's occupancy pass
+// deletes before the entry is ever drawn. So every shell in a tile drew the
+// same frame, picked off its id's LENGTH — usually one of the blank ones.
+// Salted so it can't line up with the other id-derived hashes (shinyHash01).
+function wildplantVariantHash(p) {
+  const id = (p && (p.wildId || p.id));
+  const key = id != null ? String(id) : `${(p && p._ix) ?? 0}_${(p && p._iy) ?? 0}`;
+  return fnv1a(key + '#variant');
+}
+function wildplantFrame(p) {
+  const ov = CROP_SPRITE[p && p.crop];
+  if (!ov || !ov.custom) return 0;
+  // Grown underground: the crop's cave look (mushroom's blue caps), off the
+  // same hash — same crop, same item, only the art says it grew in the dark.
+  const list = (p && p._cave && ov.caveFrames) ? ov.caveFrames : ov.frames;
+  if (!list || !list.length) return ov.frame ?? 0;
+  if (list.length === 1) return list[0];
+  return list[wildplantVariantHash(p) % list.length];
+}
 
 // Resolve the same icon source the inventory uses for an item id.
 // Returns { sheet, frame } where frame is the 16x16 frame index in the spritesheet,
@@ -192,8 +235,9 @@ const MINERAL_ICON_SHEET = {
   meat:         { sheet: 'icon_meat',    frame: 0 },
   rabbit_pelt:  { sheet: 'icon_pelt',    frame: 0 },
   crow_feather: { sheet: 'icon_feather', frame: 0 },
-  // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png is a 12-frame variant
-  // sheet; frame 0 is the canonical cowrie used for the inventory icon.
+  // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png carries three shells
+  // on its top row (see CROP_SPRITE.shell); frame 0 is the pink cowrie, the
+  // canonical one used for the inventory icon.
   shell:        { sheet: 'shell_sheet', frame: 0 },
   // Wild flowers ('flowers' produce) — props.png (22 cols × 12 rows of 16×16).
   // Frame 12 (col 12, row 0) is the pink blossom. Like egg/milk it has no
@@ -227,11 +271,12 @@ function inventoryIconSource(itemId) {
     return { sheet: 'springcrops', frame: ov.row * 14 + col };
   }
   if (ov && ov.custom) {
-    // Custom sheets (longgrass→props, mushroom→mushroom_world, shell→
-    // shell_sheet). ov.frame is honoured so sheets with multiple cells
-    // (e.g. mushroom_world whose frame 0 is empty) can point at the right
-    // cell. Shells use the variants path in the renderer.
-    return { sheet: ov.sheet, frame: ov.frame ?? 0 };
+    // Custom sheets (longgrass→props, mushroom→props, shell→shell_sheet).
+    // ov.frame is honoured so sheets whose frame 0 is empty can point at the
+    // right cell; a crop that varies per cell in the world (shell) has no
+    // single `frame`, so the icon is the FIRST frame it declares — never a
+    // bare 0, which on such a sheet may be no art at all.
+    return { sheet: ov.sheet, frame: ov.frame ?? (ov.frames && ov.frames[0]) ?? 0 };
   }
   // Generic seed bag = col SEEDBOX_COL, row 15 of crops.png (== 15*9 + 8 = 143).
   if (item.kind === 'seed') return { sheet: 'crops', frame: 15 * CROPS_SHEET_COLS + SEEDBOX_COL };
@@ -435,9 +480,9 @@ const ITEMS = [
   { id: 'meat',         name: 'Meat',         kind: 'produce' },
   { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'produce' },
   { id: 'crow_feather', name: 'Crow Feather', kind: 'produce' },
-  // Beach pickup — shells spawn as wildplant debris on sand cells
-  // (DEBRIS_CROP[2] = 'shell' in worldgen.js). 12 visual variants in
-  // shell_sheet, hashed off the spawn cell coord.
+  // Beach pickup — shells spawn as wildplant debris on sand cells (the sand
+  // family's only flora, src/biome_profiles.js). Three visual variants in
+  // shell_sheet, picked per cell by wildplantFrame above.
   { id: 'shell',        name: 'Shell',        kind: 'produce', crop: 'shell' },
   // Fishing junk pull — old leather boot. T1, low sell, no eat. Joke drop
   // from the rod's loot table at small weight; mostly a flavour moment.
@@ -661,10 +706,12 @@ const BUY_LIST = Object.keys(CROP_ROW)
 const STARTING_MONEY = 50;
 
 // === Energy / food ===
-// Player starts at STARTING_ENERGY; armor pieces raise the maximum (see ARMOR_DEFS
-// below). Eating food restores energy by FOOD_ENERGY[id]. Actions like rock-break,
+// Player starts at STARTING_ENERGY; the only thing that ever raises the cap is
+// the FIRST-TASTE bonus (+1 per distinct edible ever eaten — Energy.maxEnergy).
+// Eating food restores energy by FOOD_ENERGY[id]. Actions like rock-break,
 // till, and harvest deduct energy via ENERGY_COST and refuse when the current
-// pool is too low.
+// pool is too low. ARMOR does not touch the cap: it SOAKS the damage an attack
+// takes off the bar (armorReduction below, spent by Combat.mitigate).
 // === Book of Tips ============================================
 // Non-obvious play tips revealed when the player uses a Book consumable.
 //
@@ -672,7 +719,7 @@ const STARTING_MONEY = 50;
 // item's own description — ITEM_EFFECTS below (the "✦ …" line under the
 // selected stack) for a consumable or material, RELIC_DEFS.blurb (the same
 // line for a relic, plus the Stats panel's per-slot row) for a relic, the Eat
-// button's "+N⚡" for a food, and the Stats panel's "+N max energy" for armour.
+// button's "+N⚡" for a food, and the Stats panel's "−N damage" row for armour.
 // The player reads those while HOLDING the thing, exactly when the answer is
 // wanted; a Book that restates them spends a consumable to tell you something
 // the inventory bar was already showing, and the two copies then drift apart.
@@ -767,6 +814,10 @@ const PLAY_TIPS = [
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
   'Crows raid ripe crops but never touch potatoes.',
   'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
+  // Placed with the slime it is about, and BEFORE the swing-reach page: the
+  // first thing a player does about a slime is hit it, so what a half-hearted
+  // swing turns it into is actionable the moment the pest tip above is.
+  'Strike a slime and it stops meandering: for eight seconds it comes straight at you, and a pet\'s bite provokes it just the same. Home\'s circle and a lit fire still turn it back.',
   'Swinging reaches one cell — exactly as far as a monster\'s bite. Your light reaches further, but only for work: closing in is what a fight costs.',
   'Your home turns enemies away inside its circle, and they cannot bite while they go. Strike one there and it does not merely leave — it runs clear off the screen.',
   'Every new food you taste for the first time raises your maximum energy by one, for good.',
@@ -809,6 +860,7 @@ const PLAY_TIPS = [
   'A shiny animal pays ten times its plain kind, bolts twice as fast, and takes twice the work to bring down.',
   // ── Fighting, once you are armed ────────────────────────────
   'Only one weapon is ever in play. Tap another in the Relics tab to make it the one that answers a foe.',
+  'Worn armour soaks what a blow takes off your bar, and a set stacks: the pool covers half a hit, then half of what is left, four times over. It can never soak a blow to nothing — something always gets through.',
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'Anything hostile you put down pays coins for its trouble — about a coin per 5 hit points, and a little more for every level down.',
   'Castle towers fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate.',
@@ -1065,11 +1117,18 @@ function stackCapForBags(bagsRelic) {
   // 9, 43, 78, 112, 146, 181, 215, 249 across tiers 0..7.
   return Math.round(STACK_CAP_BASE + (STACK_CAP_MAX - STACK_CAP_BASE) * (t / 7));
 }
+// The four wearable slots. Armor carries NO per-slot effect number: what a
+// piece is worth is its TIER, and every slot pays the same for it
+// (armorSlotReduction below) — they differ in PRICE, not in what they do.
+// Until Sep 2026 each slot carried its own `energyPerTier` and armour raised
+// the max-energy CAP — a bigger bar, which helped exactly as much whether or
+// not anything was hitting you. It soaks damage now, so it is worth wearing
+// for the reason armour is worth wearing.
 const ARMOR_DEFS = {
-  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100, energyPerTier: 10 },
-  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 250, energyPerTier: 25 },
-  legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150, energyPerTier: 15 },
-  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost:  80, energyPerTier:  8 },
+  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100 },
+  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 250 },
+  legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150 },
+  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost:  80 },
 };
 function gearDef(kind, slot) {
   return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);
@@ -1108,15 +1167,38 @@ function gearName(kind, slot, tier) {
   if (!def || !t) return slot;
   return `${t.name} ${def.name}`;
 }
-function maxEnergyFromArmor(armor) {
-  let m = STARTING_ENERGY;
-  if (!armor) return m;
+// ARMOR SOAK — what one worn piece takes off an incoming hit: ITS TIER. A Wood
+// helmet is −1, a Frost one is −7, and the four slots sum.
+//
+// LINEAR, AND THAT IS THE WHOLE POINT: the number has to live on the same
+// scale as the damage it is subtracted from. Everything in the game that hits
+// the player deals 1..4 a blow (MONSTERS[].dmg), doubled for an elite and
+// doubled again on hard — so the entire damage space is 1..16. It shipped as
+// tier SQUARED for a day, which put a full Frost set at 196 against a 16-point
+// worst case: every tier from Iron up soaked every blow down to the floor, and
+// the ladder above Wood was invisible. A quadratic reduction needs damage
+// numbers an order of magnitude bigger than this game has.
+//
+// This is the ONE place the per-piece number is written. Both sides read it:
+// Combat.mitigate spends the pool against a hit, and the Stats panel / shop
+// offer print the same figure on the piece itself (app.js) — the
+// roadOverlayWidthM discipline, so what the armour SAYS it soaks is what it
+// soaks.
+function armorSlotReduction(tier) {
+  const t = Math.max(0, Math.floor(tier || 0));
+  return t;
+}
+
+// The whole worn set's pool: the sum of every equipped piece's reduction.
+// Unknown slots and empty ones contribute nothing.
+function armorReduction(armor) {
+  if (!armor) return 0;
+  let r = 0;
   for (const [slot, eq] of Object.entries(armor)) {
-    if (!eq) continue;
-    const def = ARMOR_DEFS[slot]; const t = TIER_BY_NUM[eq.tier];
-    if (def && t) m += def.energyPerTier * eq.tier;
+    if (!eq || !ARMOR_DEFS[slot] || !TIER_BY_NUM[eq.tier]) continue;
+    r += armorSlotReduction(eq.tier);
   }
-  return m;
+  return r;
 }
 // Shared tool-tier energy model for the gated "work" actions (chop / rock-break
 // / catch / fish). EXPECTED energy is anchored at 9 bare-handed (tier 0), 3 with

@@ -1223,13 +1223,13 @@ test('amulet relic does NOT double chest qty (job is stick walking)', () => {
   assert.lt(loot.qty, 10, 'amulet bracket bonus does not blow up to the old doubled value of 10');
 });
 
-test('armor pieces raise maxEnergy via maxEnergyFromArmor', () => {
-  assert.eq(maxEnergyFromArmor(null), STARTING_ENERGY, 'no armor = baseline');
-  const m1 = maxEnergyFromArmor({ helmet: { tier: 1 } });
-  assert.eq(m1, STARTING_ENERGY + 10, 'tier-1 helmet adds +10');
-  const m2 = maxEnergyFromArmor({ helmet: { tier: 2 }, chest: { tier: 1 } });
-  // helmet T2: 10*2 = 20; chest T1: 25*1 = 25. Total +45.
-  assert.eq(m2, STARTING_ENERGY + 20 + 25, 'multiple armor pieces additive');
+test('armor pieces build a damage-soak pool via armorReduction', () => {
+  assert.eq(armorReduction(null), 0, 'no armor = nothing soaked');
+  assert.eq(armorReduction({ helmet: { tier: 1 } }), 1, 'a Wood helmet soaks 1 — one per tier');
+  // Slots do not differ — only tiers do.
+  assert.eq(armorReduction({ helmet: { tier: 2 }, chest: { tier: 1 } }), 3,
+    'multiple armor pieces are additive');
+  assert.eq(armorReduction({ helmet: { tier: 7 } }), 7, 'and linear in the tier');
 });
 
 test('gearPrice scales with tier multiplier', () => {
