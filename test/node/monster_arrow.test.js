@@ -104,6 +104,15 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
     'a ranged monster fires on its own clock, inside its range, with a clear line');
   assert.truthy(/c\._nextShotT = now \+ Combat\.MONSTER_SHOT_INTERVAL_MS;/.test(app),
     'at the turret cadence');
+  // The slower cadence costs no damage per minute: one arrow carries the hits
+  // the leech would have landed in the same time, derived from the two
+  // cadences rather than typed in.
+  assert.truthy(/const MONSTER_ARROW_HITS = Combat\.MONSTER_SHOT_INTERVAL_MS \/ MONSTER_HIT_MS;/.test(app),
+    'MONSTER_ARROW_HITS is the ratio of the two cadences');
+  assert.truthy(/const dmg = m\.dmg \* MONSTER_ARROW_HITS \* Combat\.eliteMul\(c\) \* Difficulty\.get\(\)\.enemyDmgMul;/.test(app),
+    'and the arrow carries that many hits');
+  const hitMs = Number(app.match(/const MONSTER_HIT_MS = (\d+);/)[1]);
+  assert.eq(Combat.MONSTER_SHOT_INTERVAL_MS / hitMs, 5, 'five hits an arrow at today\'s cadences');
   assert.truthy(/const shot = Combat\.monsterShot\(c\.x, c\.y, px, py, this\.cellM, dmg\);\s*\n\s*if \(shot\) this\._shots\.push\(shot\);/.test(app),
     'the arrow joins the one shot list');
   assert.truthy(/\} else if \(clear && m\.range <= 1 && ddx \* ddx \+ ddy \* ddy <= R \* R/.test(app),

@@ -322,9 +322,9 @@ function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 // drifts toward the player and drains energy when within RANGE — but they
 // differ by HP / RANGE / DMG / SPEED. Only the goblin archer reaches past one
 // cell (range 3), and a kind with range > 1 SHOOTS — a visible arrow at the
-// player, one hit of `dmg` per arrow at the castle turret's cadence (see
-// Combat.monsterShot); everything else is melee (range 1) and leeches on
-// MONSTER_HIT_MS. Tougher kinds are gated
+// player at the castle turret's cadence, carrying MONSTER_ARROW_HITS hits of
+// `dmg` so its damage per minute is unchanged (see Combat.monsterShot);
+// everything else is melee (range 1) and leeches on MONSTER_HIT_MS. Tougher kinds are gated
 // to deeper levels via minDepth, so descending introduces new foes. Placeholder
 // art: every monster reuses the slime sprite with a per-kind TINT (see
 // render.js) until dedicated sheets land — swapping in real art is a one-line
@@ -392,6 +392,12 @@ for (const m of Object.values(MONSTERS)) {
 // halved to one hit per 2 s. (The surface slime keeps its own 1 s cadence: it's
 // a crop pest, not a cave enemy.)
 const MONSTER_HIT_MS = 2000;
+// A RANGED monster's arrow carries the hits its leech would have landed in the
+// same time: the arrow's cadence (the castle turret's, Combat) over the leech
+// cadence above — 10 s / 2 s = 5 hits per arrow. Derived, not tuned, so the
+// archer deals per minute exactly what it dealt before its hits became a
+// visible arrow, and a change to either cadence keeps that correspondence.
+const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;
 
 // combat.js owns the fight maths (HP, melee dps, bow/staff shots) and is loaded
 // before this file so headless tests can use it without Phaser. It needs the
@@ -6975,10 +6981,11 @@ class MapScene extends Phaser.Scene {
           // flying as a bow arrow through the one shot list — it can be seen
           // coming, stops in rock, and lands its hit in _shotHitsPlayer (the
           // shield potion is applied THERE, at the moment it strikes). One
-          // arrow carries one hit of the table: the kind's dmg, doubled for an
-          // elite, scaled by the mode.
+          // arrow carries MONSTER_ARROW_HITS hits of the table — the kind's
+          // dmg, doubled for an elite, scaled by the mode — so the slower
+          // cadence costs the archer none of its damage per minute.
           c._nextShotT = now + Combat.MONSTER_SHOT_INTERVAL_MS;
-          const dmg = m.dmg * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
+          const dmg = m.dmg * MONSTER_ARROW_HITS * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
           const shot = Combat.monsterShot(c.x, c.y, px, py, this.cellM, dmg);
           if (shot) this._shots.push(shot);
         } else if (clear && m.range <= 1 && ddx * ddx + ddy * ddy <= R * R
