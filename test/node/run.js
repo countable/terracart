@@ -58,7 +58,12 @@ const FILES = [
   // read Difficulty.get() at call time and app.js pins it at boot.
   'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'particles.js', 'trail.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
+  'mvt.js', 'util.js', 'particles.js', 'trail.js',
+  // Street restoration's arithmetic: interval lists, the line key, the exact
+  // grid traversal and the dwell sight. Pure — no Phaser, no scene — so it
+  // loads here beside trail.js, whose ladder it feeds.
+  'streets.js',
+  'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
   // loads either side of worldgen.js; index.html puts it first, so do we.
   'traps.js',

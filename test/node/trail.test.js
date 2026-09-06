@@ -7,101 +7,132 @@
 // arithmetic lives in trail.js: these run the real shipping numbers, not a
 // copy of them that would drift the moment someone retunes the feel.
 
-// ── The ladder ────────────────────────────────────────────────────────────
+// ── The ladder, in METRES ─────────────────────────────────────────────────
 (() => {
   const T = Trail;
-  const S = T.GOAL_STEP;
+  const S = T.GOAL_STEP_M;
 
-  test('trail: the first prize wants ten stones', () => {
+  test('trail: the first prize wants two hundred metres of street', () => {
     // The user-facing promise. Pinned as a literal so a retune is a deliberate
-    // edit here.
-    assert.eq(S, 10, 'GOAL_STEP');
-    assert.eq(T.goalFor(0), 10, 'the first goal');
+    // edit here — and it is the walk the ladder always asked for: the counter
+    // used to want ten lit pebbles at one per 20 m, which is this number said
+    // in the unit that was underneath it all along (see the stones→metres fold
+    // in savemigrate.js).
+    assert.eq(S, 200, 'GOAL_STEP_M');
+    assert.eq(T.goalFor(0), 200, 'the first goal');
   });
 
-  test('trail: each prize asks ten more stones than the last', () => {
-    for (const [won, want] of [[0, 10], [1, 20], [2, 30], [9, 100]]) {
-      assert.eq(T.goalFor(won), want, `after ${won} prizes the goal is ${want}`);
+  test('trail: each prize asks two hundred metres more than the last', () => {
+    for (const [won, want] of [[0, 200], [1, 400], [2, 600], [9, 2000]]) {
+      assert.eq(T.goalFor(won), want, `after ${won} prizes the goal is ${want} m`);
     }
   });
 
-  test('trail: a stone is about twenty metres of walking', () => {
-    // The two halves of the same feel: render.js draws one stone per
-    // COBBLE_SPACING_M and only a drawn stone counts, so the first prize is a
-    // couple of hundred metres and the tenth is a proper expedition. Neither
-    // number means anything without the other, so they are pinned together.
-    assert.eq(Render.COBBLE_SPACING_M, 20, 'metres between stones');
-    const firstWalkM = T.goalFor(0) * Render.COBBLE_SPACING_M;
-    assert.inRange(firstWalkM, 150, 250, `the first prize is ${firstWalkM}m`);
+  test('trail: the stones vocabulary is gone', () => {
+    // The ladder counts restored METRES now. A `GOAL_STEP` left behind as an
+    // alias is how a caller keeps banking pebble counts against a metre goal
+    // and pays a prize every ten metres.
+    assert.eq(T.GOAL_STEP, undefined, 'Trail.GOAL_STEP is gone');
+    assert.eq(T.bank(0, 0, 5).stones, undefined, 'and bank() reports metres, not stones');
+    assert.eq(T.bank(0, 0, 5).metres, 5, 'which is what it is called');
   });
 
-  test('trail: the counter reads stones banked over the current goal', () => {
-    assert.eq(T.progress(0, 0).target, 10, 'a fresh save wants 10');
-    assert.eq(T.progress(7, 0).pos, 7, 'and reads what has been banked');
-    assert.eq(T.progress(3, 2).target, 30, 'after two prizes it wants 30');
+  test('trail: ONE formatter draws every number the walk shows', () => {
+    // The counter that pops on the street and the prize ceremony's sub-line
+    // print the same walk. Two formatters is how the two came to disagree
+    // about which rung had just been paid.
+    assert.eq(T.label(137, 200), '137/200 m', 'the notation');
+    assert.eq(T.progress(137.4183, 0).label, '137/200 m',
+      'a float position rounds — restoration is exact, the toast is not');
+    assert.eq(T.progress(137.6, 0).label, '138/200 m', 'rounded, not floored');
+    assert.eq(T.readout(T.bank(150, 0, 60)).label, T.label(200, 200),
+      'and the paying sweep reads through the same one');
+  });
+
+  test('trail: the counter reads metres banked over the current goal', () => {
+    assert.eq(T.progress(0, 0).target, 200, 'a fresh save wants 200 m');
+    assert.eq(T.progress(70, 0).pos, 70, 'and reads what has been banked');
+    assert.eq(T.progress(30, 2).target, 600, 'after two prizes it wants 600');
+    // The position is the exact float; only the label rounds it.
+    assert.eq(T.progress(12.5, 0).pos, 12.5, 'fractional metres survive');
   });
 
   test('trail: the counter on a paying sweep reads the goal it completed, full', () => {
-    // The ladder grows by GOAL_STEP a rung, so the moment the first prize
-    // opened the stone read "3/20" — the carried remainder against the next
-    // goal — beside a ceremony that had paid at 10. The paying sweep's
+    // The ladder grows by GOAL_STEP_M a rung, so the moment the first prize
+    // opened the counter read "60/400 m" — the carried remainder against the
+    // next goal — beside a ceremony that had paid at 200. The paying sweep's
     // readout is the completed goal, full; the remainder shows next sweep.
-    assert.eq(T.readout(T.bank(8, 0, 5)).pos, 10, 'the first goal, complete');
-    assert.eq(T.readout(T.bank(8, 0, 5)).target, 10, 'and the target is that goal');
-    const next = T.bank(8, 0, 5);
-    assert.eq(T.readout({ stones: next.stones, prizes: next.prizes, owed: 0 }).target, 20,
-      'the next sweep reads against the next rung');
-    assert.eq(T.readout({ stones: next.stones, prizes: next.prizes, owed: 0 }).pos, 3,
-      'with the carried remainder');
+    assert.eq(T.readout(T.bank(160, 0, 100)).pos, 200, 'the first goal, complete');
+    assert.eq(T.readout(T.bank(160, 0, 100)).target, 200, 'and the target is that goal');
+    const next = T.bank(160, 0, 100);
+    const after = { metres: next.metres, prizes: next.prizes, owed: 0 };
+    assert.eq(T.readout(after).target, 400, 'the next sweep reads against the next rung');
+    assert.eq(T.readout(after).pos, 60, 'with the carried remainder');
     // A sweep that crosses two goals at once reads the LAST one it completed.
-    const two = T.bank(9, 0, 22);
+    const two = T.bank(190, 0, 420);
     assert.eq(two.owed, 2);
-    assert.eq(T.readout(two).target, 20, 'the second rung, full');
-    assert.eq(T.readout(two).pos, 20);
+    assert.eq(T.readout(two).target, 400, 'the second rung, full');
+    assert.eq(T.readout(two).pos, 400);
     // No payout: plain progress.
-    const p = T.readout(T.bank(0, 0, 7));
-    assert.eq(p.pos, 7); assert.eq(p.target, 10);
-    assert.eq(T.readout(null).target, 10, 'nothing banked reads as a fresh rung');
+    const p = T.readout(T.bank(0, 0, 140));
+    assert.eq(p.pos, 140); assert.eq(p.target, 200);
+    assert.eq(T.readout(null).target, 200, 'nothing banked reads as a fresh rung');
+    assert.eq(T.readout(null).label, '0/200 m', 'and says so');
   });
 
-  test('trail: banking stones counts them and pays on the goal', () => {
-    let st = T.bank(0, 0, 9);
-    assert.eq(st.stones, 9, 'nine banked');
+  test('trail: banking metres counts them and pays on the goal', () => {
+    let st = T.bank(0, 0, 180);
+    assert.eq(st.metres, 180, 'a hundred and eighty banked');
     assert.eq(st.owed, 0, 'and nothing owed yet');
-    st = T.bank(st.stones, st.prizes, 1);
-    assert.eq(st.owed, 1, 'the tenth stone pays');
+    st = T.bank(st.metres, st.prizes, 20);
+    assert.eq(st.owed, 1, 'the two-hundredth metre pays');
     assert.eq(st.prizes, 1, 'one prize won');
-    assert.eq(st.stones, 0, 'and the count starts again');
+    assert.eq(st.metres, 0, 'and the count starts again');
+  });
+
+  test('trail: the ladder is measured, not counted', () => {
+    // Restoration is exact float arclength (src/streets.js), so a sweep
+    // routinely banks a fraction of a metre. Rounding it away would lose most
+    // of a short walk; rounding it up would pay for street nobody restored.
+    const st = T.bank(150.5, 0, 30.25);
+    assert.eq(st.metres, 180.75, 'the fraction is kept, to the metre and past it');
+    const pay = T.bank(199.5, 0, 1.25);
+    assert.eq(pay.owed, 1, 'and it still crosses the goal exactly on the metre');
+    assert.inRange(pay.metres, 0.749, 0.751, 'with the fraction carried over');
   });
 
   test('trail: the remainder carries into the next goal', () => {
-    // A sweep lights a whole disc of stones at once, so a goal is routinely
-    // crossed mid-sweep — the stones past it belong to the next walk, not to
+    // A sweep restores a whole disc of street at once, so a goal is routinely
+    // crossed mid-sweep — the metres past it belong to the next walk, not to
     // the bin.
-    const st = T.bank(8, 0, 5);
+    const st = T.bank(160, 0, 100);
     assert.eq(st.prizes, 1, 'the goal was crossed');
-    assert.eq(st.stones, 3, 'and the three stones past it carried over');
+    assert.eq(st.metres, 60, 'and the sixty metres past it carried over');
     assert.eq(st.owed, 1, 'one prize owed');
   });
 
   test('trail: one sweep can cross more than one goal', () => {
-    // 10 for the first, 20 for the second, 30 for the third = 60, and each
-    // crossing lengthens the next goal — so this is a loop over the NEW goal,
-    // not a division.
-    const st = T.bank(0, 0, 60);
+    // 200 for the first, 400 for the second, 600 for the third = 1200, and
+    // each crossing lengthens the next goal — so this is a loop over the NEW
+    // goal, not a division.
+    const st = T.bank(0, 0, 1200);
     assert.eq(st.prizes, 3, 'three prizes');
     assert.eq(st.owed, 3, 'all three owed at once');
-    assert.eq(st.stones, 0, 'exactly consumed');
-    const one = T.bank(0, 0, 29);
-    assert.eq(one.prizes, 1, '29 stones is one prize');
-    assert.eq(one.stones, 19, 'and 19 toward the next');
+    assert.eq(st.metres, 0, 'exactly consumed');
+    const one = T.bank(0, 0, 580);
+    assert.eq(one.prizes, 1, '580 m is one prize');
+    assert.eq(one.metres, 380, 'and 380 toward the next');
   });
 
   test('trail: banking is defensive about junk', () => {
     // A hand-edited or half-migrated save must not mint prizes.
-    assert.eq(T.bank(0, 0, 0).owed, 0, 'no stones, no prize');
+    assert.eq(T.bank(0, 0, 0).owed, 0, 'no metres, no prize');
     assert.eq(T.bank(-5, -5, -5).owed, 0, 'negatives read as zero');
-    assert.eq(T.bank(0, 0, 1000).prizes, 13, 'a huge sweep still walks the ladder');
+    assert.eq(T.bank(NaN, 0, 40).metres, 40, 'a NaN total starts from nothing');
+    assert.eq(T.bank(40, 0, NaN).metres, 40, 'and a NaN gain adds nothing');
+    assert.eq(T.bank(0, 0, Infinity).owed, 0, 'an infinite sweep mints no prizes at all');
+    assert.eq(T.bank(0, 0, 20000).prizes, 13, 'a huge walk still walks the ladder');
+    assert.eq(T.progress(NaN, 0).pos, 0, 'and the counter never reads NaN');
   });
 
   test('trail: the reward improves with every prize, then stops climbing', () => {
