@@ -157,6 +157,10 @@ const MINERAL_ICON_SHEET = {
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
+  // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
+  // honey jar). Using it moves the player up or down one cave level in place
+  // (useRope in app.js).
+  rope:          { sheet: 'icon_rope', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -269,6 +273,8 @@ const BASE_TIER = {
   // Consumables
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   dragon_powder: 3,
+  // Rope — a T2 utility like the potions: one climb up or down a level.
+  rope: 2,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
@@ -352,6 +358,11 @@ const ITEMS = [
   // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
   { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
+  // Rope: use it (Use button with it selected) and the dialog asks which way —
+  // climb UP a level or lower yourself DOWN one — right where you stand, no
+  // staircase needed. One rope per climb. Unlike the sapphire portal it goes
+  // both ways, so it is also the way out of a dead-end dig (useRope in app.js).
+  { id: 'rope',          name: 'Rope',                kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -518,6 +529,7 @@ const PRICES = {
   speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
+  rope:          25,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft)
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -615,6 +627,7 @@ const PLAY_TIPS = [
   'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
   'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
+  'A Rope goes both ways: use one to climb up a level or lower yourself down one, right where you stand.',
   // ── Shops / trade ─────────────────────────────────────────
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
   'Addresses ending 2 or 6 are Produce Shops, stocked with crops. Endings 1 and 8 are Traders, who barter only.',
@@ -692,6 +705,8 @@ const ITEM_EFFECTS = {
   vigor_potion:  'Drink to restore 40 energy',
   speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
+  dragon_powder: 'Use to become a dragon for 1 min: faster legs, 2× damage',
+  rope:          'Use to climb up or lower down one level, right here',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
 };
 

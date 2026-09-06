@@ -988,6 +988,19 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+// items.js loads fine, but its PLAY_TIPS / comments are prose the rope test
+// sweeps as text, and a new icon's PNG has to exist on disk at the size the
+// ICON_SHEETS row claims — the two-table rule (docs/QC_RULES.md §1) is a
+// promise between items.js, app.js and a file, and only a test that reads
+// all three can hold it. pngDims reads the IHDR of an asset under ROOT.
+ctx.ITEMS_JS_SRC = readSrc('items.js');
+ctx.pngDims = (rel) => {
+  const p = path.join(ROOT, rel.replace(/\?.*$/, ''));
+  if (!fs.existsSync(p)) return null;
+  const b = fs.readFileSync(p);
+  if (b.readUInt32BE(0) !== 0x89504e47) return null;
+  return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+};
 // index.html is what actually MEASURES the screen — the CSS scale app.js sizes
 // the canvas from is published by its fitGame. canvas_scale.test.js pins the
 // two halves of that handshake against each other; nothing else can, because
