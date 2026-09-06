@@ -65,11 +65,12 @@ const CROP_SPRITE = {
   // sheet was 32×32 frames rendered at the wildplant scale of 2 → 64×64
   // display, twice the footprint of every other ground prop, which read
   // as a giant broken-looking mushroom on commercial/industrial plots.
-  // scale 1.7 (down 15% from the wildplant default of 2) renders the 16px
-  // frame at ~27px — the toadstool reads as a prop tucked in its tile rather
-  // than one filling it edge to edge. Origin stays (0.5, 0.5) in the planted
-  // pass, so it shrinks about the cell centre and stays centred.
-  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.7 },
+  // scale 1.36 (1.7 — itself down 15% from the wildplant default of 2 — then
+  // a further 20% off, Sep 2026 playtest) renders the 16px frame at ~22px —
+  // the toadstool reads as a prop tucked in its tile rather than one filling
+  // it edge to edge. Origin stays (0.5, 0.5) in the planted pass, so it
+  // shrinks about the cell centre and stays centred.
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.36 },
   // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.
@@ -633,6 +634,7 @@ const PLAY_TIPS = [
   'A Bow or Staff shoots on its own — one shot a second, while a foe is on screen.',
   'Arrows fly where the compass points, not at what you tap. Turn to aim.',
   'A Staff bolt seeks the nearest foe on its own — no aiming, but each bolt costs a little energy.',
+  'A better Staff throws a bigger bolt: a Frost bolt is twice the size of a Wood one, and sweeps up more foes.',
   'The ring over a foe is its health, not a timer — green, then amber, then red.',
   'A Bow drops the markup traders charge you; at Frost tier you buy at par.',
   'A Ring nudges chest loot up a tier. It is never sold or forged — the wizard is the only source.',
@@ -802,7 +804,7 @@ const RELIC_DEFS = {
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots foes on screen · better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'hunt',          blurb: 'ranged: auto-shoots the nearest foe on screen' },
+             effectKey: 'hunt',          blurb: 'ranged: auto-shoots the nearest foe on screen · bigger bolt per tier' },
   // Watering can — when equipped, every watering tap on a crop "improves" it.
   // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
   // next 50 watering uses get an extra +2 tiers of bonus stacked on top.
@@ -1048,8 +1050,12 @@ function sellMultiplier(relics) {
 // One number, one place: every home sale goes through trailerSellPrice, so the
 // price the modal quotes and the cash addMoney pays can't drift apart.
 const TRAILER_SELL_MUL = 0.75;
+// Hard mode takes a further cut here (Difficulty.sellMul, 0.6): the SAME
+// place, so the quote and the payout still can't drift, and the stand floor
+// (which prices off sellMultiplier, not this) only widens.
 function trailerSellMultiplier(relics) {
-  return sellMultiplier(relics) * TRAILER_SELL_MUL;
+  const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().sellMul : 1;
+  return sellMultiplier(relics) * TRAILER_SELL_MUL * modeMul;
 }
 // Cash the trailer pays for ONE unit of an item listed at baseValue. Ceil and
 // a $1 floor, same as every other price path — so a $1 item still sells for $1
@@ -1067,10 +1073,15 @@ function bestWeaponTier(relics) {
 // Bow relic: shrinks the random buy-cash markup. Without one, the trader still
 // wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0× (the player
 // buys at par).
+// Hard mode scales the whole range (Difficulty.buyMul, 1.5×): the bow still
+// closes the spread the same way, it just closes on 1.5× par instead of par.
+// Applied HERE so every reader — the trader's roll, the castle's pricing —
+// asks one function and gets the same answer.
 function buyMarkupRange(relics) {
   const t = bestWeaponTier(relics);
   const f = 1 - t / 7;   // 1 → 0 as tier rises
-  return { lo: 1 + 0.2 * f, hi: 1 + 2.0 * f };
+  const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().buyMul : 1;
+  return { lo: (1 + 0.2 * f) * modeMul, hi: (1 + 2.0 * f) * modeMul };
 }
 
 // === Per-crop loot tier config (used by chests + treasure marks) ===

@@ -66,10 +66,16 @@
   // creatureMaxHp so the pet fight and the player fight can't drift apart.
   const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 15 };
 
+  // Hard mode scales ENEMY pools (Difficulty.enemyHpMul, 1.5×) here, in the
+  // one place both the wheel and the bounty read — so a hard-mode foe takes
+  // 1.5× as long at any weapon tier AND pays 1.5× the wage, by the same
+  // derivation an elite or a giant does. Game (crow, deer) and pets are not
+  // enemies and keep their fauna HP whatever the mode.
   function creatureMaxHp(kind) {
     const m = MONSTER_STATS[kind];
-    if (m && Number.isFinite(m.hp)) return m.hp;
-    return FAUNA_HP[kind] ?? 10;
+    const base = (m && Number.isFinite(m.hp)) ? m.hp : (FAUNA_HP[kind] ?? 10);
+    if (!isEnemyKind(kind) || typeof Difficulty === 'undefined') return base;
+    return Math.round(base * Difficulty.get().enemyHpMul);
   }
 
   // ── Elites ───────────────────────────────────────────────────────────────
@@ -153,7 +159,8 @@
   //           it hits and in anything solid on the way (cave rock, and on the
   //           surface standing trees / bushes / mineral rocks — app.js hands
   //           the test over as opts.blocked).
-  //   staff — a magic bolt: a fat dot (dotPx radius) that PIERCES — it damages
+  //   staff — a magic bolt: a fat dot (dotPx radius at Wood tier; it GROWS
+  //           with the staff's tier, see boltScale) that PIERCES — it damages
   //           every foe it passes exactly once and ignores the world test
   //           entirely (magic goes over rock and timber alike). Each bolt
   //           draws energyCost (1⚡) from the caster — app.js gates the shot
@@ -175,7 +182,8 @@
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
              phaseMs: 0, aim: 'compass' },
     staff: { speedCps: 3.2, rangeCells: 7, color: 0x9ad6ff, dotPx: 3,
-             phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest' },
+             phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest',
+             growsWithTier: true },
   };
   // Damage weight per slot: a staff bolt lands double an arrow's share.
   const SHOT_DMG_MUL = { bow: 1, staff: 2 };
@@ -184,6 +192,35 @@
   // coarse and jittery, so a strict hit box would make the whole mechanic read
   // as broken. Just under a cell puts a foe eight cells out inside a ~7° cone.
   const HIT_RADIUS_CELLS = 0.9;
+
+  // ── Bolt size by tier ────────────────────────────────────────────────────
+  // A slot flagged `growsWithTier` (the staff) fires a bigger shot the better
+  // the relic: a Wood bolt is the base size, a Frost one is BOLT_MAX_TIER_MUL
+  // times it, linear in between. The radius that HITS (the shot's `radiusM`,
+  // what stepShots sweeps foes with) and the radius that DRAWS (its `dotPx`,
+  // what app.js paints) come off the SAME `boltScale`, stamped onto the shot
+  // by spawnShot — the roadOverlayWidthM discipline: a bolt drawn twice as
+  // fat had better sweep twice as wide, and a single number keeps them from
+  // drifting apart. The bow's arrow is not flagged: its forgiveness is for
+  // the compass, not a property of the arrow, and stays HIT_RADIUS_CELLS at
+  // every tier.
+  const MAX_TIER = 7;
+  const BOLT_MAX_TIER_MUL = 2;
+  function boltScale(slot, tier) {
+    const spec = SHOT[slot];
+    if (!spec || !spec.growsWithTier) return 1;
+    const t = Math.max(1, Math.min(MAX_TIER, Math.floor(Number(tier) || 1)));
+    return 1 + ((t - 1) / (MAX_TIER - 1)) * (BOLT_MAX_TIER_MUL - 1);
+  }
+  // The hit radius of a `slot` shot at `tier`, in world metres.
+  function shotRadiusM(slot, tier, cellM) {
+    return HIT_RADIUS_CELLS * cellM * boltScale(slot, tier);
+  }
+  // The drawn radius of a bolt at `tier`, in screen px (0 for a streak slot).
+  function shotDotPx(slot, tier) {
+    const spec = SHOT[slot];
+    return spec && spec.dotPx ? spec.dotPx * boltScale(slot, tier) : 0;
+  }
 
   // Damage per shot: one firing-interval's worth of that weapon tier's
   // melee-equivalent rate, weighted by the slot (SHOT_DMG_MUL — the staff
@@ -235,7 +272,10 @@
   // A shot in flight. `dir` is the heading (need not be normalised) — the
   // compass or the line to a foe, per shotHeading; a zero-length heading is
   // refused rather than firing a shot that sits on the player's feet forever.
-  function spawnShot(slot, x, y, dir, cellM, dmg) {
+  // `tier` is the firing relic's tier and sizes the shot (boltScale above):
+  // `radiusM` is what stepShots sweeps foes with and `dotPx` what app.js
+  // draws, both stamped here so they can't disagree. Omitted, it is tier 1.
+  function spawnShot(slot, x, y, dir, cellM, dmg, tier) {
     const mag = Math.hypot(dir?.x || 0, dir?.y || 0);
     if (!(mag > 0)) return null;
     const spec = SHOT[slot];
@@ -247,6 +287,8 @@
       travelledM: 0,
       damage: dmg,
       pierce: !!spec.pierce,
+      radiusM: shotRadiusM(slot, tier, cellM),
+      dotPx: shotDotPx(slot, tier),
     };
   }
 
@@ -261,6 +303,11 @@
   // takes (enemy, shot). A shot is dropped when it hits, when it has flown its
   // range, or when it runs into something solid. Returns the survivors —
   // assign the result back.
+  //
+  // `hitRadiusM` is the fallback sweep for a shot that carries no `radiusM`
+  // of its own; a shot from spawnShot always does (sized by its tier), and
+  // that wins, so a Frost bolt sweeps wider than a Wood one through the same
+  // call.
   //
   // No swept-collision maths for the FOES: the fastest shot covers ~0.5 m a
   // frame against a hit radius of ~6 m, so nothing can tunnel through one.
@@ -283,6 +330,7 @@
     const sampleM = Math.max(0.01,
       ((opts && opts.cellM) || hitRadiusM) * BLOCK_SAMPLE_CELLS);
     for (const s of shots) {
+      const sr2 = s.radiusM != null ? s.radiusM * s.radiusM : r2;
       const step = s.speedMps * dt;
       // How far of this frame's step the shot actually gets to travel: all of
       // it, unless something solid is in the way. A PIERCING shot (the staff
@@ -308,7 +356,7 @@
         // same foe on every frame it spends crossing them.
         for (const e of enemies) {
           const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
-          if (d2 > r2) continue;
+          if (d2 > sr2) continue;
           const key = e.id != null ? e.id : e;
           if (!s._struck) s._struck = new Set();
           if (s._struck.has(key)) continue;
@@ -316,7 +364,7 @@
           onHit(e, s);
         }
       } else {
-        let hit = null, bestD2 = r2;
+        let hit = null, bestD2 = sr2;
         for (const e of enemies) {
           const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
           if (d2 <= bestD2) { bestD2 = d2; hit = e; }
@@ -370,6 +418,7 @@
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, shotDamage,
     FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
+    MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
   };
   root.Combat = api;

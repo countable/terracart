@@ -54,6 +54,9 @@ vm.createContext(ctx);
 
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
+  // The game-mode table — first, because items.js / combat.js / energy.js
+  // read Difficulty.get() at call time and app.js pins it at boot.
+  'difficulty.js',
   'sprite_layout.js',
   'mvt.js', 'util.js', 'trail.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
@@ -75,6 +78,9 @@ const FILES = [
   // load time (see the CANVAS_W comment in drawObjects), so loading it here is
   // safe and gives the pure decision helpers it exports — edgeNeedsBorder —
   // a home in the headless suite.
+  // The lightmap: the light table, the per-frame collector and the derived
+  // levels are pure; only draw() touches Phaser, and no test calls it.
+  'lighting.js',
   'render.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
@@ -95,7 +101,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
   // a stall's name promises is what it sells.
   POI_CATEGORY, CHEST_TIER_BY_CATEGORY, CHEST_TIER_HOME_RINGS_M,
-  chestTierHomeDrop, chestTier, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
+  CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_TIER_COLOR,
+  chestTierHomeDrop, chestTierDepthBonus, chestTier, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
@@ -161,7 +168,11 @@ try {
                       'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS',
                       // The peek drag's own numbers — peek_drag.test.js drives
                       // the REAL clamp and spring-back with them.
-                      'PEEK_MAX_CELLS', 'PEEK_DRAG_SLOP_PX', 'PEEK_RETURN_MS']) {
+                      'PEEK_MAX_CELLS', 'PEEK_DRAG_SLOP_PX', 'PEEK_RETURN_MS',
+                      // The campfire's warmth ring — lighting.js resolves the
+                      // fire's light radius to it at call time, and
+                      // lighting.test.js pins that the two are one number.
+                      'FIRE_REST_R']) {
     // parseFloat, not parseInt: WALK_M_S is 1.4, and rounding walking pace to
     // 1 m/s would silently retune every distance the tests below measure.
     const m = src.match(new RegExp(`const ${name} = ([\\d.]+);`));
@@ -992,6 +1003,9 @@ ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   vm.runInContext(m[0], ctx, { filename: 'app.js#renderScale' });
 }
 ctx.RENDER_SRC = readSrc('render.js');
+// lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as
+// source text — draw() is the one Phaser-bound function in the module.
+ctx.LIGHTING_SRC = readSrc('lighting.js');
 // multiplayer.js draws peers with the same feet-on-the-fix seating app.js
 // gives the local player; feet_anchor.test.js pins both as text.
 ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');

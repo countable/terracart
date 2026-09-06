@@ -428,6 +428,9 @@ const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
 // `hpMul` is the instance's multiplier over the kind's HP — Combat.eliteMul:
 // an elite has twice the pool, so it pays twice the per-HP wage, by the same
 // rule that makes a goblin pay more than a slime.
+// (Hard mode adds no wage of its own: creatureMaxHp already scales an enemy's
+// pool by Difficulty.enemyHpMul, and the per-HP rule carries that into the
+// coins — a foe that takes 1.5× as long pays 1.5× as much, same as an elite.)
 function enemyBounty(kind, depth, hpMul = 1) {
   if (!Combat.isEnemyKind(kind)) return 0;
   return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP))
@@ -844,7 +847,9 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // Chest tiers are not rolled: a chest's tier (1-4) is a fixed lookup from its
 // OSM POI class via loot.js › chestTier (POI_CATEGORY → CHEST_TIER_BY_CATEGORY),
 // demoted a tier for each Home ring the chest stands inside (700 m / 350 m,
-// CHEST_TIER_HOME_RINGS_M, floor T1). The tier drives the sprite/gem in
+// CHEST_TIER_HOME_RINGS_M, floor T1), then raised one tier per two cave
+// levels down (CHEST_TIER_DEPTH_STEP, cap T5) for the POI's underground
+// mirrors (worldgen.js caveChestsFrom). The tier drives the sprite/gem in
 // render.js and the chestTierMod loot curve in rarity.js; only the loot roll
 // itself is random.
 
@@ -1129,6 +1134,10 @@ class MapScene extends Phaser.Scene {
     // a save array below, so the HISTORY_CAP trim above actually sticks — build
     // a mirror from the pre-trim array and the next rewrite un-trims it.
     const needsMigrationPersist = SaveMigrate.migrate(this.save);
+    // Pin the game mode for the pure modules (prices, enemy HP, offline rest
+    // read Difficulty.get(), not the save). Unset — a fresh save the how-to
+    // card hasn't asked yet — reads as easy until chooseMode() runs.
+    if (typeof Difficulty !== 'undefined') Difficulty.setMode(this.save.mode);
     // Chests left for later because the bag was full: { [chestId]: {id, n} }.
     // The chest stays out of save.opened (so it still renders + reopens) and
     // remembers exactly what it rolled, so reopening can't re-roll the loot.
@@ -1452,37 +1461,22 @@ class MapScene extends Phaser.Scene {
     // while trees, houses and creatures stay at full contrast on top of it.
     // Painted in Render.drawCells; see BiomeProfiles.atmos for the palette.
     this.atmosGroundGfx = this.add.graphics();
-    // LIGHTING — the out-of-reach dim, the underground torch wash, the
-    // low-energy pink tint and the white reach outline. It sits here, ABOVE
-    // every piece of ground decoration (biome seams, cobbles, road letters,
-    // treasure pads, shadows, the haze) and BELOW the standing sprites,
-    // because "outside the lit area" has to mean the whole ground goes dark —
-    // not just the flat terrain fill. POI halos are the one ground element
-    // that sits ABOVE this layer instead — see the note where
-    // poiHaloContainer is created just below, right after this one.
+    // REACH — the unmapped-tile reveal and the white reach OUTLINE, the tap
+    // affordance. It sits here, ABOVE every piece of ground decoration (biome
+    // seams, cobbles, road letters, treasure pads, shadows, the haze) so the
+    // outline is never covered by the ground it marks, and BELOW the standing
+    // sprites so a tree stands over it.
     //
-    // These passes used to live in cellGfx, the bottom-most layer, so the dim
-    // could only reach the base colour: biome BOUNDARIES in particular stayed
-    // at full brightness outside the lit area and read as glowing seams in the
-    // dark. (The distance falloff hit the same wall and was moved above the
-    // sprites for it; this is the same bug one layer down.) Sprites stay at
-    // full contrast on purpose — see the note on atmosGroundGfx above — and
-    // distance, not reach, is what dims them, via atmosFalloffGfx.
+    // Until Sep 2026 this was the LIGHTING layer too: the out-of-reach dim,
+    // the underground torch wash and the low-energy pink were fillRects here,
+    // below the sprites, which were deliberately exempt from the dim. The
+    // darkness moved to the lightMap (below, above the sprites) when the
+    // world gained more than one light — see src/lighting.js. What remains
+    // here is only the per-cell work a cookie can't do.
     this.reachGfx = this.add.graphics();
-    // POI halos — the slow ring "ping" under every live POI (render.js) — sit
-    // ABOVE the lighting layer, DELIBERATELY exempt from the out-of-reach dim
-    // every other ground layer gets. A halo's whole job is to read as a place
-    // "from across the map" (see render.js's POI-halo comment); crushing it
-    // under the same dim that swallows biome seams and cobbles defeats that —
-    // most of the visible grid sits outside the small reach radius at any
-    // moment, so the ping would only ever show right under the player's feet.
-    // It's still below worldContainer (so it doesn't draw over the chest
-    // itself) and below atmosFalloffGfx (so it still fades with sheer
-    // distance) — only the binary in-reach/out-of-reach dim is skipped. The
-    // ring's own texture is a transparent-centred band, so drawing it above
-    // padContainer here (instead of below, as before) doesn't hide the pad —
-    // the ring just crosses over the slab's rim as it expands.
-    this.poiHaloContainer = this.add.container(0, 0);
+    // (The POI halo layer — a ring "ping" under every live POI — lived here
+    // until Sep 2026. A live POI is a LIGHT now, breathing in the lightmap:
+    // Lighting.KINDS.poi.)
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
     // object sprites so towers on those edges read as standing IN FRONT of them
@@ -1538,15 +1532,28 @@ class MapScene extends Phaser.Scene {
     // Position in the display list is what does this, NOT setDepth: the
     // vignette's depth 90 would put it over the labels as well.
     this.atmosRimGfx = this.add.graphics();
-    // Atmosphere: the DISTANCE FALLOFF. Concentric rings deepening the
-    // out-of-reach dim with distance from the player (render.js drawCells).
-    // Sits beside the rim haze for the same reason and with the same
-    // constraint: after every world sprite, so distant OBJECTS recede along
-    // with the ground they stand on — in cellGfx (the bottom layer) it could
-    // only darken the base terrain fill, and objects at the rim stayed fully
-    // lit and read as stickers on dark ground. Still before labelContainer:
-    // POI name tablets are UI and must stay crisp at any distance.
-    this.atmosFalloffGfx = this.add.graphics();
+    // THE LIGHTMAP — every light in the world, composited in one texture and
+    // MULTIPLIED over everything below it (src/lighting.js). Each frame the
+    // texture is filled with the ambient darkness and every light source adds
+    // its baked cookie: the player's reach bubble with the distance falloff
+    // built in, Home, each restored building, each campfire.
+    //
+    // It sits AFTER every world sprite, so a house or a tree outside every
+    // light goes as dark as the ground it stands on — the same lesson the old
+    // falloff rings learned when they moved up from cellGfx (objects at the
+    // rim read as stickers on dark ground) — and BEFORE labelContainer: POI
+    // name tablets are UI and stay crisp in the dark. Exactly the viewport
+    // square, so it needs no geometry mask.
+    //
+    // A RenderTexture rather than Graphics because the passes it replaced —
+    // a fillRect per unlit cell, ~100 strokeCircle falloff rings — were all
+    // darkness, and darkness can't add up into a second light. Blend modes are what make it renderer-agnostic: ADD and
+    // MULTIPLY map to canvas composite operations, so the Canvas fallback
+    // draws the same picture. LINEAR filtering (WebGL) keeps the upscale from
+    // the logical grid to the device canvas from stepping the gradients.
+    this.lightMap = this.add.renderTexture(this.viewLeft, this.viewTop, this.viewSize, this.viewSize)
+      .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    try { this.lightMap.texture.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle
@@ -1655,7 +1662,6 @@ class MapScene extends Phaser.Scene {
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
-    this.poiHaloPool = [];    // slow pulsing glow under each live POI (render.js)
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
 
     // Bake the coin sprite: a 16×16 gold disc with a soft outline + highlight.
@@ -1711,27 +1717,6 @@ class MapScene extends Phaser.Scene {
     };
     bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
     bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
-    // POI marker: a thick soft-edged RING (not a filled disc like the warning
-    // halos above) that render.js expands outward and fades as it grows — a
-    // "ping" rather than a breathing glow. Drawn as concentric strokes whose
-    // alpha follows a triangular feather peaking at the middle of the band,
-    // so both the inner and outer edge of the ring soften instead of hard-
-    // cutting. Treasure blue-white (spec §UI COLOUR LANGUAGE), matching the
-    // pale pad it rings out from — a gold ring under a blue-white slab would
-    // read as two different signals for the same thing.
-    if (!this.textures.exists('halo_poi')) {
-      const rg = this.make.graphics({ x: 0, y: 0, add: false });
-      const C = 32, steps = 24, outerR = 30, bandW = 9;
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;                        // 0 → inner edge of band, 1 → outer edge
-        const r = outerR - bandW + bandW * t;
-        const feather = 1 - Math.abs(t - 0.5) * 2;   // 0 at both edges, 1 at band centre
-        rg.lineStyle(2, 0xcfe2ff, 0.65 * feather);
-        rg.strokeCircle(C, C, r);
-      }
-      rg.generateTexture('halo_poi', 64, 64);
-      rg.destroy();
-    }
     // GPS crosshair — the marker at your REAL (GPS) position (see gpsGhost
     // below). An open ring with four ticks crossing it, deliberately NOT a
     // filled disc: a small gold disc IS a coin in this game, and the map is
@@ -1879,7 +1864,6 @@ class MapScene extends Phaser.Scene {
     this.letterContainer.setMask(mask);
     this.roadGeomContainer.setMask(mask);
     this.buildingGeomContainer.setMask(mask);
-    this.poiHaloContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.atmosGroundGfx.setMask(mask);
@@ -1891,7 +1875,6 @@ class MapScene extends Phaser.Scene {
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);
-    this.atmosFalloffGfx.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
     this.fogContainer.setMask(mask);
@@ -2044,23 +2027,15 @@ class MapScene extends Phaser.Scene {
       font: fontMono('bold 13px'), color: UI_GOLD,
       stroke: '#5a1400', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // Walk-target marker. Movement is target-follow at every depth: GPS fixes
-    // and steering input move a free-flying target (this._targetM) and the
-    // opaque body (this.player) walks toward it — underground it also passes
-    // through rock, which the body mines out. This small dot marks where that
-    // target is, UNDERGROUND ONLY: down there it's a cursor the player steers
-    // ahead of the dig. On the surface the target is the GPS fix, which the
-    // crosshair (gpsGhost) already marks, so the dot only read as a grey blob
-    // floating ahead of an auto-walking character — see the marker block in
-    // update(), which is the one place its visibility is decided. A plain
-    // marker, not a player-shaped sprite — the only player sprites on the map
-    // belong to real bodies (this.player, and any other live player — see
-    // multiplayer.js).
-    this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY, 5, 0xffffff, 0.55)
-      .setStrokeStyle(1.5, 0x000000, 0.4)
-      .setDepth(10)
-      .setVisible(false)
-      .setMask(mask);
+    // There is NO walk-target marker. Movement is target-follow at every depth:
+    // GPS fixes and steering input move a free-flying target (this._targetM)
+    // and the opaque body (this.player) walks toward it — underground it also
+    // passes through rock, which the body mines out. A small grey dot used to
+    // mark that target (surface first, then underground only), and at every
+    // depth it read as a blob floating ahead of an auto-walking character —
+    // the character walking itself over is the whole message. The ONE ground
+    // marker beside the body is the GPS crosshair (gpsGhost, below): where you
+    // REALLY are, shown at every depth once the body has left it.
     // Warning halo behind the player: red when the tank is empty, near-black
     // when the stick has walked them a long way off the GPS. Pulses so it reads
     // as a live warning rather than a smudge under the sprite. Depth 9.7 puts
@@ -2288,6 +2263,11 @@ class MapScene extends Phaser.Scene {
     window.__tutorialActive = () =>
       typeof Quests !== 'undefined' && !Quests.starterHidden(this.save);
     window.__disableTutorial = () => this.dismissObjective();
+    // The card's two CTAs — "Easy mode, enable tutorial" / "Hard mode, no
+    // tutorial" — pick the save's game mode (difficulty.js). __gameMode is
+    // null until a choice is made, which is what makes the card ask.
+    window.__gameMode = () => (Difficulty.isMode(this.save.mode) ? this.save.mode : null);
+    window.__chooseMode = (mode) => this.chooseMode(mode);
 
     // First arrival in the world — show the how-to card over the live map, so
     // the reach bubble and the objective chip it points at are visible behind
@@ -3438,7 +3418,10 @@ class MapScene extends Phaser.Scene {
     for (const sp of FAUNA_ORDER) {
       const cfg = BIOME_FAUNA[sp];
       if (!cfg) continue;
-      const n = cfg.base + (cfg.range ? Math.floor(rng() * cfg.range) : 0);
+      let n = cfg.base + (cfg.range ? Math.floor(rng() * cfg.range) : 0);
+      // Hard mode doubles the surface slimes (Difficulty.slimeCountMul); the
+      // extra ids just count on past the easy ones, so seeds still reproduce.
+      if (sp === 'slime') n = Math.round(n * Difficulty.get().slimeCountMul);
       const primary  = new Set(cfg.primary);
       const fallback = new Set(cfg.fallback || cfg.primary);
       const primN = Math.round(n * (cfg.share ?? 0.8));
@@ -3505,6 +3488,7 @@ class MapScene extends Phaser.Scene {
       _trailAnchor.y >= ty0 && _trailAnchor.y < ty0 + this.tileEdgeM;
     if (isStarterTile) {
       this._placeStarterTrail(entry, tx, ty);
+      this._stripStarterCrates(entry);      // hard mode: no supply handout
     } else {
       // Any tile arriving can complete a starter-home plan that was deferred
       // (or left short) because the map around spawn was still streaming —
@@ -3664,6 +3648,8 @@ class MapScene extends Phaser.Scene {
   _pestFreeZone(tx, ty) {
     const sv = this.save;
     if (!sv || sv.hasHarvested) return null;   // first crop is in: the map is itself again
+    // Hard mode never had the grace: the pests are in the yard from minute one.
+    if (typeof Difficulty !== 'undefined' && !Difficulty.get().pestAmnesty) return null;
     // The frozen trail anchor is where the player actually started; startWorldM
     // is the projection origin, which is the same thing until a save's home
     // capture puts them somewhere else (see _starterTrailAnchor).
@@ -3693,7 +3679,10 @@ class MapScene extends Phaser.Scene {
     if ((this.depth || 0) !== 0) return;     // tileCache is repointed underground
     const tx = Math.floor(x / this.tileEdgeM), ty = Math.floor(y / this.tileEdgeM);
     const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-    if (e && (!e.status || e.status === 'ready') && e.grid) this._placeStarterTrail(e, tx, ty);
+    if (e && (!e.status || e.status === 'ready') && e.grid) {
+      this._placeStarterTrail(e, tx, ty);
+      this._stripStarterCrates(e);          // hard mode: no supply handout
+    }
     // The pond's band reaches into the neighbours, which may have spawned
     // before there was an anchor to measure it from — run the pass over
     // everything already in the cache.
@@ -5231,7 +5220,9 @@ class MapScene extends Phaser.Scene {
     // odds each), so 2 anchors on a tile is typical, not an edge case.
     // The 160 cap is a dead-but-harmless safety net at today's depths — keep
     // it in case a much deeper level or a MONSTERS-table change changes that.
-    const count = Math.min(160, 50 + depth * 10);
+    // Hard mode packs the level tighter (Difficulty.monsterCountMul, 1.5×) —
+    // still under the cap at every depth that exists today.
+    const count = Math.min(160, Math.round((50 + depth * 10) * Difficulty.get().monsterCountMul));
     for (let i = 0; i < count; i++) {
       const kind = bag[Math.floor(rng() * bag.length)];
       for (let attempt = 0; attempt < 20; attempt++) {
@@ -5266,6 +5257,45 @@ class MapScene extends Phaser.Scene {
         creatures.push({ x: wmx, y: wmy, kind: 'rabbit', id });
         break;
       }
+    }
+    // Loose coins on the cave floor: a handful per level tile, scattered the
+    // same way as the fauna (around the entrances, so the ~2-cell torch bubble
+    // actually meets them) and picked up with the same tap as a coin-burst
+    // coin (interact.js 'coindrop'). They ride entry.coinDrops like the burst
+    // coins do — the renderer and the tap handler already walk that list at
+    // every depth, since WorldGen.tileCache is repointed per level — but with
+    // NO expiresAt: a coin found by digging should still be there when the
+    // torch swings back. In-memory only, like every coinDrop: a fresh build of
+    // the level lays a fresh handful, which is the trickle intended. The seeded
+    // rng keeps the draw order of the monsters and rabbits above untouched.
+    // Not on a staircase or a rock: the coin handler wins the tap, but a coin
+    // under a rock sprite reads as a rock. Guarded like `creatures` — a tile
+    // REBUILT under the player (see CLAUDE.md) carries coinDrops across and
+    // re-runs this pass, so it must not lay a second handful onto the first.
+    if (!entry.coinDrops) {
+      const CAVE_COINS_MIN = 4, CAVE_COINS_MAX = 8;   // per level tile — a trickle, not a burst
+      const coins = [];
+      const taken = new Set();
+      for (const o of (entry.objects || [])) {
+        const cx = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
+        const cy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
+        taken.add(cy * N + cx);
+      }
+      const coinN = CAVE_COINS_MIN + Math.floor(rng() * (CAVE_COINS_MAX - CAVE_COINS_MIN + 1));
+      for (let i = 0; i < coinN; i++) {
+        for (let attempt = 0; attempt < 20; attempt++) {
+          const { cx, cy } = randCell();
+          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+          const idx = cy * N + cx;
+          if (entry.grid[idx] !== 24 /* CAVE_FLOOR */ || taken.has(idx)) continue;
+          taken.add(idx);
+          const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
+          const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
+          coins.push({ kind: 'coindrop', x: wmx, y: wmy, id: `cavecoin_${depth}_${tx}_${ty}_${i}` });
+          break;
+        }
+      }
+      entry.coinDrops = coins;
     }
     entry._spawned = true;
     entry.creatures = entry.creatures || creatures;
@@ -5619,42 +5649,15 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // Walk-target marker: UNDERGROUND ONLY. Down there the target is a cursor
-    // the player is actively steering — it leads the body through rock and the
-    // body mines its way after it, so while the two are apart the marker is the
-    // only thing saying where the dig is headed (the compass arrow rides it,
-    // below). On the SURFACE the target is just the GPS fix, and the marker was
-    // a second blob for a point the crosshair (gpsGhost) already marks: it
-    // showed up as a grey dot a few metres ahead whenever a fix landed and the
-    // body auto-walked to catch up, which is every fix you take a step on.
-    // Hidden there — the character walking itself over is the whole message.
-    // When target and body are basically coincident — arrived — hide it too, so
-    // nothing diverges.
-    const markerDiv = this.cellM * 0.5;
-    if (this._targetM && this.depth > 0) {
-      const gdx = this._targetM.x - this.playerM.x;
-      const gdy = this._targetM.y - this.playerM.y;
-      const diverged = (gdx * gdx + gdy * gdy) > markerDiv ** 2;
-      if (diverged) {
-        const p = worldMetersToScreen(this,
-          this.startWorldM.x + this._targetM.x,
-          this.startWorldM.y + this._targetM.y);
-        // On the point itself: the marker is a ground mark, and the ground
-        // point is where a body's FEET would stand (feet-on-the-fix).
-        this.targetGhost.setPosition(Math.round(p.x), Math.round(p.y)).setVisible(true);
-      } else {
-        this.targetGhost.setVisible(false);
-      }
-    } else if (this.targetGhost.visible) {
-      this.targetGhost.setVisible(false);
-    }
-
     // GPS ghost: where you REALLY are, whenever the character isn't standing
     // there. One cell of slack keeps it off screen for ordinary GPS jitter (a
     // fix wanders a few metres while you stand still) so it appears only when
-    // the stick has genuinely walked you off your position. Surface only —
-    // underground the fix isn't where you are in any useful sense.
-    if (this.gpsM && this.depth === 0) {
+    // the stick has genuinely walked you off your position. At EVERY depth:
+    // a descent GPS-mirrors the world coordinates (changeDepth), so underground
+    // the fix is still the point over your head that the dig has wandered off
+    // from, and it is the one ground marker the map keeps — the walk target
+    // itself (this._targetM) draws nothing, see the gpsGhost block in create().
+    if (this.gpsM) {
       const rdx = this.gpsM.x - this.playerM.x;
       const rdy = this.gpsM.y - this.playerM.y;
       if ((rdx * rdx + rdy * rdy) > this.cellM ** 2) {
@@ -5730,14 +5733,10 @@ class MapScene extends Phaser.Scene {
     }
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
-    // pointing in the compass heading (or last movement, as fallback).
-    // Normally it rides the player's head at the viewport center. Underground,
-    // while the target is out ahead leading the body through rock, the compass
-    // rides the TARGET instead — the player is steering that, so the
-    // device-orientation arrow belongs over it (targetGhost was positioned and
-    // its visibility decided in the walk-target-marker block above). On the
-    // surface the arrow stays on the player: up there the target is just the
-    // GPS fix drifting a few metres about, not something being steered.
+    // pointing in the compass heading (or last movement, as fallback). It
+    // rides the player's head at every depth. (It used to jump onto the
+    // walk-target dot underground while the dig was out ahead of the body;
+    // that dot is gone — the body's own heading says where the dig is going.)
     this.facingGfx.clear();
     const fmag = Math.hypot(this.facing.x, this.facing.y);
     if (fmag > 0.001) {
@@ -5757,14 +5756,7 @@ class MapScene extends Phaser.Scene {
       const HEAD_DY = -1;
       // The sprite's centre is its ground point plus playerFeetNudgeY (the
       // feet are on the point, the body rises above it).
-      let cx = pScreen.x, cy = pScreen.y + this.playerFeetNudgeY - HEAD_DY;
-      if (this.depth > 0 && this.targetGhost.visible) {
-        // Anchor over the target marker's head. targetGhost sits on the
-        // ground point; a body standing there would have its centre the
-        // same nudge above it, so apply the identical offset.
-        cx = this.targetGhost.x;
-        cy = this.targetGhost.y + this.playerFeetNudgeY - HEAD_DY;
-      }
+      const cx = pScreen.x, cy = pScreen.y + this.playerFeetNudgeY - HEAD_DY;
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
       const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
@@ -6049,8 +6041,11 @@ class MapScene extends Phaser.Scene {
         const eCost = Combat.SHOT[slot].energyCost || 0;
         if (eCost && !this.spendEnergy(eCost)) continue;
         this._nextShotT[slot] = now + Combat.FIRE_INTERVAL_MS;
+        // The tier sizes the shot too (a staff bolt grows with it — both its
+        // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
-                                      Combat.shotDamage(relics, slot) * dmgMul);
+                                      Combat.shotDamage(relics, slot) * dmgMul,
+                                      relics[slot].tier);
         if (shot) this._shots.push(shot);
       }
     } else {
@@ -6133,13 +6128,15 @@ class MapScene extends Phaser.Scene {
       // have them skim under the bodies they're hitting. Lift the streak to
       // roughly chest height so it leaves the archer and crosses the foe.
       const hx = Math.round(head.x), hy = Math.round(head.y) - SHOT_DRAW_LIFT_PX;
-      if (spec.dotPx) {
+      if (s.dotPx) {
         // The staff bolt is a fat glowing dot, not a streak — a bolt reads as
-        // a thrown thing, an arrow as a flying line.
+        // a thrown thing, an arrow as a flying line. Its radius is the shot's
+        // own (stamped by Combat.spawnShot from the staff's tier, off the same
+        // scale as the radius it hits with), never the spec's base dotPx.
         g.fillStyle(spec.color, 0.95);
-        g.fillCircle(hx, hy, spec.dotPx);
+        g.fillCircle(hx, hy, s.dotPx);
         g.lineStyle(1, 0xffffff, 0.5);
-        g.strokeCircle(hx, hy, spec.dotPx);
+        g.strokeCircle(hx, hy, s.dotPx);
         continue;
       }
       // The tail trails a fixed number of SCREEN pixels back along the
@@ -6770,7 +6767,7 @@ class MapScene extends Phaser.Scene {
     // business running on the ~5400 frames between pest windows.
     if (now - this._lastPestT > 90000) {
       const hasCrowCrop = this.save.planted && this.save.planted.some(crowEatsCrop);
-      if (hasCrowCrop && this.save.hasHarvested) {
+      if (hasCrowCrop && (this.save.hasHarvested || !Difficulty.get().pestAmnesty)) {
         this._lastPestT = now;
         // Count nearby wild (non-released, not-yet-caught) crows.
         let wildCrows = 0;
@@ -6831,7 +6828,8 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + 1000;   // 3 energy/sec
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            const slimeDmg = (this.save.shieldPotionUntil ?? 0) > now ? 2 : 3;
+            // Hard mode doubles the leech (Difficulty.enemyDmgMul), shield or not.
+            const slimeDmg = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3) * Difficulty.get().enemyDmgMul;
             this.save.energy = Math.max(0, before - slimeDmg);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
             this._warnIfTiring(before);
@@ -6861,7 +6859,7 @@ class MapScene extends Phaser.Scene {
           if (before > 0) {
             // An elite (shiny) monster hits for double — Combat.eliteMul is
             // the one multiplier its HP is scaled by too.
-            const dmg = m.dmg * Combat.eliteMul(c);
+            const dmg = m.dmg * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
             const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
             this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
@@ -7808,7 +7806,6 @@ class MapScene extends Phaser.Scene {
     this._steerDistAccrue = 0;
     this._steerCostAccrue = 0;
     this._followPaused = false;
-    if (this.targetGhost) this.targetGhost.setVisible(false);
   }
   // How far the character is standing from the player's REAL position, in
   // metres. That gap is what stick walking buys and what the map's warnings are
@@ -9037,6 +9034,56 @@ class MapScene extends Phaser.Scene {
     Quests.starterDismiss(this.save);
     persistSave(this.save);
     this.updateObjectiveDOM();
+  }
+
+  // The how-to card's answer: which game this save plays (difficulty.js).
+  // Chosen ONCE — the card only asks while save.mode is unset — because the
+  // two modes price the same haul differently and a switch mid-game would be
+  // a free arbitrage. Everything the mode changes is read live through
+  // Difficulty.get(); the only things done HERE are the ones that can't be
+  // read at use time because they already happened at boot or tile build:
+  // the starting purse, the starter ladder, and the supply crates the starter
+  // tile seated before the player answered.
+  chooseMode(mode) {
+    if (typeof Difficulty === 'undefined' || !Difficulty.isMode(mode)) return false;
+    if (Difficulty.isMode(this.save.mode)) return false;   // already answered — the card never re-asks
+    const prof = Difficulty.PROFILES[mode];
+    this.save.mode = mode;
+    Difficulty.setMode(mode);
+    // The purse: a fresh save opened at STARTING_MONEY (the easy figure). Only
+    // a save that has not been played is re-pursed — the first-run card is the
+    // only path here, but the guard keeps a reset-then-answer honest.
+    if (typeof SaveMigrate !== 'undefined' && !SaveMigrate.hasPlayed(this.save)) {
+      this.save.money = prof.startingMoney;
+    }
+    if (!prof.tutorial && typeof Quests !== 'undefined') {
+      // Finished, not dismissed: a dismissed ladder keeps tracking and paying
+      // its step rewards underneath (questEvent), and "no tutorial" means no
+      // tutorial money either. This also retires the arrow, the starter plot
+      // carve and the home provisioning, which all gate on starterHidden.
+      Quests.starterSkipAll(this.save);
+      this._starterGoalMemo = null;
+    }
+    if (!prof.starterCrates) {
+      // The starter tile built (and seated its crates) before the card could
+      // ask. Sweep every cached tile now; _placeStarterTrail's call sites
+      // strip any tile built from here on.
+      WorldGen.tileCache?.forEach?.((entry) => this._stripStarterCrates(entry));
+    }
+    persistSave(this.save);
+    this.updateObjectiveDOM();
+    this.buildInventoryDOM();
+    if (this.updateHUD) this.updateHUD();
+    return true;
+  }
+  // Hard mode has no supply handout: drop the starter crates (the `crate: true`
+  // chests _placeStarterTrail seats) from a tile. The relic chest at the end of
+  // the trail is TREASURE, not supplies, and stays. Idempotent; a no-op on easy.
+  _stripStarterCrates(entry) {
+    if (typeof Difficulty === 'undefined' || Difficulty.get().starterCrates) return;
+    if (!entry || !Array.isArray(entry.objects)) return;
+    const kept = entry.objects.filter(o => !(o.kind === 'chest' && o.crate));
+    if (kept.length !== entry.objects.length) entry.objects = kept;
   }
 
   // Report a gameplay event to the starter ladder. Called from the site that
@@ -11141,7 +11188,14 @@ class MapScene extends Phaser.Scene {
   // offered item's base price). Seeded by (house, bucket, rerolls) so the
   // offer is stable until the player buys, walks away through a bucket flip,
   // or pays the re-roll cost.
-  peekOrBuildTraderOffer(house) {
+  //
+  // The GIVE side is drawn first and on its own (traderGivePick) because the
+  // sign over the roof names the trader for it — "Rockfruit Trader" (render.js
+  // _houseSignText via Shops.roleLabel). Both read the same pick off the same
+  // rng lane, so the sign can't advertise a different item than the modal
+  // hands over; the ask side is drawn afterwards from the same stream, so the
+  // offer itself is unchanged by the split.
+  traderGivePick(house) {
     if (!house?.id) return null;
     const rng = this.shopRng(house, 'trader');
     // Same houseSeed produce-vs-buylist coin flip the generic path uses.
@@ -11155,6 +11209,19 @@ class MapScene extends Phaser.Scene {
       giveId = BUY_LIST[Math.floor(rng() * BUY_LIST.length)] || BUY_LIST[0];
     }
     if (!giveId) return null;
+    return { rng, giveId };
+  }
+  // Display name of what a trader currently offers, for its sign — null when
+  // there is no offer to name (the sign then falls back to a bare "Trader").
+  traderGoodsName(house) {
+    const pick = this.traderGivePick(house);
+    if (!pick) return null;
+    return ITEM_BY_ID[pick.giveId]?.name || pick.giveId;
+  }
+  peekOrBuildTraderOffer(house) {
+    const pick = this.traderGivePick(house);
+    if (!pick) return null;
+    const { rng, giveId } = pick;
     const baseValue = Math.max(1, PRICES[giveId] ?? 1);
     // Target trade value the trader considers appropriate.
     const target = baseValue * (1.0 + rng());

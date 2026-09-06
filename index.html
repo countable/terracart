@@ -958,6 +958,29 @@
       padding: 9px 18px; font: 400 13px ui-monospace, monospace;
     }
     #howto button.secondary[hidden] { display: none; }
+    /* The mode choice. Two stacked CTAs in the gold the card's one button
+       already wears — a pair of equals, easy first — each a name over a
+       one-line brief, because the brief is the whole decision. */
+    #howto-modes { display: flex; flex-direction: column; gap: 8px; }
+    #howto-modes[hidden] { display: none; }
+    #howto-modes button { text-align: left; padding: 10px 14px; }
+    #howto-modes button .mode-name { display: block; font: 700 15px ui-monospace, monospace; }
+    #howto-modes button .mode-sub {
+      display: block; margin-top: 3px; font: 400 12px ui-monospace, monospace;
+      line-height: 1.35; color: #3b3227;
+    }
+    /* Hard wears ember, not gold — it is the other answer, not the second
+       button. (`#howto button` outranks a bare id, hence the doubled selector.) */
+    #howto button#howto-hard { background: #c8552f; color: #fff4e6; }
+    #howto button#howto-hard .mode-sub { color: #ffe0cc; }
+    /* Which game this save plays — shown on the ☰ reopen, where the choice
+       is already made and the card is a reference again. */
+    #howto-mode-current {
+      margin: 0 0 10px; font: 700 13px ui-monospace, monospace; color: var(--gold);
+    }
+    #howto-mode-current[hidden] { display: none; }
+    #howto-mode-current span { font-weight: 400; color: #bbb; }
+    #howto button#howto-close[hidden] { display: none; }
   </style>
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
@@ -1121,6 +1144,26 @@
         <dt>Energy</dt>
         <dd>Most actions cost &#9889;. Eat or rest to refill.</dd>
       </dl>
+      <!-- FIRST RUN: the card is where a new save picks its game (difficulty.js).
+           Two CTAs, easy on top — taking the tutorial is the default — each
+           naming the mode AND what it does to the opening, since "hard" alone
+           says nothing about the tutorial going away. Once answered the mode
+           is kept (the two price the same haul differently, so a switch would
+           be free money), and the ☰ reopen shows which game this save plays
+           plus the plain "Got it" / "Skip the tutorial" pair it always had. -->
+      <div id="howto-modes">
+        <button id="howto-easy" type="button" data-mode="easy">
+          <span class="mode-name">Easy mode</span>
+          <span class="mode-sub">Enable tutorial &mdash; guided steps, supply crates, a quiet
+            home to learn farming and exploring from.</span>
+        </button>
+        <button id="howto-hard" type="button" data-mode="hard">
+          <span class="mode-name">Hard mode</span>
+          <span class="mode-sub">No tutorial &mdash; a thin purse, greedy traders, tougher
+            enemies in bigger packs. Fighting pays.</span>
+        </button>
+      </div>
+      <p id="howto-mode-current" hidden></p>
       <button id="howto-close" type="button">Got it</button>
       <button id="howto-skip" class="secondary" type="button">Skip the tutorial</button>
     </div>
@@ -2136,13 +2179,21 @@
     // last one clears — the story always lands first. `force` (the ☰ menu
     // entry) reopens it regardless of the seen flag and never queues.
     let __howtoPending = false;
+    // Has this save answered the mode question? null until it has (app.js
+    // exposes __gameMode; a build without it — the harness — reads as chosen
+    // so the card never blocks a test on a button it can't press).
+    function modeChosen() {
+      return typeof window.__gameMode !== 'function' || window.__gameMode() != null;
+    }
     window.showHowTo = function showHowTo(force) {
       const overlay = document.getElementById('howto');
       if (!overlay) return;
       if (!force) {
         let seen = false;
         try { seen = !!localStorage.getItem('terracart.howtoSeen'); } catch {}
-        if (seen) return;
+        // A save with no mode yet is asked even if the card was seen before
+        // (a reset keeps the flag; the choice lives on the save, not here).
+        if (seen && modeChosen()) return;
         if (introOverlayUp()) { __howtoPending = true; return; }
       }
       __howtoPending = false;
@@ -2161,6 +2212,29 @@
     function syncHowToSkip() {
       const btn = document.getElementById('howto-skip');
       if (btn) btn.hidden = !window.__tutorialActive?.();
+      syncHowToModes();
+    }
+    // Which face the card wears: the two mode CTAs while the save has not
+    // answered, or the "you're playing X" line + "Got it" once it has.
+    function syncHowToModes() {
+      const chosen = modeChosen();
+      const modes = document.getElementById('howto-modes');
+      const cur = document.getElementById('howto-mode-current');
+      const close = document.getElementById('howto-close');
+      const skip = document.getElementById('howto-skip');
+      if (modes) modes.hidden = chosen;
+      if (close) close.hidden = !chosen;
+      if (!chosen && skip) skip.hidden = true;   // the hard CTA IS the skip
+      if (cur) {
+        const m = (typeof window.__gameMode === 'function') ? window.__gameMode() : null;
+        const prof = (m && typeof Difficulty !== 'undefined') ? Difficulty.PROFILES[m] : null;
+        cur.hidden = !prof;
+        if (prof) {
+          cur.textContent = '';
+          cur.append(prof.label, ' ', Object.assign(document.createElement('span'),
+            { textContent: '\u2014 ' + (prof.tutorial ? 'tutorial on' : 'no tutorial') }));
+        }
+      }
     }
     function closeHowTo() {
       const overlay = document.getElementById('howto');
@@ -2171,6 +2245,17 @@
       e.stopPropagation();
       closeHowTo();
     });
+    // The mode CTAs. Easy keeps the ladder running (it already is); hard
+    // retires it for good, re-purses the save and sweeps the supply crates —
+    // all of that is app.js chooseMode, this only carries the answer over.
+    for (const id of ['howto-easy', 'howto-hard']) {
+      document.getElementById(id)?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mode = e.currentTarget.dataset.mode;
+        window.__chooseMode?.(mode);
+        closeHowTo();
+      });
+    }
     // "Skip the tutorial" — retires the objective chip (app.js exposes the
     // hook; the ladder keeps tracking quietly underneath) and closes the card.
     document.getElementById('howto-skip')?.addEventListener('click', (e) => {
@@ -2337,6 +2422,7 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=4"></script>
+  <script src="src/difficulty.js?v=2"></script>
   <script src="src/util.js?v=25"></script>
   <script src="src/trail.js?v=4"></script>
   <script src="src/sprite_layout.js?v=12"></script>
@@ -2345,25 +2431,26 @@
   <script src="src/coords.js?v=124"></script>
   <script src="src/fog.js?v=5"></script>
   <script src="src/biome_profiles.js?v=7"></script>
-  <script src="src/worldgen.js?v=235"></script>
+  <script src="src/worldgen.js?v=236"></script>
   <script src="src/textures.js?v=173"></script>
   <script src="src/save.js?v=116"></script>
-  <script src="src/items.js?v=202"></script>
+  <script src="src/items.js?v=204"></script>
   <script src="src/inventory.js?v=2"></script>
-  <script src="src/energy.js?v=3"></script>
+  <script src="src/energy.js?v=5"></script>
   <script src="src/crops.js?v=2"></script>
   <script src="src/delivery.js?v=6"></script>
-  <script src="src/savemigrate.js?v=9"></script>
+  <script src="src/savemigrate.js?v=10"></script>
   <script src="src/gear.js?v=2"></script>
-  <script src="src/shops_math.js?v=5"></script>
-  <script src="src/shops.js?v=6"></script>
-  <script src="src/rarity.js?v=29"></script>
-  <script src="src/loot.js?v=144"></script>
+  <script src="src/shops_math.js?v=7"></script>
+  <script src="src/shops.js?v=7"></script>
+  <script src="src/rarity.js?v=30"></script>
+  <script src="src/loot.js?v=145"></script>
   <script src="src/quests.js?v=6"></script>
-  <script src="src/interactables.js?v=18"></script>
-  <script src="src/combat.js?v=6"></script>
+  <script src="src/interactables.js?v=19"></script>
+  <script src="src/combat.js?v=8"></script>
   <script src="src/interact.js?v=237"></script>
-  <script src="src/render.js?v=343"></script>
+  <script src="src/lighting.js?v=2"></script>
+  <script src="src/render.js?v=347"></script>
   <script src="src/multiplayer.js?v=9"></script>
   <script src="src/road_overlay.js?v=15"></script>
   <script src="src/building_overlay.js?v=6"></script>
@@ -2427,7 +2514,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=480';
+      const APP_SRC = 'src/app.js?v=487';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -94,17 +94,14 @@ Render.GRID_LINE = GRID_LINE;
 // isn't loaded, which is what keeps the tiled path the default everywhere else.
 const polyBuildings = () =>
   typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled();
-// Seconds per POI-halo breath. Slow on purpose: this is ambience marking where
-// the places are, not a call to action, and anything brisk turns a street of
-// POIs into a strobe.
-const POI_HALO_PERIOD_S = 4.5;
 // Electric light blue — the POI pad's tint. Punchier and more saturated than
 // the plain --treasure-deep (#7fb0ff) accent, so the pad itself (the "main
 // display" every POI sits on) reads as a live landmark rather than a grey
 // concrete disc. Deliberately a step brighter than the rest of the blue-white
 // treasure family (spec §UI COLOUR LANGUAGE) — this is the one surface that
-// carries the "a place lives here" cue on its own, with no gem or halo to
-// help it.
+// carries the "a place lives here" cue on its own, with no gem to help it
+// (the POI's own light in the lightmap breathes beside it — see
+// Lighting.KINDS.poi).
 const POI_PAD_TINT = 0x33ccff;
 // Minor/lowtier POIs (bus stops, ATMs, fuel, etc.) get the same pad shrunk
 // down rather than skipped outright — still marked as a place, just a
@@ -396,9 +393,9 @@ const LIT_COBBLE_FRAMES = [ROAD_FRAME[7], ROAD_FRAME[13], ROAD_FRAME[14], PATH_F
 //
 // 0.8 leaves the terrain faintly legible as shape rather than blacking it out,
 // so the world reads as continuous and the revealed region has an edge to it.
-// Note it STACKS with the distance falloff (FALLOFF_A 0.90 at the viewport
-// corner, drawn on the layer just below): out at the corners, fogged and
-// explored ground are both close to black and the fog edge is only really
+// Note it STACKS with the lightmap's falloff (Lighting.FALLOFF_A 0.90 at the
+// viewport corner, drawn on the layer just below): out at the corners, fogged
+// and explored ground are both close to black and the fog edge is only really
 // legible in the mid-field. Retune the pair together if that ever matters.
 const FOG_COLOR = 0x000000;
 const FOG_ALPHA = 0.8;
@@ -825,51 +822,19 @@ Render.reachDimAlpha = (scene) => {
 };
 Render.reachDimTint = (scene) => _washTint(Render.reachDimColor(scene), Render.reachDimAlpha(scene));
 
-// ── How far the distance falloff reaches ──────────────────────────────────
-// Two radii, and the split between them is the whole point.
-//
-//   rRamp — where the ramp ENDS: the viewport's own half-diagonal, the
-//           furthest VISIBLE pixel with the camera sat on the player. drawCells
-//           fills out to -1..VIEW_CELLS, but the geometry mask clips to the
-//           viewSize square, so grading past this only spends the ramp on
-//           pixels nobody sees and dilutes everything inside it.
-//   rOut  — where the rings STOP BEING DRAWN, flat at the ramp's final alpha
-//           from rRamp outward.
-//
-// They were one number until Sep 2026, and that was the bug the peek drag
-// exposed. The ring image is cached about the viewport centre and SLID by the
-// peek offset rather than rebuilt (~100 strokeCircles a frame otherwise), so a
-// drag pulls the far side of the disc into the frame — and past the last ring
-// nothing is drawn at all, which put a hard circular arc of the darkness's own
-// outer edge across the corner of the map. The ramp is not the problem and is
-// not retuned: the rings simply keep going at FALLOFF_A (which the ramp reaches
-// exactly at rRamp, so the join is continuous and invisible) far enough that no
-// peek can reach their edge.
-//
-// "Far enough" is PEEK_MAX_CELLS — the same clamp _setPeekFromDrag applies to
-// the drag — so the image can never be slid further than it was drawn, the
-// roadOverlayWidthM discipline again. Anything else cached about the viewport
-// centre and slid by peekPxOf owes the same margin.
-Render.falloffRadii = (viewSize) => {
-  const rRamp = Math.hypot(viewSize, viewSize) / 2;
-  return { rRamp, rOut: rRamp + PEEK_MAX_CELLS * CELL_PX };
-};
-
-// "Is this object standing outside the lit reach bubble?" Asked only by the
-// wreck dim in spriteTint — every other sprite is deliberately exempt from the
-// reach wash. Goes through coords.js's cellInReach so the lit cells, the
-// tap-accept gate and this agree by construction; falls back to "lit" (no
-// extra dim) when coords.js isn't loaded, so a bare harness still renders.
-const _outOfReach = (o, scene) => {
-  if (typeof cellInReach !== 'function' || typeof worldMetersToAbsCell !== 'function') return false;
-  const c = worldMetersToAbsCell(scene, o.x, o.y);
-  return !cellInReach(scene, c.cellIX, c.cellIY);
-};
-
 // The multiply tint a world sprite wears, resolved in ONE place so the rules
 // compose in a fixed order instead of racing each other down configureObject:
 // a shiny's sheen, then the biome's, then — for a house that isn't the
-// player's — the derelict wash and, outside the lit bubble, the reach dim.
+// player's — the derelict wash.
+//
+// NOT in here any more: the out-of-reach dim. Until Sep 2026 the lighting
+// layer sat BELOW the sprites and every sprite was exempt from the reach
+// wash — except the wreck, whose roof had to follow its darkened footprint,
+// so this function composed the reach dim onto it by hand. The lightmap
+// (src/lighting.js) sits ABOVE the sprites now and dims every one of them
+// with the ground it stands on, so a wreck outside the bubble goes dark by
+// the same amount as its footprint with no help from here. Composing the dim
+// again would darken it twice.
 // Pure (object + scene in, a colour out), which is also what makes it
 // auditable headlessly: test/node/wreck_dim.test.js drives it directly.
 Render.spriteTint = function spriteTint(o, scene) {
@@ -904,22 +869,6 @@ Render.spriteTint = function spriteTint(o, scene) {
   // taking the tint, so applying this as well would shade it twice.)
   if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
     tint = mulTint(tint, UNCLAIMED_SPRITE_TINT);
-    // …and the SECOND wash its footprint takes: the out-of-reach dim. That
-    // one is painted on the lighting layer, which sits below the sprites on
-    // purpose (reach dims the ground, distance dims the objects — see the
-    // note at reachGfx in app.js create()), and a wreck is the one sprite
-    // that can't live with the exemption: its roof is standing in for the
-    // footprint's own colour, so a bright roof on a footprint that just went
-    // dark reads as a sticker on the ground rather than a building on it.
-    // Same source the ground pass paints from, so the two can't drift, and
-    // composed rather than replacing the wash above — a wreck outside the
-    // bubble is BOTH derelict and unlit.
-    // Judged on the footprint's centroid cell, through the shared
-    // cellInReach: the lit area, the tap-accept gate and this all agree by
-    // construction. Only a handful of houses are ever on screen, so it goes
-    // through the helper rather than re-inlining its maths the way the
-    // ~1000-call-a-frame cell loop in drawCells has to.
-    if (_outOfReach(o, scene)) tint = mulTint(tint, Render.reachDimTint(scene));
   }
   return tint;
 };
@@ -2035,169 +1984,34 @@ Render.drawCells = function drawCells(scene) {
     const dy = (absIY - _reachP.cellIY) * scene.cellM;
     return dx * dx + dy * dy <= _reachM2;
   };
-  // Darken every cell OUTSIDE the reach area so the player's eye lands on
-  // what's actionable. Done before the outline so the white border sits on
-  // top of the dim band, not under it. Underground the dim is much stronger —
-  // the lit reach area reads as a torch bubble in the surrounding dark rock —
-  // and it deepens by half a step per level so each descent feels darker.
+  // The DARKNESS is not painted here any more. Until Sep 2026 this block laid
+  // the out-of-reach dim (a fillRect per unlit cell), the underground lit-dim,
+  // the low-energy pink and ~100 cached falloff rings — all of it darkness,
+  // which composes only one way (two dims overlap darker) and so could never
+  // host a second light. The lightmap in src/lighting.js replaced the lot:
+  // an ambient floor plus one additive cookie per light (the player, Home, a
+  // restored building, a campfire), multiplied over the world from the
+  // lightMap layer ABOVE the sprites. Its levels are DERIVED from the same
+  // reachDimColor / reachDimAlpha this pass painted with, so the surface
+  // with only the player lit looks as it did. See Lighting.profile.
   //
-  // The surface wash is the biome's `dim` — a heavily darkened version of its
-  // haze — rather than neutral black, so the air between the player and the
-  // rest of the block carries the biome's colour.
-  //
-  // Its alpha is raised from the old flat black's 0.22 to 0.38 to COMPENSATE,
-  // not to dim harder: `dim` is a dark colour but it isn't black, so at equal
-  // alpha it darkens noticeably less and the reach bubble loses the contrast
-  // that makes it read as the actionable area. 0.38 against this palette lands
-  // within a couple of levels of the old luminance — same focus pull, new hue.
-  // Retune this alongside DIM_K in biome_profiles.js, never on its own.
-  //
-  // Underground stays pure black: the torch bubble's contrast against dead rock
-  // is the whole readability budget down there, and tinting it only erodes it.
+  // What stays on this layer is the per-cell work: the unmapped-tile reveal
+  // and the white reach OUTLINE — the tap affordance, which must remain
+  // cell-exact (cellInReach) where a cookie can only ever be a circle.
   const depth = scene.depth ?? 0;
-  // Every pass from here to the reach outline paints onto the LIGHTING layer
-  // (app.js reachGfx), not the terrain graphics. In cellGfx — the bottom-most
-  // layer — the dim could only darken the base terrain fill, so the biome
-  // seams, cobbles, road letters, POI halos and pads drawn above it stayed at
-  // full brightness outside the lit area; the boundaries in particular read as
-  // glowing lines in the dark. (The distance falloff below hit the same wall
-  // and was moved above the SPRITES for it; this is the same bug one layer
-  // down.) Falling back to `g` keeps a scene without the layer rendering
+  // Every pass from here to the reach outline paints onto reachGfx (app.js),
+  // not the terrain graphics: in cellGfx — the bottom-most layer — the biome
+  // seams, cobbles, road letters and pads drawn above it would cover the
+  // outline. Falling back to `g` keeps a scene without the layer rendering
   // rather than throwing.
   const gr = scene.reachGfx || g;
   if (gr !== g) gr.clear();
   // Unmapped-tile reveal: fog fading off cells whose tile arrived within the
   // last UNMAPPED_REVEAL_MS (collected in the cell loop above). Painted first
-  // on this layer so the reach dim and outline read on top of the reveal.
+  // on this layer so the reach outline reads on top of the reveal.
   for (let i = 0; i < _fadeRects.length; i += 3) {
     gr.fillStyle(COLORS[UNMAPPED_T], _fadeRects[i + 2]);
     gr.fillRect(_fadeRects[i], _fadeRects[i + 1], CELL_PX, CELL_PX);
-  }
-  const dimAlpha = Render.reachDimAlpha(scene);
-  gr.fillStyle(Render.reachDimColor(scene), dimAlpha);
-  for (let row = -1; row <= VIEW_CELLS; row++) {
-    for (let col = -1; col <= VIEW_CELLS; col++) {
-      if (isReach(col, row)) continue;
-      const ox = col - half, oy = row - half;
-      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
-      gr.fillRect(sx, sy, CELL_PX, CELL_PX);
-    }
-  }
-  // Underground the torch bubble itself is dimmer than full daylight — lay a
-  // faint black wash over the lit reach cells too (the surrounding rock is far
-  // darker still, so the bubble stays clearly readable). Deepens slightly per
-  // level, like the surrounding dim, so descents feel progressively gloomier.
-  if (depth > 0) {
-    const litDim = Math.min(0.40, 0.26 + 0.03 * (depth - 1));
-    gr.fillStyle(0x000000, litDim);
-    for (let row = -1; row <= VIEW_CELLS; row++) {
-      for (let col = -1; col <= VIEW_CELLS; col++) {
-        if (!isReach(col, row)) continue;
-        const ox = col - half, oy = row - half;
-        const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
-        gr.fillRect(sx, sy, CELL_PX, CELL_PX);
-      }
-    }
-  }
-  // Distance falloff — the dim DEEPENS with distance instead of sitting flat.
-  //
-  // The flat wash above owns the AFFORDANCE: its hard edge is the reach
-  // boundary, and interact.js resolves taps from the same cellInReach call, so
-  // that edge has to stay a hard step (the reach outline <=> tap-accept
-  // invariant, QC §7). This layer therefore starts OUTSIDE that boundary and
-  // only ramps within the already-dim region — the step is untouched, and the
-  // lit bubble reads stronger for sitting at the bright end of a longer ramp.
-  //
-  // Concentric rings because Phaser's Graphics has no gradient primitive (the
-  // same reason the vignette in app.js create() is 14 nested strokeRects). The
-  // ramp is super-linear so the deepening is gentle just outside the bubble and
-  // gathers toward the corners, and the ring pitch is 2px — below the point
-  // where banding is visible at these alphas.
-  //
-  // Drawn into atmosFalloffGfx (above every world sprite, below the labels),
-  // NOT into the terrain graphics the flat wash uses. In cellGfx this layer
-  // could only paint the base terrain fill — the noise, biome borders,
-  // cobbles and every object sat above it, so the rim's objects stayed fully
-  // lit and read as stickers on darkening ground. Even at alpha 1.0 that was
-  // the ceiling on the effect. Above the sprites, distance dims what is AT
-  // that distance, which is the whole point.
-  //
-  // Rebuilt only when the ramp's inputs change — the player is always at the
-  // viewport centre, so the rings are identical frame to frame until the reach
-  // radius moves (energy / depth / Potion of Reach) or the eased biome colour
-  // changes visibly. Same dirty-gate discipline as drawAtmosRim; without it
-  // this is ~100 strokeCircle calls every frame for a static image.
-  if (scene.atmosFalloffGfx) {
-    // Plateau at the reach radius so the ramp begins exactly where the flat
-    // wash does. reachRadiusM is the same source cellInReach uses, so the two
-    // can't drift apart when energy / depth / a Potion of Reach moves it.
-    const r0 = (reachRadiusM(scene) / scene.cellM) * CELL_PX;
-    // Where the ramp ENDS and how far the rings are DRAWN — two numbers, see
-    // Render.falloffRadii.
-    const { rRamp, rOut } = Render.falloffRadii(scene.viewSize);
-    // 0.90 at the corner on a p=1.5 ramp. Picked by measuring mean luminance
-    // per radius band against the effect switched off, not by eye:
-    //
-    //   0-120px (reach bubble)  -0.2   i.e. noise — the affordance is untouched
-    //   150-180px (mid-field)   -7.7
-    //   210-240px (corners)    -17.2
-    //
-    // The super-linear ramp is what buys that spread: it holds the mid-field
-    // near today's readability while still gathering real depth at the rim,
-    // where the flat wash used to give distance no weight at all. Pushing the
-    // alpha to 1.0 adds only -1.9 in the corners for another -1.2 mid-field,
-    // which is the wrong trade — the outer ring is where objects first appear
-    // as the player walks toward them. Retune the pair together, never the
-    // alpha alone.
-    const FALLOFF_A = 0.90;
-    const FALLOFF_P = 1.5;
-    const STEP = 2;
-    const colour = Render.reachDimColor(scene);
-    // Quantise the colour to 3 bits per channel, as drawAtmosRim does: the
-    // biome ease is continuous, and a key on the raw value would rebuild every
-    // frame of every transition for a change nobody can see.
-    const cKey = ((colour >> 21) & 0x7) << 6 | ((colour >> 13) & 0x7) << 3 | ((colour >> 5) & 0x7);
-    const key = `${Math.round(r0)}|${cKey}|${FALLOFF_A}|${FALLOFF_P}`;
-    // The ramp is a bubble around the PLAYER, cached as rings about the
-    // viewport centre because that is normally where they stand. A peek drag
-    // moves them off it, so slide the whole cached image rather than rebuilding
-    // ~100 strokeCircles at a new centre every frame of the drag.
-    {
-      const pk = peekPxOf(scene);
-      scene.atmosFalloffGfx.setPosition(-pk.x, -pk.y);
-    }
-    if (scene._falloffKey !== key) {
-      scene._falloffKey = key;
-      const fg = scene.atmosFalloffGfx;
-      fg.clear();
-      for (let r = r0; r < rOut; r += STEP) {
-        // Clamped, not extrapolated: past rRamp the ramp is over and the rings
-        // continue flat at FALLOFF_A. t hits 1 exactly at rRamp, so the join is
-        // continuous and the ring image simply has no edge inside any peek.
-        const t = Math.min(1, (r - r0) / (rRamp - r0));
-        fg.lineStyle(STEP, colour, FALLOFF_A * Math.pow(t, FALLOFF_P));
-        fg.strokeCircle(scene.viewCenterX, scene.viewCenterY, r + STEP / 2);
-      }
-    }
-  }
-  // Low energy tints the lit range pink — the Inner Light guttering as the
-  // player tires. Energy doesn't shrink reach (coords.js reachRadiusM — only
-  // depth does), but this pink wash is the cue that you're running low and
-  // should rest before energy hits 0 (where you can't reach at all).
-  // Skipped while a Potion of Reach pins the whole view lit (energy ignored).
-  const energy = scene.save?.energy ?? 0;
-  const maxEnergy = scene.save?.maxEnergy ?? 100;
-  const potionLit = (scene.save?.reachPotionUntil ?? 0) > Date.now();
-  if (!potionLit && energy > 0 && (energy / maxEnergy) < 0.30) {
-    gr.fillStyle(0xff5fa2, 0.16);
-    for (let row = -1; row <= VIEW_CELLS; row++) {
-      for (let col = -1; col <= VIEW_CELLS; col++) {
-        if (!isReach(col, row)) continue;
-        const ox = col - half, oy = row - half;
-        const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
-        gr.fillRect(sx, sy, CELL_PX, CELL_PX);
-      }
-    }
   }
   // The reach outline stays LAST on this layer, so the white edge sits on top
   // of the dim band rather than under it — the relative order these passes
@@ -2489,6 +2303,13 @@ Render.drawObjects = function drawObjects(scene) {
     sy: scene.viewCenterY + (dy / scene.cellM) * CELL_PX,
   });
   const objList = [], creatureList = [], plantedList = [];
+  // The frame's light sources (src/lighting.js). Filled by the tile scan
+  // below as it passes each restored building, then by the campfire list and
+  // the player inside Lighting.draw at the end of this pass. Reset here so a
+  // light whose owner left the scan (a house re-wrecked, a tile evicted)
+  // can't linger.
+  const LIGHTS = (typeof Lighting !== 'undefined') ? Lighting : null;
+  if (LIGHTS) LIGHTS.beginFrame(scene);
   // Depth band for non-sprite overlays that share the world layer (crop timer
   // badges, pet hearts). World sprites take depths 0..n from the z-order pass
   // below, so anything at Z_OVERLAY is guaranteed to sit above all of them.
@@ -2519,6 +2340,9 @@ Render.drawObjects = function drawObjects(scene) {
   // viewport (a tile is `cellsPerTile` cells, far bigger than VIEW_CELLS).
   // Save.caught is rebuilt to a Set once per frame for O(1) lookups.
   const caughtSet = setOf(scene.save.caught);
+  // Opened chests: dropped from the sprite list below AND never offered to the
+  // lightmap — an emptied POI is no longer a place that glows.
+  const openedSet = setOf(scene.save.opened);
   const pc = scene.playerToWorldCell();
   // Counted alongside the loop below, not derived after it: "how much does
   // this walk touch" is the number the case for a spatial index needs, and
@@ -2543,8 +2367,19 @@ Render.drawObjects = function drawObjects(scene) {
           // fort's footprint made the whole building vanish and left bare
           // brick. HOUSE_PAD_M is half the widest art the fort cap allows.
           const lim = o.kind === 'house' ? halfM + HOUSE_PAD_M : halfM;
+          // A restored building (or Home) is a LIGHT as well as a sprite, and
+          // its light reaches further than its art: offered to the lightmap
+          // before the sprite cull, with its own radius as the margin, so a
+          // lantern a cell off-screen still lights the edge it stands past.
+          if (LIGHTS && (o.kind === 'house' || o.kind === 'tower')) LIGHTS.consider(scene, o, dx, dy, halfM);
           if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
           if (o.kind === 'chest' && isDupChest(o)) continue;
+          // A live POI is a light too — offered AFTER the dedup (a per-frame
+          // first-seen-wins on the cell, so it must see the copies in the
+          // order the sprite pass does) and inside the sprite cull, which its
+          // small radius makes near enough: a cell off-screen it shows a hand's
+          // width of glow at most.
+          if (LIGHTS && o.kind === 'chest' && !o.crate && !openedSet.has(o.id)) LIGHTS.consider(scene, o, dx, dy, halfM);
           // Anchor outside the ordinary viewport: the SPRITE (and its shadow)
           // still draw, but the label passes skip it — a sign or open/busy
           // plaque for an off-screen building would be clamped to the screen
@@ -2625,7 +2460,6 @@ Render.drawObjects = function drawObjects(scene) {
   //  - chopped trees
   //  - opened chests (the chest, its pad, label, and tier diamond all vanish
   //    until the chest refills — keyed by save.opened including o.id)
-  const openedSet = setOf(scene.save.opened);
   // Trees flag o.chopped = true in-memory when the chop progress wheel completes
   // (cheap), AND now also persist into save.chopped so a tile re-rasterize
   // doesn't regrow them. Check both — save.chopped is the source of truth.
@@ -2635,7 +2469,7 @@ Render.drawObjects = function drawObjects(scene) {
   // `box` sprite instead of the trunk chest.
   const _chestIsBox = (o) => {
     if (o.crate) return true;   // starter supply crates always use the box sprite
-    const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y) : 2;
+    const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth) : 2;
     return tier === 1;
   };
   // EVERY opened chest vanishes, crates included. A looted crate used to stay
@@ -2715,7 +2549,9 @@ Render.drawObjects = function drawObjects(scene) {
   // hides — used for variants that haven't baked yet.
   // Coin-burst POIs (ATM + bicycle_parking): tapping them spills a burst of
   // collectible coins, so they render as a "pot of gold" instead of a chest.
-  const _isCoinBurst = (o) => o.poiClass === 'atm' || o.poiClass === 'bicycle_parking';
+  // A cave-level mirror of one (o.depth > 0, worldgen.js caveChestsFrom) is a
+  // plain chest — the same gate interactables.js puts on the burst itself.
+  const _isCoinBurst = (o) => (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') && !(o.depth > 0);
   // Which of the chest's three looks (produce stand / pot of gold / crate)
   // this object wears — resolved ONCE per object and cached on it, the same
   // way loot.js's produceStandFor caches its own answer in o._standCache.
@@ -2725,7 +2561,9 @@ Render.drawObjects = function drawObjects(scene) {
   const _chestLook = (o) => o._chestLook
     || (o._chestLook = { stand: produceStandFor(o), coin: _isCoinBurst(o), box: _chestIsBox(o) });
   // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
-  const CRATE_SCALE = 1.0;
+  // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
+  // 32px cell.
+  const CRATE_SCALE = 0.8;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
   // to the generic 'house' texture (the tinted shared sprite). Order
   // matters: starter wins over tier wins over shopType — so a tier-11
@@ -3026,17 +2864,19 @@ Render.drawObjects = function drawObjects(scene) {
               // body rises north over the POI cell.
               origin: (o) => { const L = _chestLook(o);
                                return L.stand ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
-              // Every chest kind and the market stall are drawn 10% smaller
+              // Every chest kind and the market stall were drawn 10% smaller
               // than they used to be (per playtest — they crowded their cell),
               // about the SAME centre: the seated kinds (trunk chest, crates)
               // are re-centred automatically by the seat pass, and the stall's
               // dxPx/dyPx below are re-derived for the new scale so its art
-              // centre doesn't move. Crates (box, 16×16) sit at CRATE_SCALE —
-              // 16 × 1.0 = 16px inside the 32px cell, so a crate reads as a
-              // small prop rather than filling its cell; trunk is 32×32 so
-              // 0.9 is 90% of a cell.
+              // centre doesn't move. The actual CHESTS (trunk + crate) then
+              // came down a further 20% (Sep 2026): crates (box, 16×16) sit at
+              // CRATE_SCALE — 16 × 0.8 = ~13px inside the 32px cell, so a crate
+              // reads as a small prop rather than filling its cell; trunk is
+              // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
+              // are structures, not chests, and kept their scale.
               scale: (o) => { const L = _chestLook(o);
-                              return L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.9)); },
+                              return L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.72)); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -3126,7 +2966,7 @@ Render.drawObjects = function drawObjects(scene) {
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
-              // scale 1.6. Two safe pickranges:
+              // rock scale. Two safe pickranges:
               //   PLAIN → row 15, cols 3..6 (the four "nice vanilla" rocks
               //           the user identified; 4 vars). Used by cave rock AND
               //           T1 ore — T1 shows no visible ore, it's just plain
@@ -3159,8 +2999,9 @@ Render.drawObjects = function drawObjects(scene) {
               // read as off-centre by almost a whole cell.
               // Seat per the "one cell" rule — centres the small rock art in
               // its cell (the art sits low in the 16px frame). origin/dyPx
-              // below are the no-SpriteLayout fallback.
-              origin: [0.5, 0.5], scale: 1.6, seat: true,
+              // below are the no-SpriteLayout fallback. scale 1.28 (down 20%
+              // from 1.6, Sep 2026 playtest) draws the 16px frame at ~20px.
+              origin: [0.5, 0.5], scale: 1.28, seat: true,
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
@@ -3458,40 +3299,10 @@ Render.drawObjects = function drawObjects(scene) {
     if (!shape) continue;
     padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
   }
-  // POI halos — a slow, subtle "ping" under every POI that still has something
-  // in it, so places read as places from across the map without shouting: a
-  // thick ring (baked in app.js, not a filled disc) expands outward and fades
-  // as it grows, then resets and expands again. Its own layer under the pads,
-  // so a pad's concrete slab covers the ring's centre and what's left is the
-  // band spilling out around the slab. Each POI pings on its own phase, hashed
-  // from its id — in lockstep a whole street would throb as one, which reads
-  // as a bug rather than as ambience.
-  const haloT = performance.now() / 1000;
-  // Loose supply crates (o.crate, no poiClass) are excluded for the same
-  // reason they get no pad: a transient pickup is not a place.
-  // (Opened chests are already gone — filteredObj dropped them above.)
-  const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !o.crate);
-  Render.renderPool(scene, scene.poiHaloPool, scene.poiHaloContainer, haloList, (s, item) => {
-    const { o, dx, dy } = item;
-    const { sx, sy } = project(dx, dy);
-    setTextureIfDifferent(s, 'halo_poi');
-    // Stable per-POI phase in [0, 1) from the id — no RNG, so a ping doesn't
-    // jump phase when its tile reloads.
-    let h = 0;
-    const id = String(o.id || '');
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    // Sawtooth 0..1 (NOT a sine breathe): the ring grows for one full period,
-    // then snaps back to its smallest size — but by then its alpha has faded
-    // to ~0, so the snap is invisible. This is what makes it read as an
-    // expanding ping rather than an in-and-out pulse.
-    const t = ((haloT / POI_HALO_PERIOD_S) + (h % 1000) / 1000) % 1;
-    const size = CELL_PX * (1.05 + 0.85 * t);
-    s.setOrigin(0.5, 0.5)
-     .setDisplaySize(size, size)
-     .setAlpha(0.35 * (1 - t))
-     .setPosition(Math.round(sx), Math.round(sy));
-  });
-
+  // The POI "ping" is not drawn here any more: a live POI is a LIGHT (kind
+  // 'poi' in src/lighting.js), offered to the lightmap from the tile scan
+  // above, so the place reads from across the map by its own slow breath in
+  // the dark rather than by a ring under the pad.
   Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
     const { o, dx, dy, texKey, shape, mini } = item;
     const { sx, sy } = project(dx, dy);
@@ -3639,9 +3450,14 @@ Render.drawObjects = function drawObjects(scene) {
   // roles no longer track the street address, so it would mislabel them.
   //
   // The produce shop's sign follows its STOCK: the tutorial's first one carries
-  // seeds, not produce, so it signs "Seed Shop" (see Shops.roleLabel).
+  // seeds, not produce, so it signs "Seed Shop" (see Shops.roleLabel). The
+  // trader's sign follows its OFFER: it is named for the item it barters away
+  // ("Rockfruit Trader" — scene.traderGoodsName reads the same seeded pick the
+  // barter modal hands over), and carries no street numeral, since which house
+  // number a trader occupies says nothing about what it sells.
   const _roleLabel = (role, o) => Shops.roleLabel(role,
-    role === 'market' && typeof scene.isFirstMarket === 'function' && scene.isFirstMarket(o));
+    role === 'market' && typeof scene.isFirstMarket === 'function' && scene.isFirstMarket(o),
+    role === 'trader' && typeof scene.traderGoodsName === 'function' ? scene.traderGoodsName(o) : null);
   const _houseSignText = (o) => {
     // Wrecks have no sign — their identity is hidden until the player
     // restores them. Once _houseRole stops returning 'wreck', the
@@ -3658,6 +3474,7 @@ Render.drawObjects = function drawObjects(scene) {
     const role = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
     const label = role ? _roleLabel(role, o) : null;
     if (label) {
+      if (role === 'trader') return label;   // named for its goods, not its address
       return `${label} ${Shops.toRoman((o.address ?? 0) + 1)}`;
     }
     // No specialty? Still give the building a label so the map reads as a
@@ -3970,7 +3787,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const item of chestObjs) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
-    const tier = chestTier(o.poiClass, o.x, o.y);
+    const tier = chestTier(o.poiClass, o.x, o.y, o.depth);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
     const cx = Math.round(sx + 1);   // +2px right (was sx - 1)
@@ -4429,4 +4246,11 @@ Render.drawObjects = function drawObjects(scene) {
   // depth once every sprite has been positioned. StableSort, so pooled slots
   // that share a depth (all the hidden ones) keep a fixed relative order.
   if (scene.worldContainer && scene.worldContainer.sort) scene.worldContainer.sort('depth');
+
+  // ── The lightmap ──────────────────────────────────────────────────────────
+  // Last, once every light is known: the campfires on this depth, the
+  // buildings the scan offered above, and the player. Anchored like every
+  // sprite in this pass (metres from the camera anchor), so the lights slide
+  // with a peek and stay on the ground they belong to.
+  if (LIGHTS) LIGHTS.draw(scene, pWorldX, pWorldY, halfM);
 };

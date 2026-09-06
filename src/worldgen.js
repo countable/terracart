@@ -4682,6 +4682,60 @@
     }
   }
 
+  // ── Cave chests: every surface POI chest is mirrored down the levels ────
+  // Same-coordinate (GPS-mirror) model, like the staircases: the chest sits at
+  // the POI's own world point on every level below it, so the town underground
+  // still reads as the town overhead — and every POI pays out again on every
+  // level. A level derives its chests from the level ABOVE (the surface for
+  // depth 1, depth 1 for depth 2, …), so a chest that had to step off a wall
+  // cell keeps that seat all the way down.
+  //   • Only POI chests (o.poiClass) mirror. Starter crates / fixed-loot
+  //     chests are surface-only.
+  //   • A POI under a building or road is a CAVE_WALL cell down here; the
+  //     chest steps to the nearest floor cell within CAVE_CHEST_SEEK_CELLS
+  //     (nearest ring first, deterministic order), or is dropped if none.
+  //   • Each level's copy is its OWN chest (id `<surface id>_d<depth>`), so
+  //     save.opened records it apart from the one overhead; `caveOf` carries
+  //     the surface id down the recursion.
+  //   • `depth` is stamped on the copy: loot.js chestTier raises the tier by
+  //     one per CHEST_TIER_DEPTH_STEP levels (cap CHEST_TIER_MAX), and the
+  //     produce-stand / coin-burst POI paths stand down underground (a bike
+  //     rack two floors under the street is just a chest).
+  // `occupied` (cell index set) is read AND extended so a rock cluster never
+  // lands on a chest, and a chest never lands on a stair.
+  const CAVE_CHEST_SEEK_CELLS = 3;
+  function caveChestsFrom(aboveObjects, grid, N, tx, ty, tileEdgeM, depth, occupied) {
+    const out = [];
+    for (const o of aboveObjects || []) {
+      if (o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) continue;
+      const { lix, liy } = cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
+      if (lix < 0 || lix >= N || liy < 0 || liy >= N) continue;
+      let seat = null;
+      for (let r = 0; r <= CAVE_CHEST_SEEK_CELLS && !seat; r++) {
+        for (let dy = -r; dy <= r && !seat; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring r only
+            const cx = lix + dx, cy = liy + dy;
+            if (cx < 0 || cx >= N || cy < 0 || cy >= N) continue;
+            const idx = cy * N + cx;
+            if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
+            seat = { idx, cx, cy };
+            break;
+          }
+        }
+      }
+      if (!seat) continue;
+      occupied.add(seat.idx);
+      const surfaceId = o.caveOf || o.id;
+      const onSpot = seat.cx === lix && seat.cy === liy;
+      const { x: cx, y: cy } = onSpot ? { x: o.x, y: o.y }
+        : cellCentreM(tx, ty, seat.cx, seat.cy, tileEdgeM, N);
+      out.push({ kind: 'chest', x: cx, y: cy, id: `${surfaceId}_d${depth}`,
+        caveOf: surfaceId, poiClass: o.poiClass, name: o.name || '', depth });
+    }
+    return out;
+  }
+
   async function loadCaveTile(cache, depth, key, x, y, lat) {
     const above = await loadTile.atDepth(depth - 1, x, y, lat);
     if (above.status === 'loading') await above.promise;
@@ -4717,6 +4771,11 @@
     for (const o of objects) {
       const { lix, liy } = cellIndexOf(x, y, o.x, o.y, tileEdgeM, N);
       if (lix >= 0 && lix < N && liy >= 0 && liy < N) occupied.add(liy * N + lix);
+    }
+    // The POI chests overhead, mirrored down to this level (they claim their
+    // cells in `occupied` before the rocks are rolled).
+    for (const c of caveChestsFrom(above.objects, grid, N, x, y, tileEdgeM, depth, occupied)) {
+      objects.push(c);
     }
     spawnCaveRocks(grid, N, x, y, tileEdgeM, depth, objects, occupied);
     const entry = {
@@ -4807,6 +4866,7 @@
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
+    caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule
     // end to end (test/node/spawn_roads.test.js).

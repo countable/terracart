@@ -12,7 +12,7 @@
 // Exports as globals:
 //   Shops.shopType(house)         → 'blacksmith' | 'market' | 'trader' | null
 //   Shops.shopInk(house)          → signage lettering colour or null
-//   Shops.roleLabel(role, seed)   → the player-facing NAME of a shop role
+//   Shops.roleLabel(role, seed, goods) → the player-facing NAME of a shop role
 //   Shops.toRoman(n)              → "XXVI" for 26 (clamped 1..3999)
 //
 // shopTint() and shopLabel() used to live here too, but render.js deliberately
@@ -49,6 +49,15 @@
   // Category, not item: the specific produce rotates with save.buyIndex, so a
   // per-item name would rewrite the sign every time the player bought anything.
   //
+  // The trader is named for the GOODS IT OFFERS, never for its street number:
+  // "Rockfruit Trader", "Potato Seed Trader". Its barter is one item at a time
+  // (app.js peekOrBuildTraderOffer), so unlike the produce shop the specific
+  // item IS the identity — the sign is the advert for the deal inside, and it
+  // rotates exactly when the offer does (the hourly shop bucket, a purchase or
+  // a paid re-roll). Item, not category: the address numeral it replaced told
+  // the player nothing about whether the walk over was worth it. With no offer
+  // to name (no house id, an empty catalogue) it falls back to a bare "Trader".
+  //
   // The role KEY stays 'market'. It is persisted in save.restoredHouses and
   // stamped on save.firstMarketId, so renaming it would strand every save.
   const ROLE_LABEL = {
@@ -61,9 +70,12 @@
   const SEED_SHOP_LABEL = 'Seed Shop';
 
   // Player-facing name for a shop role, or null for a role with no sign.
-  // `seedStock` flips the produce shop to its seed variant.
-  function roleLabel(role, seedStock = false) {
+  // `seedStock` flips the produce shop to its seed variant; `goods` is the
+  // display name of the item a trader currently offers ("Rockfruit"), which
+  // names the trader for it.
+  function roleLabel(role, seedStock = false, goods = null) {
     if (role === 'market' && seedStock) return SEED_SHOP_LABEL;
+    if (role === 'trader' && goods) return `${goods} ${ROLE_LABEL.trader}`;
     return ROLE_LABEL[role] ?? null;
   }
 

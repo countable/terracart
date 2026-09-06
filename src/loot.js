@@ -13,7 +13,8 @@
 //   POI_CATEGORY
 //   PAD_CATEGORIES, padShapeKeyForPoi
 //   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, CHEST_TIER_HOME_RINGS_M,
-//   chestTierHomeDrop, chestTier
+//   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, chestTierHomeDrop,
+//   chestTierDepthBonus, chestTier
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
 //   STAND_NEVER_CLASSES,
 //   standWordItem, standNameItems, produceStandFor
@@ -222,12 +223,13 @@ const CHEST_TIER_BY_CATEGORY = {
   health: 3, civic: 3, farm: 3,
   flora: 4,
 };
-// Tier 1 = no gem (skipped at render). Tiers 2-4 are clearly distinct hues.
+// Tier 1 = no gem (skipped at render). Tiers 2-5 are clearly distinct hues.
 const CHEST_TIER_COLOR = {
   1: null,     // common — no gem drawn at all
   2: 0xe6e6e6, // off-white (10% greyer than pure white) — uncommon
   3: 0x5f89ff, // lighter blue (10% lighter than 0x4d7cff) — rare
   4: 0xc77dff, // violet — epic
+  5: 0xffc23d, // gold — legendary (only reached underground, see chestTier)
 };
 // Chests near Home are DEMOTED. The base tier above is what the POI class
 // promises; a chest standing inside one of these rings around the spawn origin
@@ -247,13 +249,28 @@ function chestTierHomeDrop(x, y) {
   for (const r of CHEST_TIER_HOME_RINGS_M) if (HomeArea.isNear(x, y, r)) drop++;
   return drop;
 }
-// Effective tier (1-4) of a chest of POI class `poiClass` at world-metres
-// (x, y). Every reader — the sprite/gem in render.js, the loot roll in
-// interactables.js — resolves the tier through here so a chest can't draw as
-// one tier and pay as another. Omit x/y for the class's undemoted base tier.
-function chestTier(poiClass, x, y) {
+// Chests UNDERGROUND are PROMOTED. Every surface POI chest is mirrored down
+// the cave levels (worldgen.js caveChestsFrom stamps `depth` on the copy),
+// and each CHEST_TIER_DEPTH_STEP levels down raise the chest one tier over
+// what it is on the surface — depth 1 is the surface tier, depth 2-3 one up,
+// depth 4-5 two up — capped at CHEST_TIER_MAX. T5 exists only down here: it
+// is the gold gem and the rarity.js chestTierMod[5] curve.
+const CHEST_TIER_MAX = 5;
+const CHEST_TIER_DEPTH_STEP = 2;
+function chestTierDepthBonus(depth) {
+  return Math.floor(Math.max(0, depth || 0) / CHEST_TIER_DEPTH_STEP);
+}
+// Effective tier (1-5) of a chest of POI class `poiClass` at world-metres
+// (x, y) on cave level `depth` (0 / omitted = surface). Every reader — the
+// sprite/gem in render.js, the loot roll in interactables.js — resolves the
+// tier through here so a chest can't draw as one tier and pay as another.
+// The Home demotion is applied and floored FIRST, then the depth bonus, so a
+// chest two levels under Home is still a tier better than the one overhead.
+// Omit x/y/depth for the class's plain base tier.
+function chestTier(poiClass, x, y, depth) {
   const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
-  return Math.max(1, base - chestTierHomeDrop(x, y));
+  const surface = Math.max(1, base - chestTierHomeDrop(x, y));
+  return Math.min(CHEST_TIER_MAX, surface + chestTierDepthBonus(depth));
 }
 
 // === Themed produce / food stands ==========================================
@@ -477,6 +494,9 @@ function standNameItems(name) {
 
 function produceStandFor(o) {
   if (!o || o.kind !== 'chest') return null;
+  // A POI's cave-level mirror (worldgen.js caveChestsFrom) is a plain chest:
+  // a fish stall three floors under the street is not a market.
+  if (o.depth > 0) return null;
   if (o._standCache !== undefined) return o._standCache;   // computed once per object
   let res = null;
   if (STAND_RETAIL_CATS.has(POI_CATEGORY[o.poiClass]) && !STAND_NEVER_CLASSES.has(o.poiClass)) {

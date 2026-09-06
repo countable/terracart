@@ -65,15 +65,26 @@ test('feet anchor: ground marks sit on the point with no feet offset of their ow
   assert.truthy(/this\.playerShadow = this\.add\.image\(this\.viewCenterX, this\.viewCenterY - 1,/.test(app),
     'player shadow sits at the feet');
   assert.falsy(/this\.viewCenterY \+ 13,/.test(app), 'no +13 shadow anchor');
-  // GPS crosshair and walk target: on their points, not nudged to a sprite centre.
+  // GPS crosshair: on its point, not nudged to a sprite centre. It is the only
+  // ground marker beside the body — the walk-target dot is gone (see below).
   assert.truthy(/this\.gpsGhost\.setPosition\(Math\.round\(g\.x\), Math\.round\(g\.y\)\)/.test(app),
     'GPS marker on the fix');
-  assert.truthy(/this\.targetGhost\.setPosition\(Math\.round\(p\.x\), Math\.round\(p\.y\)\)/.test(app),
-    'target marker on the target');
   assert.falsy(/Math\.round\([gp]\.y \+ this\.playerFeetNudgeY\)/.test(app),
     'no marker is nudged to a sprite centre');
   // Walk-home line: both ends are ground points.
   assert.falsy(/const FEET = 13;/.test(app), 'walk-home hint has no FEET constant');
+});
+
+// The grey walk-target dot is gone at every depth, and the GPS crosshair is
+// shown at every depth. The dot marked this._targetM — the point the body is
+// auto-walking to — and read as a blob floating ahead of the character
+// wherever it showed (it was surface-only, then underground-only). The
+// crosshair marks where you REALLY are, which a descent GPS-mirrors, so it is
+// as true underground as above; it used to be hidden there.
+test('ground marks: no walk-target dot, and the GPS crosshair at every depth', () => {
+  assert.falsy(/targetGhost/.test(app), 'no walk-target marker anywhere in app.js');
+  assert.truthy(/if \(this\.gpsM\) \{/.test(app), 'the GPS ghost block is not gated on depth');
+  assert.falsy(/this\.gpsM && this\.depth === 0/.test(app), 'the old surface-only GPS ghost gate is gone');
 });
 
 test('feet anchor: peers are seated exactly like the local player', () => {
