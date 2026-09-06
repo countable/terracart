@@ -18,7 +18,11 @@
 //   • Starter blacksmith (1st restored) …… app.js  isStarterBlacksmith, PRESEED_RESTORE_ROLES
 //   • Scarecrow shop (early house) ………… app.js  isScarecrowShop
 //   • First market sells T1/T2 seeds …… app.js  isFirstMarket
-//   • First 3 delivery houses → T1 produce app.js  isEarlyDeliveryHouse
+//     (so it signs as the "Seed Shop", not the "Produce Shop" every other
+//      one gets — see shops.js roleLabel)
+//   • First 8 delivery houses → T1 produce delivery.js Delivery.isEarly
+//     (of which the first 7 walk delivery.js SCRIPTED_WISHLISTS — five
+//      single-item asks, then the starter pair, then the flower trio)
 //   • Starter loot crates (wood/rockfruit/seeds) app.js  STARTER_LOOT
 //   • Starting money / no free tools …… items.js STARTING_MONEY, app.js starterToolsStripped
 //   • Fort unlock cost ………………………… app.js  FORT_UNLOCK_WOOD
@@ -36,9 +40,10 @@ const HomeArea = {
   // Radius (m) of the "near the start" zone the softwood rule below uses.
   NEAR_M: 100,
 
-  // True iff (x, y) world-metres is within `radiusM` of the spawn origin. This
-  // is the canonical "near home" test — prefer it over inline hypot checks so
-  // every home-area feature shares one definition of the zone.
+  // True iff (x, y) world-metres is within `radiusM` of the spawn origin. Meant
+  // as the shared "near home" test; today its one caller is softwoodSpeciesNear
+  // below — a new home-area feature should route through it rather than an
+  // inline hypot check, so the zone keeps one definition.
   isNear(x, y, radiusM = HomeArea.NEAR_M) {
     if (!this.worldM) return false;
     const dx = x - this.worldM.x, dy = y - this.worldM.y;
@@ -95,12 +100,17 @@ const HomeArea = {
   //                     every side of the display.
   //
   // The pocket used to be 10 cells and the ring 11..16 — twice as far out as a
-  // player can see, and past HOME_REVEAL_CELLS (10) as well. So a new save
+  // player can see, and past the home fog reveal as well. So a new save
   // opened on bald ground to every edge of the screen, and the ring of trees
   // and rocks around home was seated exactly as designed, two screens out,
   // under fog: correct in the tile, invisible in the game. If the pocket is
   // ever widened again, widen the view with it or the ring goes missing the
   // same way.
+  //
+  // RING_MIN is also exactly where the fog now begins: app.js
+  // HOME_REVEAL_CELLS is 6, one cell past the player's 5 cells of sight, so
+  // the first ring of scenery is lit and the wash starts immediately behind
+  // it. The rest of the band (7..16) is walked to, not given.
   POCKET_CELLS: 5,
   RING_MIN_CELLS: 6,
   RING_MAX_CELLS: 16,
@@ -165,8 +175,16 @@ const HomeArea = {
   // with? Both read the SHIPPING gate helpers rather than re-deriving them, so
   // a change to the axe ladder or the pick gate can't silently leave the
   // starter area full of things that look usable and aren't.
+  //
+  // A FRUIT tree is not a tree here. It is never chopped — its only
+  // interaction is the pick (interactables.js fruittree), which hands out the
+  // item named by `o.species` — so it can't fill the "something to chop"
+  // quota, and it must never be tamed: makeStarterUsable used to count it as
+  // a tree and stamp STARTER_TREE's species onto it, and an apple tree near
+  // spawn became species 'pine'. 'pine' is not an item, so the pick flashed
+  // "harvested pine" and Inventory.add dropped it on the floor — no apple.
   isStarterTree(o) {
-    if (!o || (o.kind !== 'tree' && o.kind !== 'fruittree')) return false;
+    if (!o || o.kind !== 'tree') return false;
     return (typeof treeAxeReqTier === 'function') ? treeAxeReqTier(o) === 0 : false;
   },
   isStarterRock(o) {
@@ -209,7 +227,7 @@ const HomeArea = {
   // Returns true if the object was changed.
   makeStarterUsable(o) {
     if (!o) return false;
-    if (o.kind === 'tree' || o.kind === 'fruittree') {
+    if (o.kind === 'tree') {   // never a fruittree — see isStarterTree
       if (this.isStarterTree(o)) return false;
       o.species = this.STARTER_TREE.species;
       o.size = this.STARTER_TREE.size;
@@ -271,7 +289,9 @@ const HomeArea = {
         if (o.dir === 'down') have.ladder++;
         continue;
       }
-      const isTree = o.kind === 'tree' || o.kind === 'fruittree';
+      // A fruit tree is scenery to this audit: not choppable, not tameable
+      // (isStarterTree), so it neither fills the tree quota nor gets stamped.
+      const isTree = o.kind === 'tree';
       const isRock = o.kind === 'mineralrock';
       if (!isTree && !isRock) continue;
       const kind = isTree ? 'tree' : 'rock';

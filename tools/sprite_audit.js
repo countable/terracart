@@ -30,8 +30,8 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const { CELL_PX, ART_BOUNDS, seatInCell, CREATURE_ART, CREATURE_WHEEL_R,
-        creatureWheelDy } =
+const { CELL_PX, ART_BOUNDS, CROWN_BOUNDS, seatInCell, CREATURE_ART,
+        CREATURE_WHEEL_R, creatureWheelDy } =
   require(path.join(ROOT, 'src', 'sprite_layout.js'));
 const CELL_BOTTOM = CELL_PX / 2;
 
@@ -117,6 +117,78 @@ function trimFrame(img, fx, fy, fw, fh) {
   return any ? { minX, minY, maxX, maxY } : null;
 }
 
+// Longest run of fully transparent rows BETWEEN opaque rows of one frame. A
+// seated sprite is one piece of art — a tree is canopy over trunk over roots
+// with no gap — so a gap means the frame box reaches past its own art into a
+// neighbour on the sheet. That is how the birch went wrong: sliced 32×64 on
+// a 96px sheet, its frame took in the tip of the red tree from the band
+// below, the trimmed bounds ran to the frame's bottom, and the seat pass
+// stood the birch on the wrong tree's crown, 16px too high in its cell.
+function frameRowGap(img, fx, fy, fw, fh) {
+  let gap = 0, run = 0, seen = false;
+  for (let y = 0; y < fh; y++) {
+    const row = (fy + y) * img.w * 4;
+    let opaque = false;
+    for (let x = 0; x < fw && !opaque; x++) opaque = img.data[row + (fx + x) * 4 + 3] >= ALPHA_MIN;
+    if (opaque) { if (seen && run > gap) gap = run; run = 0; seen = true; }
+    else if (seen) run++;
+  }
+  return gap;
+}
+function sheetFrameRowGap(file, fw, fh, frameIdx) {
+  const img = loadPng(file);
+  const cols = Math.floor(img.w / fw);
+  const col = frameIdx % cols, row = Math.floor(frameIdx / cols);
+  return frameRowGap(img, col * fw, row * fh, fw, fh);
+}
+// A run of empty rows this long inside one frame is another sprite, not a
+// feature of this one (a flame lifting off its logs is a couple of rows).
+const MAX_ROW_GAP = 4;
+
+// ── The CROWN of a fruit tree: the canopy, without the trunk ───────────────
+// A bearing fruit tree wears a fruit sprite on its crown (render.js's fruit
+// pass, seated by SpriteLayout.fruitCrownOffset over CROWN_BOUNDS), so "where
+// do the leaves end and the trunk begin" is drawn geometry now and has to be
+// derived from the art rather than eyeballed.
+//
+// The rule: walk down from the canopy's WIDEST row; the crown ends at the
+// first row whose opaque span drops under half that width — that narrowing is
+// the trunk. (Reading the art's full bounds instead would put the "crown"
+// midline on bare bark: the bounds run on down through the trunk to the root
+// base, which is wide again and would drag the midline lower still.)
+// Returns the canopy's box in frame pixels, max EXCLUSIVE, or null.
+function crownBox(file, fw, fh, frameIdx) {
+  const img = loadPng(file);
+  const cols = Math.floor(img.w / fw);
+  const fx = (frameIdx % cols) * fw, fy = Math.floor(frameIdx / cols) * fh;
+  const spans = [];
+  for (let y = 0; y < fh; y++) {
+    let mn = fw, mx = 0, any = false;
+    const row = (fy + y) * img.w * 4;
+    for (let x = 0; x < fw; x++) {
+      if (img.data[row + (fx + x) * 4 + 3] >= ALPHA_MIN) {
+        any = true;
+        if (x < mn) mn = x;
+        if (x + 1 > mx) mx = x + 1;
+      }
+    }
+    if (any) spans.push({ y, mn, mx, w: mx - mn });
+  }
+  if (!spans.length) return null;
+  const maxW = Math.max(...spans.map(r => r.w));
+  const widest = spans.find(r => r.w === maxW).y;
+  const trunk = spans.find(r => r.y > widest && r.w < maxW / 2);
+  const bottom = trunk ? trunk.y : fh;
+  const canopy = spans.filter(r => r.y < bottom);
+  return {
+    fw, fh,
+    minX: Math.min(...canopy.map(r => r.mn)),
+    minY: canopy[0].y,
+    maxX: Math.max(...canopy.map(r => r.mx)),
+    maxY: bottom,
+  };
+}
+
 // Trim a sheet by (textureKey, frameIndex) using the sheet metadata table.
 function trimSheetFrame(file, fw, fh, frameIdx) {
   const img = loadPng(file);
@@ -132,16 +204,36 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   treeCtx, { filename: 'util.js' });
 const treeScale = treeCtx.treeScale;
 
+// ── And the bush's scale from items.js, for the same reason ────────────────
+// A bush is one species at one size, so the bush-tier TREE and the `shrub`
+// wildplant must draw at the same size — CROP_SPRITE.shrub.scale is the one
+// number both render.js branches read. Copying it here as a literal made a
+// third place to change it, which is how a table drifts.
+// A top-level `const` in a script lands in the script scope, not on the global
+// object (unlike a `function`, which is why treeScale above needs no bridge),
+// so hand it over explicitly.
+const itemsCtx = { Math, console };
+vm.createContext(itemsCtx);
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
+  itemsCtx, { filename: 'items.js' });
+vm.runInContext('globalThis.CROP_SPRITE = CROP_SPRITE;', itemsCtx);
+const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
+
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const SHEETS = {
   trees:         { file: 'assets/Objects/Maple Tree.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
-  pine_tree:     { file: 'assets/Objects/Wilderness/Pine Tree.png',          fw: 32, fh: 64, frames: [3] },
-  birch_tree:    { file: 'assets/Objects/Wilderness/Birch Tree.png',         fw: 32, fh: 64, frames: [3] },
-  mahogany_tree: { file: 'assets/Objects/Wilderness/Mahogany Tree.png',      fw: 32, fh: 64, frames: [3] },
+  // 32×48, not 32×64: at 64 the birch frame reached into the sheet's lower
+  // band and picked up the tip of the red autumn tree (see assets.js).
+  pine_tree:     { file: 'assets/Objects/Wilderness/Pine Tree.png',          fw: 32, fh: 48, frames: [3] },
+  birch_tree:    { file: 'assets/Objects/Wilderness/Birch Tree.png',         fw: 32, fh: 48, frames: [3] },
+  mahogany_tree: { file: 'assets/Objects/Wilderness/Mahogany Tree.png',      fw: 32, fh: 48, frames: [3] },
   bushes:        { file: 'assets/Objects/Wilderness/bushes.png',             fw: 48, fh: 32, frames: [0] },
-  apple_tree:    { file: 'assets/Objects/Wilderness/Apple Tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5, 7] },
-  peach_tree:    { file: 'assets/Objects/Wilderness/Peach Tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4, 5] },
+  // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
+  // bearing tree now keeps its mature frame and wears a fruit sprite instead,
+  // so nothing ever seats them (see FRUIT_FRAMES in render.js).
+  apple_tree:    { file: 'assets/Objects/Wilderness/Apple Tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5], crownFrame: 4 },
+  peach_tree:    { file: 'assets/Objects/Wilderness/Peach Tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
   chest:         { file: 'assets/Objects/trunk.png',                         fw: 32, fh: 32, frames: [0] },
   box:           { file: 'assets/Objects/Wilderness/Box_Single_16x16.png',   fw: 16, fh: 16, frames: [0] },
   mineralrock:   { file: 'assets/Objects/Wilderness/stone with minerals.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 6] },
@@ -152,32 +244,41 @@ const SHEETS = {
 };
 
 // ── Scenarios: one row per representative (sprite, variant). key/frameIdx pick
-//    the ART_BOUNDS entry; origin/scale mirror the RENDER_SPEC branch the
-//    renderer seats with (scaleYMul covers fruit trees' 1.10 Y stretch).
+//    the ART_BOUNDS entry; scale mirrors the RENDER_SPEC branch the renderer
+//    seats with (scaleYMul covers fruit trees' 1.10 Y stretch).
+//
+//    There is deliberately no `origin` column. The seat maths measures the art
+//    relative to the anchor and then subtracts exactly that, so the ORIGIN
+//    CANCELS: a seated frame lands in the same place at [0.5,0.5] as at
+//    [0.406,0.62]. A column that cannot change an outcome only invites drift,
+//    and it had: this table said the pole anchored at 0.25 while RENDER_SPEC
+//    said 0.5, and nothing noticed for the good reason that nothing could.
+//    SEAT_ANCHOR below stands in for all of them.
 const t = (species, size) => treeScale({ species, size });
+const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
-  { name: 'maple sprout',    key: 'trees',         frameIdx: 1, origin: [0.5, 0.95], scale: t('maple', 'small') },
-  { name: 'maple young',     key: 'trees',         frameIdx: 2, origin: [0.5, 0.95], scale: t('maple', 'medium') },
-  { name: 'maple small',     key: 'trees',         frameIdx: 3, origin: [0.5, 0.95], scale: t('maple', 'small') },
-  { name: 'maple medium',    key: 'trees',         frameIdx: 3, origin: [0.5, 0.95], scale: t('maple', 'medium') },
-  { name: 'maple large',     key: 'trees',         frameIdx: 3, origin: [0.5, 0.95], scale: t('maple', 'large') },
-  { name: 'pine small',      key: 'pine_tree',     frameIdx: 3, origin: [0.5, 0.92], scale: t('pine', 'small') },
-  { name: 'pine medium',     key: 'pine_tree',     frameIdx: 3, origin: [0.5, 0.92], scale: t('pine', 'medium') },
-  { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, origin: [0.5, 0.92], scale: t('pine', 'large') },
-  { name: 'birch medium',    key: 'birch_tree',    frameIdx: 3, origin: [0.5, 0.92], scale: t('birch', 'medium') },
-  { name: 'mahogany medium', key: 'mahogany_tree', frameIdx: 3, origin: [0.5, 0.92], scale: t('mahogany', 'medium') },
-  { name: 'bush',            key: 'bushes',        frameIdx: 0, origin: [0.5, 0.9],  scale: 0.667 /* = CROP_SPRITE.shrub.scale (render.js); a bush is one size */ },
-  { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, origin: [0.5, 0.95], scale: 0.85 * 0.625, scaleYMul: 1.10 },
-  { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 7, origin: [0.5, 0.95], scale: 0.85, scaleYMul: 1.10 },
-  { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 5, origin: [0.5, 0.95], scale: 0.85, scaleYMul: 1.10 },
-  { name: 'chest',           key: 'chest',         frameIdx: 0, origin: [0.5, 0.9],  scale: 0.9 },
-  { name: 'crate (box)',     key: 'box',           frameIdx: 0, origin: [0.5, 0.9],  scale: 1.53 },
-  { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, origin: [0.5, 0.5], scale: 1.6 },
-  { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   origin: [0.5, 0.5], scale: 1.6 },
-  { name: 'well',            key: 'well',          frameIdx: 0, origin: [0.406, 0.62], scale: 0.9 },
-  { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, origin: [0.25, 0.95], scale: 2.0 },
-  { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, origin: [0.5, 0.5],  scale: 0.455 },
-  { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, origin: [0.5, 0.82], scale: 1.1 },
+  { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
+  { name: 'maple young',     key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },
+  { name: 'maple small',     key: 'trees',         frameIdx: 3, scale: t('maple', 'small') },
+  { name: 'maple medium',    key: 'trees',         frameIdx: 3, scale: t('maple', 'medium') },
+  { name: 'maple large',     key: 'trees',         frameIdx: 3, scale: t('maple', 'large') },
+  { name: 'pine small',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'small') },
+  { name: 'pine medium',     key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'medium') },
+  { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },
+  { name: 'birch medium',    key: 'birch_tree',    frameIdx: 3, scale: t('birch', 'medium') },
+  { name: 'mahogany medium', key: 'mahogany_tree', frameIdx: 3, scale: t('mahogany', 'medium') },
+  { name: 'bush',            key: 'bushes',        frameIdx: 0, scale: SHRUB_SCALE },
+  { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
+  { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
+  { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
+  { name: 'chest',           key: 'chest',         frameIdx: 0, scale: 0.72 },
+  { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 },
+  { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.28 },
+  { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   scale: 1.28 },
+  { name: 'well',            key: 'well',          frameIdx: 0, scale: 0.9 },
+  { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, scale: 2.0 },
+  { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, scale: 0.6 },
+  { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, scale: 1.1 },
 ];
 
 // ── Evaluate one scenario against the rule ─────────────────────────────────
@@ -197,13 +298,21 @@ function evaluate(s) {
              table.fw !== sheet.fw || table.fh !== sheet.fh) {
     violations.push(`ART_BOUNDS "${lookup}" stale (run --emit-bounds)`);
   }
+  // One frame, one piece of art: a gap of empty rows inside the frame means
+  // the slice reaches into a neighbouring sprite on the sheet (see frameRowGap).
+  const gap = sheetFrameRowGap(sheet.file, sheet.fw, sheet.fh, s.frameIdx);
+  if (gap > MAX_ROW_GAP) {
+    violations.push(`frame holds two pieces of art (${gap} empty rows between opaque rows) — ` +
+      `the ${sheet.fw}×${sheet.fh} slice reaches into a neighbour on the sheet`);
+  }
 
   // Seat with the SAME maths the renderer uses, then measure the real art box.
   const box = table || { ...fresh, fw: sheet.fw, fh: sheet.fh };
   const scaleX = s.scale, scaleY = s.scale * (s.scaleYMul || 1);
-  const { dxPx, dyPx, fits } = seatInCell(box, s.origin[0], s.origin[1], scaleX, scaleY);
-  const tlx = dxPx - s.origin[0] * sheet.fw * scaleX;
-  const tly = dyPx - s.origin[1] * sheet.fh * scaleY;
+  const [ox, oy] = SEAT_ANCHOR;
+  const { dxPx, dyPx, fits } = seatInCell(box, ox, oy, scaleX, scaleY);
+  const tlx = dxPx - ox * sheet.fw * scaleX;
+  const tly = dyPx - oy * sheet.fh * scaleY;
   const left = tlx + fresh.minX * scaleX, right = tlx + fresh.maxX * scaleX;
   const top = tly + fresh.minY * scaleY, bottom = tly + fresh.maxY * scaleY;
   const artH = bottom - top, centerX = (left + right) / 2;
@@ -299,10 +408,49 @@ function emitBounds() {
     }
   }
   console.log('  const ART_BOUNDS = {\n' + lines.join('\n') + '\n  };');
+  const crowns = [];
+  for (const [key, sh] of Object.entries(SHEETS)) {
+    if (sh.crownFrame === undefined) continue;
+    const c = crownBox(sh.file, sh.fw, sh.fh, sh.crownFrame);
+    crowns.push(`    '${key}:${sh.crownFrame}': { fw: ${c.fw}, fh: ${c.fh}, ` +
+      `minX: ${c.minX}, minY: ${c.minY}, maxX: ${c.maxX}, maxY: ${c.maxY} },`);
+  }
+  console.log('\n  const CROWN_BOUNDS = {\n' + crowns.join('\n') + '\n  };');
 }
 
-module.exports = { decodePng, loadPng, trimFrame, trimSheetFrame, evaluate,
-  evaluateCreature, CREATURE_SHEETS, SCENARIOS, SHEETS, CELL_PX };
+// ── Crown drift guard: CROWN_BOUNDS must still describe the real canopy ────
+function evaluateCrowns() {
+  const rows = [];
+  for (const [key, sh] of Object.entries(SHEETS)) {
+    if (sh.crownFrame === undefined) continue;
+    const lookup = `${key}:${sh.crownFrame}`;
+    const fresh = crownBox(sh.file, sh.fw, sh.fh, sh.crownFrame);
+    const table = CROWN_BOUNDS[lookup];
+    const violations = [];
+    if (!fresh) violations.push('frame is fully transparent');
+    else if (!table) violations.push(`CROWN_BOUNDS missing "${lookup}" (run --emit-bounds)`);
+    else if (table.fw !== fresh.fw || table.fh !== fresh.fh ||
+             table.minX !== fresh.minX || table.minY !== fresh.minY ||
+             table.maxX !== fresh.maxX || table.maxY !== fresh.maxY) {
+      violations.push(`CROWN_BOUNDS "${lookup}" stale — art says ` +
+        `minX ${fresh.minX} minY ${fresh.minY} maxX ${fresh.maxX} maxY ${fresh.maxY} ` +
+        `(run --emit-bounds)`);
+    }
+    // The fruit hangs at the crown's midline: it has to land on leaves, not on
+    // the trunk under them or the sky over them.
+    if (fresh && table && !violations.length) {
+      const art = trimSheetFrame(sh.file, sh.fw, sh.fh, sh.crownFrame);
+      const mid = (table.minY + table.maxY) / 2;
+      if (mid <= art.minY || mid >= table.maxY) violations.push('crown midline is off the canopy');
+    }
+    rows.push({ lookup, fresh, table, violations });
+  }
+  return rows;
+}
+
+module.exports = { decodePng, loadPng, trimFrame, trimSheetFrame, crownBox,
+  evaluate, evaluateCreature, evaluateCrowns, CREATURE_SHEETS, SCENARIOS,
+  SHEETS, CELL_PX };
 if (require.main !== module) return;
 
 if (process.argv.includes('--emit-bounds')) { emitBounds(); process.exit(0); }
@@ -341,7 +489,24 @@ for (const r of cRows) {
 }
 console.log('─'.repeat(80));
 console.log(`${cRows.length - cBad} OK, ${cBad} need attention.`);
+// ── Fruit-tree crowns: where a bearing tree's fruit sprite is seated ───────
+const crownRows = evaluateCrowns();
+console.log('\nFruit-tree crown audit — the fruit overlay sits on the canopy midline\n');
+console.log(pad('crown', 16), num('minY'), num('maxY'), num('midY'), '  verdict');
+console.log('─'.repeat(80));
+let crBad = 0;
+for (const r of crownRows) {
+  const ok = r.violations.length === 0;
+  if (!ok) crBad++;
+  const t = r.table || {};
+  console.log(pad(r.lookup, 16), num(t.minY), num(t.maxY),
+    num(t.minY === undefined ? '—' : (t.minY + t.maxY) / 2),
+    '  ' + (ok ? '✓ OK' : '✗ ' + r.violations.join('; ')));
+}
+console.log('─'.repeat(80));
+console.log(`${crownRows.length - crBad} OK, ${crBad} need attention.`);
+
 console.log('Exempt (not audited): buildings (house/tower/shrine), produce stands,');
 console.log('pot-of-gold, crops/wildplants, dropped-item ground stacks. Creatures are');
 console.log('exempt from the SEAT rule — only their wheel placement is checked.\n');
-process.exit((bad + cBad) ? 1 : 0);
+process.exit((bad + cBad + crBad) ? 1 : 0);
