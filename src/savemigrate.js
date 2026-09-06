@@ -2,7 +2,7 @@
 // MapScene.create() so they're testable headlessly (no scene, no DOM).
 //
 // migrate(save) mutates `save` in place: backfills slots/defaults added since a
-// save was created, re-derives maxEnergy from armor, applies the history-size
+// save was created, re-derives maxEnergy, applies the history-size
 // cap, and runs the surviving data migrations (flute→honey rename, cobble
 // stones→street metres).
 //
@@ -35,7 +35,7 @@
 // The scene keeps the offline-rest restoration + runtime field init around the
 // call; only the pure save-shape work moves here.
 //
-// Depends on globals: maxEnergyFromArmor + STARTING_ENERGY (items.js). ShopsMath
+// Depends on globals: STARTING_ENERGY (items.js) + Energy (energy.js). ShopsMath
 // (shops_math.js) is used too, for the shop-state GC below, but that module
 // loads AFTER this one in index.html — the call is runtime-guarded so a
 // headless load of just this file (no ShopsMath) still works.
@@ -118,15 +118,18 @@
       ShopsMath.pruneShopState(save, Date.now());
     }
     // Backfill armor slots (spread, not ||, so a save missing one slot key still
-    // gets defaults rather than carrying gaps that crash maxEnergyFromArmor).
+    // gets defaults rather than carrying gaps that crash armorReduction).
     save.armor = { helmet: null, chest: null, legs: null, boots: null, ...(save.armor || {}) };
-    // Always re-derive maxEnergy from equipped armor — never trust a stale value.
+    // Always re-derive maxEnergy — never trust a stale value. This is also what
+    // RETIRES the old armour cap: a save banked while armour still raised the
+    // maximum carries a maxEnergy well over the base, and one pass through here
+    // brings it (and any energy sitting above it) back down to the rule.
     const _fallbackMaxE = (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
-    let maxE = (typeof maxEnergyFromArmor === 'function')
-      ? maxEnergyFromArmor(save.armor)
+    let maxE = (typeof Energy !== 'undefined' && typeof Energy.maxEnergy === 'function')
+      ? Energy.maxEnergy(save)
       : _fallbackMaxE;
-    // Guard against a non-finite armor lookup (NaN/undefined would otherwise
-    // poison save.energy via the Math.min below and disable energy entirely).
+    // Guard against a non-finite lookup (NaN/undefined would otherwise poison
+    // save.energy via the Math.min below and disable energy entirely).
     if (!Number.isFinite(maxE)) maxE = _fallbackMaxE;
     save.maxEnergy = maxE;
     if (!Number.isFinite(save.energy)) save.energy = maxE;

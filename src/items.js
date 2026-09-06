@@ -661,10 +661,12 @@ const BUY_LIST = Object.keys(CROP_ROW)
 const STARTING_MONEY = 50;
 
 // === Energy / food ===
-// Player starts at STARTING_ENERGY; armor pieces raise the maximum (see ARMOR_DEFS
-// below). Eating food restores energy by FOOD_ENERGY[id]. Actions like rock-break,
+// Player starts at STARTING_ENERGY; the only thing that ever raises the cap is
+// the FIRST-TASTE bonus (+1 per distinct edible ever eaten — Energy.maxEnergy).
+// Eating food restores energy by FOOD_ENERGY[id]. Actions like rock-break,
 // till, and harvest deduct energy via ENERGY_COST and refuse when the current
-// pool is too low.
+// pool is too low. ARMOR does not touch the cap: it SOAKS the damage an attack
+// takes off the bar (armorReduction below, spent by Combat.mitigate).
 // === Book of Tips ============================================
 // Non-obvious play tips revealed when the player uses a Book consumable.
 //
@@ -672,7 +674,7 @@ const STARTING_MONEY = 50;
 // item's own description — ITEM_EFFECTS below (the "✦ …" line under the
 // selected stack) for a consumable or material, RELIC_DEFS.blurb (the same
 // line for a relic, plus the Stats panel's per-slot row) for a relic, the Eat
-// button's "+N⚡" for a food, and the Stats panel's "+N max energy" for armour.
+// button's "+N⚡" for a food, and the Stats panel's "−N damage" row for armour.
 // The player reads those while HOLDING the thing, exactly when the answer is
 // wanted; a Book that restates them spends a consumable to tell you something
 // the inventory bar was already showing, and the two copies then drift apart.
@@ -809,6 +811,7 @@ const PLAY_TIPS = [
   'A shiny animal pays ten times its plain kind, bolts twice as fast, and takes twice the work to bring down.',
   // ── Fighting, once you are armed ────────────────────────────
   'Only one weapon is ever in play. Tap another in the Relics tab to make it the one that answers a foe.',
+  'Worn armour soaks what a blow takes off your bar, and a set stacks: the pool covers half a hit, then half of what is left, four times over. It can never soak a blow to nothing — something always gets through.',
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'Anything hostile you put down pays coins for its trouble — about a coin per 5 hit points, and a little more for every level down.',
   'Castle towers fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate.',
@@ -1065,11 +1068,17 @@ function stackCapForBags(bagsRelic) {
   // 9, 43, 78, 112, 146, 181, 215, 249 across tiers 0..7.
   return Math.round(STACK_CAP_BASE + (STACK_CAP_MAX - STACK_CAP_BASE) * (t / 7));
 }
+// The four wearable slots. Armor carries NO per-slot effect number: what a
+// piece is worth is its TIER, and every slot pays the same for it
+// (armorSlotReduction below). Until Sep 2026 each slot carried its own
+// `energyPerTier` and armour raised the max-energy CAP — a bigger bar, which
+// helped exactly as much whether or not anything was hitting you. It soaks
+// damage now, so it is worth wearing for the reason armour is worth wearing.
 const ARMOR_DEFS = {
-  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100, energyPerTier: 10 },
-  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 250, energyPerTier: 25 },
-  legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150, energyPerTier: 15 },
-  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost:  80, energyPerTier:  8 },
+  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100 },
+  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 250 },
+  legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150 },
+  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost:  80 },
 };
 function gearDef(kind, slot) {
   return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);
@@ -1108,15 +1117,32 @@ function gearName(kind, slot, tier) {
   if (!def || !t) return slot;
   return `${t.name} ${def.name}`;
 }
-function maxEnergyFromArmor(armor) {
-  let m = STARTING_ENERGY;
-  if (!armor) return m;
+// ARMOR SOAK — what one worn piece takes off an incoming hit: its tier
+// SQUARED. Quadratic on purpose, so the gap between a Wood helmet (1) and a
+// Frost one (49) is the whole difference between "barely there" and "barely
+// scratched", and so a full set's pool is worth assembling rather than
+// wearing one good piece.
+//
+// This is the ONE place the per-piece number is written. Both sides read it:
+// Combat.mitigate spends the pool against a hit, and the Stats panel / shop
+// offer print the same figure on the piece itself (app.js) — the
+// roadOverlayWidthM discipline, so what the armour SAYS it soaks is what it
+// soaks.
+function armorSlotReduction(tier) {
+  const t = Math.max(0, Math.floor(tier || 0));
+  return t * t;
+}
+
+// The whole worn set's pool: the sum of every equipped piece's reduction.
+// Unknown slots and empty ones contribute nothing.
+function armorReduction(armor) {
+  if (!armor) return 0;
+  let r = 0;
   for (const [slot, eq] of Object.entries(armor)) {
-    if (!eq) continue;
-    const def = ARMOR_DEFS[slot]; const t = TIER_BY_NUM[eq.tier];
-    if (def && t) m += def.energyPerTier * eq.tier;
+    if (!eq || !ARMOR_DEFS[slot] || !TIER_BY_NUM[eq.tier]) continue;
+    r += armorSlotReduction(eq.tier);
   }
-  return m;
+  return r;
 }
 // Shared tool-tier energy model for the gated "work" actions (chop / rock-break
 // / catch / fish). EXPECTED energy is anchored at 9 bare-handed (tier 0), 3 with

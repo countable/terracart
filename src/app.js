@@ -2991,7 +2991,10 @@ class MapScene extends Phaser.Scene {
       'Energy pays for tilling, chopping, mining and walking off the GPS.<br><br>'
       + '• <b>Eat</b> — select any food in the bag and use the Eat button.<br>'
       + '• <b>Rest</b> — it refills slowly on its own over time.<br>'
-      + '• <b>Armor</b> — each piece raises the cap (currently ' + max + ').';
+      + '• <b>Taste</b> — every new food eaten for the first time raises the '
+      + 'cap by one, for good (currently ' + max + ').<br><br>'
+      + 'Armor does not lengthen this bar — it soaks the damage attacks take '
+      + 'off it.';
     box.appendChild(body);
     const close = mkBtn('Got it');
     close.style.marginTop = '12px';
@@ -6715,14 +6718,18 @@ class MapScene extends Phaser.Scene {
 
   // A monster's arrow lands. The same energy hit the melee leech deals
   // (wanderCreatures' monster branch) — the shield potion halves it at the
-  // moment of impact, the loss rolls into the throttled "monsters hit -N⚡"
-  // flash so a volley reads as one pop — only delivered by a shot you could
-  // see coming rather than a silent drain at range.
+  // moment of impact, worn armour soaks what is left, and the loss rolls into
+  // the throttled "monsters hit -N⚡" flash so a volley reads as one pop —
+  // only delivered by a shot you could see coming rather than a silent drain
+  // at range.
   _shotHitsPlayer(shot) {
     const now = performance.now();
     const before = this.save.energy ?? 0;
     if (!(before > 0) || !(shot.damage > 0)) return false;
-    const dmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(shot.damage / 2) : shot.damage;
+    const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(shot.damage / 2) : shot.damage;
+    // One arrow can carry several hits of the kind's table (shot.hits,
+    // MONSTER_ARROW_HITS) — armour soaks each of them, not the bundle.
+    const dmg = Combat.playerDamage(shielded, this.save.armor, shot.hits);
     this.save.energy = Math.max(0, before - dmg);
     this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
     this._flashPlayerHit();
@@ -7627,7 +7634,11 @@ class MapScene extends Phaser.Scene {
           const before = this.save.energy ?? 0;
           if (before > 0) {
             // Hard mode doubles the leech (Difficulty.enemyDmgMul), shield or not.
-            const slimeDmg = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3) * Difficulty.get().enemyDmgMul;
+            // WORN ARMOUR SOAKS WHAT IS LEFT (Combat.playerDamage — the mode and
+            // the potion scale the blow, armour spends its pool against the
+            // result), and never to nothing: a bite always costs at least 1.
+            const slimeRaw = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3) * Difficulty.get().enemyDmgMul;
+            const slimeDmg = Combat.playerDamage(slimeRaw, this.save.armor);
             this.save.energy = Math.max(0, before - slimeDmg);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
             this._flashPlayerHit();
@@ -7664,7 +7675,11 @@ class MapScene extends Phaser.Scene {
           // cadence costs the archer none of its damage per minute.
           c._nextShotT = now + Combat.MONSTER_SHOT_INTERVAL_MS;
           const dmg = m.dmg * MONSTER_ARROW_HITS * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
-          const shot = Combat.monsterShot(c.x, c.y, px, py, this.cellM, dmg);
+          // The arrow carries its hit COUNT as well as its damage, so armour
+          // can soak the volley one hit at a time when it lands
+          // (_shotHitsPlayer) — mitigating the bundle in one lump would make
+          // the slow archer the one foe armour barely helps against.
+          const shot = Combat.monsterShot(c.x, c.y, px, py, this.cellM, dmg, MONSTER_ARROW_HITS);
           if (shot) this._shots.push(shot);
         } else if (clear && m.range <= 1 && ddx * ddx + ddy * ddy <= R * R
                    && (!c._nextStealT || now >= c._nextStealT)) {
@@ -7674,7 +7689,10 @@ class MapScene extends Phaser.Scene {
             // An elite (shiny) monster hits for double — Combat.eliteMul is
             // the one multiplier its HP is scaled by too.
             const dmg = m.dmg * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
-            const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
+            const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
+            // Worn armour soaks the rest — see the slime leech above; the same
+            // pool, the same floor of 1.
+            const monDmg = Combat.playerDamage(shielded, this.save.armor);
             this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
             this._flashPlayerHit();
@@ -11202,9 +11220,10 @@ class MapScene extends Phaser.Scene {
       const def = gearDef(kind, slot);
       if (!def) return '';
       if (kind === 'armor') {
-        const per = ARMOR_DEFS?.[slot]?.energyPerTier ?? 0;
-        if (tierOrZero > 0) return `+${per * tierOrZero} max energy`;
-        return `+${per}/tier max energy`;
+        // What a piece SOAKS — the one number items.js authors (tier²), never
+        // a second copy of the formula. An empty slot previews the rule.
+        if (tierOrZero > 0) return `−${armorSlotReduction(tierOrZero)} damage soaked`;
+        return 'Soaks damage — tier² per piece';
       }
       // Relics: per-slot blurb. Add a quantitative tier-scaled hint where
       // the formula is cheap to evaluate without re-deriving game balance.
@@ -12541,7 +12560,7 @@ class MapScene extends Phaser.Scene {
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = offer.kind === 'relic'
       ? (gearDef(offer.kind, offer.slot)?.blurb || '')
-      : `+${(ARMOR_DEFS[offer.slot]?.energyPerTier || 0) * offer.tier} max energy`;
+      : `−${armorSlotReduction(offer.tier)} damage soaked`;
     // Flower charm halves the asking price for the charm window (floor $1).
     const price = Math.max(1, Math.ceil(offer.price * this.shopCharmMul(house)));
     this.showOfferModal({

@@ -2,13 +2,13 @@
 // recipes, extracted from app.js so they're testable headlessly (no scene, DOM).
 //
 // "Gear" spans save.relics (tools/jewelry/weapons) and save.armor (the four
-// wearable slots that also raise max energy). The scene keeps thin wrappers
+// wearable slots that soak incoming damage). The scene keeps thin wrappers
 // (app.js _equipGear / buildRelicOffer / blacksmithRecipe / smeltingRecipe /
 // smeltUnlockedBars); interact.js's equipGearReward also routes through equip()
-// here so the armor energy-bump math lives in exactly one place.
+// here so every way a piece can be obtained lands in exactly one place.
 //
-// Depends on globals from items.js: maxEnergyFromArmor, MATERIAL_TIERS,
-// RELIC_DEFS, ARMOR_DEFS, gearPrice, bestWeaponTier; and Energy (energy.js).
+// Depends on globals from items.js: MATERIAL_TIERS, RELIC_DEFS, ARMOR_DEFS,
+// gearPrice, bestWeaponTier.
 
 (function (root) {
   'use strict';
@@ -19,22 +19,16 @@
   // on a fresh pickup.
   const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
 
-  // Equip a bought / forged / looted relic or armor piece. Armor also recomputes
-  // max energy and grants the freshly-unlocked headroom (captured BEFORE
-  // mutating armor so the bump is the delta, not the whole new max).
+  // Equip a bought / forged / looted relic or armor piece. Armor just fills its
+  // slot: its effect (soaking incoming damage — items.js armorReduction, spent
+  // by Combat.mitigate) is read live off save.armor at the moment a blow lands,
+  // so there is nothing to bank here. Until Sep 2026 armour raised the max
+  // energy CAP, and this function had to grant the freshly-unlocked headroom
+  // as a delta so a second piece didn't refill the whole bar.
   function equip(save, kind, slot, tier) {
     if (kind === 'armor') {
       save.armor = save.armor || {};
-      if (typeof maxEnergyFromArmor === 'function') {
-        const oldMax = (typeof Energy !== 'undefined') ? Energy.maxEnergy(save) : maxEnergyFromArmor(save.armor);
-        save.armor[slot] = { tier };
-        const newMax = maxEnergyFromArmor(save.armor);
-        const bump = Math.max(0, newMax - oldMax);
-        save.maxEnergy = newMax;
-        save.energy = Math.min(newMax, (save.energy ?? 0) + bump);
-      } else {
-        save.armor[slot] = { tier };
-      }
+      save.armor[slot] = { tier };
       return;
     }
     save.relics = save.relics || {};

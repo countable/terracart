@@ -1,20 +1,25 @@
 // Headless tests for the energy core (src/energy.js) — cap / spend / offline-
 // rest / tired-threshold math extracted from app.js's MapScene.
 
-test('maxEnergy: armor-derived cap wins and is written back to save', () => {
-  const save = { maxEnergy: 100, armor: { helmet: { tier: 3 } } };
-  const cap = Energy.maxEnergy(save);
-  assert.gt(cap, 100, 'armor raises the cap above the 100 base');
-  assert.eq(save.maxEnergy, cap, 'cap written back so writers/UI agree');
+test('maxEnergy: ARMOR IS NOT IN THE CAP — a full worn set is still the base bar', () => {
+  // Until Sep 2026 each piece added `energyPerTier × tier` here, so armour was
+  // simply a longer bar — worth exactly as much to a player who never fought
+  // as to one who did. It soaks damage now (Combat.mitigate), and the cap has
+  // no idea armour exists. Re-folding a gear bonus in here is the bug back.
+  const worn = {};
+  for (const slot of Object.keys(ARMOR_DEFS)) worn[slot] = { tier: 7 };
+  const save = { maxEnergy: 100, armor: worn };
+  assert.eq(Energy.maxEnergy(save), STARTING_ENERGY, 'a full Frost set adds nothing');
+  assert.gt(armorReduction(worn), 0, 'what it bought instead is a soak pool');
 });
 
-test('maxEnergy: armor is the source of truth — empty armor = 100 base, written back', () => {
-  // maxEnergyFromArmor always returns ≥ STARTING_ENERGY, so the cap is ALWAYS
-  // armor-derived and overwrites any stored save.maxEnergy (the `?? maxEnergy`
-  // fallback only matters if items.js isn't loaded). Pin that invariant.
-  const save = { maxEnergy: 137, armor: {} };
-  assert.eq(Energy.maxEnergy(save), 100, 'empty armor = STARTING_ENERGY (100)');
-  assert.eq(save.maxEnergy, 100, 'stored max overwritten by the armor-derived cap');
+test('maxEnergy: the derived cap is written back over a stale stored one', () => {
+  // A save banked while armour still raised the cap carries a maxEnergy well
+  // over the base. The cap is re-derived on every call and written back, so
+  // that number cannot outlive the rule that produced it.
+  const save = { maxEnergy: 337, armor: { helmet: { tier: 3 } } };
+  assert.eq(Energy.maxEnergy(save), 100, 'the base cap (STARTING_ENERGY)');
+  assert.eq(save.maxEnergy, 100, 'stored max overwritten by the derived cap');
 });
 
 test('maxEnergy: first-taste bonus — +1 per distinct edible in save.eaten', () => {

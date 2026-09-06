@@ -234,6 +234,33 @@
   target. **When you add a hostile kind, put it in the monster table** — that
   registration is what makes it an enemy everywhere at once.
   **Audit it:** `node test/node/run.js` › `test/node/combat.test.js`.
+  **ARMOUR IS THE OTHER SIDE OF THAT POOL, and it soaks — it does not grow the
+  bar.** Until Sep 2026 each worn piece added `energyPerTier × tier` to the max
+  ENERGY, which is a bigger tank rather than better protection: it paid a player
+  who never fought exactly what it paid one who lived underground, and no amount
+  of it made a goblin's bite land any softer. A piece now contributes its **tier
+  SQUARED** to a reduction pool (`items.js` › `armorSlotReduction` /
+  `armorReduction` — every slot pays the same for a tier and they differ only in
+  PRICE), and `Combat.mitigate` spends that pool against a blow in
+  `MITIGATION_ROUNDS` passes: soak up to HALF the damage, halve the pool, soak
+  up to half of what is LEFT, four times over. Halves round DOWN and
+  `MIN_PLAYER_DAMAGE` is the floor, so four halvings cap armour at 15/16ths of a
+  hit however good it is — which is what makes a quadratic pool safe to hand out
+  instead of a hand-tuned percentage per slot. **The mode and the potion scale
+  the blow BEFORE armour spends against it** (`Difficulty.enemyDmgMul`, the
+  shield's halving), so a hard-mode hit is soaked as a hard-mode hit.
+  There are exactly three places a foe reaches the player — the surface slime's
+  leech, a cave monster's melee, and a goblin archer's arrow — and all three go
+  through `Combat.playerDamage(dmg, this.save.armor)`. The arrow passes
+  `shot.hits` as well: it carries `MONSTER_ARROW_HITS` hits of the table in one
+  projectile so its damage per minute matches the melee cadence it stands in
+  for, and soaking that bundle in ONE lump would hand the parity straight back —
+  the archer would become the one foe armour barely helps against. **When you
+  add a way for something to hit the player, mitigate it**; a raw
+  `save.energy -= dmg` is the bug. And what a piece soaks is printed ON the
+  piece (the Stats row, the shop offer) from `armorSlotReduction` — one table,
+  both sides, the `roadOverlayWidthM` discipline.
+  **Audit it:** `node test/node/run.js` › `test/node/armor.test.js`.
 
 - **A tile build stutters on its WORST BLOCK, not its total.** The rasterizer
   is a generator (`rasterizeTileSteps`); the slicer can only hand the frame
