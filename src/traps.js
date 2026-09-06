@@ -48,18 +48,28 @@
 
   // ── How many, and where ──────────────────────────────────────────────────
   // A tile is ~236 cells (≈1.65 km) on an edge — about 21 screens across — so
-  // these counts read as "one every dozen-odd screens of road", not a minefield.
-  const ROAD_TRAP_MIN = 10, ROAD_TRAP_SPAN = 9;    // 10..18 per surface tile
+  // these BASE counts read as "one every dozen-odd screens of road", not a
+  // minefield. The mode and the depth scale up from here — see countMul below.
+  const ROAD_TRAP_MIN = 10, ROAD_TRAP_SPAN = 9;    // 10..18 per surface tile, base rate
   // How many roadside cells the one-pass scan below keeps to choose from. Only
   // needs to comfortably exceed the trap count — it is a uniform sample of the
   // whole verge (see sampleRoadsideCells), so more of them buys nothing but
-  // room for the isSpawnCell rejections.
+  // room for the isSpawnCell rejections. A countMul > 1 asks for more traps
+  // than this reservoir can supply candidates for, so spawnSurface widens it
+  // in that case; left alone at the base rate so every existing seed and test
+  // keeps drawing the exact same rng sequence.
   const ROADSIDE_SAMPLE = 96;
   // Caves: fewer, but they climb with depth — and they sit where the player
   // actually walks (around the entrances), like the monsters and coins.
   const CAVE_TRAP_MIN = 5, CAVE_TRAP_SPAN = 5, CAVE_TRAP_PER_DEPTH = 1;
   const CAVE_TRAP_DEPTH_CAP = 8;      // depth past which the bonus stops growing
   const CAVE_SPAWN_R = 25;            // cells around each anchor — matches the monster/coin spread
+  // Dungeons are dangerous on EITHER game mode, so their density multiplier is
+  // flat rather than read off Difficulty (which only scales the surface rate —
+  // Difficulty.PROFILES[mode].trapCountMul, 10x easy / 100x hard). Named here,
+  // beside the base counts it scales, rather than inlined at the one call site
+  // in app.js that reads it.
+  const DUNGEON_DENSITY_MUL = 100;
 
   // Placement attempts per trap. A rejected attempt drops that trap rather
   // than searching harder; small scatter variance is fine (the X scatter in
@@ -154,12 +164,22 @@
   // the tile's POI anchors), so a trap obeys the road rule and the private-yard
   // frontage rule by construction rather than by a copy of them here.
   // A tile with no charted road gets no traps: there is no roadside to be on.
-  function spawnSurface(grid, roadMask, w, h, tx, ty, tileEdgeM, spawnOpts) {
+  // `countMul` scales the base 10..18 rate — the caller passes
+  // Difficulty.get().trapCountMul (10x easy / 100x hard) — so this module stays
+  // free of a Difficulty dependency and the base rate above stays the number a
+  // test can pin without reading the mode.
+  function spawnSurface(grid, roadMask, w, h, tx, ty, tileEdgeM, spawnOpts, countMul) {
     if (!grid || !roadMask || !root.WorldGen) return [];
     const WG = root.WorldGen;
     const rng = WG.makeRng(((tx * 0x7f4a7c15) ^ (ty * 0x2545f491) ^ 0x51ed270b) >>> 0);
-    const n = ROAD_TRAP_MIN + Math.floor(rng() * ROAD_TRAP_SPAN);
-    const cand = sampleRoadsideCells(roadMask, w, h, rng, ROADSIDE_SAMPLE);
+    const mul = countMul > 0 ? countMul : 1;
+    const n = Math.round((ROAD_TRAP_MIN + Math.floor(rng() * ROAD_TRAP_SPAN)) * mul);
+    // The base reservoir (96) only needs to comfortably exceed the base rate's
+    // ~18 traps. A density multiplier asks for many more, so it needs many
+    // more distinct roadside cells to draw from — widen the reservoir rather
+    // than let most of the extra traps fail on collisions with each other.
+    const sampleSize = mul > 1 ? Math.max(ROADSIDE_SAMPLE, n * 6) : ROADSIDE_SAMPLE;
+    const cand = sampleRoadsideCells(roadMask, w, h, rng, sampleSize);
     if (!cand.length) return [];
     const traps = [];
     const taken = new Set();
@@ -185,8 +205,10 @@
   // for the same reason: a trap 200 cells away in the dark is a trap nobody
   // ever meets. `occupiedIdx` is a Set of flat grid indices already claimed by
   // an object (stairs, chests, torches, rocks) — a trap must never sit under a
-  // sprite, or the only warning the art gives is painted over.
-  function spawnCave(grid, N, tx, ty, tileEdgeM, depth, anchors, occupiedIdx) {
+  // sprite, or the only warning the art gives is painted over. `countMul`
+  // scales the base rate the same way spawnSurface's does — the app.js call
+  // site passes DUNGEON_DENSITY_MUL, flat regardless of game mode.
+  function spawnCave(grid, N, tx, ty, tileEdgeM, depth, anchors, occupiedIdx, countMul) {
     if (!grid || !root.WorldGen) return [];
     const WG = root.WorldGen;
     const FLOOR = WG.T.CAVE_FLOOR;
@@ -194,8 +216,9 @@
       ((tx * 0x7f4a7c15) ^ (ty * 0x2545f491) ^ (depth * 0x9e3779b1) ^ 0x1b873593) >>> 0);
     const anch = (anchors && anchors.length)
       ? anchors : [{ lix: Math.floor(N / 2), liy: Math.floor(N / 2) }];
-    const n = CAVE_TRAP_MIN + Math.floor(rng() * CAVE_TRAP_SPAN)
-      + Math.min(depth, CAVE_TRAP_DEPTH_CAP) * CAVE_TRAP_PER_DEPTH;
+    const mul = countMul > 0 ? countMul : 1;
+    const n = Math.round((CAVE_TRAP_MIN + Math.floor(rng() * CAVE_TRAP_SPAN)
+      + Math.min(depth, CAVE_TRAP_DEPTH_CAP) * CAVE_TRAP_PER_DEPTH) * mul);
     const traps = [];
     const taken = new Set();
     for (let k = 0; k < n; k++) {
@@ -235,6 +258,7 @@
     STEP_ENERGY, STAND_ENERGY_PER_S,
     ROAD_TRAP_MIN, ROAD_TRAP_SPAN, ROADSIDE_SAMPLE,
     CAVE_TRAP_MIN, CAVE_TRAP_SPAN, CAVE_TRAP_PER_DEPTH, CAVE_TRAP_DEPTH_CAP, CAVE_SPAWN_R,
+    DUNGEON_DENSITY_MUL,
     isSprung, spring,
     isRoadside, sampleRoadsideCells, spawnSurface, spawnCave, trapAt,
   };
