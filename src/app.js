@@ -196,7 +196,7 @@ const TOAST_TIER = {
 //
 // The label is the CATEGORY, not the specific offer — the flavour line under
 // it still carries that. Callers may override the label for a one-off outcome
-// ("MILL LANE walked") and keep the kind's icon; see showChestRewardModal.
+// ("30 cobbles walked") and keep the kind's icon; see showChestRewardModal.
 //
 // `supplies` exists because the tutorial's own material handout was opening as
 // TREASURE: the objective chip calls them supply crates, they render as the
@@ -1092,7 +1092,7 @@ class MapScene extends Phaser.Scene {
       this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
     }
     this.save.lastSeenAt = Date.now();
-    // Float accumulator for indoor resting — fractions of an energy point
+    // Float accumulator for resting at Home — fractions of an energy point
     // accrue here between integer-pip bumps to save.energy.
     this._restAccrueE = 0;
     // Mark relics dirty so the first updateRelicRow call actually rebuilds.
@@ -1737,21 +1737,21 @@ class MapScene extends Phaser.Scene {
     // setTint(), which is a no-op under the Phaser Canvas fallback — see the
     // halo note above.
     //
-    // BRIGHT BLUE, not the pale blue-white it was: LIT_COBBLE_BLUE is a
-    // saturated sky blue and the multiply that re-lays the shading is lighter
-    // (0.45, was 0.75) so the stone keeps its carving without being dragged
-    // back down to grey. That still lands inside the treasure/powerup blue
-    // role (spec §UI COLOUR LANGUAGE) — a lit cobble is progress toward a
-    // world reward — it just no longer reads as "slightly whiter gravel" from
-    // across the viewport, which matters now that stones light several at a
-    // time a few cells out rather than one under the player's feet.
+    // Saturated VIOLET (UI_TRAIL_LIT), not the pale blue-white this started
+    // as, and the multiply that re-lays the shading is lighter (0.45, was
+    // 0.75) so the stone keeps its carving without being dragged back down to
+    // grey. That still lands inside the treasure/powerup blue role (spec §UI
+    // COLOUR LANGUAGE) — a lit cobble is progress toward a world reward — it
+    // just no longer reads as "slightly whiter gravel" from across the
+    // viewport, nor as another shade of the water it may run beside. The
+    // counter over the stone is drawn in the same constant, so the two can
+    // never drift.
     //
     // One copy PER FRAME (litCobbleTexKey, render.js): the three vehicle-road
     // tiers each draw a different cluster from Road copiar.png and roads are
     // claimable trails now, so a single shared key would light a motorway
     // with a footpath's lone pebble.
     if (typeof LIT_COBBLE_FRAMES !== 'undefined' && typeof document !== 'undefined') {
-      const LIT_COBBLE_BLUE = UI_TRAIL_LIT;   // shared with the trail counter
       for (const f of LIT_COBBLE_FRAMES) {
         const key = litCobbleTexKey(f);
         if (this.textures.exists(key)) continue;
@@ -1764,7 +1764,7 @@ class MapScene extends Phaser.Scene {
         const cctx = cvs.getContext('2d');
         cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
         cctx.globalCompositeOperation = 'source-atop';
-        cctx.fillStyle = LIT_COBBLE_BLUE;
+        cctx.fillStyle = UI_TRAIL_LIT;
         cctx.fillRect(0, 0, cw, ch);
         cctx.globalCompositeOperation = 'multiply';
         cctx.globalAlpha = 0.45;
@@ -5350,9 +5350,9 @@ class MapScene extends Phaser.Scene {
         this._restAccrueE = 0;
       }
       // Campfire warmth: standing within FIRE_REST_R cells of a lit fire slowly
-      // restores energy — the same accumulator trick as indoor rest, but it
-      // works outdoors and is slower (FIRE_FULL_REST_S). Independent of the
-      // indoor/home rest above; a fire can't sit on a building cell so the two
+      // restores energy — the same accumulator trick as the home rest, but it
+      // works out in the wild and is slower (FIRE_FULL_REST_S). Independent of
+      // the home rest above; a fire can't sit on a building cell so the two
       // rarely overlap.
       if ((this.save.energy ?? 0) < maxE) {
         if (this._nearAny('fires', pWX, pWY, FIRE_REST_R)) {
@@ -11103,7 +11103,7 @@ class MapScene extends Phaser.Scene {
     if (!q || !q.length) return;
     this._trailPrizeOpen = true;
     const n = q.shift();
-    this._firePathCompletionReward(n, () => {
+    this._fireTrailPrize(n, () => {
       this._trailPrizeOpen = false;
       this._drainTrailPrizes();
     });
@@ -11127,7 +11127,7 @@ class MapScene extends Phaser.Scene {
   // have to actually differ" rule and may hand back a single reward (a picker
   // with only one thing to give); that opens the plain one-reward ceremony it
   // always did, rather than a choice with one answer.
-  _firePathCompletionReward(n, onDismiss) {
+  _fireTrailPrize(n, onDismiss) {
     const bonus = Trail.rollBonusFor(Math.max(0, (n | 0) - 1));
     const roll = () => ((typeof pickReward === 'function')
       ? pickReward('chest:lowtier', this.save, undefined,
@@ -12578,7 +12578,7 @@ class MapScene extends Phaser.Scene {
   //                          modal becomes a CHOICE (explicit buttons, no
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
-  // `header` is the legacy per-reward line ('MILL LANE walked', 'Restored!').
+  // `header` is the legacy per-reward line ('30 cobbles walked', 'Restored!').
   // It now feeds the shared kind header as a LABEL OVERRIDE — the dialog keeps
   // its outcome wording and gains the kind's hero icon — so this modal shows
   // one header, not two. Callers that say nothing get TREASURE, which is what

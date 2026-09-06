@@ -129,9 +129,10 @@ const isRoadType = (t) => t === 7 || t === 13 || t === 14;
 //
 // The roll is permanent and does NOT consult `active`: a cell that rolled no
 // stone stays bare even once lit, because a stone popping into existence where
-// there wasn't one reads as a bug rather than as "lighting up". Claiming still
-// counts that cell toward the trail, so thinning never costs the player
-// progress — only pebbles.
+// there wasn't one reads as a bug rather than as "lighting up". It is not
+// decoration on top of the count either — a thinned-away cell is not a stone,
+// so it neither lights nor counts (app.js _activatePathStone asks cobbleShown).
+// The counter only ever ticks on stones the player can actually see.
 const COBBLE_SPACING_M = 20;
 // Percent of path cells that draw a pebble, for a cell `cellM` metres across.
 // Clamped to 1..100 — a cell wider than the spacing still gets every stone.
@@ -1598,7 +1599,7 @@ Render.drawCells = function drawCells(scene) {
         // material dropped into the ground. ROADS count as well as paths: a
         // street is a claimable trail too. _isPathStoneActive is null-safe
         // (returns false in test mode or before save state exists), so this
-        // check is always cheap. PIER is excluded — piers carry no trail name.
+        // check is always cheap. PIER is excluded — a plank is not a cobble.
         let active = false;
         if ((type === PATH || isRoad(type)) && typeof scene._isPathStoneActive === 'function') {
           // Cells outside the player's own tile fall back to the cell's
@@ -1618,12 +1619,13 @@ Render.drawCells = function drawCells(scene) {
         //
         // This sits ON TOP of the geometric rule in worldgen: a cell is only
         // PATH at all where the way really crosses it (pathCross), and this
-        // then thins the stones along what survives. It is PURELY decorative:
-        // claiming still tracks that cell toward the named path's completion
-        // whether or not it ever had a visible stone, so dropping the sprite
-        // here costs nothing gameplay-side. The roll must NOT depend on
-        // `active` — a claimed cell popping a stone into existence that wasn't
-        // there a moment ago read as a bug, not as "lighting up."
+        // then thins the stones along what survives. What survives is what the
+        // trail COUNTS, too — a cell with no pebble is not a stone and never
+        // lights (app.js reads this same rule) — so this is not a decorative
+        // layer over a separate truth, it IS where the stones are. The roll
+        // must NOT depend on `active`, though: a lit cell popping a stone into
+        // existence that wasn't there a moment ago read as a bug, not as
+        // "lighting up."
         const showStone = frame != null && !isTilled
           && cobbleShown(absCellIX, absCellIY, type, scene.cellM);
         if (showStone) {

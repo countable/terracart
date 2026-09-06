@@ -746,7 +746,8 @@ TREASURE MARKS (X on the ground)
    rarity roll — laid along the route to the relic chest a
    screen out (see ONBOARDING), and clears a tutorial pocket of
    obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
-   few random X marks plus extra X's beside named paths. Residential X's only
+   few random X marks plus extra X's beside FOOTPATHS (terrain 8 — the spawner
+   samples path cells, and never knew or needed a way's name). Residential X's only
    spawn near a road.
 
 ================================================================================
@@ -1245,7 +1246,7 @@ DIALOGS
    where you are and not at all when you don't.
  - The label is the CATEGORY; the flavour line underneath still carries the
    specific offer. A caller may override the label for a one-off outcome
-   ("MILL LANE walked") and keep the kind's icon.
+   ("30 cobbles walked") and keep the kind's icon.
  - MODAL_KINDS (src/app.js) is the whole taxonomy: quest, treasure, trail,
    shop, trade, forge, relics, delivery, build, wizard, farm, stats, energy,
    rest, use, note. The header is built by makeModalShell and injected in

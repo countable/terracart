@@ -302,7 +302,7 @@ test('trail prize: an unrecognised reward draws no card and pays nothing', () =>
 // without choosing — is pinned as source text.
 test('trail prize: the payout hangs off the button, not the offer', () => {
   const app = APP_JS_SRC;
-  const at = app.indexOf('_firePathCompletionReward(n, onDismiss) {');
+  const at = app.indexOf('_fireTrailPrize(n, onDismiss) {');
   assert.gt(at, 0, 'found the prize path');
   const body = app.slice(at, app.indexOf('\n  _trailChoiceLabel', at));
   assert.truthy(/actions: choices\.map\(/.test(body), 'the choice opens as an actions modal');
@@ -386,7 +386,7 @@ test('trail counter: the number wears the lit stone\'s own colour', () => {
   // over it can never end up different blues. Pinned as source text — app.js
   // needs Phaser and can't load headlessly.
   assert.eq(UI_TRAIL_LIT, '#9a8cff', 'the lit violet');
-  assert.truthy(/const LIT_COBBLE_BLUE = UI_TRAIL_LIT;/.test(APP_JS_SRC),
+  assert.truthy(/cctx\.fillStyle = UI_TRAIL_LIT;/.test(APP_JS_SRC),
     'the lit-cobble texture is baked from it');
   assert.truthy(/color: UI_TRAIL_LIT,\s*\n\s*\.\.\.this\._trailCounterAt\(/
     .test(APP_JS_SRC), 'and the counter is drawn in it, at the stone');
