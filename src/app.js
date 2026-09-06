@@ -1514,11 +1514,12 @@ class MapScene extends Phaser.Scene {
     // Position in the display list is what does this, NOT setDepth: the
     // vignette's depth 90 would put it over the labels as well.
     this.atmosRimGfx = this.add.graphics();
-    // THE LIGHTMAP — every light in the world, composited in one texture and
-    // MULTIPLIED over everything below it (src/lighting.js). Each frame the
-    // texture is filled with the ambient darkness and every light source adds
-    // its baked cookie: the player's reach bubble with the distance falloff
-    // built in, Home, each restored building, each campfire.
+    // THE LIGHTMAP — every light in the world, composed in one canvas texture
+    // (src/lighting.js) and MULTIPLIED over everything below it by this image.
+    // Each frame the canvas is filled with the ambient darkness and every
+    // light source adds its baked cookie: the player's reach plateau (per
+    // cell) with the distance falloff around it, Home, each restored
+    // building, each campfire, each live POI.
     //
     // It sits AFTER every world sprite, so a house or a tree outside every
     // light goes as dark as the ground it stands on — the same lesson the old
@@ -1527,15 +1528,19 @@ class MapScene extends Phaser.Scene {
     // name tablets are UI and stay crisp in the dark. Exactly the viewport
     // square, so it needs no geometry mask.
     //
-    // A RenderTexture rather than Graphics because the passes it replaced —
-    // a fillRect per unlit cell, ~100 strokeCircle falloff rings — were all
-    // darkness, and darkness can't add up into a second light. Blend modes are what make it renderer-agnostic: ADD and
-    // MULTIPLY map to canvas composite operations, so the Canvas fallback
-    // draws the same picture. LINEAR filtering (WebGL) keeps the upscale from
+    // A canvas texture, like the fog's, rather than a RenderTexture: the
+    // passes it replaced — a fillRect per unlit cell, ~100 strokeCircle
+    // falloff rings — were all darkness, and darkness can't add up into a
+    // second light; and drawing the cookies through Phaser's render-texture
+    // batch cut them into pieces on some GPUs. A 2D canvas composites the
+    // same way everywhere. LINEAR filtering (WebGL) keeps the upscale from
     // the logical grid to the device canvas from stepping the gradients.
-    this.lightMap = this.add.renderTexture(this.viewLeft, this.viewTop, this.viewSize, this.viewSize)
+    this.lightTex = this.textures.exists('lightmap')
+      ? this.textures.get('lightmap')
+      : this.textures.createCanvas('lightmap', this.viewSize, this.viewSize);
+    try { this.lightTex.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
+    this.lightMap = this.add.image(this.viewLeft, this.viewTop, 'lightmap')
       .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
-    try { this.lightMap.texture.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle

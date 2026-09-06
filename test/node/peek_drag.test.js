@@ -356,7 +356,7 @@ test('falloff: the light is drawn at the player every frame, never slid', () => 
   const src = LIGHTING_SRC;
   assert.truthy(/const ps = scene\.playerScreen \? scene\.playerScreen\(\)/.test(src),
                 'centred on the feet-on-the-fix point');
-  assert.truthy(/rt\.draw\(player\.img, ps\.x - ox, ps\.y - oy\)/.test(src), 'drawn there each frame');
+  assert.truthy(/ctx\.drawImage\(player\.canvas, ps\.x - ox - D \/ 2, ps\.y - oy - D \/ 2, D, D\)/.test(src), 'drawn there each frame');
   assert.falsy(/setPosition\(-pk\.x, -pk\.y\)/.test(RENDER_SRC),
                'no cached darkness image is slid by the peek any more');
 });

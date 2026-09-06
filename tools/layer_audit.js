@@ -29,7 +29,7 @@ const ROOT = path.resolve(__dirname, '..');
 // in source order. setDepth() overrides are handled separately below.
 function displayLayers() {
   const src = fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8');
-  const re = /this\.(\w+)\s*=\s*this\.add\.(graphics|container|renderTexture)\(/g;
+  const re = /this\.(\w+)\s*=\s*this\.add\.(graphics|container|image)\(/g;
   const out = [];
   const seen = new Set();
   for (const m of src.matchAll(re)) {

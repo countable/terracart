@@ -308,12 +308,20 @@
   falloff rings. All of it painted DARKNESS, which
   composes one way only (two dims overlap darker), so a campfire could never
   be built out of it. `src/lighting.js` replaced the lot with one model:
-  a viewport-sized RenderTexture (`scene.lightMap`, app.js create()) filled
-  with the ambient floor, every light source ADDing its baked radial-gradient
-  cookie into it, and the whole thing MULTIPLIED over the world from ABOVE the
+  a viewport-sized CANVAS texture (`scene.lightTex`, shown by the
+  `scene.lightMap` image, app.js create()) filled with the ambient floor,
+  every light source adding its baked radial-gradient cookie into it with
+  `'lighter'`, and the whole thing MULTIPLIED over the world from ABOVE the
   sprites — so a house or a tree outside every light goes as dark as the
   ground it stands on, and `Render.spriteTint` must never compose the reach
-  dim onto a sprite again (that darkens a wreck twice).
+  dim onto a sprite again (that darkens a wreck twice). It is a 2D canvas,
+  not a RenderTexture, on purpose: the cookies drawn through Phaser's
+  render-texture batch came back cut and quadrant-scrambled on some GPUs,
+  and a canvas composites the same way everywhere.
+  **The plateau is per cell.** The lit area's sharp edge is painted with
+  `cellInReach`'s own expressions over every reach cell, so it IS the
+  staircase the white outline traces and the tap gate accepts; only the
+  falloff outside it is a circle. A circle for the plateau is the bug.
   **The numbers are derived, not tuned:** `Lighting.profile` builds the
   ambient, the plateau and the edge level from the same
   `Render.reachDimColor` / `reachDimAlpha` the old wash painted with plus the
@@ -332,9 +340,8 @@
   light source, add a row and return its kind from `Lighting.sourceKind`**;
   the collector culls at `halfM` + the row's own radius, not the sprite cull,
   so a lantern a cell off-screen still lights the edge.
-  **What stayed per-cell:** the white reach OUTLINE on `reachGfx`. It is the
-  tap affordance and `cellInReach` is cell-exact; a cookie is a circle. Never
-  move the affordance onto the lightmap.
+  **What stayed on `reachGfx`:** the white reach OUTLINE. It is the tap
+  affordance; never move it onto the lightmap.
   **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` (the
   derived levels, the table, the collector, the source pins) and
   `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
