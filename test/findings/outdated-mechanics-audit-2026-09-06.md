@@ -1,5 +1,11 @@
 # Outdated-mechanics audit — 2026-09-06
 
+> **Resolved since writing.** §6's first bullet was answered — *old saves can be
+> forfeit* — so the pre-schema migrations are retired and `save.schema` now
+> exists as the criterion this audit lacked. That also deleted §5a's bug outright
+> (the venison fold is gone; the surviving flute→honey rebuild is guarded on
+> finding a flute). Everything else below still stands.
+
 What in the tree is a survivor of a mechanic that has since been replaced, and
 what should be retired. Every claim below was verified by whole-tree grep
 (`src/`, `test/`, `tools/`, `index.html`, `sw.js`); where deadness could not be
@@ -204,7 +210,7 @@ longer follows.
 
 ## 5. Bugs surfaced by the audit
 
-### 5a. The venison migration reorders the inventory on **every** boot
+### 5a. The venison migration reorders the inventory on **every** boot — FIXED
 
 `savemigrate.js:214–225` is not guarded on finding a `venison` stack. For any
 save carrying `meat`, every boot lifts the meat stack out of `merged` and
@@ -238,7 +244,8 @@ anyone. The escape flash in particular belongs on the animal's cell.
 
 ## 6. Needs a decision (not provable from code)
 
-- **Old save migrations.** There is **no save schema version** anywhere
+- **Old save migrations — RESOLVED, see the note at the top.** There was **no
+  save schema version** anywhere
   (`grep schemaVersion|save.version|SAVE_SCHEMA` → zero). `SAVE_VERSION_KEY`
   lives in the localStorage *key*, never bumped; `save.startedAt` is
   deliberately stamped `0` for legacy saves, so it cannot date anything. Six
@@ -251,6 +258,13 @@ anyone. The escape flash in particular belongs on the animal's cell.
   want to retire old migrations at all, add `save.schema = N` first** so the
   next audit has the criterion this one lacked. (The recent ones — trail
   stones→metres, `pathStones`, `flute`→`honey` — are days old. Keep.)
+  **Done:** `SAVE_SCHEMA = 1` is stamped on every save that passes through
+  `migrate()`, and the six ancient shapes plus `coordSchema`, the
+  `dragon_potion` strip, the shopDeals/shopOffers and tributedCastles deletes
+  and the free-wooden-tool strip are gone. The line drawn was *undated shapes
+  go, Sep 2026 shapes stay* — the latter belong to live players, not to forfeit
+  saves. `savemigrate.test.js` now pins the retirement (each shape is left
+  inert) rather than the conversions.
 - **The tiled building-art path** (`render.js:1589–1815, 2455–2470` + the whole
   tier-12 rampart pass, `app.js:1681, 1698`). ~230 lines of `drawCells` plus
   two Graphics layers, gated behind `if (POLY) continue;` where
@@ -334,7 +348,7 @@ Listed so a future sweep doesn't re-flag them.
 
 ## Suggested order
 
-1. **§5a** — the venison reorder is a live save-corrupting bug and a two-line fix.
+1. ~~**§5a** — the venison reorder~~ — **done**, by retiring the migration.
 2. **§3a** — the creature tap box is a live gameplay drift with a table to point at.
 3. **§1** — delete the shrine + can-charges blocks, fix the eight changed tests,
    make sandbox mode the harness default so this can never rot silently again.
@@ -342,5 +356,5 @@ Listed so a future sweep doesn't re-flag them.
 5. **§4** — comment sweep; zero risk, and it removes four statements that would
    actively mislead the next person to touch the camera rule or the reach gate.
 6. **§3b, §3c, §5b, §5c** — small correctness and consolidation fixes.
-7. **§6** — the calls that need a human: the migration cutoff (start with
-   `save.schema`), the building A/B, the `cobble*` rename.
+7. **§6** — the calls that need a human: ~~the migration cutoff~~ (**done**),
+   the building A/B, the `cobble*` rename.
