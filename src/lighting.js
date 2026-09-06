@@ -41,7 +41,8 @@
 // is the biggest and carries the reach PLATEAU (full light inside the reach
 // radius, then the measured falloff) so the surface with only the player lit
 // looks as it did. The others are small, coloured and cheap: a campfire, a
-// building the player has restored, and Home.
+// building the player has restored, Home, and every live POI (which is what
+// the old halo ping under a POI became).
 //
 // It runs on both renderers. ADD and MULTIPLY map to canvas composite
 // operations, and the colour is baked into each cookie rather than tinted
@@ -84,7 +85,20 @@
     // A placed campfire (burned from a coal). Breathes.
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
                 colour: 0xff9a3c, peak: 0.95, flicker: 0.18 },
+    // A live POI — a chest with something still in it (loose supply crates
+    // are excluded for the reason they get no pad: a transient pickup is not
+    // a place). This is what the old halo "ping" was for: places read as
+    // places from across the map without shouting. It was a ring expanding
+    // under the pad; now it is a small treasure blue-white light that breathes
+    // SLOWLY (POI_PULSE_PERIOD_S — anything brisk turns a street of POIs into
+    // a strobe), each on its own phase hashed from its id so a street doesn't
+    // throb in lockstep. Small, so it marks the place rather than lighting
+    // the block.
+    poi:      { radiusCells: 2.0, colour: 0xcfe2ff, peak: 0.75, flicker: 0, pulse: 0.5 },
   };
+
+  // Seconds per POI breath. Slow on purpose (see the row above).
+  const POI_PULSE_PERIOD_S = 4.5;
 
   function radiusCells(kind) {
     const r = KINDS[kind].radiusCells;
@@ -188,6 +202,9 @@
       return (scene.isClaimedKey && scene.isClaimedKey(o.castle)) ? 'building' : null;
     }
     if (o.kind === '_fire') return 'fire';
+    // Opened chests are the CALLER's to drop (drawObjects already builds the
+    // per-frame Set of save.opened it culls the sprite with).
+    if (o.kind === 'chest') return o.crate ? null : 'poi';
     return null;
   }
 
@@ -331,13 +348,28 @@
     return st;
   }
 
-  // A fire's breath: two sines at unrelated rates, phased by where it stands
-  // so neighbouring fires don't pulse in unison.
-  function flickerAlpha(row, dx, dy, now) {
-    if (!row.flicker) return 1;
-    const phase = ((dx * 7.13 + dy * 3.71) % 6.283);
-    const w = 0.5 + 0.25 * Math.sin(now / 90 + phase) + 0.25 * Math.sin(now / 233 + phase * 1.7);
-    return 1 - row.flicker * w;
+  // How bright a light is THIS frame, as a fraction of its peak.
+  //   flicker — a fire's breath: two sines at unrelated rates, phased by where
+  //             it stands so neighbouring fires don't flicker in unison.
+  //   pulse   — a POI's slow breath: one sine over POI_PULSE_PERIOD_S, phased
+  //             by its id (stable across tile reloads — no RNG) so a street of
+  //             POIs doesn't throb as one.
+  function flickerAlpha(row, dx, dy, now, id) {
+    let a = 1;
+    if (row.flicker) {
+      const phase = ((dx * 7.13 + dy * 3.71) % 6.283);
+      const w = 0.5 + 0.25 * Math.sin(now / 90 + phase) + 0.25 * Math.sin(now / 233 + phase * 1.7);
+      a *= 1 - row.flicker * w;
+    }
+    if (row.pulse) {
+      let h = 0;
+      const str = String(id || '');
+      for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+      const t = (now / 1000) / POI_PULSE_PERIOD_S + (h % 1000) / 1000;
+      const w = 0.5 + 0.5 * Math.sin(t * Math.PI * 2);           // 0..1
+      a *= 1 - row.pulse * w;
+    }
+    return a;
   }
 
   // Paint this frame's lightmap: the ambient floor, the player's cookie at the
@@ -375,7 +407,7 @@
     for (const L of scene._lights) {
       const row = KINDS[L.kind];
       const ck = ensureKindCookie(scene, L.kind);
-      const a = flickerAlpha(row, L.dx, L.dy, now);
+      const a = flickerAlpha(row, L.dx, L.dy, now, L.id);
       ck.img.setAlpha(a).setScale(row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1);
       rt.batchDraw(ck.img,
         scene.viewCenterX + L.dx * k - ox,
@@ -389,7 +421,7 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, FALLOFF_A, FALLOFF_P, litDim,
+    KINDS, radiusCells, FALLOFF_A, FALLOFF_P, litDim, POI_PULSE_PERIOD_S,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite,
     profile, playerCookieAlpha, sourceKind, beginFrame, consider, collectFires,
     flickerAlpha, draw,

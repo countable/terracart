@@ -323,8 +323,12 @@
   **The light table is `Lighting.KINDS`**, one row per source: the player, Home
   (`trailer` — the starter trailer or the house adopted in its place), a
   restored building (keyed on the SAME `isClaimedKey` test the derelict wash
-  reads, so it lights the frame its wash lifts), and a campfire whose radius
-  IS `FIRE_REST_R` — stand in the light, stand in the warmth. **When you add a
+  reads, so it lights the frame its wash lifts), a campfire whose radius
+  IS `FIRE_REST_R` — stand in the light, stand in the warmth — and every live
+  POI, a small treasure blue-white light breathing on `POI_PULSE_PERIOD_S`
+  with a per-id phase: that IS the old halo ping (the ring layer, its pool
+  and its texture are gone), so a place reads from across the map by its own
+  light in the dark, never by a ring drawn back under the pad. **When you add a
   light source, add a row and return its kind from `Lighting.sourceKind`**;
   the collector culls at `halfM` + the row's own radius, not the sprite cull,
   so a lantern a cell off-screen still lights the edge.

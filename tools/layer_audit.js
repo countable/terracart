@@ -75,13 +75,6 @@ const SPRITES = ['worldContainer', 'rampartFrontGfx', 'towerContainer'];
 // sprites; below the labels, which are UI and stay crisp in the dark.
 const LIGHT = 'lightMap';
 
-// poiHaloContainer draws the POI ring "ping" (render.js), whose entire job is
-// to read as a place from across the map. It sits ABOVE reachGfx (so the
-// outline never crosses it) but still BELOW the standing sprites and the
-// lightmap, so it fades with distance like everything else. See the comment
-// at its creation in MapScene.create() for the full story.
-const HALO = ['poiHaloContainer'];
-
 // Fog of war sits at the very TOP of the world display list. Every darkening
 // pass before it had to learn the same lesson: a dim only reaches what is
 // BELOW it (the out-of-reach wash started in cellGfx and left the biome seams
@@ -91,7 +84,7 @@ const HALO = ['poiHaloContainer'];
 // label layer, which is otherwise crisp UI and would name a shop the player has
 // never found.
 const FOG = 'fogContainer';
-const BELOW_FOG = [...GROUND, ...SPRITES, ...HALO,
+const BELOW_FOG = [...GROUND, ...SPRITES,
   'reachGfx', LIGHT, 'atmosRimGfx', 'labelContainer', 'tierGfx'];
 
 const CHECKS = [
@@ -137,7 +130,7 @@ const CHECKS = [
     run: () => {
       const layers = displayLayers();
       const light = idx(layers, LIGHT);
-      const above = [...GROUND, ...HALO, ...SPRITES, 'reachGfx'].filter((n) => idx(layers, n) > light);
+      const above = [...GROUND, ...SPRITES, 'reachGfx'].filter((n) => idx(layers, n) > light);
       if (above.length) {
         throw new Error(`${above.join(', ')} draw above ${LIGHT}, so they would stay lit outside ` +
           'every light — the darkness only reaches what is below it. This is how the biome seams ' +
@@ -154,30 +147,6 @@ const CHECKS = [
       if (idx(layers, 'labelContainer') < light) {
         throw new Error('labelContainer draws below the lightmap — POI name tablets are UI and ' +
           'must stay crisp in the dark.');
-      }
-    },
-  },
-  {
-    name: 'layers: the POI halo stays above the reach layer',
-    run: () => {
-      const layers = displayLayers();
-      const lit = idx(layers, 'reachGfx');
-      const below = HALO.filter((n) => idx(layers, n) < lit);
-      if (below.length) {
-        throw new Error(`${below.join(', ')} draw BELOW the reach layer, so the reach outline ` +
-          'would cross the POI ping. Move it above reachGfx in MapScene.create().');
-      }
-    },
-  },
-  {
-    name: 'layers: the POI halo stays below the sprites and the lightmap',
-    run: () => {
-      const layers = displayLayers();
-      const light = idx(layers, LIGHT);
-      const above = HALO.filter((n) => idx(layers, n) > light || SPRITES.some((s) => idx(layers, n) > idx(layers, s)));
-      if (above.length) {
-        throw new Error(`${above.join(', ')} draw above the standing sprites or the lightmap — ` +
-          'the halo fades with distance like everything else and sits under the chest it marks.');
       }
     },
   },
@@ -258,4 +227,4 @@ const CHECKS = [
   },
 ];
 
-module.exports = { CHECKS, displayLayers, GROUND, SPRITES, HALO, LIGHT, FOG, BELOW_FOG };
+module.exports = { CHECKS, displayLayers, GROUND, SPRITES, LIGHT, FOG, BELOW_FOG };

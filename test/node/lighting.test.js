@@ -100,7 +100,38 @@ test('lighting: what lights is what is yours', () => {
   assert.eq(Lighting.sourceKind(s, { kind: 'tower', castle: 'castle_2' }), null, 'an unclaimed one does not');
   assert.eq(Lighting.sourceKind(s, { kind: '_fire', id: 'f' }), 'fire', 'a placed fire lights');
   assert.eq(Lighting.sourceKind(s, { kind: 'tree', id: 't' }), null, 'a tree is not a lamp');
-  assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c' }), null, 'nor is a chest');
+  assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', poiClass: 'shop' }), 'poi', 'a POI is a place, and glows');
+  assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', crate: true }), null,
+    'a loose supply crate is a pickup, not a place — no pad, no light');
+});
+
+test('lighting: a POI breathes slowly, on its own phase', () => {
+  const poi = Lighting.KINDS.poi;
+  assert.lt(Lighting.radiusCells('poi'), Lighting.radiusCells('building'), 'small: it marks the place, it does not light the block');
+  assert.eq(Lighting.POI_PULSE_PERIOD_S, 4.5, 'the old halo ping\'s period — anything brisk is a strobe');
+  const P = Lighting.POI_PULSE_PERIOD_S * 1000;
+  let lo = 1, hi = 0;
+  for (let t = 0; t < P; t += 50) {
+    const a = Lighting.flickerAlpha(poi, 0, 0, t, 'c_1_1');
+    lo = Math.min(lo, a); hi = Math.max(hi, a);
+    assert.inRange(a, 1 - poi.pulse, 1, 'within the pulse band');
+  }
+  assert.gt(hi - lo, poi.pulse * 0.9, 'a full breath over one period');
+  // One period later it is where it was — and two POIs are not in step.
+  const a0 = Lighting.flickerAlpha(poi, 0, 0, 1234, 'c_1_1');
+  assert.lt(Math.abs(Lighting.flickerAlpha(poi, 0, 0, 1234 + P, 'c_1_1') - a0), 1e-9, 'periodic');
+  assert.gt(Math.abs(Lighting.flickerAlpha(poi, 0, 0, 1234, 'c_2_9') - a0), 0.02, 'phased by id, not in lockstep');
+});
+
+test('lighting: the halo ping is gone — the POI light replaced it', () => {
+  assert.falsy(/poiHaloContainer|halo_poi|POI_HALO_PERIOD_S/.test(APP_JS_SRC + RENDER_SRC),
+    'the ring layer, its texture and its period are gone from app.js / render.js');
+  const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
+  assert.truthy(/if \(LIGHTS && o\.kind === 'chest' && !o\.crate && !openedSet\.has\(o\.id\)\) LIGHTS\.consider\(scene, o, dx, dy, halfM\);/.test(body),
+    'live POIs are offered to the lightmap from the tile scan, opened ones never');
+  const offer = body.indexOf("if (LIGHTS && o.kind === 'chest'");
+  const dedup = body.indexOf("if (o.kind === 'chest' && isDupChest(o)) continue;");
+  assert.truthy(dedup > 0 && offer > dedup, 'offered AFTER the per-frame chest dedup, so the surviving copy is the one that glows');
 });
 
 test('lighting: the cull pads by the light\'s own radius, not the sprite\'s', () => {

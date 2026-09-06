@@ -1456,16 +1456,9 @@ class MapScene extends Phaser.Scene {
     // world gained more than one light — see src/lighting.js. What remains
     // here is only the per-cell work a cookie can't do.
     this.reachGfx = this.add.graphics();
-    // POI halos — the slow ring "ping" under every live POI (render.js). A
-    // halo's whole job is to read as a place "from across the map" (see
-    // render.js's POI-halo comment), so it sits above the reach layer and its
-    // outline; the lightMap above the sprites still fades it with distance,
-    // as it does everything else. It's still below worldContainer (so it
-    // doesn't draw over the chest itself). The ring's own texture is a
-    // transparent-centred band, so drawing it above padContainer here
-    // (instead of below, as before) doesn't hide the pad — the ring just
-    // crosses over the slab's rim as it expands.
-    this.poiHaloContainer = this.add.container(0, 0);
+    // (The POI halo layer — a ring "ping" under every live POI — lived here
+    // until Sep 2026. A live POI is a LIGHT now, breathing in the lightmap:
+    // Lighting.KINDS.poi.)
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
     // object sprites so towers on those edges read as standing IN FRONT of them
@@ -1651,7 +1644,6 @@ class MapScene extends Phaser.Scene {
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
-    this.poiHaloPool = [];    // slow pulsing glow under each live POI (render.js)
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
 
     // Bake the coin sprite: a 16×16 gold disc with a soft outline + highlight.
@@ -1707,27 +1699,6 @@ class MapScene extends Phaser.Scene {
     };
     bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
     bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
-    // POI marker: a thick soft-edged RING (not a filled disc like the warning
-    // halos above) that render.js expands outward and fades as it grows — a
-    // "ping" rather than a breathing glow. Drawn as concentric strokes whose
-    // alpha follows a triangular feather peaking at the middle of the band,
-    // so both the inner and outer edge of the ring soften instead of hard-
-    // cutting. Treasure blue-white (spec §UI COLOUR LANGUAGE), matching the
-    // pale pad it rings out from — a gold ring under a blue-white slab would
-    // read as two different signals for the same thing.
-    if (!this.textures.exists('halo_poi')) {
-      const rg = this.make.graphics({ x: 0, y: 0, add: false });
-      const C = 32, steps = 24, outerR = 30, bandW = 9;
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;                        // 0 → inner edge of band, 1 → outer edge
-        const r = outerR - bandW + bandW * t;
-        const feather = 1 - Math.abs(t - 0.5) * 2;   // 0 at both edges, 1 at band centre
-        rg.lineStyle(2, 0xcfe2ff, 0.65 * feather);
-        rg.strokeCircle(C, C, r);
-      }
-      rg.generateTexture('halo_poi', 64, 64);
-      rg.destroy();
-    }
     // GPS crosshair — the marker at your REAL (GPS) position (see gpsGhost
     // below). An open ring with four ticks crossing it, deliberately NOT a
     // filled disc: a small gold disc IS a coin in this game, and the map is
@@ -1875,7 +1846,6 @@ class MapScene extends Phaser.Scene {
     this.letterContainer.setMask(mask);
     this.roadGeomContainer.setMask(mask);
     this.buildingGeomContainer.setMask(mask);
-    this.poiHaloContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.atmosGroundGfx.setMask(mask);

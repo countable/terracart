@@ -94,17 +94,14 @@ Render.GRID_LINE = GRID_LINE;
 // isn't loaded, which is what keeps the tiled path the default everywhere else.
 const polyBuildings = () =>
   typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled();
-// Seconds per POI-halo breath. Slow on purpose: this is ambience marking where
-// the places are, not a call to action, and anything brisk turns a street of
-// POIs into a strobe.
-const POI_HALO_PERIOD_S = 4.5;
 // Electric light blue — the POI pad's tint. Punchier and more saturated than
 // the plain --treasure-deep (#7fb0ff) accent, so the pad itself (the "main
 // display" every POI sits on) reads as a live landmark rather than a grey
 // concrete disc. Deliberately a step brighter than the rest of the blue-white
 // treasure family (spec §UI COLOUR LANGUAGE) — this is the one surface that
-// carries the "a place lives here" cue on its own, with no gem or halo to
-// help it.
+// carries the "a place lives here" cue on its own, with no gem to help it
+// (the POI's own light in the lightmap breathes beside it — see
+// Lighting.KINDS.poi).
 const POI_PAD_TINT = 0x33ccff;
 // Minor/lowtier POIs (bus stops, ATMs, fuel, etc.) get the same pad shrunk
 // down rather than skipped outright — still marked as a place, just a
@@ -2343,6 +2340,9 @@ Render.drawObjects = function drawObjects(scene) {
   // viewport (a tile is `cellsPerTile` cells, far bigger than VIEW_CELLS).
   // Save.caught is rebuilt to a Set once per frame for O(1) lookups.
   const caughtSet = setOf(scene.save.caught);
+  // Opened chests: dropped from the sprite list below AND never offered to the
+  // lightmap — an emptied POI is no longer a place that glows.
+  const openedSet = setOf(scene.save.opened);
   const pc = scene.playerToWorldCell();
   // Counted alongside the loop below, not derived after it: "how much does
   // this walk touch" is the number the case for a spatial index needs, and
@@ -2374,6 +2374,12 @@ Render.drawObjects = function drawObjects(scene) {
           if (LIGHTS && (o.kind === 'house' || o.kind === 'tower')) LIGHTS.consider(scene, o, dx, dy, halfM);
           if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
           if (o.kind === 'chest' && isDupChest(o)) continue;
+          // A live POI is a light too — offered AFTER the dedup (a per-frame
+          // first-seen-wins on the cell, so it must see the copies in the
+          // order the sprite pass does) and inside the sprite cull, which its
+          // small radius makes near enough: a cell off-screen it shows a hand's
+          // width of glow at most.
+          if (LIGHTS && o.kind === 'chest' && !o.crate && !openedSet.has(o.id)) LIGHTS.consider(scene, o, dx, dy, halfM);
           // Anchor outside the ordinary viewport: the SPRITE (and its shadow)
           // still draw, but the label passes skip it — a sign or open/busy
           // plaque for an off-screen building would be clamped to the screen
@@ -2454,7 +2460,6 @@ Render.drawObjects = function drawObjects(scene) {
   //  - chopped trees
   //  - opened chests (the chest, its pad, label, and tier diamond all vanish
   //    until the chest refills — keyed by save.opened including o.id)
-  const openedSet = setOf(scene.save.opened);
   // Trees flag o.chopped = true in-memory when the chop progress wheel completes
   // (cheap), AND now also persist into save.chopped so a tile re-rasterize
   // doesn't regrow them. Check both — save.chopped is the source of truth.
@@ -3294,40 +3299,10 @@ Render.drawObjects = function drawObjects(scene) {
     if (!shape) continue;
     padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
   }
-  // POI halos — a slow, subtle "ping" under every POI that still has something
-  // in it, so places read as places from across the map without shouting: a
-  // thick ring (baked in app.js, not a filled disc) expands outward and fades
-  // as it grows, then resets and expands again. Its own layer under the pads,
-  // so a pad's concrete slab covers the ring's centre and what's left is the
-  // band spilling out around the slab. Each POI pings on its own phase, hashed
-  // from its id — in lockstep a whole street would throb as one, which reads
-  // as a bug rather than as ambience.
-  const haloT = performance.now() / 1000;
-  // Loose supply crates (o.crate, no poiClass) are excluded for the same
-  // reason they get no pad: a transient pickup is not a place.
-  // (Opened chests are already gone — filteredObj dropped them above.)
-  const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !o.crate);
-  Render.renderPool(scene, scene.poiHaloPool, scene.poiHaloContainer, haloList, (s, item) => {
-    const { o, dx, dy } = item;
-    const { sx, sy } = project(dx, dy);
-    setTextureIfDifferent(s, 'halo_poi');
-    // Stable per-POI phase in [0, 1) from the id — no RNG, so a ping doesn't
-    // jump phase when its tile reloads.
-    let h = 0;
-    const id = String(o.id || '');
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    // Sawtooth 0..1 (NOT a sine breathe): the ring grows for one full period,
-    // then snaps back to its smallest size — but by then its alpha has faded
-    // to ~0, so the snap is invisible. This is what makes it read as an
-    // expanding ping rather than an in-and-out pulse.
-    const t = ((haloT / POI_HALO_PERIOD_S) + (h % 1000) / 1000) % 1;
-    const size = CELL_PX * (1.05 + 0.85 * t);
-    s.setOrigin(0.5, 0.5)
-     .setDisplaySize(size, size)
-     .setAlpha(0.35 * (1 - t))
-     .setPosition(Math.round(sx), Math.round(sy));
-  });
-
+  // The POI "ping" is not drawn here any more: a live POI is a LIGHT (kind
+  // 'poi' in src/lighting.js), offered to the lightmap from the tile scan
+  // above, so the place reads from across the map by its own slow breath in
+  // the dark rather than by a ring under the pad.
   Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
     const { o, dx, dy, texKey, shape, mini } = item;
     const { sx, sy } = project(dx, dy);
