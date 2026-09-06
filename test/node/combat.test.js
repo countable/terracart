@@ -17,7 +17,10 @@
 //     something that kills your pets and your game while you walk past.
 //
 //  3. A SHOT THAT PASSES A FOE HITS IT, AND A SHOT THAT DOESN'T, DOESN'T —
-//     including at range, where the compass heading is coarse.
+//     the bow used to carry a wide hit box to forgive a coarse phone compass
+//     heading, but that forgiveness is exactly what made a shot register as a
+//     "hit" against a foe it visibly missed. Both weapons now sweep the same
+//     tight radius (HIT_RADIUS_CELLS).
 //
 //  4. THE STAFF SEEKS, THE BOW DOESN'T. A staff bolt is loosed at the NEAREST
 //     enemy in range whatever way the body faces (SHOT.staff.aim), while an
@@ -372,10 +375,11 @@ test('combat: a shot that misses expires at its range instead of flying forever'
   assert.truthy(steps < 6000, 'and it expired promptly, at its range');
 });
 
-test('combat: the hit box is forgiving enough for a phone compass', () => {
-  // The heading comes off a device compass, so a strict hit box would read as
-  // "the bow is broken". A foe 8 cells out must still be hit from a few
-  // degrees off — but a foe a couple of cells to the SIDE must not be.
+test('combat: the hit box is tight — the bow needs an actual line-up, not a compass forgiveness', () => {
+  // The bow now sweeps the same tight radius as the staff: a shot has to
+  // actually reach a foe. A couple of degrees off still catches a foe near
+  // max range, but a few more degrees — or a couple of cells to the SIDE —
+  // is a clean miss.
   const rangeM = Combat.SHOT.bow.rangeCells * COMBAT_CELL_M;
   const fire = (aimDeg, foe) => {
     const a = aimDeg * Math.PI / 180;
@@ -389,7 +393,8 @@ test('combat: the hit box is forgiving enough for a phone compass', () => {
   };
   const far = { kind: 'goblin', id: 'g1', x: rangeM * 0.9, y: 0 };
   assert.truthy(fire(0, far), 'dead-on hits');
-  assert.truthy(fire(4, far), '4° off still hits a foe near max range');
+  assert.truthy(fire(2, far), '2° off still hits a foe near max range');
+  assert.truthy(!fire(5, far), '5° off now misses — the wide compass forgiveness is gone');
   assert.truthy(!fire(45, far), '45° off misses — aim still matters');
   // Two cells to the side, dead ahead aim: a clean miss.
   assert.truthy(!fire(0, { kind: 'goblin', id: 'g2', x: rangeM * 0.5, y: 2 * COMBAT_CELL_M }),
@@ -573,8 +578,8 @@ test('combat: a staff bolt grows with the tier, Wood base to double at Frost', (
 test('combat: the radius a bolt HITS with and the radius it DRAWS share one scale', () => {
   const wood  = Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 1);
   const frost = Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 7);
-  assert.inRange(wood.radiusM - Combat.STAFF_HIT_RADIUS_CELLS * COMBAT_CELL_M, -1e-9, 1e-9,
-    'a Wood bolt sweeps the staff\'s own flat hit radius');
+  assert.inRange(wood.radiusM - Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M, -1e-9, 1e-9,
+    'a Wood bolt sweeps the flat hit radius');
   assert.inRange(wood.dotPx - Combat.SHOT.staff.dotPx, -1e-9, 1e-9, 'and draws at the base dot');
   const mul = Combat.BOLT_MAX_TIER_MUL;
   assert.inRange(frost.radiusM / wood.radiusM - mul, -1e-9, 1e-9, 'Frost sweeps ×mul');

@@ -1051,6 +1051,7 @@
           <button id="debug-wood-relics">All wood relics (T1)</button>
           <button id="debug-slime-pack">Call slime pack (6)</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
+          <button id="debug-road-ids">Road IDs (debug)</button>
           <button id="debug-load-profile">Load profile</button>
           <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
             <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
@@ -1804,6 +1805,15 @@
       const scene = window.__scene;
       if (scene && scene.dumpTileDebug) scene.dumpTileDebug();
       else if (window.showError) window.showError('tile debug unavailable', 'scene not ready');
+    });
+    // What the vector tiles carry per street (feature ids, merged pieces) —
+    // the evidence the street-restoration key is chosen on.
+    document.getElementById('debug-road-ids').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (scene && scene.debugRoadIds) scene.debugRoadIds();
+      else if (window.showError) window.showError('road ids unavailable', 'scene not ready');
     });
     document.getElementById('debug-wood-relics').addEventListener('click', (e) => {
       e.stopPropagation();

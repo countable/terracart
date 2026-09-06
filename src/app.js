@@ -427,6 +427,13 @@ const MONSTER_HIT_MS = 2000;
 // archer deals per minute exactly what it dealt before its hits became a
 // visible arrow, and a change to either cadence keeps that correspondence.
 const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;
+// FIRE WARD DEPTH CAP: a campfire only turns away the WEAKEST cave-dwellers —
+// those introduced at the first cave level (MONSTERS[kind].minDepth <= 1),
+// the same tier as the surface slime it already deters. A goblin (minDepth 2)
+// or goblin archer (minDepth 3) — and their giants, pushed GIANT_DEPTH_STEP
+// deeper still — are past what a lit campfire can plausibly hold off; only
+// Home's stronger ward (HOME_R, surface only) turns those around.
+const FIRE_WARD_MAX_DEPTH = 1;
 
 // combat.js owns the fight maths (HP, melee dps, bow/staff shots) and is loaded
 // before this file so headless tests can use it without Phaser. It needs the
@@ -3268,6 +3275,101 @@ class MapScene extends Phaser.Scene {
     if (!this._reducedMotion) {
       try { this.cameras.main.shake(160, 0.006); } catch (_) { /* no camera in a stub scene */ }
     }
+  }
+
+  // Debug (☰ › Developer › "Road IDs"): what the vector tiles actually hand us
+  // per street, so the street-restoration key can be chosen against real
+  // data rather than guessed. For the 3×3 tiles around the player it reports,
+  // per `transportation` line feature: the MVT feature id (the decoder reads
+  // one; nothing has ever checked it is non-zero), whether an id repeats
+  // across tiles (a way clipped into pieces keeping its id) or within one
+  // (Planetiler merging same-attribute lines), how many pieces are multi-line
+  // (merged), and a sample of features with class / vertices / length. The
+  // same numbers for `transportation_name`, whose ids may differ. Copyable via
+  // the #errbar overlay, like dumpTileDebug — there is no console on a phone.
+  debugRoadIds() {
+    const out = [];
+    try {
+      const { tx, ty } = this.playerToWorldCell();
+      const cache = WorldGen.tileCache;
+      const tiles = [];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const key = WorldGen.tileKey(tx + dx, ty + dy);
+        const entry = cache && cache.get(key);
+        if (entry && entry.layers) tiles.push({ key, entry });
+      }
+      out.push(`tiles loaded around player: ${tiles.length}/9 (walk a bit if fewer)`);
+      const seenIn = new Map();       // id -> Set(tileKey)
+      const report = (layerName) => {
+        let feats = 0, withId = 0, multiLine = 0, verts = 0, lenM = 0;
+        const perTileIds = new Map();  // tileKey -> Map(id -> count)
+        const classes = new Map();
+        const sample = [];
+        for (const { key, entry } of tiles) {
+          const edgeM = entry.tileEdgeM || 0;
+          const idsHere = new Map();
+          perTileIds.set(key, idsHere);
+          for (const l of entry.layers) {
+            if (l.name !== layerName) continue;
+            const mvtToM = edgeM / (l.extent || 4096);
+            for (const f of l.features) {
+              if (f.type !== 2 || !f.geom) continue;
+              feats++;
+              const id = f.id || 0;
+              if (id) {
+                withId++;
+                idsHere.set(id, (idsHere.get(id) || 0) + 1);
+                if (!seenIn.has(id)) seenIn.set(id, new Set());
+                seenIn.get(id).add(key);
+              }
+              if (f.geom.length > 1) multiLine++;
+              const cls = (f.tags && f.tags.class) || '-';
+              classes.set(cls, (classes.get(cls) || 0) + 1);
+              let fl = 0, fv = 0;
+              for (const line of f.geom) {
+                fv += line.length;
+                for (let i = 1; i < line.length; i++) {
+                  fl += Math.hypot(line[i].x - line[i - 1].x, line[i].y - line[i - 1].y) * mvtToM;
+                }
+              }
+              verts += fv; lenM += fl;
+              if (sample.length < 10) {
+                const a = f.geom[0][0], b = f.geom[f.geom.length - 1].slice(-1)[0];
+                sample.push(`  ${key} id=${id} ${cls}${f.tags && f.tags.subclass ? '/' + f.tags.subclass : ''}`
+                  + ` lines=${f.geom.length} verts=${fv} len=${Math.round(fl)}m`
+                  + ` (${a.x},${a.y})→(${b.x},${b.y})${f.tags && f.tags.name ? ' "' + f.tags.name + '"' : ''}`);
+              }
+            }
+          }
+        }
+        // Ids shared by 2+ tiles (a way's pieces keep their id across seams),
+        // and ids repeated INSIDE a tile (two features, one id).
+        let crossTile = 0, dupInTile = 0;
+        for (const [, set] of seenIn) if (set.size > 1) crossTile++;
+        for (const [, m] of perTileIds) for (const [, n] of m) if (n > 1) dupInTile++;
+        out.push('', `[${layerName}] line features: ${feats}, with non-zero id: ${withId}`
+          + ` (${feats ? Math.round(100 * withId / feats) : 0}%)`);
+        out.push(`  distinct ids: ${seenIn.size}, ids seen in 2+ tiles: ${crossTile}, ids repeated within a tile: ${dupInTile}`);
+        out.push(`  multi-line (merged) features: ${multiLine}, vertices: ${verts}, total length: ${(lenM / 1000).toFixed(1)} km`);
+        const top = [...classes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
+          .map(([c, n]) => `${c}:${n}`).join(' ');
+        out.push(`  classes: ${top}`);
+        out.push('  sample:');
+        out.push(...(sample.length ? sample : ['  (none)']));
+        seenIn.clear();
+      };
+      report('transportation');
+      report('transportation_name');
+      // Was this tile served from the network or the IndexedDB cache? A stale
+      // cached tile could carry a different build's ids than a fresh one.
+      const me = tiles.find(t => t.key === WorldGen.tileKey(tx, ty));
+      out.push('', `player tile: ${WorldGen.tileKey(tx, ty)} edge=${me ? Math.round(me.entry.tileEdgeM) : '?'}m`);
+    } catch (e) {
+      out.push('', 'ERROR: ' + (e && e.stack || e));
+    }
+    const text = out.join('\n');
+    try { console.log('[roadids]\n' + text); } catch (_) {}
+    if (window.showError) window.showError('ROAD IDS (copy me)', text);
   }
 
   // Debug: dump what worldgen actually produced for the tile under the player,
@@ -7719,10 +7821,15 @@ class MapScene extends Phaser.Scene {
           // such cells get bounced by the attempt loop until they pick a
           // different direction.
           if ((c.kind === 'crow' || c.kind === 'deer') && this._nearAny('scarecrows', tx, ty, 4)) continue;
-          // Fire aversion (slime only) — a lit campfire repels slimes exactly
-          // like a scarecrow repels crows/deer, so slimes can't ooze into (or
-          // steal energy across) the warm ring around a campfire.
-          if (c.kind === 'slime' && this._nearAny('fires', tx, ty, 4)) continue;
+          // Fire aversion — a lit campfire repels the surface slime exactly
+          // like a scarecrow repels crows/deer, so it can't ooze into (or
+          // steal energy across) the warm ring around a campfire. Extended to
+          // the cave's own entry-level monsters (FIRE_WARD_MAX_DEPTH): a
+          // goblin or its archer is undeterred by firelight, only the cave
+          // slime and purple slime it's a tier above.
+          const fireAverts = c.kind === 'slime' ||
+            (isMon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH);
+          if (fireAverts && this._nearAny('fires', tx, ty, 4)) continue;
           foundValidTarget = true;
           break;
         }
@@ -9511,7 +9618,8 @@ class MapScene extends Phaser.Scene {
 
   // True if world point (wx,wy) is within `cells` cells of ANY entry (a {x,y})
   // in save[listKey]. Shared by fauna aversion: scarecrows repel crows/deer and
-  // campfires repel slimes, both at the same radius, so the wander/flight target
+  // campfires repel the surface slime plus the cave's entry-level monsters
+  // (FIRE_WARD_MAX_DEPTH), all at the same radius, so the wander/flight target
   // pickers funnel through one check instead of three copies of the loop.
   _nearAny(listKey, wx, wy, cells) {
     const list = this.save[listKey];
@@ -10231,6 +10339,43 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable(title, body);
   }
 
+  // The auto-read fired by addToInv on pickup — framed as involuntary
+  // ("your curiosity compels you") rather than readBook's deliberate "you
+  // crack open the book", since nobody chose to read here. The page-count
+  // line is worth keeping (it's the one place the course's progress shows),
+  // so it survives as a lead-in line above the quote; the plain "you crack
+  // open the book" lead-in is dropped as redundant with the new title.
+  // `onDismiss` (optional) fires once THIS modal is tapped away — how
+  // _revealPendingBookReads chains multiple reads one at a time instead of
+  // stacking them.
+  _presentBookRead(onDismiss) {
+    const read = this._bookRead();   // mutates + the caller persists via this call
+    persistSave(this.save);
+    const detail = read.title.replace(/^📖\s*/, '');
+    const body = detail.startsWith('The book falls open') ? `${detail}\n${read.body}` : read.body;
+    this.showMessageModal({ title: 'Your curiosity compels you to read the book:', body, onDismiss });
+  }
+
+  // Fires any book read(s) addToInv deferred (via { deferBookRead: true })
+  // because the caller was about to show its own "you found a Book" modal
+  // right after — call this from THAT modal's onDismiss so the read shows
+  // once it's closed instead of stacking on top of it. No-op (calls
+  // `onDone` straight away) when nothing is queued — every non-book pickup
+  // never touches _pendingBookReads. Reads run ONE AT A TIME, each waiting
+  // for the last to be dismissed, so a rare multi-book grant can't stack
+  // its own modals either; `onDone` (e.g. draining the next trail prize)
+  // only fires after the last one closes.
+  _revealPendingBookReads(onDone) {
+    let remaining = this._pendingBookReads || 0;
+    this._pendingBookReads = 0;
+    const showNext = () => {
+      if (remaining <= 0) { if (typeof onDone === 'function') onDone(); return; }
+      remaining--;
+      this._presentBookRead(showNext);
+    };
+    showNext();
+  }
+
   // Drink a Potion of Reach (consumed): light up the whole visible view for
   // 1 minute. coords.js' reachRadiusM checks save.reachPotionUntil and, while
   // it's in the future, returns a full-screen radius regardless of energy — so
@@ -10671,7 +10816,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
-  showMessageModal({ title, body, okLabel = 'OK' }) {
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss }) {
     document.getElementById('offer-modal')?.remove();
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
       { zIndex: 60, onClose: () => {}, kind: 'note' });
@@ -10680,7 +10825,11 @@ class MapScene extends Phaser.Scene {
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
       `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
-    btn.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      wrap.remove();
+      if (typeof onDismiss === 'function') onDismiss();
+    });
     box.appendChild(btn);
     mount();
   }
@@ -12840,9 +12989,18 @@ class MapScene extends Phaser.Scene {
     }
     if (choices.length === 1) {
       // One option is not a choice — claim it and run the ceremony as before.
-      const card = this._claimTrailReward(choices[0]);
+      // A book grant defers its read (deferBookRead) so it doesn't stack on
+      // top of this ceremony modal. On dismiss, reveal it first and only
+      // THEN run the caller's own onDismiss (which may drain the next
+      // queued prize into its own ceremony modal) — otherwise the next
+      // prize's modal could open while the book read is still queued,
+      // stacking the two again just one call later.
+      const card = this._claimTrailReward(choices[0], { deferBookRead: true });
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
-      this.showChestRewardModal({ kind: 'trail', header, onDismiss, ...card });
+      this.showChestRewardModal({
+        kind: 'trail', header, ...card,
+        onDismiss: () => this._revealPendingBookReads(onDismiss),
+      });
       return;
     }
     // The pick. Each button IS a reward card (the shell takes HTML labels), so
@@ -12924,11 +13082,11 @@ class MapScene extends Phaser.Scene {
   // purse, gear equipped — and hand back its card so the caller can say what
   // arrived. Consolation coins ride along with whatever was taken; a roll
   // nobody claimed pays none.
-  _claimTrailReward(reward) {
+  _claimTrailReward(reward, opts = {}) {
     const card = this._trailRewardCard(reward);
     if (!card) return null;
     if (reward.kind === 'item') {
-      this.addToInv(reward.id, reward.qty);
+      this.addToInv(reward.id, reward.qty, false, opts);
     } else if (reward.kind === 'gold') {
       addMoney(this.save, reward.amount);
     } else if (reward.kind === 'relic' || reward.kind === 'armor') {
@@ -14399,21 +14557,27 @@ class MapScene extends Phaser.Scene {
   // Inventory.add (inventory.js); this wrapper owns only the scene side
   // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
   // flash. Returns the count actually accepted so callers can adjust narration.
-  addToInv(id, n = 1, silent = false) {
+  addToInv(id, n = 1, silent = false, opts = {}) {
     // A book triggers its read (a page of the course, or a chest hint) the
     // instant it's picked up rather than waiting in the bag for a manual
-    // Read tap — see readBook / _bookRead. It never occupies an inventory
-    // slot, so it skips Inventory.add entirely; it still counts as
-    // "accepted" for callers that adjust their pickup narration off the
-    // return value.
+    // Read tap — see readBook / _bookRead / _presentBookRead. It never
+    // occupies an inventory slot, so it skips Inventory.add entirely; it
+    // still counts as "accepted" for callers that adjust their pickup
+    // narration off the return value.
+    // opts.deferBookRead: the caller is about to show its OWN "you found a
+    // Book" modal (a chest/trail ceremony) right after this call — showing
+    // the read modal here too would stack two modals at once. Queue it
+    // instead; the caller must fire it from that modal's onDismiss via
+    // _revealPendingBookReads(), or the read is never shown.
     if (id === 'book') {
       if (n <= 0) return 0;
       if (!silent) {
-        for (let i = 0; i < n; i++) {
-          const { title, body } = this._bookRead();
-          this.showMessageModal({ title, body });
-        }
-        persistSave(this.save);   // _bookRead advances save.tipsRead
+        this._pendingBookReads = (this._pendingBookReads || 0) + n;
+        // deferBookRead: the caller shows its own modal right after and will
+        // reveal these itself from that modal's onDismiss. Otherwise reveal
+        // now — _revealPendingBookReads shows multiple reads one at a time
+        // rather than stacking them, so even a rare qty>1 grant is safe.
+        if (!opts.deferBookRead) this._revealPendingBookReads();
       }
       return n;
     }
