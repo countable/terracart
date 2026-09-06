@@ -443,6 +443,36 @@
   `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
   the labels).
 
+- **What an item DOES is written on the ITEM, not in the Book.** There are
+  four description surfaces, and the player reads every one while HOLDING the
+  thing, exactly when the answer is wanted: `ITEM_EFFECTS[id]` (the `✦ …` line
+  under the selected stack), `RELIC_DEFS[slot].blurb` (the same line for a
+  relic, plus the Stats panel's per-slot row), the Eat button's `+N⚡` for a
+  food, and the Stats panel's `+N max energy` for armour. **`PLAY_TIPS` is not
+  one of them.** A Book is a consumable: spending one to be told what the
+  inventory bar was already showing is a wasted read, and the two copies drift.
+  Until Sep 2026 a THIRD of the list was that — the Rope tip and
+  `ITEM_EFFECTS.rope` said the same sentence twice, the Hoe tip was its blurb
+  reworded, and one tip explained what a Book does, which you could only read
+  by burning a Book. The drift was real and shipped: the Bow/Staff tip still
+  said "one shot a second" long after `Combat.FIRE_INTERVAL_MS` was halved to
+  2000, and the tool tip still said a Wood relic was "three times quicker"
+  after `TOOL_DURATION_MS[1]` moved 3000 → 4000 ms (it is 2.25×).
+  A tip carries what no single item can — where things grow, how a shop or a
+  gate behaves, what an animal wants, what a readout means, a riddle. **When a
+  tip and a description overlap, the description wins and the tip goes**; if the
+  tip carried a fact the line didn't, move the fact onto the line (keep it
+  short — the `✦` row is `nowrap` + ellipsis, so ~55 chars is the ceiling).
+  Note the ✦ line is also why `ITEM_EFFECTS.sapphire` spells out the slime
+  taming that the closing Book tip only hints at: the riddle is flavour, the
+  disclosure belongs on the gem. If that secret should stay secret, the line to
+  delete is the ITEM_EFFECTS one, not the tip.
+  **Audit it:** `node test/node/run.js` › `test/node/item_descriptions.test.js`
+  sweeps every tip against every description for word overlap (three distinct
+  words is a restatement), re-checks that the sweep still catches the six real
+  tips deleted in the prune, and pins that the facts they carried landed on the
+  items.
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always
