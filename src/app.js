@@ -3253,6 +3253,101 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // Debug (☰ › Developer › "Road IDs"): what the vector tiles actually hand us
+  // per street, so the street-restoration key can be chosen against real
+  // data rather than guessed. For the 3×3 tiles around the player it reports,
+  // per `transportation` line feature: the MVT feature id (the decoder reads
+  // one; nothing has ever checked it is non-zero), whether an id repeats
+  // across tiles (a way clipped into pieces keeping its id) or within one
+  // (Planetiler merging same-attribute lines), how many pieces are multi-line
+  // (merged), and a sample of features with class / vertices / length. The
+  // same numbers for `transportation_name`, whose ids may differ. Copyable via
+  // the #errbar overlay, like dumpTileDebug — there is no console on a phone.
+  debugRoadIds() {
+    const out = [];
+    try {
+      const { tx, ty } = this.playerToWorldCell();
+      const cache = WorldGen.tileCache;
+      const tiles = [];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const key = WorldGen.tileKey(tx + dx, ty + dy);
+        const entry = cache && cache.get(key);
+        if (entry && entry.layers) tiles.push({ key, entry });
+      }
+      out.push(`tiles loaded around player: ${tiles.length}/9 (walk a bit if fewer)`);
+      const seenIn = new Map();       // id -> Set(tileKey)
+      const report = (layerName) => {
+        let feats = 0, withId = 0, multiLine = 0, verts = 0, lenM = 0;
+        const perTileIds = new Map();  // tileKey -> Map(id -> count)
+        const classes = new Map();
+        const sample = [];
+        for (const { key, entry } of tiles) {
+          const edgeM = entry.tileEdgeM || 0;
+          const idsHere = new Map();
+          perTileIds.set(key, idsHere);
+          for (const l of entry.layers) {
+            if (l.name !== layerName) continue;
+            const mvtToM = edgeM / (l.extent || 4096);
+            for (const f of l.features) {
+              if (f.type !== 2 || !f.geom) continue;
+              feats++;
+              const id = f.id || 0;
+              if (id) {
+                withId++;
+                idsHere.set(id, (idsHere.get(id) || 0) + 1);
+                if (!seenIn.has(id)) seenIn.set(id, new Set());
+                seenIn.get(id).add(key);
+              }
+              if (f.geom.length > 1) multiLine++;
+              const cls = (f.tags && f.tags.class) || '-';
+              classes.set(cls, (classes.get(cls) || 0) + 1);
+              let fl = 0, fv = 0;
+              for (const line of f.geom) {
+                fv += line.length;
+                for (let i = 1; i < line.length; i++) {
+                  fl += Math.hypot(line[i].x - line[i - 1].x, line[i].y - line[i - 1].y) * mvtToM;
+                }
+              }
+              verts += fv; lenM += fl;
+              if (sample.length < 10) {
+                const a = f.geom[0][0], b = f.geom[f.geom.length - 1].slice(-1)[0];
+                sample.push(`  ${key} id=${id} ${cls}${f.tags && f.tags.subclass ? '/' + f.tags.subclass : ''}`
+                  + ` lines=${f.geom.length} verts=${fv} len=${Math.round(fl)}m`
+                  + ` (${a.x},${a.y})→(${b.x},${b.y})${f.tags && f.tags.name ? ' "' + f.tags.name + '"' : ''}`);
+              }
+            }
+          }
+        }
+        // Ids shared by 2+ tiles (a way's pieces keep their id across seams),
+        // and ids repeated INSIDE a tile (two features, one id).
+        let crossTile = 0, dupInTile = 0;
+        for (const [, set] of seenIn) if (set.size > 1) crossTile++;
+        for (const [, m] of perTileIds) for (const [, n] of m) if (n > 1) dupInTile++;
+        out.push('', `[${layerName}] line features: ${feats}, with non-zero id: ${withId}`
+          + ` (${feats ? Math.round(100 * withId / feats) : 0}%)`);
+        out.push(`  distinct ids: ${seenIn.size}, ids seen in 2+ tiles: ${crossTile}, ids repeated within a tile: ${dupInTile}`);
+        out.push(`  multi-line (merged) features: ${multiLine}, vertices: ${verts}, total length: ${(lenM / 1000).toFixed(1)} km`);
+        const top = [...classes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
+          .map(([c, n]) => `${c}:${n}`).join(' ');
+        out.push(`  classes: ${top}`);
+        out.push('  sample:');
+        out.push(...(sample.length ? sample : ['  (none)']));
+        seenIn.clear();
+      };
+      report('transportation');
+      report('transportation_name');
+      // Was this tile served from the network or the IndexedDB cache? A stale
+      // cached tile could carry a different build's ids than a fresh one.
+      const me = tiles.find(t => t.key === WorldGen.tileKey(tx, ty));
+      out.push('', `player tile: ${WorldGen.tileKey(tx, ty)} edge=${me ? Math.round(me.entry.tileEdgeM) : '?'}m`);
+    } catch (e) {
+      out.push('', 'ERROR: ' + (e && e.stack || e));
+    }
+    const text = out.join('\n');
+    try { console.log('[roadids]\n' + text); } catch (_) {}
+    if (window.showError) window.showError('ROAD IDS (copy me)', text);
+  }
+
   // Debug: dump what worldgen actually produced for the tile under the player,
   // in a copyable form (routed through the #errbar overlay). DevTools isn't
   // reachable on a phone, so this is how we see how a real-world feature (e.g.
