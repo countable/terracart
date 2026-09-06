@@ -11,6 +11,33 @@
 
 ## Subagent rules
 
+- **Delegate by default, and pick the model to match the work.** The Agent
+  tool takes a `model` parameter — use it deliberately rather than letting
+  everything inherit the parent's:
+  - **haiku** — running the test suite (`node test/node/run.js`,
+    `node tools/sprite_audit.js`) and reporting back which tests failed and
+    with what message; and any other **token-heavy, judgement-light** job:
+    grepping the tree for every call site of a symbol, reading a long file to
+    answer one question, summarising a big diff, sweeping for stale comments.
+    The point of these is to keep a wall of output OUT of the parent's
+    context — so ask for the conclusion (the failing assertions, the file:line
+    list), never the raw dump.
+  - **sonnet** — clear and obvious dev work: a change whose shape is already
+    decided and whose files are already known. Adding a constant and its
+    call sites, a mechanical rename, writing a test against a spec you hand
+    it, a self-contained module extraction, applying a fix you have already
+    diagnosed.
+  - **opus** — complicated dev work: anything needing a design decision, a
+    diagnosis, or a read across several of the QC invariants below. A bug
+    with no known cause, a change that touches the tile pipeline / lighting /
+    coords split, a balance change where the numbers are derived rather than
+    tuned, or any task you would struggle to write a precise brief for.
+  If you cannot tell whether a task is sonnet-obvious or opus-hard, it is
+  opus-hard: a subagent that guesses wrong on this codebase's invariants
+  costs more to unpick than it saved.
+- **The parent still owns the finish.** Whatever the model, a subagent's
+  report is input, not a result — the parent re-runs the tests, reads the
+  diff, and does every git operation (see below).
 - **Subagents must NOT run any `git` commands.** No `git add`, `git commit`,
   `git push`, `git stash`, `git checkout`. The parent agent handles every
   git operation. Give the subagent the commit SHA / branch state it needs
