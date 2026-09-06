@@ -366,6 +366,52 @@ test('traps: the surface spawn passes the SHARED spawn options, mask and all', (
     'the surface density scales with the game mode, not a fixed rate');
 });
 
+test('traps: answering the how-to card re-lays the traps at that mode\'s density', () => {
+  // THE BUG: the card that picks easy/hard is answered AFTER boot, and a save
+  // with no mode yet reads as easy (difficulty.js). So the starter tile — the
+  // one a new save spends its first minutes on — was laid at trapCountMul 10
+  // when the player had just asked for 100. A tenth of the verge, on the only
+  // ground they can see. chooseMode already repairs the purse, the ladder, the
+  // crates and the doorstep greeter for exactly this race; the traps were the
+  // one thing on that list nobody had put there.
+  assert.gt(Difficulty.PROFILES.hard.trapCountMul, Difficulty.PROFILES.easy.trapCountMul,
+    'the two modes really do differ on density — otherwise there is no race to fix');
+
+  const block = (() => {
+    const a = APP_JS_SRC.indexOf('  chooseMode(mode) {');
+    const b = APP_JS_SRC.indexOf('\n  }\n', a);
+    assert.truthy(a > 0 && b > a, 'found chooseMode in app.js');
+    return APP_JS_SRC.slice(a, b);
+  })();
+  assert.truthy(/this\._relayTrapsForMode\(\)/.test(block),
+    'chooseMode re-lays the traps, beside the crate strip and the greeter swap');
+
+  const relay = (() => {
+    const a = APP_JS_SRC.indexOf('  _relayTrapsForMode() {');
+    const b = APP_JS_SRC.indexOf('\n  }\n', a);
+    assert.truthy(a > 0 && b > a, 'found _relayTrapsForMode in app.js');
+    return APP_JS_SRC.slice(a, b);
+  })();
+  assert.truthy(/Difficulty\.get\(\)\.trapCountMul/.test(relay),
+    're-laid at the mode that was just chosen, not a retyped number');
+  assert.truthy(/entry\._spawnOpts/.test(relay),
+    'through the tile\'s OWN shared spawn options — a second copy of the road '
+    + 'rule here is how drawn-as-road and no-spawn-here drift apart');
+  assert.truthy(/entry\.roadMask/.test(relay),
+    'and the mask itself, never the terrain grid');
+  assert.truthy(/\(this\.depth \|\| 0\) !== 0/.test(relay),
+    'surface only: cave traps are flat-scaled by DUNGEON_DENSITY_MUL, and '
+    + 'WorldGen.tileCache is repointed underground');
+  assert.truthy(/entry\._spawned/.test(relay),
+    'only tiles that have already spawned — the gate a rebuild drops');
+  assert.truthy(/sprung\.has\(t\.id\)/.test(relay),
+    'a trap the player has already sprung is carried across: the new roll draws '
+    + 'a different sequence, and a trap that has bitten you must not blink out');
+  // And the entry has to be CARRYING those options for any of that to work.
+  assert.truthy(/entry\._spawnOpts = _spawnOpts;/.test(APP_JS_SRC),
+    'spawnInTile keeps the tile\'s spawn options on the entry for the re-lay');
+});
+
 test('traps: the tick asks where the PLAYER is, never where the camera is', () => {
   const block = (() => {
     const a = APP_JS_SRC.indexOf('  _tickTraps(dt) {');
