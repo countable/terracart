@@ -376,6 +376,27 @@
   **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js` pins
   both gates as source text and shows the ungated rest out-earning the till.
 
+- **A trap is generated, never stored — until it is sprung.** Where the traps
+  are (`src/traps.js`) is a pure function of the tile's coordinates, and its
+  depth underground, through `WorldGen.makeRng` — like the X-mark scatter and
+  the cave rocks. The ONLY thing that ever reaches the save is
+  `save.sprungTraps`: the ids of the ones the player has stepped on, which is
+  what keeps a discovered trap discovered across a reload, a tile eviction and
+  a rebuild. Each spawner seeds its OWN stream rather than drawing from the
+  caller's, because `spawnInTile` and `spawnCaveCreatures` are long chains off
+  one rng and taking numbers out of them would re-roll every world seed
+  downstream. Surface traps go ON THE VERGE, never on the road: roadside-ness
+  is `Traps.isRoadside` over **`entry.roadMask`** and the seat is cleared by
+  `WorldGen.isSpawnCell` with the tile's own `_spawnOpts` — the road rule
+  above, not a copy of it. Cave traps sit around the up-staircases (the
+  monsters' and coins' anchors) and never under an object sprite, since down
+  there the art is the only warning. The per-frame tick reads
+  `playerToWorldCell()` — the FEET, never the peek anchor — and both costs pop
+  through `_popEnergy` on the trap's own cell.
+  **Audit it:** `node test/node/run.js` › `test/node/traps.test.js`, which also
+  runs both procedural textures against a recording 2D context and fails if the
+  hidden one stops being subtle or either leaves its cell.
+
 - **Light ADDS, darkness doesn't — the lightmap is the only lighting pass.**
   Until Sep 2026 the lighting was five Graphics workarounds for "Phaser has no
   gradient primitive": a fillRect per unlit cell, a second wash over the lit

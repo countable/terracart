@@ -58,7 +58,11 @@ const FILES = [
   // read Difficulty.get() at call time and app.js pins it at boot.
   'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'particles.js', 'trail.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
+  'mvt.js', 'util.js', 'particles.js', 'trail.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
+  // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
+  // loads either side of worldgen.js; index.html puts it first, so do we.
+  'traps.js',
+  'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
@@ -87,7 +91,7 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  INTERACTABLES, runInteractable, gatherLuck, gatherLuckEnabled,
+  INTERACTABLES, runInteractable,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill and
   // the reach outline; reach_corners.test.js drives both through it.
   REACH_CORNER_PX, ReachCorner,
@@ -1054,6 +1058,20 @@ ctx.TILLED_TEX = (() => {
   vm.runInContext(readSrc('textures.js')
     + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR };',
     c, { filename: 'textures.js#tilled' });
+  return c.__x;
+})();
+// textures.js as TEXT, for the makers that need a scene to run: traps.test.js
+// pins that both trap textures are baked one cell square off the one TRAP_PX.
+ctx.TEXTURES_SRC = readSrc('textures.js');
+// The trap art. Same trick as TILLED_TEX above — its own context, since the
+// module's constants collide with the stubs here — but these makers take a
+// SCENE, so traps.test.js hands them a stub whose createCanvas returns a
+// recording 2D context and runs the real drawing code.
+ctx.TRAP_TEX = (() => {
+  const c = vm.createContext({ window: {}, console });
+  vm.runInContext(readSrc('textures.js')
+    + '\nglobalThis.__x = { makeHiddenTrapTexture, makeSprungTrapTexture, makeTrapTextures, TRAP_PX };',
+    c, { filename: 'textures.js#traps' });
   return c.__x;
 })();
 // The texture catalog, as text: assets.js is not bundled (it is data for the

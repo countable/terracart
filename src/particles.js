@@ -56,6 +56,11 @@
     // world. This is the water tile's own murky teal (render.js terrain colour
     // 3, 0x3f6b7a) lifted toward white so a drop reads against dark soil.
     water:     '#8ed3e6',
+    // Being HURT is the one thing in this palette that is the UI's danger red
+    // rather than a world colour: a trap's bite has to read as damage the
+    // instant it lands, and the ink shade is the one that survives being
+    // multiplied by the night dim (UI_DANGER itself goes to mud).
+    hurt:      (typeof UI_DANGER_INK === 'string') ? UI_DANGER_INK : '#ff8a7a',
   };
 
   // Phaser angles: 0 = right, 90 = DOWN (screen y grows downward), 270 = up.
@@ -116,6 +121,16 @@
       tex: { shape: 'drop', color: C.water, core: '#ffffff', size: 8 },
       count: 10, angle: [245, 295], speed: [40, 90], lifespan: [350, 600],
       gravityY: 260, scale: [0.9, 0.35], alpha: [1, 0.1], rotate: [0, 0],
+    },
+    // BEING HURT — a trap's jaws closing. Red chips thrown hard in a full ring
+    // and gone fast: the shortest, fastest preset here, because a hit is an
+    // impact and anything that lingers reads as a reward. No gravity — the
+    // sting comes off the body in every direction at once, it isn't debris
+    // falling back to the ground.
+    pain: {
+      tex: { shape: 'chip', color: C.hurt, edge: '#7a1a12', size: 8 },
+      count: 14, angle: [0, 360], speed: [90, 200], lifespan: [250, 450],
+      gravityY: 0, scale: [1.1, 0.2], alpha: [1, 0], rotate: [0, 360],
     },
   };
 

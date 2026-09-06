@@ -11,11 +11,11 @@
 // Depends on:
 //   app.js       — MapScene fields used per-frame (read unless noted):
 //                    Graphics:   cellGfx, tierGfx
-//                    Containers: padContainer,
+//                    Containers: padContainer, trapContainer,
 //                                worldContainer (aliased as objectsContainer /
 //                                plantedContainer / creaturesContainer — one
 //                                shared, depth-sorted layer)
-//                    Pools:      cobblePool, noisePool, padPool,
+//                    Pools:      cobblePool, noisePool, padPool, trapPool,
 //                                letterPool, objectPool, padPool,
 //                                plantedPool, creaturePool, chestLabelPool
 //                                (chestLabelPool may be pushed to)
@@ -25,9 +25,9 @@
 //                                originPx, mPerPx
 //                    State:      tilledSet, placedRockSet, brokenRockSet,
 //                                save (.foundTreasures, .planted, .picked,
-//                                .caught, .opened, .tilled — and .tilled is
-//                                written-back when self-healing orphaned
-//                                tilled cells)
+//                                .caught, .opened, .sprungTraps, .tilled —
+//                                and .tilled is written-back when self-healing
+//                                orphaned tilled cells)
 //                    Helpers:    playerToWorldCell, neighborNonRoadColor,
 //                                absCellCenterMeters
 //                    Phaser:     this.add, this.textures
@@ -2379,7 +2379,7 @@ Render.drawObjects = function drawObjects(scene) {
     sx: scene.viewCenterX + (dx / scene.cellM) * CELL_PX,
     sy: scene.viewCenterY + (dy / scene.cellM) * CELL_PX,
   });
-  const objList = [], creatureList = [], plantedList = [];
+  const objList = [], creatureList = [], plantedList = [], trapList = [];
   // The frame's light sources (src/lighting.js). Filled by the tile scan
   // below as it passes each restored building, then by the campfire list and
   // the player inside Lighting.draw at the end of this pass. Reset here so a
@@ -2392,6 +2392,10 @@ Render.drawObjects = function drawObjects(scene) {
   // below, so anything at Z_OVERLAY is guaranteed to sit above all of them.
   const Z_OVERLAY = 10000;
   const pickedSet = setOf(scene.save.picked);
+  // Traps the player has already sprung — the one bit of trap state that is
+  // stored at all (see src/traps.js), and all the renderer needs to pick
+  // between the two textures.
+  const sprungSet = setOf(scene.save.sprungTraps);
   // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
   // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
   // tiles — and any two chests that land in the same 5 m cell — collapse to a single
@@ -2489,6 +2493,21 @@ Render.drawObjects = function drawObjects(scene) {
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id,
                                   _cave: wp._cave, _ix: wp._ix, _iy: wp._iy }, dx, dy });
+          _boot_kept++;
+        }
+      }
+      // Traps (src/traps.js) — flat marks on the ground, so they take the same
+      // 3×3 scan and the same cull as everything else, and go to their own
+      // pool below. A trap is never dropped from the list: the hidden one is
+      // drawn too (that faint scuff is the whole affordance), just in the
+      // subtle texture. Which of the two it wears is the ONLY thing the save
+      // decides — sprungSet, built once per frame like pickedSet.
+      if (entry.traps) {
+        for (const tr of entry.traps) {
+          _boot_scanned++;
+          const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
+          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          trapList.push({ tr, dx, dy, sprung: sprungSet.has(tr.id) });
           _boot_kept++;
         }
       }
@@ -3394,6 +3413,26 @@ Render.drawObjects = function drawObjects(scene) {
     if (!shape) continue;
     padList.push({ o, dx, dy, texKey: `pad_${shapeKey}`, shape });
   }
+  // ── Traps ─────────────────────────────────────────────────────────────────
+  // One sprite per trap, centred on its cell, scale 1 — both textures are
+  // baked exactly one cell square (textures.js TRAP_PX), so the mark lands on
+  // the cell it belongs to and cannot spill onto a neighbour. No seat pass and
+  // no shadow: these lie flat ON the ground, they don't stand up off it.
+  // Drawn into trapContainer, which sits under the sprites AND under the
+  // lightmap — a hidden trap in an unlit cave cell is genuinely unlit, which
+  // is the difference between the two halves of this feature.
+  if (scene.trapPool && scene.trapContainer) {
+    Render.renderPool(scene, scene.trapPool, scene.trapContainer, trapList, (s, item) => {
+      const { dx, dy, sprung } = item;
+      const { sx, sy } = project(dx, dy);
+      setTextureIfDifferent(s, sprung ? 'trap_open' : 'trap_hidden');
+      s.setOrigin(0.5, 0.5)
+       .setScale(1)
+       .setPosition(Math.round(sx), Math.round(sy))
+       .setAlpha(1).setTint(0xffffff);
+    });
+  }
+
   // The POI "ping" is not drawn here any more: a live POI is a LIGHT (kind
   // 'poi' in src/lighting.js), offered to the lightmap from the tile scan
   // above, so the place reads from across the map by its own slow breath in
