@@ -803,10 +803,10 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // linearly) now lives with the offline-rest formula in energy.js as
 // Energy.OFFLINE_FULL_REST_MS.
 
-
-
-
-// Chests pick a tier (weighted), then a random seed within that tier. Yield depends on tier.
+// Chest tiers are not rolled: a chest's tier (1-4) is a fixed lookup from its
+// OSM POI class via loot.js › chestTier (POI_CATEGORY → CHEST_TIER_BY_CATEGORY).
+// The tier drives the sprite/gem in render.js and the chestTierMod loot curve
+// in rarity.js; only the loot roll itself is random.
 
 // Tool slots the starter blacksmith can forge a wooden (T1) relic for. All
 // six have wooden-tier art via gearAssetPath. The smithy picks 2 at random
