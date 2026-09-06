@@ -59,6 +59,11 @@ const GROUND = [
   'letterContainer',   // road name lettering
   'roadGeomContainer',
   'padContainer',      // treasure plinths
+  // Traps (src/traps.js) lie FLAT on the ground, so they are ground
+  // decoration — and being below the lightmap is load-bearing, not incidental:
+  // a hidden trap has to be spottable in daylight and invisible in an unlit
+  // cave cell, and the lightmap is what decides which.
+  'trapContainer',
   'shadowContainer',
   'atmosGroundGfx',    // biome haze over the ground
 ];

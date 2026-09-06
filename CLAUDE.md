@@ -326,14 +326,13 @@
   (`_energyPopAt` → `_cellToastAt` / `playerScreen`, never `viewCenterX/Y`),
   hangs just clear of the cell's top edge — or of the player's HEAD on their
   own cell, `ENERGY_POP_HEAD_PX`, derived from the walker's frame and feet
-  drop — and ticks a thin outline on the cell in the same ink so the reader
-  is told WHICH cell. That tick is for OTHER cells only: the player's own
-  cell never raised the question (the number is already on the body), and
-  ringing it just circled the character in red or green on every rest tick,
-  leech and spend underfoot. `_isPlayerCell(ix, iy)` is the one test both
-  halves read — `_energyPopAt` anchors on the body when it's true,
-  `_popCellNumber` skips the outline when it is — so where the number hangs
-  and which cell is ticked can't drift apart. It wears the `cell` toast tier: bold, stroked and
+  drop, `_isPlayerCell(ix, iy)` being the test that picks the body — so where
+  the number hangs is what tells the reader WHICH cell. **The number is the
+  whole mark: nothing is drawn on the ground.** A thin outline used to tick on
+  the cell under it in the same ink, which read as a flash of red or green
+  damage on whatever you had just tapped; it was removed in Sep 2026 along
+  with `_flashCellOutline`, and adding a ring back is the bug returning.
+  It wears the `cell` toast tier: bold, stroked and
   drop-shadowed, no chip, because it sits on any ground at all. Until Sep
   2026 the rest splash was a note at the viewport centre minus 70px and the
   drains sat 40px above the same point — nowhere in particular, and under a
@@ -375,6 +374,27 @@
   gate it on `working`.**
   **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js` pins
   both gates as source text and shows the ungated rest out-earning the till.
+
+- **A trap is generated, never stored — until it is sprung.** Where the traps
+  are (`src/traps.js`) is a pure function of the tile's coordinates, and its
+  depth underground, through `WorldGen.makeRng` — like the X-mark scatter and
+  the cave rocks. The ONLY thing that ever reaches the save is
+  `save.sprungTraps`: the ids of the ones the player has stepped on, which is
+  what keeps a discovered trap discovered across a reload, a tile eviction and
+  a rebuild. Each spawner seeds its OWN stream rather than drawing from the
+  caller's, because `spawnInTile` and `spawnCaveCreatures` are long chains off
+  one rng and taking numbers out of them would re-roll every world seed
+  downstream. Surface traps go ON THE VERGE, never on the road: roadside-ness
+  is `Traps.isRoadside` over **`entry.roadMask`** and the seat is cleared by
+  `WorldGen.isSpawnCell` with the tile's own `_spawnOpts` — the road rule
+  above, not a copy of it. Cave traps sit around the up-staircases (the
+  monsters' and coins' anchors) and never under an object sprite, since down
+  there the art is the only warning. The per-frame tick reads
+  `playerToWorldCell()` — the FEET, never the peek anchor — and both costs pop
+  through `_popEnergy` on the trap's own cell.
+  **Audit it:** `node test/node/run.js` › `test/node/traps.test.js`, which also
+  runs both procedural textures against a recording 2D context and fails if the
+  hidden one stops being subtle or either leaves its cell.
 
 - **Light ADDS, darkness doesn't — the lightmap is the only lighting pass.**
   Until Sep 2026 the lighting was five Graphics workarounds for "Phaser has no
@@ -443,38 +463,82 @@
   `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
   the labels).
 
-- **The Book is the documentation, and a tip is a claim about live code.**
-  A mechanic the player cannot discover by looking at it — a derived number
-  (`dps = 15000 / toolDurationMs`), a gate (a pick one tier under the ore), a
-  side-effect (a cast refills the watering can) — is only ever explained by a
-  Book read, so **`PLAY_TIPS` in `src/items.js` is where it gets explained**.
-  Two failure modes, and both have shipped. The first is a mechanic with no
-  tip at all: the first-taste energy cap, the slow grind, the coin a kill
-  pays, the reach the dark takes back, giants — all of them invisible until a
-  player tripped over them. The second is worse, a tip that is still *there*
-  after the mechanic moved: "stand inside any building to rest" outlived the
-  building rest by a release, "one shot a second" outlived a doubled cadence,
-  "the ring over a foe is its health" outlived the health BAR, "wishlists
-  reroll every day" describes a pin that never rerolls, and the castle-quest
-  tip still named the hand-written chain the three-slot board replaced. A
-  Book that lies is worse than one that says nothing, because the player
-  believes it.
-  So the numbers in a tip are **re-derived from the module that owns them**,
-  never retyped: the rest rate off `HOME_FULL_REST_S`, the cadence off
-  `Combat.FIRE_INTERVAL_MS`, the growth hold off `Crops.STAGE_HOLD_MS`, the
-  ladder off `Delivery.TIER_UNLOCK_EVERY`, the rings off
-  `CHEST_TIER_HOME_RINGS_M`. **When you change a mechanic, grep `PLAY_TIPS`
-  for it before you commit; when you add one, add its tip.**
-  And a tip nobody draws is a tip nobody has: the Book carries a `dropWeight`
-  so it is the commonest consumable, and the places of learning —
-  `POI_CATEGORY` `'school'` (school / college / library / bookshop) — pin it
-  through `rarity.js`'s per-context `favourite`, so about a third of their
-  chests hand one over against under 3% anywhere else. That category is civic
-  in every other respect (tier, pad, cave mirror) on purpose: the split moved
-  the loot, not the price.
+- **What an item DOES is written on the ITEM, not in the Book.** There are
+  four description surfaces, and the player reads every one while HOLDING the
+  thing, exactly when the answer is wanted: `ITEM_EFFECTS[id]` (the `✦ …` line
+  under the selected stack), `RELIC_DEFS[slot].blurb` (the same line for a
+  relic, plus the Stats panel's per-slot row), the Eat button's `+N⚡` for a
+  food, and the Stats panel's `+N max energy` for armour. **`PLAY_TIPS` is not
+  one of them.** A Book is a consumable: spending one to be told what the
+  inventory bar was already showing is a wasted read, and the two copies drift.
+  Until Sep 2026 a THIRD of the list was that — the Rope tip and
+  `ITEM_EFFECTS.rope` said the same sentence twice, the Hoe tip was its blurb
+  reworded, and one tip explained what a Book does, which you could only read
+  by burning a Book. The drift was real and shipped: the Bow/Staff tip still
+  said "one shot a second" long after `Combat.FIRE_INTERVAL_MS` was halved to
+  2000, and the tool tip still said a Wood relic was "three times quicker"
+  after `TOOL_DURATION_MS[1]` moved 3000 → 4000 ms (it is 2.25×).
+  A tip carries what no single item can — where things grow, how a shop or a
+  gate behaves, what an animal wants, what a readout means, a riddle. **When a
+  tip and a description overlap, the description wins and the tip goes**; if the
+  tip carried a fact the line didn't, move the fact onto the line (keep it
+  short — the `✦` row is `nowrap` + ellipsis, so ~55 chars is the ceiling).
+  **The one exception is the one SECRET.** What an item secretly does is not a
+  description — printing it spoils it. `ITEM_EFFECTS.sapphire` read `Offer to a
+  slime to tame it` until Sep 2026: the game's single real secret, on the
+  inventory bar the instant anyone held a sapphire, while the gem's ADVERTISED
+  use (the portal down, its own Portal button) went undescribed. The line names
+  the portal now, and the taming is hinted in exactly one place — the closing
+  riddle in `PLAY_TIPS`, which says "creature" before it says "slime". Nothing
+  else names it: `ANIMAL_FOOD.slime` is unreachable through `animalLikesFood`
+  in practice (a slime is an enemy, so `interact.js` takes the sapphire branch
+  and then the combat branch long before the favourite-food path), so no
+  "it wants X" hint can leak it. **When an item has a secret use, its ✦ line
+  describes the open one.**
+  **Audit it:** `node test/node/run.js` › `test/node/item_descriptions.test.js`
+  sweeps every tip against every description for word overlap (three distinct
+  words is a restatement), re-checks that the sweep still catches the six real
+  tips deleted in the prune, pins that the facts they carried landed on the
+  items, and pins the sapphire's one-hint rule.
+
+- **And what NO item can say is written in the Book — truthfully, and often
+  enough to be read.** The rule above says what to take OUT of `PLAY_TIPS`; this
+  is what has to go IN. A mechanic the player cannot discover by looking at it —
+  a derived number, a gate, a side-effect, a place that behaves differently —
+  and that no single item's `✦` line can carry, is documented HERE or nowhere.
+  The Sep 2026 audit found a long list living only in the code: the first-taste
+  energy cap (`Energy.maxEnergy` reads `save.eaten.length`), the slow grind
+  (`SLOW_GRIND_MS` / `_ENERGY`), the reach the dark takes back (`reachCells`),
+  the roadside snares, the giants, the coin a kill pays (`enemyBounty`), the
+  10% monster hoard, the chest Home rings (`CHEST_TIER_HOME_RINGS_M`) and depth
+  promotion, the delivery premium (`DELIVERY_BONUS_MULT`), the three-slot quest
+  board, the stall discount, pets hunting, castle turrets. **When you add a
+  mechanic of that shape, add its tip.**
+  And the numbers in a tip are **re-derived from the module that owns them**,
+  never retyped — because retyping is exactly how the stale ones got there.
+  Five shipped at once: `HOME_FULL_REST_S` (a tip still rested you in *any*
+  building, at a rate deleted with `INDOOR_FULL_REST_S`), `Delivery`'s pin (a
+  tip "rerolled" a wishlist that never rerolls), `QUEST_SLOTS` (a tip still
+  named the hand-written chain the board replaced), the T5 chest gem, and the
+  deep ore that mines the bars a tip called "smelted, never mined".
+  Nor is the Book the only surface that lies: `COFFEE_AMULET_BOOST` has been 2
+  while `ITEM_EFFECTS.coffee` said "+1 tier", and `RELIC_DEFS.bugnet.blurb`
+  advertised "catch crows" — the one animal a net cannot take (a crow is
+  HUNTED, `interact.js` `HUNT_KINDS`). **Grep both tables for a constant before
+  you change it.**
+  **A tip nobody draws is a tip nobody has.** The Book carries `dropWeight: 3`
+  so it is the plurality of the T2 consumable pool everywhere instead of one
+  seventh of it, and the places of learning — school / college / library /
+  bookshop, their own `POI_CATEGORY` `'school'` in `loot.js` — pin it through
+  `rarity.js`'s per-context **`favourite`**, so about a THIRD of their chests
+  hand one over against under 3% anywhere else. That category is civic in every
+  other respect (tier, pad, cave mirror) on purpose: the split moved the loot,
+  not the price. Use `favourite` when a PLACE should be known for a thing; use
+  `dropWeight` when a thing should simply be commoner everywhere.
   **Audit it:** `node test/node/run.js` › `test/node/books.test.js` re-derives
-  every quoted number from its module, blacklists each stale sentence by name,
-  and measures the school chest's book rate against every other chest.
+  every number a tip quotes from the module that owns it, blacklists each stale
+  sentence by name, and measures the school chest's book rate against every
+  other chest.
 
 ## Testing
 

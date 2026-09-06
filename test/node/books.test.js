@@ -202,7 +202,7 @@ test('tips: the offline rest quotes Energy.OFFLINE_FULL_REST_MS', () => {
 test('tips: working-is-not-resting is documented, because it is enforced', () => {
   assert.truthy(/const working = !!this\._workProgress/.test(APP_JS_SRC),
     'app.js still gates the rests on the work wheel');
-  assert.truthy(someTip(/resting pauses while a work wheel/i), 'and a tip warns about it');
+  assert.truthy(someTip(/resting stops while a work wheel/i), 'and a tip warns about it');
 });
 
 test('tips: the first-taste bonus is documented, because it is in the cap', () => {
@@ -235,48 +235,65 @@ test('tips: reach — the underground trim and the zero-energy floor are documen
   assert.eq(surface - reachCells(scene), 1, 'two levels down costs a whole cell of reach');
   scene.depth = 0; scene.save.energy = 0;
   assert.eq(reachRadiusM(scene), 0, 'and an empty tank reaches nothing');
-  assert.truthy(someTip(/zero energy you cannot reach/i), 'a tip says so');
-  assert.truthy(someTip(/trims it half a cell/i), 'and a tip says what depth costs');
+  assert.truthy(someTip(/nothing at all on an empty bar/i), 'a tip says an empty bar reaches nothing');
+  assert.truthy(someTip(/half a cell less for every level you descend/i),
+    'and a tip says what depth costs');
 });
 
-test('tips: the crop clock quotes Crops.STAGE_HOLD_MS and the can\'s jump ladder', () => {
+test('tips: the crop clock and the seed-back rate are the ones the code rolls', () => {
   assert.eq(Crops.STAGE_HOLD_MS, 15 * 60 * 1000, 'a stage is 15 minutes');
   assert.truthy(someTip(/every 15 minutes/i), 'and a tip says so');
-  assert.eq(Crops.waterJumpChance({}), 0, 'bare hands never jump a stage');
-  assert.eq(Crops.waterJumpChance({ can: { tier: 1 } }), 1 / 7, 'a Wood can jumps one in seven');
-  assert.eq(Crops.waterJumpChance({ can: { tier: Crops.CAN_TOP_TIER } }), 1, 'a Frost can jumps every time');
-  assert.truthy(someTip(/one watering in seven at Wood, every one at Frost/i),
-    'and a tip quotes the whole ladder');
+  // interact.js: yieldN = randInt(1,3) + …, gotSeed at 0.25 + qual × 0.10.
+  assert.truthy(/randInt\(1, 3\) \+ Math\.floor\(qual \/ 3\)/.test(INTERACT_SRC),
+    'a pick still pays one to three');
+  assert.truthy(/Math\.random\(\) < \(0\.25 \+ qual \* 0\.10\)/.test(INTERACT_SRC),
+    'and hands a seed back a quarter of the time bare-handed');
+  assert.truthy(someTip(/one to three of itself/i) && someTip(/one pick in four/i),
+    'and a tip quotes both');
 });
 
-test('tips: the shot cadence is the one in combat.js', () => {
+test('tips: the shot cadence lives on the weapons, and no tip contradicts it', () => {
   assert.eq(Combat.FIRE_INTERVAL_MS, 2000, 'a bow or staff fires every two seconds');
-  assert.falsy(/one shot a second/i.test(TIPS_BLOB), 'no tip still claims one a second');
-  assert.truthy(someTip(/one shot every two seconds/i), 'the tip quotes the real cadence');
-  assert.eq(Combat.BOLT_MAX_TIER_MUL, 2, 'a Frost bolt is twice a Wood one');
-  assert.truthy(someTip(/twice the size of a Wood one/i), 'and a tip says so');
+  // The cadence is the weapons' own disclosure now (RELIC_DEFS.bow/staff and
+  // the comment above them). What the Book must not do is carry a second,
+  // stale copy of it — which is exactly how "one shot a second" survived the
+  // halving of FIRE_INTERVAL_MS.
+  assert.falsy(/shot a second/i.test(TIPS_BLOB), 'no tip claims a firing rate at all');
+  assert.truthy(/auto-shoots along the compass/.test(RELIC_DEFS.bow.blurb), 'the bow says how it aims');
+  assert.truthy(/⚡ a bolt/.test(RELIC_DEFS.staff.blurb), 'the staff says what a bolt costs');
 });
 
-test('tips: enemy health is a BAR — no tip calls it a ring again', () => {
+test('tips: enemy health is a BAR, the wheel is the ring, and the Book keeps them apart', () => {
   assert.truthy(/_drawEnemyHealthBar/.test(APP_JS_SRC), 'app.js draws a bar');
   assert.falsy(/ring over a foe is its health/i.test(TIPS_BLOB), 'the old ring tip is gone');
-  assert.truthy(someTip(/bar over a wounded foe is its health/i), 'and a tip names the bar');
+  const health = PLAY_TIPS.find((t) => /health, not a timer/.test(t));
+  assert.truthy(health && /\bbar\b/.test(health), 'a tip names the readout a bar');
+  assert.truthy(someTip(/ring around a thing you are working on is the wheel/i),
+    'and another says what the ring IS, so the two shapes cannot be confused');
 });
 
 test('tips: only one weapon fights, and the Book says which knob picks it', () => {
   assert.truthy(Gear.WEAPON_SLOTS.includes('sword') && Gear.WEAPON_SLOTS.length === 3,
     'sword / bow / staff are the three weapon slots');
-  assert.truthy(someTip(/only one weapon fights at a time/i), 'and a tip says so');
+  // No single relic's blurb can say this — it is a fact ABOUT the three of
+  // them and about a UI control, which is exactly the shape a tip is for.
+  assert.truthy(someTip(/only one weapon is ever in play/i), 'and a tip says so');
+  assert.truthy(someTip(/Relics tab/), 'and names where you switch');
 });
 
-test('tips: a butterfly and a fish are both takeable bare-handed', () => {
-  // The old tip called the Bug Net "the only way" to take a butterfly; the
-  // catch path has no tool gate at all, only a longer wheel.
+test('descriptions: neither the net nor the rod is a gate, and neither claims to be', () => {
+  // The net only shortens the catch wheel, and it has nothing to do with
+  // crows — a crow is HUNTED on the weapon ladder. The blurb used to read
+  // 'catch crows + butterflies': the one animal it cannot take, plus a gate
+  // on the one it can.
   assert.gt(toolDurationMs({}, 'bugnet'), toolDurationMs({ bugnet: { tier: 1 } }, 'bugnet'),
     'a net only shortens the wheel');
-  assert.falsy(/only way to take a butterfly/i.test(TIPS_BLOB), 'the tool-gate claim is gone');
-  assert.truthy(someTip(/butterfly can be taken bare-handed/i), 'and a tip says bare hands work');
+  assert.truthy(/HUNT_KINDS = new Set\(\['crow', 'deer'\]\)/.test(INTERACT_SRC),
+    'a crow is hunted, not netted');
+  assert.falsy(/crow/i.test(RELIC_DEFS.bugnet.blurb), 'the net no longer claims crows');
+  assert.truthy(/bare hands/i.test(RELIC_DEFS.bugnet.blurb), 'and says bare hands manage');
   assert.truthy(/fish BARE-HANDED/.test(INTERACT_SRC), 'interact.js still allows a bare cast');
+  assert.truthy(/bare hands/i.test(RELIC_DEFS.rod.blurb), 'and the rod says so too');
 });
 
 test('tips: the delivery ladder quotes Delivery.TIER_UNLOCK_EVERY, and no tip rerolls a wishlist', () => {
@@ -289,15 +306,15 @@ test('tips: the delivery ladder quotes Delivery.TIER_UNLOCK_EVERY, and no tip re
   assert.truthy(first.length, 'a house wants something');
   assert.eq(JSON.stringify(Delivery.wantedProduce(save, { id: 'h1' })), JSON.stringify(first),
     'and it wants the same thing next time it is asked');
-  assert.falsy(/wishlists reroll every day/i.test(TIPS_BLOB), 'the reroll claim is gone');
-  assert.truthy(someTip(/wishlist never changes/i), 'and a tip says the list is standing');
+  assert.falsy(/reroll every day/i.test(TIPS_BLOB), 'the reroll claim is gone');
+  assert.truthy(someTip(/never changes its mind/i), 'and a tip says the list is standing');
 });
 
 test('tips: the delivery premium quotes DELIVERY_BONUS_MULT', () => {
   const m = APP_JS_SRC.match(/const DELIVERY_BONUS_MULT = ([\d.]+);/);
   assert.truthy(m, 'app.js still owns the premium');
   assert.eq(Number(m[1]), 1.5, 'a set pays half again');
-  assert.truthy(someTip(/half again what the set would fetch/i), 'and a tip says so');
+  assert.truthy(someTip(/half again what the same goods would fetch/i), 'and a tip says so');
 });
 
 test('tips: the castle board replaced the three-step chain, and the Book knows', () => {
@@ -325,38 +342,52 @@ test('tips: the shop ladder quotes ShopsMath.dealCap', () => {
   assert.truthy(someTip(/up to 5 deals per hour, plain houses just 1/i), 'and a tip says so');
 });
 
-test('tips: the bag ladder quotes stackCapForBags', () => {
-  assert.eq(stackCapForBags(null), 9, 'bare-handed is 9 to a slot');
-  assert.eq(stackCapForBags({ tier: 7 }), 249, 'a Frost bag is 249');
-  assert.truthy(someTip(/9 bare-handed, 249 at Frost/), 'and a tip quotes both ends');
-});
-
 test('tips: the shiny multiplier quotes PRICES', () => {
   assert.eq(PRICES.shiny_chicken, itemValue('chicken') * 10, 'a shiny pays ten times');
   assert.truthy(someTip(/ten times its plain kind/i), 'and a tip says so');
 });
 
-test('tips: the sell ladder quotes sellMultiplier', () => {
-  assert.eq(sellMultiplier({ sword: { tier: 7 } }) / sellMultiplier({}), 2,
-    'a Frost sword doubles the sell price');
-  assert.truthy(someTip(/Frost sword doubles/i), 'and a tip says so');
-});
-
-test('tips: the coffee buff quotes COFFEE_AMULET_BOOST, on both surfaces that state it', () => {
+test('descriptions: the coffee line quotes COFFEE_AMULET_BOOST', () => {
   const m = APP_JS_SRC.match(/const COFFEE_AMULET_BOOST = (\d+);/);
   assert.truthy(m, 'app.js still owns the boost');
   assert.eq(Number(m[1]), 2, 'a coffee is worth two amulet tiers, not one');
-  assert.truthy(someTip(/two extra tiers of amulet/i), 'the tip says two');
   assert.truthy(/\+2 amulet tiers/.test(ITEM_EFFECTS.coffee),
-    'and so does the inventory effect line — the two disclosures agree');
+    'and the inventory effect line says two — it read "+1" for a while');
 });
 
-test('tips: no tip promises a mechanic that is switched OFF', () => {
-  // Gather luck (ring/amulet on tree/rock/fruit yields) ships disabled, so the
-  // Book must not advertise it — the ring's CHEST effect is the live one.
-  assert.falsy(gatherLuckEnabled(), 'gather luck is still off by default');
+test('tips: the Ring claim is the one the code actually enforces', () => {
+  // Gear.buildRelicOffer skips the ring slot outright, so no shop, smithy or
+  // castle can offer one — that is the real rule. It is NOT "never found in a
+  // chest": rollGearUpgrade draws from every relic slot, ring included, and
+  // syncInnerLightRing deliberately never downgrades a higher one. A tip that
+  // said "or found in a chest" was claiming a gate that isn't there.
+  const save = { relics: {}, armor: {} };
+  const rng = bookRng(0x21C0);
+  for (let i = 0; i < 2000; i++) {
+    const offer = Gear.buildRelicOffer(save, rng);
+    assert.truthy(!offer || offer.slot !== 'ring', 'no vendor ever offers a Ring');
+  }
+  assert.falsy(someTip(/Ring[^.]*chest/i), 'and no tip claims a chest cannot hold one');
+  assert.truthy(someTip(/shop, smithy or castle vault deals in Rings/i),
+    'the tip names the gate that exists');
+});
+
+test('tips: no tip promises a mechanic that does not exist', () => {
+  // Gather luck (ring/amulet on tree/rock/fruit yields) was never switched on
+  // and has since been deleted outright, so neither the Book nor a blurb may
+  // advertise it — the ring's CHEST effect is the live one.
+  assert.eq(typeof globalThis.gatherLuck, 'undefined', 'the gather-luck path is gone');
   assert.falsy(someTip(/\bRing\b[^.]*\b(ore|stone|wood|gem|dig|fell)/i),
     'no tip claims the Ring improves what you dig or fell');
-  assert.falsy(someTip(/\bAmulet\b[^.]*\b(ore|stone|wood|bonus)/i),
-    'nor that the Amulet pads a gathered stack');
+  assert.truthy(/chest/i.test(RELIC_DEFS.ring.blurb), 'the ring\'s own line keeps it to chests');
+});
+
+test('tips: the snares are documented — nothing else can say where they are', () => {
+  assert.eq(Traps.STEP_ENERGY, 10, 'treading on one bites 10⚡');
+  assert.eq(Traps.STAND_ENERGY_PER_S, 2, 'and standing on it bleeds 2 a second');
+  const tip = PLAY_TIPS.find((t) => /snare/i.test(t));
+  assert.truthy(tip, 'a tip warns about them');
+  assert.truthy(/10⚡/.test(tip) && /2 a second/.test(tip), 'and quotes both costs');
+  assert.truthy(/verge|road/i.test(tip) && /stair|underground/i.test(tip),
+    'and says where they lie');
 });

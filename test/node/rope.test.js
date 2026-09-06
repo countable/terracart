@@ -29,9 +29,14 @@ test('rope: is a T2 consumable with a price and an effect line', () => {
   assert.eq(BASE_TIER.rope, 2, 'BASE_TIER row');
   assert.truthy(PRICES.rope > 0, 'a sell price');
   assert.truthy(PRICES.rope < PRICES.sapphire, 'cheaper than the sapphire, whose portal is one-way');
-  assert.truthy(/up|down/i.test(ITEM_EFFECTS.rope || ''), 'ITEM_EFFECTS discloses the climb');
-  assert.truthy(PLAY_TIPS.some(t => /\bRope\b/.test(t) && /up/i.test(t) && /down/i.test(t)),
-    'a Book tip says the rope goes both ways');
+  // The climb is disclosed ONE place: the rope's own effect line, which the
+  // player reads while holding it. It used to be said twice — a Book tip
+  // repeated the same sentence — and a Book that restates an item description
+  // spends a consumable to print what the inventory bar already showed.
+  assert.truthy(/up/i.test(ITEM_EFFECTS.rope || '') && /down/i.test(ITEM_EFFECTS.rope || ''),
+    'ITEM_EFFECTS discloses the climb, both ways');
+  assert.falsy(PLAY_TIPS.some(t => /\bRope\b/.test(t)),
+    'and no Book tip repeats it');
 });
 
 test('rope: two-table icon rule — MINERAL_ICON_SHEET → ICON_SHEETS → a real 16×16 PNG', () => {
