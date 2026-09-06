@@ -154,7 +154,11 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // and banked partial damage from a fight broken off mid-beat.
   const app = APP_JS_SRC;
   const wheel = app.slice(app.indexOf('    if (wp.combat) {'));
-  assert.truthy(/if \(now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS;/.test(wheel),
+  // The reach conjunct in front of the cadence is the OTHER gate on the same
+  // blow (see the melee-reach test below) — a swing must be both due and in
+  // range — so the pin allows it and still refuses a blow that lands without
+  // spending the clock.
+  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS;/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
   assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\.isDragonActive\(\) \? 2 : 1\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
@@ -690,6 +694,20 @@ test('combat: every melee gate the player has runs the shared test', () => {
     'a fight you have engaged ends when the foe backs out of swinging distance');
   assert.truthy(/cellInReach/.test(wheelHead),
     'and a hunt still runs to the lit reach — same wheel, two ranges');
+
+  // The BLOW itself, every interval, not just the engage. The break-off above
+  // is a 1 s grace and MELEE_INTERVAL_MS is 1 s, so an ungated swing landed a
+  // free hit at any distance on every break-off — and none at all on a foe
+  // that kept dipping back into reach, because that resets the grace.
+  const swing = APP_JS_SRC.slice(APP_JS_SRC.indexOf('if (wp.combat) {\n      const c = wp.combat;'));
+  const swingHead = code(swing.slice(0, swing.indexOf('const blow = Combat.meleeSwingDamage')));
+  assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM\)/.test(swingHead),
+    'a blow only lands while the foe is within swinging distance');
+  assert.truthy(/inSwing && now >= this\._nextBlowT/.test(swingHead),
+    'the reach test gates the blow alongside the cadence, not instead of it');
+  assert.falsy(/_nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS/.test(
+    code(swing.slice(0, swing.indexOf('if (inSwing')))),
+    'a missed swing must not spend the blow clock — a foe that closes is hit at once');
 
   // The surface slime reads the one number rather than its own copy of it.
   assert.truthy(/const STEAL_R = Combat\.meleeReachM\(this\.cellM\);/.test(APP_JS_SRC),

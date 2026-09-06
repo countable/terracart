@@ -7343,15 +7343,31 @@ class MapScene extends Phaser.Scene {
       // Killed by something else mid-swing (a shot, a tame dog) — nothing left
       // to fight, and the kill has already paid out.
       if (this.save.caught?.includes(c.id)) { this.cancelWorkProgress(); return; }
-      if (now >= this._nextBlowT) {
+      // EVERY BLOW IS ARM'S LENGTH, not just the one that opened the fight.
+      // The three gates above (tap, auto-engage, break-off) all measure
+      // Combat.inMeleeReach, but the swing below used to sit past all of them
+      // and land on the clock alone — and the break-off is a 1 s GRACE, which
+      // is exactly MELEE_INTERVAL_MS. So every fight paid out one free hit at
+      // whatever distance the foe had got to, and a foe hovering ON the
+      // boundary never broke off at all: each dip back inside resets
+      // `_outSinceT` to null, so the grace never ripened and the blows kept
+      // landing from outside swinging distance indefinitely. That is the
+      // "I can hit a slime more than one cell away" the reach fix was supposed
+      // to have ended — the grace decides whether the FIGHT is still on, this
+      // decides whether a swing can LAND, and they are not the same question.
+      // `_nextBlowT` is deliberately NOT advanced when the swing misses: the
+      // clock is the scene's, so a foe that closes again is hit at once rather
+      // than being granted a fresh interval of safety by having stepped out.
+      const px = this.startWorldM.x + this.playerM.x;
+      const py = this.startWorldM.y + this.playerM.y;
+      const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM);
+      if (inSwing && now >= this._nextBlowT) {
         this._nextBlowT = now + Combat.MELEE_INTERVAL_MS;
         // A blade to actually swing — bare hands (no sword owned) has none, so
         // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
         // The slash rides the blow itself now rather than its own throttle:
         // one cadence, so the arc and the damage it earns can't drift apart.
         if (this.save.relics?.sword) {
-          const px = this.startWorldM.x + this.playerM.x;
-          const py = this.startWorldM.y + this.playerM.y;
           const dx = c.x - px, dy = c.y - py;
           const d = Math.hypot(dx, dy) || 1;
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
