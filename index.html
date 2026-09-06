@@ -28,7 +28,6 @@
         marks: [],     // { name, t }              — instants
         spans: [],     // { name, t, ms, note }    — completed stretches
         long: [],      // { t, ms }                — main-thread blocks > 50 ms
-        open: new Map(),
         mark(name) { try { B.marks.push({ name, t: t() }); } catch (_) {} },
         // begin() returns its own end function, so a span can't be closed by
         // the wrong name and nesting the same name twice is safe.
@@ -39,9 +38,6 @@
             try { B.openNames.delete(name); B.spans.push({ name, t: t0, ms: t() - t0, note }); } catch (_) {}
           };
         },
-        // Fire-and-forget for a stretch measured somewhere else.
-        span(name, t0, ms, note) { try { B.spans.push({ name, t: t0, ms, note }); } catch (_) {} },
-
         // ── Live half ──────────────────────────────────────────────────
         // The boot half above answers "why was the start slow". This answers
         // "why does it stutter while I walk", which is a different question
@@ -289,10 +285,14 @@
       pointer-events: none;
       z-index: 99;
     }
-    /* Fixed 352×844 native size — 352 = VIEW_CELLS × CELL_PX so the 11×11
+    /* Fixed 352×844 LOGICAL size — 352 = VIEW_CELLS × CELL_PX so the 11×11
        map view fills the canvas with no side padding. We scale the whole game
        (canvas + overlays) with a CSS transform from JS so it fits any viewport
-       while keeping a single coordinate system internally. */
+       while keeping a single coordinate system internally.
+       The canvas INSIDE this box is a different question: its backing store is
+       sized to the real device pixels this box covers, so the picture is 1:1
+       with the screen rather than a 352-wide buffer blown up. See the
+       canvas-resolution note beside W/H in src/app.js. */
     #game {
       width: 352px; height: 844px;
       background: #000;
@@ -958,6 +958,29 @@
       padding: 9px 18px; font: 400 13px ui-monospace, monospace;
     }
     #howto button.secondary[hidden] { display: none; }
+    /* The mode choice. Two stacked CTAs in the gold the card's one button
+       already wears — a pair of equals, easy first — each a name over a
+       one-line brief, because the brief is the whole decision. */
+    #howto-modes { display: flex; flex-direction: column; gap: 8px; }
+    #howto-modes[hidden] { display: none; }
+    #howto-modes button { text-align: left; padding: 10px 14px; }
+    #howto-modes button .mode-name { display: block; font: 700 15px ui-monospace, monospace; }
+    #howto-modes button .mode-sub {
+      display: block; margin-top: 3px; font: 400 12px ui-monospace, monospace;
+      line-height: 1.35; color: #3b3227;
+    }
+    /* Hard wears ember, not gold — it is the other answer, not the second
+       button. (`#howto button` outranks a bare id, hence the doubled selector.) */
+    #howto button#howto-hard { background: #c8552f; color: #fff4e6; }
+    #howto button#howto-hard .mode-sub { color: #ffe0cc; }
+    /* Which game this save plays — shown on the ☰ reopen, where the choice
+       is already made and the card is a reference again. */
+    #howto-mode-current {
+      margin: 0 0 10px; font: 700 13px ui-monospace, monospace; color: var(--gold);
+    }
+    #howto-mode-current[hidden] { display: none; }
+    #howto-mode-current span { font-weight: 400; color: #bbb; }
+    #howto button#howto-close[hidden] { display: none; }
   </style>
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
@@ -1121,6 +1144,26 @@
         <dt>Energy</dt>
         <dd>Most actions cost &#9889;. Eat or rest to refill.</dd>
       </dl>
+      <!-- FIRST RUN: the card is where a new save picks its game (difficulty.js).
+           Two CTAs, easy on top — taking the tutorial is the default — each
+           naming the mode AND what it does to the opening, since "hard" alone
+           says nothing about the tutorial going away. Once answered the mode
+           is kept (the two price the same haul differently, so a switch would
+           be free money), and the ☰ reopen shows which game this save plays
+           plus the plain "Got it" / "Skip the tutorial" pair it always had. -->
+      <div id="howto-modes">
+        <button id="howto-easy" type="button" data-mode="easy">
+          <span class="mode-name">Easy mode</span>
+          <span class="mode-sub">Enable tutorial &mdash; guided steps, supply crates, a quiet
+            home to learn farming and exploring from.</span>
+        </button>
+        <button id="howto-hard" type="button" data-mode="hard">
+          <span class="mode-name">Hard mode</span>
+          <span class="mode-sub">No tutorial &mdash; a thin purse, greedy traders, tougher
+            enemies in bigger packs. Fighting pays.</span>
+        </button>
+      </div>
+      <p id="howto-mode-current" hidden></p>
       <button id="howto-close" type="button">Got it</button>
       <button id="howto-skip" class="secondary" type="button">Skip the tutorial</button>
     </div>
@@ -1299,20 +1342,34 @@
       return { s, top, stickBottom };
     }
 
-    // The visible slice of the 844-tall box, in GAME px — modals size and
-    // centre against THIS, not against the box (see makeModalShell). The box
-    // is taller than most viewports, so a box-centred dialog hangs off the
-    // bottom and a box-relative max-height never actually caps it.
+    // Publish the layout numbers that nothing downstream can derive for itself.
+    //
+    // --view-top / --view-h: the visible slice of the 844-tall box, in GAME px
+    // — modals size and centre against THIS, not against the box (see
+    // makeModalShell). The box is taller than most viewports, so a box-centred
+    // dialog hangs off the bottom and a box-relative max-height never actually
+    // caps it.
     //
     // `top` may now be POSITIVE (the box starts below the viewport's top edge)
     // because the map is placed against the chrome budget rather than pinned
     // to 0. When it is, the visible region starts at the box's own top — a
     // negative --view-top would centre dialogs above the box and clip them.
-    function publishViewBox(root, top, s, vh) {
+    //
+    // __gameCssScale: the CSS transform this layout just put on #game. app.js
+    // sizes the canvas backing store to scale x devicePixelRatio so the canvas
+    // is 1:1 with the screen rather than a 352-wide buffer blown up — see the
+    // canvas-resolution note beside W/H in src/app.js. Published rather than
+    // read back off getComputedStyle because a matrix() string is a lossy way
+    // to ask a question we already know the answer to, and because the game
+    // needs to be TOLD when it changes rather than poll for it.
+    function publishLayout(root, top, s, vh) {
       const viewTop = Math.max(0, -top / s);
       const viewH   = Math.min(BOX_H - viewTop, (vh - Math.max(0, top)) / s);
       root.style.setProperty('--view-top', viewTop + 'px');
       root.style.setProperty('--view-h',   Math.max(0, viewH) + 'px');
+      window.__gameCssScale = s;
+      // app.js installs this once the game exists; fitGame runs before it does.
+      window.__onGameScaleChange?.(s);
     }
 
     // Is there enough HEIGHT to lay the game out at all?
@@ -1375,7 +1432,7 @@
     }
 
     function fitGame() {
-      const W = BOX_W, H = BOX_H;
+      const W = BOX_W;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const portrait = vw < vh;
@@ -1413,7 +1470,7 @@
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
         g.style.top  = top + 'px';
-        publishViewBox(root, top, s, vh);
+        publishLayout(root, top, s, vh);
         root.style.setProperty('--stick-bottom', stickBottom + 'px');
         document.body.classList.toggle('phone-preview', left > 0);
         root.style.setProperty('--phone-left',  left  + 'px');
@@ -1438,7 +1495,7 @@
         g.style.transform = `scale(${s})`;
         g.style.left = '0px';
         g.style.top  = top + 'px';
-        publishViewBox(root, top, s, vh);
+        publishLayout(root, top, s, vh);
         root.style.setProperty('--stick-bottom', stickBottom + 'px');
         document.body.classList.add('phone-preview');
         root.style.setProperty('--phone-left',  left  + 'px');
@@ -1516,18 +1573,25 @@
     });
     // Vibration toggle (UX audit §18). Label tracks the save both before the
     // scene exists (read localStorage) and after each click.
+    // The active slot's save, read straight out of the registry — for the
+    // controls that paint BEFORE save.js has parsed (this script runs first).
+    // Same registry shape save.js's initSaves/loadSave read; null when there
+    // is no registry, no active slot, or the read throws.
+    function readActiveSlotData() {
+      try {
+        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
+        const slot = reg && reg.slots.find(s => s.id === reg.active);
+        return (slot && JSON.parse(localStorage.getItem(slot.key) || 'null')) || null;
+      } catch { return null; }
+    }
     (function wireHaptics() {
       const btn = document.getElementById('toggle-haptics');
       if (!btn) return;
       const read = () => {
         const sc = window.__scene;
         if (sc && sc.save) return sc.save.haptics !== false;
-        try {
-          const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
-          const slot = reg && reg.slots.find(s => s.id === reg.active);
-          const d = slot && JSON.parse(localStorage.getItem(slot.key) || 'null');
-          return !d || d.haptics !== false;
-        } catch { return true; }
+        const d = readActiveSlotData();
+        return !d || d.haptics !== false;
       };
       const paint = () => { btn.textContent = `Vibration: ${read() ? 'on' : 'off'}`; };
       btn.addEventListener('click', (e) => {
@@ -1813,13 +1877,10 @@
       if (sc && sc.save) return sc.save.playerName || '';
       try {
         if (typeof loadSave === 'function') return loadSave().playerName || '';
-        // Before save.js has loaded (this script runs first): read the active
-        // slot straight out of the registry, same as the haptics toggle does.
-        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
-        const slot = reg && reg.slots.find(s => s.id === reg.active);
-        const d = slot && JSON.parse(localStorage.getItem(slot.key) || 'null');
-        return (d && d.playerName) || '';
       } catch { return ''; }
+      // Before save.js has loaded: the registry, same as the haptics toggle.
+      const d = readActiveSlotData();
+      return (d && d.playerName) || '';
     }
     window.__setPlayerName = function (raw) {
       const name = (typeof Multiplayer !== 'undefined') ? Multiplayer.cleanName(raw) : String(raw || '').trim().slice(0, 16);
@@ -2118,13 +2179,21 @@
     // last one clears — the story always lands first. `force` (the ☰ menu
     // entry) reopens it regardless of the seen flag and never queues.
     let __howtoPending = false;
+    // Has this save answered the mode question? null until it has (app.js
+    // exposes __gameMode; a build without it — the harness — reads as chosen
+    // so the card never blocks a test on a button it can't press).
+    function modeChosen() {
+      return typeof window.__gameMode !== 'function' || window.__gameMode() != null;
+    }
     window.showHowTo = function showHowTo(force) {
       const overlay = document.getElementById('howto');
       if (!overlay) return;
       if (!force) {
         let seen = false;
         try { seen = !!localStorage.getItem('terracart.howtoSeen'); } catch {}
-        if (seen) return;
+        // A save with no mode yet is asked even if the card was seen before
+        // (a reset keeps the flag; the choice lives on the save, not here).
+        if (seen && modeChosen()) return;
         if (introOverlayUp()) { __howtoPending = true; return; }
       }
       __howtoPending = false;
@@ -2143,6 +2212,29 @@
     function syncHowToSkip() {
       const btn = document.getElementById('howto-skip');
       if (btn) btn.hidden = !window.__tutorialActive?.();
+      syncHowToModes();
+    }
+    // Which face the card wears: the two mode CTAs while the save has not
+    // answered, or the "you're playing X" line + "Got it" once it has.
+    function syncHowToModes() {
+      const chosen = modeChosen();
+      const modes = document.getElementById('howto-modes');
+      const cur = document.getElementById('howto-mode-current');
+      const close = document.getElementById('howto-close');
+      const skip = document.getElementById('howto-skip');
+      if (modes) modes.hidden = chosen;
+      if (close) close.hidden = !chosen;
+      if (!chosen && skip) skip.hidden = true;   // the hard CTA IS the skip
+      if (cur) {
+        const m = (typeof window.__gameMode === 'function') ? window.__gameMode() : null;
+        const prof = (m && typeof Difficulty !== 'undefined') ? Difficulty.PROFILES[m] : null;
+        cur.hidden = !prof;
+        if (prof) {
+          cur.textContent = '';
+          cur.append(prof.label, ' ', Object.assign(document.createElement('span'),
+            { textContent: '\u2014 ' + (prof.tutorial ? 'tutorial on' : 'no tutorial') }));
+        }
+      }
     }
     function closeHowTo() {
       const overlay = document.getElementById('howto');
@@ -2153,6 +2245,17 @@
       e.stopPropagation();
       closeHowTo();
     });
+    // The mode CTAs. Easy keeps the ladder running (it already is); hard
+    // retires it for good, re-purses the save and sweeps the supply crates —
+    // all of that is app.js chooseMode, this only carries the answer over.
+    for (const id of ['howto-easy', 'howto-hard']) {
+      document.getElementById(id)?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mode = e.currentTarget.dataset.mode;
+        window.__chooseMode?.(mode);
+        closeHowTo();
+      });
+    }
     // "Skip the tutorial" — retires the objective chip (app.js exposes the
     // hook; the ladder keeps tracking quietly underneath) and closes the card.
     document.getElementById('howto-skip')?.addEventListener('click', (e) => {
@@ -2319,39 +2422,43 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=4"></script>
-  <script src="src/util.js?v=20"></script>
-  <script src="src/sprite_layout.js?v=8"></script>
+  <script src="src/difficulty.js?v=2"></script>
+  <script src="src/util.js?v=25"></script>
+  <script src="src/particles.js?v=3"></script>
+  <script src="src/trail.js?v=5"></script>
+  <script src="src/sprite_layout.js?v=13"></script>
   <script src="src/placed_floor.js?v=1"></script>
-  <script src="src/home.js?v=8"></script>
-  <script src="src/coords.js?v=121"></script>
-  <script src="src/fog.js?v=3"></script>
-  <script src="src/biome_profiles.js?v=6"></script>
-  <script src="src/worldgen.js?v=227"></script>
-  <script src="src/textures.js?v=173"></script>
+  <script src="src/home.js?v=12"></script>
+  <script src="src/coords.js?v=125"></script>
+  <script src="src/fog.js?v=5"></script>
+  <script src="src/biome_profiles.js?v=7"></script>
+  <script src="src/worldgen.js?v=238"></script>
+  <script src="src/textures.js?v=175"></script>
   <script src="src/save.js?v=116"></script>
-  <script src="src/items.js?v=199"></script>
+  <script src="src/items.js?v=207"></script>
   <script src="src/inventory.js?v=2"></script>
-  <script src="src/energy.js?v=3"></script>
-  <script src="src/crops.js?v=2"></script>
-  <script src="src/delivery.js?v=4"></script>
-  <script src="src/savemigrate.js?v=7"></script>
+  <script src="src/energy.js?v=5"></script>
+  <script src="src/crops.js?v=3"></script>
+  <script src="src/delivery.js?v=6"></script>
+  <script src="src/savemigrate.js?v=11"></script>
   <script src="src/gear.js?v=2"></script>
-  <script src="src/shops_math.js?v=3"></script>
-  <script src="src/shops.js?v=5"></script>
-  <script src="src/rarity.js?v=27"></script>
-  <script src="src/loot.js?v=142"></script>
-  <script src="src/quests.js?v=5"></script>
-  <script src="src/interactables.js?v=13"></script>
-  <script src="src/combat.js?v=4"></script>
-  <script src="src/interact.js?v=231"></script>
-  <script src="src/render.js?v=325"></script>
-  <script src="src/multiplayer.js?v=7"></script>
-  <script src="src/road_overlay.js?v=13"></script>
-  <script src="src/building_overlay.js?v=3"></script>
-  <script src="src/assets.js?v=177"></script>
-  <script src="src/sandbox.js?v=38"></script>
+  <script src="src/shops_math.js?v=7"></script>
+  <script src="src/shops.js?v=7"></script>
+  <script src="src/rarity.js?v=30"></script>
+  <script src="src/loot.js?v=146"></script>
+  <script src="src/quests.js?v=6"></script>
+  <script src="src/interactables.js?v=19"></script>
+  <script src="src/combat.js?v=10"></script>
+  <script src="src/interact.js?v=241"></script>
+  <script src="src/lighting.js?v=11"></script>
+  <script src="src/render.js?v=354"></script>
+  <script src="src/multiplayer.js?v=9"></script>
+  <script src="src/road_overlay.js?v=15"></script>
+  <script src="src/building_overlay.js?v=7"></script>
+  <script src="src/assets.js?v=181"></script>
+  <script src="src/sandbox.js?v=41"></script>
   <script src="src/testtools.js?v=9"></script>
-  <script src="src/geo.js?v=2"></script>
+  <script src="src/geo.js?v=3"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2408,7 +2515,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=460';
+      const APP_SRC = 'src/app.js?v=500';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

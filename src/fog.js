@@ -4,13 +4,13 @@
 //   nothing external. Pure data + math (no Phaser, no DOM, no WorldGen).
 //
 // Exports as globals:
-//   Fog.REVEAL_CELLS      — reveal radius, in cells, around the player
-//   Fog.REVEAL_ARM_CELLS  — sweep-arm half-length: the row/column through the
-//                           player reveals this far to either side
+//   Fog.REVEAL_CELLS      — vision radius, in cells, around the player
 //   Fog.init(save, w)     — load the persisted masks; w = cellsPerTile
-//   Fog.reveal(ix, iy)    — reveal around the PLAYER's cell; true if anything changed
+//   Fog.reveal(ix, iy)    — reveal the PLAYER's vision circle; true if anything changed
 //   Fog.revealDisc(ix, iy, r) — reveal an arbitrary disc (the onboarding trail)
-//   Fog.seen(tx, ty, ix, iy) — is that cell revealed?
+//   Fog.seen(tx, ty, ix, iy) — is that cell revealed? (No shipping caller —
+//                           the game reads maskFor + bit in its hot loop —
+//                           kept as the TEST SEAM test/node/fog*.test.js pin.)
 //   Fog.maskFor(tx, ty)   — the tile's raw bitset (or null), for hot per-cell reads
 //   Fog.bit(mask, i)      — read bit i of a mask
 //   Fog.flush(save)       — write the masks back into save.fog
@@ -36,38 +36,32 @@
 (function (window) {
   'use strict';
 
-  // How far around the player a step reveals, in cells (7 m each).
+  // The VISION CIRCLE: how far around the player a step reveals, in cells
+  // (7 m each). This radius is the whole of the walk-time reveal — what the
+  // player could have reached out and touched, and nothing else.
   //
-  // This has a hard ceiling that is easy to miss: the viewport is VIEW_CELLS
+  // It has a hard ceiling that is easy to miss: the viewport is VIEW_CELLS
   // (11) wide, so the player can see 5 cells in every direction. Reveal 5 or
   // more and every cell is revealed the moment it becomes visible — the fog
   // would be real, persisted, and completely invisible, because the only cells
   // still dark would be off-screen ones.
-  //
-  // 3 is the reach radius: you reveal what you could have reached out and
-  // touched.
   const REVEAL_CELLS = 3;
 
-  // The sweep arms: a step also reveals the ROW and COLUMN through the player,
-  // this far to either side — every cell of the 11-cell viewport's width, so
-  // the strip the player walks down opens up edge to edge.
+  // ── Why there are no sweep arms any more (Sep 2026) ───────────────────────
+  // A step used to ALSO reveal the row and the column through the player, six
+  // cells to either side — a cross laid over the disc, sized to clear the
+  // viewport edge to edge. That was aimed at a rendering complaint (fog 0.8
+  // stacked on the distance falloff parked a near-black band down the sides of
+  // a phone screen, which read as letterboxing) and it paid for it in the one
+  // currency the feature is made of: the player cleared ground 42 m away, on
+  // both axes, without going anywhere near it. Walking one street opened the
+  // cross-streets, and the revealed region stopped tracking where you had been.
   //
-  // The disc alone left a 2-cell band of fog around the viewport edge, and on
-  // a phone that band IS the screen edge: walking anywhere painted two
-  // near-black columns down both sides of the display (fog 0.8 stacked on the
-  // distance falloff), which read as the app being letterboxed, not as
-  // unexplored land. The arms are the "look down the cross-street as you walk
-  // past" reveal: the rank you are ON clears to the screen edge — and so does
-  // every rank you have crossed — while everything ahead of and diagonal to
-  // you keeps its fog, so the frontier still reads as a frontier.
-  //
-  // Exactly (VIEW_CELLS + 1) / 2 (pinned in fog.test.js), NOT the half-width:
-  // the view scrolls by sub-cell fractions, so up to TWELVE columns intersect
-  // it and the outermost, partially-visible one is a cell PAST the half-width.
-  // At 5 that column kept its fog and drew a half-cell black sliver down one
-  // screen edge — the letterbox bug back at 1/4 scale. Shorter re-grows the
-  // side bands; longer reveals only wholly off-screen ground.
-  const REVEAL_ARM_CELLS = 6;
+  // The reveal is the circle. If the wash at the screen edge reads wrong again,
+  // that is the RAMP's problem to solve where it is drawn — FOG_ALPHA and
+  // FOG_RAMP_A in render.js, tuned against the distance falloff they stack
+  // with — not a reason to hand the player ground they never walked. Widening
+  // the reveal to fix a darkness is how the arms got here.
 
   // tileKey → Uint8Array bitset, one bit per cell of that tile, row-major.
   let _masks = new Map();
@@ -195,9 +189,9 @@
     return true;
   }
 
-  // The raw disc, no revision bump — reveal() composes it with the arms and
-  // bumps once for the whole step (the revision is pinned to move exactly
-  // once per genuine reveal, however many cells the step touched).
+  // The raw disc, no revision bump — the callers bump once for the whole shape
+  // (the revision is pinned to move exactly once per genuine reveal, however
+  // many cells the step touched).
   function discCells(cellIX, cellIY, R) {
     const R2 = R * R;
     let changed = false;
@@ -217,18 +211,14 @@
     return changed;
   }
 
-  // The walk-time entry point: reveal around the player — the reach disc plus
-  // the two sweep arms (see REVEAL_ARM_CELLS). Cheap enough to call every
-  // frame — it bails unless the player has actually changed cell.
+  // The walk-time entry point: reveal the player's vision circle, and only
+  // that. Cheap enough to call every frame — it bails unless the player has
+  // actually changed cell.
   function reveal(cellIX, cellIY) {
     if (cellIX === _lastIX && cellIY === _lastIY) return false;
     if (!_w) return false;
     _lastIX = cellIX; _lastIY = cellIY;
-    let changed = discCells(cellIX, cellIY, REVEAL_CELLS);
-    for (let d = -REVEAL_ARM_CELLS; d <= REVEAL_ARM_CELLS; d++) {
-      if (revealCell(cellIX + d, cellIY)) changed = true;
-      if (revealCell(cellIX, cellIY + d)) changed = true;
-    }
+    const changed = discCells(cellIX, cellIY, REVEAL_CELLS);
     if (changed) _revision++;
     return changed;
   }
@@ -277,10 +267,9 @@
   }
 
   window.Fog = {
-    REVEAL_CELLS, REVEAL_ARM_CELLS,
+    REVEAL_CELLS,
     init, reveal, revealDisc, seen, maskFor, bit, flush,
     get revision() { return _revision; },
-    get width() { return _w; },
     // Test seams — the codec is the one part with a round-trip worth pinning.
     _rle: { encode: rleEncode, decode: rleDecode },
   };
