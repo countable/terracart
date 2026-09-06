@@ -142,9 +142,10 @@ const MINERAL_ICON_SHEET = {
   // 7_Pickup_Items_16x16 (renamed Pickup_Items.png in Objects/). Frame =
   // 6 * 14 + 4 = 88.
   boot:       { sheet: 'pickup',         frame: 88 },
-  // Consumables — flutes/books are 32×32 / 240×64 multi-frame sheets;
-  // frame 0 is the basic variant.
-  flute:      { sheet: 'icon_flute',  frame: 0 },
+  // Consumables — honey is a single 16×16 jar (Icons/Items/Honey.png, an
+  // amber fill of the potion pack's empty flask); books are a 240×64
+  // multi-frame sheet, frame 0 the basic variant.
+  honey:      { sheet: 'icon_honey',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
@@ -266,7 +267,7 @@ const BASE_TIER = {
   deer: 4,
   cow: 5,
   // Consumables
-  flute: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
+  honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   dragon_powder: 3,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
@@ -336,9 +337,10 @@ const ITEMS = [
   { id: 'starflower',  name: 'Starflower',    kind: 'produce', crop: 'starflower' },
   // Consumables — used on yourself via the Use button that appears below the
   // inventory bar while one is selected (syncConsumableButton in app.js).
-  // Flute: lures wandering chickens + cows within 30m toward you.
+  // Honey: set it out to lure wandering chickens + cows within 30m toward
+  //        you (eaten, so it's consumed — hence not a flute any more).
   // Book:  reveals a play tip or a directional hint to a nearby chest.
-  { id: 'flute', name: 'Flute', kind: 'consumable' },
+  { id: 'honey', name: 'Honey', kind: 'consumable' },
   { id: 'book',  name: 'Book',  kind: 'consumable' },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
@@ -509,7 +511,7 @@ const PRICES = {
   milk: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
-  flute: 12,
+  honey: 12,
   book:  20,
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   vigor_potion:  35,   // T2 — instant 40-energy restore
@@ -645,7 +647,7 @@ const PLAY_TIPS = [
   // ── Consumables / placeables ──────────────────────────────
   'Potions run one minute each: Reach lights the whole screen, Speed grants top-tier stick walking, Shielding halves monster damage.',
   'Burn a coal on bare ground for a campfire. It rests you slowly out in the open, and slimes keep their distance.',
-  'Play a Flute to draw every chicken and cow within 30m toward you.',
+  'Set out a jar of Honey to draw every chicken and cow within 30m toward you.',
   // ── Food side-effects ─────────────────────────────────────
   'Rainberry waters every crop within 20m when you eat it.',
   'An Iceflower restores 150 energy — the biggest meal in the world.',
@@ -684,7 +686,7 @@ const ITEM_EFFECTS = {
   // Offered to a slime to calm it (the secret gem).
   sapphire:  'Offer to a slime to tame it',
   // Consumables used on yourself / the world.
-  flute:        'Play to lure nearby chickens & cows toward you',
+  honey:        'Set out to lure nearby chickens & cows toward you',
   book:         'Read for a play tip or a hint toward a chest',
   reach_potion:  'Drink for full-screen reach (1 min)',
   vigor_potion:  'Drink to restore 40 energy',

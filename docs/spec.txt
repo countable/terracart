@@ -1093,14 +1093,15 @@ CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
 ================================================================================
 CONSUMABLES
 ================================================================================
- - Self-targeted consumables (flute / book / potions / sapphire portal) are
-   used via a dedicated USE button (Play / Read / Drink / Portal) that appears
+ - Self-targeted consumables (honey / book / potions / sapphire portal) are
+   used via a dedicated USE button (Use / Read / Drink / Portal) that appears
    below the inventory bar while one is selected — same spot and behaviour as
    the Eat CTA for food. No foot-tapping: tapping your own cell with one
    selected falls through to the normal cell handlers (till / plant / etc.).
- - FLUTE: select it and tap Play — lures wandering farm animals
-   (chickens / cows) within ~6 cells (30m) toward you (flash reports
-   how many respond). Consumed on use.
+ - HONEY: select it and tap Use — sets out a jar that lures wandering farm
+   animals (chickens / cows) within ~6 cells (30m) toward you (the modal
+   reports how many respond). Consumed on use — the animals eat it. (Was the
+   Flute until Sep 2026; old saves fold `flute` into `honey` on load.)
  - BOOK: select it and tap Read — ~50% a play tip, ~50% a directional
    hint to the nearest unopened chest ("about N paces northwest"). Consumed.
  - CAMPFIRE: select a COAL and tap an empty bare (tillable) cell to light a fire
@@ -1139,7 +1140,7 @@ ITEMS & RARITY
      minerals:      coal, wood, copper/iron/gold/platinum/crimson/frost bars
      gems:          sapphire, ruby, emerald
      animals:       chicken, cow, cat, dog, deer, rabbit, crow, butterfly
-     consumables:   flute, book, scarecrow      badge: discovery
+     consumables:   honey, book, scarecrow      badge: discovery
 
 ================================================================================
 SHINY VARIANTS & DISCOVERY
