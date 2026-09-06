@@ -299,9 +299,10 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   // The modal shell gives an actions dialog no tap-to-dismiss, so a stray tap
   // can't drop the prize — pin that the offer really is the actions variant.
   assert.truthy(/Take your pick/.test(body), 'the offer names itself as a pick');
-  // The header: "Thou hast traveled far", one constant for all three shapes
-  // of the ceremony, with the count it paid at on the pick's flavour line.
-  assert.truthy(/const TRAIL_PRIZE_HEADER = 'Thou hast traveled far';/.test(app), 'the header constant');
+  // The header: the survivors' thanks, one constant for all three shapes of
+  // the ceremony, with the count it paid at on the pick's flavour line.
+  assert.truthy(/const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';/.test(app),
+    'the header constant');
   assert.truthy(/const header = TRAIL_PRIZE_HEADER;/.test(body), 'the ceremony uses it');
   assert.eq((body.match(/header,/g) || []).length, 3, 'all three shapes carry the header');
   // The flavour line prints the walk through Trail.label — the ONE formatter
@@ -311,9 +312,69 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
     'the goal just completed');
   assert.truthy(/const walked = Trail\.label\(goal, goal\);/.test(body),
     'formatted by Trail.label, never a second `${x}/${y} m`');
-  assert.truthy(/sub: `\$\{walked\} restored · \$\{choices\.length\} finds — one is yours`/.test(body),
+  assert.truthy(/sub: `\$\{walked\} restored · \$\{choices\.length\} finds — one is yours<br>\$\{next\}`/.test(body),
     'the pick says how much street was restored');
+  // EVERY shape of the ceremony names the next rung — a prize that pays
+  // without saying where the ladder goes next is a dead end.
+  assert.eq((body.match(/sub: (next|`|card\.sub)/g) || []).length, 3,
+    'all three shapes carry a sub line');
+  assert.eq((body.match(/\$\{next\}|sub: next/g) || []).length, 3,
+    'and all three print the next rung');
+  assert.truthy(/const next = trailNextPrizeLine\(n \| 0\);/.test(body),
+    'through the one formatter, off Trail.goalFor');
   assert.falsy(/cobbles walked/.test(body), 'nothing counts pebbles any more');
+});
+
+// ── THE FIRST PRIZE IS AN ONION SEED ──────────────────────────────────────
+// Prize #1 is not rolled. What the road pays in is seeds, and the first rung
+// says so out loud rather than sampling a pool that could hand a new player
+// coins and leave them none the wiser.
+test('trail prize: the first rung is the onion seed, and only the first', () => {
+  const first = Trail.firstPrize(1);
+  assert.truthy(first, 'rung one is fixed');
+  assert.eq(first.id, 'onion_seed', 'an onion seed');
+  assert.eq(first.id, Trail.FIRST_PRIZE_ID, 'through the constant');
+  assert.truthy(ITEM_BY_ID[first.id], 'which is a real item');
+  assert.eq(ITEM_BY_ID[first.id].kind, 'seed', 'of the class the road pays in');
+  assert.eq(first.tier, ITEM_BY_ID[first.id].baseTier, 'carrying its own tier');
+  assert.gt(first.qty, 1, 'as a pack, since seeds are planted in bulk');
+  assert.eq(first.kind, 'item', 'in exactly the shape pickReward returns');
+  assert.eq(first.jackpot, 0);
+  assert.eq(first.consolation, 0);
+  for (const n of [0, 2, 3, 10]) assert.falsy(Trail.firstPrize(n), `rung ${n} is rolled`);
+});
+
+test('trail prize: the fixed first rung pays out through the ordinary claim', () => {
+  const s = scene();
+  const card = s._claimTrailReward(Trail.firstPrize(1));
+  assert.truthy(card, 'it draws a card like any other reward');
+  assert.eq(s.taken.length, 1, 'and lands in the bag');
+  assert.eq(s.taken[0][0], 'onion_seed');
+  assert.eq(s.taken[0][1], Trail.FIRST_PRIZE_QTY, 'as the whole pack');
+});
+
+test('trail prize: the ceremony rolls the ROAD pool, and rung one skips the roll', () => {
+  const app = APP_JS_SRC;
+  const at = app.indexOf('_fireTrailPrize(n, onDismiss) {');
+  const body = app.slice(at, app.indexOf('\n  _trailChoiceLabel', at));
+  assert.truthy(/pickReward\(Trail\.PRIZE_CONTEXT, this\.save, undefined, \{ rollBonus: bonus \}\)/.test(body),
+    'the pool is trail.js\'s, never a chest context named here');
+  assert.falsy(/chest:lowtier/.test(body), 'the ladder no longer borrows the lowtier chest curve');
+  assert.truthy(/const fixed = Trail\.firstPrize \? Trail\.firstPrize\(n\) : null;/.test(body),
+    'rung one is asked for first');
+  assert.truthy(/const choices = fixed \? \[fixed\]/.test(body), 'and short-circuits the roll');
+});
+
+test('trail prize: every ceremony says where the next rung is', () => {
+  // The ladder grows by GOAL_STEP_M a rung, so the promise under the prize is
+  // Trail.goalFor — never a retyped number, and never absent.
+  for (const won of [0, 1, 5]) {
+    const line = trailNextPrizeLine(won);
+    assert.truthy(line.includes(`${Trail.goalFor(won)}m`), 'quotes the next rung off Trail');
+    assert.truthy(/better prize/.test(line), 'and promises the step up the roll bonus buys');
+  }
+  assert.eq(trailNextPrizeLine(1), `Repair ${Trail.GOAL_STEP_M * 2}m more for a better prize.`,
+    'the second rung asks a step more than the first');
 });
 
 test('trail counter: the street reads Trail.readout of the bank, not raw progress', () => {
@@ -452,6 +513,11 @@ const sweepScene = (over) => Object.assign({
   _toast(text, opts) { this.toasts.push({ text, opts }); },
   drained: 0,
   _drainTrailPrizes() { this.drained += 1; },
+  // The one-time first-repair dialog (app.js _showTrailIntro → showMessageModal).
+  // Recorded and dismissed straight away, so the sweep's prize queue drains
+  // through the same path it does in the game.
+  intros: [],
+  showMessageModal(o) { this.intros.push(o); if (typeof o.onDismiss === 'function') o.onDismiss(); },
   // The BLAST (app.js _blastAt) the sweep fires: the real method, with only
   // its particle half stubbed, so the test reads what the sweep actually threw
   // and where.
@@ -734,12 +800,20 @@ test('streets: the live pass previews the dwell and shines on the rebuild', () =
       clock.at(PATH_STONE_DWELL_MS); frame(s);
       const shine = seen.filter((r) => r.colour === 0xffffff);
       assert.eq(shine.length, 1, 'the rebuilt stretch shines white');
-      assert.inRange(shine[0].alpha, 0.99, 1.0, 'brightest at the instant it lands');
+      // STREET_SHINE_ALPHA, not white: the gleam is a nod over the new
+      // surface, and at the width a trunk road is stroked at a full-white run
+      // whited the carriageway out every few paces of an ordinary walk.
+      assert.inRange(shine[0].alpha, STREET_SHINE_ALPHA - 0.01, STREET_SHINE_ALPHA + 0.01,
+        'brightest at the instant it lands, at the shine\'s own ceiling');
+      assert.lt(STREET_SHINE_ALPHA, 1, 'which is well under full white');
       assert.eq(seen.filter((r) => r.colour !== 0xffffff).length, 0,
         'and the preview stops drawing over the clean band the same frame');
 
       clock.at(PATH_STONE_DWELL_MS + STREET_SHINE_MS / 2); frame(s);
-      assert.inRange(seen[0].alpha, 0.49, 0.51, 'the shine fades over its own clock');
+      // Eased out (the square of the remaining life), so the gleam spends most
+      // of its clock on the way to gone rather than half-lit behind the player.
+      assert.inRange(seen[0].alpha, STREET_SHINE_ALPHA * 0.25 - 0.01,
+                     STREET_SHINE_ALPHA * 0.25 + 0.01, 'the shine fades over its own clock');
       clock.at(PATH_STONE_DWELL_MS + STREET_SHINE_MS); frame(s);
       assert.eq(seen.length, 0, 'and is gone when it burns out');
     });
@@ -777,5 +851,86 @@ test('streets: the sweep is memoised on the reach cell, and the ripen runs every
   assert.truthy(/drawRoadGeometry\(\) \{\n\s+if \(typeof RoadOverlay === 'undefined'\) return;\n\s+RoadOverlay\.draw\(this\);[\s\S]{0,400}?this\._drawStreetLive\(\);/.test(APP_JS_SRC),
     'and the live pass runs after the overlay draw, every frame');
   assert.falsy(/_drawStreetLive/.test(body), 'never from the sweep itself');
+});
+
+// ── THE FIRST REPAIR ──────────────────────────────────────────────────────
+// One sweep of the shipping pass.
+const sweep = (s) => { s._sweepStreets(); };
+
+// Restoration has no tap and no tool, so the first stretch to come back under
+// a new player is an unexplained flash and a number. The one-time dialog is
+// what turns it into an invitation — once per SAVE, and never for someone
+// already halfway up the ladder.
+test('streets: the first metres ever banked open the one-time dialog', () => {
+  withStreet((clock) => {
+    const s = sweepScene();
+    clock.at(0); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS); sweep(s);
+    assert.eq(s.intros.length, 1, 'the dialog opened on the first metres');
+    assert.eq(s.intros[0].title, TRAIL_INTRO_TITLE, 'with the greeting title');
+    assert.truthy(s.save.trail.greeted, 'and the save remembers it');
+    // The rung it promises is Trail's own, never a retyped 200.
+    assert.truthy(s.intros[0].body.includes(`${Trail.GOAL_STEP_M}m`),
+      'quoting the rung the ladder actually pays at');
+    assert.truthy(/arteries of civilization/.test(s.intros[0].body), 'in the survivors\' voice');
+    // …and never again.
+    s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
+    clock.at(PATH_STONE_DWELL_MS * 2); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
+    assert.eq(s.intros.length, 1, 'and never opens a second time');
+  });
+});
+
+test('streets: the greeting waits for a clear screen, and asks again', () => {
+  // The first sweep can land seconds into a brand new session — exactly when
+  // the how-to card is up. A dialog opened behind that one is a dialog nobody
+  // reads, and the save's one greeting would be spent on it.
+  withStreet((clock) => {
+    const s = sweepScene();
+    const body = { classList: { has: true, contains(c) { return c === 'modal-open' && this.has; } } };
+    const realBody = document.body;
+    document.body = body;
+    try {
+      clock.at(0); sweep(s);
+      clock.at(PATH_STONE_DWELL_MS); sweep(s);
+      assert.eq(s.intros.length, 0, 'nothing opens behind the card');
+      assert.falsy(s.save.trail.greeted, 'and the greeting is not spent');
+      assert.gt(s.save.trail.metres, 0, 'though the metres still bank');
+      body.classList.has = false;
+      s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
+      clock.at(PATH_STONE_DWELL_MS * 2); sweep(s);
+      clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
+      assert.eq(s.intros.length, 1, 'and the next sweep with a clear screen asks again');
+      assert.truthy(s.save.trail.greeted, 'spending it then');
+    } finally { document.body = realBody; }
+  });
+});
+
+test('streets: a save already up the ladder is never introduced to it', () => {
+  withStreet((clock) => {
+    const s = sweepScene({ save: { energy: 10, reachUpgrades: 0,
+                                   trail: { metres: 40, prizes: 2, greeted: true } } });
+    clock.at(0); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS); sweep(s);
+    assert.gt(s.save.trail.metres, 40, 'it still banks');
+    assert.eq(s.intros.length, 0, 'but says nothing');
+  });
+});
+
+test('streets: a prize on the greeting sweep waits for the dialog to close', () => {
+  withStreet((clock) => {
+    // A save one metre short of a rung, greeted for the first time on the very
+    // sweep that pays it. The ceremony must not open on top of the dialog.
+    const s = sweepScene({ save: { energy: 10, reachUpgrades: 0,
+                                   trail: { metres: Trail.GOAL_STEP_M - 1, prizes: 0 } } });
+    const order = [];
+    s.showMessageModal = (o) => { order.push('intro'); s.intros.push(o); o.onDismiss?.(); };
+    s._drainTrailPrizes = () => { order.push('prize'); s.drained += 1; };
+    clock.at(0); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS); sweep(s);
+    assert.eq(s.intros.length, 1, 'the dialog opened');
+    assert.eq(s.save.trail.prizes, 1, 'and the sweep really did pay a rung');
+    assert.eq(order.join(','), 'intro,prize', 'and the ceremony followed it, never beside it');
+  });
 });
 })();

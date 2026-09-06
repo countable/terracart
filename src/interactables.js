@@ -449,6 +449,24 @@ const INTERACTABLES = {
         }
         return true;
       }
+      if (result.kind === 'gold' && !result.slot) {
+        // PLAIN CASH — the 'cash' class (rarity.js), which a commerce chest
+        // rolls more often than anything but its produce. No slot, so there is
+        // no gear to name: it is a purse, and it says so. Told apart from the
+        // gear cash-out below by exactly that field, the same test
+        // interact.js grantTreasureRoll uses.
+        markOpened();
+        ctx.dirty = true;
+        addMoney(save, result.amount || 0);
+        scene.showChestRewardModal({
+          iconHTML: '<span style="font-size:48px">🪙</span>',
+          name: `+$${result.amount || 0}`, color: UI_GOLD,
+        });
+        if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
+          scene.flashJackpot(result.jackpot);
+        }
+        return true;
+      }
       if (result.kind === 'gold') {
         // Non-upgrade relic consolation (reconcileRelicOffer walked up and cashed out).
         markOpened();

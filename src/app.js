@@ -62,8 +62,28 @@ const CELL_PX = 32;
 const STREET_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
 // The trail prize modal's header — the kind label the ceremony overrides
 // (MODAL_KINDS). It used to be the count ("10 COBBLES WALKED"); the count now
-// lives on the street's counter and in the pick's flavour line.
-const TRAIL_PRIZE_HEADER = 'Thou hast traveled far';
+// lives on the street's counter and in the pick's flavour line. It thanks the
+// player in the survivors' own voice, because the road ladder is the one loop
+// where somebody is meant to be watching you work.
+const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
+// The line under every prize: what the NEXT rung asks for. The ladder grows by
+// GOAL_STEP_M a rung and the prize gets a step better with it
+// (Trail.rollBonusFor), so the number and the promise beside it are the same
+// fact — and the number is Trail's, never retyped here.
+const trailNextPrizeLine = (prizesWon) =>
+  `Repair ${Trail.goalFor(prizesWon)}m more for a better prize.`;
+// ── THE FIRST REPAIR ───────────────────────────────────────────────────────
+// The one moment the game says out loud what a road is FOR. Restoration has no
+// tap and no tool — stand by a street and it comes back — so without this the
+// first stretch to rebuild under a new player's feet is an unexplained flash
+// and a "23/200 m" they have no reason to read as an invitation. Shown once,
+// on the first metres ever banked (save.trail.greeted), and it names the rung
+// from Trail so the promise and the ladder can't drift.
+const TRAIL_INTRO_TITLE = 'The survivors are watching';
+const trailIntroBody = () =>
+  'You start repairing the roads — after all, they are the arteries of ' +
+  'civilization!\n\n' +
+  `Repair ${Trail.GOAL_STEP_M}m of road and the survivors will reward you.`;
 // How long a stretch of street has to stay IN SIGHT — inside the lit reach,
 // continuously — before it is rebuilt. Walking past a street at the edge of
 // the bubble no longer harvests it in the frame it clips: the metres you bank
@@ -73,14 +93,22 @@ const TRAIL_PRIZE_HEADER = 'Thou hast traveled far';
 // character moving itself and never the player looking.
 const PATH_STONE_DWELL_MS = 2000;
 // A RESTORATION'S BLAST (_blastAt): the flash a stretch coming back throws, in
-// cells. The same 2.5 the old per-pebble flash was stamped at before the blast
-// became one reusable thing, so a street rebuilding reads as a stone lighting
-// always did.
-const BLAST_STONE_R_CELLS = 2.5;
+// cells. Inherited at 2.5 from the old per-pebble flash — one stone lighting
+// up — but a sweep restores a whole STRETCH and fires once for all of it, and
+// at that radius the moment read as an explosion on a street the player was
+// only walking along. Repairing a road is steady work, not a detonation: the
+// flash is a nod, and the shine below carries the rest of it.
+const BLAST_STONE_R_CELLS = 1.5;
 // The white SHINE that runs down a stretch the instant it is rebuilt, in ms.
 // Lighting.BLAST_MS, not a number of its own: the shine and the lightmap flash
 // are two halves of one moment and must end together.
 const STREET_SHINE_MS = (typeof Lighting !== 'undefined' && Lighting.BLAST_MS) || 900;
+// How bright that shine starts. Well under full white: the run used to fade
+// from opaque white, which at the widths a trunk road is stroked at whited out
+// the carriageway for a beat every time a sweep landed — and a sweep lands
+// every few paces while the player walks a street. A repair should read as a
+// gleam passing over the new surface, not as a strobe.
+const STREET_SHINE_ALPHA = 0.4;
 // How faint the DWELL PREVIEW gets at its fullest — the ghost of the clean
 // carriageway creeping in under the player while the dwell runs. Well under
 // half, because the preview is a promise, not the thing: at the instant it
@@ -13176,6 +13204,15 @@ class MapScene extends Phaser.Scene {
         ...(at ? this._worldToastAt(at.x, at.y, STREET_COUNTER_LIFT_PX) : {}),
       });
     }
+    // THE FIRST REPAIR. The very first metres this save ever banks open the
+    // one dialog that says what a road is for (TRAIL_INTRO_TITLE). Flagged on
+    // the SAVE, so it is once per player and not once per reload;
+    // savemigrate.js marks veterans greeted so nobody who has already walked a
+    // ladder gets introduced to it. The flag is only set when the dialog
+    // actually opened — a sweep that lands behind the how-to card leaves it
+    // false and the next one that banks metres tries again, seconds later.
+    const greeting = !st.greeted && this._showTrailIntro();
+    if (greeting) st.greeted = true;
     if (out.owed <= 0) return;
     // A wide reach can sweep past more than one goal in a single step, so this
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
@@ -13183,7 +13220,30 @@ class MapScene extends Phaser.Scene {
     // prize's ORDINAL, which is what decides how good its roll is.
     this._trailPrizeQueue = this._trailPrizeQueue || [];
     for (let n = out.prizes - out.owed + 1; n <= out.prizes; n++) this._trailPrizeQueue.push(n);
-    this._drainTrailPrizes();
+    if (!greeting) this._drainTrailPrizes();
+  }
+
+  // The one-time "you start repairing roads" dialog. Opened from the sweep
+  // that banks a save's first metres. Returns whether it actually opened —
+  // the caller only spends the save's one greeting on a dialog the player saw.
+  //
+  // NEVER ON TOP OF ANOTHER. The first sweep can land seconds into a brand new
+  // session, which is exactly when the how-to card is up — so this waits for a
+  // clear screen (body.modal-open, the same live signal _installModalPadGate
+  // keeps for the pads) and the next sweep that banks metres asks again.
+  //
+  // A prize on this same sweep would need GOAL_STEP_M of street inside one
+  // reach, which no reach is wide enough for — but if it ever happened the
+  // ceremony would open on top of this, so the queue is drained on dismiss
+  // instead of beside it.
+  _showTrailIntro() {
+    if (document.body?.classList?.contains('modal-open')) return false;
+    this.showMessageModal({
+      title: TRAIL_INTRO_TITLE,
+      body: trailIntroBody(),
+      onDismiss: () => this._drainTrailPrizes(),
+    });
+    return true;
   }
 
   // THE LIVE PASS — everything about a street that changes every frame, handed
@@ -13196,8 +13256,9 @@ class MapScene extends Phaser.Scene {
   //                of what is about to happen, so the two seconds read as a
   //                thing being done rather than a delay. Its alpha is the
   //                dwell's own progress: how long this line has been in sight.
-  //   the SHINE    a white run down a stretch the instant it comes back,
-  //                fading over STREET_SHINE_MS beside the blast's flash.
+  //   the SHINE    a pale run down a stretch the instant it comes back, from
+  //                STREET_SHINE_ALPHA to nothing over STREET_SHINE_MS beside
+  //                the blast's flash.
   //
   // Called every frame from drawRoadGeometry, AFTER RoadOverlay.draw has moved
   // the container by this frame's sub-cell scroll — drawLive subtracts that
@@ -13229,7 +13290,11 @@ class MapScene extends Phaser.Scene {
         const st = (t - e.t0) / STREET_SHINE_MS;
         if (!(st < 1)) continue;
         shine[w++] = e;
-        runs.push({ pts: e.pts, tags: e.tags, alpha: 1 - st, colour: 0xffffff });
+        // Eased out (the square), so the gleam is brightest for an instant and
+        // spends most of its life on the way to gone rather than lingering
+        // half-lit over the stretch behind the player.
+        runs.push({ pts: e.pts, tags: e.tags,
+                    alpha: STREET_SHINE_ALPHA * (1 - st) * (1 - st), colour: 0xffffff });
       }
       shine.length = w;
     }
@@ -13283,15 +13348,19 @@ class MapScene extends Phaser.Scene {
   // ORDINAL — the 1st, 2nd, 3rd… — which is both what it took to get here
   // (Trail.GOAL_STEP × n stones) and how good the roll is.
   //
-  // Uses the unified rarity picker with the lowtier chest biome at tier 4 (the
-  // most generous lowtier curve) plus Trail.rollBonusFor extra chain steps —
-  // one, and one more per prize already won, so a longer walk lands a better
+  // Uses the unified rarity picker on the ROAD's own context
+  // (Trail.PRIZE_CONTEXT — rarity.js 'treasure:road': seeds first, with coins
+  // and produce as the other faces) plus Trail.rollBonusFor extra chain steps
+  // — one, and one more per prize already won, so a longer walk lands a better
   // find — while still not competing with the actual T4 epic POI chests.
-  // Those bonus steps buy TIER only: the QUANTITY on the card is the chest
-  // curve's own standard roll, not something the walk inflates (a bonus that
-  // fell through to a quantity bracket is what pinned the ceremony at "× 2").
+  // Those bonus steps buy TIER only: the QUANTITY on the card is the curve's
+  // own standard roll, not something the walk inflates (a bonus that fell
+  // through to a quantity bracket is what pinned the ceremony at "× 2").
   // Routed through showChestRewardModal so it shares the same fanfare +
   // sparkles as chest opens. `onDismiss` walks the prize queue on.
+  //
+  // PRIZE #1 IS NOT ROLLED: Trail.firstPrize hands back the onion seed, so the
+  // first thing a road ever pays names what roads pay in.
   //
   // THE PRIZE IS A CHOICE: it rolls Trail.PRIZE_CHOICES rewards and the
   // player keeps ONE. Nothing is granted until they pick — the roll they turn
@@ -13303,20 +13372,23 @@ class MapScene extends Phaser.Scene {
   _fireTrailPrize(n, onDismiss) {
     const bonus = Trail.rollBonusFor(Math.max(0, (n | 0) - 1));
     const roll = () => ((typeof pickReward === 'function')
-      ? pickReward('chest:lowtier', this.save, undefined,
-                   { tier: 4, rollBonus: bonus })
+      ? pickReward(Trail.PRIZE_CONTEXT, this.save, undefined, { rollBonus: bonus })
       : null);
-    const choices = (typeof Trail !== 'undefined' && Trail.rollChoices)
-      ? Trail.rollChoices(roll) : [roll()].filter(Boolean);
-    // The header is the walk, not the way — "THOU HAST TRAVELED FAR" — and a
-    // street has no name here because the ladder no longer asks which one you
-    // were on. The goal just completed (200, 400, 600 … metres) is the number
+    const fixed = Trail.firstPrize ? Trail.firstPrize(n) : null;
+    const choices = fixed ? [fixed]
+      : ((typeof Trail !== 'undefined' && Trail.rollChoices)
+          ? Trail.rollChoices(roll) : [roll()].filter(Boolean));
+    // The header is the survivors' thanks, not the way — a street has no name
+    // here because the ladder no longer asks which one you were on. The goal just completed (200, 400, 600 … metres) is the number
     // the counter on the street read when it paid (Trail.readout), and the
     // pick's flavour line repeats it under the header — through Trail.label,
     // the ONE formatter, so the two can't print the same walk differently.
     const header = TRAIL_PRIZE_HEADER;
     const goal = Trail.goalFor(Math.max(0, (n | 0) - 1));
     const walked = Trail.label(goal, goal);
+    // What the NEXT rung asks. On every ceremony, single or choice, so the
+    // ladder never pays out without saying where the next rung is.
+    const next = trailNextPrizeLine(n | 0);
     if (!choices.length) {
       // Defensive fallback — give $5 so the player isn't stiffed.
       addMoney(this.save, 5);
@@ -13325,6 +13397,7 @@ class MapScene extends Phaser.Scene {
         header,
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: '+$5',
+        sub: next,
         color: UI_GOLD,
         onDismiss,
       });
@@ -13342,6 +13415,9 @@ class MapScene extends Phaser.Scene {
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
       this.showChestRewardModal({
         kind: 'trail', header, ...card,
+        // The card's own outcome line ("equipped") stays, with the ladder's
+        // next rung under it — two facts, two lines, not one line saying both.
+        sub: card.sub ? `${card.sub}<br>${next}` : next,
         onDismiss: () => this._revealPendingBookReads(onDismiss),
       });
       return;
@@ -13355,7 +13431,7 @@ class MapScene extends Phaser.Scene {
       header,
       iconHTML: '<span style="font-size:44px">💎</span>',
       name: 'Take your pick',
-      sub: `${walked} restored · ${choices.length} finds — one is yours`,
+      sub: `${walked} restored · ${choices.length} finds — one is yours<br>${next}`,
       onDismiss,
       actions: choices.map((reward) => ({
         label: this._trailChoiceLabel(reward),

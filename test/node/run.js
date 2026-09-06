@@ -332,7 +332,8 @@ try {
                    '_rescanStreets(p, reachM, now, sight) {',
                    '_setStreetPreview(meta, iv) {', '_streetRunPts(meta, s0, s1) {',
                    '_streetPointAt(meta, s) {', '_ripenStreets(now, sight) {',
-                   '_bankStreetMetres(addedM, at, now) {', '_drawStreetLive(now) {',
+                   '_bankStreetMetres(addedM, at, now) {', '_showTrailIntro() {',
+                   '_drawStreetLive(now) {',
                    '_blastAt(wmx, wmy, opts) {']
     .map(lift).join(',\n');
   // The seating reads two app.js module constants that don't exist in this
@@ -346,6 +347,17 @@ try {
     }
     return m[1];
   };
+  // A whole `const NAME = …;` declaration, re-bound onto globalThis. For the
+  // multi-line ones constOf's single-line regex can't reach (the intro copy).
+  const declOf = (name) => {
+    const start = src.indexOf(`const ${name} = `);
+    const end = start < 0 ? -1 : src.indexOf(';\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift the ${name} declaration out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return 'globalThis.' + src.slice(start + 'const '.length, end + 1);
+  };
   vm.runInContext(
     `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
     `globalThis.STREET_COUNTER_LIFT_PX = ${constOf('STREET_COUNTER_LIFT_PX')};\n` +
@@ -356,6 +368,12 @@ try {
     `globalThis.STREET_SHINE_MS = ${constOf('STREET_SHINE_MS')};\n` +
     `globalThis.STREET_PREVIEW_ALPHA = ${constOf('STREET_PREVIEW_ALPHA')};\n` +
     `globalThis.STREET_COUNTER_MIN_MS = ${constOf('STREET_COUNTER_MIN_MS')};\n` +
+    `globalThis.STREET_SHINE_ALPHA = ${constOf('STREET_SHINE_ALPHA')};\n` +
+    // The one-time first-repair dialog's copy — carried as source so the test
+    // reads the shipping sentence and the rung it quotes off Trail.
+    `globalThis.TRAIL_INTRO_TITLE = ${constOf('TRAIL_INTRO_TITLE')};\n` +
+    declOf('trailIntroBody') + '\n' +
+    declOf('trailNextPrizeLine') + '\n' +
     // The energy pop's seating: derived from the walker's art, in the order
     // app.js declares them (the head clearance reads the two before it).
     `globalThis.PLAYER_FEET_DROP_PX = ${constOf('PLAYER_FEET_DROP_PX')};\n` +
@@ -369,8 +387,8 @@ try {
                    '_cellAtScreen', 'playerScreen',
                    '_sweepStreets', '_resetStreetSight', '_rescanStreets',
                    '_setStreetPreview', '_streetRunPts', '_streetPointAt',
-                   '_ripenStreets', '_bankStreetMetres', '_drawStreetLive',
-                   '_blastAt']) {
+                   '_ripenStreets', '_bankStreetMetres', '_showTrailIntro',
+                   '_drawStreetLive', '_blastAt']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
       process.exit(2);

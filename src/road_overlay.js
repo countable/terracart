@@ -30,8 +30,10 @@
 // odd stone (see "Weathering") — and the stretches the player has restored
 // (src/streets.js: exact float metre intervals along each way, kept in the
 // save) are drawn AGAIN on a second canvas above it in clean near-black
-// cobble with a hairline kerb (see "Restored"). So a street reads as rebuilt
-// exactly as far as the player has rebuilt it, down to the metre.
+// cobble with a hairline kerb (see "Restored"), its outline feathered so the
+// patch reads as a repair blending into the band rather than a decal laid on
+// it. So a street reads as rebuilt exactly as far as the player has rebuilt
+// it, down to the metre.
 //
 // Depends on:
 //   scene fields (read-only): roadGeomGfx, roadRestoredGfx (headless only),
@@ -545,6 +547,77 @@
   const KERB_ALPHA = 0.12;
   const KERB_INSET_PX = 2;
 
+  // ── The patch is SOFT ────────────────────────────────────────────────────
+  // A rebuilt stretch is a REPAIR, not a decal. Its silhouette against the
+  // dilapidated band underneath is feathered rather than cut, and the round
+  // caps its ends already carry read as a proper lozenge once the corners go
+  // soft — so where the player's dwell stopped is a place the new surface
+  // fades out, not a guillotined edge across the carriageway.
+  //
+  // The blur is applied to the patch's ALPHA ONLY: a mask of the same strokes,
+  // blurred, composited `destination-in` over the finished layer. Blurring the
+  // drawn layer itself would smear the clean setts into grey mush, which is
+  // the one thing the restored look is FOR.
+  //
+  // AT FULL WIDTH, and the radius is a FRACTION of the band. A Gaussian leaves
+  // its half-maximum on the original edge, so blurring the true width keeps
+  // the patch exactly as wide as the band it repairs — nothing is stroked in
+  // to compensate. What a fixed radius WOULD do is eat a narrow way alive: a
+  // footpath is a third the width of a street, and at the radius a carriageway
+  // wants its centre never reaches full alpha, so the whole path would restore
+  // ghostly. So each band width is blurred by its own radius, capped at
+  // RESTORED_BLUR_PX for the wide ones.
+  //
+  // Canvas2D `filter` is the only gradient primitive available here (the same
+  // reason lighting.js bakes its cookies on a canvas). Where it is missing the
+  // softening is skipped and the hard edge ships — never a stack of alpha
+  // strokes standing in for it: a translucent stroke composites with ITSELF
+  // wherever a path doubles back, so a hand-rolled feather would blotch at
+  // every junction, which is the same trap the opaque-then-alpha rule at the
+  // top of this file exists to avoid.
+  //
+  // Measured against a real canvas rather than guessed: at these two numbers a
+  // footway (~9px at 7 m cells) fades over 4px and keeps 93% alpha down its
+  // spine, a residential street (~23px) fades over 9px and stays solid. Push
+  // the fraction past a third and the narrow ways stop reaching full alpha at
+  // all — which is the restored footpath going ghostly, not softer.
+  const RESTORED_BLUR_PX = 5;          // the widest feather any band gets
+  const RESTORED_BLUR_FRAC = 0.32;     // …and never more than this much of its own width
+
+  const blurForWidth = (w) => Math.min(RESTORED_BLUR_PX, Math.max(0, w) * RESTORED_BLUR_FRAC);
+
+  function supportsFilter(ctx) {
+    if (!ctx || typeof ctx.filter !== 'string') return false;
+    try {
+      ctx.filter = 'blur(1px)';
+      const ok = ctx.filter !== 'none';
+      ctx.filter = 'none';
+      return ok;
+    } catch (e) { return false; }
+  }
+
+  // Feather `layer`'s alpha out across the edge of its own outline. One pass
+  // per band WIDTH, since the radius is derived from it. No-op (hard edge
+  // kept) where the platform can't blur.
+  function softenEdge(layer, size, ops) {
+    const mask = scratchLayer(size);
+    if (!mask || !ops.length || !supportsFilter(mask.ctx)) return;
+    const byWidth = new Map();
+    for (const op of ops) {
+      if (!byWidth.has(op.w)) byWidth.set(op.w, []);
+      byWidth.get(op.w).push(op);
+    }
+    for (const [w, group] of byWidth) {
+      mask.ctx.filter = `blur(${blurForWidth(w).toFixed(2)}px)`;
+      strokeOps(mask.ctx, group, 0, '#000');
+    }
+    mask.ctx.filter = 'none';
+    layer.ctx.save();
+    layer.ctx.globalCompositeOperation = 'destination-in';
+    layer.ctx.drawImage(mask.canvas, 0, 0);
+    layer.ctx.restore();
+  }
+
   // ── Stroke target ────────────────────────────────────────────────────────
   // The overlay strokes into a Graphics-SHAPED object: clear / lineStyle /
   // beginPath / moveTo / lineTo / strokePath, plus an optional commit() once
@@ -738,7 +811,11 @@
   }
 
   // ── The restored pass ────────────────────────────────────────────────────
-  // No edge nibble here: a clean edge is the whole point of a rebuilt street.
+  // No edge NIBBLE here — the ragged bites the base pass eats out of its own
+  // band are what "dilapidated" looks like, and a rebuilt street is whole.
+  // Its outline is still SOFT rather than sharp (see "The patch is SOFT"): the
+  // patch is finished crisp and then feathered as a last step, so the setts
+  // stay clean while the silhouette melts into the band it sits on.
   // Roads and paths are laid as two SEPARATE layers because their clean tiles
   // differ (the path's mortar is halved) and a pattern fill is a whole-canvas
   // operation — one fill after both were stroked would texture the roads
@@ -767,6 +844,8 @@
       strokeOps(lx, ops, -KERB_INSET_PX);
       lx.restore();
       if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
+      // …and last, melt the silhouette's edge into the band under it.
+      softenEdge(layer, size, ops);
       ctx.drawImage(layer.canvas, 0, 0);
     }
     for (const [x, y, w, h] of pass.erases) ctx.clearRect(x, y, w, h);
@@ -1125,5 +1204,6 @@
     }
   }
 
-  global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile };
+  global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
+                         RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge };
 })(window);

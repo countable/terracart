@@ -110,6 +110,21 @@
   //               use items.js `dropWeight` when a thing should simply be
   //               commoner everywhere.
   //
+  // TWO SYNTHETIC CLASSES sit in classBias beside the item kinds. Neither is
+  // an items.js `kind` — they exist because what makes them a reward is not
+  // WHICH item came out of the pool:
+  //
+  //   cash    — coins. Resolves to { kind:'gold', amount } with NO slot, so it
+  //             is plainly money rather than a gear cash-out (the two shapes
+  //             are told apart by `slot` everywhere they are paid: see
+  //             interact.js grantTreasureRoll and interactables.js). Its worth
+  //             is DERIVED, never tuned — see CASH_TIER_VALUE below.
+  //   bundle  — a pile of raw material (wood and stone). Its own class rather
+  //             than a mineral/produce roll because what makes it a bundle is
+  //             the COUNT: a T1 chest rolls no quantity bracket at all
+  //             (chainSteps 0), so wood out of the ordinary pool arrives one
+  //             stick at a time. See BUNDLE_IDS / BUNDLE_QTY.
+  //
   // Class weights inside each row do NOT need to sum to exactly 1.0 — we
   // re-normalise in weightedPick. Easier to author this way.
   // ────────────────────────────────────────────────────────────────
@@ -131,8 +146,14 @@
     // Relic weights bumped +50% across all chest contexts (per user) — chest
     // relic/armor odds now run ~3.75%-15% by class (weightedPick normalises, so
     // raising only the relic share draws proportionally off the existing mix).
-    'chest:lowtier':    { classBias: { seed:0.45, produce:0.38, mineral:0.10, consumable:0.06, animal:0.005, relic:0.0375 } },
-    'chest:commerce':   { classBias: { seed:0.35, produce:0.35, mineral:0.10, consumable:0.12, animal:0.01,  relic:0.0525 } },
+    // lowtier carries the BUNDLE: the humble box by the roadside is where the
+    // wood and stone a repair eats comes from, and at T1 (chainSteps 0) the
+    // ordinary mineral roll hands over a single stick. A fifth of lowtier
+    // chests, so it is a thing the player comes to expect from them.
+    'chest:lowtier':    { classBias: { seed:0.36, produce:0.30, bundle:0.20, mineral:0.05, consumable:0.05, animal:0.005, relic:0.0375 } },
+    // Commerce is a SHOP, and a shop's chest is its till: CASH is the second
+    // heaviest class on the row, behind the produce a market actually stocks.
+    'chest:commerce':   { classBias: { cash:0.28, produce:0.27, seed:0.22, mineral:0.06, consumable:0.10, animal:0.01,  relic:0.0525 } },
     'chest:food':       { classBias: { produce:0.58, seed:0.22, mineral:0.05, consumable:0.07, animal:0.00,  relic:0.06   } },
     'chest:civic':      { classBias: { seed:0.25, produce:0.12, mineral:0.16, consumable:0.25, animal:0.02,  relic:0.15   } },
     // ── The learning places (school / college / library / bookshop) ──────
@@ -200,6 +221,24 @@
     // Small fixed reward — no chain (always rolls T1) plus jackpot.
     'treasure:default': { classBias: { seed:0.45, produce:0.30, mineral:0.10, consumable:0.15 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
+    // ── The ROAD ladder's prize ─────────────────────────────────────────
+    // What restoring a street pays (src/trail.js, app.js _fireTrailPrize).
+    // Its own context rather than the lowtier chest curve it used to borrow,
+    // because a walk is not a box: the survivors thank you in SEEDS — the
+    // thing you plant beside the road you just rebuilt — with coins and a
+    // basket of produce as the alternatives on the pick.
+    //
+    // No minerals, no consumables, no relics: the ladder's variety is the
+    // CHOICE between two of these three, and a pool of six classes made both
+    // options a lottery instead of a decision. Gear has the chests.
+    //
+    // The chain is one step; the rest of the climb is bought by the caller's
+    // rollBonus (Trail.rollBonusFor — one per prize already won), which buys
+    // TIER only, so a longer walk lands a finer seed rather than a taller
+    // stack. chainMax 4 is the ceiling those bonus steps can reach — the same
+    // T4 ceiling the prize had on the lowtier curve; T5/T6 stay a jackpot.
+    'treasure:road':    { classBias: { seed:0.56, produce:0.24, cash:0.20 },
+                          chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0 },
     // ── Elite monster drop ──────────────────────────────────────
     // What a shiny cave monster pays once its kind's Discovery badge is
     // banked (app.js › resolveDefeat). Biased to RELICS — half the class
@@ -252,6 +291,74 @@
   for (const [cls, byT] of Object.entries(ITEMS_BY_CLASS_TIER)) {
     CLASS_MAX_TIER[cls] = Math.max(...Object.keys(byT).map(Number));
   }
+
+  // ────────────────────────────────────────────────────────────────
+  // THE TWO SYNTHETIC CLASSES (see the classBias note above).
+  // ────────────────────────────────────────────────────────────────
+  // CASH. What a purse at tier T is worth is not a number anyone picked: it
+  // is what an ITEM of that tier is worth, so a coin option and a loot option
+  // on the same roll are the same prize stated two ways and the pick is a
+  // preference rather than a trap. That is the median of items.js PRICES over
+  // every item of that baseTier — the same table the shops price against, so
+  // re-pricing an item moves its tier's purse with it and the two can't drift.
+  //
+  // Two shapes are corrected on the way out:
+  //   • the ladder is made MONOTONE (running max). The raw medians dip at T4
+  //     — its pool is six items wide and happens to hold the cheap orchard
+  //     fruit — and a T4 purse paying less than a T3 one is a wart the player
+  //     would read as a bug.
+  //   • it is CAPPED. T7's pool is two items, one of them the $3000 diamond,
+  //     and a jackpot that hands over three thousand coins out-earns every
+  //     other loop in the game at once.
+  const CASH_MAX = 200;
+  // …and the whole purse, once the quantity brackets have multiplied it, is
+  // capped again at twice that. The multiplier is the item quantity model
+  // verbatim, so a fat cash roll tracks a fat item roll by construction — this
+  // only stops the top of the ladder, where the median is drawn from a pool
+  // two items wide, compounding into a figure no other loop can match.
+  const CASH_PULL_MAX = CASH_MAX * 2;
+  const CASH_JITTER = 0.3;             // ±30% on the purse, so it isn't a fixed figure
+  const CASH_TIER_VALUE = (function () {
+    const _PRICES = (typeof PRICES !== 'undefined') ? PRICES : {};
+    const byTier = {};
+    for (const it of _ITEMS) {
+      if (it.shiny) continue;
+      const t = it.baseTier, p = _PRICES[it.id];
+      if (typeof t !== 'number' || !(p > 0)) continue;
+      (byTier[t] = byTier[t] || []).push(p);
+    }
+    const out = [0];
+    let run = 1;
+    for (let t = 1; t <= 7; t++) {
+      const a = (byTier[t] || []).sort((x, y) => x - y);
+      const med = a.length ? a[Math.floor(a.length / 2)] : run;
+      run = Math.min(CASH_MAX, Math.max(run, Math.round(med)));
+      out[t] = run;
+    }
+    return out;
+  })();
+  function cashValue(tier, qty, rng) {
+    const base = CASH_TIER_VALUE[Math.max(1, Math.min(7, tier | 0))] || 1;
+    const jitter = 1 + (rng() * 2 - 1) * CASH_JITTER;
+    return Math.max(1, Math.min(CASH_PULL_MAX, Math.round(base * Math.max(1, qty) * jitter)));
+  }
+
+  // BUNDLE. Wood and stone — what every house repair and every wooden recipe
+  // eats. Both are T1 items, so the bundle's worth is entirely in its COUNT:
+  // BUNDLE_QTY on its own, plus BUNDLE_PER_BUMP for each quantity bracket the
+  // roll banked, so a richer chest hands over a bigger pile of the same two
+  // humble things.
+  const BUNDLE_IDS = ['wood', 'rockfruit'];
+  const BUNDLE_QTY_MIN = 3, BUNDLE_QTY_MAX = 8;
+  const BUNDLE_PER_BUMP = 2;
+
+  // Neither synthetic class has a row in ITEMS_BY_CLASS_TIER, so give them
+  // their own ceilings. A purse can be worth any tier; a bundle is always the
+  // two T1 raw materials, which means every chain step it is handed finds no
+  // tier headroom and falls through to a quantity bracket — the pile grows
+  // instead of the tier, which is exactly what a bundle is.
+  CLASS_MAX_TIER.cash = 7;
+  CLASS_MAX_TIER.bundle = 1;
   // Relics span every tier 1..7 for every slot — pickItemInClass handles this
   // without needing an entry in ITEMS_BY_CLASS_TIER.
 
@@ -499,6 +606,30 @@
       if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(relicTier);
       return out;
     }
+    // CASH — coins, worth what an item of the rolled tier is worth
+    // (CASH_TIER_VALUE) and fattened by the same quantity brackets a stack
+    // would have been, so the qty axis is not dead weight on a money roll.
+    // NO `slot`: that is what tells every payer apart from a gear cash-out
+    // (interact.js grantTreasureRoll, interactables.js) — money is money.
+    // It pays no separate consolation; coins beside coins is one number said
+    // twice, and a wasted bracket on this class is already rare (cap 3).
+    if (cls === 'cash') {
+      let qty = 1;
+      const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(tier, 7)] || 1;
+      if (!ctx.singleItem) for (let i = 0; i < bracket; i++) qty += 1 + Math.floor(rng() * perBump);
+      return { kind: 'gold', amount: cashValue(tier, qty, rng), tier, cls: 'cash',
+               jackpot: jackpotApplied, consolation: 0 };
+    }
+    // BUNDLE — a pile of wood or stone. Tier never climbs on this class (see
+    // CLASS_MAX_TIER.bundle), so every bracket the roll banked is size.
+    if (cls === 'bundle') {
+      const bid = BUNDLE_IDS[Math.floor(rng() * BUNDLE_IDS.length)];
+      const bqty = BUNDLE_QTY_MIN + Math.floor(rng() * (BUNDLE_QTY_MAX - BUNDLE_QTY_MIN + 1))
+                 + (ctx.singleItem ? 0 : bracket * BUNDLE_PER_BUMP);
+      return { kind: 'item', id: bid, qty: bqty, cls: 'bundle',
+               tier: _ITEM_BY_ID[bid]?.baseTier ?? 1,
+               jackpot: jackpotApplied, consolation: 0 };
+    }
     // FAVOURITE — a context may pin ONE item id inside its own class: when
     // that class is rolled, the pinned id wins with probability `p` instead of
     // an even draw from the class/tier pool. The school chest's Book is the
@@ -593,6 +724,11 @@
   }
 
   global.RARITY_TUNING          = RARITY_TUNING;
+  // The two synthetic classes' own tables, exported so the balancing dashboard
+  // can show what a 'cash' or 'bundle' weight actually resolves to instead of
+  // leaving both rows blank (neither is in ITEMS_BY_CLASS_TIER).
+  global.CASH_TIER_VALUE        = CASH_TIER_VALUE;
+  global.BUNDLE_IDS             = BUNDLE_IDS;
   global.LOOT_CONTEXTS          = LOOT_CONTEXTS;
   global.ITEMS_BY_CLASS_TIER    = ITEMS_BY_CLASS_TIER;
   global.pickReward             = pickReward;

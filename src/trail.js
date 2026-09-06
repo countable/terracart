@@ -102,6 +102,31 @@
     return { metres: s, prizes: p, owed };
   }
 
+  // ── Which pool the prize comes out of ────────────────────────────────────
+  // Its OWN context (rarity.js › 'treasure:road'), not the lowtier chest curve
+  // the ladder used to borrow: what the survivors hand over for a rebuilt
+  // street is SEEDS, with coins and produce as the other faces of the pick.
+  // The key lives here rather than in app.js so trail.test.js pins the pool
+  // the shipping ceremony actually rolls.
+  const PRIZE_CONTEXT = 'treasure:road';
+
+  // ── The FIRST prize is an ONION SEED ─────────────────────────────────────
+  // Prize #1 is not rolled. The road ladder pays in seeds, and the first rung
+  // says so out loud instead of sampling a pool that might hand a new player
+  // coins and leave them none the wiser about what the road is for — the same
+  // reason the starter chests carry a fixed payload. Every rung after it rolls
+  // PRIZE_CONTEXT normally.
+  //
+  // The shape is exactly what pickReward returns, so the ceremony, the card
+  // and the payout all take it without a special case.
+  const FIRST_PRIZE_ID = 'onion_seed';
+  const FIRST_PRIZE_QTY = 3;
+  function firstPrize(n) {
+    if ((n | 0) !== 1) return null;
+    return { kind: 'item', id: FIRST_PRIZE_ID, qty: FIRST_PRIZE_QTY,
+             tier: 2, cls: 'seed', jackpot: 0, consolation: 0 };
+  }
+
   // ── The prize is a CHOICE ────────────────────────────────────────────────
   // A prize pays PRIZE_CHOICES rolls and the player keeps ONE. Walking is the
   // one reward loop with no decision in it — a chest is what it is, a shop is
@@ -117,8 +142,10 @@
   // different quantity is still the same card, and gold is gold.
   const PRIZE_CHOICES = 2;
   // Rolls to spend looking for a distinct option before settling for fewer.
-  // The lowtier curve is gold-heavy, so a couple of retries is the difference
-  // between an offer and a formality; past that it's just burning entropy.
+  // The road curve is seed-heavy and pays coins a fifth of the time, so two
+  // rolls land on the same card often enough that a couple of retries is the
+  // difference between an offer and a formality; past that it's just burning
+  // entropy.
   const PRIZE_ROLL_TRIES = 6;
 
   // ── The prize gets BETTER as the walks get longer ────────────────────────
@@ -130,9 +157,10 @@
   // BETTER, NOT BIGGER. A bonus step buys TIER only (see the bonus loop in
   // rarity.js pickReward). As an ordinary chain step it fell through to a
   // quantity bracket whenever the tier had nowhere left to climb — which, on
-  // the T4 curve the trail already rolls at its own chainMax, was nearly every
-  // prize: the ceremony handed over "× 2" so reliably that the quantity read
-  // as fixed. The walk is meant to change WHAT you find.
+  // the curve the trail rolls at its own chainMax, was nearly every prize: the
+  // ceremony handed over "× 2" so reliably that the quantity read as fixed.
+  // The walk is meant to change WHAT you find: a finer seed, not a taller
+  // stack of the same one.
   //
   // Capped, because a bonus step stops buying tiers once the context's own
   // ceiling is reached and turns into consolation coins after that; past
@@ -176,6 +204,7 @@
 
   root.Trail = {
     GOAL_STEP_M, goalFor, progress, bank, readout, label,
+    PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, rollChoices,
     PRIZE_ROLL_BONUS, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
   };

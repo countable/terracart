@@ -665,10 +665,55 @@
   was COBBLE TRAILS: pebble sprites on paved cells, keyed per cell and
   thinned by a hash, so the counted stones and the drawn road were two
   different things; do not bring a per-cell road state back.
+  **The restored patch is SOFT, and its edge only.** The rebuilt band is laid
+  crisp — clean setts, a hairline kerb — and then FEATHERED as the last step of
+  `commitRestored`, through `softenEdge`: a blurred mask of the same strokes
+  composited `destination-in`, so the silhouette melts into the dilapidated
+  band under it while the setts inside stay sharp. At the band's FULL width (a
+  Gaussian leaves its half-maximum on the original edge, so nothing is stroked
+  in to compensate) and with a radius derived from that width
+  (`RESTORED_BLUR_FRAC`, capped at `RESTORED_BLUR_PX`) — a fixed radius eats a
+  footway alive, its centre never reaching full alpha. Both numbers were
+  measured against a real canvas, not guessed; past about a third of the width
+  a narrow way restores ghostly rather than soft. Blurring the drawn layer
+  instead smears the cobble into grey, which is the one thing the restored look
+  is for; a stack of translucent strokes standing in for the blur blotches at
+  every junction (a translucent stroke composites with ITSELF where a path
+  doubles back — the same trap the opaque-then-alpha rule at the top of the
+  file exists to avoid), so where canvas cannot `filter`, the hard edge ships.
+  The moment itself is quiet to match: `STREET_SHINE_ALPHA` is well under full
+  white and eased out, and `BLAST_STONE_R_CELLS` is a nod, not a detonation —
+  a sweep lands every few paces of an ordinary walk.
+
+  **The ladder pays out of the ROAD's own pool, and the first rung is fixed.**
+  `Trail.PRIZE_CONTEXT` is `rarity.js` › `'treasure:road'` — seeds first, with
+  coins and produce as the other two faces of the pick and nothing else, because
+  a two-way choice drawn from six classes is a lottery rather than a decision.
+  Prize #1 is not rolled at all: `Trail.firstPrize` hands over the onion seed,
+  so the first thing a road ever pays names what roads pay in. The first metres
+  a save ever banks open the one-time dialog (`_showTrailIntro`, flagged
+  `save.trail.greeted`), and EVERY ceremony prints the next rung through
+  `trailNextPrizeLine` off `Trail.goalFor` — a prize that pays without saying
+  where the ladder goes next is a dead end.
+
+  **Two synthetic classes sit in `classBias` beside the item kinds**, because
+  what makes each a reward is not which item came out of the pool. `cash`
+  resolves to `{ kind:'gold', amount }` with NO `slot` — that missing field is
+  how every payer tells money from a gear cash-out — and its worth is DERIVED:
+  `CASH_TIER_VALUE` is the median of `PRICES` over each tier, made monotone and
+  capped, so a coin option and a loot option on the same roll are the same
+  prize stated twice. `bundle` is a pile of wood and stone, its own class
+  because what makes it a bundle is the COUNT (a T1 chest rolls no quantity
+  bracket at all, so wood out of the ordinary pool arrives one stick at a
+  time). **When you add a class that isn't an items.js `kind`, give it a
+  ceiling in `CLASS_MAX_TIER` and a branch before the item resolution** — the
+  pool lookup will otherwise hand back null and the roll pays nothing.
+
   **Audit it:** `node test/node/run.js` › `test/node/streets.test.js` (the
   algebra, the sight window, restore/epoch), `test/node/road_overlay.test.js`
-  (the restored pass and the tiles) and `test/node/trail.test.js` (the lifted
-  sweep on a synthetic tile).
+  (the restored pass, the tiles and the soft edge), `test/node/trail.test.js`
+  (the lifted sweep on a synthetic tile, the first rung, the dialogs) and
+  `test/node/loot.test.js` (the two synthetic classes and the road pool).
 
 ## Testing
 

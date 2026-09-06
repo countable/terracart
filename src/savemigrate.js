@@ -146,7 +146,8 @@
     // --- Data migrations (these DO force a persist) --------------------------
     // COBBLE TRAILS → STREET RESTORATION. Two old shapes go, one new one
     // arrives. The save now reads:
-    //   save.trail        = { metres: <banked toward the current goal>, prizes: n }
+    //   save.trail        = { metres: <banked toward the current goal>, prizes: n,
+    //                         greeted: <shown the first-repair dialog> }
     //   save.streets      = { "<z/tx/ty>": { "<lineKey>": [s0,s1, s0,s1, …] } }
     //   save.streetsEpoch = n
     // — the restored stretches of each street as flat pairs of arclength in
@@ -183,6 +184,14 @@
     if (!save.trail || typeof save.trail !== 'object') save.trail = { metres: 0, prizes: 0 };
     if (!Number.isFinite(save.trail.metres)) save.trail.metres = 0;
     if (!Number.isFinite(save.trail.prizes)) save.trail.prizes = 0;
+    // save.trail.greeted — has this player been shown the one-time "you start
+    // repairing roads" dialog (app.js TRAIL_INTRO_TITLE). A save that has
+    // ALREADY walked the ladder is marked greeted rather than being introduced
+    // to a loop it is halfway up; only a save with nothing banked is new.
+    if (save.trail.greeted === undefined) {
+      save.trail.greeted = (save.trail.metres > 0 || save.trail.prizes > 0);
+      needsPersist = true;
+    }
     if (!save.streets || typeof save.streets !== 'object') save.streets = {};
     // Older save: inv as a string array → {id,count} objects (else sel.count -= 1
     // yields NaN and stacks become uncountable).

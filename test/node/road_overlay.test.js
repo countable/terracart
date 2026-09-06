@@ -1031,3 +1031,138 @@ test('road overlay live: headless without a Graphics factory, nothing happens', 
   RoadOverlay.drawLive(scene, [{ pts: [{ x: 0, y: 0 }, { x: 1, y: 0 }], tags: {} }]);
   assert.falsy(scene.roadLiveGfx, 'no Graphics conjured out of nothing');
 });
+
+// ── THE RESTORED PATCH IS SOFT ────────────────────────────────────────────
+// A rebuilt stretch is a repair, not a decal: its silhouette is feathered into
+// the dilapidated band under it, and the round caps its ends carry read as a
+// lozenge once the corners go soft. The feather is applied to the patch's
+// ALPHA ONLY — blurring the drawn layer would smear the clean setts into grey,
+// which is the one thing the restored look is for.
+(() => {
+// A 2D context stub with a REAL `filter` property (the Proxy recorder above
+// answers every get with a function, so a feature test would see one).
+function softCtx(withFilter = true) {
+  const ops = [];
+  const c = {
+    ops,
+    lineWidth: 1, strokeStyle: '', globalCompositeOperation: 'source-over',
+    beginPath() { ops.push(['beginPath']); },
+    moveTo(x, y) { ops.push(['moveTo', x, y]); },
+    lineTo(x, y) { ops.push(['lineTo', x, y]); },
+    stroke() { ops.push(['stroke', this.lineWidth, this.strokeStyle, this.filter]); },
+    drawImage(img) { ops.push(['drawImage', img, this.globalCompositeOperation]); },
+    save() { ops.push(['save']); },
+    restore() { ops.push(['restore']); },
+  };
+  if (withFilter) {
+    let f = 'none';
+    Object.defineProperty(c, 'filter', {
+      get: () => f,
+      // A real canvas keeps only what it can parse; anything else is dropped.
+      set: (v) => { ops.push(['set:filter', v]); f = /^(none|blur\(.+\))$/.test(v) ? v : f; },
+    });
+  }
+  return c;
+}
+
+// Stand a canvas factory up for the length of `fn` — scratchLayer builds its
+// mask through document.createElement, which the headless context has no
+// implementation of.
+function withCanvases(fn) {
+  const made = [];
+  const real = document.createElement;
+  document.createElement = () => {
+    const ctx2 = softCtx(withCanvases.filter !== false);
+    const canvas = { width: 0, height: 0, ctx: ctx2, getContext: () => ctx2 };
+    made.push(canvas);
+    return canvas;
+  };
+  try { fn(made); return made; } finally { document.createElement = real; }
+}
+
+// Two bands of different widths — a carriageway and a footway — because the
+// feather is derived from the width it softens.
+const SOFT_OPS = [
+  { w: 24, c: 0x161412, pts: [10, 10, 90, 10, 90, 60] },
+  { w: 8,  c: 0x161412, pts: [20, 80, 100, 80] },
+];
+
+test('restored patch: the edge is feathered through a blurred ALPHA mask', () => {
+  withCanvases.filter = true;
+  const layer = { ctx: softCtx(), canvas: null };
+  const made = withCanvases(() => {
+    RoadOverlay.softenEdge(layer, 128, SOFT_OPS);
+  });
+  assert.eq(made.length, 1, 'one scratch canvas — the mask');
+  const mask = made[0].ctx;
+  const strokes = mask.ops.filter(([k]) => k === 'stroke');
+  assert.eq(strokes.length, SOFT_OPS.length, 'every op is replayed onto the mask');
+  for (let i = 0; i < SOFT_OPS.length; i++) {
+    // AT FULL WIDTH — a Gaussian leaves its half-maximum on the original edge,
+    // so the patch stays exactly as wide as the band it repairs.
+    assert.eq(strokes[i][1], SOFT_OPS[i].w, 'stroked at the band\'s own width');
+    assert.eq(strokes[i][2], '#000', 'in flat ink: this is a mask, not a colour');
+    assert.eq(strokes[i][3], `blur(${RoadOverlay.blurForWidth(SOFT_OPS[i].w).toFixed(2)}px)`,
+      'under its own radius');
+  }
+  // The RADIUS IS A FRACTION OF THE BAND. A fixed radius eats a narrow way
+  // alive: at the blur a carriageway wants, a footpath's centre never reaches
+  // full alpha and the whole path restores ghostly.
+  assert.lt(RoadOverlay.blurForWidth(8), RoadOverlay.blurForWidth(24),
+    'a footway is feathered less than a carriageway');
+  assert.eq(RoadOverlay.blurForWidth(1000), RoadOverlay.RESTORED_BLUR_PX,
+    'and a wide band is capped');
+  // The narrow band keeps a solid core. Measured on a real canvas: past about
+  // a third of the width the centre of a footway never reaches full alpha, and
+  // the restored path reads ghostly rather than soft.
+  assert.lte(RoadOverlay.RESTORED_BLUR_FRAC, 1 / 3, 'the fraction stays under a third');
+  assert.eq(RoadOverlay.blurForWidth(8), 8 * RoadOverlay.RESTORED_BLUR_FRAC,
+    'a narrow band is feathered by its own fraction, not the cap');
+  // The filter is put back afterwards, so nothing else on that scratch
+  // inherits it.
+  const filters = mask.ops.filter(([k]) => k === 'set:filter').map((o) => o[1]);
+  // The feature probe (blur(1px) then none — a canvas that cannot blur
+  // silently keeps 'none', which is what the probe reads), then one set per
+  // band width, then the clear.
+  assert.eq(filters.slice(0, 2).join(','), 'blur(1px),none', 'the probe asks and puts it back');
+  assert.eq(filters[filters.length - 1], 'none', 'and the filter is cleared at the end');
+  assert.eq(filters.length, 2 + SOFT_OPS.length + 1, 'one pass per band width');
+  // …and composited as ALPHA. destination-in keeps the layer's own pixels and
+  // takes only the mask's coverage, so the setts inside stay crisp.
+  const draw = layer.ctx.ops.find(([k]) => k === 'drawImage');
+  assert.truthy(draw, 'the mask lands on the layer');
+  assert.eq(draw[2], 'destination-in', 'as alpha, never as paint');
+  assert.eq(draw[1], made[0], 'and it is the mask that lands');
+});
+
+test('restored patch: no blur available means a hard edge, never a fake feather', () => {
+  // A stack of translucent strokes standing in for a blur would blotch at
+  // every junction — a translucent stroke composites with ITSELF wherever a
+  // path doubles back, which is the trap the whole opaque-then-alpha rule at
+  // the top of road_overlay.js exists to avoid. So where canvas can't blur,
+  // the patch simply ships with its edge cut.
+  withCanvases.filter = false;
+  const layer = { ctx: softCtx(false), canvas: null };
+  withCanvases(() => { RoadOverlay.softenEdge(layer, 128, SOFT_OPS); });
+  withCanvases.filter = true;
+  assert.eq(layer.ctx.ops.filter(([k]) => k === 'drawImage').length, 0, 'nothing is composited');
+});
+
+test('restored patch: the softening is the LAST thing the pass does', () => {
+  const src = ROAD_OVERLAY_SRC;
+  const at = src.indexOf('function commitRestored(pass) {');
+  assert.gt(at, 0, 'found the restored pass');
+  const body = src.slice(at, src.indexOf('\n  }\n', at));
+  // Crisp first, feathered last: the setts and the kerb are laid at full
+  // opacity and only the finished silhouette is melted into the band.
+  const soften = body.indexOf('softenEdge(');
+  const lastFill = body.lastIndexOf('patternFill(');
+  assert.gt(soften, 0, 'the pass softens its patch');
+  assert.gt(soften, lastFill, 'after the setts are laid, never before');
+  assert.gt(body.indexOf('ctx.drawImage(layer.canvas'), soften, 'and before the layer lands');
+  // The base band keeps its ragged bites; only the restored patch is soft.
+  const baseAt = src.indexOf('function commitBase(pass) {');
+  const baseBody = src.slice(baseAt, src.indexOf('\n  }\n', baseAt));
+  assert.falsy(/softenEdge\(/.test(baseBody), 'the dilapidated band is not feathered');
+});
+})();

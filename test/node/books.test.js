@@ -532,4 +532,21 @@ test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
   // The stale claim: the mechanic was lit pebbles until Sep 2026.
   assert.falsy(/cobble/i.test(TIPS_BLOB), 'no tip still counts cobbles');
   assert.falsy(/lit stone/i.test(TIPS_BLOB), 'nor lit stones');
+  // WHAT it pays, re-derived from the pool that pays it. The ladder rolls its
+  // own context (Trail.PRIZE_CONTEXT), so the classes the tip names are the
+  // classes that context actually carries — never a list typed out here.
+  const road = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT].classBias;
+  const heaviest = Object.keys(road).sort((a, b) => road[b] - road[a])[0];
+  assert.eq(heaviest, 'seed', 'the pool is centred on seeds');
+  assert.truthy(/seeds mostly/i.test(tip), 'and the tip says so');
+  for (const cls of Object.keys(road)) {
+    const word = cls === 'cash' ? 'coin' : cls;
+    assert.truthy(new RegExp(word, 'i').test(tip), `the tip names the ${cls} the pool can pay`);
+  }
+  // And the FIXED first rung: the tip promises a seed, so trail.js had better
+  // hand one over (Trail.firstPrize).
+  assert.eq(ITEM_BY_ID[Trail.firstPrize(1).id].kind, 'seed',
+    'the first prize really is a seed');
+  assert.truthy(/first 200m restored pays a seed/i.test(tip.replace(/\d+m/, `${Trail.GOAL_STEP_M}m`)),
+    'which is what the tip promises');
 });

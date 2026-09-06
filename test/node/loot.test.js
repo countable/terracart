@@ -218,3 +218,172 @@ test('pickReward: the wizard\'s quantity rungs make loot land in bigger stacks',
   const amuleted = meanQty({ relics: { amulet: { tier: 7 } }, armor: {} });
   assert.eq(amuleted, base, 'a Frost amulet rolls exactly the same loot as none');
 });
+
+// ── THE TWO SYNTHETIC CLASSES ────────────────────────────────────────────
+// 'cash' and 'bundle' sit in classBias beside the item kinds but are not
+// items.js `kind`s: cash resolves to money, bundle to a pile of raw material.
+// Both exist because what makes them a reward is not which item came out of
+// the pool, so both have to be pinned as their own shape rather than assumed
+// to fall out of pickItemInClass.
+(() => {
+const SAVE = () => ({ relics: {}, armor: {} });
+
+test('cash: a money roll carries NO slot — that is what tells it from a gear cash-out', () => {
+  let seen = 0;
+  for (let i = 0; i < 3000 && seen < 60; i++) {
+    const r = pickReward('chest:commerce', SAVE(), seeded(i + 1), { tier: 1 });
+    if (!r || r.cls !== 'cash') continue;
+    seen++;
+    assert.eq(r.kind, 'gold', 'money comes back as gold');
+    assert.eq(r.slot, undefined, 'and names no gear slot');
+    assert.gt(r.amount, 0, 'for a real amount');
+    assert.eq(r.consolation, 0, 'and pays no coins beside its coins');
+  }
+  assert.gt(seen, 20, 'the commerce till hands out cash often enough to sample');
+});
+
+test('cash: the purse is worth what an ITEM of the same tier is worth', () => {
+  // CASH_TIER_VALUE is the median of items.js PRICES over each tier — derived
+  // from the very table the shops price against, never a hand-picked ladder.
+  const median = (a) => a.sort((x, y) => x - y)[Math.floor(a.length / 2)];
+  const byTier = {};
+  for (const it of ITEMS) {
+    if (it.shiny) continue;
+    const p = PRICES[it.id];
+    if (typeof it.baseTier !== 'number' || !(p > 0)) continue;
+    (byTier[it.baseTier] = byTier[it.baseTier] || []).push(p);
+  }
+  let run = 1;
+  for (let t = 1; t <= 7; t++) {
+    run = Math.min(200, Math.max(run, Math.round(median(byTier[t] || [run]))));
+    assert.eq(CASH_TIER_VALUE[t], run, `T${t} is its tier's median price`);
+  }
+  // MONOTONE: the raw medians dip at T4 (a six-item pool of cheap orchard
+  // fruit), and a T4 purse paying less than a T3 one reads as a bug.
+  for (let t = 2; t <= 7; t++) {
+    assert.gte(CASH_TIER_VALUE[t], CASH_TIER_VALUE[t - 1], `T${t} never pays under T${t - 1}`);
+  }
+  // CAPPED: T7's pool is two items, one of them the $3000 diamond.
+  assert.lte(CASH_TIER_VALUE[7], 200, 'and the top of the ladder is capped');
+});
+
+test('cash: the quantity brackets fatten the purse rather than going to waste', () => {
+  // A roll that banks brackets has to spend them on SOMETHING. On an item they
+  // become stack size; on cash they become a bigger purse — never silently
+  // dropped, which is what a naive 'gold' branch would have done.
+  const amounts = (opts) => {
+    const out = [];
+    for (let i = 0; i < 6000 && out.length < 300; i++) {
+      const r = pickReward('treasure:road', SAVE(), seeded(i + 1), opts);
+      if (r && r.cls === 'cash') out.push(r.amount);
+    }
+    return out;
+  };
+  const lean = amounts({ rollBonus: 0 });
+  const fat  = amounts({ rollBonus: 4 });
+  const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+  assert.gt(lean.length, 100, 'sampled the lean roll');
+  assert.gt(fat.length, 100, 'sampled the boosted roll');
+  assert.gt(mean(fat), mean(lean), 'a longer walk pays a heavier purse');
+});
+
+test('bundle: a pile of the two raw materials, and the pile is the point', () => {
+  assert.eq(BUNDLE_IDS.join(','), 'wood,rockfruit', 'wood and stone');
+  let seen = 0;
+  for (let i = 0; i < 4000 && seen < 80; i++) {
+    const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });
+    if (!r || r.cls !== 'bundle') continue;
+    seen++;
+    assert.eq(r.kind, 'item', 'a bundle is items in the bag');
+    assert.includes(BUNDLE_IDS, r.id, 'one of the two raw materials');
+    assert.gte(r.qty, 3, 'never a single stick — that is the whole reason it is its own class');
+    assert.lte(r.qty, 8 + 3 * 2, 'and bounded by its own range plus its brackets');
+  }
+  assert.gt(seen, 30, 'a lowtier chest hands one over often');
+});
+
+test('bundle: the T1 chest that can roll no bracket at all still pays a pile', () => {
+  // chest:lowtier at T1 runs chainSteps 0, so an ordinary mineral roll there
+  // arrives as ONE stick of wood. That is the bug the class exists to fix, so
+  // pin the contrast rather than the constant.
+  let bundleMin = Infinity, plainWood = 0, plainWoodN = 0;
+  for (let i = 0; i < 6000; i++) {
+    const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });
+    if (!r || r.kind !== 'item') continue;
+    if (r.cls === 'bundle') bundleMin = Math.min(bundleMin, r.qty);
+    else if (r.id === 'wood') { plainWood += r.qty; plainWoodN++; }
+  }
+  assert.gte(bundleMin, 3, 'every bundle is a pile');
+  if (plainWoodN) {
+    assert.lt(plainWood / plainWoodN, bundleMin,
+      'while the ordinary mineral roll at this tier is smaller than the smallest bundle');
+  }
+});
+
+test('road: the ladder has its OWN context, centred on seeds', () => {
+  const ctx = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT];
+  assert.truthy(ctx, 'treasure:road exists');
+  assert.eq(Trail.PRIZE_CONTEXT, 'treasure:road', 'and trail.js names it');
+  const bias = ctx.classBias;
+  // SEEDS FIRST — the thing you plant beside the road you just rebuilt.
+  const top = Object.keys(bias).sort((a, b) => bias[b] - bias[a])[0];
+  assert.eq(top, 'seed', 'seeds are the heaviest class');
+  assert.gt(bias.seed, 0.5, 'and carry the roll outright');
+  // …with coins and produce as the other faces of the pick, and nothing else:
+  // a pool of six classes makes both options of a two-way choice a lottery.
+  assert.eq(Object.keys(bias).sort().join(','), 'cash,produce,seed', 'three classes, no more');
+  assert.eq(ctx.relicCap, 0, 'gear belongs to the chests');
+});
+
+test('road: what the ladder actually pays is seeds, coins and produce', () => {
+  const tally = {};
+  for (let i = 0; i < 4000; i++) {
+    const r = pickReward('treasure:road', SAVE(), seeded(i + 1), { rollBonus: 2 });
+    if (!r) continue;
+    const cls = r.cls || r.kind;
+    tally[cls] = (tally[cls] || 0) + 1;
+  }
+  assert.eq(Object.keys(tally).sort().join(','), 'cash,produce,seed', 'only the three');
+  assert.gt(tally.seed / 4000, 0.5, 'over half the rolls are seed');
+  assert.gt(tally.cash / 4000, 0.1, 'and coins are a real option, not a rounding error');
+  assert.gt(tally.produce / 4000, 0.1, 'as is produce');
+});
+
+test('road: a longer walk buys a FINER seed, not a taller stack', () => {
+  const sample = (bonus) => {
+    let tierSum = 0, qtySum = 0, n = 0;
+    for (let i = 0; i < 4000; i++) {
+      const r = pickReward('treasure:road', SAVE(), seeded(i + 1), { rollBonus: bonus });
+      if (!r || r.cls !== 'seed') continue;
+      tierSum += ITEM_BY_ID[r.id].baseTier; qtySum += r.qty; n++;
+    }
+    return { tier: tierSum / n, qty: qtySum / n, n };
+  };
+  const first = sample(Trail.rollBonusFor(0));
+  const late  = sample(Trail.rollBonusFor(9));
+  assert.gt(first.n, 100, 'sampled the first prize');
+  assert.gt(late.n, 100, 'sampled a late one');
+  assert.gt(late.tier, first.tier, 'the tenth prize finds a finer seed');
+  // The bonus buys TIER ONLY — a step with nowhere to climb pays coins, it
+  // does not fall through to a quantity bracket (which is what pinned the old
+  // ceremony at "× 2").
+  assert.lte(late.qty, first.qty + 0.5, 'and not simply more of the same one');
+});
+
+test('road: the ceiling the bonus can climb to is the old T4 prize ceiling', () => {
+  const ctx = LOOT_CONTEXTS['treasure:road'];
+  assert.eq(ctx.chainMax, 4, 'chain plus bonus tops out at T4');
+  assert.gt(ctx.maxTier, ctx.chainMax, 'with the tiers above it left to the jackpot');
+  let over = 0, total = 0;
+  for (let i = 0; i < 4000; i++) {
+    const r = pickReward('treasure:road', SAVE(), seeded(i + 1),
+                         { rollBonus: Trail.PRIZE_ROLL_BONUS_MAX });
+    if (!r) continue;
+    total++;
+    if (r.tier > ctx.chainMax) over++;
+  }
+  assert.gt(total, 3000, 'sampled');
+  assert.lt(over / total, 0.2, 'even a maxed bonus rarely leaves the chain ceiling');
+  assert.gt(over, 0, 'but the jackpot can');
+});
+})();
