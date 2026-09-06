@@ -192,7 +192,7 @@ const TOAST_TIER = {
 //
 // The label is the CATEGORY, not the specific offer — the flavour line under
 // it still carries that. Callers may override the label for a one-off outcome
-// ("MILL LANE complete") and keep the kind's icon; see showChestRewardModal.
+// ("MILL LANE walked") and keep the kind's icon; see showChestRewardModal.
 //
 // `supplies` exists because the tutorial's own material handout was opening as
 // TREASURE: the objective chip calls them supply crates, they render as the
@@ -1724,20 +1724,35 @@ class MapScene extends Phaser.Scene {
       fg.generateTexture('castle_flag', 16, 18);
       fg.destroy();
     }
-    // Activated path-stone art. A claimed stone used to just jump to full
-    // opacity — the same grey pebble, only less see-through, which barely
-    // read as "claimed" next to the unclaimed ones. Bake a genuinely
-    // recoloured copy of the same frame (source-atop clips the tint to the
-    // stone's own silhouette, then a multiply pass re-lays the original
-    // shading on top so it still reads as carved stone, not a flat sticker)
-    // instead of setTint(), which is a no-op under the Phaser Canvas
-    // fallback — see the halo note above. Treasure blue-white (spec §UI
-    // COLOUR LANGUAGE): a claimed stone is progress toward a world reward
-    // (the path's coin milestones + completion chest), the same family as
-    // the POI pad/halo it shares that meaning with.
-    if (!this.textures.exists('cobble_path_active')) {
-      const srcFrame = this.textures.getFrame('cobble', PATH_FRAME);
-      if (srcFrame && typeof document !== 'undefined') {
+    // LIT cobble art. A claimed stone used to just jump to full opacity —
+    // the same grey pebble, only less see-through, which barely read as
+    // "claimed" next to the unclaimed ones. Bake a genuinely recoloured copy
+    // of the same frame (source-atop clips the tint to the stone's own
+    // silhouette, then a multiply pass re-lays the original shading on top so
+    // it still reads as carved stone, not a flat sticker) instead of
+    // setTint(), which is a no-op under the Phaser Canvas fallback — see the
+    // halo note above.
+    //
+    // BRIGHT BLUE, not the pale blue-white it was: LIT_COBBLE_BLUE is a
+    // saturated sky blue and the multiply that re-lays the shading is lighter
+    // (0.45, was 0.75) so the stone keeps its carving without being dragged
+    // back down to grey. That still lands inside the treasure/powerup blue
+    // role (spec §UI COLOUR LANGUAGE) — a lit cobble is progress toward a
+    // world reward — it just no longer reads as "slightly whiter gravel" from
+    // across the viewport, which matters now that stones light several at a
+    // time a few cells out rather than one under the player's feet.
+    //
+    // One copy PER FRAME (litCobbleTexKey, render.js): the three vehicle-road
+    // tiers each draw a different cluster from Road copiar.png and roads are
+    // claimable trails now, so a single shared key would light a motorway
+    // with a footpath's lone pebble.
+    if (typeof LIT_COBBLE_FRAMES !== 'undefined' && typeof document !== 'undefined') {
+      const LIT_COBBLE_BLUE = '#5ec8ff';
+      for (const f of LIT_COBBLE_FRAMES) {
+        const key = litCobbleTexKey(f);
+        if (this.textures.exists(key)) continue;
+        const srcFrame = this.textures.getFrame('cobble', f);
+        if (!srcFrame) continue;
         const img = srcFrame.source.image;
         const cw = srcFrame.cutWidth, ch = srcFrame.cutHeight;
         const cvs = document.createElement('canvas');
@@ -1745,14 +1760,14 @@ class MapScene extends Phaser.Scene {
         const cctx = cvs.getContext('2d');
         cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
         cctx.globalCompositeOperation = 'source-atop';
-        cctx.fillStyle = '#bfe8ff';
+        cctx.fillStyle = LIT_COBBLE_BLUE;
         cctx.fillRect(0, 0, cw, ch);
         cctx.globalCompositeOperation = 'multiply';
-        cctx.globalAlpha = 0.75;
+        cctx.globalAlpha = 0.45;
         cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
         cctx.globalAlpha = 1;
         cctx.globalCompositeOperation = 'source-over';
-        this.textures.addCanvas('cobble_path_active', cvs);
+        this.textures.addCanvas(key, cvs);
       }
     }
     // Shiny sparkle marker — a 4-point gold glint floated above rare shiny
@@ -5338,22 +5353,11 @@ class MapScene extends Phaser.Scene {
           this._fireAccrueE = 0;
         }
       }
-      // Stepping on a named path stone claims it. Memoised by absolute cell
-      // index so we only do the lookup once per cell-change — without this
-      // every frame inside the same cell would re-walk the pathNames map.
-      // Derive tile coords from the body position directly.
-      if (here.loaded && here.type === 8 /* PATH */) {
-        const { cellIX, cellIY } = worldMetersToAbsCell(this, pWX, pWY);
-        const key = `${cellIX},${cellIY}`;
-        if (this._lastPathStepKey !== key) {
-          this._lastPathStepKey = key;
-          const ctx = Math.floor(pWX / this.tileEdgeM);
-          const cty = Math.floor(pWY / this.tileEdgeM);
-          this._activatePathStone(ctx, cty, cellIX, cellIY);
-        }
-      } else if (this._lastPathStepKey != null) {
-        this._lastPathStepKey = null;
-      }
+      // Cobble trails light by PROXIMITY, not by footfall: every path or road
+      // cobble inside the player's lit reach comes on as they walk past. The
+      // sweep memoises on the reach cell itself, so this costs one string
+      // compare per frame while standing still.
+      this._sweepCobbleTrails();
     }
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
@@ -9386,11 +9390,13 @@ class MapScene extends Phaser.Scene {
       if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
       // SELL one of the selected stack — confirm first so an accidental
       // home tap can't silently dump a high-value item. Sword relic scales
-      // the price from half (no sword) up to full base value at tier 7.
+      // the price from half (no sword) up to full base value at tier 7, and
+      // the trailer takes a flat 25% off that (TRAILER_SELL_MUL, items.js).
       // No shop specialty bonus at home — it's a private sale, not a
       // shopkeep's bid.
-      const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
-      const unitPrice = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul));
+      const unitPrice = (typeof trailerSellPrice === 'function')
+        ? trailerSellPrice(PRICES[sel.id] ?? 1, this.save.relics)
+        : Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * 0.5 * 0.75));
       const item = ITEM_BY_ID[sel.id];
       const sellId = sel.id;
       const maxQty = Math.max(1, sel.count | 0);
@@ -10893,21 +10899,31 @@ class MapScene extends Phaser.Scene {
 
   // True iff `house` is a tier-9 small building that hasn't been restored
   // yet. Trailer (starter shop) and forts/castles skip wreck status. Used
-  // ─── Path-stone activation ───────────────────────────────────────
-  // Each cell of a named pedestrian path is a "stone" the player can
-  // claim by either tapping it or walking onto it. Claimed stones get a
-  // full opacity (render.js looks them up via _isPathStoneActive). When
-  // every stone of one named path on one tile is claimed, the player
-  // gets a fanfare modal with a T4 lowtier-class loot roll — the kind
-  // of nice surprise a focused "walk the whole trail" run deserves.
+  // ─── Cobble-trail activation ─────────────────────────────────────
+  // Every cobble cell — footpath AND road alike, since worldgen names both
+  // into entry.pathNames — is a "stone" that LIGHTS THE MOMENT IT ENTERS THE
+  // PLAYER'S LIT REACH. There is no tap and no step to make: walk near a
+  // trail and the stones inside the lit bubble come on together, several at a
+  // time, which is what the reach circle is already telling you it covers.
+  // (It used to need a tap on, or a footfall in, each individual cell —
+  // fiddly on a phone, and with a road's sparse cobbles it was unwalkable in
+  // practice.) Lit stones draw at full opacity in a bright blue (render.js
+  // looks them up via _isPathStoneActive).
+  //
+  // PRIZES: one treasure per Trail.SEGMENT_CELLS stones of the same named
+  // trail on the same tile, so a long street pays repeatedly instead of
+  // demanding all of itself and paying once — see src/trail.js, where the
+  // segment arithmetic lives and is pinned. There is no money milestone any
+  // more; walking a trail pays in treasure only.
+  //
   // State shape:
   //   save.pathStones = {
   //     "<z/tx/ty>": {
-  //       "<full street name>": { stones: ["ix_iy", ...], done: bool }
+  //       "<full street name>": { stones: ["ix_iy", ...], prizes: n, done: bool }
   //     }
   //   }
-  // Per-tile keying keeps the data structure bounded and means a path
-  // crossing N tiles offers up to N rewards (one per tile completed).
+  // Per-tile keying keeps the data structure bounded and means a trail
+  // crossing N tiles offers its prizes separately on each.
   _isPathStoneActive(tx, ty, ix, iy) {
     const tileKey = WorldGen.tileKey(tx, ty);
     const tile = this.save.pathStones && this.save.pathStones[tileKey];
@@ -10924,16 +10940,26 @@ class MapScene extends Phaser.Scene {
     const name = entry.pathNames[cellKey];
     if (!name) return false;
     const rec = tile[name];
-    return !!(rec && (rec.done || (rec.stones && rec.stones.includes(cellKey))));
+    // `done` short-circuits the list: a finished trail has every one of its
+    // cells lit by definition, which is what lets _settleTrail throw the
+    // per-cell list away (see the compaction there).
+    // Otherwise setOf (util.js), not Array.includes: render.js asks this for
+    // EVERY visible cobble cell on every frame, and a street's stone list runs
+    // to hundreds of entries now that roads are trails — a linear scan per
+    // cell per frame is the shape that gets slower the longer someone plays.
+    if (!rec) return false;
+    return !!(rec.done || (rec.stones && setOf(rec.stones).has(cellKey)));
   }
-  // Mark the path stone under abs cell (ix, iy) as activated. Returns
-  // true iff the cell was newly activated (so callers can suppress flash
-  // spam on every step over an already-claimed stone). Fires the path-
-  // completion reward when this activation closes out the named path.
+
+  // Light the cobble under abs cell (ix, iy). The PRIMITIVE: it records the
+  // stone and its flash and nothing else — no counter, no prize, no save
+  // write — because one step lights a whole disc of cells at once and each of
+  // those is the sweep's job to settle ONCE per trail, not once per stone.
+  // Returns the trail's name if this cell was newly lit, else null.
   _activatePathStone(tx, ty, ix, iy) {
     const tileKey = WorldGen.tileKey(tx, ty);
     const entry = WorldGen.tileCache.get(tileKey);
-    if (!entry || !entry.pathNames) return false;
+    if (!entry || !entry.pathNames) return null;
     // ABS → tile-local conversion (mirrors _isPathStoneActive — see comment
     // there for the rationale).
     const N = entry.cellsPerEdge;
@@ -10941,19 +10967,19 @@ class MapScene extends Phaser.Scene {
     const liy = ((iy % N) + N) % N;
     const cellKey = `${lix}_${liy}`;
     const name = entry.pathNames[cellKey];
-    if (!name) return false;
+    if (!name) return null;
     this.save.pathStones = this.save.pathStones || {};
     const tileStones = this.save.pathStones[tileKey] =
       this.save.pathStones[tileKey] || {};
-    const rec = tileStones[name] = tileStones[name] || { stones: [], done: false };
-    if (rec.done || rec.stones.includes(cellKey)) return false;
+    const rec = tileStones[name] = tileStones[name] || { stones: [], prizes: 0, done: false };
+    if (rec.done || setOf(rec.stones).has(cellKey)) return null;
     rec.stones.push(cellKey);
-    // Record a short-lived "just claimed" flash for render.js's cobble pass
-    // (see PATH_STONE_FLASH_MS there) — a little scale-pop plays on this
-    // exact cell so claiming a stone reads as an event, not just a silent
-    // opacity change next frame. Keyed by ABS cell so it survives the
-    // tx/ty → tile-local conversion above. Pruned here (not every frame) —
-    // activations are rare enough that this map never grows unbounded.
+    // Record a short-lived "just lit" flash for render.js's cobble pass (see
+    // PATH_STONE_FLASH_MS there) — a scale-pop plays on this exact cell so
+    // lighting reads as an event, not just a silent opacity change next
+    // frame. Keyed by ABS cell so it survives the tx/ty → tile-local
+    // conversion above. Pruned here (not every frame) — a sweep only runs
+    // when the player's reach cell moves, so this map never grows unbounded.
     this._pathStoneFlashes = this._pathStoneFlashes || new Map();
     const flashNow = performance.now();
     // Prune window must stay comfortably above render.js's PATH_STONE_FLASH_MS
@@ -10964,53 +10990,128 @@ class MapScene extends Phaser.Scene {
       if (flashNow - t > pruneMs) this._pathStoneFlashes.delete(k);
     }
     this._pathStoneFlashes.set(cellKeyFromAbsCell(ix, iy), flashNow);
-    // Spec §PATH STONES: every 2nd claimed stone on the same named path awards
-    // 1 coin (a 30-stone path pays 15 total; a single stone pays nothing). Pay
-    // each 2-stone milestone exactly once as the player walks it. This is in
-    // ADDITION to the one-time completion reward fired below.
-    const milestones = Math.floor(rec.stones.length / 2);
-    if (milestones > (rec.coinsPaid || 0)) {
-      const newCoins = milestones - (rec.coinsPaid || 0);
-      rec.coinsPaid = milestones;
-      addMoney(this.save, newCoins);
-      this.flashLoot(`🪙 +$${newCoins} path`, '#ffe066', 1);
+    return name;
+  }
+
+  // THE SWEEP. Lights every cobble cell inside the player's lit reach, then
+  // settles each trail it touched exactly once: one counter pop, one prize
+  // check, one save write per trail however many stones came on.
+  //
+  // Measured from the REACH CELL, never the camera anchor (QC rules: a peek
+  // drag must not light stones three cells further than the arm reaches).
+  // cellInReach is the same gate the lit silhouette in render.js draws with,
+  // so what looks lit is exactly what counts.
+  _sweepCobbleTrails() {
+    // Cave levels carry no trails at all (a cave entry's pathNames is empty),
+    // so don't pay for the scan down there.
+    if ((this.depth ?? 0) > 0) { this._trailSweepKey = null; return; }
+    const reachM = reachRadiusM(this);
+    if (!(reachM > 0)) { this._trailSweepKey = null; return; }   // 0 energy: no light, no claim
+    const p = playerReachCell(this);
+    // Memoised on the reach CELL plus the radius: standing still finds nothing
+    // new, and the only things that can bring fresh cells into the bubble are
+    // moving to another cell or the reach itself changing (an upgrade, a
+    // potion, running out of energy).
+    const sweepKey = `${p.cellIX},${p.cellIY},${Math.round(reachM)}`;
+    if (this._trailSweepKey === sweepKey) return;
+    this._trailSweepKey = sweepKey;
+    const r = Math.ceil(reachM / this.cellM);
+    const N = this.cellsPerTile;
+    // "<tileKey> <trail name>" → the trails this sweep actually lit a stone on.
+    const touched = new Map();
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const ix = p.cellIX + dx, iy = p.cellIY + dy;
+        if (!cellInReach(this, ix, iy)) continue;
+        const tx = Math.floor(ix / N), ty = Math.floor(iy / N);
+        const name = this._activatePathStone(tx, ty, ix, iy);
+        if (!name) continue;
+        const tileKey = WorldGen.tileKey(tx, ty);
+        touched.set(`${tileKey} ${name}`, { tileKey, name });
+      }
     }
-    // Completion check: count every cell whose pathNames entry === name.
+    if (!touched.size) return;
+    for (const t of touched.values()) this._settleTrail(t);
+    persistSave(this.save);
+  }
+
+  // One trail, right after a sweep lit some of its stones: show the counter
+  // and pay out whatever prize the new total has earned.
+  _settleTrail({ tileKey, name }) {
+    const entry = WorldGen.tileCache.get(tileKey);
+    const rec = this.save.pathStones?.[tileKey]?.[name];
+    if (!entry || !entry.pathNames || !rec) return;
+    // The trail's length: every cell on this tile carrying this name.
     let total = 0;
     for (const k in entry.pathNames) if (entry.pathNames[k] === name) total++;
-    if (rec.stones.length >= total) {
-      rec.done = true;
-      // Only reward trails of real length. Every path cell is now named
-      // (worldgen flood-fill), so without this floor a 1–2 cell footpath stub
-      // would pop the full fanfare. 8 cells ≈ 40 m — a trail worth walking.
-      const MIN_TRAIL = 8;
-      if (total >= MIN_TRAIL) this._firePathCompletionReward(name);
-    }
-    persistSave(this.save);
-    return true;
+    const claimed = Math.min(rec.stones.length, total);
+    // Too short to be worth walking — light the stones, but no counter and no
+    // prize. Every cobble cell is named now, so without this floor a two-cell
+    // service stub would pop the full treasure ceremony.
+    if (!Trail.qualifies(total)) return;
+    // The counter: position within the current segment, in the treasure blue,
+    // popped by the player exactly like the rest-energy splash. ONE per trail
+    // per sweep, however many stones just came on.
+    const { pos, target } = Trail.progress(total, claimed);
+    this._toast(`${pos}/${target}`, { tier: 'note', color: UI_TREASURE_INK });
+    // Prizes owed, minus prizes already handed over. A wide reach can sweep
+    // past more than one segment boundary in a single step, so this is a
+    // COUNT, not a boolean — the queue below hands them out one ceremony at a
+    // time rather than stacking modals on top of each other.
+    const owed = Trail.prizesEarned(total, claimed) - (rec.prizes || 0);
+    if (owed <= 0) return;
+    rec.prizes = (rec.prizes || 0) + owed;
+    // Finished: mark it and DROP the per-cell list. Every cell of a done trail
+    // is lit by definition (_isPathStoneActive short-circuits on the flag), so
+    // keeping one "ix_iy" string per cell would grow the save without saying
+    // anything — and roads are trails now, so that list is hundreds of entries
+    // per street rather than a dozen per footpath. _activatePathStone refuses
+    // a done trail, so the emptied list can never be refilled and re-paid.
+    if (claimed >= total) { rec.done = true; rec.stones = []; }
+    this._trailPrizeQueue = this._trailPrizeQueue || [];
+    for (let i = 0; i < owed; i++) this._trailPrizeQueue.push(name);
+    this._drainTrailPrizes();
   }
-  // Reward fired when every stone of a named path on the current tile
-  // has been activated. Uses the unified rarity picker with the lowtier
-  // chest biome at tier 4 (the most generous lowtier curve) so the
-  // reward is meaningful without competing with the actual T4 epic
-  // POI chests. Routed through showChestRewardModal so it shares the
-  // same fanfare + sparkles as chest opens.
-  _firePathCompletionReward(name) {
+
+  // Hand out queued trail prizes one at a time, each ceremony opening as the
+  // previous one is dismissed. Two showChestRewardModal calls in the same
+  // frame would put one modal on top of the other and the player would never
+  // see the one underneath.
+  _drainTrailPrizes() {
+    if (this._trailPrizeOpen) return;
+    const q = this._trailPrizeQueue;
+    if (!q || !q.length) return;
+    this._trailPrizeOpen = true;
+    const name = q.shift();
+    this._firePathCompletionReward(name, () => {
+      this._trailPrizeOpen = false;
+      this._drainTrailPrizes();
+    });
+  }
+
+  // Reward fired each time a trail's lit stones cross a segment boundary.
+  // Uses the unified rarity picker with the lowtier chest biome at tier 4
+  // (the most generous lowtier curve) so the reward is meaningful without
+  // competing with the actual T4 epic POI chests. Routed through
+  // showChestRewardModal so it shares the same fanfare + sparkles as chest
+  // opens. `onDismiss` walks the prize queue on.
+  _firePathCompletionReward(name, onDismiss) {
     const reward = (typeof pickReward === 'function')
       ? pickReward('chest:lowtier', this.save, undefined, { tier: 4 })
       : null;
-    // Unnamed trails carry a synthetic "trail#<tile>_<n>" key (worldgen
-    // flood-fill) — show a generic title rather than the raw id.
+    // Unnamed trails carry a synthetic "trail#<tile>_<n>" key (worldgen's
+    // naming pass) — show a generic title rather than the raw id.
     const title = name.startsWith('trail#') ? 'HIDDEN TRAIL' : name.toUpperCase();
     if (!reward) {
       // Defensive fallback — give $5 so the player isn't stiffed.
       addMoney(this.save, 5);
       this.showChestRewardModal({
         kind: 'trail',
-        header: `${title} complete`,
+        header: `${title} walked`,
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: '+$5',
         color: UI_GOLD,
+        onDismiss,
       });
       return;
     }
@@ -11021,20 +11122,22 @@ class MapScene extends Phaser.Scene {
       const iconHTML = this.iconSpanHTML ? this.iconSpanHTML(reward.id, 64) : '';
       this.showChestRewardModal({
         kind: 'trail',
-        header: `${title} complete`,
+        header: `${title} walked`,
         iconHTML,
         name: item?.name || reward.id,
         qty: reward.qty > 1 ? `× ${reward.qty}` : null,
         color,
+        onDismiss,
       });
     } else if (reward.kind === 'gold') {
       addMoney(this.save, reward.amount);
       this.showChestRewardModal({
         kind: 'trail',
-        header: `${title} complete`,
+        header: `${title} walked`,
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: `+$${reward.amount}`,
         color: UI_GOLD,
+        onDismiss,
       });
     } else if (reward.kind === 'relic' || reward.kind === 'armor') {
       // A gear roll can yield a relic OR armor (armor is just another gear
@@ -11053,12 +11156,17 @@ class MapScene extends Phaser.Scene {
         : '★';
       this.showChestRewardModal({
         kind: 'trail',
-        header: `${title} complete`,
+        header: `${title} walked`,
         iconHTML,
         name: relicName,
         sub: 'equipped',
         color: UI_TREASURE,
+        onDismiss,
       });
+    } else if (typeof onDismiss === 'function') {
+      // An unrecognised reward kind opens no modal, so nothing would ever
+      // dismiss one — walk the queue on ourselves instead of stalling it.
+      onDismiss();
     }
     if (reward.consolation > 0) {
       addMoney(this.save, reward.consolation);
@@ -12385,7 +12493,7 @@ class MapScene extends Phaser.Scene {
   //                          modal becomes a CHOICE (explicit buttons, no
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
-  // `header` is the legacy per-reward line ('MILL LANE complete', 'Restored!').
+  // `header` is the legacy per-reward line ('MILL LANE walked', 'Restored!').
   // It now feeds the shared kind header as a LABEL OVERRIDE — the dialog keeps
   // its outcome wording and gains the kind's hero icon — so this modal shows
   // one header, not two. Callers that say nothing get TREASURE, which is what
