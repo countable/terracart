@@ -1,19 +1,28 @@
-// Delivery core — the seeded daily produce-demand logic extracted from app.js
-// so it's testable headlessly (no scene, no DOM).
+// Delivery core — the seeded produce-demand logic extracted from app.js so
+// it's testable headlessly (no scene, no DOM).
 //
-// Plain (residential) houses each ask for a 1-3 item produce "wishlist" that is
-// re-rolled once per UTC day, drawn from every produce up to a tier cap that
-// rises one step every 20 lifetime deliveries. The first houses you restore run
-// a SCRIPTED opening ladder (see SCRIPTED_WISHLISTS) that starts at one item.
-// The roll is deterministic in (house.id, day) so the render-loop sign and the
-// interact handler agree without re-rolling, and it's cached on the house
-// object per day.
+// Plain (residential) houses each ask for a 1-3 item produce "wishlist". A
+// house is LOCKED to the first wishlist it ever shows: the roll is pinned in
+// save.houseWishlists the first time it is made and read back from there ever
+// after, so the ask a player walked away from is the ask that is waiting when
+// they come back with the goods — whatever day it is and however far the tier
+// cap has climbed since. (Until Sep 2026 the list re-rolled every UTC day, and
+// the produce you gathered for a house on Tuesday was the wrong produce on
+// Wednesday.) What still resets daily is the DELIVERY: one bundle per house
+// per UTC day (isSatisfied), then the same ask again tomorrow.
+//
+// The first roll draws from every produce up to a tier cap that rises one step
+// every 20 lifetime deliveries. The first houses you restore run a SCRIPTED
+// opening ladder (see SCRIPTED_WISHLISTS) that starts at one item. The roll is
+// deterministic in house.id alone, so even a save that never persisted the pin
+// comes back to the same list; it's also cached on the house object.
 //
 // Everything here is a pure function of (save, house): the house._wantedProduce
-// cache it writes is plain data, not scene state. The scene calls Delivery
-// directly (dayKey / wanted / isSatisfied / isEarly …) from its interact and
-// render paths. The one piece that stays in app.js is knownDeliveryHouses — it
-// scans WorldGen.tileCache and uses the player's world position.
+// cache and the save.houseWishlists pin it writes are plain data, not scene
+// state. The scene calls Delivery directly (dayKey / wanted / isSatisfied /
+// isEarly …) from its interact and render paths. The one piece that stays in
+// app.js is knownDeliveryHouses — it scans WorldGen.tileCache and uses the
+// player's world position.
 //
 // Depends on globals from items.js: ITEM_BY_ID, ITEMS, BASE_TIER.
 
@@ -62,10 +71,10 @@
   // Themed wishlists — instead of a uniform grab-bag, every standing delivery
   // house has a "taste" so the bundle it asks for reads as a coherent set
   // ("the fisherman's cottage wants shells + a coconut", "the smithy row wants
-  // coal + copper"). Each theme is an ordered pool of item ids; the daily roll
-  // draws 2-3 from whichever items the tier cap has unlocked. The theme is
-  // stable per house (see bundleTheme), so a household keeps its character day
-  // to day while the specific items inside the theme rotate.
+  // coal + copper"). Each theme is an ordered pool of item ids; the roll draws
+  // 2-3 from whichever items the tier cap has unlocked at the time. The theme
+  // is stable per house (see bundleTheme), and so is the bundle drawn from it
+  // once pinned (see wantedProduce).
   //
   // Pools are intentionally generous and span tiers so a theme always has at
   // least a couple of low-tier members for early players. Ids that aren't in a
@@ -86,16 +95,19 @@
   };
   const BUNDLE_THEME_KEYS = Object.keys(BUNDLE_THEMES);
 
-  // UTC day stamp "YYYYMMDD" — wishlists reset on the day boundary.
+  // UTC day stamp "YYYYMMDD" — a delivery's "happy" state resets on the day
+  // boundary (isSatisfied). The wishlist itself does NOT.
   function dayKey(now = new Date()) {
     return now.toISOString().slice(0, 10).replace(/-/g, '');
   }
 
-  // Per-house, per-day RNG: FNV-1a hash of `id|day` seeds a small PRNG so each
-  // house rolls a new-but-stable wishlist each day. Differs from the shop RNG
-  // (which rotates on the hour bucket).
-  function wantedRng(house, dk) {
-    const h = fnv1a(String(house?.id || '') + '|' + String(dk || ''));
+  // Per-house RNG: FNV-1a hash of the house id seeds a small PRNG so a house
+  // rolls the same wishlist every time it is asked. The day is deliberately
+  // NOT in the seed — the pin in save.houseWishlists is the lock, and this
+  // makes the roll agree with it even before the pin has been persisted.
+  // Differs from the shop RNG (which rotates on the hour bucket).
+  function wantedRng(house) {
+    const h = fnv1a(String(house?.id || '') + '|wanted');
     return makeRng32(h);
   }
 
@@ -160,7 +172,20 @@
       : [];
   }
 
-  // 1-3 item ids this plain house wants today, cached on the house per day.
+  // The pinned wishlist of a house, if it has one: the list it first asked
+  // for, kept in save.houseWishlists. Ids the build no longer has are dropped;
+  // a pin that ends up empty is treated as absent so the house rolls afresh
+  // rather than asking for nothing forever.
+  function pinnedProduce(save, house) {
+    const pin = save?.houseWishlists?.[house.id];
+    if (!Array.isArray(pin)) return null;
+    const picks = pin.filter((id) => ITEM_BY_ID[id]);
+    return picks.length ? picks : null;
+  }
+
+  // 1-3 item ids this plain house wants — the SAME 1-3 for the life of the
+  // house. The first call rolls and pins the list in save.houseWishlists;
+  // every later call, on any day and at any tier cap, reads the pin back.
   // Each standing house draws a COHERENT bundle from its theme (beach / forage
   // / mining / harvest / animal) limited to what the tier cap has unlocked, so
   // wishlists read as themed sets rather than a random grab-bag. Special cases:
@@ -170,20 +195,31 @@
   // houses open up to their full themes.
   function wantedProduce(save, house, now = new Date()) {
     if (!house?.id) return [];
-    const dk = dayKey(now);
-    if (house._wantedProduce && house._wantedProduceDay === dk) return house._wantedProduce;
+    if (house._wantedProduce) return house._wantedProduce;
     const remember = (picks) => {
       house._wantedProduce = picks;
-      house._wantedProduceDay = dk;
       return picks;
     };
+    const pin = (picks) => {
+      // Scripted asks are pinned too: they are fixed by restore order, but the
+      // pin is what "this house's ask" MEANS from here on, so every house has
+      // one and nothing has to know which kind of house it is reading.
+      if (picks.length) {
+        save.houseWishlists = save.houseWishlists || {};
+        save.houseWishlists[house.id] = picks.slice();
+      }
+      return remember(picks);
+    };
+
+    const pinned = pinnedProduce(save, house);
+    if (pinned) return remember(pinned);
 
     // Scripted opening progression, by restore order — one shared table so the
     // ladder can't drift from the counts documented above (SCRIPTED_WISHLISTS).
     const order = houseOrder(save, house);
     if (order >= 0 && order < SCRIPTED_WISHLISTS.length) {
       const picks = SCRIPTED_WISHLISTS[order].filter((id) => ITEM_BY_ID[id]);
-      if (picks.length) return remember(picks);
+      if (picks.length) return pin(picks);
     }
 
     const cap = tierCap(save);
@@ -212,7 +248,7 @@
     }
     if (!pool.length) return remember([]);
 
-    const rng = wantedRng(house, dk);
+    const rng = wantedRng(house);
     const count = 2 + Math.floor(rng() * 2);   // 2 or 3
     // Uniform draw without replacement from the chosen pool.
     const picks = [];
@@ -220,13 +256,13 @@
       const idx = Math.floor(rng() * pool.length);
       picks.push(pool.splice(idx, 1)[0]);
     }
-    return remember(picks);
+    return pin(picks);
   }
 
   root.Delivery = {
     PRODUCE_TIER_MIN, PRODUCE_TIER_MAX, TIER_UNLOCK_EVERY, BUNDLE_THEMES,
     SCRIPTED_WISHLISTS, SCRIPTED_SINGLES, EARLY_HOUSES,
     dayKey, wantedRng, produceTier, tierCap, houseOrder, isEarly, isSatisfied,
-    bundleTheme, wantedProduce,
+    bundleTheme, pinnedProduce, wantedProduce,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
