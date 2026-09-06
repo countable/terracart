@@ -2725,7 +2725,7 @@ Render.drawObjects = function drawObjects(scene) {
   const _chestLook = (o) => o._chestLook
     || (o._chestLook = { stand: produceStandFor(o), coin: _isCoinBurst(o), box: _chestIsBox(o) });
   // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
-  const CRATE_SCALE = 1.53;
+  const CRATE_SCALE = 1.0;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
   // to the generic 'house' texture (the tinted shared sprite). Order
   // matters: starter wins over tier wins over shopType — so a tier-11
@@ -3032,9 +3032,9 @@ Render.drawObjects = function drawObjects(scene) {
               // are re-centred automatically by the seat pass, and the stall's
               // dxPx/dyPx below are re-derived for the new scale so its art
               // centre doesn't move. Crates (box, 16×16) sit at CRATE_SCALE —
-              // 16 × 1.53 ≈ 24px inside the 32px cell, so a crate reads as a
-              // prop rather than filling its cell; trunk is 32×32 so 0.9 is
-              // 90% of a cell.
+              // 16 × 1.0 = 16px inside the 32px cell, so a crate reads as a
+              // small prop rather than filling its cell; trunk is 32×32 so
+              // 0.9 is 90% of a cell.
               scale: (o) => { const L = _chestLook(o);
                               return L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.9)); },
               // Produce stands are foot-anchored (not seated), so origin 0.5

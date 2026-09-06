@@ -272,7 +272,7 @@ const SCENARIOS = [
   { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
   { name: 'chest',           key: 'chest',         frameIdx: 0, scale: 0.9 },
-  { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 1.53 },
+  { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 1.0 },
   { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.6 },
   { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   scale: 1.6 },
   { name: 'well',            key: 'well',          frameIdx: 0, scale: 0.9 },
