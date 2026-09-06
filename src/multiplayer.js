@@ -30,7 +30,6 @@
 //   consumeTap(scene, sx, sy) — true when ping mode ate the tap
 //   ping(scene, wmx, wmy)     — ping a world-metre spot
 //   setName(scene, name)      — rename (reconnects)
-//   status()                  — 'off' | 'noname' | 'connecting' | 'online' | 'error'
 //   cleanName / pickColor / toWorldPx / fromWorldPx / describeAt / edgeDot — pure, tested headlessly
 
 const Multiplayer = (function () {
@@ -209,8 +208,6 @@ const Multiplayer = (function () {
     S.status = st;
     paintButton();
   }
-  function status() { return S.status; }
-
   function handle(msg) {
     const now = performance.now();
     switch (msg.t) {
@@ -527,9 +524,8 @@ const Multiplayer = (function () {
     return true;
   }
 
-  return { start, tick, consumeTap, ping, setName, status,
+  return { start, tick, consumeTap, setName,
            cleanName, pickColor, toWorldPx, fromWorldPx, describeAt, edgeDot,
-           COLORS, NAME_MAX, PEER_NEAR_M, PEER_DOT_INSET, PEER_DOT_R,
-           _state: S };
+           COLORS, NAME_MAX, PEER_NEAR_M, PEER_DOT_INSET };
 })();
 if (typeof window !== 'undefined') window.Multiplayer = Multiplayer;

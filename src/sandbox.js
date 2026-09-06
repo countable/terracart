@@ -72,14 +72,9 @@
   // tile cells.
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Terrain codes (mirror WorldGen.T / app.js COLORS).
-  const T = {
-    GRASS: 0, FOREST: 1, SAND: 2, WATER: 3, FARMLAND: 4, RESIDENTIAL: 5,
-    PARK: 6, ROAD: 7, PATH: 8, BUILDING: 9, ROCK: 10, BUILDING_MED: 11,
-    BUILDING_LARGE: 12, ROAD_LG: 13, ROAD_MD: 14, SCHOOL: 15, COMMERCIAL: 16,
-    INDUSTRIAL: 17, PLAYGROUND: 18, PITCH: 19, WETLAND: 20, GOLF: 21,
-    ORCHARD: 22, PIER: 23,
-  };
+  // Terrain codes — the one table worldgen.js owns (loaded before this file),
+  // not a hand-kept mirror that could drift from it.
+  const T = WorldGen.T;
 
   // ── FOREST — every tree variant + species, shrubs, nuts, wild fauna,
   //    a WILD (net-gated) butterfly, and a slime pest. ───────────────────────
@@ -437,7 +432,6 @@
     const { objects, wildplants, creatures } = arrays;
     const at = (dx, dy) => wmAt(ix0 + dx, iy0 + dy);
     return {
-      at,
       creature(kind, dx, dy, n) {
         const { x, y } = at(dx, dy);
         creatures.push({ x, y, kind, id: `${baseId}_${tag}_${kind}_${n}` });
@@ -539,7 +533,6 @@
       occupied.add(key(ix, iy));
     }
     for (const wp of wildplants) if (wp._ix != null) occupied.add(key(wp._ix, wp._iy));
-    const hashStr = (s) => fnv1a(s);   // shared FNV-1a (util.js)
     const wallOn = (sx, sy, k, salt) => ((((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0) % 100) < 30;
     const place = (ix, iy, crop, t) => {
       const kk = key(ix, iy);
@@ -573,7 +566,8 @@
               if (hedge) place(ix, iy, fl.crop, t);
             }
           } else {
-            const rng = WorldGen.makeRng(hashStr(`${s.name}|${fl.crop}|${salt}`));
+            // fnv1a: the shared FNV-1a hash (util.js).
+            const rng = WorldGen.makeRng(fnv1a(`${s.name}|${fl.crop}|${salt}`));
             // Bias dynamic densities to the upper half of their range so no test
             // zone comes out empty by an unlucky roll (worldgen uses the full
             // [0, dMax]; here we want every biome's flora visibly represented).

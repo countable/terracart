@@ -55,9 +55,11 @@ const CHECKS = [
       }
       // A hand-listed subset is the drift that broke a boot once already: the
       // list is for non-scripts, and the scripts come from the page itself.
+      // No exemptions — vendor/phaser.js is a same-origin <script src> too,
+      // and listing it here just cached it twice on install.
       const block = sw.match(/const SHELL_ASSETS = \[([\s\S]*?)\]/);
       if (!block) throw new Error('SHELL_ASSETS not found in sw.js');
-      const scripts = block[1].split('\n').filter((l) => /\.js['"]/.test(l) && !/vendor\//.test(l));
+      const scripts = block[1].split('\n').filter((l) => /\.js['"]/.test(l));
       if (scripts.length) {
         throw new Error(`SHELL_ASSETS hand-lists app scripts again: ${scripts.map((s) => s.trim()).join(' ')}`);
       }
