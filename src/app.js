@@ -6791,20 +6791,29 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const progress = elapsed / dur;
-    const screen = this.worldMetersToScreen(wp.worldX, wp.worldY);
-    const cx = Math.round(screen.x);
-    // Static targets (rock / tree / crop / fish) sit in their cell, so a flat
-    // -7 puts the wheel on them. A CREATURE can't use a flat offset: the
-    // animals are drawn feet-anchored at wildly different sizes, so the one
-    // number that hugged a cow's head floated ~4 px clear above a chicken and
-    // sat down at a perched crow's feet. Wheels over a creature — a capture
-    // (wp.flee) or a hunt (wp.track) — are placed by the crown rule instead
-    // (SpriteLayout.creatureWheelDy): centred on the top row of that kind's
-    // art, half the ring over the body and half in clear sky. That subsumes
-    // the old per-case fudges, including the capture wheel's extra lift for
-    // "clear the fleeing animal" — it clears it by construction now.
+    // Static targets (rock / tree / crop / fish / a cave wall) are worked in
+    // ONE CELL, and the wheel is centred on that cell — the anchor is snapped
+    // to its cell centre and no offset is added. It used to sit at a flat -7
+    // above the anchor, which read as riding up the cell rather than on it. A
+    // CREATURE can't use a flat offset either way: the animals are drawn
+    // feet-anchored at wildly different sizes, so the one number that hugged a
+    // cow's head floated ~4 px clear above a chicken and sat down at a perched
+    // crow's feet. Wheels over a creature — a capture (wp.flee) or a hunt
+    // (wp.track) — follow the animal's own position and are placed by the
+    // crown rule instead (SpriteLayout.creatureWheelDy): the ring rests on the
+    // top row of that kind's art. That subsumes the old per-case fudges,
+    // including the capture wheel's extra lift for "clear the fleeing animal"
+    // — it clears it by construction now.
     const creature = wp.flee || wp.track || null;
-    const dyWheel = creature ? SpriteLayout.creatureWheelDy(creature.kind) : -7;
+    let ax = wp.worldX, ay = wp.worldY;
+    if (!creature) {
+      const ac = worldMetersToAbsCell(this, ax, ay);
+      const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
+      ax = cc.x; ay = cc.y;
+    }
+    const screen = this.worldMetersToScreen(ax, ay);
+    const cx = Math.round(screen.x);
+    const dyWheel = creature ? SpriteLayout.creatureWheelDy(creature.kind) : 0;
     const cy = Math.round(screen.y) + Math.round(dyWheel);
     const g = this._workProgressGfx;
     g.clear();
