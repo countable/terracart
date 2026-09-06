@@ -75,6 +75,16 @@ test('migrate: golden_<kind> folds into shiny_<kind>; goldenfish untouched', () 
   assert.truthy(save.inv.find((s) => s.id === 'goldenfish'), 'goldenfish (no underscore) preserved');
 });
 
+test('migrate: flute folds into honey (the lure consumable was renamed)', () => {
+  const save = { inv: [{ id: 'flute', count: 2 }, { id: 'honey', count: 1 }, { id: 'book', count: 1 }] };
+  const persist = SaveMigrate.migrate(save);
+  assert.truthy(persist, 'a real rename asks for a persist');
+  const honey = save.inv.find((s) => s.id === 'honey');
+  assert.eq(honey.count, 3, '2 flute + 1 honey');
+  assert.falsy(save.inv.find((s) => s.id === 'flute'), 'flute renamed away');
+  assert.truthy(save.inv.find((s) => s.id === 'book'), 'unrelated stack kept');
+});
+
 test('migrate: released animals carry the golden flag over to shiny', () => {
   const save = { released: [{ kind: 'cow', golden: true }, { kind: 'dog' }] };
   SaveMigrate.migrate(save);

@@ -4,8 +4,8 @@
 // migrate(save) mutates `save` in place: backfills slots/defaults added since a
 // save was created, re-derives maxEnergy from armor, applies the history-size
 // cap, and runs the data migrations (inv string→object, stash fold, discovery
-// counter→badge stack, venison→meat, golden→shiny rename, released golden
-// flag, the sapling review seed).
+// counter→badge stack, venison→meat, golden→shiny rename, flute→honey rename,
+// released golden flag, the sapling review seed).
 //
 // Returns `needsPersist`: true iff a REAL data migration changed something and
 // the save should be re-written now. Idempotent defaults (slot backfills, the
@@ -200,13 +200,16 @@
       save.inv = merged;
     }
     // Rename: golden_<kind> → shiny_<kind> (fold counts). 'goldenfish' has no
-    // underscore so it's never matched.
+    // underscore so it's never matched. Also flute → honey: the lure consumable
+    // was renamed (Sep 2026) because a flute that vanishes after one tune read
+    // wrong; a jar of honey the animals eat does not. Same lure, same price.
     if (Array.isArray(save.inv)) {
       const byId = new Map();
       const out = [];
       for (const s of save.inv) {
         if (!s) continue;
-        const id = (s.id && s.id.startsWith('golden_')) ? 'shiny_' + s.id.slice(7) : s.id;
+        const id = (s.id && s.id.startsWith('golden_')) ? 'shiny_' + s.id.slice(7)
+          : s.id === 'flute' ? 'honey' : s.id;
         if (id !== s.id) needsPersist = true;
         const prev = byId.get(id);
         if (prev) { prev.count = (prev.count ?? 0) + (s.count ?? 0); }
