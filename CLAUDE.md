@@ -326,8 +326,11 @@
   ambient, the plateau and the edge level from the same
   `Render.reachDimColor` / `reachDimAlpha` the old wash painted with plus the
   falloff pair (`FALLOFF_A` / `FALLOFF_P`), so the surface with only the
-  player lit looks as it did. Retune a look through those; a factor added in
-  lighting.js breaks the correspondence the test pins.
+  player lit looks as it did — except the FLOOR, which `AMBIENT_K` scales
+  down for contrast (the one deliberate departure: "totally unlit areas
+  should be darker"). Retune a look through those; `AMBIENT_K` is the
+  contrast knob, and another factor added in lighting.js breaks the
+  correspondence the test pins.
   **The light table is `Lighting.KINDS`**, one row per source: the player, Home
   (`trailer` — the starter trailer or the house adopted in its place), a
   restored building (keyed on the SAME `isClaimedKey` test the derelict wash
