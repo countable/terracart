@@ -3898,11 +3898,14 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // Player-planted fruit-tree saplings (save.fruittrees) → growing
-    // `fruittree` objects on the tile that owns each one. Injected AFTER the
-    // spawn-area strip above so a sapling planted near home survives. The
-    // fruittree render spec advances the sprite through its growth frames from
-    // planted_t; the harvest handler gates picking until it matures.
+    // Player-planted saplings (save.fruittrees) → growing objects on the tile
+    // that owns each one. Injected AFTER the spawn-area strip above so a
+    // sapling planted near home survives. Two kinds share the list: an ACORN
+    // record carries kind:'tree' and comes back as TIMBER (chopped for wood,
+    // its growth stage read off planted_t by util.js treeGrowthStage); every
+    // other record is a `fruittree` (picked, not chopped) whose render spec
+    // advances the sprite through its growth frames from planted_t, with the
+    // harvest handler gating picking until it matures.
     if (this.save.fruittrees && this.save.fruittrees.length) {
       const t0x = tx * this.tileEdgeM, t0y = ty * this.tileEdgeM;
       for (const ft of this.save.fruittrees) {
@@ -3910,7 +3913,13 @@ class MapScene extends Phaser.Scene {
             ft.y < t0y || ft.y >= t0y + this.tileEdgeM) continue;
         if ((entry.objects || []).some(o => o.id === ft.id)) continue;
         entry.objects = entry.objects || [];
-        entry.objects.push({
+        entry.objects.push(ft.kind === 'tree' ? {
+          // No `species` and no `size`: a species-less tree draws off the
+          // default growth sheet and takes no hardwood/softwood tier shift, so
+          // what you planted is what you can fell.
+          kind: 'tree', x: ft.x, y: ft.y,
+          id: ft.id, planted: true, planted_t: ft.planted_t,
+        } : {
           kind: 'fruittree', x: ft.x, y: ft.y,
           species: ft.species === 'peach' ? 'peach' : 'apple',
           id: ft.id, planted: true, planted_t: ft.planted_t,
@@ -6392,7 +6401,7 @@ class MapScene extends Phaser.Scene {
         // first bolt after a meal fires immediately.
         const eCost = Combat.SHOT[slot].energyCost || 0;
         if (eCost && !this.spendEnergy(eCost)) continue;
-        this._nextShotT[slot] = now + Combat.FIRE_INTERVAL_MS;
+        this._nextShotT[slot] = now + Combat.fireIntervalMs(slot);
         // The tier sizes the shot too (a staff bolt grows with it — both its
         // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
@@ -7418,13 +7427,17 @@ class MapScene extends Phaser.Scene {
       if (now >= c._nextChooseT) {
         if (c._homeX == null) { c._homeX = c.x; c._homeY = c.y; }
         // Tame butterflies pollinate nearby planted crops while wandering —
-        // mirror the water-can boost (canBoost flag). Each step they're
-        // within 8 m of a planted cell, that cell gets armed for a double
-        // harvest on the next maturation.
+        // they raise the same produce-quality figure the BED hands the crop
+        // at planting (Crops.bedQuality), by one tier. Each step they're
+        // within 8 m of a planted cell, that cell gets armed for a better
+        // harvest. Never lower a crop already carrying a richer bed: a
+        // butterfly is a bonus, so it takes the max. (This wrote a bare
+        // `true` before the field was numeric; `true` read as 1 in the
+        // harvest arithmetic, so one tier is exactly what it always gave.)
         if (isTame && c.kind === 'butterfly' && this.save.planted) {
           for (const pp of this.save.planted) {
             const dx = pp.x - c.x, dy = pp.y - c.y;
-            if (dx * dx + dy * dy <= 64) pp.canBoost = true;
+            if (dx * dx + dy * dy <= 64) pp.qualBoost = Math.max(pp.qualBoost ?? pp.canBoost ?? 0, 1);
           }
         }
         // HP healing: if 20 min since last damage, restore to max. Max comes

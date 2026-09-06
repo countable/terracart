@@ -192,10 +192,20 @@
     return meleeDps(relics) * (mul || 1) * MELEE_INTERVAL_MS / 1000;
   }
 
-  // One shot every two seconds. Was 1000 — halving the cadence makes each
-  // shot a visible event instead of a stream; shotDamage scales per-shot
-  // damage by the interval, so the delivered rate is cadence-independent.
+  // The BASE fire beat — one shot every two seconds, and what the bow keeps.
+  // Was 1000 — halving the cadence makes each shot a visible event instead of
+  // a stream; shotDamage scales per-shot damage by the interval, so the
+  // delivered rate is cadence-independent.
+  //
+  // A slot may fire on its own beat (SHOT[slot].fireIntervalMs, read through
+  // fireIntervalMs() below). The STAFF fires on half the bow's cadence — one
+  // bolt every other beat — and because shotDamage prices a shot at its own
+  // slot's interval, that is PACING and not a nerf: a staff bolt simply
+  // carries two beats' worth of damage and the dps identity above still
+  // holds. Never halve a cadence without letting shotDamage see it, or the
+  // weapon quietly loses half its damage.
   const FIRE_INTERVAL_MS = 2000;
+  const STAFF_BEAT_MUL = 2;
   const RANGED_SLOTS = ['bow', 'staff'];
   // Per-slot shot geometry. `phaseMs` used to stagger the staff half a beat
   // off the bow so a player carrying both fired simultaneously heard an
@@ -216,9 +226,10 @@
   //           every foe it passes exactly once and ignores the world test
   //           entirely (magic goes over rock and timber alike). Each bolt
   //           draws energyCost (1⚡) from the caster — app.js gates the shot
-  //           on affording it — and hits twice as hard as an arrow
-  //           (SHOT_DMG_MUL below): the energy is the price of the pierce
-  //           and the punch.
+  //           on affording it — and delivers twice an arrow's damage PER
+  //           SECOND (SHOT_DMG_MUL below): the energy is the price of the
+  //           pierce and the punch. It arrives half as often as an arrow
+  //           (fireIntervalMs), so one BOLT is four times one arrow.
   //
   // And they differ in how they AIM (`aim`):
   //   'compass' — the bow. The arrow goes where you are facing; aiming is
@@ -232,11 +243,19 @@
   //           as broken rather than skilful.
   const SHOT = {
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
-             phaseMs: 0, aim: 'compass' },
+             phaseMs: 0, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS },
     staff: { speedCps: 3.2, rangeCells: 7, color: 0x9ad6ff, dotPx: 3,
              phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest',
-             growsWithTier: true },
+             growsWithTier: true,
+             fireIntervalMs: FIRE_INTERVAL_MS * STAFF_BEAT_MUL },
   };
+  // The beat a slot fires on. One reader for the cadence clock (app.js
+  // stepShots) and the damage pricing (shotDamage) alike, so a slot's rate
+  // and its per-shot damage cannot drift apart.
+  function fireIntervalMs(slot) {
+    const spec = SHOT[slot];
+    return (spec && spec.fireIntervalMs) || FIRE_INTERVAL_MS;
+  }
   // Damage weight per slot: a staff bolt lands double an arrow's share.
   const SHOT_DMG_MUL = { bow: 1, staff: 2 };
   // How close a shot has to pass to a foe's feet to count as a hit, in cells.
@@ -289,7 +308,7 @@
   function shotDamage(relics, slot) {
     if (!relics || !relics[slot]) return 0;
     const perSecond = dpsForDurationMs(toolDurationMs(relics, slot)) * (SHOT_DMG_MUL[slot] || 1);
-    return Math.max(1, Math.round(perSecond * FIRE_INTERVAL_MS / 1000));
+    return Math.max(1, Math.round(perSecond * fireIntervalMs(slot) / 1000));
   }
 
   // The heading a 'nearest'-aimed slot fires along from (x, y): a vector to
@@ -460,7 +479,9 @@
   const TURRET = {
     slot: 'bow',
     tier: 1,                                              // Wood
-    fireIntervalMs: FIRE_INTERVAL_MS * TURRET_RATE_DIV,   // 10 s a turret
+    // The turret shoots the player's BOW arrow, so it paces off the bow's own
+    // beat — never the bare base — times TURRET_RATE_DIV.
+    fireIntervalMs: fireIntervalMs('bow') * TURRET_RATE_DIV,   // 10 s a turret
   };
   const TURRET_RELICS = { bow: { tier: TURRET.tier } };
   function turretShotDamage() { return shotDamage(TURRET_RELICS, TURRET.slot); }
@@ -576,7 +597,8 @@
     isEnemyKind, isEnemy, hp, damage, hpFraction,
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
-    FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
+    FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
+    RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
