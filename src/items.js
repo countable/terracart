@@ -749,6 +749,7 @@ const STARTING_MONEY = 50;
 const PLAY_TIPS = [
   // ── The first ten minutes — you cannot act without these ────
   'Actions cost energy. Eat to refill — or just rest; an hour away from the game hands the whole bar back.',
+  'Hard mode is harsher on an empty tank: food, a campfire and time away all stop working, and only your trailer starts you moving again.',
   'Only your OWN home rests you — a full bar in ninety seconds. A stranger\'s roof is just a roof.',
   'A campfire rests you slowly out in the open, and slimes keep their distance.',
   'Resting stops while a work wheel turns. A job done on the doorstep still costs what it costs; the sit-down afterwards is what earns it back.',
@@ -856,6 +857,11 @@ const ITEM_EFFECTS = {
   sapphire:  'Use to open a portal one level down',
   // The Frost jewel: where it comes from and what it is for, in one line.
   diamond:   'Mined from Frost-tier ore; Frost jewelry is cut around it',
+  // The one thing that still works through the hard-mode zero-energy
+  // lockout (see PLAY_TIPS) — a quarter bar, the same floor reaching the
+  // trailer gives. Never a normal food: it carries no FOOD_ENERGY entry, so
+  // the Eat button only ever offers this while the lockout actually holds.
+  crow_feather: 'Eat at zero to fill a quarter of your bar (hard mode)',
   // Consumables used on yourself / the world.
   honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',
