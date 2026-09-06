@@ -321,7 +321,10 @@ function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 // Underground wandering MONSTERS. Mechanically they're the surface slime: each
 // drifts toward the player and drains energy when within RANGE — but they
 // differ by HP / RANGE / DMG / SPEED. Only the goblin archer reaches past one
-// cell (range 3); everything else is melee (range 1). Tougher kinds are gated
+// cell (range 3), and a kind with range > 1 SHOOTS — a visible arrow at the
+// player, one hit of `dmg` per arrow at the castle turret's cadence (see
+// Combat.monsterShot); everything else is melee (range 1) and leeches on
+// MONSTER_HIT_MS. Tougher kinds are gated
 // to deeper levels via minDepth, so descending introduces new foes. Placeholder
 // art: every monster reuses the slime sprite with a per-kind TINT (see
 // render.js) until dedicated sheets land — swapping in real art is a one-line
@@ -6131,10 +6134,16 @@ class MapScene extends Phaser.Scene {
         const cc = worldMetersToAbsCell(this, x, y);
         return solidCells.has(cc.cellIX + '_' + cc.cellIY);
       };
+      // The player is what a HOSTILE shot (a monster's arrow) can hit: one
+      // marker at the feet, rebuilt each tick so it follows the fix. A
+      // friendly shot never sweeps it, a hostile one never sweeps `enemies`
+      // — stepShots keeps the two lanes apart.
+      const playerTarget = { id: 'player', x: px, y: py };
       this._shots = Combat.stepShots(this._shots, dt, enemies,
         Combat.HIT_RADIUS_CELLS * this.cellM,
-        (enemy, shot) => this._damageEnemy(enemy, shot.damage),
-        { blocked: shotBlocked, cellM: this.cellM });
+        (target, shot) => (shot.hostile ? this._shotHitsPlayer(shot)
+                                        : this._damageEnemy(target, shot.damage)),
+        { blocked: shotBlocked, cellM: this.cellM, hostileTargets: [playerTarget] });
     }
     this._drawShots();
 
@@ -6158,6 +6167,23 @@ class MapScene extends Phaser.Scene {
     }
 
     this._drawEnemyHealth(enemies);
+  }
+
+  // A monster's arrow lands. The same energy hit the melee leech deals
+  // (wanderCreatures' monster branch) — the shield potion halves it at the
+  // moment of impact, the loss rolls into the throttled "monsters hit -N⚡"
+  // flash so a volley reads as one pop — only delivered by a shot you could
+  // see coming rather than a silent drain at range.
+  _shotHitsPlayer(shot) {
+    const now = performance.now();
+    const before = this.save.energy ?? 0;
+    if (!(before > 0) || !(shot.damage > 0)) return false;
+    const dmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(shot.damage / 2) : shot.damage;
+    this.save.energy = Math.max(0, before - dmg);
+    this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
+    this._warnIfTiring(before);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    return true;
   }
 
   // The castle turrets' volley — one arrow per turret per Combat.TURRET
@@ -6229,7 +6255,9 @@ class MapScene extends Phaser.Scene {
       // The tail trails a fixed number of SCREEN pixels back along the
       // heading — the streak is a readability device, not a world-space
       // object, so it shouldn't grow or shrink with the projection.
-      g.lineStyle(spec.widthPx, spec.color, 0.9);
+      // A hostile arrow carries its own colour (Combat.HOSTILE_ARROW_COLOR)
+      // so a shot coming AT you reads apart from one going out.
+      g.lineStyle(spec.widthPx, s.color != null ? s.color : spec.color, 0.9);
       g.beginPath();
       g.moveTo(Math.round(hx - s.vx * spec.lenPx), Math.round(hy - s.vy * spec.lenPx));
       g.lineTo(hx, hy);
@@ -6940,7 +6968,21 @@ class MapScene extends Phaser.Scene {
         // they skip the walk and the cost of it.
         const clear = m.range <= 1 ||
           Combat.lineOfFire(c.x, c.y, px, py, (x, y) => this._cellBlocked(x, y), this.cellM);
-        if (clear && ddx * ddx + ddy * ddy <= R * R && (!c._nextStealT || now >= c._nextStealT)) {
+        if (clear && m.range > 1 && ddx * ddx + ddy * ddy <= R * R
+            && (!c._nextShotT || now >= c._nextShotT)) {
+          // A RANGED kind SHOOTS instead: a visible arrow loosed at the player
+          // at the castle turret's cadence (Combat.MONSTER_SHOT_INTERVAL_MS),
+          // flying as a bow arrow through the one shot list — it can be seen
+          // coming, stops in rock, and lands its hit in _shotHitsPlayer (the
+          // shield potion is applied THERE, at the moment it strikes). One
+          // arrow carries one hit of the table: the kind's dmg, doubled for an
+          // elite, scaled by the mode.
+          c._nextShotT = now + Combat.MONSTER_SHOT_INTERVAL_MS;
+          const dmg = m.dmg * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
+          const shot = Combat.monsterShot(c.x, c.y, px, py, this.cellM, dmg);
+          if (shot) this._shots.push(shot);
+        } else if (clear && m.range <= 1 && ddx * ddx + ddy * ddy <= R * R
+                   && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + MONSTER_HIT_MS;
           const before = this.save.energy ?? 0;
           if (before > 0) {
