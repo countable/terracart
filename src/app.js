@@ -6257,7 +6257,21 @@ class MapScene extends Phaser.Scene {
       // clears, so a job done from Home still costs what it costs, visibly,
       // and the sit-down afterwards is what earns it back.
       const working = !!this._workProgress;
-      if (atHome && !working && (this.save.energy ?? 0) < maxE) {
+      // Hard mode's zero-energy lockout (_zeroEnergyLocked): the trailer
+      // doesn't trickle you back up from empty — arriving there puts you
+      // straight at a quarter bar, the same floor a Crow Feather gives
+      // (eatSelected). A campfire is NOT the trailer, so its rest below stays
+      // blocked until that floor is crossed.
+      const locked = this._zeroEnergyLocked();
+      if (atHome && locked) {
+        const beforeE = this.save.energy ?? 0;
+        this.save.energy = maxE * 0.25;
+        this._restAccrueE = 0;
+        const gainedE = this.save.energy - beforeE;
+        if (gainedE > 0) this._splashEnergyGain(gainedE);
+        if (this.updateEnergyDOM) this.updateEnergyDOM();
+        persistSave(this.save);
+      } else if (atHome && !working && (this.save.energy ?? 0) < maxE) {
         this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE);
       } else {
         // Stopped resting — flush any unsplashed accumulation so the last few
@@ -6274,7 +6288,7 @@ class MapScene extends Phaser.Scene {
       // the home rest above; a fire can't sit on a building cell so the two
       // rarely overlap.
       if ((this.save.energy ?? 0) < maxE) {
-        if (!working && this._nearAny('fires', pWX, pWY, FIRE_REST_R)) {
+        if (!working && !locked && this._nearAny('fires', pWX, pWY, FIRE_REST_R)) {
           this._accrueRestEnergy('_fireAccrueE', maxE * (dt / FIRE_FULL_REST_S), maxE);
         } else {
           this._fireAccrueE = 0;
@@ -9871,6 +9885,16 @@ class MapScene extends Phaser.Scene {
     return Energy.maxEnergy(this.save);
   }
 
+  // Hard mode's zero-energy lockout. Once the tank reads empty on hard, food
+  // (eatSelected), campfire rest and offline/passive rest (applyOfflineRest)
+  // all refuse — the only two ways back are reaching the trailer (the Home
+  // rest branch in update()) or eating a Crow Feather, and both put the bar
+  // at exactly a quarter, never a free full tank. Easy mode has no floor:
+  // this is always false there, so every existing recovery path is untouched.
+  _zeroEnergyLocked() {
+    return Difficulty.isHard() && (this.save.energy ?? 0) <= 0;
+  }
+
   // Equip a bought/forged relic or armor piece into its slot. Armor also
   // recomputes max energy and grants the freshly-unlocked headroom (captured
   // BEFORE mutating armor so the bump is the delta, not the whole new max).
@@ -9882,6 +9906,9 @@ class MapScene extends Phaser.Scene {
   // restore it. Called from create() and the visibilitychange handler so the
   // same formula serves both "tab was closed" and "tab was backgrounded".
   applyOfflineRest(gapMs) {
+    // Hard mode's zero-energy lockout: time away doesn't revive you either —
+    // only the trailer or a Crow Feather does once the tank is empty.
+    if (this._zeroEnergyLocked()) return;
     const gained = Energy.applyOfflineRest(this.save, gapMs);
     if (gained > 0 && this.updateEnergyDOM) this.updateEnergyDOM();
     if (gained > 0) this._splashEnergyGain(gained);
@@ -10629,8 +10656,16 @@ class MapScene extends Phaser.Scene {
   eatSelected() {
     const sel = getSelectedSlot(this.save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
-    const restore = FOOD_ENERGY[sel.id];
-    if (restore == null) return false;
+    // Hard mode's zero-energy lockout (see _zeroEnergyLocked): once the tank
+    // is empty, a Crow Feather is the one food that still works — it revives
+    // to a quarter bar, the same floor reaching the trailer gives (see the
+    // Home rest in update()). Every other food refuses outright while locked,
+    // so eating around the lockout isn't an option.
+    const locked = this._zeroEnergyLocked();
+    const featherRevive = locked && sel.id === 'crow_feather';
+    if (locked && !featherRevive) return false;
+    const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
+    if (!featherRevive && restore == null) return false;
     // First taste of a new edible permanently grows the bar: +1 max energy per
     // distinct food ever eaten (Energy.maxEnergy folds save.eaten into the
     // cap). Recorded BEFORE the restore below so the new headroom is fillable
@@ -10642,7 +10677,9 @@ class MapScene extends Phaser.Scene {
       firstTaste = true;
     }
     const before = this.save.energy ?? 0;
-    this.save.energy = Math.min(this.getMaxEnergy(), before + restore);
+    this.save.energy = featherRevive
+      ? this.getMaxEnergy() * 0.25
+      : Math.min(this.getMaxEnergy(), before + restore);
     const gained = this.save.energy - before;
     consumeSelected(this.save);
     // Special effects.
@@ -15025,11 +15062,16 @@ class MapScene extends Phaser.Scene {
   // explicit affordance below the inventory bar.
   syncEatButton() {
     const sel = this.save.inv?.[this.save.selSlot];
+    // A Crow Feather carries no ordinary FOOD_ENERGY — it only works through
+    // the hard-mode zero-energy lockout (eatSelected), reviving to a quarter
+    // bar, so the button only appears for it while that lockout actually
+    // holds (never in easy mode, never above 0 energy).
+    const featherRevive = !!sel && sel.id === 'crow_feather' && this._zeroEnergyLocked();
     const restore = (sel && typeof FOOD_ENERGY !== 'undefined') ? FOOD_ENERGY[sel.id] : null;
     const existing = document.getElementById('eat-btn');
-    if (restore == null) { existing?.remove(); return; }
+    if (restore == null && !featherRevive) { existing?.remove(); return; }
     const iconHtml = this.iconSpanHTML(sel.id, 20);
-    const label = `${iconHtml} Eat +${restore}⚡`;
+    const label = featherRevive ? `${iconHtml} Use → 25%⚡` : `${iconHtml} Eat +${restore}⚡`;
     if (existing) { existing.innerHTML = label; return; }
     const btn = document.createElement('button');
     btn.id = 'eat-btn';
