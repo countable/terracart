@@ -2464,7 +2464,7 @@ Render.drawObjects = function drawObjects(scene) {
   // `box` sprite instead of the trunk chest.
   const _chestIsBox = (o) => {
     if (o.crate) return true;   // starter supply crates always use the box sprite
-    const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y) : 2;
+    const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth) : 2;
     return tier === 1;
   };
   // EVERY opened chest vanishes, crates included. A looted crate used to stay
@@ -2544,7 +2544,9 @@ Render.drawObjects = function drawObjects(scene) {
   // hides — used for variants that haven't baked yet.
   // Coin-burst POIs (ATM + bicycle_parking): tapping them spills a burst of
   // collectible coins, so they render as a "pot of gold" instead of a chest.
-  const _isCoinBurst = (o) => o.poiClass === 'atm' || o.poiClass === 'bicycle_parking';
+  // A cave-level mirror of one (o.depth > 0, worldgen.js caveChestsFrom) is a
+  // plain chest — the same gate interactables.js puts on the burst itself.
+  const _isCoinBurst = (o) => (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') && !(o.depth > 0);
   // Which of the chest's three looks (produce stand / pot of gold / crate)
   // this object wears — resolved ONCE per object and cached on it, the same
   // way loot.js's produceStandFor caches its own answer in o._standCache.
@@ -3799,7 +3801,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const item of chestObjs) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
-    const tier = chestTier(o.poiClass, o.x, o.y);
+    const tier = chestTier(o.poiClass, o.x, o.y, o.depth);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
     const cx = Math.round(sx + 1);   // +2px right (was sx - 1)
