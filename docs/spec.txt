@@ -33,7 +33,8 @@ Each cell may contain one interactable object (excluding fauna). ie, rocks, tree
 Entities that can typically move around over cells, like pets, enemies, wild animals
  - crows: move in pauses and straight lines. Orbit nearest crop at 1.5-3.5 cells,
    land on it for 2 full cycles, then destroy it. Scarecrow aversion 4 cells.
- - no fauna may move onto a building footing, or road.
+ - no fauna may move onto a building footing, or road. Nor is any SEATED on one:
+   every spawner goes through WorldGen.isSpawnCell with the tile's roadMask.
  - animals simulate when within the SIM BUBBLE, 12 cells of the player's feet
    (CREATURE_SIM_CELLS); stationary beyond that. The viewport corner is ~7.8
    cells out, so the bubble carries about half a viewport of margin: a
@@ -45,6 +46,38 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    in book tips); tame slimes don't drain.
  - deer (15 hp), crow (8 hp): sneak in and eat crops. Deer: 20% chance per wander
    step within 1.5 cells of a crop. Crow: orbital 2-cycle attack (see above).
+ - DERELICT LAIRS ARE A HARD-MODE RULE (Difficulty derelictLairs, src/lairs.js).
+   Every UNCLAIMED structure — a wrecked house, a sealed fort, an unclaimed
+   castle, by the isClaimedKey test the derelict wash already reads — holds a
+   garrison of IMMOBILE slimes. Two axes and no others:
+     * building tier: house 1, fort 2, castle 3 (TIER_GUARDS, at the near ring)
+     * distance from home: nothing inside LAIR_MIN_HOME_CELLS (12 cells), then
+       a straight ramp to LAIR_FAR_M (1000m) where the figures are multiplied
+       by FAR_MUL — a castle reaches LAIR_MAX_PER_STRUCTURE (15), a fort 10, a
+       house 5. FAR_MUL is DERIVED (ceiling / biggest tier figure), not tuned.
+   The rolled count is the cap less a seeded shortfall of up to LAIR_SLACK, so
+   a house and a fort are always exactly their figure and a castle is 2-3.
+   The KIND ladder rides the same ramp and is slimes all the way: surface slime
+   near, cave slime from a third out, purple slime from two thirds.
+   Distance is measured from the FROZEN starter anchor (save.starterCratesAt),
+   never a Home adopted later — a moving Home would re-rank every ruin.
+   Guards are seated on a ring one cell clear of the footprint, through
+   WorldGen.isSpawnCell with the tile's own spawn options, so never on a road
+   band and never on the building itself. A ruin with nowhere to stand holds
+   fewer, never a guard somewhere wrong.
+   GENERATED, NEVER STORED (the traps.js contract): a pure function of (tx, ty)
+   through its own makeRng stream, so a rebuilt tile lays the identical
+   garrison and only save.caught (a guard the player killed) reaches disk. The
+   draw must not read the save — a defeated guard still rolls and still spends
+   its budget slot, or clearing one lair would re-seat every guard laid after.
+   LAIR_TILE_BUDGET (60) caps the total per tile — every tier-9 house is a
+   wreck until rebuilt, so an uncapped pass would seat thousands on a city
+   tile. It is spent LARGEST TIER FIRST (landmarks always hold their garrison)
+   and each tier's bucket is walked on a seeded coprime stride, so a bound
+   budget is spread across the tile instead of filling one corner of it.
+   IMMOBILE means the movement step only: app.js wanderCreatures returns on
+   `c.immobile` BELOW the leech and the monster attack, so a guard still drains
+   you, still shoots if its kind does, and still dies and pays its bounty.
  - THE CROW PUMP IS A HARD-MODE RULE (Difficulty cropPests). On hard, a planted
    crow-edible crop with no wild crow already near the player dispatches one
    every ~90 s, seated at PEST_CROW_SPAWN_CELLS (10) — past the viewport corner

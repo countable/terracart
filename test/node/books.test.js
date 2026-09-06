@@ -413,6 +413,31 @@ test('tips: the chest rings and the depth step are the ones loot.js applies', ()
   assert.truthy(someTip(/violet and the gold ones/i), 'and the gem tip names both top gems');
 });
 
+test('books: the derelict-lair tip is re-derived from lairs.js', () => {
+  // A hard-mode ruin's garrison is invisible until you are standing in it, and
+  // the RULE behind it — a safe ring, then more for a bigger building and more
+  // the further out — is not visible at all. So it is Book-documented, and the
+  // three figures the sentence quotes come from the module that owns them.
+  assert.eq(Lairs.LAIR_MIN_HOME_CELLS, 12,
+    'the tip says "a dozen cells of home" — re-word it or move the constant back');
+  assert.eq(Lairs.LAIR_FAR_M, 1000, 'the tip says "a kilometre away"');
+  assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 15, 'the tip says "fifteen slimes"');
+  // And the sentence's claim is the module's actual answer, not a nearby one.
+  assert.eq(Lairs.capFor(12, Lairs.LAIR_FAR_M, 7), 15,
+    'a castle at the far ring no longer holds the fifteen the tip promises');
+  assert.gt(Lairs.TIER_GUARDS[12], Lairs.TIER_GUARDS[9],
+    'the tip says "more the bigger the building"');
+  assert.truthy(someTip(/a dozen cells of home/i), 'a tip names the safe ring');
+  assert.truthy(someTip(/a kilometre away can hide fifteen/i), 'and the far end');
+  // It has to say WHICH GAME it is describing: easy has no lairs at all
+  // (Difficulty derelictLairs), and a Book is read in both modes.
+  const tip = PLAY_TIPS.find((t) => /a dozen cells of home/i.test(t));
+  assert.truthy(/^On hard,/.test(tip), 'the tip must name the mode — it is false on easy');
+  assert.falsy(Difficulty.PROFILES.easy.derelictLairs, 'which is only worth saying while easy has none');
+  // The one thing a player cannot see coming: they do not chase.
+  assert.truthy(/never leave the ruin/i.test(tip), 'and that a garrison stays put');
+});
+
 test('tips: the shop ladder quotes ShopsMath.dealCap', () => {
   assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 11 }), 5, 'a fort takes 5 deals an hour');
   assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 9 }), 1, 'a plain house just 1');

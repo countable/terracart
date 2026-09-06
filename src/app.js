@@ -3931,6 +3931,31 @@ class MapScene extends Phaser.Scene {
         creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id, shiny: !!r.shiny });
       }
     }
+    // DERELICT LAIRS — hard mode only (Difficulty.get().derelictLairs). Every
+    // unclaimed structure past a ring around home holds a garrison of immobile
+    // slimes, more of them the bigger the building and the further out it is
+    // (src/lairs.js owns every number). Placed here, in the tile's own spawn
+    // pass, so a rebuild re-lays the identical set — the module seeds its OWN
+    // rng off (tx, ty) and takes no draws from the stream above, exactly as
+    // Traps.spawnSurface does below, so every existing world seed is untouched.
+    //
+    // Distance is measured from the FROZEN starter anchor, never the live Home
+    // resolver: a Home the player later adopts somewhere else would re-rank
+    // every ruin in the world and the garrisons would silently change size
+    // behind them (lairs.test.js pins that the resolver is not read here), and
+    // the anchor is the one point that is both stable and available at tile
+    // build time (the pest amnesty reads it for the same reason).
+    if (typeof Lairs !== 'undefined' && Difficulty.get().derelictLairs && !window.__TEST_MODE) {
+      const lairHome = this._starterTrailAnchor();
+      for (const g of Lairs.spawnForTile(entry, tx, ty, {
+        cellM: this.cellM,
+        tileEdgeM: this.tileEdgeM,
+        homeM: lairHome,
+        isClaimed: (key) => this.isClaimedKey(key),
+        caughtSet,
+        spawnOpts: _spawnOpts,
+      })) creatures.push(g);
+    }
     entry._spawned = true;
     // KEEP creatures the entry already carries. On a rebuild they are the live
     // ones — mid-wander positions, tamed pets, work in progress — handed over
@@ -7635,6 +7660,16 @@ class MapScene extends Phaser.Scene {
           }
         }
       }
+      // A LAIR GUARD DOES NOT MOVE — but it is not switched off. Everything
+      // above this line has already run for it: it leeches, a monster kind
+      // among them shoots, it takes damage, it dies and pays its bounty. What
+      // it never does is choose a step, so the garrison is still ON the ruin
+      // when the player finally gets there. Placed HERE, below the attack
+      // blocks and above every movement branch, because an early return at
+      // the top of the loop would have made it harmless furniture instead.
+      // Set by src/lairs.js; nothing else in the game seats an immobile
+      // creature, and anything that does must land below the same line.
+      if (c.immobile) return;
       // Wild-crow flight rhythm: perch (still 2-4 s) → one long flight
       // burst (500-800 ms, eased) → perch again. Targets a nearest planted
       // crop by ORBITING it — most flight legs end on the ring 1.5-3.5

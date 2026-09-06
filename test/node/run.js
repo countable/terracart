@@ -62,6 +62,9 @@ const FILES = [
   // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
   // loads either side of worldgen.js; index.html puts it first, so do we.
   'traps.js',
+  // Derelict lairs — the hard-mode garrison in an unclaimed ruin. Pure, and
+  // reads WorldGen at CALL time like traps.js, so it loads beside it.
+  'lairs.js',
   'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
