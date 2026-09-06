@@ -818,7 +818,7 @@ const _washCells = [];
 // headless fallback: render.js loads in the node suite, textures.js can't.
 const _USH = (typeof UNCLAIMED_SHADE !== 'undefined') ? UNCLAIMED_SHADE : null;
 const UNCLAIMED_WASH = _USH ? _USH.wash : 0x1e3b24;
-const UNCLAIMED_WASH_A = _USH ? _USH.washA : 0.5;
+const UNCLAIMED_WASH_A = _USH ? _USH.washA : 0.35;
 const UNCLAIMED_MURK = _USH ? _USH.murk : 0x05070c;
 const UNCLAIMED_MURK_A = _USH ? _USH.murkA : 0.12;
 // White lerped UNCLAIMED_WASH_A of the way to the wash — the multiply tint that

@@ -44,7 +44,9 @@ const CASTLE_STONE = (() => {
 // the road land on the same colour rather than drifting apart.
 // murkA was 0.22 — the darkening came out heavier than wanted once it was
 // baked into the stone rather than washed over it, so it is down a tenth.
-const UNCLAIMED_SHADE = { wash: 0x1e3b24, washA: 0.5, murk: 0x05070c, murkA: 0.12 };
+// washA was 0.5 — the green read as too strong across a derelict footprint,
+// so it is at the 35% the wash was always described as.
+const UNCLAIMED_SHADE = { wash: 0x1e3b24, washA: 0.35, murk: 0x05070c, murkA: 0.12 };
 function unclaimedShade(rgb) {
   const lerp = (a, b, t) => a * (1 - t) + b * t;
   const ch = (sh) => {

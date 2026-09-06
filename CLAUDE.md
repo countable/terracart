@@ -336,6 +336,15 @@
   `cellInReach`'s own expressions over every reach cell, so it IS the
   staircase the white outline traces and the tap gate accepts; only the
   falloff outside it is a circle. A circle for the plateau is the bug.
+  Inside the staircase the plateau is NOT flat: the fill is a radial
+  gradient about the feet (`plateauFill`), full `lit` at the player and
+  `PLATEAU_FALL` of it gone by the reach rim (`plateauLevel`, quadratic so
+  the middle stays flat), clipped by the per-cell path so the edge is still
+  exact. It is shading, not a second falloff: the test pins that the step
+  off the plateau to `edge` outweighs the fall across it at every depth and
+  hour. Deepen the look through `PLATEAU_FALL`; if the rim ever needs to be
+  darker than that step, that is a reach-affordance change, not a lighting
+  tweak.
   **The numbers are derived, not tuned:** `Lighting.profile` builds the
   ambient, the plateau and the edge level from the same
   `Render.reachDimColor` / `reachDimAlpha` the old wash painted with plus the
