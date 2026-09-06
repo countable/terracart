@@ -35,20 +35,18 @@
     'trees:1':         { fw: 32, fh: 48, minX: 11, minY: 34, maxX: 20, maxY: 46 },
     'trees:2':         { fw: 32, fh: 48, minX: 7,  minY: 14, maxX: 27, maxY: 47 },
     'trees:3':         { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
-    'pine_tree:3':     { fw: 32, fh: 64, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
-    'birch_tree:3':    { fw: 32, fh: 64, minX: 0,  minY: 2,  maxX: 32, maxY: 64 },
-    'mahogany_tree:3': { fw: 32, fh: 64, minX: 0,  minY: 1,  maxX: 32, maxY: 46 },
+    'pine_tree:3':     { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
+    'birch_tree:3':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
+    'mahogany_tree:3': { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 46 },
     'bushes:0':        { fw: 48, fh: 32, minX: 9,  minY: 0,  maxX: 41, maxY: 32 },
     'apple_tree:0':    { fw: 32, fh: 48, minX: 12, minY: 43, maxX: 20, maxY: 46 },
     'apple_tree:2':    { fw: 32, fh: 48, minX: 5,  minY: 14, maxX: 29, maxY: 48 },
     'apple_tree:4':    { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
     'apple_tree:5':    { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
-    'apple_tree:7':    { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
     'peach_tree:0':    { fw: 32, fh: 48, minX: 12, minY: 42, maxX: 20, maxY: 46 },
     'peach_tree:2':    { fw: 32, fh: 48, minX: 5,  minY: 14, maxX: 28, maxY: 48 },
     'peach_tree:3':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
     'peach_tree:4':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
-    'peach_tree:5':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
     'chest:0':         { fw: 32, fh: 32, minX: 1,  minY: 8,  maxX: 32, maxY: 31 },
     'box:0':           { fw: 16, fh: 16, minX: 0,  minY: 0,  maxX: 16, maxY: 16 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1,  minY: 5,  maxX: 16, maxY: 15 },
@@ -67,6 +65,54 @@
     'bonfire:0':       { fw: 16, fh: 32, minX: 1,  minY: 9,  maxX: 14, maxY: 31 },
   };
 
+  // ── Plain rock: what the art SHOWS is what it DROPS ───────────────────────
+  // The four "plain rock" looks (row 15, cols 3..6 of the mineralrock sheet)
+  // are NOT interchangeable: col 3 draws a PAIR of stones — a small one
+  // overlapping a larger one — and cols 4..6 draw a single stone. Until Sep
+  // 2026 the variant was a pure cosmetic hash and every one of them dropped the
+  // same randInt(1,3), so the pair-of-stones rock could hand you one rock and a
+  // lone pebble could hand you three. The art made a promise the loot ignored.
+  //
+  // `stones` is that promise, written down once: render.js picks the frame from
+  // `col` and interactables.js rolls the yield off `stones`, so the rock you
+  // see and the count you get can't drift apart (same discipline as
+  // roadOverlayWidthM and CREATURE_ART).
+  //
+  // NOTE the pair is a SINGLE connected blob (the two stones touch), so no
+  // pixel pass can count them for us — `stones` is authored, not measured. The
+  // tripwire if the sheet is ever re-cut is the ART_BOUNDS drift check in
+  // tools/sprite_audit.js: it pins 'mineralrock:168' at 15px wide against the
+  // singles' 9-13, and fails if the art moves without the table.
+  const PLAIN_ROCK_VARIANTS = [
+    { col: 3, stones: 2 },   // a pair — small stone overlapping a larger one
+    { col: 4, stones: 1 },   // single, small
+    { col: 5, stones: 1 },   // single, small
+    { col: 6, stones: 1 },   // single, chunkier
+  ];
+  // Row 15 of the sheet (11 cols) holds the small rock variants; the other rows
+  // are boulder-sized art that bleeds past the 16×16 frame at render scale.
+  const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
+
+  // Which variant a given plain rock wears. Stable per rock: a cave rock keys
+  // off its caveVariant, a surface rock off its cell so the same spot always
+  // renders (and yields) the same. BOTH callers go through here — the frame in
+  // render.js and the yield in interactables.js — so neither can pick a
+  // different rock than the other.
+  function plainRockVariant(o) {
+    const v = (o && o.caveVariant != null)
+      ? (o.caveVariant % PLAIN_ROCK_VARIANTS.length)
+      : ((((Math.round((o && o.x) || 0) + Math.round((o && o.y) || 0))
+          % PLAIN_ROCK_VARIANTS.length) + PLAIN_ROCK_VARIANTS.length)
+          % PLAIN_ROCK_VARIANTS.length);
+    return PLAIN_ROCK_VARIANTS[v];
+  }
+  // Sheet frame index for a plain rock — what render.js draws.
+  function plainRockFrame(o) {
+    return PLAIN_ROCK_ROW * MINERALROCK_COLS + plainRockVariant(o).col;
+  }
+  // How many stones the art shows — what interactables.js pays out.
+  function plainRockStones(o) { return plainRockVariant(o).stones; }
+
   // Given a frame's trimmed bounds (max exclusive), its origin (anchor as a
   // fraction of the frame box) and its X/Y scale, return the { dxPx, dyPx }
   // offset from the projected cell CENTRE that places the art per the rule.
@@ -84,6 +130,42 @@
     const artMidX = (box.minX + box.maxX) / 2 - originX * box.fw;
     const dxPx = -artMidX * scaleX;
     return { dxPx, dyPx, fits };
+  }
+
+  // ── Fruit-tree crowns ────────────────────────────────────────────────────
+  // A fruit tree that is BEARING wears the fruit as its own little sprite on
+  // the canopy (render.js's fruit pass) rather than the tree swapping to its
+  // sheet's fruiting frame — so a pick takes the fruit away, it doesn't change
+  // the tree.
+  //
+  // That overlay has to sit on the LEAFY MASS, and the leafy mass is not the
+  // art's full bounds: those run on down through the trunk to the root base,
+  // and their midline lands on bare bark. CROWN_BOUNDS is the canopy box of
+  // the mature frame each species renders — the rows above where the leaves
+  // give out and the trunk begins.
+  // GENERATED — `node tools/sprite_audit.js --emit-bounds` prints it beneath
+  // ART_BOUNDS; the audit re-derives it from the real PNGs (canopy = down to
+  // the first row past the widest whose span drops under half that width) and
+  // fails if this table has drifted from the art.
+  const CROWN_BOUNDS = {
+    'apple_tree:4': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 34 },
+    'peach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 35 },
+  };
+
+  // Offset in screen px from a fruit tree sprite's ANCHOR (its x/y — wherever
+  // the seat pass put it) to the centre of its crown, which is where the fruit
+  // goes. Derived from the art the tree is actually drawing and the origin /
+  // scale it drew at, so a re-seated, re-scaled or re-framed tree carries its
+  // fruit with it instead of leaving it behind at a hand-picked offset.
+  // Returns null for a frame with no crown box — a sprout or a young tree
+  // can't be bearing, so it never needs one.
+  function fruitCrownOffset(texKey, frame, originX, originY, scaleX, scaleY) {
+    const c = CROWN_BOUNDS[`${texKey}:${frame}`];
+    if (!c) return null;
+    return {
+      dxPx: ((c.minX + c.maxX) / 2 - originX * c.fw) * scaleX,
+      dyPx: ((c.minY + c.maxY) / 2 - originY * c.fh) * scaleY,
+    };
   }
 
   // ── Creatures ────────────────────────────────────────────────────────────
@@ -108,7 +190,7 @@
   // real PNGs to check minY/maxY hasn't drifted from the art.
   const CREATURE_ART = {
     chicken:       { fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
-    cow:           { fw: 32, fh: 32, scale: 1.50, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
+    cow:           { fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
     cat:           { fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
     dog:           { fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
     deer:          { fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
@@ -126,6 +208,30 @@
     goblin:        { fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
     goblin_archer: { fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
   };
+  // ── GIANTS ────────────────────────────────────────────────────────────────
+  // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
+  // times the HP, two levels deeper). A giant has NO art of its own: it is its
+  // base kind's sheet drawn GIANT_ART_SCALE larger. So there is no giant row in
+  // CREATURE_ART — creatureArt() below resolves a giant to the base row with
+  // its scale multiplied, and every consumer (the renderer's scale and foot,
+  // the wheel and health-bar seating, interact.js's tap box) goes through it.
+  // One number here is what makes the drawn size, the tap box and the wheel
+  // seat agree; a second 1.8 anywhere is the drift the crown rule warns about.
+  const GIANT_PREFIX = 'giant_';
+  const GIANT_ART_SCALE = 1.8;
+  function isGiantKind(kind) { return typeof kind === 'string' && kind.startsWith(GIANT_PREFIX); }
+  // The kind whose art (and, in app.js, whose quest credit) a kind draws on.
+  function baseKind(kind) { return isGiantKind(kind) ? kind.slice(GIANT_PREFIX.length) : kind; }
+  const _giantArt = {};
+  // The CREATURE_ART row for `kind` — the base row, scaled up, for a giant.
+  function creatureArt(kind) {
+    if (!isGiantKind(kind)) return CREATURE_ART[kind];
+    if (_giantArt[kind]) return _giantArt[kind];
+    const base = CREATURE_ART[baseKind(kind)];
+    if (!base) return undefined;
+    return (_giantArt[kind] = { ...base, scale: base.scale * GIANT_ART_SCALE });
+  }
+
   // Every creature is drawn this far below its projected cell centre, so its
   // art bottom lands on the centre of its contact shadow (render.js).
   const CREATURE_GROUND_DY = 2;
@@ -149,9 +255,12 @@
 
   // Vertical origin the renderer should anchor `kind` at (fraction of frame).
   function creatureFoot(kind) {
-    const a = CREATURE_ART[kind];
+    const a = creatureArt(kind);
     return a ? a.foot : 0.9;
   }
+  // The renderer's scale and float for `kind`, giant-aware.
+  function creatureScale(kind) { return creatureArt(kind)?.scale ?? 1; }
+  function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
 
   // THE CREATURE WHEEL RULE: the work-progress wheel RESTS ON the animal's
   // CROWN — the top row of its visible art, at rest. The ring's top edge sits
@@ -175,7 +284,7 @@
   // Returns the offset in screen px from the creature's projected cell centre
   // to the wheel centre (negative = up the screen).
   function creatureWheelDy(kind) {
-    const a = CREATURE_ART[kind];
+    const a = creatureArt(kind);
     if (!a) return CREATURE_WHEEL_FALLBACK_DY;
     const anchorY = CREATURE_GROUND_DY - a.float;      // where the origin lands
     const artTop = anchorY - (a.foot * a.fh - a.minY) * a.scale;
@@ -195,7 +304,7 @@
   // Returns the offset in screen px from the creature's projected cell centre
   // to the bar's TOP edge (negative = up the screen).
   function creatureHealthBarTop(kind) {
-    const a = CREATURE_ART[kind];
+    const a = creatureArt(kind);
     if (!a) {
       // No art entry: hang the bar over where the fallback wheel's outer edge
       // would be, so an unknown kind still reads sanely.
@@ -209,9 +318,12 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell,
+    PLAIN_ROCK_VARIANTS, plainRockFrame, plainRockStones,
+    CROWN_BOUNDS, fruitCrownOffset,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
-    creatureFoot, creatureWheelDy, creatureHealthBarTop,
+    GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
+    creatureFoot, creatureScale, creatureFloat, creatureWheelDy, creatureHealthBarTop,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

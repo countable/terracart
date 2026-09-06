@@ -231,3 +231,45 @@ test('hasPlayed: the tells are marks only a player could leave', () => {
   assert.truthy(SaveMigrate.hasPlayed({ opened: ['c'] }), 'an opened chest');
   assert.truthy(SaveMigrate.hasPlayed({ restoredHouses: { h: 1 } }), 'a restored neighbour');
 });
+
+// ── Cobble trails: per-path counters → one ladder ─────────────────────────
+test('migrate: folds the old per-path trail rows into a flat lit list', () => {
+  // The old shape carried a counter, a prize count and a done flag per NAMED
+  // WAY per tile. All that survives is which stones are lit.
+  const save = {
+    pathStones: {
+      '14/1/2': {
+        'Mill Lane':  { stones: ['3_4', '4_4'], prizes: 1, done: false },
+        'Oak Street': { stones: ['4_4', '9_9'], prizes: 0, done: false },
+        'Done Road':  { stones: [], prizes: 2, done: true },
+      },
+      '14/1/3': { 'Long Walk': { stones: ['1_1'], prizes: 0, done: false } },
+    },
+  };
+  assert.truthy(SaveMigrate.migrate(save), 'a real migration forces a persist');
+  assert.truthy(Array.isArray(save.pathStones['14/1/2']), 'the tile is a flat list now');
+  assert.eq(save.pathStones['14/1/2'].sort().join(','), '3_4,4_4,9_9',
+    'every lit cell survives, once each');
+  assert.eq(save.pathStones['14/1/3'].join(','), '1_1', 'and other tiles too');
+  // Prizes are NOT carried: they were won on a different rule (a cul-de-sac
+  // paid what a high street did), so carrying them would hand a veteran a
+  // 400-stone first goal for walks nobody asked them to make.
+  assert.eq(save.trail.prizes, 0, 'everyone starts at the first rung');
+  assert.eq(save.trail.stones, 0, 'with nothing banked');
+});
+
+test('migrate: a save already on the ladder is left alone', () => {
+  const save = { pathStones: { '14/1/2': ['3_4'] }, trail: { stones: 6, prizes: 2 } };
+  SaveMigrate.migrate(save);
+  assert.eq(save.pathStones['14/1/2'].join(','), '3_4', 'the list is untouched');
+  assert.eq(save.trail.stones, 6, 'and so is the count');
+  assert.eq(save.trail.prizes, 2, 'and the prizes');
+});
+
+test('migrate: a fresh save starts on the first rung', () => {
+  const save = {};
+  SaveMigrate.migrate(save);
+  assert.eq(save.trail.stones, 0, 'no stones');
+  assert.eq(save.trail.prizes, 0, 'no prizes');
+  assert.eq(Trail.goalFor(save.trail.prizes), Trail.GOAL_STEP, 'and the first goal ahead');
+});

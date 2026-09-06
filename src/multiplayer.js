@@ -30,7 +30,6 @@
 //   consumeTap(scene, sx, sy) — true when ping mode ate the tap
 //   ping(scene, wmx, wmy)     — ping a world-metre spot
 //   setName(scene, name)      — rename (reconnects)
-//   status()                  — 'off' | 'noname' | 'connecting' | 'online' | 'error'
 //   cleanName / pickColor / toWorldPx / fromWorldPx / describeAt / edgeDot — pure, tested headlessly
 
 const Multiplayer = (function () {
@@ -209,8 +208,6 @@ const Multiplayer = (function () {
     S.status = st;
     paintButton();
   }
-  function status() { return S.status; }
-
   function handle(msg) {
     const now = performance.now();
     switch (msg.t) {
@@ -317,9 +314,13 @@ const Multiplayer = (function () {
       if (!p.spr) makePeerArt(scene, p);
       const walking = p.m && (now - p.seenAt) < 1500;
       playDirected(p.spr, walking ? 'walk' : 'idle', p.fx, p.fy);
+      // (dx, dy) is the peer's fix on screen, and their FEET stand on it —
+      // the sprite rises playerFeetNudgeY above it exactly like the local
+      // player's (app.js), the contact shadow sits on it, and the name tag
+      // floats a fixed gap over the head (23px above the sprite centre).
       p.spr.setPosition(p.dx, p.dy + scene.playerFeetNudgeY).setVisible(true);
-      p.sh.setPosition(p.dx, p.dy + 13).setVisible(true);
-      p.lbl.setPosition(p.dx, p.dy - 22).setVisible(true);
+      p.sh.setPosition(p.dx, p.dy - 1).setVisible(true);
+      p.lbl.setPosition(p.dx, p.dy + scene.playerFeetNudgeY - 23).setVisible(true);
     }
   }
 
@@ -523,9 +524,8 @@ const Multiplayer = (function () {
     return true;
   }
 
-  return { start, tick, consumeTap, ping, setName, status,
+  return { start, tick, consumeTap, setName,
            cleanName, pickColor, toWorldPx, fromWorldPx, describeAt, edgeDot,
-           COLORS, NAME_MAX, PEER_NEAR_M, PEER_DOT_INSET, PEER_DOT_R,
-           _state: S };
+           COLORS, NAME_MAX, PEER_NEAR_M, PEER_DOT_INSET };
 })();
 if (typeof window !== 'undefined') window.Multiplayer = Multiplayer;

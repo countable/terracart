@@ -282,9 +282,13 @@ ENERGY & FOOD
  - REST: energy regenerates over real time. Rates are "seconds to refill the
    whole bar" while you stand in a rest context (the pure formula lives in
    energy.js; app.js owns the per-frame accrual + splash):
-     * INDOOR — on any building cell (house / fort / civic): full bar in 300s.
-     * HOME — on your starter trailer / adopted home shop: full bar in 90s
-       (~3.3× indoor; isRestingAtHome locks onto save.starterShopId).
+     * HOME — on your starter trailer / adopted home shop: full bar in 90s.
+       THE ONLY BUILDING THAT RESTS YOU. Standing on any building cell used to
+       regenerate energy (300s to a full bar), which made a stranger's front
+       room a rest spot and a town one continuous one; a home is worth going
+       back to only if it is the place that does this. isRestingAtHome locks
+       onto save.starterShopId — the trailer by its own cell, an adopted house
+       by standing inside it.
      * CAMPFIRE — within 3 cells of a lit fire: full bar in 360s (slowest, but
        works out in the wild — see CAMPFIRE under CONSUMABLES).
      * OFFLINE — while the tab is closed, energy pro-rates linearly to a full
@@ -365,6 +369,14 @@ INTERACTION MODEL
    ONE thing: handlers are tried in priority order (interact.js TAP_HANDLERS)
    and the first that matches consumes the tap and stops. Tapping the player is
    treated as a tap on the player's own cell.
+ - A TAP IS A POINTER THAT DIDN'T TRAVEL. Dragging the map instead PEEKS: the
+   camera slides off the player by up to 3 cells so you can see what the frame
+   was cutting off, and springs back when you let go. A pointer that moved more
+   than a few pixels taps NOTHING, however it ends — sliding the map off a tree
+   must not chop it — so the tap fires on the pointer's release, not its press.
+   The peek is a camera offset and nothing else: the body never moves, so reach,
+   every tap gate, fog reveal and tile loading still measure from the player.
+   Peeking at a crate three cells away and tapping it still says "too far".
  - TAP TARGETS ARE CELL-BOUNDED. Everything except FAUNA is hit-tested against
    the ONE CELL it stands in: a tap inside that cell hits it, a tap outside
    never does — however far the artwork rises above the cell (tall trees, the
@@ -382,21 +394,20 @@ INTERACTION MODEL
      5)  world object standing in the tapped cell: chest, well, tree, fruit
          tree, mineral rock, ground stack, house/tower (shop), shrine
      6)  resolve the tapped cell (bail if unloaded / out of reach)
-     7)  path-stone claim (non-consuming — falls through)
-     8)  building-zone tap → a tap on any BUILDING cell snaps to the nearest
+     7)  building-zone tap → a tap on any BUILDING cell snaps to the nearest
          house/tower sprite within 30m and routes to its shop (this is how a
          footprint larger than the sprite's own cell stays tappable)
-     9)  release a selected animal onto the cell
-    10)  pick up a placed rock / placed scarecrow
-    11)  place a held rock / scarecrow on an empty tilled-able cell
-    12)  break a natural rock cell (needs energy; pickaxe speeds it up)
-    13)  planted cell → harvest / advance / water / nag
-    14)  refill watering can from a WATER cell
-    15)  fish a WATER cell (bare-handed OK; rod speeds it) — also tops up the can
-    16)  tilled empty cell + seed → plant; with no seed selected it says so and
+     8)  release a selected animal onto the cell
+     9)  pick up a placed rock / placed scarecrow
+    10)  place a held rock / scarecrow on an empty tilled-able cell
+    11)  break a natural rock cell (needs energy; pickaxe speeds it up)
+    12)  planted cell → harvest / advance / water / nag
+    13)  refill watering can from a WATER cell
+    14)  fish a WATER cell (bare-handed OK; rod speeds it) — also tops up the can
+    15)  tilled empty cell + seed → plant; with no seed selected it says so and
          LEAVES THE SOIL ALONE (the un-till toggle is gone — see FARMING LOOP)
-    17)  untilled tillable cell → till it
-    18)  non-tillable terrain → flavour label (water / building / road / path)
+    16)  untilled tillable cell → till it
+    17)  non-tillable terrain → flavour label (water / building / road / path)
  - the auto-till fallthrough refuses to till any cell occupied by a wildplant,
    crop, placed rock, building, tree, or chest, so a near-miss never silently
    tills under something.
@@ -518,10 +529,31 @@ ORCHARD FRUIT TREES
    tree then resets its timer. No chopping required — fruit trees are never
    destroyed. Each tree's fruit type is seeded from its cell position (apple,
    cherry, peach, banana, orange, mango, coconut, apricot).
+ - a tree that is BEARING wears its fruit: the fruit's own icon, drawn on the
+   tree's canopy as a separate little sprite. Picking removes the fruit and
+   leaves the tree exactly as it was — the tree's art never changes, so a
+   worked orchard still reads as an orchard and what's ripe reads at a glance.
 
 ================================================================================
 FISHING
 ================================================================================
+ - THE STARTER POND: nothing about a spawn promises water within walking
+   distance, so every save gets a 2x2 pond carved into the terrain grid TWO
+   SCREENS from Home (app.js _carveStarterPond, POND_MIN_CELLS = 2 ×
+   VIEW_CELLS, widening to POND_MAX_CELLS when the two-screen ring is all
+   street or floor). It seats beside a POI chest when one stands in the band
+   (within POND_POI_CELLS, never on the chest's doorstep), on walkable soft
+   ground with a dry shore all round, never on a road band, a POI plaza,
+   existing water or anything standing — and only where the anchor can WALK
+   to (a flood that crosses roads but not water or buildings). It is plain
+   WATER terrain: it fishes, refills the can and mirrors as cave rock like any
+   lake. Frozen once in save.starterPondAt (top-left cell centre, the
+   starterPlotAt convention) and repainted in place on every rebuild of its
+   tile, sweeping whatever the rebuild regenerated on those cells. The band
+   can cross a tile seam, so the search runs in world space over the loaded
+   3×3 and defers (bounded) until the band's tiles have arrived — a plan drawn
+   against half a map would seat it wherever loaded first, POI or no POI.
+   Pinned by starter_pond.test.js.
  - tap a WATER cell → the Rod cast wheel, then a weighted catch. Higher rod
    tiers improve the catch and rare odds. Cast TIME is locked: 9s bare-handed,
    3s with any rod, regardless of tier (an exception to the WORK WHEEL ladder
@@ -731,19 +763,56 @@ TREASURE MARKS (X on the ground)
    rarity roll — laid along the route to the relic chest a
    screen out (see ONBOARDING), and clears a tutorial pocket of
    obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
-   few random X marks plus extra X's beside named paths. Residential X's only
+   few random X marks plus extra X's beside FOOTPATHS (terrain 8 — the spawner
+   samples path cells, and never knew or needed a way's name). Residential X's only
    spawn near a road.
 
 ================================================================================
-PATH STONES
+COBBLE TRAILS (path + road stones)
 ================================================================================
- - stepping on (or tapping) a named pedestrian-path cell claims that stone
-   automatically — no item, no UI. A claimed stone draws at FULL opacity in a
-   recoloured treasure blue-white (not just less see-through — a genuinely
-   different, lit-looking stone, since a plain alpha bump barely read as
-   "claimed" next to the unclaimed ones) while unclaimed cobbles sit at 57%
-   grey, so a walked path visibly lights up as you go. Claiming plays a brief
-   scale-pop on that exact stone so it reads as an event, not a silent swap.
+ - a STONE is a cobble cell that DRAWS a pebble — footpath and street alike.
+   Only ~35% of path cells and 15% of road cells draw one (see the spacing rule
+   below), and the ones that don't are not stones: they light nothing and count
+   nothing. Counted and drawn are the same set (render.js cobbleShown, read by
+   both sides), because a counter that ticks on stones the player can't see is
+   counting nothing they did.
+ - a stone LIGHTS THE MOMENT IT ENTERS THE PLAYER'S LIT REACH. No tap, no
+   footfall: walk near a trail and every stone inside the lit bubble comes on
+   at once, which is what the reach circle already says it covers. The gate is
+   the same coords.js cellInReach the lit silhouette draws with, measured from
+   the PLAYER, not the camera anchor — a peek drag lights nothing extra.
+ - a lit stone draws at FULL opacity in a recoloured violet-blue (UI_TRAIL_LIT,
+   baked per road/path frame, not a tint — setTint is a no-op under the Canvas
+   fallback) while unlit cobbles sit at 57% grey, so a walked trail visibly
+   lights up as you go. Lighting plays a scale-pop on each stone, big enough to
+   catch out of the corner of the eye now that stones light several cells out
+   rather than one under your feet.
+ - ONE LADDER FOR THE WHOLE WORLD. Every stone lit anywhere adds to a single
+   running count (save.trail = { stones, prizes }); the first treasure lands at
+   Trail.GOAL_STEP (10) stones, the next at 20, the next at 30, and so on. At
+   ~20 m between stones that is a couple of hundred metres for the first prize
+   and a proper expedition for the tenth. A sweep that crosses more than one
+   goal at once queues the ceremonies rather than stacking modals.
+   The arithmetic lives in src/trail.js so the headless suite pins it.
+ - THE PRIZES USED TO BE PER PATH: each named way on each tile ran its own
+   counter, its own 20-stone segment with a short remainder at the end, its own
+   "under 8 cells pays nothing" floor and its own row in the save, and worldgen
+   ran a wavefront pass over every tile to decide which stone belonged to which
+   way. The same walk therefore paid differently depending on how OSM happened
+   to split the ways under it. None of that survives — no names, no segments,
+   no per-path anything. A stone is a stone wherever you pick it up.
+ - each sweep pops a small violet COUNTER — stones banked over the current goal
+   ("7/10") — ON the nearest stone it just lit, in the same colour the stone
+   lights up in, seated through the projection so a peek drag keeps it on its
+   cobble. One counter per sweep, however many stones the step swept up.
+ - each prize is a lowtier-chest roll at tier 4 through the unified rarity
+   picker, shown with the chest reward fanfare, AND IT IS A CHOICE: two rolls
+   are offered and the player keeps one (Trail.PRIZE_CHOICES). The options must
+   differ — gold is gold and the same item at another quantity is the same card
+   — and nothing is granted until a button is pressed, so the roll turned down
+   was never theirs. The roll also IMPROVES as the walks get longer:
+   Trail.rollBonusFor spends one extra boost-chain step per prize already won,
+   capped (past the cap a chain step only buys consolation coins).
  - WHICH CELLS ARE PATH AT ALL is geometric. A cell becomes PATH only where
    at least one full cell width of way lies inside it — the path runs THROUGH
    the cell rather than clipping its corner or stopping just inside. Measured
@@ -759,19 +828,21 @@ PATH STONES
    draws orthogonal arms only). Its span is ~0 by construction, so gating it
    deletes it — a 45-degree footpath measured 31 orphaned cells of 65. It sits
    between two cells the line genuinely crosses and is always painted.
- - Of the cells that ARE path, only ~50% draw a decorative pebble sprite (a
-   stone on every single 7m cell read as a paved strip, not scattered stepping
-   stones) — a PURELY decorative, permanent per-cell roll on top of the
-   geometry above: claiming still counts toward the path whether or not that
-   cell ever had a visible stone, and a cell that rolled no stone stays bare
-   even once claimed (it never pops one in — that would read as a bug, not
-   as "lighting up").
-   Every 2nd claimed stone on the same named path awards 1 coin
-   (a 30-stone path pays 15 coins total; a single stone pays nothing).
- - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)
-   fires a one-time completion reward via the unified rarity picker (lowtier
-   chest curve at tier 4), shown with the chest reward fanfare. This is on top
-   of the per-10-stone coins.
+ - AND A RUN OF UNDER 15 PATH CELLS IS NOT A PATH (WorldGen.MIN_PATH_RUN_CELLS,
+   ~105 m). OSM leaves footway scraps everywhere — a driveway apron, a crossing,
+   the tail of a way — and each landed as a lone pebble in a field. The whole
+   run dissolves back to the biome it covered, so the stones go with the
+   terrain and the renderer needs no rule of its own. A run touching the tile
+   edge is exempt: it continues into the neighbour tile, which counts only its
+   own cells.
+ - HOW MANY STONES: one pebble per Render.COBBLE_SPACING_M (20 m) of path, and
+   a road cell draws its cluster 15% of the time. The path share is DERIVED
+   from the spacing and the tile's own cell size, not authored as a percentage,
+   because a cell is tileEdgeM / cellsPerEdge and drifts with latitude — a flat
+   percentage would spread the stones further apart the further north you play.
+   The roll is permanent and per-cell: a cell that rolled no stone stays bare
+   even once walked over (popping one in would read as a bug, not as "lighting
+   up"), and it is not a stone for counting either.
 
 ================================================================================
 WELLS / FOUNTAINS
@@ -1192,7 +1263,7 @@ DIALOGS
    where you are and not at all when you don't.
  - The label is the CATEGORY; the flavour line underneath still carries the
    specific offer. A caller may override the label for a one-off outcome
-   ("MILL LANE complete") and keep the kind's icon.
+   ("30 cobbles walked") and keep the kind's icon.
  - MODAL_KINDS (src/app.js) is the whole taxonomy: quest, treasure, trail,
    shop, trade, forge, relics, delivery, build, wizard, farm, stats, energy,
    rest, use, note. The header is built by makeModalShell and injected in

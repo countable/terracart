@@ -27,11 +27,14 @@
     let needsPersist = false;
 
     // --- Slot / default backfills (idempotent; don't force a persist) --------
-    // Stats / equipment: add energy + relic/armor slots to older saves.
-    save.relics = save.relics || {
-      pick: null, axe: null, ring: null, amulet: null, sword: null, bow: null, staff: null,
-    };
-    for (const slot of ['axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
+    // Stats / equipment: add energy + relic/armor slots to older saves. The
+    // slot list is RELIC_DEFS (items.js, loaded before this file) so a new
+    // relic slot is backfilled the moment it is declared; the literal is only
+    // for a headless load of this file on its own.
+    const relicSlots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS)
+      : ['pick', 'axe', 'ring', 'amulet', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+    save.relics = save.relics || {};
+    for (const slot of relicSlots) {
       if (save.relics[slot] === undefined) save.relics[slot] = null;
     }
     // Only one weapon fights at a time (combat.js); older saves predate the
@@ -47,11 +50,18 @@
     }
     // Two-bar inventory: older saves predate the type-tab selector. Default the
     // active tab to Seeds and clear any gear selection.
+    // Game mode (difficulty.js). A save that predates the field was played
+    // with the tutorial, so it is EASY; a fresh save is left unset so the
+    // how-to card can ask — Difficulty.of reads unset as easy meanwhile.
+    if (save.mode === undefined && hasPlayed(save)) save.mode = 'easy';
     if (save.invCat === undefined) save.invCat = 'seed';
     if (save.selGear === undefined) save.selGear = null;
     if (save.reachUpgrades === undefined) save.reachUpgrades = 0;
     if (save.deliveryCount === undefined) save.deliveryCount = 0;
     if (save.houseSatisfied === undefined) save.houseSatisfied = {};
+    // Per-house pinned wishlist (delivery.js wantedProduce). An older save has
+    // none; each house pins itself the first time its sign is read.
+    if (save.houseWishlists === undefined) save.houseWishlists = {};
     if (save.discovered === undefined) save.discovered = {};
     // Self-heal: pre-fix, id-less trees pushed `undefined` into save.chopped,
     // and a choppedSet.has(undefined) match wiped whole groves. Strip falsy ids.
@@ -124,6 +134,32 @@
     }
 
     // --- Data migrations (these DO force a persist) --------------------------
+    // Cobble trails: per-PATH counters → ONE ladder. The old shape was
+    //   save.pathStones[tileKey][trailName] = { stones: ["ix_iy"…], prizes, done }
+    // — a counter, a prize count and a "finished" flag for every named way on
+    // every tile. The ladder is global now (src/trail.js), so a tile keeps only
+    // WHICH stones are lit, as a flat list, and the count lives in save.trail.
+    //
+    // Prizes already won do NOT carry into the new ladder: they were paid on a
+    // different rule (a short cul-de-sac paid the same as a mile of high
+    // street), so carrying them would hand a veteran a 400-stone first goal for
+    // walks they were never asked to make. Everyone starts at the first rung;
+    // what they already collected, they keep.
+    if (save.pathStones && typeof save.pathStones === 'object'
+        && Object.values(save.pathStones).some((v) => v && !Array.isArray(v))) {
+      const flat = {};
+      for (const [tileKey, tile] of Object.entries(save.pathStones)) {
+        if (Array.isArray(tile)) { if (tile.length) flat[tileKey] = tile; continue; }
+        const cells = new Set();
+        for (const rec of Object.values(tile || {})) {
+          for (const c of ((rec && rec.stones) || [])) cells.add(c);
+        }
+        if (cells.size) flat[tileKey] = [...cells];
+      }
+      save.pathStones = flat;
+      needsPersist = true;
+    }
+    if (!save.trail) save.trail = { stones: 0, prizes: 0 };
     // Older save: inv as a string array → {id,count} objects (else sel.count -= 1
     // yields NaN and stacks become uncountable).
     if (save.inv && typeof save.inv[0] === 'string') {
@@ -243,5 +279,5 @@
     return true;
   }
 
-  root.SaveMigrate = { migrate, hasPlayed, stampStartedAt, stampHarvested };
+  root.SaveMigrate = { migrate, hasPlayed };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
