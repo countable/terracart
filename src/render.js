@@ -2758,10 +2758,11 @@ Render.drawObjects = function drawObjects(scene) {
                               ? 'tower_unclaimed' : 'tower',
               origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
-    // foot nudge). scale 0.455 puts the figure at ~0.68 of a cell (48 × 0.455 ≈
-    // 22px inside the 32px cell) — 30% larger than the old 0.35 it read too
-    // small at, while still fitting inside its single cell (QC rule).
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.455, seat: true },
+    // foot nudge). The trimmed art is 43×39 (the PNG bakes a 39%-alpha shadow
+    // ellipse under the feet; the figure itself is fully opaque), so scale 0.6
+    // puts it at ~26×23px — about 0.73 of the 32px cell. Raised from 0.455
+    // (~18px) which read too small; still fits inside its single cell (QC rule).
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true },
     // Cave staircase — Props Mine ladder art (32×32 each). 'down': ladder into
     // dark pit; 'up': bare standalone ladder. Texture picked by direction.
     staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
