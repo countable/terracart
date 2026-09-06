@@ -814,7 +814,12 @@ COBBLE TRAILS (path + road stones)
  - each sweep pops a small violet COUNTER — stones banked over the current goal
    ("7/10") — ON the nearest stone it just lit, in the same colour the stone
    lights up in, seated through the projection so a peek drag keeps it on its
-   cobble. One counter per sweep, however many stones the step swept up.
+   cobble. One counter per sweep, however many stones the step swept up. On
+   the sweep that PAYS it reads the goal just completed, full ("10/10",
+   Trail.readout), never the carried remainder against the next rung — the
+   ladder grows, and "3/20" beside a prize that paid at 10 read as a
+   disagreement. The prize modal's header is "Thou hast traveled far"; the
+   count it paid at is the pick's flavour line.
  - each prize is a lowtier-chest roll at tier 4 through the unified rarity
    picker, shown with the chest reward fanfare, AND IT IS A CHOICE: two rolls
    are offered and the player keeps one (Trail.PRIZE_CHOICES). The options must
@@ -1274,7 +1279,7 @@ DIALOGS
    where you are and not at all when you don't.
  - The label is the CATEGORY; the flavour line underneath still carries the
    specific offer. A caller may override the label for a one-off outcome
-   ("30 cobbles walked") and keep the kind's icon.
+   (the trail prize's "Thou hast traveled far") and keep the kind's icon.
  - MODAL_KINDS (src/app.js) is the whole taxonomy: quest, treasure, trail,
    shop, trade, forge, relics, delivery, build, wizard, farm, stats, energy,
    rest, use, note. The header is built by makeModalShell and injected in

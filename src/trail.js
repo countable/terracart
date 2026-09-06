@@ -41,6 +41,22 @@
     return { pos: Math.max(0, stones | 0), target: goalFor(prizes) };
   }
 
+  // The "N/M" for the sweep that produced `out` (a bank() result). Normally
+  // the running progress toward the NEXT goal — but on a sweep that PAYS, the
+  // counter reads the goal just completed, full ("10/10"), not the carried
+  // remainder against the goal after it ("3/20"). The ladder grows by
+  // GOAL_STEP each rung, so at the very moment the prize ceremony opened the
+  // stone used to say "out of 20" while the walk had paid at 10, and the two
+  // read as a disagreement (Sep 2026). The remainder is still banked and
+  // shows on the next sweep; only the readout of the paying sweep changes.
+  function readout(out) {
+    if (out && (out.owed | 0) > 0) {
+      const goal = goalFor((out.prizes | 0) - 1);
+      return { pos: goal, target: goal };
+    }
+    return progress(out ? out.stones : 0, out ? out.prizes : 0);
+  }
+
   // Bank `lit` newly lit stones. Returns the new running total, the new prize
   // count and how many prizes that crossing owes.
   //
@@ -133,7 +149,7 @@
   }
 
   root.Trail = {
-    GOAL_STEP, goalFor, progress, bank,
+    GOAL_STEP, goalFor, progress, bank, readout,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, rollChoices,
     PRIZE_ROLL_BONUS, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
   };
