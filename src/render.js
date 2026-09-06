@@ -2727,19 +2727,23 @@ Render.drawObjects = function drawObjects(scene) {
     houseArtScale(o.area, _houseFrameW(o), _houseRole(o) === 'fort',
                   scene.cellM, CELL_PX);
 
-  // Height in px from the house's ground point (sy) up to the TOP of its drawn
-  // art — what a badge has to clear to sit above the roof rather than on it.
-  // Mirrors the placement the sprite pass uses: every role but the wizard is
-  // centred on sy (origin y 0.5, no nudge), so the art reaches half its scaled
-  // height above; the wizard tower is foot-anchored half a cell lower and
-  // reaches its full scaled height up from there. Falls back to the pre-measure
-  // constant when the frame can't be read.
-  const _houseTopPx = (o) => {
-    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 20;
+  // Height in px from the house's ground point (sy) up to the MIDLINE of its
+  // drawn art — where a tag hung ON the building's face sits. Mirrors the
+  // placement the sprite pass uses: every role but the wizard is centred on sy
+  // (origin y 0.5, no nudge), so its midline IS sy; the wizard tower is
+  // foot-anchored half a cell lower and reaches its full scaled height up from
+  // there, so its midline is half that height above the foot.
+  // The open/busy plaque used to clear the TOP of the art by 3px instead. On
+  // the plain house the frame's top rows are the tip of a steep gable (6px
+  // wide at row 0 of 72), so "just above the roof" was a tag floating over a
+  // peak, a full storey off the shopfront — and every role read as too high.
+  // A sign belongs on the building, not over it.
+  const _houseMidPx = (o) => {
+    if (_houseRole(o) !== 'wizard') return 0;
+    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 0;
     const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
-    if (!fr || !fr.height) return 20;
-    const h = fr.height * _houseScale(o);
-    return _houseRole(o) === 'wizard' ? h - CELL_PX * 0.5 : h * 0.5;
+    if (!fr || !fr.height) return 0;
+    return (fr.height * _houseScale(o)) * 0.5 - CELL_PX * 0.5;
   };
 
   // Ripe fruit waiting to be drawn ON its tree — filled by the fruittree
@@ -3807,14 +3811,16 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setText(label).setVisible(true);
     setColorOnce(tx, ink);
     setBgColorOnce(tx, '#f3e9c6');
-    // Origin (0.5, 1): y is the plaque's bottom. Houses are CENTRED on their
-    // cell now, so the roof reaches half the scaled sprite height above sy —
-    // the old flat -20 landed the plaque ON the gable. Measure the art and
-    // clear it by 3px (falling back to the old offset when the frame can't
-    // be read). -10 on x nudges it off-centre so it reads as hanging from a
-    // bracket on the left rather than dead-centred on the gable.
+    // Origin (0.5, 1): y is the plaque's bottom. It hangs ON the shopfront:
+    // bottom edge 2px below the art's midline (_houseMidPx — sy itself for
+    // every centred role), so the tag sits at the eaves over the door, above
+    // the name sign that hangs from the doorstep (sy + 12 and down), and
+    // never over the roof. It sat 3px above the art's TOP until Sep 2026 and
+    // read as floating off the building — see _houseMidPx. -10 on x nudges
+    // it off-centre so it reads as hanging from a bracket on the left rather
+    // than dead-centred over the door.
     tx.setPosition(Math.round(clampTextX(sx - 10, tx.width, CANVAS_W)),
-                   Math.round(sy) - _houseTopPx(o) - 3);
+                   Math.round(sy) - Math.round(_houseMidPx(o)) + 2);
     // Soft, low-opacity drop shadow so the tag looks like it hangs in
     // front of the building rather than being painted onto it. NOT the
     // hard 1-px outline of the previous version — that competed too

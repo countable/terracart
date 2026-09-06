@@ -12,7 +12,7 @@
 (function () {
 const app = APP_JS_SRC;
 
-const KINDS = ['jackpot', 'shiny', 'stone', 'sprout'];
+const KINDS = ['jackpot', 'shiny', 'stone', 'sprout', 'water'];
 
 test('particles: every preset is complete and its ranges are ordered', () => {
   for (const k of KINDS) {
@@ -39,20 +39,26 @@ test('particles: the presets are drawn in the UI colour language', () => {
   assert.eq(P.sprout.tex.color, UI_GREEN, 'leaf flecks are the success green');
 });
 
-test('particles: the world bursts stay on their cell — stone kicks up, leaves drift up', () => {
+test('particles: the world bursts stay on their cell — stone kicks up, leaves drift up, drops fall back', () => {
   const P = Particles.PRESETS;
-  // Phaser angles: 270 is straight up. Both cones are centred there.
-  for (const k of ['stone', 'sprout']) {
+  // Phaser angles: 270 is straight up. Every cone is centred there.
+  for (const k of ['stone', 'sprout', 'water']) {
     assert.inRange(P[k].angle[0], 180, 270, `${k} cone starts above the horizon`);
     assert.inRange(P[k].angle[1], 270, 360, `${k} cone ends above the horizon`);
   }
   assert.gt(P.stone.gravityY, 0, 'chips fall back down');
   assert.lt(P.sprout.gravityY, 0, 'leaves float up');
-  // A chip's throw stays inside a cell: v·t at the longest life and fastest
-  // launch, ignoring gravity (which only pulls it back), is under two cells.
+  assert.gt(P.water.gravityY, 0, 'drops fall back onto the plant');
+  // A throw stays inside a cell: v·t at the longest life and fastest launch,
+  // ignoring gravity (which only pulls it back), is under two cells.
   const cell = (typeof CELL_PX === 'number') ? CELL_PX : 32;
-  const reach = P.stone.speed[1] * P.stone.lifespan[1] / 1000;
-  assert.lt(reach, cell * 2.5, 'a chip does not sprinkle the neighbours');
+  for (const k of ['stone', 'water']) {
+    const reach = P[k].speed[1] * P[k].lifespan[1] / 1000;
+    assert.lt(reach, cell * 2.5, `${k} does not sprinkle the neighbours`);
+  }
+  // The water cone is the tightest — a sprinkle onto the cell, not a spray.
+  assert.lte(P.water.angle[1] - P.water.angle[0], P.stone.angle[1] - P.stone.angle[0],
+    'drops fall in a narrower cone than the chips fly');
 });
 
 test('particles: burstCount is the preset count, zero under reduced motion or for an unknown kind', () => {
@@ -163,6 +169,26 @@ test('particles: a crop reaching its next stage bursts on every path that grows 
     'the tap-advance bursts on the cell');
   assert.truthy(/if \(jumped\) scene\._burstAtWorld\?\.\('sprout', cwmx, cwmy\);/.test(inter),
     'the can jump bursts on the cell');
+});
+
+test('particles: watering a crop says so and sprinkles the cell', () => {
+  // The tap on a dry plant used to flash only the stage readout — the same
+  // line an already-watered plant gives — with no burst, so nothing showed
+  // the watering had happened. Now it names the action like till / plant /
+  // harvest do, says HOW when there is no can (the only hint one exists), and
+  // throws the water burst on the cell, before the jump's sprout burst.
+  const inter = INTERACT_JS_SRC;
+  const a = inter.indexOf("    if (!p.watered_t) {");
+  assert.truthy(a > 0, 'found the watering branch');
+  const body = inter.slice(a, inter.indexOf('\n    }\n', a));
+  assert.truthy(/const how = can\?\.tier \? 'watered' : 'you water by cupping your hands';/.test(body),
+    'bare hands are named when there is no can');
+  assert.truthy(/`💧 \$\{how\} — \$\{stageReadout\(\)\}`/.test(body),
+    'the flash leads with the verb, then the stage readout');
+  assert.truthy(/scene\._burstAtWorld\?\.\('water', cwmx, cwmy\);\n\s+if \(jumped\) scene\._burstAtWorld\?\.\('sprout', cwmx, cwmy\);/.test(body),
+    'the water burst lands on the cell, under the jump burst');
+  assert.truthy(Particles.PRESETS.water, 'the water preset exists');
+  assert.eq(Particles.PRESETS.water.tex.shape, 'drop', 'and it throws drops');
 });
 
 test('particles: Crops.advanceGrowth / waterWithin report the plants they moved', () => {
