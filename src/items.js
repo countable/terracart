@@ -687,12 +687,26 @@ const STARTING_MONEY = 50;
 // means, and the odd riddle pointing at a secret.
 // The Book handler in interact.js mixes ~50% of these with ~50% directional
 // chest hints (computed live from the nearest unopened chest).
-// Ordered roughly by relevance to a NEW player: the first-hour basics
-// (energy, resting, selling, your tools) come first, then the farming loop,
-// exploration, the caves, shops and the progression gates, then relic
-// effects, consumables, world lore, animals, and finally the rare secret.
-// A Book read still picks one at random, but curating the order keeps the
-// list readable and front-loads what a beginner most needs.
+// THE ORDER IS THE CURRICULUM — this list is READ FRONT TO BACK. app.js
+// readBook walks it one page per Book, bookmarked in save.tipsRead, so the
+// position of a tip decides when in a playthrough it is taught. It used to be
+// a uniform random draw with no memory, which threw the ordering away and put
+// a repeat inside the first ~10 reads.
+//
+// The blocks are therefore ordered by WHEN A PLAYER FIRST MEETS THE THING,
+// not by subject: the first hour (energy, the readouts on screen, the farm),
+// then the village economy and the animals standing around in it, then what
+// you find while roaming, then fighting, then the caves you go looking for,
+// then the gates that take hours to reach — and the one riddle last, so the
+// secret is the end of the course rather than a 1-in-72 accident.
+//
+// Reading the screen sits SECOND on purpose: a slime is chewing on you inside
+// the first few minutes, and what the bar over its head means is literacy, not
+// trivia. It used to sit seventh, which under an ordered read would have put
+// it ~48 books in.
+//
+// So WHERE you add a tip is a decision, not an append. Put it with the moment
+// the player first needs it.
 //
 // EVERY tip here is a claim about live behaviour — when a mechanic changes,
 // the tip that describes it has to change with it, or the Book starts lying
@@ -731,29 +745,15 @@ const PLAY_TIPS = [
   'Every tool works bare-handed — just slowly. A Wood relic is twice as quick, a Frost one thirty times.',
   'A job one tier past your equipment is not refused outright: you can grind it out for 15\u26a1 and half a minute. Two tiers short is a flat no.',
   'How far you can touch is your own light: nothing at all on an empty bar, and half a cell less for every level you descend.',
+  // ── Reading the screen ────────────────────────────────────
+  'The bar over a foe is its health, not a timer — green, then amber, then red.',
+  'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
   // ── The farming loop ──────────────────────────────────────
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
   'A ripe crop pays one to three of itself, and about one pick in four hands a seed back as well.',
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'Crows raid ripe crops but never touch potatoes.',
   'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
-  // ── Exploration / chests ──────────────────────────────────
-  'Treasure X marks are buried in car parks — every parking lot hides one.',
-  'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
-  'Chests near home are humbler: a tier down within 700m of your trailer, two within 350m. The prizes are a walk away.',
-  'Every new kind of thing you discover banks a Discovery badge. Only the wizard values those.',
-  'A shiny flower or tree is worth ten times the money, and banks a Discovery badge with it.',
-  'One stone in ten gathered off the ground hides a gemfruit.',
-  'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 2 a second, so step off rather than wait it out.',
-  // ── Underground ───────────────────────────────────────────
-  'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
-  'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
-  'Ore wants a pickaxe one tier under what it holds, and every tier it out-tiers yours adds 9\u26a1 to the swing.',
-  'Gems come only out of the deeper stone: sapphire from gold-bearing rock, ruby from platinum, emerald from crimson, and a diamond only from frost.',
-  'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
-  'Every monster has a giant form: four times the health, met two levels below its ordinary kind.',
-  'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
-  'A chest mirrored underground climbs a tier every two levels down, to a gold gem no surface chest ever wears.',
   // ── Shops / trade ─────────────────────────────────────────
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
@@ -764,32 +764,6 @@ const PLAY_TIPS = [
   'Forts handle up to 5 deals per hour, plain houses just 1. Castles and towers never make you wait.',
   'Castles deal only in relics — and never run out of stock.',
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
-  // ── Progression gates ─────────────────────────────────────
-  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a produce shop, trader or smithy.',
-  'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
-  'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
-  'The wizard trades 5 Discovery badges a step, up his ladder: wider reach first, then bigger finds, then the Ring.',
-  'No shop, smithy or castle vault deals in Rings. The wizard\'s Keen Eye is what puts one on your hand.',
-  'The castle board always holds three jobs, and each castle offers only one of them: the next castle along has different work.',
-  'A castle job grows with the number you have already finished, and so does the purse it pays.',
-  'Platinum, Crimson and Frost bars are smelted from a magical flower and the bar below it — or prised out of the rarest deep rock, if your tools are nearly its equal.',
-  'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
-  // ── Reading the screen ────────────────────────────────────
-  'The bar over a foe is its health, not a timer — green, then amber, then red.',
-  'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
-  // ── Fighting ──────────────────────────────────────────────
-  'Only one weapon is ever in play. Tap another in the Relics tab to make it the one that answers a foe.',
-  'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
-  'Anything hostile you put down pays coins for its trouble — about a coin per 5 hit points, and a little more for every level down.',
-  'One cave monster in ten is standing on a buried hoard.',
-  'A shiny monster underground is twice the fight and hits twice as hard — and its end always pays past the usual wage.',
-  'Castle towers fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate.',
-  // ── World / map ───────────────────────────────────────────
-  'A campfire rests you slowly out in the open, and slimes keep their distance.',
-  'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
-  'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
-  'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
-  'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
   // ── Animals ───────────────────────────────────────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
   'Tap a tame animal to pet it. Pet a cow or chicken and for ten minutes its next yield has a coin-flip chance of doubling.',
@@ -803,6 +777,46 @@ const PLAY_TIPS = [
   'Feed any plant or crop to a chicken or cow for an egg or milk — but only once an hour from each.',
   'Chasing an animal down is a chase: it bolts while the wheel turns, and if it stays out of your reach for a second it is gone.',
   'A shiny animal pays ten times its plain kind, bolts twice as fast, and takes twice the work to bring down.',
+  // ── Exploration / chests ──────────────────────────────────
+  'Treasure X marks are buried in car parks — every parking lot hides one.',
+  'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
+  'Chests near home are humbler: a tier down within 700m of your trailer, two within 350m. The prizes are a walk away.',
+  'Every new kind of thing you discover banks a Discovery badge. Only the wizard values those.',
+  'A shiny flower or tree is worth ten times the money, and banks a Discovery badge with it.',
+  'One stone in ten gathered off the ground hides a gemfruit.',
+  'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 2 a second, so step off rather than wait it out.',
+  // ── World / map ───────────────────────────────────────────
+  'A campfire rests you slowly out in the open, and slimes keep their distance.',
+  'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
+  'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
+  'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
+  'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
+  // ── Fighting ──────────────────────────────────────────────
+  'Only one weapon is ever in play. Tap another in the Relics tab to make it the one that answers a foe.',
+  'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
+  'Anything hostile you put down pays coins for its trouble — about a coin per 5 hit points, and a little more for every level down.',
+  'One cave monster in ten is standing on a buried hoard.',
+  'A shiny monster underground is twice the fight and hits twice as hard — and its end always pays past the usual wage.',
+  'Castle towers fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate.',
+  // ── Underground ───────────────────────────────────────────
+  'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
+  'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
+  'Ore wants a pickaxe one tier under what it holds, and every tier it out-tiers yours adds 9\u26a1 to the swing.',
+  'Gems come only out of the deeper stone: sapphire from gold-bearing rock, ruby from platinum, emerald from crimson, and a diamond only from frost.',
+  'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
+  'Every monster has a giant form: four times the health, met two levels below its ordinary kind.',
+  'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
+  'A chest mirrored underground climbs a tier every two levels down, to a gold gem no surface chest ever wears.',
+  // ── Progression gates ─────────────────────────────────────
+  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a produce shop, trader or smithy.',
+  'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
+  'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
+  'The wizard trades 5 Discovery badges a step, up his ladder: wider reach first, then bigger finds, then the Ring.',
+  'No shop, smithy or castle vault deals in Rings. The wizard\'s Keen Eye is what puts one on your hand.',
+  'The castle board always holds three jobs, and each castle offers only one of them: the next castle along has different work.',
+  'A castle job grows with the number you have already finished, and so does the purse it pays.',
+  'Platinum, Crimson and Frost bars are smelted from a magical flower and the bar below it — or prised out of the rarest deep rock, if your tools are nearly its equal.',
+  'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
   // ── Secret — slime taming. Rare to pull, but findable. ────
   'The old texts speak of a gem that calms even the most wretched creature. Perhaps a sapphire offered to a slime...',
 ];

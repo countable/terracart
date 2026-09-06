@@ -564,10 +564,24 @@
   other respect (tier, pad, cave mirror) on purpose: the split moved the loot,
   not the price. Use `favourite` when a PLACE should be known for a thing; use
   `dropWeight` when a thing should simply be commoner everywhere.
+  **THE ORDER IS THE CURRICULUM.** `PLAY_TIPS` is READ FRONT TO BACK — `app.js`
+  `readBook` walks it one page per Book, bookmarked in `save.tipsRead` — so
+  where a tip sits decides WHEN in a playthrough it is taught, and adding one
+  is a placement decision rather than an append. The blocks run by *when a
+  player first meets the thing*: the first hour (energy, the on-screen
+  readouts, the farm), the village economy and its animals, what you find while
+  roaming, fighting, the caves you go looking for, the gates that take hours to
+  reach — and the single riddle last, so the secret is the end of the course
+  rather than a 1-in-72 accident. It used to be a uniform random draw with no
+  memory, which threw the ordering away, put a repeat inside the first ~10
+  reads and needed ~370 books to cover the list. The directional chest hint is
+  gated on the course being finished for the same reason: at a 50% flip, every
+  hint was a read that taught nothing new. **Put a new tip with the moment the
+  player first needs it, and don't re-randomise the draw.**
   **Audit it:** `node test/node/run.js` › `test/node/books.test.js` re-derives
   every number a tip quotes from the module that owns it, blacklists each stale
-  sentence by name, and measures the school chest's book rate against every
-  other chest.
+  sentence by name, pins the front-to-back read and the block order, and
+  measures the school chest's book rate against every other chest.
 
 ## Testing
 

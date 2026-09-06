@@ -171,6 +171,67 @@ test('school category: the favourite only fires inside its own class', () => {
 // 3. THE TIPS ARE TRUE — re-derived from the modules that own the numbers
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// THE COURSE — a Book is read front to back, so the ORDER is behaviour
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('course: readBook walks the list in order and bookmarks its place', () => {
+  // The pin is on source text: app.js cannot load headlessly (no Phaser), and
+  // this is the one line where the ordering stops being decoration.
+  assert.falsy(/PLAY_TIPS\[Math\.floor\(Math\.random\(\) \* PLAY_TIPS\.length\)\]/.test(APP_JS_SRC),
+    'the uniform random draw is gone');
+  assert.truthy(/const read = this\.save\.tipsRead \?\? 0;/.test(APP_JS_SRC),
+    'the bookmark is read off the save, defaulted for saves that predate it');
+  assert.truthy(/const page = read % PLAY_TIPS\.length;/.test(APP_JS_SRC),
+    'and wrapped at READ time, so adding a tip cannot scramble a bookmark');
+  assert.truthy(/this\.save\.tipsRead = read \+ 1;/.test(APP_JS_SRC),
+    'the cursor is stored unwrapped');
+  assert.truthy(/PLAY_TIPS\[page\]/.test(APP_JS_SRC), 'and the page is what is read out');
+});
+
+test('course: the chest hint waits until there is nothing left to teach', () => {
+  // A 50% hint flip against an ordered list doubles the books needed to finish
+  // it — every hint is a read that taught nothing new.
+  assert.truthy(/const coursePending = \(this\.save\.tipsRead \?\? 0\) < PLAY_TIPS\.length;/.test(APP_JS_SRC),
+    'app.js asks whether the course is still running');
+  assert.truthy(/if \(!coursePending && Math\.random\(\) < 0\.5\)/.test(APP_JS_SRC),
+    'and the hint branch is gated on it');
+});
+
+test('course: the reader is told where they are in it', () => {
+  assert.truthy(/page \$\{page \+ 1\} of \$\{PLAY_TIPS\.length\}/.test(APP_JS_SRC),
+    'the title states the page and the total — the ordering is visible, not implied');
+});
+
+test('course: the blocks run in first-encounter order, not subject order', () => {
+  // The order IS the teaching schedule now, so it is pinned. Each entry is a
+  // tip that can only belong to its block, and they must appear in this
+  // sequence: the first hour, then the village, then roaming, then fighting,
+  // then the caves, then the long gates, then the riddle.
+  const idx = (re) => PLAY_TIPS.findIndex((t) => re.test(t));
+  const basics    = idx(/first time raises your maximum energy/i);
+  const screen    = idx(/bar over a foe is its health/i);
+  const farm      = idx(/climbs one stage every 15 minutes/i);
+  const village   = idx(/ending in 9 is a Blacksmith/i);
+  const animals   = idx(/Chickens peck at any seed/i);
+  const roaming   = idx(/Treasure X marks are buried in car parks/i);
+  const fighting  = idx(/Only one weapon is ever in play/i);
+  const caves     = idx(/Goblins hold the deep/i);
+  const gates     = idx(/castle vault stays shut/i);
+  const secret    = idx(/old texts speak of a gem/i);
+  const seq = { basics, screen, farm, village, animals, roaming, fighting, caves, gates, secret };
+  for (const [k, v] of Object.entries(seq)) assert.gt(v, -1, `${k} tip is still in the list`);
+  const names = Object.keys(seq);
+  for (let i = 1; i < names.length; i++) {
+    assert.gt(seq[names[i]], seq[names[i - 1]],
+      `${names[i]} is taught after ${names[i - 1]}`);
+  }
+  // Literacy is early: what the health bar means arrives long before the caves.
+  assert.lt(screen, PLAY_TIPS.length / 4, 'the screen readouts are taught in the first quarter');
+  // And the one secret is the very last page — earned, not stumbled into.
+  assert.eq(secret, PLAY_TIPS.length - 1, 'the riddle closes the course');
+});
+
 test('tips: the list is substantial and every entry is a real sentence', () => {
   assert.gt(PLAY_TIPS.length, 60, 'a Book read repeats itself rarely');
   assert.eq(new Set(PLAY_TIPS).size, PLAY_TIPS.length, 'no tip is duplicated');
