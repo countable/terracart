@@ -34,6 +34,12 @@
 //     outward are motion for its own sake, and every burst here decorates a
 //     cue that stands on its own (the toast, the lit stone's scale pop, the
 //     crop's new stage frame).
+//   • ONE PRESET, ANY SIZE. A burst scales to the thing it comes off:
+//     `opts.ringPx` throws the particles off a RING of that radius (a
+//     restored building's walls) instead of out of one point (a cobble), and
+//     scales the count with it; `opts.colour` bakes and throws the same
+//     preset in another colour (one texture and one emitter per colour, never
+//     a tint). app.js `_blastAt` is the caller that uses both.
 //   • OFF-SCREEN IS FREE. `onScreen()` gates the world bursts: the crop timer
 //     advances plants the player is nowhere near, and an explode() nobody
 //     sees still costs the pool.
@@ -122,6 +128,26 @@
       count: 10, angle: [245, 295], speed: [40, 90], lifespan: [350, 600],
       gravityY: 260, scale: [0.9, 0.35], alpha: [1, 0.1], rotate: [0, 0],
     },
+    // A WRECK COMING BACK — the timber-and-plaster cousin of the stone chip,
+    // thrown off a restored building's walls (app.js _blastAt with a ringPx).
+    // Warm sawn wood over a dark beam, and it falls like the stone does: this
+    // is debris off a building, not a firework. Thrown a touch further than a
+    // cobble's chips because a house is bigger than a stone.
+    timber: {
+      tex: { shape: 'chip', color: '#c8a46a', edge: '#6b4a2b', size: 8 },
+      count: 12, angle: [225, 315], speed: [60, 140], lifespan: [400, 700],
+      gravityY: 300, scale: [1, 0.4], alpha: [1, 0.2], rotate: [0, 180],
+    },
+    // …and the BLAST that goes with it, in the restore green the Restored!
+    // card is already set in (UI_GREEN), so the burst in the world and the
+    // card that follows it are one event in one colour. Same shape as the
+    // cobble's trailspark — a weightless full ring burning out to nothing —
+    // because it is the same moment at a different size.
+    buildspark: {
+      tex: { shape: 'star', color: C.green, core: '#ffffff', size: 12 },
+      count: 10, angle: [0, 360], speed: [70, 150], lifespan: [350, 600],
+      gravityY: 0, scale: [0.9, 0], alpha: [1, 0], rotate: [0, 360],
+    },
     // BEING HURT — a trap's jaws closing. Red chips thrown hard in a full ring
     // and gone fast: the shortest, fastest preset here, because a hit is an
     // impact and anything that lingers reads as a reward. No gravity — the
@@ -134,12 +160,51 @@
     },
   };
 
+  // app.js's CELL_PX, read at CALL time (app.js loads after this file); 32 is
+  // its shipping value, for a context without it.
+  function cellPx() {
+    return (typeof CELL_PX === 'number') ? CELL_PX : 32;
+  }
+
+  // A burst thrown off a RING is thrown off a bigger thing, so it needs more
+  // of them: a stone's ring is a point (ringPx 0) and keeps the preset's own
+  // count, a building's is its footprint and scales with the radius, one
+  // preset-count per cell of it. Capped — a castle is not a reason to put 400
+  // sprites in the pool for half a second.
+  const BURST_MAX = 64;
+
   // How many particles a burst throws. Zero under reduced motion — the burst
-  // is decoration on a cue that already stands on its own.
-  function burstCount(kind, reducedMotion) {
+  // is decoration on a cue that already stands on its own. `opts.count`
+  // overrides the preset's own; `opts.ringPx` scales whichever is used.
+  function burstCount(kind, reducedMotion, opts) {
     const p = PRESETS[kind];
     if (!p) return 0;
-    return reducedMotion ? 0 : p.count;
+    if (reducedMotion) return 0;
+    const o = opts || {};
+    let n = (o.count > 0) ? o.count : p.count;
+    if (o.ringPx > 0) n = Math.round(n * Math.max(1, o.ringPx / cellPx()));
+    return Math.max(0, Math.min(BURST_MAX, Math.round(n)));
+  }
+
+  // The `n` points of a ring of radius `ringPx`, as offsets from its centre —
+  // where a ring burst explodes its particles instead of all at one point, so
+  // the sparks of a restored building come off its WALLS rather than out of
+  // its middle. Evenly spaced and half a step off zero so an even count never
+  // lands two particles on the same axis line as the ring's own corners.
+  // Radius 0 (or a bad count) is the single centre point: that IS a cobble.
+  function ringPoints(ringPx, n) {
+    const count = Math.max(1, Math.floor(n || 1));
+    if (!(ringPx > 0)) {
+      const out = [];
+      for (let i = 0; i < count; i++) out.push({ x: 0, y: 0 });
+      return out;
+    }
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const a = (i + 0.5) / count * Math.PI * 2;
+      out.push({ x: Math.cos(a) * ringPx, y: Math.sin(a) * ringPx });
+    }
+    return out;
   }
 
   // The Phaser ParticleEmitterConfig for a preset. `emitting: false` — the
@@ -171,15 +236,20 @@
         && y >= t - marginPx && y <= t + s + marginPx;
   }
 
-  const texKey = (kind) => `fx_${kind}`;
+  // The baked texture's key. A burst may ask for the preset in ANOTHER colour
+  // (a wreck of brick rather than timber): that bakes its own texture and gets
+  // its own emitter, keyed here, so the two never share a pool and neither has
+  // to be tinted. No colour = the preset's own, and the plain `fx_<kind>` key
+  // it has always had.
+  const texKey = (kind, colour) => (colour ? `fx_${kind}_${String(colour).replace('#', '')}` : `fx_${kind}`);
   const hex = (s) => parseInt(String(s).replace('#', ''), 16);
 
   // Bake the preset's coloured texture with a throwaway Graphics. Baked, not
   // tinted: setTint() is a no-op under the Canvas renderer.
-  function ensureTexture(scene, kind) {
-    const key = texKey(kind);
+  function ensureTexture(scene, kind, colour) {
+    const key = texKey(kind, colour);
     if (scene.textures.exists(key)) return key;
-    const t = PRESETS[kind].tex;
+    const t = colour ? Object.assign({}, PRESETS[kind].tex, { color: colour }) : PRESETS[kind].tex;
     const S = t.size, c = S / 2;
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
     if (t.shape === 'star') {
@@ -213,35 +283,50 @@
     return key;
   }
 
-  // The emitter for a kind, created on first use and parked in the scene's
-  // fx layer. Explode() positions are emitter-local; the emitter and its
-  // container both sit at (0,0), so screen coordinates pass straight through.
-  function ensureEmitter(scene, kind) {
+  // The emitter for a (kind, colour), created on first use and parked in the
+  // scene's fx layer. Explode() positions are emitter-local; the emitter and
+  // its container both sit at (0,0), so screen coordinates pass straight
+  // through. One emitter per baked texture — the same key.
+  function ensureEmitter(scene, kind, colour) {
     scene._fxEmitters = scene._fxEmitters || {};
-    let em = scene._fxEmitters[kind];
+    const slot = texKey(kind, colour);
+    let em = scene._fxEmitters[slot];
     if (em && em.active !== false) return em;
-    const key = ensureTexture(scene, kind);
+    const key = ensureTexture(scene, kind, colour);
     em = scene.add.particles(0, 0, key, emitterConfig(kind));
     if (scene.fxContainer) scene.fxContainer.add(em);
-    scene._fxEmitters[kind] = em;
+    scene._fxEmitters[slot] = em;
     return em;
   }
 
   // Fire a burst of `kind` at SCREEN point (x, y). Returns the particle count
   // thrown — 0 when the scene can't draw (headless, no fx layer yet), under
   // reduced motion, or for an unknown kind.
-  function burst(scene, kind, x, y) {
+  //
+  // `opts` scales the same preset up to a bigger thing (app.js _blastAt):
+  //   ringPx  throw them off a RING of this radius about (x, y) instead of
+  //           out of the one point — a building's walls rather than its
+  //           middle — and scale the count with it (burstCount).
+  //   count   override the preset's count outright.
+  //   colour  bake and throw the preset in this colour instead of its own.
+  function burst(scene, kind, x, y, opts) {
     if (!scene || !scene.add || !scene.textures || !scene.fxContainer) return 0;
     if (!PRESETS[kind] || !isFinite(x) || !isFinite(y)) return 0;
-    const n = burstCount(kind, !!scene._reducedMotion);
+    const o = opts || {};
+    const n = burstCount(kind, !!scene._reducedMotion, o);
     if (!n) return 0;
     try {
-      ensureEmitter(scene, kind).explode(n, x, y);
+      const em = ensureEmitter(scene, kind, o.colour);
+      if (!(o.ringPx > 0)) {
+        em.explode(n, x, y);
+      } else {
+        for (const p of ringPoints(o.ringPx, n)) em.explode(1, x + p.x, y + p.y);
+      }
     } catch (e) {
       return 0;
     }
     return n;
   }
 
-  root.Particles = { PRESETS, burstCount, emitterConfig, onScreen, burst, texKey };
+  root.Particles = { PRESETS, burstCount, emitterConfig, onScreen, burst, texKey, ringPoints, BURST_MAX };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

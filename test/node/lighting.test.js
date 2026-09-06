@@ -52,8 +52,11 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
     const dimA = Render.reachDimAlpha(s);
     // The floor is where the old wash + falloff landed at the corner…
     near(p.farA, 1 - (1 - dimA) * (1 - Lighting.FALLOFF_A), 1e-12, `farA @${depth}`);
-    // …scaled by the contrast knob, and by nothing else…
-    assert.eq(p.ambient, Lighting.scaleColour(Lighting.mixToWhite(Render.reachDimColor(s), p.farA), Lighting.AMBIENT_K),
+    // …scaled by the contrast knob (blended toward the daytime value on the
+    // surface, flat underground), and by nothing else…
+    const expectedK = depth > 0 ? Lighting.AMBIENT_K
+      : Lighting.AMBIENT_K + (Lighting.AMBIENT_K_DAY - Lighting.AMBIENT_K) * (1 - p.night);
+    assert.eq(p.ambient, Lighting.scaleColour(Lighting.mixToWhite(Render.reachDimColor(s), p.farA), expectedK),
       `ambient @${depth}`);
     // …the cookie just outside the plateau lifts it back to the flat wash,
     // scaled down by the player's own output knob…
@@ -65,9 +68,13 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
   // old wash's (times PLAYER_OUTPUT_K), so the reach step is untouched and
   // only the dark got darker.
   assert.inRange(Lighting.AMBIENT_K, 0.3, 0.6, 'a real darkening, not black and not the old floor');
+  assert.inRange(Lighting.AMBIENT_K_DAY, 1.0, 1.6, "noon reads brighter than the raw old wash, not just 'less dark'");
   assert.inRange(Lighting.PLAYER_OUTPUT_K, 0.5, 1.0, 'a real dimming of the body light, not a blackout');
   const lum = (c) => (0.299 * ch(c, 16) + 0.587 * ch(c, 8) + 0.114 * ch(c, 0)) / 255;
-  assert.lt(lum(Lighting.profile(scene()).ambient), 0.10, 'a totally unlit surface cell is under 10% luminance');
+  assert.lt(lum(Lighting.profile(scene(), 0).ambient), 0.10, 'a totally unlit surface cell is under 10% luminance at night');
+  near(lum(Lighting.profile(scene(), 1).ambient), 0.25, 0.03, 'a peek into the distance at noon reads about a quarter luminance');
+  assert.gt(lum(Lighting.profile(scene(), 1).ambient), lum(Lighting.profile(scene(), 0).ambient) * 3,
+    'and noon out there is meaningfully brighter than night out there');
   assert.eq(Lighting.litDim(0), 0, 'the surface bubble is full daylight');
   assert.gt(Lighting.litDim(2), Lighting.litDim(1), 'the bubble dims with every level down');
   const surf = Lighting.profile(scene()), cave = Lighting.profile(scene({ depth: 1 }));
@@ -180,41 +187,126 @@ test('lighting: a lit cobble glows, small and in the trail violet, and breathes'
   assert.lt(c.pulse, 0.5, 'gently — never off');
 });
 
-test('lighting: a stone coming on is a BLAST, on the pop\'s own clock', () => {
-  // considerCobble offers the steady glow always, and while the stone is
-  // through its scale-pop (flashT 0..1) a second, wide, near-white light
-  // over it that fades out as it swells — driven by the pop's clock, so the
-  // light and the art can never fall out of step.
-  const f = Lighting.KINDS.cobbleFlash;
-  assert.truthy(f, 'the flash row exists');
-  assert.gt(Lighting.radiusCells('cobbleFlash'), Lighting.radiusCells('cobble') * 2, 'the blast is wide');
+test('lighting: a BLAST is a transient light on its own clock, at any size', () => {
+  // A restoration moment — a cobble lighting, a wreck pulled back into a house
+  // — throws one wide near-white flash that fades as it swells. It used to be
+  // a per-cobble side effect re-offered by drawCells on every frame of the
+  // stone's scale-pop; it is one entry on scene._blasts now, fired once by the
+  // code that did the thing, carrying its OWN radius, colour and duration.
+  const f = Lighting.KINDS.blast;
+  assert.truthy(f, 'the blast row exists');
+  assert.falsy(Lighting.KINDS.cobbleFlash, 'and the per-cobble flash row is gone');
+  assert.gt(Lighting.radiusCells('blast'), Lighting.radiusCells('cobble') * 2, 'the blast is wide');
   assert.gt(f.peak, Lighting.KINDS.poi.peak, 'and bright');
   // Near-white: every channel high, and blue over red (still a cool light).
   for (const sh of [16, 8, 0]) assert.gt(ch(f.colour, sh), 200, 'near-white');
   assert.gte(ch(f.colour, 0), ch(f.colour, 16), 'cool, not warm');
 
+  // THE DEFAULTS ARE THE OLD PER-COBBLE NUMBERS EXACTLY: 2.5 cells across for
+  // the length of render.js's scale-pop (PATH_STONE_FLASH_MS = 900 ms), so a
+  // stone lighting looks precisely as it always did.
+  assert.eq(Lighting.BLAST_RADIUS_CELLS, 2.5, "a stone's blast is 2.5 cells");
+  assert.eq(Lighting.radiusCells('blast'), Lighting.BLAST_RADIUS_CELLS, 'and the row default matches');
+  assert.eq(Lighting.BLAST_MS, 900, 'and it runs for the scale-pop\'s own 900 ms');
+  assert.eq(Lighting.BLAST_MS, +/const PATH_STONE_FLASH_MS = (\d+);/.exec(RENDER_SRC)[1],
+    'which IS render.js\'s PATH_STONE_FLASH_MS — the art and the light share a clock');
+
+  const s = scene();
+  const b = Lighting.blast(s, 100, 200, { t0: 0 });
+  assert.eq(s._blasts.length, 1);
+  assert.eq(b.wmx, 100); assert.eq(b.wmy, 200, 'kept in ABSOLUTE world metres');
+  assert.eq(b.radiusCells, Lighting.BLAST_RADIUS_CELLS, 'the default radius');
+  assert.eq(b.colour, f.colour); assert.eq(b.durationMs, Lighting.BLAST_MS);
+  // …and a building asks for its own size, colour and length.
+  const big = Lighting.blast(s, 0, 0, { t0: 0, radiusCells: 7, colour: 0x112233, durationMs: 1500 });
+  assert.eq(big.radiusCells, 7); assert.eq(big.colour, 0x112233); assert.eq(big.durationMs, 1500);
+  assert.falsy(Lighting.blast(s, NaN, 0), 'a NaN point fires nothing');
+  assert.falsy(Lighting.blast(null, 0, 0), 'and no scene fires nothing');
+  assert.eq(s._blasts.length, 2, 'neither was kept');
+});
+
+test('lighting: a blast fades and swells on the same curve the cobble flash did, and prunes itself', () => {
+  const s = scene();
+  Lighting.beginFrame(s);
+  Lighting.blast(s, 0, 0, { t0: 0 });
+  // t = 0: full alpha, and smaller than its full radius.
+  assert.eq(Lighting.collectBlasts(s, 0, 0, HALF_M, 0), 1);
+  const at0 = s._lights[0];
+  assert.eq(at0.kind, 'blast');
+  near(at0.a, 1, 1e-9, 'full alpha the instant it fires');
+  assert.lt(at0.s, 1, 'and smaller than its full radius');
+  assert.eq(at0.r, Lighting.BLAST_RADIUS_CELLS, 'the entry carries its own radius');
+  assert.eq(at0.colour, Lighting.KINDS.blast.colour, 'and its own colour');
+  // Halfway: fading while swelling — the (1-t)^2 / FLASH_SCALE_FROM curve.
+  Lighting.beginFrame(s);
+  assert.eq(Lighting.collectBlasts(s, 0, 0, HALF_M, Lighting.BLAST_MS / 2), 1);
+  const mid = s._lights[0];
+  near(mid.a, 0.25, 1e-9, 'fading as (1-t)^2');
+  near(mid.s, Lighting.FLASH_SCALE_FROM + (1 - Lighting.FLASH_SCALE_FROM) * 0.5, 1e-9, 'while swelling');
+  assert.lt(mid.a, at0.a); assert.gt(mid.s, at0.s);
+  // Past its duration it lights nothing AND leaves the list.
+  Lighting.beginFrame(s);
+  assert.eq(Lighting.collectBlasts(s, 0, 0, HALF_M, Lighting.BLAST_MS), 0, 'burned out');
+  assert.eq(s._lights.length, 0);
+  assert.eq(s._blasts.length, 0, 'and pruned off the live list');
+});
+
+test('lighting: a blast is culled by its OWN radius, and an off-screen one is not resumed', () => {
+  const s = scene();
+  Lighting.beginFrame(s);
+  const R = 7 * s.cellM;                       // a building-sized blast
+  Lighting.blast(s, HALF_M + R - 1, 0, { t0: 0, radiusCells: 7 });
+  assert.eq(Lighting.collectBlasts(s, 0, 0, HALF_M, 0), 1,
+    'a blast a light-radius off-screen still lights the edge');
+  Lighting.beginFrame(s);
+  // The same blast with the camera moved past its reach: not stamped, but
+  // still LIVE — the list keeps it so its clock runs down while it is off
+  // screen, and walking back mid-flash does not restart it.
+  assert.eq(Lighting.collectBlasts(s, -(R + 10), 0, HALF_M, 0), 0, 'past its own radius, no stamp');
+  assert.eq(s._blasts.length, 1, 'but it is still burning');
+  Lighting.beginFrame(s);
+  assert.eq(Lighting.collectBlasts(s, 0, 0, HALF_M, Lighting.BLAST_MS + 1), 0);
+  assert.eq(s._blasts.length, 0, 'and it burned out on schedule, unseen');
+});
+
+test('lighting: a blast is stored in WORLD metres and re-anchored every frame, so a peek leaves it on the ground', () => {
+  // The camera rule (CLAUDE.md): a world-drawn thing is measured from the
+  // CAMERA ANCHOR at draw time. The blast is fired at an absolute point and
+  // converted per frame, so a peek drag — which moves the anchor and nothing
+  // else — slides the flash by exactly the peek and leaves it over the cell.
+  const s = scene();
+  Lighting.blast(s, 300, -50, { t0: 0 });
+  Lighting.beginFrame(s);
+  Lighting.collectBlasts(s, 0, 0, 1e9, 0);
+  const still = s._lights[0];
+  Lighting.beginFrame(s);
+  Lighting.collectBlasts(s, 12, -7, 1e9, 0);       // the anchor peeked
+  const peeked = s._lights[0];
+  assert.eq(still.dx - peeked.dx, 12, 'the flash moved by the peek, not with it');
+  assert.eq(still.dy - peeked.dy, -7);
+  // The stamp reads the entry's radius and colour, so one row serves every size.
+  const L = LIGHTING_SRC;
+  const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
+  assert.truthy(/ensureKindCookie\(scene, L\.kind, L\.r, L\.colour\)/.test(d),
+    'the cookie is baked at the entry\'s own radius and colour');
+  assert.truthy(/collectBlasts\(scene, ax, ay, halfM, now\)/.test(d),
+    'and draw() collects the live blasts against this frame\'s anchor');
+});
+
+test('lighting: a lit cobble offers only its steady glow — the flash is the sweep\'s to fire', () => {
   const s = scene();
   Lighting.beginCells(s);
   assert.eq(s._cellLights.length, 0);
-  assert.eq(Lighting.considerCobble(s, 5, -10, 'k1', null), 1, 'at rest: the glow only');
+  assert.eq(Lighting.considerCobble(s, 5, -10, 'k1'), 1, 'one light per stone, always');
   assert.eq(s._cellLights[0].kind, 'cobble');
   assert.eq(s._cellLights[0].dx, 5); assert.eq(s._cellLights[0].dy, -10);
-  assert.eq(Lighting.considerCobble(s, 0, 0, 'k2', 0), 2, 'just lit: the glow and the blast');
-  const atStart = s._cellLights[2];
-  assert.eq(atStart.kind, 'cobbleFlash');
-  near(atStart.a, 1, 1e-9, 'full alpha the instant it lights');
-  assert.lt(atStart.s, 1, 'and smaller than its full radius');
-  Lighting.considerCobble(s, 0, 0, 'k3', 0.5);
-  const mid = s._cellLights[4];
-  assert.lt(mid.a, atStart.a, 'fading');
-  assert.gt(mid.s, atStart.s, 'while swelling');
-  assert.eq(Lighting.considerCobble(s, 0, 0, 'k4', 1), 1, 'the pop is over: no blast');
-  assert.eq(Lighting.considerCobble(s, 0, 0, 'k5', 1.5), 1);
+  assert.eq(Lighting.considerCobble(s, 0, 0, 'k2'), 1, 'and never a second one');
+  assert.truthy(s._cellLights.every((L) => L.kind === 'cobble'), 'no flash on the cell list');
   Lighting.beginCells(s);
   assert.eq(s._cellLights.length, 0, 'beginCells resets the cell list');
   // A rebuilt list is a separate list from the object lights: beginFrame
   // (which drawObjects calls AFTER drawCells) must not wipe the cobbles.
-  Lighting.considerCobble(s, 1, 1, 'k6', null);
+  Lighting.considerCobble(s, 1, 1, 'k6');
   Lighting.beginFrame(s);
   assert.eq(s._cellLights.length, 1, 'beginFrame leaves the cell lights alone');
 });
@@ -226,9 +318,11 @@ test('lighting: drawCells offers every lit stone, and draw() stamps the cell lig
   // ox + 0.5 - fracX cells from it), with the pop's clock for the blast.
   const R = RENDER_SRC;
   assert.truthy(/if \(LIGHTS\) LIGHTS\.beginCells\(scene\);/.test(R), 'drawCells begins the cell lights');
-  assert.truthy(/if \(active && LIGHTS\) \{\n\s+LIGHTS\.considerCobble\(scene, \(ox \+ 0\.5 - fracX\) \* scene\.cellM,\n\s+\(oy \+ 0\.5 - fracY\) \* scene\.cellM, tilledKey, flashT\);/.test(R),
-    'every ACTIVE stone is offered at its cell centre, with its flash clock');
-  assert.truthy(/flashT = ft;/.test(R), 'the flash clock is the pop\'s own ft');
+  assert.truthy(/if \(active && LIGHTS\) \{\n\s+LIGHTS\.considerCobble\(scene, \(ox \+ 0\.5 - fracX\) \* scene\.cellM,\n\s+\(oy \+ 0\.5 - fracY\) \* scene\.cellM, tilledKey\);/.test(R),
+    'every ACTIVE stone is offered at its cell centre');
+  assert.falsy(/flashT/.test(R),
+    'and the per-frame flash clock is gone — one stone is one blast, fired by the sweep');
+  assert.truthy(/flashMul = 1 \+ PATH_STONE_FLASH_BOUNCE \* decay;/.test(R), 'the ART still pops');
   // draw() honours the multipliers and reads both lists.
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));

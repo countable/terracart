@@ -1672,7 +1672,6 @@ Render.drawCells = function drawCells(scene) {
           // reads as an event. Pure transform, no extra sprite/pool, so it's
           // renderer-agnostic like the recolour it plays over.
           let flashMul = 1;
-          let flashT = null;                        // 0..1 through the pop, null at rest
           if (active && scene._pathStoneFlashes) {
             const flashAt = scene._pathStoneFlashes.get(cellKeyFromAbsCell(absCellIX, absCellIY));
             if (flashAt != null) {
@@ -1680,16 +1679,18 @@ Render.drawCells = function drawCells(scene) {
               if (ft < 1) {
                 const decay = (1 - ft) * (1 - ft);   // ease-out: snaps in, settles slowly
                 flashMul = 1 + PATH_STONE_FLASH_BOUNCE * decay;
-                flashT = ft;
               }
             }
           }
-          // A lit stone is a light: its glow on the lightmap, and the blast
-          // while it pops. Metres from the camera anchor, like every light —
-          // the cell's centre is (ox + 0.5 - fracX) cells from it.
+          // A lit stone is a light: the steady violet pool that keeps a walked
+          // trail glowing after dark. Metres from the camera anchor, like every
+          // light — the cell's centre is (ox + 0.5 - fracX) cells from it. The
+          // FLASH as it comes on is not offered here: it is a BLAST, fired once
+          // by the sweep that lit the stone (app.js _blastAt → Lighting.blast),
+          // so one stone is one flash however many frames the pop runs for.
           if (active && LIGHTS) {
             LIGHTS.considerCobble(scene, (ox + 0.5 - fracX) * scene.cellM,
-                                  (oy + 0.5 - fracY) * scene.cellM, tilledKey, flashT);
+                                  (oy + 0.5 - fracY) * scene.cellM, tilledKey);
           }
           // Swap texture key — 'pier' for plank, the lit copy of this frame
           // for a claimed stone, 'cobble' for everything else. Pool sprites

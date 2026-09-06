@@ -822,13 +822,39 @@ COBBLE TRAILS (path + road stones)
    its cell size) and a white-hot core added over its middle, and every lit
    stone is a small breathing light on the lightmap (Lighting.KINDS.cobble, in
    the same violet) so the walked trail still glows behind you after dark.
-   Lighting one is a BLAST: the scale-pop on the stone (PATH_STONE_FLASH_MS),
-   a wide near-white flash on the lightmap swelling as it fades on the pop's
-   own clock (Lighting.KINDS.cobbleFlash, via considerCobble), stone chips
-   AND a ring of violet sparks off the cell (particles.js stone + trailspark)
-   — big enough to catch out of the corner of the eye now that stones light
-   several cells out rather than one under your feet. Until Sep 2026 it was
-   the recolour and the chips alone, "a dull lavender".
+   Lighting one is a BLAST: the scale-pop on the stone (PATH_STONE_FLASH_MS)
+   plus the shared restoration fanfare below, fired once per stone by the
+   sweep that lit it (app.js _blastAt at the cell centre, BLAST_STONE_R_CELLS
+   wide, chips 'stone' + sparks 'trailspark') — big enough to catch out of the
+   corner of the eye now that stones light several cells out rather than one
+   under your feet. Until Sep 2026 it was the recolour and the chips alone,
+   "a dull lavender"; until the blast was made reusable the flash was a
+   per-cobble light row (cobbleFlash) that drawCells re-offered on every frame
+   of the pop, which is why nothing else in the game could borrow it.
+ - THE BLAST (restoration fanfare) is ONE thing at any size — app.js
+   _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, colour, material }),
+   fired at the instant a thing comes back. Three parts:
+     * THE LIGHT. Lighting.blast puts a transient entry on scene._blasts —
+       world metres, its own radius, colour and duration — and the lightmap's
+       collectBlasts converts it against THIS frame's camera anchor, stamps it
+       with alpha (1-t)² and scale FLASH_SCALE_FROM→1, and drops it when its
+       time is up. Stored in world metres precisely so a peek drag leaves the
+       flash on the ground it went off on. Defaults are the old per-cobble
+       numbers exactly: 2.5 cells, 900 ms (= render.js PATH_STONE_FLASH_MS).
+     * THE CHIPS. Debris in the thing's own material (particles.js 'stone' for
+       a cobble, 'timber' for a building; `material` recolours a preset, which
+       bakes its own texture and emitter — never a tint).
+     * THE SPARKS. A ring of stars in the moment's colour ('trailspark' violet
+       for a stone, 'buildspark' in UI_GREEN for a building).
+   `ringPx` is what scales the particles to the thing: 0 throws them out of one
+   point (a stone), a building's half-extent throws them off its WALLS and
+   scales the count with the radius (particles.js ringPoints / burstCount,
+   capped at BURST_MAX). Two call sites today — every cobble that lights, and
+   every wreck restored (at the footprint's centre, radius = its half-diagonal
+   + BLAST_HOUSE_PAD_CELLS, ring = its half-extent), the latter fired the
+   moment the role is frozen and banked, before the Restored! card opens over
+   it. Add a third by calling _blastAt; never by adding a light row.
+
  - ONE LADDER FOR THE WHOLE WORLD. Every stone lit anywhere adds to a single
    running count (save.trail = { stones, prizes }); the first treasure lands at
    Trail.GOAL_STEP (10) stones, the next at 20, the next at 30, and so on. At

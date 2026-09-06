@@ -17,7 +17,9 @@
 //   Lighting.beginFrame(scene)    — empty the frame's light list
 //   Lighting.consider(scene, o, dx, dy, halfM) — offer a scanned object
 //   Lighting.beginCells(scene)     — reset the CELL lights (the lit cobbles)
-//   Lighting.considerCobble(scene, dx, dy, id, flashT) — a lit stone, from drawCells
+//   Lighting.considerCobble(scene, dx, dy, id) — a lit stone, from drawCells
+//   Lighting.blast(scene, wmx, wmy, opts) — fire a transient restoration flash
+//   Lighting.collectBlasts(scene, ax, ay, halfM, now) — the live ones, pruned
 //   Lighting.collectFires(scene, ax, ay, halfM) — add the placed campfires
 //   Lighting.collectPlayer(scene, ax, ay, halfM) — add the player's torch, if lit
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
@@ -71,12 +73,14 @@
 // profile() reproduces the old wash for the white channel from the same two
 // sources the ground pass painted with — Render.reachDimAlpha / reachDimColor
 // — plus the falloff pair (FALLOFF_A, FALLOFF_P) that lived beside the rings.
-// Two deliberate departures sit on top: AMBIENT_K, which darkens the floor
-// alone for contrast, and PLAYER_OUTPUT_K, which dims the player's own ramp
-// and plateau alone (the RADIUS — the ramp's reach and the corners it just
-// lights — is untouched; only how much of the reproduced wash the player's
-// body gives back is scaled). Retune a look by changing those; another
-// factor in here breaks the correspondence test/node/lighting.test.js pins.
+// Two deliberate departures sit on top: AMBIENT_K (and its daytime partner
+// AMBIENT_K_DAY), which darken/brighten the floor alone for contrast — a
+// flat night value blended up to a sunlit one by `night`, surface only — and
+// PLAYER_OUTPUT_K, which dims the player's own ramp and plateau alone (the
+// RADIUS — the ramp's reach and the corners it just lights — is untouched;
+// only how much of the reproduced wash the player's body gives back is
+// scaled). Retune a look by changing those; another factor in here breaks
+// the correspondence test/node/lighting.test.js pins.
 (function (window) {
   'use strict';
 
@@ -175,14 +179,16 @@
     // strip. Collected by drawCells (considerCobble), not sourceKind: a
     // stone is a cell, not an object.
     cobble:   { radiusCells: 1.0, colour: TRAIL_LIT, peak: 0.58, flicker: 0, pulse: 0.30 },
-    // The BLAST as a stone comes on: a wide, near-white flash stamped over
-    // the stone for the length of render.js's scale-pop (PATH_STONE_FLASH_MS),
-    // swelling as it fades — considerCobble drives its alpha and scale off
-    // the pop's own clock, so the light and the art can't fall out of step.
-    // This is the one light that shows INSIDE the reach plateau by day: the
-    // plateau sits a few percent under white, and a peak this high tips a
-    // cell to full white for the first frames, which is the flash.
-    cobbleFlash: { radiusCells: 2.5, colour: 0xe4defc, peak: 1.0, flicker: 0 },
+    // A BLAST — the one-shot near-white flash of a RESTORATION moment: a
+    // cobble coming on, a wreck pulled back into a house. Unlike every row
+    // above it this one is TRANSIENT and SCALABLE: `Lighting.blast` puts an
+    // entry on scene._blasts with its own radius, colour and duration, and
+    // the row's radiusCells is only the default (a stone's — the length and
+    // width of the old per-cobble flash exactly). It is the one light that
+    // shows INSIDE the reach plateau by day: the plateau sits a few percent
+    // under white, and a peak this high tips a cell to full white for the
+    // first frames, which is the flash.
+    blast:    { radiusCells: 2.5, colour: 0xe4defc, peak: 1.0, flicker: 0 },
   };
 
   // Seconds per POI breath. Slow on purpose (see the row above).
@@ -220,8 +226,15 @@
   // in the world — "totally unlit areas should be darker" (Sep 2026). This
   // scales the AMBIENT only: the ramp and the plateau are untouched, so the
   // reach edge and the mid-field keep their step and only the dark gets dark.
-  // 1.0 is the old picture exactly; lower is more contrast.
+  // 1.0 is the old picture exactly; lower is more contrast. AMBIENT_K is the
+  // NIGHT value — profile() blends it toward AMBIENT_K_DAY as the sun comes
+  // up (surface only; a cave has no sun and stays on AMBIENT_K always, see
+  // the `night` derivation below), so a peek into the distance at noon reads
+  // as sunlit ground rather than the same near-black the small hours get.
+  // AMBIENT_K_DAY sits above 1.0 on purpose — noon's far field is meant to
+  // read brighter than the un-contrasted old wash, not just less-dark.
   const AMBIENT_K = 0.45;
+  const AMBIENT_K_DAY = 1.3;
 
   // The PLAYER'S OWN OUTPUT knob: how much of the reproduced-wash levels
   // (`edge`, `lit`) the player's ramp and plateau actually throw. It scales
@@ -339,7 +352,10 @@
   //   farA       what the corner landed on once the falloff rings stacked on
   //              that wash: 1 - (1-dimA)(1-FALLOFF_A)
   //   ambient    the lightmap's floor — mixToWhite(dimColour, farA), then
-  //              scaled by AMBIENT_K for contrast (the ramp is not)
+  //              scaled for contrast (the ramp is not) by a K that blends
+  //              AMBIENT_K at night up to AMBIENT_K_DAY at noon, by `night` —
+  //              surface only; a cave has no sun, so it stays on the flat
+  //              AMBIENT_K exactly as before, whatever daylight is passed in
   //   edge       the player cookie just OUTSIDE the plateau — the old wash,
   //              exactly, scaled by PLAYER_OUTPUT_K: ambient + edge/K == 1 - dimA
   //   lit        the cookie INSIDE the plateau — likewise scaled:
@@ -364,7 +380,8 @@
       dimColour = scaleColour(dimColour, 1 - (1 - NIGHT_TINT_KEEP) * night);
     }
     const farA = 1 - (1 - dimA) * (1 - FALLOFF_A);
-    const ambient = scaleColour(mixToWhite(dimColour, farA), AMBIENT_K);
+    const ambientK = depth > 0 ? AMBIENT_K : AMBIENT_K + (AMBIENT_K_DAY - AMBIENT_K) * (1 - night);
+    const ambient = scaleColour(mixToWhite(dimColour, farA), ambientK);
     const edge = (1 - dimA) * FALLOFF_A * PLAYER_OUTPUT_K;
     const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA)) * PLAYER_OUTPUT_K;
     const litColour = lowEnergy(scene) ? mixToWhite(LOW_ENERGY_TINT, LOW_ENERGY_A) : 0xffffff;
@@ -447,22 +464,84 @@
     scene._cellLights.length = 0;
   }
 
-  // Offer one lit cobble at (dx, dy) metres from the camera anchor. `flashT`
-  // is where the stone is through its scale-pop, 0..1, or null once it has
-  // settled: while it pops, a second light — the blast — is stamped over the
-  // stone, swelling from about half its radius to its full one as it fades
-  // out, so the moment a stone comes on reads as a flash of light and not
-  // only as the art jumping. `a` and `s` are alpha / scale multipliers draw()
-  // applies on top of the row's own. Returns the number of lights kept.
-  const FLASH_SCALE_FROM = 0.45;
-  function considerCobble(scene, dx, dy, id, flashT) {
+  // Offer one lit cobble at (dx, dy) metres from the camera anchor: the
+  // steady violet pool that keeps a walked trail glowing after dark. The
+  // FLASH as a stone comes on is not here — it is a blast (below), fired once
+  // by the sweep that lit the stone rather than re-offered by this pass on
+  // every frame of the pop. Returns the number of lights kept.
+  function considerCobble(scene, dx, dy, id) {
     if (!scene._cellLights) scene._cellLights = [];
     scene._cellLights.push({ kind: 'cobble', dx, dy, id });
-    if (flashT == null || !(flashT < 1)) return 1;
-    const t = Math.max(0, flashT);
-    scene._cellLights.push({ kind: 'cobbleFlash', dx, dy, id,
-                             a: (1 - t) * (1 - t), s: FLASH_SCALE_FROM + (1 - FLASH_SCALE_FROM) * t });
-    return 2;
+    return 1;
+  }
+
+  // ── BLASTS: transient lights on their own clock ──────────────────────────
+  // A restoration moment — a cobble lighting, a wreck restored — throws a
+  // wide near-white flash that swells as it fades. It is fired ONCE, at the
+  // instant the thing happens, and then lives on scene._blasts until it
+  // burns out; every frame collectBlasts converts it against that frame's
+  // camera anchor, so a peek drag keeps the flash on the ground it went off
+  // on (the camera rule in CLAUDE.md), and drops it when its time is up.
+  //
+  // Its curve is the cobble flash's, unchanged: alpha (1-t)², scale from
+  // FLASH_SCALE_FROM to 1 across the duration — and its defaults are the old
+  // per-cobble numbers exactly (2.5 cells, PATH_STONE_FLASH_MS = 900 ms), so
+  // a stone looks as it always did while a building can ask for six.
+  const FLASH_SCALE_FROM = 0.45;
+  const BLAST_RADIUS_CELLS = 2.5;
+  const BLAST_MS = 900;
+  // A hard ceiling on the live list. Blasts are one-shot and short, so this
+  // is only a guard against a bug firing them in a loop.
+  const BLAST_MAX = 24;
+
+  // Fire a blast at ABSOLUTE world metres (wmx, wmy). `opts`: radiusCells,
+  // colour, durationMs, and `t0` for a test's own clock. Returns the entry.
+  function blast(scene, wmx, wmy, opts) {
+    if (!scene || !Number.isFinite(wmx) || !Number.isFinite(wmy)) return null;
+    const o = opts || {};
+    const list = scene._blasts || (scene._blasts = []);
+    const e = {
+      wmx, wmy,
+      t0: (o.t0 == null ? Date.now() : o.t0),
+      radiusCells: (o.radiusCells > 0) ? o.radiusCells : BLAST_RADIUS_CELLS,
+      colour: (o.colour == null) ? KINDS.blast.colour : o.colour,
+      durationMs: (o.durationMs > 0) ? o.durationMs : BLAST_MS,
+    };
+    list.push(e);
+    if (list.length > BLAST_MAX) list.splice(0, list.length - BLAST_MAX);
+    return e;
+  }
+
+  // The live blasts, as lights on this frame's list — and the pruning pass
+  // for the dead ones. Compacted in place (never a splice per rejection): a
+  // blast that has burned out is dropped, one still burning but off-screen is
+  // KEPT on the list and merely not stamped, so walking back does not resume
+  // a flash that should have ended. Cull is halfM + the entry's OWN radius,
+  // like every other source.
+  function collectBlasts(scene, ax, ay, halfM, now) {
+    const list = scene._blasts;
+    if (!list || !list.length) return 0;
+    if (!scene._lights) scene._lights = [];
+    const t0 = (now == null) ? Date.now() : now;
+    let kept = 0, w = 0;
+    for (let i = 0; i < list.length; i++) {
+      const b = list[i];
+      const t = (t0 - b.t0) / b.durationMs;
+      if (!(t < 1)) continue;                       // burned out — pruned
+      list[w++] = b;
+      const dx = b.wmx - ax, dy = b.wmy - ay;
+      const pad = b.radiusCells * scene.cellM;
+      if (Math.abs(dx) > halfM + pad || Math.abs(dy) > halfM + pad) continue;
+      const u = Math.max(0, t);
+      scene._lights.push({
+        kind: 'blast', dx, dy, id: `blast_${b.t0}_${i}`,
+        r: b.radiusCells, colour: b.colour,
+        a: (1 - u) * (1 - u), s: FLASH_SCALE_FROM + (1 - FLASH_SCALE_FROM) * u,
+      });
+      kept++;
+    }
+    list.length = w;
+    return kept;
   }
 
   function inRange(scene, dx, dy, kind, halfM) {
@@ -534,24 +613,36 @@
 
   // One cookie canvas per kind, baked once: peak at the centre, (1 - r/R)^2
   // out to zero, the kind's colour baked in.
-  function ensureKindCookie(scene, kind) {
+  //
+  // A BLAST overrides both per entry (its own radius and colour), so those
+  // bake their own cookie under their own key. The radius is quantised to a
+  // quarter-cell first — a building's half-diagonal is a continuous number
+  // and one cookie per distinct float would grow the store forever, while a
+  // quarter cell is a few px on a light hundreds across.
+  const COOKIE_R_STEP = 4;
+  function ensureKindCookie(scene, kind, rCells, colour) {
     const store = scene._lightCookies || (scene._lightCookies = {});
-    if (store[kind]) return store[kind];
     const row = KINDS[kind];
+    const custom = (rCells != null) || (colour != null);
+    const r = (rCells == null) ? radiusCells(kind)
+                               : Math.max(0.25, Math.round(rCells * COOKIE_R_STEP) / COOKIE_R_STEP);
+    const col = (colour == null) ? row.colour : colour;
+    const key = custom ? `${kind}@${r}@${col}` : kind;
+    if (store[key]) return store[key];
     const cellPx = (typeof CELL_PX !== 'undefined') ? CELL_PX : 32;
-    const R = Math.ceil(radiusCells(kind) * cellPx);
+    const R = Math.ceil(r * cellPx);
     const S = 2 * R;
     const canvas = makeCanvas(S);
     const ctx = canvas.getContext('2d');
     const g = ctx.createRadialGradient(R, R, 0, R, R, R);
     for (let i = 0; i <= KIND_STOPS; i++) {
       const t = i / KIND_STOPS;
-      g.addColorStop(t, rgba(row.colour, row.peak * (1 - t) * (1 - t)));
+      g.addColorStop(t, rgba(col, row.peak * (1 - t) * (1 - t)));
     }
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, S, S);
-    store[kind] = { canvas, R };
-    return store[kind];
+    store[key] = { canvas, R };
+    return store[key];
   }
 
   // The player's RAMP: flat at `edge` out to the reach radius, then the
@@ -705,6 +796,9 @@
     collectFires(scene, ax, ay, halfM);
     collectPlayer(scene, ax, ay, halfM);
     const now = Date.now();
+    // The live blasts, converted against THIS frame's anchor (they are stored
+    // in world metres) and pruned as they burn out.
+    collectBlasts(scene, ax, ay, halfM, now);
     const prof = profile(scene, daylight(scene, now));
     const k = CELL_PX / scene.cellM;                 // metres → screen px
     // The ramp's extent: the player row's radius — the viewport's half-
@@ -773,13 +867,14 @@
       ctx.fill();
     }
 
-    // The lights: the objects' (drawObjects' scan + the fires), then the
-    // cells' (the lit cobbles, from drawCells). A light may carry its own
-    // alpha / scale multipliers (`a`, `s` — the cobble blast drives both off
-    // the pop's clock) on top of the row's flicker.
+    // The lights: the objects' (drawObjects' scan + the fires + the blasts),
+    // then the cells' (the lit cobbles, from drawCells). A light may carry its
+    // own alpha / scale multipliers (`a`, `s` — a blast drives both off its own
+    // clock) on top of the row's flicker, and its own radius / colour (`r`,
+    // `colour` — a blast is sized to the thing it went off on).
     const stamp = (L) => {
       const row = KINDS[L.kind];
-      const ck = ensureKindCookie(scene, L.kind);
+      const ck = ensureKindCookie(scene, L.kind, L.r, L.colour);
       const a = flickerAlpha(row, L.dx, L.dy, now, L.id) * (L.a == null ? 1 : L.a);
       const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
       const d = 2 * ck.R * sc;
@@ -796,13 +891,14 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, PLAYER_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_K_DAY, PLAYER_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires,
     collectPlayer, beginCells, considerCobble, TRAIL_LIT,
+    blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, BLAST_MAX, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
   };
 })(window);

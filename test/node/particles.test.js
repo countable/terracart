@@ -11,6 +11,7 @@
 
 (function () {
 const app = APP_JS_SRC;
+const near = (a, b, eps, m) => { if (Math.abs(a - b) > eps) throw new Error(`${m || 'near'}: ${a} vs ${b}`); };
 
 // Derived, not listed: the completeness / burstCount / emitterConfig checks
 // below should cover a preset the moment it is added, without a second copy of
@@ -157,27 +158,164 @@ test('particles: the fanfares burst through Particles, and the tweened-text burs
 });
 
 test('particles: a world burst is projected through worldMetersToScreen and gated on the viewport', () => {
-  const a = app.indexOf('  _burstAtWorld(kind, wmx, wmy) {');
+  const a = app.indexOf('  _burstAtWorld(kind, wmx, wmy, opts) {');
   assert.truthy(a > 0, 'found _burstAtWorld');
   const body = app.slice(a, app.indexOf('\n  }\n', a));
   assert.truthy(/const p = this\.worldMetersToScreen\(wmx, wmy\);/.test(body),
     'projected, never placed off the player or viewCenterX/Y');
   assert.falsy(/viewCenter[XY]/.test(body), 'no viewCenter in the projection');
-  assert.truthy(/Particles\.onScreen\(this, p\.x, p\.y, CELL_PX\)/.test(body),
-    'gated on the viewport with a cell of margin');
+  assert.truthy(/Particles\.onScreen\(this, p\.x, p\.y, margin\)/.test(body),
+    'gated on the viewport');
+  assert.truthy(/const margin = CELL_PX \+ Math\.max\(0, \(opts && opts\.ringPx\) \|\| 0\);/.test(body),
+    'with a cell of margin, grown by the ring — a building half off-screen still sparks');
   const c = app.indexOf('  _burstAtCell(kind, ix, iy) {');
   const cbody = app.slice(c, app.indexOf('\n  }\n', c));
   assert.truthy(/absCellCenterMeters\(this, ix, iy\)/.test(cbody), 'a cell burst goes through the cell centre');
   assert.truthy(/this\._burstAtWorld\(kind, c\.x, c\.y\)/.test(cbody), '…and then the world projection');
 });
 
-test('particles: every cobble that lights bursts on its own cell', () => {
+test('particles: every cobble that lights blasts on its own cell', () => {
   const a = app.indexOf('  _sweepCobbleTrails() {');
   const body = app.slice(a, app.indexOf('\n  }\n', a));
-  assert.truthy(/if \(!this\._activatePathStone\(tx, ty, s\.ix, s\.iy\)\) continue;\n\s+lit \+= 1;\n[\s\S]{0,400}this\._burstAtCell\('stone', s\.ix, s\.iy\);/.test(body),
-    'the stone burst follows the activation, on the stone that lit');
-  assert.truthy(/this\._burstAtCell\('stone', s\.ix, s\.iy\);\n\s+this\._burstAtCell\('trailspark', s\.ix, s\.iy\);/.test(body),
-    'and the spark ring goes off on the same stone');
+  assert.truthy(/if \(!this\._activatePathStone\(tx, ty, s\.ix, s\.iy\)\) continue;\n\s+lit \+= 1;\n[\s\S]{0,600}const bc = absCellCenterMeters\(this, s\.ix, s\.iy\);/.test(body),
+    'the blast follows the activation, on the CELL CENTRE of the stone that lit');
+  assert.truthy(/this\._blastAt\(bc\.x, bc\.y, \{ radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark' \}\);/.test(body),
+    'one blast per stone: the stone chips and the violet spark ring');
+  assert.falsy(/_burstAtCell/.test(body), 'and no second burst beside it');
+});
+
+// ── ONE BLAST, TWO SIZES ──────────────────────────────────────────────────
+
+test('particles: a ring throws its particles off the WALLS, and scales the count with it', () => {
+  const cell = (typeof CELL_PX === 'number') ? CELL_PX : 32;
+  // ringPx 0 is a point — that IS a cobble, and its look is unchanged.
+  const at0 = Particles.ringPoints(0, 4);
+  assert.eq(at0.length, 4);
+  assert.truthy(at0.every((p) => p.x === 0 && p.y === 0), 'no ring, one point');
+  // A ring puts every point ON the circle, evenly spaced, none on top of another.
+  const pts = Particles.ringPoints(50, 8);
+  assert.eq(pts.length, 8);
+  for (const p of pts) near(Math.hypot(p.x, p.y), 50, 1e-9, 'on the ring');
+  const angles = pts.map((p) => Math.atan2(p.y, p.x));
+  const uniq = new Set(angles.map((a) => a.toFixed(6)));
+  assert.eq(uniq.size, 8, 'eight distinct directions');
+  // Count scaling: the preset's own count at a point, one preset-count per
+  // cell of ring radius, capped so a castle can't flood the pool.
+  const n = Particles.PRESETS.timber.count;
+  assert.eq(Particles.burstCount('timber', false), n, 'a bare call is the preset count');
+  assert.eq(Particles.burstCount('timber', false, {}), n, 'and so is an empty opts');
+  assert.eq(Particles.burstCount('timber', false, { ringPx: 0 }), n, 'a point ring changes nothing');
+  assert.eq(Particles.burstCount('timber', false, { ringPx: cell * 3 }), n * 3, 'three cells, three times as many');
+  assert.eq(Particles.burstCount('timber', false, { ringPx: cell * 0.4 }), n, 'never FEWER than the preset');
+  assert.eq(Particles.burstCount('timber', false, { count: 4 }), 4, 'an outright override');
+  assert.eq(Particles.burstCount('timber', false, { ringPx: cell * 1000 }), Particles.BURST_MAX, 'capped');
+  assert.eq(Particles.burstCount('timber', true, { ringPx: cell * 3 }), 0, 'and still nothing under reduced motion');
+});
+
+test('particles: a burst in another colour bakes its own texture and its own emitter', () => {
+  // Baked, never tinted (setTint is a no-op under the Canvas fallback), so a
+  // colour variant is a second texture and a second emitter — and the plain
+  // key is untouched, so nothing that never asked for a colour moves.
+  assert.eq(Particles.texKey('stone'), 'fx_stone', 'the preset keeps its plain key');
+  assert.eq(Particles.texKey('stone', '#ff0000'), 'fx_stone_ff0000');
+  const made = [], calls = [], baked = [];
+  const have = new Set();
+  const scene = {
+    fxContainer: { add: (em) => made.push(em) },
+    textures: { exists: (k) => have.has(k) },
+    make: { graphics: () => ({
+      fillStyle() {}, fillCircle() {}, fillPoints() {}, fillRect() {}, fillEllipse() {},
+      generateTexture: (k) => { baked.push(k); have.add(k); }, destroy() {},
+    }) },
+    add: { particles: (x, y, key) => ({ key, explode: (n, px, py) => calls.push([key, n, px, py]) }) },
+  };
+  Particles.burst(scene, 'timber', 0, 0);
+  Particles.burst(scene, 'timber', 0, 0, { colour: '#ff0000' });
+  Particles.burst(scene, 'timber', 0, 0, { colour: '#ff0000' });
+  assert.eq(baked.join(','), 'fx_timber,fx_timber_ff0000', 'one bake per colour, once');
+  assert.eq(made.length, 2, 'and one emitter per colour, reused after');
+  assert.eq(calls[0][0], 'fx_timber');
+  assert.eq(calls[1][0], 'fx_timber_ff0000');
+});
+
+test('particles: a ring burst explodes around the circle, a point burst all at once', () => {
+  const calls = [];
+  const scene = {
+    fxContainer: { add() {} },
+    textures: { exists: () => true },
+    add: { particles: (x, y, key) => ({ key, explode: (n, px, py) => calls.push([n, px, py]) }) },
+  };
+  const cell = (typeof CELL_PX === 'number') ? CELL_PX : 32;
+  const n = Particles.burstCount('buildspark', false, { ringPx: cell * 2 });
+  assert.eq(Particles.burst(scene, 'buildspark', 100, 100, { ringPx: cell * 2 }), n);
+  assert.eq(calls.length, n, 'one explode per ring point');
+  for (const [c, px, py] of calls) {
+    assert.eq(c, 1, 'one particle each');
+    near(Math.hypot(px - 100, py - 100), cell * 2, 1e-6, 'off the wall, not the middle');
+  }
+  calls.length = 0;
+  assert.eq(Particles.burst(scene, 'stone', 5, 6), Particles.PRESETS.stone.count);
+  assert.eq(calls.length, 1, 'a cobble is still one explode at one point');
+  assert.eq(calls[0][1], 5); assert.eq(calls[0][2], 6);
+});
+
+test('particles: a restored building throws TIMBER and the restore green', () => {
+  const P = Particles.PRESETS;
+  assert.eq(P.timber.tex.shape, 'chip', 'debris off a building is chips');
+  assert.gt(P.timber.gravityY, 0, 'and it falls, like the stone chips — debris, not a firework');
+  assert.inRange(P.timber.angle[0], 180, 270, 'thrown up off the walls');
+  assert.inRange(P.timber.angle[1], 270, 360);
+  assert.eq(P.buildspark.tex.shape, 'star', 'the sparks are stars');
+  assert.eq(P.buildspark.tex.color, UI_GREEN,
+    'in UI_GREEN — the colour the Restored! card is already set in');
+  assert.eq(P.buildspark.angle[0], 0); assert.eq(P.buildspark.angle[1], 360, 'a full ring');
+  assert.eq(P.buildspark.gravityY, 0, 'weightless, like the cobble\'s');
+  assert.eq(P.buildspark.scale[1], 0); assert.eq(P.buildspark.alpha[1], 0, 'and burns out to nothing');
+  // The road's own pair is UNCHANGED — a stone looks exactly as it did.
+  assert.eq(P.stone.tex.color, UI_TRAIL_LIT);
+  assert.eq(P.stone.count, 12); assert.eq(P.trailspark.count, 10);
+});
+
+test('particles: _blastAt is ONE entry point — the light, the chips and the sparks', () => {
+  const a = app.indexOf('  _blastAt(wmx, wmy, opts) {');
+  assert.truthy(a > 0, 'found _blastAt');
+  const body = app.slice(a, app.indexOf('\n  }\n', a));
+  // The LIGHT gets WORLD METRES: the lightmap re-anchors it every frame, so a
+  // peek drag leaves the flash on the ground (CLAUDE.md's camera rule).
+  assert.truthy(/Lighting\.blast\(this, wmx, wmy, \{/.test(body), 'the flash is fired in world metres');
+  assert.falsy(/viewCenter[XY]|worldMetersToScreen/.test(body), 'the light is never projected here');
+  // The PARTICLES go through the projection, once each, with the ring.
+  assert.truthy(/this\._burstAtWorld\(o\.chips,  wmx, wmy, popts\)/.test(body), 'the chips');
+  assert.truthy(/this\._burstAtWorld\(o\.sparks, wmx, wmy, popts\)/.test(body), 'and the sparks');
+  assert.truthy(/const popts = \{ ringPx, colour: o\.material \};/.test(body),
+    'both off the same ring, in the same material');
+  // Headless-safe: no Phaser, no Lighting, no projection and it still returns.
+  assert.truthy(/typeof Lighting !== 'undefined' && Lighting\.blast/.test(body), 'no Lighting, no throw');
+});
+
+test('particles: a restored wreck blasts at its footprint, before the card opens', () => {
+  const a = app.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
+  const body = app.slice(a, app.indexOf('\n  }\n\n', a));
+  const blast = body.indexOf('this._blastAt(bg.x, bg.y, {');
+  assert.truthy(blast > 0, 'the restore fires a blast');
+  const frozen = body.indexOf('this.save.restoredHouses[house.id] = restoredRole;');
+  const saved = body.indexOf('persistSave(this.save);');
+  const card = body.indexOf('this.showChestRewardModal({');
+  assert.truthy(frozen > 0 && saved > frozen, 'the role is frozen and banked first');
+  assert.truthy(blast > saved, 'the blast goes off once the restore is real');
+  assert.truthy(card > blast, 'and BEFORE the card opens over it');
+  assert.truthy(/chips: 'timber', sparks: 'buildspark',/.test(body), 'timber off the walls, green sparks');
+  assert.truthy(/radiusCells: bg\.radiusCells, ringPx: bg\.ringPx,/.test(body),
+    'both sized off the footprint');
+  // …and the footprint geometry has a floor: an unknown one is a cell.
+  const g = app.indexOf('  _houseBlastGeometry(house) {');
+  const gbody = app.slice(g, app.indexOf('\n  }\n', g));
+  assert.truthy(/sh\.key !== house\.id/.test(gbody),
+    'the footprint is the building shape keyed by the house\'s own id');
+  assert.truthy(/Math\.sqrt\(house\.area\) \/ 2/.test(gbody), 'falling back to its polygon area');
+  assert.truthy(/halfW = halfH = cellM \/ 2;/.test(gbody), 'and to one cell');
+  assert.truthy(/Math\.hypot\(halfW, halfH\) \/ cellM/.test(gbody), 'the radius is the half-diagonal');
+  assert.truthy(/BLAST_HOUSE_PAD_CELLS/.test(gbody), 'plus the pad that clears the roof');
 });
 
 test('particles: a crop reaching its next stage bursts on every path that grows it', () => {
