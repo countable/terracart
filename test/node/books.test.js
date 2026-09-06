@@ -221,6 +221,7 @@ test('course: the pages run in the order the player needs them', () => {
     chests:   idx(/Treasure X marks are buried in car parks/i),
     village:  idx(/ending in 9 is a Blacksmith/i),
     land:     idx(/Wild rock grows in residential streets/i),
+    streets:  idx(/derelict until you stand by them/i),
     animals:  idx(/Feeding an animal its favourite/i),
     fighting: idx(/Only one weapon is ever in play/i),
     caves:    idx(/Tap a staircase to go down/i),
@@ -508,4 +509,27 @@ test('tips: the snares are documented — nothing else can say where they are', 
   assert.truthy(/10⚡/.test(tip) && /2 a second/.test(tip), 'and quotes both costs');
   assert.truthy(/verge|road/i.test(tip) && /stair|underground/i.test(tip),
     'and says where they lie');
+});
+
+test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
+  // Nothing on the map says how long you have to stand by a street, or how
+  // much of one a prize costs — the dwell is a constant in app.js and the rung
+  // is a constant in trail.js, and no item's ✦ line can carry either. So the
+  // Book carries them, and both are re-derived here rather than retyped: a
+  // retune of the ladder or the dwell has to move the tip with it.
+  assert.eq(Trail.GOAL_STEP_M, 200, 'the first rung is two hundred metres');
+  const tip = PLAY_TIPS.find((t) => /derelict until you stand by them/i.test(t));
+  assert.truthy(tip, 'the street tip is in the list');
+  assert.truthy(tip.includes(`${Trail.GOAL_STEP_M}m`), 'and quotes the rung the ladder owns');
+  // The dwell, in whole seconds, said in words.
+  const dwell = +/const PATH_STONE_DWELL_MS = (\d+);/.exec(APP_JS_SRC)[1];
+  assert.eq(dwell, 2000, 'two seconds of sight rebuilds a stretch');
+  assert.truthy(/two seconds/i.test(tip), 'and the tip says two seconds');
+  // Each rung asks GOAL_STEP_M MORE than the last — "every 200m" would be a
+  // lie by the second prize.
+  assert.eq(Trail.goalFor(1) - Trail.goalFor(0), Trail.GOAL_STEP_M, 'the rungs grow by a step');
+  assert.truthy(/each prize after asks/i.test(tip), 'and the tip says the ladder lengthens');
+  // The stale claim: the mechanic was lit pebbles until Sep 2026.
+  assert.falsy(/cobble/i.test(TIPS_BLOB), 'no tip still counts cobbles');
+  assert.falsy(/lit stone/i.test(TIPS_BLOB), 'nor lit stones');
 });

@@ -58,7 +58,12 @@ const FILES = [
   // read Difficulty.get() at call time and app.js pins it at boot.
   'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'particles.js', 'trail.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
+  'mvt.js', 'util.js', 'particles.js', 'trail.js',
+  // Street restoration's arithmetic: interval lists, the line key, the exact
+  // grid traversal and the dwell sight. Pure — no Phaser, no scene — so it
+  // loads here beside trail.js, whose ladder it feeds.
+  'streets.js',
+  'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
   // loads either side of worldgen.js; index.html puts it first, so do we.
   'traps.js',
@@ -107,9 +112,6 @@ const BRIDGE = `;Object.assign(globalThis, {
   // SHIPPING table rather than its own copies of it.
   houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
   HomeArea,
-  // The lit cobble's halo: the pad the baker (app.js) reads and the scale the
-  // drawer (render.js) applies — cobble_glow.test.js pins them as one pair.
-  LIT_COBBLE_GLOW_PAD, LIT_COBBLE_GLOW_SCALE, LIT_COBBLE_FRAMES, litCobbleTexKey,
   itemValue, randInt, pickFromArray, isShiny, faunaShiny,
   TRAILER_SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
@@ -302,12 +304,12 @@ try {
   }
 }
 
-// THE TRAIL COUNTER lands on the cobble that lit, not at the screen centre, so
-// its seating is a projection question — and projections are exactly what the
-// peek drag breaks when someone measures them off the player instead of the
-// camera anchor. Lifted with it: the activation primitive, which is where
-// "a stone is a cobble cell the renderer actually draws a pebble on" is
-// enforced. Both run for real on a stub scene in trail.test.js.
+// THE STREET COUNTER lands on the stretch that came back, not at the screen
+// centre, so its seating is a projection question — and projections are
+// exactly what the peek drag breaks when someone measures them off the player
+// instead of the camera anchor. Lifted with it: the whole STREET SWEEP, so
+// trail.test.js drives the shipping dwell, the shipping reach gate and the
+// shipping bank against a synthetic tile rather than a transcription of them.
 {
   const src = readSrc('app.js');
   const lift = (sig) => {
@@ -319,25 +321,20 @@ try {
     }
     return src.slice(start + 1, end + 4);
   };
-  // _cellToastAt is the ONE cell→toast seating the trail counter and the
-  // energy pops share; _energyPopAt / _cellAtScreen / playerScreen are the
-  // energy pop's own placement (energy_pop.test.js drives them on the same
-  // stub scene).
-  const methods = ['_trailCounterAt(ix, iy) {', '_cellToastAt(ix, iy, liftPx) {',
+  // _worldToastAt is the ONE world→toast seating the street counter and the
+  // energy pops share (_cellToastAt is its cell face); _energyPopAt /
+  // _cellAtScreen / playerScreen are the energy pop's own placement
+  // (energy_pop.test.js drives them on the same stub scene).
+  const methods = ['_worldToastAt(wmx, wmy, liftPx) {', '_cellToastAt(ix, iy, liftPx) {',
                    '_energyPopAt(ix, iy) {', '_isPlayerCell(ix, iy) {',
                    '_cellAtScreen(sx, sy) {', 'playerScreen() {',
-                   '_pathStoneAt(tx, ty, ix, iy) {',
-                   '_activatePathStone(tx, ty, ix, iy) {',
-                   '_resetTrailSight() {', '_rebuildTrailSight(p, reachM, now) {',
-                   '_sweepCobbleTrails() {', '_blastAt(wmx, wmy, opts) {']
+                   '_sweepStreets() {', '_resetStreetSight() {',
+                   '_rescanStreets(p, reachM, now, sight) {',
+                   '_setStreetPreview(meta, iv) {', '_streetRunPts(meta, s0, s1) {',
+                   '_streetPointAt(meta, s) {', '_ripenStreets(now, sight) {',
+                   '_bankStreetMetres(addedM, at, now) {', '_drawStreetLive(now) {',
+                   '_blastAt(wmx, wmy, opts) {']
     .map(lift).join(',\n');
-  // The abs→tile-local cell conversion both stone methods share is a module
-  // function of app.js; carry it across as source text too.
-  const localFn = src.match(/\nfunction pathStoneLocal\(entry, ix, iy\) \{[\s\S]*?\n\}\n/);
-  if (!localFn) {
-    console.error('Could not lift pathStoneLocal out of src/app.js — update run.js');
-    process.exit(2);
-  }
   // The seating reads two app.js module constants that don't exist in this
   // context. Carry them across as SOURCE TEXT rather than retyping the
   // numbers — a retune in app.js has to move the test with it.
@@ -351,24 +348,28 @@ try {
   };
   vm.runInContext(
     `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
-    `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};\n` +
-    `globalThis.pathStoneLocal = ${localFn[0].trim()};\n` +
+    `globalThis.STREET_COUNTER_LIFT_PX = ${constOf('STREET_COUNTER_LIFT_PX')};\n` +
     `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};\n` +
-    // The blast the sweep fires per stone that comes on (app.js _blastAt).
+    // The blast the sweep fires per step that restores (app.js _blastAt), the
+    // shine's own clock, the preview's ceiling and the counter's throttle.
     `globalThis.BLAST_STONE_R_CELLS = ${constOf('BLAST_STONE_R_CELLS')};\n` +
+    `globalThis.STREET_SHINE_MS = ${constOf('STREET_SHINE_MS')};\n` +
+    `globalThis.STREET_PREVIEW_ALPHA = ${constOf('STREET_PREVIEW_ALPHA')};\n` +
+    `globalThis.STREET_COUNTER_MIN_MS = ${constOf('STREET_COUNTER_MIN_MS')};\n` +
     // The energy pop's seating: derived from the walker's art, in the order
     // app.js declares them (the head clearance reads the two before it).
     `globalThis.PLAYER_FEET_DROP_PX = ${constOf('PLAYER_FEET_DROP_PX')};\n` +
     `globalThis.PLAYER_FRAME_PX = ${constOf('PLAYER_FRAME_PX')};\n` +
     `globalThis.ENERGY_POP_LIFT_PX = ${constOf('ENERGY_POP_LIFT_PX')};\n` +
     `globalThis.ENERGY_POP_HEAD_PX = ${constOf('ENERGY_POP_HEAD_PX')};`,
-    ctx, { filename: 'app.js#TRAIL_COUNTER_LIFT_PX' });
+    ctx, { filename: 'app.js#STREET_COUNTER_LIFT_PX' });
   vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
-                  { filename: 'app.js#_trailCounterAt' });
-  for (const k of ['_trailCounterAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
-                   '_cellAtScreen',
-                   'playerScreen', '_pathStoneAt', '_activatePathStone',
-                   '_resetTrailSight', '_rebuildTrailSight', '_sweepCobbleTrails',
+                  { filename: 'app.js#_worldToastAt' });
+  for (const k of ['_worldToastAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
+                   '_cellAtScreen', 'playerScreen',
+                   '_sweepStreets', '_resetStreetSight', '_rescanStreets',
+                   '_setStreetPreview', '_streetRunPts', '_streetPointAt',
+                   '_ripenStreets', '_bankStreetMetres', '_drawStreetLive',
                    '_blastAt']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);

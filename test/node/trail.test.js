@@ -1,107 +1,139 @@
-// Cobble trails — ONE LADDER for the whole world (src/trail.js) and the
-// counter that reports it. Prizes used to be per named way per tile, each with
-// its own segment length, remainder and "too short to pay" floor; now a stone
-// is a stone wherever it is picked up.
+// STREET RESTORATION's ladder — ONE for the whole world (src/trail.js), the
+// counter that reports it, and the sweep that feeds it. Prizes used to be per
+// named way per tile, each with its own segment length, remainder and "too
+// short to pay" floor; now a metre is a metre wherever it is restored.
 //
 // app.js can't load headlessly (it needs Phaser), which is exactly why the
-// arithmetic lives in trail.js: these run the real shipping numbers, not a
-// copy of them that would drift the moment someone retunes the feel.
+// arithmetic lives in trail.js and streets.js: these run the real shipping
+// numbers — and, through run.js's lift, the real shipping SWEEP — rather than
+// a copy that would drift the moment someone retunes the feel.
 
-// ── The ladder ────────────────────────────────────────────────────────────
+// ── The ladder, in METRES ─────────────────────────────────────────────────
 (() => {
   const T = Trail;
-  const S = T.GOAL_STEP;
+  const S = T.GOAL_STEP_M;
 
-  test('trail: the first prize wants ten stones', () => {
+  test('trail: the first prize wants two hundred metres of street', () => {
     // The user-facing promise. Pinned as a literal so a retune is a deliberate
-    // edit here.
-    assert.eq(S, 10, 'GOAL_STEP');
-    assert.eq(T.goalFor(0), 10, 'the first goal');
+    // edit here — and it is the walk the ladder always asked for: the counter
+    // used to want ten lit pebbles at one per 20 m, which is this number said
+    // in the unit that was underneath it all along (see the stones→metres fold
+    // in savemigrate.js).
+    assert.eq(S, 200, 'GOAL_STEP_M');
+    assert.eq(T.goalFor(0), 200, 'the first goal');
   });
 
-  test('trail: each prize asks ten more stones than the last', () => {
-    for (const [won, want] of [[0, 10], [1, 20], [2, 30], [9, 100]]) {
-      assert.eq(T.goalFor(won), want, `after ${won} prizes the goal is ${want}`);
+  test('trail: each prize asks two hundred metres more than the last', () => {
+    for (const [won, want] of [[0, 200], [1, 400], [2, 600], [9, 2000]]) {
+      assert.eq(T.goalFor(won), want, `after ${won} prizes the goal is ${want} m`);
     }
   });
 
-  test('trail: a stone is about twenty metres of walking', () => {
-    // The two halves of the same feel: render.js draws one stone per
-    // COBBLE_SPACING_M and only a drawn stone counts, so the first prize is a
-    // couple of hundred metres and the tenth is a proper expedition. Neither
-    // number means anything without the other, so they are pinned together.
-    assert.eq(Render.COBBLE_SPACING_M, 20, 'metres between stones');
-    const firstWalkM = T.goalFor(0) * Render.COBBLE_SPACING_M;
-    assert.inRange(firstWalkM, 150, 250, `the first prize is ${firstWalkM}m`);
+  test('trail: the stones vocabulary is gone', () => {
+    // The ladder counts restored METRES now. A `GOAL_STEP` left behind as an
+    // alias is how a caller keeps banking pebble counts against a metre goal
+    // and pays a prize every ten metres.
+    assert.eq(T.GOAL_STEP, undefined, 'Trail.GOAL_STEP is gone');
+    assert.eq(T.bank(0, 0, 5).stones, undefined, 'and bank() reports metres, not stones');
+    assert.eq(T.bank(0, 0, 5).metres, 5, 'which is what it is called');
   });
 
-  test('trail: the counter reads stones banked over the current goal', () => {
-    assert.eq(T.progress(0, 0).target, 10, 'a fresh save wants 10');
-    assert.eq(T.progress(7, 0).pos, 7, 'and reads what has been banked');
-    assert.eq(T.progress(3, 2).target, 30, 'after two prizes it wants 30');
+  test('trail: ONE formatter draws every number the walk shows', () => {
+    // The counter that pops on the street and the prize ceremony's sub-line
+    // print the same walk. Two formatters is how the two came to disagree
+    // about which rung had just been paid.
+    assert.eq(T.label(137, 200), '137/200 m', 'the notation');
+    assert.eq(T.progress(137.4183, 0).label, '137/200 m',
+      'a float position rounds — restoration is exact, the toast is not');
+    assert.eq(T.progress(137.6, 0).label, '138/200 m', 'rounded, not floored');
+    assert.eq(T.readout(T.bank(150, 0, 60)).label, T.label(200, 200),
+      'and the paying sweep reads through the same one');
+  });
+
+  test('trail: the counter reads metres banked over the current goal', () => {
+    assert.eq(T.progress(0, 0).target, 200, 'a fresh save wants 200 m');
+    assert.eq(T.progress(70, 0).pos, 70, 'and reads what has been banked');
+    assert.eq(T.progress(30, 2).target, 600, 'after two prizes it wants 600');
+    // The position is the exact float; only the label rounds it.
+    assert.eq(T.progress(12.5, 0).pos, 12.5, 'fractional metres survive');
   });
 
   test('trail: the counter on a paying sweep reads the goal it completed, full', () => {
-    // The ladder grows by GOAL_STEP a rung, so the moment the first prize
-    // opened the stone read "3/20" — the carried remainder against the next
-    // goal — beside a ceremony that had paid at 10. The paying sweep's
+    // The ladder grows by GOAL_STEP_M a rung, so the moment the first prize
+    // opened the counter read "60/400 m" — the carried remainder against the
+    // next goal — beside a ceremony that had paid at 200. The paying sweep's
     // readout is the completed goal, full; the remainder shows next sweep.
-    assert.eq(T.readout(T.bank(8, 0, 5)).pos, 10, 'the first goal, complete');
-    assert.eq(T.readout(T.bank(8, 0, 5)).target, 10, 'and the target is that goal');
-    const next = T.bank(8, 0, 5);
-    assert.eq(T.readout({ stones: next.stones, prizes: next.prizes, owed: 0 }).target, 20,
-      'the next sweep reads against the next rung');
-    assert.eq(T.readout({ stones: next.stones, prizes: next.prizes, owed: 0 }).pos, 3,
-      'with the carried remainder');
+    assert.eq(T.readout(T.bank(160, 0, 100)).pos, 200, 'the first goal, complete');
+    assert.eq(T.readout(T.bank(160, 0, 100)).target, 200, 'and the target is that goal');
+    const next = T.bank(160, 0, 100);
+    const after = { metres: next.metres, prizes: next.prizes, owed: 0 };
+    assert.eq(T.readout(after).target, 400, 'the next sweep reads against the next rung');
+    assert.eq(T.readout(after).pos, 60, 'with the carried remainder');
     // A sweep that crosses two goals at once reads the LAST one it completed.
-    const two = T.bank(9, 0, 22);
+    const two = T.bank(190, 0, 420);
     assert.eq(two.owed, 2);
-    assert.eq(T.readout(two).target, 20, 'the second rung, full');
-    assert.eq(T.readout(two).pos, 20);
+    assert.eq(T.readout(two).target, 400, 'the second rung, full');
+    assert.eq(T.readout(two).pos, 400);
     // No payout: plain progress.
-    const p = T.readout(T.bank(0, 0, 7));
-    assert.eq(p.pos, 7); assert.eq(p.target, 10);
-    assert.eq(T.readout(null).target, 10, 'nothing banked reads as a fresh rung');
+    const p = T.readout(T.bank(0, 0, 140));
+    assert.eq(p.pos, 140); assert.eq(p.target, 200);
+    assert.eq(T.readout(null).target, 200, 'nothing banked reads as a fresh rung');
+    assert.eq(T.readout(null).label, '0/200 m', 'and says so');
   });
 
-  test('trail: banking stones counts them and pays on the goal', () => {
-    let st = T.bank(0, 0, 9);
-    assert.eq(st.stones, 9, 'nine banked');
+  test('trail: banking metres counts them and pays on the goal', () => {
+    let st = T.bank(0, 0, 180);
+    assert.eq(st.metres, 180, 'a hundred and eighty banked');
     assert.eq(st.owed, 0, 'and nothing owed yet');
-    st = T.bank(st.stones, st.prizes, 1);
-    assert.eq(st.owed, 1, 'the tenth stone pays');
+    st = T.bank(st.metres, st.prizes, 20);
+    assert.eq(st.owed, 1, 'the two-hundredth metre pays');
     assert.eq(st.prizes, 1, 'one prize won');
-    assert.eq(st.stones, 0, 'and the count starts again');
+    assert.eq(st.metres, 0, 'and the count starts again');
+  });
+
+  test('trail: the ladder is measured, not counted', () => {
+    // Restoration is exact float arclength (src/streets.js), so a sweep
+    // routinely banks a fraction of a metre. Rounding it away would lose most
+    // of a short walk; rounding it up would pay for street nobody restored.
+    const st = T.bank(150.5, 0, 30.25);
+    assert.eq(st.metres, 180.75, 'the fraction is kept, to the metre and past it');
+    const pay = T.bank(199.5, 0, 1.25);
+    assert.eq(pay.owed, 1, 'and it still crosses the goal exactly on the metre');
+    assert.inRange(pay.metres, 0.749, 0.751, 'with the fraction carried over');
   });
 
   test('trail: the remainder carries into the next goal', () => {
-    // A sweep lights a whole disc of stones at once, so a goal is routinely
-    // crossed mid-sweep — the stones past it belong to the next walk, not to
+    // A sweep restores a whole disc of street at once, so a goal is routinely
+    // crossed mid-sweep — the metres past it belong to the next walk, not to
     // the bin.
-    const st = T.bank(8, 0, 5);
+    const st = T.bank(160, 0, 100);
     assert.eq(st.prizes, 1, 'the goal was crossed');
-    assert.eq(st.stones, 3, 'and the three stones past it carried over');
+    assert.eq(st.metres, 60, 'and the sixty metres past it carried over');
     assert.eq(st.owed, 1, 'one prize owed');
   });
 
   test('trail: one sweep can cross more than one goal', () => {
-    // 10 for the first, 20 for the second, 30 for the third = 60, and each
-    // crossing lengthens the next goal — so this is a loop over the NEW goal,
-    // not a division.
-    const st = T.bank(0, 0, 60);
+    // 200 for the first, 400 for the second, 600 for the third = 1200, and
+    // each crossing lengthens the next goal — so this is a loop over the NEW
+    // goal, not a division.
+    const st = T.bank(0, 0, 1200);
     assert.eq(st.prizes, 3, 'three prizes');
     assert.eq(st.owed, 3, 'all three owed at once');
-    assert.eq(st.stones, 0, 'exactly consumed');
-    const one = T.bank(0, 0, 29);
-    assert.eq(one.prizes, 1, '29 stones is one prize');
-    assert.eq(one.stones, 19, 'and 19 toward the next');
+    assert.eq(st.metres, 0, 'exactly consumed');
+    const one = T.bank(0, 0, 580);
+    assert.eq(one.prizes, 1, '580 m is one prize');
+    assert.eq(one.metres, 380, 'and 380 toward the next');
   });
 
   test('trail: banking is defensive about junk', () => {
     // A hand-edited or half-migrated save must not mint prizes.
-    assert.eq(T.bank(0, 0, 0).owed, 0, 'no stones, no prize');
+    assert.eq(T.bank(0, 0, 0).owed, 0, 'no metres, no prize');
     assert.eq(T.bank(-5, -5, -5).owed, 0, 'negatives read as zero');
-    assert.eq(T.bank(0, 0, 1000).prizes, 13, 'a huge sweep still walks the ladder');
+    assert.eq(T.bank(NaN, 0, 40).metres, 40, 'a NaN total starts from nothing');
+    assert.eq(T.bank(40, 0, NaN).metres, 40, 'and a NaN gain adds nothing');
+    assert.eq(T.bank(0, 0, Infinity).owed, 0, 'an infinite sweep mints no prizes at all');
+    assert.eq(T.bank(0, 0, 20000).prizes, 13, 'a huge walk still walks the ladder');
+    assert.eq(T.progress(NaN, 0).pos, 0, 'and the counter never reads NaN');
   });
 
   test('trail: the reward improves with every prize, then stops climbing', () => {
@@ -123,74 +155,6 @@
       assert.eq(T[gone], undefined, `Trail.${gone} is gone`);
     }
   });
-})();
-
-// ── Only a DRAWN stone lights and counts ──────────────────────────────────
-// The activation primitive, lifted out of app.js and run for real. A cobble
-// cell the renderer thinned away is not a stone: every cobble cell used to
-// light and count, so a "10/10" could land after three visible stones had come
-// on and the number meant nothing the player could see.
-(() => {
-const { _pathStoneAt, _activatePathStone } = __trailCounter;
-const T = WorldGen.T;
-const N = 51;
-
-// A tile of solid footpath, cached where the shipping code looks for it.
-const withTile = (fn, terrain = T.PATH) => {
-  const key = WorldGen.tileKey(0, 0);
-  WorldGen.tileCache.set(key, { grid: new Uint8Array(N * N).fill(terrain), cellsPerEdge: N });
-  const scene = { save: {}, cellM: 7, cellsPerTile: N,
-                  _pathStoneAt, _activatePathStone };
-  try { return fn(scene, key); } finally { WorldGen.tileCache.delete(key); }
-};
-
-test('trail stones: a cell the renderer draws no pebble on never lights', () => {
-  withTile((scene) => {
-    let lit = 0, drawn = 0;
-    // Inside ONE tile: past cellsPerEdge the abs cell wraps to a local key
-    // already lit, which is a real thing (a neighbouring tile) but not what
-    // this test is asking about.
-    for (let ix = 0; ix < N; ix++) {
-      const shown = Render.cobbleShown(ix, 4, T.PATH, scene.cellM);
-      if (shown) drawn++;
-      if (scene._activatePathStone(0, 0, ix, 4)) lit++;
-      assert.eq(scene._activatePathStone(0, 0, ix, 4), false, 'and never lights twice');
-    }
-    assert.eq(lit, drawn, 'exactly the drawn stones lit');
-    assert.gt(drawn, 0, 'some of the row really is drawn');
-    assert.lt(drawn, N, 'and some of it really is thinned away');
-  });
-});
-
-test('trail stones: ground that is not a cobble is not a stone', () => {
-  withTile((scene) => {
-    let lit = 0;
-    for (let ix = 0; ix < N; ix++) if (scene._activatePathStone(0, 0, ix, 4)) lit++;
-    assert.eq(lit, 0, 'a park lights nothing at all');
-  }, T.PARK);
-});
-
-test('trail stones: a street is a trail too', () => {
-  withTile((scene) => {
-    let lit = 0;
-    for (let ix = 0; ix < N; ix++) if (scene._activatePathStone(0, 0, ix, 6)) lit++;
-    assert.gt(lit, 0, 'road cobbles light as well as footpath ones');
-  }, T.ROAD);
-});
-
-test('trail stones: the save keeps a flat list of lit cells, nothing per path', () => {
-  withTile((scene, key) => {
-    for (let ix = 0; ix < N; ix++) scene._activatePathStone(0, 0, ix, 4);
-    const tile = scene.save.pathStones[key];
-    assert.truthy(Array.isArray(tile), 'a plain array of "ix_iy"');
-    assert.truthy(tile.every((k) => /^\d+_\d+$/.test(k)), 'and nothing else in it');
-  });
-});
-
-test('trail stones: an uncached tile lights nothing', () => {
-  const scene = { save: {}, cellM: 7, _pathStoneAt, _activatePathStone };
-  assert.eq(scene._activatePathStone(9, 9, 3, 3), false, 'no grid, no stone');
-});
 })();
 
 // ── The prize is a CHOICE ─────────────────────────────────────────────────
@@ -340,29 +304,36 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   assert.truthy(/const TRAIL_PRIZE_HEADER = 'Thou hast traveled far';/.test(app), 'the header constant');
   assert.truthy(/const header = TRAIL_PRIZE_HEADER;/.test(body), 'the ceremony uses it');
   assert.eq((body.match(/header,/g) || []).length, 3, 'all three shapes carry the header');
-  assert.truthy(/sub: `\$\{walked\} cobbles walked · \$\{choices\.length\} finds — one is yours`/.test(body),
-    'the pick says how far the walk was');
-  assert.falsy(/cobbles walked`;/.test(body), 'the count is no longer the header');
+  // The flavour line prints the walk through Trail.label — the ONE formatter
+  // the street counter also prints with — so the ceremony and the number that
+  // was on the street a moment ago can't disagree about the rung just paid.
+  assert.truthy(/const goal = Trail\.goalFor\(Math\.max\(0, \(n \| 0\) - 1\)\);/.test(body),
+    'the goal just completed');
+  assert.truthy(/const walked = Trail\.label\(goal, goal\);/.test(body),
+    'formatted by Trail.label, never a second `${x}/${y} m`');
+  assert.truthy(/sub: `\$\{walked\} restored · \$\{choices\.length\} finds — one is yours`/.test(body),
+    'the pick says how much street was restored');
+  assert.falsy(/cobbles walked/.test(body), 'nothing counts pebbles any more');
 });
 
-test('trail counter: the stone reads Trail.readout of the bank, not raw progress', () => {
+test('trail counter: the street reads Trail.readout of the bank, not raw progress', () => {
   const app = APP_JS_SRC;
-  const at = app.indexOf('  _bankTrailStones(lit, at) {');
+  const at = app.indexOf('  _bankStreetMetres(addedM, at, now) {');
   assert.gt(at, 0, 'found the bank');
   const body = app.slice(at, app.indexOf('\n  }\n', at));
-  assert.truthy(/const \{ pos, target \} = Trail\.readout\(out\);/.test(body),
-    'the paying sweep reads the completed goal, full');
-  assert.falsy(/Trail\.progress\(/.test(body), 'raw progress is not what the stone shows');
+  assert.truthy(/this\._toast\(Trail\.readout\(out\)\.label, \{/.test(body),
+    'the paying sweep reads the completed goal, full — and through the one formatter');
+  assert.falsy(/Trail\.progress\(/.test(body), 'raw progress is not what the street shows');
 });
 })();
-// ── The counter lands ON the stone ────────────────────────────────────────
-// The "N/M" is drawn over the cobble that just lit, in the colour that stone
-// lights up in, instead of popping at the screen centre in the pale treasure
-// ink. The seating (_trailCounterAt) is lifted out of app.js and run for real,
-// because it is a PROJECTION — the thing a peek drag breaks when someone
-// measures it off the player instead of the camera anchor.
+// ── The counter lands ON the street ───────────────────────────────────────
+// The "N/M m" is drawn over the stretch that just came back, in the colour a
+// restored street is made of, instead of popping at the screen centre in the
+// pale treasure ink. The seating (_worldToastAt) is lifted out of app.js and
+// run for real, because it is a PROJECTION — the thing a peek drag breaks when
+// someone measures it off the player instead of the camera anchor.
 (() => {
-const { _trailCounterAt, _cellToastAt } = __trailCounter;
+const { _worldToastAt, _cellToastAt } = __trailCounter;
 const near = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
 
 // Same shape as peek_drag.test.js's scene — round numbers, shipping cellM.
@@ -377,229 +348,434 @@ const counterScene = (over) => Object.assign({
   viewCenterX: 176,
   viewCenterY: 200,
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); },
-  _trailCounterAt,
+  _worldToastAt,
   _cellToastAt,
 }, over || {});
 
-// The cell the player is standing in, so the maths below has a known answer.
-const homeCell = (s) => worldMetersToAbsCell(
-  s, s.startWorldM.x + s.playerM.x, s.startWorldM.y + s.playerM.y);
-
-test('trail counter: it sits on the cobble, lifted clear of the stone', () => {
+test('street counter: it sits on the stretch, lifted clear of the carriageway', () => {
   const s = counterScene();
-  const c = homeCell(s);
-  const out = s._trailCounterAt(c.cellIX + 2, c.cellIY);
-  const stone = worldMetersToScreen(s, ...(() => {
-    const m = absCellCenterMeters(s, c.cellIX + 2, c.cellIY);
-    return [m.x, m.y];
-  })());
-  assert.eq(out.x, Math.round(stone.x), 'horizontally centred on the stone');
-  // The note tier hangs its text from `y`, so the number sits ABOVE the pebble
-  // rather than across it — about half a cell up, never a whole one.
-  assert.lt(out.y, stone.y, 'above the stone');
-  near(stone.y - out.y, CELL_PX * 0.6, CELL_PX * 0.25, 'by about half a cell');
+  // A point 30 m east and 12 m south of where the world starts — an arbitrary
+  // place ALONG A WAY, not a cell centre: that is the whole point of the world
+  // seating, since a restored stretch ends where the dwell ended.
+  const wx = s.startWorldM.x + 30, wy = s.startWorldM.y + 12;
+  const out = s._worldToastAt(wx, wy, STREET_COUNTER_LIFT_PX);
+  const at = worldMetersToScreen(s, wx, wy);
+  assert.eq(out.x, Math.round(at.x), 'horizontally on the stretch');
+  // The note tier hangs its text from `y`, so the number sits ABOVE the
+  // carriageway rather than across it — about half a cell up, never a whole one.
+  assert.lt(out.y, at.y, 'above the street');
+  near(at.y - out.y, CELL_PX * 0.6, CELL_PX * 0.25, 'by about half a cell');
 });
 
-test('trail counter: a peek moves the number with its stone, not with the player', () => {
+test('street counter: a peek moves the number with the street, not with the player', () => {
   // The QC rule that keeps biting: a draw pass measured off the body tears its
   // layer off the ground under a peek drag. The counter is drawn AT a world
-  // cell, so it must slide with the ground exactly as the cobble under it does.
+  // point, so it must slide with the ground exactly as the band under it does.
   const s = counterScene();
-  const c = homeCell(s);
-  const before = s._trailCounterAt(c.cellIX + 2, c.cellIY);
+  const wx = s.startWorldM.x + 30, wy = s.startWorldM.y + 12;
+  const before = s._worldToastAt(wx, wy, STREET_COUNTER_LIFT_PX);
   s.peekM = { x: 3 * s.cellM, y: 0 };      // camera three cells east
-  const after = s._trailCounterAt(c.cellIX + 2, c.cellIY);
-  const shift = before.x - after.x;
-  near(shift, 3 * CELL_PX, 1, 'the stone slid three cells west on screen');
+  const after = s._worldToastAt(wx, wy, STREET_COUNTER_LIFT_PX);
+  near(before.x - after.x, 3 * CELL_PX, 1, 'the street slid three cells west on screen');
   assert.eq(before.y, after.y, 'and not vertically');
 });
 
-test('trail counter: an unprojectable cell falls back to the centred toast', () => {
+test('street counter: an unprojectable point falls back to the centred toast', () => {
   // A sweep before the camera exists, or a headless scene: an empty options
   // object is the toast's own default, which is where the counter used to pop.
   const s = counterScene({ startWorldM: null });
-  assert.eq(Object.keys(s._trailCounterAt(4, 4)).length, 0, 'no override');
+  assert.eq(Object.keys(s._worldToastAt(4, 4, 10)).length, 0, 'no override');
   const ok = counterScene();
-  assert.eq(Object.keys(ok._trailCounterAt(null, null)).length, 0, 'no cell, no override');
+  assert.eq(Object.keys(ok._worldToastAt(NaN, 4, 10)).length, 0, 'no point, no override');
+  assert.eq(Object.keys(ok._cellToastAt(null, null, 10)).length, 0, 'nor a missing cell');
 });
 
-test('trail counter: the number wears the lit stone\'s own colour', () => {
-  // One constant, two readers: app.js bakes the lit-cobble texture from
-  // UI_TRAIL_LIT and the counter is drawn in it, so the stone and the number
-  // over it can never end up different blues. Pinned as source text — app.js
-  // needs Phaser and can't load headlessly.
-  assert.eq(UI_TRAIL_LIT, '#9a8cff', 'the lit violet');
-  assert.truthy(/cctx\.fillStyle = UI_TRAIL_LIT;/.test(APP_JS_SRC),
-    'the lit-cobble texture is baked from it');
-  assert.truthy(/color: UI_TRAIL_LIT,\s*\n\s*\.\.\.this\._trailCounterAt\(/
-    .test(APP_JS_SRC), 'and the counter is drawn in it, at the stone');
+test('street counter: the number wears the restored street\'s own ink', () => {
+  // One constant, three readers: the chips and the sparks a restoration throws
+  // (particles.js) and the number counting it are all UI_STREET_INK, so the
+  // debris and the figure over it can never end up different colours. Pinned
+  // as source text — app.js needs Phaser and can't load headlessly.
+  assert.eq(UI_STREET_INK, '#e8e2d6', 'pale stone');
+  assert.eq(typeof UI_TRAIL_LIT, 'undefined', 'and the lit-pebble violet is gone');
+  assert.truthy(/color: UI_STREET_INK,\s*\n\s*\.\.\.\(at \? this\._worldToastAt\(/.test(APP_JS_SRC),
+    'the counter is drawn in it, on the stretch');
   assert.falsy(/`\$\{pos\}\/\$\{target\}`, \{ tier: 'note', color: UI_TREASURE_INK \}/
     .test(APP_JS_SRC), 'the old centred treasure-ink toast is gone');
 });
 })();
 
-// ── A stone has to be IN SIGHT, and the walk home doesn't count ───────────
-// Cobbles light by SIGHT now, not by clipping the edge of the bubble in
-// passing: a stone must sit inside the lit reach, CONTINUOUSLY, for
-// PATH_STONE_DWELL_MS before it comes on. Two things fall out of that and both
-// are pinned here — leaving the reach restarts the clock from zero, and the
-// auto-walk home (the character walking ITSELF back to the GPS fix) earns no
-// sight at all, because that is the game moving the body rather than the
-// player looking at anything.
+// ── A STREET has to be IN SIGHT, and the walk home doesn't count ──────────
+// A stretch of road comes back by SIGHT, not by clipping the edge of the
+// bubble in passing: it must sit inside the lit reach, CONTINUOUSLY, for
+// PATH_STONE_DWELL_MS. Two things fall out of that and both are pinned here —
+// leaving the reach restarts the clock from zero, and the auto-walk home (the
+// character walking ITSELF back to the GPS fix) earns no sight at all, because
+// that is the game moving the body rather than the player looking at anything.
 //
-// The sweep is lifted out of app.js and run for real against the shipping
-// reach maths (coords.js) and the real activation primitive, so a rule that
+// The whole sweep is lifted out of app.js and run for real against the
+// shipping reach maths (coords.js) and the shipping interval algebra
+// (streets.js), over a synthetic MVT transportation layer — so a rule that
 // drifts here is a rule that drifted in the game.
 (() => {
-const { _pathStoneAt, _activatePathStone, _resetTrailSight,
-        _rebuildTrailSight, _sweepCobbleTrails, _blastAt } = __trailCounter;
-const T = WorldGen.T;
+const SW = __trailCounter;
 const N = 51;
-// One cell, in the stub's metre frame — playerReachCell goes through
-// originPx / mPerPx / TILE_PX, which is a different scale from cellM.
-const STEP_M = (WorldGen.TILE_PX / N) * 10;
+const CELL_M = 7;
+const TILE_EDGE_M = N * CELL_M;              // 357 m — one tile, 51 cells of 7 m
+const EXTENT = 4096;
+// The projection and the cell grid have to AGREE, exactly as they do in the
+// game: cellPxSize × mPerPx is cellM there (tileEdgeM / cellsPerEdge), so the
+// stub derives mPerPx from the same identity rather than picking a number.
+const M_PER_PX = CELL_M * N / WorldGen.TILE_PX;
+// The player stands at the centre of cell (25, 25).
+const MID_M = 25.5 * CELL_M;
 
-// A scene sitting mid-tile on a solid footpath, with the banking half stubbed
-// so the test reads what the sweep decided rather than what the ladder did.
+// ONE straight way, right across the tile through the player's row, as MVT
+// integers. Arclength along it IS its x in metres, which is what makes the
+// expected intervals readable.
+const straightWay = () => ({
+  id: 7, type: 2, tags: { class: 'minor' },
+  geom: [[{ x: 0, y: EXTENT / 2 }, { x: EXTENT, y: EXTENT / 2 }]],
+});
+
 const sweepScene = (over) => Object.assign({
   depth: 0,
   save: { energy: 10, reachUpgrades: 0 },
-  cellM: 7,
+  cellM: CELL_M,
   cellsPerTile: N,
-  mPerPx: 10,
+  mPerPx: M_PER_PX,
   originPx: { x: 0, y: 0 },
   startWorldM: { x: 0, y: 0 },
   feetOffsetM: 0,
-  playerM: { x: 25.5 * STEP_M, y: 25.5 * STEP_M },
-  banked: [],
-  _bankTrailStones(lit, at) { this.banked.push({ lit, at }); },
-  // The BLAST (app.js _blastAt) the sweep fires per lit cobble: the real
-  // method, with only its particle half stubbed, so the test reads what the
-  // sweep actually threw and where.
+  playerM: { x: MID_M, y: MID_M },
+  peekM: { x: 0, y: 0 },
+  toasts: [],
+  _toast(text, opts) { this.toasts.push({ text, opts }); },
+  drained: 0,
+  _drainTrailPrizes() { this.drained += 1; },
+  // The BLAST (app.js _blastAt) the sweep fires: the real method, with only
+  // its particle half stubbed, so the test reads what the sweep actually threw
+  // and where.
   bursts: [],
   _burstAtWorld(kind, wmx, wmy, opts) { this.bursts.push({ kind, wmx, wmy, opts }); return 1; },
-  _pathStoneAt, _activatePathStone, _resetTrailSight,
-  _rebuildTrailSight, _sweepCobbleTrails, _blastAt,
+  ...SW,
 }, over || {});
 
-// Run `fn` with the clock frozen, over a tile of solid footpath.
-const withPath = (fn) => {
+// Run `fn` with the clock frozen, over a tile carrying one transportation way.
+const withStreet = (fn, feature) => {
   const key = WorldGen.tileKey(0, 0);
-  WorldGen.tileCache.set(key, { grid: new Uint8Array(N * N).fill(T.PATH), cellsPerEdge: N });
+  WorldGen.tileCache.set(key, {
+    cellsPerEdge: N,
+    tileEdgeM: TILE_EDGE_M,
+    layers: [{
+      name: 'transportation', extent: EXTENT,
+      features: [feature || straightWay()],
+    }],
+  });
   const realNow = Date.now;
   let t = 1e12;
   Date.now = () => t;
-  try { return fn({ at: (ms) => { t = 1e12 + ms; } }); }
+  try { return fn({ at: (ms) => { t = 1e12 + ms; }, tileKey: key }); }
   finally { Date.now = realNow; WorldGen.tileCache.delete(key); }
 };
-const litCount = (s) => Object.values(s.save.pathStones || {})
-  .reduce((n, list) => n + list.length, 0);
 
-test('trail sight: a cobble seen for less than two seconds lights nothing', () => {
-  withPath((clock) => {
+// Total metres of street restored in the save, however many lines it spans.
+const restoredM = (s) => {
+  let sum = 0;
+  for (const tile of Object.values(s.save.streets || {})) {
+    for (const flat of Object.values(tile)) sum += Streets.totalM(Streets.unflatten(flat));
+  }
+  return sum;
+};
+const restoredIvs = (s, tileKey) => {
+  const tile = (s.save.streets || {})[tileKey] || {};
+  return Object.values(tile).map((flat) => Streets.unflatten(flat));
+};
+
+test('streets: a stretch seen for less than two seconds is not rebuilt', () => {
+  withStreet((clock) => {
     const s = sweepScene();
-    clock.at(0);                       s._sweepCobbleTrails();
-    clock.at(PATH_STONE_DWELL_MS - 1); s._sweepCobbleTrails();
-    assert.eq(litCount(s), 0, 'still dark a millisecond short');
-    assert.eq(s.banked.length, 0, 'and nothing banked');
+    clock.at(0);                       s._sweepStreets();
+    clock.at(PATH_STONE_DWELL_MS - 1); s._sweepStreets();
+    assert.eq(restoredM(s), 0, 'still derelict a millisecond short');
+    assert.eq(s.toasts.length, 0, 'and nothing banked');
   });
 });
 
-test('trail sight: two seconds in the bubble and the stones come on', () => {
-  withPath((clock) => {
+test('streets: two seconds in the bubble and the stretch in reach comes back', () => {
+  withStreet((clock, ) => {
     const s = sweepScene();
-    clock.at(0);                   s._sweepCobbleTrails();
-    clock.at(PATH_STONE_DWELL_MS); s._sweepCobbleTrails();
-    const lit = litCount(s);
-    assert.gt(lit, 0, 'the reach really does cover some drawn stones');
-    assert.eq(s.banked.length, 1, 'one bank for the whole disc, not one each');
-    assert.eq(s.banked[0].lit, lit, 'and it banked exactly what lit');
-    // One blast per stone: chips and the spark ring, on the stone's own cell
-    // centre, plus a transient light on the lightmap's own list.
-    const chips = s.bursts.filter((b) => b.kind === 'stone');
-    const sparks = s.bursts.filter((b) => b.kind === 'trailspark');
-    assert.eq(chips.length, lit, 'one stone-chip burst per stone that came on');
-    assert.eq(sparks.length, lit, 'and one spark ring per stone');
-    assert.eq(s.bursts.length, lit * 2, 'nothing else');
-    assert.eq((s._blasts || []).length, lit, 'and one lightmap flash per stone');
-    assert.eq(s._blasts[0].radiusCells, BLAST_STONE_R_CELLS, 'a stone\'s blast is a stone\'s width');
-    // The chips and the flash go off at the SAME world point — the stone's
-    // own cell centre, in absolute metres, not the player's position.
-    assert.truthy(Number.isFinite(chips[0].wmx) && Number.isFinite(chips[0].wmy), 'in world metres');
+    clock.at(0);                   s._sweepStreets();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
+    const got = restoredM(s);
+    assert.gt(got, 0, 'the reach really does cover some street');
+    // EXACTLY the cells the reach outline covers, no more: the reach is
+    // 2.5 cells + 1 m, so on the player's own row that is cells 23..27 — five
+    // cells, 35 m — and the arclength along this way IS its x in metres.
+    const iv = restoredIvs(s, WorldGen.tileKey(0, 0));
+    assert.eq(iv.length, 1, 'one line, one row in the save');
+    assert.eq(iv[0].length, 1, 'and one unbroken stretch of it');
+    const [a, b] = iv[0][0];
+    assert.inRange(a, 23 * CELL_M - 0.01, 23 * CELL_M + 0.01, 'starts at the western rim cell');
+    assert.inRange(b, 28 * CELL_M - 0.01, 28 * CELL_M + 0.01, 'and ends at the eastern one');
+    assert.inRange(got, 35 - 0.01, 35 + 0.01, 'five cells of street');
+    // Every restored metre is inside the lit reach, measured the way the
+    // outline is: no metre may come back that the player could not have
+    // touched.
+    const reachM = reachRadiusM(s);
+    const p = playerReachCell(s);
+    assert.lte(Math.abs(b - MID_M), reachM + CELL_M, 'nothing past the bubble');
+    assert.truthy(cellInReach(s, p.cellIX + 2, p.cellIY), 'the rim cell is in reach');
+    assert.falsy(cellInReach(s, p.cellIX + 3, p.cellIY), 'the one past it is not');
+
+    // The ladder banked exactly what came back.
+    assert.inRange(s.save.trail.metres, got - 0.01, got + 0.01, 'the metres are the ladder');
+    assert.eq(s.toasts.length, 1, 'one counter for the whole step, not one per piece');
+    assert.eq(s.toasts[0].text, Trail.progress(s.save.trail.metres, 0).label, 'reading the walk');
+    assert.eq(s.toasts[0].opts.color, UI_STREET_INK, 'in the street ink');
+    assert.eq(s.toasts[0].opts.tier, 'note');
+
+    // ONE blast for the step — chips, sparks and the lightmap flash — at a
+    // point ON the way, not at the player and not at a cell centre.
+    const chips = s.bursts.filter((x) => x.kind === 'stone');
+    const sparks = s.bursts.filter((x) => x.kind === 'trailspark');
+    assert.eq(chips.length, 1, 'one chip burst per sweep');
+    assert.eq(sparks.length, 1, 'one spark ring per sweep');
+    assert.eq(s.bursts.length, 2, 'nothing else');
+    assert.eq((s._blasts || []).length, 1, 'and one lightmap flash');
+    assert.eq(s._blasts[0].radiusCells, BLAST_STONE_R_CELLS, 'a restoration\'s own width');
     assert.eq(chips[0].wmx, s._blasts[0].wmx, 'the chips and the flash share the point');
     assert.eq(chips[0].wmy, s._blasts[0].wmy);
-    // Standing there longer lights nothing more — the disc is spent.
-    clock.at(PATH_STONE_DWELL_MS * 5); s._sweepCobbleTrails();
-    assert.eq(litCount(s), lit, 'a spent disc stays spent');
-    assert.eq(s.banked.length, 1, 'and banks nothing twice');
+    assert.inRange(chips[0].wmx, a, b, 'which sits on the stretch that came back');
+    assert.inRange(chips[0].wmy, MID_M - 0.01, MID_M + 0.01, 'on the way itself');
+
+    // Standing there longer restores nothing more — the stretch is spent.
+    clock.at(PATH_STONE_DWELL_MS * 5); s._sweepStreets();
+    assert.inRange(restoredM(s), got - 0.01, got + 0.01, 'a rebuilt street stays rebuilt');
+    assert.eq(s.toasts.length, 1, 'and banks nothing twice');
   });
 });
 
-test('trail sight: leaving the bubble restarts the clock from zero', () => {
-  withPath((clock) => {
+test('streets: a peek drag does not widen the sweep', () => {
+  // The camera rule, both directions: a reach test moved onto the anchor would
+  // let a peek rebuild three cells further than the arm reaches.
+  const runOne = (peek) => withStreet((clock) => {
+    const s = sweepScene({ peekM: peek });
+    clock.at(0);                   s._sweepStreets();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
+    return restoredM(s);
+  });
+  const plain = runOne({ x: 0, y: 0 });
+  const peeked = runOne({ x: 3 * CELL_M, y: 0 });
+  assert.gt(plain, 0, 'the plain sweep restored something');
+  assert.eq(peeked, plain, 'and a three-cell peek restores exactly the same metres');
+  assert.truthy(/const p = playerReachCell\(this\);/.test(APP_JS_SRC),
+    'the sweep measures from the reach cell');
+  const scan = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _rescanStreets(p, reachM, now, sight) {'));
+  assert.falsy(/peekM|viewAnchor/.test(scan.slice(0, scan.indexOf('\n  }\n'))),
+    'and the scan never reads the camera anchor');
+});
+
+test('streets: leaving the bubble restarts the clock from zero', () => {
+  withStreet((clock) => {
     const s = sweepScene();
-    clock.at(0);    s._sweepCobbleTrails();
-    // Walk well clear, then come back: the stones by the start are new again.
-    clock.at(1500); s.playerM.x += 8 * STEP_M; s._sweepCobbleTrails();
-    clock.at(1600); s.playerM.x -= 8 * STEP_M; s._sweepCobbleTrails();
-    clock.at(PATH_STONE_DWELL_MS); s._sweepCobbleTrails();
-    assert.eq(litCount(s), 0, 'the first look bought nothing');
-    clock.at(1600 + PATH_STONE_DWELL_MS); s._sweepCobbleTrails();
-    assert.gt(litCount(s), 0, 'two seconds from the RETURN, not from the first glimpse');
+    clock.at(0);    s._sweepStreets();
+    // Walk well clear along the way, then come back: the stretch by the start
+    // is new again.
+    clock.at(1500); s.playerM.x += 12 * CELL_M; s._sweepStreets();
+    clock.at(1600); s.playerM.x -= 12 * CELL_M; s._sweepStreets();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
+    assert.eq(restoredM(s), 0, 'the first look bought nothing');
+    clock.at(1600 + PATH_STONE_DWELL_MS); s._sweepStreets();
+    assert.gt(restoredM(s), 0, 'two seconds from the RETURN, not from the first glimpse');
   });
 });
 
-test('trail sight: the auto-walk home earns none of it', () => {
-  withPath((clock) => {
+test('streets: the auto-walk home earns none of it', () => {
+  withStreet((clock) => {
     const s = sweepScene({ _driftingHome: true });
-    clock.at(0);                       s._sweepCobbleTrails();
-    clock.at(PATH_STONE_DWELL_MS * 3); s._sweepCobbleTrails();
-    assert.eq(litCount(s), 0, 'a character walking itself home lights nothing');
-    assert.eq(s.banked.length, 0, 'and banks nothing');
+    clock.at(0);                       s._sweepStreets();
+    clock.at(PATH_STONE_DWELL_MS * 3); s._sweepStreets();
+    assert.eq(restoredM(s), 0, 'a character walking itself home rebuilds nothing');
+    assert.eq(s.toasts.length, 0, 'and banks nothing');
   });
 });
 
-test('trail sight: a drift home mid-watch drops the clock it was holding', () => {
-  withPath((clock) => {
+test('streets: a drift home mid-watch drops the clock it was holding', () => {
+  withStreet((clock) => {
     const s = sweepScene();
-    clock.at(0);    s._sweepCobbleTrails();
+    clock.at(0);    s._sweepStreets();
     // One frame of the walk home, then the player takes over again.
-    clock.at(1900); s._driftingHome = true;  s._sweepCobbleTrails();
-    clock.at(1901); s._driftingHome = false; s._sweepCobbleTrails();
-    clock.at(PATH_STONE_DWELL_MS); s._sweepCobbleTrails();
-    assert.eq(litCount(s), 0, 'the interrupted watch bought nothing');
-    clock.at(1901 + PATH_STONE_DWELL_MS); s._sweepCobbleTrails();
-    assert.gt(litCount(s), 0, 'the clock restarted when the player did');
+    clock.at(1900); s._driftingHome = true;  s._sweepStreets();
+    clock.at(1901); s._driftingHome = false; s._sweepStreets();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
+    assert.eq(restoredM(s), 0, 'the interrupted watch bought nothing');
+    clock.at(1901 + PATH_STONE_DWELL_MS); s._sweepStreets();
+    assert.gt(restoredM(s), 0, 'the clock restarted when the player did');
   });
 });
 
-test('trail sight: no light, no watch — a cave and a flat battery bank nothing', () => {
-  withPath((clock) => {
+test('streets: no light, no watch — a cave and a flat battery rebuild nothing', () => {
+  withStreet((clock) => {
     for (const over of [{ depth: 2 }, { save: { energy: 0, reachUpgrades: 0 } }]) {
       const s = sweepScene(over);
-      clock.at(0);                       s._sweepCobbleTrails();
-      clock.at(PATH_STONE_DWELL_MS * 2); s._sweepCobbleTrails();
-      assert.eq(litCount(s), 0, 'nothing lit');
-      assert.eq(s._trailSight, null, 'and no watch list left behind');
+      clock.at(0);                       s._sweepStreets();
+      clock.at(PATH_STONE_DWELL_MS * 2); s._sweepStreets();
+      assert.eq(restoredM(s), 0, 'nothing rebuilt');
+      assert.eq(s._streetSweepKey, null, 'and no watch list left behind');
+      assert.eq(s._streetLines, null);
     }
   });
 });
 
-test('trail sight: only stones in reach are ever watched', () => {
-  withPath((clock) => {
+test('streets: rail is never rebuilt, and a parking aisle is', () => {
+  // The overlay DRAWS a parking aisle, so it restores like any other way; a
+  // railway is not a street to rebuild at all.
+  const run = (cls) => withStreet((clock) => {
     const s = sweepScene();
-    clock.at(0); s._sweepCobbleTrails();
-    const p = playerReachCell(s);
-    assert.gt(s._trailSight.size, 0, 'something is being watched');
-    for (const { ix, iy } of s._trailSight.values()) {
-      assert.truthy(cellInReach(s, ix, iy), `(${ix},${iy}) is inside the lit reach`);
-      assert.truthy(s._pathStoneAt(Math.floor(ix / N), Math.floor(iy / N), ix, iy),
-        `(${ix},${iy}) is a stone the renderer actually draws`);
-    }
-    // The watch is measured off the REACH CELL, never a camera anchor.
-    assert.truthy(/const p = playerReachCell\(this\);/.test(APP_JS_SRC),
-      'the sweep measures from the reach cell');
-    assert.eq(typeof p.cellIX, 'number', 'which is a cell');
+    clock.at(0);                   s._sweepStreets();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
+    return restoredM(s);
+  }, { id: 9, type: 2, tags: { class: cls, service: 'parking_aisle' }, geom: straightWay().geom });
+  assert.eq(run('rail'), 0, 'a railway is left alone');
+  assert.eq(run('transit'), 0, 'and so is a tramway');
+  assert.gt(run('service'), 0, 'a parking aisle comes back like any street');
+});
+
+test('streets: only the tile SQUARE is ever paid for', () => {
+  // MVT geometry runs past the tile edge into the buffer, and the same metres
+  // come back inside the neighbour tile's copy of the way. Restoring buffer
+  // metres would pay twice for every way that crosses a tile edge.
+  const buffered = {
+    id: 11, type: 2, tags: { class: 'minor' },
+    // Starts a quarter-tile OUTSIDE the square (negative x) and runs east.
+    geom: [[{ x: -EXTENT / 4, y: EXTENT / 2 }, { x: EXTENT, y: EXTENT / 2 }]],
+  };
+  withStreet((clock) => {
+    const s = sweepScene({ playerM: { x: 1.5 * CELL_M, y: MID_M } });
+    clock.at(0);                   s._sweepStreets();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
+    const iv = restoredIvs(s, WorldGen.tileKey(0, 0))[0];
+    assert.truthy(iv && iv.length, 'the near end of the way came back');
+    // Arclength is measured from the line's FIRST vertex, which is a quarter
+    // tile west of the square, so nothing under that offset may be restored.
+    const buffer = EXTENT / 4 * (TILE_EDGE_M / EXTENT);
+    assert.gte(iv[0][0], buffer - 0.01, 'not one metre of the buffer');
+  }, buffered);
+});
+
+test('streets: the prize fires at two hundred metres, wherever they were restored', () => {
+  withStreet((clock) => {
+    // 180 m already banked: one sweep of the 35 m in reach carries it past the
+    // first goal, which is what the ceremony queue is for.
+    const s = sweepScene({ save: { energy: 10, reachUpgrades: 0, trail: { metres: 180, prizes: 0 } } });
+    clock.at(0);                   s._sweepStreets();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
+    assert.eq(s.save.trail.prizes, 1, 'the first prize is won');
+    assert.eq(s._trailPrizeQueue.length, 1, 'one ceremony queued');
+    assert.eq(s._trailPrizeQueue[0], 1, 'and it is the FIRST prize\'s ordinal');
+    assert.eq(s.drained, 1, 'the queue is drained once');
+    // The counter on a paying sweep reads the goal it completed, full, so the
+    // street and the ceremony beside it print the same rung.
+    assert.eq(s.toasts[0].text, Trail.label(Trail.GOAL_STEP_M, Trail.GOAL_STEP_M),
+      'the counter reads the completed goal');
+    assert.inRange(s.save.trail.metres, 14.99, 15.01, 'with the remainder carried');
   });
+});
+
+test('streets: the counter is throttled, but a paying sweep never waits', () => {
+  // Walking along a street restores metres on nearly every frame; a number
+  // redrawn sixty times a second is a flicker, not a readout. The ladder banks
+  // regardless — only the toast waits.
+  const s = sweepScene();
+  s.save.trail = { metres: 0, prizes: 0 };
+  s._bankStreetMetres(10, null, 1000);
+  assert.eq(s.toasts.length, 1, 'the first step shows');
+  s._bankStreetMetres(10, null, 1000 + STREET_COUNTER_MIN_MS - 1);
+  assert.eq(s.toasts.length, 1, 'a step inside the window is silent');
+  assert.inRange(s.save.trail.metres, 19.99, 20.01, 'but it still banked');
+  s._bankStreetMetres(10, null, 1000 + STREET_COUNTER_MIN_MS);
+  assert.eq(s.toasts.length, 2, 'and the next one past it shows');
+  // A sweep that PAYS jumps the queue: its readout is the goal just completed,
+  // which is the number the ceremony opening beside it also prints.
+  s._bankStreetMetres(Trail.GOAL_STEP_M, null, 1000 + STREET_COUNTER_MIN_MS + 1);
+  assert.eq(s.toasts.length, 3, 'a paying sweep is never throttled away');
+  assert.eq(s.toasts[2].text, Trail.label(Trail.GOAL_STEP_M, Trail.GOAL_STEP_M));
+});
+
+test('streets: the live pass previews the dwell and shines on the rebuild', () => {
+  // Two things the baked canvases can't carry, because they change every
+  // frame: the clean carriageway creeping in while the dwell runs, and the
+  // white run down a stretch the instant it comes back.
+  const real = RoadOverlay.drawLive;
+  let seen = [];
+  RoadOverlay.drawLive = (scene, runs) => { seen = runs.map((r) => ({ ...r })); };
+  // The live pass runs from drawRoadGeometry, AFTER RoadOverlay.draw has moved
+  // the container it strokes into — so a frame is the sweep and then the draw.
+  const frame = (s) => { s._sweepStreets(); s._drawStreetLive(); };
+  try {
+    withStreet((clock) => {
+      const s = sweepScene();
+      clock.at(0); frame(s);
+      assert.eq(seen.length, 0, 'nothing to preview in the frame sight opened');
+
+      clock.at(PATH_STONE_DWELL_MS / 2); frame(s);
+      assert.eq(seen.length, 1, 'one preview run');
+      assert.inRange(seen[0].alpha, STREET_PREVIEW_ALPHA / 2 - 0.01, STREET_PREVIEW_ALPHA / 2 + 0.01,
+        'at half the dwell, half the preview alpha');
+      assert.eq(seen[0].colour, undefined, 'in the way\'s own restored colour');
+      assert.eq(seen[0].tags.class, 'minor', 'carrying the class the width is read from');
+      assert.gte(seen[0].pts.length, 2, 'as a polyline');
+      // WORLD metres, on the way: this tile's origin is (0,0), so the preview
+      // sits on the row the street runs along.
+      for (const q of seen[0].pts) {
+        assert.inRange(q.y, MID_M - 0.01, MID_M + 0.01, 'every point is on the way');
+      }
+
+      clock.at(PATH_STONE_DWELL_MS); frame(s);
+      const shine = seen.filter((r) => r.colour === 0xffffff);
+      assert.eq(shine.length, 1, 'the rebuilt stretch shines white');
+      assert.inRange(shine[0].alpha, 0.99, 1.0, 'brightest at the instant it lands');
+      assert.eq(seen.filter((r) => r.colour !== 0xffffff).length, 0,
+        'and the preview stops drawing over the clean band the same frame');
+
+      clock.at(PATH_STONE_DWELL_MS + STREET_SHINE_MS / 2); frame(s);
+      assert.inRange(seen[0].alpha, 0.49, 0.51, 'the shine fades over its own clock');
+      clock.at(PATH_STONE_DWELL_MS + STREET_SHINE_MS); frame(s);
+      assert.eq(seen.length, 0, 'and is gone when it burns out');
+    });
+    // Walking into a cave clears the live layer rather than freezing a preview
+    // on the ground.
+    withStreet((clock) => {
+      const s = sweepScene();
+      clock.at(0); frame(s);
+      clock.at(PATH_STONE_DWELL_MS / 2); frame(s);
+      assert.gt(seen.length, 0, 'a preview is up');
+      s.depth = 2; frame(s);
+      assert.eq(seen.length, 0, 'and the cave clears it');
+    });
+  } finally {
+    RoadOverlay.drawLive = real;
+  }
+});
+
+test('streets: the sweep is memoised on the reach cell, and the ripen runs every frame', () => {
+  // The SCAN is the expensive half — a grid traversal per line of every way in
+  // the 3×3 tiles — and standing still can't bring fresh street into the
+  // bubble. The RIPEN half is waiting on the clock, not the player, so it runs
+  // regardless.
+  const src = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _sweepStreets() {'));
+  const body = src.slice(0, src.indexOf('\n  }\n'));
+  assert.truthy(/const sweepKey = `\$\{p\.cellIX\},\$\{p\.cellIY\},\$\{Math\.round\(reachM\)\}`;/.test(body),
+    'the memo key is the reach cell plus the radius');
+  assert.truthy(/if \(this\._streetSweepKey !== sweepKey\) \{[\s\S]*?this\._rescanStreets\(/.test(body),
+    'and only a change rescans');
+  assert.truthy(/this\._ripenStreets\(now, sight\);/.test(body),
+    'while the ripen runs every frame');
+  // The live pass is NOT in the sweep: it strokes into the container
+  // RoadOverlay.draw positions, and the sweep runs earlier in update() — so it
+  // hangs off drawRoadGeometry, after the draw.
+  assert.truthy(/drawRoadGeometry\(\) \{\n\s+if \(typeof RoadOverlay === 'undefined'\) return;\n\s+RoadOverlay\.draw\(this\);[\s\S]{0,400}?this\._drawStreetLive\(\);/.test(APP_JS_SRC),
+    'and the live pass runs after the overlay draw, every frame');
+  assert.falsy(/_drawStreetLive/.test(body), 'never from the sweep itself');
 });
 })();

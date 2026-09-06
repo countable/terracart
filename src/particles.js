@@ -9,7 +9,7 @@
 //
 // Before this module the "fanfare" burst was eight tweened `✦` Text objects
 // (app.js _starburst — a Text object, a tween and a destroy per star, twice
-// over per jackpot), and the cobble activation and the crop stage flip had
+// over per jackpot), and the street restoration and the crop stage flip had
 // no burst at all. The particle emitter is the built-in for exactly this
 // shape — Phaser 3.60+ ships it in the vendored build — so the presets here
 // replace the hand-rolled text burst rather than sit beside it.
@@ -18,7 +18,7 @@
 //   • WHERE. A burst at a WORLD position is projected through the scene's
 //     worldMetersToScreen at fire time (app.js _burstAtWorld / _burstAtCell),
 //     never placed off the player or viewCenterX/Y — a peek drag moves the
-//     camera, and the puff has to come off the cobble it marks. A burst on a
+//     camera, and the puff has to come off the street it marks. A burst on a
 //     TOAST (jackpot / shiny) takes the toast's own screen position.
 //   • WHICH LAYER. The emitters live in `scene.fxContainer`, inserted ABOVE
 //     the lightmap and BELOW the labels + fog (tools/layer_audit.js pins it).
@@ -36,7 +36,7 @@
 //     crop's new stage frame).
 //   • ONE PRESET, ANY SIZE. A burst scales to the thing it comes off:
 //     `opts.ringPx` throws the particles off a RING of that radius (a
-//     restored building's walls) instead of out of one point (a cobble), and
+//     restored building's walls) instead of out of one point (a street), and
 //     scales the count with it; `opts.colour` bakes and throws the same
 //     preset in another colour (one texture and one emitter per colour, never
 //     a tint). app.js `_blastAt` is the caller that uses both.
@@ -56,7 +56,7 @@
     gold:      (typeof UI_GOLD       === 'string') ? UI_GOLD       : '#ffe066',
     goldPale:  (typeof UI_GOLD_PALE  === 'string') ? UI_GOLD_PALE  : '#fff3b0',
     green:     (typeof UI_GREEN      === 'string') ? UI_GREEN      : '#a7ffb0',
-    trailLit:  (typeof UI_TRAIL_LIT  === 'string') ? UI_TRAIL_LIT  : '#9a8cff',
+    streetInk: (typeof UI_STREET_INK === 'string') ? UI_STREET_INK : '#e8e2d6',
     // Water is not in the UI palette on purpose: blue-white there means
     // TREASURE (util.js UI_TREASURE_*), and a watering is not a gift from the
     // world. This is the water tile's own murky teal (render.js terrain colour
@@ -90,22 +90,24 @@
       count: 18, angle: [0, 360], speed: [80, 190], lifespan: [700, 1100],
       gravityY: 60, scale: [1, 0.15], alpha: [1, 0], rotate: [0, 360],
     },
-    // A cobble LIGHTING (the trail). Stone chips in the lit-cobble violet kick
-    // up off the stone and drop back — short, small, an upward cone so the
-    // puff stays on its own cell rather than sprinkling the neighbours.
+    // A STREET COMING BACK (the restoration sweep). Chips of pale setts in the
+    // street ink kick up off the carriageway and drop back — short, small, an
+    // upward cone so the puff stays on its own patch rather than sprinkling
+    // the neighbours. The edge is the mortar it was bedded in, not a second
+    // hue: a chip is the same stone in shadow.
     stone: {
-      tex: { shape: 'chip', color: C.trailLit, edge: '#5a4fb0', size: 8 },
+      tex: { shape: 'chip', color: C.streetInk, edge: '#6b6459', size: 8 },
       count: 12, angle: [225, 315], speed: [50, 120], lifespan: [350, 600],
       gravityY: 320, scale: [1, 0.4], alpha: [1, 0.2], rotate: [0, 180],
     },
-    // …and the BLAST that goes with it: violet sparks with a white-hot core,
-    // thrown in a full ring off the stone with no gravity, fading and
-    // shrinking to nothing. The chips alone were a small dull puff on a
-    // stone that had only changed colour; the ring is what makes lighting a
-    // cobble read as a flash. Reaches about a cell and a half — further than
-    // the chips, which stay home, but still on the stone's own patch.
+    // …and the BLAST that goes with it: pale stone sparks with a white-hot
+    // core, thrown in a full ring off the restored stretch with no gravity,
+    // fading and shrinking to nothing. The chips alone were a small dull puff
+    // on ground that had only changed colour; the ring is what makes a street
+    // coming back read as a flash. Reaches about a cell and a half — further
+    // than the chips, which stay home, but still on the stretch's own patch.
     trailspark: {
-      tex: { shape: 'star', color: C.trailLit, core: '#ffffff', size: 12 },
+      tex: { shape: 'star', color: C.streetInk, core: '#ffffff', size: 12 },
       count: 10, angle: [0, 360], speed: [70, 150], lifespan: [300, 550],
       gravityY: 0, scale: [0.9, 0], alpha: [1, 0], rotate: [0, 360],
     },
@@ -132,7 +134,7 @@
     // thrown off a restored building's walls (app.js _blastAt with a ringPx).
     // Warm sawn wood over a dark beam, and it falls like the stone does: this
     // is debris off a building, not a firework. Thrown a touch further than a
-    // cobble's chips because a house is bigger than a stone.
+    // street's chips because a house is bigger than a stretch of road.
     timber: {
       tex: { shape: 'chip', color: '#c8a46a', edge: '#6b4a2b', size: 8 },
       count: 12, angle: [225, 315], speed: [60, 140], lifespan: [400, 700],
@@ -141,7 +143,7 @@
     // …and the BLAST that goes with it, in the restore green the Restored!
     // card is already set in (UI_GREEN), so the burst in the world and the
     // card that follows it are one event in one colour. Same shape as the
-    // cobble's trailspark — a weightless full ring burning out to nothing —
+    // street's trailspark — a weightless full ring burning out to nothing —
     // because it is the same moment at a different size.
     buildspark: {
       tex: { shape: 'star', color: C.green, core: '#ffffff', size: 12 },
@@ -191,7 +193,7 @@
   // the sparks of a restored building come off its WALLS rather than out of
   // its middle. Evenly spaced and half a step off zero so an even count never
   // lands two particles on the same axis line as the ring's own corners.
-  // Radius 0 (or a bad count) is the single centre point: that IS a cobble.
+  // Radius 0 (or a bad count) is the single centre point: that IS a street.
   function ringPoints(ringPx, n) {
     const count = Math.max(1, Math.floor(n || 1));
     if (!(ringPx > 0)) {

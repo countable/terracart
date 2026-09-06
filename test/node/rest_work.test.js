@@ -18,10 +18,10 @@
 (function () {
 const app = APP_JS_SRC;
 
-// The rest block of update(): from the HOME-ONLY comment to the cobble sweep.
+// The rest block of update(): from the HOME-ONLY comment to the street sweep.
 const block = (() => {
   const a = app.indexOf('const atHome = this.isRestingAtHome(pWX, pWY);');
-  const b = app.indexOf('this._sweepCobbleTrails();', a);
+  const b = app.indexOf('this._sweepStreets();', a);
   assert.truthy(a > 0 && b > a, 'found the passive-rest block in update()');
   return app.slice(a, b);
 })();
@@ -37,8 +37,8 @@ test('rest/work: the Home rest pauses while working', () => {
 });
 
 test('rest/work: campfire warmth pauses while working', () => {
-  assert.truthy(/if \(!working && this\._nearAny\('fires', pWX, pWY, FIRE_REST_R\)\)/.test(block),
-    'the campfire branch carries the !working gate');
+  assert.truthy(/if \(!working && !locked && this\._nearAny\('fires', pWX, pWY, FIRE_REST_R\)\)/.test(block),
+    'the campfire branch carries the !working gate (and, on hard mode, the zero-energy lockout too)');
 });
 
 test('rest/work: why — an ungated Home rest out-earns a bare-handed starter till', () => {
