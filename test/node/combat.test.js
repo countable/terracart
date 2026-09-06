@@ -72,7 +72,7 @@ test('combat: max HP comes from the monster table, then the fauna ladder', () =>
   // literal would only pin how stale this copy is. What is being tested is
   // which source answers, not what the number happens to be.
   assert.eq(Combat.creatureMaxHp('goblin'), MONSTERS.goblin.hp, 'monster table wins');
-  assert.eq(Combat.creatureMaxHp('slime'), 15, 'surface slime baseline (fauna, not the table)');
+  assert.eq(Combat.creatureMaxHp('slime'), 10, 'surface slime (fauna, not the table)');
   assert.eq(Combat.creatureMaxHp('dog'), 40, 'pet-combat ladder still answered here');
   assert.eq(Combat.creatureMaxHp('nonesuch'), 10, 'unknown kind falls back');
 });
@@ -105,6 +105,81 @@ test('combat: melee dps reproduces the OLD timed wheel exactly', () => {
   }
 });
 
+test('combat: the surface slime is the softest enemy in the game', () => {
+  // It is the FIRST enemy — met above ground, often with no sword at all — so
+  // nothing hostile may be cheaper to kill than it is. Pinned against the real
+  // monster table rather than a literal, so a soft new cave kind fails here
+  // rather than quietly stealing the tutorial foe's job.
+  for (const kind of Object.keys(MONSTERS)) {
+    assert.gt(Combat.creatureMaxHp(kind), Combat.creatureMaxHp('slime'),
+      `${kind} should be tougher than the surface slime`);
+  }
+  // And bare hands still finish it: the tier-0 rung is 9000 ms per 15 HP.
+  const bareMs = (Combat.creatureMaxHp('slime') / Combat.meleeDps({})) * 1000;
+  assert.lt(bareMs, 9000, 'a bare-handed slime kill is under the old 9 s');
+});
+
+// ── The melee cadence ───────────────────────────────────────────────────────
+
+test('combat: melee lands BLOWS, and the cadence cancels out of the rate', () => {
+  // The attack rate is a real number now (MELEE_INTERVAL_MS) rather than the
+  // damage-popup throttle app.js used to borrow for the swing animation. What
+  // it must NOT do is change how long a fight takes: one blow is one
+  // interval's worth of the tier's rung, so the delivered dps is the rung
+  // whatever the cadence. Slowing the beat makes blows chunkier, not fights
+  // longer — that is what keeps the kill-time identity above true.
+  for (const tier of [0, 1, 4, 7]) {
+    const relics = tier ? { sword: { tier } } : {};
+    const perSecond = Combat.meleeSwingDamage(relics) * (1000 / Combat.MELEE_INTERVAL_MS);
+    assert.inRange(perSecond - Combat.meleeDps(relics), -1e-9, 1e-9,
+      `tier ${tier}: blows must deliver exactly the melee rung`);
+  }
+  // The multiplier a caller applies to the swing (app.js passes 2 for the
+  // dragon) rides the blow, so it can't be applied twice or dropped.
+  assert.eq(Combat.meleeSwingDamage({ sword: { tier: 1 } }, 2),
+    2 * Combat.meleeSwingDamage({ sword: { tier: 1 } }), 'the dragon doubles one blow');
+  // One blow a second: slower than the 500 ms beat the slash used to run at,
+  // and slower than one drawn swing (SWORD_SWING_MS, 220) so arcs never
+  // overlap.
+  assert.eq(Combat.MELEE_INTERVAL_MS, 1000, 'one blow a second');
+});
+
+test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () => {
+  // The rate the player attacks at is a real cadence in app.js now. Pinned as
+  // source text because app.js never loads headlessly: what must not come
+  // back is the old per-frame `dps * dt` hose, which had no attack rate at all
+  // and banked partial damage from a fight broken off mid-beat.
+  const app = APP_JS_SRC;
+  const wheel = app.slice(app.indexOf('    if (wp.combat) {'));
+  assert.truthy(/if \(now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS;/.test(wheel),
+    'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
+  assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\.isDragonActive\(\) \? 2 : 1\)/.test(wheel),
+    'and one blow is one interval of the rung, dragon bonus included');
+  assert.falsy(/const dps = Combat\.meleeDps\(this\.save\.relics\) \* \(this\.isDragonActive/.test(app),
+    'no per-frame melee drain may return');
+  // The slash rides the blow, so blade and number share the one cadence.
+  assert.falsy(/this\._nextSwingT/.test(app), 'the swing has no throttle of its own any more');
+});
+
+test('combat: the surface slime oozes slowly enough to walk away from', () => {
+  // Its speed IS its threat: it homes in on you and leeches energy by sitting
+  // on you, so a slime that keeps pace with a walk can never be left behind.
+  // Derived from the two gait constants and the base wander beat rather than
+  // pinned, so retuning either shows up here as a speed, not a diff.
+  const app = APP_JS_SRC;
+  const mul = Number(/const SLIME_STEP_MUL = ([\d.]+);/.exec(app)?.[1]);
+  const hop = Number(/const SLIME_HOP_CELLS = ([\d.]+);/.exec(app)?.[1]);
+  const beat = Number(/const STEP_MS = (\d+);/.exec(app)?.[1]);
+  assert.truthy(mul > 0 && hop > 0 && beat > 0, 'the gait constants are readable');
+  assert.truthy(/c\.kind === 'slime' \? STEP_MS \* SLIME_STEP_MUL/.test(app),
+    'the cadence branch reads the constant');
+  assert.truthy(/const stepM = c\.kind === 'slime' \? STEP_M \* SLIME_HOP_CELLS/.test(app),
+    'and so does the hop distance');
+  const mps = (hop * COMBAT_CELL_M) / ((beat * mul) / 1000);
+  assert.lt(mps, 0.7, `a slime oozes at ${mps.toFixed(2)} m/s — well under a walking pace`);
+  assert.gt(mps, 0.15, 'but it still closes on you eventually');
+});
+
 test('combat: bow and staff no longer shorten the melee wheel', () => {
   // They shoot instead — a player carrying only ranged weapons swings at the
   // bare-handed rung, and the shots are what make up the difference.
@@ -125,18 +200,19 @@ test('combat: a shot carries its tier\'s FULL melee-equivalent rate, weighted by
       const relics = { [slot]: { tier } };
       const want = Math.max(1, Math.round(Combat.dpsForDurationMs(toolDurationMs(relics, slot))
                             * (Combat.SHOT_DMG_MUL[slot] || 1)
-                            * Combat.FIRE_INTERVAL_MS / 1000));
+                            * Combat.fireIntervalMs(slot) / 1000));
       assert.eq(Combat.shotDamage(relics, slot), want,
         `${slot} T${tier} shot should carry its own full, kind-weighted rate`);
     }
   }
   // The ladder in concrete, so a silent regression in TOOL_DURATION_MS or the
   // fire beat shows up as a combat failure too. Wood's rung is 4000 ms, i.e.
-  // 3.75 HP/s of melee; over the 2 s beat that's 7.5 per arrow (rounds to 8),
-  // and the staff's double weight makes 15.
+  // 3.75 HP/s of melee; over the bow's 2 s beat that's 7.5 per arrow (rounds
+  // to 8). The staff carries its double weight over its OWN 4 s beat, so one
+  // bolt is four arrows — 30 — while still landing 2× the arrow's rate.
   assert.eq(Combat.shotDamage({ bow: { tier: 1 } }, 'bow'), 8, 'wood bow');
   assert.eq(Combat.shotDamage({ bow: { tier: 7 } }, 'bow'), 100, 'frost bow');
-  assert.eq(Combat.shotDamage({ staff: { tier: 1 } }, 'staff'), 15, 'wood staff — double the arrow');
+  assert.eq(Combat.shotDamage({ staff: { tier: 1 } }, 'staff'), 30, 'wood staff — four arrows a bolt');
 });
 
 test('combat: the fire beat is 2 s, and the delivered rate is beat-independent', () => {
@@ -144,15 +220,45 @@ test('combat: the fire beat is 2 s, and the delivered rate is beat-independent',
   // because shotDamage scales by the interval: changing the beat must change
   // per-shot damage, never the delivered rate.
   assert.eq(Combat.FIRE_INTERVAL_MS, 2000, 'one shot per 2 s');
+  assert.eq(Combat.fireIntervalMs('bow'), 2000, 'the bow keeps the base beat');
+  assert.eq(Combat.fireIntervalMs('staff'), 4000, 'the staff fires half as often');
+  assert.eq(Combat.STAFF_BEAT_MUL, 2, 'and that halving is one named number');
+  // An unknown slot falls back to the base beat rather than NaN-ing a clock.
+  assert.eq(Combat.fireIntervalMs('sword'), 2000, 'a slot with no beat of its own takes the base');
 });
 
-test('combat: staff doubles the bow — per shot and per second', () => {
+test('combat: the staff fires half as often for the same damage per second', () => {
+  // The point of the slower beat is PACING, not a nerf. Halving a cadence
+  // without letting shotDamage see it would quietly halve the weapon, so pin
+  // the two halves against each other: the beat doubles, the bolt doubles.
+  for (let tier = 1; tier <= 7; tier++) {
+    const shot = Combat.shotDamage({ staff: { tier } }, 'staff');
+    const perSec = shot * 1000 / Combat.fireIntervalMs('staff');
+    const want = 2 * Combat.meleeDps({ sword: { tier } });
+    // Per-shot rounding is the only slack, and a longer beat divides it down.
+    assert.lt(Math.abs(perSec - want), 0.5 * 1000 / Combat.fireIntervalMs('staff') + 1e-9,
+      `T${tier}: staff still lands 2× a sword's rate on the slower beat`);
+  }
+});
+
+test('combat: staff doubles the bow per second — and quadruples it per shot', () => {
   for (let tier = 1; tier <= 7; tier++) {
     const bowShot = Combat.shotDamage({ bow: { tier } }, 'bow');
     const staffShot = Combat.shotDamage({ staff: { tier } }, 'staff');
-    // Per-shot rounding gives ±1 of slack around the exact 2×.
-    assert.lt(Math.abs(staffShot - 2 * bowShot), 1.5,
-      `T${tier}: staff shot ${staffShot} should be ~double the arrow's ${bowShot}`);
+    // Double the weight over double the beat: one bolt is four arrows.
+    // Per-shot rounding gives a couple of points of slack around the exact 4×.
+    assert.lt(Math.abs(staffShot - 4 * bowShot), 3.5,
+      `T${tier}: staff shot ${staffShot} should be ~four times the arrow's ${bowShot}`);
+    // What actually matters is the delivered rate, which is still 2×.
+    const bowBeats = 1000 / Combat.fireIntervalMs('bow');
+    const staffBeats = 1000 / Combat.fireIntervalMs('staff');
+    const bowPerSec = bowShot * bowBeats;
+    const staffPerSec = staffShot * staffBeats;
+    // Each side rounds by up to half a point per shot; the bow's error is
+    // doubled by the comparison, and the staff's slower beat divides its own.
+    const slack = 2 * (0.5 * bowBeats) + 0.5 * staffBeats + 1e-9;
+    assert.lt(Math.abs(staffPerSec - 2 * bowPerSec), slack,
+      `T${tier}: staff still lands double the arrow's damage per second`);
   }
   // And the staff pays for it: every bolt draws energy; arrows are free.
   assert.eq(Combat.SHOT.staff.energyCost, 1, 'a bolt costs 1 energy');
@@ -202,12 +308,13 @@ test('combat: a single active bow matches the sword of its tier; the staff doubl
   // lands what a sword of its tier does; the staff lands double, and pays
   // energy per bolt for the difference.
   for (let tier = 1; tier <= 7; tier++) {
-    const perSec = 1000 / Combat.FIRE_INTERVAL_MS;
-    const bowDps = Combat.shotDamage({ bow: { tier } }, 'bow') * perSec;
-    const staffDps = Combat.shotDamage({ staff: { tier } }, 'staff') * perSec;
+    const bowBeats = 1000 / Combat.fireIntervalMs('bow');
+    const staffBeats = 1000 / Combat.fireIntervalMs('staff');
+    const bowDps = Combat.shotDamage({ bow: { tier } }, 'bow') * bowBeats;
+    const staffDps = Combat.shotDamage({ staff: { tier } }, 'staff') * staffBeats;
     const sword = Combat.meleeDps({ sword: { tier } });
     // Per-shot rounding is the only slack: half a point per shot, per beat.
-    const slack = 0.5 * perSec + 1e-9;
+    const slack = 0.5 * bowBeats + 1e-9;
     assert.lt(Math.abs(bowDps - sword), slack, `T${tier}: bow alone should land what a sword does`);
     assert.lt(Math.abs(staffDps - 2 * sword), 2 * slack, `T${tier}: staff alone should land DOUBLE a sword`);
   }

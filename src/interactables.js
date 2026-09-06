@@ -123,7 +123,19 @@ const INTERACTABLES = {
       o.chopped = true;
       save.chopped = save.chopped || [];
       if (!save.chopped.includes(o.id)) save.chopped.push(o.id);
+      // A tree the player PLANTED (an acorn) lives in save.fruittrees and is
+      // re-injected into its tile on every load. Felling it has to retire the
+      // record, or spawnInTile keeps rebuilding a tree that only the chopped
+      // list hides — and the list grows a dead entry per fell, forever.
+      if (o.planted && save.fruittrees) {
+        save.fruittrees = save.fruittrees.filter(f => f.id !== o.id);
+      }
       scene.addToInv('wood', wood);
+      // ACORN — the axe tier's other reward (acornDropChance, items.js): a
+      // sapling that plants a new timber tree, so a felled wood can be
+      // replanted. 5% bare-handed up to 25% with a Frost axe.
+      const gotAcorn = Math.random() < acornDropChance(save.relics);
+      if (gotAcorn) scene.addToInv('acorn', 1);
       persistSave(save);
       // Say what came off the tree, like mining / harvesting / fishing do —
       // felling used to report the species and never mention the wood it just
@@ -133,6 +145,9 @@ const INTERACTABLES = {
       scene.flash(o.size === 'bush' ? `🌿 Cleared a bush.`
                 : `${conifer ? '🌲' : '🌳'} Felled ${treeSpeciesName(o)} tree.`, sx, sy);
       scene.flashLoot(`+${wood} ${ITEM_BY_ID.wood?.name || 'Wood'}`, undefined, 1, 'wood');
+      // Say what the tree actually gave. A drop the player isn't told about is
+      // a drop that didn't happen as far as they know.
+      if (gotAcorn) scene.flashLoot(`+1 ${ITEM_BY_ID.acorn?.name || 'Acorn'}`, '#d9b382', 1.1, 'acorn');
       // Rare shiny tree — 10× wood value in cash + a discovery point.
       if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus('wood', sx, sy);
     },
@@ -499,28 +514,24 @@ const INTERACTABLES = {
     },
   },
 
-  // ---- Well / fountain: refills the watering can ---------------------------
-  // OSM amenity=fountain — a water source on dry land. Tops the can to full,
-  // exactly like tapping a WATER tile via the 'can-refill' handler.
+  // ---- Well / fountain: a landmark on the quest trail ----------------------
+  // OSM amenity=fountain — a water source on dry land. It used to top the
+  // watering can's charge bank to full; that bank fed the can's +2 produce
+  // quality, and when quality moved to the HOE (Crops.bedQuality) the bank
+  // retired with it. The well keeps the thing it is visited FOR — the quest
+  // tick — and otherwise reads as scenery.
   well: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
       if (typeof Quests !== 'undefined') {
         const done = Quests.onPoiVisit(save, 'well');
         if (done) {
-          if (save.relics?.can) { save.canCharges = 50; }
           ctx.dirty = true;
           scene.flash('Quest done! Return to the castle.', scene.viewCenterX, scene.viewCenterY - 60);
           return true;
         }
       }
-      if (!save.relics?.can) {
-        scene.flash('Cool, clear water. (need a watering can)', sx, sy);
-        return true;
-      }
-      save.canCharges = 50;
-      ctx.dirty = true;
-      scene.flash('🪣 Watering can full — 50 charges.', sx, sy);
+      scene.flash('Cool, clear water.', sx, sy);
       return true;
     },
   },

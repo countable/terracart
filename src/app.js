@@ -358,7 +358,7 @@ function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 // art: every monster reuses the slime sprite with a per-kind TINT (see
 // render.js) until dedicated sheets land — swapping in real art is a one-line
 // assets.js + render.js change per kind.
-//   hp     → defeat work-wheel length (scaled off the 15-HP slime baseline)
+//   hp     → the pool a fight drains (scaled off combat.js BASELINE_HP, 15)
 //   range  → cells within which it drains energy
 //   dmg    → energy drained per hit (one hit per MONSTER_HIT_MS per monster)
 //   speed  → step cadence multiplier (1 = slime cadence; higher = moves more often)
@@ -453,7 +453,7 @@ Combat.registerMonsters(MONSTERS);
 // The bounty is DERIVED from `hp` — the same number that sets the wheel length
 // — rather than hand-tuned per kind, so a tougher foe can never quietly pay
 // less than an easier one. Roughly a coin per 5 HP, floored at 1:
-//   surface slime 15hp → $3 · purple slime 12hp → $2 · cave slime 30hp → $6 ·
+//   surface slime 10hp → $2 · purple slime 12hp → $2 · cave slime 30hp → $6 ·
 //   archer 36hp → $7 · goblin 50hp → $10
 //   (the cave kinds are the doubled ones — see CAVE_ENEMY_MUL above)
 // The HP comes from Combat.creatureMaxHp, which is the monster table first and
@@ -500,6 +500,22 @@ function isMonster(kind) { return MONSTER_KINDS.has(kind); }
 // scan doesn't allocate fresh Sets.
 const CAT_PREY = new Set(['crow']);
 const DOG_PREY = new Set(['deer', 'slime']);
+// ── The wild slime's gait ────────────────────────────────────────────────────
+// The surface slime OOZES. It is the first enemy in the game and the only one
+// above ground, it drifts toward whoever is nearby, and it leeches energy just
+// by sitting on you — so how fast it closes is the whole of how threatening it
+// is. Two numbers over the base wander (STEP_MS / STEP_M in wanderCreatures):
+// how much longer one of its steps takes, and how far that step carries it.
+//
+// Until Sep 2026 it hopped 0.6 of a cell every 5 s — 0.84 m/s, near enough a
+// stroll, so a slime that noticed you followed you home and there was no
+// leaving it behind on foot. 0.45 of a cell every 7.5 s is 0.42 m/s: still
+// drawn to you, still there when you turn around, but now something you can
+// walk away from and something a campfire's repel ring can genuinely hold off.
+// Its pursuit is unchanged — half its steps still amble your way (see the
+// slime branch in wanderCreatures) — it is only the SPEED that came down.
+const SLIME_STEP_MUL = 1.5;    // × the base wander cadence: a longer, lazier beat
+const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
 // ── Home is pest-free until the first harvest ────────────────────────────
 // A slime sits on your crops and drains 3 energy a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
@@ -527,19 +543,21 @@ const PEST_FREE_CELLS = 20;
 // feedback for a hit would be the foe eventually vanishing — but a bar that
 // never faded would clutter a cave full of monsters you shot once.
 const ENEMY_HEALTH_RING_MS = 4000;
-// Damage numbers are throttled per foe: a shot pops its whole payload at once,
-// but the melee wheel lands fractional damage EVERY FRAME, so without a beat
-// between popups a sword fight would spray sixty overlapping "-0"s a second.
-// Damage keeps accumulating between beats and pops as one rounded number, so
-// nothing is lost to the throttle — it just reads as swings instead of a hose.
+// Damage numbers are throttled per foe: a fight can land more than one blow in
+// a moment (a melee swing and an arrow arriving together, a piercing bolt
+// crossing a pack), so damage accumulates between beats and pops as one
+// rounded number rather than stacking overlapping labels on the same bar.
+// Nothing is lost to the throttle — the kill blow flushes whatever it held.
+// The melee wheel itself no longer needs it: it lands whole blows at
+// Combat.MELEE_INTERVAL_MS, which is slower than this beat, so each one pops
+// on its own.
 const DMG_POPUP_BEAT_MS = 500;
 // How long ONE drawn sword swing lasts, in ms — the slash sweeps across its
-// arc over this window, then fades. Swings themselves fire on the SAME
-// DMG_POPUP_BEAT_MS cadence the damage numbers already beat at (see above:
-// "it just reads as swings instead of a hose") — one throttle, so the blade
-// and the number it earns land on the same beat instead of drifting apart.
-// Comfortably shorter than the beat itself so one slash finishes before the
-// next starts, whatever the weapon's tier.
+// arc over this window, then fades. A swing is drawn BY the blow that lands
+// it (_drawWorkProgress' combat branch), so the blade and the number it earns
+// share the one cadence — Combat.MELEE_INTERVAL_MS — instead of the blade
+// running on a throttle of its own. Comfortably shorter than that interval so
+// one slash finishes before the next starts, whatever the weapon's tier.
 const SWORD_SWING_MS = 220;
 // Screen-px lift on a drawn shot. Shots fly between FOOT positions (the anchor
 // every creature and the player use), so without this they'd skim the ground
@@ -2263,7 +2281,7 @@ class MapScene extends Phaser.Scene {
     // facing arrow, above the body (10).
     this.swordSwingGfx = this.add.graphics().setDepth(11).setMask(mask);
     this._swing = null;                // { startT, dir: {x,y} } while a slash is animating
-    this._nextSwingT = 0;              // performance.now() ms the next swing may fire
+    this._nextBlowT = 0;               // performance.now() ms the next melee blow may land
     // Footprint trail — small dark ovals dropped as the player moves, laid
     // along the step and alternating left/right foot (see _fillFootprint),
     // each fading 20% per new drop so ~5 are visible. Under the player sprite.
@@ -3905,11 +3923,14 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // Player-planted fruit-tree saplings (save.fruittrees) → growing
-    // `fruittree` objects on the tile that owns each one. Injected AFTER the
-    // spawn-area strip above so a sapling planted near home survives. The
-    // fruittree render spec advances the sprite through its growth frames from
-    // planted_t; the harvest handler gates picking until it matures.
+    // Player-planted saplings (save.fruittrees) → growing objects on the tile
+    // that owns each one. Injected AFTER the spawn-area strip above so a
+    // sapling planted near home survives. Two kinds share the list: an ACORN
+    // record carries kind:'tree' and comes back as TIMBER (chopped for wood,
+    // its growth stage read off planted_t by util.js treeGrowthStage); every
+    // other record is a `fruittree` (picked, not chopped) whose render spec
+    // advances the sprite through its growth frames from planted_t, with the
+    // harvest handler gating picking until it matures.
     if (this.save.fruittrees && this.save.fruittrees.length) {
       const t0x = tx * this.tileEdgeM, t0y = ty * this.tileEdgeM;
       for (const ft of this.save.fruittrees) {
@@ -3917,7 +3938,13 @@ class MapScene extends Phaser.Scene {
             ft.y < t0y || ft.y >= t0y + this.tileEdgeM) continue;
         if ((entry.objects || []).some(o => o.id === ft.id)) continue;
         entry.objects = entry.objects || [];
-        entry.objects.push({
+        entry.objects.push(ft.kind === 'tree' ? {
+          // No `species` and no `size`: a species-less tree draws off the
+          // default growth sheet and takes no hardwood/softwood tier shift, so
+          // what you planted is what you can fell.
+          kind: 'tree', x: ft.x, y: ft.y,
+          id: ft.id, planted: true, planted_t: ft.planted_t,
+        } : {
           kind: 'fruittree', x: ft.x, y: ft.y,
           species: ft.species === 'peach' ? 'peach' : 'apple',
           id: ft.id, planted: true, planted_t: ft.planted_t,
@@ -6421,7 +6448,7 @@ class MapScene extends Phaser.Scene {
         // first bolt after a meal fires immediately.
         const eCost = Combat.SHOT[slot].energyCost || 0;
         if (eCost && !this.spendEnergy(eCost)) continue;
-        this._nextShotT[slot] = now + Combat.FIRE_INTERVAL_MS;
+        this._nextShotT[slot] = now + Combat.fireIntervalMs(slot);
         // The tier sizes the shot too (a staff bolt grows with it — both its
         // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
@@ -6789,7 +6816,7 @@ class MapScene extends Phaser.Scene {
       onComplete: () => this.resolveDefeat(victim),
       durationMs: estMs,
       energyRefund: 0,
-      startT: now, _lastT: now,
+      startT: now,
     };
   }
 
@@ -7097,29 +7124,38 @@ class MapScene extends Phaser.Scene {
         wp._outSinceT = null;
       }
     }
-    // COMBAT wheel: the target's HP, not the clock, ends this one. Melee
-    // damage lands every frame at the sword's rate (bare hands at the tier-0
-    // rung), and bow/staff shots drain the same pool from _damageEnemy — so a
-    // fight you started with a swing can be finished by an arrow.
+    // COMBAT wheel: the target's HP, not the clock, ends this one. Melee lands
+    // as discrete BLOWS at Combat.MELEE_INTERVAL_MS — one interval's worth of
+    // the sword's rate each (bare hands at the tier-0 rung) — and bow/staff
+    // shots drain the same pool from _damageEnemy, so a fight you started with
+    // a swing can be finished by an arrow.
+    //
+    // The clock is on the SCENE, not the wheel: startCombat re-targets by
+    // building a fresh wheel, so a per-wheel clock would let a player flicking
+    // between two foes land a blow every frame. It also isn't reset on engage
+    // — after any gap longer than the interval it is already due, so the first
+    // blow of a fight still lands at once.
     if (wp.combat) {
       const c = wp.combat;
       // Killed by something else mid-swing (a shot, a tame dog) — nothing left
       // to fight, and the kill has already paid out.
       if (this.save.caught?.includes(c.id)) { this.cancelWorkProgress(); return; }
-      const dt = Math.min(0.1, (now - (wp._lastT ?? wp.startT)) / 1000);
-      wp._lastT = now;
-      const dps = Combat.meleeDps(this.save.relics) * (this.isDragonActive() ? 2 : 1);
-      // A blade to actually swing — bare hands (no sword owned) has none, so
-      // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
-      if (this.save.relics?.sword && now >= this._nextSwingT) {
-        this._nextSwingT = now + DMG_POPUP_BEAT_MS;
-        const px = this.startWorldM.x + this.playerM.x;
-        const py = this.startWorldM.y + this.playerM.y;
-        const dx = c.x - px, dy = c.y - py;
-        const d = Math.hypot(dx, dy) || 1;
-        this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
+      if (now >= this._nextBlowT) {
+        this._nextBlowT = now + Combat.MELEE_INTERVAL_MS;
+        // A blade to actually swing — bare hands (no sword owned) has none, so
+        // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
+        // The slash rides the blow itself now rather than its own throttle:
+        // one cadence, so the arc and the damage it earns can't drift apart.
+        if (this.save.relics?.sword) {
+          const px = this.startWorldM.x + this.playerM.x;
+          const py = this.startWorldM.y + this.playerM.y;
+          const dx = c.x - px, dy = c.y - py;
+          const d = Math.hypot(dx, dy) || 1;
+          this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
+        }
+        const blow = Combat.meleeSwingDamage(this.save.relics, this.isDragonActive() ? 2 : 1);
+        if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
       }
-      if (this._damageEnemy(c, dps * dt)) return;   // _damageEnemy clears the wheel + pays out
     }
     const dur = wp.durationMs || 3000;
     const elapsed = now - wp.startT;
@@ -7427,10 +7463,12 @@ class MapScene extends Phaser.Scene {
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
                    : deerFleeing ? 340
                    : isMon ? STEP_MS / mon.speed
+                   : c.kind === 'slime' ? STEP_MS * SLIME_STEP_MUL
                    : STEP_MS) * shinyFast;
-      // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells;
-      // butterflies dart further (1.5 cells) while escaping.
-      const stepM = c.kind === 'slime' ? STEP_M * 0.6
+      // Slimes ooze in short, lazy hops (SLIME_HOP_CELLS — see the gait note
+      // beside the constant); rabbits hop 0.5/1.4 cells; butterflies dart
+      // further (1.5 cells) while escaping.
+      const stepM = c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
                   : isMon ? STEP_M * (mon.fly ? 1.0 : 0.6)
                   : isRabbit ? (rabbitFleeing ? STEP_M * 1.4 : STEP_M * 0.5)
                   : isButterfly ? (butterflyEscaping ? STEP_M * 1.5 : STEP_M)
@@ -7445,13 +7483,17 @@ class MapScene extends Phaser.Scene {
       if (now >= c._nextChooseT) {
         if (c._homeX == null) { c._homeX = c.x; c._homeY = c.y; }
         // Tame butterflies pollinate nearby planted crops while wandering —
-        // mirror the water-can boost (canBoost flag). Each step they're
-        // within 8 m of a planted cell, that cell gets armed for a double
-        // harvest on the next maturation.
+        // they raise the same produce-quality figure the BED hands the crop
+        // at planting (Crops.bedQuality), by one tier. Each step they're
+        // within 8 m of a planted cell, that cell gets armed for a better
+        // harvest. Never lower a crop already carrying a richer bed: a
+        // butterfly is a bonus, so it takes the max. (This wrote a bare
+        // `true` before the field was numeric; `true` read as 1 in the
+        // harvest arithmetic, so one tier is exactly what it always gave.)
         if (isTame && c.kind === 'butterfly' && this.save.planted) {
           for (const pp of this.save.planted) {
             const dx = pp.x - c.x, dy = pp.y - c.y;
-            if (dx * dx + dy * dy <= 64) pp.canBoost = true;
+            if (dx * dx + dy * dy <= 64) pp.qualBoost = Math.max(pp.qualBoost ?? pp.canBoost ?? 0, 1);
           }
         }
         // HP healing: if 20 min since last damage, restore to max. Max comes

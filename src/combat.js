@@ -8,11 +8,15 @@
 //
 // Now a fight is HIT POINTS, and the three weapons reach them differently:
 //
-//   sword          — melee. The combat wheel drains the foe's HP while it runs
-//                    (app.js `startCombat` / `_drawWorkProgress`), and being
-//                    the ACTIVE weapon AUTO-ENGAGES the nearest enemy in
-//                    reach, so you don't have to tap a slime that's already
-//                    chewing on you.
+//   sword          — melee. The combat wheel lands one BLOW per
+//                    MELEE_INTERVAL_MS on the engaged foe (app.js
+//                    `startCombat` / `_drawWorkProgress`), and being the
+//                    ACTIVE weapon AUTO-ENGAGES the nearest enemy in reach,
+//                    so you don't have to tap a slime that's already chewing
+//                    on you. Melee reaches exactly as far as the player's lit
+//                    reach and no further — the same cellInReach the tap gate
+//                    and the reach silhouette use; a sword swings harder than
+//                    a fist, never further.
 //   bow / staff    — ranged. While an enemy is on screen the ACTIVE one of
 //                    the two looses one shot a second (app.js `_combatTick`).
 //                    The bow fires along the COMPASS HEADING — it does not
@@ -73,7 +77,15 @@
   // ladder (a tame dog hunting a deer); `slime` is the surface pest, the one
   // non-monster kind that is also an ENEMY. app.js reads this through
   // creatureMaxHp so the pet fight and the player fight can't drift apart.
-  const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 15 };
+  //
+  // The surface slime is 10, not the 15 it carried until Sep 2026. It is the
+  // FIRST enemy — met on the surface, often with no sword at all — and at 15
+  // it was nine seconds of bare-handed swinging for the one foe a new player
+  // is guaranteed to meet. Ten is six seconds. Nothing else moves with it: the
+  // bounty is derived from this number (enemyBounty, app.js — a slime pays $2
+  // now rather than $3), and BASELINE_HP below is a fixed anchor, not a
+  // reading of this table.
+  const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 10 };
 
   // Hard mode scales ENEMY pools (Difficulty.enemyHpMul, 1.5×) here, in the
   // one place both the wheel and the bounty read — so a hard-mode foe takes
@@ -135,9 +147,15 @@
   }
 
   // ── Damage ladders ───────────────────────────────────────────────────────
-  // The identity described at the top: a wheel that took `durMs` to strip the
-  // 15-HP slime baseline was dealing 15000/durMs HP per second. Bare hands
-  // (tier 0, 9000 ms) → 1.67 dps; wood (4000) → 3.75; frost (300) → 50.
+  // The identity described at the top: a wheel that took `durMs` to strip a
+  // 15-HP foe was dealing 15000/durMs HP per second. Bare hands (tier 0,
+  // 9000 ms) → 1.67 dps; wood (4000) → 3.75; frost (300) → 50.
+  //
+  // This 15 is the OLD WHEEL'S reference pool and nothing else — it is the
+  // constant the whole weapon ladder is scaled against, so it is frozen even
+  // though the slime it was named after is 10 HP now (FAUNA_HP above). Moving
+  // it would silently re-rate every weapon in the game; to change how long a
+  // given foe takes, move that kind's `hp` or TOOL_DURATION_MS instead.
   const BASELINE_HP = 15;
   function dpsForDurationMs(durMs) { return (BASELINE_HP * 1000) / Math.max(1, durMs); }
 
@@ -149,10 +167,45 @@
     return dpsForDurationMs(toolDurationMs(relics, slot));
   }
 
-  // One shot every two seconds. Was 1000 — halving the cadence makes each
-  // shot a visible event instead of a stream; shotDamage scales per-shot
-  // damage by the interval, so the delivered rate is cadence-independent.
+  // ── Melee cadence ────────────────────────────────────────────────────────
+  // How often a blow LANDS on the enemy the player has engaged, in ms. A
+  // sword fight is a sequence of swings, not a hose: the wheel used to drain
+  // the foe's pool every frame at meleeDps and merely DRAW a slash twice a
+  // second (app.js borrowed DMG_POPUP_BEAT_MS, 500 ms, because the damage
+  // itself had no cadence of its own to borrow). Two blows a second read as a
+  // blur, and a fight broken off mid-beat had still banked every frame of it.
+  //
+  // The interval CANCELS OUT of the delivered rate, exactly the way
+  // FIRE_INTERVAL_MS does for a shot: one blow is one interval's worth of the
+  // tier's melee rung (meleeSwingDamage below), so halving the attack rate
+  // doubles what a blow lands and the kill-time identity at the top of this
+  // file still holds at every tier. Slow it to change how a fight READS;
+  // to change how LONG one takes, move TOOL_DURATION_MS or the kind's `hp`.
+  const MELEE_INTERVAL_MS = 1000;
+
+  // What ONE blow takes off the foe: the tier's rate over one interval,
+  // times `mul` for anything that multiplies the swing itself (app.js passes
+  // 2 while the dragon is out). Damage per blow is derived here rather than
+  // at the call site so the cadence and the payload can't drift apart — the
+  // shotDamage discipline, for the blade.
+  function meleeSwingDamage(relics, mul = 1) {
+    return meleeDps(relics) * (mul || 1) * MELEE_INTERVAL_MS / 1000;
+  }
+
+  // The BASE fire beat — one shot every two seconds, and what the bow keeps.
+  // Was 1000 — halving the cadence makes each shot a visible event instead of
+  // a stream; shotDamage scales per-shot damage by the interval, so the
+  // delivered rate is cadence-independent.
+  //
+  // A slot may fire on its own beat (SHOT[slot].fireIntervalMs, read through
+  // fireIntervalMs() below). The STAFF fires on half the bow's cadence — one
+  // bolt every other beat — and because shotDamage prices a shot at its own
+  // slot's interval, that is PACING and not a nerf: a staff bolt simply
+  // carries two beats' worth of damage and the dps identity above still
+  // holds. Never halve a cadence without letting shotDamage see it, or the
+  // weapon quietly loses half its damage.
   const FIRE_INTERVAL_MS = 2000;
+  const STAFF_BEAT_MUL = 2;
   const RANGED_SLOTS = ['bow', 'staff'];
   // Per-slot shot geometry. `phaseMs` used to stagger the staff half a beat
   // off the bow so a player carrying both fired simultaneously heard an
@@ -173,9 +226,10 @@
   //           every foe it passes exactly once and ignores the world test
   //           entirely (magic goes over rock and timber alike). Each bolt
   //           draws energyCost (1⚡) from the caster — app.js gates the shot
-  //           on affording it — and hits twice as hard as an arrow
-  //           (SHOT_DMG_MUL below): the energy is the price of the pierce
-  //           and the punch.
+  //           on affording it — and delivers twice an arrow's damage PER
+  //           SECOND (SHOT_DMG_MUL below): the energy is the price of the
+  //           pierce and the punch. It arrives half as often as an arrow
+  //           (fireIntervalMs), so one BOLT is four times one arrow.
   //
   // And they differ in how they AIM (`aim`):
   //   'compass' — the bow. The arrow goes where you are facing; aiming is
@@ -189,11 +243,19 @@
   //           as broken rather than skilful.
   const SHOT = {
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
-             phaseMs: 0, aim: 'compass' },
+             phaseMs: 0, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS },
     staff: { speedCps: 3.2, rangeCells: 7, color: 0x9ad6ff, dotPx: 3,
              phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest',
-             growsWithTier: true },
+             growsWithTier: true,
+             fireIntervalMs: FIRE_INTERVAL_MS * STAFF_BEAT_MUL },
   };
+  // The beat a slot fires on. One reader for the cadence clock (app.js
+  // stepShots) and the damage pricing (shotDamage) alike, so a slot's rate
+  // and its per-shot damage cannot drift apart.
+  function fireIntervalMs(slot) {
+    const spec = SHOT[slot];
+    return (spec && spec.fireIntervalMs) || FIRE_INTERVAL_MS;
+  }
   // Damage weight per slot: a staff bolt lands double an arrow's share.
   const SHOT_DMG_MUL = { bow: 1, staff: 2 };
   // How close a shot has to pass to a foe's feet to count as a hit, in cells.
@@ -246,7 +308,7 @@
   function shotDamage(relics, slot) {
     if (!relics || !relics[slot]) return 0;
     const perSecond = dpsForDurationMs(toolDurationMs(relics, slot)) * (SHOT_DMG_MUL[slot] || 1);
-    return Math.max(1, Math.round(perSecond * FIRE_INTERVAL_MS / 1000));
+    return Math.max(1, Math.round(perSecond * fireIntervalMs(slot) / 1000));
   }
 
   // The heading a 'nearest'-aimed slot fires along from (x, y): a vector to
@@ -417,7 +479,9 @@
   const TURRET = {
     slot: 'bow',
     tier: 1,                                              // Wood
-    fireIntervalMs: FIRE_INTERVAL_MS * TURRET_RATE_DIV,   // 10 s a turret
+    // The turret shoots the player's BOW arrow, so it paces off the bow's own
+    // beat — never the bare base — times TURRET_RATE_DIV.
+    fireIntervalMs: fireIntervalMs('bow') * TURRET_RATE_DIV,   // 10 s a turret
   };
   const TURRET_RELICS = { bow: { tier: TURRET.tier } };
   function turretShotDamage() { return shotDamage(TURRET_RELICS, TURRET.slot); }
@@ -532,8 +596,9 @@
     registerMonsters, FAUNA_HP, creatureMaxHp,
     isEnemyKind, isEnemy, hp, damage, hpFraction,
     ELITE_MUL, isElite, eliteMul, maxHp,
-    dpsForDurationMs, meleeDps, shotDamage,
-    FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
+    dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
+    FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
+    RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,

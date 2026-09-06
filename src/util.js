@@ -182,7 +182,21 @@ function treeSpeciesBaseScale(o) {
 function treeUsesGrowthSheet(o) {
   return !o.size && (!o.species || o.species === 'maple');
 }
+// A tree the PLAYER planted (an acorn) grows on the CLOCK, not off a static
+// `variant`: sprout → young at the halfway mark → mature at the full window,
+// which is the same four days a fruit-tree sapling takes to bear. One window,
+// one ladder, and it comes back through treeGrowthStage so the frame render.js
+// draws, the size class the axe gate reads and the wood the fell pays all move
+// together — a sapling can't draw tiny and gate like a full canopy.
+const PLANTED_TREE_GROW_MS = 4 * 24 * 60 * 60 * 1000;
+function plantedTreeStage(plantedT, now) {
+  const age = (now == null ? Date.now() : now) - (Number(plantedT) || 0);
+  const f = age / PLANTED_TREE_GROW_MS;
+  if (f >= 1) return 3;      // mature
+  return f >= 0.5 ? 2 : 1;   // young / sprout
+}
 function treeGrowthStage(o) {
+  if (o && o.planted_t) return plantedTreeStage(o.planted_t);
   const v = Math.round(Number(o && o.variant));
   // Frames 0 and 4 are stumps — clamp to the live 1..3 range (default 2/young).
   return Number.isFinite(v) ? Math.max(1, Math.min(3, v)) : 2;

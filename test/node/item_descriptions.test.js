@@ -111,8 +111,16 @@ test('items: every fact moved off a tip is readable on the thing itself', () => 
   assert.truthy(/compass/i.test(RELIC_DEFS.bow.blurb), 'the bow says it aims by the compass');
   assert.truthy(/seek|nearest/i.test(RELIC_DEFS.staff.blurb), 'the staff says it seeks');
   assert.truthy(/⚡/.test(RELIC_DEFS.staff.blurb), 'the staff says a bolt costs energy');
-  assert.truthy(/seed/i.test(RELIC_DEFS.can.blurb), 'the can says it yields bonus seeds');
-  assert.truthy(/refill|water/i.test(RELIC_DEFS.can.blurb), 'and that it refills at water');
+  // The watering can carried "higher-quality crops · bonus seeds · refill at
+  // water" until produce quality moved to the HOE (Crops.bedQuality) and the
+  // refill charge bank retired with the +2 bonus it fed. Each line now
+  // describes what its own tool actually does.
+  assert.truthy(/leap|spring|forward|stage/i.test(RELIC_DEFS.can.blurb),
+    'the can says a watering can push the plant on');
+  assert.falsy(/refill|charge/i.test(RELIC_DEFS.can.blurb),
+    'and no longer advertises a charge bank that no longer exists');
+  assert.truthy(/quality/i.test(RELIC_DEFS.hoe.blurb),
+    'the hoe says the bed it tills sets the crop quality — that is where the seeds come from now');
 });
 
 // ── The two survivors that had gone stale ─────────────────────────────────

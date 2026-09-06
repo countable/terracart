@@ -402,8 +402,7 @@ INTERACTION MODEL
     10)  place a held rock / scarecrow on an empty tilled-able cell
     11)  break a natural rock cell (needs energy; pickaxe speeds it up)
     12)  planted cell → harvest / advance / water / nag
-    13)  refill watering can from a WATER cell
-    14)  fish a WATER cell (bare-handed OK; rod speeds it) — also tops up the can
+    13)  fish a WATER cell (bare-handed OK; rod speeds it)
     15)  tilled empty cell + seed → plant; with no seed selected it says so and
          LEAVES THE SOIL ALONE (the un-till toggle is gone — see FARMING LOOP)
     16)  untilled tillable cell → till it
@@ -440,12 +439,20 @@ FARMING LOOP
         seed.
  - crop grows over 5 visual stages (cols 0..4); 4 waterings to mature.
  - any tillable cell (non-water, non-building, unoccupied) can be tilled.
- - WATERING CAN (relic): when equipped, each watering "improves" the crop. Tier
-   T adds T quality tiers; refilling at water/a well/fishing banks 50 charges
-   that add +2 more tiers each. At harvest, quality raises the bonus-seed chance
-   (+10%/tier over base 25%) and adds +floor(qual/3) to the produce yield.
- - per-cell state: save.tilled (cell keys), save.planted (x,y,crop,stage,
-   watered_t,canBoost). Tilled cells render a brown tint, darker once watered.
+ - PRODUCE QUALITY IS THE BED'S, AND THE HOE SETS IT. Tilling banks the hoe's
+   tier on the cell (save.tilledQuality, same cell keys as save.tilled);
+   planting SPENDS it onto the crop as `qualBoost`. At harvest, quality raises
+   the bonus-seed chance (+10%/tier over base 25%) and adds +floor(qual/3) to
+   the produce yield. A tame butterfly pollinating a crop raises its quality to
+   at least 1. (This was the WATERING CAN's until Sep 2026 — stamped at first
+   watering from can.tier, +2 more while a 50-charge refill bank held. The bank
+   retired with the bonus; see Crops.bedQuality.)
+ - WATERING CAN (relic): HOW SOON, not what. Each watering has a tier/7 chance
+   (Crops.waterJumpChance) of springing the crop a whole growth stage on the
+   spot — nothing bare-handed, certain at Frost.
+ - per-cell state: save.tilled (cell keys), save.tilledQuality (cell key → hoe
+   tier), save.planted (x,y,crop,stage,watered_t,qualBoost). Tilled cells
+   render a brown tint, darker once watered.
 
 ================================================================================
 FORAGING / WILD PICKUPS
@@ -491,6 +498,24 @@ CHOPPING
  - TREES (forest landcover + injected individual trees) chop via the Axe work
    wheel and drop 2-3 wood. Chopped state persists (save.chopped); stumps
    don't block tilling.
+ - ACORNS. A fell also has a chance of leaving an ACORN — a sapling that plants
+   a new TIMBER tree, so a wood you clear is a wood you can replant. The chance
+   is the AXE's, and it is the axe's only reward besides speed and cheap swings:
+   5% bare-handed (tier 0) up to 25% with a Frost axe, linear between
+   (items.js acornDropChance, ACORN_P_BASE / ACORN_P_FROST).
+ - PLANTING AN ACORN (items.js 'acorn', kind:'sapling' + plants:'tree'): tap a
+   tilled cell with it selected, like any sapling, but it grows a `tree` (the
+   thing you chop) rather than a `fruittree` (the thing you pick). It is stored
+   in save.fruittrees with kind:'tree' and re-injected per tile by spawnInTile;
+   felling it retires the record. It carries NO species, so it draws off the
+   default growth sheet and takes no hardwood/softwood tier shift.
+ - A PLANTED TREE GROWS ON THE CLOCK. util.js treeGrowthStage reads planted_t
+   when there is one (PLANTED_TREE_GROW_MS = 4 days, the same window a fruit
+   sapling takes): sprout → young at the halfway mark → mature at the window.
+   One function, so the frame render.js draws, the size class the axe gate
+   reads and the wood the fell pays all climb together — a sprout can't draw
+   tiny and fell like a full canopy. A WILD tree still reads its static
+   `variant`; nothing about it changes.
  - SHRUBS are wildplants (see FORAGING) — an Axe speeds the chop; they drop wood.
  - TREE SIZE & SPECIES (util.js) — a tree's render size, its wood yield, and the
    axe tier needed to fell it all derive deterministically from the tree's own
@@ -558,8 +583,7 @@ FISHING
    tiers improve the catch and rare odds. Cast TIME is locked: 9s bare-handed,
    3s with any rod, regardless of tier (an exception to the WORK WHEEL ladder
    — tier-scaled 0.3s casts made high-tier fishing an unbounded money
-   faucet). A rod also tops the watering can to full on every cast (so a rod
-   owner never loses charges).
+   faucet).
  - per cast: a "skunk" (nothing) chance that falls with rod tier (T1 ~50% →
    T7 20%); else a weighted catch — mostly fish (minnow → bass → trout → salmon
    → goldenfish, rarer more likely at high tier), with a small relic chance
@@ -594,10 +618,11 @@ CREATURES
  - PESTS — crow / deer / slime = DEFEAT (NOT caught). Finishing removes the
    creature and drops its product (crow → feather, deer → meat; slimes drop
    nothing). They do NOT flee during the wheel. The two halves differ:
-     * GAME (crow / deer) — a HUNT. Tap to start the timed work wheel; ANY
-       weapon relic (sword / bow / staff) speeds it by tier (see WORK WHEEL).
-       Game is not an enemy: nothing auto-fires at it and no shot can hit it,
-       so a hunt is always something you chose.
+     * GAME (crow / deer) — a HUNT. Tap to start the timed work wheel; the BUG
+       NET speeds it by tier (see WORK WHEEL), the same slot the catch wheel
+       uses — one tool takes animals, and weapons are for enemies. Game is not
+       an enemy: nothing auto-fires at it and no shot can hit it, so a hunt is
+       always something you chose.
      * ENEMIES (slime, and every cave monster) — see COMBAT. Tapping one starts
        the HP-driven combat wheel instead, and a sword starts it for you.
  - RELEASE: select a caught animal and tap a passable cell to place it (chickens
@@ -637,8 +662,8 @@ COMBAT
    tab, which marks it with a small "E" (equipped/active) badge alongside its
    tier badge. This only gates the AUTOMATIC behaviours below — a bare-handed
    or manual tap-to-fight (tapping an enemy directly) and the crow/deer HUNT
-   wheel are unaffected; the hunt wheel is still sped by ANY owned weapon's
-   tier (the best of the three), active or not.
+   wheel are unaffected; the hunt wheel is the BUG NET's, not a weapon's, so
+   which weapon is active never touches it.
  - THE THREE WEAPONS DO DIFFERENT THINGS, AND BOW/STAFF DIFFER IN KIND.
      sword  — MELEE. Drains HP while the combat wheel runs, at
               15/durationSeconds HP per second off the WORK WHEEL ladder (bare
@@ -656,14 +681,20 @@ COMBAT
               underground (the same collision the body walks into), and on
               the surface a standing tree/bush or an unbroken mineral rock.
               Free to fire — no energy cost.
-     staff  — RANGED, a PIERCING BOLT: same cadence and heading rules as the
-              bow (3.2 cells/s, 7-cell range), but a bolt ignores the world
-              entirely (goes through rock and timber alike) and damages EVERY
-              foe on its line once each, not just the first. Costs 1 ENERGY
-              per bolt (silently skipped if you can't afford it — an
-              auto-firing weapon must never spam "too tired"), and lands
-              DOUBLE an arrow's damage: the energy is the price of the pierce
-              and the punch.
+     staff  — RANGED, a PIERCING BOLT: same heading rules as the bow (3.2
+              cells/s, 7-cell range), but a bolt ignores the world entirely
+              (goes through rock and timber alike) and damages EVERY foe on
+              its line once each, not just the first. Costs 1 ENERGY per bolt
+              (silently skipped if you can't afford it — an auto-firing weapon
+              must never spam "too tired"), and lands DOUBLE an arrow's damage
+              PER SECOND: the energy is the price of the pierce and the punch.
+              It fires on its OWN, SLOWER BEAT — every 4 s against the bow's
+              2 s (Combat.SHOT[slot].fireIntervalMs, STAFF_BEAT_MUL = 2). That
+              is pacing, not a nerf: shotDamage prices each shot at its own
+              slot's interval, so one bolt simply carries four arrows' worth
+              and the delivered rate is unchanged. NEVER halve a cadence
+              without letting shotDamage see it, or the weapon quietly loses
+              half its damage.
    A shot's damage is its tier's FULL melee-equivalent rate (bow) or DOUBLE
    that (staff) — the same rate a sword of that tier deals, or twice it — with
    no split across ranged slots: because only one weapon can ever be in play,
@@ -671,8 +702,8 @@ COMBAT
    and stack, which is what the old split priced against; the doubling that
    remains is a deliberate difference in KIND, not a stacking guard). Bow and
    staff never speed the melee wheel, active or not; the shots are what they
-   contribute. (All three still speed the crow/deer HUNT wheel regardless of
-   which is active — see above.)
+   contribute. (No weapon touches the crow/deer HUNT wheel any more — that is
+   the BUG NET's, see FAUNA.)
  - THE COMBAT WHEEL IS A HEALTH BAR. The arc is the foe's REMAINING HP, tinted
    green > amber > red, and there is no time limit — the fight ends when the HP
    does. An enemy hurt in the last 4 seconds also carries a small floating
@@ -862,8 +893,10 @@ COBBLE TRAILS (path + road stones)
 ================================================================================
 WELLS / FOUNTAINS
 ================================================================================
- - OSM fountains become a 'well' object: a water source on dry land — tapping it
-   refills the watering can (see FARMING). With no can yet, just flavour text.
+ - OSM fountains become a 'well' object: a water source on dry land. It used to
+   refill the watering can's charge bank; that bank fed the can's produce-quality
+   bonus, which is the HOE's now (see FARMING), so the well is a quest landmark
+   and flavour text.
 
 ================================================================================
 ECONOMY (buying & selling)
@@ -978,12 +1011,16 @@ GEAR: RELICS & ARMOR
    a reward modal.
  - RELIC SLOTS and effects (items.js RELIC_DEFS):
      pick   — lets you break rocks; tier shortens the wheel + cuts energy
-     axe    — lets you chop trees; tier shortens the wheel
-     hoe    — cheaper tilling, per-tier chance of free
-     can    — watering improves crops (see FARMING); refill banks 50 charges
+     axe    — lets you chop trees; tier shortens the wheel + cuts energy, and
+              raises the ACORN drop on a fell (5% → 25% at Frost, see CHOPPING)
+     hoe    — cheaper tilling, per-tier chance of free, AND sets the tilled
+              cell's produce QUALITY (see FARMING)
+     can    — a watering can spring the crop a growth stage (tier/7 chance)
      rod    — fish from water; tier raises catch + rare odds
-     bugnet — speeds the animal-catch wheel by tier (no longer required for any
-              animal; butterflies catch bare-handed too)
+     bugnet — THE animal tool: speeds the catch wheel AND the crow/deer hunt
+              wheel by tier (required for neither; both work bare-handed at
+              the tier-0 rung, only slowly enough that a quick animal usually
+              gets away)
      bags   — raises the per-item stack cap (9 with none → 249 at T7)
      ring   — +5%/tier chance to bump chest loot up a tier; granted ONLY by the
               wizard tower's Inner Light, tier = inner-light/reach level
@@ -992,16 +1029,17 @@ GEAR: RELICS & ARMOR
               auto-engages the nearest enemy in reach WHEN ACTIVE — see
               COMBAT); raises sell prices (0.5× → 1.0× at Frost) whether
               active or not
-     bow    — RANGED weapon, an arrow (auto-fires along the compass every 2s
+     bow    — RANGED weapon, an arrow (auto-fires along the compass every 2 s
               while an enemy is on screen, WHEN ACTIVE; stops in the first
               foe hit and at solid ground); lowers buy prices (T7 = par)
               whether active or not
      staff  — RANGED weapon, a piercing bolt (as the bow, shorter reach, but
               ignores the world and hits every foe on its line; costs 1
-              energy/bolt and lands double an arrow's damage); no price effect
+              energy/bolt, fires every 4 s against the bow's 2 s, and lands
+              double an arrow's damage per second); no price effect
      (only ONE of the three auto-fights at a time — save.activeWeapon, see
-     COMBAT — but all three still speed the crow/deer HUNT wheel by tier
-     regardless of which is active — see WORK WHEEL)
+     COMBAT. None of them touches the crow/deer HUNT wheel: that is the bug
+     net's — see FAUNA.)
  - ARMOR SLOTS (helmet / chest / legs / boots) only raise MAX ENERGY per tier.
  - STICK WALKING (amulet): the movement stick is ALWAYS on screen — no relic
    needed and no separate mode. It walks the character somewhere OTHER than
