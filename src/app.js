@@ -3861,31 +3861,14 @@ class MapScene extends Phaser.Scene {
         creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id, shiny: !!r.shiny });
       }
     }
-    // DERELICT LAIRS — hard mode only (Difficulty.get().derelictLairs). Every
-    // unclaimed structure past a ring around home holds a garrison of immobile
-    // slimes, more of them the bigger the building and the further out it is
-    // (src/lairs.js owns every number). Placed here, in the tile's own spawn
-    // pass, so a rebuild re-lays the identical set — the module seeds its OWN
-    // rng off (tx, ty) and takes no draws from the stream above, exactly as
-    // Traps.spawnSurface does below, so every existing world seed is untouched.
-    //
-    // Distance is measured from the FROZEN starter anchor, never the live Home
-    // resolver: a Home the player later adopts somewhere else would re-rank
-    // every ruin in the world and the garrisons would silently change size
-    // behind them (lairs.test.js pins that the resolver is not read here), and
-    // the anchor is the one point that is both stable and available at tile
-    // build time (the pest amnesty reads it for the same reason).
-    if (typeof Lairs !== 'undefined' && Difficulty.get().derelictLairs && !window.__TEST_MODE) {
-      const lairHome = this._starterTrailAnchor();
-      for (const g of Lairs.spawnForTile(entry, tx, ty, {
-        cellM: this.cellM,
-        tileEdgeM: this.tileEdgeM,
-        homeM: lairHome,
-        isClaimed: (key) => this.isClaimedKey(key),
-        caughtSet,
-        spawnOpts: _spawnOpts,
-      })) creatures.push(g);
-    }
+    // DERELICT LAIRS need the tile's shared spawn options AFTER this pass has
+    // finished — the garrisons are woken lazily as the player comes near a ruin
+    // (the residency pass in update()), not seated here, because
+    // every tier-9 house is a wreck and a city tile holds thousands of them.
+    // Stash the one object rather than let that pass rebuild a near-copy: the
+    // road rule has to be THE shared rule (CLAUDE.md), not a second reading of
+    // it, and the POI anchors are already gathered here.
+    entry._spawnOpts = _spawnOpts;
     entry._spawned = true;
     // KEEP creatures the entry already carries. On a rebuild they are the live
     // ones — mid-wander positions, tamed pets, work in progress — handed over
@@ -6458,6 +6441,47 @@ class MapScene extends Phaser.Scene {
     if (performance.now() - this._lastGrowthTick > 1000) {
       this._lastGrowthTick = performance.now();
       this.advanceGrowth();
+    }
+
+    // DERELICT LAIRS — hard mode only. Wake the garrisons of ruins the player
+    // has come near and sleep the ones they have left behind (src/lairs.js owns
+    // every number). Throttled: the wake ring stands 4 cells outside the sleep
+    // ring, which is ~20 seconds of walking, so half a second between passes
+    // has margin to spare and this never runs on the ~30 frames between.
+    //   Measured from the FEET, never the camera anchor — a peek drag must not
+    // wake a ruin the player has not walked to (CLAUDE.md's camera rule).
+    //   Surface only: buildingShapes is a surface tile's data, and the world is
+    // GPS-mirrored, so a cave level must not wake the ruins above it.
+    if (typeof Lairs !== 'undefined' && Difficulty.get().derelictLairs &&
+        (this.depth || 0) === 0 && !window.__TEST_MODE &&
+        performance.now() - (this._lastLairT || 0) > 500) {
+      this._lastLairT = performance.now();
+      const lairHome = this._starterTrailAnchor();
+      if (lairHome) {
+        const pc = this.playerToWorldCell();
+        const ring = [];
+        for (let dty = -1; dty <= 1; dty++) {
+          for (let dtx = -1; dtx <= 1; dtx++) {
+            const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
+            if (e) ring.push({ entry: e, tx: pc.tx + dtx, ty: pc.ty + dty });
+          }
+        }
+        // Wounds survive a sleep/wake cycle. In memory only, like every other
+        // creature's _hp (combat.js) — this covers walking out of the wake ring
+        // and back, not a reload, so a guard you softened up is still softened
+        // up when you come round the corner again.
+        this._lairHp = this._lairHp || new Map();
+        Lairs.stepResidency(ring, {
+          cellM: this.cellM,
+          tileEdgeM: this.tileEdgeM,
+          playerM: { x: this.startWorldM.x + this.playerM.x,
+                     y: this.startWorldM.y + this.playerM.y },
+          homeM: lairHome,
+          isClaimed: (key) => this.isClaimedKey(key),
+          caughtSet: setOf(this.save.caught),
+          hpMemo: this._lairHp,
+        });
+      }
     }
 
     this.wanderCreatures();
