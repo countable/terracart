@@ -244,7 +244,7 @@
   const SHOT = {
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
              phaseMs: 0, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS },
-    staff: { speedCps: 3.2, rangeCells: 7, color: 0x9ad6ff, dotPx: 3,
+    staff: { speedCps: 2.0, rangeCells: 7, color: 0x9ad6ff, dotPx: 3,
              phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest',
              growsWithTier: true,
              fireIntervalMs: FIRE_INTERVAL_MS * STAFF_BEAT_MUL },
@@ -259,10 +259,18 @@
   // Damage weight per slot: a staff bolt lands double an arrow's share.
   const SHOT_DMG_MUL = { bow: 1, staff: 2 };
   // How close a shot has to pass to a foe's feet to count as a hit, in cells.
-  // Deliberately generous: the heading comes off a phone COMPASS, which is
-  // coarse and jittery, so a strict hit box would make the whole mechanic read
-  // as broken. Just under a cell puts a foe eight cells out inside a ~7° cone.
+  // Deliberately generous for the BOW: the heading comes off a phone COMPASS,
+  // which is coarse and jittery, so a strict hit box would make the whole
+  // mechanic read as broken. Just under a cell puts a foe eight cells out
+  // inside a ~7° cone.
   const HIT_RADIUS_CELLS = 0.9;
+  // The staff has none of the bow's excuse — aimAtNearest lines the bolt up
+  // on the foe's exact position, so it never needs the compass's forgiveness.
+  // Sharing HIT_RADIUS_CELLS with the bow made a Wood bolt sweep almost a
+  // full cell around itself: visibly it looked like the bolt sailed past a
+  // foe and still scored a hit. This is the staff's OWN base radius —
+  // boltScale still grows it with tier exactly as before.
+  const STAFF_HIT_RADIUS_CELLS = 0.35;
 
   // ── Bolt size by tier ────────────────────────────────────────────────────
   // A slot flagged `growsWithTier` (the staff) fires a bigger shot the better
@@ -285,7 +293,8 @@
   }
   // The hit radius of a `slot` shot at `tier`, in world metres.
   function shotRadiusM(slot, tier, cellM) {
-    return HIT_RADIUS_CELLS * cellM * boltScale(slot, tier);
+    const baseCells = slot === 'staff' ? STAFF_HIT_RADIUS_CELLS : HIT_RADIUS_CELLS;
+    return baseCells * cellM * boltScale(slot, tier);
   }
   // The drawn radius of a bolt at `tier`, in screen px (0 for a streak slot).
   function shotDotPx(slot, tier) {
@@ -598,7 +607,7 @@
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
-    RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
+    RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, STAFF_HIT_RADIUS_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,

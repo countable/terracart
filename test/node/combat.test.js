@@ -573,8 +573,8 @@ test('combat: a staff bolt grows with the tier, Wood base to double at Frost', (
 test('combat: the radius a bolt HITS with and the radius it DRAWS share one scale', () => {
   const wood  = Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 1);
   const frost = Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 7);
-  assert.inRange(wood.radiusM - Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M, -1e-9, 1e-9,
-    'a Wood bolt sweeps the old flat hit radius');
+  assert.inRange(wood.radiusM - Combat.STAFF_HIT_RADIUS_CELLS * COMBAT_CELL_M, -1e-9, 1e-9,
+    'a Wood bolt sweeps the staff\'s own flat hit radius');
   assert.inRange(wood.dotPx - Combat.SHOT.staff.dotPx, -1e-9, 1e-9, 'and draws at the base dot');
   const mul = Combat.BOLT_MAX_TIER_MUL;
   assert.inRange(frost.radiusM / wood.radiusM - mul, -1e-9, 1e-9, 'Frost sweeps ×mul');
@@ -586,9 +586,9 @@ test('combat: the radius a bolt HITS with and the radius it DRAWS share one scal
 });
 
 test('combat: a Frost bolt sweeps up a foe a Wood bolt flies past', () => {
-  // A foe standing 1.5 cells off the line: outside a Wood bolt's 0.9-cell
-  // sweep, inside a Frost bolt's 1.8.
-  const off = { kind: 'goblin', id: 'off', x: 28, y: 1.5 * COMBAT_CELL_M };
+  // A foe standing 0.5 cells off the line: outside a Wood bolt's 0.35-cell
+  // sweep, inside a Frost bolt's 0.7.
+  const off = { kind: 'goblin', id: 'off', x: 28, y: 0.5 * COMBAT_CELL_M };
   const fly = (tier) => {
     let live = [Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, tier)];
     const struck = [];
