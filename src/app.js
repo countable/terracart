@@ -789,9 +789,11 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // Energy.OFFLINE_FULL_REST_MS.
 
 // Chest tiers are not rolled: a chest's tier (1-4) is a fixed lookup from its
-// OSM POI class via loot.js › chestTier (POI_CATEGORY → CHEST_TIER_BY_CATEGORY).
-// The tier drives the sprite/gem in render.js and the chestTierMod loot curve
-// in rarity.js; only the loot roll itself is random.
+// OSM POI class via loot.js › chestTier (POI_CATEGORY → CHEST_TIER_BY_CATEGORY),
+// demoted a tier for each Home ring the chest stands inside (700 m / 350 m,
+// CHEST_TIER_HOME_RINGS_M, floor T1). The tier drives the sprite/gem in
+// render.js and the chestTierMod loot curve in rarity.js; only the loot roll
+// itself is random.
 
 // Tool slots the starter blacksmith can forge a wooden (T1) relic for. All
 // six have wooden-tier art via gearAssetPath. The smithy picks 2 at random

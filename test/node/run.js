@@ -94,7 +94,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   TRAILER_SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
   // a stall's name promises is what it sells.
-  POI_CATEGORY, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
+  POI_CATEGORY, CHEST_TIER_BY_CATEGORY, CHEST_TIER_HOME_RINGS_M,
+  chestTierHomeDrop, chestTier, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
@@ -950,6 +951,9 @@ ctx.RENDER_SRC = readSrc('render.js');
 // gives the local player; feet_anchor.test.js pins both as text.
 ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
 ctx.INTERACT_SRC = readSrc('interact.js');
+// interactables.js loads headlessly too, but chest_tier.test.js pins that its
+// chest loot roll resolves the tier WITH the chest position — a text pin.
+ctx.INTERACTABLES_SRC = readSrc('interactables.js');
 // worldgen.js loads headlessly, but tile_url.test.js also pins that the only
 // raw tile fetch in it goes through the resolver — a text pin, like the above.
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');

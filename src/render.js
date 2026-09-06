@@ -2635,7 +2635,7 @@ Render.drawObjects = function drawObjects(scene) {
   // `box` sprite instead of the trunk chest.
   const _chestIsBox = (o) => {
     if (o.crate) return true;   // starter supply crates always use the box sprite
-    const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
+    const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y) : 2;
     return tier === 1;
   };
   // EVERY opened chest vanishes, crates included. A looted crate used to stay
@@ -3970,7 +3970,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const item of chestObjs) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
-    const tier = chestTier(o.poiClass);
+    const tier = chestTier(o.poiClass, o.x, o.y);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
     const cx = Math.round(sx + 1);   // +2px right (was sx - 1)

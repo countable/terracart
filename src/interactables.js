@@ -439,7 +439,7 @@ const INTERACTABLES = {
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).
       const held = save.chestHold && save.chestHold[o.id];
-      const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
+      const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y) : 2;
       const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
