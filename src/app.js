@@ -1312,9 +1312,11 @@ class MapScene extends Phaser.Scene {
       loadSave()
     );
     // All one-time save-shape migrations — slot/default backfills, the maxEnergy
-    // re-derive, the history cap, and the data migrations (inv string→object,
-    // stash fold, venison→meat, golden→shiny, released golden flag, the sapling
-    // review seed) — live in savemigrate.js so they're testable headlessly.
+    // re-derive, the history cap, the surviving data migrations (flute→honey,
+    // cobble stones→street metres) and the save.schema stamp — live in
+    // savemigrate.js so they're testable headlessly. The pre-schema ones were
+    // retired against a decision that saves that old are forfeit; see the
+    // header there for the list and for why save.schema now exists.
     // Returns true iff a real data migration changed something and the save
     // should be re-persisted now. Runs before any in-memory Set is mirrored off
     // a save array below, so the HISTORY_CAP trim above actually sticks — build
@@ -1365,24 +1367,6 @@ class MapScene extends Phaser.Scene {
     // Transient runtime state — not persisted.
     this.pairyCompass = null;   // { targetId, x, y, until } when active
     if (needsMigrationPersist) persistSave(this.save);
-
-    // Drop the dead dragon_potion slot left over from the build that renamed
-    // it to dragon_powder. A migration, not a grant: it only ever REMOVES a
-    // stack no handler can spend any more.
-    //
-    // This used to also push one dragon_powder into the bag ("TEST SEED", so
-    // the transform could be tried without finding one in the wild). That ran
-    // on a brand-new save too, which made a tier-8 transform consumable the
-    // first and ONLY thing in a new player's bag — the sole count pip on the
-    // opening screen, on a tab the fresh-save default doesn't even show, and
-    // flatly against the starter crates' premise that the bag starts empty.
-    // The dev affordance it existed for is now the ☰ › Developer › "Give
-    // Dragon Powder" button, which is where a dev affordance belongs.
-    if (!this.save.gotDragonTestPowder) {
-      this.save.gotDragonTestPowder = true;
-      this.save.inv = (this.save.inv || []).filter(s => !s || s.id !== 'dragon_potion');
-      persistSave(this.save);
-    }
 
     this.cameras.main.setBackgroundColor('#222');
     // Everything below this line is in LOGICAL px; the camera is what maps
@@ -1497,29 +1481,6 @@ class MapScene extends Phaser.Scene {
     // GPS is actually watching — sensors now start only after the opening
     // story + the location CTA, so arming it here would count story-reading
     // time against the fix and could silently skip the capture.)
-
-    // One-time migration: older saves used pWorldX/cellM for cell indices, which
-    // drifts vs the rendered (tile-pixel-basis) cells. Remap tilled keys and
-    // snap planted positions to the unified basis so they line up visually.
-    if (!this.save.coordSchema || this.save.coordSchema < 2) {
-      const remapped = new Set();
-      for (const key of this.tilledSet) {
-        const [ox, oy] = key.split('_').map(Number);
-        const cwmx = (ox + 0.5) * this.cellM;
-        const cwmy = (oy + 0.5) * this.cellM;
-        const { cellIX, cellIY } = worldMetersToAbsCell(this, cwmx, cwmy);
-        remapped.add(cellKeyFromAbsCell(cellIX, cellIY));
-      }
-      this.tilledSet = remapped;
-      this.save.tilled = [...remapped];
-      for (const p of (this.save.planted || [])) {
-        const { cellIX, cellIY } = worldMetersToAbsCell(this, p.x, p.y);
-        const c = absCellCenterMeters(this, cellIX, cellIY);
-        p.x = c.x; p.y = c.y;
-      }
-      this.save.coordSchema = 2;
-      persistSave(this.save);
-    }
 
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
