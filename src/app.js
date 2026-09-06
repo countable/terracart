@@ -63,6 +63,10 @@ if (typeof window !== 'undefined') {
 const METERS_PER_DEG_LAT = 111320;
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
+// How far above a lit cobble's centre the trail counter sits. Just over half a
+// cell, so the number clears the pebble it belongs to without floating off
+// into the cell above it.
+const TRAIL_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
 const WALK_M_S = 1.4;
 // Auto-walk catch-up ramp (see _followStep): metres of body-to-target gap that
 // buy one extra × of walk pace. The body chases at (1 + dist / this) × walk,
@@ -1747,7 +1751,7 @@ class MapScene extends Phaser.Scene {
     // claimable trails now, so a single shared key would light a motorway
     // with a footpath's lone pebble.
     if (typeof LIT_COBBLE_FRAMES !== 'undefined' && typeof document !== 'undefined') {
-      const LIT_COBBLE_BLUE = '#5ec8ff';
+      const LIT_COBBLE_BLUE = UI_TRAIL_LIT;   // shared with the trail counter
       for (const f of LIT_COBBLE_FRAMES) {
         const key = litCobbleTexKey(f);
         if (this.textures.exists(key)) continue;
@@ -11028,7 +11032,20 @@ class MapScene extends Phaser.Scene {
         const name = this._activatePathStone(tx, ty, ix, iy);
         if (!name) continue;
         const tileKey = WorldGen.tileKey(tx, ty);
-        touched.set(`${tileKey} ${name}`, { tileKey, name });
+        // WHICH STONE THE COUNTER LANDS ON. One step lights a whole disc of
+        // cells, so the "3/29" has to choose one of them: the nearest to the
+        // player that actually DRAWS a pebble. Nearest, because the counter
+        // belongs to the stone the player just walked up to rather than to one
+        // at the far edge of the bubble; drawn, because the renderer thins the
+        // stones and a number floating over bare ground reads as a bug.
+        const key = `${tileKey} ${name}`;
+        const prev = touched.get(key);
+        const drawn = this._cobbleDrawnAt(tileKey, ix, iy);
+        const d2 = dx * dx + dy * dy;
+        if (!prev || (drawn && !prev.drawn)
+            || (drawn === prev.drawn && d2 < prev.d2)) {
+          touched.set(key, { tileKey, name, ix, iy, drawn, d2 });
+        }
       }
     }
     if (!touched.size) return;
@@ -11036,9 +11053,25 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
   }
 
+  // Does the cobble at this ABS cell actually draw a stone? The renderer thins
+  // path pebbles to one per Render.COBBLE_SPACING_M and road clusters to their
+  // own density, so a LIT cell is not necessarily a VISIBLE one. Same rule the
+  // draw pass uses — Render.cobbleShown — so the counter and the stone it sits
+  // on can't disagree. Defaults to true when render.js or the tile isn't there
+  // (headless tests): a counter at the player's own cell beats no counter.
+  _cobbleDrawnAt(tileKey, ix, iy) {
+    if (typeof Render === 'undefined' || !Render.cobbleShown) return true;
+    const entry = WorldGen.tileCache.get(tileKey);
+    if (!entry || !entry.grid) return true;
+    const N = entry.cellsPerEdge;
+    const lix = ((ix % N) + N) % N;
+    const liy = ((iy % N) + N) % N;
+    return Render.cobbleShown(ix, iy, entry.grid[liy * N + lix], this.cellM);
+  }
+
   // One trail, right after a sweep lit some of its stones: show the counter
   // and pay out whatever prize the new total has earned.
-  _settleTrail({ tileKey, name }) {
+  _settleTrail({ tileKey, name, ix, iy }) {
     const entry = WorldGen.tileCache.get(tileKey);
     const rec = this.save.pathStones?.[tileKey]?.[name];
     if (!entry || !entry.pathNames || !rec) return;
@@ -11050,11 +11083,23 @@ class MapScene extends Phaser.Scene {
     // prize. Every cobble cell is named now, so without this floor a two-cell
     // service stub would pop the full treasure ceremony.
     if (!Trail.qualifies(total)) return;
-    // The counter: position within the current segment, in the treasure blue,
-    // popped by the player exactly like the rest-energy splash. ONE per trail
-    // per sweep, however many stones just came on.
+    // The counter: position within the current segment. ONE per trail per
+    // sweep, however many stones just came on.
+    //
+    // It is drawn ON THE STONE, in the same blue the stone lights up in
+    // (UI_TRAIL_LIT — the constant the lit-cobble texture is baked from), so
+    // the number and the thing it counts read as one event. It used to pop at
+    // the screen centre in the pale treasure ink, which said "something
+    // happened" without saying where or what to.
+    //
+    // Seated through worldMetersToScreen, never off the player: a peek drag
+    // moves the camera, and the counter has to stay on its cobble (QC rules —
+    // "where do I DRAW this?" goes through the projection). Falls back to the
+    // centred toast if the cell can't be projected — a headless scene, or a
+    // sweep before the camera exists.
     const { pos, target } = Trail.progress(total, claimed);
-    this._toast(`${pos}/${target}`, { tier: 'note', color: UI_TREASURE_INK });
+    this._toast(`${pos}/${target}`,
+      { tier: 'note', color: UI_TRAIL_LIT, ...this._trailCounterAt(ix, iy) });
     // Prizes owed, minus prizes already handed over. A wide reach can sweep
     // past more than one segment boundary in a single step, so this is a
     // COUNT, not a boolean — the queue below hands them out one ceremony at a
@@ -11072,6 +11117,21 @@ class MapScene extends Phaser.Scene {
     this._trailPrizeQueue = this._trailPrizeQueue || [];
     for (let i = 0; i < owed; i++) this._trailPrizeQueue.push(name);
     this._drainTrailPrizes();
+  }
+
+  // Where the "N/M" sits for the stone at abs cell (ix, iy): screen position of
+  // the cell's centre, lifted clear of the pebble so the number reads above the
+  // stone rather than across it (the note tier hangs its text from `y`).
+  // Returns {} — the toast's own centred default — when there's nothing to
+  // project against.
+  _trailCounterAt(ix, iy) {
+    if (ix == null || iy == null) return {};
+    if (typeof absCellCenterMeters !== 'function' || !this.worldMetersToScreen) return {};
+    if (!this.startWorldM || !this.originPx) return {};
+    const c = absCellCenterMeters(this, ix, iy);
+    const p = this.worldMetersToScreen(c.x, c.y);
+    if (!p || !isFinite(p.x) || !isFinite(p.y)) return {};
+    return { x: Math.round(p.x), y: Math.round(p.y) - TRAIL_COUNTER_LIFT_PX };
   }
 
   // Hand out queued trail prizes one at a time, each ceremony opening as the

@@ -236,6 +236,49 @@ try {
   }
 }
 
+// THE TRAIL COUNTER lands on the cobble that lit, not at the screen centre, so
+// its seating is a projection question — and projections are exactly what the
+// peek drag breaks when someone measures them off the player instead of the
+// camera anchor. Both halves (where the number goes, and which stone is a
+// VISIBLE one to put it on) are lifted and run for real in trail.test.js.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['_trailCounterAt(ix, iy) {', '_cobbleDrawnAt(tileKey, ix, iy) {']
+    .map(lift).join(',\n');
+  // The seating reads two app.js module constants that don't exist in this
+  // context. Carry them across as SOURCE TEXT rather than retyping the
+  // numbers — a retune in app.js has to move the test with it.
+  const constOf = (name) => {
+    const m = src.match(new RegExp(`const ${name} = ([^;\n]+);`));
+    if (!m) {
+      console.error(`Could not lift ${name} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return m[1];
+  };
+  vm.runInContext(
+    `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
+    `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};`,
+    ctx, { filename: 'app.js#TRAIL_COUNTER_LIFT_PX' });
+  vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#_trailCounterAt' });
+  for (const k of ['_trailCounterAt', '_cobbleDrawnAt']) {
+    if (typeof ctx.__trailCounter[k] !== 'function') {
+      console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
 // The PEEK DRAG: the camera-offset maths (clamp, spring-back, where the player
 // sprite goes) plus the pointer-release rule that decides whether a pointer was
 // a tap or a drag. Both are lifted as text and run on a stub scene — the same

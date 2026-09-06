@@ -346,3 +346,114 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   assert.truthy(/Take your pick/.test(body), 'the offer names itself as a pick');
 });
 })();
+
+// ── The counter lands ON the stone ────────────────────────────────────────
+// The "N/M" is drawn over the cobble that just lit, in the blue that stone
+// lights up in, instead of popping at the screen centre in the pale treasure
+// ink. Two halves, both lifted out of app.js and run for real: where the
+// number goes (_trailCounterAt) and which of the freshly lit stones is a
+// VISIBLE one to put it on (_cobbleDrawnAt).
+(() => {
+const { _trailCounterAt, _cobbleDrawnAt } = __trailCounter;
+const near = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
+
+// Same shape as peek_drag.test.js's scene — round numbers, shipping cellM.
+const counterScene = (over) => Object.assign({
+  startWorldM: { x: 10000, y: 20000 },
+  mPerPx: 10,
+  originPx: { x: 1000, y: 2000 },
+  cellsPerTile: 51,
+  cellM: 7,
+  playerM: { x: 0, y: 0 },
+  peekM: { x: 0, y: 0 },
+  viewCenterX: 176,
+  viewCenterY: 200,
+  worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); },
+  _trailCounterAt, _cobbleDrawnAt,
+}, over || {});
+
+// The cell the player is standing in, so the maths below has a known answer.
+const homeCell = (s) => worldMetersToAbsCell(
+  s, s.startWorldM.x + s.playerM.x, s.startWorldM.y + s.playerM.y);
+
+test('trail counter: it sits on the cobble, lifted clear of the stone', () => {
+  const s = counterScene();
+  const c = homeCell(s);
+  const out = s._trailCounterAt(c.cellIX + 2, c.cellIY);
+  const stone = worldMetersToScreen(s, ...(() => {
+    const m = absCellCenterMeters(s, c.cellIX + 2, c.cellIY);
+    return [m.x, m.y];
+  })());
+  assert.eq(out.x, Math.round(stone.x), 'horizontally centred on the stone');
+  // The note tier hangs its text from `y`, so the number sits ABOVE the pebble
+  // rather than across it — about half a cell up, never a whole one.
+  assert.lt(out.y, stone.y, 'above the stone');
+  near(stone.y - out.y, CELL_PX * 0.6, CELL_PX * 0.25, 'by about half a cell');
+});
+
+test('trail counter: a peek moves the number with its stone, not with the player', () => {
+  // The QC rule that keeps biting: a draw pass measured off the body tears its
+  // layer off the ground under a peek drag. The counter is drawn AT a world
+  // cell, so it must slide with the ground exactly as the cobble under it does.
+  const s = counterScene();
+  const c = homeCell(s);
+  const before = s._trailCounterAt(c.cellIX + 2, c.cellIY);
+  s.peekM = { x: 3 * s.cellM, y: 0 };      // camera three cells east
+  const after = s._trailCounterAt(c.cellIX + 2, c.cellIY);
+  const shift = before.x - after.x;
+  near(shift, 3 * CELL_PX, 1, 'the stone slid three cells west on screen');
+  assert.eq(before.y, after.y, 'and not vertically');
+});
+
+test('trail counter: an unprojectable cell falls back to the centred toast', () => {
+  // A sweep before the camera exists, or a headless scene: an empty options
+  // object is the toast's own default, which is where the counter used to pop.
+  const s = counterScene({ startWorldM: null });
+  assert.eq(Object.keys(s._trailCounterAt(4, 4)).length, 0, 'no override');
+  const ok = counterScene();
+  assert.eq(Object.keys(ok._trailCounterAt(null, null)).length, 0, 'no cell, no override');
+});
+
+test('trail counter: the stone it picks is one the renderer actually draws', () => {
+  // The renderer thins the pebbles (COBBLE_SPACING_M), so a lit cell is not
+  // necessarily a visible one and a number over bare ground reads as a bug.
+  // Both sides must answer with the same rule, for every cell.
+  const N = 51;
+  const grid = new Uint8Array(N * N).fill(8);          // all footpath
+  const s = counterScene();
+  const key = WorldGen.tileKey(0, 0);
+  WorldGen.tileCache.set(key, { grid, cellsPerEdge: N });
+  try {
+    let drawn = 0;
+    for (let i = 0; i < 40; i++) {
+      const want = Render.cobbleShown(i, 3, 8, s.cellM);
+      assert.eq(s._cobbleDrawnAt(key, i, 3), want, `cell ${i} agrees with the draw pass`);
+      if (want) drawn++;
+    }
+    assert.gt(drawn, 0, 'and some of them really do draw a stone');
+    assert.lt(drawn, 40, 'while others are thinned away');
+  } finally {
+    WorldGen.tileCache.delete(key);
+  }
+});
+
+test('trail counter: an uncached tile still gets a counter', () => {
+  // Better a number at a stone we cannot check than no number at all.
+  const s = counterScene();
+  assert.truthy(s._cobbleDrawnAt('0/0/0', 3, 3), 'defaults to drawn');
+});
+
+test('trail counter: the number wears the lit stone\'s own blue', () => {
+  // One constant, two readers: app.js bakes the lit-cobble texture from
+  // UI_TRAIL_LIT and the counter is drawn in it, so the stone and the number
+  // over it can never end up different blues. Pinned as source text — app.js
+  // needs Phaser and can't load headlessly.
+  assert.eq(UI_TRAIL_LIT, '#5ec8ff', 'the lit blue');
+  assert.truthy(/const LIT_COBBLE_BLUE = UI_TRAIL_LIT;/.test(APP_JS_SRC),
+    'the lit-cobble texture is baked from it');
+  assert.truthy(/tier: 'note', color: UI_TRAIL_LIT, \.\.\.this\._trailCounterAt\(ix, iy\)/
+    .test(APP_JS_SRC), 'and the counter is drawn in it, at the stone');
+  assert.falsy(/`\$\{pos\}\/\$\{target\}`, \{ tier: 'note', color: UI_TREASURE_INK \}/
+    .test(APP_JS_SRC), 'the old centred treasure-ink toast is gone');
+});
+})();
