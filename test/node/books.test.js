@@ -281,19 +281,22 @@ test('tips: only one weapon fights, and the Book says which knob picks it', () =
   assert.truthy(someTip(/Relics tab/), 'and names where you switch');
 });
 
-test('descriptions: neither the net nor the rod is a gate, and neither claims to be', () => {
-  // The net only shortens the catch wheel, and it has nothing to do with
-  // crows — a crow is HUNTED on the weapon ladder. The blurb used to read
-  // 'catch crows + butterflies': the one animal it cannot take, plus a gate
-  // on the one it can.
+test('descriptions: the net and the rod speed a job, they do not unlock one', () => {
+  // Both shorten a wheel that already turns bare-handed, and neither may read
+  // as a permission. The net's blurb said 'catch crows + butterflies' — the
+  // one animal it could not take beside a gate on the one it could; it covers
+  // the hunt now (the hunt wheel reads the bugnet slot), so the blurb is
+  // right and the TIP is what had to change: no weapon hurries a hunt.
   assert.gt(toolDurationMs({}, 'bugnet'), toolDurationMs({ bugnet: { tier: 1 } }, 'bugnet'),
     'a net only shortens the wheel');
-  assert.truthy(/HUNT_KINDS = new Set\(\['crow', 'deer'\]\)/.test(INTERACT_SRC),
-    'a crow is hunted, not netted');
-  assert.falsy(/crow/i.test(RELIC_DEFS.bugnet.blurb), 'the net no longer claims crows');
-  assert.truthy(/bare hands/i.test(RELIC_DEFS.bugnet.blurb), 'and says bare hands manage');
+  assert.truthy(/const netSlot = r\.bugnet \? 'bugnet' : null;/.test(INTERACT_SRC),
+    'the hunt wheel reads the bugnet slot, not a weapon');
+  assert.truthy(/hunt/i.test(RELIC_DEFS.bugnet.blurb), 'the net says it speeds a hunt');
+  assert.falsy(someTip(/sword, bow or staff makes short work/i),
+    'and no tip still credits a weapon for it');
+  assert.truthy(someTip(/No weapon hurries a hunt/i), 'a tip says so outright');
   assert.truthy(/fish BARE-HANDED/.test(INTERACT_SRC), 'interact.js still allows a bare cast');
-  assert.truthy(/bare hands/i.test(RELIC_DEFS.rod.blurb), 'and the rod says so too');
+  assert.truthy(/bare hands/i.test(RELIC_DEFS.rod.blurb), 'and the rod\'s blurb admits it');
 });
 
 test('tips: the delivery ladder quotes Delivery.TIER_UNLOCK_EVERY, and no tip rerolls a wishlist', () => {

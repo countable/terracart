@@ -99,6 +99,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
+  plantedTreeStage, PLANTED_TREE_GROW_MS, acornDropChance, ACORN_P_BASE, ACORN_P_FROST,
   // The one building roof-scale rule — house_scale.test.js asserts against the
   // SHIPPING table rather than its own copies of it.
   houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
