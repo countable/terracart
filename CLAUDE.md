@@ -349,6 +349,15 @@
   it was a hand-set `add.text` beside the table with no shadow. **A number
   drawn on the map is a `_toast` tier, never its own `add.text`**, and it
   names the cell or the foe it is about.
+  **And the body flinches.** A blow on the player (the slime leech, a
+  monster's melee, an arrow in `_shotHitsPlayer`) calls `_flashPlayerHit`
+  at the instant it lands — never from the throttled pop, which rolls a
+  second of bites into one number — and `_updatePlayerAura` flicks the
+  character red for `HIT_FLASH_MS` on TWO channels: the sprite tint and the
+  halo's red texture, because `setTint` is a no-op under Phaser's Canvas
+  fallback and a tint-only flinch is invisible there. **When you add a
+  drain on the body, call `_flashPlayerHit` where the loss is banked.**
+  **Audit it:** `test/node/hit_flash.test.js`.
   **Audit it:** `node test/node/run.js` › `test/node/energy_pop.test.js` runs
   the lifted seating on a stub scene (cell edge, head clearance, peek) and
   pins the call sites and the tiers as source text.
