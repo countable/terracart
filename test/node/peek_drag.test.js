@@ -329,3 +329,70 @@ test('hidpi: the drag slop is measured in logical px, not canvas px', () => {
   }
   RENDER_SCALE = 1;
 });
+
+// ── The darkness has to be drawn wider than the frame ───────────────────────
+// The distance falloff (render.js drawCells) is ~100 concentric rings cached
+// about the VIEWPORT CENTRE and slid by the peek offset with setPosition
+// instead of being rebuilt at the player's new screen position every frame of
+// a drag. That cache is why the ring set can't stop at the frame edge: a peek
+// pulls the far side of the disc inward, and past the last ring nothing is
+// drawn at all — the darkness's own outer edge showed as a circular arc cutting
+// across the corner of the map.
+//
+// So Render.falloffRadii splits the one radius in two: the RAMP still ends at
+// the viewport's half-diagonal (its shape and the measured luminance spread are
+// untouched), and the rings keep going flat past it, far enough that no peek
+// can reach their edge.
+
+test('falloff: the ramp still ends at the viewport half-diagonal', () => {
+  const vs = VIEW_CELLS * CELL_PX;
+  const { rRamp } = Render.falloffRadii(vs);
+  near(rRamp, Math.hypot(vs, vs) / 2, 1e-9,
+       'the ramp is graded over the visible square, not past it');
+});
+
+test('falloff: the rings are drawn past every pixel a peek can expose', () => {
+  const vs = VIEW_CELLS * CELL_PX;
+  const { rRamp, rOut } = Render.falloffRadii(vs);
+  // The furthest the cached image can be slid: the drag clamp, in screen px.
+  const peekPx = PEEK_MAX_CELLS * CELL_PX;
+  assert.gte(rOut, rRamp + peekPx,
+             'a full-magnitude peek still lands inside the drawn rings');
+  // ...and that is the drag's OWN clamp, not a number of its own — a bigger
+  // PEEK_MAX_CELLS has to widen the rings with it or the edge comes back.
+  near(rOut - rRamp, peekPx, 1e-9, 'the margin IS the peek clamp');
+});
+
+test('falloff: no visible corner escapes the rings under a peek in any direction', () => {
+  const vs = VIEW_CELLS * CELL_PX;
+  const { rOut } = Render.falloffRadii(vs);
+  const s = peekScene();
+  const half = vs / 2;
+  // Push the peek to the clamp in a ring of directions, then measure the worst
+  // visible corner in the ring image's own (unslid) coordinates: the viewport
+  // corner offset by the peek.
+  for (let a = 0; a < 16; a++) {
+    const th = (a / 16) * Math.PI * 2;
+    s._setPeekFromDrag(-Math.cos(th) * 1000, -Math.sin(th) * 1000);
+    const pk = { x: s.peekM.x * PX_PER_M, y: s.peekM.y * PX_PER_M };
+    for (const cx of [-half, half]) {
+      for (const cy of [-half, half]) {
+        const d = Math.hypot(cx + pk.x, cy + pk.y);
+        assert.lte(d, rOut, `corner (${cx},${cy}) is covered at ${a}/16`);
+      }
+    }
+  }
+  s.clearPeek();
+});
+
+test('falloff: the ring loop clamps the ramp instead of running past it', () => {
+  // The loop itself needs Phaser, so pin it as source text: it must walk out to
+  // rOut while the ramp parameter saturates at 1. Extrapolating t past rRamp
+  // would drive the alpha above FALLOFF_A and reintroduce a graded edge.
+  const src = RENDER_SRC;
+  assert.truthy(/for \(let r = r0; r < rOut; r \+= STEP\)/.test(src),
+                'the rings are drawn out to rOut');
+  assert.truthy(/const t = Math\.min\(1, \(r - r0\) \/ \(rRamp - r0\)\)/.test(src),
+                'the ramp parameter is clamped at the ramp radius');
+  assert.falsy(/rMax/.test(src), 'the old single radius is gone');
+});
