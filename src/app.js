@@ -223,6 +223,14 @@ const MODAL_LIFT_PX = 140;
 //   gain    — "you got something". Centred, pops in, can carry an icon.
 //   fanfare — jackpot / shiny. Biggest, keeps its own chip colour, overshoots
 //             and settles, and stacks ABOVE a gain (hence the depth gap).
+//   energy  — a "+N⚡" / "−N⚡" ON THE CELL the change belongs to (the tilled
+//             plot, the felled tree, the player's own cell for a rest tick or
+//             a slime's leech — see _popEnergy). No chip, like a note, because
+//             it sits on the map over the very thing it is about; but it is
+//             bold, STROKED and drop-shadowed, because that thing can be any
+//             ground at all (a road, a snowfield, a lit plot) and the number
+//             has to read against every one of them. Short and quick: a job
+//             pays one, a rest ticks one a second, and they must not pile up.
 //
 // dy is the offset from the viewport centre, and the ladder of values is what
 // lets a gain and a fanfare fired in the same moment stack instead of overlap.
@@ -234,6 +242,9 @@ const TOAST_TIER = {
   note:    { font: '12px',      stroke: 0, pad: 6,  padY: 4, depth: 100, dy:  -70,
              bg: null, shadow: { offsetX: 1, offsetY: 1, blur: 4 },
              pop: 0,   hold: 1300, fade: 700, rise: 30 },
+  energy:  { font: 'bold 13px', stroke: 2, pad: 6,  padY: 4, depth: 100, dy:  -70,
+             bg: null, shadow: { offsetX: 1, offsetY: 2, blur: 3 },
+             pop: 90, popScale: 0.7, hold: 700, fade: 500, rise: 14, ease: 'Sine.In' },
   sub:     { font: 'bold 16px', stroke: 3, pad: 8,  padY: 3, depth: 110, dy: -142,
              pop: 0,   fadeIn: 240, hold: 1800, fade: 700, rise: 60, ease: 'Sine.In' },
   gain:    { font: 'bold 22px', stroke: 3, pad: 10, padY: 5, depth: 101, dy:  -90,
@@ -615,6 +626,17 @@ const FOOT_STANCE_HALF_ART_PX = 1.8; // half the sprite's stance, in frame px
 // the measurement stays legible. playerFeetNudgeY multiplies it by whatever
 // playerScale is, which is what keeps the feet on the GPS fix at any scale.
 const PLAYER_FEET_DROP_PX = 14 / 1.35;
+// The walker's frame edge, in texture px (assets.js `idle`: 32×32). Its head
+// stands half of this plus the feet drop above the fix.
+const PLAYER_FRAME_PX = 32;
+// Where an energy pop hangs (_popEnergy). On a cell that isn't the player's,
+// its bottom clears the cell's TOP EDGE by ENERGY_POP_LIFT_PX. On the player's
+// own cell the walker's head is in the way, so it clears the HEAD by the same
+// margin instead: the head is half the frame plus the feet drop above the fix
+// (the feet ARE the fix — see playerFeetNudgeY), so this is derived from the
+// art, not tuned to it.
+const ENERGY_POP_LIFT_PX = 4;
+const ENERGY_POP_HEAD_PX = Math.round(PLAYER_FRAME_PX / 2 + PLAYER_FEET_DROP_PX) + ENERGY_POP_LIFT_PX;
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
@@ -6599,7 +6621,15 @@ class MapScene extends Phaser.Scene {
   abortWorkProgress() {
     const wp = this._workProgress;
     if (wp && wp.energyRefund > 0) {
-      this.save.energy = Math.min(this.getMaxEnergy(), (this.save.energy ?? 0) + wp.energyRefund);
+      const before = this.save.energy ?? 0;
+      this.save.energy = Math.min(this.getMaxEnergy(), before + wp.energyRefund);
+      // The spend popped a "−N⚡" on the cell when the wheel started; hand it
+      // back on the same cell, or the bar climbing on its own reads as a bug.
+      const refunded = this.save.energy - before;
+      if (refunded > 0 && typeof worldMetersToAbsCell === 'function' && this.startWorldM && this.originPx) {
+        const c = worldMetersToAbsCell(this, wp.worldX, wp.worldY);
+        this._popEnergy(refunded, { ix: c.cellIX, iy: c.cellIY });
+      }
       this.updateEnergyDOM();
     }
     // Tapping to bail on an underground auto-mine pauses the body's pursuit of
@@ -7310,7 +7340,7 @@ class MapScene extends Phaser.Scene {
       this._lastSlimeFlashT = now;
       const drained = this._slimeStealAccum;
       this._slimeStealAccum = 0;
-      if (this.flash) this.flash(`🟢 slime drained ${drained}⚡`, this.viewCenterX, this.viewCenterY - 40);
+      this._popEnergy(-drained, { label: '🟢 slime' });
       if (typeof persistSave === 'function') persistSave(this.save);
     }
     // Same throttled roll-up for underground monster hits, so a pack reads as a
@@ -7319,7 +7349,7 @@ class MapScene extends Phaser.Scene {
       this._lastMonsterFlashT = now;
       const hit = this._monsterDmgAccum;
       this._monsterDmgAccum = 0;
-      if (this.flash) this.flash(`⚔️ monsters hit ${hit}⚡`, this.viewCenterX, this.viewCenterY - 40);
+      this._popEnergy(-hit, { label: '⚔️ monsters' });
       if (typeof persistSave === 'function') persistSave(this.save);
     }
   }
@@ -8505,7 +8535,7 @@ class MapScene extends Phaser.Scene {
       // up-to-9s dig) even though the gate above passed at start — re-check at
       // completion and bail with no dig/loot if it no longer affords, same as
       // every other spendEnergy bail (flash already fired inside spendEnergy).
-      if (!this.spendEnergy(cost, this.viewCenterX, this.viewCenterY)) {
+      if (!this.spendEnergy(cost, this.viewCenterX, this.viewCenterY, { ix: cellIX, iy: cellIY })) {
         this._followPaused = true;   // out of energy — stop chewing the wall
         this._autoMineKey = null;
         return;
@@ -8911,11 +8941,103 @@ class MapScene extends Phaser.Scene {
     this._toast(text, { tier: 'note', x, y });
   }
 
-  // Small green "+N⚡" splash near the player when energy is RECOVERED
-  // (passive rest, offline rest). No-ops before the viewport centre is known.
+  // ── Energy pops ──────────────────────────────────────────────────────────
+  // Every "+N⚡" / "−N⚡" the player can read goes through here, and it is
+  // placed ON THE CELL the change belongs to: `opts.ix/iy`, an absolute cell —
+  // the plot a till just paid for, the wall a dig just cost — defaulting to the
+  // player's own cell when the change is to the body (a rest tick, a slime's
+  // leech, an offline refill). The number hangs just clear of that cell's top
+  // edge (or of the player's head, on their own cell — see ENERGY_POP_HEAD_PX)
+  // and a thin outline in the same ink ticks on the cell under it, so the eye
+  // is told WHICH cell earned or paid it, not just that something did.
+  //
+  // Seated through the projection (_energyPopAt → worldMetersToScreen /
+  // playerScreen), never off viewCenterX/Y: until Sep 2026 the rest splash was
+  // a note tier at the viewport centre minus 70px — two cells over anyone's
+  // head, and under a peek drag two cells from nowhere in particular — and the
+  // slime / monster drains sat 40px above the same point. Falls back to the
+  // toast's own centred default when the cell can't be projected (a headless
+  // scene, a splash before the camera exists). Text comes from the delta's
+  // sign; `opts.label` is appended ("−3⚡ 🟢 slime") and `opts.text` replaces
+  // it outright.
+  _popEnergy(delta, opts = {}) {
+    if (!delta || !this.add) return null;
+    const gain = delta > 0;
+    const n = Math.abs(delta);
+    const text = opts.text ?? `${gain ? '+' : '−'}${n}⚡${opts.label ? ` ${opts.label}` : ''}`;
+    const color = opts.color || (gain ? UI_GREEN : UI_DANGER_INK);
+    let ix = opts.ix, iy = opts.iy;
+    if ((ix == null || iy == null) && this.startWorldM && this.originPx
+        && typeof playerReachCell === 'function') {
+      const p = playerReachCell(this);
+      ix = p.cellIX; iy = p.cellIY;
+    }
+    const at = this._energyPopAt(ix, iy);
+    if (at.x != null) this._flashCellOutline(ix, iy, color);
+    return this._toast(text, { tier: 'energy', color, ...at });
+  }
+
+  // Small green "+N⚡" on the player when energy is RECOVERED (passive rest,
+  // offline rest). No-ops before the viewport centre is known.
   _splashEnergyGain(amount) {
     if (!(amount > 0) || this.viewCenterX == null) return;
-    this._toast(`+${amount}⚡`, { tier: 'note', color: UI_GREEN });
+    this._popEnergy(amount);
+  }
+
+  // Where an energy pop for abs cell (ix, iy) hangs its text. The player's
+  // own cell anchors on the BODY (playerScreen — the feet, which a peek drag
+  // slides with the ground) and clears the head; any other cell clears the
+  // cell's top edge. Returns {} — the toast's centred default — when nothing
+  // can be projected.
+  _energyPopAt(ix, iy) {
+    if (ix == null || iy == null) return {};
+    if (!this.startWorldM || !this.originPx || typeof playerReachCell !== 'function') return {};
+    const p = playerReachCell(this);
+    if (ix === p.cellIX && iy === p.cellIY && this.playerScreen) {
+      const ps = this.playerScreen();
+      if (!ps || !isFinite(ps.x) || !isFinite(ps.y)) return {};
+      return { x: Math.round(ps.x), y: Math.round(ps.y) - ENERGY_POP_HEAD_PX };
+    }
+    return this._cellToastAt(ix, iy, CELL_PX / 2 + ENERGY_POP_LIFT_PX);
+  }
+
+  // The absolute cell under a SCREEN point — a tap's own coordinates, so a
+  // spend can be shown on the cell that was tapped (screenToWorldMeters is the
+  // peek-aware inverse of the projection every tap gate already uses). Null
+  // before the camera exists.
+  _cellAtScreen(sx, sy) {
+    if (sx == null || sy == null || !this.startWorldM || !this.originPx) return null;
+    if (typeof worldMetersToAbsCell !== 'function' || !this.screenToWorldMeters) return null;
+    const w = this.screenToWorldMeters(sx, sy);
+    if (!w || !isFinite(w.x) || !isFinite(w.y)) return null;
+    const c = worldMetersToAbsCell(this, w.x, w.y);
+    return { ix: c.cellIX, iy: c.cellIY };
+  }
+
+  // A one-pixel rounded outline on abs cell (ix, iy) in `color`, held and
+  // faded on the ENERGY tier's own clock so it leaves with the number it
+  // underlines. Screen-fixed once drawn, like the toast: both are gone in
+  // about a second, well before a walk could carry the cell away from them.
+  _flashCellOutline(ix, iy, color) {
+    if (!this.add || !this.tweens || !this.worldMetersToScreen) return;
+    if (!this.startWorldM || !this.originPx || typeof absCellCenterMeters !== 'function') return;
+    const c = absCellCenterMeters(this, ix, iy);
+    const p = this.worldMetersToScreen(c.x, c.y);
+    if (!p || !isFinite(p.x) || !isFinite(p.y)) return;
+    const S = TOAST_TIER.energy;
+    const g = this.add.graphics().setDepth(S.depth - 1);
+    // Clip to the map viewport like every other world-anchored layer.
+    if (this.enemyHealthGfx?.mask) g.setMask(this.enemyHealthGfx.mask);
+    g.lineStyle(1, parseInt(String(color).replace('#', ''), 16), 0.9);
+    const h = CELL_PX / 2;
+    // Inset 1.5px: a 1px stroke centred on a half-pixel lands crisp, and the
+    // inset keeps it off the neighbour's edge so it reads as THIS cell.
+    g.strokeRoundedRect(Math.round(p.x - h) + 1.5, Math.round(p.y - h) + 1.5,
+                        CELL_PX - 3, CELL_PX - 3, 3);
+    this.tweens.add({
+      targets: g, alpha: 0, duration: S.fade, delay: S.hold,
+      ease: 'Sine.In', onComplete: () => g.destroy(),
+    });
   }
 
   // Shared rest-energy accumulator. Adds `gain` energy onto the named fractional
@@ -9391,13 +9513,20 @@ class MapScene extends Phaser.Scene {
 
   // Spend energy if the player has enough, returning true on success.
   // Callers (interact.js handlers) refuse the action when this returns false.
-  spendEnergy(cost, sx, sy) {
+  // `cell` ({ ix, iy }, absolute) is the cell the price is shown on; without
+  // it the cell under the tap (sx, sy) is used — every interact.js handler
+  // hands the tap through, so a till pops its "−2⚡" on the plot it tilled. A
+  // spend with neither (the staff's per-bolt cost) is silent, exactly as its
+  // "too tired" is: an auto-firing weapon must not spam the map.
+  spendEnergy(cost, sx, sy, cell = null) {
     if (cost <= 0) return true;
     const r = Energy.spend(this.save, cost);
     if (!r.ok) {
       if (sx != null && sy != null) this.flash('too tired', sx, sy);
       return false;
     }
+    const at = cell || this._cellAtScreen(sx, sy);
+    if (at && r.spent > 0) this._popEnergy(-r.spent, at);
     this._warnIfTiring(r.before, sx, sy);
     this.updateEnergyDOM();
     return true;
@@ -11810,13 +11939,23 @@ class MapScene extends Phaser.Scene {
   // Returns {} — the toast's own centred default — when there's nothing to
   // project against.
   _trailCounterAt(ix, iy) {
+    return this._cellToastAt(ix, iy, TRAIL_COUNTER_LIFT_PX);
+  }
+
+  // A toast's x/y for abs cell (ix, iy): the screen position of the cell's
+  // centre, lifted `liftPx` so the text (which hangs from `y`) sits above the
+  // cell's contents rather than across them. Shared by the trail counter and
+  // the energy pops (_energyPopAt), so both seat through the ONE projection.
+  // Returns {} — the toast's own centred default — when there's nothing to
+  // project against.
+  _cellToastAt(ix, iy, liftPx) {
     if (ix == null || iy == null) return {};
     if (typeof absCellCenterMeters !== 'function' || !this.worldMetersToScreen) return {};
     if (!this.startWorldM || !this.originPx) return {};
     const c = absCellCenterMeters(this, ix, iy);
     const p = this.worldMetersToScreen(c.x, c.y);
     if (!p || !isFinite(p.x) || !isFinite(p.y)) return {};
-    return { x: Math.round(p.x), y: Math.round(p.y) - TRAIL_COUNTER_LIFT_PX };
+    return { x: Math.round(p.x), y: Math.round(p.y) - liftPx };
   }
 
   // Hand out queued trail prizes one at a time, each ceremony opening as the
