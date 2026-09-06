@@ -10151,15 +10151,13 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // Read a book (consumed): pick a random tip from PLAY_TIPS, OR — 50% of the
-  // time when an unopened chest exists within ~250 paces — reveal directional
-  // hint to the nearest one ("about 47 paces northwest"). Either way it's
-  // never useless: even repeat-readers learn something or get a hint.
-  readBook() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'book' || (sel.count ?? 0) <= 0) return false;
-    let body;
-    let title = '📖 You crack open the book';
+  // Pick a random tip from PLAY_TIPS, OR — 50% of the time when an unopened
+  // chest exists within ~250 paces — reveal a directional hint to the
+  // nearest one ("about 47 paces northwest"). Either way it's never useless:
+  // even repeat-readers learn something or get a hint. Shared by readBook
+  // (a book already sitting in an older save) and addToInv's auto-read on
+  // pickup, so the two paths can't drift.
+  _bookTipBody() {
     // Try the directional-hint branch first (coin flip).
     if (Math.random() < 0.5) {
       const chest = this.findNearestUnopenedChest();
@@ -10175,16 +10173,21 @@ class MapScene extends Phaser.Scene {
           const dirs = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
           const dir = dirs[Math.round(ang / 45) % 8];
           const placeName = chest.name ? rusticifyName(chest.name) : 'a chest';
-          body = `"${placeName} lies about ${paces} paces ${dir}."`;
+          return `"${placeName} lies about ${paces} paces ${dir}."`;
         }
       }
     }
-    if (!body) {
-      // Generic tip from the pool.
-      const tip = PLAY_TIPS[Math.floor(Math.random() * PLAY_TIPS.length)];
-      body = `"${tip}"`;
-    }
-    return this._finishConsumable(title, body);
+    // Generic tip from the pool.
+    const tip = PLAY_TIPS[Math.floor(Math.random() * PLAY_TIPS.length)];
+    return `"${tip}"`;
+  }
+
+  // Read a book (consumed). Kept for saves that already have one sitting in
+  // inventory from before books started auto-reading on pickup (addToInv).
+  readBook() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'book' || (sel.count ?? 0) <= 0) return false;
+    return this._finishConsumable('📖 You crack open the book', this._bookTipBody());
   }
 
   // Drink a Potion of Reach (consumed): light up the whole visible view for
@@ -14344,6 +14347,20 @@ class MapScene extends Phaser.Scene {
   // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
   // flash. Returns the count actually accepted so callers can adjust narration.
   addToInv(id, n = 1, silent = false) {
+    // A book triggers its read (a tip, or a chest hint) the instant it's
+    // picked up rather than waiting in the bag for a manual Read tap — see
+    // readBook / _bookTipBody. It never occupies an inventory slot, so it
+    // skips Inventory.add entirely; it still counts as "accepted" for
+    // callers that adjust their pickup narration off the return value.
+    if (id === 'book') {
+      if (n <= 0) return 0;
+      if (!silent) {
+        for (let i = 0; i < n; i++) {
+          this.showMessageModal({ title: '📖 You crack open the book', body: this._bookTipBody() });
+        }
+      }
+      return n;
+    }
     const r = Inventory.add(this.save, id, n);
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
     if (!silent) {
