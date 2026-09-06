@@ -513,6 +513,16 @@ const DOG_PREY = new Set(['deer', 'slime']);
 // slime branch in wanderCreatures) — it is only the SPEED that came down.
 const SLIME_STEP_MUL = 1.5;    // × the base wander cadence: a longer, lazier beat
 const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
+// ── The doorstep greeter ─────────────────────────────────────────────────────
+// How far from the starting trailer the mode's guaranteed creature is seated
+// (`_placeHomeGreeter`; the kind is Difficulty.get().homeGreeter — a chicken on
+// easy, a slime on hard). Chebyshev cells, so the band is a square ring.
+// The floor keeps it off the player's own cell and out of the trailer's
+// doorway — a slime spawned underfoot would start leeching before the first
+// frame drew — and the ceiling keeps it inside the 11-cell viewport, so it is
+// on screen when the map paints and reads as "this is what lives here".
+const HOME_GREETER_MIN_CELLS = 2;
+const HOME_GREETER_MAX_CELLS = 5;
 // ── Home is pest-free until the first harvest ────────────────────────────
 // A slime sits on your crops and drains 3 energy a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
@@ -3693,11 +3703,10 @@ class MapScene extends Phaser.Scene {
           if (caughtSet.has(id)) return;
           // ~5% of wild animals spawn as the rare shiny variant — stamped at
           // spawn off the stable id so it survives reloads and rides along
-          // through tame/release/re-catch. Slimes are energy pests with no
-          // catch/hunt payoff, so they never go shiny (a shiny slime would
-          // promise a reward it can't pay).
-          const shiny = kindStr !== 'slime' && isShiny(id, SHINY_RATE.animal);
-          creatures.push({ x: wmx, y: wmy, kind: kindStr, id, shiny });
+          // through tame/release/re-catch. The slime exception (an energy pest
+          // with no catch payout never goes shiny) lives in faunaShiny, so the
+          // doorstep greeter below obeys it through the same call.
+          creatures.push({ x: wmx, y: wmy, kind: kindStr, id, shiny: faunaShiny(kindStr, id) });
           return;
         }
       }
@@ -3803,6 +3812,7 @@ class MapScene extends Phaser.Scene {
     if (isStarterTile) {
       this._placeStarterTrail(entry, tx, ty);
       this._stripStarterCrates(entry);      // hard mode: no supply handout
+      this._placeHomeGreeter(entry, tx, ty); // the mode's doorstep creature
     } else {
       // Any tile arriving can complete a starter-home plan that was deferred
       // (or left short) because the map around spawn was still streaming —
@@ -4000,11 +4010,11 @@ class MapScene extends Phaser.Scene {
     sv.starterCratesAt = { x, y };
     if (typeof persistSave === 'function') persistSave(sv);
     if ((this.depth || 0) !== 0) return;     // tileCache is repointed underground
-    const tx = Math.floor(x / this.tileEdgeM), ty = Math.floor(y / this.tileEdgeM);
-    const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-    if (e && (!e.status || e.status === 'ready') && e.grid) {
-      this._placeStarterTrail(e, tx, ty);
-      this._stripStarterCrates(e);          // hard mode: no supply handout
+    const home = this._starterTileEntry();
+    if (home) {
+      this._placeStarterTrail(home.entry, home.tx, home.ty);
+      this._stripStarterCrates(home.entry);                       // hard mode: no supply handout
+      this._placeHomeGreeter(home.entry, home.tx, home.ty);       // the mode's doorstep creature
     }
     // The pond's band reaches into the neighbours, which may have spawned
     // before there was an anchor to measure it from — run the pass over
@@ -9730,12 +9740,132 @@ class MapScene extends Phaser.Scene {
       // strip any tile built from here on.
       WorldGen.tileCache?.forEach?.((entry) => this._stripStarterCrates(entry));
     }
+    // Same race for the doorstep greeter: a save reads as EASY until the card
+    // is answered, so a starter tile built first is standing a chicken there.
+    // _placeHomeGreeter swaps a wrong-kind greeter for this mode's own.
+    const home = this._starterTileEntry();
+    if (home) this._placeHomeGreeter(home.entry, home.tx, home.ty);
     persistSave(this.save);
     this.updateObjectiveDOM();
     this.buildInventoryDOM();
     if (this.updateHUD) this.updateHUD();
     return true;
   }
+  // The cached tile entry holding the frozen starter anchor, with its tile
+  // coords — or null when the anchor hasn't resolved, the tile isn't cached,
+  // or we're underground (tileCache is repointed down there). Three passes
+  // need "the starter tile, right now" — the crate strip, the greeter, and the
+  // retro-place when the anchor freezes late — and asking three different ways
+  // is how one of them ends up looking at a tile the others don't.
+  //
+  // Reads only the FROZEN anchor, never _starterTrailAnchor(): that getter
+  // freezes one as a side effect when the origin looks trustworthy, and its
+  // callers are all points where a tile is being built (so a GPS fix has
+  // landed). chooseMode is not — the card can be answered at boot, before the
+  // first fix, and freezing there would pin home to the default projection
+  // origin while the player is actually somewhere else. With no anchor yet
+  // there is simply nothing cached to act on, and spawnInTile does the work
+  // when the real starter tile builds.
+  _starterTileEntry() {
+    if ((this.depth || 0) !== 0) return null;
+    const anchor = this.save.starterCratesAt;
+    if (!anchor || !Number.isFinite(anchor.x)) return null;
+    const tx = Math.floor(anchor.x / this.tileEdgeM);
+    const ty = Math.floor(anchor.y / this.tileEdgeM);
+    const entry = WorldGen.tileCache?.get?.(WorldGen.tileKey(tx, ty));
+    if (!entry || (entry.status && entry.status !== 'ready') || !entry.grid) return null;
+    return { entry, tx, ty };
+  }
+
+  // ── The doorstep greeter ───────────────────────────────────────────────────
+  // ONE creature guaranteed beside the starting trailer, whatever the tile's
+  // biome roll gave it: a chicken on easy, a slime on hard
+  // (Difficulty.get().homeGreeter). It is the first living thing a new save
+  // sees, and it says which game this is before any text does — a bird you can
+  // feed and catch, or a pest already in the yard.
+  //
+  // Seated by the SHARED spawn rule (WorldGen.isSpawnCell over the tile's own
+  // roadMask), nearest valid cell first, in the HOME_GREETER_* ring. The
+  // fallback pass drops only the residential-frontage clause — never the road
+  // mask: "always" does not license standing an animal on the carriageway, and
+  // a greeter with nowhere legal to stand simply isn't seated.
+  //
+  // Deliberately NOT routed through the pest amnesty (_pestFreeZone): the mode
+  // that seats a slime is the mode with no amnesty, and an amnesty that pushed
+  // this one away would quietly undo the guarantee.
+  //
+  // Idempotent, and self-correcting on the mode. It runs from spawnInTile (the
+  // starter tile's build), from _setStarterCratesAt (the anchor freezing after
+  // that tile already spawned) and from chooseMode (the card answered after the
+  // tile was built with the default-easy chicken) — so a greeter of the WRONG
+  // kind is removed and replaced rather than left standing beside the right one.
+  // Killed or caught, it stays gone: save.caught is checked by id.
+  _placeHomeGreeter(entry, tx, ty) {
+    if (typeof Difficulty === 'undefined') return;
+    const kind = Difficulty.get().homeGreeter;
+    // Only a tile that has already rolled its fauna — seating onto a
+    // not-yet-spawned entry would hand spawnInTile a non-empty creatures array
+    // and its `entry.creatures || creatures` would keep MY one and drop the
+    // whole tile's roll.
+    if (!entry || !entry.grid || !entry._spawned) return;
+    const anchor = this.save.starterCratesAt || this._starterTrailAnchor();
+    if (!anchor || !Number.isFinite(anchor.x)) return;
+    entry.creatures = entry.creatures || [];
+    // One greeter per starter tile: drop any left by an earlier mode. A PET is
+    // never swept — a sapphire-tamed slime is re-minted with a `released_` id
+    // (interact.js `releasedId`) that carries none of this tag, but the guard
+    // is here anyway because sweeping someone's pet is not a bug worth finding
+    // out about in the field.
+    const tag = `_greeter_${tx}_${ty}`;
+    const id = `${kind || ''}${tag}`;
+    const stale = entry.creatures.filter(c => typeof c.id === 'string'
+      && c.id.endsWith(tag) && c.id !== id && !c.id.startsWith('released_'));
+    if (stale.length) entry.creatures = entry.creatures.filter(c => !stale.includes(c));
+    if (!kind) return;                                   // a mode with no greeter
+    if (entry.creatures.some(c => c.id === id)) return;   // already standing
+    if (this.save.caught?.includes(id)) return;           // dealt with, stays gone
+
+    const N = entry.cellsPerEdge;
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const ax = Math.floor((anchor.x - tx0) / this.cellM);
+    const ay = Math.floor((anchor.y - ty0) / this.cellM);
+    // Cells already carrying something drawn — a chicken standing inside a
+    // starter crate reads as a bug whichever the renderer draws second.
+    const occupied = new Set();
+    const cellKeyAt = (wx, wy) =>
+      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM);
+    for (const o of (entry.objects || [])) occupied.add(cellKeyAt(o.x, o.y));
+    for (const w of (entry.wildplants || [])) occupied.add(cellKeyAt(w.x, w.y));
+    const opts = { roadMask: entry.roadMask };
+    const onRoad = (cx, cy) => !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
+    const standable = (cx, cy) =>
+      cx >= 0 && cx < N && cy >= 0 && cy < N &&
+      !occupied.has(cx + ',' + cy) &&
+      !faunaBlocksCell(entry.grid[cy * N + cx]);
+    // Nearest cell in the ring that `accept`s, scanned in a fixed order so the
+    // same anchor always seats it in the same place.
+    const pick = (accept) => {
+      let best = null, bestD = Infinity;
+      for (let cy = ay - HOME_GREETER_MAX_CELLS; cy <= ay + HOME_GREETER_MAX_CELLS; cy++) {
+        for (let cx = ax - HOME_GREETER_MAX_CELLS; cx <= ax + HOME_GREETER_MAX_CELLS; cx++) {
+          const d = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));
+          if (d < HOME_GREETER_MIN_CELLS || d >= bestD) continue;
+          if (!standable(cx, cy) || !accept(cx, cy)) continue;
+          best = { cx, cy }; bestD = d;
+        }
+      }
+      return best;
+    };
+    const seat = pick((cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts))
+              || pick((cx, cy) => !onRoad(cx, cy));
+    if (!seat) return;
+    entry.creatures.push({
+      x: tx0 + (seat.cx + 0.5) * this.cellM,
+      y: ty0 + (seat.cy + 0.5) * this.cellM,
+      kind, id, shiny: faunaShiny(kind, id),
+    });
+  }
+
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
   // chests _placeStarterTrail seats) from a tile. The relic chest at the end of
   // the trail is TREASURE, not supplies, and stays. Idempotent; a no-op on easy.

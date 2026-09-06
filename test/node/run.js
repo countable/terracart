@@ -107,7 +107,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   // The lit cobble's halo: the pad the baker (app.js) reads and the scale the
   // drawer (render.js) applies — cobble_glow.test.js pins them as one pair.
   LIT_COBBLE_GLOW_PAD, LIT_COBBLE_GLOW_SCALE, LIT_COBBLE_FRAMES, litCobbleTexKey,
-  itemValue, randInt, pickFromArray, isShiny,
+  itemValue, randInt, pickFromArray, isShiny, faunaShiny,
   TRAILER_SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
   // a stall's name promises is what it sells.
@@ -891,6 +891,43 @@ try {
     + 'globalThis.VIEW_CELLS = VIEW_CELLS;\n'
     + `globalThis.placeStarterRelicChest = function (entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {\n${body}\n};`,
     ctx, { filename: 'placeStarterRelicChest.js' });
+}
+
+// The doorstep greeter (_placeHomeGreeter) — the ONE creature guaranteed beside
+// the starting trailer, a chicken on easy and a slime on hard. Same lift as the
+// relic chest above: it lives on the Phaser scene class, but the seating is
+// pure grid math over the shared spawn rule, so hand the real body to
+// home_greeter.test.js rather than a transcription. It reads faunaBlocksCell —
+// already lifted onto globalThis further down this file, and resolved at CALL
+// time, so it must not be re-declared here — plus the two ring constants.
+{
+  const src = readSrc('app.js');
+  const head = '  _placeHomeGreeter(entry, tx, ty) {\n';
+  const at = src.indexOf(head);
+  if (at < 0) {
+    console.error('Could not find _placeHomeGreeter in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const bodyStart = at + head.length;
+  const end = src.indexOf('\n  }\n', bodyStart);
+  if (end < 0) {
+    console.error('Could not find the end of _placeHomeGreeter — update run.js');
+    process.exit(2);
+  }
+  const body = src.slice(bodyStart, end);
+  let decls = '';
+  for (const name of ['HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS']) {
+    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+    if (!m) { console.error(`Could not find ${name} in src/app.js — update run.js`); process.exit(2); }
+    decls += `const ${name} = ${m[1]};\n`;
+    ctx[name] = parseInt(m[1], 10);
+  }
+  vm.runInContext(
+    decls
+    + 'globalThis.HOME_GREETER_MIN_CELLS = HOME_GREETER_MIN_CELLS;\n'
+    + 'globalThis.HOME_GREETER_MAX_CELLS = HOME_GREETER_MAX_CELLS;\n'
+    + `globalThis.placeHomeGreeter = function (entry, tx, ty) {\n${body}\n};`,
+    ctx, { filename: 'placeHomeGreeter.js' });
 }
 
 // The road-geometry overlay must keep stroking its bands with the same width

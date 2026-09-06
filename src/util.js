@@ -141,6 +141,18 @@ function isShiny(id, rate) {
   if (id == null) return false;
   return shinyHash01(id) < rate;
 }
+// Is this WILD ANIMAL a shiny one? The rate plus the one exception: the
+// surface slime never rolls shiny, because shiny is a promise of a payout
+// (a 10× catch bonus and a Discovery badge) and a slime is an energy pest
+// with nothing to catch. Both spawners read this rather than restating the
+// `kind !== 'slime' && …` test — the tile's fauna roll and the guaranteed
+// doorstep greeter (app.js) — so the exception can't hold in one and not the
+// other. Cave monsters DO go shiny (they become elites) and use
+// SHINY_RATE.monster directly; this is the animal ladder only.
+function faunaShiny(kind, id) {
+  if (kind === 'slime') return false;
+  return isShiny(id, SHINY_RATE.animal);
+}
 // Warm yellow multiply-tint used for every shiny sprite (flora, tree, animal).
 const SHINY_TINT = 0xffd23a;
 
