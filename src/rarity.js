@@ -165,6 +165,18 @@
     // Small fixed reward — no chain (always rolls T1) plus jackpot.
     'treasure:default': { classBias: { seed:0.45, produce:0.30, mineral:0.10, consumable:0.15 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
+    // ── Elite monster drop ──────────────────────────────────────
+    // What a shiny cave monster pays once its kind's Discovery badge is
+    // banked (app.js › resolveDefeat). Biased to RELICS — half the class
+    // weight, the heaviest relic share of any context — because the foe was
+    // twice the fight. "Commensurate tier" is the caller's: one chain step
+    // here, and app.js › eliteRollBonus buys tier-only steps off the depth
+    // and the kind's own introduction depth (opts.rollBonus), so a goblin
+    // archer three levels down rolls higher than a cave slime at the first.
+    // A relic sits one tier UNDER the chain (see pickReward's relic branch),
+    // so relicCap 6 means a T5 relic at the very top.
+    'treasure:elite':   { classBias: { relic:0.50, mineral:0.20, consumable:0.15, seed:0.08, produce:0.07 },
+                          chainSteps: 1, chainMax: 5, maxTier: 5, relicCap: 6, relicChainMax: 6 },
   };
 
   // ────────────────────────────────────────────────────────────────

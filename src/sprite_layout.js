@@ -208,6 +208,30 @@
     goblin:        { fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
     goblin_archer: { fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
   };
+  // ── GIANTS ────────────────────────────────────────────────────────────────
+  // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
+  // times the HP, two levels deeper). A giant has NO art of its own: it is its
+  // base kind's sheet drawn GIANT_ART_SCALE larger. So there is no giant row in
+  // CREATURE_ART — creatureArt() below resolves a giant to the base row with
+  // its scale multiplied, and every consumer (the renderer's scale and foot,
+  // the wheel and health-bar seating, interact.js's tap box) goes through it.
+  // One number here is what makes the drawn size, the tap box and the wheel
+  // seat agree; a second 1.8 anywhere is the drift the crown rule warns about.
+  const GIANT_PREFIX = 'giant_';
+  const GIANT_ART_SCALE = 1.8;
+  function isGiantKind(kind) { return typeof kind === 'string' && kind.startsWith(GIANT_PREFIX); }
+  // The kind whose art (and, in app.js, whose quest credit) a kind draws on.
+  function baseKind(kind) { return isGiantKind(kind) ? kind.slice(GIANT_PREFIX.length) : kind; }
+  const _giantArt = {};
+  // The CREATURE_ART row for `kind` — the base row, scaled up, for a giant.
+  function creatureArt(kind) {
+    if (!isGiantKind(kind)) return CREATURE_ART[kind];
+    if (_giantArt[kind]) return _giantArt[kind];
+    const base = CREATURE_ART[baseKind(kind)];
+    if (!base) return undefined;
+    return (_giantArt[kind] = { ...base, scale: base.scale * GIANT_ART_SCALE });
+  }
+
   // Every creature is drawn this far below its projected cell centre, so its
   // art bottom lands on the centre of its contact shadow (render.js).
   const CREATURE_GROUND_DY = 2;
@@ -231,9 +255,12 @@
 
   // Vertical origin the renderer should anchor `kind` at (fraction of frame).
   function creatureFoot(kind) {
-    const a = CREATURE_ART[kind];
+    const a = creatureArt(kind);
     return a ? a.foot : 0.9;
   }
+  // The renderer's scale and float for `kind`, giant-aware.
+  function creatureScale(kind) { return creatureArt(kind)?.scale ?? 1; }
+  function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
 
   // THE CREATURE WHEEL RULE: the work-progress wheel RESTS ON the animal's
   // CROWN — the top row of its visible art, at rest. The ring's top edge sits
@@ -257,7 +284,7 @@
   // Returns the offset in screen px from the creature's projected cell centre
   // to the wheel centre (negative = up the screen).
   function creatureWheelDy(kind) {
-    const a = CREATURE_ART[kind];
+    const a = creatureArt(kind);
     if (!a) return CREATURE_WHEEL_FALLBACK_DY;
     const anchorY = CREATURE_GROUND_DY - a.float;      // where the origin lands
     const artTop = anchorY - (a.foot * a.fh - a.minY) * a.scale;
@@ -277,7 +304,7 @@
   // Returns the offset in screen px from the creature's projected cell centre
   // to the bar's TOP edge (negative = up the screen).
   function creatureHealthBarTop(kind) {
-    const a = CREATURE_ART[kind];
+    const a = creatureArt(kind);
     if (!a) {
       // No art entry: hang the bar over where the fallback wheel's outer edge
       // would be, so an unknown kind still reads sanely.
@@ -295,7 +322,8 @@
     CROWN_BOUNDS, fruitCrownOffset,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
-    creatureFoot, creatureWheelDy, creatureHealthBarTop,
+    GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
+    creatureFoot, creatureScale, creatureFloat, creatureWheelDy, creatureHealthBarTop,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

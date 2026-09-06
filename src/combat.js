@@ -70,6 +70,22 @@
     return FAUNA_HP[kind] ?? 10;
   }
 
+  // ── Elites ───────────────────────────────────────────────────────────────
+  // A SHINY cave monster is an elite: one multiplier over the kind's HP and
+  // damage, the same shape as CAVE_ENEMY_MUL in app.js so the dps identity
+  // holds — an elite takes exactly twice as long to kill at any weapon tier
+  // and hits exactly twice as hard. Only MONSTERS are elites: a shiny deer is
+  // game, and the surface slime never rolls shiny at all.
+  const ELITE_MUL = 2;
+  function isElite(c) {
+    return !!c && !!c.shiny && !!MONSTER_STATS[c.kind];
+  }
+  function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
+  // The HP pool of THIS instance — the kind's max times the elite multiplier.
+  // Everything that seeds or refills a creature's HP reads this, never
+  // creatureMaxHp(kind) directly, or an elite heals back to half its health.
+  function maxHp(c) { return creatureMaxHp(c.kind) * eliteMul(c); }
+
   // Hostile kinds — every cave monster, plus the surface slime.
   function isEnemyKind(kind) {
     return !!MONSTER_STATS[kind] || kind === 'slime';
@@ -88,7 +104,7 @@
   // in-memory only — a foe you softened up and walked away from is whole again
   // next session, exactly like the timed wheel it replaces.
   function hp(c) {
-    if (!Number.isFinite(c._hp)) c._hp = creatureMaxHp(c.kind);
+    if (!Number.isFinite(c._hp)) c._hp = maxHp(c);
     return c._hp;
   }
   // Apply `amount` damage; returns the HP left (never below 0).
@@ -97,7 +113,7 @@
     return c._hp;
   }
   function hpFraction(c) {
-    const max = creatureMaxHp(c.kind) || 1;
+    const max = maxHp(c) || 1;
     return Math.max(0, Math.min(1, hp(c) / max));
   }
 
@@ -308,6 +324,7 @@
   const api = {
     registerMonsters, FAUNA_HP, creatureMaxHp,
     isEnemyKind, isEnemy, hp, damage, hpFraction,
+    ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, shotDamage,
     FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
     spawnShot, stepShots, lineOfFire, healthColor,

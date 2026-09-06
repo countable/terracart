@@ -256,17 +256,37 @@ function equipGearReward(reward, save, scene) {
 // Factored out of the X-mark handler so a monster's rare drop pays the SAME
 // table: two copies of this would be two loot pools to retune, and the whole
 // point of the drop is that it feels like finding an X.
-//   mark — the glyph the loot flash leads with ('✕' dug up, '💀' off a kill)
+//   mark       — the glyph the loot flash leads with ('✕' dug up, '💀' off a kill)
+//   contextKey — the LOOT_CONTEXTS pool ('treasure:default' unless the caller
+//                says otherwise; an elite kill rolls 'treasure:elite')
+//   opts       — passed through to pickReward (rollBonus buys tier)
+// A context that can roll RELICS (the elite's) comes back as a gear upgrade
+// or its cash-out, so those two shapes are handled here too, the way a chest
+// handles them: an upgrade auto-equips, a dupe pays half its price.
 // Sets no dirty flag and does not persist; the caller owns that.
-function grantTreasureRoll(scene, save, sx, sy, mark) {
-  const reward = pickReward('treasure:default', save);
+function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:default', opts) {
+  const reward = pickReward(contextKey, save, undefined, opts);
   if (!reward) {
     // Shouldn't happen — context exists — but bail safely if the pool is empty.
     addMoney(save, 1);
     scene.flashLoot(`${mark} → $1`, '#ffe066');
     return;
   }
-  if (reward.kind === 'item') {
+  if (reward.kind === 'relic' || reward.kind === 'armor') {
+    equipGearReward(reward, save, scene);
+    const label = (typeof gearName === 'function')
+      ? gearName(reward.kind, reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
+    scene.flashLoot(`${mark} → ✨ ${label} (equipped!)`, '#ffe066', 1.6);
+    if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
+      scene.flashJackpot(reward.jackpot);
+    }
+  } else if (reward.kind === 'gold' && reward.slot) {
+    // A relic roll the player already beats — cashed out by reconcileRelicOffer.
+    addMoney(save, reward.amount);
+    const label = (typeof gearName === 'function')
+      ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
+    scene.flashLoot(`${mark} → ${label} (already better) $${reward.amount}`, '#aaa', 1.2);
+  } else if (reward.kind === 'item') {
     // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
     if (isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
     scene.addToInv(reward.id, reward.qty);
@@ -454,8 +474,16 @@ const TAP_HANDLERS = [
     let target = null, bestD2 = Infinity;
     WorldGen.forEachItem('creatures', (c) => {
       if (save.caught.includes(c.id)) return;
-      const [frame, scale, lift] = SPRITE[c.kind] || SPRITE.chicken;
-      const halfW = HALF_W[c.kind] ?? 2.0;
+      // A giant monster is its base kind's box scaled by the same number the
+      // renderer draws it with (SpriteLayout.GIANT_ART_SCALE), so the tappable
+      // area stays the drawn body.
+      const bk = (typeof SpriteLayout !== 'undefined' && SpriteLayout.baseKind)
+        ? SpriteLayout.baseKind(c.kind) : c.kind;
+      const gMul = (typeof SpriteLayout !== 'undefined' && SpriteLayout.isGiantKind
+        && SpriteLayout.isGiantKind(c.kind)) ? SpriteLayout.GIANT_ART_SCALE : 1;
+      const [frame, baseScale, lift] = SPRITE[bk] || SPRITE.chicken;
+      const scale = baseScale * gMul;
+      const halfW = (HALF_W[bk] ?? 2.0) * gMul;
       const spanPx = frame * scale;
       const topM = (ORIGIN_Y * spanPx + lift) * px2m;        // feet → top of frame
       const botM = (1 - ORIGIN_Y) * spanPx * px2m + 0.3;     // small under-feet pad
