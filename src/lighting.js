@@ -80,12 +80,12 @@
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
     // house — it is the one light the player always comes back to.
-    trailer:  { radiusCells: 4.0, colour: 0xffd28a, peak: 0.85, flicker: 0 },
+    trailer:  { radiusCells: 4.0, colour: 0xffd28a, peak: 1.00, flicker: 0 },
     // A building the player has taken back: a restored wreck, an unsealed
     // fort, the turrets of a claimed castle. Keyed on the SAME test the
     // derelict wash uses (scene.isClaimedKey), so a house lights the frame its
     // wash lifts.
-    building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.70, flicker: 0 },
+    building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.84, flicker: 0 },
     // A placed campfire (burned from a coal). Breathes.
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
                 colour: 0xff9a3c, peak: 0.95, flicker: 0.18 },
