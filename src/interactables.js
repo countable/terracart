@@ -404,7 +404,7 @@ const INTERACTABLES = {
       // never goes into save.opened — a market doesn't get "picked clean".
       const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
       if (stand && typeof scene.presentMarketStandOffer === 'function') {
-        scene.presentMarketStandOffer(sx, sy, o, stand);
+        scene.presentMarketStandOffer(sx, sy, stand);
         return true;
       }
       if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
@@ -665,9 +665,7 @@ function runInteractable(ctx, o) {
   }
 
   const cost = def.energy ? def.energy(save, o) : 0;
-  const durMs = (typeof toolDurationMs === 'function')
-    ? toolDurationMs(save.relics, def.tool)
-    : (save.relics?.[def.tool] ? 4000 : 9000);
+  const durMs = toolDurationMs(save.relics, def.tool);
   if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
   // cost is passed through as the refund amount if the player cancels mid-work.
   scene.startWorkProgress(o.x, o.y, () => def.complete(ctx, o), durMs, cost || 0, def.tool);
