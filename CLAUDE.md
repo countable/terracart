@@ -326,14 +326,13 @@
   (`_energyPopAt` → `_cellToastAt` / `playerScreen`, never `viewCenterX/Y`),
   hangs just clear of the cell's top edge — or of the player's HEAD on their
   own cell, `ENERGY_POP_HEAD_PX`, derived from the walker's frame and feet
-  drop — and ticks a thin outline on the cell in the same ink so the reader
-  is told WHICH cell. That tick is for OTHER cells only: the player's own
-  cell never raised the question (the number is already on the body), and
-  ringing it just circled the character in red or green on every rest tick,
-  leech and spend underfoot. `_isPlayerCell(ix, iy)` is the one test both
-  halves read — `_energyPopAt` anchors on the body when it's true,
-  `_popCellNumber` skips the outline when it is — so where the number hangs
-  and which cell is ticked can't drift apart. It wears the `cell` toast tier: bold, stroked and
+  drop, `_isPlayerCell(ix, iy)` being the test that picks the body — so where
+  the number hangs is what tells the reader WHICH cell. **The number is the
+  whole mark: nothing is drawn on the ground.** A thin outline used to tick on
+  the cell under it in the same ink, which read as a flash of red or green
+  damage on whatever you had just tapped; it was removed in Sep 2026 along
+  with `_flashCellOutline`, and adding a ring back is the bug returning.
+  It wears the `cell` toast tier: bold, stroked and
   drop-shadowed, no chip, because it sits on any ground at all. Until Sep
   2026 the rest splash was a note at the viewport centre minus 70px and the
   drains sat 40px above the same point — nowhere in particular, and under a
