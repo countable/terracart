@@ -11,7 +11,9 @@
 // the real fort.png / house frame widths.
 const CELL_M = 7, CELL_PX = 32;
 const FORT_W = 214;          // assets/Objects/Houses/fort.png is 214×154
-const FORT_BASE = 0.28, HOUSE_BASE = 0.6;
+// The SHIPPING baselines (util.js), not copies of them — a test that carried
+// its own 0.28 would keep passing while render.js drew something else.
+const FORT_BASE = FORT_BASE_SCALE, HOUSE_BASE = HOUSE_BASE_SCALE;
 const fortScale  = (area) => houseArtScale(area, FORT_W, FORT_BASE, true,  CELL_M, CELL_PX);
 const houseScale = (area, w = 72) => houseArtScale(area, w, HOUSE_BASE, false, CELL_M, CELL_PX);
 // Drawn width of the art, in cells — what the player actually sees.
@@ -85,4 +87,25 @@ test('houseArtScale: houses still scale between the floor and the baseline', () 
   const mid = houseScale(78);
   assert.gt(mid, houseScale(20), 'above the floor');
   assert.lt(mid, HOUSE_BASE, 'below the baseline');
+});
+
+test('houseArtScale: the fort curve is one shrink, applied at all three points', () => {
+  // Forts read ~25% too big at exact footprint fill, so the baseline, the fit
+  // and the cap were ALL shrunk ×0.8 together. Held apart they stop describing
+  // one curve: a baseline left at 0.35 would out-draw the fit that is meant to
+  // grow past it, and a cap left at 0.65 would let a big polygon loom again.
+  assert.eq(FORT_FIT, 0.8, 'the shrink');
+  assert.inRange(FORT_BASE_SCALE, 0.35 * FORT_FIT - 1e-9, 0.35 * FORT_FIT + 1e-9,
+    'baseline carries it (0.35 × 0.8)');
+  assert.inRange(FORT_MAX_SCALE, 0.65 * FORT_FIT - 1e-9, 0.65 * FORT_FIT + 1e-9,
+    'and so does the cap (0.65 × 0.8)');
+});
+
+test('houseArtScale: the residential baseline outdraws the fort baseline', () => {
+  // Not a contradiction of "forts are the big ones": fort.png is ~3× the width
+  // of a house frame, so the smaller SCALE still draws the larger building.
+  // Comparing the scales alone is the trap this pins — compare drawn cells.
+  assert.lt(FORT_BASE_SCALE, HOUSE_BASE_SCALE, 'the fort SCALE is smaller');
+  assert.gt(cellsWide(FORT_BASE_SCALE, FORT_W), cellsWide(HOUSE_BASE_SCALE, 72),
+    'and the fort still draws wider than a house');
 });

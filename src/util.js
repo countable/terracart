@@ -394,11 +394,29 @@ function setOf(arr) {
 // Buildings with no area (the synthetic starter trailer, sandbox houses) and
 // unmeasurable frames keep the baseline untouched.
 const FORT_MAX_SCALE = 0.52;
+// The two BASELINES the roles draw at with no footprint to go on — the `base`
+// argument above, and the value the whole curve is measured against. They live
+// here, beside the rest of the rule, rather than in render.js: a baseline that
+// only makes sense next to the cap that bounds it and the fit that overrides it
+// is not a render detail, and splitting them left render.js holding a bare 0.28
+// under a comment pointing back at this file for why.
+//
+// Plain / blacksmith / trader / trailer / wizard all share the residential
+// baseline so they look like neighbours from one village. The fort's is far
+// smaller because fort.png is ~3x the others (214px wide against 72-80), so
+// the same drawn size needs a third of the scale.
+const HOUSE_BASE_SCALE = 0.6;
+// 0.28 is 0.35 x FORT_FIT. Written out rather than computed because 0.35 * 0.8
+// is 0.27999999999999997 in binary floating point, and this number is compared
+// for equality; the x0.8 it carries is the same shrink FORT_FIT applies to the
+// footprint fit and FORT_MAX_SCALE bakes into its cap (0.65 x 0.8), so all
+// three points on the fort curve moved together when forts read ~25% too big.
+const FORT_BASE_SCALE = 0.28;
 // Forts draw at this fraction of exact footprint fill. Exact fill (1.0) read
-// ~25% too big in play, so the whole fort curve — baseline (0.28 in render.js,
-// was 0.35), footprint fit, and FORT_MAX_SCALE (was 0.65) — is shrunk ×0.8.
-// The growth rationale above still holds; the roof just keeps a small brick
-// margin inside its footprint instead of covering it edge to edge.
+// ~25% too big in play, so the whole fort curve — the baseline above (was
+// 0.35), this fit, and FORT_MAX_SCALE (was 0.65) — is shrunk ×0.8. The growth
+// rationale above still holds; the roof just keeps a small brick margin inside
+// its footprint instead of covering it edge to edge.
 const FORT_FIT = 0.8;
 // Shrink FLOOR for ordinary houses, in drawn cells: however small the OSM
 // polygon, the roof never draws narrower than this. Unfloored, a sub-cell

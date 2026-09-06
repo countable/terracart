@@ -2692,7 +2692,6 @@ Render.drawObjects = function drawObjects(scene) {
   const _isCoinBurst = (o) => o.poiClass === 'atm' || o.poiClass === 'bicycle_parking';
   // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
   const CRATE_SCALE = 1.53;
-  const MINERALROCK_COLS = 11;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
   // to the generic 'house' texture (the tinted shared sprite). Order
   // matters: starter wins over tier wins over shopType — so a tier-11
@@ -2789,12 +2788,11 @@ Render.drawObjects = function drawObjects(scene) {
     if (role === 'wizard') return 3;
     return undefined;
   };
-  // Baseline sprite scale per role. Fort PNG is ~3× the others — scaled down so
-  // it still reads as a building, not a wall. Plain / blacksmith / trader /
-  // trailer / wizard share 0.6 so they look like neighbours from one village.
-  // (Fort was 0.35; the whole fort curve is ×0.8 — see FORT_FIT in util.js —
-  // because forts read ~25% too big.)
-  const _houseBaseScale = (o) => (_houseRole(o) === 'fort' ? 0.28 : 0.6);
+  // Baseline sprite scale per role — the size a building draws at before its
+  // own footprint has a say. Both numbers, and why they differ by so much, live
+  // with the rest of the roof-scale rule in util.js.
+  const _houseBaseScale = (o) =>
+    (_houseRole(o) === 'fort' ? FORT_BASE_SCALE : HOUSE_BASE_SCALE);
   // Size the roof against the building's OWN footprint — houses shrink to fit,
   // forts also grow into a big one. The rule itself (and why forts differ) is
   // houseArtScale in util.js; this only reads the art's real frame width and
@@ -2902,7 +2900,7 @@ Render.drawObjects = function drawObjects(scene) {
     // sprite vertically frame-to-frame; the flame still rises out the top.
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
-             origin: [0.5, 0.82], scale: 1.1, dyPx: CELL_PX * 0.38, seat: true, seatFrame: 0 },
+             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
@@ -2952,7 +2950,7 @@ Render.drawObjects = function drawObjects(scene) {
               // variant. Both pull from CROP_SPRITE.shrub.scale so they can't
               // drift apart. Larger tiers use treeScale.
               scale:  (o) => treeSizeClass(o) === 'bush'
-                ? (CROP_SPRITE.shrub?.scale ?? 0.667) : treeScale(o),
+                ? CROP_SPRITE.shrub.scale : treeScale(o),
               // Placement obeys the "one cell" rule via the seat pass (see the
               // render loop + src/sprite_layout.js): each tree is seated from
               // its trimmed art bounds so the trunk base sits 1px above the
@@ -3113,8 +3111,7 @@ Render.drawObjects = function drawObjects(scene) {
                 // skipped in the art (copper 0, iron 1, gold 2, platinum 3,
                 // crimson 5, frost 6).
                 const ORE_COL_BY_TIER = [0, 0, 0, 1, 2, 3, 5, 6];
-                const col = ORE_COL_BY_TIER[tier] ?? 0;
-                return 0 * MINERALROCK_COLS + col;
+                return ORE_COL_BY_TIER[tier] ?? 0;   // row 0, so frame === col
               },
               // Origin (0.5, 0.5) — centre the sprite in its cell. The
               // previous (0.5, 0.9) foot-anchor was meant for standing
@@ -3143,18 +3140,16 @@ Render.drawObjects = function drawObjects(scene) {
     // slice was cut off on the top and left; the art was redrawn complete),
     // so a plain frame-centred origin works — the seat pass refines the
     // final offsets from the trimmed bounds.
-    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, dyPx: CELL_PX * 0.4, seat: true },
-    // Stone well — decorative landmark for OSM amenity=fountain points. The
-    // 48×32 PNG's art is NOT frame-centred: its content occupies x:[2..36], so
-    // its visual centre is at 19.5/48 ≈ 0.41, not 0.5 — anchoring at 0.5 shoved
-    // the well ~6px left of its cell. originX 0.41 centres the well art on the
-    // cell. originY 0.62 + dyPx CELL_PX*0.18 seats the squat well body on its
-    // tile (a full foot-anchor floated it up). scale 1.18 trims it slightly so
-    // it doesn't overspill its cell. Tap refills the watering can (interact.js).
+    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, seat: true },
+    // Stone well — decorative landmark for OSM amenity=fountain points. Tap
+    // refills the watering can (interact.js). scale 0.9 draws the 30px frame at
+    // ~27px, inside its one cell (QC rule); the seat pass centres it there off
+    // the art's real bounds, which is what the well's off-centre content
+    // (x:[2..30) of a 30-wide frame) needs and what an origin cannot give it.
     // frame 0 is the well without the hoist arm (assets.js slices the sheet at
     // 30px); it is set explicitly because pool sprites are shared with
     // multi-frame sheets and would otherwise keep a stale frame index.
-    well:   { key: 'well', frame: 0, origin: [0.406, 0.62], scale: 0.9, dxPx: 6, dyPx: CELL_PX * 0.43 - 2, seat: true },
+    well:   { key: 'well', frame: 0, origin: [0.5, 0.5], scale: 0.9, seat: true },
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from inventoryIconSource(itemId) so any item with an
     // inventory icon can sit on the ground without per-kind plumbing.
@@ -3323,6 +3318,16 @@ Render.drawObjects = function drawObjects(scene) {
     // below; horizontally always centred. seatFrame pins the bounds lookup to
     // a stable frame for animated sheets (e.g. the flickering bonfire) so the
     // art doesn't bob frame-to-frame.
+    //
+    // A seated spec therefore CANNOT carry a placement of its own. dxPx/dyPx
+    // are overwritten outright, and the origin cancels: seatInCell measures the
+    // art relative to the anchor and then subtracts exactly that, so the art
+    // lands in the same place at origin [0.5,0.5], [0.406,0.62] or [0,1]. Both
+    // survive only as the fallback for a frame with no ART_BOUNDS entry (a
+    // mineralrock ore variant that hasn't been tabulated). Anything else is a
+    // tuned number that does nothing — three of these shipped, with comments
+    // explaining offsets that had not moved a sprite in months. If a seated
+    // sprite sits wrong, its ART_BOUNDS row is wrong; regenerate the table.
     const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
     const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
     if (wantSeat && SL) {
