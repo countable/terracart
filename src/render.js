@@ -2313,8 +2313,12 @@ Render.drawObjects = function drawObjects(scene) {
           // wildplant goes as itself: Lighting.sourceKind reads its crop.
           if (LIGHTS && wp.crop === 'mushroom') LIGHTS.consider(scene, wp, dx, dy, halfM);
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          // _biome is the terrain the rasterizer stamped on the plant (the flora
+          // tint below reads it); _ix/_iy only survive on the wildplants the
+          // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
+          // the id is what the per-cell variant hash actually keys off.
           plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id,
-                                  _cave: wp._cave, _ix: wp._ix, _iy: wp._iy }, dx, dy });
+                                  _cave: wp._cave, _biome: wp._biome, _ix: wp._ix, _iy: wp._iy }, dx, dy });
           _boot_kept++;
         }
       }
@@ -3829,8 +3833,12 @@ Render.drawObjects = function drawObjects(scene) {
     let shinyScale = 1;
     if (isShinyFlora) {
       // Desync each plant's twinkle off a stable per-id phase so a field of
-      // shinys shimmers out of step rather than blinking in unison.
-      const idH = ((p.wildId || '').length * 2654435761) >>> 0;
+      // shinys shimmers out of step rather than blinking in unison. The id is
+      // hashed as a STRING (util.js's one fnv1a): its LENGTH is the same
+      // number for every wildplant in a tile, so hashing that put the whole
+      // field back in unison — the same slip that emptied the beaches, see
+      // items.js's wildplantFrame.
+      const idH = fnv1a(p.wildId || '') >>> 0;
       const phase = ((_shinyNow + idH) % 1100) / 1100;          // 0..1
       const wave = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);  // 0..1
       shinyScale = 1.0 + 0.12 * wave;                           // 1.00..1.12 size pulse
@@ -3867,27 +3875,17 @@ Render.drawObjects = function drawObjects(scene) {
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
     const ov = CROP_SPRITE[p.crop];
     if (ov && ov.custom) {
-      // Custom-sheet wildplants. Some are single-frame (longgrass,
-      // mushroom), others have N visual variants picked off a stable
-      // per-item hash so the same world cell always renders the same
-      // shell / pebble / etc. but the field reads as varied. ov.frame
-      // overrides the default 0 — needed for sheets whose first cell
-      // is empty (mushroom_world's frame 0 is fully transparent).
+      // Custom-sheet wildplants. Some are one frame (longgrass, the flowers),
+      // others vary per cell — the shell's three cowries, the mushroom's two
+      // cave caps — so the same world cell always draws the same art while the
+      // field reads as varied. WHICH frame is items.js' call, not this pass's:
+      // wildplantFrame owns both the hash and the crop's declared frame list,
+      // so a frame the sheet doesn't carry can't be drawn here (this branch
+      // used to roll a hash over ov.variants, a COUNT of the sheet's cells,
+      // and the shell's count ran off the end of its art — see
+      // CROP_SPRITE.shell).
       setTextureIfDifferent(s, ov.sheet);
-      if (p._cave && ov.caveFrames) {
-        // Grown underground: the crop's cave look (the luminous mushroom
-        // caps), one of the variants off the same stable cell hash.
-        const h = ((p._ix ?? 0) * 73856093) ^ ((p._iy ?? 0) * 19349663);
-        s.setFrame(ov.caveFrames[Math.abs(h) % ov.caveFrames.length]);
-      } else if (ov.variants && ov.variants > 1) {
-        // Hash off the wildplant's stable _ix/_iy (or wildId for picked
-        // entries) so the variant survives reloads.
-        const h = ((p._ix ?? 0) * 73856093) ^ ((p._iy ?? 0) * 19349663)
-                ^ ((p.wildId || '').length * 2654435761);
-        s.setFrame(Math.abs(h) % ov.variants);
-      } else {
-        s.setFrame(ov.frame ?? 0);
-      }
+      s.setFrame(wildplantFrame(p));
     } else if (ov && ov.sheet === 'springcrops') {
       // Spring Crops: col 0 = seed (stage 0), cols 1..4 = growth (4 = mature).
       const frame = ov.row * SPRING_CROPS_COLS + stage;

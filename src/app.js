@@ -1249,8 +1249,8 @@ const ICON_SHEETS = {
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
   icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
   icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
-  // Beach pickup — 48×64 = 3×4 of 16×16. Frame 0 is the canonical
-  // cowrie used as the inventory icon.
+  // Beach pickup — 48×64 = 3×4 of 16×16, only the top row shell art (see
+  // CROP_SPRITE.shell). Frame 0 is the canonical cowrie, the inventory icon.
   shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
   // ALL props seasons — 352×192 of 16×16. 22 cols × 12 rows. Frame 0
   // (top-left grass tuft) backs the longgrass inventory icon now

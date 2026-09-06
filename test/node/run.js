@@ -1343,6 +1343,33 @@ for (const f of testFiles) {
       if (r.violations.length) throw new Error(r.violations.join('; '));
     } });
   }
+  // Every frame a wildplant DECLARES has to carry art. Nothing in the renderer
+  // can tell a frame holding a shell from one holding nothing, so a blank
+  // frame ships a pickup the player can tap but not see — which is what
+  // emptied the beaches (see test/node/shell_variants.test.js).
+  for (const r of audit.wildFrameRows()) {
+    ctx.__tests.push({ name: `wildplant frame: ${r.name}`, fn: () => {
+      if (r.violations.length) throw new Error(r.violations.join('; '));
+    } });
+  }
+  // …and the tripwire still fires on the art that set it off: the cells the
+  // shell sheet does NOT declare are blanks and flat mask rows, so the three
+  // declared frames are the whole of its shell art, not a third of it.
+  ctx.__tests.push({ name: 'wildplant frames: Shell.png carries 3 shells, not 12', fn: () => {
+    const sheet = audit.ASSETS.shell_sheet;
+    const img = audit.loadPng(sheet.path);
+    const ink = (f) => audit.frameInk(img, sheet.frameWidth, sheet.frameHeight, f);
+    for (const f of [7, 8, 10, 11]) {
+      if (ink(f).opaque !== 0) throw new Error(`frame ${f} was expected blank`);
+    }
+    for (const f of [6, 9]) {
+      if (ink(f).colours !== 1) throw new Error(`frame ${f} was expected a flat mask row`);
+    }
+    const declared = audit.CROP_SPRITE.shell.frames;
+    for (const f of [6, 7, 8, 9, 10, 11]) {
+      if (declared.includes(f)) throw new Error(`shell declares frame ${f}, which is not shell art`);
+    }
+  } });
 }
 
 // ── App-shell audit (tools/shell_audit.js) ────────────────────────────────
