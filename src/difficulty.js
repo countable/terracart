@@ -5,11 +5,11 @@
 // wants, once:
 //
 //   EASY  — "enable tutorial". The guided opening: the starter ladder chip,
-//           the supply-crate trail, the green arrow, and a pest-free home
-//           until the first harvest. The economy as shipped — farming,
+//           the supply-crate trail, the green arrow, a chicken on the
+//           doorstep, and a pest-free home until the first harvest. The economy as shipped — farming,
 //           exploring and rebuilding are the loop, and a fight is a choice.
-//   HARD  — "no tutorial". No ladder, no crates, no arrow, no amnesty: the
-//           slimes are in your yard from the first minute. The purse is
+//   HARD  — "no tutorial". No ladder, no crates, no arrow, no amnesty — and
+//           one slime seated beside the trailer before you take a step. The purse is
 //           smaller, the traders greedier, Home pays less for a haul — and
 //           the enemies are tougher, hit harder and come in bigger packs.
 //           A kill still pays per HP, so a tougher foe pays more: fighting
@@ -61,6 +61,14 @@
       enemyDmgMul: 1,           // over the surface slime's leech and every monster hit
       monsterCountMul: 1,       // over the cave spawner's 50 + 10/level
       slimeCountMul: 1,         // over BIOME_FAUNA.slime's per-tile count
+      // ── The doorstep ──
+      // The one creature GUARANTEED beside the starting trailer, whatever the
+      // biome roll gave the tile (app.js `_placeHomeGreeter`). It is the first
+      // living thing a new save sees, so it is the mode stating what kind of
+      // game this is before a word of text does: easy hands you a chicken —
+      // catchable, feedable, lays eggs — and hard puts a slime in the yard.
+      // Set it to null for a mode with no greeter at all.
+      homeGreeter: 'chicken',
     },
     [HARD]: {
       id: HARD,
@@ -76,6 +84,7 @@
       enemyDmgMul: 2,           // a slime leeches 6/s, a goblin hits for 16
       monsterCountMul: 1.5,     // 75 + 15/level, still under the spawner's 160 cap
       slimeCountMul: 2,         // 100 surface slimes a tile, and none of them wait for a harvest
+      homeGreeter: 'slime',     // "the slimes are in your yard from the first minute" — literally
     },
   };
 
