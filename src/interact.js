@@ -1067,10 +1067,10 @@ const TAP_HANDLERS = [
   }},
 
   // (There used to be a 'path-stone' handler here that claimed the cobble a
-  // tap landed on. Cobbles light by PROXIMITY now — app.js _sweepCobbleTrails
-  // lights every one inside the player's reach as they walk past — so the tap
-  // has nothing left to do, and a handler that claimed only the single tapped
-  // cell would be strictly worse than the sweep that already claimed it.)
+  // tap landed on. A street is rebuilt by PROXIMITY now — app.js _sweepStreets
+  // restores every metre that has sat inside the player's reach for the dwell
+  // — so the tap has nothing left to do, and a handler bound to a single cell
+  // could not address a stretch of way measured in metres anyway.)
 
   // 2a) Building-zone tap — runs AFTER cell-resolve so we already know the
   // player is within tap range of the cell. If that cell is a building tile

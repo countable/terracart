@@ -779,6 +779,7 @@ const PLAY_TIPS = [
   'A shiny animal pays ten times its plain kind, bolts twice as fast, and takes twice the work to bring down.',
   // ── Exploration / chests ──────────────────────────────────
   'Treasure X marks are buried in car parks — every parking lot hides one.',
+  'Roads and footpaths lie derelict until you stand by them: two seconds inside your light rebuilds that stretch for good. The first 200m restored pays a treasure, and each prize after asks 200m more.',
   'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
   'Chests near home are humbler: a tier down within 700m of your trailer, two within 350m. The prizes are a walk away.',
   'Every new kind of thing you discover banks a Discovery badge. Only the wizard values those.',

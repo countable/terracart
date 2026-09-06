@@ -342,10 +342,10 @@
   // below share this one Set.
   const LARGE_ROAD_CLASSES = new Set(['motorway', 'trunk', 'primary']);
   // Walkable, non-vehicle way classes — footways, tracks, steps and the like.
-  // THE COBBLE SET: the terrain codes that draw a stone and light when walked
-  // (footpath plus the three vehicle-road tiers — a street is a trail too).
-  // Exported, because app.js asks the GRID whether a cell is a stone now that
-  // per-path naming is gone.
+  // THE PAVED SET: the terrain codes a way rasterizes to (footpath plus the
+  // three vehicle-road tiers). Exported: tilling, the pavement erosion and
+  // the spawn filters ask the GRID whether a cell is paved. (Restoration is
+  // not per cell — src/streets.js measures it along the way's own geometry.)
   const COBBLE_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH]);
   const isCobbleTerrain = (t) => COBBLE_TYPES.has(t);
 
@@ -804,23 +804,23 @@
   }
 
   // ── The short-path-run floor ──────────────────────────────────────────────
-  // A cobble marks a route you can walk, and a THREE-cell scrap of footway is
-  // not one. OSM is full of those scraps — a driveway apron, a crossing across
-  // a street, the little tail a way leaves where it meets a road, the two
-  // cells of a path whose neighbours all failed the pathCross span test — and
-  // each one landed on the map as a lone pebble or two sitting in a field.
+  // A PATH cell marks a route you can walk, and a THREE-cell scrap of footway
+  // is not one. OSM is full of those scraps — a driveway apron, a crossing
+  // across a street, the little tail a way leaves where it meets a road, the
+  // two cells of a path whose neighbours all failed the pathCross span test —
+  // and each one landed on the map as a lone patch or two sitting in a field.
   //
   // So a run of PATH cells shorter than this is not a path at all: it goes
   // back to the biome it covered, exactly as a cell a way merely clips never
   // becomes PATH in the first place (pathCross, above). Deleting the TERRAIN
-  // rather than hiding the sprite is what keeps one answer to "is there a path
-  // here?": the stones go with it, the cell is tillable and spawnable again,
-  // and render.js needs no rule of its own.
+  // rather than hiding the ground is what keeps one answer to "is there a path
+  // here?": the cell is tillable and spawnable again, and render.js needs no
+  // rule of its own.
   //
-  // Counted in COBBLE CELLS — 15 of them is about 105 m of walking. render.js
-  // then thins what it DRAWS to one pebble per COBBLE_SPACING_M, and only a
-  // drawn pebble is a stone the player can walk for a prize; this is the floor
-  // on the path EXISTING at all, underneath both.
+  // Counted in PATH CELLS — 15 of them is about 105 m of walking. What the
+  // player RESTORES is metres of the way itself (src/streets.js, drawn by
+  // road_overlay.js), which is a separate question from the terrain; this is
+  // the floor on the path EXISTING at all, underneath both.
   const MIN_PATH_RUN_CELLS = 15;
 
   // Post-pass: dissolve every 4-connected run of PATH cells shorter than

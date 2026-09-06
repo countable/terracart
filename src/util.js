@@ -395,14 +395,21 @@ const UI_SHADOW     = '#000000';   // text stroke / drop shadow
 const UI_TREASURE      = '#f4f8ff';   // near-white with a blue cast — treasure surfaces + frames
 const UI_TREASURE_INK  = '#cfe2ff';   // blue-white as TEXT on a dark ground
 const UI_TREASURE_DEEP = '#7fb0ff';   // saturated blue — glow, side faces, deep accents
-// The LIT COBBLE colour, inside the same treasure/powerup role: a stone you
-// have walked, and the "3/10" that counts it. One constant, two readers —
-// app.js bakes the lit stone texture with it and the trail counter is drawn in
-// it, so the number and the stone under it can never end up different colours.
-// Violet-leaning rather than the sky blue it started as: still unmistakably in
-// the blue treasure family beside UI_TREASURE_DEEP, but far enough round the
-// wheel that a walked stone doesn't read as the same colour as water.
-const UI_TRAIL_LIT     = '#9a8cff';   // lit cobble — the stone and its counter
+// STREET INK — the colour of a street coming back. Pale, warm stone: what a
+// restored carriageway is MADE of, so the chips that fly off it, the sparks
+// that ring it and the "137/200 m" counting the walk all read as the same
+// material rather than as three unrelated effects.
+//
+// One constant, three readers — the counter (app.js), and the stone chips and
+// the spark ring (particles.js) — so the number and the debris under it can
+// never end up different colours.
+//
+// Deliberately NOT in the blue treasure role, which it wore as a violet
+// (UI_TRAIL_LIT) while the mechanic was lit pebbles: blue-white means "the
+// world is GIVING you something", and restoring a street is the player doing
+// something TO the world. The prize ceremony at the end of the ladder is the
+// gift, and it still wears the treasure ink.
+const UI_STREET_INK    = '#e8e2d6';   // restored street — its chips and its counter
 const UI_CONTROL       = UI_GOLD;     // player controls: buttons, pads, HUD accents
 const UI_CONTROL_DIM   = UI_GOLD_DARK;// control borders / rules / inactive controls
 

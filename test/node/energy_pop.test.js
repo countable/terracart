@@ -19,7 +19,8 @@
 
 (function () {
 const app = APP_JS_SRC;
-const { _cellToastAt, _energyPopAt, _isPlayerCell, _cellAtScreen, playerScreen } = __trailCounter;
+const { _worldToastAt, _cellToastAt, _energyPopAt, _isPlayerCell, _cellAtScreen,
+        playerScreen } = __trailCounter;
 const near = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
 
 // Same shape as trail.test.js's counterScene — round numbers, shipping cellM.
@@ -38,7 +39,7 @@ const popScene = (over) => Object.assign({
   viewCenterY: 200,
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); },
   screenToWorldMeters(sx, sy) { return screenToWorldMeters(this, sx, sy); },
-  _cellToastAt, _energyPopAt, _isPlayerCell, _cellAtScreen, playerScreen,
+  _worldToastAt, _cellToastAt, _energyPopAt, _isPlayerCell, _cellAtScreen, playerScreen,
 }, over || {});
 
 const playerCell = (s) => playerReachCell(s);
@@ -210,8 +211,13 @@ test('energy pop: _popEnergy seats through the projection', () => {
   assert.truthy(/this\.playerScreen\(\)/.test(seat[1]), 'the body pop reads playerScreen');
   assert.truthy(/this\._cellToastAt\(ix, iy, CELL_PX \/ 2 \+ ENERGY_POP_LIFT_PX\)/.test(seat[1]),
     'a cell pop lifts from the cell centre to just past its top edge');
-  assert.truthy(/_trailCounterAt\(ix, iy\) \{\s*\n\s*return this\._cellToastAt\(ix, iy, TRAIL_COUNTER_LIFT_PX\);/.test(app),
-    'the trail counter shares the one cell seating');
+  // _cellToastAt is the CELL face of _worldToastAt, which is what the street
+  // counter hangs on a rebuilt stretch with — so a number on a cell and a
+  // number on a street go through the one projection.
+  assert.truthy(/_cellToastAt\(ix, iy, liftPx\) \{[\s\S]*?return this\._worldToastAt\(c\.x, c\.y, liftPx\);/.test(app),
+    'the cell seating is the world seating, at the cell centre');
+  assert.truthy(/this\._worldToastAt\(at\.x, at\.y, STREET_COUNTER_LIFT_PX\)/.test(app),
+    'and the street counter shares it');
 });
 
 test('energy pop: a body pop hangs on the player, and nothing is drawn on the ground', () => {

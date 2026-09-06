@@ -210,7 +210,8 @@ MOVEMENT & REACH
  - WHAT "DIMMED" COVERS: the out-of-reach wash, the underground torch wash, the
    low-energy pink tint and the white reach outline all paint onto a dedicated
    LIGHTING layer (app.js reachGfx), which sits ABOVE every ground layer —
-   terrain fill, dashed grid, biome seam borders, cobbles, road lettering, POI
+   terrain fill, dashed grid, biome seam borders, the road band, pier planks,
+   road lettering, POI
    halos, treasure pads, shadows, the biome haze — and BELOW the standing
    sprites. Ground recedes outside the lit area; trees, houses and creatures
    keep full contrast, and DISTANCE (not reach) is what dims them, via
@@ -219,7 +220,7 @@ MOVEMENT & REACH
    could only darken the base terrain colour and every decoration above it
    stayed bright outside the lit area — biome BOUNDARIES most visibly, reading
    as glowing seams in the dark. Forcing the wash to alpha 1.0 showed the road
-   strip, the pale cobbles and the road lettering punching straight through a
+   strip, the ground decoration and the road lettering punching straight through a
    fully opaque black.
    Phaser draws in insertion order, so create()'s layer sequence IS the
    z-order and nothing in the code says so; tools/layer_audit.js pins it.
@@ -800,84 +801,136 @@ TREASURE MARKS (X on the ground)
    spawn near a road.
 
 ================================================================================
-COBBLE TRAILS (path + road stones)
+STREET RESTORATION (the road band itself)
 ================================================================================
- - a STONE is a cobble cell that DRAWS a pebble — footpath and street alike.
-   Only ~35% of path cells and 15% of road cells draw one (see the spacing rule
-   below), and the ones that don't are not stones: they light nothing and count
-   nothing. Counted and drawn are the same set (render.js cobbleShown, read by
-   both sides), because a counter that ticks on stones the player can't see is
-   counting nothing they did.
- - a stone LIGHTS THE MOMENT IT ENTERS THE PLAYER'S LIT REACH. No tap, no
-   footfall: walk near a trail and every stone inside the lit bubble comes on
-   at once, which is what the reach circle already says it covers. The gate is
-   the same coords.js cellInReach the lit silhouette draws with, measured from
-   the PLAYER, not the camera anchor — a peek drag lights nothing extra.
- - a lit stone draws at FULL opacity in a recoloured violet-blue (UI_TRAIL_LIT,
-   baked per road/path frame, not a tint — setTint is a no-op under the Canvas
-   fallback) while unlit cobbles sit at 57% grey, so a walked trail visibly
-   lights up as you go. AND IT GLOWS: the baked copy carries a soft violet halo
-   of the stone's own silhouette in a padded margin (render.js
-   LIT_COBBLE_GLOW_PAD; drawn LIT_COBBLE_GLOW_SCALE larger so the stone keeps
-   its cell size) and a white-hot core added over its middle, and every lit
-   stone is a small breathing light on the lightmap (Lighting.KINDS.cobble, in
-   the same violet) so the walked trail still glows behind you after dark.
-   Lighting one is a BLAST: the scale-pop on the stone (PATH_STONE_FLASH_MS)
-   plus the shared restoration fanfare below, fired once per stone by the
-   sweep that lit it (app.js _blastAt at the cell centre, BLAST_STONE_R_CELLS
-   wide, chips 'stone' + sparks 'trailspark') — big enough to catch out of the
-   corner of the eye now that stones light several cells out rather than one
-   under your feet. Until Sep 2026 it was the recolour and the chips alone,
-   "a dull lavender"; until the blast was made reusable the flash was a
-   per-cobble light row (cobbleFlash) that drawCells re-offered on every frame
-   of the pop, which is why nothing else in the game could borrow it.
+ - THE ROAD BAND IS DILAPIDATED BY DEFAULT and the player rebuilds it. Every
+   way road_overlay.js strokes is painted cracked, damp and missing setts (the
+   weathering tile on the base canvas); wherever a stretch has sat inside the
+   player's lit reach CONTINUOUSLY for PATH_STONE_DWELL_MS (2000 ms, app.js) it
+   turns to clean near-black cobble with a hairline kerb, forever, saved.
+   Footpaths restore too, to a darker packed earth. Rail never.
+ - A STRETCH IS METRES, NOT CELLS. What restores is an INTERVAL OF ARCLENGTH
+   along ONE LINE of one OSM way, in tile-local metres — the same coordinate
+   the band is stroked in. The terrain grid under-reports a road every time (a
+   way rasterizes exactly one cell wide however wide it is; parking aisles
+   rasterize to no cell at all), so a per-cell rule could never line up with
+   what the player sees restored. Until Sep 2026 this was LIT PEBBLES — one
+   sprite per 20 m of path, thinned by the renderer — and half a street
+   restored between two of them paid nothing at all. The pebbles, their lit
+   textures, their light row and the 'cobble' spritesheet are all gone.
+ - A STREET PIECE IS ONE LINE OF ONE FEATURE, never the feature. About a
+   quarter of the transportation features on a real tile are merged multi-lines
+   (one had 42 disconnected lines over 6.8 km), so keying on the feature id
+   alone would weld unrelated streets into one row. Streets.lineKey hashes the
+   LINE — its class, its two ends and its vertex count — beside the id, and the
+   hash is stable forever because the save is keyed on it.
+ - ONLY THE TILE SQUARE COUNTS. MVT geometry runs past [0, extent] into the
+   tile's buffer and the same metres come back inside the NEIGHBOUR tile's copy
+   of the way, so Streets.tileSpans clips to the square and the sweep
+   intersects with it. Without that every way crossing a tile edge would be
+   restored and paid for twice.
+ - THE SWEEP (app.js _sweepStreets, called from update()) has two halves.
+     * THE SCAN (_rescanStreets) is memoised on the reach CELL plus the rounded
+       radius: standing still can't bring fresh street into the bubble, and the
+       only things that can are moving to another cell or the reach changing.
+       It walks the 3×3 tiles' transportation layers, skips rail ('rail' /
+       'transit') and KEEPS everything else (parking aisles included — the
+       overlay draws them), bbox-prefilters each line against the reach circle
+       in tile-local metres, then takes Streets.reachIntervals (an EXACT grid
+       traversal per segment, never sampling) ∩ tileSpans − what is already
+       restored, and pushes it as a SNAPSHOT onto the dwell sight.
+       The reach gate is coords.js cellInReach measured from the PLAYER'S REACH
+       CELL, never the camera anchor — a peek drag restores nothing extra.
+     * THE RIPEN (_ripenStreets) runs EVERY frame, because the thing it waits
+       on is the clock, not the player. Streets.createSight().ripeAll returns
+       what has been in sight for every instant of the last dwell (the
+       intersection of every snapshot in the window plus the one current when
+       it opened); Streets.restore unions it into the save and reports only the
+       metres that were NEW.
+   Sight is CONTINUOUS: an empty snapshot drops a key's whole history, so
+   clipping the edge of the bubble in passing restarts the clock. The auto-walk
+   home (_driftingHome), a cave (depth > 0) and a flat battery (reachM <= 0)
+   all clear the sight and bank nothing — that is the game moving the body, not
+   the player looking at anything.
+ - THE SAVE:
+     save.streets      = { "<z/tx/ty>": { "<lineKey>": [s0,s1, s0,s1, …] } }
+     save.streetsEpoch = n     ← bumped by any restore that added metres
+     save.trail        = { metres, prizes }
+   Flat pairs because a walked city keeps one row per line of every way the
+   player has stood beside. The epoch is folded into road_overlay.js's rebuild
+   key, so a restore repaints the restored canvas on the next frame and nothing
+   repaints on the frames between. savemigrate.js folds the old
+   save.trail.stones into metres (× 20) and drops save.pathStones outright —
+   lit pebble CELLS do not map onto intervals; prizes and progress are kept.
+ - THREE PASSES DRAW IT. Both baked canvases live in roadGeomContainer and
+   rebuild together, keyed on the snapped anchor cell + tile readiness + epoch:
+     * 'roadgeom_overlay' — the dilapidated network, at image alpha 0.61.
+     * 'roadgeom_restored' — the rebuilt stretches, stroked from the save's
+       intervals through Streets.subLineM at the way's own widthPxFor, above
+       the base at RESTORED_ALPHA (0.92), with the clean sett pattern and the
+       kerb. No edge nibble: a clean edge is the point.
+     * RoadOverlay.drawLive(scene, runs) — a plain Graphics above both,
+       cleared and re-stroked EVERY frame from app.js _drawStreetLive. It
+       carries the DWELL PREVIEW (the in-sight-unrestored intervals, alpha
+       ramping to STREET_PREVIEW_ALPHA over the dwell, so the two seconds read
+       as a thing being done) and the SHINE (a white run down a stretch the
+       instant it comes back, fading over STREET_SHINE_MS = Lighting.BLAST_MS).
+       Points are projected through scene.worldMetersToScreen — the
+       camera-anchored projection — with the container's own sub-cell offset
+       subtracted back out. The sub-polylines are cut ONCE per scan, not per
+       frame: a merged way can carry thousands of vertices.
  - THE BLAST (restoration fanfare) is ONE thing at any size — app.js
    _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, colour, material }),
-   fired at the instant a thing comes back. Three parts:
+   fired at the instant a thing comes back. ONE per sweep, at the MIDPOINT OF
+   THE LONGEST piece the step restored (the stretch the player is looking at,
+   not a metre of driveway at the rim). Three parts:
      * THE LIGHT. Lighting.blast puts a transient entry on scene._blasts —
        world metres, its own radius, colour and duration — and the lightmap's
        collectBlasts converts it against THIS frame's camera anchor, stamps it
        with alpha (1-t)² and scale FLASH_SCALE_FROM→1, and drops it when its
        time is up. Stored in world metres precisely so a peek drag leaves the
-       flash on the ground it went off on. Defaults are the old per-cobble
-       numbers exactly: 2.5 cells, 900 ms (= render.js PATH_STONE_FLASH_MS).
+       flash on the ground it went off on. Defaults are the old per-pebble
+       numbers exactly: 2.5 cells (BLAST_STONE_R_CELLS), 900 ms.
      * THE CHIPS. Debris in the thing's own material (particles.js 'stone' for
-       a cobble, 'timber' for a building; `material` recolours a preset, which
+       a street, 'timber' for a building; `material` recolours a preset, which
        bakes its own texture and emitter — never a tint).
-     * THE SPARKS. A ring of stars in the moment's colour ('trailspark' violet
-       for a stone, 'buildspark' in UI_GREEN for a building).
+     * THE SPARKS. A ring of stars in the moment's colour ('trailspark' in the
+       street ink for a street, 'buildspark' in UI_GREEN for a building).
    `ringPx` is what scales the particles to the thing: 0 throws them out of one
-   point (a stone), a building's half-extent throws them off its WALLS and
-   scales the count with the radius (particles.js ringPoints / burstCount,
-   capped at BURST_MAX). Two call sites today — every cobble that lights, and
+   point (a street stretch), a building's half-extent throws them off its WALLS
+   and scales the count with the radius (particles.js ringPoints / burstCount,
+   capped at BURST_MAX). Two call sites today — every restoring sweep, and
    every wreck restored (at the footprint's centre, radius = its half-diagonal
    + BLAST_HOUSE_PAD_CELLS, ring = its half-extent), the latter fired the
    moment the role is frozen and banked, before the Restored! card opens over
    it. Add a third by calling _blastAt; never by adding a light row.
 
- - ONE LADDER FOR THE WHOLE WORLD. Every stone lit anywhere adds to a single
-   running count (save.trail = { stones, prizes }); the first treasure lands at
-   Trail.GOAL_STEP (10) stones, the next at 20, the next at 30, and so on. At
-   ~20 m between stones that is a couple of hundred metres for the first prize
-   and a proper expedition for the tenth. A sweep that crosses more than one
-   goal at once queues the ceremonies rather than stacking modals.
-   The arithmetic lives in src/trail.js so the headless suite pins it.
+ - ONE LADDER FOR THE WHOLE WORLD. Every metre restored anywhere adds to a
+   single running total (save.trail = { metres, prizes }); the first treasure
+   lands at Trail.GOAL_STEP_M (200 m), the next at 400, the next at 600, and so
+   on — a couple of hundred metres for the first prize and a proper expedition
+   for the tenth. A sweep that crosses more than one goal at once queues the
+   ceremonies rather than stacking modals. The arithmetic lives in src/trail.js
+   and the interval algebra in src/streets.js, so the headless suite pins both.
  - THE PRIZES USED TO BE PER PATH: each named way on each tile ran its own
    counter, its own 20-stone segment with a short remainder at the end, its own
    "under 8 cells pays nothing" floor and its own row in the save, and worldgen
    ran a wavefront pass over every tile to decide which stone belonged to which
    way. The same walk therefore paid differently depending on how OSM happened
    to split the ways under it. None of that survives — no names, no segments,
-   no per-path anything. A stone is a stone wherever you pick it up.
- - each sweep pops a small violet COUNTER — stones banked over the current goal
-   ("7/10") — ON the nearest stone it just lit, in the same colour the stone
-   lights up in, seated through the projection so a peek drag keeps it on its
-   cobble. One counter per sweep, however many stones the step swept up. On
-   the sweep that PAYS it reads the goal just completed, full ("10/10",
-   Trail.readout), never the carried remainder against the next rung — the
-   ladder grows, and "3/20" beside a prize that paid at 10 read as a
-   disagreement. The prize modal's header is "Thou hast traveled far"; the
-   count it paid at is the pick's flavour line.
+   no per-path anything. A metre is a metre wherever it is restored.
+ - each sweep pops a small COUNTER in UI_STREET_INK — metres banked over the
+   current goal ("137/200 m", Trail.label, the ONE formatter) — ON the stretch
+   it just rebuilt, seated through the projection (_worldToastAt) so a peek
+   drag keeps it on its street. One counter per sweep, however much street the
+   step brought back, throttled to one per STREET_COUNTER_MIN_MS (1000 ms)
+   because a walk restores metres on nearly every frame; the ladder banks
+   regardless. On the sweep that PAYS it jumps the throttle and reads the goal
+   just completed, full ("200/200 m", Trail.readout), never the carried
+   remainder against the next rung — the ladder grows, and "60/400 m" beside a
+   prize that paid at 200 read as a disagreement. The prize modal's header is
+   "Thou hast traveled far"; the walk it paid at is the pick's flavour line,
+   printed through the same Trail.label.
  - each prize is a lowtier-chest roll at tier 4 through the unified rarity
    picker, shown with the chest reward fanfare, AND IT IS A CHOICE: two rolls
    are offered and the player keeps one (Trail.PRIZE_CHOICES). The options must
@@ -886,16 +939,18 @@ COBBLE TRAILS (path + road stones)
    was never theirs. The roll also IMPROVES as the walks get longer:
    Trail.rollBonusFor spends one extra boost-chain step per prize already won,
    capped (past the cap a chain step only buys consolation coins).
- - WHICH CELLS ARE PATH AT ALL is geometric. A cell becomes PATH only where
-   at least one full cell width of way lies inside it — the path runs THROUGH
-   the cell rather than clipping its corner or stopping just inside. Measured
-   by worldgen's accumulateLineSpan (an exact grid traversal, not sampling:
-   a straight orthogonal crossing measures exactly 1.0, a corner-to-corner
-   diagonal sqrt(2)) in a PRE-PASS over every footpath before any painting,
-   since a cell's total is the SUM over all path ways touching it — so a
-   junction where two ways each cut a corner still qualifies. A clipped cell
-   keeps its own biome and stays tillable, spawnable and unclaimable, because
-   there is no path there.
+ - WHICH CELLS ARE PATH AT ALL is still geometric, and still matters — the PATH
+   terrain code decides ground colour, tillability and where the X-mark spawner
+   samples, even though nothing draws a pebble on it any more. A cell becomes
+   PATH only where at least one full cell width of way lies inside it — the
+   path runs THROUGH the cell rather than clipping its corner or stopping just
+   inside. Measured by worldgen's accumulateLineSpan (an exact grid traversal,
+   not sampling: a straight orthogonal crossing measures exactly 1.0, a
+   corner-to-corner diagonal sqrt(2)) in a PRE-PASS over every footpath before
+   any painting, since a cell's total is the SUM over all path ways touching it
+   — so a junction where two ways each cut a corner still qualifies. A clipped
+   cell keeps its own biome and stays tillable, spawnable and unclaimable,
+   because there is no path there.
    ONE EXEMPTION: the connectivity elbow. forEachLineCell stamps an extra cell
    on each diagonal step so a width-1 line stays 4-connected (the renderer
    draws orthogonal arms only). Its span is ~0 by construction, so gating it
@@ -903,19 +958,10 @@ COBBLE TRAILS (path + road stones)
    between two cells the line genuinely crosses and is always painted.
  - AND A RUN OF UNDER 15 PATH CELLS IS NOT A PATH (WorldGen.MIN_PATH_RUN_CELLS,
    ~105 m). OSM leaves footway scraps everywhere — a driveway apron, a crossing,
-   the tail of a way — and each landed as a lone pebble in a field. The whole
-   run dissolves back to the biome it covered, so the stones go with the
-   terrain and the renderer needs no rule of its own. A run touching the tile
+   the tail of a way — and each landed as a lone patch of path in a field. The
+   whole run dissolves back to the biome it covered. A run touching the tile
    edge is exempt: it continues into the neighbour tile, which counts only its
    own cells.
- - HOW MANY STONES: one pebble per Render.COBBLE_SPACING_M (20 m) of path, and
-   a road cell draws its cluster 15% of the time. The path share is DERIVED
-   from the spacing and the tile's own cell size, not authored as a percentage,
-   because a cell is tileEdgeM / cellsPerEdge and drifts with latitude — a flat
-   percentage would spread the stones further apart the further north you play.
-   The roll is permanent and per-cell: a cell that rolled no stone stays bare
-   even once walked over (popping one in would read as a bug, not as "lighting
-   up"), and it is not a stone for counting either.
 
 ================================================================================
 WELLS / FOUNTAINS

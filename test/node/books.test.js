@@ -215,11 +215,12 @@ test('course: the blocks run in first-encounter order, not subject order', () =>
   const village   = idx(/ending in 9 is a Blacksmith/i);
   const animals   = idx(/Chickens peck at any seed/i);
   const roaming   = idx(/Treasure X marks are buried in car parks/i);
+  const streets   = idx(/derelict until you stand by them/i);
   const fighting  = idx(/Only one weapon is ever in play/i);
   const caves     = idx(/Goblins hold the deep/i);
   const gates     = idx(/castle vault stays shut/i);
   const secret    = idx(/old texts speak of a gem/i);
-  const seq = { basics, screen, farm, village, animals, roaming, fighting, caves, gates, secret };
+  const seq = { basics, screen, farm, village, animals, roaming, streets, fighting, caves, gates, secret };
   for (const [k, v] of Object.entries(seq)) assert.gt(v, -1, `${k} tip is still in the list`);
   const names = Object.keys(seq);
   for (let i = 1; i < names.length; i++) {
@@ -258,6 +259,29 @@ test('tips: the home rest quotes HOME_FULL_REST_S, and no tip rests you in a str
 test('tips: the offline rest quotes Energy.OFFLINE_FULL_REST_MS', () => {
   assert.eq(Energy.OFFLINE_FULL_REST_MS, 60 * 60 * 1000, 'an hour away refills the bar');
   assert.truthy(someTip(/an hour away from the game/i), 'and a tip says an hour, not just "trickles back"');
+});
+
+test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
+  // Nothing on the map says how long you have to stand by a street, or how
+  // much of one a prize costs — the dwell is a constant in app.js and the rung
+  // is a constant in trail.js, and no item's ✦ line can carry either. So the
+  // Book carries them, and both are re-derived here rather than retyped: a
+  // retune of the ladder or the dwell has to move the tip with it.
+  assert.eq(Trail.GOAL_STEP_M, 200, 'the first rung is two hundred metres');
+  const tip = PLAY_TIPS.find((t) => /derelict until you stand by them/i.test(t));
+  assert.truthy(tip, 'the street tip is in the list');
+  assert.truthy(tip.includes(`${Trail.GOAL_STEP_M}m`), 'and quotes the rung the ladder owns');
+  // The dwell, in whole seconds, said in words.
+  const dwell = +/const PATH_STONE_DWELL_MS = (\d+);/.exec(APP_JS_SRC)[1];
+  assert.eq(dwell, 2000, 'two seconds of sight rebuilds a stretch');
+  assert.truthy(/two seconds/i.test(tip), 'and the tip says two seconds');
+  // Each rung asks GOAL_STEP_M MORE than the last — "every 200m" would be a
+  // lie by the second prize.
+  assert.eq(Trail.goalFor(1) - Trail.goalFor(0), Trail.GOAL_STEP_M, 'the rungs grow by a step');
+  assert.truthy(/each prize after asks/i.test(tip), 'and the tip says the ladder lengthens');
+  // The stale claim: the mechanic was lit pebbles until Sep 2026.
+  assert.falsy(/cobble/i.test(TIPS_BLOB), 'no tip still counts cobbles');
+  assert.falsy(/lit stone/i.test(TIPS_BLOB), 'nor lit stones');
 });
 
 test('tips: working-is-not-resting is documented, because it is enforced', () => {

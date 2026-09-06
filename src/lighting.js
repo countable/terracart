@@ -16,8 +16,6 @@
 //                                   or 'handtorch' while a Torch burns
 //   Lighting.beginFrame(scene)    — empty the frame's light list
 //   Lighting.consider(scene, o, dx, dy, halfM) — offer a scanned object
-//   Lighting.beginCells(scene)     — reset the CELL lights (the lit cobbles)
-//   Lighting.considerCobble(scene, dx, dy, id) — a lit stone, from drawCells
 //   Lighting.blast(scene, wmx, wmy, opts) — fire a transient restoration flash
 //   Lighting.collectBlasts(scene, ax, ay, halfM, now) — the live ones, pruned
 //   Lighting.collectFires(scene, ax, ay, halfM) — add the placed campfires
@@ -109,11 +107,6 @@
   // own light, out to TORCH_RADIUS_MUL player radii. Nothing here asks the
   // depth: a torch by night on the surface is fine, and free.
   const TORCH_RADIUS_MUL = 2;
-  // The lit-cobble violet (util.js UI_TRAIL_LIT) as a number, with the same
-  // literal fallback particles.js carries so the module loads standalone.
-  const TRAIL_LIT = (typeof UI_TRAIL_LIT === 'string')
-    ? parseInt(UI_TRAIL_LIT.replace('#', ''), 16) : 0x9a8cff;
-
   const KINDS = {
     // The player: white, out to the furthest visible pixel (the viewport's
     // half-diagonal) plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay
@@ -166,25 +159,13 @@
     // — lighting.test.js pins the order — so a lit cave reads as "a torch
     // there, some fungus here", never two of the same lamp.
     mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.50, flicker: 0, pulse: 0.35 },
-    // A LIT COBBLE — a trail stone the player has walked past. The stone's
-    // own art is recoloured and haloed (app.js bakes it in UI_TRAIL_LIT), but
-    // that art sits under the lightmap and goes as dark as the ground after
-    // sunset; this row is what keeps a walked trail GLOWING behind the player
-    // at night and in the far field, one small violet pool per stone,
-    // breathing slowly like a POI so a long street of them shimmers rather
-    // than sits. The same constant the stone and its counter are drawn in
-    // (TRAIL_LIT below), so the glow can't drift off the stone's colour.
-    // Tiny — under a mushroom's reach — because a road can carry dozens in
-    // view, and a trail should read as a string of lights, not a floodlit
-    // strip. Collected by drawCells (considerCobble), not sourceKind: a
-    // stone is a cell, not an object.
-    cobble:   { radiusCells: 1.0, colour: TRAIL_LIT, peak: 0.58, flicker: 0, pulse: 0.30 },
     // A BLAST — the one-shot near-white flash of a RESTORATION moment: a
-    // cobble coming on, a wreck pulled back into a house. Unlike every row
-    // above it this one is TRANSIENT and SCALABLE: `Lighting.blast` puts an
-    // entry on scene._blasts with its own radius, colour and duration, and
-    // the row's radiusCells is only the default (a stone's — the length and
-    // width of the old per-cobble flash exactly). It is the one light that
+    // stretch of street rebuilt, a wreck pulled back into a house. Unlike
+    // every row above it this one is TRANSIENT and SCALABLE: `Lighting.blast`
+    // puts an entry on scene._blasts with its own radius, colour and
+    // duration, and the row's radiusCells is only the default (a street
+    // stretch's — the length and width of the old per-cobble flash exactly,
+    // which is why BLAST_MS is 900). It is the one light that
     // shows INSIDE the reach plateau by day: the plateau sits a few percent
     // under white, and a peak this high tips a cell to full white for the
     // first frames, which is the flash.
@@ -455,38 +436,29 @@
     scene._lights.length = 0;
   }
 
-  // The CELL lights — the lit cobbles — live on their own list, because the
-  // cell pass (drawCells) runs BEFORE the object pass (drawObjects) and
-  // beginFrame resets the object list at the top of the latter; a stone
-  // pushed onto scene._lights would be gone before draw() read it.
-  function beginCells(scene) {
-    if (!scene._cellLights) scene._cellLights = [];
-    scene._cellLights.length = 0;
-  }
-
-  // Offer one lit cobble at (dx, dy) metres from the camera anchor: the
-  // steady violet pool that keeps a walked trail glowing after dark. The
-  // FLASH as a stone comes on is not here — it is a blast (below), fired once
-  // by the sweep that lit the stone rather than re-offered by this pass on
-  // every frame of the pop. Returns the number of lights kept.
-  function considerCobble(scene, dx, dy, id) {
-    if (!scene._cellLights) scene._cellLights = [];
-    scene._cellLights.push({ kind: 'cobble', dx, dy, id });
-    return 1;
-  }
+  // THERE ARE NO CELL LIGHTS. A second list used to run beside the object one,
+  // carrying a small violet pool per lit cobble offered by drawCells. The
+  // cobbles are gone (a street is restored as arclength along the way now, not
+  // as a lit pebble per cell) and so is that list: a restored street is DRAWN
+  // clean by road_overlay.js and needs no light of its own. If a cell ever
+  // wants a light again, note why the list was separate — drawCells runs
+  // BEFORE drawObjects, and beginFrame empties the object list at the top of
+  // the latter.
 
   // ── BLASTS: transient lights on their own clock ──────────────────────────
-  // A restoration moment — a cobble lighting, a wreck restored — throws a
+  // A restoration moment — a street stretch rebuilt, a wreck restored — throws a
   // wide near-white flash that swells as it fades. It is fired ONCE, at the
   // instant the thing happens, and then lives on scene._blasts until it
   // burns out; every frame collectBlasts converts it against that frame's
   // camera anchor, so a peek drag keeps the flash on the ground it went off
   // on (the camera rule in CLAUDE.md), and drops it when its time is up.
   //
-  // Its curve is the cobble flash's, unchanged: alpha (1-t)², scale from
-  // FLASH_SCALE_FROM to 1 across the duration — and its defaults are the old
-  // per-cobble numbers exactly (2.5 cells, PATH_STONE_FLASH_MS = 900 ms), so
-  // a stone looks as it always did while a building can ask for six.
+  // Its curve is the old per-cobble flash's, unchanged: alpha (1-t)², scale
+  // from FLASH_SCALE_FROM to 1 across the duration — and its defaults are that
+  // flash's numbers exactly (2.5 cells, 900 ms), so a restored stretch flashes
+  // as a lighting stone always did while a building can ask for six. The
+  // 900 ms is also the window app.js runs its white SHINE down a stretch for,
+  // so the flash and the shine end together.
   const FLASH_SCALE_FROM = 0.45;
   const BLAST_RADIUS_CELLS = 2.5;
   const BLAST_MS = 900;
@@ -867,9 +839,8 @@
       ctx.fill();
     }
 
-    // The lights: the objects' (drawObjects' scan + the fires + the blasts),
-    // then the cells' (the lit cobbles, from drawCells). A light may carry its
-    // own alpha / scale multipliers (`a`, `s` — a blast drives both off its own
+    // The lights: the objects' — drawObjects' scan, plus the fires and the
+    // blasts. A light may carry its own alpha / scale multipliers (`a`, `s` — a blast drives both off its own
     // clock) on top of the row's flicker, and its own radius / colour (`r`,
     // `colour` — a blast is sized to the thing it went off on).
     const stamp = (L) => {
@@ -884,7 +855,6 @@
         scene.viewCenterY + L.dy * k - oy - d / 2, d, d);
     };
     for (const L of scene._lights) stamp(L);
-    if (scene._cellLights) for (const L of scene._cellLights) stamp(L);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     tex.refresh();
@@ -897,7 +867,7 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires,
-    collectPlayer, beginCells, considerCobble, TRAIL_LIT,
+    collectPlayer,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, BLAST_MAX, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
   };

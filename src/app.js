@@ -56,25 +56,42 @@ if (typeof window !== 'undefined') {
 }
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
-// How far above a lit cobble's centre the trail counter sits. Just over half a
-// cell, so the number clears the pebble it belongs to without floating off
-// into the cell above it.
-const TRAIL_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
+// How far above the restored stretch the street counter sits. Just over half a
+// cell, so the number clears the carriageway it belongs to without floating
+// off into the cell above it.
+const STREET_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
 // The trail prize modal's header — the kind label the ceremony overrides
 // (MODAL_KINDS). It used to be the count ("10 COBBLES WALKED"); the count now
-// lives on the stone's counter and in the pick's flavour line.
+// lives on the street's counter and in the pick's flavour line.
 const TRAIL_PRIZE_HEADER = 'Thou hast traveled far';
-// How long a cobble has to stay IN SIGHT — inside the lit reach, continuously —
-// before it lights. Walking past a trail at the edge of the bubble no longer
-// harvests it in the frame it clips: the stones you bank are the ones you
-// actually spent a moment beside. Leave the reach and the clock restarts from
-// zero (see _sweepCobbleTrails); the same reset covers the auto-walk home,
-// which is the character moving itself and never the player looking.
+// How long a stretch of street has to stay IN SIGHT — inside the lit reach,
+// continuously — before it is rebuilt. Walking past a street at the edge of
+// the bubble no longer harvests it in the frame it clips: the metres you bank
+// are the ones you actually spent a moment beside. Leave the reach and the
+// clock restarts from zero (Streets.createSight drops a key's whole history
+// when it goes empty); the same reset covers the auto-walk home, which is the
+// character moving itself and never the player looking.
 const PATH_STONE_DWELL_MS = 2000;
-// A COBBLE'S BLAST (_blastAt): the flash a stone lighting throws, in cells.
-// The same 2.5 the per-cobble flash was stamped at before the blast became one
-// reusable thing, so a stone looks exactly as it did.
+// A RESTORATION'S BLAST (_blastAt): the flash a stretch coming back throws, in
+// cells. The same 2.5 the old per-pebble flash was stamped at before the blast
+// became one reusable thing, so a street rebuilding reads as a stone lighting
+// always did.
 const BLAST_STONE_R_CELLS = 2.5;
+// The white SHINE that runs down a stretch the instant it is rebuilt, in ms.
+// Lighting.BLAST_MS, not a number of its own: the shine and the lightmap flash
+// are two halves of one moment and must end together.
+const STREET_SHINE_MS = (typeof Lighting !== 'undefined' && Lighting.BLAST_MS) || 900;
+// How faint the DWELL PREVIEW gets at its fullest — the ghost of the clean
+// carriageway creeping in under the player while the dwell runs. Well under
+// half, because the preview is a promise, not the thing: at the instant it
+// completes the restored canvas takes over at RESTORED_ALPHA (0.92) and the
+// step up is what reads as "done".
+const STREET_PREVIEW_ALPHA = 0.55;
+// The counter pops at most this often. A wide reach walked along a street
+// restores metres on nearly every frame, and a "137/200 m" re-drawn sixty
+// times a second is a flicker rather than a readout. The ladder still banks
+// every frame — only the toast waits.
+const STREET_COUNTER_MIN_MS = 1000;
 // A BUILDING'S BLAST: how far past the footprint's own half-diagonal the flash
 // reaches, in cells. Two, so the light clears the roof and the street either
 // side of it — a restored house is the biggest thing the player has done all
@@ -938,14 +955,6 @@ function isTillable(type) { return !NON_TILLABLE.has(type); }
 // street. Takes a cellAt() result; a stub cell without underRoad (tests)
 // behaves exactly like the old type-only check.
 function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
-// Trail stones are keyed by TILE-LOCAL ix_iy (per the worldgen rasterize
-// loop) while their callers (_isPathStoneActive / _activatePathStone) are
-// handed ABSOLUTE cell coords. Strip the tile-origin offset; N rides along
-// because the caller indexes the grid with it.
-function pathStoneLocal(entry, ix, iy) {
-  const N = entry.cellsPerEdge;
-  return { lix: ((ix % N) + N) % N, liy: ((iy % N) + N) % N, N };
-}
 // Building interior cells — small house, fort, civic slab. Not a rest spot:
 // resting is Home's ring (HOME_R) or a campfire's, and nothing else. Read by
 // interact.js; Home stopped needing it when its rest became a radius.
@@ -1577,24 +1586,24 @@ class MapScene extends Phaser.Scene {
     this.borderContainer.add(this.borderGfx);
     // Original OSM road geometry (road_overlay.js) — the raw vector linework
     // the rasterizer turned into road/path cells, as a muted brown band. Sits
-    // above the terrain + biome borders but BELOW the cobbles: the linework is
+    // above the terrain + biome borders but BELOW the ground decoration: the linework is
     // the evidence of what the rasterizer was AIMING at, so the stones it
     // actually laid have to read on top of it, not through it. Anything above
-    // the cobble is likewise above this — road labels, plants, objects.
+    // the plank is likewise above this — road labels, plants, objects.
     // Scrolled each frame for the sub-cell offset, like the border layer.
     // Only the container is made here: road_overlay.js draws into an offscreen
     // canvas (round caps, one flat alpha over the whole network) and adds the
     // resulting image to this container on its first pass.
     this.roadGeomContainer = this.add.container(0, 0);
-    // Cobblestone overlay sprites for road/path/pier cells. Sits ABOVE the
+    // Ground-decoration sprites (the pier plank). Sits ABOVE the
     // noise + border layers, so biome speckle and the wavy zone borders never
     // paint over the road surface, above the OSM linework overlay, and BELOW
     // the road-label layer.
     this.cobbleContainer = this.add.container(0, 0);
-    // Road-name letters render WITH the road stones (just above the cobble),
+    // Road-name letters render just above the ground decoration,
     // BELOW the rampart/back wall + objects — so a road passing north of a
     // castle tucks behind the back wall instead of its letters poking over it.
-    // (Pool populated further down, after the cobble pool.)
+    // (Pool populated further down, after the decoration pool.)
     this.letterContainer = this.add.container(0, 0);
     // POLYGONAL building footprints (building_overlay.js) — the source OSM
     // rings the rasterizer turned into building cells, filled at their true
@@ -1604,7 +1613,7 @@ class MapScene extends Phaser.Scene {
     // buildings, not a decoration over them.
     //
     // It sits above all the ground decoration it stands on (terrain, biome
-    // seams, cobbles, the road linework, road letters) and below the pads,
+    // seams, planks, the road linework, road letters) and below the pads,
     // shadows, haze, lighting and sprites — the same slot the tiled floor
     // occupied relative to those, so a house sprite still stands on its own
     // floor and the out-of-reach dim, the biome haze and the fog all still
@@ -1615,7 +1624,7 @@ class MapScene extends Phaser.Scene {
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // TRAPS — flat marks lying ON the ground (src/traps.js), so they belong
-    // with the ground decoration: above the terrain, the cobbles and the road
+    // with the ground decoration: above the terrain, the planks and the road
     // linework the trap is laid beside, and BELOW the shadows, the sprites and
     // (crucially) the lightmap. Under the lightmap is the point: a hidden trap
     // is meant to be spottable in daylight and invisible in an unlit cave, and
@@ -1627,7 +1636,7 @@ class MapScene extends Phaser.Scene {
     this.shadowContainer = this.add.container(0, 0);
     // Atmosphere: the GROUND-PLANE wash. One flat fill of the current biome's
     // haze colour over the whole viewport, sitting above every ground layer
-    // (terrain, noise, borders, cobbles, road geometry, pads, shadows) and
+    // (terrain, noise, borders, planks, road geometry, pads, shadows) and
     // below every standing sprite. That split is what gives a top-down grid a
     // readable foreground/background: the ground recedes into the biome's air
     // while trees, houses and creatures stay at full contrast on top of it.
@@ -1635,7 +1644,7 @@ class MapScene extends Phaser.Scene {
     this.atmosGroundGfx = this.add.graphics();
     // REACH — the unmapped-tile reveal and the white reach OUTLINE, the tap
     // affordance. It sits here, ABOVE every piece of ground decoration (biome
-    // seams, cobbles, road letters, treasure pads, shadows, the haze) so the
+    // seams, planks, road letters, treasure pads, shadows, the haze) so the
     // outline is never covered by the ground it marks, and BELOW the standing
     // sprites so a tree stands over it.
     //
@@ -1732,7 +1741,7 @@ class MapScene extends Phaser.Scene {
     this.lightMap = this.add.image(this.viewLeft, this.viewTop, 'lightmap')
       .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
     // PARTICLE BURSTS (src/particles.js) — the one-shot puffs: gold stars off
-    // a jackpot / shiny banner, violet chips off a cobble as it lights, leaf
+    // a jackpot / shiny banner, pale chips off a street coming back, leaf
     // flecks off a crop reaching its next stage. ABOVE the lightmap because a
     // burst is bright by definition (a gold star multiplied by the night dim
     // is a grey smudge), BELOW the labels and the fog. The emitters
@@ -1787,10 +1796,14 @@ class MapScene extends Phaser.Scene {
       this.noisePool.push(s);
     }
 
-    // Cobblestone overlay pool for ROAD cells (one decorative stone centered per cell).
+    // Ground-decoration sprite pool. It carried the road/path cobbles as well
+    // as the pier planks until Sep 2026; a street's paving is the road band's
+    // own texture now (road_overlay.js), so the PIER plank is all that is left
+    // on it. The pool and its container keep the name — the layer order is
+    // pinned on it (tools/layer_audit.js).
     this.cobblePool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
-      const s = this.add.image(0, 0, 'cobble', 0).setOrigin(0.5, 0.5)
+      const s = this.add.image(0, 0, 'pier', 0).setOrigin(0.5, 0.5)
         .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
       this.cobbleContainer.add(s);
       this.cobblePool.push(s);
@@ -1798,10 +1811,10 @@ class MapScene extends Phaser.Scene {
 
     // Road-label pool: compact whole-word street names (one anchor every ~12
     // road cells, rotated along the road by render.js), drawn low-alpha in
-    // dark ink — the cobble tiles are light warm stone, so black reads like
+    // dark ink — the road band is a light warm stone, so black reads like
     // worn paint markings on them (white washed out over pale stone).
     // A road cell is only PART stone, though: the ground the road was painted
-    // over shows between the cobbles, so on a road crossing grass or forest
+    // over shows around the band, so on a road crossing grass or forest
     // the dark glyphs used to disappear into the dark background. A pale
     // stone-coloured halo around each glyph carries the word over both — the
     // lettering stays dark on the stones and stays readable off them.
@@ -1964,89 +1977,6 @@ class MapScene extends Phaser.Scene {
       }
       fg.generateTexture('castle_flag', 16, 18);
       fg.destroy();
-    }
-    // LIT cobble art. A claimed stone used to just jump to full opacity —
-    // the same grey pebble, only less see-through, which barely read as
-    // "claimed" next to the unclaimed ones. Bake a genuinely recoloured copy
-    // of the same frame (source-atop clips the tint to the stone's own
-    // silhouette, then a multiply pass re-lays the original shading on top so
-    // it still reads as carved stone, not a flat sticker) instead of
-    // setTint(), which is a no-op under the Phaser Canvas fallback — see the
-    // halo note above.
-    //
-    // Saturated VIOLET (UI_TRAIL_LIT), not the pale blue-white this started
-    // as, and the multiply that re-lays the shading is lighter (0.45, was
-    // 0.75) so the stone keeps its carving without being dragged back down to
-    // grey. That still lands inside the treasure/powerup blue role (spec §UI
-    // COLOUR LANGUAGE) — a lit cobble is progress toward a world reward — it
-    // just no longer reads as "slightly whiter gravel" from across the
-    // viewport, nor as another shade of the water it may run beside. The
-    // counter over the stone is drawn in the same constant, so the two can
-    // never drift.
-    //
-    // AND IT GLOWS (Sep 2026 — "a dull lavender"): the copy is padded by
-    // LIT_COBBLE_GLOW_PAD of the frame on every side (render.js, which draws
-    // it LIT_COBBLE_GLOW_SCALE larger to compensate, so the stone stays its
-    // cell size and the halo spills into the margin), a soft violet halo of
-    // the stone's own silhouette is laid under it, and a white-hot core is
-    // ADDED over its middle so it reads as lit from within rather than
-    // painted. The halo is the silhouette blurred (canvas shadowBlur, a few
-    // passes stacked for body), so a road's dense cluster glows as a cluster
-    // and a footpath's pebble as a point. The lightmap carries a second glow
-    // (Lighting.KINDS.cobble) for the night, when this art is multiplied
-    // down with the ground under it.
-    //
-    // One copy PER FRAME (litCobbleTexKey, render.js): the three vehicle-road
-    // tiers each draw a different cluster from Road copiar.png and roads are
-    // claimable trails now, so a single shared key would light a motorway
-    // with a footpath's lone pebble.
-    if (typeof LIT_COBBLE_FRAMES !== 'undefined' && typeof document !== 'undefined') {
-      const padFrac = (typeof LIT_COBBLE_GLOW_PAD === 'number') ? LIT_COBBLE_GLOW_PAD : 0;
-      for (const f of LIT_COBBLE_FRAMES) {
-        const key = litCobbleTexKey(f);
-        if (this.textures.exists(key)) continue;
-        const srcFrame = this.textures.getFrame('cobble', f);
-        if (!srcFrame) continue;
-        const img = srcFrame.source.image;
-        const cw = srcFrame.cutWidth, ch = srcFrame.cutHeight;
-        const pad = Math.round(cw * padFrac);
-        const cvs = document.createElement('canvas');
-        cvs.width = cw + 2 * pad; cvs.height = ch + 2 * pad;
-        const cctx = cvs.getContext('2d');
-        const drawStone = () => cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, pad, pad, cw, ch);
-        // The halo: the silhouette, blurred out into the margin, in the
-        // trail violet. Three passes so it has body at the stone's edge.
-        if (pad > 0) {
-          cctx.save();
-          cctx.shadowColor = UI_TRAIL_LIT;
-          cctx.shadowBlur = pad;
-          cctx.shadowOffsetX = 0; cctx.shadowOffsetY = 0;
-          for (let i = 0; i < 3; i++) drawStone();
-          cctx.restore();
-        }
-        drawStone();
-        // Recolour everything drawn so far (stone and halo) to the violet,
-        // then re-lay the stone's own shading over the stone alone.
-        cctx.globalCompositeOperation = 'source-atop';
-        cctx.fillStyle = UI_TRAIL_LIT;
-        cctx.fillRect(0, 0, cvs.width, cvs.height);
-        cctx.globalCompositeOperation = 'multiply';
-        cctx.globalAlpha = 0.45;
-        drawStone();
-        // The core: a white glow ADDED over the stone's middle, out to half
-        // its width, so the centre burns brighter than the violet it sits in.
-        cctx.globalAlpha = 1;
-        cctx.globalCompositeOperation = 'lighter';
-        const cx = pad + cw / 2, cy = pad + ch / 2;
-        const core = cctx.createRadialGradient(cx, cy, 0, cx, cy, cw / 2);
-        core.addColorStop(0, 'rgba(255,255,255,0.55)');
-        core.addColorStop(0.5, 'rgba(210,200,255,0.22)');
-        core.addColorStop(1, 'rgba(154,140,255,0)');
-        cctx.fillStyle = core;
-        cctx.fillRect(0, 0, cvs.width, cvs.height);
-        cctx.globalCompositeOperation = 'source-over';
-        this.textures.addCanvas(key, cvs);
-      }
     }
     // Shiny sparkle marker — a 4-point gold glint floated above rare shiny
     // entities (render.js). Baked GOLD (not white-then-tinted) so it shows its
@@ -6271,12 +6201,12 @@ class MapScene extends Phaser.Scene {
           this._fireAccrueE = 0;
         }
       }
-      // Cobble trails light by SIGHT, not by footfall: a path or road cobble
-      // that has been inside the player's lit reach for PATH_STONE_DWELL_MS
-      // comes on. The scan half memoises on the reach cell, so a frame spent
-      // standing still costs one string compare plus a walk of the small
-      // in-sight map.
-      this._sweepCobbleTrails();
+      // Streets come back by SIGHT, not by footfall: a stretch of road or
+      // footpath that has been inside the player's lit reach for
+      // PATH_STONE_DWELL_MS is rebuilt. The scan half memoises on the reach
+      // cell, so a frame spent standing still costs one string compare plus a
+      // walk of the small in-sight map.
+      this._sweepStreets();
     }
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
@@ -8160,7 +8090,7 @@ class MapScene extends Phaser.Scene {
 
   // Sample a symmetric square neighbourhood around (wcx, wcy) and return the
   // COLOR of the most-common non-road / non-building / non-path cell. Used to
-  // tint road cells so cobbles sit on the surrounding zone.
+  // tint road cells so the band sits on the surrounding zone.
   //
   // First-hit-in-asymmetric-ring picked DIFFERENT zones for each cell across a
   // wide road, producing visible green/brown stripes where a residential strip
@@ -8239,7 +8169,14 @@ class MapScene extends Phaser.Scene {
     // this._boot_crossing was just stamped by the Render.drawCells call above.
     if (this._boot_crossing) B.tick('drawCells @crossing', dt);
   }
-  drawRoadGeometry() { if (typeof RoadOverlay !== 'undefined') RoadOverlay.draw(this); }
+  drawRoadGeometry() {
+    if (typeof RoadOverlay === 'undefined') return;
+    RoadOverlay.draw(this);
+    // …and then the live pass on top of it: the dwell preview and the shine,
+    // re-stroked every frame. AFTER draw(), because draw() is what positions
+    // the container the live Graphics sits in (see _drawStreetLive).
+    this._drawStreetLive();
+  }
   drawBuildingGeometry() { if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.draw(this); }
   drawObjects() {
     const B = window.__boot;
@@ -9494,7 +9431,7 @@ class MapScene extends Phaser.Scene {
     return Particles.burst(this, kind, p.x, p.y, opts);
   }
 
-  // At an absolute CELL (a cobble that just lit): its centre, then as above.
+  // At an absolute CELL: its centre, then as above.
   _burstAtCell(kind, ix, iy) {
     if (ix == null || iy == null || typeof absCellCenterMeters !== 'function') return 0;
     if (!this.startWorldM || !this.originPx) return 0;
@@ -9503,7 +9440,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── THE BLAST: one restoration fanfare, at any size ────────────────────
-  // Something in the world came back — a cobble lit, a wreck pulled back into
+  // Something in the world came back — a street rebuilt, a wreck pulled back into
   // a house — and the moment is the same moment at two scales. One entry
   // point, three parts, all of them scalable:
   //
@@ -9514,7 +9451,7 @@ class MapScene extends Phaser.Scene {
   //               the flash on the ground it went off on (CLAUDE.md's camera
   //               rule) rather than sliding it with the camera.
   //   the CHIPS   debris off the thing, in ITS material (`chips` — the stone
-  //               preset for a cobble, timber for a house; `material`
+  //               preset for a street, timber for a house; `material`
   //               overrides the preset's colour outright).
   //   the SPARKS  a ring of stars in the moment's own colour (`sparks`).
   //
@@ -12762,241 +12699,280 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // True iff `house` is a tier-9 small building that hasn't been restored
-  // yet. Trailer (starter shop) and forts/castles skip wreck status. Used
-  // ─── Cobble-trail activation ─────────────────────────────────────
-  // A STONE is a cobble cell that DRAWS a pebble — footpath and street alike,
-  // thinned by the renderer to one per Render.COBBLE_SPACING_M — and it LIGHTS
-  // ONCE IT HAS BEEN IN THE PLAYER'S LIT REACH FOR PATH_STONE_DWELL_MS. There
-  // is no tap and no step to make: linger near a trail and the stones inside
-  // the lit bubble come on together, several at a time, which is what the reach
-  // circle is already telling you it covers. Sight has to be CONTINUOUS — clip
-  // the edge of the bubble in passing and the clock restarts next time — and
-  // the auto-walk home earns none of it (see _sweepCobbleTrails). Lit stones
-  // draw at full opacity in UI_TRAIL_LIT (render.js looks them up via
-  // _isPathStoneActive).
+  // ─── STREET RESTORATION ──────────────────────────────────────────────────
+  // The road band is DILAPIDATED by default — cracked, damp, missing setts
+  // (road_overlay.js's base pass) — and wherever a stretch of it has sat
+  // inside the player's lit reach CONTINUOUSLY for PATH_STONE_DWELL_MS it is
+  // rebuilt: clean black cobble with a hairline kerb, forever, saved. There is
+  // no tap and no step to make. Linger by a street and it comes back under
+  // you, which is what the reach circle is already telling you it covers.
   //
-  // Counted and drawn are the SAME set: only a cell the renderer puts a pebble
-  // on is a stone. Every cobble cell used to count, so a "10/10" could land
-  // after three visible stones had lit and the number meant nothing you could
-  // see. Render.cobbleShown is the one rule both sides read.
+  // A STRETCH IS METRES, NOT CELLS. What restores is an interval of arclength
+  // along ONE LINE of one OSM way (src/streets.js), because that is the
+  // coordinate the band is stroked in. The terrain grid under-reports a road
+  // every time (see the road rule in CLAUDE.md) — a motorway rasterizes one
+  // cell wide however wide it really is — so a per-cell rule could never line
+  // up with what the player sees restored. Until Sep 2026 this swept lit
+  // PEBBLES, one sprite per 20 m, thinned by the renderer: half a street
+  // restored between two stones paid nothing at all.
   //
-  // PRIZES: ONE LADDER for the whole world — Trail.GOAL_STEP stones for the
-  // first treasure, twice that for the second, three times for the third. No
-  // per-path counters, no per-tile segments, no floor on how long a path has
-  // to be: a stone is a stone wherever it is picked up. See src/trail.js, where
-  // the ladder lives and is pinned. Walking pays in treasure only — there is no
-  // money drip.
+  // Sight is CONTINUOUS: clip the edge of the bubble in passing and the clock
+  // restarts next time (Streets.createSight drops a key's history when it goes
+  // empty), and the auto-walk home earns none of it — that is the game moving
+  // the body, not the player looking at anything.
   //
-  // State shape:
-  //   save.trail      = { stones: <banked toward the current goal>, prizes: n }
-  //   save.pathStones = { "<z/tx/ty>": ["ix_iy", ...] }   ← which stones are lit
-  // The per-tile lit list is per-tile only so the lookup a frame does for every
-  // visible cobble stays a small set; it carries no progress of its own.
-  _isPathStoneActive(tx, ty, ix, iy) {
-    const tileKey = WorldGen.tileKey(tx, ty);
-    const lit = this.save.pathStones && this.save.pathStones[tileKey];
-    if (!lit || !lit.length) return false;
-    const entry = WorldGen.tileCache.get(tileKey);
-    if (!entry) return false;
-    const { lix, liy } = pathStoneLocal(entry, ix, iy);
-    // setOf (util.js), not Array.includes: render.js asks this for EVERY
-    // visible cobble cell on every frame, and a walked tile's list runs to
-    // hundreds of entries — a linear scan per cell per frame is the shape that
-    // gets slower the longer someone plays.
-    return setOf(lit).has(`${lix}_${liy}`);
-  }
-
-  // Is there an UNLIT stone at abs cell (ix, iy)? Returns { tileKey, cellKey }
-  // — the tile-local address the save records it under — or null when this
-  // cell is not a stone the player can still claim.
+  // State shape (savemigrate.js documents it):
+  //   save.streets      = { "<z/tx/ty>": { "<lineKey>": [s0,s1, s0,s1, …] } }
+  //   save.streetsEpoch = n           ← what repaints the restored canvas
+  //   save.trail        = { metres, prizes }
   //
-  // ONE rule, read by both halves of the sweep: the sight pass asks it to
-  // decide what the dwell clock is counting, and _activatePathStone asks it
-  // again at the moment of lighting. If the two asked different questions, a
-  // cell could sit out its two seconds and then refuse to light (or worse,
-  // light something the timer was never watching).
-  _pathStoneAt(tx, ty, ix, iy) {
-    const tileKey = WorldGen.tileKey(tx, ty);
-    const entry = WorldGen.tileCache.get(tileKey);
-    if (!entry || !entry.grid) return null;
-    const { lix, liy, N } = pathStoneLocal(entry, ix, iy);
-    const type = entry.grid[liy * N + lix];
-    // Is there a stone here at all? Cobble terrain (worldgen), and a pebble
-    // actually drawn on it (render.js). Asking the grid is what let the trail
-    // name pass go: the terrain already says which cells are cobbles.
-    if (!WorldGen.isCobbleTerrain(type)) return null;
-    if (typeof Render !== 'undefined' && Render.cobbleShown
-        && !Render.cobbleShown(ix, iy, type, this.cellM)) return null;
-    const cellKey = `${lix}_${liy}`;
-    const lit = this.save.pathStones && this.save.pathStones[tileKey];
-    if (lit && setOf(lit).has(cellKey)) return null;   // already claimed
-    return { tileKey, cellKey };
-  }
-
-  // Light the cobble under abs cell (ix, iy). The PRIMITIVE: it records the
-  // stone and its flash and nothing else — no counter, no prize, no save
-  // write — because one step lights a whole disc of cells at once and the
-  // sweep banks them ONCE between them, not once each.
-  // Returns true if this cell was newly lit.
-  _activatePathStone(tx, ty, ix, iy) {
-    const stone = this._pathStoneAt(tx, ty, ix, iy);
-    if (!stone) return false;
-    this.save.pathStones = this.save.pathStones || {};
-    const lit = this.save.pathStones[stone.tileKey]
-      = this.save.pathStones[stone.tileKey] || [];
-    lit.push(stone.cellKey);
-    // Record a short-lived "just lit" flash for render.js's cobble pass (see
-    // PATH_STONE_FLASH_MS there) — a scale-pop plays on this exact cell so
-    // lighting reads as an event, not just a silent opacity change next
-    // frame. Keyed by ABS cell so it survives the tx/ty → tile-local
-    // conversion above. Pruned here (not every frame) — only a stone that
-    // actually lights gets an entry, so this map never grows unbounded.
-    this._pathStoneFlashes = this._pathStoneFlashes || new Map();
-    const flashNow = performance.now();
-    // Prune window must stay comfortably above render.js's PATH_STONE_FLASH_MS
-    // (the animation's own length) or an activation would get pruned away
-    // mid-animation instead of aging out after it's already finished playing.
-    const pruneMs = (typeof PATH_STONE_FLASH_MS === 'number' ? PATH_STONE_FLASH_MS : 900) + 500;
-    for (const [k, t] of this._pathStoneFlashes) {
-      if (flashNow - t > pruneMs) this._pathStoneFlashes.delete(k);
+  // THE SWEEP, in two halves. The SCAN (which metres of which lines are in
+  // reach and not yet restored) is memoised on the reach CELL plus the radius:
+  // standing still finds nothing new, and the only things that can bring fresh
+  // street into the bubble are moving to another cell or the reach itself
+  // changing (an upgrade, a potion, running out of energy). The RIPEN pass
+  // runs every frame over the sight's small history, because the thing it is
+  // waiting on is the clock, not the player.
+  _sweepStreets() {
+    if (typeof Streets === 'undefined') return;
+    const surface = (this.depth ?? 0) === 0;
+    // Cave levels carry no streets at all, so don't pay for the scan down
+    // there — and the auto-walk home banks nothing.
+    if (!surface || this._driftingHome) { this._resetStreetSight(); return; }
+    const reachM = reachRadiusM(this);
+    if (!(reachM > 0)) { this._resetStreetSight(); return; }
+    const now = Date.now();
+    const p = playerReachCell(this);
+    const sight = this._streetSight || (this._streetSight = Streets.createSight());
+    const sweepKey = `${p.cellIX},${p.cellIY},${Math.round(reachM)}`;
+    if (this._streetSweepKey !== sweepKey) {
+      this._streetSweepKey = sweepKey;
+      this._rescanStreets(p, reachM, now, sight);
     }
-    this._pathStoneFlashes.set(cellKeyFromAbsCell(ix, iy), flashNow);
-    return true;
+    this._ripenStreets(now, sight);
   }
 
-  // Forget every stone the sight pass was watching. A cell whose clock is
-  // dropped here starts its two seconds over the next time it comes into
-  // reach — which is the point: sight has to be CONTINUOUS.
-  _resetTrailSight() {
-    this._trailSweepKey = null;
-    this._trailSight = null;
+  // Forget every stretch the sight pass was watching. A line whose clock is
+  // dropped here starts its dwell over the next time it comes into reach —
+  // which is the point: sight has to be CONTINUOUS.
+  _resetStreetSight() {
+    this._streetSweepKey = null;
+    this._streetLines = null;
+    if (this._streetSight) this._streetSight.clear();
   }
 
-  // Every unlit stone currently inside the lit reach, mapped to the moment it
-  // came into sight. A cell already being watched keeps its original stamp
-  // (the clock runs while the player walks along a path); a cell that has left
-  // the bubble is simply absent from the new map, so coming back starts it
-  // fresh.
+  // THE SCAN. Every transportation line within reach, in the 3×3 tiles around
+  // the player, snapshotted with the metres of it that are in reach, inside
+  // this tile's own square, and not already restored.
   //
   // Measured from the REACH CELL, never the camera anchor (QC rules: a peek
-  // drag must not light stones three cells further than the arm reaches).
-  // cellInReach is the same gate the lit silhouette in render.js draws with,
-  // so what looks lit is exactly what counts.
-  _rebuildTrailSight(p, reachM, now) {
-    const prev = this._trailSight;
-    const next = new Map();
-    const r = Math.ceil(reachM / this.cellM);
-    const N = this.cellsPerTile;
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        const ix = p.cellIX + dx, iy = p.cellIY + dy;
-        if (!cellInReach(this, ix, iy)) continue;
-        const tx = Math.floor(ix / N), ty = Math.floor(iy / N);
-        if (!this._pathStoneAt(tx, ty, ix, iy)) continue;
-        const key = `${ix},${iy}`;
-        const was = prev && prev.get(key);
-        next.set(key, { ix, iy, t: was ? was.t : now });
+  // drag must not restore three cells further than the arm reaches).
+  // `cellInReach` is the same gate the lit silhouette and every tap use, so
+  // what rebuilds is exactly what the reach outline drew over.
+  //
+  // ONLY THE TILE SQUARE COUNTS. MVT geometry runs past the tile edge into the
+  // buffer, and the same metres come back inside the NEIGHBOUR tile's copy of
+  // the way — so `tileSpans` clips to the square and nothing is paid twice.
+  //
+  // Rail is skipped (a railway is not a street to rebuild); parking aisles are
+  // NOT — the overlay draws them, so they restore like any other way.
+  _rescanStreets(p, reachM, now, sight) {
+    const lines = this._streetLines || (this._streetLines = new Map());
+    const seen = new Set();
+    // The reach circle's centre in ABSOLUTE metres — the bbox prefilter below
+    // works in each tile's local metres, so this is shifted per tile rather
+    // than recomputed.
+    const rc = absCellCenterMeters(this, p.cellIX, p.cellIY);
+    // A cell of slack: reachIntervals charges a whole cell to the reach, so a
+    // line grazing the cell at the rim is still in bounds.
+    const pad = reachM + this.cellM;
+    const NT = this.cellsPerTile;
+    const ptx = Math.floor(p.cellIX / NT), pty = Math.floor(p.cellIY / NT);
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const tx = ptx + dtx, ty = pty + dty;
+        const tileKey = WorldGen.tileKey(tx, ty);
+        const entry = WorldGen.tileCache.get(tileKey);
+        if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) continue;
+        const tileEdgeM = entry.tileEdgeM;
+        const N = entry.cellsPerEdge || NT;
+        const baseIX = tx * N, baseIY = ty * N;
+        const lx = rc.x - tx * tileEdgeM, ly = rc.y - ty * tileEdgeM;
+        for (const layer of entry.layers) {
+          if (layer.name !== 'transportation') continue;
+          const extent = layer.extent || 4096;
+          const mvtToM = tileEdgeM / extent;
+          for (const f of layer.features) {
+            if (f.type !== 2 || !f.geom) continue;      // lines only
+            const cls = (f.tags && f.tags.class) || '';
+            if (cls === 'rail' || cls === 'transit') continue;
+            for (let i = 0; i < f.geom.length; i++) {
+              const line = f.geom[i];
+              if (!line || line.length < 2) continue;
+              // Bbox prefilter, in tile-local metres. A city tile carries
+              // hundreds of lines and the exact grid traversal below walks
+              // every vertex of one; this throws away all but the handful the
+              // reach circle can possibly touch, for one pass over the points.
+              let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+              for (const v of line) {
+                const vx = v.x * mvtToM, vy = v.y * mvtToM;
+                if (vx < x0) x0 = vx;
+                if (vx > x1) x1 = vx;
+                if (vy < y0) y0 = vy;
+                if (vy > y1) y1 = vy;
+              }
+              if (x1 < lx - pad || x0 > lx + pad || y1 < ly - pad || y0 > ly + pad) continue;
+              const lineKey = Streets.lineKey(f, i);
+              let iv = Streets.reachIntervals(line, mvtToM, this.cellM,
+                (lix, liy) => cellInReach(this, baseIX + lix, baseIY + liy));
+              if (!iv.length) continue;
+              iv = Streets.intersect(iv, Streets.tileSpans(line, mvtToM, extent));
+              if (!iv.length) continue;
+              iv = Streets.subtract(iv, Streets.restoredList(this.save, tileKey, lineKey));
+              if (!iv.length) continue;
+              // One sight for every tile, so the key carries the tile too.
+              const key = `${tileKey}|${lineKey}`;
+              seen.add(key);
+              const prev = lines.get(key);
+              const meta = prev || { tileKey, lineKey, line, mvtToM, tx, ty, tileEdgeM, tags: f.tags, t0: now };
+              // A tile REBUILT under us hands back a new feature object, so
+              // the geometry is refreshed even on a key we already hold — but
+              // the clock is not: the player has been standing there the whole
+              // time (see the rebuild rule in CLAUDE.md).
+              meta.line = line; meta.mvtToM = mvtToM; meta.tags = f.tags;
+              meta.tileEdgeM = tileEdgeM;
+              this._setStreetPreview(meta, iv);
+              lines.set(key, meta);
+              sight.snapshot(now, key, iv);
+            }
+          }
+        }
       }
     }
-    return next;
+    // Anything that left the reach — or was fully restored — loses its clock
+    // and its preview. An empty snapshot would do the same thing; dropping is
+    // the same rule said once.
+    for (const key of sight.keys()) if (!seen.has(key)) sight.drop(key);
+    for (const key of [...lines.keys()]) if (!seen.has(key)) lines.delete(key);
   }
 
-  // THE SWEEP. Lights every stone that has been IN SIGHT — inside the player's
-  // lit reach, continuously — for PATH_STONE_DWELL_MS, then banks them all at
-  // once: one counter pop, one prize check, one save write however many stones
-  // came on.
-  //
-  // Two halves, because the dwell needs both. The SCAN (which cells are stones
-  // in reach right now) is memoised on the reach CELL plus the radius: standing
-  // still finds nothing new, and the only things that can bring fresh cells
-  // into the bubble are moving to another cell or the reach itself changing (an
-  // upgrade, a potion, running out of energy). The RIPEN pass runs every frame
-  // over that small map, because the thing it is waiting on is the clock, not
-  // the player.
-  //
-  // NOT WHILE AUTO-WALKING. When the stick is let go the character walks itself
-  // back to the GPS fix (_driftHome) — that is the game moving the body, not
-  // the player looking at anything, so it banks nothing and drops the clocks it
-  // was holding. Sight is something the player spends, not something a
-  // cutscene collects on their behalf.
-  _sweepCobbleTrails() {
-    // Cave levels carry no cobbles at all, so don't pay for the scan down
-    // there.
-    if ((this.depth ?? 0) > 0) { this._resetTrailSight(); return; }
-    if (this._driftingHome) { this._resetTrailSight(); return; }
-    const reachM = reachRadiusM(this);
-    if (!(reachM > 0)) { this._resetTrailSight(); return; }   // 0 energy: no light, no claim
-    const p = playerReachCell(this);
-    const now = Date.now();
-    const sweepKey = `${p.cellIX},${p.cellIY},${Math.round(reachM)}`;
-    if (this._trailSweepKey !== sweepKey || !this._trailSight) {
-      this._trailSweepKey = sweepKey;
-      this._trailSight = this._rebuildTrailSight(p, reachM, now);
+  // Cache one line's in-sight-unrestored intervals AND the world-metre
+  // polylines that draw them. The preview is redrawn every frame but the
+  // GEOMETRY only changes when the scan runs or a stretch is restored, so the
+  // sub-polylines are cut once here rather than sixty times a second — a
+  // merged way can carry thousands of vertices and subLineM walks them all.
+  _setStreetPreview(meta, iv) {
+    meta.iv = iv;
+    meta.pts = [];
+    for (const seg of iv) {
+      const pts = this._streetRunPts(meta, seg[0], seg[1]);
+      if (pts) meta.pts.push(pts);
     }
-    const sight = this._trailSight;
-    if (!sight.size) return;
-    // How many stones this sweep lit, and the nearest of them — the counter
-    // belongs on the stone the player just walked up to rather than on one at
-    // the far edge of the bubble.
-    const N = this.cellsPerTile;
-    let lit = 0, at = null, bestD2 = Infinity;
-    for (const [key, s] of sight) {
-      if (now - s.t < PATH_STONE_DWELL_MS) continue;
-      // Ripe: it lights now or it never will (a cell that lost its stone under
-      // a rebuilt tile), so it leaves the watch list either way.
-      sight.delete(key);
-      const tx = Math.floor(s.ix / N), ty = Math.floor(s.iy / N);
-      if (!this._activatePathStone(tx, ty, s.ix, s.iy)) continue;
-      lit += 1;
-      // THE BLAST, on the stone's own cell centre (projected): the near-white
-      // flash on the lightmap, stone chips off the cobble and a ring of violet
-      // sparks — one per stone that came on, beside render.js's scale-pop of
-      // the art. The flash used to be re-offered from drawCells on every frame
-      // of the pop; it is fired once, here, by the code that lit the stone.
-      const bc = absCellCenterMeters(this, s.ix, s.iy);
-      this._blastAt(bc.x, bc.y, { radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark' });
-      const dx = s.ix - p.cellIX, dy = s.iy - p.cellIY;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < bestD2) { bestD2 = d2; at = { ix: s.ix, iy: s.iy }; }
+  }
+
+  // One restored/previewed stretch as WORLD metres: the exact sub-polyline
+  // between two arclengths, shifted by the tile's origin. Null when there is
+  // nothing to stroke.
+  _streetRunPts(meta, s0, s1) {
+    const sub = Streets.subLineM(meta.line, meta.mvtToM, s0, s1);
+    if (!sub || sub.length < 2) return null;
+    const ox = meta.tx * meta.tileEdgeM, oy = meta.ty * meta.tileEdgeM;
+    return sub.map((q) => ({ x: ox + q.x, y: oy + q.y }));
+  }
+
+  // A point at arclength `s` along one line, in WORLD metres — where the blast
+  // goes off and where the counter hangs.
+  _streetPointAt(meta, s) {
+    const q = Streets.pointAtM(meta.line, meta.mvtToM, s);
+    if (!q) return null;
+    return { x: meta.tx * meta.tileEdgeM + q.x, y: meta.ty * meta.tileEdgeM + q.y };
+  }
+
+  // THE RIPEN PASS. Everything that has been in sight for the whole dwell is
+  // rebuilt, and the whole step is banked ONCE: one blast, one counter, one
+  // prize check, one save write however many stretches came back.
+  _ripenStreets(now, sight) {
+    const lines = this._streetLines;
+    if (!lines || !lines.size) return;
+    const ripe = sight.ripeAll(now, PATH_STONE_DWELL_MS);
+    if (!ripe.length) return;
+    let addedM = 0;
+    // The blast and the counter land on the LONGEST piece this sweep brought
+    // back — the stretch the player will actually be looking at, rather than
+    // a metre of driveway at the far rim of the bubble.
+    let best = null, bestLen = 0;
+    for (const { key, intervals } of ripe) {
+      const meta = lines.get(key);
+      if (!meta) { sight.drop(key); continue; }
+      const out = Streets.restore(this.save, meta.tileKey, meta.lineKey, intervals);
+      if (!(out.addedM > 0)) continue;
+      addedM += out.addedM;
+      for (const seg of out.newly) {
+        const len = seg[1] - seg[0];
+        if (len > bestLen) { bestLen = len; best = { meta, s: (seg[0] + seg[1]) / 2 }; }
+        // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS.
+        const pts = this._streetRunPts(meta, seg[0], seg[1]);
+        if (pts) {
+          (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
+        }
+      }
+      // What is left of this line's watched metres is what has NOT come back
+      // yet, so the preview stops drawing over the clean band the same frame.
+      this._setStreetPreview(meta, Streets.subtract(meta.iv || [], out.newly));
     }
-    if (!lit) return;
-    this._bankTrailStones(lit, at);
+    if (!(addedM > 0)) return;
+    const at = best ? this._streetPointAt(best.meta, best.s) : null;
+    if (at) {
+      // THE BLAST, on the stretch's own midpoint (projected): the near-white
+      // flash on the lightmap, chips of pale sett and a ring of stone sparks.
+      // ONE per sweep — the whole step is one moment, however many separate
+      // pieces of street it brought back.
+      this._blastAt(at.x, at.y, {
+        radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',
+      });
+    }
+    this._bankStreetMetres(addedM, at, now);
     persistSave(this.save);
   }
 
-  // The stones a sweep just lit, banked against the one ladder: show the
+  // The metres a sweep just restored, banked against the one ladder: show the
   // counter and queue whatever prizes the new total has earned.
-  _bankTrailStones(lit, at) {
-    const st = this.save.trail = this.save.trail || { stones: 0, prizes: 0 };
-    const out = Trail.bank(st.stones, st.prizes, lit);
-    st.stones = out.stones;
+  _bankStreetMetres(addedM, at, now) {
+    const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
+    const out = Trail.bank(st.metres, st.prizes, addedM);
+    st.metres = out.metres;
     st.prizes = out.prizes;
-    // The counter: stones banked toward the current goal, popped by the player
-    // exactly like the rest-energy splash. ONE per sweep, however many stones
-    // just came on.
-    //
-    // It is drawn ON THE STONE, in the same colour the stone lights up in
-    // (UI_TRAIL_LIT — the constant the lit-cobble texture is baked from), so
-    // the number and the thing it counts read as one event. It used to pop at
-    // the screen centre in the pale treasure ink, which said "something
-    // happened" without saying where or what to.
+    // The counter: metres banked toward the current goal, popped ON THE STREET
+    // in the colour a restored street is made of (UI_STREET_INK — the same
+    // constant the chips and the sparks are thrown in), so the number and the
+    // thing it counts read as one event. It used to pop at the screen centre
+    // in the pale treasure ink, which said "something happened" without saying
+    // where or what to.
     //
     // Seated through worldMetersToScreen, never off the player: a peek drag
-    // moves the camera, and the counter has to stay on its cobble (QC rules —
-    // "where do I DRAW this?" goes through the projection). Falls back to the
-    // centred toast if the cell can't be projected — a headless scene, or a
-    // sweep before the camera exists.
+    // moves the camera, and the counter has to stay on the stretch it is about
+    // (QC rules — "where do I DRAW this?" goes through the projection). Falls
+    // back to the centred toast if the point can't be projected — a headless
+    // scene, or a sweep before the camera exists.
+    //
+    // THROTTLED. Walking along a street restores metres on nearly every frame,
+    // and a number redrawn sixty times a second is a flicker. The ladder banks
+    // regardless; only the toast waits (STREET_COUNTER_MIN_MS). A sweep that
+    // PAYS jumps the queue — its readout is the goal just completed, which is
+    // the number the prize ceremony opening beside it also prints.
     //
     // Trail.readout, not Trail.progress: on the sweep that pays, the counter
-    // reads the goal just completed ("10/10"), so the stone and the prize
+    // reads the goal just completed ("200/200 m"), so the street and the prize
     // modal agree; the carried remainder against the next, longer goal shows
     // from the next sweep on.
-    const { pos, target } = Trail.readout(out);
-    this._toast(`${pos}/${target}`, {
-      tier: 'note', color: UI_TRAIL_LIT,
-      ...this._trailCounterAt(at && at.ix, at && at.iy),
-    });
+    const due = (now - (this._streetCounterAt || 0)) >= STREET_COUNTER_MIN_MS;
+    if (due || out.owed > 0) {
+      this._streetCounterAt = now;
+      this._toast(Trail.readout(out).label, {
+        tier: 'note', color: UI_STREET_INK,
+        ...(at ? this._worldToastAt(at.x, at.y, STREET_COUNTER_LIFT_PX) : {}),
+      });
+    }
     if (out.owed <= 0) return;
     // A wide reach can sweep past more than one goal in a single step, so this
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
@@ -13007,29 +12983,81 @@ class MapScene extends Phaser.Scene {
     this._drainTrailPrizes();
   }
 
-  // Where the "N/M" sits for the stone at abs cell (ix, iy): screen position of
-  // the cell's centre, lifted clear of the pebble so the number reads above the
-  // stone rather than across it (the note tier hangs its text from `y`).
-  // Returns {} — the toast's own centred default — when there's nothing to
-  // project against.
-  _trailCounterAt(ix, iy) {
-    return this._cellToastAt(ix, iy, TRAIL_COUNTER_LIFT_PX);
+  // THE LIVE PASS — everything about a street that changes every frame, handed
+  // to road_overlay.js as world-metre polylines (RoadOverlay.drawLive). Two
+  // things, and neither can live on either baked canvas: a canvas rebuild is a
+  // hundred strokes and a pattern fill, and these move sixty times a second.
+  //
+  //   the PREVIEW  the clean carriageway creeping in under the player while
+  //                the dwell runs, at up to STREET_PREVIEW_ALPHA — the ghost
+  //                of what is about to happen, so the two seconds read as a
+  //                thing being done rather than a delay. Its alpha is the
+  //                dwell's own progress: how long this line has been in sight.
+  //   the SHINE    a white run down a stretch the instant it comes back,
+  //                fading over STREET_SHINE_MS beside the blast's flash.
+  //
+  // Called every frame from drawRoadGeometry, AFTER RoadOverlay.draw has moved
+  // the container by this frame's sub-cell scroll — drawLive subtracts that
+  // offset back out, so running it from the sweep (which is earlier in
+  // update()) would seat the preview against the PREVIOUS frame's scroll. It
+  // runs on the frames the sweep's gates refuse too: with nothing to draw it
+  // clears the Graphics, which is what stops a preview freezing on the ground
+  // when the player walks into a cave.
+  _drawStreetLive(now) {
+    if (typeof RoadOverlay === 'undefined' || !RoadOverlay.drawLive) return;
+    const t = (now == null) ? Date.now() : now;
+    const runs = [];
+    const lines = this._streetLines;
+    if (lines) {
+      for (const meta of lines.values()) {
+        if (!meta.pts || !meta.pts.length) continue;
+        const alpha = Math.max(0, Math.min(1, (t - meta.t0) / PATH_STONE_DWELL_MS)) * STREET_PREVIEW_ALPHA;
+        if (!(alpha > 0.01)) continue;
+        for (const pts of meta.pts) runs.push({ pts, tags: meta.tags, alpha });
+      }
+    }
+    const shine = this._streetShine;
+    if (shine && shine.length) {
+      // Compacted in place, never a splice per rejection: this walks the list
+      // every frame and the list is at most a few sweeps deep.
+      let w = 0;
+      for (let i = 0; i < shine.length; i++) {
+        const e = shine[i];
+        const st = (t - e.t0) / STREET_SHINE_MS;
+        if (!(st < 1)) continue;
+        shine[w++] = e;
+        runs.push({ pts: e.pts, tags: e.tags, alpha: 1 - st, colour: 0xffffff });
+      }
+      shine.length = w;
+    }
+    RoadOverlay.drawLive(this, runs);
   }
 
-  // A toast's x/y for abs cell (ix, iy): the screen position of the cell's
-  // centre, lifted `liftPx` so the text (which hangs from `y`) sits above the
-  // cell's contents rather than across them. Shared by the trail counter and
-  // the energy pops (_energyPopAt), so both seat through the ONE projection.
-  // Returns {} — the toast's own centred default — when there's nothing to
-  // project against.
-  _cellToastAt(ix, iy, liftPx) {
-    if (ix == null || iy == null) return {};
-    if (typeof absCellCenterMeters !== 'function' || !this.worldMetersToScreen) return {};
-    if (!this.startWorldM || !this.originPx) return {};
-    const c = absCellCenterMeters(this, ix, iy);
-    const p = this.worldMetersToScreen(c.x, c.y);
+  // A toast's x/y at WORLD METRES (wmx, wmy), lifted `liftPx` so the text
+  // (which hangs from `y`) sits above the thing rather than across it. THE one
+  // seating for anything drawn at a place rather than at the player: the
+  // street counter hangs on the stretch it just rebuilt, the energy pops on
+  // their cell (through _cellToastAt below). Through worldMetersToScreen —
+  // the camera-anchored projection — so a peek drag carries the number with
+  // the ground (QC rules: "where do I DRAW this?" goes through the
+  // projection). Returns {} — the toast's own centred default — when there's
+  // nothing to project against.
+  _worldToastAt(wmx, wmy, liftPx) {
+    if (!Number.isFinite(wmx) || !Number.isFinite(wmy)) return {};
+    if (!this.worldMetersToScreen || !this.startWorldM || !this.originPx) return {};
+    const p = this.worldMetersToScreen(wmx, wmy);
     if (!p || !isFinite(p.x) || !isFinite(p.y)) return {};
     return { x: Math.round(p.x), y: Math.round(p.y) - liftPx };
+  }
+
+  // The same, for an absolute CELL: its centre, then as above. Read by the
+  // energy pops (_energyPopAt), so a cell number and a street number seat
+  // through the ONE projection.
+  _cellToastAt(ix, iy, liftPx) {
+    if (ix == null || iy == null) return {};
+    if (typeof absCellCenterMeters !== 'function') return {};
+    const c = absCellCenterMeters(this, ix, iy);
+    return this._worldToastAt(c.x, c.y, liftPx);
   }
 
   // Hand out queued trail prizes one at a time, each ceremony opening as the
@@ -13078,12 +13106,14 @@ class MapScene extends Phaser.Scene {
     const choices = (typeof Trail !== 'undefined' && Trail.rollChoices)
       ? Trail.rollChoices(roll) : [roll()].filter(Boolean);
     // The header is the walk, not the way — "THOU HAST TRAVELED FAR" — and a
-    // trail has no name any more because the ladder no longer asks which one
-    // you were on. The goal just completed (10, 20, 30 … stones) is the
-    // number the counter on the stone read when it paid (Trail.readout), and
-    // the pick's flavour line repeats it under the header.
+    // street has no name here because the ladder no longer asks which one you
+    // were on. The goal just completed (200, 400, 600 … metres) is the number
+    // the counter on the street read when it paid (Trail.readout), and the
+    // pick's flavour line repeats it under the header — through Trail.label,
+    // the ONE formatter, so the two can't print the same walk differently.
     const header = TRAIL_PRIZE_HEADER;
-    const walked = Trail.goalFor(Math.max(0, (n | 0) - 1));
+    const goal = Trail.goalFor(Math.max(0, (n | 0) - 1));
+    const walked = Trail.label(goal, goal);
     if (!choices.length) {
       // Defensive fallback — give $5 so the player isn't stiffed.
       addMoney(this.save, 5);
@@ -13122,7 +13152,7 @@ class MapScene extends Phaser.Scene {
       header,
       iconHTML: '<span style="font-size:44px">💎</span>',
       name: 'Take your pick',
-      sub: `${walked} cobbles walked · ${choices.length} finds — one is yours`,
+      sub: `${walked} restored · ${choices.length} finds — one is yours`,
       onDismiss,
       actions: choices.map((reward) => ({
         label: this._trailChoiceLabel(reward),
@@ -13316,7 +13346,7 @@ class MapScene extends Phaser.Scene {
           this.save.firstMarketId = house.id;
         }
         persistSave(this.save);
-        // THE BLAST, before the card opens: the same fanfare a cobble gets,
+        // THE BLAST, before the card opens: the same fanfare a street gets,
         // scaled to a building. The flash covers the footprint's half-diagonal
         // (plus BLAST_HOUSE_PAD_CELLS), the timber chips and the green sparks
         // are thrown off a RING at its half-extent so they come off the walls

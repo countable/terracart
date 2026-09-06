@@ -4,7 +4,7 @@
 //
 // The bursts replaced app.js _starburst (eight tweened ✦ Text objects behind
 // a fanfare) and added the two world bursts that had no effect at all: the
-// cobble lighting under the player's reach and a crop reaching its next
+// street coming back under the player's reach and a crop reaching its next
 // stage. The rules the source pins guard are the QC ones: a world burst is
 // PROJECTED (worldMetersToScreen), never placed off the player, and the crop
 // tick's bursts are gated on the viewport.
@@ -39,8 +39,8 @@ test('particles: the presets are drawn in the UI colour language', () => {
   const P = Particles.PRESETS;
   assert.eq(P.jackpot.tex.color, UI_GOLD, 'jackpot stars are the game gold');
   assert.eq(P.shiny.tex.color, UI_GOLD_PALE, 'shiny stars are the pale gold of its headline');
-  assert.eq(P.stone.tex.color, UI_TRAIL_LIT, 'stone chips are the lit-cobble violet');
-  assert.eq(P.trailspark.tex.color, UI_TRAIL_LIT, 'and so are the sparks of the blast');
+  assert.eq(P.stone.tex.color, UI_STREET_INK, 'sett chips are the street ink');
+  assert.eq(P.trailspark.tex.color, UI_STREET_INK, 'and so are the sparks of the blast');
   assert.eq(P.sprout.tex.color, UI_GREEN, 'leaf flecks are the success green');
   assert.eq(P.pain.tex.color, UI_DANGER_INK, 'a hit throws the danger ink');
 });
@@ -67,11 +67,11 @@ test('particles: the world bursts stay on their cell — stone kicks up, leaves 
     'drops fall in a narrower cone than the chips fly');
 });
 
-test('particles: lighting a cobble is a BLAST — a full ring of sparks beside the chips', () => {
-  // The chips alone were a small dull puff on a stone that had only changed
+test('particles: a street coming back is a BLAST — a full ring of sparks beside the chips', () => {
+  // The chips alone were a small dull puff on ground that had only changed
   // colour ("a dull lavender", Sep 2026). The spark ring is the flash: thrown
   // every way, weightless, burning out to nothing — and it reaches further
-  // than the chips, which stay on their cell, but still only a cell or so.
+  // than the chips, which stay on their patch, but still only a cell or so.
   const P = Particles.PRESETS, s = P.trailspark;
   assert.eq(s.tex.shape, 'star', 'sparks, not chips');
   assert.eq(s.tex.core, '#ffffff', 'with a white-hot core');
@@ -83,7 +83,7 @@ test('particles: lighting a cobble is a BLAST — a full ring of sparks beside t
   const reach = s.speed[1] * s.lifespan[1] / 1000;
   const chips = P.stone.speed[1] * P.stone.lifespan[1] / 1000;
   assert.gt(reach, chips, 'the ring goes further than the chips');
-  assert.lt(reach, cell * 3, 'but stays on the stone\'s own patch');
+  assert.lt(reach, cell * 3, 'but stays on the stretch\'s own patch');
   assert.gte(P.stone.count + s.count, 20, 'enough of both to read as a burst');
 });
 
@@ -174,13 +174,20 @@ test('particles: a world burst is projected through worldMetersToScreen and gate
   assert.truthy(/this\._burstAtWorld\(kind, c\.x, c\.y\)/.test(cbody), '…and then the world projection');
 });
 
-test('particles: every cobble that lights blasts on its own cell', () => {
-  const a = app.indexOf('  _sweepCobbleTrails() {');
+test('particles: a restoring sweep blasts ONCE, on the stretch it brought back', () => {
+  // ONE per sweep, not one per piece: the step is one moment however many
+  // separate stretches of street it rebuilt, and it goes off at the midpoint
+  // of the LONGEST of them — the one the player is actually looking at,
+  // rather than a metre of driveway at the far rim of the bubble.
+  const a = app.indexOf('  _ripenStreets(now, sight) {');
   const body = app.slice(a, app.indexOf('\n  }\n', a));
-  assert.truthy(/if \(!this\._activatePathStone\(tx, ty, s\.ix, s\.iy\)\) continue;\n\s+lit \+= 1;\n[\s\S]{0,600}const bc = absCellCenterMeters\(this, s\.ix, s\.iy\);/.test(body),
-    'the blast follows the activation, on the CELL CENTRE of the stone that lit');
-  assert.truthy(/this\._blastAt\(bc\.x, bc\.y, \{ radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark' \}\);/.test(body),
-    'one blast per stone: the stone chips and the violet spark ring');
+  assert.truthy(/if \(len > bestLen\) \{ bestLen = len; best = \{ meta, s: \(seg\[0\] \+ seg\[1\]\) \/ 2 \}; \}/.test(body),
+    'the longest newly restored piece wins, at its midpoint');
+  assert.truthy(/const at = best \? this\._streetPointAt\(best\.meta, best\.s\) : null;/.test(body),
+    'resolved to WORLD metres along the way');
+  assert.truthy(/this\._blastAt\(at\.x, at\.y, \{\n\s+radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',\n\s+\}\);/.test(body),
+    'one blast: the sett chips and the stone spark ring');
+  assert.eq((body.match(/this\._blastAt\(/g) || []).length, 1, 'exactly one call in the pass');
   assert.falsy(/_burstAtCell/.test(body), 'and no second burst beside it');
 });
 
@@ -188,7 +195,7 @@ test('particles: every cobble that lights blasts on its own cell', () => {
 
 test('particles: a ring throws its particles off the WALLS, and scales the count with it', () => {
   const cell = (typeof CELL_PX === 'number') ? CELL_PX : 32;
-  // ringPx 0 is a point — that IS a cobble, and its look is unchanged.
+  // ringPx 0 is a point — that IS a street stretch, and its look is unchanged.
   const at0 = Particles.ringPoints(0, 4);
   assert.eq(at0.length, 4);
   assert.truthy(at0.every((p) => p.x === 0 && p.y === 0), 'no ring, one point');
@@ -255,7 +262,7 @@ test('particles: a ring burst explodes around the circle, a point burst all at o
   }
   calls.length = 0;
   assert.eq(Particles.burst(scene, 'stone', 5, 6), Particles.PRESETS.stone.count);
-  assert.eq(calls.length, 1, 'a cobble is still one explode at one point');
+  assert.eq(calls.length, 1, 'a point burst is still one explode at one point');
   assert.eq(calls[0][1], 5); assert.eq(calls[0][2], 6);
 });
 
@@ -269,10 +276,11 @@ test('particles: a restored building throws TIMBER and the restore green', () =>
   assert.eq(P.buildspark.tex.color, UI_GREEN,
     'in UI_GREEN — the colour the Restored! card is already set in');
   assert.eq(P.buildspark.angle[0], 0); assert.eq(P.buildspark.angle[1], 360, 'a full ring');
-  assert.eq(P.buildspark.gravityY, 0, 'weightless, like the cobble\'s');
+  assert.eq(P.buildspark.gravityY, 0, 'weightless, like the street\'s');
   assert.eq(P.buildspark.scale[1], 0); assert.eq(P.buildspark.alpha[1], 0, 'and burns out to nothing');
-  // The road's own pair is UNCHANGED — a stone looks exactly as it did.
-  assert.eq(P.stone.tex.color, UI_TRAIL_LIT);
+  // The road's own pair keeps its shape — only its colour moved, from the lit
+  // pebble's violet to the street ink the restored carriageway is made of.
+  assert.eq(P.stone.tex.color, UI_STREET_INK);
   assert.eq(P.stone.count, 12); assert.eq(P.trailspark.count, 10);
 });
 

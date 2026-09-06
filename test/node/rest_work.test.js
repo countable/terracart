@@ -18,10 +18,10 @@
 (function () {
 const app = APP_JS_SRC;
 
-// The rest block of update(): from the HOME-ONLY comment to the cobble sweep.
+// The rest block of update(): from the HOME-ONLY comment to the street sweep.
 const block = (() => {
   const a = app.indexOf('const atHome = this.isRestingAtHome(pWX, pWY);');
-  const b = app.indexOf('this._sweepCobbleTrails();', a);
+  const b = app.indexOf('this._sweepStreets();', a);
   assert.truthy(a > 0 && b > a, 'found the passive-rest block in update()');
   return app.slice(a, b);
 })();
