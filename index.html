@@ -28,7 +28,6 @@
         marks: [],     // { name, t }              — instants
         spans: [],     // { name, t, ms, note }    — completed stretches
         long: [],      // { t, ms }                — main-thread blocks > 50 ms
-        open: new Map(),
         mark(name) { try { B.marks.push({ name, t: t() }); } catch (_) {} },
         // begin() returns its own end function, so a span can't be closed by
         // the wrong name and nesting the same name twice is safe.
@@ -39,9 +38,6 @@
             try { B.openNames.delete(name); B.spans.push({ name, t: t0, ms: t() - t0, note }); } catch (_) {}
           };
         },
-        // Fire-and-forget for a stretch measured somewhere else.
-        span(name, t0, ms, note) { try { B.spans.push({ name, t: t0, ms, note }); } catch (_) {} },
-
         // ── Live half ──────────────────────────────────────────────────
         // The boot half above answers "why was the start slow". This answers
         // "why does it stutter while I walk", which is a different question
@@ -1393,7 +1389,7 @@
     }
 
     function fitGame() {
-      const W = BOX_W, H = BOX_H;
+      const W = BOX_W;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const portrait = vw < vh;
@@ -1534,18 +1530,25 @@
     });
     // Vibration toggle (UX audit §18). Label tracks the save both before the
     // scene exists (read localStorage) and after each click.
+    // The active slot's save, read straight out of the registry — for the
+    // controls that paint BEFORE save.js has parsed (this script runs first).
+    // Same registry shape save.js's initSaves/loadSave read; null when there
+    // is no registry, no active slot, or the read throws.
+    function readActiveSlotData() {
+      try {
+        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
+        const slot = reg && reg.slots.find(s => s.id === reg.active);
+        return (slot && JSON.parse(localStorage.getItem(slot.key) || 'null')) || null;
+      } catch { return null; }
+    }
     (function wireHaptics() {
       const btn = document.getElementById('toggle-haptics');
       if (!btn) return;
       const read = () => {
         const sc = window.__scene;
         if (sc && sc.save) return sc.save.haptics !== false;
-        try {
-          const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
-          const slot = reg && reg.slots.find(s => s.id === reg.active);
-          const d = slot && JSON.parse(localStorage.getItem(slot.key) || 'null');
-          return !d || d.haptics !== false;
-        } catch { return true; }
+        const d = readActiveSlotData();
+        return !d || d.haptics !== false;
       };
       const paint = () => { btn.textContent = `Vibration: ${read() ? 'on' : 'off'}`; };
       btn.addEventListener('click', (e) => {
@@ -1831,13 +1834,10 @@
       if (sc && sc.save) return sc.save.playerName || '';
       try {
         if (typeof loadSave === 'function') return loadSave().playerName || '';
-        // Before save.js has loaded (this script runs first): read the active
-        // slot straight out of the registry, same as the haptics toggle does.
-        const reg = JSON.parse(localStorage.getItem('terracart.saves') || 'null');
-        const slot = reg && reg.slots.find(s => s.id === reg.active);
-        const d = slot && JSON.parse(localStorage.getItem(slot.key) || 'null');
-        return (d && d.playerName) || '';
       } catch { return ''; }
+      // Before save.js has loaded: the registry, same as the haptics toggle.
+      const d = readActiveSlotData();
+      return (d && d.playerName) || '';
     }
     window.__setPlayerName = function (raw) {
       const name = (typeof Multiplayer !== 'undefined') ? Multiplayer.cleanName(raw) : String(raw || '').trim().slice(0, 16);
@@ -2338,39 +2338,39 @@
   <script src="vendor/phaser.js"></script>
   <script src="src/mvt.js?v=4"></script>
   <script src="src/util.js?v=25"></script>
-  <script src="src/trail.js?v=3"></script>
+  <script src="src/trail.js?v=4"></script>
   <script src="src/sprite_layout.js?v=12"></script>
   <script src="src/placed_floor.js?v=1"></script>
-  <script src="src/home.js?v=11"></script>
-  <script src="src/coords.js?v=123"></script>
-  <script src="src/fog.js?v=4"></script>
-  <script src="src/biome_profiles.js?v=6"></script>
-  <script src="src/worldgen.js?v=234"></script>
+  <script src="src/home.js?v=12"></script>
+  <script src="src/coords.js?v=124"></script>
+  <script src="src/fog.js?v=5"></script>
+  <script src="src/biome_profiles.js?v=7"></script>
+  <script src="src/worldgen.js?v=235"></script>
   <script src="src/textures.js?v=173"></script>
   <script src="src/save.js?v=116"></script>
-  <script src="src/items.js?v=200"></script>
+  <script src="src/items.js?v=201"></script>
   <script src="src/inventory.js?v=2"></script>
   <script src="src/energy.js?v=3"></script>
   <script src="src/crops.js?v=2"></script>
-  <script src="src/delivery.js?v=5"></script>
-  <script src="src/savemigrate.js?v=8"></script>
+  <script src="src/delivery.js?v=6"></script>
+  <script src="src/savemigrate.js?v=9"></script>
   <script src="src/gear.js?v=2"></script>
-  <script src="src/shops_math.js?v=4"></script>
+  <script src="src/shops_math.js?v=5"></script>
   <script src="src/shops.js?v=6"></script>
-  <script src="src/rarity.js?v=28"></script>
-  <script src="src/loot.js?v=142"></script>
-  <script src="src/quests.js?v=5"></script>
-  <script src="src/interactables.js?v=16"></script>
-  <script src="src/combat.js?v=4"></script>
-  <script src="src/interact.js?v=235"></script>
-  <script src="src/render.js?v=341"></script>
-  <script src="src/multiplayer.js?v=8"></script>
-  <script src="src/road_overlay.js?v=14"></script>
-  <script src="src/building_overlay.js?v=5"></script>
-  <script src="src/assets.js?v=179"></script>
-  <script src="src/sandbox.js?v=40"></script>
+  <script src="src/rarity.js?v=29"></script>
+  <script src="src/loot.js?v=143"></script>
+  <script src="src/quests.js?v=6"></script>
+  <script src="src/interactables.js?v=17"></script>
+  <script src="src/combat.js?v=5"></script>
+  <script src="src/interact.js?v=236"></script>
+  <script src="src/render.js?v=342"></script>
+  <script src="src/multiplayer.js?v=9"></script>
+  <script src="src/road_overlay.js?v=15"></script>
+  <script src="src/building_overlay.js?v=6"></script>
+  <script src="src/assets.js?v=180"></script>
+  <script src="src/sandbox.js?v=41"></script>
   <script src="src/testtools.js?v=9"></script>
-  <script src="src/geo.js?v=2"></script>
+  <script src="src/geo.js?v=3"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2427,7 +2427,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=477';
+      const APP_SRC = 'src/app.js?v=478';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

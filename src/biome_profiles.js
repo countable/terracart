@@ -17,7 +17,8 @@
 // concern); this file only references texture variant counts for documentation.
 //
 // Depends on: nothing. Pure data + small lookups. Exposes globals
-//   BiomeProfiles (accessors), BIOME_PROFILES (raw), BIOME_FAUNA, FAUNA_ORDER.
+//   BiomeProfiles (accessors: T, flora, tint, atmos, mixHex, allows),
+//   BIOME_PROFILES (raw), BIOME_FAUNA, FAUNA_ORDER.
 
 (function (global) {
   // Terrain codes — mirror of worldgen.js' T enum (kept as bare numbers here so
@@ -137,14 +138,10 @@
   // tint:  crop / object-kind → 0xRRGGBB multiply, applied at render time so the
   //        same shared sprite reads differently per biome (golden field grass,
   //        swampy reeds, rusty industrial rock, …).
+  // A biome with no row here inherits its family's profile above — GRASS,
+  // SAND, RESIDENTIAL and ROCK are exactly their family defaults (grassland /
+  // sand / urban / rocky), so they have no row.
   const BIOME_PROFILES = {
-    [T.GRASS]: {
-      flora: [dyn('longgrass', 0.15, S.LONGGRASS),
-              // Halved (see grassland family note) — was 0.006–0.020.
-              fix('forgetmenot', 0.003, 0.010, S.FORGETMENOT),
-              fix('marigold', 0.002, 0.006, S.MARIGOLD)],
-      tint: {},
-    },
     [T.FOREST]: {
       flora: [fix('shrub', D_MIN, D_MAX, S.SHRUB),
               fix('nut', 0.005, 0.03, S.NUT),
@@ -153,16 +150,11 @@
               fix('starflower', 0.002, 0.006, S.STARFLOWER)],
       tint: {},
     },
-    [T.SAND]: { flora: [fix('shell', 0.04, 0.07, S.SHELL)], tint: {} },
     [T.FARMLAND]: {
       // Muddy pasture — patches of grass + the odd wildflower (green, not the
       // old golden wheat tint, to suit the churned-pasture look).
       flora: [dyn('longgrass', 0.10, S.FARM_LG),
               fix('marigold', 0.003, 0.009, S.FARM_MAR)],
-      tint: {},
-    },
-    [T.RESIDENTIAL]: {
-      flora: [fix('mushroom', 0.008, 0.025, S.MUSH_RESID)],
       tint: {},
     },
     [T.PARK]: {
@@ -176,7 +168,6 @@
               fix('marigold', 0.002, 0.006, S.MARIGOLD)],
       tint: {},
     },
-    [T.ROCK]: { flora: [], tint: {} },   // minerals carry rock terrain (worldgen)
     [T.SCHOOL]: {
       // Casual turf — keeps the grassland wildflowers (parity with the old
       // meadow-flora pass that ran on every LONGGRASS_TYPES member).
@@ -280,8 +271,8 @@
   // two numbers we can tune globally (DUST + HAZE_K), while each biome keeps
   // its identity because its own base colour is half the mix.
   //
-  // Consumed by render.js in three places, which are the three depth planes a
-  // top-down grid actually has:
+  // atmos(type) returns { haze, dim } — the two colours render.js consumes,
+  // for the depth planes a top-down grid actually has:
   //   dim   — the per-cell wash over everything OUTSIDE the player's reach.
   //           Darkens (so the eye still lands on what's actionable) but in the
   //           biome's hue instead of neutral black.
@@ -333,7 +324,7 @@
       ? COLORS[type] : BASE_FALLBACK;
     const dust = DUST_OF[type] != null ? DUST_OF[type] : DUST;
     const haze = mixHex(base, dust, HAZE_K);
-    a = { base, dust, haze, dim: mixHex(0x000000, haze, DIM_K) };
+    a = { haze, dim: mixHex(0x000000, haze, DIM_K) };
     _atmosCache.set(type, a);
     return a;
   };
@@ -360,7 +351,9 @@
     slime:     { base: 50, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
   };
 
-  const api = { T, get, flora, tint, atmos, mixHex, allows, familyOf, BIOME_PROFILES, BIOME_FAUNA, FAUNA_ORDER };
+  // The accessors. The raw tables reach app.js as the bare globals below
+  // (BIOME_FAUNA / FAUNA_ORDER for the fauna spawner), not through here.
+  const api = { T, flora, tint, atmos, mixHex, allows };
   global.BiomeProfiles = api;
   global.BIOME_PROFILES = BIOME_PROFILES;
   global.BIOME_FAUNA = BIOME_FAUNA;

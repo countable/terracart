@@ -11,7 +11,7 @@
 // Depends on:
 //   app.js       — MapScene fields used per-frame (read unless noted):
 //                    Graphics:   cellGfx, tierGfx
-//                    Containers: terrainContainer, padContainer,
+//                    Containers: padContainer,
 //                                worldContainer (aliased as objectsContainer /
 //                                plantedContainer / creaturesContainer — one
 //                                shared, depth-sorted layer)
@@ -110,8 +110,7 @@ const POI_PAD_TINT = 0x33ccff;
 // down rather than skipped outright — still marked as a place, just a
 // smaller one.
 const POI_PAD_MINI_SCALE = 0.55;
-// Terrain codes the cobble rule needs at module scope (drawCells keeps its own
-// locals for the rest of the pass).
+// Terrain codes the cobble rule and drawCells' road/path tests share.
 const T_PATH = 8;
 const isRoadType = (t) => t === 7 || t === 13 || t === 14;
 // METRES BETWEEN PATH PEBBLES. A stone on every single 7 m path cell read as a
@@ -158,7 +157,6 @@ const cobbleShown = (absIX, absIY, type, cellM) => {
   return ((((absIX * 668265263) ^ (absIY * 2654435761)) >>> 0) % 100) < pct;
 };
 Render.COBBLE_SPACING_M = COBBLE_SPACING_M;
-Render.pathStonePct = pathStonePct;
 Render.cobbleShown = cobbleShown;
 // A freshly claimed cobble gets a brief scale-pop instead of silently
 // jumping to full opacity next frame, so claiming reads as an event. 450ms
@@ -289,12 +287,6 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
   hidePoolFrom(pool, i);
 };
 
-function darkenHex(hex, f) {
-  return ((Math.round(((hex >> 16) & 0xff) * f)) << 16)
-       | ((Math.round(((hex >>  8) & 0xff) * f)) <<  8)
-       |  (Math.round( (hex        & 0xff) * f));
-}
-
 // Linear blend between two packed RGB colours. t=0 -> a, t=1 -> b.
 // Same implementation as BiomeProfiles.mixHex (biome_profiles.js loads before
 // this file) — aliased locally rather than deleted since this runs in the
@@ -348,8 +340,11 @@ function edgeNeedsBorder(color, nbrType, nbrColor) {
   return nbrColor !== color;
 }
 if (typeof window !== 'undefined') window.edgeNeedsBorder = edgeNeedsBorder;
-const _darkCache = new Map(); // darkenHex results — stable across frames, ~25 entries max
-const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = darkenHex(c, BORDER_DIM); _darkCache.set(c, d); } return d; };
+// Darkened-edge colours (the cell colour blended BORDER_DIM of the way from
+// black — per channel round(c * BORDER_DIM)) — stable across frames, ~25
+// entries max.
+const _darkCache = new Map();
+const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = mixHex(0x000000, c, BORDER_DIM); _darkCache.set(c, d); } return d; };
 // Seam blend results, cached like the darkened edges above. Bounded by
 // (palette x palette x BLUR_STEPS) and in practice far smaller — only colour
 // pairs that actually border each other are ever asked for. The key packs both
@@ -744,7 +739,6 @@ if (typeof window !== 'undefined') {
   window.FOG_RAMP_CELLS = FOG_RAMP_CELLS;
   window.FOG_FIELD_R = FOG_FIELD_R;
   window.FOG_EDGE_BIAS = FOG_EDGE_BIAS;
-  window.FOG_WISP_AMP = FOG_WISP_AMP;
   window.FOG_SUB = FOG_SUB;
   window.FOG_ALPHA = FOG_ALPHA;
 }
@@ -802,12 +796,9 @@ const _shadeOnce = (n) => {
   if (v === undefined) { v = unclaimedShade(n); _shadeMemo.set(n, v); }
   return v;
 };
-// Compose two multiply tints, channel by channel — so an unclaimed shop keeps
-// its role colour AND takes the wash, instead of one replacing the other.
-const _mulTints = (a, b) => {
-  const ch = (sh) => Math.round((((a >> sh) & 255) * ((b >> sh) & 255)) / 255);
-  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
-};
+// (Tints compose with util.js's mulTint — channel-wise multiply — so an
+// unclaimed shop keeps its role colour AND takes the wash, instead of one
+// replacing the other.)
 // A wash laid on the GROUND, expressed as the multiply tint that lands a
 // SPRITE in the same place — white lerped `alpha` of the way to the wash
 // colour, exactly the construction UNCLAIMED_SPRITE_TINT is built with. A
@@ -882,23 +873,13 @@ const _outOfReach = (o, scene) => {
 // Pure (object + scene in, a colour out), which is also what makes it
 // auditable headlessly: test/node/wreck_dim.test.js drives it directly.
 Render.spriteTint = function spriteTint(o, scene) {
-  // Specialty-shop houses pick up a tint (sooty grey, red, etc.); the
-  // table lives in shops.js so adding a new shop type is one-file work.
-  // Themed-sprite houses (blacksmith/trader/fort/trailer) DON'T tint —
-  // the sprite itself signals the role; tinting would discolour the art.
-  // Starter still gets the gold tint (in case the trailer sprite isn't
-  // available the player still spots the inaugural shop), but the
-  // themed-house branch already returned 'plain' for non-themed roles.
+  // White (no tint) unless one of the three rules below applies. Houses get
+  // NO role tint of any kind: a plain house is a delivery host and stays
+  // untinted, and a themed shop (blacksmith/trader/market/wizard/trailer)
+  // carries its own house_<role> sprite, which tinting would only discolour.
+  // The only thing a house can wear is the derelict wash (+ reach dim) at the
+  // bottom of this function.
   let tint = 0xffffff;
-  // Houses: a resolved role of 'plain' is genuine residential (a delivery
-  // host), so it stays UNTINTED. Themed shops (blacksmith/trader/market/
-  // wizard) carry their own sprite (house_<role>) and resolve to that role,
-  // not 'plain', so they never want a tint either. We deliberately do NOT
-  // fall back to the legacy address-based Shops.shopTint() here: it keyed off
-  // the street address digit (…9 → blacksmith, …2/6 → market), so a plain
-  // delivery host whose address merely ENDED in 9 got painted dark steel —
-  // the "potato+onion house is tinted dark" bug. Address-shop houses get
-  // their look from being restored INTO a themed role, not from this tint.
   // Rare shiny flora — trees + fruit trees get the warm yellow sheen so the
   // player can spot a shiny harvest from across the tile.
   if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
@@ -922,7 +903,7 @@ Render.spriteTint = function spriteTint(o, scene) {
   // (A TURRET is exempt: it swaps to its own baked texture above rather than
   // taking the tint, so applying this as well would shade it twice.)
   if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
-    tint = _mulTints(tint, UNCLAIMED_SPRITE_TINT);
+    tint = mulTint(tint, UNCLAIMED_SPRITE_TINT);
     // …and the SECOND wash its footprint takes: the out-of-reach dim. That
     // one is painted on the lighting layer, which sits below the sprites on
     // purpose (reach dims the ground, distance dims the objects — see the
@@ -938,7 +919,7 @@ Render.spriteTint = function spriteTint(o, scene) {
     // construction. Only a handful of houses are ever on screen, so it goes
     // through the helper rather than re-inlining its maths the way the
     // ~1000-call-a-frame cell loop in drawCells has to.
-    if (_outOfReach(o, scene)) tint = _mulTints(tint, Render.reachDimTint(scene));
+    if (_outOfReach(o, scene)) tint = mulTint(tint, Render.reachDimTint(scene));
   }
   return tint;
 };
@@ -1084,7 +1065,7 @@ Render.drawCells = function drawCells(scene) {
   const gf = scene.rampartFrontGfx || g;   // front (south) wall — ABOVE objects
   const gb = scene.rampartBackGfx  || g;   // back (north) + side walls — BELOW objects
   if (gf !== g) gf.clear();
-  if (gb !== g && gb !== gf) gb.clear();
+  if (gb !== g) gb.clear();
   const half = (VIEW_CELLS - 1) / 2;
   // One clock read per pass for the animated biome textures (water) — every
   // cell must sample the same instant or a pass could straddle a phase step.
@@ -1141,9 +1122,7 @@ Render.drawCells = function drawCells(scene) {
   // scattered stone — and so does an ACTIVATED named-path stone: coming up to
   // full opacity is how a claimed stone reads as lit.
   const COBBLE_ALPHA = 0.57;
-  const ROAD = 7, ROAD_LG = 13, ROAD_MD = 14;
-  const PATH = 8;
-  const isRoad = (t) => t === ROAD || t === ROAD_LG || t === ROAD_MD;
+  // (Road / path terrain tests are the module-scope isRoadType / T_PATH.)
   // PIER (terrain code 23) — wooden walkway over water (OSM transportation:pier).
   // Reuses the cobblePool slot for the overlay sprite but swaps its texture
   // from 'cobble' to 'pier' (assets/Objects/Wilderness/Bridge Beach.png, 8×14 of
@@ -1252,7 +1231,7 @@ Render.drawCells = function drawCells(scene) {
   // is too (see the base fill below), so the wavy biome borders and the
   // rounded-corner fills have to resolve it the same way or a building would
   // be ringed by a seam against the ground it was just painted to match.
-  const lookThrough = (t) => isRoad(t) || t === PATH || (POLY && isBuildingType(t));
+  const lookThrough = (t) => isRoadType(t) || t === T_PATH || (POLY && isBuildingType(t));
   const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
   _fadeRects.length = 0;
   // (FLAT_ROUNDABLE is module-level — see above.)
@@ -1300,7 +1279,7 @@ Render.drawCells = function drawCells(scene) {
       // the tier colour shows through — which is under the polygon anyway.
       let polyGround = -1;
       const polyB = POLY && isBuildingType(type);
-      if (isRoad(type) || type === PATH || polyB) {
+      if (isRoadType(type) || type === T_PATH || polyB) {
         const wcx = pc.cx + ox + pc.tx * scene.cellsPerTile;
         const wcy = pc.cy + oy + pc.ty * scene.cellsPerTile;
         if (polyB) {
@@ -1335,7 +1314,7 @@ Render.drawCells = function drawCells(scene) {
         // change must not round corners, and a road-like diagonal's corner
         // paint must use its inferred backdrop colour, never the raw road
         // grey from COLORS (which left grey notches at elbows/junctions).
-        const roadish = (t) => isRoad(t) || t === PATH;
+        const roadish = (t) => isRoadType(t) || t === T_PATH;
         const selfRoadish = roadish(type);
         const sameAs = (t) => t === type || (selfRoadish && roadish(t));
         if (!sameAs(tn) && !sameAs(tw) && !sameAs(tnw)) tl = CORNER_R;
@@ -1528,7 +1507,6 @@ Render.drawCells = function drawCells(scene) {
         const ns = scene.noisePool[noiseIdx++];
         const h = (absCellIX * 2246822519) ^ (absCellIY * 3266489917);
         let texKey = null;
-        let texFrame; // undefined = use whole-image; defined = sheet frame index
         if (isTilled) {
           texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
         } else {
@@ -1543,7 +1521,7 @@ Render.drawCells = function drawCells(scene) {
           // texture (see polyGround above), so nothing under the polygon reads
           // as a floor.
           if (polyGround >= 0) baseType = polyGround;
-          else if (type === PATH) {
+          else if (type === T_PATH) {
             const N = scene.cellsPerTile;
             const txp = Math.floor(absCellIX / N);
             const typ = Math.floor(absCellIY / N);
@@ -1568,8 +1546,7 @@ Render.drawCells = function drawCells(scene) {
           }
         }
         if (texKey) {
-          if (texFrame !== undefined) ns.setTexture(texKey, texFrame);
-          else ns.setTexture(texKey);
+          ns.setTexture(texKey);
           // setTexture resets the sprite's intrinsic size; re-apply CELL_PX.
           ns.setDisplaySize(CELL_PX, CELL_PX)
             .setPosition(Math.round(sx), Math.round(sy))
@@ -1587,7 +1564,7 @@ Render.drawCells = function drawCells(scene) {
         const lt = scene.letterPool[letterIdx++];
         // Anchors exist only on vehicle road tiers (PATH pebbles are too
         // small to carry a label), so the isRoad gate also keeps lookups cheap.
-        if (!isTilled && isRoad(type)) {
+        if (!isTilled && isRoadType(type)) {
           // Look up this cell's label anchor from its owning tile.
           const wcxL = pc.cx + ox + pc.tx * scene.cellsPerTile;
           const wcyL = pc.cy + oy + pc.ty * scene.cellsPerTile;
@@ -1621,8 +1598,8 @@ Render.drawCells = function drawCells(scene) {
         // class reads as one consistent surface across all its cells.
         const isPier = (type === PIER);
         const frame = isPier ? PIER_FRAME
-                     : isRoad(type) ? ROAD_FRAME[type]
-                     : (type === PATH ? PATH_FRAME : null);
+                     : isRoadType(type) ? ROAD_FRAME[type]
+                     : (type === T_PATH ? PATH_FRAME : null);
         // Cobbles the player has lit by walking within reach of them come up
         // to FULL opacity and a recoloured "lit" texture (litCobbleTexKey,
         // baked in app.js) — the same stone, lit rather than a different
@@ -1631,7 +1608,7 @@ Render.drawCells = function drawCells(scene) {
         // (returns false in test mode or before save state exists), so this
         // check is always cheap. PIER is excluded — a plank is not a cobble.
         let active = false;
-        if ((type === PATH || isRoad(type)) && typeof scene._isPathStoneActive === 'function') {
+        if ((type === T_PATH || isRoadType(type)) && typeof scene._isPathStoneActive === 'function') {
           // Cells outside the player's own tile fall back to the cell's
           // tile coords — paths span tile seams, and we want the same answer
           // on both sides of the boundary.
@@ -1668,7 +1645,7 @@ Render.drawCells = function drawCells(scene) {
           // border at the cell edge has room to read. The PIER plank is not
           // one of them and keeps cell size: its art tiles edge-to-edge across
           // adjacent pier cells, and any resize opens a seam.
-          const size = isPier ? CELL_PX : (isRoad(type) ? CELL_PX * 0.64 : CELL_PX * 0.584);
+          const size = isPier ? CELL_PX : (isRoadType(type) ? CELL_PX * 0.64 : CELL_PX * 0.584);
           // A just-claimed stone gets a brief scale-pop (PATH_STONE_FLASH_MS)
           // instead of silently jumping to its lit state next frame — claiming
           // reads as an event. Pure transform, no extra sprite/pool, so it's
@@ -2442,9 +2419,9 @@ function playerScreenBox(scene) {
     y0: p.y - h * p.originY + inset, y1: p.y + h * (1 - p.originY) - inset,
   };
 }
-// Dim `tx` when it overlaps `box`; restore it to `full` when it doesn't.
-function fadeLabelOverPlayer(tx, box, full = 1) {
-  if (!box) { tx.setAlpha(full); return; }
+// Dim `tx` when it overlaps `box`; restore it to full alpha when it doesn't.
+function fadeLabelOverPlayer(tx, box) {
+  if (!box) { tx.setAlpha(1); return; }
   let w = tx.width, h = tx.height;
   let x0 = tx.x - w * tx.originX, y0 = tx.y - h * tx.originY;
   // Quarter-turned labels (the vertical POI names) occupy a box that is the
@@ -2459,7 +2436,7 @@ function fadeLabelOverPlayer(tx, box, full = 1) {
     const t = w; w = h; h = t;
   }
   const hit = x0 < box.x1 && x0 + w > box.x0 && y0 < box.y1 && y0 + h > box.y0;
-  tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA : full);
+  tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA : 1);
 }
 
 Render.drawObjects = function drawObjects(scene) {
@@ -2479,6 +2456,11 @@ Render.drawObjects = function drawObjects(scene) {
   // Re-inject the synthetic starter trailer (if any) into its owning tile —
   // worldgen never emits it, so it must be re-added after reloads / eviction.
   if (scene.ensureStarterTrailerObject) scene.ensureStarterTrailerObject();
+  // Is drawCells drawing the TILED building art this frame? Only that path
+  // (the tier-12 rampart pass) reads the two occlusion stamps below —
+  // _homeTrailerRect and _rampartOccludedCells — so in the polygonal mode
+  // (the shipping default, see polyBuildings) neither is computed at all.
+  const TILED = !polyBuildings();
   // Screen-space rect of the Home trailer's sprite — re-stamped each frame by
   // the house spec's `after` hook when the trailer is on-screen, null when it
   // isn't. drawCells reads it to sort castle front walls BEHIND the trailer
@@ -2648,7 +2630,6 @@ Render.drawObjects = function drawObjects(scene) {
   // (cheap), AND now also persist into save.chopped so a tile re-rasterize
   // doesn't regrow them. Check both — save.chopped is the source of truth.
   const choppedSet = setOf(scene.save.chopped);
-  const pickedSetObj = setOf(scene.save.picked);
   const brokenRockSet = scene.brokenRockSet || new Set();
   // Lowtier chests (chestTier === 1) and starter supply crates render the
   // `box` sprite instead of the trunk chest.
@@ -2657,7 +2638,6 @@ Render.drawObjects = function drawObjects(scene) {
     const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass) : 2;
     return tier === 1;
   };
-  const _chestOpened = (o) => o.kind === 'chest' && openedSet.has(o.id);
   // EVERY opened chest vanishes, crates included. A looted crate used to stay
   // put as an open-lid "already cracked this one" marker, but the empty-crate
   // sprite read as broken art wherever it sat, and an emptied crate is worth
@@ -2676,7 +2656,7 @@ Render.drawObjects = function drawObjects(scene) {
     !(o.kind === 'mineralrock' && brokenRockSet.has(o.id)) &&
     // Ground stacks vanish once picked up. Same key (save.picked) as the
     // wildplant pickup tracking, so existing UIs / saves don't grow a new field.
-    !(o.kind === 'groundstack' && pickedSetObj.has(o.id))
+    !(o.kind === 'groundstack' && pickedSet.has(o.id))
   );
   // Merge in placed scarecrows so they go through the same sprite pool +
   // depth sort as other world objects. Their RENDER_SPEC entry (kind
@@ -2716,14 +2696,19 @@ Render.drawObjects = function drawObjects(scene) {
   // stand ON the wall cell and live in towerContainer, above both rampart
   // layers) and houses are excluded (multi-cell centroid anchors don't map to
   // one cell — the Home trailer keeps its dedicated _homeTrailerRect path).
-  const _rampOcc = new Set();
-  for (const { it } of zList) {
-    const kind = it.o && it.o.kind;
-    if (kind === 'tower' || kind === 'house') continue;
-    const c = worldMetersToAbsCell(scene, pWorldX + it.dx, pWorldY + it.dy);
-    _rampOcc.add(c.cellIX + '_' + c.cellIY);
+  // Tiled mode only: the polygonal path draws no rampart, so it never reads it.
+  if (TILED) {
+    const _rampOcc = new Set();
+    for (const { it } of zList) {
+      const kind = it.o && it.o.kind;
+      if (kind === 'tower' || kind === 'house') continue;
+      const c = worldMetersToAbsCell(scene, pWorldX + it.dx, pWorldY + it.dy);
+      _rampOcc.add(c.cellIX + '_' + c.cellIY);
+    }
+    scene._rampartOccludedCells = _rampOcc;
+  } else {
+    scene._rampartOccludedCells = null;
   }
-  scene._rampartOccludedCells = _rampOcc;
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
@@ -2731,6 +2716,14 @@ Render.drawObjects = function drawObjects(scene) {
   // Coin-burst POIs (ATM + bicycle_parking): tapping them spills a burst of
   // collectible coins, so they render as a "pot of gold" instead of a chest.
   const _isCoinBurst = (o) => o.poiClass === 'atm' || o.poiClass === 'bicycle_parking';
+  // Which of the chest's three looks (produce stand / pot of gold / crate)
+  // this object wears — resolved ONCE per object and cached on it, the same
+  // way loot.js's produceStandFor caches its own answer in o._standCache.
+  // Every input (poiClass, crate) is fixed at spawn and a rebuilt tile is a
+  // new object, so the memo can't go stale; the chest spec below reads it
+  // from seven fields per chest per frame.
+  const _chestLook = (o) => o._chestLook
+    || (o._chestLook = { stand: produceStandFor(o), coin: _isCoinBurst(o), box: _chestIsBox(o) });
   // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
   const CRATE_SCALE = 1.53;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
@@ -2898,9 +2891,10 @@ Render.drawObjects = function drawObjects(scene) {
       scale: _houseScale,
       // Stamp the Home trailer's display rect for drawCells' castle-rampart
       // sorting: a front (south) wall the trailer is parked in front of must
-      // not paint over it. Runs after position/origin/scale are final.
+      // not paint over it. Runs after position/origin/scale are final. Tiled
+      // mode only — the polygonal path has no rampart pass to read it.
       after: (s, o) => {
-        if (_houseRole(o) !== 'trailer') return;
+        if (!TILED || _houseRole(o) !== 'trailer') return;
         const w = s.displayWidth, h = s.displayHeight;
         scene._homeTrailerRect = {
           x0: s.x - w * s.originX, x1: s.x + w * (1 - s.originX),
@@ -3011,12 +3005,13 @@ Render.drawObjects = function drawObjects(scene) {
                 // toolGatedAlpha reads the same gate the tap refuses on).
                 s.setAlpha(toolGatedAlpha(o, scene.save));
               } },
-    chest:  { key: (o) => _isCoinBurst(o) ? 'potofgold'
-                        : (produceStandFor(o) ? 'market_stand'
-                        // Opened chests never reach the renderer (they're
-                        // filtered out above), so there is no "looted" sprite
-                        // to pick — a crate is either closed or gone.
-                        : (_chestIsBox(o) ? 'box' : 'chest')),
+    chest:  { key: (o) => { const L = _chestLook(o);
+                            return L.coin ? 'potofgold'
+                                 : (L.stand ? 'market_stand'
+                                 // Opened chests never reach the renderer (they're
+                                 // filtered out above), so there is no "looted" sprite
+                                 // to pick — a crate is either closed or gone.
+                                 : (L.box ? 'box' : 'chest')); },
               // box is a single-frame image; trunk.png is 2-frame.
               // Crates and coin-burst pots leave `frame` at 0.
               // Coin-burst POIs (ATM + bicycle_parking) render the procedural
@@ -3025,12 +3020,12 @@ Render.drawObjects = function drawObjects(scene) {
               // exactly like the themed-house sprites. The pot art is already
               // gold, so no tint is applied. Produce stands pick the market_stand
               // awning frame for their product family (see produceStandFor).
-              frame: (o) => { const st = produceStandFor(o);
-                              return _isCoinBurst(o) ? undefined : (st ? st.frame : 0); },
+              frame: (o) => { const L = _chestLook(o);
+                              return L.coin ? undefined : (L.stand ? L.stand.frame : 0); },
               // Stand: 80×80 stall art, foot-anchored like a small house so its
               // body rises north over the POI cell.
-              origin: (o) => produceStandFor(o) ? [0.5, 1.0]
-                           : (_isCoinBurst(o) ? [0.5, 0.95] : [0.5, 0.9]),
+              origin: (o) => { const L = _chestLook(o);
+                               return L.stand ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
               // Every chest kind and the market stall are drawn 10% smaller
               // than they used to be (per playtest — they crowded their cell),
               // about the SAME centre: the seated kinds (trunk chest, crates)
@@ -3040,7 +3035,8 @@ Render.drawObjects = function drawObjects(scene) {
               // 16 × 1.53 ≈ 24px inside the 32px cell, so a crate reads as a
               // prop rather than filling its cell; trunk is 32×32 so 0.9 is
               // 90% of a cell.
-              scale: (o) => produceStandFor(o) ? 0.54 : (_isCoinBurst(o) ? 1.4 : (_chestIsBox(o) ? CRATE_SCALE : 0.9)),
+              scale: (o) => { const L = _chestLook(o);
+                              return L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.9)); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -3050,7 +3046,7 @@ Render.drawObjects = function drawObjects(scene) {
               // over its POI cell in situ. Both terms are re-derived whenever
               // the scale changes so shrinking the stall leaves its art centre
               // exactly where it was.
-              dxPx: (o) => produceStandFor(o) ? -0.24 : (_isCoinBurst(o) ? 4 : 0),
+              dxPx: (o) => { const L = _chestLook(o); return L.stand ? -0.24 : (L.coin ? 4 : 0); },
               // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in
               // its cell, so the anchor is pushed down by the distance from the
               // art's middle to that anchor: (0.9-0.5)·16·scale. This is only the
@@ -3063,10 +3059,11 @@ Render.drawObjects = function drawObjects(scene) {
               // at scale 0.6; at 0.54 the same art centre sits at 19.3
               // (= 45px art-centre-above-anchor × 0.54 - 5), which keeps the
               // stall exactly where it was, just 10% smaller.
-              dyPx: (o) => produceStandFor(o) ? 19.3 : (_isCoinBurst(o) ? 8 : (_chestIsBox(o) ? 0.4 * 16 * CRATE_SCALE : 0)),
+              dyPx: (o) => { const L = _chestLook(o);
+                             return L.stand ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0)); },
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => !produceStandFor(o) && !_isCoinBurst(o) },
+              seat: (o) => { const L = _chestLook(o); return !L.stand && !L.coin; } },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
@@ -3472,7 +3469,8 @@ Render.drawObjects = function drawObjects(scene) {
   const haloT = performance.now() / 1000;
   // Loose supply crates (o.crate, no poiClass) are excluded for the same
   // reason they get no pad: a transient pickup is not a place.
-  const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !o.crate && !_chestOpened(o));
+  // (Opened chests are already gone — filteredObj dropped them above.)
+  const haloList = filteredObj.filter(({ o }) => o.kind === 'chest' && !o.crate);
   Render.renderPool(scene, scene.poiHaloPool, scene.poiHaloContainer, haloList, (s, item) => {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
@@ -4220,8 +4218,12 @@ Render.drawObjects = function drawObjects(scene) {
   // entry keeps 0.9.
   const CA = (typeof SpriteLayout !== 'undefined' && SpriteLayout.CREATURE_ART)
     ? SpriteLayout.CREATURE_ART : {};
-  const creatureFoot = (kind) => CA[kind]?.foot ?? 0.9;
-  const creatureScale = (kind, fallback) => CA[kind]?.scale ?? fallback;
+  const creatureFoot = (typeof SpriteLayout !== 'undefined' && SpriteLayout.creatureFoot)
+    || ((kind) => 0.9);
+  // Every kind drawn below has a CREATURE_ART entry (pinned by
+  // test/node/creature_wheel.test.js), so the scale is the table's; the `?? 1`
+  // only covers a bare harness with no SpriteLayout loaded.
+  const creatureScale = (kind) => CA[kind]?.scale ?? 1;
   const creatureFloat = (kind) => CA[kind]?.float ?? 0;
   // The ground line a creature stands on, relative to its cell centre. Shared
   // with the shadow pass below so the sprite and its shadow can never drift:
@@ -4239,7 +4241,7 @@ Render.drawObjects = function drawObjects(scene) {
       // Cow is the biggest farm animal — needs to read larger than the
       // 32×32 cat/dog/deer/crow which all sit at 1.30. Bumped to 1.50
       // (48 px effective) so the cow visibly dwarfs the pets.
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.50))
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'cat' || c.kind === 'dog') {
@@ -4248,7 +4250,7 @@ Render.drawObjects = function drawObjects(scene) {
       // fills more of its 32×32 cell than the cat's does, so they read as
       // visually similar despite sharing the scalar.
       const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
-      const sc = creatureScale(c.kind, 1.3);
+      const sc = creatureScale(c.kind);
       if (setTextureIfDifferent(s, c.kind)) s.play(animKey);
       s.setOrigin(0.5, creatureFoot(c.kind)).setScale(sc)
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
@@ -4258,7 +4260,7 @@ Render.drawObjects = function drawObjects(scene) {
       // Row 0 frames 0-1 are the side-view idle pose.
       if (s.texture.key !== 'deer') { s.anims?.stop(); s.setTexture('deer', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.3))
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'rabbit') {
@@ -4267,7 +4269,7 @@ Render.drawObjects = function drawObjects(scene) {
       // fills less of its 16×16 cell.
       if (s.texture.key !== 'rabbit') { s.anims?.stop(); s.setTexture('rabbit', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.5))
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'crow') {
@@ -4277,14 +4279,14 @@ Render.drawObjects = function drawObjects(scene) {
       // a proper bird next to the cow rather than a tiny pebble.
       if (s.texture.key !== 'crow') { s.anims?.stop(); s.setTexture('crow', 0); }
       s.setFrame(0);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.3))
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - creatureFloat(c.kind));
       s.setFlipX(!!c._faceFlip);
     } else if (c.kind === 'butterfly') {
       // 16×16 7-frame sheet → 2.0×, ~100 ms/frame.
       if (s.texture.key !== 'butterfly') { s.anims?.stop(); s.setTexture('butterfly', 0); }
       s.setFrame(Math.floor(performance.now() / 100) % 7);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 2.0))
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - creatureFloat(c.kind));
       s.setFlipX(!!c._faceFlip);
     } else if (isMonster(c.kind)) {
@@ -4305,7 +4307,7 @@ Render.drawObjects = function drawObjects(scene) {
       const ph = ((performance.now() + c._hopSeed) % period) / period;
       const hopPx = Math.abs(Math.sin(ph * Math.PI)) * (m.fly ? 10 : 6);
       const floatPx = creatureFloat(c.kind);   // fliers hover off the floor
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, m.fly ? 0.95 : 1.25))
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
        .setPosition(Math.round(sx),
                     Math.round(sy) + CREATURE_GROUND_DY - Math.round(hopPx) - floatPx);
       s.setFlipX(!!c._faceFlip);
@@ -4324,7 +4326,7 @@ Render.drawObjects = function drawObjects(scene) {
       const hopPx = Math.abs(Math.sin(ph * Math.PI)) * 6;          // arc up to 6 px
       // Anchored on the blob's own bottom row, so the hop lifts it OFF the
       // shadow instead of starting 11px above it ("the slime is flying").
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.2))
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - Math.round(hopPx));
       s.setFlipX(!!c._faceFlip);
     } else {
@@ -4332,7 +4334,7 @@ Render.drawObjects = function drawObjects(scene) {
       // Per user → 1.20 (still well under the cow's 1.20 because the chicken
       // sheet is 16×16 while the cow is 32×32 — same scalar, half the size).
       if (setTextureIfDifferent(s, 'chicken')) s.play('chicken-idle');
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, 1.20))
+      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
       s.setFlipX(!!c._faceFlip);
     }
@@ -4351,7 +4353,7 @@ Render.drawObjects = function drawObjects(scene) {
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
       cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, rabbit: 14, chicken: 14,
-      butterfly: 9, slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22,
+      butterfly: 9, slime: 22, cave_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
       const { c, dx, dy } = item;

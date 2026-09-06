@@ -10,10 +10,10 @@
 // object per day.
 //
 // Everything here is a pure function of (save, house): the house._wantedProduce
-// cache it writes is plain data, not scene state. The scene keeps thin wrappers
-// (app.js _deliveryDayKey / wantedProduce / isHouseSatisfied / …). The one piece
-// that stays in app.js is knownDeliveryHouses — it scans WorldGen.tileCache and
-// uses the player's world position.
+// cache it writes is plain data, not scene state. The scene calls Delivery
+// directly (dayKey / wanted / isSatisfied / isEarly …) from its interact and
+// render paths. The one piece that stays in app.js is knownDeliveryHouses — it
+// scans WorldGen.tileCache and uses the player's world position.
 //
 // Depends on globals from items.js: ITEM_BY_ID, ITEMS, BASE_TIER.
 

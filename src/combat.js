@@ -144,7 +144,7 @@
   //           and the punch.
   const SHOT = {
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2, phaseMs: 0 },
-    staff: { speedCps: 3.2, rangeCells: 7, color: 0x9ad6ff, dotPx: 3, lenPx: 6, widthPx: 3,
+    staff: { speedCps: 3.2, rangeCells: 7, color: 0x9ad6ff, dotPx: 3,
              phaseMs: 0, pierce: true, energyCost: 1 },
   };
   // Damage weight per slot: a staff bolt lands double an arrow's share.
@@ -308,8 +308,8 @@
   const api = {
     registerMonsters, FAUNA_HP, creatureMaxHp,
     isEnemyKind, isEnemy, hp, damage, hpFraction,
-    BASELINE_HP, dpsForDurationMs, meleeDps, shotDamage,
-    FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, BLOCK_SAMPLE_CELLS,
+    dpsForDurationMs, meleeDps, shotDamage,
+    FIRE_INTERVAL_MS, RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
     spawnShot, stepShots, lineOfFire, healthColor,
   };
   root.Combat = api;

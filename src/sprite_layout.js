@@ -291,7 +291,7 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell,
-    PLAIN_ROCK_VARIANTS, plainRockVariant, plainRockFrame, plainRockStones,
+    PLAIN_ROCK_VARIANTS, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,

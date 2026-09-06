@@ -54,13 +54,6 @@ if (typeof window !== 'undefined') {
   window.TELEPORT_PRESETS = TELEPORT_PRESETS;
   window.TELEPORT_ACTIVE = _teleportOverride;
 }
-// Metres per degree of latitude (≈ constant everywhere). Longitude metres
-// additionally scale by cos(latitude). This is a rule-of-thumb scale — it is
-// NOT how a GPS fix reaches the map any more: that goes through the map's own
-// Web-Mercator projection (coords.js lonLatToLocalM), which is exact at any
-// distance from the origin. Kept because worldgen.js scatters small features
-// off the same number.
-const METERS_PER_DEG_LAT = 111320;
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
 // How far above a lit cobble's centre the trail counter sits. Just over half a
@@ -757,6 +750,14 @@ function isTillable(type) { return !NON_TILLABLE.has(type); }
 // street. Takes a cellAt() result; a stub cell without underRoad (tests)
 // behaves exactly like the old type-only check.
 function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
+// Trail stones are keyed by TILE-LOCAL ix_iy (per the worldgen rasterize
+// loop) while their callers (_isPathStoneActive / _activatePathStone) are
+// handed ABSOLUTE cell coords. Strip the tile-origin offset; N rides along
+// because the caller indexes the grid with it.
+function pathStoneLocal(entry, ix, iy) {
+  const N = entry.cellsPerEdge;
+  return { lix: ((ix % N) + N) % N, liy: ((iy % N) + N) % N, N };
+}
 // Building interior cells — small house, fort, civic slab. Standing on one is
 // how a real adopted HOME is recognised (isRestingAtHome); it is not by itself
 // a rest spot any more.
@@ -971,65 +972,12 @@ class MapScene extends Phaser.Scene {
     // frame (which fades the overlay out and hands off to the in-world
     // unmapped-tile shimmer for whatever tiles are still loading).
     this.load.on('progress', (p) => window.__bootStatus?.(p * 0.85, 'Unpacking supplies…'));
-    this.load.spritesheet('idle', 'assets/Character/Idle.png',  { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
-    // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
-    // row 0 (frames 0-7) is the wing-flap we loop while transformed.
-    this.load.spritesheet('dragon', 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', { frameWidth: 96, frameHeight: 96 });
-    this.load.spritesheet('trees','assets/Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
-    this.load.image('house',       'assets/Objects/House.png');
-    this.load.image('stair_down',  'assets/Objects/stair_down.png?v=2');
-    this.load.image('stair_up',    'assets/Objects/stair_up.png?v=1');
-    // House.png is a tileset (two houses + detail bits). Register a single
-    // "front" frame for the right-hand cabin so we only render that.
-    this.load.once('filecomplete-image-house', () => {
-      this.textures.get('house').add('front', 0, 148, 3, 72, 95);
-    });
-    // Chicken is loaded by the ASSETS catalog below (16×16 — see assets.js).
-    // A manual load.spritesheet('chicken', ..., 32×32) here used to shadow
-    // assets.js because Phaser's loader keeps the first config queued for a
-    // given key. The resulting 32×32 frame was actually a 2×2 grid of
-    // 16×16 chickens, so every spawned creature rendered as four. Don't
-    // re-add this line — let ASSETS own the framing.
-    this.load.spritesheet('cow',     'assets/Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
-    // Pet body sheets — 32×32 RPG-Maker-style anim grids (4 cols × 12-13 rows).
-    // Row 0 is the down-walk cycle, which we loop as the idle anim. Source
-    // PNGs are copied out of the gitignored Sprites/ dump into Objects/Pets/
-    // so the tree builds without the raw asset pack (same pattern as
-    // Objects/Wilderness/). Originals were Sprites/Animals/Pets/Cats/1/Ginger.png
-    // and Sprites/Animals/Pets/Dogs/Premade/4/1.png (grey); swap with sibling
-    // sheets from those folders if we ever want colour variety.
-    this.load.spritesheet('cat', 'assets/Objects/Pets/cat.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('dog', 'assets/Objects/Pets/dog.png', { frameWidth: 32, frameHeight: 32 });
-    // trunk.png: 32x64, two 32x32 frames stacked. Frame 0 = closed, frame 1 = open (lid up).
-    this.load.spritesheet('chest',   'assets/Objects/trunk.png',            { frameWidth: 32, frameHeight: 32 });
-    // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
-    // In-world growth: col 0 (sprout) → col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
-    this.load.spritesheet('crops',   'assets/Objects/Crops.png',            { frameWidth: 16, frameHeight: 16 });
-    // Spring Crops sheet (224×128, 14×8 of 16×16 frames). Used by crops whose
-    // art lives here (e.g. potato) — see CROP_SPRITE override below.
-    this.load.spritesheet('springcrops', 'assets/Objects/Spring Crops.png',  { frameWidth: 16, frameHeight: 16 });
-    // Source PNG has a solid white background — alpha-key near-white pixels to transparent.
-    this.load.once('filecomplete-spritesheet-crops', () => {
-      const tex = this.textures.get('crops');
-      const src = tex.getSourceImage();
-      const c = document.createElement('canvas');
-      c.width = src.width; c.height = src.height;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(src, 0, 0);
-      const data = ctx.getImageData(0, 0, c.width, c.height);
-      for (let i = 0; i < data.data.length; i += 4) {
-        if (data.data[i] > 240 && data.data[i+1] > 240 && data.data[i+2] > 240) {
-          data.data[i+3] = 0;
-        }
-      }
-      ctx.putImageData(data, 0, 0);
-      this.textures.remove('crops');
-      this.textures.addSpriteSheet('crops', c, { frameWidth: 16, frameHeight: 16 });
-    });
-    this.load.spritesheet('cobble',  'assets/Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
-    // Walk the ASSETS catalog (assets.js) so wilderness textures, gem
-    // icons, scarecrow, shell sheet, etc. all preload. Without this loop
+    // EVERY texture comes from the ASSETS catalog (assets.js) — the character,
+    // the world sprites, the creature sheets, the icons. Nothing is loaded by
+    // hand here: Phaser's loader keeps the FIRST config queued for a key, so a
+    // manual load.spritesheet here shadowed the catalog's framing (the chicken
+    // rendered as four when it did), and a duplicate registered every onLoad
+    // handler twice. Add a texture to assets.js, not here. Without this loop
     // every reference in render.js / renderItemIcon falls back to the
     // __MISSING texture — visible as broken grey blocks for deer / rabbit
     // / mineralrock / etc., and item icons that should be sprites silently
@@ -1125,14 +1073,10 @@ class MapScene extends Phaser.Scene {
     // a save array below, so the HISTORY_CAP trim above actually sticks — build
     // a mirror from the pre-trim array and the next rewrite un-trims it.
     const needsMigrationPersist = SaveMigrate.migrate(this.save);
-    this.save.opened = this.save.opened || [];
     // Chests left for later because the bag was full: { [chestId]: {id, n} }.
     // The chest stays out of save.opened (so it still renders + reopens) and
     // remembers exactly what it rolled, so reopening can't re-roll the loot.
     this.save.chestHold = this.save.chestHold || {};
-    this.save.tilled = this.save.tilled || [];
-    if (this.save.money == null) this.save.money = STARTING_MONEY;
-    if (this.save.buyIndex == null) this.save.buyIndex = 0;
     this.tilledSet = new Set(this.save.tilled);
     this.save.brokenRocks = this.save.brokenRocks || [];
     this.brokenRockSet = new Set(this.save.brokenRocks);
@@ -1356,7 +1300,6 @@ class MapScene extends Phaser.Scene {
       cx.drawImage(src, fx, fy, frameW, frameH, 0, 0, frameW, frameH);
       return c.toDataURL();
     };
-    const bakeCanvas = (key) => this.textures.get(key)?.getSourceImage()?.toDataURL?.() || null;
     // Longgrass (display name "Long grass") — bake frame 10 of the 'props'
     // sheet (col 11 row 1 in 1-indexed coords = leafy green frond). Same
     // sprite as the in-world wildplant via CROP_SPRITE.longgrass.frame.
@@ -1402,7 +1345,6 @@ class MapScene extends Phaser.Scene {
     this.borderContainer = this.add.container(0, 0); // scrolled each frame for sub-cell offset
     this.borderGfx = this.add.graphics();  // biome-boundary borders — only redrawn on cell crossing
     this.borderContainer.add(this.borderGfx);
-    this.terrainContainer = this.add.container(0, 0);
     // Original OSM road geometry (road_overlay.js) — the raw vector linework
     // the rasterizer turned into road/path cells, as a muted brown band. Sits
     // above the terrain + biome borders but BELOW the cobbles: the linework is
@@ -1587,11 +1529,6 @@ class MapScene extends Phaser.Scene {
       : this.textures.createCanvas('fogwash', fogPx, fogPx);
     this.fogImage = this.add.image(0, 0, 'fogwash').setOrigin(0, 0).setVisible(false);
     this.fogContainer.add(this.fogImage);
-
-    // Legacy terrain sprite pool — ground art is fully procedural now, so this
-    // is empty. Kept as a defined property so render.js's defensive length check
-    // continues to short-circuit without an undefined access.
-    this.terrainPool = [];
 
     // Noise overlay pool — one image per visible cell, set to a hashed noise frame.
     this.noisePool = [];
@@ -1881,7 +1818,6 @@ class MapScene extends Phaser.Scene {
     this.gridContainer.setMask(mask);
     this.noiseContainer.setMask(mask);
     this.borderContainer.setMask(mask);
-    this.terrainContainer.setMask(mask);
     this.cobbleContainer.setMask(mask);
     this.letterContainer.setMask(mask);
     this.roadGeomContainer.setMask(mask);
@@ -2899,9 +2835,9 @@ class MapScene extends Phaser.Scene {
     const tilePx = WorldGen.TILE_PX;
     const tx = Math.floor(wx / tilePx);
     const ty = Math.floor(wy / tilePx);
-    const cellPxSize = tilePx / this.cellsPerTile;
-    const cx = (wx - tx * tilePx) / cellPxSize;
-    const cy = (wy - ty * tilePx) / cellPxSize;
+    const cps = cellPxSize(this);
+    const cx = (wx - tx * tilePx) / cps;
+    const cy = (wy - ty * tilePx) / cps;
     return { tx, ty, cx, cy };
   }
 
@@ -3391,7 +3327,7 @@ class MapScene extends Phaser.Scene {
     // PEST_FREE_CELLS). Resolved once per tile build; null once the grace has
     // lapsed, which is the common case.
     const pestFree = this._pestFreeZone(tx, ty);
-    const tryPlace = (kindWant, classesOK, idx, kindStr) => {
+    const tryPlace = (classesOK, idx, kindStr) => {
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
@@ -3446,8 +3382,8 @@ class MapScene extends Phaser.Scene {
       const primary  = new Set(cfg.primary);
       const fallback = new Set(cfg.fallback || cfg.primary);
       const primN = Math.round(n * (cfg.share ?? 0.8));
-      for (let i = 0; i < primN; i++) tryPlace(sp, primary,  i, sp);
-      for (let i = primN; i < n; i++) tryPlace(sp, fallback, i, sp);
+      for (let i = 0; i < primN; i++) tryPlace(primary,  i, sp);
+      for (let i = primN; i < n; i++) tryPlace(fallback, i, sp);
     }
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
@@ -3767,7 +3703,7 @@ class MapScene extends Phaser.Scene {
     // 10 while the ring started at 11), the cleared ground reached two screens
     // out — a whole screen further than the player can see — so the ring of
     // trees seated just past it was never once in frame. See home.js.
-    const CLEAR_R = (typeof HomeArea !== 'undefined' ? HomeArea.POCKET_CELLS : 5);
+    const CLEAR_R = HomeArea.POCKET_CELLS;
     const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
     const _isRealTree = (o) =>
       (o.kind === 'tree' || o.kind === 'fruittree') &&
@@ -3935,8 +3871,7 @@ class MapScene extends Phaser.Scene {
           rq.push([nx, ny]);
         }
       }
-      if (!target && far &&
-          farD >= (typeof HomeArea !== 'undefined' ? HomeArea.POCKET_CELLS : 10)) {
+      if (!target && far && farD >= HomeArea.POCKET_CELLS) {
         target = far; chestWant = farSh;
       }
       if (target) {
@@ -3952,64 +3887,48 @@ class MapScene extends Phaser.Scene {
     const trail = this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, chestWant);
     const trailPath = trail && trail.path;
     dbg.push(trail ? `chest ok route=${trailPath ? trailPath.length : 0}` : 'CHEST NOT SEATED');
+    // Seat the COUNT crates along `path` (anchor end first), evenly spaced
+    // across its near TRAIL_SPAN — so on a typical route the four sit at
+    // roughly 2, 3, 5 and 6 cells out with the chest at 11, and no leg is long
+    // enough to lose the thread. Distance is measured ALONG the path, not
+    // across it: a route that bends round a pond still spaces its crates by
+    // how far the player actually walks. Each crate tries the cells at
+    // `offsets` from its path cell, in order, and slides up to three steps
+    // along the path either way when none of them will take it.
+    const seatAlong = (path, offsets) => {
+      const L = path.length - 1;         // steps from the anchor to the far end
+      let lastSeat = null;
+      for (let i = 0; i < COUNT; i++) {
+        const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
+        let seat = null;
+        for (let off = 0; off <= 3 && !seat; off++) {
+          for (const at of (off === 0 ? [want] : [want - off, want + off])) {
+            const p = path[at];
+            if (!p) continue;
+            for (const [adx, ady] of offsets) {
+              const cx = p.cx + adx, cy = p.cy + ady;
+              if (!seatOK(cx, cy)) continue;
+              if (lastSeat && Math.max(Math.abs(cx - lastSeat.cx),
+                                       Math.abs(cy - lastSeat.cy)) < TRAIL_GAP) continue;
+              seat = { cx, cy }; break;
+            }
+            if (seat) break;
+          }
+        }
+        if (!seat) continue;
+        seatCrate(seat.cx, seat.cy, i);
+        lastSeat = seat;
+      }
+    };
     if (kerbPath && kerbPath.length > 1) {
-      // Mode 1: crates down the kerb. Same packing as the route spread — the
-      // near TRAIL_SPAN of the walk, distance measured ALONG the road — but
+      // Mode 1: crates down the kerb. Same packing as the route spread but
       // every seat is a shoulder cell: beside the street, never in it.
-      const L = kerbPath.length - 1;
-      let lastSeat = null;
-      for (let i = 0; i < COUNT; i++) {
-        const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
-        let seat = null;
-        for (let off = 0; off <= 3 && !seat; off++) {
-          for (const at of (off === 0 ? [want] : [want - off, want + off])) {
-            const p = kerbPath[at];
-            if (!p) continue;
-            for (const [adx, ady] of [[0, -1], [0, 1], [1, 0], [-1, 0]]) {
-              const cx = p.cx + adx, cy = p.cy + ady;
-              if (!seatOK(cx, cy)) continue;
-              if (lastSeat && Math.max(Math.abs(cx - lastSeat.cx),
-                                       Math.abs(cy - lastSeat.cy)) < TRAIL_GAP) continue;
-              seat = { cx, cy }; break;
-            }
-            if (seat) break;
-          }
-        }
-        if (!seat) continue;
-        seatCrate(seat.cx, seat.cy, i);
-        lastSeat = seat;
-      }
+      seatAlong(kerbPath, [[0, -1], [0, 1], [1, 0], [-1, 0]]);
     } else if (trailPath && trailPath.length > COUNT) {
-      const L = trailPath.length - 1;         // steps from the anchor to the chest
-      let lastSeat = null;
-      for (let i = 0; i < COUNT; i++) {
-        // Evenly spaced across the near TRAIL_SPAN of the walk — so on a
-        // typical route the four sit at roughly 2, 3, 5 and 6 cells out with
-        // the chest at 11, and no leg is long enough to lose the thread.
-        // Distance is measured ALONG the route, not across it: a route that
-        // bends round a pond still spaces its crates by how far the player
-        // actually walks. A crate takes the route cell itself where it
-        // legally can, and steps one cell off it where it can't.
-        const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
-        let seat = null;
-        for (let off = 0; off <= 3 && !seat; off++) {
-          for (const at of (off === 0 ? [want] : [want - off, want + off])) {
-            const p = trailPath[at];
-            if (!p) continue;
-            for (const [adx, ady] of [[0, 0], [0, -1], [0, 1], [1, 0], [-1, 0]]) {
-              const cx = p.cx + adx, cy = p.cy + ady;
-              if (!seatOK(cx, cy)) continue;
-              if (lastSeat && Math.max(Math.abs(cx - lastSeat.cx),
-                                       Math.abs(cy - lastSeat.cy)) < TRAIL_GAP) continue;
-              seat = { cx, cy }; break;
-            }
-            if (seat) break;
-          }
-        }
-        if (!seat) continue;
-        seatCrate(seat.cx, seat.cy, i);
-        lastSeat = seat;
-      }
+      // Mode 2: crates along the route to the chest. A crate takes the route
+      // cell itself where it legally can, and steps one cell off it where it
+      // can't.
+      seatAlong(trailPath, [[0, 0], [0, -1], [0, 1], [1, 0], [-1, 0]]);
     }
     // Undirected kerb walk — the last road-shaped resort: neither the kerb
     // line nor the route spread seated anything (no chest could go down, or
@@ -4189,7 +4108,7 @@ class MapScene extends Phaser.Scene {
     // own ring reaches so the chest can never end up somewhere that reads as
     // "another neighbourhood" instead of "just off the opening screen".
     const RELIC_MIN_R = VIEW_CELLS;
-    const RELIC_MAX_R = (typeof HomeArea !== 'undefined' ? HomeArea.RING_MAX_CELLS : 16);
+    const RELIC_MAX_R = HomeArea.RING_MAX_CELLS;
     // Cells already spoken for — a crate seat, or anything standing on the
     // tile. Nothing but the chest may share the cell it seats on.
     const taken = new Set(usedSeats || []);
@@ -4639,35 +4558,30 @@ class MapScene extends Phaser.Scene {
     // loaded; an unloaded neighbour reads as unusable rather than being
     // guessed at, so nothing is ever seated into unseen water or road.
     // Returns null when the cell can't be resolved.
-    const gridAt = (cx, cy) => {
-      if (cx >= 0 && cy >= 0 && cx < N && cy < N) return grid[cy * N + cx];
+    //
+    // One resolver for both per-cell arrays: it finds the tile entry and the
+    // index of the cell in it, and `read(e, i)` picks the array (or answers
+    // `miss` when that tile hasn't got one). A neighbour tile that isn't ready
+    // reads as `miss` whichever array is asked for.
+    const cellAt = (cx, cy, read, miss) => {
+      if (cx >= 0 && cy >= 0 && cx < N && cy < N) return read(entry, cy * N + cx);
       const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
       const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
       const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
-      if (!e || !e.grid || (e.status && e.status !== 'ready')) return null;
+      if (!e || (e.status && e.status !== 'ready')) return miss;
       const nN = e.cellsPerEdge;
       const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
       const iy = Math.floor((wy - nty * this.tileEdgeM) / this.cellM);
-      if (ix < 0 || iy < 0 || ix >= nN || iy >= nN) return null;
-      return e.grid[iy * nN + ix];
+      if (ix < 0 || iy < 0 || ix >= nN || iy >= nN) return miss;
+      return read(e, iy * nN + ix);
     };
+    const gridAt = (cx, cy) => cellAt(cx, cy, (e, i) => (e.grid ? e.grid[i] : null), null);
     // The same lookup for the road FOOTPRINT (see entry.roadMask in worldgen):
     // the terrain code alone under-reports the road, because every way
     // rasterizes one cell wide however wide it really is and parking aisles
     // rasterize to nothing at all. Truthy = the cell is under a drawn road
     // band. Unresolvable cells read as 0 — gridAt already refused them.
-    const roadMaskAt = (cx, cy) => {
-      if (cx >= 0 && cy >= 0 && cx < N && cy < N) return entry.roadMask ? entry.roadMask[cy * N + cx] : 0;
-      const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
-      const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
-      const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
-      if (!e || !e.roadMask) return 0;
-      const nN = e.cellsPerEdge;
-      const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
-      const iy = Math.floor((wy - nty * this.tileEdgeM) / this.cellM);
-      if (ix < 0 || iy < 0 || ix >= nN || iy >= nN) return 0;
-      return e.roadMask[iy * nN + ix];
-    };
+    const roadMaskAt = (cx, cy) => cellAt(cx, cy, (e, i) => (e.roadMask ? e.roadMask[i] : 0), 0);
     // The anchor's own tile has to be readable before anything can be planned.
     if (gridAt(spawnIX, spawnIY) == null) return;
     // And don't plan against HALF A MAP. Seating is spatial: a first pass that
@@ -5195,7 +5109,7 @@ class MapScene extends Phaser.Scene {
         return nearest(sv.planted || []) || this._nearestStarterCrate();
       case 'sell': {
         // Home is the trailer at the frozen trail anchor; startWorldM until a
-        // home capture moved it (same resolution rule as _slimeFreeZone).
+        // home capture moved it (same resolution rule as _pestFreeZone).
         const a = (sv.starterCratesAt && Number.isFinite(sv.starterCratesAt.x))
           ? sv.starterCratesAt : this.startWorldM;
         return (a && Number.isFinite(a.x)) ? { x: a.x, y: a.y } : this._nearestStarterCrate();
@@ -5569,7 +5483,7 @@ class MapScene extends Phaser.Scene {
     // Same edge-compass geometry as the pairy arrow but persistent (no blink),
     // cleared once the player arrives or the house is satisfied for the day.
     if (this.deliveryCompass) {
-      const dayKey = this._deliveryDayKey();
+      const dayKey = this._dayKey();
       const satisfied = this.save.houseSatisfied?.[this.deliveryCompass.id] === dayKey;
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
@@ -5890,8 +5804,7 @@ class MapScene extends Phaser.Scene {
   // above the kind's crown (SpriteLayout.creatureHealthBarTop), derived from
   // the same art table the wheel seats from. Never a flat offset.
   _healthBarTop(kind) {
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    return SL ? SL.creatureHealthBarTop(kind) : -25;
+    return SpriteLayout.creatureHealthBarTop(kind);
   }
 
   // The health bar itself: a small strip floating over the foe's head — a
@@ -5903,9 +5816,8 @@ class MapScene extends Phaser.Scene {
   // `alpha` scales the whole bar (the engaged target draws brighter than a
   // foe merely hurt in passing).
   _drawEnemyHealthBar(g, cx, top, frac, alpha) {
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    const W = (SL && SL.HEALTH_BAR_W != null) ? SL.HEALTH_BAR_W : 18;
-    const H = (SL && SL.HEALTH_BAR_H != null) ? SL.HEALTH_BAR_H : 3;
+    const W = SpriteLayout.HEALTH_BAR_W;
+    const H = SpriteLayout.HEALTH_BAR_H;
     const x = cx - Math.floor(W / 2);
     // Dark backing one pixel proud on every side — the border that keeps the
     // strip legible over pale terrain, same job as the wheel's backing disc.
@@ -5963,8 +5875,7 @@ class MapScene extends Phaser.Scene {
     // Radius comes from the same table that PLACES the wheel — the crown
     // seating clears the outer edge (R + 1, the backing disc), so a resize here
     // without one there would put the ring back in the sky.
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    const R = (SL && SL.CREATURE_WHEEL_R != null) ? SL.CREATURE_WHEEL_R : 9;
+    const R = SpriteLayout.CREATURE_WHEEL_R;
     g.fillStyle(0x000000, 0.34);
     g.fillCircle(cx, cy, R + 1);
     g.lineStyle(3, 0xffffff, 0.155);
@@ -6067,8 +5978,7 @@ class MapScene extends Phaser.Scene {
       // crops, and for a long time killing one paid nothing, which is the gap
       // this branch closes by asking Combat what an enemy is rather than
       // asking the cave-monster table.
-      const coins = (typeof enemyBounty === 'function')
-        ? enemyBounty(victim.kind, this.depth) : 0;
+      const coins = enemyBounty(victim.kind, this.depth);
       if (coins > 0) addMoney(save, coins);
       const name = MONSTERS[victim.kind]?.name || 'Slime';
       this.flash(`⚔️ ${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
@@ -6373,8 +6283,7 @@ class MapScene extends Phaser.Scene {
     // the old per-case fudges, including the capture wheel's extra lift for
     // "clear the fleeing animal" — it clears it by construction now.
     const creature = wp.flee || wp.track || null;
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    const dyWheel = (creature && SL) ? SL.creatureWheelDy(creature.kind) : -7;
+    const dyWheel = creature ? SpriteLayout.creatureWheelDy(creature.kind) : -7;
     const cy = Math.round(screen.y) + Math.round(dyWheel);
     const g = this._workProgressGfx;
     g.clear();
@@ -7316,15 +7225,12 @@ class MapScene extends Phaser.Scene {
   handleWorldTap(sx, sy) { interactTap(this, sx, sy); }
 
   // === Coin-burst (ATM / bicycle_parking) =================================
-  // Daily-cap key format: `<poiId>YYYYMMDD` (UTC). Each POI can be tapped
-  // once per UTC day; subsequent taps within the same day flash a hint and
-  // spawn no coins. Coins themselves are in-memory only (entry.coinDrops);
+  // Daily-cap key format: `<poiId>YYYYMMDD` (UTC, _dayKey). Each POI can be
+  // tapped once per UTC day; subsequent taps within the same day flash a hint
+  // and spawn no coins. Coins themselves are in-memory only (entry.coinDrops);
   // only the daily-cap dictionary persists.
-  _coinBurstDayKey() {
-    return new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  }
   _coinBurstInteract(sx, sy, poi) {
-    const dayKey = this._coinBurstDayKey();
+    const dayKey = this._dayKey();
     const claimedKey = poi.id + dayKey;
     this.save.coinBurstClaimed = this.save.coinBurstClaimed || {};
     if (this.save.coinBurstClaimed[claimedKey] === 1) {
@@ -8150,32 +8056,24 @@ class MapScene extends Phaser.Scene {
       const ri = this.save.released.findIndex(r => r.id === c.id);
       if (ri >= 0) this.save.released.splice(ri, 1);
     }
-    // One creature → one inventory entry. Egg / milk yield happens via the
-    // produce branch (tap with plant produce selected), not the catch branch.
-    const yieldN = 1;
     // A shiny animal stays shiny in its own per-kind stack (shiny_chicken,
     // shiny_cow, …) — never folded into the plain stack or other shinies. It
     // also pays the headline 10× money + discovery bonus with fanfare.
     const isShinyCatch = !!c.shiny && !!ITEM_BY_ID[`shiny_${c.kind}`];
     const invId = isShinyCatch ? `shiny_${c.kind}` : c.kind;
     // addToInv already persists; passing silent=true to avoid a double write.
-    this.addToInv(invId, yieldN, true);
+    this.addToInv(invId, 1, true);
     persistSave(this.save);
     const item = ITEM_BY_ID[invId];
     // flashLoot draws the item's sprite (from the itemId arg) beside the text,
     // so the text carries the name only — no emoji standing in for the item.
-    this.flashLoot(`+${yieldN} ${item?.name || invId}`, isShinyCatch ? '#ffd23a' : '#a7ffb0', 1, invId);
+    this.flashLoot(`+1 ${item?.name || invId}`, isShinyCatch ? '#ffd23a' : '#a7ffb0', 1, invId);
     if (isShinyCatch) this.awardShinyBonus(c.kind, sx, sy);
   }
 
-  // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
-  // walking outward by distance. First press preferentially seeks the named
-  // POI in `_poiTpFirst` if it's loaded.
-  // Debug key T — cycle through tree species and teleport to the densest
-  // currently-loaded grove of each. Density = "this tree plus other same-
-  // species trees within 50 m." If no trees of the current species are
-  // loaded, skip to the next species in the cycle so the key never
-  // silently no-ops on a thin forest.
+  // Debug key T — hop to the nearest standalone (OSM-mapped) tree not yet
+  // visited this session, measured from wherever the last hop landed; once
+  // every loaded tree has been visited the set clears and the cycle restarts.
   teleportNextIndividualTree() {
     this.disableGpsForSession();
     const px = this.startWorldM.x + this.playerM.x;
@@ -8211,6 +8109,9 @@ class MapScene extends Phaser.Scene {
                this.viewCenterX, this.viewCenterY - 40);
   }
 
+  // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
+  // walking outward by distance. First press preferentially seeks the named
+  // POI in `_poiTpFirst` if it's loaded.
   teleportNextPoi() {
     this.disableGpsForSession();
     const px = this.startWorldM.x + this.playerM.x;
@@ -8306,7 +8207,7 @@ class MapScene extends Phaser.Scene {
       };
     }
     const t = this.add.text(x, y, text, style)
-      .setOrigin(0.5, opts.originY ?? 1).setDepth(opts.depth ?? S.depth);
+      .setOrigin(0.5, opts.originY ?? 1).setDepth(S.depth);
     // EVERY tier clamps now. Only `flash` used to, which is why a tap near an
     // edge rendered half a message ("Just out o") — and why a long item name
     // at 22px could still run off the 352px viewport in the loot pop, where
@@ -9372,7 +9273,7 @@ class MapScene extends Phaser.Scene {
   // the player could resell for, so a stand can never be an arbitrage pump.
   // Repeatable: a quantity stepper lets the player buy as many as they can
   // afford and carry, and the stall is never marked save.opened.
-  presentMarketStandOffer(sx, sy, o, stand) {
+  presentMarketStandOffer(sx, sy, stand) {
     // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
     if (document.getElementById('offer-modal')) return;
     const id = stand.item;
@@ -9521,20 +9422,13 @@ class MapScene extends Phaser.Scene {
         acceptLabel: 'Sell',
         quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
         onAccept: (q) => {
-          const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
-          if (idx < 0) { this.flash('Gone — already used.', sx, sy); return; }
-          const cur = this.save.inv[idx];
-          const sold = Math.max(1, Math.min(q ?? 1, cur.count ?? 0));
-          if (sold <= 0) { this.flash('Gone — already used.', sx, sy); return; }
-          cur.count -= sold;
+          const have = Inventory.count(this.save, sellId);
+          if (have <= 0) { this.flash('Gone — already used.', sx, sy); return; }
+          const sold = Math.max(1, Math.min(q ?? 1, have));
+          Inventory.remove(this.save, sellId, sold);
+          this._clampSelSlot();
           const gain = unitPrice * sold;
           addMoney(this.save, gain);
-          if (cur.count <= 0) {
-            this.save.inv.splice(idx, 1);
-            if (this.save.selSlot >= this.save.inv.length) {
-              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-            }
-          }
           persistSave(this.save);
           this.buildInventoryDOM();
           this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
@@ -9590,16 +9484,11 @@ class MapScene extends Phaser.Scene {
         canAfford: true,
         acceptLabel: 'Gift',
         onAccept: () => {
-          const idx = this.save.inv.findIndex(s => s && s.id === 'flowers' && (s.count ?? 0) > 0);
-          if (idx < 0) { this.flash('Gone — already used.', sx, sy); return; }
-          const cur = this.save.inv[idx];
-          cur.count -= 1;
-          if (cur.count <= 0) {
-            this.save.inv.splice(idx, 1);
-            if (this.save.selSlot >= this.save.inv.length) {
-              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-            }
+          if (Inventory.remove(this.save, 'flowers', 1) < 1) {
+            this.flash('Gone — already used.', sx, sy);
+            return;
           }
+          this._clampSelSlot();
           this.save.shopCharm = this.save.shopCharm || {};
           // Prune spent charms while we're here so the map can't grow without
           // bound across many gifts.
@@ -9938,9 +9827,10 @@ class MapScene extends Phaser.Scene {
   // its position is persisted to save.starterTrailer and re-injected into the
   // owning tile on every load by ensureStarterTrailerObject().
   _makeStarterTrailer(wmx, wmy) {
-    const cellPx = WorldGen.TILE_PX / this.cellsPerTile;
-    const snap = (wm) => (Math.floor((wm / this.mPerPx) / cellPx) + 0.5) * cellPx * this.mPerPx;
-    const x = snap(wmx), y = snap(wmy);
+    // Snap through the shared cell helpers (coords.js) so the trailer lands on
+    // the same cell centre every other placed object resolves to.
+    const { cellIX, cellIY } = worldMetersToAbsCell(this, wmx, wmy);
+    const { x, y } = absCellCenterMeters(this, cellIX, cellIY);
     const id = 'starter_trailer';
     const address = ((Math.round(x) ^ Math.round(y)) >>> 0) % 1000;
     // tier = T.BUILDING (a plain small house); the starter role overrides the
@@ -10150,22 +10040,6 @@ class MapScene extends Phaser.Scene {
     return !!house && !!house.id && this.ensureFirstMarketId() === house.id;
   }
 
-  // 0-based position of this house among restored residential (delivery)
-  // houses, in restore order; -1 if it isn't a (restored) delivery house.
-  // restoredHouses keys preserve insertion order, so the Nth 'plain' entry is
-  // the Nth-restored delivery house. Drives the scripted opening ladder in
-  // delivery.js (five single-item asks, then the starter pair, then the
-  // foraged-flower trio) and the TIER-1 pin on the early houses.
-  deliveryHouseOrder(house) {
-    return Delivery.houseOrder(this.save, house);
-  }
-
-  // True for the first Delivery.EARLY_HOUSES RESTORED delivery houses — they get
-  // pinned to TIER-1 produce wishlists (see wantedProduce).
-  isEarlyDeliveryHouse(house) {
-    return Delivery.isEarly(this.save, house);
-  }
-
   // Every restored delivery house currently asking for a bundle (not satisfied
   // today), nearest first, with its wanted produce + distance in metres. Drives
   // the delivery menu (openDeliveryMenu). Home / forts / castles / wrecks are
@@ -10192,12 +10066,6 @@ class MapScene extends Phaser.Scene {
     }
     out.sort((a, b) => a.dist - b.dist);
     return out;
-  }
-
-  // Point the white waypoint arrow at a delivery house (cleared automatically
-  // once the player reaches it or it's satisfied — see the update loop).
-  setDeliveryCompass(id, x, y) {
-    this.deliveryCompass = { id, x, y };
   }
 
   // Delivery list overlay: tap a row to aim the white waypoint arrow at that
@@ -10251,7 +10119,9 @@ class MapScene extends Phaser.Scene {
         if (ready) row.style.borderColor = '#4a8c4a';
         row.addEventListener('click', (e) => {
           e.stopPropagation();
-          this.setDeliveryCompass(h.id, h.x, h.y);
+          // Point the white waypoint arrow at this house (cleared automatically
+          // once the player reaches it or it's satisfied — see the update loop).
+          this.deliveryCompass = { id: h.id, x: h.x, y: h.y };
           wrap.remove();
           this.flash('following the white arrow', this.viewCenterX, this.viewCenterY);
         });
@@ -10393,22 +10263,15 @@ class MapScene extends Phaser.Scene {
   }
 
   // ─── Deliveries: plain houses only buy specific produce ──────────────
-  // UTC day stamp ("YYYYMMDD") — the wishlist + happy state turn over on the
-  // day boundary, so a house satisfied today wants a fresh bundle tomorrow.
-  // Mirrors the coin-burst daily-cap key format.
+  // UTC day stamp ("YYYYMMDD") — the ONE day key every day-gated thing on the
+  // scene reads (delivery wishlists + happy state, the coin-burst POI cap, the
+  // castle favour), so every "back in <wait>" counts down to the same rollover
+  // (msToNextUtcDay).
   // Delivery wishlist logic lives in delivery.js (headlessly tested). These stay
   // as scene methods because render.js + the interact/present handlers call them
   // as scene.wantedProduce(o) / scene.isHouseSatisfied(o) / etc.
-  _deliveryDayKey() {
+  _dayKey() {
     return Delivery.dayKey();
-  }
-
-  wantedProduceRng(house, dayKey) {
-    return Delivery.wantedRng(house, dayKey);
-  }
-
-  _produceTier(id) {
-    return Delivery.produceTier(id);
   }
 
   // 1-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
@@ -10451,10 +10314,7 @@ class MapScene extends Phaser.Scene {
     const wanted = this.wantedProduce(house);
     if (!wanted.length) { this.flash('nobody home', sx, sy); return; }
     const single = wanted.length === 1;
-    const invCount = (id) => {
-      const s = (this.save.inv || []).find(e => e && e.id === id);
-      return s ? (s.count ?? 0) : 0;
-    };
+    const invCount = (id) => Inventory.count(this.save, id);
     // Full set requires at least one of every wanted item. maxSets is how many
     // complete sets the current bags can fulfil (0 if any item is missing).
     const maxSets = wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity);
@@ -10497,16 +10357,8 @@ class MapScene extends Phaser.Scene {
           this.flash(single ? 'Nothing to deliver now.' : 'Set incomplete now.', sx, sy);
           return;
         }
-        for (const id of wanted) {
-          const idx = this.save.inv.findIndex(s => s && s.id === id && (s.count ?? 0) > 0);
-          if (idx < 0) continue;
-          const cur = this.save.inv[idx];
-          cur.count -= sets;
-          if (cur.count <= 0) this.save.inv.splice(idx, 1);
-        }
-        if (this.save.selSlot >= this.save.inv.length) {
-          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-        }
+        for (const id of wanted) Inventory.remove(this.save, id, sets);
+        this._clampSelSlot();
         const gain = setPrice * sets;
         addMoney(this.save, gain);
         // Lifetime delivery tally — each completed SET counts as one delivery.
@@ -10516,7 +10368,7 @@ class MapScene extends Phaser.Scene {
         // Mark this household satisfied for the rest of the UTC day — it stops
         // asking (shows "happy" instead of a wishlist) and wants a fresh bundle
         // tomorrow. Prune stale day stamps so the map stays small over weeks.
-        const dayKey = this._deliveryDayKey();
+        const dayKey = this._dayKey();
         this.save.houseSatisfied = this.save.houseSatisfied || {};
         for (const k of Object.keys(this.save.houseSatisfied)) {
           if (this.save.houseSatisfied[k] !== dayKey) delete this.save.houseSatisfied[k];
@@ -10535,18 +10387,10 @@ class MapScene extends Phaser.Scene {
   // player either buys it, rerolls it, or (for non-castle shops) leaves and
   // the cap resets it. Castle offers persist forever and rotate on purchase.
   //
-  // ─── Hour-bucket helpers ────────────────────────────────────────
-  // Per-shop sub-hour offset so two shops don't rotate at the same wall-clock
-  // minute. Cached on the scene because every tap consults it.
+  // ─── Shop readiness helpers ─────────────────────────────────────
   // Shop hour-bucket scheduling + the seeded per-bucket RNG live in
   // shops_math.js (ShopsMath.*); these stay as scene methods because the present*
   // handlers + the renderer's ready/timer indicator call them as this.shopX(…).
-  _shopBucketOffset(houseId) {
-    return ShopsMath.bucketOffset(houseId);
-  }
-  _shopBucket(houseId, now = Date.now()) {
-    return ShopsMath.bucket(houseId, now);
-  }
   shopDealCap(house) {
     return ShopsMath.dealCap(house, this.isStarterBlacksmith(house));
   }
@@ -10720,22 +10564,10 @@ class MapScene extends Phaser.Scene {
   // bar the player can currently afford, so the modal opens on something usable.
   presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, target = null) {
     const bars = this.smeltUnlockedBars();
-    const heldCount = (id) =>
-      ((this.save.inv || []).find(s => s && s.id === id)?.count) ?? 0;
+    const heldCount = (id) => Inventory.count(this.save, id);
     const consume = (id, n) => {
-      let left = n;
-      for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
-        const s = this.save.inv[i];
-        if (!s || s.id !== id) continue;
-        const take = Math.min(left, s.count ?? 0);
-        s.count -= take; left -= take;
-        if ((s.count ?? 0) <= 0) {
-          this.save.inv.splice(i, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
-      }
+      Inventory.remove(this.save, id, n);
+      this._clampSelSlot();
     };
     const tabs = [
       { label: 'Forge', active: false, onSelect: forgeBack },
@@ -10867,10 +10699,7 @@ class MapScene extends Phaser.Scene {
         if (Inventory.count(this.save, 'discovery') < cost) { this.flash('Not enough Discovery.', sx, sy); return; }
         if ((this.save.reachUpgrades ?? 0) >= this.REACH_UPGRADE_MAX) { this.flash('Reach already maxed.', sx, sy); return; }
         Inventory.remove(this.save, 'discovery', cost);
-        // The spend may have spliced the badge stack out — keep selSlot valid.
-        if (this.save.selSlot >= this.save.inv.length) {
-          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-        }
+        this._clampSelSlot();
         this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
         // The light's gift is a Ring whose tier matches the new inner-light
         // level — the relic that embodies your widened sight.
@@ -10945,8 +10774,7 @@ class MapScene extends Phaser.Scene {
     if (!offer) { this.flash('no deal', sx, sy); return; }
     const giveItem = ITEM_BY_ID[offer.giveId];
     const askItem  = ITEM_BY_ID[offer.askId];
-    const heldCount = () =>
-      ((this.save.inv || []).find(s => s && s.id === offer.askId)?.count) ?? 0;
+    const heldCount = () => Inventory.count(this.save, offer.askId);
     const curState = this.shopBucketState(house);
     const rerollCost = 5 * Math.pow(2, curState.rerolls || 0);
     // Low-tier seeds barter in a slightly larger bundle (planted in bulk).
@@ -10967,15 +10795,8 @@ class MapScene extends Phaser.Scene {
           this.flash(`need ${offer.askQty} ${askItem?.name || offer.askId}`, sx, sy);
           return;
         }
-        const idx = this.save.inv.findIndex(s => s && s.id === offer.askId);
-        const cur = this.save.inv[idx];
-        cur.count -= offer.askQty;
-        if (cur.count <= 0) {
-          this.save.inv.splice(idx, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
+        Inventory.remove(this.save, offer.askId, offer.askQty);
+        this._clampSelSlot();
         this.addToInv(offer.giveId, giveQty);
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
@@ -11038,12 +10859,7 @@ class MapScene extends Phaser.Scene {
     if (!lit || !lit.length) return false;
     const entry = WorldGen.tileCache.get(tileKey);
     if (!entry) return false;
-    // Callers pass ABSOLUTE cell coords; the lit list is keyed by tile-local
-    // ix_iy (per the worldgen rasterize loop). Convert by stripping out the
-    // tile-origin offset.
-    const N = entry.cellsPerEdge;
-    const lix = ((ix % N) + N) % N;
-    const liy = ((iy % N) + N) % N;
+    const { lix, liy } = pathStoneLocal(entry, ix, iy);
     // setOf (util.js), not Array.includes: render.js asks this for EVERY
     // visible cobble cell on every frame, and a walked tile's list runs to
     // hundreds of entries — a linear scan per cell per frame is the shape that
@@ -11064,11 +10880,7 @@ class MapScene extends Phaser.Scene {
     const tileKey = WorldGen.tileKey(tx, ty);
     const entry = WorldGen.tileCache.get(tileKey);
     if (!entry || !entry.grid) return null;
-    // ABS → tile-local conversion (mirrors _isPathStoneActive — see comment
-    // there for the rationale).
-    const N = entry.cellsPerEdge;
-    const lix = ((ix % N) + N) % N;
-    const liy = ((iy % N) + N) % N;
+    const { lix, liy, N } = pathStoneLocal(entry, ix, iy);
     const type = entry.grid[liy * N + lix];
     // Is there a stone here at all? Cobble terrain (worldgen), and a pebble
     // actually drawn on it (render.js). Asking the grid is what let the trail
@@ -11442,14 +11254,6 @@ class MapScene extends Phaser.Scene {
     return { id: 'rockfruit', qty: 3, material: 'stone' };
   }
 
-  // The role a wreck reveals once restored — mirrors render.js _houseTrueRole
-  // (minus fort/trailer, which never wreck). 'blacksmith' | 'market' |
-  // 'trader' | 'wizard' | 'plain'. Reads the frozen restore-order role via
-  // houseShopRole; 'plain' for a role-less residential house.
-  _restoredRole(house) {
-    return this.houseShopRole(house) || 'plain';
-  }
-
   // Bake a restored building's sprite to an <img> data URL for the
   // restoration fanfare modal. Themed roles (blacksmith/market/trader) are
   // single-image textures; 'plain' uses the 'house' tileset's 'front' sub-rect
@@ -11485,7 +11289,7 @@ class MapScene extends Phaser.Scene {
 
   presentWreckRestoreModal(sx, sy, house) {
     const cost = this._wreckRestoreCost(house);
-    const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
+    const heldCount = Inventory.count(this.save, cost.id);
     const canAfford = heldCount >= cost.qty;
     const item = ITEM_BY_ID[cost.id];
     // Role this wreck will reveal, picked from the player's current restore
@@ -11513,16 +11317,12 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         // Re-check stock at accept time — the player might have spent
         // the materials elsewhere while the modal was open.
-        const idx = this.save.inv.findIndex(s => s && s.id === cost.id && (s.count ?? 0) >= cost.qty);
-        if (idx < 0) { this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy); return; }
-        const stack = this.save.inv[idx];
-        stack.count -= cost.qty;
-        if ((stack.count ?? 0) <= 0) {
-          this.save.inv.splice(idx, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
+        if (Inventory.count(this.save, cost.id) < cost.qty) {
+          this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
+          return;
         }
+        Inventory.remove(this.save, cost.id, cost.qty);
+        this._clampSelSlot();
         this.save.restoredHouses = this.save.restoredHouses || {};
         // Freeze the restore-order role onto this house so it never shifts.
         // Recompute the index at accept time (still stable behind the modal
@@ -11546,7 +11346,10 @@ class MapScene extends Phaser.Scene {
         if (this.showChestRewardModal) {
           // Name the building, describe what it does, show its sprite, and let
           // showChestRewardModal's sparkle burst supply the fanfare.
-          const role = this._restoredRole(house);
+          // The role a wreck reveals once restored — mirrors render.js
+          // _houseTrueRole (minus fort/trailer, which never wreck). Reads the
+          // frozen restore-order role; 'plain' for a role-less residential house.
+          const role = this.houseShopRole(house) || 'plain';
           // Names come from Shops.roleLabel so the card, the sign outside and
           // the offer modal all call the building the same thing. The produce
           // shop's blurb follows its label: the first one restored stocks
@@ -11694,21 +11497,17 @@ class MapScene extends Phaser.Scene {
   }
 
   // The castle's daily favour, gated to once per castle per UTC day. Reuses
-  // the exact day-key Delivery.dayKey() already provides (see
-  // _deliveryDayKey, its scene wrapper) rather than the coin-burst POI's
-  // composite-key idiom, since there's only ever one thing to remember per
-  // castle: the day its service was last used.
-  _castleServiceDayKey() {
-    return Delivery.dayKey();
-  }
+  // the scene's one day key (_dayKey === Delivery.dayKey) rather than the
+  // coin-burst POI's composite-key idiom, since there's only ever one thing to
+  // remember per castle: the day its service was last used.
   _castleServiceUsedToday(house) {
     const key = this._castleKey(house);
-    return !!key && this.save.castleServiceClaimed?.[key] === this._castleServiceDayKey();
+    return !!key && this.save.castleServiceClaimed?.[key] === this._dayKey();
   }
   _markCastleServiceUsed(house) {
     const key = this._castleKey(house);
     if (!key) return;
-    const dayKey = this._castleServiceDayKey();
+    const dayKey = this._dayKey();
     this.save.castleServiceClaimed = this.save.castleServiceClaimed || {};
     // Prune every OTHER castle's stale day stamp while we're here — the map
     // can't grow without bound across weeks of play.
@@ -11746,7 +11545,7 @@ class MapScene extends Phaser.Scene {
   // relics: it's home turf, so instead of a trade it's a favour, once a day.
   presentCastleServiceOffer(sx, sy, house) {
     if (this._castleServiceUsedToday(house)) {
-      // The favour is one per UTC day (_castleServiceDayKey === Delivery.dayKey),
+      // The favour is one per UTC day (_dayKey === Delivery.dayKey),
       // so the castellan names the wait rather than saying "tomorrow".
       this.flash(`Thank you for visiting us, my lord. Come back in ${shortDuration(msToNextUtcDay())}.`,
                  sx, sy);
@@ -11834,7 +11633,7 @@ class MapScene extends Phaser.Scene {
   // the same restoration fanfare.
   presentFortUnlockModal(sx, sy, house) {
     const need = this._fortUnlockCost();
-    const heldCount = ((this.save.inv || []).find(s => s && s.id === 'wood')?.count) ?? 0;
+    const heldCount = Inventory.count(this.save, 'wood');
     const canAfford = heldCount >= need;
     this.showOfferModal({
       kind: 'build',
@@ -11849,16 +11648,9 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         // Re-check stock at accept time — the player might have spent the wood
         // elsewhere while the modal was open.
-        const idx = this.save.inv.findIndex(s => s && s.id === 'wood' && (s.count ?? 0) >= need);
-        if (idx < 0) { this.flash(`need ${need} wood`, sx, sy); return; }
-        const stack = this.save.inv[idx];
-        stack.count -= need;
-        if ((stack.count ?? 0) <= 0) {
-          this.save.inv.splice(idx, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
+        if (Inventory.count(this.save, 'wood') < need) { this.flash(`need ${need} wood`, sx, sy); return; }
+        Inventory.remove(this.save, 'wood', need);
+        this._clampSelSlot();
         this.save.unlockedForts = this.save.unlockedForts || {};
         this.save.unlockedForts[house.id] = true;
         persistSave(this.save);
@@ -11890,8 +11682,7 @@ class MapScene extends Phaser.Scene {
     }
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 20);
-    const heldCount = (id) =>
-      ((this.save.inv || []).find(s => s && s.id === id)?.count) ?? 0;
+    const heldCount = (id) => Inventory.count(this.save, id);
     const canAfford = () => recipe.every(r => heldCount(r.id) >= r.qty);
     const costHTML = recipe.map(r => {
       const itm = ITEM_BY_ID[r.id];
@@ -11937,22 +11728,9 @@ class MapScene extends Phaser.Scene {
           this.flash(`need ${missing.qty} ${itm?.name || missing.id}`, sx, sy);
           return;
         }
-        // Consume every ingredient. Loop bottom-up so splicing is safe.
-        for (const r of recipe) {
-          let left = r.qty;
-          for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
-            const s = this.save.inv[i];
-            if (!s || s.id !== r.id) continue;
-            const take = Math.min(left, s.count ?? 0);
-            s.count -= take; left -= take;
-            if ((s.count ?? 0) <= 0) {
-              this.save.inv.splice(i, 1);
-              if (this.save.selSlot >= this.save.inv.length) {
-                this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-              }
-            }
-          }
-        }
+        // Consume every ingredient.
+        for (const r of recipe) Inventory.remove(this.save, r.id, r.qty);
+        this._clampSelSlot();
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         recordDeal();
@@ -11980,8 +11758,10 @@ class MapScene extends Phaser.Scene {
   // CASH price now — the old mixed "1/3 cash / 2/3 barter" roll was removed so
   // the two trade idioms map cleanly onto shop types: MARKETS (and every
   // generic cash storefront) want money, TRADERS barter (their own qty-scaled
-  // path in presentTraderOffer). opts is accepted for call-site compatibility
-  // (the former forceMoney flag) but no longer changes anything.
+  // path in presentTraderOffer). opts.house names the shop asking: it seeds
+  // the markup roll off that shop's hour bucket (so the price holds for the
+  // hour) and applies its flower-charm discount; with no house the markup is
+  // a plain roll and there is no charm to apply.
   buildShopOffer(id, baseValue, opts = {}) {
     // Pricing (incl. the Bow-discounted markup) lives in ShopsMath.buyPrice; the
     // offer object's afford/consume closures stay here (they bind this.save).
@@ -12514,8 +12294,6 @@ class MapScene extends Phaser.Scene {
     // The stick doesn't depend on gear any more, but syncing here (idempotent)
     // is what puts it on screen on the first frame.
     this.syncMovePad();
-    // Drop the legacy top strip if an older build left one in the DOM.
-    document.getElementById('relic-row')?.remove();
     // If a gear tab is currently showing, rebuild the inventory bars so a newly
     // bought/forged/looted relic or armor piece appears immediately.
     const cat = INV_CAT_BY_KEY[this.save.invCat];
@@ -12910,13 +12688,6 @@ class MapScene extends Phaser.Scene {
       }
       persistSave(this.save);
       this.buildInventoryDOM();
-      if (r.accepted > 0 && typeof Quests !== 'undefined') {
-        const qDone = Quests.onItemAcquired(this.save, id, this.depth);   // retired hook, always false
-        if (qDone) {
-          persistSave(this.save);
-          this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
-        }
-      }
     }
     // Flash whenever anything was rejected — that's the player attempting to
     // exceed the cap. Deferred via setTimeout so it can't race a flashLoot the
@@ -12937,6 +12708,14 @@ class MapScene extends Phaser.Scene {
     return r.accepted;
   }
   // --- Two-bar inventory helpers ------------------------------------------
+  // Keep save.selSlot pointing at a real stack after a spend spliced one out
+  // (Inventory.remove leaves the re-clamp to its caller). A gear selection's
+  // -1 is below every length, so it is left alone.
+  _clampSelSlot() {
+    if (this.save.selSlot >= this.save.inv.length) {
+      this.save.selSlot = Math.max(0, this.save.inv.length - 1);
+    }
+  }
   // Which type tab an item id belongs to (by its `kind`). Falls back to the
   // Produce tab for anything unmapped so a stray item is still reachable.
   invCatForItem(id) {

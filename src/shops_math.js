@@ -8,7 +8,7 @@
 // offset staggers rotations. Deal counts + rerolls live in save.shopState,
 // self-GC'd as buckets roll over.
 //
-// The scene keeps thin wrappers (app.js _shopBucket* / shopDealCap /
+// The scene calls ShopsMath directly from its shop helpers (app.js shopDealCap /
 // shopReadiness / shopBucketState / shopRng / buildShopOffer). dealCap takes the
 // scene-derived isStarterBlacksmith flag rather than reaching for a predicate.
 //
@@ -95,8 +95,9 @@
   // waitMs / waitMin = wall-clock time until the next bucket. `cap` is supplied
   // by the caller (dealCap with the scene's isStarterBlacksmith flag).
   // waitMs is what the labels format (it can say "1h" on a full bucket, where
-  // rounded minutes could only ever say "60m"); waitMin stays for callers that
-  // want the number rather than the notation.
+  // rounded minutes could only ever say "60m"); waitMin is a test seam — no
+  // production caller reads it (shops_math.test.js / duration_notation.test.js
+  // pin it), it just keeps the rounded-minute figure inspectable.
   function readiness(save, house, cap, now = Date.now()) {
     if (cap === Infinity || !house || !house.id) {
       return { dealCap: cap, ready: true, waitMs: 0, waitMin: 0 };
