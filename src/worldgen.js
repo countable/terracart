@@ -693,19 +693,54 @@
   // Out-of-tile neighbours count as same-kind pavement: the geometry that
   // built a seam-spanning blob extends into the adjacent tile's buffer, so
   // both tiles see the same blob and erode the same interior cells.
-  function erodePavementBlobs(grid, w, h, pathUnder, roadUnder) {
-    const isPaved = (t) => t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG || t === T.PATH;
-    const kindOf = (t) => (t === T.PATH ? 1 : 0);
+  const isPavedTerrain = (t) =>
+    t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG || t === T.PATH;
+
+  // PUTTING A PAVED CELL BACK. Two post-passes take pavement off the grid —
+  // erodePavementBlobs dissolves a welded interior, pruneShortPathRuns deletes
+  // a stub — and both owe the cell the biome the paint covered, which
+  // pathUnder / roadUnder recorded at stamp time (see paintCell).
+  // Returns restore(x, y): writes that biome and drops the stale record.
+  function makePavedRestorer(grid, w, pathUnder, roadUnder) {
     // The biome a paved cell covered, if any was recorded. A cell repainted
     // across kinds (ROAD stamped over PATH) records PATH in roadUnder — skip
     // paved values and fall through to the path stamp's original record.
     const underAt = (x, y) => {
       const k = `${x}_${y}`;
       for (const u of [roadUnder[k], pathUnder[k]]) {
-        if (u != null && !isPaved(u)) return u;
+        if (u != null && !isPavedTerrain(u)) return u;
       }
       return null;
     };
+    return (x, y) => {
+      let u = underAt(x, y);
+      if (u == null) {
+        // No usable record (shouldn't happen for painted lines) — borrow the
+        // most common restorable under-biome among the 8 neighbours.
+        const counts = {};
+        let best = T.GRASS, bestN = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nu = underAt(x + dx, y + dy);
+            if (nu == null) continue;
+            const n = (counts[nu] = (counts[nu] || 0) + 1);
+            if (n > bestN) { bestN = n; best = nu; }
+          }
+        }
+        u = best;
+      }
+      grid[y * w + x] = u;
+      // The cell is no longer paved — drop its stale under record so the
+      // exported entry.pathUnder only describes live path cells.
+      delete pathUnder[`${x}_${y}`];
+    };
+  }
+
+  function erodePavementBlobs(grid, w, h, pathUnder, roadUnder) {
+    const isPaved = isPavedTerrain;
+    const kindOf = (t) => (t === T.PATH ? 1 : 0);
+    const restore = makePavedRestorer(grid, w, pathUnder, roadUnder);
     const eroded = [];
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -727,30 +762,77 @@
     }
     // Two-phase (collect, then write) so erosion decisions all read the
     // original grid — peeling in scan order would cascade through the blob.
-    for (const [x, y] of eroded) {
-      let u = underAt(x, y);
-      if (u == null) {
-        // No usable record (shouldn't happen for painted lines) — borrow the
-        // most common restorable under-biome among the 8 neighbours.
-        const counts = {};
-        let best = T.GRASS, bestN = 0;
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            if (!dx && !dy) continue;
-            const nu = underAt(x + dx, y + dy);
-            if (nu == null) continue;
-            const n = (counts[nu] = (counts[nu] || 0) + 1);
-            if (n > bestN) { bestN = n; best = nu; }
-          }
-        }
-        u = best;
-      }
-      grid[y * w + x] = u;
-      // The cell is no longer PATH — drop its stale under record so the
-      // exported entry.pathUnder only describes live path cells.
-      delete pathUnder[`${x}_${y}`];
-    }
+    for (const [x, y] of eroded) restore(x, y);
     return eroded.length;
+  }
+
+  // ── The short-path-run floor ──────────────────────────────────────────────
+  // A cobble marks a route you can walk, and a THREE-cell scrap of footway is
+  // not one. OSM is full of those scraps — a driveway apron, a crossing across
+  // a street, the little tail a way leaves where it meets a road, the two
+  // cells of a path whose neighbours all failed the pathCross span test — and
+  // each one landed on the map as a lone pebble or two sitting in a field.
+  //
+  // So a run of PATH cells shorter than this is not a path at all: it goes
+  // back to the biome it covered, exactly as a cell a way merely clips never
+  // becomes PATH in the first place (pathCross, above). Deleting the TERRAIN
+  // rather than hiding the sprite is what keeps one answer to "is there a path
+  // here?": the stones go with it, the cell is tillable and spawnable again,
+  // and render.js needs no rule of its own.
+  //
+  // Counted in COBBLE CELLS. render.js then thins what it draws
+  // (PATH_STONE_DENSITY_PCT) — that is decoration on top of this, not a second
+  // opinion about where the path is. Distinct from Trail.MIN_TRAIL_CELLS,
+  // which is the floor on PAYING for a walk; this one is the floor on the path
+  // existing.
+  const MIN_PATH_RUN_CELLS = 5;
+
+  // Post-pass: dissolve every 4-connected run of PATH cells shorter than
+  // MIN_PATH_RUN_CELLS. Runs after the painting and after the blob erosion
+  // (both decide what a run IS), and before the road-label / path-name passes,
+  // so a dissolved cell is never named, never claimable and never drawn.
+  //
+  // A run touching the tile edge is EXEMPT: the same way carries on into the
+  // neighbouring tile, which rasterizes alone and counts only its own cells,
+  // so judging the piece inside this tile would chop a long footpath to
+  // nothing at every seam. Same convention as erodePavementBlobs, which reads
+  // an out-of-tile neighbour as more of the blob.
+  //
+  // One flood over the grid, each cell visited once — O(w·h), no per-run
+  // rescan (see the tile-build-block rule in CLAUDE.md).
+  function pruneShortPathRuns(grid, w, h, pathUnder, roadUnder) {
+    const restore = makePavedRestorer(grid, w, pathUnder, roadUnder);
+    const seen = new Uint8Array(w * h);
+    const run = [];          // reused as the flood queue; no per-run allocation
+    let dissolved = 0;
+    for (let sy = 0; sy < h; sy++) {
+      for (let sx = 0; sx < w; sx++) {
+        const start = sy * w + sx;
+        if (seen[start] || grid[start] !== T.PATH) continue;
+        // 4-connected, which is how paintLine leaves a path: the elbow stamp
+        // exists precisely so consecutive cells share an edge, not a corner.
+        run.length = 0;
+        seen[start] = 1;
+        run.push(start);
+        let onEdge = false;
+        for (let qi = 0; qi < run.length; qi++) {
+          const idx = run[qi];
+          const x = idx % w, y = (idx - x) / w;
+          if (x === 0 || y === 0 || x === w - 1 || y === h - 1) onEdge = true;
+          if (x > 0     && !seen[idx - 1] && grid[idx - 1] === T.PATH) { seen[idx - 1] = 1; run.push(idx - 1); }
+          if (x < w - 1 && !seen[idx + 1] && grid[idx + 1] === T.PATH) { seen[idx + 1] = 1; run.push(idx + 1); }
+          if (y > 0     && !seen[idx - w] && grid[idx - w] === T.PATH) { seen[idx - w] = 1; run.push(idx - w); }
+          if (y < h - 1 && !seen[idx + w] && grid[idx + w] === T.PATH) { seen[idx + w] = 1; run.push(idx + w); }
+        }
+        if (onEdge || run.length >= MIN_PATH_RUN_CELLS) continue;
+        for (const idx of run) {
+          const x = idx % w;
+          restore(x, (idx - x) / w);
+        }
+        dissolved += run.length;
+      }
+    }
+    return dissolved;
   }
 
   // --- Tile fetching & caching ---
@@ -2793,6 +2875,13 @@
     // path-stone passes so no glyph or stone lands on a dissolved cell.
     erodePavementBlobs(grid, w, h, pathUnder, roadUnder);
     yield 'pavement erosion';
+    // Post-pass: the short-path-run floor. A run of fewer than
+    // MIN_PATH_RUN_CELLS cobble cells is a stub, not a path — dissolve it back
+    // to the ground it covered so it grows no stones and carries no trail
+    // name. After the erosion (which is what finally decides how long a run
+    // is) and before the naming pass below.
+    pruneShortPathRuns(grid, w, h, pathUnder, roadUnder);
+    yield 'short path runs';
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
     // landuse, roads, and buildings in MVT-supplied order, so a mineralrock
     // spawned by a residential polygon might have been placed on a cell
@@ -4853,7 +4942,7 @@
     TIER_FLOOR_LARGE, TIER_FLOOR_MED, TIER_FLOOR_SMALL,
     // Path-cobble geometry — exported so the headless tests can pin that a way
     // crossing a cell measures a full cell width while a corner clip doesn't.
-    accumulateLineSpan, PATH_CROSS_MIN_CELLS,
+    accumulateLineSpan, PATH_CROSS_MIN_CELLS, MIN_PATH_RUN_CELLS,
     // Cross-tile spawn dedup — exported so the headless tests can pin that a
     // tile being rebuilt in place is excluded from its own dedup index (the
     // bug that stripped every house sprite off rebuilt tiles).
