@@ -9,7 +9,7 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-v136';
+const SHELL_VERSION = 'shell-v172';
 const TILE_CACHE    = 'tiles-v1';
 // How old a cached tile may get before it is refreshed IN THE BACKGROUND. It
 // is never an expiry: a stale tile is still served, and a failed refresh keeps
@@ -22,11 +22,13 @@ const TILE_REFRESH_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days
 // hand-maintained list drifts: this one once named 6 of the ~25 modules the
 // page loads, app.js among them and save.js not, which is exactly how a boot
 // could end up with the app but not its save layer ("loadSave is not defined").
+// That includes vendor/phaser.js — it is a same-origin <script src> like the
+// rest, so the page scan already covers it (tools/shell_audit.js fails on any
+// .js hand-listed here).
 const SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './vendor/phaser.js',
 ];
 
 // Every same-origin script index.html pulls in, at the exact ?v= URLs it asks

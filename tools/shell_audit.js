@@ -55,9 +55,11 @@ const CHECKS = [
       }
       // A hand-listed subset is the drift that broke a boot once already: the
       // list is for non-scripts, and the scripts come from the page itself.
+      // No exemptions — vendor/phaser.js is a same-origin <script src> too,
+      // and listing it here just cached it twice on install.
       const block = sw.match(/const SHELL_ASSETS = \[([\s\S]*?)\]/);
       if (!block) throw new Error('SHELL_ASSETS not found in sw.js');
-      const scripts = block[1].split('\n').filter((l) => /\.js['"]/.test(l) && !/vendor\//.test(l));
+      const scripts = block[1].split('\n').filter((l) => /\.js['"]/.test(l));
       if (scripts.length) {
         throw new Error(`SHELL_ASSETS hand-lists app scripts again: ${scripts.map((s) => s.trim()).join(' ')}`);
       }
@@ -108,9 +110,9 @@ function providedTextureKeys() {
   // `const KEY = 'tower'` — and `const KEY = key || 'tower'`, the parameterised
   // form, whose literal is the DEFAULT key the no-argument call bakes.
   for (const m of tex.matchAll(/const KEY = (?:[A-Za-z_$][\w$]* \|\| )?'([^']+)'/g)) keys.add(m[1]);
-  // Not everything goes through the ASSETS table: a few sprites are loaded
-  // straight from app.js's preload (the staircases are). Those are just as
-  // real, and missing them here would have this audit cry wolf about them.
+  // preload() only walks ASSETS today, but a sprite loaded straight from
+  // app.js would be just as real, and missing it here would have this audit
+  // cry wolf about it — so app.js's own load calls still count.
   const app = blankComments(read('src/app.js'));
   for (const m of app.matchAll(/this\.load\.(?:image|spritesheet|atlas)\('([^']+)'/g)) keys.add(m[1]);
   // A maker that takes its key as an argument (makeTowerTexture bakes the
