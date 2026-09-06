@@ -127,6 +127,18 @@ const BIOME_TEX = {
 // Tilled soil is per-cell state (not a terrain class).
 const TILLED_COLOR = 0x8a6a41;        // turned earth — brown, deliberately NOT the UI gold
 const TILLED_VARIANTS = 2;
+// A tilled cell is drawn as ONE BED: an opaque soil pad baked into the
+// `tilled_N` texture, inset TILLED_INSET_PX from every cell edge with corners
+// of TILLED_CORNER_PX, and the ring outside it left transparent so the ground
+// colour shows between neighbouring beds. The shape lives in the texture, not
+// in a per-frame path: Phaser's fillRoundedRect tessellates four arcs (~400
+// points) and triangulates them every frame, and the cell graphics are
+// cleared each frame, so rounding a plot as geometry cost hundreds of
+// triangles per cell. A baked pad is the one sprite the cell already drew.
+// The gap is in LOGICAL px (the canvas renders at up to 4× that), so 1 would
+// be a hairline on a phone; 2 reads as a real edge.
+const TILLED_INSET_PX = 2;
+const TILLED_CORNER_PX = 4;
 
 // Tiny deterministic RNG factory so each texture variant looks stable across reloads.
 function seededRand(seed) {
@@ -313,9 +325,30 @@ function drawParkTex(ctx, size, rng) {
 }
 
 function drawTilledTex(ctx, size, rng) {
-  // Ploughed earth — clear horizontal furrows + grain. Brown, never gold:
+  // Ploughed earth — one rounded bed per cell (see TILLED_INSET_PX), with
+  // clear horizontal furrows + grain clipped to the pad. Brown, never gold:
   // yellow is the interaction colour and tilled ground is terrain.
+  // The pad is OPAQUE: render.js paints no soil fill under it, the cell's own
+  // terrain colour is what shows through the transparent border ring.
   ctx.clearRect(0, 0, size, size);
+  const x0 = TILLED_INSET_PX, y0 = TILLED_INSET_PX;
+  const w = size - 2 * TILLED_INSET_PX, h = size - 2 * TILLED_INSET_PX;
+  const r = Math.min(TILLED_CORNER_PX, w / 2, h / 2);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x0 + r, y0);
+  ctx.lineTo(x0 + w - r, y0);
+  ctx.arcTo(x0 + w, y0, x0 + w, y0 + r, r);
+  ctx.lineTo(x0 + w, y0 + h - r);
+  ctx.arcTo(x0 + w, y0 + h, x0 + w - r, y0 + h, r);
+  ctx.lineTo(x0 + r, y0 + h);
+  ctx.arcTo(x0, y0 + h, x0, y0 + h - r, r);
+  ctx.lineTo(x0, y0 + r);
+  ctx.arcTo(x0, y0, x0 + r, y0, r);
+  ctx.closePath();
+  ctx.fillStyle = '#' + TILLED_COLOR.toString(16).padStart(6, '0');
+  ctx.fill();
+  ctx.clip();
   const rowH = 8;
   for (let y = 2; y < size; y += rowH) {
     ctx.fillStyle = 'rgba(60,35,10,0.55)';
@@ -331,6 +364,7 @@ function drawTilledTex(ctx, size, rng) {
       : 'rgba(206,190,162,0.22)';
     ctx.fillRect(x, y, 1, 1);
   }
+  ctx.restore();
 }
 
 function drawWaterTex(ctx, size, rng, phaseFrac = 0) {
