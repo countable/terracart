@@ -1,5 +1,6 @@
 // Energy core — pure energy math extracted from app.js so the cap / spend /
-// offline-rest / tired-threshold rules are testable headlessly (no scene, no DOM).
+// offline-rest / tired-threshold / bite-cooldown rules are testable headlessly (no
+// scene, no DOM).
 //
 // The scene keeps thin wrappers (app.js getMaxEnergy / spendEnergy /
 // applyOfflineRest / _warnIfTiring) that own the side effects a core must not:
@@ -64,6 +65,47 @@
     return { ok: true, before, spent: before - save.energy };
   }
 
+  // ── The bite cooldown ────────────────────────────────────────────────────
+  // Ten seconds between mouthfuls. Eating was the one energy source with no
+  // pacing at all: a stack of thirty potatoes was 240⚡ delivered as fast as a
+  // finger could tap the Eat button, so a full bag made every cost in the game
+  // — the till, the chop, the fight — a rounding error. The cooldown doesn't
+  // change what a food is worth, only how fast a bag of them can be poured in.
+  //
+  // POTIONS ARE EXEMPT, and they are exempt BY CONSTRUCTION rather than by an
+  // id list here: a potion is drunk through its own button (app.js
+  // syncConsumableButton → drinkVigorPotion and friends), which never touches
+  // this gate. Nothing that goes through eatSelected is exempt — including the
+  // hard-mode Crow Feather revive, which is a mouthful like any other.
+  //
+  // The deadline is stored on the SAVE (save.eatReadyAt), not in memory beside
+  // the dragon/torch timers: those are buffs a refresh costs you, and a gate a
+  // refresh clears is not a gate.
+  const EAT_COOLDOWN_MS = 10 * 1000;
+
+  // Ms left before the next bite, 0 when one is ready. Clamped to the cooldown
+  // itself so a save carrying a far-future deadline (a clock the player wound
+  // back, a hand-edited save) reads as a ten-second wait rather than locking
+  // the button out for hours.
+  function eatCooldownLeft(save, now = Date.now()) {
+    const left = (save.eatReadyAt ?? 0) - now;
+    return left > 0 ? Math.min(left, EAT_COOLDOWN_MS) : 0;
+  }
+
+  // The gate itself. One expression, two readers: eatSelected refuses on it and
+  // the Eat button greys itself on it, so what the button shows and what the
+  // tap does can't drift apart.
+  function canEat(save, now = Date.now()) {
+    return eatCooldownLeft(save, now) <= 0;
+  }
+
+  // Arm the cooldown. Called by eatSelected once a bite has actually landed —
+  // never on a refusal, which would let a blocked tap extend its own block.
+  function startEatCooldown(save, now = Date.now()) {
+    save.eatReadyAt = now + EAT_COOLDOWN_MS;
+    return save.eatReadyAt;
+  }
+
   // Convert an offline/background gap (ms) into restored energy. Mutates
   // save.energy, returns the amount gained (0 if none) so the wrapper can decide
   // whether to redraw / splash.
@@ -77,5 +119,6 @@
     return save.energy - before;
   }
 
-  root.Energy = { OFFLINE_FULL_REST_MS, maxEnergy, tiredThreshold, crossedTired, spend, applyOfflineRest };
+  root.Energy = { OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tiredThreshold, crossedTired,
+                  spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -912,6 +912,16 @@ const BAG_FULL_MSG = 'Bag full — sell or eat first.';
 // words longer, and it is the whole answer.
 const TOO_TIRED_MSG = 'Too tired — eat or rest.';
 
+// What the Eat button wears while the bite cooldown holds (Energy.canEat, ten
+// seconds between mouthfuls — see syncEatButton). The ready face is the HUD's
+// success green (UI_GREEN on a #4a8c4a edge); these are that same pair drained
+// toward the chrome, so the waiting button reads as the SAME control counting
+// down rather than a different, disabled one. Deliberately not the control
+// gold: in this palette gold means "a thing you press", which is exactly what
+// this is not for the next few seconds.
+const EAT_COOLING_INK  = '#6f8f74';
+const EAT_COOLING_EDGE = '#37522f';
+
 // --- Economy tuning ---
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
@@ -6133,6 +6143,11 @@ class MapScene extends Phaser.Scene {
     } else if (this.torchTimerText.visible) {
       this.torchTimerText.setVisible(false);
     }
+    // The fourth countdown, and the only one that isn't over the player's head:
+    // the bite cooldown lives ON the Eat button, so it is DOM rather than a
+    // Phaser label (see _tickEatButton). No-ops in a frame where no food is
+    // selected — the button doesn't exist then.
+    this._tickEatButton();
     let vx = 0, vy = 0;
     const k = this.keys;
     let wasd = false;
@@ -11023,6 +11038,13 @@ class MapScene extends Phaser.Scene {
     const locked = this._zeroEnergyLocked();
     const featherRevive = locked && sel.id === 'crow_feather';
     if (locked && !featherRevive) return false;
+    // The bite cooldown (Energy.canEat — ten seconds between mouthfuls). The
+    // same expression the Eat button greys itself on, so a tap can never do
+    // what the button says it won't; the countdown ON the button is the whole
+    // feedback, which is why this refuses silently rather than flashing a
+    // toast over the cell the player is looking at. Potions never reach here —
+    // they are drunk through syncConsumableButton's own methods.
+    if (!Energy.canEat(this.save)) return false;
     const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
     if (!featherRevive && restore == null) return false;
     // First taste of a new edible permanently grows the bar: +1 max energy per
@@ -11061,6 +11083,8 @@ class MapScene extends Phaser.Scene {
       extra = `\n☕ amulet buzz: +${COFFEE_AMULET_BOOST} tier, 3 min`;
     }
     if (firstTaste) extra += `\n🍽 first taste: +1 max ⚡`;
+    // Armed only now, after a bite has actually landed.
+    Energy.startEatCooldown(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();
     this.updateEnergyDOM();
@@ -15603,9 +15627,49 @@ class MapScene extends Phaser.Scene {
     const restore = (sel && typeof FOOD_ENERGY !== 'undefined') ? FOOD_ENERGY[sel.id] : null;
     const existing = document.getElementById('eat-btn');
     if (restore == null && !featherRevive) { existing?.remove(); return; }
-    const iconHtml = this.iconSpanHTML(sel.id, 20);
-    const label = featherRevive ? `${iconHtml} Use → 25%⚡` : `${iconHtml} Eat +${restore}⚡`;
-    if (existing) { existing.innerHTML = label; return; }
+    // THE COOLDOWN IS SHOWN ON THE BUTTON, in the two shapes the rest of the
+    // game already uses for a wait: the exact number (shortDuration — every
+    // wait the player can read goes through it) and a bar that fills as the
+    // wait runs out. The bar is what makes it readable at a glance mid-chew;
+    // the number is what makes it readable to the second. Both come off
+    // Energy.eatCooldownLeft, the same call eatSelected refuses on — one
+    // expression, so the greyed face and the refused tap can't disagree.
+    // Potions have their own Drink button (syncConsumableButton) and never
+    // appear here, which is the whole of their exemption.
+    const cdLeft = Energy.eatCooldownLeft(this.save);
+    const cooling = cdLeft > 0;
+    // Held so _tickEatButton knows when the readout has actually changed and
+    // this rebuild is worth running again (it drives the bar every frame, but
+    // the label only moves on the whole second).
+    this._eatCdShown = cooling ? shortDuration(cdLeft) : '';
+    // While the gate refuses, the wait REPLACES the "+N⚡" it would otherwise
+    // advertise: the restore isn't the actionable number until the bar fills.
+    const text = cooling ? `Eat ${this._eatCdShown}`
+      : featherRevive ? 'Use → 25%⚡'
+      : `Eat +${restore}⚡`;
+    const btn = existing || this._makeEatButton();
+    // The icon is rebuilt only when the SELECTED STACK changes, not on every
+    // repaint: this method now runs once a second for the whole cooldown, and
+    // re-writing a background-image span at that cadence is churn for a glyph
+    // that hasn't moved. The countdown itself is text, so it costs nothing.
+    if (btn.dataset.id !== sel.id) {
+      btn.dataset.id = sel.id;
+      btn.querySelector('.eat-ico').innerHTML = this.iconSpanHTML(sel.id, 20);
+    }
+    btn.querySelector('.eat-txt').textContent = text;
+    // Ready is the button's own green; cooling is that same green gone dim —
+    // never the control gold, which in this palette means "a thing you press"
+    // and would read as a different button rather than the same one waiting.
+    btn.style.color = cooling ? EAT_COOLING_INK : UI_GREEN;
+    btn.style.borderColor = cooling ? EAT_COOLING_EDGE : '#4a8c4a';
+    btn.style.cursor = cooling ? 'default' : 'pointer';
+    this._paintEatCooldownBar(btn, cdLeft);
+  }
+
+  // Build the Eat button's element once. Split out of syncEatButton because
+  // the button is no longer a bare label — it carries the cooldown bar as a
+  // child, so a plain `innerHTML = label` on the whole button would wipe it.
+  _makeEatButton() {
     const btn = document.createElement('button');
     btn.id = 'eat-btn';
     // Bottom-right, BELOW the inventory bar (the bar bottom sits at
@@ -15613,21 +15677,71 @@ class MapScene extends Phaser.Scene {
     // underneath). Right-anchored to --phone-right so the button tucks
     // inside the simulated phone column on desktop.
     btn.className = 'hud-action';
+    // overflow:hidden clips the cooldown bar to the rounded corners; the
+    // fixed position is also what makes the bar's absolute placement resolve
+    // against the button rather than the page.
     btn.style.cssText =
       'position:fixed;' +
       'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
       'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
-      'display:flex;align-items:center;gap:6px;' +
+      'display:flex;align-items:center;overflow:hidden;' +
       'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      'color:#a7ffb0;border:2px solid #4a8c4a;' +
+      `color:${UI_GREEN};border:2px solid #4a8c4a;` +
       'font:700 12px ui-monospace,monospace;';
-    btn.innerHTML = label;
+    // The bar sits along the BOTTOM EDGE rather than washing over the face:
+    // a shroud across a button this small swallows its own label, and the
+    // label is carrying the exact number.
+    const bar = document.createElement('span');
+    bar.className = 'eat-cd';
+    bar.style.cssText =
+      'position:absolute;left:0;bottom:0;height:3px;width:0;' +
+      `background:${UI_GREEN};pointer-events:none;`;
+    const lbl = document.createElement('span');
+    lbl.className = 'eat-lbl';
+    lbl.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    const ico = document.createElement('span');
+    ico.className = 'eat-ico';
+    ico.style.cssText = 'display:flex;align-items:center;';
+    const txt = document.createElement('span');
+    txt.className = 'eat-txt';
+    lbl.append(ico, txt);
+    btn.append(bar, lbl);
+    // NOT `disabled` while cooling: a disabled button swallows the tap without
+    // running this handler, so the stopPropagation below never fires and the
+    // press falls through to the world underneath — tilling the ground behind
+    // the button. eatSelected owns the refusal instead.
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.eatSelected();
       this.syncEatButton();   // refresh count / hide if stack ran out
     });
     document.body.appendChild(btn);
+    return btn;
+  }
+
+  // Size the cooldown bar. It FILLS as the wait runs down — a full bar is a
+  // ready button — so the growing green and the shrinking number both point
+  // the same way: toward the next bite.
+  _paintEatCooldownBar(btn, leftMs) {
+    const bar = btn.querySelector('.eat-cd');
+    if (!bar) return;
+    const done = 1 - Math.max(0, Math.min(1, leftMs / Energy.EAT_COOLDOWN_MS));
+    // Hidden outright when there is nothing to count: a permanently full bar
+    // under a ready button is just a green line with no meaning.
+    bar.style.width = leftMs > 0 ? `${done * 100}%` : '0';
+  }
+
+  // Drive that readout. The bar is re-sized every frame (one style write on an
+  // element that only exists while food is selected) so it climbs smoothly;
+  // the full rebuild runs only when the whole-second reading changes — which
+  // includes the tick the wait ends on, and that is what un-greys the button.
+  _tickEatButton() {
+    const btn = document.getElementById('eat-btn');
+    if (!btn) { this._eatCdShown = null; return; }
+    const left = Energy.eatCooldownLeft(this.save);
+    this._paintEatCooldownBar(btn, left);
+    const shown = left > 0 ? shortDuration(left) : '';
+    if (shown !== this._eatCdShown) this.syncEatButton();
   }
 
   // Book / Honey Read / Use button. Mirror of syncEatButton — sits next
