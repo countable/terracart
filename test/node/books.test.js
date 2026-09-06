@@ -358,6 +358,21 @@ test('descriptions: the coffee line quotes COFFEE_AMULET_BOOST', () => {
     'and the inventory effect line says two — it read "+1" for a while');
 });
 
+test('tips: the gem ladder is the table interactables.js rolls', () => {
+  // One tip names four rocks and four gems; the table is the only place that
+  // pairing lives, and the Frost rung changed under it when the Diamond
+  // landed (it read 'emerald and frost' while frost rock now pays a diamond).
+  const m = INTERACTABLES_SRC.match(/const GEM_BY_TIER = \{([^}]*)\}/);
+  assert.truthy(m, 'interactables.js still owns the gem table');
+  const tip = PLAY_TIPS.find((t) => /^Gems come only/.test(t));
+  assert.truthy(tip, 'a tip carries the ladder');
+  for (const [tier, gem] of [[4, 'sapphire'], [5, 'ruby'], [6, 'emerald'], [7, 'diamond']]) {
+    assert.truthy(new RegExp(`${tier}: \\[[^\\]]*'${gem}'`).test(m[1]),
+      `T${tier} rock still pays a ${gem}`);
+    assert.truthy(new RegExp(gem, 'i').test(tip), `and the tip names the ${gem}`);
+  }
+});
+
 test('tips: the Ring claim is the one the code actually enforces', () => {
   // Gear.buildRelicOffer skips the ring slot outright, so no shop, smithy or
   // castle can offer one — that is the real rule. It is NOT "never found in a

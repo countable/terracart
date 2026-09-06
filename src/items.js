@@ -109,9 +109,17 @@ const MINERAL_ICON_SHEET = {
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
   wood:     { sheet: 'wood',      frame: 2 },
   coal:     { sheet: 'coal_icon', frame: 0 },
-  sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
-  ruby:     { sheet: 'gems',      frame: 0 },   // red gem
-  emerald:  { sheet: 'gems',      frame: 3 },   // green gem
+  // Gems — Gemstones.png row 0 (7 cols of 16×16), left to right: 0 cut cyan
+  // diamond, 1 red ruby, 2 purple shard, 3 blue sapphire, 4 orange topaz,
+  // 5 green emerald cluster, 6 pink quartz. (Rows 1-3 are outlined / mask
+  // duplicates.) Until Sep 2026 these rows read ruby 0 / emerald 3 /
+  // sapphire 4 — the cyan diamond, the blue sapphire and the orange topaz —
+  // so the "red gem" the tips promised was drawn cyan; the diamond taking
+  // frame 0 is what surfaced it. Pinned by test/node/diamond.test.js.
+  sapphire: { sheet: 'gems',      frame: 3 },   // blue gem
+  ruby:     { sheet: 'gems',      frame: 1 },   // red gem
+  emerald:  { sheet: 'gems',      frame: 5 },   // green gem cluster
+  diamond:  { sheet: 'gems',      frame: 0 },   // cut cyan-white diamond — the Frost jewel
   // Bars from the 16-col Extras 'Bars and ores' sheet (16px frames, 16
   // cols × 4 rows). The sheet is NOT one bar per frame: each row packs two
   // metals as bar/ore PAIRS — col0 barA, col1 oreA, col2 barB, col3 oreB,
@@ -164,10 +172,21 @@ const MINERAL_ICON_SHEET = {
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
+  // The other three heaps of the same powder row (row 1, y=16: frame 5 is the
+  // EMPTY slot, then green / red / purple / blue). Growth is the green heap,
+  // Shadow the purple, Frost the blue — each used from the Use button like the
+  // dragon's red (useGrowthPowder / useShadowPowder / useFrostPowder in app.js).
+  growth_powder: { sheet: 'icon_potions', frame: 6 },
+  shadow_powder: { sheet: 'icon_potions', frame: 8 },
+  frost_powder:  { sheet: 'icon_potions', frame: 9 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
   rope:          { sheet: 'icon_rope', frame: 0 },
+  // Torch — single 16×16 stick-and-flame icon (Icons/Items). Lighting it
+  // widens the player's own light for a few minutes (useTorch in app.js →
+  // the `torch` row of Lighting.KINDS).
+  torch:         { sheet: 'icon_torch', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -283,13 +302,20 @@ const BASE_TIER = {
   // Consumables
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   dragon_powder: 3,
+  // Growth Powder is a T2 farm utility beside the potions; Shadow and Frost are
+  // T3 fight-changers beside the dragon.
+  growth_powder: 2, shadow_powder: 3, frost_powder: 3,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
+  // Torch — the T1 cave staple: light for the dark, cheap and common.
+  torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
   crow_feather: 3,
   sapphire: 4, ruby: 5, emerald: 6,
+  // Diamond tops the gem ladder at the Frost tier — the T7 rock's headline gem.
+  diamond: 7,
 };
 
 // NOTE: items carry NO `icon` (emoji) field — items always render as their
@@ -376,11 +402,28 @@ const ITEMS = [
   // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
   { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
+  // Growth Powder: every crop within 20 m springs ahead one stage on the spot,
+  // no watering needed (useGrowthPowder). Refused — and kept — when no crop is
+  // in range.
+  { id: 'growth_powder', name: 'Growth Powder',       kind: 'consumable' },
+  // Shadow Powder: for one minute monsters lose interest in you — they neither
+  // stalk nor drain you (useShadowPowder). You may still hit them.
+  { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'consumable' },
+  // Frost Powder: every enemy within reach is frozen solid for 30 s — no
+  // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
+  // hostile is in reach.
+  { id: 'frost_powder',  name: 'Frost Powder',        kind: 'consumable' },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
   // climb UP a level or lower yourself DOWN one — right where you stand, no
   // staircase needed. One rope per climb. Unlike the sapphire portal it goes
   // both ways, so it is also the way out of a dead-end dig (useRope in app.js).
   { id: 'rope',          name: 'Rope',                kind: 'consumable' },
+  // Torch: light it (Use button with it selected) and for three minutes the
+  // player's own light reaches twice as far — the `torch` row of
+  // Lighting.KINDS, stamped at the feet on top of the reach ramp. The reach
+  // plateau (what you can tap) is untouched; only the dark around it lifts.
+  // Lighting another while one burns EXTENDS the time (useTorch in app.js).
+  { id: 'torch',         name: 'Torch',               kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -461,6 +504,11 @@ const ITEMS = [
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
+  // Diamond — the Frost-tier (T7) gem, one per rung of the ladder above:
+  // sapphire 4 / ruby 5 / emerald 6 / diamond 7. Mined from the T7
+  // (frost) mineralrock (interactables.js GEM_BY_TIER) and what every T7
+  // piece of jewelry is cut around (gear.js blacksmithRecipe).
+  { id: 'diamond',  name: 'Diamond',  kind: 'mineral' },
   // Smelted metal bars — primary forge material at blacksmiths. Dropped
   // by mineralrocks (worldgen.js). One ladder per material tier 2..7;
   // tier 1 (wood) gear is starter-shop only and doesn't need a bar.
@@ -554,7 +602,11 @@ const PRICES = {
   speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
+  growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
+  shadow_powder: 110,  // T3 — 1 min of monsters ignoring you entirely
+  frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   rope:          25,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft)
+  torch:         15,   // T1 — 3 min of the player's own light reaching twice as far (useTorch)
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -562,6 +614,7 @@ const PRICES = {
   sapphire:  30,
   ruby:      80,
   emerald:  200,
+  diamond:  600,   // T7 — above the platinum bar (500), below the crimson (1200)
   // ── Metal bars (blacksmith forge ingredients) ───────────
   // Roughly 2.5× ramp per tier, matching MATERIAL_TIERS.costMul.
   copper_bar:    30,
@@ -696,7 +749,7 @@ const PLAY_TIPS = [
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
   'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
   'Ore wants a pickaxe one tier under what it holds, and every tier it out-tiers yours adds 9\u26a1 to the swing.',
-  'Gems come only out of the deeper stone: sapphire from gold, ruby from platinum, emerald from crimson and frost.',
+  'Gems come only out of the deeper stone: sapphire from gold-bearing rock, ruby from platinum, emerald from crimson, and a diamond only from frost.',
   'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
   'Every monster has a giant form: four times the health, met two levels below its ordinary kind.',
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
@@ -776,6 +829,8 @@ const ITEM_EFFECTS = {
   // undescribed. The taming is hinted in exactly one place now — the closing
   // riddle in PLAY_TIPS — which is what makes it a secret rather than a label.
   sapphire:  'Use to open a portal one level down',
+  // The Frost jewel: where it comes from and what it is for, in one line.
+  diamond:   'Mined from Frost-tier ore; Frost jewelry is cut around it',
   // Consumables used on yourself / the world.
   honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',
@@ -784,7 +839,11 @@ const ITEM_EFFECTS = {
   speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   dragon_powder: 'Use to become a dragon for 1 min: faster legs, 2× damage',
+  growth_powder: 'Use to spring every crop within 20m ahead a stage',
+  shadow_powder: 'Use to make monsters ignore you (1 min)',
+  frost_powder:  'Use to freeze every enemy in reach for 30s',
   rope:          'Use to climb up or lower down one level, right here',
+  torch:         'Use to make your light reach twice as far (3 min)',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
   // A sapling's Plant button says it plants something; only this says WHAT.
   // The acorn is the one that puts back timber rather than fruit, which is the

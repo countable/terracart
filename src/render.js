@@ -4304,8 +4304,10 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
     // sheen. Pooled sprites keep their last tint, so set an explicit colour
-    // every frame (white for the common, plain case).
-    s.setTint(c.shiny ? SHINY_TINT : 0xffffff);
+    // every frame (white for the common, plain case). A foe the Frost Powder
+    // froze (c._frozenUntil, app.js useFrostPowder) wears ice over either.
+    const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
+    s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : 0xffffff);
   });
 
 
