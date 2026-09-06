@@ -166,6 +166,15 @@ const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the 
 // The cap is a guard, not a tuning knob: every real device lands under it
 // (DPR 3 × the ~1.12 a 393-wide phone scales by is 3.35), and it only stops a
 // pathologically high DPR from asking the GPU for a 7-megapixel buffer.
+//
+// "1:1" is exact to within the buffer's own integer size: canvas.width/height
+// are integers, so H × RENDER_SCALE truncates (844 × 3.3494 = 2826.92 → 2826)
+// and the logical box's bottom edge falls a fraction of a device pixel outside
+// the buffer. Measured on a 393-wide DPR-3 phone that is 0.92 device px — a
+// third of a CSS px, at the bottom of the 844-tall box, which is HUD chrome
+// drawn in the DOM rather than on the canvas. There is no rounding that avoids
+// it: the canvas's LAYOUT box is fractional too, so an integer buffer sized to
+// anything else would be resampled to reach it.
 const RENDER_SCALE_MAX = 4;
 // Never below 1 — a viewport narrower than 352 CSS px still gets the full
 // logical grid rather than a canvas coarser than the one it replaced.
