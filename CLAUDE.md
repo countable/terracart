@@ -114,8 +114,9 @@
   answer is the same discipline as `roadOverlayWidthM`: **one table both sides
   read**. `SpriteLayout.PLAIN_ROCK_VARIANTS` carries `col` (what render.js
   draws) beside `stones` (what `plainRockBaseDrop` pays, `stones + randInt(0,1)`),
-  and both callers resolve the variant through `SpriteLayout.plainRockVariant`
-  so they can't pick different rocks. A surface with no rock sprite promises
+  and both callers (`SpriteLayout.plainRockFrame` for the draw,
+  `SpriteLayout.plainRockStones` for the drop) resolve the variant through the
+  one internal `plainRockVariant` so they can't pick different rocks. A surface with no rock sprite promises
   nothing and passes `stones = null` for the old flat roll — that's the cave
   WALL dig, not a rock. Note the pair is one connected blob, so no pixel pass
   can count it: `stones` is authored, and the tripwire if the sheet is re-cut

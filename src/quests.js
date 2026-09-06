@@ -21,11 +21,10 @@ const QUEST_SLOTS = 3;
 // `unit` is what one of a thing is worth, and it is the only place a template
 // says anything about value: restoring a wreck pays many times what tilling a
 // cell does because it costs many times as much.
-const QUEST_RAMP_K = 0.35;
 const QUEST_REWARD_RAMP = 0.15;
 
 // The verbs. `event` is the gameplay event that credits one unit (see
-// scene.questEvent and the onKill / onPoiVisit / onItemAcquired hooks), so
+// scene.questEvent and the onKill / onPoiVisit hooks), so
 // adding a verb here is a template plus a call site, not a new subsystem.
 const QUEST_TEMPLATES = [
   { id: 'kill',    event: 'kill',    base: 1, k: 0.6,  max: 12, unit: 22, weight: 3,
@@ -204,11 +203,10 @@ const Quests = {
     return any;
   },
 
-  // The three hooks the gameplay sites already call, kept so no call site has
+  // The two hooks the gameplay sites already call, kept so no call site has
   // to know the board exists.
   onKill(save, kind) { return this.onEvent(save, 'kill', { target: kind }); },
   onPoiVisit(save, poiClass) { return this.onEvent(save, 'poi', { target: poiClass }); },
-  onItemAcquired() { return false; },   // retired: the item quest is a POI visit now
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -286,10 +284,8 @@ const STARTER_CHAIN = [
 // accidentally drive the wrong ladder.
 Object.assign(Quests, {
   _ss(save) {
-    if (!save.starter) save.starter = { step: 0, done: {}, dismissed: false };
-    // A save written before the starter chain existed has the mid-game shape
-    // already — treat it as a veteran and keep the chip off its screen.
-    if (!save.starter.done) save.starter.done = {};
+    // (Older saves also carry a write-only `done` map here; nothing reads it.)
+    if (!save.starter) save.starter = { step: 0, dismissed: false };
     return save.starter;
   },
 
@@ -349,7 +345,6 @@ Object.assign(Quests, {
     const step = this.starterCurrent(save);
     if (!step || step.event !== event) return null;
     const ss = this._ss(save);
-    ss.done[step.id] = true;
     ss.step = (ss.step ?? 0) + 1;
     return step;
   },

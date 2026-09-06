@@ -15,24 +15,29 @@
 // "Keep-out"), and the layer itself sits UNDER the cobbles, so the stones the
 // rasterizer actually laid always read on top of the linework they came from.
 //
-// Each way is stroked at its class's real-world width (WorldGen.roadWidthM)
-// drawn to the map's scale, so the band covers roughly the ground the road
-// covers: with 7 m cells a 5 m residential street is a little under one cell
-// wide, a 12 m motorway a little under two. The large tier (motorway / trunk
-// / primary) is then drawn 50% wider still, so the trunk network stands out
-// from the streets feeding it. A small-stone cobblestone pattern is stamped
-// over the finished linework in one pass, giving the bands a paved texture
-// for the cost of a single fill (see "Cobblestone" below).
+// Each way is stroked at the width it covers on the ground
+// (WorldGen.roadOverlayWidthM — the class's real-world carriageway from
+// WorldGen.roadWidthM, with the large tier's weighting applied) drawn to the
+// map's scale, so the band covers roughly the ground the road covers: with
+// 7 m cells a 5 m residential street is a little under one cell wide, a 12 m
+// motorway a little under two. The large tier (motorway / trunk / primary)
+// is then drawn 50% wider still, so the trunk network stands out from the
+// streets feeding it. A small-stone cobblestone pattern is stamped over the
+// finished linework in one pass, giving the bands a paved texture for the
+// cost of a single fill (see "Cobblestone" below).
 //
 // Depends on:
 //   scene fields (read-only): roadGeomGfx, roadGeomContainer, save,
 //     startWorldM, playerM, cellM, cellsPerTile, depth,
 //     viewCenterX/Y, viewLeft, viewTop, viewSize
 //     helper: playerToWorldCell()
-//   worldgen.js — WorldGen.tileCache, WorldGen.Z, WorldGen.roadWidthM,
-//                 WorldGen.PATH_CLASSES, WorldGen.tileKey;
+//   worldgen.js — WorldGen.tileCache, WorldGen.Z, WorldGen.roadOverlayWidthM,
+//                 WorldGen.PATH_CLASSES, WorldGen.tileKey,
+//                 WorldGen.T / WorldGen.isBuildingTerrain (the keep-out);
 //                 per-tile `entry.layers` (the raw decoded MVT layers),
 //                 `entry.tileEdgeM`, and `entry.grid` (for the keep-out pass)
+//   coords.js — overlayFrame / overlayProjection / timedOverlayRebuild (the
+//               camera-anchored draw frame both geometry overlays share)
 //   sprite_layout.js — SpriteLayout.CELL_PX
 //   app.js consts — CELL_PX
 //
@@ -153,19 +158,15 @@
     if (PATH_CLASSES.has(c)) return PATH_COLOR;
     return ROAD_COLOR;
   };
-  const cssOf = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
+  // Colour ints become canvas strings through util.js's cssOf.
 
   // Cells the overlay must not paint over, punched out of the finished canvas
   // (see keepOut below): WATER, so the linework stays on land instead of
   // laying a brown band across a lake wherever a bridge or a shoreline way
-  // runs, and the three BUILDING tiers, whose floors — a house's boards, the
-  // castle's court paving — should read as the top surface there rather than
-  // having a road drawn across them.
-  const WATER_T = 3;
-  const BUILDING_T = new Set([9, 11, 12]);
-  // Fallback widths (metres) if WorldGen.roadWidthM is somehow unavailable —
-  // the shared table lives there so the overlay and the rasterizer agree.
-  const FALLBACK_WIDTH_M = 5;
+  // runs, and the three BUILDING tiers (WorldGen.isBuildingTerrain), whose
+  // floors — a house's boards, the castle's court paving — should read as the
+  // top surface there rather than having a road drawn across them.
+  const WATER_T = WorldGen.T.WATER;
 
   // The big ways — motorway / trunk / primary, exactly worldgen's ROAD_LG
   // tier — are stroked half again as wide as their measured carriageway.
@@ -184,11 +185,20 @@
   // residential street lands just inside the single cell the rasterizer paints
   // for it, and a 12 m motorway visibly spills past that cell on both sides —
   // by half again as much once the large tier's weighting is applied.
+  // No fallback width: this module already reads WorldGen at load
+  // (PATH_CLASSES above), and a private number here is exactly the drift
+  // between "drawn as road" and roadMask that the shared function exists to
+  // prevent.
   function widthPxFor(scene, tags) {
-    const m = (typeof WorldGen !== 'undefined' && typeof WorldGen.roadOverlayWidthM === 'function')
-      ? WorldGen.roadOverlayWidthM(tags || {})
-      : FALLBACK_WIDTH_M;
+    const m = WorldGen.roadOverlayWidthM(tags || {});
     return Math.max(1, (m / scene.cellM) * CELL_PX);
+  }
+
+  // Fixed-seed LCG, not Math.random: the pattern tiles below are identical
+  // every session, so the roads can't shimmer differently between one load
+  // and the next. (textures.js keeps its own copy for its own tiles.)
+  function lcg(seed) {
+    return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
   }
 
   // ── Cobblestone ──────────────────────────────────────────────────────────
@@ -251,8 +261,7 @@
     const cx = c.getContext('2d');
     if (!cx) return edgeNoiseCanvas;
     // Fixed seed, same reason as the stones: identical bites every session.
-    let seed = 0x9e3779b9;
-    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const rnd = lcg(0x9e3779b9);
     // 2×2 blocks, not per-pixel speckle: single-pixel noise erodes the fringe
     // into grey fuzz, while coarser bites leave an edge that visibly meanders.
     // A few 1px singles on top break the blockiness.
@@ -278,10 +287,7 @@
     c.width = c.height = STONE_TILE_PX;
     const cx = c.getContext('2d');
     if (!cx) return stoneCanvas;
-    // Fixed-seed LCG, not Math.random: the tile is identical every session, so
-    // the roads can't shimmer differently between one load and the next.
-    let seed = 0x2f6b4a;
-    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const rnd = lcg(0x2f6b4a);
     // Grout wash: paint the WHOLE tile with a faint dark tone first, so the
     // margin between stones reads as a recessed seam rather than bare road
     // colour showing through — the same "cut into the ground" cue the pad
@@ -503,43 +509,19 @@
     }
 
     // Camera anchor, not the body — a peek drag repaints the bands over the
-    // ground they belong to (coords.js viewAnchorCell). The rebuild key below
-    // is the snapped anchor cell, so a peek that crosses a cell boundary
-    // repaints exactly as walking across one does.
-    const pc = viewAnchorCell(scene);
-    const fracX = pc.cx - Math.floor(pc.cx);
-    const fracY = pc.cy - Math.floor(pc.cy);
-    const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
-    const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
-
-    // Rebuild key: the snapped camera cell plus which of the 3×3 tiles have
-    // their MVT layers in hand — so a tile that finishes loading (or gets
-    // evicted and rebuilt) repaints even while the player stands still.
-    const tiles = [];
-    let ready = '';
-    for (let dty = -1; dty <= 1; dty++) {
-      for (let dtx = -1; dtx <= 1; dtx++) {
-        const tx = pc.tx + dtx, ty = pc.ty + dty;
-        const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-        if (!entry || !entry.layers || !entry.tileEdgeM) continue;
-        tiles.push({ tx, ty, entry });
-        ready += `${dtx}${dty}|`;
-      }
-    }
+    // ground they belong to (coords.js overlayFrame → viewAnchorCell). The
+    // rebuild key below is the snapped anchor cell, so a peek that crosses a
+    // cell boundary repaints exactly as walking across one does — plus which
+    // of the 3×3 tiles have their MVT layers in hand, so a tile that finishes
+    // loading (or gets evicted and rebuilt) repaints even while the player
+    // stands still.
+    const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
+      overlayFrame(scene, (entry) => !!entry.layers);
     const key = `${baseCellIX},${baseCellIY},${ready}`;
     if (key !== scene._roadGeomKey) {
       scene._roadGeomKey = key;
-      // Only the rebuild is timed — draw() runs every frame but the key
-      // check above only rebuilds on a cell crossing or a tile finishing
-      // load, so the cheap early-out frames never touch this tick.
-      const B = window.__boot;
-      if (B) {
-        const t0 = performance.now();
-        rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY);
-        B.tick('road overlay rebuild', performance.now() - t0);
-      } else {
-        rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY);
-      }
+      timedOverlayRebuild('road overlay rebuild',
+        () => rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY));
     }
     if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   }
@@ -589,7 +571,7 @@
         }
         if (!curGrid) continue;
         const t = curGrid[iy * N + ix];
-        if (t !== WATER_T && (polyB || !BUILDING_T.has(t))) continue;
+        if (t !== WATER_T && (polyB || !WorldGen.isBuildingTerrain(t))) continue;
         g.eraseRect(scene.viewCenterX + ox * CELL_PX,
                     scene.viewCenterY + oy * CELL_PX, CELL_PX, CELL_PX);
       }
@@ -599,18 +581,11 @@
   function rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY) {
     const g = strokeTarget(scene);
     g.clear();
-    const _a = viewAnchorWorldM(scene);
-    const pWorldX = _a.x;
-    const pWorldY = _a.y;
-    // Cell-snapped projection (the container re-applies the sub-cell offset).
-    const projX = (wmx) => scene.viewCenterX + ((wmx - pWorldX) / scene.cellM) * CELL_PX + fracX * CELL_PX;
-    const projY = (wmy) => scene.viewCenterY + ((wmy - pWorldY) / scene.cellM) * CELL_PX + fracY * CELL_PX;
-    // Cull generously — a segment whose endpoints both sit outside the padded
-    // viewport can still cross it, so the pad is a full cell wider than the
-    // sub-cell scroll can ever reveal.
-    const PAD = CELL_PX * 2;
-    const minX = scene.viewLeft - PAD, maxX = scene.viewLeft + scene.viewSize + PAD;
-    const minY = scene.viewTop  - PAD, maxY = scene.viewTop  + scene.viewSize + PAD;
+    // Cell-snapped projection from the camera anchor (the container re-applies
+    // the sub-cell offset) and the padded cull bounds — a segment whose
+    // endpoints both sit outside the padded viewport can still cross it, so
+    // the pad is a full cell wider than the sub-cell scroll can ever reveal.
+    const { projX, projY, minX, maxX, minY, maxY } = overlayProjection(scene, fracX, fracY);
 
     // Ways are collected into runs of consecutive ON-SCREEN segments, bucketed
     // by stroke STYLE (width + colour), and stroked as PATHS rather than loose

@@ -8,7 +8,9 @@
 //   Fog.init(save, w)     — load the persisted masks; w = cellsPerTile
 //   Fog.reveal(ix, iy)    — reveal the PLAYER's vision circle; true if anything changed
 //   Fog.revealDisc(ix, iy, r) — reveal an arbitrary disc (the onboarding trail)
-//   Fog.seen(tx, ty, ix, iy) — is that cell revealed?
+//   Fog.seen(tx, ty, ix, iy) — is that cell revealed? (No shipping caller —
+//                           the game reads maskFor + bit in its hot loop —
+//                           kept as the TEST SEAM test/node/fog*.test.js pin.)
 //   Fog.maskFor(tx, ty)   — the tile's raw bitset (or null), for hot per-cell reads
 //   Fog.bit(mask, i)      — read bit i of a mask
 //   Fog.flush(save)       — write the masks back into save.fog
@@ -268,7 +270,6 @@
     REVEAL_CELLS,
     init, reveal, revealDisc, seen, maskFor, bit, flush,
     get revision() { return _revision; },
-    get width() { return _w; },
     // Test seams — the codec is the one part with a round-trip worth pinning.
     _rle: { encode: rleEncode, decode: rleDecode },
   };

@@ -839,13 +839,6 @@ const ARMOR_DEFS = {
   legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150, energyPerTier: 15 },
   boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost:  80, energyPerTier:  8 },
 };
-// Helper: relic-or-armor item id (e.g. 'relic_pick_3' for an Iron pickaxe).
-function gearId(kind, slot, tier) { return `${kind}_${slot}_${tier}`; }
-function parseGearId(id) {
-  const m = /^(relic|armor)_(\w+?)_(\d+)$/.exec(id);
-  if (!m) return null;
-  return { kind: m[1], slot: m[2], tier: +m[3] };
-}
 function gearDef(kind, slot) {
   return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);
 }

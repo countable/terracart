@@ -20,7 +20,7 @@
 //   • First market sells T1/T2 seeds …… app.js  isFirstMarket
 //     (so it signs as the "Seed Shop", not the "Produce Shop" every other
 //      one gets — see shops.js roleLabel)
-//   • First 8 delivery houses → T1 produce app.js  isEarlyDeliveryHouse
+//   • First 8 delivery houses → T1 produce delivery.js Delivery.isEarly
 //     (of which the first 7 walk delivery.js SCRIPTED_WISHLISTS — five
 //      single-item asks, then the starter pair, then the flower trio)
 //   • Starter loot crates (wood/rockfruit/seeds) app.js  STARTER_LOOT
@@ -40,9 +40,10 @@ const HomeArea = {
   // Radius (m) of the "near the start" zone the softwood rule below uses.
   NEAR_M: 100,
 
-  // True iff (x, y) world-metres is within `radiusM` of the spawn origin. This
-  // is the canonical "near home" test — prefer it over inline hypot checks so
-  // every home-area feature shares one definition of the zone.
+  // True iff (x, y) world-metres is within `radiusM` of the spawn origin. Meant
+  // as the shared "near home" test; today its one caller is softwoodSpeciesNear
+  // below — a new home-area feature should route through it rather than an
+  // inline hypot check, so the zone keeps one definition.
   isNear(x, y, radiusM = HomeArea.NEAR_M) {
     if (!this.worldM) return false;
     const dx = x - this.worldM.x, dy = y - this.worldM.y;
