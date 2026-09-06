@@ -151,3 +151,70 @@ test('pickReward: no bonus asked for is the old roll, exactly', () => {
                        { tier: 4, rollBonus: 0 });
   assert.eq(JSON.stringify(a), JSON.stringify(b), 'rollBonus 0 changes nothing');
 });
+
+// ── The two luck ladders, and who owns them ─────────────────────────────────
+// TIER luck (a find comes a tier rarer) is the RING's; QUANTITY luck (a find
+// comes in a bigger stack) was the AMULET's until Sep 2026 and is a wizard
+// rung now — save.qtyUpgrades, bought as his Full Measure. The ceiling is
+// deliberately the one the amulet had, so the amulet lost a bonus and the
+// player lost nothing.
+
+test('qty luck: the ladder runs 0 → the old Frost-amulet ceiling over its rungs', () => {
+  const levels = RARITY_TUNING.qtyLuckLevels;
+  assert.eq(levels, 3, 'three rungs');
+  assert.eq(RARITY_TUNING.qtyLuckMaxP, 0.35,
+    'the ceiling is 7 × the amulet\'s old 0.05/tier — unchanged, only re-homed');
+  assert.eq(qtyLuck({ qtyUpgrades: 0 }), 0, 'nothing before the first rung');
+  assert.eq(qtyLuck({}), 0, 'and nothing on a save that has never met the wizard');
+  assert.eq(qtyLuck(null), 0, 'no save at all never throws');
+  assert.lt(Math.abs(qtyLuck({ qtyUpgrades: levels }) - RARITY_TUNING.qtyLuckMaxP), 1e-9,
+    'the top rung IS the ceiling');
+  // Linear, so every rung is worth the same step and none is a dud.
+  const step = RARITY_TUNING.qtyLuckMaxP / levels;
+  for (let lv = 1; lv <= levels; lv++) {
+    assert.lt(Math.abs(qtyLuck({ qtyUpgrades: lv }) - lv * step), 1e-9, `rung ${lv} sits on the line`);
+  }
+});
+
+test('qty luck: a level past the top or below zero cannot leave the ladder', () => {
+  assert.eq(qtyLuck({ qtyUpgrades: 99 }), RARITY_TUNING.qtyLuckMaxP, 'clamped at the ceiling');
+  assert.eq(qtyLuck({ qtyUpgrades: -4 }), 0, 'and at the floor');
+  assert.eq(qtyLuck({ qtyUpgrades: 2.9 }), qtyLuck({ qtyUpgrades: 2 }), 'a part-rung is not a rung');
+});
+
+test('qty luck: the AMULET no longer buys it', () => {
+  // The whole point of the move. A Frost amulet used to sit at the ceiling;
+  // now it buys stick walking and nothing else.
+  assert.eq(qtyLuck({ relics: { amulet: { tier: 7 } } }), 0,
+    'a Frost amulet is worth no quantity luck at all');
+  assert.eq(qtyLuck({ relics: { amulet: { tier: 7 } }, qtyUpgrades: 3 }),
+    qtyLuck({ qtyUpgrades: 3 }),
+    'and it adds nothing on top of the wizard\'s rungs');
+});
+
+test('tier luck: still the ring, still 1% a tier', () => {
+  assert.eq(ringLuck({ relics: { ring: { tier: 0 } } }), 0);
+  assert.lt(Math.abs(ringLuck({ relics: { ring: { tier: 7 } } }) - 0.07), 1e-9,
+    'a T7 ring is +0.07 to the boost probability');
+  assert.eq(ringLuck({}), 0, 'no ring, no tier luck');
+});
+
+test('pickReward: the wizard\'s quantity rungs make loot land in bigger stacks', () => {
+  // Statistical smoke test for the wiring, same shape as the ring one above:
+  // the top rung must not lower the mean stack size against no rungs at all.
+  const N = 600;
+  const meanQty = (save) => {
+    let sum = 0, n = 0;
+    for (let s = 1; s <= N; s++) {
+      const r = pickReward('chest:park', save, seeded(s * 2654435761), { tier: 2 });
+      if (r && r.kind === 'item' && typeof r.qty === 'number') { sum += r.qty; n++; }
+    }
+    return n ? sum / n : 0;
+  };
+  const base = meanQty({ relics: {}, armor: {} });
+  const full = meanQty({ relics: {}, armor: {}, qtyUpgrades: RARITY_TUNING.qtyLuckLevels });
+  assert.gte(full + 1e-9, base, `full measure mean qty ${full} >= base ${base}`);
+  // And the amulet, which used to do this, must move it not at all.
+  const amuleted = meanQty({ relics: { amulet: { tier: 7 } }, armor: {} });
+  assert.eq(amuleted, base, 'a Frost amulet rolls exactly the same loot as none');
+});

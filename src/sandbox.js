@@ -897,8 +897,8 @@
     const COUNT = 5;
     const inv = [];
     // Most-tested kinds first (seeds → produce → animals → minerals →
-    // consumables). 'badge' = 5 Discovery badges — exactly one wizard-tower
-    // Inner Light, so that flow is exercisable too.
+    // consumables). 'badge' = 5 Discovery badges — exactly one rung of the
+    // wizard tower's ladder, so that flow is exercisable too.
     const ORDER = ['seed', 'produce', 'animal', 'mineral', 'consumable', 'badge'];
     const byKind = {};
     for (const it of ITEMS) {

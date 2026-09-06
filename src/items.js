@@ -768,8 +768,8 @@ const PLAY_TIPS = [
   'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a produce shop, trader or smithy.',
   'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
   'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
-  'The wizard trades 5 Discovery badges for an Inner Light — another half-cell of reach, out to 5.5.',
-  'No shop, smithy or castle vault deals in Rings. The wizard\'s Inner Light is what puts one on your hand.',
+  'The wizard trades 5 Discovery badges a step, up his ladder: wider reach first, then bigger finds, then the Ring.',
+  'No shop, smithy or castle vault deals in Rings. The wizard\'s Keen Eye is what puts one on your hand.',
   'The castle board always holds three jobs, and each castle offers only one of them: the next castle along has different work.',
   'A castle job grows with the number you have already finished, and so does the purse it pays.',
   'Platinum, Crimson and Frost bars are smelted from a magical flower and the bar below it — or prised out of the rarest deep rock, if your tools are nearly its equal.',
@@ -954,8 +954,13 @@ const RELIC_DEFS = {
              effectKey: 'rockSpeed',     blurb: 'lets you break rocks' },
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
              effectKey: 'chopSpeed',     blurb: 'lets you chop trees' },
+  // The Ring is TIER luck, and the wizard tower's exclusive gift (his Keen Eye
+  // rung — app.js wizardLadder). Never sold, never forged.
   ring:    { slot: 'ring',   name: 'Ring',    icon: 'Rings.png',   baseCost:  60,
              effectKey: 'lootTier',      blurb: 'rarer chest loot' },
+  // The Amulet is stick walking and nothing else. It also gave QUANTITY luck
+  // (a chance at a bigger stack of loot) until Sep 2026, when that became the
+  // wizard's Full Measure rung at the same ceiling — see rarity.js qtyLuck.
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
              effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on

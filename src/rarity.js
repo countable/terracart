@@ -34,7 +34,15 @@
     jackpotEntryP:       0.16,
     jackpotContinueP:    0.25,
     chainQtyP:           0.33,   // per chain step, P(qty-up) vs (1-chainQtyP) tier-up. At T2 chest (1 step): 67% T2 / 33% T1+qty. At T3 chest (2 steps): 45% T3 / 44% T2 / 11% T1.
-    amuletBoostBracketP: 0.05,   // per amulet tier, P(extra qty-bracket bump)
+    // P(extra qty-bracket bump) at the TOP of the wizard's quantity ladder.
+    // This used to be the AMULET's: 0.05 per amulet tier, so a Frost amulet
+    // sat at 7 × 0.05 = 0.35. The bonus is a wizard-tower upgrade now
+    // (save.qtyUpgrades, QTY_LUCK_LEVELS rungs — see app.js), and the ceiling
+    // is deliberately the SAME 0.35 the amulet topped out at: only where it
+    // comes from changed, never how good it can get. The amulet keeps the
+    // thing it is for, stick walking.
+    qtyLuckMaxP:         0.35,
+    qtyLuckLevels:       3,
     // Quantity model: each qty BUMP (from the chain or jackpot) adds
     // 1..tierQtyPerBump[itemTier] to the stack. A T1 seed with 2 bumps can
     // land at 10 (two random(1..5) rolls + 1 base); a T4 seed with 2 bumps
@@ -263,8 +271,13 @@
   function ringLuck(save) {
     return (save?.relics?.ring?.tier || 0) * RARITY_TUNING.ringLuckPerTier;
   }
-  function amuletBracketChance(save) {
-    return (save?.relics?.amulet?.tier || 0) * RARITY_TUNING.amuletBoostBracketP;
+  // The wizard's QUANTITY ladder: P(one extra qty-bracket bump on a roll).
+  // Linear over its rungs onto qtyLuckMaxP, so the top rung is exactly the
+  // ceiling a Frost amulet used to give and every rung is worth something.
+  function qtyLuck(save) {
+    const levels = RARITY_TUNING.qtyLuckLevels || 1;
+    const lv = Math.max(0, Math.min(levels, Math.floor(save?.qtyUpgrades || 0)));
+    return (lv / levels) * RARITY_TUNING.qtyLuckMaxP;
   }
 
   // Pick a (single) id from a class at the rolled tier. If the tier has no
@@ -423,9 +436,9 @@
       if (tier < chainCap) tier += 1;
       else wastedQtyBumps += 1;        // no headroom left — pay it out in coins
     }
-    // Amulet: per-tier extra bracket roll (folded in here rather than a
-    // post-multiply, so it stops doubling unbounded).
-    if (!isRelic && rng() < amuletBracketChance(save)) {
+    // The wizard's quantity upgrade: one extra bracket roll (folded in here
+    // rather than a post-multiply, so it stops doubling unbounded).
+    if (!isRelic && rng() < qtyLuck(save)) {
       if (bracket < 3) bracket += 1;
       else wastedQtyBumps += 1;
     }
@@ -586,4 +599,8 @@
   global.reconcileRelicOffer    = reconcileRelicOffer;
   global.chestRelicAllowedTiers = chestRelicAllowedTiers;
   global.rollGearUpgrade        = rollGearUpgrade;
+  // The two luck ladders, exported so the wizard's rungs and the tests can
+  // read the SAME numbers the picker rolls against.
+  global.ringLuck               = ringLuck;
+  global.qtyLuck                = qtyLuck;
 })(window);

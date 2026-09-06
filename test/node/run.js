@@ -1091,6 +1091,7 @@ ctx.INTERACT_SRC = readSrc('interact.js');
 // interactables.js loads headlessly too, but chest_tier.test.js pins that its
 // chest loot roll resolves the tier WITH the chest position — a text pin.
 ctx.INTERACTABLES_SRC = readSrc('interactables.js');
+ctx.GEAR_JS_SRC = readSrc('gear.js');
 // worldgen.js loads headlessly, but tile_url.test.js also pins that the only
 // raw tile fetch in it goes through the resolver — a text pin, like the above.
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');
