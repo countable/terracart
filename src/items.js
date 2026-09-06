@@ -1119,10 +1119,11 @@ function stackCapForBags(bagsRelic) {
 }
 // The four wearable slots. Armor carries NO per-slot effect number: what a
 // piece is worth is its TIER, and every slot pays the same for it
-// (armorSlotReduction below). Until Sep 2026 each slot carried its own
-// `energyPerTier` and armour raised the max-energy CAP — a bigger bar, which
-// helped exactly as much whether or not anything was hitting you. It soaks
-// damage now, so it is worth wearing for the reason armour is worth wearing.
+// (armorSlotReduction below) — they differ in PRICE, not in what they do.
+// Until Sep 2026 each slot carried its own `energyPerTier` and armour raised
+// the max-energy CAP — a bigger bar, which helped exactly as much whether or
+// not anything was hitting you. It soaks damage now, so it is worth wearing
+// for the reason armour is worth wearing.
 const ARMOR_DEFS = {
   helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100 },
   chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 250 },
@@ -1166,11 +1167,17 @@ function gearName(kind, slot, tier) {
   if (!def || !t) return slot;
   return `${t.name} ${def.name}`;
 }
-// ARMOR SOAK — what one worn piece takes off an incoming hit: its tier
-// SQUARED. Quadratic on purpose, so the gap between a Wood helmet (1) and a
-// Frost one (49) is the whole difference between "barely there" and "barely
-// scratched", and so a full set's pool is worth assembling rather than
-// wearing one good piece.
+// ARMOR SOAK — what one worn piece takes off an incoming hit: ITS TIER. A Wood
+// helmet is −1, a Frost one is −7, and the four slots sum.
+//
+// LINEAR, AND THAT IS THE WHOLE POINT: the number has to live on the same
+// scale as the damage it is subtracted from. Everything in the game that hits
+// the player deals 1..4 a blow (MONSTERS[].dmg), doubled for an elite and
+// doubled again on hard — so the entire damage space is 1..16. It shipped as
+// tier SQUARED for a day, which put a full Frost set at 196 against a 16-point
+// worst case: every tier from Iron up soaked every blow down to the floor, and
+// the ladder above Wood was invisible. A quadratic reduction needs damage
+// numbers an order of magnitude bigger than this game has.
 //
 // This is the ONE place the per-piece number is written. Both sides read it:
 // Combat.mitigate spends the pool against a hit, and the Stats panel / shop
@@ -1179,7 +1186,7 @@ function gearName(kind, slot, tier) {
 // soaks.
 function armorSlotReduction(tier) {
   const t = Math.max(0, Math.floor(tier || 0));
-  return t * t;
+  return t;
 }
 
 // The whole worn set's pool: the sum of every equipped piece's reduction.

@@ -264,17 +264,33 @@
   bar.** Until Sep 2026 each worn piece added `energyPerTier × tier` to the max
   ENERGY, which is a bigger tank rather than better protection: it paid a player
   who never fought exactly what it paid one who lived underground, and no amount
-  of it made a goblin's bite land any softer. A piece now contributes its **tier
-  SQUARED** to a reduction pool (`items.js` › `armorSlotReduction` /
+  of it made a goblin's bite land any softer. A piece now contributes **its
+  TIER** to a reduction pool (`items.js` › `armorSlotReduction` /
   `armorReduction` — every slot pays the same for a tier and they differ only in
   PRICE), and `Combat.mitigate` spends that pool against a blow in
-  `MITIGATION_ROUNDS` passes: soak up to HALF the damage, halve the pool, soak
-  up to half of what is LEFT, four times over. Halves round DOWN and
-  `MIN_PLAYER_DAMAGE` is the floor, so four halvings cap armour at 15/16ths of a
-  hit however good it is — which is what makes a quadratic pool safe to hand out
-  instead of a hand-tuned percentage per slot. **The mode and the potion scale
-  the blow BEFORE armour spends against it** (`Difficulty.enemyDmgMul`, the
-  shield's halving), so a hard-mode hit is soaked as a hard-mode hit.
+  `MITIGATION_ROUNDS` passes: soak up to HALF the damage, halve what is LEFT of
+  the pool, soak up to half of what is left of the blow, four times over.
+  Halves round DOWN and `MIN_PLAYER_DAMAGE` is the floor, so four halvings cap
+  armour at 15/16ths of a hit however good it is — nobody ever out-equips the
+  game. **The mode and the potion scale the blow BEFORE armour spends against
+  it** (`Difficulty.enemyDmgMul`, the shield's halving), so a hard-mode hit is
+  soaked as a hard-mode hit.
+  **Two rules keep the ladder legible, and both were learned by shipping it
+  wrong for a day.** First, **the soak is LINEAR and lives on the damage's own
+  scale**: everything that hits the player deals 1..4 (`MONSTERS[].dmg`),
+  doubled for an elite and again on hard — the whole damage space is **1..16**.
+  It shipped as tier SQUARED, which put a full Frost set at 196 against that, so
+  every tier from Iron up flattened every blow to the floor and the entire
+  ladder above Wood was invisible. A quadratic soak needs damage numbers an
+  order of magnitude bigger than this game has. Second, **the pool is SPENT, not
+  re-charged**: handing each round the full halved pool afresh lets P soak
+  `P + P/2 + P/4 + P/8` ≈ 1.9P, so a full Wood set (4) took SEVEN points off a
+  blow — more than most blows are worth. What survives a round is halved before
+  the next, the total can never exceed the pool, and the halving does its work
+  by decaying the UNSPENT remainder. Between them a T1 piece is a flat −1 on
+  every blow and every rung of the ladder still tells against the worst hit in
+  the game. **If armour ever stops discriminating between tiers, check those two
+  before retuning anything.**
   There are exactly three places a foe reaches the player — the surface slime's
   leech, a cave monster's melee, and a goblin archer's arrow — and all three go
   through `Combat.playerDamage(dmg, this.save.armor)`. The arrow passes
