@@ -13,8 +13,8 @@
 //   POI_CATEGORY
 //   PAD_CATEGORIES, padShapeKeyForPoi
 //   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, CHEST_TIER_HOME_RINGS_M,
-//   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, chestTierHomeDrop,
-//   chestTierDepthBonus, chestTier
+//   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_CAVE_SKIP_CATEGORIES,
+//   chestTierHomeDrop, chestTierDepthBonus, chestTier, chestMirrorsUnderground
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
 //   STAND_NEVER_CLASSES,
 //   standWordItem, standNameItems, produceStandFor
@@ -257,6 +257,17 @@ function chestTierHomeDrop(x, y) {
 // is the gold gem and the rarity.js chestTierMod[5] curve.
 const CHEST_TIER_MAX = 5;
 const CHEST_TIER_DEPTH_STEP = 2;
+// Which POI chests go underground at all. Street furniture — the lowtier
+// boxes (bus stops, crossings, bins, fences…) — stays on the surface: a
+// cave under town is meant to hold the town's PRIZES, not a T1 box every few
+// cells that the depth bonus would then inflate into a real chest. So a
+// cave level carries only the park / civic / health / farm / flora chests
+// overhead (and the T2 fallback for an unlisted class). worldgen.js
+// caveChestsFrom asks this per chest; it is the one place the exclusion lives.
+const CHEST_CAVE_SKIP_CATEGORIES = new Set(['lowtier']);
+function chestMirrorsUnderground(poiClass) {
+  return !CHEST_CAVE_SKIP_CATEGORIES.has(POI_CATEGORY[poiClass]);
+}
 function chestTierDepthBonus(depth) {
   return Math.floor(Math.max(0, depth || 0) / CHEST_TIER_DEPTH_STEP);
 }

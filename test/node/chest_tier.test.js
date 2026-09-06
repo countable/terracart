@@ -115,8 +115,10 @@
       assert.eq(chestTier('florist', 0, 0, 1), 4, 'flora at depth 1 is the surface tier');
       assert.eq(chestTier('florist', 0, 0, 2), 5, 'flora at depth 2 is T5');
       assert.eq(chestTier('florist', 0, 0, 40), 5, 'and never more');
-      assert.eq(chestTier('bus', 0, 0, 2), 2, 'a lowtier box is a real chest two levels down');
-      assert.eq(chestTier('bus', 0, 0, 8), 5, 'and T5 eight levels down');
+      // The ladder is pure math over any class — a lowtier POI never actually
+      // reaches a cave (chestMirrorsUnderground), but the function doesn't care.
+      assert.eq(chestTier('bus', 0, 0, 2), 2, 'the ladder applies to a lowtier base too');
+      assert.eq(chestTier('bus', 0, 0, 8), 5, 'and caps at T5');
     } finally { HomeArea.worldM = prev; }
   });
 
@@ -181,6 +183,21 @@
     assert.eq(d2[0].caveOf, 'c_2_2', 'surface id carried');
     assert.eq(d2[0].depth, 2, 'depth re-stamped');
     assert.eq(chestTier(d2[0].poiClass, d2[0].x, d2[0].y, d2[0].depth), 4, 'civic is T4 two levels down');
+  });
+
+  test('cave chests: lowtier street furniture never goes underground', () => {
+    assert.eq(JSON.stringify([...CHEST_CAVE_SKIP_CATEGORIES]), '["lowtier"]', 'only lowtier is excluded');
+    const lowtier = Object.keys(POI_CATEGORY).filter(c => POI_CATEGORY[c] === 'lowtier');
+    const others  = Object.keys(POI_CATEGORY).filter(c => POI_CATEGORY[c] !== 'lowtier');
+    assert.gt(lowtier.length, 10, 'the lowtier roster is real');
+    for (const c of lowtier) assert.falsy(chestMirrorsUnderground(c), c + ' stays on the surface');
+    for (const c of others)  assert.truthy(chestMirrorsUnderground(c), c + ' mirrors down');
+    assert.truthy(chestMirrorsUnderground('no_such_class'), 'an unlisted class (T2 fallback) still mirrors');
+    // And the mirror itself honours it: a bus stop beside a school yields one chest.
+    const above = [poiChest(1, 1, 'bus'), poiChest(2, 2, 'toilets'), poiChest(3, 3, 'atm'), poiChest(5, 5, 'school')];
+    const out = WorldGen.caveChestsFrom(above, floorGrid(), N, TX, TY, TILE_M, 1, new Set());
+    assert.eq(out.length, 1, 'only the school came down');
+    assert.eq(out[0].poiClass, 'school', 'and it is the school');
   });
 
   test('cave chests: starter crates and fixed-loot chests stay on the surface', () => {

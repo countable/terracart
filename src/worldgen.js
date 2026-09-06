@@ -4689,8 +4689,10 @@
   // level. A level derives its chests from the level ABOVE (the surface for
   // depth 1, depth 1 for depth 2, …), so a chest that had to step off a wall
   // cell keeps that seat all the way down.
-  //   • Only POI chests (o.poiClass) mirror. Starter crates / fixed-loot
-  //     chests are surface-only.
+  //   • Only POI chests (o.poiClass) mirror, and not the lowtier street
+  //     furniture (loot.js chestMirrorsUnderground — the exclusion lives
+  //     there, beside the tier table). Starter crates / fixed-loot chests
+  //     are surface-only too.
   //   • A POI under a building or road is a CAVE_WALL cell down here; the
   //     chest steps to the nearest floor cell within CAVE_CHEST_SEEK_CELLS
   //     (nearest ring first, deterministic order), or is dropped if none.
@@ -4708,6 +4710,7 @@
     const out = [];
     for (const o of aboveObjects || []) {
       if (o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) continue;
+      if (typeof chestMirrorsUnderground === 'function' && !chestMirrorsUnderground(o.poiClass)) continue;
       const { lix, liy } = cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
       if (lix < 0 || lix >= N || liy < 0 || liy >= N) continue;
       let seat = null;
