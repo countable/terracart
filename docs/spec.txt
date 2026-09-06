@@ -682,7 +682,7 @@ COMBAT
               underground (the same collision the body walks into), and on
               the surface a standing tree/bush or an unbroken mineral rock.
               Free to fire — no energy cost.
-     staff  — RANGED, a PIERCING BOLT: same heading rules as the bow (3.2
+     staff  — RANGED, a PIERCING BOLT: same heading rules as the bow (2.0
               cells/s, 7-cell range), but a bolt ignores the world entirely
               (goes through rock and timber alike) and damages EVERY foe on
               its line once each, not just the first. Costs 1 ENERGY per bolt
