@@ -193,7 +193,11 @@ try {
                       // Home's ring, which is the same three-way rule one step
                       // further: light, warmth AND ward. lighting.test.js pins
                       // the light against it, home_ward.test.js the other two.
-                      'HOME_R']) {
+                      'HOME_R',
+                      // How thick buried X marks lie on sand — the beach
+                      // bonus stream's cap (beach_treasure.test.js drives the
+                      // lifted block against it).
+                      'BEACH_X_PER_CELLS']) {
     // parseFloat, not parseInt: WALK_M_S is 1.4, and rounding walking pace to
     // 1 m/s would silently retune every distance the tests below measure.
     const m = src.match(new RegExp(`const ${name} = ([\\d.]+);`));
@@ -1138,6 +1142,26 @@ try {
     '    // Prune save.caught of pest-crow markers whose tile has since fallen out\n',
     '\n    const caughtSet = setOf(this.save.caught);',
     'the save.caught pest-crow prune block');
+}
+
+// ── The bonus buried-X streams (spawnInTile) ──────────────────────────────
+// The path-side and beach streams, and the single grid pass that feeds them,
+// lifted as ONE runnable block so beach_treasure.test.js drives the SHIPPING
+// code rather than a transcription: the cap, the cell packing (which was
+// wrong above 256 cells per edge) and the "on the sand, beside the path"
+// difference are all decided in here. It closes over entry / tx / ty / N /
+// rng / _spawnOpts and `this` (tileEdgeM, cellM), all cheap to stub.
+{
+  const appSrc = readSrc('app.js');
+  const from = appSrc.indexOf('    // ONE pass over the grid for both bonus streams below');
+  const to = appSrc.indexOf('    // Player-planted saplings (save.fruittrees)');
+  if (from < 0 || to < 0 || to < from) {
+    console.error('Could not lift the bonus-X streams from spawnInTile — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext(
+    'globalThis.__bonusXMarks = function (entry, tx, ty, N, rng, _spawnOpts) {\n'
+    + appSrc.slice(from, to) + '\n};', ctx, { filename: 'app.js#bonusXMarks' });
 }
 
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');

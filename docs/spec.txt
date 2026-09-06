@@ -895,8 +895,21 @@ TREASURE MARKS (X on the ground)
    screen out (see ONBOARDING), and clears a tutorial pocket of
    obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
    few random X marks plus extra X's beside FOOTPATHS (terrain 8 — the spawner
-   samples path cells, and never knew or needed a way's name). Residential X's only
-   spawn near a road.
+   samples path cells, and never knew or needed a way's name) and ON SAND.
+   Residential X's only spawn near a road.
+ - THE BEACH STREAM. Sand gets its own bonus stream, seated ON the sand cell
+   (a footpath is walked, a beach is dug), capped at one mark per
+   BEACH_X_PER_CELLS (20) cells of sand so a golf bunker or a sandpit gets a
+   mark while a shoreline gets the roll. The flat tile-wide scatter is 4-10
+   marks over every walkable cell of a 2.4 km tile — nothing at all along a
+   strip of shoreline, which is what this is for.
+ - Both bonus streams come off ONE walk of the grid (spawnInTile runs in the
+   post-rasterize path, which has no slicer: a second full-grid scan would be
+   a second unbroken ~100k-cell block). Cells are packed as their grid INDEX,
+   cy * N + cx. It was cx * 256 + cy until Sep 2026 — cellsPerEdge is
+   tileEdgeM / 7, over 256 anywhere below ~43° latitude — so a path cell in the
+   bottom of the tile decoded to (cx+1, cy-256) and its roadside X was dropped
+   somewhere else entirely. Pinned by test/node/beach_treasure.test.js.
 
 ================================================================================
 STREET RESTORATION (the road band itself)

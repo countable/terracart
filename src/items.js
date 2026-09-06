@@ -824,6 +824,7 @@ const PLAY_TIPS = [
   'A job one tier past your equipment is not refused outright: you can grind it out for 15\u26a1 and half a minute. Two tiers short is a flat no.',
   // ── What is already lying around — chests, X marks, foraging ───
   'Treasure X marks are buried in car parks — every parking lot hides one.',
+  'Sand is dug ground: a beach hides X marks far thicker than the streets and fields inland.',
   'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
   'Chests near home are humbler: a tier down within 700m of your trailer, two within 350m. The prizes are a walk away.',
   'One stone in ten gathered off the ground hides a gemfruit.',
