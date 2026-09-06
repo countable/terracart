@@ -12,7 +12,10 @@
 (function () {
 const app = APP_JS_SRC;
 
-const KINDS = ['jackpot', 'shiny', 'stone', 'trailspark', 'sprout', 'water'];
+// Derived, not listed: the completeness / burstCount / emitterConfig checks
+// below should cover a preset the moment it is added, without a second copy of
+// the table here to keep in step.
+const KINDS = Object.keys(Particles.PRESETS);
 
 test('particles: every preset is complete and its ranges are ordered', () => {
   for (const k of KINDS) {
@@ -38,6 +41,7 @@ test('particles: the presets are drawn in the UI colour language', () => {
   assert.eq(P.stone.tex.color, UI_TRAIL_LIT, 'stone chips are the lit-cobble violet');
   assert.eq(P.trailspark.tex.color, UI_TRAIL_LIT, 'and so are the sparks of the blast');
   assert.eq(P.sprout.tex.color, UI_GREEN, 'leaf flecks are the success green');
+  assert.eq(P.pain.tex.color, UI_DANGER_INK, 'a hit throws the danger ink');
 });
 
 test('particles: the world bursts stay on their cell — stone kicks up, leaves drift up, drops fall back', () => {

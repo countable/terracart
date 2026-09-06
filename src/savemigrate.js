@@ -126,7 +126,13 @@
     // its history. It stays unbounded, bounded instead by the gameplay cost of
     // placing one.
     const HISTORY_CAP = 5000;
-    for (const k of ['opened', 'picked', 'foundTreasures', 'caught', 'brokenRocks', 'chopped']) {
+    // `sprungTraps` is capped like the rest: a trap that falls off the end
+    // re-hides itself, which is the same accepted behaviour as an old broken
+    // rock coming back — the trap is still exactly where it always was (the
+    // placement is generated, never stored; see src/traps.js), it just costs
+    // its bite once more.
+    for (const k of ['opened', 'picked', 'foundTreasures', 'caught', 'brokenRocks', 'chopped',
+                     'sprungTraps']) {
       const arr = save[k];
       if (Array.isArray(arr) && arr.length > HISTORY_CAP) {
         save[k] = arr.slice(arr.length - HISTORY_CAP);
