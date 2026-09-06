@@ -27,11 +27,16 @@
 
   test('difficulty: easy is the identity — every multiplier 1, every flag on', () => {
     const e = Difficulty.PROFILES.easy;
+    // trapCountMul is the one deliberate exception: the base rate in traps.js
+    // (10..18/tile) reads as too rare to ever meet in practice, so BOTH modes
+    // scale up from it — easy 10x, hard 100x — rather than easy being 1x.
     for (const [k, v] of Object.entries(e)) {
-      if (/Mul$/.test(k)) assert.eq(v, 1, `easy.${k} is 1`);
+      if (/Mul$/.test(k) && k !== 'trapCountMul') assert.eq(v, 1, `easy.${k} is 1`);
     }
+    assert.eq(e.trapCountMul, 10, 'easy still multiplies the base trap rate, just less than hard');
     assert.eq(e.startingMoney, STARTING_MONEY, 'the easy purse IS items.js STARTING_MONEY');
     assert.truthy(e.tutorial && e.starterCrates && e.pestAmnesty, 'the guided opening is on');
+    assert.falsy(e.cropPests, 'easy never dispatches a crow at a planted field');
   });
 
   test('difficulty: hard is harsher on every axis the card names', () => {
@@ -39,11 +44,14 @@
     assert.falsy(h.tutorial, 'no tutorial');
     assert.falsy(h.starterCrates, 'no supply crates');
     assert.falsy(h.pestAmnesty, 'pests from minute one');
+    assert.truthy(h.cropPests, 'and crows are sent to the crops you plant');
     assert.lt(h.startingMoney, e.startingMoney, 'thinner purse');
     assert.gt(h.buyMul, 1, 'dearer to buy');
     assert.lt(h.sellMul, 1, 'poorer to sell');
     assert.gt(h.enemyHpMul, 1); assert.gt(h.enemyDmgMul, 1);
     assert.gt(h.monsterCountMul, 1); assert.gt(h.slimeCountMul, 1);
+    assert.gt(h.trapCountMul, e.trapCountMul, 'the verge is denser with traps too');
+    assert.gt(h.trapBiteMul, e.trapBiteMul, 'and bites harder on first contact');
     // What the mode deliberately leaves alone has no knob at all.
     for (const k of ['bountyMul', 'eliteRateMul', 'passOutLossFrac', 'offlineRestCapFrac']) {
       assert.eq(k in h, false, `${k} is not a mode difference`);
@@ -138,7 +146,19 @@
     };
     assert.truthy(withMode('easy', () => pestFreeZone.call(scene, 0, 0)), 'easy: the grace runs until the first harvest');
     assert.eq(withMode('hard', () => pestFreeZone.call(scene, 0, 0)), null, 'hard: no grace, ever');
-    assert.truthy(CROW_PUMP_GATE_SRC.includes('pestAmnesty'), 'the crow pump reads the same flag');
+  });
+
+  test('difficulty: the crow pump is a hard-mode rule, read at its own site', () => {
+    // The dispatched-crow pump (app.js wanderCreatures) is a MODE difference,
+    // not a knob: on easy a field is only raided by a crow the tile already
+    // spawned nearby, and on hard one is sent every ~90 s. The gate is one line
+    // in app.js; run.js hands its source text over so it cannot drift from the
+    // table. It used to read pestAmnesty + save.hasHarvested — retired, because
+    // the mode flag subsumes both (easy never pumps; hard has no grace).
+    assert.truthy(CROW_PUMP_GATE_SRC.includes('Difficulty.get().cropPests'),
+      'the pump reads the flag at the site that owns the behaviour');
+    assert.falsy(CROW_PUMP_GATE_SRC.includes('pestAmnesty'),
+      'and no longer doubles as an amnesty check');
   });
 
   test('difficulty: the save rules — veterans are easy, a fresh save is asked', () => {
@@ -167,5 +187,29 @@
     assert.truthy(app.includes('Quests.starterSkipAll(this.save)') && /chooseMode\(mode\) \{[\s\S]*?Quests\.starterSkipAll/.test(app),
       'hard mode retires the starter ladder for good');
     assert.truthy(/_stripStarterCrates\(entry\)/.test(app), 'and sweeps the supply crates');
+  });
+
+  test('difficulty: hard mode also blacks out on the SURFACE, easy mode never does', () => {
+    const app = APP_JS_SRC;
+    // The update() gate: surface exhaustion only fires under Difficulty.isHard().
+    const gate = /this\.depth === 0 && Difficulty\.isHard\(\)[\s\S]{0,200}this\._passOutOnSurface\(\)/;
+    assert.truthy(gate.test(app),
+      'a hard-mode save passes out on the surface too, gated on Difficulty.isHard()');
+    // _passOutOnSurface pays the same half-purse cost as the underground
+    // blackout, floored — never negative, never a second cost the game
+    // invented for hard mode alone.
+    const body = (() => {
+      const a = app.indexOf('_passOutOnSurface() {');
+      const b = app.indexOf('\n  }\n', a);
+      assert.truthy(a > 0 && b > a, 'found _passOutOnSurface in app.js');
+      return app.slice(a, b);
+    })();
+    assert.truthy(/Math\.floor\(\(this\.save\.money \?\? 0\) \/ 2\)/.test(body),
+      'half the purse, same formula as the underground blackout');
+    assert.truthy(/addMoney\(this\.save, -lost\)/.test(body), 'and it is actually spent');
+    // Depth, position and any in-progress work are untouched — unlike the
+    // underground version, there is no cave to escape.
+    assert.falsy(/this\.depth = 0|WorldGen\.setDepth\(0\)|cancelWorkProgress/.test(body),
+      'the surface version does not relocate the player or cancel work');
   });
 })();

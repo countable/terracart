@@ -12,6 +12,8 @@
 //           one slime seated beside the trailer before you take a step. The purse is
 //           smaller, the traders greedier, Home pays less for a haul — and
 //           the enemies are tougher, hit harder and come in bigger packs.
+//           Crows are sent to your crops rather than merely lived among, so a
+//           field is a thing you defend.
 //           A kill still pays per HP, so a tougher foe pays more: fighting
 //           is the income rather than the thing you walk around.
 //
@@ -49,6 +51,15 @@
       tutorial: true,           // starter ladder chip + green arrow + step rewards
       starterCrates: true,      // the supply-crate trail (seeds, rockfruit, wood)
       pestAmnesty: true,        // no slime / crow near home until the first harvest
+      // ── Pests ──
+      // The crop-raiding crow PUMP (app.js wanderCreatures): a wild crow
+      // dispatched just off-screen every ~90 s whenever a crow-edible crop is
+      // planted and no wild crow is already near, which then flies at the
+      // field. Off on easy — a crow you meet by walking into one is the whole
+      // crow threat there — and on hard it is what stops farming from being a
+      // quiet income you can leave unattended. The tile spawner's own crows
+      // are NOT this flag: both modes get those.
+      cropPests: false,
       // ── Economy ──
       startingMoney: 50,        // items.js STARTING_MONEY — the easy figure IS the base
       buyMul: 1,                // over buyMarkupRange — the trader / castle markup
@@ -61,6 +72,15 @@
       enemyDmgMul: 1,           // over the surface slime's leech and every monster hit
       monsterCountMul: 1,       // over the cave spawner's 50 + 10/level
       slimeCountMul: 1,         // over BIOME_FAUNA.slime's per-tile count
+      // ── Traps ──
+      trapCountMul: 10,         // over traps.js's base 10..18 roadside traps/tile —
+                                 // 10x on easy too: the base rate reads as too rare
+                                 // to ever meet in practice (see traps.test.js).
+                                 // Cave traps aren't here: they're flat-scaled by
+                                 // Traps.DUNGEON_DENSITY_MUL regardless of mode.
+      trapBiteMul: 1,           // over Traps.STEP_ENERGY (10⚡) — the first-contact
+                                 // bite. The bleed rate (STAND_ENERGY_PER_S) does
+                                 // not scale with mode.
       // ── The doorstep ──
       // The one creature GUARANTEED beside the starting trailer, whatever the
       // biome roll gave the tile (app.js `_placeHomeGreeter`). It is the first
@@ -77,6 +97,7 @@
       tutorial: false,
       starterCrates: false,
       pestAmnesty: false,
+      cropPests: true,          // crows are dispatched to your field, ~90 s apart
       startingMoney: 20,        // $20 against $50 — a bag of seeds, not a plan
       buyMul: 1.5,              // traders want 1.8..4.5× base; a T7 bow still only reaches 1.5× par
       sellMul: 0.6,             // Home pays 60% — farming is a living, not the fastest one
@@ -84,6 +105,8 @@
       enemyDmgMul: 2,           // a slime leeches 6/s, a goblin hits for 16
       monsterCountMul: 1.5,     // 75 + 15/level, still under the spawner's 160 cap
       slimeCountMul: 2,         // 100 surface slimes a tile, and none of them wait for a harvest
+      trapCountMul: 100,        // hard means it: the verge is closer to a minefield
+      trapBiteMul: 2.5,         // 10⚡ base bite becomes 25⚡ on first contact
       homeGreeter: 'slime',     // "the slimes are in your yard from the first minute" — literally
     },
   };

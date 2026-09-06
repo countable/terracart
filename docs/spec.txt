@@ -34,12 +34,23 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - crows: move in pauses and straight lines. Orbit nearest crop at 1.5-3.5 cells,
    land on it for 2 full cycles, then destroy it. Scarecrow aversion 4 cells.
  - no fauna may move onto a building footing, or road.
- - animals simulate when within viewport range (~7-8 cells); stationary beyond that.
+ - animals simulate when within the SIM BUBBLE, 12 cells of the player's feet
+   (CREATURE_SIM_CELLS); stationary beyond that. The viewport corner is ~7.8
+   cells out, so the bubble carries about half a viewport of margin: a
+   creature is already walking, hunting or inbound before it is visible,
+   rather than starting the moment it crosses the glass. Measured from the
+   player, never the camera anchor — a peek drag does not wake anything.
  - slime: a pest that drifts toward the player and leeches energy when adjacent
    (numbers + defeat in CREATURES). Tame with a sapphire (secret — hinted only
    in book tips); tame slimes don't drain.
  - deer (15 hp), crow (8 hp): sneak in and eat crops. Deer: 20% chance per wander
    step within 1.5 cells of a crop. Crow: orbital 2-cycle attack (see above).
+ - THE CROW PUMP IS A HARD-MODE RULE (Difficulty cropPests). On hard, a planted
+   crow-edible crop with no wild crow already near the player dispatches one
+   every ~90 s, seated at PEST_CROW_SPAWN_CELLS (10) — past the viewport corner
+   but inside the sim bubble, so it is flying at the field from its first tick.
+   On easy nothing is dispatched: the crows a tile spawns are the whole crow
+   threat, and a field is only raided by a bird you planted next to.
  - cats (20 hp): tame cats chase wild crows within 8 cells, fight at 1.5 cells
    (both lose 1 hp per hit; crow flees, crow hp 0 → auto-defeat + feather drop).
  - dogs (40 hp): tame dogs chase wild deer and slimes within 8 cells, same combat.
@@ -131,8 +142,7 @@ ONBOARDING (the first session)
  - NO PESTS AT HOME UNTIL THE FIRST HARVEST. Until the save's first crop is
    brought in (save.hasHarvested, stamped at the harvest site) the fauna
    spawner seats no slime and no crow within PEST_FREE_CELLS (20) of the
-   starting anchor — the whole area the opening asks a player to walk — and
-   the crop-raiding crow pump stays off entirely. The opening is the one
+   starting anchor — the whole area the opening asks a player to walk. The opening is the one
    stretch they have no weapon, no relic and an empty bag, and a pest on the
    tutorial plot is the ladder being interrupted rather than a fight. It is a
    spawn rule, not a cull: the tile keeps its pest count (the cell is

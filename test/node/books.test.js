@@ -203,34 +203,48 @@ test('course: the reader is told where they are in it', () => {
     'the title states the page and the total — the ordering is visible, not implied');
 });
 
-test('course: the blocks run in first-encounter order, not subject order', () => {
-  // The order IS the teaching schedule now, so it is pinned. Each entry is a
-  // tip that can only belong to its block, and they must appear in this
-  // sequence: the first hour, then the village, then roaming, then fighting,
-  // then the caves, then the long gates, then the riddle.
+test('course: the pages run in the order the player needs them', () => {
+  // The order IS the teaching schedule, so it is pinned — by WHEN A TIP FIRST
+  // BECOMES ACTIONABLE, which is not the same as grouping it by subject. Two
+  // inversions this caught: rebuilding a wreck is starter-chain step 4 but sat
+  // at page 63, forty-six pages AFTER the tip about what your first rebuild
+  // becomes; and chests, which a player opens in the first minutes, sat behind
+  // the whole village economy and twelve pages of animal husbandry.
   const idx = (re) => PLAY_TIPS.findIndex((t) => re.test(t));
-  const basics    = idx(/first time raises your maximum energy/i);
-  const screen    = idx(/bar over a foe is its health/i);
-  const farm      = idx(/climbs one stage every 15 minutes/i);
-  const village   = idx(/ending in 9 is a Blacksmith/i);
-  const animals   = idx(/Chickens peck at any seed/i);
-  const roaming   = idx(/Treasure X marks are buried in car parks/i);
-  const streets   = idx(/derelict until you stand by them/i);
-  const fighting  = idx(/Only one weapon is ever in play/i);
-  const caves     = idx(/Goblins hold the deep/i);
-  const gates     = idx(/castle vault stays shut/i);
-  const secret    = idx(/old texts speak of a gem/i);
-  const seq = { basics, screen, farm, village, animals, roaming, streets, fighting, caves, gates, secret };
+  const seq = {
+    energy:   idx(/Actions cost energy/i),
+    screen:   idx(/bar over a foe is its health/i),
+    snares:   idx(/Snares lie hidden/i),
+    till:     idx(/Tilling refuses a cell/i),
+    rebuild:  idx(/A ruined house can be rebuilt/i),
+    smithy:   idx(/first wreck you rebuild/i),
+    chests:   idx(/Treasure X marks are buried in car parks/i),
+    village:  idx(/ending in 9 is a Blacksmith/i),
+    land:     idx(/Wild rock grows in residential streets/i),
+    streets:  idx(/derelict until you stand by them/i),
+    animals:  idx(/Feeding an animal its favourite/i),
+    fighting: idx(/Only one weapon is ever in play/i),
+    caves:    idx(/Tap a staircase to go down/i),
+    gates:    idx(/Forts are sealed/i),
+    secret:   idx(/old texts speak of a gem/i),
+  };
   for (const [k, v] of Object.entries(seq)) assert.gt(v, -1, `${k} tip is still in the list`);
   const names = Object.keys(seq);
   for (let i = 1; i < names.length; i++) {
     assert.gt(seq[names[i]], seq[names[i - 1]],
       `${names[i]} is taught after ${names[i - 1]}`);
   }
-  // Literacy is early: what the health bar means arrives long before the caves.
-  assert.lt(screen, PLAY_TIPS.length / 4, 'the screen readouts are taught in the first quarter');
+  // The cause comes before its consequence: you are told a wreck can be
+  // rebuilt before you are told what your first rebuild turns into.
+  assert.lt(seq.rebuild, seq.smithy, 'rebuilding is taught before what it becomes');
+  // Literacy and safety are first-session: what the bar over a foe means, and
+  // that the verge you are walking on hides snares.
+  assert.lt(seq.screen, PLAY_TIPS.length / 5, 'the screen readouts come in the first fifth');
+  assert.lt(seq.snares, PLAY_TIPS.length / 5, 'and so does the warning about snares');
+  // Chests are everywhere from minute one — they precede the shop address rules.
+  assert.lt(seq.chests, seq.village, 'chests are taught before the village economy');
   // And the one secret is the very last page — earned, not stumbled into.
-  assert.eq(secret, PLAY_TIPS.length - 1, 'the riddle closes the course');
+  assert.eq(seq.secret, PLAY_TIPS.length - 1, 'the riddle closes the course');
 });
 
 test('tips: the list is substantial and every entry is a real sentence', () => {
@@ -259,29 +273,6 @@ test('tips: the home rest quotes HOME_FULL_REST_S, and no tip rests you in a str
 test('tips: the offline rest quotes Energy.OFFLINE_FULL_REST_MS', () => {
   assert.eq(Energy.OFFLINE_FULL_REST_MS, 60 * 60 * 1000, 'an hour away refills the bar');
   assert.truthy(someTip(/an hour away from the game/i), 'and a tip says an hour, not just "trickles back"');
-});
-
-test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
-  // Nothing on the map says how long you have to stand by a street, or how
-  // much of one a prize costs — the dwell is a constant in app.js and the rung
-  // is a constant in trail.js, and no item's ✦ line can carry either. So the
-  // Book carries them, and both are re-derived here rather than retyped: a
-  // retune of the ladder or the dwell has to move the tip with it.
-  assert.eq(Trail.GOAL_STEP_M, 200, 'the first rung is two hundred metres');
-  const tip = PLAY_TIPS.find((t) => /derelict until you stand by them/i.test(t));
-  assert.truthy(tip, 'the street tip is in the list');
-  assert.truthy(tip.includes(`${Trail.GOAL_STEP_M}m`), 'and quotes the rung the ladder owns');
-  // The dwell, in whole seconds, said in words.
-  const dwell = +/const PATH_STONE_DWELL_MS = (\d+);/.exec(APP_JS_SRC)[1];
-  assert.eq(dwell, 2000, 'two seconds of sight rebuilds a stretch');
-  assert.truthy(/two seconds/i.test(tip), 'and the tip says two seconds');
-  // Each rung asks GOAL_STEP_M MORE than the last — "every 200m" would be a
-  // lie by the second prize.
-  assert.eq(Trail.goalFor(1) - Trail.goalFor(0), Trail.GOAL_STEP_M, 'the rungs grow by a step');
-  assert.truthy(/each prize after asks/i.test(tip), 'and the tip says the ladder lengthens');
-  // The stale claim: the mechanic was lit pebbles until Sep 2026.
-  assert.falsy(/cobble/i.test(TIPS_BLOB), 'no tip still counts cobbles');
-  assert.falsy(/lit stone/i.test(TIPS_BLOB), 'nor lit stones');
 });
 
 test('tips: working-is-not-resting is documented, because it is enforced', () => {
@@ -493,4 +484,27 @@ test('tips: the snares are documented — nothing else can say where they are', 
   assert.truthy(/10⚡/.test(tip) && /2 a second/.test(tip), 'and quotes both costs');
   assert.truthy(/verge|road/i.test(tip) && /stair|underground/i.test(tip),
     'and says where they lie');
+});
+
+test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
+  // Nothing on the map says how long you have to stand by a street, or how
+  // much of one a prize costs — the dwell is a constant in app.js and the rung
+  // is a constant in trail.js, and no item's ✦ line can carry either. So the
+  // Book carries them, and both are re-derived here rather than retyped: a
+  // retune of the ladder or the dwell has to move the tip with it.
+  assert.eq(Trail.GOAL_STEP_M, 200, 'the first rung is two hundred metres');
+  const tip = PLAY_TIPS.find((t) => /derelict until you stand by them/i.test(t));
+  assert.truthy(tip, 'the street tip is in the list');
+  assert.truthy(tip.includes(`${Trail.GOAL_STEP_M}m`), 'and quotes the rung the ladder owns');
+  // The dwell, in whole seconds, said in words.
+  const dwell = +/const PATH_STONE_DWELL_MS = (\d+);/.exec(APP_JS_SRC)[1];
+  assert.eq(dwell, 2000, 'two seconds of sight rebuilds a stretch');
+  assert.truthy(/two seconds/i.test(tip), 'and the tip says two seconds');
+  // Each rung asks GOAL_STEP_M MORE than the last — "every 200m" would be a
+  // lie by the second prize.
+  assert.eq(Trail.goalFor(1) - Trail.goalFor(0), Trail.GOAL_STEP_M, 'the rungs grow by a step');
+  assert.truthy(/each prize after asks/i.test(tip), 'and the tip says the ladder lengthens');
+  // The stale claim: the mechanic was lit pebbles until Sep 2026.
+  assert.falsy(/cobble/i.test(TIPS_BLOB), 'no tip still counts cobbles');
+  assert.falsy(/lit stone/i.test(TIPS_BLOB), 'nor lit stones');
 });

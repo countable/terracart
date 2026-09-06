@@ -7,7 +7,9 @@
 // nothing to answer either with: no weapon, no relic, an empty bag, and a
 // ladder telling them to stand still and till. So until the save's first crop
 // is harvested (save.hasHarvested) the spawner seats no slime or crow near the
-// starting anchor, and the crop-raiding crow pump stays off.
+// starting anchor. (The crop-raiding crow pump used to read this grace too;
+// it is hard-mode-only now, so on easy — the only mode with a grace to serve —
+// it never runs at all. difficulty.test.js owns that gate.)
 //
 // Two things have to be true or the rule is worse than useless: it has to end
 // (a permanent pest-free home is a different game — bringing in the first crop
@@ -75,14 +77,21 @@
     assert.truthy(PEST_FREE_GUARD_SRC.includes('continue'), 're-rolled, not culled');
   });
 
-  test('pest amnesty: the crow pump waits for the first harvest too', () => {
-    // The pump spawns a crow just off-screen that flies to the nearest crop,
-    // so a zone check on its spawn point would be theatre — it is gated on the
-    // same save flag instead, and stays off until the first crop is in.
+  test('pest amnesty: the crow pump is off in the mode that has the grace', () => {
+    // The pump spawns a crow just off-screen that flies to the nearest crop, so
+    // a zone check on its spawn point would be theatre. It used to be gated on
+    // the save flag instead; now it is a MODE difference (Difficulty cropPests,
+    // hard only), which subsumes the grace — easy, the only mode a grace could
+    // apply to, never pumps at any point in the save. The amnesty's own job is
+    // unchanged: the SPAWNER still keeps both pests away from home until the
+    // first harvest, in both modes.
     assert.truthy(CROW_PUMP_GATE_SRC.includes('hasCrowCrop'),
       'still only pumps when there is a crop worth raiding');
-    assert.truthy(CROW_PUMP_GATE_SRC.includes('this.save.hasHarvested'),
-      'and never before the first harvest');
+    assert.truthy(CROW_PUMP_GATE_SRC.includes('cropPests'),
+      'and only in the mode that dispatches crows');
+    assert.falsy(CROW_PUMP_GATE_SRC.includes('hasHarvested'),
+      'the retired grace clause is not left dangling in the gate');
+    assert.falsy(Difficulty.PROFILES.easy.cropPests, 'easy: no crow is ever dispatched');
   });
 
   test('pest amnesty: it follows the frozen trail anchor, not the projection origin', () => {
