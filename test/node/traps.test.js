@@ -168,6 +168,38 @@ test('traps: a tile with no charted road has no roadside, so it has no traps', (
   assert.eq(spawnFor(r).length, 0, 'and therefore no traps');
 });
 
+test('traps: countMul scales the surface density, and every extra trap still obeys the rules', () => {
+  const r = rasterize(roadyLayers());
+  const base = spawnFor(r);
+  const mul10 = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 10);
+  const mul100 = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 100);
+  assert.gt(mul10.length, base.length, '10x lays more traps than the base rate');
+  assert.gt(mul100.length, mul10.length, '100x lays more again than 10x');
+  const seen = new Set();
+  for (const tp of mul100) {
+    const k = `${tp._ix}_${tp._iy}`;
+    assert.falsy(seen.has(k), `two traps stacked on ${k} even at high density`);
+    seen.add(k);
+    assert.truthy(
+      WorldGen.isSpawnCell(r.grid, CPE, CPE, tp._ix, tp._iy, optsFor(r)),
+      `trap at ${tp._ix},${tp._iy} fails isSpawnCell at 100x`);
+    assert.eq(r.roadMask[tp._iy * CPE + tp._ix], 0, `trap under the road band at 100x`);
+  }
+  // No multiplier passed (undefined, as every existing call site pre-dating
+  // countMul does) must reproduce the exact base-rate rng draw — the reservoir
+  // stays at ROADSIDE_SAMPLE rather than widening.
+  const implicit = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r));
+  assert.eq(JSON.stringify(implicit.map((t) => t.id)), JSON.stringify(base.map((t) => t.id)),
+    'an omitted countMul is identical to the pre-multiplier behaviour');
+});
+
+test('traps: countMul scales cave density the same way', () => {
+  const g = caveGrid(CAVE_N);
+  const base = Traps.spawnCave(g, CAVE_N, 0, 0, TILE_EDGE_M, 1, ANCHORS, new Set());
+  const mul100 = Traps.spawnCave(g, CAVE_N, 0, 0, TILE_EDGE_M, 1, ANCHORS, new Set(), Traps.DUNGEON_DENSITY_MUL);
+  assert.gt(mul100.length, base.length, 'DUNGEON_DENSITY_MUL lays far more cave traps');
+});
+
 // ─── Seed-generated, never stored ────────────────────────────────────────────
 
 test('traps: the same tile lays the same traps every time it is built', () => {
@@ -311,10 +343,12 @@ test('traps: standing on one out-drains the fastest passive rest in the game', (
 
 test('traps: the surface spawn passes the SHARED spawn options, mask and all', () => {
   assert.truthy(
-    /Traps\.spawnSurface\(entry\.grid, entry\.roadMask, N, N, tx, ty, this\.tileEdgeM, _spawnOpts\)/
+    /Traps\.spawnSurface\(entry\.grid, entry\.roadMask, N, N, tx, ty, this\.tileEdgeM, _spawnOpts,/
       .test(APP_JS_SRC),
     'spawnInTile hands Traps.spawnSurface entry.roadMask and _spawnOpts — the same '
     + 'options every other spawner in that method uses');
+  assert.truthy(/Traps\.spawnSurface\([^;]*Difficulty\.get\(\)\.trapCountMul/.test(APP_JS_SRC),
+    'the surface density scales with the game mode, not a fixed rate');
 });
 
 test('traps: the tick asks where the PLAYER is, never where the camera is', () => {

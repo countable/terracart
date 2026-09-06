@@ -3942,8 +3942,12 @@ class MapScene extends Phaser.Scene {
     // the browser harness walks the player over arbitrary cells and asserts on
     // energy, and a trap under one of them would charge a run that never asked
     // to step on one.
+    // Density scales with the game mode (Difficulty.PROFILES.trapCountMul:
+    // 10x easy, 100x hard) — the base 10..18/tile rate reads as too rare to
+    // ever meet in practice.
     entry.traps = (typeof Traps !== 'undefined' && !window.__TEST_MODE)
-      ? Traps.spawnSurface(entry.grid, entry.roadMask, N, N, tx, ty, this.tileEdgeM, _spawnOpts)
+      ? Traps.spawnSurface(entry.grid, entry.roadMask, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
+          Difficulty.get().trapCountMul)
       : [];
 
     // Treasure marks. Three streams:
@@ -5812,8 +5816,10 @@ class MapScene extends Phaser.Scene {
         const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
         occupiedIdx.add(oy * N + ox);
       }
+      // Flat multiplier regardless of game mode — a dungeon is dangerous on
+      // either one (see Traps.DUNGEON_DENSITY_MUL).
       entry.traps = Traps.spawnCave(entry.grid, N, tx, ty, entry.tileEdgeM, depth,
-        anchors, occupiedIdx);
+        anchors, occupiedIdx, Traps.DUNGEON_DENSITY_MUL);
     }
     entry._spawned = true;
     entry.creatures = entry.creatures || creatures;
