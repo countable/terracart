@@ -10160,8 +10160,18 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'book' || (sel.count ?? 0) <= 0) return false;
     let body;
     let title = '📖 You crack open the book';
+    // THE COURSE COMES FIRST. The directional chest hint is a coin flip against
+    // the tip, which was fine while tips were drawn at random — one payload was
+    // as good as the other. Against an ORDERED list it competes with the
+    // teaching: every hint is a book that taught nothing new, so a 50% flip
+    // doubles the books needed to finish the course. So the hint only offers
+    // itself once there is nothing left to teach (every page read at least
+    // once). Nothing is lost by that — finding chests has its own dedicated
+    // item, the Pairy, which reveals the nearest unfound one for five minutes
+    // — and it gives the Book a second life instead of a rival payload.
+    const coursePending = (this.save.tipsRead ?? 0) < PLAY_TIPS.length;
     // Try the directional-hint branch first (coin flip).
-    if (Math.random() < 0.5) {
+    if (!coursePending && Math.random() < 0.5) {
       const chest = this.findNearestUnopenedChest();
       if (chest) {
         const pWX = this.startWorldM.x + this.playerM.x;
@@ -10180,9 +10190,30 @@ class MapScene extends Phaser.Scene {
       }
     }
     if (!body) {
-      // Generic tip from the pool.
-      const tip = PLAY_TIPS[Math.floor(Math.random() * PLAY_TIPS.length)];
-      body = `"${tip}"`;
+      // IN ORDER, NOT AT RANDOM. PLAY_TIPS is a curriculum — it runs from what
+      // a player meets in the first hour (energy, the readouts, the farm) out
+      // to the gates they reach hours later, and ends on the one riddle. A
+      // uniform draw threw that ordering away and, worse, had no memory: with
+      // 72 tips the birthday problem puts a repeat inside the first ~10 reads,
+      // and reading the whole list took ~370 books on average. So the Book
+      // walks the list instead, one page per read, and `save.tipsRead` is the
+      // bookmark — persisted (via _finishConsumable) so it survives a reload,
+      // and defaulted so a save from before this starts at page one.
+      //
+      // The cursor is stored UNWRAPPED and wrapped at read time: the list
+      // grows, and a modulo taken at write time would scramble the bookmark
+      // every time a tip was added.
+      const read = this.save.tipsRead ?? 0;
+      const page = read % PLAY_TIPS.length;
+      this.save.tipsRead = read + 1;
+      // Say the real number (QC: a quantity the player can see gets stated).
+      // It also makes the ordering legible — a reader can tell they are being
+      // taught a course rather than handed a random line — and tells them how
+      // much is left. Past the last page the book comes round again from the
+      // top, which is the best re-read order for the same reason it was the
+      // best first-read order.
+      title = `📖 The book falls open at page ${page + 1} of ${PLAY_TIPS.length}`;
+      body = `"${PLAY_TIPS[page]}"`;
     }
     return this._finishConsumable(title, body);
   }
