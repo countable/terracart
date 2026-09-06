@@ -767,6 +767,8 @@ const PLAY_TIPS = [
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
   'Crows raid ripe crops but never touch potatoes.',
   'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
+  'Swinging reaches one cell — exactly as far as a monster\'s bite. Your light reaches further, but only for work: closing in is what a fight costs.',
+  'Your home turns enemies away inside its circle, and they cannot bite while they go. Strike one there and it does not merely leave — it runs clear off the screen.',
   'Every new food you taste for the first time raises your maximum energy by one, for good.',
   'A job one tier past your equipment is not refused outright: you can grind it out for 15\u26a1 and half a minute. Two tiers short is a flat no.',
   // ── What is already lying around — chests, X marks, foraging ───
@@ -1008,7 +1010,7 @@ const RELIC_DEFS = {
   // NET's job, not a weapon's. On top of the fighting, the Sword raises sell
   // values and the Bow lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
-             effectKey: 'sellPrice',     blurb: 'melee: auto-fights foes in reach · better sell prices' },
+             effectKey: 'sellPrice',     blurb: 'melee: auto-fights adjacent foes · better sell prices' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots along the compass · better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,

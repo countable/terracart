@@ -183,6 +183,35 @@
   // to change how LONG one takes, move TOOL_DURATION_MS or the kind's `hp`.
   const MELEE_INTERVAL_MS = 1000;
 
+  // ── How far a melee attacker reaches ───────────────────────────────────
+  // ONE cell, for the player and for a melee monster alike — and ONE number,
+  // read by both sides, for the roadOverlayWidthM reason: a reach the player
+  // has and the thing biting them does not is a difference nobody can see on
+  // the screen and everybody feels in the fight.
+  //
+  // Until Sep 2026 melee reached the player's LIT reach — 2.5 cells at the
+  // start and up to 5.5 with the six Inner Light upgrades — while every melee
+  // monster (MONSTERS[kind].range 1) and the surface slime's leech had to be
+  // ADJACENT. So you could stand three cells off a goblin and punch it to
+  // death while it walked, and the Magic Shrine's reach upgrades quietly
+  // doubled as combat range. Closing to arm's length is the whole cost of
+  // choosing to melee something; the lit reach is about what you can WORK,
+  // and it kept paying for a fight it was never priced for.
+  //
+  // The RANGED weapons are untouched: a bow or a staff is the thing you buy
+  // to hit what you cannot punch (SHOT[].rangeCells).
+  const MELEE_REACH_CELLS = 1;
+  // The reach in metres, and the test both sides run. Centre-to-centre, which
+  // is what the monster's own attack gate measures (app.js wanderCreatures
+  // compares the creature's position against the player's FEET), so the two
+  // are symmetric by construction rather than by two similar-looking circles.
+  function meleeReachM(cellM) { return MELEE_REACH_CELLS * cellM; }
+  function inMeleeReach(ax, ay, bx, by, cellM) {
+    const r = meleeReachM(cellM);
+    const dx = ax - bx, dy = ay - by;
+    return dx * dx + dy * dy <= r * r;
+  }
+
   // What ONE blow takes off the foe: the tier's rate over one interval,
   // times `mul` for anything that multiplies the swing itself (app.js passes
   // 2 while the dragon is out). Damage per blow is derived here rather than
@@ -600,6 +629,7 @@
     isEnemyKind, isEnemy, hp, damage, hpFraction,
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
+    MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, shotRadiusM, shotDotPx,

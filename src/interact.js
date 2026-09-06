@@ -627,7 +627,24 @@ const TAP_HANDLERS = [
 
     // ENEMIES (wild slime + every cave monster) go on the HP combat wheel —
     // nothing to time, the fight is over when their hit points are.
-    if (Combat.isEnemy(target)) { scene.startCombat(target); return true; }
+    if (Combat.isEnemy(target)) {
+      // MELEE IS ARM'S LENGTH — the same one cell a melee monster has to close
+      // to before it can bite you (Combat.MELEE_REACH_CELLS, and the same
+      // centre-to-feet test its attack gate runs). The tap gate above only
+      // asked whether the foe was in the LIT reach, which starts at 2.5 cells
+      // and grows to 5.5, so a fist out-ranged everything it was fighting.
+      // Checked HERE rather than in tooFar because tooFar gates every tap in
+      // the game: feeding, catching, petting and hunting keep the lit reach.
+      const px = scene.startWorldM.x + scene.playerM.x;
+      const py = scene.startWorldM.y + scene.playerM.y;
+      if (!Combat.inMeleeReach(target.x, target.y, px, py, scene.cellM)) {
+        scene.flash('Too far to swing.', ctx.sx, ctx.sy);
+        scene.hapticReject?.();
+        return 'far';
+      }
+      scene.startCombat(target);
+      return true;
+    }
 
     // HUNTING — crow and deer only. The old DEFEAT_KINDS set also held 'slime',
     // which is an enemy now and never reaches here; it also matched a TAME
