@@ -99,7 +99,12 @@
 
   // Forge recipe for a gear piece. Tools use the tier-matched bar (T1 = plain
   // wood); jewelry (ring→ruby, staff→emerald, amulet→sapphire) uses a geometric
-  // gem ramp (1,2,4,…,32 from T2..T7) plus one bar. Returns null when uncraftable.
+  // gem ramp (1,2,4,…,32 from T2..T7) plus one bar. At the Frost tier every
+  // jewelry slot is cut around DIAMONDS instead of the slot's own gem — the
+  // same 32-gem quantity, so T7 is the one rung the three slots share a
+  // material (JEWELRY_FROST_TIER). Returns null when uncraftable.
+  const JEWELRY_FROST_TIER = 7;
+  const JEWELRY_FROST_GEM = 'diamond';
   function blacksmithRecipe(kind, slot, tier) {
     if (!tier) return null;
     const JEWELRY_GEM = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
@@ -109,8 +114,9 @@
     if (JEWELRY_GEM[slot]) {
       if (tier < 2) return null;   // no wooden jewelry
       const gemQty = Math.pow(2, tier - 2);
+      const gem = (tier >= JEWELRY_FROST_TIER) ? JEWELRY_FROST_GEM : JEWELRY_GEM[slot];
       return [
-        { id: JEWELRY_GEM[slot], qty: gemQty },
+        { id: gem, qty: gemQty },
         { id: bar, qty: 1 },
       ];
     }
