@@ -484,15 +484,23 @@
   tip and a description overlap, the description wins and the tip goes**; if the
   tip carried a fact the line didn't, move the fact onto the line (keep it
   short — the `✦` row is `nowrap` + ellipsis, so ~55 chars is the ceiling).
-  Note the ✦ line is also why `ITEM_EFFECTS.sapphire` spells out the slime
-  taming that the closing Book tip only hints at: the riddle is flavour, the
-  disclosure belongs on the gem. If that secret should stay secret, the line to
-  delete is the ITEM_EFFECTS one, not the tip.
+  **The one exception is the one SECRET.** What an item secretly does is not a
+  description — printing it spoils it. `ITEM_EFFECTS.sapphire` read `Offer to a
+  slime to tame it` until Sep 2026: the game's single real secret, on the
+  inventory bar the instant anyone held a sapphire, while the gem's ADVERTISED
+  use (the portal down, its own Portal button) went undescribed. The line names
+  the portal now, and the taming is hinted in exactly one place — the closing
+  riddle in `PLAY_TIPS`, which says "creature" before it says "slime". Nothing
+  else names it: `ANIMAL_FOOD.slime` is unreachable through `animalLikesFood`
+  in practice (a slime is an enemy, so `interact.js` takes the sapphire branch
+  and then the combat branch long before the favourite-food path), so no
+  "it wants X" hint can leak it. **When an item has a secret use, its ✦ line
+  describes the open one.**
   **Audit it:** `node test/node/run.js` › `test/node/item_descriptions.test.js`
   sweeps every tip against every description for word overlap (three distinct
   words is a restatement), re-checks that the sweep still catches the six real
-  tips deleted in the prune, and pins that the facts they carried landed on the
-  items.
+  tips deleted in the prune, pins that the facts they carried landed on the
+  items, and pins the sapphire's one-hint rule.
 
 ## Testing
 

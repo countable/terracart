@@ -135,6 +135,33 @@ test('tips: the surviving claims still match the code', () => {
   assert.falsy(/\bring\b/.test(health), 'never a ring again');
 });
 
+// ── The one secret, and the one place it is hinted ────────────────────────
+test('sapphire: the slime taming is hinted in the riddle and nowhere else', () => {
+  // The game has exactly one real secret. Its disclosure rule is the mirror of
+  // the rule above: what an item DOES goes on the item — but what an item
+  // SECRETLY does does not, or selecting one spoils it. Until Sep 2026
+  // ITEM_EFFECTS.sapphire read 'Offer to a slime to tame it', printed on the
+  // inventory bar the instant anyone held a sapphire, while the gem's actual
+  // advertised use (the portal) went undescribed.
+  const line = ITEM_EFFECTS.sapphire || '';
+  assert.truthy(line, 'the sapphire still has an effect line — it is a consumable');
+  assert.truthy(/portal/i.test(line), 'and it names the portal, its advertised use');
+  assert.falsy(/slime|tame/i.test(line), 'never the taming — that is the secret');
+
+  // Exactly one tip hints it, and it HINTS rather than tells. A tip may name
+  // the gem for another reason — the castle quest chain asks you to bring one
+  // up from level 3 — so the filter is the taming sense, not the word.
+  const hints = PLAY_TIPS.filter((t) => /sapphire/i.test(t) && /calm|tame|befriend|soothe/i.test(t));
+  assert.eq(hints.length, 1, 'one hint about what the gem does to a creature, no more');
+  assert.truthy(/perhaps|old texts/i.test(hints[0]), 'and it is phrased as a riddle');
+  assert.falsy(/\bslime\b/i.test(hints[0].split('Perhaps')[0] || ''),
+    'the riddle says "creature" before it says "slime"');
+  for (const tip of PLAY_TIPS) {
+    assert.falsy(/sapphire/i.test(tip) && /\btames?\b/i.test(tip),
+      'no tip states the taming outright: ' + tip);
+  }
+});
+
 test('tips: the source comment tells the next author where a description goes', () => {
   const m = src.match(/\/\/ === Book of Tips =+\n([\s\S]*?)\nconst PLAY_TIPS = \[/);
   assert.truthy(m, 'the Book of Tips header comment is still there');

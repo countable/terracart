@@ -699,8 +699,13 @@ const ITEM_EFFECTS = {
   // one exception, and the line says so: it is the only place that caveat is
   // written now that the Book no longer repeats the mango's effect.
   mango:     'Feed to tame any wild animal — never a cave monster',
-  // Offered to a slime to calm it (the secret gem).
-  sapphire:  'Offer to a slime to tame it',
+  // The sapphire's ADVERTISED use — the one its Portal button opens, and the
+  // only one this line may name. Until Sep 2026 it read "Offer to a slime to
+  // tame it": the game's one real secret, printed on the inventory bar the
+  // instant anyone selected a sapphire, while its actual function went
+  // undescribed. The taming is hinted in exactly one place now — the closing
+  // riddle in PLAY_TIPS — which is what makes it a secret rather than a label.
+  sapphire:  'Use to open a portal one level down',
   // Consumables used on yourself / the world.
   honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',
@@ -777,7 +782,11 @@ const ANIMAL_FOOD = {
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
   dog:     ['meat'],       // raw meat — hunt deer with a weapon relic
-  // Secret: slimes can be tamed with a sapphire — hinted only in book tips.
+  // Secret: slimes can be tamed with a sapphire — hinted only in book tips,
+  // and true again as of Sep 2026 (ITEM_EFFECTS.sapphire used to spell it out).
+  // Not reachable through animalLikesFood in practice: a slime is an enemy, so
+  // interact.js takes the sapphire branch and then the combat branch long
+  // before the favourite-food path, and no "it wants X" hint ever names this.
   slime:   ['sapphire'],
 };
 function animalLikesFood(kind, foodId) {
