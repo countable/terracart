@@ -10911,9 +10911,10 @@ class MapScene extends Phaser.Scene {
   // looks them up via _isPathStoneActive).
   //
   // PRIZES: one treasure per Trail.SEGMENT_CELLS stones of the same named
-  // trail on the same tile, so a long street pays repeatedly instead of
-  // demanding all of itself and paying once — see src/trail.js, where the
-  // segment arithmetic lives and is pinned. There is no money milestone any
+  // trail on the same tile — about Trail.PRIZE_WALK_M (200 m) of walking — so
+  // a long street pays repeatedly instead of demanding all of itself and
+  // paying once. See src/trail.js, where the segment arithmetic lives and is
+  // pinned. There is no money milestone any
   // more; walking a trail pays in treasure only.
   //
   // State shape:
@@ -11091,7 +11092,9 @@ class MapScene extends Phaser.Scene {
 
   // Reward fired each time a trail's lit stones cross a segment boundary.
   // Uses the unified rarity picker with the lowtier chest biome at tier 4
-  // (the most generous lowtier curve) so the reward is meaningful without
+  // (the most generous lowtier curve) plus Trail.PRIZE_ROLL_BONUS extra chain
+  // steps — a prize is ~200 m of walking, so it should land a shade better
+  // than a box the player happened to stand next to — while still not
   // competing with the actual T4 epic POI chests. Routed through
   // showChestRewardModal so it shares the same fanfare + sparkles as chest
   // opens. `onDismiss` walks the prize queue on.
@@ -11105,7 +11108,8 @@ class MapScene extends Phaser.Scene {
   // always did, rather than a choice with one answer.
   _firePathCompletionReward(name, onDismiss) {
     const roll = () => ((typeof pickReward === 'function')
-      ? pickReward('chest:lowtier', this.save, undefined, { tier: 4 })
+      ? pickReward('chest:lowtier', this.save, undefined,
+                   { tier: 4, rollBonus: Trail.PRIZE_ROLL_BONUS })
       : null);
     const choices = (typeof Trail !== 'undefined' && Trail.rollChoices)
       ? Trail.rollChoices(roll) : [roll()].filter(Boolean);

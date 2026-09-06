@@ -205,24 +205,29 @@ const pathCells = (e) => {
   return n;
 };
 
-test('short paths: the floor is 5 cobble cells', () => {
-  // Pinned as a literal so a retune is a deliberate edit here.
-  assert.eq(WorldGen.MIN_PATH_RUN_CELLS, 5, 'MIN_PATH_RUN_CELLS');
+test('short paths: the floor is 15 cobble cells', () => {
+  // Pinned as a literal so a retune is a deliberate edit here. 15 cells of
+  // WorldGen.CELL_M is a little over 100 m — a path you could actually walk.
+  assert.eq(WorldGen.MIN_PATH_RUN_CELLS, 15, 'MIN_PATH_RUN_CELLS');
+  assert.inRange(WorldGen.MIN_PATH_RUN_CELLS * WorldGen.CELL_M, 90, 120,
+    'about 100 m of path');
 });
 
-test('short paths: a four-cell stub is dissolved back to its biome', () => {
-  const e = runOf(4);
+test('short paths: a run one cell under the floor is dissolved', () => {
+  const under = WorldGen.MIN_PATH_RUN_CELLS - 1;
+  const e = runOf(under);
   assert.eq(pathCells(e), 0, 'no path cell survives the stub');
-  for (let cx = 20; cx <= 23; cx++) {
+  for (let cx = 20; cx < 20 + under; cx++) {
     assert.eq(e.grid[20 * CPE + cx], T.PARK, `cell ${cx} is parkland again`);
     assert.falsy(e.pathUnder[`${cx}_20`], 'and its stale under record is gone');
   }
 });
 
-test('short paths: a five-cell run is a path and keeps its cobbles', () => {
-  const e = runOf(5);
-  assert.eq(pathCells(e), 5, 'exactly the five cells the way crosses');
-  for (let cx = 20; cx <= 24; cx++) {
+test('short paths: a run exactly at the floor is a path and keeps its cobbles', () => {
+  const len = WorldGen.MIN_PATH_RUN_CELLS;
+  const e = runOf(len);
+  assert.eq(pathCells(e), len, 'exactly the cells the way crosses');
+  for (let cx = 20; cx < 20 + len; cx++) {
     assert.eq(e.grid[20 * CPE + cx], T.PATH, `cell ${cx} is path`);
   }
 });
@@ -270,7 +275,7 @@ test('short paths: a run reaching the tile edge is exempt', () => {
 });
 
 test('short paths: a long path is untouched by the prune', () => {
-  const e = runOf(20);
-  assert.eq(pathCells(e), 20, 'every cell of a real path survives');
+  const e = runOf(30);
+  assert.eq(pathCells(e), 30, 'every cell of a real path survives');
 });
 })();

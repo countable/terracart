@@ -780,12 +780,12 @@
   // here?": the stones go with it, the cell is tillable and spawnable again,
   // and render.js needs no rule of its own.
   //
-  // Counted in COBBLE CELLS. render.js then thins what it draws
-  // (PATH_STONE_DENSITY_PCT) — that is decoration on top of this, not a second
-  // opinion about where the path is. Distinct from Trail.MIN_TRAIL_CELLS,
-  // which is the floor on PAYING for a walk; this one is the floor on the path
-  // existing.
-  const MIN_PATH_RUN_CELLS = 5;
+  // Counted in COBBLE CELLS — 15 of them is about 105 m of walking. render.js
+  // then thins what it DRAWS to one pebble per COBBLE_SPACING_M; that is
+  // decoration on top of this, not a second opinion about where the path is.
+  // Distinct from Trail.MIN_TRAIL_CELLS, which is the floor on PAYING for a
+  // walk; this one is the floor on the path existing at all.
+  const MIN_PATH_RUN_CELLS = 15;
 
   // Post-pass: dissolve every 4-connected run of PATH cells shorter than
   // MIN_PATH_RUN_CELLS. Runs after the painting and after the blob erosion
@@ -3212,8 +3212,9 @@
     // pathNames[`${ix}_${iy}`] = full street name, recorded for every COBBLE
     // cell — footpath (terrain 8) AND the three vehicle-road tiers alike.
     // Drives the cobble-trail feature in app.js: walking lights every named
-    // cobble inside the player's reach, and each 20 lit stones of one name
-    // pays a treasure (src/trail.js). Roads carry it too now, so a street is
+    // cobble inside the player's reach, and each Trail.SEGMENT_CELLS lit
+    // stones of one name — about 200 m of walking — pays a treasure
+    // (src/trail.js). Roads carry it too now, so a street is
     // walkable for prizes exactly like a trail is. We deliberately store the
     // FULL name (not just the first word the road-label loop uses) so two
     // ways sharing a first word still count as distinct.
