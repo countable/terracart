@@ -55,7 +55,7 @@ vm.createContext(ctx);
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
+  'mvt.js', 'util.js', 'trail.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
@@ -75,6 +75,9 @@ const FILES = [
   // load time (see the CANVAS_W comment in drawObjects), so loading it here is
   // safe and gives the pure decision helpers it exports — edgeNeedsBorder —
   // a home in the headless suite.
+  // The lightmap: the light table, the per-frame collector and the derived
+  // levels are pure; only draw() touches Phaser, and no test calls it.
+  'lighting.js',
   'render.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
@@ -82,11 +85,22 @@ const FILES = [
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
   INTERACTABLES, runInteractable, gatherLuck, gatherLuckEnabled,
+  isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
+  // The one building roof-scale rule — house_scale.test.js asserts against the
+  // SHIPPING table rather than its own copies of it.
+  houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
   HomeArea,
   itemValue, randInt, pickFromArray, isShiny,
+  TRAILER_SELL_MUL,
+  // The market-stall sign/stock tables — vendor_parity.test.js pins that what
+  // a stall's name promises is what it sells.
+  POI_CATEGORY, CHEST_TIER_BY_CATEGORY, CHEST_TIER_HOME_RINGS_M,
+  CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_TIER_COLOR,
+  chestTierHomeDrop, chestTierDepthBonus, chestTier, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
+  STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
@@ -130,6 +144,7 @@ try {
 {
   const src = readSrc('app.js');
   for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS',
+                      'WALK_HOME_SPEED_MUL',
                       // The walk-home behaviour tests below drive the REAL
                       // _driftHome, so they need the numbers it reads: walking
                       // pace, and the gap past which a return is placed rather
@@ -147,7 +162,14 @@ try {
                       // The starting-neighbourhood reveal radii — fog.test.js
                       // checks they actually cover the trail the onboarding
                       // seater lays, which is what broke when fog shipped.
-                      'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS']) {
+                      'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS',
+                      // The peek drag's own numbers — peek_drag.test.js drives
+                      // the REAL clamp and spring-back with them.
+                      'PEEK_MAX_CELLS', 'PEEK_DRAG_SLOP_PX', 'PEEK_RETURN_MS',
+                      // The campfire's warmth ring — lighting.js resolves the
+                      // fire's light radius to it at call time, and
+                      // lighting.test.js pins that the two are one number.
+                      'FIRE_REST_R']) {
     // parseFloat, not parseInt: WALK_M_S is 1.4, and rounding walking pace to
     // 1 m/s would silently retune every distance the tests below measure.
     const m = src.match(new RegExp(`const ${name} = ([\\d.]+);`));
@@ -177,13 +199,155 @@ try {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_driftHome(dt) {', 'syncMoveTarget() {', '_gpsAwayM() {']
+  const methods = ['_driftHome(dt) {', 'syncMoveTarget() {', '_gpsAwayM() {',
+                   // The stick's countdown to that walk — same gates, so it's
+                   // tested against the same stub scene.
+                   '_walkHomeCountdownS() {',
+                   // syncMoveTarget snaps the peek camera back (a warp lands on
+                   // ground the peek knows nothing about), so the real method
+                   // comes along rather than being stubbed out here.
+                   'clearPeek() {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
-  for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM']) {
+  for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS',
+                   'clearPeek']) {
     if (typeof ctx.__walkHome[k] !== 'function') {
       console.error(`__walkHome.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
+// A TRAIL PRIZE is now a CHOICE, which splits one method into two: the card a
+// reward DRAWS as, and the payout it makes when the player keeps it. Nothing
+// may be granted by the drawing half — the option the player turns down is
+// rendered too — so both halves are lifted out of app.js and run for real on a
+// stub scene in trail.test.js, rather than pinned as source text that would say
+// nothing about what they actually pay.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['_trailRewardCard(reward) {', '_claimTrailReward(reward) {']
+    .map(lift).join(',\n');
+  vm.runInContext(`globalThis.__trailPrize = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#_claimTrailReward' });
+  for (const k of ['_trailRewardCard', '_claimTrailReward']) {
+    if (typeof ctx.__trailPrize[k] !== 'function') {
+      console.error(`__trailPrize.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
+// THE TRAIL COUNTER lands on the cobble that lit, not at the screen centre, so
+// its seating is a projection question — and projections are exactly what the
+// peek drag breaks when someone measures them off the player instead of the
+// camera anchor. Lifted with it: the activation primitive, which is where
+// "a stone is a cobble cell the renderer actually draws a pebble on" is
+// enforced. Both run for real on a stub scene in trail.test.js.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['_trailCounterAt(ix, iy) {', '_pathStoneAt(tx, ty, ix, iy) {',
+                   '_activatePathStone(tx, ty, ix, iy) {',
+                   '_resetTrailSight() {', '_rebuildTrailSight(p, reachM, now) {',
+                   '_sweepCobbleTrails() {']
+    .map(lift).join(',\n');
+  // The abs→tile-local cell conversion both stone methods share is a module
+  // function of app.js; carry it across as source text too.
+  const localFn = src.match(/\nfunction pathStoneLocal\(entry, ix, iy\) \{[\s\S]*?\n\}\n/);
+  if (!localFn) {
+    console.error('Could not lift pathStoneLocal out of src/app.js — update run.js');
+    process.exit(2);
+  }
+  // The seating reads two app.js module constants that don't exist in this
+  // context. Carry them across as SOURCE TEXT rather than retyping the
+  // numbers — a retune in app.js has to move the test with it.
+  const constOf = (name) => {
+    const m = src.match(new RegExp(`const ${name} = ([^;\n]+);`));
+    if (!m) {
+      console.error(`Could not lift ${name} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return m[1];
+  };
+  vm.runInContext(
+    `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
+    `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};\n` +
+    `globalThis.pathStoneLocal = ${localFn[0].trim()};\n` +
+    `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};`,
+    ctx, { filename: 'app.js#TRAIL_COUNTER_LIFT_PX' });
+  vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#_trailCounterAt' });
+  for (const k of ['_trailCounterAt', '_pathStoneAt', '_activatePathStone',
+                   '_resetTrailSight', '_rebuildTrailSight', '_sweepCobbleTrails']) {
+    if (typeof ctx.__trailCounter[k] !== 'function') {
+      console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
+// The PEEK DRAG: the camera-offset maths (clamp, spring-back, where the player
+// sprite goes) plus the pointer-release rule that decides whether a pointer was
+// a tap or a drag. Both are lifted as text and run on a stub scene — the same
+// trick as __walkHome above — so peek_drag.test.js drives the SHIPPING code.
+// A reimplementation here would happily pass while a drag also chopped the tree
+// it slid over, which is the whole thing this feature must not do.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['playerScreen() {', 'isPeeking() {', '_setPeekFromDrag(dxPx, dyPx) {',
+                   '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {', '_gamePt(p) {']
+    .map(lift).join(',\n');
+  // The tap-or-drag decision itself, straight out of create()'s input wiring.
+  const relSig = '    const endPeekPointer = (p) => {';
+  const relStart = src.indexOf(relSig);
+  const relEnd = relStart < 0 ? -1 : src.indexOf('\n    };\n', relStart);
+  if (relStart < 0 || relEnd < 0) {
+    console.error('Could not lift endPeekPointer out of src/app.js — update run.js');
+    process.exit(2);
+  }
+  // _gamePt divides by RENDER_SCALE (app.js's canvas-resolution constant, a
+  // module-level `let` the browser sets from the live screen). Seed it at 1 —
+  // the logical grid — so every existing expectation reads in game px; the
+  // HiDPI cases below reassign it to drive the same shipped line at 2× and 3×.
+  ctx.RENDER_SCALE = 1;
+  // Rebound as a method so `this` is the stub scene rather than a closed-over
+  // one; the body is otherwise the shipped text, character for character.
+  const release = 'endPeekPointer(p) {'
+    + src.slice(relStart + relSig.length, relEnd) + '\n  }';
+  vm.runInContext(`globalThis.__peek = {\n${methods},\n${release}\n};`, ctx,
+                  { filename: 'app.js#peek' });
+  for (const k of ['playerScreen', 'isPeeking', '_setPeekFromDrag', '_releasePeek',
+                   'clearPeek', '_tickPeek', '_gamePt', 'endPeekPointer']) {
+    if (typeof ctx.__peek[k] !== 'function') {
+      console.error(`__peek.${k} did not come back as a function — update run.js`);
       process.exit(2);
     }
   }
@@ -227,7 +391,8 @@ try {
     ctx, { filename: 'monsters-baseline.js' });
   vm.runInContext(block
     + '\n;Object.assign(globalThis, { MONSTERS, isMonster, enemyBounty, CAVE_ENEMY_MUL,'
-    + ' ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, MONSTER_TREASURE_CHANCE });',
+    + ' ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, MONSTER_TREASURE_CHANCE,'
+    + ' ELITE_TREASURE_CONTEXT, eliteRollBonus, GIANT_HP_MUL, GIANT_DEPTH_STEP });',
     ctx, { filename: 'monsters.js' });
 }
 
@@ -348,7 +513,7 @@ try {
     + '  _castleKey(house) {\n' + grab('  _castleKey(house) {\n') + '\n  },\n'
     + '  isCastleClaimed(house) {\n' + grab('  isCastleClaimed(house) {\n') + '\n  },\n'
     + '  _claimCastle(house) {\n' + grab('  _claimCastle(house) {\n') + '\n  },\n'
-    + '  _castleServiceDayKey() {\n' + grab('  _castleServiceDayKey() {\n') + '\n  },\n'
+    + '  _dayKey() {\n' + grab('  _dayKey() {\n') + '\n  },\n'
     + '  _castleServiceUsedToday(house) {\n' + grab('  _castleServiceUsedToday(house) {\n') + '\n  },\n'
     + '  _markCastleServiceUsed(house) {\n' + grab('  _markCastleServiceUsed(house) {\n') + '\n  },\n'
     + '  _castleRest(sx, sy, house) {\n' + grab('  _castleRest(sx, sy, house) {\n') + '\n  },\n'
@@ -688,6 +853,23 @@ try {
   ctx.SPAWN_CAVE_SRC         = slice(appSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Dark-outlined', 'spawnCaveCreatures');
   ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
   ctx.STARTER_TRAIL_SRC      = slice(appSrc, '  _placeStarterTrail(entry, tx, ty) {\n', '\n  _revealStarterTrail', 'the starter trail');
+  // The sidecar chest injection loop in loadTile — poi_dedup.test.js pins that
+  // it consults the shared one-place-one-chest rule before pushing a chest.
+  ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of (bin.chests || [])) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
+  // The tree + mineralrock RENDER_SPEC entries (a const inside drawObjects, so
+  // not reachable as a value) — tool_gate_fade.test.js pins that both `after`
+  // hooks apply the shared tool-gate fade rather than a local copy of it.
+  ctx.RENDER_TREE_ROCK_SPEC_SRC = slice(readSrc('render.js'), '    tree:   { key: (o) => {', '    // Stone pillar', 'the tree/mineralrock render specs');
+  // The fruit-tree life-cycle frame table + its RENDER_SPEC entry, and the
+  // pass that draws the fruit ON the tree — all inside drawObjects, so
+  // fruit_overlay.test.js pins them as text: what has to hold is that the
+  // tree's ART never depends on whether it is bearing.
+  ctx.RENDER_FRUIT_FRAMES_SRC = slice(readSrc('render.js'),
+    '  const FRUIT_FRAMES = {', '};', 'the fruit-tree frame table');
+  ctx.RENDER_FRUITTREE_SPEC_SRC = slice(readSrc('render.js'),
+    '    fruittree: { key: (o) =>', '    mineralrock: {', 'the fruittree render spec');
+  ctx.RENDER_FRUIT_PASS_SRC = slice(readSrc('render.js'),
+    '  // ── Ripe fruit ─', '  });', 'the fruit render pass');
 }
 
 // ── Wild-crow flee (FINDING 1) + fauna spawn / caught-array fixes (FINDING 2,
@@ -730,7 +912,7 @@ try {
   // lookup) and it only closes over rng/N/entry/_spawnOpts/pestFree/caughtSet/
   // creatures/tx/ty, all cheap to stub.
   ctx.TRY_PLACE_SRC = grabBetween(
-    '    const tryPlace = (kindWant, classesOK, idx, kindStr) => {\n', '\n    };\n', 'the tryPlace closure');
+    '    const tryPlace = (classesOK, idx, kindStr) => {\n', '\n    };\n', 'the tryPlace closure');
 
   // FINDING 3(b), other half — spawnCaveCreatures is small and self-contained
   // enough (this.save.caught, this.tileEdgeM, WorldGen, MONSTERS, entry.* —
@@ -758,10 +940,51 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+// index.html is what actually MEASURES the screen — the CSS scale app.js sizes
+// the canvas from is published by its fitGame. canvas_scale.test.js pins the
+// two halves of that handshake against each other; nothing else can, because
+// each half is unreachable from the other's language.
+ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+// The canvas-resolution rule itself (app.js, the note beside W/H): lifted so
+// canvas_scale.test.js drives the shipping cap/floor rather than a copy of it.
+{
+  const m = ctx.APP_JS_SRC.match(/const RENDER_SCALE_MAX = \d+;[\s\S]*?\nfunction renderScale\(\) \{[\s\S]*?\n\}/);
+  if (!m) {
+    console.error('Could not lift renderScale() out of src/app.js — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext(m[0], ctx, { filename: 'app.js#renderScale' });
+}
 ctx.RENDER_SRC = readSrc('render.js');
+// lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as
+// source text — draw() is the one Phaser-bound function in the module.
+ctx.LIGHTING_SRC = readSrc('lighting.js');
+// multiplayer.js draws peers with the same feet-on-the-fix seating app.js
+// gives the local player; feet_anchor.test.js pins both as text.
+ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
+ctx.INTERACT_SRC = readSrc('interact.js');
+// interactables.js loads headlessly too, but chest_tier.test.js pins that its
+// chest loot roll resolves the tier WITH the chest position — a text pin.
+ctx.INTERACTABLES_SRC = readSrc('interactables.js');
 // worldgen.js loads headlessly, but tile_url.test.js also pins that the only
 // raw tile fetch in it goes through the resolver — a text pin, like the above.
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');
+
+// ── Countdown notation: the source of every file that owns a timed readout ──
+// duration_notation.test.js sweeps these for hand-rolled "${n}m" / "${n}h"
+// ladders and for the unquantified "tomorrow" / "later" copy the shared
+// shortDuration() notation replaced. The labels live inside Phaser scene
+// methods and per-frame draw passes that can't be called headlessly, so the
+// pin is on the source text — the same trick feet_anchor.test.js uses. A file
+// that grows a new countdown belongs in this map.
+ctx.DURATION_SOURCES = {
+  'app.js': readSrc('app.js'),
+  'interact.js': readSrc('interact.js'),
+  'interactables.js': readSrc('interactables.js'),
+  'render.js': readSrc('render.js'),
+  'shops_math.js': readSrc('shops_math.js'),
+  'util.js': readSrc('util.js'),
+};
 
 // ── In-context test framework: test() / assert / makeScene ────────────────
 vm.runInContext(`
@@ -850,6 +1073,14 @@ for (const f of testFiles) {
   for (const kind of Object.keys(audit.CREATURE_SHEETS)) {
     ctx.__tests.push({ name: `creature wheel (crown rule): ${kind}`, fn: () => {
       const r = audit.evaluateCreature(kind);
+      if (r.violations.length) throw new Error(r.violations.join('; '));
+    } });
+  }
+  // …and the fruit-tree crowns the fruit overlay hangs off: re-derived from
+  // the PNGs, so repainted tree art can't leave a bearing tree's fruit stuck
+  // on its trunk or floating over its canopy.
+  for (const r of audit.evaluateCrowns()) {
+    ctx.__tests.push({ name: `fruit-tree crown: ${r.lookup}`, fn: () => {
       if (r.violations.length) throw new Error(r.violations.join('; '));
     } });
   }

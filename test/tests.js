@@ -1516,12 +1516,14 @@ test('weapons: sell modal honours the sword multiplier', (scene) => {
   scene.save.restoredHouses[house.id] = true;
   teleport(scene, house.x, house.y - 2);
   const shopMul = 1;   // home shop has no specialty bonus
-  const expected = Math.max(1, Math.ceil(PRICES.potato * sellMultiplier(scene.save.relics) * shopMul));
+  // The trailer pays the sword-scaled price less its 25% haircut
+  // (trailerSellPrice / TRAILER_SELL_MUL, items.js).
+  const expected = trailerSellPrice(PRICES.potato * shopMul, scene.save.relics);
   scene.shopInteract(0, 0, house);
   const modal = document.getElementById('offer-modal');
   assert.truthy(modal, 'sell modal opened');
   assert.truthy(modal.innerHTML.includes(`+$${expected}`),
-    `sells potato at $${expected} with T7 sword (mul=1.0, shopMul=${shopMul})`);
+    `sells potato at $${expected} with T7 sword (mul=1.0 × 0.75 trailer, shopMul=${shopMul})`);
   document.getElementById('offer-modal')?.remove();
 });
 
@@ -2612,10 +2614,11 @@ test('treasure: tapping the X within reach marks it found and grants loot', (sce
   assert.truthy(scene.save.foundTreasures.includes(tr.id), 'treasure id in foundTreasures');
   const gotLoot = (scene.save.money > moneyBefore) || (scene.save.inv.length > invBefore);
   assert.truthy(gotLoot, 'either money grew or an inv stack appeared');
-  // Tapping it again: no double dip. Clear the selection first — looting an
-  // item auto-selects it, and a second tap on the player's own cell with a
-  // plantable seed selected would PLANT it (emptying the stack), which has
-  // nothing to do with the treasure no-double-dip behaviour under test here.
+  // Tapping it again: no double dip. Looting never selects the item (empty
+  // hands stay empty), but clear the selection defensively anyway — a second
+  // tap on the player's own cell with a plantable seed selected would PLANT
+  // it (emptying the stack), which has nothing to do with the treasure
+  // no-double-dip behaviour under test here.
   scene.save.selSlot = -1;
   const moneyMid = scene.save.money;
   const invMid = scene.save.inv.length;

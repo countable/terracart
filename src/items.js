@@ -65,11 +65,12 @@ const CROP_SPRITE = {
   // sheet was 32×32 frames rendered at the wildplant scale of 2 → 64×64
   // display, twice the footprint of every other ground prop, which read
   // as a giant broken-looking mushroom on commercial/industrial plots.
-  // scale 1.7 (down 15% from the wildplant default of 2) renders the 16px
-  // frame at ~27px — the toadstool reads as a prop tucked in its tile rather
-  // than one filling it edge to edge. Origin stays (0.5, 0.5) in the planted
-  // pass, so it shrinks about the cell centre and stays centred.
-  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.7 },
+  // scale 1.36 (1.7 — itself down 15% from the wildplant default of 2 — then
+  // a further 20% off, Sep 2026 playtest) renders the 16px frame at ~22px —
+  // the toadstool reads as a prop tucked in its tile rather than one filling
+  // it edge to edge. Origin stays (0.5, 0.5) in the planted pass, so it
+  // shrinks about the cell centre and stays centred.
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.36 },
   // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.
@@ -373,8 +374,10 @@ const ITEMS = [
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
-  // Discovery badge — earned once per shiny TYPE found (awardShinyBonus), spent
-  // at the wizard tower on Inner Lights. Lives as a normal inventory stack so
+  // Discovery badge — earned once per discoverable KEY (app.js _bankDiscovery:
+  // a shiny type found, an elite monster kind slain, a household's first
+  // delivery), spent at the wizard tower on Inner Lights. Lives as a normal
+  // inventory stack so
   // the player can see / count their badges, but it's deliberately walled off
   // from the rest of the economy:
   //   kind 'badge'    → in no rarity.js classBias, so chests / shops / traders /
@@ -612,13 +615,13 @@ const PLAY_TIPS = [
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
   // ── Shops / trade ─────────────────────────────────────────
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
-  'Addresses ending 2 or 6 are Markets, stocked with produce. Endings 1 and 8 are Traders, who barter only.',
+  'Addresses ending 2 or 6 are Produce Shops, stocked with crops. Endings 1 and 8 are Traders, who barter only.',
   'Plain houses sell nothing. Each posts a daily wishlist of two or three produce and pays for the set.',
   'Wishlists reroll every day, and every 20 deliveries houses begin asking for the next tier of crop.',
   'Forts handle up to 5 deals per hour, plain houses just 1. Castles and towers never make you wait.',
   'Castles deal only in relics — and never run out of stock.',
   // ── Progression gates ─────────────────────────────────────
-  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a market, trader or smithy.',
+  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a produce shop, trader or smithy.',
   'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
   'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
   'The wizard trades 5 Discovery badges for an Inner Light — another half-cell of reach, out to 5.5.',
@@ -626,10 +629,12 @@ const PLAY_TIPS = [
   'Platinum, Crimson and Frost bars are smelted, never mined — a magical flower plus the bar below it.',
   'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
   // ── Relic effects ─────────────────────────────────────────
-  'A Sword raises your sell price — half the listed value bare-handed, the full value at Frost.',
+  'A Sword raises your sell price — a Frost sword doubles what the trailer pays for a haul.',
   'A Sword also fights for you: the nearest slime or monster in reach is engaged without a tap.',
-  'A Bow or Staff shoots on its own — one shot a second, wherever you are facing, while a foe is on screen.',
+  'A Bow or Staff shoots on its own — one shot a second, while a foe is on screen.',
   'Arrows fly where the compass points, not at what you tap. Turn to aim.',
+  'A Staff bolt seeks the nearest foe on its own — no aiming, but each bolt costs a little energy.',
+  'A better Staff throws a bigger bolt: a Frost bolt is twice the size of a Wood one, and sweeps up more foes.',
   'The ring over a foe is its health, not a timer — green, then amber, then red.',
   'A Bow drops the markup traders charge you; at Frost tier you buy at par.',
   'A Ring nudges chest loot up a tier. It is never sold or forged — the wizard is the only source.',
@@ -789,8 +794,9 @@ const RELIC_DEFS = {
              effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
-  // are ranged — they fire on their own, once a second along the compass, while
-  // an enemy is on screen. All three still speed the crow/deer hunt wheel by
+  // are ranged — they fire on their own, once a second, while an enemy is on
+  // screen: the bow along the compass, the staff at the nearest foe in range.
+  // All three still speed the crow/deer hunt wheel by
   // tier. On top of the fighting, the Sword raises sell values and the Bow
   // lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
@@ -798,7 +804,7 @@ const RELIC_DEFS = {
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots foes on screen · better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'hunt',          blurb: 'ranged: auto-shoots foes on screen' },
+             effectKey: 'hunt',          blurb: 'ranged: auto-shoots the nearest foe on screen · bigger bolt per tier' },
   // Watering can — when equipped, every watering tap on a crop "improves" it.
   // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
   // next 50 watering uses get an extra +2 tiers of bonus stacked on top.
@@ -839,13 +845,6 @@ const ARMOR_DEFS = {
   legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150, energyPerTier: 15 },
   boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost:  80, energyPerTier:  8 },
 };
-// Helper: relic-or-armor item id (e.g. 'relic_pick_3' for an Iron pickaxe).
-function gearId(kind, slot, tier) { return `${kind}_${slot}_${tier}`; }
-function parseGearId(id) {
-  const m = /^(relic|armor)_(\w+?)_(\d+)$/.exec(id);
-  if (!m) return null;
-  return { kind: m[1], slot: m[2], tier: +m[3] };
-}
 function gearDef(kind, slot) {
   return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);
 }
@@ -1038,6 +1037,27 @@ function steerEnergyCost(relics) {
 function sellMultiplier(relics) {
   const t = relics?.sword?.tier || 0;
   return 0.5 + (t / 7) * 0.5;
+}
+// The TRAILER (home) is the only place a haul can be cashed out, so what it
+// pays IS the sell economy — a haul is worth exactly what home hands over.
+// That payout is a 25% haircut off the sword-scaled price: the sword ladder
+// above still governs how much better selling gets as the player levels, this
+// only sets where the whole ladder sits. It is deliberately a separate number
+// from sellMultiplier so the stand's anti-arbitrage floor (shops_math.js
+// standBuyMul, which prices off sellMultiplier) is unaffected — a smaller
+// trailer payout only widens the margin that keeps buy-low-sell-high shut,
+// never narrows it.
+// One number, one place: every home sale goes through trailerSellPrice, so the
+// price the modal quotes and the cash addMoney pays can't drift apart.
+const TRAILER_SELL_MUL = 0.75;
+function trailerSellMultiplier(relics) {
+  return sellMultiplier(relics) * TRAILER_SELL_MUL;
+}
+// Cash the trailer pays for ONE unit of an item listed at baseValue. Ceil and
+// a $1 floor, same as every other price path — so a $1 item still sells for $1
+// and the haircut only bites above the floor.
+function trailerSellPrice(baseValue, relics) {
+  return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier(relics)));
 }
 // Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
 // share this discount, but it's been demoted to a pure combat weapon (it's a

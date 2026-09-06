@@ -12,7 +12,12 @@
 //   RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName
 //   POI_CATEGORY
 //   PAD_CATEGORIES, padShapeKeyForPoi
-//   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, chestTier
+//   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, CHEST_TIER_HOME_RINGS_M,
+//   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, chestTierHomeDrop,
+//   chestTierDepthBonus, chestTier
+//   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
+//   STAND_NEVER_CLASSES,
+//   standWordItem, standNameItems, produceStandFor
 //   WILD_TREASURE
 //
 // Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade),
@@ -218,15 +223,54 @@ const CHEST_TIER_BY_CATEGORY = {
   health: 3, civic: 3, farm: 3,
   flora: 4,
 };
-// Tier 1 = no gem (skipped at render). Tiers 2-4 are clearly distinct hues.
+// Tier 1 = no gem (skipped at render). Tiers 2-5 are clearly distinct hues.
 const CHEST_TIER_COLOR = {
   1: null,     // common — no gem drawn at all
   2: 0xe6e6e6, // off-white (10% greyer than pure white) — uncommon
   3: 0x5f89ff, // lighter blue (10% lighter than 0x4d7cff) — rare
   4: 0xc77dff, // violet — epic
+  5: 0xffc23d, // gold — legendary (only reached underground, see chestTier)
 };
-function chestTier(poiClass) {
-  return CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
+// Chests near Home are DEMOTED. The base tier above is what the POI class
+// promises; a chest standing inside one of these rings around the spawn origin
+// (HomeArea.worldM — the same world-metre frame every object's x/y lives in)
+// loses one tier per ring it is inside, cumulatively: within 700 m is one
+// tier down, within 350 m is two. The floor is T1, so a lowtier box (T1
+// already) is untouched and a T2 park chest within 700 m of Home reads and
+// pays as a plain box. Rings are radii in metres, largest first; the test in
+// test/node/chest_tier.test.js walks the boundaries.
+const CHEST_TIER_HOME_RINGS_M = [700, 350];
+// Tier drop for a chest at world-metres (x, y). 0 when the origin isn't
+// known yet (HomeArea.worldM null — a headless test or a pre-origin build).
+function chestTierHomeDrop(x, y) {
+  if (typeof HomeArea === 'undefined' || !HomeArea.worldM
+      || !Number.isFinite(x) || !Number.isFinite(y)) return 0;
+  let drop = 0;
+  for (const r of CHEST_TIER_HOME_RINGS_M) if (HomeArea.isNear(x, y, r)) drop++;
+  return drop;
+}
+// Chests UNDERGROUND are PROMOTED. Every surface POI chest is mirrored down
+// the cave levels (worldgen.js caveChestsFrom stamps `depth` on the copy),
+// and each CHEST_TIER_DEPTH_STEP levels down raise the chest one tier over
+// what it is on the surface — depth 1 is the surface tier, depth 2-3 one up,
+// depth 4-5 two up — capped at CHEST_TIER_MAX. T5 exists only down here: it
+// is the gold gem and the rarity.js chestTierMod[5] curve.
+const CHEST_TIER_MAX = 5;
+const CHEST_TIER_DEPTH_STEP = 2;
+function chestTierDepthBonus(depth) {
+  return Math.floor(Math.max(0, depth || 0) / CHEST_TIER_DEPTH_STEP);
+}
+// Effective tier (1-5) of a chest of POI class `poiClass` at world-metres
+// (x, y) on cave level `depth` (0 / omitted = surface). Every reader — the
+// sprite/gem in render.js, the loot roll in interactables.js — resolves the
+// tier through here so a chest can't draw as one tier and pay as another.
+// The Home demotion is applied and floored FIRST, then the depth bonus, so a
+// chest two levels under Home is still a tier better than the one overhead.
+// Omit x/y/depth for the class's plain base tier.
+function chestTier(poiClass, x, y, depth) {
+  const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
+  const surface = Math.max(1, base - chestTierHomeDrop(x, y));
+  return Math.min(CHEST_TIER_MAX, surface + chestTierDepthBonus(depth));
 }
 
 // === Themed produce / food stands ==========================================
@@ -247,80 +291,219 @@ const STAND_ITEM_FRAME = {
   // meat (red, 2)
   meat: 2,
   // fish (teal, 3)
-  salmon: 3, bass: 3, trout: 3, minnow: 3, goldenfish: 3,
+  salmon: 3, bass: 3, trout: 3, minnow: 3,
   // coffee / bakery (brown, 4)
   coffee: 4,
   // dairy / egg (pale yellow, 5)
   milk: 5, egg: 5,
   // flowers / garden (pink, 6)
-  flowers: 6,
+  flowers: 6, marigold: 6, wildrose: 6,
 };
-// Shop-name word → the item that stall sells. Lowercase, matched as whole
-// tokens of the POI name (split on non-letters). ~100 common words.
+// ── What a stall's SIGN says it sells, and what it actually sells ─────────
+// These have to agree. A stall's name is painted over it (render.js draws the
+// rusticified POI name), so the item behind the counter is a promise the sign
+// already made: a juice bar in a mall food court sold STEAK, because the name
+// scan found nothing it knew and fell through to the class guess for
+// fast_food. Two things went wrong there and both are fixed below — the scan
+// only matched whole words EXACTLY ("freshly" is not "fresh", "juices" is not
+// "juice"), and the first token to match won even when it was a word that says
+// nothing about the goods ("Fresh Fish Market" sold potatoes off "fresh").
+//
+// So the resolution is, in order:
+//   1. a SPECIFIC product word anywhere in the name  — "Freshly Squeezed" → orange
+//   2. the POI's class                               — an unnamed cafe    → coffee
+//   3. a GENERIC venue word anywhere in the name     — "Corner Market"    → potato
+// A product word beats everything, wherever it sits in the name, because it is
+// the one thing that describes the goods; between two product words the
+// leftmost wins (shop names lead with what they are). The CLASS outranks a
+// venue word because it is the more specific of the two — "Whole Foods Market"
+// is a supermarket that happens to have "market" in its name, and reading the
+// word instead of the class collapsed every such shop onto the same produce
+// stall. A venue word only speaks for a class that has nothing to say: the
+// generic `shop`, which is OSM's catch-all for retail it can't identify.
+//
+// Tokens are matched exactly first, then through a small suffix ladder
+// (standStem) so a plural or an -ery/-ly/-ed form of a word already in the
+// table resolves to it instead of falling through to the class guess. Only a
+// stem that lands ON a table key counts — nothing is invented.
+
+// Shop-name word → the item that stall sells, when the word names the GOODS.
+// Lowercase, matched as whole tokens of the POI name (split on non-letters).
 const STAND_KEYWORD_ITEM = {
   // fruit
   fruit: 'apple', fruits: 'apple', orchard: 'apple', apple: 'apple', apples: 'apple',
-  cider: 'apple', orange: 'orange', oranges: 'orange', citrus: 'orange', juice: 'orange',
+  cider: 'apple', orange: 'orange', oranges: 'orange', citrus: 'orange',
   peach: 'peach', peaches: 'peach', cherry: 'cherry', cherries: 'cherry',
   banana: 'banana', bananas: 'banana', mango: 'mango', tropical: 'mango',
   coconut: 'coconut', apricot: 'apricot', berry: 'berry', berries: 'berry',
-  smoothie: 'berry', jam: 'berry',
+  smoothie: 'berry', jam: 'berry', acai: 'berry', preserves: 'berry',
+  // juice — the whole idiom, not just the noun. A juice bar is named for the
+  // squeezing as often as for the fruit ("Freshly Squeezed", "The Juicery"),
+  // and every one of those was falling through to the class guess.
+  juice: 'orange', juicery: 'orange', juicer: 'orange', squeeze: 'orange',
+  squeezed: 'orange', pressed: 'orange', lemonade: 'orange', limeade: 'orange',
   // veg / grocer / pub-grub
-  grocer: 'potato', grocery: 'potato', greengrocer: 'potato', market: 'potato',
-  produce: 'potato', veg: 'potato', vegetable: 'potato', vegetables: 'potato',
-  veggie: 'potato', potato: 'potato', potatoes: 'potato', spud: 'potato',
-  chips: 'potato', fries: 'potato', organic: 'potato', harvest: 'potato',
-  fresh: 'potato', farmstand: 'potato', pub: 'potato', tavern: 'potato',
-  bar: 'potato', inn: 'potato', saloon: 'potato',
+  veg: 'potato', vegetable: 'potato', vegetables: 'potato', veggie: 'potato',
+  potato: 'potato', potatoes: 'potato', spud: 'potato',
+  chips: 'potato', fries: 'potato', chipper: 'potato',
   onion: 'onion', onions: 'onion', salad: 'cress', greens: 'cress',
   mushroom: 'mushroom', mushrooms: 'mushroom', fungi: 'mushroom',
-  nut: 'nut', nuts: 'nut',
+  nut: 'nut', nuts: 'nut', almond: 'nut', peanut: 'nut', cashew: 'nut',
   pizza: 'mushroom', pizzeria: 'mushroom', italian: 'mushroom', pasta: 'mushroom',
-  trattoria: 'mushroom',
+  trattoria: 'mushroom', ramen: 'mushroom', noodle: 'mushroom', noodles: 'mushroom',
+  pho: 'mushroom', udon: 'mushroom',
   // meat
   steak: 'meat', steaks: 'meat', ribeye: 'meat', grill: 'meat', grille: 'meat',
   bbq: 'meat', barbecue: 'meat', smokehouse: 'meat', butcher: 'meat', butchers: 'meat',
   meat: 'meat', meats: 'meat', burger: 'meat', burgers: 'meat', kebab: 'meat',
   deli: 'meat', sausage: 'meat', chop: 'meat', chophouse: 'meat', jerky: 'meat',
-  bacon: 'meat', ham: 'meat',
+  bacon: 'meat', ham: 'meat', rotisserie: 'meat', wings: 'meat', chicken: 'meat',
+  steakhouse: 'meat', grillhouse: 'meat', meatery: 'meat',
+  taco: 'meat', tacos: 'meat', taqueria: 'meat', burrito: 'meat', gyro: 'meat',
+  shawarma: 'meat', schnitzel: 'meat', charcuterie: 'meat',
   // fish
   fish: 'salmon', fishery: 'salmon', seafood: 'salmon', sushi: 'salmon',
   sashimi: 'salmon', fishmonger: 'salmon', oyster: 'bass', chippy: 'bass',
   catch: 'bass', salmon: 'salmon', trout: 'trout', bass: 'bass', cod: 'bass',
-  tuna: 'salmon',
+  tuna: 'salmon', poke: 'salmon', lobster: 'bass', crab: 'bass', shrimp: 'bass',
+  prawn: 'bass', clam: 'bass', mussel: 'bass', wharf: 'bass', tackle: 'minnow',
   // coffee / bakery
   cafe: 'coffee', coffee: 'coffee', espresso: 'coffee', latte: 'coffee',
   mocha: 'coffee', cappuccino: 'coffee', roast: 'coffee', bean: 'coffee',
   beans: 'coffee', brew: 'coffee', tea: 'coffee', teahouse: 'coffee',
   bakery: 'coffee', baker: 'coffee', bread: 'coffee', patisserie: 'coffee',
   pastry: 'coffee', cake: 'coffee', bun: 'coffee', donut: 'coffee',
+  doughnut: 'coffee', croissant: 'coffee', boulangerie: 'coffee', creperie: 'coffee',
+  bagel: 'coffee', muffin: 'coffee', scone: 'coffee', crumb: 'coffee',
+  // A BREWERY is beer, not a coffee brew — an exact key so it never stems
+  // down to `brew` and pours the player a cup of coffee.
+  brewery: 'potato', brewhouse: 'potato', brewing: 'potato', ale: 'potato',
+  alehouse: 'potato', lager: 'potato', beer: 'potato', pint: 'potato',
   // dairy / egg
   dairy: 'milk', milk: 'milk', creamery: 'milk', cheese: 'milk',
-  cheesemonger: 'milk', yogurt: 'milk', gelato: 'milk', icecream: 'milk',
+  cheesemonger: 'milk', yogurt: 'milk', gelato: 'milk', gelateria: 'milk',
+  icecream: 'milk', cream: 'milk', scoop: 'milk', sundae: 'milk',
+  sorbet: 'milk', custard: 'milk', chocolate: 'milk', creamy: 'milk',
+  chocolatier: 'milk', chocolaterie: 'milk', confectionery: 'milk',
+  candy: 'milk', sweets: 'milk', fudge: 'milk',
   egg: 'egg', eggs: 'egg', poultry: 'egg', henhouse: 'egg',
   // flowers / garden
   florist: 'flowers', flower: 'flowers', flowers: 'flowers', bloom: 'flowers',
   blossom: 'flowers', petal: 'flowers', nursery: 'flowers', garden: 'flowers',
-  botanic: 'flowers', bouquet: 'flowers', posy: 'flowers',
+  botanic: 'flowers', bouquet: 'flowers', posy: 'flowers', floral: 'flowers',
+  greenhouse: 'flowers', orchid: 'flowers', rose: 'flowers', tulip: 'flowers',
+  plant: 'flowers', plants: 'flowers',
+  marigold: 'marigold', marigolds: 'marigold', wildrose: 'wildrose',
+};
+// Words that say a place SELLS FOOD without saying what — a venue, an
+// adjective, a trade. They still theme a stall (a market with no product word
+// is a produce stall), but any product word in the same name outranks them,
+// which is what "Fresh Fish Market" needs to sell fish rather than potatoes.
+const STAND_GENERIC_ITEM = {
+  grocer: 'potato', grocery: 'potato', greengrocer: 'potato', market: 'potato',
+  marketplace: 'potato', produce: 'potato', organic: 'potato', harvest: 'potato',
+  fresh: 'potato', farmstand: 'potato', farmers: 'potato', natural: 'potato',
+  pub: 'potato', tavern: 'potato', bar: 'potato', inn: 'potato', saloon: 'potato',
 };
 // Fallback when the NAME has no product word but the POI's CLASS implies one.
+// Keys are POI CLASSES, so every one has to be a class POI_CATEGORY files under
+// a retail category and not on the never-a-shop list below — anything else is a
+// guess that can never fire (there is no `greengrocer` class in the tiles; that
+// word lives in the name table instead).
+//
+// EVERY CLASS SELLS SOMETHING DIFFERENT. Six of these used to collapse onto
+// potato and three more onto meat, so a street of unnamed shops was a row of
+// identical stalls — the fallback is what most stalls actually resolve by, so
+// the duplicates were most of the variety the player ever saw. One item each,
+// picked for what that kind of shop would put on the counter:
+//
+//   butcher       meat      the only butchery there is
+//   fast_food     potato    chips, the fast-food staple
+//   restaurant    mushroom  a cooked dish rather than a raw ingredient
+//   cafe          coffee    canonical
+//   bakery        egg       the baker's staple (there is no bread item)
+//   ice_cream     milk      the dairy it's churned from
+//   grocery       onion     the greengrocer's basket
+//   supermarket   apple     the produce aisle
+//   convenience   nut       the snack by the till
+//   alcohol_shop  berry     fruit wine — the closest the game grows to a still
+//   beer          cherry    a kriek; the game grows no grain to brew from
+//   florist       flowers   cut stems
+//   garden_centre marigold  a potted bloom, not a bouquet
+//
+// A name still outranks all of this (see standNameItem) — the class only
+// speaks for a shop whose sign says nothing about its goods.
 const STAND_CLASS_ITEM = {
-  butcher: 'meat', bakery: 'coffee', grocery: 'potato', greengrocer: 'potato',
-  supermarket: 'potato', convenience: 'potato', florist: 'flowers',
-  garden_centre: 'flowers', garden: 'flowers', ice_cream: 'milk',
-  cafe: 'coffee', fast_food: 'meat', alcohol_shop: 'potato', beer: 'potato',
+  butcher: 'meat', fast_food: 'potato', restaurant: 'mushroom',
+  cafe: 'coffee', bakery: 'egg', ice_cream: 'milk',
+  grocery: 'onion', supermarket: 'apple', convenience: 'nut',
+  alcohol_shop: 'berry', beer: 'cherry',
+  florist: 'flowers', garden_centre: 'marigold',
 };
 const STAND_RETAIL_CATS = new Set(['food', 'commerce', 'flora']);
+// A stall is a SHOP. These classes land in a retail category for their LOOT
+// (a garden is a flora source, so it hands out flower seeds) but nobody is
+// behind a counter there — they stay crates. Checked before the name, because
+// the name is exactly what would fool it: a garden POI is called "…Garden"
+// almost by definition, and every flower word in it points at a stall.
+const STAND_NEVER_CLASSES = new Set(['garden']);
+
+// Suffix ladder: an ordered list of [suffix, replacement] tried against a token
+// that didn't match a table key outright. Longest/most specific first, so
+// "smoothies" reaches `smoothie` by dropping the 's' before "ies"→"y" can turn
+// it into a word nothing knows. A stem is only ever ACCEPTED if it lands on a
+// real key (see standWordItem), so an unlucky trim can't invent a product.
+const STAND_STEM_RULES = [
+  ['s', ''], ['es', ''], ['ies', 'y'], ['ly', ''], ['ry', ''], ['ery', ''],
+  ['ed', ''], ['d', ''], ['ing', ''], ['y', ''],
+];
+// The item a single name word implies, as { item, specific } or null.
+// Exact match first (both tables), then the same lookup over each stem.
+function standWordItem(tok) {
+  if (!tok) return null;
+  const look = (w) => {
+    if (STAND_KEYWORD_ITEM[w]) return { item: STAND_KEYWORD_ITEM[w], specific: true };
+    if (STAND_GENERIC_ITEM[w]) return { item: STAND_GENERIC_ITEM[w], specific: false };
+    return null;
+  };
+  const exact = look(tok);
+  if (exact) return exact;
+  for (const [suf, rep] of STAND_STEM_RULES) {
+    if (tok.length > suf.length + 2 && tok.endsWith(suf)) {
+      const hit = look(tok.slice(0, tok.length - suf.length) + rep);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+// What a whole POI name implies, as { specific, generic } — the leftmost
+// product word and the leftmost venue word, either of which may be null. They
+// come back separately because they sit on OPPOSITE sides of the class guess in
+// the ladder above, so the caller has to be able to tell them apart.
+function standNameItems(name) {
+  let specific = null, generic = null;
+  for (const tok of String(name || '').toLowerCase().split(/[^a-z]+/)) {
+    const hit = standWordItem(tok);
+    if (!hit) continue;
+    if (hit.specific) { specific = hit.item; break; }   // a product word ends the search
+    if (!generic) generic = hit.item;                   // remember the first venue word
+  }
+  return { specific, generic };
+}
+
 function produceStandFor(o) {
   if (!o || o.kind !== 'chest') return null;
+  // A POI's cave-level mirror (worldgen.js caveChestsFrom) is a plain chest:
+  // a fish stall three floors under the street is not a market.
+  if (o.depth > 0) return null;
   if (o._standCache !== undefined) return o._standCache;   // computed once per object
   let res = null;
-  if (STAND_RETAIL_CATS.has(POI_CATEGORY[o.poiClass])) {
-    let item = null;
-    // The shop's own branding wins; fall back to the class word.
-    const toks = String(o.name || '').toLowerCase().split(/[^a-z]+/);
-    for (const t of toks) { if (STAND_KEYWORD_ITEM[t]) { item = STAND_KEYWORD_ITEM[t]; break; } }
-    if (!item) item = STAND_CLASS_ITEM[o.poiClass] || null;
+  if (STAND_RETAIL_CATS.has(POI_CATEGORY[o.poiClass]) && !STAND_NEVER_CLASSES.has(o.poiClass)) {
+    // A product word in the shop's own branding wins; then what kind of shop it
+    // is; then, for a class that names no goods, a venue word from the name.
+    const named = standNameItems(o.name);
+    const item = named.specific || STAND_CLASS_ITEM[o.poiClass] || named.generic || null;
     if (item && STAND_ITEM_FRAME[item] !== undefined &&
         (typeof ITEM_BY_ID === 'undefined' || ITEM_BY_ID[item])) {
       res = { item, frame: STAND_ITEM_FRAME[item] };

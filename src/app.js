@@ -54,16 +54,44 @@ if (typeof window !== 'undefined') {
   window.TELEPORT_PRESETS = TELEPORT_PRESETS;
   window.TELEPORT_ACTIVE = _teleportOverride;
 }
-// Metres per degree of latitude (≈ constant everywhere). Longitude metres
-// additionally scale by cos(latitude). This is a rule-of-thumb scale — it is
-// NOT how a GPS fix reaches the map any more: that goes through the map's own
-// Web-Mercator projection (coords.js lonLatToLocalM), which is exact at any
-// distance from the origin. Kept because worldgen.js scatters small features
-// off the same number.
-const METERS_PER_DEG_LAT = 111320;
 const VIEW_CELLS = 11;
 const CELL_PX = 32;
+// How far above a lit cobble's centre the trail counter sits. Just over half a
+// cell, so the number clears the pebble it belongs to without floating off
+// into the cell above it.
+const TRAIL_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
+// How long a cobble has to stay IN SIGHT — inside the lit reach, continuously —
+// before it lights. Walking past a trail at the edge of the bubble no longer
+// harvests it in the frame it clips: the stones you bank are the ones you
+// actually spent a moment beside. Leave the reach and the clock restarts from
+// zero (see _sweepCobbleTrails); the same reset covers the auto-walk home,
+// which is the character moving itself and never the player looking.
+const PATH_STONE_DWELL_MS = 2000;
 const WALK_M_S = 1.4;
+// Auto-walk catch-up ramp (see _followStep): metres of body-to-target gap that
+// buy one extra × of walk pace. The body chases at (1 + dist / this) × walk,
+// capped at DEBUG_SPEED_MUL, so a small gap is closed at a stroll and a big one
+// at a run. It was one CELL (7 m) per ×, which put full speed 63 m out — most
+// of GPS_SNAP_M, so an ordinary walking fix landing 20-30 m ahead was chased at
+// half pace and the character spent the whole gap visibly behind the player.
+// 4 m per × reaches the cap at 36 m instead, which is inside the range a real
+// fix actually lands at. Not a cell multiple on purpose: this measures GPS lag,
+// which has nothing to do with the grid.
+const FOLLOW_RAMP_M = 4;
+// ─── The peek drag (see the PEEK DRAG block on the scene) ────────────────────
+// How far the camera may slide off the player, in cells. Three cells is a
+// little over half the 5.5-cell half-view: enough to see what the frame was
+// cutting off without the character leaving the map, and far inside the loaded
+// 3×3 tile neighbourhood every world pass scans.
+const PEEK_MAX_CELLS = 3;
+// Screen pixels a pointer must travel before it stops being a tap and becomes a
+// drag. Below this a finger that rolled a little on the way down still taps the
+// thing it landed on; above it nothing is tapped, however the drag ends.
+const PEEK_DRAG_SLOP_PX = 8;
+// Spring-back time constant once the finger lifts. An exponential ease, so this
+// is the 1/e time rather than a duration — the camera is home (sub-pixel) in
+// about 3× this.
+const PEEK_RETURN_MS = 90;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
@@ -116,6 +144,62 @@ const PROVISIONAL_ORIGIN_KEYS = ['starterCratesAt', 'starterPlotAt', 'starterHom
 // entirely. 25 km is well past a day's walk and well past any GPS error.
 const ORIGIN_STRANDED_M = 25000;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
+
+// ── Canvas resolution ─────────────────────────────────────────────────
+// W × H is the LOGICAL grid — the coordinate system every other line in this
+// codebase thinks in. It is NOT the canvas's pixel count.
+//
+// The canvas backing store is W × H times renderScale(), and the main camera is
+// zoomed by the same factor, so a logical point p lands at p × renderScale()
+// device px. That factor is the exact CSS→device ratio of the canvas
+// (index.html's fitGame transform × devicePixelRatio), which makes the backing
+// store exactly the size of the screen area the canvas covers: the browser
+// composites it 1:1, with no resampling step at all.
+//
+// Until then the canvas was a fixed 352×844 buffer that #game's CSS transform
+// blew up. On a DPR-3 phone that is under a third of the screen's linear
+// resolution, magnified by a FRACTIONAL factor with nearest-neighbour — so
+// every terrain cell edge, road band, building outline, progress ring and
+// label was drawn coarse and then re-chunked unevenly on the way to the glass.
+//
+// Sprites do not change in LOOK: pixel art magnified by renderScale() through
+// the pixelArt NEAREST filter is precisely what the CSS upscale was already
+// doing to them. What sharpens is everything drawn as geometry rather than as
+// a texture — which, on this screen, is most of it.
+//
+// The cap is a guard, not a tuning knob: every real device lands under it
+// (DPR 3 × the ~1.12 a 393-wide phone scales by is 3.35), and it only stops a
+// pathologically high DPR from asking the GPU for a 7-megapixel buffer.
+//
+// "1:1" is exact to within the buffer's own integer size: canvas.width/height
+// are integers, so H × RENDER_SCALE truncates (844 × 3.3494 = 2826.92 → 2826)
+// and the logical box's bottom edge falls a fraction of a device pixel outside
+// the buffer. Measured on a 393-wide DPR-3 phone that is 0.92 device px — a
+// third of a CSS px, at the bottom of the 844-tall box, which is HUD chrome
+// drawn in the DOM rather than on the canvas. There is no rounding that avoids
+// it: the canvas's LAYOUT box is fractional too, so an integer buffer sized to
+// anything else would be resampled to reach it.
+const RENDER_SCALE_MAX = 4;
+// Never below 1 — a viewport narrower than 352 CSS px still gets the full
+// logical grid rather than a canvas coarser than the one it replaced.
+function renderScale() {
+  const css = window.__gameCssScale || 1;      // published by index.html fitGame
+  const dpr = window.devicePixelRatio || 1;
+  return Math.min(RENDER_SCALE_MAX, Math.max(1, css * dpr));
+}
+// Live value: read by the pointer conversion below and re-applied on resize.
+// A `let` because devicePixelRatio changes when a window moves between
+// monitors and fitGame's scale changes on every resize and rotation.
+let RENDER_SCALE = renderScale();
+// Point a camera at the logical grid. Origin (0,0) makes Phaser's camera
+// matrix a PURE scale — with the default 0.5 origin the same result needs a
+// compensating scroll of (W/2)(1-zoom), a second number to keep in sync for no
+// gain. Scroll stays 0, so logical (x, y) is device (x·RENDER_SCALE, ···).
+function applyRenderScale(cam) {
+  cam.originX = 0;
+  cam.originY = 0;
+  cam.setScroll(0, 0).setZoom(RENDER_SCALE);
+}
 // How far above dead-centre every dialog rides (game px, in #game's 844-tall
 // box). Reserved as bottom padding on the shared modal wrap so the flex-centred
 // box lifts clear of the bottom inventory/HUD cluster. See makeModalShell —
@@ -168,7 +252,7 @@ const TOAST_TIER = {
 //
 // The label is the CATEGORY, not the specific offer — the flavour line under
 // it still carries that. Callers may override the label for a one-off outcome
-// ("MILL LANE complete") and keep the kind's icon; see showChestRewardModal.
+// ("30 cobbles walked") and keep the kind's icon; see showChestRewardModal.
 //
 // `supplies` exists because the tutorial's own material handout was opening as
 // TREASURE: the objective chip calls them supply crates, they render as the
@@ -255,6 +339,33 @@ const MONSTERS = {
   goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.0, minDepth: 2, weight: 3 },
   goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 0.8, minDepth: 3, weight: 2 },
 };
+// ── GIANTS ──────────────────────────────────────────────────────────────────
+// Every kind above has a GIANT form, `giant_<kind>`: GIANT_HP_MUL (4×) the HP,
+// introduced GIANT_DEPTH_STEP (2) levels deeper than its base kind, at half
+// the base kind's spawn share. Damage, range and speed are the base kind's —
+// it is a bigger, tougher body of the same foe, not a new one. Derived here
+// from the literal rather than authored, so a kind added above has a giant
+// the moment it has stats, and the doubling below reaches the giants too.
+// There is no giant art: SpriteLayout.creatureArt draws the base kind's sheet
+// at GIANT_ART_SCALE (1.8), and everything that seats on the body (wheel,
+// health bar, tap box, shadow) resolves through the same helper. For the
+// quest board and the Discovery ledger a giant is ITS OWN KIND — a giant
+// goblin job wants giant goblins, and an elite giant goblin banks its own
+// badge beside the elite goblin's (resolveDefeat credits victim.kind as-is;
+// quests.js QUEST_ENEMIES lists the giants). Its elite roll gets the +2 tier
+// of its deeper introduction for free (eliteRollBonus).
+const GIANT_HP_MUL = 4;
+const GIANT_DEPTH_STEP = 2;
+for (const [kind, m] of Object.entries(MONSTERS)) {
+  MONSTERS[`giant_${kind}`] = {
+    ...m,
+    name: `Giant ${m.name}`,
+    hp: m.hp * GIANT_HP_MUL,
+    minDepth: m.minDepth + GIANT_DEPTH_STEP,
+    weight: Math.max(1, Math.ceil((m.weight || 1) / 2)),
+    giant: kind,
+  };
+}
 // The first slime is the tutorial; everything past it is a real fight.
 //
 // The wild surface slime is the only enemy above ground and the first one
@@ -314,9 +425,12 @@ Combat.registerMonsters(MONSTERS);
 // kinds keep spawning; at the surface it contributes nothing.
 const ENEMY_COIN_PER_HP  = 1 / 5;
 const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
-function enemyBounty(kind, depth) {
+// `hpMul` is the instance's multiplier over the kind's HP — Combat.eliteMul:
+// an elite has twice the pool, so it pays twice the per-HP wage, by the same
+// rule that makes a goblin pay more than a slime.
+function enemyBounty(kind, depth, hpMul = 1) {
   if (!Combat.isEnemyKind(kind)) return 0;
-  return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * ENEMY_COIN_PER_HP))
+  return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP))
        + Math.floor(Math.max(0, depth || 0) * ENEMY_DEPTH_BONUS);
 }
 // Chance a defeated CAVE MONSTER also drops a buried-treasure roll — literally
@@ -327,6 +441,18 @@ function enemyBounty(kind, depth) {
 // something you turn up underground, and the surface slime in your potatoes is
 // not standing on one.
 const MONSTER_TREASURE_CHANCE = 0.10;
+// An ELITE (shiny) monster is a different deal: its kill ALWAYS pays past the
+// wage — a Discovery badge the first time that kind is slain, and after that
+// a roll on the relic-biased 'treasure:elite' pool (rarity.js), never the 10%
+// roll above. The roll's tier is COMMENSURATE with the foe: each level below
+// the first and each level of the kind's own introduction depth buys one
+// tier-only step (pickReward's opts.rollBonus), so a goblin archer (minDepth
+// 3) met at depth 3 rolls four steps higher than a cave slime at depth 1.
+const ELITE_TREASURE_CONTEXT = 'treasure:elite';
+function eliteRollBonus(kind, depth) {
+  const intro = Math.max(1, MONSTERS[kind]?.minDepth || 1);
+  return Math.max(0, (depth || 0) - 1) + (intro - 1);
+}
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
 // What a tame pet hunts (wanderCreatures' prey scan) — hoisted so the per-step
@@ -402,14 +528,25 @@ const DEBUG_SPEED_MUL = 10;
 //
 // HOME is the player's own block, which they are not discovering: the tutorial
 // pocket _placeStarterTrail clears and curates (CLEAR_R = HomeArea.POCKET_CELLS)
-// AND the near half of the starter ring seated just outside it, so the trees
-// and rocks ringing the opening screen are lit rather than sitting under the
-// wash. It stays 10 even though the pocket is now 5 for exactly that reason —
-// a reveal cut back to the pocket would re-fog the ring. TRAIL is the margin
-// around each crate and the relic chest, wide enough that a crate reads as
-// sitting on ground rather than punched out of the dark, and narrow enough
-// that the map still opens up by being walked rather than by spawning.
-const HOME_REVEAL_CELLS = 10;
+// AND the first ring of scenery seated just outside it, so the trees and rocks
+// ringing the opening screen are lit rather than sitting under the wash.
+//
+// It is ONE CELL PAST WHAT THE PLAYER CAN SEE, and that is the whole rule:
+// the viewport is VIEW_CELLS (11) across with the player in the middle, so
+// sight reaches 5 cells and the fog starts at 6 — visible at the corners of
+// the opening screen, a step away on every axis. Derived from VIEW_CELLS, not
+// picked: floor(VIEW_CELLS / 2) + 1, kept as a literal only because the node
+// harness lifts these constants out of the source text (test/node/run.js).
+// It was 10 until Sep 2026 — nearly two screens of free map, so a new save
+// opened with no fog anywhere in frame and the feature only announced itself
+// several streets from home. Anything BELOW 6 is the other bug: the reveal
+// stops short of the rendered frame and the player spawns inside a ring of
+// wash around their own house (both bounds are pinned in fog.test.js).
+// TRAIL is the margin around each crate and the relic chest, wide enough that
+// a crate reads as sitting on ground rather than punched out of the dark, and
+// narrow enough that the map still opens up by being walked rather than by
+// spawning — it is what carries the sightline chain now that HOME does not.
+const HOME_REVEAL_CELLS = 6;
 const TRAIL_REVEAL_CELLS = 5;
 // How close a road or path has to pass to the starting anchor for the supply
 // crates to be laid along its shoulder instead of spread down the walk to the
@@ -421,6 +558,29 @@ const TRAIL_REVEAL_CELLS = 5;
 const NEAR_ROAD_CELLS = 6;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
+// FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
+//
+// The dots were round and 3px, dropped dead on the body's centreline — one
+// track of pebbles, which read as a dotted line rather than as somebody having
+// walked past. These four numbers turn them into prints: smaller, oval, laid
+// along the step, and alternating either side of the line of travel like a
+// real pair of feet.
+//
+// The stance is MEASURED, not picked: in Walk.png's 32px frame the two feet
+// sit at x ≈ 14.2 and ≈ 17.8 on the bottom art row, i.e. ±1.8px either side of
+// the midline. Scaled by playerScale at draw time, that is where the sprite's
+// own feet are, so a print lands under the foot that made it.
+const FOOT_DOT_R = 3 * 0.7;          // was a flat 3px circle — 30% smaller now
+const FOOT_DOT_LONG = FOOT_DOT_R * 1.15;   // semi-axis ALONG the step…
+const FOOT_DOT_ACROSS = FOOT_DOT_R * 0.8;  // …and across it: a slight oval, not a slot
+const FOOT_STANCE_HALF_ART_PX = 1.8; // half the sprite's stance, in frame px
+// How far the walker's visible FEET sit below the centre of its 32px frame, in
+// TEXTURE px — a fact about the art, like the stance above, not about the size
+// it happens to be drawn at. Measured as a 14px drop back when the sprite drew
+// at 1.35×, so 14/1.35 ≈ 10.37 px in the frame itself; kept as the division so
+// the measurement stays legible. playerFeetNudgeY multiplies it by whatever
+// playerScale is, which is what keeps the feet on the GPS fix at any scale.
+const PLAYER_FEET_DROP_PX = 14 / 1.35;
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
@@ -448,6 +608,13 @@ const WALK_HOME_IDLE_MS = 5000;
 // interrupted nudge from reading as the character fighting you — and the last
 // stretch is at normal walking speed.
 const WALK_HOME_RAMP_MS = 1100;
+// The walk home is a little BRISKER than a stick walk. The player has already
+// stopped and is watching the character close a gap they didn't ask for frame
+// by frame, so the return should read as purposeful, not as the same stroll
+// that opened it — but it is still a walk (the too-far case below places the
+// body outright), so it stays well under the 2× that would read as running.
+// Multiplies the stick pace (walk × amulet) once the ramp is at full.
+const WALK_HOME_SPEED_MUL = 1.5;
 // ...and how long before the walk home SHOWS ITSELF (_drawWalkHomeHint). The
 // hint is deliberately quieter than the walk: a player who has just let go of
 // the stick knows perfectly well what the character is doing, so the lead line
@@ -498,7 +665,6 @@ if (typeof window !== 'undefined') {
 // reach outline is tappable, regardless of where in the cell the player stands.
 // 16m = √(5² + 15²) + ε, just enough to include (±1, ±3) and (±3, ±1) so the
 // reach silhouette is a rounded square rather than a strict 3-cell diamond.
-const REACH_FAR_M       = 16;
 
 // --- Economy tuning ---
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
@@ -625,16 +791,24 @@ function isTillable(type) { return !NON_TILLABLE.has(type); }
 // street. Takes a cellAt() result; a stub cell without underRoad (tests)
 // behaves exactly like the old type-only check.
 function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
-// Building interior cells — small house, fort, civic slab. Used for the
-// "rest inside to recover energy" loop (slow, opt-in regen while indoors).
+// Trail stones are keyed by TILE-LOCAL ix_iy (per the worldgen rasterize
+// loop) while their callers (_isPathStoneActive / _activatePathStone) are
+// handed ABSOLUTE cell coords. Strip the tile-origin offset; N rides along
+// because the caller indexes the grid with it.
+function pathStoneLocal(entry, ix, iy) {
+  const N = entry.cellsPerEdge;
+  return { lix: ((ix % N) + N) % N, liy: ((iy % N) + N) % N, N };
+}
+// Building interior cells — small house, fort, civic slab. Standing on one is
+// how a real adopted HOME is recognised (isRestingAtHome); it is not by itself
+// a rest spot any more.
 const BUILDING_TYPES = new Set([9, 11, 12]);
-// Indoor resting fills the full energy bar in this many seconds while the
-// player stands on a building cell. Slower than active food, fast enough to
-// matter — sitting for ~5 minutes recovers from empty.
-const INDOOR_FULL_REST_S = 300;
-// Resting AT Home (the starter shop / trailer) is much faster than any other
-// building — a full bar in 90s (~3.3× the indoor rate). The hearth bonus: your
-// own place recovers you quickly. See isRestingAtHome + the rest loop in update.
+// Resting AT Home (the starter trailer / adopted home shop) fills the bar in
+// this many seconds. YOUR OWN PLACE IS THE ONLY BUILDING THAT RESTS YOU: every
+// building cell used to regenerate energy at INDOOR_FULL_REST_S (300s), which
+// made a home no more than a faster version of the nearest stranger's roof and
+// meant a town was one continuous rest spot. A campfire (FIRE_FULL_REST_S)
+// covers the out-in-the-wild case; going home covers the rest.
 const HOME_FULL_REST_S = 90;
 // Resting near a lit campfire (burned from a coal on bare ground) refills the
 // bar outdoors, but slowly — a full bar in 6 min (slower than any building).
@@ -656,10 +830,14 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // linearly) now lives with the offline-rest formula in energy.js as
 // Energy.OFFLINE_FULL_REST_MS.
 
-
-
-
-// Chests pick a tier (weighted), then a random seed within that tier. Yield depends on tier.
+// Chest tiers are not rolled: a chest's tier (1-4) is a fixed lookup from its
+// OSM POI class via loot.js › chestTier (POI_CATEGORY → CHEST_TIER_BY_CATEGORY),
+// demoted a tier for each Home ring the chest stands inside (700 m / 350 m,
+// CHEST_TIER_HOME_RINGS_M, floor T1), then raised one tier per two cave
+// levels down (CHEST_TIER_DEPTH_STEP, cap T5) for the POI's underground
+// mirrors (worldgen.js caveChestsFrom). The tier drives the sprite/gem in
+// render.js and the chestTierMod loot curve in rarity.js; only the loot roll
+// itself is random.
 
 // Tool slots the starter blacksmith can forge a wooden (T1) relic for. All
 // six have wooden-tier art via gearAssetPath. The smithy picks 2 at random
@@ -839,65 +1017,12 @@ class MapScene extends Phaser.Scene {
     // frame (which fades the overlay out and hands off to the in-world
     // unmapped-tile shimmer for whatever tiles are still loading).
     this.load.on('progress', (p) => window.__bootStatus?.(p * 0.85, 'Unpacking supplies…'));
-    this.load.spritesheet('idle', 'assets/Character/Idle.png',  { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('walk', 'assets/Character/Walk.png',  { frameWidth: 32, frameHeight: 32 });
-    // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
-    // row 0 (frames 0-7) is the wing-flap we loop while transformed.
-    this.load.spritesheet('dragon', 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', { frameWidth: 96, frameHeight: 96 });
-    this.load.spritesheet('trees','assets/Objects/Maple Tree.png', { frameWidth: 32, frameHeight: 48 });
-    this.load.image('house',       'assets/Objects/House.png');
-    this.load.image('stair_down',  'assets/Objects/stair_down.png?v=2');
-    this.load.image('stair_up',    'assets/Objects/stair_up.png?v=1');
-    // House.png is a tileset (two houses + detail bits). Register a single
-    // "front" frame for the right-hand cabin so we only render that.
-    this.load.once('filecomplete-image-house', () => {
-      this.textures.get('house').add('front', 0, 148, 3, 72, 95);
-    });
-    // Chicken is loaded by the ASSETS catalog below (16×16 — see assets.js).
-    // A manual load.spritesheet('chicken', ..., 32×32) here used to shadow
-    // assets.js because Phaser's loader keeps the first config queued for a
-    // given key. The resulting 32×32 frame was actually a 2×2 grid of
-    // 16×16 chickens, so every spawned creature rendered as four. Don't
-    // re-add this line — let ASSETS own the framing.
-    this.load.spritesheet('cow',     'assets/Farm Animals/Female Cow Brown.png', { frameWidth: 32, frameHeight: 32 });
-    // Pet body sheets — 32×32 RPG-Maker-style anim grids (4 cols × 12-13 rows).
-    // Row 0 is the down-walk cycle, which we loop as the idle anim. Source
-    // PNGs are copied out of the gitignored Sprites/ dump into Objects/Pets/
-    // so the tree builds without the raw asset pack (same pattern as
-    // Objects/Wilderness/). Originals were Sprites/Animals/Pets/Cats/1/Ginger.png
-    // and Sprites/Animals/Pets/Dogs/Premade/4/1.png (grey); swap with sibling
-    // sheets from those folders if we ever want colour variety.
-    this.load.spritesheet('cat', 'assets/Objects/Pets/cat.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('dog', 'assets/Objects/Pets/dog.png', { frameWidth: 32, frameHeight: 32 });
-    // trunk.png: 32x64, two 32x32 frames stacked. Frame 0 = closed, frame 1 = open (lid up).
-    this.load.spritesheet('chest',   'assets/Objects/trunk.png',            { frameWidth: 32, frameHeight: 32 });
-    // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
-    // In-world growth: col 0 (sprout) → col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
-    this.load.spritesheet('crops',   'assets/Objects/Crops.png',            { frameWidth: 16, frameHeight: 16 });
-    // Spring Crops sheet (224×128, 14×8 of 16×16 frames). Used by crops whose
-    // art lives here (e.g. potato) — see CROP_SPRITE override below.
-    this.load.spritesheet('springcrops', 'assets/Objects/Spring Crops.png',  { frameWidth: 16, frameHeight: 16 });
-    // Source PNG has a solid white background — alpha-key near-white pixels to transparent.
-    this.load.once('filecomplete-spritesheet-crops', () => {
-      const tex = this.textures.get('crops');
-      const src = tex.getSourceImage();
-      const c = document.createElement('canvas');
-      c.width = src.width; c.height = src.height;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(src, 0, 0);
-      const data = ctx.getImageData(0, 0, c.width, c.height);
-      for (let i = 0; i < data.data.length; i += 4) {
-        if (data.data[i] > 240 && data.data[i+1] > 240 && data.data[i+2] > 240) {
-          data.data[i+3] = 0;
-        }
-      }
-      ctx.putImageData(data, 0, 0);
-      this.textures.remove('crops');
-      this.textures.addSpriteSheet('crops', c, { frameWidth: 16, frameHeight: 16 });
-    });
-    this.load.spritesheet('cobble',  'assets/Objects/Road copiar.png',      { frameWidth: 16, frameHeight: 16 });
-    // Walk the ASSETS catalog (assets.js) so wilderness textures, gem
-    // icons, scarecrow, shell sheet, etc. all preload. Without this loop
+    // EVERY texture comes from the ASSETS catalog (assets.js) — the character,
+    // the world sprites, the creature sheets, the icons. Nothing is loaded by
+    // hand here: Phaser's loader keeps the FIRST config queued for a key, so a
+    // manual load.spritesheet here shadowed the catalog's framing (the chicken
+    // rendered as four when it did), and a duplicate registered every onLoad
+    // handler twice. Add a texture to assets.js, not here. Without this loop
     // every reference in render.js / renderItemIcon falls back to the
     // __MISSING texture — visible as broken grey blocks for deer / rabbit
     // / mineralrock / etc., and item icons that should be sprites silently
@@ -973,7 +1098,9 @@ class MapScene extends Phaser.Scene {
         // count. Starts empty: the player's first potato seeds come from a
         // starter chest on the spawn trail (see STARTER_LOOT below).
         inv: [],
-        selSlot: 0,
+        // -1 = nothing in hand. The resting state: no pickup, tab switch,
+        // spend or boot ever picks an item for the player (see inventory.js).
+        selSlot: -1,
         invPage: 0,
         // Two-bar inventory: invCat is the active type tab (see INV_CATS);
         // selGear is the highlighted relic/armor slot when a gear tab is active
@@ -993,14 +1120,10 @@ class MapScene extends Phaser.Scene {
     // a save array below, so the HISTORY_CAP trim above actually sticks — build
     // a mirror from the pre-trim array and the next rewrite un-trims it.
     const needsMigrationPersist = SaveMigrate.migrate(this.save);
-    this.save.opened = this.save.opened || [];
     // Chests left for later because the bag was full: { [chestId]: {id, n} }.
     // The chest stays out of save.opened (so it still renders + reopens) and
     // remembers exactly what it rolled, so reopening can't re-roll the loot.
     this.save.chestHold = this.save.chestHold || {};
-    this.save.tilled = this.save.tilled || [];
-    if (this.save.money == null) this.save.money = STARTING_MONEY;
-    if (this.save.buyIndex == null) this.save.buyIndex = 0;
     this.tilledSet = new Set(this.save.tilled);
     this.save.brokenRocks = this.save.brokenRocks || [];
     this.brokenRockSet = new Set(this.save.brokenRocks);
@@ -1030,7 +1153,7 @@ class MapScene extends Phaser.Scene {
       this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
     }
     this.save.lastSeenAt = Date.now();
-    // Float accumulator for indoor resting — fractions of an energy point
+    // Float accumulator for resting at Home — fractions of an energy point
     // accrue here between integer-pip bumps to save.energy.
     this._restAccrueE = 0;
     // Mark relics dirty so the first updateRelicRow call actually rebuilds.
@@ -1058,11 +1181,19 @@ class MapScene extends Phaser.Scene {
     }
 
     this.cameras.main.setBackgroundColor('#222');
+    // Everything below this line is in LOGICAL px; the camera is what maps
+    // them onto the device-resolution canvas (see the note by W/H).
+    applyRenderScale(this.cameras.main);
     this.viewCenterX = W / 2;
     this.viewCenterY = H / 2 - 150;           // raise map clear of the TWO-bar inventory HUD (type tabs + item slots) and the Eat button beneath it
     this.viewLeft = this.viewCenterX - (VIEW_CELLS / 2) * CELL_PX;
     this.viewTop  = this.viewCenterY - (VIEW_CELLS / 2) * CELL_PX;
     this.viewSize = VIEW_CELLS * CELL_PX;
+    // Camera offset from the player, in metres — non-zero only while a peek
+    // drag is live or springing back. Set up here, with the rest of the view,
+    // so it exists before anything can draw; the drag that moves it and the
+    // rules it obeys are in the PEEK DRAG block further down.
+    this.peekM = { x: 0, y: 0 };
 
     const origin = WorldGen.lonLatToWorldPx(START_LON, START_LAT, WorldGen.Z);
     this.originPx = origin;
@@ -1075,22 +1206,30 @@ class MapScene extends Phaser.Scene {
     // draw. (src/fog.js owns the storage; the masks deliberately do NOT live on
     // the WorldGen tile-cache entries, which get evicted and re-rasterised.)
     Fog.init(this.save, this.cellsPerTile);
-    // Player sprite renders at scale 1.215 (32px frame, origin 0.5/0.5). Its
-    // visual feet sit ~14px below the sprite centre (same anchor as the
-    // footprint dot). The reach is cell-quantised and centres on the CELL the
-    // player stands in, so we offset the cell lookup down to the feet: 24px
-    // (0.75 cell) overshot into the cell to the SOUTH (reach appeared a cell
-    // low); 14px (~0.44 cell) keeps the lookup in the feet's own cell so the
-    // reach centres on the player. ~2.6m.
-    this.feetOffsetM = (14 / CELL_PX) * this.cellM;
+    // THE FEET ARE ON THE FIX. playerM is the GPS position, and the player
+    // sprite is seated so its visible feet land exactly on it (see
+    // playerFeetNudgeY below) — so the ground under your real position is the
+    // ground the character is standing on. Until Sep 2026 the sprite was
+    // CENTRED on the fix and the feet hung 14px (3 m) south of it: standing on
+    // a road's centreline put the band through the character's waist and the
+    // feet on the south shoulder, and the whole map read as shifted north of
+    // where you were. feetOffsetM is the metres the feet sit south of playerM;
+    // it is kept as a field because every reach / collision / stair site adds
+    // it, and it is now 0 by construction. If you are tempted to seat the feet
+    // below the fix again and compensate here, that is the bug coming back.
+    this.feetOffsetM = 0;
+    // Screen pixels per cell, published for modules that size sprite boxes in
+    // metres (interact.js' creature hit-test) without an app.js global.
+    this.cellPx = CELL_PX;
     // Reach RADIUS is now computed dynamically in coords.js (reachRadiusM): it
     // starts at 2.5 cells and grows to 5.5 via Inner Light upgrades.
     // NOTE: object/creature/wildplant taps share the SAME reach radius as cell
     // taps — interact.js' tooFar gate now reads coords.js reachRadiusM (the
     // dynamic 2.5..5.5-cell radius), NOT a fixed distance, so the lit
     // reach indicator and the tap-accept gate stay in lock-step at every reach
-    // tier. REACH_FAR_M (16m) survives only as a fallback if that helper is
-    // somehow unavailable. Tap PRECISION — how exactly your tap must land on
+    // tier — and it is the ONLY reach gate; the Euclidean one it replaced is
+    // gone rather than kept behind a guard. Tap PRECISION — how exactly your
+    // tap must land on
     // the target — is a separate question, answered by cell membership
     // (interact.js), and is independent of how far the player can reach.
     this.startWorldM = {
@@ -1209,7 +1348,6 @@ class MapScene extends Phaser.Scene {
       cx.drawImage(src, fx, fy, frameW, frameH, 0, 0, frameW, frameH);
       return c.toDataURL();
     };
-    const bakeCanvas = (key) => this.textures.get(key)?.getSourceImage()?.toDataURL?.() || null;
     // Longgrass (display name "Long grass") — bake frame 10 of the 'props'
     // sheet (col 11 row 1 in 1-indexed coords = leafy green frond). Same
     // sprite as the in-world wildplant via CROP_SPRITE.longgrass.frame.
@@ -1255,7 +1393,6 @@ class MapScene extends Phaser.Scene {
     this.borderContainer = this.add.container(0, 0); // scrolled each frame for sub-cell offset
     this.borderGfx = this.add.graphics();  // biome-boundary borders — only redrawn on cell crossing
     this.borderContainer.add(this.borderGfx);
-    this.terrainContainer = this.add.container(0, 0);
     // Original OSM road geometry (road_overlay.js) — the raw vector linework
     // the rasterizer turned into road/path cells, as a muted brown band. Sits
     // above the terrain + biome borders but BELOW the cobbles: the linework is
@@ -1306,37 +1443,22 @@ class MapScene extends Phaser.Scene {
     // while trees, houses and creatures stay at full contrast on top of it.
     // Painted in Render.drawCells; see BiomeProfiles.atmos for the palette.
     this.atmosGroundGfx = this.add.graphics();
-    // LIGHTING — the out-of-reach dim, the underground torch wash, the
-    // low-energy pink tint and the white reach outline. It sits here, ABOVE
-    // every piece of ground decoration (biome seams, cobbles, road letters,
-    // treasure pads, shadows, the haze) and BELOW the standing sprites,
-    // because "outside the lit area" has to mean the whole ground goes dark —
-    // not just the flat terrain fill. POI halos are the one ground element
-    // that sits ABOVE this layer instead — see the note where
-    // poiHaloContainer is created just below, right after this one.
+    // REACH — the unmapped-tile reveal and the white reach OUTLINE, the tap
+    // affordance. It sits here, ABOVE every piece of ground decoration (biome
+    // seams, cobbles, road letters, treasure pads, shadows, the haze) so the
+    // outline is never covered by the ground it marks, and BELOW the standing
+    // sprites so a tree stands over it.
     //
-    // These passes used to live in cellGfx, the bottom-most layer, so the dim
-    // could only reach the base colour: biome BOUNDARIES in particular stayed
-    // at full brightness outside the lit area and read as glowing seams in the
-    // dark. (The distance falloff hit the same wall and was moved above the
-    // sprites for it; this is the same bug one layer down.) Sprites stay at
-    // full contrast on purpose — see the note on atmosGroundGfx above — and
-    // distance, not reach, is what dims them, via atmosFalloffGfx.
+    // Until Sep 2026 this was the LIGHTING layer too: the out-of-reach dim,
+    // the underground torch wash and the low-energy pink were fillRects here,
+    // below the sprites, which were deliberately exempt from the dim. The
+    // darkness moved to the lightMap (below, above the sprites) when the
+    // world gained more than one light — see src/lighting.js. What remains
+    // here is only the per-cell work a cookie can't do.
     this.reachGfx = this.add.graphics();
-    // POI halos — the slow ring "ping" under every live POI (render.js) — sit
-    // ABOVE the lighting layer, DELIBERATELY exempt from the out-of-reach dim
-    // every other ground layer gets. A halo's whole job is to read as a place
-    // "from across the map" (see render.js's POI-halo comment); crushing it
-    // under the same dim that swallows biome seams and cobbles defeats that —
-    // most of the visible grid sits outside the small reach radius at any
-    // moment, so the ping would only ever show right under the player's feet.
-    // It's still below worldContainer (so it doesn't draw over the chest
-    // itself) and below atmosFalloffGfx (so it still fades with sheer
-    // distance) — only the binary in-reach/out-of-reach dim is skipped. The
-    // ring's own texture is a transparent-centred band, so drawing it above
-    // padContainer here (instead of below, as before) doesn't hide the pad —
-    // the ring just crosses over the slab's rim as it expands.
-    this.poiHaloContainer = this.add.container(0, 0);
+    // (The POI halo layer — a ring "ping" under every live POI — lived here
+    // until Sep 2026. A live POI is a LIGHT now, breathing in the lightmap:
+    // Lighting.KINDS.poi.)
     // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
     // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
     // object sprites so towers on those edges read as standing IN FRONT of them
@@ -1392,15 +1514,28 @@ class MapScene extends Phaser.Scene {
     // Position in the display list is what does this, NOT setDepth: the
     // vignette's depth 90 would put it over the labels as well.
     this.atmosRimGfx = this.add.graphics();
-    // Atmosphere: the DISTANCE FALLOFF. Concentric rings deepening the
-    // out-of-reach dim with distance from the player (render.js drawCells).
-    // Sits beside the rim haze for the same reason and with the same
-    // constraint: after every world sprite, so distant OBJECTS recede along
-    // with the ground they stand on — in cellGfx (the bottom layer) it could
-    // only darken the base terrain fill, and objects at the rim stayed fully
-    // lit and read as stickers on dark ground. Still before labelContainer:
-    // POI name tablets are UI and must stay crisp at any distance.
-    this.atmosFalloffGfx = this.add.graphics();
+    // THE LIGHTMAP — every light in the world, composited in one texture and
+    // MULTIPLIED over everything below it (src/lighting.js). Each frame the
+    // texture is filled with the ambient darkness and every light source adds
+    // its baked cookie: the player's reach bubble with the distance falloff
+    // built in, Home, each restored building, each campfire.
+    //
+    // It sits AFTER every world sprite, so a house or a tree outside every
+    // light goes as dark as the ground it stands on — the same lesson the old
+    // falloff rings learned when they moved up from cellGfx (objects at the
+    // rim read as stickers on dark ground) — and BEFORE labelContainer: POI
+    // name tablets are UI and stay crisp in the dark. Exactly the viewport
+    // square, so it needs no geometry mask.
+    //
+    // A RenderTexture rather than Graphics because the passes it replaced —
+    // a fillRect per unlit cell, ~100 strokeCircle falloff rings — were all
+    // darkness, and darkness can't add up into a second light. Blend modes are what make it renderer-agnostic: ADD and
+    // MULTIPLY map to canvas composite operations, so the Canvas fallback
+    // draws the same picture. LINEAR filtering (WebGL) keeps the upscale from
+    // the logical grid to the device canvas from stepping the gradients.
+    this.lightMap = this.add.renderTexture(this.viewLeft, this.viewTop, this.viewSize, this.viewSize)
+      .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    try { this.lightMap.texture.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle
@@ -1440,11 +1575,6 @@ class MapScene extends Phaser.Scene {
       : this.textures.createCanvas('fogwash', fogPx, fogPx);
     this.fogImage = this.add.image(0, 0, 'fogwash').setOrigin(0, 0).setVisible(false);
     this.fogContainer.add(this.fogImage);
-
-    // Legacy terrain sprite pool — ground art is fully procedural now, so this
-    // is empty. Kept as a defined property so render.js's defensive length check
-    // continues to short-circuit without an undefined access.
-    this.terrainPool = [];
 
     // Noise overlay pool — one image per visible cell, set to a hashed noise frame.
     this.noisePool = [];
@@ -1505,6 +1635,7 @@ class MapScene extends Phaser.Scene {
     // ramparts); every other world object shares objectPool.
     this.towerPool = [];
     this.castleFlagPool = [];   // the claimed-castle banner, one per castle
+    this.fruitPool = [];        // ripe fruit worn on a bearing fruit tree's crown (render.js)
     this.plantedPool = [];
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
@@ -1513,7 +1644,6 @@ class MapScene extends Phaser.Scene {
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
-    this.poiHaloPool = [];    // slow pulsing glow under each live POI (render.js)
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
 
     // Bake the coin sprite: a 16×16 gold disc with a soft outline + highlight.
@@ -1569,27 +1699,6 @@ class MapScene extends Phaser.Scene {
     };
     bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
     bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
-    // POI marker: a thick soft-edged RING (not a filled disc like the warning
-    // halos above) that render.js expands outward and fades as it grows — a
-    // "ping" rather than a breathing glow. Drawn as concentric strokes whose
-    // alpha follows a triangular feather peaking at the middle of the band,
-    // so both the inner and outer edge of the ring soften instead of hard-
-    // cutting. Treasure blue-white (spec §UI COLOUR LANGUAGE), matching the
-    // pale pad it rings out from — a gold ring under a blue-white slab would
-    // read as two different signals for the same thing.
-    if (!this.textures.exists('halo_poi')) {
-      const rg = this.make.graphics({ x: 0, y: 0, add: false });
-      const C = 32, steps = 24, outerR = 30, bandW = 9;
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;                        // 0 → inner edge of band, 1 → outer edge
-        const r = outerR - bandW + bandW * t;
-        const feather = 1 - Math.abs(t - 0.5) * 2;   // 0 at both edges, 1 at band centre
-        rg.lineStyle(2, 0xcfe2ff, 0.65 * feather);
-        rg.strokeCircle(C, C, r);
-      }
-      rg.generateTexture('halo_poi', 64, 64);
-      rg.destroy();
-    }
     // GPS crosshair — the marker at your REAL (GPS) position (see gpsGhost
     // below). An open ring with four ticks crossing it, deliberately NOT a
     // filled disc: a small gold disc IS a coin in this game, and the map is
@@ -1653,20 +1762,35 @@ class MapScene extends Phaser.Scene {
       fg.generateTexture('castle_flag', 16, 18);
       fg.destroy();
     }
-    // Activated path-stone art. A claimed stone used to just jump to full
-    // opacity — the same grey pebble, only less see-through, which barely
-    // read as "claimed" next to the unclaimed ones. Bake a genuinely
-    // recoloured copy of the same frame (source-atop clips the tint to the
-    // stone's own silhouette, then a multiply pass re-lays the original
-    // shading on top so it still reads as carved stone, not a flat sticker)
-    // instead of setTint(), which is a no-op under the Phaser Canvas
-    // fallback — see the halo note above. Treasure blue-white (spec §UI
-    // COLOUR LANGUAGE): a claimed stone is progress toward a world reward
-    // (the path's coin milestones + completion chest), the same family as
-    // the POI pad/halo it shares that meaning with.
-    if (!this.textures.exists('cobble_path_active')) {
-      const srcFrame = this.textures.getFrame('cobble', PATH_FRAME);
-      if (srcFrame && typeof document !== 'undefined') {
+    // LIT cobble art. A claimed stone used to just jump to full opacity —
+    // the same grey pebble, only less see-through, which barely read as
+    // "claimed" next to the unclaimed ones. Bake a genuinely recoloured copy
+    // of the same frame (source-atop clips the tint to the stone's own
+    // silhouette, then a multiply pass re-lays the original shading on top so
+    // it still reads as carved stone, not a flat sticker) instead of
+    // setTint(), which is a no-op under the Phaser Canvas fallback — see the
+    // halo note above.
+    //
+    // Saturated VIOLET (UI_TRAIL_LIT), not the pale blue-white this started
+    // as, and the multiply that re-lays the shading is lighter (0.45, was
+    // 0.75) so the stone keeps its carving without being dragged back down to
+    // grey. That still lands inside the treasure/powerup blue role (spec §UI
+    // COLOUR LANGUAGE) — a lit cobble is progress toward a world reward — it
+    // just no longer reads as "slightly whiter gravel" from across the
+    // viewport, nor as another shade of the water it may run beside. The
+    // counter over the stone is drawn in the same constant, so the two can
+    // never drift.
+    //
+    // One copy PER FRAME (litCobbleTexKey, render.js): the three vehicle-road
+    // tiers each draw a different cluster from Road copiar.png and roads are
+    // claimable trails now, so a single shared key would light a motorway
+    // with a footpath's lone pebble.
+    if (typeof LIT_COBBLE_FRAMES !== 'undefined' && typeof document !== 'undefined') {
+      for (const f of LIT_COBBLE_FRAMES) {
+        const key = litCobbleTexKey(f);
+        if (this.textures.exists(key)) continue;
+        const srcFrame = this.textures.getFrame('cobble', f);
+        if (!srcFrame) continue;
         const img = srcFrame.source.image;
         const cw = srcFrame.cutWidth, ch = srcFrame.cutHeight;
         const cvs = document.createElement('canvas');
@@ -1674,14 +1798,14 @@ class MapScene extends Phaser.Scene {
         const cctx = cvs.getContext('2d');
         cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
         cctx.globalCompositeOperation = 'source-atop';
-        cctx.fillStyle = '#bfe8ff';
+        cctx.fillStyle = UI_TRAIL_LIT;
         cctx.fillRect(0, 0, cw, ch);
         cctx.globalCompositeOperation = 'multiply';
-        cctx.globalAlpha = 0.75;
+        cctx.globalAlpha = 0.45;
         cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
         cctx.globalAlpha = 1;
         cctx.globalCompositeOperation = 'source-over';
-        this.textures.addCanvas('cobble_path_active', cvs);
+        this.textures.addCanvas(key, cvs);
       }
     }
     // Shiny sparkle marker — a 4-point gold glint floated above rare shiny
@@ -1718,12 +1842,10 @@ class MapScene extends Phaser.Scene {
     this.gridContainer.setMask(mask);
     this.noiseContainer.setMask(mask);
     this.borderContainer.setMask(mask);
-    this.terrainContainer.setMask(mask);
     this.cobbleContainer.setMask(mask);
     this.letterContainer.setMask(mask);
     this.roadGeomContainer.setMask(mask);
     this.buildingGeomContainer.setMask(mask);
-    this.poiHaloContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.shadowContainer.setMask(mask);
     this.atmosGroundGfx.setMask(mask);
@@ -1735,7 +1857,6 @@ class MapScene extends Phaser.Scene {
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);
-    this.atmosFalloffGfx.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
     this.fogContainer.setMask(mask);
@@ -1829,32 +1950,52 @@ class MapScene extends Phaser.Scene {
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
     //
-    // Scale 1.215 = 1.35 × 0.9 (sprite shrunk 10%). With the default 0.5/0.5
-    // origin the projected world position lands at the sprite CENTRE and the
-    // feet sat 14px below it at 1.35× (footprint anchor, see drawFootprints).
-    // That 14px is a texture offset of 14/1.35 ≈ 10.37px; at 1.215× the feet
-    // would ride up to 10.37 × 1.215 ≈ 12.6px below centre. Nudge every player
-    // sprite DOWN by the difference (~1.4px) so the feet — and the +14
-    // footprint anchor — stay exactly where they were.
-    this.playerScale = 1.215;
+    // ONE TEXTURE PIXEL, ONE GAME PIXEL. The walker's 32px frame draws at 32px
+    // — a whole cell wide, which is the size it has effectively been at since
+    // Sep 2026 anyway: the scale was 1.35 × 0.9 × 0.85 = 1.033, a product of
+    // three tuning passes that landed 3% from 1 and stayed there.
+    //
+    // That 3% was not free. Every other pixel on screen is drawn at an exact
+    // multiple of a texture pixel or as geometry; the walker alone was
+    // resampled at 1.033, so its pixels came out in irregular runs — some one
+    // device pixel wider than their neighbours, and the seam wandering as the
+    // sprite moved. At 1 the character is the crisp thing in the middle of the
+    // frame rather than the soft one. The 3% of height it gives up is not a
+    // size anyone was reading.
+    //
+    // Keep it at 1 unless the ART changes. Everything derived from it below
+    // (the feet nudge, the footprint stance) is written as a multiple of the
+    // scale, so a future change stays a one-line change.
+    this.playerScale = 1;
     // Dragon Powder skin: the 96×96 dragon frames are scaled down so the red
     // dragon reads a touch larger than the human walker without dwarfing the
     // map. Applied in _applyDragonSkin.
     this.dragonScale = 0.7;
-    this.playerFeetNudgeY = 14 - (14 / 1.35) * this.playerScale;
+    // FEET ON THE FIX: the projected world position (viewCentre for the local
+    // player, the fix's screen point for a peer) is where the FEET go, so
+    // every player sprite is drawn this much ABOVE its point — the negative
+    // of the feet drop. Anything that wants the sprite's body centre adds
+    // this to the point; anything on the ground (shadow, footprints, the GPS
+    // and target markers) sits on the point itself. It was +1.4 until Sep
+    // 2026 — sprite centred on the fix, feet 14px (3 m) south of it — which
+    // put the map a body-length north of where the player stood (see
+    // feetOffsetM in create()).
+    this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale;
     this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
       .setScale(this.playerScale)
       .setDepth(10)
       .play('idle-down')
       .setMask(mask);
     // Contact shadow under the player's feet. The player is camera-locked at
-    // viewCentre, so this never moves — it just sits at the footprint anchor
-    // (+14px, the same point drawFootprints drops its dots at). Depth 9.5:
-    // above the footprint trail (9) so a fresh dot can't sit on top of the
-    // shadow, below the character (10). Created here rather than in the
-    // per-frame pass because there is exactly one and it never relocates.
-    // 'bldg_shadow' is baked further up in create(), so it always exists.
-    this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY + 13, 'bldg_shadow')
+    // viewCentre, so this never moves — it just sits at the feet, which ARE
+    // viewCentre (a pixel above it, so the sole reads as resting on the
+    // shadow rather than cut by it — the same 1px the footprint dots keep).
+    // Depth 9.5: above the footprint trail (9) so a fresh dot can't sit on
+    // top of the shadow, below the character (10). Created here rather than
+    // in the per-frame pass because there is exactly one and it never
+    // relocates. 'bldg_shadow' is baked further up in create(), so it always
+    // exists.
+    this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY - 1, 'bldg_shadow')
       .setOrigin(0.5, 0.5)
       .setDisplaySize(17, 6)
       .setAlpha(0.34)
@@ -1871,12 +2012,16 @@ class MapScene extends Phaser.Scene {
     // Walk-target marker. Movement is target-follow at every depth: GPS fixes
     // and steering input move a free-flying target (this._targetM) and the
     // opaque body (this.player) walks toward it — underground it also passes
-    // through rock, which the body mines out. This small dot marks where the
-    // target is whenever it has pulled away from the body; it stays hidden once
-    // the two coincide. A plain marker, not a player-shaped sprite — the only
-    // player sprites on the map belong to real bodies (this.player, and any
-    // other live player — see multiplayer.js).
-    this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 5, 0xffffff, 0.55)
+    // through rock, which the body mines out. This small dot marks where that
+    // target is, UNDERGROUND ONLY: down there it's a cursor the player steers
+    // ahead of the dig. On the surface the target is the GPS fix, which the
+    // crosshair (gpsGhost) already marks, so the dot only read as a grey blob
+    // floating ahead of an auto-walking character — see the marker block in
+    // update(), which is the one place its visibility is decided. A plain
+    // marker, not a player-shaped sprite — the only player sprites on the map
+    // belong to real bodies (this.player, and any other live player — see
+    // multiplayer.js).
+    this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY, 5, 0xffffff, 0.55)
       .setStrokeStyle(1.5, 0x000000, 0.4)
       .setDepth(10)
       .setVisible(false)
@@ -1900,7 +2045,7 @@ class MapScene extends Phaser.Scene {
     // to real bodies — and not a filled dot either: gold and round at this
     // size is a coin, which is the one thing on this map you are meant to walk
     // over and collect. See the 'gps_crosshair' bake above.
-    this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'gps_crosshair')
+    this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY, 'gps_crosshair')
       .setOrigin(0.5, 0.5)
       .setDepth(9.8)
       .setVisible(false)
@@ -1944,11 +2089,13 @@ class MapScene extends Phaser.Scene {
     this.swordSwingGfx = this.add.graphics().setDepth(11).setMask(mask);
     this._swing = null;                // { startT, dir: {x,y} } while a slash is animating
     this._nextSwingT = 0;              // performance.now() ms the next swing may fire
-    // Footprint trail — small 50% grey dots dropped as the player moves, each
-    // fading 10% per new drop so ~5 are visible. Drawn under the player sprite.
+    // Footprint trail — small dark ovals dropped as the player moves, laid
+    // along the step and alternating left/right foot (see _fillFootprint),
+    // each fading 20% per new drop so ~5 are visible. Under the player sprite.
     this.footprintGfx = this.add.graphics().setDepth(9).setMask(mask);
-    this.footprints = [];               // [{ x, y, alpha }, …] in world meters
+    this.footprints = [];               // [{ x, y, alpha, ux, uy, side }, …], world metres
     this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
+    this._footSide = 1;                 // flipped on each drop: left, right, left…
 
     // Keyboard
     this.keys = this.input.keyboard.addKeys({
@@ -1975,12 +2122,59 @@ class MapScene extends Phaser.Scene {
     this._fastWalk = false;
     this.input.keyboard.on('keydown-F', () => { this._fastWalk = !this._fastWalk; });
 
-    // World tap (player handler runs first and stops propagation). Ping mode
-    // (multiplayer.js — "tap 📍, then tap the map") takes the tap first.
+    // World tap + PEEK DRAG. One pointer does both, and which one it was is
+    // only known when it lifts: a pointer that never travelled PEEK_DRAG_SLOP_PX
+    // is a tap and fires on the up (it used to fire on the down — the few ms
+    // between the two is not something a hand can feel, and it is the whole
+    // price of being able to drag). A pointer that DID travel drags the camera
+    // and taps nothing: you cannot chop a tree by sliding the map off it.
+    //
+    // Ping mode (multiplayer.js — "tap 📍, then tap the map") still takes the
+    // tap first, on the tap path only — a drag isn't a ping either.
+    this._peekPointerId = null;        // the one pointer that owns the drag
+    this._peekDragging = false;        // past the slop — this is a drag, not a tap
+    this._peekReturning = false;       // finger's gone, camera easing home
     this.input.on('pointerdown', (p) => {
-      if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, p.x, p.y)) return;
-      this.handleWorldTap(p.x, p.y);
+      // Second finger down mid-drag is left alone: the drag keeps the pointer
+      // it started with, and a pinch never becomes a tap. But only while that
+      // pointer is REALLY still down — a touch whose release never reached
+      // Phaser (the stuck-touch case the sweeper below exists for) would
+      // otherwise own the map forever and swallow every tap after it.
+      if (this._peekPointerId !== null && this._peekPointer?.isDown) return;
+      const down = this._gamePt(p);
+      this._peekPointer = p;
+      this._peekPointerId = p.id;
+      this._peekDownX = down.x;
+      this._peekDownY = down.y;
+      this._peekDragging = false;
+      this._peekReturning = false;     // a new grab cancels the spring-back
+      this._peekFromM = { x: this.peekM.x, y: this.peekM.y };
     });
+    this.input.on('pointermove', (p) => {
+      if (p.id !== this._peekPointerId || !p.isDown) return;
+      const at = this._gamePt(p);
+      const dx = at.x - this._peekDownX, dy = at.y - this._peekDownY;
+      if (!this._peekDragging && Math.hypot(dx, dy) < PEEK_DRAG_SLOP_PX) return;
+      this._peekDragging = true;
+      // Measured from where the camera was when the finger landed, so grabbing
+      // the map again mid-spring-back continues from there rather than jumping.
+      const k = CELL_PX / this.cellM;
+      this._setPeekFromDrag(dx - this._peekFromM.x * k, dy - this._peekFromM.y * k);
+    });
+    const endPeekPointer = (p) => {
+      if (p.id !== this._peekPointerId) return;
+      const wasDrag = this._peekDragging;
+      this._releasePeek();
+      if (wasDrag) return;             // dragged the map; nothing was tapped
+      const up = this._gamePt(p);
+      if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, up.x, up.y)) return;
+      this.handleWorldTap(up.x, up.y);
+    };
+    this.input.on('pointerup', endPeekPointer);
+    // A touch that ends off the canvas (or is stolen by the browser) never
+    // reaches 'pointerup'. Without this the drag would stay latched and the
+    // next tap would be swallowed as its release.
+    this.input.on('pointerupoutside', endPeekPointer);
 
     // Stuck-touch-pointer sweeper. Phaser frees a touch pointer only when its
     // touchend/touchcancel reaches its handlers with a matching identifier —
@@ -2000,6 +2194,11 @@ class MapScene extends Phaser.Scene {
       const sweep = (e) => {
         if (e.touches && e.touches.length) return;   // fingers still down
         setTimeout(() => {
+          // A peek drag whose finger left without a 'pointerup' (a cancelled
+          // touch, an event eaten on the way out) would stay latched and
+          // swallow the next tap as its release. The last finger is off the
+          // glass here, so let the camera spring home.
+          if (this._peekPointerId !== null) this._releasePeek();
           const pointers = this.input?.manager?.pointers;
           if (!pointers) return;
           for (const p of pointers) {
@@ -2658,9 +2857,9 @@ class MapScene extends Phaser.Scene {
     const tilePx = WorldGen.TILE_PX;
     const tx = Math.floor(wx / tilePx);
     const ty = Math.floor(wy / tilePx);
-    const cellPxSize = tilePx / this.cellsPerTile;
-    const cx = (wx - tx * tilePx) / cellPxSize;
-    const cy = (wy - ty * tilePx) / cellPxSize;
+    const cps = cellPxSize(this);
+    const cx = (wx - tx * tilePx) / cps;
+    const cy = (wy - ty * tilePx) / cps;
     return { tx, ty, cx, cy };
   }
 
@@ -2748,12 +2947,12 @@ class MapScene extends Phaser.Scene {
       // Safari in particular changes innerHeight as its toolbar collapses,
       // which moves the scale with it.
       try {
-        const g = document.getElementById('game');
-        const m = g && getComputedStyle(g).transform.match(/matrix\(([-\d.]+)/);
         const vv = window.visualViewport;
         out.push(`layout: inner=${window.innerWidth}x${window.innerHeight}`
           + (vv ? ` visual=${Math.round(vv.width)}x${Math.round(vv.height)}` : '')
-          + ` dpr=${window.devicePixelRatio} scale=${m ? (+m[1]).toFixed(4) : '?'}`
+          + ` dpr=${window.devicePixelRatio}`
+          + ` scale=${(window.__gameCssScale || 1).toFixed(4)}`
+          + ` canvas=${game.canvas.width}x${game.canvas.height}@${RENDER_SCALE.toFixed(2)}`
           + ` standalone=${!!(window.navigator.standalone
               || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))}`);
       } catch (_) {}
@@ -3150,7 +3349,7 @@ class MapScene extends Phaser.Scene {
     // PEST_FREE_CELLS). Resolved once per tile build; null once the grace has
     // lapsed, which is the common case.
     const pestFree = this._pestFreeZone(tx, ty);
-    const tryPlace = (kindWant, classesOK, idx, kindStr) => {
+    const tryPlace = (classesOK, idx, kindStr) => {
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
@@ -3205,8 +3404,8 @@ class MapScene extends Phaser.Scene {
       const primary  = new Set(cfg.primary);
       const fallback = new Set(cfg.fallback || cfg.primary);
       const primN = Math.round(n * (cfg.share ?? 0.8));
-      for (let i = 0; i < primN; i++) tryPlace(sp, primary,  i, sp);
-      for (let i = primN; i < n; i++) tryPlace(sp, fallback, i, sp);
+      for (let i = 0; i < primN; i++) tryPlace(primary,  i, sp);
+      for (let i = primN; i < n; i++) tryPlace(fallback, i, sp);
     }
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
@@ -3526,7 +3725,7 @@ class MapScene extends Phaser.Scene {
     // 10 while the ring started at 11), the cleared ground reached two screens
     // out — a whole screen further than the player can see — so the ring of
     // trees seated just past it was never once in frame. See home.js.
-    const CLEAR_R = (typeof HomeArea !== 'undefined' ? HomeArea.POCKET_CELLS : 5);
+    const CLEAR_R = HomeArea.POCKET_CELLS;
     const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
     const _isRealTree = (o) =>
       (o.kind === 'tree' || o.kind === 'fruittree') &&
@@ -3694,8 +3893,7 @@ class MapScene extends Phaser.Scene {
           rq.push([nx, ny]);
         }
       }
-      if (!target && far &&
-          farD >= (typeof HomeArea !== 'undefined' ? HomeArea.POCKET_CELLS : 10)) {
+      if (!target && far && farD >= HomeArea.POCKET_CELLS) {
         target = far; chestWant = farSh;
       }
       if (target) {
@@ -3711,64 +3909,48 @@ class MapScene extends Phaser.Scene {
     const trail = this._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, chestWant);
     const trailPath = trail && trail.path;
     dbg.push(trail ? `chest ok route=${trailPath ? trailPath.length : 0}` : 'CHEST NOT SEATED');
+    // Seat the COUNT crates along `path` (anchor end first), evenly spaced
+    // across its near TRAIL_SPAN — so on a typical route the four sit at
+    // roughly 2, 3, 5 and 6 cells out with the chest at 11, and no leg is long
+    // enough to lose the thread. Distance is measured ALONG the path, not
+    // across it: a route that bends round a pond still spaces its crates by
+    // how far the player actually walks. Each crate tries the cells at
+    // `offsets` from its path cell, in order, and slides up to three steps
+    // along the path either way when none of them will take it.
+    const seatAlong = (path, offsets) => {
+      const L = path.length - 1;         // steps from the anchor to the far end
+      let lastSeat = null;
+      for (let i = 0; i < COUNT; i++) {
+        const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
+        let seat = null;
+        for (let off = 0; off <= 3 && !seat; off++) {
+          for (const at of (off === 0 ? [want] : [want - off, want + off])) {
+            const p = path[at];
+            if (!p) continue;
+            for (const [adx, ady] of offsets) {
+              const cx = p.cx + adx, cy = p.cy + ady;
+              if (!seatOK(cx, cy)) continue;
+              if (lastSeat && Math.max(Math.abs(cx - lastSeat.cx),
+                                       Math.abs(cy - lastSeat.cy)) < TRAIL_GAP) continue;
+              seat = { cx, cy }; break;
+            }
+            if (seat) break;
+          }
+        }
+        if (!seat) continue;
+        seatCrate(seat.cx, seat.cy, i);
+        lastSeat = seat;
+      }
+    };
     if (kerbPath && kerbPath.length > 1) {
-      // Mode 1: crates down the kerb. Same packing as the route spread — the
-      // near TRAIL_SPAN of the walk, distance measured ALONG the road — but
+      // Mode 1: crates down the kerb. Same packing as the route spread but
       // every seat is a shoulder cell: beside the street, never in it.
-      const L = kerbPath.length - 1;
-      let lastSeat = null;
-      for (let i = 0; i < COUNT; i++) {
-        const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
-        let seat = null;
-        for (let off = 0; off <= 3 && !seat; off++) {
-          for (const at of (off === 0 ? [want] : [want - off, want + off])) {
-            const p = kerbPath[at];
-            if (!p) continue;
-            for (const [adx, ady] of [[0, -1], [0, 1], [1, 0], [-1, 0]]) {
-              const cx = p.cx + adx, cy = p.cy + ady;
-              if (!seatOK(cx, cy)) continue;
-              if (lastSeat && Math.max(Math.abs(cx - lastSeat.cx),
-                                       Math.abs(cy - lastSeat.cy)) < TRAIL_GAP) continue;
-              seat = { cx, cy }; break;
-            }
-            if (seat) break;
-          }
-        }
-        if (!seat) continue;
-        seatCrate(seat.cx, seat.cy, i);
-        lastSeat = seat;
-      }
+      seatAlong(kerbPath, [[0, -1], [0, 1], [1, 0], [-1, 0]]);
     } else if (trailPath && trailPath.length > COUNT) {
-      const L = trailPath.length - 1;         // steps from the anchor to the chest
-      let lastSeat = null;
-      for (let i = 0; i < COUNT; i++) {
-        // Evenly spaced across the near TRAIL_SPAN of the walk — so on a
-        // typical route the four sit at roughly 2, 3, 5 and 6 cells out with
-        // the chest at 11, and no leg is long enough to lose the thread.
-        // Distance is measured ALONG the route, not across it: a route that
-        // bends round a pond still spaces its crates by how far the player
-        // actually walks. A crate takes the route cell itself where it
-        // legally can, and steps one cell off it where it can't.
-        const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
-        let seat = null;
-        for (let off = 0; off <= 3 && !seat; off++) {
-          for (const at of (off === 0 ? [want] : [want - off, want + off])) {
-            const p = trailPath[at];
-            if (!p) continue;
-            for (const [adx, ady] of [[0, 0], [0, -1], [0, 1], [1, 0], [-1, 0]]) {
-              const cx = p.cx + adx, cy = p.cy + ady;
-              if (!seatOK(cx, cy)) continue;
-              if (lastSeat && Math.max(Math.abs(cx - lastSeat.cx),
-                                       Math.abs(cy - lastSeat.cy)) < TRAIL_GAP) continue;
-              seat = { cx, cy }; break;
-            }
-            if (seat) break;
-          }
-        }
-        if (!seat) continue;
-        seatCrate(seat.cx, seat.cy, i);
-        lastSeat = seat;
-      }
+      // Mode 2: crates along the route to the chest. A crate takes the route
+      // cell itself where it legally can, and steps one cell off it where it
+      // can't.
+      seatAlong(trailPath, [[0, 0], [0, -1], [0, 1], [1, 0], [-1, 0]]);
     }
     // Undirected kerb walk — the last road-shaped resort: neither the kerb
     // line nor the route spread seated anything (no chest could go down, or
@@ -3948,7 +4130,7 @@ class MapScene extends Phaser.Scene {
     // own ring reaches so the chest can never end up somewhere that reads as
     // "another neighbourhood" instead of "just off the opening screen".
     const RELIC_MIN_R = VIEW_CELLS;
-    const RELIC_MAX_R = (typeof HomeArea !== 'undefined' ? HomeArea.RING_MAX_CELLS : 16);
+    const RELIC_MAX_R = HomeArea.RING_MAX_CELLS;
     // Cells already spoken for — a crate seat, or anything standing on the
     // tile. Nothing but the chest may share the cell it seats on.
     const taken = new Set(usedSeats || []);
@@ -4398,35 +4580,30 @@ class MapScene extends Phaser.Scene {
     // loaded; an unloaded neighbour reads as unusable rather than being
     // guessed at, so nothing is ever seated into unseen water or road.
     // Returns null when the cell can't be resolved.
-    const gridAt = (cx, cy) => {
-      if (cx >= 0 && cy >= 0 && cx < N && cy < N) return grid[cy * N + cx];
+    //
+    // One resolver for both per-cell arrays: it finds the tile entry and the
+    // index of the cell in it, and `read(e, i)` picks the array (or answers
+    // `miss` when that tile hasn't got one). A neighbour tile that isn't ready
+    // reads as `miss` whichever array is asked for.
+    const cellAt = (cx, cy, read, miss) => {
+      if (cx >= 0 && cy >= 0 && cx < N && cy < N) return read(entry, cy * N + cx);
       const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
       const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
       const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
-      if (!e || !e.grid || (e.status && e.status !== 'ready')) return null;
+      if (!e || (e.status && e.status !== 'ready')) return miss;
       const nN = e.cellsPerEdge;
       const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
       const iy = Math.floor((wy - nty * this.tileEdgeM) / this.cellM);
-      if (ix < 0 || iy < 0 || ix >= nN || iy >= nN) return null;
-      return e.grid[iy * nN + ix];
+      if (ix < 0 || iy < 0 || ix >= nN || iy >= nN) return miss;
+      return read(e, iy * nN + ix);
     };
+    const gridAt = (cx, cy) => cellAt(cx, cy, (e, i) => (e.grid ? e.grid[i] : null), null);
     // The same lookup for the road FOOTPRINT (see entry.roadMask in worldgen):
     // the terrain code alone under-reports the road, because every way
     // rasterizes one cell wide however wide it really is and parking aisles
     // rasterize to nothing at all. Truthy = the cell is under a drawn road
     // band. Unresolvable cells read as 0 — gridAt already refused them.
-    const roadMaskAt = (cx, cy) => {
-      if (cx >= 0 && cy >= 0 && cx < N && cy < N) return entry.roadMask ? entry.roadMask[cy * N + cx] : 0;
-      const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
-      const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
-      const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
-      if (!e || !e.roadMask) return 0;
-      const nN = e.cellsPerEdge;
-      const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
-      const iy = Math.floor((wy - nty * this.tileEdgeM) / this.cellM);
-      if (ix < 0 || iy < 0 || ix >= nN || iy >= nN) return 0;
-      return e.roadMask[iy * nN + ix];
-    };
+    const roadMaskAt = (cx, cy) => cellAt(cx, cy, (e, i) => (e.roadMask ? e.roadMask[i] : 0), 0);
     // The anchor's own tile has to be readable before anything can be planned.
     if (gridAt(spawnIX, spawnIY) == null) return;
     // And don't plan against HALF A MAP. Seating is spatial: a first pass that
@@ -4731,7 +4908,12 @@ class MapScene extends Phaser.Scene {
         if (caughtSet.has(id)) break;   // already defeated — stays dead
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
-        creatures.push({ x: wmx, y: wmy, kind, id });
+        // ~5% spawn as ELITES — the shiny variant, stamped off the stable id
+        // like a shiny animal so it survives reloads. The same `shiny` flag
+        // the renderer already tints and sparkles; combat.js reads it as
+        // double HP and damage (Combat.isElite), and resolveDefeat pays the
+        // badge-or-treasure it promises.
+        creatures.push({ x: wmx, y: wmy, kind, id, shiny: isShiny(id, SHINY_RATE.monster) });
         break;
       }
     }
@@ -4769,6 +4951,33 @@ class MapScene extends Phaser.Scene {
     g.fillTriangle(tx, ty, blx, bly, brx, bry);
   }
 
+  // One footprint: a slight oval, long axis along the step that made it,
+  // sitting under the foot that made it rather than on the body's centreline.
+  // The lateral shift is the sprite's own half-stance (see
+  // FOOT_STANCE_HALF_ART_PX) taken perpendicular to the step and signed by
+  // fp.side, so consecutive prints fall either side of the line of travel and
+  // the pair straddles it — this is NOT a feet offset of the kind the ground
+  // marks used to carry (see feet_anchor.test.js): the two sides cancel, and
+  // the track's centreline is still the point the body walked through.
+  //
+  // Graphics has no rotated-ellipse fill, so the oval is a polygon — 14 points
+  // is smooth at this size (a 4px-wide shape), and cheap: at most 5 prints are
+  // alive at once.
+  _fillFootprint(g, cx, cy, fp) {
+    const { ux, uy } = fp;                  // every print carries its step
+    const px = -uy, py = ux;                // perpendicular to it
+    const off = FOOT_STANCE_HALF_ART_PX * this.playerScale * fp.side;
+    const ox = cx + px * off, oy = cy + py * off;
+    const pts = [];
+    const N = 14;
+    for (let i = 0; i < N; i++) {
+      const t = (i / N) * Math.PI * 2;
+      const a = Math.cos(t) * FOOT_DOT_LONG, b = Math.sin(t) * FOOT_DOT_ACROSS;
+      pts.push({ x: ox + ux * a + px * b, y: oy + uy * a + py * b });
+    }
+    g.fillPoints(pts, true);
+  }
+
   // Edge compass: an arrow parked on the rim of the viewport pointing at a
   // world-space target. Three callers share it — the pairy chest compass, the
   // delivery waypoint, and the starter-crate trail — so the ring geometry
@@ -4801,11 +5010,18 @@ class MapScene extends Phaser.Scene {
     //
     // Half a cell of inset so a target sitting right on the mask edge — drawn
     // half-clipped, easy to miss — still gets its arrow.
-    const sx = ((targetWX - pWX) / this.cellM) * CELL_PX;
-    const sy = ((targetWY - pWY) / this.cellM) * CELL_PX;
+    //
+    // "Can I see it?" is a question about the SCREEN, so it's asked of the
+    // camera anchor (a peek drag can bring the target into view without the
+    // player having moved a step); the arrow itself is a bearing from the body,
+    // so it rings the player wherever they now are on screen.
+    const ts = this.worldMetersToScreen(targetWX, targetWY);
+    const sx = ts.x - this.viewCenterX;
+    const sy = ts.y - this.viewCenterY;
     const half = this.viewSize / 2 - CELL_PX / 2;
     if (Math.abs(sx) <= half && Math.abs(sy) <= half) return mag;
-    const tipX = this.viewCenterX + ux * dist, tipY = this.viewCenterY + uy * dist;
+    const ps = this.playerScreen();
+    const tipX = ps.x + ux * dist, tipY = ps.y + uy * dist;
     // Perpendicular to the bearing gives the triangle's base.
     const pxN = -uy, pyN = ux;
     const back = 14, halfW = 7;
@@ -4920,7 +5136,7 @@ class MapScene extends Phaser.Scene {
         return nearest(sv.planted || []) || this._nearestStarterCrate();
       case 'sell': {
         // Home is the trailer at the frozen trail anchor; startWorldM until a
-        // home capture moved it (same resolution rule as _slimeFreeZone).
+        // home capture moved it (same resolution rule as _pestFreeZone).
         const a = (sv.starterCratesAt && Number.isFinite(sv.starterCratesAt.x))
           ? sv.starterCratesAt : this.startWorldM;
         return (a && Number.isFinite(a.x)) ? { x: a.x, y: a.y } : this._nearestStarterCrate();
@@ -4982,6 +5198,20 @@ class MapScene extends Phaser.Scene {
     this._modalGateTick = (this._modalGateTick || 0) + 1;
     if (this._modalGateTick % 10 === 0) this._syncModalGate?.();
     const dt = dtMs / 1000;
+    // Spring the peek camera home (no-op unless a drag just ended). FIRST, so
+    // every projection below — and every draw pass this frame — reads one
+    // settled camera position rather than two.
+    this._tickPeek(dt);
+    // Everything drawn AT the player rather than at a world position rides
+    // this: the camera is normally on them, so it's the viewport centre, but a
+    // peek drag slides them across the map like anything else standing on it.
+    // playerScreen() is the GROUND point (feet-on-the-fix, the same point the
+    // body's world position projects to); the sprite's centre rises
+    // playerFeetNudgeY above it and the contact shadow sits a pixel under it —
+    // the two offsets they were created with.
+    const pScreen = this.playerScreen();
+    this.player?.setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY);
+    this.playerShadow?.setPosition(pScreen.x, pScreen.y - 1);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
     // a dragon walks the same way everyone walks, just with a tier-8 amulet's
@@ -4995,10 +5225,11 @@ class MapScene extends Phaser.Scene {
       if (!dragonActive) this.dragonTimerText.setVisible(false);
     }
     if (dragonActive) {
-      const secs = Math.max(0, Math.ceil((this._dragonUntil - Date.now()) / 1000));
       this.dragonTimerText
-        .setText(`${secs}s`)
-        .setPosition(this.viewCenterX, this.viewCenterY - 34)
+        .setText(shortDuration(this._dragonUntil - Date.now()))
+        // Over the head: measured from the SPRITE CENTRE (the player's screen
+        // point is the feet, and the body rises playerFeetNudgeY above it).
+        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - 35)
         .setVisible(true);
     }
     let vx = 0, vy = 0;
@@ -5054,15 +5285,19 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // Walk-target marker: show where the body is headed whenever the target has
-    // pulled away from it (underground: trailing / mining; on the surface: the
-    // GPS says you're over there and the body is still catching up). When the
-    // two are basically coincident — arrived — keep it hidden so nothing
-    // diverges. The surface threshold is far looser: a GPS fix jitters a few
-    // metres every second even when the player is standing still, and a marker
-    // strobing on and off with the noise is worse than no marker.
-    const markerDiv = this.cellM * (this.depth > 0 ? 0.5 : 3);
-    if (this._targetM) {
+    // Walk-target marker: UNDERGROUND ONLY. Down there the target is a cursor
+    // the player is actively steering — it leads the body through rock and the
+    // body mines its way after it, so while the two are apart the marker is the
+    // only thing saying where the dig is headed (the compass arrow rides it,
+    // below). On the SURFACE the target is just the GPS fix, and the marker was
+    // a second blob for a point the crosshair (gpsGhost) already marks: it
+    // showed up as a grey dot a few metres ahead whenever a fix landed and the
+    // body auto-walked to catch up, which is every fix you take a step on.
+    // Hidden there — the character walking itself over is the whole message.
+    // When target and body are basically coincident — arrived — hide it too, so
+    // nothing diverges.
+    const markerDiv = this.cellM * 0.5;
+    if (this._targetM && this.depth > 0) {
       const gdx = this._targetM.x - this.playerM.x;
       const gdy = this._targetM.y - this.playerM.y;
       const diverged = (gdx * gdx + gdy * gdy) > markerDiv ** 2;
@@ -5070,7 +5305,9 @@ class MapScene extends Phaser.Scene {
         const p = worldMetersToScreen(this,
           this.startWorldM.x + this._targetM.x,
           this.startWorldM.y + this._targetM.y);
-        this.targetGhost.setPosition(Math.round(p.x), Math.round(p.y + this.playerFeetNudgeY)).setVisible(true);
+        // On the point itself: the marker is a ground mark, and the ground
+        // point is where a body's FEET would stand (feet-on-the-fix).
+        this.targetGhost.setPosition(Math.round(p.x), Math.round(p.y)).setVisible(true);
       } else {
         this.targetGhost.setVisible(false);
       }
@@ -5090,7 +5327,7 @@ class MapScene extends Phaser.Scene {
         const g = worldMetersToScreen(this,
           this.startWorldM.x + this.gpsM.x,
           this.startWorldM.y + this.gpsM.y);
-        this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y + this.playerFeetNudgeY)).setVisible(true);
+        this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true);
       } else {
         this.gpsGhost.setVisible(false);
       }
@@ -5098,6 +5335,7 @@ class MapScene extends Phaser.Scene {
       this.gpsGhost.setVisible(false);
     }
     this._drawWalkHomeHint(dt);
+    this._updateWalkHomeCountdown();
     this._updatePlayerAura();
 
     // Heartbeat the "last seen" timestamp every frame. In-memory only — the
@@ -5106,24 +5344,28 @@ class MapScene extends Phaser.Scene {
     // to at most one frame if the tab dies without firing visibilitychange.
     this.save.lastSeenAt = Date.now();
 
-    // Indoor resting: standing on a building cell slowly fills the bar.
-    // Float accumulator avoids per-frame integer churn — we only bump
-    // save.energy + refresh the DOM when a whole pip has accrued. Test mode
-    // skips this so deterministic test runs don't see energy creep.
+    // Resting AT HOME slowly fills the bar. Float accumulator avoids per-frame
+    // integer churn — we only bump save.energy + refresh the DOM when a whole
+    // pip has accrued. Test mode skips this so deterministic test runs don't
+    // see energy creep.
+    //
+    // HOME ONLY. Standing on ANY building cell used to rest you (300s to a full
+    // bar), which made a stranger's front room a rest spot and a town one
+    // continuous one. `indoors` survives because a real adopted home is
+    // recognised BY its building cell — it is the home test's input now, not a
+    // rest condition of its own.
     if (!window.__TEST_MODE) {
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
       const here = this.cellAt(pWX, pWY);
       const indoors = here.loaded && BUILDING_TYPES.has(here.type);
-      // Resting at Home fills the bar much faster (HOME_FULL_REST_S) than any
-      // other building. atHome also lets a synthetic trailer count as a rest
-      // spot — it paints no building cell underneath, so `indoors` is false
-      // there (see ensureStarterTrailerObject + isRestingAtHome).
+      // A synthetic trailer paints no building cell underneath, so `indoors` is
+      // false there and atHome carries it (see ensureStarterTrailerObject +
+      // isRestingAtHome).
       const atHome = this.isRestingAtHome(pWX, pWY, indoors);
       const maxE = this.getMaxEnergy();
-      if ((indoors || atHome) && (this.save.energy ?? 0) < maxE) {
-        const restS = atHome ? HOME_FULL_REST_S : INDOOR_FULL_REST_S;
-        this._accrueRestEnergy('_restAccrueE', maxE * (dt / restS), maxE);
+      if (atHome && (this.save.energy ?? 0) < maxE) {
+        this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE);
       } else {
         // Stopped resting — flush any unsplashed accumulation so the last few
         // points of a short rest still register.
@@ -5134,9 +5376,9 @@ class MapScene extends Phaser.Scene {
         this._restAccrueE = 0;
       }
       // Campfire warmth: standing within FIRE_REST_R cells of a lit fire slowly
-      // restores energy — the same accumulator trick as indoor rest, but it
-      // works outdoors and is slower (FIRE_FULL_REST_S). Independent of the
-      // indoor/home rest above; a fire can't sit on a building cell so the two
+      // restores energy — the same accumulator trick as the home rest, but it
+      // works out in the wild and is slower (FIRE_FULL_REST_S). Independent of
+      // the home rest above; a fire can't sit on a building cell so the two
       // rarely overlap.
       if ((this.save.energy ?? 0) < maxE) {
         if (this._nearAny('fires', pWX, pWY, FIRE_REST_R)) {
@@ -5145,22 +5387,12 @@ class MapScene extends Phaser.Scene {
           this._fireAccrueE = 0;
         }
       }
-      // Stepping on a named path stone claims it. Memoised by absolute cell
-      // index so we only do the lookup once per cell-change — without this
-      // every frame inside the same cell would re-walk the pathNames map.
-      // Derive tile coords from the body position directly.
-      if (here.loaded && here.type === 8 /* PATH */) {
-        const { cellIX, cellIY } = worldMetersToAbsCell(this, pWX, pWY);
-        const key = `${cellIX},${cellIY}`;
-        if (this._lastPathStepKey !== key) {
-          this._lastPathStepKey = key;
-          const ctx = Math.floor(pWX / this.tileEdgeM);
-          const cty = Math.floor(pWY / this.tileEdgeM);
-          this._activatePathStone(ctx, cty, cellIX, cellIY);
-        }
-      } else if (this._lastPathStepKey != null) {
-        this._lastPathStepKey = null;
-      }
+      // Cobble trails light by SIGHT, not by footfall: a path or road cobble
+      // that has been inside the player's lit reach for PATH_STONE_DWELL_MS
+      // comes on. The scan half memoises on the reach cell, so a frame spent
+      // standing still costs one string compare plus a walk of the small
+      // in-sight map.
+      this._sweepCobbleTrails();
     }
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
@@ -5189,13 +5421,15 @@ class MapScene extends Phaser.Scene {
       // 0 sits it on the centre, negative nudges it below — it rode 2px high
       // once, and now sits 1px under centre, where it lines up with the art.
       const HEAD_DY = -1;
-      let cx = this.viewCenterX, cy = this.viewCenterY - HEAD_DY;
+      // The sprite's centre is its ground point plus playerFeetNudgeY (the
+      // feet are on the point, the body rises above it).
+      let cx = pScreen.x, cy = pScreen.y + this.playerFeetNudgeY - HEAD_DY;
       if (this.depth > 0 && this.targetGhost.visible) {
-        // Anchor over the target marker's head. targetGhost sits at sprite-center
-        // (p.y + playerFeetNudgeY); back out the nudge + the same head offset
-        // used at the viewport center so the arrow hovers identically.
+        // Anchor over the target marker's head. targetGhost sits on the
+        // ground point; a body standing there would have its centre the
+        // same nudge above it, so apply the identical offset.
         cx = this.targetGhost.x;
-        cy = this.targetGhost.y - this.playerFeetNudgeY - HEAD_DY;
+        cy = this.targetGhost.y + this.playerFeetNudgeY - HEAD_DY;
       }
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
@@ -5221,26 +5455,35 @@ class MapScene extends Phaser.Scene {
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       } else if (dx * dx + dy * dy >= 2 * 2) {
         for (const fp of this.footprints) fp.alpha *= 0.8;
-        this.footprints.push({ x: bodyM.x, y: bodyM.y, alpha: 0.45 });
+        // Freeze the STEP onto the print: which way it went (unit vector —
+        // world axes are the screen's, so this is also its screen direction)
+        // and which foot made it, alternating. Both are recorded at drop time
+        // rather than read from the player each frame, because a print is a
+        // mark left in the ground: turning around must not swivel the ones
+        // already behind you.
+        const n = Math.hypot(dx, dy) || 1;
+        this._footSide = -(this._footSide || 1);
+        this.footprints.push({
+          x: bodyM.x, y: bodyM.y, alpha: 0.45,
+          ux: dx / n, uy: dy / n, side: this._footSide,
+        });
         // Cap at 5 so the trail stays short — the 20%/step fade alone would
         // keep ~11 dots alive before they drop below visibility.
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       }
       this.footprintGfx.clear();
-      // Camera anchor stays on playerM, so footprints drawn at body world
-      // coords land at the body's screen offset.
-      const pWX = this.startWorldM.x + this.playerM.x;
-      const pWY = this.startWorldM.y + this.playerM.y;
+      // Dots pressed into the GROUND, so they project like any other world
+      // point (worldMetersToScreen → the camera anchor) and slide with a peek.
       for (const fp of this.footprints) {
-        const sx2 = this.viewCenterX + ((fp.x + this.startWorldM.x - pWX) / this.cellM) * CELL_PX;
-        // +14 lands the dot right at the sprite's feet. (Sprite scale 1.35 × 32
-        // ≈ 43, origin (.5,.5) so the sprite's nominal bottom is ~+22, but the
-        // visible foot pixels sit several px above the bottom of the texture —
-        // +14 lines up with where the shoes actually meet the ground.)
-        const sy2 = this.viewCenterY + ((fp.y + this.startWorldM.y - pWY) / this.cellM) * CELL_PX + 14;
+        // The body's world point IS its feet (feet-on-the-fix), so the dot
+        // goes on the projected point with no anchor offset — the same point
+        // the contact shadow sits on.
+        const s2 = this.worldMetersToScreen(fp.x + this.startWorldM.x,
+                                            fp.y + this.startWorldM.y);
+        const sx2 = s2.x, sy2 = s2.y;
         this.footprintGfx.fillStyle(0x000000, fp.alpha);
-        this.footprintGfx.fillCircle(Math.round(sx2), Math.round(sy2), 3);
+        this._fillFootprint(this.footprintGfx, Math.round(sx2), Math.round(sy2), fp);
       }
     }
 
@@ -5267,7 +5510,7 @@ class MapScene extends Phaser.Scene {
     // Same edge-compass geometry as the pairy arrow but persistent (no blink),
     // cleared once the player arrives or the house is satisfied for the day.
     if (this.deliveryCompass) {
-      const dayKey = this._deliveryDayKey();
+      const dayKey = this._dayKey();
       const satisfied = this.save.houseSatisfied?.[this.deliveryCompass.id] === dayKey;
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
@@ -5399,7 +5642,8 @@ class MapScene extends Phaser.Scene {
 
   // ── COMBAT ───────────────────────────────────────────────────────────────
   // Per-frame fight tick: pick up the enemies on screen, let the ACTIVE bow or
-  // staff loose its shots along the compass, fly the shots already out, and —
+  // staff loose its shots (the bow along the compass, the staff at the nearest
+  // foe — Combat.shotHeading), fly the shots already out, and —
   // if the sword is the active weapon — engage the nearest foe without being
   // asked. Only one of sword/bow/staff (save.activeWeapon) acts on its own
   // here at a time; the rest sit inert until switched to. The maths (what
@@ -5433,10 +5677,15 @@ class MapScene extends Phaser.Scene {
     // wheel reads), so a dragon's arrows hit twice as hard too.
     const dmgMul = this.isDragonActive() ? 2 : 1;
 
-    // ── Bow / staff: one shot a second, along the COMPASS heading ──────────
-    // They do not home and they do not pick a target: the shot goes where you
-    // are facing, so aiming is turning. Firing is gated on an enemy being on
-    // screen — otherwise every walk across town would be trailing arrows.
+    // ── Bow / staff: one shot a second ──────────────────────────────────────
+    // The BOW does not home and does not pick a target: the arrow goes where
+    // you are facing, so aiming is turning. The STAFF picks: its bolt is
+    // loosed straight at the nearest enemy inside its range, whatever way the
+    // body faces, and holds fire (spending no energy) while the nearest is
+    // still out of reach. Which is which lives in Combat.SHOT[slot].aim and
+    // is resolved by Combat.shotHeading, so this loop never has to know.
+    // Firing is gated on an enemy being on screen — otherwise every walk
+    // across town would be trailing arrows.
     // Only the ACTIVE weapon fires (save.activeWeapon) — an owned-but-inactive
     // bow or staff sits quiet, exactly like an owned-but-inactive sword doesn't
     // auto-engage below.
@@ -5451,6 +5700,13 @@ class MapScene extends Phaser.Scene {
           continue;
         }
         if (now < due) continue;
+        // Where this shot goes — the compass for the bow, the line to the
+        // nearest foe in range for the staff. Resolved BEFORE the energy is
+        // spent: a staff whose nearest foe is still beyond its range keeps
+        // both its energy and its cadence (left due, so it fires the instant
+        // one steps in).
+        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM);
+        if (!heading) continue;
         // The staff draws energy per bolt (Combat.SHOT.staff.energyCost — the
         // price of its pierce + double punch). No energy → no bolt, SILENTLY:
         // an auto-firing weapon must not spam "too tired" (spendEnergy only
@@ -5459,8 +5715,11 @@ class MapScene extends Phaser.Scene {
         const eCost = Combat.SHOT[slot].energyCost || 0;
         if (eCost && !this.spendEnergy(eCost)) continue;
         this._nextShotT[slot] = now + Combat.FIRE_INTERVAL_MS;
-        const shot = Combat.spawnShot(slot, px, py, this.facing, this.cellM,
-                                      Combat.shotDamage(relics, slot) * dmgMul);
+        // The tier sizes the shot too (a staff bolt grows with it — both its
+        // sweep and its drawn dot, stamped on the shot by spawnShot).
+        const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
+                                      Combat.shotDamage(relics, slot) * dmgMul,
+                                      relics[slot].tier);
         if (shot) this._shots.push(shot);
       }
     } else {
@@ -5543,13 +5802,15 @@ class MapScene extends Phaser.Scene {
       // have them skim under the bodies they're hitting. Lift the streak to
       // roughly chest height so it leaves the archer and crosses the foe.
       const hx = Math.round(head.x), hy = Math.round(head.y) - SHOT_DRAW_LIFT_PX;
-      if (spec.dotPx) {
+      if (s.dotPx) {
         // The staff bolt is a fat glowing dot, not a streak — a bolt reads as
-        // a thrown thing, an arrow as a flying line.
+        // a thrown thing, an arrow as a flying line. Its radius is the shot's
+        // own (stamped by Combat.spawnShot from the staff's tier, off the same
+        // scale as the radius it hits with), never the spec's base dotPx.
         g.fillStyle(spec.color, 0.95);
-        g.fillCircle(hx, hy, spec.dotPx);
+        g.fillCircle(hx, hy, s.dotPx);
         g.lineStyle(1, 0xffffff, 0.5);
-        g.strokeCircle(hx, hy, spec.dotPx);
+        g.strokeCircle(hx, hy, s.dotPx);
         continue;
       }
       // The tail trails a fixed number of SCREEN pixels back along the
@@ -5588,8 +5849,7 @@ class MapScene extends Phaser.Scene {
   // above the kind's crown (SpriteLayout.creatureHealthBarTop), derived from
   // the same art table the wheel seats from. Never a flat offset.
   _healthBarTop(kind) {
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    return SL ? SL.creatureHealthBarTop(kind) : -25;
+    return SpriteLayout.creatureHealthBarTop(kind);
   }
 
   // The health bar itself: a small strip floating over the foe's head — a
@@ -5601,9 +5861,8 @@ class MapScene extends Phaser.Scene {
   // `alpha` scales the whole bar (the engaged target draws brighter than a
   // foe merely hurt in passing).
   _drawEnemyHealthBar(g, cx, top, frac, alpha) {
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    const W = (SL && SL.HEALTH_BAR_W != null) ? SL.HEALTH_BAR_W : 18;
-    const H = (SL && SL.HEALTH_BAR_H != null) ? SL.HEALTH_BAR_H : 3;
+    const W = SpriteLayout.HEALTH_BAR_W;
+    const H = SpriteLayout.HEALTH_BAR_H;
     const x = cx - Math.floor(W / 2);
     // Dark backing one pixel proud on every side — the border that keeps the
     // strip legible over pale terrain, same job as the wheel's backing disc.
@@ -5661,8 +5920,7 @@ class MapScene extends Phaser.Scene {
     // Radius comes from the same table that PLACES the wheel — the crown
     // seating clears the outer edge (R + 1, the backing disc), so a resize here
     // without one there would put the ring back in the sky.
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    const R = (SL && SL.CREATURE_WHEEL_R != null) ? SL.CREATURE_WHEEL_R : 9;
+    const R = SpriteLayout.CREATURE_WHEEL_R;
     g.fillStyle(0x000000, 0.34);
     g.fillCircle(cx, cy, R + 1);
     g.lineStyle(3, 0xffffff, 0.155);
@@ -5765,16 +6023,26 @@ class MapScene extends Phaser.Scene {
       // crops, and for a long time killing one paid nothing, which is the gap
       // this branch closes by asking Combat what an enemy is rather than
       // asking the cave-monster table.
-      const coins = (typeof enemyBounty === 'function')
-        ? enemyBounty(victim.kind, this.depth) : 0;
+      const coins = enemyBounty(victim.kind, this.depth, Combat.eliteMul(victim));
       if (coins > 0) addMoney(save, coins);
       const name = MONSTERS[victim.kind]?.name || 'Slime';
-      this.flash(`⚔️ ${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
+      const elite = Combat.isElite(victim);
+      this.flash(`⚔️ ${elite ? 'Elite ' : ''}${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
         this.viewCenterX, this.viewCenterY - 60);
-      // One in ten cave monsters also drops a buried-treasure roll — the same
-      // table an X pays, so a lucky kill reads as finding one. Underground
-      // only; see MONSTER_TREASURE_CHANCE.
-      if (isMonster(victim.kind) && Math.random() < MONSTER_TREASURE_CHANCE) {
+      if (elite) {
+        // An elite always pays past the wage: the kind's Discovery badge the
+        // first time, a relic-biased treasure roll at a depth-commensurate
+        // tier every time after (see ELITE_TREASURE_CONTEXT / eliteRollBonus).
+        if (this._bankDiscovery(victim.kind)) {
+          this.flashShiny(coins, true, '✨ ELITE SLAIN ✨');
+        } else {
+          grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
+            ELITE_TREASURE_CONTEXT, { rollBonus: eliteRollBonus(victim.kind, this.depth) });
+        }
+      } else if (isMonster(victim.kind) && Math.random() < MONSTER_TREASURE_CHANCE) {
+        // One in ten plain cave monsters also drops a buried-treasure roll —
+        // the same table an X pays, so a lucky kill reads as finding one.
+        // Underground only; see MONSTER_TREASURE_CHANCE.
         grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀');
       }
     } else {
@@ -5784,6 +6052,8 @@ class MapScene extends Phaser.Scene {
       this.flash(`${victim.kind} defeated`, this.viewCenterX, this.viewCenterY - 60);
     }
     if (typeof Quests !== 'undefined') {
+      // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
+      // never credit toward its base kind's.
       const qDone = Quests.onKill(save, victim.kind);
       if (qDone) this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
     }
@@ -5902,8 +6172,9 @@ class MapScene extends Phaser.Scene {
     const startA = baseAngle - SWEEP / 2;
     const headA = startA + SWEEP * t;
     const tailA = startA + SWEEP * Math.max(0, t - 0.35);
-    const cx = this.viewCenterX;
-    const cy = this.viewCenterY + this.playerFeetNudgeY - 8;   // roughly chest height
+    const ps = this.playerScreen();
+    const cx = ps.x;
+    const cy = ps.y + this.playerFeetNudgeY - 8;   // roughly chest height
     const R = 15;
     // Fade only in the closing stretch — a slash that's visible then vanishes
     // instantly reads as a glitch, not a completed swing.
@@ -6070,8 +6341,7 @@ class MapScene extends Phaser.Scene {
     // the old per-case fudges, including the capture wheel's extra lift for
     // "clear the fleeing animal" — it clears it by construction now.
     const creature = wp.flee || wp.track || null;
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    const dyWheel = (creature && SL) ? SL.creatureWheelDy(creature.kind) : -7;
+    const dyWheel = creature ? SpriteLayout.creatureWheelDy(creature.kind) : -7;
     const cy = Math.round(screen.y) + Math.round(dyWheel);
     const g = this._workProgressGfx;
     g.clear();
@@ -6260,7 +6530,10 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + MONSTER_HIT_MS;
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(m.dmg / 2) : m.dmg;
+            // An elite (shiny) monster hits for double — Combat.eliteMul is
+            // the one multiplier its HP is scaled by too.
+            const dmg = m.dmg * Combat.eliteMul(c);
+            const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
             this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
             this._warnIfTiring(before);
@@ -6308,7 +6581,8 @@ class MapScene extends Phaser.Scene {
       // whole step cadence (hop duration + any pause) is halved, so they cover
       // ground twice as fast. isShiny() is keyed off the creature id, so the
       // status is stable across reloads (matches the shiny-tint in render).
-      // Monsters never go shiny, so their cadence comes purely from SPEED.
+      // An ELITE monster hits harder, not faster: its cadence comes purely
+      // from SPEED, so the shiny check is for animals only.
       const shinyFast = (!isMon && isShiny(c.id, SHINY_RATE.animal)) ? 0.5 : 1;
       // stepMs = animation duration of the hop itself (short burst).
       const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
@@ -6343,10 +6617,11 @@ class MapScene extends Phaser.Scene {
           }
         }
         // HP healing: if 20 min since last damage, restore to max. Max comes
-        // from Combat.creatureMaxHp so a monster wounded by an arrow heals back
-        // to ITS hit points, not the 10-HP fallback a local table gave it.
+        // from Combat.maxHp so a monster wounded by an arrow heals back to ITS
+        // hit points — the kind's, doubled for an elite — not the 10-HP
+        // fallback a local table gave it.
         if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
-          c._hp = Combat.creatureMaxHp(c.kind);
+          c._hp = Combat.maxHp(c);
           c._lastDamagedT = null;
         }
 
@@ -6912,25 +7187,118 @@ class MapScene extends Phaser.Scene {
   renderPool(pool, container, list, configure) { Render.renderPool(this, pool, container, list, configure); }
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); }
   screenToWorldMeters(sx, sy) { return screenToWorldMeters(this, sx, sy); }
+
+  // === The PEEK DRAG ======================================================
+  // Drag the map to look a little way past the edge of the viewport, let go and
+  // it springs back. The character is not a camera mount: the map is a small
+  // window and half of "where do I go next" lives just outside it.
+  //
+  // It is a CAMERA offset (this.peekM, metres, player→camera) and nothing else.
+  // playerM never moves, so reach, the tap gates, fog reveal and tile loading
+  // all still measure from the body — peeking at a crate three cells away and
+  // tapping it correctly says "too far", exactly as it would with the crate on
+  // screen at the same distance. Everything that DRAWS goes through
+  // coords.js viewAnchorWorldM / viewAnchorCell, which add this offset.
+  //
+  // The drawn window re-anchors with the camera, so a peek costs nothing: the
+  // same 11×11 pass paints a different patch of ground. The cap is what keeps
+  // it honest — PEEK_MAX_CELLS stays well inside the loaded 3×3 tile
+  // neighbourhood every world pass scans (a tile is hundreds of cells wide).
+
+  // Player's screen position. The camera normally sits on them, so this is the
+  // viewport centre; a peek slides them off it by the drag. Everything drawn AT
+  // the player rather than at a world position (the sprite and its shadow /
+  // halo / arrow / swing) reads its centre from here — never viewCenterX/Y.
+  playerScreen() {
+    const k = CELL_PX / this.cellM;
+    return {
+      x: this.viewCenterX - this.peekM.x * k,
+      y: this.viewCenterY - this.peekM.y * k,
+    };
+  }
+
+  // A Phaser pointer's position in LOGICAL px. Phaser reports pointer positions
+  // in CANVAS px — the backing store, which is RENDER_SCALE× the logical grid
+  // (see the canvas-resolution note by W/H) — while every gate downstream is
+  // logical: the drag slop, the peek metres, interactTap's cell hit test,
+  // Multiplayer.consumeTap. So a pointer converts here, once, on the way in,
+  // and there is one place to look when the map stops answering taps.
+  _gamePt(p) {
+    return { x: p.x / RENDER_SCALE, y: p.y / RENDER_SCALE };
+  }
+
+  // Is the camera off the player right now (drag live, or still springing back)?
+  isPeeking() {
+    return this.peekM.x !== 0 || this.peekM.y !== 0;
+  }
+
+  // Set the peek from a drag delta in SCREEN pixels — the finger drags the
+  // ground, so the camera moves the other way — clamped to a disc of
+  // PEEK_MAX_CELLS so no drag can outrun the loaded world.
+  _setPeekFromDrag(dxPx, dyPx) {
+    const k = this.cellM / CELL_PX;
+    let mx = -dxPx * k, my = -dyPx * k;
+    const maxM = PEEK_MAX_CELLS * this.cellM;
+    const mag = Math.hypot(mx, my);
+    if (mag > maxM) { mx = mx / mag * maxM; my = my / mag * maxM; }
+    this.peekM.x = mx;
+    this.peekM.y = my;
+  }
+
+  // Let go and the camera slides home. Eased per frame rather than tweened so
+  // it survives a dropped pointerup (see the stuck-touch sweeper) and can be
+  // cut short by the next drag without leaving a tween fighting the finger.
+  _releasePeek() {
+    this._peekDragging = false;
+    this._peekPointerId = null;
+    this._peekPointer = null;
+    if (this.isPeeking()) this._peekReturning = true;
+  }
+
+  // Snap the camera back to the player at once, no spring. Used when something
+  // OTHER than the drag has moved the view's meaning — a teleport, a descent,
+  // a modal taking the screen.
+  clearPeek() {
+    this._peekDragging = false;
+    this._peekPointerId = null;
+    this._peekPointer = null;
+    this._peekReturning = false;
+    if (!this.peekM) return;      // called before the view was set up
+    this.peekM.x = 0;
+    this.peekM.y = 0;
+  }
+
+  // Per-frame spring-back. Exponential ease (frame-rate independent), with a
+  // sub-pixel floor so it lands exactly on zero instead of creeping.
+  _tickPeek(dt) {
+    if (!this._peekReturning) return;
+    const k = Math.exp(-dt / (PEEK_RETURN_MS / 1000));
+    this.peekM.x *= k;
+    this.peekM.y *= k;
+    const snapM = 0.5 * (this.cellM / CELL_PX);       // half a screen pixel
+    if (Math.abs(this.peekM.x) < snapM && Math.abs(this.peekM.y) < snapM) {
+      this.peekM.x = 0;
+      this.peekM.y = 0;
+      this._peekReturning = false;
+    }
+  }
   // === Interaction ===
   // Dispatch lives in interact.js as a flat TAP_HANDLERS priority array;
   // this method just forwards to it.
   handleWorldTap(sx, sy) { interactTap(this, sx, sy); }
 
   // === Coin-burst (ATM / bicycle_parking) =================================
-  // Daily-cap key format: `<poiId>YYYYMMDD` (UTC). Each POI can be tapped
-  // once per UTC day; subsequent taps within the same day flash a hint and
-  // spawn no coins. Coins themselves are in-memory only (entry.coinDrops);
+  // Daily-cap key format: `<poiId>YYYYMMDD` (UTC, _dayKey). Each POI can be
+  // tapped once per UTC day; subsequent taps within the same day flash a hint
+  // and spawn no coins. Coins themselves are in-memory only (entry.coinDrops);
   // only the daily-cap dictionary persists.
-  _coinBurstDayKey() {
-    return new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  }
   _coinBurstInteract(sx, sy, poi) {
-    const dayKey = this._coinBurstDayKey();
+    const dayKey = this._dayKey();
     const claimedKey = poi.id + dayKey;
     this.save.coinBurstClaimed = this.save.coinBurstClaimed || {};
     if (this.save.coinBurstClaimed[claimedKey] === 1) {
-      this.flash('Already used today.', sx, sy);
+      // Same UTC day key as the dayKey above, so the reset is msToNextUtcDay.
+      this.flash(`Already used — back in ${shortDuration(msToNextUtcDay())}.`, sx, sy);
       return;
     }
     // Mark BEFORE spawning so a double-tap can't double-spawn.
@@ -7102,6 +7470,10 @@ class MapScene extends Phaser.Scene {
   // Without this the stale target survives the warp and the body immediately
   // sets off walking back to wherever it used to be headed.
   syncMoveTarget() {
+    // A peek is a look at the ground AROUND YOU; after a warp that ground is
+    // somewhere else, so the camera snaps back onto the body rather than
+    // spring-easing across a view that has nothing to do with the old one.
+    this.clearPeek();
     this._targetM = { x: this.playerM.x, y: this.playerM.y };
     this._manualOffsetM = { x: 0, y: 0 };
     this._steerDistAccrue = 0;
@@ -7291,7 +7663,8 @@ class MapScene extends Phaser.Scene {
     const rampT = Math.min(1, (Date.now() - (this._lastStickT || 0) - WALK_HOME_IDLE_MS)
                               / WALK_HOME_RAMP_MS);
     const ease = rampT * rampT;
-    const step = Math.min(mag, WALK_M_S * steerSpeedMul(this._walkRelics()) * ease * dt);
+    const step = Math.min(mag, WALK_M_S * WALK_HOME_SPEED_MUL
+                                 * steerSpeedMul(this._walkRelics()) * ease * dt);
     if (step <= 0) return;
     const dx = -(off.x / mag) * step, dy = -(off.y / mag) * step;
     off.x += dx; off.y += dy;
@@ -7300,37 +7673,77 @@ class MapScene extends Phaser.Scene {
     this._targetM.y += dy;
     this._followPaused = false;
   }
+  // Seconds left on the walk-home debounce, for the stick's countdown — or
+  // null when there is nothing to count down to. The gates are _driftHome's
+  // own: it only counts while a return is actually pending (surface, a fix
+  // driving, the stick let go, no wheel, and an offset to bleed), so the
+  // number on the stick is always a promise the walk will keep. Whole
+  // seconds, rounded UP: "5" the instant you let go, "1" for the last second,
+  // gone when the walk starts. Pure — no DOM — so the test suite drives it.
+  _walkHomeCountdownS() {
+    if (this.depth !== 0 || !this.gpsM || this._gpsManualOverride) return null;
+    if (this._busyWheel() || this._stickPushed()) return null;
+    const off = this._manualOffsetM;
+    if (!off || Math.hypot(off.x, off.y) < 0.01) return null;
+    const left = WALK_HOME_IDLE_MS - (Date.now() - (this._lastStickT || 0));
+    if (left <= 0) return null;
+    return Math.ceil(left / 1000);
+  }
+  // Write the countdown onto the stick. The label lives on the pad itself (see
+  // buildMovePad) so the number sits under the thumb that just let go — the
+  // one place the player is looking when they wonder whether the character is
+  // about to walk off. Only touches the DOM when the number changes.
+  _updateWalkHomeCountdown() {
+    const el = this._movePadCountdownEl;
+    if (!el || !el.isConnected) return;
+    const s = this._walkHomeCountdownS();
+    // _walkHomeCountdownS stays a NUMBER (the tests drive it directly); the
+    // unit is put on here, at the one place that writes the DOM, so the cap
+    // reads "5s" like every other countdown in the game rather than a bare 5.
+    const text = s == null ? '' : shortDuration(s * 1000);
+    if (text === this._movePadCountdownText) return;
+    this._movePadCountdownText = text;
+    el.textContent = text;
+    el.classList.toggle('on', !!text);
+  }
   // The walk home is the one bit of movement the player didn't ask for frame by
   // frame — the character just starts walking, and until now the only clue was
   // the GPS dot quietly getting closer. So while it runs, draw a lead: a thin
-  // dashed line from the feet to the dot with the dashes marching that way
-  // and a chevron at the far end. It says "on my way back there" in the one
-  // place the player is already looking, and it costs nothing to ignore.
+  // dashed line from the feet to the dot with the dashes marching that way,
+  // running all the way into the crosshair. It says "on my way back there" in
+  // the one place the player is already looking, and it costs nothing to
+  // ignore. No arrowhead: the line lands ON the marker, and the marker is
+  // already the thing being pointed at — a chevron a few px short of it just
+  // pointed at a target it was covering.
   //
   // Deliberately quiet. It waits out WALK_HOME_HINT_IDLE_MS after the stick was
   // last touched (the walk itself starts earlier, at WALK_HOME_IDLE_MS — the
   // first moments need no explaining to the player who just let go),
   // and it needs the dot on screen, which is the game's own test for "far
-  // enough off your real position to matter". White and translucent — quieter
-  // than the coloured compasses (the green tutorial arrow, the magenta pairy
-  // blink): this is ambient "on my way" information, not a call to action, and
-  // white doesn't claim membership of any of the game's colour languages.
+  // enough off your real position to matter". Gold and translucent — the same
+  // gold the GPS crosshair itself is drawn in (UI_GOLD, 0xffe066), so the line
+  // and the marker it runs to read as one piece of furniture rather than two
+  // unrelated marks, and it stays quieter than the coloured compasses (the
+  // green tutorial arrow, the magenta pairy blink) by being translucent.
   _drawWalkHomeHint(dt) {
     const g = this.walkHomeGfx;
     if (!g) return;
     g.clear();
     if (!this._driftingHome || !this.gpsGhost?.visible) return;
     if (Date.now() - (this._lastStickT || 0) < WALK_HOME_HINT_IDLE_MS) return;
-    // Both markers are drawn from their centre with the same nudge, so backing
-    // it out and adding the footprint anchor puts each endpoint at the feet.
-    const FEET = 13;
-    const x0 = this.viewCenterX, y0 = this.viewCenterY + FEET;
+    // Both endpoints are ground points: the character's feet are the player's
+    // own screen point (feet-on-the-fix) and the GPS marker sits on the fix.
+    const ps = this.playerScreen();
+    const x0 = ps.x, y0 = ps.y;
     const x1 = this.gpsGhost.x;
-    const y1 = this.gpsGhost.y - this.playerFeetNudgeY + FEET;
+    const y1 = this.gpsGhost.y;
     const dx = x1 - x0, dy = y1 - y0;
     const len = Math.hypot(dx, dy);
-    // Stop short at both ends so the line never runs into either character.
-    const NEAR_GAP = 11, FAR_GAP = 13;
+    // Stop short of the character at the near end so the line never runs into
+    // the sprite. At the far end it stops on the crosshair's RING (baked at
+    // radius 5 in the 'gps_crosshair' texture above) rather than short of it:
+    // the line is meant to reach the marker, so it touches it.
+    const NEAR_GAP = 11, FAR_GAP = 5;
     if (len < NEAR_GAP + FAR_GAP + 10) return;
     const ux = dx / len, uy = dy / len;
     const from = NEAR_GAP, to = len - FAR_GAP;
@@ -7338,9 +7751,9 @@ class MapScene extends Phaser.Scene {
     if (!this._reducedMotion) {
       this._walkHomeDashPhase = (this._walkHomeDashPhase + MARCH * dt) % PERIOD;
     }
-    // Collected first, stroked twice: a soft dark pass under the blue one, so
+    // Collected first, stroked twice: a soft dark pass under the gold one, so
     // the line holds up over pale ground (roads, sand) as well as grass — the
-    // same keyline trick the stick's rim uses.
+    // same keyline trick the stick's rim and the crosshair itself use.
     const segs = [];
     // One period of lead-in so the dash entering at the near end is drawn
     // clipped rather than popping into existence at full length.
@@ -7348,14 +7761,6 @@ class MapScene extends Phaser.Scene {
       const a = Math.max(s, from), b = Math.min(s + DASH, to);
       if (b > a) segs.push([x0 + ux * a, y0 + uy * a, x0 + ux * b, y0 + uy * b]);
     }
-    // Chevron at the dot end — the arrowhead the dashes are walking into.
-    const px = -uy, py = ux;
-    const H = 6, W = 4.5;
-    const hx = x0 + ux * to, hy = y0 + uy * to;
-    const head = [
-      [hx - ux * H + px * W, hy - uy * H + py * W, hx, hy],
-      [hx, hy, hx - ux * H - px * W, hy - uy * H - py * W],
-    ];
     const stroke = (list, width, colour, alpha) => {
       g.lineStyle(width, colour, alpha);
       for (const [ax, ay, bx, by] of list) {
@@ -7366,9 +7771,7 @@ class MapScene extends Phaser.Scene {
       }
     };
     stroke(segs, 3.5, 0x0a1420, 0.22);
-    stroke(head, 3.5, 0x0a1420, 0.26);
-    stroke(segs, 2, 0xffffff, 0.42);
-    stroke(head, 2, 0xffffff, 0.7);
+    stroke(segs, 2, 0xffe066, 0.55);
   }
   // Two states the player needs to feel without reading a number, both painted
   // on the character itself: an EMPTY TANK (nothing works until you rest) and
@@ -7407,10 +7810,11 @@ class MapScene extends Phaser.Scene {
       // Strength follows the same k as the tint for the far case, so a halo
       // never shouts before the character has visibly dimmed.
       const strength = spent ? 1 : Math.min(1, (away - nearM) / (nearM * 2));
+      const ps = this.playerScreen();
       this.playerHalo
         .setDisplaySize(38 + 6 * wave, 38 + 6 * wave)
         .setAlpha((0.25 + 0.35 * wave) * strength)
-        .setPosition(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY)
+        .setPosition(ps.x, ps.y + this.playerFeetNudgeY)
         .setVisible(true);
     } else {
       // At rest the farmer wears the save's own colour — the same tint other
@@ -7454,7 +7858,9 @@ class MapScene extends Phaser.Scene {
     }
     // Catch-up speed: walk pace, scaled up with distance so the body keeps up
     // with fast (debug/GPS-jump) steering without ever teleporting, capped so a
-    // big jump still reads as travel rather than a warp.
+    // big jump still reads as travel rather than a warp. One extra × per
+    // FOLLOW_RAMP_M of gap — see that constant for why the rate is what it is.
+    // `move` is clamped to `dist` besides, so no ramp can overshoot the target.
     //
     // While the STICK is held, floor it at the player's own stick speed: you
     // can never outrun your own legs. Without this the body settles
@@ -7467,7 +7873,7 @@ class MapScene extends Phaser.Scene {
     // the floor would silently cancel it.
     const stickMul = this._stickPushed() ? steerSpeedMul(this._walkRelics()) : 1;
     const mul = Math.min(Math.max(DEBUG_SPEED_MUL, stickMul),
-                         Math.max(stickMul, 1 + dist / this.cellM));
+                         Math.max(stickMul, 1 + dist / FOLLOW_RAMP_M));
     const move = Math.min(WALK_M_S * mul * dt, dist);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
@@ -7713,32 +8119,24 @@ class MapScene extends Phaser.Scene {
       const ri = this.save.released.findIndex(r => r.id === c.id);
       if (ri >= 0) this.save.released.splice(ri, 1);
     }
-    // One creature → one inventory entry. Egg / milk yield happens via the
-    // produce branch (tap with plant produce selected), not the catch branch.
-    const yieldN = 1;
     // A shiny animal stays shiny in its own per-kind stack (shiny_chicken,
     // shiny_cow, …) — never folded into the plain stack or other shinies. It
     // also pays the headline 10× money + discovery bonus with fanfare.
     const isShinyCatch = !!c.shiny && !!ITEM_BY_ID[`shiny_${c.kind}`];
     const invId = isShinyCatch ? `shiny_${c.kind}` : c.kind;
     // addToInv already persists; passing silent=true to avoid a double write.
-    this.addToInv(invId, yieldN, true);
+    this.addToInv(invId, 1, true);
     persistSave(this.save);
     const item = ITEM_BY_ID[invId];
     // flashLoot draws the item's sprite (from the itemId arg) beside the text,
     // so the text carries the name only — no emoji standing in for the item.
-    this.flashLoot(`+${yieldN} ${item?.name || invId}`, isShinyCatch ? '#ffd23a' : '#a7ffb0', 1, invId);
+    this.flashLoot(`+1 ${item?.name || invId}`, isShinyCatch ? '#ffd23a' : '#a7ffb0', 1, invId);
     if (isShinyCatch) this.awardShinyBonus(c.kind, sx, sy);
   }
 
-  // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
-  // walking outward by distance. First press preferentially seeks the named
-  // POI in `_poiTpFirst` if it's loaded.
-  // Debug key T — cycle through tree species and teleport to the densest
-  // currently-loaded grove of each. Density = "this tree plus other same-
-  // species trees within 50 m." If no trees of the current species are
-  // loaded, skip to the next species in the cycle so the key never
-  // silently no-ops on a thin forest.
+  // Debug key T — hop to the nearest standalone (OSM-mapped) tree not yet
+  // visited this session, measured from wherever the last hop landed; once
+  // every loaded tree has been visited the set clears and the cycle restarts.
   teleportNextIndividualTree() {
     this.disableGpsForSession();
     const px = this.startWorldM.x + this.playerM.x;
@@ -7774,6 +8172,9 @@ class MapScene extends Phaser.Scene {
                this.viewCenterX, this.viewCenterY - 40);
   }
 
+  // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
+  // walking outward by distance. First press preferentially seeks the named
+  // POI in `_poiTpFirst` if it's loaded.
   teleportNextPoi() {
     this.disableGpsForSession();
     const px = this.startWorldM.x + this.playerM.x;
@@ -7869,7 +8270,7 @@ class MapScene extends Phaser.Scene {
       };
     }
     const t = this.add.text(x, y, text, style)
-      .setOrigin(0.5, opts.originY ?? 1).setDepth(opts.depth ?? S.depth);
+      .setOrigin(0.5, opts.originY ?? 1).setDepth(S.depth);
     // EVERY tier clamps now. Only `flash` used to, which is why a tap near an
     // edge rendered half a message ("Just out o") — and why a long item name
     // at 22px could still run off the 352px viewport in the loot pop, where
@@ -8119,31 +8520,41 @@ class MapScene extends Phaser.Scene {
     const money = Math.max(10, Math.round(value * 10));
     addMoney(this.save, money);
     // Discovery badge: at most ONE per type of interactable (keyed by baseId —
-    // the species/kind/produce id). The first shiny of a given type banks a
-    // Discovery badge — a normal inventory stack (id 'discovery', cap-exempt so
-    // a full bag can never eat one); later shinies of the same type still pay
-    // the cash windfall but don't re-award the badge. Added silent so the
-    // fanfare moment doesn't hijack the player's selected tab/stack; the
-    // explicit rebuild below makes the new badge count show immediately.
-    const found = this.save.discovered = this.save.discovered || {};
-    const isNew = !found[baseId];
-    if (isNew) {
-      found[baseId] = 1;
-      this.addToInv('discovery', 1, true);
-    }
+    // the species/kind/produce id); later shinies of the same type still pay
+    // the cash windfall but don't re-award the badge.
+    const isNew = this._bankDiscovery(baseId);
     persistSave(this.save);
-    if (isNew && this.buildInventoryDOM) this.buildInventoryDOM();
     this.flashShiny(money, isNew);
     return money;
   }
 
+  // THE BADGE LEDGER. One Discovery badge per key, ever: `save.discovered` is
+  // the set of keys already banked, and this is the only thing that writes it
+  // or hands out the 'discovery' stack. Keys are whatever "a thing you can
+  // discover once" is — a shiny type's base item id, an elite monster's kind,
+  // `house:<id>` for a household's first delivery — all in the one map, so
+  // there is one answer to "has this been discovered". Returns true when the
+  // badge was banked just now, false when the key was already in the ledger.
+  // The badge is a normal inventory stack (id 'discovery', cap-exempt so a
+  // full bag can never eat one), added silent so the moment doesn't hijack the
+  // player's selected tab/stack; the rebuild makes the new count show at once.
+  _bankDiscovery(key) {
+    const found = this.save.discovered = this.save.discovered || {};
+    if (found[key]) return false;
+    found[key] = 1;
+    this.addToInv('discovery', 1, true);
+    if (this.buildInventoryDOM) this.buildInventoryDOM();
+    return true;
+  }
+
   // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
   // banner + a money line + a Discovery line, with a starburst. Call AFTER the
-  // loot/catch flash so it stacks above (depth 110).
-  flashShiny(money, isNew = true) {
+  // loot/catch flash so it stacks above (depth 110). `title` is the headline —
+  // the elite kill wears its own.
+  flashShiny(money, isNew = true, title = '✨ SHINY FIND ✨') {
     if (!this.add) return;
     try {
-      const banner = this._toast('✨ SHINY FIND ✨',
+      const banner = this._toast(title,
         { tier: 'fanfare', color: UI_GOLD_PALE, bg: '#7a5200' });
       this.tweens.add({ targets: banner, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
       // Hangs BELOW the headline (originY 0) rather than above it, which is
@@ -8935,7 +9346,7 @@ class MapScene extends Phaser.Scene {
   // the player could resell for, so a stand can never be an arbitrage pump.
   // Repeatable: a quantity stepper lets the player buy as many as they can
   // afford and carry, and the stall is never marked save.opened.
-  presentMarketStandOffer(sx, sy, o, stand) {
+  presentMarketStandOffer(sx, sy, stand) {
     // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
     if (document.getElementById('offer-modal')) return;
     const id = stand.item;
@@ -9000,7 +9411,11 @@ class MapScene extends Phaser.Scene {
     // 'buy'
     if (isCastle) return "From the castle's vault:";
     if (isFort)   return 'The fort quartermaster offers:';
-    if (st === 'market')     return 'The market has fresh stock:';
+    // Named for its stock, so the line matches the sign outside: "The produce
+    // shop has fresh stock:", or "The seed shop …" for the tutorial's first one.
+    if (st === 'market') {
+      return `The ${Shops.roleLabel('market', this.isFirstMarket(house)).toLowerCase()} has fresh stock:`;
+    }
     if (st === 'trader')     return 'The trader proposes a barter:';
     if (st === 'blacksmith') return 'The blacksmith has on hand:';
     if (st === 'wizard')     return 'The wizard conjures a relic:';
@@ -9053,11 +9468,13 @@ class MapScene extends Phaser.Scene {
       if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
       // SELL one of the selected stack — confirm first so an accidental
       // home tap can't silently dump a high-value item. Sword relic scales
-      // the price from half (no sword) up to full base value at tier 7.
+      // the price from half (no sword) up to full base value at tier 7, and
+      // the trailer takes a flat 25% off that (TRAILER_SELL_MUL, items.js).
       // No shop specialty bonus at home — it's a private sale, not a
       // shopkeep's bid.
-      const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(this.save.relics) : 0.5;
-      const unitPrice = Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * sellMul));
+      const unitPrice = (typeof trailerSellPrice === 'function')
+        ? trailerSellPrice(PRICES[sel.id] ?? 1, this.save.relics)
+        : Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * 0.5 * 0.75));
       const item = ITEM_BY_ID[sel.id];
       const sellId = sel.id;
       const maxQty = Math.max(1, sel.count | 0);
@@ -9078,20 +9495,13 @@ class MapScene extends Phaser.Scene {
         acceptLabel: 'Sell',
         quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
         onAccept: (q) => {
-          const idx = this.save.inv.findIndex(s => s && s.id === sellId && (s.count ?? 0) > 0);
-          if (idx < 0) { this.flash('Gone — already used.', sx, sy); return; }
-          const cur = this.save.inv[idx];
-          const sold = Math.max(1, Math.min(q ?? 1, cur.count ?? 0));
-          if (sold <= 0) { this.flash('Gone — already used.', sx, sy); return; }
-          cur.count -= sold;
+          const have = Inventory.count(this.save, sellId);
+          if (have <= 0) { this.flash('Gone — already used.', sx, sy); return; }
+          const sold = Math.max(1, Math.min(q ?? 1, have));
+          Inventory.remove(this.save, sellId, sold);
+          this._clampSelSlot();
           const gain = unitPrice * sold;
           addMoney(this.save, gain);
-          if (cur.count <= 0) {
-            this.save.inv.splice(idx, 1);
-            if (this.save.selSlot >= this.save.inv.length) {
-              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-            }
-          }
           persistSave(this.save);
           this.buildInventoryDOM();
           this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
@@ -9106,10 +9516,13 @@ class MapScene extends Phaser.Scene {
     // the tap handler will enforce.
     const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
     const isStarterSmith = this.isStarterBlacksmith(house);
-    const { dealCap, ready: shopReady, waitMin } = this.shopReadiness(house);
+    const { dealCap, ready: shopReady, waitMs } = this.shopReadiness(house);
     if (house && !shopReady) {
       const kindLabel = isCastle ? 'castle' : (house.tier === 11) ? 'fort' : 'house';
-      this.flash(`${kindLabel} busy — try again in ${waitMin}m`, sx, sy);
+      // Same notation, same number as the plaque over the roof (render.js
+      // formats info.waitMs through shortDuration too), so the tap and the
+      // label can't disagree about how long the wait is.
+      this.flash(`${kindLabel} busy — try again in ${shortDuration(waitMs)}`, sx, sy);
       return;
     }
     // Record a deal against this house — called from inside the accept path.
@@ -9144,16 +9557,11 @@ class MapScene extends Phaser.Scene {
         canAfford: true,
         acceptLabel: 'Gift',
         onAccept: () => {
-          const idx = this.save.inv.findIndex(s => s && s.id === 'flowers' && (s.count ?? 0) > 0);
-          if (idx < 0) { this.flash('Gone — already used.', sx, sy); return; }
-          const cur = this.save.inv[idx];
-          cur.count -= 1;
-          if (cur.count <= 0) {
-            this.save.inv.splice(idx, 1);
-            if (this.save.selSlot >= this.save.inv.length) {
-              this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-            }
+          if (Inventory.remove(this.save, 'flowers', 1) < 1) {
+            this.flash('Gone — already used.', sx, sy);
+            return;
           }
+          this._clampSelSlot();
           this.save.shopCharm = this.save.shopCharm || {};
           // Prune spent charms while we're here so the map can't grow without
           // bound across many gifts.
@@ -9180,7 +9588,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // Plain houses — small residential without a shop role and not the
-    // starter blacksmith — are delivery sites only. Each wants a SET of 2-3
+    // starter blacksmith — are delivery sites only. Each wants a SET of 1-3
     // produce and buys it as a bundle: one of each, full price, no sword
     // sellMul. They don't sell anything or do the old 10% relic swap. Their
     // sign shows the wanted icons so the player can scout a street and gather
@@ -9245,7 +9653,11 @@ class MapScene extends Phaser.Scene {
       }
       const offer = this.peekOrBuildRelicOffer(house);
       if (offer) { this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house); return; }
-      this.flash('"Anvil\'s resting, friend. Try again later."', sx, sy);
+      // "Later" is a real number: the offer is rolled per hourly bucket, so
+      // the anvil wakes when this house's bucket rolls over. Without it this
+      // was the one shop message that named no wait at all, and a player could
+      // only find out by tapping again.
+      this.flash(`"Anvil's resting, friend. Try again ${this.shopWaitLabel(house)}."`, sx, sy);
       return;
     }
     // Traders are barter-only with their own seeded offer (qty scales to a
@@ -9488,9 +9900,10 @@ class MapScene extends Phaser.Scene {
   // its position is persisted to save.starterTrailer and re-injected into the
   // owning tile on every load by ensureStarterTrailerObject().
   _makeStarterTrailer(wmx, wmy) {
-    const cellPx = WorldGen.TILE_PX / this.cellsPerTile;
-    const snap = (wm) => (Math.floor((wm / this.mPerPx) / cellPx) + 0.5) * cellPx * this.mPerPx;
-    const x = snap(wmx), y = snap(wmy);
+    // Snap through the shared cell helpers (coords.js) so the trailer lands on
+    // the same cell centre every other placed object resolves to.
+    const { cellIX, cellIY } = worldMetersToAbsCell(this, wmx, wmy);
+    const { x, y } = absCellCenterMeters(this, cellIX, cellIY);
     const id = 'starter_trailer';
     const address = ((Math.round(x) ^ Math.round(y)) >>> 0) % 1000;
     // tier = T.BUILDING (a plain small house); the starter role overrides the
@@ -9700,21 +10113,6 @@ class MapScene extends Phaser.Scene {
     return !!house && !!house.id && this.ensureFirstMarketId() === house.id;
   }
 
-  // 0-based position of this house among restored residential (delivery)
-  // houses, in restore order; -1 if it isn't a (restored) delivery house.
-  // restoredHouses keys preserve insertion order, so the Nth 'plain' entry is
-  // the Nth-restored delivery house. Drives the scripted early wishlists
-  // (houses 1-3 → TIER-1 produce, house 4 → the foraged-flower trio).
-  deliveryHouseOrder(house) {
-    return Delivery.houseOrder(this.save, house);
-  }
-
-  // True for the first 3 RESTORED delivery houses — they get pinned to TIER-1
-  // produce wishlists (see wantedProduce).
-  isEarlyDeliveryHouse(house) {
-    return Delivery.isEarly(this.save, house);
-  }
-
   // Every restored delivery house currently asking for a bundle (not satisfied
   // today), nearest first, with its wanted produce + distance in metres. Drives
   // the delivery menu (openDeliveryMenu). Home / forts / castles / wrecks are
@@ -9741,12 +10139,6 @@ class MapScene extends Phaser.Scene {
     }
     out.sort((a, b) => a.dist - b.dist);
     return out;
-  }
-
-  // Point the white waypoint arrow at a delivery house (cleared automatically
-  // once the player reaches it or it's satisfied — see the update loop).
-  setDeliveryCompass(id, x, y) {
-    this.deliveryCompass = { id, x, y };
   }
 
   // Delivery list overlay: tap a row to aim the white waypoint arrow at that
@@ -9800,7 +10192,9 @@ class MapScene extends Phaser.Scene {
         if (ready) row.style.borderColor = '#4a8c4a';
         row.addEventListener('click', (e) => {
           e.stopPropagation();
-          this.setDeliveryCompass(h.id, h.x, h.y);
+          // Point the white waypoint arrow at this house (cleared automatically
+          // once the player reaches it or it's satisfied — see the update loop).
+          this.deliveryCompass = { id: h.id, x: h.x, y: h.y };
           wrap.remove();
           this.flash('following the white arrow', this.viewCenterX, this.viewCenterY);
         });
@@ -9942,26 +10336,22 @@ class MapScene extends Phaser.Scene {
   }
 
   // ─── Deliveries: plain houses only buy specific produce ──────────────
-  // UTC day stamp ("YYYYMMDD") — the wishlist + happy state turn over on the
-  // day boundary, so a house satisfied today wants a fresh bundle tomorrow.
-  // Mirrors the coin-burst daily-cap key format.
+  // UTC day stamp ("YYYYMMDD") — the ONE day key every day-gated thing on the
+  // scene reads (delivery wishlists + happy state, the coin-burst POI cap, the
+  // castle favour), so every "back in <wait>" counts down to the same rollover
+  // (msToNextUtcDay).
   // Delivery wishlist logic lives in delivery.js (headlessly tested). These stay
   // as scene methods because render.js + the interact/present handlers call them
   // as scene.wantedProduce(o) / scene.isHouseSatisfied(o) / etc.
-  _deliveryDayKey() {
+  _dayKey() {
     return Delivery.dayKey();
   }
 
-  wantedProduceRng(house, dayKey) {
-    return Delivery.wantedRng(house, dayKey);
-  }
-
-  _produceTier(id) {
-    return Delivery.produceTier(id);
-  }
-
-  // 2-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
-  // cached on the house per day so the render sign and interact handler agree).
+  // 1-3 produce ids this plain house wants — locked to its FIRST ask for the
+  // life of the house (pinned in save.houseWishlists by delivery.js, cached on
+  // the house so the render sign and interact handler agree). The first
+  // restored houses walk delivery.js's scripted ladder, which opens with five
+  // single-item asks before any bundle.
   wantedProduce(house) {
     return Delivery.wantedProduce(this.save, house);
   }
@@ -9973,32 +10363,39 @@ class MapScene extends Phaser.Scene {
   }
 
   // Delivery interaction. Plain houses buy a SET — they want one of EACH of
-  // their 2-3 wanted produce, delivered together. Tap with the full set in
+  // their 1-3 wanted produce, delivered together. Tap with the full set in
   // your bags → deliver 1 of each per set for the summed full price (no sword
   // sellMul, no specialty bonus); the quantity selector lets you turn in
   // multiple complete sets at once. Tap without the full set → flash the
-  // wanted icons so the player can see what to gather. Selling a single item
-  // type isn't accepted here; that keeps plain houses distinct from markets.
+  // wanted icons so the player can see what to gather. Selling a produce the
+  // house didn't ask for isn't accepted here; that keeps plain houses distinct
+  // from markets.
+  //
+  // The opening ladder (delivery.js SCRIPTED_WISHLISTS) makes the first houses
+  // ask for ONE item, and a one-item wishlist isn't a "set" — the copy below
+  // drops the set wording (and the "sets" stepper unit) in that case, so the
+  // first errand reads "wants: Potato" rather than "wants the set: Potato".
   presentDeliveryOffer(sx, sy, house, recordDeal) {
     // Already fed today — the household is happy and won't take another
-    // bundle until tomorrow. They'll want a fresh one on the next day.
+    // bundle until tomorrow. It will want the SAME bundle again then.
     if (this.isHouseSatisfied(house)) {
-      this.flash('happy — come back tomorrow', sx, sy);
+      // "Tomorrow" is the UTC day rollover (Delivery.dayKey), which can be
+      // twenty hours off or twenty minutes — so say which. Same notation as
+      // every other wait in the game.
+      this.flash(`happy — back in ${shortDuration(msToNextUtcDay())}`, sx, sy);
       return;
     }
     const wanted = this.wantedProduce(house);
     if (!wanted.length) { this.flash('nobody home', sx, sy); return; }
-    const invCount = (id) => {
-      const s = (this.save.inv || []).find(e => e && e.id === id);
-      return s ? (s.count ?? 0) : 0;
-    };
+    const single = wanted.length === 1;
+    const invCount = (id) => Inventory.count(this.save, id);
     // Full set requires at least one of every wanted item. maxSets is how many
     // complete sets the current bags can fulfil (0 if any item is missing).
     const maxSets = wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity);
     const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
     if (!maxSets) {
       const names = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(', ');
-      this.flash(`wants the set: ${names}`, sx, sy);
+      this.flash(single ? `wants: ${names}` : `wants the set: ${names}`, sx, sy);
       return;
     }
     // Price of one complete set = sum of each wanted item's full price, plus a
@@ -10011,13 +10408,15 @@ class MapScene extends Phaser.Scene {
     const setNames = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(' + ');
     const fmt = (q) => ({
       get: `+$${setPrice * q}`,
-      cost: `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
+      cost: single
+        ? `${q} × [ ${setIcons} ${setNames} ]`
+        : `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
       canAfford: true,
     });
     const first = fmt(1);
     this.showOfferModal({
       kind: 'delivery',
-      title: 'The household wants the full set:',
+      title: single ? 'The household wants:' : 'The household wants the full set:',
       cancelLabel: 'Later',
       get: first.get,
       cost: first.cost,
@@ -10028,27 +10427,26 @@ class MapScene extends Phaser.Scene {
         // Re-validate against live bags so a stale modal can't over-deliver.
         const sets = Math.max(1, Math.min(q ?? 1,
           wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity)));
-        if (!sets || sets === Infinity) { this.flash('Set incomplete now.', sx, sy); return; }
-        for (const id of wanted) {
-          const idx = this.save.inv.findIndex(s => s && s.id === id && (s.count ?? 0) > 0);
-          if (idx < 0) continue;
-          const cur = this.save.inv[idx];
-          cur.count -= sets;
-          if (cur.count <= 0) this.save.inv.splice(idx, 1);
+        if (!sets || sets === Infinity) {
+          this.flash(single ? 'Nothing to deliver now.' : 'Set incomplete now.', sx, sy);
+          return;
         }
-        if (this.save.selSlot >= this.save.inv.length) {
-          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-        }
+        for (const id of wanted) Inventory.remove(this.save, id, sets);
+        this._clampSelSlot();
         const gain = setPrice * sets;
         addMoney(this.save, gain);
         // Lifetime delivery tally — each completed SET counts as one delivery.
         // Gates the castle vault and ramps the delivery produce tier (see
         // delivery.js / shopGateInfo).
         this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
+        // The FIRST delivery to this household is a discovery: one Discovery
+        // badge per house, ever, through the same ledger a shiny find uses
+        // (keyed `house:<id>` so a house can't collide with an item id).
+        const firstHere = this._bankDiscovery(`house:${house.id}`);
         // Mark this household satisfied for the rest of the UTC day — it stops
-        // asking (shows "happy" instead of a wishlist) and wants a fresh bundle
-        // tomorrow. Prune stale day stamps so the map stays small over weeks.
-        const dayKey = this._deliveryDayKey();
+        // asking (shows "happy" instead of a wishlist) and wants its bundle
+        // again tomorrow. Prune stale day stamps so the map stays small over weeks.
+        const dayKey = this._dayKey();
         this.save.houseSatisfied = this.save.houseSatisfied || {};
         for (const k of Object.keys(this.save.houseSatisfied)) {
           if (this.save.houseSatisfied[k] !== dayKey) delete this.save.houseSatisfied[k];
@@ -10058,6 +10456,7 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, wanted[0]);
+        if (firstHere) this.flash('🔆 +1 Discovery — first delivery here', sx, sy - 24);
       },
     });
   }
@@ -10067,23 +10466,27 @@ class MapScene extends Phaser.Scene {
   // player either buys it, rerolls it, or (for non-castle shops) leaves and
   // the cap resets it. Castle offers persist forever and rotate on purchase.
   //
-  // ─── Hour-bucket helpers ────────────────────────────────────────
-  // Per-shop sub-hour offset so two shops don't rotate at the same wall-clock
-  // minute. Cached on the scene because every tap consults it.
+  // ─── Shop readiness helpers ─────────────────────────────────────
   // Shop hour-bucket scheduling + the seeded per-bucket RNG live in
   // shops_math.js (ShopsMath.*); these stay as scene methods because the present*
   // handlers + the renderer's ready/timer indicator call them as this.shopX(…).
-  _shopBucketOffset(houseId) {
-    return ShopsMath.bucketOffset(houseId);
-  }
-  _shopBucket(houseId, now = Date.now()) {
-    return ShopsMath.bucket(houseId, now);
-  }
   shopDealCap(house) {
     return ShopsMath.dealCap(house, this.isStarterBlacksmith(house));
   }
   shopReadiness(house) {
     return ShopsMath.readiness(this.save, house, this.shopDealCap(house));
+  }
+  // "How long until this house has something new" in the shared largest-unit
+  // notation ("47m", "1h"). Offers and deal caps both roll on the house's own
+  // hourly bucket, so one label serves the busy plaque, the busy tap and the
+  // blacksmith's resting anvil — which is not rate-limited but is waiting on
+  // exactly the same rollover.
+  // Returns the whole clause ("in 47m", or "later" when there is no bucket to
+  // count to — a synthetic building with no id), so the sentence still reads
+  // either way rather than promising "in 0s".
+  shopWaitLabel(house) {
+    const ms = ShopsMath.msToNextBucket(house);
+    return ms > 0 ? `in ${shortDuration(ms)}` : 'later';
   }
   // Flower charm: 0.5 while this building holds an unexpired charm (bought
   // with a Flowers gift — see the flower-gift branch in shopInteract), else 1.
@@ -10240,22 +10643,10 @@ class MapScene extends Phaser.Scene {
   // bar the player can currently afford, so the modal opens on something usable.
   presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, target = null) {
     const bars = this.smeltUnlockedBars();
-    const heldCount = (id) =>
-      ((this.save.inv || []).find(s => s && s.id === id)?.count) ?? 0;
+    const heldCount = (id) => Inventory.count(this.save, id);
     const consume = (id, n) => {
-      let left = n;
-      for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
-        const s = this.save.inv[i];
-        if (!s || s.id !== id) continue;
-        const take = Math.min(left, s.count ?? 0);
-        s.count -= take; left -= take;
-        if ((s.count ?? 0) <= 0) {
-          this.save.inv.splice(i, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
-      }
+      Inventory.remove(this.save, id, n);
+      this._clampSelSlot();
     };
     const tabs = [
       { label: 'Forge', active: false, onSelect: forgeBack },
@@ -10387,10 +10778,7 @@ class MapScene extends Phaser.Scene {
         if (Inventory.count(this.save, 'discovery') < cost) { this.flash('Not enough Discovery.', sx, sy); return; }
         if ((this.save.reachUpgrades ?? 0) >= this.REACH_UPGRADE_MAX) { this.flash('Reach already maxed.', sx, sy); return; }
         Inventory.remove(this.save, 'discovery', cost);
-        // The spend may have spliced the badge stack out — keep selSlot valid.
-        if (this.save.selSlot >= this.save.inv.length) {
-          this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-        }
+        this._clampSelSlot();
         this.save.reachUpgrades = (this.save.reachUpgrades ?? 0) + 1;
         // The light's gift is a Ring whose tier matches the new inner-light
         // level — the relic that embodies your widened sight.
@@ -10465,8 +10853,7 @@ class MapScene extends Phaser.Scene {
     if (!offer) { this.flash('no deal', sx, sy); return; }
     const giveItem = ITEM_BY_ID[offer.giveId];
     const askItem  = ITEM_BY_ID[offer.askId];
-    const heldCount = () =>
-      ((this.save.inv || []).find(s => s && s.id === offer.askId)?.count) ?? 0;
+    const heldCount = () => Inventory.count(this.save, offer.askId);
     const curState = this.shopBucketState(house);
     const rerollCost = 5 * Math.pow(2, curState.rerolls || 0);
     // Low-tier seeds barter in a slightly larger bundle (planted in bulk).
@@ -10487,15 +10874,8 @@ class MapScene extends Phaser.Scene {
           this.flash(`need ${offer.askQty} ${askItem?.name || offer.askId}`, sx, sy);
           return;
         }
-        const idx = this.save.inv.findIndex(s => s && s.id === offer.askId);
-        const cur = this.save.inv[idx];
-        cur.count -= offer.askQty;
-        if (cur.count <= 0) {
-          this.save.inv.splice(idx, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
+        Inventory.remove(this.save, offer.askId, offer.askQty);
+        this._clampSelSlot();
         this.addToInv(offer.giveId, giveQty);
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
@@ -10523,67 +10903,94 @@ class MapScene extends Phaser.Scene {
 
   // True iff `house` is a tier-9 small building that hasn't been restored
   // yet. Trailer (starter shop) and forts/castles skip wreck status. Used
-  // ─── Path-stone activation ───────────────────────────────────────
-  // Each cell of a named pedestrian path is a "stone" the player can
-  // claim by either tapping it or walking onto it. Claimed stones get a
-  // full opacity (render.js looks them up via _isPathStoneActive). When
-  // every stone of one named path on one tile is claimed, the player
-  // gets a fanfare modal with a T4 lowtier-class loot roll — the kind
-  // of nice surprise a focused "walk the whole trail" run deserves.
+  // ─── Cobble-trail activation ─────────────────────────────────────
+  // A STONE is a cobble cell that DRAWS a pebble — footpath and street alike,
+  // thinned by the renderer to one per Render.COBBLE_SPACING_M — and it LIGHTS
+  // ONCE IT HAS BEEN IN THE PLAYER'S LIT REACH FOR PATH_STONE_DWELL_MS. There
+  // is no tap and no step to make: linger near a trail and the stones inside
+  // the lit bubble come on together, several at a time, which is what the reach
+  // circle is already telling you it covers. Sight has to be CONTINUOUS — clip
+  // the edge of the bubble in passing and the clock restarts next time — and
+  // the auto-walk home earns none of it (see _sweepCobbleTrails). Lit stones
+  // draw at full opacity in UI_TRAIL_LIT (render.js looks them up via
+  // _isPathStoneActive).
+  //
+  // Counted and drawn are the SAME set: only a cell the renderer puts a pebble
+  // on is a stone. Every cobble cell used to count, so a "10/10" could land
+  // after three visible stones had lit and the number meant nothing you could
+  // see. Render.cobbleShown is the one rule both sides read.
+  //
+  // PRIZES: ONE LADDER for the whole world — Trail.GOAL_STEP stones for the
+  // first treasure, twice that for the second, three times for the third. No
+  // per-path counters, no per-tile segments, no floor on how long a path has
+  // to be: a stone is a stone wherever it is picked up. See src/trail.js, where
+  // the ladder lives and is pinned. Walking pays in treasure only — there is no
+  // money drip.
+  //
   // State shape:
-  //   save.pathStones = {
-  //     "<z/tx/ty>": {
-  //       "<full street name>": { stones: ["ix_iy", ...], done: bool }
-  //     }
-  //   }
-  // Per-tile keying keeps the data structure bounded and means a path
-  // crossing N tiles offers up to N rewards (one per tile completed).
+  //   save.trail      = { stones: <banked toward the current goal>, prizes: n }
+  //   save.pathStones = { "<z/tx/ty>": ["ix_iy", ...] }   ← which stones are lit
+  // The per-tile lit list is per-tile only so the lookup a frame does for every
+  // visible cobble stays a small set; it carries no progress of its own.
   _isPathStoneActive(tx, ty, ix, iy) {
     const tileKey = WorldGen.tileKey(tx, ty);
-    const tile = this.save.pathStones && this.save.pathStones[tileKey];
-    if (!tile) return false;
+    const lit = this.save.pathStones && this.save.pathStones[tileKey];
+    if (!lit || !lit.length) return false;
     const entry = WorldGen.tileCache.get(tileKey);
-    if (!entry || !entry.pathNames) return false;
-    // Callers pass ABSOLUTE cell coords; pathNames is keyed by tile-local
-    // ix_iy (per the worldgen rasterize loop). Convert by stripping out
-    // the tile-origin offset.
-    const N = entry.cellsPerEdge;
-    const lix = ((ix % N) + N) % N;
-    const liy = ((iy % N) + N) % N;
-    const cellKey = `${lix}_${liy}`;
-    const name = entry.pathNames[cellKey];
-    if (!name) return false;
-    const rec = tile[name];
-    return !!(rec && (rec.done || (rec.stones && rec.stones.includes(cellKey))));
+    if (!entry) return false;
+    const { lix, liy } = pathStoneLocal(entry, ix, iy);
+    // setOf (util.js), not Array.includes: render.js asks this for EVERY
+    // visible cobble cell on every frame, and a walked tile's list runs to
+    // hundreds of entries — a linear scan per cell per frame is the shape that
+    // gets slower the longer someone plays.
+    return setOf(lit).has(`${lix}_${liy}`);
   }
-  // Mark the path stone under abs cell (ix, iy) as activated. Returns
-  // true iff the cell was newly activated (so callers can suppress flash
-  // spam on every step over an already-claimed stone). Fires the path-
-  // completion reward when this activation closes out the named path.
-  _activatePathStone(tx, ty, ix, iy) {
+
+  // Is there an UNLIT stone at abs cell (ix, iy)? Returns { tileKey, cellKey }
+  // — the tile-local address the save records it under — or null when this
+  // cell is not a stone the player can still claim.
+  //
+  // ONE rule, read by both halves of the sweep: the sight pass asks it to
+  // decide what the dwell clock is counting, and _activatePathStone asks it
+  // again at the moment of lighting. If the two asked different questions, a
+  // cell could sit out its two seconds and then refuse to light (or worse,
+  // light something the timer was never watching).
+  _pathStoneAt(tx, ty, ix, iy) {
     const tileKey = WorldGen.tileKey(tx, ty);
     const entry = WorldGen.tileCache.get(tileKey);
-    if (!entry || !entry.pathNames) return false;
-    // ABS → tile-local conversion (mirrors _isPathStoneActive — see comment
-    // there for the rationale).
-    const N = entry.cellsPerEdge;
-    const lix = ((ix % N) + N) % N;
-    const liy = ((iy % N) + N) % N;
+    if (!entry || !entry.grid) return null;
+    const { lix, liy, N } = pathStoneLocal(entry, ix, iy);
+    const type = entry.grid[liy * N + lix];
+    // Is there a stone here at all? Cobble terrain (worldgen), and a pebble
+    // actually drawn on it (render.js). Asking the grid is what let the trail
+    // name pass go: the terrain already says which cells are cobbles.
+    if (!WorldGen.isCobbleTerrain(type)) return null;
+    if (typeof Render !== 'undefined' && Render.cobbleShown
+        && !Render.cobbleShown(ix, iy, type, this.cellM)) return null;
     const cellKey = `${lix}_${liy}`;
-    const name = entry.pathNames[cellKey];
-    if (!name) return false;
+    const lit = this.save.pathStones && this.save.pathStones[tileKey];
+    if (lit && setOf(lit).has(cellKey)) return null;   // already claimed
+    return { tileKey, cellKey };
+  }
+
+  // Light the cobble under abs cell (ix, iy). The PRIMITIVE: it records the
+  // stone and its flash and nothing else — no counter, no prize, no save
+  // write — because one step lights a whole disc of cells at once and the
+  // sweep banks them ONCE between them, not once each.
+  // Returns true if this cell was newly lit.
+  _activatePathStone(tx, ty, ix, iy) {
+    const stone = this._pathStoneAt(tx, ty, ix, iy);
+    if (!stone) return false;
     this.save.pathStones = this.save.pathStones || {};
-    const tileStones = this.save.pathStones[tileKey] =
-      this.save.pathStones[tileKey] || {};
-    const rec = tileStones[name] = tileStones[name] || { stones: [], done: false };
-    if (rec.done || rec.stones.includes(cellKey)) return false;
-    rec.stones.push(cellKey);
-    // Record a short-lived "just claimed" flash for render.js's cobble pass
-    // (see PATH_STONE_FLASH_MS there) — a little scale-pop plays on this
-    // exact cell so claiming a stone reads as an event, not just a silent
-    // opacity change next frame. Keyed by ABS cell so it survives the
-    // tx/ty → tile-local conversion above. Pruned here (not every frame) —
-    // activations are rare enough that this map never grows unbounded.
+    const lit = this.save.pathStones[stone.tileKey]
+      = this.save.pathStones[stone.tileKey] || [];
+    lit.push(stone.cellKey);
+    // Record a short-lived "just lit" flash for render.js's cobble pass (see
+    // PATH_STONE_FLASH_MS there) — a scale-pop plays on this exact cell so
+    // lighting reads as an event, not just a silent opacity change next
+    // frame. Keyed by ABS cell so it survives the tx/ty → tile-local
+    // conversion above. Pruned here (not every frame) — only a stone that
+    // actually lights gets an entry, so this map never grows unbounded.
     this._pathStoneFlashes = this._pathStoneFlashes || new Map();
     const flashNow = performance.now();
     // Prune window must stay comfortably above render.js's PATH_STONE_FLASH_MS
@@ -10594,78 +11001,308 @@ class MapScene extends Phaser.Scene {
       if (flashNow - t > pruneMs) this._pathStoneFlashes.delete(k);
     }
     this._pathStoneFlashes.set(cellKeyFromAbsCell(ix, iy), flashNow);
-    // Spec §PATH STONES: every 2nd claimed stone on the same named path awards
-    // 1 coin (a 30-stone path pays 15 total; a single stone pays nothing). Pay
-    // each 2-stone milestone exactly once as the player walks it. This is in
-    // ADDITION to the one-time completion reward fired below.
-    const milestones = Math.floor(rec.stones.length / 2);
-    if (milestones > (rec.coinsPaid || 0)) {
-      const newCoins = milestones - (rec.coinsPaid || 0);
-      rec.coinsPaid = milestones;
-      addMoney(this.save, newCoins);
-      this.flashLoot(`🪙 +$${newCoins} path`, '#ffe066', 1);
-    }
-    // Completion check: count every cell whose pathNames entry === name.
-    let total = 0;
-    for (const k in entry.pathNames) if (entry.pathNames[k] === name) total++;
-    if (rec.stones.length >= total) {
-      rec.done = true;
-      // Only reward trails of real length. Every path cell is now named
-      // (worldgen flood-fill), so without this floor a 1–2 cell footpath stub
-      // would pop the full fanfare. 8 cells ≈ 40 m — a trail worth walking.
-      const MIN_TRAIL = 8;
-      if (total >= MIN_TRAIL) this._firePathCompletionReward(name);
-    }
-    persistSave(this.save);
     return true;
   }
-  // Reward fired when every stone of a named path on the current tile
-  // has been activated. Uses the unified rarity picker with the lowtier
-  // chest biome at tier 4 (the most generous lowtier curve) so the
-  // reward is meaningful without competing with the actual T4 epic
-  // POI chests. Routed through showChestRewardModal so it shares the
-  // same fanfare + sparkles as chest opens.
-  _firePathCompletionReward(name) {
-    const reward = (typeof pickReward === 'function')
-      ? pickReward('chest:lowtier', this.save, undefined, { tier: 4 })
-      : null;
-    // Unnamed trails carry a synthetic "trail#<tile>_<n>" key (worldgen
-    // flood-fill) — show a generic title rather than the raw id.
-    const title = name.startsWith('trail#') ? 'HIDDEN TRAIL' : name.toUpperCase();
-    if (!reward) {
+
+  // Forget every stone the sight pass was watching. A cell whose clock is
+  // dropped here starts its two seconds over the next time it comes into
+  // reach — which is the point: sight has to be CONTINUOUS.
+  _resetTrailSight() {
+    this._trailSweepKey = null;
+    this._trailSight = null;
+  }
+
+  // Every unlit stone currently inside the lit reach, mapped to the moment it
+  // came into sight. A cell already being watched keeps its original stamp
+  // (the clock runs while the player walks along a path); a cell that has left
+  // the bubble is simply absent from the new map, so coming back starts it
+  // fresh.
+  //
+  // Measured from the REACH CELL, never the camera anchor (QC rules: a peek
+  // drag must not light stones three cells further than the arm reaches).
+  // cellInReach is the same gate the lit silhouette in render.js draws with,
+  // so what looks lit is exactly what counts.
+  _rebuildTrailSight(p, reachM, now) {
+    const prev = this._trailSight;
+    const next = new Map();
+    const r = Math.ceil(reachM / this.cellM);
+    const N = this.cellsPerTile;
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const ix = p.cellIX + dx, iy = p.cellIY + dy;
+        if (!cellInReach(this, ix, iy)) continue;
+        const tx = Math.floor(ix / N), ty = Math.floor(iy / N);
+        if (!this._pathStoneAt(tx, ty, ix, iy)) continue;
+        const key = `${ix},${iy}`;
+        const was = prev && prev.get(key);
+        next.set(key, { ix, iy, t: was ? was.t : now });
+      }
+    }
+    return next;
+  }
+
+  // THE SWEEP. Lights every stone that has been IN SIGHT — inside the player's
+  // lit reach, continuously — for PATH_STONE_DWELL_MS, then banks them all at
+  // once: one counter pop, one prize check, one save write however many stones
+  // came on.
+  //
+  // Two halves, because the dwell needs both. The SCAN (which cells are stones
+  // in reach right now) is memoised on the reach CELL plus the radius: standing
+  // still finds nothing new, and the only things that can bring fresh cells
+  // into the bubble are moving to another cell or the reach itself changing (an
+  // upgrade, a potion, running out of energy). The RIPEN pass runs every frame
+  // over that small map, because the thing it is waiting on is the clock, not
+  // the player.
+  //
+  // NOT WHILE AUTO-WALKING. When the stick is let go the character walks itself
+  // back to the GPS fix (_driftHome) — that is the game moving the body, not
+  // the player looking at anything, so it banks nothing and drops the clocks it
+  // was holding. Sight is something the player spends, not something a
+  // cutscene collects on their behalf.
+  _sweepCobbleTrails() {
+    // Cave levels carry no cobbles at all, so don't pay for the scan down
+    // there.
+    if ((this.depth ?? 0) > 0) { this._resetTrailSight(); return; }
+    if (this._driftingHome) { this._resetTrailSight(); return; }
+    const reachM = reachRadiusM(this);
+    if (!(reachM > 0)) { this._resetTrailSight(); return; }   // 0 energy: no light, no claim
+    const p = playerReachCell(this);
+    const now = Date.now();
+    const sweepKey = `${p.cellIX},${p.cellIY},${Math.round(reachM)}`;
+    if (this._trailSweepKey !== sweepKey || !this._trailSight) {
+      this._trailSweepKey = sweepKey;
+      this._trailSight = this._rebuildTrailSight(p, reachM, now);
+    }
+    const sight = this._trailSight;
+    if (!sight.size) return;
+    // How many stones this sweep lit, and the nearest of them — the counter
+    // belongs on the stone the player just walked up to rather than on one at
+    // the far edge of the bubble.
+    const N = this.cellsPerTile;
+    let lit = 0, at = null, bestD2 = Infinity;
+    for (const [key, s] of sight) {
+      if (now - s.t < PATH_STONE_DWELL_MS) continue;
+      // Ripe: it lights now or it never will (a cell that lost its stone under
+      // a rebuilt tile), so it leaves the watch list either way.
+      sight.delete(key);
+      const tx = Math.floor(s.ix / N), ty = Math.floor(s.iy / N);
+      if (!this._activatePathStone(tx, ty, s.ix, s.iy)) continue;
+      lit += 1;
+      const dx = s.ix - p.cellIX, dy = s.iy - p.cellIY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) { bestD2 = d2; at = { ix: s.ix, iy: s.iy }; }
+    }
+    if (!lit) return;
+    this._bankTrailStones(lit, at);
+    persistSave(this.save);
+  }
+
+  // The stones a sweep just lit, banked against the one ladder: show the
+  // counter and queue whatever prizes the new total has earned.
+  _bankTrailStones(lit, at) {
+    const st = this.save.trail = this.save.trail || { stones: 0, prizes: 0 };
+    const out = Trail.bank(st.stones, st.prizes, lit);
+    st.stones = out.stones;
+    st.prizes = out.prizes;
+    // The counter: stones banked toward the current goal, popped by the player
+    // exactly like the rest-energy splash. ONE per sweep, however many stones
+    // just came on.
+    //
+    // It is drawn ON THE STONE, in the same colour the stone lights up in
+    // (UI_TRAIL_LIT — the constant the lit-cobble texture is baked from), so
+    // the number and the thing it counts read as one event. It used to pop at
+    // the screen centre in the pale treasure ink, which said "something
+    // happened" without saying where or what to.
+    //
+    // Seated through worldMetersToScreen, never off the player: a peek drag
+    // moves the camera, and the counter has to stay on its cobble (QC rules —
+    // "where do I DRAW this?" goes through the projection). Falls back to the
+    // centred toast if the cell can't be projected — a headless scene, or a
+    // sweep before the camera exists.
+    const { pos, target } = Trail.progress(st.stones, st.prizes);
+    this._toast(`${pos}/${target}`, {
+      tier: 'note', color: UI_TRAIL_LIT,
+      ...this._trailCounterAt(at && at.ix, at && at.iy),
+    });
+    if (out.owed <= 0) return;
+    // A wide reach can sweep past more than one goal in a single step, so this
+    // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
+    // time rather than stacking modals on top of each other. Each entry is the
+    // prize's ORDINAL, which is what decides how good its roll is.
+    this._trailPrizeQueue = this._trailPrizeQueue || [];
+    for (let n = out.prizes - out.owed + 1; n <= out.prizes; n++) this._trailPrizeQueue.push(n);
+    this._drainTrailPrizes();
+  }
+
+  // Where the "N/M" sits for the stone at abs cell (ix, iy): screen position of
+  // the cell's centre, lifted clear of the pebble so the number reads above the
+  // stone rather than across it (the note tier hangs its text from `y`).
+  // Returns {} — the toast's own centred default — when there's nothing to
+  // project against.
+  _trailCounterAt(ix, iy) {
+    if (ix == null || iy == null) return {};
+    if (typeof absCellCenterMeters !== 'function' || !this.worldMetersToScreen) return {};
+    if (!this.startWorldM || !this.originPx) return {};
+    const c = absCellCenterMeters(this, ix, iy);
+    const p = this.worldMetersToScreen(c.x, c.y);
+    if (!p || !isFinite(p.x) || !isFinite(p.y)) return {};
+    return { x: Math.round(p.x), y: Math.round(p.y) - TRAIL_COUNTER_LIFT_PX };
+  }
+
+  // Hand out queued trail prizes one at a time, each ceremony opening as the
+  // previous one is dismissed. Two showChestRewardModal calls in the same
+  // frame would put one modal on top of the other and the player would never
+  // see the one underneath.
+  _drainTrailPrizes() {
+    if (this._trailPrizeOpen) return;
+    const q = this._trailPrizeQueue;
+    if (!q || !q.length) return;
+    this._trailPrizeOpen = true;
+    const n = q.shift();
+    this._fireTrailPrize(n, () => {
+      this._trailPrizeOpen = false;
+      this._drainTrailPrizes();
+    });
+  }
+
+  // Reward fired when the lit-stone count reaches its goal. `n` is the prize's
+  // ORDINAL — the 1st, 2nd, 3rd… — which is both what it took to get here
+  // (Trail.GOAL_STEP × n stones) and how good the roll is.
+  //
+  // Uses the unified rarity picker with the lowtier chest biome at tier 4 (the
+  // most generous lowtier curve) plus Trail.rollBonusFor extra chain steps —
+  // one, and one more per prize already won, so a longer walk lands a better
+  // find — while still not competing with the actual T4 epic POI chests.
+  // Those bonus steps buy TIER only: the QUANTITY on the card is the chest
+  // curve's own standard roll, not something the walk inflates (a bonus that
+  // fell through to a quantity bracket is what pinned the ceremony at "× 2").
+  // Routed through showChestRewardModal so it shares the same fanfare +
+  // sparkles as chest opens. `onDismiss` walks the prize queue on.
+  //
+  // THE PRIZE IS A CHOICE: it rolls Trail.PRIZE_CHOICES rewards and the
+  // player keeps ONE. Nothing is granted until they pick — the roll they turn
+  // down was never theirs — so the payout lives in _claimTrailReward and fires
+  // from the button, not from here. Trail.rollChoices owns the "the options
+  // have to actually differ" rule and may hand back a single reward (a picker
+  // with only one thing to give); that opens the plain one-reward ceremony it
+  // always did, rather than a choice with one answer.
+  _fireTrailPrize(n, onDismiss) {
+    const bonus = Trail.rollBonusFor(Math.max(0, (n | 0) - 1));
+    const roll = () => ((typeof pickReward === 'function')
+      ? pickReward('chest:lowtier', this.save, undefined,
+                   { tier: 4, rollBonus: bonus })
+      : null);
+    const choices = (typeof Trail !== 'undefined' && Trail.rollChoices)
+      ? Trail.rollChoices(roll) : [roll()].filter(Boolean);
+    // The header is the walk, not the way: "30 COBBLES WALKED". A trail has no
+    // name any more because the ladder no longer asks which one you were on.
+    const header = `${Trail.goalFor(Math.max(0, (n | 0) - 1))} cobbles walked`;
+    if (!choices.length) {
       // Defensive fallback — give $5 so the player isn't stiffed.
       addMoney(this.save, 5);
       this.showChestRewardModal({
         kind: 'trail',
-        header: `${title} complete`,
+        header,
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: '+$5',
         color: UI_GOLD,
+        onDismiss,
       });
       return;
     }
+    if (choices.length === 1) {
+      // One option is not a choice — claim it and run the ceremony as before.
+      const card = this._claimTrailReward(choices[0]);
+      if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
+      this.showChestRewardModal({ kind: 'trail', header, onDismiss, ...card });
+      return;
+    }
+    // The pick. Each button IS a reward card (the shell takes HTML labels), so
+    // the player reads the two the same way they read a single ceremony. An
+    // actions modal has no tap-to-dismiss, so the prize can't be lost to a
+    // stray tap on the overlay.
+    this.showChestRewardModal({
+      kind: 'trail',
+      header,
+      iconHTML: '<span style="font-size:44px">💎</span>',
+      name: 'Take your pick',
+      sub: `${choices.length} finds — one is yours`,
+      onDismiss,
+      actions: choices.map((reward) => ({
+        label: this._trailChoiceLabel(reward),
+        onClick: () => {
+          const card = this._claimTrailReward(reward);
+          if (!card) return;
+          this.flashLoot(card.qty ? `${card.name} ${card.qty}` : card.name,
+                         card.color || UI_TREASURE, 1,
+                         reward.kind === 'item' ? reward.id : null);
+        },
+      })),
+    });
+  }
+
+  // The button face for one option: the reward's own icon over its name, so
+  // the two options read as two small ceremonies rather than two words.
+  // The card's `sub` is deliberately NOT drawn here — it's the ceremony's
+  // outcome line ("equipped"), and on an option the player hasn't taken yet
+  // that would state as done the very thing the button is asking about.
+  _trailChoiceLabel(reward) {
+    const card = this._trailRewardCard(reward);
+    if (!card) return '';
+    const qty = card.qty
+      ? `<div style="font-size:12px;font-weight:700;color:${card.color}">${card.qty}</div>` : '';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:78px">' +
+           `<div style="font-size:0;line-height:0">${card.iconHTML}</div>` +
+           `<div style="font-size:11px;font-weight:700;color:${card.color};line-height:1.2">${card.name}</div>` +
+           qty + '</div>';
+  }
+
+  // How ONE reward PRESENTS: icon, name, quantity, colour. Display only — it
+  // grants nothing, because an option the player didn't take still has to be
+  // drawn. _claimTrailReward is the half that pays out.
+  _trailRewardCard(reward) {
+    if (!reward) return null;
     if (reward.kind === 'item') {
-      this.addToInv(reward.id, reward.qty);
       const item = ITEM_BY_ID[reward.id];
-      const color = (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff');
-      const iconHTML = this.iconSpanHTML ? this.iconSpanHTML(reward.id, 64) : '';
-      this.showChestRewardModal({
-        kind: 'trail',
-        header: `${title} complete`,
-        iconHTML,
+      return {
+        iconHTML: this.iconSpanHTML ? this.iconSpanHTML(reward.id, 64) : '',
         name: item?.name || reward.id,
         qty: reward.qty > 1 ? `× ${reward.qty}` : null,
-        color,
-      });
-    } else if (reward.kind === 'gold') {
-      addMoney(this.save, reward.amount);
-      this.showChestRewardModal({
-        kind: 'trail',
-        header: `${title} complete`,
+        color: (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff'),
+      };
+    }
+    if (reward.kind === 'gold') {
+      return {
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: `+$${reward.amount}`,
         color: UI_GOLD,
-      });
+      };
+    }
+    if (reward.kind === 'relic' || reward.kind === 'armor') {
+      return {
+        iconHTML: this.gearIconHTML
+          ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, 64) : '★',
+        name: (typeof gearName === 'function')
+          ? gearName(reward.kind, reward.slot, reward.tier)
+          : `${reward.slot} T${reward.tier}`,
+        sub: 'equipped',
+        color: UI_TREASURE,
+      };
+    }
+    return null;   // an unrecognised kind draws no card and opens no modal
+  }
+
+  // Pay out the reward the player KEPT — item into the bag, gold into the
+  // purse, gear equipped — and hand back its card so the caller can say what
+  // arrived. Consolation coins ride along with whatever was taken; a roll
+  // nobody claimed pays none.
+  _claimTrailReward(reward) {
+    const card = this._trailRewardCard(reward);
+    if (!card) return null;
+    if (reward.kind === 'item') {
+      this.addToInv(reward.id, reward.qty);
+    } else if (reward.kind === 'gold') {
+      addMoney(this.save, reward.amount);
     } else if (reward.kind === 'relic' || reward.kind === 'armor') {
       // A gear roll can yield a relic OR armor (armor is just another gear
       // slot). equipGearReward handles both and bumps energy for armor.
@@ -10675,24 +11312,9 @@ class MapScene extends Phaser.Scene {
         this.save.relics[reward.slot] = { tier: reward.tier };
         this.markRelicsDirty?.();
       }
-      const relicName = (typeof gearName === 'function')
-        ? gearName(reward.kind, reward.slot, reward.tier)
-        : `${reward.slot} T${reward.tier}`;
-      const iconHTML = this.gearIconHTML
-        ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, 64)
-        : '★';
-      this.showChestRewardModal({
-        kind: 'trail',
-        header: `${title} complete`,
-        iconHTML,
-        name: relicName,
-        sub: 'equipped',
-        color: UI_TREASURE,
-      });
     }
-    if (reward.consolation > 0) {
-      addMoney(this.save, reward.consolation);
-    }
+    if (reward.consolation > 0) addMoney(this.save, reward.consolation);
+    return card;
   }
 
   // by shopInteract to route to the restore modal and by the render layer
@@ -10709,14 +11331,6 @@ class MapScene extends Phaser.Scene {
   // residential alike rebuild from the same masonry.
   _wreckRestoreCost(house) {
     return { id: 'rockfruit', qty: 3, material: 'stone' };
-  }
-
-  // The role a wreck reveals once restored — mirrors render.js _houseTrueRole
-  // (minus fort/trailer, which never wreck). 'blacksmith' | 'market' |
-  // 'trader' | 'wizard' | 'plain'. Reads the frozen restore-order role via
-  // houseShopRole; 'plain' for a role-less residential house.
-  _restoredRole(house) {
-    return this.houseShopRole(house) || 'plain';
   }
 
   // Bake a restored building's sprite to an <img> data URL for the
@@ -10754,7 +11368,7 @@ class MapScene extends Phaser.Scene {
 
   presentWreckRestoreModal(sx, sy, house) {
     const cost = this._wreckRestoreCost(house);
-    const heldCount = ((this.save.inv || []).find(s => s && s.id === cost.id)?.count) ?? 0;
+    const heldCount = Inventory.count(this.save, cost.id);
     const canAfford = heldCount >= cost.qty;
     const item = ITEM_BY_ID[cost.id];
     // Role this wreck will reveal, picked from the player's current restore
@@ -10782,16 +11396,12 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         // Re-check stock at accept time — the player might have spent
         // the materials elsewhere while the modal was open.
-        const idx = this.save.inv.findIndex(s => s && s.id === cost.id && (s.count ?? 0) >= cost.qty);
-        if (idx < 0) { this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy); return; }
-        const stack = this.save.inv[idx];
-        stack.count -= cost.qty;
-        if ((stack.count ?? 0) <= 0) {
-          this.save.inv.splice(idx, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
+        if (Inventory.count(this.save, cost.id) < cost.qty) {
+          this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
+          return;
         }
+        Inventory.remove(this.save, cost.id, cost.qty);
+        this._clampSelSlot();
         this.save.restoredHouses = this.save.restoredHouses || {};
         // Freeze the restore-order role onto this house so it never shifts.
         // Recompute the index at accept time (still stable behind the modal
@@ -10815,20 +11425,31 @@ class MapScene extends Phaser.Scene {
         if (this.showChestRewardModal) {
           // Name the building, describe what it does, show its sprite, and let
           // showChestRewardModal's sparkle burst supply the fanfare.
-          const role = this._restoredRole(house);
+          // The role a wreck reveals once restored — mirrors render.js
+          // _houseTrueRole (minus fort/trailer, which never wreck). Reads the
+          // frozen restore-order role; 'plain' for a role-less residential house.
+          const role = this.houseShopRole(house) || 'plain';
+          // Names come from Shops.roleLabel so the card, the sign outside and
+          // the offer modal all call the building the same thing. The produce
+          // shop's blurb follows its label: the first one restored stocks
+          // seeds, so it's introduced as the Seed Shop and its blurb says so.
+          const seedShop = role === 'market' && this.isFirstMarket(house);
           const INFO = {
-            blacksmith: { name: 'Blacksmith',   blurb: 'Forge tools and trade gems for relics here.' },
-            market:     { name: 'Market',       blurb: 'Buys your crops at a premium — and stocks fresh produce.' },
-            trader:     { name: 'Trader',       blurb: 'Barters goods and pays a bonus on every sale.' },
+            blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
+            market:     { blurb: seedShop
+              ? 'Buys your crops at a premium — and stocks the starter seeds to grow more.'
+              : 'Buys your crops at a premium — and stocks fresh produce.' },
+            trader:     { blurb: 'Barters goods and pays a bonus on every sale.' },
             wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage kindles an Inner Light — trade 5 Discovery badges for a wider reach and the Ring that carries it.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;
+          const name = info.name || Shops.roleLabel(role, seedShop) || INFO.plain.name;
           this.showChestRewardModal({
             kind: 'build',
             iconHTML: this.buildingImgHTML(role, 72),
             header: 'Restored!',
-            name: `You restored a ${info.name}`,
+            name: `You restored a ${name}`,
             sub: info.blurb,
             color: '#a7ffb0', accent: '#a7ffb0',
           });
@@ -10955,21 +11576,17 @@ class MapScene extends Phaser.Scene {
   }
 
   // The castle's daily favour, gated to once per castle per UTC day. Reuses
-  // the exact day-key Delivery.dayKey() already provides (see
-  // _deliveryDayKey, its scene wrapper) rather than the coin-burst POI's
-  // composite-key idiom, since there's only ever one thing to remember per
-  // castle: the day its service was last used.
-  _castleServiceDayKey() {
-    return Delivery.dayKey();
-  }
+  // the scene's one day key (_dayKey === Delivery.dayKey) rather than the
+  // coin-burst POI's composite-key idiom, since there's only ever one thing to
+  // remember per castle: the day its service was last used.
   _castleServiceUsedToday(house) {
     const key = this._castleKey(house);
-    return !!key && this.save.castleServiceClaimed?.[key] === this._castleServiceDayKey();
+    return !!key && this.save.castleServiceClaimed?.[key] === this._dayKey();
   }
   _markCastleServiceUsed(house) {
     const key = this._castleKey(house);
     if (!key) return;
-    const dayKey = this._castleServiceDayKey();
+    const dayKey = this._dayKey();
     this.save.castleServiceClaimed = this.save.castleServiceClaimed || {};
     // Prune every OTHER castle's stale day stamp while we're here — the map
     // can't grow without bound across weeks of play.
@@ -11007,14 +11624,17 @@ class MapScene extends Phaser.Scene {
   // relics: it's home turf, so instead of a trade it's a favour, once a day.
   presentCastleServiceOffer(sx, sy, house) {
     if (this._castleServiceUsedToday(house)) {
-      this.flash('Thank you for visiting us, my lord. Come back tomorrow.', sx, sy);
+      // The favour is one per UTC day (_dayKey === Delivery.dayKey),
+      // so the castellan names the wait rather than saying "tomorrow".
+      this.flash(`Thank you for visiting us, my lord. Come back in ${shortDuration(msToNextUtcDay())}.`,
+                 sx, sy);
       return;
     }
     this.showOfferModal({
       kind: 'shop',
       title: 'Thank you for visiting us, my lord.',
       get: 'One favour a day — your call.',
-      blurb: "Whichever you pick, it won't be on offer again until tomorrow.",
+      blurb: `Whichever you pick, it won't be on offer again for ${shortDuration(msToNextUtcDay())}.`,
       canAfford: true,
       acceptLabel: 'Rest',
       secondary: {
@@ -11092,7 +11712,7 @@ class MapScene extends Phaser.Scene {
   // the same restoration fanfare.
   presentFortUnlockModal(sx, sy, house) {
     const need = this._fortUnlockCost();
-    const heldCount = ((this.save.inv || []).find(s => s && s.id === 'wood')?.count) ?? 0;
+    const heldCount = Inventory.count(this.save, 'wood');
     const canAfford = heldCount >= need;
     this.showOfferModal({
       kind: 'build',
@@ -11107,16 +11727,9 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         // Re-check stock at accept time — the player might have spent the wood
         // elsewhere while the modal was open.
-        const idx = this.save.inv.findIndex(s => s && s.id === 'wood' && (s.count ?? 0) >= need);
-        if (idx < 0) { this.flash(`need ${need} wood`, sx, sy); return; }
-        const stack = this.save.inv[idx];
-        stack.count -= need;
-        if ((stack.count ?? 0) <= 0) {
-          this.save.inv.splice(idx, 1);
-          if (this.save.selSlot >= this.save.inv.length) {
-            this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-          }
-        }
+        if (Inventory.count(this.save, 'wood') < need) { this.flash(`need ${need} wood`, sx, sy); return; }
+        Inventory.remove(this.save, 'wood', need);
+        this._clampSelSlot();
         this.save.unlockedForts = this.save.unlockedForts || {};
         this.save.unlockedForts[house.id] = true;
         persistSave(this.save);
@@ -11143,13 +11756,12 @@ class MapScene extends Phaser.Scene {
     // blacksmithRecipe — keeps every other smithy on the original ladder.
     const recipe = opts.recipe || this.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
     if (!recipe) {
-      this.flash('"Anvil\'s resting, friend. Try again later."', sx, sy);
+      this.flash(`"Anvil's resting, friend. Try again ${this.shopWaitLabel(house)}."`, sx, sy);
       return;
     }
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 20);
-    const heldCount = (id) =>
-      ((this.save.inv || []).find(s => s && s.id === id)?.count) ?? 0;
+    const heldCount = (id) => Inventory.count(this.save, id);
     const canAfford = () => recipe.every(r => heldCount(r.id) >= r.qty);
     const costHTML = recipe.map(r => {
       const itm = ITEM_BY_ID[r.id];
@@ -11195,22 +11807,9 @@ class MapScene extends Phaser.Scene {
           this.flash(`need ${missing.qty} ${itm?.name || missing.id}`, sx, sy);
           return;
         }
-        // Consume every ingredient. Loop bottom-up so splicing is safe.
-        for (const r of recipe) {
-          let left = r.qty;
-          for (let i = this.save.inv.length - 1; i >= 0 && left > 0; i--) {
-            const s = this.save.inv[i];
-            if (!s || s.id !== r.id) continue;
-            const take = Math.min(left, s.count ?? 0);
-            s.count -= take; left -= take;
-            if ((s.count ?? 0) <= 0) {
-              this.save.inv.splice(i, 1);
-              if (this.save.selSlot >= this.save.inv.length) {
-                this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-              }
-            }
-          }
-        }
+        // Consume every ingredient.
+        for (const r of recipe) Inventory.remove(this.save, r.id, r.qty);
+        this._clampSelSlot();
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         recordDeal();
@@ -11238,8 +11837,10 @@ class MapScene extends Phaser.Scene {
   // CASH price now — the old mixed "1/3 cash / 2/3 barter" roll was removed so
   // the two trade idioms map cleanly onto shop types: MARKETS (and every
   // generic cash storefront) want money, TRADERS barter (their own qty-scaled
-  // path in presentTraderOffer). opts is accepted for call-site compatibility
-  // (the former forceMoney flag) but no longer changes anything.
+  // path in presentTraderOffer). opts.house names the shop asking: it seeds
+  // the markup roll off that shop's hour bucket (so the price holds for the
+  // hour) and applies its flower-charm discount; with no house the markup is
+  // a plain roll and there is no charm to apply.
   buildShopOffer(id, baseValue, opts = {}) {
     // Pricing (incl. the Bow-discounted markup) lives in ShopsMath.buyPrice; the
     // offer object's afford/consume closures stay here (they bind this.save).
@@ -11506,6 +12107,14 @@ class MapScene extends Phaser.Scene {
     const nub = document.createElement('div');
     nub.className = 'nub';
     pad.appendChild(nub);
+    // The walk-home countdown (see _walkHomeCountdownS): seconds until the
+    // character walks itself back to the GPS, drawn over the resting nub.
+    const countdown = document.createElement('div');
+    countdown.className = 'countdown';
+    countdown.setAttribute('aria-hidden', 'true');
+    pad.appendChild(countdown);
+    this._movePadCountdownEl = countdown;
+    this._movePadCountdownText = '';
     document.body.appendChild(pad);
 
     let activePtr = null;
@@ -11612,6 +12221,12 @@ class MapScene extends Phaser.Scene {
       #move-pad .nub {
         position: absolute; left: ${HALF}px; top: ${HALF}px;
         width: ${NUB}px; height: ${NUB}px; border-radius: 50%;
+        /* border-box because HALF is derived as (PAD - NUB) / 2 — that only
+           centres the cap in the well if NUB is the cap's OUTER size. Under
+           content-box the 2px rim pushed the cap 2px down-and-right of the
+           well's centre (and 2px past the rim at full deflection), which is
+           what left the countdown digit below looking off-centre on it. */
+        box-sizing: border-box;
         pointer-events: none;
         background:
           radial-gradient(circle at 38% 30%,
@@ -11651,6 +12266,28 @@ class MapScene extends Phaser.Scene {
           0 3px 10px rgba(0,0,0,0.5),
           0 0 12px rgba(255,224,102,0.6);
       }
+      /* Walk-home countdown: the seconds until the character heads back to
+         the GPS, stamped on the resting cap. Gold, because it is a readout of
+         a CONTROL (spec §UI COLOUR LANGUAGE) — the stick it sits on — and its
+         box is the cap's box exactly (same left/top/size, and the cap is
+         border-box above), so the digit centres on the cap rather than near
+         it. The shadow is CENTRED — no x/y offset — a dark halo ringing the
+         glyph evenly, so the gold holds up over the cap's bright highlight and
+         its darker rim alike without reading as lit from one side. Hidden
+         while the stick is held (the cap is under a thumb, and there is
+         nothing to count down to). */
+      #move-pad .countdown {
+        position: absolute; left: ${HALF}px; top: ${HALF}px;
+        box-sizing: border-box;
+        width: ${NUB}px; height: ${NUB}px; line-height: ${NUB}px;
+        text-align: center; pointer-events: none;
+        font: ${fontMono(`700 18px/${NUB}px`)};
+        color: ${UI_GOLD};
+        text-shadow: 0 0 2px rgba(12,9,4,0.95), 0 0 5px rgba(12,9,4,0.8);
+        display: none;
+      }
+      #move-pad .countdown.on { display: block; }
+      #move-pad.held .countdown { display: none; }
       /* The spring-back is decoration — the nub is already back at centre as
          far as movement is concerned the moment the finger leaves. */
       @media (prefers-reduced-motion: reduce) {
@@ -11736,8 +12373,6 @@ class MapScene extends Phaser.Scene {
     // The stick doesn't depend on gear any more, but syncing here (idempotent)
     // is what puts it on screen on the first frame.
     this.syncMovePad();
-    // Drop the legacy top strip if an older build left one in the DOM.
-    document.getElementById('relic-row')?.remove();
     // If a gear tab is currently showing, rebuild the inventory bars so a newly
     // bought/forged/looted relic or armor piece appears immediately.
     const cat = INV_CAT_BY_KEY[this.save.invCat];
@@ -11968,7 +12603,7 @@ class MapScene extends Phaser.Scene {
   //                          modal becomes a CHOICE (explicit buttons, no
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
-  // `header` is the legacy per-reward line ('MILL LANE complete', 'Restored!').
+  // `header` is the legacy per-reward line ('30 cobbles walked', 'Restored!').
   // It now feeds the shared kind header as a LABEL OVERRIDE — the dialog keeps
   // its outcome wording and gains the kind's hero icon — so this modal shows
   // one header, not two. Callers that say nothing get TREASURE, which is what
@@ -12113,32 +12748,26 @@ class MapScene extends Phaser.Scene {
     return Inventory.roomFor(this.save, id);
   }
 
-  // Add up to `n` of `id` to inventory. The stack/cap/dedupe/autoselect rules
-  // live in Inventory.add (inventory.js); this wrapper owns only the scene side
+  // Add up to `n` of `id` to inventory. The stack/cap/dedupe rules live in
+  // Inventory.add (inventory.js); this wrapper owns only the scene side
   // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
   // flash. Returns the count actually accepted so callers can adjust narration.
   addToInv(id, n = 1, silent = false) {
-    const r = Inventory.add(this.save, id, n, { autoselect: !silent, pageSize: 5 });
+    const r = Inventory.add(this.save, id, n);
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
     if (!silent) {
       // A brand-new stack surfaces on its own type tab. Switch the active tab
-      // and page so the freshly-obtained item is visible (Inventory.add already
-      // pointed selSlot at the new stack). Topping up an existing stack leaves
-      // the tab/selection alone so harvest→replant loops aren't disrupted.
+      // and page so the freshly-obtained item is VISIBLE — but never select it:
+      // whatever was in the player's hand stays there (or stays nothing).
+      // Topping up an existing stack leaves the tab alone.
       if (r.isNewStack && r.accepted > 0) {
         this.save.invCat = this.invCatForItem(id);
-        const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === this.save.selSlot);
+        const newIdx = this.save.inv.findIndex(s => s && s.id === id);
+        const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
         this.save.invPage = pos >= 0 ? Math.floor(pos / 5) : 0;
       }
       persistSave(this.save);
       this.buildInventoryDOM();
-      if (r.accepted > 0 && typeof Quests !== 'undefined') {
-        const qDone = Quests.onItemAcquired(this.save, id, this.depth);   // retired hook, always false
-        if (qDone) {
-          persistSave(this.save);
-          this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
-        }
-      }
     }
     // Flash whenever anything was rejected — that's the player attempting to
     // exceed the cap. Deferred via setTimeout so it can't race a flashLoot the
@@ -12159,6 +12788,13 @@ class MapScene extends Phaser.Scene {
     return r.accepted;
   }
   // --- Two-bar inventory helpers ------------------------------------------
+  // After a spend spliced a stack out (Inventory.remove leaves the re-clamp
+  // to its caller): a selection that fell off the end of save.inv becomes
+  // "nothing in hand" (-1) — never a neighbouring stack the player didn't
+  // pick. A gear selection's -1 is below every length, so it is left alone.
+  _clampSelSlot() {
+    if (this.save.selSlot >= this.save.inv.length) this.save.selSlot = -1;
+  }
   // Which type tab an item id belongs to (by its `kind`). Falls back to the
   // Produce tab for anything unmapped so a stray item is still reachable.
   invCatForItem(id) {
@@ -12228,9 +12864,9 @@ class MapScene extends Phaser.Scene {
       const list = this.gearEntriesForCat(catKey);
       this.save.selGear = list[0] ? { kind: list[0].kind, slot: list[0].slot } : null;
     } else {
+      // An item tab opens with NOTHING selected — the player picks, or doesn't.
       this.save.selGear = null;
-      const list = this.invEntriesForCat(catKey);
-      this.save.selSlot = list[0] ? list[0].idx : -1;
+      this.save.selSlot = -1;
     }
     persistSave(this.save);
     this.buildInventoryDOM();
@@ -12246,11 +12882,13 @@ class MapScene extends Phaser.Scene {
     const itemList = isGear ? null : this.invEntriesForCat(cat.key);
 
     // Reconcile the selection so the highlight always points at something IN
-    // the active tab (or "empty"). This also self-heals after an item is
-    // consumed: the action handlers clamp selSlot to a raw save.inv index that
-    // may belong to another category, so we re-anchor it here. We deliberately
-    // do NOT move invPage to the selection — paging is driven by ◀ ▶ / tab
-    // switches / pickups, not by every rebuild.
+    // the active tab, or at "empty" (-1). A selection that no longer belongs
+    // to this tab (the action handlers clamp selSlot to a raw save.inv index
+    // that may belong to another category) drops to empty — it is never
+    // re-anchored onto the tab's first item, which would put something in the
+    // player's hand they didn't choose. We deliberately do NOT move invPage
+    // to the selection — paging is driven by ◀ ▶ / tab switches / pickups,
+    // not by every rebuild.
     if (isGear) {
       this.save.selSlot = -1;
       const owned = this.save.selGear &&
@@ -12259,7 +12897,7 @@ class MapScene extends Phaser.Scene {
     } else {
       this.save.selGear = null;
       const inCat = this.save.selSlot >= 0 && itemList.some(e => e.idx === this.save.selSlot);
-      if (!inCat) this.save.selSlot = itemList[0] ? itemList[0].idx : -1;
+      if (!inCat) this.save.selSlot = -1;
     }
 
     // Cell count: gear tabs are exactly their owned entries; item tabs keep one
@@ -12675,7 +13313,14 @@ class MapScene extends Phaser.Scene {
 const game = window.__game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: W, height: H,
+  // The canvas BACKING STORE, in device px — see the canvas-resolution note by
+  // W/H. With Scale.NONE, Phaser sets canvas.width to the game size and the
+  // canvas's CSS size to game size × zoom, so the reciprocal zoom lays a
+  // device-resolution buffer back out at the logical 352×844 that #game's own
+  // transform expects. The camera zoom that puts logical coordinates back on
+  // that buffer is applied in create() (applyRenderScale).
+  width: W * RENDER_SCALE, height: H * RENDER_SCALE,
+  zoom: 1 / RENDER_SCALE,
   backgroundColor: '#000',
   pixelArt: true,
   scene: [MapScene],
@@ -12704,3 +13349,30 @@ const game = window.__game = new Phaser.Game({
   // stick + tap + one stray finger.
   input: { activePointers: 3 },
 });
+
+// Follow the screen. fitGame re-runs on resize, orientationchange and visual-
+// viewport changes, and publishes its scale through this hook; devicePixelRatio
+// moves too, when a window is dragged between monitors or the browser zooms. If
+// the canvas didn't follow, it would keep a backing store sized for the old
+// screen and the 1:1 match — the whole point of the exercise — would quietly
+// lapse into a fractional rescale until the next reload.
+//
+// The epsilon is not a tuning knob: resizing a WebGL drawing buffer reallocates
+// it, and fitGame fires on every resize event, so a scale that wobbles in the
+// last decimal (iOS Safari's toolbar collapsing mid-scroll does exactly this)
+// must not reallocate the buffer on every frame of the wobble. A change too
+// small to see is a change not worth paying for.
+window.__onGameScaleChange = () => {
+  const next = renderScale();
+  if (Math.abs(next - RENDER_SCALE) < 0.01) return;
+  RENDER_SCALE = next;
+  // setZoom first: ScaleManager.resize reads the CURRENT zoom to work out the
+  // canvas's CSS size, so a stale one would lay the new buffer out at the wrong
+  // number of CSS px and #game's transform would compound the error.
+  game.scale.setZoom(1 / RENDER_SCALE);
+  game.scale.resize(W * RENDER_SCALE, H * RENDER_SCALE);
+  // The resize grows each camera to the new buffer but leaves its transform
+  // alone, so the zoom is still the OLD render scale — which would draw the
+  // logical grid at the wrong size on a correctly-sized canvas. Re-point it.
+  for (const scene of game.scene.getScenes(true)) applyRenderScale(scene.cameras.main);
+};
