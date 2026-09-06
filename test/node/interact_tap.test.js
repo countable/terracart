@@ -66,9 +66,9 @@ test('TAP_HANDLERS: staircase precedes object (stair takes priority)', () => {
     'staircase must precede object so a cave entrance tap is not swallowed by the generic object handler');
 });
 
-test('TAP_HANDLERS: cell-resolve precedes planted / can-refill / fishing / till', () => {
+test('TAP_HANDLERS: cell-resolve precedes planted / fishing / till', () => {
   const iCR = HANDLER_NAMES.indexOf('cell-resolve');
-  for (const name of ['planted', 'can-refill', 'fishing', 'till', 'plant', 'flavor']) {
+  for (const name of ['planted', 'fishing', 'till', 'plant', 'flavor']) {
     const i = HANDLER_NAMES.indexOf(name);
     if (i === -1) continue; // tolerate future removals
     assert.truthy(iCR < i,
@@ -96,32 +96,15 @@ test('TAP_HANDLERS: extinguish-fire precedes light-fire (extinguish wins the tap
   assert.truthy(iExt < iLit, 'extinguish before light-fire');
 });
 
-test('TAP_HANDLERS: planted precedes can-refill (crop readout beats refill on water cell)', () => {
-  const iPl  = HANDLER_NAMES.indexOf('planted');
-  const iCan = HANDLER_NAMES.indexOf('can-refill');
-  assert.truthy(iPl < iCan, 'planted before can-refill');
-});
-
-// ── BUG: can-refill precedes fishing in TAP_HANDLERS ─────────────────────────
-// PATCH-HISTORY/BUG: interaction-sweep-2026-05-27.md documents that can-refill
-// (line ~900 at the time of the sweep) sat before fishing, causing every water
-// tap to refill the can silently while the player had a watering can — fishing
-// was completely unreachable.  The handler was later patched to return false
-// when save.relics?.rod is set, but the ARRAY ORDER was not changed: can-refill
-// still appears before fishing in TAP_HANDLERS.  This test pins the current
-// (unfixed ordering) order and flags it.  A correct fix would either swap the
-// two handlers or confirm the in-handler rod guard is the intended long-term
-// solution (in which case this comment should be updated and the order test
-// flipped).
-test('TAP_HANDLERS: can-refill appears BEFORE fishing (current — see PATCH-HISTORY/BUG)', () => {
-  const iCan     = HANDLER_NAMES.indexOf('can-refill');
-  const iFishing = HANDLER_NAMES.indexOf('fishing');
-  assert.truthy(iCan !== -1, 'can-refill handler exists');
-  assert.truthy(iFishing !== -1, 'fishing handler exists');
-  // Pin the CURRENT (buggy-ordering) state. If this test starts failing it
-  // means the order was swapped — remove this test and the BUG comment above.
-  assert.truthy(iCan < iFishing,
-    'can-refill precedes fishing in TAP_HANDLERS — ordering bug documented in interaction-sweep-2026-05-27.md');
+// The ordering bug that interaction-sweep-2026-05-27.md documented — can-refill
+// sat before fishing and silently ate every water tap from a can owner, with an
+// in-handler rod guard as the workaround — is GONE, because the handler is. The
+// can's charge bank fed its +2 produce-quality bonus, quality moved to the hoe
+// (Crops.bedQuality), and the bank retired with it. A water tap is a cast now,
+// with nothing ahead of fishing to swallow it.
+test('TAP_HANDLERS: nothing refills a can ahead of fishing any more', () => {
+  assert.eq(HANDLER_NAMES.indexOf('can-refill'), -1,
+    'the can-refill handler is gone — its charge bank fed a bonus the hoe owns now');
 });
 
 test('TAP_HANDLERS: fishing precedes flavor (water tap must not become a label)', () => {
@@ -321,64 +304,6 @@ test('consumeSelected: n=2 decrements by 2', () => {
   const save = { inv: [{ id: 'coal', count: 5 }], selSlot: 0 };
   consumeSelected(save, 2);
   assert.eq(save.inv[0].count, 3, 'count decremented by 2');
-});
-
-// ─── 6. can-refill handler behaviour ────────────────────────────────────────
-
-test('can-refill: returns false on non-water cell', () => {
-  const scene = makeScene();
-  const save  = { relics: { can: { tier: 1 } }, canCharges: 0, inv: [], selSlot: 0 };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    cell: { type: 1 /* GRASS, not water */ }, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'can-refill');
-  assert.eq(h.try(ctx), false, 'non-water cell → fall through');
-  assert.eq(save.canCharges, 0, 'charges unchanged');
-});
-
-test('can-refill: returns false when player has no watering can', () => {
-  const scene = makeScene();
-  const save  = { relics: {}, canCharges: 0, inv: [], selSlot: 0 };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    cell: { type: 3 /* WATER */ }, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'can-refill');
-  assert.eq(h.try(ctx), false, 'no can → fall through');
-  assert.eq(save.canCharges, 0, 'charges unchanged');
-});
-
-// PATCH-HISTORY/BUG: This guard was added AFTER the interaction-sweep-2026-05-27
-// documented that can-refill ate every water tap when the player owned a can.
-// The fix: if the player also has a rod, can-refill bails and fishing gets the tap.
-// The array order (can-refill before fishing) was not fixed — the in-handler guard is
-// the current workaround.  Verified here so any regression is caught immediately.
-test('can-refill: returns false when player has both can AND rod (rod wins water tap)', () => {
-  const scene = makeScene();
-  const save  = { relics: { can: { tier: 1 }, rod: { tier: 1 } }, canCharges: 0, inv: [], selSlot: 0 };
-  let flashed = false;
-  scene.flash = () => { flashed = true; };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    cell: { type: 3 /* WATER */ }, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'can-refill');
-  assert.eq(h.try(ctx), false,
-    'can-refill must return false when rod is present — fishing must get the tap');
-  assert.eq(save.canCharges, 0, 'charges must not be set when rod is present');
-  assert.falsy(flashed, 'no flash when handler bails');
-});
-
-test('can-refill: refills to 50 charges on water tap when can is owned (no rod)', () => {
-  let flashed = false;
-  const scene = Object.assign(makeScene(), { flash: () => { flashed = true; } });
-  const save  = { relics: { can: { tier: 1 } }, canCharges: 0, inv: [], selSlot: 0 };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    cell: { type: 3 /* WATER */ }, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'can-refill');
-  assert.eq(h.try(ctx), true, 'refill consumed the tap');
-  assert.eq(save.canCharges, 50, 'canCharges set to 50');
-  assert.truthy(ctx.dirty, 'ctx.dirty set for persistence');
-  assert.truthy(flashed, 'flash shown to player');
 });
 
 // ─── 7. findClosestItem helper ───────────────────────────────────────────────
@@ -620,7 +545,6 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'light-fire',
     'place-rock',
     'planted',
-    'can-refill',
     'fishing',
     'cave-wall',
     'flavor',
@@ -844,3 +768,44 @@ test('reach: the removed rule leaves nothing behind to feed it', () => {
   assert.falsy(/\bREACH_FAR_M\b/.test(APP_JS_SRC), 'and the constant is gone from app.js');
 });
 })();
+
+// ─── ONE TOOL TAKES ANIMALS: THE BUG NET ────────────────────────────────────
+// Until Sep 2026 the crow/deer HUNT wheel was sped by the best of sword / bow
+// / staff, so a weapon bought purely to fight also quietly made you a better
+// hunter — and the net, the tool the catalog sells for exactly this, was worth
+// nothing on the two kinds you take by hunting. Weapons fight ENEMIES
+// (combat.js); the net takes GAME and livestock alike, on the same slot the
+// catch wheel already used. app.js/interact.js can't be driven headlessly this
+// deep, so the wiring is pinned as source text.
+test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
+  const src = INTERACT_SRC;
+  const hunt = src.slice(src.indexOf("const HUNT_KINDS = new Set(['crow', 'deer']);"),
+                         src.indexOf('// Catchable animals'));
+  assert.truthy(hunt.length > 0, 'found the hunt branch');
+  assert.truthy(/const netSlot = r\.bugnet \? 'bugnet' : null;/.test(hunt),
+    'the hunt resolves the BUG NET slot');
+  assert.truthy(/toolDurationMs\(r, netSlot\)/.test(hunt),
+    'and times the wheel off it');
+  // Comments still discuss the weapons (that history is why the pin exists),
+  // so test the CODE: strip the // lines before looking for a weapon slot.
+  const huntCode = hunt.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+  assert.falsy(/relics?\.(sword|bow|staff)|r\.(sword|bow|staff)|'(sword|bow|staff)'/.test(huntCode),
+    'no weapon slot may reach the hunt wheel — that is the bonus being removed');
+  // The wheel's own tool badge must name the net too, or the wheel draws a
+  // sword over a hunt the sword no longer speeds.
+  assert.truthy(/durMs \* hpMul \* dmgMul, 0, netSlot, victim\)/.test(hunt),
+    'the work wheel is handed the net slot');
+});
+
+test('hunt: the net times the wheel the same way the catch does', () => {
+  // Both wheels read the same slot off the same ladder, so a net upgrade is
+  // felt identically whether the animal is caught or hunted, and bare hands
+  // stay possible at the tier-0 rung.
+  assert.eq(toolDurationMs({}, 'bugnet'), toolDurationMs({}, null),
+    'no net = the bare-handed rung, never a refusal');
+  assert.eq(toolDurationMs({ bugnet: { tier: 1 } }, 'bugnet'), TOOL_DURATION_MS[1], 'wood net');
+  assert.eq(toolDurationMs({ bugnet: { tier: 7 } }, 'bugnet'), TOOL_DURATION_MS[7], 'frost net');
+  // A weapon must not move it at all any more.
+  assert.eq(toolDurationMs({ sword: { tier: 7 }, bow: { tier: 7 }, staff: { tier: 7 } }, 'bugnet'),
+    toolDurationMs({}, 'bugnet'), 'a full weapon rack does nothing for a hunt');
+});

@@ -815,7 +815,7 @@
     }
     // Mature crop pre-watered → harvesting it exercises the double-produce path.
     const mature = save.planted[save.planted.length - 1];
-    if (mature) mature.canBoost = 2;
+    if (mature) mature.qualBoost = 2;
     // Scarecrow on the farm — renders a sprite + a 4-cell crow/deer aversion ring.
     {
       const { cellIX, cellIY } = sceneCell('FARMLAND', 4, 4);

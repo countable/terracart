@@ -186,6 +186,9 @@ const MINERAL_ICON_SHEET = {
   // frames; frame 2 = the small young green tree) reads as a sapling.
   apple_sapling: { sheet: 'apple_tree', frame: 2 },
   peach_sapling: { sheet: 'peach_tree', frame: 2 },
+  // The acorn plants a plain timber tree, so it shows the same sheet that
+  // tree draws from ('trees', the maple/default sheet) at its young frame.
+  acorn:         { sheet: 'trees',      frame: 2 },
   // Discovery badge — the gold five-point star at row 8 col 4 of
   // 7_Pickup_Items (frame 8 * 14 + 4 = 116). Same sheet as the boot.
   discovery:     { sheet: 'pickup',     frame: 116 },
@@ -270,7 +273,7 @@ const BASE_TIER = {
   orange: 3, mango: 3,
   banana: 4, coconut: 4,
   // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
-  apple_sapling: 3, peach_sapling: 5,
+  apple_sapling: 3, peach_sapling: 5, acorn: 2,
   // Live animals
   chicken: 1, dog: 1, rabbit: 1,
   cat: 2, butterfly: 2,
@@ -434,6 +437,13 @@ const ITEMS = [
   // common apple (T3) and the rare peach (T5).
   { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: 3 },
   { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: 5 },
+  // The ACORN is a sapling too, but it plants TIMBER, not fruit: `plants:'tree'`
+  // routes it to a growing `tree` object (the thing you chop) instead of a
+  // `fruittree` (the thing you pick). It falls out of felling a tree — the
+  // better the axe, the likelier (acornDropChance) — so a forest you clear can
+  // be a forest you replant. It carries no `grows`: a species-less tree draws
+  // off the default growth sheet and takes no hardwood/softwood tier shift.
+  { id: 'acorn', name: 'Acorn', kind: 'sapling', plants: 'tree', baseTier: 2 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
@@ -619,8 +629,9 @@ const PLAY_TIPS = [
   'Every tool works bare-handed — just slowly. A Wood relic is three times quicker, a Frost one thirty.',
   'Armour is not just protection: each piece you equip raises your maximum energy.',
   // ── The farming loop ──────────────────────────────────────
-  'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
+  'A better Hoe makes a better BED: the tier you till with is the quality the crop pays out — bonus seeds and a bigger yield.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
+  'A Watering Can can spring a crop a whole stage the moment you water it — never bare-handed, always at Frost.',
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'Crows raid ripe crops but never touch potatoes. A Scarecrow on a tilled cell wards off crows and deer.',
   // ── Exploration / chests ──────────────────────────────────
@@ -818,31 +829,44 @@ const RELIC_DEFS = {
              effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
-  // are ranged — they fire on their own, once a second, while an enemy is on
-  // screen: the bow along the compass, the staff at the nearest foe in range.
-  // All three still speed the crow/deer hunt wheel by
-  // tier. On top of the fighting, the Sword raises sell values and the Bow
-  // lowers buy prices; the Staff bends no prices at all.
+  // are ranged — they fire on their own while an enemy is on screen: the bow
+  // along the compass every 2 s, the staff at the nearest foe in range every
+  // 4 s (Combat.fireIntervalMs). They fight ENEMIES and nothing else: the
+  // crow/deer hunt wheel is the BUG NET's job, not theirs. On top of the
+  // fighting, the Sword raises sell values and the Bow lowers buy prices; the
+  // Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
              effectKey: 'sellPrice',     blurb: 'melee: auto-fights foes in reach · better sell prices' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots foes on screen · better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'hunt',          blurb: 'ranged: auto-shoots the nearest foe on screen · bigger bolt per tier' },
-  // Watering can — when equipped, every watering tap on a crop "improves" it.
-  // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
-  // next 50 watering uses get an extra +2 tiers of bonus stacked on top.
-  // Boost is consumed at harvest: every quality-tier raises the extra-seed
-  // chance by 10% (base 25%) and adds +floor(qual/3) to the produce yield.
+             effectKey: 'bolt',          blurb: 'ranged: auto-shoots the nearest foe on screen · bigger bolt per tier' },
+  // Watering can — HOW SOON, not what. Every watering has a tier/7 chance
+  // (Crops.waterJumpChance) of springing the crop a whole growth stage on the
+  // spot: nothing bare-handed, certain at Frost. It used to set produce
+  // QUALITY as well, plus 2 more tiers while a refill charge bank held out;
+  // quality is the HOE's now (it belongs to the bed, see Crops.bedQuality)
+  // and the charge bank retired with it.
   can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
-             effectKey: 'wateringQuality', blurb: 'higher-quality watered crops' },
-  // Hoe — reduces the energy cost of tilling. Each tier shaves 1/3 of the cost
-  // (floored at 1) AND adds a per-tier chance of spending zero energy at all.
+             effectKey: 'waterJump',     blurb: 'watered crops spring ahead a stage' },
+  // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
+  // effects, all per tier: the till wheel shortens on the shared tool ladder;
+  // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a
+  // 12%-per-tier chance of costing nothing at all (effectiveTillCost); and the
+  // tier is banked on the tilled cell as its produce quality, which the crop
+  // planted there carries to harvest (Crops.bedQuality — every quality tier is
+  // +10% extra-seed chance and +floor(qual/3) yield). That last one was the
+  // watering can's until Sep 2026.
   hoe:     { slot: 'hoe',    name: 'Hoe',     icon: 'Hoe.png',     baseCost:  70,
-             effectKey: 'tillSpeed',     blurb: 'cheaper tilling, sometimes free' },
-  // Bug Net — single 16×16 icon under Extras (handled by gearAssetPath below).
+             effectKey: 'tillQuality',   blurb: 'cheaper tilling · better beds' },
+  // Bug Net — THE animal tool. It shortens every wheel that takes a creature:
+  // the catch wheel (chicken / cow / cat / dog / rabbit / butterfly) and the
+  // crow / deer HUNT wheel, which weapons used to speed. Bare hands work at
+  // the tier-0 rung for both, only slowly enough that a quick animal usually
+  // slips out of reach first. Single 16×16 icon under Extras (handled by
+  // gearAssetPath below).
   bugnet:  { slot: 'bugnet', name: 'Bug Net',     icon: 'Bug net.png',     baseCost: 60,
-             effectKey: 'bugCatch',  blurb: 'catch crows + butterflies' },
+             effectKey: 'bugCatch',  blurb: 'catch + hunt animals faster' },
   // Fishing Rod — standard 32×16 weapon sheet per tier folder.
   rod:     { slot: 'rod',    name: 'Fishing Rod', icon: 'Fishing Rod.png', baseCost: 90,
              effectKey: 'fishing',   blurb: 'catch fish from water' },
@@ -948,8 +972,20 @@ function effectiveChopCost(relics, o, rng) {
   const sizeMul = (typeof treeWoodMul === 'function') ? treeWoodMul(o) : 1;
   return probEnergy(toolEnergyExpected(relics?.axe?.tier || 0, ENERGY_COST.chop) * sizeMul, rng);
 }
+// AXE → ACORNS. Felling a tree sometimes leaves an acorn behind: a sapling
+// that plants a new timber tree (items.js 'acorn', interact.js plant handler),
+// so clearing a wood is not a one-way trade. A clean fell recovers more of the
+// tree than a hacked one, so the chance climbs with the axe: bare hands (tier
+// 0) get the base 5%, a Frost axe 25%, linear between. Both ends are named so
+// the ladder is one subtraction rather than a magic slope.
+const ACORN_P_BASE = 0.05;   // bare hands
+const ACORN_P_FROST = 0.25;  // tier 7
+function acornDropChance(relics) {
+  const t = Math.max(0, Math.min(7, relics?.axe?.tier || 0));
+  return ACORN_P_BASE + ((ACORN_P_FROST - ACORN_P_BASE) / 7) * t;
+}
 // Bug Net: bare-handed catch expects 9, a Wood net 3, a Frost net 1. The net
-// ALSO shortens the catch wheel (see toolDurationMs).
+// ALSO shortens the catch AND crow/deer hunt wheels (see toolDurationMs).
 function effectiveCatchCost(relics, rng) {
   return probEnergy(toolEnergyExpected(relics?.bugnet?.tier || 0), rng);
 }
