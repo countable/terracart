@@ -537,6 +537,23 @@ ORCHARD FRUIT TREES
 ================================================================================
 FISHING
 ================================================================================
+ - THE STARTER POND: nothing about a spawn promises water within walking
+   distance, so every save gets a 2x2 pond carved into the terrain grid TWO
+   SCREENS from Home (app.js _carveStarterPond, POND_MIN_CELLS = 2 ×
+   VIEW_CELLS, widening to POND_MAX_CELLS when the two-screen ring is all
+   street or floor). It seats beside a POI chest when one stands in the band
+   (within POND_POI_CELLS, never on the chest's doorstep), on walkable soft
+   ground with a dry shore all round, never on a road band, a POI plaza,
+   existing water or anything standing — and only where the anchor can WALK
+   to (a flood that crosses roads but not water or buildings). It is plain
+   WATER terrain: it fishes, refills the can and mirrors as cave rock like any
+   lake. Frozen once in save.starterPondAt (top-left cell centre, the
+   starterPlotAt convention) and repainted in place on every rebuild of its
+   tile, sweeping whatever the rebuild regenerated on those cells. The band
+   can cross a tile seam, so the search runs in world space over the loaded
+   3×3 and defers (bounded) until the band's tiles have arrived — a plan drawn
+   against half a map would seat it wherever loaded first, POI or no POI.
+   Pinned by starter_pond.test.js.
  - tap a WATER cell → the Rod cast wheel, then a weighted catch. Higher rod
    tiers improve the catch and rare odds. Cast TIME is locked: 9s bare-handed,
    3s with any rod, regardless of tier (an exception to the WORK WHEEL ladder

@@ -6,7 +6,7 @@
 //   PlacedFloor (placed_floor.js) — the campfire list, per depth
 //   VIEW_CELLS / CELL_PX / FIRE_REST_R — app.js top-level consts, read at
 //   call time (app.js loads last), never at parse time
-//   Phaser — ONLY inside draw(); everything above it is pure and runs headless
+//   document (a 2D canvas) — ONLY inside draw(); everything above it is pure
 //
 // Exports as globals (window.Lighting):
 //   Lighting.KINDS                — the light table: one row per source kind
@@ -44,14 +44,15 @@
 // building the player has restored, Home, and every live POI (which is what
 // the old halo ping under a POI became).
 //
-// It runs on both renderers. ADD and MULTIPLY map to canvas composite
-// operations, and the colour is baked into each cookie rather than tinted
-// because the Canvas fallback ignores tint (see the shiny spark in app.js).
+// The map is composed on a plain 2D canvas ('lighter' for the adding) and
+// shown as a MULTIPLY-blended image, so it is the same picture on WebGL, on
+// the Canvas fallback and on every GPU — see the note at draw().
 //
-// What did NOT move: the white reach OUTLINE is still per-cell, on reachGfx,
-// because it is the tap affordance and cellInReach is cell-exact. A cookie is
-// a circle; the outline is the staircase. The outline marks what you can
-// touch; the light is only light.
+// The player's PLATEAU is painted per reach cell with cellInReach's own
+// maths, so the sharp edge of the lit area IS the staircase the white outline
+// traces and the tap gate accepts. Only the falloff outside it is a circle.
+// The outline itself stays on reachGfx: it marks what you can touch; the
+// light is only light.
 //
 // ── The numbers are DERIVED, not tuned ────────────────────────────────────
 // profile() reproduces the old wash exactly for the white channel from the
@@ -241,18 +242,32 @@
     return n;
   }
 
-  // ── Drawing (Phaser from here down) ──────────────────────────────────────
-  // Stops for a kind's cookie: peak at the centre, (1 - r/R)^2 out to zero.
+  // ── Drawing (the browser from here down) ──────────────────────────────────
+  // The lightmap is a plain 2D canvas — scene.lightTex, a Phaser canvas
+  // texture shown by the scene.lightMap image with MULTIPLY blend. Each frame:
+  // fill it with the ambient, switch to 'lighter' (additive) and stamp every
+  // cookie, then refresh(). No render-texture batching anywhere: drawn through
+  // Phaser's RenderTexture the cookies came back cut and quadrant-scrambled
+  // (the player's under the headless GL the scratch checks ran on, a house's
+  // on a real phone), and a 2D canvas composites the same way on every GPU
+  // and on the Canvas fallback. The per-frame upload is one 352px RGBA
+  // texture — the same shape the fog pays per cell crossing.
   const KIND_STOPS = 8;
 
   function rgba(colour, a) {
-    return `rgba(${(colour >> 16) & 255},${(colour >> 8) & 255},${colour & 255},${a.toFixed(4)})`;
+    return `rgba(${(colour >> 16) & 255},${(colour >> 8) & 255},${colour & 255},${Math.max(0, Math.min(1, a)).toFixed(4)})`;
+  }
+  function hex(colour) {
+    return '#' + (colour & 0xffffff).toString(16).padStart(6, '0');
+  }
+  function makeCanvas(S) {
+    const c = document.createElement('canvas');
+    c.width = S; c.height = S;
+    return c;
   }
 
-  // One texture + one hidden ADD-blended Image per kind, baked once. The image
-  // is what gets drawn into the lightmap: DynamicTexture.batchGameObject sets
-  // the renderer's blend mode from the object's, on both renderers, whereas
-  // a bare texture-frame draw would land source-over.
+  // One cookie canvas per kind, baked once: peak at the centre, (1 - r/R)^2
+  // out to zero, the kind's colour baked in.
   function ensureKindCookie(scene, kind) {
     const store = scene._lightCookies || (scene._lightCookies = {});
     if (store[kind]) return store[kind];
@@ -260,11 +275,8 @@
     const cellPx = (typeof CELL_PX !== 'undefined') ? CELL_PX : 32;
     const R = Math.ceil(radiusCells(kind) * cellPx);
     const S = 2 * R;
-    const key = `lm_${kind}`;
-    const tex = scene.textures.exists(key) ? scene.textures.get(key)
-      : scene.textures.createCanvas(key, S, S);
-    const ctx = tex.context;
-    ctx.clearRect(0, 0, S, S);
+    const canvas = makeCanvas(S);
+    const ctx = canvas.getContext('2d');
     const g = ctx.createRadialGradient(R, R, 0, R, R, R);
     for (let i = 0; i <= KIND_STOPS; i++) {
       const t = i / KIND_STOPS;
@@ -272,88 +284,70 @@
     }
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, S, S);
-    tex.refresh();
-    const img = scene.make.image({ key, add: false })
-      .setOrigin(0.5, 0.5).setBlendMode(Phaser.BlendModes.ADD);
-    store[kind] = { img, R };
+    store[kind] = { canvas, R };
     return store[kind];
   }
 
-  // The player's cookie: lit plateau out to the reach radius, a short feather,
-  // then the falloff ramp to zero at the viewport's half-diagonal (the furthest
-  // visible pixel — ramping past it only spends the ramp where nobody sees).
+  // The player's RAMP: flat at `edge` out to the reach radius, then the
+  // falloff to zero at the viewport's half-diagonal (the furthest visible
+  // pixel — ramping past it only spends the ramp where nobody sees). The
+  // PLATEAU is not in here: it is painted per reach cell in draw(), so the
+  // sharp edge of the lit area is the same staircase the reach outline
+  // traces and the tap gate accepts (cellInReach), not a circle near it.
   // Rebaked only when its inputs move: the reach radius (energy / depth /
-  // Potion of Reach), the depth's levels, the low-energy tint.
+  // Potion of Reach) and the depth's levels.
   //
-  // Baked at HALF resolution and drawn at scale 2, with LINEAR filtering so
-  // the upscale interpolates. It is a smooth gradient, so nothing is lost,
-  // the texture is a quarter the bytes — and it keeps the cookie under 256px
-  // (249 at the 352px viewport): textures larger than that sampled INSIDE a
-  // render texture came back quadrant-scrambled under the headless GL the
-  // scratch checks ran on. Real GPUs may not care; the half-res bake costs
-  // nothing and never has to find out.
-  const PLATEAU_FEATHER_PX = 3;
+  // Baked at HALF resolution and drawn at scale 2: it is a smooth gradient,
+  // so nothing is lost and the canvas is a quarter the bytes.
   const RAMP_STOPS = 16;
   const PLAYER_COOKIE_SCALE = 2;
 
   function ensurePlayerCookie(scene, prof, r0, rMax) {
-    const key = `${Math.round(r0)}|${Math.round(rMax)}|${prof.lit.toFixed(3)}|${prof.edge.toFixed(3)}|${prof.litColour.toString(16)}`;
-    const st = scene._lightPlayer || (scene._lightPlayer = { key: null, img: null });
-    if (st.key === key && st.img) return st;
+    const key = `${Math.round(r0)}|${Math.round(rMax)}|${prof.edge.toFixed(3)}`;
+    const st = scene._lightPlayer || (scene._lightPlayer = { key: null, canvas: null, S: 0 });
+    if (st.key === key && st.canvas) return st;
     st.key = key;
     const K = PLAYER_COOKIE_SCALE;
-    const rMaxT = rMax / K, r0T = r0 / K;            // texture px
+    const rMaxT = rMax / K;
+    const r0T = Math.min(r0, rMax) / K;
     const S = 2 * Math.ceil(rMaxT);
+    if (!st.canvas || st.S !== S) { st.canvas = makeCanvas(S); st.S = S; }
     const c = S / 2;
-    const texKey = 'lm_player';
-    let tex;
-    if (scene.textures.exists(texKey)) {
-      tex = scene.textures.get(texKey);
-      if (tex.width !== S || tex.height !== S) { scene.textures.remove(texKey); tex = null; }
-    }
-    if (!tex) {
-      tex = scene.textures.createCanvas(texKey, S, S);
-      try { tex.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
-    }
-    const ctx = tex.context;
+    const ctx = st.canvas.getContext('2d');
     ctx.clearRect(0, 0, S, S);
     const g = ctx.createRadialGradient(c, c, 0, c, c, rMaxT);
     const fr = (r) => Math.min(1, Math.max(0, r / rMaxT));
-    if (r0T > 0) {
-      g.addColorStop(0, rgba(prof.litColour, prof.lit));
-      g.addColorStop(fr(Math.max(0, r0T - PLATEAU_FEATHER_PX / K)), rgba(prof.litColour, prof.lit));
-    }
+    g.addColorStop(0, rgba(0xffffff, prof.edge));
     // The ramp starts at r0 with `edge` and lands on 0 at rMax. Sample the
     // super-linear curve at RAMP_STOPS points so the gradient's linear
     // segments track it.
     const span = rMaxT - r0T;
     for (let i = 0; i <= RAMP_STOPS; i++) {
       const t = i / RAMP_STOPS;
-      const r = r0T + t * span;
-      const pos = fr(r);
-      const a = playerCookieAlpha(t, prof);
-      // Two stops can't share a position with different colours in a way that
-      // reads as a step, so nudge the first ramp stop just past the plateau.
-      g.addColorStop(i === 0 && r0T > 0 ? Math.min(1, pos + 1e-4) : pos, rgba(0xffffff, a));
+      g.addColorStop(fr(r0T + t * span), rgba(0xffffff, playerCookieAlpha(t, prof)));
     }
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, S, S);
-    tex.refresh();
-    if (!st.img) {
-      st.img = scene.make.image({ key: texKey, add: false })
-        .setOrigin(0.5, 0.5).setBlendMode(Phaser.BlendModes.ADD);
-    } else {
-      st.img.setTexture(texKey);
-    }
     return st;
   }
 
-  // How bright a light is THIS frame, as a fraction of its peak.
-  //   flicker — a fire's breath: two sines at unrelated rates, phased by where
-  //             it stands so neighbouring fires don't flicker in unison.
-  //   pulse   — a POI's slow breath: one sine over POI_PULSE_PERIOD_S, phased
-  //             by its id (stable across tile reloads — no RNG) so a street of
-  //             POIs doesn't throb as one.
+  // The colour the reach cells are filled with, at alpha (lit - edge), so that
+  // on top of the ramp's flat `edge` of white they land on exactly
+  // lit × litColour per channel — the plateau level, pink when tired.
+  function plateauCellColour(prof) {
+    const f = prof.lit - prof.edge;
+    if (f <= 0) return 0xffffff;
+    const ch = (sh) => {
+      const target = prof.lit * (((prof.litColour >> sh) & 255) / 255);
+      return Math.round(255 * Math.max(0, Math.min(1, (target - prof.edge) / f)));
+    };
+    return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+  }
+
+  // A fire's breath: two sines at unrelated rates, phased by where it stands
+  // so neighbouring fires don't flicker in unison; a POI's slow breath: one
+  // sine over POI_PULSE_PERIOD_S, phased by its id (stable across tile
+  // reloads — no RNG) so a street of POIs doesn't throb as one.
   function flickerAlpha(row, dx, dy, now, id) {
     let a = 1;
     if (row.flicker) {
@@ -372,58 +366,89 @@
     return a;
   }
 
-  // Paint this frame's lightmap: the ambient floor, the player's cookie at the
-  // feet-on-the-fix point, then every collected light at its anchored screen
-  // position. `ax, ay` are the camera anchor in world metres, `halfM` the
-  // sprite cull the collector pads.
+  // Paint this frame's lightmap: the ambient floor, the player's ramp at the
+  // feet-on-the-fix point, the plateau over every reach cell, then every
+  // collected light at its anchored screen position. `ax, ay` are the camera
+  // anchor in world metres, `halfM` the sprite cull the collector pads.
   function draw(scene, ax, ay, halfM) {
-    const rt = scene.lightMap;
-    if (!rt || typeof Phaser === 'undefined') return;
-    beginFrameIfNeeded(scene);
+    const tex = scene.lightTex;
+    if (!tex || typeof document === 'undefined') return;
+    if (!scene._lights) scene._lights = [];
     collectFires(scene, ax, ay, halfM);
     const prof = profile(scene);
     const k = CELL_PX / scene.cellM;                 // metres → screen px
     const rMax = Math.hypot(scene.viewSize, scene.viewSize) / 2;
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     const r0 = Math.max(0, reachM * k);
-    // Every cookie is baked BEFORE the batch opens. A bake uploads a texture,
-    // and uploading one while the render texture's batch is mid-flight
-    // rebinds a unit the queued quads still point at.
     const player = ensurePlayerCookie(scene, prof, r0, rMax);
-    for (const L of scene._lights) ensureKindCookie(scene, L.kind);
     const ps = scene.playerScreen ? scene.playerScreen() : { x: scene.viewCenterX, y: scene.viewCenterY };
     const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
     const now = Date.now();
+    const ctx = tex.context;
+    const W = tex.width, H = tex.height;
 
-    rt.fill(prof.ambient, 1);
-    // The player's cookie gets a draw call of its OWN, then the small cookies
-    // share one batch. Batched together with them, the big quad came back
-    // split into four mismatched quadrants with a dark cross through the
-    // player under the headless GL the scratch checks ran on; alone it is
-    // clean on both renderers. One extra flush a frame is nothing.
-    player.img.setAlpha(1).setScale(PLAYER_COOKIE_SCALE);
-    rt.draw(player.img, ps.x - ox, ps.y - oy);
-    rt.beginDraw();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = hex(prof.ambient);
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = true;
+
+    // The ramp, centred on the player's feet.
+    const D = player.S * PLAYER_COOKIE_SCALE;
+    ctx.drawImage(player.canvas, ps.x - ox - D / 2, ps.y - oy - D / 2, D, D);
+
+    // The plateau: every cell in reach, by the SAME test the outline and the
+    // tap gate use — cellInReach's expressions, hoisted once per frame the way
+    // drawCells hoists them (reachRadiusM and playerReachCell are constant for
+    // the frame; 169 calls of the allocating helper is churn for nothing).
+    if (reachM > 0 && prof.lit > prof.edge && typeof playerReachCell === 'function'
+        && typeof viewAnchorCell === 'function') {
+      const reachM2 = reachM * reachM;
+      const rp = playerReachCell(scene);
+      const pc = viewAnchorCell(scene);
+      const fracX = pc.cx - Math.floor(pc.cx);
+      const fracY = pc.cy - Math.floor(pc.cy);
+      const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
+      const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
+      const half = (VIEW_CELLS - 1) / 2;
+      ctx.fillStyle = rgba(plateauCellColour(prof), prof.lit - prof.edge);
+      for (let row = -1; row <= VIEW_CELLS; row++) {
+        for (let col = -1; col <= VIEW_CELLS; col++) {
+          const absIX = baseCellIX + (col - half);
+          const absIY = baseCellIY + (row - half);
+          const dx = (absIX - rp.cellIX) * scene.cellM;
+          const dy = (absIY - rp.cellIY) * scene.cellM;
+          if (dx * dx + dy * dy > reachM2) continue;
+          // cellScreenXY's expression (render.js), in lightmap-local px.
+          const sx = Math.round(scene.viewCenterX + (col - half - fracX + 0.5) * CELL_PX - CELL_PX / 2) - ox;
+          const sy = Math.round(scene.viewCenterY + (row - half - fracY + 0.5) * CELL_PX - CELL_PX / 2) - oy;
+          ctx.fillRect(sx, sy, CELL_PX, CELL_PX);
+        }
+      }
+    }
+
+    // The lights.
     for (const L of scene._lights) {
       const row = KINDS[L.kind];
       const ck = ensureKindCookie(scene, L.kind);
       const a = flickerAlpha(row, L.dx, L.dy, now, L.id);
-      ck.img.setAlpha(a).setScale(row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1);
-      rt.batchDraw(ck.img,
-        scene.viewCenterX + L.dx * k - ox,
-        scene.viewCenterY + L.dy * k - oy);
+      const sc = row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1;
+      const d = 2 * ck.R * sc;
+      ctx.globalAlpha = a;
+      ctx.drawImage(ck.canvas,
+        scene.viewCenterX + L.dx * k - ox - d / 2,
+        scene.viewCenterY + L.dy * k - oy - d / 2, d, d);
     }
-    rt.endDraw();
-  }
-
-  function beginFrameIfNeeded(scene) {
-    if (!scene._lights) scene._lights = [];
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    tex.refresh();
   }
 
   window.Lighting = {
     KINDS, radiusCells, FALLOFF_A, FALLOFF_P, litDim, POI_PULSE_PERIOD_S,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite,
-    profile, playerCookieAlpha, sourceKind, beginFrame, consider, collectFires,
+    profile, playerCookieAlpha, plateauCellColour, sourceKind, beginFrame, consider, collectFires,
     flickerAlpha, draw,
   };
 })(window);
