@@ -1263,10 +1263,12 @@ const TAP_HANDLERS = [
       // already-watered plant gives, so nothing told the player the watering
       // had happened. With no can the verb also says HOW: bare hands are the
       // tool, and naming them is the only hint the game gives that a better
-      // one exists.
+      // one exists. Kept to three words — the flash also carries the stage
+      // readout and the wait, and "you water by cupping your hands" ran the
+      // line off the screen.
       // Then the growth readout, so the player can see how close it is to
       // harvest (e.g. "Pairy 2/5").
-      const how = can?.tier ? 'watered' : 'you water by cupping your hands';
+      const how = can?.tier ? 'watered' : 'watered by hand';
       scene.flash((jumped ? `🌱 sprang ahead! ${stageReadout()}`
                           : `💧 ${how} — ${stageReadout()}`)
                   + growthLeft(), sx, sy);
