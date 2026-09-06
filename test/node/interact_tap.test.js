@@ -794,3 +794,44 @@ test('creature: a tap two cells to the side finds nothing (false)', () => {
   assert.eq(runCreatureTap('chicken', { x: 14, y: 0 }, false), false,
     'far-side tap does not grab the creature');
 });
+
+// ── ONE REACH GATE ──────────────────────────────────────────────────────────
+// tooFar used to carry a second, older rule — a Euclidean distance from the
+// player's CELL CENTRE — behind a `typeof cellInReach === 'function'` guard,
+// as a fallback for the coords.js helpers being unavailable. They never are:
+// coords.js declares them at the top level of a classic script that loads
+// before interact.js, in index.html and in this suite alike. So the guard was
+// always true and the losing rule could not be falsified by playing the game.
+//
+// It mattered because the two rules DISAGREE, which is why the cell rule
+// replaced it: an object whose world point sits off its cell centre (a house
+// FOOT, up to ~0.7·cellM away) could pass the cell gate and still trip the
+// Euclidean one at the reach edge, flashing "just out of reach" only sometimes,
+// depending on where the foot sat and on cardinal-vs-diagonal geometry.
+//
+// A source pin, because tooFar closes over a scene: the shape is the contract.
+(function () {
+const src = INTERACT_SRC;
+const fn = src.slice(src.indexOf('function tooFar(ctx, x, y) {'));
+const body = fn.slice(0, fn.indexOf('\n}\n') + 3);
+
+test('reach: tooFar has exactly one rule, and it is the cell rule', () => {
+  assert.truthy(/cellInReach\(scene, foot\.cellIX, foot\.cellIY\)/.test(body),
+    'the foot cell decides');
+  assert.truthy(/cellInReach\(scene, tap\.cellIX, tap\.cellIY\)/.test(body),
+    'or the cell the player actually tapped');
+  assert.falsy(/typeof cellInReach === ['"]function['"]/.test(body),
+    'no guard around it — the helper is always there, so a guard only hides a second rule');
+  assert.falsy(/distM2/.test(body), 'no Euclidean distance in the reach gate');
+  assert.falsy(/REACH_FAR_M/.test(body), 'and no fixed-metre fallback radius');
+});
+
+test('reach: the removed rule leaves nothing behind to feed it', () => {
+  // pCellCx / pCellCy were computed on EVERY tap and read only by the Euclidean
+  // branch. REACH_FAR_M lived in app.js, which never loads headless — so the
+  // fallback would have thrown rather than saved anything if it had ever run.
+  assert.falsy(/pCellCx:|ctx\.pCellC[xy]/.test(src),
+    'the player cell centre is no longer plumbed through ctx');
+  assert.falsy(/\bREACH_FAR_M\b/.test(APP_JS_SRC), 'and the constant is gone from app.js');
+});
+})();

@@ -14,8 +14,7 @@
 //   app.js       — MapScene methods (flash, flashLoot, addToInv, shopInteract,
 //                  catchCreature, screenToWorldMeters, cellAt, worldMetersToAbsCell,
 //                  absCellCenterMeters, buildInventoryDOM);
-//                  module-level helpers (distM2, isTillable, isTillableCell);
-//                  the REACH_FAR_M fallback for the player-reach gate.
+//                  module-level helpers (distM2, isTillable, isTillableCell).
 //   coords.js    — worldMetersToAbsCell, absCellCenterMeters, sameAbsCell,
 //                  cellInReach (tap targeting is cell-bounded, see below)
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
@@ -155,37 +154,35 @@ function findClosestItem(layer, px, py, reach, accept, offset) {
 // passed the cell gate) could still trip this Euclidean gate at the reach edge,
 // flashing "Just out of reach" only some of the time depending on where the
 // foot sat and cardinal-vs-diagonal geometry. Going cell-based removes that drift.
+// THERE IS ONE REACH GATE. This used to keep the Euclidean rule described above
+// alive behind a `typeof cellInReach === 'function'` guard, as a fallback for
+// the helpers "somehow" being unavailable — but coords.js declares them at the
+// top level of a classic script loaded before this file (in index.html and in
+// the headless suite alike), so the guard was always true and the second rule
+// had not decided a tap in a long time. Two gates that disagree is exactly the
+// bug the paragraph above describes; keeping the losing one behind an
+// unreachable condition just made it unfalsifiable. (It would not have survived
+// running, either: its REACH_FAR_M lives in app.js, which never loads headless.)
 function tooFar(ctx, x, y) {
   const { scene } = ctx;
-  if (typeof cellInReach === 'function' && typeof worldMetersToAbsCell === 'function') {
-    // Reach gate = "is it in a lit cell?" — byte-identical to the on-screen
-    // highlight (render.js drawCells / cellInReach). An entity counts as in
-    // reach if EITHER its own foot cell is lit OR the cell the player actually
-    // TAPPED is lit. The tapped-cell clause is what keeps the highlight honest
-    // for tall sprites: a tree/house at the south edge of the reach draws its
-    // canopy in a lit cell while its FOOT sits one cell further south (unlit),
-    // so a foot-cell-only test flashed "out of reach" on a tap that clearly
-    // landed inside the highlighted square. Honour whichever cell the player
-    // pointed at — if it's lit, the tap is in reach.
-    const foot = worldMetersToAbsCell(scene, x, y);
-    if (cellInReach(scene, foot.cellIX, foot.cellIY)) return false;
-    if (ctx.wm) {
-      const tap = worldMetersToAbsCell(scene, ctx.wm.x, ctx.wm.y);
-      if (cellInReach(scene, tap.cellIX, tap.cellIY)) return false;
-    }
-    scene.flash('Just out of reach.', ctx.sx, ctx.sy);
-    scene.hapticReject?.();
-    return true;
+  // Reach gate = "is it in a lit cell?" — byte-identical to the on-screen
+  // highlight (render.js drawCells / cellInReach). An entity counts as in
+  // reach if EITHER its own foot cell is lit OR the cell the player actually
+  // TAPPED is lit. The tapped-cell clause is what keeps the highlight honest
+  // for tall sprites: a tree/house at the south edge of the reach draws its
+  // canopy in a lit cell while its FOOT sits one cell further south (unlit),
+  // so a foot-cell-only test flashed "out of reach" on a tap that clearly
+  // landed inside the highlighted square. Honour whichever cell the player
+  // pointed at — if it's lit, the tap is in reach.
+  const foot = worldMetersToAbsCell(scene, x, y);
+  if (cellInReach(scene, foot.cellIX, foot.cellIY)) return false;
+  if (ctx.wm) {
+    const tap = worldMetersToAbsCell(scene, ctx.wm.x, ctx.wm.y);
+    if (cellInReach(scene, tap.cellIX, tap.cellIY)) return false;
   }
-  // Fallback (helpers somehow unavailable): legacy Euclidean foot→cell-centre gate.
-  const reachM = (typeof reachRadiusM === 'function')
-    ? reachRadiusM(scene) : REACH_FAR_M;
-  if (distM2(x, y, ctx.pCellCx, ctx.pCellCy) > reachM * reachM) {
-    scene.flash('Just out of reach.', ctx.sx, ctx.sy);
-    scene.hapticReject?.();
-    return true;
-  }
-  return false;
+  scene.flash('Just out of reach.', ctx.sx, ctx.sy);
+  scene.hapticReject?.();
+  return true;
 }
 
 // Named terrain-type codes. Mirrors WorldGen.T (the uint8 cell.type enum from
@@ -1582,20 +1579,19 @@ function interactTap(scene, sx, sy) {
   // Reach is measured from the character's visible feet, not the sprite center,
   // so the reachable area is symmetric around what the user perceives as "the player".
   const pWorldY = scene.startWorldM.y + scene.playerM.y + scene.feetOffsetM;
-  // Player's CELL centre — the basis the visual reach outline in render.js
-  // uses, and what the legacy Euclidean "too far" fallback in tooFar()
-  // (reachRadiusM / REACH_FAR_M) measures distance from. Uses the FEET
-  // position (pWorldY already includes
-  // feetOffsetM) so the reach box snaps to a new row exactly when the
-  // sprite's feet cross a cell gridline — matches what the player sees on
-  // screen. Earlier this used the BODY position, which made the box jump
-  // when the feet were still mid-tile (the user reported it as "rangebox
-  // moves up when I cross the centre of a tile, not a gridline"). The
-  // visual outline in render.js is also feet-based so the two stay synced.
-  const pCell = worldMetersToAbsCell(scene, pWorldX, pWorldY);
-  const pCellCentre = absCellCenterMeters(scene, pCell.cellIX, pCell.cellIY);
+  // pWorldX/Y are the FEET (pWorldY already carries feetOffsetM), which is what
+  // makes the reach box snap to a new row exactly when the sprite's feet cross
+  // a cell gridline — matching what the player sees. Earlier this measured from
+  // the BODY, which made the box jump while the feet were still mid-tile ("the
+  // rangebox moves up when I cross the centre of a tile, not a gridline"). The
+  // visual outline in render.js is feet-based too, so the two stay synced.
+  //
+  // The player's CELL CENTRE used to be computed here and handed down on ctx as
+  // a pair of centre coordinates. Nothing reads it any more: its consumer was the
+  // Euclidean distance in tooFar's removed fallback. The live gate asks whether
+  // a CELL is lit, which needs no centre point on either side.
   const ctx = { scene, save: scene.save, wm, pWorldX, pWorldY,
-                pCellCx: pCellCentre.x, pCellCy: pCellCentre.y, sx, sy, dirty: false };
+                sx, sy, dirty: false };
   let consumedBy = null;
   for (const h of TAP_HANDLERS) {
     const consumed = h.try(ctx);

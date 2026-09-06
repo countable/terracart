@@ -623,7 +623,6 @@ if (typeof window !== 'undefined') {
 // reach outline is tappable, regardless of where in the cell the player stands.
 // 16m = √(5² + 15²) + ε, just enough to include (±1, ±3) and (±3, ±1) so the
 // reach silhouette is a rounded square rather than a strict 3-cell diamond.
-const REACH_FAR_M       = 16;
 
 // --- Economy tuning ---
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
@@ -1229,8 +1228,9 @@ class MapScene extends Phaser.Scene {
     // taps — interact.js' tooFar gate now reads coords.js reachRadiusM (the
     // dynamic 2.5..5.5-cell radius), NOT a fixed distance, so the lit
     // reach indicator and the tap-accept gate stay in lock-step at every reach
-    // tier. REACH_FAR_M (16m) survives only as a fallback if that helper is
-    // somehow unavailable. Tap PRECISION — how exactly your tap must land on
+    // tier — and it is the ONLY reach gate; the Euclidean one it replaced is
+    // gone rather than kept behind a guard. Tap PRECISION — how exactly your
+    // tap must land on
     // the target — is a separate question, answered by cell membership
     // (interact.js), and is independent of how far the player can reach.
     this.startWorldM = {
@@ -1580,11 +1580,6 @@ class MapScene extends Phaser.Scene {
       : this.textures.createCanvas('fogwash', fogPx, fogPx);
     this.fogImage = this.add.image(0, 0, 'fogwash').setOrigin(0, 0).setVisible(false);
     this.fogContainer.add(this.fogImage);
-
-    // Legacy terrain sprite pool — ground art is fully procedural now, so this
-    // is empty. Kept as a defined property so render.js's defensive length check
-    // continues to short-circuit without an undefined access.
-    this.terrainPool = [];
 
     // Noise overlay pool — one image per visible cell, set to a hashed noise frame.
     this.noisePool = [];
@@ -12434,8 +12429,6 @@ class MapScene extends Phaser.Scene {
     // The stick doesn't depend on gear any more, but syncing here (idempotent)
     // is what puts it on screen on the first frame.
     this.syncMovePad();
-    // Drop the legacy top strip if an older build left one in the DOM.
-    document.getElementById('relic-row')?.remove();
     // If a gear tab is currently showing, rebuild the inventory bars so a newly
     // bought/forged/looted relic or armor piece appears immediately.
     const cat = INV_CAT_BY_KEY[this.save.invCat];
