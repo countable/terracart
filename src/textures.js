@@ -1121,7 +1121,15 @@ function makeSprungTrapTexture(scene) {
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, S, S);
 
-  const RX = c - 3, RY = (c - 3) * 0.84;      // squashed — the trap is seen from above
+  // The whole jaw is drawn at SPRUNG_K of the cell it used to fill, and EVERY
+  // number below is scaled by it — plate radii, ring thicknesses, jaw stroke,
+  // tooth length, hinge block — so shrinking the art is one constant rather
+  // than a re-tune. A trap that filled its cell edge to edge crowded the
+  // ground marks and the sprites beside it; at 0.85 it still shouts, and the
+  // cell around it reads as ground again.
+  const SPRUNG_K = 0.85;
+  const k = SPRUNG_K;
+  const RX = (c - 3) * k, RY = (c - 3) * 0.84 * k;   // squashed — seen from above
   const IRON = '#7b6553', IRON_HI = '#ac967f', IRON_LO = '#332a22';
   const RUST = '#8a4a28';
 
@@ -1131,10 +1139,10 @@ function makeSprungTrapTexture(scene) {
   ctx.fillStyle = 'rgba(38,27,18,0.9)';
   ctx.beginPath(); ctx.ellipse(c, c, RX, RY, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#0b0908';
-  ctx.beginPath(); ctx.ellipse(c, c, RX - 4, RY - 2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(c, c, RX - 4 * k, RY - 2 * k, 0, 0, Math.PI * 2); ctx.fill();
   ctx.lineWidth = 1;
   ctx.strokeStyle = RUST;
-  ctx.beginPath(); ctx.ellipse(c, c, RX - 0.5, RY - 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(c, c, RX - 0.5 * k, RY - 0.5 * k, 0, 0, Math.PI * 2); ctx.stroke();
 
   // TWO JAWS, not a ring. Each is a thick arc over roughly the top (or bottom)
   // two-thirds of the plate, with a clear GAP at each side where the hinge and
@@ -1146,14 +1154,14 @@ function makeSprungTrapTexture(scene) {
   const jaw = (flip) => {
     const s = flip ? Math.PI * (1 + A0) : Math.PI * A0;
     const e = flip ? Math.PI * (1 + A1) : Math.PI * A1;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 3 * k;
     ctx.strokeStyle = IRON;
-    ctx.beginPath(); ctx.ellipse(c, c, RX - 2, RY - 2, 0, s, e); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(c, c, RX - 2 * k, RY - 2 * k, 0, s, e); ctx.stroke();
     // Lit edge on the OUTSIDE of each jaw, so the two bands read as separate
     // pieces of metal rather than one ring.
     ctx.lineWidth = 1;
     ctx.strokeStyle = flip ? IRON_HI : IRON_LO;
-    ctx.beginPath(); ctx.ellipse(c, c, RX - 0.8, RY - 0.8, 0, s, e); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(c, c, RX - 0.8 * k, RY - 0.8 * k, 0, s, e); ctx.stroke();
   };
   jaw(true);      // upper
   jaw(false);     // lower
@@ -1167,11 +1175,11 @@ function makeSprungTrapTexture(scene) {
   // near the sides and turned the black between them into more spokes. The
   // give-away is that a radial tooth near the side of the arc points sideways,
   // and no jaw has sideways teeth.
-  const TOOTH = 4.6, HALF_W = 1.5;
+  const TOOTH = 4.6 * k, HALF_W = 1.5 * k;
   const B0 = 0.20, B1 = 0.80;                 // tooth span, in units of π
   const tooth = (ang, down) => {
-    const bx = c + Math.cos(ang) * (RX - 3);
-    const by = c + Math.sin(ang) * (RY - 3);
+    const bx = c + Math.cos(ang) * (RX - 3 * k);
+    const by = c + Math.sin(ang) * (RY - 3 * k);
     ctx.fillStyle = IRON_HI;
     ctx.beginPath();
     ctx.moveTo(bx - HALF_W, by);
@@ -1190,15 +1198,20 @@ function makeSprungTrapTexture(scene) {
   // Hinge and spring, one on each side, filling the gaps the jaws left. They
   // break the circle — a plain disc on the ground reads as a treasure pad in
   // this world (see makeRoundPadTexture) — and say which way the jaws swung.
+  // Anchored to the PLATE's rim rather than to the canvas edge: each block
+  // starts 2 units outside the ellipse and runs inward, so it still bridges
+  // the gap between the jaws at whatever size SPRUNG_K picks.
+  const HW = 5 * k, HH = 4 * k, LIP = 1 * k;
+  const hxL = c - RX - 2 * k, hxR = c + RX + 2 * k - HW, hy = c - HH / 2;
   ctx.fillStyle = IRON;
-  ctx.fillRect(1, c - 2, 5, 4);
-  ctx.fillRect(S - 6, c - 2, 5, 4);
+  ctx.fillRect(hxL, hy, HW, HH);
+  ctx.fillRect(hxR, hy, HW, HH);
   ctx.fillStyle = RUST;
-  ctx.fillRect(1, c - 2, 5, 1);
-  ctx.fillRect(S - 6, c - 2, 5, 1);
+  ctx.fillRect(hxL, hy, HW, LIP);
+  ctx.fillRect(hxR, hy, HW, LIP);
   ctx.fillStyle = IRON_LO;
-  ctx.fillRect(1, c + 1, 5, 1);
-  ctx.fillRect(S - 6, c + 1, 5, 1);
+  ctx.fillRect(hxL, hy + HH - LIP, HW, LIP);
+  ctx.fillRect(hxR, hy + HH - LIP, HW, LIP);
   tex.refresh();
 }
 
