@@ -135,7 +135,7 @@ const TILE_RETRY_MAX_MS = 60000;
 // start indoors, a new install, a permission dialog left sitting) was anchored
 // at the default map for good, with their crates, Home and objective arrow a
 // city away and no warning under ORIGIN_STRANDED_M.
-const PROVISIONAL_ORIGIN_KEYS = ['starterCratesAt', 'starterPlotAt', 'starterHome'];
+const PROVISIONAL_ORIGIN_KEYS = ['starterCratesAt', 'starterPlotAt', 'starterHome', 'starterPondAt'];
 // How far a player can stand from their world's projection origin before that
 // origin is definitively WRONG rather than merely far — see _warnStrandedOrigin.
 // Only reachable by a save that never captured a home (its first GPS fix was
@@ -556,6 +556,17 @@ const TRAIL_REVEAL_CELLS = 5;
 // is in view from the doorstep, so the trail still starts with a crate the
 // player can see.
 const NEAR_ROAD_CELLS = 6;
+// THE FISHING POND (see _carveStarterPond). A 2x2 of open water carved TWO
+// SCREENS out from Home — POND_MIN_CELLS is 2 × VIEW_CELLS (11), pinned by
+// starter_pond.test.js — so it sits past the relic chest (one screen) and the
+// starter ring (16), something to find on the second outing rather than part
+// of the opening screen. The band widens to POND_MAX_CELLS so a spawn whose
+// two-screen ring is all street or floor still gets one. When a POI chest
+// stands in the band, the pond seats within POND_POI_CELLS of it, so the walk
+// to the shop or the park is the walk to the water.
+const POND_MIN_CELLS = 22;
+const POND_MAX_CELLS = 30;
+const POND_POI_CELLS = 3;
 const NEAR_GPS_CELLS = 3;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
@@ -3004,6 +3015,9 @@ class MapScene extends Phaser.Scene {
         out.push('trail anchor: ' + (sca ? `(${Math.round(sca.x)},${Math.round(sca.y)})m` : 'NOT SET')
           + `  salt=${this.save && this.save.relicSalt != null ? this.save.relicSalt : 'none'}`);
         out.push('trail: ' + (this._trailDebug || '(pass has not run this session)'));
+        const spa = this.save && this.save.starterPondAt;
+        out.push('pond: ' + (spa ? `(${Math.round(spa.x)},${Math.round(spa.y)})m` : 'NOT SET')
+          + '  ' + (this._pondDebug || '(pass has not run this session)'));
         const openedIds = new Set((this.save && this.save.opened) || []);
         const rows2 = [];
         if (WorldGen.tileCache) for (const [, e2] of WorldGen.tileCache) {
@@ -3498,6 +3512,10 @@ class MapScene extends Phaser.Scene {
       // Cheap no-op once the plan is done.
       this._provisionStarterHome(entry, tx, ty);
     }
+    // The fishing pond, two screens out. Its band can cross a tile seam, so
+    // any surface tile it reaches into may plan it, and the tile that owns it
+    // repaints it on every build (see _carveStarterPond).
+    this._carveStarterPond(entry, tx, ty);
     if (!isStarterTile && rng() < 1 / 2) {
       // 1/200 → 1/4 → 1/2. Combined with the scatter below, players see X's
       // frequently instead of stumbling onto one a session. This stream caps
@@ -3676,6 +3694,10 @@ class MapScene extends Phaser.Scene {
     const tx = Math.floor(x / this.tileEdgeM), ty = Math.floor(y / this.tileEdgeM);
     const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (e && (!e.status || e.status === 'ready') && e.grid) this._placeStarterTrail(e, tx, ty);
+    // The pond's band reaches into the neighbours, which may have spawned
+    // before there was an anchor to measure it from — run the pass over
+    // everything already in the cache.
+    this._carveStarterPondAround();
   }
 
   // Starter crate trail + tutorial-pocket clearing around the frozen anchor
@@ -4385,6 +4407,294 @@ class MapScene extends Phaser.Scene {
     const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
     this.save.starterPlotAt = { x: wmx, y: wmy };
     if (typeof persistSave === 'function') persistSave(this.save);
+  }
+
+  // ── The fishing pond ────────────────────────────────────────────────────
+  // Fishing is a tap on a WATER cell (interact.js 'fishing'), and nothing
+  // about a new player's neighbourhood promises one: a suburban spawn can be
+  // a kilometre from the nearest creek, and then the whole fishing loop — the
+  // rod, the fish the cat wants, the goldenfish — simply doesn't exist for
+  // them. This carves a small pond, 2x2 cells of open water, a fixed walk
+  // from Home: TWO SCREENS out (POND_MIN_CELLS), past the relic chest and the
+  // starter ring, so it is something to find on the second outing rather than
+  // part of the opening screen — and beside a POI chest when one stands in
+  // the band (POND_POI_CELLS), so the walk to the shops is the walk to the
+  // water. It is water in the terrain grid and nothing more: it renders as
+  // water, casts like water, refills the can like water, and mirrors as rock
+  // in the cave below like water.
+  //
+  // save.starterPondAt holds the TOP-LEFT cell's centre in world metres — the
+  // starterPlotAt convention — and like the plot it is chosen once and
+  // repainted in place on every later build of its tile (_paintPond, which
+  // also sweeps whatever a rebuild regenerated on those four cells).
+  //
+  // The band is a ring of cells that can cross a tile seam, so the search
+  // runs in WORLD space over every loaded tile — the same cross-seam reader
+  // _provisionStarterHome uses — and defers, bounded, until the tiles the
+  // band reaches into have arrived: a plan drawn against half a map would
+  // seat the pond on whichever side loaded first, POI or no POI. Whichever
+  // tile's spawn pass runs first once the map is there does the planning,
+  // and the pond is painted into whichever tile owns it. The scan order is
+  // fixed (no RNG), so a rebuild reaching this path again reaches the same
+  // answer even if the freeze were somehow missing.
+  _carveStarterPond(entry, tx, ty) {
+    const grid = entry.grid;
+    if (!grid || (this.depth || 0) !== 0 || this._sandboxMode) return;
+    const N = entry.cellsPerEdge;
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const localCell = (wx, wy) => ({
+      cx: Math.floor((wx - tx0) / this.cellM), cy: Math.floor((wy - ty0) / this.cellM) });
+    const inTile = (cx, cy) => cx >= 0 && cy >= 0 && cx + 1 < N && cy + 1 < N;
+
+    // Already frozen — repaint in place when this tile owns it. A pond on a
+    // neighbouring tile is that tile's job to paint.
+    const frozen = this.save.starterPondAt;
+    if (frozen && Number.isFinite(frozen.x)) {
+      const f = localCell(frozen.x, frozen.y);
+      if (inTile(f.cx, f.cy)) this._paintPond(entry, tx, ty, f.cx, f.cy);
+      return;
+    }
+    const anchor = this._starterTrailAnchor();
+    if (!anchor) return;                       // resolves later — see _setStarterCratesAt
+    const a = localCell(anchor.x, anchor.y);   // may lie outside this tile
+    // Only a tile the band reaches into has any business planning.
+    const reach = POND_MAX_CELLS + 1;
+    if (a.cx + reach < 0 || a.cy + reach < 0 || a.cx - reach >= N || a.cy - reach >= N) return;
+
+    // Terrain lookup that CROSSES TILE SEAMS, in cells relative to this tile
+    // (see the same helper in _provisionStarterHome). An unloaded neighbour
+    // reads as `miss`, never guessed at.
+    const cellAt = (cx, cy, read, miss) => {
+      if (cx >= 0 && cy >= 0 && cx < N && cy < N) return read(entry, cy * N + cx);
+      const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
+      const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
+      const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
+      if (!e || !e.grid || (e.status && e.status !== 'ready')) return miss;
+      const nN = e.cellsPerEdge;
+      const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
+      const iy = Math.floor((wy - nty * this.tileEdgeM) / this.cellM);
+      if (ix < 0 || iy < 0 || ix >= nN || iy >= nN) return miss;
+      return read(e, iy * nN + ix);
+    };
+    const gridAt = (cx, cy) => cellAt(cx, cy, (e, i) => e.grid[i], null);
+    const roadMaskAt = (cx, cy) => cellAt(cx, cy, (e, i) => (e.roadMask ? e.roadMask[i] : 0), 0);
+    // A synthesized POI plaza (the hospital cross, the school pyramid) —
+    // a pond punched into one reads as a bug.
+    const padAt = (cx, cy) => cellAt(cx, cy, (e, i) => !!(e.poiPadCells && e.poiPadCells.has(i)), false);
+    // Which tile owns a cell, by world position — so the 2x2 can be required
+    // to sit inside ONE tile's grid rather than straddle a seam.
+    const ownerOf = (cx, cy) => {
+      const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
+      return Math.floor(wx / this.tileEdgeM) + ',' + Math.floor(wy / this.tileEdgeM);
+    };
+    if (gridAt(a.cx, a.cy) == null) return;    // the anchor's own tile has to be readable
+    // Don't plan against HALF A MAP. Wait, bounded, until every tile the band
+    // reaches into has loaded — a tile that never arrives must not leave the
+    // player with no water at all.
+    this._starterPondDefers = (this._starterPondDefers || 0) + 1;
+    if (this._starterPondDefers <= 8) {
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        if (gridAt(a.cx + dx * POND_MAX_CELLS, a.cy + dy * POND_MAX_CELLS) == null) {
+          this._pondDebug = `deferred (${this._starterPondDefers}): band not loaded from tile ${tx}/${ty}`;
+          return;
+        }
+      }
+    }
+
+    // Occupancy and POIs across the anchor tile and its loaded neighbours.
+    // Anything standing on a cell keeps the pond off it (a tree in a pond is
+    // a bug whichever the renderer draws second); a POI CHEST — a real one,
+    // carrying its poiClass, never a starter crate — is what the pond seats
+    // beside.
+    const key = (cx, cy) => cx + ',' + cy;
+    const taken = new Set();
+    const pois = [];
+    const mark = (wx, wy) => { const c = localCell(wx, wy); taken.add(key(c.cx, c.cy)); };
+    const collect = (e) => {
+      for (const o of (e.objects || [])) {
+        mark(o.x, o.y);
+        if (o.kind === 'chest' && o.poiClass) pois.push(localCell(o.x, o.y));
+      }
+      for (const w of (e.wildplants || [])) mark(w.x, w.y);
+      for (const t of (e.extraTreasures || [])) mark(t.x, t.y);
+      for (const t of (e.parkingTreasures || [])) mark(t.x, t.y);
+      if (e.treasure) mark(e.treasure.x, e.treasure.y);
+    };
+    collect(entry);
+    for (const [k, e] of WorldGen.tileCache) {
+      if (!e || e === entry || !e.grid) continue;
+      const parts = k.split('/');
+      if (Math.abs(+parts[1] - tx) > 1 || Math.abs(+parts[2] - ty) > 1) continue;
+      collect(e);
+    }
+    // ...and what the player has done to the ground: a crop or a tilled cell
+    // is theirs, not the pond's.
+    for (const p of (this.save.planted || [])) mark(p.x, p.y);
+    for (const k of (this.save.tilled || [])) {
+      const [ix, iy] = String(k).split('_').map(Number);
+      if (!Number.isFinite(ix) || !Number.isFinite(iy)) continue;
+      const c = absCellCenterMeters(this, ix, iy);
+      mark(c.x, c.y);
+    }
+    const plot = this.save.starterPlotAt;
+    if (plot && Number.isFinite(plot.x)) {
+      const c = localCell(plot.x, plot.y);
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) taken.add(key(c.cx + dx, c.cy + dy));
+    }
+
+    // ── The walk there ──────────────────────────────────────────────────
+    // Flood out from the anchor over ground a walk may cross — roads yes,
+    // water and buildings no (the relic chest's rule) — so the pond is never
+    // seated across a river or inside a walled block. A cell the flood never
+    // reached is no place for it.
+    const UNCROSSABLE = new Set([3 /* WATER */, 9 /* BUILDING */,
+      11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
+    const FLOOD_R = POND_MAX_CELLS + 2;
+    const reached = new Set([key(a.cx, a.cy)]);
+    const flood = [[a.cx, a.cy]];
+    for (let head = 0; head < flood.length; head++) {
+      const [cx, cy] = flood[head];
+      for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = cx + ddx, ny = cy + ddy;
+        if (Math.max(Math.abs(nx - a.cx), Math.abs(ny - a.cy)) > FLOOD_R) continue;
+        const k = key(nx, ny);
+        if (reached.has(k)) continue;
+        const t = gridAt(nx, ny);
+        if (t == null || UNCROSSABLE.has(t)) continue;
+        reached.add(k);
+        flood.push([nx, ny]);
+      }
+    }
+
+    // Cells the pond may fill: soft ground the player can walk to — never
+    // the street (terrain OR the drawn band), anyone's floor, existing water,
+    // the decking over it, a POI plaza, or a cell something stands on. The
+    // set of terrain it refuses is the starter plot's UNPAINTABLE.
+    const UNPAINTABLE = new Set([3 /* WATER */, 7 /* ROAD */, 8 /* PATH */,
+      9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */,
+      13 /* ROAD_LG */, 14 /* ROAD_MD */, 23 /* PIER */,
+      24 /* CAVE_FLOOR */, 25 /* CAVE_WALL */]);
+    const fillable = (cx, cy) => {
+      if (!reached.has(key(cx, cy)) || taken.has(key(cx, cy))) return false;
+      if (roadMaskAt(cx, cy) || padAt(cx, cy)) return false;
+      const t = gridAt(cx, cy);
+      return t != null && !UNPAINTABLE.has(t);
+    };
+    // The shore: every cell ringing the 2x2 is ground to stand on — not water
+    // (the pond would read as a bay of some lake), not the street, not a wall
+    // — so a cast can be made from any side and the pond reads as its own
+    // thing.
+    const SHORE_BLOCKED = new Set([3, 7, 9, 11, 12, 13, 14]);
+    const shoreOK = (cx, cy) => {
+      const t = gridAt(cx, cy);
+      return t != null && !SHORE_BLOCKED.has(t) && !roadMaskAt(cx, cy);
+    };
+    // Chebyshev distance from the 2x2 (top-left cx,cy) to the nearest POI
+    // chest; Infinity when there is none in range.
+    const poiDist = (cx, cy) => {
+      let best = Infinity;
+      for (const p of pois) {
+        const dx = Math.max(cx - p.cx, p.cx - (cx + 1), 0);
+        const dy = Math.max(cy - p.cy, p.cy - (cy + 1), 0);
+        best = Math.min(best, Math.max(dx, dy));
+      }
+      return best;
+    };
+    const blockOK = (cx, cy) => {
+      if (ownerOf(cx, cy) !== ownerOf(cx + 1, cy + 1)) return false;   // one tile's grid
+      for (let dy = 0; dy < 2; dy++) {
+        for (let dx = 0; dx < 2; dx++) if (!fillable(cx + dx, cy + dy)) return false;
+      }
+      for (let dy = -1; dy <= 2; dy++) {
+        for (let dx = -1; dx <= 2; dx++) {
+          if (dx >= 0 && dx <= 1 && dy >= 0 && dy <= 1) continue;
+          if (!shoreOK(cx + dx, cy + dy)) return false;
+        }
+      }
+      // Never on a chest's doorstep: the occupancy pass keeps the chest's
+      // own cell, and its one-cell frontage stays dry too.
+      return poiDist(cx, cy) >= 2;
+    };
+
+    // Ring scan over the band, nearest ring first. Beside a POI beats
+    // anywhere else, and among those the closest to it; otherwise the nearest
+    // to Home. Fixed order, no RNG.
+    let found = null, foundScore = Infinity;
+    for (let r = POND_MIN_CELLS; r <= POND_MAX_CELLS; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
+          const cx = a.cx + dx, cy = a.cy + dy;
+          if (!blockOK(cx, cy)) continue;
+          const dp = poiDist(cx, cy);
+          const score = dp <= POND_POI_CELLS ? dp * 100 + r : 10000 + r;
+          if (score < foundScore) { foundScore = score; found = { cx, cy, r, dp }; }
+        }
+      }
+    }
+    if (!found) {
+      this._pondDebug = `no seat in band ${POND_MIN_CELLS}..${POND_MAX_CELLS} from tile ${tx}/${ty} (anchor ${a.cx},${a.cy}, ${pois.length} POI)`;
+      return;
+    }
+    // Freeze the top-left on the canonical global cell centre — the basis
+    // every tap uses — so the fishing tap and the painted cell agree.
+    const rawX = tx0 + (found.cx + 0.5) * this.cellM;
+    const rawY = ty0 + (found.cy + 0.5) * this.cellM;
+    const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
+    const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
+    this.save.starterPondAt = { x: wmx, y: wmy };
+    if (typeof persistSave === 'function') persistSave(this.save);
+    this._pondDebug = `seated r=${found.r} at (${found.cx},${found.cy}) of tile ${tx}/${ty}`
+      + (found.dp <= POND_POI_CELLS ? ` beside a POI (d=${found.dp})` : ` (no POI within ${POND_POI_CELLS}; ${pois.length} in range)`);
+    // Paint it into whichever loaded tile owns it — this one, or the
+    // neighbour the band crossed into.
+    if (inTile(found.cx, found.cy)) { this._paintPond(entry, tx, ty, found.cx, found.cy); return; }
+    const otx = Math.floor(wmx / this.tileEdgeM), oty = Math.floor(wmy / this.tileEdgeM);
+    const e = WorldGen.tileCache.get(WorldGen.tileKey(otx, oty));
+    if (!e || !e.grid || (e.status && e.status !== 'ready')) return;   // its own spawn pass paints it
+    const oc = {
+      cx: Math.floor((wmx - otx * this.tileEdgeM) / this.cellM),
+      cy: Math.floor((wmy - oty * this.tileEdgeM) / this.cellM),
+    };
+    if (oc.cx >= 0 && oc.cy >= 0 && oc.cx + 1 < e.cellsPerEdge && oc.cy + 1 < e.cellsPerEdge) {
+      this._paintPond(e, otx, oty, oc.cx, oc.cy);
+    }
+  }
+
+  // Paint the 2x2 pond whose top-left is tile-local (cx, cy) into `entry`,
+  // and sweep the four cells clear: a rebuild regenerates the rocks and scrub
+  // the seat pass avoided, and nothing stands in open water.
+  _paintPond(entry, tx, ty, cx, cy) {
+    const N = entry.cellsPerEdge;
+    const WATER = 3;
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const cells = new Set();
+    for (let dy = 0; dy < 2; dy++) {
+      for (let dx = 0; dx < 2; dx++) {
+        entry.grid[(cy + dy) * N + (cx + dx)] = WATER;
+        cells.add((cx + dx) + ',' + (cy + dy));
+      }
+    }
+    const on = (wx, wy) =>
+      cells.has(Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM));
+    if (entry.objects) entry.objects = entry.objects.filter(o => !on(o.x, o.y));
+    if (entry.wildplants) entry.wildplants = entry.wildplants.filter(w => !on(w.x, w.y));
+    if (entry.extraTreasures) entry.extraTreasures = entry.extraTreasures.filter(t => !on(t.x, t.y));
+    if (entry.parkingTreasures) entry.parkingTreasures = entry.parkingTreasures.filter(t => !on(t.x, t.y));
+    if (entry.treasure && on(entry.treasure.x, entry.treasure.y)) entry.treasure = null;
+  }
+
+  // Run the pond pass over every spawned surface tile in the cache — for an
+  // anchor that resolved late (see _setStarterCratesAt), after the tiles the
+  // band reaches into had already spawned with no anchor to measure from.
+  // Cheap once frozen: each tile just repaints its own pond, if it owns one.
+  _carveStarterPondAround() {
+    if ((this.depth || 0) !== 0 || !WorldGen.tileCache) return;
+    for (const [k, e] of WorldGen.tileCache) {
+      if (!e || !e.grid || !e._spawned || (e.status && e.status !== 'ready')) continue;
+      const parts = k.split('/');
+      this._carveStarterPond(e, +parts[1], +parts[2]);
+    }
   }
 
   // Rebuild one frozen starter-home record into a world object. Kept beside

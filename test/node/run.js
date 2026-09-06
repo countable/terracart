@@ -640,6 +640,50 @@ try {
     ctx, { filename: 'carveStarterPlot.js' });
 }
 
+// The fishing pond (_carveStarterPond): a 2x2 of water carved two screens out
+// from Home, beside a POI chest when one stands in the band. Pure grid + save
+// + tileCache math on the scene class — lifted as methods (with the painter
+// and the late-anchor sweep it works through, and the three band constants it
+// reads) so starter_pond.test.js drives the SHIPPING placer on a scene stub.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  let decls = '';
+  for (const name of ['POND_MIN_CELLS', 'POND_MAX_CELLS', 'POND_POI_CELLS']) {
+    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+    if (!m) {
+      console.error(`Could not find ${name} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    decls += `const ${name} = ${m[1]};\nglobalThis.${name} = ${name};\n`;
+  }
+  // The spawn pass has to actually CALL the placer, or the pond exists only
+  // in the tests — the exact shape of the bug spawn_rebuild.test.js pins.
+  if (!/this\._carveStarterPond\(entry, tx, ty\);/.test(src)) {
+    console.error('spawnInTile no longer calls _carveStarterPond — update run.js');
+    process.exit(2);
+  }
+  const methods = ['_carveStarterPond(entry, tx, ty) {', '_paintPond(entry, tx, ty, cx, cy) {',
+                   '_carveStarterPondAround() {']
+    .map(lift).join(',\n');
+  vm.runInContext(`${decls}globalThis.__pond = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#_carveStarterPond' });
+  for (const k of ['_carveStarterPond', '_paintPond', '_carveStarterPondAround']) {
+    if (typeof ctx.__pond[k] !== 'function') {
+      console.error(`__pond.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
 // The green starter arrow's per-step target (_starterGuidanceGoal) is pure
 // save + tileCache math on the scene class. Lift it — alongside the three
 // helpers it calls — into an object of methods a test can graft onto a scene
