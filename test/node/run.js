@@ -284,7 +284,8 @@ try {
   // energy pop's own placement (energy_pop.test.js drives them on the same
   // stub scene).
   const methods = ['_trailCounterAt(ix, iy) {', '_cellToastAt(ix, iy, liftPx) {',
-                   '_energyPopAt(ix, iy) {', '_cellAtScreen(sx, sy) {', 'playerScreen() {',
+                   '_energyPopAt(ix, iy) {', '_isPlayerCell(ix, iy) {',
+                   '_cellAtScreen(sx, sy) {', 'playerScreen() {',
                    '_pathStoneAt(tx, ty, ix, iy) {',
                    '_activatePathStone(tx, ty, ix, iy) {',
                    '_resetTrailSight() {', '_rebuildTrailSight(p, reachM, now) {',
@@ -322,7 +323,8 @@ try {
     ctx, { filename: 'app.js#TRAIL_COUNTER_LIFT_PX' });
   vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_trailCounterAt' });
-  for (const k of ['_trailCounterAt', '_cellToastAt', '_energyPopAt', '_cellAtScreen',
+  for (const k of ['_trailCounterAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
+                   '_cellAtScreen',
                    'playerScreen', '_pathStoneAt', '_activatePathStone',
                    '_resetTrailSight', '_rebuildTrailSight', '_sweepCobbleTrails']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {

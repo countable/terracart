@@ -9002,7 +9002,9 @@ class MapScene extends Phaser.Scene {
   // leech, an offline refill). The number hangs just clear of that cell's top
   // edge (or of the player's head, on their own cell — see ENERGY_POP_HEAD_PX)
   // and a thin outline in the same ink ticks on the cell under it, so the eye
-  // is told WHICH cell earned or paid it, not just that something did.
+  // is told WHICH cell earned or paid it, not just that something did — on
+  // every cell but the player's own, where the number is already on the body
+  // and a ring would just circle the character (see _popCellNumber).
   //
   // Seated through the projection (_energyPopAt → worldMetersToScreen /
   // playerScreen), never off viewCenterX/Y: until Sep 2026 the rest splash was
@@ -9037,7 +9039,12 @@ class MapScene extends Phaser.Scene {
   _popCellNumber(text, color, ix, iy) {
     if (!this.add) return null;
     const at = this._energyPopAt(ix, iy);
-    if (at.x != null) this._flashCellOutline(ix, iy, color);
+    // The tick answers WHICH cell — a question the player's OWN cell never
+    // raises: the number is already hanging over their head, on their body.
+    // Drawing it there ringed the character in red or green on every rest
+    // tick, leech and self-cell spend, which reads as a status effect on the
+    // player rather than a pointer at the ground. The body pop ticks nothing.
+    if (at.x != null && !this._isPlayerCell(ix, iy)) this._flashCellOutline(ix, iy, color);
     return this._toast(text, { tier: 'cell', color, ...at });
   }
 
@@ -9048,6 +9055,18 @@ class MapScene extends Phaser.Scene {
     this._popEnergy(amount);
   }
 
+  // Is (ix, iy) the cell the player is standing on? The ONE test both halves
+  // of a body pop read — where the number hangs (_energyPopAt anchors it on
+  // the body there) and whether a cell is ticked (_popCellNumber skips its
+  // outline there) — so the two can't drift into ringing a player the number
+  // isn't over, or leaving a cell unmarked that the number points at.
+  _isPlayerCell(ix, iy) {
+    if (ix == null || iy == null) return false;
+    if (!this.startWorldM || !this.originPx || typeof playerReachCell !== 'function') return false;
+    const p = playerReachCell(this);
+    return ix === p.cellIX && iy === p.cellIY;
+  }
+
   // Where an energy pop for abs cell (ix, iy) hangs its text. The player's
   // own cell anchors on the BODY (playerScreen — the feet, which a peek drag
   // slides with the ground) and clears the head; any other cell clears the
@@ -9056,8 +9075,7 @@ class MapScene extends Phaser.Scene {
   _energyPopAt(ix, iy) {
     if (ix == null || iy == null) return {};
     if (!this.startWorldM || !this.originPx || typeof playerReachCell !== 'function') return {};
-    const p = playerReachCell(this);
-    if (ix === p.cellIX && iy === p.cellIY && this.playerScreen) {
+    if (this._isPlayerCell(ix, iy) && this.playerScreen) {
       const ps = this.playerScreen();
       if (!ps || !isFinite(ps.x) || !isFinite(ps.y)) return {};
       return { x: Math.round(ps.x), y: Math.round(ps.y) - ENERGY_POP_HEAD_PX };
