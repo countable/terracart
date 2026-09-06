@@ -205,16 +205,38 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
     'the map is drawn last, from the camera anchor drawObjects measures with');
 });
 
-test('lighting: the map multiplies, the cookies add, and it sits over the sprites', () => {
+test('lighting: the map multiplies, the cookies add, and the plateau is per cell', () => {
   const a = APP_JS_SRC;
-  assert.truthy(/this\.lightMap = this\.add\.renderTexture\(this\.viewLeft, this\.viewTop, this\.viewSize, this\.viewSize\)\s*\n\s*\.setOrigin\(0, 0\)\.setBlendMode\(Phaser\.BlendModes\.MULTIPLY\)/.test(a),
-    'the lightmap is a viewport-sized RenderTexture multiplied over the world');
-  assert.falsy(/atmosFalloffGfx/.test(a), 'the ring layer is gone');
+  assert.truthy(/this\.lightTex = this\.textures\.exists\('lightmap'\)/.test(a), 'the lightmap is a canvas texture');
+  assert.truthy(/this\.lightMap = this\.add\.image\(this\.viewLeft, this\.viewTop, 'lightmap'\)\s*\n\s*\.setOrigin\(0, 0\)\.setBlendMode\(Phaser\.BlendModes\.MULTIPLY\)/.test(a),
+    'shown as a viewport-sized image multiplied over the world');
+  assert.falsy(/atmosFalloffGfx|renderTexture\(/.test(a), 'the ring layer and the render texture are gone');
   const L = LIGHTING_SRC;
-  assert.eq((L.match(/setBlendMode\(Phaser\.BlendModes\.ADD\)/g) || []).length, 2,
-    'both cookie images (kind + player) are ADD-blended into the map');
-  assert.truthy(/rt\.fill\(prof\.ambient, 1\)/.test(L), 'the floor is the derived ambient');
-  assert.truthy(/scene\.playerScreen\(\)/.test(L), 'the player\'s light is at the feet-on-the-fix point');
+  assert.truthy(/globalCompositeOperation = 'lighter'/.test(L), 'the cookies ADD');
+  assert.falsy(/\brt\.|batchDraw\(|BlendModes\.ADD/.test(L), 'nothing goes through the render-texture batch');
+  assert.truthy(/ctx\.fillStyle = hex\(prof\.ambient\)/.test(L), 'the floor is the derived ambient');
+  assert.truthy(/scene\.playerScreen\(\)/.test(L), 'the ramp is centred on the feet-on-the-fix point');
+  assert.truthy(/tex\.refresh\(\)/.test(L), 'and the texture is refreshed each frame');
+  // The plateau uses cellInReach's own expressions, hoisted the way drawCells does.
+  assert.truthy(/const dx = \(absIX - rp\.cellIX\) \* scene\.cellM;/.test(L) && /if \(dx \* dx \+ dy \* dy > reachM2\) continue;/.test(L),
+    'the plateau cells are picked by the reach test, not a circle');
+});
+
+test('lighting: the plateau cells land on the lit level, pink when tired', () => {
+  const ch = (c, sh) => (c >> sh) & 255;
+  for (const sv of [{ energy: 100, maxEnergy: 100 }, { energy: 20, maxEnergy: 100 }]) {
+    for (const depth of [0, 2]) {
+      const prof = Lighting.profile(scene({ depth, save: sv }));
+      const cell = Lighting.plateauCellColour(prof);
+      for (const sh of [16, 8, 0]) {
+        const got = prof.edge + (prof.lit - prof.edge) * (ch(cell, sh) / 255);
+        const want = prof.lit * (ch(prof.litColour, sh) / 255);
+        near(got, Math.min(want, prof.edge + (prof.lit - prof.edge)), 0.004, `channel ${sh} energy ${sv.energy} depth ${depth}`);
+      }
+    }
+  }
+  const tired = Lighting.plateauCellColour(Lighting.profile(scene({ save: { energy: 20, maxEnergy: 100 } })));
+  assert.lt(ch(tired, 8), ch(tired, 16), 'the cell fill carries the pink');
 });
 
 })();
