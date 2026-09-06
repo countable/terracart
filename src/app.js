@@ -9227,11 +9227,11 @@ class MapScene extends Phaser.Scene {
   // the plot a till just paid for, the wall a dig just cost — defaulting to the
   // player's own cell when the change is to the body (a rest tick, a slime's
   // leech, an offline refill). The number hangs just clear of that cell's top
-  // edge (or of the player's head, on their own cell — see ENERGY_POP_HEAD_PX)
-  // and a thin outline in the same ink ticks on the cell under it, so the eye
-  // is told WHICH cell earned or paid it, not just that something did — on
-  // every cell but the player's own, where the number is already on the body
-  // and a ring would just circle the character (see _popCellNumber).
+  // edge (or of the player's head, on their own cell — see ENERGY_POP_HEAD_PX),
+  // which is what tells the eye WHICH cell earned or paid it. The number is
+  // the whole mark: until Sep 2026 a thin outline in the same ink also ticked
+  // on the cell under it, which read as a flicker of red or green damage on
+  // whatever you had just tapped. Don't add a ring back.
   //
   // Seated through the projection (_energyPopAt → worldMetersToScreen /
   // playerScreen), never off viewCenterX/Y: until Sep 2026 the rest splash was
@@ -9260,18 +9260,12 @@ class MapScene extends Phaser.Scene {
   // Any short number ON a cell — the energy pops above, and the "+$1" on the
   // cell a coin was just picked from (interact.js 'coindrop'). Seats the text
   // by _energyPopAt (clear of the cell's top edge, or of the player's head on
-  // their own cell), ticks the cell's outline in the same ink, and wears the
-  // `cell` tier. Falls back to the toast's centred default when (ix, iy)
-  // can't be projected.
+  // their own cell) and wears the `cell` tier — the seating is what points at
+  // the cell, so nothing is drawn ON the ground. Falls back to the toast's
+  // centred default when (ix, iy) can't be projected.
   _popCellNumber(text, color, ix, iy) {
     if (!this.add) return null;
     const at = this._energyPopAt(ix, iy);
-    // The tick answers WHICH cell — a question the player's OWN cell never
-    // raises: the number is already hanging over their head, on their body.
-    // Drawing it there ringed the character in red or green on every rest
-    // tick, leech and self-cell spend, which reads as a status effect on the
-    // player rather than a pointer at the ground. The body pop ticks nothing.
-    if (at.x != null && !this._isPlayerCell(ix, iy)) this._flashCellOutline(ix, iy, color);
     return this._toast(text, { tier: 'cell', color, ...at });
   }
 
@@ -9282,11 +9276,10 @@ class MapScene extends Phaser.Scene {
     this._popEnergy(amount);
   }
 
-  // Is (ix, iy) the cell the player is standing on? The ONE test both halves
-  // of a body pop read — where the number hangs (_energyPopAt anchors it on
-  // the body there) and whether a cell is ticked (_popCellNumber skips its
-  // outline there) — so the two can't drift into ringing a player the number
-  // isn't over, or leaving a cell unmarked that the number points at.
+  // Is (ix, iy) the cell the player is standing on? The test _energyPopAt
+  // reads to anchor a body pop on the character (their head) rather than on
+  // the ground, so a rest tick, a leech or a spend underfoot hangs where the
+  // player already is.
   _isPlayerCell(ix, iy) {
     if (ix == null || iy == null) return false;
     if (!this.startWorldM || !this.originPx || typeof playerReachCell !== 'function') return false;
@@ -9323,31 +9316,6 @@ class MapScene extends Phaser.Scene {
     return { ix: c.cellIX, iy: c.cellIY };
   }
 
-  // A one-pixel rounded outline on abs cell (ix, iy) in `color`, held and
-  // faded on the CELL tier's own clock so it leaves with the number it
-  // underlines. Screen-fixed once drawn, like the toast: both are gone in
-  // about a second, well before a walk could carry the cell away from them.
-  _flashCellOutline(ix, iy, color) {
-    if (!this.add || !this.tweens || !this.worldMetersToScreen) return;
-    if (!this.startWorldM || !this.originPx || typeof absCellCenterMeters !== 'function') return;
-    const c = absCellCenterMeters(this, ix, iy);
-    const p = this.worldMetersToScreen(c.x, c.y);
-    if (!p || !isFinite(p.x) || !isFinite(p.y)) return;
-    const S = TOAST_TIER.cell;
-    const g = this.add.graphics().setDepth(S.depth - 1);
-    // Clip to the map viewport like every other world-anchored layer.
-    if (this.enemyHealthGfx?.mask) g.setMask(this.enemyHealthGfx.mask);
-    g.lineStyle(1, parseInt(String(color).replace('#', ''), 16), 0.9);
-    const h = CELL_PX / 2;
-    // Inset 1.5px: a 1px stroke centred on a half-pixel lands crisp, and the
-    // inset keeps it off the neighbour's edge so it reads as THIS cell.
-    g.strokeRoundedRect(Math.round(p.x - h) + 1.5, Math.round(p.y - h) + 1.5,
-                        CELL_PX - 3, CELL_PX - 3, 3);
-    this.tweens.add({
-      targets: g, alpha: 0, duration: S.fade, delay: S.hold,
-      ease: 'Sine.In', onComplete: () => g.destroy(),
-    });
-  }
 
   // Shared rest-energy accumulator. Adds `gain` energy onto the named fractional
   // accumulator field, spends whole points into save.energy (capped at maxE),
