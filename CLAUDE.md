@@ -327,7 +327,13 @@
   hangs just clear of the cell's top edge — or of the player's HEAD on their
   own cell, `ENERGY_POP_HEAD_PX`, derived from the walker's frame and feet
   drop — and ticks a thin outline on the cell in the same ink so the reader
-  is told WHICH cell. It wears the `cell` toast tier: bold, stroked and
+  is told WHICH cell. That tick is for OTHER cells only: the player's own
+  cell never raised the question (the number is already on the body), and
+  ringing it just circled the character in red or green on every rest tick,
+  leech and spend underfoot. `_isPlayerCell(ix, iy)` is the one test both
+  halves read — `_energyPopAt` anchors on the body when it's true,
+  `_popCellNumber` skips the outline when it is — so where the number hangs
+  and which cell is ticked can't drift apart. It wears the `cell` toast tier: bold, stroked and
   drop-shadowed, no chip, because it sits on any ground at all. Until Sep
   2026 the rest splash was a note at the viewport centre minus 70px and the
   drains sat 40px above the same point — nowhere in particular, and under a
@@ -343,6 +349,15 @@
   it was a hand-set `add.text` beside the table with no shadow. **A number
   drawn on the map is a `_toast` tier, never its own `add.text`**, and it
   names the cell or the foe it is about.
+  **And the body flinches.** A blow on the player (the slime leech, a
+  monster's melee, an arrow in `_shotHitsPlayer`) calls `_flashPlayerHit`
+  at the instant it lands — never from the throttled pop, which rolls a
+  second of bites into one number — and `_updatePlayerAura` flicks the
+  character red for `HIT_FLASH_MS` on TWO channels: the sprite tint and the
+  halo's red texture, because `setTint` is a no-op under Phaser's Canvas
+  fallback and a tint-only flinch is invisible there. **When you add a
+  drain on the body, call `_flashPlayerHit` where the loss is banked.**
+  **Audit it:** `test/node/hit_flash.test.js`.
   **Audit it:** `node test/node/run.js` › `test/node/energy_pop.test.js` runs
   the lifted seating on a stub scene (cell edge, head clearance, peek) and
   pins the call sites and the tiers as source text.

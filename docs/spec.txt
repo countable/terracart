@@ -1538,11 +1538,11 @@ not threading another branch through the dispatcher.
                        harvest, chest ceremony, well refill, shop/shrine UIs)
    A single runInteractable(ctx, o) driver walks gate → spend → work-wheel, or
    defers to custom. Adding a new interactable = adding a row.
- - GATHER LUCK is a declarative `luck` field on each registry entry (which relic
-   slots — ring/amulet — modify its rolls). Gather drops (wood, ore, gems, fruit)
-   can therefore become luck-aware like chest loot. It is gated behind a flag
-   (GATHER_LUCK_DEFAULT, OFF) so the RNG stream + outcomes stay byte-for-byte
-   identical to the pre-luck behaviour until deliberately enabled.
+ - LUCK (ring → rarer pulls, amulet → bigger stacks) applies to CHEST/treasure
+   loot only, read off `save` by pickReward() in rarity.js. Gather drops (wood,
+   ore, gems, fruit) are not luck-aware: the registry carried a declarative
+   `luck` field and a GATHER_LUCK_DEFAULT flag for it that shipped OFF and was
+   never turned on, and both were removed rather than left as dead weight.
  - PURE CORES extracted from app.js for headless testing (no scene, no DOM); the
    scene keeps thin wrappers that own only the side effects (persistSave, DOM
    rebuilds, flashes):

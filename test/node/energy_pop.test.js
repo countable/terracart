@@ -18,7 +18,7 @@
 
 (function () {
 const app = APP_JS_SRC;
-const { _cellToastAt, _energyPopAt, _cellAtScreen, playerScreen } = __trailCounter;
+const { _cellToastAt, _energyPopAt, _isPlayerCell, _cellAtScreen, playerScreen } = __trailCounter;
 const near = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
 
 // Same shape as trail.test.js's counterScene — round numbers, shipping cellM.
@@ -37,7 +37,7 @@ const popScene = (over) => Object.assign({
   viewCenterY: 200,
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); },
   screenToWorldMeters(sx, sy) { return screenToWorldMeters(this, sx, sy); },
-  _cellToastAt, _energyPopAt, _cellAtScreen, playerScreen,
+  _cellToastAt, _energyPopAt, _isPlayerCell, _cellAtScreen, playerScreen,
 }, over || {});
 
 const playerCell = (s) => playerReachCell(s);
@@ -203,6 +203,7 @@ test('energy pop: _popEnergy seats through the projection and ticks the cell', (
   assert.truthy(cm, '_popCellNumber exists');
   assert.truthy(/const at = this\._energyPopAt\(ix, iy\);/.test(cm[1]), 'seated by _energyPopAt');
   assert.truthy(/this\._flashCellOutline\(ix, iy, color\)/.test(cm[1]), 'outlines the cell');
+  assert.truthy(/!this\._isPlayerCell\(ix, iy\)/.test(cm[1]), 'but never the player\'s own');
   assert.truthy(/tier: 'cell'/.test(cm[1]), 'wears the cell tier');
   assert.falsy(/viewCenter[XY]/.test(cm[1]), 'never measures off the viewport centre');
   // And the seating helpers project, never off the body for a cell.
@@ -212,6 +213,28 @@ test('energy pop: _popEnergy seats through the projection and ticks the cell', (
     'a cell pop lifts from the cell centre to just past its top edge');
   assert.truthy(/_trailCounterAt\(ix, iy\) \{\s*\n\s*return this\._cellToastAt\(ix, iy, TRAIL_COUNTER_LIFT_PX\);/.test(app),
     'the trail counter shares the one cell seating');
+});
+
+test('energy pop: the tick marks another cell, never a ring round the player', () => {
+  // The outline says WHICH cell. The player's own cell doesn't need saying —
+  // the number is on the body — and until Sep 2026 a rest tick, a leech or a
+  // spend on the cell underfoot drew a red or green ring around the character.
+  const s = popScene();
+  const c = playerCell(s);
+  assert.truthy(s._isPlayerCell(c.cellIX, c.cellIY), 'the body cell is the player\'s');
+  assert.falsy(s._isPlayerCell(c.cellIX + 1, c.cellIY), 'a neighbour is not');
+  assert.falsy(s._isPlayerCell(c.cellIX, c.cellIY - 1), 'nor the cell above');
+  assert.falsy(s._isPlayerCell(null, null), 'nor a missing cell');
+  // Both halves of the body pop read that ONE test, so they can't disagree
+  // about which cell the number is over.
+  const seat = app.match(/\n  _energyPopAt\(ix, iy\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(/this\._isPlayerCell\(ix, iy\) && this\.playerScreen/.test(seat[1]),
+    'the seating asks the shared test');
+  const cm = app.match(/\n  _popCellNumber\(text, color, ix, iy\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(/if \(at\.x != null && !this\._isPlayerCell\(ix, iy\)\) this\._flashCellOutline\(ix, iy, color\);/.test(cm[1]),
+    'the outline is skipped on the player\'s own cell, by the same test');
+  assert.eq((app.match(/_flashCellOutline\(/g) || []).length, 2,
+    'and _flashCellOutline has the one caller');
 });
 
 test('energy pop: the cell tick lives and dies on the tier\'s own clock', () => {
