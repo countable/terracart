@@ -1837,11 +1837,24 @@ class MapScene extends Phaser.Scene {
     // counter over the stone is drawn in the same constant, so the two can
     // never drift.
     //
+    // AND IT GLOWS (Sep 2026 — "a dull lavender"): the copy is padded by
+    // LIT_COBBLE_GLOW_PAD of the frame on every side (render.js, which draws
+    // it LIT_COBBLE_GLOW_SCALE larger to compensate, so the stone stays its
+    // cell size and the halo spills into the margin), a soft violet halo of
+    // the stone's own silhouette is laid under it, and a white-hot core is
+    // ADDED over its middle so it reads as lit from within rather than
+    // painted. The halo is the silhouette blurred (canvas shadowBlur, a few
+    // passes stacked for body), so a road's dense cluster glows as a cluster
+    // and a footpath's pebble as a point. The lightmap carries a second glow
+    // (Lighting.KINDS.cobble) for the night, when this art is multiplied
+    // down with the ground under it.
+    //
     // One copy PER FRAME (litCobbleTexKey, render.js): the three vehicle-road
     // tiers each draw a different cluster from Road copiar.png and roads are
     // claimable trails now, so a single shared key would light a motorway
     // with a footpath's lone pebble.
     if (typeof LIT_COBBLE_FRAMES !== 'undefined' && typeof document !== 'undefined') {
+      const padFrac = (typeof LIT_COBBLE_GLOW_PAD === 'number') ? LIT_COBBLE_GLOW_PAD : 0;
       for (const f of LIT_COBBLE_FRAMES) {
         const key = litCobbleTexKey(f);
         if (this.textures.exists(key)) continue;
@@ -1849,17 +1862,41 @@ class MapScene extends Phaser.Scene {
         if (!srcFrame) continue;
         const img = srcFrame.source.image;
         const cw = srcFrame.cutWidth, ch = srcFrame.cutHeight;
+        const pad = Math.round(cw * padFrac);
         const cvs = document.createElement('canvas');
-        cvs.width = cw; cvs.height = ch;
+        cvs.width = cw + 2 * pad; cvs.height = ch + 2 * pad;
         const cctx = cvs.getContext('2d');
-        cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
+        const drawStone = () => cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, pad, pad, cw, ch);
+        // The halo: the silhouette, blurred out into the margin, in the
+        // trail violet. Three passes so it has body at the stone's edge.
+        if (pad > 0) {
+          cctx.save();
+          cctx.shadowColor = UI_TRAIL_LIT;
+          cctx.shadowBlur = pad;
+          cctx.shadowOffsetX = 0; cctx.shadowOffsetY = 0;
+          for (let i = 0; i < 3; i++) drawStone();
+          cctx.restore();
+        }
+        drawStone();
+        // Recolour everything drawn so far (stone and halo) to the violet,
+        // then re-lay the stone's own shading over the stone alone.
         cctx.globalCompositeOperation = 'source-atop';
         cctx.fillStyle = UI_TRAIL_LIT;
-        cctx.fillRect(0, 0, cw, ch);
+        cctx.fillRect(0, 0, cvs.width, cvs.height);
         cctx.globalCompositeOperation = 'multiply';
         cctx.globalAlpha = 0.45;
-        cctx.drawImage(img, srcFrame.cutX, srcFrame.cutY, cw, ch, 0, 0, cw, ch);
+        drawStone();
+        // The core: a white glow ADDED over the stone's middle, out to half
+        // its width, so the centre burns brighter than the violet it sits in.
         cctx.globalAlpha = 1;
+        cctx.globalCompositeOperation = 'lighter';
+        const cx = pad + cw / 2, cy = pad + ch / 2;
+        const core = cctx.createRadialGradient(cx, cy, 0, cx, cy, cw / 2);
+        core.addColorStop(0, 'rgba(255,255,255,0.55)');
+        core.addColorStop(0.5, 'rgba(210,200,255,0.22)');
+        core.addColorStop(1, 'rgba(154,140,255,0)');
+        cctx.fillStyle = core;
+        cctx.fillRect(0, 0, cvs.width, cvs.height);
         cctx.globalCompositeOperation = 'source-over';
         this.textures.addCanvas(key, cvs);
       }
@@ -11756,8 +11793,10 @@ class MapScene extends Phaser.Scene {
       if (!this._activatePathStone(tx, ty, s.ix, s.iy)) continue;
       lit += 1;
       // Stone chips off the cobble as it comes on — one puff per stone, on
-      // the stone (projected), beside render.js's scale-pop of the art.
+      // the stone (projected), beside render.js's scale-pop of the art — and
+      // a ring of violet sparks with it: the blast (particles.js trailspark).
       this._burstAtCell('stone', s.ix, s.iy);
+      this._burstAtCell('trailspark', s.ix, s.iy);
       const dx = s.ix - p.cellIX, dy = s.iy - p.cellIY;
       const d2 = dx * dx + dy * dy;
       if (d2 < bestD2) { bestD2 = d2; at = { ix: s.ix, iy: s.iy }; }

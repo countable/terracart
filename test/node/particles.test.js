@@ -12,7 +12,7 @@
 (function () {
 const app = APP_JS_SRC;
 
-const KINDS = ['jackpot', 'shiny', 'stone', 'sprout', 'water'];
+const KINDS = ['jackpot', 'shiny', 'stone', 'trailspark', 'sprout', 'water'];
 
 test('particles: every preset is complete and its ranges are ordered', () => {
   for (const k of KINDS) {
@@ -36,6 +36,7 @@ test('particles: the presets are drawn in the UI colour language', () => {
   assert.eq(P.jackpot.tex.color, UI_GOLD, 'jackpot stars are the game gold');
   assert.eq(P.shiny.tex.color, UI_GOLD_PALE, 'shiny stars are the pale gold of its headline');
   assert.eq(P.stone.tex.color, UI_TRAIL_LIT, 'stone chips are the lit-cobble violet');
+  assert.eq(P.trailspark.tex.color, UI_TRAIL_LIT, 'and so are the sparks of the blast');
   assert.eq(P.sprout.tex.color, UI_GREEN, 'leaf flecks are the success green');
 });
 
@@ -59,6 +60,26 @@ test('particles: the world bursts stay on their cell — stone kicks up, leaves 
   // The water cone is the tightest — a sprinkle onto the cell, not a spray.
   assert.lte(P.water.angle[1] - P.water.angle[0], P.stone.angle[1] - P.stone.angle[0],
     'drops fall in a narrower cone than the chips fly');
+});
+
+test('particles: lighting a cobble is a BLAST — a full ring of sparks beside the chips', () => {
+  // The chips alone were a small dull puff on a stone that had only changed
+  // colour ("a dull lavender", Sep 2026). The spark ring is the flash: thrown
+  // every way, weightless, burning out to nothing — and it reaches further
+  // than the chips, which stay on their cell, but still only a cell or so.
+  const P = Particles.PRESETS, s = P.trailspark;
+  assert.eq(s.tex.shape, 'star', 'sparks, not chips');
+  assert.eq(s.tex.core, '#ffffff', 'with a white-hot core');
+  assert.eq(s.angle[0], 0); assert.eq(s.angle[1], 360, 'a full ring');
+  assert.eq(s.gravityY, 0, 'weightless');
+  assert.eq(s.scale[1], 0, 'burns out to nothing');
+  assert.eq(s.alpha[1], 0, 'and fades out entirely');
+  const cell = (typeof CELL_PX === 'number') ? CELL_PX : 32;
+  const reach = s.speed[1] * s.lifespan[1] / 1000;
+  const chips = P.stone.speed[1] * P.stone.lifespan[1] / 1000;
+  assert.gt(reach, chips, 'the ring goes further than the chips');
+  assert.lt(reach, cell * 3, 'but stays on the stone\'s own patch');
+  assert.gte(P.stone.count + s.count, 20, 'enough of both to read as a burst');
 });
 
 test('particles: burstCount is the preset count, zero under reduced motion or for an unknown kind', () => {
@@ -149,8 +170,10 @@ test('particles: a world burst is projected through worldMetersToScreen and gate
 test('particles: every cobble that lights bursts on its own cell', () => {
   const a = app.indexOf('  _sweepCobbleTrails() {');
   const body = app.slice(a, app.indexOf('\n  }\n', a));
-  assert.truthy(/if \(!this\._activatePathStone\(tx, ty, s\.ix, s\.iy\)\) continue;\n\s+lit \+= 1;\n[\s\S]{0,300}this\._burstAtCell\('stone', s\.ix, s\.iy\);/.test(body),
+  assert.truthy(/if \(!this\._activatePathStone\(tx, ty, s\.ix, s\.iy\)\) continue;\n\s+lit \+= 1;\n[\s\S]{0,400}this\._burstAtCell\('stone', s\.ix, s\.iy\);/.test(body),
     'the stone burst follows the activation, on the stone that lit');
+  assert.truthy(/this\._burstAtCell\('stone', s\.ix, s\.iy\);\n\s+this\._burstAtCell\('trailspark', s\.ix, s\.iy\);/.test(body),
+    'and the spark ring goes off on the same stone');
 });
 
 test('particles: a crop reaching its next stage bursts on every path that grows it', () => {

@@ -432,6 +432,18 @@ const litCobbleTexKey = (f) => `cobble_lit_${f}`;
 // Every frame that can be lit: the three vehicle tiers plus the path pebble.
 // Roads are claimable trails now too, so all four need a lit copy.
 const LIT_COBBLE_FRAMES = [ROAD_FRAME[7], ROAD_FRAME[13], ROAD_FRAME[14], PATH_FRAME];
+// The lit stone GLOWS. Its baked copy (app.js create()) is padded by
+// LIT_COBBLE_GLOW_PAD of the frame's width on every side and carries a soft
+// violet halo in that margin, under the recoloured stone — so drawCells draws
+// a lit stone LIT_COBBLE_GLOW_SCALE times the size an unlit one is, which
+// keeps the STONE itself at its cell size and lets the halo spill around it.
+// One pair, both sides: the baker pads by the first, the drawer scales by the
+// second, and the second is derived from the first so a wider halo can't
+// shrink the stone (cobble_glow.test.js pins it). Until Sep 2026 a lit
+// cobble was the same grey pebble in a flat lavender — the recolour alone
+// read as "slightly different gravel", not as something that had come on.
+const LIT_COBBLE_GLOW_PAD = 0.5;
+const LIT_COBBLE_GLOW_SCALE = 1 + 2 * LIT_COBBLE_GLOW_PAD;
 // Fog of war — the wash over land the player has never visited.
 //
 // Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
@@ -1113,6 +1125,14 @@ Render.drawCells = function drawCells(scene) {
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
+  // The lit cobbles' own light (src/lighting.js): a small violet glow on the
+  // lightmap under every lit stone, and a brief bright blast on one that has
+  // just come on. Collected here, in the cell pass, because a stone is a CELL
+  // and never crosses drawObjects' scan; kept on its own list (beginCells /
+  // considerCobble) because drawObjects runs after this pass and resets the
+  // object lights at its top.
+  const LIGHTS = (typeof Lighting !== 'undefined') ? Lighting : null;
+  if (LIGHTS) LIGHTS.beginCells(scene);
   // (ROAD_FRAME / PATH_FRAME are module-level — see above.)
   // Cobble tiles (road cluster + path pebble alike) draw at 57% opacity so the
   // stones read as settled into the ground they cross rather than stamped on
@@ -1649,6 +1669,7 @@ Render.drawCells = function drawCells(scene) {
           // reads as an event. Pure transform, no extra sprite/pool, so it's
           // renderer-agnostic like the recolour it plays over.
           let flashMul = 1;
+          let flashT = null;                        // 0..1 through the pop, null at rest
           if (active && scene._pathStoneFlashes) {
             const flashAt = scene._pathStoneFlashes.get(cellKeyFromAbsCell(absCellIX, absCellIY));
             if (flashAt != null) {
@@ -1656,8 +1677,16 @@ Render.drawCells = function drawCells(scene) {
               if (ft < 1) {
                 const decay = (1 - ft) * (1 - ft);   // ease-out: snaps in, settles slowly
                 flashMul = 1 + PATH_STONE_FLASH_BOUNCE * decay;
+                flashT = ft;
               }
             }
+          }
+          // A lit stone is a light: its glow on the lightmap, and the blast
+          // while it pops. Metres from the camera anchor, like every light —
+          // the cell's centre is (ox + 0.5 - fracX) cells from it.
+          if (active && LIGHTS) {
+            LIGHTS.considerCobble(scene, (ox + 0.5 - fracX) * scene.cellM,
+                                  (oy + 0.5 - fracY) * scene.cellM, tilledKey, flashT);
           }
           // Swap texture key — 'pier' for plank, the lit copy of this frame
           // for a claimed stone, 'cobble' for everything else. Pool sprites
@@ -1674,7 +1703,9 @@ Render.drawCells = function drawCells(scene) {
           // Alpha is set on every draw, not just for the translucent kinds:
           // pool slots are reused across cell types, so a slot that carried a
           // cobble last frame would keep COBBLE_ALPHA on a pier plank the next.
-          const dsize = size * flashMul;
+          // The lit copy carries its halo in a padded margin, so it is drawn
+          // LIT_COBBLE_GLOW_SCALE larger to keep the stone at its cell size.
+          const dsize = size * flashMul * (useActiveTex ? LIT_COBBLE_GLOW_SCALE : 1);
           cs.setDisplaySize(dsize, dsize)
             .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
             .setTint(0xffffff)
