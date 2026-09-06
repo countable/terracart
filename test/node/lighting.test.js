@@ -110,6 +110,32 @@ test('lighting: what lights is what is yours', () => {
   assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', poiClass: 'shop' }), 'poi', 'a POI is a place, and glows');
   assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', crate: true }), null,
     'a loose supply crate is a pickup, not a place — no pad, no light');
+  assert.eq(Lighting.sourceKind(s, { kind: 'torch', id: 'torch_bus_1_d1' }), 'torch', 'a cave torch burns');
+  assert.eq(Lighting.sourceKind(s, { crop: 'mushroom', id: 'cwp_1_0_0_3_3', _cave: true }), 'mushroom',
+    'a cave mushroom glows — offered as the wildplant itself, no kind');
+  assert.eq(Lighting.sourceKind(s, { crop: 'mushroom', id: 'wp_0_0_3_3' }), 'mushroom',
+    'and so does a surface one: the crop is the light, not the depth');
+  assert.eq(Lighting.sourceKind(s, { crop: 'longgrass', id: 'wp_0_0_4_4' }), null, 'grass is not a lamp');
+  assert.eq(Lighting.sourceKind(s, { kind: 'mineralrock', crop: 'mushroom', id: 'r' }), null,
+    'a kind that is not a light stays dark whatever else is on it');
+});
+
+test('lighting: a torch and a mushroom glow to different degrees', () => {
+  // The user's brief: torches AND mushrooms, each lit, "to different degrees".
+  // A torch is a flame — warm, a campfire's little sibling, breathing; a
+  // mushroom is a faint cool spot that marks a forage in the dark. The two
+  // must stay far apart on BOTH axes or a lit cave reads as one lamp twice.
+  const torch = Lighting.KINDS.torch, mush = Lighting.KINDS.mushroom;
+  assert.gt(Lighting.radiusCells('torch'), Lighting.radiusCells('mushroom') * 1.5, 'a torch reaches well past a mushroom');
+  assert.gt(torch.peak, mush.peak * 1.5, 'and burns far brighter at the centre');
+  assert.lt(Lighting.radiusCells('torch'), Lighting.radiusCells('fire'), 'but a torch is smaller than a campfire');
+  assert.lt(Lighting.radiusCells('mushroom'), Lighting.radiusCells('poi'), 'a mushroom is smaller than a POI\'s marker light');
+  assert.gt(torch.flicker, 0, 'a flame flickers');
+  assert.eq(mush.flicker, 0, 'a mushroom does not — it breathes slowly, like a POI');
+  assert.gt(mush.pulse, 0, 'a mushroom breathes');
+  // Warm vs cool: the torch leads on red, the mushroom on blue.
+  assert.gt(ch(torch.colour, 16), ch(torch.colour, 0), 'torch: red over blue');
+  assert.gt(ch(mush.colour, 0), ch(mush.colour, 16), 'mushroom: blue over red');
 });
 
 test('lighting: a POI breathes slowly, on its own phase', () => {
@@ -260,9 +286,15 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   const start = r.indexOf('Render.drawObjects = function drawObjects(scene)');
   const body = r.slice(start, r.indexOf('\n};', start));
   assert.truthy(/LIGHTS\.beginFrame\(scene\)/.test(body), 'the frame list is reset before the scan');
-  const offer = body.indexOf("if (LIGHTS && (o.kind === 'house' || o.kind === 'tower')) LIGHTS.consider(scene, o, dx, dy, halfM);");
+  const offer = body.indexOf("if (LIGHTS && (o.kind === 'house' || o.kind === 'tower' || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);");
   const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;');
-  assert.truthy(offer > 0 && cull > offer, 'buildings are offered BEFORE the sprite cull drops them');
+  assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
+  // The mushroom is a wildplant, scanned in its own loop: offered as itself,
+  // before that loop's cull, so its little glow can still show from a cell
+  // off-screen.
+  const wpOffer = body.indexOf("if (LIGHTS && wp.crop === 'mushroom') LIGHTS.consider(scene, wp, dx, dy, halfM);");
+  const wpCull = body.indexOf('if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;', wpOffer);
+  assert.truthy(wpOffer > 0 && wpCull > wpOffer, 'mushrooms are offered BEFORE the wildplant cull');
   assert.truthy(/LIGHTS\.draw\(scene, pWorldX, pWorldY, halfM\);\s*$/.test(body),
     'the map is drawn last, from the camera anchor drawObjects measures with');
 });
@@ -299,6 +331,50 @@ test('lighting: the plateau cells land on the lit level, pink when tired', () =>
   }
   const tired = Lighting.plateauCellColour(Lighting.profile(scene({ save: { energy: 20, maxEnergy: 100 } })));
   assert.lt(ch(tired, 8), ch(tired, 16), 'the cell fill carries the pink');
+});
+
+test('lighting: the plateau eases down toward the reach rim, and the step at the rim still wins', () => {
+  assert.inRange(Lighting.PLATEAU_FALL, 0.08, 0.30, 'a little — shading, not a second falloff');
+  for (const [depth, day] of [[0, 1], [0, 0.5], [0, 0], [1, 1], [3, 1]]) {
+    for (const sv of [{ energy: 100, maxEnergy: 100 }, { energy: 20, maxEnergy: 100 }]) {
+      const p = Lighting.profile(scene({ depth, save: sv }), day);
+      const tag = `depth ${depth} daylight ${day} energy ${sv.energy}`;
+      near(Lighting.plateauLevel(p, 0), p.lit, 1e-12, `full at the feet (${tag})`);
+      near(Lighting.plateauLevel(p, 1), p.lit * (1 - Lighting.PLATEAU_FALL), 1e-12, `PLATEAU_FALL down at the rim (${tag})`);
+      assert.eq(Lighting.plateauLevel(p, 1.7), Lighting.plateauLevel(p, 1), `flat past the rim (${tag})`);
+      assert.gt(Lighting.plateauLevel(p, 0.5), (Lighting.plateauLevel(p, 0) + Lighting.plateauLevel(p, 1)) / 2,
+        `quadratic: the middle stays near full, the easing gathers at the edge (${tag})`);
+      let prev = Infinity;
+      for (let t = 0; t <= 1; t += 0.05) {
+        const L = Lighting.plateauLevel(p, t);
+        assert.lte(L, prev, `never brightens with distance (${tag})`);
+        prev = L;
+      }
+      // The affordance: the darkest of the plateau (its rim) is still further
+      // above the ramp's edge level than the rim is below the feet.
+      const rim = Lighting.plateauLevel(p, 1);
+      assert.gt(rim - p.edge, p.lit - rim, `the step off the plateau outweighs the fall across it (${tag})`);
+      // And each stop's fill lands on its own level × litColour, per channel.
+      for (const t of [0, 0.5, 1]) {
+        const level = Lighting.plateauLevel(p, t);
+        const cell = Lighting.plateauCellColour(p, level);
+        for (const sh of [16, 8, 0]) {
+          const got = p.edge + (level - p.edge) * (ch(cell, sh) / 255);
+          const want = level * (ch(p.litColour, sh) / 255);
+          near(got, Math.min(want, level), 0.004, `stop ${t} channel ${sh} (${tag})`);
+        }
+      }
+    }
+  }
+  // draw() fills the reach-cell path with the gradient about the feet, out
+  // to the furthest corner a reach cell can put on the plateau.
+  const L = LIGHTING_SRC;
+  assert.truthy(/ctx\.fillStyle = plateauFill\(ctx, prof, ps\.x - ox, ps\.y - oy, r0\);/.test(L),
+    'the plateau fill is the gradient, centred on the feet-on-the-fix point');
+  assert.truthy(/const rim = r0 \+ CELL_PX \* Math\.SQRT1_2;/.test(L), 'the rim is the reach radius plus half a cell diagonal');
+  assert.truthy(/g\.addColorStop\(t, rgba\(plateauCellColour\(prof, level\), level - prof\.edge\)\);/.test(L),
+    'each stop is the cell colour at its level, over the ramp\'s edge');
+  assert.falsy(/rgba\(plateauCellColour\(prof\), prof\.lit - prof\.edge\)/.test(L), 'the flat plateau fill is gone');
 });
 
 })();

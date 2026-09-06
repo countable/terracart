@@ -70,7 +70,14 @@ const CROP_SPRITE = {
   // the toadstool reads as a prop tucked in its tile rather than one filling
   // it edge to edge. Origin stays (0.5, 0.5) in the planted pass, so it
   // shrinks about the cell centre and stays centred.
-  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.36 },
+  // `caveFrames`: the look of a mushroom spawned UNDERGROUND (worldgen.js
+  // spawnCaveMushrooms stamps `_cave` on the wildplant) — the two blue
+  // luminous caps on Props.png row 5, cols 17..18 (5*22+17, 5*22+18), picked
+  // per cell off the same stable hash the variant sheets use. Same crop,
+  // same Mushroom item when picked; only the art (and its glow, see
+  // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
+  // stays `frame`.
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.36, caveFrames: [127, 128] },
   // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
   // sets ._variant from a stable hash of its cell coords so the same cell
   // always renders the same shell, and the beach reads as a varied mix.

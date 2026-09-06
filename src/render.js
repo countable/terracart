@@ -818,7 +818,7 @@ const _washCells = [];
 // headless fallback: render.js loads in the node suite, textures.js can't.
 const _USH = (typeof UNCLAIMED_SHADE !== 'undefined') ? UNCLAIMED_SHADE : null;
 const UNCLAIMED_WASH = _USH ? _USH.wash : 0x1e3b24;
-const UNCLAIMED_WASH_A = _USH ? _USH.washA : 0.5;
+const UNCLAIMED_WASH_A = _USH ? _USH.washA : 0.35;
 const UNCLAIMED_MURK = _USH ? _USH.murk : 0x05070c;
 const UNCLAIMED_MURK_A = _USH ? _USH.murkA : 0.12;
 // White lerped UNCLAIMED_WASH_A of the way to the wash — the multiply tint that
@@ -2419,7 +2419,7 @@ Render.drawObjects = function drawObjects(scene) {
           // its light reaches further than its art: offered to the lightmap
           // before the sprite cull, with its own radius as the margin, so a
           // lantern a cell off-screen still lights the edge it stands past.
-          if (LIGHTS && (o.kind === 'house' || o.kind === 'tower')) LIGHTS.consider(scene, o, dx, dy, halfM);
+          if (LIGHTS && (o.kind === 'house' || o.kind === 'tower' || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);
           if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
           if (o.kind === 'chest' && isDupChest(o)) continue;
           // A live POI is a light too — offered AFTER the dedup (a per-frame
@@ -2453,8 +2453,13 @@ Render.drawObjects = function drawObjects(scene) {
           _boot_scanned++;
           if (pickedSet.has(wp.id)) continue;
           const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
+          // A mushroom is a (faint) light as well as a sprite — offered before
+          // the cull like a building, with its own radius as the margin. The
+          // wildplant goes as itself: Lighting.sourceKind reads its crop.
+          if (LIGHTS && wp.crop === 'mushroom') LIGHTS.consider(scene, wp, dx, dy, halfM);
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
-          plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id }, dx, dy });
+          plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id,
+                                  _cave: wp._cave, _ix: wp._ix, _iy: wp._iy }, dx, dy });
           _boot_kept++;
         }
       }
@@ -2828,6 +2833,13 @@ Render.drawObjects = function drawObjects(scene) {
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0 },
+    // Cave torch — 16×32 like the campfire, same scale, same flicker cadence
+    // (the 4 frames differ only in the flame, so seat off frame 0 and the
+    // stake never bobs). Its light is Lighting.KINDS.torch — offered to the
+    // lightmap in the object scan above the sprite cull.
+    torch: { key: 'torch',
+             frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
+             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
@@ -3121,6 +3133,7 @@ Render.drawObjects = function drawObjects(scene) {
   // a floating slab).
   const SEATED_SHADOW_KINDS = new Set([
     'tree', 'fruittree', 'chest', 'mineralrock', 'well', 'pole', '_scarecrow', '_fire',
+    'torch',
   ]);
   // Ground geometry for a seated sprite: where its art actually meets the
   // cell, and how wide that contact is. Returns null — i.e. no shadow — when
@@ -3971,7 +3984,12 @@ Render.drawObjects = function drawObjects(scene) {
       // overrides the default 0 — needed for sheets whose first cell
       // is empty (mushroom_world's frame 0 is fully transparent).
       setTextureIfDifferent(s, ov.sheet);
-      if (ov.variants && ov.variants > 1) {
+      if (p._cave && ov.caveFrames) {
+        // Grown underground: the crop's cave look (the luminous mushroom
+        // caps), one of the variants off the same stable cell hash.
+        const h = ((p._ix ?? 0) * 73856093) ^ ((p._iy ?? 0) * 19349663);
+        s.setFrame(ov.caveFrames[Math.abs(h) % ov.caveFrames.length]);
+      } else if (ov.variants && ov.variants > 1) {
         // Hash off the wildplant's stable _ix/_iy (or wildId for picked
         // entries) so the variant survives reloads.
         const h = ((p._ix ?? 0) * 73856093) ^ ((p._iy ?? 0) * 19349663)
