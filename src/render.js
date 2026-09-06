@@ -2725,7 +2725,9 @@ Render.drawObjects = function drawObjects(scene) {
   const _chestLook = (o) => o._chestLook
     || (o._chestLook = { stand: produceStandFor(o), coin: _isCoinBurst(o), box: _chestIsBox(o) });
   // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
-  const CRATE_SCALE = 1.0;
+  // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
+  // 32px cell.
+  const CRATE_SCALE = 0.8;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
   // to the generic 'house' texture (the tinted shared sprite). Order
   // matters: starter wins over tier wins over shopType — so a tier-11
@@ -3026,17 +3028,19 @@ Render.drawObjects = function drawObjects(scene) {
               // body rises north over the POI cell.
               origin: (o) => { const L = _chestLook(o);
                                return L.stand ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
-              // Every chest kind and the market stall are drawn 10% smaller
+              // Every chest kind and the market stall were drawn 10% smaller
               // than they used to be (per playtest — they crowded their cell),
               // about the SAME centre: the seated kinds (trunk chest, crates)
               // are re-centred automatically by the seat pass, and the stall's
               // dxPx/dyPx below are re-derived for the new scale so its art
-              // centre doesn't move. Crates (box, 16×16) sit at CRATE_SCALE —
-              // 16 × 1.0 = 16px inside the 32px cell, so a crate reads as a
-              // small prop rather than filling its cell; trunk is 32×32 so
-              // 0.9 is 90% of a cell.
+              // centre doesn't move. The actual CHESTS (trunk + crate) then
+              // came down a further 20% (Sep 2026): crates (box, 16×16) sit at
+              // CRATE_SCALE — 16 × 0.8 = ~13px inside the 32px cell, so a crate
+              // reads as a small prop rather than filling its cell; trunk is
+              // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
+              // are structures, not chests, and kept their scale.
               scale: (o) => { const L = _chestLook(o);
-                              return L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.9)); },
+                              return L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.72)); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -3126,7 +3130,7 @@ Render.drawObjects = function drawObjects(scene) {
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
-              // scale 1.6. Two safe pickranges:
+              // rock scale. Two safe pickranges:
               //   PLAIN → row 15, cols 3..6 (the four "nice vanilla" rocks
               //           the user identified; 4 vars). Used by cave rock AND
               //           T1 ore — T1 shows no visible ore, it's just plain
@@ -3159,8 +3163,9 @@ Render.drawObjects = function drawObjects(scene) {
               // read as off-centre by almost a whole cell.
               // Seat per the "one cell" rule — centres the small rock art in
               // its cell (the art sits low in the 16px frame). origin/dyPx
-              // below are the no-SpriteLayout fallback.
-              origin: [0.5, 0.5], scale: 1.6, seat: true,
+              // below are the no-SpriteLayout fallback. scale 1.28 (down 20%
+              // from 1.6, Sep 2026 playtest) draws the 16px frame at ~20px.
+              origin: [0.5, 0.5], scale: 1.28, seat: true,
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
