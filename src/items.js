@@ -630,8 +630,9 @@ const PLAY_TIPS = [
   // ── Relic effects ─────────────────────────────────────────
   'A Sword raises your sell price — a Frost sword doubles what the trailer pays for a haul.',
   'A Sword also fights for you: the nearest slime or monster in reach is engaged without a tap.',
-  'A Bow or Staff shoots on its own — one shot a second, wherever you are facing, while a foe is on screen.',
+  'A Bow or Staff shoots on its own — one shot a second, while a foe is on screen.',
   'Arrows fly where the compass points, not at what you tap. Turn to aim.',
+  'A Staff bolt seeks the nearest foe on its own — no aiming, but each bolt costs a little energy.',
   'The ring over a foe is its health, not a timer — green, then amber, then red.',
   'A Bow drops the markup traders charge you; at Frost tier you buy at par.',
   'A Ring nudges chest loot up a tier. It is never sold or forged — the wizard is the only source.',
@@ -791,8 +792,9 @@ const RELIC_DEFS = {
              effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
-  // are ranged — they fire on their own, once a second along the compass, while
-  // an enemy is on screen. All three still speed the crow/deer hunt wheel by
+  // are ranged — they fire on their own, once a second, while an enemy is on
+  // screen: the bow along the compass, the staff at the nearest foe in range.
+  // All three still speed the crow/deer hunt wheel by
   // tier. On top of the fighting, the Sword raises sell values and the Bow
   // lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
@@ -800,7 +802,7 @@ const RELIC_DEFS = {
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots foes on screen · better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'hunt',          blurb: 'ranged: auto-shoots foes on screen' },
+             effectKey: 'hunt',          blurb: 'ranged: auto-shoots the nearest foe on screen' },
   // Watering can — when equipped, every watering tap on a crop "improves" it.
   // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
   // next 50 watering uses get an extra +2 tiers of bonus stacked on top.
