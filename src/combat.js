@@ -259,18 +259,14 @@
   // Damage weight per slot: a staff bolt lands double an arrow's share.
   const SHOT_DMG_MUL = { bow: 1, staff: 2 };
   // How close a shot has to pass to a foe's feet to count as a hit, in cells.
-  // Deliberately generous for the BOW: the heading comes off a phone COMPASS,
-  // which is coarse and jittery, so a strict hit box would make the whole
-  // mechanic read as broken. Just under a cell puts a foe eight cells out
-  // inside a ~7° cone.
-  const HIT_RADIUS_CELLS = 0.9;
-  // The staff has none of the bow's excuse — aimAtNearest lines the bolt up
-  // on the foe's exact position, so it never needs the compass's forgiveness.
-  // Sharing HIT_RADIUS_CELLS with the bow made a Wood bolt sweep almost a
-  // full cell around itself: visibly it looked like the bolt sailed past a
-  // foe and still scored a hit. This is the staff's OWN base radius —
-  // boltScale still grows it with tier exactly as before.
-  const STAFF_HIT_RADIUS_CELLS = 0.35;
+  // Both weapons now sweep the SAME tight radius: a shot has to actually
+  // reach a foe, not just pass somewhere in its neighbourhood. The bow used
+  // to carry a much wider radius (0.9 cells) to forgive a phone COMPASS
+  // heading being coarse and jittery, but that forgiveness is exactly what
+  // made a shot look like it "hit" a foe it visibly missed — so the bow now
+  // takes the same collision precision the staff does, at the cost of the
+  // compass needing to actually be lined up.
+  const HIT_RADIUS_CELLS = 0.35;
 
   // ── Bolt size by tier ────────────────────────────────────────────────────
   // A slot flagged `growsWithTier` (the staff) fires a bigger shot the better
@@ -280,9 +276,8 @@
   // what app.js paints) come off the SAME `boltScale`, stamped onto the shot
   // by spawnShot — the roadOverlayWidthM discipline: a bolt drawn twice as
   // fat had better sweep twice as wide, and a single number keeps them from
-  // drifting apart. The bow's arrow is not flagged: its forgiveness is for
-  // the compass, not a property of the arrow, and stays HIT_RADIUS_CELLS at
-  // every tier.
+  // drifting apart. The bow's arrow is not flagged: it stays at
+  // HIT_RADIUS_CELLS at every tier.
   const MAX_TIER = 7;
   const BOLT_MAX_TIER_MUL = 2;
   function boltScale(slot, tier) {
@@ -293,8 +288,7 @@
   }
   // The hit radius of a `slot` shot at `tier`, in world metres.
   function shotRadiusM(slot, tier, cellM) {
-    const baseCells = slot === 'staff' ? STAFF_HIT_RADIUS_CELLS : HIT_RADIUS_CELLS;
-    return baseCells * cellM * boltScale(slot, tier);
+    return HIT_RADIUS_CELLS * cellM * boltScale(slot, tier);
   }
   // The drawn radius of a bolt at `tier`, in screen px (0 for a streak slot).
   function shotDotPx(slot, tier) {
@@ -607,7 +601,7 @@
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
-    RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, STAFF_HIT_RADIUS_CELLS,
+    RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
