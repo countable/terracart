@@ -714,10 +714,13 @@ const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
 // Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the amulet
 // tier used for stick-walking to a fixed high number), coffee is a common
-// crop, not a rare potion — so it just gives a caffeine-buzz +1 tier for 3
-// minutes, stacking additively on top of whatever tier is already in play
-// (worn amulet, Dragon, or the Speed potion), capped at the same ceiling
-// those top out at so a coffee can't out-tier the rarest buff.
+// crop, not a rare potion — so it just gives a caffeine buzz of
+// COFFEE_AMULET_BOOST tiers for 3 minutes, stacking additively on top of
+// whatever tier is already in play (worn amulet, Dragon, or the Speed
+// potion), capped at the same ceiling those top out at so a coffee can't
+// out-tier the rarest buff. The number is TWO — the comment said "+1 tier"
+// for a while after the constant went to 2, and so did the item-effect line
+// the player reads (items.js ITEM_EFFECTS); both quote the constant now.
 const COFFEE_AMULET_BOOST = 2;
 const COFFEE_BUFF_MS = 3 * MINUTE_MS;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no

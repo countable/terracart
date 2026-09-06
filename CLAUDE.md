@@ -443,6 +443,39 @@
   `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
   the labels).
 
+- **The Book is the documentation, and a tip is a claim about live code.**
+  A mechanic the player cannot discover by looking at it — a derived number
+  (`dps = 15000 / toolDurationMs`), a gate (a pick one tier under the ore), a
+  side-effect (a cast refills the watering can) — is only ever explained by a
+  Book read, so **`PLAY_TIPS` in `src/items.js` is where it gets explained**.
+  Two failure modes, and both have shipped. The first is a mechanic with no
+  tip at all: the first-taste energy cap, the slow grind, the coin a kill
+  pays, the reach the dark takes back, giants — all of them invisible until a
+  player tripped over them. The second is worse, a tip that is still *there*
+  after the mechanic moved: "stand inside any building to rest" outlived the
+  building rest by a release, "one shot a second" outlived a doubled cadence,
+  "the ring over a foe is its health" outlived the health BAR, "wishlists
+  reroll every day" describes a pin that never rerolls, and the castle-quest
+  tip still named the hand-written chain the three-slot board replaced. A
+  Book that lies is worse than one that says nothing, because the player
+  believes it.
+  So the numbers in a tip are **re-derived from the module that owns them**,
+  never retyped: the rest rate off `HOME_FULL_REST_S`, the cadence off
+  `Combat.FIRE_INTERVAL_MS`, the growth hold off `Crops.STAGE_HOLD_MS`, the
+  ladder off `Delivery.TIER_UNLOCK_EVERY`, the rings off
+  `CHEST_TIER_HOME_RINGS_M`. **When you change a mechanic, grep `PLAY_TIPS`
+  for it before you commit; when you add one, add its tip.**
+  And a tip nobody draws is a tip nobody has: the Book carries a `dropWeight`
+  so it is the commonest consumable, and the places of learning —
+  `POI_CATEGORY` `'school'` (school / college / library / bookshop) — pin it
+  through `rarity.js`'s per-context `favourite`, so about a third of their
+  chests hand one over against under 3% anywhere else. That category is civic
+  in every other respect (tier, pad, cave mirror) on purpose: the split moved
+  the loot, not the price.
+  **Audit it:** `node test/node/run.js` › `test/node/books.test.js` re-derives
+  every quoted number from its module, blacklists each stale sentence by name,
+  and measures the school chest's book rate against every other chest.
+
 ## Testing
 
 - The test harness (`test/run_tests.py`) needs a browser, which isn't always

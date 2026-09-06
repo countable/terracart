@@ -95,6 +95,12 @@
   //   maxTier   — hard ceiling on rolled item tier (clamps jackpot)
   //   relicCap  — hard ceiling on relic tier when class === 'relic'
   //               (0 = relics never offered, even if classBias allowed them)
+  //   favourite — { id, p }: one item this context PREFERS inside its own
+  //               class. When that class is rolled, `id` wins with probability
+  //               `p` instead of an even draw from the class/tier pool. Use it
+  //               when a PLACE should be known for a thing (the school's Book);
+  //               use items.js `dropWeight` when a thing should simply be
+  //               commoner everywhere.
   //
   // Class weights inside each row do NOT need to sum to exactly 1.0 — we
   // re-normalise in weightedPick. Easier to author this way.
@@ -121,6 +127,22 @@
     'chest:commerce':   { classBias: { seed:0.35, produce:0.35, mineral:0.10, consumable:0.12, animal:0.01,  relic:0.0525 } },
     'chest:food':       { classBias: { produce:0.58, seed:0.22, mineral:0.05, consumable:0.07, animal:0.00,  relic:0.06   } },
     'chest:civic':      { classBias: { seed:0.25, produce:0.12, mineral:0.16, consumable:0.25, animal:0.02,  relic:0.15   } },
+    // ── The learning places (school / college / library / bookshop) ──────
+    // Civic's row with the consumable share raised, plus the one FAVOURITE in
+    // the table: when the class comes up consumable, seven times in ten the
+    // item IS a Book rather than a draw from the T2 consumable pool. Between
+    // the two, about a THIRD of school chests hand over a Book, at every tier
+    // — against ~4% from the civic row it split off from, and under 3%
+    // anywhere else (books.test.js measures it).
+    //
+    // That is on purpose and it is not a loot tweak: the Book is how the game
+    // documents itself (PLAY_TIPS, items.js), so there has to be a place on
+    // the map a player can walk to and reliably come back from with one. A
+    // school is that place. Everything else about the row — the chest tier,
+    // the pad, the cave mirror — is civic's, so only the contents differ
+    // (loot.js POI_CATEGORY).
+    'chest:school':     { classBias: { seed:0.18, produce:0.10, mineral:0.12, consumable:0.42, animal:0.02,  relic:0.15   },
+                          favourite: { id: 'book', p: 0.70 } },
     'chest:health':     { classBias: { mineral:0.32, produce:0.22, consumable:0.22, seed:0.12, animal:0.00,  relic:0.09   } },
     // Fruit-tree saplings are a rare nature-chest find: a small `sapling`
     // share on the park/farm/flora contexts only. They're baseTier 3+, and
@@ -464,7 +486,25 @@
       if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(relicTier);
       return out;
     }
-    const id = pickItemInClass(cls, tier, rng);
+    // FAVOURITE — a context may pin ONE item id inside its own class: when
+    // that class is rolled, the pinned id wins with probability `p` instead of
+    // an even draw from the class/tier pool. The school chest's Book is the
+    // only user (see 'chest:school'), and it is deliberately NOT a dropWeight:
+    // a weight is global to every context, while this says "at a SCHOOL, the
+    // consumable you find is a book" without making books the commonest thing
+    // in a hospital.
+    //
+    // The pin ignores the rolled TIER on purpose. A school demoted to T1 by
+    // the Home rings (loot.js chestTierHomeDrop) rolls tier 1, where the whole
+    // consumable pool is the scarecrow — so the school on your own street,
+    // the first one a new player ever reaches, would be the one that never
+    // handed over a book. A Book is the one item whose worth is the same at
+    // every tier, so letting it out of a humble chest costs nothing.
+    const fav = ctx.favourite;
+    const favItem = fav && _ITEM_BY_ID[fav.id];
+    const id = (favItem && favItem.kind === cls && rng() < (fav.p ?? 0))
+      ? fav.id
+      : pickItemInClass(cls, tier, rng);
     if (!id) return null;
     // Quantity from chain+jackpot qty BUMPS. Each bump adds 1..N to the
     // stack where N is tierQtyPerBump[itemTier]. A T1 seed bump adds 1..5,
