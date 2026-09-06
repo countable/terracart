@@ -10276,10 +10276,11 @@ class MapScene extends Phaser.Scene {
     return Delivery.dayKey();
   }
 
-  // 1-3 produce ids this plain house wants TODAY (re-rolled daily, tier-biased,
-  // cached on the house per day so the render sign and interact handler agree).
-  // The first restored houses walk delivery.js's scripted ladder, which opens
-  // with five single-item asks before any bundle.
+  // 1-3 produce ids this plain house wants — locked to its FIRST ask for the
+  // life of the house (pinned in save.houseWishlists by delivery.js, cached on
+  // the house so the render sign and interact handler agree). The first
+  // restored houses walk delivery.js's scripted ladder, which opens with five
+  // single-item asks before any bundle.
   wantedProduce(house) {
     return Delivery.wantedProduce(this.save, house);
   }
@@ -10305,7 +10306,7 @@ class MapScene extends Phaser.Scene {
   // first errand reads "wants: Potato" rather than "wants the set: Potato".
   presentDeliveryOffer(sx, sy, house, recordDeal) {
     // Already fed today — the household is happy and won't take another
-    // bundle until tomorrow. They'll want a fresh one on the next day.
+    // bundle until tomorrow. It will want the SAME bundle again then.
     if (this.isHouseSatisfied(house)) {
       // "Tomorrow" is the UTC day rollover (Delivery.dayKey), which can be
       // twenty hours off or twenty minutes — so say which. Same notation as
@@ -10368,8 +10369,8 @@ class MapScene extends Phaser.Scene {
         // delivery.js / shopGateInfo).
         this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
         // Mark this household satisfied for the rest of the UTC day — it stops
-        // asking (shows "happy" instead of a wishlist) and wants a fresh bundle
-        // tomorrow. Prune stale day stamps so the map stays small over weeks.
+        // asking (shows "happy" instead of a wishlist) and wants its bundle
+        // again tomorrow. Prune stale day stamps so the map stays small over weeks.
         const dayKey = this._dayKey();
         this.save.houseSatisfied = this.save.houseSatisfied || {};
         for (const k of Object.keys(this.save.houseSatisfied)) {

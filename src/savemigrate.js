@@ -55,6 +55,9 @@
     if (save.reachUpgrades === undefined) save.reachUpgrades = 0;
     if (save.deliveryCount === undefined) save.deliveryCount = 0;
     if (save.houseSatisfied === undefined) save.houseSatisfied = {};
+    // Per-house pinned wishlist (delivery.js wantedProduce). An older save has
+    // none; each house pins itself the first time its sign is read.
+    if (save.houseWishlists === undefined) save.houseWishlists = {};
     if (save.discovered === undefined) save.discovered = {};
     // Self-heal: pre-fix, id-less trees pushed `undefined` into save.chopped,
     // and a choppedSet.has(undefined) match wiped whole groves. Strip falsy ids.
