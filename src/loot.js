@@ -14,6 +14,7 @@
 //   PAD_CATEGORIES, padShapeKeyForPoi
 //   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, chestTier
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
+//   STAND_NEVER_CLASSES,
 //   standWordItem, standNameItem, produceStandFor
 //   WILD_TREASURE
 //
@@ -359,15 +360,28 @@ const STAND_GENERIC_ITEM = {
 };
 // Fallback when the NAME has no product word but the POI's CLASS implies one.
 // Keys are POI CLASSES, so every one has to be a class POI_CATEGORY files under
-// a retail category — anything else is a guess that can never fire (there is no
-// `greengrocer` class in the tiles; that word lives in the name table instead).
+// a retail category and not on the never-a-shop list below — anything else is a
+// guess that can never fire (there is no `greengrocer` class in the tiles; that
+// word lives in the name table instead).
+//
+// A restaurant gets the same fallback as fast_food: they are the same kind of
+// place to a passer-by, and splitting them meant a food court's burger counter
+// ran a meat stall while the sit-down place beside it — identical but for the
+// OSM class — was a crate whenever its name wasn't in English.
 const STAND_CLASS_ITEM = {
   butcher: 'meat', bakery: 'coffee', grocery: 'potato',
   supermarket: 'potato', convenience: 'potato', florist: 'flowers',
-  garden_centre: 'flowers', garden: 'flowers', ice_cream: 'milk',
-  cafe: 'coffee', fast_food: 'meat', alcohol_shop: 'potato', beer: 'potato',
+  garden_centre: 'flowers', ice_cream: 'milk',
+  cafe: 'coffee', fast_food: 'meat', restaurant: 'meat',
+  alcohol_shop: 'potato', beer: 'potato',
 };
 const STAND_RETAIL_CATS = new Set(['food', 'commerce', 'flora']);
+// A stall is a SHOP. These classes land in a retail category for their LOOT
+// (a garden is a flora source, so it hands out flower seeds) but nobody is
+// behind a counter there — they stay crates. Checked before the name, because
+// the name is exactly what would fool it: a garden POI is called "…Garden"
+// almost by definition, and every flower word in it points at a stall.
+const STAND_NEVER_CLASSES = new Set(['garden']);
 
 // Suffix ladder: an ordered list of [suffix, replacement] tried against a token
 // that didn't match a table key outright. Longest/most specific first, so
@@ -415,7 +429,7 @@ function produceStandFor(o) {
   if (!o || o.kind !== 'chest') return null;
   if (o._standCache !== undefined) return o._standCache;   // computed once per object
   let res = null;
-  if (STAND_RETAIL_CATS.has(POI_CATEGORY[o.poiClass])) {
+  if (STAND_RETAIL_CATS.has(POI_CATEGORY[o.poiClass]) && !STAND_NEVER_CLASSES.has(o.poiClass)) {
     // The shop's own branding wins; fall back to the class word.
     const item = standNameItem(o.name) || STAND_CLASS_ITEM[o.poiClass] || null;
     if (item && STAND_ITEM_FRAME[item] !== undefined &&

@@ -95,6 +95,36 @@ test('vendor parity: only retail POIs run a stall at all', () => {
     'only chest objects can be stalls');
 });
 
+test('vendor parity: a garden is a place, not a shop — always a crate', () => {
+  // `garden` sits in the flora category for its LOOT (it hands out flower
+  // seeds), which is what used to make it a flower stall. Nobody is behind a
+  // counter in a public garden. The name is what would fool the check — a
+  // garden POI is called "…Garden" almost by definition — so the exclusion is
+  // pinned against exactly those names.
+  for (const name of ['', 'Rose Garden', 'Botanical Gardens', 'Queen Elizabeth Garden',
+                      'The Flower Garden']) {
+    assert.eq(sells('garden', name), null, `a garden named "${name}" stays a crate`);
+  }
+  // Its retail NEIGHBOURS are still shops — the exclusion is one class, not a
+  // category-wide retreat.
+  assert.eq(sells('garden_centre', 'Garden Works'), 'flowers', 'a garden CENTRE still sells');
+  assert.eq(sells('florist', ''), 'flowers', 'a florist still sells');
+});
+
+test('vendor parity: a restaurant behaves like fast food', () => {
+  // Same kind of place to a passer-by; splitting them left a food court's
+  // burger counter running a stall while the sit-down place beside it was a
+  // crate whenever its name wasn't in English.
+  const cases = ['', 'Chez Pierre', 'Osteria', '\u4e2d\u83ef\u6599\u7406'];
+  for (const name of cases) {
+    assert.eq(sells('restaurant', name), sells('fast_food', name),
+      `"${name}" resolves the same either side`);
+  }
+  assert.eq(sells('restaurant', ''), 'meat', 'and that shared answer is the meat fallback');
+  // A named product still outranks the class on both, as everywhere else.
+  assert.eq(sells('restaurant', 'Sushi California'), 'salmon', 'the name still wins');
+});
+
 // ── Table hygiene: every promise is one the stall can keep ───────────────
 test('vendor parity: every table item is real, priced, and has an awning', () => {
   const tables = { STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM };
@@ -116,14 +146,17 @@ test('vendor parity: no word is in both the specific and the generic table', () 
   assert.eq(dupes.length, 0, 'words claimed by both tables: ' + dupes.join(', '));
 });
 
-test('vendor parity: every stall class the fallback names is a retail class', () => {
-  // A class guess for a POI category that never renders a stall is dead code
-  // pretending to be parity.
-  const stray = Object.keys(STAND_CLASS_ITEM).filter((c) => !STAND_RETAIL_CATS_HAS(c));
+test('vendor parity: every stall class the fallback names can actually fire', () => {
+  // A class guess for a POI that never renders a stall — a non-retail category,
+  // or one excluded outright — is dead code pretending to be parity.
+  const retail = (cls) => ['food', 'commerce', 'flora'].includes(POI_CATEGORY[cls]);
+  const stray = Object.keys(STAND_CLASS_ITEM)
+    .filter((c) => !retail(c) || STAND_NEVER_CLASSES.has(c));
   assert.eq(stray.length, 0, 'class fallbacks that can never fire: ' + stray.join(', '));
-  function STAND_RETAIL_CATS_HAS(cls) {
-    return ['food', 'commerce', 'flora'].includes(POI_CATEGORY[cls]);
-  }
+  // …and every excluded class is one that would otherwise have run a stall,
+  // so the list can't quietly fill up with classes it has no effect on.
+  const inert = [...STAND_NEVER_CLASSES].filter((c) => !retail(c));
+  assert.eq(inert.length, 0, 'exclusions that exclude nothing: ' + inert.join(', '));
 });
 
 // ── Determinism ──────────────────────────────────────────────────────────
