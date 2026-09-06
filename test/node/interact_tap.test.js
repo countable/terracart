@@ -66,9 +66,9 @@ test('TAP_HANDLERS: staircase precedes object (stair takes priority)', () => {
     'staircase must precede object so a cave entrance tap is not swallowed by the generic object handler');
 });
 
-test('TAP_HANDLERS: cell-resolve precedes planted / can-refill / fishing / till', () => {
+test('TAP_HANDLERS: cell-resolve precedes planted / fishing / till', () => {
   const iCR = HANDLER_NAMES.indexOf('cell-resolve');
-  for (const name of ['planted', 'can-refill', 'fishing', 'till', 'plant', 'flavor']) {
+  for (const name of ['planted', 'fishing', 'till', 'plant', 'flavor']) {
     const i = HANDLER_NAMES.indexOf(name);
     if (i === -1) continue; // tolerate future removals
     assert.truthy(iCR < i,
@@ -96,32 +96,15 @@ test('TAP_HANDLERS: extinguish-fire precedes light-fire (extinguish wins the tap
   assert.truthy(iExt < iLit, 'extinguish before light-fire');
 });
 
-test('TAP_HANDLERS: planted precedes can-refill (crop readout beats refill on water cell)', () => {
-  const iPl  = HANDLER_NAMES.indexOf('planted');
-  const iCan = HANDLER_NAMES.indexOf('can-refill');
-  assert.truthy(iPl < iCan, 'planted before can-refill');
-});
-
-// ── BUG: can-refill precedes fishing in TAP_HANDLERS ─────────────────────────
-// PATCH-HISTORY/BUG: interaction-sweep-2026-05-27.md documents that can-refill
-// (line ~900 at the time of the sweep) sat before fishing, causing every water
-// tap to refill the can silently while the player had a watering can — fishing
-// was completely unreachable.  The handler was later patched to return false
-// when save.relics?.rod is set, but the ARRAY ORDER was not changed: can-refill
-// still appears before fishing in TAP_HANDLERS.  This test pins the current
-// (unfixed ordering) order and flags it.  A correct fix would either swap the
-// two handlers or confirm the in-handler rod guard is the intended long-term
-// solution (in which case this comment should be updated and the order test
-// flipped).
-test('TAP_HANDLERS: can-refill appears BEFORE fishing (current — see PATCH-HISTORY/BUG)', () => {
-  const iCan     = HANDLER_NAMES.indexOf('can-refill');
-  const iFishing = HANDLER_NAMES.indexOf('fishing');
-  assert.truthy(iCan !== -1, 'can-refill handler exists');
-  assert.truthy(iFishing !== -1, 'fishing handler exists');
-  // Pin the CURRENT (buggy-ordering) state. If this test starts failing it
-  // means the order was swapped — remove this test and the BUG comment above.
-  assert.truthy(iCan < iFishing,
-    'can-refill precedes fishing in TAP_HANDLERS — ordering bug documented in interaction-sweep-2026-05-27.md');
+// The ordering bug that interaction-sweep-2026-05-27.md documented — can-refill
+// sat before fishing and silently ate every water tap from a can owner, with an
+// in-handler rod guard as the workaround — is GONE, because the handler is. The
+// can's charge bank fed its +2 produce-quality bonus, quality moved to the hoe
+// (Crops.bedQuality), and the bank retired with it. A water tap is a cast now,
+// with nothing ahead of fishing to swallow it.
+test('TAP_HANDLERS: nothing refills a can ahead of fishing any more', () => {
+  assert.eq(HANDLER_NAMES.indexOf('can-refill'), -1,
+    'the can-refill handler is gone — its charge bank fed a bonus the hoe owns now');
 });
 
 test('TAP_HANDLERS: fishing precedes flavor (water tap must not become a label)', () => {
@@ -154,20 +137,41 @@ test('TERRAIN_FLAVOR: every non-tillable terrain code has a real label', () => {
   }
 });
 
-test('TERRAIN_FLAVOR: commercial / industrial cells name themselves', () => {
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.COMMERCIAL], 'plaza', 'commercial label');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.INDUSTRIAL], 'industrial yard', 'industrial label');
+// The labels used to be bare municipal nouns — 'plaza', 'industrial yard',
+// 'highway' — in a game that rusticifies every other proper noun on the map,
+// and they never said the tap had been REFUSED. These pin the two rules the
+// rewrite put in their place rather than fourteen literal strings, so the
+// copy can be reworded without a test edit but cannot slide back into a
+// register that reads like a debug label.
+
+test('TERRAIN_FLAVOR: every label is a written line, not a database noun', () => {
+  for (const code of NON_TILLABLE_CODES) {
+    const label = TERRAIN_FLAVOR[code];
+    assert.truthy(/^[A-Z]/.test(label), `terrain ${code} starts as a sentence: ${label}`);
+    assert.truthy(/[.!]$/.test(label), `terrain ${code} is punctuated: ${label}`);
+    assert.falsy(/[_:]/.test(label), `terrain ${code} carries no id or debug colon: ${label}`);
+    assert.gt(label.length, 12, `terrain ${code} says more than a noun: ${label}`);
+    assert.lt(label.length, 60, `terrain ${code} still fits a flash: ${label}`);
+  }
 });
 
-test('TERRAIN_FLAVOR: the pinned road / water / building labels are unchanged', () => {
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.WATER],          'water',    'water');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.ROAD],           'road',     'road');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.PATH],           'path',     'path');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.ROAD_LG],        'highway',  'highway');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.ROAD_MD],        'avenue',   'avenue');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.BUILDING],       'building', 'building');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.BUILDING_MED],   'building', 'building (med)');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.BUILDING_LARGE], 'building', 'building (large)');
+test('TERRAIN_FLAVOR: paved and built ground says WHY the hoe refused it', () => {
+  // `flavor` is ordered ahead of `till` (see the ordering test above), so this
+  // flash IS the refusal — and the commonest untillable cells a player taps
+  // are the paved ones. Each has to carry the reason, or the tap reads as the
+  // game ignoring it.
+  for (const code of [TERRAIN.ROAD, TERRAIN.PATH, TERRAIN.ROAD_LG]) {
+    assert.truthy(/no earth to turn/i.test(TERRAIN_FLAVOR[code]),
+      `paved terrain ${code} names the reason: ${TERRAIN_FLAVOR[code]}`);
+  }
+  assert.truthy(/root/i.test(TERRAIN_FLAVOR[TERRAIN.ROCK]), 'bare rock says nothing grows');
+  // The one untillable cell that IS workable says so, and names the tool.
+  assert.truthy(/pick/i.test(TERRAIN_FLAVOR[TERRAIN.CAVE_WALL]),
+    'a cave wall points at the pick that opens it');
+  // Every building code reads as someone else's property, not as 'building'.
+  for (const code of [TERRAIN.BUILDING, TERRAIN.BUILDING_MED, TERRAIN.BUILDING_LARGE]) {
+    assert.truthy(/floor/i.test(TERRAIN_FLAVOR[code]), `building ${code} reads as a floor`);
+  }
 });
 
 test('flavor handler: flashes the terrain label, not a dot', () => {
@@ -294,12 +298,21 @@ test('consumeSelected: splices out the stack when count reaches 0', () => {
   assert.eq(save.inv[0].id, 'wood', 'remaining stack is wood');
 });
 
-test('consumeSelected: clamps selSlot when it falls off the end after splice', () => {
-  // selSlot points at the last item; splicing it must pull selSlot back to 0.
+test('consumeSelected: spending the last of a stack empties the hand', () => {
+  // selSlot points at the last item; splicing it leaves NOTHING selected —
+  // never the neighbouring stack the player didn't pick.
   const save = { inv: [{ id: 'wood', count: 2 }, { id: 'coal', count: 1 }], selSlot: 1 };
   consumeSelected(save);
   assert.eq(save.inv.length, 1, 'coal stack removed');
-  assert.eq(save.selSlot, 0, 'selSlot clamped to last valid index');
+  assert.eq(save.selSlot, -1, 'nothing in hand');
+});
+
+test('consumeSelected: the stack that slides into the emptied index is not auto-selected', () => {
+  const save = { inv: [{ id: 'coal', count: 1 }, { id: 'wood', count: 2 }], selSlot: 0 };
+  consumeSelected(save);
+  assert.eq(save.inv.length, 1, 'coal stack removed');
+  assert.eq(save.inv[0].id, 'wood', 'wood now sits at index 0');
+  assert.eq(save.selSlot, -1, 'but it is not in hand');
 });
 
 test('consumeSelected: no-op when selSlot points to an empty slot', () => {
@@ -312,64 +325,6 @@ test('consumeSelected: n=2 decrements by 2', () => {
   const save = { inv: [{ id: 'coal', count: 5 }], selSlot: 0 };
   consumeSelected(save, 2);
   assert.eq(save.inv[0].count, 3, 'count decremented by 2');
-});
-
-// ─── 6. can-refill handler behaviour ────────────────────────────────────────
-
-test('can-refill: returns false on non-water cell', () => {
-  const scene = makeScene();
-  const save  = { relics: { can: { tier: 1 } }, canCharges: 0, inv: [], selSlot: 0 };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    cell: { type: 1 /* GRASS, not water */ }, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'can-refill');
-  assert.eq(h.try(ctx), false, 'non-water cell → fall through');
-  assert.eq(save.canCharges, 0, 'charges unchanged');
-});
-
-test('can-refill: returns false when player has no watering can', () => {
-  const scene = makeScene();
-  const save  = { relics: {}, canCharges: 0, inv: [], selSlot: 0 };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    cell: { type: 3 /* WATER */ }, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'can-refill');
-  assert.eq(h.try(ctx), false, 'no can → fall through');
-  assert.eq(save.canCharges, 0, 'charges unchanged');
-});
-
-// PATCH-HISTORY/BUG: This guard was added AFTER the interaction-sweep-2026-05-27
-// documented that can-refill ate every water tap when the player owned a can.
-// The fix: if the player also has a rod, can-refill bails and fishing gets the tap.
-// The array order (can-refill before fishing) was not fixed — the in-handler guard is
-// the current workaround.  Verified here so any regression is caught immediately.
-test('can-refill: returns false when player has both can AND rod (rod wins water tap)', () => {
-  const scene = makeScene();
-  const save  = { relics: { can: { tier: 1 }, rod: { tier: 1 } }, canCharges: 0, inv: [], selSlot: 0 };
-  let flashed = false;
-  scene.flash = () => { flashed = true; };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    cell: { type: 3 /* WATER */ }, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'can-refill');
-  assert.eq(h.try(ctx), false,
-    'can-refill must return false when rod is present — fishing must get the tap');
-  assert.eq(save.canCharges, 0, 'charges must not be set when rod is present');
-  assert.falsy(flashed, 'no flash when handler bails');
-});
-
-test('can-refill: refills to 50 charges on water tap when can is owned (no rod)', () => {
-  let flashed = false;
-  const scene = Object.assign(makeScene(), { flash: () => { flashed = true; } });
-  const save  = { relics: { can: { tier: 1 } }, canCharges: 0, inv: [], selSlot: 0 };
-  const ctx = Object.assign(makeCtx(scene, save), {
-    cell: { type: 3 /* WATER */ }, sx: 0, sy: 0,
-  });
-  const h = TAP_HANDLERS.find(h => h.name === 'can-refill');
-  assert.eq(h.try(ctx), true, 'refill consumed the tap');
-  assert.eq(save.canCharges, 50, 'canCharges set to 50');
-  assert.truthy(ctx.dirty, 'ctx.dirty set for persistence');
-  assert.truthy(flashed, 'flash shown to player');
 });
 
 // ─── 7. findClosestItem helper ───────────────────────────────────────────────
@@ -602,7 +557,6 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'staircase',
     'object',
     'cell-resolve',
-    'path-stone',
     'building-zone',
     'release',
     'pickup-rock',
@@ -612,7 +566,6 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'light-fire',
     'place-rock',
     'planted',
-    'can-refill',
     'fishing',
     'cave-wall',
     'flavor',
@@ -748,7 +701,7 @@ function runCreatureTap(kind, wm, cellInReach) {
   const orig = {
     WG: globalThis.WorldGen, CIR: globalThis.cellInReach, WMC: globalThis.worldMetersToAbsCell,
   };
-  const scene = Object.assign(makeScene(), { feetOffsetM: (14 / 32) * 7, cellM: 7, flash: () => {} });
+  const scene = Object.assign(makeScene(), { feetOffsetM: 0, cellM: 7, cellPx: 32, flash: () => {} });
   const save  = { caught: [], inv: [], selSlot: 0 };
   const ctx   = Object.assign(makeCtx(scene, save), { wm });
   const h = TAP_HANDLERS.find(x => x.name === 'creature');
@@ -794,4 +747,86 @@ test('creature: a tap on the tile BELOW the foot does NOT grab the creature', ()
 test('creature: a tap two cells to the side finds nothing (false)', () => {
   assert.eq(runCreatureTap('chicken', { x: 14, y: 0 }, false), false,
     'far-side tap does not grab the creature');
+});
+
+// ── ONE REACH GATE ──────────────────────────────────────────────────────────
+// tooFar used to carry a second, older rule — a Euclidean distance from the
+// player's CELL CENTRE — behind a `typeof cellInReach === 'function'` guard,
+// as a fallback for the coords.js helpers being unavailable. They never are:
+// coords.js declares them at the top level of a classic script that loads
+// before interact.js, in index.html and in this suite alike. So the guard was
+// always true and the losing rule could not be falsified by playing the game.
+//
+// It mattered because the two rules DISAGREE, which is why the cell rule
+// replaced it: an object whose world point sits off its cell centre (a house
+// FOOT, up to ~0.7·cellM away) could pass the cell gate and still trip the
+// Euclidean one at the reach edge, flashing "just out of reach" only sometimes,
+// depending on where the foot sat and on cardinal-vs-diagonal geometry.
+//
+// A source pin, because tooFar closes over a scene: the shape is the contract.
+(function () {
+const src = INTERACT_SRC;
+const fn = src.slice(src.indexOf('function tooFar(ctx, x, y) {'));
+const body = fn.slice(0, fn.indexOf('\n}\n') + 3);
+
+test('reach: tooFar has exactly one rule, and it is the cell rule', () => {
+  assert.truthy(/cellInReach\(scene, foot\.cellIX, foot\.cellIY\)/.test(body),
+    'the foot cell decides');
+  assert.truthy(/cellInReach\(scene, tap\.cellIX, tap\.cellIY\)/.test(body),
+    'or the cell the player actually tapped');
+  assert.falsy(/typeof cellInReach === ['"]function['"]/.test(body),
+    'no guard around it — the helper is always there, so a guard only hides a second rule');
+  assert.falsy(/distM2/.test(body), 'no Euclidean distance in the reach gate');
+  assert.falsy(/REACH_FAR_M/.test(body), 'and no fixed-metre fallback radius');
+});
+
+test('reach: the removed rule leaves nothing behind to feed it', () => {
+  // pCellCx / pCellCy were computed on EVERY tap and read only by the Euclidean
+  // branch. REACH_FAR_M lived in app.js, which never loads headless — so the
+  // fallback would have thrown rather than saved anything if it had ever run.
+  assert.falsy(/pCellCx:|ctx\.pCellC[xy]/.test(src),
+    'the player cell centre is no longer plumbed through ctx');
+  assert.falsy(/\bREACH_FAR_M\b/.test(APP_JS_SRC), 'and the constant is gone from app.js');
+});
+})();
+
+// ─── ONE TOOL TAKES ANIMALS: THE BUG NET ────────────────────────────────────
+// Until Sep 2026 the crow/deer HUNT wheel was sped by the best of sword / bow
+// / staff, so a weapon bought purely to fight also quietly made you a better
+// hunter — and the net, the tool the catalog sells for exactly this, was worth
+// nothing on the two kinds you take by hunting. Weapons fight ENEMIES
+// (combat.js); the net takes GAME and livestock alike, on the same slot the
+// catch wheel already used. app.js/interact.js can't be driven headlessly this
+// deep, so the wiring is pinned as source text.
+test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
+  const src = INTERACT_SRC;
+  const hunt = src.slice(src.indexOf("const HUNT_KINDS = new Set(['crow', 'deer']);"),
+                         src.indexOf('// Catchable animals'));
+  assert.truthy(hunt.length > 0, 'found the hunt branch');
+  assert.truthy(/const netSlot = r\.bugnet \? 'bugnet' : null;/.test(hunt),
+    'the hunt resolves the BUG NET slot');
+  assert.truthy(/toolDurationMs\(r, netSlot\)/.test(hunt),
+    'and times the wheel off it');
+  // Comments still discuss the weapons (that history is why the pin exists),
+  // so test the CODE: strip the // lines before looking for a weapon slot.
+  const huntCode = hunt.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+  assert.falsy(/relics?\.(sword|bow|staff)|r\.(sword|bow|staff)|'(sword|bow|staff)'/.test(huntCode),
+    'no weapon slot may reach the hunt wheel — that is the bonus being removed');
+  // The wheel's own tool badge must name the net too, or the wheel draws a
+  // sword over a hunt the sword no longer speeds.
+  assert.truthy(/durMs \* hpMul \* dmgMul, 0, netSlot, victim\)/.test(hunt),
+    'the work wheel is handed the net slot');
+});
+
+test('hunt: the net times the wheel the same way the catch does', () => {
+  // Both wheels read the same slot off the same ladder, so a net upgrade is
+  // felt identically whether the animal is caught or hunted, and bare hands
+  // stay possible at the tier-0 rung.
+  assert.eq(toolDurationMs({}, 'bugnet'), toolDurationMs({}, null),
+    'no net = the bare-handed rung, never a refusal');
+  assert.eq(toolDurationMs({ bugnet: { tier: 1 } }, 'bugnet'), TOOL_DURATION_MS[1], 'wood net');
+  assert.eq(toolDurationMs({ bugnet: { tier: 7 } }, 'bugnet'), TOOL_DURATION_MS[7], 'frost net');
+  // A weapon must not move it at all any more.
+  assert.eq(toolDurationMs({ sword: { tier: 7 }, bow: { tier: 7 }, staff: { tier: 7 } }, 'bugnet'),
+    toolDurationMs({}, 'bugnet'), 'a full weapon rack does nothing for a hunt');
 });

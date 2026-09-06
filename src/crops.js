@@ -39,8 +39,10 @@
   // stage; after advancing it needs re-watering (watered_t reset to 0), so a
   // single call advances each plant by at most one stage and a long-idle plant
   // catches up over subsequent waterings rather than all at once. Mutates
-  // save.planted; returns true iff anything changed.
-  function advanceGrowth(save, now = Date.now()) {
+  // save.planted; returns true iff anything changed. Pass an array as
+  // `advanced` to be told WHICH plants moved — the scene bursts leaf flecks
+  // on the ones in view (app.js advanceGrowth → _burstAtWorld 'sprout').
+  function advanceGrowth(save, now = Date.now(), advanced = null) {
     let mutated = false;
     for (const p of save.planted || []) {
       if (!p.watered_t) continue;
@@ -49,6 +51,7 @@
       p.stage = (p.stage ?? 0) + 1;
       p.watered_t = 0;
       mutated = true;
+      if (advanced) advanced.push(p);
     }
     return mutated;
   }
@@ -91,8 +94,9 @@
 
   // Water every planted crop within `radius` metres of world point (pwx, pwy).
   // Returns { n, jumped } — how many were watered, and how many the can pushed
-  // a stage on.
-  function waterWithin(save, pwx, pwy, radius, now = Date.now(), relics = null, rng = Math.random) {
+  // a stage on. Pass an array as `jumpedPlants` to be told which ones jumped
+  // (the scene bursts a 'sprout' on each — the same cue the tap gives).
+  function waterWithin(save, pwx, pwy, radius, now = Date.now(), relics = null, rng = Math.random, jumpedPlants = null) {
     const r2 = radius * radius;
     let n = 0, jumped = 0;
     for (const p of save.planted || []) {
@@ -101,11 +105,72 @@
       const r = waterOne(save, p, relics, now, rng);
       if (!r) continue;
       n++;
-      if (r === 'jumped') jumped++;
+      if (r === 'jumped') { jumped++; if (jumpedPlants) jumpedPlants.push(p); }
     }
     return { n, jumped };
   }
 
+  // Growth Powder: spring every unripe crop within `radius` metres of (pwx,
+  // pwy) ONE stage ahead, on the spot and with no watering involved. A held
+  // watering is left in place (the can's jump above doesn't spend one either,
+  // and neither does this) — except on a plant that just ripened, which can
+  // no longer spend it. Returns how many plants moved.
+  function advanceWithin(save, pwx, pwy, radius) {
+    const r2 = radius * radius;
+    let n = 0;
+    for (const p of save.planted || []) {
+      if ((p.stage ?? 0) >= maxStage()) continue;
+      const dx = p.x - pwx, dy = p.y - pwy;
+      if (dx * dx + dy * dy > r2) continue;
+      p.stage = (p.stage ?? 0) + 1;
+      if ((p.stage ?? 0) >= maxStage()) p.watered_t = 0;
+      n++;
+    }
+    return n;
+  }
+
+  // ── Bed quality ──────────────────────────────────────────────────────────
+  // PRODUCE QUALITY IS A PROPERTY OF THE BED, AND THE HOE IS WHAT SETS IT.
+  // Tilling banks the hoe's tier on the cell (save.tilledQuality, keyed by the
+  // same cellKey as save.tilled); planting SPENDS that onto the crop as
+  // `qualBoost`, which the harvest reads for its extra-seed chance and yield.
+  //
+  // Until Sep 2026 this was the WATERING CAN's: the boost was stamped on the
+  // plant at its first watering from can.tier, plus 2 more while the can held
+  // refill charges. The can keeps the thing it is actually for — the growth
+  // JUMP (waterJumpChance above) — and the charge bank retired with the bonus
+  // it fed. Quality now answers to the tool that prepares the ground.
+  //
+  // A bed is a cell, so the entry lives and dies with the cell's tilled
+  // marker: written by the till, spent by the plant, dropped wherever the
+  // marker is dropped. Everything goes through these three so a bed's quality
+  // and its tilled state cannot drift apart. A stale entry would be harmless
+  // (only a plant on that exact cell ever reads it, and a re-till overwrites
+  // it) but it would sit in the save forever.
+  function bedQuality(save, cellKey) {
+    if (!save || !save.tilledQuality) return 0;
+    return save.tilledQuality[cellKey] || 0;
+  }
+  function setBedQuality(save, cellKey, tier) {
+    if (!save) return 0;
+    const t = Math.max(0, Math.floor(Number(tier) || 0));
+    if (!t) { clearBedQuality(save, cellKey); return 0; }
+    save.tilledQuality = save.tilledQuality || {};
+    save.tilledQuality[cellKey] = t;
+    return t;
+  }
+  function clearBedQuality(save, cellKey) {
+    if (save && save.tilledQuality) delete save.tilledQuality[cellKey];
+  }
+  // Spend the bed onto the crop being planted on it: the crop carries the
+  // quality from here on, and the cell stops holding it.
+  function takeBedQuality(save, cellKey) {
+    const q = bedQuality(save, cellKey);
+    clearBedQuality(save, cellKey);
+    return q;
+  }
+
   root.Crops = { STAGE_HOLD_MS, CAN_TOP_TIER, maxStage, isMature, crowEats,
-                 advanceGrowth, waterWithin, waterOne, waterJumpChance };
+                 advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
+                 bedQuality, setBedQuality, clearBedQuality, takeBedQuality };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -72,14 +72,9 @@
   // tile cells.
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Terrain codes (mirror WorldGen.T / app.js COLORS).
-  const T = {
-    GRASS: 0, FOREST: 1, SAND: 2, WATER: 3, FARMLAND: 4, RESIDENTIAL: 5,
-    PARK: 6, ROAD: 7, PATH: 8, BUILDING: 9, ROCK: 10, BUILDING_MED: 11,
-    BUILDING_LARGE: 12, ROAD_LG: 13, ROAD_MD: 14, SCHOOL: 15, COMMERCIAL: 16,
-    INDUSTRIAL: 17, PLAYGROUND: 18, PITCH: 19, WETLAND: 20, GOLF: 21,
-    ORCHARD: 22, PIER: 23,
-  };
+  // Terrain codes — the one table worldgen.js owns (loaded before this file),
+  // not a hand-kept mirror that could drift from it.
+  const T = WorldGen.T;
 
   // ── FOREST — every tree variant + species, shrubs, nuts, wild fauna,
   //    a WILD (net-gated) butterfly, and a slime pest. ───────────────────────
@@ -264,7 +259,7 @@
       p.rect(0, 0, 7, 5, T.SCHOOL);          // top-left
       p.rect(0, 6, 7, 5, T.INDUSTRIAL);      // bottom-left
       p.rect(8, 0, 8, 11, T.COMMERCIAL);     // right column — big enough to read the hedge maze
-      for (let dx = 0; dx < 16; dx++) { p.cell(dx, 11, T.PATH); p.pathName(dx, 11, 'Garden Path'); }
+      for (let dx = 0; dx < 16; dx++) p.cell(dx, 11, T.PATH);
     },
     populate(s) {
       s.chest('school', 'Sandbox School', 3, 2);       // round pad
@@ -395,7 +390,6 @@
     const wildplants = [];
     const creatures = [];
     const roadLabels = {};
-    const pathNames = {};
 
     // Helper: cell index → world metres at cell centre.
     const wmAt = (ix, iy) => ({
@@ -403,7 +397,7 @@
       y: ty * tileEdgeM + (iy + 0.5) * cellM,
     });
 
-    populate({ grid, objects, wildplants, creatures, roadLabels, pathNames,
+    populate({ grid, objects, wildplants, creatures, roadLabels,
                cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM });
 
     return {
@@ -414,7 +408,6 @@
       creatures,
       parkingTreasures: [],
       roadLabels,
-      pathNames,
       treasure: null,
       tileEdgeM,
       cellsPerEdge,
@@ -439,7 +432,6 @@
     const { objects, wildplants, creatures } = arrays;
     const at = (dx, dy) => wmAt(ix0 + dx, iy0 + dy);
     return {
-      at,
       creature(kind, dx, dy, n) {
         const { x, y } = at(dx, dy);
         creatures.push({ x, y, kind, id: `${baseId}_${tag}_${kind}_${n}` });
@@ -541,7 +533,6 @@
       occupied.add(key(ix, iy));
     }
     for (const wp of wildplants) if (wp._ix != null) occupied.add(key(wp._ix, wp._iy));
-    const hashStr = (s) => fnv1a(s);   // shared FNV-1a (util.js)
     const wallOn = (sx, sy, k, salt) => ((((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0) % 100) < 30;
     const place = (ix, iy, crop, t) => {
       const kk = key(ix, iy);
@@ -575,7 +566,8 @@
               if (hedge) place(ix, iy, fl.crop, t);
             }
           } else {
-            const rng = WorldGen.makeRng(hashStr(`${s.name}|${fl.crop}|${salt}`));
+            // fnv1a: the shared FNV-1a hash (util.js).
+            const rng = WorldGen.makeRng(fnv1a(`${s.name}|${fl.crop}|${salt}`));
             // Bias dynamic densities to the upper half of their range so no test
             // zone comes out empty by an unlucky roll (worldgen uses the full
             // [0, dMax]; here we want every biome's flora visibly represented).
@@ -593,7 +585,7 @@
   }
 
   function populateSandbox(originIX, originIY, c) {
-    const { grid, objects, wildplants, creatures, roadLabels, pathNames,
+    const { grid, objects, wildplants, creatures, roadLabels,
             cellsPerEdge, wmAt, tx, ty } = c;
     const baseId = `sb_${tx}_${ty}`;
 
@@ -615,7 +607,6 @@
           cell: setCell,
           rect,
           roadLabel: (dx, dy, text) => { roadLabels[`${ix0 + dx}_${iy0 + dy}`] = { text, angle: 0 }; },
-          pathName: (dx, dy, name) => { pathNames[`${ix0 + dx}_${iy0 + dy}`] = name; },
         });
       }
       // 3. static interactables
@@ -824,7 +815,7 @@
     }
     // Mature crop pre-watered → harvesting it exercises the double-produce path.
     const mature = save.planted[save.planted.length - 1];
-    if (mature) mature.canBoost = 2;
+    if (mature) mature.qualBoost = 2;
     // Scarecrow on the farm — renders a sprite + a 4-cell crow/deer aversion ring.
     {
       const { cellIX, cellIY } = sceneCell('FARMLAND', 4, 4);
@@ -906,8 +897,8 @@
     const COUNT = 5;
     const inv = [];
     // Most-tested kinds first (seeds → produce → animals → minerals →
-    // consumables). 'badge' = 5 Discovery badges — exactly one wizard-tower
-    // Inner Light, so that flow is exercisable too.
+    // consumables). 'badge' = 5 Discovery badges — exactly one rung of the
+    // wizard tower's ladder, so that flow is exercisable too.
     const ORDER = ['seed', 'produce', 'animal', 'mineral', 'consumable', 'badge'];
     const byKind = {};
     for (const it of ITEMS) {
@@ -969,11 +960,12 @@
       const reposition = () => {
         const data = scene._sandboxLabelData;
         if (!data) return;
-        const pWX = scene.startWorldM.x + scene.playerM.x;
-        const pWY = scene.startWorldM.y + scene.playerM.y;
+        // Camera anchor, so the labels ride the ground under a peek drag the
+        // same way the sprites they name do (coords.js viewAnchorWorldM).
+        const a = viewAnchorWorldM(scene);
         const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
         for (const d of data) {
-          const dx = d.wx - pWX, dy = d.wy - pWY;
+          const dx = d.wx - a.x, dy = d.wy - a.y;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) { d.t.setVisible(false); continue; }
           const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
           const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
