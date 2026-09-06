@@ -773,6 +773,13 @@ if (typeof window !== 'undefined') {
 // 16m = √(5² + 15²) + ε, just enough to include (±1, ±3) and (±3, ±1) so the
 // reach silhouette is a rounded square rather than a strict 3-cell diamond.
 
+// The one wording for "that would not fit". It is raised from two places —
+// the deferred flash after an addToInv rejection, and the buy modal refusing a
+// purchase — and they had drifted into 'bag full' and 'Bag full', the same
+// sentence twice in two registers. A Bag relic is what fixes it, so the line
+// names the fix rather than just the wall.
+const BAG_FULL_MSG = 'No room in your bag — sell, eat, or carry a bigger one.';
+
 // --- Economy tuning ---
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
@@ -10033,8 +10040,10 @@ class MapScene extends Phaser.Scene {
     this.save.energy = Math.min(max, (this.save.energy ?? 0) + 40);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return this._finishConsumable(
-      'You drink the Potion of Vigor',
-      restored > 0 ? `Energy restored by ${restored}.` : 'You were already at full energy.',
+      '\u2728 You drink the Potion of Vigor',
+      restored > 0
+        ? `Warmth spreads through your arms — ${restored} energy back in the tank.`
+        : 'You were already brimming. The flask goes down anyway.',
     );
   }
 
@@ -10046,8 +10055,8 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'speed_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.speedPotionUntil = Date.now() + MINUTE_MS;
     return this._finishConsumable(
-      'You drink the Potion of Speed',
-      'Your legs blaze — tier-9 amulet walking for one minute.',
+      '\u2728 You drink the Potion of Speed',
+      'Your legs blaze. For one minute the stick carries you faster than any amulet could.',
     );
   }
 
@@ -10056,8 +10065,8 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.shieldPotionUntil = Date.now() + MINUTE_MS;
     return this._finishConsumable(
-      'You drink the Potion of Shielding',
-      'A shimmering barrier wraps you — monster damage halved for one minute.',
+      '\u2728 You drink the Potion of Shielding',
+      'A shimmering barrier wraps you — for one minute every monster blow lands at half its weight.',
     );
   }
 
@@ -10647,7 +10656,7 @@ class MapScene extends Phaser.Scene {
       onAccept: (q) => {
         const want = Math.max(1, q ?? 1);
         const take = Math.min(want, room());
-        if (take <= 0) { this.flash('Bag full', sx, sy); return; }
+        if (take <= 0) { this.flash(BAG_FULL_MSG, sx, sy); return; }
         const pay = unitPrice * take;
         if (money() < pay) { this.flash(`need $${pay}`, sx, sy); return; }
         addMoney(this.save, -pay);
@@ -14106,7 +14115,7 @@ class MapScene extends Phaser.Scene {
         setTimeout(() => {
           this._bagFullPending = false;
           try {
-            this.flash('bag full', this.viewCenterX, this.viewCenterY - 28);
+            this.flash(BAG_FULL_MSG, this.viewCenterX, this.viewCenterY - 28);
           } catch (_) {}
         }, 0);
       }

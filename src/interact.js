@@ -213,22 +213,90 @@ const TERRAIN = {
 // INDUSTRIAL / ROCK / PIER / cave cell showed — a lone dot with no idea what
 // you'd tapped. The '·' is now only a defensive last resort for a terrain
 // code that is neither tillable nor listed here.
+// The label the `flavor` handler flashes when a tap lands on ground that
+// CANNOT BE TILLED. Two jobs in one line, and it used to do neither:
+//
+//   1. It is the game's only description of the ground itself. Every proper
+//      noun on the map goes through rusticifyName — a school is a Hedge
+//      School, a restaurant a Tavern, a library a Scriptorium — and then the
+//      earth under it read 'industrial yard', 'plaza', 'highway'. The one
+//      handler NAMED for flavour was the one surface written in municipal
+//      English.
+//   2. It is the answer to "why did nothing happen?". `flavor` is ordered
+//      ahead of `till` precisely so an untillable cell is claimed before the
+//      hoe can reach it, so this flash IS the refusal — and a bare noun
+//      ('road') never said it was a refusal at all. Each line now carries the
+//      REASON, and the reason is the mechanic: paved and built ground has no
+//      earth in it, and stone has to be broken before it is anything else.
+//
+// Kept to one short sentence: this is a flash over a cell, not a paragraph.
+// The three paved codes deliberately repeat the same clause — that repetition
+// is how a player learns the rule covers every paved thing, not just the one
+// they happened to tap.
+// (WATER is carried for completeness only: `fishing` is ordered ahead of
+// `flavor` and consumes every water tap, bare-handed included, so that line
+// is unreachable in play — it exists because the non-tillable sweep in
+// interact_tap.test.js covers every code and a hole would read as a bug.)
 const TERRAIN_FLAVOR = {
-  [TERRAIN.WATER]:          'water',
-  [TERRAIN.ROAD]:           'road',
-  [TERRAIN.PATH]:           'path',
-  [TERRAIN.BUILDING]:       'building',
-  [TERRAIN.ROCK]:           'bare rock',
-  [TERRAIN.BUILDING_MED]:   'building',
-  [TERRAIN.BUILDING_LARGE]: 'building',
-  [TERRAIN.ROAD_LG]:        'highway',
-  [TERRAIN.ROAD_MD]:        'avenue',
-  [TERRAIN.COMMERCIAL]:     'plaza',
-  [TERRAIN.INDUSTRIAL]:     'industrial yard',
-  [TERRAIN.PIER]:           'pier',
-  [TERRAIN.CAVE_FLOOR]:     'cave floor',
-  [TERRAIN.CAVE_WALL]:      'cave wall',
+  [TERRAIN.WATER]:          'Open water — no ground to break.',
+  [TERRAIN.ROAD]:           'A hard-packed road. No earth to turn.',
+  [TERRAIN.PATH]:           'A well-trodden path. No earth to turn.',
+  [TERRAIN.BUILDING]:       'Someone else\'s floor.',
+  [TERRAIN.ROCK]:           'Bare rock. Nothing takes root here.',
+  [TERRAIN.BUILDING_MED]:   'Someone else\'s floor.',
+  [TERRAIN.BUILDING_LARGE]: 'A great hall\'s floor, and not yours.',
+  [TERRAIN.ROAD_LG]:        'A wide highway. No earth to turn.',
+  [TERRAIN.ROAD_MD]:        'A broad avenue, well laid.',
+  [TERRAIN.COMMERCIAL]:     'A merchants\' square, all flagstone.',
+  [TERRAIN.INDUSTRIAL]:     'A works yard — gravel and old oil.',
+  [TERRAIN.PIER]:           'Planking over deep water.',
+  [TERRAIN.CAVE_FLOOR]:     'Cave floor, worn smooth.',
+  [TERRAIN.CAVE_WALL]:      'Solid rock — a pick would open it.',
 };
+
+// ── Naming things the player can see ────────────────────────────────────────
+// Two helpers behind the till refusal and the plant flash, both here for the
+// same reason: a raw INTERNAL ID must never reach the screen (QC_RULES §4).
+// The till refusal used to read `occupied: ${blocker}` — a debug register with
+// a colon in it — and `blocker` fell through to `oo.kind` for anything the
+// three-branch ternary above it didn't name, so the game would tell a player
+// their plot was "occupied: mineralrock", or "occupied: fruittree", or (via
+// the plant flash) that they had "planted rainberry".
+//
+// cropName resolves a crop/produce id the way every loot toast already does:
+// the catalog name first, CROP_NAMES second, and only then a Title-Cased
+// version of the id, so an id that slips through still reads as English.
+function cropName(id) {
+  if (!id) return 'Something';
+  const named = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.name)
+    || (typeof CROP_NAMES !== 'undefined' && CROP_NAMES[id]);
+  if (named) return named;
+  return String(id).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// What stands in the way of a till, said in the player's words — and, where
+// there IS one, the verb that clears it. That second half is the point: the
+// old line named the obstacle and stopped, so a player who had just spent
+// energy walking to a plot was told "occupied: tree" and left to guess whether
+// that was permanent. A tree can be felled and a rock broken; a house cannot,
+// and the line says so by offering no verb at all.
+const TILL_BLOCKER_LINE = {
+  tree:        'A tree stands here — fell it first.',
+  fruittree:   'A fruit tree stands here — fell it first.',
+  mineralrock: 'A rock sits here — break it first.',
+  staircase:   'A stairway drops away here.',
+  house:       'A building stands here.',
+  tower:       'A watchtower stands here.',
+  shrine:      'A shrine stands here.',
+  trailer:     'Your own home stands here.',
+};
+function tillBlockerLine(o) {
+  if (o.kind === 'chest') {
+    const name = o.name ? rusticifyName(o.name) : null;
+    return name ? `${name} stands here.` : 'A chest sits here — open it first.';
+  }
+  return TILL_BLOCKER_LINE[o.kind] || `${cropName(o.kind)} is in the way.`;
+}
 
 // GRASSLAND-biome cell types (spec §WORLD GENERATION grouping). These till in
 // HALF the time (spec §cells: "grassland biome cells till in half the time").
@@ -1485,7 +1553,12 @@ const TAP_HANDLERS = [
       consumeSelected(save);
       ctx.dirty = true;
       scene.buildInventoryDOM();
-      scene.flash(asTree ? 'planted a tree' : `planted ${item.grows} sapling`, sx, sy);
+      // NAMES, not ids — 'planted apple sapling' read as a stray database row
+      // beside every other loot toast (QC_RULES §4). The tree branch says what
+      // it will become, since a bare 'a tree' is the one plant whose payoff is
+      // days away and needs to read as deliberate.
+      scene.flash(asTree ? '\ud83c\udf31 Planted a timber tree — four days to grow.'
+                         : `\ud83c\udf31 Planted a ${cropName(item.grows)} sapling.`, sx, sy);
       scene.questEvent?.('plant');
       return true;
     }
@@ -1496,7 +1569,10 @@ const TAP_HANDLERS = [
     consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
-    scene.flash(`planted ${item.grows}`, sx, sy);
+    // 'planted rainberry' → 'Planted Rainberry — water it.' The nudge is the
+    // point: a seed does nothing at all until its first watering, and this is
+    // the moment the player is looking at the cell.
+    scene.flash(`\ud83c\udf31 Planted ${cropName(item.grows)} — water it.`, sx, sy);
     scene.questEvent?.('plant');
     return true;
   }},
@@ -1507,31 +1583,25 @@ const TAP_HANDLERS = [
     const cellHalfM = scene.cellM / 2;
     const pickedAll = new Set(save.picked || []);
     let blocker = null;
-    if (scene.placedRockSet.has(cellKey)) blocker = 'rock';
+    if (scene.placedRockSet.has(cellKey)) blocker = 'Your own stone fence sits here.';
     if (!blocker) {
       const pp = save.planted.find(p => inPlantedCell(p, cwmx, cwmy, cellHalfM));
-      if (pp) blocker = pp.crop || 'crop';
+      if (pp) blocker = `${cropName(pp.crop)} is already growing here.`;
     }
     if (!blocker) {
       const openedSet = new Set(save.opened || []);
       for (const e of WorldGen.tileCache.values()) {
         const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
-        if (wp) { blocker = wp.crop || 'plant'; break; }
+        if (wp) { blocker = `${cropName(wp.crop)} grows here — pick it first.`; break; }
         const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
           !(o.kind === 'chest' && openedSet.has(o.id)) &&
           !(o.kind === 'tree' && (o.chopped || choppedSet.has(o.id))) &&
           Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
-        if (oo) {
-          blocker = oo.kind === 'house' ? 'house' :
-                    oo.kind === 'tree'  ? 'tree'  :
-                    oo.kind === 'chest' ? (oo.name ? rusticifyName(oo.name) : 'chest') :
-                    oo.kind;
-          break;
-        }
+        if (oo) { blocker = tillBlockerLine(oo); break; }
       }
     }
-    if (blocker) { scene.flash(`occupied: ${blocker}`, sx, sy); return true; }
+    if (blocker) { scene.flash(blocker, sx, sy); return true; }
     // Hoe relic discounts (and sometimes zeroes out) the till cost.
     const tillCost = effectiveTillCost(save.relics);
     if (!scene.spendEnergy(tillCost, sx, sy)) return true;

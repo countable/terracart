@@ -137,20 +137,41 @@ test('TERRAIN_FLAVOR: every non-tillable terrain code has a real label', () => {
   }
 });
 
-test('TERRAIN_FLAVOR: commercial / industrial cells name themselves', () => {
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.COMMERCIAL], 'plaza', 'commercial label');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.INDUSTRIAL], 'industrial yard', 'industrial label');
+// The labels used to be bare municipal nouns — 'plaza', 'industrial yard',
+// 'highway' — in a game that rusticifies every other proper noun on the map,
+// and they never said the tap had been REFUSED. These pin the two rules the
+// rewrite put in their place rather than fourteen literal strings, so the
+// copy can be reworded without a test edit but cannot slide back into a
+// register that reads like a debug label.
+
+test('TERRAIN_FLAVOR: every label is a written line, not a database noun', () => {
+  for (const code of NON_TILLABLE_CODES) {
+    const label = TERRAIN_FLAVOR[code];
+    assert.truthy(/^[A-Z]/.test(label), `terrain ${code} starts as a sentence: ${label}`);
+    assert.truthy(/[.!]$/.test(label), `terrain ${code} is punctuated: ${label}`);
+    assert.falsy(/[_:]/.test(label), `terrain ${code} carries no id or debug colon: ${label}`);
+    assert.gt(label.length, 12, `terrain ${code} says more than a noun: ${label}`);
+    assert.lt(label.length, 60, `terrain ${code} still fits a flash: ${label}`);
+  }
 });
 
-test('TERRAIN_FLAVOR: the pinned road / water / building labels are unchanged', () => {
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.WATER],          'water',    'water');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.ROAD],           'road',     'road');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.PATH],           'path',     'path');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.ROAD_LG],        'highway',  'highway');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.ROAD_MD],        'avenue',   'avenue');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.BUILDING],       'building', 'building');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.BUILDING_MED],   'building', 'building (med)');
-  assert.eq(TERRAIN_FLAVOR[TERRAIN.BUILDING_LARGE], 'building', 'building (large)');
+test('TERRAIN_FLAVOR: paved and built ground says WHY the hoe refused it', () => {
+  // `flavor` is ordered ahead of `till` (see the ordering test above), so this
+  // flash IS the refusal — and the commonest untillable cells a player taps
+  // are the paved ones. Each has to carry the reason, or the tap reads as the
+  // game ignoring it.
+  for (const code of [TERRAIN.ROAD, TERRAIN.PATH, TERRAIN.ROAD_LG]) {
+    assert.truthy(/no earth to turn/i.test(TERRAIN_FLAVOR[code]),
+      `paved terrain ${code} names the reason: ${TERRAIN_FLAVOR[code]}`);
+  }
+  assert.truthy(/root/i.test(TERRAIN_FLAVOR[TERRAIN.ROCK]), 'bare rock says nothing grows');
+  // The one untillable cell that IS workable says so, and names the tool.
+  assert.truthy(/pick/i.test(TERRAIN_FLAVOR[TERRAIN.CAVE_WALL]),
+    'a cave wall points at the pick that opens it');
+  // Every building code reads as someone else's property, not as 'building'.
+  for (const code of [TERRAIN.BUILDING, TERRAIN.BUILDING_MED, TERRAIN.BUILDING_LARGE]) {
+    assert.truthy(/floor/i.test(TERRAIN_FLAVOR[code]), `building ${code} reads as a floor`);
+  }
 });
 
 test('flavor handler: flashes the terrain label, not a dot', () => {
