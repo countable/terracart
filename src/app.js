@@ -532,6 +532,13 @@ const FOOT_DOT_R = 3 * 0.7;          // was a flat 3px circle — 30% smaller no
 const FOOT_DOT_LONG = FOOT_DOT_R * 1.15;   // semi-axis ALONG the step…
 const FOOT_DOT_ACROSS = FOOT_DOT_R * 0.8;  // …and across it: a slight oval, not a slot
 const FOOT_STANCE_HALF_ART_PX = 1.8; // half the sprite's stance, in frame px
+// How far the walker's visible FEET sit below the centre of its 32px frame, in
+// TEXTURE px — a fact about the art, like the stance above, not about the size
+// it happens to be drawn at. Measured as a 14px drop back when the sprite drew
+// at 1.35×, so 14/1.35 ≈ 10.37 px in the frame itself; kept as the division so
+// the measurement stays legible. playerFeetNudgeY multiplies it by whatever
+// playerScale is, which is what keeps the feet on the GPS fix at any scale.
+const PLAYER_FEET_DROP_PX = 14 / 1.35;
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
@@ -1978,14 +1985,23 @@ class MapScene extends Phaser.Scene {
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
     //
-    // Scale 1.033 = 1.35 × 0.9 × 0.85: the original 1.35, shrunk 10% once and
-    // a further 15% in Sep 2026 so the walker reads closer to a real person
-    // against the 7 m cells while staying clearly visible. The frame's
-    // visible feet sit 14/1.35 ≈ 10.37 texture px below its centre (measured
-    // at the original 1.35× as a 14px drop); playerFeetNudgeY below derives
-    // the on-screen drop from THIS number, so the feet stay on the fix at any
-    // scale — change the scale here and nothing else.
-    this.playerScale = 1.35 * 0.9 * 0.85;
+    // ONE TEXTURE PIXEL, ONE GAME PIXEL. The walker's 32px frame draws at 32px
+    // — a whole cell wide, which is the size it has effectively been at since
+    // Sep 2026 anyway: the scale was 1.35 × 0.9 × 0.85 = 1.033, a product of
+    // three tuning passes that landed 3% from 1 and stayed there.
+    //
+    // That 3% was not free. Every other pixel on screen is drawn at an exact
+    // multiple of a texture pixel or as geometry; the walker alone was
+    // resampled at 1.033, so its pixels came out in irregular runs — some one
+    // device pixel wider than their neighbours, and the seam wandering as the
+    // sprite moved. At 1 the character is the crisp thing in the middle of the
+    // frame rather than the soft one. The 3% of height it gives up is not a
+    // size anyone was reading.
+    //
+    // Keep it at 1 unless the ART changes. Everything derived from it below
+    // (the feet nudge, the footprint stance) is written as a multiple of the
+    // scale, so a future change stays a one-line change.
+    this.playerScale = 1;
     // Dragon Powder skin: the 96×96 dragon frames are scaled down so the red
     // dragon reads a touch larger than the human walker without dwarfing the
     // map. Applied in _applyDragonSkin.
@@ -1999,7 +2015,7 @@ class MapScene extends Phaser.Scene {
     // 2026 — sprite centred on the fix, feet 14px (3 m) south of it — which
     // put the map a body-length north of where the player stood (see
     // feetOffsetM in create()).
-    this.playerFeetNudgeY = -(14 / 1.35) * this.playerScale;
+    this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale;
     this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
       .setScale(this.playerScale)
       .setDepth(10)
