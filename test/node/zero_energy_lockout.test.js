@@ -52,7 +52,7 @@ test('lockout: the Eat button only offers the feather while the lockout actually
 
 test('lockout: the trailer instantly floors you at 25%, not a gradual trickle', () => {
   const a = app.indexOf('const atHome = this.isRestingAtHome(pWX, pWY);');
-  const b = app.indexOf('this._sweepCobbleTrails();', a);
+  const b = app.indexOf('this._sweepStreets();', a);
   assert.truthy(a > 0 && b > a, 'found the passive-rest block in update()');
   const block = app.slice(a, b);
   assert.truthy(/const locked = this\._zeroEnergyLocked\(\);/.test(block),
@@ -69,7 +69,7 @@ test('lockout: the trailer instantly floors you at 25%, not a gradual trickle', 
 
 test('lockout: a campfire is not the trailer — its rest is blocked too while locked', () => {
   const a = app.indexOf('const atHome = this.isRestingAtHome(pWX, pWY);');
-  const b = app.indexOf('this._sweepCobbleTrails();', a);
+  const b = app.indexOf('this._sweepStreets();', a);
   const block = app.slice(a, b);
   assert.truthy(/if \(!working && !locked && this\._nearAny\('fires', pWX, pWY, FIRE_REST_R\)\)/.test(block),
     'the campfire branch is gated on !locked, same as !working');
