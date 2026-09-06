@@ -88,6 +88,9 @@ const FILES = [
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
   INTERACTABLES, runInteractable, gatherLuck, gatherLuckEnabled,
+  // The lit boundary's corner rule (coords.js) — read by the plateau fill and
+  // the reach outline; reach_corners.test.js drives both through it.
+  REACH_CORNER_PX, ReachCorner,
   isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
@@ -1023,6 +1026,9 @@ ctx.RENDER_SRC = readSrc('render.js');
 // lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as
 // source text — draw() is the one Phaser-bound function in the module.
 ctx.LIGHTING_SRC = readSrc('lighting.js');
+// reach_corners.test.js pins that the lit boundary's corner radius is
+// coords.js' one number, read by both passes that draw the edge.
+ctx.COORDS_SRC = readSrc('coords.js');
 // multiplayer.js draws peers with the same feet-on-the-fix seating app.js
 // gives the local player; feet_anchor.test.js pins both as text.
 ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');

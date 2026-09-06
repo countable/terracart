@@ -232,7 +232,7 @@ const CHECKS = [
       if (start < 0) {
         throw new Error('render.js no longer routes the reach passes through a lighting layer');
       }
-      const end = src.indexOf('if (rgt) gr.lineBetween', start);
+      const end = src.indexOf('Render.reachOutlineCell(gr, sx, sy', start);
       if (end < 0) throw new Error('could not find the end of the reach block in render.js');
       const block = src.slice(start, end);
       // A bare `g.` in this block means a pass slipped back onto the terrain

@@ -18,6 +18,7 @@
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
 //   Lighting.daylight(scene, now) — 0..1 from the real sun at the player
 //   Lighting.playerCookieAlpha(t, prof) — the player ramp, sampled
+//   Lighting.plateauCellPath(ctx, sx, sy, …) — one reach cell's rounded plateau path
 //   Lighting.draw(scene)          — paint the lightmap (Phaser)
 //
 // ── The model ─────────────────────────────────────────────────────────────
@@ -79,12 +80,12 @@
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
     // house — it is the one light the player always comes back to.
-    trailer:  { radiusCells: 4.0, colour: 0xffd28a, peak: 0.85, flicker: 0 },
+    trailer:  { radiusCells: 4.0, colour: 0xffd28a, peak: 1.00, flicker: 0 },
     // A building the player has taken back: a restored wreck, an unsealed
     // fort, the turrets of a claimed castle. Keyed on the SAME test the
     // derelict wash uses (scene.isClaimedKey), so a house lights the frame its
     // wash lifts.
-    building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.70, flicker: 0 },
+    building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.84, flicker: 0 },
     // A placed campfire (burned from a coal). Breathes.
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
                 colour: 0xff9a3c, peak: 0.95, flicker: 0.18 },
@@ -457,6 +458,44 @@
     return a;
   }
 
+  // One reach cell's contribution to the plateau path, at screen px (sx, sy)
+  // with the cell's edge exposure (top/bot/lft/rgt: that neighbour is out of
+  // reach) and its diagonals' reach (dTL..dBR). The cell's outline is walked
+  // clockwise from the top edge's midpoint; an OUTER corner (ReachCorner.convex)
+  // is rounded with arcTo — the arc tangent to both edges R in from the
+  // corner — and an INNER corner (ReachCorner.fillet) gets the sliver between
+  // the corner point and that same arc, drawn in the empty cell above/below,
+  // as its own subpath. Corner geometry comes from coords.js' ReachCorner, the
+  // rule the white outline (render.js) rounds by too; with no rule loaded the
+  // cell is a plain square.
+  function plateauCellPath(ctx, sx, sy, top, bot, lft, rgt, dTL, dTR, dBL, dBR) {
+    const RC = (typeof ReachCorner !== 'undefined') ? ReachCorner : null;
+    if (!RC) { ctx.rect(sx, sy, CELL_PX, CELL_PX); return; }
+    const R = RC.R;
+    const x1 = sx + CELL_PX, y1 = sy + CELL_PX;
+    ctx.moveTo(sx + CELL_PX / 2, sy);
+    if (RC.convex(rgt, top)) ctx.arcTo(x1, sy, x1, y1, R); else ctx.lineTo(x1, sy);
+    if (RC.convex(rgt, bot)) ctx.arcTo(x1, y1, sx, y1, R); else ctx.lineTo(x1, y1);
+    if (RC.convex(lft, bot)) ctx.arcTo(sx, y1, sx, sy, R); else ctx.lineTo(sx, y1);
+    if (RC.convex(lft, top)) ctx.arcTo(sx, sy, x1, sy, R); else ctx.lineTo(sx, sy);
+    ctx.closePath();
+    if (RC.fillet(lft, top, dTL)) filletPath(ctx, sx, sy, +1, -1, R);
+    if (RC.fillet(rgt, top, dTR)) filletPath(ctx, x1, sy, -1, -1, R);
+    if (RC.fillet(lft, bot, dBL)) filletPath(ctx, sx, y1, +1, +1, R);
+    if (RC.fillet(rgt, bot, dBR)) filletPath(ctx, x1, y1, -1, +1, R);
+  }
+  // The fillet at corner point (px, py): ix runs along the owning cell's
+  // horizontal edge, iy into the empty cell. The arc is tangent to that edge
+  // R along it and to the diagonal cell's vertical edge R up/down it, so the
+  // sliver between the corner and the arc is exactly what the outline's
+  // fillet arc traces.
+  function filletPath(ctx, px, py, ix, iy, R) {
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + ix * R, py);
+    ctx.arcTo(px, py, px, py + iy * R, R);
+    ctx.closePath();
+  }
+
   // Paint this frame's lightmap: the ambient floor, the player's ramp at the
   // feet-on-the-fix point, the plateau over every reach cell, then every
   // collected light at its anchored screen position. `ax, ay` are the camera
@@ -503,7 +542,18 @@
       const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
       const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
       const half = (VIEW_CELLS - 1) / 2;
+      // The neighbour probe for the corner rounding — the same test again, so
+      // a corner is rounded by exactly the cells the loop below lights.
+      const inReach = (c, r) => {
+        const ddx = (baseCellIX + (c - half) - rp.cellIX) * scene.cellM;
+        const ddy = (baseCellIY + (r - half) - rp.cellIY) * scene.cellM;
+        return ddx * ddx + ddy * ddy <= reachM2;
+      };
       ctx.fillStyle = rgba(plateauCellColour(prof), prof.lit - prof.edge);
+      // ONE path, ONE fill: the cells abut on integer px so the union fills
+      // seamlessly, and under 'lighter' a single fill adds the plateau once
+      // (a fillet a second cell repeated would not double up either).
+      ctx.beginPath();
       for (let row = -1; row <= VIEW_CELLS; row++) {
         for (let col = -1; col <= VIEW_CELLS; col++) {
           const absIX = baseCellIX + (col - half);
@@ -514,9 +564,12 @@
           // cellScreenXY's expression (render.js), in lightmap-local px.
           const sx = Math.round(scene.viewCenterX + (col - half - fracX + 0.5) * CELL_PX - CELL_PX / 2) - ox;
           const sy = Math.round(scene.viewCenterY + (row - half - fracY + 0.5) * CELL_PX - CELL_PX / 2) - oy;
-          ctx.fillRect(sx, sy, CELL_PX, CELL_PX);
+          plateauCellPath(ctx, sx, sy,
+            !inReach(col, row - 1), !inReach(col, row + 1), !inReach(col - 1, row), !inReach(col + 1, row),
+            inReach(col - 1, row - 1), inReach(col + 1, row - 1), inReach(col - 1, row + 1), inReach(col + 1, row + 1));
         }
       }
+      ctx.fill();
     }
 
     // The lights.
@@ -542,6 +595,6 @@
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, beginFrame, consider, collectFires,
-    flickerAlpha, draw,
+    flickerAlpha, plateauCellPath, draw,
   };
 })(window);
