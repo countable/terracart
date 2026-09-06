@@ -788,14 +788,14 @@ if (typeof window !== 'undefined') {
 // purchase — and they had drifted into 'bag full' and 'Bag full', the same
 // sentence twice in two registers. A Bag relic is what fixes it, so the line
 // names the fix rather than just the wall.
-const BAG_FULL_MSG = 'No room in your bag — sell, eat, or carry a bigger one.';
+const BAG_FULL_MSG = 'Bag full — sell or eat first.';
 // The other line every player meets constantly: an action they cannot afford.
 // It was a bare lowercase fragment at three call sites — the stick, the cave
 // dig and the shared spendEnergy gate — and it named the STATE without the
 // remedy, so a player at 1⚡ was told "too tired" and left to work out that
 // energy comes back from food, from their own home, and from a campfire. Three
 // words longer, and it is the whole answer.
-const TOO_TIRED_MSG = 'Too tired — eat, or rest at home or a fire.';
+const TOO_TIRED_MSG = 'Too tired — eat or rest.';
 
 // --- Economy tuning ---
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
@@ -6887,7 +6887,7 @@ class MapScene extends Phaser.Scene {
       if (coins > 0) addMoney(save, coins);
       const name = MONSTERS[victim.kind]?.name || 'Slime';
       const elite = Combat.isElite(victim);
-      this.flash(`⚔️ ${elite ? 'Elite ' : ''}${name} defeated${coins > 0 ? `  +$${coins}` : ''}`,
+      this.flash(`⚔️ ${name}${coins > 0 ? ` +$${coins}` : ' slain'}`,
         this.viewCenterX, this.viewCenterY - 60);
       if (elite) {
         // An elite always pays past the wage: the kind's Discovery badge the
@@ -6915,7 +6915,7 @@ class MapScene extends Phaser.Scene {
       // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
       // never credit toward its base kind's.
       const qDone = Quests.onKill(save, victim.kind);
-      if (qDone) this.flash('Quest done! Return to the castle.', this.viewCenterX, this.viewCenterY - 60);
+      if (qDone) this.flash('Quest done — see the castle.', this.viewCenterX, this.viewCenterY - 60);
     }
     persistSave(save);
     // Rare shiny deer / crow — hunted fauna drop their product (meat /
@@ -9001,7 +9001,7 @@ class MapScene extends Phaser.Scene {
     // Can't descend on an empty tank — you'd just pass out down there. Climbing
     // up is always allowed (it's how you escape exhaustion).
     if (delta > 0 && (this.save.energy ?? 0) <= 0) {
-      this.flash('Too exhausted to go down — rest first.', this.viewCenterX, this.viewCenterY);
+      this.flash('Too tired to go down.', this.viewCenterX, this.viewCenterY);
       return;
     }
     this.depth = target;
@@ -9212,7 +9212,7 @@ class MapScene extends Phaser.Scene {
     if (!best) {
       // Out of decorated chests within loaded tiles — reset cycle.
       this._poiTpVisited.clear();
-      this.flash('cycle reset — press space again', this.viewCenterX, this.viewCenterY - 40);
+      this.flash('cycle reset — press space', this.viewCenterX, this.viewCenterY - 40);
       return;
     }
     this._poiTpVisited.add(bestKey);
@@ -10317,7 +10317,7 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'growth_powder' || (sel.count ?? 0) <= 0) return false;
     const n = this.advanceCropsWithin(GROWTH_POWDER_R_M);
     if (n <= 0) {
-      this.flash(`No crop to grow within ${GROWTH_POWDER_R_M}m — the powder stays in your bag.`,
+      this.flash(`No crop within ${GROWTH_POWDER_R_M}m — kept.`,
         this.viewCenterX, this.viewCenterY);
       return false;
     }
@@ -10391,7 +10391,7 @@ class MapScene extends Phaser.Scene {
       targets.push(c);
     });
     if (targets.length === 0) {
-      this.flash('No enemy in reach to freeze — the powder stays in your bag.', this.viewCenterX, this.viewCenterY);
+      this.flash('No foe in reach — powder kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     const until = Date.now() + FROST_POWDER_MS;
@@ -10416,7 +10416,7 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'sapphire' || (sel.count ?? 0) <= 0) return false;
     if ((this.save.energy ?? 0) <= 0) {
-      this.flash('Too exhausted to open a portal — rest first.', this.viewCenterX, this.viewCenterY);
+      this.flash('Too tired to open a portal.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     // Synthetic "stair" at the player's own world cell. changeDepth GPS-mirrors
@@ -10453,11 +10453,11 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'rope' || (sel.count ?? 0) <= 0) return false;
     const target = (this.depth || 0) + delta;
     if (target < 0) {
-      this.flash('Nowhere to climb — you are on the surface.', this.viewCenterX, this.viewCenterY);
+      this.flash('Nowhere to climb up here.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     if (delta > 0 && (this.save.energy ?? 0) <= 0) {
-      this.flash('Too exhausted to climb down — rest first.', this.viewCenterX, this.viewCenterY);
+      this.flash('Too tired to climb down.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     // Synthetic "stair" at the player's own world cell, as the portal does:
@@ -10952,7 +10952,7 @@ class MapScene extends Phaser.Scene {
       // say what home is FOR. Selling is home-only — the single most
       // easily-missed rule in the economy — and this tap was answering it
       // with a stock phrase and nothing else.
-      if (!hasSel) { this.flash('Home sweet home. Pick a stack to sell it here.', sx, sy); return; }
+      if (!hasSel) { this.flash('Home. Pick a stack to sell.', sx, sy); return; }
       // noSell items (the Discovery badge) never enter the sell modal — the
       // wizard tower is the only place they're worth anything.
       if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
@@ -11147,7 +11147,7 @@ class MapScene extends Phaser.Scene {
       // the anvil wakes when this house's bucket rolls over. Without it this
       // was the one shop message that named no wait at all, and a player could
       // only find out by tapping again.
-      this.flash(`"Anvil's resting, friend. Try again ${this.shopWaitLabel(house)}."`, sx, sy);
+      this.flash(`Anvil's resting — back ${this.shopWaitLabel(house)}.`, sx, sy);
       return;
     }
     // Traders are barter-only with their own seeded offer (qty scales to a
@@ -11207,7 +11207,7 @@ class MapScene extends Phaser.Scene {
     // above). buildShopOffer always returns a cash offer.
     const offer = this.buildShopOffer(id, baseValue, { house });
     if (!offer) {
-      this.flash(`"Nothing worth selling today. Come back ${this.shopWaitLabel(house)}."`, sx, sy);
+      this.flash(`No stock today. Back ${this.shopWaitLabel(house)}.`, sx, sy);
       return;
     }
     // Cash purchases hand over exactly ONE unit — the ×2 TRADE_OFFER_QTY
@@ -11962,7 +11962,7 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, wanted[0]);
-        if (firstHere) this.flash('🔆 +1 Discovery — first delivery here', sx, sy - 24);
+        if (firstHere) this.flash('🔆 +1 Discovery — new house', sx, sy - 24);
       },
     });
   }
@@ -12050,7 +12050,7 @@ class MapScene extends Phaser.Scene {
       label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
       disabled: (this.save.money ?? 0) < rerollCost,
       onClick: () => {
-        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Coin purse won't stretch — need $${rerollCost}.`, sx, sy); return; }
+        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need $${rerollCost}.`, sx, sy); return; }
         if (curState) curState.rerolls += 1;
         const next = this.peekOrBuildRelicOffer(house);
         if (!next) { this.flash(emptyMsg, sx, sy); return; }
@@ -12090,7 +12090,7 @@ class MapScene extends Phaser.Scene {
           ? (this.save.relics?.[offer.slot]?.tier ?? 0)
           : (this.save.armor?.[offer.slot]?.tier ?? 0);
         if (offer.tier <= curTier) { this.flash('Already carry a finer one.', sx, sy); return; }
-        if ((this.save.money ?? 0) < price) { this.flash(`Coin purse won't stretch — need $${price}.`, sx, sy); return; }
+        if ((this.save.money ?? 0) < price) { this.flash(`Purse too light — need $${price}.`, sx, sy); return; }
         addMoney(this.save, -price);
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
@@ -12342,7 +12342,7 @@ class MapScene extends Phaser.Scene {
     const cost = this.WIZARD_UPGRADE_COST;
     const rung = this.wizardNextRung();
     if (!rung) {
-      this.flash('The wizard nods — he has taught you all he knows.', sx, sy);
+      this.flash('The wizard has nothing left.', sx, sy);
       return;
     }
     const next = rung.have + 1;
@@ -12454,7 +12454,7 @@ class MapScene extends Phaser.Scene {
 
   presentTraderOffer(sx, sy, house, recordDeal) {
     const offer = this.peekOrBuildTraderOffer(house);
-    if (!offer) { this.flash(`"No trade in me today. Come back ${this.shopWaitLabel(house)}."`, sx, sy); return; }
+    if (!offer) { this.flash(`No trade today. Back ${this.shopWaitLabel(house)}.`, sx, sy); return; }
     const giveItem = ITEM_BY_ID[offer.giveId];
     const askItem  = ITEM_BY_ID[offer.askId];
     const heldCount = () => Inventory.count(this.save, offer.askId);
@@ -12494,7 +12494,7 @@ class MapScene extends Phaser.Scene {
         label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
         disabled: (this.save.money ?? 0) < rerollCost,
         onClick: () => {
-          if ((this.save.money ?? 0) < rerollCost) { this.flash(`Coin purse won't stretch — need $${rerollCost}.`, sx, sy); return; }
+          if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need $${rerollCost}.`, sx, sy); return; }
           curState.rerolls += 1;
           addMoney(this.save, -rerollCost);
           persistSave(this.save);
@@ -13254,7 +13254,7 @@ class MapScene extends Phaser.Scene {
     if (this._castleServiceUsedToday(house)) {
       // The favour is one per UTC day (_dayKey === Delivery.dayKey),
       // so the castellan names the wait rather than saying "tomorrow".
-      this.flash(`Thank you for visiting us, my lord. Come back in ${shortDuration(msToNextUtcDay())}.`,
+      this.flash(`My lord! Come back in ${shortDuration(msToNextUtcDay())}.`,
                  sx, sy);
       return;
     }
@@ -13319,7 +13319,7 @@ class MapScene extends Phaser.Scene {
         this.buildInventoryDOM();
         this.flashLoot(`🪙 +$${finished.reward}`, '#ffe066');
         if (claimed) {
-          this.flash('The castle is yours — its vault is open.',
+          this.flash('The castle vault is yours.',
             this.viewCenterX, this.viewCenterY - 60);
         }
       },
@@ -13384,7 +13384,7 @@ class MapScene extends Phaser.Scene {
     // blacksmithRecipe — keeps every other smithy on the original ladder.
     const recipe = opts.recipe || this.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
     if (!recipe) {
-      this.flash(`"Anvil's resting, friend. Try again ${this.shopWaitLabel(house)}."`, sx, sy);
+      this.flash(`Anvil's resting — back ${this.shopWaitLabel(house)}.`, sx, sy);
       return;
     }
     const name = gearName(offer.kind, offer.slot, offer.tier);

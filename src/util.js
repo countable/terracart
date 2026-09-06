@@ -128,6 +128,23 @@ function makeRng32(seed) {
 // Spawn rates per category. Tuned per the design: flora + trees 1%, animals
 // and monsters 5%.
 const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05 };
+// ── How long a message on the MAP may be ────────────────────────────────────
+// A flash is a toast drawn over the world, on a phone, usually while the
+// player is mid-action and looking at the cell they just tapped — not a
+// dialog they have chosen to read. Past about thirty characters it stops
+// being a glance and starts covering the thing it is describing.
+//
+// So: THIRTY CHARACTERS, and the budget is the whole rendered line including
+// any name or number interpolated into it. That is a real constraint on what
+// a flash can say, and the answer when a line does not fit is to cut the
+// sentence down — not to wrap it. Anything that genuinely needs more room is
+// a MODAL (showMessageModal / showOfferModal), where the player has stopped
+// to read: the consumable dialogs run to two clauses for exactly that reason.
+//
+// Enforced by test/node/copy_voice.test.js, which measures the static flash
+// literals, the terrain table and the till refusals against this number.
+const MAP_MSG_MAX = 30;
+
 // Deterministic [0,1) hash off a stable id string (FNV-1a). Returns the SAME
 // value for the same id every time, so a flora/tree's shiny status survives
 // reloads + tile re-rasterise WITHOUT storing anything on the object or save.

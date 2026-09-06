@@ -527,7 +527,7 @@ const INTERACTABLES = {
         const done = Quests.onPoiVisit(save, 'well');
         if (done) {
           ctx.dirty = true;
-          scene.flash('Quest done! Return to the castle.', scene.viewCenterX, scene.viewCenterY - 60);
+          scene.flash('Quest done — see the castle.', scene.viewCenterX, scene.viewCenterY - 60);
           return true;
         }
       }

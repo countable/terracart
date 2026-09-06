@@ -96,7 +96,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   // the reach outline; reach_corners.test.js drives both through it.
   REACH_CORNER_PX, ReachCorner,
   isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
-  ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
+  ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
   plantedTreeStage, PLANTED_TREE_GROW_MS, acornDropChance, ACORN_P_BASE, ACORN_P_FROST,

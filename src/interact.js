@@ -238,20 +238,20 @@ const TERRAIN = {
 // is unreachable in play — it exists because the non-tillable sweep in
 // interact_tap.test.js covers every code and a hole would read as a bug.)
 const TERRAIN_FLAVOR = {
-  [TERRAIN.WATER]:          'Open water — no ground to break.',
-  [TERRAIN.ROAD]:           'A hard-packed road. No earth to turn.',
-  [TERRAIN.PATH]:           'A well-trodden path. No earth to turn.',
+  [TERRAIN.WATER]:          'Open water. Nothing to till.',
+  [TERRAIN.ROAD]:           'Hard road. No earth to turn.',
+  [TERRAIN.PATH]:           'A path. No earth to turn.',
   [TERRAIN.BUILDING]:       'Someone else\'s floor.',
-  [TERRAIN.ROCK]:           'Bare rock. Nothing takes root here.',
+  [TERRAIN.ROCK]:           'Bare rock. Nothing roots here.',
   [TERRAIN.BUILDING_MED]:   'Someone else\'s floor.',
-  [TERRAIN.BUILDING_LARGE]: 'A great hall\'s floor, and not yours.',
-  [TERRAIN.ROAD_LG]:        'A wide highway. No earth to turn.',
+  [TERRAIN.BUILDING_LARGE]: 'A great hall\'s floor.',
+  [TERRAIN.ROAD_LG]:        'A highway. No earth to turn.',
   [TERRAIN.ROAD_MD]:        'A broad avenue, well laid.',
-  [TERRAIN.COMMERCIAL]:     'A merchants\' square, all flagstone.',
-  [TERRAIN.INDUSTRIAL]:     'A works yard — gravel and old oil.',
+  [TERRAIN.COMMERCIAL]:     'Flagstoned merchants\' square.',
+  [TERRAIN.INDUSTRIAL]:     'A works yard. Gravel and oil.',
   [TERRAIN.PIER]:           'Planking over deep water.',
   [TERRAIN.CAVE_FLOOR]:     'Cave floor, worn smooth.',
-  [TERRAIN.CAVE_WALL]:      'Solid rock — a pick would open it.',
+  [TERRAIN.CAVE_WALL]:      'Solid rock. A pick opens it.',
 };
 
 // ── Naming things the player can see ────────────────────────────────────────
@@ -281,9 +281,9 @@ function cropName(id) {
 // that was permanent. A tree can be felled and a rock broken; a house cannot,
 // and the line says so by offering no verb at all.
 const TILL_BLOCKER_LINE = {
-  tree:        'A tree stands here — fell it first.',
-  fruittree:   'A fruit tree stands here — fell it first.',
-  mineralrock: 'A rock sits here — break it first.',
+  tree:        'A tree — fell it first.',
+  fruittree:   'A fruit tree — fell it.',
+  mineralrock: 'A rock — break it first.',
   staircase:   'A stairway drops away here.',
   house:       'A building stands here.',
   tower:       'A watchtower stands here.',
@@ -291,10 +291,10 @@ const TILL_BLOCKER_LINE = {
   trailer:     'Your own home stands here.',
 };
 function tillBlockerLine(o) {
-  if (o.kind === 'chest') {
-    const name = o.name ? rusticifyName(o.name) : null;
-    return name ? `${name} stands here.` : 'A chest sits here — open it first.';
-  }
+  // NOT the chest's name: a POI name is arbitrary OSM text ('Saint Someone
+  // Memorial Library and Reading Room'), and a line with a thirty-character
+  // budget cannot interpolate something unbounded. The kind says enough.
+  if (o.kind === 'chest') return 'A chest — open it first.';
   return TILL_BLOCKER_LINE[o.kind] || `${cropName(o.kind)} is in the way.`;
 }
 
@@ -353,7 +353,7 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     addMoney(save, reward.amount);
     const label = (typeof gearName === 'function')
       ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
-    scene.flashLoot(`${mark} → ${label} (already better) $${reward.amount}`, '#aaa', 1.2);
+    scene.flashLoot(`${mark} Already better — $${reward.amount}`, '#aaa', 1.2);
   } else if (reward.kind === 'item') {
     // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
     if (isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
@@ -1117,7 +1117,7 @@ const TAP_HANDLERS = [
     // non-flock animal) still release one at a time.
     const flockSize = baseKind === 'chicken' ? 4 : 1;
     if ((sel.count ?? 0) < flockSize) {
-      scene.flash(`Need ${flockSize} ${item.name || item.id}s for a flock.`, sx, sy);
+      scene.flash(`Need ${flockSize}× ${item.name || item.id}.`, sx, sy);
       return true;
     }
     const tx = Math.floor(cwmx / scene.tileEdgeM);
@@ -1501,7 +1501,7 @@ const TAP_HANDLERS = [
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!item || (item.kind !== 'seed' && item.kind !== 'sapling')) {
-      scene.flash('Select a seed from your bag first.', sx, sy);
+      scene.flash('Pick a seed from your bag.', sx, sy);
       return true;
     }
     if ((sel.count ?? 0) <= 0) {
@@ -1557,8 +1557,8 @@ const TAP_HANDLERS = [
       // beside every other loot toast (QC_RULES §4). The tree branch says what
       // it will become, since a bare 'a tree' is the one plant whose payoff is
       // days away and needs to read as deliberate.
-      scene.flash(asTree ? '\ud83c\udf31 Planted a timber tree — four days to grow.'
-                         : `\ud83c\udf31 Planted a ${cropName(item.grows)} sapling.`, sx, sy);
+      scene.flash(asTree ? '\ud83c\udf31 Timber tree planted — 4d.'
+                         : `\ud83c\udf31 ${cropName(item.grows)} sapling planted.`, sx, sy);
       scene.questEvent?.('plant');
       return true;
     }
@@ -1572,7 +1572,7 @@ const TAP_HANDLERS = [
     // 'planted rainberry' → 'Planted Rainberry — water it.' The nudge is the
     // point: a seed does nothing at all until its first watering, and this is
     // the moment the player is looking at the cell.
-    scene.flash(`\ud83c\udf31 Planted ${cropName(item.grows)} — water it.`, sx, sy);
+    scene.flash(`\ud83c\udf31 ${cropName(item.grows)} — water it.`, sx, sy);
     scene.questEvent?.('plant');
     return true;
   }},
@@ -1583,16 +1583,16 @@ const TAP_HANDLERS = [
     const cellHalfM = scene.cellM / 2;
     const pickedAll = new Set(save.picked || []);
     let blocker = null;
-    if (scene.placedRockSet.has(cellKey)) blocker = 'Your own stone fence sits here.';
+    if (scene.placedRockSet.has(cellKey)) blocker = 'Your own stone fence.';
     if (!blocker) {
       const pp = save.planted.find(p => inPlantedCell(p, cwmx, cwmy, cellHalfM));
-      if (pp) blocker = `${cropName(pp.crop)} is already growing here.`;
+      if (pp) blocker = `${cropName(pp.crop)} grows here.`;
     }
     if (!blocker) {
       const openedSet = new Set(save.opened || []);
       for (const e of WorldGen.tileCache.values()) {
         const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
-        if (wp) { blocker = `${cropName(wp.crop)} grows here — pick it first.`; break; }
+        if (wp) { blocker = `Pick the ${cropName(wp.crop)} first.`; break; }
         const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
           !(o.kind === 'chest' && openedSet.has(o.id)) &&
