@@ -339,6 +339,13 @@
   // below share this one Set.
   const LARGE_ROAD_CLASSES = new Set(['motorway', 'trunk', 'primary']);
   // Walkable, non-vehicle way classes — footways, tracks, steps and the like.
+  // THE COBBLE SET: the terrain codes that draw a stone and light when walked
+  // (footpath plus the three vehicle-road tiers — a street is a trail too).
+  // Exported, because app.js asks the GRID whether a cell is a stone now that
+  // per-path naming is gone.
+  const COBBLE_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH]);
+  const isCobbleTerrain = (t) => COBBLE_TYPES.has(t);
+
   // Shared with road_overlay.js (WorldGen.PATH_CLASSES) so the geometry
   // overlay draws exactly the classes the terrain classifier calls T.PATH.
   const PATH_CLASSES = new Set(['path', 'footway', 'track', 'pedestrian', 'cycleway', 'steps']);
@@ -781,10 +788,9 @@
   // and render.js needs no rule of its own.
   //
   // Counted in COBBLE CELLS — 15 of them is about 105 m of walking. render.js
-  // then thins what it DRAWS to one pebble per COBBLE_SPACING_M; that is
-  // decoration on top of this, not a second opinion about where the path is.
-  // Distinct from Trail.MIN_TRAIL_CELLS, which is the floor on PAYING for a
-  // walk; this one is the floor on the path existing at all.
+  // then thins what it DRAWS to one pebble per COBBLE_SPACING_M, and only a
+  // drawn pebble is a stone the player can walk for a prize; this is the floor
+  // on the path EXISTING at all, underneath both.
   const MIN_PATH_RUN_CELLS = 15;
 
   // Post-pass: dissolve every 4-connected run of PATH cells shorter than
@@ -3204,23 +3210,20 @@
     // Angles are normalized to (-90°, 90°] so a label never renders upside
     // down regardless of the way's digitized direction.
     // Stored as { "ix_iy": { text, angle } } — anchor cells only, vehicle road
-    // tiers only (PATH pebbles are too small to carry a label; named paths
-    // keep their identity via pathNames below).
+    // tiers only (PATH pebbles are too small to carry a label).
+    //
+    // This loop used to do double duty: it also recorded a street NAME on every
+    // cobble cell it marched over (pathNames), which a wavefront pass then
+    // spread to the rest of the tile's cobbles so app.js could run a separate
+    // prize counter per named way. The cobble ladder is one global count now
+    // (src/trail.js), so nothing asks which way a stone belongs to and the
+    // whole naming apparatus is gone. A stone is a cobble cell — the grid
+    // already says so, via isCobbleTerrain.
     const roadLabels = {};
     const LABEL_PERIOD = 12;   // cells between label repeats (~84 m)
     const LABEL_OFFSET = 2;    // first label a couple of cells in from the line start
-    // pathNames[`${ix}_${iy}`] = full street name, recorded for every COBBLE
-    // cell — footpath (terrain 8) AND the three vehicle-road tiers alike.
-    // Drives the cobble-trail feature in app.js: walking lights every named
-    // cobble inside the player's reach, and each Trail.SEGMENT_CELLS lit
-    // stones of one name — about 200 m of walking — pays a treasure
-    // (src/trail.js). Roads carry it too now, so a street is
-    // walkable for prizes exactly like a trail is. We deliberately store the
-    // FULL name (not just the first word the road-label loop uses) so two
-    // ways sharing a first word still count as distinct.
-    const pathNames = {};
     const tnLayer = layersByName['transportation_name'];
-    const ROAD_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH]);
+    const ROAD_TYPES = COBBLE_TYPES;
     const LABEL_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG]);
     if (tnLayer) {
       for (const f of tnLayer.features) {
@@ -3261,11 +3264,6 @@
                     LABEL_TYPES.has(grid[iy * w + ix])) {
                   roadLabels[key] = { text: firstWord, angle: ang };
                 }
-                // Every cobble cell the centreline touches records the full
-                // street name so app.js can group stones by named way for the
-                // activation / prize loop. The `if` above already limited us
-                // to ROAD_TYPES, which is exactly the cobble set.
-                pathNames[key] = name;
                 cellStep++;
                 lastKey = key;
               }
@@ -3279,94 +3277,6 @@
         }
       }
     }
-    // Give EVERY cobble cell — footpath and road alike — a name, so a walk
-    // down either lights the same counter. The centreline march above only
-    // names cells lying exactly on the transportation_name polyline, so wide
-    // ways had bare cells and unnamed ones had none at all; those cells were
-    // unclaimable (no blue, no count).
-    //
-    // Naming is a WAVEFRONT, not a plain flood fill: a flood fill over the
-    // cobble mask would swallow a whole tile's road network into ONE component
-    // (every street touches every other at a junction), so "MAIN ST" and
-    // "OAK AVE" would merge into a single 400-cell blob with one name. Instead
-    // every cell the march named seeds a multi-source BFS, and an unnamed
-    // cobble cell joins whichever named way reaches it first — the nearest
-    // one along the cobbles. Cells in a component that caught no OSM name at
-    // all fall through to the synthetic pass after it (so two unnamed trails
-    // in one tile stay distinct in save.pathStones).
-    //
-    // Both passes are 8-connected: thin (r=0) ways are stamped by Bresenham,
-    // whose diagonal steps leave consecutive cells touching only at a corner.
-    // A 4-connected walk would shatter such a staircase footpath into many
-    // 1-cell components, so a 12-cell diagonal trail would never reach a prize.
-    {
-      const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1],
-                   [1, 1], [1, -1], [-1, 1], [-1, -1]];
-      const isCobble = (idx) => ROAD_TYPES.has(grid[idx]);
-      const names = [];                 // component id → name
-      const idOfName = new Map();       // name → component id (one per tile)
-      const owner = new Int32Array(w * h).fill(-1);
-      const idFor = (nm) => {
-        let id = idOfName.get(nm);
-        if (id == null) { id = names.length; names.push(nm); idOfName.set(nm, id); }
-        return id;
-      };
-      // Seeds: the cells the centreline march named.
-      const queue = [];
-      for (const key in pathNames) {
-        const us = key.indexOf('_');
-        const cx = +key.slice(0, us), cy = +key.slice(us + 1);
-        if (!(cx >= 0 && cy >= 0 && cx < w && cy < h)) continue;
-        const idx = cy * w + cx;
-        if (owner[idx] >= 0 || !isCobble(idx)) continue;
-        owner[idx] = idFor(pathNames[key]);
-        queue.push(idx);
-      }
-      // Wavefront out from them. FIFO (read index, never shift) so the spread
-      // is breadth-first — nearest named way wins a contested cell.
-      for (let qi = 0; qi < queue.length; qi++) {
-        const idx = queue[qi];
-        const cx = idx % w, cy = (idx - cx) / w;
-        for (const [ddx, ddy] of NB8) {
-          const nx = cx + ddx, ny = cy + ddy;
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          const ni = ny * w + nx;
-          if (owner[ni] >= 0 || !isCobble(ni)) continue;
-          owner[ni] = owner[idx];
-          queue.push(ni);
-        }
-      }
-      // Anything the wavefront never reached belongs to a component with no
-      // OSM name anywhere in it. Flood each into its own synthetic trail.
-      // 'trail#' prefixed so app.js can show a generic title instead of the id.
-      let synthSeq = 0;
-      const stack = [];
-      for (let s = 0; s < w * h; s++) {
-        if (owner[s] >= 0 || !isCobble(s)) continue;
-        const id = idFor(`trail#${tx}_${ty}_${synthSeq++}`);
-        owner[s] = id;
-        stack.length = 0;
-        stack.push(s);
-        while (stack.length) {
-          const idx = stack.pop();
-          const cx = idx % w, cy = (idx - cx) / w;
-          for (const [ddx, ddy] of NB8) {
-            const nx = cx + ddx, ny = cy + ddy;
-            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-            const ni = ny * w + nx;
-            if (owner[ni] >= 0 || !isCobble(ni)) continue;
-            owner[ni] = id;
-            stack.push(ni);
-          }
-        }
-      }
-      for (let s = 0; s < w * h; s++) {
-        if (owner[s] < 0) continue;
-        const cx = s % w, cy = (s - cx) / w;
-        pathNames[`${cx}_${cy}`] = names[owner[s]];
-      }
-    }
-    yield 'cobble trail names';
 
     // Dedup nearby same-name chests inside this tile. OSM frequently has multiple
     // POI points for one physical place (e.g. an entrance + main label + amenity).
@@ -3399,7 +3309,7 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask, buildingShapes };
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, buildingShapes };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -3541,7 +3451,7 @@
                               : MVT.decodeTile(bytes)));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathNames, pathUnder, poiPadCells, roadMask, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // Cross-tile dedup: drop any newly-spawned chest whose name matches one
@@ -3608,7 +3518,6 @@
       entry.wildplants = wildplants;
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLabels = roadLabels || {};
-      entry.pathNames   = pathNames   || {};
       entry.pathUnder   = pathUnder   || {};
       entry.layers = layers;
 
@@ -3887,7 +3796,6 @@
             grid[liy * cpe + lix] = best;
             const ck = `${lix}_${liy}`;
             if (entry.roadLabels) delete entry.roadLabels[ck];
-            if (entry.pathNames)   delete entry.pathNames[ck];
           }
         }
         // (POI chests were injected before the trees above — a chest is a
@@ -4838,7 +4746,7 @@
     const entry = {
       status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
       objects, wildplants: [], parkingTreasures: [],
-      roadLabels: {}, pathNames: {}, pathUnder: {},
+      roadLabels: {}, pathUnder: {},
     };
     cache.set(key, entry);
     const MAX_CACHED_TILES = 64;
@@ -4943,7 +4851,7 @@
     TIER_FLOOR_LARGE, TIER_FLOOR_MED, TIER_FLOOR_SMALL,
     // Path-cobble geometry — exported so the headless tests can pin that a way
     // crossing a cell measures a full cell width while a corner clip doesn't.
-    accumulateLineSpan, PATH_CROSS_MIN_CELLS, MIN_PATH_RUN_CELLS,
+    accumulateLineSpan, PATH_CROSS_MIN_CELLS, MIN_PATH_RUN_CELLS, isCobbleTerrain,
     // Cross-tile spawn dedup — exported so the headless tests can pin that a
     // tile being rebuilt in place is excluded from its own dedup index (the
     // bug that stripped every house sprite off rebuilt tiles).

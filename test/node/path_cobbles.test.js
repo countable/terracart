@@ -232,11 +232,16 @@ test('short paths: a run exactly at the floor is a path and keeps its cobbles', 
   }
 });
 
-test('short paths: a dissolved stub carries no trail name', () => {
-  // The naming pass runs after the prune, so a stub is unclaimable as well as
-  // invisible — no counter, no prize, nothing to walk.
+test('short paths: a dissolved stub is no longer a cobble at all', () => {
+  // The prune runs before anything downstream reads the grid, and the grid is
+  // what says "there is a stone here" (WorldGen.isCobbleTerrain) now that the
+  // per-path naming pass is gone — so a stub lights nothing and counts nothing.
   const e = runOf(3);
-  assert.eq(Object.keys(e.pathNames).length, 0, 'nothing named');
+  let cobbles = 0;
+  for (let i = 0; i < e.grid.length; i++) {
+    if (WorldGen.isCobbleTerrain(e.grid[i])) cobbles++;
+  }
+  assert.eq(cobbles, 0, 'no cobble cell survives');
 });
 
 test('short paths: a stub joined to a longer path survives on the run', () => {
