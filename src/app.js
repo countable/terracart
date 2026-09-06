@@ -823,6 +823,9 @@ const BUILDING_TYPES = new Set([9, 11, 12]);
 // made a home no more than a faster version of the nearest stranger's roof and
 // meant a town was one continuous rest spot. A campfire (FIRE_FULL_REST_S)
 // covers the out-in-the-wild case; going home covers the rest.
+// Both rates PAUSE while a work wheel runs (see the `working` gate in
+// update()): a job done from the doorstep costs its energy on the bar, and
+// the rest earns it back only once the wheel has cleared.
 const HOME_FULL_REST_S = 90;
 // Resting near a lit campfire (burned from a coal on bare ground) refills the
 // bar outdoors, but slowly — a full bar in 6 min (slower than any building).
@@ -5707,7 +5710,17 @@ class MapScene extends Phaser.Scene {
       // isRestingAtHome).
       const atHome = this.isRestingAtHome(pWX, pWY, indoors);
       const maxE = this.getMaxEnergy();
-      if (atHome && (this.save.energy ?? 0) < maxE) {
+      // WORKING IS NOT RESTING. A work wheel (till / chop / mine / cast / a
+      // fight) suspends both rests below. The starter trailer is dropped under
+      // the player at spawn and the starter plot is carved two cells from it,
+      // inside reach from the trailer's own cell — so a new player's first
+      // till ran with the Home rest ticking at ~1.1⚡/s under a 2.25 s wheel
+      // that had cost 2⚡, and the bar read the same number before and after
+      // ("tilling takes no energy"). The rest resumes the moment the wheel
+      // clears, so a job done from Home still costs what it costs, visibly,
+      // and the sit-down afterwards is what earns it back.
+      const working = !!this._workProgress;
+      if (atHome && !working && (this.save.energy ?? 0) < maxE) {
         this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE);
       } else {
         // Stopped resting — flush any unsplashed accumulation so the last few
@@ -5724,7 +5737,7 @@ class MapScene extends Phaser.Scene {
       // the home rest above; a fire can't sit on a building cell so the two
       // rarely overlap.
       if ((this.save.energy ?? 0) < maxE) {
-        if (this._nearAny('fires', pWX, pWY, FIRE_REST_R)) {
+        if (!working && this._nearAny('fires', pWX, pWY, FIRE_REST_R)) {
           this._accrueRestEnergy('_fireAccrueE', maxE * (dt / FIRE_FULL_REST_S), maxE);
         } else {
           this._fireAccrueE = 0;
