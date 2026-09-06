@@ -71,12 +71,14 @@
 // profile() reproduces the old wash for the white channel from the same two
 // sources the ground pass painted with — Render.reachDimAlpha / reachDimColor
 // — plus the falloff pair (FALLOFF_A, FALLOFF_P) that lived beside the rings.
-// Two deliberate departures sit on top: AMBIENT_K, which darkens the floor
-// alone for contrast, and PLAYER_OUTPUT_K, which dims the player's own ramp
-// and plateau alone (the RADIUS — the ramp's reach and the corners it just
-// lights — is untouched; only how much of the reproduced wash the player's
-// body gives back is scaled). Retune a look by changing those; another
-// factor in here breaks the correspondence test/node/lighting.test.js pins.
+// Two deliberate departures sit on top: AMBIENT_K (and its daytime partner
+// AMBIENT_K_DAY), which darken/brighten the floor alone for contrast — a
+// flat night value blended up to a sunlit one by `night`, surface only — and
+// PLAYER_OUTPUT_K, which dims the player's own ramp and plateau alone (the
+// RADIUS — the ramp's reach and the corners it just lights — is untouched;
+// only how much of the reproduced wash the player's body gives back is
+// scaled). Retune a look by changing those; another factor in here breaks
+// the correspondence test/node/lighting.test.js pins.
 (function (window) {
   'use strict';
 
@@ -220,8 +222,15 @@
   // in the world — "totally unlit areas should be darker" (Sep 2026). This
   // scales the AMBIENT only: the ramp and the plateau are untouched, so the
   // reach edge and the mid-field keep their step and only the dark gets dark.
-  // 1.0 is the old picture exactly; lower is more contrast.
+  // 1.0 is the old picture exactly; lower is more contrast. AMBIENT_K is the
+  // NIGHT value — profile() blends it toward AMBIENT_K_DAY as the sun comes
+  // up (surface only; a cave has no sun and stays on AMBIENT_K always, see
+  // the `night` derivation below), so a peek into the distance at noon reads
+  // as sunlit ground rather than the same near-black the small hours get.
+  // AMBIENT_K_DAY sits above 1.0 on purpose — noon's far field is meant to
+  // read brighter than the un-contrasted old wash, not just less-dark.
   const AMBIENT_K = 0.45;
+  const AMBIENT_K_DAY = 1.3;
 
   // The PLAYER'S OWN OUTPUT knob: how much of the reproduced-wash levels
   // (`edge`, `lit`) the player's ramp and plateau actually throw. It scales
@@ -339,7 +348,10 @@
   //   farA       what the corner landed on once the falloff rings stacked on
   //              that wash: 1 - (1-dimA)(1-FALLOFF_A)
   //   ambient    the lightmap's floor — mixToWhite(dimColour, farA), then
-  //              scaled by AMBIENT_K for contrast (the ramp is not)
+  //              scaled for contrast (the ramp is not) by a K that blends
+  //              AMBIENT_K at night up to AMBIENT_K_DAY at noon, by `night` —
+  //              surface only; a cave has no sun, so it stays on the flat
+  //              AMBIENT_K exactly as before, whatever daylight is passed in
   //   edge       the player cookie just OUTSIDE the plateau — the old wash,
   //              exactly, scaled by PLAYER_OUTPUT_K: ambient + edge/K == 1 - dimA
   //   lit        the cookie INSIDE the plateau — likewise scaled:
@@ -364,7 +376,8 @@
       dimColour = scaleColour(dimColour, 1 - (1 - NIGHT_TINT_KEEP) * night);
     }
     const farA = 1 - (1 - dimA) * (1 - FALLOFF_A);
-    const ambient = scaleColour(mixToWhite(dimColour, farA), AMBIENT_K);
+    const ambientK = depth > 0 ? AMBIENT_K : AMBIENT_K + (AMBIENT_K_DAY - AMBIENT_K) * (1 - night);
+    const ambient = scaleColour(mixToWhite(dimColour, farA), ambientK);
     const edge = (1 - dimA) * FALLOFF_A * PLAYER_OUTPUT_K;
     const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA)) * PLAYER_OUTPUT_K;
     const litColour = lowEnergy(scene) ? mixToWhite(LOW_ENERGY_TINT, LOW_ENERGY_A) : 0xffffff;
@@ -796,7 +809,7 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, PLAYER_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_K_DAY, PLAYER_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
