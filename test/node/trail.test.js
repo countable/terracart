@@ -452,7 +452,7 @@ test('trail counter: the number wears the lit stone\'s own colour', () => {
 // drifts here is a rule that drifted in the game.
 (() => {
 const { _pathStoneAt, _activatePathStone, _resetTrailSight,
-        _rebuildTrailSight, _sweepCobbleTrails } = __trailCounter;
+        _rebuildTrailSight, _sweepCobbleTrails, _blastAt } = __trailCounter;
 const T = WorldGen.T;
 const N = 51;
 // One cell, in the stub's metre frame — playerReachCell goes through
@@ -473,12 +473,13 @@ const sweepScene = (over) => Object.assign({
   playerM: { x: 25.5 * STEP_M, y: 25.5 * STEP_M },
   banked: [],
   _bankTrailStones(lit, at) { this.banked.push({ lit, at }); },
-  // The stone-chip burst (src/particles.js) the sweep fires per lit cobble —
-  // recorded, so the test can pin one puff per stone that came on.
+  // The BLAST (app.js _blastAt) the sweep fires per lit cobble: the real
+  // method, with only its particle half stubbed, so the test reads what the
+  // sweep actually threw and where.
   bursts: [],
-  _burstAtCell(kind, ix, iy) { this.bursts.push({ kind, ix, iy }); },
+  _burstAtWorld(kind, wmx, wmy, opts) { this.bursts.push({ kind, wmx, wmy, opts }); return 1; },
   _pathStoneAt, _activatePathStone, _resetTrailSight,
-  _rebuildTrailSight, _sweepCobbleTrails,
+  _rebuildTrailSight, _sweepCobbleTrails, _blastAt,
 }, over || {});
 
 // Run `fn` with the clock frozen, over a tile of solid footpath.
@@ -513,12 +514,20 @@ test('trail sight: two seconds in the bubble and the stones come on', () => {
     assert.gt(lit, 0, 'the reach really does cover some drawn stones');
     assert.eq(s.banked.length, 1, 'one bank for the whole disc, not one each');
     assert.eq(s.banked[0].lit, lit, 'and it banked exactly what lit');
-    // Two bursts per stone: the chips and the spark ring of the blast.
+    // One blast per stone: chips and the spark ring, on the stone's own cell
+    // centre, plus a transient light on the lightmap's own list.
     const chips = s.bursts.filter((b) => b.kind === 'stone');
     const sparks = s.bursts.filter((b) => b.kind === 'trailspark');
     assert.eq(chips.length, lit, 'one stone-chip burst per stone that came on');
     assert.eq(sparks.length, lit, 'and one spark ring per stone');
     assert.eq(s.bursts.length, lit * 2, 'nothing else');
+    assert.eq((s._blasts || []).length, lit, 'and one lightmap flash per stone');
+    assert.eq(s._blasts[0].radiusCells, BLAST_STONE_R_CELLS, 'a stone\'s blast is a stone\'s width');
+    // The chips and the flash go off at the SAME world point — the stone's
+    // own cell centre, in absolute metres, not the player's position.
+    assert.truthy(Number.isFinite(chips[0].wmx) && Number.isFinite(chips[0].wmy), 'in world metres');
+    assert.eq(chips[0].wmx, s._blasts[0].wmx, 'the chips and the flash share the point');
+    assert.eq(chips[0].wmy, s._blasts[0].wmy);
     // Standing there longer lights nothing more — the disc is spent.
     clock.at(PATH_STONE_DWELL_MS * 5); s._sweepCobbleTrails();
     assert.eq(litCount(s), lit, 'a spent disc stays spent');

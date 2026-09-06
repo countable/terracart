@@ -71,6 +71,15 @@ const TRAIL_PRIZE_HEADER = 'Thou hast traveled far';
 // zero (see _sweepCobbleTrails); the same reset covers the auto-walk home,
 // which is the character moving itself and never the player looking.
 const PATH_STONE_DWELL_MS = 2000;
+// A COBBLE'S BLAST (_blastAt): the flash a stone lighting throws, in cells.
+// The same 2.5 the per-cobble flash was stamped at before the blast became one
+// reusable thing, so a stone looks exactly as it did.
+const BLAST_STONE_R_CELLS = 2.5;
+// A BUILDING'S BLAST: how far past the footprint's own half-diagonal the flash
+// reaches, in cells. Two, so the light clears the roof and the street either
+// side of it — a restored house is the biggest thing the player has done all
+// session and it should read from across the block.
+const BLAST_HOUSE_PAD_CELLS = 2;
 const WALK_M_S = 1.4;
 // Auto-walk catch-up ramp (see _followStep): metres of body-to-target gap that
 // buy one extra × of walk pace. The body chases at (1 + dist / this) × walk,
@@ -9472,12 +9481,17 @@ class MapScene extends Phaser.Scene {
   // DRAW this?" goes through the projection). Gated on the viewport with a
   // cell of margin: the crop tick advances plants the player is nowhere near,
   // and a burst nobody sees still costs the pool.
-  _burstAtWorld(kind, wmx, wmy) {
+  // `opts` is handed straight to Particles.burst — ringPx (throw them off a
+  // ring of that radius rather than out of the one point), count, colour.
+  // The viewport gate grows with the ring: a building whose centre is off the
+  // edge still throws sparks off the wall that isn't.
+  _burstAtWorld(kind, wmx, wmy, opts) {
     if (typeof Particles === 'undefined' || !this.worldMetersToScreen) return 0;
     if (!this.startWorldM || !this.originPx) return 0;
     const p = this.worldMetersToScreen(wmx, wmy);
-    if (!p || !Particles.onScreen(this, p.x, p.y, CELL_PX)) return 0;
-    return Particles.burst(this, kind, p.x, p.y);
+    const margin = CELL_PX + Math.max(0, (opts && opts.ringPx) || 0);
+    if (!p || !Particles.onScreen(this, p.x, p.y, margin)) return 0;
+    return Particles.burst(this, kind, p.x, p.y, opts);
   }
 
   // At an absolute CELL (a cobble that just lit): its centre, then as above.
@@ -9486,6 +9500,100 @@ class MapScene extends Phaser.Scene {
     if (!this.startWorldM || !this.originPx) return 0;
     const c = absCellCenterMeters(this, ix, iy);
     return this._burstAtWorld(kind, c.x, c.y);
+  }
+
+  // ── THE BLAST: one restoration fanfare, at any size ────────────────────
+  // Something in the world came back — a cobble lit, a wreck pulled back into
+  // a house — and the moment is the same moment at two scales. One entry
+  // point, three parts, all of them scalable:
+  //
+  //   the LIGHT   a transient near-white flash on the lightmap
+  //               (Lighting.blast), `radiusCells` across, swelling as it
+  //               fades over its duration. It is handed WORLD METRES and the
+  //               lightmap re-anchors it every frame, so a peek drag leaves
+  //               the flash on the ground it went off on (CLAUDE.md's camera
+  //               rule) rather than sliding it with the camera.
+  //   the CHIPS   debris off the thing, in ITS material (`chips` — the stone
+  //               preset for a cobble, timber for a house; `material`
+  //               overrides the preset's colour outright).
+  //   the SPARKS  a ring of stars in the moment's own colour (`sparks`).
+  //
+  // `ringPx` is what makes the particles fit the thing: 0 (a stone) throws
+  // them out of the one point, and a building's half-extent throws them off
+  // its WALLS, with the count scaled to the ring (particles.js burstCount).
+  // `colour` is the LIGHT's, if the flash should not be the default white.
+  //
+  // Every part no-ops cleanly with no Phaser, no fx layer and no projection,
+  // so the headless harness can drive the callers.
+  _blastAt(wmx, wmy, opts) {
+    if (!Number.isFinite(wmx) || !Number.isFinite(wmy)) return 0;
+    const o = opts || {};
+    const ringPx = (o.ringPx > 0) ? o.ringPx : 0;
+    if (typeof Lighting !== 'undefined' && Lighting.blast) {
+      Lighting.blast(this, wmx, wmy, {
+        radiusCells: o.radiusCells, colour: o.colour, durationMs: o.durationMs,
+      });
+    }
+    const popts = { ringPx, colour: o.material };
+    let n = 0;
+    if (o.chips)  n += this._burstAtWorld(o.chips,  wmx, wmy, popts);
+    if (o.sparks) n += this._burstAtWorld(o.sparks, wmx, wmy, popts);
+    return n;
+  }
+
+  // Where a blast for `house` goes off and how big it is. The footprint is the
+  // building's SOURCE ring (entry.buildingShapes, keyed by the same ownerKey
+  // the house's id is minted as — the key building_overlay.js draws the
+  // polygon under), in tile-local metres, so its bounding box is the real
+  // outline rather than the sprite's cell. Failing that (a house whose tile
+  // has been evicted, or a synthetic trailer) the polygon area the object
+  // carries stands in as a square, and failing THAT one cell.
+  //
+  // Returns { x, y } absolute metres, `radiusCells` (the half-diagonal, plus
+  // BLAST_HOUSE_PAD_CELLS so the light clears the roof) and `ringPx` (the mean
+  // half-extent, in px — the wall the sparks come off).
+  _houseBlastGeometry(house) {
+    const cellM = this.cellM || 1;
+    let cx = house?.x, cy = house?.y;
+    let halfW = null, halfH = null;
+    try {
+      if (house && house.id && typeof WorldGen !== 'undefined' && WorldGen.tileCache) {
+        for (const [tkey, e] of WorldGen.tileCache) {
+          if (!e || !e.buildingShapes || !e.tileEdgeM) continue;
+          // The tile's own origin, off its cache key (`Z/tx/ty`) — never off
+          // house.x, which sits a hair the wrong side of the seam for a
+          // building whose polygon lives in the neighbouring tile.
+          const kp = String(tkey).split('/');
+          const ox = (+kp[1]) * e.tileEdgeM, oy = (+kp[2]) * e.tileEdgeM;
+          if (!Number.isFinite(ox) || !Number.isFinite(oy)) continue;
+          for (const sh of e.buildingShapes) {
+            if (!sh || sh.key !== house.id || !sh.ring || sh.ring.length < 6) continue;
+            let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+            for (let i = 0; i < sh.ring.length; i += 2) {
+              const rx = sh.ring[i], ry = sh.ring[i + 1];
+              if (rx < x0) x0 = rx;
+              if (rx > x1) x1 = rx;
+              if (ry < y0) y0 = ry;
+              if (ry > y1) y1 = ry;
+            }
+            halfW = (x1 - x0) / 2; halfH = (y1 - y0) / 2;
+            cx = ox + (x0 + x1) / 2; cy = oy + (y0 + y1) / 2;
+            break;
+          }
+          if (halfW != null) break;
+        }
+      }
+    } catch (_) { halfW = null; }
+    if (halfW == null && house && house.area > 0) {
+      halfW = halfH = Math.sqrt(house.area) / 2;     // a square of the same area
+    }
+    if (!(halfW > 0) || !(halfH > 0)) { halfW = halfH = cellM / 2; }   // one cell
+    const halfDiagCells = Math.hypot(halfW, halfH) / cellM;
+    return {
+      x: cx, y: cy,
+      radiusCells: halfDiagCells + BLAST_HOUSE_PAD_CELLS,
+      ringPx: ((halfW + halfH) / 2) * CELL_PX / cellM,
+    };
   }
 
   // Small status message, placed where the player tapped so it stays attached
@@ -12800,11 +12908,13 @@ class MapScene extends Phaser.Scene {
       const tx = Math.floor(s.ix / N), ty = Math.floor(s.iy / N);
       if (!this._activatePathStone(tx, ty, s.ix, s.iy)) continue;
       lit += 1;
-      // Stone chips off the cobble as it comes on — one puff per stone, on
-      // the stone (projected), beside render.js's scale-pop of the art — and
-      // a ring of violet sparks with it: the blast (particles.js trailspark).
-      this._burstAtCell('stone', s.ix, s.iy);
-      this._burstAtCell('trailspark', s.ix, s.iy);
+      // THE BLAST, on the stone's own cell centre (projected): the near-white
+      // flash on the lightmap, stone chips off the cobble and a ring of violet
+      // sparks — one per stone that came on, beside render.js's scale-pop of
+      // the art. The flash used to be re-offered from drawCells on every frame
+      // of the pop; it is fired once, here, by the code that lit the stone.
+      const bc = absCellCenterMeters(this, s.ix, s.iy);
+      this._blastAt(bc.x, bc.y, { radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark' });
       const dx = s.ix - p.cellIX, dy = s.iy - p.cellIY;
       const d2 = dx * dx + dy * dy;
       if (d2 < bestD2) { bestD2 = d2; at = { ix: s.ix, iy: s.iy }; }
@@ -13156,6 +13266,18 @@ class MapScene extends Phaser.Scene {
           this.save.firstMarketId = house.id;
         }
         persistSave(this.save);
+        // THE BLAST, before the card opens: the same fanfare a cobble gets,
+        // scaled to a building. The flash covers the footprint's half-diagonal
+        // (plus BLAST_HOUSE_PAD_CELLS), the timber chips and the green sparks
+        // are thrown off a RING at its half-extent so they come off the walls
+        // rather than out of the middle, and the sparks are UI_GREEN — the
+        // colour the Restored! card that follows is already set in, so the
+        // world and the card read as one event.
+        const bg = this._houseBlastGeometry(house);
+        this._blastAt(bg.x, bg.y, {
+          radiusCells: bg.radiusCells, ringPx: bg.ringPx,
+          chips: 'timber', sparks: 'buildspark',
+        });
         this.buildInventoryDOM();
         this.questEvent('restore');
         if (this.showChestRewardModal) {

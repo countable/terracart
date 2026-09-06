@@ -326,7 +326,7 @@ try {
                    '_pathStoneAt(tx, ty, ix, iy) {',
                    '_activatePathStone(tx, ty, ix, iy) {',
                    '_resetTrailSight() {', '_rebuildTrailSight(p, reachM, now) {',
-                   '_sweepCobbleTrails() {']
+                   '_sweepCobbleTrails() {', '_blastAt(wmx, wmy, opts) {']
     .map(lift).join(',\n');
   // The abs→tile-local cell conversion both stone methods share is a module
   // function of app.js; carry it across as source text too.
@@ -351,6 +351,8 @@ try {
     `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};\n` +
     `globalThis.pathStoneLocal = ${localFn[0].trim()};\n` +
     `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};\n` +
+    // The blast the sweep fires per stone that comes on (app.js _blastAt).
+    `globalThis.BLAST_STONE_R_CELLS = ${constOf('BLAST_STONE_R_CELLS')};\n` +
     // The energy pop's seating: derived from the walker's art, in the order
     // app.js declares them (the head clearance reads the two before it).
     `globalThis.PLAYER_FEET_DROP_PX = ${constOf('PLAYER_FEET_DROP_PX')};\n` +
@@ -363,7 +365,8 @@ try {
   for (const k of ['_trailCounterAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
                    '_cellAtScreen',
                    'playerScreen', '_pathStoneAt', '_activatePathStone',
-                   '_resetTrailSight', '_rebuildTrailSight', '_sweepCobbleTrails']) {
+                   '_resetTrailSight', '_rebuildTrailSight', '_sweepCobbleTrails',
+                   '_blastAt']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
       process.exit(2);
