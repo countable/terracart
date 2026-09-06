@@ -84,8 +84,19 @@
     // puff stays on its own cell rather than sprinkling the neighbours.
     stone: {
       tex: { shape: 'chip', color: C.trailLit, edge: '#5a4fb0', size: 8 },
-      count: 9, angle: [225, 315], speed: [50, 120], lifespan: [350, 600],
+      count: 12, angle: [225, 315], speed: [50, 120], lifespan: [350, 600],
       gravityY: 320, scale: [1, 0.4], alpha: [1, 0.2], rotate: [0, 180],
+    },
+    // …and the BLAST that goes with it: violet sparks with a white-hot core,
+    // thrown in a full ring off the stone with no gravity, fading and
+    // shrinking to nothing. The chips alone were a small dull puff on a
+    // stone that had only changed colour; the ring is what makes lighting a
+    // cobble read as a flash. Reaches about a cell and a half — further than
+    // the chips, which stay home, but still on the stone's own patch.
+    trailspark: {
+      tex: { shape: 'star', color: C.trailLit, core: '#ffffff', size: 12 },
+      count: 10, angle: [0, 360], speed: [70, 150], lifespan: [300, 550],
+      gravityY: 0, scale: [0.9, 0], alpha: [1, 0], rotate: [0, 360],
     },
     // A crop REACHING ITS NEXT STAGE — by the 15-minute hold, by a tap that
     // beats the tick to it, or by a watering can's jump. Leaf flecks drift UP

@@ -99,6 +99,9 @@ const BRIDGE = `;Object.assign(globalThis, {
   // SHIPPING table rather than its own copies of it.
   houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
   HomeArea,
+  // The lit cobble's halo: the pad the baker (app.js) reads and the scale the
+  // drawer (render.js) applies — cobble_glow.test.js pins them as one pair.
+  LIT_COBBLE_GLOW_PAD, LIT_COBBLE_GLOW_SCALE, LIT_COBBLE_FRAMES, litCobbleTexKey,
   itemValue, randInt, pickFromArray, isShiny,
   TRAILER_SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what

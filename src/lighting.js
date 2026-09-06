@@ -14,6 +14,8 @@
 //   Lighting.sourceKind(scene, o) — which row a world object lights as, or null
 //   Lighting.beginFrame(scene)    — empty the frame's light list
 //   Lighting.consider(scene, o, dx, dy, halfM) — offer a scanned object
+//   Lighting.beginCells(scene)     — reset the CELL lights (the lit cobbles)
+//   Lighting.considerCobble(scene, dx, dy, id, flashT) — a lit stone, from drawCells
 //   Lighting.collectFires(scene, ax, ay, halfM) — add the placed campfires
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
 //   Lighting.daylight(scene, now) — 0..1 from the real sun at the player
@@ -81,6 +83,11 @@
   // and repels slimes (app.js) — so "stand in the light" and "stand in the
   // warmth" are one rule. It is resolved at call time because app.js defines
   // it after this file loads; lighting.test.js pins the two are equal.
+  // The lit-cobble violet (util.js UI_TRAIL_LIT) as a number, with the same
+  // literal fallback particles.js carries so the module loads standalone.
+  const TRAIL_LIT = (typeof UI_TRAIL_LIT === 'string')
+    ? parseInt(UI_TRAIL_LIT.replace('#', ''), 16) : 0x9a8cff;
+
   const KINDS = {
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
@@ -118,6 +125,27 @@
     // — lighting.test.js pins the order — so a lit cave reads as "a torch
     // there, some fungus here", never two of the same lamp.
     mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.40, flicker: 0, pulse: 0.35 },
+    // A LIT COBBLE — a trail stone the player has walked past. The stone's
+    // own art is recoloured and haloed (app.js bakes it in UI_TRAIL_LIT), but
+    // that art sits under the lightmap and goes as dark as the ground after
+    // sunset; this row is what keeps a walked trail GLOWING behind the player
+    // at night and in the far field, one small violet pool per stone,
+    // breathing slowly like a POI so a long street of them shimmers rather
+    // than sits. The same constant the stone and its counter are drawn in
+    // (TRAIL_LIT below), so the glow can't drift off the stone's colour.
+    // Tiny — under a mushroom's reach — because a road can carry dozens in
+    // view, and a trail should read as a string of lights, not a floodlit
+    // strip. Collected by drawCells (considerCobble), not sourceKind: a
+    // stone is a cell, not an object.
+    cobble:   { radiusCells: 1.0, colour: TRAIL_LIT, peak: 0.45, flicker: 0, pulse: 0.30 },
+    // The BLAST as a stone comes on: a wide, near-white flash stamped over
+    // the stone for the length of render.js's scale-pop (PATH_STONE_FLASH_MS),
+    // swelling as it fades — considerCobble drives its alpha and scale off
+    // the pop's own clock, so the light and the art can't fall out of step.
+    // This is the one light that shows INSIDE the reach plateau by day: the
+    // plateau sits a few percent under white, and a peak this high tips a
+    // cell to full white for the first frames, which is the flash.
+    cobbleFlash: { radiusCells: 2.5, colour: 0xe4defc, peak: 1.0, flicker: 0 },
   };
 
   // Seconds per POI breath. Slow on purpose (see the row above).
@@ -346,6 +374,33 @@
   function beginFrame(scene) {
     if (!scene._lights) scene._lights = [];
     scene._lights.length = 0;
+  }
+
+  // The CELL lights — the lit cobbles — live on their own list, because the
+  // cell pass (drawCells) runs BEFORE the object pass (drawObjects) and
+  // beginFrame resets the object list at the top of the latter; a stone
+  // pushed onto scene._lights would be gone before draw() read it.
+  function beginCells(scene) {
+    if (!scene._cellLights) scene._cellLights = [];
+    scene._cellLights.length = 0;
+  }
+
+  // Offer one lit cobble at (dx, dy) metres from the camera anchor. `flashT`
+  // is where the stone is through its scale-pop, 0..1, or null once it has
+  // settled: while it pops, a second light — the blast — is stamped over the
+  // stone, swelling from about half its radius to its full one as it fades
+  // out, so the moment a stone comes on reads as a flash of light and not
+  // only as the art jumping. `a` and `s` are alpha / scale multipliers draw()
+  // applies on top of the row's own. Returns the number of lights kept.
+  const FLASH_SCALE_FROM = 0.45;
+  function considerCobble(scene, dx, dy, id, flashT) {
+    if (!scene._cellLights) scene._cellLights = [];
+    scene._cellLights.push({ kind: 'cobble', dx, dy, id });
+    if (flashT == null || !(flashT < 1)) return 1;
+    const t = Math.max(0, flashT);
+    scene._cellLights.push({ kind: 'cobbleFlash', dx, dy, id,
+                             a: (1 - t) * (1 - t), s: FLASH_SCALE_FROM + (1 - FLASH_SCALE_FROM) * t });
+    return 2;
   }
 
   function inRange(scene, dx, dy, kind, halfM) {
@@ -637,18 +692,23 @@
       ctx.fill();
     }
 
-    // The lights.
-    for (const L of scene._lights) {
+    // The lights: the objects' (drawObjects' scan + the fires), then the
+    // cells' (the lit cobbles, from drawCells). A light may carry its own
+    // alpha / scale multipliers (`a`, `s` — the cobble blast drives both off
+    // the pop's clock) on top of the row's flicker.
+    const stamp = (L) => {
       const row = KINDS[L.kind];
       const ck = ensureKindCookie(scene, L.kind);
-      const a = flickerAlpha(row, L.dx, L.dy, now, L.id);
-      const sc = row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1;
+      const a = flickerAlpha(row, L.dx, L.dy, now, L.id) * (L.a == null ? 1 : L.a);
+      const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
       const d = 2 * ck.R * sc;
-      ctx.globalAlpha = a;
+      ctx.globalAlpha = Math.max(0, Math.min(1, a));
       ctx.drawImage(ck.canvas,
         scene.viewCenterX + L.dx * k - ox - d / 2,
         scene.viewCenterY + L.dy * k - oy - d / 2, d, d);
-    }
+    };
+    for (const L of scene._lights) stamp(L);
+    if (scene._cellLights) for (const L of scene._cellLights) stamp(L);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     tex.refresh();
@@ -661,6 +721,7 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, beginFrame, consider, collectFires,
+    beginCells, considerCobble, TRAIL_LIT,
     flickerAlpha, plateauCellPath, draw,
   };
 })(window);

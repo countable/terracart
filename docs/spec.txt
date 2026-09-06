@@ -784,9 +784,19 @@ COBBLE TRAILS (path + road stones)
  - a lit stone draws at FULL opacity in a recoloured violet-blue (UI_TRAIL_LIT,
    baked per road/path frame, not a tint — setTint is a no-op under the Canvas
    fallback) while unlit cobbles sit at 57% grey, so a walked trail visibly
-   lights up as you go. Lighting plays a scale-pop on each stone, big enough to
-   catch out of the corner of the eye now that stones light several cells out
-   rather than one under your feet.
+   lights up as you go. AND IT GLOWS: the baked copy carries a soft violet halo
+   of the stone's own silhouette in a padded margin (render.js
+   LIT_COBBLE_GLOW_PAD; drawn LIT_COBBLE_GLOW_SCALE larger so the stone keeps
+   its cell size) and a white-hot core added over its middle, and every lit
+   stone is a small breathing light on the lightmap (Lighting.KINDS.cobble, in
+   the same violet) so the walked trail still glows behind you after dark.
+   Lighting one is a BLAST: the scale-pop on the stone (PATH_STONE_FLASH_MS),
+   a wide near-white flash on the lightmap swelling as it fades on the pop's
+   own clock (Lighting.KINDS.cobbleFlash, via considerCobble), stone chips
+   AND a ring of violet sparks off the cell (particles.js stone + trailspark)
+   — big enough to catch out of the corner of the eye now that stones light
+   several cells out rather than one under your feet. Until Sep 2026 it was
+   the recolour and the chips alone, "a dull lavender".
  - ONE LADDER FOR THE WHOLE WORLD. Every stone lit anywhere adds to a single
    running count (save.trail = { stones, prizes }); the first treasure lands at
    Trail.GOAL_STEP (10) stones, the next at 20, the next at 30, and so on. At
