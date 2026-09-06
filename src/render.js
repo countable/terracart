@@ -110,6 +110,10 @@ const POI_PAD_TINT = 0x33ccff;
 // down rather than skipped outright — still marked as a place, just a
 // smaller one.
 const POI_PAD_MINI_SCALE = 0.55;
+// Terrain codes the cobble rule needs at module scope (drawCells keeps its own
+// locals for the rest of the pass).
+const T_PATH = 8;
+const isRoadType = (t) => t === 7 || t === 13 || t === 14;
 // METRES BETWEEN PATH PEBBLES. A stone on every single 7 m path cell read as a
 // continuous paved strip rather than scattered stepping stones (and busier
 // than the dense ROAD cluster it's supposed to look sparser than), so only a
@@ -132,13 +136,28 @@ const COBBLE_SPACING_M = 20;
 // Clamped to 1..100 — a cell wider than the spacing still gets every stone.
 const pathStonePct = (cellM) =>
   Math.max(1, Math.min(100, Math.round(100 * (cellM || 0) / COBBLE_SPACING_M)));
-Render.COBBLE_SPACING_M = COBBLE_SPACING_M;
-Render.pathStonePct = pathStonePct;
 // Percent chance a ROAD cell draws its cobble cluster. Roads used to stamp a
 // cluster on every cell, which read as a continuously paved surface; at 15%
 // (an 85% cut) the clusters become occasional patches and the road band's own
 // paint carries the "this is a road" read instead.
 const ROAD_COBBLE_DENSITY_PCT = 15;
+// DOES THIS CELL DRAW A STONE AT ALL? The one rule both the draw pass and
+// app.js read: the renderer thins path pebbles to one per COBBLE_SPACING_M and
+// road clusters to ROAD_COBBLE_DENSITY_PCT, so a cobble cell is not
+// necessarily a VISIBLE cobble — and the trail counter has to land on a stone
+// the player can see, not over bare ground. Hashed off the ABS cell (distinct
+// multipliers from the noise-variant hash) so presence is stable across frames
+// and reloads and uncorrelated with the ground texture variant. Anything that
+// is neither path nor road (the PIER plank) always draws.
+const cobbleShown = (absIX, absIY, type, cellM) => {
+  const pct = type === T_PATH ? pathStonePct(cellM)
+            : isRoadType(type) ? ROAD_COBBLE_DENSITY_PCT
+            : 100;
+  return ((((absIX * 668265263) ^ (absIY * 2654435761)) >>> 0) % 100) < pct;
+};
+Render.COBBLE_SPACING_M = COBBLE_SPACING_M;
+Render.pathStonePct = pathStonePct;
+Render.cobbleShown = cobbleShown;
 // A freshly claimed cobble gets a brief scale-pop instead of silently
 // jumping to full opacity next frame, so claiming reads as an event. 450ms
 // played and decayed almost before the eye caught it, so it's slower now —
@@ -1081,10 +1100,6 @@ Render.drawCells = function drawCells(scene) {
   scene._boot_crossing = borderDirty;
   scene.borderContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   let cobbleIdx = 0;
-  // One read per pass: the pebble share this tile's cell size works out to for
-  // COBBLE_SPACING_M (see above). Hoisted so a 121-cell pass doesn't redo the
-  // division per cell.
-  const stonePct = pathStonePct(scene.cellM);
   let noiseIdx = 0;
   let letterIdx = 0;
   // (ROAD_FRAME / PATH_FRAME are module-level — see above.)
@@ -1593,31 +1608,23 @@ Render.drawCells = function drawCells(scene) {
           const ty2 = Math.floor(absCellIY / N2);
           active = scene._isPathStoneActive(tx2, ty2, absCellIX, absCellIY);
         }
-        // Sparse PATH decoration: a deterministic chunk of path cells never
-        // draw a pebble at all, claimed or not — a footpath is meant to read
-        // as scattered stepping stones roughly COBBLE_SPACING_M apart, not a
-        // continuous paved strip. This sits ON TOP of the geometric
-        // rule in worldgen: a cell is only PATH at all where the way really
-        // crosses it (pathCross), and this then thins the stones along what
-        // survives. This is PURELY decorative: claiming (walking/tapping)
-        // still tracks that cell toward the named path's completion
-        // regardless of whether it ever had a visible stone, so dropping the
-        // sprite here costs nothing gameplay-side. The roll must NOT depend
-        // on `active` — a claimed cell popping a stone into existence that
-        // wasn't there a moment ago read as a bug, not as "lighting up."
-        // Hashed off the abs cell (distinct multipliers from the
-        // noise-variant hash above) so presence is stable across
-        // frames/reloads and uncorrelated with the ground texture variant.
-        let showStone = frame != null && !isTilled;
-        if (showStone && type === PATH) {
-          const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
-          showStone = (sh % 100) < stonePct;
-        } else if (showStone && isRoad(type)) {
-          // Same stable per-cell hash trick as PATH above, gated by the road
-          // density (ROAD_COBBLE_DENSITY_PCT) — purely decorative thinning.
-          const sh = ((absCellIX * 668265263) ^ (absCellIY * 2654435761)) >>> 0;
-          showStone = (sh % 100) < ROAD_COBBLE_DENSITY_PCT;
-        }
+        // Sparse decoration: a deterministic chunk of path cells never draws a
+        // pebble at all, claimed or not — a footpath is meant to read as
+        // stepping stones roughly COBBLE_SPACING_M apart, not a continuous
+        // paved strip — and a road's clusters are thinned the same way. The
+        // rule is cobbleShown (module scope), because app.js seats the trail
+        // counter with it too.
+        //
+        // This sits ON TOP of the geometric rule in worldgen: a cell is only
+        // PATH at all where the way really crosses it (pathCross), and this
+        // then thins the stones along what survives. It is PURELY decorative:
+        // claiming still tracks that cell toward the named path's completion
+        // whether or not it ever had a visible stone, so dropping the sprite
+        // here costs nothing gameplay-side. The roll must NOT depend on
+        // `active` — a claimed cell popping a stone into existence that wasn't
+        // there a moment ago read as a bug, not as "lighting up."
+        const showStone = frame != null && !isTilled
+          && cobbleShown(absCellIX, absCellIY, type, scene.cellM);
         if (showStone) {
           // Both cobble tiles — the dense ROAD cluster and the sparse PATH
           // pebble — sit inside their cell and have been stepped down another
