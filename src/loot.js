@@ -159,11 +159,18 @@ const POI_CATEGORY = {
   florist: 'flora', garden_centre: 'flora', garden: 'flora',
   // farm: rare-weighted seed drops, any tier
   farm: 'farm',
+  // ── Places of LEARNING — the book category. Same chest tier as civic (3)
+  // and the same pad, but its own loot row: a hedge school, a loremaster's
+  // college, a scriptorium and a scrivener's shop are where the written word
+  // lives, so their chests hand out BOOKS by the shelf-load (rarity.js
+  // 'chest:school' pins the consumable roll to one). The Book is the game's
+  // documentation — see PLAY_TIPS in items.js — so it needs a place on the
+  // map a player can walk to and reliably come back with one.
+  school: 'school', college: 'school', library: 'school', books: 'school',
   // civic/educational: rare-weighted seed drops
-  school: 'civic', college: 'civic', library: 'civic',
   town_hall: 'civic', place_of_worship: 'civic',
   attraction: 'civic', museum: 'civic', memorial: 'civic',
-  books: 'civic', pet: 'civic',
+  pet: 'civic',
   // healthcare: mid-weighted seed drops
   pharmacy: 'health', hospital: 'health', dentist: 'health',
   // parks: T2-leaning seed drops (garden moved to 'flora' above)
@@ -207,7 +214,7 @@ const POI_CATEGORY = {
 // Lowtier POIs (bus stops, intersections, fuel, etc.) still skip the pad and
 // render a bare chest, as do any classes outside the pad-bearing categories.
 const PAD_CATEGORIES = new Set([
-  'food', 'commerce', 'civic', 'health', 'park', 'flora', 'farm',
+  'food', 'commerce', 'civic', 'school', 'health', 'park', 'flora', 'farm',
 ]);
 function padShapeKeyForPoi(poiClass) {
   if (!poiClass) return null;
@@ -220,7 +227,11 @@ const CHEST_TIER_BY_CATEGORY = {
   // no gem rendered. Civic / healthcare / parks / farms remain mid-high; flora is epic.
   lowtier: 1, commerce: 1, food: 1,
   park: 2,
-  health: 3, civic: 3, farm: 3,
+  // 'school' sits with civic at 3 deliberately: the learning places were
+  // civic until they split off for their book loot, and a split that also
+  // moved the tier would have quietly re-priced every school chest on the
+  // map. The only thing that differs is WHAT comes out (rarity.js).
+  health: 3, civic: 3, school: 3, farm: 3,
   flora: 4,
 };
 // Tier 1 = no gem (skipped at render). Tiers 2-5 are clearly distinct hues.

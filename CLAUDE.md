@@ -530,6 +530,44 @@
   **Audit it:** `node test/node/run.js` › `test/node/home_ward.test.js` (the
   rest ring and the resolver run for real on a stub scene; the ward is pinned
   as source text) and `test/node/lighting.test.js` for the light radius.
+- **And what NO item can say is written in the Book — truthfully, and often
+  enough to be read.** The rule above says what to take OUT of `PLAY_TIPS`; this
+  is what has to go IN. A mechanic the player cannot discover by looking at it —
+  a derived number, a gate, a side-effect, a place that behaves differently —
+  and that no single item's `✦` line can carry, is documented HERE or nowhere.
+  The Sep 2026 audit found a long list living only in the code: the first-taste
+  energy cap (`Energy.maxEnergy` reads `save.eaten.length`), the slow grind
+  (`SLOW_GRIND_MS` / `_ENERGY`), the reach the dark takes back (`reachCells`),
+  the roadside snares, the giants, the coin a kill pays (`enemyBounty`), the
+  10% monster hoard, the chest Home rings (`CHEST_TIER_HOME_RINGS_M`) and depth
+  promotion, the delivery premium (`DELIVERY_BONUS_MULT`), the three-slot quest
+  board, the stall discount, pets hunting, castle turrets. **When you add a
+  mechanic of that shape, add its tip.**
+  And the numbers in a tip are **re-derived from the module that owns them**,
+  never retyped — because retyping is exactly how the stale ones got there.
+  Five shipped at once: `HOME_FULL_REST_S` (a tip still rested you in *any*
+  building, at a rate deleted with `INDOOR_FULL_REST_S`), `Delivery`'s pin (a
+  tip "rerolled" a wishlist that never rerolls), `QUEST_SLOTS` (a tip still
+  named the hand-written chain the board replaced), the T5 chest gem, and the
+  deep ore that mines the bars a tip called "smelted, never mined".
+  Nor is the Book the only surface that lies: `COFFEE_AMULET_BOOST` has been 2
+  while `ITEM_EFFECTS.coffee` said "+1 tier", and `RELIC_DEFS.bugnet.blurb`
+  advertised "catch crows" — the one animal a net cannot take (a crow is
+  HUNTED, `interact.js` `HUNT_KINDS`). **Grep both tables for a constant before
+  you change it.**
+  **A tip nobody draws is a tip nobody has.** The Book carries `dropWeight: 3`
+  so it is the plurality of the T2 consumable pool everywhere instead of one
+  seventh of it, and the places of learning — school / college / library /
+  bookshop, their own `POI_CATEGORY` `'school'` in `loot.js` — pin it through
+  `rarity.js`'s per-context **`favourite`**, so about a THIRD of their chests
+  hand one over against under 3% anywhere else. That category is civic in every
+  other respect (tier, pad, cave mirror) on purpose: the split moved the loot,
+  not the price. Use `favourite` when a PLACE should be known for a thing; use
+  `dropWeight` when a thing should simply be commoner everywhere.
+  **Audit it:** `node test/node/run.js` › `test/node/books.test.js` re-derives
+  every number a tip quotes from the module that owns it, blacklists each stale
+  sentence by name, and measures the school chest's book rate against every
+  other chest.
 
 ## Testing
 

@@ -383,7 +383,15 @@ const ITEMS = [
   //        you (eaten, so it's consumed — hence not a flute any more).
   // Book:  reveals a play tip or a directional hint to a nearby chest.
   { id: 'honey', name: 'Honey', kind: 'consumable' },
-  { id: 'book',  name: 'Book',  kind: 'consumable' },
+  // dropWeight 3: a Book is THE documentation (see PLAY_TIPS below), so it is
+  // the one consumable that has to turn up often enough to be read. At an even
+  // draw it was one of seven T2 consumables — a sliver of an already-thin
+  // consumable share — and a player could finish a session having never met
+  // one. Three makes it the plurality of the T2 consumable pool everywhere,
+  // and school chests pin it outright on top of that (rarity.js
+  // 'chest:school'). This is the one item whose SCARCITY is a documentation
+  // bug rather than a balance choice.
+  { id: 'book',  name: 'Book',  kind: 'consumable', dropWeight: 3 },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'consumable' },
@@ -688,61 +696,113 @@ const STARTING_MONEY = 50;
 //
 // EVERY tip here is a claim about live behaviour — when a mechanic changes,
 // the tip that describes it has to change with it, or the Book starts lying
-// to the player. Cross-check against: energy.js (rest), crops.js (growth),
-// shops_math.js (deal caps), rarity.js (chest/shop tables), gear.js
-// (recipes), items.js above (foods, relics, animal foods), interact.js
-// (taming / hunting / placeables) and worldgen.js (biomes, caves).
+// to the player. Cross-check against: energy.js (rest + the first-taste cap),
+// coords.js (reach), crops.js (growth), combat.js (weapons, HP, the health
+// BAR), traps.js (the snares), quests.js (the castle board), delivery.js
+// (wishlists), shops_math.js (deal caps + stall prices), rarity.js
+// (chest/shop tables), loot.js (chest tiers, the Home demotion), gear.js
+// (recipes), interactables.js (the slow grind, mining gates), items.js above
+// (foods, relics, animal foods), interact.js (taming / hunting / placeables)
+// and worldgen.js (biomes, caves).
+//
+// THE OTHER HALF OF THE RULE: a mechanic the player cannot discover by
+// looking at it — a derived number, a gate, a side-effect, a place that
+// behaves differently — and that NO single item's description can carry,
+// belongs here. The prune above deleted the tips that were restating an
+// item; it must not become a licence to leave the rest undocumented. The Sep
+// 2026 audit found the first-taste energy cap, the slow grind, the reach the
+// dark takes back, the snares, giants, the coin a kill pays, the chest Home
+// rings, the delivery premium, the quest board and the stall discount all
+// live in the code and nowhere a player could read them. When you add a
+// mechanic of that shape, add its tip.
+//
+// And a tip nobody draws is a tip nobody has. The Book carries a dropWeight
+// (see its catalog entry above) so it is the plurality of the T2 consumable
+// pool everywhere, and the places of learning — POI_CATEGORY 'school' in
+// loot.js, pinned through rarity.js 'chest:school' — hand one over from about
+// a third of their chests. That is what makes this list worth keeping honest.
 const PLAY_TIPS = [
   // ── First-hour basics ─────────────────────────────────────
-  'Actions cost energy. Eat food to refill — or just rest; energy trickles back even while the game is closed.',
-  'Stand inside any building to rest — a full bar in five minutes. Your own home does it in ninety seconds.',
+  'Actions cost energy. Eat to refill — or just rest; an hour away from the game hands the whole bar back.',
+  'Only your OWN home rests you — a full bar in ninety seconds. A stranger\'s roof is just a roof.',
+  'Resting stops while a work wheel turns. A job done on the doorstep still costs what it costs; the sit-down afterwards is what earns it back.',
+  'Every new food you taste for the first time raises your maximum energy by one, for good.',
   'Selling is home-only. Carry your haul back to your trailer, select a stack, and tap it to cash out.',
   'Every tool works bare-handed — just slowly. A Wood relic is twice as quick, a Frost one thirty times.',
+  'A job one tier past your equipment is not refused outright: you can grind it out for 15\u26a1 and half a minute. Two tiers short is a flat no.',
+  'How far you can touch is your own light: nothing at all on an empty bar, and half a cell less for every level you descend.',
   // ── The farming loop ──────────────────────────────────────
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
+  'A ripe crop pays one to three of itself, and about one pick in four hands a seed back as well.',
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'Crows raid ripe crops but never touch potatoes.',
+  'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
   // ── Exploration / chests ──────────────────────────────────
   'Treasure X marks are buried in car parks — every parking lot hides one.',
-  'The gem above a chest is its tier. Gemless chests never hold relics; only violet ones can reach Frost.',
+  'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
+  'Chests near home are humbler: a tier down within 700m of your trailer, two within 350m. The prizes are a walk away.',
   'Every new kind of thing you discover banks a Discovery badge. Only the wizard values those.',
+  'A shiny flower or tree is worth ten times the money, and banks a Discovery badge with it.',
+  'One stone in ten gathered off the ground hides a gemfruit.',
+  'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 2 a second, so step off rather than wait it out.',
   // ── Underground ───────────────────────────────────────────
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
   'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
+  'Ore wants a pickaxe one tier under what it holds, and every tier it out-tiers yours adds 9\u26a1 to the swing.',
+  'Gems come only out of the deeper stone: sapphire from gold-bearing rock, ruby from platinum, emerald from crimson, and a diamond only from frost.',
   'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
+  'Every monster has a giant form: four times the health, met two levels below its ordinary kind.',
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
+  'A chest mirrored underground climbs a tier every two levels down, to a gold gem no surface chest ever wears.',
   // ── Shops / trade ─────────────────────────────────────────
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
+  'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
   'Addresses ending 2 or 6 are Produce Shops, stocked with crops. Endings 1 and 8 are Traders, who barter only.',
-  'Plain houses sell nothing. Each posts a daily wishlist of two or three produce and pays for the set.',
-  'Wishlists reroll every day, and every 20 deliveries houses begin asking for the next tier of crop.',
+  'Plain houses sell nothing. Each posts a wishlist of produce and pays half again what the same goods would fetch sold loose.',
+  'A household never changes its mind about what it wants — but it will take the same bundle again the next day.',
+  'Every 20 deliveries behind you, the houses you rebuild from then on start asking for the next tier of crop.',
   'Forts handle up to 5 deals per hour, plain houses just 1. Castles and towers never make you wait.',
   'Castles deal only in relics — and never run out of stock.',
+  'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
   // ── Progression gates ─────────────────────────────────────
   'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a produce shop, trader or smithy.',
   'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
   'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
   'The wizard trades 5 Discovery badges for an Inner Light — another half-cell of reach, out to 5.5.',
-  'A Ring is never sold, forged or found in a chest — the wizard is the only source.',
-  'The castle guard posts quests: cull ten slimes, find the old well, then bring a sapphire up from level 3.',
-  'Platinum, Crimson and Frost bars are smelted, never mined — a magical flower plus the bar below it.',
+  'No shop, smithy or castle vault deals in Rings. The wizard\'s Inner Light is what puts one on your hand.',
+  'The castle board always holds three jobs, and each castle offers only one of them: the next castle along has different work.',
+  'A castle job grows with the number you have already finished, and so does the purse it pays.',
+  'Platinum, Crimson and Frost bars are smelted from a magical flower and the bar below it — or prised out of the rarest deep rock, if your tools are nearly its equal.',
   'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
   // ── Reading the screen ────────────────────────────────────
   'The bar over a foe is its health, not a timer — green, then amber, then red.',
+  'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
+  // ── Fighting ──────────────────────────────────────────────
+  'Only one weapon is ever in play. Tap another in the Relics tab to make it the one that answers a foe.',
+  'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
+  'Anything hostile you put down pays coins for its trouble — about a coin per 5 hit points, and a little more for every level down.',
+  'One cave monster in ten is standing on a buried hoard.',
+  'A shiny monster underground is twice the fight and hits twice as hard — and its end always pays past the usual wage.',
+  'Castle towers fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate.',
   // ── World / map ───────────────────────────────────────────
   'A campfire rests you slowly out in the open, and slimes keep their distance.',
   'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
+  'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
+  'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
   // ── Animals ───────────────────────────────────────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
-  'Tap a tame animal to pet it. Pet a cow or chicken and its next yield has a coin-flip chance of doubling.',
+  'Tap a tame animal to pet it. Pet a cow or chicken and for ten minutes its next yield has a coin-flip chance of doubling.',
+  'Pet a tame cat and it trails after you for five minutes.',
+  'A tame cat hunts crows; a tame dog goes after deer and slimes.',
   'Chickens peck at any seed — hold one to befriend a wild chicken.',
   'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
   'Cats take milk, or any fish you land. Nothing else will win one over.',
   'Dogs only follow a hunter — hold raw meat to catch one.',
-  'A deer can be hunted bare-handed, but it is a long slog. A sword, bow or staff makes short work of it.',
+  'A deer or a crow can be brought down bare-handed, but it is a long slog. No weapon hurries a hunt — that is what the net is for.',
   'Feed any plant or crop to a chicken or cow for an egg or milk — but only once an hour from each.',
-  'A shiny animal pays ten times its plain kind, and takes twice the work to bring down.',
+  'Chasing an animal down is a chase: it bolts while the wheel turns, and if it stays out of your reach for a second it is gone.',
+  'A shiny animal pays ten times its plain kind, bolts twice as fast, and takes twice the work to bring down.',
   // ── Secret — slime taming. Rare to pull, but findable. ────
   'The old texts speak of a gem that calms even the most wretched creature. Perhaps a sapphire offered to a slime...',
 ];
@@ -757,7 +817,7 @@ const ITEM_EFFECTS = {
   // Foods with a side-effect when eaten (on top of their energy restore).
   rainberry: 'Eat to water every crop within 20m',
   pairy:     'Eat to reveal the nearest unfound chest for 5 min',
-  coffee:    'Eat for +1 amulet tier of stick-walking speed (3 min)',
+  coffee:    'Eat for +2 amulet tiers of stick-walking speed (3 min)',
   // Universal tame treat — fed to any wild creature. Cave monsters are the
   // one exception, and the line says so: it is the only place that caveat is
   // written now that the Book no longer repeats the mango's effect.
@@ -785,6 +845,10 @@ const ITEM_EFFECTS = {
   rope:          'Use to climb up or lower down one level, right here',
   torch:         'Use to make your light reach twice as far (3 min)',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
+  // A sapling's Plant button says it plants something; only this says WHAT.
+  // The acorn is the one that puts back timber rather than fruit, which is the
+  // whole reason it drops off a fell.
+  acorn:        'Plant on bare ground to grow a timber tree',
   // Materials that are also placeables — held-and-tapped, so the line has to
   // say so or nothing does (a rock in the bag looks like pure sell value).
   rock:         'Hold and tap an empty tile to drop a stone fence',
@@ -939,8 +1003,12 @@ const RELIC_DEFS = {
   bugnet:  { slot: 'bugnet', name: 'Bug Net',     icon: 'Bug net.png',     baseCost: 60,
              effectKey: 'bugCatch',  blurb: 'catch + hunt animals faster' },
   // Fishing Rod — standard 32×16 weapon sheet per tier folder.
+  // NOT a gate, the way the net stopped being one: a bare-handed cast works
+  // (interact.js 'fishing'), it just runs 9 s instead of 3 and skunks far more
+  // often. What the tier buys is the catch table and the energy per cast, so
+  // 'catch fish from water' described a permission the rod does not grant.
   rod:     { slot: 'rod',    name: 'Fishing Rod', icon: 'Fishing Rod.png', baseCost: 90,
-             effectKey: 'fishing',   blurb: 'catch fish from water' },
+             effectKey: 'fishing',   blurb: 'quicker casts, rarer fish — bare hands manage, slowly' },
   // Bags — raise the per-stack inventory cap. No bag = 9; each tier adds ~34,
   // tier 7 = 249. Icon lives under Extras (single image, tier shown via badge).
   bags:    { slot: 'bags',   name: 'Bag',         icon: 'Bags.png',        baseCost: 70,
