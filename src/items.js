@@ -769,6 +769,10 @@ const PLAY_TIPS = [
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
   'Crows raid ripe crops but never touch potatoes.',
   'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
+  // Placed with the slime it is about, and BEFORE the swing-reach page: the
+  // first thing a player does about a slime is hit it, so what a half-hearted
+  // swing turns it into is actionable the moment the pest tip above is.
+  'Strike a slime and it stops meandering: for eight seconds it comes straight at you, and a pet\'s bite provokes it just the same. Home\'s circle and a lit fire still turn it back.',
   'Swinging reaches one cell — exactly as far as a monster\'s bite. Your light reaches further, but only for work: closing in is what a fight costs.',
   'Your home turns enemies away inside its circle, and they cannot bite while they go. Strike one there and it does not merely leave — it runs clear off the screen.',
   'Every new food you taste for the first time raises your maximum energy by one, for good.',
