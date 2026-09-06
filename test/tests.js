@@ -2614,10 +2614,11 @@ test('treasure: tapping the X within reach marks it found and grants loot', (sce
   assert.truthy(scene.save.foundTreasures.includes(tr.id), 'treasure id in foundTreasures');
   const gotLoot = (scene.save.money > moneyBefore) || (scene.save.inv.length > invBefore);
   assert.truthy(gotLoot, 'either money grew or an inv stack appeared');
-  // Tapping it again: no double dip. Clear the selection first — looting an
-  // item auto-selects it, and a second tap on the player's own cell with a
-  // plantable seed selected would PLANT it (emptying the stack), which has
-  // nothing to do with the treasure no-double-dip behaviour under test here.
+  // Tapping it again: no double dip. Looting never selects the item (empty
+  // hands stay empty), but clear the selection defensively anyway — a second
+  // tap on the player's own cell with a plantable seed selected would PLANT
+  // it (emptying the stack), which has nothing to do with the treasure
+  // no-double-dip behaviour under test here.
   scene.save.selSlot = -1;
   const moneyMid = scene.save.money;
   const invMid = scene.save.inv.length;

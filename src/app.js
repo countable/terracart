@@ -1053,7 +1053,9 @@ class MapScene extends Phaser.Scene {
         // count. Starts empty: the player's first potato seeds come from a
         // starter chest on the spawn trail (see STARTER_LOOT below).
         inv: [],
-        selSlot: 0,
+        // -1 = nothing in hand. The resting state: no pickup, tab switch,
+        // spend or boot ever picks an item for the player (see inventory.js).
+        selSlot: -1,
         invPage: 0,
         // Two-bar inventory: invCat is the active type tab (see INV_CATS);
         // selGear is the highlighted relic/armor slot when a gear tab is active
@@ -12669,21 +12671,22 @@ class MapScene extends Phaser.Scene {
     return Inventory.roomFor(this.save, id);
   }
 
-  // Add up to `n` of `id` to inventory. The stack/cap/dedupe/autoselect rules
-  // live in Inventory.add (inventory.js); this wrapper owns only the scene side
+  // Add up to `n` of `id` to inventory. The stack/cap/dedupe rules live in
+  // Inventory.add (inventory.js); this wrapper owns only the scene side
   // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
   // flash. Returns the count actually accepted so callers can adjust narration.
   addToInv(id, n = 1, silent = false) {
-    const r = Inventory.add(this.save, id, n, { autoselect: !silent, pageSize: 5 });
+    const r = Inventory.add(this.save, id, n);
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
     if (!silent) {
       // A brand-new stack surfaces on its own type tab. Switch the active tab
-      // and page so the freshly-obtained item is visible (Inventory.add already
-      // pointed selSlot at the new stack). Topping up an existing stack leaves
-      // the tab/selection alone so harvest→replant loops aren't disrupted.
+      // and page so the freshly-obtained item is VISIBLE — but never select it:
+      // whatever was in the player's hand stays there (or stays nothing).
+      // Topping up an existing stack leaves the tab alone.
       if (r.isNewStack && r.accepted > 0) {
         this.save.invCat = this.invCatForItem(id);
-        const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === this.save.selSlot);
+        const newIdx = this.save.inv.findIndex(s => s && s.id === id);
+        const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
         this.save.invPage = pos >= 0 ? Math.floor(pos / 5) : 0;
       }
       persistSave(this.save);
@@ -12708,13 +12711,12 @@ class MapScene extends Phaser.Scene {
     return r.accepted;
   }
   // --- Two-bar inventory helpers ------------------------------------------
-  // Keep save.selSlot pointing at a real stack after a spend spliced one out
-  // (Inventory.remove leaves the re-clamp to its caller). A gear selection's
-  // -1 is below every length, so it is left alone.
+  // After a spend spliced a stack out (Inventory.remove leaves the re-clamp
+  // to its caller): a selection that fell off the end of save.inv becomes
+  // "nothing in hand" (-1) — never a neighbouring stack the player didn't
+  // pick. A gear selection's -1 is below every length, so it is left alone.
   _clampSelSlot() {
-    if (this.save.selSlot >= this.save.inv.length) {
-      this.save.selSlot = Math.max(0, this.save.inv.length - 1);
-    }
+    if (this.save.selSlot >= this.save.inv.length) this.save.selSlot = -1;
   }
   // Which type tab an item id belongs to (by its `kind`). Falls back to the
   // Produce tab for anything unmapped so a stray item is still reachable.
@@ -12785,9 +12787,9 @@ class MapScene extends Phaser.Scene {
       const list = this.gearEntriesForCat(catKey);
       this.save.selGear = list[0] ? { kind: list[0].kind, slot: list[0].slot } : null;
     } else {
+      // An item tab opens with NOTHING selected — the player picks, or doesn't.
       this.save.selGear = null;
-      const list = this.invEntriesForCat(catKey);
-      this.save.selSlot = list[0] ? list[0].idx : -1;
+      this.save.selSlot = -1;
     }
     persistSave(this.save);
     this.buildInventoryDOM();
@@ -12803,11 +12805,13 @@ class MapScene extends Phaser.Scene {
     const itemList = isGear ? null : this.invEntriesForCat(cat.key);
 
     // Reconcile the selection so the highlight always points at something IN
-    // the active tab (or "empty"). This also self-heals after an item is
-    // consumed: the action handlers clamp selSlot to a raw save.inv index that
-    // may belong to another category, so we re-anchor it here. We deliberately
-    // do NOT move invPage to the selection — paging is driven by ◀ ▶ / tab
-    // switches / pickups, not by every rebuild.
+    // the active tab, or at "empty" (-1). A selection that no longer belongs
+    // to this tab (the action handlers clamp selSlot to a raw save.inv index
+    // that may belong to another category) drops to empty — it is never
+    // re-anchored onto the tab's first item, which would put something in the
+    // player's hand they didn't choose. We deliberately do NOT move invPage
+    // to the selection — paging is driven by ◀ ▶ / tab switches / pickups,
+    // not by every rebuild.
     if (isGear) {
       this.save.selSlot = -1;
       const owned = this.save.selGear &&
@@ -12816,7 +12820,7 @@ class MapScene extends Phaser.Scene {
     } else {
       this.save.selGear = null;
       const inCat = this.save.selSlot >= 0 && itemList.some(e => e.idx === this.save.selSlot);
-      if (!inCat) this.save.selSlot = itemList[0] ? itemList[0].idx : -1;
+      if (!inCat) this.save.selSlot = -1;
     }
 
     // Cell count: gear tabs are exactly their owned entries; item tabs keep one

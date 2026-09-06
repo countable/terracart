@@ -10,7 +10,13 @@
 //
 // The scene keeps thin wrappers (app.js addToInv / invRoomFor) that call these
 // and then do the side effects cores must not own: persistSave, buildInventory
-// DOM, the autoselect-on-pickup, and the 'bag full' flash.
+// DOM, the tab switch that surfaces a new pickup, and the 'bag full' flash.
+//
+// A pickup NEVER moves the selection. Until Sep 2026 a brand-new stack
+// auto-selected itself (save.selSlot jumped to it), so walking over a pebble
+// silently swapped the seeds out of the player's hand and the next tap on the
+// soil did the wrong thing. Nothing selected (-1) is the resting state and no
+// path may pick an item on the player's behalf.
 //
 // Depends on globals from items.js: ITEM_BY_ID, stackCapForBags.
 
@@ -46,16 +52,15 @@
   }
 
   // Add up to `n` of `id`. Pure: mutates save.inv (folding duplicates, creating
-  // the canonical stack, raising its count up to the cap) and, when
-  // opts.autoselect is set and a NEW stack was created, points save.selSlot /
-  // save.invPage at it. Returns metadata so the scene wrapper can decide side
-  // effects:
+  // the canonical stack, raising its count up to the cap). save.selSlot and
+  // save.invPage are never touched — see the header. Returns metadata so the
+  // scene wrapper can decide side effects:
   //   valid      — false iff the id isn't a real item or n <= 0 (caller returns
   //                early WITHOUT persisting / rebuilding, matching the original)
   //   accepted   — count actually added (≤ n, capped)
   //   rejected   — n - accepted (>0 means the player hit the cap → 'bag full')
   //   isNewStack — true iff this add created the stack
-  function add(save, id, n = 1, opts = {}) {
+  function add(save, id, n = 1) {
     const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
     if (!item || n <= 0) return { valid: false, accepted: 0, rejected: 0, isNewStack: false };
 
@@ -79,18 +84,6 @@
     const accepted = Math.min(room, n);
     stack.count = (stack.count || 0) + accepted;
     const rejected = n - accepted;
-
-    // Autoselect a freshly-obtained NEW item type so the player can immediately
-    // see / use it. Only when this add created a brand-new stack — topping up an
-    // existing stack keeps the current selection so harvest→replant loops aren't
-    // disrupted. pageSize mirrors buildInventoryDOM's PAGE (5).
-    if (isNewStack && accepted > 0 && opts.autoselect) {
-      const idx = save.inv.indexOf(stack);
-      if (idx >= 0) {
-        save.selSlot = idx;
-        save.invPage = Math.floor(idx / (opts.pageSize || 5));
-      }
-    }
 
     return { valid: true, accepted, rejected, isNewStack };
   }

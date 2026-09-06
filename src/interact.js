@@ -27,8 +27,9 @@
 //   interactTap(scene, sx, sy)  — top-level dispatcher; MapScene.handleWorldTap forwards to this
 
 // Decrement the selected inventory stack by `n` (default 1). If it hits zero,
-// splice it out and clamp selSlot so it still points at a valid slot. Used by
-// every handler that consumes a held item (plant, release-animal, place-rock).
+// splice it out and leave the hand EMPTY (selSlot = -1) — the stack that
+// slides into its index is not something the player chose. Used by every
+// handler that consumes a held item (plant, release-animal, place-rock).
 // Caller is responsible for setting ctx.dirty and calling buildInventoryDOM.
 function consumeSelected(save, n = 1) {
   const sel = save.inv[save.selSlot];
@@ -36,9 +37,7 @@ function consumeSelected(save, n = 1) {
   sel.count -= n;
   if (sel.count > 0) return;
   save.inv.splice(save.selSlot, 1);
-  if (save.selSlot >= save.inv.length) {
-    save.selSlot = Math.max(0, save.inv.length - 1);
-  }
+  save.selSlot = -1;
 }
 
 // Unique id for an animal/slime released (or tamed) at a spot. `extra`
