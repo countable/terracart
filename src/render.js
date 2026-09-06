@@ -261,6 +261,55 @@ function peekPxOf(scene) {
 // Returns a shared scratch object (not a fresh one) — drawCells calls this up
 // to VIEW_CELLS² times per pass, several times a frame, so this avoids an
 // allocation per cell; read sx/sy out of it before the next call.
+// The reach outline of ONE cell at screen px (sx, sy): its exposed edges
+// (top/bot/lft/rgt: that neighbour is out of reach), with the corners rounded
+// by ReachCorner (coords.js) — the same rule the lightmap plateau fills by, so
+// the white line rounds exactly the corners the light does. An exposed edge
+// stops R short of a corner a round continues (ReachCorner.shortenH/V); an
+// OUTER corner gets a quarter-arc inside the cell, an INNER corner a fillet
+// arc in the empty cell above/below, owned by this cell's horizontal edge so
+// each is drawn once (dTL..dBR: the diagonals' reach). At R = 2 px the arc is
+// two segments through its 45° point — a true arc is invisible at that size
+// and Phaser's ARC command would batch a hundred points per corner.
+// Without the rule loaded the edges are drawn full length, square.
+Render.reachOutlineCell = function reachOutlineCell(gr, sx, sy, top, bot, lft, rgt, dTL, dTR, dBL, dBR) {
+  const x1 = sx + CELL_PX, y1 = sy + CELL_PX;
+  const RC = (typeof ReachCorner !== 'undefined') ? ReachCorner : null;
+  if (!RC) {
+    if (top) gr.lineBetween(sx, sy, x1, sy);
+    if (bot) gr.lineBetween(sx, y1, x1, y1);
+    if (lft) gr.lineBetween(sx, sy, sx, y1);
+    if (rgt) gr.lineBetween(x1, sy, x1, y1);
+    return;
+  }
+  const R = RC.R;
+  if (top) gr.lineBetween(sx + (RC.shortenH(lft, dTL) ? R : 0), sy, x1 - (RC.shortenH(rgt, dTR) ? R : 0), sy);
+  if (bot) gr.lineBetween(sx + (RC.shortenH(lft, dBL) ? R : 0), y1, x1 - (RC.shortenH(rgt, dBR) ? R : 0), y1);
+  if (lft) gr.lineBetween(sx, sy + (RC.shortenV(top, dTL) ? R : 0), sx, y1 - (RC.shortenV(bot, dBL) ? R : 0));
+  if (rgt) gr.lineBetween(x1, sy + (RC.shortenV(top, dTR) ? R : 0), x1, y1 - (RC.shortenV(bot, dBR) ? R : 0));
+  reachCornerArcs(gr, sx, sy, +1, +1, R, RC.convex(lft, top), RC.fillet(lft, top, dTL));
+  reachCornerArcs(gr, x1, sy, -1, +1, R, RC.convex(rgt, top), RC.fillet(rgt, top, dTR));
+  reachCornerArcs(gr, sx, y1, +1, -1, R, RC.convex(lft, bot), RC.fillet(lft, bot, dBL));
+  reachCornerArcs(gr, x1, y1, -1, -1, R, RC.convex(rgt, bot), RC.fillet(rgt, bot, dBR));
+};
+// The round at corner point (px, py); (ix, iy) points INTO the cell. A convex
+// arc joins (px, py + iy·R) on the vertical edge to (px + ix·R, py) on the
+// horizontal one, bowing toward the corner; a fillet joins (px + ix·R, py) on
+// this cell's horizontal edge to (px, py − iy·R) on the diagonal cell's
+// vertical edge, bowing the same way into the empty cell.
+const ARC_MID = 1 - Math.SQRT1_2;   // the 45° point's inset from the corner, per R
+function reachCornerArcs(gr, px, py, ix, iy, R, convex, fillet) {
+  const m = R * ARC_MID;
+  if (convex) {
+    gr.lineBetween(px, py + iy * R, px + ix * m, py + iy * m);
+    gr.lineBetween(px + ix * m, py + iy * m, px + ix * R, py);
+  }
+  if (fillet) {
+    gr.lineBetween(px + ix * R, py, px + ix * m, py - iy * m);
+    gr.lineBetween(px + ix * m, py - iy * m, px, py - iy * R);
+  }
+}
+
 const _cellScreenXY = { x: 0, y: 0 };
 function cellScreenXY(scene, ox, oy, fracX, fracY) {
   _cellScreenXY.x = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
@@ -2028,10 +2077,9 @@ Render.drawCells = function drawCells(scene) {
       const bot = !isReach(col, row + 1);
       const lft = !isReach(col - 1, row);
       const rgt = !isReach(col + 1, row);
-      if (top) gr.lineBetween(sx, sy, sx + CELL_PX, sy);
-      if (bot) gr.lineBetween(sx, sy + CELL_PX, sx + CELL_PX, sy + CELL_PX);
-      if (lft) gr.lineBetween(sx, sy, sx, sy + CELL_PX);
-      if (rgt) gr.lineBetween(sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX);
+      if (!top && !bot && !lft && !rgt) continue;   // interior: nothing to trace
+      Render.reachOutlineCell(gr, sx, sy, top, bot, lft, rgt,
+        isReach(col - 1, row - 1), isReach(col + 1, row - 1), isReach(col - 1, row + 1), isReach(col + 1, row + 1));
     }
   }
 
