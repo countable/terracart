@@ -527,9 +527,8 @@ const TAP_HANDLERS = [
     //   pool — so a tap here is "close in and swing", not "start a timer".
     //
     //   GAME (crow / deer) keeps the old timed work wheel: nothing auto-fires
-    //   at them and no shot can hit them, so a hunt is still a deliberate tap,
-    //   still sped by ANY weapon's tier — a bow-only player can still bring
-    //   down a deer.
+    //   at them and no shot can hit them, so a hunt is still a deliberate tap.
+    //   The BUG NET is what speeds it — see the HUNT_KINDS branch below.
     //
     // Either way the defeat is FREE (no energy spent): your TIME is the cost,
     // which also means you can still kill the very slime that's draining you
@@ -569,12 +568,17 @@ const TAP_HANDLERS = [
     const HUNT_KINDS = new Set(['crow', 'deer']);
     if (!isTame && HUNT_KINDS.has(target.kind)) {
       const r = save.relics || {};
-      const weaponTier = Math.max(r.sword?.tier || 0, r.bow?.tier || 0, r.staff?.tier || 0);
-      const bestWeapon = ['sword', 'bow', 'staff'].reduce((b, w) => (r[w]?.tier || 0) > (r[b]?.tier || 0) ? w : b, 'sword');
-      const weaponSlot = weaponTier > 0 ? bestWeapon : null;
-      // Weapon uses the shared spec tool ladder via toolDurationMs (wood 4s …
-      // frost .3s). No weapon = tier 0 (bare hands): 9s — slow but always possible.
-      const durMs = toolDurationMs(r, weaponSlot);
+      // ONE TOOL TAKES ANIMALS: the BUG NET. Until Sep 2026 the hunt wheel was
+      // sped by the best of sword / bow / staff, so a weapon bought purely to
+      // fight also quietly made you a better hunter and the net — the tool the
+      // catalog actually sells for 'catch crows + butterflies' — was worth
+      // nothing on the two kinds you take by hunting. Weapons fight ENEMIES
+      // (combat.js); the net takes GAME and livestock alike, on the same slot
+      // the catch wheel below already uses.
+      const netSlot = r.bugnet ? 'bugnet' : null;
+      // The net uses the shared spec tool ladder via toolDurationMs (wood 4s …
+      // frost .3s). No net = tier 0 (bare hands): 9s — slow but always possible.
+      const durMs = toolDurationMs(r, netSlot);
       // Rare shiny fauna have DOUBLE HP — the work wheel takes twice as long,
       // so a shiny crow/deer is markedly tougher to bring down than its plain
       // kind. (Enemies never reach here, and neither slimes nor monsters ever
@@ -588,7 +592,7 @@ const TAP_HANDLERS = [
       // with the combat wheel and with a killing bow/staff shot — it lives on
       // the scene as resolveDefeat so all three routes pay out identically.
       scene.startWorkProgress(victim.x, victim.y, () => scene.resolveDefeat(victim),
-        durMs * hpMul * dmgMul, 0, weaponSlot, victim);   // track the victim → hunt aborts if it flees out of reach
+        durMs * hpMul * dmgMul, 0, netSlot, victim);   // track the victim → hunt aborts if it flees out of reach
       return true;
     }
     // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
@@ -1231,10 +1235,14 @@ const TAP_HANDLERS = [
       save.planted.splice(plantedIdx, 1);
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
-      // Watering-can quality bonus stored on the plant when it was watered.
-      // Each quality tier raises the extra-seed chance by 10% (base 25%) and
-      // adds +floor(qual/3) to the produce yield.
-      const qual = p.canBoost || 0;
+      Crops.clearBedQuality(save, cellKey);
+      // The BED's quality, banked on the crop when it was planted (the hoe
+      // tier that tilled the cell — Crops.bedQuality). Each quality tier
+      // raises the extra-seed chance by 10% (base 25%) and adds
+      // +floor(qual/3) to the produce yield. `canBoost` is the pre-Sep-2026
+      // watering-can field, read once so a crop already in the ground when
+      // the bonus moved to the hoe still pays out.
+      const qual = p.qualBoost ?? p.canBoost ?? 0;
       const yieldN = randInt(1, 3) + Math.floor(qual / 3);
       scene.addToInv(p.crop, yieldN);
       const gotSeed = Math.random() < (0.25 + qual * 0.10);
@@ -1256,16 +1264,10 @@ const TAP_HANDLERS = [
       // chance to jump the plant a stage on the spot — nothing without a can,
       // certain at Frost. See crops.js waterJumpChance.
       const jumped = Crops.waterOne(save, p, save.relics) === 'jumped';
-      // Watering Can quality: bonus = can.tier + (charges > 0 ? 2 : 0).
-      // Charges from refilling at a water tile (see the 'can-refill' handler).
-      // This is the PRODUCE quality the harvest reads, a separate thing from
-      // the growth jump above — one is what you get, the other is how soon.
+      // The can does ONE thing now: the growth jump above — how soon you get
+      // it. WHAT you get (produce quality) is the bed's, set by the hoe that
+      // tilled it and banked on the crop at planting (Crops.bedQuality).
       const can = save.relics?.can;
-      if (can?.tier) {
-        const filled = (save.canCharges ?? 0) > 0;
-        p.canBoost = can.tier + (filled ? 2 : 0);
-        if (filled) save.canCharges -= 1;
-      }
       ctx.dirty = true;
       // Say what the tap DID, like every other farm action does ('tilled',
       // 'planted …', 'harvested …'): until Sep 2026 this read only the stage
@@ -1293,23 +1295,6 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 2a') Refill the watering can from any WATER tile (type 3). Sets a charge
-  // bank that gives +2 tiers of quality bonus on the next 50 watering events.
-  { name: 'can-refill', try: (ctx) => {
-    const { scene, save, sx, sy, cell } = ctx;
-    if (cell.type !== TERRAIN.WATER) return false;          // not water
-    if (!save.relics?.can) return false;         // no can owned
-    // Neither the can nor the rod is a selectable inventory item, so a bare
-    // water tap is ambiguous when the player owns both. A rod wins — water
-    // taps cast a line (see 'fishing' below), and the cast tops the can up
-    // for free, so a rod owner loses nothing by skipping this handler.
-    if (save.relics?.rod) return false;
-    save.canCharges = 50;
-    ctx.dirty = true;
-    scene.flash('🪣 Watering can full — 50 charges.', sx, sy);
-    return true;
-  }},
-
   // 2a-fish) Fishing: tap a water cell (type 3) with a Fishing Rod relic equipped.
   // Triggers a cast work-progress, then drops a random fish weighted by rarity
   // (modified by rod tier — higher tier → more chance of rare fish). Placed
@@ -1323,10 +1308,6 @@ const TAP_HANDLERS = [
     // improves the catch (spec §FISHING).
     const fishCost = effectiveFishCost(save.relics);
     if (!scene.spendEnergy(fishCost, sx, sy)) return true;
-    // A rod owner can't reach 'can-refill' (the rod owns water taps), so top
-    // the can up here as part of the cast so owning a rod never costs you your
-    // watering charges. Bare-handed casts without a can simply skip this.
-    if (save.relics?.can) { save.canCharges = 50; ctx.dirty = true; }
     // Cast time is LOCKED to 9s bare-handed / 3s with any rod — deliberately
     // NOT the per-tier toolDurationMs ladder. Rod tier already scales the
     // catch table, the skunk rate, and the energy cost; letting it also
@@ -1461,19 +1442,29 @@ const TAP_HANDLERS = [
     }
     if (!scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
     if (item.kind === 'sapling') {
-      // Plant a fruit-tree sapling → a growing `fruittree` (persisted in
-      // save.fruittrees, re-injected per tile in spawnInTile). It advances
-      // through the species sheet's life-cycle frames and bears fruit at
-      // maturity (render.js fruittree spec + the fruittree harvest handler).
+      // Plant a sapling → a growing tree (persisted in save.fruittrees,
+      // re-injected per tile in spawnInTile). TWO kinds share this path and
+      // this list:
+      //   `plants:'tree'` (the ACORN) → a `tree` object: timber, chopped for
+      //       wood like any other, its growth stage read off planted_t by
+      //       util.js treeGrowthStage so the frame, the axe gate and the wood
+      //       yield all climb together over the same four days.
+      //   otherwise (apple / peach) → a `fruittree`: picked, not chopped. It
+      //       advances through the species sheet's life-cycle frames and bears
+      //       fruit at maturity (render.js fruittree spec + the fruittree
+      //       harvest handler).
+      const asTree = item.plants === 'tree';
       save.fruittrees = save.fruittrees || [];
-      const id = `pft_${Math.round(cwmx)}_${Math.round(cwmy)}`;
+      const id = `${asTree ? 'ptr' : 'pft'}_${Math.round(cwmx)}_${Math.round(cwmy)}`;
       const planted_t = Date.now();
       if (!save.fruittrees.some(f => f.id === id)) {
-        save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t, id });
+        save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t, id,
+                               ...(asTree ? { kind: 'tree' } : {}) });
       }
-      // It's a tree now, not soil — drop the tilled marker.
+      // It's a tree now, not soil — drop the tilled marker and its bed quality.
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
+      Crops.clearBedQuality(save, cellKey);
       // Inject the growing fruittree straight into the covering tile's LIVE
       // cache entry (mirrors spawnInTile's fruittree block) so it appears at
       // once. Deleting the cache entry instead — as this used to do — dropped
@@ -1486,18 +1477,22 @@ const TAP_HANDLERS = [
       if (entry) {
         entry.objects = entry.objects || [];
         if (!entry.objects.some(o => o.id === id)) {
-          entry.objects.push({ kind: 'fruittree', x: cwmx, y: cwmy, species: item.grows, id, planted: true, planted_t });
+          entry.objects.push(asTree
+            ? { kind: 'tree', x: cwmx, y: cwmy, id, planted: true, planted_t }
+            : { kind: 'fruittree', x: cwmx, y: cwmy, species: item.grows, id, planted: true, planted_t });
         }
       }
       consumeSelected(save);
       ctx.dirty = true;
       scene.buildInventoryDOM();
-      scene.flash(`planted ${item.grows} sapling`, sx, sy);
+      scene.flash(asTree ? 'planted a tree' : `planted ${item.grows} sapling`, sx, sy);
       scene.questEvent?.('plant');
       return true;
     }
+    // The crop takes the bed's quality with it — the hoe tier that tilled this
+    // cell (Crops.takeBedQuality clears the cell's entry as it hands it over).
     save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0,
-      depth: scene.depth ?? 0 });
+      depth: scene.depth ?? 0, qualBoost: Crops.takeBedQuality(save, cellKey) });
     consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
@@ -1552,8 +1547,12 @@ const TAP_HANDLERS = [
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.tilledSet.add(cellKey);
       save.tilled = [...scene.tilledSet];
+      // The bed remembers the hoe that made it — that's the produce QUALITY a
+      // crop planted here will carry (Crops.bedQuality). A better hoe is
+      // therefore a better harvest, not just a cheaper one.
+      const bedQ = Crops.setBedQuality(save, cellKey, save.relics?.hoe?.tier || 0);
       persistSave(save);
-      scene.flash('tilled', sx, sy);
+      scene.flash(bedQ ? `tilled — quality ${bedQ}` : 'tilled', sx, sy);
       scene.questEvent?.('till');
     }, tillMs, tillCost, 'hoe');
     return true;

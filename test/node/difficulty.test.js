@@ -93,8 +93,9 @@
   test('difficulty: hard mode scales enemy HP — and only enemy HP', () => {
     const slimeEasy = withMode('easy', () => Combat.creatureMaxHp('slime'));
     const slimeHard = withMode('hard', () => Combat.creatureMaxHp('slime'));
-    assert.eq(slimeEasy, 15, 'the surface slime baseline');
-    assert.eq(slimeHard, Math.round(15 * 1.5), 'the hard-mode slime is 1.5× the pool');
+    assert.eq(slimeEasy, Combat.FAUNA_HP.slime, 'the surface slime pool, unscaled');
+    assert.eq(slimeHard, Math.round(Combat.FAUNA_HP.slime * 1.5),
+      'the hard-mode slime is 1.5× the pool');
     for (const k of Object.keys(MONSTERS)) {
       const e = withMode('easy', () => Combat.creatureMaxHp(k));
       const h = withMode('hard', () => Combat.creatureMaxHp(k));

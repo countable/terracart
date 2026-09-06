@@ -84,8 +84,9 @@
     beach:   ['shell', 'boot', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish', 'coconut'],
     // Forage — wild-picked debris and prized foraged flora.
     forage:  ['flowers', 'longgrass', 'mushroom', 'berry', 'forgetmenot', 'marigold', 'wildrose', 'starflower'],
-    // Mining — rock-break spoils and forge bars, climbing the gem/metal ladder.
-    mining:  ['wood', 'coal', 'copper_bar', 'iron_bar', 'sapphire', 'gold_bar', 'ruby', 'platinum_bar', 'emerald', 'crimson_bar', 'frost_bar'],
+    // Mining — rock-break spoils and forge bars, climbing the gem/metal ladder
+    // (gem then bar per tier: T4 sapphire/gold … T7 diamond/frost).
+    mining:  ['wood', 'coal', 'copper_bar', 'iron_bar', 'sapphire', 'gold_bar', 'ruby', 'platinum_bar', 'emerald', 'crimson_bar', 'diamond', 'frost_bar'],
     // Harvest — farmed crops and orchard fruit, the core farming loop.
     harvest: ['potato', 'rockfruit', 'berry', 'cress', 'onion', 'rainberry', 'pairy', 'nut',
               'apple', 'cherry', 'peach', 'apricot', 'orange', 'coffee', 'gemfruit', 'banana',

@@ -135,9 +135,9 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
   assert.falsy(/homeWard[^\n]*\)\s*continue;/.test(wander), 'no refused-cell ward');
   // Both drains are gated: a ward that let a slime leech its way to the door
   // makes the doorstep no safer, only slower to lose the bar on.
-  assert.truthy(/if \(c\.kind === 'slime' && !isTame && !homeWard\) \{/.test(wander),
+  assert.truthy(/if \(c\.kind === 'slime' && !isTame &&[^)]*!homeWard\) \{/.test(wander),
     "the slime's leech is off inside the ring");
-  assert.truthy(/if \(isMonster\(c\.kind\) && !homeWard\) \{/.test(wander),
+  assert.truthy(/if \(isMonster\(c\.kind\) &&[^)]*!homeWard\) \{/.test(wander),
     "and so is a monster's melee and its arrow");
 });
 

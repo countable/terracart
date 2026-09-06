@@ -298,7 +298,10 @@ const MODAL_KINDS = {
   trail:    { icon: '🗺️', label: 'Trail'     },   // road/trail completion rewards
   shop:     { icon: '🪙', label: 'Shop'      },   // buying and selling for money
   trade:    { icon: '🤝', label: 'Trade'     },   // goods-for-goods barter
-  forge:    { icon: '🔨', label: 'Forge'     },   // blacksmith: forging + smelting
+  // The smithy's CATEGORY is 'Smithy', never 'Forge': Forge is one of its two
+  // ACTIONS (the Forge / Smelt tab and button), and a header reading FORGE over
+  // the Smelt tab used the one word for two unrelated things.
+  forge:    { icon: '🔨', label: 'Smithy'    },   // blacksmith: forging + smelting
   relics:   { icon: '💍', label: 'Relics'    },   // relic + armor offers
   delivery: { icon: '📦', label: 'Delivery'  },   // household orders
   build:    { icon: '🛠', label: 'Build'     },   // restoring wrecks, unsealing forts, moving home
@@ -355,7 +358,7 @@ function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 // art: every monster reuses the slime sprite with a per-kind TINT (see
 // render.js) until dedicated sheets land — swapping in real art is a one-line
 // assets.js + render.js change per kind.
-//   hp     → defeat work-wheel length (scaled off the 15-HP slime baseline)
+//   hp     → the pool a fight drains (scaled off combat.js BASELINE_HP, 15)
 //   range  → cells within which it drains energy
 //   dmg    → energy drained per hit (one hit per MONSTER_HIT_MS per monster)
 //   speed  → step cadence multiplier (1 = slime cadence; higher = moves more often)
@@ -450,7 +453,7 @@ Combat.registerMonsters(MONSTERS);
 // The bounty is DERIVED from `hp` — the same number that sets the wheel length
 // — rather than hand-tuned per kind, so a tougher foe can never quietly pay
 // less than an easier one. Roughly a coin per 5 HP, floored at 1:
-//   surface slime 15hp → $3 · purple slime 12hp → $2 · cave slime 30hp → $6 ·
+//   surface slime 10hp → $2 · purple slime 12hp → $2 · cave slime 30hp → $6 ·
 //   archer 36hp → $7 · goblin 50hp → $10
 //   (the cave kinds are the doubled ones — see CAVE_ENEMY_MUL above)
 // The HP comes from Combat.creatureMaxHp, which is the monster table first and
@@ -497,6 +500,22 @@ function isMonster(kind) { return MONSTER_KINDS.has(kind); }
 // scan doesn't allocate fresh Sets.
 const CAT_PREY = new Set(['crow']);
 const DOG_PREY = new Set(['deer', 'slime']);
+// ── The wild slime's gait ────────────────────────────────────────────────────
+// The surface slime OOZES. It is the first enemy in the game and the only one
+// above ground, it drifts toward whoever is nearby, and it leeches energy just
+// by sitting on you — so how fast it closes is the whole of how threatening it
+// is. Two numbers over the base wander (STEP_MS / STEP_M in wanderCreatures):
+// how much longer one of its steps takes, and how far that step carries it.
+//
+// Until Sep 2026 it hopped 0.6 of a cell every 5 s — 0.84 m/s, near enough a
+// stroll, so a slime that noticed you followed you home and there was no
+// leaving it behind on foot. 0.45 of a cell every 7.5 s is 0.42 m/s: still
+// drawn to you, still there when you turn around, but now something you can
+// walk away from and something a campfire's repel ring can genuinely hold off.
+// Its pursuit is unchanged — half its steps still amble your way (see the
+// slime branch in wanderCreatures) — it is only the SPEED that came down.
+const SLIME_STEP_MUL = 1.5;    // × the base wander cadence: a longer, lazier beat
+const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
 // ── Home is pest-free until the first harvest ────────────────────────────
 // A slime sits on your crops and drains 3 energy a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
@@ -524,19 +543,21 @@ const PEST_FREE_CELLS = 20;
 // feedback for a hit would be the foe eventually vanishing — but a bar that
 // never faded would clutter a cave full of monsters you shot once.
 const ENEMY_HEALTH_RING_MS = 4000;
-// Damage numbers are throttled per foe: a shot pops its whole payload at once,
-// but the melee wheel lands fractional damage EVERY FRAME, so without a beat
-// between popups a sword fight would spray sixty overlapping "-0"s a second.
-// Damage keeps accumulating between beats and pops as one rounded number, so
-// nothing is lost to the throttle — it just reads as swings instead of a hose.
+// Damage numbers are throttled per foe: a fight can land more than one blow in
+// a moment (a melee swing and an arrow arriving together, a piercing bolt
+// crossing a pack), so damage accumulates between beats and pops as one
+// rounded number rather than stacking overlapping labels on the same bar.
+// Nothing is lost to the throttle — the kill blow flushes whatever it held.
+// The melee wheel itself no longer needs it: it lands whole blows at
+// Combat.MELEE_INTERVAL_MS, which is slower than this beat, so each one pops
+// on its own.
 const DMG_POPUP_BEAT_MS = 500;
 // How long ONE drawn sword swing lasts, in ms — the slash sweeps across its
-// arc over this window, then fades. Swings themselves fire on the SAME
-// DMG_POPUP_BEAT_MS cadence the damage numbers already beat at (see above:
-// "it just reads as swings instead of a hose") — one throttle, so the blade
-// and the number it earns land on the same beat instead of drifting apart.
-// Comfortably shorter than the beat itself so one slash finishes before the
-// next starts, whatever the weapon's tier.
+// arc over this window, then fades. A swing is drawn BY the blow that lands
+// it (_drawWorkProgress' combat branch), so the blade and the number it earns
+// share the one cadence — Combat.MELEE_INTERVAL_MS — instead of the blade
+// running on a throttle of its own. Comfortably shorter than that interval so
+// one slash finishes before the next starts, whatever the weapon's tier.
 const SWORD_SWING_MS = 220;
 // Screen-px lift on a drawn shot. Shots fly between FOOT positions (the anchor
 // every creature and the player use), so without this they'd skim the ground
@@ -706,6 +727,10 @@ const WALK_HOME_HINT_IDLE_MS = 6500;
 // potion, dragon powder, coffee, pairy compass) so a duration reads as a
 // count of minutes instead of a repeated 60 * 1000 literal.
 const MINUTE_MS = 60 * 1000;
+// The powders' reach: Growth sweeps the rainberry's crop radius; Frost holds a
+// foe for half a minute (useGrowthPowder / useFrostPowder).
+const GROWTH_POWDER_R_M = 20;
+const FROST_POWDER_MS = 30 * 1000;
 // Flower charm — gifting a Flowers stack item to a cash shop halves its
 // prices at that building for this long (see the flower-gift branch in
 // shopInteract + shopCharmMul).
@@ -720,6 +745,9 @@ const SPEED_POTION_AMULET_TIER = 9;
 // those top out at so a coffee can't out-tier the rarest buff.
 const COFFEE_AMULET_BOOST = 2;
 const COFFEE_BUFF_MS = 3 * MINUTE_MS;
+// Torch: how long one burns (useTorch). Lighting another while one burns
+// extends from the current end, so a bag of them is one long light.
+const TORCH_MS = 3 * MINUTE_MS;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
 // debug "taps randomly stop working". On by default in DEBUG builds; force on
@@ -1082,6 +1110,8 @@ const ICON_SHEETS = {
   icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
   // Rope — single 16×16 coiled-rope icon (hand-drawn, like the honey jar).
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
+  // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
+  icon_torch:    { url: 'assets/Icons/Items/Torch.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
   icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
   icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
@@ -2178,6 +2208,19 @@ class MapScene extends Phaser.Scene {
       font: fontMono('bold 13px'), color: UI_GOLD,
       stroke: '#5a1400', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
+    // The Shadow Powder's countdown — the same label one line higher, in the
+    // powder's own violet, so a dragon in shadow shows both. Hidden otherwise
+    // (set per-frame in update(), beside the dragon's).
+    this.shadowTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
+      font: fontMono('bold 13px'), color: '#d9b3ff',
+      stroke: '#2a1040', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
+    // The Torch's countdown — the same label again in flame orange, stacked
+    // above whichever of the other two are showing (set per-frame in update()).
+    this.torchTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
+      font: fontMono('bold 13px'), color: '#ffb347',
+      stroke: '#3a1600', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
     // There is NO walk-target marker. Movement is target-follow at every depth:
     // GPS fixes and steering input move a free-flying target (this._targetM)
     // and the opaque body (this.player) walks toward it — underground it also
@@ -2253,7 +2296,7 @@ class MapScene extends Phaser.Scene {
     // facing arrow, above the body (10).
     this.swordSwingGfx = this.add.graphics().setDepth(11).setMask(mask);
     this._swing = null;                // { startT, dir: {x,y} } while a slash is animating
-    this._nextSwingT = 0;              // performance.now() ms the next swing may fire
+    this._nextBlowT = 0;               // performance.now() ms the next melee blow may land
     // Footprint trail — small dark ovals dropped as the player moves, laid
     // along the step and alternating left/right foot (see _fillFootprint),
     // each fading 20% per new drop so ~5 are visible. Under the player sprite.
@@ -3895,11 +3938,14 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // Player-planted fruit-tree saplings (save.fruittrees) → growing
-    // `fruittree` objects on the tile that owns each one. Injected AFTER the
-    // spawn-area strip above so a sapling planted near home survives. The
-    // fruittree render spec advances the sprite through its growth frames from
-    // planted_t; the harvest handler gates picking until it matures.
+    // Player-planted saplings (save.fruittrees) → growing objects on the tile
+    // that owns each one. Injected AFTER the spawn-area strip above so a
+    // sapling planted near home survives. Two kinds share the list: an ACORN
+    // record carries kind:'tree' and comes back as TIMBER (chopped for wood,
+    // its growth stage read off planted_t by util.js treeGrowthStage); every
+    // other record is a `fruittree` (picked, not chopped) whose render spec
+    // advances the sprite through its growth frames from planted_t, with the
+    // harvest handler gating picking until it matures.
     if (this.save.fruittrees && this.save.fruittrees.length) {
       const t0x = tx * this.tileEdgeM, t0y = ty * this.tileEdgeM;
       for (const ft of this.save.fruittrees) {
@@ -3907,7 +3953,13 @@ class MapScene extends Phaser.Scene {
             ft.y < t0y || ft.y >= t0y + this.tileEdgeM) continue;
         if ((entry.objects || []).some(o => o.id === ft.id)) continue;
         entry.objects = entry.objects || [];
-        entry.objects.push({
+        entry.objects.push(ft.kind === 'tree' ? {
+          // No `species` and no `size`: a species-less tree draws off the
+          // default growth sheet and takes no hardwood/softwood tier shift, so
+          // what you planted is what you can fell.
+          kind: 'tree', x: ft.x, y: ft.y,
+          id: ft.id, planted: true, planted_t: ft.planted_t,
+        } : {
           kind: 'fruittree', x: ft.x, y: ft.y,
           species: ft.species === 'peach' ? 'peach' : 'apple',
           id: ft.id, planted: true, planted_t: ft.planted_t,
@@ -5924,6 +5976,28 @@ class MapScene extends Phaser.Scene {
         .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - 35)
         .setVisible(true);
     }
+    // Shadow Powder: the same in-memory minute (this._shadowUntil), the same
+    // readout, one line above the dragon's so the two never overprint.
+    const shadowActive = this.isShadowActive();
+    if (shadowActive) {
+      this.shadowTimerText
+        .setText(shortDuration(this._shadowUntil - Date.now()))
+        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - (dragonActive ? 50 : 35))
+        .setVisible(true);
+    } else if (this.shadowTimerText.visible) {
+      this.shadowTimerText.setVisible(false);
+    }
+    // Torch: the same in-memory timer (this._torchUntil, TORCH_MS a light),
+    // the same readout, one line above whatever the other two are showing.
+    if (this.isTorchActive()) {
+      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0);
+      this.torchTimerText
+        .setText(shortDuration(this._torchUntil - Date.now()))
+        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - 35 - 15 * stacked)
+        .setVisible(true);
+    } else if (this.torchTimerText.visible) {
+      this.torchTimerText.setVisible(false);
+    }
     let vx = 0, vy = 0;
     const k = this.keys;
     let wasd = false;
@@ -6386,7 +6460,7 @@ class MapScene extends Phaser.Scene {
         // first bolt after a meal fires immediately.
         const eCost = Combat.SHOT[slot].energyCost || 0;
         if (eCost && !this.spendEnergy(eCost)) continue;
-        this._nextShotT[slot] = now + Combat.FIRE_INTERVAL_MS;
+        this._nextShotT[slot] = now + Combat.fireIntervalMs(slot);
         // The tier sizes the shot too (a staff bolt grows with it — both its
         // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
@@ -6754,7 +6828,7 @@ class MapScene extends Phaser.Scene {
       onComplete: () => this.resolveDefeat(victim),
       durationMs: estMs,
       energyRefund: 0,
-      startT: now, _lastT: now,
+      startT: now,
     };
   }
 
@@ -7062,29 +7136,38 @@ class MapScene extends Phaser.Scene {
         wp._outSinceT = null;
       }
     }
-    // COMBAT wheel: the target's HP, not the clock, ends this one. Melee
-    // damage lands every frame at the sword's rate (bare hands at the tier-0
-    // rung), and bow/staff shots drain the same pool from _damageEnemy — so a
-    // fight you started with a swing can be finished by an arrow.
+    // COMBAT wheel: the target's HP, not the clock, ends this one. Melee lands
+    // as discrete BLOWS at Combat.MELEE_INTERVAL_MS — one interval's worth of
+    // the sword's rate each (bare hands at the tier-0 rung) — and bow/staff
+    // shots drain the same pool from _damageEnemy, so a fight you started with
+    // a swing can be finished by an arrow.
+    //
+    // The clock is on the SCENE, not the wheel: startCombat re-targets by
+    // building a fresh wheel, so a per-wheel clock would let a player flicking
+    // between two foes land a blow every frame. It also isn't reset on engage
+    // — after any gap longer than the interval it is already due, so the first
+    // blow of a fight still lands at once.
     if (wp.combat) {
       const c = wp.combat;
       // Killed by something else mid-swing (a shot, a tame dog) — nothing left
       // to fight, and the kill has already paid out.
       if (this.save.caught?.includes(c.id)) { this.cancelWorkProgress(); return; }
-      const dt = Math.min(0.1, (now - (wp._lastT ?? wp.startT)) / 1000);
-      wp._lastT = now;
-      const dps = Combat.meleeDps(this.save.relics) * (this.isDragonActive() ? 2 : 1);
-      // A blade to actually swing — bare hands (no sword owned) has none, so
-      // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
-      if (this.save.relics?.sword && now >= this._nextSwingT) {
-        this._nextSwingT = now + DMG_POPUP_BEAT_MS;
-        const px = this.startWorldM.x + this.playerM.x;
-        const py = this.startWorldM.y + this.playerM.y;
-        const dx = c.x - px, dy = c.y - py;
-        const d = Math.hypot(dx, dy) || 1;
-        this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
+      if (now >= this._nextBlowT) {
+        this._nextBlowT = now + Combat.MELEE_INTERVAL_MS;
+        // A blade to actually swing — bare hands (no sword owned) has none, so
+        // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
+        // The slash rides the blow itself now rather than its own throttle:
+        // one cadence, so the arc and the damage it earns can't drift apart.
+        if (this.save.relics?.sword) {
+          const px = this.startWorldM.x + this.playerM.x;
+          const py = this.startWorldM.y + this.playerM.y;
+          const dx = c.x - px, dy = c.y - py;
+          const d = Math.hypot(dx, dy) || 1;
+          this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
+        }
+        const blow = Combat.meleeSwingDamage(this.save.relics, this.isDragonActive() ? 2 : 1);
+        if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
       }
-      if (this._damageEnemy(c, dps * dt)) return;   // _damageEnemy clears the wheel + pays out
     }
     const dur = wp.durationMs || 3000;
     const elapsed = now - wp.startT;
@@ -7151,6 +7234,11 @@ class MapScene extends Phaser.Scene {
   // _stepT0, _nextChooseT, _homeX/Y, _faceFlip.
   wanderCreatures() {
     const now = performance.now();
+    // Shadow Powder: while it runs, no hostile takes an interest in the player
+    // — the slime's meander and the monsters' stalk fall back to aimless
+    // wandering, and neither the leech nor the monster hit lands. Read once
+    // per tick, not per creature. The PLAYER's weapons are not gated by this.
+    const shadowed = this.isShadowActive();
     const STEP_MS = 5000;
     const STEP_M = this.cellM;   // 1 cell per step
     // Only sim chickens near the player (slightly beyond viewport). Off-screen
@@ -7272,6 +7360,10 @@ class MapScene extends Phaser.Scene {
       // Mid-catch: the catch wheel owns this creature's movement (it flees the
       // player), so the generic wander must not also drive it.
       if (c._beingCaught) return;
+      // Frost Powder: a frozen foe (c._frozenUntil, wall-clock ms — set by
+      // useFrostPowder, which also pins its hop in place) takes no step and
+      // lands no hit until the ice thaws. It can still be hit.
+      if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;
       // WARDED BY HOME: this foe is standing inside Home's ring (HOME_R). It
       // turns and walks out (the angle chain below) and it cannot bite while
       // it goes — a ward that let a slime leech its way to the door would make
@@ -7287,7 +7379,7 @@ class MapScene extends Phaser.Scene {
       // surfaced with one throttled flash after the loop (see below) so a swarm
       // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
       // independent of the slime's slow step cadence.
-      if (c.kind === 'slime' && !isTame && !homeWard) {
+      if (c.kind === 'slime' && !isTame && !shadowed && !homeWard) {
         const STEAL_R = this.cellM;   // 1 cell — adjacent only
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
@@ -7310,7 +7402,7 @@ class MapScene extends Phaser.Scene {
       // (adjacent); the goblin archer reaches 3 cells, so it chips at you
       // before you can close. Accumulated + flashed once per window after the
       // loop, like the slime swarm.
-      if (isMonster(c.kind) && !homeWard) {
+      if (isMonster(c.kind) && !shadowed && !homeWard) {
         const m = MONSTERS[c.kind];
         const R = m.range * this.cellM;
         // A RANGED monster needs a clear line, for the same reason your bow
@@ -7399,10 +7491,12 @@ class MapScene extends Phaser.Scene {
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
                    : deerFleeing ? 340
                    : isMon ? STEP_MS / mon.speed
+                   : c.kind === 'slime' ? STEP_MS * SLIME_STEP_MUL
                    : STEP_MS) * shinyFast;
-      // Slimes ooze in short, lazy hops (0.6 cell); rabbits hop 0.5/1.4 cells;
-      // butterflies dart further (1.5 cells) while escaping.
-      const stepM = c.kind === 'slime' ? STEP_M * 0.6
+      // Slimes ooze in short, lazy hops (SLIME_HOP_CELLS — see the gait note
+      // beside the constant); rabbits hop 0.5/1.4 cells; butterflies dart
+      // further (1.5 cells) while escaping.
+      const stepM = c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
                   : isMon ? STEP_M * (mon.fly ? 1.0 : 0.6)
                   : isRabbit ? (rabbitFleeing ? STEP_M * 1.4 : STEP_M * 0.5)
                   : isButterfly ? (butterflyEscaping ? STEP_M * 1.5 : STEP_M)
@@ -7417,13 +7511,17 @@ class MapScene extends Phaser.Scene {
       if (now >= c._nextChooseT) {
         if (c._homeX == null) { c._homeX = c.x; c._homeY = c.y; }
         // Tame butterflies pollinate nearby planted crops while wandering —
-        // mirror the water-can boost (canBoost flag). Each step they're
-        // within 8 m of a planted cell, that cell gets armed for a double
-        // harvest on the next maturation.
+        // they raise the same produce-quality figure the BED hands the crop
+        // at planting (Crops.bedQuality), by one tier. Each step they're
+        // within 8 m of a planted cell, that cell gets armed for a better
+        // harvest. Never lower a crop already carrying a richer bed: a
+        // butterfly is a bonus, so it takes the max. (This wrote a bare
+        // `true` before the field was numeric; `true` read as 1 in the
+        // harvest arithmetic, so one tier is exactly what it always gave.)
         if (isTame && c.kind === 'butterfly' && this.save.planted) {
           for (const pp of this.save.planted) {
             const dx = pp.x - c.x, dy = pp.y - c.y;
-            if (dx * dx + dy * dy <= 64) pp.canBoost = true;
+            if (dx * dx + dy * dy <= 64) pp.qualBoost = Math.max(pp.qualBoost ?? pp.canBoost ?? 0, 1);
           }
         }
         // HP healing: if 20 min since last damage, restore to max. Max comes
@@ -7563,7 +7661,7 @@ class MapScene extends Phaser.Scene {
             // them (heavy ±0.7 rad jitter so it's a meander, not a beeline),
             // the rest are aimless. Slimes ignore home-bias — they roam free
             // and home in on whoever's nearby.
-            if (Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
+            if (!shadowed && Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
               angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 1.4;
             } else {
               angle = Math.random() * Math.PI * 2;
@@ -7573,7 +7671,7 @@ class MapScene extends Phaser.Scene {
             // than the slime's meander), no home-bias. Flyers (bats) careen with
             // wide jitter so they read as erratic. The archer closes in too —
             // its range only lets it start draining sooner, not hang back.
-            if (distToPlayer > 0.5 * this.cellM) {
+            if (!shadowed && distToPlayer > 0.5 * this.cellM) {
               angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * (mon.fly ? 1.6 : 0.8);
             } else {
               angle = Math.random() * Math.PI * 2;
@@ -10024,6 +10122,106 @@ class MapScene extends Phaser.Scene {
     );
   }
 
+  // Growth Powder: every crop within 20 m springs ahead ONE stage on the spot,
+  // watered or not (Crops.advanceWithin — the crop model stays in crops.js).
+  // Refused, and the powder kept, when no unripe crop is in range: a scatter
+  // that moved nothing is not a use.
+  useGrowthPowder() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'growth_powder' || (sel.count ?? 0) <= 0) return false;
+    const n = this.advanceCropsWithin(GROWTH_POWDER_R_M);
+    if (n <= 0) {
+      this.flash(`No crop to grow within ${GROWTH_POWDER_R_M}m — the powder stays in your bag.`,
+        this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this.flashLoot(`🌱 ${n} crop${n === 1 ? '' : 's'} sprang ahead`, '#a7ffb0', 1.8, 'growth_powder');
+    return true;
+  }
+
+  // True while a Shadow Powder is active: the same in-memory minute the dragon
+  // keeps (this._shadowUntil, NOT persisted — a refresh ends it). wanderCreatures
+  // reads it to switch off every hostile's pursuit AND its hit; nothing the
+  // player swings or shoots is gated by it.
+  isShadowActive() {
+    return (this._shadowUntil ?? 0) > Date.now();
+  }
+
+  useShadowPowder() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'shadow_powder' || (sel.count ?? 0) <= 0) return false;
+    this._shadowUntil = Date.now() + MINUTE_MS;
+    return this._finishConsumable(
+      '🌑 You cast the Shadow Powder',
+      'The dark takes you in — for one minute no monster can find you: none will stalk you, none will strike. Your own blows still land.',
+    );
+  }
+
+  // True while a Torch burns: the same in-memory timer the dragon keeps
+  // (this._torchUntil, NOT persisted — a refresh puts it out). Lighting.draw
+  // reads it through Lighting.playerKind to stamp the `torch` row at the feet.
+  isTorchActive() {
+    return (this._torchUntil ?? 0) > Date.now();
+  }
+
+  // Torch: for TORCH_MS the player's own light reaches TORCH_RADIUS_MUL times
+  // as far — the `torch` row of Lighting.KINDS, added on top of the reach ramp
+  // (light adds; the plateau, and so the tap gate, are untouched). Lighting
+  // one while another burns EXTENDS from the current end rather than wasting
+  // what is left. Never gated on depth: a torch by night on the surface is
+  // fine, and free.
+  useTorch() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'torch' || (sel.count ?? 0) <= 0) return false;
+    const now = Date.now();
+    const burning = this.isTorchActive();
+    this._torchUntil = Math.max(now, this._torchUntil ?? 0) + TORCH_MS;
+    return this._finishConsumable(
+      burning ? '🔥 You light another Torch' : '🔥 You light the Torch',
+      `The flame takes and the dark draws back — your light reaches twice as far for ${shortDuration(this._torchUntil - now)}.`,
+    );
+  }
+
+  // Frost Powder: every ENEMY (Combat.isEnemy — never a crow, a deer or a pet)
+  // standing IN REACH — the lit plateau the tap gate accepts, cellInReach —
+  // is frozen for FROST_POWDER_MS: wanderCreatures skips it (no step, no hit)
+  // and render.js tints it ice until c._frozenUntil passes. Its in-flight hop
+  // is pinned where it stands so the thaw doesn't snap it a half-step on.
+  // Refused, and the powder kept, when nothing hostile is in reach.
+  useFrostPowder() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'frost_powder' || (sel.count ?? 0) <= 0) return false;
+    const caughtSet = setOf(this.save.caught);
+    const pc = this.playerToWorldCell();
+    const targets = [];
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
+      if (!Combat.isEnemy(c)) return;
+      if (caughtSet.has(c.id)) return;
+      const fc = worldMetersToAbsCell(this, c.x, c.y);
+      if (!cellInReach(this, fc.cellIX, fc.cellIY)) return;
+      targets.push(c);
+    });
+    if (targets.length === 0) {
+      this.flash('No enemy in reach to freeze — the powder stays in your bag.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    const until = Date.now() + FROST_POWDER_MS;
+    for (const c of targets) {
+      c._frozenUntil = until;
+      c._startX = c._targetX = c.x;
+      c._startY = c._targetY = c.y;
+    }
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    const n = targets.length;
+    this.flashLoot(`❄ ${n} enem${n === 1 ? 'y' : 'ies'} frozen for ${shortDuration(FROST_POWDER_MS)}`, '#9ad8ff', 1.8, 'frost_powder');
+    return true;
+  }
+
   // Sapphire portal: spend one gem to open a one-shot shaft straight down a
   // level, in place. Down-only — there's no return portal; climb back up a
   // staircase as usual. The gem is consumed only when the descent actually
@@ -10176,6 +10374,14 @@ class MapScene extends Phaser.Scene {
                                   Math.random, jumpedPlants);
     for (const p of jumpedPlants) this._burstAtWorld('sprout', p.x, p.y);
     return out;
+  }
+
+  // Spring every unripe crop within ${radius} metres of the player one stage
+  // ahead, no watering involved (the Growth Powder). Returns the count.
+  advanceCropsWithin(radius) {
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    return Crops.advanceWithin(this.save, pWX, pWY, radius);
   }
 
   // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.
@@ -11820,6 +12026,7 @@ class MapScene extends Phaser.Scene {
       cost: cap >= 1 ? first.cost : recipeLine(1),
       canAfford: cap >= 1,
       acceptLabel: 'Smelt',
+      getLabel: 'You receive', costLabel: 'You give',
       tabs,
       quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
       secondary: (bars.length > 1 && next !== target)
@@ -12948,6 +13155,7 @@ class MapScene extends Phaser.Scene {
       cost: costHTML,
       canAfford: canAfford(),
       acceptLabel: 'Forge',
+      getLabel: 'You receive', costLabel: 'You give',
       tabs,
       secondary,
       onAccept: () => {
@@ -13583,7 +13791,7 @@ class MapScene extends Phaser.Scene {
   //                 "Later" reads as "still on the table" rather than "gone".
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for', kind, kindLabel }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { maxWidth: 340, onClose: () => {}, kind, kindLabel });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
@@ -13617,6 +13825,20 @@ class MapScene extends Phaser.Scene {
     titleDiv.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:6px';
     titleDiv.textContent = title;
     box.appendChild(titleDiv);
+    // `getLabel` / `costLabel` are explicit captions over the two halves of
+    // the trade ("You receive" / "You give"). A goods-for-goods trade like the
+    // smithy's — gear for bars, or bars for bars on the Smelt tab — reads as
+    // two equal lines with only the word "for" between them, and which side
+    // was the price was a guess. A caption names each side; when `costLabel`
+    // is given it REPLACES the "for" row rather than stacking on it.
+    const mkCaption = (text) => {
+      const c = document.createElement('div');
+      c.style.cssText = 'font:700 10px ui-monospace,monospace;letter-spacing:.12em;'
+        + 'text-transform:uppercase;opacity:.6;margin:8px 0 2px';
+      c.textContent = text;
+      return c;
+    };
+    if (getLabel) box.appendChild(mkCaption(getLabel));
     const getDiv = document.createElement('div');
     getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0;color:#ffe066';
     getDiv.innerHTML = get;
@@ -13636,10 +13858,14 @@ class MapScene extends Phaser.Scene {
     const hasCost = cost != null && cost !== '';
     let costDiv = null;
     if (hasCost) {
-      const forDiv = document.createElement('div');
-      forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
-      forDiv.textContent = forLabel;
-      box.appendChild(forDiv);
+      if (costLabel) {
+        box.appendChild(mkCaption(costLabel));
+      } else {
+        const forDiv = document.createElement('div');
+        forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
+        forDiv.textContent = forLabel;
+        box.appendChild(forDiv);
+      }
       costDiv = document.createElement('div');
       costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0 10px;';
       costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
@@ -14416,6 +14642,15 @@ class MapScene extends Phaser.Scene {
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 amulet walking for 1 min' },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
       dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon for 1 min — tier-8 amulet legs + 2× damage' },
+      growth_powder: { verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',       get: `🌱 every crop within ${GROWTH_POWDER_R_M}m springs ahead a stage` },
+      shadow_powder: { verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',       get: '🌑 monsters ignore you for 1 min — no stalking, no hits' },
+      frost_powder:  { verb: 'Use', method: 'useFrostPowder',  title: 'Use the Frost Powder?',        get: `❄ every enemy in reach frozen for ${shortDuration(FROST_POWDER_MS)}` },
+      // Torch: `get` is a function so that, with one already burning, the line
+      // says the new one ADDS to it (useTorch extends from the current end).
+      torch: { verb: 'Light', method: 'useTorch', title: 'Light the Torch?',
+               get: () => (this.isTorchActive()
+                 ? `🔥 adds ${shortDuration(TORCH_MS)} to the ${shortDuration(this._torchUntil - Date.now())} still burning — your light reaches twice as far`
+                 : `🔥 your light reaches twice as far for ${shortDuration(TORCH_MS)}`) },
       sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
       // Rope: the ONE consumable whose dialog is a choice, not a yes/no. The
       // primary button lowers you a level (useRopeDown), the `secondary` one

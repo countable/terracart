@@ -109,9 +109,17 @@ const MINERAL_ICON_SHEET = {
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
   wood:     { sheet: 'wood',      frame: 2 },
   coal:     { sheet: 'coal_icon', frame: 0 },
-  sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
-  ruby:     { sheet: 'gems',      frame: 0 },   // red gem
-  emerald:  { sheet: 'gems',      frame: 3 },   // green gem
+  // Gems — Gemstones.png row 0 (7 cols of 16×16), left to right: 0 cut cyan
+  // diamond, 1 red ruby, 2 purple shard, 3 blue sapphire, 4 orange topaz,
+  // 5 green emerald cluster, 6 pink quartz. (Rows 1-3 are outlined / mask
+  // duplicates.) Until Sep 2026 these rows read ruby 0 / emerald 3 /
+  // sapphire 4 — the cyan diamond, the blue sapphire and the orange topaz —
+  // so the "red gem" the tips promised was drawn cyan; the diamond taking
+  // frame 0 is what surfaced it. Pinned by test/node/diamond.test.js.
+  sapphire: { sheet: 'gems',      frame: 3 },   // blue gem
+  ruby:     { sheet: 'gems',      frame: 1 },   // red gem
+  emerald:  { sheet: 'gems',      frame: 5 },   // green gem cluster
+  diamond:  { sheet: 'gems',      frame: 0 },   // cut cyan-white diamond — the Frost jewel
   // Bars from the 16-col Extras 'Bars and ores' sheet (16px frames, 16
   // cols × 4 rows). The sheet is NOT one bar per frame: each row packs two
   // metals as bar/ore PAIRS — col0 barA, col1 oreA, col2 barB, col3 oreB,
@@ -164,10 +172,21 @@ const MINERAL_ICON_SHEET = {
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
+  // The other three heaps of the same powder row (row 1, y=16: frame 5 is the
+  // EMPTY slot, then green / red / purple / blue). Growth is the green heap,
+  // Shadow the purple, Frost the blue — each used from the Use button like the
+  // dragon's red (useGrowthPowder / useShadowPowder / useFrostPowder in app.js).
+  growth_powder: { sheet: 'icon_potions', frame: 6 },
+  shadow_powder: { sheet: 'icon_potions', frame: 8 },
+  frost_powder:  { sheet: 'icon_potions', frame: 9 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
   rope:          { sheet: 'icon_rope', frame: 0 },
+  // Torch — single 16×16 stick-and-flame icon (Icons/Items). Lighting it
+  // widens the player's own light for a few minutes (useTorch in app.js →
+  // the `torch` row of Lighting.KINDS).
+  torch:         { sheet: 'icon_torch', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -186,6 +205,9 @@ const MINERAL_ICON_SHEET = {
   // frames; frame 2 = the small young green tree) reads as a sapling.
   apple_sapling: { sheet: 'apple_tree', frame: 2 },
   peach_sapling: { sheet: 'peach_tree', frame: 2 },
+  // The acorn plants a plain timber tree, so it shows the same sheet that
+  // tree draws from ('trees', the maple/default sheet) at its young frame.
+  acorn:         { sheet: 'trees',      frame: 2 },
   // Discovery badge — the gold five-point star at row 8 col 4 of
   // 7_Pickup_Items (frame 8 * 14 + 4 = 116). Same sheet as the boot.
   discovery:     { sheet: 'pickup',     frame: 116 },
@@ -270,7 +292,7 @@ const BASE_TIER = {
   orange: 3, mango: 3,
   banana: 4, coconut: 4,
   // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
-  apple_sapling: 3, peach_sapling: 5,
+  apple_sapling: 3, peach_sapling: 5, acorn: 2,
   // Live animals
   chicken: 1, dog: 1, rabbit: 1,
   cat: 2, butterfly: 2,
@@ -280,13 +302,20 @@ const BASE_TIER = {
   // Consumables
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   dragon_powder: 3,
+  // Growth Powder is a T2 farm utility beside the potions; Shadow and Frost are
+  // T3 fight-changers beside the dragon.
+  growth_powder: 2, shadow_powder: 3, frost_powder: 3,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
+  // Torch — the T1 cave staple: light for the dark, cheap and common.
+  torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
   crow_feather: 3,
   sapphire: 4, ruby: 5, emerald: 6,
+  // Diamond tops the gem ladder at the Frost tier — the T7 rock's headline gem.
+  diamond: 7,
 };
 
 // NOTE: items carry NO `icon` (emoji) field — items always render as their
@@ -365,11 +394,28 @@ const ITEMS = [
   // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
   { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
+  // Growth Powder: every crop within 20 m springs ahead one stage on the spot,
+  // no watering needed (useGrowthPowder). Refused — and kept — when no crop is
+  // in range.
+  { id: 'growth_powder', name: 'Growth Powder',       kind: 'consumable' },
+  // Shadow Powder: for one minute monsters lose interest in you — they neither
+  // stalk nor drain you (useShadowPowder). You may still hit them.
+  { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'consumable' },
+  // Frost Powder: every enemy within reach is frozen solid for 30 s — no
+  // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
+  // hostile is in reach.
+  { id: 'frost_powder',  name: 'Frost Powder',        kind: 'consumable' },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
   // climb UP a level or lower yourself DOWN one — right where you stand, no
   // staircase needed. One rope per climb. Unlike the sapphire portal it goes
   // both ways, so it is also the way out of a dead-end dig (useRope in app.js).
   { id: 'rope',          name: 'Rope',                kind: 'consumable' },
+  // Torch: light it (Use button with it selected) and for three minutes the
+  // player's own light reaches twice as far — the `torch` row of
+  // Lighting.KINDS, stamped at the feet on top of the reach ramp. The reach
+  // plateau (what you can tap) is untouched; only the dark around it lifts.
+  // Lighting another while one burns EXTENDS the time (useTorch in app.js).
+  { id: 'torch',         name: 'Torch',               kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -434,6 +480,13 @@ const ITEMS = [
   // common apple (T3) and the rare peach (T5).
   { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: 3 },
   { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: 5 },
+  // The ACORN is a sapling too, but it plants TIMBER, not fruit: `plants:'tree'`
+  // routes it to a growing `tree` object (the thing you chop) instead of a
+  // `fruittree` (the thing you pick). It falls out of felling a tree — the
+  // better the axe, the likelier (acornDropChance) — so a forest you clear can
+  // be a forest you replant. It carries no `grows`: a species-less tree draws
+  // off the default growth sheet and takes no hardwood/softwood tier shift.
+  { id: 'acorn', name: 'Acorn', kind: 'sapling', plants: 'tree', baseTier: 2 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
@@ -443,6 +496,11 @@ const ITEMS = [
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
+  // Diamond — the Frost-tier (T7) gem, one per rung of the ladder above:
+  // sapphire 4 / ruby 5 / emerald 6 / diamond 7. Mined from the T7
+  // (frost) mineralrock (interactables.js GEM_BY_TIER) and what every T7
+  // piece of jewelry is cut around (gear.js blacksmithRecipe).
+  { id: 'diamond',  name: 'Diamond',  kind: 'mineral' },
   // Smelted metal bars — primary forge material at blacksmiths. Dropped
   // by mineralrocks (worldgen.js). One ladder per material tier 2..7;
   // tier 1 (wood) gear is starter-shop only and doesn't need a bar.
@@ -536,7 +594,11 @@ const PRICES = {
   speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
+  growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
+  shadow_powder: 110,  // T3 — 1 min of monsters ignoring you entirely
+  frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   rope:          25,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft)
+  torch:         15,   // T1 — 3 min of the player's own light reaching twice as far (useTorch)
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -544,6 +606,7 @@ const PRICES = {
   sapphire:  30,
   ruby:      80,
   emerald:  200,
+  diamond:  600,   // T7 — above the platinum bar (500), below the crimson (1200)
   // ── Metal bars (blacksmith forge ingredients) ───────────
   // Roughly 2.5× ramp per tier, matching MATERIAL_TIERS.costMul.
   copper_bar:    30,
@@ -706,6 +769,8 @@ const ITEM_EFFECTS = {
   // undescribed. The taming is hinted in exactly one place now — the closing
   // riddle in PLAY_TIPS — which is what makes it a secret rather than a label.
   sapphire:  'Use to open a portal one level down',
+  // The Frost jewel: where it comes from and what it is for, in one line.
+  diamond:   'Mined from Frost-tier ore; Frost jewelry is cut around it',
   // Consumables used on yourself / the world.
   honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',
@@ -714,7 +779,11 @@ const ITEM_EFFECTS = {
   speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   dragon_powder: 'Use to become a dragon for 1 min: faster legs, 2× damage',
+  growth_powder: 'Use to spring every crop within 20m ahead a stage',
+  shadow_powder: 'Use to make monsters ignore you (1 min)',
+  frost_powder:  'Use to freeze every enemy in reach for 30s',
   rope:          'Use to climb up or lower down one level, right here',
+  torch:         'Use to make your light reach twice as far (3 min)',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
   // Materials that are also placeables — held-and-tapped, so the line has to
   // say so or nothing does (a rock in the bag looks like pure sell value).
@@ -827,35 +896,48 @@ const RELIC_DEFS = {
              effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
-  // are ranged — they fire on their own, one shot every Combat.FIRE_INTERVAL_MS
-  // (two seconds), while an enemy is on screen: the bow along the compass, the
-  // staff at the nearest foe in range.
+  // are ranged — they fire on their own while an enemy is on screen, each on
+  // its OWN beat (Combat.fireIntervalMs): the bow along the compass every 2 s,
+  // the staff at the nearest foe in range every 4 s. The staff's slower beat
+  // is pacing, not a nerf — one bolt carries the extra beat's damage.
   // These blurbs are the WHOLE disclosure for a weapon — the Book no longer
   // carries a second copy — so the bow's blurb has to say it aims by the
   // compass and the staff's that each bolt costs energy.
-  // All three still speed the crow/deer hunt wheel by
-  // tier. On top of the fighting, the Sword raises sell values and the Bow
-  // lowers buy prices; the Staff bends no prices at all.
+  // They fight ENEMIES and nothing else: the crow/deer hunt wheel is the BUG
+  // NET's job, not a weapon's. On top of the fighting, the Sword raises sell
+  // values and the Bow lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
              effectKey: 'sellPrice',     blurb: 'melee: auto-fights foes in reach · better sell prices' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots along the compass · better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'hunt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt · bigger bolt per tier' },
-  // Watering can — when equipped, every watering tap on a crop "improves" it.
-  // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
-  // next 50 watering uses get an extra +2 tiers of bonus stacked on top.
-  // Boost is consumed at harvest: every quality-tier raises the extra-seed
-  // chance by 10% (base 25%) and adds +floor(qual/3) to the produce yield.
+             effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt · bigger bolt per tier' },
+  // Watering can — HOW SOON, not what. Every watering has a tier/7 chance
+  // (Crops.waterJumpChance) of springing the plant a whole growth stage on the
+  // spot: nothing bare-handed, certain at Frost. It used to set produce
+  // QUALITY as well, plus 2 more tiers while a refill charge bank held out;
+  // quality is the HOE's now (it belongs to the bed, see Crops.bedQuality)
+  // and the charge bank retired with it.
   can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
-             effectKey: 'wateringQuality', blurb: 'refill at water · higher-quality crops · bonus seeds' },
-  // Hoe — reduces the energy cost of tilling. Each tier shaves 1/3 of the cost
-  // (floored at 1) AND adds a per-tier chance of spending zero energy at all.
+             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward · surer per tier' },
+  // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
+  // effects, all per tier: the till wheel shortens on the shared tool ladder;
+  // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a
+  // 12%-per-tier chance of costing nothing at all (effectiveTillCost); and the
+  // tier is banked on the tilled cell as its produce quality, which the crop
+  // planted there carries to harvest (Crops.bedQuality — every quality tier is
+  // +10% extra-seed chance and +floor(qual/3) yield). That last one was the
+  // watering can's until Sep 2026.
   hoe:     { slot: 'hoe',    name: 'Hoe',     icon: 'Hoe.png',     baseCost:  70,
-             effectKey: 'tillSpeed',     blurb: 'cheaper tilling, sometimes free' },
-  // Bug Net — single 16×16 icon under Extras (handled by gearAssetPath below).
+             effectKey: 'tillQuality',   blurb: 'cheaper tilling, sometimes free · the bed sets crop quality' },
+  // Bug Net — THE animal tool. It shortens every wheel that takes a creature:
+  // the catch wheel (chicken / cow / cat / dog / rabbit / butterfly) and the
+  // crow / deer HUNT wheel, which weapons used to speed. Bare hands work at
+  // the tier-0 rung for both, only slowly enough that a quick animal usually
+  // slips out of reach first. Single 16×16 icon under Extras (handled by
+  // gearAssetPath below).
   bugnet:  { slot: 'bugnet', name: 'Bug Net',     icon: 'Bug net.png',     baseCost: 60,
-             effectKey: 'bugCatch',  blurb: 'catch crows + butterflies' },
+             effectKey: 'bugCatch',  blurb: 'catch + hunt animals faster' },
   // Fishing Rod — standard 32×16 weapon sheet per tier folder.
   rod:     { slot: 'rod',    name: 'Fishing Rod', icon: 'Fishing Rod.png', baseCost: 90,
              effectKey: 'fishing',   blurb: 'catch fish from water' },
@@ -961,8 +1043,20 @@ function effectiveChopCost(relics, o, rng) {
   const sizeMul = (typeof treeWoodMul === 'function') ? treeWoodMul(o) : 1;
   return probEnergy(toolEnergyExpected(relics?.axe?.tier || 0, ENERGY_COST.chop) * sizeMul, rng);
 }
+// AXE → ACORNS. Felling a tree sometimes leaves an acorn behind: a sapling
+// that plants a new timber tree (items.js 'acorn', interact.js plant handler),
+// so clearing a wood is not a one-way trade. A clean fell recovers more of the
+// tree than a hacked one, so the chance climbs with the axe: bare hands (tier
+// 0) get the base 5%, a Frost axe 25%, linear between. Both ends are named so
+// the ladder is one subtraction rather than a magic slope.
+const ACORN_P_BASE = 0.05;   // bare hands
+const ACORN_P_FROST = 0.25;  // tier 7
+function acornDropChance(relics) {
+  const t = Math.max(0, Math.min(7, relics?.axe?.tier || 0));
+  return ACORN_P_BASE + ((ACORN_P_FROST - ACORN_P_BASE) / 7) * t;
+}
 // Bug Net: bare-handed catch expects 9, a Wood net 3, a Frost net 1. The net
-// ALSO shortens the catch wheel (see toolDurationMs).
+// ALSO shortens the catch AND crow/deer hunt wheels (see toolDurationMs).
 function effectiveCatchCost(relics, rng) {
   return probEnergy(toolEnergyExpected(relics?.bugnet?.tier || 0), rng);
 }
@@ -1003,9 +1097,12 @@ function effectiveTillCost(relics, rng) {
 // steps wandered between 1.25× and 1.67×, and the flat spot was exactly where
 // a new player lives: copper→iron bought 25%, so the first three relics — the
 // only ones reachable in the opening hour — felt like the same tool. In combat
-// that's the loudest, because a slime is BASELINE_HP and so its kill time in
-// seconds IS the duration here (see combat.js): wood 3s / copper 2.5s / iron 2s
-// was a wooden sword killing nearly as fast as an iron one. Wood also moved 3s
+// that's the loudest, because a foe of BASELINE_HP has a kill time in seconds
+// that IS the duration here (see combat.js): wood 3s / copper 2.5s / iron 2s
+// was a wooden sword killing nearly as fast as an iron one. (The surface slime
+// was that reference foe until Sep 2026; it is 10 HP now, so it dies in two
+// thirds of a rung — the ladder's SHAPE is what this paragraph is about, and
+// that is unchanged.) Wood also moved 3s
 // → 4s in the same pass, which is what opens the bottom of the curve up.
 //
 // TIER 0 = BARE HANDS is deliberately NOT on this curve. It stays at 9s, the
