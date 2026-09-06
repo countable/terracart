@@ -996,7 +996,7 @@ const ICON_SHEETS = {
   icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
   icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
   // Consumables + wilderness drops.
-  icon_flute:    { url: 'assets/Icons/RPG icons/Extras/Flutes.png',          cols: 2,  srcW: 32,  srcH: 32 },
+  icon_honey:    { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
   // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
   icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
@@ -9220,10 +9220,10 @@ class MapScene extends Phaser.Scene {
   // Returns true if eaten, false if not edible / nothing selected.
   // Side-effects: pairy → arm chest compass for 5 min; rainberry → water all crops within 20m.
   // === Consumables ============================================
-  // Play a flute (consumed): every wandering chicken / cow within 30m has its
-  // home position re-anchored to ~5m from the player so they wander toward you
+  // Set out honey (consumed): every wandering chicken / cow within 30m has its
+  // home position re-anchored to ~3m from the player so they wander toward you
   // over the next few seconds. Doesn't teleport — that would feel cheesy.
-  // Shared tail for modal-feedback consumables (flute, book): consume the
+  // Shared tail for modal-feedback consumables (honey, book): consume the
   // selected item, persist, rebuild the inventory bar, and pop a message
   // modal. Returns true so callers can `return this._finishConsumable(...)`.
   // NOTE: eatSelected deliberately does NOT use this — it consumes mid-method
@@ -9236,9 +9236,9 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
-  playFlute() {
+  useHoney() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'flute' || (sel.count ?? 0) <= 0) return false;
+    if (!sel || sel.id !== 'honey' || (sel.count ?? 0) <= 0) return false;
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
     let lured = 0;
@@ -9261,8 +9261,8 @@ class MapScene extends Phaser.Scene {
       }
     }
     return this._finishConsumable(
-      '🪈 You play the flute',
-      lured > 0 ? `${lured} creature${lured === 1 ? '' : 's'} come${lured === 1 ? 's' : ''} closer.` : 'Nothing stirs nearby.',
+      '🍯 You set out the honey',
+      lured > 0 ? `${lured} creature${lured === 1 ? '' : 's'} come${lured === 1 ? 's' : ''} closer for a taste.` : 'Nothing stirs nearby.',
     );
   }
 
@@ -13661,7 +13661,7 @@ class MapScene extends Phaser.Scene {
     document.body.appendChild(btn);
   }
 
-  // Book / Flute Read / Play button. Mirror of syncEatButton — sits next
+  // Book / Honey Read / Use button. Mirror of syncEatButton — sits next
   // to the Eat button (or in the same spot when food isn't selected). This
   // is THE way to use a self-targeted consumable: the old tap-your-own-feet
   // gesture (interact.js 'use-consumable') was removed because it was easy
@@ -13671,7 +13671,7 @@ class MapScene extends Phaser.Scene {
     const existing = document.getElementById('consumable-btn');
     const CONSUMABLE = {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
-      flute: { verb: 'Play', method: 'playFlute', title: 'Play the flute?', get: '🪈 lure nearby creatures' },
+      honey: { verb: 'Use',  method: 'useHoney',  title: 'Set out the honey?', get: '🍯 lure nearby chickens & cows' },
       reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: '✨ full-screen reach for 1 min' },
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 amulet walking for 1 min' },
@@ -13689,7 +13689,7 @@ class MapScene extends Phaser.Scene {
     btn.dataset.id = sel.id;
     // Sit to the LEFT of the Eat button (Eat lives at right:8). Since the
     // two are mutually-exclusive in normal play (Eat = food selected,
-    // consumable = book/flute selected) we use the same right slot. CSS
+    // consumable = book/honey selected) we use the same right slot. CSS
     // identical except border colour (warm tan to distinguish from
     // Eat's green).
     btn.className = 'hud-action';

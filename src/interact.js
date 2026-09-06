@@ -362,7 +362,7 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // (Eat-by-tapping-the-player and the flute/book/potion/sapphire tap-on-feet
+  // (Eat-by-tapping-the-player and the honey/book/potion/sapphire tap-on-feet
   // gestures removed — the persistent Eat and consumable Use buttons below the
   // inventory bar (syncEatButton / syncConsumableButton in app.js) cover those
   // affordances now, and the tap-on-feet variants were easy to trigger
