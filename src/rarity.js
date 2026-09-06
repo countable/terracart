@@ -343,15 +343,7 @@
       ? Math.min(ctx.relicChainMax ?? finalCap, finalCap)
       : Math.min(ctx.chainMax ?? finalCap, finalCap);
     // Deterministic chain. The context declares how many boost steps fire
-    // (chainSteps), plus any ROLL BONUS the caller asked for — an extra step
-    // or two for a reward that cost the player more than walking up to a box
-    // (opts.rollBonus; the cobble-trail prize spends Trail.PRIZE_ROLL_BONUS on
-    // it). A bonus step is worth the same as one of the context's own: a
-    // tier-up while the chain is under its cap, a quantity bracket after that,
-    // and the context's maxTier / chainMax still bound the result, so a bonus
-    // can lift a roll toward its ceiling but never above it. It does not touch
-    // a gear roll — those go through rollGearUpgrade on the chest tier alone.
-    // Each step:
+    // (chainSteps), each one a tier-up or a quantity bracket:
     //   • 33% chance: qty-up (bracket++ if below cap, else nothing).
     //   • 67% chance: tier-up if below chainCap, else qty-up (fallback).
     // The chain never 'misses' — every step does something, which lets the
@@ -361,8 +353,7 @@
     // already at 3, or the class is single-stack so the bump never converts
     // to actual qty. Each wasted bump pays out small consolation coins.
     let wastedQtyBumps = 0;
-    const chainSteps = (ctx.chainSteps ?? 0)
-      + Math.max(0, Math.floor((opts && opts.rollBonus) || 0));
+    const chainSteps = ctx.chainSteps ?? 0;
     const luck = ringLuck(save);
     const qtyP = Math.max(0, Math.min(0.95, (RARITY_TUNING.chainQtyP ?? 0.33) - luck));
     for (let i = 0; i < chainSteps; i++) {
@@ -370,6 +361,28 @@
       if (!goQty && tier < chainCap) tier += 1;
       else if (bracket < 3) bracket += 1;
       else wastedQtyBumps += 1;        // both axes maxed
+    }
+    // ROLL BONUS — extra steps the caller paid for (opts.rollBonus; the
+    // cobble-trail prize spends Trail.PRIZE_ROLL_BONUS on it, one more for
+    // every prize already won). These buy TIER AND NOTHING ELSE.
+    //
+    // They used to be ordinary chain steps, and a step that can't find tier
+    // headroom falls through to a quantity bracket — so the trail prize, which
+    // already rolls the T4 curve at its own chainMax, spent its bonus on the
+    // stack every time and handed over "× 2" of a T4 item on roughly every
+    // other prize. The player reads that as the reward's quantity being fixed
+    // at two, which is exactly what it was. A longer walk is supposed to buy a
+    // BETTER find, not a bigger pile of the same one: the quantity a prize
+    // shows is the context's own standard roll, and a bonus with nowhere left
+    // to climb pays consolation coins instead of padding the stack.
+    //
+    // The context's maxTier / chainMax still bound the result, so a bonus can
+    // lift a roll toward its ceiling but never above it. It does not touch a
+    // gear roll — those go through rollGearUpgrade on the chest tier alone.
+    const bonusSteps = Math.max(0, Math.floor((opts && opts.rollBonus) || 0));
+    for (let i = 0; i < bonusSteps; i++) {
+      if (tier < chainCap) tier += 1;
+      else wastedQtyBumps += 1;        // no headroom left — pay it out in coins
     }
     // Amulet: per-tier extra bracket roll (folded in here rather than a
     // post-multiply, so it stops doubling unbounded).

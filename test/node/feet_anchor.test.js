@@ -25,22 +25,37 @@ test('feet anchor: feetOffsetM is 0 — the feet stand on playerM', () => {
 });
 
 test('feet anchor: the sprite is raised by its own feet drop, so the feet sit on viewCentre', () => {
-  const m = app.match(/this\.playerFeetNudgeY = -\((\d+) \/ ([\d.]+)\) \* this\.playerScale;/);
-  assert.truthy(m, 'playerFeetNudgeY is the NEGATIVE feet drop');
-  // The scale is written as a product of its history (1.35 × 0.9 × 0.85);
-  // evaluate the factors rather than pinning the number.
+  // The drop is a fact about the ART — how far the visible feet sit below the
+  // centre of the 32px frame — so it is a named constant in texture px, and the
+  // nudge is that constant times whatever scale the sprite draws at. Written
+  // that way, the feet stay on the fix when the scale changes; written as a
+  // number, they do not.
+  const dm = app.match(/const PLAYER_FEET_DROP_PX = (\d+) \/ ([\d.]+);/);
+  assert.truthy(dm, 'PLAYER_FEET_DROP_PX is the measured drop, in texture px');
+  const feetDropPx = Number(dm[1]) / Number(dm[2]);
+  assert.truthy(/this\.playerFeetNudgeY = -PLAYER_FEET_DROP_PX \* this\.playerScale;/.test(app),
+    'playerFeetNudgeY is the NEGATIVE drop, scaled — never a literal');
   const sm = app.match(/this\.playerScale = ([\d.]+(?: \* [\d.]+)*);/);
   assert.truthy(sm, 'playerScale is a plain numeric product');
   const scale = sm[1].split(' * ').map(Number).reduce((a, b) => a * b, 1);
-  assert.truthy(scale > 0.9 && scale < 1.1, `scale ${scale} is the 15%-shorter walker`);
-  const nudge = -(Number(m[1]) / Number(m[2])) * scale;
-  // The frame's feet are 14/1.35 texture px below its centre; at the sprite's
-  // scale that drop plus the nudge must cancel to zero — feet ON the point.
-  const feetDrop = (14 / 1.35) * scale;
-  assert.truthy(Math.abs(nudge + feetDrop) < 1e-9, `nudge (${nudge}) cancels the feet drop (${feetDrop})`);
+  assert.truthy(scale > 0.9 && scale < 1.1, `scale ${scale} is the human-sized walker`);
+  // Feet ON the point: the nudge and the drawn drop must cancel exactly.
+  const nudge = -feetDropPx * scale;
+  assert.truthy(Math.abs(nudge + feetDropPx * scale) < 1e-9,
+    `nudge (${nudge}) cancels the feet drop (${feetDropPx * scale})`);
   assert.truthy(nudge < -10, 'the sprite is drawn well ABOVE its point, not on it');
   assert.truthy(/this\.player = this\.add\.sprite\(this\.viewCenterX, this\.viewCenterY \+ this\.playerFeetNudgeY/.test(app),
     'the player sprite is created at viewCentre + nudge');
+});
+
+test('feet anchor: the walker draws one texture pixel to one game pixel', () => {
+  // Everything else on screen is an exact multiple of a texture pixel or is
+  // geometry. At 1.033 the walker alone was resampled at a near-but-not-1
+  // ratio, so its pixels came out in irregular runs with the seam wandering as
+  // it moved. Scale 1 is what makes the character the crisp thing on screen.
+  const sm = app.match(/this\.playerScale = ([\d.]+(?: \* [\d.]+)*);/);
+  const scale = sm[1].split(' * ').map(Number).reduce((a, b) => a * b, 1);
+  assert.eq(scale, 1, 'playerScale is exactly 1');
 });
 
 test('feet anchor: ground marks sit on the point with no feet offset of their own', () => {

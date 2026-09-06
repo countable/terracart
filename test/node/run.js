@@ -86,10 +86,9 @@ const BRIDGE = `;Object.assign(globalThis, {
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
-  // The building roof-scale curve — house_scale.test.js asserts against the
-  // SHIPPING baselines rather than its own copies of them.
-  houseArtScale, HOUSE_BASE_SCALE, FORT_BASE_SCALE, FORT_FIT, FORT_MAX_SCALE,
-  HOUSE_MIN_CELLS,
+  // The one building roof-scale rule — house_scale.test.js asserts against the
+  // SHIPPING table rather than its own copies of it.
+  houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
   HomeArea,
   itemValue, randInt, pickFromArray, isShiny,
   TRAILER_SELL_MUL,
@@ -257,7 +256,10 @@ try {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_trailCounterAt(ix, iy) {', '_activatePathStone(tx, ty, ix, iy) {']
+  const methods = ['_trailCounterAt(ix, iy) {', '_pathStoneAt(tx, ty, ix, iy) {',
+                   '_activatePathStone(tx, ty, ix, iy) {',
+                   '_resetTrailSight() {', '_rebuildTrailSight(p, reachM, now) {',
+                   '_sweepCobbleTrails() {']
     .map(lift).join(',\n');
   // The abs→tile-local cell conversion both stone methods share is a module
   // function of app.js; carry it across as source text too.
@@ -280,11 +282,13 @@ try {
   vm.runInContext(
     `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
     `globalThis.TRAIL_COUNTER_LIFT_PX = ${constOf('TRAIL_COUNTER_LIFT_PX')};\n` +
-    `globalThis.pathStoneLocal = ${localFn[0].trim()};`,
+    `globalThis.pathStoneLocal = ${localFn[0].trim()};\n` +
+    `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};`,
     ctx, { filename: 'app.js#TRAIL_COUNTER_LIFT_PX' });
   vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_trailCounterAt' });
-  for (const k of ['_trailCounterAt', '_activatePathStone']) {
+  for (const k of ['_trailCounterAt', '_pathStoneAt', '_activatePathStone',
+                   '_resetTrailSight', '_rebuildTrailSight', '_sweepCobbleTrails']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
       process.exit(2);

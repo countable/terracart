@@ -85,7 +85,14 @@
   // one more for every prize already won, so the tenth prize — a hundred
   // stones of walking — is visibly a better find than the first.
   //
-  // Capped, because a chain step stops buying tiers once the context's own
+  // BETTER, NOT BIGGER. A bonus step buys TIER only (see the bonus loop in
+  // rarity.js pickReward). As an ordinary chain step it fell through to a
+  // quantity bracket whenever the tier had nowhere left to climb — which, on
+  // the T4 curve the trail already rolls at its own chainMax, was nearly every
+  // prize: the ceremony handed over "× 2" so reliably that the quantity read
+  // as fixed. The walk is meant to change WHAT you find.
+  //
+  // Capped, because a bonus step stops buying tiers once the context's own
   // ceiling is reached and turns into consolation coins after that; past
   // PRIZE_ROLL_BONUS_MAX the ladder would be paying in small change and
   // pretending it was an upgrade.
