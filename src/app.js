@@ -835,7 +835,8 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // demoted a tier for each Home ring the chest stands inside (700 m / 350 m,
 // CHEST_TIER_HOME_RINGS_M, floor T1), then raised one tier per two cave
 // levels down (CHEST_TIER_DEPTH_STEP, cap T5) for the POI's underground
-// mirrors (worldgen.js caveChestsFrom). The tier drives the sprite/gem in
+// mirrors (worldgen.js caveChestsFrom; lowtier street furniture never goes
+// down, loot.js chestMirrorsUnderground). The tier drives the sprite/gem in
 // render.js and the chestTierMod loot curve in rarity.js; only the loot roll
 // itself is random.
 
