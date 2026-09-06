@@ -272,7 +272,10 @@ const MODAL_KINDS = {
   trail:    { icon: '🗺️', label: 'Trail'     },   // road/trail completion rewards
   shop:     { icon: '🪙', label: 'Shop'      },   // buying and selling for money
   trade:    { icon: '🤝', label: 'Trade'     },   // goods-for-goods barter
-  forge:    { icon: '🔨', label: 'Forge'     },   // blacksmith: forging + smelting
+  // The smithy's CATEGORY is 'Smithy', never 'Forge': Forge is one of its two
+  // ACTIONS (the Forge / Smelt tab and button), and a header reading FORGE over
+  // the Smelt tab used the one word for two unrelated things.
+  forge:    { icon: '🔨', label: 'Smithy'    },   // blacksmith: forging + smelting
   relics:   { icon: '💍', label: 'Relics'    },   // relic + armor offers
   delivery: { icon: '📦', label: 'Delivery'  },   // household orders
   build:    { icon: '🛠', label: 'Build'     },   // restoring wrecks, unsealing forts, moving home
@@ -11389,6 +11392,7 @@ class MapScene extends Phaser.Scene {
       cost: cap >= 1 ? first.cost : recipeLine(1),
       canAfford: cap >= 1,
       acceptLabel: 'Smelt',
+      getLabel: 'You receive', costLabel: 'You give',
       tabs,
       quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
       secondary: (bars.length > 1 && next !== target)
@@ -12493,6 +12497,7 @@ class MapScene extends Phaser.Scene {
       cost: costHTML,
       canAfford: canAfford(),
       acceptLabel: 'Forge',
+      getLabel: 'You receive', costLabel: 'You give',
       tabs,
       secondary,
       onAccept: () => {
@@ -13128,7 +13133,7 @@ class MapScene extends Phaser.Scene {
   //                 "Later" reads as "still on the table" rather than "gone".
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for', kind, kindLabel }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { maxWidth: 340, onClose: () => {}, kind, kindLabel });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
@@ -13162,6 +13167,20 @@ class MapScene extends Phaser.Scene {
     titleDiv.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:6px';
     titleDiv.textContent = title;
     box.appendChild(titleDiv);
+    // `getLabel` / `costLabel` are explicit captions over the two halves of
+    // the trade ("You receive" / "You give"). A goods-for-goods trade like the
+    // smithy's — gear for bars, or bars for bars on the Smelt tab — reads as
+    // two equal lines with only the word "for" between them, and which side
+    // was the price was a guess. A caption names each side; when `costLabel`
+    // is given it REPLACES the "for" row rather than stacking on it.
+    const mkCaption = (text) => {
+      const c = document.createElement('div');
+      c.style.cssText = 'font:700 10px ui-monospace,monospace;letter-spacing:.12em;'
+        + 'text-transform:uppercase;opacity:.6;margin:8px 0 2px';
+      c.textContent = text;
+      return c;
+    };
+    if (getLabel) box.appendChild(mkCaption(getLabel));
     const getDiv = document.createElement('div');
     getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0;color:#ffe066';
     getDiv.innerHTML = get;
@@ -13181,10 +13200,14 @@ class MapScene extends Phaser.Scene {
     const hasCost = cost != null && cost !== '';
     let costDiv = null;
     if (hasCost) {
-      const forDiv = document.createElement('div');
-      forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
-      forDiv.textContent = forLabel;
-      box.appendChild(forDiv);
+      if (costLabel) {
+        box.appendChild(mkCaption(costLabel));
+      } else {
+        const forDiv = document.createElement('div');
+        forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
+        forDiv.textContent = forLabel;
+        box.appendChild(forDiv);
+      }
       costDiv = document.createElement('div');
       costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0 10px;';
       costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
