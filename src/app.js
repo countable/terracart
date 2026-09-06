@@ -428,13 +428,12 @@ const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
 // `hpMul` is the instance's multiplier over the kind's HP — Combat.eliteMul:
 // an elite has twice the pool, so it pays twice the per-HP wage, by the same
 // rule that makes a goblin pay more than a slime.
-// Hard mode pays MORE per kill (Difficulty.bountyMul, 1.5×) on top of the
-// HP scaling creatureMaxHp already applies — the one income the mode raises
-// while it cuts every other, so fighting is what a hard-mode purse runs on.
+// (Hard mode adds no wage of its own: creatureMaxHp already scales an enemy's
+// pool by Difficulty.enemyHpMul, and the per-HP rule carries that into the
+// coins — a foe that takes 1.5× as long pays 1.5× as much, same as an elite.)
 function enemyBounty(kind, depth, hpMul = 1) {
   if (!Combat.isEnemyKind(kind)) return 0;
-  const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().bountyMul : 1;
-  return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP * modeMul))
+  return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP))
        + Math.floor(Math.max(0, depth || 0) * ENEMY_DEPTH_BONUS);
 }
 // Chance a defeated CAVE MONSTER also drops a buried-treasure roll — literally
@@ -4929,9 +4928,7 @@ class MapScene extends Phaser.Scene {
         // the renderer already tints and sparkles; combat.js reads it as
         // double HP and damage (Combat.isElite), and resolveDefeat pays the
         // badge-or-treasure it promises.
-        // (Hard mode rolls elite three times as often — Difficulty.eliteRateMul.)
-        creatures.push({ x: wmx, y: wmy, kind, id,
-          shiny: isShiny(id, SHINY_RATE.monster * Difficulty.get().eliteRateMul) });
+        creatures.push({ x: wmx, y: wmy, kind, id, shiny: isShiny(id, SHINY_RATE.monster) });
         break;
       }
     }
@@ -8072,8 +8069,7 @@ class MapScene extends Phaser.Scene {
     this.syncMoveTarget();
     this.cameras.main.setBackgroundColor('#222');
     this.ensureTilesAround().catch(() => {});
-    // Half the purse on easy, three quarters on hard (Difficulty.passOutLossFrac).
-    const lost = Math.floor((this.save.money ?? 0) * Difficulty.get().passOutLossFrac);
+    const lost = Math.floor((this.save.money ?? 0) / 2);
     if (lost > 0) addMoney(this.save, -lost);
     persistSave(this.save);
     this.showChestRewardModal({

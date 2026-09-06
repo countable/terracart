@@ -48,8 +48,9 @@ The How-to-play card asks a new save which game it wants, once:
 pest-free home until the first harvest; farming and exploring are the loop)
 or **Hard mode — no tutorial** (a $20 purse, traders at 1.5× the markup, Home
 paying 60% for a haul, enemies at 1.5× HP and 2× damage in 1.5× the packs,
-elites 3× as common, no pest amnesty; a kill pays 1.5× per HP, so fighting is
-the income). Every number that differs lives in `src/difficulty.js` as a
+twice the surface slimes and no pest amnesty; roadside stands, the elite rate
+and the kill bounty's per-HP rule are untouched, so a tougher foe simply pays
+more). Every number that differs lives in `src/difficulty.js` as a
 multiplier over the easy value — easy is the game exactly as it was — and each
 consumer reads it at the site that owns the base number. The mode is per save
 (`save.mode`) and kept; `test/node/difficulty.test.js` pins the table and the
