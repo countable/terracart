@@ -7,10 +7,11 @@
 // What these tests pin, in order of how expensive it would be to lose:
 //   1. EASY IS THE GAME AS IT WAS — every easy multiplier is exactly 1 and
 //      every flag on, so nothing shipped before the modes existed moved.
-//   2. Every consumer actually reads the table (prices, Home payout, enemy HP,
-//      bounty, offline rest, the pest amnesty), and hard mode pushes each in
-//      the direction the card promises: dearer to buy, poorer to sell, richer
-//      to fight.
+//   2. Every consumer actually reads the table (trader prices, Home payout,
+//      enemy HP, the pest amnesty), and hard mode pushes each in the direction
+//      the card promises: dearer to buy, poorer to sell, tougher to fight —
+//      while the things the mode does NOT touch (stands, the elite rate, the
+//      pass-out loss, a night's rest) stay put.
 //   3. The save rules: a played pre-mode save is easy, a fresh one is unset
 //      (so the card asks) and reads as easy meanwhile.
 //
@@ -29,8 +30,6 @@
     for (const [k, v] of Object.entries(e)) {
       if (/Mul$/.test(k)) assert.eq(v, 1, `easy.${k} is 1`);
     }
-    assert.eq(e.offlineRestCapFrac, 1, 'a night away can refill to full');
-    assert.eq(e.passOutLossFrac, 0.5, 'passing out costs half, as it always did');
     assert.eq(e.startingMoney, STARTING_MONEY, 'the easy purse IS items.js STARTING_MONEY');
     assert.truthy(e.tutorial && e.starterCrates && e.pestAmnesty, 'the guided opening is on');
   });
@@ -43,14 +42,12 @@
     assert.lt(h.startingMoney, e.startingMoney, 'thinner purse');
     assert.gt(h.buyMul, 1, 'dearer to buy');
     assert.lt(h.sellMul, 1, 'poorer to sell');
-    assert.gt(h.bountyMul, 1, 'richer to fight');
     assert.gt(h.enemyHpMul, 1); assert.gt(h.enemyDmgMul, 1);
-    assert.gt(h.monsterCountMul, 1); assert.gt(h.slimeCountMul, 1); assert.gt(h.eliteRateMul, 1);
-    assert.gt(h.passOutLossFrac, e.passOutLossFrac);
-    assert.lt(h.offlineRestCapFrac, 1);
-    // The promise on the card: fighting out-earns farming. Coins per minute of
-    // fighting scale by bounty × HP / HP (time) = bountyMul; farming by sellMul.
-    assert.gt(h.bountyMul, h.sellMul, 'a kill gains more than a sale loses');
+    assert.gt(h.monsterCountMul, 1); assert.gt(h.slimeCountMul, 1);
+    // What the mode deliberately leaves alone has no knob at all.
+    for (const k of ['bountyMul', 'eliteRateMul', 'passOutLossFrac', 'offlineRestCapFrac']) {
+      assert.eq(k in h, false, `${k} is not a mode difference`);
+    }
   });
 
   test('difficulty: the active mode defaults to easy and rejects junk', () => {
@@ -62,7 +59,7 @@
     assert.eq(Difficulty.mode(), 'easy', 'and the fixture restored it');
   });
 
-  test('difficulty: hard mode scales the trader markup and the stand price', () => {
+  test('difficulty: hard mode scales the trader markup — and leaves the stands alone', () => {
     const easy = withMode('easy', () => buyMarkupRange({}));
     const hard = withMode('hard', () => buyMarkupRange({}));
     assert.eq(easy.lo, 1.2); assert.eq(easy.hi, 3.0);
@@ -75,7 +72,7 @@
     const stallEasy = withMode('easy', () => ShopsMath.standPrice({ relics: {} }, 20));
     const stallHard = withMode('hard', () => ShopsMath.standPrice({ relics: {} }, 20));
     assert.eq(stallEasy, 15, 'easy stand: 20 × 0.75');
-    assert.eq(stallHard, 23, 'hard stand: 20 × 0.75 × 1.5, ceiled');
+    assert.eq(stallHard, 15, 'hard stand: the same — a stand is not a markup');
   });
 
   test('difficulty: hard mode cuts what Home pays, and never below $1', () => {
@@ -109,13 +106,13 @@
     }
   });
 
-  test('difficulty: a hard-mode kill pays bountyMul on top of the HP scaling', () => {
+  test('difficulty: a hard-mode kill pays for its HP, by the one per-HP rule', () => {
     for (const k of Object.keys(MONSTERS)) {
       const e = withMode('easy', () => enemyBounty(k, 0));
       const h = withMode('hard', () => enemyBounty(k, 0));
       const hpH = withMode('hard', () => Combat.creatureMaxHp(k));
-      assert.eq(h, Math.max(1, Math.round(hpH * ENEMY_COIN_PER_HP * 1.5)), `${k}: hard wage is HP × coin-per-HP × bountyMul`);
-      assert.gt(h, e, `${k} pays more on hard`);
+      assert.eq(h, Math.max(1, Math.round(hpH * ENEMY_COIN_PER_HP)), `${k}: the wage is still HP × coin-per-HP`);
+      assert.gte(h, e, `${k} never pays less on hard — the pool is bigger`);
     }
     // The depth bonus is the same coin on both — it's a climb, not a wage.
     const eD = withMode('easy', () => enemyBounty('goblin', 6) - enemyBounty('goblin', 0));
@@ -123,21 +120,12 @@
     assert.eq(eD, hD, 'depth bonus untouched by the mode');
   });
 
-  test('difficulty: hard mode caps a night away at half the bar, never drains', () => {
+  test('difficulty: a night away rests the same in both modes', () => {
     const rested = () => ({ energy: 10, maxEnergy: 100, armor: {} });
-    const e = rested();
+    const e = rested(), h = rested();
     withMode('easy', () => Energy.applyOfflineRest(e, Energy.OFFLINE_FULL_REST_MS * 2));
-    assert.eq(e.energy, 100, 'easy: a long night refills to full');
-    const h = rested();
     withMode('hard', () => Energy.applyOfflineRest(h, Energy.OFFLINE_FULL_REST_MS * 2));
-    assert.eq(h.energy, 50, 'hard: the same night stops at half');
-    const short = rested();
-    withMode('hard', () => Energy.applyOfflineRest(short, Energy.OFFLINE_FULL_REST_MS * 0.2));
-    assert.eq(short.energy, 30, 'a short rest under the cap is pro-rated as before');
-    const full = { energy: 90, maxEnergy: 100, armor: {} };
-    const gained = withMode('hard', () => Energy.applyOfflineRest(full, Energy.OFFLINE_FULL_REST_MS));
-    assert.eq(full.energy, 90, 'a save above the cap keeps what it had');
-    assert.eq(gained, 0, 'and reports no gain');
+    assert.eq(e.energy, 100); assert.eq(h.energy, 100, 'hard: the same night, the same full bar');
   });
 
   test('difficulty: hard mode has no pest amnesty', () => {

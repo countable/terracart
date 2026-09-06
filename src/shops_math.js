@@ -174,13 +174,12 @@
   // Cash price to buy ONE unit at a stand. Ceil (not round) so the rounding
   // always favours the stand — rounding down could hand back the very penny of
   // arbitrage the margin exists to prevent on a cheap item.
-  // Hard mode's price multiplier (Difficulty.buyMul) rides OUTSIDE the
-  // par cap: a stand on hard charges 1.5× what it would on easy at the same
-  // sword, and since the sell side is cut on hard too, the no-profit
-  // invariant only widens.
+  // Deliberately NOT scaled by the game mode: a stand is the cheap, friendly
+  // way to get an ingredient on hard too (Difficulty.buyMul is the trader's
+  // markup, and this is not a markup). The no-profit floor still holds there
+  // — hard mode only cuts the sell side.
   function standPrice(save, baseValue) {
-    const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().buyMul : 1;
-    return Math.max(1, Math.ceil(baseValue * standBuyMul(save && save.relics) * modeMul));
+    return Math.max(1, Math.ceil(baseValue * standBuyMul(save && save.relics)));
   }
 
   root.ShopsMath = { HOUR, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
