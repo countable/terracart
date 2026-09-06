@@ -114,7 +114,6 @@ function walkHomeScene(awayM, opts = {}) {
     _steerCostAccrue: 0,
     _followPaused: false,
     _driftingHome: false,
-    targetGhost: { visible: true, setVisible(v) { this.visible = v; } },
     _gpsAwayM: __walkHome._gpsAwayM,
     syncMoveTarget: __walkHome.syncMoveTarget,
     // A warp snaps the peek camera home; this scene never peeks (no peekM), so
@@ -131,7 +130,6 @@ test('walk home: a half-kilometre return is instant, not a trudge', () => {
     'the body should be standing on the fix after one frame, not walking toward it');
   assert.eq(Math.hypot(scene._manualOffsetM.x, scene._manualOffsetM.y), 0,
     'the stick offset has to go with it, or the body walks straight back off');
-  assert.eq(scene.targetGhost.visible, false, 'the ghost marks a gap that no longer exists');
 });
 
 test('walk home: the instant return uses the same gap the GPS fix path snaps on', () => {

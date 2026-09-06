@@ -428,6 +428,9 @@ const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
 // `hpMul` is the instance's multiplier over the kind's HP — Combat.eliteMul:
 // an elite has twice the pool, so it pays twice the per-HP wage, by the same
 // rule that makes a goblin pay more than a slime.
+// (Hard mode adds no wage of its own: creatureMaxHp already scales an enemy's
+// pool by Difficulty.enemyHpMul, and the per-HP rule carries that into the
+// coins — a foe that takes 1.5× as long pays 1.5× as much, same as an elite.)
 function enemyBounty(kind, depth, hpMul = 1) {
   if (!Combat.isEnemyKind(kind)) return 0;
   return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP))
@@ -1120,6 +1123,10 @@ class MapScene extends Phaser.Scene {
     // a save array below, so the HISTORY_CAP trim above actually sticks — build
     // a mirror from the pre-trim array and the next rewrite un-trims it.
     const needsMigrationPersist = SaveMigrate.migrate(this.save);
+    // Pin the game mode for the pure modules (prices, enemy HP, offline rest
+    // read Difficulty.get(), not the save). Unset — a fresh save the how-to
+    // card hasn't asked yet — reads as easy until chooseMode() runs.
+    if (typeof Difficulty !== 'undefined') Difficulty.setMode(this.save.mode);
     // Chests left for later because the bag was full: { [chestId]: {id, n} }.
     // The chest stays out of save.opened (so it still renders + reopens) and
     // remembers exactly what it rolled, so reopening can't re-roll the loot.
@@ -2014,23 +2021,15 @@ class MapScene extends Phaser.Scene {
       font: fontMono('bold 13px'), color: UI_GOLD,
       stroke: '#5a1400', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // Walk-target marker. Movement is target-follow at every depth: GPS fixes
-    // and steering input move a free-flying target (this._targetM) and the
-    // opaque body (this.player) walks toward it — underground it also passes
-    // through rock, which the body mines out. This small dot marks where that
-    // target is, UNDERGROUND ONLY: down there it's a cursor the player steers
-    // ahead of the dig. On the surface the target is the GPS fix, which the
-    // crosshair (gpsGhost) already marks, so the dot only read as a grey blob
-    // floating ahead of an auto-walking character — see the marker block in
-    // update(), which is the one place its visibility is decided. A plain
-    // marker, not a player-shaped sprite — the only player sprites on the map
-    // belong to real bodies (this.player, and any other live player — see
-    // multiplayer.js).
-    this.targetGhost = this.add.circle(this.viewCenterX, this.viewCenterY, 5, 0xffffff, 0.55)
-      .setStrokeStyle(1.5, 0x000000, 0.4)
-      .setDepth(10)
-      .setVisible(false)
-      .setMask(mask);
+    // There is NO walk-target marker. Movement is target-follow at every depth:
+    // GPS fixes and steering input move a free-flying target (this._targetM)
+    // and the opaque body (this.player) walks toward it — underground it also
+    // passes through rock, which the body mines out. A small grey dot used to
+    // mark that target (surface first, then underground only), and at every
+    // depth it read as a blob floating ahead of an auto-walking character —
+    // the character walking itself over is the whole message. The ONE ground
+    // marker beside the body is the GPS crosshair (gpsGhost, below): where you
+    // REALLY are, shown at every depth once the body has left it.
     // Warning halo behind the player: red when the tank is empty, near-black
     // when the stick has walked them a long way off the GPS. Pulses so it reads
     // as a live warning rather than a smudge under the sprite. Depth 9.7 puts
@@ -2258,6 +2257,11 @@ class MapScene extends Phaser.Scene {
     window.__tutorialActive = () =>
       typeof Quests !== 'undefined' && !Quests.starterHidden(this.save);
     window.__disableTutorial = () => this.dismissObjective();
+    // The card's two CTAs — "Easy mode, enable tutorial" / "Hard mode, no
+    // tutorial" — pick the save's game mode (difficulty.js). __gameMode is
+    // null until a choice is made, which is what makes the card ask.
+    window.__gameMode = () => (Difficulty.isMode(this.save.mode) ? this.save.mode : null);
+    window.__chooseMode = (mode) => this.chooseMode(mode);
 
     // First arrival in the world — show the how-to card over the live map, so
     // the reach bubble and the objective chip it points at are visible behind
@@ -3405,7 +3409,10 @@ class MapScene extends Phaser.Scene {
     for (const sp of FAUNA_ORDER) {
       const cfg = BIOME_FAUNA[sp];
       if (!cfg) continue;
-      const n = cfg.base + (cfg.range ? Math.floor(rng() * cfg.range) : 0);
+      let n = cfg.base + (cfg.range ? Math.floor(rng() * cfg.range) : 0);
+      // Hard mode doubles the surface slimes (Difficulty.slimeCountMul); the
+      // extra ids just count on past the easy ones, so seeds still reproduce.
+      if (sp === 'slime') n = Math.round(n * Difficulty.get().slimeCountMul);
       const primary  = new Set(cfg.primary);
       const fallback = new Set(cfg.fallback || cfg.primary);
       const primN = Math.round(n * (cfg.share ?? 0.8));
@@ -3472,6 +3479,7 @@ class MapScene extends Phaser.Scene {
       _trailAnchor.y >= ty0 && _trailAnchor.y < ty0 + this.tileEdgeM;
     if (isStarterTile) {
       this._placeStarterTrail(entry, tx, ty);
+      this._stripStarterCrates(entry);      // hard mode: no supply handout
     } else {
       // Any tile arriving can complete a starter-home plan that was deferred
       // (or left short) because the map around spawn was still streaming —
@@ -3627,6 +3635,8 @@ class MapScene extends Phaser.Scene {
   _pestFreeZone(tx, ty) {
     const sv = this.save;
     if (!sv || sv.hasHarvested) return null;   // first crop is in: the map is itself again
+    // Hard mode never had the grace: the pests are in the yard from minute one.
+    if (typeof Difficulty !== 'undefined' && !Difficulty.get().pestAmnesty) return null;
     // The frozen trail anchor is where the player actually started; startWorldM
     // is the projection origin, which is the same thing until a save's home
     // capture puts them somewhere else (see _starterTrailAnchor).
@@ -3656,7 +3666,10 @@ class MapScene extends Phaser.Scene {
     if ((this.depth || 0) !== 0) return;     // tileCache is repointed underground
     const tx = Math.floor(x / this.tileEdgeM), ty = Math.floor(y / this.tileEdgeM);
     const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-    if (e && (!e.status || e.status === 'ready') && e.grid) this._placeStarterTrail(e, tx, ty);
+    if (e && (!e.status || e.status === 'ready') && e.grid) {
+      this._placeStarterTrail(e, tx, ty);
+      this._stripStarterCrates(e);          // hard mode: no supply handout
+    }
   }
 
   // Starter crate trail + tutorial-pocket clearing around the frozen anchor
@@ -4902,7 +4915,9 @@ class MapScene extends Phaser.Scene {
     // odds each), so 2 anchors on a tile is typical, not an edge case.
     // The 160 cap is a dead-but-harmless safety net at today's depths — keep
     // it in case a much deeper level or a MONSTERS-table change changes that.
-    const count = Math.min(160, 50 + depth * 10);
+    // Hard mode packs the level tighter (Difficulty.monsterCountMul, 1.5×) —
+    // still under the cap at every depth that exists today.
+    const count = Math.min(160, Math.round((50 + depth * 10) * Difficulty.get().monsterCountMul));
     for (let i = 0; i < count; i++) {
       const kind = bag[Math.floor(rng() * bag.length)];
       for (let attempt = 0; attempt < 20; attempt++) {
@@ -4937,6 +4952,45 @@ class MapScene extends Phaser.Scene {
         creatures.push({ x: wmx, y: wmy, kind: 'rabbit', id });
         break;
       }
+    }
+    // Loose coins on the cave floor: a handful per level tile, scattered the
+    // same way as the fauna (around the entrances, so the ~2-cell torch bubble
+    // actually meets them) and picked up with the same tap as a coin-burst
+    // coin (interact.js 'coindrop'). They ride entry.coinDrops like the burst
+    // coins do — the renderer and the tap handler already walk that list at
+    // every depth, since WorldGen.tileCache is repointed per level — but with
+    // NO expiresAt: a coin found by digging should still be there when the
+    // torch swings back. In-memory only, like every coinDrop: a fresh build of
+    // the level lays a fresh handful, which is the trickle intended. The seeded
+    // rng keeps the draw order of the monsters and rabbits above untouched.
+    // Not on a staircase or a rock: the coin handler wins the tap, but a coin
+    // under a rock sprite reads as a rock. Guarded like `creatures` — a tile
+    // REBUILT under the player (see CLAUDE.md) carries coinDrops across and
+    // re-runs this pass, so it must not lay a second handful onto the first.
+    if (!entry.coinDrops) {
+      const CAVE_COINS_MIN = 4, CAVE_COINS_MAX = 8;   // per level tile — a trickle, not a burst
+      const coins = [];
+      const taken = new Set();
+      for (const o of (entry.objects || [])) {
+        const cx = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
+        const cy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
+        taken.add(cy * N + cx);
+      }
+      const coinN = CAVE_COINS_MIN + Math.floor(rng() * (CAVE_COINS_MAX - CAVE_COINS_MIN + 1));
+      for (let i = 0; i < coinN; i++) {
+        for (let attempt = 0; attempt < 20; attempt++) {
+          const { cx, cy } = randCell();
+          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+          const idx = cy * N + cx;
+          if (entry.grid[idx] !== 24 /* CAVE_FLOOR */ || taken.has(idx)) continue;
+          taken.add(idx);
+          const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
+          const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
+          coins.push({ kind: 'coindrop', x: wmx, y: wmy, id: `cavecoin_${depth}_${tx}_${ty}_${i}` });
+          break;
+        }
+      }
+      entry.coinDrops = coins;
     }
     entry._spawned = true;
     entry.creatures = entry.creatures || creatures;
@@ -5290,42 +5344,15 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // Walk-target marker: UNDERGROUND ONLY. Down there the target is a cursor
-    // the player is actively steering — it leads the body through rock and the
-    // body mines its way after it, so while the two are apart the marker is the
-    // only thing saying where the dig is headed (the compass arrow rides it,
-    // below). On the SURFACE the target is just the GPS fix, and the marker was
-    // a second blob for a point the crosshair (gpsGhost) already marks: it
-    // showed up as a grey dot a few metres ahead whenever a fix landed and the
-    // body auto-walked to catch up, which is every fix you take a step on.
-    // Hidden there — the character walking itself over is the whole message.
-    // When target and body are basically coincident — arrived — hide it too, so
-    // nothing diverges.
-    const markerDiv = this.cellM * 0.5;
-    if (this._targetM && this.depth > 0) {
-      const gdx = this._targetM.x - this.playerM.x;
-      const gdy = this._targetM.y - this.playerM.y;
-      const diverged = (gdx * gdx + gdy * gdy) > markerDiv ** 2;
-      if (diverged) {
-        const p = worldMetersToScreen(this,
-          this.startWorldM.x + this._targetM.x,
-          this.startWorldM.y + this._targetM.y);
-        // On the point itself: the marker is a ground mark, and the ground
-        // point is where a body's FEET would stand (feet-on-the-fix).
-        this.targetGhost.setPosition(Math.round(p.x), Math.round(p.y)).setVisible(true);
-      } else {
-        this.targetGhost.setVisible(false);
-      }
-    } else if (this.targetGhost.visible) {
-      this.targetGhost.setVisible(false);
-    }
-
     // GPS ghost: where you REALLY are, whenever the character isn't standing
     // there. One cell of slack keeps it off screen for ordinary GPS jitter (a
     // fix wanders a few metres while you stand still) so it appears only when
-    // the stick has genuinely walked you off your position. Surface only —
-    // underground the fix isn't where you are in any useful sense.
-    if (this.gpsM && this.depth === 0) {
+    // the stick has genuinely walked you off your position. At EVERY depth:
+    // a descent GPS-mirrors the world coordinates (changeDepth), so underground
+    // the fix is still the point over your head that the dig has wandered off
+    // from, and it is the one ground marker the map keeps — the walk target
+    // itself (this._targetM) draws nothing, see the gpsGhost block in create().
+    if (this.gpsM) {
       const rdx = this.gpsM.x - this.playerM.x;
       const rdy = this.gpsM.y - this.playerM.y;
       if ((rdx * rdx + rdy * rdy) > this.cellM ** 2) {
@@ -5401,14 +5428,10 @@ class MapScene extends Phaser.Scene {
     }
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
-    // pointing in the compass heading (or last movement, as fallback).
-    // Normally it rides the player's head at the viewport center. Underground,
-    // while the target is out ahead leading the body through rock, the compass
-    // rides the TARGET instead — the player is steering that, so the
-    // device-orientation arrow belongs over it (targetGhost was positioned and
-    // its visibility decided in the walk-target-marker block above). On the
-    // surface the arrow stays on the player: up there the target is just the
-    // GPS fix drifting a few metres about, not something being steered.
+    // pointing in the compass heading (or last movement, as fallback). It
+    // rides the player's head at every depth. (It used to jump onto the
+    // walk-target dot underground while the dig was out ahead of the body;
+    // that dot is gone — the body's own heading says where the dig is going.)
     this.facingGfx.clear();
     const fmag = Math.hypot(this.facing.x, this.facing.y);
     if (fmag > 0.001) {
@@ -5428,14 +5451,7 @@ class MapScene extends Phaser.Scene {
       const HEAD_DY = -1;
       // The sprite's centre is its ground point plus playerFeetNudgeY (the
       // feet are on the point, the body rises above it).
-      let cx = pScreen.x, cy = pScreen.y + this.playerFeetNudgeY - HEAD_DY;
-      if (this.depth > 0 && this.targetGhost.visible) {
-        // Anchor over the target marker's head. targetGhost sits on the
-        // ground point; a body standing there would have its centre the
-        // same nudge above it, so apply the identical offset.
-        cx = this.targetGhost.x;
-        cy = this.targetGhost.y + this.playerFeetNudgeY - HEAD_DY;
-      }
+      const cx = pScreen.x, cy = pScreen.y + this.playerFeetNudgeY - HEAD_DY;
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
       const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
@@ -6446,7 +6462,7 @@ class MapScene extends Phaser.Scene {
     // business running on the ~5400 frames between pest windows.
     if (now - this._lastPestT > 90000) {
       const hasCrowCrop = this.save.planted && this.save.planted.some(crowEatsCrop);
-      if (hasCrowCrop && this.save.hasHarvested) {
+      if (hasCrowCrop && (this.save.hasHarvested || !Difficulty.get().pestAmnesty)) {
         this._lastPestT = now;
         // Count nearby wild (non-released, not-yet-caught) crows.
         let wildCrows = 0;
@@ -6507,7 +6523,8 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + 1000;   // 3 energy/sec
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            const slimeDmg = (this.save.shieldPotionUntil ?? 0) > now ? 2 : 3;
+            // Hard mode doubles the leech (Difficulty.enemyDmgMul), shield or not.
+            const slimeDmg = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3) * Difficulty.get().enemyDmgMul;
             this.save.energy = Math.max(0, before - slimeDmg);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
             this._warnIfTiring(before);
@@ -6537,7 +6554,7 @@ class MapScene extends Phaser.Scene {
           if (before > 0) {
             // An elite (shiny) monster hits for double — Combat.eliteMul is
             // the one multiplier its HP is scaled by too.
-            const dmg = m.dmg * Combat.eliteMul(c);
+            const dmg = m.dmg * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
             const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
             this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
@@ -7484,7 +7501,6 @@ class MapScene extends Phaser.Scene {
     this._steerDistAccrue = 0;
     this._steerCostAccrue = 0;
     this._followPaused = false;
-    if (this.targetGhost) this.targetGhost.setVisible(false);
   }
   // How far the character is standing from the player's REAL position, in
   // metres. That gap is what stick walking buys and what the map's warnings are
@@ -8713,6 +8729,56 @@ class MapScene extends Phaser.Scene {
     Quests.starterDismiss(this.save);
     persistSave(this.save);
     this.updateObjectiveDOM();
+  }
+
+  // The how-to card's answer: which game this save plays (difficulty.js).
+  // Chosen ONCE — the card only asks while save.mode is unset — because the
+  // two modes price the same haul differently and a switch mid-game would be
+  // a free arbitrage. Everything the mode changes is read live through
+  // Difficulty.get(); the only things done HERE are the ones that can't be
+  // read at use time because they already happened at boot or tile build:
+  // the starting purse, the starter ladder, and the supply crates the starter
+  // tile seated before the player answered.
+  chooseMode(mode) {
+    if (typeof Difficulty === 'undefined' || !Difficulty.isMode(mode)) return false;
+    if (Difficulty.isMode(this.save.mode)) return false;   // already answered — the card never re-asks
+    const prof = Difficulty.PROFILES[mode];
+    this.save.mode = mode;
+    Difficulty.setMode(mode);
+    // The purse: a fresh save opened at STARTING_MONEY (the easy figure). Only
+    // a save that has not been played is re-pursed — the first-run card is the
+    // only path here, but the guard keeps a reset-then-answer honest.
+    if (typeof SaveMigrate !== 'undefined' && !SaveMigrate.hasPlayed(this.save)) {
+      this.save.money = prof.startingMoney;
+    }
+    if (!prof.tutorial && typeof Quests !== 'undefined') {
+      // Finished, not dismissed: a dismissed ladder keeps tracking and paying
+      // its step rewards underneath (questEvent), and "no tutorial" means no
+      // tutorial money either. This also retires the arrow, the starter plot
+      // carve and the home provisioning, which all gate on starterHidden.
+      Quests.starterSkipAll(this.save);
+      this._starterGoalMemo = null;
+    }
+    if (!prof.starterCrates) {
+      // The starter tile built (and seated its crates) before the card could
+      // ask. Sweep every cached tile now; _placeStarterTrail's call sites
+      // strip any tile built from here on.
+      WorldGen.tileCache?.forEach?.((entry) => this._stripStarterCrates(entry));
+    }
+    persistSave(this.save);
+    this.updateObjectiveDOM();
+    this.buildInventoryDOM();
+    if (this.updateHUD) this.updateHUD();
+    return true;
+  }
+  // Hard mode has no supply handout: drop the starter crates (the `crate: true`
+  // chests _placeStarterTrail seats) from a tile. The relic chest at the end of
+  // the trail is TREASURE, not supplies, and stays. Idempotent; a no-op on easy.
+  _stripStarterCrates(entry) {
+    if (typeof Difficulty === 'undefined' || Difficulty.get().starterCrates) return;
+    if (!entry || !Array.isArray(entry.objects)) return;
+    const kept = entry.objects.filter(o => !(o.kind === 'chest' && o.crate));
+    if (kept.length !== entry.objects.length) entry.objects = kept;
   }
 
   // Report a gameplay event to the starter ladder. Called from the site that
@@ -10817,7 +10883,14 @@ class MapScene extends Phaser.Scene {
   // offered item's base price). Seeded by (house, bucket, rerolls) so the
   // offer is stable until the player buys, walks away through a bucket flip,
   // or pays the re-roll cost.
-  peekOrBuildTraderOffer(house) {
+  //
+  // The GIVE side is drawn first and on its own (traderGivePick) because the
+  // sign over the roof names the trader for it — "Rockfruit Trader" (render.js
+  // _houseSignText via Shops.roleLabel). Both read the same pick off the same
+  // rng lane, so the sign can't advertise a different item than the modal
+  // hands over; the ask side is drawn afterwards from the same stream, so the
+  // offer itself is unchanged by the split.
+  traderGivePick(house) {
     if (!house?.id) return null;
     const rng = this.shopRng(house, 'trader');
     // Same houseSeed produce-vs-buylist coin flip the generic path uses.
@@ -10831,6 +10904,19 @@ class MapScene extends Phaser.Scene {
       giveId = BUY_LIST[Math.floor(rng() * BUY_LIST.length)] || BUY_LIST[0];
     }
     if (!giveId) return null;
+    return { rng, giveId };
+  }
+  // Display name of what a trader currently offers, for its sign — null when
+  // there is no offer to name (the sign then falls back to a bare "Trader").
+  traderGoodsName(house) {
+    const pick = this.traderGivePick(house);
+    if (!pick) return null;
+    return ITEM_BY_ID[pick.giveId]?.name || pick.giveId;
+  }
+  peekOrBuildTraderOffer(house) {
+    const pick = this.traderGivePick(house);
+    if (!pick) return null;
+    const { rng, giveId } = pick;
     const baseValue = Math.max(1, PRICES[giveId] ?? 1);
     // Target trade value the trader considers appropriate.
     const target = baseValue * (1.0 + rng());

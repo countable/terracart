@@ -50,6 +50,10 @@
     }
     // Two-bar inventory: older saves predate the type-tab selector. Default the
     // active tab to Seeds and clear any gear selection.
+    // Game mode (difficulty.js). A save that predates the field was played
+    // with the tutorial, so it is EASY; a fresh save is left unset so the
+    // how-to card can ask — Difficulty.of reads unset as easy meanwhile.
+    if (save.mode === undefined && hasPlayed(save)) save.mode = 'easy';
     if (save.invCat === undefined) save.invCat = 'seed';
     if (save.selGear === undefined) save.selGear = null;
     if (save.reachUpgrades === undefined) save.reachUpgrades = 0;
