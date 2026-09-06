@@ -447,6 +447,54 @@ test('combat: the staff still needs no compass at all', () => {
     null, 'the bow, with no heading, still cannot');
 });
 
+// ── Bolt size by tier ───────────────────────────────────────────────────────
+
+test('combat: a staff bolt grows with the tier, Wood base to double at Frost', () => {
+  assert.eq(Combat.boltScale('staff', 1), 1, 'Wood is the base size');
+  assert.eq(Combat.boltScale('staff', Combat.MAX_TIER), Combat.BOLT_MAX_TIER_MUL, 'Frost is the cap');
+  let prev = 0;
+  for (let t = 1; t <= Combat.MAX_TIER; t++) {
+    const sc = Combat.boltScale('staff', t);
+    assert.truthy(sc > prev, `tier ${t} is bigger than tier ${t - 1}`);
+    prev = sc;
+  }
+  assert.eq(Combat.boltScale('staff', undefined), 1, 'no tier → Wood');
+  assert.eq(Combat.boltScale('staff', 99), Combat.BOLT_MAX_TIER_MUL, 'over the top clamps to Frost');
+  assert.eq(Combat.boltScale('bow', 7), 1, 'an arrow is an arrow at every tier');
+});
+
+test('combat: the radius a bolt HITS with and the radius it DRAWS share one scale', () => {
+  const wood  = Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 1);
+  const frost = Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 7);
+  assert.inRange(wood.radiusM - Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M, -1e-9, 1e-9,
+    'a Wood bolt sweeps the old flat hit radius');
+  assert.inRange(wood.dotPx - Combat.SHOT.staff.dotPx, -1e-9, 1e-9, 'and draws at the base dot');
+  const mul = Combat.BOLT_MAX_TIER_MUL;
+  assert.inRange(frost.radiusM / wood.radiusM - mul, -1e-9, 1e-9, 'Frost sweeps ×mul');
+  assert.inRange(frost.dotPx / wood.dotPx - mul, -1e-9, 1e-9, 'and draws ×mul — the same number');
+  const arrow = Combat.spawnShot('bow', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 7);
+  assert.inRange(arrow.radiusM - Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M, -1e-9, 1e-9,
+    'a Frost arrow still sweeps the flat compass radius');
+  assert.eq(arrow.dotPx, 0, 'an arrow is a streak, not a dot');
+});
+
+test('combat: a Frost bolt sweeps up a foe a Wood bolt flies past', () => {
+  // A foe standing 1.5 cells off the line: outside a Wood bolt's 0.9-cell
+  // sweep, inside a Frost bolt's 1.8.
+  const off = { kind: 'goblin', id: 'off', x: 28, y: 1.5 * COMBAT_CELL_M };
+  const fly = (tier) => {
+    let live = [Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, tier)];
+    const struck = [];
+    while (live.length) {
+      live = Combat.stepShots(live, 1 / 60, [off], Combat.HIT_RADIUS_CELLS * COMBAT_CELL_M,
+        (e) => struck.push(e.id));
+    }
+    return struck.join(',');
+  };
+  assert.eq(fly(1), '', 'Wood: a miss');
+  assert.eq(fly(7), 'off', 'Frost: the wider bolt catches it — its own radius wins over the flat one handed in');
+});
+
 // ── Health ring ─────────────────────────────────────────────────────────────
 
 test('combat: the health tint reads full → hurt → nearly dead', () => {
