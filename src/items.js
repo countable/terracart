@@ -102,9 +102,17 @@ const MINERAL_ICON_SHEET = {
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
   wood:     { sheet: 'wood',      frame: 2 },
   coal:     { sheet: 'coal_icon', frame: 0 },
-  sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
-  ruby:     { sheet: 'gems',      frame: 0 },   // red gem
-  emerald:  { sheet: 'gems',      frame: 3 },   // green gem
+  // Gems — Gemstones.png row 0 (7 cols of 16×16), left to right: 0 cut cyan
+  // diamond, 1 red ruby, 2 purple shard, 3 blue sapphire, 4 orange topaz,
+  // 5 green emerald cluster, 6 pink quartz. (Rows 1-3 are outlined / mask
+  // duplicates.) Until Sep 2026 these rows read ruby 0 / emerald 3 /
+  // sapphire 4 — the cyan diamond, the blue sapphire and the orange topaz —
+  // so the "red gem" the tips promised was drawn cyan; the diamond taking
+  // frame 0 is what surfaced it. Pinned by test/node/diamond.test.js.
+  sapphire: { sheet: 'gems',      frame: 3 },   // blue gem
+  ruby:     { sheet: 'gems',      frame: 1 },   // red gem
+  emerald:  { sheet: 'gems',      frame: 5 },   // green gem cluster
+  diamond:  { sheet: 'gems',      frame: 0 },   // cut cyan-white diamond — the Frost jewel
   // Bars from the 16-col Extras 'Bars and ores' sheet (16px frames, 16
   // cols × 4 rows). The sheet is NOT one bar per frame: each row packs two
   // metals as bar/ore PAIRS — col0 barA, col1 oreA, col2 barB, col3 oreB,
@@ -280,6 +288,8 @@ const BASE_TIER = {
   meat: 2, rabbit_pelt: 2,
   crow_feather: 3,
   sapphire: 4, ruby: 5, emerald: 6,
+  // Diamond tops the gem ladder at the Frost tier — the T7 rock's headline gem.
+  diamond: 7,
 };
 
 // NOTE: items carry NO `icon` (emoji) field — items always render as their
@@ -436,6 +446,11 @@ const ITEMS = [
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
+  // Diamond — the Frost-tier (T7) gem, one per rung of the ladder above:
+  // sapphire 4 / ruby 5 / emerald 6 / diamond 7. Mined from the T7
+  // (frost) mineralrock (interactables.js GEM_BY_TIER) and what every T7
+  // piece of jewelry is cut around (gear.js blacksmithRecipe).
+  { id: 'diamond',  name: 'Diamond',  kind: 'mineral' },
   // Smelted metal bars — primary forge material at blacksmiths. Dropped
   // by mineralrocks (worldgen.js). One ladder per material tier 2..7;
   // tier 1 (wood) gear is starter-shop only and doesn't need a bar.
@@ -537,6 +552,7 @@ const PRICES = {
   sapphire:  30,
   ruby:      80,
   emerald:  200,
+  diamond:  600,   // T7 — above the platinum bar (500), below the crimson (1200)
   // ── Metal bars (blacksmith forge ingredients) ───────────
   // Roughly 2.5× ramp per tier, matching MATERIAL_TIERS.costMul.
   copper_bar:    30,
@@ -628,6 +644,7 @@ const PLAY_TIPS = [
   'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
   'A Rope goes both ways: use one to climb up a level or lower yourself down one, right where you stand.',
+  'Diamonds come only from the deepest, Frost-bearing ore — and every piece of Frost jewelry is cut around one.',
   // ── Shops / trade ─────────────────────────────────────────
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
   'Addresses ending 2 or 6 are Produce Shops, stocked with crops. Endings 1 and 8 are Traders, who barter only.',
@@ -698,6 +715,8 @@ const ITEM_EFFECTS = {
   mango:     'Feed to instantly tame any wild animal',
   // Offered to a slime to calm it (the secret gem).
   sapphire:  'Offer to a slime to tame it',
+  // The Frost jewel — the gem every T7 ring / staff / amulet is forged around.
+  diamond:   'The Frost jewel — a Blacksmith cuts Frost jewelry around it',
   // Consumables used on yourself / the world.
   honey:        'Set out to lure nearby chickens & cows toward you',
   book:         'Read for a play tip or a hint toward a chest',

@@ -272,7 +272,10 @@ const INTERACTABLES = {
       scene.addToInv(primaryBar, 1);
       let flashId = primaryBar;
       let gemsFound = 0;
-      const GEM_BY_TIER = { 4: ['sapphire'], 5: ['ruby'], 6: ['emerald'], 7: ['emerald', 'ruby'] };
+      // One gem per tier of the ladder; the T7 (frost) rock's headline gem is
+      // the diamond — listed FIRST so it reads as the primary — with the
+      // emerald as its secondary. pickFromArray rolls the list uniformly.
+      const GEM_BY_TIER = { 4: ['sapphire'], 5: ['ruby'], 6: ['emerald'], 7: ['diamond', 'emerald'] };
       const GEM_P_BY_TIER = { 4: 0.25, 5: 0.35, 6: 0.40, 7: 0.50 };
       const gems = GEM_BY_TIER[t];
       // Ring nudges the gem chance up (×(1+tierP)); ×1 when luck is off. The
@@ -284,7 +287,8 @@ const INTERACTABLES = {
         flashId = gemId;
         gemsFound++;
       }
-      // T7 rocks have a bonus 25% chance for a second ruby on top (ring-scaled).
+      // T7 rocks have a bonus 25% chance for a ruby on top of the roll above
+      // (ring-scaled) — a lesser gem, so the diamond stays the T7 headline.
       if (t === 7 && Math.random() < 0.25 * (1 + tierP)) {
         scene.addToInv('ruby', 1);
         flashId = 'ruby';
