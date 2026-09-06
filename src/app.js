@@ -617,6 +617,11 @@ const POND_MIN_CELLS = 22;
 const POND_MAX_CELLS = 30;
 const POND_POI_CELLS = 3;
 const NEAR_GPS_CELLS = 3;
+// The body takes a hit: how long the character flicks red (_flashPlayerHit /
+// _updatePlayerAura) and what red. Short — it is a flinch, not a state; the
+// empty-tank aura is the state, and it pulses on its own clock.
+const HIT_FLASH_MS = 160;
+const HIT_FLASH_TINT = 0xff5a5a;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
 //
@@ -2952,6 +2957,7 @@ class MapScene extends Phaser.Scene {
   }
   hapticOk()     { this.haptic(15); }
   hapticReject() { this.haptic(40); }
+  hapticHit()    { this.haptic(25); }   // between the two: not a pickup, not a refusal
 
   // `reason` is the failure as the tile path reported it ("HTTP 504",
   // "Failed to fetch", "offline"), shown in the banner so a report from a
@@ -6277,9 +6283,23 @@ class MapScene extends Phaser.Scene {
     const dmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(shot.damage / 2) : shot.damage;
     this.save.energy = Math.max(0, before - dmg);
     this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
+    this._flashPlayerHit();
     this._warnIfTiring(before);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return true;
+  }
+
+  // The body takes a hit: a short red flick on the character, at the INSTANT
+  // a blow lands — the slime's leech, a monster's melee, an arrow striking —
+  // never from the throttled "−N⚡" pop, which rolls a second of hits into one
+  // number and would flash once for three bites. Two channels, both read by
+  // _updatePlayerAura every frame: the sprite tint, which is invisible under
+  // Phaser's Canvas fallback (setTint is a no-op there — the shiny cue and the
+  // coloured icons both learned this), and the halo's red texture, a plain
+  // image that reads on every renderer. A haptic tick rides along.
+  _flashPlayerHit() {
+    this._hitFlashUntilT = performance.now() + HIT_FLASH_MS;
+    if (this.hapticHit) this.hapticHit();
   }
 
   // The castle turrets' volley — one arrow per turret per Combat.TURRET
@@ -7057,6 +7077,7 @@ class MapScene extends Phaser.Scene {
             const slimeDmg = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3) * Difficulty.get().enemyDmgMul;
             this.save.energy = Math.max(0, before - slimeDmg);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
+            this._flashPlayerHit();
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
           }
@@ -7103,6 +7124,7 @@ class MapScene extends Phaser.Scene {
             const monDmg = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
             this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
+            this._flashPlayerHit();
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
           }
@@ -8394,13 +8416,20 @@ class MapScene extends Phaser.Scene {
     const nearM = NEAR_GPS_CELLS * this.cellM;
     const spent = (this.save.energy ?? 0) <= 0;
     const far = away > nearM;
+    // A hit just landed (_flashPlayerHit): a flick of red that wins over both
+    // states for HIT_FLASH_MS, then hands back to whichever of them holds.
+    const nowMs = performance.now();
+    const hitLeft = (this._hitFlashUntilT || 0) - nowMs;
+    const hit = hitLeft > 0;
     // Pulse: a slow breath, faster and deeper for the empty-tank warning.
-    const t = performance.now() / 1000;
+    const t = nowMs / 1000;
     const periodS = spent ? 1.2 : 2.0;
     const wave = 0.5 + 0.5 * Math.sin((t / periodS) * Math.PI * 2);
-    if (spent || far) {
+    if (hit || spent || far) {
       let tint = 0xffffff;
-      if (spent) {
+      if (hit) {
+        tint = HIT_FLASH_TINT;
+      } else if (spent) {
         tint = 0xff6b6b;
       } else {
         const k = Math.min(1, (away - nearM) / Math.max(1, (DARK_FULL_CELLS - NEAR_GPS_CELLS) * this.cellM));
@@ -8408,15 +8437,20 @@ class MapScene extends Phaser.Scene {
         tint = (v << 16) | (v << 8) | v;
       }
       this.player.setTint(mulTint(tint, this._dragonActive ? null : this.save.playerColor));
-      const key = spent ? 'halo_red' : 'halo_dark';
+      const key = (hit || spent) ? 'halo_red' : 'halo_dark';
       if (this.playerHalo.texture.key !== key) this.playerHalo.setTexture(key);
       // Strength follows the same k as the tint for the far case, so a halo
       // never shouts before the character has visibly dimmed.
       const strength = spent ? 1 : Math.min(1, (away - nearM) / (nearM * 2));
+      // The hit is the halo at its brightest, decaying over the flash — this
+      // is the channel that shows on a renderer where the tint does not.
+      const size  = hit ? 46 : 38 + 6 * wave;
+      const alpha = hit ? 0.2 + 0.6 * (hitLeft / HIT_FLASH_MS)
+                        : (0.25 + 0.35 * wave) * strength;
       const ps = this.playerScreen();
       this.playerHalo
-        .setDisplaySize(38 + 6 * wave, 38 + 6 * wave)
-        .setAlpha((0.25 + 0.35 * wave) * strength)
+        .setDisplaySize(size, size)
+        .setAlpha(alpha)
         .setPosition(ps.x, ps.y + this.playerFeetNudgeY)
         .setVisible(true);
     } else {
