@@ -2700,19 +2700,18 @@ class MapScene extends Phaser.Scene {
             // you home.
             const bodyGpsX = this.playerM.x - off.x;
             const bodyGpsY = this.playerM.y - off.y;
-            if (this.depth === 0
-                && (!prev || Math.hypot(this.gpsM.x - bodyGpsX,
-                                        this.gpsM.y - bodyGpsY) > GPS_SNAP_M)) {
+            if (!prev || Math.hypot(this.gpsM.x - bodyGpsX,
+                                    this.gpsM.y - bodyGpsY) > GPS_SNAP_M) {
               // First fix of the session, or a real jump (see GPS_SNAP_M) —
               // place the body outright and drop the stick offset: the
               // character is being re-anchored on the true position, and
-              // keeping the offset would just walk it back off again. Surface
-              // only: a snap underground would drop the player inside solid
-              // rock, so down there the body always mines its way over,
-              // however far it is.
+              // keeping the offset would just walk it back off again. At
+              // EVERY depth: underground the placement carves the landing
+              // cell out of the rock (_placeBodyOnFix), so a snap never
+              // leaves the player standing inside a wall — the same rule
+              // the walk home applies past the same gap (_driftHome).
               off.x = 0; off.y = 0;
-              this.playerM.x = this.gpsM.x;
-              this.playerM.y = this.gpsM.y;
+              this._placeBodyOnFix();
             }
             this._targetM = { x: this.gpsM.x + off.x, y: this.gpsM.y + off.y };
             this._followPaused = false;
@@ -3219,6 +3218,10 @@ class MapScene extends Phaser.Scene {
         if (this.depth > 0) {
           this._applyDugWalls(entry, tx, ty);
           this._ensureHomeUpStair(entry, tx, ty);
+          // A body placed on a far fix (_placeBodyOnFix) usually lands on a
+          // tile that hasn't loaded yet; open the cell under it now if the
+          // grid put rock there.
+          this._carveLanding({ tx, ty });
         }
       } catch (e) {
         const kind = this._tileFailureKind(e, entry);
@@ -7956,6 +7959,35 @@ class MapScene extends Phaser.Scene {
     this._steerCostAccrue = 0;
     this._followPaused = false;
   }
+  // Place the body ON the GPS fix — the "too far to walk" answer shared by a
+  // jumped fix (the GPS watcher) and the walk home (_driftHome), so the two
+  // sides can't drift apart on what a placement does. The caller owns the
+  // target and the stick offset (the fix path zeroes the offset and re-targets
+  // the fix; the drift calls syncMoveTarget). Underground the placement also
+  // carves the landing cell: a snap into solid rock would leave the character
+  // standing inside a wall, which was the reason both snaps were surface-only
+  // until Sep 2026 — and why the walk home never ran in a cave at all.
+  _placeBodyOnFix() {
+    this.playerM.x = this.gpsM.x;
+    this.playerM.y = this.gpsM.y;
+    this._carveLanding();
+  }
+  // Dig out the cave-wall cell under the player's feet, if that is what they
+  // are standing in. Called after a placement underground, and again from the
+  // tile loader for each cave tile that arrives, because the tile under a
+  // placed body is very often NOT loaded yet (that is what "too far" means) —
+  // its cell reads as open until the grid lands, and lands as rock. Recorded
+  // through digCaveWall like any other dig, so the pocket survives a rebuild.
+  // No-op on the surface, on an unloaded cell, and on anything but a wall.
+  _carveLanding(onlyTile = null) {
+    if (!(this.depth > 0)) return;
+    const c = this.cellAt(this.startWorldM.x + this.playerM.x,
+                          this.startWorldM.y + this.playerM.y + this.feetOffsetM);
+    if (onlyTile && (c.tx !== onlyTile.tx || c.ty !== onlyTile.ty)) return;
+    if (!c.loaded || c.type !== 25 /* CAVE_WALL */) return;
+    const N = this.cellsPerTile;
+    this.digCaveWall(c.tx, c.ty, c.ix, c.iy, c.tx * N + c.ix, c.ty * N + c.iy);
+  }
   // How far the character is standing from the player's REAL position, in
   // metres. That gap is what stick walking buys and what the map's warnings are
   // about: cheap steering close to home, a darkening character further out, and
@@ -8096,15 +8128,17 @@ class MapScene extends Phaser.Scene {
   // the walk target home with it so _followStep walks the body there at its
   // own pace. Free — you're returning to reality, not spending a trip.
   //
-  // Only on the surface, only while a fix is actually driving (a keyboard
-  // takeover owns the target outright), and never mid-wheel: standing still to
-  // chop a tree fifty metres out is being busy, not being idle.
+  // At every depth (underground the body mines its way home, and a far return
+  // is placed with the landing carved — see below), only while a fix is
+  // actually driving (a keyboard takeover owns the target outright), and never
+  // mid-wheel: standing still to chop a tree fifty metres out is being busy,
+  // not being idle.
   _driftHome(dt) {
     // Every early return below is a frame where the character is NOT walking
     // itself home, so the flag the hint reads is cleared up front and set only
     // once the offset is actually being bled off.
     this._driftingHome = false;
-    if (this.depth !== 0 || !this.gpsM || this._gpsManualOverride) return;
+    if (!this.gpsM || this._gpsManualOverride) return;
     if (this._busyWheel() || this._stickPushed()) return;
     if (Date.now() - (this._lastStickT || 0) < WALK_HOME_IDLE_MS) return;
     // TOO FAR TO WALK — place the body instead. Past GPS_SNAP_M the gap is the
@@ -8122,9 +8156,15 @@ class MapScene extends Phaser.Scene {
     // Still behind the idle debounce above, and deliberately: the distance
     // decides how the return is MADE, never when it starts. Yanking someone
     // mid-push would be the 500 ms hair-trigger bug with a warp on the end.
+    //
+    // Underground too. Until Sep 2026 this whole method was surface-only, so
+    // a stick walk down a cave left the character parked that far off the
+    // GPS for good: every later fix re-targeted fix + offset and nothing ever
+    // bled the offset away ("underground I am not auto-walking to GPS"). The
+    // one real reason to stay off the caves was this snap dropping the body
+    // inside rock, and _placeBodyOnFix carves the landing cell instead.
     if (this._gpsAwayM() > GPS_SNAP_M) {
-      this.playerM.x = this.gpsM.x;
-      this.playerM.y = this.gpsM.y;
+      this._placeBodyOnFix();
       this.syncMoveTarget();      // drops the offset, the target and the ghost
       return;
     }
@@ -8150,13 +8190,13 @@ class MapScene extends Phaser.Scene {
   }
   // Seconds left on the walk-home debounce, for the stick's countdown — or
   // null when there is nothing to count down to. The gates are _driftHome's
-  // own: it only counts while a return is actually pending (surface, a fix
-  // driving, the stick let go, no wheel, and an offset to bleed), so the
+  // own: it only counts while a return is actually pending (a fix driving,
+  // the stick let go, no wheel, and an offset to bleed — at any depth), so the
   // number on the stick is always a promise the walk will keep. Whole
   // seconds, rounded UP: "5" the instant you let go, "1" for the last second,
   // gone when the walk starts. Pure — no DOM — so the test suite drives it.
   _walkHomeCountdownS() {
-    if (this.depth !== 0 || !this.gpsM || this._gpsManualOverride) return null;
+    if (!this.gpsM || this._gpsManualOverride) return null;
     if (this._busyWheel() || this._stickPushed()) return null;
     const off = this._manualOffsetM;
     if (!off || Math.hypot(off.x, off.y) < 0.01) return null;

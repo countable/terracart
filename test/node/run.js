@@ -210,6 +210,10 @@ try {
                    // The stick's countdown to that walk — same gates, so it's
                    // tested against the same stub scene.
                    '_walkHomeCountdownS() {',
+                   // The far return PLACES the body, and underground that
+                   // placement carves the landing cell — lift both so the
+                   // cave case runs the shipping dig, not a stub of it.
+                   '_placeBodyOnFix() {', '_carveLanding(onlyTile = null) {',
                    // syncMoveTarget snaps the peek camera back (a warp lands on
                    // ground the peek knows nothing about), so the real method
                    // comes along rather than being stubbed out here.
@@ -218,7 +222,7 @@ try {
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
   for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS',
-                   'clearPeek']) {
+                   '_placeBodyOnFix', '_carveLanding', 'clearPeek']) {
     if (typeof ctx.__walkHome[k] !== 'function') {
       console.error(`__walkHome.${k} did not come back as a function — update run.js`);
       process.exit(2);
