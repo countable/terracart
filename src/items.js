@@ -165,6 +165,13 @@ const MINERAL_ICON_SHEET = {
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
+  // The other three heaps of the same powder row (row 1, y=16: frame 5 is the
+  // EMPTY slot, then green / red / purple / blue). Growth is the green heap,
+  // Shadow the purple, Frost the blue — each used from the Use button like the
+  // dragon's red (useGrowthPowder / useShadowPowder / useFrostPowder in app.js).
+  growth_powder: { sheet: 'icon_potions', frame: 6 },
+  shadow_powder: { sheet: 'icon_potions', frame: 8 },
+  frost_powder:  { sheet: 'icon_potions', frame: 9 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
@@ -281,6 +288,9 @@ const BASE_TIER = {
   // Consumables
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   dragon_powder: 3,
+  // Growth Powder is a T2 farm utility beside the potions; Shadow and Frost are
+  // T3 fight-changers beside the dragon.
+  growth_powder: 2, shadow_powder: 3, frost_powder: 3,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Minerals — coal floor, gem ladder mirrors mining rarity
@@ -368,6 +378,17 @@ const ITEMS = [
   // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
   { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
+  // Growth Powder: every crop within 20 m springs ahead one stage on the spot,
+  // no watering needed (useGrowthPowder). Refused — and kept — when no crop is
+  // in range.
+  { id: 'growth_powder', name: 'Growth Powder',       kind: 'consumable' },
+  // Shadow Powder: for one minute monsters lose interest in you — they neither
+  // stalk nor drain you (useShadowPowder). You may still hit them.
+  { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'consumable' },
+  // Frost Powder: every enemy within reach is frozen solid for 30 s — no
+  // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
+  // hostile is in reach.
+  { id: 'frost_powder',  name: 'Frost Powder',        kind: 'consumable' },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
   // climb UP a level or lower yourself DOWN one — right where you stand, no
   // staircase needed. One rope per climb. Unlike the sapphire portal it goes
@@ -544,6 +565,9 @@ const PRICES = {
   speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
+  growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
+  shadow_powder: 110,  // T3 — 1 min of monsters ignoring you entirely
+  frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   rope:          25,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft)
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
@@ -676,6 +700,7 @@ const PLAY_TIPS = [
   'A Bug Net is the only way to take a butterfly. A Fishing Rod pulls fish from any water tile.',
   // ── Consumables / placeables ──────────────────────────────
   'Potions run one minute each: Reach lights the whole screen, Speed grants top-tier stick walking, Shielding halves monster damage.',
+  'Powders are cast on the spot: Growth springs every crop within 20m ahead a stage, Shadow makes monsters ignore you for a minute, Frost freezes every enemy in reach for 30s.',
   'Burn a coal on bare ground for a campfire. It rests you slowly out in the open, and slimes keep their distance.',
   'Set out a jar of Honey to draw every chicken and cow within 30m toward you.',
   // ── Food side-effects ─────────────────────────────────────
@@ -725,6 +750,9 @@ const ITEM_EFFECTS = {
   speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   dragon_powder: 'Use to become a dragon for 1 min: faster legs, 2× damage',
+  growth_powder: 'Use to spring every crop within 20m ahead a stage',
+  shadow_powder: 'Use to make monsters ignore you (1 min)',
+  frost_powder:  'Use to freeze every enemy in reach for 30s',
   rope:          'Use to climb up or lower down one level, right here',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
 };

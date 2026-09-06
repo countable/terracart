@@ -106,6 +106,25 @@
     return { n, jumped };
   }
 
+  // Growth Powder: spring every unripe crop within `radius` metres of (pwx,
+  // pwy) ONE stage ahead, on the spot and with no watering involved. A held
+  // watering is left in place (the can's jump above doesn't spend one either,
+  // and neither does this) — except on a plant that just ripened, which can
+  // no longer spend it. Returns how many plants moved.
+  function advanceWithin(save, pwx, pwy, radius) {
+    const r2 = radius * radius;
+    let n = 0;
+    for (const p of save.planted || []) {
+      if ((p.stage ?? 0) >= maxStage()) continue;
+      const dx = p.x - pwx, dy = p.y - pwy;
+      if (dx * dx + dy * dy > r2) continue;
+      p.stage = (p.stage ?? 0) + 1;
+      if ((p.stage ?? 0) >= maxStage()) p.watered_t = 0;
+      n++;
+    }
+    return n;
+  }
+
   root.Crops = { STAGE_HOLD_MS, CAN_TOP_TIER, maxStage, isMature, crowEats,
-                 advanceGrowth, waterWithin, waterOne, waterJumpChance };
+                 advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

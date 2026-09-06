@@ -143,6 +143,9 @@ function isShiny(id, rate) {
 }
 // Warm yellow multiply-tint used for every shiny sprite (flora, tree, animal).
 const SHINY_TINT = 0xffd23a;
+// A Frost Powder's victim — icy blue-white over the creature sprite while its
+// _frozenUntil is in the future (render.js drawCreatures).
+const FROZEN_TINT = 0x9ad8ff;
 
 // === Tree size tiers =========================================================
 // How big a tree renders also sets how much wood it drops and which axe tier
