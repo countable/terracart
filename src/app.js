@@ -6291,8 +6291,26 @@ class MapScene extends Phaser.Scene {
     // Exhaustion underground: hit 0 energy below the surface and you black out
     // and wake up top-side. Guarded so the modal fires once, and skipped in
     // tests (which drive energy directly and don't want a DOM modal).
+    //
+    // `_passingOut` alone used to be the only guard, and it is reset the
+    // instant the modal is dismissed — but nothing about passing out
+    // restores energy (that's the point: you must rest before you can go
+    // back down). So the very next frame still reads energy <= 0, and the
+    // gate fired again immediately: a blackout underground drops you to the
+    // surface at 0 energy, which in hard mode is ALSO a surface blackout —
+    // chaining into a loop that halved the purse every frame until it hit
+    // $0. Hard mode's zero-energy lockout (_zeroEnergyLocked) makes this the
+    // common case rather than a corner one: once the tank reads empty on
+    // hard, food/campfire/offline rest all refuse, so nothing but reaching
+    // Home lifts energy off 0 — which used to mean passing out every single
+    // frame until Home was reached. `_exhausted` is a second latch that
+    // outlives the modal: once tripped it blocks BOTH gates until energy
+    // actually recovers above 0 (Home, a Crow Feather), so a single dry
+    // spell costs the purse exactly once.
+    if (this._exhausted && (this.save.energy ?? 0) > 0) this._exhausted = false;
     if (this.depth > 0 && (this.save.energy ?? 0) <= 0
-        && !this._passingOut && !window.__TEST_MODE) {
+        && !this._passingOut && !this._exhausted && !window.__TEST_MODE) {
+      this._exhausted = true;
       this._passOutToSurface();
     }
     // Hard mode only: the surface is not risk-free either. Running the tank
@@ -6300,7 +6318,8 @@ class MapScene extends Phaser.Scene {
     // blackout (_passOutOnSurface) — easy mode's surface stays exactly as it
     // was, a hard stop with no cost (see the "too tired" flashes elsewhere).
     if (this.depth === 0 && Difficulty.isHard() && (this.save.energy ?? 0) <= 0
-        && !this._passingOut && !window.__TEST_MODE) {
+        && !this._passingOut && !this._exhausted && !window.__TEST_MODE) {
+      this._exhausted = true;
       this._passOutOnSurface();
     }
 
