@@ -218,6 +218,22 @@ test('isSpawnCell: opts.roadMask refuses a cell the terrain calls grass', () => 
   assert.truthy(WorldGen.isSpawnCell(grid, w, h, 1, 2, { roadMask }), 'neighbour unaffected');
 });
 
+test('isSpawnCell: opts.occupied refuses a cell an object or wild plant already holds', () => {
+  const w = 5, h = 5;
+  const grid = new Uint8Array(w * h);          // all GRASS, all walkable
+  const occupied = new Set([2 * w + 2]);       // a rock, a tree, a tuft of grass — any of them
+  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 2, 2, null), 'unoccupied by default');
+  assert.falsy(WorldGen.isSpawnCell(grid, w, h, 2, 2, { occupied }), 'refused once claimed');
+  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 1, 2, { occupied }), 'neighbour unaffected');
+  // Stacks with the road mask rather than replacing it — both halves of "don't
+  // spawn here" apply at once.
+  const roadMask = new Uint8Array(w * h);
+  roadMask[3 * w + 3] = 1;
+  assert.falsy(WorldGen.isSpawnCell(grid, w, h, 2, 2, { occupied, roadMask }), 'still refused: occupied');
+  assert.falsy(WorldGen.isSpawnCell(grid, w, h, 3, 3, { occupied, roadMask }), 'still refused: road');
+  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 0, 0, { occupied, roadMask }), 'clear cell passes both');
+});
+
 test('relocateToSpawnCell: walks out to the nearest legal cell, or gives up', () => {
   const w = 7, h = 7;
   const grid = new Uint8Array(w * h);

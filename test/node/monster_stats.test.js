@@ -51,7 +51,8 @@
     // The surface slime is the tutorial fight and keeps its own numbers: it is
     // fauna, not a monster-table kind, so the multiplier can never reach it.
     assert.falsy(MONSTERS.slime, 'the surface slime is not in the monster table');
-    assert.eq(Combat.creatureMaxHp('slime'), 15, 'and still has its 15 HP');
+    assert.eq(Combat.creatureMaxHp('slime'), Combat.FAUNA_HP.slime,
+      'and still answers from the fauna ladder');
   });
 
   test('cave enemies: a doubled foe still pays a bounty, and a bigger one', () => {

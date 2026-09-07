@@ -157,3 +157,89 @@ test('watering can: an area water reports what it pushed along', () => {
   const wet = Crops.waterWithin(save, 0, 0, 5, 1000, canOf(Crops.CAN_TOP_TIER), alwaysJump);
   assert.eq(wet.jumped, 2, 'a Frost can pushed both');
 });
+
+// ── Bed quality: the hoe's tier, banked on the cell, spent onto the crop ─────
+// Produce quality was the WATERING CAN's until Sep 2026 (stamped on the plant
+// at its first watering, plus 2 while a refill bank held). It is the HOE's
+// now, and it belongs to the BED: the till banks it on the cell, the plant
+// spends it onto the crop, and the harvest reads it off the crop. These pin
+// that a cell's quality and its tilled marker cannot drift apart.
+
+test('bed quality: an untilled cell is quality 0, and a missing save never throws', () => {
+  assert.eq(Crops.bedQuality({}, '3_4'), 0, 'no tilledQuality map at all');
+  assert.eq(Crops.bedQuality({ tilledQuality: {} }, '3_4'), 0, 'map present, cell absent');
+  assert.eq(Crops.bedQuality(null, '3_4'), 0, 'no save at all');
+});
+
+test('bed quality: tilling banks the hoe tier on that cell alone', () => {
+  const save = {};
+  assert.eq(Crops.setBedQuality(save, '3_4', 5), 5, 'returns what it banked');
+  assert.eq(Crops.bedQuality(save, '3_4'), 5, 'the tilled cell carries it');
+  assert.eq(Crops.bedQuality(save, '3_5'), 0, 'the cell next door does not');
+});
+
+test('bed quality: a bare-handed till banks nothing rather than a zero entry', () => {
+  const save = { tilledQuality: { '3_4': 6 } };
+  assert.eq(Crops.setBedQuality(save, '3_4', 0), 0, 'tier 0 is no quality');
+  assert.falsy('3_4' in save.tilledQuality,
+    're-tilling with no hoe must CLEAR the old bed, not leave a stale 6 behind');
+  Crops.setBedQuality(save, '9_9', 0);
+  assert.falsy('9_9' in save.tilledQuality, 'and never writes a 0 entry in the first place');
+});
+
+test('bed quality: re-tilling a cell overwrites it, in both directions', () => {
+  const save = {};
+  Crops.setBedQuality(save, '1_1', 2);
+  Crops.setBedQuality(save, '1_1', 7);
+  assert.eq(Crops.bedQuality(save, '1_1'), 7, 'a better hoe upgrades the bed');
+  Crops.setBedQuality(save, '1_1', 1);
+  assert.eq(Crops.bedQuality(save, '1_1'), 1, 'and a worse one downgrades it');
+});
+
+test('bed quality: planting SPENDS the bed — the crop carries it, the cell stops', () => {
+  const save = {};
+  Crops.setBedQuality(save, '2_2', 4);
+  assert.eq(Crops.takeBedQuality(save, '2_2'), 4, 'the crop takes the bed with it');
+  assert.eq(Crops.bedQuality(save, '2_2'), 0, 'and the cell is no longer holding it');
+  assert.eq(Crops.takeBedQuality(save, '2_2'), 0, 'a second plant on it gets nothing');
+});
+
+test('bed quality: clearing follows the tilled marker off the cell', () => {
+  const save = {};
+  Crops.setBedQuality(save, '5_5', 3);
+  Crops.clearBedQuality(save, '5_5');
+  assert.eq(Crops.bedQuality(save, '5_5'), 0, 'harvest / sapling / un-till drops it');
+  Crops.clearBedQuality(save, 'never_tilled');   // must not throw on an absent cell
+  Crops.clearBedQuality({}, '5_5');              // nor on an absent map
+});
+
+test('bed quality: a fractional or junk tier floors to a whole number of tiers', () => {
+  const save = {};
+  Crops.setBedQuality(save, '0_0', 3.9);
+  assert.eq(Crops.bedQuality(save, '0_0'), 3, 'quality is whole tiers');
+  Crops.setBedQuality(save, '0_1', 'nonsense');
+  assert.eq(Crops.bedQuality(save, '0_1'), 0, 'junk banks nothing');
+  Crops.setBedQuality(save, '0_2', -4);
+  assert.eq(Crops.bedQuality(save, '0_2'), 0, 'and never a negative bed');
+});
+
+// The three call sites, pinned as source text. crops.js holds the rule; these
+// are what actually make a hoe show up in a harvest, and each one is a place
+// the bed and its crop could silently stop lining up.
+test('bed quality: the till banks it, the plant spends it, the harvest reads it', () => {
+  const src = INTERACT_SRC;
+  assert.truthy(/Crops\.setBedQuality\(save, cellKey, save\.relics\?\.hoe\?\.tier \|\| 0\)/.test(src),
+    'the till banks the HOE tier on the cell it just tilled');
+  assert.truthy(/qualBoost: Crops\.takeBedQuality\(save, cellKey\)/.test(src),
+    'planting spends the bed onto the crop');
+  assert.truthy(/const qual = p\.qualBoost \?\? p\.canBoost \?\? 0;/.test(src),
+    'the harvest reads the crop, falling back to the old watering-can field');
+  // The cell must not keep a quality it is no longer a bed for.
+  assert.truthy(/Crops\.clearBedQuality\(save, cellKey\)/.test(src),
+    'harvest / sapling drop the bed quality with the tilled marker');
+  // And the can must not be stamping quality any more.
+  assert.falsy(/p\.canBoost\s*=/.test(src),
+    'nothing writes canBoost — quality is banked at the till, not the watering');
+  assert.falsy(/canCharges/.test(src),
+    'the refill charge bank retired with the bonus it fed');
+});
