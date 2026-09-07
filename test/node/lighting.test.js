@@ -150,6 +150,47 @@ test('lighting: low energy tints the bubble red, progressively, nothing else doe
     0xffffff, 'a Potion of Reach pins the view lit');
 });
 
+test('lighting: below 15% energy the tint throbs like a heartbeat, not a flat wash', () => {
+  // A clock-free profile() call — every assertion above uses one — gets the
+  // flat ceiling alone, whatever the energy: the pulse must never disturb a
+  // derivation test that never mentions time.
+  const critical = scene({ save: { energy: 10, maxEnergy: 100 } }); // 10% < 15%
+  const w = Lighting.lowEnergyFrac(critical);
+  assert.eq(Lighting.profile(critical).litColour,
+    Lighting.mixToWhite(Lighting.LOW_ENERGY_TINT, Lighting.LOW_ENERGY_A * w),
+    'no `now` argument means no animation — the ceiling alone, as before');
+
+  // Above the critical threshold the multiplier is pinned at 1 regardless of
+  // the clock — 20% energy never throbs, however `now` reads.
+  const mild = Lighting.lowEnergyFrac(scene({ save: { energy: 20, maxEnergy: 100 } }));
+  assert.lt(mild, Lighting.CRITICAL_W, '20% energy is above the critical band');
+  for (const t of [0, 137, 424, 849]) {
+    assert.eq(Lighting.heartbeatMul(mild, t), 1, 'never engages above CRITICAL_W');
+  }
+
+  // Below it, the multiplier is a periodic pulse: it spikes above 1 and
+  // settles back close to it within one period, never exceeding its own
+  // amplitude, and repeats exactly every HEARTBEAT_PERIOD_MS.
+  assert.gt(w, Lighting.CRITICAL_W, '10% energy is past the critical band');
+  let sawBeat = false, sawRest = false;
+  for (let t = 0; t < Lighting.HEARTBEAT_PERIOD_MS; t += 5) {
+    const m = Lighting.heartbeatMul(w, t);
+    assert.gte(m, 1, 'never dips below the resting ceiling');
+    assert.lte(m, 1 + Lighting.HEARTBEAT_AMPLITUDE + 1e-9, 'never overshoots its own amplitude');
+    if (m > 1 + Lighting.HEARTBEAT_AMPLITUDE * 0.9) sawBeat = true;
+    if (m < 1.05) sawRest = true;
+  }
+  assert.truthy(sawBeat, 'the beat actually spikes near its peak within one period');
+  assert.truthy(sawRest, 'and settles back down between beats — a pulse, not a plateau');
+  assert.eq(Lighting.heartbeatMul(w, 0), Lighting.heartbeatMul(w, Lighting.HEARTBEAT_PERIOD_MS), 'periodic');
+
+  // profile() itself throbs when handed a real clock reading: at the beat's
+  // peak the tint is deeper than the flat ceiling it would otherwise be.
+  const atRest = Lighting.mixToWhite(Lighting.LOW_ENERGY_TINT, Lighting.LOW_ENERGY_A * w);
+  const atBeat = Lighting.profile(critical, undefined, 0).litColour; // phase 0 = the lub's peak
+  assert.lt(ch(atBeat, 8), ch(atRest, 8), 'the beat reddens deeper than the flat ceiling');
+});
+
 // ── The tired walk (app.js — can't load headlessly, pinned as source text) ──
 
 test('lighting: the walk cycle eases toward half speed on the same weight as the red', () => {
@@ -548,7 +589,7 @@ test('lighting: the frame reads the real sun at the player, once a minute', () =
   assert.eq(Lighting.daylight(s, Date.parse('2024-06-21T12:00:30Z')), 0.123, 'same minute: cached');
   assert.truthy(Lighting.daylight(s, Date.parse('2024-06-21T12:01:00Z')) !== 0.123, 'next minute: recomputed');
   assert.eq(Lighting.daylight({ depth: 0 }, Date.now()), 1, 'no fix to place the sun by: noon');
-  assert.truthy(/const prof = profile\(scene, daylight\(scene, now\)\);/.test(LIGHTING_SRC), 'draw() passes the frame\'s daylight');
+  assert.truthy(/const prof = profile\(scene, daylight\(scene, now\), now\);/.test(LIGHTING_SRC), 'draw() passes the frame\'s daylight, and the clock for the heartbeat pulse');
 });
 
 // ── Source pins: the old passes are gone, the new path is wired ───────────
