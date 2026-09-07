@@ -797,6 +797,19 @@ const NEAR_GPS_CELLS = 3;
 // empty-tank aura is the state, and it pulses on its own clock.
 const HIT_FLASH_MS = 160;
 const HIT_FLASH_TINT = 0xff5a5a;
+// THE PAIN BURST SCALES WITH THE BLOW. _flashPlayerHit throws the 'pain'
+// chip burst (particles.js) at a sizeMul derived from how much energy the
+// hit actually cost — a 1-energy nick and a 10-energy trap bite are the same
+// shape of burst thrown at different force, never two different presets.
+// PAIN_BURST_REF_DMG is a trap's base bite (Traps.STAND_ENERGY_PER_S's
+// one-off cousin), so a trap-sized hit lands at roughly the old FIXED burst
+// size and everything else reads smaller or (an elite, on hard) bigger.
+// The 0.7/1.6 bounds mirror Particles.SIZE_MUL_MIN/MAX; clampSizeMul there
+// re-clamps regardless, so drifting apart can't throw an out-of-range value.
+const PAIN_BURST_REF_DMG = 10;
+function playerHitSizeMul(amount) {
+  return (amount > 0) ? (0.7 + 0.9 * Math.min(1, amount / PAIN_BURST_REF_DMG)) : 1;
+}
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
 //
@@ -3253,7 +3266,7 @@ class MapScene extends Phaser.Scene {
       const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul;
       this.save.energy = Math.max(0, before - bite);
       const spent = before - this.save.energy;
-      this._painFlash();
+      this._painFlash(spent);
       // Say the real number: an empty bar loses nothing, so nothing is popped —
       // the toast below is what tells the player what happened either way.
       if (spent > 0) this._popEnergy(-spent, { ix, iy, label: '🪤 trap' });
@@ -3278,8 +3291,9 @@ class MapScene extends Phaser.Scene {
       const before = this.save.energy ?? 0;
       if (before > 0) {
         this.save.energy = Math.max(0, before - pips);
-        this._trapDrainPop = (this._trapDrainPop || 0) + (before - this.save.energy);
-        this._flashPlayerHit();
+        const spent = before - this.save.energy;
+        this._trapDrainPop = (this._trapDrainPop || 0) + spent;
+        this._flashPlayerHit(spent);
         this._warnIfTiring(before);
         if (this.updateEnergyDOM) this.updateEnergyDOM();
       }
@@ -3299,8 +3313,9 @@ class MapScene extends Phaser.Scene {
 
   // THE PAIN EFFECT — what being bitten looks like. Three things, each on its
   // own side of the reduced-motion line:
-  //   • a red chip burst off the BODY (Particles 'pain'), which is already 0
-  //     under prefers-reduced-motion by burstCount's own rule;
+  //   • a red chip burst off the BODY (Particles 'pain', via _flashPlayerHit
+  //     below), sized to `amount` — already 0 under prefers-reduced-motion by
+  //     burstCount's own rule;
   //   • a red pulse around the map's rim — the vignette's construction (nested
   //     1px rings, since Phaser Graphics has no gradient) in the danger red,
   //     faded out by one tween. A fade, not a flicker, so it stays on under
@@ -3309,18 +3324,14 @@ class MapScene extends Phaser.Scene {
   //   • a short camera shake, which is motion and is the one piece suppressed.
   // Depth 92: above the vignette (90) and below the work wheel (95), and
   // unmasked like both of them — it is UI about the body, not a world layer.
-  _painFlash() {
-    // The BODY's own channel first — the red flick + haptic buzz every other
-    // blow on the player uses (_flashPlayerHit). The rest of this method is
-    // what a trap adds on top of that: it is the biggest single hit in the
-    // game, so it also reaches the edges of the screen.
-    this._flashPlayerHit();
-    if (typeof Particles !== 'undefined' && this.playerScreen) {
-      const ps = this.playerScreen();
-      if (ps && isFinite(ps.x) && isFinite(ps.y)) {
-        Particles.burst(this, 'pain', ps.x, ps.y + this.playerFeetNudgeY);
-      }
-    }
+  _painFlash(amount) {
+    // The BODY's own channel first — the red flick + haptic buzz + sized
+    // burst every other blow on the player uses (_flashPlayerHit). The rest
+    // of this method is what a trap adds ON TOP of that: it is the biggest
+    // single hit in the game, so it also reaches the edges of the screen —
+    // the vignette + shake stay trap-exclusive; only the burst's SIZE varies
+    // with the bite everywhere else too.
+    this._flashPlayerHit(amount);
     if (!this.add || !this.tweens || this.viewLeft == null) return;
     const g = this.add.graphics().setDepth(92);
     const x0 = this.viewLeft, y0 = this.viewTop, size = this.viewSize;
@@ -6898,8 +6909,9 @@ class MapScene extends Phaser.Scene {
     // MONSTER_ARROW_HITS) — armour soaks each of them, not the bundle.
     const dmg = Combat.playerDamage(shielded, this.save.armor, shot.hits);
     this.save.energy = Math.max(0, before - dmg);
-    this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
-    this._flashPlayerHit();
+    const spent = before - this.save.energy;
+    this._monsterDmgAccum = (this._monsterDmgAccum || 0) + spent;
+    this._flashPlayerHit(spent);
     this._warnIfTiring(before);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return true;
@@ -6908,14 +6920,34 @@ class MapScene extends Phaser.Scene {
   // The body takes a hit: a short red flick on the character, at the INSTANT
   // a blow lands — the slime's leech, a monster's melee, an arrow striking —
   // never from the throttled "−N⚡" pop, which rolls a second of hits into one
-  // number and would flash once for three bites. Two channels, both read by
-  // _updatePlayerAura every frame: the sprite tint, which is invisible under
-  // Phaser's Canvas fallback (setTint is a no-op there — the shiny cue and the
-  // coloured icons both learned this), and the halo's red texture, a plain
-  // image that reads on every renderer. A haptic tick rides along.
-  _flashPlayerHit() {
+  // number and would flash once for three bites. Three channels, all read
+  // at the moment the blow is banked:
+  //   the TINT     _updatePlayerAura reads _hitFlashUntilT every frame; the
+  //                sprite tint is invisible under Phaser's Canvas fallback
+  //                (setTint is a no-op there — the shiny cue and the coloured
+  //                icons both learned this), so the halo's own red texture
+  //                carries it on every renderer;
+  //   the HAPTIC   a tick, if the platform has one;
+  //   the BURST    the 'pain' chip burst off the body (particles.js), sized
+  //                to the blow via playerHitSizeMul(amount) — every caller
+  //                passes the actual energy the hit just cost, so a slime's
+  //                nip and a trap's bite are the same effect at different
+  //                force, never two different presets. `amount` is optional
+  //                (omitted → sizeMul 1, the old fixed size) so a caller that
+  //                cannot cheaply compute it still gets the flash + haptic.
+  // _painFlash (the trap bite) calls this FIRST, then adds its own
+  // screen-edge vignette + camera shake on top — the burst does not also
+  // live there any more, so a trap never throws it twice.
+  _flashPlayerHit(amount) {
     this._hitFlashUntilT = performance.now() + HIT_FLASH_MS;
     if (this.hapticHit) this.hapticHit();
+    if (typeof Particles !== 'undefined' && this.playerScreen) {
+      const ps = this.playerScreen();
+      if (ps && isFinite(ps.x) && isFinite(ps.y)) {
+        Particles.burst(this, 'pain', ps.x, ps.y + this.playerFeetNudgeY,
+          { sizeMul: playerHitSizeMul(amount) });
+      }
+    }
   }
 
   // The castle turrets' volley — one arrow per turret per Combat.TURRET
@@ -7811,15 +7843,23 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + 1000;   // 3 energy/sec
           const before = this.save.energy ?? 0;
           if (before > 0) {
-            // Hard mode doubles the leech (Difficulty.enemyDmgMul), shield or not.
+            // Hard mode's leech is its own flat number, not a straight double
+            // of the easy-mode bite (Difficulty.enemyDmgMul doubles every
+            // OTHER monster hit, but 4 was tuned down from that doubled 6 —
+            // a slime is the player's very first hard-mode threat and 6/s
+            // ate the starting bar too fast). Shield still knocks a flat
+            // point off either mode's raw bite.
             // WORN ARMOUR SOAKS WHAT IS LEFT (Combat.playerDamage — the mode and
             // the potion scale the blow, armour spends its pool against the
             // result), and never to nothing: a bite always costs at least 1.
-            const slimeRaw = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3) * Difficulty.get().enemyDmgMul;
+            const hard = Difficulty.get().enemyDmgMul > 1;
+            const shielded = (this.save.shieldPotionUntil ?? 0) > now;
+            const slimeRaw = shielded ? (hard ? 3 : 2) : (hard ? 4 : 3);
             const slimeDmg = Combat.playerDamage(slimeRaw, this.save.armor);
             this.save.energy = Math.max(0, before - slimeDmg);
-            this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
-            this._flashPlayerHit();
+            const spent = before - this.save.energy;
+            this._slimeStealAccum = (this._slimeStealAccum || 0) + spent;
+            this._flashPlayerHit(spent);
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
           }
@@ -7872,8 +7912,9 @@ class MapScene extends Phaser.Scene {
             // pool, the same floor of 1.
             const monDmg = Combat.playerDamage(shielded, this.save.armor);
             this.save.energy = Math.max(0, before - monDmg);
-            this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
-            this._flashPlayerHit();
+            const spent = before - this.save.energy;
+            this._monsterDmgAccum = (this._monsterDmgAccum || 0) + spent;
+            this._flashPlayerHit(spent);
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
           }

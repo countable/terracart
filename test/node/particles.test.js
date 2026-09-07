@@ -110,6 +110,32 @@ test('particles: emitterConfig never streams and carries every preset range', ()
   assert.eq(Particles.emitterConfig('nope'), null);
 });
 
+test('particles: sizeMul scales SPEED and SCALE only, never angle or alpha', () => {
+  const p = Particles.PRESETS.pain;
+  const base = Particles.emitterConfig('pain');
+  const big = Particles.emitterConfig('pain', 1.5);
+  assert.eq(big.speed.min, p.speed[0] * 1.5); assert.eq(big.speed.max, p.speed[1] * 1.5);
+  assert.eq(big.scale.start, p.scale[0] * 1.5); assert.eq(big.scale.end, p.scale[1] * 1.5);
+  // Angle is a DIRECTION, not a magnitude — scaling it would point particles
+  // somewhere else entirely, not throw them further.
+  assert.eq(big.angle.min, base.angle.min); assert.eq(big.angle.max, base.angle.max);
+  // Alpha is the preset's own fade at any size.
+  assert.eq(big.alpha.start, base.alpha.start); assert.eq(big.alpha.end, base.alpha.end);
+  assert.eq(big.lifespan.min, base.lifespan.min); assert.eq(big.lifespan.max, base.lifespan.max);
+  // No sizeMul (or an explicit 1) reproduces the preset exactly.
+  assert.eq(JSON.stringify(Particles.emitterConfig('pain', 1)), JSON.stringify(base));
+});
+
+test('particles: clampSizeMul bounds and buckets to the nearest tenth', () => {
+  assert.eq(Particles.clampSizeMul(), 1, 'no value → the plain preset');
+  assert.eq(Particles.clampSizeMul(0), 1, 'zero (falsy) → the plain preset, not clamped to the floor');
+  assert.eq(Particles.clampSizeMul(-2), 1, 'a negative multiplier makes no sense — the plain preset');
+  assert.eq(Particles.clampSizeMul(0.1), Particles.SIZE_MUL_MIN, 'below the floor clamps up');
+  assert.eq(Particles.clampSizeMul(99), Particles.SIZE_MUL_MAX, 'above the ceiling clamps down');
+  assert.eq(Particles.clampSizeMul(1.23), 1.2, 'bucketed to the nearest tenth');
+  assert.eq(Particles.clampSizeMul(1.27), 1.3, 'rounds, not truncates');
+});
+
 test('particles: onScreen is the viewport square plus the margin', () => {
   const scene = { viewLeft: 100, viewTop: 200, viewSize: 352 };
   assert.truthy(Particles.onScreen(scene, 100, 200), 'top-left corner');
@@ -243,6 +269,31 @@ test('particles: a burst in another colour bakes its own texture and its own emi
   assert.eq(made.length, 2, 'and one emitter per colour, reused after');
   assert.eq(calls[0][0], 'fx_timber');
   assert.eq(calls[1][0], 'fx_timber_ff0000');
+});
+
+test('particles: a burst at another sizeMul gets its own emitter, keyed by size bucket', () => {
+  // Unlike colour, sizeMul does NOT bake a new texture — the sprite art is
+  // unchanged, only the emitter's speed/scale config differs — so only the
+  // emitter (not the bake list) grows per size.
+  const made = [], cfgs = [];
+  const scene = {
+    _reducedMotion: false,
+    fxContainer: { add: (em) => made.push(em) },
+    textures: { exists: () => true },
+    add: { particles: (x, y, key, cfg) => {
+      cfgs.push(cfg);
+      return { key, cfg, explode() {} };
+    } },
+  };
+  Particles.burst(scene, 'pain', 0, 0);                       // plain
+  Particles.burst(scene, 'pain', 0, 0, { sizeMul: 1 });        // 1 is the plain preset too
+  Particles.burst(scene, 'pain', 0, 0, { sizeMul: 1.5 });
+  Particles.burst(scene, 'pain', 0, 0, { sizeMul: 1.5 });      // reused, not rebaked
+  assert.eq(made.length, 2, 'one emitter for the plain size, one for 1.5×');
+  assert.eq(cfgs.length, 2, 'and the bigger one is only built once');
+  const p = Particles.PRESETS.pain;
+  assert.eq(cfgs[0].speed.max, p.speed[1], 'the plain emitter keeps the preset speed');
+  assert.eq(cfgs[1].speed.max, p.speed[1] * 1.5, 'the 1.5× emitter is actually scaled');
 });
 
 test('particles: a ring burst explodes around the circle, a point burst all at once', () => {

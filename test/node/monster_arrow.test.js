@@ -133,7 +133,7 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   assert.truthy(/const dmg = Combat\.playerDamage\(shielded, this\.save\.armor, shot\.hits\);/.test(hit),
     'armour soaks each carried hit, not the bundle');
   assert.truthy(/this\.save\.energy = Math\.max\(0, before - dmg\);/.test(hit), 'it comes off energy');
-  assert.truthy(/this\._monsterDmgAccum = \(this\._monsterDmgAccum \|\| 0\) \+ \(before - this\.save\.energy\);/.test(hit),
+  assert.truthy(/this\._monsterDmgAccum = \(this\._monsterDmgAccum \|\| 0\) \+ spent;/.test(hit),
     'and rolls into the monsters-hit flash');
 });
 })();

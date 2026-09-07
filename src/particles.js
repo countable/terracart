@@ -39,7 +39,11 @@
 //     restored building's walls) instead of out of one point (a street), and
 //     scales the count with it; `opts.colour` bakes and throws the same
 //     preset in another colour (one texture and one emitter per colour, never
-//     a tint). app.js `_blastAt` is the caller that uses both.
+//     a tint); `opts.sizeMul` scales the FORCE and SIZE of each particle (a
+//     10-energy trap bite throws a bigger burst than a 1-energy nick, one
+//     emitter per size bucket, never a live-mutated shared one). app.js
+//     `_blastAt` is the caller that uses ringPx+colour; `_flashPlayerHit`
+//     is the one that uses sizeMul.
 //   • OFF-SCREEN IS FREE. `onScreen()` gates the world bursts: the crop timer
 //     advances plants the player is nowhere near, and an explode() nobody
 //     sees still costs the pool.
@@ -168,6 +172,18 @@
     return (typeof CELL_PX === 'number') ? CELL_PX : 32;
   }
 
+  // SIZE follows the blow: opts.sizeMul scales a preset's SPEED and its own
+  // particle SCALE (not just how many fly, which ringPx already covers) — a
+  // 1-energy nick and a 10-energy trap bite throw the same shape of burst at
+  // different force. 1 (the default, and anything falsy) reproduces the
+  // preset exactly. Bucketed to the nearest tenth so a run of slightly
+  // different damage numbers can't grow the emitter pool without bound.
+  const SIZE_MUL_MIN = 0.7, SIZE_MUL_MAX = 1.6;
+  function clampSizeMul(m) {
+    if (!(m > 0)) return 1;
+    return Math.round(Math.min(SIZE_MUL_MAX, Math.max(SIZE_MUL_MIN, m)) * 10) / 10;
+  }
+
   // A burst thrown off a RING is thrown off a bigger thing, so it needs more
   // of them: a stone's ring is a point (ringPx 0) and keeps the preset's own
   // count, a building's is its footprint and scales with the radius, one
@@ -211,17 +227,22 @@
 
   // The Phaser ParticleEmitterConfig for a preset. `emitting: false` — the
   // emitter never streams; it only explode()s. Pure so the test can read it.
-  function emitterConfig(kind) {
+  // `sizeMul` (clamped, see above) scales SPEED and SCALE only — never ANGLE
+  // (a direction, not a magnitude) or ALPHA (fade is the preset's own look at
+  // any size).
+  function emitterConfig(kind, sizeMul) {
     const p = PRESETS[kind];
     if (!p) return null;
+    const m = clampSizeMul(sizeMul);
     const range = (a) => ({ min: a[0], max: a[1] });
+    const scaledRange = (a) => ({ min: a[0] * m, max: a[1] * m });
     return {
       emitting: false,
       angle: range(p.angle),
-      speed: range(p.speed),
+      speed: scaledRange(p.speed),
       lifespan: range(p.lifespan),
       gravityY: p.gravityY,
-      scale: { start: p.scale[0], end: p.scale[1] },
+      scale: { start: p.scale[0] * m, end: p.scale[1] * m },
       alpha: { start: p.alpha[0], end: p.alpha[1] },
       rotate: range(p.rotate),
     };
@@ -285,17 +306,20 @@
     return key;
   }
 
-  // The emitter for a (kind, colour), created on first use and parked in the
-  // scene's fx layer. Explode() positions are emitter-local; the emitter and
-  // its container both sit at (0,0), so screen coordinates pass straight
-  // through. One emitter per baked texture — the same key.
-  function ensureEmitter(scene, kind, colour) {
+  // The emitter for a (kind, colour, sizeMul), created on first use and
+  // parked in the scene's fx layer. Explode() positions are emitter-local;
+  // the emitter and its container both sit at (0,0), so screen coordinates
+  // pass straight through. One emitter per baked texture × size bucket — the
+  // plain (unscaled) key is untouched, so nothing that never asked for a
+  // size moves.
+  function ensureEmitter(scene, kind, colour, sizeMul) {
     scene._fxEmitters = scene._fxEmitters || {};
-    const slot = texKey(kind, colour);
+    const m = clampSizeMul(sizeMul);
+    const slot = texKey(kind, colour) + (m !== 1 ? `@${m}` : '');
     let em = scene._fxEmitters[slot];
     if (em && em.active !== false) return em;
     const key = ensureTexture(scene, kind, colour);
-    em = scene.add.particles(0, 0, key, emitterConfig(kind));
+    em = scene.add.particles(0, 0, key, emitterConfig(kind, m));
     if (scene.fxContainer) scene.fxContainer.add(em);
     scene._fxEmitters[slot] = em;
     return em;
@@ -311,6 +335,9 @@
   //           middle — and scale the count with it (burstCount).
   //   count   override the preset's count outright.
   //   colour  bake and throw the preset in this colour instead of its own.
+  //   sizeMul scale the SPEED and SCALE of each particle (app.js
+  //           _flashPlayerHit — a bigger blow throws a bigger-looking burst,
+  //           not just more of them).
   function burst(scene, kind, x, y, opts) {
     if (!scene || !scene.add || !scene.textures || !scene.fxContainer) return 0;
     if (!PRESETS[kind] || !isFinite(x) || !isFinite(y)) return 0;
@@ -318,7 +345,7 @@
     const n = burstCount(kind, !!scene._reducedMotion, o);
     if (!n) return 0;
     try {
-      const em = ensureEmitter(scene, kind, o.colour);
+      const em = ensureEmitter(scene, kind, o.colour, o.sizeMul);
       if (!(o.ringPx > 0)) {
         em.explode(n, x, y);
       } else {
@@ -330,5 +357,6 @@
     return n;
   }
 
-  root.Particles = { PRESETS, burstCount, emitterConfig, onScreen, burst, texKey, ringPoints, BURST_MAX };
+  root.Particles = { PRESETS, burstCount, emitterConfig, onScreen, burst, texKey, ringPoints, BURST_MAX,
+                     clampSizeMul, SIZE_MUL_MIN, SIZE_MUL_MAX };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

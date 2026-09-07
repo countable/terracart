@@ -269,6 +269,17 @@ test('armor: every blow on the player is soaked before it reaches the bar', () =
     'the mode/potion scaling comes first, armour soaks the result');
 });
 
+test('armor: the surface slime leeches 4/s on hard mode, not a straight double of easy', () => {
+  // Every OTHER monster hit doubles flat via Difficulty.enemyDmgMul (2), but
+  // the slime is the player's very first hard-mode threat and a straight
+  // double of its 3/s easy-mode bite (6/s) ate the starting bar too fast —
+  // so its hard-mode raw bite is its own tuned number, not enemyDmgMul * 3.
+  // Shield still knocks a flat point off either mode's raw bite.
+  const app = APP_JS_SRC;
+  assert.truthy(/const hard = Difficulty\.get\(\)\.enemyDmgMul > 1;\s*\n\s*const shielded = \(this\.save\.shieldPotionUntil \?\? 0\) > now;\s*\n\s*const slimeRaw = shielded \? \(hard \? 3 : 2\) : \(hard \? 4 : 3\);/.test(app),
+    'easy: 3 raw (2 shielded); hard: 4 raw (3 shielded) — 4, not a straight double to 6');
+});
+
 test('armor: what a piece soaks is printed ON the piece', () => {
   // The description surfaces (CLAUDE.md: what an item DOES is written on the
   // item). Both read armorSlotReduction rather than re-deriving the tier — one
