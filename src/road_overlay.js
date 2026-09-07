@@ -1243,9 +1243,15 @@
   //     the sub-cell scroll every frame — which worldMetersToScreen already
   //     accounts for. So the container's own offset is subtracted back out,
   //     or the preview would run half a cell ahead of the band under it.
-  // Phaser's Graphics has no lineCap, so these runs end square where the
-  // canvas bands end round; at preview alphas that is not worth a second
-  // canvas.
+  // Phaser's Graphics has no lineCap/lineJoin control (the same limitation
+  // the "why canvas 2D" note above explains), so a stroked path alone would
+  // end these runs in a hard square butt and show a notch at every bend —
+  // where the canvas-baked bands under them are round both ways
+  // (`cx.lineCap/lineJoin = 'round'`). Not worth a second canvas for
+  // something this cheap to fake: a filled circle at every vertex, radius
+  // half the stroke width, the same colour and alpha as the line, rounds
+  // both ends AND every interior bend in one pass — the hand-rolled version
+  // of what the canvas context does for free.
   function drawLive(scene, runs) {
     const container = scene.roadGeomContainer;
     let g = scene.roadLiveGfx;
@@ -1264,13 +1270,23 @@
       const pts = run && run.pts;
       if (!pts || pts.length < 2) continue;
       const color = run.colour == null ? restoredColorFor(run.tags) : run.colour;
-      g.lineStyle(widthPxFor(scene, run.tags), color, run.alpha == null ? 1 : run.alpha);
+      const alpha = run.alpha == null ? 1 : run.alpha;
+      const widthPx = widthPxFor(scene, run.tags);
+      g.lineStyle(widthPx, color, alpha);
       g.beginPath();
+      const sx = [], sy = [];
       for (let i = 0; i < pts.length; i++) {
         const s = scene.worldMetersToScreen(pts[i].x, pts[i].y);
-        if (i) g.lineTo(s.x - ox, s.y - oy); else g.moveTo(s.x - ox, s.y - oy);
+        const x = s.x - ox, y = s.y - oy;
+        sx.push(x); sy.push(y);
+        if (i) g.lineTo(x, y); else g.moveTo(x, y);
       }
       g.strokePath();
+      // ROUND CAPS + JOINS, faked: a circle at every vertex — both ends and
+      // every interior bend — in the same colour and alpha as the stroke.
+      g.fillStyle(color, alpha);
+      const r = widthPx / 2;
+      for (let i = 0; i < sx.length; i++) g.fillCircle(sx[i], sy[i], r);
     }
   }
 

@@ -1052,13 +1052,15 @@ test('lamp stone: LAMP_TEX_PX and LAMP_DRAW_CELLS are exported for app.js to bak
 
 function makeLiveGfx() {
   return {
-    cleared: 0, paths: [], style: null, _cur: null,
-    clear() { this.cleared++; this.paths.length = 0; },
+    cleared: 0, paths: [], circles: [], style: null, fillColor: null, _cur: null,
+    clear() { this.cleared++; this.paths.length = 0; this.circles.length = 0; },
     lineStyle(w, c, a) { this.style = { w, c, a }; },
+    fillStyle(c, a) { this.fillColor = { c, a }; },
     beginPath() { this._cur = { style: this.style, pts: [] }; },
     moveTo(x, y) { this._cur.pts.push({ x, y }); },
     lineTo(x, y) { this._cur.pts.push({ x, y }); },
     strokePath() { this.paths.push(this._cur); this._cur = null; },
+    fillCircle(x, y, r) { this.circles.push({ x, y, r, fill: this.fillColor }); },
   };
 }
 // A scene under a PEEK: the container carries the sub-cell scroll (draw() sets
@@ -1101,6 +1103,28 @@ test('road overlay live: runs project through the camera anchor, minus the conta
   assert.eq(g.paths[0].style.a, 0.5, 'the caller owns the alpha');
 });
 
+test('road overlay live: round caps + joins are faked with a circle at every vertex', () => {
+  // Phaser's Graphics has no lineCap/lineJoin control, so a circle the same
+  // colour and alpha as the stroke, radius half its width, sits at both ends
+  // AND every interior bend — otherwise these runs would end square and
+  // notch at bends where the canvas-baked bands (round both ways) don't.
+  const scene = makeLiveScene();
+  RoadOverlay.drawLive(scene, [{
+    pts: [{ x: 100, y: 200 }, { x: 105, y: 200 }, { x: 105, y: 210 }],
+    tags: { class: 'street' }, alpha: 0.5,
+  }]);
+  const g = scene._liveGfx;
+  assert.eq(g.circles.length, 3, 'one circle per vertex, including the bend');
+  const pts = g.paths[0].pts;
+  for (let i = 0; i < 3; i++) {
+    assert.eq(g.circles[i].x, pts[i].x, `circle ${i} sits on its own vertex`);
+    assert.eq(g.circles[i].y, pts[i].y, `circle ${i} sits on its own vertex`);
+    assert.eq(g.circles[i].r, px(5.5) / 2, `circle ${i} radius is half the stroke width`);
+    assert.eq(g.circles[i].fill.c, RO_ROAD_RESTORED, `circle ${i} matches the stroke colour`);
+    assert.eq(g.circles[i].fill.a, 0.5, `circle ${i} matches the stroke alpha`);
+  }
+});
+
 test('road overlay live: the Graphics is made once, inside the overlay container', () => {
   const scene = makeLiveScene();
   RoadOverlay.drawLive(scene, []);
@@ -1115,8 +1139,10 @@ test('road overlay live: an empty frame clears and strokes nothing', () => {
   const scene = makeLiveScene();
   RoadOverlay.drawLive(scene, [{ pts: [{ x: 100, y: 200 }, { x: 110, y: 200 }], tags: {} }]);
   assert.eq(scene._liveGfx.paths.length, 1, 'a run this frame');
+  assert.eq(scene._liveGfx.circles.length, 2, 'and its two round-cap circles');
   RoadOverlay.drawLive(scene, []);
   assert.eq(scene._liveGfx.paths.length, 0, 'gone the next');
+  assert.eq(scene._liveGfx.circles.length, 0, 'circles gone with it');
   assert.eq(scene._liveGfx.cleared, 2, 'cleared every call');
   RoadOverlay.drawLive(scene, null);
   assert.eq(scene._liveGfx.cleared, 3, 'a missing list is not a crash');
