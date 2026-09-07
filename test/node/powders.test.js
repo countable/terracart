@@ -31,7 +31,7 @@
 const app = APP_JS_SRC;
 const POWDERS = {
   growth_powder: { tier: 2, price: 60,  frame: 6, method: 'useGrowthPowder' },
-  shadow_powder: { tier: 3, price: 110, frame: 8, method: 'useShadowPowder' },
+  shadow_powder: { tier: 2, price: 110, frame: 8, method: 'useShadowPowder' },
   frost_powder:  { tier: 3, price: 100, frame: 9, method: 'useFrostPowder'  },
 };
 const methodBody = (name) => {
@@ -53,6 +53,10 @@ test('powders: three consumables with tiers, prices, effect lines and a Book tip
     assert.truthy(!('icon' in it), `${id}: no emoji icon field (QC_RULES §1)`);
   }
   assert.truthy(PRICES.growth_powder < PRICES.dragon_powder, 'a T2 utility is cheaper than the T3 dragon');
+  // Shadow moved to T2 (it is a way to LEAVE a fight, like the potions);
+  // its price stays where its effect is, as the T2 butterfly's does.
+  assert.eq(ITEM_BY_ID.shadow_powder.baseTier, ITEM_BY_ID.growth_powder.baseTier,
+    'Shadow sits at the potions/Growth tier, not the dragon/Frost one');
   // Each powder's ✦ line is its description; no Book tip restates them.
   assert.falsy(PLAY_TIPS.some(t => /Growth Powder|Shadow Powder|Frost Powder|\bPowders\b/.test(t)),
     'no Book tip restates the powders');

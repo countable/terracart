@@ -23,3 +23,6 @@ data/trees_z20_min30.png
 tiles_cache/
 data/game_*.png
 data/g[0-9]*_*.png
+
+# Full-res gpt-image raws for the story banners (regenerable via tools/gen_story_art.js)
+assets/art/raw/
