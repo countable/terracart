@@ -129,7 +129,24 @@ function check() {
   return problems;
 }
 
+// A merge that conflicts on a ?v= tag or on SHELL_VERSION leaves both sides
+// inside git's markers, and hashing the tags on each side rewrites them both
+// while the markers stay — an index.html that renders '<<<<<<< HEAD' as text
+// and an sw.js that is a syntax error. It shipped that way once (Sep 2026:
+// the tests passed, since nothing looked). The markers are the merge's to
+// resolve (keep either side; the hash follows the merged bytes), so --write
+// refuses to touch a file that still carries them, and the audit fails on it.
+const CONFLICT_MARKER = /^(<<<<<<< |=======$|>>>>>>> )/m;
+function conflictMarkers() {
+  return [INDEX, SW].filter((f) => CONFLICT_MARKER.test(readFile(f)));
+}
+
 function write() {
+  const marked = conflictMarkers();
+  if (marked.length) {
+    throw new Error(`merge conflict markers in ${marked.join(', ')} — resolve them (keep either side) `
+      + 'and run node tools/cachebust.js --write again');
+  }
   const html = expectedIndex();
   const changedHtml = html !== readFile(INDEX);
   if (changedHtml) fs.writeFileSync(path.join(ROOT, INDEX), html);
@@ -147,6 +164,19 @@ function write() {
 // a `versioned()` that quietly skipped files would leave the audit passing
 // over exactly the drift it exists to catch.
 const CHECKS = [
+  {
+    name: 'cache-bust: no merge conflict marker survives in index.html or sw.js',
+    run() {
+      const marked = conflictMarkers();
+      if (marked.length) throw new Error(`conflict markers left in ${marked.join(', ')}`);
+      if (!CONFLICT_MARKER.test('a\n<<<<<<< HEAD\nb\n=======\nc\n>>>>>>> x\n')) {
+        throw new Error('the marker test does not see a marker');
+      }
+      if (CONFLICT_MARKER.test('a === b\n  // ======= a rule of equals signs\n')) {
+        throw new Error('the marker test fires on ordinary text');
+      }
+    },
+  },
   {
     name: 'cache-bust: every ?v= matches the bytes of the file it points at',
     run() {
@@ -219,7 +249,7 @@ const CHECKS = [
 ];
 
 module.exports = {
-  CHECKS, check, write, staleTags, expectedShellVersion, scriptUrls, versioned, HASH_LEN,
+  CHECKS, check, write, staleTags, conflictMarkers, expectedShellVersion, scriptUrls, versioned, HASH_LEN,
 };
 
 if (require.main === module) {
