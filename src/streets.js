@@ -173,7 +173,7 @@
   // each piece is charged to the cell it actually lies in. Sampling at a fixed
   // step would either miss a cell the street clips the corner of or restore
   // metres either side of one it only grazes — and what restores has to be
-  // exactly what the reach outline draws.
+  // exactly what the lit reach area covers.
   //
   // `inReach(cellIX, cellIY)` takes TILE-LOCAL cell indices.
   function reachIntervals(line, mvtToM, cellM, inReach) {

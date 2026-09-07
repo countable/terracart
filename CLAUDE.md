@@ -581,12 +581,29 @@
   light source, add a row and return its kind from `Lighting.sourceKind`**;
   the collector culls at `halfM` + the row's own radius, not the sprite cull,
   so a lantern a cell off-screen still lights the edge.
-  **What stayed on `reachGfx`:** the white reach OUTLINE. It is the tap
-  affordance; never move it onto the lightmap.
+  **THE LIGHT IS THE AFFORDANCE — there is no reach outline any more.** A
+  white line (2px, 0.15 alpha) was stroked over the same staircase on
+  `reachGfx` until Sep 2026, and `Render.reachOutlineCell` + a per-cell
+  `isReach` loop + an arc helper existed to draw it. It made sense while
+  `PLAYER_OUTPUT_K` had the plateau at a bit over half its light and the
+  boundary needed underlining; once `PLATEAU_OUTPUT_K` lit the reach area back
+  up, the line and the light were two drawings of one boundary and the line
+  was the louder. The plateau is painted per reach cell from `cellInReach`'s
+  own expressions, rounded by the same `ReachCorner` rule the line rounded by,
+  so what is LIT is exactly what the tap gate accepts — cell-exact, not a
+  circle. **Never stroke a reach outline back on:** if the boundary stops
+  reading, widen the STEP at its edge in `lighting.js` (that step is pinned to
+  outweigh `PLATEAU_FALL` at every depth and hour), and check
+  `PLATEAU_OUTPUT_K` before anything else. `reachGfx` now carries the
+  unmapped-tile reveal alone, and `ReachCorner` keeps only the corner
+  classification — `shortenH` / `shortenV` said where a STROKED edge stopped
+  short of a round, and left with the stroke.
   **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` (the
   derived levels, the noon headroom the plateau knob is set at, the table, the
-  collector, the source pins) and `tools/layer_audit.js` (the lightmap above
-  ground, halo and sprites, below the labels).
+  collector, the source pins), `test/node/reach_corners.test.js` (the plateau
+  rounds every corner of the staircase exactly once — and the outline is gone
+  and stays gone) and `tools/layer_audit.js` (the lightmap above ground, halo
+  and sprites, below the labels).
 
 - **A message on the MAP is thirty characters.** `util.js` `MAP_MSG_MAX` is
   the budget for every `flash` / `flashLoot` — a toast drawn over the world, on

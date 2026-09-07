@@ -450,12 +450,18 @@ test('lighting: the frame reads the real sun at the player, once a minute', () =
 // ── Source pins: the old passes are gone, the new path is wired ───────────
 test('lighting: the darkness passes are gone from drawCells', () => {
   const r = RENDER_SRC;
-  assert.falsy(/if \(isReach\(col, row\)\) continue;/.test(r),
-    'the per-cell out-of-reach fillRect wash has grown back');
   assert.falsy(/strokeCircle\(scene\.viewCenterX/.test(r), 'the falloff rings have grown back');
   assert.falsy(/const FALLOFF_A = /.test(r), 'the falloff pair lives in lighting.js now');
   assert.falsy(/0xff5fa2/.test(r), 'the low-energy pink is the player cookie\'s colour now');
-  assert.truthy(/if \(!isReach\(col, row\)\) continue;/.test(r), 'the per-cell reach OUTLINE stays');
+  // …and so is the white reach OUTLINE, removed Sep 2026: the plateau is lit
+  // brightly enough (PLATEAU_OUTPUT_K) that the light carries the affordance
+  // by itself, and the line was a second drawing of the same boundary. The
+  // whole per-cell reach loop went with it, along with reachOutlineCell — so
+  // this one ban also covers the out-of-reach fillRect wash, which read the
+  // same test the other way round.
+  assert.falsy(/isReach\(/.test(r), 'the per-cell reach loop has grown back in drawCells');
+  assert.falsy(/reachOutlineCell/.test(r), 'the reach outline helper has grown back');
+  assert.falsy(/lineStyle\(2, 0xffffff, 0\.15\)/.test(r), 'the outline stroke has grown back');
   assert.falsy(/mulTint\(tint, Render\.reachDimTint/.test(r),
     'spriteTint composing the reach dim onto a wreck would dim it twice under the lightmap');
 });

@@ -58,10 +58,14 @@
 // the Canvas fallback and on every GPU — see the note at draw().
 //
 // The player's PLATEAU is painted per reach cell with cellInReach's own
-// maths, so the sharp edge of the lit area IS the staircase the white outline
-// traces and the tap gate accepts. Only the falloff outside it is a circle.
-// The outline itself stays on reachGfx: it marks what you can touch; the
-// light is only light. Inside the staircase the plateau is not flat: it is
+// maths, so the sharp edge of the lit area IS the staircase the tap gate
+// accepts. Only the falloff outside it is a circle. That edge is the WHOLE
+// affordance: a white outline was stroked over the same staircase on reachGfx
+// (render.js) until Sep 2026, back when the plateau under it was dim enough
+// to need underlining — PLATEAU_OUTPUT_K lit it back up and the line went, so
+// this pass is now the only thing that says where you can reach. Do not stroke
+// one back: if the boundary stops reading, the step at its edge is what to
+// widen. Inside the staircase the plateau is not flat: it is
 // the player's own lamp, full at the feet and easing down PLATEAU_FALL of
 // the way by the reach rim (plateauLevel), so the lit area reads as light
 // thrown from the body rather than a cut-out — the step down at its edge
@@ -691,9 +695,10 @@
   // the far field of the frame at the ambient floor with nothing of the
   // player's light left in it; one cell past keeps the corners just lit,
   // and the ramp still ends on zero so a peek finds no edge past it (the
-  // ambient beyond is the value it lands on). The PLATEAU is not in here: it is painted per reach cell in draw(), so the
-  // sharp edge of the lit area is the same staircase the reach outline
-  // traces and the tap gate accepts (cellInReach), not a circle near it.
+  // ambient beyond is the value it lands on). The PLATEAU is not in here: it
+  // is painted per reach cell in draw(), so the sharp edge of the lit area is
+  // the same staircase the tap gate accepts (cellInReach), not a circle
+  // near it.
   // Rebaked only when its inputs move: the reach radius (energy / depth /
   // Potion of Reach) and the depth's levels.
   //
@@ -795,8 +800,8 @@
   // corner — and an INNER corner (ReachCorner.fillet) gets the sliver between
   // the corner point and that same arc, drawn in the empty cell above/below,
   // as its own subpath. Corner geometry comes from coords.js' ReachCorner, the
-  // rule the white outline (render.js) rounds by too; with no rule loaded the
-  // cell is a plain square.
+  // rule the white outline (render.js) rounded by until it was removed; with
+  // no rule loaded the cell is a plain square.
   function plateauCellPath(ctx, sx, sy, top, bot, lft, rgt, dTL, dTR, dBL, dBR) {
     const RC = (typeof ReachCorner !== 'undefined') ? ReachCorner : null;
     if (!RC) { ctx.rect(sx, sy, CELL_PX, CELL_PX); return; }
@@ -816,8 +821,8 @@
   // The fillet at corner point (px, py): ix runs along the owning cell's
   // horizontal edge, iy into the empty cell. The arc is tangent to that edge
   // R along it and to the diagonal cell's vertical edge R up/down it, so the
-  // sliver between the corner and the arc is exactly what the outline's
-  // fillet arc traces.
+  // sliver between the corner and the arc is exactly the notch the bare
+  // staircase would otherwise cut out of the lit area.
   function filletPath(ctx, px, py, ix, iy, R) {
     ctx.moveTo(px, py);
     ctx.lineTo(px + ix * R, py);
@@ -863,10 +868,11 @@
     const D = player.S * PLAYER_COOKIE_SCALE;
     ctx.drawImage(player.canvas, ps.x - ox - D / 2, ps.y - oy - D / 2, D, D);
 
-    // The plateau: every cell in reach, by the SAME test the outline and the
-    // tap gate use — cellInReach's expressions, hoisted once per frame the way
-    // drawCells hoists them (reachRadiusM and playerReachCell are constant for
-    // the frame; 169 calls of the allocating helper is churn for nothing).
+    // The plateau: every cell in reach, by the SAME test the tap gate uses —
+    // cellInReach's expressions, hoisted once per frame the way drawCells
+    // hoists its own (reachRadiusM and playerReachCell are constant for the
+    // frame; 169 calls of the allocating helper is churn for nothing). This
+    // edge is the affordance now, so it has to be exactly that test.
     if (reachM > 0 && prof.lit > prof.edge && typeof playerReachCell === 'function'
         && typeof viewAnchorCell === 'function') {
       const reachM2 = reachM * reachM;
