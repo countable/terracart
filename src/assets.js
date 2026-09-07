@@ -4,6 +4,9 @@
 const ASSETS = {
   idle:    { kind: 'spritesheet', path: 'assets/Character/Idle.png',           frameWidth: 32, frameHeight: 32 },
   walk:    { kind: 'spritesheet', path: 'assets/Character/Walk.png',           frameWidth: 32, frameHeight: 32 },
+  // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
+  // row 0 (frames 0-7) is the wing-flap we loop while transformed.
+  dragon:  { kind: 'spritesheet', path: 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', frameWidth: 96, frameHeight: 96 },
   trees:   { kind: 'spritesheet', path: 'assets/Objects/Maple Tree.png',       frameWidth: 32, frameHeight: 48 },
   house:   {
     kind: 'image', path: 'assets/Objects/House.png',
@@ -11,6 +14,10 @@ const ASSETS = {
     // "front" frame for the right-hand cabin so we only render that.
     onLoad: (scene) => { scene.textures.get('house').add('front', 0, 148, 3, 72, 95); },
   },
+  // Cave staircases (the surface→cave entrance and the cave's way back up).
+  // ?v= busts the SW/browser cache when the art changes.
+  stair_down: { kind: 'image', path: 'assets/Objects/stair_down.png?v=2' },
+  stair_up:   { kind: 'image', path: 'assets/Objects/stair_up.png?v=1' },
   // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
   // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
   // 32×32 made every "frame" a 2×2 cluster of mini-chickens — so each
@@ -19,6 +26,15 @@ const ASSETS = {
   // the top row form the idle animation pair.
   chicken: { kind: 'spritesheet', path: 'assets/Farm Animals/Chicken Red.png',        frameWidth: 16, frameHeight: 16 },
   cow:     { kind: 'spritesheet', path: 'assets/Farm Animals/Female Cow Brown.png',   frameWidth: 32, frameHeight: 32 },
+  // Pet body sheets — 32×32 RPG-Maker-style anim grids (4 cols × 12-13 rows).
+  // Row 0 is the down-walk cycle, which we loop as the idle anim. Source
+  // PNGs are copied out of the gitignored Sprites/ dump into Objects/Pets/
+  // so the tree builds without the raw asset pack (same pattern as
+  // Objects/Wilderness/). Originals were Sprites/Animals/Pets/Cats/1/Ginger.png
+  // and Sprites/Animals/Pets/Dogs/Premade/4/1.png (grey); swap with sibling
+  // sheets from those folders if we ever want colour variety.
+  cat:     { kind: 'spritesheet', path: 'assets/Objects/Pets/cat.png', frameWidth: 32, frameHeight: 32 },
+  dog:     { kind: 'spritesheet', path: 'assets/Objects/Pets/dog.png', frameWidth: 32, frameHeight: 32 },
   // trunk.png: 32x64, two 32x32 frames stacked. Frame 0 = closed, frame 1 = open (lid up).
   chest:   { kind: 'spritesheet', path: 'assets/Objects/trunk.png',            frameWidth: 32, frameHeight: 32 },
   // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame
@@ -51,7 +67,10 @@ const ASSETS = {
   // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
   springcrops: { kind: 'spritesheet', path: 'assets/Objects/Spring Crops.png',  frameWidth: 16, frameHeight: 16 },
-  cobble:      { kind: 'spritesheet', path: 'assets/Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },
+  // (There is no 'cobble' sheet any more. Road copiar.png stamped a pebble
+  // cluster per road cell and a stone per path cell until Sep 2026; a street
+  // is restored and drawn as arclength along the WAY now — road_overlay.js
+  // paints the carriageway itself — so nothing loads it.)
   // Bridge Beach — 128×224 = 8 cols × 14 rows of 16×16 frames. Wooden plank
   // tiles for pier rendering (transportation:pier OSM lines). Rows 0-3 are a
   // big multi-cell bridge structure; rows 4-13 are pairs of standalone 3-cell
@@ -86,16 +105,23 @@ const ASSETS = {
   apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apple Tree.png',   frameWidth: 32, frameHeight: 48 },
   peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Peach Tree.png',   frameWidth: 32, frameHeight: 48 },
   // Wood/forest tree species — the art is a growth-stage strip where each
-  // tree is ~1.5–2 cells TALL (canopy + trunk + root base). The sheets are
-  // 96px tall: rows 0–1 (top 64px) are the standing tree, row 2 (bottom 32px)
-  // holds separate ground decorations (snow piles / extra saplings). Slicing
-  // at 32×32 cut every tree in half — frame 4 showed canopy only, no trunk.
-  // Slicing 32×64 captures the WHOLE tree per column: Pine/Birch 256×96 → 8
-  // frames (cols 0–7), Mahogany 384×96 → 12 frames. Column index = growth
+  // tree is ~1.5 cells TALL (canopy + trunk + root base). The sheets are
+  // 96px tall: the top 48px are the standing tree, the bottom 48px hold
+  // separate ground decorations (snow piles / extra saplings / the autumn
+  // variants). Slicing at 32×32 cut every tree in half — frame 4 showed
+  // canopy only, no trunk. Slicing 32×48 captures the WHOLE tree per column
+  // (every standing tree's roots end by row 48 on all three sheets — see
+  // tools/sprite_audit.js) and NOTHING below it: Pine/Birch 256×96 → 8 frames
+  // (cols 0–7, row 0), Mahogany 384×96 → 12 frames. Column index = growth
   // stage; render.js uses col 3 (a full mature green tree on every sheet).
-  pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Pine Tree.png',     frameWidth: 32, frameHeight: 64 },
-  birch_tree:    { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Birch Tree.png',    frameWidth: 32, frameHeight: 64 },
-  mahogany_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Mahogany Tree.png', frameWidth: 32, frameHeight: 64 },
+  // These were sliced 32×64 until Sep 2026, and on the birch sheet the tip of
+  // the red autumn tree in the lower band rises to row 62 — inside the frame.
+  // The trimmed art bounds then ran to the frame's very bottom, so the seat
+  // pass took that tip for the trunk base: the birch sat 16px too high in its
+  // cell with a sliver of red foliage under its roots.
+  pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Pine Tree.png',     frameWidth: 32, frameHeight: 48 },
+  birch_tree:    { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Birch Tree.png',    frameWidth: 32, frameHeight: 48 },
+  mahogany_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Mahogany Tree.png', frameWidth: 32, frameHeight: 48 },
   // Fantasy Mushroom sheet (96x288) — declared as spritesheet so renderer can pick any single 32x32 mushroom.
   mushroom_world: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 32 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
@@ -126,10 +152,20 @@ const ASSETS = {
   // Top row = 4 tower variants (blue-ivy, purple-ivy, blue-clean, purple-clean).
   // Wizard houses (role 'wizard') use frame 3 (fully-restored purple-clean).
   shrine:      { kind: 'spritesheet', path: 'assets/Objects/Houses/wizard.png', frameWidth: 80, frameHeight: 104 },
-  // Shell collectible — 48×64 = 3×4 of 16×16 frames (12 distinct shell
-  // variants). Spawns as wildplant-style debris on sand cells (and rarely
-  // near water polygons). frame index is hashed off the spawn cell.
+  // Shell collectible — 48×64 = 3 cols × 4 rows of 16×16. Only the top row is
+  // shell art (three cowries); the rest is keyline duplicates, mask rows and
+  // blanks, so WHICH frames may be drawn is CROP_SPRITE.shell's `frames` list
+  // and nothing may roll a frame index over the sheet's size. Spawns as
+  // wildplant debris on sand cells; the frame is hashed off the spawn cell.
   shell_sheet: { kind: 'spritesheet', path: 'assets/Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
+  // Orchard fruit icons — 32×16 each, two 16×16 frames (frame 0 is the whole
+  // fruit; frame 1 a slice). These are the inventory icons (items.js
+  // MINERAL_ICON_SHEET), loaded as WORLD textures too because a bearing fruit
+  // tree wears one on its canopy (render.js's fruit pass) and a dropped stack
+  // of them renders through inventoryIconSource → the same key. Only the two
+  // species the world grows are loaded; the rest stay DOM-only icons.
+  icon_apple:  { kind: 'spritesheet', path: 'assets/Icons/Food Icons/Apple.png', frameWidth: 16, frameHeight: 16 },
+  icon_peach:  { kind: 'spritesheet', path: 'assets/Icons/Food Icons/Peach.png', frameWidth: 16, frameHeight: 16 },
   // Scarecrow — 48×48 single-image prop (straw-man on a cross-pole). Pole base
   // anchors at origin (0.5, 1) so it stands on its placement cell; the render
   // spec scales the 48px art down to ~one cell. ?v= busts the SW/browser cache.
@@ -149,6 +185,14 @@ const ASSETS = {
   // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
   // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
   bonfire:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bonfire.png', frameWidth: 16, frameHeight: 32 },
+  // Cave torch — 64×32 = 4 cols of 16×32 frames: a wooden stake with a wrapped
+  // head and a small flame, authored in the bonfire's palette (no torch on any
+  // shipped sheet). Planted on a cave level where a lowtier street-furniture
+  // POI stands overhead (worldgen.js caveTorchesFrom) — the one kind of chest
+  // that does NOT mirror underground, so the spot gets a light instead of a
+  // box. Decorative: no interaction. The `torch` render spec cycles the 4
+  // frames for a flicker and Lighting.KINDS.torch is its light.
+  torch:       { kind: 'spritesheet', path: 'assets/Objects/Wilderness/torch.png', frameWidth: 16, frameHeight: 32 },
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Currently used for the fishing-junk boot icon.

@@ -114,9 +114,23 @@ function walkHomeScene(awayM, opts = {}) {
     _steerCostAccrue: 0,
     _followPaused: false,
     _driftingHome: false,
-    targetGhost: { visible: true, setVisible(v) { this.visible = v; } },
     _gpsAwayM: __walkHome._gpsAwayM,
     syncMoveTarget: __walkHome.syncMoveTarget,
+    _placeBodyOnFix: __walkHome._placeBodyOnFix,
+    _carveLanding: __walkHome._carveLanding,
+    // What the placement's landing carve reads: the cell under the feet. The
+    // surface never asks; underground `landing` says what the fix stands in
+    // (25 = CAVE_WALL) and `dug` records what the shipping dig was told.
+    startWorldM: { x: 0, y: 0 },
+    feetOffsetM: 0,
+    cellsPerTile: 16,
+    cellAt: () => ({ tx: 3, ty: 4, ix: 5, iy: 6, loaded: opts.landing != null,
+                     type: opts.landing ?? 0 }),
+    dug: [],
+    digCaveWall(tx, ty, ix, iy, cellIX, cellIY) { this.dug.push([tx, ty, ix, iy, cellIX, cellIY]); },
+    // A warp snaps the peek camera home; this scene never peeks (no peekM), so
+    // the real method early-outs — it just has to be here to be called.
+    clearPeek: __walkHome.clearPeek,
   };
 }
 const drift = (scene, dt = 1 / 60) => __walkHome._driftHome.call(scene, dt);
@@ -128,7 +142,6 @@ test('walk home: a half-kilometre return is instant, not a trudge', () => {
     'the body should be standing on the fix after one frame, not walking toward it');
   assert.eq(Math.hypot(scene._manualOffsetM.x, scene._manualOffsetM.y), 0,
     'the stick offset has to go with it, or the body walks straight back off');
-  assert.eq(scene.targetGhost.visible, false, 'the ghost marks a gap that no longer exists');
 });
 
 test('walk home: the instant return uses the same gap the GPS fix path snaps on', () => {
@@ -168,13 +181,106 @@ test('walk home: distance decides HOW the return is made, never when it starts',
     'the debounce still owns when the return begins');
 });
 
-test('walk home: the body is never placed underground', () => {
-  // A snap below the surface would drop the player inside solid rock — the same
-  // reason the GPS fix path is surface-only. Down there the body mines its way.
-  const scene = walkHomeScene(500, { depth: 2 });
+// ── Underground ───────────────────────────────────────────────────────────
+// Until Sep 2026 the walk home was surface-only, so a stick walk down a cave
+// parked the character that far off the GPS for good: every later fix
+// re-targeted fix + offset and nothing ever bled the offset away. The one real
+// reason to keep it out of the caves was the far snap dropping the body inside
+// solid rock; the placement now carves its landing cell instead.
+
+test('walk home: underground the offset bleeds just as it does on the surface', () => {
+  const scene = walkHomeScene(30, { depth: 2, landing: 24 });
   drift(scene);
-  assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 500,
-    'underground the return stays a walk, however far');
+  assert.lt(Math.hypot(scene._manualOffsetM.x, scene._manualOffsetM.y), 30,
+    'a cave walk home has to close the gap the stick opened');
+  assert.truthy(scene._driftingHome, 'and it counts as walking home');
+  assert.eq(scene.dug.length, 0, 'a walked return digs nothing');
+});
+
+test('walk home: underground a half-kilometre return is placed, same as the surface', () => {
+  const scene = walkHomeScene(500, { depth: 2, landing: 24 /* CAVE_FLOOR */ });
+  drift(scene);
+  assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 0,
+    'the body should be standing on the fix after one frame');
+  assert.eq(scene.dug.length, 0, 'landing on open floor digs nothing');
+});
+
+test('walk home: a body placed into rock has its landing cell carved', () => {
+  const scene = walkHomeScene(500, { depth: 2, landing: 25 /* CAVE_WALL */ });
+  drift(scene);
+  assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 0, 'placed on the fix');
+  assert.eq(scene.dug.length, 1, 'the wall under the feet is dug out — never a body inside rock');
+  assert.eq(scene.dug[0].join(','), '3,4,5,6,53,70',
+    'through the shipping digCaveWall with the absolute cell (tx*N+ix, ty*N+iy)');
+});
+
+test('walk home: a placement onto an unloaded tile carves once the grid lands', () => {
+  // "Too far" usually means the tile under the fix isn't loaded yet, so the
+  // snap can't know what it landed in. The tile loader re-asks per cave tile,
+  // scoped to the tile that just arrived.
+  const scene = walkHomeScene(500, { depth: 2 });   // landing: unloaded
+  drift(scene);
+  assert.eq(scene.dug.length, 0, 'nothing to carve while the cell is unknown');
+  scene.cellAt = () => ({ tx: 3, ty: 4, ix: 5, iy: 6, loaded: true, type: 25 });
+  __walkHome._carveLanding.call(scene, { tx: 9, ty: 9 });
+  assert.eq(scene.dug.length, 0, 'a different tile arriving is not the one under the feet');
+  __walkHome._carveLanding.call(scene, { tx: 3, ty: 4 });
+  assert.eq(scene.dug.length, 1, 'the tile under the feet arriving carves the pocket');
+  scene.depth = 0;
+  __walkHome._carveLanding.call(scene);
+  assert.eq(scene.dug.length, 1, 'the surface never digs');
+});
+
+// ── Pace ──────────────────────────────────────────────────────────────────
+// The return is a little brisker than the stick walk that opened the gap: the
+// player has stopped and is watching a gap they didn't ask for close, so it
+// should read as purposeful — but it is still a walk, not a run.
+
+test('walk home: the return is brisker than a stick walk, but still a walk', () => {
+  assert.gt(WALK_HOME_SPEED_MUL, 1, 'the walk home should outpace the stroll that opened the gap');
+  assert.lt(WALK_HOME_SPEED_MUL, 2, 'double pace reads as running, not walking home');
+});
+
+test('walk home: once the ramp is at full, the offset bleeds at the brisker pace', () => {
+  // Idle long past the ramp: one frame should close exactly one frame of the
+  // stick pace (WALK_M_S × steerSpeedMul, no amulet here) × WALK_HOME_SPEED_MUL
+  // — the multiplier is applied to the return itself, not just declared.
+  const dt = 1 / 60;
+  const scene = walkHomeScene(30);
+  drift(scene, dt);
+  const off = Math.hypot(scene._manualOffsetM.x, scene._manualOffsetM.y);
+  const perFrame = WALK_M_S * steerSpeedMul(scene._walkRelics()) * WALK_HOME_SPEED_MUL * dt;
+  assert.lt(Math.abs((30 - off) - perFrame), 1e-6,
+    `one full-pace frame should bleed ${perFrame.toFixed(4)}m, got ${(30 - off).toFixed(4)}m`);
+});
+
+// ── The countdown on the stick ────────────────────────────────────────────
+// Let go of the stick and the cap shows the seconds until the character walks
+// itself back. It reads the same gates as _driftHome (lifted alongside it by
+// run.js), so the number is only ever shown for a walk that will happen.
+
+test('walk home countdown: counts whole seconds down from the moment the stick is released', () => {
+  const at = (idleMs) => __walkHome._walkHomeCountdownS.call(walkHomeScene(30, { idleMs }));
+  assert.eq(at(0), Math.ceil(WALK_HOME_IDLE_MS / 1000), 'the full count the instant you let go');
+  assert.eq(at(1000), Math.ceil((WALK_HOME_IDLE_MS - 1000) / 1000), 'one second later, one less');
+  assert.eq(at(WALK_HOME_IDLE_MS - 100), 1, 'the last fraction of a second still reads 1, never 0');
+  assert.eq(at(WALK_HOME_IDLE_MS), null, 'gone the moment the walk starts');
+  assert.eq(at(WALK_HOME_IDLE_MS + 5000), null, 'and stays gone while it walks');
+});
+
+test('walk home countdown: only shown when there is a walk to count down to', () => {
+  const idleMs = 1000;
+  const count = (opts, patch) => {
+    const scene = Object.assign(walkHomeScene(30, { idleMs, ...opts }), patch || {});
+    return __walkHome._walkHomeCountdownS.call(scene);
+  };
+  assert.truthy(count({}) > 0, 'baseline: off the GPS, stick released → counting');
+  assert.eq(count({ offset: 0 }), null, 'standing on the fix: nothing to walk back');
+  assert.eq(count({}, { _stickPushed: () => true }), null, 'stick still pushed: no walk pending');
+  assert.eq(count({}, { _workProgress: { auto: false } }), null, 'mid-wheel: busy, not idle');
+  assert.truthy(count({ depth: 2 }) > 0, 'underground the walk home is the same promise');
+  assert.eq(count({ noGps: true }), null, 'no fix driving: nothing to return to');
+  assert.eq(count({}, { _gpsManualOverride: true }), null, 'keyboard takeover owns the target');
 });
 
 test('walk home: a body lagging behind a spent offset is still brought home', () => {

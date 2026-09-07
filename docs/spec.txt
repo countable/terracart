@@ -33,13 +33,77 @@ Each cell may contain one interactable object (excluding fauna). ie, rocks, tree
 Entities that can typically move around over cells, like pets, enemies, wild animals
  - crows: move in pauses and straight lines. Orbit nearest crop at 1.5-3.5 cells,
    land on it for 2 full cycles, then destroy it. Scarecrow aversion 4 cells.
- - no fauna may move onto a building footing, or road.
- - animals simulate when within viewport range (~7-8 cells); stationary beyond that.
+ - no fauna may move onto a building footing, or road. Nor is any SEATED on one:
+   every spawner goes through WorldGen.isSpawnCell with the tile's roadMask.
+ - animals simulate when within the SIM BUBBLE, 12 cells of the player's feet
+   (CREATURE_SIM_CELLS); stationary beyond that. The viewport corner is ~7.8
+   cells out, so the bubble carries about half a viewport of margin: a
+   creature is already walking, hunting or inbound before it is visible,
+   rather than starting the moment it crosses the glass. Measured from the
+   player, never the camera anchor — a peek drag does not wake anything.
  - slime: a pest that drifts toward the player and leeches energy when adjacent
    (numbers + defeat in CREATURES). Tame with a sapphire (secret — hinted only
    in book tips); tame slimes don't drain.
  - deer (15 hp), crow (8 hp): sneak in and eat crops. Deer: 20% chance per wander
    step within 1.5 cells of a crop. Crow: orbital 2-cycle attack (see above).
+ - DERELICT LAIRS ARE A HARD-MODE RULE (Difficulty derelictLairs, src/lairs.js).
+   Every UNCLAIMED structure — a wrecked house, a sealed fort, an unclaimed
+   castle, by the isClaimedKey test the derelict wash already reads — holds a
+   garrison of IMMOBILE slimes. Two axes and no others:
+     * building tier: house 1, fort 2, castle 3 (TIER_GUARDS, at the near ring)
+     * distance from home: nothing inside LAIR_MIN_HOME_CELLS (12 cells), then
+       a straight ramp to LAIR_FAR_M (1000m) where the figures are multiplied
+       by FAR_MUL — a castle reaches LAIR_MAX_PER_STRUCTURE (15), a fort 10, a
+       house 5. FAR_MUL is DERIVED (ceiling / biggest tier figure), not tuned.
+   The rolled count is the cap less a seeded shortfall of up to LAIR_SLACK, so
+   a house and a fort are always exactly their figure and a castle is 2-3.
+   The KIND ladder rides the same ramp and is slimes all the way: surface slime
+   near, cave slime from a third out, purple slime from two thirds.
+   Distance is measured from the FROZEN starter anchor (save.starterCratesAt),
+   never a Home adopted later — a moving Home would re-rank every ruin.
+   Guards are seated on a ring one cell clear of the footprint, through
+   WorldGen.isSpawnCell with the tile's own spawn options, so never on a road
+   band and never on the building itself. A ruin with nowhere to stand holds
+   fewer, never a guard somewhere wrong.
+   GENERATED, NEVER STORED (the traps.js contract), and PER STRUCTURE: a
+   garrison is seeded from its own building's identity — Lairs.structureKey,
+   the footprint's centre in ABSOLUTE cell coords, the same shape a castle
+   mints its claim key from — so it depends on nothing but the building. Not
+   on the order the polygons arrive in (a rebuild that adds an Overpass
+   building shifts every index), not on what a neighbouring ruin seated, not
+   on which guards the player has already killed. Only save.caught reaches
+   disk.
+   NOTHING IS MATERIALISED AT TILE BUILD. Every tier-9 house is a wreck until
+   rebuilt, so "derelict structure" is very nearly "building" and a city tile
+   carries thousands — seating them all is tens of thousands of creatures on
+   one tile. Instead the tile keeps only an INDEX of its eligible footprints
+   (Lairs.buildIndex, one small record each, bucketed on a LAIR_BUCKET_CELLS
+   grid, and SLICED at LAIR_INDEX_CHUNK footprints per pass because update()
+   has no slicer of its own), and Lairs.stepResidency — throttled from
+   update(), measured from the FEET — wakes the garrisons within
+   LAIR_WAKE_CELLS (16) of the player and sleeps those past LAIR_SLEEP_CELLS
+   (20). Live monsters therefore track what is AROUND the player, not what a
+   tile contains, so a city block and a hamlet cost the same to stand in.
+   The wake ring clears every other ring on purpose — the sim bubble
+   (CREATURE_SIM_CELLS 12), the sprite cull and bow range — so nothing is ever
+   woken in view or shot at before it exists; the wake/sleep gap is hysteresis.
+   LAIR_LIVE_MAX (40) caps what may be woken around the player, nearest ruin
+   first, and it only refuses NEW wakes: a garrison already standing is never
+   un-woken to make room. A dead guard does not hold the cap shut.
+   A ruin that woke EMPTY (cleared, or ringed by water) stays in the entry's
+   resident set so it is not re-rolled every pass. A wound survives a
+   sleep/wake cycle (an in-memory hp memo on the scene), so retreating out of
+   the wake ring and back is not a free reset — a reload still heals, like
+   every other creature.
+   IMMOBILE means the movement step only: app.js wanderCreatures returns on
+   `c.immobile` BELOW the leech and the monster attack, so a guard still drains
+   you, still shoots if its kind does, and still dies and pays its bounty.
+ - THE CROW PUMP IS A HARD-MODE RULE (Difficulty cropPests). On hard, a planted
+   crow-edible crop with no wild crow already near the player dispatches one
+   every ~90 s, seated at PEST_CROW_SPAWN_CELLS (10) — past the viewport corner
+   but inside the sim bubble, so it is flying at the field from its first tick.
+   On easy nothing is dispatched: the crows a tile spawns are the whole crow
+   threat, and a field is only raided by a bird you planted next to.
  - cats (20 hp): tame cats chase wild crows within 8 cells, fight at 1.5 cells
    (both lose 1 hp per hit; crow flees, crow hp 0 → auto-defeat + feather drop).
  - dogs (40 hp): tame dogs chase wild deer and slimes within 8 cells, same combat.
@@ -131,8 +195,7 @@ ONBOARDING (the first session)
  - NO PESTS AT HOME UNTIL THE FIRST HARVEST. Until the save's first crop is
    brought in (save.hasHarvested, stamped at the harvest site) the fauna
    spawner seats no slime and no crow within PEST_FREE_CELLS (20) of the
-   starting anchor — the whole area the opening asks a player to walk — and
-   the crop-raiding crow pump stays off entirely. The opening is the one
+   starting anchor — the whole area the opening asks a player to walk. The opening is the one
    stretch they have no weapon, no relic and an empty bag, and a pest on the
    tutorial plot is the ladder being interrupted rather than a fight. It is a
    spawn rule, not a cull: the tile keeps its pest count (the cell is
@@ -210,7 +273,8 @@ MOVEMENT & REACH
  - WHAT "DIMMED" COVERS: the out-of-reach wash, the underground torch wash, the
    low-energy pink tint and the white reach outline all paint onto a dedicated
    LIGHTING layer (app.js reachGfx), which sits ABOVE every ground layer —
-   terrain fill, dashed grid, biome seam borders, cobbles, road lettering, POI
+   terrain fill, dashed grid, biome seam borders, the road band, pier planks,
+   road lettering, POI
    halos, treasure pads, shadows, the biome haze — and BELOW the standing
    sprites. Ground recedes outside the lit area; trees, houses and creatures
    keep full contrast, and DISTANCE (not reach) is what dims them, via
@@ -219,7 +283,7 @@ MOVEMENT & REACH
    could only darken the base terrain colour and every decoration above it
    stayed bright outside the lit area — biome BOUNDARIES most visibly, reading
    as glowing seams in the dark. Forcing the wash to alpha 1.0 showed the road
-   strip, the pale cobbles and the road lettering punching straight through a
+   strip, the ground decoration and the road lettering punching straight through a
    fully opaque black.
    Phaser draws in insertion order, so create()'s layer sequence IS the
    z-order and nothing in the code says so; tools/layer_audit.js pins it.
@@ -230,8 +294,9 @@ MOVEMENT & REACH
    the bubble tightens the deeper you descend — and the out-of-range mask darkens
    per level too. Reach grows to 5 via SIX +0.5-cell upgrades on one ladder
    (save.reachUpgrades, capped at 6 / 5 cells), claimed EXCLUSIVELY at the Wizard
-   Tower's Inner Light (bought with Discovery — see ECONOMY). Each upgrade also
-   forges the RING relic, whose tier mirrors the inner-light level (ECONOMY/GEAR).
+   Tower's Inner Light — the FIRST rung of his ladder, bought with Discovery
+   (see ECONOMY). The RING used to be forged by the same purchase; it is its own
+   rung (Keen Eye) now.
  - WORK WHEEL: every timed action (chop / mine / fish / pick a worked crop /
    defeat a pest / catch an animal) shows a circular progress wheel at the spot.
    The matching tool relic's TIER sets the duration — it only SPEEDS the work,
@@ -267,9 +332,24 @@ ENERGY & FOOD
    yellow >25%, red below). Starting/base max is 100.
  - ENERGY_COST (items.js): till 2, plant 1, harvest 1, catch 5, rockPlace 1;
    picking wildplants/flora is free. Mining ore rocks costs 10 + (tier-1)*4.
- - ARMOR raises max energy: helmet +10/tier, chest +25/tier, legs +15/tier,
-   boots +8/tier (per equipped tier). Equipping better armor bumps current
-   energy by the delta too.
+ - ARMOR does NOT raise max energy (it did until Sep 2026) — it SOAKS the
+   energy an attack takes off the bar. Each worn piece contributes ITS TIER to
+   a reduction pool (items.js armorSlotReduction / armorReduction; all four
+   slots pay the same for a tier and differ only in price), so a lone Wood
+   helmet is a flat -1 and a full Frost set is 28. A blow spends that pool over
+   4 rounds (Combat.mitigate): soak up to HALF the damage, halve what is LEFT
+   of the pool, soak up to half of what is left of the blow, repeat. Halves
+   round down, the total soak can never exceed the pool, and a minimum of 1
+   damage always lands — four halvings cap armour at 15/16ths of any blow.
+   The soak is linear and the pool is spent-once on purpose: every hit in the
+   game is 1..16 (a kind's dmg 1..4, doubled elite, doubled on hard), so a
+   quadratic pool or a pool re-handed to each round flattens every tier above
+   Wood to the floor. Applied at the three sites a foe can hit the player —
+   the surface slime's leech, a cave monster's melee, and a goblin archer's
+   arrow (per carried hit, not per bundle) — AFTER the difficulty multiplier
+   and the shield potion have scaled the blow.
+ - the only thing that raises max energy is the FIRST-TASTE bonus: +1 for every
+   distinct edible ever eaten (save.eaten, folded in by Energy.maxEnergy).
  - EAT: a persistent Eat button below the inventory eats the selected food for
    FOOD_ENERGY[id] (longgrass 2 … iceflower 150, cow 120, meat 45, etc.).
    Cats and dogs have NO FOOD_ENERGY entry — companions are never edible.
@@ -282,9 +362,13 @@ ENERGY & FOOD
  - REST: energy regenerates over real time. Rates are "seconds to refill the
    whole bar" while you stand in a rest context (the pure formula lives in
    energy.js; app.js owns the per-frame accrual + splash):
-     * INDOOR — on any building cell (house / fort / civic): full bar in 300s.
-     * HOME — on your starter trailer / adopted home shop: full bar in 90s
-       (~3.3× indoor; isRestingAtHome locks onto save.starterShopId).
+     * HOME — on your starter trailer / adopted home shop: full bar in 90s.
+       THE ONLY BUILDING THAT RESTS YOU. Standing on any building cell used to
+       regenerate energy (300s to a full bar), which made a stranger's front
+       room a rest spot and a town one continuous one; a home is worth going
+       back to only if it is the place that does this. isRestingAtHome locks
+       onto save.starterShopId — the trailer by its own cell, an adopted house
+       by standing inside it.
      * CAMPFIRE — within 3 cells of a lit fire: full bar in 360s (slowest, but
        works out in the wild — see CAMPFIRE under CONSUMABLES).
      * OFFLINE — while the tab is closed, energy pro-rates linearly to a full
@@ -365,6 +449,14 @@ INTERACTION MODEL
    ONE thing: handlers are tried in priority order (interact.js TAP_HANDLERS)
    and the first that matches consumes the tap and stops. Tapping the player is
    treated as a tap on the player's own cell.
+ - A TAP IS A POINTER THAT DIDN'T TRAVEL. Dragging the map instead PEEKS: the
+   camera slides off the player by up to 3 cells so you can see what the frame
+   was cutting off, and springs back when you let go. A pointer that moved more
+   than a few pixels taps NOTHING, however it ends — sliding the map off a tree
+   must not chop it — so the tap fires on the pointer's release, not its press.
+   The peek is a camera offset and nothing else: the body never moves, so reach,
+   every tap gate, fog reveal and tile loading still measure from the player.
+   Peeking at a crate three cells away and tapping it still says "too far".
  - TAP TARGETS ARE CELL-BOUNDED. Everything except FAUNA is hit-tested against
    the ONE CELL it stands in: a tap inside that cell hits it, a tap outside
    never does — however far the artwork rises above the cell (tall trees, the
@@ -382,21 +474,19 @@ INTERACTION MODEL
      5)  world object standing in the tapped cell: chest, well, tree, fruit
          tree, mineral rock, ground stack, house/tower (shop), shrine
      6)  resolve the tapped cell (bail if unloaded / out of reach)
-     7)  path-stone claim (non-consuming — falls through)
-     8)  building-zone tap → a tap on any BUILDING cell snaps to the nearest
+     7)  building-zone tap → a tap on any BUILDING cell snaps to the nearest
          house/tower sprite within 30m and routes to its shop (this is how a
          footprint larger than the sprite's own cell stays tappable)
-     9)  release a selected animal onto the cell
-    10)  pick up a placed rock / placed scarecrow
-    11)  place a held rock / scarecrow on an empty tilled-able cell
-    12)  break a natural rock cell (needs energy; pickaxe speeds it up)
-    13)  planted cell → harvest / advance / water / nag
-    14)  refill watering can from a WATER cell
-    15)  fish a WATER cell (bare-handed OK; rod speeds it) — also tops up the can
-    16)  tilled empty cell + seed → plant; with no seed selected it says so and
+     8)  release a selected animal onto the cell
+     9)  pick up a placed rock / placed scarecrow
+    10)  place a held rock / scarecrow on an empty tilled-able cell
+    11)  break a natural rock cell (needs energy; pickaxe speeds it up)
+    12)  planted cell → harvest / advance / water / nag
+    13)  fish a WATER cell (bare-handed OK; rod speeds it)
+    15)  tilled empty cell + seed → plant; with no seed selected it says so and
          LEAVES THE SOIL ALONE (the un-till toggle is gone — see FARMING LOOP)
-    17)  untilled tillable cell → till it
-    18)  non-tillable terrain → flavour label (water / building / road / path)
+    16)  untilled tillable cell → till it
+    17)  non-tillable terrain → flavour label (water / building / road / path)
  - the auto-till fallthrough refuses to till any cell occupied by a wildplant,
    crop, placed rock, building, tree, or chest, so a near-miss never silently
    tills under something.
@@ -429,12 +519,20 @@ FARMING LOOP
         seed.
  - crop grows over 5 visual stages (cols 0..4); 4 waterings to mature.
  - any tillable cell (non-water, non-building, unoccupied) can be tilled.
- - WATERING CAN (relic): when equipped, each watering "improves" the crop. Tier
-   T adds T quality tiers; refilling at water/a well/fishing banks 50 charges
-   that add +2 more tiers each. At harvest, quality raises the bonus-seed chance
-   (+10%/tier over base 25%) and adds +floor(qual/3) to the produce yield.
- - per-cell state: save.tilled (cell keys), save.planted (x,y,crop,stage,
-   watered_t,canBoost). Tilled cells render a brown tint, darker once watered.
+ - PRODUCE QUALITY IS THE BED'S, AND THE HOE SETS IT. Tilling banks the hoe's
+   tier on the cell (save.tilledQuality, same cell keys as save.tilled);
+   planting SPENDS it onto the crop as `qualBoost`. At harvest, quality raises
+   the bonus-seed chance (+10%/tier over base 25%) and adds +floor(qual/3) to
+   the produce yield. A tame butterfly pollinating a crop raises its quality to
+   at least 1. (This was the WATERING CAN's until Sep 2026 — stamped at first
+   watering from can.tier, +2 more while a 50-charge refill bank held. The bank
+   retired with the bonus; see Crops.bedQuality.)
+ - WATERING CAN (relic): HOW SOON, not what. Each watering has a tier/7 chance
+   (Crops.waterJumpChance) of springing the crop a whole growth stage on the
+   spot — nothing bare-handed, certain at Frost.
+ - per-cell state: save.tilled (cell keys), save.tilledQuality (cell key → hoe
+   tier), save.planted (x,y,crop,stage,watered_t,qualBoost). Tilled cells
+   render a brown tint, darker once watered.
 
 ================================================================================
 FORAGING / WILD PICKUPS
@@ -480,6 +578,24 @@ CHOPPING
  - TREES (forest landcover + injected individual trees) chop via the Axe work
    wheel and drop 2-3 wood. Chopped state persists (save.chopped); stumps
    don't block tilling.
+ - ACORNS. A fell also has a chance of leaving an ACORN — a sapling that plants
+   a new TIMBER tree, so a wood you clear is a wood you can replant. The chance
+   is the AXE's, and it is the axe's only reward besides speed and cheap swings:
+   10% bare-handed (tier 0) up to a guaranteed 100% with a Frost axe, GEOMETRIC
+   between (items.js acornDropChance, ACORN_P_BASE / ACORN_P_FROST).
+ - PLANTING AN ACORN (items.js 'acorn', kind:'sapling' + plants:'tree'): tap a
+   tilled cell with it selected, like any sapling, but it grows a `tree` (the
+   thing you chop) rather than a `fruittree` (the thing you pick). It is stored
+   in save.fruittrees with kind:'tree' and re-injected per tile by spawnInTile;
+   felling it retires the record. It carries NO species, so it draws off the
+   default growth sheet and takes no hardwood/softwood tier shift.
+ - A PLANTED TREE GROWS ON THE CLOCK. util.js treeGrowthStage reads planted_t
+   when there is one (PLANTED_TREE_GROW_MS = 4 days, the same window a fruit
+   sapling takes): sprout → young at the halfway mark → mature at the window.
+   One function, so the frame render.js draws, the size class the axe gate
+   reads and the wood the fell pays all climb together — a sprout can't draw
+   tiny and fell like a full canopy. A WILD tree still reads its static
+   `variant`; nothing about it changes.
  - SHRUBS are wildplants (see FORAGING) — an Axe speeds the chop; they drop wood.
  - TREE SIZE & SPECIES (util.js) — a tree's render size, its wood yield, and the
    axe tier needed to fell it all derive deterministically from the tree's own
@@ -518,24 +634,60 @@ ORCHARD FRUIT TREES
    tree then resets its timer. No chopping required — fruit trees are never
    destroyed. Each tree's fruit type is seeded from its cell position (apple,
    cherry, peach, banana, orange, mango, coconut, apricot).
+ - a tree that is BEARING wears its fruit: the fruit's own icon, drawn on the
+   tree's canopy as a separate little sprite. Picking removes the fruit and
+   leaves the tree exactly as it was — the tree's art never changes, so a
+   worked orchard still reads as an orchard and what's ripe reads at a glance.
 
 ================================================================================
 FISHING
 ================================================================================
+ - THE STARTER POND: nothing about a spawn promises water within walking
+   distance, so every save gets a 2x2 pond carved into the terrain grid TWO
+   SCREENS from Home (app.js _carveStarterPond, POND_MIN_CELLS = 2 ×
+   VIEW_CELLS, widening to POND_MAX_CELLS when the two-screen ring is all
+   street or floor). It seats beside a POI chest when one stands in the band
+   (within POND_POI_CELLS, never on the chest's doorstep), on walkable soft
+   ground with a dry shore all round, never on a road band, a POI plaza,
+   existing water or anything standing — and only where the anchor can WALK
+   to (a flood that crosses roads but not water or buildings). It is plain
+   WATER terrain: it fishes, refills the can and mirrors as cave rock like any
+   lake. Frozen once in save.starterPondAt (top-left cell centre, the
+   starterPlotAt convention) and repainted in place on every rebuild of its
+   tile, sweeping whatever the rebuild regenerated on those cells. The band
+   can cross a tile seam, so the search runs in world space over the loaded
+   3×3 and defers (bounded) until the band's tiles have arrived — a plan drawn
+   against half a map would seat it wherever loaded first, POI or no POI.
+   Pinned by starter_pond.test.js.
  - tap a WATER cell → the Rod cast wheel, then a weighted catch. Higher rod
    tiers improve the catch and rare odds. Cast TIME is locked: 9s bare-handed,
    3s with any rod, regardless of tier (an exception to the WORK WHEEL ladder
    — tier-scaled 0.3s casts made high-tier fishing an unbounded money
-   faucet). A rod also tops the watering can to full on every cast (so a rod
-   owner never loses charges).
- - per cast: a "skunk" (nothing) chance that falls with rod tier (T1 ~50% →
-   T7 20%); else a weighted catch — mostly fish (minnow → bass → trout → salmon
-   → goldenfish, rarer more likely at high tier), with a small relic chance
-   (~2%) that follows the same milestone gating as chests. Higher relic tiers
-   are possible but exponentially rarer; rod tier raises the odds of better
-   fish, not relics (gear reward handled per GEAR). 6% per cast: an old boot
-   (junk gag).
- - fishing costs 5 energy.
+   faucet).
+ - per cast: a "skunk" (nothing) chance that falls with rod tier; else a
+   weighted catch — mostly fish, with a small relic chance (~2%) that follows
+   the same milestone gating as chests. Higher relic tiers are possible but
+   exponentially rarer; rod tier raises the odds of better fish, not relics
+   (gear reward handled per GEAR). 12% per cast: an old boot (junk gag).
+ - WHICH FISH ARE IN THE WATER IS THE ROD'S. Each species carries a minimum
+   rod tier (items.js FISH_SPECIES) and is not in the pool below it: minnow
+   bare-handed, bass at Wood, trout at Iron, salmon at Platinum, goldenfish
+   only at Frost. One species per rung, so every rod up the ladder opens
+   exactly one new fish; the weights then make it commoner as the tier climbs
+   (and thin the minnow out). Sep 2026 — before that every species was in the
+   water at every tier and a Wood rod landed three of them in the first
+   minutes.
+ - THE FOUR DIALS ARE ONE SET, in items.js' FISHING block, and the handler
+   (interact.js 'fishing') reads them rather than carrying its own copies:
+   fishWhiffChance (the old 55%→20% ladder DOUBLED, capped at
+   FISH_WHIFF_MAX = 90% since doubling runs past certainty — so tiers 0-2 sit
+   flat at the cap and what a Wood rod buys is the bass, not a better strike
+   rate), FISH_COST_MULT, FISH_BOOT_CHANCE and FISH_SPECIES. All four moved in
+   the same direction in Sep 2026: fishing was out-earning every activity on
+   land. Pinned by test/node/fishing.test.js.
+ - a cast costs the shared 9/3/1 tool curve × FISH_COST_MULT (2) — 18 energy
+   bare-handed, 6 with a Wood rod, 2 with a Frost one. The multiplier is
+   fishing's own; chop / mine / catch keep the plain curve.
 
 ================================================================================
 CREATURES
@@ -562,10 +714,11 @@ CREATURES
  - PESTS — crow / deer / slime = DEFEAT (NOT caught). Finishing removes the
    creature and drops its product (crow → feather, deer → meat; slimes drop
    nothing). They do NOT flee during the wheel. The two halves differ:
-     * GAME (crow / deer) — a HUNT. Tap to start the timed work wheel; ANY
-       weapon relic (sword / bow / staff) speeds it by tier (see WORK WHEEL).
-       Game is not an enemy: nothing auto-fires at it and no shot can hit it,
-       so a hunt is always something you chose.
+     * GAME (crow / deer) — a HUNT. Tap to start the timed work wheel; the BUG
+       NET speeds it by tier (see WORK WHEEL), the same slot the catch wheel
+       uses — one tool takes animals, and weapons are for enemies. Game is not
+       an enemy: nothing auto-fires at it and no shot can hit it, so a hunt is
+       always something you chose.
      * ENEMIES (slime, and every cave monster) — see COMBAT. Tapping one starts
        the HP-driven combat wheel instead, and a sword starts it for you.
  - RELEASE: select a caught animal and tap a passable cell to place it (chickens
@@ -605,8 +758,8 @@ COMBAT
    tab, which marks it with a small "E" (equipped/active) badge alongside its
    tier badge. This only gates the AUTOMATIC behaviours below — a bare-handed
    or manual tap-to-fight (tapping an enemy directly) and the crow/deer HUNT
-   wheel are unaffected; the hunt wheel is still sped by ANY owned weapon's
-   tier (the best of the three), active or not.
+   wheel are unaffected; the hunt wheel is the BUG NET's, not a weapon's, so
+   which weapon is active never touches it.
  - THE THREE WEAPONS DO DIFFERENT THINGS, AND BOW/STAFF DIFFER IN KIND.
      sword  — MELEE. Drains HP while the combat wheel runs, at
               15/durationSeconds HP per second off the WORK WHEEL ladder (bare
@@ -624,14 +777,30 @@ COMBAT
               underground (the same collision the body walks into), and on
               the surface a standing tree/bush or an unbroken mineral rock.
               Free to fire — no energy cost.
-     staff  — RANGED, a PIERCING BOLT: same cadence and heading rules as the
-              bow (3.2 cells/s, 7-cell range), but a bolt ignores the world
-              entirely (goes through rock and timber alike) and damages EVERY
-              foe on its line once each, not just the first. Costs 1 ENERGY
-              per bolt (silently skipped if you can't afford it — an
-              auto-firing weapon must never spam "too tired"), and lands
-              DOUBLE an arrow's damage: the energy is the price of the pierce
-              and the punch.
+     staff  — RANGED, a PIERCING BOLT: same heading rules as the bow (2.0
+              cells/s), but its RANGE IS THE PLAYER'S OWN REACH PLUS ONE CELL
+              (Combat.rangeCellsFor off coords.js reachCells — so it grows
+              with the Inner Light upgrades and tightens half a cell for every
+              level underground; SHOT.staff.rangeCells is only the standing
+              fallback for a caller with no scene, and equals reach+1 at a new
+              save). It was a flat 7 cells until Sep 2026, most of an 11-cell
+              viewport: a weapon that SEEKS and fires the moment anything
+              hostile is on screen cleared the street at no risk. One resolver
+              feeds both the trigger and the flight, so a bolt can never be
+              loosed at a foe it would die short of. A bolt ignores the world
+              entirely
+              (goes through rock and timber alike) and damages EVERY foe on
+              its line once each, not just the first. Costs 1 ENERGY per bolt
+              (silently skipped if you can't afford it — an auto-firing weapon
+              must never spam "too tired"), and lands DOUBLE an arrow's damage
+              PER SECOND: the energy is the price of the pierce and the punch.
+              It fires on its OWN, SLOWER BEAT — every 4 s against the bow's
+              2 s (Combat.SHOT[slot].fireIntervalMs, STAFF_BEAT_MUL = 2). That
+              is pacing, not a nerf: shotDamage prices each shot at its own
+              slot's interval, so one bolt simply carries four arrows' worth
+              and the delivered rate is unchanged. NEVER halve a cadence
+              without letting shotDamage see it, or the weapon quietly loses
+              half its damage.
    A shot's damage is its tier's FULL melee-equivalent rate (bow) or DOUBLE
    that (staff) — the same rate a sword of that tier deals, or twice it — with
    no split across ranged slots: because only one weapon can ever be in play,
@@ -639,8 +808,8 @@ COMBAT
    and stack, which is what the old split priced against; the doubling that
    remains is a deliberate difference in KIND, not a stacking guard). Bow and
    staff never speed the melee wheel, active or not; the shots are what they
-   contribute. (All three still speed the crow/deer HUNT wheel regardless of
-   which is active — see above.)
+   contribute. (No weapon touches the crow/deer HUNT wheel any more — that is
+   the BUG NET's, see FAUNA.)
  - THE COMBAT WHEEL IS A HEALTH BAR. The arc is the foe's REMAINING HP, tinted
    green > amber > red, and there is no time limit — the fight ends when the HP
    does. An enemy hurt in the last 4 seconds also carries a small floating
@@ -731,53 +900,193 @@ TREASURE MARKS (X on the ground)
    rarity roll — laid along the route to the relic chest a
    screen out (see ONBOARDING), and clears a tutorial pocket of
    obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
-   few random X marks plus extra X's beside named paths. Residential X's only
-   spawn near a road.
+   few random X marks plus extra X's beside FOOTPATHS (terrain 8 — the spawner
+   samples path cells, and never knew or needed a way's name) and ON SAND.
+   Residential X's only spawn near a road.
+ - THE BEACH STREAM. Sand gets its own bonus stream, seated ON the sand cell
+   (a footpath is walked, a beach is dug), capped at one mark per
+   BEACH_X_PER_CELLS (20) cells of sand so a golf bunker or a sandpit gets a
+   mark while a shoreline gets the roll. The flat tile-wide scatter is 4-10
+   marks over every walkable cell of a 2.4 km tile — nothing at all along a
+   strip of shoreline, which is what this is for.
+ - Both bonus streams come off ONE walk of the grid (spawnInTile runs in the
+   post-rasterize path, which has no slicer: a second full-grid scan would be
+   a second unbroken ~100k-cell block). Cells are packed as their grid INDEX,
+   cy * N + cx. It was cx * 256 + cy until Sep 2026 — cellsPerEdge is
+   tileEdgeM / 7, over 256 anywhere below ~43° latitude — so a path cell in the
+   bottom of the tile decoded to (cx+1, cy-256) and its roadside X was dropped
+   somewhere else entirely. Pinned by test/node/beach_treasure.test.js.
 
 ================================================================================
-PATH STONES
+STREET RESTORATION (the road band itself)
 ================================================================================
- - stepping on (or tapping) a named pedestrian-path cell claims that stone
-   automatically — no item, no UI. A claimed stone draws at FULL opacity in a
-   recoloured treasure blue-white (not just less see-through — a genuinely
-   different, lit-looking stone, since a plain alpha bump barely read as
-   "claimed" next to the unclaimed ones) while unclaimed cobbles sit at 57%
-   grey, so a walked path visibly lights up as you go. Claiming plays a brief
-   scale-pop on that exact stone so it reads as an event, not a silent swap.
- - WHICH CELLS ARE PATH AT ALL is geometric. A cell becomes PATH only where
-   at least one full cell width of way lies inside it — the path runs THROUGH
-   the cell rather than clipping its corner or stopping just inside. Measured
-   by worldgen's accumulateLineSpan (an exact grid traversal, not sampling:
-   a straight orthogonal crossing measures exactly 1.0, a corner-to-corner
-   diagonal sqrt(2)) in a PRE-PASS over every footpath before any painting,
-   since a cell's total is the SUM over all path ways touching it — so a
-   junction where two ways each cut a corner still qualifies. A clipped cell
-   keeps its own biome and stays tillable, spawnable and unclaimable, because
-   there is no path there.
+ - THE ROAD BAND IS DILAPIDATED BY DEFAULT and the player rebuilds it. Every
+   way road_overlay.js strokes is painted cracked, damp and missing setts (the
+   weathering tile on the base canvas); wherever a stretch has sat inside the
+   player's lit reach CONTINUOUSLY for PATH_STONE_DWELL_MS (2000 ms, app.js) it
+   turns to clean near-black cobble with a hairline kerb, forever, saved.
+   Footpaths restore too, to a darker packed earth. Rail never.
+ - A STRETCH IS METRES, NOT CELLS. What restores is an INTERVAL OF ARCLENGTH
+   along ONE LINE of one OSM way, in tile-local metres — the same coordinate
+   the band is stroked in. The terrain grid under-reports a road every time (a
+   way rasterizes exactly one cell wide however wide it is; parking aisles
+   rasterize to no cell at all), so a per-cell rule could never line up with
+   what the player sees restored. Until Sep 2026 this was LIT PEBBLES — one
+   sprite per 20 m of path, thinned by the renderer — and half a street
+   restored between two of them paid nothing at all. The pebbles, their lit
+   textures, their light row and the 'cobble' spritesheet are all gone.
+ - A STREET PIECE IS ONE LINE OF ONE FEATURE, never the feature. About a
+   quarter of the transportation features on a real tile are merged multi-lines
+   (one had 42 disconnected lines over 6.8 km), so keying on the feature id
+   alone would weld unrelated streets into one row. Streets.lineKey hashes the
+   LINE — its class, its two ends and its vertex count — beside the id, and the
+   hash is stable forever because the save is keyed on it.
+ - ONLY THE TILE SQUARE COUNTS. MVT geometry runs past [0, extent] into the
+   tile's buffer and the same metres come back inside the NEIGHBOUR tile's copy
+   of the way, so Streets.tileSpans clips to the square and the sweep
+   intersects with it. Without that every way crossing a tile edge would be
+   restored and paid for twice.
+ - THE SWEEP (app.js _sweepStreets, called from update()) has two halves.
+     * THE SCAN (_rescanStreets) is memoised on the reach CELL plus the rounded
+       radius: standing still can't bring fresh street into the bubble, and the
+       only things that can are moving to another cell or the reach changing.
+       It walks the 3×3 tiles' transportation layers, skips rail ('rail' /
+       'transit') and KEEPS everything else (parking aisles included — the
+       overlay draws them), bbox-prefilters each line against the reach circle
+       in tile-local metres, then takes Streets.reachIntervals (an EXACT grid
+       traversal per segment, never sampling) ∩ tileSpans − what is already
+       restored, and pushes it as a SNAPSHOT onto the dwell sight.
+       The reach gate is coords.js cellInReach measured from the PLAYER'S REACH
+       CELL, never the camera anchor — a peek drag restores nothing extra.
+     * THE RIPEN (_ripenStreets) runs EVERY frame, because the thing it waits
+       on is the clock, not the player. Streets.createSight().ripeAll returns
+       what has been in sight for every instant of the last dwell (the
+       intersection of every snapshot in the window plus the one current when
+       it opened); Streets.restore unions it into the save and reports only the
+       metres that were NEW.
+   Sight is CONTINUOUS: an empty snapshot drops a key's whole history, so
+   clipping the edge of the bubble in passing restarts the clock. The auto-walk
+   home (_driftingHome), a cave (depth > 0) and a flat battery (reachM <= 0)
+   all clear the sight and bank nothing — that is the game moving the body, not
+   the player looking at anything.
+ - THE SAVE:
+     save.streets      = { "<z/tx/ty>": { "<lineKey>": [s0,s1, s0,s1, …] } }
+     save.streetsEpoch = n     ← bumped by any restore that added metres
+     save.trail        = { metres, prizes }
+   Flat pairs because a walked city keeps one row per line of every way the
+   player has stood beside. The epoch is folded into road_overlay.js's rebuild
+   key, so a restore repaints the restored canvas on the next frame and nothing
+   repaints on the frames between. savemigrate.js folds the old
+   save.trail.stones into metres (× 20) and drops save.pathStones outright —
+   lit pebble CELLS do not map onto intervals; prizes and progress are kept.
+ - THREE PASSES DRAW IT. Both baked canvases live in roadGeomContainer and
+   rebuild together, keyed on the snapped anchor cell + tile readiness + epoch:
+     * 'roadgeom_overlay' — the dilapidated network, at image alpha 0.61.
+     * 'roadgeom_restored' — the rebuilt stretches, stroked from the save's
+       intervals through Streets.subLineM at the way's own widthPxFor, above
+       the base at RESTORED_ALPHA (0.92), with the clean sett pattern and the
+       kerb. No edge nibble: a clean edge is the point.
+     * RoadOverlay.drawLive(scene, runs) — a plain Graphics above both,
+       cleared and re-stroked EVERY frame from app.js _drawStreetLive. It
+       carries the DWELL PREVIEW (the in-sight-unrestored intervals, alpha
+       ramping to STREET_PREVIEW_ALPHA over the dwell, so the two seconds read
+       as a thing being done) and the SHINE (a white run down a stretch the
+       instant it comes back, fading over STREET_SHINE_MS = Lighting.BLAST_MS).
+       Points are projected through scene.worldMetersToScreen — the
+       camera-anchored projection — with the container's own sub-cell offset
+       subtracted back out. The sub-polylines are cut ONCE per scan, not per
+       frame: a merged way can carry thousands of vertices.
+ - THE BLAST (restoration fanfare) is ONE thing at any size — app.js
+   _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, colour, material }),
+   fired at the instant a thing comes back. ONE per sweep, at the MIDPOINT OF
+   THE LONGEST piece the step restored (the stretch the player is looking at,
+   not a metre of driveway at the rim). Three parts:
+     * THE LIGHT. Lighting.blast puts a transient entry on scene._blasts —
+       world metres, its own radius, colour and duration — and the lightmap's
+       collectBlasts converts it against THIS frame's camera anchor, stamps it
+       with alpha (1-t)² and scale FLASH_SCALE_FROM→1, and drops it when its
+       time is up. Stored in world metres precisely so a peek drag leaves the
+       flash on the ground it went off on. Defaults are the old per-pebble
+       numbers exactly: 2.5 cells (BLAST_STONE_R_CELLS), 900 ms.
+     * THE CHIPS. Debris in the thing's own material (particles.js 'stone' for
+       a street, 'timber' for a building; `material` recolours a preset, which
+       bakes its own texture and emitter — never a tint).
+     * THE SPARKS. A ring of stars in the moment's colour ('trailspark' in the
+       street ink for a street, 'buildspark' in UI_GREEN for a building).
+   `ringPx` is what scales the particles to the thing: 0 throws them out of one
+   point (a street stretch), a building's half-extent throws them off its WALLS
+   and scales the count with the radius (particles.js ringPoints / burstCount,
+   capped at BURST_MAX). Two call sites today — every restoring sweep, and
+   every wreck restored (at the footprint's centre, radius = its half-diagonal
+   + BLAST_HOUSE_PAD_CELLS, ring = its half-extent), the latter fired the
+   moment the role is frozen and banked, before the Restored! card opens over
+   it. Add a third by calling _blastAt; never by adding a light row.
+
+ - ONE LADDER FOR THE WHOLE WORLD. Every metre restored anywhere adds to a
+   single running total (save.trail = { metres, prizes }); the first treasure
+   lands at Trail.GOAL_STEP_M (200 m), the next at 400, the next at 600, and so
+   on — a couple of hundred metres for the first prize and a proper expedition
+   for the tenth. A sweep that crosses more than one goal at once queues the
+   ceremonies rather than stacking modals. The arithmetic lives in src/trail.js
+   and the interval algebra in src/streets.js, so the headless suite pins both.
+ - THE PRIZES USED TO BE PER PATH: each named way on each tile ran its own
+   counter, its own 20-stone segment with a short remainder at the end, its own
+   "under 8 cells pays nothing" floor and its own row in the save, and worldgen
+   ran a wavefront pass over every tile to decide which stone belonged to which
+   way. The same walk therefore paid differently depending on how OSM happened
+   to split the ways under it. None of that survives — no names, no segments,
+   no per-path anything. A metre is a metre wherever it is restored.
+ - each sweep pops a small COUNTER in UI_STREET_INK — metres banked over the
+   current goal ("137/200 m", Trail.label, the ONE formatter) — ON the stretch
+   it just rebuilt, seated through the projection (_worldToastAt) so a peek
+   drag keeps it on its street. One counter per sweep, however much street the
+   step brought back, throttled to one per STREET_COUNTER_MIN_MS (1000 ms)
+   because a walk restores metres on nearly every frame; the ladder banks
+   regardless. On the sweep that PAYS it jumps the throttle and reads the goal
+   just completed, full ("200/200 m", Trail.readout), never the carried
+   remainder against the next rung — the ladder grows, and "60/400 m" beside a
+   prize that paid at 200 read as a disagreement. The prize modal's header is
+   "Thou hast traveled far"; the walk it paid at is the pick's flavour line,
+   printed through the same Trail.label.
+ - each prize is a lowtier-chest roll at tier 4 through the unified rarity
+   picker, shown with the chest reward fanfare, AND IT IS A CHOICE: two rolls
+   are offered and the player keeps one (Trail.PRIZE_CHOICES). The options must
+   differ — gold is gold and the same item at another quantity is the same card
+   — and nothing is granted until a button is pressed, so the roll turned down
+   was never theirs. The roll also IMPROVES as the walks get longer:
+   Trail.rollBonusFor spends one extra boost-chain step per prize already won,
+   capped (past the cap a chain step only buys consolation coins).
+ - WHICH CELLS ARE PATH AT ALL is still geometric, and still matters — the PATH
+   terrain code decides ground colour, tillability and where the X-mark spawner
+   samples, even though nothing draws a pebble on it any more. A cell becomes
+   PATH only where at least one full cell width of way lies inside it — the
+   path runs THROUGH the cell rather than clipping its corner or stopping just
+   inside. Measured by worldgen's accumulateLineSpan (an exact grid traversal,
+   not sampling: a straight orthogonal crossing measures exactly 1.0, a
+   corner-to-corner diagonal sqrt(2)) in a PRE-PASS over every footpath before
+   any painting, since a cell's total is the SUM over all path ways touching it
+   — so a junction where two ways each cut a corner still qualifies. A clipped
+   cell keeps its own biome and stays tillable, spawnable and unclaimable,
+   because there is no path there.
    ONE EXEMPTION: the connectivity elbow. forEachLineCell stamps an extra cell
    on each diagonal step so a width-1 line stays 4-connected (the renderer
    draws orthogonal arms only). Its span is ~0 by construction, so gating it
    deletes it — a 45-degree footpath measured 31 orphaned cells of 65. It sits
    between two cells the line genuinely crosses and is always painted.
- - Of the cells that ARE path, only ~50% draw a decorative pebble sprite (a
-   stone on every single 7m cell read as a paved strip, not scattered stepping
-   stones) — a PURELY decorative, permanent per-cell roll on top of the
-   geometry above: claiming still counts toward the path whether or not that
-   cell ever had a visible stone, and a cell that rolled no stone stays bare
-   even once claimed (it never pops one in — that would read as a bug, not
-   as "lighting up").
-   Every 2nd claimed stone on the same named path awards 1 coin
-   (a 30-stone path pays 15 coins total; a single stone pays nothing).
- - ADDITIONALLY, fully claiming every stone of a named path (min ~8 stones)
-   fires a one-time completion reward via the unified rarity picker (lowtier
-   chest curve at tier 4), shown with the chest reward fanfare. This is on top
-   of the per-10-stone coins.
+ - AND A RUN OF UNDER 15 PATH CELLS IS NOT A PATH (WorldGen.MIN_PATH_RUN_CELLS,
+   ~105 m). OSM leaves footway scraps everywhere — a driveway apron, a crossing,
+   the tail of a way — and each landed as a lone patch of path in a field. The
+   whole run dissolves back to the biome it covered. A run touching the tile
+   edge is exempt: it continues into the neighbour tile, which counts only its
+   own cells.
 
 ================================================================================
 WELLS / FOUNTAINS
 ================================================================================
- - OSM fountains become a 'well' object: a water source on dry land — tapping it
-   refills the watering can (see FARMING). With no can yet, just flavour text.
+ - OSM fountains become a 'well' object: a water source on dry land. It used to
+   refill the watering can's charge bank; that bank fed the can's produce-quality
+   bonus, which is the HOE's now (see FARMING), so the well is a quest landmark
+   and flavour text.
 
 ================================================================================
 ECONOMY (buying & selling)
@@ -823,13 +1132,26 @@ ECONOMY (buying & selling)
    are tracked in save.openedCastles. The price of entry is footwork, not goods.
    (This REPLACED the old one-time tier-2 goods tribute; once the tally clears a
    castle's gate, that castle trades normally forever.)
- - WIZARD TOWER (the 15th restored wreck): buys "Inner Light" reach upgrades on
-   the shared ladder (see MOVEMENT & REACH) for DISCOVERY points (see SHINY
-   VARIANTS) — WIZARD_INNER_LIGHT_COST (5) Discovery each, no delivery gate.
-   Each Inner Light also forges the player's RING relic, whose tier tracks the
-   inner-light level (= reachUpgrades). The ring is the wizard tower's exclusive
-   gift: it is NEVER sold or forged anywhere else (excluded from buildRelicOffer),
-   so widening your sight is the only way to a Ring.
+ - WIZARD TOWER (the 15th restored wreck): sells a LADDER of upgrades for
+   DISCOVERY points (see SHINY VARIANTS) — WIZARD_UPGRADE_COST (5) Discovery a
+   rung, no delivery gate. One rung per visit, climbed strictly in order, and
+   the tower always offers the first rung not yet finished (app.js
+   wizardLadder / wizardNextRung):
+     1. INNER LIGHT  ×6 — +0.5 cell of reach each (see MOVEMENT & REACH).
+     2. FULL MEASURE ×3 — QUANTITY luck: P(a find comes in a bigger stack),
+        linear onto RARITY_TUNING.qtyLuckMaxP (0.35). This was the AMULET's
+        until Sep 2026 (0.05 per amulet tier, so a Frost amulet sat at exactly
+        0.35); the ceiling is unchanged, so the amulet lost a bonus rather than
+        the player. save.qtyUpgrades.
+     3. KEEN EYE     ×7 — the RING, i.e. TIER luck: P(a find comes a tier
+        rarer), rarity.js ringLuck at 0.01 a tier. Until Sep 2026 the Ring rode
+        along with the Inner Light — one purchase bought both — so the two
+        kinds of luck are two things you buy now.
+   The Ring is still the wizard tower's exclusive gift: it is NEVER sold or
+   forged anywhere else (excluded from buildRelicOffer), so the tower is the
+   only way to one.
+   The percentage a rung's modal prints comes from rarity.js's own qtyLuck, not
+   a second formula, so a rung can't advertise a number the loot roll won't pay.
  - OFFER MODAL: shows the item (sprite + name ×qty), a cost, and Buy/Cancel
    (greyed if you can't afford). Castles/forts may show a re-roll button
    (cost $5 × 2^rerolls).
@@ -892,30 +1214,39 @@ GEAR: RELICS & ARMOR
    a reward modal.
  - RELIC SLOTS and effects (items.js RELIC_DEFS):
      pick   — lets you break rocks; tier shortens the wheel + cuts energy
-     axe    — lets you chop trees; tier shortens the wheel
-     hoe    — cheaper tilling, per-tier chance of free
-     can    — watering improves crops (see FARMING); refill banks 50 charges
+     axe    — lets you chop trees; tier shortens the wheel + cuts energy, and
+              raises the ACORN drop on a fell (10% → 100% at Frost, geometric,
+              see CHOPPING)
+     hoe    — cheaper tilling, per-tier chance of free, AND sets the tilled
+              cell's produce QUALITY (see FARMING)
+     can    — a watering can spring the crop a growth stage (tier/7 chance)
      rod    — fish from water; tier raises catch + rare odds
-     bugnet — speeds the animal-catch wheel by tier (no longer required for any
-              animal; butterflies catch bare-handed too)
+     bugnet — THE animal tool: speeds the catch wheel AND the crow/deer hunt
+              wheel by tier (required for neither; both work bare-handed at
+              the tier-0 rung, only slowly enough that a quick animal usually
+              gets away)
      bags   — raises the per-item stack cap (9 with none → 249 at T7)
-     ring   — +5%/tier chance to bump chest loot up a tier; granted ONLY by the
-              wizard tower's Inner Light, tier = inner-light/reach level
-     amulet — powers STICK WALKING (see below); higher tier = faster + cheaper
+     ring   — TIER luck: +1%/tier chance to bump chest loot up a tier; granted
+              ONLY by the wizard tower's Keen Eye rung (see ECONOMY)
+     amulet — powers STICK WALKING (see below); higher tier = faster + cheaper.
+              It carried the QUANTITY luck too until Sep 2026; that is the
+              wizard's Full Measure rung now.
      sword  — MELEE weapon (drains an enemy's HP on the combat wheel, and
               auto-engages the nearest enemy in reach WHEN ACTIVE — see
               COMBAT); raises sell prices (0.5× → 1.0× at Frost) whether
               active or not
-     bow    — RANGED weapon, an arrow (auto-fires along the compass every 2s
+     bow    — RANGED weapon, an arrow (auto-fires along the compass every 2 s
               while an enemy is on screen, WHEN ACTIVE; stops in the first
               foe hit and at solid ground); lowers buy prices (T7 = par)
               whether active or not
-     staff  — RANGED weapon, a piercing bolt (as the bow, shorter reach, but
-              ignores the world and hits every foe on its line; costs 1
-              energy/bolt and lands double an arrow's damage); no price effect
+     staff  — RANGED weapon, a piercing bolt (as the bow, but it reaches only
+              one cell past your own reach — see COMBAT — and ignores the
+              world, hitting every foe on its line; costs 1 energy/bolt, fires
+              every 4 s against the bow's 2 s, and lands double an arrow's
+              damage per second); no price effect
      (only ONE of the three auto-fights at a time — save.activeWeapon, see
-     COMBAT — but all three still speed the crow/deer HUNT wheel by tier
-     regardless of which is active — see WORK WHEEL)
+     COMBAT. None of them touches the crow/deer HUNT wheel: that is the bug
+     net's — see FAUNA.)
  - ARMOR SLOTS (helmet / chest / legs / boots) only raise MAX ENERGY per tier.
  - STICK WALKING (amulet): the movement stick is ALWAYS on screen — no relic
    needed and no separate mode. It walks the character somewhere OTHER than
@@ -1022,21 +1353,26 @@ CRAFTING: BLACKSMITH FORGE & MAGIC SHRINE
 ================================================================================
 CONSUMABLES
 ================================================================================
- - Self-targeted consumables (flute / book / potions / sapphire portal) are
-   used via a dedicated USE button (Play / Read / Drink / Portal) that appears
+ - Self-targeted consumables (honey / book / potions / sapphire portal) are
+   used via a dedicated USE button (Use / Read / Drink / Portal) that appears
    below the inventory bar while one is selected — same spot and behaviour as
    the Eat CTA for food. No foot-tapping: tapping your own cell with one
    selected falls through to the normal cell handlers (till / plant / etc.).
- - FLUTE: select it and tap Play — lures wandering farm animals
-   (chickens / cows) within ~6 cells (30m) toward you (flash reports
-   how many respond). Consumed on use.
+ - HONEY: select it and tap Use — sets out a jar that lures wandering farm
+   animals (chickens / cows) within ~6 cells (30m) toward you (the modal
+   reports how many respond). Consumed on use — the animals eat it. (Was the
+   Flute until Sep 2026; old saves fold `flute` into `honey` on load.)
  - BOOK: select it and tap Read — ~50% a play tip, ~50% a directional
    hint to the nearest unopened chest ("about N paces northwest"). Consumed.
  - CAMPFIRE: select a COAL and tap an empty bare (tillable) cell to light a fire
-   (consumes the coal). A fire is a safe, slow outdoor recovery spot: it refills
-   energy within 3 cells (full bar in 360s, see REST) and repels slimes within
-   4 cells, so it doubles as a perimeter ward in the wild. One fire per cell;
-   it persists in save.fires until you tap it to extinguish (no coal refund).
+   (consumes the coal). A fire is a safe, slow recovery spot: it refills energy
+   within 3 cells (full bar in 360s, see REST) and repels the surface slime
+   within 4 cells, so it doubles as a perimeter ward in the wild. Placeable
+   underground too, where it wards the cave's own entry-level monsters (cave
+   slime, purple slime) the same way — but a goblin or its archer, from the
+   2nd cave level down, is undeterred by firelight (see FIRE_WARD_MAX_DEPTH,
+   app.js). One fire per cell; it persists in save.fires until you tap it to
+   extinguish (no coal refund).
 
 ================================================================================
 INVENTORY
@@ -1068,7 +1404,7 @@ ITEMS & RARITY
      minerals:      coal, wood, copper/iron/gold/platinum/crimson/frost bars
      gems:          sapphire, ruby, emerald
      animals:       chicken, cow, cat, dog, deer, rabbit, crow, butterfly
-     consumables:   flute, book, scarecrow      badge: discovery
+     consumables:   honey, book, scarecrow      badge: discovery
 
 ================================================================================
 SHINY VARIANTS & DISCOVERY
@@ -1192,7 +1528,7 @@ DIALOGS
    where you are and not at all when you don't.
  - The label is the CATEGORY; the flavour line underneath still carries the
    specific offer. A caller may override the label for a one-off outcome
-   ("MILL LANE complete") and keep the kind's icon.
+   (the trail prize's "Thou hast traveled far") and keep the kind's icon.
  - MODAL_KINDS (src/app.js) is the whole taxonomy: quest, treasure, trail,
    shop, trade, forge, relics, delivery, build, wizard, farm, stats, energy,
    rest, use, note. The header is built by makeModalShell and injected in
@@ -1451,11 +1787,13 @@ not threading another branch through the dispatcher.
                        harvest, chest ceremony, well refill, shop/shrine UIs)
    A single runInteractable(ctx, o) driver walks gate → spend → work-wheel, or
    defers to custom. Adding a new interactable = adding a row.
- - GATHER LUCK is a declarative `luck` field on each registry entry (which relic
-   slots — ring/amulet — modify its rolls). Gather drops (wood, ore, gems, fruit)
-   can therefore become luck-aware like chest loot. It is gated behind a flag
-   (GATHER_LUCK_DEFAULT, OFF) so the RNG stream + outcomes stay byte-for-byte
-   identical to the pre-luck behaviour until deliberately enabled.
+ - LUCK applies to CHEST/treasure loot only, read off `save` by pickReward() in
+   rarity.js: TIER luck (the ring → rarer pulls, ringLuck) and QUANTITY luck
+   (save.qtyUpgrades → bigger stacks, qtyLuck). Both are wizard-tower rungs;
+   quantity was the amulet's until Sep 2026. Gather drops (wood,
+   ore, gems, fruit) are not luck-aware: the registry carried a declarative
+   `luck` field and a GATHER_LUCK_DEFAULT flag for it that shipped OFF and was
+   never turned on, and both were removed rather than left as dead weight.
  - PURE CORES extracted from app.js for headless testing (no scene, no DOM); the
    scene keeps thin wrappers that own only the side effects (persistSave, DOM
    rebuilds, flashes):

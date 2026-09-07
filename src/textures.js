@@ -44,7 +44,9 @@ const CASTLE_STONE = (() => {
 // the road land on the same colour rather than drifting apart.
 // murkA was 0.22 — the darkening came out heavier than wanted once it was
 // baked into the stone rather than washed over it, so it is down a tenth.
-const UNCLAIMED_SHADE = { wash: 0x1e3b24, washA: 0.5, murk: 0x05070c, murkA: 0.12 };
+// washA was 0.5 — the green read as too strong across a derelict footprint,
+// so it is at the 35% the wash was always described as.
+const UNCLAIMED_SHADE = { wash: 0x1e3b24, washA: 0.35, murk: 0x05070c, murkA: 0.12 };
 function unclaimedShade(rgb) {
   const lerp = (a, b, t) => a * (1 - t) + b * t;
   const ch = (sh) => {
@@ -125,6 +127,18 @@ const BIOME_TEX = {
 // Tilled soil is per-cell state (not a terrain class).
 const TILLED_COLOR = 0x8a6a41;        // turned earth — brown, deliberately NOT the UI gold
 const TILLED_VARIANTS = 2;
+// A tilled cell is drawn as ONE BED: an opaque soil pad baked into the
+// `tilled_N` texture, inset TILLED_INSET_PX from every cell edge with corners
+// of TILLED_CORNER_PX, and the ring outside it left transparent so the ground
+// colour shows between neighbouring beds. The shape lives in the texture, not
+// in a per-frame path: Phaser's fillRoundedRect tessellates four arcs (~400
+// points) and triangulates them every frame, and the cell graphics are
+// cleared each frame, so rounding a plot as geometry cost hundreds of
+// triangles per cell. A baked pad is the one sprite the cell already drew.
+// The gap is in LOGICAL px (the canvas renders at up to 4× that), so 1 would
+// be a hairline on a phone; 2 reads as a real edge.
+const TILLED_INSET_PX = 2;
+const TILLED_CORNER_PX = 4;
 
 // Tiny deterministic RNG factory so each texture variant looks stable across reloads.
 function seededRand(seed) {
@@ -311,9 +325,30 @@ function drawParkTex(ctx, size, rng) {
 }
 
 function drawTilledTex(ctx, size, rng) {
-  // Ploughed earth — clear horizontal furrows + grain. Brown, never gold:
+  // Ploughed earth — one rounded bed per cell (see TILLED_INSET_PX), with
+  // clear horizontal furrows + grain clipped to the pad. Brown, never gold:
   // yellow is the interaction colour and tilled ground is terrain.
+  // The pad is OPAQUE: render.js paints no soil fill under it, the cell's own
+  // terrain colour is what shows through the transparent border ring.
   ctx.clearRect(0, 0, size, size);
+  const x0 = TILLED_INSET_PX, y0 = TILLED_INSET_PX;
+  const w = size - 2 * TILLED_INSET_PX, h = size - 2 * TILLED_INSET_PX;
+  const r = Math.min(TILLED_CORNER_PX, w / 2, h / 2);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x0 + r, y0);
+  ctx.lineTo(x0 + w - r, y0);
+  ctx.arcTo(x0 + w, y0, x0 + w, y0 + r, r);
+  ctx.lineTo(x0 + w, y0 + h - r);
+  ctx.arcTo(x0 + w, y0 + h, x0 + w - r, y0 + h, r);
+  ctx.lineTo(x0 + r, y0 + h);
+  ctx.arcTo(x0, y0 + h, x0, y0 + h - r, r);
+  ctx.lineTo(x0, y0 + r);
+  ctx.arcTo(x0, y0, x0 + r, y0, r);
+  ctx.closePath();
+  ctx.fillStyle = '#' + TILLED_COLOR.toString(16).padStart(6, '0');
+  ctx.fill();
+  ctx.clip();
   const rowH = 8;
   for (let y = 2; y < size; y += rowH) {
     ctx.fillStyle = 'rgba(60,35,10,0.55)';
@@ -329,6 +364,7 @@ function drawTilledTex(ctx, size, rng) {
       : 'rgba(206,190,162,0.22)';
     ctx.fillRect(x, y, 1, 1);
   }
+  ctx.restore();
 }
 
 function drawWaterTex(ctx, size, rng, phaseFrac = 0) {
@@ -996,6 +1032,186 @@ function makePotOfGoldTexture(scene) {
   ctx.ellipse(cx, bodyCY, bodyRX, bodyRY, 0, Math.PI * 0.12, Math.PI * 0.88);
   ctx.stroke();
 
+  tex.refresh();
+}
+
+// === Traps — TEMPORARY procedural art ==================================
+// Two single-frame canvas textures, both exactly one cell (TRAP_PX) square so
+// the mark reads as belonging to ONE cell (CLAUDE.md: interactables must be
+// clearly in one cell) — the art is inset from every edge, and the renderer
+// centres it on the cell, so nothing spills onto a neighbour.
+//
+// These are STAND-INS for hand-drawn sprites. They are drawn rather than
+// loaded because a trap has to say two opposite things with one silhouette,
+// and getting that contrast right matters more right now than the linework:
+//
+//   trap_hidden — a scuff. Disturbed ground: a faint dust ring, a couple of
+//     twig slivers laid over it and one small dark gap where the covering has
+//     sagged. Everything at low alpha, in tones taken off the ground rather
+//     than added to it, so it reads as "something is odd about this cell" to a
+//     player who is looking and as nothing at all to one who is not. It is
+//     deliberately near the edge of visible: the trap is meant to be dodgeable
+//     by the careful, not sign-posted. Under the lightmap (the trap layer sits
+//     below it) an unlit cell hides it completely, which is why caves are the
+//     dangerous half of this feature.
+//
+//   trap_open — a sprung iron jaw. Dark pit, a rust-brown ring, and two arcs
+//     of triangular teeth meeting across it, lit from the top-left like every
+//     other sprite here. Loud on purpose: once it has bitten you, the cost of
+//     standing on it is ongoing, so the art's whole job is "get off, and don't
+//     walk back onto it".
+const TRAP_PX = 32;                 // one cell — CELL_PX in app.js
+
+function makeTrapTextures(scene) {
+  makeHiddenTrapTexture(scene);
+  makeSprungTrapTexture(scene);
+}
+
+function makeHiddenTrapTexture(scene) {
+  const KEY = 'trap_hidden';
+  if (scene.textures.exists(KEY)) return;
+  const S = TRAP_PX, c = S / 2;
+  const tex = scene.textures.createCanvas(KEY, S, S);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, S, S);
+
+  // Disturbed-earth ring: a broken dotted circle of dark specks with a paler
+  // one beside each, so the rim reads as turned soil (a lip and its shadow)
+  // rather than as a drawn outline. Broken, not continuous — a complete circle
+  // on the ground reads as a manhole.
+  const R = c - 4;
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2 + 0.35;
+    if (i % 5 === 3) continue;                    // gaps in the ring
+    const x = c + Math.cos(a) * R, y = c + Math.sin(a) * R * 0.92;
+    ctx.fillStyle = 'rgba(28,22,14,0.30)';        // shadow side of the lip
+    ctx.fillRect(Math.round(x), Math.round(y), 2, 1);
+    ctx.fillStyle = 'rgba(214,198,166,0.20)';     // dry earth catching the light
+    ctx.fillRect(Math.round(x), Math.round(y) - 1, 2, 1);
+  }
+  // The sag: one small dark crescent just below centre where the covering has
+  // given a little. Deliberately fainter and smaller than the disturbed-earth
+  // ring around it — the ring is the tell a careful player learns to read;
+  // the centre itself should all but disappear into the ground, not draw the
+  // eye first.
+  ctx.fillStyle = 'rgba(18,14,10,0.15)';
+  ctx.beginPath();
+  ctx.ellipse(c + 1, c + 2, 3, 1.5, -0.25, 0, Math.PI * 2);
+  ctx.fill();
+  // Twigs / grass laid over the covering — three short pale strokes at
+  // different angles. Straight lines are what makes it read as PLACED cover
+  // rather than as a patch of bare dirt.
+  ctx.strokeStyle = 'rgba(150,132,92,0.28)';
+  ctx.lineWidth = 1;
+  const twigs = [[-7, -4, 6, 3], [-5, 4, 8, -2], [1, -6, 5, 6]];
+  for (const [dx0, dy0, dx1, dy1] of twigs) {
+    ctx.beginPath();
+    ctx.moveTo(c + dx0 + 0.5, c + dy0 + 0.5);
+    ctx.lineTo(c + dx0 + dx1 + 0.5, c + dy0 + dy1 + 0.5);
+    ctx.stroke();
+  }
+  tex.refresh();
+}
+
+function makeSprungTrapTexture(scene) {
+  const KEY = 'trap_open';
+  if (scene.textures.exists(KEY)) return;
+  const S = TRAP_PX, c = S / 2;
+  const tex = scene.textures.createCanvas(KEY, S, S);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, S, S);
+
+  // The whole jaw is drawn at SPRUNG_K of the cell it used to fill, and EVERY
+  // number below is scaled by it — plate radii, ring thicknesses, jaw stroke,
+  // tooth length, hinge block — so shrinking the art is one constant rather
+  // than a re-tune. A trap that filled its cell edge to edge crowded the
+  // ground marks and the sprites beside it; at 0.85 it still shouts, and the
+  // cell around it reads as ground again.
+  const SPRUNG_K = 0.85;
+  const k = SPRUNG_K;
+  const RX = (c - 3) * k, RY = (c - 3) * 0.84 * k;   // squashed — seen from above
+  const IRON = '#7b6553', IRON_HI = '#ac967f', IRON_LO = '#332a22';
+  const RUST = '#8a4a28';
+
+  // The plate the trap is bolted to, and the dark hole inside it. The hole is
+  // what the teeth bite into: without it the jaws have nothing to close ON and
+  // the whole thing reads as a disc.
+  ctx.fillStyle = 'rgba(38,27,18,0.9)';
+  ctx.beginPath(); ctx.ellipse(c, c, RX, RY, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0b0908';
+  ctx.beginPath(); ctx.ellipse(c, c, RX - 4 * k, RY - 2 * k, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = RUST;
+  ctx.beginPath(); ctx.ellipse(c, c, RX - 0.5 * k, RY - 0.5 * k, 0, 0, Math.PI * 2); ctx.stroke();
+
+  // TWO JAWS, not a ring. Each is a thick arc over roughly the top (or bottom)
+  // two-thirds of the plate, with a clear GAP at each side where the hinge and
+  // the spring sit — that pair of gaps, and the dark slit left between the
+  // tooth tips, are what make the silhouette read as a closed mouth rather
+  // than as a wheel. (It read as a wheel when the teeth ran the whole way
+  // round and met in the middle: evenly spaced spokes on a disc.)
+  const A0 = 0.14, A1 = 0.86;                 // jaw arc, in units of π
+  const jaw = (flip) => {
+    const s = flip ? Math.PI * (1 + A0) : Math.PI * A0;
+    const e = flip ? Math.PI * (1 + A1) : Math.PI * A1;
+    ctx.lineWidth = 3 * k;
+    ctx.strokeStyle = IRON;
+    ctx.beginPath(); ctx.ellipse(c, c, RX - 2 * k, RY - 2 * k, 0, s, e); ctx.stroke();
+    // Lit edge on the OUTSIDE of each jaw, so the two bands read as separate
+    // pieces of metal rather than one ring.
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = flip ? IRON_HI : IRON_LO;
+    ctx.beginPath(); ctx.ellipse(c, c, RX - 0.8 * k, RY - 0.8 * k, 0, s, e); ctx.stroke();
+  };
+  jaw(true);      // upper
+  jaw(false);     // lower
+
+  // The teeth. They hang STRAIGHT DOWN off the upper jaw and straight up off
+  // the lower one — never along the radius — and they are drawn only over the
+  // middle of each arc, so the two rows meet in a narrow horizontal zigzag:
+  // the mouth of a trap that has already CLOSED, which is what this texture is
+  // for. Radial teeth were tried twice and read as a WHEEL both times, at both
+  // lengths: short ones left evenly-spaced spokes on a disc, long ones crossed
+  // near the sides and turned the black between them into more spokes. The
+  // give-away is that a radial tooth near the side of the arc points sideways,
+  // and no jaw has sideways teeth.
+  const TOOTH = 4.6 * k, HALF_W = 1.5 * k;
+  const B0 = 0.20, B1 = 0.80;                 // tooth span, in units of π
+  const tooth = (ang, down) => {
+    const bx = c + Math.cos(ang) * (RX - 3 * k);
+    const by = c + Math.sin(ang) * (RY - 3 * k);
+    ctx.fillStyle = IRON_HI;
+    ctx.beginPath();
+    ctx.moveTo(bx - HALF_W, by);
+    ctx.lineTo(bx + HALF_W, by);
+    ctx.lineTo(bx, by + (down ? TOOTH : -TOOTH));
+    ctx.closePath();
+    ctx.fill();
+  };
+  const TEETH = 5;
+  for (let i = 0; i < TEETH; i++) {
+    const t = (i + 0.5) / TEETH;
+    tooth(Math.PI * (1 + B0 + (B1 - B0) * t), true);    // upper jaw, biting down
+    tooth(Math.PI * (B0 + (B1 - B0) * t), false);       // lower jaw, biting up
+  }
+
+  // Hinge and spring, one on each side, filling the gaps the jaws left. They
+  // break the circle — a plain disc on the ground reads as a treasure pad in
+  // this world (see makeRoundPadTexture) — and say which way the jaws swung.
+  // Anchored to the PLATE's rim rather than to the canvas edge: each block
+  // starts 2 units outside the ellipse and runs inward, so it still bridges
+  // the gap between the jaws at whatever size SPRUNG_K picks.
+  const HW = 5 * k, HH = 4 * k, LIP = 1 * k;
+  const hxL = c - RX - 2 * k, hxR = c + RX + 2 * k - HW, hy = c - HH / 2;
+  ctx.fillStyle = IRON;
+  ctx.fillRect(hxL, hy, HW, HH);
+  ctx.fillRect(hxR, hy, HW, HH);
+  ctx.fillStyle = RUST;
+  ctx.fillRect(hxL, hy, HW, LIP);
+  ctx.fillRect(hxR, hy, HW, LIP);
+  ctx.fillStyle = IRON_LO;
+  ctx.fillRect(hxL, hy + HH - LIP, HW, LIP);
+  ctx.fillRect(hxR, hy + HH - LIP, HW, LIP);
   tex.refresh();
 }
 

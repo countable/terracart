@@ -65,6 +65,16 @@
           <option value="4">T4 epic</option>
         </select>
       </label>
+      <label style="font-size:12px;color:#888;margin-left:8px;" id="rar-bonus-label">Roll bonus:
+        <select id="rar-bonus" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;">
+          <option value="0">0 — no bonus</option>
+          <option value="1" selected>1 — 1st road prize</option>
+          <option value="2">2 — 2nd</option>
+          <option value="3">3 — 3rd</option>
+          <option value="4">4 — 4th</option>
+          <option value="6">6 — 6th and up (capped)</option>
+        </select>
+      </label>
       <label style="font-size:12px;color:#888;margin-left:8px;">Player owns relics up to:
         <select id="rar-owned" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;">
           <option value="0">T0 (none)</option>
@@ -283,6 +293,12 @@
         const name = gearName('relic', r.slot, r.tier);
         return `<span class="pill">relic</span> ${name}${jp}`;
       }
+      if (r.kind === 'gold' && !r.slot) {
+        // The 'cash' class (rarity.js) — plain money, no gear behind it. Told
+        // apart from the gear cash-out below by exactly the field the game
+        // tells them apart by.
+        return `<span class="pill">cash</span> <span class="muted">[T${r.tier}]</span> $${r.amount}${jp}`;
+      }
       if (r.kind === 'gold') {
         const name = gearName('relic', r.slot, r.tier);
         return `<span class="pill">gold</span> ${name} (own) → $${r.amount}${jp}`;
@@ -309,22 +325,33 @@
         sel.addEventListener('change', refresh);
         document.getElementById('rar-owned').addEventListener('change', refresh);
         document.getElementById('rar-chestT').addEventListener('change', refresh);
+        document.getElementById('rar-bonus').addEventListener('change', refresh);
         document.getElementById('rar-roll').addEventListener('click', () => { renderRarityRolls(); });
       }
       syncChestTierVisibility();
     }
 
-    // Chest-tier dropdown only applies to chest:* contexts. Hide otherwise.
+    // Chest-tier dropdown only applies to chest:* contexts; the roll-bonus
+    // dropdown only to the treasure:* ones whose callers pay for extra chain
+    // steps (the road ladder's Trail.rollBonusFor, the elite's depth bonus).
+    // Hide each where it means nothing.
     function syncChestTierVisibility() {
+      const key = document.getElementById('rar-ctx').value || '';
       const label = document.getElementById('rar-chestT-label');
-      const isChest = (document.getElementById('rar-ctx').value || '').startsWith('chest:');
+      const isChest = key.startsWith('chest:');
       if (label) label.style.display = isChest ? '' : 'none';
+      const bonus = document.getElementById('rar-bonus-label');
+      if (bonus) bonus.style.display = key.startsWith('treasure:') ? '' : 'none';
     }
 
     // Read the picker options off the controls in the same shape pickReward expects.
     function pickerOptsFromControls() {
-      const isChest = (document.getElementById('rar-ctx').value || '').startsWith('chest:');
-      return isChest ? { tier: +document.getElementById('rar-chestT').value || 2 } : undefined;
+      const key = document.getElementById('rar-ctx').value || '';
+      if (key.startsWith('chest:')) return { tier: +document.getElementById('rar-chestT').value || 2 };
+      // rollBonus buys TIER steps only (rarity.js pickReward) — it is what the
+      // road ladder spends to make a longer walk land a finer seed.
+      if (key.startsWith('treasure:')) return { rollBonus: +document.getElementById('rar-bonus').value || 0 };
+      return undefined;
     }
 
     // Construct a fake save where every relic + armor slot is at the chosen
@@ -346,15 +373,22 @@
                caughtKinds: { cow: 1 } };
     }
 
-    // Header: show class bias, boostP, maxTier, relicCap, and a 1000-sample
-    // distribution (class mix, tier histogram, jackpot rate).
+    // Header: show class bias, the boost chain, maxTier, relicCap, and a
+    // 1000-sample distribution (class mix, tier histogram, jackpot rate).
     function renderRarityHeader() {
       initRarityControls();
       const key = document.getElementById('rar-ctx').value;
-      const ctx = LOOT_CONTEXTS[key];
+      let ctx = LOOT_CONTEXTS[key];
       if (!ctx) return;
       const save = fakeSaveFromControls();
       const opts = pickerOptsFromControls();
+      // Chest rows carry classBias only — chainSteps / chainMax / maxTier /
+      // relicCap come from the chest-tier modifier pickReward merges in
+      // (rarity.js RARITY_TUNING.chestTierMod), so merge the same way here.
+      if (key.startsWith('chest:') && typeof RARITY_TUNING !== 'undefined') {
+        const mods = RARITY_TUNING.chestTierMod || {};
+        ctx = { ...ctx, ...(mods[opts?.tier] || mods[2] || {}) };
+      }
       // 1000-pull sample for the distribution columns.
       const N = 1000;
       const clsTally = {}, tierTally = {};
@@ -362,7 +396,13 @@
       for (let i = 0; i < N; i++) {
         const r = pickReward(key, save, Math.random, opts);
         if (!r) continue;
-        const cls = r.kind === 'item' ? r.cls : (r.kind === 'relic' ? 'relic' : 'gold');
+        // 'cash' and 'bundle' are synthetic classes (rarity.js): a cash roll
+        // comes back as kind 'gold' with no slot, a bundle as an ordinary item
+        // carrying cls 'bundle'. Both tally under their own name so the row
+        // reads the way the classBias that produced it is written.
+        const cls = r.kind === 'item' ? r.cls
+          : (r.kind === 'relic' || r.kind === 'armor' ? r.kind
+            : (r.cls === 'cash' ? 'cash' : 'gold'));
         clsTally[cls] = (clsTally[cls] || 0) + 1;
         if (r.tier != null) tierTally[r.tier] = (tierTally[r.tier] || 0) + 1;
         if (r.jackpot >= 1) jackpot1++;
@@ -380,8 +420,11 @@
         `<tr><th>classBias<br><span class="muted">(declared)</span></th>` +
         `<td><span class="muted">measured →</span><br>${clsMix}<br><br>` +
         `<span class="muted">declared →</span><br>${fmtBias}</td></tr>`,
-        `<tr><th>boostP / maxTier / relicCap</th>` +
-        `<td>boostP ${ctx.boostP} &middot; maxTier T${ctx.maxTier} &middot; relicCap T${ctx.relicCap}</td></tr>`,
+        `<tr><th>chain / maxTier / relicCap</th>` +
+        `<td>chain ${ctx.chainSteps} step${ctx.chainSteps === 1 ? '' : 's'} (max T${ctx.chainMax})` +
+        ` &middot; maxTier T${ctx.maxTier} &middot; relicCap T${ctx.relicCap}` +
+        (opts?.rollBonus ? ` &middot; <span class="pill">+${opts.rollBonus} tier-only bonus steps</span>` : '') +
+        `</td></tr>`,
         `<tr><th>tier histogram</th><td>${tierHist}</td></tr>`,
         `<tr><th>jackpot rate</th>` +
         `<td>any jackpot (fanfare): ${(jackpot1 / N * 100).toFixed(1)}%<br>` +
@@ -417,6 +460,21 @@
         }).join('');
         return `<tr><th>${cls}</th>${cells}</tr>`;
       });
+      // The two SYNTHETIC classes (rarity.js): neither has a row in
+      // ITEMS_BY_CLASS_TIER, so show what each resolves to. Cash is worth what
+      // an item of the rolled tier is worth; a bundle is always the same two
+      // T1 raw materials and spends its chain steps on the pile's size.
+      if (typeof CASH_TIER_VALUE !== 'undefined') {
+        body.push('<tr><th>cash</th>' +
+          tiers.map(t => `<td>$${CASH_TIER_VALUE[t]} <span class="muted">×qty</span></td>`).join('') +
+          '</tr>');
+      }
+      if (typeof BUNDLE_IDS !== 'undefined') {
+        const names = BUNDLE_IDS.map(id => ITEM_BY_ID[id]?.name || id).join(' / ');
+        body.push('<tr><th>bundle</th>' +
+          tiers.map(t => (t === 1 ? `<td>${names}</td>` : '<td class="muted">—</td>')).join('') +
+          '</tr>');
+      }
       // Relics span every tier 1..7 for every slot — show separately so it doesn't look empty.
       const relicSlots = Object.keys(RELIC_DEFS || {});
       if (relicSlots.length) {

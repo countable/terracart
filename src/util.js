@@ -38,6 +38,50 @@ function randInt(min, max, rng) {
   return min + Math.floor((rng ?? Math.random)() * (max - min + 1));
 }
 
+// === Countdown notation =====================================================
+// ONE way to write "how long is left" anywhere in the game. Every timed thing
+// the player can see — a crop's stage badge, a fruit tree's regrow, a shop's
+// hourly bucket, an animal's produce cooldown, the dragon buff, the walk-home
+// stick — renders through shortDuration(), so a wait never reads as a bare
+// number in one place and "43m" in another. This is the same discipline as
+// roadOverlayWidthM: one table both sides read.
+//
+// The format is deliberately tiny: the LARGEST unit that applies, and nothing
+// below it — "20d", "3h", "30m", "12s". Never "1h 5m", never "0m". The unit
+// letter is always present (that is the point of the helper), so a two-glyph
+// number plus one letter is the widest it ever gets at a sane duration, which
+// is what lets it sit in a 9px corner badge and on the move-pad's cap alike.
+//
+// Rounding is UP at every step, and it CASCADES: 59.5 minutes is "1h", not
+// "60m", because each unit is re-derived from the one below it after that
+// unit's own ceil. A wait that has not actually elapsed never reads "0" — the
+// smallest non-zero duration is "1s" — so the label can't promise a thing is
+// ready while the gate still refuses it. Only a genuinely finished (or
+// negative) duration gives "0s"; callers that want a "✓" test for that
+// themselves rather than string-matching this.
+function shortDuration(ms) {
+  if (!(ms > 0)) return '0s';
+  const s = Math.ceil(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.ceil(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.ceil(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.ceil(h / 24)}d`;
+}
+
+// Milliseconds from `now` to the next UTC midnight — the reset the game's
+// day-gated things actually run on. A fed house's "happy" (Delivery.dayKey), the
+// castle's daily favour and the coin-burst POIs all key off a UTC "YYYYMMDD"
+// stamp, so "come back tomorrow" can mean anything from a minute to 24 hours.
+// Feeding this to shortDuration() turns that into the honest number ("in 23h",
+// "in 40m"). Use it wherever a UTC day key is the gate; a LOCAL-midnight gate
+// would need its own helper, and there isn't one because there isn't one.
+function msToNextUtcDay(now = Date.now()) {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  return DAY_MS - (now % DAY_MS);
+}
+
 // === Shared hashing / seeded RNG ============================================
 // One FNV-1a implementation for every id-derived hash in the game (the shiny
 // roll below, the shop bucket offset, the delivery day-seed + theme pick, and
@@ -76,8 +120,31 @@ function makeRng32(seed) {
 // yellow-tinted ("shiny") version. Harvesting / catching one pays a 10× money
 // bonus plus a Discovery badge (a 'discovery' inventory stack), all with a
 // fanfare popup.
-// Spawn rates per category. Tuned per the design: flora + trees 1%, animals 5%.
-const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05 };
+// Cave monsters go shiny too — an ELITE: the same gold sheen and sparkle, with
+// double HP and double damage (combat.js › ELITE_MUL). Killing one banks a
+// Discovery badge the first time per kind and a relic-biased treasure roll
+// every time after (app.js › resolveDefeat). The surface slime, the tutorial
+// foe, never does.
+// Spawn rates per category. Tuned per the design: flora + trees 1%, animals
+// and monsters 5%.
+const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05 };
+// ── How long a message on the MAP may be ────────────────────────────────────
+// A flash is a toast drawn over the world, on a phone, usually while the
+// player is mid-action and looking at the cell they just tapped — not a
+// dialog they have chosen to read. Past about thirty characters it stops
+// being a glance and starts covering the thing it is describing.
+//
+// So: THIRTY CHARACTERS, and the budget is the whole rendered line including
+// any name or number interpolated into it. That is a real constraint on what
+// a flash can say, and the answer when a line does not fit is to cut the
+// sentence down — not to wrap it. Anything that genuinely needs more room is
+// a MODAL (showMessageModal / showOfferModal), where the player has stopped
+// to read: the consumable dialogs run to two clauses for exactly that reason.
+//
+// Enforced by test/node/copy_voice.test.js, which measures the static flash
+// literals, the terrain table and the till refusals against this number.
+const MAP_MSG_MAX = 30;
+
 // Deterministic [0,1) hash off a stable id string (FNV-1a). Returns the SAME
 // value for the same id every time, so a flora/tree's shiny status survives
 // reloads + tile re-rasterise WITHOUT storing anything on the object or save.
@@ -91,8 +158,23 @@ function isShiny(id, rate) {
   if (id == null) return false;
   return shinyHash01(id) < rate;
 }
+// Is this WILD ANIMAL a shiny one? The rate plus the one exception: the
+// surface slime never rolls shiny, because shiny is a promise of a payout
+// (a 10× catch bonus and a Discovery badge) and a slime is an energy pest
+// with nothing to catch. Both spawners read this rather than restating the
+// `kind !== 'slime' && …` test — the tile's fauna roll and the guaranteed
+// doorstep greeter (app.js) — so the exception can't hold in one and not the
+// other. Cave monsters DO go shiny (they become elites) and use
+// SHINY_RATE.monster directly; this is the animal ladder only.
+function faunaShiny(kind, id) {
+  if (kind === 'slime') return false;
+  return isShiny(id, SHINY_RATE.animal);
+}
 // Warm yellow multiply-tint used for every shiny sprite (flora, tree, animal).
 const SHINY_TINT = 0xffd23a;
+// A Frost Powder's victim — icy blue-white over the creature sprite while its
+// _frozenUntil is in the future (render.js drawCreatures).
+const FROZEN_TINT = 0x9ad8ff;
 
 // === Tree size tiers =========================================================
 // How big a tree renders also sets how much wood it drops and which axe tier
@@ -129,25 +211,52 @@ function treeSpeciesBaseScale(o) {
 function treeUsesGrowthSheet(o) {
   return !o.size && (!o.species || o.species === 'maple');
 }
+// A tree the PLAYER planted (an acorn) grows on the CLOCK, not off a static
+// `variant`: sprout → young at the halfway mark → mature at the full window,
+// which is the same four days a fruit-tree sapling takes to bear. One window,
+// one ladder, and it comes back through treeGrowthStage so the frame render.js
+// draws, the size class the axe gate reads and the wood the fell pays all move
+// together — a sapling can't draw tiny and gate like a full canopy.
+const PLANTED_TREE_GROW_MS = 4 * 24 * 60 * 60 * 1000;
+function plantedTreeStage(plantedT, now) {
+  const age = (now == null ? Date.now() : now) - (Number(plantedT) || 0);
+  const f = age / PLANTED_TREE_GROW_MS;
+  if (f >= 1) return 3;      // mature
+  return f >= 0.5 ? 2 : 1;   // young / sprout
+}
 function treeGrowthStage(o) {
+  if (o && o.planted_t) return plantedTreeStage(o.planted_t);
   const v = Math.round(Number(o && o.variant));
   // Frames 0 and 4 are stumps — clamp to the live 1..3 range (default 2/young).
   return Number.isFinite(v) ? Math.max(1, Math.min(3, v)) : 2;
 }
 // Gameplay/classification scale — the canopy size BEFORE the maple visual
-// shrink. treeSizeClass thresholds against this so the size tiers stay stable.
+// shrink. A tree is one of FOUR sizes, or it is size-less and draws its
+// species' flat base.
+//
+// THERE IS NO SMOOTH SCALING, and the continuous path that used to be here is
+// worth a note because it looked load-bearing. DeepForest hands every detected
+// tree a crown diameter in metres, and this function used to scale by
+// crown_m/5 clamped to 0.8–1.6 whenever no discrete `size` was present. But the
+// detector's own classifier (satextract/trees.py) buckets that same crown_m
+// into bush / small / medium / large before the geojson is ever written — the
+// cut-points are 1.8 / 2.5 / 4 m — so every one of the 804 trees in
+// data/satextract_osm.geojson carries BOTH fields, `size` always wins, and the
+// smooth branch had not scaled a tree since the classifier shipped. It was a
+// leftover from the crown_m-only sidecars (data/trees_z20_t10.geojson and
+// friends, no longer loaded).
+//
+// Leaving it in was not harmless. It disagreed with the table it stood behind:
+// its 0.8 floor is nearly TWICE the bush multiplier of 0.42, so a tree that
+// reached it would have drawn a bush-sized crown at small-tree size — and since
+// treeSizeClass thresholds the same multiplier, that tree could never have
+// classed as a bush at all, whatever its crown said.
+//
+// crown_m is still carried and still used — worldgen thins a crowded tile
+// biggest-crown-first — it just doesn't set a sprite size any more.
 function treeBaseScale(o) {
   const base = treeSpeciesBaseScale(o);
-  // A tree may carry a discrete crown SIZE class (small/medium/large) → fixed
-  // sprite tiers, which the "tier harvesting by size" gating reads back via
-  // treeSizeClass. Prefer it over the continuous crown_m scale.
-  if (o.size && TREE_SIZE_MUL[o.size]) return base * TREE_SIZE_MUL[o.size];
-  // DeepForest trees carry a crown diameter (m); scale around a 5 m reference
-  // (the median detection), clamped 0.8–1.6. OSM trees have no crown_m and
-  // keep the flat species scale.
-  if (o.crown_m == null) return base;
-  const mul = Math.max(0.8, Math.min(1.6, o.crown_m / 5));
-  return base * mul;
+  return (o.size && TREE_SIZE_MUL[o.size]) ? base * TREE_SIZE_MUL[o.size] : base;
 }
 // Rendered sprite scale — the canopy size with the maple shrink folded in.
 // Maple gets the flat 10% shrink at every size, plus a further 10% on the two
@@ -172,19 +281,21 @@ function treeSizeClass(o) {
   if (o.size === 'small')  return 'small';
   if (o.size === 'medium') return 'medium';
   if (o.size === 'large')  return 'full';
-  // Size-less trees (OSM / procedural forest) fall back to the canopy scale.
-  // Threshold the CROWN MULTIPLIER, not the raw scale: dividing the species
-  // base back out means a size-less tree classes off its crown alone, the same
-  // for every species. Thresholding the raw scale instead used to read maple's
-  // larger sheet base (0.85 vs 0.62) as a larger TREE, so every size-less maple
-  // classed 'full' — and with the hardwood +1 on top, a sapling-sized maple
-  // demanded the same Gold axe as a large one.
-  const mul = treeBaseScale(o) / treeSpeciesBaseScale(o);
-  let cls = mul >= 1.37 ? 'full' : mul >= 1 ? 'medium' : 'small';
+  // Size-less: an OSM street/yard tree or the procedural forest. There is no
+  // crown to measure, so they all class the same — 'medium', the middle gate.
+  // This used to threshold treeBaseScale/treeSpeciesBaseScale against 1.37 and
+  // 1, which for a size-less tree is exactly 1 by construction (the species
+  // base divides itself out) and so only ever returned 'medium' anyway; the
+  // ladder was there for the crown_m scaling that treeBaseScale no longer does.
+  // Dividing the species base back out was still the right idea and is worth
+  // keeping in mind if a continuous size ever returns: thresholding the RAW
+  // scale read maple's larger sheet base (0.85 vs 0.62) as a larger TREE, so
+  // every size-less maple classed 'full' — and with the hardwood +1 on top, a
+  // sapling-sized maple demanded the same Gold axe as a large one.
+  //
   // A maple-sheet tree draws its growth stage, so cap the class by what's
   // actually on screen — a sprout/young frame can't gate like a mature canopy.
-  if (treeUsesGrowthSheet(o) && treeGrowthStage(o) < 3) cls = 'small';
-  return cls;
+  return (treeUsesGrowthSheet(o) && treeGrowthStage(o) < 3) ? 'small' : 'medium';
 }
 // Species shifts the felling difficulty on top of the size class. Pine is a
 // SOFTWOOD — one tier easier to fell than its size would imply. Maple is a
@@ -251,6 +362,12 @@ function mulTint(a, b) {
   const ch = (sh) => Math.round((((a >> sh) & 0xff) * ((b >> sh) & 0xff)) / 255) << sh;
   return ch(16) | ch(8) | ch(0);
 }
+// Packed 0xRRGGBB → CSS '#rrggbb', for the canvas overlays (road_overlay.js,
+// building_overlay.js) that hand a Phaser-style int to a 2D context. One copy
+// here rather than a local per file. `>>> 0` keeps a sign-bit int positive.
+function cssOf(c) {
+  return '#' + (c >>> 0).toString(16).padStart(6, '0');
+}
 const fontSerif = (spec) => `${spec} ${FONT_SERIF_STACK}`;
 
 // PALETTE. Named roles, not shades — reach for the role that fits rather than
@@ -278,6 +395,21 @@ const UI_SHADOW     = '#000000';   // text stroke / drop shadow
 const UI_TREASURE      = '#f4f8ff';   // near-white with a blue cast — treasure surfaces + frames
 const UI_TREASURE_INK  = '#cfe2ff';   // blue-white as TEXT on a dark ground
 const UI_TREASURE_DEEP = '#7fb0ff';   // saturated blue — glow, side faces, deep accents
+// STREET INK — the colour of a street coming back. Pale, warm stone: what a
+// restored carriageway is MADE of, so the chips that fly off it, the sparks
+// that ring it and the "137/200 m" counting the walk all read as the same
+// material rather than as three unrelated effects.
+//
+// One constant, three readers — the counter (app.js), and the stone chips and
+// the spark ring (particles.js) — so the number and the debris under it can
+// never end up different colours.
+//
+// Deliberately NOT in the blue treasure role, which it wore as a violet
+// (UI_TRAIL_LIT) while the mechanic was lit pebbles: blue-white means "the
+// world is GIVING you something", and restoring a street is the player doing
+// something TO the world. The prize ceremony at the end of the ladder is the
+// gift, and it still wears the treasure ink.
+const UI_STREET_INK    = '#e8e2d6';   // restored street — its chips and its counter
 const UI_CONTROL       = UI_GOLD;     // player controls: buttons, pads, HUD accents
 const UI_CONTROL_DIM   = UI_GOLD_DARK;// control borders / rules / inactive controls
 
@@ -322,54 +454,76 @@ function setOf(arr) {
 }
 
 // ── Building roof scale ──────────────────────────────────────────────────
-// Sprite scale for a building's roof art, from the OSM footprint it stands on.
-// sqrt(area) is the footprint's side in metres; /cellM gives cells and ×cellPx
-// the on-screen extent the art has to fill, so `fit` is the scale at which the
-// art exactly covers its own footprint.
+// ONE RULE FOR EVERY BUILDING: draw at your own FOOTPRINT, clamped to the range
+// your role is allowed. sqrt(area) is the footprint's side in metres and /cellM
+// turns it into cells, so `fit` is the size at which the art exactly covers the
+// polygon it stands on.
 //
-// Ordinary houses only ever SHRINK: capped at their baseline so a house never
-// grows past the size it has always drawn at, while a small polygon stops
-// getting a roof that overhangs its own tiles.
+// THE RANGE IS IN DRAWN CELLS, NOT IN SPRITE SCALE, and that is the whole point
+// of this table. A scale is meaningless on its own: it means one size on the
+// 72px house frame and quite another on the 214px fort PNG. Houses and forts
+// used to be two separate expressions for that reason — houses clamped a scale
+// DOWN from 0.6, forts clamped one UP from 0.28 — and the shared 0.6 the
+// residential roles were said to "share so they look like neighbours from one
+// village" did no such thing: at 0.6 the blacksmith drew 1.35 cells wide, the
+// trader 1.43, the wreck and the wizard 1.50, the market 1.99 and the trailer
+// 2.02. The village was sized by whatever width each artist had chosen for
+// their PNG. Worse, a wreck (80px) and the house it restores into (72px) drew
+// at different widths, so REPAIRING a building shrank it by 10%.
 //
-// FORTS ALSO GROW. A fort's footprint has no fixed size: buildingTier gives
-// BUILDING_MED to anything over 350 m², and enforceBuildingDistribution then
-// promotes a tile's largest polygons into that band behind the single castle —
+// In cells all of that disappears: a role names the size it draws at, every
+// frame reaches it, and the two roles differ only in the numbers on their row.
+//
+// FORTS GROW, HOUSES DON'T — now visible as the shape of a range rather than as
+// two different formulas. A house's range is a sliver (1.2–1.35) because the
+// sprite is one dwelling and a footprint can only ever pull it slightly under
+// its natural size. A fort's footprint has no fixed size at all: buildingTier
+// gives BUILDING_MED to anything over 350 m², and enforceBuildingDistribution
+// promotes a tile's largest polygons into that band behind the single castle,
 // so a re-tiered civic block can be 5000 m² (10 cells across) or 20000 m² (20).
-// Held at the baseline those drew the same ~2.3-cell roof as a 19 m fort, and
-// the footprint read as a field of bare brick with a toy building parked in the
-// middle. Growing the art to its own footprint fixes that; FORT_MAX_SCALE stops
-// a huge polygon filling the screen with one roof. The game runs pixelArt:true,
-// so the upscale stays crisp rather than blurring.
+// Pinned at one size those drew the same roof as a 19 m fort and the footprint
+// read as a field of bare brick with a toy building parked in the middle.
 //
-// FORT_MAX_SCALE was originally 1.05 (~7 cells / 49 m wide) — nearly two-thirds
-// of the 11-cell viewport, which read as oversized rather than as a landmark
-// you could still see around. Then 0.65 (~4.3 cells / 30 m), which still read
-// ~25% too big; now 0.52 (~3.5 cells / 24 m) — clearly bigger than an ordinary
-// house, just not looming.
+// `def` is what a building with NO footprint draws at — the synthetic starter
+// trailer, sandbox houses. It sits at the top of the house range and the bottom
+// of the fort range because that is where each role's real buildings cluster.
 //
-// Buildings with no area (the synthetic starter trailer, sandbox houses) and
-// unmeasurable frames keep the baseline untouched.
-const FORT_MAX_SCALE = 0.52;
-// Forts draw at this fraction of exact footprint fill. Exact fill (1.0) read
-// ~25% too big in play, so the whole fort curve — baseline (0.28 in render.js,
-// was 0.35), footprint fit, and FORT_MAX_SCALE (was 0.65) — is shrunk ×0.8.
-// The growth rationale above still holds; the roof just keeps a small brick
-// margin inside its footprint instead of covering it edge to edge.
-const FORT_FIT = 0.8;
-// Shrink FLOOR for ordinary houses, in drawn cells: however small the OSM
-// polygon, the roof never draws narrower than this. Unfloored, a sub-cell
-// footprint shrank the art toward half a cell, which read as yard clutter
-// rather than a dwelling. Expressed in cells (not scale) so it lands the same
-// on every frame width — the base house frame is 72 px, the wreck 80 px. Kept
-// under the 0.6-baseline width (72 × 0.6 / 32 = 1.35 cells) so bigger houses
-// still draw bigger, and paired with the 2-cell footprint bias in worldgen's
-// assignBuildingFootprints (FOOT_HOUSE_MIN) so the floored roof has a pad to
-// stand on.
-const HOUSE_MIN_CELLS = 1.2;
-function houseArtScale(area, frameW, base, isFort, cellM, cellPx) {
-  if (!(area > 0) || !(frameW > 0) || !(cellM > 0)) return base;
-  const fit = ((Math.sqrt(area) / cellM) * cellPx) / frameW;
-  if (isFort) return Math.min(FORT_MAX_SCALE, Math.max(base, FORT_FIT * fit));
-  const floor = cellPx > 0 ? (HOUSE_MIN_CELLS * cellPx) / frameW : 0;
-  return Math.min(base, Math.max(fit, floor));
+// The fort cap has come down twice: ~7 cells read as oversized against an
+// 11-cell viewport rather than as a landmark you could see around, then ~4.3
+// still read ~25% too big. The game runs pixelArt:true, so growing the art
+// stays crisp rather than blurring.
+const BUILDING_ART = {
+  // fitMul — how much of its own footprint the role fills. Forts keep a small
+  //          brick margin inside theirs; exact fill read ~25% too big.
+  // min/def/max — drawn width in CELLS (a cell is CELL_M = 7 m).
+  house: { fitMul: 1,   min: 1.2,  def: 1.35, max: 1.35 },
+  fort:  { fitMul: 0.8, min: 1.87, def: 1.87, max: 3.48 },
+};
+// The residential 1.35 is the width the plain house has always drawn at
+// (72px × 0.6 ÷ 32), so the commonest building on the map is unmoved and the
+// odd ones out come to meet it. The floor of 1.2 keeps a sub-cell polygon from
+// shrinking a dwelling into yard clutter, and pairs with the 2-cell footprint
+// bias in worldgen's assignBuildingFootprints (FOOT_HOUSE_MIN) so the floored
+// roof has a pad to stand on. The fort's 1.87 and 3.48 are its previous 0.28
+// and 0.52 on the 214px frame, in cells — the curve is unchanged.
+function buildingArt(isFort) { return isFort ? BUILDING_ART.fort : BUILDING_ART.house; }
+// Sprite scale that draws `cells` cells wide from a frame `frameW` px wide.
+// An unmeasurable frame can't be sized at all — but render.js has already
+// hidden that sprite (the texture check in RENDER_SPEC), so the number only
+// has to be finite and to agree with buildingBaseScale below, which the
+// shadow pass divides by.
+function buildingCellsToScale(cells, frameW, cellPx) {
+  if (!(frameW > 0) || !(cellPx > 0)) return 1;
+  return (cells * cellPx) / frameW;
+}
+// What this role draws at with no footprint to go on.
+function buildingBaseScale(frameW, isFort, cellPx) {
+  return buildingCellsToScale(buildingArt(isFort).def, frameW, cellPx);
+}
+function houseArtScale(area, frameW, isFort, cellM, cellPx) {
+  const a = buildingArt(isFort);
+  const cells = (area > 0 && cellM > 0)
+    ? Math.min(a.max, Math.max(a.min, a.fitMul * (Math.sqrt(area) / cellM)))
+    : a.def;
+  return buildingCellsToScale(cells, frameW, cellPx);
 }

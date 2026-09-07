@@ -9,11 +9,11 @@
 // The bug that motivated it: the out-of-reach dim — the wash that makes
 // "outside the lit area" mean something — was painted into cellGfx, the
 // BOTTOM-most layer. It could only darken the base terrain fill. Every piece
-// of ground decoration above it (biome seam borders, cobbles, road letters,
+// of ground decoration above it (biome seam borders, planks, road letters,
 // POI halos, treasure pads) stayed at full brightness outside the lit area,
 // and the biome boundaries in particular read as glowing lines in the dark.
 // Forcing the dim to alpha 1.0 made it obvious: the road strip, the pale
-// cobbles and the road lettering all punched straight through a fully opaque
+// planks and the road lettering all punched straight through a fully opaque
 // black wash.
 //
 // These checks are about ORDER ONLY. They deliberately do not care how many
@@ -29,7 +29,7 @@ const ROOT = path.resolve(__dirname, '..');
 // in source order. setDepth() overrides are handled separately below.
 function displayLayers() {
   const src = fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8');
-  const re = /this\.(\w+)\s*=\s*this\.add\.(graphics|container)\(/g;
+  const re = /this\.(\w+)\s*=\s*this\.add\.(graphics|container|image)\(/g;
   const out = [];
   const seen = new Set();
   for (const m of src.matchAll(re)) {
@@ -55,26 +55,30 @@ const GROUND = [
   'cellGfx',           // base terrain fill
   'gridGfx',           // dashed cell grid
   'borderGfx',         // biome seam borders  <- the reported bug
-  'cobbleContainer',   // road / path stones
+  'cobbleContainer',   // ground decoration (the pier plank)
   'letterContainer',   // road name lettering
   'roadGeomContainer',
   'padContainer',      // treasure plinths
+  // Traps (src/traps.js) lie FLAT on the ground, so they are ground
+  // decoration — and being below the lightmap is load-bearing, not incidental:
+  // a hidden trap has to be spottable in daylight and invisible in an unlit
+  // cave cell, and the lightmap is what decides which.
+  'trapContainer',
   'shadowContainer',
   'atmosGroundGfx',    // biome haze over the ground
 ];
 
-// Layers that draw STANDING things. These sit ABOVE the lighting layer on
-// purpose: reach dims the ground, distance (atmosFalloffGfx) dims the sprites.
+// Layers that draw STANDING things. These sit ABOVE the reach layer (its
+// white outline is ground-level) and BELOW the lightmap, which dims a sprite
+// with the ground it stands on — the darkness used to sit below the sprites
+// and exempt them, and a house outside the bubble read as a sticker on dark
+// ground.
 const SPRITES = ['worldContainer', 'rampartFrontGfx', 'towerContainer'];
 
-// poiHaloContainer is a DELIBERATE exception to both rules above: it draws
-// the POI ring "ping" (render.js), whose entire job is to read as a place
-// from across the map — not to darken outside reach like ordinary ground
-// decoration. So it sits ABOVE reachGfx (unlike GROUND) but still BELOW the
-// standing sprites and atmosFalloffGfx (unlike SPRITES), so it keeps fading
-// with sheer distance without being crushed by the binary in-reach dim. See
-// the comment at its creation in MapScene.create() for the full story.
-const HALO = ['poiHaloContainer'];
+// The LIGHTMAP (src/lighting.js): every light added into one texture,
+// multiplied over the world. Above every ground layer, the halo and the
+// sprites; below the labels, which are UI and stay crisp in the dark.
+const LIGHT = 'lightMap';
 
 // Fog of war sits at the very TOP of the world display list. Every darkening
 // pass before it had to learn the same lesson: a dim only reaches what is
@@ -85,8 +89,11 @@ const HALO = ['poiHaloContainer'];
 // label layer, which is otherwise crisp UI and would name a shop the player has
 // never found.
 const FOG = 'fogContainer';
-const BELOW_FOG = [...GROUND, ...SPRITES, ...HALO,
-  'reachGfx', 'atmosFalloffGfx', 'atmosRimGfx', 'labelContainer', 'tierGfx'];
+// The particle-burst layer (src/particles.js): gold stars off a fanfare,
+// chips off a street coming back, leaf flecks off a growing crop.
+const FX = 'fxContainer';
+const BELOW_FOG = [...GROUND, ...SPRITES,
+  'reachGfx', LIGHT, 'atmosRimGfx', FX, 'labelContainer', 'tierGfx'];
 
 const CHECKS = [
   {
@@ -103,66 +110,67 @@ const CHECKS = [
     },
   },
   {
-    name: 'layers: the lighting layer covers every ground layer',
+    name: 'layers: the reach layer covers every ground layer',
     run: () => {
       const layers = displayLayers();
       const lit = idx(layers, 'reachGfx');
       const below = GROUND.filter((n) => idx(layers, n) > lit);
       if (below.length) {
-        throw new Error(`${below.join(', ')} draw ABOVE the lighting layer, so they stay bright ` +
-          'outside the lit area — this is exactly how the biome seam borders ended up ' +
-          'glowing in the dark. Move reachGfx above them in MapScene.create().');
+        throw new Error(`${below.join(', ')} draw ABOVE the reach layer, so they would cover the ` +
+          'reach outline — the tap affordance. Move reachGfx above them in MapScene.create().');
       }
     },
   },
   {
-    name: 'layers: the lighting layer stays below the standing sprites',
+    name: 'layers: the reach layer stays below the standing sprites',
     run: () => {
       const layers = displayLayers();
       const lit = idx(layers, 'reachGfx');
       const above = SPRITES.filter((n) => idx(layers, n) < lit);
       if (above.length) {
-        throw new Error(`${above.join(', ')} draw BELOW the lighting layer. Sprites are meant to ` +
-          'keep full contrast against receding ground; distance dims them via atmosFalloffGfx, ' +
-          'not reach.');
+        throw new Error(`${above.join(', ')} draw BELOW the reach layer, so the outline would be ` +
+          'drawn over a tree standing on it.');
       }
     },
   },
   {
-    name: 'layers: the distance falloff stays above the sprites',
+    name: 'layers: the lightmap covers the ground, the halo and the sprites',
     run: () => {
       const layers = displayLayers();
-      const fall = idx(layers, 'atmosFalloffGfx');
-      const above = SPRITES.filter((n) => idx(layers, n) > fall);
+      const light = idx(layers, LIGHT);
+      const above = [...GROUND, ...SPRITES, 'reachGfx'].filter((n) => idx(layers, n) > light);
       if (above.length) {
-        throw new Error(`${above.join(', ')} draw above atmosFalloffGfx, so distant objects would ` +
-          'stay lit and read as stickers on darkening ground.');
+        throw new Error(`${above.join(', ')} draw above ${LIGHT}, so they would stay lit outside ` +
+          'every light — the darkness only reaches what is below it. This is how the biome seams ' +
+          'once glowed in the dark and rim objects read as stickers on dark ground. Move lightMap ' +
+          'after them in MapScene.create().');
       }
     },
   },
   {
-    name: 'layers: the POI halo stays above the lighting layer',
+    name: 'layers: the lightmap stays below the labels',
     run: () => {
       const layers = displayLayers();
-      const lit = idx(layers, 'reachGfx');
-      const below = HALO.filter((n) => idx(layers, n) < lit);
-      if (below.length) {
-        throw new Error(`${below.join(', ')} draw BELOW the lighting layer, so the out-of-reach dim ` +
-          'would crush the POI ping everywhere except right under the player — the one ground ' +
-          'element deliberately exempt from that dim. Move it above reachGfx in MapScene.create().');
+      const light = idx(layers, LIGHT);
+      if (idx(layers, 'labelContainer') < light) {
+        throw new Error('labelContainer draws below the lightmap — POI name tablets are UI and ' +
+          'must stay crisp in the dark.');
       }
     },
   },
   {
-    name: 'layers: the POI halo stays below the sprites and the distance falloff',
+    name: 'layers: the particle bursts sit above the lightmap and below the labels',
     run: () => {
       const layers = displayLayers();
-      const fall = idx(layers, 'atmosFalloffGfx');
-      const above = HALO.filter((n) => idx(layers, n) > fall || SPRITES.some((s) => idx(layers, n) > idx(layers, s)));
-      if (above.length) {
-        throw new Error(`${above.join(', ')} draw above the standing sprites or atmosFalloffGfx — ` +
-          'the halo is exempt from the reach dim, not from distance falloff or from sitting under ' +
-          'the chest it marks.');
+      const fx = idx(layers, FX);
+      if (fx < idx(layers, LIGHT)) {
+        throw new Error(`${FX} draws below ${LIGHT} — a burst is bright by definition, and a gold ` +
+          'star multiplied by the night dim is a grey smudge. Move fxContainer after lightMap in ' +
+          'MapScene.create().');
+      }
+      if (fx > idx(layers, 'labelContainer')) {
+        throw new Error(`${FX} draws above labelContainer — a puff of chips over a POI name ` +
+          'tablet is noise on UI. Move fxContainer before labelContainer.');
       }
     },
   },
@@ -229,7 +237,7 @@ const CHECKS = [
       if (start < 0) {
         throw new Error('render.js no longer routes the reach passes through a lighting layer');
       }
-      const end = src.indexOf('if (rgt) gr.lineBetween', start);
+      const end = src.indexOf('Render.reachOutlineCell(gr, sx, sy', start);
       if (end < 0) throw new Error('could not find the end of the reach block in render.js');
       const block = src.slice(start, end);
       // A bare `g.` in this block means a pass slipped back onto the terrain
@@ -243,4 +251,4 @@ const CHECKS = [
   },
 ];
 
-module.exports = { CHECKS, displayLayers, GROUND, SPRITES, HALO, FOG, BELOW_FOG };
+module.exports = { CHECKS, displayLayers, GROUND, SPRITES, LIGHT, FOG, BELOW_FOG };

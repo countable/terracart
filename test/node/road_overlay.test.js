@@ -176,12 +176,14 @@ const widthOfWay = (tags) => {
   return scene.roadGeomGfx.paths[0].style.w;
 };
 
-test('road overlay: a residential street is stroked at its real 5 m width', () => {
-  assert.eq(widthOfWay({ class: 'street' }), px(5), 'street');
-  assert.eq(widthOfWay({ class: 'minor' }), px(5), 'minor');
+test('road overlay: a residential street is stroked at its real 5.5 m width', () => {
+  // 5.5 m: the table was 5 until Sep 2026, when the band was measured ~10%
+  // narrower than the street underfoot (see roadWidthM in worldgen.js).
+  assert.eq(widthOfWay({ class: 'street' }), px(5.5), 'street');
+  assert.eq(widthOfWay({ class: 'minor' }), px(5.5), 'minor');
   // Which is a little under the one cell the rasterizer paints for it — the
   // game's cell is 7 m, so a residential street doesn't fill its own band.
-  assert.lt(5, WorldGen.CELL_M, 'a street is narrower than a game cell');
+  assert.lt(5.5, WorldGen.CELL_M, 'a street is narrower than a game cell');
 });
 
 test('road overlay: bigger classes are drawn wider, in real-world proportion', () => {
@@ -190,8 +192,8 @@ test('road overlay: bigger classes are drawn wider, in real-world proportion', (
   assert.eq(widthOfWay({ class: 'motorway' }),  px(12 * 1.5), 'motorway');
   assert.eq(widthOfWay({ class: 'trunk' }),     px(12 * 1.5), 'trunk');
   assert.eq(widthOfWay({ class: 'primary' }),   px(10 * 1.5), 'primary');
-  assert.eq(widthOfWay({ class: 'secondary' }),  px(8), 'secondary');
-  assert.eq(widthOfWay({ class: 'tertiary' }),   px(7), 'tertiary');
+  assert.eq(widthOfWay({ class: 'secondary' }),  px(9), 'secondary');
+  assert.eq(widthOfWay({ class: 'tertiary' }),   px(7.5), 'tertiary');
   // A motorway is wider than a game cell — it spills past the single-cell band
   // the rasterizer gives it, which is the whole point of drawing true widths.
   assert.gt(12, WorldGen.CELL_M, 'a motorway is wider than a game cell');
@@ -564,3 +566,603 @@ test('road overlay: a tile with no decoded layers is skipped, not thrown on', ()
   RoadOverlay.draw(scene);
   assert.eq(scene.roadGeomGfx.lines.length, 0, 'nothing stroked');
 });
+
+// ── Restored streets ──────────────────────────────────────────────────────
+// A stretch the player has rebuilt (src/streets.js keeps the metre intervals
+// in the save) is drawn AGAIN on a second target, in near-black clean cobble.
+// src/streets.js is a separate module; these tests install a STUB `Streets`
+// with the contract's semantics for the length of the test, so the overlay's
+// half of the contract is pinned whether or not the real module is loaded —
+// and so a suite that does load it isn't left with the stub afterwards.
+
+const RO_ROAD_RESTORED = 0x161412;
+const RO_PATH_RESTORED = 0x2e2620;
+
+// The contract's API, minimally: lineKey / restoredList / subLineM / epoch.
+// subLineM is a plain arclength walk of the polyline (the real one is the
+// same walk with the tile-span bookkeeping around it).
+const RO_STREETS_STUB = {
+  lineKey(f, i) { return `${f.id}:${i}`; },
+  epoch(save) { return (save && save.streetsEpoch) | 0; },
+  restoredList(save, tileKey, key) {
+    const flat = save && save.streets && save.streets[tileKey] && save.streets[tileKey][key];
+    if (!flat) return [];
+    const out = [];
+    for (let i = 0; i + 1 < flat.length; i += 2) out.push([flat[i], flat[i + 1]]);
+    return out;
+  },
+  subLineM(lineIn, mvtToM, s0, s1) {
+    const pts = lineIn.map((p) => ({ x: p.x * mvtToM, y: p.y * mvtToM }));
+    const at = (s) => {
+      let acc = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const dx = pts[i].x - pts[i - 1].x, dy = pts[i].y - pts[i - 1].y;
+        const l = Math.hypot(dx, dy);
+        if (acc + l >= s) {
+          const t = l ? (s - acc) / l : 0;
+          return { x: pts[i - 1].x + dx * t, y: pts[i - 1].y + dy * t, seg: i };
+        }
+        acc += l;
+      }
+      const last = pts[pts.length - 1];
+      return { x: last.x, y: last.y, seg: pts.length };
+    };
+    const a = at(s0), b = at(s1);
+    const out = [{ x: a.x, y: a.y }];
+    for (let i = a.seg; i < b.seg; i++) out.push({ x: pts[i].x, y: pts[i].y });
+    out.push({ x: b.x, y: b.y });
+    return out;
+  },
+};
+
+// Install the stub for one test and hand the global back afterwards.
+function withStreets(fn) {
+  const prev = globalThis.Streets;
+  globalThis.Streets = RO_STREETS_STUB;
+  try { return fn(); } finally { globalThis.Streets = prev; }
+}
+
+// A scene that gets the restored pass too: a second recording stub, exactly
+// the way the game hands the module a second canvas.
+function makeRestoredScene(over) {
+  return makeOverlayScene(Object.assign({ roadRestoredGfx: makeGfx() }, over || {}));
+}
+const RO_KEY00 = () => WorldGen.tileKey(0, 0);
+// One saved interval list, in the save shape Streets owns.
+const roSave = (tileKey, key, flat, epoch) => ({
+  streets: { [tileKey]: { [key]: flat } },
+  streetsEpoch: epoch == null ? 1 : epoch,
+});
+
+test('road overlay: a restored interval is stroked from the save, in metres', () => {
+  withStreets(() => {
+    clearTiles();
+    // 16 MVT units = 10 m due east of the player, id 7, one line (index 0).
+    putTile(0, 0, [Object.assign(line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'street' }), { id: 7 })]);
+    // The player has rebuilt metres 2.5 → 7.5 of it: the middle half.
+    const scene = makeRestoredScene({ save: roSave(RO_KEY00(), '7:0', [2.5, 7.5]) });
+    RoadOverlay.draw(scene);
+    const r = scene.roadRestoredGfx;
+    assert.eq(r.paths.length, 1, 'one restored run');
+    const p = r.paths[0];
+    // 2.5 m = half a cell = 16 px east of centre; 7.5 m = 48 px.
+    assert.eq(p.pts[0].x, 176 + 16, 'the run starts at the interval\'s first metre');
+    assert.eq(p.pts[p.pts.length - 1].x, 176 + 48, 'and ends at its last');
+    assert.eq(p.pts[0].y, 176, 'on the way itself');
+    // Same width as the band under it — a restored street is the same street.
+    assert.eq(p.style.w, px(5.5), 'stroked at the way\'s real width');
+    assert.eq(p.style.c, RO_ROAD_RESTORED, 'near-black restored road');
+    assert.eq(p.style.a, 0.92, 'the restored pass is near-opaque');
+    // The dilapidated band is still drawn underneath, in full.
+    assert.eq(scene.roadGeomGfx.paths.length, 1, 'the base band is untouched');
+    assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x3a322c, 'still dilapidated earth');
+  });
+});
+
+test('road overlay: an unrestored way draws no restored stroke at all', () => {
+  withStreets(() => {
+    clearTiles();
+    putTile(0, 0, [Object.assign(line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'street' }), { id: 7 })]);
+    const scene = makeRestoredScene({ save: { streets: {}, streetsEpoch: 0 } });
+    RoadOverlay.draw(scene);
+    assert.eq(scene.roadRestoredGfx.paths.length, 0, 'nothing restored, nothing stroked');
+    assert.eq(scene.roadRestoredGfx.cleared, 1, 'the pass still ran and cleared');
+  });
+});
+
+test('road overlay: a railway never restores, however the save reads', () => {
+  withStreets(() => {
+    clearTiles();
+    // Both ways carry intervals; only the street may come back.
+    putTile(0, 0, [
+      Object.assign(line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'rail' }), { id: 11 }),
+      Object.assign(line([{ x: 0, y: 8 }, { x: 16, y: 8 }], { class: 'transit' }), { id: 12 }),
+      Object.assign(line([{ x: 0, y: 16 }, { x: 16, y: 16 }], { class: 'street' }), { id: 13 }),
+    ]);
+    const k = RO_KEY00();
+    const scene = makeRestoredScene({
+      save: { streetsEpoch: 1, streets: { [k]: { '11:0': [0, 10], '12:0': [0, 10], '13:0': [0, 10] } } },
+    });
+    RoadOverlay.draw(scene);
+    const r = scene.roadRestoredGfx;
+    assert.eq(r.paths.length, 1, 'only the street is restored');
+    assert.eq(r.paths[0].style.c, RO_ROAD_RESTORED, 'and it is the road colour');
+    // A rail run would have landed on the player's own row / one cell south.
+    assert.falsy(r.lines.some(([, y1]) => y1 === 176 || y1 === 176 + 32), 'no rail band restored');
+  });
+});
+
+test('road overlay: a restored footpath is packed earth, not black cobble', () => {
+  withStreets(() => {
+    clearTiles();
+    putTile(0, 0, [
+      Object.assign(line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'footway' }), { id: 21 }),
+      Object.assign(line([{ x: 0, y: 16 }, { x: 16, y: 16 }], { class: 'street' }), { id: 22 }),
+    ]);
+    const k = RO_KEY00();
+    const scene = makeRestoredScene({
+      save: { streetsEpoch: 1, streets: { [k]: { '21:0': [0, 10], '22:0': [0, 10] } } },
+    });
+    RoadOverlay.draw(scene);
+    const byColour = {};
+    for (const p of scene.roadRestoredGfx.paths) byColour[p.style.c] = (byColour[p.style.c] || 0) + 1;
+    assert.eq(byColour[RO_PATH_RESTORED], 1, 'the footway restores to dark packed earth');
+    assert.eq(byColour[RO_ROAD_RESTORED], 1, 'the street restores to near-black');
+    // The path colour is lighter than the road's — the split has to be visible.
+    const pl = (0x2e + 0x26 + 0x20) / 3, rl = (0x16 + 0x14 + 0x12) / 3;
+    assert.gt(pl, rl, 'restored path is lighter than restored road');
+  });
+});
+
+test('road overlay: a restored stretch in a neighbouring tile carries its tile origin', () => {
+  withStreets(() => {
+    clearTiles();
+    // Tile (-1,0) spans world x −2560…0 m: MVT 4080 is 10 m west of the player.
+    putTile(-1, 0, [Object.assign(
+      line([{ x: 4080, y: 0 }, { x: 4096, y: 0 }], { class: 'street' }), { id: 5 })]);
+    const scene = makeRestoredScene({
+      save: roSave(WorldGen.tileKey(-1, 0), '5:0', [5, 10]),
+    });
+    RoadOverlay.draw(scene);
+    const p = scene.roadRestoredGfx.paths[0];
+    assert.truthy(p, 'the neighbour tile\'s restored metres are drawn');
+    // Metres 5..10 of a 10 m line ending at world x = 0 → −5 m … 0 m.
+    assert.eq(p.pts[0].x, 176 - 32, 'starts one cell west of the player');
+    assert.eq(p.pts[p.pts.length - 1].x, 176, 'and runs up to the tile edge');
+  });
+});
+
+test('road overlay: a restore repaints, and nothing else does', () => {
+  withStreets(() => {
+    clearTiles();
+    putTile(0, 0, [Object.assign(line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'street' }), { id: 7 })]);
+    const save = roSave(RO_KEY00(), '7:0', [0, 5], 1);
+    const scene = makeRestoredScene({ save });
+    RoadOverlay.draw(scene);
+    const base1 = scene.roadGeomGfx.cleared, rest1 = scene.roadRestoredGfx.cleared;
+    RoadOverlay.draw(scene);
+    RoadOverlay.draw(scene);
+    assert.eq(scene.roadRestoredGfx.cleared, rest1, 'a still camera repaints nothing');
+    assert.eq(scene.roadGeomGfx.cleared, base1, 'the base canvas too');
+    // Restoring more metres bumps the epoch — which is what repaints.
+    save.streets[RO_KEY00()]['7:0'] = [0, 10];
+    save.streetsEpoch = 2;
+    RoadOverlay.draw(scene);
+    assert.eq(scene.roadRestoredGfx.cleared, rest1 + 1, 'a new epoch repaints');
+    assert.eq(scene.roadRestoredGfx.paths[0].pts[1].x, 176 + 64, 'and the longer stretch is drawn');
+  });
+});
+
+test('road overlay: without the streets module the base band still draws', () => {
+  const prev = globalThis.Streets;
+  globalThis.Streets = undefined;
+  try {
+    clearTiles();
+    putTile(0, 0, [Object.assign(line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'street' }), { id: 7 })]);
+    const scene = makeRestoredScene({ save: roSave(RO_KEY00(), '7:0', [0, 10]) });
+    RoadOverlay.draw(scene);
+    assert.eq(scene.roadGeomGfx.paths.length, 1, 'the dilapidated band is unconditional');
+    assert.eq(scene.roadRestoredGfx.paths.length, 0, 'and nothing is restored without Streets');
+  } finally { globalThis.Streets = prev; }
+});
+
+// ── The two procedural tiles ──────────────────────────────────────────────
+// Both are painted by pure functions taking a 2D context, so the real drawing
+// code runs here against a recorder (the same trick tilled_bed.test.js uses on
+// textures.js). No canvas, no DOM.
+
+function roRecorder() {
+  const ops = [];
+  const grad = { addColorStop: (o, c) => ops.push(['addColorStop', o, c]) };
+  const ctx = new Proxy({}, {
+    get: (_, k) => {
+      if (k === 'createRadialGradient') return (...a) => { ops.push(['createRadialGradient', ...a]); return grad; };
+      return (...a) => { ops.push([k, ...a]); };
+    },
+    set: (_, k, v) => { ops.push(['set:' + k, v]); return true; },
+  });
+  return { ctx, ops };
+}
+// The style in force at op index i.
+function roStyleAt(ops, i, which) {
+  let v = null;
+  for (let j = 0; j < i; j++) if (ops[j][0] === 'set:' + which) v = ops[j][1];
+  return v;
+}
+const roAlphaOf = (css) => {
+  const m = /^rgba\([^)]*?,\s*([0-9.]+)\)$/.exec(String(css));
+  return m ? Number(m[1]) : null;
+};
+
+test('weathering tile: the cracks are bold enough to read through the band alpha', () => {
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintWeatherTile(ctx, 64);
+  // Every stroked path, with the colour it was stroked in.
+  const strokes = [];
+  for (let i = 0; i < ops.length; i++) {
+    if (ops[i][0] !== 'stroke') continue;
+    const css = roStyleAt(ops, i, 'strokeStyle');
+    let pts = 0;
+    for (let j = i - 1; j >= 0 && ops[j][0] !== 'stroke'; j--)
+      if (ops[j][0] === 'lineTo' || ops[j][0] === 'moveTo') pts++;
+    strokes.push({ css, pts, alpha: roAlphaOf(css) });
+  }
+  const dark = strokes.filter((s) => /rgba\(0,0,0/.test(s.css));
+  const pale = strokes.filter((s) => /rgba\(255,255,255/.test(s.css));
+  assert.gte(dark.length, 3, 'at least three crack paths');
+  assert.eq(pale.length, dark.length, 'each crack gets its pale lip');
+  for (const s of dark) {
+    // The whole canvas is shown at 0.61 — a crack drawn faint arrives at the
+    // player as nothing at all.
+    assert.gte(s.alpha, 0.8, 'a crack is near-black');
+    assert.gte(s.pts, 4, 'and jagged, not a straight scratch');
+  }
+  for (const s of pale) assert.lt(s.alpha, 0.3, 'the lip is a hint, not a highlight');
+  assert.eq(roStyleAt(ops, ops.length, 'lineWidth'), 1, 'a crack is one pixel wide');
+});
+
+test('weathering tile: damp patches, lichen blooms and missing stones', () => {
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintWeatherTile(ctx, 64);
+  const blooms = ops.filter(([k]) => k === 'createRadialGradient');
+  assert.eq(blooms.length, 5, 'three lichen blooms + two damp patches');
+  const stops = ops.filter(([k]) => k === 'addColorStop');
+  assert.eq(stops.length, blooms.length * 2, 'each bloom falls to nothing at its rim');
+  for (let i = 1; i < stops.length; i += 2)
+    assert.eq(roAlphaOf(stops[i][2]), 0, 'the outer stop is fully transparent');
+  const pale = stops.filter((s) => s[1] === 0 && /255,255,255/.test(s[2]));
+  const dark = stops.filter((s) => s[1] === 0 && /rgba\(0,0,0/.test(s[2]));
+  assert.eq(pale.length, 3, 'three pale lichen blooms');
+  assert.eq(dark.length, 2, 'two dark damp patches');
+  assert.gte(roAlphaOf(dark[0][2]), 0.3, 'damp reads through the band alpha');
+  // The missing stones are filled ellipses, not strokes.
+  assert.eq(ops.filter(([k]) => k === 'ellipse').length, 2, 'two missing-stone pits');
+  const pitFills = ops.map((o, i) => [o, i]).filter(([o]) => o[0] === 'fill')
+    .map(([, i]) => roStyleAt(ops, i, 'fillStyle')).filter((c) => /rgba\(0,0,0/.test(c));
+  assert.eq(pitFills.length, 2, 'both pits are dark');
+  assert.gte(roAlphaOf(pitFills[0]), 0.5, 'a pit is a hole, not a smudge');
+});
+
+test('weathering tile: it is the same tile every session', () => {
+  const a = roRecorder(), b = roRecorder();
+  RoadOverlay.paintWeatherTile(a.ctx, 64);
+  RoadOverlay.paintWeatherTile(b.ctx, 64);
+  assert.eq(JSON.stringify(a.ops), JSON.stringify(b.ops), 'fixed seed, identical marks');
+});
+
+// Pull the setts out of a clean-tile recording: one sett is a black body fill,
+// a per-stone tone fill and a bevel fill, each over its own rounded path.
+function roSetts(ops) {
+  const setts = [];
+  let move = null, fillStyle = null;
+  for (const [k, ...a] of ops) {
+    if (k === 'set:fillStyle') fillStyle = a[0];
+    else if (k === 'moveTo') move = { x: a[0], y: a[1] };
+    else if (k === 'fill' && fillStyle === '#000' && move) setts.push({ x: move.x, y: move.y });
+  }
+  return setts;
+}
+
+test('clean tile: a pale mortar wash under brick-staggered courses', () => {
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintCleanTile(ctx, 32);
+  // The mortar goes down FIRST and covers the whole tile — the seams between
+  // the setts are what is left of it.
+  const firstRect = ops.findIndex(([k]) => k === 'fillRect');
+  const firstFill = ops.findIndex(([k]) => k === 'fill');
+  assert.truthy(firstRect >= 0 && firstRect < firstFill, 'the wash is laid before any sett');
+  assert.eq(roAlphaOf(roStyleAt(ops, firstRect, 'fillStyle')), 0.13, 'mortar at 13% white');
+  assert.eq(JSON.stringify(ops[firstRect].slice(1)), JSON.stringify([0, 0, 32, 32]),
+    'over the whole tile');
+  const setts = roSetts(ops);
+  // 6 across × 8 courses. The odd courses are staggered half a sett, so the
+  // one that runs off the right edge is drawn again a tile to the left — a
+  // wrap copy of the same stone, so the pattern meets itself when it repeats.
+  const inTile = setts.filter((s) => s.x >= 0);
+  assert.eq(inTile.length, 48, '48 setts: 6 across, 8 courses');
+  assert.eq(setts.length - inTile.length, 4, 'four wrap copies, one per staggered course');
+  const rows = [...new Set(setts.map((s) => Math.round(s.y * 100)))];
+  assert.eq(rows.length, 8, 'eight courses');
+  const byRow = {};
+  for (const s of inTile) (byRow[Math.round(s.y * 100)] = byRow[Math.round(s.y * 100)] || []).push(s.x);
+  for (const k of Object.keys(byRow)) assert.eq(byRow[k].length, 6, 'six setts per course');
+  // Courses alternate: every other one starts half a sett further east.
+  const starts = Object.keys(byRow).sort((a, b) => a - b).map((k) => Math.min(...byRow[k]));
+  assert.inRange(starts[1] - starts[0] - (32 / 6) / 2, -0.01, 0.01, 'the stagger is half a sett');
+  assert.inRange(starts[2] - starts[0], -0.01, 0.01, 'and it alternates back');
+});
+
+test('clean tile: every sett is a body, a tone and a top bevel', () => {
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintCleanTile(ctx, 32);
+  const setts = roSetts(ops);
+  const fills = ops.filter(([k]) => k === 'fill');
+  assert.eq(fills.length, setts.length * 3, 'three fills per sett: body, tone, bevel');
+  // The tone varies stone to stone (neighbours must not read identical), and
+  // the bevel is one constant catch-light along the top of each.
+  const white = [];
+  for (let i = 0; i < ops.length; i++) {
+    if (ops[i][0] !== 'fill') continue;
+    const css = roStyleAt(ops, i, 'fillStyle');
+    if (/rgba\(255,255,255/.test(css)) white.push(roAlphaOf(css));
+  }
+  const bevels = white.filter((a) => a === 0.1);
+  assert.eq(bevels.length, setts.length, 'one bevel per sett');
+  const tones = white.filter((a) => a !== 0.1);
+  assert.eq(tones.length, setts.length, 'one tone per sett');
+  for (const t of tones) assert.inRange(t, 0.05, 0.12, 'the per-stone tone is slight');
+  assert.gt(new Set(tones.map((t) => Math.round(t * 1000))).size, 10, 'the tones actually vary');
+  // Rounded, not square: four quadratic corners per rounded rect.
+  assert.eq(ops.filter(([k]) => k === 'quadraticCurveTo').length, fills.length * 4, 'rounded setts');
+});
+
+test('clean tile: a restored path keeps half the mortar of a street', () => {
+  const road = roRecorder(), path = roRecorder();
+  RoadOverlay.paintCleanTile(road.ctx, 32, 0.13);
+  RoadOverlay.paintCleanTile(path.ctx, 32, 0.13 * 0.5);
+  const mortarOf = (r) => {
+    const i = r.ops.findIndex(([k]) => k === 'fillRect');
+    return roAlphaOf(roStyleAt(r.ops, i, 'fillStyle'));
+  };
+  assert.eq(mortarOf(path), mortarOf(road) / 2, 'packed earth has half the mortar');
+  assert.eq(roSetts(path.ops).length, roSetts(road.ops).length, 'the same courses either way');
+});
+
+test('clean tile: it is the same tile every session', () => {
+  const a = roRecorder(), b = roRecorder();
+  RoadOverlay.paintCleanTile(a.ctx, 32);
+  RoadOverlay.paintCleanTile(b.ctx, 32);
+  assert.eq(JSON.stringify(a.ops), JSON.stringify(b.ops), 'fixed seed, identical setts');
+});
+
+// ── The live pass ─────────────────────────────────────────────────────────
+// The dwell preview and the restore shine change every frame, so they go on a
+// Graphics rather than either canvas — projected through the camera-anchored
+// worldMetersToScreen, then compensated for the container's own sub-cell
+// scroll (draw() moves the container, and worldMetersToScreen already
+// accounts for that offset).
+
+function makeLiveGfx() {
+  return {
+    cleared: 0, paths: [], style: null, _cur: null,
+    clear() { this.cleared++; this.paths.length = 0; },
+    lineStyle(w, c, a) { this.style = { w, c, a }; },
+    beginPath() { this._cur = { style: this.style, pts: [] }; },
+    moveTo(x, y) { this._cur.pts.push({ x, y }); },
+    lineTo(x, y) { this._cur.pts.push({ x, y }); },
+    strokePath() { this.paths.push(this._cur); this._cur = null; },
+  };
+}
+// A scene under a PEEK: the container carries the sub-cell scroll (draw() sets
+// it every frame) and worldMetersToScreen carries the camera anchor.
+function makeLiveScene(over) {
+  const gfx = makeLiveGfx();
+  const container = {
+    x: -7, y: 3, children: [], tops: 0,
+    add(o) { this.children.push(o); return this; },
+    bringToTop(o) { this.tops++; return this; },
+  };
+  return Object.assign({
+    cellM: 5,
+    roadGeomContainer: container,
+    _liveGfx: gfx,
+    add: { graphics: () => gfx },
+    // 6.4 px per metre, anchored 100 m east / 200 m south of the world origin.
+    worldMetersToScreen(x, y) { return { x: 176 + (x - 100) * 6.4, y: 176 + (y - 200) * 6.4 }; },
+  }, over || {});
+}
+
+test('road overlay live: runs project through the camera anchor, minus the container scroll', () => {
+  const scene = makeLiveScene();
+  RoadOverlay.drawLive(scene, [{
+    pts: [{ x: 100, y: 200 }, { x: 105, y: 200 }, { x: 105, y: 210 }],
+    tags: { class: 'street' }, alpha: 0.5,
+  }]);
+  const g = scene._liveGfx;
+  assert.eq(g.paths.length, 1, 'one run stroked');
+  const pts = g.paths[0].pts;
+  assert.eq(pts.length, 3, 'every vertex kept');
+  // (100,200) projects to the screen centre; the container sits at (−7, 3), so
+  // the stroke inside it has to be drawn 7 px right and 3 px up of that.
+  assert.eq(pts[0].x, 176 + 7, 'container x offset compensated');
+  assert.eq(pts[0].y, 176 - 3, 'container y offset compensated');
+  assert.eq(pts[1].x, 176 + 5 * 6.4 + 7, 'five metres east');
+  assert.eq(pts[2].y, 176 + 10 * 6.4 - 3, 'ten metres south');
+  assert.eq(g.paths[0].style.w, px(5.5), 'stroked at the way\'s width');
+  assert.eq(g.paths[0].style.c, RO_ROAD_RESTORED, 'default colour is the restored road');
+  assert.eq(g.paths[0].style.a, 0.5, 'the caller owns the alpha');
+});
+
+test('road overlay live: the Graphics is made once, inside the overlay container', () => {
+  const scene = makeLiveScene();
+  RoadOverlay.drawLive(scene, []);
+  assert.eq(scene.roadLiveGfx, scene._liveGfx, 'kept on the scene');
+  assert.eq(scene.roadGeomContainer.children.length, 1, 'added to the overlay container');
+  assert.truthy(scene.roadGeomContainer.tops > 0, 'and lifted above both band images');
+  RoadOverlay.drawLive(scene, []);
+  assert.eq(scene.roadGeomContainer.children.length, 1, 'not added again');
+});
+
+test('road overlay live: an empty frame clears and strokes nothing', () => {
+  const scene = makeLiveScene();
+  RoadOverlay.drawLive(scene, [{ pts: [{ x: 100, y: 200 }, { x: 110, y: 200 }], tags: {} }]);
+  assert.eq(scene._liveGfx.paths.length, 1, 'a run this frame');
+  RoadOverlay.drawLive(scene, []);
+  assert.eq(scene._liveGfx.paths.length, 0, 'gone the next');
+  assert.eq(scene._liveGfx.cleared, 2, 'cleared every call');
+  RoadOverlay.drawLive(scene, null);
+  assert.eq(scene._liveGfx.cleared, 3, 'a missing list is not a crash');
+});
+
+test('road overlay live: a path run and an explicit colour', () => {
+  const scene = makeLiveScene();
+  RoadOverlay.drawLive(scene, [
+    { pts: [{ x: 100, y: 200 }, { x: 110, y: 200 }], tags: { class: 'footway' } },
+    { pts: [{ x: 100, y: 210 }, { x: 110, y: 210 }], tags: { class: 'street' }, colour: 0xffffff, alpha: 0.9 },
+  ]);
+  const g = scene._liveGfx;
+  assert.eq(g.paths[0].style.c, RO_PATH_RESTORED, 'a footway defaults to the restored path colour');
+  assert.eq(g.paths[0].style.w, px(2), 'at a footway\'s width');
+  assert.eq(g.paths[1].style.c, 0xffffff, 'the restore shine names its own colour');
+});
+
+test('road overlay live: headless without a Graphics factory, nothing happens', () => {
+  const scene = { cellM: 5, roadGeomContainer: null };
+  RoadOverlay.drawLive(scene, [{ pts: [{ x: 0, y: 0 }, { x: 1, y: 0 }], tags: {} }]);
+  assert.falsy(scene.roadLiveGfx, 'no Graphics conjured out of nothing');
+});
+
+// ── THE RESTORED PATCH IS SOFT ────────────────────────────────────────────
+// A rebuilt stretch is a repair, not a decal: its silhouette is feathered into
+// the dilapidated band under it, and the round caps its ends carry read as a
+// lozenge once the corners go soft. The feather is applied to the patch's
+// ALPHA ONLY — blurring the drawn layer would smear the clean setts into grey,
+// which is the one thing the restored look is for.
+(() => {
+// A 2D context stub with a REAL `filter` property (the Proxy recorder above
+// answers every get with a function, so a feature test would see one).
+function softCtx(withFilter = true) {
+  const ops = [];
+  const c = {
+    ops,
+    lineWidth: 1, strokeStyle: '', globalCompositeOperation: 'source-over',
+    beginPath() { ops.push(['beginPath']); },
+    moveTo(x, y) { ops.push(['moveTo', x, y]); },
+    lineTo(x, y) { ops.push(['lineTo', x, y]); },
+    stroke() { ops.push(['stroke', this.lineWidth, this.strokeStyle, this.filter]); },
+    drawImage(img) { ops.push(['drawImage', img, this.globalCompositeOperation]); },
+    save() { ops.push(['save']); },
+    restore() { ops.push(['restore']); },
+  };
+  if (withFilter) {
+    let f = 'none';
+    Object.defineProperty(c, 'filter', {
+      get: () => f,
+      // A real canvas keeps only what it can parse; anything else is dropped.
+      set: (v) => { ops.push(['set:filter', v]); f = /^(none|blur\(.+\))$/.test(v) ? v : f; },
+    });
+  }
+  return c;
+}
+
+// Stand a canvas factory up for the length of `fn` — scratchLayer builds its
+// mask through document.createElement, which the headless context has no
+// implementation of.
+function withCanvases(fn) {
+  const made = [];
+  const real = document.createElement;
+  document.createElement = () => {
+    const ctx2 = softCtx(withCanvases.filter !== false);
+    const canvas = { width: 0, height: 0, ctx: ctx2, getContext: () => ctx2 };
+    made.push(canvas);
+    return canvas;
+  };
+  try { fn(made); return made; } finally { document.createElement = real; }
+}
+
+// Two bands of different widths — a carriageway and a footway — because the
+// feather is derived from the width it softens.
+const SOFT_OPS = [
+  { w: 24, c: 0x161412, pts: [10, 10, 90, 10, 90, 60] },
+  { w: 8,  c: 0x161412, pts: [20, 80, 100, 80] },
+];
+
+test('restored patch: the edge is feathered through a blurred ALPHA mask', () => {
+  withCanvases.filter = true;
+  const layer = { ctx: softCtx(), canvas: null };
+  const made = withCanvases(() => {
+    RoadOverlay.softenEdge(layer, 128, SOFT_OPS);
+  });
+  assert.eq(made.length, 1, 'one scratch canvas — the mask');
+  const mask = made[0].ctx;
+  const strokes = mask.ops.filter(([k]) => k === 'stroke');
+  assert.eq(strokes.length, SOFT_OPS.length, 'every op is replayed onto the mask');
+  for (let i = 0; i < SOFT_OPS.length; i++) {
+    // AT FULL WIDTH — a Gaussian leaves its half-maximum on the original edge,
+    // so the patch stays exactly as wide as the band it repairs.
+    assert.eq(strokes[i][1], SOFT_OPS[i].w, 'stroked at the band\'s own width');
+    assert.eq(strokes[i][2], '#000', 'in flat ink: this is a mask, not a colour');
+    assert.eq(strokes[i][3], `blur(${RoadOverlay.blurForWidth(SOFT_OPS[i].w).toFixed(2)}px)`,
+      'under its own radius');
+  }
+  // The RADIUS IS A FRACTION OF THE BAND. A fixed radius eats a narrow way
+  // alive: at the blur a carriageway wants, a footpath's centre never reaches
+  // full alpha and the whole path restores ghostly.
+  assert.lt(RoadOverlay.blurForWidth(8), RoadOverlay.blurForWidth(24),
+    'a footway is feathered less than a carriageway');
+  assert.eq(RoadOverlay.blurForWidth(1000), RoadOverlay.RESTORED_BLUR_PX,
+    'and a wide band is capped');
+  // The narrow band keeps a solid core. Measured on a real canvas: past about
+  // a third of the width the centre of a footway never reaches full alpha, and
+  // the restored path reads ghostly rather than soft.
+  assert.lte(RoadOverlay.RESTORED_BLUR_FRAC, 1 / 3, 'the fraction stays under a third');
+  assert.eq(RoadOverlay.blurForWidth(8), 8 * RoadOverlay.RESTORED_BLUR_FRAC,
+    'a narrow band is feathered by its own fraction, not the cap');
+  // The filter is put back afterwards, so nothing else on that scratch
+  // inherits it.
+  const filters = mask.ops.filter(([k]) => k === 'set:filter').map((o) => o[1]);
+  // The feature probe (blur(1px) then none — a canvas that cannot blur
+  // silently keeps 'none', which is what the probe reads), then one set per
+  // band width, then the clear.
+  assert.eq(filters.slice(0, 2).join(','), 'blur(1px),none', 'the probe asks and puts it back');
+  assert.eq(filters[filters.length - 1], 'none', 'and the filter is cleared at the end');
+  assert.eq(filters.length, 2 + SOFT_OPS.length + 1, 'one pass per band width');
+  // …and composited as ALPHA. destination-in keeps the layer's own pixels and
+  // takes only the mask's coverage, so the setts inside stay crisp.
+  const draw = layer.ctx.ops.find(([k]) => k === 'drawImage');
+  assert.truthy(draw, 'the mask lands on the layer');
+  assert.eq(draw[2], 'destination-in', 'as alpha, never as paint');
+  assert.eq(draw[1], made[0], 'and it is the mask that lands');
+});
+
+test('restored patch: no blur available means a hard edge, never a fake feather', () => {
+  // A stack of translucent strokes standing in for a blur would blotch at
+  // every junction — a translucent stroke composites with ITSELF wherever a
+  // path doubles back, which is the trap the whole opaque-then-alpha rule at
+  // the top of road_overlay.js exists to avoid. So where canvas can't blur,
+  // the patch simply ships with its edge cut.
+  withCanvases.filter = false;
+  const layer = { ctx: softCtx(false), canvas: null };
+  withCanvases(() => { RoadOverlay.softenEdge(layer, 128, SOFT_OPS); });
+  withCanvases.filter = true;
+  assert.eq(layer.ctx.ops.filter(([k]) => k === 'drawImage').length, 0, 'nothing is composited');
+});
+
+test('restored patch: the softening is the LAST thing the pass does', () => {
+  const src = ROAD_OVERLAY_SRC;
+  const at = src.indexOf('function commitRestored(pass) {');
+  assert.gt(at, 0, 'found the restored pass');
+  const body = src.slice(at, src.indexOf('\n  }\n', at));
+  // Crisp first, feathered last: the setts and the kerb are laid at full
+  // opacity and only the finished silhouette is melted into the band.
+  const soften = body.indexOf('softenEdge(');
+  const lastFill = body.lastIndexOf('patternFill(');
+  assert.gt(soften, 0, 'the pass softens its patch');
+  assert.gt(soften, lastFill, 'after the setts are laid, never before');
+  assert.gt(body.indexOf('ctx.drawImage(layer.canvas'), soften, 'and before the layer lands');
+  // The base band keeps its ragged bites; only the restored patch is soft.
+  const baseAt = src.indexOf('function commitBase(pass) {');
+  const baseBody = src.slice(baseAt, src.indexOf('\n  }\n', baseAt));
+  assert.falsy(/softenEdge\(/.test(baseBody), 'the dilapidated band is not feathered');
+});
+})();
