@@ -6307,9 +6307,14 @@ class MapScene extends Phaser.Scene {
     // gate fired again immediately: a blackout underground drops you to the
     // surface at 0 energy, which in hard mode is ALSO a surface blackout —
     // chaining into a loop that halved the purse every frame until it hit
-    // $0. `_exhausted` is a second latch that outlives the modal: once
-    // tripped it blocks BOTH gates until energy actually recovers above 0
-    // (a rest, a meal), so a single dry spell costs the purse exactly once.
+    // $0. Hard mode's zero-energy lockout (_zeroEnergyLocked) makes this the
+    // common case rather than a corner one: once the tank reads empty on
+    // hard, food/campfire/offline rest all refuse, so nothing but reaching
+    // Home lifts energy off 0 — which used to mean passing out every single
+    // frame until Home was reached. `_exhausted` is a second latch that
+    // outlives the modal: once tripped it blocks BOTH gates until energy
+    // actually recovers above 0 (Home, a Crow Feather), so a single dry
+    // spell costs the purse exactly once.
     if (this._exhausted && (this.save.energy ?? 0) > 0) this._exhausted = false;
     if (this.depth > 0 && (this.save.energy ?? 0) <= 0
         && !this._passingOut && !this._exhausted && !window.__TEST_MODE) {
