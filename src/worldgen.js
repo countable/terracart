@@ -3207,7 +3207,10 @@
     });
     const keptStructs = [];
     yield 'structure sort';
+    let structI = 0;
     for (const o of structs) {
+      if ((structI & 63) === 0) yield 'structure occupancy sweep';
+      structI++;
       const k = cellKeyOfWorld(o.x, o.y);
       if (occupiedCells.has(k)) continue;
       occupiedCells.add(k);
@@ -3230,7 +3233,10 @@
     //    tint (e.g. golden field grass, swampy reeds).
     const filtered = [];
     yield 'structure cells';
+    let wpOccI = 0;
     for (const wp of wildplants) {
+      if ((wpOccI & 63) === 0) yield 'wildplant occupancy sweep';
+      wpOccI++;
       const t = grid[wp._iy * w + wp._ix];
       const cellKey = `${wp._ix}_${wp._iy}`;
       if (BiomeProfiles.allows(wp.crop, t) && !occupiedCells.has(cellKey)) {
