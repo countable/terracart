@@ -683,6 +683,20 @@
     return kept;
   }
 
+  // The widest light any SCANNED object can throw, in cells — the margin
+  // drawObjects' chunk query pads the sprite cull by, so a lantern a chunk
+  // past the viewport still reaches the edge it stands beyond. Every row but
+  // the player's own two (viewport-sized, never scanned), so a new row widens
+  // the query by itself rather than by a number retyped in render.js.
+  function objectLightPadCells() {
+    let m = 0;
+    for (const k in KINDS) {
+      if (k === 'player' || k === 'handtorch') continue;
+      m = Math.max(m, radiusCells(k));
+    }
+    return m;
+  }
+
   function inRange(scene, dx, dy, kind, halfM) {
     const pad = radiusCells(kind) * scene.cellM;
     return Math.abs(dx) <= halfM + pad && Math.abs(dy) <= halfM + pad;
@@ -1128,7 +1142,7 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
-    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires,
+    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires, objectLightPadCells,
     collectPlayer, collectLamps,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, BLAST_MAX, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,

@@ -424,6 +424,60 @@
   / `addHouse`, never a walk of `housePositions`.
   **Audit it:** `test/node/worldgen_dedup.test.js`.
 
+- **The loop STEPS on a cap, and a per-frame pass either skips a still step
+  or walks an index — never the tile.** Until Sep 2026 the Phaser config
+  carried no `fps`, so the game stepped at the display's refresh rate (60 on
+  most phones, 90 or 120 on many), and every pass in `_updateTimed`, the
+  lightmap's canvas upload and the GPU's fill scaled with it. A GPS walker
+  spends most of a session standing still — the first phone profile read 87%
+  still steps — and nothing in it needs a step every 8 ms. Three things hold
+  now, and each was measured on a phone before it shipped:
+    1. **`FPS_LIMIT`** (app.js, 30) is what the loop steps at, on any display.
+       Phaser is handed **`PHASER_FPS_LIMIT`** = one fps MORE, because
+       `TimeStep.stepLimitFPS` sums rAF deltas against `1000 / limit` and drops
+       the remainder — a gate that is an exact multiple of the vsync fires on
+       the second frame or the third as the float falls, and a "30" cap
+       measured ~23 steps/s. Time-based motion (tweens, anims, the peek
+       spring) is untouched; the one frame-counted throttle (the modal-gate
+       backstop's `% 10`) is now ~330 ms and reads as instant.
+    2. **`Lighting.draw` paints only when its inputs move.** It keys each step
+       on everything the paint reads — `frameKey`: the feet point, the anchor
+       cell and fraction, the reach, the whole profile, every light's fields —
+       and reuses the last upload when the key stands. What ANIMATES (a fire's
+       flicker, a POI's breath, a blast, the low-energy heartbeat) reads the
+       clock through `lightClock`, quantised to `LIGHT_TICK_MS` (100 ms), so an
+       animated view repaints ten times a second and a still one not at all.
+       That is the fog's and the road canvas's rebuild-on-a-key shape pointed
+       at the one layer that lacked it. **The key must name every input**: a
+       new thing the paint reads goes into `frameKey` or it will not repaint.
+    3. **`drawObjects` walks `WorldGen.forEachItemInBox`**, a per-tile chunk
+       index (`CHUNK_M` squares, `chunkIndex`, hung on the entry), never
+       `entry.objects` / `entry.wildplants` flat — the flat walk touched
+       37,000 entries per step to keep 37, a quarter of the main thread while
+       standing still. The query box is the sprite cull plus the widest thing
+       offered BEFORE the cull (`HOUSE_PAD_M`, or the widest scanned light —
+       `Lighting.objectLightPadCells`, derived from `KINDS` so a new row
+       widens it by itself). The index is DERIVED, never stored, so the rebuild
+       rule below holds by construction (a rebuilt entry lays it again on the
+       first query), and it is keyed on the array's identity, length AND last
+       element — the three things every mutation the code makes moves (a
+       push, a splice, a `filter()` reassignment, the trailer swap's
+       splice-then-push). **Objects never move in place**; creatures do, and
+       are not indexed. **When you add a per-tile array a per-frame pass
+       reads, index it the same way; when you add an offer before the sprite
+       cull, widen the box.**
+  **The profile can tell the cap from the passes**: ☰ › Load profile prints
+  game steps against display frames, the main thread's busy share, still
+  steps apart from walking ones (`update @still`, `phaser render @still`),
+  the lightmap's own tick (taken back out of `drawObjects`, which it runs
+  inside) and its repaint rate, and `drawObjects scanned` — the number that
+  says whether a walk has crept back. `?fps=N` (0 = uncapped) and `?rscale=N`
+  are the A/B knobs; neither survives a PWA launch.
+  **Audit it:** `node test/node/run.js` › `test/node/still_frames.test.js`
+  (the clock, the key, the animates test, the cap and the ticks) and
+  `test/node/chunk_index.test.js` (the index against a brute-force walk, every
+  mutation shape, the query margin and a light past the cull).
+
 - **A tile can be REBUILT under you, and a rebuilt entry is a NEW object.**
   When a tile rasterizes before its Overpass bin arrives, `rebuildTileWithBin`
   builds a replacement and swaps it into the cache. It carries over only what
@@ -487,6 +541,12 @@
   content rather than either side's counter.
   **`node tools/cachebust.js --write` after the last edit** is the whole
   workflow; there is no number to choose and `vendor/phaser.js` is covered too.
+  **A merge that conflicts on a tag is resolved by keeping EITHER side and
+  running `--write`** — the hash follows the merged bytes. Resolve the markers
+  first: `--write` refuses a file that still carries `<<<<<<<`, because it
+  once hashed both sides of a hunk and left the markers in place (an
+  index.html that rendered `<<<<<<< HEAD` as text, an sw.js that was a syntax
+  error, and a green suite), and the first cache-bust check fails on one.
   **Audit it:** `node test/node/run.js` › `tools/cachebust.js`'s own CHECKS
   (node scope, like the sprite and shell audits — the `*.test.js` sandbox has
   no `require()`). The first names every stale tag and fails the suite so the

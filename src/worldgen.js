@@ -4954,6 +4954,62 @@
   // radius. drawObjects in render.js learned this the hard way (its comment
   // records the random hangs the all-tiles scan caused); the creature sim
   // loops in app.js were the same bug and now go through here.
+  // ── The chunk index: what drawObjects walks instead of the tile ─────────
+  // A tile's `objects` / `wildplants` are one flat array each, and the sprite
+  // pass used to walk all of them in the 3×3 ring on EVERY step to keep the
+  // few dozen inside the viewport — the Sep 2026 phone profile read 37,000
+  // scanned to keep 37, a quarter of all main-thread time, while standing
+  // still. So each array is bucketed ONCE into CHUNK_M-metre squares (the
+  // `collectDedupIndex` shape, hung on the entry rather than rebuilt per
+  // rasterize) and a query walks only the chunks a box overlaps.
+  // The index is DERIVED from the array and never stored, so the rebuild rule
+  // holds by construction: a rebuilt entry is a new object with no `_chunkIdx`
+  // and the first query lays it again. Within an entry the array MUTATES —
+  // spawnInTile pushes, a chop or a pickup splices, a dedup reassigns a
+  // filter()'s result, and the trailer swap splices one house then pushes
+  // another — so the index is keyed on the array's identity, its length AND
+  // its last element: a push or a splice moves the length, a filter moves
+  // the identity, and a splice-then-push of the same length moves the tail.
+  // Objects never move in place (only creatures do, and they are not indexed:
+  // a tile holds a handful and they walk every tick).
+  const CHUNK_M = 80;
+  function chunkKey(x, y) { return Math.floor(x / CHUNK_M) + ',' + Math.floor(y / CHUNK_M); }
+  function chunkIndex(entry, prop) {
+    const arr = entry[prop];
+    if (!arr || !arr.length) return null;
+    const store = entry._chunkIdx || (entry._chunkIdx = {});
+    const last = arr[arr.length - 1];
+    let idx = store[prop];
+    if (idx && idx.arr === arr && idx.n === arr.length && idx.last === last) return idx;
+    const buckets = new Map();
+    for (const o of arr) {
+      const k = chunkKey(o.x, o.y);
+      let b = buckets.get(k);
+      if (!b) buckets.set(k, b = []);
+      b.push(o);
+    }
+    idx = store[prop] = { arr, n: arr.length, last, buckets, builds: (idx ? idx.builds : 0) + 1 };
+    return idx;
+  }
+  // Every item of entry[prop] whose (x, y) may lie in the box [x0,x1]×[y0,y1]
+  // (metres) — the chunks the box touches, in array order within a chunk, so
+  // a first-seen-wins dedup reads the copies in the order the array holds
+  // them. The caller still applies its own exact cull: a chunk is coarser
+  // than the box.
+  function forEachItemInBox(entry, prop, x0, y0, x1, y1, fn) {
+    const idx = chunkIndex(entry, prop);
+    if (!idx) return;
+    const bx0 = Math.floor(x0 / CHUNK_M), bx1 = Math.floor(x1 / CHUNK_M);
+    const by0 = Math.floor(y0 / CHUNK_M), by1 = Math.floor(y1 / CHUNK_M);
+    for (let by = by0; by <= by1; by++) {
+      for (let bx = bx0; bx <= bx1; bx++) {
+        const b = idx.buckets.get(bx + ',' + by);
+        if (!b) continue;
+        for (const o of b) fn(o);
+      }
+    }
+  }
+
   function forEachItemNear(prop, tx, ty, fn) {
     for (let dty = -1; dty <= 1; dty++) {
       for (let dtx = -1; dtx <= 1; dtx++) {
@@ -4992,7 +5048,7 @@
     RASTER_SLICE_LIVE_MS, SLICE_MIN_MS,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     // Full-tile rasterization — exported for the headless spawn tests, which
