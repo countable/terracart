@@ -95,6 +95,27 @@ test('particles: burstCount is the preset count, zero under reduced motion or fo
   assert.eq(Particles.burstCount('nope', false), 0);
 });
 
+test('particles: a graze throws the pain chips a shorter distance than the worst hit', () => {
+  // The player's whole damage space is 1..16 (CLAUDE.md's armour rule). A
+  // 1-point hit — a trap's per-second bleed, a shielded glance — must not
+  // spray as far as a 16-point worst case.
+  assert.eq(Particles.dmgSpeedScale(0), 1, 'no dmg given → full throw, unchanged callers');
+  assert.eq(Particles.dmgSpeedScale(16), 1, 'the worst hit on the scale is the full throw');
+  assert.lt(Particles.dmgSpeedScale(1), Particles.dmgSpeedScale(4), '1 dmg flies shorter than 4');
+  assert.lt(Particles.dmgSpeedScale(4), Particles.dmgSpeedScale(16), '4 dmg flies shorter than 16');
+  assert.gt(Particles.dmgSpeedScale(1), 0, 'never zero — still reads as a hit');
+
+  const p = Particles.PRESETS.pain;
+  const full = Particles.emitterConfig('pain');
+  const graze = Particles.emitterConfig('pain', Particles.dmgSpeedScale(1));
+  assert.eq(full.speed.max, p.speed[1], 'no scale given — the preset\'s own range');
+  assert.lt(graze.speed.max, full.speed.max, 'a graze launches slower');
+  assert.eq(graze.lifespan.max, full.lifespan.max, 'only the speed is scaled, not how long it lives');
+  const reachFull = full.speed.max * p.lifespan[1] / 1000;
+  const reachGraze = graze.speed.max * p.lifespan[1] / 1000;
+  assert.lt(reachGraze, reachFull, 'a 1-point hit does not spray as far as the worst one');
+});
+
 test('particles: emitterConfig never streams and carries every preset range', () => {
   for (const k of KINDS) {
     const c = Particles.emitterConfig(k);

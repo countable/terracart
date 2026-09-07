@@ -192,12 +192,33 @@
     // impact and anything that lingers reads as a reward. No gravity — the
     // sting comes off the body in every direction at once, it isn't debris
     // falling back to the ground.
+    // `scaleWithDmg` marks this preset as the one whose THROW distance is not
+    // fixed: MIN_PLAYER_DAMAGE (combat.js, 1) is a graze and should read as
+    // one, not the same full-force ring a 16-point worst-case hit throws —
+    // see dmgSpeedScale below.
     pain: {
       tex: { shape: 'chip', color: C.hurt, edge: '#7a1a12', size: 8 },
       count: 14, angle: [0, 360], speed: [90, 200], lifespan: [250, 450],
       gravityY: 0, scale: [1.1, 0.2], alpha: [1, 0], rotate: [0, 360],
+      scaleWithDmg: true,
     },
   };
+
+  // A blow's SEVERITY, not just that it landed, decides how far the pain
+  // chips fly. The player's whole damage space is 1..16 (CLAUDE.md's armour
+  // rule: a MONSTERS[].dmg of 1..4, doubled for an elite, doubled again on
+  // hard) — so a 1-point graze (a trap's per-second bleed, a shielded glance)
+  // throws at PAIN_MIN_SPEED_SCALE of the preset's speed, and only the worst
+  // hit on that scale throws the full ring `speed` bakes. No `dmg` (an old
+  // caller, or a preset this doesn't apply to) is the full-force throw, same
+  // as before this existed.
+  const PAIN_DMG_MAX = 16;
+  const PAIN_MIN_SPEED_SCALE = 0.35;
+  function dmgSpeedScale(dmg) {
+    if (!(dmg > 0)) return 1;
+    const t = Math.min(1, dmg / PAIN_DMG_MAX);
+    return PAIN_MIN_SPEED_SCALE + (1 - PAIN_MIN_SPEED_SCALE) * t;
+  }
 
   // app.js's CELL_PX, read at CALL time (app.js loads after this file); 32 is
   // its shipping value, for a context without it.
@@ -248,14 +269,18 @@
 
   // The Phaser ParticleEmitterConfig for a preset. `emitting: false` — the
   // emitter never streams; it only explode()s. Pure so the test can read it.
-  function emitterConfig(kind) {
+  // `speedScale` (default 1, dmgSpeedScale's output for a `scaleWithDmg`
+  // preset) shrinks the launch speed only — the range every other test reads
+  // is untouched when it's omitted.
+  function emitterConfig(kind, speedScale) {
     const p = PRESETS[kind];
     if (!p) return null;
+    const s = (speedScale > 0) ? speedScale : 1;
     const range = (a) => ({ min: a[0], max: a[1] });
     return {
       emitting: false,
       angle: range(p.angle),
-      speed: range(p.speed),
+      speed: range([p.speed[0] * s, p.speed[1] * s]),
       lifespan: range(p.lifespan),
       gravityY: p.gravityY,
       scale: { start: p.scale[0], end: p.scale[1] },
@@ -325,14 +350,20 @@
   // The emitter for a (kind, colour), created on first use and parked in the
   // scene's fx layer. Explode() positions are emitter-local; the emitter and
   // its container both sit at (0,0), so screen coordinates pass straight
-  // through. One emitter per baked texture — the same key.
-  function ensureEmitter(scene, kind, colour) {
+  // through. One emitter per baked texture — the same key — UNLESS the preset
+  // scales its speed with `dmg` (pain), in which case the speed is baked into
+  // the config at creation same as everything else here, so a second pool
+  // slot per rounded severity keeps a graze and a full hit from sharing (and
+  // fighting over) one emitter's config.
+  function ensureEmitter(scene, kind, colour, dmg) {
     scene._fxEmitters = scene._fxEmitters || {};
-    const slot = texKey(kind, colour);
+    const p = PRESETS[kind];
+    const speedScale = (p && p.scaleWithDmg) ? dmgSpeedScale(dmg) : 1;
+    const slot = texKey(kind, colour) + ((p && p.scaleWithDmg) ? `_s${Math.round(speedScale * 100)}` : '');
     let em = scene._fxEmitters[slot];
     if (em && em.active !== false) return em;
     const key = ensureTexture(scene, kind, colour);
-    em = scene.add.particles(0, 0, key, emitterConfig(kind));
+    em = scene.add.particles(0, 0, key, emitterConfig(kind, speedScale));
     if (scene.fxContainer) scene.fxContainer.add(em);
     scene._fxEmitters[slot] = em;
     return em;
@@ -402,6 +433,10 @@
   //           spread the sink across instead of converging everything on the
   //           one point — a restored road SECTION, not a dot on it. Ignored
   //           by every other preset.
+  //   dmg     the actual points the blow cost — read only by a preset marked
+  //           `scaleWithDmg` (pain), to throw a graze a shorter distance than
+  //           the worst hit on the game's 1..16 damage scale. Ignored by
+  //           every other preset.
   function burst(scene, kind, x, y, opts) {
     if (!scene || !scene.add || !scene.textures || !scene.fxContainer) return 0;
     if (!PRESETS[kind] || !isFinite(x) || !isFinite(y)) return 0;
@@ -413,7 +448,7 @@
         const targets = (Array.isArray(o.targets) && o.targets.length) ? o.targets : [{ x, y }];
         burstConverge(scene, kind, targets, n, o);
       } else {
-        const em = ensureEmitter(scene, kind, o.colour);
+        const em = ensureEmitter(scene, kind, o.colour, o.dmg);
         if (!(o.ringPx > 0)) {
           em.explode(n, x, y);
         } else {
@@ -426,5 +461,8 @@
     return n;
   }
 
-  root.Particles = { PRESETS, burstCount, emitterConfig, onScreen, burst, texKey, ringPoints, BURST_MAX };
+  root.Particles = {
+    PRESETS, burstCount, emitterConfig, onScreen, burst, texKey, ringPoints, BURST_MAX,
+    dmgSpeedScale,
+  };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

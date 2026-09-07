@@ -11,21 +11,23 @@
 (function () {
 const app = APP_JS_SRC;
 
-test('hit flash: every drain on the body flinches at the instant it lands', () => {
-  // Four drains, four calls, each right after the loss is banked.
-  const sites = app.match(/\(before - this\.save\.energy\);\s*\n\s*this\._flashPlayerHit\(\);/g) || [];
+test('hit flash: every drain on the body flinches at the instant it lands, with what it cost', () => {
+  // Four drains, four calls, each right after the loss is banked — and each
+  // hands the actual points taken through, so a graze can throw a shorter
+  // burst than the worst hit in the game (Particles.dmgSpeedScale).
+  const sites = app.match(/\(before - this\.save\.energy\);\s*\n\s*this\._flashPlayerHit\(before - this\.save\.energy\);/g) || [];
   assert.eq(sites.length, 4, 'slime leech, monster melee, arrow, standing on a sprung trap');
   const arrow = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/);
-  assert.truthy(arrow && /this\._flashPlayerHit\(\);/.test(arrow[1]), 'the arrow is one of them');
+  assert.truthy(arrow && /this\._flashPlayerHit\(before - this\.save\.energy\);/.test(arrow[1]), 'the arrow is one of them');
   // …and the trap's BITE, which lands through the pain effect rather than in
   // that shape, because it carries the rim pulse and the shake with it.
-  const pain = app.match(/\n  _painFlash\(\) \{([\s\S]*?)\n  \}\n/);
-  assert.truthy(pain && /this\._flashPlayerHit\(\);/.test(pain[1]),
+  const pain = app.match(/\n  _painFlash\(dmg\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(pain && /this\._flashPlayerHit\(dmg\);/.test(pain[1]),
     'a trap springing flinches the body too — it is the biggest single hit there is');
 });
 
 test('hit flash: it is a flinch, not the throttled pop', () => {
-  const m = app.match(/\n  _flashPlayerHit\(\) \{([\s\S]*?)\n  \}\n/);
+  const m = app.match(/\n  _flashPlayerHit\(dmg\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_flashPlayerHit exists');
   assert.truthy(/this\._hitFlashUntilT = performance\.now\(\) \+ HIT_FLASH_MS;/.test(m[1]), 'arms a deadline');
   assert.truthy(/this\.hapticHit\(\)/.test(m[1]), 'and buzzes');

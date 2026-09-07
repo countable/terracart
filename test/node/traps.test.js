@@ -498,7 +498,7 @@ test('traps: the tick asks where the PLAYER is, never where the camera is', () =
     'the reveal goes through Traps.spring, which is what makes the bite land once');
   assert.truthy(/persistSave\(this\.save\)/.test(block),
     'and it is written straight away, so a discovered trap stays discovered');
-  assert.truthy(/this\._painFlash\(\)/.test(block), 'the bite carries the pain effect');
+  assert.truthy(/this\._painFlash\(spent\)/.test(block), 'the bite carries the pain effect');
   assert.truthy(/Traps\.STAND_ENERGY_PER_S \* dt/.test(block),
     'the bleed is per SECOND, accumulated off the frame delta');
 });

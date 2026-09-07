@@ -3305,7 +3305,7 @@ class MapScene extends Phaser.Scene {
       const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul;
       this.save.energy = Math.max(0, before - bite);
       const spent = before - this.save.energy;
-      this._painFlash();
+      this._painFlash(spent);
       // Say the real number: an empty bar loses nothing, so nothing is popped —
       // the toast below is what tells the player what happened either way.
       if (spent > 0) this._popEnergy(-spent, { ix, iy, label: '🪤 trap' });
@@ -3331,7 +3331,7 @@ class MapScene extends Phaser.Scene {
       if (before > 0) {
         this.save.energy = Math.max(0, before - pips);
         this._trapDrainPop = (this._trapDrainPop || 0) + (before - this.save.energy);
-        this._flashPlayerHit();
+        this._flashPlayerHit(before - this.save.energy);
         this._warnIfTiring(before);
         if (this.updateEnergyDOM) this.updateEnergyDOM();
       }
@@ -3359,12 +3359,12 @@ class MapScene extends Phaser.Scene {
   //   • a short camera shake, which is motion and is the one piece suppressed.
   // Depth 92: above the vignette (90) and below the work wheel (95), and
   // unmasked like both of them — it is UI about the body, not a world layer.
-  _painFlash() {
+  _painFlash(dmg) {
     // The BODY's own channel first — the red flick + haptic buzz + blood
     // burst every other blow on the player uses (_flashPlayerHit). The rest
     // of this method is what a trap adds on top of that: it is the biggest
     // single hit in the game, so it also reaches the edges of the screen.
-    this._flashPlayerHit();
+    this._flashPlayerHit(dmg);
     if (!this.add || !this.tweens || this.viewLeft == null) return;
     const g = this.add.graphics().setDepth(92);
     const x0 = this.viewLeft, y0 = this.viewTop, size = this.viewSize;
@@ -6991,7 +6991,7 @@ class MapScene extends Phaser.Scene {
     const dmg = Combat.playerDamage(shielded, this.save.armor, shot.hits);
     this.save.energy = Math.max(0, before - dmg);
     this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
-    this._flashPlayerHit();
+    this._flashPlayerHit(before - this.save.energy);
     this._warnIfTiring(before);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return true;
@@ -7008,14 +7008,17 @@ class MapScene extends Phaser.Scene {
   // a red chip burst off the BODY (Particles 'pain') — every one of these
   // call sites is the player being hurt, so the burst belongs here rather
   // than duplicated at each one; it is already 0 under prefers-reduced-motion
-  // by burstCount's own rule.
-  _flashPlayerHit() {
+  // by burstCount's own rule. `dmg` is the actual points this blow cost — the
+  // burst reads it (Particles.dmgSpeedScale) to throw a 1-point graze a short
+  // distance rather than the same full-force ring a worst-case hit gets;
+  // omitted it defaults to the full throw.
+  _flashPlayerHit(dmg) {
     this._hitFlashUntilT = performance.now() + HIT_FLASH_MS;
     if (this.hapticHit) this.hapticHit();
     if (typeof Particles !== 'undefined' && this.playerScreen) {
       const ps = this.playerScreen();
       if (ps && isFinite(ps.x) && isFinite(ps.y)) {
-        Particles.burst(this, 'pain', ps.x, ps.y + this.playerFeetNudgeY);
+        Particles.burst(this, 'pain', ps.x, ps.y + this.playerFeetNudgeY, { dmg });
       }
     }
   }
@@ -7921,7 +7924,7 @@ class MapScene extends Phaser.Scene {
             const slimeDmg = Combat.playerDamage(slimeRaw, this.save.armor);
             this.save.energy = Math.max(0, before - slimeDmg);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
-            this._flashPlayerHit();
+            this._flashPlayerHit(before - this.save.energy);
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
           }
@@ -7982,7 +7985,7 @@ class MapScene extends Phaser.Scene {
             const monDmg = Combat.playerDamage(shielded, this.save.armor);
             this.save.energy = Math.max(0, before - monDmg);
             this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
-            this._flashPlayerHit();
+            this._flashPlayerHit(before - this.save.energy);
             this._warnIfTiring(before);
             if (this.updateEnergyDOM) this.updateEnergyDOM();
           }
