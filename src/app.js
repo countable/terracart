@@ -10830,7 +10830,14 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
     const detail = read.title.replace(/^📖\s*/, '');
     const body = detail.startsWith('The book falls open') ? `${detail}\n${read.body}` : read.body;
-    this.showMessageModal({ title: 'Your curiosity compels you to read the book:', body, onDismiss });
+    this.showMessageModal({
+      title: 'Your curiosity compels you to read the book:',
+      body,
+      // A book read by firelight — the picture of the places of learning the
+      // Book comes from, survivors sharing what they know.
+      art: 'book_read',
+      onDismiss,
+    });
   }
 
   // Fires any book read(s) addToInv deferred (via { deferBookRead: true })
@@ -11211,6 +11218,24 @@ class MapScene extends Phaser.Scene {
     return Crops.advanceWithin(this.save, pWX, pWY, radius);
   }
 
+  // ── DIALOG BANNER ART ──────────────────────────────────────────────────
+  // Story dialogs carry a pixel-art banner (generated with gpt-image-1.5,
+  // palette-matched to the sprite sheets: dark plum #1c0a18 outlines,
+  // terracotta/sand fills, gold light). ONE seating for every dialog that
+  // shows one — full-width, nearest-neighbour, a hairline border in the
+  // dialog's own accent so the banner belongs to the box it sits in, seated
+  // under the kind header and above the copy. `art` is the file stem under
+  // assets/art/. The pieces show SURVIVORS where the story names them (the
+  // trail intro and the prize ceremony — the two moments the copy speaks in
+  // the survivors' voice) and stay scenic for the rest.
+  dialogArtHTML(art, accent) {
+    if (!art) return '';
+    return `<img src="assets/art/${art}.png" alt="" ` +
+      `style="display:block;width:100%;image-rendering:pixelated;` +
+      `border-radius:8px;border:1px solid ${accent || UI_CONTROL_DIM}59;` +
+      `margin:0 0 10px">`;
+  }
+
   // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.
   //   onClose — if provided, backdrop click (tap on wrap outside box) removes
   //             the modal and calls onClose(). Pass () => {} for no-op backdrop.
@@ -11312,12 +11337,15 @@ class MapScene extends Phaser.Scene {
   }
 
   // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
-  showMessageModal({ title, body, okLabel = 'OK', onDismiss }) {
+  // `art` (optional) — a banner stem for dialogArtHTML, shown above the title
+  // on the story dialogs (the trail intro, a book read).
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art }) {
     document.getElementById('offer-modal')?.remove();
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
       { zIndex: 60, onClose: () => {}, kind: 'note' });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
+      this.dialogArtHTML(art) +
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
       `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
@@ -13462,6 +13490,9 @@ class MapScene extends Phaser.Scene {
     this.showMessageModal({
       title: TRAIL_INTRO_TITLE,
       body: trailIntroBody(),
+      // The banner the promise is made in: survivors watching the repair —
+      // the story this dialog tells, drawn rather than described.
+      art: 'trail_intro',
       onDismiss: () => this._drainTrailPrizes(),
     });
     return true;
@@ -13616,6 +13647,7 @@ class MapScene extends Phaser.Scene {
       this.showChestRewardModal({
         kind: 'trail',
         header,
+        art: 'trail_prize',
         iconHTML: '<span style="font-size:48px">🪙</span>',
         name: '+$5',
         sub: next,
@@ -13635,7 +13667,7 @@ class MapScene extends Phaser.Scene {
       const card = this._claimTrailReward(choices[0], { deferBookRead: true });
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
       this.showChestRewardModal({
-        kind: 'trail', header, ...card,
+        kind: 'trail', header, ...card, art: 'trail_prize',
         // The card's own outcome line ("equipped") stays, with the ladder's
         // next rung under it — two facts, two lines, not one line saying both.
         sub: card.sub ? `${card.sub}<br>${next}` : next,
@@ -13650,6 +13682,7 @@ class MapScene extends Phaser.Scene {
     this.showChestRewardModal({
       kind: 'trail',
       header,
+      art: 'trail_prize',
       iconHTML: '<span style="font-size:44px">💎</span>',
       name: 'Take your pick',
       sub: `${walked} restored · ${choices.length} finds — one is yours<br>${next}`,
@@ -14071,6 +14104,9 @@ class MapScene extends Phaser.Scene {
     this.showOfferModal({
       kind: 'shop',
       title: 'Thank you for visiting us, my lord.',
+      // The castellan at his gate — the survivor who runs the place you
+      // restored, greeting the player the banner flew for.
+      art: 'castle_favour',
       get: 'One favour a day — your call.',
       blurb: `Whichever you pick, it won't be on offer again for ${shortDuration(msToNextUtcDay())}.`,
       canAfford: true,
@@ -14868,7 +14904,7 @@ class MapScene extends Phaser.Scene {
   //                 "Later" reads as "still on the table" rather than "gone".
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, art }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { maxWidth: 340, onClose: () => {}, kind, kindLabel });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
@@ -14898,6 +14934,14 @@ class MapScene extends Phaser.Scene {
     // present) can live-update the get/cost lines without re-rendering the
     // whole modal — tap − / + and the headline price + cost-line stack count
     // refresh in place.
+    // The optional story banner (dialogArtHTML) sits above the title — the
+    // one node innerHTML callers can't wipe, because this modal builds its
+    // chrome from appends.
+    if (art) {
+      const artDiv = document.createElement('div');
+      artDiv.innerHTML = this.dialogArtHTML(art);
+      box.appendChild(artDiv);
+    }
     const titleDiv = document.createElement('div');
     titleDiv.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:6px';
     titleDiv.textContent = title;
@@ -15066,7 +15110,7 @@ class MapScene extends Phaser.Scene {
   // one header, not two. Callers that say nothing get TREASURE, which is what
   // a chest is.
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
-    onDismiss, header, kind = 'treasure', actions }) {
+    onDismiss, header, kind = 'treasure', actions, art }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, minWidth: 220, maxWidth: 300, borderColor: accent, wrapBg: '#000c',
       kind, kindLabel: header,
@@ -15104,6 +15148,7 @@ class MapScene extends Phaser.Scene {
       : '';
     const hasActions = Array.isArray(actions) && actions.length > 0;
     box.innerHTML =
+      this.dialogArtHTML(art, accent) +
       `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
       qtyHtml +
