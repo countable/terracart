@@ -976,21 +976,16 @@ test('lamp stone: paints inside its own square only', () => {
 test('lamp stone: a real radial gradient halo and sett, not a stack of translucent rings', () => {
   const { ctx, ops } = roRecorder();
   RoadOverlay.paintLampStone(ctx, 64);
-  // Exactly two gradients — the wide halo wash and the sett's own core —
-  // each with its own falloff to nothing, and exactly two strokable arcs (the
-  // sett body and its rim). A stack of rings standing in for either would be
-  // many more of both, and would double-composite over itself.
+  // Exactly two gradients — the wide halo wash and the top face's own core —
+  // each with its own falloff to nothing. The stone is a handful of arcs (the
+  // side body, its rim, the top face, its rim, one catchlight sliver): a
+  // stack of rings standing in for the gradients would be many more, and
+  // would double-composite over itself.
   const grads = ops.filter(([k]) => k === 'createRadialGradient');
   assert.eq(grads.length, 2, 'the halo and the stone core, nothing else');
   const arcs = ops.filter(([k]) => k === 'arc');
-  assert.eq(arcs.length, 2, 'the sett fill and its rim stroke — one circle each, not a ring stack');
-  assert.eq(ops.filter(([k]) => k === 'fill').length, 1, 'one filled sett');
-  assert.eq(ops.filter(([k]) => k === 'stroke').length, 1, 'one stroked rim');
-  // Both arcs share the same centre and radius: the rim traces the sett it
-  // sits on, not a ring of its own size.
-  const [, ax, ay, ar] = arcs[0];
-  const [, bx, by, br] = arcs[1];
-  assert.eq(ax, bx); assert.eq(ay, by); assert.eq(ar, br);
+  assert.lte(arcs.length, 5, 'a few arcs for a stone with height — never a ring stack');
+  assert.lte(ops.filter(([k]) => k === 'stroke').length, 3, 'two rims and a catchlight, no ring loop');
   // The halo gradient falls all the way to transparent at its rim — a real
   // falloff, not an opaque ring with a hard edge.
   const stops = ops.filter(([k]) => k === 'addColorStop');
@@ -999,17 +994,69 @@ test('lamp stone: a real radial gradient halo and sett, not a stack of transluce
   assert.lt(lastA, 0.01, 'the halo fades to nothing by the edge of the square');
 });
 
-test('lamp stone: the stone is a fraction of the square, not the whole tile', () => {
-  const S = 64;
+// ── The stone has HEIGHT ────────────────────────────────────────────────────
+// Every sprite in the game is orthographic and lit from the top-left (the
+// cobble sheet the unlit lamp wears: a pale top, a dark outline, a thicker
+// shadowed underside), and a flat lit disc beside them read as a decal on the
+// road. The lit stone is three parts on one point: a ground shadow thrown
+// down-right, a dark side band hanging below the top face, and the top face
+// itself with its hot core off up-left. The TOP FACE stays centred on the
+// square — lighting.js's cookie sits on the same point, and the light has to
+// come out of the stone.
+test('lamp stone: a ground shadow, a side band below the top face, and a top-left light', () => {
+  const S = 64, c = S / 2;
   const { ctx, ops } = roRecorder();
   RoadOverlay.paintLampStone(ctx, S);
-  const arcs = ops.filter(([k]) => k === 'arc');
-  const r = arcs[0][3];
-  // Derived from what is actually drawn, rather than retyping
-  // road_overlay.js's own LAMP_STONE_FRAC: a lamp reads as a stone sitting on
-  // the road, not a wash filling the whole cell it stands in.
-  const frac = r / S;
-  assert.inRange(frac, 0.08, 0.3, `the sett is a modest fraction of its tile, got ${frac.toFixed(3)}`);
+  // The full-radius arcs: the side body (dropped) and the top face (centred).
+  const full = ops.filter(([k, , , , a0, a1]) => k === 'arc' && a0 === 0 && a1 === Math.PI * 2);
+  const r = Math.max(...full.map(([, , , rr]) => rr));
+  const centres = new Set(full.map(([, x, y]) => `${x},${y}`));
+  assert.truthy(centres.has(`${c},${c}`), 'the top face is centred on the square (where the light sits)');
+  const dropped = full.filter(([, x, y]) => x === c && y > c);
+  assert.gt(dropped.length, 0, 'a side body hangs BELOW the top face');
+  const drop = dropped[0][2] - c;
+  assert.inRange(drop / r, 0.2, 0.7, `the visible thickness is a fraction of the radius, got ${(drop / r).toFixed(2)}`);
+  // The side body is painted DARKER than the top face's ink, and before it —
+  // the top face covers all but the band.
+  const sideFillIdx = ops.findIndex(([k, x, y]) => k === 'arc' && x === c && y === c + drop);
+  const sideFill = roStyleAt(ops, sideFillIdx, 'fillStyle');
+  assert.truthy(/^rgba\(/.test(sideFill), 'the side band is a flat dark fill, not a gradient');
+  const [, sr, sg, sb] = sideFill.match(/^rgba\((\d+),(\d+),(\d+),/).map(Number);
+  const hex = UI_LAMP_GLOW.replace('#', '');
+  const ir = parseInt(hex.slice(0, 2), 16), ig = parseInt(hex.slice(2, 4), 16), ib = parseInt(hex.slice(4, 6), 16);
+  assert.lt(sr + sg + sb, ir + ig + ib, 'the side is the ink in shadow');
+  assert.gt(sb, sr, 'still a violet, not a grey');
+  const topFillIdx = ops.findIndex(([k, x, y], i) => k === 'arc' && x === c && y === c && i > sideFillIdx);
+  assert.gt(topFillIdx, sideFillIdx, 'the top face is painted over the side body');
+  // The ground shadow: one ellipse, dark and translucent, its centre down and
+  // RIGHT of the stone — the side every sprite here shadows on — lying under
+  // the side body.
+  const ell = ops.filter(([k]) => k === 'ellipse');
+  assert.eq(ell.length, 1, 'one ground shadow');
+  const [, ex, ey, erx, ery] = ell[0];
+  assert.gt(ex, c, 'the shadow falls to the right'); assert.gt(ey, c + drop, 'and below the side body');
+  assert.lt(ery, erx, 'squashed flat: it lies on the road');
+  assert.lte(ex + erx, S, 'inside the square'); assert.lte(ey + ery, S, 'inside the square');
+  const ellIdx = ops.findIndex(([k]) => k === 'ellipse');
+  const shadowA = roAlphaOf(roStyleAt(ops, ellIdx, 'fillStyle'));
+  assert.inRange(shadowA, 0.15, 0.5, 'a translucent shadow, neither invisible nor a black hole');
+  assert.lt(ellIdx, sideFillIdx, 'the shadow is laid before the stone that throws it');
+  // The top face's core sits UP-LEFT of centre: the lit side of every sprite.
+  const grads = ops.filter(([k]) => k === 'createRadialGradient');
+  const [, gx0, gy0, , gx1, gy1] = grads[1];
+  assert.lt(gx0, gx1, 'the hot core is left of centre'); assert.lt(gy0, gy1, 'and above it');
+  assert.eq(gx1, c); assert.eq(gy1, c);
+  // …and a pale catchlight sliver on the same edge: a short arc over the
+  // top-left quadrant, never a full ring.
+  const sliver = ops.filter(([k, , , , a0, a1]) => k === 'arc' && !(a0 === 0 && a1 === Math.PI * 2));
+  assert.eq(sliver.length, 1, 'one catchlight');
+  const [, , , , s0, s1] = sliver[0];
+  assert.inRange(s0, Math.PI, Math.PI * 1.5, 'starts in the top-left quadrant');
+  assert.lt(s1 - s0, Math.PI * 0.75, 'a sliver, not a ring');
+  const slIdx = ops.findIndex(([k, , , , a0, a1]) => k === 'arc' && !(a0 === 0 && a1 === Math.PI * 2));
+  const slStroke = roStyleAt(ops, slIdx, 'strokeStyle');
+  const [, lr, lg, lb] = slStroke.match(/^rgba\((\d+),(\d+),(\d+),/).map(Number);
+  assert.gt(lr + lg + lb, ir + ig + ib, 'the catchlight is paler than the ink');
 });
 
 test('lamp stone: painted in the lamp\'s own activated violet, not the street\'s pale ink', () => {
@@ -1029,7 +1076,12 @@ test('lamp stone: painted in the lamp\'s own activated violet, not the street\'s
   assert.gt(ib, ir, 'violet: blue leads red');
   // The rim stroke is dark, not the ink itself — what makes the sett read as
   // a laid stone by day rather than a smudge of light.
-  const stroke = roStyleAt(ops, ops.length, 'strokeStyle');
+  // The rim is the stroke round the top face (the full circle centred on the
+  // square), not the catchlight sliver painted last.
+  const topRim = ops.findIndex(([k, x, y, , a0, a1], i) =>
+    k === 'arc' && x === 32 && y === 32 && a0 === 0 && a1 === Math.PI * 2 && ops[i + 1]?.[0] === 'stroke');
+  assert.gt(topRim, 0, 'the top face is rim-stroked');
+  const stroke = roStyleAt(ops, topRim, 'strokeStyle');
   assert.truthy(/^rgba\(\d+,\d+,\d+,/.test(stroke), 'the rim is stroked, not left at the ink');
   const [, rr, rg, rb] = stroke.match(/^rgba\((\d+),(\d+),(\d+),/).map(Number);
   assert.lt(rr + rg + rb, ir + ig + ib, 'the rim is darker than the stone it outlines');
