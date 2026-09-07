@@ -603,7 +603,7 @@ const TAP_HANDLERS = [
     //
     //   GAME (crow / deer) keeps the old timed work wheel: nothing auto-fires
     //   at them and no shot can hit them, so a hunt is still a deliberate tap.
-    //   The BUG NET is what speeds it — see the HUNT_KINDS branch below.
+    //   The BUG NET is what speeds it — see the isGame branch below.
     //
     // Either way the defeat is FREE (no energy spent): your TIME is the cost,
     // which also means you can still kill the very slime that's draining you
@@ -653,12 +653,14 @@ const TAP_HANDLERS = [
       return true;
     }
 
-    // HUNTING — crow and deer only. The old DEFEAT_KINDS set also held 'slime',
-    // which is an enemy now and never reaches here; it also matched a TAME
-    // 'released_' animal, so tapping the slime you'd just befriended with a
-    // sapphire killed it. A pet of any kind falls through to petting below.
-    const HUNT_KINDS = new Set(['crow', 'deer']);
-    if (!isTame && HUNT_KINDS.has(target.kind)) {
+    // HUNTING — GAME only, which is crow and deer: SpriteLayout.isGame reads
+    // the one creature table, so what may be hunted is written beside what
+    // that kill drops instead of in a set of its own here. The old DEFEAT_KINDS
+    // set also held 'slime', which is an enemy now and never reaches here; it
+    // also matched a TAME 'released_' animal, so tapping the slime you'd just
+    // befriended with a sapphire killed it. A pet of any kind falls through to
+    // petting below.
+    if (!isTame && SpriteLayout.isGame(target.kind)) {
       const r = save.relics || {};
       // ONE TOOL TAKES ANIMALS: the BUG NET. Until Sep 2026 the hunt wheel was
       // sped by the best of sword / bow / staff, so a weapon bought purely to
@@ -716,7 +718,7 @@ const TAP_HANDLERS = [
     // never produces (the reported "cow gives no milk when fed" bug). Petting
     // with an empty hand or a non-produce treat still runs the pet branch.
     const tameProducerFeed = isTame && isPlantProduce && (sel?.count ?? 0) > 0
-      && (target.kind === 'cow' || target.kind === 'chicken');
+      && !!SpriteLayout.creatureProduce(target.kind);
     if (isTame && !tameProducerFeed) {
       const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
                       butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort' };
@@ -738,7 +740,9 @@ const TAP_HANDLERS = [
         target._pettedUntilT = performance.now() + PET_BOOST_MS;
         save.petBoost = save.petBoost || {};
         save.petBoost[target.id] = Date.now() + PET_BOOST_MS;
-        if (target.kind === 'cat') {
+        // A kind that FOLLOWS once petted (the cat) starts its five minutes —
+        // the same `follows` flag wanderCreatures reads to honour the timer.
+        if (SpriteLayout.creatureFollows(target.kind)) {
           target._followUntilT = performance.now() + 5 * 60 * 1000;
         }
         if (isTreat) {
@@ -788,9 +792,11 @@ const TAP_HANDLERS = [
     // _lastProduceT, but the save-side mirror is read back below.
     const PRODUCE_COOLDOWN_MS = 60 * 60 * 1000;
     if (sel && isPlantProduce && (sel.count ?? 0) > 0) {
-      const yieldId = target.kind === 'chicken' ? 'egg'
-                    : target.kind === 'cow'     ? 'milk'
-                    : null;
+      // WHAT A FED FARM ANIMAL GIVES, and what it is called having given it,
+      // are one row of the creature table (`produce`) — so "is this a
+      // producer" above, the item here and the verb below can't disagree.
+      const produce = SpriteLayout.creatureProduce(target.kind);
+      const yieldId = produce ? produce.item : null;
       if (yieldId) {
         const now = Date.now();
         save.lastProduce = save.lastProduce || {};
@@ -800,7 +806,7 @@ const TAP_HANDLERS = [
           // before the confirm dialog so we don't ask about a feed that can't
           // happen yet.
           const left = shortDuration(PRODUCE_COOLDOWN_MS - (now - lastT));
-          const verb = target.kind === 'chicken' ? 'laid' : 'milked';
+          const verb = produce.verb;
           scene.flash(`already ${verb} — in ${left}`, sx, sy);
           return true;
         }

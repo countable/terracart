@@ -23,7 +23,12 @@
 //
 // Creatures are exempt from the rule (they're moving actors), but their drawn
 // geometry lives here too — see CREATURE_ART near the bottom — so the sprite,
-// its shadow and the work-progress wheel all read one table.
+// its shadow and the work-progress wheel all read one table. CREATURE_BEHAVIOUR
+// beside it is the same idea pointed at what a kind DOES rather than how it
+// draws: one row per kind, read by the wander loop, the tap handler and the
+// kill payout, so none of them has to spell a kind out by name. Neither table
+// decides whether a kind is HOSTILE — that is app.js's MONSTERS registry, read
+// through Combat.isEnemy.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
   'use strict';
@@ -217,26 +222,44 @@
   // the one change a player can read at noon and underground alike.
   const CAVE_SLIME_TINT = 0xffa4f0;
 
+  // ── WHAT THE RENDERER DOES WITH THE SHEET ─────────────────────────────────
+  // Beside the geometry (sheet / frame size / scale / foot / float / trimmed
+  // rows) each row says how its art MOVES, because that was a seven-branch
+  // if-else in render.js until Sep 2026 whose branches differed in nothing
+  // else — the same drift the tint was pulled in here to stop:
+  //   anim      a Phaser animation key (app.js create() defines them). The
+  //             sheet is set and the anim played; the renderer steps no frames.
+  //   frameMs   ms per frame when the renderer steps the row-0 cycle itself,
+  //             over `frames` (which is therefore a COUNT OF REAL ART, listed
+  //             per row — see the frame-index rule in CLAUDE.md).
+  //   hop       the continuous bounce a slime and every cave monster wear,
+  //             phase-offset per creature off its id. How HIGH and how QUICK
+  //             is the monster table's business (MONSTERS[kind].fly), not
+  //             this one's.
+  //   airborne  it flies: its contact shadow reads smaller and fainter.
+  // A row with neither `anim` nor `frameMs` is drawn at rest, on frame 0.
   const CREATURE_ART = {
-    chicken:       { sheet: 'chicken',   fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
-    cow:           { sheet: 'cow',       fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
-    cat:           { sheet: 'cat',       fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
-    dog:           { sheet: 'dog',       fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
+    chicken:       { sheet: 'chicken',   anim: 'chicken-idle', fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
+    cow:           { sheet: 'cow',       anim: 'cow-idle',     fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
+    cat:           { sheet: 'cat',       anim: 'cat-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
+    dog:           { sheet: 'dog',       anim: 'dog-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
     deer:          { sheet: 'deer',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
     rabbit:        { sheet: 'rabbit',    fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
-    crow:          { sheet: 'crow',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
-    butterfly:     { sheet: 'butterfly', fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
-    slime:         { sheet: 'slime',     frames: 4, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
+    crow:          { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
+    // The butterfly's 7 frames are the sheet's whole top row; it is the one
+    // kind the renderer steps at anything but the 160 ms creature beat.
+    butterfly:     { sheet: 'butterfly', frames: 7, frameMs: 100, airborne: true, fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
+    slime:         { sheet: 'slime',     frames: 4, frameMs: 160, hop: true, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
     // Underground monsters. The cave slime is the SURFACE SLIME'S SHEET — same
     // file, same frames, same trimmed rows — so everything the art decides has
     // to match the row above it, and the one thing that may differ is the
     // tint. It carried `foot: 0.9` (the blanket fallback from before this
     // table existed) until Sep 2026, which hung it ~10px above its own contact
     // shadow: one body cannot have two ground lines.
-    cave_slime:    { sheet: 'slime',     frames: 4, fw: 32, fh: 32, scale: 1.25, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: CAVE_SLIME_TINT },
-    purple_slime:  { sheet: 'purple_slime',  frames: 4, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
-    goblin:        { sheet: 'goblin',        frames: 6, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
-    goblin_archer: { sheet: 'goblin_archer', frames: 6, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
+    cave_slime:    { sheet: 'slime',     frames: 4, frameMs: 160, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: CAVE_SLIME_TINT },
+    purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: 160, hop: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
+    goblin:        { sheet: 'goblin',        frames: 6, frameMs: 160, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
+    goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: 160, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
   };
   // ── GIANTS ────────────────────────────────────────────────────────────────
   // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
@@ -260,6 +283,92 @@
     const base = CREATURE_ART[baseKind(kind)];
     if (!base) return undefined;
     return (_giantArt[kind] = { ...base, scale: base.scale * GIANT_ART_SCALE });
+  }
+
+  // ── CREATURE BEHAVIOUR ────────────────────────────────────────────────────
+  // What a kind DOES, beside CREATURE_ART's what a kind LOOKS LIKE — and read
+  // through the same baseKind resolution, so a giant inherits its base kind's
+  // habits exactly as it inherits its art.
+  //
+  // WHAT THIS TABLE IS NOT: the enemy registry. Whether a kind is HOSTILE is
+  // app.js's MONSTERS table, asked everywhere through Combat.isEnemy — one
+  // registration is what makes a kind a foe in every branch at once (CLAUDE.md:
+  // "when you add a hostile kind, put it in the monster table"), and nothing
+  // here may answer that question. A row says how a kind BEHAVES: what thinks
+  // at all, what bolts from you and how far, what a tame pet hunts, what is
+  // GAME (crow + deer — hunted with the net, never shot at), what a kill
+  // drops, what a farm animal gives, what a scarecrow turns back.
+  //
+  // It is a sibling of CREATURE_ART rather than more columns on it because the
+  // two are audited by different things: tools/sprite_audit.js re-decodes the
+  // PNGs behind every CREATURE_ART row, and nothing about a dog's prey list
+  // can be measured off a sheet.
+  //
+  // The GAIT rows are what a per-kind ternary in wanderCreatures used to spell
+  //   stepMs     ms one hop's animation takes (default: the loop's STEP_MS)
+  //   stepCells  how far that hop carries it, in cells (default 1)
+  //   pauseMs    [base, spread] it sits still for between hops (default none)
+  //   flee       the same three for a BOLT, plus:
+  //     cells    the player inside this many cells spooks it (absent: nothing
+  //              about the player's position alone makes this kind bolt)
+  //     escapes  the two-minute window a failed net-catch arms (_escapingUntil)
+  //              makes it bolt as well — the butterfly, the one kind that
+  //              window is ever stamped on
+  //     jitter   the spread on the away-from-the-player angle, in radians
+  //   tameSettles  the quick gait above is a WILD animal's wariness; a tame
+  //              one drops it and joins the base wander (what `&& !isTame` on
+  //              the old isRabbit / isDeer said). A butterfly flits either way.
+  // The surface slime's gait is NOT here: its two numbers (SLIME_STEP_MUL /
+  // SLIME_HOP_CELLS) are app.js's own, beside the note that tunes them, and a
+  // monster's cadence comes from the MONSTERS row it is registered in.
+  const CREATURE_BEHAVIOUR = {
+    chicken:       { wanders: true, produce: { item: 'egg',  verb: 'laid' } },
+    cow:           { wanders: true, produce: { item: 'milk', verb: 'milked' } },
+    // A PET is a kind that hunts FOR you once tame — not a kind that can be
+    // tamed (any animal can, and a sapphire tames a slime). `prey` is the
+    // hoisted Set the per-step scan reads, so it allocates nothing.
+    cat:           { wanders: true, pet: true, follows: true, prey: new Set(['crow']) },
+    dog:           { wanders: true, pet: true, prey: new Set(['deer', 'slime']) },
+    deer:          { wanders: true, game: true, drop: 'meat', raidsCrops: true,
+                     avoids: ['scarecrow'], tameSettles: true,
+                     flee: { cells: 5, jitter: 0.6, stepMs: 340, stepCells: 1.8 } },
+    rabbit:        { wanders: true, tameSettles: true,
+                     stepMs: 420, stepCells: 0.5, pauseMs: [700, 1300],
+                     flee: { cells: 4, jitter: 1.1, stepMs: 300, stepCells: 1.4,
+                             pauseMs: [80, 120] } },
+    crow:          { wanders: true, game: true, drop: 'crow_feather', avoids: ['scarecrow'] },
+    butterfly:     { wanders: true, pollinates: true, stepMs: 900,
+                     flee: { escapes: true, jitter: 1.2, stepMs: 350, stepCells: 1.5 } },
+    slime:         { wanders: true },
+    cave_slime:    { wanders: true },
+    purple_slime:  { wanders: true },
+    goblin:        { wanders: true },
+    goblin_archer: { wanders: true },
+  };
+  // The behaviour row for `kind` — the base row for a giant, like its art.
+  function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[baseKind(kind)]; }
+  // Does this kind think at all? wanderCreatures culls on it before anything
+  // else, so a kind with no row is furniture.
+  function creatureWanders(kind) { return !!creatureBehaviour(kind)?.wanders; }
+  // A tame one of these hunts for its owner (cat, dog) — see `prey`.
+  function isPet(kind) { return !!creatureBehaviour(kind)?.pet; }
+  // GAME: taken by a tap on the hunt wheel, with the bug net. Deliberately NOT
+  // Combat.isEnemy's business — nothing auto-fires at game and no shot may hit
+  // it, or hunting stops being a choice (CLAUDE.md).
+  function isGame(kind) { return !!creatureBehaviour(kind)?.game; }
+  // What a tame pet of this kind hunts, as a Set — null for everything else.
+  function creaturePrey(kind) { return creatureBehaviour(kind)?.prey || null; }
+  // The one item a kill of this kind drops (resolveDefeat), or null: an enemy
+  // pays a bounty instead, and that is Combat's question, not this table's.
+  function creatureDrop(kind) { return creatureBehaviour(kind)?.drop || null; }
+  // What a fed farm animal gives — { item, verb } — or null.
+  function creatureProduce(kind) { return creatureBehaviour(kind)?.produce || null; }
+  // Does a petted one follow the player? (The cat's five minutes.)
+  function creatureFollows(kind) { return !!creatureBehaviour(kind)?.follows; }
+  // Is a target cell within a ward of `what` ('scarecrow') refused to it?
+  function creatureAvoids(kind, what) {
+    const a = creatureBehaviour(kind)?.avoids;
+    return !!a && a.indexOf(what) >= 0;
   }
 
   // Every creature is drawn this far below its projected cell centre, so its
@@ -296,6 +405,15 @@
   // creatureArt and a giant can never end up on a sheet of its own.
   function creatureSheet(kind) { return creatureArt(kind)?.sheet ?? null; }
   function creatureFrames(kind) { return creatureArt(kind)?.frames ?? 1; }
+  // HOW the sheet moves, same table for the same reason: the Phaser anim key
+  // to play (null = the renderer steps the cycle itself), the ms per frame
+  // while it does (null = drawn at rest on frame 0), whether the body bounces,
+  // and whether it flies. One if-else per kind in the renderer is what these
+  // replaced, and what let the branches drift apart.
+  function creatureAnim(kind) { return creatureArt(kind)?.anim ?? null; }
+  function creatureFrameMs(kind) { return creatureArt(kind)?.frameMs ?? 0; }
+  function creatureHops(kind) { return !!creatureArt(kind)?.hop; }
+  function creatureAirborne(kind) { return !!creatureArt(kind)?.airborne; }
   // The multiply colour a kind is drawn in — white for art that is already its
   // own colour. This is the ONLY thing separating two kinds that share a sheet
   // (see CAVE_SLIME_TINT), so it is read from the table rather than branched
@@ -361,6 +479,9 @@
     PLAIN_ROCK_VARIANTS, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
+    CREATURE_BEHAVIOUR, creatureBehaviour, creatureWanders, isPet, isGame,
+    creaturePrey, creatureDrop, creatureProduce, creatureFollows, creatureAvoids,
+    creatureAnim, creatureFrameMs, creatureHops, creatureAirborne,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, creatureSheet, creatureFrames, creatureTint,

@@ -823,9 +823,15 @@ test('reach: the removed rule leaves nothing behind to feed it', () => {
 // deep, so the wiring is pinned as source text.
 test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
   const src = INTERACT_SRC;
-  const hunt = src.slice(src.indexOf("const HUNT_KINDS = new Set(['crow', 'deer']);"),
+  // WHICH kinds are game is no longer a set spelled out here: it is the
+  // creature table's `game` row, read through SpriteLayout.isGame — beside
+  // what a kill of that kind drops (app.js resolveDefeat), so the two halves
+  // of "crow and deer are hunted" cannot name different kinds.
+  const hunt = src.slice(src.indexOf("if (!isTame && SpriteLayout.isGame(target.kind)) {"),
                          src.indexOf('// Catchable animals'));
   assert.truthy(hunt.length > 0, 'found the hunt branch');
+  assert.eq(Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter((k) => SpriteLayout.isGame(k)).join(),
+    'deer,crow', 'and the table still calls exactly the crow and the deer game');
   // Named plainly since Sep 2026: an unowned slot is the bare-handed rung in
   // toolDurationMs, and "you own no net, so wear no badge" is answered once in
   // app.js _setWorkProgressIcon rather than re-tested here (see

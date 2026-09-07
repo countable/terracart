@@ -645,10 +645,10 @@ function eliteRollBonus(kind, depth) {
 }
 const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
 function isMonster(kind) { return MONSTER_KINDS.has(kind); }
-// What a tame pet hunts (wanderCreatures' prey scan) — hoisted so the per-step
-// scan doesn't allocate fresh Sets.
-const CAT_PREY = new Set(['crow']);
-const DOG_PREY = new Set(['deer', 'slime']);
+// What a tame pet hunts is its row's `prey` in SpriteLayout.CREATURE_BEHAVIOUR
+// (still a hoisted Set, so wanderCreatures' per-step scan allocates nothing) —
+// beside what else that kind does, rather than in a pair of consts here that
+// only the one scan could find.
 // ── The wild slime's gait ────────────────────────────────────────────────────
 // The surface slime OOZES. It is the first enemy in the game and the only one
 // above ground, it drifts toward whoever is nearby, and it leeches energy just
@@ -7438,9 +7438,10 @@ class MapScene extends Phaser.Scene {
     save.caught = save.caught || [];
     if (save.caught.includes(victim.id)) return;
     save.caught.push(victim.id);
-    const dropId = victim.kind === 'crow' ? 'crow_feather'
-                 : victim.kind === 'deer' ? 'meat'
-                 : null;
+    // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
+    // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a
+    // bounty instead — which is Combat's question, asked just below.
+    const dropId = SpriteLayout.creatureDrop(victim.kind);
     if (dropId) {
       this.addToInv(dropId, 1);
       const item = ITEM_BY_ID[dropId];
@@ -8014,14 +8015,13 @@ class MapScene extends Phaser.Scene {
       const ddx = c.x - px, ddy = c.y - py;
       if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
-      // Wandering kinds: farm + pet animals always; butterflies (wild + tame)
-      // flit about constantly — tame ones also pollinate. Crows + deer also
-      // wander when wild so they can eat crops / be hunted.
-      const wanders = c.kind === 'chicken' || c.kind === 'cow'
-                    || c.kind === 'cat' || c.kind === 'dog'
-                    || c.kind === 'crow' || c.kind === 'deer'
-                    || c.kind === 'slime' || c.kind === 'rabbit'
-                    || c.kind === 'butterfly' || isMonster(c.kind);
+      // WHAT THINKS AT ALL: everything with a row in the creature behaviour
+      // table (SpriteLayout.CREATURE_BEHAVIOUR) — the farm and pet animals,
+      // the wild fauna, the surface slime and every cave monster, giants
+      // included, since a giant resolves to its base kind's row exactly as it
+      // resolves to its base kind's art. This was a nine-name OR-chain plus
+      // isMonster(), which is one more place a kind had to be remembered.
+      const wanders = SpriteLayout.creatureWanders(c.kind);
       if (!wanders) return;
       if (caughtSet.has(c.id)) return;
       // Mid-catch: the catch wheel owns this creature's movement (it flees the
@@ -8187,24 +8187,27 @@ class MapScene extends Phaser.Scene {
         this._wildCrowTick(c, now, px, py);
         return;
       }
-      // Per-kind step duration for everything else falling through to the
-      // generic wander below.
-      // Rabbits: quick hop burst + long pause; flee when player is within 4 cells.
-      const isRabbit = c.kind === 'rabbit' && !isTame;
-      const RABBIT_FLEE_R2 = (4 * this.cellM) ** 2;
-      const rabbitFleeing = isRabbit && (ddx * ddx + ddy * ddy <= RABBIT_FLEE_R2);
-      // Deer: skittish wild grazers. They used to just amble at the base wander
-      // speed, so a player could stroll right up and the deer never reacted
-      // ("very slow at escaping"). Give them a proper flight response — once the
-      // player closes within 5 cells a wild deer bolts directly away in long,
-      // fast strides (even quicker than a rabbit, befitting their size/speed).
-      const isDeer = c.kind === 'deer' && !isTame;
-      const DEER_FLEE_R2 = (5 * this.cellM) ** 2;
-      const deerFleeing = isDeer && (ddx * ddx + ddy * ddy <= DEER_FLEE_R2);
-      // Butterflies flit constantly; after a failed net-catch they spend 2 min
-      // bolting away from the player (set in _drawWorkProgress).
-      const isButterfly = c.kind === 'butterfly';
-      const butterflyEscaping = isButterfly && c._escapingUntil && now < c._escapingUntil;
+      // ── THE KIND'S GAIT, AND ITS BOLT ─────────────────────────────────
+      // A rabbit hops and sits; a deer is a skittish grazer that bolts in long
+      // committed strides once you close on it; a butterfly flits, and after a
+      // failed net-catch spends two minutes getting away. Three kinds, one
+      // shape — a cadence, a stride, a pause, and a `flee` sub-row of the same
+      // three — so they read off ONE row each (SpriteLayout.CREATURE_BEHAVIOUR)
+      // instead of three ternaries that each had to name their kind.
+      //   A TAME rabbit or deer SETTLES (`tameSettles`): the quick gait and the
+      // bolt are a wild animal's wariness, and a pet joins the base wander.
+      // That is exactly what the `&& !isTame` on the old isRabbit / isDeer
+      // said; a butterfly kept its flit either way and still does.
+      const beh = SpriteLayout.creatureBehaviour(c.kind);
+      const gait = (beh && !(isTame && beh.tameSettles)) ? beh : null;
+      const bolt = gait ? gait.flee : null;
+      // TWO TRIGGERS, ONE REACTION. Proximity (`flee.cells` — the player is
+      // close enough to spook it), or the two-minute escape window a failed
+      // net-catch arms (`flee.escapes` over _escapingUntil, set in
+      // _drawWorkProgress — the butterfly's, and only ever stamped on one).
+      const bolting = !!bolt && (
+        (bolt.cells != null && ddx * ddx + ddy * ddy <= (bolt.cells * this.cellM) ** 2)
+        || (!!bolt.escapes && !!(c._escapingUntil && now < c._escapingUntil)));
       // Underground monsters: cadence scales by SPEED (faster ⇒ shorter step,
       // moves more often); flyers (bats) dart a full cell, ground monsters
       // lumber like the slime (0.6 cell).
@@ -8226,22 +8229,20 @@ class MapScene extends Phaser.Scene {
       // wards that switch it off (the campfire's is a refused target cell, so
       // it needs nothing here).
       const charging = !isTame && !standDown && !unnoticed && slimeCharging(c);
-      // stepMs = animation duration of the hop itself (short burst).
-      const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
-                   : isButterfly ? (butterflyEscaping ? 350 : 900)
-                   : deerFleeing ? 340
+      // stepMs = animation duration of the hop itself (short burst); stepM is
+      // how far it carries. Two kinds keep their numbers OUT of the table on
+      // purpose: the slime's gait is SLIME_STEP_MUL / SLIME_HOP_CELLS, app.js's
+      // own pair with the note that tunes them beside them, and a monster's
+      // cadence and stride come from the MONSTERS row it is registered in.
+      // Everything else is its gait row, or the loop's own base beat.
+      const stepMs = (c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
                    : isMon ? STEP_MS / mon.speed
-                   : c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
-                   : STEP_MS) * shinyFast;
-      // Slimes ooze in short, lazy hops (SLIME_HOP_CELLS — see the gait note
-      // beside the constant); rabbits hop 0.5/1.4 cells; butterflies dart
-      // further (1.5 cells) while escaping.
+                   : bolting ? (bolt.stepMs ?? STEP_MS)
+                   : (gait?.stepMs ?? STEP_MS)) * shinyFast;
       const stepM = c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
                   : isMon ? STEP_M * (mon.fly ? 1.0 : 0.6)
-                  : isRabbit ? (rabbitFleeing ? STEP_M * 1.4 : STEP_M * 0.5)
-                  : isButterfly ? (butterflyEscaping ? STEP_M * 1.5 : STEP_M)
-                  : deerFleeing ? STEP_M * 1.8
-                  : STEP_M;
+                  : bolting ? STEP_M * (bolt.stepCells ?? 1)
+                  : STEP_M * (gait?.stepCells ?? 1);
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
         c._startX = c.x; c._startY = c.y;
@@ -8258,7 +8259,7 @@ class MapScene extends Phaser.Scene {
         // butterfly is a bonus, so it takes the max. (This wrote a bare
         // `true` before the field was numeric; `true` read as 1 in the
         // harvest arithmetic, so one tier is exactly what it always gave.)
-        if (isTame && c.kind === 'butterfly' && this.save.planted) {
+        if (isTame && beh?.pollinates && this.save.planted) {
           for (const pp of this.save.planted) {
             const dx = pp.x - c.x, dy = pp.y - c.y;
             if (dx * dx + dy * dy <= 64) pp.qualBoost = Math.max(pp.qualBoost ?? pp.canBoost ?? 0, 1);
@@ -8273,12 +8274,14 @@ class MapScene extends Phaser.Scene {
           c._lastDamagedT = null;
         }
 
-        // Pet combat: tame cats hunt crows; tame dogs hunt deer + slimes.
-        // Scans for the nearest valid prey within 8 cells each wander step.
-        if (isTame && (c.kind === 'cat' || c.kind === 'dog')) {
+        // Pet combat: a tame PET (a kind whose row says it hunts for its
+        // owner — cats crows, dogs deer + slimes) scans for the nearest valid
+        // prey within 8 cells each wander step. Both halves are the one row:
+        // which kinds hunt, and what each of them hunts.
+        if (isTame && SpriteLayout.isPet(c.kind)) {
           const CHASE_R = 8 * this.cellM;
           const CHASE_R2 = CHASE_R * CHASE_R;
-          const PREY = c.kind === 'cat' ? CAT_PREY : DOG_PREY;
+          const PREY = SpriteLayout.creaturePrey(c.kind);
           let nearest = null, nearestD2 = CHASE_R2;
           // Pet is within sim range of the player and prey within 8 cells of
           // the pet, so the player's 3×3 tile ring covers the search box.
@@ -8314,14 +8317,16 @@ class MapScene extends Phaser.Scene {
 
         // Movement target — modes checked in order:
         //   (a) Pet chasing prey (_chaseTarget set above)
-        //   (b) Cat-following (_followUntilT > now): cat homes in on player.
+        //   (b) Following (_followUntilT > now): a petted cat homes in on the
+        //       player. Which kinds follow is the table's `follows`.
         //   (c) Slime — lazily drawn toward the player.
         //   (d) Tame pets — home-bias keeps them near release point.
         //   (e) Default — wild farm animals random-wander around home.
         // Wild crows take a separate path (_wildCrowTick) above; deer use the
         // generic random wander.
         const FOLLOW_GAP = 1.5 * this.cellM;
-        const isCatFollowing = c.kind === 'cat' && c._followUntilT && c._followUntilT > now;
+        const isFollowing = SpriteLayout.creatureFollows(c.kind)
+          && c._followUntilT && c._followUntilT > now;
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
         const retreating = c._retreatUntilT && c._retreatUntilT > now;
         const homeRadius = retreating ? 0 : isTame ? 5 * this.cellM : 3 * this.cellM;
@@ -8385,18 +8390,15 @@ class MapScene extends Phaser.Scene {
           if (c._chaseTarget && !this.save.caught?.includes(c._chaseTarget.id)) {
             const tgt = c._chaseTarget;
             angle = Math.atan2(tgt.y - c.y, tgt.x - c.x) + (Math.random() - 0.5) * 0.3;
-          } else if (isCatFollowing && distToPlayer > FOLLOW_GAP) {
+          } else if (isFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
-          } else if (rabbitFleeing) {
-            // Flee directly away from player with wide jitter so it zig-zags.
-            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.1;
-          } else if (deerFleeing) {
-            // Bound straight away from the player with only mild jitter — a deer
-            // runs in a committed line rather than a rabbit's panicked zig-zag.
-            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 0.6;
-          } else if (butterflyEscaping) {
-            // Bolt away from the player, careening with wide jitter.
-            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * 1.2;
+          } else if (bolting) {
+            // AWAY FROM THE PLAYER, at the kind's own spread: a rabbit
+            // zig-zags in a panic (wide jitter), a deer runs a committed line
+            // (mild), a butterfly careens (wider still). One branch, because
+            // all three were the same line with a different number in it —
+            // and the number is on the kind now.
+            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * bolt.jitter;
           } else if (homeWard) {
             // Away from HOME, not away from the PLAYER: away-from-player would
             // shove the foe around the ring with the player still inside it,
@@ -8467,11 +8469,12 @@ class MapScene extends Phaser.Scene {
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           const dest = this.cellAt(tx, ty);
           if (dest.loaded && faunaBlocksCell(dest.type)) continue;
-          // Scarecrow aversion (crow + deer only) — refuse any target cell
-          // within 4 cells of an active scarecrow. Crows/deer that wander into
-          // such cells get bounced by the attempt loop until they pick a
-          // different direction.
-          if ((c.kind === 'crow' || c.kind === 'deer') && this._nearAny('scarecrows', tx, ty, 4)) continue;
+          // Scarecrow aversion — refuse any target cell within 4 cells of an
+          // active scarecrow to a kind whose row says it keeps clear of one
+          // (crow + deer). They get bounced by the attempt loop until they
+          // pick a different direction.
+          if (SpriteLayout.creatureAvoids(c.kind, 'scarecrow')
+              && this._nearAny('scarecrows', tx, ty, 4)) continue;
           // Fire aversion — a lit campfire repels the surface slime exactly
           // like a scarecrow repels crows/deer, so it can't ooze into (or
           // steal energy across) the warm ring around a campfire. Extended to
@@ -8500,7 +8503,7 @@ class MapScene extends Phaser.Scene {
         // Deer crop damage: each wander step, 20% chance to eat the nearest
         // planted crop within 1.5 cells. Scarecrows already avert the deer
         // before this point, so no extra scarecrow check needed here.
-        if (c.kind === 'deer' && !isTame && this.save.planted?.length) {
+        if (beh?.raidsCrops && !isTame && this.save.planted?.length) {
           const DR2 = (1.5 * this.cellM) * (1.5 * this.cellM);
           if (Math.random() < 0.20) {
             const idx = this.save.planted.findIndex(p => {
@@ -8517,10 +8520,10 @@ class MapScene extends Phaser.Scene {
         c._targetX = tx; c._targetY = ty;
         c._stepT0 = now;
         c._hopMs = stepMs;
-        // Rabbits sit still between hops: short pause when fleeing, long when idle.
-        const pauseMs = isRabbit
-          ? (rabbitFleeing ? 80 + Math.random() * 120 : 700 + Math.random() * 1300)
-          : 0;
+        // A kind that sits still between hops does it for [base, spread] ms —
+        // the rabbit, short when it is bolting and long when it is not.
+        const pause = bolting ? bolt.pauseMs : (gait ? gait.pauseMs : null);
+        const pauseMs = pause ? pause[0] + Math.random() * pause[1] : 0;
         c._nextChooseT = now + stepMs + pauseMs;
         c._faceFlip = (c._targetX - c._startX) < 0;
       }

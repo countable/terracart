@@ -3928,9 +3928,24 @@ Render.drawObjects = function drawObjects(scene) {
   // a kind whose only distinguishing mark is its TINT could quietly end up
   // drawn in another kind's colours. `creatureTint` returns white for art that
   // is already its own colour.
-  const creatureSheet = (SL && SL.creatureSheet) || ((kind) => kind);
+  //
+  // A kind with no row is drawn on the CHICKEN's sheet — where the per-kind
+  // if-else chain this replaced fell through in its final `else`. Nothing the
+  // game spawns lacks a row (creature_wheel.test.js pins that every kind drawn
+  // here has one); the fallback is only so an unknown kind cannot ask Phaser
+  // for a null texture.
+  const creatureSheet = (kind) => (SL && SL.creatureSheet ? SL.creatureSheet(kind) : kind) || 'chicken';
   const creatureFrames = (SL && SL.creatureFrames) || (() => 1);
   const creatureTint = (SL && SL.creatureTint) || (() => 0xffffff);
+  // HOW the sheet moves — the same table, for the same reason as the tint
+  // above. `anim` names a Phaser animation, which owns the cycle; `frameMs`
+  // steps the row-0 cycle here instead; a kind with neither is drawn at rest
+  // on frame 0. `hop` is the continuous bounce a slime and every cave monster
+  // wear, and `airborne` is a flier's smaller, fainter contact shadow.
+  const creatureAnim = (SL && SL.creatureAnim) || (() => null);
+  const creatureFrameMs = (SL && SL.creatureFrameMs) || (() => 0);
+  const creatureHops = (SL && SL.creatureHops) || (() => false);
+  const creatureAirborne = (SL && SL.creatureAirborne) || (() => false);
   // A giant's sheet, frame count and shadow are its base kind's.
   const baseKind = (SL && SL.baseKind) || ((kind) => kind);
   const giantMul = (kind) => (SL && SL.isGiantKind && SL.isGiantKind(kind)) ? SL.GIANT_ART_SCALE : 1;
@@ -3945,107 +3960,48 @@ Render.drawObjects = function drawObjects(scene) {
     const { c, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
-    if (c.kind === 'cow') {
-      if (setTextureIfDifferent(s, 'cow')) s.play('cow-idle');
-      // Cow is the biggest farm animal — needs to read larger than the
-      // 32×32 cat/dog/deer/crow which all sit at 1.30. Bumped to 1.50
-      // (48 px effective) so the cow visibly dwarfs the pets.
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
-      s.setFlipX(!!c._faceFlip);
-    } else if (c.kind === 'cat' || c.kind === 'dog') {
-      // 32×32 RPG-Maker pet body sheet. Row 0 (frames 0..3) is the idle
-      // cycle defined in app.js. Both pets at 1.3 — the dog sheet's frame
-      // fills more of its 32×32 cell than the cat's does, so they read as
-      // visually similar despite sharing the scalar.
-      const animKey = c.kind === 'cat' ? 'cat-idle' : 'dog-idle';
-      const sc = creatureScale(c.kind);
-      if (setTextureIfDifferent(s, c.kind)) s.play(animKey);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(sc)
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
-      s.setFlipX(!!c._faceFlip);
-    } else if (c.kind === 'deer') {
-      // 32×32 sheet (see assets.js comment) → scale 1.3, a touch under cow.
-      // Row 0 frames 0-1 are the side-view idle pose.
-      if (s.texture.key !== 'deer') { s.anims?.stop(); s.setTexture('deer', 0); }
-      s.setFrame(0);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
-      s.setFlipX(!!c._faceFlip);
-    } else if (c.kind === 'rabbit') {
-      // 16×16 sheet → 1.5× (per user). Reads a touch smaller than the
-      // chicken's 1.20 + cow's 1.20 because the rabbit's per-frame footprint
-      // fills less of its 16×16 cell.
-      if (s.texture.key !== 'rabbit') { s.anims?.stop(); s.setTexture('rabbit', 0); }
-      s.setFrame(0);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
-      s.setFlipX(!!c._faceFlip);
-    } else if (c.kind === 'crow') {
-      // 32×32 sheet (see assets.js comment). Row 0 frames 0-4 are the ground
-      // strut; row 1 is intentionally empty in the source PNG; row 2 is the
-      // take-off flap. Float 14 px above the ground tile. Scale 1.3 reads as
-      // a proper bird next to the cow rather than a tiny pebble.
-      if (s.texture.key !== 'crow') { s.anims?.stop(); s.setTexture('crow', 0); }
-      s.setFrame(0);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - creatureFloat(c.kind));
-      s.setFlipX(!!c._faceFlip);
-    } else if (c.kind === 'butterfly') {
-      // 16×16 7-frame sheet → 2.0×, ~100 ms/frame.
-      if (s.texture.key !== 'butterfly') { s.anims?.stop(); s.setTexture('butterfly', 0); }
-      s.setFrame(Math.floor(performance.now() / 100) % 7);
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - creatureFloat(c.kind));
-      s.setFlipX(!!c._faceFlip);
-    } else if (isMonster(c.kind)) {
-      const m = MONSTERS[c.kind];
-      // A giant (giant_goblin …) is drawn on its base kind's sheet; the size
-      // comes from creatureScale via SpriteLayout.creatureArt.
-      const texKey = creatureSheet(c.kind);
-      const frameCount = creatureFrames(c.kind);
-      if (s.texture.key !== texKey) { s.anims?.stop(); s.setTexture(texKey, 0); }
-      s.setFrame(Math.floor(performance.now() / 160) % frameCount);
-      if (c._hopSeed == null) {
-        let h = 0; const id = c.id || '';
-        for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
-        c._hopSeed = h % 600;
-      }
-      const period = m.fly ? 320 : 600;
-      const ph = ((performance.now() + c._hopSeed) % period) / period;
-      const hopPx = Math.abs(Math.sin(ph * Math.PI)) * (m.fly ? 10 : 6);
-      const floatPx = creatureFloat(c.kind);   // fliers hover off the floor
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
-       .setPosition(Math.round(sx),
-                    Math.round(sy) + CREATURE_GROUND_DY - Math.round(hopPx) - floatPx);
-      s.setFlipX(!!c._faceFlip);
-    } else if (c.kind === 'slime') {
-      // 32×32 sheet; row 0 (frames 0-3) is the idle squish loop. A continuous
-      // vertical hop — phase-offset per slime via a cached id hash — gives the
-      // chicken-like bounce even while idle; slimes are always jiggling.
-      if (s.texture.key !== 'slime') { s.anims?.stop(); s.setTexture('slime', 0); }
-      s.setFrame(Math.floor(performance.now() / 160) % 4);
-      if (c._hopSeed == null) {
-        let h = 0; const id = c.id || '';
-        for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
-        c._hopSeed = h % 600;
-      }
-      const ph = ((performance.now() + c._hopSeed) % 600) / 600;   // 0..1 per hop
-      const hopPx = Math.abs(Math.sin(ph * Math.PI)) * 6;          // arc up to 6 px
-      // Anchored on the blob's own bottom row, so the hop lifts it OFF the
-      // shadow instead of starting 11px above it ("the slime is flying").
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - Math.round(hopPx));
-      s.setFlipX(!!c._faceFlip);
+    // ONE BRANCH FOR EVERY CREATURE. This was a seven-way if-else on the kind
+    // (cow / cat|dog / deer / rabbit / crow / butterfly / monster / slime)
+    // whose branches differed in nothing but the sheet, how the frames are
+    // stepped, and whether the float was subtracted — every one of which the
+    // creature table already answers (SpriteLayout: creatureSheet / anim /
+    // frameMs / frames / hop / float / foot / scale). A chain like that is
+    // where two kinds sharing a sheet quietly drift apart, which is why the
+    // TINT was pulled into the table before it.
+    const texKey = creatureSheet(c.kind);
+    const anim = creatureAnim(c.kind);
+    if (anim) {
+      // An animated kind: Phaser owns the cycle (the anims are defined in
+      // app.js create()), so the frame is never set here.
+      if (setTextureIfDifferent(s, texKey)) s.play(anim);
     } else {
-      // Chicken sheet is 16×16 (see assets.js note). Per user: +20% from the
-      // Per user → 1.20 (still well under the cow's 1.20 because the chicken
-      // sheet is 16×16 while the cow is 32×32 — same scalar, half the size).
-      if (setTextureIfDifferent(s, 'chicken')) s.play('chicken-idle');
-      s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
-      s.setFlipX(!!c._faceFlip);
+      if (s.texture.key !== texKey) { s.anims?.stop(); s.setTexture(texKey, 0); }
+      // Stepped here, or drawn at rest on frame 0.
+      const frameMs = creatureFrameMs(c.kind);
+      s.setFrame(frameMs ? Math.floor(performance.now() / frameMs) % creatureFrames(c.kind) : 0);
     }
+    // How far off the ground the body is drawn: its constant float (a crow
+    // perches high, a bat hovers) plus, for a hopping kind, the live bounce.
+    let lift = creatureFloat(c.kind);
+    if (creatureHops(c.kind)) {
+      // Phase-offset per creature off a cached hash of its id, so a pack of
+      // slimes doesn't pulse in unison.
+      if (c._hopSeed == null) {
+        let h = 0; const id = c.id || '';
+        for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
+        c._hopSeed = h % 600;
+      }
+      // HOW HIGH and HOW QUICK is the MONSTER table's business, not the art
+      // table's: a flyer (the bat-like purple slime) darts, everything else
+      // lumbers. The surface slime is in no monster table and lumbers.
+      const fly = !!(MONSTERS[c.kind] && MONSTERS[c.kind].fly);
+      const period = fly ? 320 : 600;
+      const ph = ((performance.now() + c._hopSeed) % period) / period;
+      lift += Math.round(Math.abs(Math.sin(ph * Math.PI)) * (fly ? 10 : 6));
+    }
+    s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
+     .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
+    s.setFlipX(!!c._faceFlip);
     // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
     // sheen. Pooled sprites keep their last tint, so set an explicit colour
     // every frame (white for the common, plain case). A foe the Frost Powder
@@ -4076,7 +4032,7 @@ Render.drawObjects = function drawObjects(scene) {
       const w = (CRITTER_SHADOW_W[baseKind(c.kind)] || 18) * giantMul(c.kind);
       // Airborne kinds sit higher off the ground, so their shadow reads
       // smaller and fainter — the standard "how high is it" cue.
-      const airborne = c.kind === 'butterfly' || c.kind === 'crow';
+      const airborne = creatureAirborne(c.kind);
       s.setOrigin(0.5, 0.5)
        .setDisplaySize(w, w * 0.34)
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY)

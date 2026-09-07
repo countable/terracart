@@ -886,7 +886,7 @@
   Nor is the Book the only surface that lies: `COFFEE_AMULET_BOOST` has been 2
   while `ITEM_EFFECTS.coffee` said "+1 tier", and `RELIC_DEFS.bugnet.blurb`
   advertised "catch crows" — the one animal a net cannot take (a crow is
-  HUNTED, `interact.js` `HUNT_KINDS`). **Grep both tables for a constant before
+  HUNTED, `SpriteLayout.isGame` off `CREATURE_BEHAVIOUR`). **Grep both tables for a constant before
   you change it.**
   **A tip nobody draws is a tip nobody has.** The Book carries `dropWeight: 3`
   so it is the plurality of the T2 consumable pool everywhere instead of one
