@@ -799,9 +799,19 @@
   different things; do not bring a per-cell road state back.
   **What DID come back is the LIGHT.** A restored street lights its own way:
   one glowing cobble every `Streets.lampSpacingM()` metres of rebuilt
-  carriageway — and that spacing IS `Trail.GOAL_STEP_M`, the same
-  `roadOverlayWidthM` discipline, so the walk that earns a rung of the ladder
-  lights about one lamp. A lamp is GENERATED, never stored
+  carriageway — its OWN constant, `Streets.LAMP_SPACING_M` (100 m),
+  deliberately NOT `Trail.GOAL_STEP_M` (200 m) any more. It shipped tied to
+  the ladder's rung under the `roadOverlayWidthM` discipline, so a walk that
+  earned a prize lit about one lamp — but the "gets a lamp at all" floor
+  (`lampsAlong`: a line under half the spacing gets none, on purpose, so a
+  dense block of driveways doesn't read as a lit car park) rode along with
+  that number, and OSM cuts a way at every intersection: an ordinary
+  suburban block is routinely under the 100 m a 200 m spacing demanded, so a
+  whole town could be walked clean and never show a single lamp. Halving the
+  spacing to 100 m (floor 50 m) lets a normal block qualify without touching
+  the ladder's own pacing — the two are allowed to disagree now; 200 m of
+  restoration still pays one prize, but may light two lamps. A lamp is
+  GENERATED, never stored
   (`Streets.lampsAlong` off the line's own geometry, lit when `Streets.covers`
   finds its metre in the restored list) — the traps rule, so a rebuilt tile
   lights the same stones and the save gains nothing by it. It is TWO halves on

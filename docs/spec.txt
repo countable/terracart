@@ -1004,12 +1004,18 @@ STREET RESTORATION (the road band itself)
        subtracted back out. The sub-polylines are cut ONCE per scan, not per
        frame: a merged way can carry thousands of vertices.
  - THE LAMPS: A RESTORED STREET LIGHTS ITS OWN WAY. One glowing cobble every
-   Streets.lampSpacingM() metres of REBUILT carriageway — and that spacing IS
-   Trail.GOAL_STEP_M (200 m), not a number of its own, so the walk that earns
-   a rung of the ladder lights about one lamp and the two can never come to
-   disagree about the same 200 m. It is the reason to rebuild a street after
-   dark: a road you have brought back is a road you can walk at night, and the
-   string of lamps behind you is the map of everything you have restored.
+   Streets.lampSpacingM() metres of REBUILT carriageway — LAMP_SPACING_M
+   (100 m), its OWN constant, deliberately NOT Trail.GOAL_STEP_M (200 m). It
+   shipped tied to the ladder's rung so a walk that earned a prize lit about
+   one lamp, but the "gets a lamp at all" floor (below) rode along with that
+   number, and OSM cuts a way at every intersection: an ordinary suburban
+   block is routinely under the 100 m a 200 m spacing demanded, so a whole
+   town could be walked clean and never light a single lamp. Halving the
+   spacing (and its floor) to 100/50 m lets a normal block qualify; the
+   ladder still pays a prize every 200 m regardless, just for more lamps now.
+   It is the reason to rebuild a street after dark: a road you have brought
+   back is a road you can walk at night, and the string of lamps behind you
+   is the map of everything you have restored.
      * GENERATED, NEVER STORED — the traps rule. Streets.lampsAlong places them
        from the LINE's own geometry and Streets.covers(restoredList, s) says
        whether one is lit, so nothing new reaches the save, a rebuilt tile
@@ -1017,14 +1023,14 @@ STREET RESTORATION (the road band itself)
        thing the lit pebbles got wrong).
      * SPREAD, NOT STAMPED FROM ZERO. Each line gets the whole number of
        intervals nearest its own length, evenly spread with a HALF interval at
-       each end: lamps at s = 200, 400, … would leave every way shorter than
-       the spacing — most of a suburb — dark, bunch two stones either side of
-       an OSM split, and stand one on every junction. So a 300 m street gets
-       two 150 m apart, a 1 km one five 200 m apart, and anything under half
-       a spacing (a driveway, a slip road, a parking aisle) gets none, which is
-       what stops a dense block reading as a lit car park. Lamps outside the
-       tile SQUARE are dropped, or the neighbour's buffer copy would stand a
-       second stone on the same stretch.
+       each end: lamps at s = 100, 200, … would leave every way shorter than
+       the spacing dark, bunch two stones either side of an OSM split, and
+       stand one on every junction. So a 300 m street gets three 100 m apart,
+       a 1 km one ten 100 m apart, and anything under half a spacing (a
+       driveway, a slip road, a parking aisle) gets none, which is what stops
+       a dense block reading as a lit car park. Lamps outside the tile SQUARE
+       are dropped, or the neighbour's buffer copy would stand a second stone
+       on the same stretch.
      * TWO HALVES ON ONE POINT, because the lightmap MULTIPLIES: a light alone
        is invisible at noon, so the lamp is baked ART as well —
        RoadOverlay.paintLampStone (an activated sett with a hot violet core in

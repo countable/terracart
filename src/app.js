@@ -124,19 +124,20 @@ const STREET_SHINE_ALPHA = 0.4;
 // particles overall.
 const GATHER_SPREAD_POINTS = 6;
 // THE STREET LAMPS. A restored street lights its own way: one glowing cobble
-// every Streets.lampSpacingM() metres of rebuilt carriageway — the ladder's
-// own rung, so a walk that earns a prize lights about one lamp. Where they
-// stand is generated from the way's geometry and never stored (streets.js);
-// the stone is baked art (RoadOverlay.paintLampStone) and the light it throws
-// after dark is Lighting.KINDS.cobble, on the same point.
+// every Streets.lampSpacingM() metres of rebuilt carriageway (its own
+// constant, LAMP_SPACING_M — deliberately NOT the treasure ladder's rung, so
+// an ordinary block shorter than a rung still qualifies). Where they stand is
+// generated from the way's geometry and never stored (streets.js); the stone
+// is baked art (RoadOverlay.paintLampStone) and the light it throws after
+// dark is Lighting.KINDS.cobble, on the same point.
 const STREET_LAMP_TEX = 'street_lamp';
 // Drawn LAMP_DRAW_CELLS cells across — the halo included; the stone inside it
 // is about a third of that, so a lamp sits clearly on one cell of the road.
 const STREET_LAMP_PX = CELL_PX *
   ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 1.5);
-// Pool size. One lamp per 200 m against a viewport 11 cells (~77 m) across
-// means two in view is already a busy junction; the pool grows itself if a
-// dense knot of short ways ever beats that (Render.renderPool).
+// Pool size. One lamp per LAMP_SPACING_M (100 m) against a viewport 11 cells
+// (~77 m) across means a couple in view is an ordinary block; the pool grows
+// itself if a dense knot of short ways ever beats that (Render.renderPool).
 const STREET_LAMP_POOL = 12;
 // How faint the DWELL PREVIEW gets at its fullest — the ghost of the clean
 // carriageway creeping in under the player while the dwell runs. Well under
@@ -1948,8 +1949,8 @@ class MapScene extends Phaser.Scene {
     //
     // Sized in CELLS (RoadOverlay.LAMP_DRAW_CELLS), so the stone keeps its
     // proportion to the carriageway at any latitude's cell size. The pool is
-    // small: at one lamp per 200 m and a viewport 11 cells across, two in
-    // view at once is a busy junction.
+    // small: at one lamp per LAMP_SPACING_M (100 m) and a viewport 11 cells
+    // across, a couple in view at once is an ordinary block.
     if (typeof RoadOverlay !== 'undefined' && RoadOverlay.paintLampStone &&
         typeof document !== 'undefined' && !this.textures.exists(STREET_LAMP_TEX)) {
       const S = RoadOverlay.LAMP_TEX_PX;
