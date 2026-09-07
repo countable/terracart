@@ -264,11 +264,23 @@
   // The RANGED weapons are untouched: a bow or a staff is the thing you buy
   // to hit what you cannot punch (SHOT[].rangeCells).
   const MELEE_REACH_CELLS = 1;
-  // The reach in metres, and the test both sides run. Centre-to-centre, which
-  // is what the monster's own attack gate measures (app.js wanderCreatures
-  // compares the creature's position against the player's FEET), so the two
-  // are symmetric by construction rather than by two similar-looking circles.
-  function meleeReachM(cellM) { return MELEE_REACH_CELLS * cellM; }
+  // The reach in metres, and the test both sides run — a CIRCLE, same as it
+  // always was, just wide enough to reach a diagonal neighbour's centre.
+  // Both combatants have continuous (float) positions, not grid-locked cell
+  // centres — a chessboard/Chebyshev box is a grid concept and would draw a
+  // literal square around the player, which looks wrong for something with a
+  // sub-metre position. A circle of radius exactly MELEE_REACH_CELLS keeps
+  // the four orthogonal neighbours in reach (their centres sit one cell away)
+  // but puts a diagonal neighbour's centre at √2 cells — just outside it — so
+  // a foe standing diagonally next to the player, which reads as "right
+  // there" on screen, refused to swing until the player sidestepped onto an
+  // orthogonal cell. MELEE_REACH_DIAG_CELLS (√2) is the same radius widened
+  // just far enough to bring that diagonal centre inside the circle too.
+  // Centre-to-centre either way, which is what the monster's own attack gate
+  // measures (app.js wanderCreatures compares the creature's position against
+  // the player's FEET), so the two stay symmetric by construction.
+  const MELEE_REACH_DIAG_CELLS = Math.SQRT2;
+  function meleeReachM(cellM) { return MELEE_REACH_DIAG_CELLS * cellM; }
   function inMeleeReach(ax, ay, bx, by, cellM) {
     const r = meleeReachM(cellM);
     const dx = ax - bx, dy = ay - by;

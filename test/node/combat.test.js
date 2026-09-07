@@ -707,8 +707,8 @@ test('combat: the health tint reads full → hurt → nearly dead', () => {
 test('combat: melee reaches exactly as far as a melee monster does', () => {
   assert.eq(Combat.MELEE_REACH_CELLS, 1,
     'one cell — the range every melee monster in the MONSTERS table attacks at');
-  assert.eq(Combat.meleeReachM(COMBAT_CELL_M), COMBAT_CELL_M,
-    'and in metres it is one cell of whatever the world is scaled to');
+  assert.eq(Combat.meleeReachM(COMBAT_CELL_M), COMBAT_CELL_M * Math.SQRT2,
+    'in metres it is √2 cells — a circle wide enough to reach a diagonal neighbour\'s centre, not just an orthogonal one');
   // The MONSTERS table lives in app.js (no headless load), so its melee kinds
   // are pinned as source text against the number above.
   const rows = APP_JS_SRC.slice(APP_JS_SRC.indexOf('const MONSTERS = {'));
@@ -729,11 +729,18 @@ test('combat: the melee test is symmetric with the monster\'s own attack gate', 
   const C = COMBAT_CELL_M;
   // Centre-to-centre, the same measure wanderCreatures runs from the creature
   // to the player's FEET — so "it can bite me" and "I can hit it" agree.
+  //
+  // Both combatants have continuous (float) positions, not grid-locked cell
+  // centres, so the gate is a CIRCLE, not a chessboard/Chebyshev box — sized
+  // to just reach a diagonal neighbour's centre (√2 cells) rather than only
+  // the four orthogonal ones. A slime standing diagonally next to the player
+  // reads as "right there" on screen; before this it refused to swing until
+  // the player sidestepped onto an orthogonal cell.
   assert.truthy(Combat.inMeleeReach(0, 0, 0, 0, C), 'on top of it');
   assert.truthy(Combat.inMeleeReach(C, 0, 0, 0, C), 'exactly one cell east');
   assert.truthy(Combat.inMeleeReach(0, -C, 0, 0, C), 'exactly one cell north');
-  assert.falsy(Combat.inMeleeReach(C * 1.01, 0, 0, 0, C), 'a hair past one cell');
-  assert.falsy(Combat.inMeleeReach(C, C, 0, 0, C), 'the diagonal is √2 cells — out');
+  assert.truthy(Combat.inMeleeReach(C, C, 0, 0, C), 'a diagonal neighbour (√2 cells) is now in range');
+  assert.falsy(Combat.inMeleeReach(C * Math.SQRT2 * 1.01, 0, 0, 0, C), 'a hair past the diagonal radius');
   // The reach the LIT diamond would have granted, at every rung, is out of it.
   for (const upgrades of [0, 3, 6]) {
     const litCells = Math.min(5.5, 2.5 + 0.5 * upgrades);
