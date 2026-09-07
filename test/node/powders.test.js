@@ -12,7 +12,10 @@
 //   Shadow  — for one minute (MINUTE_MS) no hostile takes an interest in the
 //             player: wanderCreatures gates BOTH the pursuit (the slime's
 //             meander and the monsters' stalk) and the hit (the leech and the
-//             monster drain) on one `shadowed` read of isShadowActive(). The
+//             monster drain) on one `shadowed` read of isShadowActive() —
+//             ORed once per tick into `unnoticed` with the OTHER way a player
+//             stops being there to hunt, a bar run to zero
+//             (downed_pursuit.test.js). The
 //             player's own weapons are not gated. The minute is in memory only
 //             and its readout is shortDuration, like the dragon's.
 //   Frost   — every ENEMY (Combat.isEnemy, never game or a pet) standing in
@@ -170,16 +173,19 @@ test('shadow: one `shadowed` read gates BOTH the pursuit and the hit in wanderCr
   assert.truthy(m, 'wanderCreatures');
   const w = m[1];
   assert.truthy(/const shadowed = this\.isShadowActive\(\);/.test(w), 'read once per tick');
+  // …and it reaches those four gates through `unnoticed`, the OR of the two
+  // wards that make the player not there to be hunted at all.
+  assert.truthy(/const unnoticed = shadowed \|\|/.test(w), 'ORed once per tick into `unnoticed`');
   // The hits.
   // Other conjuncts may join these gates (Home's ward does — home_ward.test.js),
-  // so pin that !shadowed is IN the gate, not that it is the whole of it.
-  assert.truthy(/if \(c\.kind === 'slime' && !isTame && !shadowed[^)]*\) \{/.test(w), 'the slime leech is gated');
-  assert.truthy(/if \(isMonster\(c\.kind\) && !shadowed[^)]*\) \{\n\s*const m = MONSTERS\[c\.kind\];/.test(w),
+  // so pin that !unnoticed is IN the gate, not that it is the whole of it.
+  assert.truthy(/if \(c\.kind === 'slime' && !isTame && !unnoticed[^)]*\) \{/.test(w), 'the slime leech is gated');
+  assert.truthy(/if \(isMonster\(c\.kind\) && !unnoticed[^)]*\) \{\n\s*const m = MONSTERS\[c\.kind\];/.test(w),
     'the monster drain is gated');
   // The pursuits.
-  assert.truthy(/if \(!shadowed && Math\.random\(\) < 0\.5 && distToPlayer > 0\.5 \* this\.cellM\) \{/.test(w),
+  assert.truthy(/if \(!unnoticed && Math\.random\(\) < 0\.5 && distToPlayer > 0\.5 \* this\.cellM\) \{/.test(w),
     'the slime\'s meander toward the player is gated');
-  assert.truthy(/if \(!shadowed && distToPlayer > 0\.5 \* this\.cellM\) \{\n\s*angle = Math\.atan2\(dyp, dxp\)/.test(w),
+  assert.truthy(/if \(!unnoticed && distToPlayer > 0\.5 \* this\.cellM\) \{\n\s*angle = Math\.atan2\(dyp, dxp\)/.test(w),
     'the monsters\' stalk is gated');
   // And NOT the player's weapons.
   const combat = app.match(/\n  _combatTick\(dt\) \{\n([\s\S]*?)\n  \}\n/);
@@ -209,8 +215,8 @@ test('frost: a frozen creature is skipped in the wander step before it can hit o
   const w = m[1];
   const gate = w.indexOf('if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;');
   assert.truthy(gate >= 0, 'the frozen gate');
-  assert.truthy(gate < w.search(/if \(c\.kind === 'slime' && !isTame && !shadowed[^)]*\) \{/), 'before the slime leech');
-  assert.truthy(gate < w.search(/if \(isMonster\(c\.kind\) && !shadowed[^)]*\) \{/), 'before the monster drain');
+  assert.truthy(gate < w.search(/if \(c\.kind === 'slime' && !isTame && !unnoticed[^)]*\) \{/), 'before the slime leech');
+  assert.truthy(gate < w.search(/if \(isMonster\(c\.kind\) && !unnoticed[^)]*\) \{/), 'before the monster drain');
   assert.truthy(gate < w.indexOf('if (now >= c._nextChooseT) {'), 'before the step is chosen');
   assert.truthy(gate < w.indexOf('c.x = c._startX + (c._targetX - c._startX) * u;'), 'before the hop is interpolated');
   // The ice tint rides the same flag.

@@ -224,7 +224,9 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
 
   // IF NOT WARDED — the three that switch it off.
   const gate = /const charging = ([^;]+);/.exec(app)?.[1] || '';
-  for (const ward of ['!isTame', '!homeWard', '!shadowed']) {
+  // `unnoticed` is the pair of wards that make the player not THERE to be
+  // charged at: a Shadow Powder, or a bar run to zero (downed_pursuit.test.js).
+  for (const ward of ['!isTame', '!homeWard', '!unnoticed']) {
     assert.truthy(gate.includes(ward), `the charge is off when ${ward}`);
   }
   // Home's ward is checked EARLIER in the same chain, so a warded slime is
