@@ -970,8 +970,16 @@
   GENERATED, never stored
   (`Streets.lampsAlong` off the line's own geometry, lit when `Streets.covers`
   finds its metre in the restored list) — the traps rule, so a rebuilt tile
-  lights the same stones and the save gains nothing by it. It is TWO halves on
-  ONE point, because the lightmap MULTIPLIES: baked art
+  lights the same stones and the save gains nothing by it. **An UNLIT lamp is
+  drawn too, as the OLD ROAD COBBLE** — `assets.js` › `cobble` (Road
+  copiar.png, the per-cell pebble sheet the road band replaced) at the frame
+  that sheet used for the way's tier (`STREET_LAMP_DARK_FRAME`, keyed off
+  `WorldGen.classifyLine`), at the old stones' size and alpha — so the stones
+  to light are visible before they light. `_updateStreetLamps` keeps every
+  nearby lamp on ONE list flagged `lit`, and both readers ask that flag: the
+  draw pass picks the baked lamp or the grey cobble, `Lighting.collectLamps`
+  skips the dark ones. A second list for the dark stones is the bug.
+  It is TWO halves on ONE point, because the lightmap MULTIPLIES: baked art
   (`RoadOverlay.paintLampStone`, drawn under the lightmap — a light alone does
   not exist at noon) and the `Lighting.KINDS.cobble` row over it, both in
   `UI_LAMP_GLOW` — the old activated-cobble violet, brought back for the lamp

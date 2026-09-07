@@ -17,7 +17,7 @@ const app = APP_JS_SRC;
 
 // The three passes, as source, in the order drawRoadGeometry calls them.
 const forTileSrc = app.slice(app.indexOf('  _streetLampsForTile(tx, ty, entry) {'),
-                              app.indexOf('  // The LIT lamps near the frame'));
+                              app.indexOf('  // The lamps near the frame'));
 const updateSrc = app.slice(app.indexOf('  _updateStreetLamps() {'),
                              app.indexOf('  // The stones themselves:'));
 const drawSrc = app.slice(app.indexOf('  _drawStreetLamps() {'),
@@ -102,6 +102,57 @@ test('street lamps: the stones are seated through worldMetersToScreen, never vie
   assert.falsy(/viewCenterX|viewCenterY/.test(drawSrc), 'never drawn at the viewport centre');
   assert.truthy(/Render\.renderPool\(this, pool, this\.cobbleContainer, list,/.test(drawSrc),
     'pooled sprites go into cobbleContainer — the road-surface layer, under the lightmap');
+});
+
+test('street lamps: an UNLIT lamp draws as the OLD ROAD COBBLE sprite, a lit one as the baked lamp', () => {
+  // A lamp stands on every LAMP_SPACING_M of street whether or not that
+  // stretch is restored; the dark ones have to be visible or the lamps would
+  // seem to appear from nowhere. They wear the sheet the per-cell road stones
+  // drew from until Sep 2026 — Road copiar.png, back in assets.js as 'cobble'
+  // for this one job — at the frame that sheet used for the way's tier.
+  assert.truthy(/const STREET_LAMP_DARK_TEX = 'cobble';/.test(app), 'the dark stone is the cobble sheet');
+  assert.truthy(/cobble:\s*\{ kind: 'spritesheet', path: 'assets\/Objects\/Road copiar\.png',\s*frameWidth: 16, frameHeight: 16 \}/.test(ASSETS_SRC),
+    'assets.js loads Road copiar.png as the cobble sheet again');
+  // The old frame table, per tier: ROAD_LG 0 (densest cluster), ROAD_MD 5,
+  // ROAD 1 (small cluster), PATH 3 (a single pebble) — and keyed by the
+  // WorldGen.T NAME, so the code is looked up live rather than retyped.
+  const m = app.match(/const STREET_LAMP_DARK_FRAME = \{ ROAD_LG: (\d+), ROAD_MD: (\d+), ROAD: (\d+), PATH: (\d+) \};/);
+  assert.truthy(m, 'one frame per road tier');
+  assert.eq(m.slice(1).map(Number).join(','), '0,5,1,3', 'the frames the per-cell stones drew');
+  // A 5x4 sheet of 16px frames: every frame the table names is on it.
+  for (const f of m.slice(1).map(Number)) assert.truthy(f >= 0 && f < 20, `frame ${f} is on the 80x64 sheet`);
+  // The draw pass branches on the one `lit` flag: the baked lamp at its halo
+  // size for a lit one, the cobble frame at the old stones' size and alpha
+  // for a dark one — never the violet stone for both.
+  assert.truthy(/if \(L\.lit\) \{/.test(drawSrc), 'the draw branches on L.lit');
+  assert.truthy(/s\.setTexture\(STREET_LAMP_TEX\)/.test(drawSrc), 'a lit lamp is the baked stone');
+  assert.truthy(/s\.setTexture\(STREET_LAMP_DARK_TEX, frame\)/.test(drawSrc), 'a dark lamp is the cobble sheet at its tier frame');
+  assert.truthy(/const frame = streetLampDarkFrame\(L\.tier\);/.test(drawSrc), 'the frame comes from the lamp\'s own tier');
+  assert.truthy(/setAlpha\(STREET_LAMP_DARK_ALPHA\)/.test(drawSrc), 'at the old stones\' alpha');
+  assert.truthy(/const STREET_LAMP_DARK_ALPHA = 0\.57;/.test(app), 'the 57% the per-cell cobbles drew at');
+  assert.truthy(/const STREET_LAMP_DARK_CELLS = \{ road: 0\.64, path: 0\.584 \};/.test(app), 'and their sizes: a road cluster at 0.64 of a cell, a path pebble at 0.584');
+  // The tier is the terrain classifier's own answer, not a second class list.
+  assert.truthy(/WorldGen\.classifyLine\('transportation', f\.tags \|\| \{\}\)/.test(forTileSrc),
+    '_streetLampsForTile classifies the way with WorldGen.classifyLine');
+  assert.eq(typeof WorldGen.classifyLine, 'function', 'which worldgen.js exports');
+  // And the frame resolver, run: each T code lands on its frame, and a
+  // non-road (null) falls back to the small road cluster.
+  const resolve = new Function('WorldGen', app.slice(app.indexOf('const STREET_LAMP_DARK_FRAME ='), app.indexOf('// The old stones\' draw size')) + 'return streetLampDarkFrame;')(WorldGen);
+  const T = WorldGen.T;
+  assert.eq(resolve(T.ROAD_LG), 0); assert.eq(resolve(T.ROAD_MD), 5);
+  assert.eq(resolve(T.ROAD), 1); assert.eq(resolve(T.PATH), 3);
+  assert.eq(resolve(null), 1, 'an unclassified way draws the small cluster');
+});
+
+test('street lamps: the light collector reads the same list and skips the dark ones — one list, one flag, both readers', () => {
+  // _updateStreetLamps keeps every lamp near the anchor and flags each `lit`
+  // by Streets.covers over the restored intervals; the draw pass and
+  // Lighting.collectLamps both read that flag, so a stone can never be drawn
+  // lit while throwing no light, or the reverse.
+  assert.truthy(/out\.push\(\{ \.\.\.L, lit: Streets\.covers\(iv, L\.s\) \}\);/.test(updateSrc),
+    'the flag is Streets.covers over the line\'s restored list, on a fresh object (never written onto the tile cache)');
+  assert.falsy(/if \(!Streets\.covers\(iv, L\.s\)\) continue;/.test(updateSrc), 'a dark lamp is no longer dropped from the list');
+  assert.truthy(/if \(!L\.lit\) continue;/.test(LIGHTING_SRC), 'collectLamps skips a dark lamp');
 });
 
 test('street lamps: drawRoadGeometry runs the three passes in the order the frame needs them', () => {
@@ -243,18 +294,29 @@ test('street lamps: a tile still LOADING is never memoised as lampless — the b
   assert.truthy(entry._streetLamps, 'only the real answer is memoised');
 });
 
-test('street lamps: a restored stretch lights ITS lamp and only its lamp', () => {
+const litOf = (scene) => scene._streetLamps.filter((L) => L.lit);
+
+test('street lamps: a ready tile stamps each lamp with the way\'s tier', () => {
+  const lamps = P._streetLampsForTile.call({}, TX, TY, readyEntry());
+  assert.eq(lamps[0].tier, WorldGen.T.ROAD, 'a residential street is the small road tier — the frame its dark stone draws');
+});
+
+test('street lamps: a restored stretch lights ITS lamp and only its lamp — the rest stay on the list, DARK', () => {
   const entry = readyEntry();
   const scene = lampScene();
   const lamps = P._streetLampsForTile.call({}, TX, TY, entry);
   withTile(entry, () => {
     scene._updateStreetLamps();
-    assert.eq(scene._streetLamps.length, 0, 'a dilapidated street carries no lit stone');
+    assert.eq(scene._streetLamps.length, 2, 'both stones of a dilapidated street are on the list — drawn as plain cobbles');
+    assert.eq(litOf(scene).length, 0, 'and none of them is lit');
     // Restore 12 m either side of the SECOND lamp — one dwell's worth.
     restoreAround(scene.save, lamps[1].s, 12);
     scene._updateStreetLamps();
-    assert.eq(scene._streetLamps.length, 1, 'exactly the lamp inside the restored metres lights');
-    assert.eq(scene._streetLamps[0].id, lamps[1].id, 'and it is that one, not its neighbour');
+    assert.eq(scene._streetLamps.length, 2, 'the list still carries both stones');
+    assert.eq(litOf(scene).length, 1, 'exactly the lamp inside the restored metres lights');
+    assert.eq(litOf(scene)[0].id, lamps[1].id, 'and it is that one, not its neighbour');
+    assert.truthy(scene._streetLamps.every((L) => L.tier === WorldGen.T.ROAD), 'each carries its tier for the dark frame');
+    assert.falsy(entry._streetLamps.some((L) => 'lit' in L), 'the flag lives on the frame list, never on the tile\'s cached geometry');
   });
 });
 
@@ -274,7 +336,7 @@ test('street lamps: a lamp restored in an earlier session lights without the pla
     assert.eq(scene._streetLampKey, null, 'and the provisional answer is not memoised');
     entry.layers = mkLayers();                    // the tile lands; the player has not moved
     scene._updateStreetLamps();
-    assert.eq(scene._streetLamps.length, 1, 'the lamp lights on the very next frame');
+    assert.eq(litOf(scene).length, 1, 'the lamp lights on the very next frame');
     assert.truthy(scene._streetLampKey, 'and NOW the answer is worth memoising');
   });
 });
@@ -286,7 +348,7 @@ test('street lamps: a ready ring memoises, so standing still costs nothing', () 
   withTile(entry, () => {
     scene._updateStreetLamps();
     const first = scene._streetLamps;
-    assert.eq(first.length, 1, 'the lamp is lit');
+    assert.eq(first.filter((L) => L.lit).length, 1, 'the lamp is lit');
     scene._updateStreetLamps();
     assert.truthy(scene._streetLamps === first, 'the second frame reuses the same list');
   });

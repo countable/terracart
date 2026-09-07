@@ -1182,7 +1182,7 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 {
   const appSrc = readSrc('app.js');
   const a = appSrc.indexOf('  _streetLampsForTile(tx, ty, entry) {');
-  const b = appSrc.indexOf('  // The LIT lamps near the frame');
+  const b = appSrc.indexOf('  // The lamps near the frame');
   const c = appSrc.indexOf('  _updateStreetLamps() {');
   const d = appSrc.indexOf('  // The stones themselves:');
   if (a < 0 || b < 0 || c < 0 || d < 0 || b < a || d < c) {

@@ -5037,6 +5037,11 @@
     // instead of hand-copying the list. (The large tier needs no such export:
     // its weighting reaches the overlay through roadOverlayWidthM.)
     PATH_CLASSES,
+    // The way's terrain tier from its tags (T.ROAD_LG / ROAD_MD / ROAD / PATH,
+    // null for anything that is not a road) — exported so the street lamps
+    // (app.js _streetLampsForTile) pick an unlit stone's frame by the SAME
+    // classification the terrain grid was painted with, not a second list.
+    classifyLine,
     // `${Z}/${tx}/${ty}` — the tile cache key, built in one place so every
     // caller (this file, app.js, render.js, …) spells it the same way.
     tileKey,

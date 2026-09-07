@@ -135,9 +135,39 @@ const STREET_LAMP_TEX = 'street_lamp';
 // is about a third of that, so a lamp sits clearly on one cell of the road.
 const STREET_LAMP_PX = CELL_PX *
   ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 1.5);
+// THE UNLIT LAMP IS THE OLD ROAD COBBLE. A lamp stands on every
+// LAMP_SPACING_M of street whether or not that stretch is restored yet — a
+// dark one is the stone you have not lit, and it has to be VISIBLE or the
+// lamps would seem to appear from nowhere as you walk. It draws from the
+// 'cobble' sheet (assets.js: Road copiar.png, the per-cell pebble art the
+// road band replaced in Sep 2026), at the frame that sheet used for the way's
+// tier — the same frames the old per-cell stones drew, so a dark lamp reads
+// as exactly the grey cobble a road always carried — and at the old stones'
+// own size and alpha: stepped down inside the cell so the band shows round
+// it, and see-through enough to sit ON the road rather than cover it. The
+// lit stone keeps its own baked art (STREET_LAMP_TEX) over the same point.
+const STREET_LAMP_DARK_TEX = 'cobble';
+// Frame per way tier, keyed by the WorldGen.T code classifyLine hands back:
+// motorway/trunk/primary the biggest densest cluster, secondary/tertiary the
+// medium one, minor/service/street the small one, and a footpath a single
+// pebble. Anything classifyLine calls "not a road" falls back to the small
+// cluster. Read through streetLampDarkFrame so the T codes are looked up
+// live rather than retyped here.
+const STREET_LAMP_DARK_FRAME = { ROAD_LG: 0, ROAD_MD: 5, ROAD: 1, PATH: 3 };
+const streetLampDarkFrame = (tier) => {
+  const T = (typeof WorldGen !== 'undefined' && WorldGen.T) || {};
+  for (const k in STREET_LAMP_DARK_FRAME) if (T[k] === tier) return STREET_LAMP_DARK_FRAME[k];
+  return STREET_LAMP_DARK_FRAME.ROAD;
+};
+// The old stones' draw size, in cells: a road cluster at 0.64 of a cell, a
+// path pebble at 0.584 (both "stepped down 20% per playtest" so the ground
+// shows round them), and their 57% alpha.
+const STREET_LAMP_DARK_CELLS = { road: 0.64, path: 0.584 };
+const STREET_LAMP_DARK_ALPHA = 0.57;
 // Pool size. One lamp per LAMP_SPACING_M (100 m) against a viewport 11 cells
-// (~77 m) across means a couple in view is an ordinary block; the pool grows
-// itself if a dense knot of short ways ever beats that (Render.renderPool).
+// (~77 m) across means a couple in view is an ordinary block — lit and dark
+// alike, now that a dark lamp draws too; the pool grows itself if a dense
+// knot of short ways ever beats that (Render.renderPool).
 const STREET_LAMP_POOL = 12;
 // How faint the DWELL PREVIEW gets at its fullest — the ghost of the clean
 // carriageway creeping in under the player while the dwell runs. Well under
@@ -1946,7 +1976,9 @@ class MapScene extends Phaser.Scene {
     // radial gradient and Phaser's Graphics has no gradient primitive) and
     // drawn from its own pool into the SAME ground-decoration container as
     // the pier plank: a lamp lies on the road surface, above the band and
-    // below the lightmap that turns it into a light after dark.
+    // below the lightmap that turns it into a light after dark. The UNLIT
+    // lamps draw from the same pool as the old 'cobble' sheet (assets.js) —
+    // the pool sprites swap texture per lamp in _drawStreetLamps.
     //
     // Sized in CELLS (RoadOverlay.LAMP_DRAW_CELLS), so the stone keeps its
     // proportion to the carriageway at any latitude's cell size. The pool is
@@ -13815,6 +13847,10 @@ class MapScene extends Phaser.Scene {
   // on the same stretch — two sprites and two stacked lights on one street.
   //
   // Rail is skipped: a railway is not a street to rebuild, so it never lights.
+  //
+  // Each lamp carries the way's TIER (WorldGen.classifyLine — the terrain
+  // code the grid was painted with), which is what picks its unlit stone's
+  // frame: the old cobble sheet drew a different cluster per road tier.
   _streetLampsForTile(tx, ty, entry) {
     if (entry._streetLamps) return entry._streetLamps;
     const out = [];
@@ -13841,6 +13877,7 @@ class MapScene extends Phaser.Scene {
         if (f.type !== 2 || !f.geom) continue;          // lines only
         const cls = (f.tags && f.tags.class) || '';
         if (cls === 'rail' || cls === 'transit') continue;
+        const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
@@ -13853,7 +13890,7 @@ class MapScene extends Phaser.Scene {
             if (!Streets.covers(spans, sM)) continue;   // in the buffer — the neighbour's stone
             const q = Streets.pointAtM(line, mvtToM, sM);
             if (!q) continue;
-            out.push({ tileKey, lineKey, s: sM, x: ox + q.x, y: oy + q.y,
+            out.push({ tileKey, lineKey, tier, s: sM, x: ox + q.x, y: oy + q.y,
                        id: `lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
           }
         }
@@ -13863,9 +13900,11 @@ class MapScene extends Phaser.Scene {
     return out;
   }
 
-  // The LIT lamps near the frame, on this._streetLamps — read by
-  // _drawStreetLamps for the stones and by Lighting.collectLamps for the
-  // lights, so the two can never disagree about which lamps are on.
+  // The lamps near the frame, on this._streetLamps, each flagged `lit` —
+  // read by _drawStreetLamps for the stones (a lit one as the baked lamp, a
+  // dark one as the old grey cobble) and by Lighting.collectLamps for the
+  // lights (lit ones only), so the two can never disagree about which lamps
+  // are on: ONE list, one flag, both readers.
   //
   // Measured from the CAMERA ANCHOR, not the feet: this asks "what do I DRAW",
   // and a peek drag has to bring the lamps at the peeked edge with it (the
@@ -13924,8 +13963,11 @@ class MapScene extends Phaser.Scene {
             iv = Streets.restoredList(this.save, L.tileKey, L.lineKey);
             restored.set(L.lineKey, iv);
           }
-          if (!Streets.covers(iv, L.s)) continue;       // this stretch is still dilapidated
-          out.push(L);
+          // A lamp on a stretch still dilapidated is kept, DARK: it draws as
+          // the plain cobble and throws no light. A fresh object per frame
+          // the list rebuilds, never a flag written onto the tile's cached
+          // geometry — that cache is per tile, this answer is per save.
+          out.push({ ...L, lit: Streets.covers(iv, L.s) });
         }
       }
     }
@@ -13933,23 +13975,40 @@ class MapScene extends Phaser.Scene {
     this._streetLampKey = pending ? null : key;
   }
 
-  // The stones themselves: one pooled sprite per lit lamp, seated through
+  // The stones themselves: one pooled sprite per lamp, seated through
   // worldMetersToScreen (the camera-anchored projection — a peek carries them
   // with the ground) into the ground-decoration container, which sits on the
-  // road band and under the lightmap. The light over each one is stamped by
+  // road band and under the lightmap. A LIT lamp is the baked violet stone
+  // (STREET_LAMP_TEX, halo and all, STREET_LAMP_PX across); a DARK one is the
+  // old road cobble (STREET_LAMP_DARK_TEX at its tier's frame), at the old
+  // stones' size and alpha. The light over each lit one is stamped by
   // Lighting.collectLamps from the same list.
   _drawStreetLamps() {
     const pool = this.streetLampPool;
     if (!pool || !this.cobbleContainer || typeof Render === 'undefined') return;
-    // No stone baked (no canvas at boot) — the lamps still LIGHT, they just
-    // have no art. Better than growing the pool with untextured sprites.
-    if (!this.textures.exists(STREET_LAMP_TEX)) return;
+    const hasLit = this.textures.exists(STREET_LAMP_TEX);
+    const hasDark = this.textures.exists(STREET_LAMP_DARK_TEX);
+    // No art at all (no canvas at boot AND the sheet failed to load) — the
+    // lamps still LIGHT, they just have no stone. Better than growing the
+    // pool with untextured sprites.
+    if (!hasLit && !hasDark) return;
     const list = this._streetLamps || [];
+    const isPath = (tier) => typeof WorldGen !== 'undefined' && WorldGen.T && tier === WorldGen.T.PATH;
     Render.renderPool(this, pool, this.cobbleContainer, list, (s, L) => {
+      // A lamp whose texture is missing keeps its slot but shows nothing.
+      if (L.lit ? !hasLit : !hasDark) { s.setVisible(false); return; }
       const p = this.worldMetersToScreen(L.x, L.y);
-      if (s.texture && s.texture.key !== STREET_LAMP_TEX) s.setTexture(STREET_LAMP_TEX);
       s.setPosition(p.x, p.y);
-      s.setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX);
+      if (L.lit) {
+        if (!s.texture || s.texture.key !== STREET_LAMP_TEX) s.setTexture(STREET_LAMP_TEX);
+        s.setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setAlpha(1);
+      } else {
+        const frame = streetLampDarkFrame(L.tier);
+        if (!s.texture || s.texture.key !== STREET_LAMP_DARK_TEX) s.setTexture(STREET_LAMP_DARK_TEX, frame);
+        else s.setFrame(frame);
+        const px = CELL_PX * (isPath(L.tier) ? STREET_LAMP_DARK_CELLS.path : STREET_LAMP_DARK_CELLS.road);
+        s.setDisplaySize(px, px).setAlpha(STREET_LAMP_DARK_ALPHA);
+      }
     });
   }
 

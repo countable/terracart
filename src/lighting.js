@@ -712,10 +712,12 @@
   }
 
   // The STREET LAMPS in range. app.js keeps the live list on
-  // scene._streetLamps — the lit ones near the camera anchor, in ABSOLUTE
-  // world metres, rebuilt when the anchor crosses a cell or a stretch is
-  // restored — and this converts them against THIS frame's anchor, like the
-  // blasts, so a peek drag leaves every lamp on the street it stands in.
+  // scene._streetLamps — every lamp near the camera anchor, in ABSOLUTE
+  // world metres, each flagged `lit`, rebuilt when the anchor crosses a cell
+  // or a stretch is restored — and this converts the LIT ones against THIS
+  // frame's anchor, like the blasts, so a peek drag leaves every lamp on the
+  // street it stands in. A dark lamp (its stretch not yet restored) is on
+  // the list so app.js can draw it as the plain cobble; it throws no light.
   //
   // A LIST, NOT A SCAN: a lamp is not an object in a tile's object list and
   // has no sprite for drawObjects to offer, so nothing would reach `consider`
@@ -729,6 +731,7 @@
     if (!scene._lights) scene._lights = [];
     let n = 0;
     for (const L of list) {
+      if (!L.lit) continue;                        // a dark stone is not a light
       const dx = L.x - ax, dy = L.y - ay;
       if (!inRange(scene, dx, dy, 'cobble', halfM)) continue;
       scene._lights.push({ kind: 'cobble', dx, dy, id: L.id });
