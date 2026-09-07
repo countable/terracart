@@ -314,6 +314,33 @@
   that accumulates the melee wheel's per-frame fractions into whole numbers).
   **Audit it:** `node test/node/run.js` › `test/node/health_bar.test.js`.
 
+- **A KIND is a ROW, never a chain of literals — and a kind GROUP is a
+  predicate.** What a creature DOES lives in `src/sprite_layout.js` ›
+  `CREATURE_BEHAVIOUR`, one row per base kind beside `CREATURE_ART`'s one row
+  for how it draws, both resolved through `baseKind` so a giant inherits: who
+  wanders, who is a pet and what it hunts (`prey`), who is GAME (crow + deer,
+  hunted, never shot), what a kill drops, what a fed animal gives, who a
+  scarecrow turns back, and the gait and the bolt. `wanderCreatures`, the
+  creature draw pass, the tap handler and `resolveDefeat` all ask it
+  (`isPet` / `isGame` / `creatureDrop` / `creatureProduce` / …). Until Sep
+  2026 the same facts were fifty-two `kind === '…'` comparisons across app.js,
+  render.js and interact.js — a seven-branch draw chain whose branches differed
+  only in values the art table already held, a `wanders` OR-chain of nine
+  names, `CAT_PREY` / `DOG_PREY` / `HUNT_KINDS` as three spellings of one
+  table, and a drop ternary. The row is NOT the enemy registry: whether a kind
+  is HOSTILE stays `combat.js` › `MONSTERS` via `Combat.isEnemy`, and
+  `creature_table.test.js` refuses a fight stat in a behaviour row.
+  The same discipline one level up: a GROUP of kinds that more than one place
+  tests is a predicate in `src/interactables.js` — `isCastle(o)`,
+  `isTreeLike(kind)`, `isBuilding(kind)` — and "is this object spent" is
+  `isSpent(o, spentSets(scene, save))`, which the registry's own `spent` rows
+  and both the renderer and the tap read. Five copies of `kind === 'tower' ||
+  tier === 12` and two of the four-clause spent test, each with a comment
+  asking you to keep the other in step, are what those replaced. **When you
+  add a creature, add its row; when you test a kind group twice, name it.**
+  **Audit it:** `node test/node/run.js` › `test/node/creature_table.test.js`
+  and `test/node/predicates.test.js`.
+
 - **Combat is HIT POINTS, and the numbers are derived.** Fighting an enemy is
   not a timer any more: `src/combat.js` owns one HP pool per foe that the melee
   wheel, bow/staff shots and a pet's teeth all drain. The damage rates are NOT
