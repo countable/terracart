@@ -147,8 +147,10 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
   assert.truthy(/const GROWTH_POWDER_R_M = 20;/.test(app), 'the radius is the rainberry\'s 20 m');
   const wrap = app.match(/\n  advanceCropsWithin\(radius\) \{\n([\s\S]*?)\n  \}\n/);
   assert.truthy(wrap, 'advanceCropsWithin beside waterCropsWithin');
-  assert.truthy(/return Crops\.advanceWithin\(this\.save, pWX, pWY, radius\);/.test(wrap[1]),
-    'the crop model stays in crops.js');
+  assert.truthy(/Crops\.advanceWithin\(this\.save, pWX, pWY, radius, movedPlants\);/.test(wrap[1]),
+    'the crop model stays in crops.js, and reports which plants moved');
+  assert.truthy(/for \(const p of movedPlants\) this\._burstAtWorld\('sprout', p\.x, p\.y\);/.test(wrap[1]),
+    'leaves over each one — the SAME cue the 15-min tick and the can\'s jump throw');
   const body = methodBody('useGrowthPowder');
   assert.truthy(/const n = this\.advanceCropsWithin\(GROWTH_POWDER_R_M\);/.test(body), 'sweeps the radius');
   const refuseAt = body.indexOf('if (n <= 0) {');
@@ -157,6 +159,16 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
   assert.truthy(body.slice(refuseAt, consumeAt).includes('return false;'), 'the refusal returns before the consume');
   assert.truthy(consumeAt > refuseAt, 'the powder is consumed AFTER the refusal');
   assert.truthy(/sprang ahead/.test(body), 'the flash says the count sprang ahead');
+  // THE BLAST: the green ring a street and a wreck already get, off the
+  // powder's OWN radius so the flash says how far the scatter reached — not a
+  // fourth spelling of "something came good here".
+  assert.truthy(/sparks: 'greenspark',/.test(body), 'the shared green ring, not a copy of it');
+  assert.truthy(/ringPx: GROWTH_POWDER_R_M \* CELL_PX \/ this\.cellM,/.test(body),
+    'thrown off the scatter radius, in px');
+  assert.truthy(/radiusCells: GROWTH_POWDER_R_M \/ this\.cellM,/.test(body),
+    'and the light flash covers the same ground');
+  assert.truthy(body.indexOf('this._blastAt(') < body.indexOf('consumeSelected(this.save);'),
+    'the blast goes off on a use that actually moved something');
 });
 
 // ── Shadow ─────────────────────────────────────────────────────────────────

@@ -115,7 +115,14 @@
   // watering is left in place (the can's jump above doesn't spend one either,
   // and neither does this) — except on a plant that just ripened, which can
   // no longer spend it. Returns how many plants moved.
-  function advanceWithin(save, pwx, pwy, radius) {
+  //
+  // Pass an array as `movedPlants` to be told WHICH ones moved, exactly as
+  // waterWithin reports its jumps: the scene bursts a 'sprout' on each, the
+  // same cue a plant gets for reaching a stage by the 15-minute tick or by the
+  // can's jump. Until Sep 2026 this was the one of the three that could not
+  // report, so the one moment a whole PLOT springs forward was also the only
+  // one with no leaves over it.
+  function advanceWithin(save, pwx, pwy, radius, movedPlants = null) {
     const r2 = radius * radius;
     let n = 0;
     for (const p of save.planted || []) {
@@ -125,6 +132,7 @@
       p.stage = (p.stage ?? 0) + 1;
       if ((p.stage ?? 0) >= maxStage()) p.watered_t = 0;
       n++;
+      if (movedPlants) movedPlants.push(p);
     }
     return n;
   }
