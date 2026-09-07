@@ -11862,7 +11862,10 @@ class MapScene extends Phaser.Scene {
         'margin:-2px 0 10px;padding-bottom:8px;' +
         `border-bottom:1px solid ${borderColor}59;`;
       const ico = document.createElement('span');
-      ico.style.cssText = 'font-size:22px;line-height:1';
+      // Desaturated: the emoji is a category glyph, not a prize, so it reads
+      // in the chrome's own greys rather than pulling colour off the copy —
+      // the same treatment the inactive inventory tab glyphs get.
+      ico.style.cssText = 'font-size:22px;line-height:1;filter:grayscale(1)';
       ico.textContent = k.icon;
       const lbl = document.createElement('span');
       lbl.style.cssText =
