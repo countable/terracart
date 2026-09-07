@@ -11334,6 +11334,19 @@ class MapScene extends Phaser.Scene {
         this.viewCenterX, this.viewCenterY);
       return false;
     }
+    // THE BLAST — the same fanfare a street and a wreck get, scaled to what a
+    // scatter of powder covers. advanceCropsWithin has already thrown a
+    // 'sprout' over every plant that moved (the leaves ARE the growth); this
+    // is the green ring around them, off the powder's own radius so the flash
+    // says how far the scatter reached rather than going off at the feet. It
+    // is thrown from the PLAYER's world point — the powder leaves the hand,
+    // and the sweep it drives is centred there too (advanceCropsWithin reads
+    // the same point), so the ring and the crops it sprang share a centre.
+    this._blastAt(this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y, {
+      radiusCells: GROWTH_POWDER_R_M / this.cellM,
+      ringPx: GROWTH_POWDER_R_M * CELL_PX / this.cellM,
+      sparks: 'greenspark',
+    });
     consumeSelected(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();
@@ -11616,7 +11629,14 @@ class MapScene extends Phaser.Scene {
   advanceCropsWithin(radius) {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
-    return Crops.advanceWithin(this.save, pWX, pWY, radius);
+    // Leaf flecks off each plant that sprang — the SAME cue the 15-minute
+    // tick (advanceGrowth) and the can's jump (waterCropsWithin) throw, for
+    // the same event. _burstAtWorld drops the ones off-screen, so a scatter
+    // at the edge of a big plot only pays for the leaves you can see.
+    const movedPlants = [];
+    const n = Crops.advanceWithin(this.save, pWX, pWY, radius, movedPlants);
+    for (const p of movedPlants) this._burstAtWorld('sprout', p.x, p.y);
+    return n;
   }
 
   // ── DIALOG BANNER ART ──────────────────────────────────────────────────
@@ -14492,7 +14512,7 @@ class MapScene extends Phaser.Scene {
         const bg = this._houseBlastGeometry(house);
         this._blastAt(bg.x, bg.y, {
           radiusCells: bg.radiusCells, ringPx: bg.ringPx,
-          chips: 'timber', sparks: 'buildspark',
+          chips: 'timber', sparks: 'greenspark',
         });
         this.buildInventoryDOM();
         this.questEvent('restore');
