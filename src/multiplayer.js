@@ -105,7 +105,7 @@ const Multiplayer = (function () {
         const t = (typeof TIER_BY_NUM !== 'undefined') && TIER_BY_NUM[obj.yieldTier];
         return t ? `${t.name} rock` : 'Rock';
       }
-      if (obj.kind === 'tree' || obj.kind === 'fruittree') {
+      if (isTreeLike(obj.kind)) {
         return obj.species ? `${obj.species[0].toUpperCase()}${obj.species.slice(1)} tree` : 'Tree';
       }
       if (obj.kind === 'chest') return 'Chest';

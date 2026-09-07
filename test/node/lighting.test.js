@@ -621,7 +621,11 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   const start = r.indexOf('Render.drawObjects = function drawObjects(scene)');
   const body = r.slice(start, r.indexOf('\n};', start));
   assert.truthy(/LIGHTS\.beginFrame\(scene\)/.test(body), 'the frame list is reset before the scan');
-  const offer = body.indexOf("if (LIGHTS && (o.kind === 'house' || o.kind === 'tower' || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);");
+  // isBuilding is interactables.js' house/tower pair — the same predicate the
+  // shadow pass, the shop pip and the rampart occluder ask, so a new building
+  // kind is offered to the lightmap by joining that group rather than by being
+  // remembered here.
+  const offer = body.indexOf("if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);");
   const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   // The mushroom is a wildplant, scanned in its own loop: offered as itself,

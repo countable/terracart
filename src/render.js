@@ -711,7 +711,7 @@ const UNCLAIMED_MURK_A = _USH ? _USH.murkA : 0.12;
 // White lerped UNCLAIMED_WASH_A of the way to the wash — the multiply tint that
 // lands a sprite roughly where the wash lands the ground under it.
 const UNCLAIMED_SPRITE_TINT = (() => {
-  const lerp = (a, b, t) => a * (1 - t) + b * t;
+  // lerp is util.js's — this file used to keep a byte-identical copy here.
   const ch = (sh) => {
     const washed = lerp(255, (UNCLAIMED_WASH >> sh) & 255, UNCLAIMED_WASH_A);
     return Math.round(lerp(washed, (UNCLAIMED_MURK >> sh) & 255, UNCLAIMED_MURK_A));
@@ -783,7 +783,7 @@ Render.spriteTint = function spriteTint(o, scene) {
   let tint = 0xffffff;
   // Rare shiny flora — trees + fruit trees get the warm yellow sheen so the
   // player can spot a shiny harvest from across the tile.
-  if ((o.kind === 'tree' || o.kind === 'fruittree') && isShiny(o.id, SHINY_RATE.tree)) {
+  if (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree)) {
     tint = SHINY_TINT;
   }
   // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
@@ -2128,23 +2128,11 @@ Render.drawObjects = function drawObjects(scene) {
   // gone for good, so unlike sprungSet this one drops the trap from the list
   // entirely rather than picking a texture.
   const disarmedSet = setOf(scene.save.disarmedTraps);
-  // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
-  // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
-  // tiles — and any two chests that land in the same 5 m cell — collapse to a single
-  // crate. The key is derived from world position, so *which* copy survives no longer
-  // depends on tile-iteration or load order: that order-dependence is what made crates
-  // blink in and out as you walked (worst in dense areas like Seattle where many
-  // same-named/same-class POIs sit close together). We intentionally no longer collapse
-  // distinct POIs that merely share a name within ~40 m — those are different crates and
-  // now both stay visible.
-  const seenCell = new Set();
-  const cellKey = (o) => Math.floor(o.x / scene.cellM) + '_' + Math.floor(o.y / scene.cellM);
-  const isDupChest = (o) => {
-    const k = cellKey(o);
-    if (seenCell.has(k)) return true;
-    seenCell.add(k);
-    return false;
-  };
+  // Deterministic chest dedupe by game cell — interactables.js › chestCellDedup,
+  // the SAME predicate the tap pass (interact.js) builds, so what is drawn and
+  // what is tappable can't disagree. One instance per frame: it is stateful
+  // (first-seen-wins in this pass's iteration order).
+  const isDupChest = chestCellDedup(scene.cellM);
   // Iterate only the player's 3×3 tile neighbourhood instead of every entry
   // in WorldGen.tileCache. The cache grows unboundedly as the player walks —
   // a long-running session can hold 50+ visited tiles with ~50k objects each,
@@ -2184,7 +2172,7 @@ Render.drawObjects = function drawObjects(scene) {
           // its light reaches further than its art: offered to the lightmap
           // before the sprite cull, with its own radius as the margin, so a
           // lantern a cell off-screen still lights the edge it stands past.
-          if (LIGHTS && (o.kind === 'house' || o.kind === 'tower' || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);
+          if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);
           if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
           if (o.kind === 'chest' && isDupChest(o)) continue;
           // A live POI is a light too — offered AFTER the dedup (a per-frame
@@ -2295,16 +2283,23 @@ Render.drawObjects = function drawObjects(scene) {
     dx: fr.x - pWorldX, dy: fr.y - pWorldY,
   })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
 
-  // Filter out chopped trees and (already-)opened chests handled in inner loop above? Do it here.
-  // Hide objects that are temporarily gone:
-  //  - chopped trees
-  //  - opened chests (the chest, its pad, label, and tier diamond all vanish
-  //    until the chest refills — keyed by save.opened including o.id)
-  // Trees flag o.chopped = true in-memory when the chop progress wheel completes
-  // (cheap), AND now also persist into save.chopped so a tile re-rasterize
-  // doesn't regrow them. Check both — save.chopped is the source of truth.
-  const choppedSet = setOf(scene.save.chopped);
-  const brokenRockSet = scene.brokenRockSet || new Set();
+  // Hide objects that are temporarily gone — an opened chest (its pad, label
+  // and tier diamond go with it until it refills), a chopped tree, a mined-out
+  // mineralrock, a picked-up groundstack. That is ONE state with four names,
+  // and interactables.js › isSpent is the test the tap gate refuses on too, so
+  // a thing you cannot see can never be a thing you can still work.
+  // The sets are built ONCE for the frame and handed to every object below;
+  // `opened` and `picked` are the ones the POI-light and wildplant passes above
+  // already built. (isSpent takes sets rather than the save for exactly this:
+  // it runs over every object of the 3×3 ring, every frame.)
+  const spentIds = {
+    opened: openedSet,
+    // In-memory o.chopped is set by the chop wheel; save.chopped is the source
+    // of truth that survives a tile re-rasterize. isSpent checks both.
+    chopped: setOf(scene.save.chopped),
+    picked: pickedSet,
+    broken: scene.brokenRockSet || new Set(),
+  };
   // Lowtier chests (chestTier === 1) and starter supply crates render the
   // `box` sprite instead of the trunk chest.
   const _chestIsBox = (o) => {
@@ -2319,19 +2314,7 @@ Render.drawObjects = function drawObjects(scene) {
   // also what a looted trunk chest has always done, so both tiers now behave
   // the same. (The tap target survives either way — interactables.js still
   // flashes "Picked clean already."; the pad + label persist via objList.)
-  const filteredObj = objList.filter(({ o }) =>
-    !(o.kind === 'chest' && openedSet.has(o.id)) &&
-    !(o.kind === 'tree'  && (o.chopped || choppedSet.has(o.id))) &&
-    // Mined-out mineralrocks vanish. Previously they hung around as a
-    // dimmed sprite that flashed "spent" on tap — now they just clear,
-    // matching how chopped trees and opened chests already disappear.
-    // save.brokenRocks still tracks them so re-rasterizing the tile
-    // (cache evict + walk back) doesn't respawn them.
-    !(o.kind === 'mineralrock' && brokenRockSet.has(o.id)) &&
-    // Ground stacks vanish once picked up. Same key (save.picked) as the
-    // wildplant pickup tracking, so existing UIs / saves don't grow a new field.
-    !(o.kind === 'groundstack' && pickedSet.has(o.id))
-  );
+  const filteredObj = objList.filter(({ o }) => !isSpent(o, spentIds));
   // Merge in placed scarecrows so they go through the same sprite pool +
   // depth sort as other world objects. Their RENDER_SPEC entry (kind
   // '_scarecrow') anchors the pole base on the placement cell.
@@ -2375,7 +2358,7 @@ Render.drawObjects = function drawObjects(scene) {
     const _rampOcc = new Set();
     for (const { it } of zList) {
       const kind = it.o && it.o.kind;
-      if (kind === 'tower' || kind === 'house') continue;
+      if (isBuilding(kind)) continue;
       const c = worldMetersToAbsCell(scene, pWorldX + it.dx, pWorldY + it.dy);
       _rampOcc.add(c.cellIX + '_' + c.cellIY);
     }
@@ -2606,7 +2589,7 @@ Render.drawObjects = function drawObjects(scene) {
     // ellipse under the feet; the figure itself is fully opaque), so scale 0.6
     // puts it at ~26×23px — about 0.73 of the 32px cell. Raised from 0.455
     // (~18px) which read too small; still fits inside its single cell (QC rule).
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true },
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true, shadow: true },
     // Cave staircase — Props Mine ladder art (32×32 each). 'down': ladder into
     // dark pit; 'up': bare standalone ladder. Texture picked by direction.
     staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
@@ -2619,14 +2602,14 @@ Render.drawObjects = function drawObjects(scene) {
     // sprite vertically frame-to-frame; the flame still rises out the top.
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
-             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0 },
+             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
     // Cave torch — 16×32 like the campfire, same scale, same flicker cadence
     // (the 4 frames differ only in the flame, so seat off frame 0 and the
     // stake never bobs). Its light is Lighting.KINDS.torch — offered to the
     // lightmap in the object scan above the sprite cull.
     torch: { key: 'torch',
              frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
-             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0 },
+             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
@@ -2684,7 +2667,7 @@ Render.drawObjects = function drawObjects(scene) {
               // rises into the tiles above without spilling into the cell
               // below — automatically across species sheets (maple 32×48 vs
               // the 32×48 pine/birch/mahogany root padding) and size classes.
-              seat: true,
+              seat: true, shadow: true,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               // Bushes are one uniform type — skip the per-tree crown tint so
               // every bush renders as the same plain green sprite (an odd
@@ -2755,7 +2738,8 @@ Render.drawObjects = function drawObjects(scene) {
                              return L.stand ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0)); },
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => { const L = _chestLook(o); return !L.stand && !L.coin; } },
+              seat: (o) => { const L = _chestLook(o); return !L.stand && !L.coin; },
+              shadow: true },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
@@ -2783,7 +2767,7 @@ Render.drawObjects = function drawObjects(scene) {
               // still lands 1px above the cell edge.
               scaleYMul: 1.10,
               // Placement obeys the "one cell" rule (seat pass, src/sprite_layout.js).
-              seat: true,
+              seat: true, shadow: true,
               after: (s, o, scene) => {
                 // Hand the fruit pass everything it needs to hang this tree's
                 // fruit on it, measured off the sprite as it was just drawn:
@@ -2853,7 +2837,7 @@ Render.drawObjects = function drawObjects(scene) {
               // its cell (the art sits low in the 16px frame). origin/dyPx
               // below are the no-SpriteLayout fallback. scale 1.28 (down 20%
               // from 1.6, Sep 2026 playtest) draws the 16px frame at ~20px.
-              origin: [0.5, 0.5], scale: 1.28, seat: true,
+              origin: [0.5, 0.5], scale: 1.28, seat: true, shadow: true,
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
@@ -2872,7 +2856,7 @@ Render.drawObjects = function drawObjects(scene) {
     // slice was cut off on the top and left; the art was redrawn complete),
     // so a plain frame-centred origin works — the seat pass refines the
     // final offsets from the trimmed bounds.
-    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, seat: true },
+    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, seat: true, shadow: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. Tap
     // refills the watering can (interact.js). scale 0.9 draws the 30px frame at
     // ~27px, inside its one cell (QC rule); the seat pass centres it there off
@@ -2881,7 +2865,7 @@ Render.drawObjects = function drawObjects(scene) {
     // frame 0 is the well without the hoist arm (assets.js slices the sheet at
     // 30px); it is set explicitly because pool sprites are shared with
     // multi-frame sheets and would otherwise keep a stale frame index.
-    well:   { key: 'well', frame: 0, origin: [0.5, 0.5], scale: 0.9, seat: true },
+    well:   { key: 'well', frame: 0, origin: [0.5, 0.5], scale: 0.9, seat: true, shadow: true },
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from inventoryIconSource(itemId) so any item with an
     // inventory icon can sit on the ground without per-kind plumbing.
@@ -2892,7 +2876,7 @@ Render.drawObjects = function drawObjects(scene) {
       frame: (o) => {
         // Wood sheet is 3 frames (brown / grey / amber log variants); the
         // frame cycles with qty so the sprite changes as the stack grows.
-        if (o.itemId === 'wood') return Math.min(2, Math.max(0, (o.qty || 1) - 1));
+        if (o.itemId === 'wood') return clamp((o.qty || 1) - 1, 0, 2);
         return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
       },
       // Centred in the cell (origin y 0.5), NOT foot-anchored. At 0.9 the
@@ -2911,17 +2895,18 @@ Render.drawObjects = function drawObjects(scene) {
     },
   };
   // Kinds that stand UP off the ground and therefore cast a contact shadow.
-  // Buildings (house/tower) get the bespoke footprint math below; everything
-  // listed here is a seated sprite (see the "one cell" rule) so its shadow is
+  // DERIVED from the table above — `shadow: true` on the row, beside the
+  // `seat: true` it always accompanies, rather than a second hand-kept list of
+  // nine names that a new sprite could join one of and not the other.
+  // Buildings (house/tower) get the bespoke footprint math below; every row
+  // flagged here is a seated sprite (see the "one cell" rule) so its shadow is
   // derived from the same trimmed art bounds the seat pass uses — the shadow
   // then tracks the real art, not the frame box's transparent padding.
-  // Deliberately excluded: `groundstack` (a pile already lying on the ground)
+  // Deliberately unflagged: `groundstack` (a pile already lying on the ground)
   // and `staircase` (a hole cut INTO the ground — a shadow under it reads as
   // a floating slab).
-  const SEATED_SHADOW_KINDS = new Set([
-    'tree', 'fruittree', 'chest', 'mineralrock', 'well', 'pole', '_scarecrow', '_fire',
-    'torch',
-  ]);
+  const SEATED_SHADOW_KINDS = new Set(
+    Object.keys(RENDER_SPEC).filter((k) => RENDER_SPEC[k].shadow));
   // Ground geometry for a seated sprite: where its art actually meets the
   // cell, and how wide that contact is. Returns null — i.e. no shadow — when
   // the sprite isn't seated after all (a `chest` that resolved to a produce
@@ -2962,7 +2947,7 @@ Render.drawObjects = function drawObjects(scene) {
     const shadowList = [];
     for (const item of filteredObj) {
       const k = item.o.kind;
-      if (k === 'house' || k === 'tower') { shadowList.push(item); continue; }
+      if (isBuilding(k)) { shadowList.push(item); continue; }
       if (!SEATED_SHADOW_KINDS.has(k)) continue;
       const foot = _seatedFoot(item.o);
       if (foot) shadowList.push({ ...item, _foot: foot });
@@ -3583,7 +3568,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Styling: green ink on white plaque with a hard black border so the pip
   // reads against any biome colour, anchored top-left and offset 10 px
   // further left from the house's foot point.
-  const houseObjs = filteredObj.filter(({ o, wide }) => !wide && (o.kind === 'house' || o.kind === 'tower'));
+  const houseObjs = filteredObj.filter(({ o, wide }) => !wide && isBuilding(o.kind));
   let hri = 0;
   for (const item of houseObjs) {
     const { o, dx, dy } = item;
@@ -3986,11 +3971,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (creatureHops(c.kind)) {
       // Phase-offset per creature off a cached hash of its id, so a pack of
       // slimes doesn't pulse in unison.
-      if (c._hopSeed == null) {
-        let h = 0; const id = c.id || '';
-        for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
-        c._hopSeed = h % 600;
-      }
+      if (c._hopSeed == null) c._hopSeed = strHash31(c.id || '') % 600;
       // HOW HIGH and HOW QUICK is the MONSTER table's business, not the art
       // table's: a flyer (the bat-like purple slime) darts, everything else
       // lumbers. The surface slime is in no monster table and lumbers.
@@ -4059,7 +4040,7 @@ Render.drawObjects = function drawObjects(scene) {
   // renders no sprite. Sparking off objList left a gold sparkle hovering over
   // the now-empty cell — the "sparkle on the road with nothing under it" bug.
   for (const it of filteredObj) {
-    if ((it.o.kind === 'tree' || it.o.kind === 'fruittree') && isShiny(it.o.id, SHINY_RATE.tree)) {
+    if (isTreeLike(it.o.kind) && isShiny(it.o.id, SHINY_RATE.tree)) {
       pushSpark(it, it.o.id);
     }
   }
@@ -4069,9 +4050,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { sx, sy } = project(item.dx, item.dy);
     // Desync each marker's twinkle off a stable per-id phase so a cluster of
     // shinies shimmers out of step rather than blinking in unison.
-    let h = 0; const id = item.id;
-    for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
-    const phase = ((_sparkNow + (h % 2600)) % 2600) / 2600;        // 0..1
+    const phase = ((_sparkNow + (strHash31(item.id) % 2600)) % 2600) / 2600;   // 0..1
     const wave = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);        // 0..1
     const bob = Math.round(2 * Math.sin(phase * Math.PI * 2));     // -2..2 px
     const scl = 0.5 + 0.30 * wave;                                 // ~16..~26px from 32px tex

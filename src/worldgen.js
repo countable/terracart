@@ -1753,7 +1753,7 @@
   // down. app.js turns it on with the map (setSliceBudgetMs).
   let _sliceAdapt = false;
   function setSliceBudgetMs(ms, adapt = true) {
-    RASTER_SLICE_MS = Math.max(4, Math.min(60, +ms || RASTER_SLICE_LIVE_MS));
+    RASTER_SLICE_MS = clamp(+ms || RASTER_SLICE_LIVE_MS, 4, 60);
     _sliceMs = RASTER_SLICE_MS;
     _sliceSafeMs = Infinity;
     _sliceBaseMs = 16.7;
@@ -2266,7 +2266,7 @@
               const areaM2 = (bb.maxX - bb.minX) * (bb.maxY - bb.minY) * mvtToM * mvtToM;
               // ~1 rock per 25 m², capped at 100 — a quarter-acre quarry
               // gets ~40 rocks, a big industrial estate hits the cap.
-              const target = Math.min(100, Math.max(5, Math.floor(areaM2 / 25)));
+              const target = clamp(Math.floor(areaM2 / 25), 5, 100);
               const rng2 = makeRng((polyKey ^ 0xC0FFEE57) >>> 0);   /* fixed salt — different from longgrass / nut streams */
               let placed = 0, attempts = 0;
               while (placed < target && attempts < target * 6) {
@@ -3015,7 +3015,7 @@
       // by virtue of OSM data and never something the player wades into a
       // back yard for. Keep them exempt from the residential proximity
       // check below.
-      const _mrSkipKind = (k) => k === 'house' || k === 'tower';
+      const _mrSkipKind = (k) => isBuilding(k);
       // POI chests are real-world destinations and count as public anchors for
       // the shared isSpawnCell rule below. Snapshot their cell coords now,
       // before we start splicing `objects`.
@@ -3047,7 +3047,7 @@
           // home grove the early game's wood supply depends on rings the
           // player's own house), and a tall canopy beside a wall reads
           // naturally where a rock on the foundation reads as junk.
-          const _mrIsTree = o.kind === 'tree' || o.kind === 'fruittree';
+          const _mrIsTree = isTreeLike(o.kind);
           if (!_mrIsTree && nearBuildingCell(grid, w, h, ix, iy)) return true;
           // Synthesized concrete POI pads (hospital cross / school pyramid)
           // repaint cells AFTER scatter spawns ran — e.g. a residential rock

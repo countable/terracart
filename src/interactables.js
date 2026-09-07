@@ -35,6 +35,38 @@
 // persistSave, toolDurationMs) are globals from util.js / items.js / save.js,
 // all loaded before this module.
 
+// ── Shared world-object predicates ─────────────────────────────────────────
+// Three kind tests that were spelled out as `o.kind === 'a' || o.kind === 'b'`
+// in render.js / interact.js / worldgen.js / multiplayer.js / shops_math.js.
+// They live here because interactables.js is the registry every consumer
+// already loads before itself, and because a new kind that joins one of these
+// groups has to join it EVERYWHERE at once — a tower that is a castle to the
+// shop but not to the renderer is the drift these replace.
+// Each says what it is NOT, so the next reason lands in the right lane.
+
+// The CASTLE — the one building that never gates a deal and wears the tier-12
+// rampart. NOT "big" (a fort is tier 11 and gates at 5/hour) and NOT "has a
+// turret sprite": a `tower` IS the castle's turret, so the kind and the tier
+// are two spellings of the same building, not two conditions.
+function isCastle(o) {
+  return !!o && (o.kind === 'tower' || o.tier === 12);
+}
+
+// The two kinds that draw as a TREE — a shiny sheen, a canopy against a wall,
+// a name in the peer readout. NOT "you can chop it" (a fruittree is harvested,
+// never felled — see INTERACTABLES.fruittree) and NOT "wooden".
+function isTreeLike(kind) {
+  return kind === 'tree' || kind === 'fruittree';
+}
+
+// The house/tower PAIR — the two object kinds that are a building you tap to
+// open a shop. NOT "has a footprint" (BUILDING_TYPES is the terrain-side test,
+// and a market stall / shrine / pot-of-gold has art without being either of
+// these) and NOT "exempt from the one-cell seat rule", which is a longer list.
+function isBuilding(kind) {
+  return kind === 'house' || kind === 'tower';
+}
+
 // ---- Slow grind ------------------------------------------------------------
 // A tool job EXACTLY one tier out of reach (bare hands = tier 0 included) is
 // not refused outright: the player can choose to grind it out with what they
@@ -106,7 +138,7 @@ const INTERACTABLES = {
   // (treeAxeReqTier). A chopped stump is skipped so its cell stays tillable.
   tree: {
     tool: 'axe',
-    spent: (o, ctx) => o.chopped || (ctx.save.chopped && ctx.save.chopped.includes(o.id)),
+    spent: (o, ctx) => isSpent(o, spentSets(ctx.scene, ctx.save)),
     spentAction: 'skip',
     gate: (o, save) => {
       const reqTier = treeAxeReqTier(o);
@@ -171,7 +203,7 @@ const INTERACTABLES = {
   // gated and drops exactly one namesake bar + coal + tier-rolled gems.
   mineralrock: {
     tool: 'pick',
-    spent: (o, ctx) => ctx.scene.brokenRockSet.has(o.id),
+    spent: (o, ctx) => isSpent(o, spentSets(ctx.scene, ctx.save)),
     spentAction: 'consume',
     gate: (o, save) => {
       const isCave = o.caveVariant != null;
@@ -582,6 +614,77 @@ const INTERACTABLES = {
     custom: (ctx, o) => { ctx.scene.shopInteract(ctx.sx, ctx.sy, o); return true; },
   },
 };
+
+// ── "Already spent", in ONE place ──────────────────────────────────────────
+// An opened chest, a chopped tree, a mined-out mineralrock and a picked-up
+// groundstack are one state wearing four names: the object is still GENERATED
+// (the world is a pure function of where it is), and the save carries only the
+// id that says "…except that one" (CLAUDE.md, bucket 2). render.js drops them
+// from the draw list and the registry's `spent` rows refuse the tap — and both
+// used to carry their own copy of the four clauses with a comment asking the
+// other side to keep matching.
+//
+// It takes the SETS, not the save, because render.js runs it over every object
+// of the 3×3 tile ring EVERY FRAME: the sets are built once for the frame and
+// the same object is handed to every call, where a `save` shape would rebuild
+// four Sets per object per frame. A tap path builds one with spentSets(), whose
+// three `setOf` reads are memoised on the arrays anyway.
+//
+// It is NOT the `spent` CALLBACK, which is the TAP's question and carries
+// `spentAction` with it — those rows are readers of this, not a second lane.
+// And it is not "can this be worked": an unopened chest, a fruit tree between
+// harvests and a house are all un-spent.
+function spentSets(scene, save) {
+  const s = save || (scene && scene.save) || {};
+  return {
+    opened: setOf(s.opened),
+    chopped: setOf(s.chopped),
+    picked: setOf(s.picked),
+    // The broken-rock ids live on the scene as a Set already (app.js rebuilds
+    // it from save.brokenRocks), so it is passed through rather than rebuilt.
+    broken: (scene && scene.brokenRockSet) || new Set(),
+  };
+}
+function isSpent(o, sets) {
+  switch (o && o.kind) {
+    case 'chest':       return sets.opened.has(o.id);
+    // o.chopped is the in-memory flag the chop wheel sets; save.chopped is the
+    // source of truth that survives a tile re-rasterize. Both, as both sites
+    // always checked both.
+    case 'tree':        return !!o.chopped || sets.chopped.has(o.id);
+    case 'mineralrock': return sets.broken.has(o.id);
+    // Same key (save.picked) as the wildplant pickup tracking, so a save
+    // doesn't grow a field for it.
+    case 'groundstack': return sets.picked.has(o.id);
+    default:            return false;
+  }
+}
+
+// ── One chest per cell ─────────────────────────────────────────────────────
+// A chest's id is already cell-snapped (`c_<cellX>_<cellY>`), so the same POI
+// duplicated across adjacent tiles — and any two chests that land in the same
+// cell — collapse to a single crate. The key is derived from WORLD POSITION,
+// so *which* copy survives no longer depends on tile-iteration or load order:
+// that order-dependence is what made crates blink in and out as you walked.
+// Distinct POIs that merely share a name within ~40 m are NOT collapsed —
+// those are different crates and both stay visible.
+//
+// The draw pass (render.js) and the tap pass (interact.js) have to collapse
+// identically or you get a crate you can see and cannot tap, so both take
+// their first-seen-wins predicate from here instead of each keeping a copy.
+// Returns a stateful predicate: build ONE per pass, then ask it in the pass's
+// own iteration order.
+// The grid is `scene.cellM` METRES — a dedup bucket, not a coordinate, so it
+// is deliberately not coords.js' tile-pixel abs-cell key.
+function chestCellDedup(cellM) {
+  const seen = new Set();
+  return (o) => {
+    const k = Math.floor(o.x / cellM) + '_' + Math.floor(o.y / cellM);
+    if (seen.has(k)) return true;
+    seen.add(k);
+    return false;
+  };
+}
 
 // Generic driver for a registered interactable. Returns:
 //   'skip'  — caller should `continue` to the next object (spent + spentAction

@@ -1030,19 +1030,16 @@ const TAP_HANDLERS = [
     // made a tall tree / turret / market stall tappable from the empty cell
     // above it.
     const tapCell = worldMetersToAbsCell(scene, wm.x, wm.y);
-    const seenTapCell = new Set();
-    const isDupTapChest = (o) => {
-      // scene.cellM, NOT this.cellM: these handlers are arrow fns defined at
-      // module top level, so `this` is the global object (window) here, not the
-      // scene — `this.cellM` was undefined, making every key "NaN_NaN". That
-      // collapsed ALL loaded chests to one dedupe key, so only the first chest
-      // iterated stayed tappable and every other chest fell through to the till
-      // handler's "occupied: chest" flash. Mirror render.js, which uses scene.cellM.
-      const k = Math.floor(o.x / scene.cellM) + '_' + Math.floor(o.y / scene.cellM);
-      if (seenTapCell.has(k)) return true;
-      seenTapCell.add(k);
-      return false;
-    };
+    // interactables.js › chestCellDedup — literally the predicate render.js
+    // builds, so the tap-target set and the draw set can't disagree. One
+    // instance per tap: it is stateful (first-seen-wins in this iteration).
+    // scene.cellM, NOT this.cellM: these handlers are arrow fns defined at
+    // module top level, so `this` is the global object (window) here, not the
+    // scene — `this.cellM` was undefined, making every key "NaN_NaN". That
+    // collapsed ALL loaded chests to one dedupe key, so only the first chest
+    // iterated stayed tappable and every other chest fell through to the till
+    // handler's "occupied: chest" flash.
+    const isDupTapChest = chestCellDedup(scene.cellM);
     for (const o of allObjs) {
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
       // The object's own cell is its whole tap target — for a house / turret /
@@ -1143,7 +1140,7 @@ const TAP_HANDLERS = [
     const { scene, sx, sy, cwmx, cwmy, cell } = ctx;
     if (!BUILDING_TYPES.has(cell.type)) return false;
     const best = findClosestItem('objects', cwmx, cwmy, 30,
-      (o) => o.kind === 'house' || o.kind === 'tower');
+      (o) => isBuilding(o.kind));
     if (!best) return false;
     scene.shopInteract(sx, sy, best);
     return true;

@@ -35,7 +35,9 @@
   // (Infinity); forts (tier 11) allow 5/hour; small houses 1/hour.
   function dealCap(house, isStarterBlacksmith = false) {
     if (!house) return Infinity;
-    if (house.kind === 'tower' || house.tier === 12) return Infinity;
+    // interactables.js loads after this module, so isCastle is resolved at CALL
+    // time — which is the only time dealCap runs.
+    if (isCastle(house)) return Infinity;
     if (isStarterBlacksmith) return Infinity;
     if (house.tier === 11) return 5;
     return 1;
