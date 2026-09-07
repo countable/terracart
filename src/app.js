@@ -281,6 +281,30 @@ const PROVISIONAL_ORIGIN_KEYS = ['starterCratesAt', 'starterPlotAt', 'starterHom
 const ORIGIN_STRANDED_M = 25000;
 const W = 352, H = 844;   // 352 = VIEW_CELLS × CELL_PX → map view fills the canvas edge-to-edge with no horizontal padding
 
+// ── Dev knobs on the URL ─────────────────────────────────────────────
+// For A/B runs of the load profile (☰ › Load profile) on the phone that is
+// actually slow — two runs of the same walk, one number changed:
+//   ?fps=N     cap the game loop at N steps/s (0 = the display's own rate)
+//   ?rscale=N  cap the canvas backing store at N× the logical grid
+// Read once at load; a PWA launch carries no query, so neither can stick.
+function urlNumParam(name) {
+  if (typeof location === 'undefined') return null;
+  const m = new RegExp('[?&]' + name + '=(-?[0-9.]+)').exec(location.search || '');
+  return m ? Number(m[1]) : null;
+}
+// The loop's own cadence. Phaser steps at the display's refresh rate by
+// default — 60 on most phones, 90 or 120 on many recent ones — and a GPS
+// walker whose body takes most of a second to cross a cell has nothing that
+// needs a step every 8 ms. Every pass in _updateTimed, the lightmap upload
+// and the GPU's fill all scale with the step count, so this cap is the
+// single biggest CPU/battery lever the game has. Phaser still takes a rAF
+// every vsync and skips the step until the cap's interval has accumulated
+// (TimeStep.stepLimitFPS in vendor/phaser.js), so `delta` stays honest and
+// nothing time-based (tweens, anims, the peek spring) changes speed.
+const FPS_LIMIT_DEFAULT = 30;
+const FPS_LIMIT = (() => { const v = urlNumParam('fps'); return v == null ? FPS_LIMIT_DEFAULT : Math.max(0, v); })();
+if (typeof window !== 'undefined') window.__renderScaleCap = urlNumParam('rscale');
+
 // ── Canvas resolution ─────────────────────────────────────────────────
 // W × H is the LOGICAL grid — the coordinate system every other line in this
 // codebase thinks in. It is NOT the canvas's pixel count.
@@ -321,7 +345,10 @@ const RENDER_SCALE_MAX = 4;
 function renderScale() {
   const css = window.__gameCssScale || 1;      // published by index.html fitGame
   const dpr = window.devicePixelRatio || 1;
-  return Math.min(RENDER_SCALE_MAX, Math.max(1, css * dpr));
+  // ?rscale=N (see urlNumParam) lowers the cap for one run — the A/B that
+  // tells GPU fill from main-thread cost, which no JS timer can measure.
+  const cap = window.__renderScaleCap > 0 ? Math.min(RENDER_SCALE_MAX, window.__renderScaleCap) : RENDER_SCALE_MAX;
+  return Math.min(cap, Math.max(1, css * dpr));
 }
 // Live value: read by the pointer conversion below and re-applied on resize.
 // A `let` because devicePixelRatio changes when a window moves between
@@ -1467,7 +1494,9 @@ class MapScene extends Phaser.Scene {
     let _renderT0 = 0;
     this.game.events.on('prerender', () => { _renderT0 = performance.now(); });
     this.game.events.on('postrender', () => {
-      window.__boot?.tick('phaser render', performance.now() - _renderT0);
+      const dt = performance.now() - _renderT0;
+      window.__boot?.tick('phaser render', dt);
+      if (this._boot_still) window.__boot?.tick('phaser render @still', dt);
     });
     // ── Device line for the load profile ─────────────────────────────────
     // "What is the slow device" needs a device to name: renderer type
@@ -6307,12 +6336,23 @@ class MapScene extends Phaser.Scene {
   update(_, dtMs) {
     const _uB = window.__boot;
     if (!_uB) return this._updateTimed(_, dtMs);
+    // A STILL step: the body hasn't moved since the last one and the camera
+    // is on it. Most of a session is this — standing at a plot, reading a
+    // dialog — and it is where an unconditional pass wastes the most, so the
+    // profile reports these apart from the walking steps (the render tick
+    // reads the same flag).
+    const _pm = this.playerM, _pk = this.peekM;
+    const _still = !!_pm && this._boot_lastPX === _pm.x && this._boot_lastPY === _pm.y
+      && !(_pk && (_pk.x || _pk.y));
+    if (_pm) { this._boot_lastPX = _pm.x; this._boot_lastPY = _pm.y; }
+    this._boot_still = _still;
     const _ut0 = performance.now();
     try {
       return this._updateTimed(_, dtMs);
     } finally {
       const _dt = performance.now() - _ut0;
       _uB.tick('update (all)', _dt);
+      if (_still) _uB.tick('update @still', _dt);
       // Border/road/building/fog layers all rebuild on the same frame the
       // player crosses a cell boundary (drawCells sets _boot_crossing from
       // its own borderDirty — see render.js). A second tick under a
@@ -6350,8 +6390,9 @@ class MapScene extends Phaser.Scene {
     // (the story and safety cards are), and a latched class hides the entire
     // bottom HUD. This is only a backstop for that case, and the sync forces a
     // style/layout flush (getClientRects on every .game-modal), so it runs on
-    // a ~10-frame throttle rather than every frame — a removed overlay
-    // un-latches within ~170 ms, which the eye reads as instant.
+    // a ~10-step throttle rather than every step — a removed overlay
+    // un-latches within ~330 ms at the FPS_LIMIT cadence, which the eye
+    // reads as instant.
     this._modalGateTick = (this._modalGateTick || 0) + 1;
     if (this._modalGateTick % 10 === 0) this._syncModalGate?.();
     const dt = dtMs / 1000;
@@ -8909,7 +8950,10 @@ class MapScene extends Phaser.Scene {
     if (!B) return Render.drawObjects(this);
     const t0 = performance.now();
     Render.drawObjects(this);
-    B.tick('drawObjects', performance.now() - t0);
+    // Lighting.draw runs at the tail of the same pass and times itself
+    // (scene._boot_lightMs, ticked as 'lighting'); take it back out so the
+    // two rows are the scan and the lightmap, not the scan and scan+map.
+    B.tick('drawObjects', performance.now() - t0 - (this._boot_lightMs || 0));
   }
   renderPool(pool, container, list, configure) { Render.renderPool(this, pool, container, list, configure); }
   worldMetersToScreen(wmx, wmy) { return worldMetersToScreen(this, wmx, wmy); }
@@ -16801,6 +16845,8 @@ const game = window.__game = new Phaser.Game({
   zoom: 1 / RENDER_SCALE,
   backgroundColor: '#000',
   pixelArt: true,
+  // See FPS_LIMIT: 30 steps/s on any display, 0 = uncapped (?fps=0).
+  fps: { limit: FPS_LIMIT },
   scene: [MapScene],
   scale: { mode: Phaser.Scale.NONE },
   // Phaser's loader defaults to maxParallelDownloads: 32. ASSETS in

@@ -1760,6 +1760,25 @@
                    ' 83-133ms', '133-250ms', '250-500ms', '0.5-1s', '   >1s'];
         out.push('', 'WHILE YOU WERE PLAYING — ' + L.n + ' frames, avg '
           + ms(L.sum / L.n) + ', worst ' + ms(L.worst));
+        // The game's cadence against the display's. The histogram below is
+        // rAF gaps (what the eye saw); the loop STEPS on a cap (src/app.js
+        // FPS_LIMIT), so its steps are a subset of those frames. "Busy" is
+        // the main thread's share of wall time in update + render — the
+        // number that says whether the cap or the passes are the lever —
+        // and the still share is how much of the session an unconditional
+        // pass spent repainting a picture that hadn't changed.
+        const _upd = B.work['update (all)'], _rnd = B.work['phaser render'];
+        const _secs = L.sum / 1000;
+        if (_upd && _secs > 0) {
+          const busy = (_upd.sum + (_rnd ? _rnd.sum : 0)) * 100 / L.sum;
+          const stillN = B.work['update @still'] ? B.work['update @still'].n : 0;
+          const lp = B.counts['lightmap painted'];
+          out.push('  game steps ' + _upd.n + ' (~' + (_upd.n / _secs).toFixed(0) + '/s) over ' + L.n
+            + ' display frames (~' + (L.n / _secs).toFixed(0) + ' Hz); main thread busy '
+            + busy.toFixed(1) + '% of wall time');
+          out.push('  still steps (body + camera unmoved): ' + (stillN * 100 / _upd.n).toFixed(0) + '%'
+            + (lp ? '; lightmap repainted on ' + (lp.sum * 100 / lp.n).toFixed(0) + '% of steps' : ''));
+        }
         for (let i = 0; i < E.length; i++) {
           const c = L.buckets[i];
           if (!c) continue;
@@ -2517,7 +2536,7 @@
   <script src="src/interactables.js?v=a7124d2e"></script>
   <script src="src/combat.js?v=33ed28e8"></script>
   <script src="src/interact.js?v=bb11901f"></script>
-  <script src="src/lighting.js?v=483cfad6"></script>
+  <script src="src/lighting.js?v=280fa482"></script>
   <script src="src/render.js?v=9dfc3dba"></script>
   <script src="src/multiplayer.js?v=72f7bf04"></script>
   <script src="src/road_overlay.js?v=f735d960"></script>
@@ -2582,7 +2601,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=05c499f2';
+      const APP_SRC = 'src/app.js?v=6095e482';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
