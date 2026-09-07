@@ -1052,15 +1052,15 @@ test('lamp stone: LAMP_TEX_PX and LAMP_DRAW_CELLS are exported for app.js to bak
 
 function makeLiveGfx() {
   return {
-    cleared: 0, paths: [], circles: [], style: null, fillColor: null, _cur: null,
-    clear() { this.cleared++; this.paths.length = 0; this.circles.length = 0; },
+    cleared: 0, paths: [], fans: [], style: null, fillColor: null, _cur: null,
+    clear() { this.cleared++; this.paths.length = 0; this.fans.length = 0; },
     lineStyle(w, c, a) { this.style = { w, c, a }; },
     fillStyle(c, a) { this.fillColor = { c, a }; },
     beginPath() { this._cur = { style: this.style, pts: [] }; },
     moveTo(x, y) { this._cur.pts.push({ x, y }); },
     lineTo(x, y) { this._cur.pts.push({ x, y }); },
     strokePath() { this.paths.push(this._cur); this._cur = null; },
-    fillCircle(x, y, r) { this.circles.push({ x, y, r, fill: this.fillColor }); },
+    fillPoints(pts, closeShape) { this.fans.push({ pts, closeShape, fill: this.fillColor }); },
   };
 }
 // A scene under a PEEK: the container carries the sub-cell scroll (draw() sets
@@ -1103,25 +1103,95 @@ test('road overlay live: runs project through the camera anchor, minus the conta
   assert.eq(g.paths[0].style.a, 0.5, 'the caller owns the alpha');
 });
 
-test('road overlay live: round caps + joins are faked with a circle at every vertex', () => {
-  // Phaser's Graphics has no lineCap/lineJoin control, so a circle the same
-  // colour and alpha as the stroke, radius half its width, sits at both ends
-  // AND every interior bend — otherwise these runs would end square and
-  // notch at bends where the canvas-baked bands (round both ways) don't.
+// ── roundJoinFans ────────────────────────────────────────────────────────
+// The round-cap/join fill NEVER overlaps the stroke it dresses up — that was
+// the bug in the first cut of this (a full circle at every vertex, which
+// double-composited its own alpha over the stroke sitting under it: at
+// STREET_PREVIEW_ALPHA 0.55 the overlap read at ~0.80). Pure, so the exact
+// geometry is pinned without a Phaser Graphics.
+// `near` is shared across the *.test.js files in this directory (run.js
+// loads them all into one context, alphabetically — energy_pop.test.js
+// declares it before this file runs).
+const nearPt = (p, x, y, eps, m) => { near(p.x, x, eps, m); near(p.y, y, eps, m); };
+
+test('round join fans: nothing to fill for fewer than two points, no radius, or no points', () => {
+  assert.eq(RoadOverlay.roundJoinFans([{ x: 0, y: 0 }], 5).length, 0, 'one point, no line');
+  assert.eq(RoadOverlay.roundJoinFans([{ x: 0, y: 0 }, { x: 10, y: 0 }], 0).length, 0, 'zero radius');
+  assert.eq(RoadOverlay.roundJoinFans(null, 5).length, 0, 'no points at all');
+});
+
+test('round join fans: a straight line gets exactly two caps, bulging away from the line', () => {
+  const pts = [{ x: 100, y: 200 }, { x: 150, y: 200 }];   // due east
+  const fans = RoadOverlay.roundJoinFans(pts, 4, 8);
+  assert.eq(fans.length, 2, 'a start cap and an end cap, no joins');
+  // Each fan is [centre, ...arc points]; the centre is the line's own vertex.
+  nearPt(fans[0][0], 100, 200, 1e-9, 'start cap centred on the start');
+  nearPt(fans[1][0], 150, 200, 1e-9, 'end cap centred on the end');
+  // The start cap bulges WEST (behind the line's own start); every arc point
+  // is west of the vertex (x <= centre.x) and at radius 4 from it.
+  for (let i = 1; i < fans[0].length; i++) {
+    const p = fans[0][i];
+    assert.lte(p.x, 100 + 1e-9, 'start cap stays behind the line');
+    near(Math.hypot(p.x - 100, p.y - 200), 4, 1e-6, 'on the radius');
+  }
+  // The end cap bulges EAST (ahead of the line's own end).
+  for (let i = 1; i < fans[1].length; i++) {
+    const p = fans[1][i];
+    assert.gte(p.x, 150 - 1e-9, 'end cap stays ahead of the line');
+    near(Math.hypot(p.x - 150, p.y - 200), 4, 1e-6, 'on the radius');
+  }
+});
+
+test('round join fans: a straight-through joint gets no wedge — nothing is missing there', () => {
+  // Three colinear points: the bend angle is zero, so a mitred stroke leaves
+  // no gap on either side, and a wedge here would be pure double-coverage.
+  const pts = [{ x: 0, y: 0 }, { x: 50, y: 0 }, { x: 100, y: 0 }];
+  assert.eq(RoadOverlay.roundJoinFans(pts, 4).length, 2, 'still just the two end caps');
+});
+
+test('round join fans: a right-angle bend wedges the OUTER side only, by exactly the turn', () => {
+  // East then south (screen y grows downward): a turn toward the line's own
+  // left, so the gap — and the fan — belongs on its RIGHT.
+  const pts = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }];
+  const fans = RoadOverlay.roundJoinFans(pts, 4, 8);
+  assert.eq(fans.length, 3, 'two caps plus the one join');
+  const join = fans[2];
+  nearPt(join[0], 100, 0, 1e-9, 'the wedge is centred on the bend');
+  // Every arc point sits on the circle of radius r, and (the outer-side
+  // check) has BOTH x >= 100 and y <= 0 — the quadrant the two segments'
+  // rectangles do NOT cover between them.
+  for (let i = 1; i < join.length; i++) {
+    const p = join[i];
+    near(Math.hypot(p.x - 100, p.y - 0), 4, 1e-6, 'on the radius');
+    assert.gte(p.x, 100 - 1e-6, 'the outer wedge, not the overlapping inner side');
+    assert.lte(p.y, 0 + 1e-6, 'the outer wedge, not the overlapping inner side');
+  }
+  // The wedge spans exactly the turn's own 90°, first to last arc point.
+  const a0 = Math.atan2(join[1].y - 0, join[1].x - 100);
+  const a1 = Math.atan2(join[join.length - 1].y - 0, join[join.length - 1].x - 100);
+  let sweep = a1 - a0;
+  while (sweep > Math.PI) sweep -= 2 * Math.PI;
+  while (sweep < -Math.PI) sweep += 2 * Math.PI;
+  near(Math.abs(sweep), Math.PI / 2, 1e-6, 'swept by exactly the 90° turn');
+});
+
+test('road overlay live: round caps + joins never overlap the stroke — fans, not circles', () => {
   const scene = makeLiveScene();
   RoadOverlay.drawLive(scene, [{
     pts: [{ x: 100, y: 200 }, { x: 105, y: 200 }, { x: 105, y: 210 }],
     tags: { class: 'street' }, alpha: 0.5,
   }]);
   const g = scene._liveGfx;
-  assert.eq(g.circles.length, 3, 'one circle per vertex, including the bend');
-  const pts = g.paths[0].pts;
-  for (let i = 0; i < 3; i++) {
-    assert.eq(g.circles[i].x, pts[i].x, `circle ${i} sits on its own vertex`);
-    assert.eq(g.circles[i].y, pts[i].y, `circle ${i} sits on its own vertex`);
-    assert.eq(g.circles[i].r, px(5.5) / 2, `circle ${i} radius is half the stroke width`);
-    assert.eq(g.circles[i].fill.c, RO_ROAD_RESTORED, `circle ${i} matches the stroke colour`);
-    assert.eq(g.circles[i].fill.a, 0.5, `circle ${i} matches the stroke alpha`);
+  // Cross-checked against the pure function on the SAME projected points and
+  // radius — the run is 5.5 wide (px(5.5)), so radius is half that.
+  const projected = g.paths[0].pts;
+  const expected = RoadOverlay.roundJoinFans(projected, px(5.5) / 2);
+  assert.eq(g.fans.length, expected.length, 'one g.fillPoints call per fan roundJoinFans names');
+  for (let i = 0; i < expected.length; i++) {
+    assert.eq(g.fans[i].pts.length, expected[i].length, `fan ${i} carries every point`);
+    assert.eq(g.fans[i].closeShape, true, `fan ${i} closes back to its centre`);
+    assert.eq(g.fans[i].fill.c, RO_ROAD_RESTORED, `fan ${i} matches the stroke colour`);
+    assert.eq(g.fans[i].fill.a, 0.5, `fan ${i} matches the stroke alpha`);
   }
 });
 
@@ -1139,10 +1209,10 @@ test('road overlay live: an empty frame clears and strokes nothing', () => {
   const scene = makeLiveScene();
   RoadOverlay.drawLive(scene, [{ pts: [{ x: 100, y: 200 }, { x: 110, y: 200 }], tags: {} }]);
   assert.eq(scene._liveGfx.paths.length, 1, 'a run this frame');
-  assert.eq(scene._liveGfx.circles.length, 2, 'and its two round-cap circles');
+  assert.eq(scene._liveGfx.fans.length, 2, 'and its two round-cap fans');
   RoadOverlay.drawLive(scene, []);
   assert.eq(scene._liveGfx.paths.length, 0, 'gone the next');
-  assert.eq(scene._liveGfx.circles.length, 0, 'circles gone with it');
+  assert.eq(scene._liveGfx.fans.length, 0, 'fans gone with it');
   assert.eq(scene._liveGfx.cleared, 2, 'cleared every call');
   RoadOverlay.drawLive(scene, null);
   assert.eq(scene._liveGfx.cleared, 3, 'a missing list is not a crash');

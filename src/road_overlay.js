@@ -1225,6 +1225,80 @@
     if (g.commit) g.commit();
   }
 
+  // A round cap/join for a stroked polyline that never paints ground the
+  // stroke itself already covers. Only two shapes are actually MISSING from
+  // a plain butt-capped, mitred `strokePath()`:
+  //   • the half-disc beyond each END, past the flat edge the butt cap
+  //     leaves — its straight side sits exactly on that edge (zero area
+  //     shared with the stroke's own rectangle), so filling it adds no
+  //     overlap;
+  //   • the WEDGE on the OUTER side of each interior bend — the gap a
+  //     mitred join leaves between the two segments' rectangles. The INNER
+  //     side is already covered (the two rectangles overlap there inside
+  //     Phaser's own single strokePath); that overlap is Phaser's, not
+  //     introduced here, and is left alone.
+  // Each cap/join comes back as one FAN — `[centre, ...arc points]`, meant
+  // for one `g.fillPoints(fan, true)` each — never a full circle, which
+  // would double-composite its alpha over the stroke underneath it (see the
+  // note above drawLive).
+  //
+  // Pure and exported so test/node/road_overlay.test.js can pin the geometry
+  // — which side is "outer" and by how much — without a Phaser Graphics.
+  function roundJoinFans(pts, r, arcSteps = 8) {
+    const n = pts && pts.length;
+    if (!(n >= 2) || !(r > 0)) return [];
+    const dirOf = (a, b) => {
+      const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+      return len > 1e-6 ? { x: dx / len, y: dy / len } : null;
+    };
+    const left = (d) => ({ x: -d.y, y: d.x });
+    const fan = (cx, cy, a0, sweep) => {
+      const steps = Math.max(1, Math.ceil(Math.abs(sweep) / (Math.PI / arcSteps)));
+      const out = [{ x: cx, y: cy }];
+      for (let s = 0; s <= steps; s++) {
+        const a = a0 + sweep * (s / steps);
+        out.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+      }
+      return out;
+    };
+    const dirs = [];
+    for (let i = 0; i < n - 1; i++) dirs.push(dirOf(pts[i], pts[i + 1]));
+    const out = [];
+    // END CAPS: a half-disc bulging AWAY from the line — behind the start,
+    // ahead of the end — from one normal to the other, the long way round
+    // (π), through the line's own extended direction.
+    const firstDir = dirs.find((d) => d);
+    if (firstDir) {
+      const n0 = left(firstDir);
+      out.push(fan(pts[0].x, pts[0].y, Math.atan2(n0.y, n0.x), Math.PI));
+    }
+    const lastDir = [...dirs].reverse().find((d) => d);
+    if (lastDir) {
+      const nL = left(lastDir);
+      out.push(fan(pts[n - 1].x, pts[n - 1].y, Math.atan2(-nL.y, -nL.x), Math.PI));
+    }
+    // INTERIOR JOINS: the turn's signed angle (atan2 of the cross/dot of the
+    // two segment directions) says which way the path bends AND by how
+    // much; the wedge sits on the side OPPOSITE the turn (a path turning
+    // toward its left leaves the gap on its right), swept by that exact
+    // angle from that side's normal — which lands it precisely on the next
+    // segment's normal, by construction, since a normal rotates rigidly
+    // with its own direction vector.
+    for (let i = 1; i < n - 1; i++) {
+      const dPrev = dirs[i - 1], dNext = dirs[i];
+      if (!dPrev || !dNext) continue;
+      const cross = dPrev.x * dNext.y - dPrev.y * dNext.x;
+      const dot = dPrev.x * dNext.x + dPrev.y * dNext.y;
+      const turn = Math.atan2(cross, dot);
+      if (Math.abs(turn) < 1e-4) continue;   // colinear — nothing missing
+      const sign = turn > 0 ? -1 : 1;
+      const nPrev = left(dPrev);
+      const ox = sign * nPrev.x, oy = sign * nPrev.y;
+      out.push(fan(pts[i].x, pts[i].y, Math.atan2(oy, ox), turn));
+    }
+    return out;
+  }
+
   // ── The live pass ────────────────────────────────────────────────────────
   // Everything the overlay draws that changes EVERY frame: the dwell preview
   // creeping along a street the player is standing over, and the white shine
@@ -1248,10 +1322,14 @@
   // end these runs in a hard square butt and show a notch at every bend —
   // where the canvas-baked bands under them are round both ways
   // (`cx.lineCap/lineJoin = 'round'`). Not worth a second canvas for
-  // something this cheap to fake: a filled circle at every vertex, radius
-  // half the stroke width, the same colour and alpha as the line, rounds
-  // both ends AND every interior bend in one pass — the hand-rolled version
-  // of what the canvas context does for free.
+  // something this cheap to fake, but NOT with a filled circle dropped on
+  // every vertex either — that circle's alpha would compost AGAIN on top of
+  // the stroke it's sitting on (the exact "translucent stroke composites
+  // with ITSELF" trap the canvas passes above exist to dodge; at
+  // STREET_PREVIEW_ALPHA 0.55 the overlap would read at ~0.80). roundJoinFans
+  // fills only what a butt-capped, mitred stroke is actually MISSING: the
+  // half-disc beyond each end and the wedge on the OUTER side of each bend —
+  // never ground the stroke already painted.
   function drawLive(scene, runs) {
     const container = scene.roadGeomContainer;
     let g = scene.roadLiveGfx;
@@ -1282,16 +1360,21 @@
         if (i) g.lineTo(x, y); else g.moveTo(x, y);
       }
       g.strokePath();
-      // ROUND CAPS + JOINS, faked: a circle at every vertex — both ends and
-      // every interior bend — in the same colour and alpha as the stroke.
-      g.fillStyle(color, alpha);
-      const r = widthPx / 2;
-      for (let i = 0; i < sx.length; i++) g.fillCircle(sx[i], sy[i], r);
+      // ROUND CAPS + JOINS: only the ground the butt-capped, mitred stroke
+      // just drew ACTUALLY MISSED — never a shape overlapping it, or its
+      // alpha composites again on top of the stroke's own.
+      const pt = [];
+      for (let i = 0; i < sx.length; i++) pt.push({ x: sx[i], y: sy[i] });
+      const fans = roundJoinFans(pt, widthPx / 2);
+      if (fans.length) {
+        g.fillStyle(color, alpha);
+        for (const fan of fans) g.fillPoints(fan, true);
+      }
     }
   }
 
   global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
                          paintLampStone, LAMP_TEX_PX, LAMP_DRAW_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
-                         CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA };
+                         CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };
 })(window);
