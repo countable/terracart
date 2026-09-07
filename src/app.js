@@ -754,7 +754,14 @@ function crowEatsCrop(p) { return Crops.crowEats(p); }
 
 // --- Debug ---
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
-const DEBUG = true;
+// Must default false: the keyboard takeover this gates (see the WASD block in
+// update() and the SPACE/T/F bindings below) latches GPS off for the rest of
+// the session on the first keypress it sees, so shipping it live meant any
+// GPS-tracked session with a keyboard attached (a Chromebook, a Bluetooth
+// keyboard case) could have the player silently auto-walk off toward wherever
+// a stray key sent them instead of their real position, with no way back but
+// a reload. Flip it locally for desktop testing.
+const DEBUG = false;
 const DEBUG_SPEED_MUL = 10;
 // Dragon Powder is not a movement mode — it's a stat buff wearing a dragon
 // sprite. For its minute the player walks as if they had an amulet of this
@@ -2435,19 +2442,24 @@ class MapScene extends Phaser.Scene {
       LEFT: Phaser.Input.Keyboard.KeyCodes.LEFT,
       RIGHT: Phaser.Input.Keyboard.KeyCodes.RIGHT,
     });
-    // Debug: SPACE teleports to the next-nearest decorated POI chest.
-    // First press goes to Windermere Park, subsequent presses cycle by distance.
+    // Debug: SPACE teleports to the next-nearest decorated POI chest (first
+    // press goes to Windermere Park, subsequent presses cycle by distance); T
+    // hops to the next-nearest INDIVIDUAL tree (the standalone OSM street /
+    // yard trees wired in from the satextract sidecar, flagged
+    // `individual:true`), cycling outward by distance; F toggles fast-walk
+    // (5× speed, all inputs). SPACE and T disable GPS for the session outright
+    // (see disableGpsForSession), so — like the WASD/arrow takeover in
+    // update() — these must stay behind DEBUG: bound unconditionally, an
+    // ordinary keypress on a real GPS-tracked session could silently strand
+    // the player off their real position or lurch every input to 5× speed.
     this._poiTpVisited = new Set();
     this._poiTpFirst = 'Windermere Park';
-    this.input.keyboard.on('keydown-SPACE', () => this.teleportNextPoi());
-    // Debug: T hops to the next-nearest INDIVIDUAL tree (the standalone OSM
-    // street / yard trees wired in from the satextract sidecar, flagged
-    // `individual:true`), cycling outward by distance so repeated presses
-    // walk you through them. No game-state side effects beyond the teleport.
-    this.input.keyboard.on('keydown-T', () => this.teleportNextIndividualTree());
-    // F — toggle fast-walk (5× speed, all inputs)
     this._fastWalk = false;
-    this.input.keyboard.on('keydown-F', () => { this._fastWalk = !this._fastWalk; });
+    if (DEBUG) {
+      this.input.keyboard.on('keydown-SPACE', () => this.teleportNextPoi());
+      this.input.keyboard.on('keydown-T', () => this.teleportNextIndividualTree());
+      this.input.keyboard.on('keydown-F', () => { this._fastWalk = !this._fastWalk; });
+    }
 
     // World tap + PEEK DRAG. One pointer does both, and which one it was is
     // only known when it lifts: a pointer that never travelled PEEK_DRAG_SLOP_PX
@@ -6305,29 +6317,34 @@ class MapScene extends Phaser.Scene {
     // selected — the button doesn't exist then.
     this._tickEatButton();
     let vx = 0, vy = 0;
-    const k = this.keys;
-    let wasd = false;
-    if (k.A.isDown) { vx -= 1; wasd = true; }
-    if (k.D.isDown) { vx += 1; wasd = true; }
-    if (k.W.isDown) { vy -= 1; wasd = true; }
-    if (k.S.isDown) { vy += 1; wasd = true; }
-    // WASD and arrow keys move at the same speed: DEBUG_SPEED_MUL × walk speed
-    // for fast debug travel (gated on DEBUG). Kept in sync so the two keyboard
-    // schemes feel identical.
     let speedMul = 1;
+    // Keyboard movement (WASD / arrow keys) is a manual takeover — any
+    // non-zero vx/vy here means the player is driving themselves, so latch
+    // off GPS for the rest of the session (see disableGpsForSession). The
+    // movement STICK is not a takeover: it walks you off the GPS while the
+    // GPS keeps tracking you (see _steerManual / _manualOffsetM). That latch
+    // must never be reachable outside DEBUG builds — bound unconditionally, a
+    // stray keydown on a real GPS-tracked session (an attached keyboard, a
+    // Chromebook) would silently strand the player off their real position
+    // with no way back but a reload, which reads as "the character sometimes
+    // auto-walks somewhere other than the GPS target."
     if (DEBUG) {
+      const k = this.keys;
+      let wasd = false;
+      if (k.A.isDown) { vx -= 1; wasd = true; }
+      if (k.D.isDown) { vx += 1; wasd = true; }
+      if (k.W.isDown) { vy -= 1; wasd = true; }
+      if (k.S.isDown) { vy += 1; wasd = true; }
+      // WASD and arrow keys move at the same speed: DEBUG_SPEED_MUL × walk
+      // speed for fast debug travel. Kept in sync so the two keyboard
+      // schemes feel identical.
       if (wasd) speedMul = DEBUG_SPEED_MUL;
       if (k.LEFT.isDown)  { vx -= 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.RIGHT.isDown) { vx += 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.UP.isDown)    { vy -= 1; speedMul = DEBUG_SPEED_MUL; }
       if (k.DOWN.isDown)  { vy += 1; speedMul = DEBUG_SPEED_MUL; }
+      if (vx || vy) this.disableGpsForSession();
     }
-    // Keyboard movement (WASD / arrow keys) is a manual takeover — any non-zero
-    // value here means the player is driving themselves, so latch off GPS for
-    // the rest of the session. The movement STICK is not a takeover: it walks
-    // you off the GPS while the GPS keeps tracking you (see _steerManual /
-    // _manualOffsetM).
-    if (vx || vy) this.disableGpsForSession();
     if (this._fastWalk) speedMul = 25;
     // The movement stick — always on screen, always live.
     const stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
