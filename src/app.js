@@ -8900,19 +8900,37 @@ class MapScene extends Phaser.Scene {
       this.flash('No room to scatter!', sx, sy);
       return;
     }
-    // Shuffle (Fisher-Yates) then pick 8-12.
-    for (let i = candidates.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-    }
+    // Take the NEAREST candidates to the POI rather than a uniform pick across
+    // the whole search box. The widen/relax escalation above can reach out to
+    // MAX_BURST_CELLS (3x the spec'd ~25m) when a suburb has too few
+    // legitimate spawn cells nearby — and render.js only draws a coin within
+    // `halfM` of the player (the same box the world objects around it are
+    // culled to). A coin picked from the far edge of an escalated search
+    // lands outside that box: it exists in entry.coinDrops but never draws,
+    // so a burst that had to widen could scatter coins the player standing at
+    // the POI can never see in their 60s life. Sorting by distance keeps the
+    // burst clustered on the POI the player just tapped.
+    candidates.sort((a, b) => {
+      const da = (a.cx - poiLocalCX) ** 2 + (a.cy - poiLocalCY) ** 2;
+      const db = (b.cx - poiLocalCX) ** 2 + (b.cy - poiLocalCY) ** 2;
+      return da - db;
+    });
     // Spec: one coin per ~5 cells of vicinity, clamped to [COIN_BURST_MIN, 12].
     const target = Math.max(COIN_BURST_MIN,
       Math.min(12, Math.floor(candidates.length / 5) || COIN_BURST_MIN));
     const n = Math.min(target, candidates.length);
+    // Shuffle only the near buffer we're actually drawing coins from, so the
+    // exact cells still vary run to run without reaching past it for cells
+    // near the far edge of the search box.
+    const pool = candidates.slice(0, Math.max(n, COIN_BURST_MIN * 2));
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
     entry.coinDrops = entry.coinDrops || [];
     const expiresAt = Date.now() + 60_000;
     for (let i = 0; i < n; i++) {
-      const { cx, cy } = candidates[i];
+      const { cx, cy } = pool[i];
       const wmx = tx * tileEdgeM + (cx + 0.5) * cellM;
       const wmy = ty * tileEdgeM + (cy + 0.5) * cellM;
       const id = `coin_${poi.id}_${dayKey}_${i}`;
