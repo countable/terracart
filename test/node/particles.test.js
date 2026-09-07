@@ -281,8 +281,8 @@ test('particles: a ring burst explodes around the circle, a point burst all at o
     add: { particles: (x, y, key) => ({ key, explode: (n, px, py) => calls.push([n, px, py]) }) },
   };
   const cell = (typeof CELL_PX === 'number') ? CELL_PX : 32;
-  const n = Particles.burstCount('buildspark', false, { ringPx: cell * 2 });
-  assert.eq(Particles.burst(scene, 'buildspark', 100, 100, { ringPx: cell * 2 }), n);
+  const n = Particles.burstCount('greenspark', false, { ringPx: cell * 2 });
+  assert.eq(Particles.burst(scene, 'greenspark', 100, 100, { ringPx: cell * 2 }), n);
   assert.eq(calls.length, n, 'one explode per ring point');
   for (const [c, px, py] of calls) {
     assert.eq(c, 1, 'one particle each');
@@ -394,18 +394,22 @@ test('particles: opts.targets spreads a converging burst\'s sink across several 
   assert.eq(calls.length, n2);
 });
 
-test('particles: a restored building throws TIMBER and the restore green', () => {
+test('particles: a restored building throws TIMBER and the shared green ring', () => {
   const P = Particles.PRESETS;
   assert.eq(P.timber.tex.shape, 'chip', 'debris off a building is chips');
   assert.gt(P.timber.gravityY, 0, 'and it falls, like the stone chips — debris, not a firework');
   assert.inRange(P.timber.angle[0], 180, 270, 'thrown up off the walls');
   assert.inRange(P.timber.angle[1], 270, 360);
-  assert.eq(P.buildspark.tex.shape, 'star', 'the sparks are stars');
-  assert.eq(P.buildspark.tex.color, UI_GREEN,
+  assert.eq(P.greenspark.tex.shape, 'star', 'the sparks are stars');
+  assert.eq(P.greenspark.tex.color, UI_GREEN,
     'in UI_GREEN — the colour the Restored! card is already set in');
-  assert.eq(P.buildspark.angle[0], 0); assert.eq(P.buildspark.angle[1], 360, 'a full ring');
-  assert.eq(P.buildspark.gravityY, 0, 'weightless, like the street\'s');
-  assert.eq(P.buildspark.scale[1], 0); assert.eq(P.buildspark.alpha[1], 0, 'and burns out to nothing');
+  // Named for the RING, not for one caller: the Growth Powder throws the same
+  // one off its scatter radius. A byte-identical second preset under a second
+  // name would be the duplication ringPx/colour exist to make unnecessary.
+  assert.falsy('buildspark' in P, 'no per-caller copy of the green ring');
+  assert.eq(P.greenspark.angle[0], 0); assert.eq(P.greenspark.angle[1], 360, 'a full ring');
+  assert.eq(P.greenspark.gravityY, 0, 'weightless, like the street\'s');
+  assert.eq(P.greenspark.scale[1], 0); assert.eq(P.greenspark.alpha[1], 0, 'and burns out to nothing');
   // The road's own pair keeps its shape — only its colour moved, from the lit
   // pebble's violet to the street ink the restored carriageway is made of.
   assert.eq(P.stone.tex.color, UI_STREET_INK);
@@ -474,7 +478,7 @@ test('particles: a restored wreck blasts at its footprint, before the card opens
   assert.truthy(frozen > 0 && saved > frozen, 'the role is frozen and banked first');
   assert.truthy(blast > saved, 'the blast goes off once the restore is real');
   assert.truthy(card > blast, 'and BEFORE the card opens over it');
-  assert.truthy(/chips: 'timber', sparks: 'buildspark',/.test(body), 'timber off the walls, green sparks');
+  assert.truthy(/chips: 'timber', sparks: 'greenspark',/.test(body), 'timber off the walls, green sparks');
   assert.truthy(/radiusCells: bg\.radiusCells, ringPx: bg\.ringPx,/.test(body),
     'both sized off the footprint');
   // …and the footprint geometry has a floor: an unknown one is a cell.

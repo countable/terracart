@@ -322,23 +322,28 @@ test('lighting: the cobble row is the street lamp\'s own violet, steady, and the
 });
 
 test('lighting: collectLamps converts absolute lamp metres against the anchor, culled by the light\'s OWN radius', () => {
-  // scene._streetLamps is app.js's plain list of {x, y, id} in ABSOLUTE world
-  // metres — not an object drawObjects offers, so this collector reads it
-  // directly, the same shape collectFires reads the placed-fires list with.
+  // scene._streetLamps is app.js's plain list of {x, y, id, lit} in ABSOLUTE
+  // world metres — not an object drawObjects offers, so this collector reads
+  // it directly, the same shape collectFires reads the placed-fires list with.
+  // A DARK lamp (its stretch not restored yet) rides on the same list so
+  // app.js can draw it as the plain cobble; it is not a light.
   const cellM = 5;
   const pad = Lighting.radiusCells('cobble') * cellM;
   const s = scene({ cellM, _streetLamps: [
-    { x: 3, y: -4, id: 'near' },
-    { x: HALF_M + pad - 1, y: 0, id: 'edge' },    // past the viewport, inside its OWN halo
-    { x: HALF_M + pad + 50, y: 0, id: 'far' },    // well beyond even its own light
+    { x: 3, y: -4, id: 'near', lit: true },
+    { x: HALF_M + pad - 1, y: 0, id: 'edge', lit: true },    // past the viewport, inside its OWN halo
+    { x: HALF_M + pad + 50, y: 0, id: 'far', lit: true },    // well beyond even its own light
+    { x: -3, y: 4, id: 'dark', lit: false },                 // right beside the player, unlit
   ] });
   Lighting.beginFrame(s);
   const n = Lighting.collectLamps(s, 0, 0, HALF_M);
-  assert.eq(n, 2, 'the far lamp is culled, the near and edge ones are kept');
+  assert.eq(n, 2, 'the far lamp is culled and the dark one skipped; the near and edge ones are kept');
   const byId = {}; for (const L of s._lights) byId[L.id] = L;
   assert.truthy(byId.near, 'well inside range');
   assert.truthy(byId.edge, 'a cell off-screen but still inside its own light radius — the halfM+pad cull, not the sprite cull');
   assert.falsy(byId.far, 'well beyond even its own halo');
+  assert.falsy(byId.dark, 'an unlit stone throws no light, however close');
+  assert.truthy(/if \(!L\.lit\) continue;/.test(LIGHTING_SRC), 'collectLamps skips a dark lamp by the one `lit` flag app.js sets');
   assert.eq(byId.near.kind, 'cobble', 'a lamp lights as the cobble kind');
   assert.eq(byId.near.dx, 3); assert.eq(byId.near.dy, -4, 'absolute metres minus the anchor');
   // No list, or an empty one, is a no-op — like collectFires with no fires.
