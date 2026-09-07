@@ -7045,6 +7045,18 @@ class MapScene extends Phaser.Scene {
       const list = [];
       WorldGen.forEachItemNear('objects', pc.tx, pc.ty, (o) => {
         if (o.kind !== 'tower') return;
+        // ONLY A CASTLE YOU HAVE TAKEN BACK FIGHTS FOR YOU. A turret is stamped
+        // with its castle's footprint key (worldgen), and this is the SAME
+        // isClaimedKey test the tower's own art and its light already read: an
+        // unclaimed castle draws in the shaded 'tower_unclaimed' palette
+        // (render.js RENDER_SPEC.tower) and contributes no light
+        // (lighting.js sourceKind), so a ruin that looked dead and dark was
+        // nonetheless shooting arrows at everything that walked past it. A
+        // turret with no castle at all (`o.castle` null) reads unclaimed to
+        // every one of those three, and holds its fire here for the same
+        // reason. Claim the castle and the walls man themselves — which is
+        // what makes claiming one worth the walk.
+        if (!this.isClaimedKey(o.castle)) return;
         if (Math.abs(o.x - px) > halfSpanM || Math.abs(o.y - py) > halfSpanM) return;
         list.push(o);
       });

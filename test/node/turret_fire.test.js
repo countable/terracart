@@ -18,7 +18,12 @@
 //     tamed slime than the auto-fire can. Both halves are pinned: the maths
 //     here, and the app.js call site as source text (APP_JS_SRC).
 //
-//  4. A RIM DOESN'T VOLLEY. Each turret starts at a phase hashed from its id,
+//  4. THE WALLS ARE A REWARD, NOT SCENERY. Only a CLAIMED castle's turrets
+//     fire — the same isClaimedKey test that already decides whether the tower
+//     is drawn in the shaded palette and whether it gives off light. All three
+//     said "this castle is not yours" while the fourth shot arrows for you.
+//
+//  5. A RIM DOESN'T VOLLEY. Each turret starts at a phase hashed from its id,
 //     inside one interval, and the clocks are cleared while no enemy is on
 //     screen so the next sighting re-arms at those phases.
 
@@ -140,6 +145,13 @@ test('turret: app.js fires the turrets from _combatTick with the SAME enemy list
     'the turret clocks are cleared while no enemy is on screen');
   const fire = app.slice(app.indexOf('  _turretFire(now, px, py, halfSpanM, enemies, pc) {'), app.indexOf('  _drawShots() {'));
   assert.truthy(/if \(o\.kind !== 'tower'\) return;/.test(fire), 'only castle turrets shoot');
+  // ONLY A CASTLE YOU HAVE CLAIMED. The same isClaimedKey test the tower's art
+  // (render.js 'tower_unclaimed') and its light (lighting.js sourceKind)
+  // already read — a castle that draws dead and gives off no light must not be
+  // shooting arrows at everything that walks past it, and claiming one is what
+  // turns its walls on.
+  assert.truthy(/if \(!this\.isClaimedKey\(o\.castle\)\) return;/.test(fire),
+    'an unclaimed castle\'s turrets hold their fire');
   assert.truthy(/Math\.abs\(o\.x - px\) > halfSpanM \|\| Math\.abs\(o\.y - py\) > halfSpanM/.test(fire),
     'a turret has to be on screen — the same viewport box the enemies were culled with');
   assert.truthy(/Combat\.turretTick\(scan\.list, this\._turretNextT, now, enemies, this\.cellM\)/.test(fire),

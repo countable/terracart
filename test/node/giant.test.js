@@ -110,7 +110,16 @@
 
   test('giants: the shipping consumers resolve a giant to its base kind for ART only', () => {
     const render = RENDER_SRC;
-    assert.truthy(/const bk = baseKind\(c\.kind\);/.test(render), 'render.js picks the sheet by base kind');
+    // The sheet comes off SpriteLayout now rather than an if-else on the base
+    // kind in the draw branch — creatureArt already resolves a giant to its
+    // base row, so the resolution is the table's and this checks the ANSWER
+    // rather than the shape of the code that used to compute it.
+    assert.eq(SpriteLayout.creatureSheet('giant_goblin'), SpriteLayout.creatureSheet('goblin'),
+      'a giant goblin draws the goblin sheet');
+    assert.eq(SpriteLayout.creatureFrames('giant_goblin'), SpriteLayout.creatureFrames('goblin'),
+      'and runs the same cycle');
+    assert.truthy(/const texKey = creatureSheet\(c\.kind\);/.test(render),
+      'render.js picks the sheet from the table');
     assert.truthy(/CRITTER_SHADOW_W\[baseKind\(c\.kind\)\] \|\| 18\) \* giantMul\(c\.kind\)/.test(render),
       'the shadow follows the giant scale');
     assert.falsy(/CA\[kind\]\?\.scale/.test(render), 'render.js no longer reads the art table directly');
