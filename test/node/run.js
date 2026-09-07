@@ -1069,6 +1069,8 @@ try {
   ctx.SPAWN_CAVE_SRC         = slice(appSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Dark-outlined', 'spawnCaveCreatures');
   ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
   ctx.STARTER_TRAIL_SRC      = slice(appSrc, '  _placeStarterTrail(entry, tx, ty) {\n', '\n  _revealStarterTrail', 'the starter trail');
+  ctx.ENSURE_STARTER_TRAILER_SRC = slice(appSrc, '  ensureStarterTrailerObject() {\n',
+    '\n  }\n\n  // Nothing sits inside the Home trailer.', 'ensureStarterTrailerObject');
   // The sidecar chest injection loop in loadTile — poi_dedup.test.js pins that
   // it consults the shared one-place-one-chest rule before pushing a chest.
   ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of (bin.chests || [])) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');

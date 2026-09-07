@@ -12061,10 +12061,17 @@ class MapScene extends Phaser.Scene {
     if (this.save.starterTrailer && this.save.starterShopId === this.save.starterTrailer.id) {
       this.ensureStarterTrailerObject();
       this._starterShopOk = true;
-      // Heal a save whose home capture failed (no save.home): anchor the
-      // starter crate trail on Home, where the player actually is — the
-      // origin-keyed anchor would sit on a tile that never loads.
-      this._setStarterCratesAt(this.save.starterTrailer.x, this.save.starterTrailer.y);
+      // ensureStarterTrailerObject can self-heal onto a real house that has
+      // since appeared on the trailer's own footing (its own comment above
+      // explains why) — save.starterTrailer is then null and starterShopId
+      // already names the adopted house, so don't re-freeze the crate anchor
+      // at the trailer's old, no-longer-Home position.
+      if (this.save.starterTrailer) {
+        // Heal a save whose home capture failed (no save.home): anchor the
+        // starter crate trail on Home, where the player actually is — the
+        // origin-keyed anchor would sit on a tile that never loads.
+        this._setStarterCratesAt(this.save.starterTrailer.x, this.save.starterTrailer.y);
+      }
       return;
     }
     // Anchor on the player's real position: their GPS fix (gpsM, in playerM's
@@ -12224,6 +12231,26 @@ class MapScene extends Phaser.Scene {
     const ty = Math.floor((obj.y / this.mPerPx) / WorldGen.TILE_PX);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.objects) return;      // owning tile not loaded yet
+    // A real house can land on the trailer's exact footing after this tile is
+    // REBUILT: its cross-tile house dedup outcome depends on which neighbour
+    // tiles happen to be cached at build time (a tile can be REBUILT under
+    // you — see CLAUDE.md), so the same footing can dedupe the house away on
+    // the build that ran when the trailer was first synthesized and keep it
+    // on a later rebuild (or a reload, which starts the cache cold again).
+    // Without this, the synthetic trailer stays locked in forever — it is
+    // never re-evaluated once adopted — so the phantom trailer and the real
+    // house end up sharing one cell. Defer to the real house instead.
+    const real = entry.objects.find(o => o.kind === 'house' && o.id !== obj.id && !o._synthetic
+      && sameAbsCell(this, o.x, o.y, st.x, st.y));
+    if (real) {
+      const i = entry.objects.indexOf(this._starterTrailerObj);
+      if (i >= 0) entry.objects.splice(i, 1);
+      this.save.starterTrailer = null;
+      this._starterTrailerObj = null;
+      this.save.starterShopId = real.id;
+      this._setStarterCratesAt(real.x, real.y);
+      return;
+    }
     let present = false;
     for (const o of entry.objects) { if (o.id === obj.id) { present = true; break; } }
     if (!present) entry.objects.push(obj);
