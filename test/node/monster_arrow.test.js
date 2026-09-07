@@ -136,4 +136,25 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   assert.truthy(/this\._monsterDmgAccum = \(this\._monsterDmgAccum \|\| 0\) \+ \(before - this\.save\.energy\);/.test(hit),
     'and rolls into the monsters-hit flash');
 });
+
+// ── The archer's trigger range IS the staff's range ─────────────────────────
+// A flat 3-cell trigger let the archer open fire from further than a
+// low-reach player could ever answer from, and never got any closer as the
+// player upgraded their reach. It is the player's own live ring now — the
+// exact number Combat.rangeCellsFor('staff', reachCells(this)) resolves — so
+// the archer can never outrange your own ranged weapon, and it tracks the
+// same Inner-Light growth / underground tightening the staff does.
+test('monster arrow: the ranged trigger radius is the player\'s live reach, same as the staff', () => {
+  const app = APP_JS_SRC;
+  assert.truthy(
+    /const rangeCells = m\.range > 1 \? Combat\.rangeCellsFor\('staff', reachCells\(this\)\) : m\.range;/.test(app),
+    'a ranged kind\'s trigger radius is resolved off the SAME call the staff uses for its own range');
+  assert.truthy(/const R = rangeCells \* this\.cellM;/.test(app), 'and that IS the radius the trigger checks');
+  // The melee branch (range 1, adjacent) is untouched — only a ranged kind's
+  // radius is derived from reach.
+  const reach25 = Combat.rangeCellsFor('staff', 2.5);   // starting surface reach
+  assert.eq(reach25, 3.5, 'a fresh save\'s archer trigger is 3.5 cells, one more than the old flat 3');
+  const reach55 = Combat.rangeCellsFor('staff', 5.5);   // maxed Inner Light
+  assert.gt(reach55, reach25, 'and it grows with the player\'s own reach upgrades, like the staff\'s bolt');
+});
 })();

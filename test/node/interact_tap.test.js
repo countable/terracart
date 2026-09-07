@@ -96,6 +96,28 @@ test('TAP_HANDLERS: extinguish-fire precedes light-fire (extinguish wins the tap
   assert.truthy(iExt < iLit, 'extinguish before light-fire');
 });
 
+test('TAP_HANDLERS: disarm-trap runs right after cell-resolve, before till/plant/flavor', () => {
+  const iCR = HANDLER_NAMES.indexOf('cell-resolve');
+  const iDT = HANDLER_NAMES.indexOf('disarm-trap');
+  assert.truthy(iCR >= 0 && iDT === iCR + 1,
+    'disarm-trap needs ctx.cell from cell-resolve, and must run before the other cell handlers so a kit-selected tap on a trap cell is never swallowed by till/plant/flavor');
+  for (const name of ['till', 'plant', 'flavor', 'planted']) {
+    assert.truthy(iDT < HANDLER_NAMES.indexOf(name), `disarm-trap before "${name}"`);
+  }
+});
+
+test('disarm-trap: spends one kit and disarms the trap on the tapped cell', () => {
+  const src = INTERACT_SRC.slice(INTERACT_SRC.indexOf("{ name: 'disarm-trap'"),
+    INTERACT_SRC.indexOf("{ name: 'building-zone'"));
+  assert.truthy(/sel\.id === 'trap_kit'/.test(src), 'gated on the kit being selected');
+  assert.truthy(/Traps\.trapAt\(entry, cell\.ix, cell\.iy\)/.test(src),
+    'looks the trap up on the TAPPED cell, not the player\'s');
+  assert.truthy(/Traps\.disarm\(save, trap\.id\)/.test(src), 'records the disarm');
+  assert.truthy(/consumeSelected\(save\)/.test(src), 'spends exactly one kit');
+  assert.truthy(/if \(!trap \|\| Traps\.isDisarmed\(save, trap\.id\)\) return false;/.test(src),
+    'a cell with no trap (or an already-disarmed one) falls through instead of eating the tap');
+});
+
 // The ordering bug that interaction-sweep-2026-05-27.md documented — can-refill
 // sat before fishing and silently ate every water tap from a can owner, with an
 // in-handler rod guard as the workaround — is GONE, because the handler is. The
@@ -557,6 +579,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'staircase',
     'object',
     'cell-resolve',
+    'disarm-trap',
     'building-zone',
     'release',
     'pickup-rock',
@@ -803,7 +826,11 @@ test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
   const hunt = src.slice(src.indexOf("const HUNT_KINDS = new Set(['crow', 'deer']);"),
                          src.indexOf('// Catchable animals'));
   assert.truthy(hunt.length > 0, 'found the hunt branch');
-  assert.truthy(/const netSlot = r\.bugnet \? 'bugnet' : null;/.test(hunt),
+  // Named plainly since Sep 2026: an unowned slot is the bare-handed rung in
+  // toolDurationMs, and "you own no net, so wear no badge" is answered once in
+  // app.js _setWorkProgressIcon rather than re-tested here (see
+  // work_badge.test.js — the duplicate is how the catch wheel came to disagree).
+  assert.truthy(/const netSlot = 'bugnet';/.test(hunt),
     'the hunt resolves the BUG NET slot');
   assert.truthy(/toolDurationMs\(r, netSlot\)/.test(hunt),
     'and times the wheel off it');

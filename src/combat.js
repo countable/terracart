@@ -162,6 +162,25 @@
     return n * mitigate(damage / n, reduction);
   }
 
+  // ── DOWNED: the bar is empty ─────────────────────────────────────────────
+  // At zero energy the player has collapsed. They cannot reach (coords.js's
+  // reachRadiusM returns 0 at 0 energy, so no cell is tappable), and none of
+  // the three places a foe reaches the player can take another point off an
+  // empty bar — every one of them already refuses. A hostile that goes on
+  // stalking a body it is forbidden to bite is chasing nothing: it just
+  // parks on the wreck, and on hard mode (where nothing but Home lifts the
+  // bar off zero) it escorts the player the whole way home.
+  //
+  // So a downed player is simply NOT THERE to be hunted, exactly as a
+  // Shadow Powder makes them: app.js's wanderCreatures reads this beside
+  // `shadowed` and every hostile falls back to an aimless wander — no stalk,
+  // no charge, no leech, no arrow — until the bar lifts off zero.
+  // ONE expression, both sides: the test that drops the pursuit is the same
+  // one that refuses the damage, so a foe can never be chasing a player it
+  // cannot hurt. Written negated so a NaN bar counts as down, like the
+  // `> 0` guards it replaces.
+  function playerDowned(energy) { return !((energy ?? 0) > 0); }
+
   // ── Elites ───────────────────────────────────────────────────────────────
   // A SHINY cave monster is an elite: one multiplier over the kind's HP and
   // damage, the same shape as CAVE_ENEMY_MUL in app.js so the dps identity
@@ -727,7 +746,7 @@
     isEnemyKind, isEnemy, hp, damage, hpFraction,
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
-    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage,
+    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDowned,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,

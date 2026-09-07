@@ -512,12 +512,16 @@
   // One glowing cobble every lampSpacingM() metres of a RESTORED line — the
   // arithmetic only, run for real: no Phaser, no scene, no save.
 
-  test('streets lamps: the spacing IS Trail.GOAL_STEP_M — one number, not two', () => {
-    // Resolved at call time (like lighting.js resolves FIRE_REST_R), so a
-    // walk that earns the ladder a rung lights about one lamp and the two can
-    // never come to disagree about the same 200 m.
-    assert.eq(S.lampSpacingM(), Trail.GOAL_STEP_M, 'the lamp spacing is the ladder\'s own rung');
-    assert.eq(Trail.GOAL_STEP_M, 200, 'the rung this whole file pins is 200 m');
+  test('streets lamps: the spacing is its OWN number, half the ladder\'s rung', () => {
+    // Deliberately NOT tied to Trail.GOAL_STEP_M any more: that floor (a way
+    // under half the spacing gets no lamp at all) rode along with the
+    // ladder's 200 m rung, and OSM cuts a way at every intersection — an
+    // ordinary suburban block is routinely under the 100 m that demanded, so
+    // a whole town could be walked clean and never light a single lamp.
+    assert.eq(S.lampSpacingM(), S.LAMP_SPACING_M, 'reads its own constant');
+    assert.eq(S.LAMP_SPACING_M, 100, 'half the ladder\'s 200 m rung');
+    assert.lt(S.LAMP_SPACING_M, Trail.GOAL_STEP_M,
+      'lighter than the ladder pays for — a normal block should qualify');
   });
 
   test('streets lamps: a line under half a spacing gets none', () => {

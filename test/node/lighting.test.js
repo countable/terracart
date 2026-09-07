@@ -122,16 +122,106 @@ test('lighting: the player ramp is the falloff, expressed as light', () => {
   }
 });
 
-test('lighting: low energy tints the bubble pink, nothing else does', () => {
+test('lighting: low energy tints the bubble red, progressively, nothing else does', () => {
   assert.eq(Lighting.profile(scene()).litColour, 0xffffff, 'rested: white');
+  assert.eq(Lighting.lowEnergyFrac(scene()), 0, 'rested: no warning weight either');
+  // At the threshold itself the weight — and so the tint — is exactly zero:
+  // the cue arrives as energy keeps draining PAST 30%, not the instant it's
+  // crossed.
+  assert.eq(Lighting.lowEnergyFrac(scene({ save: { energy: 30, maxEnergy: 100 } })), 0,
+    'nothing yet, right at the threshold');
+  const w20 = Lighting.lowEnergyFrac(scene({ save: { energy: 20, maxEnergy: 100 } }));
+  near(w20, 1 - 20 / 30, 1e-9, 'a third of the way from 30% to 0% is a third of the weight');
   const tired = Lighting.profile(scene({ save: { energy: 20, maxEnergy: 100 } })).litColour;
-  assert.eq(tired, Lighting.mixToWhite(Lighting.LOW_ENERGY_TINT, Lighting.LOW_ENERGY_A), 'the old pink at the old alpha');
+  assert.eq(tired, Lighting.mixToWhite(Lighting.LOW_ENERGY_TINT, Lighting.LOW_ENERGY_A * w20),
+    'the tint is the weight\'s own share of the ceiling alpha, not a flat step');
   assert.eq(ch(tired, 16), 255, 'red stays full');
-  assert.lt(ch(tired, 8), 255, 'green drops — pink, not white');
-  assert.eq(Lighting.profile(scene({ save: { energy: 0, maxEnergy: 100 } })).litColour, 0xffffff,
-    'at 0 there is no reach to tint');
+  assert.lt(ch(tired, 8), 255, 'green drops from white');
+  assert.eq(ch(tired, 0), ch(tired, 8), 'blue tracks green exactly — a true red, not the old pink');
+  // Deeper as it drains further: the tint keeps darkening all the way to 0
+  // energy (LOW_ENERGY_A itself, the ceiling) — where the reach plateau has
+  // shrunk to nothing anyway (coords.js reachRadiusM), so the colour is never
+  // actually painted on any cell; it simply isn't special-cased away.
+  const worse = Lighting.profile(scene({ save: { energy: 5, maxEnergy: 100 } })).litColour;
+  assert.lt(ch(worse, 8), ch(tired, 8), 'lower energy tints deeper');
+  assert.eq(Lighting.lowEnergyFrac(scene({ save: { energy: 0, maxEnergy: 100 } })), 1,
+    'fully drained is the full weight — the walk-pace reader needs it even though the light never paints it');
   assert.eq(Lighting.profile(scene({ save: { energy: 20, maxEnergy: 100, reachPotionUntil: Date.now() + 60000 } })).litColour,
     0xffffff, 'a Potion of Reach pins the view lit');
+});
+
+test('lighting: below 15% energy the tint throbs like a heartbeat, not a flat wash', () => {
+  // A clock-free profile() call — every assertion above uses one — gets the
+  // flat ceiling alone, whatever the energy: the pulse must never disturb a
+  // derivation test that never mentions time.
+  const critical = scene({ save: { energy: 10, maxEnergy: 100 } }); // 10% < 15%
+  const w = Lighting.lowEnergyFrac(critical);
+  assert.eq(Lighting.profile(critical).litColour,
+    Lighting.mixToWhite(Lighting.LOW_ENERGY_TINT, Lighting.LOW_ENERGY_A * w),
+    'no `now` argument means no animation — the ceiling alone, as before');
+
+  // Above the critical threshold the multiplier is pinned at 1 regardless of
+  // the clock — 20% energy never throbs, however `now` reads.
+  const mild = Lighting.lowEnergyFrac(scene({ save: { energy: 20, maxEnergy: 100 } }));
+  assert.lt(mild, Lighting.CRITICAL_W, '20% energy is above the critical band');
+  for (const t of [0, 137, 424, 849]) {
+    assert.eq(Lighting.heartbeatMul(mild, t), 1, 'never engages above CRITICAL_W');
+  }
+
+  // Below it, the multiplier is a periodic pulse: it spikes above 1 and
+  // settles back close to it within one period, never exceeding its own
+  // amplitude, and repeats exactly every HEARTBEAT_PERIOD_MS.
+  assert.gt(w, Lighting.CRITICAL_W, '10% energy is past the critical band');
+  let sawBeat = false, sawRest = false;
+  for (let t = 0; t < Lighting.HEARTBEAT_PERIOD_MS; t += 5) {
+    const m = Lighting.heartbeatMul(w, t);
+    assert.gte(m, 1, 'never dips below the resting ceiling');
+    assert.lte(m, 1 + Lighting.HEARTBEAT_AMPLITUDE + 1e-9, 'never overshoots its own amplitude');
+    if (m > 1 + Lighting.HEARTBEAT_AMPLITUDE * 0.9) sawBeat = true;
+    if (m < 1.05) sawRest = true;
+  }
+  assert.truthy(sawBeat, 'the beat actually spikes near its peak within one period');
+  assert.truthy(sawRest, 'and settles back down between beats — a pulse, not a plateau');
+  assert.eq(Lighting.heartbeatMul(w, 0), Lighting.heartbeatMul(w, Lighting.HEARTBEAT_PERIOD_MS), 'periodic');
+
+  // profile() itself throbs when handed a real clock reading: at the beat's
+  // peak the tint is deeper than the flat ceiling it would otherwise be.
+  const atRest = Lighting.mixToWhite(Lighting.LOW_ENERGY_TINT, Lighting.LOW_ENERGY_A * w);
+  const atBeat = Lighting.profile(critical, undefined, 0).litColour; // phase 0 = the lub's peak
+  assert.lt(ch(atBeat, 8), ch(atRest, 8), 'the beat reddens deeper than the flat ceiling');
+});
+
+// ── The tired walk (app.js — can't load headlessly, pinned as source text) ──
+
+test('lighting: the walk cycle eases toward half speed on the same weight as the red', () => {
+  const a = APP_JS_SRC;
+  const s = a.indexOf('  _playDirected(sprite, baseKey, dx, dy) {');
+  assert.truthy(s > 0, 'found _playDirected');
+  const body = a.slice(s, a.indexOf('\n  }\n', s));
+  // Reads the SAME weight the tint uses — one number, two readers, so the
+  // legs and the light can't disagree about how tired the player is.
+  assert.truthy(/Lighting\.lowEnergyFrac\(this\)/.test(body),
+    'the walk pace reads Lighting.lowEnergyFrac, not a copy of the energy math');
+  assert.truthy(/sprite\.anims\.timeScale = 1 - w \* \(1 - WALK_TIRED_SLOW_MUL\);/.test(body),
+    'eases linearly from full pace at the threshold toward the floor at 0 energy');
+  // Only WALKING sags — idle (including the dragon branch, which returns
+  // before this runs at all) is untouched, and every call resets timeScale
+  // rather than only a transition into 'walk-*': Phaser's timeScale lives on
+  // the AnimationState, not the anim, so a stale value would otherwise ride
+  // along into idle or across an energy change.
+  assert.truthy(/baseKey === 'walk' && sprite === this\.player/.test(body),
+    'gated on walking, and on the player — not every sprite this is ever handed');
+  assert.truthy(/\} else \{\s*\n\s*sprite\.anims\.timeScale = 1;\s*\n\s*\}/.test(body),
+    'idle (and anything else) is reset to full pace every call, not left however it last was');
+  const m = a.match(/const WALK_TIRED_SLOW_MUL = ([\d.]+);/);
+  assert.truthy(m, 'WALK_TIRED_SLOW_MUL is a plain literal');
+  const slowMul = Number(m[1]);
+  assert.eq(slowMul, 0.5, 'half speed at the floor, as asked');
+  assert.inRange(slowMul, 0.1, 0.9, 'a real slowdown, never stopped and never unnoticeable');
+  // The BODY still covers ground at its usual pace — WALK_M_S is untouched by
+  // this block. Only the legs visibly labour; the walk is not made slower.
+  assert.falsy(/WALK_M_S.*WALK_TIRED|WALK_TIRED.*WALK_M_S/.test(body),
+    'the tired pace never touches the movement speed constant');
 });
 
 test('lighting: what lights is what is yours', () => {
@@ -195,7 +285,7 @@ test('lighting: a POI breathes slowly, on its own phase', () => {
   assert.gt(Math.abs(Lighting.flickerAlpha(poi, 0, 0, 1234, 'c_2_9') - a0), 0.02, 'phased by id, not in lockstep');
 });
 
-test('lighting: the cobble row is the restored street\'s own ink, steady, and there is still no cell-light list', () => {
+test('lighting: the cobble row is the street lamp\'s own violet, steady, and there is still no cell-light list', () => {
   // A `cobble` row used to carry a small violet pool per lit trail stone,
   // offered by drawCells onto its own `_cellLights` list — gone when streets
   // started restoring by arclength instead of per cobble. The row is BACK now
@@ -205,12 +295,12 @@ test('lighting: the cobble row is the restored street\'s own ink, steady, and th
   // the old per-cell scan.
   const cobble = Lighting.KINDS.cobble;
   assert.truthy(cobble, 'the cobble row exists');
-  // Its own ink, not the old violet: the same UI_STREET_INK the chips, the
-  // sparks and the counter over a restored street all wear, parsed to the
-  // same int — one constant, so the lamp can't drift off the colour the
-  // street itself is made of.
-  const ink = parseInt(UI_STREET_INK.replace('#', ''), 16);
-  assert.eq(cobble.colour, ink, 'the row is UI_STREET_INK, not a colour of its own');
+  // The old lit-pebble violet is back for the lamp specifically (UI_LAMP_GLOW
+  // — the same constant road_overlay.js bakes the stone in), parsed to the
+  // same int — never UI_STREET_INK, the street's OWN pale ink, which is what
+  // the carriageway itself restores in.
+  const ink = parseInt(UI_LAMP_GLOW.replace('#', ''), 16);
+  assert.eq(cobble.colour, ink, 'the row is UI_LAMP_GLOW, not the street\'s own ink');
   // STEADY: a fire breathes because it is burning, a POI breathes to ask for
   // attention — a lamp is infrastructure, and a street of them breathing
   // would read as a strobe.
@@ -284,11 +374,14 @@ test('lighting: a BLAST is a transient light on its own clock, at any size', () 
   assert.eq(Lighting.BLAST_RADIUS_CELLS, 2.5, "a restoration's blast is 2.5 cells");
   assert.eq(Lighting.radiusCells('blast'), Lighting.BLAST_RADIUS_CELLS, 'and the row default matches');
   assert.eq(Lighting.BLAST_MS, 900, 'and it runs for the old scale-pop\'s own 900 ms');
-  // The white SHINE app.js runs down a stretch it has just rebuilt is the same
-  // clock, re-derived rather than retyped: the flash and the shine are two
-  // halves of one moment and end together.
-  assert.eq(STREET_SHINE_MS, Lighting.BLAST_MS,
-    'app.js takes the shine\'s length from Lighting.BLAST_MS');
+  // The white SHINE app.js runs down a stretch it has just rebuilt used to
+  // borrow this exact clock; it now runs longer and on its own (a street
+  // repair reads as slower and more deliberate than a house's snap-back),
+  // and app.js hands _blastAt that length explicitly (durationMs) at its one
+  // call site so the flash still ends exactly when the shine does — just on
+  // the street's own beat, not this default.
+  assert.gt(STREET_SHINE_MS, Lighting.BLAST_MS,
+    'the street\'s own shine runs longer than a generic blast');
 
   const s = scene();
   const b = Lighting.blast(s, 100, 200, { t0: 0 });
@@ -496,7 +589,7 @@ test('lighting: the frame reads the real sun at the player, once a minute', () =
   assert.eq(Lighting.daylight(s, Date.parse('2024-06-21T12:00:30Z')), 0.123, 'same minute: cached');
   assert.truthy(Lighting.daylight(s, Date.parse('2024-06-21T12:01:00Z')) !== 0.123, 'next minute: recomputed');
   assert.eq(Lighting.daylight({ depth: 0 }, Date.now()), 1, 'no fix to place the sun by: noon');
-  assert.truthy(/const prof = profile\(scene, daylight\(scene, now\)\);/.test(LIGHTING_SRC), 'draw() passes the frame\'s daylight');
+  assert.truthy(/const prof = profile\(scene, daylight\(scene, now\), now\);/.test(LIGHTING_SRC), 'draw() passes the frame\'s daylight, and the clock for the heartbeat pulse');
 });
 
 // ── Source pins: the old passes are gone, the new path is wired ───────────
@@ -553,7 +646,7 @@ test('lighting: the map multiplies, the cookies add, and the plateau is per cell
     'the plateau cells are picked by the reach test, not a circle');
 });
 
-test('lighting: the plateau cells land on the lit level, pink when tired', () => {
+test('lighting: the plateau cells land on the lit level, red when tired', () => {
   const ch = (c, sh) => (c >> sh) & 255;
   for (const sv of [{ energy: 100, maxEnergy: 100 }, { energy: 20, maxEnergy: 100 }]) {
     for (const depth of [0, 2]) {
@@ -567,7 +660,7 @@ test('lighting: the plateau cells land on the lit level, pink when tired', () =>
     }
   }
   const tired = Lighting.plateauCellColour(Lighting.profile(scene({ save: { energy: 20, maxEnergy: 100 } })));
-  assert.lt(ch(tired, 8), ch(tired, 16), 'the cell fill carries the pink');
+  assert.lt(ch(tired, 8), ch(tired, 16), 'the cell fill carries the red');
 });
 
 test('lighting: the plateau eases down toward the reach rim, and the step at the rim still wins', () => {

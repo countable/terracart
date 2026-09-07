@@ -1,15 +1,19 @@
 // src/traps.js — hidden traps: where they are, and what stepping on one costs.
 //
 // A trap is the cheapest possible piece of world state: NOTHING is stored
-// until you step on one. Where the traps are is a pure function of the tile's
-// coordinates (and, underground, its depth) through WorldGen.makeRng — exactly
-// like the X-mark scatter, the wild plants and the cave rocks. The only thing
-// that ever reaches the save is the id of a trap the player has SPRUNG
-// (save.sprungTraps), which is what makes a revealed trap stay revealed across
-// a reload. A tile evicted from the cache and rasterized again lays the same
-// traps in the same cells; a tile REBUILT under the player (see CLAUDE.md)
-// re-runs the spawn pass because the rebuild drops `entry._spawned`, and lays
-// the same set again.
+// until you step on one — or disarm one. Where the traps are is a pure
+// function of the tile's coordinates (and, underground, its depth) through
+// WorldGen.makeRng — exactly like the X-mark scatter, the wild plants and the
+// cave rocks. The only things that ever reach the save are the ids of traps
+// the player has SPRUNG (save.sprungTraps, which is what makes a revealed
+// trap stay revealed across a reload) and DISARMED (save.disarmedTraps, spent
+// with a Trap Disarm Kit — see the 'disarm-trap' handler in interact.js —
+// which makes a removed trap stay removed). A tile evicted from the cache and
+// rasterized again lays the same traps in the same cells; a tile REBUILT
+// under the player (see CLAUDE.md) re-runs the spawn pass because the rebuild
+// drops `entry._spawned`, and lays the same set again — sprung and disarmed
+// ids still apply to it, since the ids are derived from the tile's own
+// coordinates and never change.
 //
 // The two placements:
 //   • SURFACE — ALONGSIDE roads, never on them. "Nothing spawns on a road" is
@@ -78,10 +82,11 @@
 
   // ── The sprung set ───────────────────────────────────────────────────────
   // save.sprungTraps is a flat array of ids, like save.picked / save.opened.
-  // It is the ONLY thing about a trap that is ever written down. The RENDERER
-  // does not read it through here — it goes through util.js's memoised setOf,
-  // because it asks once a frame and a fresh Set every frame is exactly the
-  // allocation setOf exists to avoid.
+  // It — and save.disarmedTraps below — are the ONLY things about a trap
+  // that are ever written down. The RENDERER does not read it through here —
+  // it goes through util.js's memoised setOf, because it asks once a frame
+  // and a fresh Set every frame is exactly the allocation setOf exists to
+  // avoid.
   function isSprung(save, id) {
     if (!save || !id) return false;
     const arr = save.sprungTraps;
@@ -95,6 +100,29 @@
     if (!Array.isArray(save.sprungTraps)) save.sprungTraps = [];
     if (save.sprungTraps.indexOf(id) >= 0) return false;
     save.sprungTraps.push(id);
+    return true;
+  }
+
+  // ── The disarmed set ─────────────────────────────────────────────────────
+  // save.disarmedTraps is the same shape as save.sprungTraps, and disjoint
+  // from it in EFFECT (a trap can be recorded in both — springing it first
+  // and disarming it after is a perfectly normal order of events — but once
+  // an id is in here it is gone for every consumer: the per-frame bite/bleed
+  // tick and the renderer both treat it as if it were never laid). Written
+  // by the 'disarm-trap' tap handler (interact.js) when a Trap Disarm Kit is
+  // spent on a trap's own cell — hidden or already sprung, surface or cave.
+  function isDisarmed(save, id) {
+    if (!save || !id) return false;
+    const arr = save.disarmedTraps;
+    return !!arr && arr.indexOf(id) >= 0;
+  }
+  // Record a disarm. Returns false when it was already recorded, so a caller
+  // (the tap handler) can tell "spend the kit" from "nothing to spend it on".
+  function disarm(save, id) {
+    if (!save || !id) return false;
+    if (!Array.isArray(save.disarmedTraps)) save.disarmedTraps = [];
+    if (save.disarmedTraps.indexOf(id) >= 0) return false;
+    save.disarmedTraps.push(id);
     return true;
   }
 
@@ -260,6 +288,7 @@
     CAVE_TRAP_MIN, CAVE_TRAP_SPAN, CAVE_TRAP_PER_DEPTH, CAVE_TRAP_DEPTH_CAP, CAVE_SPAWN_R,
     DUNGEON_DENSITY_MUL,
     isSprung, spring,
+    isDisarmed, disarm,
     isRoadside, sampleRoadsideCells, spawnSurface, spawnCave, trapAt,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

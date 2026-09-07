@@ -43,6 +43,17 @@
 //   • OFF-SCREEN IS FREE. `onScreen()` gates the world bursts: the crop timer
 //     advances plants the player is nowhere near, and an explode() nobody
 //     sees still costs the pool.
+//   • CONVERGING is the one shape the pooled emitter can't throw. A preset
+//     marked `converge: true` (stonegather) moves particles TO a point
+//     instead of away from one, via Phaser's `moveTo`/`moveToX`/`moveToY` —
+//     which has to be baked into the emitter at creation, so a converging
+//     burst gets a FRESH, throwaway emitter per TARGET instead of the one
+//     pooled per texture (see burstConverge). Spawn positions still come off
+//     `ringPoints`, same as an outward ring burst; only the direction of
+//     travel is reversed. `opts.targets` lets the sink be more than one
+//     point — several, dealt the burst's particles round-robin — so a
+//     restored road SECTION gathers along its whole length rather than at a
+//     single dot on it.
 //
 // Pure parts (PRESETS, burstCount, emitterConfig, onScreen) run headlessly —
 // test/node/particles.test.js pins them. Only burst() touches Phaser.
@@ -111,6 +122,32 @@
       count: 10, angle: [0, 360], speed: [70, 150], lifespan: [300, 550],
       gravityY: 0, scale: [0.9, 0], alpha: [1, 0], rotate: [0, 360],
     },
+    // …and the THIRD part of the same moment: the setts PULLING THEMSELVES
+    // BACK TOGETHER — the "magical repair" read the sweep asked for, rather
+    // than only debris kicking up and a flash burning out. Bigger and a shade
+    // darker than the outward `stone` chip — not a different material, but a
+    // laid sett rather than a loose flake, so it reads as substantial against
+    // both the dilapidated band and the near-black restored one. GROWING and
+    // BRIGHTENING as it closes in — scale and alpha run the OPPOSITE way from
+    // every other preset here, which all shrink/fade as they age.
+    // `converge: true` marks it as one of these: it does not fly outward on
+    // an angle+speed cone at all, it is thrown through Particles.burst's
+    // per-particle fresh emitters with a Phaser `moveTo` (see burstConverge)
+    // — every particle spawns scattered on `scatterCells` (Particles.burst
+    // reads it, this table never converts it to px) around ONE of its
+    // targets and converges on that exact point by the end of its life. The
+    // targets are the whole restored SECTION (app.js hands _blastAt
+    // `gatherPts`, several points spread along the stretch that just came
+    // back, not one), spread round-robin across the particles — so the sink
+    // is the section, not a single dot on it. `angle`/`speed` are still
+    // carried (the completeness sweep below wants every preset shaped alike)
+    // but are inert here — moveTo overrides them outright.
+    stonegather: {
+      tex: { shape: 'chip', color: '#948a79', edge: '#3f382e', size: 11 },
+      count: 18, angle: [0, 360], speed: [40, 90], lifespan: [550, 850],
+      gravityY: 0, scale: [0.2, 1], alpha: [0.15, 0.9], rotate: [0, 180],
+      converge: true, scatterCells: 1.6,
+    },
     // A crop REACHING ITS NEXT STAGE — by the 15-minute hold, by a tap that
     // beats the tick to it, or by a watering can's jump. Leaf flecks drift UP
     // off the plant (negative gravity) and fade: growth, not impact.
@@ -155,12 +192,33 @@
     // impact and anything that lingers reads as a reward. No gravity — the
     // sting comes off the body in every direction at once, it isn't debris
     // falling back to the ground.
+    // `scaleWithDmg` marks this preset as the one whose THROW distance is not
+    // fixed: MIN_PLAYER_DAMAGE (combat.js, 1) is a graze and should read as
+    // one, not the same full-force ring a 16-point worst-case hit throws —
+    // see dmgSpeedScale below.
     pain: {
       tex: { shape: 'chip', color: C.hurt, edge: '#7a1a12', size: 8 },
       count: 14, angle: [0, 360], speed: [90, 200], lifespan: [250, 450],
       gravityY: 0, scale: [1.1, 0.2], alpha: [1, 0], rotate: [0, 360],
+      scaleWithDmg: true,
     },
   };
+
+  // A blow's SEVERITY, not just that it landed, decides how far the pain
+  // chips fly. The player's whole damage space is 1..16 (CLAUDE.md's armour
+  // rule: a MONSTERS[].dmg of 1..4, doubled for an elite, doubled again on
+  // hard) — so a 1-point graze (a trap's per-second bleed, a shielded glance)
+  // throws at PAIN_MIN_SPEED_SCALE of the preset's speed, and only the worst
+  // hit on that scale throws the full ring `speed` bakes. No `dmg` (an old
+  // caller, or a preset this doesn't apply to) is the full-force throw, same
+  // as before this existed.
+  const PAIN_DMG_MAX = 16;
+  const PAIN_MIN_SPEED_SCALE = 0.35;
+  function dmgSpeedScale(dmg) {
+    if (!(dmg > 0)) return 1;
+    const t = Math.min(1, dmg / PAIN_DMG_MAX);
+    return PAIN_MIN_SPEED_SCALE + (1 - PAIN_MIN_SPEED_SCALE) * t;
+  }
 
   // app.js's CELL_PX, read at CALL time (app.js loads after this file); 32 is
   // its shipping value, for a context without it.
@@ -211,14 +269,18 @@
 
   // The Phaser ParticleEmitterConfig for a preset. `emitting: false` — the
   // emitter never streams; it only explode()s. Pure so the test can read it.
-  function emitterConfig(kind) {
+  // `speedScale` (default 1, dmgSpeedScale's output for a `scaleWithDmg`
+  // preset) shrinks the launch speed only — the range every other test reads
+  // is untouched when it's omitted.
+  function emitterConfig(kind, speedScale) {
     const p = PRESETS[kind];
     if (!p) return null;
+    const s = (speedScale > 0) ? speedScale : 1;
     const range = (a) => ({ min: a[0], max: a[1] });
     return {
       emitting: false,
       angle: range(p.angle),
-      speed: range(p.speed),
+      speed: range([p.speed[0] * s, p.speed[1] * s]),
       lifespan: range(p.lifespan),
       gravityY: p.gravityY,
       scale: { start: p.scale[0], end: p.scale[1] },
@@ -288,17 +350,69 @@
   // The emitter for a (kind, colour), created on first use and parked in the
   // scene's fx layer. Explode() positions are emitter-local; the emitter and
   // its container both sit at (0,0), so screen coordinates pass straight
-  // through. One emitter per baked texture — the same key.
-  function ensureEmitter(scene, kind, colour) {
+  // through. One emitter per baked texture — the same key — UNLESS the preset
+  // scales its speed with `dmg` (pain), in which case the speed is baked into
+  // the config at creation same as everything else here, so a second pool
+  // slot per rounded severity keeps a graze and a full hit from sharing (and
+  // fighting over) one emitter's config.
+  function ensureEmitter(scene, kind, colour, dmg) {
     scene._fxEmitters = scene._fxEmitters || {};
-    const slot = texKey(kind, colour);
+    const p = PRESETS[kind];
+    const speedScale = (p && p.scaleWithDmg) ? dmgSpeedScale(dmg) : 1;
+    const slot = texKey(kind, colour) + ((p && p.scaleWithDmg) ? `_s${Math.round(speedScale * 100)}` : '');
     let em = scene._fxEmitters[slot];
     if (em && em.active !== false) return em;
     const key = ensureTexture(scene, kind, colour);
-    em = scene.add.particles(0, 0, key, emitterConfig(kind));
+    em = scene.add.particles(0, 0, key, emitterConfig(kind, speedScale));
     if (scene.fxContainer) scene.fxContainer.add(em);
     scene._fxEmitters[slot] = em;
     return em;
+  }
+
+  // A CONVERGING burst's emitters are never pooled. Every other preset
+  // explodes OUT of a point the emitter doesn't need to know — angle+speed do
+  // the work — so one emitter per texture serves every call at every position
+  // for the whole session. A converge preset moves particles TO a fixed point
+  // instead (Phaser's `moveTo`/`moveToX`/`moveToY`), and that point is baked
+  // into the config at emitter creation, not read per explode() call — so
+  // reusing one emitter across bursts (or across two DIFFERENT targets in the
+  // same burst) would pull those particles toward the wrong destination. A
+  // converge burst is rare (once per restoration sweep, not a hot path), so a
+  // fresh emitter per target — thrown away once its particles have lived out
+  // their longest lifespan — costs nothing worth pooling for.
+  //
+  // `targets` is one or more SCREEN points: the sink is not always one dot —
+  // a restored ROAD SECTION hands app.js's _blastAt several points spread
+  // along the stretch (gatherPts), not just its midpoint, so the cobbles
+  // visibly gather along the whole length rather than converging on one spot
+  // of it. `n` particles are dealt round-robin across `targets`, one emitter
+  // PER TARGET (not per particle — every particle assigned to the same
+  // target shares its moveTo config and just explodes again on it), each
+  // scattered out on its own ring offset so two particles sharing a target
+  // never approach from the same angle.
+  function burstConverge(scene, kind, targets, n, o) {
+    const p = PRESETS[kind];
+    const key = ensureTexture(scene, kind, o.colour);
+    const scatterPx = (o.ringPx > 0) ? o.ringPx : (p.scatterCells || 1) * cellPx();
+    const offsets = ringPoints(scatterPx, n);
+    const destroyAfterMs = p.lifespan[1] + 50;
+    for (let ti = 0; ti < targets.length; ti++) {
+      const t = targets[ti];
+      let em = null;
+      for (let i = ti; i < n; i += targets.length) {
+        if (!em) {
+          const cfg = Object.assign({}, emitterConfig(kind), { moveToX: t.x, moveToY: t.y });
+          em = scene.add.particles(0, 0, key, cfg);
+          if (scene.fxContainer) scene.fxContainer.add(em);
+        }
+        const off = offsets[i];
+        em.explode(1, t.x + off.x, t.y + off.y);
+      }
+      if (em && scene.time && typeof scene.time.delayedCall === 'function') {
+        const e = em;
+        scene.time.delayedCall(destroyAfterMs, () => { try { e.destroy(); } catch (err) {} });
+      }
+    }
   }
 
   // Fire a burst of `kind` at SCREEN point (x, y). Returns the particle count
@@ -308,9 +422,21 @@
   // `opts` scales the same preset up to a bigger thing (app.js _blastAt):
   //   ringPx  throw them off a RING of this radius about (x, y) instead of
   //           out of the one point — a building's walls rather than its
-  //           middle — and scale the count with it (burstCount).
+  //           middle — and scale the count with it (burstCount). For a
+  //           CONVERGING preset this is instead how far out its particles
+  //           start before pulling in (the preset's own `scatterCells` when
+  //           omitted) — there is no "explode from one point" reading for a
+  //           burst whose whole shape IS the trip inward.
   //   count   override the preset's count outright.
   //   colour  bake and throw the preset in this colour instead of its own.
+  //   targets CONVERGING presets only: extra SCREEN points (beyond x, y) to
+  //           spread the sink across instead of converging everything on the
+  //           one point — a restored road SECTION, not a dot on it. Ignored
+  //           by every other preset.
+  //   dmg     the actual points the blow cost — read only by a preset marked
+  //           `scaleWithDmg` (pain), to throw a graze a shorter distance than
+  //           the worst hit on the game's 1..16 damage scale. Ignored by
+  //           every other preset.
   function burst(scene, kind, x, y, opts) {
     if (!scene || !scene.add || !scene.textures || !scene.fxContainer) return 0;
     if (!PRESETS[kind] || !isFinite(x) || !isFinite(y)) return 0;
@@ -318,11 +444,16 @@
     const n = burstCount(kind, !!scene._reducedMotion, o);
     if (!n) return 0;
     try {
-      const em = ensureEmitter(scene, kind, o.colour);
-      if (!(o.ringPx > 0)) {
-        em.explode(n, x, y);
+      if (PRESETS[kind].converge) {
+        const targets = (Array.isArray(o.targets) && o.targets.length) ? o.targets : [{ x, y }];
+        burstConverge(scene, kind, targets, n, o);
       } else {
-        for (const p of ringPoints(o.ringPx, n)) em.explode(1, x + p.x, y + p.y);
+        const em = ensureEmitter(scene, kind, o.colour, o.dmg);
+        if (!(o.ringPx > 0)) {
+          em.explode(n, x, y);
+        } else {
+          for (const p of ringPoints(o.ringPx, n)) em.explode(1, x + p.x, y + p.y);
+        }
       }
     } catch (e) {
       return 0;
@@ -330,5 +461,8 @@
     return n;
   }
 
-  root.Particles = { PRESETS, burstCount, emitterConfig, onScreen, burst, texKey, ringPoints, BURST_MAX };
+  root.Particles = {
+    PRESETS, burstCount, emitterConfig, onScreen, burst, texKey, ringPoints, BURST_MAX,
+    dmgSpeedScale,
+  };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

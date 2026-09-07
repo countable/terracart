@@ -29,10 +29,14 @@
 // the caller intersects with it.
 //
 // THE LAMPS ride on the same coordinate. A restored street lights its own
-// way: one glowing cobble every `lampSpacingM()` metres of it (= the ladder's
-// own rung, Trail.GOAL_STEP_M), placed by `lampsAlong` and lit when `covers`
-// says its metre is restored. Nothing about a lamp is stored — see the note
-// above lampsAlong.
+// way: one glowing cobble every `lampSpacingM()` metres of it, placed by
+// `lampsAlong` and lit when `covers` says its metre is restored. Nothing
+// about a lamp is stored — see the note above lampsAlong. Its own constant
+// (LAMP_SPACING_M, 100 m) — half the treasure ladder's rung — rather than
+// Trail.GOAL_STEP_M itself: most OSM ways are cut at every intersection, and
+// tying the "gets a lamp at all" floor to a 200 m rung left ordinary
+// suburban blocks (routinely under 100 m) dark however much of the town was
+// actually restored. See the note above LAMP_SPACING_M.
 //
 // Pure arithmetic on purpose — no Phaser, no DOM, no scene — which is what
 // lets test/node/streets.test.js pin the real shipping maths rather than a
@@ -232,16 +236,20 @@
   // why it is NOT a per-cell road state: the cobbles that were keyed per cell
   // until Sep 2026 counted one thing and drew another.)
   //
-  // ONE LAMP PER RUNG'S WALK. The spacing is Trail.GOAL_STEP_M, not a number
-  // of its own: 200 m of newly restored street is exactly what the ladder pays
-  // a prize for, so a walk that earns a rung lights about one lamp and the two
-  // can never come to disagree about the same 200 m. Resolved at CALL time,
-  // like lighting.js resolves FIRE_REST_R, so the load order of the two pure
-  // modules doesn't matter.
+  // LAMP_SPACING_M is its OWN number, not the ladder's rung. It shipped tied
+  // to Trail.GOAL_STEP_M (200 m) so "one prize = about one lamp" — but
+  // `lampsAlong`'s floor (a line under half the spacing gets none, on
+  // purpose: it's what keeps a dense block of driveways from reading as a
+  // lit car park) rode along with it, and OSM cuts a way at every
+  // intersection: an ordinary suburban block is routinely well under the
+  // 100 m that floor demanded, so a whole town could be walked clean and
+  // never show a single lamp. Halving it to 100 m (floor 50 m) lets a normal
+  // block qualify without touching the treasure ladder's own pacing — the
+  // two numbers are allowed to disagree now; 200 m of restoration still pays
+  // one prize, but may light two lamps rather than one.
+  const LAMP_SPACING_M = 100;
   function lampSpacingM() {
-    const T = root.Trail;
-    const s = T && T.GOAL_STEP_M;
-    return (s > 0) ? s : 200;
+    return LAMP_SPACING_M;
   }
 
   // The arclengths of one line's lamps, in metres from its start.
@@ -488,7 +496,7 @@
   root.Streets = {
     EPS,
     lineKey, lineLengthM, pointAtM, subLineM, tileSpans, reachIntervals,
-    lampSpacingM, lampsAlong, covers,
+    LAMP_SPACING_M, lampSpacingM, lampsAlong, covers,
     mergeIntervals, intersect, subtract, union, totalM, flatten, unflatten,
     createSight, restoredList, restore, epoch,
   };

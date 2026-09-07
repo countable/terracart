@@ -131,38 +131,141 @@
 
   // ── What is in it ────────────────────────────────────────────────────────
 
-  test('lairs: every kind on the ladder is a registered enemy', () => {
+  test('lairs: every kind on every ladder is a registered enemy', () => {
     // A guard that is not an enemy is furniture: nothing may auto-fire at it,
     // it lands no hit, and Combat gives it no HP pool. The registration is the
     // one thing that makes a kind hostile everywhere at once (CLAUDE.md).
     // Re-register the REAL table: combat.test.js swaps in a synthetic one and
     // test order across the suite is not ours to depend on.
     Combat.registerMonsters(MONSTERS);
-    for (const row of Lairs.KIND_LADDER) {
-      assert.truthy(Combat.isEnemy({ kind: row.kind, id: `x_${row.kind}` }),
-        `${row.kind} is not a registered enemy`);
-      assert.gt(Combat.creatureMaxHp(row.kind), 0, `${row.kind} has no HP pool`);
+    for (const tier of Object.keys(Lairs.KIND_LADDER)) {
+      for (const row of Lairs.KIND_LADDER[tier]) {
+        assert.truthy(Combat.isEnemy({ kind: row.kind, id: `x_${row.kind}` }),
+          `tier ${tier}: ${row.kind} is not a registered enemy`);
+        assert.gt(Combat.creatureMaxHp(row.kind), 0, `${row.kind} has no HP pool`);
+      }
     }
   });
 
-  test('lairs: the type ladder escalates with distance, and starts with the known slime', () => {
-    const near = Lairs.kindsAt(0);
-    assert.eq(near.length, 1, 'a lair at the near ring holds one kind only');
-    assert.eq(near[0], 'slime', 'and it is the surface slime the player already knows');
-    assert.truthy(Lairs.kindsAt(1).length > near.length, 'the far end unlocks more');
-    let prev = 0;
-    for (let t = 0; t <= 1.0001; t += 0.05) {
-      const n = Lairs.kindsAt(Math.min(1, t)).length;
-      assert.gte(n, prev, `the ladder shrank at t=${t.toFixed(2)}`);
-      prev = n;
+  test('lairs: every tier that holds a garrison has a ladder, and vice versa', () => {
+    // Two tables, one fact. capFor answers "how many" off TIER_GUARDS and
+    // kindFor answers "of what" off KIND_ORDER; a tier in one and not the
+    // other is either a garrison of nothing or a ladder nobody climbs.
+    assert.eq(Object.keys(Lairs.TIER_GUARDS).sort().join(),
+              Object.keys(Lairs.KIND_ORDER).sort().join(),
+              'TIER_GUARDS and KIND_ORDER name different tiers');
+  });
+
+  test('lairs: the tier picks the family — a wreck is squatted, a fort or castle is HELD', () => {
+    // The line this crossed deliberately: goblins are not loose in the fields,
+    // they are inside a fortification. Every wreck on the map is still slimes,
+    // which is what keeps a goblin a thing you walk INTO rather than past.
+    const all = (tier) => Lairs.kindsAt(tier, 1);
+    for (const k of all(9)) assert.truthy(/slime$/.test(k), `a wrecked house holds slimes, not ${k}`);
+    for (const tier of [11, 12]) {
+      const ks = all(tier);
+      assert.truthy(ks.length > 0, `tier ${tier} holds something`);
+      for (const k of ks) assert.truthy(/^goblin/.test(k), `tier ${tier} is a garrison, not ${k}`);
     }
-    const rng = WorldGen.makeRng(7);
-    for (const t of [0, 0.5, 1]) {
-      const allowed = new Set(Lairs.kindsAt(t));
-      for (let i = 0; i < 200; i++) {
-        assert.truthy(allowed.has(Lairs.kindFor(t, rng)), `t=${t}: rolled a kind off the ladder`);
+    // And the melee goblin comes before the archer, the same order the caves
+    // introduce them in (MONSTERS.minDepth) — the ladder never runs backwards.
+    for (const tier of [11, 12]) {
+      const ks = all(tier);
+      for (let i = 1; i < ks.length; i++) {
+        assert.gte(MONSTERS[ks[i]].minDepth, MONSTERS[ks[i - 1]].minDepth,
+          `tier ${tier}: ${ks[i]} is introduced shallower than ${ks[i - 1]}`);
       }
     }
+  });
+
+  test('lairs: each ladder escalates with distance, and a wreck starts with the known slime', () => {
+    const near9 = Lairs.kindsAt(9, 0);
+    assert.eq(near9.length, 1, 'a wreck at the near ring holds one kind only');
+    assert.eq(near9[0], 'slime', 'and it is the surface slime the player already knows');
+    for (const tier of Object.keys(Lairs.KIND_ORDER)) {
+      const near = Lairs.kindsAt(tier, 0);
+      assert.eq(near.length, 1, `tier ${tier}: the near ring opens one rung`);
+      assert.truthy(Lairs.kindsAt(tier, 1).length > near.length,
+        `tier ${tier}: the far end unlocks more`);
+      let prev = 0;
+      for (let t = 0; t <= 1.0001; t += 0.05) {
+        const n = Lairs.kindsAt(tier, Math.min(1, t)).length;
+        assert.gte(n, prev, `tier ${tier}: the ladder shrank at t=${t.toFixed(2)}`);
+        prev = n;
+      }
+    }
+    // An unknown tier is not a crash and not a silent slime — it holds nothing,
+    // which is the same answer capFor gives it.
+    assert.eq(Lairs.kindsAt(3, 1).length, 0, 'a tier with no ladder holds nothing');
+    const rng0 = WorldGen.makeRng(7);
+    for (const tier of Object.keys(Lairs.KIND_ORDER)) {
+      for (const t of [0, 0.5, 1]) {
+        const allowed = new Set(Lairs.kindsAt(tier, t));
+        for (let i = 0; i < 100; i++) {
+          assert.truthy(allowed.has(Lairs.kindFor(tier, t, rng0)),
+            `tier ${tier}, t=${t}: rolled a kind off the ladder`);
+        }
+      }
+    }
+  });
+
+  test('lairs: the rungs are evenly spaced, not authored — and kindFor takes one draw', () => {
+    // A ladder is its kinds in order; rung i of n unlocks at i/n. That
+    // reproduces the thirds the slime ladder used to carry as literals and
+    // gives the goblins their halves for free, so adding a kind re-spaces its
+    // own ladder and touches nothing else.
+    for (const [tier, kinds] of Object.entries(Lairs.KIND_ORDER)) {
+      const rows = Lairs.KIND_LADDER[tier];
+      assert.eq(rows.length, kinds.length, `tier ${tier}: a row per kind`);
+      rows.forEach((row, i) => {
+        assert.eq(row.kind, kinds[i], `tier ${tier}: rung ${i} is ${kinds[i]}`);
+        assert.eq(row.minT, i / kinds.length, `tier ${tier}: rung ${i} unlocks at i/n`);
+      });
+    }
+    // ONE draw whatever the ladder's length — garrisonFor's seat rolls sit
+    // either side of this, so a second draw would shift every guard's seat.
+    for (const tier of Object.keys(Lairs.KIND_ORDER)) {
+      for (const t of [0, 0.5, 1]) {
+        let draws = 0;
+        Lairs.kindFor(tier, t, () => { draws++; return 0.5; });
+        assert.eq(draws, 1, `tier ${tier}, t=${t}: kindFor did not take exactly one draw`);
+      }
+    }
+  });
+
+  test('lairs: no two rungs of one ladder are drawn the same', () => {
+    // THE LADDER HAS TO BE VISIBLE. Until Sep 2026 the cave slime was the
+    // surface slime's sheet drawn with no tint at all, so the first two rungs
+    // of the wreck ladder were the same pixels: a player standing in front of
+    // a ruin could not see that it held the tougher foe, and the escalation
+    // existed only in the HP pool. Sheet AND tint both come off
+    // SpriteLayout.CREATURE_ART, so this reads what the renderer draws.
+    for (const [tier, kinds] of Object.entries(Lairs.KIND_ORDER)) {
+      const seen = new Map();
+      for (const kind of kinds) {
+        const art = SpriteLayout.creatureArt(kind);
+        assert.truthy(art, `${kind} has no CREATURE_ART row`);
+        const look = `${SpriteLayout.creatureSheet(kind)}#${SpriteLayout.creatureTint(kind).toString(16)}`;
+        assert.falsy(seen.has(look),
+          `tier ${tier}: ${kind} is drawn exactly as ${seen.get(look)} — same sheet, same tint`);
+        seen.set(look, kind);
+      }
+    }
+    // And the specific pair that was wrong: same sheet, different colour.
+    assert.eq(SpriteLayout.creatureSheet('cave_slime'), SpriteLayout.creatureSheet('slime'),
+      'the cave slime is still the surface slime\'s art');
+    assert.eq(SpriteLayout.creatureTint('slime'), 0xffffff, 'the surface slime wears its own colours');
+    assert.eq(SpriteLayout.creatureTint('cave_slime'), SpriteLayout.CAVE_SLIME_TINT,
+      'and the cave slime is tinted apart from it');
+    // A GIANT is its base kind's art, so it inherits the tint rather than
+    // reverting to white — a giant cave slime is still a cave slime.
+    assert.eq(SpriteLayout.creatureTint('giant_cave_slime'), SpriteLayout.CAVE_SLIME_TINT,
+      'a giant inherits its base kind\'s tint');
+    // The renderer must READ that, not branch on the kind.
+    assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : c\.shiny \? SHINY_TINT : creatureTint\(c\.kind\)\)/
+      .test(RENDER_SRC), 'render.js tints a creature from the table, not a blanket white');
+    assert.truthy(/const texKey = creatureSheet\(c\.kind\);/.test(RENDER_SRC),
+      'and picks the monster sheet from the table, not an if-else chain');
   });
 
   // ── A synthetic tile, driven through the REAL isSpawnCell and makeRng ────
@@ -203,6 +306,26 @@
     }, over));
   }
   const guardsOf = (entry) => entry.creatures.filter((c) => c.lair);
+
+  // ── The families, end to end ─────────────────────────────────────────────
+
+  test('lairs: a real wreck wakes slimes and a real fort or castle wakes goblins', () => {
+    // The ladder tests above run kindsAt/kindFor directly; this one drives the
+    // shipping wake for each tier so the tier actually REACHES the roll —
+    // `cand.tier` comes off the footprint in indexChunk, and a garrison seeded
+    // from the wrong one would still look right in every unit test above.
+    const want = { 9: /slime$/, 11: /^goblin/, 12: /^goblin/ };
+    for (const tier of Lairs.TIERS) {
+      const entry = mkEntry([mkShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
+      step(entry, CENTRE);
+      const guards = guardsOf(entry);
+      assert.gt(guards.length, 0, `tier ${tier}: the ruin woke empty`);
+      for (const g of guards) {
+        assert.truthy(want[tier].test(g.kind),
+          `tier ${tier}: woke a ${g.kind}`);
+      }
+    }
+  });
 
   // ── The rings ────────────────────────────────────────────────────────────
 
@@ -581,8 +704,8 @@
       assert.gte(i, 0, `could not find ${what} in wanderCreatures — update this test`);
       return i;
     };
-    const leech = at("if (c.kind === 'slime' && !isTame && !shadowed && !homeWard) {", 'the slime leech');
-    const attack = at('if (isMonster(c.kind) && !shadowed && !homeWard) {', 'the monster attack');
+    const leech = at("if (c.kind === 'slime' && !isTame && !unnoticed && !homeWard) {", 'the slime leech');
+    const attack = at('if (isMonster(c.kind) && !unnoticed && !homeWard) {', 'the monster attack');
     const immobile = at('if (c.immobile) return;', 'the immobile branch');
     const crow = at("if (c.kind === 'crow' && !isTame) {", 'the wild-crow flight');
     const stepAt = at('if (now >= c._nextChooseT) {', 'the movement step');

@@ -27,13 +27,16 @@
 
   test('difficulty: easy is the identity — every multiplier 1, every flag on', () => {
     const e = Difficulty.PROFILES.easy;
-    // trapCountMul is the one deliberate exception: the base rate in traps.js
-    // (10..18/tile) reads as too rare to ever meet in practice, so BOTH modes
-    // scale up from it — easy 10x, hard 100x — rather than easy being 1x.
+    // trapCountMul and crowCountMul are the two deliberate exceptions.
+    // trapCountMul: the base rate in traps.js (10..18/tile) reads as too rare
+    // to ever meet in practice, so BOTH modes scale up from it — easy 10x,
+    // hard 100x — rather than easy being 1x. crowCountMul: easy halves the
+    // base wild crow count outright.
     for (const [k, v] of Object.entries(e)) {
-      if (/Mul$/.test(k) && k !== 'trapCountMul') assert.eq(v, 1, `easy.${k} is 1`);
+      if (/Mul$/.test(k) && k !== 'trapCountMul' && k !== 'crowCountMul') assert.eq(v, 1, `easy.${k} is 1`);
     }
     assert.eq(e.trapCountMul, 10, 'easy still multiplies the base trap rate, just less than hard');
+    assert.eq(e.crowCountMul, 0.5, 'easy halves the base wild crow count');
     assert.eq(e.startingMoney, STARTING_MONEY, 'the easy purse IS items.js STARTING_MONEY');
     assert.truthy(e.tutorial && e.starterCrates && e.pestAmnesty, 'the guided opening is on');
     assert.falsy(e.cropPests, 'easy never dispatches a crow at a planted field');
@@ -51,6 +54,7 @@
     assert.gt(h.enemyHpMul, 1); assert.gt(h.enemyDmgMul, 1);
     assert.gt(h.monsterCountMul, 1); assert.gt(h.slimeCountMul, 1);
     assert.gt(h.trapCountMul, e.trapCountMul, 'the verge is denser with traps too');
+    assert.gt(h.crowCountMul, e.crowCountMul, 'and more wild crows to begin with');
     assert.gt(h.trapBiteMul, e.trapBiteMul, 'and bites harder on first contact');
     // What the mode deliberately leaves alone has no knob at all.
     for (const k of ['bountyMul', 'eliteRateMul', 'passOutLossFrac', 'offlineRestCapFrac']) {
@@ -211,5 +215,32 @@
     // underground version, there is no cave to escape.
     assert.falsy(/this\.depth = 0|WorldGen\.setDepth\(0\)|cancelWorkProgress/.test(body),
       'the surface version does not relocate the player or cancel work');
+  });
+
+  test('difficulty: a blackout costs the purse once per dry spell, not once per frame', () => {
+    // Neither pass-out function restores energy — that's deliberate, it's
+    // what makes changeDepth's "too tired to go down" gate mean something.
+    // But `_passingOut` alone resets the instant the modal is dismissed, so
+    // with energy still <= 0 the very next frame re-read the same condition
+    // true: on a hard-mode save, an underground blackout drops you to the
+    // surface at 0 energy, which the hard-mode surface gate then blacks out
+    // AGAIN immediately, chaining into a loop that halved the purse every
+    // frame until it hit $0. `_exhausted` is the second latch that fixes it:
+    // it outlives the modal and only clears once energy is actually back
+    // above 0 (a rest, a meal), so both gates fire at most once per dry spell.
+    const app = APP_JS_SRC;
+    const a = app.indexOf('// Exhaustion underground:');
+    const b = app.indexOf('this._passOutOnSurface();');
+    assert.truthy(a > 0 && b > a, 'found the update() exhaustion gate block');
+    const block = app.slice(a, b + 40);
+    assert.truthy(/this\._exhausted && \(this\.save\.energy \?\? 0\) > 0\) this\._exhausted = false/.test(block),
+      'the latch clears only once energy has actually recovered');
+    // Both gates must check the latch before firing, and set it before
+    // calling the pass-out handler (so a re-entrant frame during the same
+    // dry spell can never slip through).
+    const underground = /!this\._passingOut && !this\._exhausted[\s\S]{0,40}\{\s*this\._exhausted = true;\s*this\._passOutToSurface\(\)/;
+    const surface = /!this\._passingOut && !this\._exhausted[\s\S]{0,40}\{\s*this\._exhausted = true;\s*this\._passOutOnSurface\(\)/;
+    assert.truthy(underground.test(block), 'the underground gate checks and then sets the latch');
+    assert.truthy(surface.test(block), 'the hard-mode surface gate checks and then sets the latch');
   });
 })();

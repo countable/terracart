@@ -469,13 +469,20 @@
   // course grid rather than the base pass's jittered lumps. Paths get the same
   // tile with the mortar wash halved (packed earth has no mortar to speak of).
   const CLEAN_TILE_PX = 32;
-  const CLEAN_MORTAR_ALPHA = 0.13;   // pale, so the seams read as clean lines on the black
+  // Lighter than the first cut (0.13): at that alpha the seams barely broke
+  // from the black setts around them and the whole band read as one flat
+  // slab rather than laid stone. Bright enough now to read as mortar lines
+  // from across the street without competing with the setts themselves.
+  const CLEAN_MORTAR_ALPHA = 0.22;
   const CLEAN_PATH_MORTAR_MUL = 0.5;
   const CLEAN_COLS = 6, CLEAN_ROWS = 8;   // 6 setts across, 8 courses down
   const CLEAN_SETT_R = 1.6;          // corner radius
   const CLEAN_GAP_X = 1.5, CLEAN_GAP_Y = 1.2;   // mortar gaps between setts, px
   const CLEAN_TONE_MIN = 0.05, CLEAN_TONE_MAX = 0.12;  // per-stone tone
-  const CLEAN_BEVEL_ALPHA = 0.10;    // top bevel catch-light
+  // The top bevel catch-light. 0.10 read as a texture noise rather than a
+  // highlight — a restored sett should look wet-laid and lit from above, not
+  // just less flat than the dilapidated ones.
+  const CLEAN_BEVEL_ALPHA = 0.24;
   const CLEAN_BEVEL_H = 0.45;        // …over the upper 45% of the sett
 
   function roundRectPath(cx, x, y, w, h, r) {
@@ -547,25 +554,30 @@
   //
   // WHY ART AS WELL AS LIGHT. The lightmap is MULTIPLIED over the world, so at
   // noon (a near-white map) a light alone is invisible and the lamps would
-  // simply not exist by day. The stone is therefore painted: it reads as a
-  // pale sett with a hot core at any hour, and after dark the cookie over it
-  // is what makes it a lamp.
+  // simply not exist by day. The stone is therefore painted: it reads as an
+  // ACTIVATED sett with a hot violet core at any hour, and after dark the
+  // cookie over it is what makes it a lamp.
   //
   // Baked ONCE into a texture (app.js) rather than stroked per frame, for the
   // reason at the top of this file — and its halo is a real radial gradient
   // rather than a stack of translucent rings, which is the same rule again
   // (a translucent ring composites with its neighbours and blotches).
   //
-  // UI_STREET_INK, the colour a restored street is MADE of, so the lamp, the
-  // chips that fly off the carriageway and the counter over it are one
-  // material — the same one constant lighting.js's row reads.
+  // UI_LAMP_GLOW — the same violet the old lit-pebble trail glowed in, back
+  // for the lamp specifically. Deliberately NOT UI_STREET_INK: the
+  // carriageway itself restores in pale warm stone, but a lamp is meant to
+  // read as ACTIVATED, the way a claimed cobble always did, so it keeps the
+  // old activated-cobble colour rather than the newer material one the chips
+  // and the counter wear. One constant, two readers — the baked stone here
+  // and the light thrown over it in lighting.js's `cobble` row — so they
+  // can't drift apart.
   const LAMP_TEX_PX = 64;          // baked square; the halo fills it
   const LAMP_DRAW_CELLS = 1.5;     // …drawn this many cells across, halo included
   const LAMP_STONE_FRAC = 0.16;    // the stone's radius, as a fraction of the square
   const LAMP_CORE_A = 0.85;        // the hot core's alpha at the centre
   const LAMP_HALO_A = 0.42;        // …and the halo's, just outside the stone
   const LAMP_RIM_A = 0.35;         // the stone's dark rim: what makes it a STONE by day
-  const LAMP_INK = (typeof UI_STREET_INK === 'string') ? UI_STREET_INK : '#e8e2d6';
+  const LAMP_INK = (typeof UI_LAMP_GLOW === 'string') ? UI_LAMP_GLOW : '#9a8cff';
 
   function paintLampStone(cx, size) {
     const S = size || LAMP_TEX_PX;
@@ -1213,6 +1225,80 @@
     if (g.commit) g.commit();
   }
 
+  // A round cap/join for a stroked polyline that never paints ground the
+  // stroke itself already covers. Only two shapes are actually MISSING from
+  // a plain butt-capped, mitred `strokePath()`:
+  //   • the half-disc beyond each END, past the flat edge the butt cap
+  //     leaves — its straight side sits exactly on that edge (zero area
+  //     shared with the stroke's own rectangle), so filling it adds no
+  //     overlap;
+  //   • the WEDGE on the OUTER side of each interior bend — the gap a
+  //     mitred join leaves between the two segments' rectangles. The INNER
+  //     side is already covered (the two rectangles overlap there inside
+  //     Phaser's own single strokePath); that overlap is Phaser's, not
+  //     introduced here, and is left alone.
+  // Each cap/join comes back as one FAN — `[centre, ...arc points]`, meant
+  // for one `g.fillPoints(fan, true)` each — never a full circle, which
+  // would double-composite its alpha over the stroke underneath it (see the
+  // note above drawLive).
+  //
+  // Pure and exported so test/node/road_overlay.test.js can pin the geometry
+  // — which side is "outer" and by how much — without a Phaser Graphics.
+  function roundJoinFans(pts, r, arcSteps = 8) {
+    const n = pts && pts.length;
+    if (!(n >= 2) || !(r > 0)) return [];
+    const dirOf = (a, b) => {
+      const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+      return len > 1e-6 ? { x: dx / len, y: dy / len } : null;
+    };
+    const left = (d) => ({ x: -d.y, y: d.x });
+    const fan = (cx, cy, a0, sweep) => {
+      const steps = Math.max(1, Math.ceil(Math.abs(sweep) / (Math.PI / arcSteps)));
+      const out = [{ x: cx, y: cy }];
+      for (let s = 0; s <= steps; s++) {
+        const a = a0 + sweep * (s / steps);
+        out.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+      }
+      return out;
+    };
+    const dirs = [];
+    for (let i = 0; i < n - 1; i++) dirs.push(dirOf(pts[i], pts[i + 1]));
+    const out = [];
+    // END CAPS: a half-disc bulging AWAY from the line — behind the start,
+    // ahead of the end — from one normal to the other, the long way round
+    // (π), through the line's own extended direction.
+    const firstDir = dirs.find((d) => d);
+    if (firstDir) {
+      const n0 = left(firstDir);
+      out.push(fan(pts[0].x, pts[0].y, Math.atan2(n0.y, n0.x), Math.PI));
+    }
+    const lastDir = [...dirs].reverse().find((d) => d);
+    if (lastDir) {
+      const nL = left(lastDir);
+      out.push(fan(pts[n - 1].x, pts[n - 1].y, Math.atan2(-nL.y, -nL.x), Math.PI));
+    }
+    // INTERIOR JOINS: the turn's signed angle (atan2 of the cross/dot of the
+    // two segment directions) says which way the path bends AND by how
+    // much; the wedge sits on the side OPPOSITE the turn (a path turning
+    // toward its left leaves the gap on its right), swept by that exact
+    // angle from that side's normal — which lands it precisely on the next
+    // segment's normal, by construction, since a normal rotates rigidly
+    // with its own direction vector.
+    for (let i = 1; i < n - 1; i++) {
+      const dPrev = dirs[i - 1], dNext = dirs[i];
+      if (!dPrev || !dNext) continue;
+      const cross = dPrev.x * dNext.y - dPrev.y * dNext.x;
+      const dot = dPrev.x * dNext.x + dPrev.y * dNext.y;
+      const turn = Math.atan2(cross, dot);
+      if (Math.abs(turn) < 1e-4) continue;   // colinear — nothing missing
+      const sign = turn > 0 ? -1 : 1;
+      const nPrev = left(dPrev);
+      const ox = sign * nPrev.x, oy = sign * nPrev.y;
+      out.push(fan(pts[i].x, pts[i].y, Math.atan2(oy, ox), turn));
+    }
+    return out;
+  }
+
   // ── The live pass ────────────────────────────────────────────────────────
   // Everything the overlay draws that changes EVERY frame: the dwell preview
   // creeping along a street the player is standing over, and the white shine
@@ -1231,9 +1317,19 @@
   //     the sub-cell scroll every frame — which worldMetersToScreen already
   //     accounts for. So the container's own offset is subtracted back out,
   //     or the preview would run half a cell ahead of the band under it.
-  // Phaser's Graphics has no lineCap, so these runs end square where the
-  // canvas bands end round; at preview alphas that is not worth a second
-  // canvas.
+  // Phaser's Graphics has no lineCap/lineJoin control (the same limitation
+  // the "why canvas 2D" note above explains), so a stroked path alone would
+  // end these runs in a hard square butt and show a notch at every bend —
+  // where the canvas-baked bands under them are round both ways
+  // (`cx.lineCap/lineJoin = 'round'`). Not worth a second canvas for
+  // something this cheap to fake, but NOT with a filled circle dropped on
+  // every vertex either — that circle's alpha would compost AGAIN on top of
+  // the stroke it's sitting on (the exact "translucent stroke composites
+  // with ITSELF" trap the canvas passes above exist to dodge; at
+  // STREET_PREVIEW_ALPHA 0.55 the overlap would read at ~0.80). roundJoinFans
+  // fills only what a butt-capped, mitred stroke is actually MISSING: the
+  // half-disc beyond each end and the wedge on the OUTER side of each bend —
+  // never ground the stroke already painted.
   function drawLive(scene, runs) {
     const container = scene.roadGeomContainer;
     let g = scene.roadLiveGfx;
@@ -1252,17 +1348,33 @@
       const pts = run && run.pts;
       if (!pts || pts.length < 2) continue;
       const color = run.colour == null ? restoredColorFor(run.tags) : run.colour;
-      g.lineStyle(widthPxFor(scene, run.tags), color, run.alpha == null ? 1 : run.alpha);
+      const alpha = run.alpha == null ? 1 : run.alpha;
+      const widthPx = widthPxFor(scene, run.tags);
+      g.lineStyle(widthPx, color, alpha);
       g.beginPath();
+      const sx = [], sy = [];
       for (let i = 0; i < pts.length; i++) {
         const s = scene.worldMetersToScreen(pts[i].x, pts[i].y);
-        if (i) g.lineTo(s.x - ox, s.y - oy); else g.moveTo(s.x - ox, s.y - oy);
+        const x = s.x - ox, y = s.y - oy;
+        sx.push(x); sy.push(y);
+        if (i) g.lineTo(x, y); else g.moveTo(x, y);
       }
       g.strokePath();
+      // ROUND CAPS + JOINS: only the ground the butt-capped, mitred stroke
+      // just drew ACTUALLY MISSED — never a shape overlapping it, or its
+      // alpha composites again on top of the stroke's own.
+      const pt = [];
+      for (let i = 0; i < sx.length; i++) pt.push({ x: sx[i], y: sy[i] });
+      const fans = roundJoinFans(pt, widthPx / 2);
+      if (fans.length) {
+        g.fillStyle(color, alpha);
+        for (const fan of fans) g.fillPoints(fan, true);
+      }
     }
   }
 
   global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
                          paintLampStone, LAMP_TEX_PX, LAMP_DRAW_CELLS,
-                         RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge };
+                         RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
+                         CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };
 })(window);

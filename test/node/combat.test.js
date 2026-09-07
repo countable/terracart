@@ -224,7 +224,9 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
 
   // IF NOT WARDED — the three that switch it off.
   const gate = /const charging = ([^;]+);/.exec(app)?.[1] || '';
-  for (const ward of ['!isTame', '!homeWard', '!shadowed']) {
+  // `unnoticed` is the pair of wards that make the player not THERE to be
+  // charged at: a Shadow Powder, or a bar run to zero (downed_pursuit.test.js).
+  for (const ward of ['!isTame', '!homeWard', '!unnoticed']) {
     assert.truthy(gate.includes(ward), `the charge is off when ${ward}`);
   }
   // Home's ward is checked EARLIER in the same chain, so a warded slime is
@@ -549,6 +551,24 @@ test('combat: a ranged monster needs the same clear line you do', () => {
   // Around it: the wall is one band, so a line that never crosses it is clear.
   assert.truthy(Combat.lineOfFire(0, 0, 0, 4 * COMBAT_CELL_M, wall, COMBAT_CELL_M),
     'a line that misses the rock is clear');
+});
+
+// ── What stops a SHOT on the surface (app.js shotBlocked) ───────────────────
+// combat.js's own lineOfFire/stepShots take whatever obstruction test the
+// caller hands them (pinned above); app.js's shotBlocked is that test on the
+// surface. A rock never blocks — a knee-high boulder stopping an arrow read
+// as the terrain fighting for the monster — and neither does a small/bush
+// tree: too slight a trunk to hide an arrow behind. Only a MEDIUM-or-bigger
+// standing tree (treeSizeClass) still stops one.
+test('combat: a rock never blocks a shot, and only a real trunk does', () => {
+  const app = APP_JS_SRC;
+  const block = app.slice(app.indexOf('    if (this._shots.length) {'), app.indexOf('this._drawShots();'));
+  assert.falsy(/mineralrock/.test(block), 'mineral stone is no longer part of the obstruction scan at all');
+  assert.truthy(/if \(o\.kind !== 'tree' && o\.kind !== 'fruittree'\) return;/.test(block),
+    'only trees/fruit trees are ever candidates');
+  assert.truthy(/const cls = treeSizeClass\(o\);/.test(block), 'sized the same way the axe-tier gate is');
+  assert.truthy(/if \(cls === 'small' \|\| cls === 'bush'\) return;/.test(block),
+    'a small or bush-class tree is too slight a trunk to stop a shot');
 });
 
 test('combat: line of fire holds at the endpoints and with no world test', () => {

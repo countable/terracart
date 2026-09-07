@@ -49,7 +49,8 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - DERELICT LAIRS ARE A HARD-MODE RULE (Difficulty derelictLairs, src/lairs.js).
    Every UNCLAIMED structure — a wrecked house, a sealed fort, an unclaimed
    castle, by the isClaimedKey test the derelict wash already reads — holds a
-   garrison of IMMOBILE slimes. Two axes and no others:
+   garrison of IMMOBILE monsters. Two axes and no others, and BOTH what is in
+   it and how many there are come off the same two:
      * building tier: house 1, fort 2, castle 3 (TIER_GUARDS, at the near ring)
      * distance from home: nothing inside LAIR_MIN_HOME_CELLS (12 cells), then
        a straight ramp to LAIR_FAR_M (1000m) where the figures are multiplied
@@ -57,8 +58,21 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
        house 5. FAR_MUL is DERIVED (ceiling / biggest tier figure), not tuned.
    The rolled count is the cap less a seeded shortfall of up to LAIR_SLACK, so
    a house and a fort are always exactly their figure and a castle is 2-3.
-   The KIND ladder rides the same ramp and is slimes all the way: surface slime
-   near, cave slime from a third out, purple slime from two thirds.
+   THE TIER PICKS THE FAMILY, the ramp picks the rung within it (KIND_ORDER):
+     * a WRECKED HOUSE is SQUATTED — nobody holds it, slimes have moved into
+       the damp: surface slime near, cave slime from a third out, purple slime
+       from two thirds
+     * a FORT or a CASTLE is HELD — a fortification with nobody in it is not
+       derelict, it is empty, so what squats a ruined keep is a GARRISON:
+       goblin near, goblin archer from halfway out
+   That is the one place a goblin stands above ground, and the tier is what
+   makes it safe: a goblin is never loose in the fields, it is inside a fort,
+   which is where a player expects to meet one. Every wreck is still slimes.
+   THE RUNGS ARE EVENLY SPACED, not authored — rung i of n unlocks at i/n, so
+   a ladder is just its kinds in order and adding one re-spaces that ladder
+   alone. NO TWO RUNGS OF ONE LADDER MAY BE DRAWN THE SAME (sheet AND tint,
+   SpriteLayout.CREATURE_ART): a rung the player cannot see is not an
+   escalation, which is what the untinted cave slime was until Sep 2026.
    Distance is measured from the FROZEN starter anchor (save.starterCratesAt),
    never a Home adopted later — a moving Home would re-rank every ruin.
    Guards are seated on a ring one cell clear of the footprint, through
@@ -817,6 +831,18 @@ COMBAT
    the same way a sword swing does. Both rings sit on the kind's CROWN (the
    creature-wheel rule — see CLAUDE.md).
  - Dragon Powder doubles damage for its minute — melee and shots alike.
+ - A CLAIMED CASTLE'S TURRETS FIGHT FOR YOU (Combat.TURRET, app.js
+   _turretFire). While an enemy is on screen, every turret on screen that
+   belongs to a castle YOU HAVE CLAIMED looses a Wood-tier BOW ARROW at the
+   nearest foe in range, at TURRET_RATE_DIV (5) times the player's own
+   interval. Nothing is tuned: the arrow IS the player's bow arrow and its
+   damage is what a Wood bow deals. The claim gate is the SAME isClaimedKey
+   test that already decides whether the tower draws in the shaded
+   'tower_unclaimed' palette and whether it gives off light — until Sep 2026
+   it was the odd one out, so a castle that read dead and dark was still
+   shooting arrows for a player who had never set foot in it. A turret with no
+   castle key reads unclaimed to all three. Manning the walls is what claiming
+   a castle BUYS.
  - DEFEATING AN ENEMY PAYS GOLD — every enemy, not just the cave monsters. The
    bounty is derived from the kind's HP (a coin per 5 HP, floored at 1) plus a
    coin per 3 levels of depth, so a tougher foe can never pay less than an
@@ -991,20 +1017,31 @@ STREET RESTORATION (the road band itself)
      * RoadOverlay.drawLive(scene, runs) — a plain Graphics above both,
        cleared and re-stroked EVERY frame from app.js _drawStreetLive. It
        carries the DWELL PREVIEW (the in-sight-unrestored intervals, alpha
-       ramping to STREET_PREVIEW_ALPHA over the dwell, so the two seconds read
-       as a thing being done) and the SHINE (a white run down a stretch the
-       instant it comes back, fading over STREET_SHINE_MS = Lighting.BLAST_MS).
+       ramping to STREET_PREVIEW_ALPHA over the dwell in STREET_PREVIEW_COLOR
+       — the pale street ink, not the finished road's own near-black, so the
+       two seconds read as a light arriving rather than a stain creeping in)
+       and the SHINE (a white run down a stretch the instant it comes back,
+       fading over STREET_SHINE_MS — its own clock now, 2200 ms, longer than
+       every other blast's Lighting.BLAST_MS default: a street repair reads
+       as a slower, more deliberate coming-together than a snappier one-shot
+       flash would).
        Points are projected through scene.worldMetersToScreen — the
        camera-anchored projection — with the container's own sub-cell offset
        subtracted back out. The sub-polylines are cut ONCE per scan, not per
        frame: a merged way can carry thousands of vertices.
  - THE LAMPS: A RESTORED STREET LIGHTS ITS OWN WAY. One glowing cobble every
-   Streets.lampSpacingM() metres of REBUILT carriageway — and that spacing IS
-   Trail.GOAL_STEP_M (200 m), not a number of its own, so the walk that earns
-   a rung of the ladder lights about one lamp and the two can never come to
-   disagree about the same 200 m. It is the reason to rebuild a street after
-   dark: a road you have brought back is a road you can walk at night, and the
-   string of lamps behind you is the map of everything you have restored.
+   Streets.lampSpacingM() metres of REBUILT carriageway — LAMP_SPACING_M
+   (100 m), its OWN constant, deliberately NOT Trail.GOAL_STEP_M (200 m). It
+   shipped tied to the ladder's rung so a walk that earned a prize lit about
+   one lamp, but the "gets a lamp at all" floor (below) rode along with that
+   number, and OSM cuts a way at every intersection: an ordinary suburban
+   block is routinely under the 100 m a 200 m spacing demanded, so a whole
+   town could be walked clean and never light a single lamp. Halving the
+   spacing (and its floor) to 100/50 m lets a normal block qualify; the
+   ladder still pays a prize every 200 m regardless, just for more lamps now.
+   It is the reason to rebuild a street after dark: a road you have brought
+   back is a road you can walk at night, and the string of lamps behind you
+   is the map of everything you have restored.
      * GENERATED, NEVER STORED — the traps rule. Streets.lampsAlong places them
        from the LINE's own geometry and Streets.covers(restoredList, s) says
        whether one is lit, so nothing new reaches the save, a rebuilt tile
@@ -1012,23 +1049,25 @@ STREET RESTORATION (the road band itself)
        thing the lit pebbles got wrong).
      * SPREAD, NOT STAMPED FROM ZERO. Each line gets the whole number of
        intervals nearest its own length, evenly spread with a HALF interval at
-       each end: lamps at s = 200, 400, … would leave every way shorter than
-       the spacing — most of a suburb — dark, bunch two stones either side of
-       an OSM split, and stand one on every junction. So a 300 m street gets
-       two 150 m apart, a 1 km one five 200 m apart, and anything under half
-       a spacing (a driveway, a slip road, a parking aisle) gets none, which is
-       what stops a dense block reading as a lit car park. Lamps outside the
-       tile SQUARE are dropped, or the neighbour's buffer copy would stand a
-       second stone on the same stretch.
+       each end: lamps at s = 100, 200, … would leave every way shorter than
+       the spacing dark, bunch two stones either side of an OSM split, and
+       stand one on every junction. So a 300 m street gets three 100 m apart,
+       a 1 km one ten 100 m apart, and anything under half a spacing (a
+       driveway, a slip road, a parking aisle) gets none, which is what stops
+       a dense block reading as a lit car park. Lamps outside the tile SQUARE
+       are dropped, or the neighbour's buffer copy would stand a second stone
+       on the same stretch.
      * TWO HALVES ON ONE POINT, because the lightmap MULTIPLIES: a light alone
        is invisible at noon, so the lamp is baked ART as well —
-       RoadOverlay.paintLampStone (a pale sett with a hot core in its own soft
-       halo, in UI_STREET_INK, the colour a restored street is made of), drawn
-       from its own pool into cobbleContainer, on the road band and UNDER the
-       lightmap. The light is Lighting.KINDS.cobble: the same ink, 2.5 cells,
-       peak 0.85, and STEADY — a fire breathes because it is burning and a POI
-       breathes because it is asking to be noticed; a lamp is infrastructure,
-       and a street of them breathing would be a strobe.
+       RoadOverlay.paintLampStone (an activated sett with a hot violet core in
+       its own soft halo, in UI_LAMP_GLOW — the old lit-pebble violet, kept
+       for the lamp specifically rather than UI_STREET_INK, the pale ink a
+       restored carriageway itself is made of), drawn from its own pool into
+       cobbleContainer, on the road band and UNDER the lightmap. The light is
+       Lighting.KINDS.cobble: the same violet, 2.5 cells, peak 0.85, and
+       STEADY — a fire breathes because it is burning and a POI breathes
+       because it is asking to be noticed; a lamp is infrastructure, and a
+       street of them breathing would be a strobe.
      * THE LIST IS THE CAMERA'S. app.js _updateStreetLamps collects the lit
        lamps of the 3×3 tiles near the CAMERA ANCHOR (this asks "what do I
        draw", so a peek carries them), memoised on the anchor cell + the
@@ -1040,30 +1079,50 @@ STREET RESTORATION (the road band itself)
        worldMetersToScreen and Lighting.collectLamps stamps the lights from
        the same list, so the two can never disagree about which lamps are on.
  - THE BLAST (restoration fanfare) is ONE thing at any size — app.js
-   _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, colour, material }),
-   fired at the instant a thing comes back. ONE per sweep, at the MIDPOINT OF
-   THE LONGEST piece the step restored (the stretch the player is looking at,
-   not a metre of driveway at the rim). Three parts:
+   _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, gather, gatherPts,
+   colour, material, durationMs }), fired at the instant a thing comes back. ONE per
+   sweep, at the MIDPOINT OF THE LONGEST piece the step restored (the stretch
+   the player is looking at, not a metre of driveway at the rim). Four parts,
+   the last optional:
      * THE LIGHT. Lighting.blast puts a transient entry on scene._blasts —
        world metres, its own radius, colour and duration — and the lightmap's
        collectBlasts converts it against THIS frame's camera anchor, stamps it
        with alpha (1-t)² and scale FLASH_SCALE_FROM→1, and drops it when its
        time is up. Stored in world metres precisely so a peek drag leaves the
        flash on the ground it went off on. Defaults are the old per-pebble
-       numbers exactly: 2.5 cells (BLAST_STONE_R_CELLS), 900 ms.
+       numbers exactly: 2.5 cells (BLAST_STONE_R_CELLS), 900 ms — the street's
+       own call overrides `durationMs` to STREET_SHINE_MS (2200 ms) so the
+       flash and the shine it rides under end together.
      * THE CHIPS. Debris in the thing's own material (particles.js 'stone' for
        a street, 'timber' for a building; `material` recolours a preset, which
        bakes its own texture and emitter — never a tint).
      * THE SPARKS. A ring of stars in the moment's colour ('trailspark' in the
        street ink for a street, 'buildspark' in UI_GREEN for a building).
+     * THE GATHER (`gather`, street only — 'stonegather'). The opposite of the
+       chips: setts pulled BACK toward the point instead of kicked off it, so
+       the moment reads as a REPAIR rather than only an impact-and-flash. A
+       particles.js preset marked `converge: true` — it moves particles TO a
+       fixed point via Phaser's `moveTo`, which has to be baked into the
+       emitter at creation, so it gets a fresh throwaway emitter per TARGET
+       instead of the one pooled per texture every other preset shares
+       (particles.js burstConverge). The sink is not always one point:
+       `gatherPts` (WORLD METRES) projects to particles.js's `opts.targets`,
+       several points dealt the burst's particles round-robin, so a restored
+       ROAD SECTION gathers along its whole length. `_ripenStreets` samples
+       GATHER_SPREAD_POINTS of them evenly by arclength across the longest
+       newly-restored piece (app.js _streetSpreadPts, off Streets.pointAtM) —
+       not the piece's raw polyline vertices, which for a short straight OSM
+       segment are just its two ends.
    `ringPx` is what scales the particles to the thing: 0 throws them out of one
    point (a street stretch), a building's half-extent throws them off its WALLS
    and scales the count with the radius (particles.js ringPoints / burstCount,
-   capped at BURST_MAX). Two call sites today — every restoring sweep, and
-   every wreck restored (at the footprint's centre, radius = its half-diagonal
-   + BLAST_HOUSE_PAD_CELLS, ring = its half-extent), the latter fired the
-   moment the role is frozen and banked, before the Restored! card opens over
-   it. Add a third by calling _blastAt; never by adding a light row.
+   capped at BURST_MAX) — for a converging preset the same option instead sets
+   how far out its particles start before pulling in. Two call sites today —
+   every restoring sweep, and every wreck restored (at the footprint's centre,
+   radius = its half-diagonal + BLAST_HOUSE_PAD_CELLS, ring = its half-extent),
+   the latter fired the moment the role is frozen and banked, before the
+   Restored! card opens over it. Add a third by calling _blastAt; never by
+   adding a light row.
 
  - ONE LADDER FOR THE WHOLE WORLD. Every metre restored anywhere adds to a
    single running total (save.trail = { metres, prizes }); the first treasure

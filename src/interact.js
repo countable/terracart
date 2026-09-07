@@ -412,6 +412,13 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, extraGuard, place, flashMsg 
   return true;
 }
 
+// Catch wheel speed-up over the shared tool ladder (toolDurationMs) — 25%
+// quicker to land chicken/cow/cat/dog/rabbit/butterfly than the bare net
+// tier would otherwise take. Scoped to the catch wheel only: hunting
+// (crow/deer) and every other toolDurationMs user (mining, tilling, combat)
+// are unaffected.
+const CATCH_SPEED_MUL = 0.75;
+
 const TAP_HANDLERS = [
   // -1) Work-progress guard — any tap while a chop/break is in progress cancels it.
   // Ignore taps in the first 150ms after start so the same tap that LAUNCHED
@@ -660,9 +667,13 @@ const TAP_HANDLERS = [
       // nothing on the two kinds you take by hunting. Weapons fight ENEMIES
       // (combat.js); the net takes GAME and livestock alike, on the same slot
       // the catch wheel below already uses.
-      const netSlot = r.bugnet ? 'bugnet' : null;
       // The net uses the shared spec tool ladder via toolDurationMs (wood 4s …
       // frost .3s). No net = tier 0 (bare hands): 9s — slow but always possible.
+      // Named plainly, not `r.bugnet ? 'bugnet' : null`: toolDurationMs already
+      // answers an unowned slot with the bare-handed rung, and the wheel's tool
+      // badge answers "you own no net, so wear none" in _setWorkProgressIcon —
+      // the one place that test lives.
+      const netSlot = 'bugnet';
       const durMs = toolDurationMs(r, netSlot);
       // Rare shiny fauna have DOUBLE HP — the work wheel takes twice as long,
       // so a shiny crow/deer is markedly tougher to bring down than its plain
@@ -842,7 +853,7 @@ const TAP_HANDLERS = [
     // the wheel by tier; bare hands take the tier-0 (9s) time — long enough
     // that a slow target usually slips out of reach and escapes. Butterflies
     // catch bare-handed too — no tool gate.
-    let catchMs = toolDurationMs(save.relics, 'bugnet');
+    let catchMs = toolDurationMs(save.relics, 'bugnet') * CATCH_SPEED_MUL;
     // Rare shiny fauna have DOUBLE HP — the catch wheel runs twice as long, so
     // a shiny animal (which also flees at 2× speed) is much harder to net: it
     // has more time to slip out of reach and escape. Plain kinds are unchanged.
@@ -1088,6 +1099,27 @@ const TAP_HANDLERS = [
   // restores every metre that has sat inside the player's reach for the dwell
   // — so the tap has nothing left to do, and a handler bound to a single cell
   // could not address a stretch of way measured in metres anyway.)
+
+  // 2-disarm-trap) With a Trap Disarm Kit selected, tap a trap's own cell —
+  // the hidden scuff or the already-sprung jaw, surface or cave — to remove
+  // it for good (Traps.disarm, src/traps.js). Reach is already gated by
+  // cell-resolve above, same as every other cell-shaped tap; a cell with no
+  // trap on it falls through so the kit never eats a tap meant for till/plant.
+  { name: 'disarm-trap', try: (ctx) => {
+    const { scene, save, sx, sy, cell } = ctx;
+    if (typeof Traps === 'undefined') return false;
+    const sel = getSelectedSlot(save);
+    if (!(sel && sel.id === 'trap_kit' && (sel.count ?? 0) > 0)) return false;
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+    const trap = entry ? Traps.trapAt(entry, cell.ix, cell.iy) : null;
+    if (!trap || Traps.isDisarmed(save, trap.id)) return false;
+    Traps.disarm(save, trap.id);
+    consumeSelected(save);
+    ctx.dirty = true;
+    scene.buildInventoryDOM();
+    scene.flash('🧰 trap disarmed', sx, sy);
+    return true;
+  }},
 
   // 2a) Building-zone tap — runs AFTER cell-resolve so we already know the
   // player is within tap range of the cell. If that cell is a building tile

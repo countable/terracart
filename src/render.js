@@ -2124,6 +2124,10 @@ Render.drawObjects = function drawObjects(scene) {
   // stored at all (see src/traps.js), and all the renderer needs to pick
   // between the two textures.
   const sprungSet = setOf(scene.save.sprungTraps);
+  // Traps the player has DISARMED with a Trap Disarm Kit (src/traps.js) —
+  // gone for good, so unlike sprungSet this one drops the trap from the list
+  // entirely rather than picking a texture.
+  const disarmedSet = setOf(scene.save.disarmedTraps);
   // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
   // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
   // tiles — and any two chests that land in the same 5 m cell — collapse to a single
@@ -2230,13 +2234,16 @@ Render.drawObjects = function drawObjects(scene) {
       }
       // Traps (src/traps.js) — flat marks on the ground, so they take the same
       // 3×3 scan and the same cull as everything else, and go to their own
-      // pool below. A trap is never dropped from the list: the hidden one is
-      // drawn too (that faint scuff is the whole affordance), just in the
-      // subtle texture. Which of the two it wears is the ONLY thing the save
-      // decides — sprungSet, built once per frame like pickedSet.
+      // pool below. An UNDISARMED trap is never dropped from the list on
+      // account of its own state: the hidden one is drawn too (that faint
+      // scuff is the whole affordance), just in the subtle texture. Which of
+      // the two it wears is the ONLY thing sprungSet decides. A DISARMED one
+      // is the one case that IS dropped — the kit's whole promise is that the
+      // mark is gone, not just retextured.
       if (entry.traps) {
         for (const tr of entry.traps) {
           _boot_scanned++;
+          if (disarmedSet.has(tr.id)) continue;
           const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           trapList.push({ tr, dx, dy, sprung: sprungSet.has(tr.id) });
@@ -3914,6 +3921,16 @@ Render.drawObjects = function drawObjects(scene) {
   // SpriteLayout loaded.
   const creatureScale = (SL && SL.creatureScale) || ((kind) => 1);
   const creatureFloat = (SL && SL.creatureFloat) || ((kind) => 0);
+  // WHICH SHEET, HOW MANY FRAMES, AND IN WHAT COLOUR — the same table, for the
+  // same reason. Two monster kinds can share one sheet (the cave slime is the
+  // surface slime's art), so a per-kind if-else here could pick a different
+  // answer from the one tools/sprite_audit.js measures the wheel against, and
+  // a kind whose only distinguishing mark is its TINT could quietly end up
+  // drawn in another kind's colours. `creatureTint` returns white for art that
+  // is already its own colour.
+  const creatureSheet = (SL && SL.creatureSheet) || ((kind) => kind);
+  const creatureFrames = (SL && SL.creatureFrames) || (() => 1);
+  const creatureTint = (SL && SL.creatureTint) || (() => 0xffffff);
   // A giant's sheet, frame count and shadow are its base kind's.
   const baseKind = (SL && SL.baseKind) || ((kind) => kind);
   const giantMul = (kind) => (SL && SL.isGiantKind && SL.isGiantKind(kind)) ? SL.GIANT_ART_SCALE : 1;
@@ -3985,12 +4002,8 @@ Render.drawObjects = function drawObjects(scene) {
       const m = MONSTERS[c.kind];
       // A giant (giant_goblin …) is drawn on its base kind's sheet; the size
       // comes from creatureScale via SpriteLayout.creatureArt.
-      const bk = baseKind(c.kind);
-      const texKey = bk === 'purple_slime' ? 'purple_slime'
-                   : bk === 'goblin' ? 'goblin'
-                   : bk === 'goblin_archer' ? 'goblin_archer'
-                   : 'slime';
-      const frameCount = (bk === 'goblin' || bk === 'goblin_archer') ? 6 : 4;
+      const texKey = creatureSheet(c.kind);
+      const frameCount = creatureFrames(c.kind);
       if (s.texture.key !== texKey) { s.anims?.stop(); s.setTexture(texKey, 0); }
       s.setFrame(Math.floor(performance.now() / 160) % frameCount);
       if (c._hopSeed == null) {
@@ -4037,8 +4050,12 @@ Render.drawObjects = function drawObjects(scene) {
     // sheen. Pooled sprites keep their last tint, so set an explicit colour
     // every frame (white for the common, plain case). A foe the Frost Powder
     // froze (c._frozenUntil, app.js useFrostPowder) wears ice over either.
+    // The plain case is the KIND'S OWN tint, not a blanket white: a cave slime
+    // is the surface slime's sheet and its tint is the only thing that says so
+    // (SpriteLayout.CAVE_SLIME_TINT). Frozen and shiny still win over it —
+    // both say something about this INSTANCE, which outranks what it is.
     const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
-    s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : 0xffffff);
+    s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : creatureTint(c.kind));
   });
 
 

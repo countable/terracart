@@ -95,6 +95,27 @@ test('particles: burstCount is the preset count, zero under reduced motion or fo
   assert.eq(Particles.burstCount('nope', false), 0);
 });
 
+test('particles: a graze throws the pain chips a shorter distance than the worst hit', () => {
+  // The player's whole damage space is 1..16 (CLAUDE.md's armour rule). A
+  // 1-point hit — a trap's per-second bleed, a shielded glance — must not
+  // spray as far as a 16-point worst case.
+  assert.eq(Particles.dmgSpeedScale(0), 1, 'no dmg given → full throw, unchanged callers');
+  assert.eq(Particles.dmgSpeedScale(16), 1, 'the worst hit on the scale is the full throw');
+  assert.lt(Particles.dmgSpeedScale(1), Particles.dmgSpeedScale(4), '1 dmg flies shorter than 4');
+  assert.lt(Particles.dmgSpeedScale(4), Particles.dmgSpeedScale(16), '4 dmg flies shorter than 16');
+  assert.gt(Particles.dmgSpeedScale(1), 0, 'never zero — still reads as a hit');
+
+  const p = Particles.PRESETS.pain;
+  const full = Particles.emitterConfig('pain');
+  const graze = Particles.emitterConfig('pain', Particles.dmgSpeedScale(1));
+  assert.eq(full.speed.max, p.speed[1], 'no scale given — the preset\'s own range');
+  assert.lt(graze.speed.max, full.speed.max, 'a graze launches slower');
+  assert.eq(graze.lifespan.max, full.lifespan.max, 'only the speed is scaled, not how long it lives');
+  const reachFull = full.speed.max * p.lifespan[1] / 1000;
+  const reachGraze = graze.speed.max * p.lifespan[1] / 1000;
+  assert.lt(reachGraze, reachFull, 'a 1-point hit does not spray as far as the worst one');
+});
+
 test('particles: emitterConfig never streams and carries every preset range', () => {
   for (const k of KINDS) {
     const c = Particles.emitterConfig(k);
@@ -181,12 +202,19 @@ test('particles: a restoring sweep blasts ONCE, on the stretch it brought back',
   // rather than a metre of driveway at the far rim of the bubble.
   const a = app.indexOf('  _ripenStreets(now, sight) {');
   const body = app.slice(a, app.indexOf('\n  }\n', a));
-  assert.truthy(/if \(len > bestLen\) \{ bestLen = len; best = \{ meta, s: \(seg\[0\] \+ seg\[1\]\) \/ 2 \}; \}/.test(body),
-    'the longest newly restored piece wins, at its midpoint');
+  assert.truthy(/if \(len > bestLen\) \{/.test(body) && /bestLen = len;/.test(body),
+    'the longest newly restored piece wins');
+  assert.truthy(/s: \(seg\[0\] \+ seg\[1\]\) \/ 2,/.test(body), 'at its midpoint');
+  assert.truthy(
+    /spread: this\._streetSpreadPts\(meta, seg\[0\], seg\[1\], GATHER_SPREAD_POINTS\),/.test(body),
+    'and its whole piece, spread into gather targets — not just the midpoint');
   assert.truthy(/const at = best \? this\._streetPointAt\(best\.meta, best\.s\) : null;/.test(body),
     'resolved to WORLD metres along the way');
-  assert.truthy(/this\._blastAt\(at\.x, at\.y, \{\n\s+radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',\n\s+\}\);/.test(body),
-    'one blast: the sett chips and the stone spark ring');
+  assert.truthy(
+    /this\._blastAt\(at\.x, at\.y, \{\n\s+radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',\n\s+gather: 'stonegather', gatherPts: best\.spread, durationMs: STREET_SHINE_MS,\n\s+\}\);/
+      .test(body),
+    'one blast: the sett chips, the stone spark ring and the setts gathering back over the whole '
+    + 'piece, on the shine\'s own clock');
   assert.eq((body.match(/this\._blastAt\(/g) || []).length, 1, 'exactly one call in the pass');
   assert.falsy(/_burstAtCell/.test(body), 'and no second burst beside it');
 });
@@ -266,6 +294,106 @@ test('particles: a ring burst explodes around the circle, a point burst all at o
   assert.eq(calls[0][1], 5); assert.eq(calls[0][2], 6);
 });
 
+test('particles: a converging preset gets a FRESH emitter per burst, aimed at the point via moveTo', () => {
+  // Unlike every other preset (one pooled emitter per texture, reused for
+  // the whole session at whatever point each call names), a converging
+  // burst has to bake its destination into the emitter's OWN config at
+  // creation — Phaser's moveTo has no per-explode() target — so it can't be
+  // pooled without later bursts pulling their cobbles toward an earlier
+  // burst's location.
+  const made = [];
+  const calls = [];
+  const destroyed = [];
+  const delayed = [];
+  const scene = {
+    fxContainer: { add() {} },
+    textures: { exists: () => true },
+    time: { delayedCall: (ms, fn) => delayed.push([ms, fn]) },
+    add: { particles: (x, y, key, cfg) => {
+      const em = {
+        key, cfg,
+        explode: (n, px, py) => calls.push([n, px, py]),
+        destroy: () => destroyed.push(key),
+      };
+      made.push(em);
+      return em;
+    } },
+  };
+  const n1 = Particles.burst(scene, 'stonegather', 300, 400);
+  assert.eq(n1, Particles.PRESETS.stonegather.count);
+  assert.eq(made.length, 1, 'one fresh emitter for the burst');
+  assert.eq(made[0].key, Particles.texKey('stonegather'), 'the emitter draws the baked gather chip');
+  assert.eq(made[0].cfg.moveToX, 300, 'converges on the burst\'s own x');
+  assert.eq(made[0].cfg.moveToY, 400, 'and y');
+  assert.eq(calls.length, n1, 'one explode per scattered particle');
+  for (const [c, px, py] of calls) {
+    assert.eq(c, 1, 'one particle each');
+    assert.gt(Math.hypot(px - 300, py - 400), 0, 'spawned away from the point it is converging on');
+  }
+  // A second burst at a DIFFERENT point gets its OWN emitter — reusing the
+  // first would pull these cobbles toward the first burst's location.
+  Particles.burst(scene, 'stonegather', 10, 20);
+  assert.eq(made.length, 2, 'not pooled — a second, independent emitter');
+  assert.eq(made[1].cfg.moveToX, 10); assert.eq(made[1].cfg.moveToY, 20);
+  // Scheduled to clean itself up once its longest particle has lived out its
+  // life, rather than living forever in the fx layer.
+  assert.eq(delayed.length, 2, 'one cleanup timer per burst');
+  assert.eq(delayed[0][0], Particles.PRESETS.stonegather.lifespan[1] + 50);
+  delayed[0][1]();
+  assert.eq(destroyed.length, 1, 'the timer destroys its own emitter');
+});
+
+test('particles: opts.targets spreads a converging burst\'s sink across several points', () => {
+  // A restored ROAD SECTION, not a dot on it: app.js hands _blastAt several
+  // points along the stretch (gatherPts → opts.targets), and the burst deals
+  // its particles round-robin across them — one emitter PER TARGET (shared
+  // by every particle assigned to it), not one per particle, so a six-point
+  // spread costs six emitters whatever the preset's own count is.
+  const made = [];
+  const calls = [];
+  const scene = {
+    fxContainer: { add() {} },
+    textures: { exists: () => true },
+    add: { particles: (x, y, key, cfg) => {
+      const em = { key, cfg, explode: (n, px, py) => calls.push({ target: [cfg.moveToX, cfg.moveToY], px, py }) };
+      made.push(em);
+      return em;
+    } },
+  };
+  const targets = [{ x: 100, y: 100 }, { x: 140, y: 100 }, { x: 180, y: 100 }];
+  const n = Particles.burst(scene, 'stonegather', 999, 999, { targets });
+  assert.eq(n, Particles.PRESETS.stonegather.count, 'the full preset count, whatever x/y the caller passed');
+  assert.eq(made.length, targets.length, 'one emitter per target, not per particle');
+  const seen = made.map((em) => [em.cfg.moveToX, em.cfg.moveToY]);
+  for (const t of targets) {
+    assert.truthy(seen.some(([x, y]) => x === t.x && y === t.y), `an emitter converges on (${t.x},${t.y})`);
+  }
+  // Every particle landed on ONE of the targets, dealt round-robin, and NONE
+  // converged on the plain (x, y) the caller passed — targets replace it
+  // outright rather than adding a fourth sink.
+  assert.eq(calls.length, n, 'one explode per particle');
+  const perTarget = new Map();
+  for (const c of calls) {
+    assert.truthy(targets.some((t) => t.x === c.target[0] && t.y === c.target[1]),
+      'every particle converges on one of the spread targets');
+    assert.falsy(c.target[0] === 999 && c.target[1] === 999, 'never the caller\'s own (x, y)');
+    const k = c.target.join(',');
+    perTarget.set(k, (perTarget.get(k) || 0) + 1);
+  }
+  // Round-robin: with 3 targets and PRESETS.stonegather.count particles, no
+  // target gets more than a fraction more than another.
+  const counts = [...perTarget.values()];
+  assert.eq(counts.length, targets.length, 'every target actually got at least one particle');
+  assert.lte(Math.max(...counts) - Math.min(...counts), 1, 'spread evenly, not piled on one target');
+  // A single target (no opts.targets) still falls back to the plain point —
+  // the existing, simpler behaviour is untouched.
+  calls.length = 0; made.length = 0;
+  const n2 = Particles.burst(scene, 'stonegather', 50, 60);
+  assert.eq(made.length, 1, 'one target, one emitter, same as before targets existed');
+  assert.eq(made[0].cfg.moveToX, 50); assert.eq(made[0].cfg.moveToY, 60);
+  assert.eq(calls.length, n2);
+});
+
 test('particles: a restored building throws TIMBER and the restore green', () => {
   const P = Particles.PRESETS;
   assert.eq(P.timber.tex.shape, 'chip', 'debris off a building is chips');
@@ -284,19 +412,53 @@ test('particles: a restored building throws TIMBER and the restore green', () =>
   assert.eq(P.stone.count, 12); assert.eq(P.trailspark.count, 10);
 });
 
-test('particles: _blastAt is ONE entry point — the light, the chips and the sparks', () => {
+test('particles: the road\'s gather is the stone chip in reverse — bigger, darker, growing in', () => {
+  const P = Particles.PRESETS, g = P.stonegather;
+  const hexLum = (s) => {
+    const n = parseInt(s.replace('#', ''), 16);
+    return 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  };
+  assert.truthy(g.converge, 'marked as a converging preset');
+  assert.gt(g.scatterCells, 0, 'starts scattered out before pulling in');
+  // The same shape as the outward chip — this is a repair, not a different
+  // substance arriving — but bigger and a shade darker, so a laid sett reads
+  // as more substantial than the loose flake kicking up beside it.
+  assert.eq(g.tex.shape, 'chip');
+  assert.gt(g.tex.size, P.stone.tex.size, 'a bigger chip than the outward one');
+  assert.lt(hexLum(g.tex.color), hexLum(P.stone.tex.color), 'darker than the outward chip');
+  assert.lt(hexLum(g.tex.edge), hexLum(P.stone.tex.edge), 'and a darker rim to match');
+  // Every OTHER preset in the table shrinks and/or fades as it ages (that's
+  // what "bursting outward and dying" looks like); the gather runs both the
+  // opposite way, because arriving and solidifying is the opposite motion.
+  assert.lt(g.scale[0], g.scale[1], 'grows as it closes in');
+  assert.lt(g.alpha[0], g.alpha[1], 'and brightens');
+  assert.gt(g.scale[1], 0.9, 'arrives at full size');
+  assert.gt(g.alpha[1], 0.8, 'and close to full opacity');
+  assert.eq(g.gravityY, 0, 'pulled by the repair, not by weight');
+});
+
+test('particles: _blastAt is ONE entry point — the light, the chips, the sparks and the gather', () => {
   const a = app.indexOf('  _blastAt(wmx, wmy, opts) {');
   assert.truthy(a > 0, 'found _blastAt');
   const body = app.slice(a, app.indexOf('\n  }\n', a));
   // The LIGHT gets WORLD METRES: the lightmap re-anchors it every frame, so a
   // peek drag leaves the flash on the ground (CLAUDE.md's camera rule).
-  assert.truthy(/Lighting\.blast\(this, wmx, wmy, \{/.test(body), 'the flash is fired in world metres');
-  assert.falsy(/viewCenter[XY]|worldMetersToScreen/.test(body), 'the light is never projected here');
+  const lightCall = body.indexOf('Lighting.blast(this, wmx, wmy, {');
+  assert.truthy(lightCall >= 0, 'the flash is fired in world metres');
+  const lightBody = body.slice(lightCall, body.indexOf('});', lightCall));
+  assert.falsy(/viewCenter[XY]|worldMetersToScreen/.test(lightBody), 'the light itself is never projected');
+  // gatherPts IS projected — once, here, into screen-space targets for the
+  // particles — but that projection has nothing to do with the light call
+  // above it.
+  assert.truthy(/o\.gatherPts\.map\(\(q\) => this\.worldMetersToScreen\(q\.x, q\.y\)\)/.test(body),
+    'gatherPts is projected to screen-space targets');
   // The PARTICLES go through the projection, once each, with the ring.
   assert.truthy(/this\._burstAtWorld\(o\.chips,  wmx, wmy, popts\)/.test(body), 'the chips');
   assert.truthy(/this\._burstAtWorld\(o\.sparks, wmx, wmy, popts\)/.test(body), 'and the sparks');
+  assert.truthy(/if \(o\.gather\) n \+= this\._burstAtWorld\(o\.gather, wmx, wmy, popts\);/.test(body),
+    'and the optional gather — off the same ring, only when a caller asks');
   assert.truthy(/const popts = \{ ringPx, colour: o\.material \};/.test(body),
-    'both off the same ring, in the same material');
+    'all three off the same ring, in the same material');
   // Headless-safe: no Phaser, no Lighting, no projection and it still returns.
   assert.truthy(/typeof Lighting !== 'undefined' && Lighting\.blast/.test(body), 'no Lighting, no throw');
 });

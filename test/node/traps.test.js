@@ -96,6 +96,37 @@ test('traps: every trap passes the SHARED spawn rule, not a copy of it', () => {
   }
 });
 
+test('traps: opts.occupied keeps a trap off a cell an object already holds', () => {
+  // Same fixture as the road test — the verge produces plenty of candidate
+  // cells — but every roadside cell the reservoir sample would ever pick is
+  // pre-claimed, exactly as if worldgen had already put a tree or a rock on
+  // it. No occupied cell may host a trap, so the whole surface pass comes
+  // back empty rather than spawning through the claim.
+  const r = rasterize(roadyLayers());
+  const occupied = new Set();
+  for (let cy = 0; cy < CPE; cy++) {
+    for (let cx = 0; cx < CPE; cx++) {
+      if (Traps.isRoadside(r.roadMask, CPE, CPE, cx, cy)) occupied.add(cy * CPE + cx);
+    }
+  }
+  const opts = { roadMask: r.roadMask, pois: [], occupied };
+  const traps = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
+  assert.eq(traps.length, 0, 'every verge cell was claimed, so nothing could seat');
+  // Freeing every other verge cell (a checkerboard over the claim, not one
+  // single cell) lets the pass seat again — deterministically, since the
+  // reservoir sample and the placement attempts are both fixed-seed, but
+  // freeing only one specific cell risks the fixed rng never drawing it
+  // inside the attempt budget. Every trap that DOES land must land on a cell
+  // that was freed, whichever ones the rng happens to pick.
+  for (const idx of [...occupied]) if (idx % 2 === 0) occupied.delete(idx);
+  const partial = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
+  assert.gt(partial.length, 0, 'freeing half the verge lets traps back in');
+  for (const tp of partial) {
+    const idx = cellOf(tp.y) * CPE + cellOf(tp.x);
+    assert.falsy(occupied.has(idx), `trap at ${idx} landed on a cell still marked occupied`);
+  }
+});
+
 test('traps: "along the road" means it — every trap is on the verge of a band', () => {
   const r = rasterize(roadyLayers());
   const traps = spawnFor(r);
@@ -239,6 +270,24 @@ test('traps: spawning writes nothing to the save — only springing does', () =>
   assert.truthy(Traps.isSprung(save, 'trap_0_0_1_1'), 'and it stays revealed');
 });
 
+test('traps: disarming is its own record, independent of sprung', () => {
+  const save = {};
+  assert.falsy(Traps.isDisarmed(save, 'trap_0_0_1_1'), 'nothing reads as disarmed yet');
+  assert.truthy(Traps.disarm(save, 'trap_0_0_1_1'), 'the kit removes it');
+  assert.eq(JSON.stringify(save.disarmedTraps), '["trap_0_0_1_1"]',
+    'the id is the ONLY thing stored, in its own array from sprungTraps');
+  assert.eq(save.sprungTraps, undefined, 'disarming a hidden trap never springs it');
+  assert.falsy(Traps.disarm(save, 'trap_0_0_1_1'),
+    'a second kit on the same trap is nothing to spend — already gone');
+  assert.truthy(Traps.isDisarmed(save, 'trap_0_0_1_1'), 'and it stays gone');
+  // A trap that already bit the player can still be disarmed afterwards —
+  // the two records don't gate each other either way.
+  assert.truthy(Traps.spring(save, 'trap_5_5_2_2'), 'stepped on a different one');
+  assert.truthy(Traps.disarm(save, 'trap_5_5_2_2'), 'and it can still be disarmed after');
+  assert.truthy(Traps.isSprung(save, 'trap_5_5_2_2') && Traps.isDisarmed(save, 'trap_5_5_2_2'),
+    'both records hold at once');
+});
+
 // ─── Lookup ──────────────────────────────────────────────────────────────────
 
 test('traps: trapAt finds the trap on a cell, and nothing on the others', () => {
@@ -366,6 +415,27 @@ test('traps: the surface spawn passes the SHARED spawn options, mask and all', (
     'the surface density scales with the game mode, not a fixed rate');
 });
 
+test('traps: _spawnOpts carries opts.occupied, built from the tile\'s own objects and wild plants', () => {
+  // spawnInTile can't run headlessly (needs a live scene), so this pins the
+  // construction as source text — the same way the mask/mul wiring above is
+  // pinned. Traps.spawnSurface inherits `occupied` for free once _spawnOpts
+  // carries it (it just forwards `spawnOpts` to WorldGen.isSpawnCell); the
+  // one thing worth pinning is that the set is actually built and actually on
+  // the object every spawner in this method shares.
+  const block = (() => {
+    const a = APP_JS_SRC.indexOf('  spawnInTile(entry, tx, ty) {');
+    const b = APP_JS_SRC.indexOf('\n  }\n', a);
+    assert.truthy(a > 0 && b > a, 'found spawnInTile in app.js');
+    return APP_JS_SRC.slice(a, b);
+  })();
+  assert.truthy(/for \(const o of \(entry\.objects \|\| \[\]\)\) \{[\s\S]*?_occupiedIdx\.add/.test(block),
+    'the occupied set is seeded from entry.objects');
+  assert.truthy(/for \(const wp of \(entry\.wildplants \|\| \[\]\)\) \{[\s\S]*?_occupiedIdx\.add/.test(block),
+    'and from entry.wildplants — a trap or an X must not bury itself under a tuft of grass either');
+  assert.truthy(/occupied: _occupiedIdx,/.test(block),
+    'and the set actually reaches _spawnOpts, not just a local variable nothing reads');
+});
+
 test('traps: answering the how-to card re-lays the traps at that mode\'s density', () => {
   // THE BUG: the card that picks easy/hard is answered AFTER boot, and a save
   // with no mode yet reads as easy (difficulty.js). So the starter tile — the
@@ -428,7 +498,7 @@ test('traps: the tick asks where the PLAYER is, never where the camera is', () =
     'the reveal goes through Traps.spring, which is what makes the bite land once');
   assert.truthy(/persistSave\(this\.save\)/.test(block),
     'and it is written straight away, so a discovered trap stays discovered');
-  assert.truthy(/this\._painFlash\(\)/.test(block), 'the bite carries the pain effect');
+  assert.truthy(/this\._painFlash\(spent\)/.test(block), 'the bite carries the pain effect');
   assert.truthy(/Traps\.STAND_ENERGY_PER_S \* dt/.test(block),
     'the bleed is per SECOND, accumulated off the frame delta');
 });
@@ -449,6 +519,20 @@ test('traps: the renderer picks its texture from the sprung set alone', () => {
     'the sprung ids are read once per frame, like pickedSet');
   assert.truthy(/setTextureIfDifferent\(s, sprung \? 'trap_open' : 'trap_hidden'\)/.test(RENDER_SRC),
     'sprung → the iron jaw, otherwise → the subtle scuff');
+});
+
+test('traps: a disarmed trap is dropped from the render list, not retextured', () => {
+  assert.truthy(/const disarmedSet = setOf\(scene\.save\.disarmedTraps\);/.test(RENDER_SRC),
+    'the disarmed ids are read once per frame, like sprungSet');
+  const block = RENDER_SRC.slice(RENDER_SRC.indexOf('if (entry.traps) {'));
+  assert.truthy(/if \(disarmedSet\.has\(tr\.id\)\) continue;/.test(block.slice(0, 400)),
+    'a disarmed trap never reaches trapList, so it never draws either texture');
+});
+
+test('traps: the tick treats a disarmed trap as no trap at all', () => {
+  const block = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _tickTraps(dt) {'));
+  assert.truthy(/Traps\.isDisarmed\(this\.save, found\.id\)/.test(block.slice(0, 2000)),
+    'the disarmed check runs before the bite/bleed logic below it');
 });
 
 // ─── The art (run against a recording 2D context, like tilled_bed.test.js) ───

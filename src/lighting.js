@@ -23,6 +23,9 @@
 //   Lighting.collectPlayer(scene, ax, ay, halfM) — add the player's torch, if lit
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
+//   Lighting.lowEnergyFrac(scene) — 0..1, how far into the low-energy warning
+//                                   the player is; also read by app.js's
+//                                   _playDirected to pace the tired walk cycle
 //   Lighting.daylight(scene, now) — 0..1 from the real sun at the player
 //   Lighting.playerCookieAlpha(t, prof) — the player ramp, sampled
 //   Lighting.plateauLevel(prof, t)  — the plateau's light at t of the way to the rim
@@ -117,13 +120,14 @@
   // depth: a torch by night on the surface is fine, and free.
   const TORCH_RADIUS_MUL = 2;
 
-  // The restored street's own ink (util.js UI_STREET_INK) as a number, with
-  // the same literal fallback the other readers carry so this module still
-  // loads standalone. One constant, four readers now — the counter, the
-  // chips, the sparks and the lamp — so a street's light can't drift off the
-  // colour the street itself is made of.
-  const STREET_INK = (typeof UI_STREET_INK === 'string')
-    ? parseInt(UI_STREET_INK.replace('#', ''), 16) : 0xe8e2d6;
+  // The street lamp's own ink (util.js UI_LAMP_GLOW) as a number, with the
+  // same literal fallback the other reader (road_overlay.js's baked stone)
+  // carries so this module still loads standalone. Deliberately NOT the
+  // street's own UI_STREET_INK: the carriageway restores in pale warm stone,
+  // but a lamp reads as ACTIVATED — the old lit-pebble violet, kept for the
+  // lamp specifically so the stone and the light it throws can't drift apart.
+  const LAMP_GLOW = (typeof UI_LAMP_GLOW === 'string')
+    ? parseInt(UI_LAMP_GLOW.replace('#', ''), 16) : 0x9a8cff;
 
   const KINDS = {
     // The player: white, out to the furthest visible pixel (the viewport's
@@ -184,10 +188,13 @@
     // road you have brought back is a road you can walk at night, and the
     // string of lamps behind you is the map of everything you have restored.
     //
-    // In the street's OWN ink, never the violet the lit pebbles wore until
-    // Sep 2026 (see UI_STREET_INK's note in util.js): pale warm stone is what
-    // a restored carriageway is made of, and blue-white in this game means
-    // "the world is giving you something".
+    // In UI_LAMP_GLOW — the violet the lit pebbles wore before the Sep 2026
+    // street-restoration rewrite, brought back for the lamp specifically (see
+    // its note in util.js). The carriageway itself still restores in its own
+    // pale warm stone (UI_STREET_INK — the chips, the sparks, the counter,
+    // the dwell preview); the lamp is the one thing on a restored street that
+    // reads as ACTIVATED rather than as repaired, so it keeps the old
+    // activated-cobble colour instead.
     //
     // STEADY — no flicker, no pulse. A fire breathes because it is burning
     // and a POI breathes because it is asking to be noticed; a lamp is
@@ -195,7 +202,7 @@
     // Sized between the POI and the campfire: bigger than a marker, smaller
     // than a hearth, so a lamp lights the carriageway it stands on and a
     // couple of cells either side of it rather than the whole block.
-    cobble:   { radiusCells: 2.5, colour: STREET_INK, peak: 0.85, flicker: 0 },
+    cobble:   { radiusCells: 2.5, colour: LAMP_GLOW, peak: 0.85, flicker: 0 },
     // A BLAST — the one-shot near-white flash of a RESTORATION moment: a
     // stretch of street rebuilt, a wreck pulled back into a house. Unlike
     // every row above it this one is TRANSIENT and SCALABLE: `Lighting.blast`
@@ -376,13 +383,57 @@
     return depth > 0 ? Math.min(0.40, 0.26 + 0.03 * (depth - 1)) : 0;
   }
 
-  // Low energy tints the lit range pink — the Inner Light guttering as the
+  // Low energy tints the lit range red — the Inner Light guttering as the
   // player tires. Energy doesn't shrink reach (coords.js reachRadiusM — only
-  // depth does), but this pink is the cue to rest before energy hits 0, where
-  // there is no reach at all. Skipped while a Potion of Reach pins the view lit.
-  const LOW_ENERGY_TINT = 0xff5fa2;
-  const LOW_ENERGY_A = 0.16;
+  // depth does), but this red is the cue to rest before energy hits 0, where
+  // there is no reach at all. Skipped while a Potion of Reach pins the view
+  // lit. A clean red rather than the pink this used to be — a warning colour,
+  // not a mood. PROGRESSIVE now (lowEnergyFrac, below): at the LOW_ENERGY_FRAC
+  // threshold it is not yet visible, and it deepens toward LOW_ENERGY_A only
+  // as energy keeps draining past it, so the cue arrives as a gradual flush
+  // rather than a switch flipped the instant the bar crosses 30%.
+  const LOW_ENERGY_TINT = 0xff4d4d;
+  const LOW_ENERGY_A = 0.30;
   const LOW_ENERGY_FRAC = 0.30;
+
+  // Below this energy fraction — half again past the low-energy threshold,
+  // where LOW_ENERGY_FRAC's own warning band is HALFWAY spent — the tint
+  // stops being a flat wash and starts THROBBING. A static red at 5% energy
+  // reads no more urgent than the same static red at 14%, so the second
+  // stage is an escalation of the SAME cue, not a separate one: it only ever
+  // engages once lowEnergyFrac has already crossed halfway to its own
+  // ceiling (frac 0.30 → 0.15 is exactly half of the 0.30 → 0 band).
+  const CRITICAL_ENERGY_FRAC = 0.15;
+  const CRITICAL_W = 1 - CRITICAL_ENERGY_FRAC / LOW_ENERGY_FRAC; // 0.5
+
+  // A hurried heartbeat: quicker than POI_PULSE_PERIOD_S's calm 4.5s
+  // breathing, because this is an alarm, not ambience. Two decaying spikes a
+  // period (lub, then a smaller dub) rather than a sine, so it reads as a
+  // pulse — an EKG blip — instead of a wobble.
+  const HEARTBEAT_PERIOD_MS = 850;
+  const HEARTBEAT_AMPLITUDE = 0.6;
+
+  // The heartbeat's shape at phase 0..1 of one period: a sharp near-instant
+  // rise and an exponential fall, twice a period at two different
+  // strengths — lub at phase 0, a smaller dub 30% of the way through.
+  function heartbeatShape(phase) {
+    const p = phase - Math.floor(phase);
+    const lub = Math.exp(-p * 22);
+    const dubPhase = p - 0.30;
+    const dub = dubPhase >= 0 ? 0.55 * Math.exp(-dubPhase * 22) : 0;
+    return Math.max(lub, dub);
+  }
+
+  // 1 at rest; rises toward 1 + HEARTBEAT_AMPLITUDE on each beat, once the
+  // player is critically low (past CRITICAL_W) and `now` is a real clock
+  // reading. `now == null` — profile() called with none, as every existing
+  // derivation test does — means "don't animate": the ceiling alone, exactly
+  // as before, so the pulse never disturbs a clock-free assertion.
+  function heartbeatMul(w, now) {
+    if (now == null || w < CRITICAL_W) return 1;
+    const phase = (now % HEARTBEAT_PERIOD_MS) / HEARTBEAT_PERIOD_MS;
+    return 1 + HEARTBEAT_AMPLITUDE * heartbeatShape(phase);
+  }
 
   // White lerped `alpha` of the way to `colour` — the multiply tint that
   // stands in for painting `colour` at `alpha` over the ground.
@@ -411,12 +462,22 @@
     return mixToWhite(colour, (1 - t) / (1 - l));
   }
 
-  function lowEnergy(scene) {
-    const sv = scene.save || {};
-    const energy = sv.energy ?? 0;
+  // How far into the low-energy warning the player is, 0..1: 0 at or above
+  // LOW_ENERGY_FRAC of maxEnergy, ramping LINEARLY to 1 as the tank empties
+  // out from there. The one number both readers of "how tired does this
+  // look/feel" share — the reach tint's alpha here, and the walk cycle's
+  // pace in app.js's _playDirected — so the two can't drift into disagreeing
+  // about how far gone the player is. A Potion of Reach silences the whole
+  // cue at once, tint and pace alike: pinning the view lit is the potion's
+  // entire point.
+  function lowEnergyFrac(scene) {
+    const sv = (scene && scene.save) || {};
     const maxEnergy = sv.maxEnergy ?? 100;
-    const potionLit = (sv.reachPotionUntil ?? 0) > Date.now();
-    return !potionLit && energy > 0 && (energy / maxEnergy) < LOW_ENERGY_FRAC;
+    if (!(maxEnergy > 0)) return 0;
+    if ((sv.reachPotionUntil ?? 0) > Date.now()) return 0;
+    const frac = Math.max(0, Math.min(1, (sv.energy ?? 0) / maxEnergy));
+    if (frac >= LOW_ENERGY_FRAC) return 0;
+    return 1 - frac / LOW_ENERGY_FRAC;
   }
 
   // ── The profile: what the player's light and the ambient are worth here ──
@@ -436,13 +497,14 @@
   //   lit        the cookie INSIDE the plateau — scaled by the plateau's own
   //              knob: ambient + lit/PLATEAU_OUTPUT_K == 1 - litDim(depth)
   //              (1 on the surface)
-  //   litColour  white, or the low-energy pink
+  //   litColour  white, or the low-energy red — throbbing past CRITICAL_W
+  //              when `nowIn` is a real clock reading
   //   night      1 - daylight on the surface, always 0 underground; moves
   //              dimA toward NIGHT_DIM_A and drains dimColour (see above)
   //
   // `daylight` defaults to noon so the derivation is pinned without a clock;
   // draw() passes the frame's real value.
-  function profile(scene, daylightIn) {
+  function profile(scene, daylightIn, nowIn) {
     const depth = scene.depth ?? 0;
     // render.js declares Render as a top-level const, so it is reachable by
     // bare name in every scope loaded after it (the browser and the node
@@ -466,7 +528,10 @@
     const ambient = atLuminance(floor0, targetLum);
     const edge = (1 - dimA) * FALLOFF_A * PLAYER_OUTPUT_K;
     const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA)) * PLATEAU_OUTPUT_K;
-    const litColour = lowEnergy(scene) ? mixToWhite(LOW_ENERGY_TINT, LOW_ENERGY_A) : 0xffffff;
+    const lowEnergyW = lowEnergyFrac(scene);
+    const pulse = heartbeatMul(lowEnergyW, nowIn == null ? null : nowIn);
+    const litColour = lowEnergyW > 0
+      ? mixToWhite(LOW_ENERGY_TINT, Math.min(1, LOW_ENERGY_A * lowEnergyW * pulse)) : 0xffffff;
     return { depth, dimA, dimColour, farA, ambient, edge, lit, litColour, night };
   }
 
@@ -901,7 +966,7 @@
     // The live blasts, converted against THIS frame's anchor (they are stored
     // in world metres) and pruned as they burn out.
     collectBlasts(scene, ax, ay, halfM, now);
-    const prof = profile(scene, daylight(scene, now));
+    const prof = profile(scene, daylight(scene, now), now);
     const k = CELL_PX / scene.cellM;                 // metres → screen px
     // The ramp's extent: the player row's radius — the viewport's half-
     // diagonal plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay lit.
@@ -995,7 +1060,8 @@
     KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
-    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour, lum, atLuminance,
+    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, mixToWhite, scaleColour, lum, atLuminance,
+    CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires,
     collectPlayer, collectLamps,

@@ -395,7 +395,7 @@ test('descriptions: the net and the rod speed a job, they do not unlock one', ()
   // right and the TIP is what had to change: no weapon hurries a hunt.
   assert.gt(toolDurationMs({}, 'bugnet'), toolDurationMs({ bugnet: { tier: 1 } }, 'bugnet'),
     'a net only shortens the wheel');
-  assert.truthy(/const netSlot = r\.bugnet \? 'bugnet' : null;/.test(INTERACT_SRC),
+  assert.truthy(/const netSlot = 'bugnet';/.test(INTERACT_SRC),
     'the hunt wheel reads the bugnet slot, not a weapon');
   assert.truthy(/hunt/i.test(RELIC_DEFS.bugnet.blurb), 'the net says it speeds a hunt');
   assert.falsy(someTip(/sword, bow or staff makes short work/i),
@@ -452,7 +452,7 @@ test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   assert.eq(Lairs.LAIR_MIN_HOME_CELLS, 12,
     'the tip says "a dozen cells of home" — re-word it or move the constant back');
   assert.eq(Lairs.LAIR_FAR_M, 1000, 'the tip says "a kilometre away"');
-  assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 15, 'the tip says "fifteen slimes"');
+  assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 15, 'the tip says "can hide fifteen"');
   // And the sentence's claim is the module's actual answer, not a nearby one.
   assert.eq(Lairs.capFor(12, Lairs.LAIR_FAR_M, 7), 15,
     'a castle at the far ring no longer holds the fifteen the tip promises');
@@ -467,6 +467,34 @@ test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   assert.falsy(Difficulty.PROFILES.easy.derelictLairs, 'which is only worth saying while easy has none');
   // The one thing a player cannot see coming: they do not chase.
   assert.truthy(/never leave the ruin/i.test(tip), 'and that a garrison stays put');
+  // WHAT is in there is the tier's answer, and it is re-derived from the same
+  // ladder table the guards are rolled off — a tip that still promised slimes
+  // in a castle would send a player in expecting the wrong fight.
+  const family = (tier) => new Set(Lairs.kindsAt(tier, 1).map(
+    (k) => (/^goblin/.test(k) ? 'goblin' : /slime$/.test(k) ? 'slime' : k)));
+  assert.eq([...family(9)].join(), 'slime', 'a wrecked house is squatted by slimes');
+  assert.eq([...family(11)].join(), 'goblin', 'a fort is held by goblins');
+  assert.eq([...family(12)].join(), 'goblin', 'and so is a castle');
+  assert.truthy(/houses are squatted by slimes/i.test(tip), 'the tip names the wreck\'s family');
+  assert.truthy(/forts and castles are held by goblins/i.test(tip), 'and the fortification\'s');
+});
+
+test('books: the turret tip says only a CLAIMED castle fights for you', () => {
+  // Nothing on screen distinguishes "these walls are on my side" from "these
+  // walls are scenery" except the claim itself, and a player who has never
+  // claimed a castle will never see a turret fire — so the gate is the whole
+  // point of the tip, not a footnote. Re-derived from the app.js call site.
+  const fire = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _turretFire(now, px, py, halfSpanM, enemies, pc) {'),
+                                APP_JS_SRC.indexOf('  _drawShots() {'));
+  assert.truthy(/if \(!this\.isClaimedKey\(o\.castle\)\) return;/.test(fire),
+    'app.js still gates the turrets on the claim');
+  assert.truthy(someTip(/castle you have CLAIMED fight on your side/), 'and a tip says so');
+  const tip = PLAY_TIPS.find((t) => /castle you have CLAIMED/.test(t));
+  assert.truthy(/unclaimed castle's walls stay silent/i.test(tip),
+    'and names the case the player will actually meet first');
+  // The rate is the module's, not a retyped fifth.
+  assert.eq(Combat.TURRET_RATE_DIV, 5, 'a turret fires at a fifth of the player rate');
+  assert.truthy(/a fifth of your own rate/i.test(tip), 'and the tip quotes it');
 });
 
 test('tips: the shop ladder quotes ShopsMath.dealCap', () => {

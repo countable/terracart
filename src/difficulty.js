@@ -18,12 +18,13 @@
 //           is the income rather than the thing you walk around.
 //
 // EVERY number that differs between the two lives HERE, as a multiplier over
-// the easy-mode value (or a flag), and the shipping code reads it at the site
-// that already owns the base number — buyMarkupRange keeps its 1.2..3.0×, the
-// bounty keeps its coin-per-5-HP, the cave spawner its 50 + 10/level — so easy
-// mode is BY CONSTRUCTION the game exactly as it was (every easy multiplier is
-// 1, every flag on), and hard mode can't drift into a second copy of the
-// balance. A knob that is not in this table is not a mode difference.
+// the BASE value that owns the site — buyMarkupRange keeps its 1.2..3.0×, the
+// bounty keeps its coin-per-5-HP, the cave spawner its 50 + 10/level — so a
+// knob most easy multipliers still leave at 1 (the base value unchanged) is
+// BY CONSTRUCTION the game exactly as it was, and hard mode can't drift into
+// a second copy of the balance. `crowCountMul` is the one deliberate
+// exception: easy halves the base crow count rather than leaving it be. A
+// knob that is not in this table is not a mode difference.
 //
 // The mode is per SAVE (save.mode, 'easy' | 'hard'), chosen once and kept —
 // switching mid-game would let a player sell on easy and hunt on hard. A save
@@ -46,7 +47,7 @@
     [EASY]: {
       id: EASY,
       label: 'Easy mode',
-      blurb: 'Learn the ropes: guided steps, supply crates, a quiet home to farm from.',
+      blurb: 'Guided steps, supply crates, a quiet home.',
       // ── Tutorial ──
       tutorial: true,           // starter ladder chip + green arrow + step rewards
       starterCrates: true,      // the supply-crate trail (seeds, rockfruit, wood)
@@ -60,9 +61,11 @@
       // quiet income you can leave unattended. The tile spawner's own crows
       // are NOT this flag: both modes get those.
       cropPests: false,
-      // DERELICT LAIRS (src/lairs.js): a garrison of immobile slimes squatting
-      // in every unclaimed structure past a safe ring around home, growing
-      // with the building's tier and its distance from home. Off on easy —
+      // DERELICT LAIRS (src/lairs.js): a garrison of immobile monsters
+      // squatting in every unclaimed structure past a safe ring around home,
+      // growing with the building's tier and its distance from home — the tier
+      // also deciding WHAT is in there (a wreck is squatted by slimes, a fort
+      // or a castle is held by goblins). Off on easy —
       // a ruin there is scenery you may rebuild at your leisure — and on hard
       // it is what makes the map itself the difficulty curve: the far half of
       // the world is worth more and costs more to walk into.
@@ -79,6 +82,9 @@
       enemyDmgMul: 1,           // over the surface slime's leech and every monster hit
       monsterCountMul: 1,       // over the cave spawner's 50 + 10/level
       slimeCountMul: 1,         // over BIOME_FAUNA.slime's per-tile count
+      crowCountMul: 0.5,        // over BIOME_FAUNA.crow's per-tile count — half
+                                 // as many wild crows on easy, since the crop-raid
+                                 // pump (cropPests) is already off there
       // ── Traps ──
       trapCountMul: 10,         // over traps.js's base 10..18 roadside traps/tile —
                                  // 10x on easy too: the base rate reads as too rare
@@ -100,7 +106,7 @@
     [HARD]: {
       id: HARD,
       label: 'Hard mode',
-      blurb: 'No hand-holding: a thin purse, greedy traders, and a fight worth picking.',
+      blurb: 'Thin purse, greedy traders, tougher foes. Fighting pays.',
       tutorial: false,
       starterCrates: false,
       pestAmnesty: false,
@@ -113,6 +119,7 @@
       enemyDmgMul: 2,           // a slime leeches 6/s, a goblin hits for 16
       monsterCountMul: 1.5,     // 75 + 15/level, still under the spawner's 160 cap
       slimeCountMul: 2,         // 100 surface slimes a tile, and none of them wait for a harvest
+      crowCountMul: 1,          // the base 200/tile — easy is the one that's cut
       trapCountMul: 100,        // hard means it: the verge is closer to a minefield
       trapBiteMul: 2.5,         // 10⚡ base bite becomes 25⚡ on first contact
       homeGreeter: 'slime',     // "the slimes are in your yard from the first minute" — literally

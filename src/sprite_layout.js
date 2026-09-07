@@ -185,29 +185,58 @@
   //           doesn't jitter while a slime bounces under it.
   //   minY/maxY  trimmed opaque rows of the REFERENCE frame (frame 0, the rest
   //           pose — sibling frames agree to within a pixel), max EXCLUSIVE.
+  //   sheet   the assets.js texture key the kind is DRAWN FROM (every row has
+  //           one), and `frames` the length of its row-0 cycle where the
+  //           renderer animates it. Two kinds may name the SAME sheet — the
+  //           cave slime is the surface slime's art — which is exactly why
+  //           these live here: `tint` is then the only thing that tells them
+  //           apart, and one table both the renderer and the audit read is the
+  //           only way those two facts stay in step.
+  //   tint    the multiply colour the sprite is drawn in — absent means the
+  //           art's own colours (0xffffff). See the cave slime's row.
   //
-  // render.js reads scale/foot/float from here so the drawn sprite and the
-  // wheel can't drift apart, and `node tools/sprite_audit.js` re-decodes the
-  // real PNGs to check minY/maxY hasn't drifted from the art.
+  // render.js reads sheet/frames/scale/foot/float/tint from here so the drawn
+  // sprite and the wheel can't drift apart, and `node tools/sprite_audit.js`
+  // re-decodes the real PNGs (resolving `sheet` through assets.js) to check
+  // minY/maxY hasn't drifted from the art.
+
+  // THE CAVE SLIME'S TINT — and why a tint at all. The cave slime has no art:
+  // it is drawn from the surface slime's own sheet, so until Sep 2026 the two
+  // were the same pixels and the lair KIND LADDER (src/lairs.js: surface slime
+  // near, cave slime a third out, purple slime two thirds) escalated
+  // INVISIBLY — a player could not see that the ruin in front of them held the
+  // tougher foe. A tint is what the game already uses to say "this creature is
+  // a different thing" (the elite's SHINY_TINT, the frozen ICE), so the cave
+  // slime gets one rather than a second mechanism of its own.
+  //   The VALUE is constrained, not a taste. A Phaser tint MULTIPLIES, and the
+  // sheet's body is #7ec433 — a bright lime with almost no blue (0x33) — so no
+  // tint can make it cold or pale, and the only free axis is hue. It is taken
+  // to OLIVE (#7e7e30) rather than to anything darker on purpose: the lightmap
+  // multiplies over the world too, so a merely darker slime reads as one
+  // STANDING IN SHADOW, not as another kind. Same luminance, different hue, is
+  // the one change a player can read at noon and underground alike.
+  const CAVE_SLIME_TINT = 0xffa4f0;
+
   const CREATURE_ART = {
-    chicken:       { fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
-    cow:           { fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
-    cat:           { fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
-    dog:           { fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
-    deer:          { fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
-    rabbit:        { fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
-    crow:          { fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
-    butterfly:     { fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
-    slime:         { fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
-    // Underground monsters. cave_slime reuses the slime sheet (tinted) but has
-    // never had a CREATURE_FOOT entry, so it draws on the blanket 0.9 origin —
-    // recorded here as it renders TODAY rather than "fixed", so this table
-    // stays a description of what's on screen. (It does mean the cave slime
-    // hangs ~10 px above its own contact shadow; worth a separate look.)
-    cave_slime:    { fw: 32, fh: 32, scale: 1.25, foot: 0.9,     float: 0,  minY: 10, maxY: 21 },
-    purple_slime:  { fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
-    goblin:        { fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
-    goblin_archer: { fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
+    chicken:       { sheet: 'chicken',   fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
+    cow:           { sheet: 'cow',       fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
+    cat:           { sheet: 'cat',       fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
+    dog:           { sheet: 'dog',       fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
+    deer:          { sheet: 'deer',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
+    rabbit:        { sheet: 'rabbit',    fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
+    crow:          { sheet: 'crow',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
+    butterfly:     { sheet: 'butterfly', fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
+    slime:         { sheet: 'slime',     frames: 4, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
+    // Underground monsters. The cave slime is the SURFACE SLIME'S SHEET — same
+    // file, same frames, same trimmed rows — so everything the art decides has
+    // to match the row above it, and the one thing that may differ is the
+    // tint. It carried `foot: 0.9` (the blanket fallback from before this
+    // table existed) until Sep 2026, which hung it ~10px above its own contact
+    // shadow: one body cannot have two ground lines.
+    cave_slime:    { sheet: 'slime',     frames: 4, fw: 32, fh: 32, scale: 1.25, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: CAVE_SLIME_TINT },
+    purple_slime:  { sheet: 'purple_slime',  frames: 4, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
+    goblin:        { sheet: 'goblin',        frames: 6, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
+    goblin_archer: { sheet: 'goblin_archer', frames: 6, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
   };
   // ── GIANTS ────────────────────────────────────────────────────────────────
   // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
@@ -262,6 +291,16 @@
   // The renderer's scale and float for `kind`, giant-aware.
   function creatureScale(kind) { return creatureArt(kind)?.scale ?? 1; }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
+  // The sheet a kind is drawn from, and how many frames of its row-0 cycle the
+  // renderer runs. A GIANT is its base kind's art, so both come through
+  // creatureArt and a giant can never end up on a sheet of its own.
+  function creatureSheet(kind) { return creatureArt(kind)?.sheet ?? null; }
+  function creatureFrames(kind) { return creatureArt(kind)?.frames ?? 1; }
+  // The multiply colour a kind is drawn in — white for art that is already its
+  // own colour. This is the ONLY thing separating two kinds that share a sheet
+  // (see CAVE_SLIME_TINT), so it is read from the table rather than branched
+  // on in the renderer, and a giant inherits its base kind's.
+  function creatureTint(kind) { return creatureArt(kind)?.tint ?? 0xffffff; }
 
   // THE CREATURE WHEEL RULE: the work-progress wheel RESTS ON the animal's
   // CROWN — the top row of its visible art, at rest. The ring's top edge sits
@@ -324,6 +363,7 @@
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
+    CAVE_SLIME_TINT, creatureSheet, creatureFrames, creatureTint,
     creatureFoot, creatureScale, creatureFloat, creatureWheelDy, creatureHealthBarTop,
   };
   root.SpriteLayout = api;

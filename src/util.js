@@ -401,17 +401,29 @@ const UI_TREASURE_DEEP = '#7fb0ff';   // saturated blue — glow, side faces, de
 // material rather than as three unrelated effects.
 //
 // One constant, four readers — the counter (app.js), the stone chips and the
-// spark ring (particles.js), and the STREET LAMP a restored stretch carries
-// (its baked stone in road_overlay.js and the light over it, Lighting's
-// `cobble` row) — so the number, the debris under it and the lamp that lights
-// it can never end up different colours.
+// spark ring (particles.js), and the DWELL PREVIEW (app.js
+// STREET_PREVIEW_COLOR) that grows in while a stretch is being rebuilt — so
+// the number, the debris under it and the glow that primes it can never end
+// up different colours.
 //
-// Deliberately NOT in the blue treasure role, which it wore as a violet
-// (UI_TRAIL_LIT) while the mechanic was lit pebbles: blue-white means "the
-// world is GIVING you something", and restoring a street is the player doing
+// Deliberately NOT in the blue treasure role: blue-white means "the world is
+// GIVING you something", and restoring a street is the player doing
 // something TO the world. The prize ceremony at the end of the ladder is the
 // gift, and it still wears the treasure ink.
+//
+// The STREET LAMP a restored stretch carries is the one exception — see
+// UI_LAMP_GLOW below, which is deliberately NOT this ink.
 const UI_STREET_INK    = '#e8e2d6';   // restored street — its chips and its counter
+// LAMP GLOW — the street lamp's own colour (road_overlay.js's baked stone,
+// Lighting's `cobble` row), and deliberately NOT UI_STREET_INK above: the
+// carriageway itself restores in pale warm stone, but a lamp is meant to
+// read as ACTIVATED, the way a claimed cobble always did back when the
+// mechanic was lit pebbles — so it keeps that old violet (what UI_TRAIL_LIT
+// used to name) rather than take on the newer material colour the rest of a
+// restored street wears. One constant, two readers, the roadOverlayWidthM
+// discipline again: the baked stone and the light thrown over it can't drift
+// apart.
+const UI_LAMP_GLOW     = '#9a8cff';   // street lamp — the stone and its light
 const UI_CONTROL       = UI_GOLD;     // player controls: buttons, pads, HUD accents
 const UI_CONTROL_DIM   = UI_GOLD_DARK;// control borders / rules / inactive controls
 

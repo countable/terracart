@@ -335,7 +335,8 @@ try {
                    '_sweepStreets() {', '_resetStreetSight() {',
                    '_rescanStreets(p, reachM, now, sight) {',
                    '_setStreetPreview(meta, iv) {', '_streetRunPts(meta, s0, s1) {',
-                   '_streetPointAt(meta, s) {', '_ripenStreets(now, sight) {',
+                   '_streetPointAt(meta, s) {', '_streetSpreadPts(meta, s0, s1, k) {',
+                   '_ripenStreets(now, sight) {',
                    '_bankStreetMetres(addedM, at, now) {', '_showTrailIntro() {',
                    '_drawStreetLive(now) {',
                    '_blastAt(wmx, wmy, opts) {']
@@ -370,7 +371,9 @@ try {
     // shine's own clock, the preview's ceiling and the counter's throttle.
     `globalThis.BLAST_STONE_R_CELLS = ${constOf('BLAST_STONE_R_CELLS')};\n` +
     `globalThis.STREET_SHINE_MS = ${constOf('STREET_SHINE_MS')};\n` +
+    `globalThis.GATHER_SPREAD_POINTS = ${constOf('GATHER_SPREAD_POINTS')};\n` +
     `globalThis.STREET_PREVIEW_ALPHA = ${constOf('STREET_PREVIEW_ALPHA')};\n` +
+    `globalThis.STREET_PREVIEW_COLOR = ${constOf('STREET_PREVIEW_COLOR')};\n` +
     `globalThis.STREET_COUNTER_MIN_MS = ${constOf('STREET_COUNTER_MIN_MS')};\n` +
     `globalThis.STREET_SHINE_ALPHA = ${constOf('STREET_SHINE_ALPHA')};\n` +
     // The one-time first-repair dialog's copy — carried as source so the test
@@ -1068,6 +1071,8 @@ try {
   ctx.SPAWN_CAVE_SRC         = slice(appSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Dark-outlined', 'spawnCaveCreatures');
   ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
   ctx.STARTER_TRAIL_SRC      = slice(appSrc, '  _placeStarterTrail(entry, tx, ty) {\n', '\n  _revealStarterTrail', 'the starter trail');
+  ctx.ENSURE_STARTER_TRAILER_SRC = slice(appSrc, '  ensureStarterTrailerObject() {\n',
+    '\n  }\n\n  // Nothing sits inside the Home trailer.', 'ensureStarterTrailerObject');
   // The sidecar chest injection loop in loadTile — poi_dedup.test.js pins that
   // it consults the shared one-place-one-chest rule before pushing a chest.
   ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of (bin.chests || [])) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
@@ -1165,6 +1170,29 @@ try {
 }
 
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
+
+// ── The STREET LAMPS' two placement passes (app.js) ───────────────────────
+// A restored street lights its own way, and where the stones stand is decided
+// by these two methods alone. They reach for nothing Phaser-shaped — Streets,
+// WorldGen.tileCache, and the coords projection, all loaded above — so lift
+// them and let street_lamps.test.js drive the SHIPPING passes over a real tile
+// entry instead of only reading them as text. That is what caught the bug the
+// text pins could not see: the lamp list was memoised onto a tile entry that
+// was still LOADING, so no tile in the world ever grew a lamp.
+{
+  const appSrc = readSrc('app.js');
+  const a = appSrc.indexOf('  _streetLampsForTile(tx, ty, entry) {');
+  const b = appSrc.indexOf('  // The LIT lamps near the frame');
+  const c = appSrc.indexOf('  _updateStreetLamps() {');
+  const d = appSrc.indexOf('  // The stones themselves:');
+  if (a < 0 || b < 0 || c < 0 || d < 0 || b < a || d < c) {
+    console.error('Could not lift the street-lamp passes from src/app.js — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext('globalThis.__streetLampPasses = {\n'
+    + appSrc.slice(a, b).trimEnd() + ',\n'
+    + appSrc.slice(c, d).trimEnd() + '\n};', ctx, { filename: 'app.js#streetLamps' });
+}
 
 // app.js can't load headlessly (it needs Phaser — see above), so the perf-
 // profiler hooks that live there (the update()/drawCells/drawObjects ticks,

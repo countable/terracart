@@ -230,6 +230,13 @@ const MINERAL_ICON_SHEET = {
   // widens the player's own light for a few minutes (useTorch in app.js →
   // the `torch` row of Lighting.KINDS).
   torch:         { sheet: 'icon_torch', frame: 0 },
+  // Trap Disarm Kit — no dedicated hand-drawn art exists yet, so this reuses
+  // frame 0 (the plain brown leather pouch) of the Extras 'Bags' sheet: a
+  // small tool kit reads reasonably as a carried pouch, and it isn't the
+  // frame the `bags` RELIC (backpack capacity) draws from — that's a
+  // separate per-tier gear-icon path (gearAssetPath), not this ICON_SHEETS
+  // lookup, so the two uses of the same source PNG never collide on screen.
+  trap_kit:      { sheet: 'icon_kit', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -352,6 +359,8 @@ const BASE_TIER = {
   growth_powder: 2, shadow_powder: 3, frost_powder: 3,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
+  // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
+  trap_kit: 2,
   // Torch — the T1 cave staple: light for the dark, cheap and common.
   torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
@@ -469,6 +478,11 @@ const ITEMS = [
   // plateau (what you can tap) is untouched; only the dark around it lifts.
   // Lighting another while one burns EXTENDS the time (useTorch in app.js).
   { id: 'torch',         name: 'Torch',               kind: 'consumable' },
+  // Trap Disarm Kit: hold it and tap a trap (hidden scuff or already-sprung
+  // jaw, surface or cave) to remove it for good — see Traps.disarm in
+  // src/traps.js and the 'disarm-trap' tap handler in interact.js. One kit
+  // per trap; unlike stepping on one, disarming never costs energy.
+  { id: 'trap_kit',      name: 'Trap Disarm Kit',     kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -651,6 +665,7 @@ const PRICES = {
   shadow_powder: 110,  // T3 — 1 min of monsters ignoring you entirely
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   rope:          25,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft)
+  trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   torch:         15,   // T1 — 3 min of the player's own light reaching twice as far (useTorch)
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
@@ -849,7 +864,7 @@ const PLAY_TIPS = [
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
-  'On hard, ruins are held: none within a dozen cells of home, then more the bigger the building and the further out — a castle a kilometre away can hide fifteen slimes. They never leave the ruin.',
+  'On hard, ruins are held: none within a dozen cells of home, then more the bigger the building and the further out — a castle a kilometre away can hide fifteen. Wrecked houses are squatted by slimes; forts and castles are held by goblins. They never leave the ruin.',
   // ── Animals — meeting them, then keeping them ───────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
   'Chickens peck at any seed — hold one to befriend a wild chicken.',
@@ -869,7 +884,7 @@ const PLAY_TIPS = [
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
   'Anything hostile you put down pays coins for its trouble — about a coin per 5 hit points, and a little more for every level down.',
-  'Castle towers fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate.',
+  'Towers on a castle you have CLAIMED fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate. An unclaimed castle\'s walls stay silent.',
   // ── Underground, which you go looking for ───────────────────
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
   'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
@@ -936,6 +951,7 @@ const ITEM_EFFECTS = {
   frost_powder:  'Use to freeze every enemy in reach for 30s',
   rope:          'Use to climb up or lower down one level, right here',
   torch:         'Use to make your light reach twice as far (3 min)',
+  trap_kit:      'Hold and tap a trap to disarm it',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
   // A sapling's Plant button says it plants something; only this says WHAT.
   // The acorn is the one that puts back timber rather than fruit, which is the

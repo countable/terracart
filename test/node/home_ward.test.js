@@ -275,7 +275,9 @@ test('fire ward: wanderCreatures reads the same cap the table is built on', () =
   // only keeps a warded kind from wandering closer, so a monster already in
   // range when the fire is lit can still land its hit. Weaker than Home on
   // purpose: a campfire is a field expedient, not a doorstep.
-  assert.falsy(/isMonster\(c\.kind\) && !shadowed && !homeWard && !fireAverts/.test(wander),
+  assert.falsy(/isMonster\(c\.kind\) && !unnoticed && !homeWard && !fireAverts/.test(wander),
     "a monster's attack check is untouched by the fire ward");
+  assert.truthy(/isMonster\(c\.kind\) && !unnoticed && !homeWard\) \{/.test(wander),
+    'and the gate it is absent from is the one that ships');
 });
 })();
