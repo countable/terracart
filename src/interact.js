@@ -632,7 +632,8 @@ const TAP_HANDLERS = [
       // to before it can bite you (Combat.MELEE_REACH_CELLS, and the same
       // centre-to-feet test its attack gate runs). The tap gate above only
       // asked whether the foe was in the LIT reach, which starts at 2.5 cells
-      // and grows to 5.5, so a fist out-ranged everything it was fighting.
+      // (trimmed by coords.js' REACH_SCALE) and grows to 5.5, so a fist
+      // out-ranged everything it was fighting.
       // Checked HERE rather than in tooFar because tooFar gates every tap in
       // the game: feeding, catching, petting and hunting keep the lit reach.
       const px = scene.startWorldM.x + scene.playerM.x;

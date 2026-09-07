@@ -210,34 +210,35 @@ test('playerReachCell: moving player east by one full cell width shifts cellIX b
 
 // ── reachCells ────────────────────────────────────────────────────────────────
 
-test('reachCells: base with no upgrades = 2.5', () => {
+test('reachCells: base with no upgrades = 2.5 * REACH_SCALE', () => {
   const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 0 });
-  assert.eq(reachCells(s), 2.5);
+  assert.eq(reachCells(s), 2.5 * REACH_SCALE);
 });
 
-test('reachCells: each upgrade adds 0.5 up to max 5.5', () => {
+test('reachCells: each upgrade adds 0.5 (scaled) up to max 5.5 (scaled)', () => {
   for (let u = 0; u <= 6; u++) {
     const s = makeCoordScene({ save: { energy: 100, reachUpgrades: u }, depth: 0 });
-    const expected = Math.min(5.5, 2.5 + 0.5 * u);
+    const expected = Math.min(5.5, 2.5 + 0.5 * u) * REACH_SCALE;
     assert.eq(reachCells(s), expected, `upgrades=${u}`);
   }
 });
 
-test('reachCells: upgrades capped — 7 upgrades still gives 5.5', () => {
+test('reachCells: upgrades capped — 7 upgrades still gives 5.5 * REACH_SCALE', () => {
   const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 7 }, depth: 0 });
-  // min(5.5, 2.5+3.5) = min(5.5,6) = 5.5
-  assert.eq(reachCells(s), 5.5);
+  // min(5.5, 2.5+3.5) = min(5.5,6) = 5.5, scaled
+  assert.eq(reachCells(s), 5.5 * REACH_SCALE);
 });
 
-test('reachCells: no save defaults to 0 upgrades → 2.5 cells', () => {
+test('reachCells: no save defaults to 0 upgrades → 2.5 * REACH_SCALE cells', () => {
   const s = makeCoordScene({ save: undefined, depth: 0 });
-  assert.eq(reachCells(s), 2.5);
+  assert.eq(reachCells(s), 2.5 * REACH_SCALE);
 });
 
-test('reachCells: depth 1 shrinks reach by 0.5, floored at 1.5', () => {
-  // upgrades=0, base=2.5, depth=1 → 2.5-0.5=2.0
+test('reachCells: depth 1 shrinks reach by half a cell (unscaled trim)', () => {
+  // upgrades=0, base=2.5*REACH_SCALE, depth=1 → base - 0.5 (the underground
+  // taper itself is not part of the REACH_SCALE dial — see coords.js)
   const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 1 });
-  assert.eq(reachCells(s), 2.0);
+  assert.eq(reachCells(s), 2.5 * REACH_SCALE - 0.5);
 });
 
 test('reachCells: depth 2 shrinks reach by 1.0', () => {
@@ -252,9 +253,10 @@ test('reachCells: depth 3 would shrink to 1.0 but is floored at 1.5', () => {
 });
 
 test('reachCells: depth shrinking with upgrades — depth 6, upgrades 6', () => {
-  // base = min(5.5, 2.5+3) = 5.5; depth=6 → 5.5-3.0=2.5
+  // base = min(5.5, 2.5+3) * REACH_SCALE = 5.5 * REACH_SCALE;
+  // depth=6 → base - 6*0.5 (the underground taper is unscaled)
   const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 6 }, depth: 6 });
-  assert.eq(reachCells(s), 2.5);
+  assert.eq(reachCells(s), 5.5 * REACH_SCALE - 6 * 0.5);
 });
 
 test('reachCells: deep depth with max upgrades still floors at 1.5', () => {
@@ -265,15 +267,15 @@ test('reachCells: deep depth with max upgrades still floors at 1.5', () => {
 
 test('reachCells: surface (depth=0) does NOT apply depth shrink', () => {
   const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 2 }, depth: 0 });
-  assert.eq(reachCells(s), 3.5);   // 2.5+1.0
+  assert.eq(reachCells(s), 3.5 * REACH_SCALE);   // (2.5+1.0) * REACH_SCALE
 });
 
 // ── reachRadiusM ─────────────────────────────────────────────────────────────
 
 test('reachRadiusM: normal surface = reachCells * cellM + 1', () => {
   const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 0 });
-  // reachCells = 2.5; cellM = 5; radius = 2.5*5+1 = 13.5
-  assert.eq(reachRadiusM(s), 13.5);
+  // reachCells = 2.5 * REACH_SCALE; cellM = 5
+  assert.eq(reachRadiusM(s), 2.5 * REACH_SCALE * 5 + 1);
 });
 
 test('reachRadiusM: zero energy returns 0 (cannot reach at all)', () => {
@@ -298,21 +300,22 @@ test('reachRadiusM: low energy (>0) does NOT shrink reach (only 0 shrinks)', () 
   // f98eb04 introduced the 0-energy gate; tired state (> 0 but low) is handled
   // by the UI but does NOT affect the reach radius.
   const s = makeCoordScene({ save: { energy: 1, reachUpgrades: 0 }, depth: 0 });
-  assert.eq(reachRadiusM(s), 13.5, '1 energy → full radius, no tired shrink');
+  assert.eq(reachRadiusM(s), 2.5 * REACH_SCALE * 5 + 1, '1 energy → full radius, no tired shrink');
 });
 
 test('reachRadiusM: upgrades increase radius', () => {
   for (let u = 0; u <= 6; u++) {
     const s = makeCoordScene({ save: { energy: 100, reachUpgrades: u }, depth: 0 });
-    const expected = Math.min(5.5, 2.5 + 0.5 * u) * 5 + 1;
+    const expected = Math.min(5.5, 2.5 + 0.5 * u) * REACH_SCALE * 5 + 1;
     assert.eq(reachRadiusM(s), expected, `upgrades=${u}`);
   }
 });
 
 test('reachRadiusM: depth shrinks radius', () => {
-  // upgrades=0, base=2.5, depth=1 → cells=2.0, radius=2.0*5+1=11
+  // upgrades=0, base=2.5*REACH_SCALE, depth=1 → cells=base-0.5 (unscaled taper)
   const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 1 });
-  assert.eq(reachRadiusM(s), 11);
+  const cells = 2.5 * REACH_SCALE - 0.5;
+  assert.eq(reachRadiusM(s), cells * 5 + 1);
 });
 
 test('reachRadiusM: depth=3 floors reach at 1.5 cells → radius = 8.5', () => {
@@ -340,7 +343,7 @@ test('reachRadiusM: expired Potion of Reach (past) does NOT override — normal 
     save: { energy: 100, reachUpgrades: 0, reachPotionUntil: past },
     depth: 0,
   });
-  assert.eq(reachRadiusM(s), 13.5, 'expired potion → normal radius');
+  assert.eq(reachRadiusM(s), 2.5 * REACH_SCALE * 5 + 1, 'expired potion → normal radius');
 });
 
 // ── cellInReach — core correctness ───────────────────────────────────────────
@@ -429,11 +432,13 @@ test('cellInReach: diagonal cell just inside circle — (2,2) with upgrades', ()
 });
 
 test('cellInReach: diagonal cell outside circle — (4,4) with max upgrades', () => {
-  // Max upgrades=6: reachCells=5.5, reachM=5.5*5+1=28.5.
-  // Cell (4,4): dist²=(20²+20²)=800. 28.5²=812.25 → 800 ≤ 812.25 → IN.
-  // Cell (5,4): dist²=(25²+20²)=1025 > 812.25 → OUT.
+  // Max upgrades=6: reachCells=5.5*REACH_SCALE, reachM=5.5*REACH_SCALE*5+1.
   const s = reachScene({ save: { energy: 100, reachUpgrades: 6 } });
-  assert.truthy(cellInReach(s, 4, 4), '(4,4) in reach at max upgrades');
+  const reachM = reachRadiusM(s);
+  const dist2 = (dx, dy) => (dx * 5) ** 2 + (dy * 5) ** 2;
+  assert.truthy(dist2(3, 3) <= reachM * reachM, 'sanity: (3,3) is within the new radius');
+  assert.truthy(cellInReach(s, 3, 3), '(3,3) in reach at max upgrades');
+  assert.falsy(dist2(5, 4) <= reachM * reachM, 'sanity: (5,4) is outside the new radius');
   assert.falsy(cellInReach(s, 5, 4), '(5,4) out of reach at max upgrades');
 });
 
@@ -456,13 +461,12 @@ test('cellInReach: Potion of Reach makes distant cells reachable', () => {
 
 test('cellInReach: exact boundary off-by-one — cell at radius² boundary is IN (≤)', () => {
   // This guards the 11190b4 "house edge just out of reach" regression.
-  // We find the exact threshold: reachM²=182.25 (base reach).
-  // Pick cell (1,1): dist²=(5²+5²)=50. √50≈7.07 << 13.5 → clearly IN.
-  // Pick cell (2,2): dist²=(10²+10²)=200 > 182.25 → OUT (barely).
+  // Pick cell (1,1): dist²=(5²+5²)=50 → clearly IN at any reasonable radius.
+  // Pick cell (2,2): dist²=(10²+10²)=200 > reachM² (base reach) → OUT (barely).
   // Guard the boundary explicitly.
-  const s = reachScene();  // reachM=13.5
-  const reachM = reachRadiusM(s);  // 13.5
-  assert.eq(reachM, 13.5, 'base reachM check');
+  const s = reachScene();
+  const reachM = reachRadiusM(s);
+  assert.eq(reachM, 2.5 * REACH_SCALE * 5 + 1, 'base reachM check');
   // Exactly at boundary: find a cell whose squared distance equals reachM² when possible.
   // No integer cell satisfies dist²=182.25 exactly, but guard the nearest neighbors.
   assert.truthy(cellInReach(s, 1, 1),   '(1,1) dist²=50 clearly in reach');

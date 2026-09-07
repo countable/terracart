@@ -191,17 +191,26 @@ function playerReachCell(scene) {
 // Reach depends on the Inner Light the player controls, dimmed by the dark as
 // they descend. On the surface it starts at 2.5 cells and grows to 5.5 via the
 // six +0.5-cell upgrades (save.reachUpgrades, 0..6) fed by the Magic Shrine and
-// the wizard tower's Inner Light (see app.js). Underground the bubble is
+// the wizard tower's Inner Light (see app.js) — trimmed by REACH_SCALE, the
+// ambient light mask's own dial. Underground the bubble is
 // smothered: each level down trims it by half a cell, floored at 1.5 so the
 // immediate ring is always workable — so each descent both darkens the
-// surroundings (render.js) AND tightens the lit reach. It does NOT shrink when
-// merely tired; the special cases are the Potion of Reach (lights the whole
-// view) and 0 energy (you can't reach at all).
+// surroundings (render.js) AND tightens the lit reach. It does NOT shrink
+// when merely tired; the special cases are the Potion of Reach (lights the
+// whole view) and 0 energy (you can't reach at all).
 // The +1 m epsilon keeps the cardinal cell included with a hair of margin so the
 // silhouette reads as a rounded diamond at every level.
+//
+// REACH_SCALE dims only the SURFACE ladder (the base and every upgrade step)
+// — the underground half-cell-per-level taper and its 1.5-cell safety floor
+// stay absolute, so a deep cave is exactly as workable as it always was and
+// the "half a cell less for every level you descend" tip stays true; the
+// dial is felt as a smaller starting bubble that reaches the same floor a
+// little sooner.
+const REACH_SCALE = 0.85;   // -15% on the ambient light mask that shows reach
 function reachCells(scene) {
   const upgrades = scene.save?.reachUpgrades ?? 0;
-  const base = Math.min(5.5, 2.5 + 0.5 * upgrades);
+  const base = Math.min(5.5, 2.5 + 0.5 * upgrades) * REACH_SCALE;
   const depth = scene.depth ?? 0;
   if (depth > 0) return Math.max(1.5, base - 0.5 * depth);
   return base;

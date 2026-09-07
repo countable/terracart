@@ -337,8 +337,12 @@ test('tips: the slow grind quotes interactables.js\' own two numbers', () => {
 test('tips: reach — the underground trim and the zero-energy floor are documented', () => {
   const scene = { save: { energy: 100, reachUpgrades: 0 }, cellM: 7, depth: 0 };
   const surface = reachCells(scene);
-  scene.depth = 2;
-  assert.eq(surface - reachCells(scene), 1, 'two levels down costs a whole cell of reach');
+  // The underground taper is unscaled by REACH_SCALE (coords.js), so one
+  // level down still costs exactly half a cell — checked at depth 1 rather
+  // than 2, since with a smaller surface bubble two levels down now lands
+  // on the (also unscaled) 1.5-cell floor instead of the linear taper.
+  scene.depth = 1;
+  assert.eq(surface - reachCells(scene), 0.5, 'one level down costs half a cell of reach');
   scene.depth = 0; scene.save.energy = 0;
   assert.eq(reachRadiusM(scene), 0, 'and an empty tank reaches nothing');
   assert.truthy(someTip(/nothing at all on an empty bar/i), 'a tip says an empty bar reaches nothing');

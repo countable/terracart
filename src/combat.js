@@ -343,13 +343,17 @@
   // no risk; one cell past the ring you can already act in makes a bolt
   // something you loose at a foe that has closed on you. The flat
   // `rangeCells` beside it is the standing fallback for a caller with no
-  // scene to ask (and is the value at the starting reach, 2.5 + 1, so the two
-  // agree where a new save begins). The BOW keeps a flat range: it is the
+  // scene to ask (and is the value at the starting reach, 2.5*REACH_SCALE + 1,
+  // so the two agree where a new save begins — REACH_SCALE is coords.js'
+  // ambient-light-mask dial, read here the same defensive way lighting.js
+  // reads app.js constants). The BOW keeps a flat range: it is the
   // weapon you buy to hit what you cannot punch, and it does not aim itself.
   const SHOT = {
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
              phaseMs: 0, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS },
-    staff: { speedCps: 2.0, rangeCells: 3.5, rangeFromReach: 1,
+    staff: { speedCps: 2.0,
+             rangeCells: 2.5 * (typeof REACH_SCALE !== 'undefined' ? REACH_SCALE : 1) + 1,
+             rangeFromReach: 1,
              color: 0x9ad6ff, dotPx: 3,
              phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest',
              growsWithTier: true,

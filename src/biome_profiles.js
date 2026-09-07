@@ -162,8 +162,10 @@
       // forget-me-not 0.006–0.020): parks usually arrive as two stacked OSM
       // polygons (landuse + park layers), each running its own scatter, so
       // observed density landed ~2x the configured window.
+      // Longgrass bumped 0.15 → 0.20 (playtest: even with the doubling above,
+      // a park still read thinner than the lawn it's meant to be).
       flora: [fix('shrub', 0.025, 0.075, S.SHRUB),
-              dyn('longgrass', 0.15, S.LONGGRASS),
+              dyn('longgrass', 0.20, S.LONGGRASS),
               fix('forgetmenot', 0.003, 0.010, S.FORGETMENOT),
               fix('marigold', 0.002, 0.006, S.MARIGOLD)],
       tint: {},
@@ -171,7 +173,9 @@
     [T.SCHOOL]: {
       // Casual turf — keeps the grassland wildflowers (parity with the old
       // meadow-flora pass that ran on every LONGGRASS_TYPES member).
-      flora: [dyn('longgrass', 0.12, S.LONGGRASS),
+      // Longgrass bumped 0.12 → 0.16 alongside PARK/PLAYGROUND — the same
+      // "civic lawn" read.
+      flora: [dyn('longgrass', 0.16, S.LONGGRASS),
               fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT),
               fix('marigold', 0.003, 0.008, S.SCH_MAR)],
       tint: {},
@@ -195,7 +199,8 @@
       tint: { shrub: 0x9aa882, mineralrock: 0xc98a5a, tree: 0xc9cbb8 },  // grey-green weeds, rusty rock
     },
     [T.PLAYGROUND]: {
-      flora: [dyn('longgrass', 0.08, S.LONGGRASS),
+      // Longgrass bumped 0.08 → 0.12 alongside PARK/SCHOOL.
+      flora: [dyn('longgrass', 0.12, S.LONGGRASS),
               fix('forgetmenot', 0.004, 0.014, S.FORGETMENOT),
               fix('marigold', 0.002, 0.006, S.MARIGOLD)],
       tint: {},

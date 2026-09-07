@@ -1516,10 +1516,11 @@ class MapScene extends Phaser.Scene {
     // metres (interact.js' creature hit-test) without an app.js global.
     this.cellPx = CELL_PX;
     // Reach RADIUS is now computed dynamically in coords.js (reachRadiusM): it
-    // starts at 2.5 cells and grows to 5.5 via Inner Light upgrades.
+    // starts at 2.5 cells and grows to 5.5 via Inner Light upgrades, both
+    // trimmed by coords.js' REACH_SCALE (the ambient light mask's own dial).
     // NOTE: object/creature/wildplant taps share the SAME reach radius as cell
     // taps — interact.js' tooFar gate now reads coords.js reachRadiusM (the
-    // dynamic 2.5..5.5-cell radius), NOT a fixed distance, so the lit
+    // same dynamic, scaled radius), NOT a fixed distance, so the lit
     // reach indicator and the tap-accept gate stay in lock-step at every reach
     // tier — and it is the ONLY reach gate; the Euclidean one it replaced is
     // gone rather than kept behind a guard. Tap PRECISION — how exactly your

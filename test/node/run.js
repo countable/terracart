@@ -102,7 +102,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   INTERACTABLES, runInteractable,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
-  REACH_CORNER_PX, ReachCorner,
+  REACH_CORNER_PX, ReachCorner, REACH_SCALE,
   isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
