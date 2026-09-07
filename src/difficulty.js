@@ -47,7 +47,7 @@
     [EASY]: {
       id: EASY,
       label: 'Easy mode',
-      blurb: 'Learn the ropes: guided steps, supply crates, a quiet home to farm from.',
+      blurb: 'Guided steps, supply crates, a quiet home.',
       // ── Tutorial ──
       tutorial: true,           // starter ladder chip + green arrow + step rewards
       starterCrates: true,      // the supply-crate trail (seeds, rockfruit, wood)
@@ -104,7 +104,7 @@
     [HARD]: {
       id: HARD,
       label: 'Hard mode',
-      blurb: 'No hand-holding: a thin purse, greedy traders, and a fight worth picking.',
+      blurb: 'Thin purse, greedy traders, tougher foes. Fighting pays.',
       tutorial: false,
       starterCrates: false,
       pestAmnesty: false,

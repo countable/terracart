@@ -2596,7 +2596,7 @@ class MapScene extends Phaser.Scene {
       Sandbox.install(this);
     }
 
-    // Bridge for the how-to card's "Skip the tutorial" button. The card is
+    // Bridge for the how-to card's "Skip tutorial" button. The card is
     // plain DOM in index.html, outside the scene, so it drives the starter
     // ladder through these two hooks rather than touching the save itself.
     window.__tutorialActive = () =>
@@ -10559,7 +10559,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // With no map tiles loaded there is no road and no crate, so the ladder's
-    // "supply crates were left along the road nearby" reads as a lie over an
+    // "supply crates line the road nearby" reads as a lie over an
     // empty green field. Hold the chip until at least one tile is ready; the
     // #banner is what's talking to the player in that state.
     if (this._tilesReady === 0) { el.style.display = 'none'; return; }

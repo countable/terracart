@@ -249,25 +249,25 @@ const STARTER_CHAIN = [
   {
     id: 's1_crate', event: 'chest',
     title: 'Gather your supplies',
-    body: 'Supply crates were left along the road nearby. Open one.',
+    body: 'Supply crates line the road nearby. Open one.',
     reward: { money: 5 },
   },
   {
     id: 's2_till', event: 'till',
     title: 'Break ground',
-    body: 'Tap a patch of open grass within reach to till it into soil.',
+    body: 'Tap open grass within reach to till it.',
     reward: { money: 5 },
   },
   {
     id: 's3_plant', event: 'plant',
     title: 'Sow a seed',
-    body: 'Select a seed from your bag, then tap your tilled soil to plant it.',
+    body: 'Pick a seed from your bag, then tap the tilled soil.',
     reward: { money: 5 },
   },
   {
     id: 's4_restore', event: 'restore',
     title: 'Rebuild a neighbour',
-    body: 'Ruined houses can be rebuilt with wood or stone. Tap a wreck to restore it.',
+    body: 'Tap a ruined house to rebuild it with wood or stone.',
     reward: { money: 5 },
   },
   {
@@ -280,14 +280,14 @@ const STARTER_CHAIN = [
     // only advances a WATERED plant, and clears the watering as it does), so a
     // player who took the old line at its word came back to a plant that had
     // not moved and no explanation of why.
-    body: 'Tap the plant to water it. It grows a stage 15 min later, then '
-        + 'wants watering again — four times over to ripe.',
+    body: 'Tap to water. A stage grows 15 min later, then water again — '
+        + 'four times to ripe.',
     reward: { money: 5 },
   },
   {
     id: 's6_sell', event: 'sell',
     title: 'Cash out at Home',
-    body: 'Selling only happens at Home. Carry your haul back and tap your house to sell.',
+    body: 'Only Home buys. Carry your haul back and tap your house.',
     reward: { money: 25 },
   },
 ];

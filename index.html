@@ -1152,12 +1152,11 @@
         </div>
         <div class="labels"><span>you</span><span></span><span>your GPS</span></div>
       </div>
-      <p class="lead">Your real neighbourhood is the map. Walk to move your
-         farmer <span class="kbd-only">&mdash; WASD on a computer &mdash;</span>
-         and rebuild it.</p>
+      <p class="lead">Your neighbourhood is the map. Walk to move<span
+         class="kbd-only"> (or use WASD)</span>. Rebuild it.</p>
       <dl>
         <dt>Energy</dt>
-        <dd>Most actions cost &#9889;. Eat or rest to refill.</dd>
+        <dd>Actions cost &#9889;. Eat or rest to refill.</dd>
       </dl>
       <!-- FIRST RUN: the card is where a new save picks its game (difficulty.js).
            Two CTAs, easy on top — taking the tutorial is the default — each
@@ -1165,22 +1164,20 @@
            says nothing about the tutorial going away. Once answered the mode
            is kept (the two price the same haul differently, so a switch would
            be free money), and the ☰ reopen shows which game this save plays
-           plus the plain "Got it" / "Skip the tutorial" pair it always had. -->
+           plus the plain "Got it" / "Skip tutorial" pair it always had. -->
       <div id="howto-modes">
         <button id="howto-easy" type="button" data-mode="easy">
           <span class="mode-name">Easy mode</span>
-          <span class="mode-sub">Enable tutorial &mdash; guided steps, supply crates, a quiet
-            home to learn farming and exploring from.</span>
+          <span class="mode-sub">Enable tutorial &mdash; guided steps, supply crates, a quiet home.</span>
         </button>
         <button id="howto-hard" type="button" data-mode="hard">
           <span class="mode-name">Hard mode</span>
-          <span class="mode-sub">No tutorial &mdash; a thin purse, greedy traders, tougher
-            enemies in bigger packs. Fighting pays.</span>
+          <span class="mode-sub">No tutorial &mdash; thin purse, greedy traders, tougher foes. Fighting pays.</span>
         </button>
       </div>
       <p id="howto-mode-current" hidden></p>
       <button id="howto-close" type="button">Got it</button>
-      <button id="howto-skip" class="secondary" type="button">Skip the tutorial</button>
+      <button id="howto-skip" class="secondary" type="button">Skip tutorial</button>
     </div>
   </div>
   <div id="story" class="game-modal" style="display:none">
@@ -2305,7 +2302,7 @@
         closeHowTo();
       });
     }
-    // "Skip the tutorial" — retires the objective chip (app.js exposes the
+    // "Skip tutorial" — retires the objective chip (app.js exposes the
     // hook; the ladder keeps tracking quietly underneath) and closes the card.
     document.getElementById('howto-skip')?.addEventListener('click', (e) => {
       e.stopPropagation();
