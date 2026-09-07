@@ -10088,9 +10088,9 @@ class MapScene extends Phaser.Scene {
   }
 
   // Small status message, placed where the player tapped so it stays attached
-  // to the thing they touched.
-  flash(text, x, y) {
-    this._toast(text, { tier: 'note', x, y });
+  // to the thing they touched. `color` is optional — omit for the default ink.
+  flash(text, x, y, color) {
+    this._toast(text, { tier: 'note', x, y, color });
   }
 
   // ── Energy pops ──────────────────────────────────────────────────────────
@@ -10876,7 +10876,7 @@ class MapScene extends Phaser.Scene {
     // wrapper only fires the flash (defaulting to the view centre).
     if (Energy.crossedTired(this.save, before)) {
       this.flash('Getting tired…', sx != null ? sx : this.viewCenterX,
-                                    sy != null ? sy : this.viewCenterY);
+                                    sy != null ? sy : this.viewCenterY, UI_DANGER_INK);
     }
   }
 
