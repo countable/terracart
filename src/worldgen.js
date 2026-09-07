@@ -151,12 +151,24 @@
   //                   parking aisles rasterize to nothing at all, so a cell
   //                   the grid calls grass can be ground the player sees as
   //                   asphalt. Pass it and those cells are refused too.
+  //   opts.occupied : a Set of flat cell indices (cy*w+cx) already claimed by
+  //                   an existing object or wild plant — a rock, a tree, a
+  //                   chest, a produce stand, a tuft of grass. Terrain alone
+  //                   can't see this: the cell reads as ordinary walkable
+  //                   ground, but something is already drawn on it. Without
+  //                   this a trap could be sprung under a rock sprite (the art
+  //                   is its only warning) or an X mark could bury itself
+  //                   under a tree, undiggable until the tree is felled. Caves
+  //                   check the same thing directly (Traps.spawnCave's
+  //                   `occupiedIdx`); this is the surface side of that rule.
   function isSpawnCell(grid, w, h, cx, cy, opts) {
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
     const here = grid[cy * w + cx];
     if (!isWalkable(here)) return false;          // never on water/road/building
     const roadMask = opts && opts.roadMask;
     if (roadMask && roadMask[cy * w + cx]) return false;   // under a drawn road band
+    const occupied = opts && opts.occupied;
+    if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
     if (here !== T.RESIDENTIAL) return true;      // public / open ground — always ok
     const frontage = (opts && opts.frontage != null) ? opts.frontage : SPAWN_FRONTAGE;
     for (let dy = -frontage; dy <= frontage; dy++) {

@@ -96,6 +96,37 @@ test('traps: every trap passes the SHARED spawn rule, not a copy of it', () => {
   }
 });
 
+test('traps: opts.occupied keeps a trap off a cell an object already holds', () => {
+  // Same fixture as the road test — the verge produces plenty of candidate
+  // cells — but every roadside cell the reservoir sample would ever pick is
+  // pre-claimed, exactly as if worldgen had already put a tree or a rock on
+  // it. No occupied cell may host a trap, so the whole surface pass comes
+  // back empty rather than spawning through the claim.
+  const r = rasterize(roadyLayers());
+  const occupied = new Set();
+  for (let cy = 0; cy < CPE; cy++) {
+    for (let cx = 0; cx < CPE; cx++) {
+      if (Traps.isRoadside(r.roadMask, CPE, CPE, cx, cy)) occupied.add(cy * CPE + cx);
+    }
+  }
+  const opts = { roadMask: r.roadMask, pois: [], occupied };
+  const traps = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
+  assert.eq(traps.length, 0, 'every verge cell was claimed, so nothing could seat');
+  // Freeing every other verge cell (a checkerboard over the claim, not one
+  // single cell) lets the pass seat again — deterministically, since the
+  // reservoir sample and the placement attempts are both fixed-seed, but
+  // freeing only one specific cell risks the fixed rng never drawing it
+  // inside the attempt budget. Every trap that DOES land must land on a cell
+  // that was freed, whichever ones the rng happens to pick.
+  for (const idx of [...occupied]) if (idx % 2 === 0) occupied.delete(idx);
+  const partial = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
+  assert.gt(partial.length, 0, 'freeing half the verge lets traps back in');
+  for (const tp of partial) {
+    const idx = cellOf(tp.y) * CPE + cellOf(tp.x);
+    assert.falsy(occupied.has(idx), `trap at ${idx} landed on a cell still marked occupied`);
+  }
+});
+
 test('traps: "along the road" means it — every trap is on the verge of a band', () => {
   const r = rasterize(roadyLayers());
   const traps = spawnFor(r);
@@ -364,6 +395,27 @@ test('traps: the surface spawn passes the SHARED spawn options, mask and all', (
     + 'options every other spawner in that method uses');
   assert.truthy(/Traps\.spawnSurface\([^;]*Difficulty\.get\(\)\.trapCountMul/.test(APP_JS_SRC),
     'the surface density scales with the game mode, not a fixed rate');
+});
+
+test('traps: _spawnOpts carries opts.occupied, built from the tile\'s own objects and wild plants', () => {
+  // spawnInTile can't run headlessly (needs a live scene), so this pins the
+  // construction as source text — the same way the mask/mul wiring above is
+  // pinned. Traps.spawnSurface inherits `occupied` for free once _spawnOpts
+  // carries it (it just forwards `spawnOpts` to WorldGen.isSpawnCell); the
+  // one thing worth pinning is that the set is actually built and actually on
+  // the object every spawner in this method shares.
+  const block = (() => {
+    const a = APP_JS_SRC.indexOf('  spawnInTile(entry, tx, ty) {');
+    const b = APP_JS_SRC.indexOf('\n  }\n', a);
+    assert.truthy(a > 0 && b > a, 'found spawnInTile in app.js');
+    return APP_JS_SRC.slice(a, b);
+  })();
+  assert.truthy(/for \(const o of \(entry\.objects \|\| \[\]\)\) \{[\s\S]*?_occupiedIdx\.add/.test(block),
+    'the occupied set is seeded from entry.objects');
+  assert.truthy(/for \(const wp of \(entry\.wildplants \|\| \[\]\)\) \{[\s\S]*?_occupiedIdx\.add/.test(block),
+    'and from entry.wildplants — a trap or an X must not bury itself under a tuft of grass either');
+  assert.truthy(/occupied: _occupiedIdx,/.test(block),
+    'and the set actually reaches _spawnOpts, not just a local variable nothing reads');
 });
 
 test('traps: answering the how-to card re-lays the traps at that mode\'s density', () => {

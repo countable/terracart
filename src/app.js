@@ -3871,6 +3871,25 @@ class MapScene extends Phaser.Scene {
     // setOf was written for (see its comment), and app.js already uses it
     // for exactly this check in the per-frame wander/render loops.
     const caughtSet = setOf(this.save.caught);
+    // Cells the tile's own rasterize pass already put something on — a tree,
+    // a rock, a chest, a produce stand, a tuft of grass. Snapshotted ONCE,
+    // before this method adds anything of its own, into the same flat-index
+    // shape roadMask already uses (cy*N+cx), so isSpawnCell can check both
+    // with one lookup. Without it a trap could spring under a rock sprite (the
+    // art is its only warning — see traps.js) or an X mark could bury itself
+    // under a tree, undiggable until the tree is felled: roads and buildings
+    // were never the whole rule, just the two terrain alone could see.
+    const _occupiedIdx = new Set();
+    for (const o of (entry.objects || [])) {
+      const ix = Math.floor((o.x - tx * this.tileEdgeM) / this.cellM);
+      const iy = Math.floor((o.y - ty * this.tileEdgeM) / this.cellM);
+      if (ix >= 0 && iy >= 0 && ix < N && iy < N) _occupiedIdx.add(iy * N + ix);
+    }
+    for (const wp of (entry.wildplants || [])) {
+      const ix = Math.floor((wp.x - tx * this.tileEdgeM) / this.cellM);
+      const iy = Math.floor((wp.y - ty * this.tileEdgeM) / this.cellM);
+      if (ix >= 0 && iy >= 0 && ix < N && iy < N) _occupiedIdx.add(iy * N + ix);
+    }
     // Even pets only belong near street frontage / public space inside a
     // residential block, so creature placement shares the spawn rule too.
     // POI chests (already placed by worldgen) count as public anchors.
@@ -3881,6 +3900,7 @@ class MapScene extends Phaser.Scene {
       // paint nothing. Without it the X-mark scatter below reads the grid,
       // is told "grass", and buries treasure in the middle of the asphalt.
       roadMask: entry.roadMask,
+      occupied: _occupiedIdx,
       pois: (entry.objects || [])
         .filter(o => o.kind === 'chest')
         .map(o => ({

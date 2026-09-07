@@ -72,6 +72,18 @@
   **Audit it:** `node test/node/run.js` › `test/node/spawn_roads.test.js` runs
   the real rasterizer over synthetic MVT layers and fails if any object, wild
   plant or buried-X lands on a road cell or under a road band.
+  **Nor on top of anything already there.** Road terrain and the road mask are
+  half the "don't spawn here" rule — the other half is `opts.occupied`, a Set
+  of flat cell indices (`cy*w+cx`, same shape as `roadMask`) already claimed by
+  an object or wild plant. `spawnInTile` (app.js) builds it ONCE from
+  `entry.objects` + `entry.wildplants` before any spawner runs and hands it to
+  every one of them through the same `_spawnOpts` the road mask rides in on —
+  so a trap can't spring under a rock sprite (the art is its only warning) and
+  an X mark can't bury itself under a tree, undiggable until the tree is
+  felled. Caves have always checked this directly (`Traps.spawnCave`'s
+  `occupiedIdx`); `opts.occupied` is the surface side of the same rule, read by
+  `WorldGen.isSpawnCell` right beside `opts.roadMask`. **When you add a
+  spawner, pass both.**
 
 - **The camera is not the player.** Since the peek drag (drag the map to look a
   few cells past the edge; it springs back on release), the viewport centres on
