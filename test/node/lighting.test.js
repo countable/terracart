@@ -190,19 +190,71 @@ test('lighting: a POI breathes slowly, on its own phase', () => {
   assert.gt(Math.abs(Lighting.flickerAlpha(poi, 0, 0, 1234, 'c_2_9') - a0), 0.02, 'phased by id, not in lockstep');
 });
 
-test('lighting: there is no cobble row, and no cell-light list at all', () => {
+test('lighting: the cobble row is the restored street\'s own ink, steady, and there is still no cell-light list', () => {
   // A `cobble` row used to carry a small violet pool per lit trail stone,
-  // offered by drawCells onto its own `_cellLights` list. Restoring a street
-  // is arclength along the way now and road_overlay.js DRAWS it clean — a
-  // restored carriageway needs no light of its own — so the row, the list and
-  // the two functions that fed it are gone together. A row left behind would
-  // be a cookie baked for a kind nothing ever offers.
-  assert.falsy(Lighting.KINDS.cobble, 'no cobble row');
-  assert.falsy(Lighting.TRAIL_LIT, 'and no lit-cobble colour');
+  // offered by drawCells onto its own `_cellLights` list — gone when streets
+  // started restoring by arclength instead of per cobble. The row is BACK now
+  // for the street-lamp feature (one glowing cobble every
+  // Streets.lampSpacingM() metres of RESTORED street), but as a proper light
+  // row a plain point list feeds through collectLamps — never as a revival of
+  // the old per-cell scan.
+  const cobble = Lighting.KINDS.cobble;
+  assert.truthy(cobble, 'the cobble row exists');
+  // Its own ink, not the old violet: the same UI_STREET_INK the chips, the
+  // sparks and the counter over a restored street all wear, parsed to the
+  // same int — one constant, so the lamp can't drift off the colour the
+  // street itself is made of.
+  const ink = parseInt(UI_STREET_INK.replace('#', ''), 16);
+  assert.eq(cobble.colour, ink, 'the row is UI_STREET_INK, not a colour of its own');
+  // STEADY: a fire breathes because it is burning, a POI breathes to ask for
+  // attention — a lamp is infrastructure, and a street of them breathing
+  // would read as a strobe.
+  assert.eq(cobble.flicker, 0, 'no flicker');
+  assert.falsy(cobble.pulse, 'no pulse either');
+  assert.gt(Lighting.KINDS.fire.flicker, 0, 'contrast: a fire does breathe');
+  assert.gt(Lighting.KINDS.poi.pulse, 0, 'contrast: a POI does breathe');
+  // Sized between the POI's marker and the campfire's hearth: bigger than a
+  // marker, smaller than a hearth, so a lamp lights its carriageway and a
+  // couple of cells either side rather than the whole block.
+  assert.gt(Lighting.radiusCells('cobble'), Lighting.radiusCells('poi'), 'bigger than a POI marker');
+  assert.lt(Lighting.radiusCells('cobble'), Lighting.radiusCells('fire'), 'smaller than a campfire');
+  // And there is STILL no per-cell light list: a lamp is a plain array
+  // app.js hands the collector, never an object drawObjects offers.
   assert.eq(typeof Lighting.beginCells, 'undefined', 'no cell-light reset');
   assert.eq(typeof Lighting.considerCobble, 'undefined', 'and nothing to offer one');
-  assert.falsy(/_cellLights/.test(LIGHTING_SRC), 'the list itself is gone from the module');
-  assert.falsy(/considerCobble/.test(RENDER_SRC), 'and render.js no longer offers one');
+  assert.falsy(/_cellLights/.test(LIGHTING_SRC), 'no per-cell light list in the module');
+  assert.falsy(/considerCobble/.test(RENDER_SRC), 'and render.js still offers nothing of the kind');
+});
+
+test('lighting: collectLamps converts absolute lamp metres against the anchor, culled by the light\'s OWN radius', () => {
+  // scene._streetLamps is app.js's plain list of {x, y, id} in ABSOLUTE world
+  // metres — not an object drawObjects offers, so this collector reads it
+  // directly, the same shape collectFires reads the placed-fires list with.
+  const cellM = 5;
+  const pad = Lighting.radiusCells('cobble') * cellM;
+  const s = scene({ cellM, _streetLamps: [
+    { x: 3, y: -4, id: 'near' },
+    { x: HALF_M + pad - 1, y: 0, id: 'edge' },    // past the viewport, inside its OWN halo
+    { x: HALF_M + pad + 50, y: 0, id: 'far' },    // well beyond even its own light
+  ] });
+  Lighting.beginFrame(s);
+  const n = Lighting.collectLamps(s, 0, 0, HALF_M);
+  assert.eq(n, 2, 'the far lamp is culled, the near and edge ones are kept');
+  const byId = {}; for (const L of s._lights) byId[L.id] = L;
+  assert.truthy(byId.near, 'well inside range');
+  assert.truthy(byId.edge, 'a cell off-screen but still inside its own light radius — the halfM+pad cull, not the sprite cull');
+  assert.falsy(byId.far, 'well beyond even its own halo');
+  assert.eq(byId.near.kind, 'cobble', 'a lamp lights as the cobble kind');
+  assert.eq(byId.near.dx, 3); assert.eq(byId.near.dy, -4, 'absolute metres minus the anchor');
+  // No list, or an empty one, is a no-op — like collectFires with no fires.
+  assert.eq(Lighting.collectLamps(scene({ cellM }), 0, 0, HALF_M), 0, 'no list at all');
+  assert.eq(Lighting.collectLamps(scene({ cellM, _streetLamps: [] }), 0, 0, HALF_M), 0, 'an empty list');
+  // And draw() collects them every frame, between the fires and the player.
+  const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
+  assert.truthy(
+    /collectFires\(scene, ax, ay, halfM\);\s*\n\s*collectLamps\(scene, ax, ay, halfM\);\s*\n\s*collectPlayer\(scene, ax, ay, halfM\);/
+      .test(d),
+    'collectLamps runs between collectFires and collectPlayer, every frame');
 });
 
 test('lighting: a BLAST is a transient light on its own clock, at any size', () => {

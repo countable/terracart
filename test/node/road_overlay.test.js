@@ -958,8 +958,8 @@ test('lamp stone: paints inside its own square only', () => {
   for (const [, cx, cy, r] of arcs) {
     assert.inRange(cx, 0, S, 'arc centre x inside the square');
     assert.inRange(cy, 0, S, 'arc centre y inside the square');
-    assert.lte(cx - r, S * 0.01, 'left edge does not spill past the square');
-    assert.gte(cx + r, -S * 0.01);
+    assert.gte(cx - r, -S * 0.01, 'the circle does not spill past the left/top edge');
+    assert.lte(cx + r, S * 1.01, 'nor past the right/bottom edge');
     assert.lt(r, S / 2, 'the stone never reaches the edge of its own tile');
   }
   // Every gradient is likewise centred on the square, with its outer radius
@@ -1023,7 +1023,7 @@ test('lamp stone: painted in the restored street\'s own ink, not the old violet'
   const inkStops = stops.filter((css) => css.startsWith(`rgba(${ir},${ig},${ib},`));
   assert.gt(inkStops.length, 0, `at least one stop is painted in UI_STREET_INK's own channels (${ir},${ig},${ib})`);
   // Never a violet: blue must not lead red the way a violet reads.
-  for (const css of inkStops) assert.gte(ir, ib, 'warm stone: red at least blue, never a violet lead');
+  assert.gte(ir, ib, 'warm stone: red at least blue, never a violet lead');
   // The rim stroke is dark, not the ink itself — what makes the sett read as
   // a laid stone by day rather than a smudge of light.
   const stroke = roStyleAt(ops, ops.length, 'strokeStyle');

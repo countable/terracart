@@ -507,4 +507,88 @@
     const round2 = S.restore(save, TK, key, ripe[0].intervals);
     assert.eq(round2.addedM, 0, 'the street is already clean');
   });
+
+  // ── The LAMPS ────────────────────────────────────────────────────────────
+  // One glowing cobble every lampSpacingM() metres of a RESTORED line — the
+  // arithmetic only, run for real: no Phaser, no scene, no save.
+
+  test('streets lamps: the spacing IS Trail.GOAL_STEP_M — one number, not two', () => {
+    // Resolved at call time (like lighting.js resolves FIRE_REST_R), so a
+    // walk that earns the ladder a rung lights about one lamp and the two can
+    // never come to disagree about the same 200 m.
+    assert.eq(S.lampSpacingM(), Trail.GOAL_STEP_M, 'the lamp spacing is the ladder\'s own rung');
+    assert.eq(Trail.GOAL_STEP_M, 200, 'the rung this whole file pins is 200 m');
+  });
+
+  test('streets lamps: a line under half a spacing gets none', () => {
+    // The floor that keeps a dense block of driveways and parking aisles from
+    // reading as a lit car park.
+    const line = [pt(0, 0), pt(99, 0)];   // just under 100 m = half of 200
+    assert.eq(S.lampsAlong(line, MVT_TO_M, 200).length, 0);
+  });
+
+  test('streets lamps: a line exactly one spacing long gets exactly one, at its midpoint', () => {
+    const line = [pt(0, 0), pt(200, 0)];
+    const lamps = S.lampsAlong(line, MVT_TO_M, 200);
+    assert.eq(lamps.length, 1, 'one lamp');
+    near(lamps[0], 100, 1e-9, 'dead centre of the way');
+  });
+
+  test('streets lamps: a 300 m line gets 2, spread 150 m apart', () => {
+    const line = [pt(0, 0), pt(300, 0)];
+    const lamps = S.lampsAlong(line, MVT_TO_M, 200);
+    assert.eq(lamps.length, 2, 'two lamps');
+    near(lamps[0], 75, 1e-9); near(lamps[1], 225, 1e-9);
+    near(lamps[1] - lamps[0], 150, 1e-9, 'evenly spread, not stamped from the start');
+  });
+
+  test('streets lamps: a 1 km line gets 5, 200 m apart', () => {
+    const line = [pt(0, 0), pt(1000, 0)];
+    const lamps = S.lampsAlong(line, MVT_TO_M, 200);
+    assert.eq(lamps.length, 5, 'five lamps');
+    for (let i = 0; i < 5; i++) near(lamps[i], (i + 0.5) * 200, 1e-9, `lamp ${i}`);
+  });
+
+  test('streets lamps: spread evenly along the line, never on a junction', () => {
+    // The first and last are a HALF interval in from the line's own ends
+    // (which is where OSM cuts a way), so two lamps either side of a split
+    // sit a full spacing apart, as if the way had never been cut.
+    for (const len of [130, 217, 401, 733, 1999, 12345]) {
+      const line = [pt(0, 0), pt(len, 0)];
+      const lamps = S.lampsAlong(line, MVT_TO_M, 200);
+      const n = Math.round(len / 200);
+      if (n < 1) { assert.eq(lamps.length, 0, `too short, len ${len}`); continue; }
+      assert.eq(lamps.length, n, `n = round(len/step), len ${len}`);
+      const gap = len / n;
+      for (let i = 0; i < lamps.length; i++) {
+        assert.gt(lamps[i], 0, `strictly inside the line (0, len), len ${len}`);
+        assert.lt(lamps[i], len, `strictly inside the line (0, len), len ${len}`);
+        if (i > 0) assert.gt(lamps[i], lamps[i - 1], `strictly increasing, len ${len}`);
+      }
+      for (let i = 1; i < lamps.length; i++) near(lamps[i] - lamps[i - 1], gap, 1e-6, `equal gaps, len ${len}`);
+      // The [2/3, 2] ratio is a property of the GAP BETWEEN lamps, which only
+      // exists once there are two or more of them — a lone midpoint lamp on a
+      // short way has no "gap" to compare against the nominal spacing.
+      if (lamps.length > 1) {
+        assert.inRange(gap, 200 * 2 / 3, 200 * 2, `gap within [2/3, 2] x the nominal spacing, len ${len}`);
+      }
+      near(lamps[0], gap / 2, 1e-6, `a half gap in from the start — never on the junction, len ${len}`);
+      near(len - lamps[lamps.length - 1], gap / 2, 1e-6, `a half gap from the end, len ${len}`);
+    }
+  });
+
+  test('streets lamps: covers is EPS-tolerant at both ends', () => {
+    const list = [[10, 20], [50, 60]];
+    assert.truthy(S.covers(list, 15), 'inside an interval');
+    assert.falsy(S.covers(list, 30), 'in the gap between them');
+    assert.truthy(S.covers(list, 10), 'exactly on the left edge');
+    assert.truthy(S.covers(list, 20), 'exactly on the right edge');
+    assert.truthy(S.covers(list, 10 - S.EPS / 2), 'a hair inside EPS of the left edge is still lit');
+    assert.truthy(S.covers(list, 20 + S.EPS / 2), 'and a hair past the right edge');
+    assert.falsy(S.covers(list, 10 - S.EPS * 100), 'well outside EPS is not covered');
+    assert.falsy(S.covers([], 15), 'an empty list covers nothing');
+    assert.falsy(S.covers(null, 15), 'no list at all covers nothing');
+    assert.falsy(S.covers(list, NaN), 'a non-finite arclength is never covered');
+    assert.falsy(S.covers(list, Infinity), 'nor is Infinity');
+  });
 })();
