@@ -35,20 +35,18 @@
     'trees:1':         { fw: 32, fh: 48, minX: 11, minY: 34, maxX: 20, maxY: 46 },
     'trees:2':         { fw: 32, fh: 48, minX: 7,  minY: 14, maxX: 27, maxY: 47 },
     'trees:3':         { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
-    'pine_tree:3':     { fw: 32, fh: 64, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
-    'birch_tree:3':    { fw: 32, fh: 64, minX: 0,  minY: 2,  maxX: 32, maxY: 64 },
-    'mahogany_tree:3': { fw: 32, fh: 64, minX: 0,  minY: 1,  maxX: 32, maxY: 46 },
+    'pine_tree:3':     { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
+    'birch_tree:3':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
+    'mahogany_tree:3': { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 46 },
     'bushes:0':        { fw: 48, fh: 32, minX: 9,  minY: 0,  maxX: 41, maxY: 32 },
     'apple_tree:0':    { fw: 32, fh: 48, minX: 12, minY: 43, maxX: 20, maxY: 46 },
     'apple_tree:2':    { fw: 32, fh: 48, minX: 5,  minY: 14, maxX: 29, maxY: 48 },
     'apple_tree:4':    { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
     'apple_tree:5':    { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
-    'apple_tree:7':    { fw: 32, fh: 48, minX: 0,  minY: 1,  maxX: 32, maxY: 47 },
     'peach_tree:0':    { fw: 32, fh: 48, minX: 12, minY: 42, maxX: 20, maxY: 46 },
     'peach_tree:2':    { fw: 32, fh: 48, minX: 5,  minY: 14, maxX: 28, maxY: 48 },
     'peach_tree:3':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
     'peach_tree:4':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
-    'peach_tree:5':    { fw: 32, fh: 48, minX: 0,  minY: 2,  maxX: 32, maxY: 48 },
     'chest:0':         { fw: 32, fh: 32, minX: 1,  minY: 8,  maxX: 32, maxY: 31 },
     'box:0':           { fw: 16, fh: 16, minX: 0,  minY: 0,  maxX: 16, maxY: 16 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1,  minY: 5,  maxX: 16, maxY: 15 },
@@ -65,7 +63,56 @@
     'pillar:0':        { fw: 16, fh: 32, minX: 1,  minY: 0,  maxX: 15, maxY: 28 },
     'scarecrow:0':     { fw: 48, fh: 48, minX: 3,  minY: 8,  maxX: 45, maxY: 47 },
     'bonfire:0':       { fw: 16, fh: 32, minX: 1,  minY: 9,  maxX: 14, maxY: 31 },
+    'torch:0':         { fw: 16, fh: 32, minX: 5,  minY: 5,  maxX: 12, maxY: 32 },
   };
+
+  // ── Plain rock: what the art SHOWS is what it DROPS ───────────────────────
+  // The four "plain rock" looks (row 15, cols 3..6 of the mineralrock sheet)
+  // are NOT interchangeable: col 3 draws a PAIR of stones — a small one
+  // overlapping a larger one — and cols 4..6 draw a single stone. Until Sep
+  // 2026 the variant was a pure cosmetic hash and every one of them dropped the
+  // same randInt(1,3), so the pair-of-stones rock could hand you one rock and a
+  // lone pebble could hand you three. The art made a promise the loot ignored.
+  //
+  // `stones` is that promise, written down once: render.js picks the frame from
+  // `col` and interactables.js rolls the yield off `stones`, so the rock you
+  // see and the count you get can't drift apart (same discipline as
+  // roadOverlayWidthM and CREATURE_ART).
+  //
+  // NOTE the pair is a SINGLE connected blob (the two stones touch), so no
+  // pixel pass can count them for us — `stones` is authored, not measured. The
+  // tripwire if the sheet is ever re-cut is the ART_BOUNDS drift check in
+  // tools/sprite_audit.js: it pins 'mineralrock:168' at 15px wide against the
+  // singles' 9-13, and fails if the art moves without the table.
+  const PLAIN_ROCK_VARIANTS = [
+    { col: 3, stones: 2 },   // a pair — small stone overlapping a larger one
+    { col: 4, stones: 1 },   // single, small
+    { col: 5, stones: 1 },   // single, small
+    { col: 6, stones: 1 },   // single, chunkier
+  ];
+  // Row 15 of the sheet (11 cols) holds the small rock variants; the other rows
+  // are boulder-sized art that bleeds past the 16×16 frame at render scale.
+  const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
+
+  // Which variant a given plain rock wears. Stable per rock: a cave rock keys
+  // off its caveVariant, a surface rock off its cell so the same spot always
+  // renders (and yields) the same. BOTH callers go through here — the frame in
+  // render.js and the yield in interactables.js — so neither can pick a
+  // different rock than the other.
+  function plainRockVariant(o) {
+    const v = (o && o.caveVariant != null)
+      ? (o.caveVariant % PLAIN_ROCK_VARIANTS.length)
+      : ((((Math.round((o && o.x) || 0) + Math.round((o && o.y) || 0))
+          % PLAIN_ROCK_VARIANTS.length) + PLAIN_ROCK_VARIANTS.length)
+          % PLAIN_ROCK_VARIANTS.length);
+    return PLAIN_ROCK_VARIANTS[v];
+  }
+  // Sheet frame index for a plain rock — what render.js draws.
+  function plainRockFrame(o) {
+    return PLAIN_ROCK_ROW * MINERALROCK_COLS + plainRockVariant(o).col;
+  }
+  // How many stones the art shows — what interactables.js pays out.
+  function plainRockStones(o) { return plainRockVariant(o).stones; }
 
   // Given a frame's trimmed bounds (max exclusive), its origin (anchor as a
   // fraction of the frame box) and its X/Y scale, return the { dxPx, dyPx }
@@ -86,6 +133,42 @@
     return { dxPx, dyPx, fits };
   }
 
+  // ── Fruit-tree crowns ────────────────────────────────────────────────────
+  // A fruit tree that is BEARING wears the fruit as its own little sprite on
+  // the canopy (render.js's fruit pass) rather than the tree swapping to its
+  // sheet's fruiting frame — so a pick takes the fruit away, it doesn't change
+  // the tree.
+  //
+  // That overlay has to sit on the LEAFY MASS, and the leafy mass is not the
+  // art's full bounds: those run on down through the trunk to the root base,
+  // and their midline lands on bare bark. CROWN_BOUNDS is the canopy box of
+  // the mature frame each species renders — the rows above where the leaves
+  // give out and the trunk begins.
+  // GENERATED — `node tools/sprite_audit.js --emit-bounds` prints it beneath
+  // ART_BOUNDS; the audit re-derives it from the real PNGs (canopy = down to
+  // the first row past the widest whose span drops under half that width) and
+  // fails if this table has drifted from the art.
+  const CROWN_BOUNDS = {
+    'apple_tree:4': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 34 },
+    'peach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 35 },
+  };
+
+  // Offset in screen px from a fruit tree sprite's ANCHOR (its x/y — wherever
+  // the seat pass put it) to the centre of its crown, which is where the fruit
+  // goes. Derived from the art the tree is actually drawing and the origin /
+  // scale it drew at, so a re-seated, re-scaled or re-framed tree carries its
+  // fruit with it instead of leaving it behind at a hand-picked offset.
+  // Returns null for a frame with no crown box — a sprout or a young tree
+  // can't be bearing, so it never needs one.
+  function fruitCrownOffset(texKey, frame, originX, originY, scaleX, scaleY) {
+    const c = CROWN_BOUNDS[`${texKey}:${frame}`];
+    if (!c) return null;
+    return {
+      dxPx: ((c.minX + c.maxX) / 2 - originX * c.fw) * scaleX,
+      dyPx: ((c.minY + c.maxY) / 2 - originY * c.fh) * scaleY,
+    };
+  }
+
   // ── Creatures ────────────────────────────────────────────────────────────
   // Creatures are EXEMPT from the seat rule above (they're moving actors, and
   // they're drawn feet-anchored so a cow can tower over its cell). But the
@@ -102,30 +185,83 @@
   //           doesn't jitter while a slime bounces under it.
   //   minY/maxY  trimmed opaque rows of the REFERENCE frame (frame 0, the rest
   //           pose — sibling frames agree to within a pixel), max EXCLUSIVE.
+  //   sheet   the assets.js texture key the kind is DRAWN FROM (every row has
+  //           one), and `frames` the length of its row-0 cycle where the
+  //           renderer animates it. Two kinds may name the SAME sheet — the
+  //           cave slime is the surface slime's art — which is exactly why
+  //           these live here: `tint` is then the only thing that tells them
+  //           apart, and one table both the renderer and the audit read is the
+  //           only way those two facts stay in step.
+  //   tint    the multiply colour the sprite is drawn in — absent means the
+  //           art's own colours (0xffffff). See the cave slime's row.
   //
-  // render.js reads scale/foot/float from here so the drawn sprite and the
-  // wheel can't drift apart, and `node tools/sprite_audit.js` re-decodes the
-  // real PNGs to check minY/maxY hasn't drifted from the art.
+  // render.js reads sheet/frames/scale/foot/float/tint from here so the drawn
+  // sprite and the wheel can't drift apart, and `node tools/sprite_audit.js`
+  // re-decodes the real PNGs (resolving `sheet` through assets.js) to check
+  // minY/maxY hasn't drifted from the art.
+
+  // THE CAVE SLIME'S TINT — and why a tint at all. The cave slime has no art:
+  // it is drawn from the surface slime's own sheet, so until Sep 2026 the two
+  // were the same pixels and the lair KIND LADDER (src/lairs.js: surface slime
+  // near, cave slime a third out, purple slime two thirds) escalated
+  // INVISIBLY — a player could not see that the ruin in front of them held the
+  // tougher foe. A tint is what the game already uses to say "this creature is
+  // a different thing" (the elite's SHINY_TINT, the frozen ICE), so the cave
+  // slime gets one rather than a second mechanism of its own.
+  //   The VALUE is constrained, not a taste. A Phaser tint MULTIPLIES, and the
+  // sheet's body is #7ec433 — a bright lime with almost no blue (0x33) — so no
+  // tint can make it cold or pale, and the only free axis is hue. It is taken
+  // to OLIVE (#7e7e30) rather than to anything darker on purpose: the lightmap
+  // multiplies over the world too, so a merely darker slime reads as one
+  // STANDING IN SHADOW, not as another kind. Same luminance, different hue, is
+  // the one change a player can read at noon and underground alike.
+  const CAVE_SLIME_TINT = 0xffa4f0;
+
   const CREATURE_ART = {
-    chicken:       { fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
-    cow:           { fw: 32, fh: 32, scale: 1.50, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
-    cat:           { fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
-    dog:           { fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
-    deer:          { fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
-    rabbit:        { fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
-    crow:          { fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
-    butterfly:     { fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
-    slime:         { fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
-    // Underground monsters. cave_slime reuses the slime sheet (tinted) but has
-    // never had a CREATURE_FOOT entry, so it draws on the blanket 0.9 origin —
-    // recorded here as it renders TODAY rather than "fixed", so this table
-    // stays a description of what's on screen. (It does mean the cave slime
-    // hangs ~10 px above its own contact shadow; worth a separate look.)
-    cave_slime:    { fw: 32, fh: 32, scale: 1.25, foot: 0.9,     float: 0,  minY: 10, maxY: 21 },
-    purple_slime:  { fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
-    goblin:        { fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
-    goblin_archer: { fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
+    chicken:       { sheet: 'chicken',   fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
+    cow:           { sheet: 'cow',       fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
+    cat:           { sheet: 'cat',       fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
+    dog:           { sheet: 'dog',       fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
+    deer:          { sheet: 'deer',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
+    rabbit:        { sheet: 'rabbit',    fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
+    crow:          { sheet: 'crow',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
+    butterfly:     { sheet: 'butterfly', fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
+    slime:         { sheet: 'slime',     frames: 4, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
+    // Underground monsters. The cave slime is the SURFACE SLIME'S SHEET — same
+    // file, same frames, same trimmed rows — so everything the art decides has
+    // to match the row above it, and the one thing that may differ is the
+    // tint. It carried `foot: 0.9` (the blanket fallback from before this
+    // table existed) until Sep 2026, which hung it ~10px above its own contact
+    // shadow: one body cannot have two ground lines.
+    cave_slime:    { sheet: 'slime',     frames: 4, fw: 32, fh: 32, scale: 1.25, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: CAVE_SLIME_TINT },
+    purple_slime:  { sheet: 'purple_slime',  frames: 4, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
+    goblin:        { sheet: 'goblin',        frames: 6, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
+    goblin_archer: { sheet: 'goblin_archer', frames: 6, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
   };
+  // ── GIANTS ────────────────────────────────────────────────────────────────
+  // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
+  // times the HP, two levels deeper). A giant has NO art of its own: it is its
+  // base kind's sheet drawn GIANT_ART_SCALE larger. So there is no giant row in
+  // CREATURE_ART — creatureArt() below resolves a giant to the base row with
+  // its scale multiplied, and every consumer (the renderer's scale and foot,
+  // the wheel and health-bar seating, interact.js's tap box) goes through it.
+  // One number here is what makes the drawn size, the tap box and the wheel
+  // seat agree; a second 1.8 anywhere is the drift the crown rule warns about.
+  const GIANT_PREFIX = 'giant_';
+  const GIANT_ART_SCALE = 1.8;
+  function isGiantKind(kind) { return typeof kind === 'string' && kind.startsWith(GIANT_PREFIX); }
+  // The kind whose art (and, in app.js, whose quest credit) a kind draws on.
+  function baseKind(kind) { return isGiantKind(kind) ? kind.slice(GIANT_PREFIX.length) : kind; }
+  const _giantArt = {};
+  // The CREATURE_ART row for `kind` — the base row, scaled up, for a giant.
+  function creatureArt(kind) {
+    if (!isGiantKind(kind)) return CREATURE_ART[kind];
+    if (_giantArt[kind]) return _giantArt[kind];
+    const base = CREATURE_ART[baseKind(kind)];
+    if (!base) return undefined;
+    return (_giantArt[kind] = { ...base, scale: base.scale * GIANT_ART_SCALE });
+  }
+
   // Every creature is drawn this far below its projected cell centre, so its
   // art bottom lands on the centre of its contact shadow (render.js).
   const CREATURE_GROUND_DY = 2;
@@ -149,9 +285,22 @@
 
   // Vertical origin the renderer should anchor `kind` at (fraction of frame).
   function creatureFoot(kind) {
-    const a = CREATURE_ART[kind];
+    const a = creatureArt(kind);
     return a ? a.foot : 0.9;
   }
+  // The renderer's scale and float for `kind`, giant-aware.
+  function creatureScale(kind) { return creatureArt(kind)?.scale ?? 1; }
+  function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
+  // The sheet a kind is drawn from, and how many frames of its row-0 cycle the
+  // renderer runs. A GIANT is its base kind's art, so both come through
+  // creatureArt and a giant can never end up on a sheet of its own.
+  function creatureSheet(kind) { return creatureArt(kind)?.sheet ?? null; }
+  function creatureFrames(kind) { return creatureArt(kind)?.frames ?? 1; }
+  // The multiply colour a kind is drawn in — white for art that is already its
+  // own colour. This is the ONLY thing separating two kinds that share a sheet
+  // (see CAVE_SLIME_TINT), so it is read from the table rather than branched
+  // on in the renderer, and a giant inherits its base kind's.
+  function creatureTint(kind) { return creatureArt(kind)?.tint ?? 0xffffff; }
 
   // THE CREATURE WHEEL RULE: the work-progress wheel RESTS ON the animal's
   // CROWN — the top row of its visible art, at rest. The ring's top edge sits
@@ -175,7 +324,7 @@
   // Returns the offset in screen px from the creature's projected cell centre
   // to the wheel centre (negative = up the screen).
   function creatureWheelDy(kind) {
-    const a = CREATURE_ART[kind];
+    const a = creatureArt(kind);
     if (!a) return CREATURE_WHEEL_FALLBACK_DY;
     const anchorY = CREATURE_GROUND_DY - a.float;      // where the origin lands
     const artTop = anchorY - (a.foot * a.fh - a.minY) * a.scale;
@@ -195,7 +344,7 @@
   // Returns the offset in screen px from the creature's projected cell centre
   // to the bar's TOP edge (negative = up the screen).
   function creatureHealthBarTop(kind) {
-    const a = CREATURE_ART[kind];
+    const a = creatureArt(kind);
     if (!a) {
       // No art entry: hang the bar over where the fallback wheel's outer edge
       // would be, so an unknown kind still reads sanely.
@@ -209,9 +358,13 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell,
+    PLAIN_ROCK_VARIANTS, plainRockFrame, plainRockStones,
+    CROWN_BOUNDS, fruitCrownOffset,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
-    creatureFoot, creatureWheelDy, creatureHealthBarTop,
+    GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
+    CAVE_SLIME_TINT, creatureSheet, creatureFrames, creatureTint,
+    creatureFoot, creatureScale, creatureFloat, creatureWheelDy, creatureHealthBarTop,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

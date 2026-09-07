@@ -37,7 +37,7 @@
     // the safety net's own work. None may close the capture window.
     for (const k of PROVISIONAL_ORIGIN_KEYS) {
       const save = {};
-      save[k] = (k === 'starterCratesAt' || k === 'starterPlotAt')
+      save[k] = (k === 'starterCratesAt' || k === 'starterPlotAt' || k === 'starterPondAt')
         ? { x: 1, y: 2 } : { v: 1, placed: [], tamed: [], done: true, tries: 1 };
       assert.falsy(placed(save), `${k} is provisional and must not disarm home capture`);
     }
@@ -50,6 +50,7 @@
       starterCratesAt: { x: 10, y: 20 },
       starterPlotAt: { x: 30, y: 40 },
       starterHome: { v: 1, placed: [{ k: 'tree', x: 1, y: 2, id: 'starter_tree_1_2' }], tamed: [], done: true, tries: 1 },
+      starterPondAt: { x: 200, y: 180 },
     }), 'the safety net alone can never disarm the capture it stayed armed for');
   });
 

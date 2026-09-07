@@ -89,13 +89,19 @@ test('MINERAL_ICON_SHEET: coal uses coal_icon sheet, frame 0', () => {
   assert.eq(MINERAL_ICON_SHEET['coal'].frame, 0);
 });
 
-test('MINERAL_ICON_SHEET: gem frames — sapphire 4, ruby 0, emerald 3 (all on gems sheet)', () => {
+test('MINERAL_ICON_SHEET: gem frames — diamond 0, ruby 1, sapphire 3, emerald 5 (all on gems sheet)', () => {
+  // Gemstones.png row 0, left to right: cyan diamond, red ruby, purple shard,
+  // blue sapphire, orange topaz, green emerald, pink quartz. The old pins
+  // (sapphire 4 / ruby 0 / emerald 3) drew a topaz, a diamond and a sapphire.
+  // test/node/diamond.test.js pins the four together (pixel-verified order).
+  assert.eq(MINERAL_ICON_SHEET['diamond'].sheet, 'gems');
+  assert.eq(MINERAL_ICON_SHEET['diamond'].frame, 0);
   assert.eq(MINERAL_ICON_SHEET['sapphire'].sheet, 'gems');
-  assert.eq(MINERAL_ICON_SHEET['sapphire'].frame, 4);
+  assert.eq(MINERAL_ICON_SHEET['sapphire'].frame, 3);
   assert.eq(MINERAL_ICON_SHEET['ruby'].sheet, 'gems');
-  assert.eq(MINERAL_ICON_SHEET['ruby'].frame, 0);
+  assert.eq(MINERAL_ICON_SHEET['ruby'].frame, 1);
   assert.eq(MINERAL_ICON_SHEET['emerald'].sheet, 'gems');
-  assert.eq(MINERAL_ICON_SHEET['emerald'].frame, 3);
+  assert.eq(MINERAL_ICON_SHEET['emerald'].frame, 5);
 });
 
 test('MINERAL_ICON_SHEET: fruit-tree saplings use the species tree sheet at frame 2', () => {
@@ -240,12 +246,14 @@ test('CROP_SPRITE: starflower is props frame 102 (row 4, col 14 → 4*22+14=102)
   assert.eq(4 * 22 + 14, 102, 'frame derivation');
 });
 
-// ── CROP_SPRITE: shell uses shell_sheet with 12 variants ──────────────────
+// ── CROP_SPRITE: shell lists the three frames that carry a shell ──────────
+// Shell.png is a 3×4 grid, but only its top row is shell art — see
+// test/node/shell_variants.test.js for what counting the cells instead cost.
 
-test('CROP_SPRITE: shell uses shell_sheet, custom: true, 12 variants', () => {
+test('CROP_SPRITE: shell uses shell_sheet, custom: true, frames 0-2', () => {
   assert.eq(CROP_SPRITE['shell'].sheet, 'shell_sheet');
   assert.eq(CROP_SPRITE['shell'].custom, true);
-  assert.eq(CROP_SPRITE['shell'].variants, 12);
+  assert.eq(CROP_SPRITE['shell'].frames.join(','), '0,1,2');
 });
 
 // ── Structural invariants for CROP_ROW ────────────────────────────────────

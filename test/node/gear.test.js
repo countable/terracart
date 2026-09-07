@@ -19,23 +19,25 @@ test('equip: a relic just sets its slot to the tier', () => {
   assert.eq(save.energy, 50, 'relics don’t touch energy');
 });
 
-test('equip: armor raises maxEnergy and grants the headroom delta', () => {
-  const save = { relics: {}, armor: {}, energy: 100, maxEnergy: 100 };
+test('equip: armor fills its slot and never touches the energy bar', () => {
+  // It used to raise the max-energy CAP and grant the freshly-unlocked
+  // headroom as a delta. Armour soaks damage now — read live off save.armor
+  // when a blow lands — so equipping banks nothing at all.
+  const save = { relics: {}, armor: {}, energy: 40, maxEnergy: 100 };
   Gear.equip(save, 'armor', 'helmet', 3);
-  assert.gt(save.maxEnergy, 100, 'helmet raised the cap');
-  assert.eq(save.energy, save.maxEnergy, 'current energy bumped by the same delta');
+  assert.eq(save.armor.helmet.tier, 3, 'the slot is filled');
+  assert.eq(save.energy, 40, 'no headroom granted');
+  assert.eq(Energy.maxEnergy(save), 100, 'and no cap raised');
 });
 
-test('equip: a SECOND armor piece bumps by its own delta, not the whole max', () => {
-  const save = { relics: {}, armor: {}, energy: 100, maxEnergy: 100 };
+test('equip: a SECOND armor piece adds its own soak, and still no energy', () => {
+  const save = { relics: {}, armor: {}, energy: 5, maxEnergy: 100 };
   Gear.equip(save, 'armor', 'helmet', 3);
-  const afterHelmet = save.maxEnergy;
-  // Spend some energy, then equip boots — only the boots' delta is granted.
-  save.energy = 5;
+  const afterHelmet = armorReduction(save.armor);
   Gear.equip(save, 'armor', 'boots', 2);
-  const delta = save.maxEnergy - afterHelmet;
-  assert.gt(delta, 0, 'boots raised the cap further');
-  assert.eq(save.energy, 5 + delta, 'energy bumped by the boots delta only');
+  assert.eq(afterHelmet, 3, 'a T3 helmet soaks 3 — one per tier');
+  assert.eq(armorReduction(save.armor), 3 + 2, 'boots add their own tier on top');
+  assert.eq(save.energy, 5, 'the bar is exactly where it was');
 });
 
 test('equip: a weapon relic (sword/bow/staff) becomes the active weapon', () => {
@@ -115,6 +117,17 @@ test('blacksmithRecipe: tools use the tier bar (≥5), jewelry uses gems+bar', (
   assert.eq(ringT3[0].id, 'ruby', 'ring uses rubies');
   assert.eq(ringT3[0].qty, 2, 'geometric ramp: 2^(3-2)=2');
   assert.eq(ringT3[1].id, 'iron_bar', 'plus the tier bar');
+  // Below the Frost tier every slot keeps its own gem, up to 16 at T6.
+  const staffT6 = Gear.blacksmithRecipe('relic', 'staff', 6);
+  assert.eq(staffT6[0].id, 'emerald', 'T6 staff still wants emeralds');
+  assert.eq(staffT6[0].qty, 16, '2^(6-2)=16');
+  // At T7 every jewelry slot is cut around diamonds instead — same quantity.
+  for (const slot of ['ring', 'staff', 'amulet']) {
+    const t7 = Gear.blacksmithRecipe('relic', slot, 7);
+    assert.eq(t7[0].id, 'diamond', `T7 ${slot} wants diamonds`);
+    assert.eq(t7[0].qty, 32, '2^(7-2)=32 — the ramp is unchanged');
+    assert.eq(t7[1].id, 'frost_bar', 'plus the frost bar');
+  }
 });
 
 test('smeltingRecipe + smeltUnlockedBars: T5+ bars, always available', () => {
