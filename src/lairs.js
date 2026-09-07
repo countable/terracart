@@ -29,12 +29,16 @@
 // a house 1 → 5). Retune a lair by moving a TIER_GUARDS row or the ceiling;
 // a fudge factor added here breaks the correspondence the tests pin.
 //
-// THEY DO NOT MOVE. A garrison is a place, not a patrol: each guard carries
-// `immobile: true` and app.js's wanderCreatures skips its movement step (it
-// still leeches, and it can still be killed — see the immobile branch there).
-// A wandering garrison would walk itself off the building within a minute and
-// the whole point — that THIS ruin is held — would be gone by the time the
-// player got close enough to see it.
+// THEY HOLD, THEY HUNT, THEY GIVE UP. A garrison is a place, not a patrol:
+// each guard carries `immobile: true`, meaning it does not WANDER, and
+// app.js's wanderCreatures routes it through `guardState` instead. At rest it
+// stands on its seat, so the ruin reads as held from across the street — a
+// garrison that wandered would walk itself off the building within a minute
+// and the whole point, that THIS ruin is held, would be gone before the player
+// got close enough to see it. Come near and the whole garrison comes at you at
+// once; get clear and it walks back. Both rings are measured from the RUIN, so
+// the chase is bounded and the ruin is still held for whoever comes at it
+// next. See LAIR_AGGRO_CELLS.
 //
 // ── WHY THE GARRISON IS WOKEN, NOT SPAWNED ───────────────────────────────
 //
@@ -168,6 +172,88 @@
     KIND_LADDER[tier] = kinds.map((kind, i) => ({ kind, minT: i / kinds.length }));
   }
 
+  // ── Is this ruin held AT ALL? ────────────────────────────────────────────
+  // Until Sep 2026 every eligible structure past the near ring was, which made
+  // a garrison a property of the MAP rather than a discovery: on a suburban
+  // street the player learned within a minute that all of it was held and
+  // stopped looking. Looking in a building has to be a gamble, so each one
+  // rolls for it — and the odds are the TIER'S, the same axis that decides
+  // what is in there and how many:
+  //
+  //   a CASTLE is nearly always held. It is the landmark version of the whole
+  //   mechanic and a player who walks to one has decided to; finding it empty
+  //   would be the anticlimax, not the surprise.
+  //   a FORT usually is. Rarer on a real map than a house and a fortification
+  //   besides, so "probably" reads better than either certainty.
+  //   a WRECKED HOUSE is a third of the time. That is the number that makes a
+  //   street worth walking down: two you can loot, one you cannot.
+  //
+  // `thinned` is which of them the per-tile budget below is allowed to touch.
+  const OCCUPANCY = {
+    9:  { rate: 1 / 3, thinned: true  },   // T.BUILDING       — the commons
+    11: { rate: 2 / 3, thinned: false },   // T.BUILDING_MED   — a fort
+    12: { rate: 0.95,  thinned: false },   // T.BUILDING_LARGE — a castle
+  };
+
+  // ── The per-tile budget ──────────────────────────────────────────────────
+  // A tile is ~1.6 km on a side (~2.5 km² at mid-latitudes) and a dense urban
+  // one carries thousands of wrecks, so a flat one-in-three would put over a
+  // THOUSAND held ruins on it — a warzone rather than a walk, and a rate the
+  // player could no more read as "a third" than they could count them. So the
+  // tile gets a ceiling on how many of its ruins are held, and the rates above
+  // are scaled to meet it.
+  //
+  // THE CEILING IS SPENT ON THE RARE TIERS FIRST. Scaling every tier equally
+  // would make a castle in a city 5% likely to be held, which is the opposite
+  // of what the table above promises — and castles and forts are rare by
+  // construction, so they can never be the flood the budget exists for. They
+  // keep their authored rate always, and the WRECKS are thinned by whatever
+  // room is left. On a village (say 100 buildings, ~33 expected) nothing is
+  // thinned at all and one house in three really is held; on a 3000-building
+  // city the wrecks drop to about 1.5% and the landmarks are untouched.
+  const LAIR_MAX_PER_TILE = 50;
+
+  // The factor the THINNED tiers' rates are multiplied by on this tile: 1 when
+  // the tile is inside its budget, and otherwise exactly what brings the
+  // expected count back to LAIR_MAX_PER_TILE. Memoised on the entry — this is
+  // a fact about the tile, asked once per structure that ever wakes.
+  //
+  //   ONE UNSLICED PASS, on purpose. It reads `tier` off each shape and adds a
+  // number; there is no geometry, no allocation and no Map, so a 6000-building
+  // tile costs a fraction of a millisecond — nothing like the ~7ms the bbox
+  // index below costs, which is why THAT one is sliced and this one is not.
+  // It also has to be whole before anything wakes: a factor computed off half
+  // the tile would make whether a ruin is held depend on WHEN the player got
+  // there, which is the one thing the per-structure seed exists to prevent.
+  //
+  //   A REBUILT ENTRY IS A NEW OBJECT and recomputes it (the CLAUDE.md rebuild
+  // contract) — its buildingShapes are new too, so the factor genuinely may
+  // move. Ruins already woken are in the entry's resident set and are never
+  // re-rolled; what can change is a ruin the player has not reached yet, which
+  // is a ruin they have never seen either way.
+  function tileThin(entry) {
+    if (!entry) return 1;
+    if (entry._lairThin != null) return entry._lairThin;
+    const shapes = entry.buildingShapes || [];
+    let reserved = 0, thinnable = 0;
+    for (let i = 0; i < shapes.length; i++) {
+      const sh = shapes[i];
+      const occ = sh && OCCUPANCY[sh.tier];
+      if (!occ) continue;
+      if (occ.thinned) thinnable += occ.rate; else reserved += occ.rate;
+    }
+    const room = Math.max(0, LAIR_MAX_PER_TILE - reserved);
+    return (entry._lairThin = (thinnable > room ? room / thinnable : 1));
+  }
+
+  // The odds a structure of `tier` is held, on a tile whose thinning factor is
+  // `thin`. 0 for a tier that holds no lair — the same answer capFor gives it.
+  function occupancyFor(tier, thin) {
+    const occ = OCCUPANCY[tier];
+    if (!occ) return 0;
+    return occ.thinned ? occ.rate * (thin == null ? 1 : thin) : occ.rate;
+  }
+
   // ── Residency ────────────────────────────────────────────────────────────
   // How close the player must come for a ruin's garrison to exist, and how far
   // they must go for it to stop existing. The wake ring has to clear every
@@ -177,9 +263,50 @@
   // (Combat SHOT_SPECS bow, 8) — so nothing is ever woken in view or shot at
   // before it is woken. `assertRingsClear` is the check, called by the test.
   const LAIR_WAKE_CELLS = 16;
-  // And the gap to sleep is hysteresis. One ring would wake and sleep a
-  // garrison every pass while the player stood on it.
-  const LAIR_SLEEP_CELLS = 20;
+
+  // ── The chase ────────────────────────────────────────────────────────────
+  // A garrison HOLDS ITS RUIN until the player comes near, then comes at them
+  // as a group, and gives up and walks back when they have got clear. The
+  // resting half is what the old flat `immobile` bought — the ruin is visibly
+  // held from across the street, which it would not be if the guards wandered
+  // off — and the chase is what turns "a ruin with monsters in it" into a
+  // decision made at speed.
+  //
+  // BOTH RINGS ARE MEASURED FROM THE RUIN, not from the guard, and both are
+  // offset by the ruin's own seat radius (`c.lairR`, the ring the guards were
+  // seated on). Two things fall out of that and neither is incidental:
+  //
+  //   THE GARRISON MOVES AS ONE. Every guard of a lair is the same distance
+  //   question, so they notice together and give up together — the "pursuing
+  //   group" rather than a trickle of individuals aggroing as the player
+  //   brushes past each of them.
+  //
+  //   THE CHASE IS BOUNDED. A guard can never be more than a leash from its
+  //   own ruin, so the garrison cannot be walked across the map and left
+  //   somewhere it does not belong, and the ruin behind it is still held for
+  //   the next player who comes at it from the other side. Measuring the leash
+  //   from the GUARD instead would never break: a foe that keeps pace never
+  //   falls behind, and the pursuit would only end when something else ended
+  //   it.
+  //
+  // The offset by `lairR` is what keeps a castle honest — its footprint is
+  // tens of metres across, so a ring measured from the CENTRE would have the
+  // player standing on the battlements before anyone looked up.
+  const LAIR_AGGRO_CELLS = 6;    // clear of the ruin's edge: the garrison notices
+  const LAIR_LEASH_CELLS = 10;   // and this far out it gives up and goes home
+  // How close to its seat counts as home — a guard inside this is at rest
+  // again. A fraction of a cell, so it is the arrival test and nothing more.
+  const LAIR_SEAT_EPS_CELLS = 0.25;
+
+  // And the gap to sleep is hysteresis: one ring would wake and sleep a
+  // garrison every pass while the player stood on it. It is DERIVED from the
+  // leash rather than authored, because a guard may be a whole leash from its
+  // ruin when the player crosses out — sleeping the garrison is measured from
+  // the RUIN, so the gap has to cover the distance a guard can have put
+  // between itself and that ruin, or a pursuer would blink out in plain sight
+  // on the way home. assertRingsClear checks what is left against the sprite
+  // cull.
+  const LAIR_SLEEP_CELLS = LAIR_WAKE_CELLS + LAIR_LEASH_CELLS;
   // The most guards that may be woken around the player at once. This is the
   // cap that the per-tile budget was reaching for and missing: what matters is
   // not how many a TILE holds — the player is never standing in all of it —
@@ -397,6 +524,15 @@
     // ONE STREAM PER STRUCTURE, seeded from the structure's own key. Nothing
     // outside this building can move a single number in it.
     const rng = WG.makeRng(hashKey(cand.sid));
+    // IS IT HELD AT ALL — the first question, so it is the first draw. Taken
+    // from the structure's own stream like everything else here, which is what
+    // makes an empty ruin as stable as a full one: it is empty on every wake,
+    // every rebuild and every reload, rather than re-rolled into a garrison
+    // the moment the player looks away. (stepResidency marks a lair resident
+    // even when it wakes empty, so this is not even re-asked within a session.)
+    // The tile's thinning factor is the only thing here that is not the
+    // building's own — see tileThin.
+    if (rng() >= occupancyFor(cand.tier, tileThin(entry))) return [];
     const n = countFor(cap, rng);
     const N = entry.cellsPerEdge;
     const ox = cand.ox, oy = cand.oy;
@@ -430,7 +566,14 @@
       if (caught && caught.has(id)) continue;
       const g = {
         x: seat.x, y: seat.y, kind, id, shiny: false,
+        // `immobile` still means "this creature does not wander": app.js reads
+        // it to route the guard through Lairs.guardState instead of the
+        // ordinary fauna step. Where it goes from here is that state's answer,
+        // and it needs three more facts about the ruin to give one — the seat
+        // to come home to, and the centre and radius both rings are measured
+        // from (see LAIR_AGGRO_CELLS).
         immobile: true, lair: cand.sid, lairX: cand.wx, lairY: cand.wy,
+        lairR: seatR, seatX: seat.x, seatY: seat.y,
       };
       // A guard the player wounded and walked away from comes back wounded.
       // Session-only, like every other creature's `_hp` (combat.js) — it is
@@ -451,6 +594,45 @@
       h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
     }
     return h >>> 0;
+  }
+
+  // ── What a guard is doing this tick ──────────────────────────────────────
+  // The one answer app.js's wanderCreatures asks per guard, so the rings, the
+  // hysteresis and the arrival test live HERE with the numbers rather than
+  // spread across the movement loop. Three states and no others:
+  //
+  //   'hold'    at rest on its seat. It does not step, and it is not
+  //             interested in the player — this is the old flat `immobile`.
+  //   'hunt'    the player is inside the ruin's aggro ring (or was, and has
+  //             not yet reached the leash). It steps toward them and it bites.
+  //   'return'  it has given up and is walking back to its seat. It does NOT
+  //             bite on the way: the player got clear, and a guard that kept
+  //             leeching while it walked home would mean they had not.
+  //
+  // The hysteresis is `c._hunting`, which the CALLER stores back — session
+  // state on the creature like `_hp`, so a guard slept mid-chase comes back
+  // at its seat, holding. Between the two rings a guard that has never noticed
+  // the player keeps holding and one already chasing keeps chasing, which is
+  // what stops a garrison flickering while the player walks the boundary.
+  // `noticed` is the caller's "is the player worth hunting at all" — app.js's
+  // `unnoticed` (Shadow Powder, or a player downed on an empty bar) inverted.
+  // Passed in rather than read here so this module stays pure, and it switches
+  // the CHASE off exactly where it already switches the bite off: a garrison
+  // that has lost the player walks home instead of milling about wherever it
+  // happened to be standing when they vanished.
+  function guardState(c, p, cellM, noticed) {
+    if (!c || !c.lair) return null;
+    if (!p || !(cellM > 0)) return 'hold';
+    if (noticed !== false) {
+      const dx = c.lairX - p.x, dy = c.lairY - p.y;
+      const dLair = Math.sqrt(dx * dx + dy * dy) - (c.lairR || 0);
+      if (dLair <= LAIR_AGGRO_CELLS * cellM) return 'hunt';
+      if (c._hunting && dLair <= LAIR_LEASH_CELLS * cellM) return 'hunt';
+    }
+    if (!Number.isFinite(c.seatX) || !Number.isFinite(c.seatY)) return 'hold';
+    const sx = c.x - c.seatX, sy = c.y - c.seatY;
+    const eps = LAIR_SEAT_EPS_CELLS * cellM;
+    return (sx * sx + sy * sy > eps * eps) ? 'return' : 'hold';
   }
 
   // ── The residency pass ───────────────────────────────────────────────────
@@ -595,13 +777,25 @@
     return LAIR_WAKE_CELLS > simCells &&
            LAIR_WAKE_CELLS > cullCornerCells &&
            LAIR_WAKE_CELLS > shotCells &&
-           LAIR_SLEEP_CELLS > LAIR_WAKE_CELLS;
+           LAIR_SLEEP_CELLS > LAIR_WAKE_CELLS &&
+           // The chase needs one more: a guard is slept on ITS RUIN'S distance
+           // from the player, but by then it may be a whole leash away from
+           // that ruin on the way home — so what is left after the leash still
+           // has to clear the sprite cull, or a pursuer would vanish in plain
+           // sight instead of walking off. (The ruin's own seat radius eats a
+           // little more of the margin, which is why this is not a tight fit.)
+           LAIR_SLEEP_CELLS - LAIR_LEASH_CELLS > cullCornerCells &&
+           // And the leash has to be outside the aggro ring, or a garrison on
+           // the boundary would notice and give up on alternate passes.
+           LAIR_LEASH_CELLS > LAIR_AGGRO_CELLS;
   }
 
   root.Lairs = {
     LAIR_MIN_HOME_CELLS, LAIR_FAR_M, LAIR_MAX_PER_STRUCTURE, LAIR_SLACK,
     LAIR_WAKE_CELLS, LAIR_SLEEP_CELLS, LAIR_LIVE_MAX, LAIR_BUCKET_CELLS,
     LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
+    LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
+    OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, guardState,
     TIER_GUARDS, TIERS, MAX_TIER_GUARDS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     ramp, capFor, countFor, kindsAt, kindFor, structureKey, hashKey, ringBox,
     bucketKey,

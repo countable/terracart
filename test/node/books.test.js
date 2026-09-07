@@ -465,8 +465,14 @@ test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   const tip = PLAY_TIPS.find((t) => /a dozen cells of home/i.test(t));
   assert.truthy(/^On hard,/.test(tip), 'the tip must name the mode — it is false on easy');
   assert.falsy(Difficulty.PROFILES.easy.derelictLairs, 'which is only worth saying while easy has none');
-  // The one thing a player cannot see coming: they do not chase.
-  assert.truthy(/never leave the ruin/i.test(tip), 'and that a garrison stays put');
+  // THE ODDS — the part that makes looking in a building worth doing, and the
+  // part a player can least infer: an empty ruin looks exactly like one they
+  // have not reached yet. Re-derived from the table the roll uses.
+  assert.eq(Lairs.OCCUPANCY[9].rate, 1 / 3, 'the tip says "about a third of wrecked houses"');
+  assert.eq(Lairs.OCCUPANCY[11].rate, 2 / 3, 'and "most forts"');
+  assert.gte(Lairs.OCCUPANCY[12].rate, 0.9, 'and "nearly every castle"');
+  assert.truthy(/about a third of wrecked houses, most forts, and nearly every castle/i.test(tip),
+    'the tip states the three sets of odds');
   // WHAT is in there is the tier's answer, and it is re-derived from the same
   // ladder table the guards are rolled off — a tip that still promised slimes
   // in a castle would send a player in expecting the wrong fight.
@@ -477,6 +483,29 @@ test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   assert.eq([...family(12)].join(), 'goblin', 'and so is a castle');
   assert.truthy(/houses are squatted by slimes/i.test(tip), 'the tip names the wreck\'s family');
   assert.truthy(/forts and castles are held by goblins/i.test(tip), 'and the fortification\'s');
+});
+
+test('books: the chase tip is re-derived from the leash lairs.js owns', () => {
+  // A garrison used to be furniture that could not follow, and the old tip
+  // said so. Now it holds, hunts as a group and gives up — none of which is
+  // visible until it happens to you, and the ESCAPE DISTANCE is the one number
+  // a player has to be told rather than discover at speed.
+  const tip = PLAY_TIPS.find((t) => /^A held ruin waits/.test(t));
+  assert.truthy(tip, 'the chase tip is in the list');
+  const leashM = Lairs.LAIR_LEASH_CELLS * WorldGen.CELL_M;
+  assert.eq(leashM, 70, 'the tip says "seventy metres" — re-word it or move the constant back');
+  assert.truthy(/seventy metres/i.test(tip), 'and the tip quotes the leash');
+  // It waits first: the aggro ring is inside the leash, so "come within a few
+  // cells" is a smaller number than the one you escape by.
+  assert.lt(Lairs.LAIR_AGGRO_CELLS, Lairs.LAIR_LEASH_CELLS, 'the tip has the two rings the wrong way round');
+  assert.truthy(/whole garrison comes at you at once/i.test(tip),
+    'and that it comes as a group, not one guard at a time');
+  // The stale claim, from when a guard could not move at all.
+  assert.falsy(/never leave the ruin/i.test(TIPS_BLOB), 'no tip still says a garrison cannot follow');
+  // And the leash is what makes "walk back to it" true rather than "wander
+  // off" — a guard can never be further from its ruin than the escape distance.
+  assert.lt(Lairs.LAIR_LEASH_CELLS, Lairs.LAIR_WAKE_CELLS,
+    'a garrison could be pursued clean out of the ring that woke it');
 });
 
 test('books: the turret tip says only a CLAIMED castle fights for you', () => {
