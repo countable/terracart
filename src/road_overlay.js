@@ -215,7 +215,16 @@
 
   // Fixed-seed LCG, not Math.random: the pattern tiles below are identical
   // every session, so the roads can't shimmer differently between one load
-  // and the next. (textures.js keeps its own copy for its own tiles.)
+  // and the next.
+  //
+  // NOT textures.js' seededRand, which looks like the same generator and is
+  // not: it divides its state by 0xffffffff rather than 2^32, so it can return
+  // exactly 1.0 and its stream shares not one draw with this one (0/1000 in a
+  // side-by-side run). Merging them would have to carry that divisor as a
+  // parameter forever — a helper that breaks util.js' own "[0, 1)" contract on
+  // one of its two settings — and changing either divisor re-rolls the baked
+  // pattern tiles on the side that moves. Two callers, two textures, left apart
+  // on purpose.
   function lcg(seed) {
     return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
   }

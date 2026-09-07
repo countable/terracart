@@ -173,6 +173,13 @@
   // scatter is a pure function of the building's own identity: its ownerKey
   // where it has one, its tile and its first vertex where it doesn't (a sliver
   // clipped at a tile seam owns no cells and so carries no key).
+  //
+  // NOT util.js' fnv1a: it is FNV's mix (same prime, same xor-then-multiply)
+  // but seeded from the two TILE COORDINATES rather than the offset basis, and
+  // it eats NUMBERS — every quantised ring vertex — not just the char codes of
+  // a string. One call site, so it stays here rather than becoming a second
+  // shared helper; if a second thing ever needs to seed off a tile plus a
+  // polygon, that is the moment to lift it.
   const seedOf = (tx, ty, ring, key) => {
     let h = (0x811c9dc5 ^ ((tx & 0xffff) << 16) ^ (ty & 0xffff)) >>> 0;
     const eat = (n) => { h = Math.imul(h ^ (n | 0), 0x01000193) >>> 0; };
@@ -221,10 +228,10 @@
     if (blobs) return blobs;
     const w = d.right - d.left, h = d.south - d.north;
     const area = polyArea(d.pts);
-    const n = Math.max(1, Math.min(SLIME_MAX, Math.round(area * SLIME_PER_PX2)));
+    const n = clamp(Math.round(area * SLIME_PER_PX2), 1, SLIME_MAX);
     // A splotch can't be a third of the building: on a shed, the cap comes off
     // the footprint's own size rather than the constant.
-    const maxR = Math.max(2, Math.min(SLIME_MAX_R, Math.sqrt(area) / 3));
+    const maxR = clamp(Math.sqrt(area) / 3, 2, SLIME_MAX_R);
     const minR = Math.min(SLIME_MIN_R, maxR);
     const rnd = rngFrom(d.seed);
     blobs = [];

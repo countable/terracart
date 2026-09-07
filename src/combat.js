@@ -201,6 +201,30 @@
   function isEnemyKind(kind) {
     return !!MONSTER_STATS[kind] || kind === 'slime';
   }
+  // EVERY hostile kind, in the order the board should offer them: the surface
+  // slime first (the only foe you can meet without going underground), then the
+  // registered table in ITS OWN order — which app.js authors shallowest-first
+  // and appends each `giant_` form to, so a giant always lands after the kind
+  // it is a giant of.
+  //
+  // LAZY BY CONSTRUCTION. The table is registered at scene boot
+  // (app.js › Combat.registerMonsters), long after every module's <script> tag
+  // has run, so this is a function and never a constant: a caller that reads it
+  // at load time gets the surface slime and nothing else. quests.js' board is
+  // the caller — it used to hand-type these nine kinds, which is how a kind
+  // added to MONSTERS could quietly fail to be worth a bounty.
+  function enemyKinds() {
+    return ['slime', ...Object.keys(MONSTER_STATS)];
+  }
+  // A kind as the player reads it: 'giant_goblin_archer' → 'giant goblin
+  // archer'. The registered `name` ('Giant Goblin Archer') is Title Case for
+  // headings; this is the mid-sentence form a quest body wants, and it is the
+  // only rule the names need — every kind is its id with the underscores
+  // opened out.
+  function enemyName(kind) {
+    return String(kind || '').replace(/_/g, ' ');
+  }
+
   // A hostile INSTANCE. A slime tamed with a sapphire (id 'released_…') is a
   // pet: it must never be shot at, auto-engaged, or counted as "an enemy is on
   // screen" for the auto-fire gate.
@@ -225,7 +249,7 @@
   }
   function hpFraction(c) {
     const max = maxHp(c) || 1;
-    return Math.max(0, Math.min(1, hp(c) / max));
+    return clamp01(hp(c) / max);
   }
 
   // ── Damage ladders ───────────────────────────────────────────────────────
@@ -422,7 +446,7 @@
   function boltScale(slot, tier) {
     const spec = SHOT[slot];
     if (!spec || !spec.growsWithTier) return 1;
-    const t = Math.max(1, Math.min(MAX_TIER, Math.floor(Number(tier) || 1)));
+    const t = clamp(Math.floor(Number(tier) || 1), 1, MAX_TIER);
     return 1 + ((t - 1) / (MAX_TIER - 1)) * (BOLT_MAX_TIER_MUL - 1);
   }
   // The hit radius of a `slot` shot at `tier`, in world metres.
@@ -637,13 +661,7 @@
   // The same turret always gets the same phase, so the pattern is stable
   // across sightings and sessions.
   function turretPhaseMs(id) {
-    let h = 2166136261;
-    const str = String(id == null ? '' : id);
-    for (let i = 0; i < str.length; i++) {
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    return (h % 1000) / 1000 * TURRET.fireIntervalMs;
+    return (fnv1a(id == null ? '' : id) % 1000) / 1000 * TURRET.fireIntervalMs;
   }
 
   // The arrow a turret at (x, y) looses at `enemies`: a bow shot along the
@@ -743,7 +761,7 @@
 
   const api = {
     registerMonsters, FAUNA_HP, creatureMaxHp,
-    isEnemyKind, isEnemy, hp, damage, hpFraction,
+    isEnemyKind, isEnemy, enemyKinds, enemyName, hp, damage, hpFraction,
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDowned,

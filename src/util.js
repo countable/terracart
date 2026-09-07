@@ -38,6 +38,22 @@ function randInt(min, max, rng) {
   return min + Math.floor((rng ?? Math.random)() * (max - min + 1));
 }
 
+// === Small maths every module was re-typing ================================
+// Nothing here is clever; the point is that there is ONE of each. A `clamp`
+// spelled `Math.max(lo, Math.min(hi, x))` at eleven call sites is eleven
+// chances to write the arguments the wrong way round, and lairs.js, textures.js
+// and render.js each grew a private `clamp01` / `lerp` that says exactly what
+// the one below says.
+function clamp(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
+function clamp01(x) { return clamp(x, 0, 1); }
+function lerp(a, b, t) { return a * (1 - t) + b * t; }
+// Degrees ↔ radians. rad2deg DIVIDES by the same constant deg2rad multiplies
+// by rather than multiplying by 180/π: the two are not the same double (they
+// differ by an ulp), and the sun's elevation (lighting.js) is a chain of them
+// that must land on the number it has always landed on.
+function deg2rad(d) { return d * (Math.PI / 180); }
+function rad2deg(r) { return r / (Math.PI / 180); }
+
 // === Countdown notation =====================================================
 // ONE way to write "how long is left" anywhere in the game. Every timed thing
 // the player can see — a crop's stage badge, a fruit tree's regrow, a shop's
@@ -90,14 +106,33 @@ function msToNextUtcDay(now = Date.now()) {
 // string gets salted in and what the caller does with the final uint32).
 // Callers that need [0,1) divide by 4294967296 themselves; callers that need
 // a bounded pick take `% n`.
-function fnv1a(str) {
-  let h = 2166136261 >>> 0;
+function fnv1a(str) { return fnv1aFrom(2166136261, str); }
+
+// The same loop from a caller-supplied accumulator, for the one place that
+// folds a string into a hash it has already started (shops_math.js's per-lane
+// rng seed: the bucket, the reroll count and the offer salt are mixed first,
+// then the lane name is eaten on top). Same prime, same order — fnv1a() is
+// this function seeded with the FNV offset basis, so the two can never drift.
+function fnv1aFrom(seed, str) {
+  let h = seed >>> 0;
   const s = String(str);
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
+}
+
+// The OTHER string hash in the codebase: Java's `h * 31 + charCode`, seeded at
+// zero. It is NOT fnv1a and must not be folded into it — it keys the little
+// per-id visual desyncs (a creature's hop phase, a shiny's twinkle, a POI
+// light's breath), which are cosmetic but stable, and a save-visible roll must
+// never be moved onto it either.
+function strHash31(str) {
+  let h = 0;
+  const s = String(str);
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
 }
 
 // Seeded [0,1) generator (splitmix-style state advance + a mulberry-style
@@ -228,7 +263,7 @@ function treeGrowthStage(o) {
   if (o && o.planted_t) return plantedTreeStage(o.planted_t);
   const v = Math.round(Number(o && o.variant));
   // Frames 0 and 4 are stumps — clamp to the live 1..3 range (default 2/young).
-  return Number.isFinite(v) ? Math.max(1, Math.min(3, v)) : 2;
+  return Number.isFinite(v) ? clamp(v, 1, 3) : 2;
 }
 // Gameplay/classification scale — the canopy size BEFORE the maple visual
 // shrink. A tree is one of FOUR sizes, or it is size-less and draws its
@@ -327,7 +362,7 @@ function treeAxeReqTier(o) {
   if (size === 'bush') return 0;
   // +1 required axe tier for every step up in size class.
   const base = size === 'full' ? 3 : size === 'medium' ? 2 : size === 'small' ? 1 : 0;
-  return Math.max(0, Math.min(4, base + treeSpeciesTierShift(o)));
+  return clamp(base + treeSpeciesTierShift(o), 0, 4);
 }
 function treeWoodMul(o) {
   const size = treeSizeClass(o);
@@ -437,7 +472,7 @@ const UI_CONTROL_DIM   = UI_GOLD_DARK;// control borders / rules / inactive cont
 function clampTextX(x, textW, canvasW, pad = 2) {
   const half = textW / 2;
   if (textW + pad * 2 >= canvasW) return canvasW / 2;
-  return Math.min(Math.max(x, half + pad), canvasW - half - pad);
+  return clamp(x, half + pad, canvasW - half - pad);
 }
 
 // ── Memoised array → Set lookups ────────────────────────────────────────
@@ -537,7 +572,7 @@ function buildingBaseScale(frameW, isFort, cellPx) {
 function houseArtScale(area, frameW, isFort, cellM, cellPx) {
   const a = buildingArt(isFort);
   const cells = (area > 0 && cellM > 0)
-    ? Math.min(a.max, Math.max(a.min, a.fitMul * (Math.sqrt(area) / cellM)))
+    ? clamp(a.fitMul * (Math.sqrt(area) / cellM), a.min, a.max)
     : a.def;
   return buildingCellsToScale(cells, frameW, cellPx);
 }

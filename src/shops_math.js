@@ -114,15 +114,14 @@
   // roll can't consume the pool-pick roll.
   function rng(save, house, lane = '', now = Date.now()) {
     const cur = bucketState(save, house, now);
-    let h = ((bucketOffset(house.id) >>> 0)
-           ^ (cur.bucket >>> 0)
-           ^ ((save.offerSalt || 0) >>> 0)
-           ^ Math.imul(cur.rerolls + 1, 0x9e3779b1)) >>> 0;
-    for (let i = 0; i < lane.length; i++) {
-      h ^= lane.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    return makeRng32(h);
+    const seed = ((bucketOffset(house.id) >>> 0)
+                ^ (cur.bucket >>> 0)
+                ^ ((save.offerSalt || 0) >>> 0)
+                ^ Math.imul(cur.rerolls + 1, 0x9e3779b1)) >>> 0;
+    // The lane name is folded onto that seed with util.js' fnv1a loop — the
+    // same prime and order fnv1a() itself uses, just started from here rather
+    // than from the FNV offset basis (util.js › fnv1aFrom).
+    return makeRng32(fnv1aFrom(seed, lane));
   }
 
   // Cash price to BUY an item worth baseValue. The Bow relic shrinks the markup:
@@ -168,7 +167,7 @@
   // The multiplier a stand applies to an item's listed value, for these relics.
   function standBuyMul(relics) {
     const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(relics) : 0.5;
-    return Math.min(1, Math.max(STAND_BUY_MUL, sellMul + STAND_ARB_MARGIN));
+    return clamp(sellMul + STAND_ARB_MARGIN, STAND_BUY_MUL, 1);
   }
 
   // Cash price to buy ONE unit at a stand. Ceil (not round) so the rounding

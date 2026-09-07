@@ -398,8 +398,6 @@
   // pushing a guard somewhere it does not belong.
   const LAIR_SEAT_TRIES = 8;
 
-  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
-
   // 0 at the near ring, 1 at LAIR_FAR_M and beyond. Everything the difficulty
   // of a lair depends on is a function of this one number.
   function ramp(distM, cellM) {
@@ -648,14 +646,13 @@
   // A 32-bit hash of the structure key, for makeRng. Two neighbouring
   // buildings differ in one cell coordinate, so the mixing matters more here
   // than the range does.
-  function hashKey(sid) {
-    let h = 0x811c9dc5;
-    for (let i = 0; i < sid.length; i++) {
-      h ^= sid.charCodeAt(i);
-      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
-    }
-    return h >>> 0;
-  }
+  //
+  // This WAS a hand-written loop that looked like a djb2 variant and was not:
+  // `h + (h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24)` is h × 16777619, the FNV
+  // prime spelled out in shifts, over the FNV offset basis with the same
+  // xor-then-multiply order — i.e. it was fnv1a all along, bit for bit. So it
+  // is fnv1a now, and every lair in every save is seeded exactly as it was.
+  const hashKey = fnv1a;
 
   // ── What a guard is doing this tick ──────────────────────────────────────
   // The one answer app.js's wanderCreatures asks per guard, so the rings, the

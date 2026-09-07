@@ -1303,8 +1303,8 @@ ctx.RENDER_SRC = readSrc('render.js');
 // with the stubs above. tilled_bed.test.js runs drawTilledTex from here
 // against a recording 2D context (the test vm has no require()).
 ctx.TILLED_TEX = (() => {
-  const c = vm.createContext({ window: {}, console });
-  vm.runInContext(readSrc('textures.js')
+  const c = vm.createContext({ window: { addEventListener() {} }, console });
+  vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
     + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR };',
     c, { filename: 'textures.js#tilled' });
   return c.__x;
@@ -1317,8 +1317,8 @@ ctx.TEXTURES_SRC = readSrc('textures.js');
 // SCENE, so traps.test.js hands them a stub whose createCanvas returns a
 // recording 2D context and runs the real drawing code.
 ctx.TRAP_TEX = (() => {
-  const c = vm.createContext({ window: {}, console });
-  vm.runInContext(readSrc('textures.js')
+  const c = vm.createContext({ window: { addEventListener() {} }, console });
+  vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
     + '\nglobalThis.__x = { makeHiddenTrapTexture, makeSprungTrapTexture, makeTrapTextures, TRAP_PX };',
     c, { filename: 'textures.js#traps' });
   return c.__x;

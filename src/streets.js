@@ -54,16 +54,11 @@
   const EPS = 1e-9;
 
   // ── Keys ────────────────────────────────────────────────────────────────
-  // 32-bit FNV-1a, hex, zero-padded to 8. Stable forever: the save is keyed on
-  // it, so a restored street must hash the same next week and next year.
-  function fnv1a(str) {
-    let h = 0x811c9dc5;
-    for (let i = 0; i < str.length; i++) {
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 0x01000193);
-    }
-    return (h >>> 0).toString(16).padStart(8, '0');
-  }
+  // 32-bit FNV-1a, hex, zero-padded to 8 — util.js' fnv1a with this module's
+  // formatting on top, not a second implementation of it. Stable forever: the
+  // save is keyed on it, so a restored street must hash the same next week and
+  // next year.
+  const hashHex = (str) => fnv1a(str).toString(16).padStart(8, '0');
 
   // The save key for ONE line of one transportation feature.
   //
@@ -80,7 +75,7 @@
     const a = n ? line[0] : { x: 0, y: 0 };
     const z = n ? line[n - 1] : { x: 0, y: 0 };
     const sig = `${cls}|${a.x},${a.y}|${z.x},${z.y}|${n}`;
-    return `${f.id != null ? f.id : 0}:${fnv1a(sig)}`;
+    return `${f.id != null ? f.id : 0}:${hashHex(sig)}`;
   }
 
   // ── Geometry along a line ───────────────────────────────────────────────

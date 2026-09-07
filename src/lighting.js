@@ -331,24 +331,23 @@
   const NIGHT_ELEV_DEG = -6;
 
   function sunElevationDeg(ms, lat, lon) {
-    const rad = Math.PI / 180;
     const d = ms / 86400000 - 10957.5;                       // days since J2000.0
-    const g = ((357.529 + 0.98560028 * d) % 360) * rad;      // mean anomaly
+    const g = deg2rad((357.529 + 0.98560028 * d) % 360);     // mean anomaly
     const q = (280.459 + 0.98564736 * d) % 360;              // mean longitude
-    const L = ((q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) % 360) * rad;
-    const e = (23.439 - 0.00000036 * d) * rad;               // obliquity
+    const L = deg2rad((q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) % 360);
+    const e = deg2rad(23.439 - 0.00000036 * d);              // obliquity
     const RA = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L));
     const dec = Math.asin(Math.sin(e) * Math.sin(L));
     const gmst = (18.697374558 + 24.06570982441908 * d) % 24;
-    const H = ((gmst + lon / 15) * 15) * rad - RA;           // hour angle
-    const la = lat * rad;
+    const H = deg2rad((gmst + lon / 15) * 15) - RA;          // hour angle
+    const la = deg2rad(lat);
     const sinAlt = Math.sin(la) * Math.sin(dec) + Math.cos(la) * Math.cos(dec) * Math.cos(H);
-    return Math.asin(Math.max(-1, Math.min(1, sinAlt))) / rad;
+    return rad2deg(Math.asin(clamp(sinAlt, -1, 1)));
   }
 
   function daylightFromElevation(elevDeg) {
     const t = (elevDeg - NIGHT_ELEV_DEG) / (DAY_ELEV_DEG - NIGHT_ELEV_DEG);
-    const u = Math.max(0, Math.min(1, t));
+    const u = clamp01(t);
     return u * u * (3 - 2 * u);
   }
 
@@ -357,7 +356,7 @@
   // projection coords.js owns. Noon when there is no fix to place the sun by.
   function daylight(scene, now) {
     if (typeof window !== 'undefined' && window.__DAYLIGHT != null) {
-      return Math.max(0, Math.min(1, +window.__DAYLIGHT));
+      return clamp01(+window.__DAYLIGHT);
     }
     const st = scene._daylight || (scene._daylight = { minute: -1, value: 1 });
     const minute = Math.floor(now / 60000);
@@ -455,7 +454,7 @@
   // the hue exactly — so a target below the colour's own luminance reproduces
   // scaleColour(colour, target / lum(colour)) precisely.
   function atLuminance(colour, target) {
-    const t = Math.max(0, Math.min(1, target));
+    const t = clamp01(target);
     const l = lum(colour);
     if (l <= 0) return mixToWhite(0x000000, 1 - t);      // black floor → grey
     if (l >= t) return scaleColour(colour, t / l);
@@ -475,7 +474,7 @@
     const maxEnergy = sv.maxEnergy ?? 100;
     if (!(maxEnergy > 0)) return 0;
     if ((sv.reachPotionUntil ?? 0) > Date.now()) return 0;
-    const frac = Math.max(0, Math.min(1, (sv.energy ?? 0) / maxEnergy));
+    const frac = clamp01((sv.energy ?? 0) / maxEnergy);
     if (frac >= LOW_ENERGY_FRAC) return 0;
     return 1 - frac / LOW_ENERGY_FRAC;
   }
@@ -512,7 +511,7 @@
     const R = (typeof Render !== 'undefined') ? Render : null;
     let dimA = R ? R.reachDimAlpha(scene) : 0.38;
     let dimColour = R ? R.reachDimColor(scene) : 0x000000;
-    const night = depth > 0 ? 0 : 1 - Math.max(0, Math.min(1, daylightIn == null ? 1 : daylightIn));
+    const night = depth > 0 ? 0 : 1 - clamp01(daylightIn == null ? 1 : daylightIn);
     if (night > 0) {
       dimA = dimA + (NIGHT_DIM_A - dimA) * night;
       dimColour = scaleColour(dimColour, 1 - (1 - NIGHT_TINT_KEEP) * night);
@@ -558,7 +557,7 @@
   // The plateau's total light (ramp + cell fill) at t = distance / rim,
   // 0 at the feet, 1 at the reach rim; clamped flat past it.
   function plateauLevel(prof, t) {
-    const u = Math.max(0, Math.min(1, t));
+    const u = clamp01(t);
     return prof.lit * (1 - PLATEAU_FALL * u * u);
   }
 
@@ -768,7 +767,7 @@
   const KIND_STOPS = 8;
 
   function rgba(colour, a) {
-    return `rgba(${(colour >> 16) & 255},${(colour >> 8) & 255},${colour & 255},${Math.max(0, Math.min(1, a)).toFixed(4)})`;
+    return `rgba(${(colour >> 16) & 255},${(colour >> 8) & 255},${colour & 255},${clamp01(a).toFixed(4)})`;
   }
   function hex(colour) {
     return '#' + (colour & 0xffffff).toString(16).padStart(6, '0');
@@ -846,7 +845,7 @@
     const ctx = st.canvas.getContext('2d');
     ctx.clearRect(0, 0, S, S);
     const g = ctx.createRadialGradient(c, c, 0, c, c, rMaxT);
-    const fr = (r) => Math.min(1, Math.max(0, r / rMaxT));
+    const fr = (r) => clamp01(r / rMaxT);
     const white = KINDS.player.colour;
     g.addColorStop(0, rgba(white, prof.edge));
     // The ramp starts at r0 with `edge` and lands on 0 at rMax. Sample the
@@ -873,7 +872,7 @@
     if (f <= 0) return 0xffffff;
     const ch = (sh) => {
       const target = L * (((prof.litColour >> sh) & 255) / 255);
-      return Math.round(255 * Math.max(0, Math.min(1, (target - prof.edge) / f)));
+      return Math.round(255 * clamp01((target - prof.edge) / f));
     };
     return (ch(16) << 16) | (ch(8) << 8) | ch(0);
   }
@@ -906,9 +905,7 @@
       a *= 1 - row.flicker * w;
     }
     if (row.pulse) {
-      let h = 0;
-      const str = String(id || '');
-      for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+      const h = strHash31(id || '');
       const t = (now / 1000) / POI_PULSE_PERIOD_S + (h % 1000) / 1000;
       const w = 0.5 + 0.5 * Math.sin(t * Math.PI * 2);           // 0..1
       a *= 1 - row.pulse * w;
@@ -1048,7 +1045,7 @@
       const a = flickerAlpha(row, L.dx, L.dy, now, L.id) * (L.a == null ? 1 : L.a);
       const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
       const d = 2 * ck.R * sc;
-      ctx.globalAlpha = Math.max(0, Math.min(1, a));
+      ctx.globalAlpha = clamp01(a);
       ctx.drawImage(ck.canvas,
         scene.viewCenterX + L.dx * k - ox - d / 2,
         scene.viewCenterY + L.dy * k - oy - d / 2, d, d);

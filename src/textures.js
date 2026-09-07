@@ -48,7 +48,8 @@ const CASTLE_STONE = (() => {
 // so it is at the 35% the wash was always described as.
 const UNCLAIMED_SHADE = { wash: 0x1e3b24, washA: 0.35, murk: 0x05070c, murkA: 0.12 };
 function unclaimedShade(rgb) {
-  const lerp = (a, b, t) => a * (1 - t) + b * t;
+  // `lerp` is util.js's (loaded first, and beside textures.js in every vm
+  // context test/node/run.js bakes it into).
   const ch = (sh) => {
     const w = lerp((rgb >> sh) & 255, (UNCLAIMED_SHADE.wash >> sh) & 255, UNCLAIMED_SHADE.washA);
     return Math.round(lerp(w, (UNCLAIMED_SHADE.murk >> sh) & 255, UNCLAIMED_SHADE.murkA));
@@ -141,6 +142,10 @@ const TILLED_INSET_PX = 2;
 const TILLED_CORNER_PX = 4;
 
 // Tiny deterministic RNG factory so each texture variant looks stable across reloads.
+// NOT road_overlay.js' lcg(): same advance, but this one divides by 0xffffffff
+// (so it can return exactly 1.0) and floors a zero seed to 1, and the two
+// streams share no draw at all. Neither can adopt the other's divisor without
+// re-rolling every texture it has already baked, so they stay two.
 function seededRand(seed) {
   let s = (seed >>> 0) || 1;
   return () => {

@@ -63,16 +63,22 @@ const QUEST_TEMPLATES = [
 // satisfied by a giant goblin, and a giant-goblin job is not by a goblin —
 // the board asks for exactly the foe it names (resolveDefeat credits
 // victim.kind as-is).
-const QUEST_ENEMIES = [
-  'slime', 'cave_slime', 'purple_slime', 'goblin', 'goblin_archer',
-  'giant_cave_slime', 'giant_purple_slime', 'giant_goblin', 'giant_goblin_archer',
-];
-const QUEST_ENEMY_NAMES = {
-  slime: 'slime', cave_slime: 'cave slime', purple_slime: 'purple slime',
-  goblin: 'goblin', goblin_archer: 'goblin archer',
-  giant_cave_slime: 'giant cave slime', giant_purple_slime: 'giant purple slime',
-  giant_goblin: 'giant goblin', giant_goblin_archer: 'giant goblin archer',
-};
+//
+// DERIVED, never listed. `Combat.enemyKinds()` is the surface slime plus the
+// registered MONSTERS table in its own order — shallowest kind first, each
+// giant right after the kind it is a giant of, which is exactly the ordering
+// described above — and `Combat.enemyName` opens the underscores out for the
+// quest body.
+// Hand-typing them here meant a kind added to MONSTERS was a foe everywhere in
+// the game EXCEPT the one board that pays a bounty for it, and there was
+// nothing to notice the omission.
+//
+// It must be read at USE time, not load time: app.js registers the table at
+// scene boot, long after this file's <script> tag has run (see
+// Combat.enemyKinds' own note). Hence a function, and hence no constant.
+function questEnemies() {
+  return (typeof Combat !== 'undefined' && Combat.enemyKinds) ? Combat.enemyKinds() : ['slime'];
+}
 // POI classes worth sending somebody to look at. Common enough to exist in a
 // real neighbourhood, distinct enough to be a destination.
 const QUEST_POIS = ['well', 'fountain', 'library', 'museum', 'park', 'place_of_worship', 'playground'];
@@ -89,13 +95,22 @@ const QUEST_POIS = ['well', 'fountain', 'library', 'museum', 'park', 'place_of_w
 // sees; only the node vm harness — which reloads each test file in its own
 // separate vm.runInContext call — needs the property on the shared global.
 if (typeof window !== 'undefined') window.QUEST_POIS = QUEST_POIS;
+// QUEST_ENEMIES is exported the same way and for the same reason, but as an
+// ACCESSOR rather than a value: the list is derived from a table that does not
+// exist yet when this line runs (Combat's is registered at scene boot), so a
+// snapshot taken here would be the surface slime alone for the rest of the
+// session. The setter is a no-op because the harness's bridge assigns the
+// property back onto the global; without one that assignment would throw.
+if (typeof window !== 'undefined' && !('QUEST_ENEMIES' in window)) {
+  Object.defineProperty(window, 'QUEST_ENEMIES', { get: questEnemies, set() {}, configurable: true });
+}
 const QUEST_POI_NAMES = {
   well: 'an old well', fountain: 'a fountain', library: 'a library', museum: 'a museum',
   park: 'a park', place_of_worship: 'a chapel', playground: 'a playground',
 };
 
 const _plural = (w, n) => (n === 1 ? w : (w.endsWith('s') ? w + 'es' : w + 's'));
-const _enemyName = (k) => QUEST_ENEMY_NAMES[k] || k;
+const _enemyName = (k) => ((typeof Combat !== 'undefined' && Combat.enemyName) ? Combat.enemyName(k) : k);
 const _a = (k) => QUEST_POI_NAMES[k] || k;
 
 // The opening three, authored rather than rolled. A first impression is worth
@@ -138,9 +153,7 @@ const Quests = {
   // keeps its slot for life and two castles side by side rarely share one.
   slotForCastle(key) {
     if (!key) return 0;
-    let h = 2166136261;
-    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return (h >>> 0) % QUEST_SLOTS;
+    return fnv1a(key) % QUEST_SLOTS;
   },
 
   // THE GENERATOR. Pure and seeded off (salt, slot, gen), so the same board
@@ -162,16 +175,16 @@ const Quests = {
       for (const t of QUEST_TEMPLATES) for (let i = 0; i < t.weight; i++) bag.push(t);
       tpl = bag[Math.floor(rnd() * bag.length)] || QUEST_TEMPLATES[0];
     }
-    const need = Math.max(1, Math.min(tpl.max,
-      Math.ceil(tpl.base * (1 + rank * tpl.k))));
+    const need = clamp(Math.ceil(tpl.base * (1 + rank * tpl.k)), 1, tpl.max);
     const q = {
       id: `q${gen}`, slot, gen, verb: tpl.id, event: tpl.event, need, have: 0,
       reward: Math.round(need * tpl.unit * (1 + rank * QUEST_REWARD_RAMP)),
     };
     if (tpl.id === 'kill') {
+      const kinds = questEnemies();
       q.target = (opener && opener.target)
-        || QUEST_ENEMIES[Math.min(QUEST_ENEMIES.length - 1,
-             Math.floor(rnd() * (1 + Math.min(rank, QUEST_ENEMIES.length - 1))))];
+        || kinds[Math.min(kinds.length - 1,
+             Math.floor(rnd() * (1 + Math.min(rank, kinds.length - 1))))];
     }
     if (tpl.id === 'poi') q.target = QUEST_POIS[Math.floor(rnd() * QUEST_POIS.length)];
     q.title = tpl.title;
