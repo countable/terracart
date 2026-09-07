@@ -3,12 +3,13 @@
 // in one place and changes to the crop roster don't require editing logic.
 //
 // Depends on:
-//   nothing external. Pure data + a small lookup helper. Must load BEFORE
+//   util.js (fnv1a, for the per-cell sprite-variant hash). Pure data + small
+//   lookup helpers otherwise. Must load BEFORE
 //   loot.js (tierInfo falls back to SEED_TIER for raw seed ids) and app.js.
 //
 // Exports as globals:
 //   CROP_ROW, MAX_GROWTH_STAGE, PRODUCE_COL, SEEDBOX_COL, CROPS_SHEET_COLS
-//   SPRING_CROPS_COLS, CROP_SPRITE, inventoryIconSource
+//   SPRING_CROPS_COLS, CROP_SPRITE, wildplantFrame, inventoryIconSource
 //   CROP_NAMES, ITEMS, ITEM_BY_ID
 //   PRICES, BUY_LIST, STARTING_MONEY
 //   SEED_TIER  (loot tier config; co-located with the crops it describes)
@@ -65,15 +66,33 @@ const CROP_SPRITE = {
   // sheet was 32×32 frames rendered at the wildplant scale of 2 → 64×64
   // display, twice the footprint of every other ground prop, which read
   // as a giant broken-looking mushroom on commercial/industrial plots.
-  // scale 1.7 (down 15% from the wildplant default of 2) renders the 16px
-  // frame at ~27px — the toadstool reads as a prop tucked in its tile rather
-  // than one filling it edge to edge. Origin stays (0.5, 0.5) in the planted
-  // pass, so it shrinks about the cell centre and stays centred.
-  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.7 },
-  // Shell — 12 variants in shell_sheet (3×4 of 16×16). Each spawned shell
-  // sets ._variant from a stable hash of its cell coords so the same cell
-  // always renders the same shell, and the beach reads as a varied mix.
-  shell: { sheet: 'shell_sheet', custom: true, variants: 12 },
+  // scale 1.36 (1.7 — itself down 15% from the wildplant default of 2 — then
+  // a further 20% off, Sep 2026 playtest) renders the 16px frame at ~22px —
+  // the toadstool reads as a prop tucked in its tile rather than one filling
+  // it edge to edge. Origin stays (0.5, 0.5) in the planted pass, so it
+  // shrinks about the cell centre and stays centred.
+  // `caveFrames`: the look of a mushroom spawned UNDERGROUND (worldgen.js
+  // spawnCaveMushrooms stamps `_cave` on the wildplant) — the two blue
+  // luminous caps on Props.png row 5, cols 17..18 (5*22+17, 5*22+18), picked
+  // per cell off the same stable hash the variant sheets use. Same crop,
+  // same Mushroom item when picked; only the art (and its glow, see
+  // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
+  // stays `frame`.
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.36, caveFrames: [127, 128] },
+  // Shell — the beach pickup, and the one crop whose LOOK varies per cell.
+  // Shell.png is 48×64 = 3 cols × 4 rows of 16×16, and only the TOP ROW is
+  // shell art: three cowries (pink, gold, blue). Row 1 repeats those three
+  // with a white keyline (a highlight state, not a fourth shell), frames 6
+  // and 9 are flat one-colour silhouettes (mask rows) and 7, 8, 10 and 11 are
+  // blank — the same layout Gemstones.png uses (see MINERAL_ICON_SHEET below).
+  // So `frames` LISTS the three frames that carry a shell rather than counting
+  // them: a count is a claim about the sheet that the sheet does not make.
+  // This said `variants: 12` until Sep 2026 and the renderer drew
+  // `hash % 12`, so most shells on a beach picked a blank frame — a pickup
+  // you could tap but not see, which is what "no shells on beaches" was.
+  // tools/sprite_audit.js decodes the real PNG and fails if a declared frame
+  // is transparent (or a flat mask row), so a re-cut sheet can't do it again.
+  shell: { sheet: 'shell_sheet', custom: true, frames: [0, 1, 2] },
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct
   // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
   // They spawn sparsely on a matching biome (see the per-biome flora in
@@ -86,6 +105,38 @@ const CROP_SPRITE = {
   wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.13 },  // red wild rose (row 1, col 8)
   starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.13 },  // glowing purple star-flower (row 4, col 14)
 };
+
+// ── Which frame does THIS wild plant draw? ─────────────────────────────────
+// The custom-sheet crops whose look varies per cell — the shell's three
+// cowries, the mushroom's two luminous cave caps — resolve their frame HERE,
+// so the "which look does this cell get" hash cannot differ between the two
+// branches that ask, and so the frame can only ever be one the crop declares.
+//
+// The key is the wildplant's own ID (`wp_<tx>_<ty>_<ix>_<iy>`, minted per cell
+// by the rasterizer), hashed as a STRING, falling back to the tile-local cell
+// for the wildplants that carry no id. It has to be stable, because the same
+// cell must show the same shell across a reload and a tile rebuild — and it
+// has to be the WHOLE id: until Sep 2026 the renderer hashed `id.length`
+// (one number for a whole tile, since every id in a tile is nearly the same
+// length) XORed with `_ix`/`_iy`, which the rasterizer's occupancy pass
+// deletes before the entry is ever drawn. So every shell in a tile drew the
+// same frame, picked off its id's LENGTH — usually one of the blank ones.
+// Salted so it can't line up with the other id-derived hashes (shinyHash01).
+function wildplantVariantHash(p) {
+  const id = (p && (p.wildId || p.id));
+  const key = id != null ? String(id) : `${(p && p._ix) ?? 0}_${(p && p._iy) ?? 0}`;
+  return fnv1a(key + '#variant');
+}
+function wildplantFrame(p) {
+  const ov = CROP_SPRITE[p && p.crop];
+  if (!ov || !ov.custom) return 0;
+  // Grown underground: the crop's cave look (mushroom's blue caps), off the
+  // same hash — same crop, same item, only the art says it grew in the dark.
+  const list = (p && p._cave && ov.caveFrames) ? ov.caveFrames : ov.frames;
+  if (!list || !list.length) return ov.frame ?? 0;
+  if (list.length === 1) return list[0];
+  return list[wildplantVariantHash(p) % list.length];
+}
 
 // Resolve the same icon source the inventory uses for an item id.
 // Returns { sheet, frame } where frame is the 16x16 frame index in the spritesheet,
@@ -101,9 +152,17 @@ const MINERAL_ICON_SHEET = {
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
   wood:     { sheet: 'wood',      frame: 2 },
   coal:     { sheet: 'coal_icon', frame: 0 },
-  sapphire: { sheet: 'gems',      frame: 4 },   // blue gem
-  ruby:     { sheet: 'gems',      frame: 0 },   // red gem
-  emerald:  { sheet: 'gems',      frame: 3 },   // green gem
+  // Gems — Gemstones.png row 0 (7 cols of 16×16), left to right: 0 cut cyan
+  // diamond, 1 red ruby, 2 purple shard, 3 blue sapphire, 4 orange topaz,
+  // 5 green emerald cluster, 6 pink quartz. (Rows 1-3 are outlined / mask
+  // duplicates.) Until Sep 2026 these rows read ruby 0 / emerald 3 /
+  // sapphire 4 — the cyan diamond, the blue sapphire and the orange topaz —
+  // so the "red gem" the tips promised was drawn cyan; the diamond taking
+  // frame 0 is what surfaced it. Pinned by test/node/diamond.test.js.
+  sapphire: { sheet: 'gems',      frame: 3 },   // blue gem
+  ruby:     { sheet: 'gems',      frame: 1 },   // red gem
+  emerald:  { sheet: 'gems',      frame: 5 },   // green gem cluster
+  diamond:  { sheet: 'gems',      frame: 0 },   // cut cyan-white diamond — the Frost jewel
   // Bars from the 16-col Extras 'Bars and ores' sheet (16px frames, 16
   // cols × 4 rows). The sheet is NOT one bar per frame: each row packs two
   // metals as bar/ore PAIRS — col0 barA, col1 oreA, col2 barB, col3 oreB,
@@ -141,9 +200,10 @@ const MINERAL_ICON_SHEET = {
   // 7_Pickup_Items_16x16 (renamed Pickup_Items.png in Objects/). Frame =
   // 6 * 14 + 4 = 88.
   boot:       { sheet: 'pickup',         frame: 88 },
-  // Consumables — flutes/books are 32×32 / 240×64 multi-frame sheets;
-  // frame 0 is the basic variant.
-  flute:      { sheet: 'icon_flute',  frame: 0 },
+  // Consumables — honey is a single 16×16 jar (Icons/Items/Honey.png, an
+  // amber fill of the potion pack's empty flask); books are a 240×64
+  // multi-frame sheet, frame 0 the basic variant.
+  honey:      { sheet: 'icon_honey',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
@@ -155,13 +215,29 @@ const MINERAL_ICON_SHEET = {
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
+  // The other three heaps of the same powder row (row 1, y=16: frame 5 is the
+  // EMPTY slot, then green / red / purple / blue). Growth is the green heap,
+  // Shadow the purple, Frost the blue — each used from the Use button like the
+  // dragon's red (useGrowthPowder / useShadowPowder / useFrostPowder in app.js).
+  growth_powder: { sheet: 'icon_potions', frame: 6 },
+  shadow_powder: { sheet: 'icon_potions', frame: 8 },
+  frost_powder:  { sheet: 'icon_potions', frame: 9 },
+  // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
+  // honey jar). Using it moves the player up or down one cave level in place
+  // (useRope in app.js).
+  rope:          { sheet: 'icon_rope', frame: 0 },
+  // Torch — single 16×16 stick-and-flame icon (Icons/Items). Lighting it
+  // widens the player's own light for a few minutes (useTorch in app.js →
+  // the `torch` row of Lighting.KINDS).
+  torch:         { sheet: 'icon_torch', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
   rabbit_pelt:  { sheet: 'icon_pelt',    frame: 0 },
   crow_feather: { sheet: 'icon_feather', frame: 0 },
-  // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png is a 12-frame variant
-  // sheet; frame 0 is the canonical cowrie used for the inventory icon.
+  // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png carries three shells
+  // on its top row (see CROP_SPRITE.shell); frame 0 is the pink cowrie, the
+  // canonical one used for the inventory icon.
   shell:        { sheet: 'shell_sheet', frame: 0 },
   // Wild flowers ('flowers' produce) — props.png (22 cols × 12 rows of 16×16).
   // Frame 12 (col 12, row 0) is the pink blossom. Like egg/milk it has no
@@ -173,6 +249,9 @@ const MINERAL_ICON_SHEET = {
   // frames; frame 2 = the small young green tree) reads as a sapling.
   apple_sapling: { sheet: 'apple_tree', frame: 2 },
   peach_sapling: { sheet: 'peach_tree', frame: 2 },
+  // The acorn plants a plain timber tree, so it shows the same sheet that
+  // tree draws from ('trees', the maple/default sheet) at its young frame.
+  acorn:         { sheet: 'trees',      frame: 2 },
   // Discovery badge — the gold five-point star at row 8 col 4 of
   // 7_Pickup_Items (frame 8 * 14 + 4 = 116). Same sheet as the boot.
   discovery:     { sheet: 'pickup',     frame: 116 },
@@ -192,11 +271,12 @@ function inventoryIconSource(itemId) {
     return { sheet: 'springcrops', frame: ov.row * 14 + col };
   }
   if (ov && ov.custom) {
-    // Custom sheets (longgrass→props, mushroom→mushroom_world, shell→
-    // shell_sheet). ov.frame is honoured so sheets with multiple cells
-    // (e.g. mushroom_world whose frame 0 is empty) can point at the right
-    // cell. Shells use the variants path in the renderer.
-    return { sheet: ov.sheet, frame: ov.frame ?? 0 };
+    // Custom sheets (longgrass→props, mushroom→props, shell→shell_sheet).
+    // ov.frame is honoured so sheets whose frame 0 is empty can point at the
+    // right cell; a crop that varies per cell in the world (shell) has no
+    // single `frame`, so the icon is the FIRST frame it declares — never a
+    // bare 0, which on such a sheet may be no art at all.
+    return { sheet: ov.sheet, frame: ov.frame ?? (ov.frames && ov.frames[0]) ?? 0 };
   }
   // Generic seed bag = col SEEDBOX_COL, row 15 of crops.png (== 15*9 + 8 = 143).
   if (item.kind === 'seed') return { sheet: 'crops', frame: 15 * CROPS_SHEET_COLS + SEEDBOX_COL };
@@ -257,7 +337,7 @@ const BASE_TIER = {
   orange: 3, mango: 3,
   banana: 4, coconut: 4,
   // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
-  apple_sapling: 3, peach_sapling: 5,
+  apple_sapling: 3, peach_sapling: 5, acorn: 2,
   // Live animals
   chicken: 1, dog: 1, rabbit: 1,
   cat: 2, butterfly: 2,
@@ -265,13 +345,22 @@ const BASE_TIER = {
   deer: 4,
   cow: 5,
   // Consumables
-  flute: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
+  honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   dragon_powder: 3,
+  // Growth Powder is a T2 farm utility beside the potions; Shadow and Frost are
+  // T3 fight-changers beside the dragon.
+  growth_powder: 2, shadow_powder: 3, frost_powder: 3,
+  // Rope — a T2 utility like the potions: one climb up or down a level.
+  rope: 2,
+  // Torch — the T1 cave staple: light for the dark, cheap and common.
+  torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
   crow_feather: 3,
   sapphire: 4, ruby: 5, emerald: 6,
+  // Diamond tops the gem ladder at the Frost tier — the T7 rock's headline gem.
+  diamond: 7,
 };
 
 // NOTE: items carry NO `icon` (emoji) field — items always render as their
@@ -335,10 +424,19 @@ const ITEMS = [
   { id: 'starflower',  name: 'Starflower',    kind: 'produce', crop: 'starflower' },
   // Consumables — used on yourself via the Use button that appears below the
   // inventory bar while one is selected (syncConsumableButton in app.js).
-  // Flute: lures wandering chickens + cows within 30m toward you.
+  // Honey: set it out to lure wandering chickens + cows within 30m toward
+  //        you (eaten, so it's consumed — hence not a flute any more).
   // Book:  reveals a play tip or a directional hint to a nearby chest.
-  { id: 'flute', name: 'Flute', kind: 'consumable' },
-  { id: 'book',  name: 'Book',  kind: 'consumable' },
+  { id: 'honey', name: 'Honey', kind: 'consumable' },
+  // dropWeight 3: a Book is THE documentation (see PLAY_TIPS below), so it is
+  // the one consumable that has to turn up often enough to be read. At an even
+  // draw it was one of seven T2 consumables — a sliver of an already-thin
+  // consumable share — and a player could finish a session having never met
+  // one. Three makes it the plurality of the T2 consumable pool everywhere,
+  // and school chests pin it outright on top of that (rarity.js
+  // 'chest:school'). This is the one item whose SCARCITY is a documentation
+  // bug rather than a balance choice.
+  { id: 'book',  name: 'Book',  kind: 'consumable', dropWeight: 3 },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'consumable' },
@@ -349,6 +447,28 @@ const ITEMS = [
   // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
   { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
+  // Growth Powder: every crop within 20 m springs ahead one stage on the spot,
+  // no watering needed (useGrowthPowder). Refused — and kept — when no crop is
+  // in range.
+  { id: 'growth_powder', name: 'Growth Powder',       kind: 'consumable' },
+  // Shadow Powder: for one minute monsters lose interest in you — they neither
+  // stalk nor drain you (useShadowPowder). You may still hit them.
+  { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'consumable' },
+  // Frost Powder: every enemy within reach is frozen solid for 30 s — no
+  // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
+  // hostile is in reach.
+  { id: 'frost_powder',  name: 'Frost Powder',        kind: 'consumable' },
+  // Rope: use it (Use button with it selected) and the dialog asks which way —
+  // climb UP a level or lower yourself DOWN one — right where you stand, no
+  // staircase needed. One rope per climb. Unlike the sapphire portal it goes
+  // both ways, so it is also the way out of a dead-end dig (useRope in app.js).
+  { id: 'rope',          name: 'Rope',                kind: 'consumable' },
+  // Torch: light it (Use button with it selected) and for three minutes the
+  // player's own light reaches twice as far — the `torch` row of
+  // Lighting.KINDS, stamped at the feet on top of the reach ramp. The reach
+  // plateau (what you can tap) is untouched; only the dark around it lifts.
+  // Lighting another while one burns EXTENDS the time (useTorch in app.js).
+  { id: 'torch',         name: 'Torch',               kind: 'consumable' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -360,9 +480,9 @@ const ITEMS = [
   { id: 'meat',         name: 'Meat',         kind: 'produce' },
   { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'produce' },
   { id: 'crow_feather', name: 'Crow Feather', kind: 'produce' },
-  // Beach pickup — shells spawn as wildplant debris on sand cells
-  // (DEBRIS_CROP[2] = 'shell' in worldgen.js). 12 visual variants in
-  // shell_sheet, hashed off the spawn cell coord.
+  // Beach pickup — shells spawn as wildplant debris on sand cells (the sand
+  // family's only flora, src/biome_profiles.js). Three visual variants in
+  // shell_sheet, picked per cell by wildplantFrame above.
   { id: 'shell',        name: 'Shell',        kind: 'produce', crop: 'shell' },
   // Fishing junk pull — old leather boot. T1, low sell, no eat. Joke drop
   // from the rod's loot table at small weight; mostly a flavour moment.
@@ -373,8 +493,10 @@ const ITEMS = [
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
-  // Discovery badge — earned once per shiny TYPE found (awardShinyBonus), spent
-  // at the wizard tower on Inner Lights. Lives as a normal inventory stack so
+  // Discovery badge — earned once per discoverable KEY (app.js _bankDiscovery:
+  // a shiny type found, an elite monster kind slain, a household's first
+  // delivery), spent at the wizard tower on Inner Lights. Lives as a normal
+  // inventory stack so
   // the player can see / count their badges, but it's deliberately walled off
   // from the rest of the economy:
   //   kind 'badge'    → in no rarity.js classBias, so chests / shops / traders /
@@ -411,6 +533,13 @@ const ITEMS = [
   // common apple (T3) and the rare peach (T5).
   { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: 3 },
   { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: 5 },
+  // The ACORN is a sapling too, but it plants TIMBER, not fruit: `plants:'tree'`
+  // routes it to a growing `tree` object (the thing you chop) instead of a
+  // `fruittree` (the thing you pick). It falls out of felling a tree — the
+  // better the axe, the likelier (acornDropChance) — so a forest you clear can
+  // be a forest you replant. It carries no `grows`: a species-less tree draws
+  // off the default growth sheet and takes no hardwood/softwood tier shift.
+  { id: 'acorn', name: 'Acorn', kind: 'sapling', plants: 'tree', baseTier: 2 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Coal',     kind: 'mineral' },
@@ -420,6 +549,11 @@ const ITEMS = [
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
+  // Diamond — the Frost-tier (T7) gem, one per rung of the ladder above:
+  // sapphire 4 / ruby 5 / emerald 6 / diamond 7. Mined from the T7
+  // (frost) mineralrock (interactables.js GEM_BY_TIER) and what every T7
+  // piece of jewelry is cut around (gear.js blacksmithRecipe).
+  { id: 'diamond',  name: 'Diamond',  kind: 'mineral' },
   // Smelted metal bars — primary forge material at blacksmiths. Dropped
   // by mineralrocks (worldgen.js). One ladder per material tier 2..7;
   // tier 1 (wood) gear is starter-shop only and doesn't need a bar.
@@ -506,13 +640,18 @@ const PRICES = {
   milk: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
-  flute: 12,
+  honey: 12,
   book:  20,
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   vigor_potion:  35,   // T2 — instant 40-energy restore
   speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
+  growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
+  shadow_powder: 110,  // T3 — 1 min of monsters ignoring you entirely
+  frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
+  rope:          25,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft)
+  torch:         15,   // T1 — 3 min of the player's own light reaching twice as far (useTorch)
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -520,6 +659,7 @@ const PRICES = {
   sapphire:  30,
   ruby:      80,
   emerald:  200,
+  diamond:  600,   // T7 — above the platinum bar (500), below the crimson (1200)
   // ── Metal bars (blacksmith forge ingredients) ───────────
   // Roughly 2.5× ramp per tier, matching MATERIAL_TIERS.costMul.
   copper_bar:    30,
@@ -566,100 +706,191 @@ const BUY_LIST = Object.keys(CROP_ROW)
 const STARTING_MONEY = 50;
 
 // === Energy / food ===
-// Player starts at STARTING_ENERGY; armor pieces raise the maximum (see ARMOR_DEFS
-// below). Eating food restores energy by FOOD_ENERGY[id]. Actions like rock-break,
+// Player starts at STARTING_ENERGY; the only thing that ever raises the cap is
+// the FIRST-TASTE bonus (+1 per distinct edible ever eaten — Energy.maxEnergy).
+// Eating food restores energy by FOOD_ENERGY[id]. Actions like rock-break,
 // till, and harvest deduct energy via ENERGY_COST and refuse when the current
-// pool is too low.
+// pool is too low. ARMOR does not touch the cap: it SOAKS the damage an attack
+// takes off the bar (armorReduction below, spent by Combat.mitigate).
 // === Book of Tips ============================================
 // Non-obvious play tips revealed when the player uses a Book consumable.
+//
+// WHAT DOES *NOT* BELONG HERE: what a single item or relic DOES. That is the
+// item's own description — ITEM_EFFECTS below (the "✦ …" line under the
+// selected stack) for a consumable or material, RELIC_DEFS.blurb (the same
+// line for a relic, plus the Stats panel's per-slot row) for a relic, the Eat
+// button's "+N⚡" for a food, and the Stats panel's "−N damage" row for armour.
+// The player reads those while HOLDING the thing, exactly when the answer is
+// wanted; a Book that restates them spends a consumable to tell you something
+// the inventory bar was already showing, and the two copies then drift apart.
+// Until Sep 2026 a third of this list was that — the Rope tip and
+// ITEM_EFFECTS.rope said the same sentence twice, the Hoe tip was its blurb
+// verbatim, and one tip explained what a Book does, which you could only read
+// by burning a Book. When a tip and a description overlap, the description
+// wins and the tip goes.
+//
+// What a tip IS for: knowledge no single item can carry — where things grow,
+// how a shop or a gate behaves, what an animal wants, what a screen readout
+// means, and the odd riddle pointing at a secret.
 // The Book handler in interact.js mixes ~50% of these with ~50% directional
 // chest hints (computed live from the nearest unopened chest).
-// Ordered roughly by relevance to a NEW player: the first-hour basics
-// (energy, resting, selling, your tools) come first, then the farming loop,
-// exploration, the caves, shops and the progression gates, then relic
-// effects, consumables, world lore, animals, and finally the rare secret.
-// A Book read still picks one at random, but curating the order keeps the
-// list readable and front-loads what a beginner most needs.
+// THE ORDER IS THE CURRICULUM — this list is READ FRONT TO BACK. app.js
+// readBook walks it one page per Book, bookmarked in save.tipsRead, so the
+// position of a tip decides when in a playthrough it is taught. It used to be
+// a uniform random draw with no memory, which threw the ordering away and put
+// a repeat inside the first ~10 reads.
+//
+// The pages are therefore ordered by WHEN A TIP FIRST BECOMES ACTIONABLE —
+// which is NOT the same as grouping it by subject, and the difference is the
+// whole point. Grouping by subject produced two inversions worth remembering:
+//
+//   • 'A ruined house can be rebuilt: 5 wood…' sat at page 63, because it
+//     read as a "progression gate". Rebuilding a wreck is starter-chain STEP
+//     FOUR — so the game was teaching what your first rebuild becomes (page
+//     17) forty-six pages before it taught you that you could rebuild at all.
+//   • Chests sat at page 37, behind the entire village economy and twelve
+//     consecutive pages of animal husbandry — when a POI chest is the first
+//     thing most players open, minutes in.
+//
+// The stages: the first ten minutes (you cannot act without them), the
+// starter loop, what is already lying around, the village economy, the land
+// you walk over, animals, fighting, underground, the long gates — and the one
+// riddle last, so the secret is the end of the course rather than a 1-in-72
+// accident.
+//
+// Reading the screen sits in the first ten minutes on purpose, beside the
+// snares: a slime is chewing on you inside the first few minutes, and what
+// the bar over its head means is literacy, not trivia — as is knowing the
+// verge you are walking along hides traps.
+//
+// So WHERE you add a tip is a decision, not an append. Ask when the player
+// can first ACT on it, not what it is about.
 //
 // EVERY tip here is a claim about live behaviour — when a mechanic changes,
 // the tip that describes it has to change with it, or the Book starts lying
-// to the player. Cross-check against: energy.js (rest), crops.js (growth),
-// shops_math.js (deal caps), rarity.js (chest/shop tables), gear.js
-// (recipes), items.js above (foods, relics, animal foods), interact.js
-// (taming / hunting / placeables) and worldgen.js (biomes, caves).
+// to the player. Cross-check against: energy.js (rest + the first-taste cap),
+// coords.js (reach), crops.js (growth), combat.js (weapons, HP, the health
+// BAR), traps.js (the snares), quests.js (the castle board), delivery.js
+// (wishlists), shops_math.js (deal caps + stall prices), rarity.js
+// (chest/shop tables), loot.js (chest tiers, the Home demotion), gear.js
+// (recipes), interactables.js (the slow grind, mining gates), items.js above
+// (foods, relics, animal foods), interact.js (taming / hunting / placeables)
+// and worldgen.js (biomes, caves).
+//
+// THE OTHER HALF OF THE RULE: a mechanic the player cannot discover by
+// looking at it — a derived number, a gate, a side-effect, a place that
+// behaves differently — and that NO single item's description can carry,
+// belongs here. The prune above deleted the tips that were restating an
+// item; it must not become a licence to leave the rest undocumented. The Sep
+// 2026 audit found the first-taste energy cap, the slow grind, the reach the
+// dark takes back, the snares, giants, the coin a kill pays, the chest Home
+// rings, the delivery premium, the quest board and the stall discount all
+// live in the code and nowhere a player could read them. When you add a
+// mechanic of that shape, add its tip.
+//
+// And a tip nobody draws is a tip nobody has. The Book carries a dropWeight
+// (see its catalog entry above) so it is the plurality of the T2 consumable
+// pool everywhere, and the places of learning — POI_CATEGORY 'school' in
+// loot.js, pinned through rarity.js 'chest:school' — hand one over from about
+// a third of their chests. That is what makes this list worth keeping honest.
 const PLAY_TIPS = [
-  // ── First-hour basics ─────────────────────────────────────
-  'Actions cost energy. Eat food to refill — or just rest; energy trickles back even while the game is closed.',
-  'Stand inside any building to rest — a full bar in five minutes. Your own home does it in ninety seconds.',
+  // ── The first ten minutes — you cannot act without these ────
+  'Actions cost energy. Eat to refill — or just rest; an hour away from the game hands the whole bar back.',
+  'Hard mode is harsher on an empty tank: food, a campfire and time away all stop working, and only your trailer starts you moving again.',
+  'Only your OWN home rests you — a full bar in ninety seconds. A stranger\'s roof is just a roof.',
+  'A campfire rests you slowly out in the open, and slimes keep their distance.',
+  'Resting stops while a work wheel turns. A job done on the doorstep still costs what it costs; the sit-down afterwards is what earns it back.',
   'Selling is home-only. Carry your haul back to your trailer, select a stack, and tap it to cash out.',
-  'Every tool works bare-handed — just slowly. A Wood relic is three times quicker, a Frost one thirty.',
-  'Armour is not just protection: each piece you equip raises your maximum energy.',
-  // ── The farming loop ──────────────────────────────────────
-  'Watering Can-watered crops yield bonus seeds. Refill from any water tile.',
-  'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
+  'Every tool works bare-handed — just slowly. A Wood relic is twice as quick, a Frost one thirty times.',
+  'How far you can touch is your own light: nothing at all on an empty bar, and half a cell less for every level you descend.',
+  'The bar over a foe is its health, not a timer — green, then amber, then red.',
+  'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
+  'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 2 a second, so step off rather than wait it out.',
+  // ── The starter loop — till, plant, rebuild, harvest, sell ───
   'Tilling refuses a cell holding a wildplant, rock, or building.',
-  'Crows raid ripe crops but never touch potatoes. A Scarecrow on a tilled cell wards off crows and deer.',
-  // ── Exploration / chests ──────────────────────────────────
+  'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
+  'A ripe crop pays one to three of itself, and about one pick in four hands a seed back as well.',
+  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a produce shop, trader or smithy.',
+  'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
+  'Crows raid ripe crops but never touch potatoes.',
+  'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
+  // Placed with the slime it is about, and BEFORE the swing-reach page: the
+  // first thing a player does about a slime is hit it, so what a half-hearted
+  // swing turns it into is actionable the moment the pest tip above is.
+  'Strike a slime and it stops meandering: for eight seconds it comes straight at you, and a pet\'s bite provokes it just the same. Home\'s circle and a lit fire still turn it back.',
+  'Swinging reaches one cell — exactly as far as a monster\'s bite. Your light reaches further, but only for work: closing in is what a fight costs.',
+  'Your home turns enemies away inside its circle, and they cannot bite while they go. Strike one there and it does not merely leave — it runs clear off the screen.',
+  'Every new food you taste for the first time raises your maximum energy by one, for good.',
+  'A job one tier past your equipment is not refused outright: you can grind it out for 15\u26a1 and half a minute. Two tiers short is a flat no.',
+  // ── What is already lying around — chests, X marks, foraging ───
   'Treasure X marks are buried in car parks — every parking lot hides one.',
-  'Eat a Pairy to point the way to the nearest undiscovered chest for 5 minutes.',
-  'Read a Book for a play tip — or, near an unopened chest, a hint toward it.',
-  'The gem above a chest is its tier. Gemless chests never hold relics; only violet ones can reach Frost.',
+  'Sand is dug ground: a beach hides X marks far thicker than the streets and fields inland.',
+  'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
+  'Chests near home are humbler: a tier down within 700m of your trailer, two within 350m. The prizes are a walk away.',
+  'One stone in ten gathered off the ground hides a gemfruit.',
   'Every new kind of thing you discover banks a Discovery badge. Only the wizard values those.',
-  // ── Underground ───────────────────────────────────────────
-  'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
-  'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
-  'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
-  'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
-  // ── Shops / trade ─────────────────────────────────────────
+  'A shiny flower or tree is worth ten times the money, and banks a Discovery badge with it.',
+  // Fishing: available from the first water tile with nothing in hand, so it
+  // is taught here beside the other things already lying around — and what
+  // the ✦ row on the rod cannot carry is which fish arrives at which tier.
+  'A Wood rod puts bass in the water, Iron the trout, Platinum the salmon — and a goldenfish rises for nothing under Frost.',
+  // ── The village economy, once you have a house to trade with ───
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
-  'Addresses ending 2 or 6 are Markets, stocked with produce. Endings 1 and 8 are Traders, who barter only.',
-  'Plain houses sell nothing. Each posts a daily wishlist of two or three produce and pays for the set.',
-  'Wishlists reroll every day, and every 20 deliveries houses begin asking for the next tier of crop.',
+  'Addresses ending 2 or 6 are Produce Shops, stocked with crops. Endings 1 and 8 are Traders, who barter only.',
+  'Plain houses sell nothing. Each posts a wishlist of produce and pays half again what the same goods would fetch sold loose.',
+  'A household never changes its mind about what it wants — but it will take the same bundle again the next day.',
+  'Every 20 deliveries behind you, the houses you rebuild from then on start asking for the next tier of crop.',
   'Forts handle up to 5 deals per hour, plain houses just 1. Castles and towers never make you wait.',
   'Castles deal only in relics — and never run out of stock.',
-  // ── Progression gates ─────────────────────────────────────
-  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a market, trader or smithy.',
-  'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
-  'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
-  'The wizard trades 5 Discovery badges for an Inner Light — another half-cell of reach, out to 5.5.',
-  'The castle guard posts quests: cull ten slimes, find the old well, then bring a sapphire up from level 3.',
-  'Platinum, Crimson and Frost bars are smelted, never mined — a magical flower plus the bar below it.',
-  'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
-  // ── Relic effects ─────────────────────────────────────────
-  'A Sword raises your sell price — half the listed value bare-handed, the full value at Frost.',
-  'A Sword also fights for you: the nearest slime or monster in reach is engaged without a tap.',
-  'A Bow or Staff shoots on its own — one shot a second, wherever you are facing, while a foe is on screen.',
-  'Arrows fly where the compass points, not at what you tap. Turn to aim.',
-  'The ring over a foe is its health, not a timer — green, then amber, then red.',
-  'A Bow drops the markup traders charge you; at Frost tier you buy at par.',
-  'A Ring nudges chest loot up a tier. It is never sold or forged — the wizard is the only source.',
-  'An Amulet powers the stick: higher tier walks you off the GPS faster, for less stamina.',
-  'A bigger Bag relic raises how many of each item one slot can hold: 9 bare-handed, 249 at Frost.',
-  'A Hoe makes tilling cheaper — and, now and then, free.',
-  'A Bug Net is the only way to take a butterfly. A Fishing Rod pulls fish from any water tile.',
-  // ── Consumables / placeables ──────────────────────────────
-  'Potions run one minute each: Reach lights the whole screen, Speed grants top-tier stick walking, Shielding halves monster damage.',
-  'Burn a coal on bare ground for a campfire. It rests you slowly out in the open, and slimes keep their distance.',
-  'Play a Flute to draw every chicken and cow within 30m toward you.',
-  // ── Food side-effects ─────────────────────────────────────
-  'Rainberry waters every crop within 20m when you eat it.',
-  'An Iceflower restores 150 energy — the biggest meal in the world.',
-  'A Mango is the universal treat: feed one to tame any wild animal. Cave monsters are the exception.',
-  // ── World / map ───────────────────────────────────────────
+  'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
+  // ── The land you walk over ──────────────────────────────────
   'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
+  'Roads and footpaths lie derelict until you stand by them: two seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds mostly, sometimes coin or produce.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
-  'Hold rock and tap an empty tile to drop a stone fence.',
-  // ── Animals ───────────────────────────────────────────────
+  'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
+  'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
+  'On hard, ruins are held: none within a dozen cells of home, then more the bigger the building and the further out — a castle a kilometre away can hide fifteen slimes. They never leave the ruin.',
+  // ── Animals — meeting them, then keeping them ───────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
-  'Tap a tame animal to pet it. Pet a cow or chicken and its next yield has a coin-flip chance of doubling.',
   'Chickens peck at any seed — hold one to befriend a wild chicken.',
   'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
   'Cats take milk, or any fish you land. Nothing else will win one over.',
   'Dogs only follow a hunter — hold raw meat to catch one.',
-  'A deer can be hunted bare-handed, but it is a long slog. A sword, bow or staff makes short work of it.',
   'Feed any plant or crop to a chicken or cow for an egg or milk — but only once an hour from each.',
-  'A shiny animal pays ten times its plain kind, and takes twice the work to bring down.',
-  // ── Secret — slime taming. Rare to pull, but findable. ────
+  'Tap a tame animal to pet it. Pet a cow or chicken and for ten minutes its next yield has a coin-flip chance of doubling.',
+  'Pet a tame cat and it trails after you for five minutes.',
+  'A tame cat hunts crows; a tame dog goes after deer and slimes.',
+  'Chasing an animal down is a chase: it bolts while the wheel turns, and if it stays out of your reach for a second it is gone.',
+  'A deer or a crow can be brought down bare-handed, but it is a long slog. No weapon hurries a hunt — that is what the net is for.',
+  'A shiny animal pays ten times its plain kind, bolts twice as fast, and takes twice the work to bring down.',
+  // ── Fighting, once you are armed ────────────────────────────
+  'Only one weapon is ever in play. Tap another in the Relics tab to make it the one that answers a foe.',
+  'Worn armour soaks what a blow takes off your bar, and a set stacks: the pool covers half a hit, then half of what is left, four times over. It can never soak a blow to nothing — something always gets through.',
+  'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
+  'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
+  'Anything hostile you put down pays coins for its trouble — about a coin per 5 hit points, and a little more for every level down.',
+  'Castle towers fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate.',
+  // ── Underground, which you go looking for ───────────────────
+  'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
+  'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
+  'Ore wants a pickaxe one tier under what it holds, and every tier it out-tiers yours adds 9\u26a1 to the swing.',
+  'Gems come only out of the deeper stone: sapphire from gold-bearing rock, ruby from platinum, emerald from crimson, and a diamond only from frost.',
+  'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
+  'A chest mirrored underground climbs a tier every two levels down, to a gold gem no surface chest ever wears.',
+  'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
+  'Every monster has a giant form: four times the health, met two levels below its ordinary kind.',
+  'One cave monster in ten is standing on a buried hoard.',
+  'A shiny monster underground is twice the fight and hits twice as hard — and its end always pays past the usual wage.',
+  // ── The long gates — hours in ───────────────────────────────
+  'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
+  'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
+  'The castle board always holds three jobs, and each castle offers only one of them: the next castle along has different work.',
+  'A castle job grows with the number you have already finished, and so does the purse it pays.',
+  'The wizard trades 5 Discovery badges a step, up his ladder: wider reach first, then bigger finds, then the Ring.',
+  'No shop, smithy or castle vault deals in Rings. The wizard\'s Keen Eye is what puts one on your hand.',
+  'Platinum, Crimson and Frost bars are smelted from a magical flower and the bar below it — or prised out of the rarest deep rock, if your tools are nearly its equal.',
+  'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
+  // ── Secret — slime taming. The last page, so it is earned. ───
   'The old texts speak of a gem that calms even the most wretched creature. Perhaps a sapphire offered to a slime...',
 ];
 
@@ -673,19 +904,47 @@ const ITEM_EFFECTS = {
   // Foods with a side-effect when eaten (on top of their energy restore).
   rainberry: 'Eat to water every crop within 20m',
   pairy:     'Eat to reveal the nearest unfound chest for 5 min',
-  coffee:    'Eat for +1 amulet tier of stick-walking speed (3 min)',
-  // Universal tame treat — fed to any wild creature.
-  mango:     'Feed to instantly tame any wild animal',
-  // Offered to a slime to calm it (the secret gem).
-  sapphire:  'Offer to a slime to tame it',
+  coffee:    'Eat for +2 amulet tiers of stick-walking speed (3 min)',
+  // Universal tame treat — fed to any wild creature. Cave monsters are the
+  // one exception, and the line says so: it is the only place that caveat is
+  // written now that the Book no longer repeats the mango's effect.
+  mango:     'Feed to tame any wild animal — never a cave monster',
+  // The sapphire's ADVERTISED use — the one its Portal button opens, and the
+  // only one this line may name. Until Sep 2026 it read "Offer to a slime to
+  // tame it": the game's one real secret, printed on the inventory bar the
+  // instant anyone selected a sapphire, while its actual function went
+  // undescribed. The taming is hinted in exactly one place now — the closing
+  // riddle in PLAY_TIPS — which is what makes it a secret rather than a label.
+  sapphire:  'Use to open a portal one level down',
+  // The Frost jewel: where it comes from and what it is for, in one line.
+  diamond:   'Mined from Frost-tier ore; Frost jewelry is cut around it',
+  // The one thing that still works through the hard-mode zero-energy
+  // lockout (see PLAY_TIPS) — a quarter bar, the same floor reaching the
+  // trailer gives. Never a normal food: it carries no FOOD_ENERGY entry, so
+  // the Eat button only ever offers this while the lockout actually holds.
+  crow_feather: 'Eat at zero to fill a quarter of your bar (hard mode)',
   // Consumables used on yourself / the world.
-  flute:        'Play to lure nearby chickens & cows toward you',
+  honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',
   reach_potion:  'Drink for full-screen reach (1 min)',
   vigor_potion:  'Drink to restore 40 energy',
   speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
+  dragon_powder: 'Use to become a dragon for 1 min: faster legs, 2× damage',
+  growth_powder: 'Use to spring every crop within 20m ahead a stage',
+  shadow_powder: 'Use to make monsters ignore you (1 min)',
+  frost_powder:  'Use to freeze every enemy in reach for 30s',
+  rope:          'Use to climb up or lower down one level, right here',
+  torch:         'Use to make your light reach twice as far (3 min)',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
+  // A sapling's Plant button says it plants something; only this says WHAT.
+  // The acorn is the one that puts back timber rather than fruit, which is the
+  // whole reason it drops off a fell.
+  acorn:        'Plant on bare ground to grow a timber tree',
+  // Materials that are also placeables — held-and-tapped, so the line has to
+  // say so or nothing does (a rock in the bag looks like pure sell value).
+  rock:         'Hold and tap an empty tile to drop a stone fence',
+  coal:         'Burn on bare ground to make a campfire',
 };
 
 const STARTING_ENERGY = 100;
@@ -723,7 +982,8 @@ const ENERGY_COST = {
                          // out-tiers your pick — see the rock-break handler.
   rockPlace: 1,
   catch: 9,              // bare-handed; Wood bug net → 3, Frost → 1 (effectiveCatchCost)
-  fish: 9,               // bare-handed cast; Wood rod → 3, Frost → 1 (effectiveFishCost)
+  fish: 9,               // the CURVE's bare-handed rung; a cast pays it × FISH_COST_MULT
+                         // (18 bare-handed, 6 with a Wood rod, 2 with a Frost — effectiveFishCost)
   chop: 9,               // PER tree-size unit, bare-handed; cut down by axe tier
                          // (see effectiveChopCost). small/medium/full = ×1/2/4.
 };
@@ -748,7 +1008,11 @@ const ANIMAL_FOOD = {
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
   dog:     ['meat'],       // raw meat — hunt deer with a weapon relic
-  // Secret: slimes can be tamed with a sapphire — hinted only in book tips.
+  // Secret: slimes can be tamed with a sapphire — hinted only in book tips,
+  // and true again as of Sep 2026 (ITEM_EFFECTS.sapphire used to spell it out).
+  // Not reachable through animalLikesFood in practice: a slime is an enemy, so
+  // interact.js takes the sapphire branch and then the combat branch long
+  // before the favourite-food path, and no "it wants X" hint ever names this.
   slime:   ['sapphire'],
 };
 function animalLikesFood(kind, foodId) {
@@ -783,39 +1047,70 @@ const RELIC_DEFS = {
              effectKey: 'rockSpeed',     blurb: 'lets you break rocks' },
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
              effectKey: 'chopSpeed',     blurb: 'lets you chop trees' },
+  // The Ring is TIER luck, and the wizard tower's exclusive gift (his Keen Eye
+  // rung — app.js wizardLadder). Never sold, never forged.
   ring:    { slot: 'ring',   name: 'Ring',    icon: 'Rings.png',   baseCost:  60,
              effectKey: 'lootTier',      blurb: 'rarer chest loot' },
+  // The Amulet is stick walking and nothing else. It also gave QUANTITY luck
+  // (a chance at a bigger stack of loot) until Sep 2026, when that became the
+  // wizard's Full Measure rung at the same ceiling — see rarity.js qtyLuck.
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
              effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
-  // are ranged — they fire on their own, once a second along the compass, while
-  // an enemy is on screen. All three still speed the crow/deer hunt wheel by
-  // tier. On top of the fighting, the Sword raises sell values and the Bow
-  // lowers buy prices; the Staff bends no prices at all.
+  // are ranged — they fire on their own while an enemy is on screen, each on
+  // its OWN beat (Combat.fireIntervalMs): the bow along the compass every 2 s,
+  // the staff at the nearest foe in range every 4 s. The staff's slower beat
+  // is pacing, not a nerf — one bolt carries the extra beat's damage.
+  // These blurbs are the WHOLE disclosure for a weapon — the Book no longer
+  // carries a second copy — so the bow's blurb has to say it aims by the
+  // compass and the staff's that each bolt costs energy.
+  // They fight ENEMIES and nothing else: the crow/deer hunt wheel is the BUG
+  // NET's job, not a weapon's. On top of the fighting, the Sword raises sell
+  // values and the Bow lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
-             effectKey: 'sellPrice',     blurb: 'melee: auto-fights foes in reach · better sell prices' },
+             effectKey: 'sellPrice',     blurb: 'melee: auto-fights adjacent foes · better sell prices' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
-             effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots foes on screen · better buy prices' },
+             effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots along the compass · better buy prices' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'hunt',          blurb: 'ranged: auto-shoots foes on screen' },
-  // Watering can — when equipped, every watering tap on a crop "improves" it.
-  // Tier T adds (T) tiers of quality. Tap WATER with the can to refill: the
-  // next 50 watering uses get an extra +2 tiers of bonus stacked on top.
-  // Boost is consumed at harvest: every quality-tier raises the extra-seed
-  // chance by 10% (base 25%) and adds +floor(qual/3) to the produce yield.
+             effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt · bigger bolt per tier' },
+  // Watering can — HOW SOON, not what. Every watering has a tier/7 chance
+  // (Crops.waterJumpChance) of springing the plant a whole growth stage on the
+  // spot: nothing bare-handed, certain at Frost. It used to set produce
+  // QUALITY as well, plus 2 more tiers while a refill charge bank held out;
+  // quality is the HOE's now (it belongs to the bed, see Crops.bedQuality)
+  // and the charge bank retired with it.
   can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
-             effectKey: 'wateringQuality', blurb: 'higher-quality watered crops' },
-  // Hoe — reduces the energy cost of tilling. Each tier shaves 1/3 of the cost
-  // (floored at 1) AND adds a per-tier chance of spending zero energy at all.
+             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward · surer per tier' },
+  // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
+  // effects, all per tier: the till wheel shortens on the shared tool ladder;
+  // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a
+  // 12%-per-tier chance of costing nothing at all (effectiveTillCost); and the
+  // tier is banked on the tilled cell as its produce quality, which the crop
+  // planted there carries to harvest (Crops.bedQuality — every quality tier is
+  // +10% extra-seed chance and +floor(qual/3) yield). That last one was the
+  // watering can's until Sep 2026.
   hoe:     { slot: 'hoe',    name: 'Hoe',     icon: 'Hoe.png',     baseCost:  70,
-             effectKey: 'tillSpeed',     blurb: 'cheaper tilling, sometimes free' },
-  // Bug Net — single 16×16 icon under Extras (handled by gearAssetPath below).
+             effectKey: 'tillQuality',   blurb: 'cheaper tilling, sometimes free · the bed sets crop quality' },
+  // Bug Net — THE animal tool. It shortens every wheel that takes a creature:
+  // the catch wheel (chicken / cow / cat / dog / rabbit / butterfly) and the
+  // crow / deer HUNT wheel, which weapons used to speed. Bare hands work at
+  // the tier-0 rung for both, only slowly enough that a quick animal usually
+  // slips out of reach first. Single 16×16 icon under Extras (handled by
+  // gearAssetPath below).
   bugnet:  { slot: 'bugnet', name: 'Bug Net',     icon: 'Bug net.png',     baseCost: 60,
-             effectKey: 'bugCatch',  blurb: 'catch crows + butterflies' },
+             effectKey: 'bugCatch',  blurb: 'catch + hunt animals faster' },
   // Fishing Rod — standard 32×16 weapon sheet per tier folder.
+  // NOT a gate, the way the net stopped being one: a bare-handed cast works
+  // (interact.js 'fishing'), it just runs 9 s instead of 3, costs double and
+  // skunks nine casts in ten. What the tier buys is the catch table, the
+  // strike rate and the energy per cast, so 'catch fish from water' described
+  // a permission the rod does not grant. The blurb names the bare-handed
+  // CEILING rather than the ladder (which fish arrives at which tier is the
+  // Book's — a ✦ row cannot carry five species), because that ceiling is what
+  // tells the player a rod is worth buying at all.
   rod:     { slot: 'rod',    name: 'Fishing Rod', icon: 'Fishing Rod.png', baseCost: 90,
-             effectKey: 'fishing',   blurb: 'catch fish from water' },
+             effectKey: 'fishing',   blurb: 'quicker, cheaper casts — bare hands land only minnows' },
   // Bags — raise the per-stack inventory cap. No bag = 9; each tier adds ~34,
   // tier 7 = 249. Icon lives under Extras (single image, tier shown via badge).
   bags:    { slot: 'bags',   name: 'Bag',         icon: 'Bags.png',        baseCost: 70,
@@ -833,19 +1128,19 @@ function stackCapForBags(bagsRelic) {
   // 9, 43, 78, 112, 146, 181, 215, 249 across tiers 0..7.
   return Math.round(STACK_CAP_BASE + (STACK_CAP_MAX - STACK_CAP_BASE) * (t / 7));
 }
+// The four wearable slots. Armor carries NO per-slot effect number: what a
+// piece is worth is its TIER, and every slot pays the same for it
+// (armorSlotReduction below) — they differ in PRICE, not in what they do.
+// Until Sep 2026 each slot carried its own `energyPerTier` and armour raised
+// the max-energy CAP — a bigger bar, which helped exactly as much whether or
+// not anything was hitting you. It soaks damage now, so it is worth wearing
+// for the reason armour is worth wearing.
 const ARMOR_DEFS = {
-  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100, energyPerTier: 10 },
-  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 250, energyPerTier: 25 },
-  legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150, energyPerTier: 15 },
-  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost:  80, energyPerTier:  8 },
+  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100 },
+  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 250 },
+  legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150 },
+  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost:  80 },
 };
-// Helper: relic-or-armor item id (e.g. 'relic_pick_3' for an Iron pickaxe).
-function gearId(kind, slot, tier) { return `${kind}_${slot}_${tier}`; }
-function parseGearId(id) {
-  const m = /^(relic|armor)_(\w+?)_(\d+)$/.exec(id);
-  if (!m) return null;
-  return { kind: m[1], slot: m[2], tier: +m[3] };
-}
 function gearDef(kind, slot) {
   return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);
 }
@@ -883,15 +1178,38 @@ function gearName(kind, slot, tier) {
   if (!def || !t) return slot;
   return `${t.name} ${def.name}`;
 }
-function maxEnergyFromArmor(armor) {
-  let m = STARTING_ENERGY;
-  if (!armor) return m;
+// ARMOR SOAK — what one worn piece takes off an incoming hit: ITS TIER. A Wood
+// helmet is −1, a Frost one is −7, and the four slots sum.
+//
+// LINEAR, AND THAT IS THE WHOLE POINT: the number has to live on the same
+// scale as the damage it is subtracted from. Everything in the game that hits
+// the player deals 1..4 a blow (MONSTERS[].dmg), doubled for an elite and
+// doubled again on hard — so the entire damage space is 1..16. It shipped as
+// tier SQUARED for a day, which put a full Frost set at 196 against a 16-point
+// worst case: every tier from Iron up soaked every blow down to the floor, and
+// the ladder above Wood was invisible. A quadratic reduction needs damage
+// numbers an order of magnitude bigger than this game has.
+//
+// This is the ONE place the per-piece number is written. Both sides read it:
+// Combat.mitigate spends the pool against a hit, and the Stats panel / shop
+// offer print the same figure on the piece itself (app.js) — the
+// roadOverlayWidthM discipline, so what the armour SAYS it soaks is what it
+// soaks.
+function armorSlotReduction(tier) {
+  const t = Math.max(0, Math.floor(tier || 0));
+  return t;
+}
+
+// The whole worn set's pool: the sum of every equipped piece's reduction.
+// Unknown slots and empty ones contribute nothing.
+function armorReduction(armor) {
+  if (!armor) return 0;
+  let r = 0;
   for (const [slot, eq] of Object.entries(armor)) {
-    if (!eq) continue;
-    const def = ARMOR_DEFS[slot]; const t = TIER_BY_NUM[eq.tier];
-    if (def && t) m += def.energyPerTier * eq.tier;
+    if (!eq || !ARMOR_DEFS[slot] || !TIER_BY_NUM[eq.tier]) continue;
+    r += armorSlotReduction(eq.tier);
   }
-  return m;
+  return r;
 }
 // Shared tool-tier energy model for the gated "work" actions (chop / rock-break
 // / catch / fish). EXPECTED energy is anchored at 9 bare-handed (tier 0), 3 with
@@ -925,17 +1243,98 @@ function effectiveChopCost(relics, o, rng) {
   const sizeMul = (typeof treeWoodMul === 'function') ? treeWoodMul(o) : 1;
   return probEnergy(toolEnergyExpected(relics?.axe?.tier || 0, ENERGY_COST.chop) * sizeMul, rng);
 }
+// AXE → ACORNS. Felling a tree sometimes leaves an acorn behind: a sapling
+// that plants a new timber tree (items.js 'acorn', interact.js plant handler),
+// so clearing a wood is not a one-way trade. A clean fell recovers more of the
+// tree than a hacked one, so the chance climbs with the axe: bare hands (tier
+// 0) get the base 10%, a Frost axe a guaranteed 100%, GEOMETRIC between (each
+// tier multiplies the previous tier's chance by the same ratio, rather than
+// adding a flat step) so the early tiers move the needle less than the late
+// ones. Both ends are named so the ratio is one division rather than a magic
+// slope.
+const ACORN_P_BASE = 0.10;   // bare hands
+const ACORN_P_FROST = 1.0;   // tier 7
+const ACORN_GEOMETRIC_RATIO = Math.pow(ACORN_P_FROST / ACORN_P_BASE, 1 / 7);
+function acornDropChance(relics) {
+  const t = Math.max(0, Math.min(7, relics?.axe?.tier || 0));
+  return Math.min(ACORN_P_FROST, ACORN_P_BASE * Math.pow(ACORN_GEOMETRIC_RATIO, t));
+}
 // Bug Net: bare-handed catch expects 9, a Wood net 3, a Frost net 1. The net
-// ALSO shortens the catch wheel (see toolDurationMs).
+// ALSO shortens the catch AND crow/deer hunt wheels (see toolDurationMs).
 function effectiveCatchCost(relics, rng) {
   return probEnergy(toolEnergyExpected(relics?.bugnet?.tier || 0), rng);
 }
-// Fishing Rod: bare-handed cast expects 9, a Wood rod 3, a Frost rod 1. The rod
-// ALSO improves the catch table. Cast TIME is locked (9s bare / 3s any rod —
-// see the fishing handler in interact.js), so tier buys cheaper + better
-// casts, never faster ones.
+// ── FISHING ────────────────────────────────────────────────────────────────
+// Everything a cast rolls, in one place: what it costs, how often it whiffs,
+// what junk it pulls and WHICH FISH the rod can land. The handler
+// (interact.js 'fishing') spends and flashes; the numbers are here so they can
+// be read and tested without a scene.
+//
+// Sep 2026 — fishing paid too well. A Wood rod landed three species in the
+// first minutes at 3⚡ a cast, which made a water tile a better living than
+// anything the land offered. Four dials, one direction:
+//   • the whiff DOUBLES (FISH_WHIFF_MULT),
+//   • the cast COSTS double (FISH_COST_MULT),
+//   • the boot DOUBLES (FISH_BOOT_CHANCE, 6% → 12%),
+//   • and a species is now GATED on the rod (minTier below) — with bare hands
+//     the water holds minnows and nothing else, and each better rod is what
+//     puts the next fish in it.
+// Cast TIME is untouched and still locked (9s bare / 3s with any rod — see the
+// handler): tier buys cheaper, likelier and better catches, never faster ones.
+
+// The whiff ("nothing biting…") ladder. The pre-Sep-2026 curve is kept whole
+// and DOUBLED rather than retyped, so what changed stays legible: it fell from
+// 55% bare-handed by 5 points a tier to a 20% floor. Doubled, the top of that
+// runs past certainty, so FISH_WHIFF_MAX caps it — a cast is never hopeless,
+// and the flat stretch it leaves over tiers 0-2 is the point: below an Iron rod
+// the water mostly gives you nothing, and what a Wood rod buys is the bass
+// (see FISH_SPECIES), not a better strike rate.
+const FISH_WHIFF_BASE = 0.55, FISH_WHIFF_PER_TIER = 0.05, FISH_WHIFF_FLOOR = 0.20;
+const FISH_WHIFF_MULT = 2;
+const FISH_WHIFF_MAX = 0.90;
+function fishWhiffChance(tier) {
+  const base = Math.max(FISH_WHIFF_FLOOR, FISH_WHIFF_BASE - (tier || 0) * FISH_WHIFF_PER_TIER);
+  return Math.min(FISH_WHIFF_MAX, base * FISH_WHIFF_MULT);
+}
+// What a cast costs, and what it pulls up instead of a fish. The jackpot is
+// unchanged — it is the reason to fish at all once the fish stop paying.
+const FISH_COST_MULT = 2;
+const FISH_JACKPOT_CHANCE = 0.02;   // → a gear roll (rollGearUpgrade)
+const FISH_BOOT_CHANCE = 0.12;      // → an Old Boot (was 0.06)
+// The catch table. `minTier` is the rod a species needs before it is IN the
+// water at all — one species per odd tier, so every rod up the ladder opens
+// exactly one new fish and a Frost rod is what the goldenfish is for. `w` is
+// the weight once it is available: base + per × tier, so a species also gets
+// commoner as the rod improves (and the minnow thins out, floored so it never
+// leaves the pool entirely).
+const FISH_SPECIES = [
+  { id: 'minnow',     minTier: 0, base: 10,   per: -1.0, floor: 0.5 },
+  { id: 'bass',       minTier: 1, base: 3,    per: 0.5 },
+  { id: 'trout',      minTier: 3, base: 1,    per: 0.5 },
+  { id: 'salmon',     minTier: 5, base: 0.3,  per: 0.3 },
+  { id: 'goldenfish', minTier: 7, base: 0.05, per: 0.15 },
+];
+// The weighted pool a rod of this tier is fishing: [{ id, w }], commonest
+// first. Never empty — the minnow's minTier is 0, so bare hands still fish.
+function fishTable(tier) {
+  const t = tier || 0;
+  return FISH_SPECIES
+    .filter((f) => t >= f.minTier)
+    .map((f) => ({ id: f.id, w: Math.max(f.floor ?? 0, f.base + f.per * t) }));
+}
+// One catch off that pool. `rng` is injected so tests can pin the roll.
+function rollFish(tier, rng) {
+  const table = fishTable(tier);
+  const total = table.reduce((a, b) => a + b.w, 0);
+  let r = ((rng || Math.random)()) * total;
+  for (const f of table) { r -= f.w; if (r <= 0) return f.id; }
+  return table[table.length - 1].id;
+}
+// Fishing Rod: the shared 9/3/1 tool curve × FISH_COST_MULT, so a bare-handed
+// cast expects 18, a Wood rod 6 and a Frost rod 2. The multiplier is fishing's
+// own — chop / mine / catch keep the plain ladder.
 function effectiveFishCost(relics, rng) {
-  return probEnergy(toolEnergyExpected(relics?.rod?.tier || 0), rng);
+  return probEnergy(FISH_COST_MULT * toolEnergyExpected(relics?.rod?.tier || 0), rng);
 }
 // Hoe relic: each tier (1-7) gives a 12% chance of FREE tilling AND shaves
 // floor(tier/3) energy off the base 2-cost (floored at 1). Tier 7 ≈ 84% free
@@ -967,9 +1366,12 @@ function effectiveTillCost(relics, rng) {
 // steps wandered between 1.25× and 1.67×, and the flat spot was exactly where
 // a new player lives: copper→iron bought 25%, so the first three relics — the
 // only ones reachable in the opening hour — felt like the same tool. In combat
-// that's the loudest, because a slime is BASELINE_HP and so its kill time in
-// seconds IS the duration here (see combat.js): wood 3s / copper 2.5s / iron 2s
-// was a wooden sword killing nearly as fast as an iron one. Wood also moved 3s
+// that's the loudest, because a foe of BASELINE_HP has a kill time in seconds
+// that IS the duration here (see combat.js): wood 3s / copper 2.5s / iron 2s
+// was a wooden sword killing nearly as fast as an iron one. (The surface slime
+// was that reference foe until Sep 2026; it is 10 HP now, so it dies in two
+// thirds of a rung — the ladder's SHAPE is what this paragraph is about, and
+// that is unchanged.) Wood also moved 3s
 // → 4s in the same pass, which is what opens the bottom of the curve up.
 //
 // TIER 0 = BARE HANDS is deliberately NOT on this curve. It stays at 9s, the
@@ -1039,6 +1441,31 @@ function sellMultiplier(relics) {
   const t = relics?.sword?.tier || 0;
   return 0.5 + (t / 7) * 0.5;
 }
+// The TRAILER (home) is the only place a haul can be cashed out, so what it
+// pays IS the sell economy — a haul is worth exactly what home hands over.
+// That payout is a 25% haircut off the sword-scaled price: the sword ladder
+// above still governs how much better selling gets as the player levels, this
+// only sets where the whole ladder sits. It is deliberately a separate number
+// from sellMultiplier so the stand's anti-arbitrage floor (shops_math.js
+// standBuyMul, which prices off sellMultiplier) is unaffected — a smaller
+// trailer payout only widens the margin that keeps buy-low-sell-high shut,
+// never narrows it.
+// One number, one place: every home sale goes through trailerSellPrice, so the
+// price the modal quotes and the cash addMoney pays can't drift apart.
+const TRAILER_SELL_MUL = 0.75;
+// Hard mode takes a further cut here (Difficulty.sellMul, 0.6): the SAME
+// place, so the quote and the payout still can't drift, and the stand floor
+// (which prices off sellMultiplier, not this) only widens.
+function trailerSellMultiplier(relics) {
+  const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().sellMul : 1;
+  return sellMultiplier(relics) * TRAILER_SELL_MUL * modeMul;
+}
+// Cash the trailer pays for ONE unit of an item listed at baseValue. Ceil and
+// a $1 floor, same as every other price path — so a $1 item still sells for $1
+// and the haircut only bites above the floor.
+function trailerSellPrice(baseValue, relics) {
+  return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier(relics)));
+}
 // Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
 // share this discount, but it's been demoted to a pure combat weapon (it's a
 // ranged weapon in combat.js, and still counts toward the crow/deer hunt-speed
@@ -1049,10 +1476,15 @@ function bestWeaponTier(relics) {
 // Bow relic: shrinks the random buy-cash markup. Without one, the trader still
 // wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0× (the player
 // buys at par).
+// Hard mode scales the whole range (Difficulty.buyMul, 1.5×): the bow still
+// closes the spread the same way, it just closes on 1.5× par instead of par.
+// Applied HERE so every reader — the trader's roll, the castle's pricing —
+// asks one function and gets the same answer.
 function buyMarkupRange(relics) {
   const t = bestWeaponTier(relics);
   const f = 1 - t / 7;   // 1 → 0 as tier rises
-  return { lo: 1 + 0.2 * f, hi: 1 + 2.0 * f };
+  const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().buyMul : 1;
+  return { lo: (1 + 0.2 * f) * modeMul, hi: (1 + 2.0 * f) * modeMul };
 }
 
 // === Per-crop loot tier config (used by chests + treasure marks) ===

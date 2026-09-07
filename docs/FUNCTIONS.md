@@ -69,7 +69,7 @@ Tiny nested closures inside larger functions are intentionally skipped.
 | drawSandTex             | Paint fine sand grains in warm tones                     |   8 |
 | drawFarmlandTex         | Paint parallel furrow rows with subtle shading           |  14 |
 | drawParkTex             | Paint grass base with tiny flower accents                |  10 |
-| drawTilledTex           | Paint ploughed soil with horizontal furrows              |  15 |
+| drawTilledTex           | Paint one inset rounded soil bed with furrows, clipped   |  15 |
 | drawWaterTex            | Paint ripple highlights on transparent background        |  16 |
 | drawResidentialTex      | Paint concrete with aggregate flecks                     |  18 |
 | drawPathTex             | Paint scattered pebbles in dark/light dots               |  12 |

@@ -132,3 +132,18 @@ test('CREATURE_ART entries are complete and sane', () => {
     assert.gt(a.maxY, a.minY, `${kind} art has height`);
   }
 });
+
+// ── A STATIC target's wheel is centred in its cell ─────────────────────────
+// Rocks, trees, crops, fish and a cave wall are all worked in ONE cell, and
+// the wheel over them is centred on that cell: the anchor is snapped to the
+// cell centre and no offset is added. Until Sep 2026 it sat at a flat -7 px
+// above the anchor, which read as riding up the cell rather than on it.
+// app.js can't load headlessly, so the placement is pinned as source text.
+test('static wheel: centred on the cell — snapped to its centre, no flat lift', () => {
+  const app = APP_JS_SRC;
+  const m = app.match(/const dyWheel = creature \? SpriteLayout\.creatureWheelDy\(creature\.kind\) : (-?\d+);/);
+  assert.truthy(m, 'the static branch of dyWheel is a literal');
+  assert.eq(Number(m[1]), 0, 'and that literal is 0 — no flat lift off the cell centre');
+  assert.truthy(/if \(!creature\) \{\s*const ac = worldMetersToAbsCell\(this, ax, ay\);\s*const cc = absCellCenterMeters\(this, ac\.cellIX, ac\.cellIY\);/.test(app),
+    'a static anchor is snapped to its cell centre before projection');
+});
