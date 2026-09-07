@@ -27,13 +27,16 @@
 
   test('difficulty: easy is the identity — every multiplier 1, every flag on', () => {
     const e = Difficulty.PROFILES.easy;
-    // trapCountMul is the one deliberate exception: the base rate in traps.js
-    // (10..18/tile) reads as too rare to ever meet in practice, so BOTH modes
-    // scale up from it — easy 10x, hard 100x — rather than easy being 1x.
+    // trapCountMul and crowCountMul are the two deliberate exceptions.
+    // trapCountMul: the base rate in traps.js (10..18/tile) reads as too rare
+    // to ever meet in practice, so BOTH modes scale up from it — easy 10x,
+    // hard 100x — rather than easy being 1x. crowCountMul: easy halves the
+    // base wild crow count outright.
     for (const [k, v] of Object.entries(e)) {
-      if (/Mul$/.test(k) && k !== 'trapCountMul') assert.eq(v, 1, `easy.${k} is 1`);
+      if (/Mul$/.test(k) && k !== 'trapCountMul' && k !== 'crowCountMul') assert.eq(v, 1, `easy.${k} is 1`);
     }
     assert.eq(e.trapCountMul, 10, 'easy still multiplies the base trap rate, just less than hard');
+    assert.eq(e.crowCountMul, 0.5, 'easy halves the base wild crow count');
     assert.eq(e.startingMoney, STARTING_MONEY, 'the easy purse IS items.js STARTING_MONEY');
     assert.truthy(e.tutorial && e.starterCrates && e.pestAmnesty, 'the guided opening is on');
     assert.falsy(e.cropPests, 'easy never dispatches a crow at a planted field');
@@ -51,6 +54,7 @@
     assert.gt(h.enemyHpMul, 1); assert.gt(h.enemyDmgMul, 1);
     assert.gt(h.monsterCountMul, 1); assert.gt(h.slimeCountMul, 1);
     assert.gt(h.trapCountMul, e.trapCountMul, 'the verge is denser with traps too');
+    assert.gt(h.crowCountMul, e.crowCountMul, 'and more wild crows to begin with');
     assert.gt(h.trapBiteMul, e.trapBiteMul, 'and bites harder on first contact');
     // What the mode deliberately leaves alone has no knob at all.
     for (const k of ['bountyMul', 'eliteRateMul', 'passOutLossFrac', 'offlineRestCapFrac']) {
