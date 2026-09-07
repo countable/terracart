@@ -99,16 +99,20 @@ const PATH_STONE_DWELL_MS = 2000;
 // only walking along. Repairing a road is steady work, not a detonation: the
 // flash is a nod, and the shine below carries the rest of it.
 const BLAST_STONE_R_CELLS = 1.5;
-// The white SHINE that runs down a stretch the instant it is rebuilt, in ms.
-// Lighting.BLAST_MS, not a number of its own: the shine and the lightmap flash
-// are two halves of one moment and must end together.
+// The minty-green SHINE that runs down a stretch the instant it is rebuilt,
+// in ms. Lighting.BLAST_MS, not a number of its own: the shine and the
+// lightmap flash are two halves of one moment and must end together.
 const STREET_SHINE_MS = (typeof Lighting !== 'undefined' && Lighting.BLAST_MS) || 900;
-// How bright that shine starts. Well under full white: the run used to fade
-// from opaque white, which at the widths a trunk road is stroked at whited out
-// the carriageway for a beat every time a sweep landed — and a sweep lands
-// every few paces while the player walks a street. A repair should read as a
-// gleam passing over the new surface, not as a strobe.
+// How bright that shine starts. Well under full strength: the run used to
+// fade from opaque white, which at the widths a trunk road is stroked at
+// whited out the carriageway for a beat every time a sweep landed — and a
+// sweep lands every few paces while the player walks a street. A repair
+// should read as a gleam passing over the new surface, not as a strobe.
 const STREET_SHINE_ALPHA = 0.4;
+// The shine's own colour — UI_GREEN, the same "restore green" a rebuilt
+// building's card and sparks are already set in, so a road coming back reads
+// as the same kind of event rather than a colour of its own.
+const STREET_SHINE_COLOUR = parseInt(UI_GREEN.slice(1), 16);
 // THE STREET LAMPS. A restored street lights its own way: one glowing cobble
 // every Streets.lampSpacingM() metres of rebuilt carriageway — the ladder's
 // own rung, so a walk that earns a prize lights about one lamp. Where they
@@ -13568,7 +13572,7 @@ class MapScene extends Phaser.Scene {
       for (const seg of out.newly) {
         const len = seg[1] - seg[0];
         if (len > bestLen) { bestLen = len; best = { meta, s: (seg[0] + seg[1]) / 2 }; }
-        // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS.
+        // THE SHINE: a minty-green run down the stretch, fading over STREET_SHINE_MS.
         const pts = this._streetRunPts(meta, seg[0], seg[1]);
         if (pts) {
           (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
@@ -13683,9 +13687,9 @@ class MapScene extends Phaser.Scene {
   //                of what is about to happen, so the two seconds read as a
   //                thing being done rather than a delay. Its alpha is the
   //                dwell's own progress: how long this line has been in sight.
-  //   the SHINE    a pale run down a stretch the instant it comes back, from
-  //                STREET_SHINE_ALPHA to nothing over STREET_SHINE_MS beside
-  //                the blast's flash.
+  //   the SHINE    a minty-green run down a stretch the instant it comes back,
+  //                from STREET_SHINE_ALPHA to nothing over STREET_SHINE_MS
+  //                beside the blast's flash.
   //
   // Called every frame from drawRoadGeometry, AFTER RoadOverlay.draw has moved
   // the container by this frame's sub-cell scroll — drawLive subtracts that
@@ -13721,7 +13725,7 @@ class MapScene extends Phaser.Scene {
         // spends most of its life on the way to gone rather than lingering
         // half-lit over the stretch behind the player.
         runs.push({ pts: e.pts, tags: e.tags,
-                    alpha: STREET_SHINE_ALPHA * (1 - st) * (1 - st), colour: 0xffffff });
+                    alpha: STREET_SHINE_ALPHA * (1 - st) * (1 - st), colour: STREET_SHINE_COLOUR });
       }
       shine.length = w;
     }

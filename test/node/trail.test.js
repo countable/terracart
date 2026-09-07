@@ -798,15 +798,15 @@ test('streets: the live pass previews the dwell and shines on the rebuild', () =
       }
 
       clock.at(PATH_STONE_DWELL_MS); frame(s);
-      const shine = seen.filter((r) => r.colour === 0xffffff);
-      assert.eq(shine.length, 1, 'the rebuilt stretch shines white');
-      // STREET_SHINE_ALPHA, not white: the gleam is a nod over the new
-      // surface, and at the width a trunk road is stroked at a full-white run
+      const shine = seen.filter((r) => r.colour === STREET_SHINE_COLOUR);
+      assert.eq(shine.length, 1, 'the rebuilt stretch shines minty green');
+      // STREET_SHINE_ALPHA, not full strength: the gleam is a nod over the new
+      // surface, and at the width a trunk road is stroked at a full-alpha run
       // whited the carriageway out every few paces of an ordinary walk.
       assert.inRange(shine[0].alpha, STREET_SHINE_ALPHA - 0.01, STREET_SHINE_ALPHA + 0.01,
         'brightest at the instant it lands, at the shine\'s own ceiling');
-      assert.lt(STREET_SHINE_ALPHA, 1, 'which is well under full white');
-      assert.eq(seen.filter((r) => r.colour !== 0xffffff).length, 0,
+      assert.lt(STREET_SHINE_ALPHA, 1, 'which is well under full strength');
+      assert.eq(seen.filter((r) => r.colour !== STREET_SHINE_COLOUR).length, 0,
         'and the preview stops drawing over the clean band the same frame');
 
       clock.at(PATH_STONE_DWELL_MS + STREET_SHINE_MS / 2); frame(s);

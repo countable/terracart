@@ -1215,8 +1215,8 @@
 
   // ── The live pass ────────────────────────────────────────────────────────
   // Everything the overlay draws that changes EVERY frame: the dwell preview
-  // creeping along a street the player is standing over, and the white shine
-  // that runs down a stretch the moment it is rebuilt. Those can't live on
+  // creeping along a street the player is standing over, and the minty-green
+  // shine that runs down a stretch the moment it is rebuilt. Those can't live on
   // either canvas — a canvas rebuild is a hundred strokes and a handful of
   // pattern fills, and this changes sixty times a second — so they go on a
   // plain Phaser Graphics, cleared and re-stroked per frame. Usually 0–10

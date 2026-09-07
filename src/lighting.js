@@ -559,8 +559,8 @@
   // from FLASH_SCALE_FROM to 1 across the duration — and its defaults are that
   // flash's numbers exactly (2.5 cells, 900 ms), so a restored stretch flashes
   // as a lighting stone always did while a building can ask for six. The
-  // 900 ms is also the window app.js runs its white SHINE down a stretch for,
-  // so the flash and the shine end together.
+  // 900 ms is also the window app.js runs its minty-green SHINE down a
+  // stretch for, so the flash and the shine end together.
   const FLASH_SCALE_FROM = 0.45;
   const BLAST_RADIUS_CELLS = 2.5;
   const BLAST_MS = 900;
