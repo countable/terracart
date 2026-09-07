@@ -354,9 +354,12 @@ const BASE_TIER = {
   // Consumables
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   dragon_powder: 3,
-  // Growth Powder is a T2 farm utility beside the potions; Shadow and Frost are
-  // T3 fight-changers beside the dragon.
-  growth_powder: 2, shadow_powder: 3, frost_powder: 3,
+  // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
+  // it: a minute of not being hunted is a way to WALK AWAY from a fight, the
+  // same shape as the reach/speed/shield potions it now shares a tier with.
+  // Frost is the T3 fight-changer beside the dragon — it is the one that turns
+  // a fight you are already in.
+  growth_powder: 2, shadow_powder: 2, frost_powder: 3,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
@@ -662,7 +665,8 @@ const PRICES = {
   shield_potion: 40,   // T2 — half monster damage for 1 min
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
-  shadow_powder: 110,  // T3 — 1 min of monsters ignoring you entirely
+  shadow_powder: 110,  // T2 — 1 min of monsters ignoring you entirely (priced for the
+                       //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   rope:          25,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft)
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
