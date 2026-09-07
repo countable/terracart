@@ -338,6 +338,23 @@
   // player standing on the battlements before anyone looked up.
   const LAIR_AGGRO_CELLS = 6;    // clear of the ruin's edge: the garrison notices
   const LAIR_LEASH_CELLS = 10;   // and this far out it gives up and goes home
+  //   IN PRACTICE THE LEASH RARELY BINDS, which is the point: a goblin covers
+  // 0.84 m/s against a walking player's 1.4, so a player who simply keeps
+  // walking opens the gap and the garrison turns round having strayed a
+  // fraction of the leash. The leash is what catches the player who stands and
+  // fights and then thinks better of it.
+  //   A GUARD WALKING HOME CAN FREEZE, and it is meant to. Past
+  // CREATURE_SIM_CELLS (app.js, 12) wanderCreatures culls a creature entirely,
+  // so a returning guard whose player kept going simply stops where it is.
+  // That is the ordinary frozen-outside-the-bubble rule and it is harmless
+  // here because of the ring order: the bubble is OUTSIDE the sprite cull, so
+  // nothing is ever frozen in view, and coming back inside it puts the guard
+  // straight back on the walk home. Go far enough instead and residency sleeps
+  // the garrison, and the next wake re-seats it exactly where garrisonFor
+  // always puts it — nothing decays either way. The leash is deliberately
+  // INSIDE the bubble so the turn-round itself always happens somewhere the
+  // guard is still thinking; that relation is pinned, and the whole sequence
+  // is run for real in test/node/lair_chase_sim.test.js.
   // How close to its seat counts as home — a guard inside this is at rest
   // again. A fraction of a cell, so it is the arrival test and nothing more.
   const LAIR_SEAT_EPS_CELLS = 0.25;

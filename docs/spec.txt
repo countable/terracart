@@ -166,6 +166,16 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    that keeps pace never falls behind. The offset by lairR is what keeps a
    castle honest: its footprint is tens of metres across, so a ring from the
    CENTRE would have the player on the battlements before anyone looked up.
+   IN PRACTICE THE LEASH RARELY BINDS: a goblin covers 0.84 m/s against a
+   walking player's 1.4, so simply walking away opens the gap and the garrison
+   turns round having strayed a fraction of the leash. The leash catches the
+   player who stands and fights and then thinks better of it. A guard walking
+   home FREEZES if the player passes CREATURE_SIM_CELLS (84m) — the ordinary
+   cull every creature obeys — which is harmless because the bubble is outside
+   the sprite cull (never frozen in view) and it resumes the walk on return;
+   go further and residency sleeps the garrison and the next wake re-seats it.
+   The leash is deliberately INSIDE the bubble so the turn-round always happens
+   somewhere the guard is still thinking.
    LAIR_SLEEP_CELLS is DERIVED from the leash (WAKE + LEASH = 26): sleeping is
    measured from the RUIN, but a guard may be a whole leash away from it on the
    way home, and what is left after that still has to clear the sprite cull or

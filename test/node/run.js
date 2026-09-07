@@ -1203,6 +1203,69 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+
+// ── wanderCreatures, lifted and RUN ───────────────────────────────────────
+// The creature sim is 680 lines inside app.js, so for years the only thing any
+// test could say about it was that a regex still matched — which is how the
+// lair chase was originally shipped: a state machine tested for real, and a
+// movement loop that consumed it tested not at all. Source pins cannot tell
+// you that a guard actually leaves its seat, closes the distance, turns round
+// at the leash and lands back on its spot.
+//
+// So it is lifted the same way _driftHome is: the REAL method text, plus the
+// app.js top-level constants and helpers it closes over, evaluated into one
+// function the tests call on a stub scene. A reimplementation here would pass
+// while the shipping loop did something else entirely.
+{
+  const src = readSrc('app.js');
+  const num = (name) => {
+    const m = src.match(new RegExp(`const ${name} = ([-\\d.]+);`));
+    if (!m) { console.error(`Could not lift ${name} for __wander — update run.js`); process.exit(2); }
+    return `const ${name} = ${m[1]};`;
+  };
+  // A top-level function by its signature line: the whole line when it is a
+  // one-liner, otherwise through the `}` that closes it at column 0.
+  const fn = (sig) => {
+    const i = src.indexOf('\n' + sig);
+    if (i < 0) { console.error(`Could not lift ${sig} for __wander — update run.js`); process.exit(2); }
+    const lineEnd = src.indexOf('\n', i + 1);
+    const line = src.slice(i + 1, lineEnd);
+    if (line.trimEnd().endsWith('}')) return line;
+    const close = src.indexOf('\n}\n', i);
+    if (close < 0) { console.error(`Could not find the end of ${sig} — update run.js`); process.exit(2); }
+    return src.slice(i + 1, close + 2);
+  };
+  const start = src.indexOf('  wanderCreatures() {');
+  const end = src.indexOf('\n  }\n', start);
+  if (start < 0 || end < 0) {
+    console.error('Could not lift wanderCreatures out of src/app.js — update run.js');
+    process.exit(2);
+  }
+  const method = src.slice(start + 2, end + 4);
+  const preamble = [
+    // The numbers the loop reads. Lifted, never retyped: a retune has to move
+    // the simulation with it or these tests are measuring last week's game.
+    num('CREATURE_SIM_CELLS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'),
+    num('SLIME_HOP_CELLS'), num('SLIME_STEP_MUL'), num('STALK_JITTER'),
+    num('PEST_CROW_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
+    'const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;',
+    // The predicates. FAUNA_BLOCKED_TYPES is the set faunaBlocksCell reads.
+    src.match(/const FAUNA_BLOCKED_TYPES = new Set\(\[[^\]]*\]\);/)[0],
+    fn('function faunaBlocksCell(type)'),
+    fn('function slimeCharging(c) {'),
+  ].join('\n');
+  // ONE script, so the method closes over the preamble's consts — a second
+  // runInContext would not see them (a vm script's top-level `const` does not
+  // land on the context global; that is what the BRIDGE above exists for).
+  // The method text is a class method, so it is wrapped as an object literal
+  // and the property taken off it.
+  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\n})();`,
+    ctx, { filename: 'app.js#wanderCreatures' });
+  if (typeof ctx.__wander !== 'function') {
+    console.error('__wander did not come back as a function — update run.js');
+    process.exit(2);
+  }
+}
 // interact.js loads headlessly, but the burst call sites in its crop handler are
 // pinned as source text (particles.test.js) beside the app.js ones.
 ctx.INTERACT_JS_SRC = readSrc('interact.js');

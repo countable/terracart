@@ -906,6 +906,16 @@
     // the guards were woken in — nothing is ever pursued out of residency.
     assert.lt(Lairs.LAIR_LEASH_CELLS, Lairs.LAIR_WAKE_CELLS,
       'a guard could chase past the ring that woke it');
+    // AND INSIDE THE SIM BUBBLE, which is the one that makes the walk home
+    // actually happen: beyond CREATURE_SIM_CELLS wanderCreatures does not run
+    // for a creature at all, so a guard whose leash broke out there would
+    // freeze mid-street rather than turn round. It is never VISIBLE frozen
+    // (the bubble is outside the sprite cull, so it starts walking again
+    // before it can be seen), but the leash being the smaller number is what
+    // means it does not come up. lair_chase_sim.test.js runs that walk home
+    // for real, and only inside this ring.
+    assert.lt(Lairs.LAIR_LEASH_CELLS, CREATURE_SIM_CELLS,
+      'a guard could give up somewhere nothing is thinking, and freeze there');
   });
 
   test('chase: a hunting garrison really does leave its seat, and comes back', () => {
