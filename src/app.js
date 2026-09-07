@@ -321,7 +321,7 @@ const RENDER_SCALE_MAX = 4;
 function renderScale() {
   const css = window.__gameCssScale || 1;      // published by index.html fitGame
   const dpr = window.devicePixelRatio || 1;
-  return Math.min(RENDER_SCALE_MAX, Math.max(1, css * dpr));
+  return clamp(css * dpr, 1, RENDER_SCALE_MAX);
 }
 // Live value: read by the pointer conversion below and re-applied on resize.
 // A `let` because devicePixelRatio changes when a window moves between
@@ -447,22 +447,9 @@ const MODAL_KINDS = {
 };
 
 // Inventory category tabs (the top bar of the two-bar bottom HUD). The order
-// here is the on-screen left→right order. Item categories filter save.inv by
-// `kind`; gear categories (relic / armor) synthesize their slot list from
-// save.relics / save.armor (one-per-slot) instead of save.inv. `sym` is the
-// tab glyph — plain emoji so no new pixel art is needed for the chrome.
-const INV_CATS = [
-  { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed', 'sapling'] },
-  { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
-  { key: 'animal',      label: 'Animals',     sym: '🐔', kinds: ['animal'] },
-  { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic' },
-  { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
-  { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
-  // 'badge' = the Discovery badge stack — listed here so it's visible/countable,
-  // though it's spent only at the wizard tower (no tap-to-use handler).
-  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable', 'badge'] },
-];
-const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
+// here is the on-screen left→right order. The table itself (INV_CATS /
+// INV_CAT_BY_KEY / invCatForItem) is a map over item KINDS, so it lives with
+// the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
 const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'ring', 'amulet', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
 const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
@@ -472,82 +459,15 @@ const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
 // obtaining/forging a new one — see Gear.equip). Mirrors Gear.WEAPON_SLOTS.
 const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
 
-// Terrain cell types fauna may NEVER step onto (spec §fauna: "no fauna may move
-// onto a building footing, or road"). WATER (3) + all building tiers (9/11/12)
-// + all road tiers (ROAD 7 / ROAD_LG 13 / ROAD_MD 14). PATHS (8) are pedestrian
-// / public and stay passable.
-const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */]);
-function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
+// Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
+// Combat.faunaBlocksCell, beside the creatures it governs.
+//
+// The MONSTER table is Combat's too — Combat.MONSTERS / Combat.monster(kind) —
+// with the giants and the cave doubling derived there, registered at load. It
+// lived here until Sep 2026, which meant combat.js could only answer about a
+// real foe once app.js had booted and handed the table over, and every
+// headless test of one ran on a copy lifted out of this file by regex.
 
-// Underground wandering MONSTERS. Mechanically they're the surface slime: each
-// drifts toward the player and drains energy when within RANGE — but they
-// differ by HP / RANGE / DMG / SPEED. Only the goblin archer reaches past one
-// cell (range 3), and a kind with range > 1 SHOOTS — a visible arrow at the
-// player at the castle turret's cadence, carrying MONSTER_ARROW_HITS hits of
-// `dmg` so its damage per minute is unchanged (see Combat.monsterShot);
-// everything else is melee (range 1) and leeches on MONSTER_HIT_MS. Tougher kinds are gated
-// to deeper levels via minDepth, so descending introduces new foes. Placeholder
-// art: every monster reuses the slime sprite with a per-kind TINT (see
-// render.js) until dedicated sheets land — swapping in real art is a one-line
-// assets.js + render.js change per kind.
-//   hp     → the pool a fight drains (scaled off combat.js BASELINE_HP, 15)
-//   range  → cells within which it drains energy
-//   dmg    → energy drained per hit (one hit per MONSTER_HIT_MS per monster)
-//   speed  → step cadence multiplier (1 = slime cadence; higher = moves more often)
-//   weight → relative spawn share among the kinds eligible at a given depth
-// hp and dmg below are the BASELINE: every entry is doubled by CAVE_ENEMY_MUL
-// right after the table, so what the game runs on is twice what is written.
-const MONSTERS = {
-  cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5 },
-  purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true },
-  goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.0, minDepth: 2, weight: 3 },
-  goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 0.8, minDepth: 3, weight: 2 },
-};
-// ── GIANTS ──────────────────────────────────────────────────────────────────
-// Every kind above has a GIANT form, `giant_<kind>`: GIANT_HP_MUL (4×) the HP,
-// introduced GIANT_DEPTH_STEP (2) levels deeper than its base kind, at half
-// the base kind's spawn share. Damage, range and speed are the base kind's —
-// it is a bigger, tougher body of the same foe, not a new one. Derived here
-// from the literal rather than authored, so a kind added above has a giant
-// the moment it has stats, and the doubling below reaches the giants too.
-// There is no giant art: SpriteLayout.creatureArt draws the base kind's sheet
-// at GIANT_ART_SCALE (1.8), and everything that seats on the body (wheel,
-// health bar, tap box, shadow) resolves through the same helper. For the
-// quest board and the Discovery ledger a giant is ITS OWN KIND — a giant
-// goblin job wants giant goblins, and an elite giant goblin banks its own
-// badge beside the elite goblin's (resolveDefeat credits victim.kind as-is;
-// quests.js QUEST_ENEMIES lists the giants). Its elite roll gets the +2 tier
-// of its deeper introduction for free (eliteRollBonus).
-const GIANT_HP_MUL = 4;
-const GIANT_DEPTH_STEP = 2;
-for (const [kind, m] of Object.entries(MONSTERS)) {
-  MONSTERS[`giant_${kind}`] = {
-    ...m,
-    name: `Giant ${m.name}`,
-    hp: m.hp * GIANT_HP_MUL,
-    minDepth: m.minDepth + GIANT_DEPTH_STEP,
-    weight: Math.max(1, Math.ceil((m.weight || 1) / 2)),
-    giant: kind,
-  };
-}
-// The first slime is the tutorial; everything past it is a real fight.
-//
-// The wild surface slime is the only enemy above ground and the first one
-// anybody meets — deliberately gentle, a crop pest you can walk away from.
-// Every enemy BEYOND it is underground, chosen by a player who went looking,
-// and those are twice the foe: double HP and double damage.
-//
-// Applied as ONE rule over the baseline above rather than eight retuned
-// numbers, so the ratio to that first slime stays readable at a glance and a
-// kind added to the table inherits the doubling the moment it has stats. The
-// knock-ons are derived and intended: the dps identity is untouched, so double
-// HP is exactly double the time to kill at any weapon tier, and enemyBounty
-// pays per HP, so a foe that takes twice as long pays twice as much.
-const CAVE_ENEMY_MUL = 2;
-for (const m of Object.values(MONSTERS)) {
-  m.hp *= CAVE_ENEMY_MUL;
-  m.dmg *= CAVE_ENEMY_MUL;
-}
 // Seconds between one monster's hits. Per user: monsters were landing a hit a
 // second each, so a pack shredded the energy bar faster than it could be read —
 // halved to one hit per 2 s. (The surface slime keeps its own 1 s cadence: it's
@@ -560,67 +480,16 @@ const MONSTER_HIT_MS = 2000;
 // visible arrow, and a change to either cadence keeps that correspondence.
 const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;
 // FIRE WARD DEPTH CAP: a campfire only turns away the WEAKEST cave-dwellers —
-// those introduced at the first cave level (MONSTERS[kind].minDepth <= 1),
+// those introduced at the first cave level (Combat.MONSTERS[kind].minDepth <= 1),
 // the same tier as the surface slime it already deters. A goblin (minDepth 2)
 // or goblin archer (minDepth 3) — and their giants, pushed GIANT_DEPTH_STEP
 // deeper still — are past what a lit campfire can plausibly hold off; only
 // Home's stronger ward (HOME_R, surface only) turns those around.
 const FIRE_WARD_MAX_DEPTH = 1;
 
-// combat.js owns the fight maths (HP, melee dps, bow/staff shots) and is loaded
-// before this file so headless tests can use it without Phaser. It needs the
-// monster stats to answer "is this an enemy" and "how much HP", so hand the
-// table over — by REFERENCE, so a kind added above is a foe there immediately.
-// It sits HERE, against the table, rather than further down the file: the
-// bounty below asks Combat how much HP a kind has, so the registration has to
-// come first, and the headless lift of this block gets it for free.
-Combat.registerMonsters(MONSTERS);
-
-// --- Defeat bounty -------------------------------------------------------
-// A defeated enemy used to drop NOTHING: you paid the work wheel and the energy
-// it drained off you and got a flash message, so the only rational play was to
-// walk around every foe you met. Now a kill pays coins, always.
-//
-// EVERY ENEMY DRAWS ONE, not just the cave monsters. `Combat.isEnemyKind` is
-// the single definition of "a thing that attacks you" — the cave monsters and
-// the surface slime — and it is what this reads, so a hostile kind added to
-// MONSTERS is priced the moment it has stats and can never end up fought for
-// free. The surface slime was exactly that gap: it fights you, it eats your
-// crops, and killing one paid nothing at all. Crow and deer are NOT enemies
-// (they're game) and still pay in feathers and meat instead.
-//
-// The bounty is DERIVED from `hp` — the same number that sets the wheel length
-// — rather than hand-tuned per kind, so a tougher foe can never quietly pay
-// less than an easier one. Roughly a coin per 5 HP, floored at 1:
-//   surface slime 10hp → $2 · purple slime 12hp → $2 · cave slime 30hp → $6 ·
-//   archer 36hp → $7 · goblin 50hp → $10
-//   (the cave kinds are the doubled ones — see CAVE_ENEMY_MUL above)
-// The HP comes from Combat.creatureMaxHp, which is the monster table first and
-// the fauna ladder second — one source, so the coins a kind pays and the HP you
-// have to chew through can't drift apart. Depth adds a slow climb on top (a
-// coin per 3 levels down) so descending pays for itself even where the same
-// kinds keep spawning; at the surface it contributes nothing.
-const ENEMY_COIN_PER_HP  = 1 / 5;
-const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
-// `hpMul` is the instance's multiplier over the kind's HP — Combat.eliteMul:
-// an elite has twice the pool, so it pays twice the per-HP wage, by the same
-// rule that makes a goblin pay more than a slime.
-// (Hard mode adds no wage of its own: creatureMaxHp already scales an enemy's
-// pool by Difficulty.enemyHpMul, and the per-HP rule carries that into the
-// coins — a foe that takes 1.5× as long pays 1.5× as much, same as an elite.)
-function enemyBounty(kind, depth, hpMul = 1) {
-  if (!Combat.isEnemyKind(kind)) return 0;
-  return Math.max(1, Math.round(Combat.creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP))
-       + Math.floor(Math.max(0, depth || 0) * ENEMY_DEPTH_BONUS);
-}
-// Chance a defeated CAVE MONSTER also drops a buried-treasure roll — literally
-// the same pickReward('treasure:default') payout digging an X gives, so the
-// rare drop needs no table of its own and can't drift from the one players
-// already know. Deliberately small: the coins are the wage, this is the
-// surprise. Unlike the wage it stays a monsters-only thing — a buried hoard is
-// something you turn up underground, and the surface slime in your potatoes is
-// not standing on one.
-const MONSTER_TREASURE_CHANCE = 0.10;
+// What a kill pays — enemyBounty, MONSTER_TREASURE_CHANCE,
+// ELITE_TREASURE_CONTEXT and eliteRollBonus — is Combat's, derived from the
+// same HP pool the fight drains (Combat.ENEMY_COIN_PER_HP).
 
 // ── Buried X marks: how thick they lie on SAND ────────────────────────────
 // A tile's X marks are a flat scatter of 4-10 over every walkable cell plus a
@@ -631,20 +500,6 @@ const MONSTER_TREASURE_CHANCE = 0.10;
 // real beach can. Read by spawnInTile's beach block; pinned by
 // test/node/beach_treasure.test.js.
 const BEACH_X_PER_CELLS = 20;
-// An ELITE (shiny) monster is a different deal: its kill ALWAYS pays past the
-// wage — a Discovery badge the first time that kind is slain, and after that
-// a roll on the relic-biased 'treasure:elite' pool (rarity.js), never the 10%
-// roll above. The roll's tier is COMMENSURATE with the foe: each level below
-// the first and each level of the kind's own introduction depth buys one
-// tier-only step (pickReward's opts.rollBonus), so a goblin archer (minDepth
-// 3) met at depth 3 rolls four steps higher than a cave slime at depth 1.
-const ELITE_TREASURE_CONTEXT = 'treasure:elite';
-function eliteRollBonus(kind, depth) {
-  const intro = Math.max(1, MONSTERS[kind]?.minDepth || 1);
-  return Math.max(0, (depth || 0) - 1) + (intro - 1);
-}
-const MONSTER_KINDS = new Set(Object.keys(MONSTERS));
-function isMonster(kind) { return MONSTER_KINDS.has(kind); }
 // What a tame pet hunts is its row's `prey` in SpriteLayout.CREATURE_BEHAVIOUR
 // (still a hoisted Set, so wanderCreatures' per-step scan allocates nothing) —
 // beside what else that kind does, rather than in a pair of consts here that
@@ -1088,9 +943,6 @@ const PRESEED_RESTORE_ROLES = {
 // 0.5→1.0×) turned into a buy-then-resell money loop.
 const TRADE_OFFER_QTY     = 2;
 
-// Compare-only squared distance — avoids sqrt.
-function distM2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
-
 const COLORS = {
   // POST-APOCALYPTIC FARM PALETTE. The world is a neighbourhood going back to
   // seed: sun-bleached, dust-blown, overgrown rather than landscaped. Every
@@ -1143,19 +995,8 @@ const COLORS = {
   30: 0x2b2926,
 };
 
-// Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial), water, all
-// road tiers, paths, every building tier, and rock are NOT tillable.
-// Rock (10) is non-tillable — mineral rocks spawn as objects on rock terrain instead.
-// 23 = PIER (wooden walkway over water) — walkable but not soil.
-const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25]);
-function isTillable(type) { return !NON_TILLABLE.has(type); }
-// The full "can this CELL take a hoe / placement / released animal" test:
-// soil-ish terrain AND no drawn road band over it. A cell's terrain says
-// "grass" for most of the ground a road actually covers (see cellAt's
-// underRoad note), so type-only checks let players till the middle of a
-// street. Takes a cellAt() result; a stub cell without underRoad (tests)
-// behaves exactly like the old type-only check.
-function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
+// Which ground takes a hoe — NON_TILLABLE / isTillable / isTillableCell — is
+// a terrain-code table, and lives with the catalog in items.js.
 // Building interior cells — small house, fort, civic slab. Not a rest spot:
 // resting is Home's ring (HOME_R) or a campfire's, and nothing else. Read by
 // interact.js; Home stopped needing it when its rest became a radius.
@@ -3272,8 +3113,9 @@ class MapScene extends Phaser.Scene {
   }
 
   playerToWorldCell() {
-    const wx = this.originPx.x + this.playerM.x / this.mPerPx;
-    const wy = this.originPx.y + this.playerM.y / this.mPerPx;
+    // playerM is the LOCAL frame (zero = startWorldM), so it converts through
+    // coords.js' local half — same arithmetic, one place.
+    const { x: wx, y: wy } = localMetersToTilePx(this, this.playerM.x, this.playerM.y);
     const tilePx = WorldGen.TILE_PX;
     const tx = Math.floor(wx / tilePx);
     const ty = Math.floor(wy / tilePx);
@@ -3467,11 +3309,11 @@ class MapScene extends Phaser.Scene {
       const { tx, ty } = this.playerToWorldCell();
       const cache = WorldGen.tileCache;
       const tiles = [];
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        const key = WorldGen.tileKey(tx + dx, ty + dy);
+      eachTile3x3(tx, ty, (itx, ity) => {
+        const key = WorldGen.tileKey(itx, ity);
         const entry = cache && cache.get(key);
         if (entry && entry.layers) tiles.push({ key, entry });
-      }
+      });
       out.push(`tiles loaded around player: ${tiles.length}/9 (walk a bit if fewer)`);
       const seenIn = new Map();       // id -> Set(tileKey)
       const report = (layerName) => {
@@ -3661,8 +3503,8 @@ class MapScene extends Phaser.Scene {
         return;
       }
       const cpe = entry.cellsPerEdge;
-      const icx = Math.max(0, Math.min(cpe - 1, Math.floor(cx)));
-      const icy = Math.max(0, Math.min(cpe - 1, Math.floor(cy)));
+      const icx = clamp(Math.floor(cx), 0, cpe - 1);
+      const icy = clamp(Math.floor(cy), 0, cpe - 1);
       const under = entry.grid[icy * cpe + icx];
       out.push(`under player: ${TNAME[under] ?? '?'} (${under})`);
       // 7×7 terrain-code window centred on the player cell.
@@ -3742,9 +3584,7 @@ class MapScene extends Phaser.Scene {
 
   async _ensureTilesAroundPass(cell) {
     const needed = new Set();
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      needed.add(`${cell.tx + dx}/${cell.ty + dy}`);
-    }
+    eachTile3x3(cell.tx, cell.ty, (tx, ty) => needed.add(`${tx}/${ty}`));
     // The tile the player is standing in — the only one they can see or reach
     // right now, and so the only one worth making them wait for.
     const centreKey = `${cell.tx}/${cell.ty}`;
@@ -4513,7 +4353,7 @@ class MapScene extends Phaser.Scene {
     const CLEAR_R = HomeArea.POCKET_CELLS;
     const STRIP_KINDS = new Set(['mineralrock', 'tree', 'fruittree', 'groundstack']);
     const _isRealTree = (o) =>
-      (o.kind === 'tree' || o.kind === 'fruittree') &&
+      isTreeLike(o.kind) &&
       (o.individual || o.crown_color || o.size);
     const _nearSpawn = (wx, wy) => {
       const oIx = Math.floor((wx - tx0) / this.cellM);
@@ -5931,7 +5771,7 @@ class MapScene extends Phaser.Scene {
     const caughtSet = setOf(this.save.caught);
     // Weighted bag of the kinds that may appear at this depth.
     const bag = [];
-    for (const [kind, m] of Object.entries(MONSTERS)) {
+    for (const [kind, m] of Object.entries(Combat.MONSTERS)) {
       if (depth >= m.minDepth) for (let w = 0; w < (m.weight || 1); w++) bag.push(kind);
     }
     if (!bag.length) { entry._spawned = true; entry.creatures = entry.creatures || creatures; return; }
@@ -6728,7 +6568,7 @@ class MapScene extends Phaser.Scene {
     // Same edge-compass geometry as the pairy arrow but persistent (no blink),
     // cleared once the player arrives or the house is satisfied for the day.
     if (this.deliveryCompass) {
-      const dayKey = this._dayKey();
+      const dayKey = Delivery.dayKey();
       const satisfied = this.save.houseSatisfied?.[this.deliveryCompass.id] === dayKey;
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
@@ -6819,12 +6659,10 @@ class MapScene extends Phaser.Scene {
       if (lairHome) {
         const pc = this.playerToWorldCell();
         const ring = [];
-        for (let dty = -1; dty <= 1; dty++) {
-          for (let dtx = -1; dtx <= 1; dtx++) {
-            const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
-            if (e) ring.push({ entry: e, tx: pc.tx + dtx, ty: pc.ty + dty });
-          }
-        }
+        eachTile3x3(pc.tx, pc.ty, (tx, ty) => {
+          const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+          if (e) ring.push({ entry: e, tx, ty });
+        });
         // Wounds survive a sleep/wake cycle. In memory only, like every other
         // creature's _hp (combat.js) — this covers walking out of the wake ring
         // and back, not a reload, so a guard you softened up is still softened
@@ -7241,16 +7079,9 @@ class MapScene extends Phaser.Scene {
       if (!c._hurtUntilT || now >= c._hurtUntilT) continue;
       const screen = this.worldMetersToScreen(c.x, c.y);
       this._drawEnemyHealthBar(g, Math.round(screen.x),
-        Math.round(screen.y) + Math.round(this._healthBarTop(c.kind)),
+        Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind)),
         Combat.hpFraction(c), 0.62);
     }
-  }
-
-  // Where an enemy's health bar TOP edge sits over a creature — floats just
-  // above the kind's crown (SpriteLayout.creatureHealthBarTop), derived from
-  // the same art table the wheel seats from. Never a flat offset.
-  _healthBarTop(kind) {
-    return SpriteLayout.creatureHealthBarTop(kind);
   }
 
   // The health bar itself: a small strip floating over the foe's head — a
@@ -7294,7 +7125,7 @@ class MapScene extends Phaser.Scene {
     // also why it does NOT stack: a lift would undo the scatter.
     const jitter = Math.round((Math.random() - 0.5) * 10);
     const x = Math.round(screen.x) + jitter;
-    const y = Math.round(screen.y) + Math.round(this._healthBarTop(c.kind)) - 3;
+    const y = Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind)) - 3;
     // Clip to the map viewport like every other world-anchored layer.
     this._toast(`-${amount}`, {
       tier: 'damage', color: UI_DANGER_INK, x, y, stack: false,
@@ -7454,9 +7285,9 @@ class MapScene extends Phaser.Scene {
       // crops, and for a long time killing one paid nothing, which is the gap
       // this branch closes by asking Combat what an enemy is rather than
       // asking the cave-monster table.
-      const coins = enemyBounty(victim.kind, this.depth, Combat.eliteMul(victim));
+      const coins = Combat.enemyBounty(victim.kind, this.depth, Combat.eliteMul(victim));
       if (coins > 0) addMoney(save, coins);
-      const name = MONSTERS[victim.kind]?.name || 'Slime';
+      const name = Combat.monster(victim.kind)?.name || 'Slime';
       const elite = Combat.isElite(victim);
       this.flash(`⚔️ ${name}${coins > 0 ? ` +$${coins}` : ' slain'}`,
         this.viewCenterX, this.viewCenterY - 60);
@@ -7468,9 +7299,10 @@ class MapScene extends Phaser.Scene {
           this.flashShiny(coins, true, '✨ ELITE SLAIN ✨');
         } else {
           grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
-            ELITE_TREASURE_CONTEXT, { rollBonus: eliteRollBonus(victim.kind, this.depth) });
+            Combat.ELITE_TREASURE_CONTEXT,
+            { rollBonus: Combat.eliteRollBonus(victim.kind, this.depth) });
         }
-      } else if (isMonster(victim.kind) && Math.random() < MONSTER_TREASURE_CHANCE) {
+      } else if (Combat.isMonster(victim.kind) && Math.random() < Combat.MONSTER_TREASURE_CHANCE) {
         // One in ten plain cave monsters also drops a buried-treasure roll —
         // the same table an X pays, so a lucky kill reads as finding one.
         // Underground only; see MONSTER_TREASURE_CHANCE.
@@ -7854,7 +7686,7 @@ class MapScene extends Phaser.Scene {
     // other any more; the tool badge below still says what you're swinging.
     if (wp.combat) {
       this._drawEnemyHealthBar(g, cx,
-        Math.round(screen.y) + Math.round(this._healthBarTop(wp.combat.kind)),
+        Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(wp.combat.kind)),
         Combat.hpFraction(wp.combat), 1);
     } else {
       this._strokeWorkRing(g, cx, cy, progress);
@@ -8020,7 +7852,7 @@ class MapScene extends Phaser.Scene {
       // the wild fauna, the surface slime and every cave monster, giants
       // included, since a giant resolves to its base kind's row exactly as it
       // resolves to its base kind's art. This was a nine-name OR-chain plus
-      // isMonster(), which is one more place a kind had to be remembered.
+      // Combat.isMonster(), which is one more place a kind had to be remembered.
       const wanders = SpriteLayout.creatureWanders(c.kind);
       if (!wanders) return;
       if (caughtSet.has(c.id)) return;
@@ -8100,7 +7932,7 @@ class MapScene extends Phaser.Scene {
       // Underground monster attack: the slime's energy leech, parametrised.
       // A monster within its RANGE (cells) drains DMG energy on a
       // MONSTER_HIT_MS per-monster cooldown. Melee kinds use range 1
-      // (adjacent, MONSTERS[kind].range itself); a RANGED kind (the goblin
+      // (adjacent, Combat.MONSTERS[kind].range itself); a RANGED kind (the goblin
       // archer) instead fires the instant the player is inside the SAME ring
       // the staff's own bolt range is derived from —
       // Combat.rangeCellsFor('staff', reachCells(this)), the player's live
@@ -8109,8 +7941,8 @@ class MapScene extends Phaser.Scene {
       // would answer from, and the ring tightens underground / grows with
       // Inner Light upgrades exactly as the staff's does. Accumulated +
       // flashed once per window after the loop, like the slime swarm.
-      if (isMonster(c.kind) && !unnoticed && !standDown) {
-        const m = MONSTERS[c.kind];
+      if (Combat.isMonster(c.kind) && !unnoticed && !standDown) {
+        const m = Combat.monster(c.kind);
         const rangeCells = m.range > 1 ? Combat.rangeCellsFor('staff', reachCells(this)) : m.range;
         const R = rangeCells * this.cellM;
         // A RANGED monster needs a clear line, for the same reason your bow
@@ -8211,8 +8043,8 @@ class MapScene extends Phaser.Scene {
       // Underground monsters: cadence scales by SPEED (faster ⇒ shorter step,
       // moves more often); flyers (bats) dart a full cell, ground monsters
       // lumber like the slime (0.6 cell).
-      const isMon = isMonster(c.kind);
-      const mon = isMon ? MONSTERS[c.kind] : null;
+      const isMon = Combat.isMonster(c.kind);
+      const mon = isMon ? Combat.monster(c.kind) : null;
       // Rare shiny animals move at 2× speed — same hop distances, but the
       // whole step cadence (hop duration + any pause) is halved, so they cover
       // ground twice as fast. isShiny() is keyed off the creature id, so the
@@ -8303,7 +8135,7 @@ class MapScene extends Phaser.Scene {
             const ftx = c.x + Math.cos(fleeAngle) * stepM * 2;
             const fty = c.y + Math.sin(fleeAngle) * stepM * 2;
             const dest = this.cellAt(ftx, fty);
-            if (dest.loaded && !faunaBlocksCell(dest.type)) {
+            if (dest.loaded && !Combat.faunaBlocksCell(dest.type)) {
               c._startX = c.x; c._startY = c.y;
               c._targetX = ftx; c._targetY = fty;
               c._stepT0 = now;
@@ -8468,7 +8300,7 @@ class MapScene extends Phaser.Scene {
           const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           const dest = this.cellAt(tx, ty);
-          if (dest.loaded && faunaBlocksCell(dest.type)) continue;
+          if (dest.loaded && Combat.faunaBlocksCell(dest.type)) continue;
           // Scarecrow aversion — refuse any target cell within 4 cells of an
           // active scarecrow to a kind whose row says it keeps clear of one
           // (crow + deer). They get bounced by the attempt loop until they
@@ -8611,7 +8443,7 @@ class MapScene extends Phaser.Scene {
         const ftx = c.x + Math.cos(fleeAngle) * d;
         const fty = c.y + Math.sin(fleeAngle) * d;
         const dest = this.cellAt(ftx, fty);
-        if (dest.loaded && !faunaBlocksCell(dest.type)) {
+        if (dest.loaded && !Combat.faunaBlocksCell(dest.type)) {
           c._startX = c.x; c._startY = c.y;
           c._targetX = ftx; c._targetY = fty;
           c._flightT0 = now;
@@ -8785,7 +8617,7 @@ class MapScene extends Phaser.Scene {
       // Reject targets on water / buildings / roads / placed rocks. Same gate
       // the generic wander uses.
       const dest = this.cellAt(tx, ty);
-      if (dest.loaded && faunaBlocksCell(dest.type)) continue;
+      if (dest.loaded && Combat.faunaBlocksCell(dest.type)) continue;
       const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
       if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
       // Scarecrow aversion — refuse any target within 4 cells of an active scarecrow.
@@ -8947,14 +8779,11 @@ class MapScene extends Phaser.Scene {
     };
   }
 
-  // A Phaser pointer's position in LOGICAL px. Phaser reports pointer positions
-  // in CANVAS px — the backing store, which is RENDER_SCALE× the logical grid
-  // (see the canvas-resolution note by W/H) — while every gate downstream is
-  // logical: the drag slop, the peek metres, interactTap's cell hit test,
-  // Multiplayer.consumeTap. So a pointer converts here, once, on the way in,
-  // and there is one place to look when the map stops answering taps.
+  // A Phaser pointer's position in LOGICAL px (coords.js gamePt), at this
+  // canvas's RENDER_SCALE. The scene method stays because every pointer
+  // handler reads it as this._gamePt(p) and peek_drag.test.js drives it there.
   _gamePt(p) {
-    return { x: p.x / RENDER_SCALE, y: p.y / RENDER_SCALE };
+    return gamePt(p, RENDER_SCALE);
   }
 
   // Is the camera off the player right now (drag live, or still springing back)?
@@ -9018,12 +8847,12 @@ class MapScene extends Phaser.Scene {
   handleWorldTap(sx, sy) { interactTap(this, sx, sy); }
 
   // === Coin-burst (ATM / bicycle_parking) =================================
-  // Daily-cap key format: `<poiId>YYYYMMDD` (UTC, _dayKey). Each POI can be
+  // Daily-cap key format: `<poiId>YYYYMMDD` (UTC, Delivery.dayKey). Each POI can be
   // tapped once per UTC day; subsequent taps within the same day flash a hint
   // and spawn no coins. Coins themselves are in-memory only (entry.coinDrops);
   // only the daily-cap dictionary persists.
   _coinBurstInteract(sx, sy, poi) {
-    const dayKey = this._dayKey();
+    const dayKey = Delivery.dayKey();
     const claimedKey = poi.id + dayKey;
     this.save.coinBurstClaimed = this.save.coinBurstClaimed || {};
     if (this.save.coinBurstClaimed[claimedKey] === 1) {
@@ -9974,8 +9803,9 @@ class MapScene extends Phaser.Scene {
     }
   }
   cellAt(wmx, wmy) {
-    const wx = this.originPx.x + (wmx - this.startWorldM.x) / this.mPerPx;
-    const wy = this.originPx.y + (wmy - this.startWorldM.y) / this.mPerPx;
+    // Absolute metres → tile-pixel space, through the one conversion
+    // (coords.js) every cell index in the game is floored out of.
+    const { x: wx, y: wy } = worldMetersToTilePx(this, wmx, wmy);
     const TILE_PX = WorldGen.TILE_PX;
     const cps = TILE_PX / this.cellsPerTile;
     const tx = Math.floor(wx / TILE_PX), ty = Math.floor(wy / TILE_PX);
@@ -11051,7 +10881,7 @@ class MapScene extends Phaser.Scene {
     const standable = (cx, cy) =>
       cx >= 0 && cx < N && cy >= 0 && cy < N &&
       !occupied.has(cx + ',' + cy) &&
-      !faunaBlocksCell(entry.grid[cy * N + cx]);
+      !Combat.faunaBlocksCell(entry.grid[cy * N + cx]);
     // Nearest cell in the ring that `accept`s, scanned in a fixed order so the
     // same anchor always seats it in the same place.
     const pick = (accept) => {
@@ -12077,7 +11907,7 @@ class MapScene extends Phaser.Scene {
     // Cap the stepper at what the player can both afford AND fit in their bag.
     const money = () => this.save.money ?? 0;
     const room  = () => { const r = this.invRoomFor(id); return r === Infinity ? 99 : r; };
-    const maxQty = Math.max(1, Math.min(room(), Math.max(1, Math.floor(money() / unitPrice))));
+    const maxQty = clamp(Math.max(1, Math.floor(money() / unitPrice)), 1, room());
     // Show what the stall is knocking off, so the discount reads as a deal
     // rather than as an arbitrary number. Suppressed at par (a maxed-out sword
     // pushes the price back up to the listed value — see ShopsMath.standPrice).
@@ -12117,18 +11947,18 @@ class MapScene extends Phaser.Scene {
   }
 
   buildingFlavorTitle(house, action) {
-    const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
+    const castle = isCastle(house);
     const isFort   = !!house && house.tier === 11;
-    const st = (!isCastle && !isFort && house) ? this.houseShopRole(house) : null;
+    const st = (!castle && !isFort && house) ? this.houseShopRole(house) : null;
     if (action === 'forge')   return 'The blacksmith will forge:';
     if (action === 'relic') {
-      if (isCastle) return "The castle's vault holds:";
+      if (castle) return "The castle's vault holds:";
       if (isFort)   return 'The fort quartermaster offers a relic:';
       if (st === 'wizard') return 'The wizard conjures a relic:';
       return 'A villager offers a relic:';
     }
     // 'buy'
-    if (isCastle) return "From the castle's vault:";
+    if (castle) return "From the castle's vault:";
     if (isFort)   return 'The fort quartermaster offers:';
     // Named for its stock, so the line matches the sign outside: "The produce
     // shop has fresh stock:", or "The seed shop …" for the tutorial's first one.
@@ -12220,7 +12050,7 @@ class MapScene extends Phaser.Scene {
         onAccept: (q) => {
           const have = Inventory.count(this.save, sellId);
           if (have <= 0) { this.flash('Gone — already used.', sx, sy); return; }
-          const sold = Math.max(1, Math.min(q ?? 1, have));
+          const sold = clamp(q ?? 1, 1, have);
           Inventory.remove(this.save, sellId, sold);
           this._clampSelSlot();
           const gain = unitPrice * sold;
@@ -12237,11 +12067,11 @@ class MapScene extends Phaser.Scene {
     // the ladder + bucket math. Renderer reuses the same helpers to draw the
     // ready/timer pip above each house, so the player sees the same state
     // the tap handler will enforce.
-    const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
+    const castle = isCastle(house);
     const isStarterSmith = this.isStarterBlacksmith(house);
     const { dealCap, ready: shopReady, waitMs } = this.shopReadiness(house);
     if (house && !shopReady) {
-      const kindLabel = isCastle ? 'castle' : (house.tier === 11) ? 'fort' : 'house';
+      const kindLabel = castle ? 'castle' : (house.tier === 11) ? 'fort' : 'house';
       // Same notation, same number as the plaque over the roof (render.js
       // formats info.waitMs through shortDuration too), so the tap and the
       // label can't disagree about how long the wait is.
@@ -12270,7 +12100,7 @@ class MapScene extends Phaser.Scene {
     // castle is excluded too — it no longer sells anything to discount, only
     // the daily rest/tax favour (see presentCastleServiceOffer).
     if (house && house.id != null && sel && sel.id === 'flowers' && (sel.count ?? 0) > 0
-        && ((isCastle && !this.isCastleClaimed(house)) || isFort || shopType === 'market')
+        && ((castle && !this.isCastleClaimed(house)) || isFort || shopType === 'market')
         && this.shopCharmMul(house) === 1) {
       this.showOfferModal({
         kind: 'shop',
@@ -12306,7 +12136,7 @@ class MapScene extends Phaser.Scene {
     // and the house reverts to its normal role (delivery / shop). Checked
     // before every other small-house branch so it wins regardless of the
     // underlying address-derived role.
-    if (!isCastle && !isFort && house && this.isScarecrowShop(house) && !this.save.scarecrowShopUsed) {
+    if (!castle && !isFort && house && this.isScarecrowShop(house) && !this.save.scarecrowShopUsed) {
       this.presentScarecrowOffer(sx, sy, house, recordDeal);
       return;
     }
@@ -12316,7 +12146,7 @@ class MapScene extends Phaser.Scene {
     // sellMul. They don't sell anything or do the old 10% relic swap. Their
     // sign shows the wanted icons so the player can scout a street and gather
     // the matching set.
-    if (!isCastle && !isFort && !shopType && !isStarterSmith && house) {
+    if (!castle && !isFort && !shopType && !isStarterSmith && house) {
       this.presentDeliveryOffer(sx, sy, house, recordDeal);
       return;
     }
@@ -12331,7 +12161,7 @@ class MapScene extends Phaser.Scene {
     //   (c) Regular house  — 10% chance to swap the normal offer for a relic.
     // (Home / starter trailer is handled at the top of this function — it
     // only sells, never buys.)
-    if (isCastle) {
+    if (castle) {
       // First time the player reaches this (now-unsealed) vault, record it so
       // the NEXT un-opened castle ramps to a higher delivery gate (see
       // _deliveryGate / CASTLE_DELIVERY_GATE_START). The seal check above
@@ -12576,8 +12406,7 @@ class MapScene extends Phaser.Scene {
     // neighbours when they sit near a tile edge (all kept loaded by
     // ensureTilesAround). Check the four viewport corners.
     const tileReadyAt = (offMx, offMy) => {
-      const tx = Math.floor((this.originPx.x + (anchor.x + offMx) / this.mPerPx) / WorldGen.TILE_PX);
-      const ty = Math.floor((this.originPx.y + (anchor.y + offMy) / this.mPerPx) / WorldGen.TILE_PX);
+      const { tx, ty } = localMetersToTile(this, anchor.x + offMx, anchor.y + offMy);
       const t = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
       return t && (!t.status || t.status === 'ready');
     };
@@ -12679,8 +12508,7 @@ class MapScene extends Phaser.Scene {
         tier: st.tier, id: st.id, address: st.address, _synthetic: true };
     }
     const obj = this._starterTrailerObj;
-    const tx = Math.floor((obj.x / this.mPerPx) / WorldGen.TILE_PX);
-    const ty = Math.floor((obj.y / this.mPerPx) / WorldGen.TILE_PX);
+    const { tx, ty } = worldMetersToTile(this, obj.x, obj.y);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.objects) return;      // owning tile not loaded yet
     // A real house can land on the trailer's exact footing after this tile is
@@ -12744,7 +12572,7 @@ class MapScene extends Phaser.Scene {
       if (entry._trailerMoat === stamp && entry._trailerMoatN === entry.objects.length) continue;
       for (let i = entry.objects.length - 1; i >= 0; i--) {
         const o = entry.objects[i];
-        if (o === this._starterTrailerObj || o.kind === 'house' || o.kind === 'tower') continue;
+        if (o === this._starterTrailerObj || isBuilding(o.kind)) continue;
         const oc = worldMetersToAbsCell(this, o.x, o.y);
         if (Math.abs(oc.cellIX - home.cellIX) <= 1 && Math.abs(oc.cellIY - home.cellIY) <= 1) {
           entry.objects.splice(i, 1);
@@ -13108,10 +12936,8 @@ class MapScene extends Phaser.Scene {
   // (msToNextUtcDay).
   // Delivery wishlist logic lives in delivery.js (headlessly tested). These stay
   // as scene methods because render.js + the interact/present handlers call them
-  // as scene.wantedProduce(o) / scene.isHouseSatisfied(o) / etc.
-  _dayKey() {
-    return Delivery.dayKey();
-  }
+  // as scene.wantedProduce(o) / scene.isHouseSatisfied(o) / etc. The day key
+  // itself is Delivery.dayKey(), asked directly.
 
   // 1-3 produce ids this plain house wants — locked to its FIRST ask for the
   // life of the house (pinned in save.houseWishlists by delivery.js, cached on
@@ -13214,7 +13040,7 @@ class MapScene extends Phaser.Scene {
         // Mark this household satisfied for the rest of the UTC day — it stops
         // asking (shows "happy" instead of a wishlist) and wants its bundle
         // again tomorrow. Prune stale day stamps so the map stays small over weeks.
-        const dayKey = this._dayKey();
+        const dayKey = Delivery.dayKey();
         this.save.houseSatisfied = this.save.houseSatisfied || {};
         for (const k of Object.keys(this.save.houseSatisfied)) {
           if (this.save.houseSatisfied[k] !== dayKey) delete this.save.houseSatisfied[k];
@@ -13285,10 +13111,10 @@ class MapScene extends Phaser.Scene {
   // offer — no need to persist the offer object. Re-roll bumps cur.rerolls
   // which pivots the seed lane.
   peekOrBuildRelicOffer(house) {
-    const isCastle = !!house && (house.kind === 'tower' || house.tier === 12);
-    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle });
+    const castle = isCastle(house);
+    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle });
     const rng = this.shopRng(house, 'relic');
-    return this.buildRelicOffer(rng, { isCastle });
+    return this.buildRelicOffer(rng, { isCastle: castle });
   }
 
   // Pick a random relic OR armor piece the player can actually use — meaning
@@ -13397,19 +13223,9 @@ class MapScene extends Phaser.Scene {
   //     plus 1 of the tier-matched bar. Every T7 slot uses 32 diamonds.
   // (The starter shop's T1 wooden pick / axe / hoe use a separate cheap
   // bootstrap recipe — see starterBlacksmithRecipe — and don't pass here.)
-  // Forge + smelt recipes live in gear.js (Gear.*). Kept as scene methods
-  // because the present* shop modals call them as this.blacksmithRecipe(…) etc.
-  blacksmithRecipe(kind, slot, tier) {
-    return Gear.blacksmithRecipe(kind, slot, tier);
-  }
-
-  smeltingRecipe(barId) {
-    return Gear.smeltingRecipe(barId);
-  }
-
-  smeltUnlockedBars() {
-    return Gear.smeltUnlockedBars();
-  }
+  // Forge + smelt recipes live in gear.js and the present* shop modals call
+  // Gear.blacksmithRecipe / Gear.smeltingRecipe / Gear.smeltUnlockedBars
+  // directly — three scene methods that only forwarded are gone.
 
   // Smelt tab at the blacksmith. Focuses ONE unlocked top bar at a time, with a
   // quantity stepper, consuming the recipe ingredients to mint bars. The
@@ -13418,7 +13234,7 @@ class MapScene extends Phaser.Scene {
   // back without leaving the shop. `target` defaults to the highest unlocked
   // bar the player can currently afford, so the modal opens on something usable.
   presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, target = null) {
-    const bars = this.smeltUnlockedBars();
+    const bars = Gear.smeltUnlockedBars();
     const heldCount = (id) => Inventory.count(this.save, id);
     const consume = (id, n) => {
       Inventory.remove(this.save, id, n);
@@ -13451,9 +13267,9 @@ class MapScene extends Phaser.Scene {
     // reaches the others).
     if (!target || !bars.includes(target)) {
       target = bars.slice().reverse().find(id =>
-        this.smeltingRecipe(id).every(r => heldCount(r.id) >= r.qty)) || bars[bars.length - 1];
+        Gear.smeltingRecipe(id).every(r => heldCount(r.id) >= r.qty)) || bars[bars.length - 1];
     }
-    const recipe = this.smeltingRecipe(target);
+    const recipe = Gear.smeltingRecipe(target);
     const outItem = ITEM_BY_ID[target];
     // Max smeltable = min over ingredients of floor(held / qty). Guard the
     // empty/missing-recipe case explicitly: an empty recipe would leave the
@@ -13494,7 +13310,7 @@ class MapScene extends Phaser.Scene {
             onClick: () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, next) }
         : undefined,
       onAccept: (n) => {
-        const q = Math.max(1, Math.min(n ?? 1, cap));
+        const q = clamp(n ?? 1, 1, cap);
         if (q < 1 || !recipe.every(r => heldCount(r.id) >= r.qty * q)) {
           // Name the ingredient and the shortfall — 'not enough to smelt'
           // made the player close the modal and count their own bag, with
@@ -13863,67 +13679,64 @@ class MapScene extends Phaser.Scene {
     const pad = reachM + this.cellM;
     const NT = this.cellsPerTile;
     const ptx = Math.floor(p.cellIX / NT), pty = Math.floor(p.cellIY / NT);
-    for (let dty = -1; dty <= 1; dty++) {
-      for (let dtx = -1; dtx <= 1; dtx++) {
-        const tx = ptx + dtx, ty = pty + dty;
-        const tileKey = WorldGen.tileKey(tx, ty);
-        const entry = WorldGen.tileCache.get(tileKey);
-        if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) continue;
-        const tileEdgeM = entry.tileEdgeM;
-        const N = entry.cellsPerEdge || NT;
-        const baseIX = tx * N, baseIY = ty * N;
-        const lx = rc.x - tx * tileEdgeM, ly = rc.y - ty * tileEdgeM;
-        for (const layer of entry.layers) {
-          if (layer.name !== 'transportation') continue;
-          const extent = layer.extent || 4096;
-          const mvtToM = tileEdgeM / extent;
-          for (const f of layer.features) {
-            if (f.type !== 2 || !f.geom) continue;      // lines only
-            const cls = (f.tags && f.tags.class) || '';
-            if (cls === 'rail' || cls === 'transit') continue;
-            for (let i = 0; i < f.geom.length; i++) {
-              const line = f.geom[i];
-              if (!line || line.length < 2) continue;
-              // Bbox prefilter, in tile-local metres. A city tile carries
-              // hundreds of lines and the exact grid traversal below walks
-              // every vertex of one; this throws away all but the handful the
-              // reach circle can possibly touch, for one pass over the points.
-              let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-              for (const v of line) {
-                const vx = v.x * mvtToM, vy = v.y * mvtToM;
-                if (vx < x0) x0 = vx;
-                if (vx > x1) x1 = vx;
-                if (vy < y0) y0 = vy;
-                if (vy > y1) y1 = vy;
-              }
-              if (x1 < lx - pad || x0 > lx + pad || y1 < ly - pad || y0 > ly + pad) continue;
-              const lineKey = Streets.lineKey(f, i);
-              let iv = Streets.reachIntervals(line, mvtToM, this.cellM,
-                (lix, liy) => cellInReach(this, baseIX + lix, baseIY + liy));
-              if (!iv.length) continue;
-              iv = Streets.intersect(iv, Streets.tileSpans(line, mvtToM, extent));
-              if (!iv.length) continue;
-              iv = Streets.subtract(iv, Streets.restoredList(this.save, tileKey, lineKey));
-              if (!iv.length) continue;
-              // One sight for every tile, so the key carries the tile too.
-              const key = `${tileKey}|${lineKey}`;
-              seen.add(key);
-              const prev = lines.get(key);
-              const meta = prev || { tileKey, lineKey, line, mvtToM, tx, ty, tileEdgeM, tags: f.tags, t0: now };
-              // A tile REBUILT under us hands back a new feature object, so
-              // the geometry is refreshed even on a key we already hold — but
-              // the clock is not: the player has been standing there the whole
-              // time (see the rebuild rule in CLAUDE.md).
-              meta.line = line; meta.mvtToM = mvtToM; meta.tags = f.tags;
-              meta.tileEdgeM = tileEdgeM;
-              this._setStreetPreview(meta, iv);
-              lines.set(key, meta);
-              sight.snapshot(now, key, iv);
+    eachTile3x3(ptx, pty, (tx, ty) => {
+      const tileKey = WorldGen.tileKey(tx, ty);
+      const entry = WorldGen.tileCache.get(tileKey);
+      if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) return;
+      const tileEdgeM = entry.tileEdgeM;
+      const N = entry.cellsPerEdge || NT;
+      const baseIX = tx * N, baseIY = ty * N;
+      const lx = rc.x - tx * tileEdgeM, ly = rc.y - ty * tileEdgeM;
+      for (const layer of entry.layers) {
+        if (layer.name !== 'transportation') continue;
+        const extent = layer.extent || 4096;
+        const mvtToM = tileEdgeM / extent;
+        for (const f of layer.features) {
+          if (f.type !== 2 || !f.geom) continue;      // lines only
+          const cls = (f.tags && f.tags.class) || '';
+          if (cls === 'rail' || cls === 'transit') continue;
+          for (let i = 0; i < f.geom.length; i++) {
+            const line = f.geom[i];
+            if (!line || line.length < 2) continue;
+            // Bbox prefilter, in tile-local metres. A city tile carries
+            // hundreds of lines and the exact grid traversal below walks
+            // every vertex of one; this throws away all but the handful the
+            // reach circle can possibly touch, for one pass over the points.
+            let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+            for (const v of line) {
+              const vx = v.x * mvtToM, vy = v.y * mvtToM;
+              if (vx < x0) x0 = vx;
+              if (vx > x1) x1 = vx;
+              if (vy < y0) y0 = vy;
+              if (vy > y1) y1 = vy;
             }
+            if (x1 < lx - pad || x0 > lx + pad || y1 < ly - pad || y0 > ly + pad) continue;
+            const lineKey = Streets.lineKey(f, i);
+            let iv = Streets.reachIntervals(line, mvtToM, this.cellM,
+              (lix, liy) => cellInReach(this, baseIX + lix, baseIY + liy));
+            if (!iv.length) continue;
+            iv = Streets.intersect(iv, Streets.tileSpans(line, mvtToM, extent));
+            if (!iv.length) continue;
+            iv = Streets.subtract(iv, Streets.restoredList(this.save, tileKey, lineKey));
+            if (!iv.length) continue;
+            // One sight for every tile, so the key carries the tile too.
+            const key = `${tileKey}|${lineKey}`;
+            seen.add(key);
+            const prev = lines.get(key);
+            const meta = prev || { tileKey, lineKey, line, mvtToM, tx, ty, tileEdgeM, tags: f.tags, t0: now };
+            // A tile REBUILT under us hands back a new feature object, so
+            // the geometry is refreshed even on a key we already hold — but
+            // the clock is not: the player has been standing there the whole
+            // time (see the rebuild rule in CLAUDE.md).
+            meta.line = line; meta.mvtToM = mvtToM; meta.tags = f.tags;
+            meta.tileEdgeM = tileEdgeM;
+            this._setStreetPreview(meta, iv);
+            lines.set(key, meta);
+            sight.snapshot(now, key, iv);
           }
         }
       }
-    }
+    });
     // Anything that left the reach — or was fully restored — loses its clock
     // and its preview. An empty snapshot would do the same thing; dropping is
     // the same rule said once.
@@ -13940,27 +13753,9 @@ class MapScene extends Phaser.Scene {
     meta.iv = iv;
     meta.pts = [];
     for (const seg of iv) {
-      const pts = this._streetRunPts(meta, seg[0], seg[1]);
+      const pts = Streets.runPtsWorld(meta, seg[0], seg[1]);
       if (pts) meta.pts.push(pts);
     }
-  }
-
-  // One restored/previewed stretch as WORLD metres: the exact sub-polyline
-  // between two arclengths, shifted by the tile's origin. Null when there is
-  // nothing to stroke.
-  _streetRunPts(meta, s0, s1) {
-    const sub = Streets.subLineM(meta.line, meta.mvtToM, s0, s1);
-    if (!sub || sub.length < 2) return null;
-    const ox = meta.tx * meta.tileEdgeM, oy = meta.ty * meta.tileEdgeM;
-    return sub.map((q) => ({ x: ox + q.x, y: oy + q.y }));
-  }
-
-  // A point at arclength `s` along one line, in WORLD metres — where the blast
-  // goes off and where the counter hangs.
-  _streetPointAt(meta, s) {
-    const q = Streets.pointAtM(meta.line, meta.mvtToM, s);
-    if (!q) return null;
-    return { x: meta.tx * meta.tileEdgeM + q.x, y: meta.ty * meta.tileEdgeM + q.y };
   }
 
   // `k` points spread EVENLY by arclength across [s0, s1] of one line, in
@@ -13970,13 +13765,13 @@ class MapScene extends Phaser.Scene {
   // short dwell's restored stretch is often a single straight OSM segment —
   // two points, its ends — which would leave the middle of the section bare
   // and put every particle on one endpoint or the other; sampling by
-  // arclength (Streets.pointAtM, the same resolver _streetPointAt uses)
+  // arclength (Streets.pointAtM, the same resolver pointAtWorld uses)
   // spreads the targets however few vertices the underlying way actually has.
   _streetSpreadPts(meta, s0, s1, k) {
     const out = [];
     for (let i = 0; i < k; i++) {
       const s = s0 + (s1 - s0) * (k === 1 ? 0.5 : i / (k - 1));
-      const p = this._streetPointAt(meta, s);
+      const p = Streets.pointAtWorld(meta, s);
       if (p) out.push(p);
     }
     return out;
@@ -14102,36 +13897,33 @@ class MapScene extends Phaser.Scene {
     // Set by any tile of the ring that has no data yet — the answer is then
     // provisional, so it is used for this frame but not memoised.
     let pending = false;
-    for (let dty = -1; dty <= 1; dty++) {
-      for (let dtx = -1; dtx <= 1; dtx++) {
-        const tx = ptx + dtx, ty = pty + dty;
-        const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-        // A tile still fetching/building answers nothing yet, and neither its
-        // lamp list NOR this pass's own memo may be stamped on the strength of
-        // it (see _streetLampsForTile) — otherwise standing still while the
-        // ring lands leaves the lamps already in the save unlit until the
-        // player happens to step onto another cell.
-        if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) { pending = true; continue; }
-        const lamps = this._streetLampsForTile(tx, ty, entry);
-        if (!lamps.length) continue;
-        // One restored list per LINE, not per lamp: unflattening the save's
-        // flat pairs is the cost here and a long way carries several lamps.
-        const restored = new Map();
-        for (const L of lamps) {
-          if (Math.abs(L.x - c.x) > pad || Math.abs(L.y - c.y) > pad) continue;
-          let iv = restored.get(L.lineKey);
-          if (iv === undefined) {
-            iv = Streets.restoredList(this.save, L.tileKey, L.lineKey);
-            restored.set(L.lineKey, iv);
-          }
-          // A lamp on a stretch still dilapidated is kept, DARK: it draws as
-          // the plain cobble and throws no light. A fresh object per frame
-          // the list rebuilds, never a flag written onto the tile's cached
-          // geometry — that cache is per tile, this answer is per save.
-          out.push({ ...L, lit: Streets.covers(iv, L.s) });
+    eachTile3x3(ptx, pty, (tx, ty) => {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      // A tile still fetching/building answers nothing yet, and neither its
+      // lamp list NOR this pass's own memo may be stamped on the strength of
+      // it (see _streetLampsForTile) — otherwise standing still while the
+      // ring lands leaves the lamps already in the save unlit until the
+      // player happens to step onto another cell.
+      if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) { pending = true; return; }
+      const lamps = this._streetLampsForTile(tx, ty, entry);
+      if (!lamps.length) return;
+      // One restored list per LINE, not per lamp: unflattening the save's
+      // flat pairs is the cost here and a long way carries several lamps.
+      const restored = new Map();
+      for (const L of lamps) {
+        if (Math.abs(L.x - c.x) > pad || Math.abs(L.y - c.y) > pad) continue;
+        let iv = restored.get(L.lineKey);
+        if (iv === undefined) {
+          iv = Streets.restoredList(this.save, L.tileKey, L.lineKey);
+          restored.set(L.lineKey, iv);
         }
+        // A lamp on a stretch still dilapidated is kept, DARK: it draws as
+        // the plain cobble and throws no light. A fresh object per frame
+        // the list rebuilds, never a flag written onto the tile's cached
+        // geometry — that cache is per tile, this answer is per save.
+        out.push({ ...L, lit: Streets.covers(iv, L.s) });
       }
-    }
+    });
     this._streetLamps = out;
     this._streetLampKey = pending ? null : key;
   }
@@ -14204,7 +13996,7 @@ class MapScene extends Phaser.Scene {
           };
         }
         // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS.
-        const pts = this._streetRunPts(meta, seg[0], seg[1]);
+        const pts = Streets.runPtsWorld(meta, seg[0], seg[1]);
         if (pts) {
           (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
         }
@@ -14214,7 +14006,7 @@ class MapScene extends Phaser.Scene {
       this._setStreetPreview(meta, Streets.subtract(meta.iv || [], out.newly));
     }
     if (!(addedM > 0)) return;
-    const at = best ? this._streetPointAt(best.meta, best.s) : null;
+    const at = best ? Streets.pointAtWorld(best.meta, best.s) : null;
     if (at) {
       // THE BLAST, on the stretch's own midpoint (projected): the near-white
       // flash on the lightmap, chips of pale sett, a ring of stone sparks and
@@ -14347,7 +14139,7 @@ class MapScene extends Phaser.Scene {
     if (lines) {
       for (const meta of lines.values()) {
         if (!meta.pts || !meta.pts.length) continue;
-        const alpha = Math.max(0, Math.min(1, (t - meta.t0) / PATH_STONE_DWELL_MS)) * STREET_PREVIEW_ALPHA;
+        const alpha = clamp01((t - meta.t0) / PATH_STONE_DWELL_MS) * STREET_PREVIEW_ALPHA;
         if (!(alpha > 0.01)) continue;
         for (const pts of meta.pts) runs.push({ pts, tags: meta.tags, alpha, colour: STREET_PREVIEW_COLOR });
       }
@@ -14732,7 +14524,7 @@ class MapScene extends Phaser.Scene {
   // opened), capped at CASTLE_DELIVERY_GATE.
   _deliveryGate(house) {
     if (!house) return 0;
-    if (house.kind === 'tower' || house.tier === 12) {
+    if (isCastle(house)) {
       // Already opened → no gate. (id-less castles can't be recorded, so they
       // always read the ramped gate below.)
       if (house.id && this.save.openedCastles?.[house.id]) return 0;
@@ -14839,17 +14631,17 @@ class MapScene extends Phaser.Scene {
   }
 
   // The castle's daily favour, gated to once per castle per UTC day. Reuses
-  // the scene's one day key (_dayKey === Delivery.dayKey) rather than the
+  // the scene's one day key (Delivery.dayKey) rather than the
   // coin-burst POI's composite-key idiom, since there's only ever one thing to
   // remember per castle: the day its service was last used.
   _castleServiceUsedToday(house) {
     const key = this._castleKey(house);
-    return !!key && this.save.castleServiceClaimed?.[key] === this._dayKey();
+    return !!key && this.save.castleServiceClaimed?.[key] === Delivery.dayKey();
   }
   _markCastleServiceUsed(house) {
     const key = this._castleKey(house);
     if (!key) return;
-    const dayKey = this._dayKey();
+    const dayKey = Delivery.dayKey();
     this.save.castleServiceClaimed = this.save.castleServiceClaimed || {};
     // Prune every OTHER castle's stale day stamp while we're here — the map
     // can't grow without bound across weeks of play.
@@ -14887,7 +14679,7 @@ class MapScene extends Phaser.Scene {
   // relics: it's home turf, so instead of a trade it's a favour, once a day.
   presentCastleServiceOffer(sx, sy, house) {
     if (this._castleServiceUsedToday(house)) {
-      // The favour is one per UTC day (_dayKey === Delivery.dayKey),
+      // The favour is one per UTC day (Delivery.dayKey),
       // so the castellan names the wait rather than saying "tomorrow".
       this.flash(`My lord! Come back in ${shortDuration(msToNextUtcDay())}.`,
                  sx, sy);
@@ -15034,7 +14826,7 @@ class MapScene extends Phaser.Scene {
     // recipe override lets the starter blacksmith define T1 wooden recipes
     // (rockfruit + tree) without loosening the T2+ bar requirement in
     // blacksmithRecipe — keeps every other smithy on the original ladder.
-    const recipe = opts.recipe || this.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
+    const recipe = opts.recipe || Gear.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
     if (!recipe) {
       this.flash(`Anvil's resting — back ${this.shopWaitLabel(house)}.`, sx, sy);
       return;
@@ -15058,7 +14850,7 @@ class MapScene extends Phaser.Scene {
     // Forge / Smelt tab row — only on a normal smithy (not the starter
     // wooden-tool queue). Switching to Smelt re-presents this same forge
     // offer as the "back" target so the player can toggle freely.
-    const tabs = (!opts.noReroll && this.smeltUnlockedBars().length)
+    const tabs = (!opts.noReroll && Gear.smeltUnlockedBars().length)
       ? [
           { label: 'Forge', active: true,  onSelect: () => {} },
           { label: 'Smelt', active: false, onSelect: () =>
@@ -15825,7 +15617,7 @@ class MapScene extends Phaser.Scene {
     if (quantity) {
       const minQ = quantity.min ?? 1;
       const maxQ = Math.max(minQ, quantity.max ?? 1);
-      qty = Math.max(minQ, Math.min(maxQ, quantity.initial ?? minQ));
+      qty = clamp(quantity.initial ?? minQ, minQ, maxQ);
       const stepRow = document.createElement('div');
       stepRow.style.cssText =
         'display:flex;gap:10px;justify-content:center;align-items:center;margin:2px 0 10px;';
@@ -16118,7 +15910,7 @@ class MapScene extends Phaser.Scene {
       // whatever was in the player's hand stays there (or stays nothing).
       // Topping up an existing stack leaves the tab alone.
       if (r.isNewStack && r.accepted > 0) {
-        this.save.invCat = this.invCatForItem(id);
+        this.save.invCat = invCatForItem(id);
         const newIdx = this.save.inv.findIndex(s => s && s.id === id);
         const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
         this.save.invPage = pos >= 0 ? Math.floor(pos / 5) : 0;
@@ -16151,13 +15943,6 @@ class MapScene extends Phaser.Scene {
   // pick. A gear selection's -1 is below every length, so it is left alone.
   _clampSelSlot() {
     if (this.save.selSlot >= this.save.inv.length) this.save.selSlot = -1;
-  }
-  // Which type tab an item id belongs to (by its `kind`). Falls back to the
-  // Produce tab for anything unmapped so a stray item is still reachable.
-  invCatForItem(id) {
-    const kind = ITEM_BY_ID[id]?.kind;
-    for (const c of INV_CATS) if (c.kinds && c.kinds.includes(kind)) return c.key;
-    return 'produce';
   }
   // Filtered, index-tagged stacks for an item category. Each element is
   // { idx, entry } where idx is the real position in save.inv (so selection +
@@ -16679,7 +16464,7 @@ class MapScene extends Phaser.Scene {
   _paintEatCooldownBar(btn, leftMs) {
     const bar = btn.querySelector('.eat-cd');
     if (!bar) return;
-    const done = 1 - Math.max(0, Math.min(1, leftMs / Energy.EAT_COOLDOWN_MS));
+    const done = 1 - clamp01(leftMs / Energy.EAT_COOLDOWN_MS);
     // Hidden outright when there is nothing to count: a permanently full bar
     // under a ready button is just a green line with no meaning.
     bar.style.width = leftMs > 0 ? `${done * 100}%` : '0';

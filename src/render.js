@@ -3975,7 +3975,7 @@ Render.drawObjects = function drawObjects(scene) {
       // HOW HIGH and HOW QUICK is the MONSTER table's business, not the art
       // table's: a flyer (the bat-like purple slime) darts, everything else
       // lumbers. The surface slime is in no monster table and lumbers.
-      const fly = !!(MONSTERS[c.kind] && MONSTERS[c.kind].fly);
+      const fly = !!(Combat.MONSTERS[c.kind] && Combat.MONSTERS[c.kind].fly);
       const period = fly ? 320 : 600;
       const ph = ((performance.now() + c._hopSeed) % period) / period;
       lift += Math.round(Math.abs(Math.sin(ph * Math.PI)) * (fly ? 10 : 6));

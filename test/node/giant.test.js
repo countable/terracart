@@ -1,4 +1,4 @@
-// Giant monsters — app.js MONSTERS derives a `giant_<kind>` for every base
+// Giant monsters — combat.js MONSTERS derives a `giant_<kind>` for every base
 // kind (4× HP, two levels deeper), and sprite_layout.js draws it on the base
 // kind's art at GIANT_ART_SCALE with the wheel / bar / tap box following.
 

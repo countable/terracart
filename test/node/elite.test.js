@@ -105,11 +105,11 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   assert.falsy(/c\._hp = Combat\.creatureMaxHp\(c\.kind\)/.test(app),
     'nothing refills a creature from the KIND max any more');
   const kill = app.slice(app.indexOf('resolveDefeat(victim) {'), app.indexOf('_busyWheel() {'));
-  assert.truthy(/enemyBounty\(victim\.kind, this\.depth, Combat\.eliteMul\(victim\)\)/.test(kill),
+  assert.truthy(/Combat\.enemyBounty\(victim\.kind, this\.depth, Combat\.eliteMul\(victim\)\)/.test(kill),
     'the bounty is paid at the elite multiplier');
   assert.truthy(/if \(this\._bankDiscovery\(victim\.kind\)\)/.test(kill),
     'an elite kill banks the kind\'s Discovery badge the first time');
-  assert.truthy(/grantTreasureRoll\(this, save, [^;]*ELITE_TREASURE_CONTEXT, \{ rollBonus: eliteRollBonus\(victim\.kind, this\.depth\) \}\)/.test(kill),
+  assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ rollBonus: Combat\.eliteRollBonus\(victim\.kind, this\.depth\) \}\)/.test(kill),
     'and rolls the elite treasure at the commensurate tier after that');
   // The relic-capable roll has somewhere to land: grantTreasureRoll equips a
   // relic / armor reward and cashes out a beaten one.

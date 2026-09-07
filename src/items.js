@@ -12,6 +12,8 @@
 //   SPRING_CROPS_COLS, CROP_SPRITE, wildplantFrame, inventoryIconSource
 //   CROP_NAMES, ITEMS, ITEM_BY_ID
 //   PRICES, BUY_LIST, STARTING_MONEY
+//   NON_TILLABLE, isTillable, isTillableCell   (which ground takes a hoe)
+//   INV_CATS, INV_CAT_BY_KEY, invCatForItem    (the inventory's type tabs)
 //   SEED_TIER  (loot tier config; co-located with the crops it describes)
 
 // Crops sheet (assets/Objects/Crops.png, 9 cols x 16 rows of 16x16 cells).
@@ -1525,4 +1527,54 @@ const LOW_TIER_SEED_QTY_BONUS = 2;
 function isLowTierSeed(id) {
   const it = ITEM_BY_ID[id];
   return !!it && it.kind === 'seed' && (it.baseTier || 1) <= 2;
+}
+
+// ── Which GROUND takes a hoe ───────────────────────────────────────────────
+// Tillable = soil-ish ground. Concrete pads / cement (commercial/industrial),
+// water, all road tiers, paths, every building tier, and rock are NOT tillable.
+// Rock (10) is non-tillable — mineral rocks spawn as objects on rock terrain
+// instead. 23 = PIER (wooden walkway over water) — walkable but not soil.
+//
+// A terrain-code table, read by app.js' till handler, interact.js' tap gates
+// and render.js' tilled-cell draw. It lived in app.js until Sep 2026, which is
+// why the headless suite had to parse the Set out of app.js' source text to
+// know which codes interact.js' flavour handler had to cover.
+const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25]);
+function isTillable(type) { return !NON_TILLABLE.has(type); }
+// The full "can this CELL take a hoe / placement / released animal" test:
+// soil-ish terrain AND no drawn road band over it. A cell's terrain says
+// "grass" for most of the ground a road actually covers (see cellAt's
+// underRoad note), so type-only checks let players till the middle of a
+// street. Takes a cellAt() result; a stub cell without underRoad (tests)
+// behaves exactly like the old type-only check.
+function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
+
+// ── The inventory's type tabs ──────────────────────────────────────────────
+// The two-bar inventory's category row. Order here is the on-screen left→right
+// order. Item categories filter save.inv by `kind`; gear categories (relic /
+// armor) synthesize their slot list from save.relics / save.armor
+// (one-per-slot) instead of save.inv. `sym` is the tab glyph — plain emoji so
+// no new pixel art is needed for the chrome.
+//
+// A table over item KINDS, so it belongs with the catalog that defines them:
+// a kind added to ITEMS without a home here falls into Produce, and only this
+// file can see both halves of that.
+const INV_CATS = [
+  { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed', 'sapling'] },
+  { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
+  { key: 'animal',      label: 'Animals',     sym: '🐔', kinds: ['animal'] },
+  { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic' },
+  { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
+  { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
+  // 'badge' = the Discovery badge stack — listed here so it's visible/countable,
+  // though it's spent only at the wizard tower (no tap-to-use handler).
+  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable', 'badge'] },
+];
+const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
+// Which type tab an item id belongs to (by its `kind`). Falls back to the
+// Produce tab for anything unmapped so a stray item is still reachable.
+function invCatForItem(id) {
+  const kind = ITEM_BY_ID[id]?.kind;
+  for (const c of INV_CATS) if (c.kinds && c.kinds.includes(kind)) return c.key;
+  return 'produce';
 }

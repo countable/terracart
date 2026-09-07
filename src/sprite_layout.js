@@ -27,7 +27,7 @@
 // beside it is the same idea pointed at what a kind DOES rather than how it
 // draws: one row per kind, read by the wander loop, the tap handler and the
 // kill payout, so none of them has to spell a kind out by name. Neither table
-// decides whether a kind is HOSTILE — that is app.js's MONSTERS registry, read
+// decides whether a kind is HOSTILE — that is combat.js's MONSTERS registry, read
 // through Combat.isEnemy.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
@@ -291,7 +291,7 @@
   // habits exactly as it inherits its art.
   //
   // WHAT THIS TABLE IS NOT: the enemy registry. Whether a kind is HOSTILE is
-  // app.js's MONSTERS table, asked everywhere through Combat.isEnemy — one
+  // combat.js's MONSTERS table, asked everywhere through Combat.isEnemy — one
   // registration is what makes a kind a foe in every branch at once (CLAUDE.md:
   // "when you add a hostile kind, put it in the monster table"), and nothing
   // here may answer that question. A row says how a kind BEHAVES: what thinks

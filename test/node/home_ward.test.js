@@ -152,7 +152,7 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
     'standDown is built from homeWard');
   assert.truthy(/if \(c\.kind === 'slime' && !isTame &&[^)]*!standDown\) \{/.test(wander),
     "the slime's leech is off inside the ring");
-  assert.truthy(/if \(isMonster\(c\.kind\) &&[^)]*!standDown\) \{/.test(wander),
+  assert.truthy(/if \(Combat\.isMonster\(c\.kind\) &&[^)]*!standDown\) \{/.test(wander),
     "and so is a monster's melee and its arrow");
 });
 
@@ -288,9 +288,9 @@ test('fire ward: wanderCreatures reads the same cap the table is built on', () =
   // only keeps a warded kind from wandering closer, so a monster already in
   // range when the fire is lit can still land its hit. Weaker than Home on
   // purpose: a campfire is a field expedient, not a doorstep.
-  assert.falsy(/isMonster\(c\.kind\) && !unnoticed && !standDown && !fireAverts/.test(wander),
+  assert.falsy(/Combat\.isMonster\(c\.kind\) && !unnoticed && !standDown && !fireAverts/.test(wander),
     "a monster's attack check is untouched by the fire ward");
-  assert.truthy(/isMonster\(c\.kind\) && !unnoticed && !standDown\) \{/.test(wander),
+  assert.truthy(/Combat\.isMonster\(c\.kind\) && !unnoticed && !standDown\) \{/.test(wander),
     'and the gate it is absent from is the one that ships');
   // Nor does it reach a LAIR GUARD — `!c.lair` is the first thing it asks. A
   // campfire cannot empty a ruin (a goblin garrison is past the depth cap

@@ -159,7 +159,7 @@
   //
   // Every kind here must be a registered enemy (Combat.isEnemyKind) or the
   // guards would be scenery that cannot be fought: `slime` is the surface pest
-  // and the rest are rows of app.js's MONSTERS table. And no two kinds on ONE
+  // and the rest are rows of combat.js's MONSTERS table. And no two kinds on ONE
   // ladder may be drawn the same — see the tint rule in sprite_layout.js; a
   // rung the player cannot see is not an escalation.
   const KIND_ORDER = {

@@ -190,7 +190,7 @@ test('cave torches: the torch is a seated one-cell sprite with a flicker, and it
   assert.truthy(spec, 'RENDER_SPEC.torch exists');
   assert.truthy(/seat: true, seatFrame: 0/.test(spec[0]), 'seated off frame 0 so the flickering flame never bobs the stake');
   assert.truthy(/% 4/.test(spec[0]), 'cycles the four frames');
-  assert.truthy(/'_fire',\n    'torch',\n  \]\);/.test(r), 'a torch casts a ground shadow like the campfire');
+  assert.truthy(/shadow: true/.test(spec[0]), 'a torch casts a ground shadow like the campfire');
   assert.truthy(/torch:\s*\{ kind: 'spritesheet', path: 'assets\/Objects\/Wilderness\/torch\.png', frameWidth: 16, frameHeight: 32 \}/.test(ASSETS_SRC),
     'assets.js declares the 16×32 torch sheet');
   assert.truthy(SpriteLayout.ART_BOUNDS['torch:0'], 'and sprite_layout carries its trimmed bounds (tools/sprite_audit.js --emit-bounds)');

@@ -7,6 +7,12 @@
 //
 // Exports as globals:
 //   cellKeyFromAbsCell(absIX, absIY)         — "ix_iy"
+//   distM2(ax, ay, bx, by)                   — compare-only squared distance
+//   localMetersToTilePx(scene, mx, my)       — the player frame → tile-pixel space
+//   worldMetersToTilePx(scene, wmx, wmy)     — …and absolute metres → the same
+//   localMetersToTile / worldMetersToTile    — the TILE either of those falls in
+//   eachTile3x3(tx, ty, fn)                  — the 3×3 tile ring, in row order
+//   gamePt(p, renderScale)                   — a canvas-px pointer in LOGICAL px
 //   worldMetersToAbsCell(scene, wmx, wmy)    — { cellIX, cellIY }
 //   absCellCenterMeters(scene, cellIX, cellIY) — { x, y }
 //   sameAbsCell(scene, ax, ay, bx, by)       — do both points share a cell?
@@ -30,13 +36,76 @@ function cellPxSize(scene) {
   return WorldGen.TILE_PX / scene.cellsPerTile;
 }
 
+// Compare-only squared distance between two points — avoids the sqrt. Lives
+// here rather than in util.js because both points are METRES in one of the two
+// frames below, and every caller (interact.js' reach prefilters, app.js'
+// nearest-thing scans) is asking a coordinate question.
+function distM2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
+
+// ─── Metres → TILE-PIXEL space ───────────────────────────────────────────────
+// Everything that indexes a tile or a cell floors out of z=14 tile-pixel space,
+// and there are exactly TWO metre frames that reach it:
+//
+//   LOCAL   metres from the projection origin — scene.playerM, scene.gpsM, the
+//           viewport offsets. Zero is scene.startWorldM.
+//   WORLD   absolute metres — every object, creature and wildplant x/y, which
+//           are tx * tileEdgeM + …
+//
+// The world frame is the local one shifted by startWorldM, so worldMetersTo*
+// is localMetersTo* with that subtraction and nothing else. app.js used to
+// spell each of these out by hand at five call sites, each with its own
+// arrangement of originPx / mPerPx / TILE_PX — which is exactly the coord
+// drift this file exists to prevent.
+function localMetersToTilePx(scene, mx, my) {
+  return {
+    x: scene.originPx.x + mx / scene.mPerPx,
+    y: scene.originPx.y + my / scene.mPerPx,
+  };
+}
+function worldMetersToTilePx(scene, wmx, wmy) {
+  return localMetersToTilePx(scene, wmx - scene.startWorldM.x, wmy - scene.startWorldM.y);
+}
+function tilePxToTile(px, py) {
+  return {
+    tx: Math.floor(px / WorldGen.TILE_PX),
+    ty: Math.floor(py / WorldGen.TILE_PX),
+  };
+}
+function localMetersToTile(scene, mx, my) {
+  const p = localMetersToTilePx(scene, mx, my);
+  return tilePxToTile(p.x, p.y);
+}
+function worldMetersToTile(scene, wmx, wmy) {
+  const p = worldMetersToTilePx(scene, wmx, wmy);
+  return tilePxToTile(p.x, p.y);
+}
+
+// The 3×3 ring of tiles around one — the shape every "what is near the player"
+// scan walks (tile loading, the lair residency step, the street sweep, the
+// street lamps, the road-id debug dump). Row order (dty outer, dtx inner), so
+// a scan that keeps the first hit keeps the same one it always did.
+function eachTile3x3(tx, ty, fn) {
+  for (let dty = -1; dty <= 1; dty++) {
+    for (let dtx = -1; dtx <= 1; dtx++) fn(tx + dtx, ty + dty, dtx, dty);
+  }
+}
+
+// A Phaser pointer's position in LOGICAL px. Phaser reports pointer positions
+// in CANVAS px — the backing store, which is renderScale× the logical grid (see
+// app.js' canvas-resolution note by W/H) — while every gate downstream is
+// logical: the drag slop, the peek metres, interactTap's cell hit test,
+// Multiplayer.consumeTap. So a pointer converts here, once, on the way in, and
+// there is one place to look when the map stops answering taps.
+function gamePt(p, renderScale) {
+  return { x: p.x / renderScale, y: p.y / renderScale };
+}
+
 function worldMetersToAbsCell(scene, wmx, wmy) {
-  const wx = scene.originPx.x + (wmx - scene.startWorldM.x) / scene.mPerPx;
-  const wy = scene.originPx.y + (wmy - scene.startWorldM.y) / scene.mPerPx;
+  const p = worldMetersToTilePx(scene, wmx, wmy);
   const cps = cellPxSize(scene);
   return {
-    cellIX: Math.floor(wx / cps),
-    cellIY: Math.floor(wy / cps),
+    cellIX: Math.floor(p.x / cps),
+    cellIY: Math.floor(p.y / cps),
   };
 }
 

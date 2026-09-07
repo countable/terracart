@@ -358,12 +358,10 @@ test('findClosestItem: returns null when layer is empty', () => {
     globalThis.WorldGen = Object.assign({}, orig, {
       forEachItem: (layer, cb) => { /* empty */ },
     });
-    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
     const result = findClosestItem('creatures', 0, 0, 5);
     assert.eq(result, null, 'no items → null');
   } finally {
     globalThis.WorldGen = orig;
-    delete globalThis.distM2;
   }
 });
 
@@ -374,13 +372,11 @@ test('findClosestItem: finds the item within reach radius', () => {
     globalThis.WorldGen = Object.assign({}, orig, {
       forEachItem: (layer, cb) => { for (const it of items) cb(it); },
     });
-    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
     const found = findClosestItem('creatures', 0, 0, 5);
     assert.truthy(found !== null, 'item within radius found');
     assert.eq(found.id, 'c1', 'correct item returned');
   } finally {
     globalThis.WorldGen = orig;
-    delete globalThis.distM2;
   }
 });
 
@@ -391,12 +387,10 @@ test('findClosestItem: ignores items beyond reach radius', () => {
     globalThis.WorldGen = Object.assign({}, orig, {
       forEachItem: (layer, cb) => { for (const it of items) cb(it); },
     });
-    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
     const found = findClosestItem('creatures', 0, 0, 5);
     assert.eq(found, null, 'item at 10m is outside 5m radius → null');
   } finally {
     globalThis.WorldGen = orig;
-    delete globalThis.distM2;
   }
 });
 
@@ -410,14 +404,12 @@ test('findClosestItem: accept filter excludes rejected items', () => {
     globalThis.WorldGen = Object.assign({}, orig, {
       forEachItem: (layer, cb) => { for (const it of items) cb(it); },
     });
-    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
     // Only accept chickens
     const found = findClosestItem('creatures', 0, 0, 5, (it) => it.kind === 'chicken');
     assert.truthy(found !== null, 'a valid item was found');
     assert.eq(found.id, 'c3', 'slime was filtered out, chicken returned');
   } finally {
     globalThis.WorldGen = orig;
-    delete globalThis.distM2;
   }
 });
 
@@ -431,12 +423,10 @@ test('findClosestItem: returns the CLOSEST item when multiple are in reach', () 
     globalThis.WorldGen = Object.assign({}, orig, {
       forEachItem: (layer, cb) => { for (const it of items) cb(it); },
     });
-    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
     const found = findClosestItem('creatures', 0, 0, 5);
     assert.eq(found.id, 'near', 'nearest item wins');
   } finally {
     globalThis.WorldGen = orig;
-    delete globalThis.distM2;
   }
 });
 
@@ -450,14 +440,12 @@ test('findClosestItem: function reach is evaluated per-item', () => {
     globalThis.WorldGen = Object.assign({}, orig, {
       forEachItem: (layer, cb) => { for (const it of items) cb(it); },
     });
-    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
     // Reach is a per-item function using the item's own `r` field
     const found = findClosestItem('creatures', 0, 0, (item) => item.r);
     assert.truthy(found !== null, 'cow (large reach) was found');
     assert.eq(found.id, 'cow1', 'chicken was filtered out by its own reach');
   } finally {
     globalThis.WorldGen = orig;
-    delete globalThis.distM2;
   }
 });
 
@@ -646,12 +634,11 @@ test('findItemInTapCell: a corner tap in the item\'s own cell still hits it', ()
     globalThis.WorldGen = Object.assign({}, orig, {
       forEachItem: (layer, cb) => { for (const it of items) cb(it); },
     });
-    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
     const scene = makeGridScene();
     const found = findItemInTapCell(scene, 'wildplants', { x: 4.9, y: 4.9 });
     assert.truthy(found !== null, 'far corner of the item cell is still the item cell');
     assert.eq(found.id, 'w1', 'the item in the tapped cell');
-  } finally { globalThis.WorldGen = orig; delete globalThis.distM2; }
+  } finally { globalThis.WorldGen = orig; }
 });
 
 test('findItemInTapCell: tall art does NOT make the cell above it tappable', () => {
@@ -663,13 +650,12 @@ test('findItemInTapCell: tall art does NOT make the cell above it tappable', () 
     globalThis.WorldGen = Object.assign({}, orig, {
       forEachItem: (layer, cb) => { for (const it of items) cb(it); },
     });
-    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
     const scene = makeGridScene();
     assert.eq(findItemInTapCell(scene, 'objects', { x: 2.5, y: 9.9 }), null,
       'the cell north of the sprite is not the sprite');
     assert.truthy(findItemInTapCell(scene, 'objects', { x: 2.5, y: 10.1 }) !== null,
       'one gridline further south IS its cell');
-  } finally { globalThis.WorldGen = orig; delete globalThis.distM2; }
+  } finally { globalThis.WorldGen = orig; }
 });
 
 test('findItemInTapCell: rejected items are skipped even in the tapped cell', () => {
@@ -679,11 +665,10 @@ test('findItemInTapCell: rejected items are skipped even in the tapped cell', ()
     globalThis.WorldGen = Object.assign({}, orig, {
       forEachItem: (layer, cb) => { for (const it of items) cb(it); },
     });
-    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
     const scene = makeGridScene();
     const found = findItemInTapCell(scene, 'wildplants', { x: 2.5, y: 2.5 }, (it) => it.id !== 'picked');
     assert.eq(found.id, 'fresh', 'the accepted item in the cell wins');
-  } finally { globalThis.WorldGen = orig; delete globalThis.distM2; }
+  } finally { globalThis.WorldGen = orig; }
 });
 
 test('staircase handler: fires on the stair\'s cell, not the cell above it', () => {
@@ -693,7 +678,6 @@ test('staircase handler: fires on the stair\'s cell, not the cell above it', () 
     globalThis.WorldGen = Object.assign({}, orig, {
       forEachItem: (layer, cb) => { if (layer === 'objects') for (const it of items) cb(it); },
     });
-    globalThis.distM2 = (ax, ay, bx, by) => (ax-bx)**2 + (ay-by)**2;
     let descended = 0;
     const scene = makeGridScene({ changeDepth: () => { descended++; } });
     const save = { energy: 100, reachUpgrades: 0, inv: [], selSlot: 0 };
@@ -705,7 +689,7 @@ test('staircase handler: fires on the stair\'s cell, not the cell above it', () 
     assert.eq(descended, 0, 'no level change from the neighbouring cell');
     assert.eq(h.try(at(4.9, 14.9)), true, 'a corner tap inside the stair cell is consumed');
     assert.eq(descended, 1, 'level changed once');
-  } finally { globalThis.WorldGen = orig; delete globalThis.distM2; }
+  } finally { globalThis.WorldGen = orig; }
 });
 
 // ─── 6. creature handler: tap the DRAWN body, not the foot cell ───────────────

@@ -1047,7 +1047,7 @@
       return i;
     };
     const leech = at("if (c.kind === 'slime' && !isTame && !unnoticed && !standDown) {", 'the slime leech');
-    const attack = at('if (isMonster(c.kind) && !unnoticed && !standDown) {', 'the monster attack');
+    const attack = at('if (Combat.isMonster(c.kind) && !unnoticed && !standDown) {', 'the monster attack');
     const immobile = at("if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;",
       'the at-rest branch');
     const crow = at("if (c.kind === 'crow' && !isTame) {", 'the wild-crow flight');

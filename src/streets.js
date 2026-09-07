@@ -488,9 +488,35 @@
     return save ? (save.streetsEpoch | 0) : 0;
   }
 
+  // ── A stretch, in WORLD metres ───────────────────────────────────────────
+  // Both take the per-line `meta` the scene's scan builds — { line, mvtToM,
+  // tx, ty, tileEdgeM } — and answer in ABSOLUTE world metres, i.e. the
+  // tile-local geometry above shifted by the tile's own origin. They were two
+  // scene methods in app.js and touched nothing on the scene: the shift is
+  // this module's own arithmetic (tx * tileEdgeM), so a caller that wants a
+  // restored run drawn, previewed or sparked asks here.
+
+  // The exact sub-polyline between two arclengths. Null when there is nothing
+  // to stroke.
+  function runPtsWorld(meta, s0, s1) {
+    const sub = subLineM(meta.line, meta.mvtToM, s0, s1);
+    if (!sub || sub.length < 2) return null;
+    const ox = meta.tx * meta.tileEdgeM, oy = meta.ty * meta.tileEdgeM;
+    return sub.map((q) => ({ x: ox + q.x, y: oy + q.y }));
+  }
+
+  // A single point at arclength `s` — where the blast goes off and where the
+  // counter hangs.
+  function pointAtWorld(meta, s) {
+    const q = pointAtM(meta.line, meta.mvtToM, s);
+    if (!q) return null;
+    return { x: meta.tx * meta.tileEdgeM + q.x, y: meta.ty * meta.tileEdgeM + q.y };
+  }
+
   root.Streets = {
     EPS,
     lineKey, lineLengthM, pointAtM, subLineM, tileSpans, reachIntervals,
+    runPtsWorld, pointAtWorld,
     LAMP_SPACING_M, lampSpacingM, lampsAlong, covers,
     mergeIntervals, intersect, subtract, union, totalM, flatten, unflatten,
     createSight, restoredList, restore, epoch,

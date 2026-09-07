@@ -105,8 +105,8 @@ test('eat cooldown: the bar fills toward ready, and vanishes when there is nothi
   const body = app.slice(a, b);
   // 1 - left/COOLDOWN: a full bar is a ready button, so the growing green and
   // the shrinking number both point at the next bite.
-  assert.truthy(/const done = 1 - Math\.max\(0, Math\.min\(1, leftMs \/ Energy\.EAT_COOLDOWN_MS\)\)/.test(body),
-    'the bar measures elapsed, clamped, off the shared constant');
+  assert.truthy(/const done = 1 - clamp01\(leftMs \/ Energy\.EAT_COOLDOWN_MS\)/.test(body),
+    'the bar measures elapsed, clamped (util.js clamp01), off the shared constant');
   assert.truthy(/leftMs > 0 \? `\$\{done \* 100\}%` : '0'/.test(body),
     'no bar at all once the wait is over');
 });

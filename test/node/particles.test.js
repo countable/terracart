@@ -208,7 +208,7 @@ test('particles: a restoring sweep blasts ONCE, on the stretch it brought back',
   assert.truthy(
     /spread: this\._streetSpreadPts\(meta, seg\[0\], seg\[1\], GATHER_SPREAD_POINTS\),/.test(body),
     'and its whole piece, spread into gather targets — not just the midpoint');
-  assert.truthy(/const at = best \? this\._streetPointAt\(best\.meta, best\.s\) : null;/.test(body),
+  assert.truthy(/const at = best \? Streets\.pointAtWorld\(best\.meta, best\.s\) : null;/.test(body),
     'resolved to WORLD metres along the way');
   assert.truthy(
     /this\._blastAt\(at\.x, at\.y, \{\n\s+radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',\n\s+gather: 'stonegather', gatherPts: best\.spread, durationMs: STREET_SHINE_MS,\n\s+\}\);/

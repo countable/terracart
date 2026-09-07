@@ -1,4 +1,4 @@
-// The cave-enemy difficulty rule (src/app.js › MONSTERS + CAVE_ENEMY_MUL).
+// The cave-enemy difficulty rule (src/combat.js › MONSTERS + CAVE_ENEMY_MUL).
 //
 // The first slime is the tutorial. The wild surface slime is the only enemy
 // above ground and the first one anybody meets — a crop pest you can walk away

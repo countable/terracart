@@ -17,7 +17,7 @@
 // name the kinds they named before.
 //
 // THE ONE THING THIS TABLE MUST NOT DECIDE is whether a kind is HOSTILE. That
-// is app.js's MONSTERS registry, read everywhere through Combat.isEnemy
+// is combat.js's MONSTERS registry, read everywhere through Combat.isEnemy
 // (CLAUDE.md: "when you add a hostile kind, put it in the monster table"), so
 // the last test below holds the line between them.
 

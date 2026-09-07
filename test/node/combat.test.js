@@ -737,11 +737,9 @@ test('combat: melee reaches exactly as far as a melee monster does', () => {
     'one cell — the range every melee monster in the MONSTERS table attacks at');
   assert.eq(Combat.meleeReachM(COMBAT_CELL_M), COMBAT_CELL_M,
     'and in metres it is one cell of whatever the world is scaled to');
-  // The MONSTERS table lives in app.js (no headless load), so its melee kinds
-  // are pinned as source text against the number above.
-  const rows = APP_JS_SRC.slice(APP_JS_SRC.indexOf('const MONSTERS = {'));
-  const table = rows.slice(0, rows.indexOf('\n};'));
-  const ranges = [...table.matchAll(/range:\s*(\d+)/g)].map((m) => Number(m[1]));
+  // The real registered table — combat.js owns it, so this reads the ranges
+  // the game actually attacks at rather than a regex over app.js's source.
+  const ranges = Object.values(Combat.MONSTERS).map((m) => m.range);
   assert.gt(ranges.length, 3, 'found the monster ranges');
   const melee = ranges.filter((r) => r <= 1);
   assert.gt(melee.length, 0, 'there are melee monsters at all');

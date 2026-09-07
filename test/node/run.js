@@ -105,6 +105,9 @@ const BRIDGE = `;Object.assign(globalThis, {
   REACH_CORNER_PX, ReachCorner,
   isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,
+  // Which ground takes a hoe, and the inventory's type tabs — both item-side
+  // tables that used to be regex-lifted out of app.js.
+  NON_TILLABLE, INV_CATS, INV_CAT_BY_KEY,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
   plantedTreeStage, PLANTED_TREE_GROW_MS, acornDropChance, ACORN_P_BASE, ACORN_P_FROST,
@@ -134,29 +137,13 @@ try {
   process.exit(2);
 }
 
-// app.js can't load headlessly (it needs Phaser), but its NON_TILLABLE set is
-// the contract interact.js' TERRAIN_FLAVOR has to cover — every non-tillable
-// terrain code reaches the 'flavor' handler and needs a real label instead of
-// a bare '·'. Lift the codes straight out of the source text so the coverage
-// test in interact_tap.test.js can't drift from app.js.
-{
-  const m = readSrc('app.js').match(/const NON_TILLABLE = new Set\(\[([^\]]*)\]\)/);
-  if (!m) {
-    console.error('Could not find NON_TILLABLE in src/app.js — update run.js');
-    process.exit(2);
-  }
-  ctx.NON_TILLABLE_CODES = m[1].split(',')
-    .map((s) => parseInt(s.trim(), 10))
-    .filter((n) => Number.isFinite(n));
-  // interact.js calls the global isTillable (defined in app.js) — stub it from
-  // the same parsed set so handlers that gate on it can be driven headlessly.
-  const nonTillable = new Set(ctx.NON_TILLABLE_CODES);
-  ctx.isTillable = (type) => !nonTillable.has(type);
-  // …and isTillableCell (also app.js): the cell-level test that additionally
-  // refuses cells under a drawn road band (cellAt's roadMask-derived
-  // underRoad flag). Mirrors the app.js one-liner exactly.
-  ctx.isTillableCell = (cell) => ctx.isTillable(cell.type) && !cell.underRoad;
-}
+// NON_TILLABLE is the contract interact.js' TERRAIN_FLAVOR has to cover — every
+// non-tillable terrain code reaches the 'flavor' handler and needs a real label
+// instead of a bare '·'. It is items.js' table now (loaded above with the rest
+// of the bundle, isTillable / isTillableCell with it), so the coverage test in
+// interact_tap.test.js reads the SHIPPING codes rather than a set this file
+// used to parse out of app.js' source text.
+ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
 
 // The walk-home timings live in app.js too. Lift them the same way, so the
 // tests below assert on the REAL numbers rather than a copy that would quietly
@@ -197,7 +184,11 @@ try {
                       // How thick buried X marks lie on sand — the beach
                       // bonus stream's cap (beach_treasure.test.js drives the
                       // lifted block against it).
-                      'BEACH_X_PER_CELLS']) {
+                      'BEACH_X_PER_CELLS',
+                      // The campfire's depth cap on its ward — the only piece
+                      // of the old monster block still authored in app.js,
+                      // since it is the FIRE's rule rather than the table's.
+                      'FIRE_WARD_MAX_DEPTH']) {
     // parseFloat, not parseInt: WALK_M_S is 1.4, and rounding walking pace to
     // 1 m/s would silently retune every distance the tests below measure.
     const m = src.match(new RegExp(`const ${name} = ([\\d.]+);`));
@@ -334,8 +325,7 @@ try {
                    '_cellAtScreen(sx, sy) {', 'playerScreen() {',
                    '_sweepStreets() {', '_resetStreetSight() {',
                    '_rescanStreets(p, reachM, now, sight) {',
-                   '_setStreetPreview(meta, iv) {', '_streetRunPts(meta, s0, s1) {',
-                   '_streetPointAt(meta, s) {', '_streetSpreadPts(meta, s0, s1, k) {',
+                   '_setStreetPreview(meta, iv) {', '_streetSpreadPts(meta, s0, s1, k) {',
                    '_ripenStreets(now, sight) {',
                    '_bankStreetMetres(addedM, at, now) {', '_showTrailIntro() {',
                    '_drawStreetLive(now) {',
@@ -393,8 +383,7 @@ try {
   for (const k of ['_worldToastAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
                    '_cellAtScreen', 'playerScreen',
                    '_sweepStreets', '_resetStreetSight', '_rescanStreets',
-                   '_setStreetPreview', '_streetRunPts', '_streetPointAt',
-                   '_ripenStreets', '_bankStreetMetres', '_showTrailIntro',
+                   '_setStreetPreview', '_ripenStreets', '_bankStreetMetres', '_showTrailIntro',
                    '_drawStreetLive', '_blastAt']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
@@ -451,72 +440,29 @@ try {
   }
 }
 
-// The monster table and the defeat bounty derived from it are pure data + pure
-// math, but they live in app.js (which needs Phaser). Lift the whole block as
-// text — same trick as above — so the reward tests below run the REAL table and
-// the REAL formula rather than a copy that would drift the first time a kind is
-// added or a number retuned.
-//
-// The block includes app.js's `Combat.registerMonsters(MONSTERS)` call, which
-// is what lets the bounty ask Combat how much HP a kind has: without it every
-// monster would fall through to the fauna ladder's default and the coins would
-// be measured against the wrong numbers here but not in the game.
-{
-  const src = readSrc('app.js');
-  const start = src.indexOf('const MONSTERS = {');
-  const endMark = 'function isMonster(kind)';
-  const end = src.indexOf('\n', src.indexOf(endMark));
-  if (start < 0 || end < 0) {
-    console.error('Could not find the MONSTERS / bounty block in src/app.js — update run.js');
-    process.exit(2);
-  }
-  const block = src.slice(start, end + 1);
-  if (!/Combat\.registerMonsters\(MONSTERS\)/.test(block)) {
-    console.error('The lifted MONSTERS block no longer registers the table with combat.js — '
-      + 'move the registration back beside the table, or update run.js');
-    process.exit(2);
-  }
-  // The stats the table is AUTHORED at, before CAVE_ENEMY_MUL doubles them —
-  // evaluated from the same literal text, so a test can prove the doubling is
-  // actually applied (and applied once) instead of trusting the numbers.
-  const tableEnd = src.indexOf('};', start) + 2;
-  if (tableEnd < 2) {
-    console.error('Could not find the end of the MONSTERS literal — update run.js');
-    process.exit(2);
-  }
-  vm.runInContext(
-    src.slice(start, tableEnd).replace('const MONSTERS =', 'globalThis.MONSTERS_BASELINE ='),
-    ctx, { filename: 'monsters-baseline.js' });
-  vm.runInContext(block
-    + '\n;Object.assign(globalThis, { MONSTERS, isMonster, enemyBounty, CAVE_ENEMY_MUL,'
-    + ' ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, MONSTER_TREASURE_CHANCE,'
-    + ' ELITE_TREASURE_CONTEXT, eliteRollBonus, GIANT_HP_MUL, GIANT_DEPTH_STEP,'
-    + ' FIRE_WARD_MAX_DEPTH });',
-    ctx, { filename: 'monsters.js' });
-}
-
-// The inventory category tabs are declared in app.js (which needs Phaser, so it
-// can't load here). Lift the {key, label, sym} triples straight out of the
-// source text — same trick as NON_TILLABLE above — so the tab-chrome tests can
-// assert on the real table instead of a copy that would drift.
-{
-  const m = readSrc('app.js').match(/const INV_CATS = \[([\s\S]*?)\n\];/);
-  if (!m) {
-    console.error('Could not find INV_CATS in src/app.js — update run.js');
-    process.exit(2);
-  }
-  const cats = [];
-  const re = /\{\s*key:\s*'([^']+)'[^}]*?label:\s*'([^']+)'[^}]*?sym:\s*'([^']+)'/g;
-  let row;
-  while ((row = re.exec(m[1])) !== null) {
-    cats.push({ key: row[1], label: row[2], sym: row[3] });
-  }
-  if (!cats.length) {
-    console.error('Parsed no entries out of INV_CATS — update run.js');
-    process.exit(2);
-  }
-  ctx.INV_CATS = cats;
-}
+// The monster table, the defeat bounty derived from it and the fauna's blocked
+// terrain all live in combat.js now — real module exports, loaded above with
+// the rest of the bundle. They used to be lifted out of app.js as source text
+// (the table, its giants, the cave doubling and every constant around them),
+// which is what a missing extraction looks like: the tests below run the
+// SHIPPING table and the SHIPPING formula because there is only one of each.
+// Republished here under their bare names so the test files reach them the way
+// app.js does.
+Object.assign(ctx, {
+  MONSTERS: ctx.Combat.MONSTERS,
+  MONSTERS_BASELINE: ctx.Combat.MONSTERS_BASELINE,
+  CAVE_ENEMY_MUL: ctx.Combat.CAVE_ENEMY_MUL,
+  GIANT_HP_MUL: ctx.Combat.GIANT_HP_MUL,
+  GIANT_DEPTH_STEP: ctx.Combat.GIANT_DEPTH_STEP,
+  isMonster: ctx.Combat.isMonster,
+  enemyBounty: ctx.Combat.enemyBounty,
+  ENEMY_COIN_PER_HP: ctx.Combat.ENEMY_COIN_PER_HP,
+  ENEMY_DEPTH_BONUS: ctx.Combat.ENEMY_DEPTH_BONUS,
+  MONSTER_TREASURE_CHANCE: ctx.Combat.MONSTER_TREASURE_CHANCE,
+  ELITE_TREASURE_CONTEXT: ctx.Combat.ELITE_TREASURE_CONTEXT,
+  eliteRollBonus: ctx.Combat.eliteRollBonus,
+  faunaBlocksCell: ctx.Combat.faunaBlocksCell,
+});
 
 // The starter-home provisioner seats the wood / rock / wreck a new player needs
 // onto real cells and freezes the result. It's pure grid + save math, but it
@@ -612,7 +558,6 @@ try {
     + '  _castleKey(house) {\n' + grab('  _castleKey(house) {\n') + '\n  },\n'
     + '  isCastleClaimed(house) {\n' + grab('  isCastleClaimed(house) {\n') + '\n  },\n'
     + '  _claimCastle(house) {\n' + grab('  _claimCastle(house) {\n') + '\n  },\n'
-    + '  _dayKey() {\n' + grab('  _dayKey() {\n') + '\n  },\n'
     + '  _castleServiceUsedToday(house) {\n' + grab('  _castleServiceUsedToday(house) {\n') + '\n  },\n'
     + '  _markCastleServiceUsed(house) {\n' + grab('  _markCastleServiceUsed(house) {\n') + '\n  },\n'
     + '  _castleRest(sx, sy, house) {\n' + grab('  _castleRest(sx, sy, house) {\n') + '\n  },\n'
@@ -1000,9 +945,9 @@ try {
 // the starting trailer, a chicken on easy and a slime on hard. Same lift as the
 // relic chest above: it lives on the Phaser scene class, but the seating is
 // pure grid math over the shared spawn rule, so hand the real body to
-// home_greeter.test.js rather than a transcription. It reads faunaBlocksCell —
-// already lifted onto globalThis further down this file, and resolved at CALL
-// time, so it must not be re-declared here — plus the two ring constants.
+// home_greeter.test.js rather than a transcription. It reads
+// Combat.faunaBlocksCell (resolved at CALL time, off the loaded module) plus
+// the two ring constants.
 {
   const src = readSrc('app.js');
   const head = '  _placeHomeGreeter(entry, tx, ty) {\n';
@@ -1105,15 +1050,11 @@ try {
     return src.slice(from, end);
   };
 
-  // faunaBlocksCell / FAUNA_BLOCKED_TYPES / crowEatsCrop are plain top-level
-  // helpers in app.js that _wildCrowTick (and the fauna spawner) call — lift
-  // them verbatim so the lifted method bodies below resolve for real instead
-  // of against a stub that could drift from the shipping set.
-  {
-    const m = src.match(/const FAUNA_BLOCKED_TYPES = new Set\(\[[^\]]*\]\);\nfunction faunaBlocksCell\(type\) \{ return FAUNA_BLOCKED_TYPES\.has\(type\); \}/);
-    if (!m) { console.error('Could not find FAUNA_BLOCKED_TYPES/faunaBlocksCell in src/app.js — update run.js'); process.exit(2); }
-    vm.runInContext(m[0] + '\n;globalThis.faunaBlocksCell = faunaBlocksCell;', ctx, { filename: 'faunaBlocksCell.js' });
-  }
+  // crowEatsCrop is a plain top-level helper in app.js that _wildCrowTick
+  // calls — lift it verbatim so the lifted method bodies below resolve for
+  // real instead of against a stub that could drift. (faunaBlocksCell used to
+  // be lifted here beside it; it is Combat.faunaBlocksCell now, so the lifted
+  // bodies reach the shipping predicate through the loaded module.)
   {
     const m = src.match(/function crowEatsCrop\(p\) \{ return Crops\.crowEats\(p\); \}/);
     if (!m) { console.error('Could not find crowEatsCrop in src/app.js — update run.js'); process.exit(2); }
@@ -1249,9 +1190,7 @@ ctx.APP_JS_SRC = readSrc('app.js');
     num('SLIME_HOP_CELLS'), num('SLIME_STEP_MUL'), num('STALK_JITTER'),
     num('PEST_CROW_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
     'const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;',
-    // The predicates. FAUNA_BLOCKED_TYPES is the set faunaBlocksCell reads.
-    src.match(/const FAUNA_BLOCKED_TYPES = new Set\(\[[^\]]*\]\);/)[0],
-    fn('function faunaBlocksCell(type)'),
+    // The predicates. (faunaBlocksCell is Combat's, already loaded.)
     fn('function slimeCharging(c) {'),
   ].join('\n');
   // ONE script, so the method closes over the preamble's consts — a second

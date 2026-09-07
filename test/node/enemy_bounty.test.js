@@ -15,7 +15,8 @@
 // wheel length) rather than hand-tuned per kind, and these tests pin that
 // property, not the individual numbers: a tougher foe must never pay less than
 // an easier one, and a kind added to MONSTERS must be priced the moment it has
-// stats. MONSTERS / enemyBounty are lifted out of app.js by run.js.
+// stats. MONSTERS / enemyBounty are combat.js' own — run.js republishes them
+// under their bare names, so this drives the shipping table and formula.
 
 // One shared vm scope holds every *.test.js, so the fixture stays in an IIFE.
 (function () {

@@ -62,16 +62,110 @@
 // bow and staff included — a bow-only player can still bring down a deer).
 //
 // Node-testable: no DOM, no Phaser, no WorldGen. The monster stat table lives
-// in app.js, which headless tests don't load, so app.js hands it over once via
-// `registerMonsters` and tests register a synthetic one.
+// HERE, beside the maths that reads it — it IS enemy data, and this is the one
+// module that answers "is this an enemy", "how much HP" and "what does the kill
+// pay". It used to live in app.js and arrive through `registerMonsters` at
+// boot, which meant every headless test of a real foe ran on a table lifted out
+// of app.js by regex. The shipping table is the DEFAULT registration now;
+// `registerMonsters` stays for the tests that swap in a synthetic kind.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
   'use strict';
 
-  // The MONSTERS table from app.js, registered at load. Kept as a reference
-  // (not a copy) so a kind added there is an enemy here the same instant.
-  let MONSTER_STATS = {};
+  // ── The monster table ────────────────────────────────────────────────────
+  // Underground wandering MONSTERS. Mechanically they're the surface slime:
+  // each drifts toward the player and drains energy when within RANGE — but
+  // they differ by HP / RANGE / DMG / SPEED. Only the goblin archer reaches
+  // past one cell (range 3), and a kind with range > 1 SHOOTS — a visible
+  // arrow at the player at the castle turret's cadence, carrying
+  // MONSTER_ARROW_HITS hits of `dmg` so its damage per minute is unchanged
+  // (see monsterShot); everything else is melee (range 1) and leeches on
+  // app.js's MONSTER_HIT_MS. Tougher kinds are gated to deeper levels via
+  // minDepth, so descending introduces new foes. Placeholder art: every
+  // monster reuses the slime sprite with a per-kind TINT (see render.js) until
+  // dedicated sheets land — swapping in real art is a one-line assets.js +
+  // render.js change per kind.
+  //   hp     → the pool a fight drains (scaled off BASELINE_HP, 15)
+  //   range  → cells within which it drains energy
+  //   dmg    → energy drained per hit (one hit per MONSTER_HIT_MS per monster)
+  //   speed  → step cadence multiplier (1 = slime cadence; higher = more often)
+  //   weight → relative spawn share among the kinds eligible at a given depth
+  // hp and dmg here are the BASELINE: every entry is doubled by CAVE_ENEMY_MUL
+  // below, so what the game runs on is twice what is written.
+  const MONSTERS_BASELINE = {
+    cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5 },
+    purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true },
+    goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.0, minDepth: 2, weight: 3 },
+    goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 0.8, minDepth: 3, weight: 2 },
+  };
+  // What the game runs on: the authored rows above, plus their giants, all
+  // doubled. Built here rather than mutated in place so MONSTERS_BASELINE
+  // stays readable as what was AUTHORED — the two derivations below are
+  // proved against it by monster_stats.test.js.
+  const MONSTERS = {};
+  for (const [kind, m] of Object.entries(MONSTERS_BASELINE)) MONSTERS[kind] = { ...m };
+
+  // ── GIANTS ───────────────────────────────────────────────────────────────
+  // Every kind above has a GIANT form, `giant_<kind>`: GIANT_HP_MUL (4×) the
+  // HP, introduced GIANT_DEPTH_STEP (2) levels deeper than its base kind, at
+  // half the base kind's spawn share. Damage, range and speed are the base
+  // kind's — it is a bigger, tougher body of the same foe, not a new one.
+  // Derived here from the literal rather than authored, so a kind added above
+  // has a giant the moment it has stats, and the doubling below reaches the
+  // giants too.
+  // There is no giant art: SpriteLayout.creatureArt draws the base kind's
+  // sheet at GIANT_ART_SCALE (1.8), and everything that seats on the body
+  // (wheel, health bar, tap box, shadow) resolves through the same helper. For
+  // the quest board and the Discovery ledger a giant is ITS OWN KIND — a giant
+  // goblin job wants giant goblins, and an elite giant goblin banks its own
+  // badge beside the elite goblin's (app.js resolveDefeat credits victim.kind
+  // as-is; quests.js QUEST_ENEMIES lists the giants). Its elite roll gets the
+  // +2 tier of its deeper introduction for free (eliteRollBonus).
+  const GIANT_HP_MUL = 4;
+  const GIANT_DEPTH_STEP = 2;
+  for (const [kind, m] of Object.entries(MONSTERS)) {
+    MONSTERS[`giant_${kind}`] = {
+      ...m,
+      name: `Giant ${m.name}`,
+      hp: m.hp * GIANT_HP_MUL,
+      minDepth: m.minDepth + GIANT_DEPTH_STEP,
+      weight: Math.max(1, Math.ceil((m.weight || 1) / 2)),
+      giant: kind,
+    };
+  }
+  // The first slime is the tutorial; everything past it is a real fight.
+  //
+  // The wild surface slime is the only enemy above ground and the first one
+  // anybody meets — deliberately gentle, a crop pest you can walk away from.
+  // Every enemy BEYOND it is underground, chosen by a player who went looking,
+  // and those are twice the foe: double HP and double damage.
+  //
+  // Applied as ONE rule over the baseline above rather than eight retuned
+  // numbers, so the ratio to that first slime stays readable at a glance and a
+  // kind added to the table inherits the doubling the moment it has stats. The
+  // knock-ons are derived and intended: the dps identity is untouched, so
+  // double HP is exactly double the time to kill at any weapon tier, and
+  // enemyBounty pays per HP, so a foe that takes twice as long pays twice as
+  // much.
+  const CAVE_ENEMY_MUL = 2;
+  for (const m of Object.values(MONSTERS)) {
+    m.hp *= CAVE_ENEMY_MUL;
+    m.dmg *= CAVE_ENEMY_MUL;
+  }
+
+  // The registered table — the shipping MONSTERS by default. Kept as a
+  // reference (not a copy) so a kind added above is an enemy here the same
+  // instant; tests swap in a synthetic table through registerMonsters.
+  let MONSTER_STATS = MONSTERS;
   function registerMonsters(table) { MONSTER_STATS = table || {}; }
+  // One row of the registered table, or undefined. The one read for a kind's
+  // range / dmg / speed / minDepth / fly — app.js's wander loop and the fire
+  // ward ask through this rather than reaching for the literal, so a test that
+  // registered a synthetic kind is answered about that kind.
+  function monster(kind) { return MONSTER_STATS[kind]; }
+  // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
+  // the surface slime.
+  function isMonster(kind) { return !!MONSTER_STATS[kind]; }
 
   // Non-monster fauna that can take damage. cat/dog/crow/deer are the pet-combat
   // ladder (a tame dog hunting a deer); `slime` is the surface pest, the one
@@ -82,7 +176,7 @@
   // FIRST enemy — met on the surface, often with no sword at all — and at 15
   // it was nine seconds of bare-handed swinging for the one foe a new player
   // is guaranteed to meet. Ten is six seconds. Nothing else moves with it: the
-  // bounty is derived from this number (enemyBounty, app.js — a slime pays $2
+  // bounty is derived from this number (enemyBounty below — a slime pays $2
   // now rather than $3), and BASELINE_HP below is a fixed anchor, not a
   // reading of this table.
   const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 10 };
@@ -183,13 +277,13 @@
 
   // ── Elites ───────────────────────────────────────────────────────────────
   // A SHINY cave monster is an elite: one multiplier over the kind's HP and
-  // damage, the same shape as CAVE_ENEMY_MUL in app.js so the dps identity
+  // damage, the same shape as CAVE_ENEMY_MUL above so the dps identity
   // holds — an elite takes exactly twice as long to kill at any weapon tier
   // and hits exactly twice as hard. Only MONSTERS are elites: a shiny deer is
   // game, and the surface slime never rolls shiny at all.
   const ELITE_MUL = 2;
   function isElite(c) {
-    return !!c && !!c.shiny && !!MONSTER_STATS[c.kind];
+    return !!c && !!c.shiny && isMonster(c.kind);
   }
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
   // The HP pool of THIS instance — the kind's max times the elite multiplier.
@@ -199,20 +293,18 @@
 
   // Hostile kinds — every cave monster, plus the surface slime.
   function isEnemyKind(kind) {
-    return !!MONSTER_STATS[kind] || kind === 'slime';
+    return isMonster(kind) || kind === 'slime';
   }
   // EVERY hostile kind, in the order the board should offer them: the surface
   // slime first (the only foe you can meet without going underground), then the
-  // registered table in ITS OWN order — which app.js authors shallowest-first
-  // and appends each `giant_` form to, so a giant always lands after the kind
-  // it is a giant of.
+  // registered table in ITS OWN order — MONSTERS above is authored
+  // shallowest-first and each `giant_` form is appended, so a giant always
+  // lands after the kind it is a giant of.
   //
-  // LAZY BY CONSTRUCTION. The table is registered at scene boot
-  // (app.js › Combat.registerMonsters), long after every module's <script> tag
-  // has run, so this is a function and never a constant: a caller that reads it
-  // at load time gets the surface slime and nothing else. quests.js' board is
-  // the caller — it used to hand-type these nine kinds, which is how a kind
-  // added to MONSTERS could quietly fail to be worth a bounty.
+  // A FUNCTION, never a constant: registerMonsters can swap the table under it
+  // (a test's synthetic kind), so the list is read at call time. quests.js'
+  // board is the caller — it used to hand-type these nine kinds, which is how
+  // a kind added to MONSTERS could quietly fail to be worth a bounty.
   function enemyKinds() {
     return ['slime', ...Object.keys(MONSTER_STATS)];
   }
@@ -224,6 +316,76 @@
   function enemyName(kind) {
     return String(kind || '').replace(/_/g, ' ');
   }
+
+  // ── What a kill pays ─────────────────────────────────────────────────────
+  // A defeated enemy used to drop NOTHING: you paid the work wheel and the
+  // energy it drained off you and got a flash message, so the only rational
+  // play was to walk around every foe you met. Now a kill pays coins, always.
+  //
+  // EVERY ENEMY DRAWS ONE, not just the cave monsters. `isEnemyKind` is the
+  // single definition of "a thing that attacks you" — the cave monsters and
+  // the surface slime — and it is what this reads, so a hostile kind added to
+  // MONSTERS is priced the moment it has stats and can never end up fought for
+  // free. The surface slime was exactly that gap: it fights you, it eats your
+  // crops, and killing one paid nothing at all. Crow and deer are NOT enemies
+  // (they're game) and still pay in feathers and meat instead.
+  //
+  // The bounty is DERIVED from `hp` — the same number that sets the wheel
+  // length — rather than hand-tuned per kind, so a tougher foe can never
+  // quietly pay less than an easier one. Roughly a coin per 5 HP, floored at 1:
+  //   surface slime 10hp → $2 · purple slime 12hp → $2 · cave slime 30hp → $6 ·
+  //   archer 36hp → $7 · goblin 50hp → $10
+  //   (the cave kinds are the doubled ones — see CAVE_ENEMY_MUL above)
+  // The HP comes from creatureMaxHp, which is the monster table first and the
+  // fauna ladder second — one source, so the coins a kind pays and the HP you
+  // have to chew through can't drift apart. Depth adds a slow climb on top (a
+  // coin per 3 levels down) so descending pays for itself even where the same
+  // kinds keep spawning; at the surface it contributes nothing.
+  const ENEMY_COIN_PER_HP  = 1 / 5;
+  const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
+  // `hpMul` is the instance's multiplier over the kind's HP — eliteMul: an
+  // elite has twice the pool, so it pays twice the per-HP wage, by the same
+  // rule that makes a goblin pay more than a slime.
+  // (Hard mode adds no wage of its own: creatureMaxHp already scales an
+  // enemy's pool by Difficulty.enemyHpMul, and the per-HP rule carries that
+  // into the coins — a foe that takes 1.5× as long pays 1.5× as much, same as
+  // an elite.)
+  function enemyBounty(kind, depth, hpMul = 1) {
+    if (!isEnemyKind(kind)) return 0;
+    return Math.max(1, Math.round(creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP))
+         + Math.floor(Math.max(0, depth || 0) * ENEMY_DEPTH_BONUS);
+  }
+  // Chance a defeated CAVE MONSTER also drops a buried-treasure roll —
+  // literally the same pickReward('treasure:default') payout digging an X
+  // gives, so the rare drop needs no table of its own and can't drift from the
+  // one players already know. Deliberately small: the coins are the wage, this
+  // is the surprise. Unlike the wage it stays a monsters-only thing — a buried
+  // hoard is something you turn up underground, and the surface slime in your
+  // potatoes is not standing on one.
+  const MONSTER_TREASURE_CHANCE = 0.10;
+  // An ELITE (shiny) monster is a different deal: its kill ALWAYS pays past
+  // the wage — a Discovery badge the first time that kind is slain, and after
+  // that a roll on the relic-biased 'treasure:elite' pool (rarity.js), never
+  // the 10% roll above. The roll's tier is COMMENSURATE with the foe: each
+  // level below the first and each level of the kind's own introduction depth
+  // buys one tier-only step (pickReward's opts.rollBonus), so a goblin archer
+  // (minDepth 3) met at depth 3 rolls four steps higher than a cave slime at
+  // depth 1.
+  const ELITE_TREASURE_CONTEXT = 'treasure:elite';
+  function eliteRollBonus(kind, depth) {
+    const intro = Math.max(1, monster(kind)?.minDepth || 1);
+    return Math.max(0, (depth || 0) - 1) + (intro - 1);
+  }
+
+  // ── Where fauna may not step ─────────────────────────────────────────────
+  // Terrain cell types fauna may NEVER move onto (spec §fauna: "no fauna may
+  // move onto a building footing, or road"). WATER (3) + all building tiers
+  // (9/11/12) + all road tiers (ROAD 7 / ROAD_LG 13 / ROAD_MD 14) + CAVE_WALL
+  // (25). PATHS (8) are pedestrian / public and stay passable. Every wander,
+  // flee, stalk and spawn seat in app.js asks this one predicate — it is about
+  // the creatures, so it lives with them.
+  const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */]);
+  function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
   // A hostile INSTANCE. A slime tamed with a sapphire (id 'released_…') is a
   // pet: it must never be shot at, auto-engaged, or counted as "an enemy is on
@@ -760,7 +922,11 @@
   }
 
   const api = {
-    registerMonsters, FAUNA_HP, creatureMaxHp,
+    MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
+    registerMonsters, monster, isMonster, FAUNA_HP, creatureMaxHp,
+    ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
+    MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
+    FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     isEnemyKind, isEnemy, enemyKinds, enemyName, hp, damage, hpFraction,
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,

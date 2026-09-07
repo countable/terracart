@@ -586,7 +586,7 @@ const TAP_HANDLERS = [
     const isTame = typeof target.id === 'string' && target.id.startsWith('released_');
     const _mangoSel = getSelectedSlot(save);
     // Underground monsters can't be befriended — they're DEFEAT-only foes.
-    if (!isTame && !isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
+    if (!isTame && !Combat.isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
       const doMangoTame = () => tameInPlace(scene, save, target,
         `🥭 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, 'mango', 1.2);
       confirmFeed(scene, 'mango', target.kind, doMangoTame);
