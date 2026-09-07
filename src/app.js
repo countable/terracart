@@ -8900,16 +8900,31 @@ class MapScene extends Phaser.Scene {
       this.flash('No room to scatter!', sx, sy);
       return;
     }
-    // Take the NEAREST candidates to the POI rather than a uniform pick across
-    // the whole search box. The widen/relax escalation above can reach out to
+    // Constrain to the visible SCREEN AREA — coins may sit right at its edge,
+    // never past it. The widen/relax escalation above can reach out to
     // MAX_BURST_CELLS (3x the spec'd ~25m) when a suburb has too few
-    // legitimate spawn cells nearby — and render.js only draws a coin within
-    // `halfM` of the player (the same box the world objects around it are
-    // culled to). A coin picked from the far edge of an escalated search
-    // lands outside that box: it exists in entry.coinDrops but never draws,
-    // so a burst that had to widen could scatter coins the player standing at
-    // the POI can never see in their 60s life. Sorting by distance keeps the
-    // burst clustered on the POI the player just tapped.
+    // legitimate spawn cells nearby, and a coin placed out there is invisible
+    // for its whole 60s life: the player tapped something ON SCREEN, so
+    // "Scattered N coins!" has to mean coins they can actually walk over to.
+    // viewAnchorWorldM is the camera anchor every screen projection in
+    // render.js measures from (coords.js) — the same point a coin's sx/sy is
+    // computed against — so filtering against it (not the POI) is what
+    // actually matches what's on screen.
+    const anchor = viewAnchorWorldM(this);
+    const screenHalfM = (VIEW_CELLS / 2) * cellM;
+    const onScreen = candidates.filter(({ cx, cy }) => {
+      const wx = tx * tileEdgeM + (cx + 0.5) * cellM;
+      const wy = ty * tileEdgeM + (cy + 0.5) * cellM;
+      return Math.abs(wx - anchor.x) <= screenHalfM && Math.abs(wy - anchor.y) <= screenHalfM;
+    });
+    if (onScreen.length === 0) {
+      this.flash('No room to scatter!', sx, sy);
+      return;
+    }
+    candidates = onScreen;
+    // Sort the (now on-screen) candidates nearest-to-the-POI-first so the
+    // burst still reads as clustered on the chest the player just tapped,
+    // rather than an even spread across the whole visible screen.
     candidates.sort((a, b) => {
       const da = (a.cx - poiLocalCX) ** 2 + (a.cy - poiLocalCY) ** 2;
       const db = (b.cx - poiLocalCX) ** 2 + (b.cy - poiLocalCY) ** 2;
