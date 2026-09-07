@@ -991,9 +991,11 @@ STREET RESTORATION (the road band itself)
      * RoadOverlay.drawLive(scene, runs) — a plain Graphics above both,
        cleared and re-stroked EVERY frame from app.js _drawStreetLive. It
        carries the DWELL PREVIEW (the in-sight-unrestored intervals, alpha
-       ramping to STREET_PREVIEW_ALPHA over the dwell, so the two seconds read
-       as a thing being done) and the SHINE (a white run down a stretch the
-       instant it comes back, fading over STREET_SHINE_MS = Lighting.BLAST_MS).
+       ramping to STREET_PREVIEW_ALPHA over the dwell in STREET_PREVIEW_COLOR
+       — the pale street ink, not the finished road's own near-black, so the
+       two seconds read as a light arriving rather than a stain creeping in)
+       and the SHINE (a white run down a stretch the instant it comes back,
+       fading over STREET_SHINE_MS = Lighting.BLAST_MS).
        Points are projected through scene.worldMetersToScreen — the
        camera-anchored projection — with the container's own sub-cell offset
        subtracted back out. The sub-polylines are cut ONCE per scan, not per

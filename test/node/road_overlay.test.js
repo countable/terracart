@@ -871,7 +871,8 @@ test('clean tile: a pale mortar wash under brick-staggered courses', () => {
   const firstRect = ops.findIndex(([k]) => k === 'fillRect');
   const firstFill = ops.findIndex(([k]) => k === 'fill');
   assert.truthy(firstRect >= 0 && firstRect < firstFill, 'the wash is laid before any sett');
-  assert.eq(roAlphaOf(roStyleAt(ops, firstRect, 'fillStyle')), 0.13, 'mortar at 13% white');
+  assert.eq(roAlphaOf(roStyleAt(ops, firstRect, 'fillStyle')), RoadOverlay.CLEAN_MORTAR_ALPHA,
+    'mortar at the pale wash alpha');
   assert.eq(JSON.stringify(ops[firstRect].slice(1)), JSON.stringify([0, 0, 32, 32]),
     'over the whole tile');
   const setts = roSetts(ops);
@@ -906,9 +907,9 @@ test('clean tile: every sett is a body, a tone and a top bevel', () => {
     const css = roStyleAt(ops, i, 'fillStyle');
     if (/rgba\(255,255,255/.test(css)) white.push(roAlphaOf(css));
   }
-  const bevels = white.filter((a) => a === 0.1);
+  const bevels = white.filter((a) => a === RoadOverlay.CLEAN_BEVEL_ALPHA);
   assert.eq(bevels.length, setts.length, 'one bevel per sett');
-  const tones = white.filter((a) => a !== 0.1);
+  const tones = white.filter((a) => a !== RoadOverlay.CLEAN_BEVEL_ALPHA);
   assert.eq(tones.length, setts.length, 'one tone per sett');
   for (const t of tones) assert.inRange(t, 0.05, 0.12, 'the per-stone tone is slight');
   assert.gt(new Set(tones.map((t) => Math.round(t * 1000))).size, 10, 'the tones actually vary');
@@ -918,8 +919,8 @@ test('clean tile: every sett is a body, a tone and a top bevel', () => {
 
 test('clean tile: a restored path keeps half the mortar of a street', () => {
   const road = roRecorder(), path = roRecorder();
-  RoadOverlay.paintCleanTile(road.ctx, 32, 0.13);
-  RoadOverlay.paintCleanTile(path.ctx, 32, 0.13 * 0.5);
+  RoadOverlay.paintCleanTile(road.ctx, 32, RoadOverlay.CLEAN_MORTAR_ALPHA);
+  RoadOverlay.paintCleanTile(path.ctx, 32, RoadOverlay.CLEAN_MORTAR_ALPHA * 0.5);
   const mortarOf = (r) => {
     const i = r.ops.findIndex(([k]) => k === 'fillRect');
     return roAlphaOf(roStyleAt(r.ops, i, 'fillStyle'));

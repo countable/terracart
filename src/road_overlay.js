@@ -469,13 +469,20 @@
   // course grid rather than the base pass's jittered lumps. Paths get the same
   // tile with the mortar wash halved (packed earth has no mortar to speak of).
   const CLEAN_TILE_PX = 32;
-  const CLEAN_MORTAR_ALPHA = 0.13;   // pale, so the seams read as clean lines on the black
+  // Lighter than the first cut (0.13): at that alpha the seams barely broke
+  // from the black setts around them and the whole band read as one flat
+  // slab rather than laid stone. Bright enough now to read as mortar lines
+  // from across the street without competing with the setts themselves.
+  const CLEAN_MORTAR_ALPHA = 0.22;
   const CLEAN_PATH_MORTAR_MUL = 0.5;
   const CLEAN_COLS = 6, CLEAN_ROWS = 8;   // 6 setts across, 8 courses down
   const CLEAN_SETT_R = 1.6;          // corner radius
   const CLEAN_GAP_X = 1.5, CLEAN_GAP_Y = 1.2;   // mortar gaps between setts, px
   const CLEAN_TONE_MIN = 0.05, CLEAN_TONE_MAX = 0.12;  // per-stone tone
-  const CLEAN_BEVEL_ALPHA = 0.10;    // top bevel catch-light
+  // The top bevel catch-light. 0.10 read as a texture noise rather than a
+  // highlight — a restored sett should look wet-laid and lit from above, not
+  // just less flat than the dilapidated ones.
+  const CLEAN_BEVEL_ALPHA = 0.24;
   const CLEAN_BEVEL_H = 0.45;        // …over the upper 45% of the sett
 
   function roundRectPath(cx, x, y, w, h, r) {
@@ -1264,5 +1271,6 @@
 
   global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
                          paintLampStone, LAMP_TEX_PX, LAMP_DRAW_CELLS,
-                         RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge };
+                         RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
+                         CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA };
 })(window);
