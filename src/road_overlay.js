@@ -469,13 +469,13 @@
   // course grid rather than the base pass's jittered lumps. Paths get the same
   // tile with the mortar wash halved (packed earth has no mortar to speak of).
   const CLEAN_TILE_PX = 32;
-  const CLEAN_MORTAR_ALPHA = 0.13;   // pale, so the seams read as clean lines on the black
+  const CLEAN_MORTAR_ALPHA = 0.20;   // pale, so the seams read as clean lines on the black
   const CLEAN_PATH_MORTAR_MUL = 0.5;
   const CLEAN_COLS = 6, CLEAN_ROWS = 8;   // 6 setts across, 8 courses down
   const CLEAN_SETT_R = 1.6;          // corner radius
   const CLEAN_GAP_X = 1.5, CLEAN_GAP_Y = 1.2;   // mortar gaps between setts, px
   const CLEAN_TONE_MIN = 0.05, CLEAN_TONE_MAX = 0.12;  // per-stone tone
-  const CLEAN_BEVEL_ALPHA = 0.10;    // top bevel catch-light
+  const CLEAN_BEVEL_ALPHA = 0.22;    // top bevel catch-light
   const CLEAN_BEVEL_H = 0.45;        // …over the upper 45% of the sett
 
   function roundRectPath(cx, x, y, w, h, r) {
