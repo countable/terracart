@@ -315,6 +315,23 @@
   piece (the Stats row, the shop offer) from `armorSlotReduction` — one table,
   both sides, the `roadOverlayWidthM` discipline.
   **Audit it:** `node test/node/run.js` › `test/node/armor.test.js`.
+  **NOTHING HUNTS A BODY.** At zero energy the player has collapsed: the reach
+  is 0 (`coords.js` › `reachRadiusM`), so nothing can be tapped, swung at or
+  dug, and all three of those damage paths already refuse to take a point off
+  an empty bar. A foe that goes on stalking one is chasing something it is
+  forbidden to bite — and on hard, where nothing but Home lifts the bar off
+  zero, it escorts the player the whole way home. So a downed player is not
+  THERE to be hunted, exactly as a Shadow Powder makes them:
+  `wanderCreatures` ORs the two wards once per tick into **`unnoticed`**
+  (`Combat.playerDowned(save.energy)` beside `shadowed`) and every
+  hostile-interest branch reads that — the leech, the monster's hit and arrow,
+  the struck slime's charge, and both stalk branches, each falling back to the
+  aimless wander. It is ONE expression on both sides, the `roadOverlayWidthM`
+  discipline: the test that drops the pursuit is the same one that refuses the
+  damage, so a foe can never be chasing a player it cannot hurt. **When you add
+  a hostile behaviour that takes an interest in the player, gate it on
+  `unnoticed`, not on `shadowed`.**
+  **Audit it:** `node test/node/run.js` › `test/node/downed_pursuit.test.js`.
 
 - **A tile build stutters on its WORST BLOCK, not its total.** The rasterizer
   is a generator (`rasterizeTileSteps`); the slicer can only hand the frame

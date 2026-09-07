@@ -668,7 +668,8 @@ const STALK_JITTER = 0.8;
 // caused it. WHERE it is asked is what makes it "if not warded": the charge is
 // read below Home's ward in the angle chain (a warded slime is walking out and
 // cannot bite), a lit campfire's ring still refuses every target cell inside
-// it, and a shadowed player is not there to be charged at.
+// it, and a player who is not there to be charged at — shadowed, or DOWNED on
+// an empty bar (`unnoticed` in wanderCreatures) — is not charged at.
 function slimeCharging(c) {
   return c.kind === 'slime' && c._lastDamagedT != null
     && Date.now() - c._lastDamagedT < STRUCK_REACTION_MS;
@@ -6989,7 +6990,7 @@ class MapScene extends Phaser.Scene {
   _shotHitsPlayer(shot) {
     const now = performance.now();
     const before = this.save.energy ?? 0;
-    if (!(before > 0) || !(shot.damage > 0)) return false;
+    if (Combat.playerDowned(before) || !(shot.damage > 0)) return false;
     const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(shot.damage / 2) : shot.damage;
     // One arrow can carry several hits of the kind's table (shot.hits,
     // MONSTER_ARROW_HITS) — armour soaks each of them, not the bundle.
@@ -7761,6 +7762,19 @@ class MapScene extends Phaser.Scene {
     // wandering, and neither the leech nor the monster hit lands. Read once
     // per tick, not per creature. The PLAYER's weapons are not gated by this.
     const shadowed = this.isShadowActive();
+    // DOWNED: the bar is empty (Combat.playerDowned — the same expression the
+    // three damage paths guard with). A collapsed player cannot reach, cannot
+    // tap and cannot take another point of damage, so a hostile that keeps
+    // stalking one is chasing a body it is forbidden to bite — and on hard,
+    // where nothing but Home lifts the bar off zero, it escorts them the
+    // whole way home. A downed player is simply not there to be hunted.
+    //   `unnoticed` is the pair: everywhere a hostile would take an interest
+    // in the player it reads THIS, never `shadowed` alone, so the two wards
+    // switch off the same set of behaviours — the leech, the monster's hit
+    // and arrow, the struck slime's charge, and both stalk branches, each
+    // falling back to the aimless wander. Read once per tick, not per
+    // creature. The PLAYER's own weapons are gated by neither.
+    const unnoticed = shadowed || Combat.playerDowned(this.save.energy);
     const STEP_MS = 5000;
     const STEP_M = this.cellM;   // 1 cell per step
     // Only sim creatures near the player. Beyond the bubble they stay frozen
@@ -7932,7 +7946,7 @@ class MapScene extends Phaser.Scene {
       // surfaced with one throttled flash after the loop (see below) so a swarm
       // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
       // independent of the slime's slow step cadence.
-      if (c.kind === 'slime' && !isTame && !shadowed && !homeWard) {
+      if (c.kind === 'slime' && !isTame && !unnoticed && !homeWard) {
         // The same one cell the player now swings at (Combat.MELEE_REACH_CELLS)
         // — one number for "melee is arm's length", read by both sides.
         const STEAL_R = Combat.meleeReachM(this.cellM);
@@ -7940,7 +7954,7 @@ class MapScene extends Phaser.Scene {
             (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + 1000;   // 3 energy/sec
           const before = this.save.energy ?? 0;
-          if (before > 0) {
+          if (!Combat.playerDowned(before)) {
             // Hard mode doubles the leech (Difficulty.enemyDmgMul), shield or not.
             // WORN ARMOUR SOAKS WHAT IS LEFT (Combat.playerDamage — the mode and
             // the potion scale the blow, armour spends its pool against the
@@ -7967,7 +7981,7 @@ class MapScene extends Phaser.Scene {
       // would answer from, and the ring tightens underground / grows with
       // Inner Light upgrades exactly as the staff's does. Accumulated +
       // flashed once per window after the loop, like the slime swarm.
-      if (isMonster(c.kind) && !shadowed && !homeWard) {
+      if (isMonster(c.kind) && !unnoticed && !homeWard) {
         const m = MONSTERS[c.kind];
         const rangeCells = m.range > 1 ? Combat.rangeCellsFor('staff', reachCells(this)) : m.range;
         const R = rangeCells * this.cellM;
@@ -8000,7 +8014,7 @@ class MapScene extends Phaser.Scene {
                    && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + MONSTER_HIT_MS;
           const before = this.save.energy ?? 0;
-          if (before > 0) {
+          if (!Combat.playerDowned(before)) {
             // An elite (shiny) monster hits for double — Combat.eliteMul is
             // the one multiplier its HP is scaled by too.
             const dmg = m.dmg * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
@@ -8074,9 +8088,10 @@ class MapScene extends Phaser.Scene {
       // read it — the quickened beat just below and the committed angle in the
       // chain — and they must not disagree about whether this is a charge.
       // A tamed slime is a pet and never charges its owner; `homeWard` and
-      // `shadowed` are the two wards that switch it off (the campfire's is a
-      // refused target cell, so it needs nothing here).
-      const charging = !isTame && !homeWard && !shadowed && slimeCharging(c);
+      // `unnoticed` (shadowed, or a player downed on an empty bar) are the two
+      // wards that switch it off (the campfire's is a refused target cell, so
+      // it needs nothing here).
+      const charging = !isTame && !homeWard && !unnoticed && slimeCharging(c);
       // stepMs = animation duration of the hop itself (short burst).
       const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
@@ -8269,7 +8284,7 @@ class MapScene extends Phaser.Scene {
             // toward them (heavy ±0.7 rad jitter so it's a meander, not a
             // beeline), the rest are aimless. Slimes ignore home-bias — they
             // roam free and home in on whoever's nearby.
-            } else if (!shadowed && Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
+            } else if (!unnoticed && Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
               angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 1.4;
             } else {
               angle = Math.random() * Math.PI * 2;
@@ -8279,7 +8294,7 @@ class MapScene extends Phaser.Scene {
             // than the slime's meander), no home-bias. Flyers (bats) careen with
             // wide jitter so they read as erratic. The archer closes in too —
             // its range only lets it start draining sooner, not hang back.
-            if (!shadowed && distToPlayer > 0.5 * this.cellM) {
+            if (!unnoticed && distToPlayer > 0.5 * this.cellM) {
               angle = Math.atan2(dyp, dxp)
                     + (Math.random() - 0.5) * (mon.fly ? STALK_JITTER * 2 : STALK_JITTER);
             } else {

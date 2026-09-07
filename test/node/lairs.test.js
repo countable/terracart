@@ -581,8 +581,8 @@
       assert.gte(i, 0, `could not find ${what} in wanderCreatures — update this test`);
       return i;
     };
-    const leech = at("if (c.kind === 'slime' && !isTame && !shadowed && !homeWard) {", 'the slime leech');
-    const attack = at('if (isMonster(c.kind) && !shadowed && !homeWard) {', 'the monster attack');
+    const leech = at("if (c.kind === 'slime' && !isTame && !unnoticed && !homeWard) {", 'the slime leech');
+    const attack = at('if (isMonster(c.kind) && !unnoticed && !homeWard) {', 'the monster attack');
     const immobile = at('if (c.immobile) return;', 'the immobile branch');
     const crow = at("if (c.kind === 'crow' && !isTame) {", 'the wild-crow flight');
     const stepAt = at('if (now >= c._nextChooseT) {', 'the movement step');
