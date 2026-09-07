@@ -55,6 +55,12 @@ test('spend: cost ≤ 0 is a free success that never touches energy', () => {
   assert.eq(save.energy, 10, 'energy unchanged');
 });
 
+test('quarterBar: floors a quarter of max to an integer', () => {
+  assert.eq(Energy.quarterBar(100), 25);
+  assert.eq(Energy.quarterBar(129), 32, 'a max that is not a multiple of 4 never leaves a fraction');
+  assert.truthy(Number.isInteger(Energy.quarterBar(129)), 'energy is always an integer');
+});
+
 test('tiredThreshold: 30% of maxEnergy', () => {
   assert.eq(Energy.tiredThreshold({ maxEnergy: 200 }), 60);
   assert.eq(Energy.tiredThreshold({}), 30, 'defaults to 30% of 100');

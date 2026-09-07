@@ -37,6 +37,15 @@
     return save.maxEnergy;
   }
 
+  // The hard-mode zero-energy floor: a quarter of max, floored to an integer
+  // so a max that isn't a multiple of 4 (maxEnergy grows by 1 per distinct
+  // food eaten, so it usually isn't) can't leave the bar reading a fraction.
+  // Both hard-mode floors — arriving Home locked, and the Crow Feather revive
+  // — read this one function so they can't drift apart or re-grow the bug.
+  function quarterBar(maxE) {
+    return Math.floor(maxE * 0.25);
+  }
+
   // "Tired" warning threshold (30% of max). Crossing it flashes a heads-up so
   // running down toward 0 energy (where you can't reach at all) isn't a silent
   // surprise. Reads save.maxEnergy; callers that need the live cap should
@@ -123,5 +132,5 @@
   }
 
   root.Energy = { OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tiredThreshold, crossedTired,
-                  spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown };
+                  spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown, quarterBar };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

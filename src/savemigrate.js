@@ -133,7 +133,11 @@
     if (!Number.isFinite(maxE)) maxE = _fallbackMaxE;
     save.maxEnergy = maxE;
     if (!Number.isFinite(save.energy)) save.energy = maxE;
-    save.energy = Math.min(maxE, Math.max(0, save.energy));
+    // Energy is always an integer (see energy.js — spend/applyOfflineRest/
+    // _accrueRestEnergy all deal in whole pips). Floor here too so a save that
+    // picked up a fraction before that held (the hard-mode quarter-bar floor
+    // used to multiply by 0.25 without flooring) is repaired on next load.
+    save.energy = Math.floor(Math.min(maxE, Math.max(0, save.energy)));
     // Restored-houses / forts default to empty objects.
     if (!save.restoredHouses || typeof save.restoredHouses !== 'object') save.restoredHouses = {};
     if (!save.unlockedForts || typeof save.unlockedForts !== 'object') save.unlockedForts = {};

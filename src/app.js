@@ -6412,7 +6412,7 @@ class MapScene extends Phaser.Scene {
       const locked = this._zeroEnergyLocked();
       if (atHome && locked) {
         const beforeE = this.save.energy ?? 0;
-        this.save.energy = maxE * 0.25;
+        this.save.energy = Energy.quarterBar(maxE);
         this._restAccrueE = 0;
         const gainedE = this.save.energy - beforeE;
         if (gainedE > 0) this._splashEnergyGain(gainedE);
@@ -11254,7 +11254,7 @@ class MapScene extends Phaser.Scene {
     }
     const before = this.save.energy ?? 0;
     this.save.energy = featherRevive
-      ? this.getMaxEnergy() * 0.25
+      ? Energy.quarterBar(this.getMaxEnergy())
       : Math.min(this.getMaxEnergy(), before + restore);
     const gained = this.save.energy - before;
     consumeSelected(this.save);

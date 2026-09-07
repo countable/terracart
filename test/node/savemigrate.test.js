@@ -47,6 +47,20 @@ test('migrate: re-derives maxEnergy from armor and clamps energy into range', ()
   assert.eq(fresh.energy, 100, 'missing energy filled to max');
 });
 
+test('migrate: floors a fractional energy value left by the old quarter-bar bug', () => {
+  // Before Energy.quarterBar existed, the hard-mode floor was `maxE * 0.25`
+  // with no floor — a max that wasn't a multiple of 4 (maxEnergy grows by 1
+  // per distinct food eaten) left save.energy holding a fraction forever,
+  // since nothing else in the game ever re-floors it. migrate() runs on
+  // every boot, so it's the one place that can repair an already-saved
+  // fraction rather than just stop new ones from appearing.
+  const save = { energy: 32.25, eaten: Array.from({ length: 29 }, (_, i) => `food${i}`), armor: {} };
+  SaveMigrate.migrate(save);
+  assert.eq(save.maxEnergy, 129, '100 base + 29 tasted');
+  assert.eq(save.energy, 32, 'the fraction is floored away');
+  assert.truthy(Number.isInteger(save.energy), 'energy is always an integer after migrate');
+});
+
 // ── The save-shape generation, and what it retired ──────────────────────────
 // save.schema exists because nothing could previously say WHEN a migration was
 // safe to drop: no version on the record, SAVE_VERSION_KEY never bumped, and

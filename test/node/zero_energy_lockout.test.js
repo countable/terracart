@@ -32,7 +32,7 @@ test('lockout: eatSelected refuses every food while locked, except a feather rev
     'only a Crow Feather gets through the lockout');
   assert.truthy(/if \(locked && !featherRevive\) return false;/.test(body),
     'every other food refuses outright while locked');
-  assert.truthy(/this\.getMaxEnergy\(\) \* 0\.25/.test(body),
+  assert.truthy(/Energy\.quarterBar\(this\.getMaxEnergy\(\)\)/.test(body),
     'the feather revive is exactly a quarter of max, not a flat FOOD_ENERGY number');
 });
 
@@ -57,7 +57,7 @@ test('lockout: the trailer instantly floors you at 25%, not a gradual trickle', 
   const block = app.slice(a, b);
   assert.truthy(/const locked = this\._zeroEnergyLocked\(\);/.test(block),
     'the rest block reads the lockout');
-  assert.truthy(/if \(atHome && locked\) \{[\s\S]{0,200}this\.save\.energy = maxE \* 0\.25;/.test(block),
+  assert.truthy(/if \(atHome && locked\) \{[\s\S]{0,200}this\.save\.energy = Energy\.quarterBar\(maxE\);/.test(block),
     'arriving home while locked sets energy straight to a quarter of max');
   // The ordinary gradual accrual branch must still exist UNCHANGED for the
   // non-locked case (easy mode, or hard mode once above zero) — rest_work.
