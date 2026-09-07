@@ -410,6 +410,7 @@
     sv.lastProduce = {};
     sv.inv = [];
     sv.selSlot = -1;
+    sv.eatReadyAt = 0;
     sv.energy = sv.maxEnergy ?? 100;
     sv.relics = sv.relics || {};
     s.tilledSet = new Set();

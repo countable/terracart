@@ -3544,7 +3544,7 @@
       // loadCaveTile has already baked this tile's staircase position into a
       // cached cave level (its 'up' stair is minted at that exact x,y). If a
       // later rebuild moved the surface stair, that cached level is orphaned.
-      maybePlaceCaveEntrance(entry, x, y, tileEdgeM, objects);
+      maybePlaceCaveEntrance(entry, x, y, tileEdgeM, objects, wildplants);
       entry.wildplants = wildplants;
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLabels = roadLabels || {};
@@ -4517,9 +4517,12 @@
   // ever drops a chest/house, never moves one), so judging occupancy against
   // it never lets a stair land on a chest/house that did survive. Falls back
   // to entry.objects when no separate list is given (fixtures/tests that
-  // build a synthetic entry with nothing to dedup).
-  function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM, stableObjects) {
+  // build a synthetic entry with nothing to dedup). `stableWildplants` is the
+  // rasterizer's separate, already-filtered wildplant list; loadTile passes it
+  // before assigning entry.wildplants so those cells are occupied too.
+  function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM, stableObjects, stableWildplants) {
     const occupancySource = stableObjects || entry.objects || [];
+    const wildplantSource = stableWildplants || entry.wildplants || [];
     const caveRocks = (entry.objects || []).filter(
       o => o.kind === 'mineralrock' && o.caveVariant != null);
     const N = entry.cellsPerEdge, grid = entry.grid;
@@ -4557,6 +4560,11 @@
       if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
       objCells.add(liy * N + lix);
       if (o.kind === 'chest') chestCells.push({ ix: lix, iy: liy });
+    }
+    for (const wp of wildplantSource) {
+      const { lix, liy } = cellIndexOf(tx, ty, wp.x, wp.y, tileEdgeM, N);
+      if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
+      objCells.add(liy * N + lix);
     }
     const pads = entry.poiPadCells;
     const stairCellOK = (lix, liy, idx) =>

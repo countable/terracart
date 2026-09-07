@@ -12710,10 +12710,10 @@ class MapScene extends Phaser.Scene {
   //     ramping to 6 / 7 so nothing high-tier got cheaper. T2..T4 bars are
   //     mined; T5..T7 bars (platinum / crimson / frost) are SMELTED from
   //     their flowers, so the flower bond is implicit through the bar req.
-  //   • Jewelry slots (ring / staff / amulet) — geometric gem cost
-  //     (1, 2, 4, 8, 16, 32 from T2..T7) of the slot-specific gem:
-  //       ring → ruby, staff → emerald, amulet → sapphire
-  //     plus 1 of the tier-matched bar.
+  //   • Jewelry slots (ring / staff / amulet) - geometric gem cost
+  //     (1, 2, 4, 8, 16 from T2..T6) of the slot-specific gem:
+  //       ring -> ruby, staff -> emerald, amulet -> sapphire
+  //     plus 1 of the tier-matched bar. Every T7 slot uses 32 diamonds.
   // (The starter shop's T1 wooden pick / axe / hoe use a separate cheap
   // bootstrap recipe — see starterBlacksmithRecipe — and don't pass here.)
   // Forge + smelt recipes live in gear.js (Gear.*). Kept as scene methods
