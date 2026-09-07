@@ -185,8 +185,10 @@ test('particles: a restoring sweep blasts ONCE, on the stretch it brought back',
     'the longest newly restored piece wins, at its midpoint');
   assert.truthy(/const at = best \? this\._streetPointAt\(best\.meta, best\.s\) : null;/.test(body),
     'resolved to WORLD metres along the way');
-  assert.truthy(/this\._blastAt\(at\.x, at\.y, \{\n\s+radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',\n\s+\}\);/.test(body),
-    'one blast: the sett chips and the stone spark ring');
+  assert.truthy(
+    /this\._blastAt\(at\.x, at\.y, \{\n\s+radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',\n\s+gather: 'stonegather', durationMs: STREET_SHINE_MS,\n\s+\}\);/
+      .test(body),
+    'one blast: the sett chips, the stone spark ring and the setts gathering back, on the shine\'s own clock');
   assert.eq((body.match(/this\._blastAt\(/g) || []).length, 1, 'exactly one call in the pass');
   assert.falsy(/_burstAtCell/.test(body), 'and no second burst beside it');
 });
@@ -266,6 +268,55 @@ test('particles: a ring burst explodes around the circle, a point burst all at o
   assert.eq(calls[0][1], 5); assert.eq(calls[0][2], 6);
 });
 
+test('particles: a converging preset gets a FRESH emitter per burst, aimed at the point via moveTo', () => {
+  // Unlike every other preset (one pooled emitter per texture, reused for
+  // the whole session at whatever point each call names), a converging
+  // burst has to bake its destination into the emitter's OWN config at
+  // creation — Phaser's moveTo has no per-explode() target — so it can't be
+  // pooled without later bursts pulling their cobbles toward an earlier
+  // burst's location.
+  const made = [];
+  const calls = [];
+  const destroyed = [];
+  const delayed = [];
+  const scene = {
+    fxContainer: { add() {} },
+    textures: { exists: () => true },
+    time: { delayedCall: (ms, fn) => delayed.push([ms, fn]) },
+    add: { particles: (x, y, key, cfg) => {
+      const em = {
+        key, cfg,
+        explode: (n, px, py) => calls.push([n, px, py]),
+        destroy: () => destroyed.push(key),
+      };
+      made.push(em);
+      return em;
+    } },
+  };
+  const n1 = Particles.burst(scene, 'stonegather', 300, 400);
+  assert.eq(n1, Particles.PRESETS.stonegather.count);
+  assert.eq(made.length, 1, 'one fresh emitter for the burst');
+  assert.eq(made[0].key, Particles.texKey('stonegather'), 'the emitter draws the baked gather chip');
+  assert.eq(made[0].cfg.moveToX, 300, 'converges on the burst\'s own x');
+  assert.eq(made[0].cfg.moveToY, 400, 'and y');
+  assert.eq(calls.length, n1, 'one explode per scattered particle');
+  for (const [c, px, py] of calls) {
+    assert.eq(c, 1, 'one particle each');
+    assert.gt(Math.hypot(px - 300, py - 400), 0, 'spawned away from the point it is converging on');
+  }
+  // A second burst at a DIFFERENT point gets its OWN emitter — reusing the
+  // first would pull these cobbles toward the first burst's location.
+  Particles.burst(scene, 'stonegather', 10, 20);
+  assert.eq(made.length, 2, 'not pooled — a second, independent emitter');
+  assert.eq(made[1].cfg.moveToX, 10); assert.eq(made[1].cfg.moveToY, 20);
+  // Scheduled to clean itself up once its longest particle has lived out its
+  // life, rather than living forever in the fx layer.
+  assert.eq(delayed.length, 2, 'one cleanup timer per burst');
+  assert.eq(delayed[0][0], Particles.PRESETS.stonegather.lifespan[1] + 50);
+  delayed[0][1]();
+  assert.eq(destroyed.length, 1, 'the timer destroys its own emitter');
+});
+
 test('particles: a restored building throws TIMBER and the restore green', () => {
   const P = Particles.PRESETS;
   assert.eq(P.timber.tex.shape, 'chip', 'debris off a building is chips');
@@ -284,7 +335,25 @@ test('particles: a restored building throws TIMBER and the restore green', () =>
   assert.eq(P.stone.count, 12); assert.eq(P.trailspark.count, 10);
 });
 
-test('particles: _blastAt is ONE entry point — the light, the chips and the sparks', () => {
+test('particles: the road\'s gather is the stone chip in reverse — growing in, not shrinking away', () => {
+  const P = Particles.PRESETS, g = P.stonegather;
+  assert.truthy(g.converge, 'marked as a converging preset');
+  assert.gt(g.scatterCells, 0, 'starts scattered out before pulling in');
+  // Same material as the outward chip — this is a repair, not a different
+  // substance arriving.
+  assert.eq(g.tex.shape, 'chip'); assert.eq(g.tex.color, P.stone.tex.color);
+  assert.eq(g.tex.edge, P.stone.tex.edge);
+  // Every OTHER preset in the table shrinks and/or fades as it ages (that's
+  // what "bursting outward and dying" looks like); the gather runs both the
+  // opposite way, because arriving and solidifying is the opposite motion.
+  assert.lt(g.scale[0], g.scale[1], 'grows as it closes in');
+  assert.lt(g.alpha[0], g.alpha[1], 'and brightens');
+  assert.gt(g.scale[1], 0.9, 'arrives at full size');
+  assert.gt(g.alpha[1], 0.8, 'and close to full opacity');
+  assert.eq(g.gravityY, 0, 'pulled by the repair, not by weight');
+});
+
+test('particles: _blastAt is ONE entry point — the light, the chips, the sparks and the gather', () => {
   const a = app.indexOf('  _blastAt(wmx, wmy, opts) {');
   assert.truthy(a > 0, 'found _blastAt');
   const body = app.slice(a, app.indexOf('\n  }\n', a));
@@ -295,8 +364,10 @@ test('particles: _blastAt is ONE entry point — the light, the chips and the sp
   // The PARTICLES go through the projection, once each, with the ring.
   assert.truthy(/this\._burstAtWorld\(o\.chips,  wmx, wmy, popts\)/.test(body), 'the chips');
   assert.truthy(/this\._burstAtWorld\(o\.sparks, wmx, wmy, popts\)/.test(body), 'and the sparks');
+  assert.truthy(/if \(o\.gather\) n \+= this\._burstAtWorld\(o\.gather, wmx, wmy, popts\);/.test(body),
+    'and the optional gather — off the same ring, only when a caller asks');
   assert.truthy(/const popts = \{ ringPx, colour: o\.material \};/.test(body),
-    'both off the same ring, in the same material');
+    'all three off the same ring, in the same material');
   // Headless-safe: no Phaser, no Lighting, no projection and it still returns.
   assert.truthy(/typeof Lighting !== 'undefined' && Lighting\.blast/.test(body), 'no Lighting, no throw');
 });

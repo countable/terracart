@@ -995,7 +995,10 @@ STREET RESTORATION (the road band itself)
        — the pale street ink, not the finished road's own near-black, so the
        two seconds read as a light arriving rather than a stain creeping in)
        and the SHINE (a white run down a stretch the instant it comes back,
-       fading over STREET_SHINE_MS = Lighting.BLAST_MS).
+       fading over STREET_SHINE_MS — its own clock now, 2200 ms, longer than
+       every other blast's Lighting.BLAST_MS default: a street repair reads
+       as a slower, more deliberate coming-together than a snappier one-shot
+       flash would).
        Points are projected through scene.worldMetersToScreen — the
        camera-anchored projection — with the container's own sub-cell offset
        subtracted back out. The sub-polylines are cut ONCE per scan, not per
@@ -1042,30 +1045,43 @@ STREET RESTORATION (the road band itself)
        worldMetersToScreen and Lighting.collectLamps stamps the lights from
        the same list, so the two can never disagree about which lamps are on.
  - THE BLAST (restoration fanfare) is ONE thing at any size — app.js
-   _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, colour, material }),
-   fired at the instant a thing comes back. ONE per sweep, at the MIDPOINT OF
-   THE LONGEST piece the step restored (the stretch the player is looking at,
-   not a metre of driveway at the rim). Three parts:
+   _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, gather, colour,
+   material, durationMs }), fired at the instant a thing comes back. ONE per
+   sweep, at the MIDPOINT OF THE LONGEST piece the step restored (the stretch
+   the player is looking at, not a metre of driveway at the rim). Four parts,
+   the last optional:
      * THE LIGHT. Lighting.blast puts a transient entry on scene._blasts —
        world metres, its own radius, colour and duration — and the lightmap's
        collectBlasts converts it against THIS frame's camera anchor, stamps it
        with alpha (1-t)² and scale FLASH_SCALE_FROM→1, and drops it when its
        time is up. Stored in world metres precisely so a peek drag leaves the
        flash on the ground it went off on. Defaults are the old per-pebble
-       numbers exactly: 2.5 cells (BLAST_STONE_R_CELLS), 900 ms.
+       numbers exactly: 2.5 cells (BLAST_STONE_R_CELLS), 900 ms — the street's
+       own call overrides `durationMs` to STREET_SHINE_MS (2200 ms) so the
+       flash and the shine it rides under end together.
      * THE CHIPS. Debris in the thing's own material (particles.js 'stone' for
        a street, 'timber' for a building; `material` recolours a preset, which
        bakes its own texture and emitter — never a tint).
      * THE SPARKS. A ring of stars in the moment's colour ('trailspark' in the
        street ink for a street, 'buildspark' in UI_GREEN for a building).
+     * THE GATHER (`gather`, street only — 'stonegather'). The opposite of the
+       chips: setts pulled BACK toward the point instead of kicked off it, so
+       the moment reads as a REPAIR rather than only an impact-and-flash. A
+       particles.js preset marked `converge: true` — it moves particles TO a
+       fixed point via Phaser's `moveTo`, which has to be baked into the
+       emitter at creation, so it gets a fresh throwaway emitter per burst
+       instead of the one pooled per texture every other preset shares
+       (particles.js burstConverge).
    `ringPx` is what scales the particles to the thing: 0 throws them out of one
    point (a street stretch), a building's half-extent throws them off its WALLS
    and scales the count with the radius (particles.js ringPoints / burstCount,
-   capped at BURST_MAX). Two call sites today — every restoring sweep, and
-   every wreck restored (at the footprint's centre, radius = its half-diagonal
-   + BLAST_HOUSE_PAD_CELLS, ring = its half-extent), the latter fired the
-   moment the role is frozen and banked, before the Restored! card opens over
-   it. Add a third by calling _blastAt; never by adding a light row.
+   capped at BURST_MAX) — for a converging preset the same option instead sets
+   how far out its particles start before pulling in. Two call sites today —
+   every restoring sweep, and every wreck restored (at the footprint's centre,
+   radius = its half-diagonal + BLAST_HOUSE_PAD_CELLS, ring = its half-extent),
+   the latter fired the moment the role is frozen and banked, before the
+   Restored! card opens over it. Add a third by calling _blastAt; never by
+   adding a light row.
 
  - ONE LADDER FOR THE WHOLE WORLD. Every metre restored anywhere adds to a
    single running total (save.trail = { metres, prizes }); the first treasure

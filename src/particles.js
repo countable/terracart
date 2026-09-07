@@ -43,6 +43,14 @@
 //   • OFF-SCREEN IS FREE. `onScreen()` gates the world bursts: the crop timer
 //     advances plants the player is nowhere near, and an explode() nobody
 //     sees still costs the pool.
+//   • CONVERGING is the one shape the pooled emitter can't throw. A preset
+//     marked `converge: true` (stonegather) moves particles TO a point
+//     instead of away from one, via Phaser's `moveTo`/`moveToX`/`moveToY` —
+//     which has to be baked into the emitter at creation, so a converging
+//     burst gets a FRESH, throwaway emitter every call instead of the one
+//     pooled per texture (see burstConverge). Spawn positions still come off
+//     `ringPoints`, same as an outward ring burst; only the direction of
+//     travel is reversed.
 //
 // Pure parts (PRESETS, burstCount, emitterConfig, onScreen) run headlessly —
 // test/node/particles.test.js pins them. Only burst() touches Phaser.
@@ -110,6 +118,26 @@
       tex: { shape: 'star', color: C.streetInk, core: '#ffffff', size: 12 },
       count: 10, angle: [0, 360], speed: [70, 150], lifespan: [300, 550],
       gravityY: 0, scale: [0.9, 0], alpha: [1, 0], rotate: [0, 360],
+    },
+    // …and the THIRD part of the same moment: the setts PULLING THEMSELVES
+    // BACK TOGETHER — the "magical repair" read the sweep asked for, rather
+    // than only debris kicking up and a flash burning out. Same chip as
+    // `stone` (this is the same material, arriving rather than leaving), but
+    // GROWING and BRIGHTENING as it closes in — scale and alpha run the
+    // OPPOSITE way from every other preset here, which all shrink/fade as
+    // they age. `converge: true` marks it as one of these: it does not fly
+    // outward on an angle+speed cone at all, it is thrown Particles.burst's
+    // FRESH per-call emitter with a Phaser `moveTo` — every particle spawned
+    // scattered on `scatterCells` (Particles.burst reads it, this table
+    // never converts it to px) around the point converges on that exact
+    // point by the end of its life, wherever it started. `angle`/`speed`
+    // are still carried (the completeness sweep below wants every preset
+    // shaped alike) but are inert here — moveTo overrides them outright.
+    stonegather: {
+      tex: { shape: 'chip', color: C.streetInk, edge: '#6b6459', size: 8 },
+      count: 12, angle: [0, 360], speed: [40, 90], lifespan: [550, 850],
+      gravityY: 0, scale: [0.2, 1], alpha: [0.15, 0.9], rotate: [0, 180],
+      converge: true, scatterCells: 1.6,
     },
     // A crop REACHING ITS NEXT STAGE — by the 15-minute hold, by a tap that
     // beats the tick to it, or by a watering can's jump. Leaf flecks drift UP
@@ -301,6 +329,30 @@
     return em;
   }
 
+  // A CONVERGING burst's emitter is never pooled. Every other preset explodes
+  // OUT of a point the emitter doesn't need to know — angle+speed do the
+  // work — so one emitter per texture serves every call at every position
+  // for the whole session. A converge preset moves particles TO a fixed
+  // point instead (Phaser's `moveTo`/`moveToX`/`moveToY`), and that point is
+  // baked into the config at emitter creation, not read per explode() call —
+  // so reusing one emitter across bursts at different world positions would
+  // pull every later burst's cobbles toward the FIRST one's location. A
+  // converge burst is rare (once per restoration sweep, not a hot path), so
+  // a fresh emitter — thrown away once its particles have lived out their
+  // longest lifespan — costs nothing worth pooling for.
+  function burstConverge(scene, kind, x, y, n, o) {
+    const p = PRESETS[kind];
+    const key = ensureTexture(scene, kind, o.colour);
+    const cfg = Object.assign({}, emitterConfig(kind), { moveToX: x, moveToY: y });
+    const em = scene.add.particles(0, 0, key, cfg);
+    if (scene.fxContainer) scene.fxContainer.add(em);
+    const scatterPx = (o.ringPx > 0) ? o.ringPx : (p.scatterCells || 1) * cellPx();
+    for (const pt of ringPoints(scatterPx, n)) em.explode(1, x + pt.x, y + pt.y);
+    if (scene.time && typeof scene.time.delayedCall === 'function') {
+      scene.time.delayedCall(p.lifespan[1] + 50, () => { try { em.destroy(); } catch (e) {} });
+    }
+  }
+
   // Fire a burst of `kind` at SCREEN point (x, y). Returns the particle count
   // thrown — 0 when the scene can't draw (headless, no fx layer yet), under
   // reduced motion, or for an unknown kind.
@@ -308,7 +360,11 @@
   // `opts` scales the same preset up to a bigger thing (app.js _blastAt):
   //   ringPx  throw them off a RING of this radius about (x, y) instead of
   //           out of the one point — a building's walls rather than its
-  //           middle — and scale the count with it (burstCount).
+  //           middle — and scale the count with it (burstCount). For a
+  //           CONVERGING preset this is instead how far out its particles
+  //           start before pulling in (the preset's own `scatterCells` when
+  //           omitted) — there is no "explode from one point" reading for a
+  //           burst whose whole shape IS the trip inward.
   //   count   override the preset's count outright.
   //   colour  bake and throw the preset in this colour instead of its own.
   function burst(scene, kind, x, y, opts) {
@@ -318,11 +374,15 @@
     const n = burstCount(kind, !!scene._reducedMotion, o);
     if (!n) return 0;
     try {
-      const em = ensureEmitter(scene, kind, o.colour);
-      if (!(o.ringPx > 0)) {
-        em.explode(n, x, y);
+      if (PRESETS[kind].converge) {
+        burstConverge(scene, kind, x, y, n, o);
       } else {
-        for (const p of ringPoints(o.ringPx, n)) em.explode(1, x + p.x, y + p.y);
+        const em = ensureEmitter(scene, kind, o.colour);
+        if (!(o.ringPx > 0)) {
+          em.explode(n, x, y);
+        } else {
+          for (const p of ringPoints(o.ringPx, n)) em.explode(1, x + p.x, y + p.y);
+        }
       }
     } catch (e) {
       return 0;

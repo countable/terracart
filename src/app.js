@@ -100,9 +100,15 @@ const PATH_STONE_DWELL_MS = 2000;
 // flash is a nod, and the shine below carries the rest of it.
 const BLAST_STONE_R_CELLS = 1.5;
 // The white SHINE that runs down a stretch the instant it is rebuilt, in ms.
-// Lighting.BLAST_MS, not a number of its own: the shine and the lightmap flash
-// are two halves of one moment and must end together.
-const STREET_SHINE_MS = (typeof Lighting !== 'undefined' && Lighting.BLAST_MS) || 900;
+// Its OWN clock now, not Lighting.BLAST_MS (900 — every OTHER blast in the
+// game, a house included, still uses that default): a street repair reads as
+// a slower, more deliberate "coming together" than a house's — this is the
+// moment the player has been standing still for two seconds to earn, and a
+// sub-second flash undersold it. _blastAt is handed this length explicitly
+// (durationMs) at the one call site that uses it, so the lightmap flash and
+// this shine still end together — just on the street's own longer beat
+// instead of borrowing the generic default. 2.4× the old 900 ms.
+const STREET_SHINE_MS = 2200;
 // How bright that shine starts. Well under full white: the run used to fade
 // from opaque white, which at the widths a trunk road is stroked at whited out
 // the carriageway for a beat every time a sweep landed — and a sweep lands
@@ -9916,7 +9922,7 @@ class MapScene extends Phaser.Scene {
   // ── THE BLAST: one restoration fanfare, at any size ────────────────────
   // Something in the world came back — a street rebuilt, a wreck pulled back into
   // a house — and the moment is the same moment at two scales. One entry
-  // point, three parts, all of them scalable:
+  // point, four parts, all of them scalable:
   //
   //   the LIGHT   a transient near-white flash on the lightmap
   //               (Lighting.blast), `radiusCells` across, swelling as it
@@ -9928,6 +9934,11 @@ class MapScene extends Phaser.Scene {
   //               preset for a street, timber for a house; `material`
   //               overrides the preset's colour outright).
   //   the SPARKS  a ring of stars in the moment's own colour (`sparks`).
+  //   the GATHER  (`gather`, optional) the opposite of the chips: material
+  //               pulled BACK toward the point rather than kicked off it — a
+  //               converging particles.js preset (`converge: true`), the one
+  //               piece of this fanfare that reads as a REPAIR rather than an
+  //               impact. The street is the only caller that asks for it.
   //
   // `ringPx` is what makes the particles fit the thing: 0 (a stone) throws
   // them out of the one point, and a building's half-extent throws them off
@@ -9949,6 +9960,7 @@ class MapScene extends Phaser.Scene {
     let n = 0;
     if (o.chips)  n += this._burstAtWorld(o.chips,  wmx, wmy, popts);
     if (o.sparks) n += this._burstAtWorld(o.sparks, wmx, wmy, popts);
+    if (o.gather) n += this._burstAtWorld(o.gather, wmx, wmy, popts);
     return n;
   }
 
@@ -13686,11 +13698,16 @@ class MapScene extends Phaser.Scene {
     const at = best ? this._streetPointAt(best.meta, best.s) : null;
     if (at) {
       // THE BLAST, on the stretch's own midpoint (projected): the near-white
-      // flash on the lightmap, chips of pale sett and a ring of stone sparks.
-      // ONE per sweep — the whole step is one moment, however many separate
-      // pieces of street it brought back.
+      // flash on the lightmap, chips of pale sett, a ring of stone sparks and
+      // the setts of `stonegather` pulling themselves back together — the
+      // repair read, not just the impact one. ONE per sweep — the whole step
+      // is one moment, however many separate pieces of street it brought
+      // back. durationMs ties the light to the street's own (longer) shine
+      // clock rather than Lighting.BLAST_MS's generic default, so the flash
+      // and the shine still end together.
       this._blastAt(at.x, at.y, {
         radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',
+        gather: 'stonegather', durationMs: STREET_SHINE_MS,
       });
     }
     this._bankStreetMetres(addedM, at, now);

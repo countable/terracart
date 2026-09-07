@@ -600,17 +600,24 @@ test('streets: two seconds in the bubble and the stretch in reach comes back', (
     assert.eq(s.toasts[0].opts.color, UI_STREET_INK, 'in the street ink');
     assert.eq(s.toasts[0].opts.tier, 'note');
 
-    // ONE blast for the step — chips, sparks and the lightmap flash — at a
-    // point ON the way, not at the player and not at a cell centre.
+    // ONE blast for the step — chips, sparks, the gathering setts and the
+    // lightmap flash — at a point ON the way, not at the player and not at a
+    // cell centre.
     const chips = s.bursts.filter((x) => x.kind === 'stone');
     const sparks = s.bursts.filter((x) => x.kind === 'trailspark');
+    const gather = s.bursts.filter((x) => x.kind === 'stonegather');
     assert.eq(chips.length, 1, 'one chip burst per sweep');
     assert.eq(sparks.length, 1, 'one spark ring per sweep');
-    assert.eq(s.bursts.length, 2, 'nothing else');
+    assert.eq(gather.length, 1, 'one gather per sweep — the setts pulling back together');
+    assert.eq(s.bursts.length, 3, 'nothing else');
     assert.eq((s._blasts || []).length, 1, 'and one lightmap flash');
     assert.eq(s._blasts[0].radiusCells, BLAST_STONE_R_CELLS, 'a restoration\'s own width');
+    assert.eq(s._blasts[0].durationMs, STREET_SHINE_MS,
+      'the flash runs on the shine\'s own (longer) clock, not the generic default');
     assert.eq(chips[0].wmx, s._blasts[0].wmx, 'the chips and the flash share the point');
     assert.eq(chips[0].wmy, s._blasts[0].wmy);
+    assert.eq(gather[0].wmx, s._blasts[0].wmx, 'the gather converges on the same point');
+    assert.eq(gather[0].wmy, s._blasts[0].wmy);
     assert.inRange(chips[0].wmx, a, b, 'which sits on the stretch that came back');
     assert.inRange(chips[0].wmy, MID_M - 0.01, MID_M + 0.01, 'on the way itself');
 

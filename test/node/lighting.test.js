@@ -284,11 +284,14 @@ test('lighting: a BLAST is a transient light on its own clock, at any size', () 
   assert.eq(Lighting.BLAST_RADIUS_CELLS, 2.5, "a restoration's blast is 2.5 cells");
   assert.eq(Lighting.radiusCells('blast'), Lighting.BLAST_RADIUS_CELLS, 'and the row default matches');
   assert.eq(Lighting.BLAST_MS, 900, 'and it runs for the old scale-pop\'s own 900 ms');
-  // The white SHINE app.js runs down a stretch it has just rebuilt is the same
-  // clock, re-derived rather than retyped: the flash and the shine are two
-  // halves of one moment and end together.
-  assert.eq(STREET_SHINE_MS, Lighting.BLAST_MS,
-    'app.js takes the shine\'s length from Lighting.BLAST_MS');
+  // The white SHINE app.js runs down a stretch it has just rebuilt used to
+  // borrow this exact clock; it now runs longer and on its own (a street
+  // repair reads as slower and more deliberate than a house's snap-back),
+  // and app.js hands _blastAt that length explicitly (durationMs) at its one
+  // call site so the flash still ends exactly when the shine does — just on
+  // the street's own beat, not this default.
+  assert.gt(STREET_SHINE_MS, Lighting.BLAST_MS,
+    'the street\'s own shine runs longer than a generic blast');
 
   const s = scene();
   const b = Lighting.blast(s, 100, 200, { t0: 0 });
