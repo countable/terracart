@@ -1045,15 +1045,21 @@ function makePotOfGoldTexture(scene) {
 // loaded because a trap has to say two opposite things with one silhouette,
 // and getting that contrast right matters more right now than the linework:
 //
-//   trap_hidden — a scuff. Disturbed ground: a faint dust ring, a couple of
-//     twig slivers laid over it and one small dark gap where the covering has
-//     sagged. Everything at low alpha, in tones taken off the ground rather
-//     than added to it, so it reads as "something is odd about this cell" to a
-//     player who is looking and as nothing at all to one who is not. It is
-//     deliberately near the edge of visible: the trap is meant to be dodgeable
-//     by the careful, not sign-posted. Under the lightmap (the trap layer sits
-//     below it) an unlit cell hides it completely, which is why caves are the
-//     dangerous half of this feature.
+//   trap_hidden — a scuff. Disturbed ground: a broken ring of small loose
+//     stones ringing the covering, a couple of twig slivers laid over it, and
+//     one small dark gap where the covering has sagged. Everything at low
+//     alpha, in tones taken off the ground rather than added to it, so it
+//     reads as "something is odd about this cell" to a player who is looking
+//     and as nothing at all to one who is not. The stone ring is the actual
+//     tell — round and grouped (a shadowed underside, a paler lit top) so it
+//     reads as a little ring of stones rather than a scatter of specks; it was
+//     too faint a first pass (flat 2×1 dots at 0.20-0.30 alpha) to be spotted
+//     at a glance, which is dodgeable-by-the-observant tipping into
+//     invisible-to-everyone. It still sits well under the 0.4-alpha ceiling
+//     the sprung trap's opaque ink clears, so it stays the quieter of the
+//     two. Under the lightmap (the trap layer sits below it) an unlit cell
+//     hides it completely, which is why caves are the dangerous half of this
+//     feature.
 //
 //   trap_open — a sprung iron jaw. Dark pit, a rust-brown ring, and two arcs
 //     of triangular teeth meeting across it, lit from the top-left like every
@@ -1075,19 +1081,21 @@ function makeHiddenTrapTexture(scene) {
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, S, S);
 
-  // Disturbed-earth ring: a broken dotted circle of dark specks with a paler
-  // one beside each, so the rim reads as turned soil (a lip and its shadow)
-  // rather than as a drawn outline. Broken, not continuous — a complete circle
-  // on the ground reads as a manhole.
+  // Disturbed-earth ring: a broken ring of small round stones, each with a
+  // shadowed underside and a paler lit top so it reads as an actual pebble
+  // rather than a flat speck. Broken, not continuous — a complete circle on
+  // the ground reads as a manhole — and the two dots per stone are drawn
+  // close enough to overlap into one rounded shape instead of a pair of
+  // pixels.
   const R = c - 4;
   for (let i = 0; i < 14; i++) {
     const a = (i / 14) * Math.PI * 2 + 0.35;
     if (i % 5 === 3) continue;                    // gaps in the ring
     const x = c + Math.cos(a) * R, y = c + Math.sin(a) * R * 0.92;
-    ctx.fillStyle = 'rgba(28,22,14,0.30)';        // shadow side of the lip
-    ctx.fillRect(Math.round(x), Math.round(y), 2, 1);
-    ctx.fillStyle = 'rgba(214,198,166,0.20)';     // dry earth catching the light
-    ctx.fillRect(Math.round(x), Math.round(y) - 1, 2, 1);
+    ctx.fillStyle = 'rgba(24,18,12,0.40)';        // shadowed underside of the stone
+    ctx.beginPath(); ctx.ellipse(x, y + 0.6, 1.8, 1.3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(224,210,182,0.32)';     // its lit top, catching the light
+    ctx.beginPath(); ctx.ellipse(x, y - 0.5, 1.4, 1.0, 0, 0, Math.PI * 2); ctx.fill();
   }
   // The sag: one small dark crescent just below centre where the covering has
   // given a little. Deliberately fainter and smaller than the disturbed-earth
