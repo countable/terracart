@@ -65,18 +65,33 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    Until Sep 2026 every eligible structure was held, which made a garrison a
    property of the map rather than a discovery: a player learned in a minute
    that the whole street was held and stopped looking in buildings.
-   AND A TILE HAS A CEILING: LAIR_MAX_PER_TILE (50) held ruins. A tile is
-   ~1.6 km on a side and a dense one carries thousands of wrecks, so a flat
-   1/3 would put over a thousand garrisons on it. Lairs.tileThin scales the
-   THINNED tiers' rates back to meet the ceiling — and only the thinned ones:
-   the budget is spent on the rare tiers FIRST, so a castle in a city keeps
-   its 0.95 (scaling everything equally would make it a 5% chance, the
-   opposite of what the table promises) and the wrecks take what is left. On
-   a village nothing is thinned and one house in three really is held. It is
-   one unsliced O(n) pass over buildingShapes, memoised on the entry: it reads
-   a tier and adds a number, so it costs a fraction of the bbox index's ~7ms —
-   and it has to be WHOLE before anything wakes, or whether a ruin is held
-   would depend on when the player got there.
+   AND THE TILE CEILING WINS: LAIR_MAX_PER_TILE (50) held ruins is a HARD cap,
+   not a target. A tile is ~1.6 km on a side and a dense one carries thousands
+   of wrecks, so a flat 1/3 would put over a thousand garrisons on it. The tier
+   rates decide who gets the room; they never decide whether the room can be
+   exceeded. Lairs.tileThin returns two factors and there are two regimes:
+     * ROOM TO SPARE (every real tile) — the rare tiers are paid FIRST and keep
+       their authored rate, and the wrecks are thinned by what is left. A
+       castle in a city stays 0.95; scaling everything equally would make it a
+       5% chance, the opposite of what the table promises. On a village nothing
+       is thinned and one house in three really is held.
+     * OVER BUDGET ON LANDMARKS ALONE (a tile of nothing but castles — not
+       something a real map produces, but the cap holds anyway) — the wrecks
+       get nothing AND the landmarks are scaled onto the ceiling too.
+   Lairs.tileHeldExpected is the total the cap is on, and the test sweeps
+   random compositions against it. tileThin is one unsliced O(n) pass over
+   buildingShapes, memoised on the entry: it reads a tier and adds a number, so
+   it costs a fraction of the bbox index's ~7ms — and it has to be WHOLE before
+   anything wakes, or whether a ruin is held would depend on when the player
+   got there. A REBUILD LANDS ON THE SAME NUMBER: buildingShapes comes only
+   from the MVT tile, and the Overpass bin a rebuild is for carries trees,
+   poles, wells and chests, never a building.
+   NO WORLD SEED, EVER. structureKey is the footprint's centre in absolute cell
+   coordinates and makeRng is a pure function of one integer, so a lair is the
+   same in every playthrough, on every device, for every player: two people
+   standing at the same real ruin meet the same monsters, and a new save meets
+   them again. Nothing about the save, the session or the tile load order
+   reaches the stream.
    THE TIER PICKS THE FAMILY, the ramp picks the rung within it (KIND_ORDER):
      * a WRECKED HOUSE is SQUATTED — nobody holds it, slimes have moved into
        the damp: surface slime near, cave slime from a third out, purple slime

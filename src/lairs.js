@@ -203,20 +203,37 @@
   // tile gets a ceiling on how many of its ruins are held, and the rates above
   // are scaled to meet it.
   //
-  // THE CEILING IS SPENT ON THE RARE TIERS FIRST. Scaling every tier equally
-  // would make a castle in a city 5% likely to be held, which is the opposite
-  // of what the table above promises — and castles and forts are rare by
-  // construction, so they can never be the flood the budget exists for. They
-  // keep their authored rate always, and the WRECKS are thinned by whatever
-  // room is left. On a village (say 100 buildings, ~33 expected) nothing is
-  // thinned at all and one house in three really is held; on a 3000-building
-  // city the wrecks drop to about 1.5% and the landmarks are untouched.
+  // THE CEILING WINS. It is a hard cap, not a target: whatever the table above
+  // says, the expected number of held ruins on a tile is never more than this.
+  // The tier rates are what the budget is spent ON, in priority order — they
+  // decide who gets the room, not whether the room can be exceeded.
+  //
+  // TWO REGIMES, and the second is the whole reason there are two factors:
+  //
+  //   ROOM TO SPARE (every real tile). The rare tiers are paid FIRST and keep
+  //   their authored rate, and the WRECKS are thinned by whatever is left.
+  //   Scaling every tier equally instead would make a castle in a city 5%
+  //   likely to be held, which is the opposite of what the table promises —
+  //   and castles and forts are rare by construction, so they can never be the
+  //   flood the budget exists for. On a village (100 buildings, ~33 expected)
+  //   nothing is thinned and one house in three really is held; on a
+  //   3000-building city the wrecks drop to ~1.7% and the landmarks are
+  //   untouched.
+  //
+  //   OVER BUDGET ON LANDMARKS ALONE (a tile of nothing but castles — not a
+  //   thing a real map produces, but the cap has to hold anyway). The wrecks
+  //   get nothing, AND the landmarks are scaled back too, so the total still
+  //   lands on the ceiling. This is what makes the cap a promise rather than a
+  //   hope: there is no composition of buildings that puts more than
+  //   LAIR_MAX_PER_TILE expected garrisons on one tile.
   const LAIR_MAX_PER_TILE = 50;
 
-  // The factor the THINNED tiers' rates are multiplied by on this tile: 1 when
-  // the tile is inside its budget, and otherwise exactly what brings the
-  // expected count back to LAIR_MAX_PER_TILE. Memoised on the entry — this is
-  // a fact about the tile, asked once per structure that ever wakes.
+  // The two factors this tile's rates are multiplied by — `common` for the
+  // THINNED tiers, `landmark` for the rest. Both are 1 on a tile inside its
+  // budget; past it they are exactly what brings the expected count back to
+  // LAIR_MAX_PER_TILE, spending the room on the landmarks first (see above).
+  // Memoised on the entry — a fact about the tile, asked once per structure
+  // that ever wakes.
   //
   //   ONE UNSLICED PASS, on purpose. It reads `tier` off each shape and adds a
   // number; there is no geometry, no allocation and no Map, so a 6000-building
@@ -227,13 +244,16 @@
   // there, which is the one thing the per-structure seed exists to prevent.
   //
   //   A REBUILT ENTRY IS A NEW OBJECT and recomputes it (the CLAUDE.md rebuild
-  // contract) — its buildingShapes are new too, so the factor genuinely may
-  // move. Ruins already woken are in the entry's resident set and are never
-  // re-rolled; what can change is a ruin the player has not reached yet, which
-  // is a ruin they have never seen either way.
+  // contract), and it lands on the SAME NUMBER: buildingShapes comes only from
+  // the MVT tile, and the Overpass bin a rebuild is for carries trees, poles,
+  // wells and chests — never a building. So the factor, and with it which
+  // ruins are held, is the same before and after a rebuild. That matters more
+  // than it looks: it is what keeps the whole mechanic identical between a
+  // player whose bin arrived late and one whose bin was already cached.
+  const NO_THINNING = { common: 1, landmark: 1 };
   function tileThin(entry) {
-    if (!entry) return 1;
-    if (entry._lairThin != null) return entry._lairThin;
+    if (!entry) return NO_THINNING;
+    if (entry._lairThin) return entry._lairThin;
     const shapes = entry.buildingShapes || [];
     let reserved = 0, thinnable = 0;
     for (let i = 0; i < shapes.length; i++) {
@@ -242,16 +262,40 @@
       if (!occ) continue;
       if (occ.thinned) thinnable += occ.rate; else reserved += occ.rate;
     }
-    const room = Math.max(0, LAIR_MAX_PER_TILE - reserved);
-    return (entry._lairThin = (thinnable > room ? room / thinnable : 1));
+    let f;
+    if (reserved >= LAIR_MAX_PER_TILE) {
+      // The landmarks alone are over budget. They are still paid first, but
+      // the ceiling is the ceiling: scale them onto it and leave nothing for
+      // the wrecks. (reserved > 0 here, so the division is safe.)
+      f = { common: 0, landmark: LAIR_MAX_PER_TILE / reserved };
+    } else {
+      const room = LAIR_MAX_PER_TILE - reserved;
+      f = { common: thinnable > room ? room / thinnable : 1, landmark: 1 };
+    }
+    return (entry._lairThin = f);
   }
 
-  // The odds a structure of `tier` is held, on a tile whose thinning factor is
-  // `thin`. 0 for a tier that holds no lair — the same answer capFor gives it.
+  // The odds a structure of `tier` is held on a tile whose factors are `thin`
+  // (a tileThin result). 0 for a tier that holds no lair — the same answer
+  // capFor gives it.
   function occupancyFor(tier, thin) {
     const occ = OCCUPANCY[tier];
     if (!occ) return 0;
-    return occ.thinned ? occ.rate * (thin == null ? 1 : thin) : occ.rate;
+    const f = thin || NO_THINNING;
+    return occ.rate * (occ.thinned ? f.common : f.landmark);
+  }
+
+  // What this tile is expected to hold, all tiers together — the figure
+  // LAIR_MAX_PER_TILE is the ceiling on. Exported so a test can hold the cap
+  // against any composition of buildings rather than the two it thought of.
+  function tileHeldExpected(entry) {
+    const shapes = (entry && entry.buildingShapes) || [];
+    const thin = tileThin(entry);
+    let n = 0;
+    for (let i = 0; i < shapes.length; i++) {
+      if (shapes[i]) n += occupancyFor(shapes[i].tier, thin);
+    }
+    return n;
   }
 
   // ── Residency ────────────────────────────────────────────────────────────
@@ -795,7 +839,7 @@
     LAIR_WAKE_CELLS, LAIR_SLEEP_CELLS, LAIR_LIVE_MAX, LAIR_BUCKET_CELLS,
     LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
-    OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, guardState,
+    OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
     TIER_GUARDS, TIERS, MAX_TIER_GUARDS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     ramp, capFor, countFor, kindsAt, kindFor, structureKey, hashKey, ringBox,
     bucketKey,
