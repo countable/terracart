@@ -119,9 +119,9 @@
 
   // The restored street's own ink (util.js UI_STREET_INK) as a number, with
   // the same literal fallback the other readers carry so this module still
-  // loads standalone. One constant, four readers now — the counter, the
-  // chips, the sparks and the lamp — so a street's light can't drift off the
-  // colour the street itself is made of.
+  // loads standalone. One constant, five readers now — the counter, the
+  // chips, the sparks, the lamp and the dwell preview's own glow — so a
+  // street's light can't drift off the colour the street itself is made of.
   const STREET_INK = (typeof UI_STREET_INK === 'string')
     ? parseInt(UI_STREET_INK.replace('#', ''), 16) : 0xe8e2d6;
 

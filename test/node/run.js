@@ -371,6 +371,7 @@ try {
     `globalThis.BLAST_STONE_R_CELLS = ${constOf('BLAST_STONE_R_CELLS')};\n` +
     `globalThis.STREET_SHINE_MS = ${constOf('STREET_SHINE_MS')};\n` +
     `globalThis.STREET_PREVIEW_ALPHA = ${constOf('STREET_PREVIEW_ALPHA')};\n` +
+    `globalThis.STREET_PREVIEW_COLOR = ${constOf('STREET_PREVIEW_COLOR')};\n` +
     `globalThis.STREET_COUNTER_MIN_MS = ${constOf('STREET_COUNTER_MIN_MS')};\n` +
     `globalThis.STREET_SHINE_ALPHA = ${constOf('STREET_SHINE_ALPHA')};\n` +
     // The one-time first-repair dialog's copy — carried as source so the test

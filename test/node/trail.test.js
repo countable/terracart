@@ -788,7 +788,7 @@ test('streets: the live pass previews the dwell and shines on the rebuild', () =
       assert.eq(seen.length, 1, 'one preview run');
       assert.inRange(seen[0].alpha, STREET_PREVIEW_ALPHA / 2 - 0.01, STREET_PREVIEW_ALPHA / 2 + 0.01,
         'at half the dwell, half the preview alpha');
-      assert.eq(seen[0].colour, undefined, 'in the way\'s own restored colour');
+      assert.eq(seen[0].colour, STREET_PREVIEW_COLOR, 'in the pale street ink, not the road\'s own near-black');
       assert.eq(seen[0].tags.class, 'minor', 'carrying the class the width is read from');
       assert.gte(seen[0].pts.length, 2, 'as a polyline');
       // WORLD metres, on the way: this tile's origin is (0,0), so the preview

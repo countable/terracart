@@ -130,6 +130,14 @@ const STREET_LAMP_POOL = 12;
 // completes the restored canvas takes over at RESTORED_ALPHA (0.92) and the
 // step up is what reads as "done".
 const STREET_PREVIEW_ALPHA = 0.55;
+// The preview's COLOUR — the pale street ink (UI_STREET_INK), never the
+// finished road's own near-black. A growing wash of RESTORED_ROAD_COLOR over
+// the dilapidated band reads as a stain creeping in, not as work being primed:
+// the same ink the counter, the chips and the lamp stone are drawn in is what
+// says "this is the restoration material arriving", so it's lit rather than
+// darkened. The shine that follows it (below) is stroked in flat white for the
+// same reason — nothing about the live pass should read as a shadow.
+const STREET_PREVIEW_COLOR = parseInt(UI_STREET_INK.slice(1), 16);
 // The counter pops at most this often. A wide reach walked along a street
 // restores metres on nearly every frame, and a "137/200 m" re-drawn sixty
 // times a second is a flicker rather than a readout. The ladder still banks
@@ -13679,10 +13687,11 @@ class MapScene extends Phaser.Scene {
   // hundred strokes and a pattern fill, and these move sixty times a second.
   //
   //   the PREVIEW  the clean carriageway creeping in under the player while
-  //                the dwell runs, at up to STREET_PREVIEW_ALPHA — the ghost
-  //                of what is about to happen, so the two seconds read as a
-  //                thing being done rather than a delay. Its alpha is the
-  //                dwell's own progress: how long this line has been in sight.
+  //                the dwell runs, at up to STREET_PREVIEW_ALPHA in
+  //                STREET_PREVIEW_COLOR — the ghost of what is about to
+  //                happen, so the two seconds read as a thing being done
+  //                rather than a delay. Its alpha is the dwell's own
+  //                progress: how long this line has been in sight.
   //   the SHINE    a pale run down a stretch the instant it comes back, from
   //                STREET_SHINE_ALPHA to nothing over STREET_SHINE_MS beside
   //                the blast's flash.
@@ -13704,7 +13713,7 @@ class MapScene extends Phaser.Scene {
         if (!meta.pts || !meta.pts.length) continue;
         const alpha = Math.max(0, Math.min(1, (t - meta.t0) / PATH_STONE_DWELL_MS)) * STREET_PREVIEW_ALPHA;
         if (!(alpha > 0.01)) continue;
-        for (const pts of meta.pts) runs.push({ pts, tags: meta.tags, alpha });
+        for (const pts of meta.pts) runs.push({ pts, tags: meta.tags, alpha, colour: STREET_PREVIEW_COLOR });
       }
     }
     const shine = this._streetShine;
