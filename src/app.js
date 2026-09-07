@@ -303,6 +303,15 @@ function urlNumParam(name) {
 // nothing time-based (tweens, anims, the peek spring) changes speed.
 const FPS_LIMIT_DEFAULT = 30;
 const FPS_LIMIT = (() => { const v = urlNumParam('fps'); return v == null ? FPS_LIMIT_DEFAULT : Math.max(0, v); })();
+// What Phaser is actually handed. stepLimitFPS sums the rAF deltas and steps
+// once the sum reaches 1000 / limit, then drops the remainder — so a cap that
+// is an exact multiple of the vsync (30 on a 60 Hz display: two 16.67 ms
+// frames sum to 33.33 against a 33.33 gate) fires on the second frame or the
+// third as the float falls, and the first phone profile measured ~23 steps/s
+// under a "30" cap. One fps of slack puts the gate a millisecond under the
+// two-frame sum, so it fires on the second frame every time: 30/s on a 60,
+// 90 or 120 Hz display alike. ?fps=0 stays 0 — no cap.
+const PHASER_FPS_LIMIT = FPS_LIMIT > 0 ? FPS_LIMIT + 1 : 0;
 if (typeof window !== 'undefined') window.__renderScaleCap = urlNumParam('rscale');
 
 // ── Canvas resolution ─────────────────────────────────────────────────
@@ -16848,8 +16857,8 @@ const game = window.__game = new Phaser.Game({
   zoom: 1 / RENDER_SCALE,
   backgroundColor: '#000',
   pixelArt: true,
-  // See FPS_LIMIT: 30 steps/s on any display, 0 = uncapped (?fps=0).
-  fps: { limit: FPS_LIMIT },
+  // See FPS_LIMIT / PHASER_FPS_LIMIT: 30 steps/s on any display, 0 = uncapped (?fps=0).
+  fps: { limit: PHASER_FPS_LIMIT },
   scene: [MapScene],
   scale: { mode: Phaser.Scale.NONE },
   // Phaser's loader defaults to maxParallelDownloads: 32. ASSETS in

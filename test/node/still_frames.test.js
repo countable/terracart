@@ -95,7 +95,16 @@ test('still frames: the loop steps on a cap, and the profile can tell the cap fr
   const a = APP_JS_SRC;
   assert.truthy(/const FPS_LIMIT_DEFAULT = 30;/.test(a), 'thirty steps a second by default');
   const cfg = a.slice(a.indexOf('new Phaser.Game({'));
-  assert.truthy(/fps: \{ limit: FPS_LIMIT \},/.test(cfg), 'the Phaser config carries the cap');
+  assert.truthy(/fps: \{ limit: PHASER_FPS_LIMIT \},/.test(cfg), 'the Phaser config carries the cap');
+  // A gate that is an exact multiple of the vsync misses every other frame
+  // as the float falls (a "30" cap measured ~23 steps/s on a 60 Hz phone):
+  // Phaser is handed one fps of slack, and no cap stays no cap.
+  assert.truthy(/const PHASER_FPS_LIMIT = FPS_LIMIT > 0 \? FPS_LIMIT \+ 1 : 0;/.test(a), 'one fps of slack under the vsync multiple');
+  const gateMs = 1000 / (30 + 1);
+  for (const hz of [60, 90, 120]) {
+    const frame = 1000 / hz, per = Math.round(hz / 30);
+    assert.truthy(per * frame >= gateMs && (per - 1) * frame < gateMs, `${hz} Hz: steps on exactly every ${per}th frame`);
+  }
   assert.truthy(/urlNumParam\('fps'\)/.test(a) && /urlNumParam\('rscale'\)/.test(a), 'both A/B knobs read off the URL');
   // The profile: still steps apart from walking ones, the lightmap apart
   // from the object scan it runs inside, and the cadence line that says
