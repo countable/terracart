@@ -1972,7 +1972,7 @@ Render.drawCells = function drawCells(scene) {
     // Underground has its own darkness (the torch bubble) and no persistent
     // map to explore, so fog is a surface feature. Hide it on descent rather
     // than leaving the last surface frame frozen over the cave.
-    const fogOn = depth === 0;
+    const fogOn = (scene.depth ?? 0) === 0;
     // ...and one more input: the UNMAPPED VEIL. A cell whose tile hasn't
     // arrived is already drawn as the animated survey-line fog that says
     // "loading", and stacking 80% black on that would smother the one thing it
