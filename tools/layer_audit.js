@@ -55,7 +55,7 @@ const GROUND = [
   'cellGfx',           // base terrain fill
   'gridGfx',           // dashed cell grid
   'borderGfx',         // biome seam borders  <- the reported bug
-  'cobbleContainer',   // ground decoration (the pier plank)
+  'cobbleContainer',   // ground decoration (the pier plank, the street lamps)
   'letterContainer',   // road name lettering
   'roadGeomContainer',
   'padContainer',      // treasure plinths

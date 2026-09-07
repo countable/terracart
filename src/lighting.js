@@ -19,6 +19,7 @@
 //   Lighting.blast(scene, wmx, wmy, opts) — fire a transient restoration flash
 //   Lighting.collectBlasts(scene, ax, ay, halfM, now) — the live ones, pruned
 //   Lighting.collectFires(scene, ax, ay, halfM) — add the placed campfires
+//   Lighting.collectLamps(scene, ax, ay, halfM) — add the restored streets' lamps
 //   Lighting.collectPlayer(scene, ax, ay, halfM) — add the player's torch, if lit
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
@@ -107,6 +108,15 @@
   // own light, out to TORCH_RADIUS_MUL player radii. Nothing here asks the
   // depth: a torch by night on the surface is fine, and free.
   const TORCH_RADIUS_MUL = 2;
+
+  // The restored street's own ink (util.js UI_STREET_INK) as a number, with
+  // the same literal fallback the other readers carry so this module still
+  // loads standalone. One constant, four readers now — the counter, the
+  // chips, the sparks and the lamp — so a street's light can't drift off the
+  // colour the street itself is made of.
+  const STREET_INK = (typeof UI_STREET_INK === 'string')
+    ? parseInt(UI_STREET_INK.replace('#', ''), 16) : 0xe8e2d6;
+
   const KINDS = {
     // The player: white, out to the furthest visible pixel (the viewport's
     // half-diagonal) plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay
@@ -159,6 +169,25 @@
     // — lighting.test.js pins the order — so a lit cave reads as "a torch
     // there, some fungus here", never two of the same lamp.
     mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.50, flicker: 0, pulse: 0.35 },
+    // A STREET LAMP — the glowing cobble of a RESTORED street, one every
+    // Streets.lampSpacingM() metres of rebuilt carriageway (streets.js places
+    // them, road_overlay.js paints the stone, app.js hands this collector the
+    // live list). It is the whole point of rebuilding a street after dark: a
+    // road you have brought back is a road you can walk at night, and the
+    // string of lamps behind you is the map of everything you have restored.
+    //
+    // In the street's OWN ink, never the violet the lit pebbles wore until
+    // Sep 2026 (see UI_STREET_INK's note in util.js): pale warm stone is what
+    // a restored carriageway is made of, and blue-white in this game means
+    // "the world is giving you something".
+    //
+    // STEADY — no flicker, no pulse. A fire breathes because it is burning
+    // and a POI breathes because it is asking to be noticed; a lamp is
+    // infrastructure, and a street of them breathing would be a strobe.
+    // Sized between the POI and the campfire: bigger than a marker, smaller
+    // than a hearth, so a lamp lights the carriageway it stands on and a
+    // couple of cells either side of it rather than the whole block.
+    cobble:   { radiusCells: 2.5, colour: STREET_INK, peak: 0.85, flicker: 0 },
     // A BLAST — the one-shot near-white flash of a RESTORATION moment: a
     // stretch of street rebuilt, a wreck pulled back into a house. Unlike
     // every row above it this one is TRANSIENT and SCALABLE: `Lighting.blast`
@@ -476,14 +505,15 @@
     scene._lights.length = 0;
   }
 
-  // THERE ARE NO CELL LIGHTS. A second list used to run beside the object one,
-  // carrying a small violet pool per lit cobble offered by drawCells. The
-  // cobbles are gone (a street is restored as arclength along the way now, not
-  // as a lit pebble per cell) and so is that list: a restored street is DRAWN
-  // clean by road_overlay.js and needs no light of its own. If a cell ever
-  // wants a light again, note why the list was separate — drawCells runs
-  // BEFORE drawObjects, and beginFrame empties the object list at the top of
-  // the latter.
+  // THERE ARE STILL NO CELL LIGHTS. A second list used to run beside the
+  // object one, carrying a small violet pool per lit cobble offered by
+  // drawCells — because drawCells runs BEFORE drawObjects and beginFrame
+  // empties the object list at the top of the latter, so a stone pushed onto
+  // scene._lights from the cell pass was gone before draw() read it. The
+  // street lamps that came back in Sep 2026 are lit from a LIST instead
+  // (collectLamps, below), collected inside draw() like the fires and the
+  // blasts, so the ordering problem never arises: a lamp is a point in world
+  // metres, not a cell being painted.
 
   // ── BLASTS: transient lights on their own clock ──────────────────────────
   // A restoration moment — a street stretch rebuilt, a wreck restored — throws a
@@ -579,6 +609,32 @@
       const dx = fr.x - ax, dy = fr.y - ay;
       if (!inRange(scene, dx, dy, 'fire', halfM)) continue;
       scene._lights.push({ kind: 'fire', dx, dy, id: `fire_${fr.x.toFixed(2)}_${fr.y.toFixed(2)}` });
+      n++;
+    }
+    return n;
+  }
+
+  // The STREET LAMPS in range. app.js keeps the live list on
+  // scene._streetLamps — the lit ones near the camera anchor, in ABSOLUTE
+  // world metres, rebuilt when the anchor crosses a cell or a stretch is
+  // restored — and this converts them against THIS frame's anchor, like the
+  // blasts, so a peek drag leaves every lamp on the street it stands in.
+  //
+  // A LIST, NOT A SCAN: a lamp is not an object in a tile's object list and
+  // has no sprite for drawObjects to offer, so nothing would reach `consider`
+  // (the reason the lit cobbles needed a second list of their own until they
+  // were removed). Handing over a plain array of points instead keeps the
+  // finding of them — nine tiles of transportation lines, their arclengths
+  // and the save's restored intervals — in app.js, where the tile cache is.
+  function collectLamps(scene, ax, ay, halfM) {
+    const list = scene && scene._streetLamps;
+    if (!list || !list.length) return 0;
+    if (!scene._lights) scene._lights = [];
+    let n = 0;
+    for (const L of list) {
+      const dx = L.x - ax, dy = L.y - ay;
+      if (!inRange(scene, dx, dy, 'cobble', halfM)) continue;
+      scene._lights.push({ kind: 'cobble', dx, dy, id: L.id });
       n++;
     }
     return n;
@@ -806,6 +862,7 @@
     if (!tex || typeof document === 'undefined') return;
     if (!scene._lights) scene._lights = [];
     collectFires(scene, ax, ay, halfM);
+    collectLamps(scene, ax, ay, halfM);
     collectPlayer(scene, ax, ay, halfM);
     const now = Date.now();
     // The live blasts, converted against THIS frame's anchor (they are stored
@@ -907,7 +964,7 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour, lum, atLuminance,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires,
-    collectPlayer,
+    collectPlayer, collectLamps,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, BLAST_MAX, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
   };

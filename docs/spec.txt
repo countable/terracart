@@ -934,7 +934,9 @@ STREET RESTORATION (the road band itself)
    what the player sees restored. Until Sep 2026 this was LIT PEBBLES — one
    sprite per 20 m of path, thinned by the renderer — and half a street
    restored between two of them paid nothing at all. The pebbles, their lit
-   textures, their light row and the 'cobble' spritesheet are all gone.
+   textures and the 'cobble' spritesheet are all gone; the LIGHT they threw
+   came back in Sep 2026 as the lamps below — one every 200 m of restored
+   street instead of one per cell, generated from the way rather than stored.
  - A STREET PIECE IS ONE LINE OF ONE FEATURE, never the feature. About a
    quarter of the transportation features on a real tile are merged multi-lines
    (one had 42 disconnected lines over 6.8 km), so keying on the feature id
@@ -996,6 +998,47 @@ STREET RESTORATION (the road band itself)
        camera-anchored projection — with the container's own sub-cell offset
        subtracted back out. The sub-polylines are cut ONCE per scan, not per
        frame: a merged way can carry thousands of vertices.
+ - THE LAMPS: A RESTORED STREET LIGHTS ITS OWN WAY. One glowing cobble every
+   Streets.lampSpacingM() metres of REBUILT carriageway — and that spacing IS
+   Trail.GOAL_STEP_M (200 m), not a number of its own, so the walk that earns
+   a rung of the ladder lights about one lamp and the two can never come to
+   disagree about the same 200 m. It is the reason to rebuild a street after
+   dark: a road you have brought back is a road you can walk at night, and the
+   string of lamps behind you is the map of everything you have restored.
+     * GENERATED, NEVER STORED — the traps rule. Streets.lampsAlong places them
+       from the LINE's own geometry and Streets.covers(restoredList, s) says
+       whether one is lit, so nothing new reaches the save, a rebuilt tile
+       lights the same stones again, and there is no per-cell road state (the
+       thing the lit pebbles got wrong).
+     * SPREAD, NOT STAMPED FROM ZERO. Each line gets the whole number of
+       intervals nearest its own length, evenly spread with a HALF interval at
+       each end: lamps at s = 200, 400, … would leave every way shorter than
+       the spacing — most of a suburb — dark, bunch two stones either side of
+       an OSM split, and stand one on every junction. So a 300 m street gets
+       two 150 m apart, a 1 km one five 200 m apart, and anything under half
+       a spacing (a driveway, a slip road, a parking aisle) gets none, which is
+       what stops a dense block reading as a lit car park. Lamps outside the
+       tile SQUARE are dropped, or the neighbour's buffer copy would stand a
+       second stone on the same stretch.
+     * TWO HALVES ON ONE POINT, because the lightmap MULTIPLIES: a light alone
+       is invisible at noon, so the lamp is baked ART as well —
+       RoadOverlay.paintLampStone (a pale sett with a hot core in its own soft
+       halo, in UI_STREET_INK, the colour a restored street is made of), drawn
+       from its own pool into cobbleContainer, on the road band and UNDER the
+       lightmap. The light is Lighting.KINDS.cobble: the same ink, 2.5 cells,
+       peak 0.85, and STEADY — a fire breathes because it is burning and a POI
+       breathes because it is asking to be noticed; a lamp is infrastructure,
+       and a street of them breathing would be a strobe.
+     * THE LIST IS THE CAMERA'S. app.js _updateStreetLamps collects the lit
+       lamps of the 3×3 tiles near the CAMERA ANCHOR (this asks "what do I
+       draw", so a peek carries them), memoised on the anchor cell + the
+       streets epoch — the same integer the restored canvas repaints on, so a
+       stretch coming back lights its lamps on the next frame and standing
+       still costs nothing. Surface only. _streetLampsForTile caches a tile's
+       lamp geometry on the tile ENTRY, so a tile rebuilt under the player
+       re-derives it. _drawStreetLamps seats the stones through
+       worldMetersToScreen and Lighting.collectLamps stamps the lights from
+       the same list, so the two can never disagree about which lamps are on.
  - THE BLAST (restoration fanfare) is ONE thing at any size — app.js
    _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, colour, material }),
    fired at the instant a thing comes back. ONE per sweep, at the MIDPOINT OF

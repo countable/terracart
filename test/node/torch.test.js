@@ -141,8 +141,8 @@ test('torch: the plateau is untouched — reach, the profile and the tap gate ig
     'profile() never asks about the torch');
   // draw() collects it beside the fires, and still draws the ramp.
   const draw = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('function draw(scene, ax, ay, halfM)'));
-  assert.truthy(/collectFires\(scene, ax, ay, halfM\);\n\s*collectPlayer\(scene, ax, ay, halfM\);/.test(draw),
-    'collectPlayer runs in draw(), after the fires');
+  assert.truthy(/collectFires\(scene, ax, ay, halfM\);\n\s*collectLamps\(scene, ax, ay, halfM\);\n\s*collectPlayer\(scene, ax, ay, halfM\);/.test(draw),
+    'collectPlayer runs in draw(), after the fires and the street lamps');
   assert.truthy(/ctx\.drawImage\(player\.canvas,/.test(draw), 'the ramp is still drawn — the torch adds to it');
   const pk = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('function playerKind('), LIGHTING_SRC.indexOf('function beginFrame('));
   assert.falsy(/depth/.test(pk), 'playerKind never asks the depth — a torch by night on the surface is fine, and free');

@@ -558,8 +558,13 @@
   POI, a small treasure blue-white light breathing on `POI_PULSE_PERIOD_S`
   with a per-id phase: that IS the old halo ping (the ring layer, its pool
   and its texture are gone), so a place reads from across the map by its own
-  light in the dark, never by a ring drawn back under the pad. **When you add a
-  light source, add a row and return its kind from `Lighting.sourceKind`**;
+  light in the dark, never by a ring drawn back under the pad — and a STREET
+  LAMP on every 200 m of restored street (the `cobble` row, back as one lamp
+  per ladder rung's walk rather than one per lit pebble; see the street rule
+  below). **When you add a light source, add a row and return its kind from
+  `Lighting.sourceKind`** — or, for a light that is a POINT rather than a
+  scanned object (a placed fire, a lamp), a collector of its own called from
+  `draw()` beside `collectFires` / `collectLamps`;
   the collector culls at `halfM` + the row's own radius, not the sprite cull,
   so a lantern a cell off-screen still lights the edge.
   **What stayed on `reachGfx`:** the white reach OUTLINE. It is the tap
@@ -744,6 +749,21 @@
   was COBBLE TRAILS: pebble sprites on paved cells, keyed per cell and
   thinned by a hash, so the counted stones and the drawn road were two
   different things; do not bring a per-cell road state back.
+  **What DID come back is the LIGHT.** A restored street lights its own way:
+  one glowing cobble every `Streets.lampSpacingM()` metres of rebuilt
+  carriageway — and that spacing IS `Trail.GOAL_STEP_M`, the same
+  `roadOverlayWidthM` discipline, so the walk that earns a rung of the ladder
+  lights about one lamp. A lamp is GENERATED, never stored
+  (`Streets.lampsAlong` off the line's own geometry, lit when `Streets.covers`
+  finds its metre in the restored list) — the traps rule, so a rebuilt tile
+  lights the same stones and the save gains nothing by it. It is TWO halves on
+  ONE point, because the lightmap MULTIPLIES: baked art
+  (`RoadOverlay.paintLampStone`, drawn under the lightmap — a light alone does
+  not exist at noon) and the `Lighting.KINDS.cobble` row over it, both in
+  `UI_STREET_INK`. The list app.js hands to both (`_updateStreetLamps`) is
+  collected from the CAMERA ANCHOR and memoised on the anchor cell +
+  `Streets.epoch` — never from the feet, which is the restoring sweep's side of
+  the camera rule, not the drawing side.
   **The restored patch is SOFT, and its edge only.** The rebuilt band is laid
   crisp — clean setts, a hairline kerb — and then FEATHERED as the last step of
   `commitRestored`, through `softenEdge`: a blurred mask of the same strokes
@@ -789,7 +809,9 @@
   pool lookup will otherwise hand back null and the roll pays nothing.
 
   **Audit it:** `node test/node/run.js` › `test/node/streets.test.js` (the
-  algebra, the sight window, restore/epoch), `test/node/road_overlay.test.js`
+  algebra, the lamp placement, the sight window, restore/epoch),
+  `test/node/street_lamps.test.js` (the lamps' wiring),
+  `test/node/road_overlay.test.js`
   (the restored pass, the tiles and the soft edge), `test/node/trail.test.js`
   (the lifted sweep on a synthetic tile, the first rung, the dialogs) and
   `test/node/loot.test.js` (the two synthetic classes and the road pool).

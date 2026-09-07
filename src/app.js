@@ -109,6 +109,21 @@ const STREET_SHINE_MS = (typeof Lighting !== 'undefined' && Lighting.BLAST_MS) |
 // every few paces while the player walks a street. A repair should read as a
 // gleam passing over the new surface, not as a strobe.
 const STREET_SHINE_ALPHA = 0.4;
+// THE STREET LAMPS. A restored street lights its own way: one glowing cobble
+// every Streets.lampSpacingM() metres of rebuilt carriageway — the ladder's
+// own rung, so a walk that earns a prize lights about one lamp. Where they
+// stand is generated from the way's geometry and never stored (streets.js);
+// the stone is baked art (RoadOverlay.paintLampStone) and the light it throws
+// after dark is Lighting.KINDS.cobble, on the same point.
+const STREET_LAMP_TEX = 'street_lamp';
+// Drawn LAMP_DRAW_CELLS cells across — the halo included; the stone inside it
+// is about a third of that, so a lamp sits clearly on one cell of the road.
+const STREET_LAMP_PX = CELL_PX *
+  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 1.5);
+// Pool size. One lamp per 200 m against a viewport 11 cells (~77 m) across
+// means two in view is already a busy junction; the pool grows itself if a
+// dense knot of short ways ever beats that (Render.renderPool).
+const STREET_LAMP_POOL = 12;
 // How faint the DWELL PREVIEW gets at its fullest — the ghost of the clean
 // carriageway creeping in under the player while the dwell runs. Well under
 // half, because the preview is a promise, not the thing: at the instant it
@@ -1870,6 +1885,39 @@ class MapScene extends Phaser.Scene {
         .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
       this.cobbleContainer.add(s);
       this.cobblePool.push(s);
+    }
+
+    // THE STREET LAMPS — the glowing cobbles a restored street carries, one
+    // every Streets.lampSpacingM() metres of rebuilt carriageway. Baked once
+    // (road_overlay.js paints the stone; a canvas, because the halo is a
+    // radial gradient and Phaser's Graphics has no gradient primitive) and
+    // drawn from its own pool into the SAME ground-decoration container as
+    // the pier plank: a lamp lies on the road surface, above the band and
+    // below the lightmap that turns it into a light after dark.
+    //
+    // Sized in CELLS (RoadOverlay.LAMP_DRAW_CELLS), so the stone keeps its
+    // proportion to the carriageway at any latitude's cell size. The pool is
+    // small: at one lamp per 200 m and a viewport 11 cells across, two in
+    // view at once is a busy junction.
+    if (typeof RoadOverlay !== 'undefined' && RoadOverlay.paintLampStone &&
+        typeof document !== 'undefined' && !this.textures.exists(STREET_LAMP_TEX)) {
+      const S = RoadOverlay.LAMP_TEX_PX;
+      const cvs = document.createElement('canvas');
+      cvs.width = cvs.height = S;
+      const lctx = cvs.getContext('2d');
+      if (lctx) {
+        RoadOverlay.paintLampStone(lctx, S);
+        this.textures.addCanvas(STREET_LAMP_TEX, cvs);
+      }
+    }
+    this.streetLampPool = [];
+    if (this.textures.exists(STREET_LAMP_TEX)) {
+      for (let i = 0; i < STREET_LAMP_POOL; i++) {
+        const s = this.add.image(0, 0, STREET_LAMP_TEX).setOrigin(0.5, 0.5)
+          .setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setVisible(false);
+        this.cobbleContainer.add(s);
+        this.streetLampPool.push(s);
+      }
     }
 
     // Road-label pool: compact whole-word street names (one anchor every ~12
@@ -8524,6 +8572,13 @@ class MapScene extends Phaser.Scene {
     // re-stroked every frame. AFTER draw(), because draw() is what positions
     // the container the live Graphics sits in (see _drawStreetLive).
     this._drawStreetLive();
+    // …and the lamps a restored street carries, on the surface it just drew.
+    // Here rather than in the sweep because this runs on every frame the road
+    // is drawn on — including the ones the sweep's gates refuse — and because
+    // the list it refreshes is what Lighting.collectLamps reads a moment later
+    // in drawObjects.
+    this._updateStreetLamps();
+    this._drawStreetLamps();
   }
   drawBuildingGeometry() { if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.draw(this); }
   drawObjects() {
@@ -13338,6 +13393,154 @@ class MapScene extends Phaser.Scene {
     const q = Streets.pointAtM(meta.line, meta.mvtToM, s);
     if (!q) return null;
     return { x: meta.tx * meta.tileEdgeM + q.x, y: meta.ty * meta.tileEdgeM + q.y };
+  }
+
+  // ── THE STREET LAMPS ─────────────────────────────────────────────────────
+  // One glowing cobble every Streets.lampSpacingM() metres of RESTORED street.
+  // Three passes, in the order the frame needs them:
+  //
+  //   _streetLampsForTile  where every lamp in one tile stands (geometry)
+  //   _updateStreetLamps   which of them are lit and near enough to matter
+  //   _drawStreetLamps     the stones, as pooled sprites on the road surface
+  //
+  // and lighting.js's collectLamps turns the same list into the light each one
+  // throws. Nothing here reaches the save: a lamp is generated from the way
+  // and lit by the restored intervals that are already stored, the same
+  // discipline traps.js keeps (generated, never stored — only what the player
+  // DID is written down).
+
+  // Every lamp of ONE tile, in ABSOLUTE world metres — lit or not. Cached on
+  // the TILE ENTRY: it is a pure function of that tile's geometry, so it is
+  // computed once per tile rather than per frame, and a tile REBUILT under us
+  // hands back a new entry object that simply has no cache yet (the rebuild
+  // rule in CLAUDE.md — carried across, or re-derived; this is re-derived).
+  //
+  // Only the lamps inside the TILE SQUARE are kept. MVT geometry runs past the
+  // edge into the buffer and the same way comes back inside the neighbour's
+  // copy, so without the tileSpans test the two tiles would each stand a stone
+  // on the same stretch — two sprites and two stacked lights on one street.
+  //
+  // Rail is skipped: a railway is not a street to rebuild, so it never lights.
+  _streetLampsForTile(tx, ty, entry) {
+    if (entry._streetLamps) return entry._streetLamps;
+    const out = [];
+    const tileEdgeM = entry.tileEdgeM;
+    if (typeof Streets === 'undefined' || !entry.layers || !(tileEdgeM > 0)) {
+      entry._streetLamps = out;
+      return out;
+    }
+    const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
+    const tileKey = WorldGen.tileKey(tx, ty);
+    for (const layer of entry.layers) {
+      if (layer.name !== 'transportation') continue;
+      const extent = layer.extent || 4096;
+      const mvtToM = tileEdgeM / extent;
+      for (const f of layer.features) {
+        if (f.type !== 2 || !f.geom) continue;          // lines only
+        const cls = (f.tags && f.tags.class) || '';
+        if (cls === 'rail' || cls === 'transit') continue;
+        for (let i = 0; i < f.geom.length; i++) {
+          const line = f.geom[i];
+          if (!line || line.length < 2) continue;
+          const at = Streets.lampsAlong(line, mvtToM);
+          if (!at.length) continue;
+          const spans = Streets.tileSpans(line, mvtToM, extent);
+          if (!spans.length) continue;
+          const lineKey = Streets.lineKey(f, i);
+          for (const sM of at) {
+            if (!Streets.covers(spans, sM)) continue;   // in the buffer — the neighbour's stone
+            const q = Streets.pointAtM(line, mvtToM, sM);
+            if (!q) continue;
+            out.push({ tileKey, lineKey, s: sM, x: ox + q.x, y: oy + q.y,
+                       id: `lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
+          }
+        }
+      }
+    }
+    entry._streetLamps = out;
+    return out;
+  }
+
+  // The LIT lamps near the frame, on this._streetLamps — read by
+  // _drawStreetLamps for the stones and by Lighting.collectLamps for the
+  // lights, so the two can never disagree about which lamps are on.
+  //
+  // Measured from the CAMERA ANCHOR, not the feet: this asks "what do I DRAW",
+  // and a peek drag has to bring the lamps at the peeked edge with it (the
+  // camera rule in CLAUDE.md). Rebuilt only when the anchor CELL moves or a
+  // stretch is restored (Streets.epoch) — standing still changes nothing, and
+  // the epoch is exactly the integer the restored canvas repaints on.
+  //
+  // Surface only: the world is GPS-mirrored, and a cave has no streets to
+  // light.
+  _updateStreetLamps() {
+    if (typeof Streets === 'undefined' || (this.depth ?? 0) !== 0) {
+      this._streetLamps = null;
+      this._streetLampKey = null;
+      return;
+    }
+    // The anchor's tile and its absolute cell, exactly as the overlay frame
+    // derives them (coords.js overlayFrame) — the tile ring is the anchor's
+    // 3×3, so a peek at a tile edge still finds the lamps it drags into view.
+    const a = viewAnchorCell(this);
+    const cellIX = a.tx * this.cellsPerTile + Math.floor(a.cx);
+    const cellIY = a.ty * this.cellsPerTile + Math.floor(a.cy);
+    const key = `${cellIX},${cellIY}|${Streets.epoch(this.save)}`;
+    if (this._streetLampKey === key && this._streetLamps) return;
+    this._streetLampKey = key;
+    const c = absCellCenterMeters(this, cellIX, cellIY);
+    // Reach of the pass: the furthest a lamp can be and still show. The
+    // viewport's half-diagonal plus the lamp's own light radius, so one a cell
+    // off-screen still lights the edge — the same cull lighting.js pads with,
+    // rather than the sprite cull.
+    const lampR = (typeof Lighting !== 'undefined' && Lighting.radiusCells)
+      ? Lighting.radiusCells('cobble') : 2.5;
+    const pad = (Math.hypot(VIEW_CELLS, VIEW_CELLS) / 2 + lampR + PEEK_MAX_CELLS) * this.cellM;
+    const ptx = a.tx, pty = a.ty;
+    const out = [];
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const tx = ptx + dtx, ty = pty + dty;
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+        if (!entry) continue;
+        const lamps = this._streetLampsForTile(tx, ty, entry);
+        if (!lamps.length) continue;
+        // One restored list per LINE, not per lamp: unflattening the save's
+        // flat pairs is the cost here and a long way carries several lamps.
+        const restored = new Map();
+        for (const L of lamps) {
+          if (Math.abs(L.x - c.x) > pad || Math.abs(L.y - c.y) > pad) continue;
+          let iv = restored.get(L.lineKey);
+          if (iv === undefined) {
+            iv = Streets.restoredList(this.save, L.tileKey, L.lineKey);
+            restored.set(L.lineKey, iv);
+          }
+          if (!Streets.covers(iv, L.s)) continue;       // this stretch is still dilapidated
+          out.push(L);
+        }
+      }
+    }
+    this._streetLamps = out;
+  }
+
+  // The stones themselves: one pooled sprite per lit lamp, seated through
+  // worldMetersToScreen (the camera-anchored projection — a peek carries them
+  // with the ground) into the ground-decoration container, which sits on the
+  // road band and under the lightmap. The light over each one is stamped by
+  // Lighting.collectLamps from the same list.
+  _drawStreetLamps() {
+    const pool = this.streetLampPool;
+    if (!pool || !this.cobbleContainer || typeof Render === 'undefined') return;
+    // No stone baked (no canvas at boot) — the lamps still LIGHT, they just
+    // have no art. Better than growing the pool with untextured sprites.
+    if (!this.textures.exists(STREET_LAMP_TEX)) return;
+    const list = this._streetLamps || [];
+    Render.renderPool(this, pool, this.cobbleContainer, list, (s, L) => {
+      const p = this.worldMetersToScreen(L.x, L.y);
+      if (s.texture && s.texture.key !== STREET_LAMP_TEX) s.setTexture(STREET_LAMP_TEX);
+      s.setPosition(p.x, p.y);
+      s.setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX);
+    });
   }
 
   // THE RIPEN PASS. Everything that has been in sight for the whole dwell is
