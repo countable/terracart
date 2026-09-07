@@ -393,6 +393,13 @@
     /* Multiplayer chip (src/multiplayer.js #mp-btn) lives on <body> like the
        pads, so it too would float over a dialog inside #game — hide it there. */
     body.modal-open #mp-btn { display: none !important; }
+    /* The ☰ menu (#menu, z-index 8) is the same shape: a body-level fixed
+       control that no dialog inside #game can paint over, so an open reward
+       card or offer had the menu button sitting on top of its corner. A dialog
+       owns the screen; the menu comes back when it closes. Every entry that
+       opens a modal closes the menu first, and the gate closes it too, so it
+       never reappears expanded. */
+    body.modal-open #menu { display: none !important; }
     #hud {
       position: fixed; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
       left:  calc(var(--phone-left,  0px) + 8px);
