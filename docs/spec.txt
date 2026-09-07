@@ -58,6 +58,40 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
        house 5. FAR_MUL is DERIVED (ceiling / biggest tier figure), not tuned.
    The rolled count is the cap less a seeded shortfall of up to LAIR_SLACK, so
    a house and a fort are always exactly their figure and a castle is 2-3.
+   BUT FIRST: IS IT HELD AT ALL? The odds are the tier's (Lairs.OCCUPANCY) —
+   a wrecked house 1/3, a fort 2/3, a castle 0.95 — drawn as the FIRST number
+   of the structure's own stream, so an empty ruin is empty on every wake,
+   rebuild and reload rather than re-rolled the moment the player looks away.
+   Until Sep 2026 every eligible structure was held, which made a garrison a
+   property of the map rather than a discovery: a player learned in a minute
+   that the whole street was held and stopped looking in buildings.
+   AND THE TILE CEILING WINS: LAIR_MAX_PER_TILE (50) held ruins is a HARD cap,
+   not a target. A tile is ~1.6 km on a side and a dense one carries thousands
+   of wrecks, so a flat 1/3 would put over a thousand garrisons on it. The tier
+   rates decide who gets the room; they never decide whether the room can be
+   exceeded. Lairs.tileThin returns two factors and there are two regimes:
+     * ROOM TO SPARE (every real tile) — the rare tiers are paid FIRST and keep
+       their authored rate, and the wrecks are thinned by what is left. A
+       castle in a city stays 0.95; scaling everything equally would make it a
+       5% chance, the opposite of what the table promises. On a village nothing
+       is thinned and one house in three really is held.
+     * OVER BUDGET ON LANDMARKS ALONE (a tile of nothing but castles — not
+       something a real map produces, but the cap holds anyway) — the wrecks
+       get nothing AND the landmarks are scaled onto the ceiling too.
+   Lairs.tileHeldExpected is the total the cap is on, and the test sweeps
+   random compositions against it. tileThin is one unsliced O(n) pass over
+   buildingShapes, memoised on the entry: it reads a tier and adds a number, so
+   it costs a fraction of the bbox index's ~7ms — and it has to be WHOLE before
+   anything wakes, or whether a ruin is held would depend on when the player
+   got there. A REBUILD LANDS ON THE SAME NUMBER: buildingShapes comes only
+   from the MVT tile, and the Overpass bin a rebuild is for carries trees,
+   poles, wells and chests, never a building.
+   NO WORLD SEED, EVER. structureKey is the footprint's centre in absolute cell
+   coordinates and makeRng is a pure function of one integer, so a lair is the
+   same in every playthrough, on every device, for every player: two people
+   standing at the same real ruin meet the same monsters, and a new save meets
+   them again. Nothing about the save, the session or the tile load order
+   reaches the stream.
    THE TIER PICKS THE FAMILY, the ramp picks the rung within it (KIND_ORDER):
      * a WRECKED HOUSE is SQUATTED — nobody holds it, slimes have moved into
        the damp: surface slime near, cave slime from a third out, purple slime
@@ -96,7 +130,7 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    has no slicer of its own), and Lairs.stepResidency — throttled from
    update(), measured from the FEET — wakes the garrisons within
    LAIR_WAKE_CELLS (16) of the player and sleeps those past LAIR_SLEEP_CELLS
-   (20). Live monsters therefore track what is AROUND the player, not what a
+   (26, derived — see the chase below). Live monsters therefore track what is AROUND the player, not what a
    tile contains, so a city block and a hamlet cost the same to stand in.
    The wake ring clears every other ring on purpose — the sim bubble
    (CREATURE_SIM_CELLS 12), the sprite cull and bow range — so nothing is ever
@@ -109,9 +143,39 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    sleep/wake cycle (an in-memory hp memo on the scene), so retreating out of
    the wake ring and back is not a free reset — a reload still heals, like
    every other creature.
-   IMMOBILE means the movement step only: app.js wanderCreatures returns on
-   `c.immobile` BELOW the leech and the monster attack, so a guard still drains
-   you, still shoots if its kind does, and still dies and pays its bounty.
+   THE GARRISON HOLDS, HUNTS AND GIVES UP (Lairs.guardState — three states,
+   asked once per guard per tick from wanderCreatures, off the FEET):
+     * 'hold'   at rest on its seat. It does not step and takes no interest in
+       the player, so the ruin reads as held from across the street — which a
+       garrison that wandered would not. This is what the old flat `immobile`
+       bought, and it is still what `c.immobile` marks.
+     * 'hunt'   the player is within LAIR_AGGRO_CELLS (6) of the ruin's EDGE.
+       It steps at them on the monsters' committed stalk and it bites.
+     * 'return' the player got past LAIR_LEASH_CELLS (10, ~70m) of that edge.
+       It walks back to its own seat and does NOT bite on the way — the player
+       escaped, and a guard still leeching on its walk home would mean they
+       had not. It lands exactly on the seat (the step is shortened) rather
+       than overshooting and orbiting.
+   BOTH RINGS ARE MEASURED FROM THE RUIN, offset by its own seat radius
+   (c.lairR). Two things follow and neither is incidental: the garrison moves
+   AS ONE (every guard asks the same distance question, so they notice and
+   give up together — the pursuing group, not a trickle), and the chase is
+   BOUNDED (a guard can never be more than a leash from its ruin, so it cannot
+   be walked across the map and the ruin behind it is still held for whoever
+   comes at it next). A leash measured from the GUARD would never break — a foe
+   that keeps pace never falls behind. The offset by lairR is what keeps a
+   castle honest: its footprint is tens of metres across, so a ring from the
+   CENTRE would have the player on the battlements before anyone looked up.
+   LAIR_SLEEP_CELLS is DERIVED from the leash (WAKE + LEASH = 26): sleeping is
+   measured from the RUIN, but a guard may be a whole leash away from it on the
+   way home, and what is left after that still has to clear the sprite cull or
+   a pursuer would blink out in plain sight. A campfire's refused-cell ward
+   skips a guard entirely (`!c.lair`) — a fire cannot empty a ruin, and a guard
+   walking home past one would have all six attempts refused and freeze in the
+   street. `unnoticed` (Shadow Powder, a downed player) switches the CHASE off
+   where it already switches the bite off: the garrison walks home.
+   Everything above the state branch still runs for a guard whatever its
+   state — it takes damage, dies and pays its bounty.
  - THE CROW PUMP IS A HARD-MODE RULE (Difficulty cropPests). On hard, a planted
    crow-edible crop with no wild crow already near the player dispatches one
    every ~90 s, seated at PEST_CROW_SPAWN_CELLS (10) — past the viewport corner

@@ -128,18 +128,31 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
     'the angle is away from HOME');
   // Away-from-PLAYER would shove the foe around the ring with the player
   // still inside it, so the branch must not read the player's bearing.
-  const branch = wander.match(/\} else if \(homeWard\) \{([\s\S]*?)\n          \} else if \(c\.kind === 'slime'\)/);
-  assert.truthy(branch, 'the ward branch sits ahead of the slime chase');
+  // Sliced to the NEXT branch in the chain, whatever it is — the lair guards'
+  // hunt and walk-home branches were added between this one and the slime's,
+  // and a slice pinned to the slime would have swept them in and read their
+  // player bearing as this branch's.
+  const branch = wander.match(/\} else if \(homeWard\) \{([\s\S]*?)\n          \} else if /);
+  assert.truthy(branch, 'the ward branch has a branch after it');
   assert.falsy(/dxp|dyp/.test(branch[1]), 'not away-from-player');
+  // It still outranks everything that chases: a foe being walked out of the
+  // ring goes, whatever else it would rather be doing.
+  assert.lt(wander.indexOf('} else if (homeWard) {'),
+    wander.indexOf("} else if (lairState === 'hunt') {"),
+    'the ward outranks a garrison\'s chase');
   // And it is an ANGLE, never a refused target cell — a foe deep inside the
   // ring would have all six attempts rejected by a cell test and freeze on
   // the doorstep (the stall the scarecrow comment warns about).
   assert.falsy(/homeWard[^\n]*\)\s*continue;/.test(wander), 'no refused-cell ward');
   // Both drains are gated: a ward that let a slime leech its way to the door
   // makes the doorstep no safer, only slower to lose the bar on.
-  assert.truthy(/if \(c\.kind === 'slime' && !isTame &&[^)]*!homeWard\) \{/.test(wander),
+  // Through `standDown`, which is Home's ward plus the two lair-guard reasons
+  // for the same thing — one read, three reasons (CLAUDE.md).
+  assert.truthy(/const standDown = homeWard \|\| /.test(wander),
+    'standDown is built from homeWard');
+  assert.truthy(/if \(c\.kind === 'slime' && !isTame &&[^)]*!standDown\) \{/.test(wander),
     "the slime's leech is off inside the ring");
-  assert.truthy(/if \(isMonster\(c\.kind\) &&[^)]*!homeWard\) \{/.test(wander),
+  assert.truthy(/if \(isMonster\(c\.kind\) &&[^)]*!standDown\) \{/.test(wander),
     "and so is a monster's melee and its arrow");
 });
 
@@ -267,7 +280,7 @@ test('fire ward: the depth cap is a named number, and the real table agrees with
 
 test('fire ward: wanderCreatures reads the same cap the table is built on', () => {
   assert.truthy(
-    /const fireAverts = c\.kind === 'slime' \|\|\s*\(isMon && \(mon\.minDepth \|\| 1\) <= FIRE_WARD_MAX_DEPTH\);/.test(wander),
+    /const fireAverts = !c\.lair && \(c\.kind === 'slime' \|\|\s*\(isMon && \(mon\.minDepth \|\| 1\) <= FIRE_WARD_MAX_DEPTH\)\);/.test(wander),
     'the surface slime and any monster at or under the depth cap are averted');
   assert.truthy(/if \(fireAverts && this\._nearAny\('fires', tx, ty, 4\)\) continue;/.test(wander),
     "a refused target cell, exactly like the scarecrow ward above it — a fire never triggers a home-style flee");
@@ -275,9 +288,16 @@ test('fire ward: wanderCreatures reads the same cap the table is built on', () =
   // only keeps a warded kind from wandering closer, so a monster already in
   // range when the fire is lit can still land its hit. Weaker than Home on
   // purpose: a campfire is a field expedient, not a doorstep.
-  assert.falsy(/isMonster\(c\.kind\) && !unnoticed && !homeWard && !fireAverts/.test(wander),
+  assert.falsy(/isMonster\(c\.kind\) && !unnoticed && !standDown && !fireAverts/.test(wander),
     "a monster's attack check is untouched by the fire ward");
-  assert.truthy(/isMonster\(c\.kind\) && !unnoticed && !homeWard\) \{/.test(wander),
+  assert.truthy(/isMonster\(c\.kind\) && !unnoticed && !standDown\) \{/.test(wander),
     'and the gate it is absent from is the one that ships');
+  // Nor does it reach a LAIR GUARD — `!c.lair` is the first thing it asks. A
+  // campfire cannot empty a ruin (a goblin garrison is past the depth cap
+  // anyway; this covers the slime ones), and more to the point a guard walking
+  // home past a fire would have all six attempts refused and freeze in the
+  // street — the scarecrow stall, arriving through the ward it warns about.
+  assert.truthy(/const fireAverts = !c\.lair &&/.test(wander),
+    'a garrison is not wandering fauna and the fire ward skips it');
 });
 })();

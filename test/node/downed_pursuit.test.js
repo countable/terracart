@@ -69,9 +69,12 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
     'the Shadow Powder is never read on its own inside the sim loop');
   // The five branches, by the expression each is gated on.
   const gates = [
-    [/c\.kind === 'slime' && !isTame && !unnoticed && !homeWard/, 'the slime leech'],
-    [/isMonster\(c\.kind\) && !unnoticed && !homeWard/, "the monster's hit and arrow"],
-    [/const charging = !isTame && !homeWard && !unnoticed && slimeCharging\(c\)/,
+    // The `!homeWard` half of these three became `!standDown` when the lair
+    // guards learned to give up and walk home: same lane, one more reason
+    // (Home's ward, or a garrison that is not hunting you).
+    [/c\.kind === 'slime' && !isTame && !unnoticed && !standDown/, 'the slime leech'],
+    [/isMonster\(c\.kind\) && !unnoticed && !standDown/, "the monster's hit and arrow"],
+    [/const charging = !isTame && !standDown && !unnoticed && slimeCharging\(c\)/,
      "the struck slime's charge"],
     [/!unnoticed && Math\.random\(\) < 0\.5 && distToPlayer/, "the slime's meander"],
     [/if \(!unnoticed && distToPlayer > 0\.5 \* this\.cellM\)/, "the monsters' stalk"],

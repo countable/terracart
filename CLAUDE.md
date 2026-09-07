@@ -42,9 +42,12 @@
   `git push`, `git stash`, `git checkout`. The parent agent handles every
   git operation. Give the subagent the commit SHA / branch state it needs
   in its prompt instead of asking it to look git up.
-- **Subagents must NOT modify `index.html`.** The script-tag list and
-  cache-bust `?v=NN` is the parent's responsibility. The subagent reports
-  *what* should be added; the parent edits index.html in one place at the end.
+- **Subagents must NOT modify `index.html`.** The script-tag list is the
+  parent's responsibility: the subagent reports *what* should be added, and
+  the parent edits index.html in one place at the end. The cache-bust `?v=`
+  is nobody's to type — it is derived from the file's bytes, and the parent
+  runs `node tools/cachebust.js --write` once after the last edit (see the
+  cache-bust rule below).
 - For multi-file refactors that delete from a shared file (e.g. extracting
   modules from `app.js`), tell each subagent to **CREATE its new module
   only** and **report exact line ranges to delete from the shared file**.
@@ -153,7 +156,12 @@
   ZERO — `PLAYER_RAMP_PAST_CORNER_CELLS` (one cell) beyond the half-diagonal,
   so the corners stay just lit — with the ambient floor past it the same value,
   so there is no edge for a peek to find. **When you cache a layer about the
-  viewport centre and slide it, give it the peek margin.**
+  viewport centre and slide it, give it the peek margin.** Note that NOTHING
+  slides today: `render.js`'s `peekPxOf` has no caller left, and every cached
+  overlay (border, grid, fog, the road and building canvases) rebuilds on
+  `viewAnchorCell` and shifts only by the sub-cell fraction. So this case is
+  advice for the next such layer, not a description of a live one — do not go
+  hunting for the slid layer it describes.
   **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js` drives the
   lifted shipping code: the projection round-trip under a peek, that a tap lands
   in the cell it was drawn over, that reach is unmoved by the camera, that a
@@ -171,11 +179,19 @@
   `window.__RAMPART_DEBUG = true` tints the castle wall pieces apart
   (north blue / south green / sides red) when the stacking needs eyeballing.
 
-- **Interactables must be clearly in one cell.** Other than houses and fauna,
-  every interactable should visually occupy a single tile — its art and
-  collision box must align to the same cell. If it appears to straddle a cell
-  boundary, or if the sprite and hitbox don't obviously belong to the same
-  cell, that is a bug. Fix the offset, anchor, or collision rect before shipping.
+- **Interactables must be clearly in one cell — and the TAP is the CELL, not
+  the art.** There is no pixel hitbox anywhere in this codebase: every tap
+  resolves through `coords.js` › `sameAbsCell` against the object's own data
+  cell, so "collision box" here means nothing more than which cell the object
+  records itself in. That is precisely why the art has to agree with it — a
+  sprite that straddles a boundary is a thing the player must tap a cell away
+  from where it appears to be. The seat rule below is the ENFORCEMENT and
+  carries the real exemption list (buildings — house / tower / shrine /
+  produce stands / pot-of-gold — plus moving actors); this bullet is the WHY,
+  not a second mechanism, and its old "other than houses and fauna" was a
+  narrower list than either the seat rule or `tools/sprite_audit.js` has ever
+  used. If a sprite and its cell disagree, fix the anchor or the seat: there is
+  no rect to adjust.
 
 - **The "one cell" sprite-position rule.** For every world sprite EXCEPT
   buildings (house / tower / shrine / produce stands / pot-of-gold) and moving
@@ -438,6 +454,40 @@
   `fetch(tileUrlFor(...))` anywhere else is the bug coming back.
   **Audit it:** `node test/node/run.js` › `test/node/tile_url.test.js`.
 
+- **A module's `?v=` is DERIVED from its bytes — never typed, never bumped.**
+  `index.html` loads ~43 same-origin scripts at versioned URLs, and the version
+  is the ONLY thing that invalidates them: the URL is what the browser's HTTP
+  cache matches on, so a module whose content changed while its `?v=` stood
+  still keeps serving the OLD file to everyone who already has it — beside a
+  fresh `app.js` that calls into it. That is a crash with no stack in the
+  changed code and no repro on a cold cache.
+  It shipped in Sep 2026 as **`Combat.playerDowned is not a function`**: the
+  commit that added `playerDowned` to `src/combat.js` and its five call sites
+  to `src/app.js` never touched index.html, and the merge that landed it
+  resolved index.html by hand and carried only app.js's bump across, so
+  combat.js stayed at `?v=15`. Bumping `SHELL_VERSION` does not reach it —
+  that drops the service worker's shell cache, but the HTTP cache underneath
+  still matches the byte-identical URL. An audit of every tag at the time found
+  **fourteen more** modules changed since their last bump, each the same latent
+  crash waiting for app.js to call into it.
+  A hand-typed counter cannot be right by construction: it records what somebody
+  remembered rather than what changed, and it collides on every merge — two
+  branches both bumped `app.js` to `v=531` and `SHELL_VERSION` to `shell-v182`
+  for different content, which is a second way to serve a stale file. So the
+  number is derived: **`tools/cachebust.js`** writes each `?v=` as 8 hex of the
+  file's own sha256 and `SHELL_VERSION` as a hash of the resulting list, so it
+  moves when any module does and only then. What ships and what the URL claims
+  are one value read twice — the `roadOverlayWidthM` discipline pointed at the
+  tags. A merge cannot collide two hashes, because the hash follows the MERGED
+  content rather than either side's counter.
+  **`node tools/cachebust.js --write` after the last edit** is the whole
+  workflow; there is no number to choose and `vendor/phaser.js` is covered too.
+  **Audit it:** `node test/node/run.js` › `tools/cachebust.js`'s own CHECKS
+  (node scope, like the sprite and shell audits — the `*.test.js` sandbox has
+  no `require()`). The first names every stale tag and fails the suite so the
+  drift can't ship; the rest pin the derivation under it, since that check is
+  only as good as the hashing it asks.
+
 - **The player's FEET are on the GPS fix.** `playerM` is the projected fix,
   and every world layer (ground cells, the road band, the building polygons)
   is drawn in that one frame with the fix at `viewCenter`. The player sprite
@@ -541,17 +591,64 @@
   **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js` pins
   both gates as source text and shows the ungated rest out-earning the till.
 
-- **A trap is generated, never stored — until it is sprung.** Where the traps
-  are (`src/traps.js`) is a pure function of the tile's coordinates, and its
-  depth underground, through `WorldGen.makeRng` — like the X-mark scatter and
-  the cave rocks. The ONLY thing that ever reaches the save is
-  `save.sprungTraps`: the ids of the ones the player has stepped on, which is
-  what keeps a discovered trap discovered across a reload, a tile eviction and
-  a rebuild. Each spawner seeds its OWN stream rather than drawing from the
-  caller's, because `spawnInTile` and `spawnCaveCreatures` are long chains off
-  one rng and taking numbers out of them would re-roll every world seed
-  downstream. Surface traps go ON THE VERGE, never on the road: roadside-ness
-  is `Traps.isRoadside` over **`entry.roadMask`** and the seat is cleared by
+- **The world is GENERATED; the save is only what you CHANGED.** Every
+  interactable outside the starting area is a pure function of WHERE it is.
+  `WorldGen.makeRng` is a mulberry32 seeded from integers, and the integers are
+  the tile's coordinates (`HASH_MUL_X` / `HASH_MUL_Y`), its depth underground,
+  and a per-stream salt constant — the traps, the X-mark scatter, the cave
+  rocks and flora, the cave monsters and their coins, the chest tiers, the POI
+  loot, the wild plants, the lairs, the rock clusters. There is **no global
+  world seed** and no stored object list, and that buys three things at once: a
+  tile evicted from the cache and rasterized again lays the identical world, a
+  tile REBUILT under the player (see the rebuild rule below) lays it again
+  unchanged, and two players standing on the same real street see the same one.
+  So a new interactable belongs in exactly one of three buckets, and saying
+  which is the whole design decision:
+    1. **GENERATED** — where it is, what tier it is, what it drops. NOTHING
+       reaches the save. This is the default and it should stay the default:
+       storage is what makes a world diverge from itself.
+    2. **THE DELTA** — what the player DID to a generated thing, as a list of
+       exceptions and never a copy of the thing: `caught`, `chopped`, `picked`,
+       `opened`, `sprungTraps`, `disarmedTraps`, `brokenRocks`,
+       `foundTreasures`, `dugWalls`, `tilled`. The generator still lays the
+       thing every time; the list only says "…except that one".
+    3. **PLACED** — things that exist because somebody PUT them there, which no
+       coordinate can re-derive, so they are stored in full with their
+       positions: `planted`, `fruittrees`, `placedRocks`, `scarecrows`, `fires`,
+       `released`, and the starting area the game lays down once
+       (`starterTrailer` / `starterShopId`, `starterCratesAt`, `starterPlotAt`,
+       `starterPondAt`).
+  **Bucket 2 rests entirely on the ID**, so an id must be derived from POSITION
+  — never from a counter, an array index or `Date.now()`. A re-rasterized tile
+  has to mint the identical id or the delta stops applying and the "dead" thing
+  walks back in. The pest crow is the one exception and it proves the rule: its
+  id comes off `Date.now() + Math.random()` and is never minted again, which is
+  why `wanderCreatures` PRUNES its marker when the tile leaves the cache
+  instead of keeping it forever like every other id in `save.caught`.
+  **The SEAT is location-keyed; only the CONTENTS may be salted.** A per-save
+  salt (`save.relicSalt`) is mixed into what the starter chest HOLDS and what
+  the quest board offers, so a reset rerolls the prize — while the seat stream
+  stays purely positional, so the chest sits where it always sat and a rebuild
+  mid-save reproduces both. Salt the roll, never the position.
+  **And each spawner seeds its OWN stream** rather than drawing from the
+  caller's: `spawnInTile` and `spawnCaveCreatures` are long chains off one rng
+  (fauna, then treasure, then the path bonus…), so taking numbers out of one
+  would re-roll every world seed downstream of it. A separate stream costs
+  nothing and leaves every existing world exactly as it was.
+  **Audit it:** the determinism pins — `test/node/traps.test.js` ('a cave level
+  is deterministic per (tile, depth)', 'same ids, in the same order — a rebuilt
+  or re-rasterized tile is identical'), `test/node/cave_coins.test.js` ('the
+  pass is deterministic per tile and depth') and `test/node/beach_treasure.test.js`
+  ('same tile, same seed, same marks').
+
+  **A trap is the sharpest instance: generated, never stored — until it is
+  sprung.** Where the traps are (`src/traps.js`) is that pure function of tile
+  coordinates and depth; the only things that ever reach the save are
+  `save.sprungTraps` (the ids of the ones stepped on, which keeps a discovered
+  trap discovered across a reload, an eviction and a rebuild) and
+  `save.disarmedTraps` (spent with a Trap Disarm Kit — a removed trap stays
+  removed). Surface traps go ON THE VERGE, never on the road: roadside-ness is
+  `Traps.isRoadside` over **`entry.roadMask`** and the seat is cleared by
   `WorldGen.isSpawnCell` with the tile's own `_spawnOpts` — the road rule
   above, not a copy of it. Cave traps sit around the up-staircases (the
   monsters' and coins' anchors) and never under an object sprite, since down
@@ -648,9 +745,10 @@
   with a per-id phase: that IS the old halo ping (the ring layer, its pool
   and its texture are gone), so a place reads from across the map by its own
   light in the dark, never by a ring drawn back under the pad — and a STREET
-  LAMP on every 200 m of restored street (the `cobble` row, back as one lamp
-  per ladder rung's walk rather than one per lit pebble; see the street rule
-  below). **When you add a light source, add a row and return its kind from
+  LAMP every `Streets.lampSpacingM()` metres of restored street (the `cobble`
+  row; that is the STREET's own constant, 100 m, deliberately NOT the prize
+  ladder's 200 m rung — see the street rule below, and never retype the
+  number here). **When you add a light source, add a row and return its kind from
   `Lighting.sourceKind`** — or, for a light that is a POINT rather than a
   scanned object (a placed fire, a lamp), a collector of its own called from
   `draw()` beside `collectFires` / `collectLamps`;

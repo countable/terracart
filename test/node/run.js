@@ -1432,6 +1432,16 @@ for (const f of testFiles) {
   for (const c of shell.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
+// ── Cache-bust audit (tools/cachebust.js) ─────────────────────────────────
+// Every module's ?v= is a hash of that module's bytes, so a changed file
+// cannot keep its old URL and go on being served from the HTTP cache beside a
+// fresh app.js that calls into it ("Combat.playerDowned is not a function").
+// Node scope for fs + crypto, like the audits above.
+{
+  const cachebust = require('../../tools/cachebust.js');
+  for (const c of cachebust.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
 // ── Vertical-layout audit (tools/layout_audit.js) ─────────────────────────
 // Lifts fitGame's budget out of index.html and checks it against real device
 // sizes: the map clears both chrome stacks, the stick never covers the

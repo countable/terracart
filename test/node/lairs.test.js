@@ -307,6 +307,222 @@
   }
   const guardsOf = (entry) => entry.creatures.filter((c) => c.lair);
 
+  // Does a structure of `tier` centred here actually ROLL HELD? Occupancy is
+  // the first draw of the structure's own stream (garrisonFor), so a fixture
+  // that just plants a wreck gets an empty ruin two times in three. This runs
+  // the REAL roll — same key, same hash, same rng, same rate — so a fixture
+  // built on it cannot drift from the shipping decision.
+  const heldAt = (tier, cxM, cyM, thin) => {
+    const sid = Lairs.structureKey(Math.floor(cxM / CELL_M), Math.floor(cyM / CELL_M));
+    return WorldGen.makeRng(Lairs.hashKey(sid))() < Lairs.occupancyFor(tier, thin);
+  };
+  // …and a shape of `tier` as near (cxM, cyM) as a HELD one gets: the centre is
+  // walked a cell at a time until the roll says held. Tests about seating,
+  // residency and the chase should not also be tests of a 1-in-3 coin.
+  function mkHeldShape(tier, cxM, cyM, sizeM, key) {
+    for (let i = 0; i < 60; i++) {
+      const dx = ((i % 2) ? -1 : 1) * Math.ceil(i / 2) * CELL_M;
+      if (heldAt(tier, cxM + dx, cyM)) return mkShape(tier, cxM + dx, cyM, sizeM, key);
+    }
+    throw new Error(`no held seat for tier ${tier} near ${cxM},${cyM}`);
+  }
+
+  // ── Is it held at all ────────────────────────────────────────────────────
+
+  test('lairs: the odds a ruin is held are the tier\'s — castle, fort, wreck', () => {
+    // The numbers the design states, read off the table the roll uses.
+    assert.eq(Lairs.OCCUPANCY[12].rate, 0.95, 'a castle is nearly always held');
+    assert.eq(Lairs.OCCUPANCY[11].rate, 2 / 3, 'a fort usually is');
+    assert.eq(Lairs.OCCUPANCY[9].rate, 1 / 3, 'a wrecked house a third of the time');
+    // Strictly ordered, and the wreck is the only one the tile budget may thin
+    // — a castle in a city must not quietly become a 5% chance.
+    assert.gt(Lairs.OCCUPANCY[12].rate, Lairs.OCCUPANCY[11].rate, 'castle over fort');
+    assert.gt(Lairs.OCCUPANCY[11].rate, Lairs.OCCUPANCY[9].rate, 'fort over wreck');
+    assert.truthy(Lairs.OCCUPANCY[9].thinned, 'the commons are what the budget thins');
+    assert.falsy(Lairs.OCCUPANCY[11].thinned, 'a fort keeps its rate');
+    assert.falsy(Lairs.OCCUPANCY[12].thinned, 'and so does a castle');
+    // Every tier that holds a garrison has odds, and nothing else does.
+    assert.eq(Object.keys(Lairs.OCCUPANCY).sort().join(),
+              Object.keys(Lairs.TIER_GUARDS).sort().join(),
+              'OCCUPANCY and TIER_GUARDS name different tiers');
+    assert.eq(Lairs.occupancyFor(7, 1), 0, 'a tier that holds no lair is never held');
+  });
+
+  test('lairs: over many ruins the rate really is the tier\'s rate', () => {
+    // The roll drives the shipping garrisonFor, not a reimplementation of it:
+    // plant the same wreck at 600 different places and count how many hold.
+    const far = { x: -Lairs.LAIR_FAR_M, y: 0 };
+    const rateOf = (tier) => {
+      let held = 0, n = 0;
+      for (let i = 0; i < 600; i++) {
+        const cx = (3 + (i % 30)) * CELL_M, cy = (3 + Math.floor(i / 30)) * CELL_M;
+        const entry = mkEntry([mkShape(tier, cx, cy, CELL_M)]);
+        const idx = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
+        const [cand] = [...idx.buckets.values()][0];
+        cand.sid = Lairs.structureKey(cand.acx, cand.acy);
+        n++;
+        if (Lairs.garrisonFor(entry, cand, {
+          cellM: CELL_M, tileEdgeM: TILE_M, homeM: far, caughtSet: new Set(),
+        }).length) held++;
+      }
+      return held / n;
+    };
+    // Generous bands — this is a coin, not a constant. What it is defending is
+    // that the rates are DIFFERENT and in the right order, not their decimals.
+    const wreck = rateOf(9), fort = rateOf(11), castle = rateOf(12);
+    assert.truthy(Math.abs(wreck - 1 / 3) < 0.08, `a wreck held ${wreck.toFixed(2)}, not ~1/3`);
+    assert.truthy(Math.abs(fort - 2 / 3) < 0.08, `a fort held ${fort.toFixed(2)}, not ~2/3`);
+    assert.gt(castle, 0.88, `a castle held only ${castle.toFixed(2)}`);
+  });
+
+  test('lairs: an empty ruin STAYS empty — the roll is the structure\'s own', () => {
+    // The traps.js contract applied to the occupancy roll: a ruin that woke
+    // empty must be empty on every later wake, every rebuild and every reload,
+    // or a player who looked away would find it garrisoned when they looked
+    // back. It is the first draw of the structure's own seeded stream, so
+    // nothing outside the building can move it.
+    let empty = null;
+    for (let i = 0; i < 60 && !empty; i++) {
+      const cx = (5 + i) * CELL_M;
+      if (!heldAt(9, cx, 20 * CELL_M)) empty = cx;
+    }
+    assert.truthy(empty != null, 'no empty wreck in 60 tries — the roll is not rolling');
+    const shape = mkShape(9, empty, 20 * CELL_M, CELL_M);
+    const at = { x: empty, y: 20 * CELL_M };
+    for (let pass = 0; pass < 3; pass++) {
+      const entry = mkEntry([shape]);          // a fresh entry each time = a rebuild
+      step(entry, at);
+      step(entry, at);
+      assert.eq(guardsOf(entry).length, 0, `pass ${pass}: the empty ruin filled up`);
+    }
+  });
+
+  test('lairs: the same building holds the same garrison in EVERY playthrough', () => {
+    // THERE IS NO WORLD SEED. A lair is seeded from hashKey(structureKey) and
+    // structureKey is the footprint's centre in ABSOLUTE cell coordinates — a
+    // fact about a real building on a real map. Nothing about the save, the
+    // session, the device or the order the tiles loaded reaches the stream, so
+    // two players standing at the same ruin meet the same monsters, and one
+    // player meets them again on a new save.
+    assert.falsy(/save|Date|now\(|Math\.random/.test(Lairs.structureKey.toString()),
+      'structureKey reached for something that is not the building');
+    assert.falsy(/save|Date|now\(|Math\.random/.test(Lairs.hashKey.toString()),
+      'hashKey reached for something that is not the key');
+    // makeRng is a pure function of one integer — the same seed, the same
+    // stream, forever.
+    const a = WorldGen.makeRng(12345), b = WorldGen.makeRng(12345);
+    for (let i = 0; i < 20; i++) assert.eq(a(), b(), 'makeRng is not deterministic');
+    // And end to end: build the SAME ruin from two unrelated tile entries, in
+    // opposite orders, with different neighbours, and read back the same
+    // guards — kinds, ids and seats.
+    const far = { x: -Lairs.LAIR_FAR_M, y: 0 };
+    const target = mkHeldShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'target');
+    const decoys = [
+      mkShape(9, 6 * CELL_M, 6 * CELL_M, CELL_M),
+      mkShape(11, 30 * CELL_M, 12 * CELL_M, 2 * CELL_M),
+    ];
+    const guardsFrom = (shapes) => {
+      const entry = mkEntry(shapes);
+      const idx = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
+      for (const bucket of idx.buckets.values()) {
+        for (const cand of bucket) {
+          cand.sid = Lairs.structureKey(cand.acx, cand.acy);
+          if (cand.key !== 'target') continue;
+          return Lairs.garrisonFor(entry, cand, {
+            cellM: CELL_M, tileEdgeM: TILE_M, homeM: far, caughtSet: new Set(),
+          }).map((g) => `${g.id}:${g.kind}:${g.seatX.toFixed(3)},${g.seatY.toFixed(3)}`);
+        }
+      }
+      return null;
+    };
+    const first = guardsFrom([target, ...decoys]);
+    const second = guardsFrom([...decoys.slice().reverse(), target]);
+    assert.truthy(first && first.length, 'the target castle woke empty');
+    assert.eq(first.join('|'), second.join('|'),
+      'the same ruin handed back a different garrison on a differently-built tile');
+  });
+
+  // ── The per-tile budget ──────────────────────────────────────────────────
+
+  test('lairs: a village is not thinned; a city is, and only its wrecks', () => {
+    const wrecks = (n) => {
+      const shapes = [];
+      for (let i = 0; i < n; i++) shapes.push(mkShape(9, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
+      return mkEntry(shapes);
+    };
+    // A village: 100 wrecks, ~33 expected held — inside the budget, untouched.
+    const village = wrecks(100);
+    assert.eq(Lairs.tileThin(village).common, 1, 'a village should not be thinned');
+    assert.eq(Lairs.occupancyFor(9, Lairs.tileThin(village)), 1 / 3,
+      'and one house in three really is held there');
+    // A city: 3000 wrecks, ~1000 expected — thinned back to the ceiling.
+    const city = wrecks(3000);
+    const thin = Lairs.tileThin(city);
+    assert.lt(thin.common, 0.1, 'a city tile is barely thinned at all');
+    assert.truthy(Math.abs(3000 * Lairs.occupancyFor(9, thin) - Lairs.LAIR_MAX_PER_TILE) < 1e-6,
+      'the thinned rate does not land on the ceiling');
+    assert.eq(Lairs.LAIR_MAX_PER_TILE, 50, 'the ceiling is the figure the design named');
+    // THE LANDMARKS ARE NOT THINNED. This is the whole reason the budget is
+    // spent on the rare tiers first: scaling everything equally would make a
+    // castle in a city a 5% chance, which is the opposite of what it promises.
+    assert.eq(Lairs.occupancyFor(12, thin), Lairs.OCCUPANCY[12].rate, 'a castle in a city');
+    assert.eq(Lairs.occupancyFor(11, thin), Lairs.OCCUPANCY[11].rate, 'a fort in a city');
+    // Memoised on the entry — it is a fact about the tile, asked once per
+    // structure that ever wakes.
+    assert.eq(city._lairThin, thin, 'the factor is cached on the entry');
+  });
+
+  test('lairs: the budget is spent on the landmarks FIRST', () => {
+    // 40 castles (38 expected) leave 12 of the 50 for 200 wrecks (67 expected).
+    // The castles are paid in full and the wrecks take what is left — never
+    // the other way round, and never both scaled equally, which is what would
+    // quietly turn a castle into a coin flip on a busy tile.
+    const shapes = [];
+    for (let i = 0; i < 40; i++) shapes.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
+    for (let i = 0; i < 200; i++) shapes.push(mkShape(9, (i % 30) * CELL_M, (10 + Math.floor(i / 30)) * CELL_M, CELL_M));
+    const entry = mkEntry(shapes);
+    const thin = Lairs.tileThin(entry);
+    assert.eq(thin.landmark, 1, 'the castles were scaled while there was still room');
+    assert.eq(Lairs.occupancyFor(12, thin), Lairs.OCCUPANCY[12].rate, 'every castle keeps its odds');
+    assert.lt(Lairs.occupancyFor(9, thin), Lairs.OCCUPANCY[9].rate, 'and the wrecks paid for it');
+    assert.gt(Lairs.occupancyFor(9, thin), 0, 'but were not zeroed while there was room');
+    assert.truthy(Math.abs(Lairs.tileHeldExpected(entry) - Lairs.LAIR_MAX_PER_TILE) < 1e-9,
+      'and between them they land exactly on the ceiling');
+  });
+
+  test('lairs: the ceiling WINS — no composition of buildings can beat it', () => {
+    // The cap is a hard ceiling, not a target: the tier odds decide who gets
+    // the room, never whether the room can be exceeded. Swept over random
+    // compositions rather than the two cases the author thought of.
+    const rng = WorldGen.makeRng(20260907);
+    for (let trial = 0; trial < 200; trial++) {
+      const shapes = [];
+      const n = 1 + Math.floor(rng() * 400);
+      for (let i = 0; i < n; i++) {
+        const tier = Lairs.TIERS[Math.floor(rng() * Lairs.TIERS.length)];
+        shapes.push(mkShape(tier, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
+      }
+      const entry = mkEntry(shapes);
+      const held = Lairs.tileHeldExpected(entry);
+      assert.lte(held, Lairs.LAIR_MAX_PER_TILE + 1e-9,
+        `trial ${trial}: ${n} buildings expected ${held.toFixed(1)} held`);
+    }
+    // Including the pathological one: a tile of nothing but castles is over
+    // budget on its landmarks alone, and they are scaled back onto the ceiling
+    // rather than allowed through it.
+    const castles = [];
+    for (let i = 0; i < 400; i++) castles.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
+    const heavy = mkEntry(castles);
+    assert.lt(Lairs.tileThin(heavy).landmark, 1, 'the landmarks were let through the ceiling');
+    assert.truthy(Math.abs(Lairs.tileHeldExpected(heavy) - Lairs.LAIR_MAX_PER_TILE) < 1e-9,
+      'and they do not land ON it either');
+    // A tile inside its budget scales nothing at all.
+    const few = mkEntry([mkShape(12, 0, 0, CELL_M), mkShape(9, 3 * CELL_M, 0, CELL_M)]);
+    assert.eq(Lairs.tileThin(few).common, 1, 'a two-building tile is not thinned');
+    assert.eq(Lairs.tileThin(few).landmark, 1, 'in either direction');
+  });
+
+
   // ── The families, end to end ─────────────────────────────────────────────
 
   test('lairs: a real wreck wakes slimes and a real fort or castle wakes goblins', () => {
@@ -316,7 +532,8 @@
     // from the wrong one would still look right in every unit test above.
     const want = { 9: /slime$/, 11: /^goblin/, 12: /^goblin/ };
     for (const tier of Lairs.TIERS) {
-      const entry = mkEntry([mkShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
+      // A HELD one — a wreck is a 1-in-3 and this test is about families.
+      const entry = mkEntry([mkHeldShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
       step(entry, CENTRE);
       const guards = guardsOf(entry);
       assert.gt(guards.length, 0, `tier ${tier}: the ruin woke empty`);
@@ -600,6 +817,121 @@
     assert.eq(back._hp, 3, 'walking out of range and back healed the garrison');
   });
 
+  // ── The chase ────────────────────────────────────────────────────────────
+
+  const guardAt = (x, y, over = {}) => Object.assign({
+    lair: 'L', lairX: 0, lairY: 0, lairR: 0, seatX: 0, seatY: 0, x, y, _hunting: false,
+  }, over);
+  const AGGRO_M = Lairs.LAIR_AGGRO_CELLS * CELL_M;
+  const LEASH_M = Lairs.LAIR_LEASH_CELLS * CELL_M;
+
+  test('chase: a garrison holds until the player is near its ruin, then hunts', () => {
+    const g = guardAt(0, 0);
+    assert.eq(Lairs.guardState(g, { x: LEASH_M * 2, y: 0 }, CELL_M), 'hold',
+      'a ruin nobody is near holds');
+    assert.eq(Lairs.guardState(g, { x: AGGRO_M + 1, y: 0 }, CELL_M), 'hold',
+      'a step outside the aggro ring is still unnoticed');
+    assert.eq(Lairs.guardState(g, { x: AGGRO_M - 1, y: 0 }, CELL_M), 'hunt',
+      'inside it, the ruin notices');
+    // A creature that is not a guard has no state here at all.
+    assert.eq(Lairs.guardState({ kind: 'slime', x: 0, y: 0 }, { x: 0, y: 0 }, CELL_M), null,
+      'a wild slime is not a garrison');
+  });
+
+  test('chase: the rings are measured from the RUIN, and offset by its size', () => {
+    // A castle footprint is tens of metres across; a ring measured from the
+    // centre would have the player on the battlements before anyone looked up.
+    const big = guardAt(0, 0, { lairR: 10 * CELL_M });
+    assert.eq(Lairs.guardState(big, { x: 10 * CELL_M + AGGRO_M - 1, y: 0 }, CELL_M), 'hunt',
+      'the aggro ring stands clear of the footprint, not of its centre');
+    assert.eq(Lairs.guardState(big, { x: 10 * CELL_M + AGGRO_M + 1, y: 0 }, CELL_M), 'hold',
+      'and still ends');
+    // THE GARRISON MOVES AS ONE: every guard of a lair asks the same distance
+    // question, so they notice and give up together rather than trickling.
+    const near = guardAt(0, 0), far = guardAt(5 * CELL_M, 5 * CELL_M);
+    const p = { x: AGGRO_M - 1, y: 0 };
+    assert.eq(Lairs.guardState(near, p, CELL_M), Lairs.guardState(far, p, CELL_M),
+      'two guards of one ruin disagreed about whether it had noticed');
+  });
+
+  test('chase: it holds past the aggro ring and breaks at the LEASH — hysteresis', () => {
+    // Once hunting, a guard keeps hunting out to the leash; a guard that never
+    // noticed keeps holding in the same band. One ring would have a garrison
+    // flickering while the player walked the boundary.
+    const mid = (AGGRO_M + LEASH_M) / 2;
+    assert.eq(Lairs.guardState(guardAt(0, 0, { _hunting: true }), { x: mid, y: 0 }, CELL_M), 'hunt',
+      'a chase in progress carries past the aggro ring');
+    assert.eq(Lairs.guardState(guardAt(0, 0, { _hunting: false }), { x: mid, y: 0 }, CELL_M), 'hold',
+      'but the same band does not START one');
+    assert.gt(Lairs.LAIR_LEASH_CELLS, Lairs.LAIR_AGGRO_CELLS, 'there has to BE a band');
+    // Past the leash it gives up: home if it has wandered, hold if it is there.
+    const away = { x: LEASH_M + 1, y: 0 };
+    assert.eq(Lairs.guardState(guardAt(4 * CELL_M, 0, { _hunting: true }), away, CELL_M), 'return',
+      'off its seat and given up — it walks back');
+    assert.eq(Lairs.guardState(guardAt(0, 0, { _hunting: true }), away, CELL_M), 'hold',
+      'already home — it just holds');
+    // The arrival test is a fraction of a cell, not an exact match: a guard
+    // that had to land on its seat to the metre would orbit it forever.
+    const eps = Lairs.LAIR_SEAT_EPS_CELLS * CELL_M;
+    assert.eq(Lairs.guardState(guardAt(eps * 0.5, 0, { _hunting: true }), away, CELL_M), 'hold',
+      'close enough is home');
+    assert.eq(Lairs.guardState(guardAt(eps * 2, 0, { _hunting: true }), away, CELL_M), 'return',
+      'and not-close-enough is not');
+  });
+
+  test('chase: a player nobody can notice is not chased — the garrison goes home', () => {
+    // Shadow Powder, or a bar run to zero (app.js `unnoticed`). The chase is
+    // switched off exactly where the bite is, and a garrison that has lost the
+    // player walks home rather than milling about where they vanished.
+    const onTop = { x: 0, y: 0 };
+    assert.eq(Lairs.guardState(guardAt(0, 0), onTop, CELL_M, true), 'hunt', 'noticed: hunted');
+    assert.eq(Lairs.guardState(guardAt(0, 0), onTop, CELL_M, false), 'hold',
+      'unnoticed, and already home');
+    assert.eq(Lairs.guardState(guardAt(4 * CELL_M, 0, { _hunting: true }), onTop, CELL_M, false),
+      'return', 'unnoticed mid-chase: it walks back, standing still is not an option');
+  });
+
+  test('chase: the sleep ring is DERIVED from the leash, and still clears the cull', () => {
+    // A guard is slept on its RUIN'S distance from the player, but by then it
+    // may be a whole leash away from that ruin on the way home — so the gap
+    // has to cover that, or a pursuer blinks out in plain sight.
+    assert.eq(Lairs.LAIR_SLEEP_CELLS, Lairs.LAIR_WAKE_CELLS + Lairs.LAIR_LEASH_CELLS,
+      'the sleep ring is not derived from the leash any more');
+    const cullCorner = (VIEW_CELLS / 2 + 1) * Math.SQRT2;
+    assert.gt(Lairs.LAIR_SLEEP_CELLS - Lairs.LAIR_LEASH_CELLS, cullCorner,
+      'a guard on its way home can be slept while still on screen');
+    assert.truthy(Lairs.assertRingsClear(CREATURE_SIM_CELLS, cullCorner, Combat.SHOT.bow.rangeCells),
+      'the module disagrees that its own rings are clear');
+    // The leash is short enough that the whole chase happens inside the ring
+    // the guards were woken in — nothing is ever pursued out of residency.
+    assert.lt(Lairs.LAIR_LEASH_CELLS, Lairs.LAIR_WAKE_CELLS,
+      'a guard could chase past the ring that woke it');
+  });
+
+  test('chase: a hunting garrison really does leave its seat, and comes back', () => {
+    // End to end on the shipping wake: the guards a real ruin seats carry the
+    // three facts the state machine needs, and the machine answers with them.
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M);
+    const entry = mkEntry([shape]);
+    step(entry, CENTRE);
+    const gs = guardsOf(entry);
+    assert.gt(gs.length, 0, 'the castle woke empty');
+    for (const g of gs) {
+      assert.truthy(Number.isFinite(g.seatX) && Number.isFinite(g.seatY), 'a guard with no seat to return to');
+      assert.eq(g.seatX, g.x, 'a guard starts on its seat');
+      assert.eq(g.seatY, g.y, 'a guard starts on its seat');
+      assert.gt(g.lairR, 0, 'a guard with no ruin radius to measure the rings from');
+      assert.truthy(g.immobile, 'a guard still declares itself a non-wanderer');
+      // Standing on the ruin: hunting. A tile away: home.
+      assert.eq(Lairs.guardState(g, { x: g.lairX, y: g.lairY }, CELL_M), 'hunt',
+        'the garrison did not notice a player standing on it');
+      g._hunting = true;
+      g.x = g.seatX + 3 * CELL_M;       // dragged off its seat by the chase
+      assert.eq(Lairs.guardState(g, { x: g.lairX + 40 * CELL_M, y: g.lairY }, CELL_M), 'return',
+        'the garrison did not give up on a player who got clear');
+    }
+  });
+
   // ── The index ────────────────────────────────────────────────────────────
 
   test('lairs: the index holds structures, not creatures, and buckets them', () => {
@@ -693,10 +1025,10 @@
       'the tile build is seating garrisons again — that is the population bug');
   });
 
-  test('lairs: immobile cancels the STEP only — the guard still bites', () => {
+  test('lairs: at rest a guard cancels the STEP only — it still bites', () => {
     // Order is the whole test. The line has to sit BELOW the slime leech and
     // the monster attack (or a garrison is harmless furniture) and ABOVE every
-    // movement branch (or it does not hold its ruin).
+    // movement branch (or a HOLDING garrison does not hold its ruin).
     const w = APP.slice(APP.indexOf('  wanderCreatures() {'));
     const body = w.slice(0, w.indexOf('\n  }\n'));
     const at = (needle, what) => {
@@ -704,15 +1036,50 @@
       assert.gte(i, 0, `could not find ${what} in wanderCreatures — update this test`);
       return i;
     };
-    const leech = at("if (c.kind === 'slime' && !isTame && !unnoticed && !homeWard) {", 'the slime leech');
-    const attack = at('if (isMonster(c.kind) && !unnoticed && !homeWard) {', 'the monster attack');
-    const immobile = at('if (c.immobile) return;', 'the immobile branch');
+    const leech = at("if (c.kind === 'slime' && !isTame && !unnoticed && !standDown) {", 'the slime leech');
+    const attack = at('if (isMonster(c.kind) && !unnoticed && !standDown) {', 'the monster attack');
+    const immobile = at("if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;",
+      'the at-rest branch');
     const crow = at("if (c.kind === 'crow' && !isTame) {", 'the wild-crow flight');
     const stepAt = at('if (now >= c._nextChooseT) {', 'the movement step');
-    assert.gt(immobile, leech, 'immobile above the leech — a guard that cannot drain you');
-    assert.gt(immobile, attack, 'immobile above the monster attack — a guard that cannot hit you');
-    assert.lt(immobile, crow, 'immobile below the crow tick — a guard that flies');
-    assert.lt(immobile, stepAt, 'immobile below the movement step — a garrison that wanders off');
+    assert.gt(immobile, leech, 'at-rest above the leech — a guard that cannot drain you');
+    assert.gt(immobile, attack, 'at-rest above the monster attack — a guard that cannot hit you');
+    assert.lt(immobile, crow, 'at-rest below the crow tick — a guard that flies');
+    assert.lt(immobile, stepAt, 'at-rest below the movement step — a garrison that wanders off');
+    // And the state that decides it is resolved ABOVE the attack blocks, since
+    // `standDown` — the one read those blocks ask — is built from it.
+    const state = at("const lairState = c.lair ? Lairs.guardState(", 'the guard state');
+    assert.lt(state, leech, 'the state is resolved before anything reads standDown');
+    assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed\)/.test(body),
+      'measured from the FEET, and told whether the player is worth noticing at all');
+    assert.truthy(/c\._hunting = lairState === 'hunt';/.test(body),
+      'the hysteresis is stored back on the creature');
+  });
+
+  test('lairs: hunting and walking home are branches of the ONE movement chain', () => {
+    // Not a mover of their own: a chase and a walk back are ordinary steps, so
+    // they are two more `else if`s in the angle chain every creature shares —
+    // which is what keeps them subject to the blocked-cell, placed-rock and
+    // water rules the rest of the fauna obeys.
+    const w = APP.slice(APP.indexOf('  wanderCreatures() {'));
+    const body = w.slice(0, w.indexOf('\n  }\n'));
+    const hunt = body.indexOf("} else if (lairState === 'hunt') {");
+    const home = body.indexOf("} else if (lairState === 'return') {");
+    const ward = body.indexOf('} else if (homeWard) {');
+    const slime = body.indexOf("} else if (c.kind === 'slime') {");
+    assert.gt(hunt, ward, "Home's ward outranks a garrison's chase");
+    assert.gt(home, hunt, 'the chase is asked before the walk home');
+    assert.lt(home, slime, 'and both are asked before the kinds\' own idle logic');
+    // The walk home aims at the SEAT and lands on it — an away-from-player
+    // angle would scatter the garrison, and a full stride would overshoot and
+    // orbit forever.
+    const branch = body.slice(home, slime);
+    assert.truthy(/Math\.atan2\(c\.seatY - c\.y, c\.seatX - c\.x\)/.test(branch), 'toward its own seat');
+    assert.falsy(/dxp|dyp/.test(branch), 'not away from the player');
+    assert.truthy(/stepLen = Math\.min\(stepM, Math\.hypot\(c\.seatX - c\.x, c\.seatY - c\.y\)\);/.test(branch),
+      'the last step lands exactly on the seat');
+    assert.truthy(/tx = c\.x \+ Math\.cos\(angle\) \* stepLen;/.test(body),
+      'and the step the chain takes is that one');
   });
 
 })();
