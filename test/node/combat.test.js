@@ -226,16 +226,24 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   const gate = /const charging = ([^;]+);/.exec(app)?.[1] || '';
   // `unnoticed` is the pair of wards that make the player not THERE to be
   // charged at: a Shadow Powder, or a bar run to zero (downed_pursuit.test.js).
-  for (const ward of ['!isTame', '!homeWard', '!unnoticed']) {
+  // `standDown` is the one read for "this foe is not attacking you right now"
+  // — Home's ward, and a lair guard that has not noticed you or has given up
+  // and is walking home. The charge asks it rather than carrying a condition
+  // per reason (CLAUDE.md: a new rule is a new REASON, not a new lane).
+  for (const ward of ['!isTame', '!standDown', '!unnoticed']) {
     assert.truthy(gate.includes(ward), `the charge is off when ${ward}`);
   }
+  assert.truthy(/const standDown = homeWard \|\| \(!!lairState && lairState !== 'hunt'\);/.test(app),
+    'and standDown is still built from Home\'s ward plus the lair state');
   // Home's ward is checked EARLIER in the same chain, so a warded slime is
   // walking out whether or not it has been hit.
   assert.lt(app.indexOf('} else if (homeWard) {'),
     app.indexOf("} else if (c.kind === 'slime') {"),
     'the ward branch outranks the charge branch');
-  // The campfire's ward needs no clause: it refuses the target CELL.
-  assert.truthy(/const fireAverts = c\.kind === 'slime'/.test(app),
+  // The campfire's ward needs no clause here: it refuses the target CELL.
+  // (It skips a lair guard — a garrison is a place, not wandering fauna; see
+  // home_ward.test.js — so what it refuses is a WILD slime's cell.)
+  assert.truthy(/const fireAverts = !c\.lair && \(c\.kind === 'slime'/.test(app),
     'a lit campfire still refuses every cell inside its ring');
 
   // A pet's bite provokes the same charge instead of pushing it away.
