@@ -108,6 +108,25 @@ test('starter home: an untameable shiny tree is not counted as provision', () =>
   assert.eq(p.need.tree, SH_HA.QUOTA.tree, 'and it buys the player nothing');
 });
 
+test('starter home: a fruit tree is neither a tree to chop nor one to tame', () => {
+  // A fruit tree is never chopped — its only interaction is the pick, which
+  // hands out the item named by `species`. Taming it used to stamp 'pine' on
+  // it (not an item), so picking an apple tree near spawn flashed "harvested
+  // pine" and gave nothing. It must be scenery to this audit, whatever it is.
+  const wild = shAt(12, { kind: 'fruittree', species: 'apple', wild: true, id: 'ft_w' });
+  const sapling = shAt(12, { kind: 'fruittree', species: 'peach', planted: true, id: 'ft_p' });
+  for (const ft of [wild, sapling]) {
+    assert.falsy(SH_HA.isStarterTree(ft), `${ft.id} is not a starter tree`);
+    assert.falsy(SH_HA.canBeStarterUsable(ft), `${ft.id} cannot be tamed`);
+    assert.falsy(SH_HA.makeStarterUsable(ft), `${ft.id}: taming is a no-op`);
+  }
+  assert.eq(wild.species, 'apple', 'the apple tree is still an apple tree');
+  assert.eq(sapling.species, 'peach', 'the peach sapling is still a peach');
+  const p = shPlan([wild, sapling]);
+  assert.eq(p.downgrade.length, 0, 'neither is queued for a downgrade');
+  assert.eq(p.need.tree, SH_HA.QUOTA.tree, 'and neither counts toward the tree quota');
+});
+
 // ── The audit ─────────────────────────────────────────────────────────────
 
 test('starter home: a bare spawn owes the player the whole quota', () => {
