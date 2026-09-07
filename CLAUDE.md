@@ -826,6 +826,20 @@
   collected from the CAMERA ANCHOR and memoised on the anchor cell +
   `Streets.epoch` — never from the feet, which is the restoring sweep's side of
   the camera rule, not the drawing side.
+  **NEITHER MEMO MAY BE STAMPED ON A TILE THAT IS STILL LOADING** — the
+  `_neighborZoneCache` rule ("don't memoise a 'no neighbour found'"), and the
+  reason no lamp lit at all between Sep 2026 and the fix. A tile's entry is in
+  `WorldGen.tileCache` from the moment its FETCH starts, with no `layers` until
+  the build lands seconds later, and `_updateStreetLamps` runs on every frame —
+  so it always meets tiles in that state. `_streetLampsForTile` wrote its empty
+  answer onto the entry, and the entry IS the cache: every tile in the world
+  was measured for lamps while it was still loading and answered "none here"
+  for the rest of the session. The per-tile list is now returned uncached
+  until the tile has data, and `_updateStreetLamps` leaves its own key unset
+  while any tile of the ring is unready — otherwise a reload would hold every
+  lamp already in the save dark until the player happened to step onto another
+  cell. **When you cache an answer read off a tile entry, ask what it says
+  while that tile is still loading.**
   **The restored patch is SOFT, and its edge only.** The rebuilt band is laid
   crisp — clean setts, a hairline kerb — and then FEATHERED as the last step of
   `commitRestored`, through `softenEdge`: a blurred mask of the same strokes

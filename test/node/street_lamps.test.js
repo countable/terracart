@@ -144,4 +144,160 @@ test('street lamps: nothing here reaches the save — generated, never stored, l
   assert.falsy(/save\.streetLamps/.test(app), 'no save.streetLamps field exists');
   assert.falsy(/save\._streetLamps/.test(app), 'and the live lists are never written onto save at all');
 });
+
+// ── The passes themselves, RUN ────────────────────────────────────────────
+// The two placement passes are lifted by run.js and driven here over a real
+// tile entry: a synthetic 180 m street across the middle of one tile, the
+// real Streets algebra, the real coords projection.
+//
+// This is the half the source-text pins above could not see. Until Sep 2026
+// _streetLampsForTile wrote its empty answer onto a tile entry that had no
+// `layers` yet — and a tile's entry is in WorldGen.tileCache from the moment
+// its FETCH starts, while this pass runs every frame — so every tile in the
+// world was measured for lamps while it was still loading and cached as
+// "no lamps here" for the rest of the session. Nothing ever lit.
+{
+const P = __streetLampPasses;
+
+const TX = 8000, TY = 8000;                 // far from any other test's tiles
+const CELLS = 51, CELL_M_T = 7;
+const TILE_EDGE_M = CELLS * CELL_M_T;       // 357 m
+const EXTENT = 4096;
+const MVT_TO_M = TILE_EDGE_M / EXTENT;
+const toMvt = (m) => m / MVT_TO_M;
+// A straight 180 m street across the middle of the tile: two lamps, at 45 m
+// and 135 m along it (lampsAlong spreads round(180/100) = 2 evenly).
+const mkFeature = () => ({
+  id: 4242, type: 2, tags: { class: 'residential' },
+  geom: [[{ x: toMvt(100), y: toMvt(178) }, { x: toMvt(280), y: toMvt(178) }]],
+});
+const mkLayers = () => [{ name: 'transportation', extent: EXTENT, features: [mkFeature()] }];
+const readyEntry = () => ({ tileEdgeM: TILE_EDGE_M, cellsPerEdge: CELLS, layers: mkLayers() });
+const loadingEntry = () => ({ tileEdgeM: TILE_EDGE_M, cellsPerEdge: CELLS });   // no layers yet
+
+// The scene the passes read: the player standing in the middle of that tile,
+// no peek. startWorldM = originPx x mPerPx is the shipping relation (app.js),
+// which is what puts absCellCenterMeters in the same frame the lamp points
+// are built in (tx * tileEdgeM + local metres).
+const mPerPx = TILE_EDGE_M / WorldGen.TILE_PX;
+const lampScene = (over) => Object.assign({
+  depth: 0,
+  cellM: CELL_M_T,
+  cellsPerTile: CELLS,
+  mPerPx,
+  originPx: { x: TX * WorldGen.TILE_PX + 128, y: TY * WorldGen.TILE_PX + 128 },
+  startWorldM: { x: (TX * WorldGen.TILE_PX + 128) * mPerPx, y: (TY * WorldGen.TILE_PX + 128) * mPerPx },
+  playerM: { x: 0, y: 0 },
+  peekM: { x: 0, y: 0 },
+  save: {},
+  _streetLampsForTile: P._streetLampsForTile,
+  _updateStreetLamps: P._updateStreetLamps,
+}, over || {});
+
+const KEY = WorldGen.tileKey(TX, TY);
+// The pass scans the anchor's 3x3, and a tile MISSING from the cache is a
+// tile that may still land — so the ring has to be whole before an answer is
+// worth memoising. The eight neighbours are streetless but ready.
+const withTile = (entry, fn) => {
+  const had = new Map();
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const k = WorldGen.tileKey(TX + dx, TY + dy);
+      had.set(k, WorldGen.tileCache.get(k));
+      WorldGen.tileCache.set(k, (dx || dy) ? { tileEdgeM: TILE_EDGE_M, cellsPerEdge: CELLS, layers: [] } : entry);
+    }
+  }
+  try { return fn(); } finally {
+    for (const [k, v] of had) {
+      if (v === undefined) WorldGen.tileCache.delete(k); else WorldGen.tileCache.set(k, v);
+    }
+  }
+};
+// The lineKey the restored metres are filed under — Streets' own, off the
+// same feature object the pass reads.
+const lineKeyOf = () => Streets.lineKey(mkFeature(), 0);
+const restoreAround = (save, s, halfM) =>
+  Streets.restore(save, KEY, lineKeyOf(), [[s - halfM, s + halfM]]);
+
+test('street lamps: a ready tile stands one lamp per Streets.lampSpacingM() of street', () => {
+  const entry = readyEntry();
+  const lamps = P._streetLampsForTile.call({}, TX, TY, entry);
+  assert.eq(lamps.length, 2, 'a 180 m way carries two lamps');
+  assert.eq(lamps.map((L) => Math.round(L.s)).join(','), '45,135', 'spread evenly, a half interval in at each end');
+  // In ABSOLUTE world metres: the tile's own origin plus the point on the line.
+  assert.inRange(lamps[0].x - TX * TILE_EDGE_M, 144.9, 145.1, 'the first stone stands 145 m into the tile');
+  assert.inRange(lamps[0].y - TY * TILE_EDGE_M, 177.9, 178.1, '…on the street itself');
+});
+
+test('street lamps: a tile still LOADING is never memoised as lampless — the bug that lit nothing', () => {
+  // A tile entry enters WorldGen.tileCache the moment its fetch starts, with
+  // no `layers` until the build lands seconds later, and this pass runs on
+  // every frame — so it ALWAYS meets a tile in that state. Writing the empty
+  // answer onto the entry (the entry IS the cache) froze it there for the
+  // tile's whole life, and every tile in the world went through it.
+  const entry = loadingEntry();
+  assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, 0, 'nothing to place yet');
+  assert.falsy(entry._streetLamps, 'and the miss is NOT written onto the entry');
+  entry.layers = mkLayers();                      // …the build lands
+  assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, 2, 'the lamps appear the moment the tile is ready');
+  assert.truthy(entry._streetLamps, 'only the real answer is memoised');
+});
+
+test('street lamps: a restored stretch lights ITS lamp and only its lamp', () => {
+  const entry = readyEntry();
+  const scene = lampScene();
+  const lamps = P._streetLampsForTile.call({}, TX, TY, entry);
+  withTile(entry, () => {
+    scene._updateStreetLamps();
+    assert.eq(scene._streetLamps.length, 0, 'a dilapidated street carries no lit stone');
+    // Restore 12 m either side of the SECOND lamp — one dwell's worth.
+    restoreAround(scene.save, lamps[1].s, 12);
+    scene._updateStreetLamps();
+    assert.eq(scene._streetLamps.length, 1, 'exactly the lamp inside the restored metres lights');
+    assert.eq(scene._streetLamps[0].id, lamps[1].id, 'and it is that one, not its neighbour');
+  });
+});
+
+test('street lamps: a lamp restored in an earlier session lights without the player taking a step', () => {
+  // The frame memo is the same rule one level up: keyed on the anchor cell
+  // and Streets.epoch, neither of which moves while the player stands still
+  // watching the ring land. Stamping it over a still-loading ring would hold
+  // "no lamps" until they happened to walk onto another cell — which on a
+  // reload is every lamp they have ever earned.
+  const entry = loadingEntry();
+  const save = {};
+  restoreAround(save, 135, 12);                   // banked before this session
+  const scene = lampScene({ save });
+  withTile(entry, () => {
+    scene._updateStreetLamps();
+    assert.eq(scene._streetLamps.length, 0, 'nothing to light while the tile is still loading');
+    assert.eq(scene._streetLampKey, null, 'and the provisional answer is not memoised');
+    entry.layers = mkLayers();                    // the tile lands; the player has not moved
+    scene._updateStreetLamps();
+    assert.eq(scene._streetLamps.length, 1, 'the lamp lights on the very next frame');
+    assert.truthy(scene._streetLampKey, 'and NOW the answer is worth memoising');
+  });
+});
+
+test('street lamps: a ready ring memoises, so standing still costs nothing', () => {
+  const entry = readyEntry();
+  const scene = lampScene();
+  restoreAround(scene.save, 135, 12);
+  withTile(entry, () => {
+    scene._updateStreetLamps();
+    const first = scene._streetLamps;
+    assert.eq(first.length, 1, 'the lamp is lit');
+    scene._updateStreetLamps();
+    assert.truthy(scene._streetLamps === first, 'the second frame reuses the same list');
+  });
+});
+
+test('street lamps: a cave clears the list — surface only', () => {
+  const scene = lampScene({ depth: 2 });
+  scene._streetLamps = [{}]; scene._streetLampKey = 'stale';
+  scene._updateStreetLamps();
+  assert.eq(scene._streetLamps, null, 'no lamps underground');
+  assert.eq(scene._streetLampKey, null, 'and no memo to come back to on the surface');
+});
+}
 })();
