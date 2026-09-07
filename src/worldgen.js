@@ -2299,9 +2299,11 @@
             // source of truth for "what grows here". Each biome lists its flora
             // kinds with a density window + an independent RNG salt; `dynamic`
             // entries (longgrass-style) get a stable per-polygon density in
-            // [0, dMax] so most polygons grow a tuft, big areas cluster, and the
-            // unlucky few grow nothing. Unwired/unknown biomes fall back to
-            // their base-family profile, so no walkable zone is ever barren.
+            // [dMin, dMax] (dMin = BiomeProfiles' DYN_MIN floor) so most
+            // polygons grow a light tuft, big areas cluster, and even the
+            // unluckiest roll still grows the floor rather than reading
+            // barren. Unwired/unknown biomes fall back to their base-family
+            // profile, so no walkable zone is ever barren.
             for (const fl of BiomeProfiles.flora(t)) {
               const seed = (polyKey ^ (fl.salt >>> 0)) >>> 0;
               if (fl.pattern === 'hedgemaze') {
@@ -2310,8 +2312,8 @@
                 // polygons/tiles, not a per-polygon scatter.
                 yield* spawnHedgeMazeSteps(f.geom, fl.crop, fl.salt >>> 0);
               } else if (fl.dynamic) {
-                const density = ((seed % 1000) / 1000) * fl.dMax;
-                if (density > 0) yield* spawnDebrisSteps(f.geom, fl.crop, seed, density, density);
+                const density = Math.max(fl.dMin, ((seed % 1000) / 1000) * fl.dMax);
+                yield* spawnDebrisSteps(f.geom, fl.crop, seed, density, density);
               } else {
                 yield* spawnDebrisSteps(f.geom, fl.crop, seed, fl.dMin, fl.dMax);
               }
