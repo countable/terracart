@@ -1143,6 +1143,24 @@ const BUILDING_TYPES = new Set([9, 11, 12]);
 // update()): a job done from the doorstep costs its energy on the bar, and
 // the rest earns it back only once the wheel has cleared.
 const HOME_FULL_REST_S = 90;
+// A SIT-DOWN IS A PAUSE, AND THE PAUSE OUTLASTS THE JOB. Pausing the rests
+// for the wheel alone was not enough: the starter tree and rock are seated
+// 4–5 cells from the trailer (HomeArea.TOKEN_MIN_CELLS..POCKET_CELLS), inside
+// Home's ring from anywhere the player can reach them, and the instant a
+// bare-handed 9⚡ chop or dig cleared, the rest resumed at ~1.1⚡/s and had the
+// whole price back on the bar eight seconds later — "mining and chopping took
+// no energy", the till bug one lane over. So `working` in update() is ALSO
+// true for REST_SETTLE_S after the last moment the player was working: every
+// frame a wheel is up, and every spend through spendEnergy (a plant, a
+// harvest, a placed rock, the auto-mine's dig), each pushes _restHoldUntil
+// out (_holdRest). The rests resume only once the player has done nothing
+// for that long — which is what sitting down IS. It is one hold, not a flag
+// per job, so the next wheel starter and the next spend inherit it.
+// What it is NOT: a stick walk's per-cell drain is travel, not a job (it is
+// what the stamina pays for, items.js steerEnergyCost), and a blow from a foe
+// is the world's doing — neither holds the rest, so arriving Home by stick or
+// wounded rests you the moment you cross the ring.
+const REST_SETTLE_S = 10;
 // Resting near a lit campfire (burned from a coal on bare ground) refills the
 // bar outdoors, but slowly — a full bar in 6 min (slower than any building).
 // The trade-off: a fire also repels slimes nearby, so it makes a safe, slow
@@ -6482,10 +6500,15 @@ class MapScene extends Phaser.Scene {
       // inside reach from the trailer's own cell — so a new player's first
       // till ran with the Home rest ticking at ~1.1⚡/s under a 2.25 s wheel
       // that had cost 2⚡, and the bar read the same number before and after
-      // ("tilling takes no energy"). The rest resumes the moment the wheel
-      // clears, so a job done from Home still costs what it costs, visibly,
-      // and the sit-down afterwards is what earns it back.
-      const working = !!this._workProgress;
+      // ("tilling takes no energy"). And the wheel alone was not enough: a
+      // rest that resumed the moment it cleared had a bare-handed 9⚡ chop
+      // back on the bar eight seconds later ("mining and chopping took no
+      // energy"). So a wheel up on any frame, or a spend (spendEnergy), holds
+      // the rests for REST_SETTLE_S past it — the player has to actually stop
+      // before Home earns a job's price back. See REST_SETTLE_S.
+      const restNow = performance.now();
+      if (this._workProgress) this._holdRest(restNow);
+      const working = !!this._workProgress || restNow < (this._restHoldUntil ?? 0);
       // Hard mode's zero-energy lockout (_zeroEnergyLocked): the trailer
       // doesn't trickle you back up from empty — arriving there puts you
       // straight at a quarter bar, the same floor a Crow Feather gives
@@ -11059,9 +11082,20 @@ class MapScene extends Phaser.Scene {
     }
     const at = cell || this._cellAtScreen(sx, sy);
     if (at && r.spent > 0) this._popEnergy(-r.spent, at);
+    // A spend is work: Home's rest (and a campfire's) stays paused for
+    // REST_SETTLE_S after it, so the price just paid isn't handed straight
+    // back by the ring the player is standing in. See REST_SETTLE_S.
+    if (r.spent > 0) this._holdRest();
     this._warnIfTiring(r.before, sx, sy);
     this.updateEnergyDOM();
     return true;
+  }
+
+  // Push the passive rests' resume time out to REST_SETTLE_S from `now`. The
+  // one place the hold is written: update() calls it every frame a work
+  // wheel is up, spendEnergy on every successful spend.
+  _holdRest(now = performance.now()) {
+    this._restHoldUntil = now + REST_SETTLE_S * 1000;
   }
 
   // Flash a "getting tired" warning the first time a drain crosses below 30%

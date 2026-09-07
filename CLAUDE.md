@@ -585,11 +585,23 @@
   it inside reach from the trailer's own cell, and the Home rest ticked at
   ~1.1⚡/s under a 2.25 s wheel that had cost 2⚡ — the bar read the same
   number before and after. Never fix a "free" job by raising its cost or
-  slowing its wheel; the rest resumes the moment the wheel clears, and that
-  is what earns the energy back. **When you add a passive energy source,
-  gate it on `working`.**
+  slowing its wheel. **And the pause outlasts the wheel.** Resuming the rest
+  the moment the wheel cleared was the same bug one lane over: the starter
+  tree and rock sit 4–5 cells from the trailer, inside Home's ring from
+  anywhere they can be reached, and a bare-handed 9⚡ chop or dig was back on
+  the bar eight seconds after it finished ("mining and chopping took no
+  energy"). So `working` is the wheel OR a hold that every frame of a wheel
+  and every successful `spendEnergy` push out by `REST_SETTLE_S`
+  (`_holdRest`, the one writer of `_restHoldUntil`): the rests resume only
+  once the player has done nothing for that long, which is what sitting
+  down is. The stick walk's per-cell drain and a foe's blow are deliberately
+  NOT jobs — arriving Home by stick or wounded rests you at once. **When you
+  add a passive energy source, gate it on `working`; when you add a way to
+  spend energy on a job, send it through `spendEnergy` so it holds the rest.**
   **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js` pins
-  both gates as source text and shows the ungated rest out-earning the till.
+  the gates, the hold and its two writers as source text, and shows both an
+  ungated rest out-earning the till and an instant resume refunding the
+  bare-handed chop inside one wheel's length.
 
 - **The world is GENERATED; the save is only what you CHANGED.** Every
   interactable outside the starting area is a pure function of WHERE it is.
