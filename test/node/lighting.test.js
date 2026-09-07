@@ -122,16 +122,65 @@ test('lighting: the player ramp is the falloff, expressed as light', () => {
   }
 });
 
-test('lighting: low energy tints the bubble pink, nothing else does', () => {
+test('lighting: low energy tints the bubble red, progressively, nothing else does', () => {
   assert.eq(Lighting.profile(scene()).litColour, 0xffffff, 'rested: white');
+  assert.eq(Lighting.lowEnergyFrac(scene()), 0, 'rested: no warning weight either');
+  // At the threshold itself the weight — and so the tint — is exactly zero:
+  // the cue arrives as energy keeps draining PAST 30%, not the instant it's
+  // crossed.
+  assert.eq(Lighting.lowEnergyFrac(scene({ save: { energy: 30, maxEnergy: 100 } })), 0,
+    'nothing yet, right at the threshold');
+  const w20 = Lighting.lowEnergyFrac(scene({ save: { energy: 20, maxEnergy: 100 } }));
+  near(w20, 1 - 20 / 30, 1e-9, 'a third of the way from 30% to 0% is a third of the weight');
   const tired = Lighting.profile(scene({ save: { energy: 20, maxEnergy: 100 } })).litColour;
-  assert.eq(tired, Lighting.mixToWhite(Lighting.LOW_ENERGY_TINT, Lighting.LOW_ENERGY_A), 'the old pink at the old alpha');
+  assert.eq(tired, Lighting.mixToWhite(Lighting.LOW_ENERGY_TINT, Lighting.LOW_ENERGY_A * w20),
+    'the tint is the weight\'s own share of the ceiling alpha, not a flat step');
   assert.eq(ch(tired, 16), 255, 'red stays full');
-  assert.lt(ch(tired, 8), 255, 'green drops — pink, not white');
-  assert.eq(Lighting.profile(scene({ save: { energy: 0, maxEnergy: 100 } })).litColour, 0xffffff,
-    'at 0 there is no reach to tint');
+  assert.lt(ch(tired, 8), 255, 'green drops from white');
+  assert.eq(ch(tired, 0), ch(tired, 8), 'blue tracks green exactly — a true red, not the old pink');
+  // Deeper as it drains further: the tint keeps darkening all the way to 0
+  // energy (LOW_ENERGY_A itself, the ceiling) — where the reach plateau has
+  // shrunk to nothing anyway (coords.js reachRadiusM), so the colour is never
+  // actually painted on any cell; it simply isn't special-cased away.
+  const worse = Lighting.profile(scene({ save: { energy: 5, maxEnergy: 100 } })).litColour;
+  assert.lt(ch(worse, 8), ch(tired, 8), 'lower energy tints deeper');
+  assert.eq(Lighting.lowEnergyFrac(scene({ save: { energy: 0, maxEnergy: 100 } })), 1,
+    'fully drained is the full weight — the walk-pace reader needs it even though the light never paints it');
   assert.eq(Lighting.profile(scene({ save: { energy: 20, maxEnergy: 100, reachPotionUntil: Date.now() + 60000 } })).litColour,
     0xffffff, 'a Potion of Reach pins the view lit');
+});
+
+// ── The tired walk (app.js — can't load headlessly, pinned as source text) ──
+
+test('lighting: the walk cycle eases toward half speed on the same weight as the red', () => {
+  const a = APP_JS_SRC;
+  const s = a.indexOf('  _playDirected(sprite, baseKey, dx, dy) {');
+  assert.truthy(s > 0, 'found _playDirected');
+  const body = a.slice(s, a.indexOf('\n  }\n', s));
+  // Reads the SAME weight the tint uses — one number, two readers, so the
+  // legs and the light can't disagree about how tired the player is.
+  assert.truthy(/Lighting\.lowEnergyFrac\(this\)/.test(body),
+    'the walk pace reads Lighting.lowEnergyFrac, not a copy of the energy math');
+  assert.truthy(/sprite\.anims\.timeScale = 1 - w \* \(1 - WALK_TIRED_SLOW_MUL\);/.test(body),
+    'eases linearly from full pace at the threshold toward the floor at 0 energy');
+  // Only WALKING sags — idle (including the dragon branch, which returns
+  // before this runs at all) is untouched, and every call resets timeScale
+  // rather than only a transition into 'walk-*': Phaser's timeScale lives on
+  // the AnimationState, not the anim, so a stale value would otherwise ride
+  // along into idle or across an energy change.
+  assert.truthy(/baseKey === 'walk' && sprite === this\.player/.test(body),
+    'gated on walking, and on the player — not every sprite this is ever handed');
+  assert.truthy(/\} else \{\s*\n\s*sprite\.anims\.timeScale = 1;\s*\n\s*\}/.test(body),
+    'idle (and anything else) is reset to full pace every call, not left however it last was');
+  const m = a.match(/const WALK_TIRED_SLOW_MUL = ([\d.]+);/);
+  assert.truthy(m, 'WALK_TIRED_SLOW_MUL is a plain literal');
+  const slowMul = Number(m[1]);
+  assert.eq(slowMul, 0.5, 'half speed at the floor, as asked');
+  assert.inRange(slowMul, 0.1, 0.9, 'a real slowdown, never stopped and never unnoticeable');
+  // The BODY still covers ground at its usual pace — WALK_M_S is untouched by
+  // this block. Only the legs visibly labour; the walk is not made slower.
+  assert.falsy(/WALK_M_S.*WALK_TIRED|WALK_TIRED.*WALK_M_S/.test(body),
+    'the tired pace never touches the movement speed constant');
 });
 
 test('lighting: what lights is what is yours', () => {
@@ -556,7 +605,7 @@ test('lighting: the map multiplies, the cookies add, and the plateau is per cell
     'the plateau cells are picked by the reach test, not a circle');
 });
 
-test('lighting: the plateau cells land on the lit level, pink when tired', () => {
+test('lighting: the plateau cells land on the lit level, red when tired', () => {
   const ch = (c, sh) => (c >> sh) & 255;
   for (const sv of [{ energy: 100, maxEnergy: 100 }, { energy: 20, maxEnergy: 100 }]) {
     for (const depth of [0, 2]) {
@@ -570,7 +619,7 @@ test('lighting: the plateau cells land on the lit level, pink when tired', () =>
     }
   }
   const tired = Lighting.plateauCellColour(Lighting.profile(scene({ save: { energy: 20, maxEnergy: 100 } })));
-  assert.lt(ch(tired, 8), ch(tired, 16), 'the cell fill carries the pink');
+  assert.lt(ch(tired, 8), ch(tired, 16), 'the cell fill carries the red');
 });
 
 test('lighting: the plateau eases down toward the reach rim, and the step at the rim still wins', () => {

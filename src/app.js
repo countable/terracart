@@ -155,6 +155,15 @@ const STREET_COUNTER_MIN_MS = 1000;
 // session and it should read from across the block.
 const BLAST_HOUSE_PAD_CELLS = 2;
 const WALK_M_S = 1.4;
+// TIRED WALK: how far the walk CYCLE's pace sags once energy drops below
+// Lighting.LOW_ENERGY_FRAC (30%) — 1 = full frameRate at the threshold, and
+// this is the FLOOR it eases toward at 0 energy (_playDirected). It reads
+// Lighting.lowEnergyFrac(this) — the same 0..1 "how tired" weight the reach
+// tint's alpha uses — so the animation drags in exact step with the red
+// flush, never as two separate readings of the same bar. This does NOT touch
+// WALK_M_S: the body still covers ground at its usual pace, only the legs
+// visibly labour to do it.
+const WALK_TIRED_SLOW_MUL = 0.5;
 // Auto-walk catch-up ramp (see _followStep): metres of body-to-target gap that
 // buy one extra × of walk pace. The body chases at (1 + dist / this) × walk,
 // capped at DEBUG_SPEED_MUL, so a small gap is closed at a stroll and a big one
@@ -14832,6 +14841,21 @@ class MapScene extends Phaser.Scene {
     const key = `${baseKey}-${dir}`;
     if (sprite.anims.currentAnim?.key !== key) sprite.play(key);
     sprite.setFlipX(flip);
+    // TIRED WALK: eases the CYCLE's frame pace toward WALK_TIRED_SLOW_MUL as
+    // energy drains past Lighting.LOW_ENERGY_FRAC — the same weight the reach
+    // tint reddens by (Lighting.lowEnergyFrac), so the legs visibly labour in
+    // step with the warning colour rather than as a second, independent read
+    // of how tired the player is. Idle keeps its own pace (standing still
+    // isn't laboured); only the walk cycle sags. Every call sets timeScale,
+    // not just a transition into 'walk-*', because Phaser's timeScale lives
+    // on the AnimationState rather than the anim — a stale value from a
+    // frame ago would otherwise ride along after energy changes.
+    if (baseKey === 'walk' && sprite === this.player) {
+      const w = (typeof Lighting !== 'undefined' && Lighting.lowEnergyFrac) ? Lighting.lowEnergyFrac(this) : 0;
+      sprite.anims.timeScale = 1 - w * (1 - WALK_TIRED_SLOW_MUL);
+    } else {
+      sprite.anims.timeScale = 1;
+    }
   }
   // Watch #game for modal dialogs and mirror their presence onto a
   // body.modal-open class. CSS uses it to hide the movement pads while any

@@ -23,6 +23,9 @@
 //   Lighting.collectPlayer(scene, ax, ay, halfM) — add the player's torch, if lit
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
+//   Lighting.lowEnergyFrac(scene) — 0..1, how far into the low-energy warning
+//                                   the player is; also read by app.js's
+//                                   _playDirected to pace the tired walk cycle
 //   Lighting.daylight(scene, now) — 0..1 from the real sun at the player
 //   Lighting.playerCookieAlpha(t, prof) — the player ramp, sampled
 //   Lighting.plateauLevel(prof, t)  — the plateau's light at t of the way to the rim
@@ -376,11 +379,16 @@
     return depth > 0 ? Math.min(0.40, 0.26 + 0.03 * (depth - 1)) : 0;
   }
 
-  // Low energy tints the lit range pink — the Inner Light guttering as the
+  // Low energy tints the lit range red — the Inner Light guttering as the
   // player tires. Energy doesn't shrink reach (coords.js reachRadiusM — only
-  // depth does), but this pink is the cue to rest before energy hits 0, where
-  // there is no reach at all. Skipped while a Potion of Reach pins the view lit.
-  const LOW_ENERGY_TINT = 0xff5fa2;
+  // depth does), but this red is the cue to rest before energy hits 0, where
+  // there is no reach at all. Skipped while a Potion of Reach pins the view
+  // lit. A clean red rather than the pink this used to be — a warning colour,
+  // not a mood. PROGRESSIVE now (lowEnergyFrac, below): at the LOW_ENERGY_FRAC
+  // threshold it is not yet visible, and it deepens toward LOW_ENERGY_A only
+  // as energy keeps draining past it, so the cue arrives as a gradual flush
+  // rather than a switch flipped the instant the bar crosses 30%.
+  const LOW_ENERGY_TINT = 0xff4d4d;
   const LOW_ENERGY_A = 0.16;
   const LOW_ENERGY_FRAC = 0.30;
 
@@ -411,12 +419,22 @@
     return mixToWhite(colour, (1 - t) / (1 - l));
   }
 
-  function lowEnergy(scene) {
-    const sv = scene.save || {};
-    const energy = sv.energy ?? 0;
+  // How far into the low-energy warning the player is, 0..1: 0 at or above
+  // LOW_ENERGY_FRAC of maxEnergy, ramping LINEARLY to 1 as the tank empties
+  // out from there. The one number both readers of "how tired does this
+  // look/feel" share — the reach tint's alpha here, and the walk cycle's
+  // pace in app.js's _playDirected — so the two can't drift into disagreeing
+  // about how far gone the player is. A Potion of Reach silences the whole
+  // cue at once, tint and pace alike: pinning the view lit is the potion's
+  // entire point.
+  function lowEnergyFrac(scene) {
+    const sv = (scene && scene.save) || {};
     const maxEnergy = sv.maxEnergy ?? 100;
-    const potionLit = (sv.reachPotionUntil ?? 0) > Date.now();
-    return !potionLit && energy > 0 && (energy / maxEnergy) < LOW_ENERGY_FRAC;
+    if (!(maxEnergy > 0)) return 0;
+    if ((sv.reachPotionUntil ?? 0) > Date.now()) return 0;
+    const frac = Math.max(0, Math.min(1, (sv.energy ?? 0) / maxEnergy));
+    if (frac >= LOW_ENERGY_FRAC) return 0;
+    return 1 - frac / LOW_ENERGY_FRAC;
   }
 
   // ── The profile: what the player's light and the ambient are worth here ──
@@ -466,7 +484,8 @@
     const ambient = atLuminance(floor0, targetLum);
     const edge = (1 - dimA) * FALLOFF_A * PLAYER_OUTPUT_K;
     const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA)) * PLATEAU_OUTPUT_K;
-    const litColour = lowEnergy(scene) ? mixToWhite(LOW_ENERGY_TINT, LOW_ENERGY_A) : 0xffffff;
+    const lowEnergyW = lowEnergyFrac(scene);
+    const litColour = lowEnergyW > 0 ? mixToWhite(LOW_ENERGY_TINT, LOW_ENERGY_A * lowEnergyW) : 0xffffff;
     return { depth, dimA, dimColour, farA, ambient, edge, lit, litColour, night };
   }
 
@@ -995,7 +1014,7 @@
     KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
-    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour, lum, atLuminance,
+    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, mixToWhite, scaleColour, lum, atLuminance,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires,
     collectPlayer, collectLamps,
