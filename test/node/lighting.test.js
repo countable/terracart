@@ -77,8 +77,10 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
     // …the cookie just outside the plateau lifts it back to the flat wash,
     // scaled down by the player's own output knob…
     near((1 - p.farA) + p.edge / Lighting.PLAYER_OUTPUT_K, 1 - dimA, 1e-12, `edge restores the wash @${depth}`);
-    // …and inside the plateau to the lit level (full daylight on the surface), likewise scaled.
-    near((1 - p.farA) + p.lit / Lighting.PLAYER_OUTPUT_K, 1 - Lighting.litDim(depth), 1e-12, `lit level @${depth}`);
+    // …and inside the plateau to the lit level (full daylight on the surface),
+    // scaled by the PLATEAU's own knob — the reach area and the mid-field are
+    // two numbers, because the picture wants opposite things of them.
+    near((1 - p.farA) + p.lit / Lighting.PLATEAU_OUTPUT_K, 1 - Lighting.litDim(depth), 1e-12, `lit level @${depth}`);
   }
   // The contrast knob darkens the FLOOR only: the ramp's edge level is the
   // old wash's (times PLAYER_OUTPUT_K), so the reach step is untouched and
@@ -86,6 +88,9 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
   assert.inRange(Lighting.AMBIENT_K, 0.3, 0.6, 'a real darkening, not black and not the old floor');
   assert.inRange(Lighting.AMBIENT_DAY_LUM, 0.2, 0.6, 'noon is daylight out there, not a second night and not no lighting at all');
   assert.inRange(Lighting.PLAYER_OUTPUT_K, 0.25, 1.0, 'a real dimming of the body light, not a blackout');
+  assert.inRange(Lighting.PLATEAU_OUTPUT_K, 0.25, 1.0, 'the reach area is lit, not blown out and not a blackout');
+  assert.gt(Lighting.PLATEAU_OUTPUT_K, Lighting.PLAYER_OUTPUT_K,
+    'the ground the player works on is brighter than the mid-field it sits in');
   const lum = (c) => (0.299 * ch(c, 16) + 0.587 * ch(c, 8) + 0.114 * ch(c, 0)) / 255;
   assert.lt(lum(Lighting.profile(scene(), 0).ambient), 0.10, 'a totally unlit surface cell is under 10% luminance at night');
   // Noon lands ON the stated level, in any biome — that is the whole reason
@@ -469,10 +474,10 @@ test('lighting: night darkens the world but not the Inner Light, and never a cav
   assert.lt(lum(night.ambient), lum(noon.ambient) * 0.5, 'the floor goes much darker');
   assert.lt(night.edge, noon.edge, 'so does the ground just outside reach');
   // The plateau: lit + floor still sums to full daylight on the surface.
-  // …fully lit at night, before PLAYER_OUTPUT_K takes its own bit off the top
+  // …fully lit at night, before PLATEAU_OUTPUT_K takes its own bit off the top
   // (the Inner Light still fully compensates for the night; it's just dimmer
   // than daylight by the same knob that dims it by day).
-  near((1 - night.farA) + night.lit / Lighting.PLAYER_OUTPUT_K, 1, 1e-12, 'the reach bubble stays fully lit at night');
+  near((1 - night.farA) + night.lit / Lighting.PLATEAU_OUTPUT_K, 1, 1e-12, 'the reach bubble stays fully lit at night');
   assert.eq(night.litColour, 0xffffff);
   // A cave has no sun.
   const caveDay = Lighting.profile(scene({ depth: 1 }), 1), caveNight = Lighting.profile(scene({ depth: 1 }), 0);
@@ -497,12 +502,18 @@ test('lighting: the frame reads the real sun at the player, once a minute', () =
 // ── Source pins: the old passes are gone, the new path is wired ───────────
 test('lighting: the darkness passes are gone from drawCells', () => {
   const r = RENDER_SRC;
-  assert.falsy(/if \(isReach\(col, row\)\) continue;/.test(r),
-    'the per-cell out-of-reach fillRect wash has grown back');
   assert.falsy(/strokeCircle\(scene\.viewCenterX/.test(r), 'the falloff rings have grown back');
   assert.falsy(/const FALLOFF_A = /.test(r), 'the falloff pair lives in lighting.js now');
   assert.falsy(/0xff5fa2/.test(r), 'the low-energy pink is the player cookie\'s colour now');
-  assert.truthy(/if \(!isReach\(col, row\)\) continue;/.test(r), 'the per-cell reach OUTLINE stays');
+  // …and so is the white reach OUTLINE, removed Sep 2026: the plateau is lit
+  // brightly enough (PLATEAU_OUTPUT_K) that the light carries the affordance
+  // by itself, and the line was a second drawing of the same boundary. The
+  // whole per-cell reach loop went with it, along with reachOutlineCell — so
+  // this one ban also covers the out-of-reach fillRect wash, which read the
+  // same test the other way round.
+  assert.falsy(/isReach\(/.test(r), 'the per-cell reach loop has grown back in drawCells');
+  assert.falsy(/reachOutlineCell/.test(r), 'the reach outline helper has grown back');
+  assert.falsy(/lineStyle\(2, 0xffffff, 0\.15\)/.test(r), 'the outline stroke has grown back');
   assert.falsy(/mulTint\(tint, Render\.reachDimTint/.test(r),
     'spriteTint composing the reach dim onto a wreck would dim it twice under the lightmap');
 });
@@ -601,6 +612,42 @@ test('lighting: the plateau eases down toward the reach rim, and the step at the
   assert.truthy(/g\.addColorStop\(t, rgba\(plateauCellColour\(prof, level\), level - prof\.edge\)\);/.test(L),
     'each stop is the cell colour at its level, over the ramp\'s edge');
   assert.falsy(/rgba\(plateauCellColour\(prof\), prof\.lit - prof\.edge\)/.test(L), 'the flat plateau fill is gone');
+});
+
+test('lighting: the reach area is as bright as noon leaves room for', () => {
+  // PLATEAU_OUTPUT_K is a CEILING, not a taste. The plateau ADDS over the
+  // ambient floor, and at noon on the surface that floor is already
+  // AMBIENT_DAY_LUM bright — so past this the reach area clips to white,
+  // which costs the plateau its own shading (PLATEAU_FALL) exactly where the
+  // player is looking. Every dim colour the biome palette can produce has to
+  // clear it; 0x35261e is the tightest of them (the brick-house base under
+  // industrial dust — the most saturated dim in the world, so the one whose
+  // floor puts the most into a single channel at a given luminance).
+  const chf = (c, sh) => ((c >> sh) & 255) / 255;
+  const headroom = (dim) => {
+    const p = Lighting.profile(scene({ _atmos: { dim } }), 1);
+    const maxAmbient = Math.max(chf(p.ambient, 16), chf(p.ambient, 8), chf(p.ambient, 0));
+    // What the plateau's brightest channel lands on at the feet, and what
+    // fraction of full output that leaves before it would hit white.
+    return { total: maxAmbient + p.lit, ceiling: (1 - maxAmbient) / (p.lit / Lighting.PLATEAU_OUTPUT_K) };
+  };
+  const DIMS = [0x35261e, 0x3a2a1e, 0x1a2a1e, 0x000000, 0x8d8272, 0x2a2622];
+  let tightest = Infinity;
+  for (const dim of DIMS) {
+    const h = headroom(dim);
+    assert.lte(h.total, 1, `the noon plateau stays under white (dim ${dim.toString(16)})`);
+    tightest = Math.min(tightest, h.ceiling);
+  }
+  near(tightest, 0.602, 0.002, 'the palette leaves 0.602 of full output at noon');
+  assert.lte(Lighting.PLATEAU_OUTPUT_K, tightest, 'and the knob is set at that ceiling, not past it');
+  assert.gt(Lighting.PLATEAU_OUTPUT_K, tightest - 0.05, 'and it takes the room it has, rather than sitting well under it');
+  // Underground and after dark the floor is near-black, so the ceiling is not
+  // the binding one there — the reach area is nowhere near white below ground.
+  for (const [depth, day] of [[0, 0], [1, 1], [3, 1]]) {
+    const p = Lighting.profile(scene({ depth }), day);
+    const maxAmbient = Math.max(chf(p.ambient, 16), chf(p.ambient, 8), chf(p.ambient, 0));
+    assert.lt(maxAmbient + p.lit, 0.9, `the plateau has plenty of headroom (depth ${depth} daylight ${day})`);
+  }
 });
 
 })();

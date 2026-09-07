@@ -527,10 +527,29 @@
   `Render.reachDimColor` / `reachDimAlpha` the old wash painted with plus the
   falloff pair (`FALLOFF_A` / `FALLOFF_P`), so the surface with only the
   player lit looks as it did — except the FLOOR, which `AMBIENT_K` scales
-  down for contrast (the one deliberate departure: "totally unlit areas
-  should be darker"). Retune a look through those; `AMBIENT_K` is the
-  contrast knob, and another factor added in lighting.js breaks the
+  down for contrast ("totally unlit areas should be darker"), and the two
+  OUTPUT knobs, which say how much of that reproduced wash the player's own
+  light gives back: `PLAYER_OUTPUT_K` for the ramp OUTSIDE the reach area
+  (`edge`, and the falloff hung off it) and `PLATEAU_OUTPUT_K` for the reach
+  area itself (`lit`). Retune a look through those; `AMBIENT_K` is the
+  contrast knob, and a further factor added in lighting.js breaks the
   correspondence the test pins.
+  **The two output knobs are two numbers because the picture wants opposite
+  things of them.** They were one until Sep 2026, and dimming the mid-field so
+  the placed lights — a campfire, Home, a POI — would tell against the body
+  took the ground the player actually WORKS on down with it. Splitting them
+  costs none of the relations the shared knob was keeping, because raising
+  `lit` alone only widens them: the falloff's shape is `edge`'s alone,
+  `PLATEAU_FALL` is a fraction of `lit` so the plateau's easing scales with
+  it, `lit > edge` holds by a bigger margin, and the step off the plateau
+  grows faster than the fall across it. **And `PLATEAU_OUTPUT_K` is a CEILING,
+  not a taste:** the plateau ADDS over the ambient floor, which at noon is
+  already `AMBIENT_DAY_LUM` bright, so past 0.60 the reach area clips to white
+  and takes `PLATEAU_FALL`'s shading with it. The number was measured over
+  every `COLORS` × `DUST_OF` pairing the biome palette can produce (the
+  tightest is 0x35261e, the most saturated dim in the world, at 0.602), not
+  eyeballed — **re-measure it before raising it, and re-measure it if the far
+  field is ever brightened again.**
   **The floor's DAY end is a level, not a scale.** `AMBIENT_DAY_LUM` (0.40) is
   what unlit ground is WORTH at midday — 40% of the art's own brightness, read
   off the screen — and `atLuminance` puts the derived floor there by mixing it
@@ -567,12 +586,29 @@
   `draw()` beside `collectFires` / `collectLamps`;
   the collector culls at `halfM` + the row's own radius, not the sprite cull,
   so a lantern a cell off-screen still lights the edge.
-  **What stayed on `reachGfx`:** the white reach OUTLINE. It is the tap
-  affordance; never move it onto the lightmap.
+  **THE LIGHT IS THE AFFORDANCE — there is no reach outline any more.** A
+  white line (2px, 0.15 alpha) was stroked over the same staircase on
+  `reachGfx` until Sep 2026, and `Render.reachOutlineCell` + a per-cell
+  `isReach` loop + an arc helper existed to draw it. It made sense while
+  `PLAYER_OUTPUT_K` had the plateau at a bit over half its light and the
+  boundary needed underlining; once `PLATEAU_OUTPUT_K` lit the reach area back
+  up, the line and the light were two drawings of one boundary and the line
+  was the louder. The plateau is painted per reach cell from `cellInReach`'s
+  own expressions, rounded by the same `ReachCorner` rule the line rounded by,
+  so what is LIT is exactly what the tap gate accepts — cell-exact, not a
+  circle. **Never stroke a reach outline back on:** if the boundary stops
+  reading, widen the STEP at its edge in `lighting.js` (that step is pinned to
+  outweigh `PLATEAU_FALL` at every depth and hour), and check
+  `PLATEAU_OUTPUT_K` before anything else. `reachGfx` now carries the
+  unmapped-tile reveal alone, and `ReachCorner` keeps only the corner
+  classification — `shortenH` / `shortenV` said where a STROKED edge stopped
+  short of a round, and left with the stroke.
   **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` (the
-  derived levels, the table, the collector, the source pins) and
-  `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
-  the labels).
+  derived levels, the noon headroom the plateau knob is set at, the table, the
+  collector, the source pins), `test/node/reach_corners.test.js` (the plateau
+  rounds every corner of the staircase exactly once — and the outline is gone
+  and stays gone) and `tools/layer_audit.js` (the lightmap above ground, halo
+  and sprites, below the labels).
 
 - **A message on the MAP is thirty characters.** `util.js` `MAP_MSG_MAX` is
   the budget for every `flash` / `flashLoot` — a toast drawn over the world, on

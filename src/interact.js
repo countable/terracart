@@ -567,7 +567,7 @@ const TAP_HANDLERS = [
     // and the lit reach indicator). The sprite-box test above is tap-
     // forgiveness measured from the TAP point, not the player — without this a
     // visible-but-out-of-reach animal could be caught/fed by tapping it. Keeps
-    // the reach outline ⇔ tap-accept invariant (QC §7). Gated on the FOOT cell
+    // the lit-area ⇔ tap-accept invariant (QC §7). Gated on the FOOT cell
     // (target.x, target.y) so reach matches the lit highlight, not the body.
     if (tooFar(ctx, target.x, target.y)) return 'far';
 

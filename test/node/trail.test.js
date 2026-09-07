@@ -574,7 +574,7 @@ test('streets: two seconds in the bubble and the stretch in reach comes back', (
     clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
     const got = restoredM(s);
     assert.gt(got, 0, 'the reach really does cover some street');
-    // EXACTLY the cells the reach outline covers, no more: the reach is
+    // EXACTLY the cells the lit reach area covers, no more: the reach is
     // 2.5 cells + 1 m, so on the player's own row that is cells 23..27 — five
     // cells, 35 m — and the arclength along this way IS its x in metres.
     const iv = restoredIvs(s, WorldGen.tileKey(0, 0));

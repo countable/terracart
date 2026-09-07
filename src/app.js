@@ -916,10 +916,11 @@ if (typeof window !== 'undefined') {
 // findItemInTapCell / sameAbsCell), because any disk wide enough to cover its
 // own cell also spilled into the neighbouring ones. Creatures still use a
 // per-kind drawn-sprite box in interact.js — they move and aren't cell-bound.
-// Outer "too far" gate. Matches the visual reach outline drawn by drawCells
-// (coords.js reachRadiusM). Distance is measured from the player's CELL CENTRE
-// (not their feet) — same basis as the visual — so any cell shown inside the
-// reach outline is tappable, regardless of where in the cell the player stands.
+// Outer "too far" gate. Matches the lit reach area drawn by the lightmap
+// plateau (coords.js reachRadiusM). Distance is measured from the player's
+// CELL CENTRE (not their feet) — same basis as the visual — so any cell shown
+// inside the lit staircase is tappable, regardless of where in the cell the
+// player stands.
 // 16m = √(5² + 15²) + ε, just enough to include (±1, ±3) and (±3, ±1) so the
 // reach silhouette is a rounded square rather than a strict 3-cell diamond.
 
@@ -1720,18 +1721,20 @@ class MapScene extends Phaser.Scene {
     // while trees, houses and creatures stay at full contrast on top of it.
     // Painted in Render.drawCells; see BiomeProfiles.atmos for the palette.
     this.atmosGroundGfx = this.add.graphics();
-    // REACH — the unmapped-tile reveal and the white reach OUTLINE, the tap
-    // affordance. It sits here, ABOVE every piece of ground decoration (biome
-    // seams, planks, road letters, treasure pads, shadows, the haze) so the
-    // outline is never covered by the ground it marks, and BELOW the standing
-    // sprites so a tree stands over it.
+    // REACH — the unmapped-tile reveal. It sits here, ABOVE every piece of
+    // ground decoration (biome seams, planks, road letters, treasure pads,
+    // shadows, the haze) so the reveal is never covered by the ground it
+    // fades off, and BELOW the standing sprites so a tree stands over it.
     //
-    // Until Sep 2026 this was the LIGHTING layer too: the out-of-reach dim,
-    // the underground torch wash and the low-energy pink were fillRects here,
-    // below the sprites, which were deliberately exempt from the dim. The
-    // darkness moved to the lightMap (below, above the sprites) when the
-    // world gained more than one light — see src/lighting.js. What remains
-    // here is only the per-cell work a cookie can't do.
+    // Two passes left this layer in Sep 2026 and nothing replaced them. The
+    // DARKNESS went first: the out-of-reach dim, the underground torch wash
+    // and the low-energy pink were fillRects here, below the sprites, which
+    // were deliberately exempt from the dim — they moved to the lightMap
+    // (below, above the sprites) when the world gained more than one light,
+    // see src/lighting.js. Then the white reach OUTLINE, the tap affordance:
+    // the lightmap's plateau is bright enough (PLATEAU_OUTPUT_K) to mark the
+    // reach area on its own, and it traces the same cell-exact staircase the
+    // line did. What remains here is the reveal alone.
     this.reachGfx = this.add.graphics();
     // (The POI halo layer — a ring "ping" under every live POI — lived here
     // until Sep 2026. A live POI is a LIGHT now, breathing in the lightmap:
@@ -13275,7 +13278,7 @@ class MapScene extends Phaser.Scene {
   // Measured from the REACH CELL, never the camera anchor (QC rules: a peek
   // drag must not restore three cells further than the arm reaches).
   // `cellInReach` is the same gate the lit silhouette and every tap use, so
-  // what rebuilds is exactly what the reach outline drew over.
+  // what rebuilds is exactly what the lit area covers.
   //
   // ONLY THE TILE SQUARE COUNTS. MVT geometry runs past the tile edge into the
   // buffer, and the same metres come back inside the NEIGHBOUR tile's copy of
