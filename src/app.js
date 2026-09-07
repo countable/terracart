@@ -14120,7 +14120,8 @@ class MapScene extends Phaser.Scene {
       kind: 'trail',
       header,
       art: 'trail_prize',
-      iconHTML: '<span style="font-size:44px">💎</span>',
+      // No icon: the banner is the picture and each choice button carries its
+      // own. A gem here made the dialog taller than the screen.
       name: 'Take your pick',
       sub: `${walked} restored · ${choices.length} finds — one is yours<br>${next}`,
       onDismiss,
@@ -15535,9 +15536,12 @@ class MapScene extends Phaser.Scene {
   // (X-marks, harvests, mining drops) keep using flashLoot — only chests
   // route through this.
   //
-  //   iconHTML      string → HTML for the icon (renderItemIcon('inline')
+  //   iconHTML      string? → HTML for the icon (renderItemIcon('inline')
   //                          for items, gearIconHTML for relics, or a
-  //                          standalone emoji span for gold).
+  //                          standalone emoji span for gold). Omit it and
+  //                          the row is not drawn at all — right for a
+  //                          ceremony whose art banner or buttons already
+  //                          carry the picture.
   //   name          string → big bold label (e.g. "Egg", "Wood Pickaxe").
   //   sub           string? → smaller line under the name (e.g. "× 3"
   //                          for stacks, or a relic-equipped tagline).
@@ -15601,7 +15605,10 @@ class MapScene extends Phaser.Scene {
     const hasActions = Array.isArray(actions) && actions.length > 0;
     box.innerHTML =
       this.dialogArtHTML(art, accent) +
-      `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` +
+      // The icon row is optional: a ceremony that already carries an art
+      // banner and a row of card buttons (the trail pick) has no room for a
+      // third picture, and a 44px glyph there was what pushed it into scroll.
+      (iconHTML ? `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` : '') +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
       qtyHtml +
       subHtml +
