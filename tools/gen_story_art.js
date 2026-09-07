@@ -26,7 +26,20 @@ const STYLE =
   'anti-aliased smooth gradients. Wide landscape composition, gentle melancholy turning to hope. ' +
   'No text, no letters, no UI, no watermark.';
 
+// A piece is either a subject string (landscape 1536x1024 -> 512px banner)
+// or { subject, size, width } for a different frame - the safety screen's
+// fullscreen mobile backdrop is portrait.
 const PIECES = {
+  safety_welcome: {
+    size: '1024x1536', width: 640, colors: 96,
+    subject:
+      'Tall portrait scene: a young farmer with a hammer and a satchel of seeds rebuilds a ' +
+      'ruined suburban home - fresh timber framing going up over scorched brick, one wall ' +
+      'already repainted, a sunflower sprouting through rubble. Around them an overgrown ' +
+      'post-collapse neighbourhood of caved roofs and boarded windows stretches to a dusky ' +
+      'horizon. Hopeful reconstruction amid ruin: warm light on the house being restored, ' +
+      'cooler amber gloom over the wrecks.',
+  },
   story_wake:
     'Morning inside-and-out of a small weathered camping trailer parked in a misty meadow. ' +
     'A young survivor stretches awake at the trailer door, first amber sunlight over the grass. Quiet, hopeful.',
@@ -76,14 +89,14 @@ function loadKey() {
   throw new Error('OPENAI_API_KEY not found in env or ~/.env');
 }
 
-async function generate(key, name, subject) {
+async function generate(key, name, piece) {
   const res = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'gpt-image-1.5',
-      prompt: `${STYLE}\n\nScene: ${subject}`,
-      size: '1536x1024',
+      prompt: `${STYLE}\n\nScene: ${piece.subject}`,
+      size: piece.size,
       quality: 'high',
       n: 1,
     }),
@@ -97,17 +110,19 @@ async function generate(key, name, subject) {
   return rawPath;
 }
 
-function downscale(rawPath, name) {
+function downscale(rawPath, name, width, colors) {
   const outPath = path.join(OUT_DIR, `${name}.png`);
-  // 512 wide, then quantize to a 240-colour adaptive palette: pixel art
-  // survives palette reduction intact (the clusters ARE the palette), and it
-  // lands the file at the ~60-80KB of the original banners instead of ~370KB.
+  // The piece's own width (512 for banners, 640 for the fullscreen backdrop),
+  // then quantize: pixel art survives palette reduction intact (the clusters
+  // ARE the palette), and it lands a banner near the ~60-80KB of the original
+  // four instead of ~370KB.
   const py = `
 from PIL import Image
 im = Image.open(${JSON.stringify(rawPath)}).convert('RGB')
 w, h = im.size
-im = im.resize((512, round(h * 512 / w)), Image.LANCZOS)
-im = im.quantize(colors=128, method=Image.MEDIANCUT, dither=Image.FLOYDSTEINBERG)
+tw = ${width}
+im = im.resize((tw, round(h * tw / w)), Image.LANCZOS)
+im = im.quantize(colors=${colors || 128}, method=Image.MEDIANCUT, dither=Image.FLOYDSTEINBERG)
 im.save(${JSON.stringify(outPath)}, optimize=True)
 `;
   execFileSync('python3', ['-c', py]);
@@ -125,11 +140,14 @@ im.save(${JSON.stringify(outPath)}, optimize=True)
   const names = only.length ? only : Object.keys(PIECES);
   for (const name of names) {
     if (!PIECES[name]) { console.error(`unknown piece: ${name}`); process.exitCode = 1; continue; }
+    const piece = typeof PIECES[name] === 'string'
+      ? { subject: PIECES[name], size: '1536x1024', width: 512 }
+      : PIECES[name];
     const outPath = path.join(OUT_DIR, `${name}.png`);
     if (!force && !reprocess && fs.existsSync(outPath)) { console.log(`skip ${name} (exists)`); continue; }
     const rawPath = path.join(RAW_DIR, `${name}.png`);
-    const raw = reprocess ? rawPath : await generate(key, name, PIECES[name]);
-    const out = downscale(raw, name);
+    const raw = reprocess ? rawPath : await generate(key, name, piece);
+    const out = downscale(raw, name, piece.width, piece.colors);
     const kb = Math.round(fs.statSync(out).size / 1024);
     console.log(`ok (${kb}KB)`);
     // Gentle pacing: the images endpoint rate-limits bursty accounts.

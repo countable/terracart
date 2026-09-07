@@ -147,8 +147,10 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
   assert.truthy(/const GROWTH_POWDER_R_M = 20;/.test(app), 'the radius is the rainberry\'s 20 m');
   const wrap = app.match(/\n  advanceCropsWithin\(radius\) \{\n([\s\S]*?)\n  \}\n/);
   assert.truthy(wrap, 'advanceCropsWithin beside waterCropsWithin');
-  assert.truthy(/return Crops\.advanceWithin\(this\.save, pWX, pWY, radius\);/.test(wrap[1]),
-    'the crop model stays in crops.js');
+  assert.truthy(/Crops\.advanceWithin\(this\.save, pWX, pWY, radius, movedPlants\);/.test(wrap[1]),
+    'the crop model stays in crops.js, and reports which plants moved');
+  assert.truthy(/for \(const p of movedPlants\) this\._burstAtWorld\('sprout', p\.x, p\.y\);/.test(wrap[1]),
+    'leaves over each one — the SAME cue the 15-min tick and the can\'s jump throw');
   const body = methodBody('useGrowthPowder');
   assert.truthy(/const n = this\.advanceCropsWithin\(GROWTH_POWDER_R_M\);/.test(body), 'sweeps the radius');
   const refuseAt = body.indexOf('if (n <= 0) {');
@@ -157,6 +159,16 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
   assert.truthy(body.slice(refuseAt, consumeAt).includes('return false;'), 'the refusal returns before the consume');
   assert.truthy(consumeAt > refuseAt, 'the powder is consumed AFTER the refusal');
   assert.truthy(/sprang ahead/.test(body), 'the flash says the count sprang ahead');
+  // THE BLAST: the green ring a street and a wreck already get, off the
+  // powder's OWN radius so the flash says how far the scatter reached — not a
+  // fourth spelling of "something came good here".
+  assert.truthy(/sparks: 'greenspark',/.test(body), 'the shared green ring, not a copy of it');
+  assert.truthy(/ringPx: GROWTH_POWDER_R_M \* CELL_PX \/ this\.cellM,/.test(body),
+    'thrown off the scatter radius, in px');
+  assert.truthy(/radiusCells: GROWTH_POWDER_R_M \/ this\.cellM,/.test(body),
+    'and the light flash covers the same ground');
+  assert.truthy(body.indexOf('this._blastAt(') < body.indexOf('consumeSelected(this.save);'),
+    'the blast goes off on a use that actually moved something');
 });
 
 // ── Shadow ─────────────────────────────────────────────────────────────────
@@ -172,14 +184,18 @@ test('shadow: a 1-minute in-memory buff, read out with shortDuration beside the 
     'the readout goes through shortDuration');
 });
 
-test('shadow: one `shadowed` read gates BOTH the pursuit and the hit in wanderCreatures', () => {
+test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderCreatures', () => {
   const m = app.match(/\n  wanderCreatures\(\) \{\n([\s\S]*?)\n  \}\n/);
   assert.truthy(m, 'wanderCreatures');
   const w = m[1];
-  assert.truthy(/const shadowed = this\.isShadowActive\(\);/.test(w), 'read once per tick');
-  // …and it reaches those four gates through `unnoticed`, the OR of the two
-  // wards that make the player not there to be hunted at all.
-  assert.truthy(/const unnoticed = shadowed \|\|/.test(w), 'ORed once per tick into `unnoticed`');
+  // The powder reaches those four gates through `unnoticed` — the scene's OR of
+  // the two wards that make the player not there to be hunted at all
+  // (isUnnoticed, downed_pursuit.test.js), read once per tick and never per
+  // creature. The same expression fades the body, so a stealthed player LOOKS
+  // like what the sim is doing.
+  assert.truthy(/const unnoticed = this\.isUnnoticed\(\);/.test(w), 'read once per tick');
+  assert.truthy(/isUnnoticed\(\) \{\n    return this\.isShadowActive\(\) \|\|/.test(app),
+    'and the powder is one of its two reasons');
   // The hits.
   // Other conjuncts may join these gates (Home's ward does — home_ward.test.js),
   // so pin that !unnoticed is IN the gate, not that it is the whole of it.

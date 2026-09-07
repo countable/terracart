@@ -183,6 +183,30 @@ test('energy pop: every energy readout goes through _popEnergy, on a cell', () =
     'the old centred note-tier splash is gone');
 });
 
+test('energy pop: the stick-walk drain accumulates and flushes as one throttled pop, not one per pip', () => {
+  // Until Sep 2026 _steerManual's per-cell `save.energy -= 1` (inside its own
+  // `while (_steerCostAccrue >= 1)` loop) showed the player nothing at all —
+  // every sibling continuous drain (the slime leech, a monster's melee, the
+  // trap bleed) pops; this one was silent. Mirrors _slimeStealAccum's shape:
+  // bank the pip into an accumulator here, flush it as one throttled pop from
+  // a place that runs every frame (see below), never one pop per pip — that
+  // would spam a long drag across town.
+  const m = app.match(/while \(this\._steerCostAccrue >= 1\) \{([\s\S]*?)\n      \}\n/);
+  assert.truthy(m, 'the steer cost loop exists');
+  const body = m[1];
+  assert.truthy(/this\._steerDrainAccum = \(this\._steerDrainAccum \|\| 0\) \+ \(before - this\.save\.energy\);/.test(body),
+    'each pip banks into an accumulator rather than popping per pip');
+  assert.falsy(/this\._popEnergy/.test(body), 'never a pop per pip inside the cost loop itself');
+  // Flushed from update() / _updateTimed, NOT from inside _steerManual: that
+  // method only runs on a frame the stick is actually held, so a flush living
+  // there would drop the tail of a throttle window the instant the player
+  // lets go. Same 1200ms throttle as the slime / monster / trap roll-ups.
+  assert.truthy(/if \(this\._steerDrainAccum > 0 && performance\.now\(\) - \(this\._lastSteerFlashT \|\| 0\) > 1200\) \{/.test(app),
+    'flushed on the shared 1200ms accumulator throttle');
+  assert.truthy(/this\._popEnergy\(-drained, \{ label: '🚶 steer' \}\);/.test(app),
+    'pops with no ix/iy — a cost to the BODY lands on the player\'s own cell, like the slime leech');
+});
+
 test('energy pop: a spend pops its price on the tapped cell, and a cancel hands it back there', () => {
   assert.truthy(/spendEnergy\(cost, sx, sy, cell = null\) \{/.test(app),
     'spendEnergy takes an explicit cell');

@@ -42,9 +42,12 @@
   `git push`, `git stash`, `git checkout`. The parent agent handles every
   git operation. Give the subagent the commit SHA / branch state it needs
   in its prompt instead of asking it to look git up.
-- **Subagents must NOT modify `index.html`.** The script-tag list and
-  cache-bust `?v=NN` is the parent's responsibility. The subagent reports
-  *what* should be added; the parent edits index.html in one place at the end.
+- **Subagents must NOT modify `index.html`.** The script-tag list is the
+  parent's responsibility: the subagent reports *what* should be added, and
+  the parent edits index.html in one place at the end. The cache-bust `?v=`
+  is nobody's to type — it is derived from the file's bytes, and the parent
+  runs `node tools/cachebust.js --write` once after the last edit (see the
+  cache-bust rule below).
 - For multi-file refactors that delete from a shared file (e.g. extracting
   modules from `app.js`), tell each subagent to **CREATE its new module
   only** and **report exact line ranges to delete from the shared file**.
@@ -326,7 +329,11 @@
   target. **When you add a hostile kind, put it in the monster table** — that
   registration is what makes it an enemy everywhere at once.
   **Audit it:** `node test/node/run.js` › `test/node/combat.test.js`.
-  **ARMOUR IS THE OTHER SIDE OF THAT POOL, and it soaks — it does not grow the
+  The two rules that come out of this pool have bullets of their own below:
+  what ARMOUR takes off a blow before it lands, and who may take an
+  interest in the player at all.
+
+- **ARMOUR IS THE OTHER SIDE OF THAT POOL, and it soaks — it does not grow the
   bar.** Until Sep 2026 each worn piece added `energyPerTier × tier` to the max
   ENERGY, which is a bigger tank rather than better protection: it paid a player
   who never fought exactly what it paid one who lived underground, and no amount
@@ -369,7 +376,8 @@
   piece (the Stats row, the shop offer) from `armorSlotReduction` — one table,
   both sides, the `roadOverlayWidthM` discipline.
   **Audit it:** `node test/node/run.js` › `test/node/armor.test.js`.
-  **NOTHING HUNTS A BODY.** At zero energy the player has collapsed: the reach
+
+- **NOTHING HUNTS A BODY.** At zero energy the player has collapsed: the reach
   is 0 (`coords.js` › `reachRadiusM`), so nothing can be tapped, swung at or
   dug, and all three of those damage paths already refuse to take a point off
   an empty bar. A foe that goes on stalking one is chasing something it is
@@ -450,6 +458,40 @@
   **Every tile fetch goes through `fetchTileResponse`** — a raw
   `fetch(tileUrlFor(...))` anywhere else is the bug coming back.
   **Audit it:** `node test/node/run.js` › `test/node/tile_url.test.js`.
+
+- **A module's `?v=` is DERIVED from its bytes — never typed, never bumped.**
+  `index.html` loads ~43 same-origin scripts at versioned URLs, and the version
+  is the ONLY thing that invalidates them: the URL is what the browser's HTTP
+  cache matches on, so a module whose content changed while its `?v=` stood
+  still keeps serving the OLD file to everyone who already has it — beside a
+  fresh `app.js` that calls into it. That is a crash with no stack in the
+  changed code and no repro on a cold cache.
+  It shipped in Sep 2026 as **`Combat.playerDowned is not a function`**: the
+  commit that added `playerDowned` to `src/combat.js` and its five call sites
+  to `src/app.js` never touched index.html, and the merge that landed it
+  resolved index.html by hand and carried only app.js's bump across, so
+  combat.js stayed at `?v=15`. Bumping `SHELL_VERSION` does not reach it —
+  that drops the service worker's shell cache, but the HTTP cache underneath
+  still matches the byte-identical URL. An audit of every tag at the time found
+  **fourteen more** modules changed since their last bump, each the same latent
+  crash waiting for app.js to call into it.
+  A hand-typed counter cannot be right by construction: it records what somebody
+  remembered rather than what changed, and it collides on every merge — two
+  branches both bumped `app.js` to `v=531` and `SHELL_VERSION` to `shell-v182`
+  for different content, which is a second way to serve a stale file. So the
+  number is derived: **`tools/cachebust.js`** writes each `?v=` as 8 hex of the
+  file's own sha256 and `SHELL_VERSION` as a hash of the resulting list, so it
+  moves when any module does and only then. What ships and what the URL claims
+  are one value read twice — the `roadOverlayWidthM` discipline pointed at the
+  tags. A merge cannot collide two hashes, because the hash follows the MERGED
+  content rather than either side's counter.
+  **`node tools/cachebust.js --write` after the last edit** is the whole
+  workflow; there is no number to choose and `vendor/phaser.js` is covered too.
+  **Audit it:** `node test/node/run.js` › `tools/cachebust.js`'s own CHECKS
+  (node scope, like the sprite and shell audits — the `*.test.js` sandbox has
+  no `require()`). The first names every stale tag and fails the suite so the
+  drift can't ship; the rest pin the derivation under it, since that check is
+  only as good as the hashing it asks.
 
 - **The player's FEET are on the GPS fix.** `playerM` is the projected fix,
   and every world layer (ground cells, the road band, the building polygons)
@@ -652,7 +694,31 @@
   hour. Deepen the look through `PLATEAU_FALL`; if the rim ever needs to be
   darker than that step, that is a reach-affordance change, not a lighting
   tweak.
-  **The numbers are derived, not tuned:** `Lighting.profile` builds the
+  **THE LIGHT IS THE AFFORDANCE — there is no reach outline any more.** A
+  white line (2px, 0.15 alpha) was stroked over the same staircase on
+  `reachGfx` until Sep 2026, and `Render.reachOutlineCell` + a per-cell
+  `isReach` loop + an arc helper existed to draw it. It made sense while
+  `PLAYER_OUTPUT_K` had the plateau at a bit over half its light and the
+  boundary needed underlining; once `PLATEAU_OUTPUT_K` lit the reach area back
+  up, the line and the light were two drawings of one boundary and the line
+  was the louder. The plateau is painted per reach cell from `cellInReach`'s
+  own expressions, rounded by the same `ReachCorner` rule the line rounded by,
+  so what is LIT is exactly what the tap gate accepts — cell-exact, not a
+  circle. **Never stroke a reach outline back on:** if the boundary stops
+  reading, widen the STEP at its edge in `lighting.js` (that step is pinned to
+  outweigh `PLATEAU_FALL` at every depth and hour), and check
+  `PLATEAU_OUTPUT_K` before anything else. `reachGfx` now carries the
+  unmapped-tile reveal alone, and `ReachCorner` keeps only the corner
+  classification — `shortenH` / `shortenV` said where a STROKED edge stopped
+  short of a round, and left with the stroke.
+  **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` (the
+  compositing model and the levels), `test/node/reach_corners.test.js` (the
+  plateau rounds every corner of the staircase exactly once — and the outline
+  is gone and stays gone) and `tools/layer_audit.js` (the lightmap above
+  ground, halo and sprites, below the labels).
+
+- **The lighting numbers are DERIVED, not tuned — and two of them are the
+  knobs you retune a LOOK with.** `Lighting.profile` builds the
   ambient, the plateau and the edge level from the same
   `Render.reachDimColor` / `reachDimAlpha` the old wash painted with plus the
   falloff pair (`FALLOFF_A` / `FALLOFF_P`), so the surface with only the
@@ -699,47 +765,29 @@
   Light — and caves ignore the sun. `window.__DAYLIGHT = 0..1` forces it for
   eyeballing. `profile()` with no daylight is noon, which is what keeps the
   derivation tests clock-free.
-  **The light table is `Lighting.KINDS`**, one row per source: the player, Home
-  (`trailer` — the starter trailer or the house adopted in its place), a
-  restored building (keyed on the SAME `isClaimedKey` test the derelict wash
-  reads, so it lights the frame its wash lifts), a campfire whose radius
-  IS `FIRE_REST_R` — stand in the light, stand in the warmth — and every live
-  POI, a small treasure blue-white light breathing on `POI_PULSE_PERIOD_S`
-  with a per-id phase: that IS the old halo ping (the ring layer, its pool
-  and its texture are gone), so a place reads from across the map by its own
-  light in the dark, never by a ring drawn back under the pad — and a STREET
-  LAMP every `Streets.lampSpacingM()` metres of restored street (the `cobble`
-  row; that is the STREET's own constant, 100 m, deliberately NOT the prize
-  ladder's 200 m rung — see the street rule below, and never retype the
-  number here). **When you add a light source, add a row and return its kind from
-  `Lighting.sourceKind`** — or, for a light that is a POINT rather than a
-  scanned object (a placed fire, a lamp), a collector of its own called from
-  `draw()` beside `collectFires` / `collectLamps`;
-  the collector culls at `halfM` + the row's own radius, not the sprite cull,
-  so a lantern a cell off-screen still lights the edge.
-  **THE LIGHT IS THE AFFORDANCE — there is no reach outline any more.** A
-  white line (2px, 0.15 alpha) was stroked over the same staircase on
-  `reachGfx` until Sep 2026, and `Render.reachOutlineCell` + a per-cell
-  `isReach` loop + an arc helper existed to draw it. It made sense while
-  `PLAYER_OUTPUT_K` had the plateau at a bit over half its light and the
-  boundary needed underlining; once `PLATEAU_OUTPUT_K` lit the reach area back
-  up, the line and the light were two drawings of one boundary and the line
-  was the louder. The plateau is painted per reach cell from `cellInReach`'s
-  own expressions, rounded by the same `ReachCorner` rule the line rounded by,
-  so what is LIT is exactly what the tap gate accepts — cell-exact, not a
-  circle. **Never stroke a reach outline back on:** if the boundary stops
-  reading, widen the STEP at its edge in `lighting.js` (that step is pinned to
-  outweigh `PLATEAU_FALL` at every depth and hour), and check
-  `PLATEAU_OUTPUT_K` before anything else. `reachGfx` now carries the
-  unmapped-tile reveal alone, and `ReachCorner` keeps only the corner
-  classification — `shortenH` / `shortenV` said where a STROKED edge stopped
-  short of a round, and left with the stroke.
-  **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` (the
-  derived levels, the noon headroom the plateau knob is set at, the table, the
-  collector, the source pins), `test/node/reach_corners.test.js` (the plateau
-  rounds every corner of the staircase exactly once — and the outline is gone
-  and stays gone) and `tools/layer_audit.js` (the lightmap above ground, halo
-  and sprites, below the labels).
+  **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` — the
+  derived levels, and the noon headroom `PLATEAU_OUTPUT_K` is set at.
+
+- **Every light source is a ROW in `Lighting.KINDS` — when you add one, add a
+  row and return its kind from `Lighting.sourceKind`.** For a light that is a
+  POINT rather than a scanned object (a placed fire, a lamp), give it a
+  collector of its own instead, called from `draw()` beside `collectFires` /
+  `collectLamps`; a collector culls at `halfM` + the row's own radius, NOT the
+  sprite cull, so a lantern a cell off-screen still lights the edge.
+  The rows today: the player; Home (`trailer` — the starter trailer or the
+  house adopted in its place); a restored building, keyed on the SAME
+  `isClaimedKey` test the derelict wash reads, so it lights the frame its wash
+  lifts; a campfire whose radius IS `FIRE_REST_R` — stand in the light, stand
+  in the warmth; every live POI, a small treasure blue-white light breathing on
+  `POI_PULSE_PERIOD_S` with a per-id phase, which IS the old halo ping (the
+  ring layer, its pool and its texture are gone), so a place reads from across
+  the map by its own light in the dark and never by a ring drawn back under the
+  pad; and a STREET LAMP every `Streets.lampSpacingM()` metres of restored
+  street (the `cobble` row — that is the STREET's own constant, 100 m,
+  deliberately NOT the prize ladder's 200 m rung; see the street rule below,
+  and never retype the number here).
+  **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` — the
+  table, the collectors and the per-source pins.
 
 - **A message on the MAP is thirty characters.** `util.js` `MAP_MSG_MAX` is
   the budget for every `flash` / `flashLoot` — a toast drawn over the world, on
@@ -803,35 +851,6 @@
   tips deleted in the prune, pins that the facts they carried landed on the
   items, and pins the sapphire's one-hint rule.
 
-- **Home is a CAMPFIRE YOU OWN, and its ring is ONE number.** A placed
-  campfire lights, warms and repels on one radius (`FIRE_REST_R` — the
-  `Lighting.KINDS.fire` row resolves to it). Home does the same three on
-  **`HOME_R`**: the `trailer` light row resolves to it, `isRestingAtHome` is a
-  plain distance test against it (`HOME_FULL_REST_S`), and `wanderCreatures`'
-  `homeWard` turns every `Combat.isEnemy` foe inside it around and switches
-  its bite off while it leaves. The lit circle IS the safe circle IS the
-  circle you recover in, so the player reads the whole rule off the picture —
-  three numbers would drift and two of them would be invisible.
-  Home keeps the one thing a fire hasn't: the trade panel, which is a TAP on
-  the building and no part of the ring.
-  Two shapes to avoid. The rest was **two special cases that agreed on
-  nothing** — an adopted house counted only from INSIDE (a building cell plus
-  a nearest-house scan), the trailer only from its own snapped cell, and
-  neither rested you on the DOORSTEP, which is where the player stands to work
-  the starter plot. And the ward is an **angle away from HOME**, never a
-  refused target cell like the scarecrow's: a foe deep inside the ring would
-  have all six attempts rejected and freeze on the doormat (the stall the
-  "surrounded by scarecrows" comment warns about), and away-from-PLAYER would
-  drive a foe on the far side straight through the door.
-  Where Home IS comes from **`homeWorldPos()`** — surface-only (the world is
-  GPS-mirrored, so a Home must not ward a cave below it) and memoised on the
-  home id, because all three effects ask every frame and the adopted-house
-  branch is a walk of every object in every cached tile. Only a HIT is
-  memoised; a miss just means the tile isn't loaded yet.
-  **When you add an effect to Home, put it on `HOME_R`.**
-  **Audit it:** `node test/node/run.js` › `test/node/home_ward.test.js` (the
-  rest ring and the resolver run for real on a stub scene; the ward is pinned
-  as source text) and `test/node/lighting.test.js` for the light radius.
 - **And what NO item can say is written in the Book — truthfully, and often
   enough to be read.** The rule above says what to take OUT of `PLAY_TIPS`; this
   is what has to go IN. A mechanic the player cannot discover by looking at it —
@@ -892,6 +911,37 @@
   sentence by name, pins the front-to-back read and the block order, and
   measures the school chest's book rate against every other chest.
 
+
+- **Home is a CAMPFIRE YOU OWN, and its ring is ONE number.** A placed
+  campfire lights, warms and repels on one radius (`FIRE_REST_R` — the
+  `Lighting.KINDS.fire` row resolves to it). Home does the same three on
+  **`HOME_R`**: the `trailer` light row resolves to it, `isRestingAtHome` is a
+  plain distance test against it (`HOME_FULL_REST_S`), and `wanderCreatures`'
+  `homeWard` turns every `Combat.isEnemy` foe inside it around and switches
+  its bite off while it leaves. The lit circle IS the safe circle IS the
+  circle you recover in, so the player reads the whole rule off the picture —
+  three numbers would drift and two of them would be invisible.
+  Home keeps the one thing a fire hasn't: the trade panel, which is a TAP on
+  the building and no part of the ring.
+  Two shapes to avoid. The rest was **two special cases that agreed on
+  nothing** — an adopted house counted only from INSIDE (a building cell plus
+  a nearest-house scan), the trailer only from its own snapped cell, and
+  neither rested you on the DOORSTEP, which is where the player stands to work
+  the starter plot. And the ward is an **angle away from HOME**, never a
+  refused target cell like the scarecrow's: a foe deep inside the ring would
+  have all six attempts rejected and freeze on the doormat (the stall the
+  "surrounded by scarecrows" comment warns about), and away-from-PLAYER would
+  drive a foe on the far side straight through the door.
+  Where Home IS comes from **`homeWorldPos()`** — surface-only (the world is
+  GPS-mirrored, so a Home must not ward a cave below it) and memoised on the
+  home id, because all three effects ask every frame and the adopted-house
+  branch is a walk of every object in every cached tile. Only a HIT is
+  memoised; a miss just means the tile isn't loaded yet.
+  **When you add an effect to Home, put it on `HOME_R`.**
+  **Audit it:** `node test/node/run.js` › `test/node/home_ward.test.js` (the
+  rest ring and the resolver run for real on a stub scene; the ward is pinned
+  as source text) and `test/node/lighting.test.js` for the light radius.
+
 - **A street is restored ALONG THE WAY, never per cell — and the way is a
   LINE of a feature, never the feature.** `src/streets.js` measures
   restoration as float metre intervals of arclength along each
@@ -916,8 +966,14 @@
   was COBBLE TRAILS: pebble sprites on paved cells, keyed per cell and
   thinned by a hash, so the counted stones and the drawn road were two
   different things; do not bring a per-cell road state back.
-  **What DID come back is the LIGHT.** A restored street lights its own way:
-  one glowing cobble every `Streets.lampSpacingM()` metres of rebuilt
+  **Audit it:** `node test/node/run.js` › `test/node/streets.test.js` — the
+  algebra, the sight window, restore/epoch — and `test/node/road_overlay.test.js`
+  for the restored pass and its tiles.
+
+- **A restored street LIGHTS ITS OWN WAY — and the lamp spacing is the
+  STREET's number, not the ladder's.** (The pebbles of the old cobble trails
+  are gone; this is what came back in their place.) One glowing cobble every
+  `Streets.lampSpacingM()` metres of rebuilt
   carriageway — its OWN constant, `Streets.LAMP_SPACING_M` (100 m),
   deliberately NOT `Trail.GOAL_STEP_M` (200 m) any more. It shipped tied to
   the ladder's rung under the `roadOverlayWidthM` discipline, so a walk that
@@ -933,8 +989,16 @@
   GENERATED, never stored
   (`Streets.lampsAlong` off the line's own geometry, lit when `Streets.covers`
   finds its metre in the restored list) — the traps rule, so a rebuilt tile
-  lights the same stones and the save gains nothing by it. It is TWO halves on
-  ONE point, because the lightmap MULTIPLIES: baked art
+  lights the same stones and the save gains nothing by it. **An UNLIT lamp is
+  drawn too, as the OLD ROAD COBBLE** — `assets.js` › `cobble` (Road
+  copiar.png, the per-cell pebble sheet the road band replaced) at the frame
+  that sheet used for the way's tier (`STREET_LAMP_DARK_FRAME`, keyed off
+  `WorldGen.classifyLine`), at the old stones' size and alpha — so the stones
+  to light are visible before they light. `_updateStreetLamps` keeps every
+  nearby lamp on ONE list flagged `lit`, and both readers ask that flag: the
+  draw pass picks the baked lamp or the grey cobble, `Lighting.collectLamps`
+  skips the dark ones. A second list for the dark stones is the bug.
+  It is TWO halves on ONE point, because the lightmap MULTIPLIES: baked art
   (`RoadOverlay.paintLampStone`, drawn under the lightmap — a light alone does
   not exist at noon) and the `Lighting.KINDS.cobble` row over it, both in
   `UI_LAMP_GLOW` — the old activated-cobble violet, brought back for the lamp
@@ -959,7 +1023,10 @@
   lamp already in the save dark until the player happened to step onto another
   cell. **When you cache an answer read off a tile entry, ask what it says
   while that tile is still loading.**
-  **The restored patch is SOFT, and its edge only.** The rebuilt band is laid
+  **Audit it:** `node test/node/run.js` › `test/node/street_lamps.test.js`
+  (the wiring and the memo) and `test/node/streets.test.js` (the placement).
+
+- **The restored patch is SOFT, and its edge only.** The rebuilt band is laid
   crisp — clean setts, a hairline kerb — and then FEATHERED as the last step of
   `commitRestored`, through `softenEdge`: a blurred mask of the same strokes
   composited `destination-in`, so the silhouette melts into the dilapidated
@@ -979,7 +1046,9 @@
   white and eased out, and `BLAST_STONE_R_CELLS` is a nod, not a detonation —
   a sweep lands every few paces of an ordinary walk.
 
-  **The ladder pays out of the ROAD's own pool, and the first rung is fixed.**
+  **Audit it:** `node test/node/run.js` › `test/node/road_overlay.test.js`.
+
+- **The ladder pays out of the ROAD's own pool, and the first rung is fixed.**
   `Trail.PRIZE_CONTEXT` is `rarity.js` › `'treasure:road'` — seeds first, with
   coins and produce as the other two faces of the pick and nothing else, because
   a two-way choice drawn from six classes is a lottery rather than a decision.
@@ -989,6 +1058,7 @@
   `save.trail.greeted`), and EVERY ceremony prints the next rung through
   `trailNextPrizeLine` off `Trail.goalFor` — a prize that pays without saying
   where the ladder goes next is a dead end.
+
 
   **Two synthetic classes sit in `classBias` beside the item kinds**, because
   what makes each a reward is not which item came out of the pool. `cash`
@@ -1003,12 +1073,8 @@
   ceiling in `CLASS_MAX_TIER` and a branch before the item resolution** — the
   pool lookup will otherwise hand back null and the roll pays nothing.
 
-  **Audit it:** `node test/node/run.js` › `test/node/streets.test.js` (the
-  algebra, the lamp placement, the sight window, restore/epoch),
-  `test/node/street_lamps.test.js` (the lamps' wiring),
-  `test/node/road_overlay.test.js`
-  (the restored pass, the tiles and the soft edge), `test/node/trail.test.js`
-  (the lifted sweep on a synthetic tile, the first rung, the dialogs) and
+  **Audit it:** `node test/node/run.js` › `test/node/trail.test.js` (the
+  lifted sweep on a synthetic tile, the first rung, the dialogs) and
   `test/node/loot.test.js` (the two synthetic classes and the road pool).
 
 ## Testing

@@ -1142,16 +1142,29 @@ STREET RESTORATION (the road band itself)
        STEADY — a fire breathes because it is burning and a POI breathes
        because it is asking to be noticed; a lamp is infrastructure, and a
        street of them breathing would be a strobe.
-     * THE LIST IS THE CAMERA'S. app.js _updateStreetLamps collects the lit
-       lamps of the 3×3 tiles near the CAMERA ANCHOR (this asks "what do I
-       draw", so a peek carries them), memoised on the anchor cell + the
+     * AN UNLIT LAMP IS THE OLD ROAD COBBLE. A stone stands on every
+       LAMP_SPACING_M of a street whether or not that stretch is restored yet,
+       and a dark one is DRAWN — as the plain grey pebble cluster the per-cell
+       road stones used to be (assets.js 'cobble', Road copiar.png, back for
+       this one job), at the frame that sheet used for the way's tier
+       (app.js STREET_LAMP_DARK_FRAME, off WorldGen.classifyLine), at the old
+       stones' own 0.64-cell size and 57% alpha. So the stones to light are
+       visible before they light, and a restored stretch turns the grey
+       cobble into the violet lamp on the same point rather than conjuring
+       one from nowhere. It throws no light: Lighting.collectLamps skips it.
+     * THE LIST IS THE CAMERA'S. app.js _updateStreetLamps collects every
+       lamp of the 3×3 tiles near the CAMERA ANCHOR (this asks "what do I
+       draw", so a peek carries them), each flagged `lit` by Streets.covers
+       over the restored intervals, memoised on the anchor cell + the
        streets epoch — the same integer the restored canvas repaints on, so a
        stretch coming back lights its lamps on the next frame and standing
        still costs nothing. Surface only. _streetLampsForTile caches a tile's
        lamp geometry on the tile ENTRY, so a tile rebuilt under the player
        re-derives it. _drawStreetLamps seats the stones through
-       worldMetersToScreen and Lighting.collectLamps stamps the lights from
-       the same list, so the two can never disagree about which lamps are on.
+       worldMetersToScreen (the baked lamp for a lit one, the cobble frame
+       for a dark one) and Lighting.collectLamps stamps the lights from the
+       same list's lit entries, so the two can never disagree about which
+       lamps are on: one list, one flag, both readers.
  - THE BLAST (restoration fanfare) is ONE thing at any size — app.js
    _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, gather, gatherPts,
    colour, material, durationMs }), fired at the instant a thing comes back. ONE per

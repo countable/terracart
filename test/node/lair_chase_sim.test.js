@@ -37,6 +37,11 @@ function mkScene(creature, over = {}) {
     viewCenterX: 0, viewCenterY: 0,
     _shots: [],
     isShadowActive: () => false,
+    // The one read for "no hostile takes an interest in the player" — a Shadow
+    // Powder, or a bar run to zero (app.js isUnnoticed). Stubbed to the real
+    // expression rather than a constant, so the test that switches notice off
+    // (and any that accidentally kill the player) behave as the game does.
+    isUnnoticed() { return this.isShadowActive() || Combat.playerDowned(this.save.energy); },
     homeWorldPos: () => null,                 // no Home: the ward is out of it
     playerToWorldCell: () => ({ tx: 0, ty: 0, ix: 0, iy: 0 }),
     cellAt: () => ({ loaded: true, type: 0 }),   // 0 = GRASS, walkable

@@ -177,12 +177,21 @@
       count: 12, angle: [225, 315], speed: [60, 140], lifespan: [400, 700],
       gravityY: 300, scale: [1, 0.4], alpha: [1, 0.2], rotate: [0, 180],
     },
-    // …and the BLAST that goes with it, in the restore green the Restored!
-    // card is already set in (UI_GREEN), so the burst in the world and the
-    // card that follows it are one event in one colour. Same shape as the
-    // street's trailspark — a weightless full ring burning out to nothing —
-    // because it is the same moment at a different size.
-    buildspark: {
+    // …and the BLAST that goes with it: THE GREEN RING, in the UI_GREEN the
+    // Restored! card is already set in, so the burst in the world and the card
+    // that follows it are one event in one colour. Same shape as the street's
+    // trailspark — a weightless full ring burning out to nothing — because it
+    // is the same moment at a different size.
+    //
+    // It is `greenspark` rather than `buildspark` because a wreck coming back
+    // is not the only thing in the game that suddenly comes GOOD over an area:
+    // the Growth Powder throws the identical ring off the radius its scatter
+    // covers (app.js useGrowthPowder), with `sprout` leaves over each plant
+    // that moved the way `timber` chips fly off a restored building's walls.
+    // Two reasons, one ring — a byte-identical second preset under a second
+    // name is the duplication this table's `ringPx` and `colour` overrides
+    // exist to make unnecessary. Name it for the ring, not for one caller.
+    greenspark: {
       tex: { shape: 'star', color: C.green, core: '#ffffff', size: 12 },
       count: 10, angle: [0, 360], speed: [70, 150], lifespan: [350, 600],
       gravityY: 0, scale: [0.9, 0], alpha: [1, 0], rotate: [0, 360],

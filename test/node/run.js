@@ -1182,7 +1182,7 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 {
   const appSrc = readSrc('app.js');
   const a = appSrc.indexOf('  _streetLampsForTile(tx, ty, entry) {');
-  const b = appSrc.indexOf('  // The LIT lamps near the frame');
+  const b = appSrc.indexOf('  // The lamps near the frame');
   const c = appSrc.indexOf('  _updateStreetLamps() {');
   const d = appSrc.indexOf('  // The stones themselves:');
   if (a < 0 || b < 0 || c < 0 || d < 0 || b < a || d < c) {
@@ -1493,6 +1493,16 @@ for (const f of testFiles) {
 {
   const shell = require('../../tools/shell_audit.js');
   for (const c of shell.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
+// ── Cache-bust audit (tools/cachebust.js) ─────────────────────────────────
+// Every module's ?v= is a hash of that module's bytes, so a changed file
+// cannot keep its old URL and go on being served from the HTTP cache beside a
+// fresh app.js that calls into it ("Combat.playerDowned is not a function").
+// Node scope for fs + crypto, like the audits above.
+{
+  const cachebust = require('../../tools/cachebust.js');
+  for (const c of cachebust.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
 // ── Vertical-layout audit (tools/layout_audit.js) ─────────────────────────

@@ -135,9 +135,39 @@ const STREET_LAMP_TEX = 'street_lamp';
 // is about a third of that, so a lamp sits clearly on one cell of the road.
 const STREET_LAMP_PX = CELL_PX *
   ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 1.5);
+// THE UNLIT LAMP IS THE OLD ROAD COBBLE. A lamp stands on every
+// LAMP_SPACING_M of street whether or not that stretch is restored yet — a
+// dark one is the stone you have not lit, and it has to be VISIBLE or the
+// lamps would seem to appear from nowhere as you walk. It draws from the
+// 'cobble' sheet (assets.js: Road copiar.png, the per-cell pebble art the
+// road band replaced in Sep 2026), at the frame that sheet used for the way's
+// tier — the same frames the old per-cell stones drew, so a dark lamp reads
+// as exactly the grey cobble a road always carried — and at the old stones'
+// own size and alpha: stepped down inside the cell so the band shows round
+// it, and see-through enough to sit ON the road rather than cover it. The
+// lit stone keeps its own baked art (STREET_LAMP_TEX) over the same point.
+const STREET_LAMP_DARK_TEX = 'cobble';
+// Frame per way tier, keyed by the WorldGen.T code classifyLine hands back:
+// motorway/trunk/primary the biggest densest cluster, secondary/tertiary the
+// medium one, minor/service/street the small one, and a footpath a single
+// pebble. Anything classifyLine calls "not a road" falls back to the small
+// cluster. Read through streetLampDarkFrame so the T codes are looked up
+// live rather than retyped here.
+const STREET_LAMP_DARK_FRAME = { ROAD_LG: 0, ROAD_MD: 5, ROAD: 1, PATH: 3 };
+const streetLampDarkFrame = (tier) => {
+  const T = (typeof WorldGen !== 'undefined' && WorldGen.T) || {};
+  for (const k in STREET_LAMP_DARK_FRAME) if (T[k] === tier) return STREET_LAMP_DARK_FRAME[k];
+  return STREET_LAMP_DARK_FRAME.ROAD;
+};
+// The old stones' draw size, in cells: a road cluster at 0.64 of a cell, a
+// path pebble at 0.584 (both "stepped down 20% per playtest" so the ground
+// shows round them), and their 57% alpha.
+const STREET_LAMP_DARK_CELLS = { road: 0.64, path: 0.584 };
+const STREET_LAMP_DARK_ALPHA = 0.57;
 // Pool size. One lamp per LAMP_SPACING_M (100 m) against a viewport 11 cells
-// (~77 m) across means a couple in view is an ordinary block; the pool grows
-// itself if a dense knot of short ways ever beats that (Render.renderPool).
+// (~77 m) across means a couple in view is an ordinary block — lit and dark
+// alike, now that a dark lamp draws too; the pool grows itself if a dense
+// knot of short ways ever beats that (Render.renderPool).
 const STREET_LAMP_POOL = 12;
 // How faint the DWELL PREVIEW gets at its fullest — the ghost of the clean
 // carriageway creeping in under the player while the dwell runs. Well under
@@ -834,6 +864,18 @@ const NEAR_GPS_CELLS = 3;
 // empty-tank aura is the state, and it pulses on its own clock.
 const HIT_FLASH_MS = 160;
 const HIT_FLASH_TINT = 0xff5a5a;
+// UNNOTICED: how far the body fades while nothing can perceive it (scene
+// isUnnoticed — a Shadow Powder's minute, or collapsed on an empty bar). Low
+// enough to read as a ghost at a glance, high enough to keep the character
+// legible against dark ground: you still have to steer this thing, and on hard
+// mode a downed player walks the whole way home wearing it.
+const UNNOTICED_ALPHA = 0.42;
+// The contact shadow's own alpha, which the ghost fade multiplies so the body
+// and the mark it casts fade TOGETHER — a solid shadow under a translucent
+// character reads as a render bug rather than as a ghost. Two levels because a
+// flying dragon has left the ground (_applyDragonSkin sizes it to match).
+const PLAYER_SHADOW_ALPHA = 0.34;
+const PLAYER_SHADOW_ALPHA_FLYING = 0.20;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
 //
@@ -1946,7 +1988,9 @@ class MapScene extends Phaser.Scene {
     // radial gradient and Phaser's Graphics has no gradient primitive) and
     // drawn from its own pool into the SAME ground-decoration container as
     // the pier plank: a lamp lies on the road surface, above the band and
-    // below the lightmap that turns it into a light after dark.
+    // below the lightmap that turns it into a light after dark. The UNLIT
+    // lamps draw from the same pool as the old 'cobble' sheet (assets.js) —
+    // the pool sprites swap texture per lamp in _drawStreetLamps.
     //
     // Sized in CELLS (RoadOverlay.LAMP_DRAW_CELLS), so the stone keeps its
     // proportion to the carriageway at any latitude's cell size. The pool is
@@ -2334,7 +2378,7 @@ class MapScene extends Phaser.Scene {
     this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY - 1, 'bldg_shadow')
       .setOrigin(0.5, 0.5)
       .setDisplaySize(17, 6)
-      .setAlpha(0.34)
+      .setAlpha(PLAYER_SHADOW_ALPHA)
       .setDepth(9.5)
       .setMask(mask);
     // Countdown label floated over the dragon's head while Dragon Powder is
@@ -5889,6 +5933,24 @@ class MapScene extends Phaser.Scene {
         liy: Math.floor((s.y - ty * entry.tileEdgeM) / cellSizeM),
       }));
     if (!anchors.length) anchors.push({ lix: Math.floor(N / 2), liy: Math.floor(N / 2) });
+    // Cells an object (rock, staircase, chest…) already sits on. Built ONCE
+    // here and shared by every seat-time check below — monsters, rabbits,
+    // the coin trickle and the traps — rather than each rescanning
+    // entry.objects for the same thing. This is occupancy governing where a
+    // thing is SEATED, not where it may later walk: a monster or rabbit is
+    // free to wander onto any cell once it exists (the wander loop in
+    // wanderCreatures doesn't consult this), it just must not be BORN on a
+    // staircase or inside a rock sprite — the same "not under a rock" half of
+    // the spawn rule the cave coins and cave traps just below already enforce
+    // via their own copies of this scan. Terrain (CAVE_FLOOR) alone can't see
+    // an object sitting on top of it, same as the surface roadMask can't see
+    // an object sitting on top of a grass cell.
+    const occupiedIdx = new Set();
+    for (const o of (entry.objects || [])) {
+      const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
+      const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
+      occupiedIdx.add(oy * N + ox);
+    }
     const SPAWN_R = 25; // cells — fills 2–3 screens worth around each entry point
     const randCell = () => {
       const a = anchors[Math.floor(rng() * anchors.length)];
@@ -5917,6 +5979,12 @@ class MapScene extends Phaser.Scene {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        // Don't SEAT a monster on a staircase or inside a rock sprite — see
+        // the occupiedIdx comment above. This is a rejected attempt, not an
+        // extra rng() draw: randCell() already made its 3 calls for this
+        // attempt, so the draw sequence every existing cave level was seeded
+        // with is untouched.
+        if (occupiedIdx.has(cy * N + cx)) continue;
         const id = `mon_${kind}_${depth}_${tx}_${ty}_${i}`;
         if (caughtSet.has(id)) break;   // already defeated — stays dead
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
@@ -5938,6 +6006,9 @@ class MapScene extends Phaser.Scene {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        // Same seat-time occupancy check as the monster loop above — a rabbit
+        // is no less able to spawn inside a rock than a slime is.
+        if (occupiedIdx.has(cy * N + cx)) continue;
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
         if (caughtSet.has(id)) break;   // already caught — stays gone
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
@@ -5963,12 +6034,12 @@ class MapScene extends Phaser.Scene {
     if (!entry.coinDrops) {
       const CAVE_COINS_MIN = 4, CAVE_COINS_MAX = 8;   // per level tile — a trickle, not a burst
       const coins = [];
-      const taken = new Set();
-      for (const o of (entry.objects || [])) {
-        const cx = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
-        const cy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
-        taken.add(cy * N + cx);
-      }
+      // Copy, not the shared Set itself: this loop adds each newly-placed
+      // coin's own cell to `taken` so two coins can't stack, and that's a
+      // coin-to-coin rule the monster/rabbit/trap passes have no business
+      // seeing. The object occupancy underneath it is the same occupiedIdx
+      // built once above — no second scan of entry.objects.
+      const taken = new Set(occupiedIdx);
       const coinN = CAVE_COINS_MIN + Math.floor(rng() * (CAVE_COINS_MAX - CAVE_COINS_MIN + 1));
       for (let i = 0; i < coinN; i++) {
         for (let attempt = 0; attempt < 20; attempt++) {
@@ -5993,12 +6064,9 @@ class MapScene extends Phaser.Scene {
     // warning there is, and an unlit cell already swallows most of it.
     entry.traps = [];
     if (typeof Traps !== 'undefined' && !window.__TEST_MODE) {
-      const occupiedIdx = new Set();
-      for (const o of (entry.objects || [])) {
-        const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
-        const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
-        occupiedIdx.add(oy * N + ox);
-      }
+      // Same occupiedIdx built once above for the monster/rabbit seat check —
+      // this used to be a third scan of entry.objects for the identical Set;
+      // now it's the one this function already has in scope.
       // Flat multiplier regardless of game mode — a dungeon is dangerous on
       // either one (see Traps.DUNGEON_DENSITY_MUL).
       entry.traps = Traps.spawnCave(entry.grid, N, tx, ty, entry.tileEdgeM, depth,
@@ -6375,6 +6443,20 @@ class MapScene extends Phaser.Scene {
     // Keyboard → steer the target directly, free, no offset.
     this._steerTarget(vx, vy, speedMul, dt);
     this._followStep(dt);
+    // One throttled flash for the stick-walking drain banked in _steerManual,
+    // same shape as the slime-leech / monster-hit roll-ups below (1200ms, one
+    // pop for the whole window rather than one per energy pip). Lives here
+    // rather than inside _steerManual because that method only runs on a
+    // frame the stick is actually held — this runs every frame, so a drag
+    // that lets go mid-window still gets its pop instead of losing the
+    // remainder silently.
+    if (this._steerDrainAccum > 0 && performance.now() - (this._lastSteerFlashT || 0) > 1200) {
+      this._lastSteerFlashT = performance.now();
+      const drained = this._steerDrainAccum;
+      this._steerDrainAccum = 0;
+      this._popEnergy(-drained, { label: '🚶 steer' });
+      if (typeof persistSave === 'function') persistSave(this.save);
+    }
 
     // Exhaustion underground: hit 0 energy below the surface and you black out
     // and wake up top-side. Guarded so the modal fires once, and skipped in
@@ -7769,24 +7851,14 @@ class MapScene extends Phaser.Scene {
   // _stepT0, _nextChooseT, _homeX/Y, _faceFlip.
   wanderCreatures() {
     const now = performance.now();
-    // Shadow Powder: while it runs, no hostile takes an interest in the player
-    // — the slime's meander and the monsters' stalk fall back to aimless
-    // wandering, and neither the leech nor the monster hit lands. Read once
-    // per tick, not per creature. The PLAYER's weapons are not gated by this.
-    const shadowed = this.isShadowActive();
-    // DOWNED: the bar is empty (Combat.playerDowned — the same expression the
-    // three damage paths guard with). A collapsed player cannot reach, cannot
-    // tap and cannot take another point of damage, so a hostile that keeps
-    // stalking one is chasing a body it is forbidden to bite — and on hard,
-    // where nothing but Home lifts the bar off zero, it escorts them the
-    // whole way home. A downed player is simply not there to be hunted.
-    //   `unnoticed` is the pair: everywhere a hostile would take an interest
-    // in the player it reads THIS, never `shadowed` alone, so the two wards
-    // switch off the same set of behaviours — the leech, the monster's hit
-    // and arrow, the struck slime's charge, and both stalk branches, each
-    // falling back to the aimless wander. Read once per tick, not per
-    // creature. The PLAYER's own weapons are gated by neither.
-    const unnoticed = shadowed || Combat.playerDowned(this.save.energy);
+    // NOT THERE TO BE HUNTED: a Shadow Powder's minute, or a bar run to zero.
+    // isUnnoticed() ORs the two (see it for why they are one state), and
+    // everywhere a hostile would take an interest in the player reads THIS —
+    // the leech, the monster's hit and arrow, the struck slime's charge, and
+    // both stalk branches, each falling back to the aimless wander. Read once
+    // per tick, not per creature. The PLAYER's own weapons are gated by
+    // neither, and _updatePlayerAura fades the body on the same expression.
+    const unnoticed = this.isUnnoticed();
     const STEP_MS = 5000;
     const STEP_M = this.cellM;   // 1 cell per step
     // Only sim creatures near the player. Beyond the bubble they stay frozen
@@ -8967,11 +9039,28 @@ class MapScene extends Phaser.Scene {
     // shared with the X-mark scatter above. This burst is centred on a POI, so
     // pass it as a public anchor — residential cells right around the chest are
     // fair game even if no road is within frontage.
-    const burstOpts = { roadMask: entry.roadMask, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
+    //
+    // The road mask is only HALF of "don't spawn here" (CLAUDE.md's spawn
+    // rule): the other half is opts.occupied, the Set of cells a tree, rock or
+    // wildplant already claimed at rasterize time. spawnInTile builds that Set
+    // ONCE per tile and stashes it on entry._spawnOpts.occupied precisely so
+    // later passes (traps' per-frame tick, and now this burst) can reuse it
+    // instead of re-scanning entry.objects/wildplants — the cave coin pass in
+    // spawnCaveCreatures already guards this exact case ("a coin under a rock
+    // sprite reads as a rock"). A burst can in principle fire on a tile whose
+    // spawn pass hasn't run yet (the chest sprite is drawn from `entry.objects`
+    // alone, which exists before `_spawned`), so fall back to no occupancy
+    // check rather than crash on a missing entry._spawnOpts.
+    const occupiedIdx = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
+    const burstOpts = { roadMask: entry.roadMask, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
     // Cells within `r` that will take a coin. `strict` is the shared scenery
     // rule (walkable, off the road band, and on RESIDENTIAL only near a public
     // anchor); relaxed keeps the two that matter for a coin — not in water or
-    // a wall, not in the traffic — and drops the frontage rule.
+    // a wall, not in the traffic — and drops the frontage rule. It must NOT
+    // drop the occupancy check too: "not under a rock" isn't a frontage
+    // nicety, it's the same "don't spawn on top of anything already there"
+    // half of the rule strict enforces via isSpawnCell, so relaxed re-checks
+    // occupiedIdx directly.
     const gather = (r, strict) => {
       const out = [];
       for (let dy = -r; dy <= r; dy++) {
@@ -8985,6 +9074,7 @@ class MapScene extends Phaser.Scene {
           } else {
             if (!WorldGen.isWalkable(entry.grid[cy * N + cx])) continue;
             if (entry.roadMask && entry.roadMask[cy * N + cx]) continue;
+            if (occupiedIdx && occupiedIdx.has(cy * N + cx)) continue;
           }
           out.push({ cx, cy });
         }
@@ -9303,6 +9393,19 @@ class MapScene extends Phaser.Scene {
         this._steerCostAccrue -= 1;
         const before = this.save.energy ?? 0;
         this.save.energy = Math.max(0, before - 1);
+        // CLAUDE.md: "when you add an energy gain or loss the player can see,
+        // pop it with _popEnergy and name the cell." Every other continuous
+        // drain (the slime leech, a monster's melee, the trap bleed) rolls up
+        // into an accumulator and flushes it as ONE throttled pop rather than
+        // one per pip — a long drag across town would otherwise spam a "-1⚡"
+        // every single cell. This one had no pop at all until now. Flushed in
+        // update() (see _lastSteerFlashT), not here, because _steerManual only
+        // runs while the stick is actually pushed — the flush needs a home
+        // that runs every frame so a drag that stops mid-throttle still pays
+        // out. This is a cost to the BODY (walking, not a tap on a cell), so
+        // it wears the same "no ix/iy" default _popEnergy already gives the
+        // slime leech and the rest splash — it lands on the player's own cell.
+        this._steerDrainAccum = (this._steerDrainAccum || 0) + (before - this.save.energy);
         this._warnIfTiring(before);
         if (this.updateEnergyDOM) this.updateEnergyDOM();
       }
@@ -9535,6 +9638,22 @@ class MapScene extends Phaser.Scene {
       this.player.setTint((!this._dragonActive && this.save.playerColor) || 0xffffff);
       if (this.playerHalo.visible) this.playerHalo.setVisible(false);
     }
+    // THE GHOST. While nothing can perceive the player — a Shadow Powder's
+    // minute, or collapsed on an empty bar — the body fades, and its contact
+    // shadow fades with it. It is the same isUnnoticed() every hostile branch
+    // in wanderCreatures asks, so the picture cannot promise a stealth the AI
+    // isn't honouring: fade and safety begin and end on one expression.
+    //
+    // Alpha, not tint, on purpose. The two states this covers already own the
+    // tint channel (the empty tank's red, the far-from-GPS dim) and the halo
+    // beside it, and both of those are WARNINGS the player still needs while
+    // down — a ghost that couldn't also go red would cost more than it says.
+    // Fading is the one channel nothing else is using, and it says the right
+    // thing by itself: less there.
+    const ghost = this.isUnnoticed() ? UNNOTICED_ALPHA : 1;
+    this.player.setAlpha(ghost);
+    this.playerShadow?.setAlpha(
+      (this._dragonActive ? PLAYER_SHADOW_ALPHA_FLYING : PLAYER_SHADOW_ALPHA) * ghost);
   }
   // Move the body one frame toward the target through open cells, mining a wall
   // only when it actually blocks the path AND can't be walked around (a cave
@@ -11316,6 +11435,19 @@ class MapScene extends Phaser.Scene {
         this.viewCenterX, this.viewCenterY);
       return false;
     }
+    // THE BLAST — the same fanfare a street and a wreck get, scaled to what a
+    // scatter of powder covers. advanceCropsWithin has already thrown a
+    // 'sprout' over every plant that moved (the leaves ARE the growth); this
+    // is the green ring around them, off the powder's own radius so the flash
+    // says how far the scatter reached rather than going off at the feet. It
+    // is thrown from the PLAYER's world point — the powder leaves the hand,
+    // and the sweep it drives is centred there too (advanceCropsWithin reads
+    // the same point), so the ring and the crops it sprang share a centre.
+    this._blastAt(this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y, {
+      radiusCells: GROWTH_POWDER_R_M / this.cellM,
+      ringPx: GROWTH_POWDER_R_M * CELL_PX / this.cellM,
+      sparks: 'greenspark',
+    });
     consumeSelected(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();
@@ -11329,6 +11461,23 @@ class MapScene extends Phaser.Scene {
   // player swings or shoots is gated by it.
   isShadowActive() {
     return (this._shadowUntil ?? 0) > Date.now();
+  }
+
+  // UNNOTICED: nothing in the world can perceive the player. TWO reasons, ONE
+  // state — a Shadow Powder's minute, and a bar run to zero (Combat.playerDowned,
+  // the same expression the three damage paths guard with: a collapsed player
+  // cannot reach, cannot tap and cannot take another point, so a hostile that
+  // goes on stalking one is chasing a body it is forbidden to bite).
+  //
+  // It is read on BOTH sides of the game, which is the whole point of it being
+  // one expression: wanderCreatures gates every hostile-interest branch on it
+  // (the leech, the monster's hit and its arrow, the struck slime's charge and
+  // both stalk branches, each falling back to the aimless wander), and
+  // _updatePlayerAura FADES THE BODY while it holds. So what the player sees is
+  // what the AI is doing — a ghost is exactly as unhuntable as it looks, and a
+  // third reason for not being there lands in both at once by being ORed here.
+  isUnnoticed() {
+    return this.isShadowActive() || Combat.playerDowned(this.save.energy);
   }
 
   useShadowPowder() {
@@ -11581,7 +11730,14 @@ class MapScene extends Phaser.Scene {
   advanceCropsWithin(radius) {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
-    return Crops.advanceWithin(this.save, pWX, pWY, radius);
+    // Leaf flecks off each plant that sprang — the SAME cue the 15-minute
+    // tick (advanceGrowth) and the can's jump (waterCropsWithin) throw, for
+    // the same event. _burstAtWorld drops the ones off-screen, so a scatter
+    // at the edge of a big plot only pays for the leaves you can see.
+    const movedPlants = [];
+    const n = Crops.advanceWithin(this.save, pWX, pWY, radius, movedPlants);
+    for (const p of movedPlants) this._burstAtWorld('sprout', p.x, p.y);
+    return n;
   }
 
   // ── DIALOG BANNER ART ──────────────────────────────────────────────────
@@ -13815,6 +13971,10 @@ class MapScene extends Phaser.Scene {
   // on the same stretch — two sprites and two stacked lights on one street.
   //
   // Rail is skipped: a railway is not a street to rebuild, so it never lights.
+  //
+  // Each lamp carries the way's TIER (WorldGen.classifyLine — the terrain
+  // code the grid was painted with), which is what picks its unlit stone's
+  // frame: the old cobble sheet drew a different cluster per road tier.
   _streetLampsForTile(tx, ty, entry) {
     if (entry._streetLamps) return entry._streetLamps;
     const out = [];
@@ -13841,6 +14001,7 @@ class MapScene extends Phaser.Scene {
         if (f.type !== 2 || !f.geom) continue;          // lines only
         const cls = (f.tags && f.tags.class) || '';
         if (cls === 'rail' || cls === 'transit') continue;
+        const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
@@ -13853,7 +14014,7 @@ class MapScene extends Phaser.Scene {
             if (!Streets.covers(spans, sM)) continue;   // in the buffer — the neighbour's stone
             const q = Streets.pointAtM(line, mvtToM, sM);
             if (!q) continue;
-            out.push({ tileKey, lineKey, s: sM, x: ox + q.x, y: oy + q.y,
+            out.push({ tileKey, lineKey, tier, s: sM, x: ox + q.x, y: oy + q.y,
                        id: `lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
           }
         }
@@ -13863,9 +14024,11 @@ class MapScene extends Phaser.Scene {
     return out;
   }
 
-  // The LIT lamps near the frame, on this._streetLamps — read by
-  // _drawStreetLamps for the stones and by Lighting.collectLamps for the
-  // lights, so the two can never disagree about which lamps are on.
+  // The lamps near the frame, on this._streetLamps, each flagged `lit` —
+  // read by _drawStreetLamps for the stones (a lit one as the baked lamp, a
+  // dark one as the old grey cobble) and by Lighting.collectLamps for the
+  // lights (lit ones only), so the two can never disagree about which lamps
+  // are on: ONE list, one flag, both readers.
   //
   // Measured from the CAMERA ANCHOR, not the feet: this asks "what do I DRAW",
   // and a peek drag has to bring the lamps at the peeked edge with it (the
@@ -13924,8 +14087,11 @@ class MapScene extends Phaser.Scene {
             iv = Streets.restoredList(this.save, L.tileKey, L.lineKey);
             restored.set(L.lineKey, iv);
           }
-          if (!Streets.covers(iv, L.s)) continue;       // this stretch is still dilapidated
-          out.push(L);
+          // A lamp on a stretch still dilapidated is kept, DARK: it draws as
+          // the plain cobble and throws no light. A fresh object per frame
+          // the list rebuilds, never a flag written onto the tile's cached
+          // geometry — that cache is per tile, this answer is per save.
+          out.push({ ...L, lit: Streets.covers(iv, L.s) });
         }
       }
     }
@@ -13933,23 +14099,40 @@ class MapScene extends Phaser.Scene {
     this._streetLampKey = pending ? null : key;
   }
 
-  // The stones themselves: one pooled sprite per lit lamp, seated through
+  // The stones themselves: one pooled sprite per lamp, seated through
   // worldMetersToScreen (the camera-anchored projection — a peek carries them
   // with the ground) into the ground-decoration container, which sits on the
-  // road band and under the lightmap. The light over each one is stamped by
+  // road band and under the lightmap. A LIT lamp is the baked violet stone
+  // (STREET_LAMP_TEX, halo and all, STREET_LAMP_PX across); a DARK one is the
+  // old road cobble (STREET_LAMP_DARK_TEX at its tier's frame), at the old
+  // stones' size and alpha. The light over each lit one is stamped by
   // Lighting.collectLamps from the same list.
   _drawStreetLamps() {
     const pool = this.streetLampPool;
     if (!pool || !this.cobbleContainer || typeof Render === 'undefined') return;
-    // No stone baked (no canvas at boot) — the lamps still LIGHT, they just
-    // have no art. Better than growing the pool with untextured sprites.
-    if (!this.textures.exists(STREET_LAMP_TEX)) return;
+    const hasLit = this.textures.exists(STREET_LAMP_TEX);
+    const hasDark = this.textures.exists(STREET_LAMP_DARK_TEX);
+    // No art at all (no canvas at boot AND the sheet failed to load) — the
+    // lamps still LIGHT, they just have no stone. Better than growing the
+    // pool with untextured sprites.
+    if (!hasLit && !hasDark) return;
     const list = this._streetLamps || [];
+    const isPath = (tier) => typeof WorldGen !== 'undefined' && WorldGen.T && tier === WorldGen.T.PATH;
     Render.renderPool(this, pool, this.cobbleContainer, list, (s, L) => {
+      // A lamp whose texture is missing keeps its slot but shows nothing.
+      if (L.lit ? !hasLit : !hasDark) { s.setVisible(false); return; }
       const p = this.worldMetersToScreen(L.x, L.y);
-      if (s.texture && s.texture.key !== STREET_LAMP_TEX) s.setTexture(STREET_LAMP_TEX);
       s.setPosition(p.x, p.y);
-      s.setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX);
+      if (L.lit) {
+        if (!s.texture || s.texture.key !== STREET_LAMP_TEX) s.setTexture(STREET_LAMP_TEX);
+        s.setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setAlpha(1);
+      } else {
+        const frame = streetLampDarkFrame(L.tier);
+        if (!s.texture || s.texture.key !== STREET_LAMP_DARK_TEX) s.setTexture(STREET_LAMP_DARK_TEX, frame);
+        else s.setFrame(frame);
+        const px = CELL_PX * (isPath(L.tier) ? STREET_LAMP_DARK_CELLS.path : STREET_LAMP_DARK_CELLS.road);
+        s.setDisplaySize(px, px).setAlpha(STREET_LAMP_DARK_ALPHA);
+      }
     });
   }
 
@@ -14457,7 +14640,7 @@ class MapScene extends Phaser.Scene {
         const bg = this._houseBlastGeometry(house);
         this._blastAt(bg.x, bg.y, {
           radiusCells: bg.radiusCells, ringPx: bg.ringPx,
-          chips: 'timber', sparks: 'buildspark',
+          chips: 'timber', sparks: 'greenspark',
         });
         this.buildInventoryDOM();
         this.questEvent('restore');
@@ -15067,11 +15250,10 @@ class MapScene extends Phaser.Scene {
     }
     // A flying dragon isn't standing on the cell, so its shadow shrinks and
     // fades — the standard "it left the ground" read. Restored on landing.
-    if (this.playerShadow) {
-      this.playerShadow
-        .setDisplaySize(ready ? 13 : 17, ready ? 5 : 6)
-        .setAlpha(ready ? 0.20 : 0.34);
-    }
+    // Only the SIZE is set here: the ALPHA is written every frame by
+    // _updatePlayerAura, which multiplies the level this form calls for by the
+    // ghost fade, so the two can't fight over the property.
+    if (this.playerShadow) this.playerShadow.setDisplaySize(ready ? 13 : 17, ready ? 5 : 6);
   }
   _playDirected(sprite, baseKey, dx, dy) {
     if (dx !== undefined) {

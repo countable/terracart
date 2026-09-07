@@ -47,21 +47,26 @@ test('downed: an empty bar is down, and so is a bar that is not a number', () =>
   assert.falsy(Combat.playerDowned(0.5), 'and so is half of one');
 });
 
-test('downed: wanderCreatures ORs the two wards once per tick', () => {
-  const body = methodBody('wanderCreatures');
-  assert.truthy(/const shadowed = this\.isShadowActive\(\);/.test(body),
-    'the Shadow Powder ward is still read once per tick');
+test('downed: isUnnoticed ORs the two wards, and wanderCreatures reads it once per tick', () => {
+  // The OR lives on the SCENE, not in the sim loop, because the picture reads
+  // it too: _updatePlayerAura fades the body on the same expression (see the
+  // ghost test below). One state, two reasons, both sides.
+  const pred = methodBody('isUnnoticed');
   assert.truthy(
-    /const unnoticed = shadowed \|\| Combat\.playerDowned\(this\.save\.energy\);/.test(body),
-    'the downed test is ORed with it into `unnoticed`, off the LIVE bar');
+    /return this\.isShadowActive\(\) \|\| Combat\.playerDowned\(this\.save\.energy\);/.test(pred),
+    'the Shadow Powder ward ORed with the downed test, off the LIVE bar');
+  const body = methodBody('wanderCreatures');
+  assert.truthy(/const unnoticed = this\.isUnnoticed\(\);/.test(body),
+    'wanderCreatures reads it once per tick, not per creature');
 });
 
 test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`', () => {
   const code = codeOnly(methodBody('wanderCreatures'));
-  // `shadowed` survives only as its own definition and the OR above. Any other
-  // code reading it is a branch the collapse ward would silently miss.
-  const bare = (code.match(/shadowed/g) || []).length;
-  assert.eq(bare, 2, 'shadowed appears only in its definition and in `unnoticed`');
+  // The sim loop no longer names `shadowed` at all — it holds only the ORed
+  // state. Any branch reading the powder alone is one the collapse ward would
+  // silently miss, so re-introducing the name here is the bug.
+  assert.eq((code.match(/shadowed/g) || []).length, 0,
+    'the Shadow Powder is never read on its own inside the sim loop');
   // The five branches, by the expression each is gated on.
   const gates = [
     // The `!homeWard` half of these three became `!standDown` when the lair
@@ -77,6 +82,26 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
   for (const [re, what] of gates) {
     assert.truthy(re.test(code), `${what} is gated on unnoticed`);
   }
+});
+
+test('downed: the body FADES on the same expression the hunt drops', () => {
+  // A ghost is exactly as unhuntable as it looks: the fade may not be a
+  // second, looser test, or the picture would promise a stealth the AI is not
+  // honouring (and a `_stealthed` flag beside it would be the duplication the
+  // whole `unnoticed` lane exists to avoid).
+  const aura = methodBody('_updatePlayerAura');
+  assert.truthy(/const ghost = this\.isUnnoticed\(\) \? UNNOTICED_ALPHA : 1;/.test(aura),
+    'the aura asks isUnnoticed, never isShadowActive or the bar');
+  assert.truthy(/this\.player\.setAlpha\(ghost\);/.test(aura), 'the body fades');
+  assert.truthy(/this\.playerShadow\?\.setAlpha\(/.test(aura),
+    'and its contact shadow fades with it');
+  const a = app.match(/const UNNOTICED_ALPHA = ([\d.]+);/);
+  assert.truthy(a, 'UNNOTICED_ALPHA is a plain number');
+  assert.inRange(Number(a[1]), 0.25, 0.6,
+    'ghostly, but still steerable — you walk home in this on hard mode');
+  // ALPHA, not tint: the empty-tank red and the far-from-GPS dim own the tint
+  // channel and are warnings the player still needs while down.
+  assert.falsy(/UNNOTICED_ALPHA[\s\S]{0,80}setTint/.test(app), 'the fade never touches the tint');
 });
 
 test('downed: the pursuit gate and the damage guard are the SAME expression', () => {

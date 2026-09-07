@@ -27,7 +27,7 @@ have grown into several rules wearing one headline.
 
 ## 1. NOT-FOLLOWED — three call sites that skip a rule
 
-### 1a. The chest coin-burst passes half the spawn rule — `app.js:8914`
+### 1a. The chest coin-burst passes half the spawn rule — `app.js:8914` — **FIXED**
 
 ```js
 const burstOpts = { roadMask: entry.roadMask, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
@@ -41,10 +41,13 @@ on a staircase or a rock: the coin handler wins the tap, but a coin under a
 rock sprite reads as a rock"* (`app.js`, `spawnCaveCreatures`). The surface
 burst is the one that doesn't.
 
-**Recommendation.** Add `occupied: entry._occupiedIdx` to `burstOpts`. One
-line; the Set is already built for the tile.
+**Fixed.** `burstOpts` now carries `occupied` from `entry._spawnOpts.occupied`
+(the Set `spawnInTile` already builds once per tile), and the RELAXED lane
+re-checks it directly — "not under a rock" is not a frontage nicety. Falls back
+to no occupancy check on a tile whose spawn pass has not yet run, rather than
+crashing.
 
-### 1b. Cave monsters and rabbits check terrain and nothing else — `app.js:5919`, `5940`
+### 1b. Cave monsters and rabbits check terrain and nothing else — `app.js:5919`, `5940` — **FIXED**
 
 ```js
 if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
@@ -60,12 +63,16 @@ monster that spawns under a rock walks out from under it next tick, which is
 not the bug the rule was written about (a trap that springs under a rock sprite,
 an X you cannot dig). Surface fauna go through the shared rule anyway.
 
-**Recommendation.** Decide the general question first — *does the occupancy
-half apply to creatures?* — then either route these two through `isSpawnCell`
-with `entry._spawnOpts` or write the exemption into the rule. Do not fix one
-without the other.
+**Fixed, and the general question is settled:** occupancy governs where a thing
+is **SEATED**, not where it may later walk. A creature may wander onto any cell
+once it exists (the wander loop is untouched); it may not be BORN on a
+staircase or inside a rock. Both loops now share ONE occupancy Set with the
+coins and traps in the same function — which removed two duplicate scans of
+`entry.objects` while it was there. The check is a rejected attempt inside the
+existing loop, so no `rng()` draw moved and every existing cave level is
+unchanged.
 
-### 1c. A silent energy drain — `app.js:9246-9251`
+### 1c. A silent energy drain — `app.js:9246-9251` — **FIXED**
 
 ```js
 while (this._steerCostAccrue >= 1) {
@@ -86,11 +93,12 @@ only feedback is `_warnIfTiring`, which fires once, at 30%, and prints no
 number. `energy_pop.test.js` does not cover this call site, so nothing catches
 it.
 
-**Recommendation.** Accumulate and pop on the player's own cell, on the same
-throttle the slime leech uses (it is the closest sibling: a continuous drain the
-player is walking into). If walking costs are meant to be silent, say so in the
-rule — but "the bar moved and nothing said why" is the exact complaint the rule
-was written to end.
+**Fixed.** Each pip banks into `_steerDrainAccum`, flushed as ONE throttled pop
+on the player's own cell — the same shape and the same 1200 ms window as the
+slime-leech and monster-hit roll-ups beside it. The flush lives in the
+every-frame tick rather than `_steerManual`, so a drag that stops mid-window
+still pays out instead of losing the remainder. `energy_pop.test.js` now pins
+the call site that had no test at all, which is why it stayed silent.
 
 ---
 
@@ -154,10 +162,12 @@ street-lamp paragraph is also the paragraph that went stale in §2a, and it went
 stale precisely because it lives away from `LAMP_SPACING_M`; moving it into the
 street rule would put the prose next to its constant.
 
-**Recommendation.** Split along the seams above, hoisting each bullet's
-imperative ("when you add X, do Y") to its head. Left undone in this pass: it
-is a large edit to a file five audits were reading, and it is a judgement call
-about how granular the list should get.
+**Done.** Split along the seams above, each bullet keeping the Audit line for
+its own test file: Combat into three, Light into three — with "add a row to
+`Lighting.KINDS`" promoted from two-thirds down to the headline — and the
+street rule into four (the lamps taking the still-loading memo caveat with
+them, since that is the lamps' own bug). The Home rule also moved out from
+between the two halves of the item/Book pair, which the copy sweep flagged.
 
 ---
 
@@ -191,7 +201,7 @@ Traced to shipping code and passing tests, with no drift in either direction:
   `MONSTER_TREASURE_CHANCE`). **No stale tip found.** The "twice as quick /
   thirty times" wording is a sanctioned rounding of 2.25×/30×, pinned as such.
 
-## 5. Latent, not yet a violation
+## 5. Latent, not yet a violation — **FIXED**
 
 **Two unyielded sweeps in the rasterizer** — `worldgen.js:3210` (every struct)
 and `3232` (every wildplant) run straight through between yields, while the
@@ -201,20 +211,21 @@ or polygon, give it a yield."* `tile_build_blocks.test.js` passes at 6000
 buildings, so these are inside budget today — which means the rule as stated is
 absolutely true and two shipped passes quietly disagree with it.
 
-**Recommendation.** Either add the periodic yield to both (cheap, matches the
-neighbouring code) or give the rule the carve-out it actually operates under —
-a body that is O(1) per element and bounded by objects-per-tile may run
-straight through, and the block-timing test is the arbiter.
+**Fixed** by taking the first option: both sweeps now yield every 64 items on
+the neighbouring idiom, with labels of their own (`structure occupancy sweep`,
+`wildplant occupancy sweep`) so a boot profile can name either. The rule keeps
+its unqualified form, because now nothing disagrees with it.
 
 ---
 
-## Suggested order
+## Status
 
-1. **§1c** — the silent steer drain: a player-visible gap, one call site.
-2. **§1a** — one line, and the codebase already calls this a bug elsewhere.
-3. **§1b** — needs the creatures-and-occupancy decision first, then both halves.
-4. **§5** — two yields, or one sentence of carve-out.
-5. **§3** — the three splits; the lighting bullet first, moving its street-lamp
-   paragraph into the street rule where its constant lives.
+**All of it is done.** §1a, §1b and §1c are fixed in code; §2a, §2b and §2c are
+fixed in the rules; §5 took the yields rather than the carve-out; and §3's three
+bullets are split — Combat into three, Light into three (with "add a row to
+`Lighting.KINDS`" promoted to its headline), and the street rule into four. The
+item/Book pair is adjacent again, the Home rule having moved out from between
+its halves.
 
-§2a, §2b and §2c are done.
+What is deliberately NOT done: nothing. If a §4 entry ever needs re-checking it
+is because the code moved, not because this pass left it half-audited.
