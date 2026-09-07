@@ -935,6 +935,111 @@ test('clean tile: it is the same tile every session', () => {
   assert.eq(JSON.stringify(a.ops), JSON.stringify(b.ops), 'fixed seed, identical setts');
 });
 
+// ── The LAMP STONE ──────────────────────────────────────────────────────────
+// The glowing cobble a restored street carries every Streets.lampSpacingM()
+// metres of it: a real radial-gradient halo plus a sett, baked once and drawn
+// through the same recording 2D context paintCleanTile is pinned against
+// above — never a stack of translucent rings (the blotching rule at the top
+// of this file: a translucent stroke composites with ITSELF wherever a path
+// doubles back).
+
+test('lamp stone: paints inside its own square only', () => {
+  const S = RoadOverlay.LAMP_TEX_PX;
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintLampStone(ctx, S);
+  const rect = ops.find(([k]) => k === 'fillRect');
+  assert.truthy(rect, 'the halo wash covers a rect');
+  assert.eq(JSON.stringify(rect.slice(1)), JSON.stringify([0, 0, S, S]), 'exactly the square, not past it');
+  // Every arc (the sett fill and its rim stroke) sits centred in the square
+  // with a radius that keeps it inside — never clipped by, or spilling past,
+  // the tile's own edge.
+  const arcs = ops.filter(([k]) => k === 'arc');
+  assert.gte(arcs.length, 2, 'the sett body and its rim stroke');
+  for (const [, cx, cy, r] of arcs) {
+    assert.inRange(cx, 0, S, 'arc centre x inside the square');
+    assert.inRange(cy, 0, S, 'arc centre y inside the square');
+    assert.lte(cx - r, S * 0.01, 'left edge does not spill past the square');
+    assert.gte(cx + r, -S * 0.01);
+    assert.lt(r, S / 2, 'the stone never reaches the edge of its own tile');
+  }
+  // Every gradient is likewise centred on the square, with its outer radius
+  // never wider than the square holding it.
+  const grads = ops.filter(([k]) => k === 'createRadialGradient');
+  for (const [, x0, y0, , x1, y1, r1] of grads) {
+    assert.inRange(x0, 0, S); assert.inRange(y0, 0, S);
+    assert.inRange(x1, 0, S); assert.inRange(y1, 0, S);
+    assert.lte(r1, S, 'the gradient does not reach past the square it fills');
+  }
+});
+
+test('lamp stone: a real radial gradient halo and sett, not a stack of translucent rings', () => {
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintLampStone(ctx, 64);
+  // Exactly two gradients — the wide halo wash and the sett's own core —
+  // each with its own falloff to nothing, and exactly two strokable arcs (the
+  // sett body and its rim). A stack of rings standing in for either would be
+  // many more of both, and would double-composite over itself.
+  const grads = ops.filter(([k]) => k === 'createRadialGradient');
+  assert.eq(grads.length, 2, 'the halo and the stone core, nothing else');
+  const arcs = ops.filter(([k]) => k === 'arc');
+  assert.eq(arcs.length, 2, 'the sett fill and its rim stroke — one circle each, not a ring stack');
+  assert.eq(ops.filter(([k]) => k === 'fill').length, 1, 'one filled sett');
+  assert.eq(ops.filter(([k]) => k === 'stroke').length, 1, 'one stroked rim');
+  // Both arcs share the same centre and radius: the rim traces the sett it
+  // sits on, not a ring of its own size.
+  const [, ax, ay, ar] = arcs[0];
+  const [, bx, by, br] = arcs[1];
+  assert.eq(ax, bx); assert.eq(ay, by); assert.eq(ar, br);
+  // The halo gradient falls all the way to transparent at its rim — a real
+  // falloff, not an opaque ring with a hard edge.
+  const stops = ops.filter(([k]) => k === 'addColorStop');
+  const haloStops = stops.slice(0, 9);   // the halo's own loop adds 9 (i/8, i=0..8)
+  const lastA = roAlphaOf(haloStops[haloStops.length - 1][2]);
+  assert.lt(lastA, 0.01, 'the halo fades to nothing by the edge of the square');
+});
+
+test('lamp stone: the stone is a fraction of the square, not the whole tile', () => {
+  const S = 64;
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintLampStone(ctx, S);
+  const arcs = ops.filter(([k]) => k === 'arc');
+  const r = arcs[0][3];
+  // Derived from what is actually drawn, rather than retyping
+  // road_overlay.js's own LAMP_STONE_FRAC: a lamp reads as a stone sitting on
+  // the road, not a wash filling the whole cell it stands in.
+  const frac = r / S;
+  assert.inRange(frac, 0.08, 0.3, `the sett is a modest fraction of its tile, got ${frac.toFixed(3)}`);
+});
+
+test('lamp stone: painted in the restored street\'s own ink, not the old violet', () => {
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintLampStone(ctx, 64);
+  // UI_STREET_INK is '#e8e2d6' — pale warm stone. The lamp, the chips that
+  // fly off a restored carriageway and the counter over it are one material,
+  // never the blue-white the lit pebbles wore until Sep 2026.
+  const hex = UI_STREET_INK.replace('#', '');
+  const ir = parseInt(hex.slice(0, 2), 16), ig = parseInt(hex.slice(2, 4), 16), ib = parseInt(hex.slice(4, 6), 16);
+  const stops = ops.filter(([k]) => k === 'addColorStop').map(([, , css]) => css);
+  const inkStops = stops.filter((css) => css.startsWith(`rgba(${ir},${ig},${ib},`));
+  assert.gt(inkStops.length, 0, `at least one stop is painted in UI_STREET_INK's own channels (${ir},${ig},${ib})`);
+  // Never a violet: blue must not lead red the way a violet reads.
+  for (const css of inkStops) assert.gte(ir, ib, 'warm stone: red at least blue, never a violet lead');
+  // The rim stroke is dark, not the ink itself — what makes the sett read as
+  // a laid stone by day rather than a smudge of light.
+  const stroke = roStyleAt(ops, ops.length, 'strokeStyle');
+  assert.truthy(/^rgba\(\d+,\d+,\d+,/.test(stroke), 'the rim is stroked, not left at the ink');
+  const [, rr, rg, rb] = stroke.match(/^rgba\((\d+),(\d+),(\d+),/).map(Number);
+  assert.lt(rr + rg + rb, ir + ig + ib, 'the rim is darker than the stone it outlines');
+});
+
+test('lamp stone: LAMP_TEX_PX and LAMP_DRAW_CELLS are exported for app.js to bake and size the sprite', () => {
+  assert.gt(RoadOverlay.LAMP_TEX_PX, 0, 'a real texture size');
+  assert.gt(RoadOverlay.LAMP_DRAW_CELLS, 0, 'a real on-screen size, in cells');
+  // Drawn a bit under two cells across — big enough to read as sitting on the
+  // carriageway, small enough that a lamp doesn't loom over the road it lights.
+  assert.inRange(RoadOverlay.LAMP_DRAW_CELLS, 1, 2.5, 'about one to two cells, halo included');
+});
+
 // ── The live pass ─────────────────────────────────────────────────────────
 // The dwell preview and the restore shine change every frame, so they go on a
 // Graphics rather than either canvas — projected through the camera-anchored
