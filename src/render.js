@@ -3818,8 +3818,13 @@ Render.drawObjects = function drawObjects(scene) {
     // centre. Stages 1+ grow upward and look right centered.
     const isCropsSheet = !ov || (!ov.custom && ov.sheet !== 'springcrops');
     const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
-    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * shinyScale;
-    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy));
+    // Actual player-planted crops (not wildplants rendered through this same
+    // pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
+    // than the shared crop art.
+    const isPlantedCrop = p.wildId == null && !p._placedRock;
+    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * shinyScale * (isPlantedCrop ? 0.8 : 1);
+    const plantedYOffset = isPlantedCrop ? 3 : 0;
+    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy) - plantedYOffset);
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
