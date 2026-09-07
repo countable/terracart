@@ -542,6 +542,7 @@
     #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
             left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
     #menu summary {
+      position: relative;
       list-style: none; cursor: pointer; user-select: none;
       background: var(--chrome-scuff), var(--chrome-face); color: var(--gold-dark);
       border-color: var(--ctl-rim);
@@ -556,6 +557,19 @@
       text-shadow: 0 1px 0 #000;
     }
     #menu summary::-webkit-details-marker { display: none; }
+    /* Tiny corner tag on the ☰ button naming the save's game mode (difficulty.js)
+       — the same gold/ember pair the how-to card's mode CTAs wear, so a glance
+       at the menu answers "which game is this" without opening it. Hidden until
+       a fresh save has actually answered the how-to card's mode question. */
+    .mode-badge {
+      position: absolute; right: -5px; bottom: -5px;
+      font: 700 8px ui-monospace, monospace; letter-spacing: 0.02em;
+      padding: 1px 3px; border-radius: 4px; line-height: 1.2;
+      background: #1a1612; border: 1px solid currentColor;
+      pointer-events: none;
+    }
+    .mode-badge.easy { color: var(--gold); }
+    .mode-badge.hard { color: #c8552f; }
     /* Open = pressed in: the button sinks into the HUD and the panel it
        opened takes over the raised look. */
     #menu[open] summary {
@@ -1024,7 +1038,7 @@
     <div class="body"></div>
   </div>
   <details id="menu">
-    <summary>☰</summary>
+    <summary>☰<span id="mode-badge" class="mode-badge" hidden></span></summary>
     <div class="items">
       <button id="help-howto">How to play</button>
       <button id="delivery-list">Deliveries</button>
@@ -1607,6 +1621,29 @@
       });
       paint();
     })();
+    // Mode badge on the ☰ button (difficulty.js). Same before/after-scene split
+    // as wireHaptics above: read the save straight out of the registry before
+    // the scene exists, then window.__gameMode() once app.js has set it up.
+    // Hidden while the save has no mode yet (fresh save, how-to card unanswered).
+    (function wireModeBadge() {
+      const el = document.getElementById('mode-badge');
+      if (!el) return;
+      const read = () => {
+        if (typeof window.__gameMode === 'function') return window.__gameMode();
+        const d = readActiveSlotData();
+        return (d && (d.mode === 'easy' || d.mode === 'hard')) ? d.mode : null;
+      };
+      window.__paintModeBadge = function paint() {
+        const m = read();
+        el.hidden = !m;
+        if (!m) return;
+        el.className = 'mode-badge ' + m;
+        el.textContent = m === 'hard' ? 'HARD' : 'EASY';
+        const prof = (typeof Difficulty !== 'undefined') ? Difficulty.PROFILES[m] : null;
+        el.title = prof ? prof.label : '';
+      };
+      window.__paintModeBadge();
+    })();
     document.getElementById('energy')?.addEventListener('click', (e) => {
       e.stopPropagation();
       const sc = window.__scene;
@@ -2028,6 +2065,7 @@
     // for a save whose ladder was dismissed part-way.
     document.getElementById('menu')?.addEventListener('toggle', () => {
       const btn = document.getElementById('show-objectives');
+      window.__paintModeBadge?.();
       if (!btn) return;
       const sc = window.__scene;
       const on = !!(sc && typeof Quests !== 'undefined'
@@ -2263,6 +2301,7 @@
         e.stopPropagation();
         const mode = e.currentTarget.dataset.mode;
         window.__chooseMode?.(mode);
+        window.__paintModeBadge?.();
         closeHowTo();
       });
     }
