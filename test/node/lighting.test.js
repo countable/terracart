@@ -85,7 +85,7 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
   // only the dark got darker.
   assert.inRange(Lighting.AMBIENT_K, 0.3, 0.6, 'a real darkening, not black and not the old floor');
   assert.inRange(Lighting.AMBIENT_DAY_LUM, 0.2, 0.6, 'noon is daylight out there, not a second night and not no lighting at all');
-  assert.inRange(Lighting.PLAYER_OUTPUT_K, 0.5, 1.0, 'a real dimming of the body light, not a blackout');
+  assert.inRange(Lighting.PLAYER_OUTPUT_K, 0.25, 1.0, 'a real dimming of the body light, not a blackout');
   const lum = (c) => (0.299 * ch(c, 16) + 0.587 * ch(c, 8) + 0.114 * ch(c, 0)) / 255;
   assert.lt(lum(Lighting.profile(scene(), 0).ambient), 0.10, 'a totally unlit surface cell is under 10% luminance at night');
   // Noon lands ON the stated level, in any biome — that is the whole reason

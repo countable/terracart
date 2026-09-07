@@ -236,8 +236,14 @@
   // depth — only the body's light is dimmer, never the RADIUS it reaches
   // (radiusCells('player') and TORCH_RADIUS_MUL off it are unaffected, so a
   // dimmer player still lights exactly as far). 1.0 is the old picture
-  // exactly; lower is a dimmer body light at the same reach.
-  const PLAYER_OUTPUT_K = 0.8;
+  // exactly; lower is a dimmer body light at the same reach. Halved from
+  // 0.8 to 0.4 in Sep 2026: the body was throwing enough light that the
+  // placed lights — a campfire, Home, a POI — barely told against it, and
+  // the reach step reads better against a darker mid-field. Because it
+  // scales `edge` and `lit` TOGETHER, every relation the picture is built
+  // on survives: the falloff's shape, PLATEAU_FALL's easing, and the step
+  // off the plateau still outweighing the fall across it at every depth.
+  const PLAYER_OUTPUT_K = 0.4;
 
   // ── Time of day ───────────────────────────────────────────────────────────
   // The surface picture above is HIGH NOON. As the real sun goes down where
