@@ -147,10 +147,11 @@ const STREET_PREVIEW_ALPHA = 0.55;
 // The preview's COLOUR — the pale street ink (UI_STREET_INK), never the
 // finished road's own near-black. A growing wash of RESTORED_ROAD_COLOR over
 // the dilapidated band reads as a stain creeping in, not as work being primed:
-// the same ink the counter, the chips and the lamp stone are drawn in is what
-// says "this is the restoration material arriving", so it's lit rather than
-// darkened. The shine that follows it (below) is stroked in flat white for the
-// same reason — nothing about the live pass should read as a shadow.
+// the same ink the counter and the chips are drawn in is what says "this is
+// the restoration material arriving", so it's lit rather than darkened (the
+// street lamp is deliberately NOT this ink — see UI_LAMP_GLOW in util.js).
+// The shine that follows it (below) is stroked in flat white for the same
+// reason — nothing about the live pass should read as a shadow.
 const STREET_PREVIEW_COLOR = parseInt(UI_STREET_INK.slice(1), 16);
 // The counter pops at most this often. A wide reach walked along a street
 // restores metres on nearly every frame, and a "137/200 m" re-drawn sixty

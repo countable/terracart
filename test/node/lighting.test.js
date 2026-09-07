@@ -285,7 +285,7 @@ test('lighting: a POI breathes slowly, on its own phase', () => {
   assert.gt(Math.abs(Lighting.flickerAlpha(poi, 0, 0, 1234, 'c_2_9') - a0), 0.02, 'phased by id, not in lockstep');
 });
 
-test('lighting: the cobble row is the restored street\'s own ink, steady, and there is still no cell-light list', () => {
+test('lighting: the cobble row is the street lamp\'s own violet, steady, and there is still no cell-light list', () => {
   // A `cobble` row used to carry a small violet pool per lit trail stone,
   // offered by drawCells onto its own `_cellLights` list — gone when streets
   // started restoring by arclength instead of per cobble. The row is BACK now
@@ -295,12 +295,12 @@ test('lighting: the cobble row is the restored street\'s own ink, steady, and th
   // the old per-cell scan.
   const cobble = Lighting.KINDS.cobble;
   assert.truthy(cobble, 'the cobble row exists');
-  // Its own ink, not the old violet: the same UI_STREET_INK the chips, the
-  // sparks and the counter over a restored street all wear, parsed to the
-  // same int — one constant, so the lamp can't drift off the colour the
-  // street itself is made of.
-  const ink = parseInt(UI_STREET_INK.replace('#', ''), 16);
-  assert.eq(cobble.colour, ink, 'the row is UI_STREET_INK, not a colour of its own');
+  // The old lit-pebble violet is back for the lamp specifically (UI_LAMP_GLOW
+  // — the same constant road_overlay.js bakes the stone in), parsed to the
+  // same int — never UI_STREET_INK, the street's OWN pale ink, which is what
+  // the carriageway itself restores in.
+  const ink = parseInt(UI_LAMP_GLOW.replace('#', ''), 16);
+  assert.eq(cobble.colour, ink, 'the row is UI_LAMP_GLOW, not the street\'s own ink');
   // STEADY: a fire breathes because it is burning, a POI breathes to ask for
   // attention — a lamp is infrastructure, and a street of them breathing
   // would read as a strobe.
