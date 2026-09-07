@@ -1171,6 +1171,29 @@ try {
 
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 
+// ── The STREET LAMPS' two placement passes (app.js) ───────────────────────
+// A restored street lights its own way, and where the stones stand is decided
+// by these two methods alone. They reach for nothing Phaser-shaped — Streets,
+// WorldGen.tileCache, and the coords projection, all loaded above — so lift
+// them and let street_lamps.test.js drive the SHIPPING passes over a real tile
+// entry instead of only reading them as text. That is what caught the bug the
+// text pins could not see: the lamp list was memoised onto a tile entry that
+// was still LOADING, so no tile in the world ever grew a lamp.
+{
+  const appSrc = readSrc('app.js');
+  const a = appSrc.indexOf('  _streetLampsForTile(tx, ty, entry) {');
+  const b = appSrc.indexOf('  // The LIT lamps near the frame');
+  const c = appSrc.indexOf('  _updateStreetLamps() {');
+  const d = appSrc.indexOf('  // The stones themselves:');
+  if (a < 0 || b < 0 || c < 0 || d < 0 || b < a || d < c) {
+    console.error('Could not lift the street-lamp passes from src/app.js — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext('globalThis.__streetLampPasses = {\n'
+    + appSrc.slice(a, b).trimEnd() + ',\n'
+    + appSrc.slice(c, d).trimEnd() + '\n};', ctx, { filename: 'app.js#streetLamps' });
+}
+
 // app.js can't load headlessly (it needs Phaser — see above), so the perf-
 // profiler hooks that live there (the update()/drawCells/drawObjects ticks,
 // the 'phaser render' game-event wiring, the window.__boot.device line) can

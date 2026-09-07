@@ -54,6 +54,47 @@
 
 ## QC rules
 
+- **Find the mechanic that already ships: a new rule is usually a new REASON,
+  not a new lane.** Before writing a gate, a flag or a ward, look for the one
+  the game already has — the odds are the behaviour you want exists under
+  another name, wanting one more reason to fire.
+  The Sep 2026 "enemies chase a dead player" fix is the model. The game already
+  had a state in which no hostile takes an interest in the player: the Shadow
+  Powder's minute, read once per tick as `shadowed` and consulted by five
+  branches (the leech, the monster's hit and its arrow, the struck slime's
+  charge, and both stalk branches, each falling back to the aimless wander).
+  "A player on an empty bar is not worth hunting" is that SAME state arriving
+  for a different reason — so the fix ORed the new reason into the old read
+  (`unnoticed = shadowed || Combat.playerDowned(save.energy)`) and renamed what
+  those five branches ask. One line and a rename. A `_downed` flag threaded to
+  five NEW conditions would have been five more places to keep in step with the
+  five that already existed, and the next ward would have made ten.
+  **The existing tests are the tell.** Four shipped pins (`powders`,
+  `home_ward`, `lairs`, `combat`) failed on that rename and moved to the new
+  name — which is the proof the two behaviours are one lane. Had the new reason
+  needed branches of its own, every one of those tests would have passed
+  untouched and the duplication would have shipped invisibly. **A change that
+  breaks no existing pin has probably not touched the existing mechanic at
+  all** — ask whether it should have.
+  The shape is everywhere in here, and most of these rules are an instance of
+  it: Home is the campfire's three effects on one radius (`HOME_R`), a pet's
+  kill calls `resolveDefeat` rather than its own copy of the payout (the copy
+  is why a dog's kill paid no bounty), `Traps.isRoadside` reads `entry.roadMask`
+  instead of a second road test, the work wheel and the health bar both seat off
+  `CREATURE_ART`, and the plain rock's draw and its drop resolve through one
+  `plainRockVariant`. It is the `roadOverlayWidthM` discipline pointed at
+  BEHAVIOUR rather than at a number: one lane, many reasons.
+  **Reuse the lane when the MECHANISM is the same, never because the words
+  match.** A campfire's ward and Home's ward both repel the same foes and are
+  still two mechanisms — the fire refuses a target cell, Home turns the foe onto
+  an away-from-Home angle — because a refused cell freezes a foe already inside
+  the ring on the doormat. Merging those would ship that stall. The question is
+  "would ONE implementation serve both?", not "do these sound alike?".
+  **So before you add a flag, grep for the state it duplicates.** If a per-tick
+  read or a shared predicate already answers your question, add your reason to
+  it and rename it for what it now means; if nothing does, say in the new one's
+  comment what it is NOT, so the next reason lands in the right lane.
+
 - **Nothing spawns on a road, and "road" is not a terrain code.** The terrain
   grid under-reports the road every time: a way rasterizes exactly ONE cell
   wide however wide it really is, and parking aisles rasterize to no cell at
@@ -315,6 +356,23 @@
   piece (the Stats row, the shop offer) from `armorSlotReduction` — one table,
   both sides, the `roadOverlayWidthM` discipline.
   **Audit it:** `node test/node/run.js` › `test/node/armor.test.js`.
+  **NOTHING HUNTS A BODY.** At zero energy the player has collapsed: the reach
+  is 0 (`coords.js` › `reachRadiusM`), so nothing can be tapped, swung at or
+  dug, and all three of those damage paths already refuse to take a point off
+  an empty bar. A foe that goes on stalking one is chasing something it is
+  forbidden to bite — and on hard, where nothing but Home lifts the bar off
+  zero, it escorts the player the whole way home. So a downed player is not
+  THERE to be hunted, exactly as a Shadow Powder makes them:
+  `wanderCreatures` ORs the two wards once per tick into **`unnoticed`**
+  (`Combat.playerDowned(save.energy)` beside `shadowed`) and every
+  hostile-interest branch reads that — the leech, the monster's hit and arrow,
+  the struck slime's charge, and both stalk branches, each falling back to the
+  aimless wander. It is ONE expression on both sides, the `roadOverlayWidthM`
+  discipline: the test that drops the pursuit is the same one that refuses the
+  damage, so a foe can never be chasing a player it cannot hurt. **When you add
+  a hostile behaviour that takes an interest in the player, gate it on
+  `unnoticed`, not on `shadowed`.**
+  **Audit it:** `node test/node/run.js` › `test/node/downed_pursuit.test.js`.
 
 - **A tile build stutters on its WORST BLOCK, not its total.** The rasterizer
   is a generator (`rasterizeTileSteps`); the slicer can only hand the frame
@@ -826,6 +884,20 @@
   collected from the CAMERA ANCHOR and memoised on the anchor cell +
   `Streets.epoch` — never from the feet, which is the restoring sweep's side of
   the camera rule, not the drawing side.
+  **NEITHER MEMO MAY BE STAMPED ON A TILE THAT IS STILL LOADING** — the
+  `_neighborZoneCache` rule ("don't memoise a 'no neighbour found'"), and the
+  reason no lamp lit at all between Sep 2026 and the fix. A tile's entry is in
+  `WorldGen.tileCache` from the moment its FETCH starts, with no `layers` until
+  the build lands seconds later, and `_updateStreetLamps` runs on every frame —
+  so it always meets tiles in that state. `_streetLampsForTile` wrote its empty
+  answer onto the entry, and the entry IS the cache: every tile in the world
+  was measured for lamps while it was still loading and answered "none here"
+  for the rest of the session. The per-tile list is now returned uncached
+  until the tile has data, and `_updateStreetLamps` leaves its own key unset
+  while any tile of the ring is unready — otherwise a reload would hold every
+  lamp already in the save dark until the player happened to step onto another
+  cell. **When you cache an answer read off a tile entry, ask what it says
+  while that tile is still loading.**
   **The restored patch is SOFT, and its edge only.** The rebuilt band is laid
   crisp — clean setts, a hairline kerb — and then FEATHERED as the last step of
   `commitRestored`, through `softenEdge`: a blurred mask of the same strokes
