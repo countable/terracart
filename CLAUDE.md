@@ -153,7 +153,12 @@
   ZERO — `PLAYER_RAMP_PAST_CORNER_CELLS` (one cell) beyond the half-diagonal,
   so the corners stay just lit — with the ambient floor past it the same value,
   so there is no edge for a peek to find. **When you cache a layer about the
-  viewport centre and slide it, give it the peek margin.**
+  viewport centre and slide it, give it the peek margin.** Note that NOTHING
+  slides today: `render.js`'s `peekPxOf` has no caller left, and every cached
+  overlay (border, grid, fog, the road and building canvases) rebuilds on
+  `viewAnchorCell` and shifts only by the sub-cell fraction. So this case is
+  advice for the next such layer, not a description of a live one — do not go
+  hunting for the slid layer it describes.
   **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js` drives the
   lifted shipping code: the projection round-trip under a peek, that a tap lands
   in the cell it was drawn over, that reach is unmoved by the camera, that a
@@ -171,11 +176,19 @@
   `window.__RAMPART_DEBUG = true` tints the castle wall pieces apart
   (north blue / south green / sides red) when the stacking needs eyeballing.
 
-- **Interactables must be clearly in one cell.** Other than houses and fauna,
-  every interactable should visually occupy a single tile — its art and
-  collision box must align to the same cell. If it appears to straddle a cell
-  boundary, or if the sprite and hitbox don't obviously belong to the same
-  cell, that is a bug. Fix the offset, anchor, or collision rect before shipping.
+- **Interactables must be clearly in one cell — and the TAP is the CELL, not
+  the art.** There is no pixel hitbox anywhere in this codebase: every tap
+  resolves through `coords.js` › `sameAbsCell` against the object's own data
+  cell, so "collision box" here means nothing more than which cell the object
+  records itself in. That is precisely why the art has to agree with it — a
+  sprite that straddles a boundary is a thing the player must tap a cell away
+  from where it appears to be. The seat rule below is the ENFORCEMENT and
+  carries the real exemption list (buildings — house / tower / shrine /
+  produce stands / pot-of-gold — plus moving actors); this bullet is the WHY,
+  not a second mechanism, and its old "other than houses and fauna" was a
+  narrower list than either the seat rule or `tools/sprite_audit.js` has ever
+  used. If a sprite and its cell disagree, fix the anchor or the seat: there is
+  no rect to adjust.
 
 - **The "one cell" sprite-position rule.** For every world sprite EXCEPT
   buildings (house / tower / shrine / produce stands / pot-of-gold) and moving
@@ -695,9 +708,10 @@
   with a per-id phase: that IS the old halo ping (the ring layer, its pool
   and its texture are gone), so a place reads from across the map by its own
   light in the dark, never by a ring drawn back under the pad — and a STREET
-  LAMP on every 200 m of restored street (the `cobble` row, back as one lamp
-  per ladder rung's walk rather than one per lit pebble; see the street rule
-  below). **When you add a light source, add a row and return its kind from
+  LAMP every `Streets.lampSpacingM()` metres of restored street (the `cobble`
+  row; that is the STREET's own constant, 100 m, deliberately NOT the prize
+  ladder's 200 m rung — see the street rule below, and never retype the
+  number here). **When you add a light source, add a row and return its kind from
   `Lighting.sourceKind`** — or, for a light that is a POINT rather than a
   scanned object (a placed fire, a lamp), a collector of its own called from
   `draw()` beside `collectFires` / `collectLamps`;
