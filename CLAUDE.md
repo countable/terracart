@@ -42,9 +42,12 @@
   `git push`, `git stash`, `git checkout`. The parent agent handles every
   git operation. Give the subagent the commit SHA / branch state it needs
   in its prompt instead of asking it to look git up.
-- **Subagents must NOT modify `index.html`.** The script-tag list and
-  cache-bust `?v=NN` is the parent's responsibility. The subagent reports
-  *what* should be added; the parent edits index.html in one place at the end.
+- **Subagents must NOT modify `index.html`.** The script-tag list is the
+  parent's responsibility: the subagent reports *what* should be added, and
+  the parent edits index.html in one place at the end. The cache-bust `?v=`
+  is nobody's to type — it is derived from the file's bytes, and the parent
+  runs `node tools/cachebust.js --write` once after the last edit (see the
+  cache-bust rule below).
 - For multi-file refactors that delete from a shared file (e.g. extracting
   modules from `app.js`), tell each subagent to **CREATE its new module
   only** and **report exact line ranges to delete from the shared file**.
@@ -450,6 +453,40 @@
   **Every tile fetch goes through `fetchTileResponse`** — a raw
   `fetch(tileUrlFor(...))` anywhere else is the bug coming back.
   **Audit it:** `node test/node/run.js` › `test/node/tile_url.test.js`.
+
+- **A module's `?v=` is DERIVED from its bytes — never typed, never bumped.**
+  `index.html` loads ~43 same-origin scripts at versioned URLs, and the version
+  is the ONLY thing that invalidates them: the URL is what the browser's HTTP
+  cache matches on, so a module whose content changed while its `?v=` stood
+  still keeps serving the OLD file to everyone who already has it — beside a
+  fresh `app.js` that calls into it. That is a crash with no stack in the
+  changed code and no repro on a cold cache.
+  It shipped in Sep 2026 as **`Combat.playerDowned is not a function`**: the
+  commit that added `playerDowned` to `src/combat.js` and its five call sites
+  to `src/app.js` never touched index.html, and the merge that landed it
+  resolved index.html by hand and carried only app.js's bump across, so
+  combat.js stayed at `?v=15`. Bumping `SHELL_VERSION` does not reach it —
+  that drops the service worker's shell cache, but the HTTP cache underneath
+  still matches the byte-identical URL. An audit of every tag at the time found
+  **fourteen more** modules changed since their last bump, each the same latent
+  crash waiting for app.js to call into it.
+  A hand-typed counter cannot be right by construction: it records what somebody
+  remembered rather than what changed, and it collides on every merge — two
+  branches both bumped `app.js` to `v=531` and `SHELL_VERSION` to `shell-v182`
+  for different content, which is a second way to serve a stale file. So the
+  number is derived: **`tools/cachebust.js`** writes each `?v=` as 8 hex of the
+  file's own sha256 and `SHELL_VERSION` as a hash of the resulting list, so it
+  moves when any module does and only then. What ships and what the URL claims
+  are one value read twice — the `roadOverlayWidthM` discipline pointed at the
+  tags. A merge cannot collide two hashes, because the hash follows the MERGED
+  content rather than either side's counter.
+  **`node tools/cachebust.js --write` after the last edit** is the whole
+  workflow; there is no number to choose and `vendor/phaser.js` is covered too.
+  **Audit it:** `node test/node/run.js` › `tools/cachebust.js`'s own CHECKS
+  (node scope, like the sprite and shell audits — the `*.test.js` sandbox has
+  no `require()`). The first names every stale tag and fails the suite so the
+  drift can't ship; the rest pin the derivation under it, since that check is
+  only as good as the hashing it asks.
 
 - **The player's FEET are on the GPS fix.** `playerM` is the projected fix,
   and every world layer (ground cells, the road band, the building polygons)

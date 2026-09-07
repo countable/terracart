@@ -83,6 +83,12 @@ const CHECKS = [
   },
 ];
 
+// Note: WHICH BUILD of each module the page and the worker agree on is the
+// same concern one step finer, and tools/cachebust.js owns it — a module whose
+// bytes changed while its ?v= stood still keeps its old URL, so the HTTP cache
+// serves the old file beside a fresh app.js that calls into it. Its CHECKS are
+// wired into test/node/run.js beside these.
+
 // ── Texture keys the renderer names ────────────────────────────────────────
 // RENDER_SPEC's `key` decides which texture each world object draws with. A key
 // that nothing creates is not an error anywhere — Phaser quietly resolves it to
