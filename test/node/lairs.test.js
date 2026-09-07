@@ -314,7 +314,7 @@
   // built on it cannot drift from the shipping decision.
   const heldAt = (tier, cxM, cyM, thin) => {
     const sid = Lairs.structureKey(Math.floor(cxM / CELL_M), Math.floor(cyM / CELL_M));
-    return WorldGen.makeRng(Lairs.hashKey(sid))() < Lairs.occupancyFor(tier, thin == null ? 1 : thin);
+    return WorldGen.makeRng(Lairs.hashKey(sid))() < Lairs.occupancyFor(tier, thin);
   };
   // …and a shape of `tier` as near (cxM, cyM) as a HELD one gets: the centre is
   // walked a cell at a time until the roll says held. Tests about seating,
@@ -397,6 +397,51 @@
     }
   });
 
+  test('lairs: the same building holds the same garrison in EVERY playthrough', () => {
+    // THERE IS NO WORLD SEED. A lair is seeded from hashKey(structureKey) and
+    // structureKey is the footprint's centre in ABSOLUTE cell coordinates — a
+    // fact about a real building on a real map. Nothing about the save, the
+    // session, the device or the order the tiles loaded reaches the stream, so
+    // two players standing at the same ruin meet the same monsters, and one
+    // player meets them again on a new save.
+    assert.falsy(/save|Date|now\(|Math\.random/.test(Lairs.structureKey.toString()),
+      'structureKey reached for something that is not the building');
+    assert.falsy(/save|Date|now\(|Math\.random/.test(Lairs.hashKey.toString()),
+      'hashKey reached for something that is not the key');
+    // makeRng is a pure function of one integer — the same seed, the same
+    // stream, forever.
+    const a = WorldGen.makeRng(12345), b = WorldGen.makeRng(12345);
+    for (let i = 0; i < 20; i++) assert.eq(a(), b(), 'makeRng is not deterministic');
+    // And end to end: build the SAME ruin from two unrelated tile entries, in
+    // opposite orders, with different neighbours, and read back the same
+    // guards — kinds, ids and seats.
+    const far = { x: -Lairs.LAIR_FAR_M, y: 0 };
+    const target = mkHeldShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'target');
+    const decoys = [
+      mkShape(9, 6 * CELL_M, 6 * CELL_M, CELL_M),
+      mkShape(11, 30 * CELL_M, 12 * CELL_M, 2 * CELL_M),
+    ];
+    const guardsFrom = (shapes) => {
+      const entry = mkEntry(shapes);
+      const idx = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
+      for (const bucket of idx.buckets.values()) {
+        for (const cand of bucket) {
+          cand.sid = Lairs.structureKey(cand.acx, cand.acy);
+          if (cand.key !== 'target') continue;
+          return Lairs.garrisonFor(entry, cand, {
+            cellM: CELL_M, tileEdgeM: TILE_M, homeM: far, caughtSet: new Set(),
+          }).map((g) => `${g.id}:${g.kind}:${g.seatX.toFixed(3)},${g.seatY.toFixed(3)}`);
+        }
+      }
+      return null;
+    };
+    const first = guardsFrom([target, ...decoys]);
+    const second = guardsFrom([...decoys.slice().reverse(), target]);
+    assert.truthy(first && first.length, 'the target castle woke empty');
+    assert.eq(first.join('|'), second.join('|'),
+      'the same ruin handed back a different garrison on a differently-built tile');
+  });
+
   // ── The per-tile budget ──────────────────────────────────────────────────
 
   test('lairs: a village is not thinned; a city is, and only its wrecks', () => {
@@ -406,13 +451,14 @@
       return mkEntry(shapes);
     };
     // A village: 100 wrecks, ~33 expected held — inside the budget, untouched.
-    assert.eq(Lairs.tileThin(wrecks(100)), 1, 'a village should not be thinned');
-    assert.eq(Lairs.occupancyFor(9, Lairs.tileThin(wrecks(100))), 1 / 3,
+    const village = wrecks(100);
+    assert.eq(Lairs.tileThin(village).common, 1, 'a village should not be thinned');
+    assert.eq(Lairs.occupancyFor(9, Lairs.tileThin(village)), 1 / 3,
       'and one house in three really is held there');
     // A city: 3000 wrecks, ~1000 expected — thinned back to the ceiling.
     const city = wrecks(3000);
     const thin = Lairs.tileThin(city);
-    assert.lt(thin, 0.1, 'a city tile is barely thinned at all');
+    assert.lt(thin.common, 0.1, 'a city tile is barely thinned at all');
     assert.truthy(Math.abs(3000 * Lairs.occupancyFor(9, thin) - Lairs.LAIR_MAX_PER_TILE) < 1e-6,
       'the thinned rate does not land on the ceiling');
     assert.eq(Lairs.LAIR_MAX_PER_TILE, 50, 'the ceiling is the figure the design named');
@@ -426,19 +472,54 @@
     assert.eq(city._lairThin, thin, 'the factor is cached on the entry');
   });
 
-  test('lairs: the budget is spent on the landmarks FIRST, never against them', () => {
-    // A tile of nothing but castles is over budget on its landmarks alone.
-    // The right answer is that the castles are all still held and there is no
-    // room left for wrecks — never that a castle is silently emptied.
+  test('lairs: the budget is spent on the landmarks FIRST', () => {
+    // 40 castles (38 expected) leave 12 of the 50 for 200 wrecks (67 expected).
+    // The castles are paid in full and the wrecks take what is left — never
+    // the other way round, and never both scaled equally, which is what would
+    // quietly turn a castle into a coin flip on a busy tile.
     const shapes = [];
-    for (let i = 0; i < 80; i++) shapes.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
+    for (let i = 0; i < 40; i++) shapes.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
     for (let i = 0; i < 200; i++) shapes.push(mkShape(9, (i % 30) * CELL_M, (10 + Math.floor(i / 30)) * CELL_M, CELL_M));
     const entry = mkEntry(shapes);
     const thin = Lairs.tileThin(entry);
-    assert.eq(thin, 0, 'the wrecks should get no room at all');
-    assert.eq(Lairs.occupancyFor(9, thin), 0, 'so no wreck on this tile is held');
-    assert.eq(Lairs.occupancyFor(12, thin), Lairs.OCCUPANCY[12].rate,
-      'and every castle keeps its odds');
+    assert.eq(thin.landmark, 1, 'the castles were scaled while there was still room');
+    assert.eq(Lairs.occupancyFor(12, thin), Lairs.OCCUPANCY[12].rate, 'every castle keeps its odds');
+    assert.lt(Lairs.occupancyFor(9, thin), Lairs.OCCUPANCY[9].rate, 'and the wrecks paid for it');
+    assert.gt(Lairs.occupancyFor(9, thin), 0, 'but were not zeroed while there was room');
+    assert.truthy(Math.abs(Lairs.tileHeldExpected(entry) - Lairs.LAIR_MAX_PER_TILE) < 1e-9,
+      'and between them they land exactly on the ceiling');
+  });
+
+  test('lairs: the ceiling WINS — no composition of buildings can beat it', () => {
+    // The cap is a hard ceiling, not a target: the tier odds decide who gets
+    // the room, never whether the room can be exceeded. Swept over random
+    // compositions rather than the two cases the author thought of.
+    const rng = WorldGen.makeRng(20260907);
+    for (let trial = 0; trial < 200; trial++) {
+      const shapes = [];
+      const n = 1 + Math.floor(rng() * 400);
+      for (let i = 0; i < n; i++) {
+        const tier = Lairs.TIERS[Math.floor(rng() * Lairs.TIERS.length)];
+        shapes.push(mkShape(tier, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
+      }
+      const entry = mkEntry(shapes);
+      const held = Lairs.tileHeldExpected(entry);
+      assert.lte(held, Lairs.LAIR_MAX_PER_TILE + 1e-9,
+        `trial ${trial}: ${n} buildings expected ${held.toFixed(1)} held`);
+    }
+    // Including the pathological one: a tile of nothing but castles is over
+    // budget on its landmarks alone, and they are scaled back onto the ceiling
+    // rather than allowed through it.
+    const castles = [];
+    for (let i = 0; i < 400; i++) castles.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
+    const heavy = mkEntry(castles);
+    assert.lt(Lairs.tileThin(heavy).landmark, 1, 'the landmarks were let through the ceiling');
+    assert.truthy(Math.abs(Lairs.tileHeldExpected(heavy) - Lairs.LAIR_MAX_PER_TILE) < 1e-9,
+      'and they do not land ON it either');
+    // A tile inside its budget scales nothing at all.
+    const few = mkEntry([mkShape(12, 0, 0, CELL_M), mkShape(9, 3 * CELL_M, 0, CELL_M)]);
+    assert.eq(Lairs.tileThin(few).common, 1, 'a two-building tile is not thinned');
+    assert.eq(Lairs.tileThin(few).landmark, 1, 'in either direction');
   });
 
 
