@@ -67,10 +67,14 @@
   // claims at most 15 % of cells; with multiple types stacking via the
   // occupancy filter the combined density stays under ~30 % per zone.
   const D_MIN = 0.05, D_MAX = 0.15;
-  // dyn(maxDensity): a per-polygon density in [0, max], the old "longgrass
-  // family" behaviour generalised — most polygons grow at least a tuft, big
-  // areas cluster, the unlucky few grow nothing.
-  const dyn = (crop, max, salt) => ({ crop, dynamic: true, dMax: max, salt });
+  // dyn(maxDensity): a per-polygon density in [DYN_MIN, max] — most polygons
+  // grow a light tuft, big areas cluster, and DYN_MIN keeps even the
+  // unluckiest roll from reading as barren (was [0, max]: a landuse polygon
+  // whose hashed seed landed near the bottom of that range grew nothing at
+  // all, permanently, since the seed is derived from the polygon's own
+  // location — the same school/park/pitch would read empty on every visit).
+  const DYN_MIN = 0.04;
+  const dyn = (crop, max, salt) => ({ crop, dynamic: true, dMin: DYN_MIN, dMax: max, salt });
   const fix = (crop, dMin, dMax, salt) => ({ crop, dMin, dMax, salt });
 
   // ── Families ──────────────────────────────────────────────────────────────
