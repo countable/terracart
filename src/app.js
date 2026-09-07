@@ -14982,6 +14982,10 @@ class MapScene extends Phaser.Scene {
     const sync = () => {
       const any = [...document.querySelectorAll('.game-modal')].some(shown);
       document.body.classList.toggle('modal-open', any);
+      // The ☰ menu is hidden under the class (index.html); fold it shut as
+      // well, so a menu left open behind a dialog doesn't spring back open
+      // the moment the dialog is dismissed.
+      if (any) { const m = document.getElementById('menu'); if (m && m.open) m.open = false; }
       // Nothing covering the screen — so anything the starter ladder is
       // holding can be said now. See _celebrateStarterStep: cheers always
       // queue and this is the only thing that plays them, which is why the
