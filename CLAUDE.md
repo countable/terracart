@@ -527,10 +527,29 @@
   `Render.reachDimColor` / `reachDimAlpha` the old wash painted with plus the
   falloff pair (`FALLOFF_A` / `FALLOFF_P`), so the surface with only the
   player lit looks as it did — except the FLOOR, which `AMBIENT_K` scales
-  down for contrast (the one deliberate departure: "totally unlit areas
-  should be darker"). Retune a look through those; `AMBIENT_K` is the
-  contrast knob, and another factor added in lighting.js breaks the
+  down for contrast ("totally unlit areas should be darker"), and the two
+  OUTPUT knobs, which say how much of that reproduced wash the player's own
+  light gives back: `PLAYER_OUTPUT_K` for the ramp OUTSIDE the reach area
+  (`edge`, and the falloff hung off it) and `PLATEAU_OUTPUT_K` for the reach
+  area itself (`lit`). Retune a look through those; `AMBIENT_K` is the
+  contrast knob, and a further factor added in lighting.js breaks the
   correspondence the test pins.
+  **The two output knobs are two numbers because the picture wants opposite
+  things of them.** They were one until Sep 2026, and dimming the mid-field so
+  the placed lights — a campfire, Home, a POI — would tell against the body
+  took the ground the player actually WORKS on down with it. Splitting them
+  costs none of the relations the shared knob was keeping, because raising
+  `lit` alone only widens them: the falloff's shape is `edge`'s alone,
+  `PLATEAU_FALL` is a fraction of `lit` so the plateau's easing scales with
+  it, `lit > edge` holds by a bigger margin, and the step off the plateau
+  grows faster than the fall across it. **And `PLATEAU_OUTPUT_K` is a CEILING,
+  not a taste:** the plateau ADDS over the ambient floor, which at noon is
+  already `AMBIENT_DAY_LUM` bright, so past 0.60 the reach area clips to white
+  and takes `PLATEAU_FALL`'s shading with it. The number was measured over
+  every `COLORS` × `DUST_OF` pairing the biome palette can produce (the
+  tightest is 0x35261e, the most saturated dim in the world, at 0.602), not
+  eyeballed — **re-measure it before raising it, and re-measure it if the far
+  field is ever brightened again.**
   **The floor's DAY end is a level, not a scale.** `AMBIENT_DAY_LUM` (0.40) is
   what unlit ground is WORTH at midday — 40% of the art's own brightness, read
   off the screen — and `atLuminance` puts the derived floor there by mixing it
@@ -558,16 +577,38 @@
   POI, a small treasure blue-white light breathing on `POI_PULSE_PERIOD_S`
   with a per-id phase: that IS the old halo ping (the ring layer, its pool
   and its texture are gone), so a place reads from across the map by its own
-  light in the dark, never by a ring drawn back under the pad. **When you add a
-  light source, add a row and return its kind from `Lighting.sourceKind`**;
+  light in the dark, never by a ring drawn back under the pad — and a STREET
+  LAMP on every 200 m of restored street (the `cobble` row, back as one lamp
+  per ladder rung's walk rather than one per lit pebble; see the street rule
+  below). **When you add a light source, add a row and return its kind from
+  `Lighting.sourceKind`** — or, for a light that is a POINT rather than a
+  scanned object (a placed fire, a lamp), a collector of its own called from
+  `draw()` beside `collectFires` / `collectLamps`;
   the collector culls at `halfM` + the row's own radius, not the sprite cull,
   so a lantern a cell off-screen still lights the edge.
-  **What stayed on `reachGfx`:** the white reach OUTLINE. It is the tap
-  affordance; never move it onto the lightmap.
+  **THE LIGHT IS THE AFFORDANCE — there is no reach outline any more.** A
+  white line (2px, 0.15 alpha) was stroked over the same staircase on
+  `reachGfx` until Sep 2026, and `Render.reachOutlineCell` + a per-cell
+  `isReach` loop + an arc helper existed to draw it. It made sense while
+  `PLAYER_OUTPUT_K` had the plateau at a bit over half its light and the
+  boundary needed underlining; once `PLATEAU_OUTPUT_K` lit the reach area back
+  up, the line and the light were two drawings of one boundary and the line
+  was the louder. The plateau is painted per reach cell from `cellInReach`'s
+  own expressions, rounded by the same `ReachCorner` rule the line rounded by,
+  so what is LIT is exactly what the tap gate accepts — cell-exact, not a
+  circle. **Never stroke a reach outline back on:** if the boundary stops
+  reading, widen the STEP at its edge in `lighting.js` (that step is pinned to
+  outweigh `PLATEAU_FALL` at every depth and hour), and check
+  `PLATEAU_OUTPUT_K` before anything else. `reachGfx` now carries the
+  unmapped-tile reveal alone, and `ReachCorner` keeps only the corner
+  classification — `shortenH` / `shortenV` said where a STROKED edge stopped
+  short of a round, and left with the stroke.
   **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` (the
-  derived levels, the table, the collector, the source pins) and
-  `tools/layer_audit.js` (the lightmap above ground, halo and sprites, below
-  the labels).
+  derived levels, the noon headroom the plateau knob is set at, the table, the
+  collector, the source pins), `test/node/reach_corners.test.js` (the plateau
+  rounds every corner of the staircase exactly once — and the outline is gone
+  and stays gone) and `tools/layer_audit.js` (the lightmap above ground, halo
+  and sprites, below the labels).
 
 - **A message on the MAP is thirty characters.** `util.js` `MAP_MSG_MAX` is
   the budget for every `flash` / `flashLoot` — a toast drawn over the world, on
@@ -744,6 +785,21 @@
   was COBBLE TRAILS: pebble sprites on paved cells, keyed per cell and
   thinned by a hash, so the counted stones and the drawn road were two
   different things; do not bring a per-cell road state back.
+  **What DID come back is the LIGHT.** A restored street lights its own way:
+  one glowing cobble every `Streets.lampSpacingM()` metres of rebuilt
+  carriageway — and that spacing IS `Trail.GOAL_STEP_M`, the same
+  `roadOverlayWidthM` discipline, so the walk that earns a rung of the ladder
+  lights about one lamp. A lamp is GENERATED, never stored
+  (`Streets.lampsAlong` off the line's own geometry, lit when `Streets.covers`
+  finds its metre in the restored list) — the traps rule, so a rebuilt tile
+  lights the same stones and the save gains nothing by it. It is TWO halves on
+  ONE point, because the lightmap MULTIPLIES: baked art
+  (`RoadOverlay.paintLampStone`, drawn under the lightmap — a light alone does
+  not exist at noon) and the `Lighting.KINDS.cobble` row over it, both in
+  `UI_STREET_INK`. The list app.js hands to both (`_updateStreetLamps`) is
+  collected from the CAMERA ANCHOR and memoised on the anchor cell +
+  `Streets.epoch` — never from the feet, which is the restoring sweep's side of
+  the camera rule, not the drawing side.
   **The restored patch is SOFT, and its edge only.** The rebuilt band is laid
   crisp — clean setts, a hairline kerb — and then FEATHERED as the last step of
   `commitRestored`, through `softenEdge`: a blurred mask of the same strokes
@@ -789,7 +845,9 @@
   pool lookup will otherwise hand back null and the roll pays nothing.
 
   **Audit it:** `node test/node/run.js` › `test/node/streets.test.js` (the
-  algebra, the sight window, restore/epoch), `test/node/road_overlay.test.js`
+  algebra, the lamp placement, the sight window, restore/epoch),
+  `test/node/street_lamps.test.js` (the lamps' wiring),
+  `test/node/road_overlay.test.js`
   (the restored pass, the tiles and the soft edge), `test/node/trail.test.js`
   (the lifted sweep on a synthetic tile, the first rung, the dialogs) and
   `test/node/loot.test.js` (the two synthetic classes and the road pool).

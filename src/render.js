@@ -212,55 +212,6 @@ function peekPxOf(scene) {
 // Returns a shared scratch object (not a fresh one) — drawCells calls this up
 // to VIEW_CELLS² times per pass, several times a frame, so this avoids an
 // allocation per cell; read sx/sy out of it before the next call.
-// The reach outline of ONE cell at screen px (sx, sy): its exposed edges
-// (top/bot/lft/rgt: that neighbour is out of reach), with the corners rounded
-// by ReachCorner (coords.js) — the same rule the lightmap plateau fills by, so
-// the white line rounds exactly the corners the light does. An exposed edge
-// stops R short of a corner a round continues (ReachCorner.shortenH/V); an
-// OUTER corner gets a quarter-arc inside the cell, an INNER corner a fillet
-// arc in the empty cell above/below, owned by this cell's horizontal edge so
-// each is drawn once (dTL..dBR: the diagonals' reach). At R = 2 px the arc is
-// two segments through its 45° point — a true arc is invisible at that size
-// and Phaser's ARC command would batch a hundred points per corner.
-// Without the rule loaded the edges are drawn full length, square.
-Render.reachOutlineCell = function reachOutlineCell(gr, sx, sy, top, bot, lft, rgt, dTL, dTR, dBL, dBR) {
-  const x1 = sx + CELL_PX, y1 = sy + CELL_PX;
-  const RC = (typeof ReachCorner !== 'undefined') ? ReachCorner : null;
-  if (!RC) {
-    if (top) gr.lineBetween(sx, sy, x1, sy);
-    if (bot) gr.lineBetween(sx, y1, x1, y1);
-    if (lft) gr.lineBetween(sx, sy, sx, y1);
-    if (rgt) gr.lineBetween(x1, sy, x1, y1);
-    return;
-  }
-  const R = RC.R;
-  if (top) gr.lineBetween(sx + (RC.shortenH(lft, dTL) ? R : 0), sy, x1 - (RC.shortenH(rgt, dTR) ? R : 0), sy);
-  if (bot) gr.lineBetween(sx + (RC.shortenH(lft, dBL) ? R : 0), y1, x1 - (RC.shortenH(rgt, dBR) ? R : 0), y1);
-  if (lft) gr.lineBetween(sx, sy + (RC.shortenV(top, dTL) ? R : 0), sx, y1 - (RC.shortenV(bot, dBL) ? R : 0));
-  if (rgt) gr.lineBetween(x1, sy + (RC.shortenV(top, dTR) ? R : 0), x1, y1 - (RC.shortenV(bot, dBR) ? R : 0));
-  reachCornerArcs(gr, sx, sy, +1, +1, R, RC.convex(lft, top), RC.fillet(lft, top, dTL));
-  reachCornerArcs(gr, x1, sy, -1, +1, R, RC.convex(rgt, top), RC.fillet(rgt, top, dTR));
-  reachCornerArcs(gr, sx, y1, +1, -1, R, RC.convex(lft, bot), RC.fillet(lft, bot, dBL));
-  reachCornerArcs(gr, x1, y1, -1, -1, R, RC.convex(rgt, bot), RC.fillet(rgt, bot, dBR));
-};
-// The round at corner point (px, py); (ix, iy) points INTO the cell. A convex
-// arc joins (px, py + iy·R) on the vertical edge to (px + ix·R, py) on the
-// horizontal one, bowing toward the corner; a fillet joins (px + ix·R, py) on
-// this cell's horizontal edge to (px, py − iy·R) on the diagonal cell's
-// vertical edge, bowing the same way into the empty cell.
-const ARC_MID = 1 - Math.SQRT1_2;   // the 45° point's inset from the corner, per R
-function reachCornerArcs(gr, px, py, ix, iy, R, convex, fillet) {
-  const m = R * ARC_MID;
-  if (convex) {
-    gr.lineBetween(px, py + iy * R, px + ix * m, py + iy * m);
-    gr.lineBetween(px + ix * m, py + iy * m, px + ix * R, py);
-  }
-  if (fillet) {
-    gr.lineBetween(px + ix * R, py, px + ix * m, py - iy * m);
-    gr.lineBetween(px + ix * m, py - iy * m, px, py - iy * R);
-  }
-}
-
 const _cellScreenXY = { x: 0, y: 0 };
 function cellScreenXY(scene, ox, oy, fracX, fracY) {
   _cellScreenXY.x = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
@@ -1848,90 +1799,45 @@ Render.drawCells = function drawCells(scene) {
     paint(gbW, UNCLAIMED_MURK, UNCLAIMED_MURK_A);
     _washCells.length = 0;
   }
-  // Reach indicator — subtle white outline tracing only the outer edge of the
-  // reachable area. The origin is the PLAYER'S CURRENT CELL CENTRE, not their
-  // feet, so reach depends only on which cell they're standing in (a fixed
-  // number of cells in each cardinal direction — independent of intra-cell
-  // position). For each reachable cell, draw only the sides whose neighbour is
-  // NOT reachable. Result is the staircase silhouette of the reach region.
-  // Visual reach: delegate to the shared cellInReach helper (coords.js)
-  // so the lit area on screen and the tap-accept area in interact.js are
-  // computed from the same integer-cell math. Earlier this path used a
-  // local hypotenuse check against a separately computed feet-cell row,
-  // and the user reported the leftmost lit cell occasionally flashing
-  // "too far" — eliminating the duplicated math closes any way for the
-  // two to drift (intra-cell fracY rounding, FP slop, basis mismatch).
-  // cellInReach handles reach via coords.js reachRadiusM: 0 energy = no reach,
-  // otherwise the radius is 2.5 cells growing to 5.5 via Inner Light upgrades,
-  // then shrunk half a cell per level underground (floored at 1.5).
+  // WHAT THIS LAYER STILL DOES: the unmapped-tile reveal, and nothing else.
   //
-  // Per-frame hoist: the four reach loops below call isReach ~1000 times a
-  // frame (the outline pass probes each cell plus its four neighbours), and
-  // cellInReach recomputes reachRadiusM (a Date.now()) and playerReachCell (a
-  // fresh {cellIX, cellIY} allocation) on every call — ~60k throwaway objects
-  // a second. Both are constant for the frame, so evaluate them once here and
-  // inline cellInReach's distance test with the SAME expressions in the same
-  // order, keeping the visual outline byte-identical to the tap-accept test
-  // in interact.js (which still goes through cellInReach itself).
-  const _reachM = reachRadiusM(scene);
-  const _reachM2 = _reachM * _reachM;
-  const _reachP = playerReachCell(scene);
-  const isReach = (col, row) => {
-    if (_reachM <= 0) return false;
-    const absIX = baseCellIX + (col - half);
-    const absIY = baseCellIY + (row - half);
-    const dx = (absIX - _reachP.cellIX) * scene.cellM;
-    const dy = (absIY - _reachP.cellIY) * scene.cellM;
-    return dx * dx + dy * dy <= _reachM2;
-  };
-  // The DARKNESS is not painted here any more. Until Sep 2026 this block laid
-  // the out-of-reach dim (a fillRect per unlit cell), the underground lit-dim,
-  // the low-energy pink and ~100 cached falloff rings — all of it darkness,
-  // which composes only one way (two dims overlap darker) and so could never
-  // host a second light. The lightmap in src/lighting.js replaced the lot:
-  // an ambient floor plus one additive cookie per light (the player, Home, a
-  // restored building, a campfire), multiplied over the world from the
-  // lightMap layer ABOVE the sprites. Its levels are DERIVED from the same
-  // reachDimColor / reachDimAlpha this pass painted with, so the surface
-  // with only the player lit looks as it did. See Lighting.profile.
+  // The DARKNESS went first. Until Sep 2026 this block laid the out-of-reach
+  // dim (a fillRect per unlit cell), the underground lit-dim, the low-energy
+  // pink and ~100 cached falloff rings — all of it darkness, which composes
+  // only one way (two dims overlap darker) and so could never host a second
+  // light. The lightmap in src/lighting.js replaced the lot: an ambient floor
+  // plus one additive cookie per light (the player, Home, a restored building,
+  // a campfire), multiplied over the world from the lightMap layer ABOVE the
+  // sprites. Its levels are DERIVED from the same reachDimColor /
+  // reachDimAlpha this pass painted with. See Lighting.profile.
   //
-  // What stays on this layer is the per-cell work: the unmapped-tile reveal
-  // and the white reach OUTLINE — the tap affordance, which must remain
-  // cell-exact (cellInReach) where a cookie can only ever be a circle.
-  const depth = scene.depth ?? 0;
-  // Every pass from here to the reach outline paints onto reachGfx (app.js),
-  // not the terrain graphics: in cellGfx — the bottom-most layer — the biome
-  // seams, planks, road letters and pads drawn above it would cover the
-  // outline. Falling back to `g` keeps a scene without the layer rendering
-  // rather than throwing.
+  // The white reach OUTLINE went second (Sep 2026), and this is the pass that
+  // used to draw it — a 2px line at 0.15 alpha tracing the staircase's outer
+  // edge, over a cell loop and a rounded-corner helper of its own. It was the
+  // tap affordance back when the plateau under it was dim enough to need
+  // underlining: the light and the line said the same thing, and the line was
+  // the louder of the two. PLATEAU_OUTPUT_K (lighting.js) lit the reach area
+  // back up, and the LIGHT now carries the affordance by itself — the plateau
+  // is painted per reach cell from cellInReach's own expressions, so its edge
+  // is the same cell-exact staircase the tap gate accepts, rounded by the same
+  // ReachCorner rule the line rounded by, and the step down to `edge` at that
+  // edge is pinned to outweigh anything else in the picture. A line over it is
+  // a second drawing of a boundary the light already draws.
+  // **Do not put a reach outline back on this layer**: if the boundary ever
+  // stops reading, that is the plateau's step to widen (lighting.js), not a
+  // stroke to re-add — a line is exact where the light is bright, which is the
+  // one place it was never needed.
   const gr = scene.reachGfx || g;
   if (gr !== g) gr.clear();
   // Unmapped-tile reveal: fog fading off cells whose tile arrived within the
-  // last UNMAPPED_REVEAL_MS (collected in the cell loop above). Painted first
-  // on this layer so the reach outline reads on top of the reveal.
+  // last UNMAPPED_REVEAL_MS (collected in the cell loop above). It paints onto
+  // reachGfx (app.js), not the terrain graphics: in cellGfx — the bottom-most
+  // layer — the biome seams, planks, road letters and pads drawn above it
+  // would cover the reveal. Falling back to `g` keeps a scene without the
+  // layer rendering rather than throwing.
   for (let i = 0; i < _fadeRects.length; i += 3) {
     gr.fillStyle(COLORS[UNMAPPED_T], _fadeRects[i + 2]);
     gr.fillRect(_fadeRects[i], _fadeRects[i + 1], CELL_PX, CELL_PX);
-  }
-  // The reach outline stays LAST on this layer, so the white edge sits on top
-  // of the dim band rather than under it — the relative order these passes
-  // had inside cellGfx, preserved. Kept deliberately soft (thin, low alpha):
-  // the dim step already marks the boundary, so the line only needs to hint
-  // at the edge, not draw a hard white frame around the lit area.
-  gr.lineStyle(2, 0xffffff, 0.15);
-  for (let row = -1; row <= VIEW_CELLS; row++) {
-    for (let col = -1; col <= VIEW_CELLS; col++) {
-      if (!isReach(col, row)) continue;
-      const ox = col - half, oy = row - half;
-      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
-      const top = !isReach(col, row - 1);
-      const bot = !isReach(col, row + 1);
-      const lft = !isReach(col - 1, row);
-      const rgt = !isReach(col + 1, row);
-      if (!top && !bot && !lft && !rgt) continue;   // interior: nothing to trace
-      Render.reachOutlineCell(gr, sx, sy, top, bot, lft, rgt,
-        isReach(col - 1, row - 1), isReach(col + 1, row - 1), isReach(col - 1, row + 1), isReach(col + 1, row + 1));
-    }
   }
 
   // Atmosphere washes. Both are single, flat draws over the viewport — the cost
@@ -2066,7 +1972,7 @@ Render.drawCells = function drawCells(scene) {
     // Underground has its own darkness (the torch bubble) and no persistent
     // map to explore, so fog is a surface feature. Hide it on descent rather
     // than leaving the last surface frame frozen over the cave.
-    const fogOn = depth === 0;
+    const fogOn = (scene.depth ?? 0) === 0;
     // ...and one more input: the UNMAPPED VEIL. A cell whose tile hasn't
     // arrived is already drawn as the animated survey-line fog that says
     // "loading", and stacking 80% black on that would smother the one thing it
@@ -3912,8 +3818,13 @@ Render.drawObjects = function drawObjects(scene) {
     // centre. Stages 1+ grow upward and look right centered.
     const isCropsSheet = !ov || (!ov.custom && ov.sheet !== 'springcrops');
     const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
-    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * shinyScale;
-    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy));
+    // Actual player-planted crops (not wildplants rendered through this same
+    // pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
+    // than the shared crop art.
+    const isPlantedCrop = p.wildId == null && !p._placedRock;
+    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * shinyScale * (isPlantedCrop ? 0.8 : 1);
+    const plantedYOffset = isPlantedCrop ? 3 : 0;
+    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy) - plantedYOffset);
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the

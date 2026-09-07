@@ -400,9 +400,11 @@ const UI_TREASURE_DEEP = '#7fb0ff';   // saturated blue — glow, side faces, de
 // that ring it and the "137/200 m" counting the walk all read as the same
 // material rather than as three unrelated effects.
 //
-// One constant, three readers — the counter (app.js), and the stone chips and
-// the spark ring (particles.js) — so the number and the debris under it can
-// never end up different colours.
+// One constant, four readers — the counter (app.js), the stone chips and the
+// spark ring (particles.js), and the STREET LAMP a restored stretch carries
+// (its baked stone in road_overlay.js and the light over it, Lighting's
+// `cobble` row) — so the number, the debris under it and the lamp that lights
+// it can never end up different colours.
 //
 // Deliberately NOT in the blue treasure role, which it wore as a violet
 // (UI_TRAIL_LIT) while the mechanic was lit pebbles: blue-white means "the

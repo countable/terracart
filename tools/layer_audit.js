@@ -55,7 +55,7 @@ const GROUND = [
   'cellGfx',           // base terrain fill
   'gridGfx',           // dashed cell grid
   'borderGfx',         // biome seam borders  <- the reported bug
-  'cobbleContainer',   // ground decoration (the pier plank)
+  'cobbleContainer',   // ground decoration (the pier plank, the street lamps)
   'letterContainer',   // road name lettering
   'roadGeomContainer',
   'padContainer',      // treasure plinths
@@ -117,7 +117,7 @@ const CHECKS = [
       const below = GROUND.filter((n) => idx(layers, n) > lit);
       if (below.length) {
         throw new Error(`${below.join(', ')} draw ABOVE the reach layer, so they would cover the ` +
-          'reach outline — the tap affordance. Move reachGfx above them in MapScene.create().');
+          'unmapped-tile reveal it carries. Move reachGfx above them in MapScene.create().');
       }
     },
   },
@@ -128,7 +128,7 @@ const CHECKS = [
       const lit = idx(layers, 'reachGfx');
       const above = SPRITES.filter((n) => idx(layers, n) < lit);
       if (above.length) {
-        throw new Error(`${above.join(', ')} draw BELOW the reach layer, so the outline would be ` +
+        throw new Error(`${above.join(', ')} draw BELOW the reach layer, so its reveal would be ` +
           'drawn over a tree standing on it.');
       }
     },
@@ -237,7 +237,10 @@ const CHECKS = [
       if (start < 0) {
         throw new Error('render.js no longer routes the reach passes through a lighting layer');
       }
-      const end = src.indexOf('Render.reachOutlineCell(gr, sx, sy', start);
+      // The block runs to the atmosphere washes — the next pass after it. It
+      // used to end at the reach outline's own call, which was removed when
+      // the plateau took the affordance over (Sep 2026).
+      const end = src.indexOf('// Atmosphere washes.', start);
       if (end < 0) throw new Error('could not find the end of the reach block in render.js');
       const block = src.slice(start, end);
       // A bare `g.` in this block means a pass slipped back onto the terrain

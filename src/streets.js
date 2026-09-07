@@ -28,6 +28,12 @@
 // every way that crosses a tile edge, so `tileSpans` clips to the square and
 // the caller intersects with it.
 //
+// THE LAMPS ride on the same coordinate. A restored street lights its own
+// way: one glowing cobble every `lampSpacingM()` metres of it (= the ladder's
+// own rung, Trail.GOAL_STEP_M), placed by `lampsAlong` and lit when `covers`
+// says its metre is restored. Nothing about a lamp is stored — see the note
+// above lampsAlong.
+//
 // Pure arithmetic on purpose — no Phaser, no DOM, no scene — which is what
 // lets test/node/streets.test.js pin the real shipping maths rather than a
 // copy of it. Interval lists are ALWAYS sorted, merged and non-overlapping
@@ -173,7 +179,7 @@
   // each piece is charged to the cell it actually lies in. Sampling at a fixed
   // step would either miss a cell the street clips the corner of or restore
   // metres either side of one it only grazes — and what restores has to be
-  // exactly what the reach outline draws.
+  // exactly what the lit reach area covers.
   //
   // `inReach(cellIX, cellIY)` takes TILE-LOCAL cell indices.
   function reachIntervals(line, mvtToM, cellM, inReach) {
@@ -210,6 +216,79 @@
       s += lenM;
     }
     return mergeIntervals(out);
+  }
+
+  // ── The LAMPS ───────────────────────────────────────────────────────────
+  // A restored street LIGHTS ITS OWN WAY: one glowing cobble every
+  // lampSpacingM() metres of it. streets.js says where the stones stand,
+  // road_overlay.js paints one, lighting.js's `cobble` row is the light it
+  // actually throws and app.js places both.
+  //
+  // GENERATED, NEVER STORED — the traps rule, one file over. Where a lamp
+  // stands is a pure function of the way's geometry, and whether it is LIT is
+  // whether its own metre is in that line's restored list. So a lamp comes on
+  // as the stretch under it comes back, a tile rebuilt under the player lights
+  // the same stones again, and nothing new reaches the save. (This is also
+  // why it is NOT a per-cell road state: the cobbles that were keyed per cell
+  // until Sep 2026 counted one thing and drew another.)
+  //
+  // ONE LAMP PER RUNG'S WALK. The spacing is Trail.GOAL_STEP_M, not a number
+  // of its own: 200 m of newly restored street is exactly what the ladder pays
+  // a prize for, so a walk that earns a rung lights about one lamp and the two
+  // can never come to disagree about the same 200 m. Resolved at CALL time,
+  // like lighting.js resolves FIRE_REST_R, so the load order of the two pure
+  // modules doesn't matter.
+  function lampSpacingM() {
+    const T = root.Trail;
+    const s = T && T.GOAL_STEP_M;
+    return (s > 0) ? s : 200;
+  }
+
+  // The arclengths of one line's lamps, in metres from its start.
+  //
+  // SPREAD ALONG THE LINE, NOT STAMPED FROM ITS START. OSM splits a street
+  // wherever a tag changes, so lamps at s = 200, 400, … would leave every way
+  // shorter than the spacing — most of a suburb, and every parking aisle —
+  // with no lamp at all, and would bunch two stones either side of a split.
+  // Each line instead gets the whole number of intervals NEAREST its own
+  // length, spread evenly with a half interval at each end: a 300 m street
+  // gets two lamps 150 m apart, a 1 km one five 200 m apart, and any way at
+  // least half a spacing long gets one at its midpoint. Anything shorter gets
+  // none — that floor is what keeps a dense block of service roads and
+  // driveways from reading as a lit car park.
+  //
+  // The first and last are a HALF interval in, so a lamp never lands on a
+  // junction (which is where OSM ends its lines) and two lamps either side of
+  // a split sit a full spacing apart, as if the way had never been cut.
+  function lampsAlong(line, mvtToM, spacingM) {
+    const step = (spacingM > 0) ? spacingM : lampSpacingM();
+    const len = lineLengthM(line, mvtToM);
+    if (!(len > 0) || !(step > 0)) return [];
+    const n = Math.round(len / step);
+    if (n < 1) return [];
+    const gap = len / n;
+    const out = [];
+    for (let i = 0; i < n; i++) out.push((i + 0.5) * gap);
+    return out;
+  }
+
+  // Is the arclength `s` inside one of `list`'s intervals? The lamp test:
+  // `covers(restoredList(…), s)` is what lights a stone, and
+  // `covers(tileSpans(…), s)` is what keeps the tile that OWNS a lamp from
+  // drawing it twice with its neighbour (MVT geometry runs into the buffer,
+  // where the same way comes back in the next tile's copy — the tile-square
+  // rule at the top of this file).
+  //
+  // EPS-tolerant at both ends, like every other test here: a lamp exactly on
+  // the metre a dwell restored to is lit, not a float away from it.
+  function covers(list, s) {
+    if (!list || !list.length || !Number.isFinite(s)) return false;
+    for (const iv of list) {
+      if (!iv) continue;
+      const a = +iv[0], b = +iv[1];
+      if (s >= a - EPS && s <= b + EPS) return true;
+    }
+    return false;
   }
 
   // ── Interval algebra ────────────────────────────────────────────────────
@@ -409,6 +488,7 @@
   root.Streets = {
     EPS,
     lineKey, lineLengthM, pointAtM, subLineM, tileSpans, reachIntervals,
+    lampSpacingM, lampsAlong, covers,
     mergeIntervals, intersect, subtract, union, totalM, flatten, unflatten,
     createSight, restoredList, restore, epoch,
   };

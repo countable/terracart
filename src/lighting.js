@@ -19,6 +19,7 @@
 //   Lighting.blast(scene, wmx, wmy, opts) — fire a transient restoration flash
 //   Lighting.collectBlasts(scene, ax, ay, halfM, now) — the live ones, pruned
 //   Lighting.collectFires(scene, ax, ay, halfM) — add the placed campfires
+//   Lighting.collectLamps(scene, ax, ay, halfM) — add the restored streets' lamps
 //   Lighting.collectPlayer(scene, ax, ay, halfM) — add the player's torch, if lit
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
@@ -58,10 +59,14 @@
 // the Canvas fallback and on every GPU — see the note at draw().
 //
 // The player's PLATEAU is painted per reach cell with cellInReach's own
-// maths, so the sharp edge of the lit area IS the staircase the white outline
-// traces and the tap gate accepts. Only the falloff outside it is a circle.
-// The outline itself stays on reachGfx: it marks what you can touch; the
-// light is only light. Inside the staircase the plateau is not flat: it is
+// maths, so the sharp edge of the lit area IS the staircase the tap gate
+// accepts. Only the falloff outside it is a circle. That edge is the WHOLE
+// affordance: a white outline was stroked over the same staircase on reachGfx
+// (render.js) until Sep 2026, back when the plateau under it was dim enough
+// to need underlining — PLATEAU_OUTPUT_K lit it back up and the line went, so
+// this pass is now the only thing that says where you can reach. Do not stroke
+// one back: if the boundary stops reading, the step at its edge is what to
+// widen. Inside the staircase the plateau is not flat: it is
 // the player's own lamp, full at the feet and easing down PLATEAU_FALL of
 // the way by the reach rim (plateauLevel), so the lit area reads as light
 // thrown from the body rather than a cut-out — the step down at its edge
@@ -71,14 +76,18 @@
 // profile() reproduces the old wash for the white channel from the same two
 // sources the ground pass painted with — Render.reachDimAlpha / reachDimColor
 // — plus the falloff pair (FALLOFF_A, FALLOFF_P) that lived beside the rings.
-// Two deliberate departures sit on top: AMBIENT_K (and its daytime partner
-// AMBIENT_K_DAY), which darken/brighten the floor alone for contrast — a
+// Three deliberate departures sit on top: AMBIENT_K (and its daytime partner
+// AMBIENT_DAY_LUM), which darken/brighten the floor alone for contrast — a
 // flat night value blended up to a sunlit one by `night`, surface only — and
-// PLAYER_OUTPUT_K, which dims the player's own ramp and plateau alone (the
-// RADIUS — the ramp's reach and the corners it just lights — is untouched;
-// only how much of the reproduced wash the player's body gives back is
-// scaled). Retune a look by changing those; another factor in here breaks
-// the correspondence test/node/lighting.test.js pins.
+// the two OUTPUT knobs, which scale how much of the reproduced wash the
+// player's body gives back without touching the RADIUS it reaches:
+// PLAYER_OUTPUT_K for the ramp OUTSIDE the reach area (`edge`, and the
+// falloff hung off it) and PLATEAU_OUTPUT_K for the reach area itself
+// (`lit`). They are two numbers rather than one because the picture wants
+// opposite things of them: the mid-field is dim so the placed lights tell
+// against it, and the reach area is bright because it is what the player is
+// working in. Retune a look by changing those three; a fourth factor in here
+// breaks the correspondence test/node/lighting.test.js pins.
 (function (window) {
   'use strict';
 
@@ -107,6 +116,15 @@
   // own light, out to TORCH_RADIUS_MUL player radii. Nothing here asks the
   // depth: a torch by night on the surface is fine, and free.
   const TORCH_RADIUS_MUL = 2;
+
+  // The restored street's own ink (util.js UI_STREET_INK) as a number, with
+  // the same literal fallback the other readers carry so this module still
+  // loads standalone. One constant, four readers now — the counter, the
+  // chips, the sparks and the lamp — so a street's light can't drift off the
+  // colour the street itself is made of.
+  const STREET_INK = (typeof UI_STREET_INK === 'string')
+    ? parseInt(UI_STREET_INK.replace('#', ''), 16) : 0xe8e2d6;
+
   const KINDS = {
     // The player: white, out to the furthest visible pixel (the viewport's
     // half-diagonal) plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay
@@ -159,6 +177,25 @@
     // — lighting.test.js pins the order — so a lit cave reads as "a torch
     // there, some fungus here", never two of the same lamp.
     mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.50, flicker: 0, pulse: 0.35 },
+    // A STREET LAMP — the glowing cobble of a RESTORED street, one every
+    // Streets.lampSpacingM() metres of rebuilt carriageway (streets.js places
+    // them, road_overlay.js paints the stone, app.js hands this collector the
+    // live list). It is the whole point of rebuilding a street after dark: a
+    // road you have brought back is a road you can walk at night, and the
+    // string of lamps behind you is the map of everything you have restored.
+    //
+    // In the street's OWN ink, never the violet the lit pebbles wore until
+    // Sep 2026 (see UI_STREET_INK's note in util.js): pale warm stone is what
+    // a restored carriageway is made of, and blue-white in this game means
+    // "the world is giving you something".
+    //
+    // STEADY — no flicker, no pulse. A fire breathes because it is burning
+    // and a POI breathes because it is asking to be noticed; a lamp is
+    // infrastructure, and a street of them breathing would be a strobe.
+    // Sized between the POI and the campfire: bigger than a marker, smaller
+    // than a hearth, so a lamp lights the carriageway it stands on and a
+    // couple of cells either side of it rather than the whole block.
+    cobble:   { radiusCells: 2.5, colour: STREET_INK, peak: 0.85, flicker: 0 },
     // A BLAST — the one-shot near-white flash of a RESTORATION moment: a
     // stretch of street rebuilt, a wreck pulled back into a house. Unlike
     // every row above it this one is TRANSIENT and SCALABLE: `Lighting.blast`
@@ -229,15 +266,43 @@
   const AMBIENT_K = 0.45;
   const AMBIENT_DAY_LUM = 0.40;
 
-  // The PLAYER'S OWN OUTPUT knob: how much of the reproduced-wash levels
-  // (`edge`, `lit`) the player's ramp and plateau actually throw. It scales
-  // both by the same factor, so the falloff's shape and the plateau's own
-  // easing (PLATEAU_FALL) are untouched and `lit > edge` still holds at every
-  // depth — only the body's light is dimmer, never the RADIUS it reaches
+  // The PLAYER'S OWN OUTPUT knobs: how much of the reproduced-wash levels the
+  // player's light actually throws. Neither touches the RADIUS it reaches
   // (radiusCells('player') and TORCH_RADIUS_MUL off it are unaffected, so a
-  // dimmer player still lights exactly as far). 1.0 is the old picture
-  // exactly; lower is a dimmer body light at the same reach.
-  const PLAYER_OUTPUT_K = 0.8;
+  // dimmer player still lights exactly as far); 1.0 is the old picture
+  // exactly, and lower is a dimmer light at the same reach.
+  //
+  // PLAYER_OUTPUT_K scales `edge` — the ramp OUTSIDE the reach area, and the
+  // whole falloff hung off it. Halved from 0.8 to 0.4 in Sep 2026: the body
+  // was throwing enough light that the placed lights — a campfire, Home, a
+  // POI — barely told against it, and the reach step reads better against a
+  // darker mid-field. That is still what this number is for, so it stays.
+  const PLAYER_OUTPUT_K = 0.4;
+
+  // PLATEAU_OUTPUT_K scales `lit` — the reach area itself, the plateau the
+  // per-cell mask ADDS over the ramp. It used to BE PLAYER_OUTPUT_K: one knob
+  // scaled both, and dimming the mid-field to let the placed lights tell took
+  // the ground the player actually works on down with it, to a bit over half
+  // its old light. The two wants are opposite, so they are two numbers now —
+  // and splitting them costs none of the relations the shared knob was
+  // keeping, because raising `lit` alone only widens them: the falloff's
+  // shape is `edge`'s alone, PLATEAU_FALL is a fraction of `lit` so the
+  // plateau's easing scales with it, `lit > edge` holds by a bigger margin,
+  // and the step off the plateau grows faster than the fall across it
+  // (0.82 of a rise against 0.18 of it). lighting.test.js pins all four.
+  //
+  // 0.60 IS THE CEILING, not a taste: the plateau adds onto the ambient
+  // FLOOR, which at noon is already AMBIENT_DAY_LUM bright, so past this the
+  // reach area clips to white and PLATEAU_FALL's shading flattens out with
+  // it. Measured, not guessed — over every COLORS × DUST_OF pairing the
+  // biome palette can actually produce, the tightest headroom is 0.602 (the
+  // brick-house base under industrial dust, dim 0x35261e: the most saturated
+  // dim colour in the world, so the one whose floor puts the most into a
+  // single channel at a given luminance). Underground and after dark the
+  // floor is near-black and the headroom is 1.0+, so noon on the surface is
+  // what binds. If the far field is ever brightened again — AMBIENT_DAY_LUM
+  // up, or the dim palette out — re-measure this before raising it.
+  const PLATEAU_OUTPUT_K = 0.6;
 
   // ── Time of day ───────────────────────────────────────────────────────────
   // The surface picture above is HIGH NOON. As the real sun goes down where
@@ -366,9 +431,11 @@
   //              surface only; a cave has no sun, so it stays on the flat
   //              AMBIENT_K exactly as before, whatever daylight is passed in
   //   edge       the player cookie just OUTSIDE the plateau — the old wash,
-  //              exactly, scaled by PLAYER_OUTPUT_K: ambient + edge/K == 1 - dimA
-  //   lit        the cookie INSIDE the plateau — likewise scaled:
-  //              ambient + lit/K == 1 - litDim(depth) (1 on the surface)
+  //              exactly, scaled by the ramp's own knob:
+  //              ambient + edge/PLAYER_OUTPUT_K == 1 - dimA
+  //   lit        the cookie INSIDE the plateau — scaled by the plateau's own
+  //              knob: ambient + lit/PLATEAU_OUTPUT_K == 1 - litDim(depth)
+  //              (1 on the surface)
   //   litColour  white, or the low-energy pink
   //   night      1 - daylight on the surface, always 0 underground; moves
   //              dimA toward NIGHT_DIM_A and drains dimColour (see above)
@@ -398,7 +465,7 @@
       : nightLum + (AMBIENT_DAY_LUM - nightLum) * (1 - night);
     const ambient = atLuminance(floor0, targetLum);
     const edge = (1 - dimA) * FALLOFF_A * PLAYER_OUTPUT_K;
-    const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA)) * PLAYER_OUTPUT_K;
+    const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA)) * PLATEAU_OUTPUT_K;
     const litColour = lowEnergy(scene) ? mixToWhite(LOW_ENERGY_TINT, LOW_ENERGY_A) : 0xffffff;
     return { depth, dimA, dimColour, farA, ambient, edge, lit, litColour, night };
   }
@@ -470,14 +537,15 @@
     scene._lights.length = 0;
   }
 
-  // THERE ARE NO CELL LIGHTS. A second list used to run beside the object one,
-  // carrying a small violet pool per lit cobble offered by drawCells. The
-  // cobbles are gone (a street is restored as arclength along the way now, not
-  // as a lit pebble per cell) and so is that list: a restored street is DRAWN
-  // clean by road_overlay.js and needs no light of its own. If a cell ever
-  // wants a light again, note why the list was separate — drawCells runs
-  // BEFORE drawObjects, and beginFrame empties the object list at the top of
-  // the latter.
+  // THERE ARE STILL NO CELL LIGHTS. A second list used to run beside the
+  // object one, carrying a small violet pool per lit cobble offered by
+  // drawCells — because drawCells runs BEFORE drawObjects and beginFrame
+  // empties the object list at the top of the latter, so a stone pushed onto
+  // scene._lights from the cell pass was gone before draw() read it. The
+  // street lamps that came back in Sep 2026 are lit from a LIST instead
+  // (collectLamps, below), collected inside draw() like the fires and the
+  // blasts, so the ordering problem never arises: a lamp is a point in world
+  // metres, not a cell being painted.
 
   // ── BLASTS: transient lights on their own clock ──────────────────────────
   // A restoration moment — a street stretch rebuilt, a wreck restored — throws a
@@ -578,6 +646,32 @@
     return n;
   }
 
+  // The STREET LAMPS in range. app.js keeps the live list on
+  // scene._streetLamps — the lit ones near the camera anchor, in ABSOLUTE
+  // world metres, rebuilt when the anchor crosses a cell or a stretch is
+  // restored — and this converts them against THIS frame's anchor, like the
+  // blasts, so a peek drag leaves every lamp on the street it stands in.
+  //
+  // A LIST, NOT A SCAN: a lamp is not an object in a tile's object list and
+  // has no sprite for drawObjects to offer, so nothing would reach `consider`
+  // (the reason the lit cobbles needed a second list of their own until they
+  // were removed). Handing over a plain array of points instead keeps the
+  // finding of them — nine tiles of transportation lines, their arclengths
+  // and the save's restored intervals — in app.js, where the tile cache is.
+  function collectLamps(scene, ax, ay, halfM) {
+    const list = scene && scene._streetLamps;
+    if (!list || !list.length) return 0;
+    if (!scene._lights) scene._lights = [];
+    let n = 0;
+    for (const L of list) {
+      const dx = L.x - ax, dy = L.y - ay;
+      if (!inRange(scene, dx, dy, 'cobble', halfM)) continue;
+      scene._lights.push({ kind: 'cobble', dx, dy, id: L.id });
+      n++;
+    }
+    return n;
+  }
+
   // The player's light beyond the ramp: the torch cookie, at the feet (metres
   // from the camera anchor, like every light — it slides with a peek), while
   // one burns. Returns the row the player lit as. The plain 'player' row
@@ -657,9 +751,10 @@
   // the far field of the frame at the ambient floor with nothing of the
   // player's light left in it; one cell past keeps the corners just lit,
   // and the ramp still ends on zero so a peek finds no edge past it (the
-  // ambient beyond is the value it lands on). The PLATEAU is not in here: it is painted per reach cell in draw(), so the
-  // sharp edge of the lit area is the same staircase the reach outline
-  // traces and the tap gate accepts (cellInReach), not a circle near it.
+  // ambient beyond is the value it lands on). The PLATEAU is not in here: it
+  // is painted per reach cell in draw(), so the sharp edge of the lit area is
+  // the same staircase the tap gate accepts (cellInReach), not a circle
+  // near it.
   // Rebaked only when its inputs move: the reach radius (energy / depth /
   // Potion of Reach) and the depth's levels.
   //
@@ -761,8 +856,8 @@
   // corner — and an INNER corner (ReachCorner.fillet) gets the sliver between
   // the corner point and that same arc, drawn in the empty cell above/below,
   // as its own subpath. Corner geometry comes from coords.js' ReachCorner, the
-  // rule the white outline (render.js) rounds by too; with no rule loaded the
-  // cell is a plain square.
+  // rule the white outline (render.js) rounded by until it was removed; with
+  // no rule loaded the cell is a plain square.
   function plateauCellPath(ctx, sx, sy, top, bot, lft, rgt, dTL, dTR, dBL, dBR) {
     const RC = (typeof ReachCorner !== 'undefined') ? ReachCorner : null;
     if (!RC) { ctx.rect(sx, sy, CELL_PX, CELL_PX); return; }
@@ -782,8 +877,8 @@
   // The fillet at corner point (px, py): ix runs along the owning cell's
   // horizontal edge, iy into the empty cell. The arc is tangent to that edge
   // R along it and to the diagonal cell's vertical edge R up/down it, so the
-  // sliver between the corner and the arc is exactly what the outline's
-  // fillet arc traces.
+  // sliver between the corner and the arc is exactly the notch the bare
+  // staircase would otherwise cut out of the lit area.
   function filletPath(ctx, px, py, ix, iy, R) {
     ctx.moveTo(px, py);
     ctx.lineTo(px + ix * R, py);
@@ -800,6 +895,7 @@
     if (!tex || typeof document === 'undefined') return;
     if (!scene._lights) scene._lights = [];
     collectFires(scene, ax, ay, halfM);
+    collectLamps(scene, ax, ay, halfM);
     collectPlayer(scene, ax, ay, halfM);
     const now = Date.now();
     // The live blasts, converted against THIS frame's anchor (they are stored
@@ -829,10 +925,11 @@
     const D = player.S * PLAYER_COOKIE_SCALE;
     ctx.drawImage(player.canvas, ps.x - ox - D / 2, ps.y - oy - D / 2, D, D);
 
-    // The plateau: every cell in reach, by the SAME test the outline and the
-    // tap gate use — cellInReach's expressions, hoisted once per frame the way
-    // drawCells hoists them (reachRadiusM and playerReachCell are constant for
-    // the frame; 169 calls of the allocating helper is churn for nothing).
+    // The plateau: every cell in reach, by the SAME test the tap gate uses —
+    // cellInReach's expressions, hoisted once per frame the way drawCells
+    // hoists its own (reachRadiusM and playerReachCell are constant for the
+    // frame; 169 calls of the allocating helper is churn for nothing). This
+    // edge is the affordance now, so it has to be exactly that test.
     if (reachM > 0 && prof.lit > prof.edge && typeof playerReachCell === 'function'
         && typeof viewAnchorCell === 'function') {
       const reachM2 = reachM * reachM;
@@ -895,13 +992,13 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour, lum, atLuminance,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires,
-    collectPlayer,
+    collectPlayer, collectLamps,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, BLAST_MAX, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
   };

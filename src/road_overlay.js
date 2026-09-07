@@ -540,6 +540,64 @@
     return cleanCanvas[k];
   }
 
+  // ── The LAMP STONE ───────────────────────────────────────────────────────
+  // The glowing cobble a restored street carries every Streets.lampSpacingM()
+  // metres of it — the stone itself; the light it throws is lighting.js's
+  // `cobble` row and app.js places both on the same point.
+  //
+  // WHY ART AS WELL AS LIGHT. The lightmap is MULTIPLIED over the world, so at
+  // noon (a near-white map) a light alone is invisible and the lamps would
+  // simply not exist by day. The stone is therefore painted: it reads as a
+  // pale sett with a hot core at any hour, and after dark the cookie over it
+  // is what makes it a lamp.
+  //
+  // Baked ONCE into a texture (app.js) rather than stroked per frame, for the
+  // reason at the top of this file — and its halo is a real radial gradient
+  // rather than a stack of translucent rings, which is the same rule again
+  // (a translucent ring composites with its neighbours and blotches).
+  //
+  // UI_STREET_INK, the colour a restored street is MADE of, so the lamp, the
+  // chips that fly off the carriageway and the counter over it are one
+  // material — the same one constant lighting.js's row reads.
+  const LAMP_TEX_PX = 64;          // baked square; the halo fills it
+  const LAMP_DRAW_CELLS = 1.5;     // …drawn this many cells across, halo included
+  const LAMP_STONE_FRAC = 0.16;    // the stone's radius, as a fraction of the square
+  const LAMP_CORE_A = 0.85;        // the hot core's alpha at the centre
+  const LAMP_HALO_A = 0.42;        // …and the halo's, just outside the stone
+  const LAMP_RIM_A = 0.35;         // the stone's dark rim: what makes it a STONE by day
+  const LAMP_INK = (typeof UI_STREET_INK === 'string') ? UI_STREET_INK : '#e8e2d6';
+
+  function paintLampStone(cx, size) {
+    const S = size || LAMP_TEX_PX;
+    const c = S / 2;
+    const r = S * LAMP_STONE_FRAC;
+    const ink = LAMP_INK;
+    const rgb = [1, 3, 5].map((i) => parseInt(ink.slice(i, i + 2), 16));
+    const a = (al) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${al})`;
+    // The halo: brightest just outside the stone, gone by the edge of the
+    // square. Quadratic falloff, the same shape lighting.js bakes its cookies
+    // with, so the painted glow and the light over it agree.
+    const g = cx.createRadialGradient(c, c, 0, c, c, c);
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8;
+      g.addColorStop(t, a((LAMP_HALO_A * (1 - t) * (1 - t)).toFixed(4)));
+    }
+    cx.fillStyle = g;
+    cx.fillRect(0, 0, S, S);
+    // The stone: the sett itself, near-white at its middle and the street's
+    // own ink at its edge, with a dark rim so it still reads as a laid stone
+    // in daylight rather than as a smudge of light.
+    const core = cx.createRadialGradient(c, c, 0, c, c, r);
+    core.addColorStop(0, `rgba(255,253,247,${LAMP_CORE_A})`);
+    core.addColorStop(0.55, a(0.92));
+    core.addColorStop(1, a(0.78));
+    cx.fillStyle = core;
+    cx.beginPath(); cx.arc(c, c, r, 0, Math.PI * 2); cx.fill();
+    cx.lineWidth = Math.max(1, S * 0.02);
+    cx.strokeStyle = `rgba(28,24,20,${LAMP_RIM_A})`;
+    cx.beginPath(); cx.arc(c, c, r, 0, Math.PI * 2); cx.stroke();
+  }
+
   // The kerb: a hairline pale line along the outer edge of a restored band —
   // the one cue that says "this street has a built edge" rather than "this
   // street is darker". Painted by re-stroking the run pale at full width and
@@ -1205,5 +1263,6 @@
   }
 
   global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
+                         paintLampStone, LAMP_TEX_PX, LAMP_DRAW_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge };
 })(window);

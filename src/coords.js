@@ -234,13 +234,18 @@ function cellInReach(scene, cellIX, cellIY) {
 }
 
 // ─── The lit boundary's corners ──────────────────────────────────────────────
-// The reach silhouette is a staircase of whole cells, and TWO passes draw its
-// edge: the lightmap plateau (lighting.js draw(), the bright area's sharp
-// edge) and the white outline over it (render.js drawCells, the tap
-// affordance). Its corners are rounded by REACH_CORNER_PX — a smidge, so the
-// edge reads as a shape rather than a grid — and both passes derive their
-// corner geometry from the ONE rule here, so the line can't round a corner
-// the light leaves square (the roadOverlayWidthM discipline).
+// The reach silhouette is a staircase of whole cells, and the lightmap plateau
+// (lighting.js draw()) draws its edge — the bright area's sharp boundary, and
+// since Sep 2026 the tap affordance itself. Its corners are rounded by
+// REACH_CORNER_PX — a smidge, so the edge reads as a shape rather than a grid.
+// The rule lives here rather than in the pass that uses it because it used to
+// have TWO readers: a white outline (render.js drawCells) was stroked over the
+// same staircase, and the line could not be allowed to round a corner the
+// light left square. The line is gone (the plateau is lit brightly enough to
+// carry the affordance alone), so `shortenH` / `shortenV` — which said where a
+// stroked EDGE stopped short of a round — went with it: a filled path needs no
+// such thing, its arcTo does the shortening. What stays is the corner
+// classification, which is the part that decides the SHAPE.
 //
 // Look at one corner of a reach cell with three flags:
 //   h — the neighbour across the corner's VERTICAL edge (left / right) is out
@@ -257,16 +262,11 @@ function cellInReach(scene, cellIX, cellIY) {
 //            corner with h and v swapped; only the cell whose HORIZONTAL edge
 //            is exposed owns the fillet, so it is drawn once.
 //   (else)   square — the edge runs straight through it.
-// shortenH / shortenV say whether the cell's own horizontal / vertical edge
-// stops R short of the corner, because a round (its own outer corner, or a
-// fillet from either side) continues it there.
 const REACH_CORNER_PX = 2;
 const ReachCorner = {
   R: REACH_CORNER_PX,
   convex: (h, v) => h && v,
   fillet: (h, v, d) => v && !h && d,
-  shortenH: (h, d) => h || d,
-  shortenV: (v, d) => v || d,
 };
 
 // ─── GPS ⇄ the local metre frame ─────────────────────────────────────────────
