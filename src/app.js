@@ -3292,10 +3292,8 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // THE PAIN EFFECT — what being bitten looks like. Three things, each on its
-  // own side of the reduced-motion line:
-  //   • a red chip burst off the BODY (Particles 'pain'), which is already 0
-  //     under prefers-reduced-motion by burstCount's own rule;
+  // THE PAIN EFFECT — what being bitten looks like. Two things on top of the
+  // body's own flinch, each on its own side of the reduced-motion line:
   //   • a red pulse around the map's rim — the vignette's construction (nested
   //     1px rings, since Phaser Graphics has no gradient) in the danger red,
   //     faded out by one tween. A fade, not a flicker, so it stays on under
@@ -3305,17 +3303,11 @@ class MapScene extends Phaser.Scene {
   // Depth 92: above the vignette (90) and below the work wheel (95), and
   // unmasked like both of them — it is UI about the body, not a world layer.
   _painFlash() {
-    // The BODY's own channel first — the red flick + haptic buzz every other
-    // blow on the player uses (_flashPlayerHit). The rest of this method is
-    // what a trap adds on top of that: it is the biggest single hit in the
-    // game, so it also reaches the edges of the screen.
+    // The BODY's own channel first — the red flick + haptic buzz + blood
+    // burst every other blow on the player uses (_flashPlayerHit). The rest
+    // of this method is what a trap adds on top of that: it is the biggest
+    // single hit in the game, so it also reaches the edges of the screen.
     this._flashPlayerHit();
-    if (typeof Particles !== 'undefined' && this.playerScreen) {
-      const ps = this.playerScreen();
-      if (ps && isFinite(ps.x) && isFinite(ps.y)) {
-        Particles.burst(this, 'pain', ps.x, ps.y + this.playerFeetNudgeY);
-      }
-    }
     if (!this.add || !this.tweens || this.viewLeft == null) return;
     const g = this.add.graphics().setDepth(92);
     const x0 = this.viewLeft, y0 = this.viewTop, size = this.viewSize;
@@ -6907,10 +6899,20 @@ class MapScene extends Phaser.Scene {
   // _updatePlayerAura every frame: the sprite tint, which is invisible under
   // Phaser's Canvas fallback (setTint is a no-op there — the shiny cue and the
   // coloured icons both learned this), and the halo's red texture, a plain
-  // image that reads on every renderer. A haptic tick rides along.
+  // image that reads on every renderer. A haptic tick rides along, and so does
+  // a red chip burst off the BODY (Particles 'pain') — every one of these
+  // call sites is the player being hurt, so the burst belongs here rather
+  // than duplicated at each one; it is already 0 under prefers-reduced-motion
+  // by burstCount's own rule.
   _flashPlayerHit() {
     this._hitFlashUntilT = performance.now() + HIT_FLASH_MS;
     if (this.hapticHit) this.hapticHit();
+    if (typeof Particles !== 'undefined' && this.playerScreen) {
+      const ps = this.playerScreen();
+      if (ps && isFinite(ps.x) && isFinite(ps.y)) {
+        Particles.burst(this, 'pain', ps.x, ps.y + this.playerFeetNudgeY);
+      }
+    }
   }
 
   // The castle turrets' volley — one arrow per turret per Combat.TURRET
