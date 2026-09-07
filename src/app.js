@@ -6873,9 +6873,14 @@ class MapScene extends Phaser.Scene {
     if (this._shots.length) {
       // What stops an ARROW (staff bolts pierce and never consult this):
       // underground, cave rock — _cellBlocked is the SAME test the body walks
-      // against, so what blocks you blocks your arrows; on the surface,
-      // standing timber and stone — an unchopped tree or bush, an unbroken
-      // mineral rock. The surface set is built lazily, once per tick, only
+      // against, so what blocks you blocks your arrows; on the surface, a
+      // trunk with real girth — an unchopped tree or fruit tree, MEDIUM size
+      // class or bigger (treeSizeClass — the same ladder the axe-tier gate
+      // reads). A rock never blocks: mineral stone used to, but a knee-high
+      // boulder stopping an arrow read as the terrain fighting for the
+      // monster, and a 'small'/'bush' tree is too slight a trunk to hide
+      // behind either — only a medium/full canopy has the girth to actually
+      // stop a shot. The surface set is built lazily, once per tick, only
       // when a shot is actually in flight: stepShots samples the test every
       // half-cell of every shot, far too often for a per-sample object scan.
       let solidCells = null;
@@ -6886,11 +6891,10 @@ class MapScene extends Phaser.Scene {
           solidCells = new Set();
           const choppedSet = setOf(this.save.chopped);
           WorldGen.forEachItemNear('objects', pcTick.tx, pcTick.ty, (o) => {
-            if (o.kind === 'tree' || o.kind === 'fruittree') {
-              if (o.chopped || choppedSet.has(o.id)) return;
-            } else if (o.kind === 'mineralrock') {
-              if (this.brokenRockSet.has(o.id)) return;
-            } else return;
+            if (o.kind !== 'tree' && o.kind !== 'fruittree') return;
+            if (o.chopped || choppedSet.has(o.id)) return;
+            const cls = treeSizeClass(o);
+            if (cls === 'small' || cls === 'bush') return;   // too slight to stop a shot
             if (Math.abs(o.x - px) > halfSpanM * 2 || Math.abs(o.y - py) > halfSpanM * 2) return;
             const c = worldMetersToAbsCell(this, o.x, o.y);
             solidCells.add(c.cellIX + '_' + c.cellIY);
@@ -7892,17 +7896,24 @@ class MapScene extends Phaser.Scene {
       // Underground monster attack: the slime's energy leech, parametrised.
       // A monster within its RANGE (cells) drains DMG energy on a
       // MONSTER_HIT_MS per-monster cooldown. Melee kinds use range 1
-      // (adjacent); the goblin archer reaches 3 cells, so it chips at you
-      // before you can close. Accumulated + flashed once per window after the
-      // loop, like the slime swarm.
+      // (adjacent, MONSTERS[kind].range itself); a RANGED kind (the goblin
+      // archer) instead fires the instant the player is inside the SAME ring
+      // the staff's own bolt range is derived from —
+      // Combat.rangeCellsFor('staff', reachCells(this)), the player's live
+      // reach plus one cell — rather than a flat cell count. So the archer
+      // can never open fire from further off than your own ranged weapon
+      // would answer from, and the ring tightens underground / grows with
+      // Inner Light upgrades exactly as the staff's does. Accumulated +
+      // flashed once per window after the loop, like the slime swarm.
       if (isMonster(c.kind) && !shadowed && !homeWard) {
         const m = MONSTERS[c.kind];
-        const R = m.range * this.cellM;
+        const rangeCells = m.range > 1 ? Combat.rangeCellsFor('staff', reachCells(this)) : m.range;
+        const R = rangeCells * this.cellM;
         // A RANGED monster needs a clear line, for the same reason your bow
-        // does: the goblin archer reaches three cells, and through rock that
-        // is a foe you often cannot even see chipping at your energy from
-        // inside a wall. Melee kinds (range 1) are adjacent by definition, so
-        // they skip the walk and the cost of it.
+        // does: the goblin archer reaches out to the player's own live reach,
+        // and through rock that is a foe you often cannot even see chipping
+        // at your energy from inside a wall. Melee kinds (range 1) are
+        // adjacent by definition, so they skip the walk and the cost of it.
         const clear = m.range <= 1 ||
           Combat.lineOfFire(c.x, c.y, px, py, (x, y) => this._cellBlocked(x, y), this.cellM);
         if (clear && m.range > 1 && ddx * ddx + ddy * ddy <= R * R
