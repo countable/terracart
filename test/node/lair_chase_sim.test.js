@@ -272,6 +272,50 @@ test('chase sim: a player nobody can notice is not chased', () => {
     'a shadowed player left the garrison standing in the street');
 });
 
+test('chase sim: the sim bubble is a HARD cut, and resuming does not snap', () => {
+  // There is no grace on CREATURE_SIM_CELLS — one comparison per creature per
+  // frame, no hysteresis, unlike the lair wake/sleep and aggro/leash pairs.
+  // That is right, because being simmed only decides whether a creature MAY
+  // take a step: a flicker at the boundary creates and destroys nothing, which
+  // is exactly what the lair rings' hysteresis exists to prevent.
+  //
+  // The thing that would make it wrong is a SNAP. A step is a wall-clock lerp
+  // (`u = (now - _stepT0) / _hopMs`), so a creature frozen mid-step has u
+  // pinned at 1 by the time it is simmed again, and completing that stale step
+  // would teleport it up to a full stride on the frame it resumes. It does not
+  // happen, and only because the choose-step runs BEFORE the lerp and resets
+  // _startX/_stepT0 — so the stale target is discarded rather than completed.
+  // Reorder those two and the teleport is back, silently.
+  const c = { kind: 'cow', id: 'cow_1', x: 0, y: 0 };
+  const scene = mkScene(c, { playerM: { x: 3 * CELL, y: 0 } });
+  run(scene, 50);
+  // Catch it mid-stride.
+  let frozen = null;
+  for (let i = 0; i < 400 && !frozen; i++) {
+    tick(scene, TICK_MS);
+    const u = (scene._simT - c._stepT0) / (c._hopMs || 5000);
+    if (u > 0.05 && u < 0.35) frozen = { x: c.x, y: c.y };
+  }
+  assert.truthy(frozen, 'never caught the creature mid-step — the fixture is wrong');
+  // Out of the bubble: nothing thinks for it, so nothing moves it.
+  scene.playerM.x = c.x + CREATURE_SIM_CELLS * CELL + 20;
+  run(scene, 30);
+  assert.eq(Math.hypot(c.x - frozen.x, c.y - frozen.y), 0,
+    'something moved a creature outside the sim bubble');
+  // Back in range: it picks a FRESH step from where it stands.
+  scene.playerM.x = c.x;
+  const before = { x: c.x, y: c.y };
+  tick(scene, TICK_MS);
+  const jumped = Math.hypot(c.x - before.x, c.y - before.y);
+  const oneFrame = CELL * (TICK_MS / 5000);
+  assert.lte(jumped, oneFrame + 1e-9,
+    `resuming teleported the creature ${jumped.toFixed(2)}m — the stale step was completed`);
+  // And the boundary is outside the sprite cull anyway, so none of it is ever
+  // on screen: that margin is what buys the hard cut.
+  assert.gt(CREATURE_SIM_CELLS * CELL, (VIEW_CELLS / 2 + 1) * Math.SQRT2 * CELL,
+    'the sim bubble is inside the sprite cull — a freeze would be visible');
+});
+
 test('chase sim: an ordinary wild monster is untouched by any of it', () => {
   // The guard branches must not have changed how a normal cave monster moves:
   // no lair, no seat, no leash — it stalks and keeps stalking.
