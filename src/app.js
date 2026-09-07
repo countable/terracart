@@ -7295,7 +7295,10 @@ class MapScene extends Phaser.Scene {
     const now = performance.now();
     // A fight shows the foe's health bar, not a progress arc, so the tool
     // badge is the one place left that still says what you're hitting it WITH.
-    this._setWorkProgressIcon(this.save.relics?.sword ? 'sword' : null);
+    // Bare hands own no sword and draw no badge — _setWorkProgressIcon answers
+    // that for every wheel now, so the slot is passed plainly rather than
+    // re-testing ownership here.
+    this._setWorkProgressIcon('sword');
     this._workProgress = {
       worldX: victim.x, worldY: victim.y,
       combat: victim,
@@ -7401,11 +7404,28 @@ class MapScene extends Phaser.Scene {
   // the next call — or cancelWorkProgress — can remove it in turn. Shared by
   // every wheel starter (combat, mine/chop/fish, catch) so the DOM/cssText
   // can't drift between them.
+  //
+  // BARE HANDS WEAR NO BADGE, and that test lives HERE, once. Every job on
+  // this wheel can be done with nothing in hand — that is the tier-0, 9 s rung
+  // of toolDurationMs — and the badge's whole job is to say what you are
+  // swinging, so an unowned slot must draw NOTHING. Until Sep 2026 the tier
+  // fell back to `|| 1`, i.e. to WOOD, so every bare-handed wheel hung a Wood
+  // tool it had invented over the ring. On the catch that read as a bug: the
+  // Bug Net's 16 px art is a pale hoop on a short stick, so a bare-handed
+  // catch put a TINY WHITE CIRCLE in the middle of the wheel, tied to no item
+  // the player owned. Two call sites had already hand-written the test
+  // (`startCombat`'s `relics.sword ? 'sword' : null`, the hunt wheel's
+  // `netSlot`) and every other one — the catch, the till, the cave-wall dig,
+  // the shrub chop, the interactables table — had not. Answering it in the
+  // shared helper is what makes it un-forgettable by the next wheel starter,
+  // and it is the gate _drawWorkProgress' swing branch already claims to
+  // share with the badge.
   _setWorkProgressIcon(toolSlot) {
     this._workProgressIcon?.remove();
     this._workProgressIcon = null;
     if (!toolSlot) return;
-    const tier = this.save.relics?.[toolSlot]?.tier || 1;
+    const tier = this.save.relics?.[toolSlot]?.tier;
+    if (!tier) return;
     const html = this.gearIconHTML('relic', toolSlot, tier, 16);
     if (!html) return;
     const el = document.createElement('div');
