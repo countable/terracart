@@ -353,21 +353,27 @@ function evaluate(s) {
 // the art's top row — not that its centre sits there. Centring on the crown put
 // a full radius of ring in the sky above every animal, which is what read as
 // "the wheel is too high".
-const CREATURE_SHEETS = {
-  chicken:       'assets/Farm Animals/Chicken Red.png',
-  cow:           'assets/Farm Animals/Female Cow Brown.png',
-  cat:           'assets/Objects/Pets/cat.png',
-  dog:           'assets/Objects/Pets/dog.png',
-  deer:          'assets/Objects/Wilderness/Deer Idle.png',
-  rabbit:        'assets/Objects/Wilderness/Rabbit White.png',
-  crow:          'assets/Objects/Wilderness/Crow.png',
-  butterfly:     'assets/Objects/Wilderness/Azure Butterfly.png',
-  slime:         'assets/Enemy/Slime Green.png',
-  cave_slime:    'assets/Enemy/Slime Green.png',   // tinted reuse of the slime sheet
-  purple_slime:  'assets/Enemy/Purple Slime.png',
-  goblin:        'assets/Enemy/Goblin.png',
-  goblin_archer: 'assets/Enemy/Goblin Archer.png',
-};
+// DERIVED, never a fourth copy of the paths. Each CREATURE_ART row names the
+// assets.js texture key it is drawn from (`sheet`), and assets.js owns where
+// that key's PNG lives — so this audit decodes exactly the file the renderer
+// puts on screen. It used to be a hand-written kind → path table beside them,
+// which is how the cave slime's row came to be commented "tinted reuse of the
+// slime sheet" while nothing in the renderer tinted it at all.
+const CREATURE_SHEETS = Object.fromEntries(
+  Object.entries(CREATURE_ART).map(([kind, a]) => {
+    const asset = ASSETS[a.sheet];
+    if (!asset || !asset.path) {
+      throw new Error(`CREATURE_ART.${kind}.sheet = '${a.sheet}' is not an assets.js texture key`);
+    }
+    // The FRAME SIZE is the other half of "which sprite": assets.js is what
+    // Phaser actually cuts the sheet with, so a CREATURE_ART row that disagrees
+    // is measuring a window the game never draws.
+    if (asset.frameWidth !== a.fw || asset.frameHeight !== a.fh) {
+      throw new Error(`CREATURE_ART.${kind} is ${a.fw}x${a.fh} but assets.js cuts `
+                    + `'${a.sheet}' at ${asset.frameWidth}x${asset.frameHeight}`);
+    }
+    return [kind, asset.path];
+  }));
 // Outer radius of the wheel — the backing disc, one px past the stroked ring.
 // Taken from the shared table so this can't drift from what app.js draws.
 const WHEEL_R = CREATURE_WHEEL_R + 1;

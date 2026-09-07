@@ -7046,6 +7046,18 @@ class MapScene extends Phaser.Scene {
       const list = [];
       WorldGen.forEachItemNear('objects', pc.tx, pc.ty, (o) => {
         if (o.kind !== 'tower') return;
+        // ONLY A CASTLE YOU HAVE TAKEN BACK FIGHTS FOR YOU. A turret is stamped
+        // with its castle's footprint key (worldgen), and this is the SAME
+        // isClaimedKey test the tower's own art and its light already read: an
+        // unclaimed castle draws in the shaded 'tower_unclaimed' palette
+        // (render.js RENDER_SPEC.tower) and contributes no light
+        // (lighting.js sourceKind), so a ruin that looked dead and dark was
+        // nonetheless shooting arrows at everything that walked past it. A
+        // turret with no castle at all (`o.castle` null) reads unclaimed to
+        // every one of those three, and holds its fire here for the same
+        // reason. Claim the castle and the walls man themselves — which is
+        // what makes claiming one worth the walk.
+        if (!this.isClaimedKey(o.castle)) return;
         if (Math.abs(o.x - px) > halfSpanM || Math.abs(o.y - py) > halfSpanM) return;
         list.push(o);
       });
@@ -10440,12 +10452,47 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
+  // THE STORY LEDGER. One story splash per key, ever: `save.storySeen` is
+  // the set of first-time moments this save has already been shown (a first
+  // delivery, a first shiny, a castle's claim), so a reload can never replay
+  // one. Returns true when the splash opened just now.
+  //
+  // NEVER ON TOP OF ANOTHER MODAL. A first delivery can land while a shop
+  // dialog is still up, so this waits for a clear screen (body.modal-open,
+  // the same live signal _showTrailIntro waits on) and returns false WITHOUT
+  // marking the key seen: the caller falls back to its plain flash, and the
+  // next time the moment fires it asks again. Marking seen on a busy screen
+  // would burn a first-time moment the player never got to see.
+  _storySplashOnce(key, { art, title, body, okLabel } = {}) {
+    const seen = this.save.storySeen = this.save.storySeen || {};
+    if (seen[key]) return false;
+    // The modal-open class lags the DOM by a microtask (it is mirrored off a
+    // MutationObserver), and two of the story moments - a first delivery, a
+    // castle's claim - fire from inside the accept handler of the modal they
+    // just closed, where the class still says busy. Re-sync first so the
+    // guard reads the screen as it is, not as it was a click ago.
+    this._syncModalGate?.();
+    if (document.body?.classList?.contains('modal-open')) return false;
+    seen[key] = 1;
+    persistSave(this.save);
+    this.showMessageModal({ title, body, art, okLabel });
+    return true;
+  }
+
   // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
   // banner + a money line + a Discovery line, with a star burst. Call AFTER the
   // loot/catch flash so it stacks above (depth 110). `title` is the headline —
   // the elite kill wears its own.
   flashShiny(money, isNew = true, title = '✨ SHINY FIND ✨') {
     if (!this.add) return;
+    // The FIRST shiny a save ever finds gets its story splash, ahead of the
+    // fanfare toasts. A busy screen returns false unmarked (see the ledger),
+    // so the next shiny asks again rather than burning the moment.
+    this._storySplashOnce('shiny', {
+      art: 'shiny_first',
+      title: 'A shiny find!',
+      body: 'Gold shimmer, ten times the money, and a Discovery badge. Shinies hide among the ordinary - keep looking.',
+    });
     try {
       const banner = this._toast(title,
         { tier: 'fanfare', color: UI_GOLD_PALE, bg: '#7a5200' });
@@ -12907,7 +12954,9 @@ class MapScene extends Phaser.Scene {
         addMoney(this.save, gain);
         // Lifetime delivery tally — each completed SET counts as one delivery.
         // Gates the castle vault and ramps the delivery produce tier (see
-        // delivery.js / shopGateInfo).
+        // delivery.js / shopGateInfo). The FIRST delivery ever is also a
+        // story moment, so catch the tally before it moves off zero.
+        const wasFirstDelivery = (this.save.deliveryCount ?? 0) === 0;
         this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
         // The FIRST delivery to this household is a discovery: one Discovery
         // badge per house, ever, through the same ledger a shiny find uses
@@ -12927,6 +12976,13 @@ class MapScene extends Phaser.Scene {
         this.buildInventoryDOM();
         this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, wanted[0]);
         if (firstHere) this.flash('🔆 +1 Discovery — new house', sx, sy - 24);
+        if (wasFirstDelivery) {
+          this._storySplashOnce('delivery', {
+            art: 'delivery_first',
+            title: 'First delivery',
+            body: 'A neighbour pays coin for your produce bundle. Every house keeps a wishlist - fill it for coin, and earn a Discovery badge at each new door.',
+          });
+        }
       },
     });
   }
@@ -14281,39 +14337,6 @@ class MapScene extends Phaser.Scene {
     return { id: 'rockfruit', qty: 3, material: 'stone' };
   }
 
-  // Bake a restored building's sprite to an <img> data URL for the
-  // restoration fanfare modal. Themed roles (blacksmith/market/trader) are
-  // single-image textures; 'plain' uses the 'house' tileset's 'front' sub-rect
-  // (registered in assets.js as add('front', 0, 148, 3, 72, 95)).
-  buildingImgHTML(role, px = 72) {
-    let url = null;
-    try {
-      if (role === 'plain') {
-        const src = this.textures.get('house')?.getSourceImage();
-        if (src) {
-          const c = document.createElement('canvas');
-          c.width = 72; c.height = 95;
-          c.getContext('2d').drawImage(src, 148, 3, 72, 95, 0, 0, 72, 95);
-          url = c.toDataURL();
-        }
-      } else if (role === 'wizard') {
-        // Wizard towers use wizard.png; crop the fully-restored top-row frame
-        // (frame 3 = col×80px → x:240).
-        const src = this.textures.get('shrine')?.getSourceImage();
-        if (src) {
-          const c = document.createElement('canvas');
-          c.width = 80; c.height = 104;
-          c.getContext('2d').drawImage(src, 240, 0, 80, 104, 0, 0, 80, 104);
-          url = c.toDataURL();
-        }
-      } else {
-        url = this.textures.get('house_' + role)?.getSourceImage()?.toDataURL?.() || null;
-      }
-    } catch (_) { /* fall back to emoji below */ }
-    if (!url) return '🏠';
-    return `<img src="${url}" alt="" style="width:${px}px;height:auto;image-rendering:pixelated;">`;
-  }
-
   presentWreckRestoreModal(sx, sy, house) {
     const cost = this._wreckRestoreCost(house);
     const heldCount = Inventory.count(this.save, cost.id);
@@ -14407,7 +14430,11 @@ class MapScene extends Phaser.Scene {
           const name = info.name || Shops.roleLabel(role, seedShop) || INFO.plain.name;
           this.showChestRewardModal({
             kind: 'build',
-            iconHTML: this.buildingImgHTML(role, 72),
+            // The banner carries the picture now - one art piece per role
+            // (restore_house / restore_blacksmith / …) instead of the
+            // building sprite, so the card shows the story of the restore.
+            iconHTML: '',
+            art: role === 'plain' ? 'restore_house' : 'restore_' + role,
             header: 'Restored!',
             name: `You restored a ${name}`,
             sub: info.blurb,
@@ -14654,8 +14681,19 @@ class MapScene extends Phaser.Scene {
         this.buildInventoryDOM();
         this.flashLoot(`🪙 +$${finished.reward}`, '#ffe066');
         if (claimed) {
-          this.flash('The castle vault is yours.',
-            this.viewCenterX, this.viewCenterY - 60);
+          // The banner IS the moment, once per castle (the ledger key carries
+          // the castle's own id). A busy screen returns false unmarked, so
+          // the plain flash stays as the fallback and the splash can still
+          // open the next time this castle's claim fires on a clear screen.
+          const splashed = this._storySplashOnce('castle:' + (this._castleKey(house) || house.id), {
+            art: 'castle_claim',
+            title: 'The castle is yours',
+            body: 'The vault opens and your banner rises. The castellan now offers you one favour a day.',
+          });
+          if (!splashed) {
+            this.flash('The castle vault is yours.',
+              this.viewCenterX, this.viewCenterY - 60);
+          }
         }
       },
     });
@@ -14700,7 +14738,10 @@ class MapScene extends Phaser.Scene {
         if (this.showChestRewardModal) {
           this.showChestRewardModal({
             kind: 'build',
-            iconHTML: this.buildingImgHTML('fort', 72),
+            // Same trade the Restored! card makes: the fort_unseal banner
+            // carries the picture, so the building sprite icon goes.
+            iconHTML: '',
+            art: 'fort_unseal',
             header: 'Unsealed!',
             name: 'You unsealed a Fort',
             sub: 'The quartermaster trades relics — up to 5 deals an hour.',
@@ -15660,9 +15701,11 @@ class MapScene extends Phaser.Scene {
     const hasActions = Array.isArray(actions) && actions.length > 0;
     box.innerHTML =
       this.dialogArtHTML(art, accent) +
-      // The icon row is optional: a ceremony that already carries an art
-      // banner and a row of card buttons (the trail pick) has no room for a
-      // third picture, and a 44px glyph there was what pushed it into scroll.
+      // The icon row is optional and collapses when a card passes no
+      // iconHTML: the story cards let the banner carry the picture, and a
+      // ceremony with an art banner plus card buttons (the trail pick) has
+      // no room for a third picture - an empty div would still cost its
+      // margins as a blank band under the banner.
       (iconHTML ? `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` : '') +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
       qtyHtml +

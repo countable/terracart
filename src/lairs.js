@@ -4,13 +4,15 @@
 // A ruin you walk past is scenery. A ruin with something living in it is a
 // decision: go around, or go in for what the building is worth. On hard
 // (Difficulty.get().derelictLairs) every unclaimed structure past a safe ring
-// around home holds a small garrison, and how big that garrison is grows with
-// two things and only two things:
+// around home holds a small garrison, and BOTH what is in it and how many
+// there are come off the same two facts and no others:
 //
 //   HOW BIG THE BUILDING IS — a castle is worth more guards than a fort, a
 //   fort more than a house. The tiers are the world's own building tiers
 //   (T.BUILDING 9 / BUILDING_MED 11 / BUILDING_LARGE 12), so "bigger" is the
-//   same judgement the map already draws.
+//   same judgement the map already draws. The tier also picks WHAT is in
+//   there: a wrecked house is SQUATTED by slimes, a fort or a castle is HELD
+//   by goblins — see KIND_ORDER.
 //
 //   HOW FAR IT IS FROM HOME — nothing at all inside LAIR_MIN_HOME_CELLS, the
 //   named figures at that ring, and a straight ramp out to LAIR_FAR_M where a
@@ -88,7 +90,7 @@
   // ── The near ring ────────────────────────────────────────────────────────
   // No garrison within this many cells of HOME. Home is where a player is
   // sent to rest, trade and store things; a ruin across the road from it
-  // holding three slimes would make the one safe place in the game a siege.
+  // holding three guards would make the one safe place in the game a siege.
   // It is deliberately its OWN number and not CREATURE_SIM_CELLS, which it
   // happens to equal today: that one is how far a creature thinks from the
   // PLAYER, this one is how close a lair may sit to HOME. Nothing about a
@@ -128,19 +130,43 @@
   const LAIR_SLACK = 0.4;
 
   // ── What is in it ────────────────────────────────────────────────────────
-  // The TYPE axis, on the same distance ramp as the count: a lair near the
-  // near ring holds the surface slime the player already knows, and the two
-  // tougher slimes unlock further out. All three are SLIMES on purpose — the
-  // ladder escalates what a garrison costs to clear without putting a goblin
-  // on the surface, which is a different decision about where the cave ends.
+  // TWO AXES, one each. The BUILDING TIER picks the FAMILY, and the distance
+  // ramp picks the rung within it — the same two facts the count is already
+  // made of, saying a second thing.
+  //
+  //   A WRECKED HOUSE IS SQUATTED. Nobody holds it; slimes have simply moved
+  //   into the damp, and the ladder is the three slimes: the surface pest the
+  //   player already knows, then the cave slime, then the purple.
+  //
+  //   A FORT OR A CASTLE IS HELD. A fortification with nobody in it is not
+  //   derelict, it is empty — so what squats a ruined keep is a GARRISON, and
+  //   goblins are the only thing in the game that reads as one. This is the
+  //   line the slimes-all-the-way ladder was drawn to avoid ("a goblin on the
+  //   surface is a different decision about where the cave ends"), and the
+  //   tier is what makes it safe to cross: a goblin is not loose in the
+  //   fields, it is inside a fort, which is exactly where a player expects to
+  //   meet one. Every wreck on the map is still slimes.
+  //
+  // THE RUNGS ARE EVENLY SPACED, not authored. A ladder is just its kinds in
+  // order, weakest first, and rung `i` of `n` unlocks at `i / n` of the ramp —
+  // which reproduces the thirds the slime ladder used to carry as literals
+  // (0, 0.34, 0.67) and gives the two-rung goblin ladder its halves for free.
+  // Adding a kind re-spaces its own ladder and nothing else.
+  //
   // Every kind here must be a registered enemy (Combat.isEnemyKind) or the
-  // guards would be scenery that cannot be fought; `slime` is the surface
-  // pest and the other two are rows of app.js's MONSTERS table.
-  const KIND_LADDER = [
-    { kind: 'slime',        minT: 0    },
-    { kind: 'cave_slime',   minT: 0.34 },
-    { kind: 'purple_slime', minT: 0.67 },
-  ];
+  // guards would be scenery that cannot be fought: `slime` is the surface pest
+  // and the rest are rows of app.js's MONSTERS table. And no two kinds on ONE
+  // ladder may be drawn the same — see the tint rule in sprite_layout.js; a
+  // rung the player cannot see is not an escalation.
+  const KIND_ORDER = {
+    9:  ['slime', 'cave_slime', 'purple_slime'],   // T.BUILDING       — squatted
+    11: ['goblin', 'goblin_archer'],               // T.BUILDING_MED   — held
+    12: ['goblin', 'goblin_archer'],               // T.BUILDING_LARGE — held
+  };
+  const KIND_LADDER = {};
+  for (const [tier, kinds] of Object.entries(KIND_ORDER)) {
+    KIND_LADDER[tier] = kinds.map((kind, i) => ({ kind, minT: i / kinds.length }));
+  }
 
   // ── Residency ────────────────────────────────────────────────────────────
   // How close the player must come for a ruin's garrison to exist, and how far
@@ -158,7 +184,7 @@
   // cap that the per-tile budget was reaching for and missing: what matters is
   // not how many a TILE holds — the player is never standing in all of it —
   // but how many are around them now, which is the same question on a city
-  // block and in a hamlet. In the same order as the surface slimes a hard-mode
+  // block and in a hamlet. In the same order as the wild slimes a hard-mode
   // tile already puts within the wake ring, several times over.
   //   Nothing is ever un-woken to make room: a garrison already standing must
   // not blink out because the player walked toward a different ruin. The cap
@@ -175,7 +201,7 @@
 
   // How far outside a structure's own footprint a guard is seated, in cells.
   // Not ON the footprint: the spec's fauna rule is that nothing stands on a
-  // building footing, and a slime drawn over a roof reads as a bug however it
+  // building footing, and a guard drawn over a roof reads as a bug however it
   // got there. One cell out is close enough to read as "this ruin is held".
   const LAIR_RING_PAD_CELLS = 1;
   // Seats attempted per guard before it is given up on. A ruin ringed by
@@ -213,15 +239,22 @@
     return cap - (slack > 0 ? Math.floor(rng() * (slack + 1)) : 0);
   }
 
-  // Which kinds a lair at ramp position `t` may hold, toughest last.
-  function kindsAt(t) {
-    return KIND_LADDER.filter((k) => t >= k.minT).map((k) => k.kind);
+  // Which kinds a lair of `tier` at ramp position `t` may hold, toughest last.
+  // Empty for a tier that holds no lair at all — the same answer capFor gives.
+  function kindsAt(tier, t) {
+    const rows = KIND_LADDER[tier];
+    if (!rows) return [];
+    return rows.filter((k) => t >= k.minT).map((k) => k.kind);
   }
   // One guard's kind. Uniform over what has unlocked, so a maxed lair is a
-  // mixed pack rather than fifteen of the worst thing on the ladder.
-  function kindFor(t, rng) {
-    const ks = kindsAt(t);
-    return ks[Math.min(ks.length - 1, Math.floor(rng() * ks.length))];
+  // mixed pack rather than fifteen of the worst thing on the ladder. Takes
+  // exactly ONE draw whatever the ladder's length, so a caller can reason
+  // about the stream (garrisonFor's seat rolls sit either side of it).
+  function kindFor(tier, t, rng) {
+    const ks = kindsAt(tier, t);
+    const r = rng();
+    if (!ks.length) return null;
+    return ks[Math.min(ks.length - 1, Math.floor(r * ks.length))];
   }
 
   // THE STRUCTURE'S OWN IDENTITY, and the seed of its garrison: the centre of
@@ -374,7 +407,8 @@
     const out = [];
     for (let i = 0; i < n; i++) {
       const id = `lair_${cand.sid}_${i}`;
-      const kind = kindFor(t, rng);
+      const kind = kindFor(cand.tier, t, rng);
+      if (!kind) continue;                    // no ladder for this tier
       let seat = null;
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
         const ang = (i / n) * Math.PI * 2 + (rng() - 0.5) * 0.8 + a * 0.7;
@@ -568,7 +602,7 @@
     LAIR_MIN_HOME_CELLS, LAIR_FAR_M, LAIR_MAX_PER_STRUCTURE, LAIR_SLACK,
     LAIR_WAKE_CELLS, LAIR_SLEEP_CELLS, LAIR_LIVE_MAX, LAIR_BUCKET_CELLS,
     LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
-    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, FAR_MUL, KIND_LADDER,
+    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     ramp, capFor, countFor, kindsAt, kindFor, structureKey, hashKey, ringBox,
     bucketKey,
     newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency,

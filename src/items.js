@@ -354,9 +354,12 @@ const BASE_TIER = {
   // Consumables
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   dragon_powder: 3,
-  // Growth Powder is a T2 farm utility beside the potions; Shadow and Frost are
-  // T3 fight-changers beside the dragon.
-  growth_powder: 2, shadow_powder: 3, frost_powder: 3,
+  // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
+  // it: a minute of not being hunted is a way to WALK AWAY from a fight, the
+  // same shape as the reach/speed/shield potions it now shares a tier with.
+  // Frost is the T3 fight-changer beside the dragon — it is the one that turns
+  // a fight you are already in.
+  growth_powder: 2, shadow_powder: 2, frost_powder: 3,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
@@ -662,7 +665,8 @@ const PRICES = {
   shield_potion: 40,   // T2 — half monster damage for 1 min
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
-  shadow_powder: 110,  // T3 — 1 min of monsters ignoring you entirely
+  shadow_powder: 110,  // T2 — 1 min of monsters ignoring you entirely (priced for the
+                       //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   rope:          25,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft)
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
@@ -864,7 +868,7 @@ const PLAY_TIPS = [
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
-  'On hard, ruins are held: none within a dozen cells of home, then more the bigger the building and the further out — a castle a kilometre away can hide fifteen slimes. They never leave the ruin.',
+  'On hard, ruins are held: none within a dozen cells of home, then more the bigger the building and the further out — a castle a kilometre away can hide fifteen. Wrecked houses are squatted by slimes; forts and castles are held by goblins. They never leave the ruin.',
   // ── Animals — meeting them, then keeping them ───────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
   'Chickens peck at any seed — hold one to befriend a wild chicken.',
@@ -884,7 +888,7 @@ const PLAY_TIPS = [
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
   'Anything hostile you put down pays coins for its trouble — about a coin per 5 hit points, and a little more for every level down.',
-  'Castle towers fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate.',
+  'Towers on a castle you have CLAIMED fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate. An unclaimed castle\'s walls stay silent.',
   // ── Underground, which you go looking for ───────────────────
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
   'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',

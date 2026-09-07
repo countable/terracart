@@ -49,7 +49,8 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - DERELICT LAIRS ARE A HARD-MODE RULE (Difficulty derelictLairs, src/lairs.js).
    Every UNCLAIMED structure — a wrecked house, a sealed fort, an unclaimed
    castle, by the isClaimedKey test the derelict wash already reads — holds a
-   garrison of IMMOBILE slimes. Two axes and no others:
+   garrison of IMMOBILE monsters. Two axes and no others, and BOTH what is in
+   it and how many there are come off the same two:
      * building tier: house 1, fort 2, castle 3 (TIER_GUARDS, at the near ring)
      * distance from home: nothing inside LAIR_MIN_HOME_CELLS (12 cells), then
        a straight ramp to LAIR_FAR_M (1000m) where the figures are multiplied
@@ -57,8 +58,21 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
        house 5. FAR_MUL is DERIVED (ceiling / biggest tier figure), not tuned.
    The rolled count is the cap less a seeded shortfall of up to LAIR_SLACK, so
    a house and a fort are always exactly their figure and a castle is 2-3.
-   The KIND ladder rides the same ramp and is slimes all the way: surface slime
-   near, cave slime from a third out, purple slime from two thirds.
+   THE TIER PICKS THE FAMILY, the ramp picks the rung within it (KIND_ORDER):
+     * a WRECKED HOUSE is SQUATTED — nobody holds it, slimes have moved into
+       the damp: surface slime near, cave slime from a third out, purple slime
+       from two thirds
+     * a FORT or a CASTLE is HELD — a fortification with nobody in it is not
+       derelict, it is empty, so what squats a ruined keep is a GARRISON:
+       goblin near, goblin archer from halfway out
+   That is the one place a goblin stands above ground, and the tier is what
+   makes it safe: a goblin is never loose in the fields, it is inside a fort,
+   which is where a player expects to meet one. Every wreck is still slimes.
+   THE RUNGS ARE EVENLY SPACED, not authored — rung i of n unlocks at i/n, so
+   a ladder is just its kinds in order and adding one re-spaces that ladder
+   alone. NO TWO RUNGS OF ONE LADDER MAY BE DRAWN THE SAME (sheet AND tint,
+   SpriteLayout.CREATURE_ART): a rung the player cannot see is not an
+   escalation, which is what the untinted cave slime was until Sep 2026.
    Distance is measured from the FROZEN starter anchor (save.starterCratesAt),
    never a Home adopted later — a moving Home would re-rank every ruin.
    Guards are seated on a ring one cell clear of the footprint, through
@@ -817,6 +831,18 @@ COMBAT
    the same way a sword swing does. Both rings sit on the kind's CROWN (the
    creature-wheel rule — see CLAUDE.md).
  - Dragon Powder doubles damage for its minute — melee and shots alike.
+ - A CLAIMED CASTLE'S TURRETS FIGHT FOR YOU (Combat.TURRET, app.js
+   _turretFire). While an enemy is on screen, every turret on screen that
+   belongs to a castle YOU HAVE CLAIMED looses a Wood-tier BOW ARROW at the
+   nearest foe in range, at TURRET_RATE_DIV (5) times the player's own
+   interval. Nothing is tuned: the arrow IS the player's bow arrow and its
+   damage is what a Wood bow deals. The claim gate is the SAME isClaimedKey
+   test that already decides whether the tower draws in the shaded
+   'tower_unclaimed' palette and whether it gives off light — until Sep 2026
+   it was the odd one out, so a castle that read dead and dark was still
+   shooting arrows for a player who had never set foot in it. A turret with no
+   castle key reads unclaimed to all three. Manning the walls is what claiming
+   a castle BUYS.
  - DEFEATING AN ENEMY PAYS GOLD — every enemy, not just the cave monsters. The
    bounty is derived from the kind's HP (a coin per 5 HP, floored at 1) plus a
    coin per 3 levels of depth, so a tougher foe can never pay less than an
