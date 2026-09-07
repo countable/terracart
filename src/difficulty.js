@@ -64,8 +64,11 @@
       // DERELICT LAIRS (src/lairs.js): a garrison of immobile monsters
       // squatting in every unclaimed structure past a safe ring around home,
       // growing with the building's tier and its distance from home — the tier
-      // also deciding WHAT is in there (a wreck is squatted by slimes, a fort
-      // or a castle is held by goblins). Off on easy —
+      // also deciding WHETHER it is held at all (a third of wrecks, most
+      // forts, nearly every castle) and WHAT is in there (a wreck is squatted
+      // by slimes, a fort or a castle is held by goblins). A garrison holds
+      // its ruin until the player comes near, then hunts as a group and gives
+      // up when they get clear. Off on easy —
       // a ruin there is scenery you may rebuild at your leisure — and on hard
       // it is what makes the map itself the difficulty curve: the far half of
       // the world is worth more and costs more to walk into.

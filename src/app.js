@@ -7953,12 +7953,33 @@ class MapScene extends Phaser.Scene {
         homeD2 <= (c._routedFromHome ? HOME_ROUT_R2 : HOME_WARD_R2);
       // Out at last: it rejoins the ordinary rules and may hunt again.
       if (c._routedFromHome && homeD2 > HOME_ROUT_R2) c._routedFromHome = false;
+      // A LAIR GUARD'S THREE STATES — src/lairs.js owns the rings, the
+      // hysteresis and the arrival test; this asks once and stores the
+      // hysteresis back (session state on the creature, like `_hp`).
+      //   'hold'   at rest on its seat: it does not step and it is not
+      //            interested in the player.
+      //   'hunt'   the ruin has noticed: it steps at the player and it bites.
+      //   'return' it has given up and is walking back to its seat, and it
+      //            does NOT bite on the way — the player got clear, and a
+      //            guard still leeching on its walk home would mean they had
+      //            not.
+      const lairState = c.lair ? Lairs.guardState(c, { x: px, y: py }, this.cellM, !unnoticed) : null;
+      c._hunting = lairState === 'hunt';
+      // ONE READ FOR "THIS FOE IS NOT ATTACKING YOU RIGHT NOW", the way
+      // `unnoticed` is one read for "no hostile takes an interest in you".
+      // Home's ward is one reason and a garrison that has not noticed you (or
+      // has given up on you) is the other two — the same lane arriving for a
+      // different reason, so the attack gates below ask this rather than
+      // growing a second condition each. The MOVEMENT chain still asks
+      // `homeWard` by name: an away-from-Home angle and a walk back to a seat
+      // are two mechanisms, not one, whatever they have in common here.
+      const standDown = homeWard || (!!lairState && lairState !== 'hunt');
       // Slime energy steal: a slime sitting on/near the player drains 1 energy
       // on a per-slime cooldown. Accumulated across all slimes this frame and
       // surfaced with one throttled flash after the loop (see below) so a swarm
       // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
       // independent of the slime's slow step cadence.
-      if (c.kind === 'slime' && !isTame && !unnoticed && !homeWard) {
+      if (c.kind === 'slime' && !isTame && !unnoticed && !standDown) {
         // The same one cell the player now swings at (Combat.MELEE_REACH_CELLS)
         // — one number for "melee is arm's length", read by both sides.
         const STEAL_R = Combat.meleeReachM(this.cellM);
@@ -7993,7 +8014,7 @@ class MapScene extends Phaser.Scene {
       // would answer from, and the ring tightens underground / grows with
       // Inner Light upgrades exactly as the staff's does. Accumulated +
       // flashed once per window after the loop, like the slime swarm.
-      if (isMonster(c.kind) && !unnoticed && !homeWard) {
+      if (isMonster(c.kind) && !unnoticed && !standDown) {
         const m = MONSTERS[c.kind];
         const rangeCells = m.range > 1 ? Combat.rangeCellsFor('staff', reachCells(this)) : m.range;
         const R = rangeCells * this.cellM;
@@ -8042,16 +8063,22 @@ class MapScene extends Phaser.Scene {
           }
         }
       }
-      // A LAIR GUARD DOES NOT MOVE — but it is not switched off. Everything
-      // above this line has already run for it: it leeches, a monster kind
-      // among them shoots, it takes damage, it dies and pays its bounty. What
-      // it never does is choose a step, so the garrison is still ON the ruin
-      // when the player finally gets there. Placed HERE, below the attack
-      // blocks and above every movement branch, because an early return at
-      // the top of the loop would have made it harmless furniture instead.
-      // Set by src/lairs.js; nothing else in the game seats an immobile
-      // creature, and anything that does must land below the same line.
-      if (c.immobile) return;
+      // A LAIR GUARD AT REST DOES NOT MOVE — but it is not switched off.
+      // Everything above this line has already run for it: it leeches, a
+      // monster kind among them shoots, it takes damage, it dies and pays its
+      // bounty. What it never does while HOLDING is choose a step, so the
+      // garrison is still on the ruin when the player finally gets there — and
+      // reads as holding it from across the street, which a garrison that
+      // wandered would not. Placed HERE, below the attack blocks and above
+      // every movement branch, because an early return at the top of the loop
+      // would have made it harmless furniture instead.
+      //   'hunt' and 'return' fall THROUGH to the movement chain: the chase and
+      // the walk home are ordinary steps, chosen by the two branches added to
+      // the angle chain below rather than by a mover of their own.
+      // `immobile` is set by src/lairs.js; nothing else in the game seats an
+      // immobile creature, and anything that does must land below the same
+      // line.
+      if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;
       // Wild-crow flight rhythm: perch (still 2-4 s) → one long flight
       // burst (500-800 ms, eased) → perch again. Targets a nearest planted
       // crop by ORBITING it — most flight legs end on the ring 1.5-3.5
@@ -8103,7 +8130,7 @@ class MapScene extends Phaser.Scene {
       // `unnoticed` (shadowed, or a player downed on an empty bar) are the two
       // wards that switch it off (the campfire's is a refused target cell, so
       // it needs nothing here).
-      const charging = !isTame && !homeWard && !unnoticed && slimeCharging(c);
+      const charging = !isTame && !standDown && !unnoticed && slimeCharging(c);
       // stepMs = animation duration of the hop itself (short burst).
       const stepMs = (isRabbit ? (rabbitFleeing ? 300 : 420)
                    : isButterfly ? (butterflyEscaping ? 350 : 900)
@@ -8256,6 +8283,10 @@ class MapScene extends Phaser.Scene {
         }
 
         for (let attempt = 0; attempt < 6; attempt++) {
+          // How far THIS step actually travels. A branch below may shorten it
+          // (a guard walking home stops ON its seat rather than overshooting);
+          // everything else takes the kind's full stride.
+          let stepLen = stepM;
           if (c._chaseTarget && !this.save.caught?.includes(c._chaseTarget.id)) {
             const tgt = c._chaseTarget;
             angle = Math.atan2(tgt.y - c.y, tgt.x - c.x) + (Math.random() - 0.5) * 0.3;
@@ -8284,6 +8315,24 @@ class MapScene extends Phaser.Scene {
             // "surrounded by scarecrows" comment further down warns about.
             angle = Math.atan2(c.y - homePos.y, c.x - homePos.x)
                   + (Math.random() - 0.5) * 0.8;
+          } else if (lairState === 'hunt') {
+            // THE GARRISON COMES AT YOU, as a group and with commitment. Its
+            // own branch rather than the kind's idle logic below: a lair slime
+            // would otherwise fall into the lazy half-the-hops meander that
+            // makes a wild one read as a pest, and a garrison that ambles is
+            // not something anybody runs from.
+            angle = distToPlayer > 0.5 * this.cellM
+              ? Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER
+              : Math.random() * Math.PI * 2;
+          } else if (lairState === 'return') {
+            // GIVEN UP: straight back to the seat it was spawned on, with only
+            // enough jitter to keep a rank of them from marching in lockstep.
+            // Not "away from the player" — that is the ward's shape and it
+            // would scatter a garrison across the neighbourhood; a guard owes
+            // its ruin a specific spot, and `stepLen` below lands it exactly
+            // there rather than letting it overshoot and orbit forever.
+            angle = Math.atan2(c.seatY - c.y, c.seatX - c.x) + (Math.random() - 0.5) * 0.3;
+            stepLen = Math.min(stepM, Math.hypot(c.seatX - c.x, c.seatY - c.y));
           } else if (c.kind === 'slime') {
             // STRUCK: it charges. Every hop at the player, on the monsters'
             // stalk jitter — no coin flip, no meander. Below the homeWard
@@ -8317,8 +8366,8 @@ class MapScene extends Phaser.Scene {
           } else {
             angle = Math.random() * Math.PI * 2;
           }
-          tx = c.x + Math.cos(angle) * stepM;
-          ty = c.y + Math.sin(angle) * stepM;
+          tx = c.x + Math.cos(angle) * stepLen;
+          ty = c.y + Math.sin(angle) * stepLen;
           const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           const dest = this.cellAt(tx, ty);
@@ -8334,8 +8383,15 @@ class MapScene extends Phaser.Scene {
           // the cave's own entry-level monsters (FIRE_WARD_MAX_DEPTH): a
           // goblin or its archer is undeterred by firelight, only the cave
           // slime and purple slime it's a tier above.
-          const fireAverts = c.kind === 'slime' ||
-            (isMon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH);
+          //   NOT A LAIR GUARD, whatever kind it is. A garrison is a place,
+          // not wandering fauna: a campfire dropped by the door cannot empty a
+          // ruin, and — the part that would actually have bitten — a guard
+          // walking home past a fire would have all six of its attempts
+          // refused and freeze in the street, which is the same stall the
+          // scarecrow note above warns about. A goblin garrison is past the
+          // depth cap anyway; this is what covers the slimes.
+          const fireAverts = !c.lair && (c.kind === 'slime' ||
+            (isMon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH));
           if (fireAverts && this._nearAny('fires', tx, ty, 4)) continue;
           foundValidTarget = true;
           break;
