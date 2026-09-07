@@ -13708,7 +13708,15 @@ class MapScene extends Phaser.Scene {
     const out = [];
     const tileEdgeM = entry.tileEdgeM;
     if (typeof Streets === 'undefined' || !entry.layers || !(tileEdgeM > 0)) {
-      entry._streetLamps = out;
+      // A MISS IS NEVER MEMOISED — the same rule _neighborZoneCache keeps, and
+      // the reason no lamp ever lit until Sep 2026. A tile's entry goes into
+      // WorldGen.tileCache the moment its FETCH starts, with no `layers` on it
+      // until the build finishes seconds later; this pass runs every frame, so
+      // it always meets a tile in that state. Writing the empty answer onto
+      // the entry froze it there forever — the entry IS the cache — and every
+      // tile in the world was scanned while it was still loading, so every
+      // tile had no lamps for the rest of the session. Hand back the empty
+      // list uncached and let the next frame ask again.
       return out;
     }
     const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
@@ -13769,7 +13777,6 @@ class MapScene extends Phaser.Scene {
     const cellIY = a.ty * this.cellsPerTile + Math.floor(a.cy);
     const key = `${cellIX},${cellIY}|${Streets.epoch(this.save)}`;
     if (this._streetLampKey === key && this._streetLamps) return;
-    this._streetLampKey = key;
     const c = absCellCenterMeters(this, cellIX, cellIY);
     // Reach of the pass: the furthest a lamp can be and still show. The
     // viewport's half-diagonal plus the lamp's own light radius, so one a cell
@@ -13780,11 +13787,19 @@ class MapScene extends Phaser.Scene {
     const pad = (Math.hypot(VIEW_CELLS, VIEW_CELLS) / 2 + lampR + PEEK_MAX_CELLS) * this.cellM;
     const ptx = a.tx, pty = a.ty;
     const out = [];
+    // Set by any tile of the ring that has no data yet — the answer is then
+    // provisional, so it is used for this frame but not memoised.
+    let pending = false;
     for (let dty = -1; dty <= 1; dty++) {
       for (let dtx = -1; dtx <= 1; dtx++) {
         const tx = ptx + dtx, ty = pty + dty;
         const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-        if (!entry) continue;
+        // A tile still fetching/building answers nothing yet, and neither its
+        // lamp list NOR this pass's own memo may be stamped on the strength of
+        // it (see _streetLampsForTile) — otherwise standing still while the
+        // ring lands leaves the lamps already in the save unlit until the
+        // player happens to step onto another cell.
+        if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) { pending = true; continue; }
         const lamps = this._streetLampsForTile(tx, ty, entry);
         if (!lamps.length) continue;
         // One restored list per LINE, not per lamp: unflattening the save's
@@ -13803,6 +13818,7 @@ class MapScene extends Phaser.Scene {
       }
     }
     this._streetLamps = out;
+    this._streetLampKey = pending ? null : key;
   }
 
   // The stones themselves: one pooled sprite per lit lamp, seated through
