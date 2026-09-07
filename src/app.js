@@ -5889,6 +5889,24 @@ class MapScene extends Phaser.Scene {
         liy: Math.floor((s.y - ty * entry.tileEdgeM) / cellSizeM),
       }));
     if (!anchors.length) anchors.push({ lix: Math.floor(N / 2), liy: Math.floor(N / 2) });
+    // Cells an object (rock, staircase, chest…) already sits on. Built ONCE
+    // here and shared by every seat-time check below — monsters, rabbits,
+    // the coin trickle and the traps — rather than each rescanning
+    // entry.objects for the same thing. This is occupancy governing where a
+    // thing is SEATED, not where it may later walk: a monster or rabbit is
+    // free to wander onto any cell once it exists (the wander loop in
+    // wanderCreatures doesn't consult this), it just must not be BORN on a
+    // staircase or inside a rock sprite — the same "not under a rock" half of
+    // the spawn rule the cave coins and cave traps just below already enforce
+    // via their own copies of this scan. Terrain (CAVE_FLOOR) alone can't see
+    // an object sitting on top of it, same as the surface roadMask can't see
+    // an object sitting on top of a grass cell.
+    const occupiedIdx = new Set();
+    for (const o of (entry.objects || [])) {
+      const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
+      const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
+      occupiedIdx.add(oy * N + ox);
+    }
     const SPAWN_R = 25; // cells — fills 2–3 screens worth around each entry point
     const randCell = () => {
       const a = anchors[Math.floor(rng() * anchors.length)];
@@ -5917,6 +5935,12 @@ class MapScene extends Phaser.Scene {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        // Don't SEAT a monster on a staircase or inside a rock sprite — see
+        // the occupiedIdx comment above. This is a rejected attempt, not an
+        // extra rng() draw: randCell() already made its 3 calls for this
+        // attempt, so the draw sequence every existing cave level was seeded
+        // with is untouched.
+        if (occupiedIdx.has(cy * N + cx)) continue;
         const id = `mon_${kind}_${depth}_${tx}_${ty}_${i}`;
         if (caughtSet.has(id)) break;   // already defeated — stays dead
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
@@ -5938,6 +5962,9 @@ class MapScene extends Phaser.Scene {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        // Same seat-time occupancy check as the monster loop above — a rabbit
+        // is no less able to spawn inside a rock than a slime is.
+        if (occupiedIdx.has(cy * N + cx)) continue;
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
         if (caughtSet.has(id)) break;   // already caught — stays gone
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
@@ -5963,12 +5990,12 @@ class MapScene extends Phaser.Scene {
     if (!entry.coinDrops) {
       const CAVE_COINS_MIN = 4, CAVE_COINS_MAX = 8;   // per level tile — a trickle, not a burst
       const coins = [];
-      const taken = new Set();
-      for (const o of (entry.objects || [])) {
-        const cx = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
-        const cy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
-        taken.add(cy * N + cx);
-      }
+      // Copy, not the shared Set itself: this loop adds each newly-placed
+      // coin's own cell to `taken` so two coins can't stack, and that's a
+      // coin-to-coin rule the monster/rabbit/trap passes have no business
+      // seeing. The object occupancy underneath it is the same occupiedIdx
+      // built once above — no second scan of entry.objects.
+      const taken = new Set(occupiedIdx);
       const coinN = CAVE_COINS_MIN + Math.floor(rng() * (CAVE_COINS_MAX - CAVE_COINS_MIN + 1));
       for (let i = 0; i < coinN; i++) {
         for (let attempt = 0; attempt < 20; attempt++) {
@@ -5993,12 +6020,9 @@ class MapScene extends Phaser.Scene {
     // warning there is, and an unlit cell already swallows most of it.
     entry.traps = [];
     if (typeof Traps !== 'undefined' && !window.__TEST_MODE) {
-      const occupiedIdx = new Set();
-      for (const o of (entry.objects || [])) {
-        const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
-        const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
-        occupiedIdx.add(oy * N + ox);
-      }
+      // Same occupiedIdx built once above for the monster/rabbit seat check —
+      // this used to be a third scan of entry.objects for the identical Set;
+      // now it's the one this function already has in scope.
       // Flat multiplier regardless of game mode — a dungeon is dangerous on
       // either one (see Traps.DUNGEON_DENSITY_MUL).
       entry.traps = Traps.spawnCave(entry.grid, N, tx, ty, entry.tileEdgeM, depth,
@@ -6375,6 +6399,20 @@ class MapScene extends Phaser.Scene {
     // Keyboard → steer the target directly, free, no offset.
     this._steerTarget(vx, vy, speedMul, dt);
     this._followStep(dt);
+    // One throttled flash for the stick-walking drain banked in _steerManual,
+    // same shape as the slime-leech / monster-hit roll-ups below (1200ms, one
+    // pop for the whole window rather than one per energy pip). Lives here
+    // rather than inside _steerManual because that method only runs on a
+    // frame the stick is actually held — this runs every frame, so a drag
+    // that lets go mid-window still gets its pop instead of losing the
+    // remainder silently.
+    if (this._steerDrainAccum > 0 && performance.now() - (this._lastSteerFlashT || 0) > 1200) {
+      this._lastSteerFlashT = performance.now();
+      const drained = this._steerDrainAccum;
+      this._steerDrainAccum = 0;
+      this._popEnergy(-drained, { label: '🚶 steer' });
+      if (typeof persistSave === 'function') persistSave(this.save);
+    }
 
     // Exhaustion underground: hit 0 energy below the surface and you black out
     // and wake up top-side. Guarded so the modal fires once, and skipped in
@@ -8967,11 +9005,28 @@ class MapScene extends Phaser.Scene {
     // shared with the X-mark scatter above. This burst is centred on a POI, so
     // pass it as a public anchor — residential cells right around the chest are
     // fair game even if no road is within frontage.
-    const burstOpts = { roadMask: entry.roadMask, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
+    //
+    // The road mask is only HALF of "don't spawn here" (CLAUDE.md's spawn
+    // rule): the other half is opts.occupied, the Set of cells a tree, rock or
+    // wildplant already claimed at rasterize time. spawnInTile builds that Set
+    // ONCE per tile and stashes it on entry._spawnOpts.occupied precisely so
+    // later passes (traps' per-frame tick, and now this burst) can reuse it
+    // instead of re-scanning entry.objects/wildplants — the cave coin pass in
+    // spawnCaveCreatures already guards this exact case ("a coin under a rock
+    // sprite reads as a rock"). A burst can in principle fire on a tile whose
+    // spawn pass hasn't run yet (the chest sprite is drawn from `entry.objects`
+    // alone, which exists before `_spawned`), so fall back to no occupancy
+    // check rather than crash on a missing entry._spawnOpts.
+    const occupiedIdx = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
+    const burstOpts = { roadMask: entry.roadMask, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
     // Cells within `r` that will take a coin. `strict` is the shared scenery
     // rule (walkable, off the road band, and on RESIDENTIAL only near a public
     // anchor); relaxed keeps the two that matter for a coin — not in water or
-    // a wall, not in the traffic — and drops the frontage rule.
+    // a wall, not in the traffic — and drops the frontage rule. It must NOT
+    // drop the occupancy check too: "not under a rock" isn't a frontage
+    // nicety, it's the same "don't spawn on top of anything already there"
+    // half of the rule strict enforces via isSpawnCell, so relaxed re-checks
+    // occupiedIdx directly.
     const gather = (r, strict) => {
       const out = [];
       for (let dy = -r; dy <= r; dy++) {
@@ -8985,6 +9040,7 @@ class MapScene extends Phaser.Scene {
           } else {
             if (!WorldGen.isWalkable(entry.grid[cy * N + cx])) continue;
             if (entry.roadMask && entry.roadMask[cy * N + cx]) continue;
+            if (occupiedIdx && occupiedIdx.has(cy * N + cx)) continue;
           }
           out.push({ cx, cy });
         }
@@ -9303,6 +9359,19 @@ class MapScene extends Phaser.Scene {
         this._steerCostAccrue -= 1;
         const before = this.save.energy ?? 0;
         this.save.energy = Math.max(0, before - 1);
+        // CLAUDE.md: "when you add an energy gain or loss the player can see,
+        // pop it with _popEnergy and name the cell." Every other continuous
+        // drain (the slime leech, a monster's melee, the trap bleed) rolls up
+        // into an accumulator and flushes it as ONE throttled pop rather than
+        // one per pip — a long drag across town would otherwise spam a "-1⚡"
+        // every single cell. This one had no pop at all until now. Flushed in
+        // update() (see _lastSteerFlashT), not here, because _steerManual only
+        // runs while the stick is actually pushed — the flush needs a home
+        // that runs every frame so a drag that stops mid-throttle still pays
+        // out. This is a cost to the BODY (walking, not a tap on a cell), so
+        // it wears the same "no ix/iy" default _popEnergy already gives the
+        // slime leech and the rest splash — it lands on the player's own cell.
+        this._steerDrainAccum = (this._steerDrainAccum || 0) + (before - this.save.energy);
         this._warnIfTiring(before);
         if (this.updateEnergyDOM) this.updateEnergyDOM();
       }
