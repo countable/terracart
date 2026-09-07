@@ -395,7 +395,7 @@ test('descriptions: the net and the rod speed a job, they do not unlock one', ()
   // right and the TIP is what had to change: no weapon hurries a hunt.
   assert.gt(toolDurationMs({}, 'bugnet'), toolDurationMs({ bugnet: { tier: 1 } }, 'bugnet'),
     'a net only shortens the wheel');
-  assert.truthy(/const netSlot = r\.bugnet \? 'bugnet' : null;/.test(INTERACT_SRC),
+  assert.truthy(/const netSlot = 'bugnet';/.test(INTERACT_SRC),
     'the hunt wheel reads the bugnet slot, not a weapon');
   assert.truthy(/hunt/i.test(RELIC_DEFS.bugnet.blurb), 'the net says it speeds a hunt');
   assert.falsy(someTip(/sword, bow or staff makes short work/i),

@@ -826,7 +826,11 @@ test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
   const hunt = src.slice(src.indexOf("const HUNT_KINDS = new Set(['crow', 'deer']);"),
                          src.indexOf('// Catchable animals'));
   assert.truthy(hunt.length > 0, 'found the hunt branch');
-  assert.truthy(/const netSlot = r\.bugnet \? 'bugnet' : null;/.test(hunt),
+  // Named plainly since Sep 2026: an unowned slot is the bare-handed rung in
+  // toolDurationMs, and "you own no net, so wear no badge" is answered once in
+  // app.js _setWorkProgressIcon rather than re-tested here (see
+  // work_badge.test.js — the duplicate is how the catch wheel came to disagree).
+  assert.truthy(/const netSlot = 'bugnet';/.test(hunt),
     'the hunt resolves the BUG NET slot');
   assert.truthy(/toolDurationMs\(r, netSlot\)/.test(hunt),
     'and times the wheel off it');

@@ -667,9 +667,13 @@ const TAP_HANDLERS = [
       // nothing on the two kinds you take by hunting. Weapons fight ENEMIES
       // (combat.js); the net takes GAME and livestock alike, on the same slot
       // the catch wheel below already uses.
-      const netSlot = r.bugnet ? 'bugnet' : null;
       // The net uses the shared spec tool ladder via toolDurationMs (wood 4s …
       // frost .3s). No net = tier 0 (bare hands): 9s — slow but always possible.
+      // Named plainly, not `r.bugnet ? 'bugnet' : null`: toolDurationMs already
+      // answers an unowned slot with the bare-handed rung, and the wheel's tool
+      // badge answers "you own no net, so wear none" in _setWorkProgressIcon —
+      // the one place that test lives.
+      const netSlot = 'bugnet';
       const durMs = toolDurationMs(r, netSlot);
       // Rare shiny fauna have DOUBLE HP — the work wheel takes twice as long,
       // so a shiny crow/deer is markedly tougher to bring down than its plain
