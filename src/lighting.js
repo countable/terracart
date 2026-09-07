@@ -120,13 +120,14 @@
   // depth: a torch by night on the surface is fine, and free.
   const TORCH_RADIUS_MUL = 2;
 
-  // The restored street's own ink (util.js UI_STREET_INK) as a number, with
-  // the same literal fallback the other readers carry so this module still
-  // loads standalone. One constant, five readers now — the counter, the
-  // chips, the sparks, the lamp and the dwell preview's own glow — so a
-  // street's light can't drift off the colour the street itself is made of.
-  const STREET_INK = (typeof UI_STREET_INK === 'string')
-    ? parseInt(UI_STREET_INK.replace('#', ''), 16) : 0xe8e2d6;
+  // The street lamp's own ink (util.js UI_LAMP_GLOW) as a number, with the
+  // same literal fallback the other reader (road_overlay.js's baked stone)
+  // carries so this module still loads standalone. Deliberately NOT the
+  // street's own UI_STREET_INK: the carriageway restores in pale warm stone,
+  // but a lamp reads as ACTIVATED — the old lit-pebble violet, kept for the
+  // lamp specifically so the stone and the light it throws can't drift apart.
+  const LAMP_GLOW = (typeof UI_LAMP_GLOW === 'string')
+    ? parseInt(UI_LAMP_GLOW.replace('#', ''), 16) : 0x9a8cff;
 
   const KINDS = {
     // The player: white, out to the furthest visible pixel (the viewport's
@@ -187,10 +188,13 @@
     // road you have brought back is a road you can walk at night, and the
     // string of lamps behind you is the map of everything you have restored.
     //
-    // In the street's OWN ink, never the violet the lit pebbles wore until
-    // Sep 2026 (see UI_STREET_INK's note in util.js): pale warm stone is what
-    // a restored carriageway is made of, and blue-white in this game means
-    // "the world is giving you something".
+    // In UI_LAMP_GLOW — the violet the lit pebbles wore before the Sep 2026
+    // street-restoration rewrite, brought back for the lamp specifically (see
+    // its note in util.js). The carriageway itself still restores in its own
+    // pale warm stone (UI_STREET_INK — the chips, the sparks, the counter,
+    // the dwell preview); the lamp is the one thing on a restored street that
+    // reads as ACTIVATED rather than as repaired, so it keeps the old
+    // activated-cobble colour instead.
     //
     // STEADY — no flicker, no pulse. A fire breathes because it is burning
     // and a POI breathes because it is asking to be noticed; a lamp is
@@ -198,7 +202,7 @@
     // Sized between the POI and the campfire: bigger than a marker, smaller
     // than a hearth, so a lamp lights the carriageway it stands on and a
     // couple of cells either side of it rather than the whole block.
-    cobble:   { radiusCells: 2.5, colour: STREET_INK, peak: 0.85, flicker: 0 },
+    cobble:   { radiusCells: 2.5, colour: LAMP_GLOW, peak: 0.85, flicker: 0 },
     // A BLAST — the one-shot near-white flash of a RESTORATION moment: a
     // stretch of street rebuilt, a wreck pulled back into a house. Unlike
     // every row above it this one is TRANSIENT and SCALABLE: `Lighting.blast`

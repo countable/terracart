@@ -1012,19 +1012,21 @@ test('lamp stone: the stone is a fraction of the square, not the whole tile', ()
   assert.inRange(frac, 0.08, 0.3, `the sett is a modest fraction of its tile, got ${frac.toFixed(3)}`);
 });
 
-test('lamp stone: painted in the restored street\'s own ink, not the old violet', () => {
+test('lamp stone: painted in the lamp\'s own activated violet, not the street\'s pale ink', () => {
   const { ctx, ops } = roRecorder();
   RoadOverlay.paintLampStone(ctx, 64);
-  // UI_STREET_INK is '#e8e2d6' — pale warm stone. The lamp, the chips that
-  // fly off a restored carriageway and the counter over it are one material,
-  // never the blue-white the lit pebbles wore until Sep 2026.
-  const hex = UI_STREET_INK.replace('#', '');
+  // UI_LAMP_GLOW is '#9a8cff' — the old lit-pebble violet, brought back for
+  // the lamp specifically. The stone is deliberately NOT UI_STREET_INK (the
+  // pale warm stone the chips, the sparks and the counter over a restored
+  // carriageway share): a lamp reads as ACTIVATED, the carriageway as
+  // repaired.
+  const hex = UI_LAMP_GLOW.replace('#', '');
   const ir = parseInt(hex.slice(0, 2), 16), ig = parseInt(hex.slice(2, 4), 16), ib = parseInt(hex.slice(4, 6), 16);
   const stops = ops.filter(([k]) => k === 'addColorStop').map(([, , css]) => css);
   const inkStops = stops.filter((css) => css.startsWith(`rgba(${ir},${ig},${ib},`));
-  assert.gt(inkStops.length, 0, `at least one stop is painted in UI_STREET_INK's own channels (${ir},${ig},${ib})`);
-  // Never a violet: blue must not lead red the way a violet reads.
-  assert.gte(ir, ib, 'warm stone: red at least blue, never a violet lead');
+  assert.gt(inkStops.length, 0, `at least one stop is painted in UI_LAMP_GLOW's own channels (${ir},${ig},${ib})`);
+  // A violet: blue leads red, unlike the street's own warm stone.
+  assert.gt(ib, ir, 'violet: blue leads red');
   // The rim stroke is dark, not the ink itself — what makes the sett read as
   // a laid stone by day rather than a smudge of light.
   const stroke = roStyleAt(ops, ops.length, 'strokeStyle');

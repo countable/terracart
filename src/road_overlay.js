@@ -554,25 +554,30 @@
   //
   // WHY ART AS WELL AS LIGHT. The lightmap is MULTIPLIED over the world, so at
   // noon (a near-white map) a light alone is invisible and the lamps would
-  // simply not exist by day. The stone is therefore painted: it reads as a
-  // pale sett with a hot core at any hour, and after dark the cookie over it
-  // is what makes it a lamp.
+  // simply not exist by day. The stone is therefore painted: it reads as an
+  // ACTIVATED sett with a hot violet core at any hour, and after dark the
+  // cookie over it is what makes it a lamp.
   //
   // Baked ONCE into a texture (app.js) rather than stroked per frame, for the
   // reason at the top of this file — and its halo is a real radial gradient
   // rather than a stack of translucent rings, which is the same rule again
   // (a translucent ring composites with its neighbours and blotches).
   //
-  // UI_STREET_INK, the colour a restored street is MADE of, so the lamp, the
-  // chips that fly off the carriageway and the counter over it are one
-  // material — the same one constant lighting.js's row reads.
+  // UI_LAMP_GLOW — the same violet the old lit-pebble trail glowed in, back
+  // for the lamp specifically. Deliberately NOT UI_STREET_INK: the
+  // carriageway itself restores in pale warm stone, but a lamp is meant to
+  // read as ACTIVATED, the way a claimed cobble always did, so it keeps the
+  // old activated-cobble colour rather than the newer material one the chips
+  // and the counter wear. One constant, two readers — the baked stone here
+  // and the light thrown over it in lighting.js's `cobble` row — so they
+  // can't drift apart.
   const LAMP_TEX_PX = 64;          // baked square; the halo fills it
   const LAMP_DRAW_CELLS = 1.5;     // …drawn this many cells across, halo included
   const LAMP_STONE_FRAC = 0.16;    // the stone's radius, as a fraction of the square
   const LAMP_CORE_A = 0.85;        // the hot core's alpha at the centre
   const LAMP_HALO_A = 0.42;        // …and the halo's, just outside the stone
   const LAMP_RIM_A = 0.35;         // the stone's dark rim: what makes it a STONE by day
-  const LAMP_INK = (typeof UI_STREET_INK === 'string') ? UI_STREET_INK : '#e8e2d6';
+  const LAMP_INK = (typeof UI_LAMP_GLOW === 'string') ? UI_LAMP_GLOW : '#9a8cff';
 
   function paintLampStone(cx, size) {
     const S = size || LAMP_TEX_PX;

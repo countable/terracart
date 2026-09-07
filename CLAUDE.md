@@ -808,7 +808,11 @@
   ONE point, because the lightmap MULTIPLIES: baked art
   (`RoadOverlay.paintLampStone`, drawn under the lightmap — a light alone does
   not exist at noon) and the `Lighting.KINDS.cobble` row over it, both in
-  `UI_STREET_INK`. The list app.js hands to both (`_updateStreetLamps`) is
+  `UI_LAMP_GLOW` — the old activated-cobble violet, brought back for the lamp
+  specifically rather than the street's own `UI_STREET_INK` (the chips, the
+  sparks, the counter): the carriageway restores in pale warm stone, but a
+  lamp reads as ACTIVATED, the way a claimed cobble always did. The list
+  app.js hands to both (`_updateStreetLamps`) is
   collected from the CAMERA ANCHOR and memoised on the anchor cell +
   `Streets.epoch` — never from the feet, which is the restoring sweep's side of
   the camera rule, not the drawing side.

@@ -1027,13 +1027,15 @@ STREET RESTORATION (the road band itself)
        second stone on the same stretch.
      * TWO HALVES ON ONE POINT, because the lightmap MULTIPLIES: a light alone
        is invisible at noon, so the lamp is baked ART as well —
-       RoadOverlay.paintLampStone (a pale sett with a hot core in its own soft
-       halo, in UI_STREET_INK, the colour a restored street is made of), drawn
-       from its own pool into cobbleContainer, on the road band and UNDER the
-       lightmap. The light is Lighting.KINDS.cobble: the same ink, 2.5 cells,
-       peak 0.85, and STEADY — a fire breathes because it is burning and a POI
-       breathes because it is asking to be noticed; a lamp is infrastructure,
-       and a street of them breathing would be a strobe.
+       RoadOverlay.paintLampStone (an activated sett with a hot violet core in
+       its own soft halo, in UI_LAMP_GLOW — the old lit-pebble violet, kept
+       for the lamp specifically rather than UI_STREET_INK, the pale ink a
+       restored carriageway itself is made of), drawn from its own pool into
+       cobbleContainer, on the road band and UNDER the lightmap. The light is
+       Lighting.KINDS.cobble: the same violet, 2.5 cells, peak 0.85, and
+       STEADY — a fire breathes because it is burning and a POI breathes
+       because it is asking to be noticed; a lamp is infrastructure, and a
+       street of them breathing would be a strobe.
      * THE LIST IS THE CAMERA'S. app.js _updateStreetLamps collects the lit
        lamps of the 3×3 tiles near the CAMERA ANCHOR (this asks "what do I
        draw", so a peek carries them), memoised on the anchor cell + the
