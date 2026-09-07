@@ -1045,8 +1045,8 @@ STREET RESTORATION (the road band itself)
        worldMetersToScreen and Lighting.collectLamps stamps the lights from
        the same list, so the two can never disagree about which lamps are on.
  - THE BLAST (restoration fanfare) is ONE thing at any size — app.js
-   _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, gather, colour,
-   material, durationMs }), fired at the instant a thing comes back. ONE per
+   _blastAt(wmx, wmy, { radiusCells, ringPx, chips, sparks, gather, gatherPts,
+   colour, material, durationMs }), fired at the instant a thing comes back. ONE per
    sweep, at the MIDPOINT OF THE LONGEST piece the step restored (the stretch
    the player is looking at, not a metre of driveway at the rim). Four parts,
    the last optional:
@@ -1069,9 +1069,16 @@ STREET RESTORATION (the road band itself)
        the moment reads as a REPAIR rather than only an impact-and-flash. A
        particles.js preset marked `converge: true` — it moves particles TO a
        fixed point via Phaser's `moveTo`, which has to be baked into the
-       emitter at creation, so it gets a fresh throwaway emitter per burst
+       emitter at creation, so it gets a fresh throwaway emitter per TARGET
        instead of the one pooled per texture every other preset shares
-       (particles.js burstConverge).
+       (particles.js burstConverge). The sink is not always one point:
+       `gatherPts` (WORLD METRES) projects to particles.js's `opts.targets`,
+       several points dealt the burst's particles round-robin, so a restored
+       ROAD SECTION gathers along its whole length. `_ripenStreets` samples
+       GATHER_SPREAD_POINTS of them evenly by arclength across the longest
+       newly-restored piece (app.js _streetSpreadPts, off Streets.pointAtM) —
+       not the piece's raw polyline vertices, which for a short straight OSM
+       segment are just its two ends.
    `ringPx` is what scales the particles to the thing: 0 throws them out of one
    point (a street stretch), a building's half-extent throws them off its WALLS
    and scales the count with the radius (particles.js ringPoints / burstCount,

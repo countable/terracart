@@ -47,10 +47,13 @@
 //     marked `converge: true` (stonegather) moves particles TO a point
 //     instead of away from one, via Phaser's `moveTo`/`moveToX`/`moveToY` —
 //     which has to be baked into the emitter at creation, so a converging
-//     burst gets a FRESH, throwaway emitter every call instead of the one
+//     burst gets a FRESH, throwaway emitter per TARGET instead of the one
 //     pooled per texture (see burstConverge). Spawn positions still come off
 //     `ringPoints`, same as an outward ring burst; only the direction of
-//     travel is reversed.
+//     travel is reversed. `opts.targets` lets the sink be more than one
+//     point — several, dealt the burst's particles round-robin — so a
+//     restored road SECTION gathers along its whole length rather than at a
+//     single dot on it.
 //
 // Pure parts (PRESETS, burstCount, emitterConfig, onScreen) run headlessly —
 // test/node/particles.test.js pins them. Only burst() touches Phaser.
@@ -121,21 +124,27 @@
     },
     // …and the THIRD part of the same moment: the setts PULLING THEMSELVES
     // BACK TOGETHER — the "magical repair" read the sweep asked for, rather
-    // than only debris kicking up and a flash burning out. Same chip as
-    // `stone` (this is the same material, arriving rather than leaving), but
-    // GROWING and BRIGHTENING as it closes in — scale and alpha run the
-    // OPPOSITE way from every other preset here, which all shrink/fade as
-    // they age. `converge: true` marks it as one of these: it does not fly
-    // outward on an angle+speed cone at all, it is thrown Particles.burst's
-    // FRESH per-call emitter with a Phaser `moveTo` — every particle spawned
-    // scattered on `scatterCells` (Particles.burst reads it, this table
-    // never converts it to px) around the point converges on that exact
-    // point by the end of its life, wherever it started. `angle`/`speed`
-    // are still carried (the completeness sweep below wants every preset
-    // shaped alike) but are inert here — moveTo overrides them outright.
+    // than only debris kicking up and a flash burning out. Bigger and a shade
+    // darker than the outward `stone` chip — not a different material, but a
+    // laid sett rather than a loose flake, so it reads as substantial against
+    // both the dilapidated band and the near-black restored one. GROWING and
+    // BRIGHTENING as it closes in — scale and alpha run the OPPOSITE way from
+    // every other preset here, which all shrink/fade as they age.
+    // `converge: true` marks it as one of these: it does not fly outward on
+    // an angle+speed cone at all, it is thrown through Particles.burst's
+    // per-particle fresh emitters with a Phaser `moveTo` (see burstConverge)
+    // — every particle spawns scattered on `scatterCells` (Particles.burst
+    // reads it, this table never converts it to px) around ONE of its
+    // targets and converges on that exact point by the end of its life. The
+    // targets are the whole restored SECTION (app.js hands _blastAt
+    // `gatherPts`, several points spread along the stretch that just came
+    // back, not one), spread round-robin across the particles — so the sink
+    // is the section, not a single dot on it. `angle`/`speed` are still
+    // carried (the completeness sweep below wants every preset shaped alike)
+    // but are inert here — moveTo overrides them outright.
     stonegather: {
-      tex: { shape: 'chip', color: C.streetInk, edge: '#6b6459', size: 8 },
-      count: 12, angle: [0, 360], speed: [40, 90], lifespan: [550, 850],
+      tex: { shape: 'chip', color: '#948a79', edge: '#3f382e', size: 11 },
+      count: 18, angle: [0, 360], speed: [40, 90], lifespan: [550, 850],
       gravityY: 0, scale: [0.2, 1], alpha: [0.15, 0.9], rotate: [0, 180],
       converge: true, scatterCells: 1.6,
     },
@@ -329,27 +338,49 @@
     return em;
   }
 
-  // A CONVERGING burst's emitter is never pooled. Every other preset explodes
-  // OUT of a point the emitter doesn't need to know — angle+speed do the
-  // work — so one emitter per texture serves every call at every position
-  // for the whole session. A converge preset moves particles TO a fixed
-  // point instead (Phaser's `moveTo`/`moveToX`/`moveToY`), and that point is
-  // baked into the config at emitter creation, not read per explode() call —
-  // so reusing one emitter across bursts at different world positions would
-  // pull every later burst's cobbles toward the FIRST one's location. A
-  // converge burst is rare (once per restoration sweep, not a hot path), so
-  // a fresh emitter — thrown away once its particles have lived out their
-  // longest lifespan — costs nothing worth pooling for.
-  function burstConverge(scene, kind, x, y, n, o) {
+  // A CONVERGING burst's emitters are never pooled. Every other preset
+  // explodes OUT of a point the emitter doesn't need to know — angle+speed do
+  // the work — so one emitter per texture serves every call at every position
+  // for the whole session. A converge preset moves particles TO a fixed point
+  // instead (Phaser's `moveTo`/`moveToX`/`moveToY`), and that point is baked
+  // into the config at emitter creation, not read per explode() call — so
+  // reusing one emitter across bursts (or across two DIFFERENT targets in the
+  // same burst) would pull those particles toward the wrong destination. A
+  // converge burst is rare (once per restoration sweep, not a hot path), so a
+  // fresh emitter per target — thrown away once its particles have lived out
+  // their longest lifespan — costs nothing worth pooling for.
+  //
+  // `targets` is one or more SCREEN points: the sink is not always one dot —
+  // a restored ROAD SECTION hands app.js's _blastAt several points spread
+  // along the stretch (gatherPts), not just its midpoint, so the cobbles
+  // visibly gather along the whole length rather than converging on one spot
+  // of it. `n` particles are dealt round-robin across `targets`, one emitter
+  // PER TARGET (not per particle — every particle assigned to the same
+  // target shares its moveTo config and just explodes again on it), each
+  // scattered out on its own ring offset so two particles sharing a target
+  // never approach from the same angle.
+  function burstConverge(scene, kind, targets, n, o) {
     const p = PRESETS[kind];
     const key = ensureTexture(scene, kind, o.colour);
-    const cfg = Object.assign({}, emitterConfig(kind), { moveToX: x, moveToY: y });
-    const em = scene.add.particles(0, 0, key, cfg);
-    if (scene.fxContainer) scene.fxContainer.add(em);
     const scatterPx = (o.ringPx > 0) ? o.ringPx : (p.scatterCells || 1) * cellPx();
-    for (const pt of ringPoints(scatterPx, n)) em.explode(1, x + pt.x, y + pt.y);
-    if (scene.time && typeof scene.time.delayedCall === 'function') {
-      scene.time.delayedCall(p.lifespan[1] + 50, () => { try { em.destroy(); } catch (e) {} });
+    const offsets = ringPoints(scatterPx, n);
+    const destroyAfterMs = p.lifespan[1] + 50;
+    for (let ti = 0; ti < targets.length; ti++) {
+      const t = targets[ti];
+      let em = null;
+      for (let i = ti; i < n; i += targets.length) {
+        if (!em) {
+          const cfg = Object.assign({}, emitterConfig(kind), { moveToX: t.x, moveToY: t.y });
+          em = scene.add.particles(0, 0, key, cfg);
+          if (scene.fxContainer) scene.fxContainer.add(em);
+        }
+        const off = offsets[i];
+        em.explode(1, t.x + off.x, t.y + off.y);
+      }
+      if (em && scene.time && typeof scene.time.delayedCall === 'function') {
+        const e = em;
+        scene.time.delayedCall(destroyAfterMs, () => { try { e.destroy(); } catch (err) {} });
+      }
     }
   }
 
@@ -367,6 +398,10 @@
   //           burst whose whole shape IS the trip inward.
   //   count   override the preset's count outright.
   //   colour  bake and throw the preset in this colour instead of its own.
+  //   targets CONVERGING presets only: extra SCREEN points (beyond x, y) to
+  //           spread the sink across instead of converging everything on the
+  //           one point — a restored road SECTION, not a dot on it. Ignored
+  //           by every other preset.
   function burst(scene, kind, x, y, opts) {
     if (!scene || !scene.add || !scene.textures || !scene.fxContainer) return 0;
     if (!PRESETS[kind] || !isFinite(x) || !isFinite(y)) return 0;
@@ -375,7 +410,8 @@
     if (!n) return 0;
     try {
       if (PRESETS[kind].converge) {
-        burstConverge(scene, kind, x, y, n, o);
+        const targets = (Array.isArray(o.targets) && o.targets.length) ? o.targets : [{ x, y }];
+        burstConverge(scene, kind, targets, n, o);
       } else {
         const em = ensureEmitter(scene, kind, o.colour);
         if (!(o.ringPx > 0)) {

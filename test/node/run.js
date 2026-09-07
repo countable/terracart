@@ -335,7 +335,8 @@ try {
                    '_sweepStreets() {', '_resetStreetSight() {',
                    '_rescanStreets(p, reachM, now, sight) {',
                    '_setStreetPreview(meta, iv) {', '_streetRunPts(meta, s0, s1) {',
-                   '_streetPointAt(meta, s) {', '_ripenStreets(now, sight) {',
+                   '_streetPointAt(meta, s) {', '_streetSpreadPts(meta, s0, s1, k) {',
+                   '_ripenStreets(now, sight) {',
                    '_bankStreetMetres(addedM, at, now) {', '_showTrailIntro() {',
                    '_drawStreetLive(now) {',
                    '_blastAt(wmx, wmy, opts) {']
@@ -370,6 +371,7 @@ try {
     // shine's own clock, the preview's ceiling and the counter's throttle.
     `globalThis.BLAST_STONE_R_CELLS = ${constOf('BLAST_STONE_R_CELLS')};\n` +
     `globalThis.STREET_SHINE_MS = ${constOf('STREET_SHINE_MS')};\n` +
+    `globalThis.GATHER_SPREAD_POINTS = ${constOf('GATHER_SPREAD_POINTS')};\n` +
     `globalThis.STREET_PREVIEW_ALPHA = ${constOf('STREET_PREVIEW_ALPHA')};\n` +
     `globalThis.STREET_PREVIEW_COLOR = ${constOf('STREET_PREVIEW_COLOR')};\n` +
     `globalThis.STREET_COUNTER_MIN_MS = ${constOf('STREET_COUNTER_MIN_MS')};\n` +

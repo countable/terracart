@@ -115,6 +115,14 @@ const STREET_SHINE_MS = 2200;
 // every few paces while the player walks a street. A repair should read as a
 // gleam passing over the new surface, not as a strobe.
 const STREET_SHINE_ALPHA = 0.4;
+// THE GATHER's sink: how many points to spread `_ripenStreets`'s stonegather
+// burst across the LONGEST newly-restored piece (_streetSpreadPts), so the
+// setts visibly pull together along the whole stretch rather than converging
+// on one dot of it. Six reads as "the length", not "a row of six pebbles" —
+// particles.js deals stonegather's own count round-robin across them, so
+// raising this thins how many land on each point rather than adding more
+// particles overall.
+const GATHER_SPREAD_POINTS = 6;
 // THE STREET LAMPS. A restored street lights its own way: one glowing cobble
 // every Streets.lampSpacingM() metres of rebuilt carriageway — the ladder's
 // own rung, so a walk that earns a prize lights about one lamp. Where they
@@ -9990,6 +9998,11 @@ class MapScene extends Phaser.Scene {
   //               converging particles.js preset (`converge: true`), the one
   //               piece of this fanfare that reads as a REPAIR rather than an
   //               impact. The street is the only caller that asks for it.
+  //               `gatherPts` (optional, WORLD METRES) spreads its sink
+  //               across several points — a restored road SECTION, not one
+  //               dot on it — projected here and handed on as particles.js's
+  //               `opts.targets`; without it every particle still converges
+  //               on the one point every other part of the blast uses.
   //
   // `ringPx` is what makes the particles fit the thing: 0 (a stone) throws
   // them out of the one point, and a building's half-extent throws them off
@@ -10008,6 +10021,10 @@ class MapScene extends Phaser.Scene {
       });
     }
     const popts = { ringPx, colour: o.material };
+    if (Array.isArray(o.gatherPts) && o.gatherPts.length && this.worldMetersToScreen) {
+      const targets = o.gatherPts.map((q) => this.worldMetersToScreen(q.x, q.y)).filter(Boolean);
+      if (targets.length) popts.targets = targets;
+    }
     let n = 0;
     if (o.chips)  n += this._burstAtWorld(o.chips,  wmx, wmy, popts);
     if (o.sparks) n += this._burstAtWorld(o.sparks, wmx, wmy, popts);
@@ -13565,6 +13582,25 @@ class MapScene extends Phaser.Scene {
     return { x: meta.tx * meta.tileEdgeM + q.x, y: meta.ty * meta.tileEdgeM + q.y };
   }
 
+  // `k` points spread EVENLY by arclength across [s0, s1] of one line, in
+  // WORLD metres — the gather burst's targets (see _ripenStreets /
+  // GATHER_SPREAD_POINTS), so the "whole restored section" sink actually
+  // covers the whole section rather than the raw polyline's own vertices. A
+  // short dwell's restored stretch is often a single straight OSM segment —
+  // two points, its ends — which would leave the middle of the section bare
+  // and put every particle on one endpoint or the other; sampling by
+  // arclength (Streets.pointAtM, the same resolver _streetPointAt uses)
+  // spreads the targets however few vertices the underlying way actually has.
+  _streetSpreadPts(meta, s0, s1, k) {
+    const out = [];
+    for (let i = 0; i < k; i++) {
+      const s = s0 + (s1 - s0) * (k === 1 ? 0.5 : i / (k - 1));
+      const p = this._streetPointAt(meta, s);
+      if (p) out.push(p);
+    }
+    return out;
+  }
+
   // ── THE STREET LAMPS ─────────────────────────────────────────────────────
   // One glowing cobble every Streets.lampSpacingM() metres of RESTORED street.
   // Three passes, in the order the frame needs them:
@@ -13734,7 +13770,15 @@ class MapScene extends Phaser.Scene {
       addedM += out.addedM;
       for (const seg of out.newly) {
         const len = seg[1] - seg[0];
-        if (len > bestLen) { bestLen = len; best = { meta, s: (seg[0] + seg[1]) / 2 }; }
+        if (len > bestLen) {
+          bestLen = len;
+          best = {
+            meta, s: (seg[0] + seg[1]) / 2,
+            // The GATHER's targets: the whole piece, not its midpoint alone
+            // (see _streetSpreadPts / GATHER_SPREAD_POINTS).
+            spread: this._streetSpreadPts(meta, seg[0], seg[1], GATHER_SPREAD_POINTS),
+          };
+        }
         // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS.
         const pts = this._streetRunPts(meta, seg[0], seg[1]);
         if (pts) {
@@ -13750,15 +13794,16 @@ class MapScene extends Phaser.Scene {
     if (at) {
       // THE BLAST, on the stretch's own midpoint (projected): the near-white
       // flash on the lightmap, chips of pale sett, a ring of stone sparks and
-      // the setts of `stonegather` pulling themselves back together — the
-      // repair read, not just the impact one. ONE per sweep — the whole step
-      // is one moment, however many separate pieces of street it brought
-      // back. durationMs ties the light to the street's own (longer) shine
-      // clock rather than Lighting.BLAST_MS's generic default, so the flash
-      // and the shine still end together.
+      // the setts of `stonegather` pulling themselves back together over the
+      // WHOLE piece (gatherPts: best.spread) — the repair read, not just the
+      // impact one, and not just a repair of one point on the street. ONE per
+      // sweep — the whole step is one moment, however many separate pieces of
+      // street it brought back. durationMs ties the light to the street's own
+      // (longer) shine clock rather than Lighting.BLAST_MS's generic default,
+      // so the flash and the shine still end together.
       this._blastAt(at.x, at.y, {
         radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',
-        gather: 'stonegather', durationMs: STREET_SHINE_MS,
+        gather: 'stonegather', gatherPts: best.spread, durationMs: STREET_SHINE_MS,
       });
     }
     this._bankStreetMetres(addedM, at, now);
