@@ -3930,6 +3930,10 @@ Render.drawObjects = function drawObjects(scene) {
   // bottom edge exactly on the shadow's centre.
   const CREATURE_GROUND_DY = (typeof SpriteLayout !== 'undefined'
     && SpriteLayout.CREATURE_GROUND_DY != null) ? SpriteLayout.CREATURE_GROUND_DY : 2;
+  // Per user: every slime kind's squish loop and idle hop read as jittery.
+  // Slows the surface slime, cave slime and purple slime's frame cadence and
+  // hop period by this factor; goblins are untouched.
+  const SLIME_ANIM_SLOWDOWN = 2;
 
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
@@ -3998,14 +4002,19 @@ Render.drawObjects = function drawObjects(scene) {
                    : bk === 'goblin_archer' ? 'goblin_archer'
                    : 'slime';
       const frameCount = (bk === 'goblin' || bk === 'goblin_archer') ? 6 : 4;
+      // Slime kinds (cave_slime, purple_slime — and the surface slime below)
+      // read as jittery at the goblins' cadence, so they squish and hop at
+      // SLIME_ANIM_SLOWDOWN× the pace. Goblins keep the original cadence.
+      const isSlimeKind = bk === 'cave_slime' || bk === 'purple_slime';
+      const slowMul = isSlimeKind ? SLIME_ANIM_SLOWDOWN : 1;
       if (s.texture.key !== texKey) { s.anims?.stop(); s.setTexture(texKey, 0); }
-      s.setFrame(Math.floor(performance.now() / 160) % frameCount);
+      s.setFrame(Math.floor(performance.now() / (160 * slowMul)) % frameCount);
+      const period = (m.fly ? 320 : 600) * slowMul;
       if (c._hopSeed == null) {
         let h = 0; const id = c.id || '';
         for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
-        c._hopSeed = h % 600;
+        c._hopSeed = h % period;
       }
-      const period = m.fly ? 320 : 600;
       const ph = ((performance.now() + c._hopSeed) % period) / period;
       const hopPx = Math.abs(Math.sin(ph * Math.PI)) * (m.fly ? 10 : 6);
       const floatPx = creatureFloat(c.kind);   // fliers hover off the floor
@@ -4016,15 +4025,18 @@ Render.drawObjects = function drawObjects(scene) {
     } else if (c.kind === 'slime') {
       // 32×32 sheet; row 0 (frames 0-3) is the idle squish loop. A continuous
       // vertical hop — phase-offset per slime via a cached id hash — gives the
-      // chicken-like bounce even while idle; slimes are always jiggling.
+      // chicken-like bounce even while idle; slimes are always jiggling. Runs
+      // at SLIME_ANIM_SLOWDOWN× the cave monsters' cadence — see the isMonster
+      // branch above, which the underground slime kinds share this with.
+      const slimePeriod = 600 * SLIME_ANIM_SLOWDOWN;
       if (s.texture.key !== 'slime') { s.anims?.stop(); s.setTexture('slime', 0); }
-      s.setFrame(Math.floor(performance.now() / 160) % 4);
+      s.setFrame(Math.floor(performance.now() / (160 * SLIME_ANIM_SLOWDOWN)) % 4);
       if (c._hopSeed == null) {
         let h = 0; const id = c.id || '';
         for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
-        c._hopSeed = h % 600;
+        c._hopSeed = h % slimePeriod;
       }
-      const ph = ((performance.now() + c._hopSeed) % 600) / 600;   // 0..1 per hop
+      const ph = ((performance.now() + c._hopSeed) % slimePeriod) / slimePeriod;   // 0..1 per hop
       const hopPx = Math.abs(Math.sin(ph * Math.PI)) * 6;          // arc up to 6 px
       // Anchored on the blob's own bottom row, so the hop lifts it OFF the
       // shadow instead of starting 11px above it ("the slime is flying").

@@ -199,12 +199,10 @@
     crow:          { fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
     butterfly:     { fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
     slime:         { fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
-    // Underground monsters. cave_slime reuses the slime sheet (tinted) but has
-    // never had a CREATURE_FOOT entry, so it draws on the blanket 0.9 origin —
-    // recorded here as it renders TODAY rather than "fixed", so this table
-    // stays a description of what's on screen. (It does mean the cave slime
-    // hangs ~10 px above its own contact shadow; worth a separate look.)
-    cave_slime:    { fw: 32, fh: 32, scale: 1.25, foot: 0.9,     float: 0,  minY: 10, maxY: 21 },
+    // Underground monsters. cave_slime reuses the slime sheet (tinted), so its
+    // foot matches the surface slime's — the blanket 0.9 origin this used to
+    // carry hung the art ~10 px above its own contact shadow.
+    cave_slime:    { fw: 32, fh: 32, scale: 1.25, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
     purple_slime:  { fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
     goblin:        { fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
     goblin_archer: { fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
