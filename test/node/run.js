@@ -125,6 +125,12 @@ const BRIDGE = `;Object.assign(globalThis, {
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
+  // The other half of the crop table: what a WILD plant does when tapped —
+  // what it drops, which relic times its wheel, what that costs, the bonus it
+  // hides and whether it glows. wildplant_table.test.js drives the accessors,
+  // and interact.js / lighting.js / render.js are the three readers.
+  WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
+  wildplantWorkCost, wildplantTreasure, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
   Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
@@ -1282,6 +1288,10 @@ ctx.GEAR_JS_SRC = readSrc('gear.js');
 // worldgen.js loads headlessly, but tile_url.test.js also pins that the only
 // raw tile fetch in it goes through the resolver — a text pin, like the above.
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');
+// loot.js loads headlessly, but wildplant_table.test.js pins that the wild
+// plant's surprise-treasure row LEFT it for items.js' one WILDPLANT_RULES
+// table — a text pin, so a second per-crop list can't quietly grow back here.
+ctx.LOOT_SRC = readSrc('loot.js');
 
 // ── Countdown notation: the source of every file that owns a timed readout ──
 // duration_notation.test.js sweeps these for hand-rolled "${n}m" / "${n}h"

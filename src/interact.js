@@ -18,7 +18,7 @@
 //                  cellInReach (tap targeting is cell-bounded, see below)
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
 //   items.js     — ITEM_BY_ID, SEED_TIER, MAX_GROWTH_STAGE
-//   loot.js      — POI_CATEGORY, chestTier, rusticifyName, WILD_TREASURE
+//   loot.js      — POI_CATEGORY, chestTier, rusticifyName
 //   rarity.js    — pickReward, rollGearUpgrade
 //   save.js      — persistSave
 //
@@ -887,26 +887,28 @@ const TAP_HANDLERS = [
     if (bestWp) {
       const wp = bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
+      // What this wild plant DOES — what it drops, whether it hides a bonus,
+      // which relic times its wheel and what that wheel costs — is one table
+      // in items.js (WILDPLANT_RULES), read through the accessors below. It
+      // used to be three literals right here (HARVEST_OUTPUT, WORK_RELIC and a
+      // per-crop cost ternary on the shrub) plus WILD_TREASURE in loot.js, so
+      // a new wild plant with a rule of its own was four edits in two files.
       // Some wild crops require physical work to harvest, mirroring their
       // hard-object cousins:
       //   rockfruit (stone debris) → pick relic speeds up rock-breaking work
       //   shrub     (woody bush)   → axe  relic speeds up chop work
       // Both: 3s with the matching relic, 10s bare-handed. Other wildplants
       // (rainberry, pairy, nut, longgrass …) stay instant.
-      // shrub → wood: chopping a bush yields the wood mineral, not a 'shrub'
-      // item (tree + shrub no longer have inventory item counterparts).
-      // Any other wildplant crop drops itself as before.
-      const HARVEST_OUTPUT = { shrub: 'wood' };
       const award = () => {
         // Re-check picked at callback time. The work wheel runs async — if a
         // save reload or some other path already marked this wp.id as picked
         // between handler start and callback fire, awarding again would dupe.
         if ((save.picked || []).includes(wp.id)) return;
         save.picked = [...(save.picked || []), wp.id];
-        const outId = HARVEST_OUTPUT[wp.crop] || wp.crop;
+        const outId = wildplantOutput(wp.crop);
         scene.addToInv(outId, 1);
         let bonus = '';
-        const treasure = WILD_TREASURE[wp.crop];
+        const treasure = wildplantTreasure(wp.crop);
         if (treasure && Math.random() < treasure.chance) {
           scene.addToInv(treasure.bonus, 1);
           bonus = ` ✨${ITEM_BY_ID[treasure.bonus]?.name || treasure.bonus}`;
@@ -922,15 +924,12 @@ const TAP_HANDLERS = [
         // normal pickup, with fanfare.
         if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
       };
-      const WORK_RELIC = { rockfruit: 'pick', shrub: 'axe' };
-      const reqRelic = WORK_RELIC[wp.crop];
+      const reqRelic = wildplantWorkRelic(wp.crop);
       if (reqRelic) {
-        // Chopping a shrub is real felling work — charge the shared 9/3/1 tool
-        // curve off the axe tier (9 bare-handed, 3 with a Wood axe … 1 frost).
-        // rockfruit debris stays free to gather.
-        const workCost = wp.crop === 'shrub'
-          ? probEnergy(toolEnergyExpected(save.relics?.axe?.tier || 0))
-          : 0;
+        // Chopping a shrub is real felling work — the table charges the shared
+        // 9/3/1 tool curve off the axe tier (9 bare-handed, 3 with a Wood axe
+        // … 1 frost). rockfruit debris stays free to gather.
+        const workCost = wildplantWorkCost(wp.crop, save.relics);
         // Same pipeline as interactables.js runInteractable: pre-spend the
         // energy (an unaffordable tap is consumed without starting), then run
         // the wheel on the relic's tool ladder, refunding the cost on cancel.
@@ -1186,7 +1185,10 @@ const TAP_HANDLERS = [
       const oy = flockSize === 1 ? 0 : Math.sin(angle) * SPREAD;
       const id = releasedId(baseKind, i);
       save.released.push({ x: cwmx + ox, y: cwmy + oy, kind: baseKind, id, tx, ty, shiny: isShinyItem });
-      if (entry && entry.creatures) entry.creatures.push({ x: cwmx + ox, y: cwmy + oy, kind: baseKind, id, shiny: isShinyItem });
+      if (entry && entry.creatures) {
+        entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx + ox, cwmy + oy, id,
+          { shiny: isShinyItem }));
+      }
     }
     consumeSelected(save, flockSize);
     ctx.dirty = true;
@@ -1588,8 +1590,9 @@ const TAP_HANDLERS = [
         entry.objects = entry.objects || [];
         if (!entry.objects.some(o => o.id === id)) {
           entry.objects.push(asTree
-            ? { kind: 'tree', x: cwmx, y: cwmy, id, planted: true, planted_t }
-            : { kind: 'fruittree', x: cwmx, y: cwmy, species: item.grows, id, planted: true, planted_t });
+            ? WorldGen.makeObject('tree', cwmx, cwmy, id, { planted: true, planted_t })
+            : WorldGen.makeObject('fruittree', cwmx, cwmy, id,
+                { species: item.grows, planted: true, planted_t }));
         }
       }
       consumeSelected(save);

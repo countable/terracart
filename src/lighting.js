@@ -579,9 +579,11 @@
     }
     if (o.kind === '_fire') return 'fire';
     if (o.kind === 'torch') return 'torch';
-    // A wildplant has no `kind` — it is offered as itself from drawObjects'
-    // wildplant scan, and only the mushroom is a light.
-    if (o.kind === undefined && o.crop) return o.crop === 'mushroom' ? 'mushroom' : null;
+    // A wild plant is offered as ITSELF from drawObjects' wildplant scan, and
+    // which of them glows is items.js' WILDPLANT_RULES to say — the same table
+    // the render-side gate asks, so a second glowing plant is one row and not
+    // a second literal here.
+    if (o.kind === 'wildplant') return wildplantLight(o.crop);
     // Opened chests are the CALLER's to drop (drawObjects already builds the
     // per-frame Set of save.opened it culls the sprite with).
     if (o.kind === 'chest') return o.crate ? null : 'poi';

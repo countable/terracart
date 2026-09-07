@@ -434,60 +434,61 @@
     return {
       creature(kind, dx, dy, n) {
         const { x, y } = at(dx, dy);
-        creatures.push({ x, y, kind, id: `${baseId}_${tag}_${kind}_${n}` });
+        creatures.push(WorldGen.makeCreature(kind, x, y, `${baseId}_${tag}_${kind}_${n}`));
       },
       wildplant(crop, dx, dy) {
         const { x, y } = at(dx, dy);
-        wildplants.push({ x, y, crop, _ix: ix0 + dx, _iy: iy0 + dy,
-          id: `${baseId}_wp_${tag}_${crop}_${dx}_${dy}` });
+        wildplants.push(WorldGen.makeWildplant(crop, x, y,
+          `${baseId}_wp_${tag}_${crop}_${dx}_${dy}`, { _ix: ix0 + dx, _iy: iy0 + dy }));
       },
       tree(variant, dx, dy, species) {
         const { x, y } = at(dx, dy);
-        const o = { kind: 'tree', x, y, variant,
-          id: `${baseId}_tree_${tag}_${species || variant}_${dx}_${dy}` };
+        const o = WorldGen.makeObject('tree', x, y,
+          `${baseId}_tree_${tag}_${species || variant}_${dx}_${dy}`, { variant });
         if (species) o.species = species;   // non-maple species use own sheet
         objects.push(o);
       },
       fruitTree(species, dx, dy) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'fruittree', x, y, species,
-          id: `${baseId}_ft_${tag}_${species}_${dx}_${dy}` });
+        objects.push(WorldGen.makeObject('fruittree', x, y,
+          `${baseId}_ft_${tag}_${species}_${dx}_${dy}`, { species }));
       },
       chest(poiClass, name, dx, dy) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'chest', x, y, poiClass, name,
-          id: `${baseId}_chest_${tag}_${dx}_${dy}` });
+        objects.push(WorldGen.makeObject('chest', x, y,
+          `${baseId}_chest_${tag}_${dx}_${dy}`, { poiClass, name }));
       },
       // Starter chest — a real kind:'chest' carrying a fixed payload (no
       // poiClass), so it opens through the standard chest path reading
       // o.fixedLoot, exactly like the spawn-trail starter chests in app.js.
       startChest(name, dx, dy, loot) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'chest', x, y, name, fixedLoot: loot,
-          id: `${baseId}_startchest_${tag}_${dx}_${dy}` });
+        objects.push(WorldGen.makeObject('chest', x, y,
+          `${baseId}_startchest_${tag}_${dx}_${dy}`, { name, fixedLoot: loot }));
       },
       house(dx, dy, address = 0, tier = 9) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'house', x, y, tier, address,
-          id: `${baseId}_house_${tag}_${dx}_${dy}` });
+        objects.push(WorldGen.makeObject('house', x, y,
+          `${baseId}_house_${tag}_${dx}_${dy}`, { tier, address }));
       },
       wood(dx, dy, qty = 2) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'groundstack', itemId: 'wood', qty, x, y,
-          id: `${baseId}_wood_${tag}_${dx}_${dy}` });
+        objects.push(WorldGen.makeObject('groundstack', x, y,
+          `${baseId}_wood_${tag}_${dx}_${dy}`, { itemId: 'wood', qty }));
       },
       tower(dx, dy) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'tower', x, y, id: `${baseId}_tower_${tag}_${dx}_${dy}` });
+        objects.push(WorldGen.makeObject('tower', x, y, `${baseId}_tower_${tag}_${dx}_${dy}`));
       },
       well(dx, dy) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'well', x, y, id: `${baseId}_well_${tag}_${dx}_${dy}` });
+        objects.push(WorldGen.makeObject('well', x, y, `${baseId}_well_${tag}_${dx}_${dy}`));
       },
       wizardHouse(dx, dy) {
         const { x, y } = at(dx, dy);
         const id = `${baseId}_wizardhouse_${tag}_${dx}_${dy}`;
-        objects.push({ kind: 'house', x, y, tier: WorldGen.T.BUILDING, address: 0, id, _wizardRole: true });
+        objects.push(WorldGen.makeObject('house', x, y, id,
+          { tier: WorldGen.T.BUILDING, address: 0, _wizardRole: true }));
       },
       // Ore rock at a given yield tier. yieldTier drives BOTH the dropped bar
       // and the ore-stone sprite (copper T2 … frost T7; T1 is plain rock that
@@ -496,16 +497,16 @@
       mineralRock(yieldTier, dx, dy) {
         const { x, y } = at(dx, dy);
         const requiredTier = Math.max(1, yieldTier - 1);
-        objects.push({ kind: 'mineralrock', x, y, yieldTier, requiredTier,
-          id: `${baseId}_mr_${tag}_t${yieldTier}_${dx}_${dy}` });
+        objects.push(WorldGen.makeObject('mineralrock', x, y,
+          `${baseId}_mr_${tag}_t${yieldTier}_${dx}_${dy}`, { yieldTier, requiredTier }));
       },
       // Plain CAVE rock (caveVariant 0..3) — any pick breaks it, drops
       // rockfruit + a tier-scaled lucky bar. Renders the vanilla rock sprite,
       // visually distinct from the gem-on-pebble ore rocks.
       caveRock(variant, dx, dy) {
         const { x, y } = at(dx, dy);
-        objects.push({ kind: 'mineralrock', x, y, requiredTier: 1, caveVariant: variant,
-          id: `${baseId}_cr_${tag}_${variant}_${dx}_${dy}` });
+        objects.push(WorldGen.makeObject('mineralrock', x, y,
+          `${baseId}_cr_${tag}_${variant}_${dx}_${dy}`, { requiredTier: 1, caveVariant: variant }));
       },
     };
   }
@@ -539,7 +540,8 @@
       if (occupied.has(kk)) return false;
       occupied.add(kk);
       const { x, y } = wmAt(ix, iy);
-      wildplants.push({ x, y, crop, _biome: t, _ix: ix, _iy: iy, id: `sbflora_${crop}_${ix}_${iy}` });
+      wildplants.push(WorldGen.makeWildplant(crop, x, y, `sbflora_${crop}_${ix}_${iy}`,
+        { _biome: t, _ix: ix, _iy: iy }));
       return true;
     };
     for (const s of LAYOUT.scenes) {

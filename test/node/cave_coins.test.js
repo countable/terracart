@@ -83,7 +83,7 @@ test('cave coins: the pass leaves the monster and rabbit draw order alone', () =
   // Coins are drawn AFTER the creatures off the same rng, so the fauna a tile
   // gets must be byte-identical to what a coin-less pass would place. Pin the
   // source order: the coin block sits after the rabbit loop.
-  const rabbits = SPAWN_CAVE_SRC.indexOf("kind: 'rabbit'");
+  const rabbits = SPAWN_CAVE_SRC.indexOf("makeCreature('rabbit'");
   const coins = SPAWN_CAVE_SRC.indexOf("kind: 'coindrop'");
   assert.truthy(rabbits > 0 && coins > rabbits, 'coins are rolled after the rabbits');
 });

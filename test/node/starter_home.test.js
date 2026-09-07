@@ -673,8 +673,9 @@ test('starter home: a rolled synthetic find keeps its slot and its tier', () => 
   });
 
   test('starter home seating: the food lands in the WILD PLANT stream', () => {
-    // A mushroom is picked, not chopped: it belongs in entry.wildplants with a
-    // `crop`, not in entry.objects with a `kind`. Seating it as an object would
+    // A mushroom is picked, not chopped: it belongs in entry.wildplants,
+    // carrying a `crop` and the wildplant stream's own kind — not in
+    // entry.objects as a tree/rock/house kind. Seating it as an object would
     // put it in the tap path for chopping and out of the one for foraging.
     const scene = makeScene(), entry = makeEntry();
     run(scene, entry);
@@ -682,7 +683,7 @@ test('starter home: a rolled synthetic find keeps its slot and its tier', () => 
     assert.eq(shrooms.length, SH_HA.QUOTA.mushroom, 'every mushroom is a wild plant');
     for (const w of shrooms) {
       assert.truthy(SH_HA.isStarterMushroom(w), `${w.id} carries the mushroom crop`);
-      assert.falsy(w.kind, `${w.id} is not an object`);
+      assert.eq(w.kind, 'wildplant', `${w.id} is a wild plant, not an object`);
     }
     assert.eq(entry.objects.filter(o => SH_HA.isStarterMushroom(o)).length, 0,
       'and none of them leaked into the object stream');

@@ -140,6 +140,56 @@ function wildplantFrame(p) {
   return list[wildplantVariantHash(p) % list.length];
 }
 
+// ── What a WILD PLANT DOES ─────────────────────────────────────────────────
+// CROP_SPRITE above says what a crop LOOKS like; this says what one is when
+// the player taps it. Both are keyed on `crop`, and this is the second half of
+// the same table.
+//
+// Every per-crop wildplant fact used to be a one-row literal at the site that
+// asked: `HARVEST_OUTPUT = { shrub: 'wood' }` and `WORK_RELIC = { rockfruit:
+// 'pick', shrub: 'axe' }` and a `wp.crop === 'shrub'` work-cost ternary in
+// interact.js' tap handler, `WILD_TREASURE` over in loot.js, and a
+// `crop === 'mushroom'` test in BOTH lighting.js' sourceKind and render.js'
+// light-offer gate. Five lists in four files, so a second glowing plant — or a
+// second bush worth chopping — was five edits, four of which nothing would
+// have reminded anyone about.
+// One table, read through the accessors below: the roadOverlayWidthM
+// discipline. A crop with NO row here is the ordinary wild plant, and that is
+// the vast majority — it drops itself, is picked instantly for nothing, hides
+// no treasure and casts no light.
+const WILDPLANT_RULES = {
+  // A woody bush. Chopping one yields the WOOD mineral, not a 'shrub' item
+  // (tree + shrub have no inventory counterparts), and it is real felling
+  // work: the axe relic's ladder times the wheel and `workCharged` puts the
+  // shared 9/3/1 tool curve on the bar.
+  shrub:     { output: 'wood', workRelic: 'axe', workCharged: true },
+  // Stone debris. The pick relic's ladder times the wheel the same way a rock
+  // does — but gathering loose rubble off the ground costs no energy, so no
+  // `workCharged`. The one wild plant that hides something.
+  rockfruit: { workRelic: 'pick', treasure: { chance: 0.1, bonus: 'gemfruit' } },
+  // The one wild plant that is a LIGHT: `light` names its Lighting.KINDS row,
+  // which is what both the collector's gate (render.js) and the source
+  // classifier (Lighting.sourceKind) ask this table for.
+  mushroom:  { light: 'mushroom' },
+};
+function wildplantRule(crop) { return WILDPLANT_RULES[crop] || null; }
+// What a pick hands over — the crop itself, unless a row names something else.
+function wildplantOutput(crop) { return wildplantRule(crop)?.output || crop; }
+// Which relic's tool ladder times the work wheel. null = picked instantly.
+function wildplantWorkRelic(crop) { return wildplantRule(crop)?.workRelic || null; }
+// What that wheel costs. Charged off the SAME 9/3/1 curve every other gated
+// job spends on, read from the crop's own relic — never a second ladder.
+// `rng` is injected so a test can pin probEnergy's roll.
+function wildplantWorkCost(crop, relics, rng) {
+  const r = wildplantRule(crop);
+  if (!r || !r.workCharged || !r.workRelic) return 0;
+  return probEnergy(toolEnergyExpected(relics?.[r.workRelic]?.tier || 0), rng);
+}
+// The surprise bonus a pick may also hand over: { chance, bonus } or null.
+function wildplantTreasure(crop) { return wildplantRule(crop)?.treasure || null; }
+// Which Lighting.KINDS row this plant lights as, null for everything else.
+function wildplantLight(crop) { return wildplantRule(crop)?.light || null; }
+
 // Resolve the same icon source the inventory uses for an item id.
 // Returns { sheet, frame } where frame is the 16x16 frame index in the spritesheet,
 // or null if the item has no sprite (use emoji fallback).

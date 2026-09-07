@@ -18,7 +18,6 @@
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
 //   STAND_NEVER_CLASSES,
 //   standWordItem, standNameItems, produceStandFor
-//   WILD_TREASURE
 //
 // Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade),
 // chestRelicAllowedTiers, AND the old per-category loot tables (CATEGORY_LOOT /
@@ -538,7 +537,8 @@ function produceStandFor(o) {
 
 // Wild debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.
 // Spawning is per-polygon in worldgen at a stable 5-30% density (see DEBRIS_CROP/spawnDebris).
-// Surprise treasure: when picking a wild ${key}, ${chance} chance to also get a ${bonus}.
-const WILD_TREASURE = {
-  rockfruit: { chance: 0.1, bonus: 'gemfruit' },
-};
+// The surprise treasure a wild plant may hide used to be WILD_TREASURE here —
+// a one-row map on the other side of the codebase from the three other one-row
+// maps that described the same plant. It is a `treasure` field on the crop's
+// row in items.js' WILDPLANT_RULES now (read through wildplantTreasure), beside
+// what it drops, what times its wheel and whether it glows.

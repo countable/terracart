@@ -240,11 +240,14 @@ test('lighting: what lights is what is yours', () => {
   assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', crate: true }), null,
     'a loose supply crate is a pickup, not a place — no pad, no light');
   assert.eq(Lighting.sourceKind(s, { kind: 'torch', id: 'torch_bus_1_d1' }), 'torch', 'a cave torch burns');
-  assert.eq(Lighting.sourceKind(s, { crop: 'mushroom', id: 'cwp_1_0_0_3_3', _cave: true }), 'mushroom',
-    'a cave mushroom glows — offered as the wildplant itself, no kind');
-  assert.eq(Lighting.sourceKind(s, { crop: 'mushroom', id: 'wp_0_0_3_3' }), 'mushroom',
+  // A wild plant now SAYS it is one (kind: 'wildplant', stamped by
+  // WorldGen.makeWildplant at every mint site) instead of being recognised by
+  // the absence of a kind, and which crop glows is items.js' WILDPLANT_RULES.
+  assert.eq(Lighting.sourceKind(s, { kind: 'wildplant', crop: 'mushroom', id: 'cwp_1_0_0_3_3', _cave: true }), 'mushroom',
+    'a cave mushroom glows — offered as the wildplant itself');
+  assert.eq(Lighting.sourceKind(s, { kind: 'wildplant', crop: 'mushroom', id: 'wp_0_0_3_3' }), 'mushroom',
     'and so does a surface one: the crop is the light, not the depth');
-  assert.eq(Lighting.sourceKind(s, { crop: 'longgrass', id: 'wp_0_0_4_4' }), null, 'grass is not a lamp');
+  assert.eq(Lighting.sourceKind(s, { kind: 'wildplant', crop: 'longgrass', id: 'wp_0_0_4_4' }), null, 'grass is not a lamp');
   assert.eq(Lighting.sourceKind(s, { kind: 'mineralrock', crop: 'mushroom', id: 'r' }), null,
     'a kind that is not a light stays dark whatever else is on it');
 });
@@ -631,7 +634,7 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // The mushroom is a wildplant, scanned in its own loop: offered as itself,
   // before that loop's cull, so its little glow can still show from a cell
   // off-screen.
-  const wpOffer = body.indexOf("if (LIGHTS && wp.crop === 'mushroom') LIGHTS.consider(scene, wp, dx, dy, halfM);");
+  const wpOffer = body.indexOf('if (LIGHTS && wildplantLight(wp.crop)) LIGHTS.consider(scene, wp, dx, dy, halfM);');
   const wpCull = body.indexOf('if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;', wpOffer);
   assert.truthy(wpOffer > 0 && wpCull > wpOffer, 'mushrooms are offered BEFORE the wildplant cull');
   assert.truthy(/LIGHTS\.draw\(scene, pWorldX, pWorldY, halfM\);\s*$/.test(body),

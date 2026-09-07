@@ -2208,8 +2208,9 @@ Render.drawObjects = function drawObjects(scene) {
           const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
           // A mushroom is a (faint) light as well as a sprite — offered before
           // the cull like a building, with its own radius as the margin. The
-          // wildplant goes as itself: Lighting.sourceKind reads its crop.
-          if (LIGHTS && wp.crop === 'mushroom') LIGHTS.consider(scene, wp, dx, dy, halfM);
+          // wildplant goes as itself, and WHICH plants glow is the one table
+          // (items.js WILDPLANT_RULES) Lighting.sourceKind resolves it with.
+          if (LIGHTS && wildplantLight(wp.crop)) LIGHTS.consider(scene, wp, dx, dy, halfM);
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           // _biome is the terrain the rasterizer stamped on the plant (the flora
           // tint below reads it); _ix/_iy only survive on the wildplants the

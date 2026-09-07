@@ -40,6 +40,38 @@
     return `${Z}/${tx}/${ty}`;
   }
 
+  // ── ONE FACTORY PER ENTITY ARRAY ──────────────────────────────────────────
+  // A tile carries three streams of world things — `objects`, `wildplants` and
+  // `creatures` — and each was minted as a bare object literal at ~30 sites
+  // spread over worldgen.js, app.js, interact.js, lairs.js and sandbox.js.
+  // Nothing was wrong with any one of them; the cost was that a field EVERY
+  // record of a stream must carry had ~30 places to be added and one to be
+  // forgotten. (The wildplant's `kind` is exactly that: Lighting.sourceKind
+  // used to detect a wild plant by the ABSENCE of a kind — `o.kind ===
+  // undefined && o.crop` — because no mint site set one.)
+  //
+  // So these are the canonical shapes, and every mint site goes through them:
+  // a new field on a stream lands HERE, once, and reaches every record.
+  //
+  // THE ID IS THE CALLER'S. A factory never mints one — the save's delta lists
+  // (`picked`, `caught`, `chopped`, …) key off ids that must be a pure function
+  // of POSITION so a re-rasterized or rebuilt tile reproduces them exactly
+  // (CLAUDE.md, "The world is GENERATED"). Each site keeps the id scheme it
+  // has always computed; the factory only says what a record of that stream
+  // LOOKS like.
+  //
+  // `extra` is spread last, so a site can still carry the per-kind fields its
+  // stream allows (a tree's species, a chest's loot, a lair guard's ring).
+  function makeWildplant(crop, x, y, id, extra) {
+    return { kind: 'wildplant', crop, x, y, id, ...extra };
+  }
+  function makeCreature(kind, x, y, id, extra) {
+    return { kind, x, y, id, ...extra };
+  }
+  function makeObject(kind, x, y, id, extra) {
+    return { kind, x, y, id, ...extra };
+  }
+
   // Spatial-hash multipliers. The (HASH_MUL_X, HASH_MUL_Y) pair is the classic
   // 2D integer hash used to derive stable per-coordinate seeds (poly keys, tile
   // rng, addresses, satextract tree seeds). Renamed from bare literals — values
@@ -1947,8 +1979,8 @@
           const { mx: cx, my: cy } = cellCenterMeters(localIX, localIY);
           if (prng() < density) {
             // Stash local ix/iy on the wp so the post-pass filter can read grid[] directly.
-            wildplants.push({ x: cx, y: cy, crop, _ix: localIX, _iy: localIY,
-              id: `wp_${tx}_${ty}_${localIX}_${localIY}` });
+            wildplants.push(makeWildplant(crop, cx, cy,
+              `wp_${tx}_${ty}_${localIX}_${localIY}`, { _ix: localIX, _iy: localIY }));
           }
         }
       }
@@ -1993,8 +2025,8 @@
           else hedge = false;                                                          // open interior
           if (!hedge) continue;
           const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
-          wildplants.push({ x: cx, y: cy, crop, _ix: ix, _iy: iy,
-            id: `hm_${tx}_${ty}_${ix}_${iy}` });
+          wildplants.push(makeWildplant(crop, cx, cy,
+            `hm_${tx}_${ty}_${ix}_${iy}`, { _ix: ix, _iy: iy }));
         }
       }
     }
@@ -2037,13 +2069,14 @@
             // pushing one undefined into save.chopped made
             // choppedSet.has(undefined) match every other tree → felling one
             // cleared the grove.
-            objects.push({ kind: 'tree', x: cx, y: cy,
-              variant: 1 + Math.floor(rng() * 4),
-              // Trees near the start are softwood (home.js) for easy early wood.
-              // (Procedural forest trees carry no size → never bush-tier.)
-              species: (typeof HomeArea !== 'undefined')
-                ? HomeArea.softwoodSpeciesNear(cx, cy, species) : species,
-              id: `tree_${Math.round(cx)}_${Math.round(cy)}` });
+            objects.push(makeObject('tree', cx, cy,
+              `tree_${Math.round(cx)}_${Math.round(cy)}`, {
+                variant: 1 + Math.floor(rng() * 4),
+                // Trees near the start are softwood (home.js) for easy early wood.
+                // (Procedural forest trees carry no size → never bush-tier.)
+                species: (typeof HomeArea !== 'undefined')
+                  ? HomeArea.softwoodSpeciesNear(cx, cy, species) : species,
+              }));
           }
         }
       }
@@ -2068,8 +2101,8 @@
         for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
           if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
           const { ix, iy, cx, cy } = snapCell(xx + stepMvt * 0.5, yy + stepMvt * 0.5);
-          objects.push({ kind: 'fruittree', x: cx, y: cy, species,
-            id: `ft_${tx}_${ty}_${ix}_${iy}` });
+          objects.push(makeObject('fruittree', cx, cy, `ft_${tx}_${ty}_${ix}_${iy}`,
+            { species }));
         }
       }
     }
@@ -2288,8 +2321,9 @@
                 const r = rng2();
                 const yieldTier = r < 0.05 ? 3 : r < 0.15 ? 2 : 1;
                 const requiredTier = Math.max(1, yieldTier - 1);
-                objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier, yieldTier,
-                  id: `rb_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+                objects.push(makeObject('mineralrock', cx, cy,
+                  `rb_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}`,
+                  { requiredTier, yieldTier }));
                 placed++;
               }
             }
@@ -2371,16 +2405,18 @@
               const { cx, cy } = snapCell(jx, jy);
               const roll = rollRock(rng, _CAVE_ROCK_P, tbl);
               if (roll.plain) {
-                objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier: 1,
-                  caveVariant: roll.caveVariant, _residential: residential || undefined,
-                  _clusterId: clusterId,
-                  id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+                objects.push(makeObject('mineralrock', cx, cy,
+                  `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}`, {
+                    requiredTier: 1, caveVariant: roll.caveVariant,
+                    _residential: residential || undefined, _clusterId: clusterId,
+                  }));
                 return;
               }
-              objects.push({ kind: 'mineralrock', x: cx, y: cy,
-                requiredTier: roll.requiredTier, yieldTier: roll.yieldTier,
-                _residential: residential || undefined,
-                id: `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}` });
+              objects.push(makeObject('mineralrock', cx, cy,
+                `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}`, {
+                  requiredTier: roll.requiredTier, yieldTier: roll.yieldTier,
+                  _residential: residential || undefined,
+                }));
             };
 
             // Scatter mineralrock clusters across a polygon's bbox. At each pivot
@@ -2571,8 +2607,8 @@
             const m = toMeters(p.x, p.y);
             const cx = snap(m.x), cy = snap(m.y);
             const id = `c_${Math.round(cx)}_${Math.round(cy)}`;
-            objects.push({ kind: 'chest', x: cx, y: cy, id,
-              poiClass: cls, name: f.tags.name || '' });
+            objects.push(makeObject('chest', cx, cy, id,
+              { poiClass: cls, name: f.tags.name || '' }));
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
             // Building polygons are independent of POIs and never overpainted: if the POI
             // point lands on or right next to a building, slide it to the nearest non-
@@ -2756,11 +2792,11 @@
                   const r1 = prng(), r2 = prng();
                   const { mx: cellCenterMx, my: cellCenterMy } = cellCenterMeters(ix, iy);
                   if (r1 < shrubDensity) {
-                    wildplants.push({ x: cellCenterMx, y: cellCenterMy, crop: 'shrub',
-                      _ix: ix, _iy: iy, id: `wp_${tx}_${ty}_${ix}_${iy}_pp` });
+                    wildplants.push(makeWildplant('shrub', cellCenterMx, cellCenterMy,
+                      `wp_${tx}_${ty}_${ix}_${iy}_pp`, { _ix: ix, _iy: iy }));
                   } else if (r2 < longgrassDensity) {
-                    wildplants.push({ x: cellCenterMx, y: cellCenterMy, crop: 'longgrass',
-                      _ix: ix, _iy: iy, id: `wp_${tx}_${ty}_${ix}_${iy}_pl` });
+                    wildplants.push(makeWildplant('longgrass', cellCenterMx, cellCenterMy,
+                      `wp_${tx}_${ty}_${ix}_${iy}_pl`, { _ix: ix, _iy: iy }));
                   }
                 }
               }
@@ -2880,7 +2916,8 @@
           // has no house object at all, so it keys on its footprint instead;
           // see the BUILDING_LARGE mint above.)
           ownerKeys[ownerId] = id;
-          objects.push({ kind: 'house', x: cx, y: cy, area: bp.areaM2, tier: bp.tier, id, address });
+          objects.push(makeObject('house', cx, cy, id,
+            { area: bp.areaM2, tier: bp.tier, address }));
         }
         yield 'building paint (all footprints)';
         // Export the SOURCE rings for the polygonal footprint overlay. Done
@@ -3171,8 +3208,8 @@
         const castle = ownerKeys[owners[iy * w + ix]] || null;
         const flagPost = !!castle && !_flagged.has(castle);
         if (flagPost) _flagged.add(castle);
-        objects.push({ kind: 'tower', x: cx, y: cy, id: `tw_${absX}_${absY}`,
-          castle, flagPost });
+        objects.push(makeObject('tower', cx, cy, `tw_${absX}_${absY}`,
+          { castle, flagPost }));
       }
     }
 
@@ -3771,8 +3808,13 @@
           if (occupied.has(k)) continue;
           occupied.add(k);
           const c = localCentre(s.x, s.y);
-          s.x = c.x; s.y = c.y;
-          entry.wildplants.push(s);
+          // Minted HERE rather than where the bin row was built (buildBin's
+          // `shrubs.push`): a bin is CACHED in IndexedDB, so a bin written
+          // before a stream's shape changed would otherwise inject records
+          // missing the new field for as long as it lives in the cache. The
+          // bin carries the facts (position, id); the stream's shape is this
+          // file's, applied at the moment the row joins the stream.
+          entry.wildplants.push(makeWildplant(s.crop, c.x, c.y, s.id));
         }
         for (const p of (bin.poles || [])) {
           if (onWater(p.x, p.y)) continue;
@@ -4607,8 +4649,8 @@
         used.add(idx);
         markPlaced(lix, liy);
         const { x, y } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
-        entry.objects.push({ kind: 'staircase', dir: 'down', x, y, depth: 0,
-          id: caveStairId('down', 0, x, y) });
+        entry.objects.push(makeObject('staircase', x, y, caveStairId('down', 0, x, y),
+          { dir: 'down', depth: 0 }));
         return true;
       }
       return false;
@@ -4628,8 +4670,8 @@
       used.add(idx);
       markPlaced(idx % N, Math.floor(idx / N));
       const { x, y } = cellCentreM(tx, ty, idx % N, Math.floor(idx / N), tileEdgeM, N);
-      entry.objects.push({ kind: 'staircase', dir: 'down', x, y, depth: 0,
-        id: caveStairId('down', 0, x, y) });
+      entry.objects.push(makeObject('staircase', x, y, caveStairId('down', 0, x, y),
+        { dir: 'down', depth: 0 }));
       return true;
     };
 
@@ -4699,12 +4741,12 @@
           const id = `cmr_${depth}_${tx}_${ty}_${lix}_${liy}`;
           const roll = rollRock(rng, plainP, tbl);
           if (roll.plain) {
-            objects.push({ kind: 'mineralrock', x: cx, y: cy, requiredTier: 1,
-              caveVariant: roll.caveVariant, id });
+            objects.push(makeObject('mineralrock', cx, cy, id,
+              { requiredTier: 1, caveVariant: roll.caveVariant }));
             continue;
           }
-          objects.push({ kind: 'mineralrock', x: cx, y: cy, yieldTier: roll.yieldTier,
-            requiredTier: roll.requiredTier, id });
+          objects.push(makeObject('mineralrock', cx, cy, id,
+            { yieldTier: roll.yieldTier, requiredTier: roll.requiredTier }));
         }
       }
     }
@@ -4848,8 +4890,8 @@
           if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
           occupied.add(idx);
           const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
-          wildplants.push({ x: cx, y: cy, crop: 'mushroom', _ix: lix, _iy: liy, _cave: true,
-            id: `cwp_${depth}_${tx}_${ty}_${lix}_${liy}` });
+          wildplants.push(makeWildplant('mushroom', cx, cy,
+            `cwp_${depth}_${tx}_${ty}_${lix}_${liy}`, { _ix: lix, _iy: liy, _cave: true }));
         }
       }
     }
@@ -4869,8 +4911,8 @@
       o => o.kind === 'staircase' && o.dir === 'down');
     for (const s of downAbove) {
       // Way back up: stand on it the moment you descend.
-      objects.push({ kind: 'staircase', dir: 'up', x: s.x, y: s.y, depth,
-        id: caveStairId('up', depth, s.x, s.y) });
+      objects.push(makeObject('staircase', s.x, s.y, caveStairId('up', depth, s.x, s.y),
+        { dir: 'up', depth }));
       // Way deeper: a random floor cell anywhere on this level, so the descent
       // shaft wanders instead of stacking straight down. Seeded off the source
       // stair + depth so the layout is stable across reloads.
@@ -4881,8 +4923,10 @@
         ((Math.round(s.x) * HASH_MUL_X) ^ (Math.round(s.y) * HASH_MUL_Y)
           ^ (depth * 0x9E3779B1)) >>> 0);
       const dn = randomFloorCell(grid, N, x, y, tileEdgeM, dnRng, skipIdx);
-      if (dn) objects.push({ kind: 'staircase', dir: 'down', x: dn.x, y: dn.y, depth,
-        id: caveStairId('down', depth, dn.x, dn.y) });
+      if (dn) {
+        objects.push(makeObject('staircase', dn.x, dn.y, caveStairId('down', depth, dn.x, dn.y),
+          { dir: 'down', depth }));
+      }
     }
     // Fill the level with rock clusters, keeping the staircase cells clear so a
     // stair never spawns buried under a rock sprite.
@@ -5065,5 +5109,10 @@
     // minimal `entry` shape it reads (grid/cellsPerEdge/objects/roadMask/
     // poiPadCells) rather than driving a full tile load.
     maybePlaceCaveEntrance,
+    // The three stream factories (see the block by tileKey). Exported because
+    // the mint sites are spread across app.js, interact.js, lairs.js and
+    // sandbox.js as well as this file — one shape per stream, reachable from
+    // all of them.
+    makeWildplant, makeCreature, makeObject,
   };
 })(window);

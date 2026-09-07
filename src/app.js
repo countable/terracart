@@ -3899,7 +3899,8 @@ class MapScene extends Phaser.Scene {
           // through tame/release/re-catch. The slime exception (an energy pest
           // with no catch payout never goes shiny) lives in faunaShiny, so the
           // doorstep greeter below obeys it through the same call.
-          creatures.push({ x: wmx, y: wmy, kind: kindStr, id, shiny: faunaShiny(kindStr, id) });
+          creatures.push(WorldGen.makeCreature(kindStr, wmx, wmy, id,
+            { shiny: faunaShiny(kindStr, id) }));
           return;
         }
       }
@@ -3936,7 +3937,7 @@ class MapScene extends Phaser.Scene {
       for (const r of this.save.released) {
         if (r.tx !== tx || r.ty !== ty) continue;
         if (caughtSet.has(r.id)) continue;
-        creatures.push({ x: r.x, y: r.y, kind: r.kind, id: r.id, shiny: !!r.shiny });
+        creatures.push(WorldGen.makeCreature(r.kind, r.x, r.y, r.id, { shiny: !!r.shiny }));
       }
     }
     // DERELICT LAIRS need the tile's shared spawn options AFTER this pass has
@@ -4180,17 +4181,15 @@ class MapScene extends Phaser.Scene {
             ft.y < t0y || ft.y >= t0y + this.tileEdgeM) continue;
         if ((entry.objects || []).some(o => o.id === ft.id)) continue;
         entry.objects = entry.objects || [];
-        entry.objects.push(ft.kind === 'tree' ? {
+        entry.objects.push(ft.kind === 'tree'
           // No `species` and no `size`: a species-less tree draws off the
           // default growth sheet and takes no hardwood/softwood tier shift, so
           // what you planted is what you can fell.
-          kind: 'tree', x: ft.x, y: ft.y,
-          id: ft.id, planted: true, planted_t: ft.planted_t,
-        } : {
-          kind: 'fruittree', x: ft.x, y: ft.y,
-          species: ft.species === 'peach' ? 'peach' : 'apple',
-          id: ft.id, planted: true, planted_t: ft.planted_t,
-        });
+          ? WorldGen.makeObject('tree', ft.x, ft.y, ft.id,
+              { planted: true, planted_t: ft.planted_t })
+          : WorldGen.makeObject('fruittree', ft.x, ft.y, ft.id,
+              { species: ft.species === 'peach' ? 'peach' : 'apple',
+                planted: true, planted_t: ft.planted_t }));
       }
     }
   }
@@ -4437,12 +4436,9 @@ class MapScene extends Phaser.Scene {
       // reward modal as POI chests. `crate: true` renders the humble lowtier
       // crate (box) sprite instead of the tier-2 treasure chest, matching
       // their role as starter supplies. No poiClass → no POI label.
-      entry.objects.push({
-        kind: 'chest', x: wmx, y: wmy,
-        fixedLoot: STARTER_LOOT[i],
-        crate: true,
-        id: `chest_start_${tx}_${ty}_${i + 1}`,
-      });
+      entry.objects.push(WorldGen.makeObject('chest', wmx, wmy,
+        `chest_start_${tx}_${ty}_${i + 1}`,
+        { fixedLoot: STARTER_LOOT[i], crate: true }));
       usedSeats.add(cx + ',' + cy);
       placedIdx.add(i);
     };
@@ -5280,18 +5276,19 @@ class MapScene extends Phaser.Scene {
   // the placer so the shape written to the save and the shape pushed into a
   // tile can't drift — the record IS the object, minus its position basis.
   _starterHomeObject(rec) {
-    const base = { x: rec.x, y: rec.y, id: rec.id, _synthetic: true };
+    const make = (kind, extra) =>
+      WorldGen.makeObject(kind, rec.x, rec.y, rec.id, { _synthetic: true, ...extra });
     // A record may carry a rarity rolled at seat time (see the seatAt roll in
     // _provisionStarterHome): a rock's deposit tier, or a tree grown a size
     // up. The frozen record is the truth — legacy records carry neither and
     // rebuild as the plain starter shape.
     if (rec.k === 'tree') {
-      const o = { kind: 'tree', ...base, ...HomeArea.STARTER_TREE, variant: rec.variant || 1 };
+      const o = make('tree', { ...HomeArea.STARTER_TREE, variant: rec.variant || 1 });
       if (rec.size) o.size = rec.size;
       return o;
     }
     if (rec.k === 'rock') {
-      const o = { kind: 'mineralrock', ...base, ...HomeArea.STARTER_ROCK };
+      const o = make('mineralrock', { ...HomeArea.STARTER_ROCK });
       if (rec.yieldTier > 1) {
         o.yieldTier = rec.yieldTier;
         o.requiredTier = rec.requiredTier || Math.max(1, rec.yieldTier - 1);
@@ -5301,13 +5298,11 @@ class MapScene extends Phaser.Scene {
     // A cave entrance on the surface. Same shape maybePlaceCaveEntrance emits,
     // so it descends through the ordinary staircase path and loadCaveTile
     // mirrors an up-stair onto the level below it like any other mine mouth.
-    if (rec.k === 'ladder') {
-      return { kind: 'staircase', dir: 'down', depth: 0, ...base };
-    }
+    if (rec.k === 'ladder') return make('staircase', { dir: 'down', depth: 0 });
     // A plain small house, so _houseRole draws it as a wreck until the player
     // restores it — which is exactly what step 4 of the ladder asks for. The
     // address decides its post-restore shop role the same way a real one's does.
-    return { kind: 'house', ...base, tier: WorldGen.T.BUILDING, address: rec.address || 0 };
+    return make('house', { tier: WorldGen.T.BUILDING, address: rec.address || 0 });
   }
 
   // The same, for the one starter record that is NOT an object: a mushroom
@@ -5322,11 +5317,10 @@ class MapScene extends Phaser.Scene {
   // written before this existed rebuild identically.
   _starterHomeWildplant(rec) {
     const c = worldMetersToAbsCell(this, rec.x, rec.y);
-    return {
-      x: rec.x, y: rec.y, id: rec.id, _synthetic: true,
+    return WorldGen.makeWildplant(HomeArea.STARTER_MUSHROOM.crop, rec.x, rec.y, rec.id, {
       ...HomeArea.STARTER_MUSHROOM,
-      _ix: c.cellIX, _iy: c.cellIY,
-    };
+      _synthetic: true, _ix: c.cellIX, _iy: c.cellIY,
+    });
   }
 
   // Which of a tile's two streams a frozen starter record belongs in.
@@ -5852,7 +5846,8 @@ class MapScene extends Phaser.Scene {
         // the renderer already tints and sparkles; combat.js reads it as
         // double HP and damage (Combat.isElite), and resolveDefeat pays the
         // badge-or-treasure it promises.
-        creatures.push({ x: wmx, y: wmy, kind, id, shiny: isShiny(id, SHINY_RATE.monster) });
+        creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
+          { shiny: isShiny(id, SHINY_RATE.monster) }));
         break;
       }
     }
@@ -5871,7 +5866,7 @@ class MapScene extends Phaser.Scene {
         if (caughtSet.has(id)) break;   // already caught — stays gone
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
-        creatures.push({ x: wmx, y: wmy, kind: 'rabbit', id });
+        creatures.push(WorldGen.makeCreature('rabbit', wmx, wmy, id));
         break;
       }
     }
@@ -7830,12 +7825,10 @@ class MapScene extends Phaser.Scene {
             // margin and stays two cells inside the bubble.
             const angle = Math.random() * Math.PI * 2;
             const SPAWN_R = PEST_CROW_SPAWN_CELLS * this.cellM;
-            entry.creatures.push({
-              kind: 'crow',
-              x: px + Math.cos(angle) * SPAWN_R,
-              y: py + Math.sin(angle) * SPAWN_R,
-              id: `pest_crow_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
-            });
+            entry.creatures.push(WorldGen.makeCreature('crow',
+              px + Math.cos(angle) * SPAWN_R,
+              py + Math.sin(angle) * SPAWN_R,
+              `pest_crow_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`));
           }
         }
       }
@@ -9798,8 +9791,9 @@ class MapScene extends Phaser.Scene {
     // No descending from the house — drop any down-stair that landed here.
     entry.objects = entry.objects.filter(o => !(o.kind === 'staircase' && o.dir === 'down' && atHome(o)));
     if (!entry.objects.some(o => o.kind === 'staircase' && o.dir === 'up' && atHome(o))) {
-      entry.objects.push({ kind: 'staircase', dir: 'up', x: cx, y: cy, depth: entry.depth,
-        id: `homeup_${entry.depth}_${tx}_${ty}_${lix}_${liy}` });
+      entry.objects.push(WorldGen.makeObject('staircase', cx, cy,
+        `homeup_${entry.depth}_${tx}_${ty}_${lix}_${liy}`,
+        { dir: 'up', depth: entry.depth }));
     }
   }
   cellAt(wmx, wmy) {
@@ -10899,11 +10893,10 @@ class MapScene extends Phaser.Scene {
     const seat = pick((cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts))
               || pick((cx, cy) => !onRoad(cx, cy));
     if (!seat) return;
-    entry.creatures.push({
-      x: tx0 + (seat.cx + 0.5) * this.cellM,
-      y: ty0 + (seat.cy + 0.5) * this.cellM,
-      kind, id, shiny: faunaShiny(kind, id),
-    });
+    entry.creatures.push(WorldGen.makeCreature(kind,
+      tx0 + (seat.cx + 0.5) * this.cellM,
+      ty0 + (seat.cy + 0.5) * this.cellM,
+      id, { shiny: faunaShiny(kind, id) }));
   }
 
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
@@ -15421,10 +15414,8 @@ class MapScene extends Phaser.Scene {
         this._devSlimeSeq = (this._devSlimeSeq || 0) + 1;
         // Unique per press — never a tile-data id, so a dev slime can't mark
         // a real spawn as caught when it dies.
-        entry.creatures.push({
-          x, y, kind: 'slime', shiny: false,
-          id: `slime_dev_${Date.now()}_${this._devSlimeSeq}`,
-        });
+        entry.creatures.push(WorldGen.makeCreature('slime', x, y,
+          `slime_dev_${Date.now()}_${this._devSlimeSeq}`, { shiny: false }));
         placed++;
         break;
       }

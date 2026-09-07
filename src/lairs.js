@@ -623,8 +623,11 @@
       if (!seat) continue;                    // ringed by water / road / building
       // Already killed. The draws above ran anyway — see the note below.
       if (caught && caught.has(id)) continue;
-      const g = {
-        x: seat.x, y: seat.y, kind, id, shiny: false,
+      // WG.makeCreature is the tile stream's one shape (worldgen.js) — reached
+      // at CALL time, like every other WorldGen read in this file, because
+      // lairs.js loads BEFORE worldgen.js.
+      const g = WG.makeCreature(kind, seat.x, seat.y, id, {
+        shiny: false,
         // `immobile` still means "this creature does not wander": app.js reads
         // it to route the guard through Lairs.guardState instead of the
         // ordinary fauna step. Where it goes from here is that state's answer,
@@ -633,7 +636,7 @@
         // from (see LAIR_AGGRO_CELLS).
         immobile: true, lair: cand.sid, lairX: cand.wx, lairY: cand.wy,
         lairR: seatR, seatX: seat.x, seatY: seat.y,
-      };
+      });
       // A guard the player wounded and walked away from comes back wounded.
       // Session-only, like every other creature's `_hp` (combat.js) — it is
       // the sleep/wake cycle this covers, not a reload.
