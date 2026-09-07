@@ -54,6 +54,47 @@
 
 ## QC rules
 
+- **Find the mechanic that already ships: a new rule is usually a new REASON,
+  not a new lane.** Before writing a gate, a flag or a ward, look for the one
+  the game already has — the odds are the behaviour you want exists under
+  another name, wanting one more reason to fire.
+  The Sep 2026 "enemies chase a dead player" fix is the model. The game already
+  had a state in which no hostile takes an interest in the player: the Shadow
+  Powder's minute, read once per tick as `shadowed` and consulted by five
+  branches (the leech, the monster's hit and its arrow, the struck slime's
+  charge, and both stalk branches, each falling back to the aimless wander).
+  "A player on an empty bar is not worth hunting" is that SAME state arriving
+  for a different reason — so the fix ORed the new reason into the old read
+  (`unnoticed = shadowed || Combat.playerDowned(save.energy)`) and renamed what
+  those five branches ask. One line and a rename. A `_downed` flag threaded to
+  five NEW conditions would have been five more places to keep in step with the
+  five that already existed, and the next ward would have made ten.
+  **The existing tests are the tell.** Four shipped pins (`powders`,
+  `home_ward`, `lairs`, `combat`) failed on that rename and moved to the new
+  name — which is the proof the two behaviours are one lane. Had the new reason
+  needed branches of its own, every one of those tests would have passed
+  untouched and the duplication would have shipped invisibly. **A change that
+  breaks no existing pin has probably not touched the existing mechanic at
+  all** — ask whether it should have.
+  The shape is everywhere in here, and most of these rules are an instance of
+  it: Home is the campfire's three effects on one radius (`HOME_R`), a pet's
+  kill calls `resolveDefeat` rather than its own copy of the payout (the copy
+  is why a dog's kill paid no bounty), `Traps.isRoadside` reads `entry.roadMask`
+  instead of a second road test, the work wheel and the health bar both seat off
+  `CREATURE_ART`, and the plain rock's draw and its drop resolve through one
+  `plainRockVariant`. It is the `roadOverlayWidthM` discipline pointed at
+  BEHAVIOUR rather than at a number: one lane, many reasons.
+  **Reuse the lane when the MECHANISM is the same, never because the words
+  match.** A campfire's ward and Home's ward both repel the same foes and are
+  still two mechanisms — the fire refuses a target cell, Home turns the foe onto
+  an away-from-Home angle — because a refused cell freezes a foe already inside
+  the ring on the doormat. Merging those would ship that stall. The question is
+  "would ONE implementation serve both?", not "do these sound alike?".
+  **So before you add a flag, grep for the state it duplicates.** If a per-tick
+  read or a shared predicate already answers your question, add your reason to
+  it and rename it for what it now means; if nothing does, say in the new one's
+  comment what it is NOT, so the next reason lands in the right lane.
+
 - **Nothing spawns on a road, and "road" is not a terrain code.** The terrain
   grid under-reports the road every time: a way rasterizes exactly ONE cell
   wide however wide it really is, and parking aisles rasterize to no cell at
