@@ -1229,10 +1229,12 @@ test('bug net reduces catch energy (9 bare → 3 Wood → 1 Frost)', () => {
   assert.eq(effectiveCatchCost({ bugnet: { tier: 7 } }), 1, 'Frost net = 1');
 });
 
-test('fishing rod reduces cast energy (9 bare → 3 Wood → 1 Frost)', () => {
-  assert.eq(effectiveFishCost(null), 9, 'bare-handed cast = 9');
-  assert.eq(effectiveFishCost({ rod: { tier: 1 } }), 3, 'Wood rod = 3');
-  assert.eq(effectiveFishCost({ rod: { tier: 7 } }), 1, 'Frost rod = 1');
+test('fishing rod reduces cast energy (18 bare → 6 Wood → 2 Frost)', () => {
+  // The cast pays the shared tool curve × FISH_COST_MULT (fishing's own
+  // doubling — chop / mine / catch keep the plain 9/3/1 ladder).
+  assert.eq(effectiveFishCost(null), 18, 'bare-handed cast = 18');
+  assert.eq(effectiveFishCost({ rod: { tier: 1 } }), 6, 'Wood rod = 6');
+  assert.eq(effectiveFishCost({ rod: { tier: 7 } }), 2, 'Frost rod = 2');
 });
 
 test('ring relic boosts loot tier roll (forced RNG)', () => {
