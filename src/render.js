@@ -2124,6 +2124,10 @@ Render.drawObjects = function drawObjects(scene) {
   // stored at all (see src/traps.js), and all the renderer needs to pick
   // between the two textures.
   const sprungSet = setOf(scene.save.sprungTraps);
+  // Traps the player has DISARMED with a Trap Disarm Kit (src/traps.js) —
+  // gone for good, so unlike sprungSet this one drops the trap from the list
+  // entirely rather than picking a texture.
+  const disarmedSet = setOf(scene.save.disarmedTraps);
   // Deterministic chest dedupe by game cell. A chest's id is already cell-snapped
   // (`c_<roundedCellX>_<roundedCellY>`), so the same POI duplicated across adjacent
   // tiles — and any two chests that land in the same 5 m cell — collapse to a single
@@ -2230,13 +2234,16 @@ Render.drawObjects = function drawObjects(scene) {
       }
       // Traps (src/traps.js) — flat marks on the ground, so they take the same
       // 3×3 scan and the same cull as everything else, and go to their own
-      // pool below. A trap is never dropped from the list: the hidden one is
-      // drawn too (that faint scuff is the whole affordance), just in the
-      // subtle texture. Which of the two it wears is the ONLY thing the save
-      // decides — sprungSet, built once per frame like pickedSet.
+      // pool below. An UNDISARMED trap is never dropped from the list on
+      // account of its own state: the hidden one is drawn too (that faint
+      // scuff is the whole affordance), just in the subtle texture. Which of
+      // the two it wears is the ONLY thing sprungSet decides. A DISARMED one
+      // is the one case that IS dropped — the kit's whole promise is that the
+      // mark is gone, not just retextured.
       if (entry.traps) {
         for (const tr of entry.traps) {
           _boot_scanned++;
+          if (disarmedSet.has(tr.id)) continue;
           const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           trapList.push({ tr, dx, dy, sprung: sprungSet.has(tr.id) });

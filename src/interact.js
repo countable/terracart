@@ -1089,6 +1089,27 @@ const TAP_HANDLERS = [
   // — so the tap has nothing left to do, and a handler bound to a single cell
   // could not address a stretch of way measured in metres anyway.)
 
+  // 2-disarm-trap) With a Trap Disarm Kit selected, tap a trap's own cell —
+  // the hidden scuff or the already-sprung jaw, surface or cave — to remove
+  // it for good (Traps.disarm, src/traps.js). Reach is already gated by
+  // cell-resolve above, same as every other cell-shaped tap; a cell with no
+  // trap on it falls through so the kit never eats a tap meant for till/plant.
+  { name: 'disarm-trap', try: (ctx) => {
+    const { scene, save, sx, sy, cell } = ctx;
+    if (typeof Traps === 'undefined') return false;
+    const sel = getSelectedSlot(save);
+    if (!(sel && sel.id === 'trap_kit' && (sel.count ?? 0) > 0)) return false;
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+    const trap = entry ? Traps.trapAt(entry, cell.ix, cell.iy) : null;
+    if (!trap || Traps.isDisarmed(save, trap.id)) return false;
+    Traps.disarm(save, trap.id);
+    consumeSelected(save);
+    ctx.dirty = true;
+    scene.buildInventoryDOM();
+    scene.flash('🧰 trap disarmed', sx, sy);
+    return true;
+  }},
+
   // 2a) Building-zone tap — runs AFTER cell-resolve so we already know the
   // player is within tap range of the cell. If that cell is a building tile
   // (small house / fort / castle terrain), find the nearest house/tower in

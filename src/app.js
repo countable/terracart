@@ -1290,6 +1290,10 @@ const ICON_SHEETS = {
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
   // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
   icon_torch:    { url: 'assets/Icons/Items/Torch.png',                      cols: 1,  srcW: 16,  srcH: 16 },
+  // Trap Disarm Kit — no dedicated art yet; reuses the Extras 'Bags' sheet
+  // (7 cols × 16×16, frame 0 = the plain brown pouch), a reasonable stand-in
+  // for a small carried tool kit. See MINERAL_ICON_SHEET.trap_kit in items.js.
+  icon_kit:      { url: 'assets/Icons/RPG icons/Extras/Bags.png',            cols: 7,  srcW: 112, srcH: 16  },
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
   icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
   icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
@@ -1400,9 +1404,14 @@ class MapScene extends Phaser.Scene {
         caught: [], planted: [], opened: [], tilled: [], picked: [], foundTreasures: [], brokenRocks: [], placedRocks: [],
         // Ids of traps the player has SPRUNG. Where the traps are is generated
         // from the tile's coordinates every time (src/traps.js) and never
-        // stored; this list is the only thing about them that is written down,
-        // and it is what keeps a discovered trap discovered across a reload.
+        // stored; this list is what keeps a discovered trap discovered across
+        // a reload. sprungTraps and disarmedTraps are the only two things
+        // about a trap that are ever written down.
         sprungTraps: [],
+        // Ids of traps the player has DISARMED with a Trap Disarm Kit — gone
+        // for good: the tick that bites/bleeds and the renderer that draws
+        // the mark both skip an id in here (see Traps.isDisarmed).
+        disarmedTraps: [],
         money: STARTING_MONEY, buyIndex: 0,
         // inv is array of {id, count} — seeds-only per spec; planting decrements
         // count. Starts empty: the player's first potato seeds come from a
@@ -3234,7 +3243,12 @@ class MapScene extends Phaser.Scene {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
       if (!entry || !entry.traps) { this._trapHere = null; return; }   // retry next frame
       this._trapCellKey = key;
-      this._trapHere = Traps.trapAt(entry, lix, liy);
+      const found = Traps.trapAt(entry, lix, liy);
+      // A disarmed trap (Trap Disarm Kit) is gone for good — never bites,
+      // never bleeds, and never draws (see render.js). trapAt still finds
+      // the record (it's a pure function of the tile), so the disarm has to
+      // be checked here rather than removed from entry.traps itself.
+      this._trapHere = (found && Traps.isDisarmed(this.save, found.id)) ? null : found;
       // Stepping off ends the bleed: no partial second carries to the next trap.
       this._trapDrainAccum = 0;
       this._trapDrainPop = 0;
