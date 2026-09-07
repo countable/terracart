@@ -797,18 +797,31 @@ const NEAR_GPS_CELLS = 3;
 // empty-tank aura is the state, and it pulses on its own clock.
 const HIT_FLASH_MS = 160;
 const HIT_FLASH_TINT = 0xff5a5a;
-// THE PAIN BURST SCALES WITH THE BLOW. _flashPlayerHit throws the 'pain'
-// chip burst (particles.js) at a sizeMul derived from how much energy the
-// hit actually cost — a 1-energy nick and a 10-energy trap bite are the same
-// shape of burst thrown at different force, never two different presets.
-// PAIN_BURST_REF_DMG is a trap's base bite (Traps.STAND_ENERGY_PER_S's
-// one-off cousin), so a trap-sized hit lands at roughly the old FIXED burst
-// size and everything else reads smaller or (an elite, on hard) bigger.
-// The 0.7/1.6 bounds mirror Particles.SIZE_MUL_MIN/MAX; clampSizeMul there
+// THE PAIN BURST SCALES WITH THE BLOW, AS A SHARE OF MAX HP — not a flat
+// energy number, so the same bite reads the same size whether the bar is a
+// fresh 100 or grown by first-taste bonuses. _flashPlayerHit throws the
+// 'pain' chip burst (particles.js) at a sizeMul derived from `amount /
+// maxEnergy`:
+//   under PAIN_BURST_MIN_FRAC (3%)  the hit is background noise — floor size
+//                                    (Particles.SIZE_MUL_MIN), not a visible
+//                                    reaction to something that barely
+//                                    dented the bar;
+//   at/above PAIN_BURST_MAX_FRAC    ceiling size (Particles.SIZE_MUL_MAX) —
+//   (10% of max HP)                 10% is a base trap bite against the
+//                                    starting 100-energy bar, so a
+//                                    trap-sized hit still lands at roughly
+//                                    the old FIXED burst size;
+//   in between                      scaled linearly across the two.
+// The 0.7/1.6 literals mirror Particles.SIZE_MUL_MIN/MAX; clampSizeMul there
 // re-clamps regardless, so drifting apart can't throw an out-of-range value.
-const PAIN_BURST_REF_DMG = 10;
-function playerHitSizeMul(amount) {
-  return (amount > 0) ? (0.7 + 0.9 * Math.min(1, amount / PAIN_BURST_REF_DMG)) : 1;
+const PAIN_BURST_MIN_FRAC = 0.03;
+const PAIN_BURST_MAX_FRAC = 0.10;
+function playerHitSizeMul(amount, maxEnergy) {
+  if (!(amount > 0) || !(maxEnergy > 0)) return 1;
+  const frac = amount / maxEnergy;
+  if (frac < PAIN_BURST_MIN_FRAC) return 0.7;
+  const t = Math.min(1, (frac - PAIN_BURST_MIN_FRAC) / (PAIN_BURST_MAX_FRAC - PAIN_BURST_MIN_FRAC));
+  return 0.7 + 0.9 * t;
 }
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
@@ -6929,10 +6942,11 @@ class MapScene extends Phaser.Scene {
   //                carries it on every renderer;
   //   the HAPTIC   a tick, if the platform has one;
   //   the BURST    the 'pain' chip burst off the body (particles.js), sized
-  //                to the blow via playerHitSizeMul(amount) — every caller
-  //                passes the actual energy the hit just cost, so a slime's
-  //                nip and a trap's bite are the same effect at different
-  //                force, never two different presets. `amount` is optional
+  //                to the blow AS A SHARE OF MAX HP via
+  //                playerHitSizeMul(amount, maxEnergy) — every caller passes
+  //                the actual energy the hit just cost, so a scratch under 3%
+  //                of the bar barely shows and a trap's bite is the same
+  //                effect thrown at real force. `amount` is optional
   //                (omitted → sizeMul 1, the old fixed size) so a caller that
   //                cannot cheaply compute it still gets the flash + haptic.
   // _painFlash (the trap bite) calls this FIRST, then adds its own
@@ -6944,8 +6958,9 @@ class MapScene extends Phaser.Scene {
     if (typeof Particles !== 'undefined' && this.playerScreen) {
       const ps = this.playerScreen();
       if (ps && isFinite(ps.x) && isFinite(ps.y)) {
+        const maxEnergy = this.getMaxEnergy ? this.getMaxEnergy() : undefined;
         Particles.burst(this, 'pain', ps.x, ps.y + this.playerFeetNudgeY,
-          { sizeMul: playerHitSizeMul(amount) });
+          { sizeMul: playerHitSizeMul(amount, maxEnergy) });
       }
     }
   }

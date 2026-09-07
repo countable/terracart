@@ -42,27 +42,40 @@ test('hit flash: it is a flinch, not the throttled pop', () => {
 test('hit flash: the pain burst scales with the blow, and lives in ONE place', () => {
   const m = app.match(/\n  _flashPlayerHit\(amount\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_flashPlayerHit exists');
-  assert.truthy(/Particles\.burst\(this, 'pain', ps\.x, ps\.y \+ this\.playerFeetNudgeY,\s*\n\s*\{ sizeMul: playerHitSizeMul\(amount\) \}\);/.test(m[1]),
-    'every blow throws the pain burst, sized to what it actually cost');
+  assert.truthy(/const maxEnergy = this\.getMaxEnergy \? this\.getMaxEnergy\(\) : undefined;/.test(m[1]),
+    'the size is read against the player\'s OWN max HP, not a flat energy number');
+  assert.truthy(/Particles\.burst\(this, 'pain', ps\.x, ps\.y \+ this\.playerFeetNudgeY,\s*\n\s*\{ sizeMul: playerHitSizeMul\(amount, maxEnergy\) \}\);/.test(m[1]),
+    'every blow throws the pain burst, sized to what it actually cost as a share of max HP');
   // _painFlash calls _flashPlayerHit FIRST and must not ALSO burst — a trap
   // would otherwise throw the chip puff twice.
   const pain = app.match(/\n  _painFlash\(amount\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(pain, '_painFlash exists');
   assert.falsy(/Particles\.burst/.test(pain[1]), 'the burst lives in _flashPlayerHit only, not duplicated here');
-  // The scaling formula itself: a small hit reads small, a trap-sized hit
-  // (PAIN_BURST_REF_DMG) reads at the top of the range, and it never goes
-  // out of range at either end.
-  const fn = app.match(/function playerHitSizeMul\(amount\) \{([\s\S]*?)\n\}/);
+  // The scaling formula itself, lifted and run for real: under 3% of max HP
+  // is background noise (floor size), 10%+ maxes out, and it never goes out
+  // of range at either end.
+  const fn = app.match(/function playerHitSizeMul\(amount, maxEnergy\) \{([\s\S]*?)\n\}/);
   assert.truthy(fn, 'playerHitSizeMul exists');
-  const ref = Number((app.match(/const PAIN_BURST_REF_DMG = (\d+);/) || [])[1]);
-  assert.truthy(ref > 0, 'PAIN_BURST_REF_DMG is a plain number');
+  const minFrac = Number((app.match(/const PAIN_BURST_MIN_FRAC = ([\d.]+);/) || [])[1]);
+  const maxFrac = Number((app.match(/const PAIN_BURST_MAX_FRAC = ([\d.]+);/) || [])[1]);
+  assert.eq(minFrac, 0.03, 'a hit under 3% of max HP is the floor');
+  assert.truthy(maxFrac > minFrac, 'the ceiling fraction is above the floor');
   /* eslint-disable no-new-func */
-  const playerHitSizeMul = new Function('amount', `const PAIN_BURST_REF_DMG = ${ref};\n${fn[1]}`);
-  assert.eq(playerHitSizeMul(0), 1, 'no loss → the plain preset (never asked to burst, but never NaN either)');
-  assert.eq(playerHitSizeMul(ref), 1.6, 'a trap-sized bite reaches the ceiling');
-  assert.eq(playerHitSizeMul(ref * 10), 1.6, 'and never overshoots it');
-  assert.truthy(playerHitSizeMul(1) > 0.7 && playerHitSizeMul(1) < playerHitSizeMul(4),
-    'a 1-energy nick reads smaller than a 4-energy one');
+  const playerHitSizeMul = new Function('amount', 'maxEnergy',
+    `const PAIN_BURST_MIN_FRAC = ${minFrac}, PAIN_BURST_MAX_FRAC = ${maxFrac};\n${fn[1]}`);
+  const MAX = 100;
+  assert.eq(playerHitSizeMul(0, MAX), 1, 'no loss → the plain preset (never asked to burst, but never NaN either)');
+  assert.eq(playerHitSizeMul(5, 0), 1, 'no known max HP → the plain preset rather than a divide-by-zero');
+  assert.eq(playerHitSizeMul(2, MAX), 0.7, 'a 2-HP hit (under 3% of 100) is the floor size');
+  assert.eq(playerHitSizeMul(2.9, MAX), 0.7, 'and so is anything else still under the 3% line');
+  assert.eq(playerHitSizeMul(10, MAX), 1.6, 'a 10% hit reaches the ceiling');
+  assert.eq(playerHitSizeMul(50, MAX), 1.6, 'and never overshoots it');
+  assert.truthy(playerHitSizeMul(4, MAX) > 0.7 && playerHitSizeMul(4, MAX) < playerHitSizeMul(8, MAX),
+    'between the floor and the ceiling, a bigger hit reads bigger');
+  // The SAME absolute hit reads smaller against a bigger bar (first-taste
+  // bonuses) — it is a share of max HP, not a flat energy count.
+  assert.truthy(playerHitSizeMul(4, 100) > playerHitSizeMul(4, 400),
+    'a 4-energy hit matters less on a grown bar than on the starting one');
 });
 
 test('hit flash: the aura shows it on BOTH channels, and it wins over the states', () => {
