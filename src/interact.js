@@ -412,6 +412,13 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, extraGuard, place, flashMsg 
   return true;
 }
 
+// Catch wheel speed-up over the shared tool ladder (toolDurationMs) — 25%
+// quicker to land chicken/cow/cat/dog/rabbit/butterfly than the bare net
+// tier would otherwise take. Scoped to the catch wheel only: hunting
+// (crow/deer) and every other toolDurationMs user (mining, tilling, combat)
+// are unaffected.
+const CATCH_SPEED_MUL = 0.75;
+
 const TAP_HANDLERS = [
   // -1) Work-progress guard — any tap while a chop/break is in progress cancels it.
   // Ignore taps in the first 150ms after start so the same tap that LAUNCHED
@@ -842,7 +849,7 @@ const TAP_HANDLERS = [
     // the wheel by tier; bare hands take the tier-0 (9s) time — long enough
     // that a slow target usually slips out of reach and escapes. Butterflies
     // catch bare-handed too — no tool gate.
-    let catchMs = toolDurationMs(save.relics, 'bugnet');
+    let catchMs = toolDurationMs(save.relics, 'bugnet') * CATCH_SPEED_MUL;
     // Rare shiny fauna have DOUBLE HP — the catch wheel runs twice as long, so
     // a shiny animal (which also flees at 2× speed) is much harder to net: it
     // has more time to slip out of reach and escape. Plain kinds are unchanged.

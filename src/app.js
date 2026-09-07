@@ -4016,6 +4016,9 @@ class MapScene extends Phaser.Scene {
       // Hard mode doubles the surface slimes (Difficulty.slimeCountMul); the
       // extra ids just count on past the easy ones, so seeds still reproduce.
       if (sp === 'slime') n = Math.round(n * Difficulty.get().slimeCountMul);
+      // Easy mode halves the wild crow count (Difficulty.crowCountMul); the
+      // dropped ids just count off short, so seeds still reproduce.
+      if (sp === 'crow') n = Math.round(n * Difficulty.get().crowCountMul);
       const primary  = new Set(cfg.primary);
       const fallback = new Set(cfg.fallback || cfg.primary);
       const primN = Math.round(n * (cfg.share ?? 0.8));
