@@ -165,3 +165,122 @@ test('path cells: nothing off the line becomes path', () => {
   }
 });
 })();
+
+// ── The short-path-run floor ──────────────────────────────────────────────
+// A run of fewer than WorldGen.MIN_PATH_RUN_CELLS cobble cells is a stub, not
+// a path: OSM leaves them everywhere (driveway aprons, crossings, the tail of
+// a way) and each one used to land on the map as a lone pebble in a field.
+// The rasterizer dissolves the whole run back to the biome it covered, so the
+// stones go with the terrain and the renderer needs no rule of its own.
+(function () {
+const T = WorldGen.T;
+const CPE = 64;
+const TILE_EDGE_M = CPE * 7;
+const EXTENT = 4096;
+const CELL_MVT = EXTENT / CPE;
+const cellToMvt = (c) => c * CELL_MVT + CELL_MVT / 2;
+const line = (cells) => cells.map(([cx, cy]) => ({ x: cellToMvt(cx), y: cellToMvt(cy) }));
+const whole = () => line([[0, 0], [CPE - 1, 0], [CPE - 1, CPE - 1], [0, CPE - 1]]);
+
+// One park, one footpath crossing exactly `len` cells, well inside the tile so
+// the edge exemption doesn't apply. Cell (20,20) is its first cell. Drawn from
+// cell BOUNDARY to cell boundary: a way that stops at a cell's centre only
+// half-crosses it, which pathCross rejects (see the unit tests above), so a
+// centre-to-centre line of n points is an (n-2)-cell path.
+function runOf(len) {
+  const y = 20 * CELL_MVT + CELL_MVT / 2;
+  return WorldGen.rasterizeTile([
+    { name: 'landuse', features: [
+      { type: 3, tags: { class: 'park' }, geom: [whole()] },
+    ] },
+    { name: 'transportation', features: [
+      { type: 2, tags: { class: 'path' },
+        geom: [[{ x: 20 * CELL_MVT, y }, { x: (20 + len) * CELL_MVT, y }]] },
+    ] },
+  ], CPE, 0, 0, TILE_EDGE_M);
+}
+const pathCells = (e) => {
+  let n = 0;
+  for (let i = 0; i < e.grid.length; i++) if (e.grid[i] === T.PATH) n++;
+  return n;
+};
+
+test('short paths: the floor is 15 cobble cells', () => {
+  // Pinned as a literal so a retune is a deliberate edit here. 15 cells of
+  // WorldGen.CELL_M is a little over 100 m — a path you could actually walk.
+  assert.eq(WorldGen.MIN_PATH_RUN_CELLS, 15, 'MIN_PATH_RUN_CELLS');
+  assert.inRange(WorldGen.MIN_PATH_RUN_CELLS * WorldGen.CELL_M, 90, 120,
+    'about 100 m of path');
+});
+
+test('short paths: a run one cell under the floor is dissolved', () => {
+  const under = WorldGen.MIN_PATH_RUN_CELLS - 1;
+  const e = runOf(under);
+  assert.eq(pathCells(e), 0, 'no path cell survives the stub');
+  for (let cx = 20; cx < 20 + under; cx++) {
+    assert.eq(e.grid[20 * CPE + cx], T.PARK, `cell ${cx} is parkland again`);
+    assert.falsy(e.pathUnder[`${cx}_20`], 'and its stale under record is gone');
+  }
+});
+
+test('short paths: a run exactly at the floor is a path and keeps its cobbles', () => {
+  const len = WorldGen.MIN_PATH_RUN_CELLS;
+  const e = runOf(len);
+  assert.eq(pathCells(e), len, 'exactly the cells the way crosses');
+  for (let cx = 20; cx < 20 + len; cx++) {
+    assert.eq(e.grid[20 * CPE + cx], T.PATH, `cell ${cx} is path`);
+  }
+});
+
+test('short paths: a dissolved stub is no longer a cobble at all', () => {
+  // The prune runs before anything downstream reads the grid, and the grid is
+  // what says "there is a stone here" (WorldGen.isCobbleTerrain) now that the
+  // per-path naming pass is gone — so a stub lights nothing and counts nothing.
+  const e = runOf(3);
+  let cobbles = 0;
+  for (let i = 0; i < e.grid.length; i++) {
+    if (WorldGen.isCobbleTerrain(e.grid[i])) cobbles++;
+  }
+  assert.eq(cobbles, 0, 'no cobble cell survives');
+});
+
+test('short paths: a stub joined to a longer path survives on the run', () => {
+  // The rule counts the RUN, not the way: a 2-cell spur hanging off a real
+  // footpath is part of that path and stays.
+  const e = WorldGen.rasterizeTile([
+    { name: 'landuse', features: [
+      { type: 3, tags: { class: 'park' }, geom: [whole()] },
+    ] },
+    { name: 'transportation', features: [
+      { type: 2, tags: { class: 'path' },    geom: [line([[10, 30], [50, 30]])] },
+      { type: 2, tags: { class: 'footway' }, geom: [line([[30, 30], [30, 32]])] },
+    ] },
+  ], CPE, 0, 0, TILE_EDGE_M);
+  assert.eq(e.grid[31 * CPE + 30], T.PATH, 'the spur is still path');
+  assert.eq(e.grid[30 * CPE + 30], T.PATH, 'and so is the path it hangs off');
+});
+
+test('short paths: a run reaching the tile edge is exempt', () => {
+  // It carries on into the neighbour tile, which rasterizes alone and counts
+  // only its own cells — judging this piece would chop a long footpath to
+  // nothing at every seam.
+  const e = WorldGen.rasterizeTile([
+    { name: 'landuse', features: [
+      { type: 3, tags: { class: 'park' }, geom: [whole()] },
+    ] },
+    { name: 'transportation', features: [
+      // Three cells in from the left edge: below the floor, but it leaves the
+      // tile, so the way is longer than what this tile can see.
+      { type: 2, tags: { class: 'path' }, geom: [line([[-4, 40], [2, 40]])] },
+    ] },
+  ], CPE, 0, 0, TILE_EDGE_M);
+  let kept = 0;
+  for (let cx = 0; cx <= 3; cx++) if (e.grid[40 * CPE + cx] === T.PATH) kept++;
+  assert.gt(kept, 0, 'the edge run is kept');
+});
+
+test('short paths: a long path is untouched by the prune', () => {
+  const e = runOf(30);
+  assert.eq(pathCells(e), 30, 'every cell of a real path survives');
+});
+})();
