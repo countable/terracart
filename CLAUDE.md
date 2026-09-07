@@ -541,17 +541,64 @@
   **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js` pins
   both gates as source text and shows the ungated rest out-earning the till.
 
-- **A trap is generated, never stored — until it is sprung.** Where the traps
-  are (`src/traps.js`) is a pure function of the tile's coordinates, and its
-  depth underground, through `WorldGen.makeRng` — like the X-mark scatter and
-  the cave rocks. The ONLY thing that ever reaches the save is
-  `save.sprungTraps`: the ids of the ones the player has stepped on, which is
-  what keeps a discovered trap discovered across a reload, a tile eviction and
-  a rebuild. Each spawner seeds its OWN stream rather than drawing from the
-  caller's, because `spawnInTile` and `spawnCaveCreatures` are long chains off
-  one rng and taking numbers out of them would re-roll every world seed
-  downstream. Surface traps go ON THE VERGE, never on the road: roadside-ness
-  is `Traps.isRoadside` over **`entry.roadMask`** and the seat is cleared by
+- **The world is GENERATED; the save is only what you CHANGED.** Every
+  interactable outside the starting area is a pure function of WHERE it is.
+  `WorldGen.makeRng` is a mulberry32 seeded from integers, and the integers are
+  the tile's coordinates (`HASH_MUL_X` / `HASH_MUL_Y`), its depth underground,
+  and a per-stream salt constant — the traps, the X-mark scatter, the cave
+  rocks and flora, the cave monsters and their coins, the chest tiers, the POI
+  loot, the wild plants, the lairs, the rock clusters. There is **no global
+  world seed** and no stored object list, and that buys three things at once: a
+  tile evicted from the cache and rasterized again lays the identical world, a
+  tile REBUILT under the player (see the rebuild rule below) lays it again
+  unchanged, and two players standing on the same real street see the same one.
+  So a new interactable belongs in exactly one of three buckets, and saying
+  which is the whole design decision:
+    1. **GENERATED** — where it is, what tier it is, what it drops. NOTHING
+       reaches the save. This is the default and it should stay the default:
+       storage is what makes a world diverge from itself.
+    2. **THE DELTA** — what the player DID to a generated thing, as a list of
+       exceptions and never a copy of the thing: `caught`, `chopped`, `picked`,
+       `opened`, `sprungTraps`, `disarmedTraps`, `brokenRocks`,
+       `foundTreasures`, `dugWalls`, `tilled`. The generator still lays the
+       thing every time; the list only says "…except that one".
+    3. **PLACED** — things that exist because somebody PUT them there, which no
+       coordinate can re-derive, so they are stored in full with their
+       positions: `planted`, `fruittrees`, `placedRocks`, `scarecrows`, `fires`,
+       `released`, and the starting area the game lays down once
+       (`starterTrailer` / `starterShopId`, `starterCratesAt`, `starterPlotAt`,
+       `starterPondAt`).
+  **Bucket 2 rests entirely on the ID**, so an id must be derived from POSITION
+  — never from a counter, an array index or `Date.now()`. A re-rasterized tile
+  has to mint the identical id or the delta stops applying and the "dead" thing
+  walks back in. The pest crow is the one exception and it proves the rule: its
+  id comes off `Date.now() + Math.random()` and is never minted again, which is
+  why `wanderCreatures` PRUNES its marker when the tile leaves the cache
+  instead of keeping it forever like every other id in `save.caught`.
+  **The SEAT is location-keyed; only the CONTENTS may be salted.** A per-save
+  salt (`save.relicSalt`) is mixed into what the starter chest HOLDS and what
+  the quest board offers, so a reset rerolls the prize — while the seat stream
+  stays purely positional, so the chest sits where it always sat and a rebuild
+  mid-save reproduces both. Salt the roll, never the position.
+  **And each spawner seeds its OWN stream** rather than drawing from the
+  caller's: `spawnInTile` and `spawnCaveCreatures` are long chains off one rng
+  (fauna, then treasure, then the path bonus…), so taking numbers out of one
+  would re-roll every world seed downstream of it. A separate stream costs
+  nothing and leaves every existing world exactly as it was.
+  **Audit it:** the determinism pins — `test/node/traps.test.js` ('a cave level
+  is deterministic per (tile, depth)', 'same ids, in the same order — a rebuilt
+  or re-rasterized tile is identical'), `test/node/cave_coins.test.js` ('the
+  pass is deterministic per tile and depth') and `test/node/beach_treasure.test.js`
+  ('same tile, same seed, same marks').
+
+  **A trap is the sharpest instance: generated, never stored — until it is
+  sprung.** Where the traps are (`src/traps.js`) is that pure function of tile
+  coordinates and depth; the only things that ever reach the save are
+  `save.sprungTraps` (the ids of the ones stepped on, which keeps a discovered
+  trap discovered across a reload, an eviction and a rebuild) and
+  `save.disarmedTraps` (spent with a Trap Disarm Kit — a removed trap stays
+  removed). Surface traps go ON THE VERGE, never on the road: roadside-ness is
+  `Traps.isRoadside` over **`entry.roadMask`** and the seat is cleared by
   `WorldGen.isSpawnCell` with the tile's own `_spawnOpts` — the road rule
   above, not a copy of it. Cave traps sit around the up-staircases (the
   monsters' and coins' anchors) and never under an object sprite, since down
