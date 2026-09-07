@@ -768,6 +768,45 @@
   // texture — the same shape the fog pays per cell crossing.
   const KIND_STOPS = 8;
 
+  // ── The lightmap's own clock, and the still-frame gate ─────────────────
+  // Until Sep 2026 draw() repainted the whole 352px canvas and re-uploaded it
+  // to the GPU on EVERY step — the one unconditional texture upload in the
+  // loop — while the picture it painted was, on most steps, the one it had
+  // painted the step before: a player standing at a plot moves nothing the
+  // lightmap reads. So draw() keys each step on every input the paint depends
+  // on (the feet point, the anchor cell and its fraction, the reach, the whole
+  // profile, and each light's own fields — frameKey) and paints only when the
+  // key moves. What ANIMATES — a fire's flicker, a POI's breath, a blast, the
+  // low-energy heartbeat in the profile — reads the clock through lightClock,
+  // which steps LIGHT_TICK_MS at a time, so an animated view repaints at
+  // 1000 / LIGHT_TICK_MS Hz rather than the display's rate, and a still one
+  // not at all. Ten steps a second is past what a flicker can be told apart
+  // at, and the pulse's period is seconds; the ramp and the plateau never
+  // animate. The gate is the same shape as the fog's and the road canvas's
+  // (rebuild on a key, else reuse), pointed at the one layer that lacked it.
+  const LIGHT_TICK_MS = 100;
+  function lightClock(t) { return Math.floor(t / LIGHT_TICK_MS) * LIGHT_TICK_MS; }
+  // Does anything in this step's list move on its own clock? A row's flicker
+  // or pulse, or an entry-level alpha / scale (a blast drives both).
+  function animates(scene) {
+    for (const L of scene._lights) {
+      const row = KINDS[L.kind];
+      if ((row && (row.flicker || row.pulse)) || L.a != null || L.s != null) return true;
+    }
+    return false;
+  }
+  // Every number the paint reads, in one string. `rp` / `pc` are null when no
+  // plateau is drawn (they only exist to place it); the clock is folded in
+  // only when something animates, so a still fire-less view has no time term.
+  function frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now) {
+    let k = `${ps.x},${ps.y},${ox},${oy},${r0},${rMax},${reachM}`
+      + `|${prof.depth},${prof.dimA},${prof.dimColour},${prof.farA},${prof.ambient},${prof.edge},${prof.lit},${prof.litColour},${prof.night}`;
+    if (rp) k += `|${rp.cellIX},${rp.cellIY},${pc.tx},${pc.ty},${pc.cx},${pc.cy}`;
+    if (animates(scene)) k += `|t${now}`;
+    for (const L of scene._lights) k += `|${L.kind},${L.id},${L.dx},${L.dy},${L.r},${L.colour},${L.a},${L.s}`;
+    return k;
+  }
+
   function rgba(colour, a) {
     return `rgba(${(colour >> 16) & 255},${(colour >> 8) & 255},${colour & 255},${clamp01(a).toFixed(4)})`;
   }
@@ -957,14 +996,18 @@
   // feet-on-the-fix point, the plateau over every reach cell, then every
   // collected light at its anchored screen position. `ax, ay` are the camera
   // anchor in world metres, `halfM` the sprite cull the collector pads.
+  //
+  // Returns true when it painted, false when the still-frame gate reused the
+  // last upload. Times itself for the load profile: scene._boot_lightMs is
+  // what drawObjects' own tick subtracts, since this runs inside that pass.
   function draw(scene, ax, ay, halfM) {
     const tex = scene.lightTex;
-    if (!tex || typeof document === 'undefined') return;
+    if (!tex || typeof document === 'undefined') return false;
     if (!scene._lights) scene._lights = [];
     collectFires(scene, ax, ay, halfM);
     collectLamps(scene, ax, ay, halfM);
     collectPlayer(scene, ax, ay, halfM);
-    const now = Date.now();
+    const now = lightClock(Date.now());
     // The live blasts, converted against THIS frame's anchor (they are stored
     // in world metres) and pruned as they burn out.
     collectBlasts(scene, ax, ay, halfM, now);
@@ -978,6 +1021,21 @@
     const player = ensurePlayerCookie(scene, prof, r0, rMax);
     const ps = scene.playerScreen ? scene.playerScreen() : { x: scene.viewCenterX, y: scene.viewCenterY };
     const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
+    // The plateau's placement, hoisted out of its branch below so the gate
+    // can key on it: the reach cell and the anchor cell + fraction.
+    const plateau = reachM > 0 && prof.lit > prof.edge && typeof playerReachCell === 'function'
+      && typeof viewAnchorCell === 'function';
+    const rp = plateau ? playerReachCell(scene) : null;
+    const pc = plateau ? viewAnchorCell(scene) : null;
+    const B = (typeof window !== 'undefined') ? window.__boot : null;
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now);
+    if (key === tex.__lightKey) {
+      scene._boot_lightMs = 0;
+      if (B) B.count('lightmap painted', 0);
+      return false;
+    }
+    tex.__lightKey = key;
+    const t0 = B ? performance.now() : 0;
     const ctx = tex.context;
     const W = tex.width, H = tex.height;
 
@@ -997,11 +1055,8 @@
     // hoists its own (reachRadiusM and playerReachCell are constant for the
     // frame; 169 calls of the allocating helper is churn for nothing). This
     // edge is the affordance now, so it has to be exactly that test.
-    if (reachM > 0 && prof.lit > prof.edge && typeof playerReachCell === 'function'
-        && typeof viewAnchorCell === 'function') {
+    if (plateau) {
       const reachM2 = reachM * reachM;
-      const rp = playerReachCell(scene);
-      const pc = viewAnchorCell(scene);
       const fracX = pc.cx - Math.floor(pc.cx);
       const fracY = pc.cy - Math.floor(pc.cy);
       const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
@@ -1056,6 +1111,13 @@
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     tex.refresh();
+    if (B) {
+      const dt = performance.now() - t0;
+      scene._boot_lightMs = dt;
+      B.tick('lighting', dt);
+      B.count('lightmap painted', 1);
+    }
+    return true;
   }
 
   window.Lighting = {
@@ -1069,5 +1131,6 @@
     collectPlayer, collectLamps,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, BLAST_MAX, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
+    LIGHT_TICK_MS, lightClock, animates, frameKey,
   };
 })(window);

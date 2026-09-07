@@ -585,16 +585,35 @@
   const LAMP_STONE_FRAC = 0.16;    // the stone's radius, as a fraction of the square
   const LAMP_CORE_A = 0.85;        // the hot core's alpha at the centre
   const LAMP_HALO_A = 0.42;        // …and the halo's, just outside the stone
-  const LAMP_RIM_A = 0.35;         // the stone's dark rim: what makes it a STONE by day
+  const LAMP_RIM_A = 0.55;         // the stone's dark rim: what makes it a STONE by day
+  // THE STONE HAS HEIGHT. Every sprite in the game is drawn orthographic and
+  // lit from the top-left — the cobble sheet the unlit lamp wears has a pale
+  // top, a dark outline and a thicker shadowed underside — and a flat lit
+  // disc beside them read as a decal on the road rather than a sett laid in
+  // it. So the stone is three parts, seated the way textures.js seats its
+  // pebbles and pots: a ground shadow thrown down-right, a dark SIDE band
+  // hanging LAMP_SIDE_FRAC of the radius below the top face (the thickness
+  // you see over the near edge), and the top face itself, its hot core off
+  // up-left of centre so the far rim falls toward the ink. The TOP FACE stays
+  // centred on the square, because lighting.js's cookie sits on the same
+  // point and the light has to come out of the stone, not from beside it.
+  const LAMP_SIDE_FRAC = 0.45;     // the side band's drop, as a fraction of the radius
+  const LAMP_SHADOW_A = 0.34;      // the ground shadow's alpha
+  const LAMP_CORE_OFF = 0.30;      // the hot core's up-left offset, as a fraction of r
   const LAMP_INK = (typeof UI_LAMP_GLOW === 'string') ? UI_LAMP_GLOW : '#9a8cff';
 
   function paintLampStone(cx, size) {
     const S = size || LAMP_TEX_PX;
     const c = S / 2;
     const r = S * LAMP_STONE_FRAC;
+    const drop = r * LAMP_SIDE_FRAC;
     const ink = LAMP_INK;
     const rgb = [1, 3, 5].map((i) => parseInt(ink.slice(i, i + 2), 16));
     const a = (al) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${al})`;
+    // The side band's and the rim's own colour: the ink in shadow, so the
+    // stone's underside is the same violet the top face fades into, darker.
+    const dark = (al) => `rgba(${rgb[0] >> 1},${rgb[1] >> 1},${(rgb[2] * 0.62) | 0},${al})`;
+    const rimW = Math.max(1, S * 0.02);
     // The halo: brightest just outside the stone, gone by the edge of the
     // square. Quadratic falloff, the same shape lighting.js bakes its cookies
     // with, so the painted glow and the light over it agree.
@@ -605,18 +624,39 @@
     }
     cx.fillStyle = g;
     cx.fillRect(0, 0, S, S);
-    // The stone: the sett itself, near-white at its middle and the street's
-    // own ink at its edge, with a dark rim so it still reads as a laid stone
-    // in daylight rather than as a smudge of light.
-    const core = cx.createRadialGradient(c, c, 0, c, c, r);
+    // The ground shadow: thrown down-right of the stone's footprint, the
+    // side every sprite here shadows on. Squashed flat, because it lies on
+    // the road rather than standing on it.
+    cx.fillStyle = `rgba(28,24,20,${LAMP_SHADOW_A})`;
+    cx.beginPath();
+    cx.ellipse(c + drop * 0.6, c + drop + rimW, r * 1.05, r * 0.72, 0, 0, Math.PI * 2);
+    cx.fill();
+    // The side: the stone's body, one radius wide, dropped below the top
+    // face so the band between the two silhouettes is the thickness you see.
+    // Filled AND rim-stroked, so the outline runs round the whole stone.
+    cx.fillStyle = dark(0.92);
+    cx.beginPath(); cx.arc(c, c + drop, r, 0, Math.PI * 2); cx.fill();
+    cx.lineWidth = rimW;
+    cx.strokeStyle = `rgba(28,24,20,${LAMP_RIM_A})`;
+    cx.beginPath(); cx.arc(c, c + drop, r, 0, Math.PI * 2); cx.stroke();
+    // The top face: the sett itself, near-white where the light sits — off
+    // up-left of centre, so the face is LIT rather than merely bright — and
+    // the street's own ink at its far rim, with a dark outline so it still
+    // reads as a laid stone in daylight rather than as a smudge of light.
+    const hx = c - r * LAMP_CORE_OFF, hy = c - r * LAMP_CORE_OFF;
+    const core = cx.createRadialGradient(hx, hy, 0, c, c, r);
     core.addColorStop(0, `rgba(255,253,247,${LAMP_CORE_A})`);
     core.addColorStop(0.55, a(0.92));
     core.addColorStop(1, a(0.78));
     cx.fillStyle = core;
     cx.beginPath(); cx.arc(c, c, r, 0, Math.PI * 2); cx.fill();
-    cx.lineWidth = Math.max(1, S * 0.02);
     cx.strokeStyle = `rgba(28,24,20,${LAMP_RIM_A})`;
     cx.beginPath(); cx.arc(c, c, r, 0, Math.PI * 2); cx.stroke();
+    // The catchlight: a short pale arc along the top-left of the rim, the
+    // highlight sliver the cave boulders and the pot carry on the same edge.
+    cx.lineWidth = rimW;
+    cx.strokeStyle = 'rgba(255,255,255,0.55)';
+    cx.beginPath(); cx.arc(c, c, r - rimW * 1.5, Math.PI * 1.05, Math.PI * 1.55); cx.stroke();
   }
 
   // The kerb: a hairline pale line along the outer edge of a restored band —
