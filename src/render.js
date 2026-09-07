@@ -2148,15 +2148,25 @@ Render.drawObjects = function drawObjects(scene) {
   // Counted alongside the loop below, not derived after it: "how much does
   // this walk touch" is the number the case for a spatial index needs, and
   // counting inline costs one increment per item instead of a second pass.
-  // _boot_scanned is every object/creature/wildplant iterated across the
-  // 3×3 tiles; _boot_kept is how many survived culling into the draw lists.
+  // _boot_scanned is every object/creature/wildplant/trap the walk touches
+  // across the 3×3 tiles; _boot_kept is how many survived culling into the
+  // draw lists. Objects and wildplants come off WorldGen.forEachItemInBox
+  // (the per-tile chunk index) rather than the whole array, so "scanned" is
+  // the chunks' contents — a few hundred in a dense town, where the flat
+  // walk touched every one of ~37,000 per step.
+  // The query box is the sprite cull plus the widest thing offered BEFORE
+  // that cull: a house's art pad, or the light a building / torch / mushroom
+  // throws past its cell (offered at halfM + its own radius, see below), so
+  // every item the flat walk could have kept is in a chunk the box touches.
+  const qM = halfM + Math.max(HOUSE_PAD_M, LIGHTS ? LIGHTS.objectLightPadCells() * scene.cellM : 0);
+  const qx0 = pWorldX - qM, qx1 = pWorldX + qM, qy0 = pWorldY - qM, qy1 = pWorldY + qM;
   let _boot_scanned = 0, _boot_kept = 0;
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
       if (!entry) continue;   // tile not loaded yet
       if (entry.objects) {
-        for (const o of entry.objects) {
+        WorldGen.forEachItemInBox(entry, 'objects', qx0, qy0, qx1, qy1, (o) => {
           _boot_scanned++;
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           // Houses are culled with extra margin. Every other object's art is
@@ -2173,8 +2183,8 @@ Render.drawObjects = function drawObjects(scene) {
           // before the sprite cull, with its own radius as the margin, so a
           // lantern a cell off-screen still lights the edge it stands past.
           if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);
-          if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
-          if (o.kind === 'chest' && isDupChest(o)) continue;
+          if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;
+          if (o.kind === 'chest' && isDupChest(o)) return;
           // A live POI is a light too — offered AFTER the dedup (a per-frame
           // first-seen-wins on the cell, so it must see the copies in the
           // order the sprite pass does) and inside the sprite cull, which its
@@ -2188,7 +2198,7 @@ Render.drawObjects = function drawObjects(scene) {
           const wide = Math.abs(dx) > halfM || Math.abs(dy) > halfM;
           objList.push({ o, dx, dy, wide });
           _boot_kept++;
-        }
+        });
       }
       if (entry.creatures) {
         for (const c of entry.creatures) {
@@ -2202,16 +2212,16 @@ Render.drawObjects = function drawObjects(scene) {
       }
       // Wild plants render as planted crops at the mature stage (col 4).
       if (entry.wildplants) {
-        for (const wp of entry.wildplants) {
+        WorldGen.forEachItemInBox(entry, 'wildplants', qx0, qy0, qx1, qy1, (wp) => {
           _boot_scanned++;
-          if (pickedSet.has(wp.id)) continue;
+          if (pickedSet.has(wp.id)) return;
           const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
           // A mushroom is a (faint) light as well as a sprite — offered before
           // the cull like a building, with its own radius as the margin. The
           // wildplant goes as itself, and WHICH plants glow is the one table
           // (items.js WILDPLANT_RULES) Lighting.sourceKind resolves it with.
           if (LIGHTS && wildplantLight(wp.crop)) LIGHTS.consider(scene, wp, dx, dy, halfM);
-          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
           // _biome is the terrain the rasterizer stamped on the plant (the flora
           // tint below reads it); _ix/_iy only survive on the wildplants the
           // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
@@ -2219,7 +2229,7 @@ Render.drawObjects = function drawObjects(scene) {
           plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id,
                                   _cave: wp._cave, _biome: wp._biome, _ix: wp._ix, _iy: wp._iy }, dx, dy });
           _boot_kept++;
-        }
+        });
       }
       // Traps (src/traps.js) — flat marks on the ground, so they take the same
       // 3×3 scan and the same cull as everything else, and go to their own

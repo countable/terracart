@@ -492,7 +492,9 @@ test('lighting: the halo ping is gone — the POI light replaced it', () => {
   assert.truthy(/if \(LIGHTS && o\.kind === 'chest' && !o\.crate && !openedSet\.has\(o\.id\)\) LIGHTS\.consider\(scene, o, dx, dy, halfM\);/.test(body),
     'live POIs are offered to the lightmap from the tile scan, opened ones never');
   const offer = body.indexOf("if (LIGHTS && o.kind === 'chest'");
-  const dedup = body.indexOf("if (o.kind === 'chest' && isDupChest(o)) continue;");
+  // (`return`, not `continue`: the object walk is forEachItemInBox's callback
+  // since the chunk index — see chunk_index.test.js.)
+  const dedup = body.indexOf("if (o.kind === 'chest' && isDupChest(o)) return;");
   assert.truthy(dedup > 0 && offer > dedup, 'offered AFTER the per-frame chest dedup, so the surviving copy is the one that glows');
 });
 
@@ -629,7 +631,7 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // kind is offered to the lightmap by joining that group rather than by being
   // remembered here.
   const offer = body.indexOf("if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);");
-  const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;');
+  const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   // The mushroom is a wildplant, scanned in its own loop: offered as itself,
   // before that loop's cull, so its little glow can still show from a cell
