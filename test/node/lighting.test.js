@@ -52,12 +52,28 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
     const dimA = Render.reachDimAlpha(s);
     // The floor is where the old wash + falloff landed at the corner…
     near(p.farA, 1 - (1 - dimA) * (1 - Lighting.FALLOFF_A), 1e-12, `farA @${depth}`);
-    // …scaled by the contrast knob (blended toward the daytime value on the
-    // surface, flat underground), and by nothing else…
-    const expectedK = depth > 0 ? Lighting.AMBIENT_K
-      : Lighting.AMBIENT_K + (Lighting.AMBIENT_K_DAY - Lighting.AMBIENT_K) * (1 - p.night);
-    assert.eq(p.ambient, Lighting.scaleColour(Lighting.mixToWhite(Render.reachDimColor(s), p.farA), expectedK),
-      `ambient @${depth}`);
+    // …put at a luminance: the contrast knob times its own at night (which is
+    // the scale it always was), lifted toward the stated noon level on the
+    // surface. profile() with no daylight is NOON, so that is what a bare
+    // call must land on — and underground the sun is not in it at all.
+    // (at every hour, not just the noon a bare profile() call means: the wash
+    // itself deepens and drains after dark, so the floor is derived from the
+    // profile's OWN dimColour rather than the biome's daytime one.)
+    for (const daylight of [1, 0.5, 0]) {
+      const q = Lighting.profile(s, daylight);
+      const floor0 = Lighting.mixToWhite(q.dimColour, q.farA);
+      const nightLum = Lighting.AMBIENT_K * Lighting.lum(floor0);
+      const wantLum = depth > 0 ? nightLum
+        : nightLum + (Lighting.AMBIENT_DAY_LUM - nightLum) * (1 - q.night);
+      assert.eq(q.ambient, Lighting.atLuminance(floor0, wantLum), `ambient @${depth} daylight ${daylight}`);
+    }
+    // The NIGHT end is the expression it always was: a target UNDER the
+    // floor's own luminance is reached by scaling, so restating the daylight
+    // end as a level moved nothing about the dark.
+    const floorNight = Lighting.mixToWhite(Lighting.profile(s, 0).dimColour, Lighting.profile(s, 0).farA);
+    assert.eq(Lighting.atLuminance(floorNight, Lighting.AMBIENT_K * Lighting.lum(floorNight)),
+      Lighting.scaleColour(floorNight, Lighting.AMBIENT_K),
+      `the night floor is still scaleColour(floor, AMBIENT_K) @${depth}`);
     // …the cookie just outside the plateau lifts it back to the flat wash,
     // scaled down by the player's own output knob…
     near((1 - p.farA) + p.edge / Lighting.PLAYER_OUTPUT_K, 1 - dimA, 1e-12, `edge restores the wash @${depth}`);
@@ -68,11 +84,16 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
   // old wash's (times PLAYER_OUTPUT_K), so the reach step is untouched and
   // only the dark got darker.
   assert.inRange(Lighting.AMBIENT_K, 0.3, 0.6, 'a real darkening, not black and not the old floor');
-  assert.inRange(Lighting.AMBIENT_K_DAY, 1.0, 1.6, "noon reads brighter than the raw old wash, not just 'less dark'");
+  assert.inRange(Lighting.AMBIENT_DAY_LUM, 0.2, 0.6, 'noon is daylight out there, not a second night and not no lighting at all');
   assert.inRange(Lighting.PLAYER_OUTPUT_K, 0.5, 1.0, 'a real dimming of the body light, not a blackout');
   const lum = (c) => (0.299 * ch(c, 16) + 0.587 * ch(c, 8) + 0.114 * ch(c, 0)) / 255;
   assert.lt(lum(Lighting.profile(scene(), 0).ambient), 0.10, 'a totally unlit surface cell is under 10% luminance at night');
-  near(lum(Lighting.profile(scene(), 1).ambient), 0.25, 0.03, 'a peek into the distance at noon reads about a quarter luminance');
+  // Noon lands ON the stated level, in any biome — that is the whole reason
+  // it is a level and not a multiplier on a biome-coloured floor.
+  for (const dim of [0x1a2a1e, 0x000000, 0x3a2a1e, 0x8d8272]) {
+    near(lum(Lighting.profile(scene({ _atmos: { dim } }), 1).ambient), Lighting.AMBIENT_DAY_LUM, 0.01,
+      `noon out there is AMBIENT_DAY_LUM of the art's own brightness (dim ${dim.toString(16)})`);
+  }
   assert.gt(lum(Lighting.profile(scene(), 1).ambient), lum(Lighting.profile(scene(), 0).ambient) * 3,
     'and noon out there is meaningfully brighter than night out there');
   assert.eq(Lighting.litDim(0), 0, 'the surface bubble is full daylight');

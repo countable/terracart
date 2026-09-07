@@ -543,6 +543,16 @@ function enemyBounty(kind, depth, hpMul = 1) {
 // something you turn up underground, and the surface slime in your potatoes is
 // not standing on one.
 const MONSTER_TREASURE_CHANCE = 0.10;
+
+// ── Buried X marks: how thick they lie on SAND ────────────────────────────
+// A tile's X marks are a flat scatter of 4-10 over every walkable cell plus a
+// bonus stream beside footpaths — over a 2.4 km tile that is nothing at all
+// along a shoreline, and a beach is the one ground people actually dig. So
+// sand gets its own bonus stream, capped at one mark per BEACH_X_PER_CELLS
+// cells of it so a golf bunker or a sandpit can't draw the whole roll while a
+// real beach can. Read by spawnInTile's beach block; pinned by
+// test/node/beach_treasure.test.js.
+const BEACH_X_PER_CELLS = 20;
 // An ELITE (shiny) monster is a different deal: its kill ALWAYS pays past the
 // wage — a Discovery badge the first time that kind is slain, and after that
 // a roll on the relic-biased 'treasure:elite' pool (rarity.js), never the 10%
@@ -4042,10 +4052,24 @@ class MapScene extends Phaser.Scene {
     // path cells at random and place an X on a tillable neighbour cell
     // (4-connected) so the X visually sits adjacent to the path, not on
     // it. Skipped when the tile has no path cells.
+    // ONE pass over the grid for both bonus streams below (the path's and the
+    // beach's). This is the post-rasterize path, which has no slicer at all —
+    // whatever runs here runs straight through — so a second full-grid scan
+    // for the sand would be a second 100k-cell block charged to no span the
+    // profile can name.
+    // Cells are packed as their grid INDEX (cy * N + cx), which is the index
+    // the rest of this file reads them by. It was `cx * 256 + cy` until Sep
+    // 2026: cellsPerEdge is tileEdgeM / 7, which is over 256 anywhere below
+    // ~43° latitude (349 at the equator), so every path cell in the bottom of
+    // the tile decoded to (cx + 1, cy - 256) and its "roadside" X was dropped
+    // somewhere else entirely.
     const pathCells = [];
+    const sandCells = [];
     for (let cy = 0; cy < N; cy++) {
       for (let cx = 0; cx < N; cx++) {
-        if (entry.grid[cy * N + cx] === 8 /* PATH */) pathCells.push(cx * 256 + cy);
+        const t = entry.grid[cy * N + cx];
+        if (t === 8 /* PATH */) pathCells.push(cy * N + cx);
+        else if (t === WorldGen.T.SAND) sandCells.push(cy * N + cx);
       }
     }
     if (pathCells.length > 0) {
@@ -4063,7 +4087,7 @@ class MapScene extends Phaser.Scene {
         let placed = false;
         for (let attempt = 0; attempt < 8 && !placed; attempt++) {
           const cell = pathCells[Math.floor(rng() * pathCells.length)];
-          const pcx = Math.floor(cell / 256), pcy = cell % 256;
+          const pcx = cell % N, pcy = Math.floor(cell / N);
           // Shuffle the neighbour list per attempt so a packed path
           // doesn't always seat the X on the same side.
           const [ndx, ndy] = NEIGHBOURS[Math.floor(rng() * 4)];
@@ -4077,6 +4101,35 @@ class MapScene extends Phaser.Scene {
           const wmx = tx * this.tileEdgeM + (ncx + 0.5) * this.cellM;
           const wmy = ty * this.tileEdgeM + (ncy + 0.5) * this.cellM;
           const id = `treasure_path_${tx}_${ty}_${ncx}_${ncy}`;
+          if (entry.extraTreasures.some(t => t.id === id)) continue;
+          entry.extraTreasures.push({ x: wmx, y: wmy, id });
+          placed = true;
+        }
+      }
+    }
+
+    // Bonus X marks ON SAND. A beach is the one ground people actually dig,
+    // and what the tide leaves stays in it — so a shore carries marks at its
+    // OWN rate rather than its share of the tile-wide scatter above, which
+    // over a 2.4 km tile is nothing at all along a strip of shoreline. The
+    // mark sits on the sand cell itself (unlike the path's, which goes on a
+    // neighbour: a footpath is walked, a beach is dug).
+    // Capped by the beach's own size the way the path bonus is capped by path
+    // density, so a golf bunker or a sandpit doesn't get the whole roll.
+    if (sandCells.length > 0) {
+      const BEACH_BONUS_COUNT = Math.min(
+        4 + Math.floor(rng() * 5),
+        Math.max(1, Math.floor(sandCells.length / BEACH_X_PER_CELLS))
+      );
+      for (let k = 0; k < BEACH_BONUS_COUNT; k++) {
+        let placed = false;
+        for (let attempt = 0; attempt < 8 && !placed; attempt++) {
+          const cell = sandCells[Math.floor(rng() * sandCells.length)];
+          const scx = cell % N, scy = Math.floor(cell / N);
+          if (!WorldGen.isSpawnCell(entry.grid, N, N, scx, scy, _spawnOpts)) continue;
+          const wmx = tx * this.tileEdgeM + (scx + 0.5) * this.cellM;
+          const wmy = ty * this.tileEdgeM + (scy + 0.5) * this.cellM;
+          const id = `treasure_sand_${tx}_${ty}_${scx}_${scy}`;
           if (entry.extraTreasures.some(t => t.id === id)) continue;
           entry.extraTreasures.push({ x: wmx, y: wmy, id });
           placed = true;
@@ -6667,7 +6720,12 @@ class MapScene extends Phaser.Scene {
         // spent: a staff whose nearest foe is still beyond its range keeps
         // both its energy and its cadence (left due, so it fires the instant
         // one steps in).
-        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM);
+        // The staff's range is the player's own reach plus a cell (Combat's
+        // rangeCellsFor) — the live one, so it tightens underground with the
+        // ring it is derived from. Handed to the spawn below as well, so the
+        // bolt flies exactly as far as the check that loosed it.
+        const reach = reachCells(this);
+        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM, reach);
         if (!heading) continue;
         // The staff draws energy per bolt (Combat.SHOT.staff.energyCost — the
         // price of its pierce + double punch). No energy → no bolt, SILENTLY:
@@ -6681,7 +6739,7 @@ class MapScene extends Phaser.Scene {
         // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
                                       Combat.shotDamage(relics, slot) * dmgMul,
-                                      relics[slot].tier);
+                                      relics[slot].tier, reach);
         if (shot) this._shots.push(shot);
       }
     } else {

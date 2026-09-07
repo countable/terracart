@@ -531,6 +531,16 @@
   should be darker"). Retune a look through those; `AMBIENT_K` is the
   contrast knob, and another factor added in lighting.js breaks the
   correspondence the test pins.
+  **The floor's DAY end is a level, not a scale.** `AMBIENT_DAY_LUM` (0.40) is
+  what unlit ground is WORTH at midday — 40% of the art's own brightness, read
+  off the screen — and `atLuminance` puts the derived floor there by mixing it
+  toward white. A multiplier could not say that: the floor is the biome's dim
+  colour, so one number landed at a different brightness in every biome, and
+  raising it scaled channels that overflow their byte. The NIGHT end is
+  untouched by construction — its target is `AMBIENT_K` × the floor's own
+  luminance, which `atLuminance` reaches by scaling, the exact expression it
+  always was. **State a look you can see as a luminance; keep `AMBIENT_K` for
+  the contrast between them.**
   **The surface picture is HIGH NOON, and the real sun darkens it.**
   `Lighting.daylight(scene, now)` is 0..1 from the sun's elevation at the
   player's lon/lat (`sunElevationDeg`, recomputed once a minute), a twilight

@@ -664,14 +664,30 @@ FISHING
    3s with any rod, regardless of tier (an exception to the WORK WHEEL ladder
    — tier-scaled 0.3s casts made high-tier fishing an unbounded money
    faucet).
- - per cast: a "skunk" (nothing) chance that falls with rod tier (T1 ~50% →
-   T7 20%); else a weighted catch — mostly fish (minnow → bass → trout → salmon
-   → goldenfish, rarer more likely at high tier), with a small relic chance
-   (~2%) that follows the same milestone gating as chests. Higher relic tiers
-   are possible but exponentially rarer; rod tier raises the odds of better
-   fish, not relics (gear reward handled per GEAR). 6% per cast: an old boot
-   (junk gag).
- - fishing costs 5 energy.
+ - per cast: a "skunk" (nothing) chance that falls with rod tier; else a
+   weighted catch — mostly fish, with a small relic chance (~2%) that follows
+   the same milestone gating as chests. Higher relic tiers are possible but
+   exponentially rarer; rod tier raises the odds of better fish, not relics
+   (gear reward handled per GEAR). 12% per cast: an old boot (junk gag).
+ - WHICH FISH ARE IN THE WATER IS THE ROD'S. Each species carries a minimum
+   rod tier (items.js FISH_SPECIES) and is not in the pool below it: minnow
+   bare-handed, bass at Wood, trout at Iron, salmon at Platinum, goldenfish
+   only at Frost. One species per rung, so every rod up the ladder opens
+   exactly one new fish; the weights then make it commoner as the tier climbs
+   (and thin the minnow out). Sep 2026 — before that every species was in the
+   water at every tier and a Wood rod landed three of them in the first
+   minutes.
+ - THE FOUR DIALS ARE ONE SET, in items.js' FISHING block, and the handler
+   (interact.js 'fishing') reads them rather than carrying its own copies:
+   fishWhiffChance (the old 55%→20% ladder DOUBLED, capped at
+   FISH_WHIFF_MAX = 90% since doubling runs past certainty — so tiers 0-2 sit
+   flat at the cap and what a Wood rod buys is the bass, not a better strike
+   rate), FISH_COST_MULT, FISH_BOOT_CHANCE and FISH_SPECIES. All four moved in
+   the same direction in Sep 2026: fishing was out-earning every activity on
+   land. Pinned by test/node/fishing.test.js.
+ - a cast costs the shared 9/3/1 tool curve × FISH_COST_MULT (2) — 18 energy
+   bare-handed, 6 with a Wood rod, 2 with a Frost one. The multiplier is
+   fishing's own; chop / mine / catch keep the plain curve.
 
 ================================================================================
 CREATURES
@@ -762,7 +778,17 @@ COMBAT
               the surface a standing tree/bush or an unbroken mineral rock.
               Free to fire — no energy cost.
      staff  — RANGED, a PIERCING BOLT: same heading rules as the bow (2.0
-              cells/s, 7-cell range), but a bolt ignores the world entirely
+              cells/s), but its RANGE IS THE PLAYER'S OWN REACH PLUS ONE CELL
+              (Combat.rangeCellsFor off coords.js reachCells — so it grows
+              with the Inner Light upgrades and tightens half a cell for every
+              level underground; SHOT.staff.rangeCells is only the standing
+              fallback for a caller with no scene, and equals reach+1 at a new
+              save). It was a flat 7 cells until Sep 2026, most of an 11-cell
+              viewport: a weapon that SEEKS and fires the moment anything
+              hostile is on screen cleared the street at no risk. One resolver
+              feeds both the trigger and the flight, so a bolt can never be
+              loosed at a foe it would die short of. A bolt ignores the world
+              entirely
               (goes through rock and timber alike) and damages EVERY foe on
               its line once each, not just the first. Costs 1 ENERGY per bolt
               (silently skipped if you can't afford it — an auto-firing weapon
@@ -875,8 +901,21 @@ TREASURE MARKS (X on the ground)
    screen out (see ONBOARDING), and clears a tutorial pocket of
    obstacles; every PARKING lot spawns one guaranteed X; non-starter tiles add a
    few random X marks plus extra X's beside FOOTPATHS (terrain 8 — the spawner
-   samples path cells, and never knew or needed a way's name). Residential X's only
-   spawn near a road.
+   samples path cells, and never knew or needed a way's name) and ON SAND.
+   Residential X's only spawn near a road.
+ - THE BEACH STREAM. Sand gets its own bonus stream, seated ON the sand cell
+   (a footpath is walked, a beach is dug), capped at one mark per
+   BEACH_X_PER_CELLS (20) cells of sand so a golf bunker or a sandpit gets a
+   mark while a shoreline gets the roll. The flat tile-wide scatter is 4-10
+   marks over every walkable cell of a 2.4 km tile — nothing at all along a
+   strip of shoreline, which is what this is for.
+ - Both bonus streams come off ONE walk of the grid (spawnInTile runs in the
+   post-rasterize path, which has no slicer: a second full-grid scan would be
+   a second unbroken ~100k-cell block). Cells are packed as their grid INDEX,
+   cy * N + cx. It was cx * 256 + cy until Sep 2026 — cellsPerEdge is
+   tileEdgeM / 7, over 256 anywhere below ~43° latitude — so a path cell in the
+   bottom of the tile decoded to (cx+1, cy-256) and its roadside X was dropped
+   somewhere else entirely. Pinned by test/node/beach_treasure.test.js.
 
 ================================================================================
 STREET RESTORATION (the road band itself)
@@ -1200,10 +1239,11 @@ GEAR: RELICS & ARMOR
               while an enemy is on screen, WHEN ACTIVE; stops in the first
               foe hit and at solid ground); lowers buy prices (T7 = par)
               whether active or not
-     staff  — RANGED weapon, a piercing bolt (as the bow, shorter reach, but
-              ignores the world and hits every foe on its line; costs 1
-              energy/bolt, fires every 4 s against the bow's 2 s, and lands
-              double an arrow's damage per second); no price effect
+     staff  — RANGED weapon, a piercing bolt (as the bow, but it reaches only
+              one cell past your own reach — see COMBAT — and ignores the
+              world, hitting every foe on its line; costs 1 energy/bolt, fires
+              every 4 s against the bow's 2 s, and lands double an arrow's
+              damage per second); no price effect
      (only ONE of the three auto-fights at a time — save.activeWeapon, see
      COMBAT. None of them touches the crow/deer HUNT wheel: that is the bug
      net's — see FAUNA.)

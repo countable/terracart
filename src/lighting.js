@@ -208,14 +208,26 @@
   // scales the AMBIENT only: the ramp and the plateau are untouched, so the
   // reach edge and the mid-field keep their step and only the dark gets dark.
   // 1.0 is the old picture exactly; lower is more contrast. AMBIENT_K is the
-  // NIGHT value — profile() blends it toward AMBIENT_K_DAY as the sun comes
-  // up (surface only; a cave has no sun and stays on AMBIENT_K always, see
-  // the `night` derivation below), so a peek into the distance at noon reads
-  // as sunlit ground rather than the same near-black the small hours get.
-  // AMBIENT_K_DAY sits above 1.0 on purpose — noon's far field is meant to
-  // read brighter than the un-contrasted old wash, not just less-dark.
+  // NIGHT value — profile() lifts the floor toward AMBIENT_DAY_LUM as the sun
+  // comes up (surface only; a cave has no sun and stays on AMBIENT_K always,
+  // see the `night` derivation below), so a peek into the distance at noon
+  // reads as sunlit ground rather than the same near-black the small hours
+  // get.
+  //
+  // NOON IS STATED AS A LEVEL, NOT A SCALE. AMBIENT_DAY_LUM is what the
+  // unlit far field is WORTH at midday — 40% of the art's own brightness,
+  // read straight off the screen — because a multiplier on a derived floor
+  // says nothing about where it lands: the floor is the biome's dim colour,
+  // so the same number came out at a different brightness in every biome, and
+  // pushing it up meant scaling channels that can overflow their byte. A
+  // target luminance can't clip and can't drift per biome (atLuminance mixes
+  // the floor toward white to reach it, which also drains the hue — right for
+  // noon: the far field should read as sunlit ground, not as tinted dark).
+  // The NIGHT end is unchanged by construction: its target is AMBIENT_K ×
+  // the floor's own luminance, which atLuminance reaches by scaling — the
+  // exact expression this used to be.
   const AMBIENT_K = 0.45;
-  const AMBIENT_K_DAY = 1.3;
+  const AMBIENT_DAY_LUM = 0.40;
 
   // The PLAYER'S OWN OUTPUT knob: how much of the reproduced-wash levels
   // (`edge`, `lit`) the player's ramp and plateau actually throw. It scales
@@ -317,6 +329,22 @@
     const ch = (sh) => Math.round(((colour >> sh) & 255) * k);
     return (ch(16) << 16) | (ch(8) << 8) | ch(0);
   }
+  // Rec. 601 luminance of a colour, 0..1 — "how bright is this, to an eye".
+  function lum(colour) {
+    return (0.299 * ((colour >> 16) & 255) + 0.587 * ((colour >> 8) & 255)
+      + 0.114 * (colour & 255)) / 255;
+  }
+  // The same colour, put AT a luminance. Brightening mixes toward white (which
+  // desaturates, and cannot overflow a channel); darkening scales, which keeps
+  // the hue exactly — so a target below the colour's own luminance reproduces
+  // scaleColour(colour, target / lum(colour)) precisely.
+  function atLuminance(colour, target) {
+    const t = Math.max(0, Math.min(1, target));
+    const l = lum(colour);
+    if (l <= 0) return mixToWhite(0x000000, 1 - t);      // black floor → grey
+    if (l >= t) return scaleColour(colour, t / l);
+    return mixToWhite(colour, (1 - t) / (1 - l));
+  }
 
   function lowEnergy(scene) {
     const sv = scene.save || {};
@@ -332,9 +360,9 @@
   //   dimA       the flat out-of-reach wash (0.38 surface; 0.74+ underground)
   //   farA       what the corner landed on once the falloff rings stacked on
   //              that wash: 1 - (1-dimA)(1-FALLOFF_A)
-  //   ambient    the lightmap's floor — mixToWhite(dimColour, farA), then
-  //              scaled for contrast (the ramp is not) by a K that blends
-  //              AMBIENT_K at night up to AMBIENT_K_DAY at noon, by `night` —
+  //   ambient    the lightmap's floor — mixToWhite(dimColour, farA), put at a
+  //              LUMINANCE (the ramp is not touched): AMBIENT_K × its own at
+  //              night, lifted to AMBIENT_DAY_LUM at noon, by `night` —
   //              surface only; a cave has no sun, so it stays on the flat
   //              AMBIENT_K exactly as before, whatever daylight is passed in
   //   edge       the player cookie just OUTSIDE the plateau — the old wash,
@@ -361,8 +389,14 @@
       dimColour = scaleColour(dimColour, 1 - (1 - NIGHT_TINT_KEEP) * night);
     }
     const farA = 1 - (1 - dimA) * (1 - FALLOFF_A);
-    const ambientK = depth > 0 ? AMBIENT_K : AMBIENT_K + (AMBIENT_K_DAY - AMBIENT_K) * (1 - night);
-    const ambient = scaleColour(mixToWhite(dimColour, farA), ambientK);
+    const floor0 = mixToWhite(dimColour, farA);
+    // The night floor's luminance is the old expression exactly (atLuminance
+    // reaches a target under the colour's own by scaling); noon lifts it to
+    // AMBIENT_DAY_LUM, and the sun blends between the two.
+    const nightLum = AMBIENT_K * lum(floor0);
+    const targetLum = depth > 0 ? nightLum
+      : nightLum + (AMBIENT_DAY_LUM - nightLum) * (1 - night);
+    const ambient = atLuminance(floor0, targetLum);
     const edge = (1 - dimA) * FALLOFF_A * PLAYER_OUTPUT_K;
     const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA)) * PLAYER_OUTPUT_K;
     const litColour = lowEnergy(scene) ? mixToWhite(LOW_ENERGY_TINT, LOW_ENERGY_A) : 0xffffff;
@@ -861,10 +895,10 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_K_DAY, PLAYER_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
-    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour,
+    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, mixToWhite, scaleColour, lum, atLuminance,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires,
     collectPlayer,

@@ -1380,17 +1380,17 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 2a-fish) Fishing: tap a water cell (type 3) with a Fishing Rod relic equipped.
-  // Triggers a cast work-progress, then drops a random fish weighted by rarity
-  // (modified by rod tier — higher tier → more chance of rare fish). Placed
-  // BEFORE flavor so the water-tap doesn't get eaten by the 'water' label.
+  // 2a-fish) Fishing: tap a water cell (type 3). Triggers a cast
+  // work-progress, then rolls the whiff, the junk and the catch — every one of
+  // those numbers is the ROD's (items.js › the FISHING block). Placed BEFORE
+  // flavor so the water-tap doesn't get eaten by the 'water' label.
   { name: 'fishing', try: (ctx) => {
     const { scene, save, sx, sy, cell } = ctx;
     if (cell.type !== TERRAIN.WATER) return false;
     // No rod? You can still fish BARE-HANDED — it just takes 3× as long. A rod
     // improves the catch table + skunk rate + energy per cast; bare hands fish
-    // at tier 0 (higher skunk rate, minnow-heavy weights) so only owning a rod
-    // improves the catch (spec §FISHING).
+    // at tier 0 (a 90% whiff, and minnows are the only species in the water)
+    // so only owning a rod improves the catch (spec §FISHING).
     const fishCost = effectiveFishCost(save.relics);
     if (!scene.spendEnergy(fishCost, sx, sy)) return true;
     // Cast time is LOCKED to 9s bare-handed / 3s with any rod — deliberately
@@ -1401,14 +1401,11 @@ const TAP_HANDLERS = [
     const castMs = save.relics?.rod ? 3000 : 9000;
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
       const tier = save.relics?.rod?.tier || 0;   // 0 = bare hands (worst odds)
-      // Per user: most of the wait results in nothing on a low-tier rod,
-      // and that "skunk" rate falls as the rod climbs. Linear ramp:
-      //   tier 0 (bare hands) → 55%
-      //   T1 → 50%  (the user's "half the time")
-      //   T7 → 20%
-      // Formula: max(0.20, 0.55 - tier * 0.05). T7 floors at 0.20.
-      const skunkChance = Math.max(0.20, 0.55 - tier * 0.05);
-      if (Math.random() < skunkChance) {
+      // Most of the wait results in nothing on a low-tier rod, and that
+      // "skunk" rate falls as the rod climbs — the ladder, the doubling and
+      // the cap all live in items.js (fishWhiffChance), beside the catch table
+      // and the cast's cost, so the four fishing dials read as one set.
+      if (Math.random() < fishWhiffChance(tier)) {
         scene.flashLoot('🎣 nothing biting…', '#888', 0.9);
         return;
       }
@@ -1416,7 +1413,7 @@ const TAP_HANDLERS = [
       // (chestT=2 → preferred tier clamp in rollGearUpgrade); harvest/catch
       // milestone gating was removed, so this always yields a gear roll. An
       // upgrade auto-equips; a dupe cashes out as consolation gold.
-      if (Math.random() < 0.02) {
+      if (Math.random() < FISH_JACKPOT_CHANCE) {
         const reward = rollGearUpgrade(undefined, save.relics, 2, save.armor);
         if (reward?.kind === 'relic' || reward?.kind === 'armor') {
           equipGearReward(reward, save, scene);
@@ -1433,30 +1430,23 @@ const TAP_HANDLERS = [
         }
         // reward null (no relic defs) — fall through to the fish table.
       }
-      // 6% per cast → junk pull (old boot). Below the relic jackpot in the
-      // order so the 2% jackpot wins the cast outright when both would
-      // fire.
-      if (Math.random() < 0.06) {
+      // FISH_BOOT_CHANCE per cast → junk pull (old boot). Below the relic
+      // jackpot in the order so the jackpot wins the cast outright when both
+      // would fire.
+      if (Math.random() < FISH_BOOT_CHANCE) {
         scene.addToInv('boot', 1);
         persistSave(save);
         scene.flashLoot('🥾 Old Boot', '#999', 1, 'boot');
         return;
       }
-      const fish = [
-        { id: 'minnow',     w: Math.max(0.5, 10 - tier * 1.0) },
-        { id: 'bass',       w: 3 + tier * 0.5 },
-        { id: 'trout',      w: 1 + tier * 0.5 },
-        { id: 'salmon',     w: 0.3 + tier * 0.3 },
-        { id: 'goldenfish', w: 0.05 + tier * 0.15 },
-      ];
-      const total = fish.reduce((a, b) => a + b.w, 0);
-      let r = Math.random() * total;
-      let pick = fish[0];
-      for (const f of fish) { r -= f.w; if (r <= 0) { pick = f; break; } }
-      scene.addToInv(pick.id, 1);
+      // What is in the water is the ROD's business (items.js FISH_SPECIES): a
+      // species below its minTier is not in the pool at all, so bare hands
+      // land minnows and each better rod opens the next fish.
+      const pick = rollFish(tier);
+      scene.addToInv(pick, 1);
       persistSave(save);
-      const item = ITEM_BY_ID[pick.id];
-      scene.flashLoot(`🐟 ${item?.name || pick.id}`, '#7adcff', 1, pick.id);
+      const item = ITEM_BY_ID[pick];
+      scene.flashLoot(`🐟 ${item?.name || pick}`, '#7adcff', 1, pick);
     }, castMs, 5, 'rod');   // castMs = locked cast time (9s bare / 3s rod); 5 = cancel refund
     return true;
   }},
