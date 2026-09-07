@@ -270,6 +270,24 @@ test('traps: spawning writes nothing to the save — only springing does', () =>
   assert.truthy(Traps.isSprung(save, 'trap_0_0_1_1'), 'and it stays revealed');
 });
 
+test('traps: disarming is its own record, independent of sprung', () => {
+  const save = {};
+  assert.falsy(Traps.isDisarmed(save, 'trap_0_0_1_1'), 'nothing reads as disarmed yet');
+  assert.truthy(Traps.disarm(save, 'trap_0_0_1_1'), 'the kit removes it');
+  assert.eq(JSON.stringify(save.disarmedTraps), '["trap_0_0_1_1"]',
+    'the id is the ONLY thing stored, in its own array from sprungTraps');
+  assert.eq(save.sprungTraps, undefined, 'disarming a hidden trap never springs it');
+  assert.falsy(Traps.disarm(save, 'trap_0_0_1_1'),
+    'a second kit on the same trap is nothing to spend — already gone');
+  assert.truthy(Traps.isDisarmed(save, 'trap_0_0_1_1'), 'and it stays gone');
+  // A trap that already bit the player can still be disarmed afterwards —
+  // the two records don't gate each other either way.
+  assert.truthy(Traps.spring(save, 'trap_5_5_2_2'), 'stepped on a different one');
+  assert.truthy(Traps.disarm(save, 'trap_5_5_2_2'), 'and it can still be disarmed after');
+  assert.truthy(Traps.isSprung(save, 'trap_5_5_2_2') && Traps.isDisarmed(save, 'trap_5_5_2_2'),
+    'both records hold at once');
+});
+
 // ─── Lookup ──────────────────────────────────────────────────────────────────
 
 test('traps: trapAt finds the trap on a cell, and nothing on the others', () => {
@@ -501,6 +519,20 @@ test('traps: the renderer picks its texture from the sprung set alone', () => {
     'the sprung ids are read once per frame, like pickedSet');
   assert.truthy(/setTextureIfDifferent\(s, sprung \? 'trap_open' : 'trap_hidden'\)/.test(RENDER_SRC),
     'sprung → the iron jaw, otherwise → the subtle scuff');
+});
+
+test('traps: a disarmed trap is dropped from the render list, not retextured', () => {
+  assert.truthy(/const disarmedSet = setOf\(scene\.save\.disarmedTraps\);/.test(RENDER_SRC),
+    'the disarmed ids are read once per frame, like sprungSet');
+  const block = RENDER_SRC.slice(RENDER_SRC.indexOf('if (entry.traps) {'));
+  assert.truthy(/if \(disarmedSet\.has\(tr\.id\)\) continue;/.test(block.slice(0, 400)),
+    'a disarmed trap never reaches trapList, so it never draws either texture');
+});
+
+test('traps: the tick treats a disarmed trap as no trap at all', () => {
+  const block = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _tickTraps(dt) {'));
+  assert.truthy(/Traps\.isDisarmed\(this\.save, found\.id\)/.test(block.slice(0, 2000)),
+    'the disarmed check runs before the bite/bleed logic below it');
 });
 
 // ─── The art (run against a recording 2D context, like tilled_bed.test.js) ───
