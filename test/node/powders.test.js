@@ -172,14 +172,18 @@ test('shadow: a 1-minute in-memory buff, read out with shortDuration beside the 
     'the readout goes through shortDuration');
 });
 
-test('shadow: one `shadowed` read gates BOTH the pursuit and the hit in wanderCreatures', () => {
+test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderCreatures', () => {
   const m = app.match(/\n  wanderCreatures\(\) \{\n([\s\S]*?)\n  \}\n/);
   assert.truthy(m, 'wanderCreatures');
   const w = m[1];
-  assert.truthy(/const shadowed = this\.isShadowActive\(\);/.test(w), 'read once per tick');
-  // …and it reaches those four gates through `unnoticed`, the OR of the two
-  // wards that make the player not there to be hunted at all.
-  assert.truthy(/const unnoticed = shadowed \|\|/.test(w), 'ORed once per tick into `unnoticed`');
+  // The powder reaches those four gates through `unnoticed` — the scene's OR of
+  // the two wards that make the player not there to be hunted at all
+  // (isUnnoticed, downed_pursuit.test.js), read once per tick and never per
+  // creature. The same expression fades the body, so a stealthed player LOOKS
+  // like what the sim is doing.
+  assert.truthy(/const unnoticed = this\.isUnnoticed\(\);/.test(w), 'read once per tick');
+  assert.truthy(/isUnnoticed\(\) \{\n    return this\.isShadowActive\(\) \|\|/.test(app),
+    'and the powder is one of its two reasons');
   // The hits.
   // Other conjuncts may join these gates (Home's ward does — home_ward.test.js),
   // so pin that !unnoticed is IN the gate, not that it is the whole of it.

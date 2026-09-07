@@ -834,6 +834,18 @@ const NEAR_GPS_CELLS = 3;
 // empty-tank aura is the state, and it pulses on its own clock.
 const HIT_FLASH_MS = 160;
 const HIT_FLASH_TINT = 0xff5a5a;
+// UNNOTICED: how far the body fades while nothing can perceive it (scene
+// isUnnoticed — a Shadow Powder's minute, or collapsed on an empty bar). Low
+// enough to read as a ghost at a glance, high enough to keep the character
+// legible against dark ground: you still have to steer this thing, and on hard
+// mode a downed player walks the whole way home wearing it.
+const UNNOTICED_ALPHA = 0.42;
+// The contact shadow's own alpha, which the ghost fade multiplies so the body
+// and the mark it casts fade TOGETHER — a solid shadow under a translucent
+// character reads as a render bug rather than as a ghost. Two levels because a
+// flying dragon has left the ground (_applyDragonSkin sizes it to match).
+const PLAYER_SHADOW_ALPHA = 0.34;
+const PLAYER_SHADOW_ALPHA_FLYING = 0.20;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
 //
@@ -2334,7 +2346,7 @@ class MapScene extends Phaser.Scene {
     this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY - 1, 'bldg_shadow')
       .setOrigin(0.5, 0.5)
       .setDisplaySize(17, 6)
-      .setAlpha(0.34)
+      .setAlpha(PLAYER_SHADOW_ALPHA)
       .setDepth(9.5)
       .setMask(mask);
     // Countdown label floated over the dragon's head while Dragon Powder is
@@ -7769,24 +7781,14 @@ class MapScene extends Phaser.Scene {
   // _stepT0, _nextChooseT, _homeX/Y, _faceFlip.
   wanderCreatures() {
     const now = performance.now();
-    // Shadow Powder: while it runs, no hostile takes an interest in the player
-    // — the slime's meander and the monsters' stalk fall back to aimless
-    // wandering, and neither the leech nor the monster hit lands. Read once
-    // per tick, not per creature. The PLAYER's weapons are not gated by this.
-    const shadowed = this.isShadowActive();
-    // DOWNED: the bar is empty (Combat.playerDowned — the same expression the
-    // three damage paths guard with). A collapsed player cannot reach, cannot
-    // tap and cannot take another point of damage, so a hostile that keeps
-    // stalking one is chasing a body it is forbidden to bite — and on hard,
-    // where nothing but Home lifts the bar off zero, it escorts them the
-    // whole way home. A downed player is simply not there to be hunted.
-    //   `unnoticed` is the pair: everywhere a hostile would take an interest
-    // in the player it reads THIS, never `shadowed` alone, so the two wards
-    // switch off the same set of behaviours — the leech, the monster's hit
-    // and arrow, the struck slime's charge, and both stalk branches, each
-    // falling back to the aimless wander. Read once per tick, not per
-    // creature. The PLAYER's own weapons are gated by neither.
-    const unnoticed = shadowed || Combat.playerDowned(this.save.energy);
+    // NOT THERE TO BE HUNTED: a Shadow Powder's minute, or a bar run to zero.
+    // isUnnoticed() ORs the two (see it for why they are one state), and
+    // everywhere a hostile would take an interest in the player reads THIS —
+    // the leech, the monster's hit and arrow, the struck slime's charge, and
+    // both stalk branches, each falling back to the aimless wander. Read once
+    // per tick, not per creature. The PLAYER's own weapons are gated by
+    // neither, and _updatePlayerAura fades the body on the same expression.
+    const unnoticed = this.isUnnoticed();
     const STEP_MS = 5000;
     const STEP_M = this.cellM;   // 1 cell per step
     // Only sim creatures near the player. Beyond the bubble they stay frozen
@@ -9479,6 +9481,22 @@ class MapScene extends Phaser.Scene {
       this.player.setTint((!this._dragonActive && this.save.playerColor) || 0xffffff);
       if (this.playerHalo.visible) this.playerHalo.setVisible(false);
     }
+    // THE GHOST. While nothing can perceive the player — a Shadow Powder's
+    // minute, or collapsed on an empty bar — the body fades, and its contact
+    // shadow fades with it. It is the same isUnnoticed() every hostile branch
+    // in wanderCreatures asks, so the picture cannot promise a stealth the AI
+    // isn't honouring: fade and safety begin and end on one expression.
+    //
+    // Alpha, not tint, on purpose. The two states this covers already own the
+    // tint channel (the empty tank's red, the far-from-GPS dim) and the halo
+    // beside it, and both of those are WARNINGS the player still needs while
+    // down — a ghost that couldn't also go red would cost more than it says.
+    // Fading is the one channel nothing else is using, and it says the right
+    // thing by itself: less there.
+    const ghost = this.isUnnoticed() ? UNNOTICED_ALPHA : 1;
+    this.player.setAlpha(ghost);
+    this.playerShadow?.setAlpha(
+      (this._dragonActive ? PLAYER_SHADOW_ALPHA_FLYING : PLAYER_SHADOW_ALPHA) * ghost);
   }
   // Move the body one frame toward the target through open cells, mining a wall
   // only when it actually blocks the path AND can't be walked around (a cave
@@ -11273,6 +11291,23 @@ class MapScene extends Phaser.Scene {
   // player swings or shoots is gated by it.
   isShadowActive() {
     return (this._shadowUntil ?? 0) > Date.now();
+  }
+
+  // UNNOTICED: nothing in the world can perceive the player. TWO reasons, ONE
+  // state — a Shadow Powder's minute, and a bar run to zero (Combat.playerDowned,
+  // the same expression the three damage paths guard with: a collapsed player
+  // cannot reach, cannot tap and cannot take another point, so a hostile that
+  // goes on stalking one is chasing a body it is forbidden to bite).
+  //
+  // It is read on BOTH sides of the game, which is the whole point of it being
+  // one expression: wanderCreatures gates every hostile-interest branch on it
+  // (the leech, the monster's hit and its arrow, the struck slime's charge and
+  // both stalk branches, each falling back to the aimless wander), and
+  // _updatePlayerAura FADES THE BODY while it holds. So what the player sees is
+  // what the AI is doing — a ghost is exactly as unhuntable as it looks, and a
+  // third reason for not being there lands in both at once by being ORed here.
+  isUnnoticed() {
+    return this.isShadowActive() || Combat.playerDowned(this.save.energy);
   }
 
   useShadowPowder() {
@@ -15011,11 +15046,10 @@ class MapScene extends Phaser.Scene {
     }
     // A flying dragon isn't standing on the cell, so its shadow shrinks and
     // fades — the standard "it left the ground" read. Restored on landing.
-    if (this.playerShadow) {
-      this.playerShadow
-        .setDisplaySize(ready ? 13 : 17, ready ? 5 : 6)
-        .setAlpha(ready ? 0.20 : 0.34);
-    }
+    // Only the SIZE is set here: the ALPHA is written every frame by
+    // _updatePlayerAura, which multiplies the level this form calls for by the
+    // ghost fade, so the two can't fight over the property.
+    if (this.playerShadow) this.playerShadow.setDisplaySize(ready ? 13 : 17, ready ? 5 : 6);
   }
   _playDirected(sprite, baseKey, dx, dy) {
     if (dx !== undefined) {
