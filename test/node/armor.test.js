@@ -271,14 +271,9 @@ test('armor: every blow on the player is soaked before it reaches the bar', () =
 
 test('armor: what a piece soaks is printed ON the piece', () => {
   // The description surfaces (CLAUDE.md: what an item DOES is written on the
-  // item). Both read armorSlotReduction rather than re-deriving the tier — one
-  // table, both sides, so the number shown is the number spent.
+  // item). The shop/castle offer reads armorSlotReduction rather than
+  // re-deriving the tier, so the number shown is the number spent.
   const app = APP_JS_SRC;
-  assert.truthy(/armorSlotReduction\(tierOrZero\)/.test(app),
-    'the Stats panel row quotes the real per-piece soak');
   assert.truthy(/armorSlotReduction\(offer\.tier\)/.test(app),
-    'and so does a shop/castle offer before you buy');
-  assert.falsy(/max energy['`]/.test(app.slice(app.indexOf('showStatsModal()'),
-                                               app.indexOf('showStatsModal()') + 3000)),
-    'no "+N max energy" row survives on an armour slot');
+    'a shop/castle offer quotes the real per-piece soak before you buy');
 });

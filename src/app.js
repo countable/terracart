@@ -475,7 +475,6 @@ const MODAL_KINDS = {
   build:    { icon: '🛠', label: 'Build'     },   // restoring wrecks, unsealing forts, moving home
   wizard:   { icon: '🔮', label: 'Wizard'    },   // the Discovery upgrade ladder
   farm:     { icon: '🌾', label: 'Farm'      },   // scarecrows, feeding fauna
-  stats:    { icon: '📊', label: 'Stats'     },   // stats & relics readout
   energy:   { icon: '⚡', label: 'Energy'    },   // the energy explainer
   rest:     { icon: '😵', label: 'Exhausted' },   // passing out underground
   use:      { icon: '🎒', label: 'Use'       },   // confirming a consumable from the bag
@@ -11831,74 +11830,6 @@ class MapScene extends Phaser.Scene {
   }
 
   // Stats / Relics menu — shows energy and every equipped relic / armor slot.
-  showStatsModal() {
-    const { wrap, box, mount, mkBtn } = this.makeModalShell('stats-modal',
-      { zIndex: 55, minWidth: 260, maxWidth: 340, textAlign: null, onClose: () => {}, kind: 'stats' });
-    const cur = this.save.energy ?? 0, max = this.getMaxEnergy();
-    // Compact effect blurb per slot — for empty slots, the def.blurb tells
-    // the player what the relic WOULD do (useful preview). For equipped, we
-    // also try to surface a tier-scaled numeric where the catalog exposes
-    // one cheaply (energy bonus for armor, stack cap for bags, etc.).
-    const effectFor = (kind, slot, tierOrZero) => {
-      const def = gearDef(kind, slot);
-      if (!def) return '';
-      if (kind === 'armor') {
-        // What a piece SOAKS — the one number items.js authors, never a second
-        // copy of the formula. An empty slot previews the rule.
-        if (tierOrZero > 0) return `−${armorSlotReduction(tierOrZero)} damage soaked`;
-        return 'Soaks damage — one per tier';
-      }
-      // Relics: per-slot blurb. Add a quantitative tier-scaled hint where
-      // the formula is cheap to evaluate without re-deriving game balance.
-      const base = def.blurb || '';
-      if (slot === 'bags' && tierOrZero > 0 && typeof stackCapForBags === 'function') {
-        return `${base} (cap ${Inventory.stackCap(this.save)})`;
-      }
-      if (slot === 'rod' && tierOrZero > 0) {
-        const skunk = Math.max(0.20, 0.55 - tierOrZero * 0.05);
-        return `${base} (${Math.round((1 - skunk) * 100)}% bite)`;
-      }
-      if ((slot === 'bow' || slot === 'staff') && tierOrZero > 0) {
-        const f = 1 - tierOrZero / 7;
-        const hi = Math.round((1 + 2 * f) * 100);
-        return `${base} (≤${hi}% mark-up)`;
-      }
-      return base;
-    };
-    const slotRow = (kind, slot) => {
-      const eq = (kind === 'relic' ? this.save.relics : this.save.armor)?.[slot];
-      const def = gearDef(kind, slot);
-      const label = def?.name || slot;
-      const effect = effectFor(kind, slot, eq?.tier || 0);
-      if (!eq) {
-        return `<div style="padding:3px 0;opacity:.55">` +
-          `<div style="display:flex;justify-content:space-between"><span>${label}</span><span style="font-size:11px">— empty —</span></div>` +
-          (effect ? `<div style="font-size:10px;opacity:.75;line-height:1.2">${effect}</div>` : '') +
-          `</div>`;
-      }
-      const t = TIER_BY_NUM[eq.tier];
-      const iconHtml = this.gearIconHTML(kind, slot, eq.tier, 20);
-      return `<div style="padding:3px 0">` +
-        `<div style="display:flex;justify-content:space-between"><span>${label}</span><span>${iconHtml} ${t?.name || ''} (T${eq.tier})</span></div>` +
-        (effect ? `<div style="font-size:10px;color:#a7ffb0;line-height:1.2">${effect}</div>` : '') +
-        `</div>`;
-    };
-    box.innerHTML =
-      // (no title line — the kind header already says STATS)
-      `<div style="text-align:center;margin-bottom:4px">⚡ Energy: <b>${cur}</b> / ${max}</div>` +
-      `<div style="text-align:center;margin-bottom:10px;color:#ffd23a">🔆 Discovery: <b>${Inventory.count(this.save, 'discovery')}</b></div>` +
-      `<div style="opacity:.7;font-size:11px;margin:6px 0 2px">RELICS</div>` +
-      Object.keys(RELIC_DEFS).map(s => slotRow('relic', s)).join('') +
-      `<div style="opacity:.7;font-size:11px;margin:10px 0 2px">ARMOR</div>` +
-      Object.keys(ARMOR_DEFS).map(s => slotRow('armor', s)).join('');
-    const btn = mkBtn('Close');
-    btn.style.marginTop = '12px';
-    btn.style.width = '100%';
-    btn.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    box.appendChild(btn);
-    mount();
-  }
-
   // Building-flavored title for an offer modal. Different building kinds
   // (castle / fort / market / trader / blacksmith / plain house) get their
   // own greeting so the player can tell at a glance what they walked into,

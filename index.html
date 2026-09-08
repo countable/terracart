@@ -1063,7 +1063,6 @@
     <div class="items">
       <button id="help-howto">How to play</button>
       <button id="delivery-list">Deliveries</button>
-      <button id="stats-relics">Stats &amp; Relics</button>
       <!-- Only shown when the objective ladder has been dismissed but isn't
            finished — a dismissal used to be permanent with no way back. -->
       <button id="show-objectives" style="display:none;">Show objectives</button>
@@ -1598,11 +1597,6 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.openDeliveryMenu) window.__scene.openDeliveryMenu();
-    });
-    document.getElementById('stats-relics').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const m = document.getElementById('menu'); if (m) m.open = false;
-      if (window.__scene && window.__scene.showStatsModal) window.__scene.showStatsModal();
     });
     // Vibration toggle (UX audit §18). Label tracks the save both before the
     // scene exists (read localStorage) and after each click.
@@ -2537,7 +2531,7 @@
   <script src="src/combat.js?v=eb2fd0fe"></script>
   <script src="src/interact.js?v=4bac9be8"></script>
   <script src="src/lighting.js?v=9581e1cd"></script>
-  <script src="src/render.js?v=75e15897"></script>
+  <script src="src/render.js?v=35a3470d"></script>
   <script src="src/multiplayer.js?v=915d6298"></script>
   <script src="src/road_overlay.js?v=ae9fdc59"></script>
   <script src="src/building_overlay.js?v=a9a9fc59"></script>
@@ -2601,7 +2595,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=41cd06f1';
+      const APP_SRC = 'src/app.js?v=e6217972';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
