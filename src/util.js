@@ -458,7 +458,17 @@ const UI_STREET_INK    = '#e8e2d6';   // restored street — its chips and its c
 // restored street wears. One constant, two readers, the roadOverlayWidthM
 // discipline again: the baked stone and the light thrown over it can't drift
 // apart.
-const UI_LAMP_GLOW     = '#9a8cff';   // street lamp — the stone and its light
+const UI_LAMP_GLOW     = '#9a8cff';   // street lamp — its glass, its pool and its light
+// LAMP GOLD — what a street lamp is MADE of, the twin of the glow above and
+// the other half of the same object: the gilded ironwork (plinth, flare,
+// column, crown and the mouldings between them) that reads as a made thing
+// at noon, when the lightmap is near-white and the light itself shows
+// nothing. A MATERIAL, in the sense UI_STREET_INK is one — deliberately not
+// the UI_GOLD family above, which is the PLAYER-CONTROL role (buttons, HUD,
+// money) and would say "press me" about a thing on the ground. Deeper and
+// browner than those, too, because it is cast metal in daylight rather than
+// an accent on a dark panel.
+const UI_LAMP_GOLD     = '#d9a441';   // street lamp — its ironwork
 const UI_CONTROL       = UI_GOLD;     // player controls: buttons, pads, HUD accents
 const UI_CONTROL_DIM   = UI_GOLD_DARK;// control borders / rules / inactive controls
 

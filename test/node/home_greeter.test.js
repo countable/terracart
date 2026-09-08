@@ -92,9 +92,8 @@
   });
 
   test('home greeter: it lands in the ring — off your feet, inside the view', () => {
-    // The floor keeps a hard-mode slime from leeching before the first frame
-    // draws; the ceiling keeps it inside the 11-cell viewport, so it is on
-    // screen when the map paints.
+    // The floor keeps a greeter from standing on the player; the ceiling keeps
+    // it inside the 11-cell viewport, so it is on screen when the map paints.
     for (const mode of ['easy', 'hard']) {
       const entry = hgEntry();
       hgPlace(hgScene(), entry, mode);
@@ -104,6 +103,25 @@
     }
     assert.lt(HOME_GREETER_MAX_CELLS, VIEW_CELLS / 2 + 1,
       'the ring stays inside the drawn viewport');
+  });
+
+  test('home greeter: how far out it stands is the MODE\'s number', () => {
+    // A slime leeches on contact and hard doubles the bite, so it is seated
+    // further from the trailer than easy's chicken — the opening seconds are a
+    // sighting, not a bite. The distance is declared beside the kind, in the
+    // difficulty row, and the placer never seats one nearer than it asked for.
+    for (const mode of ['easy', 'hard']) {
+      const want = Difficulty.PROFILES[mode].homeGreeterCells;
+      assert.gte(want, HOME_GREETER_MIN_CELLS, `${mode}: never under the placer's floor`);
+      assert.lte(want, HOME_GREETER_MAX_CELLS, `${mode}: still on screen`);
+      const entry = hgEntry();
+      hgPlace(hgScene(), entry, mode);
+      // An empty tile: the nearest legal cell IS the mode's own distance.
+      assert.eq(hgDist(hgOf(entry)[0]), want, `${mode} seats it at its declared distance`);
+    }
+    assert.gt(Difficulty.PROFILES.hard.homeGreeterCells,
+      Difficulty.PROFILES.easy.homeGreeterCells,
+      'the hard-mode slime stands further off than the easy chicken');
   });
 
   test('home greeter: the same anchor always seats it in the same cell', () => {
@@ -278,9 +296,12 @@
     const choose = app.slice(app.indexOf('  chooseMode(mode) {'), app.indexOf('  _stripStarterCrates(entry) {'));
     assert.truthy(/this\._starterTileEntry\(\)[\s\S]{0,200}_placeHomeGreeter/.test(choose),
       'chooseMode corrects the greeter the default-easy read seated');
-    // The kind is never spelled in app.js — it comes from the mode table.
-    assert.truthy(/Difficulty\.get\(\)\.homeGreeter/.test(app),
+    // The kind is never spelled in app.js — it comes from the mode table, and
+    // so does how far out it stands.
+    assert.truthy(/Difficulty\.get\(\)\.homeGreeter\b/.test(app),
       'the kind is read from the difficulty table');
+    assert.truthy(/Math\.max\(HOME_GREETER_MIN_CELLS, Difficulty\.get\(\)\.homeGreeterCells/.test(app),
+      "the mode's distance is read from the table, clamped by the placer's floor");
     for (const lit of ["'chicken'", "'slime'"]) {
       assert.falsy(new RegExp(`homeGreeter[^\\n]*${lit}`).test(app),
         `app.js must not hard-code ${lit} as the greeter`);

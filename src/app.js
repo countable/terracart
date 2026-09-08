@@ -97,24 +97,36 @@ const PATH_STONE_DWELL_MS = 2000;
 // up — but a sweep restores a whole STRETCH and fires once for all of it, and
 // at that radius the moment read as an explosion on a street the player was
 // only walking along. Repairing a road is steady work, not a detonation: the
-// flash is a nod, and the shine below carries the rest of it.
+// flash is a nod, and the chips, the sparks and the setts pulling themselves
+// back together carry the rest of it.
 const BLAST_STONE_R_CELLS = 1.5;
-// The white SHINE that runs down a stretch the instant it is rebuilt, in ms.
-// Its OWN clock now, not Lighting.BLAST_MS (900 — every OTHER blast in the
+// The white SHINE that ran down a stretch the instant it was rebuilt, in ms.
+// Its OWN clock, not Lighting.BLAST_MS (900 — every OTHER blast in the
 // game, a house included, still uses that default): a street repair reads as
 // a slower, more deliberate "coming together" than a house's — this is the
 // moment the player has been standing still for two seconds to earn, and a
 // sub-second flash undersold it. _blastAt is handed this length explicitly
-// (durationMs) at the one call site that uses it, so the lightmap flash and
-// this shine still end together — just on the street's own longer beat
-// instead of borrowing the generic default. 2.4× the old 900 ms.
+// (durationMs) at the one call site that uses it, so the lightmap flash runs
+// on the street's own longer beat instead of borrowing the generic default.
+// 2.4× the old 900 ms. It outlives the shine it was named for: with the run
+// switched off (below) this is what the length of the moment now means.
 const STREET_SHINE_MS = 2200;
 // How bright that shine starts. Well under full white: the run used to fade
 // from opaque white, which at the widths a trunk road is stroked at whited out
 // the carriageway for a beat every time a sweep landed — and a sweep lands
-// every few paces while the player walks a street. A repair should read as a
-// gleam passing over the new surface, not as a strobe.
-const STREET_SHINE_ALPHA = 0.4;
+// every few paces while the player walks a street.
+//
+// SWITCHED OFF (Sep 2026), the twin of the dwell preview's own switch above:
+// a white run over the new carriageway is the same glow arriving one beat
+// LATER than the preview's, and between them the whole repair was announced
+// in light rather than in stone. What is left is the material — the flash's
+// nod, the chips, the sparks and the gather — so the moment reads as the
+// street being put back rather than lit up.
+// ZERO IS THE SWITCH, exactly as STREET_PREVIEW_ALPHA is: the ripen pass
+// stops recording runs and the live pass stops walking them, so putting 0.4
+// back is the whole of turning it on again. Nothing about the restoration
+// itself is touched — the stretch comes back on the same beat, unshone.
+const STREET_SHINE_ALPHA = 0;
 // THE GATHER's sink: how many points to spread `_ripenStreets`'s stonegather
 // burst across the LONGEST newly-restored piece (_streetSpreadPts), so the
 // setts visibly pull together along the whole stretch rather than converging
@@ -127,14 +139,25 @@ const GATHER_SPREAD_POINTS = 6;
 // every Streets.lampSpacingM() metres of rebuilt carriageway (its own
 // constant, LAMP_SPACING_M — deliberately NOT the treasure ladder's rung, so
 // an ordinary block shorter than a rung still qualifies). Where they stand is
-// generated from the way's geometry and never stored (streets.js); the stone
-// is baked art (RoadOverlay.paintLampStone) and the light it throws after
+// generated from the way's geometry and never stored (streets.js); the lamp
+// itself is baked art (RoadOverlay.paintLamp) and the light it throws after
 // dark is Lighting.KINDS.cobble, on the same point.
 const STREET_LAMP_TEX = 'street_lamp';
-// Drawn LAMP_DRAW_CELLS cells across — the halo included; the stone inside it
-// is about a third of that, so a lamp sits clearly on one cell of the road.
+// Drawn LAMP_DRAW_CELLS cells across — the pool of glow at its foot included;
+// the ironwork inside that is about a fifth of it wide and half of it tall, so
+// a lamp stands on one cell of the verge and reads from a couple away.
 const STREET_LAMP_PX = CELL_PX *
-  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 1.5);
+  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4);
+// WHERE THE ART SITS ON THE POINT. The baked lamp STANDS on its point: its
+// plinth, its shadow and its pool of glow are all on the square's ground line
+// (RoadOverlay.LAMP_GROUND_FRAC), which is below the middle because a lamp is
+// mostly post — so the sprite's origin is that line rather than its centre,
+// and the light lighting.js stamps on the same point pools at the lamp's foot.
+// The dark cobble is a stone LYING on the point and keeps a centred origin;
+// the pool swaps between the two arts, so the origin is set per lamp beside
+// the texture in _drawStreetLamps.
+const STREET_LAMP_ORIGIN_Y =
+  (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_GROUND_FRAC) || 0.62;
 // THE UNLIT LAMP IS THE OLD ROAD COBBLE. A lamp stands on every
 // LAMP_SPACING_M of street whether or not that stretch is restored yet — a
 // dark one is the stone you have not lit, and it has to be VISIBLE or the
@@ -166,17 +189,17 @@ const streetLampDarkFrame = (tier) => {
 // shows round them), and their 57% alpha.
 const STREET_LAMP_DARK_CELLS = { road: 0.64, path: 0.584 };
 const STREET_LAMP_DARK_ALPHA = 0.57;
-// THE LAMP STANDS ON THE VERGE, and this is the stone's own footprint radius
-// in cells — what _streetLampsForTile adds to half the carriageway
+// THE LAMP STANDS ON THE VERGE, and this is the art's own footprint radius in
+// cells — what _streetLampsForTile adds to half the carriageway
 // (Streets.lampOffsetM) so the art just touches the band's edge instead of
 // standing in the traffic. It is the WIDEST of the two arts one lamp can
-// wear, because either of them may be the one showing: the baked stone inside
-// its halo square (RoadOverlay.LAMP_STONE_R_CELLS) and the dark cobble a lamp
-// draws before it lights (STREET_LAMP_DARK_CELLS, a full width, so half it).
+// wear, because either of them may be the one showing: the baked lamp's
+// plinth (RoadOverlay.LAMP_FOOT_R_CELLS) and the dark cobble a lamp draws
+// before it lights (STREET_LAMP_DARK_CELLS, a full width, so half it).
 // Deriving it from the sizes the draw pass actually uses is what keeps a lamp
 // touching the kerb when either art is resized.
 const STREET_LAMP_R_CELLS = Math.max(
-  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_STONE_R_CELLS) || 0.24),
+  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_FOOT_R_CELLS) || 0.204),
   STREET_LAMP_DARK_CELLS.road / 2,
   STREET_LAMP_DARK_CELLS.path / 2);
 // Pool size. One lamp per LAMP_SPACING_M (100 m) against a viewport 11 cells
@@ -192,8 +215,10 @@ const STREET_LAMP_POOL = 12;
 //
 // SWITCHED OFF (Sep 2026) to see the restoration without it: the glow ramping
 // in ahead of the repair announced every stretch a second and a half before
-// anything happened to it, so the shine and the blast — the moment the street
-// actually comes back — landed on ground the eye had already been told about.
+// anything happened to it, so the blast — the moment the street actually
+// comes back — landed on ground the eye had already been told about. (The
+// shine that followed the blast is switched off too now, for the same reason
+// one beat later; see STREET_SHINE_ALPHA above.)
 // ZERO IS THE SWITCH: the whole preview hangs off this one number (the live
 // pass skips the block, and its own gate would drop the runs anyway), so
 // putting 0.55 back is the whole of turning it on again. The dwell itself is
@@ -206,8 +231,9 @@ const STREET_PREVIEW_ALPHA = 0;
 // the same ink the counter and the chips are drawn in is what says "this is
 // the restoration material arriving", so it's lit rather than darkened (the
 // street lamp is deliberately NOT this ink — see UI_LAMP_GLOW in util.js).
-// The shine that follows it (below) is stroked in flat white for the same
-// reason — nothing about the live pass should read as a shadow.
+// The shine that followed it (below, switched off now) was stroked in flat
+// white for the same reason — nothing about the live pass should read as a
+// shadow.
 const STREET_PREVIEW_COLOR = parseInt(UI_STREET_INK.slice(1), 16);
 // The counter pops at most this often. A wide reach walked along a street
 // restores metres on nearly every frame, and a "137/200 m" re-drawn sixty
@@ -648,9 +674,16 @@ const PEST_CROW_SPAWN_CELLS = 10;
 // (`_placeHomeGreeter`; the kind is Difficulty.get().homeGreeter — a chicken on
 // easy, a slime on hard). Chebyshev cells, so the band is a square ring.
 // The floor keeps it off the player's own cell and out of the trailer's
-// doorway — a slime spawned underfoot would start leeching before the first
-// frame drew — and the ceiling keeps it inside the 11-cell viewport, so it is
-// on screen when the map paints and reads as "this is what lives here".
+// doorway — a creature spawned underfoot would be on top of the player before
+// the first frame drew — and the ceiling keeps it inside the 11-cell viewport,
+// so it is on screen when the map paints and reads as "this is what lives
+// here".
+// The floor here is the PLACER's, and it holds whatever the mode: how far its
+// own greeter stands is the mode's to say, in `homeGreeterCells` beside the
+// kind it already declares (a hard-mode slime leeches, so it is seated further
+// out than easy's chicken — far enough that the opening seconds are a sighting
+// rather than a bite). The placer takes whichever is larger, so a mode can
+// push its greeter out but never under the player's feet.
 const HOME_GREETER_MIN_CELLS = 2;
 const HOME_GREETER_MAX_CELLS = 5;
 // ── Home is pest-free until the first harvest ────────────────────────────
@@ -800,6 +833,16 @@ const UNNOTICED_ALPHA = 0.42;
 const PLAYER_SHADOW_ALPHA = 0.34;
 const PLAYER_SHADOW_ALPHA_FLYING = 0.20;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
+// How big a bite the stick walk takes when it bites. The per-cell cost
+// (steerEnergyCost, amulet-scaled) is banked fractionally and spent in LUMPS
+// of this many pips rather than one pip at a time — bare-handed that is 2⚡
+// every 2 cells instead of 1⚡ every cell, so the bar steps in a figure the
+// player can read at a glance and the throttled pop has something to say when
+// it fires. The rate per cell is untouched: this is the GRAIN of the drain,
+// not its price, and dividing the same cost into fewer, bigger debits is the
+// whole point — a one-pip trickle under a 1200ms pop window reads as the bar
+// fraying rather than as travel costing something.
+const STEER_DRAIN_LUMP = 2;
 // FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
 //
 // The dots were round and 3px, dropped dead on the body's centreline — one
@@ -1935,21 +1978,21 @@ class MapScene extends Phaser.Scene {
     // proportion to the carriageway at any latitude's cell size. The pool is
     // small: at one lamp per LAMP_SPACING_M (100 m) and a viewport 11 cells
     // across, a couple in view at once is an ordinary block.
-    if (typeof RoadOverlay !== 'undefined' && RoadOverlay.paintLampStone &&
+    if (typeof RoadOverlay !== 'undefined' && RoadOverlay.paintLamp &&
         typeof document !== 'undefined' && !this.textures.exists(STREET_LAMP_TEX)) {
       const S = RoadOverlay.LAMP_TEX_PX;
       const cvs = document.createElement('canvas');
       cvs.width = cvs.height = S;
       const lctx = cvs.getContext('2d');
       if (lctx) {
-        RoadOverlay.paintLampStone(lctx, S);
+        RoadOverlay.paintLamp(lctx, S);
         this.textures.addCanvas(STREET_LAMP_TEX, cvs);
       }
     }
     this.streetLampPool = [];
     if (this.textures.exists(STREET_LAMP_TEX)) {
       for (let i = 0; i < STREET_LAMP_POOL; i++) {
-        const s = this.add.image(0, 0, STREET_LAMP_TEX).setOrigin(0.5, 0.5)
+        const s = this.add.image(0, 0, STREET_LAMP_TEX).setOrigin(0.5, STREET_LAMP_ORIGIN_Y)
           .setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setVisible(false);
         this.cobbleContainer.add(s);
         this.streetLampPool.push(s);
@@ -8799,8 +8842,9 @@ class MapScene extends Phaser.Scene {
     if (typeof RoadOverlay === 'undefined') return;
     RoadOverlay.draw(this);
     // …and then the live pass on top of it: the dwell preview and the shine,
-    // re-stroked every frame. AFTER draw(), because draw() is what positions
-    // the container the live Graphics sits in (see _drawStreetLive).
+    // re-stroked every frame — both switched off today, so this clears the
+    // Graphics and draws nothing (see _drawStreetLive). AFTER draw(), because
+    // draw() is what positions the container the live Graphics sits in.
     this._drawStreetLive();
     // …and the lamps a restored street carries, on the surface it just drew.
     // Here rather than in the sweep because this runs on every frame the road
@@ -9308,8 +9352,10 @@ class MapScene extends Phaser.Scene {
     this._stickHeading = { x: vx / n, y: vy / n };
     this._lastStickT = Date.now();   // the walk-home timer starts when you stop
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
-    // Per-cell stamina, banked fractionally so a 0.15/cell amulet debits a
-    // whole pip every ~7 cells instead of rounding up to one per cell. Close to
+    // Per-cell stamina, banked fractionally and spent in STEER_DRAIN_LUMP-sized
+    // bites, so a 0.15/cell amulet debits a lump every ~13 cells rather than
+    // rounding up to a pip per cell. The rate is the same either way — the lump
+    // only decides how coarse the steps are. Close to
     // your real position it's a fifth of that: pottering around the block you're
     // actually standing on shouldn't cost what striking out across town does,
     // and the discount is what makes the stick usable for lining up a tap.
@@ -9319,10 +9365,10 @@ class MapScene extends Phaser.Scene {
     while (this._steerDistAccrue >= this.cellM) {
       this._steerDistAccrue -= this.cellM;
       this._steerCostAccrue += costPerCell;
-      while (this._steerCostAccrue >= 1) {
-        this._steerCostAccrue -= 1;
+      while (this._steerCostAccrue >= STEER_DRAIN_LUMP) {
+        this._steerCostAccrue -= STEER_DRAIN_LUMP;
         const before = this.save.energy ?? 0;
-        this.save.energy = Math.max(0, before - 1);
+        this.save.energy = Math.max(0, before - STEER_DRAIN_LUMP);
         // CLAUDE.md: "when you add an energy gain or loss the player can see,
         // pop it with _popEnergy and name the cell." Every other continuous
         // drain (the slime leech, a monster's melee, the trap bleed) rolls up
@@ -10967,12 +11013,14 @@ class MapScene extends Phaser.Scene {
       !Combat.faunaBlocksCell(entry.grid[cy * N + cx]);
     // Nearest cell in the ring that `accept`s, scanned in a fixed order so the
     // same anchor always seats it in the same place.
+    // The mode's own distance, never nearer than the placer's floor.
+    const minD = Math.max(HOME_GREETER_MIN_CELLS, Difficulty.get().homeGreeterCells || 0);
     const pick = (accept) => {
       let best = null, bestD = Infinity;
       for (let cy = ay - HOME_GREETER_MAX_CELLS; cy <= ay + HOME_GREETER_MAX_CELLS; cy++) {
         for (let cx = ax - HOME_GREETER_MAX_CELLS; cx <= ax + HOME_GREETER_MAX_CELLS; cx++) {
           const d = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));
-          if (d < HOME_GREETER_MIN_CELLS || d >= bestD) continue;
+          if (d < minD || d >= bestD) continue;
           if (!standable(cx, cy) || !accept(cx, cy)) continue;
           best = { cx, cy }; bestD = d;
         }
@@ -13878,7 +13926,7 @@ class MapScene extends Phaser.Scene {
     // The stone's radius in metres, in this tile's own basis — the second
     // half of every verge offset below.
     const cellM = (entry.cellsPerEdge > 0) ? tileEdgeM / entry.cellsPerEdge : (this.cellM || 0);
-    const stoneRM = STREET_LAMP_R_CELLS * cellM;
+    const footRM = STREET_LAMP_R_CELLS * cellM;
     for (const layer of entry.layers) {
       if (layer.name !== 'transportation') continue;
       const extent = layer.extent || 4096;
@@ -13892,7 +13940,7 @@ class MapScene extends Phaser.Scene {
         // half-width plus the stone. Per FEATURE — the width is a function of
         // the way's class, so it is the same for every line and every lamp
         // this feature carries.
-        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), stoneRM);
+        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), footRM);
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
@@ -13990,10 +14038,11 @@ class MapScene extends Phaser.Scene {
   // The stones themselves: one pooled sprite per lamp, seated through
   // worldMetersToScreen (the camera-anchored projection — a peek carries them
   // with the ground) into the ground-decoration container, which sits on the
-  // road band and under the lightmap. A LIT lamp is the baked violet stone
-  // (STREET_LAMP_TEX, halo and all, STREET_LAMP_PX across); a DARK one is the
-  // old road cobble (STREET_LAMP_DARK_TEX at its tier's frame), at the old
-  // stones' size and alpha. The light over each lit one is stamped by
+  // road band and under the lightmap. A LIT lamp is the baked lamp itself
+  // (STREET_LAMP_TEX, pool of glow and all, STREET_LAMP_PX across, standing on
+  // the point); a DARK one is the old road cobble (STREET_LAMP_DARK_TEX at its
+  // tier's frame), at the old stones' size and alpha, lying on it. The light
+  // over each lit one is stamped by
   // Lighting.collectLamps from the same list.
   _drawStreetLamps() {
     const pool = this.streetLampPool;
@@ -14013,13 +14062,16 @@ class MapScene extends Phaser.Scene {
       s.setPosition(p.x, p.y);
       if (L.lit) {
         if (!s.texture || s.texture.key !== STREET_LAMP_TEX) s.setTexture(STREET_LAMP_TEX);
-        s.setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setAlpha(1);
+        // The lamp STANDS on the point: its origin is the square's ground line.
+        s.setOrigin(0.5, STREET_LAMP_ORIGIN_Y)
+          .setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setAlpha(1);
       } else {
         const frame = streetLampDarkFrame(L.tier);
         if (!s.texture || s.texture.key !== STREET_LAMP_DARK_TEX) s.setTexture(STREET_LAMP_DARK_TEX, frame);
         else s.setFrame(frame);
         const px = CELL_PX * (isPath(L.tier) ? STREET_LAMP_DARK_CELLS.path : STREET_LAMP_DARK_CELLS.road);
-        s.setDisplaySize(px, px).setAlpha(STREET_LAMP_DARK_ALPHA);
+        // …the cobble LIES on it, so it keeps a centred origin.
+        s.setOrigin(0.5, 0.5).setDisplaySize(px, px).setAlpha(STREET_LAMP_DARK_ALPHA);
       }
     });
   }
@@ -14054,10 +14106,15 @@ class MapScene extends Phaser.Scene {
             spread: this._streetSpreadPts(meta, seg[0], seg[1], GATHER_SPREAD_POINTS),
           };
         }
-        // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS.
-        const pts = Streets.runPtsWorld(meta, seg[0], seg[1]);
-        if (pts) {
-          (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
+        // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS
+        // — and its alpha IS its switch (see STREET_SHINE_ALPHA), so at 0
+        // the run is never recorded rather than kept for a pass that would
+        // throw it away.
+        if (STREET_SHINE_ALPHA > 0) {
+          const pts = Streets.runPtsWorld(meta, seg[0], seg[1]);
+          if (pts) {
+            (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
+          }
         }
       }
       // What is left of this line's watched metres is what has NOT come back
@@ -14074,8 +14131,9 @@ class MapScene extends Phaser.Scene {
       // impact one, and not just a repair of one point on the street. ONE per
       // sweep — the whole step is one moment, however many separate pieces of
       // street it brought back. durationMs ties the light to the street's own
-      // (longer) shine clock rather than Lighting.BLAST_MS's generic default,
-      // so the flash and the shine still end together.
+      // (longer) shine clock rather than Lighting.BLAST_MS's generic default:
+      // a street repair's moment is the slower one, whether or not the run
+      // that clock was named for is drawn (STREET_SHINE_ALPHA).
       this._blastAt(at.x, at.y, {
         radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',
         gather: 'stonegather', gatherPts: best.spread, durationMs: STREET_SHINE_MS,
@@ -14180,11 +14238,18 @@ class MapScene extends Phaser.Scene {
   //                rather than a delay. Its alpha is the dwell's own
   //                progress: how long this line has been in sight. OFF while
   //                STREET_PREVIEW_ALPHA is 0 (see it) — the dwell still runs,
-  //                it just isn't drawn, so the shine below is the first thing
-  //                the player sees of a stretch coming back.
+  //                it just isn't drawn, so the blast's flash is the first
+  //                thing the player sees of a stretch coming back.
   //   the SHINE    a pale run down a stretch the instant it comes back, from
   //                STREET_SHINE_ALPHA to nothing over STREET_SHINE_MS beside
-  //                the blast's flash.
+  //                the blast's flash. OFF while STREET_SHINE_ALPHA is 0 (see
+  //                it) — the stretch still comes back on the same beat, and
+  //                the blast's flash, chips, sparks and gather are the whole
+  //                of what says so.
+  //
+  // With both switched off this pass has nothing left to draw, and that is
+  // deliberate: it still runs, and still CLEARS the Graphics, which is what
+  // keeps either switch a one-number edit instead of a re-wiring.
   //
   // Called every frame from drawRoadGeometry, AFTER RoadOverlay.draw has moved
   // the container by this frame's sub-cell scroll — drawLive subtracts that
@@ -14209,7 +14274,7 @@ class MapScene extends Phaser.Scene {
         for (const pts of meta.pts) runs.push({ pts, tags: meta.tags, alpha, colour: STREET_PREVIEW_COLOR });
       }
     }
-    const shine = this._streetShine;
+    const shine = STREET_SHINE_ALPHA > 0 ? this._streetShine : null;
     if (shine && shine.length) {
       // Compacted in place, never a splice per rejection: this walks the list
       // every frame and the list is at most a few sweeps deep.

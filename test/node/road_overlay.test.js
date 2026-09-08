@@ -776,7 +776,7 @@ function roRecorder() {
   const grad = { addColorStop: (o, c) => ops.push(['addColorStop', o, c]) };
   const ctx = new Proxy({}, {
     get: (_, k) => {
-      if (k === 'createRadialGradient') return (...a) => { ops.push(['createRadialGradient', ...a]); return grad; };
+      if (k === 'createRadialGradient' || k === 'createLinearGradient') return (...a) => { ops.push([k, ...a]); return grad; };
       return (...a) => { ops.push([k, ...a]); };
     },
     set: (_, k, v) => { ops.push(['set:' + k, v]); return true; },
@@ -936,163 +936,235 @@ test('clean tile: it is the same tile every session', () => {
   assert.eq(JSON.stringify(a.ops), JSON.stringify(b.ops), 'fixed seed, identical setts');
 });
 
-// ── The LAMP STONE ──────────────────────────────────────────────────────────
-// The glowing cobble a restored street carries every Streets.lampSpacingM()
-// metres of it: a real radial-gradient halo plus a sett, baked once and drawn
+// ── The STREET LAMP ─────────────────────────────────────────────────────────
+// The lamp a restored street carries every Streets.lampSpacingM() metres of
+// it: gilded ironwork standing on its own point, a lit glass in it, and a flat
+// pool of its own violet on the ground at its foot — baked once and drawn
 // through the same recording 2D context paintCleanTile is pinned against
-// above — never a stack of translucent rings (the blotching rule at the top
-// of this file: a translucent stroke composites with ITSELF wherever a path
-// doubles back).
+// above. It was a lit COBBLE until Sep 2026: a shaded violet stone that lit
+// the street correctly and looked like a stone doing it.
+//
+// The pool is painted inside a translate/scale (it lies flat on the road), so
+// every geometry check here walks the ops with the transform in force —
+// bounds taken in the untransformed numbers would be checking a square the
+// canvas never saw. Quadratic curves are SAMPLED rather than measured by their
+// control points, which bulge outside the curve they bend.
+function roLampPath(ops) {
+  const pts = [];
+  let tx = 0, ty = 0, sx = 1, sy = 1, cur = [0, 0];
+  const stack = [];
+  const put = (x, y) => { pts.push([tx + x * sx, ty + y * sy]); };
+  for (const [k, ...a] of ops) {
+    if (k === 'save') stack.push([tx, ty, sx, sy]);
+    else if (k === 'restore') [tx, ty, sx, sy] = stack.pop();
+    else if (k === 'translate') { tx += a[0] * sx; ty += a[1] * sy; }
+    else if (k === 'scale') { sx *= a[0]; sy *= a[1]; }
+    else if (k === 'moveTo' || k === 'lineTo') { put(a[0], a[1]); cur = [a[0], a[1]]; }
+    else if (k === 'quadraticCurveTo') {
+      for (let i = 1; i <= 8; i++) {
+        const t = i / 8, u = 1 - t;
+        put(u * u * cur[0] + 2 * u * t * a[0] + t * t * a[2],
+            u * u * cur[1] + 2 * u * t * a[1] + t * t * a[3]);
+      }
+      cur = [a[2], a[3]];
+    } else if (k === 'arc') {
+      put(a[0] - a[2], a[1]); put(a[0] + a[2], a[1]);
+      put(a[0], a[1] - a[2]); put(a[0], a[1] + a[2]);
+    }
+  }
+  return pts;
+}
+// The colour a fill or stroke was made in, as channels — a gradient's fills
+// are pinned through their own stops instead.
+const roChannels = (css) => {
+  const m = /^rgba\((\d+),(\d+),(\d+),\s*([0-9.]+)\)$/.exec(String(css));
+  return m ? { r: +m[1], g: +m[2], b: +m[3], a: +m[4] } : null;
+};
+const roHexChannels = (hex) => {
+  const h = hex.replace('#', '');
+  return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+};
 
-test('lamp stone: paints inside its own square only', () => {
+test('street lamp: every part of it is painted inside its own square', () => {
   const S = RoadOverlay.LAMP_TEX_PX;
   const { ctx, ops } = roRecorder();
-  RoadOverlay.paintLampStone(ctx, S);
-  const rect = ops.find(([k]) => k === 'fillRect');
-  assert.truthy(rect, 'the halo wash covers a rect');
-  assert.eq(JSON.stringify(rect.slice(1)), JSON.stringify([0, 0, S, S]), 'exactly the square, not past it');
-  // Every arc (the sett fill and its rim stroke) sits centred in the square
-  // with a radius that keeps it inside — never clipped by, or spilling past,
-  // the tile's own edge.
-  const arcs = ops.filter(([k]) => k === 'arc');
-  assert.gte(arcs.length, 2, 'the sett body and its rim stroke');
-  for (const [, cx, cy, r] of arcs) {
-    assert.inRange(cx, 0, S, 'arc centre x inside the square');
-    assert.inRange(cy, 0, S, 'arc centre y inside the square');
-    assert.gte(cx - r, -S * 0.01, 'the circle does not spill past the left/top edge');
-    assert.lte(cx + r, S * 1.01, 'nor past the right/bottom edge');
-    assert.lt(r, S / 2, 'the stone never reaches the edge of its own tile');
+  RoadOverlay.paintLamp(ctx, S);
+  for (const [x, y] of roLampPath(ops)) {
+    assert.inRange(x, 0, S, 'a path point inside the square');
+    assert.inRange(y, 0, S, 'a path point inside the square');
   }
-  // Every gradient is likewise centred on the square, with its outer radius
-  // never wider than the square holding it.
-  const grads = ops.filter(([k]) => k === 'createRadialGradient');
-  for (const [, x0, y0, , x1, y1, r1] of grads) {
-    assert.inRange(x0, 0, S); assert.inRange(y0, 0, S);
+  // The two washes (the pool on the ground, the bloom round the glass) fill a
+  // rect each, and neither reaches past the square holding them.
+  const rects = ops.filter(([k]) => k === 'fillRect');
+  assert.eq(rects.length, 2, 'the pool and the bloom, nothing else washed');
+  const g = ops.filter(([k]) => k === 'createRadialGradient');
+  for (const [, x0, y0, , x1, y1, r1] of g) {
     assert.inRange(x1, 0, S); assert.inRange(y1, 0, S);
-    assert.lte(r1, S, 'the gradient does not reach past the square it fills');
+    assert.inRange(x0, -S, S); assert.inRange(y0, -S, S);
+    assert.lte(r1, S, 'no gradient reaches past the square it fills');
   }
 });
 
-test('lamp stone: a real radial gradient halo and sett, not a stack of translucent rings', () => {
+test('street lamp: it STANDS on its point — ironwork above the ground line, the pool and the shadow on it', () => {
+  // The whole seating rule, in one test. app.js puts the sprite's origin on
+  // LAMP_GROUND_FRAC (street_lamps.test.js pins that end), so this line is the
+  // lamp's world point: the plinth sits on it, the pool of glow is centred on
+  // it — which is where lighting.js's cookie lands too — and the post is
+  // ABOVE it. Centre the lantern on the point instead and the light pools a
+  // lamp's height off its own foot.
+  const S = RoadOverlay.LAMP_TEX_PX, c = S / 2;
+  const gy = S * RoadOverlay.LAMP_GROUND_FRAC;
+  const r = S * RoadOverlay.LAMP_FOOT_R_CELLS / RoadOverlay.LAMP_DRAW_CELLS;
   const { ctx, ops } = roRecorder();
-  RoadOverlay.paintLampStone(ctx, 64);
-  // Exactly two gradients — the wide halo wash and the top face's own core —
-  // each with its own falloff to nothing. The stone is a handful of arcs (the
-  // side body, its rim, the top face, its rim, one catchlight sliver): a
-  // stack of rings standing in for the gradients would be many more, and
-  // would double-composite over itself.
-  const grads = ops.filter(([k]) => k === 'createRadialGradient');
-  assert.eq(grads.length, 2, 'the halo and the stone core, nothing else');
-  const arcs = ops.filter(([k]) => k === 'arc');
-  assert.lte(arcs.length, 5, 'a few arcs for a stone with height — never a ring stack');
-  assert.lte(ops.filter(([k]) => k === 'stroke').length, 3, 'two rims and a catchlight, no ring loop');
-  // The halo gradient falls all the way to transparent at its rim — a real
-  // falloff, not an opaque ring with a hard edge.
-  const stops = ops.filter(([k]) => k === 'addColorStop');
-  const haloStops = stops.slice(0, 9);   // the halo's own loop adds 9 (i/8, i=0..8)
-  const lastA = roAlphaOf(haloStops[haloStops.length - 1][2]);
-  assert.lt(lastA, 0.01, 'the halo fades to nothing by the edge of the square');
-});
-
-// ── The stone has HEIGHT ────────────────────────────────────────────────────
-// Every sprite in the game is orthographic and lit from the top-left (the
-// cobble sheet the unlit lamp wears: a pale top, a dark outline, a thicker
-// shadowed underside), and a flat lit disc beside them read as a decal on the
-// road. The lit stone is three parts on one point: a ground shadow thrown
-// down-right, a dark side band hanging below the top face, and the top face
-// itself with its hot core off up-left. The TOP FACE stays centred on the
-// square — lighting.js's cookie sits on the same point, and the light has to
-// come out of the stone.
-test('lamp stone: a ground shadow, a side band below the top face, and a top-left light', () => {
-  const S = 64, c = S / 2;
-  const { ctx, ops } = roRecorder();
-  RoadOverlay.paintLampStone(ctx, S);
-  // The full-radius arcs: the side body (dropped) and the top face (centred).
-  const full = ops.filter(([k, , , , a0, a1]) => k === 'arc' && a0 === 0 && a1 === Math.PI * 2);
-  const r = Math.max(...full.map(([, , , rr]) => rr));
-  const centres = new Set(full.map(([, x, y]) => `${x},${y}`));
-  assert.truthy(centres.has(`${c},${c}`), 'the top face is centred on the square (where the light sits)');
-  const dropped = full.filter(([, x, y]) => x === c && y > c);
-  assert.gt(dropped.length, 0, 'a side body hangs BELOW the top face');
-  const drop = dropped[0][2] - c;
-  assert.inRange(drop / r, 0.2, 0.7, `the visible thickness is a fraction of the radius, got ${(drop / r).toFixed(2)}`);
-  // The side body is painted DARKER than the top face's ink, and before it —
-  // the top face covers all but the band.
-  const sideFillIdx = ops.findIndex(([k, x, y]) => k === 'arc' && x === c && y === c + drop);
-  const sideFill = roStyleAt(ops, sideFillIdx, 'fillStyle');
-  assert.truthy(/^rgba\(/.test(sideFill), 'the side band is a flat dark fill, not a gradient');
-  const [, sr, sg, sb] = sideFill.match(/^rgba\((\d+),(\d+),(\d+),/).map(Number);
-  const hex = UI_LAMP_GLOW.replace('#', '');
-  const ir = parseInt(hex.slice(0, 2), 16), ig = parseInt(hex.slice(2, 4), 16), ib = parseInt(hex.slice(4, 6), 16);
-  assert.lt(sr + sg + sb, ir + ig + ib, 'the side is the ink in shadow');
-  assert.gt(sb, sr, 'still a violet, not a grey');
-  const topFillIdx = ops.findIndex(([k, x, y], i) => k === 'arc' && x === c && y === c && i > sideFillIdx);
-  assert.gt(topFillIdx, sideFillIdx, 'the top face is painted over the side body');
-  // The ground shadow: one ellipse, dark and translucent, its centre down and
-  // RIGHT of the stone — the side every sprite here shadows on — lying under
-  // the side body.
+  RoadOverlay.paintLamp(ctx, S);
+  assert.inRange(RoadOverlay.LAMP_GROUND_FRAC, 0.5, 0.8,
+    'the ground line is below the middle of the square: a lamp is mostly post');
+  // The pool: a radial gradient centred on the ground line and squashed flat,
+  // falling to nothing — light lying on a road, not a ball of it.
+  const pool = ops.filter(([k]) => k === 'createRadialGradient')[0];
+  const poolPts = roLampPath([['save'], ...ops.slice(0, ops.indexOf(pool))]);   // no path ops before it
+  assert.eq(poolPts.length, 0, 'the pool is the first thing painted');
+  const scale = ops.find(([k]) => k === 'scale');
+  const translate = ops.find(([k]) => k === 'translate');
+  assert.eq(JSON.stringify(translate.slice(1)), JSON.stringify([c, gy]), 'the pool is centred on the ground line');
+  assert.eq(scale[1], 1, 'unsquashed across the road');
+  assert.lt(scale[2], 1, 'and flattened along it: a pool, not a ball');
+  // The lamp itself: every path point is above the ground line, bar the near
+  // edge of the plinth's own footprint, which dips below it the way the
+  // underside of every section here bulges toward the viewer.
+  const pts = roLampPath(ops);
+  const lowest = Math.max(...pts.map(([, y]) => y));
+  const highest = Math.min(...pts.map(([, y]) => y));
+  assert.inRange(lowest, gy, gy + r * 0.5, 'the ironwork stands ON the ground line');
+  assert.gt((gy - highest) / S, 0.4, 'and rises most of the square above it — a post, not a stone');
+  // The ground shadow: one flat ellipse, down-RIGHT of the foot (the side
+  // every sprite in here shadows on), laid before the lamp that throws it.
   const ell = ops.filter(([k]) => k === 'ellipse');
   assert.eq(ell.length, 1, 'one ground shadow');
   const [, ex, ey, erx, ery] = ell[0];
-  assert.gt(ex, c, 'the shadow falls to the right'); assert.gt(ey, c + drop, 'and below the side body');
+  assert.gt(ex, c, 'it falls to the right'); assert.gt(ey, gy, 'and below the foot');
   assert.lt(ery, erx, 'squashed flat: it lies on the road');
-  assert.lte(ex + erx, S, 'inside the square'); assert.lte(ey + ery, S, 'inside the square');
-  const ellIdx = ops.findIndex(([k]) => k === 'ellipse');
-  const shadowA = roAlphaOf(roStyleAt(ops, ellIdx, 'fillStyle'));
-  assert.inRange(shadowA, 0.15, 0.5, 'a translucent shadow, neither invisible nor a black hole');
-  assert.lt(ellIdx, sideFillIdx, 'the shadow is laid before the stone that throws it');
-  // The top face's core sits UP-LEFT of centre: the lit side of every sprite.
-  const grads = ops.filter(([k]) => k === 'createRadialGradient');
-  const [, gx0, gy0, , gx1, gy1] = grads[1];
-  assert.lt(gx0, gx1, 'the hot core is left of centre'); assert.lt(gy0, gy1, 'and above it');
-  assert.eq(gx1, c); assert.eq(gy1, c);
-  // …and a pale catchlight sliver on the same edge: a short arc over the
-  // top-left quadrant, never a full ring.
-  const sliver = ops.filter(([k, , , , a0, a1]) => k === 'arc' && !(a0 === 0 && a1 === Math.PI * 2));
-  assert.eq(sliver.length, 1, 'one catchlight');
-  const [, , , , s0, s1] = sliver[0];
-  assert.inRange(s0, Math.PI, Math.PI * 1.5, 'starts in the top-left quadrant');
-  assert.lt(s1 - s0, Math.PI * 0.75, 'a sliver, not a ring');
-  const slIdx = ops.findIndex(([k, , , , a0, a1]) => k === 'arc' && !(a0 === 0 && a1 === Math.PI * 2));
-  const slStroke = roStyleAt(ops, slIdx, 'strokeStyle');
-  const [, lr, lg, lb] = slStroke.match(/^rgba\((\d+),(\d+),(\d+),/).map(Number);
-  assert.gt(lr + lg + lb, ir + ig + ib, 'the catchlight is paler than the ink');
+  const shadowA = roChannels(roStyleAt(ops, ops.findIndex(([k]) => k === 'ellipse'), 'fillStyle')).a;
+  assert.inRange(shadowA, 0.15, 0.5, 'translucent: a shadow, not a hole');
 });
 
-test('lamp stone: painted in the lamp\'s own activated violet, not the street\'s pale ink', () => {
+test('street lamp: nothing on it is wider than the footprint the verge offset is derived from', () => {
+  // LAMP_FOOT_R_CELLS is what app.js adds to half the carriageway to stand a
+  // lamp on the verge (STREET_LAMP_R_CELLS → Streets.lampOffsetM). It is the
+  // PLINTH's half-width, so it only keeps the lamp off the band while the
+  // plinth really is the widest thing on it — a cross-arm reaching past it
+  // would hang over the traffic with every test still green.
+  const S = RoadOverlay.LAMP_TEX_PX, c = S / 2;
+  const r = S * RoadOverlay.LAMP_FOOT_R_CELLS / RoadOverlay.LAMP_DRAW_CELLS;
   const { ctx, ops } = roRecorder();
-  RoadOverlay.paintLampStone(ctx, 64);
-  // UI_LAMP_GLOW is '#9a8cff' — the old lit-pebble violet, brought back for
-  // the lamp specifically. The stone is deliberately NOT UI_STREET_INK (the
-  // pale warm stone the chips, the sparks and the counter over a restored
-  // carriageway share): a lamp reads as ACTIVATED, the carriageway as
-  // repaired.
-  const hex = UI_LAMP_GLOW.replace('#', '');
-  const ir = parseInt(hex.slice(0, 2), 16), ig = parseInt(hex.slice(2, 4), 16), ib = parseInt(hex.slice(4, 6), 16);
-  const stops = ops.filter(([k]) => k === 'addColorStop').map(([, , css]) => css);
-  const inkStops = stops.filter((css) => css.startsWith(`rgba(${ir},${ig},${ib},`));
-  assert.gt(inkStops.length, 0, `at least one stop is painted in UI_LAMP_GLOW's own channels (${ir},${ig},${ib})`);
-  // A violet: blue leads red, unlike the street's own warm stone.
-  assert.gt(ib, ir, 'violet: blue leads red');
-  // The rim stroke is dark, not the ink itself — what makes the sett read as
-  // a laid stone by day rather than a smudge of light.
-  // The rim is the stroke round the top face (the full circle centred on the
-  // square), not the catchlight sliver painted last.
-  const topRim = ops.findIndex(([k, x, y, , a0, a1], i) =>
-    k === 'arc' && x === 32 && y === 32 && a0 === 0 && a1 === Math.PI * 2 && ops[i + 1]?.[0] === 'stroke');
-  assert.gt(topRim, 0, 'the top face is rim-stroked');
-  const stroke = roStyleAt(ops, topRim, 'strokeStyle');
-  assert.truthy(/^rgba\(\d+,\d+,\d+,/.test(stroke), 'the rim is stroked, not left at the ink');
-  const [, rr, rg, rb] = stroke.match(/^rgba\((\d+),(\d+),(\d+),/).map(Number);
-  assert.lt(rr + rg + rb, ir + ig + ib, 'the rim is darker than the stone it outlines');
+  RoadOverlay.paintLamp(ctx, S);
+  const widest = Math.max(...roLampPath(ops).map(([x]) => Math.abs(x - c)));
+  assert.inRange(widest, r - 0.75, r + 0.75, `the widest part IS the footprint (${r.toFixed(1)}px), got ${widest.toFixed(1)}`);
+  // …and the piece that owns it is drawn LAST: the plinth is the lowest thing
+  // on the lamp, so it covers the flare above it — the painter rule (CLAUDE.md)
+  // inside the one object.
+  const lastFill = ops.length - 1 - [...ops].reverse().findIndex(([k]) => k === 'fill');
+  const after = roLampPath(ops.slice(0, lastFill));
+  const before = roLampPath(ops.slice(0, ops.findIndex(([k]) => k === 'fill')));
+  assert.gt(Math.max(...after.map(([x]) => Math.abs(x - c))), Math.max(...before.map(([x]) => Math.abs(x - c))),
+    'the last piece painted is wider than the first — the stack runs top to bottom');
 });
 
-test('lamp stone: LAMP_TEX_PX and LAMP_DRAW_CELLS are exported for app.js to bake and size the sprite', () => {
+test('street lamp: real gradients and opaque outlines, never a stack of translucent strokes', () => {
+  const S = RoadOverlay.LAMP_TEX_PX;
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintLamp(ctx, S);
+  // Three radial gradients: the pool on the ground, the bloom around the glass
+  // and the glass's own core. A ring stack standing in for any of them would
+  // composite with itself and blotch (the rule at the top of road_overlay.js).
+  const radial = ops.filter(([k]) => k === 'createRadialGradient');
+  assert.eq(radial.length, 3, 'the pool, the bloom and the glass core');
+  // One linear gradient per piece of ironwork — the turn of a cast section is
+  // in the ramp across it, not in a pile of highlight strokes.
+  const linear = ops.filter(([k]) => k === 'createLinearGradient');
+  assert.gte(linear.length, 9, 'a lamp is a stack of cast sections');
+  // Every filled piece takes one, bar the two that are not castings: the lit
+  // glass (a radial) and the ground shadow (a flat wash).
+  assert.eq(linear.length, ops.filter(([k]) => k === 'fill').length - 2,
+    'every cast piece takes its own ramp');
+  // EVERY stroke is opaque. Nine sections meet at their joins and a
+  // translucent outline composites with itself wherever two of them do, so the
+  // outline is a bronze mixed once rather than dark ink at an alpha.
+  for (let i = 0; i < ops.length; i++) {
+    if (ops[i][0] !== 'stroke') continue;
+    const ch = roChannels(roStyleAt(ops, i, 'strokeStyle'));
+    assert.truthy(ch, 'every stroke is a flat colour');
+    assert.eq(ch.a, 1, 'and opaque — no outline composites with the next one');
+  }
+});
+
+test('street lamp: gold ironwork, violet light — one constant each, and they are two different things', () => {
+  // UI_LAMP_GOLD is what the lamp is MADE of; UI_LAMP_GLOW is what it SHEDS
+  // (the glass, the bloom, the pool — the same violet lighting.js's `cobble`
+  // row throws over it). Mixing the two would either give the metal a light of
+  // its own or paint the light in brass.
+  const S = RoadOverlay.LAMP_TEX_PX;
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintLamp(ctx, S);
+  const gold = roHexChannels(UI_LAMP_GOLD), glow = roHexChannels(UI_LAMP_GLOW);
+  assert.gt(gold.r, gold.b, 'gold is warm: red leads blue');
+  assert.gt(glow.b, glow.r, 'and the glow is violet: blue leads red');
+  const stops = ops.filter(([k]) => k === 'addColorStop').map(([, , css]) => roChannels(css)).filter(Boolean);
+  assert.truthy(stops.some((s) => s.r === gold.r && s.g === gold.g && s.b === gold.b),
+    'the metal is UI_LAMP_GOLD itself at its own tone, not a hand-mixed brass');
+  assert.truthy(stops.some((s) => s.r === glow.r && s.g === glow.g && s.b === glow.b),
+    'and the light is UI_LAMP_GLOW itself');
+  // Every OPAQUE stop is a piece of metal (the ramps across the castings) and
+  // every TRANSLUCENT one is light (the pool, the bloom, the glass): no gild
+  // is violet and no glow is brass.
+  for (const s of stops.filter((s) => s.a === 1))
+    assert.gte(s.r, s.b, 'a metal stop is warm');
+  for (const s of stops.filter((s) => s.a > 0 && s.a < 1))
+    assert.truthy(s.b >= s.r || s.r + s.g + s.b > 720,
+      'a light stop is the glow, or the white-hot core of it');
+});
+
+test('street lamp: the lit glass is glazing in a frame, not a hole in the post', () => {
+  // The one part that is not metal: a white-hot core up-left of its middle
+  // (the corner every sprite in here is lit from) falling to the lamp's own
+  // violet, inside the same bronze outline the ironwork wears, with two
+  // mullions down it.
+  const S = RoadOverlay.LAMP_TEX_PX, c = S / 2;
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintLamp(ctx, S);
+  const radial = ops.filter(([k]) => k === 'createRadialGradient');
+  const [, gx0, gy0, , gx1, gy1] = radial[2];
+  assert.lt(gx0, gx1, 'the hot core is left of the glass\'s middle');
+  assert.lt(gy0, gy1, 'and above it');
+  assert.eq(gx1, c, 'the glass itself is centred on the post');
+  // Its first stop is near-white, its last the glow: hot in the middle,
+  // coloured at the frame.
+  const i0 = ops.indexOf(radial[2]);
+  const glassStops = ops.slice(i0).filter(([k]) => k === 'addColorStop').slice(0, 3).map(([, , css]) => roChannels(css));
+  assert.gt(glassStops[0].r + glassStops[0].g + glassStops[0].b, 720, 'white-hot at the core');
+  const glow = roHexChannels(UI_LAMP_GLOW);
+  assert.eq(glassStops[2].b, glow.b, 'and the lamp\'s own violet at the rim');
+  // The mullions: two straight strokes inside the glass's own width, drawn
+  // after it. Straight lines, so they are the only lineTo pairs on the lamp.
+  const after = ops.slice(i0);
+  const lines = [];
+  for (let i = 0; i < after.length; i++)
+    if (after[i][0] === 'lineTo' && after[i - 1] && after[i - 1][0] === 'moveTo') lines.push([after[i - 1], after[i]]);
+  assert.gte(lines.length, 2, 'two mullions down the glazing');
+  const sides = lines.slice(0, 2).map(([m]) => Math.sign(m[1] - c));
+  assert.eq(sides[0] + sides[1], 0, 'one either side of the middle');
+});
+
+test('street lamp: LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_GROUND_FRAC and LAMP_FOOT_R_CELLS are what app.js bakes and seats by', () => {
   assert.gt(RoadOverlay.LAMP_TEX_PX, 0, 'a real texture size');
   assert.gt(RoadOverlay.LAMP_DRAW_CELLS, 0, 'a real on-screen size, in cells');
-  // Drawn a bit under two cells across — big enough to read as sitting on the
-  // carriageway, small enough that a lamp doesn't loom over the road it lights.
-  assert.inRange(RoadOverlay.LAMP_DRAW_CELLS, 1, 2.5, 'about one to two cells, halo included');
+  // Two to three cells across, pool of glow and all — the lamp inside that is
+  // about a fifth of it wide and half of it tall, so it reads as a lamp from a
+  // couple of cells away without looming over the road it lights.
+  assert.inRange(RoadOverlay.LAMP_DRAW_CELLS, 2, 3, 'about two cells, the pool included');
+  assert.eq(RoadOverlay.LAMP_FOOT_R_CELLS, RoadOverlay.LAMP_DRAW_CELLS * 0.085,
+    'the footprint is derived from the square the lamp is baked in');
+  assert.lt(RoadOverlay.LAMP_FOOT_R_CELLS, 0.5, 'and a lamp\'s foot is a fraction of a cell');
 });
 
 // ── The live pass ─────────────────────────────────────────────────────────

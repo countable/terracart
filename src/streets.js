@@ -38,8 +38,8 @@
 // suburban blocks (routinely under 100 m) dark however much of the town was
 // actually restored. See the note above LAMP_SPACING_M. ACROSS the way it
 // stands on the VERGE, `lampOffsetM` off the centreline — half the band's own
-// drawn width plus the stone — so it just touches the kerb instead of
-// standing in the traffic.
+// drawn width plus the lamp's own footprint — so it just touches the kerb
+// instead of standing in the traffic.
 //
 // Pure arithmetic on purpose — no Phaser, no DOM, no scene — which is what
 // lets test/node/streets.test.js pin the real shipping maths rather than a
@@ -302,13 +302,13 @@
   // A lamp stands BESIDE the carriageway, its stone just touching the kerb —
   // never out in the traffic, which is where every one of them stood until
   // Sep 2026 (the point came straight off the centreline). `lampsAlong` says
-  // how far ALONG the way a stone is; this says how far OFF it, and app.js
+  // how far ALONG the way a lamp is; this says how far OFF it, and app.js
   // hands both to the one resolver (`pointAtM(line, mvtToM, s, offM)`).
   //
   // DERIVED, not tuned, and from the number that already says how wide the
   // road IS: half of WorldGen.roadOverlayWidthM — the same width
   // road_overlay.js strokes the band with and rasterizeTile stamps roadMask
-  // from — plus the stone's own radius, so the ART kisses the band's edge
+  // from — plus the lamp's own footprint radius, so the ART kisses the edge
   // rather than sitting on it or floating out in the grass. That is the
   // roadOverlayWidthM discipline: one width, every reader. A motorway's lamps
   // stand further out than a footpath's by construction, and a band that is
@@ -316,10 +316,10 @@
   //
   // Both halves are guarded rather than trusted: a class with no width guess
   // and art that has not loaded are each a zero, not a NaN that would put the
-  // stone at the tile's corner.
-  function lampOffsetM(widthM, stoneRM) {
+  // lamp at the tile's corner.
+  function lampOffsetM(widthM, footRM) {
     const w = widthM > 0 ? widthM : 0;
-    const r = stoneRM > 0 ? stoneRM : 0;
+    const r = footRM > 0 ? footRM : 0;
     return w / 2 + r;
   }
 

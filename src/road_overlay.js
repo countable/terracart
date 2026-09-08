@@ -556,112 +556,251 @@
     return cleanCanvas[k];
   }
 
-  // ── The LAMP STONE ───────────────────────────────────────────────────────
-  // The glowing cobble a restored street carries every Streets.lampSpacingM()
-  // metres of it — the stone itself; the light it throws is lighting.js's
-  // `cobble` row and app.js places both on the same point.
+  // ── The STREET LAMP ──────────────────────────────────────────────────────
+  // The lamp a restored street carries every Streets.lampSpacingM() metres of
+  // it — the standing lamp itself; the light it throws is lighting.js's
+  // `cobble` row, and app.js puts both on the SAME point.
+  //
+  // IT STANDS ON THE POINT, which is what composes the square: the plinth's
+  // footprint, the ground shadow and the painted pool of glow all sit on the
+  // square's GROUND LINE (LAMP_GROUND_FRAC — which app.js seats the sprite's
+  // origin at, so that line lands on the lamp's own world point), and the post
+  // rises above it. So the pool lands on the ground the lamp stands on —
+  // exactly where lighting.js's cookie, on that same point, paints over it —
+  // while the lantern reads as being up in the air above its own foot. Centre
+  // the LANTERN on the point instead and the light pools a lamp's height off
+  // the foot, which is the one thing that gives a seating away.
+  //
+  // The FOOTPRINT is what stands the lamp clear of the carriageway
+  // (LAMP_FOOT_R_CELLS → app.js STREET_LAMP_R_CELLS → Streets.lampOffsetM), so
+  // the number that draws the plinth is the number that seats the lamp on the
+  // verge: one value, two readers, rather than a hand-typed gap that drifts
+  // when the art does.
   //
   // WHY ART AS WELL AS LIGHT. The lightmap is MULTIPLIED over the world, so at
   // noon (a near-white map) a light alone is invisible and the lamps would
-  // simply not exist by day. The stone is therefore painted: it reads as an
-  // ACTIVATED sett with a hot violet core at any hour, and after dark the
-  // cookie over it is what makes it a lamp.
+  // simply not exist by day. The lamp is therefore painted: gilded ironwork
+  // reads as a made object at any hour, and after dark the cookie over it is
+  // what makes it a lamp. It replaced a lit COBBLE in Sep 2026 — a shaded
+  // violet stone with a highlight, which lit the street correctly and looked
+  // like a stone doing it.
   //
   // Baked ONCE into a texture (app.js) rather than stroked per frame, for the
-  // reason at the top of this file — and its halo is a real radial gradient
-  // rather than a stack of translucent rings, which is the same rule again
-  // (a translucent ring composites with its neighbours and blotches).
+  // reason at the top of this file — and its glow is a real radial gradient
+  // rather than a stack of translucent rings, which is the same rule again (a
+  // translucent ring composites with its neighbours and blotches). The ink
+  // outline is likewise an OPAQUE bronze rather than dark ink at an alpha:
+  // nine sections meet at their joins, and a translucent stroke composites
+  // with itself wherever two of them do.
   //
-  // UI_LAMP_GLOW — the same violet the old lit-pebble trail glowed in, back
-  // for the lamp specifically. Deliberately NOT UI_STREET_INK: the
-  // carriageway itself restores in pale warm stone, but a lamp is meant to
-  // read as ACTIVATED, the way a claimed cobble always did, so it keeps the
-  // old activated-cobble colour rather than the newer material one the chips
-  // and the counter wear. One constant, two readers — the baked stone here
-  // and the light thrown over it in lighting.js's `cobble` row — so they
-  // can't drift apart.
-  const LAMP_TEX_PX = 64;          // baked square; the halo fills it
-  const LAMP_DRAW_CELLS = 1.5;     // …drawn this many cells across, halo included
-  const LAMP_STONE_FRAC = 0.16;    // the stone's radius, as a fraction of the square
-  // …so the stone itself covers this much ground, in CELLS. app.js seats a
-  // lamp on the VERGE by it (Streets.lampOffsetM), so the number that DRAWS
-  // the stone is the number that stands it clear of the band — one value,
-  // two readers, rather than a hand-typed gap that drifts when the art does.
-  const LAMP_STONE_R_CELLS = LAMP_DRAW_CELLS * LAMP_STONE_FRAC;
-  const LAMP_CORE_A = 0.85;        // the hot core's alpha at the centre
-  const LAMP_HALO_A = 0.42;        // …and the halo's, just outside the stone
-  const LAMP_RIM_A = 0.55;         // the stone's dark rim: what makes it a STONE by day
-  // THE STONE HAS HEIGHT. Every sprite in the game is drawn orthographic and
-  // lit from the top-left — the cobble sheet the unlit lamp wears has a pale
-  // top, a dark outline and a thicker shadowed underside — and a flat lit
-  // disc beside them read as a decal on the road rather than a sett laid in
-  // it. So the stone is three parts, seated the way textures.js seats its
-  // pebbles and pots: a ground shadow thrown down-right, a dark SIDE band
-  // hanging LAMP_SIDE_FRAC of the radius below the top face (the thickness
-  // you see over the near edge), and the top face itself, its hot core off
-  // up-left of centre so the far rim falls toward the ink. The TOP FACE stays
-  // centred on the square, because lighting.js's cookie sits on the same
-  // point and the light has to come out of the stone, not from beside it.
-  const LAMP_SIDE_FRAC = 0.45;     // the side band's drop, as a fraction of the radius
+  // TWO COLOURS, BECAUSE THEY ARE TWO THINGS. The ironwork is UI_LAMP_GOLD —
+  // what the lamp is MADE of. What it SHEDS is UI_LAMP_GLOW: the glass, the
+  // bloom around it and the pool at its foot, the same violet lighting.js's
+  // `cobble` row throws over the whole thing (deliberately not the street's
+  // own pale UI_STREET_INK — a carriageway restores in stone, but a lamp
+  // reads as ACTIVATED). One constant per side, and the light's is shared with
+  // the lighting pass, so the paint and the cookie can't drift apart.
+  const LAMP_TEX_PX = 128;         // baked square — drawn at ~77px, so it supersamples
+  const LAMP_DRAW_CELLS = 2.4;     // …drawn this many cells across, glow and post included
+  // WHERE THE GROUND IS in the square, as a fraction of its height — and so
+  // where app.js seats the sprite's origin, which is what puts the foot on the
+  // lamp's own point. It is BELOW the middle because a lamp is mostly post:
+  // everything above the ground line is lamp, everything below it is the pool
+  // of glow and the shadow, and those need only the room a flattened pool
+  // takes (LAMP_HALO_FRAC x LAMP_HALO_SQUASH). Splitting the square evenly
+  // would spend half of it on empty road and leave the post too short to read
+  // as one — the lamp came out a candlestick.
+  const LAMP_GROUND_FRAC = 0.62;
+  const LAMP_FOOT_FRAC = 0.085;    // the plinth's half-width, as a fraction of the square
+  // …so the lamp's FOOTPRINT covers this much ground, in CELLS.
+  const LAMP_FOOT_R_CELLS = LAMP_DRAW_CELLS * LAMP_FOOT_FRAC;
+  const LAMP_HALO_FRAC = 0.30;     // the pool of glow on the ground, as a fraction of the square
+  const LAMP_HALO_A = 0.36;        // …its alpha at the foot
+  const LAMP_HALO_SQUASH = 0.5;    // …and how flat it lies: light on a road, not a ball of it
+  const LAMP_BLOOM_FRAC = 0.18;    // the bloom around the lit glass
+  const LAMP_BLOOM_A = 0.46;
+  const LAMP_GLASS_A = 0.96;       // the glass at its hot core
   const LAMP_SHADOW_A = 0.34;      // the ground shadow's alpha
-  const LAMP_CORE_OFF = 0.30;      // the hot core's up-left offset, as a fraction of r
+  const LAMP_EDGE_MIX = 0.68;      // how far the outline bronze is mixed toward the ink
+  const LAMP_UNDER = 0.7;          // every section's underside bulge, as a fraction of its width
   const LAMP_INK = (typeof UI_LAMP_GLOW === 'string') ? UI_LAMP_GLOW : '#9a8cff';
+  const LAMP_GOLD = (typeof UI_LAMP_GOLD === 'string') ? UI_LAMP_GOLD : '#d9a441';
+  const LAMP_DARK = [28, 24, 20];  // the outline ink every sprite in here is drawn with
 
-  function paintLampStone(cx, size) {
+  // THE PROFILE — the lamp as a lathe turns it, listed top to bottom. Each row
+  // is one section: its top and bottom edge and its half-width at each, all as
+  // fractions of the baked square, with the ground at LAMP_GROUND_FRAC. `tone`
+  // lightens (+, a moulding catching the light) or darkens (−, a face turned
+  // away from it) the gild for that piece; `curve` bows its sides out (a
+  // torus) or in (the flare of the base); `cap` strokes the visible top ring
+  // of a piece wider than the one above it.
+  //
+  // The rows are drawn IN THIS ORDER, so a lower piece overlaps the one above
+  // it — the painter rule (CLAUDE.md), inside the one object. The lit glass is
+  // not here: it is the one part that is not metal, and it is painted between
+  // the eaves and the skirt (see paintLamp).
+  const LAMP_PROFILE = [
+    { y0: 0.072, y1: 0.146, w0: 0.015, w1: 0.058, tone: -0.18, curve: -0.30 }, // the crown
+    { y0: 0.144, y1: 0.166, w0: 0.072, w1: 0.066, tone: 0.30, cap: true },     // its eaves
+    { y0: 0.248, y1: 0.290, w0: 0.058, w1: 0.030, tone: -0.10, curve: -0.28 }, // the lantern's skirt
+    { y0: 0.288, y1: 0.306, w0: 0.036, w1: 0.030, tone: 0.28, curve: 0.35 },   // the collar under it
+    { y0: 0.302, y1: 0.512, w0: 0.013, w1: 0.019, tone: 0 },                   // the column
+    { y0: 0.392, y1: 0.408, w0: 0.023, w1: 0.023, tone: 0.25, curve: 0.35 },   // a moulding band on it
+    { y0: 0.500, y1: 0.552, w0: 0.020, w1: 0.054, tone: -0.05, curve: -0.45 }, // the base's flare
+    { y0: 0.550, y1: 0.582, w0: 0.060, w1: 0.068, tone: 0.22, curve: 0.15, cap: true }, // its step
+    { y0: 0.580, y1: 0.620, w0: 0.074, w1: 0.085, tone: -0.12, curve: 0.10, cap: true }, // the plinth
+  ];
+  // The lit glass, in the same units — wider at its foot, like every lantern.
+  const LAMP_GLASS = { y0: 0.162, y1: 0.250, w0: 0.038, w1: 0.056 };
+  // The finial over the crown, and the cross-arm (the old ladder rest) under
+  // the lantern: the two pieces that are not sections of the turn.
+  const LAMP_FINIAL = { cy: 0.058, r: 0.016 };
+  const LAMP_ARM = { y0: 0.318, y1: 0.332, w: 0.066, ball: 0.014 };
+
+  const lampRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const lampMix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+
+  function paintLamp(cx, size) {
     const S = size || LAMP_TEX_PX;
     const c = S / 2;
-    const r = S * LAMP_STONE_FRAC;
-    const drop = r * LAMP_SIDE_FRAC;
-    const ink = LAMP_INK;
-    const rgb = [1, 3, 5].map((i) => parseInt(ink.slice(i, i + 2), 16));
-    const a = (al) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${al})`;
-    // The side band's and the rim's own colour: the ink in shadow, so the
-    // stone's underside is the same violet the top face fades into, darker.
-    const dark = (al) => `rgba(${rgb[0] >> 1},${rgb[1] >> 1},${(rgb[2] * 0.62) | 0},${al})`;
-    const rimW = Math.max(1, S * 0.02);
-    // The halo: brightest just outside the stone, gone by the edge of the
-    // square. Quadratic falloff, the same shape lighting.js bakes its cookies
-    // with, so the painted glow and the light over it agree.
-    const g = cx.createRadialGradient(c, c, 0, c, c, c);
+    const gy = S * LAMP_GROUND_FRAC;          // the ground: where the lamp stands
+    const r = S * LAMP_FOOT_FRAC;             // the plinth's half-width
+    const lw = Math.max(1, S * 0.012);
+    const glow = lampRgb(LAMP_INK), gold = lampRgb(LAMP_GOLD);
+    const edge = lampMix(gold, LAMP_DARK, LAMP_EDGE_MIX);
+    const rgba = (c3, al) => `rgba(${c3[0]},${c3[1]},${c3[2]},${al})`;
+    // The gild at a tone: + toward a pale gold, − toward the outline's bronze.
+    const shade = (t) => t >= 0 ? lampMix(gold, [255, 244, 214], Math.min(1, t))
+                                : lampMix(gold, LAMP_DARK, Math.min(1, -t));
+    // A turned metal face: dark at its left edge, the light off it a quarter
+    // in, the body of the gild, then the far edge in shadow. One gradient per
+    // piece — the cylinder is in the ramp, not in a stack of strokes.
+    const metal = (x0, x1, t) => {
+      const g = cx.createLinearGradient(x0, 0, x1, 0);
+      g.addColorStop(0, rgba(shade(t - 0.30), 1));
+      g.addColorStop(0.26, rgba(shade(t + 0.42), 1));
+      g.addColorStop(0.62, rgba(shade(t), 1));
+      g.addColorStop(1, rgba(shade(t - 0.45), 1));
+      return g;
+    };
+    // One section of the turn: straight top, bowed sides, and an underside
+    // that bulges toward the viewer — the thickness you see of every piece,
+    // because the world is drawn from a little above.
+    const sectionPath = (y0, y1, w0, w1, curve) => {
+      const k = (curve || 0) * (w0 + w1) / 2;
+      const ym = (y0 + y1) / 2, wm = (w0 + w1) / 2 + k;
+      cx.beginPath();
+      cx.moveTo(c - w0, y0);
+      cx.quadraticCurveTo(c - wm, ym, c - w1, y1);
+      cx.quadraticCurveTo(c, y1 + w1 * LAMP_UNDER, c + w1, y1);
+      cx.quadraticCurveTo(c + wm, ym, c + w0, y0);
+      cx.closePath();
+    };
+    const strokeEdge = () => { cx.lineWidth = lw; cx.strokeStyle = rgba(edge, 1); cx.stroke(); };
+    // THE LIT GLASS — the one part of a lamp that is not metal. White-hot
+    // up-left of its middle (the corner every sprite in here is lit from),
+    // falling to the lamp's own violet at the frame, inside the same outline
+    // the ironwork wears, with two mullions down it so it reads as glazing
+    // rather than as a hole in the post.
+    const glass = () => {
+      const y0 = S * LAMP_GLASS.y0, y1 = S * LAMP_GLASS.y1;
+      const w0 = S * LAMP_GLASS.w0, w1 = S * LAMP_GLASS.w1;
+      const my = (y0 + y1) / 2;
+      sectionPath(y0, y1, w0, w1, 0.06);
+      const g = cx.createRadialGradient(c - w1 * 0.38, my - (y1 - y0) * 0.22, 0,
+                                        c, my, Math.max(w1, (y1 - y0) / 2));
+      g.addColorStop(0, `rgba(255,253,247,${LAMP_GLASS_A})`);
+      g.addColorStop(0.5, rgba(glow, 0.95));
+      g.addColorStop(1, rgba(glow, 0.82));
+      cx.fillStyle = g;
+      cx.fill();
+      strokeEdge();
+      cx.lineWidth = lw * 0.8;
+      cx.strokeStyle = rgba(edge, 1);
+      for (const t of [-0.34, 0.34]) {
+        cx.beginPath();
+        cx.moveTo(c + w0 * t, y0 + lw * 0.5);
+        cx.lineTo(c + w1 * t, y1 - lw * 0.5);
+        cx.stroke();
+      }
+    };
+
+    // 1. THE POOL. A flat ellipse of the lamp's own violet on the ground it
+    //    stands on, falling to nothing: what says "this thing is lit" at noon,
+    //    when the lightmap has nothing to multiply. Squashed rather than
+    //    round, because it lies on the road.
+    cx.save();
+    cx.translate(c, gy);
+    cx.scale(1, LAMP_HALO_SQUASH);
+    const hr = S * LAMP_HALO_FRAC;
+    const pool = cx.createRadialGradient(0, 0, 0, 0, 0, hr);
     for (let i = 0; i <= 8; i++) {
       const t = i / 8;
-      g.addColorStop(t, a((LAMP_HALO_A * (1 - t) * (1 - t)).toFixed(4)));
+      pool.addColorStop(t, rgba(glow, (LAMP_HALO_A * (1 - t) * (1 - t)).toFixed(4)));
     }
-    cx.fillStyle = g;
-    cx.fillRect(0, 0, S, S);
-    // The ground shadow: thrown down-right of the stone's footprint, the
-    // side every sprite here shadows on. Squashed flat, because it lies on
-    // the road rather than standing on it.
-    cx.fillStyle = `rgba(28,24,20,${LAMP_SHADOW_A})`;
+    cx.fillStyle = pool;
+    cx.fillRect(-hr, -hr, hr * 2, hr * 2);
+    cx.restore();
+    // 2. THE BLOOM around the glass, laid BEFORE the ironwork so the metal
+    //    over it stays metal and only the air around the lantern glows.
+    const gcy = S * (LAMP_GLASS.y0 + LAMP_GLASS.y1) / 2;
+    const br = S * LAMP_BLOOM_FRAC;
+    const bloom = cx.createRadialGradient(c, gcy, 0, c, gcy, br);
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8;
+      bloom.addColorStop(t, rgba(glow, (LAMP_BLOOM_A * (1 - t) * (1 - t)).toFixed(4)));
+    }
+    cx.fillStyle = bloom;
+    cx.fillRect(c - br, gcy - br, br * 2, br * 2);
+    // 3. THE GROUND SHADOW, thrown down-right of the plinth — the side every
+    //    sprite here shadows on — and squashed flat: it lies on the road.
+    cx.fillStyle = `rgba(${LAMP_DARK[0]},${LAMP_DARK[1]},${LAMP_DARK[2]},${LAMP_SHADOW_A})`;
     cx.beginPath();
-    cx.ellipse(c + drop * 0.6, c + drop + rimW, r * 1.05, r * 0.72, 0, 0, Math.PI * 2);
+    cx.ellipse(c + r * 0.40, gy + r * 0.26, r * 1.25, r * 0.50, 0, 0, Math.PI * 2);
     cx.fill();
-    // The side: the stone's body, one radius wide, dropped below the top
-    // face so the band between the two silhouettes is the thickness you see.
-    // Filled AND rim-stroked, so the outline runs round the whole stone.
-    cx.fillStyle = dark(0.92);
-    cx.beginPath(); cx.arc(c, c + drop, r, 0, Math.PI * 2); cx.fill();
-    cx.lineWidth = rimW;
-    cx.strokeStyle = `rgba(28,24,20,${LAMP_RIM_A})`;
-    cx.beginPath(); cx.arc(c, c + drop, r, 0, Math.PI * 2); cx.stroke();
-    // The top face: the sett itself, near-white where the light sits — off
-    // up-left of centre, so the face is LIT rather than merely bright — and
-    // the street's own ink at its far rim, with a dark outline so it still
-    // reads as a laid stone in daylight rather than as a smudge of light.
-    const hx = c - r * LAMP_CORE_OFF, hy = c - r * LAMP_CORE_OFF;
-    const core = cx.createRadialGradient(hx, hy, 0, c, c, r);
-    core.addColorStop(0, `rgba(255,253,247,${LAMP_CORE_A})`);
-    core.addColorStop(0.55, a(0.92));
-    core.addColorStop(1, a(0.78));
-    cx.fillStyle = core;
-    cx.beginPath(); cx.arc(c, c, r, 0, Math.PI * 2); cx.fill();
-    cx.strokeStyle = `rgba(28,24,20,${LAMP_RIM_A})`;
-    cx.beginPath(); cx.arc(c, c, r, 0, Math.PI * 2); cx.stroke();
-    // The catchlight: a short pale arc along the top-left of the rim, the
-    // highlight sliver the cave boulders and the pot carry on the same edge.
-    cx.lineWidth = rimW;
-    cx.strokeStyle = 'rgba(255,255,255,0.55)';
-    cx.beginPath(); cx.arc(c, c, r - rimW * 1.5, Math.PI * 1.05, Math.PI * 1.55); cx.stroke();
+    // 4. THE FINIAL: the ball over the crown, the top of the whole lamp.
+    const fr = S * LAMP_FINIAL.r, fy = S * LAMP_FINIAL.cy;
+    cx.beginPath(); cx.arc(c, fy, fr, 0, Math.PI * 2);
+    cx.fillStyle = metal(c - fr, c + fr, 0.15); cx.fill(); strokeEdge();
+    // 5. THE TURN, top to bottom — a lower piece over the one above it — with
+    //    the lit glass painted in its place between the eaves and the skirt.
+    for (let i = 0; i < LAMP_PROFILE.length; i++) {
+      if (i === 2) glass();
+      const s = LAMP_PROFILE[i];
+      const y0 = s.y0 * S, y1 = s.y1 * S, w0 = s.w0 * S, w1 = s.w1 * S;
+      sectionPath(y0, y1, w0, w1, s.curve);
+      cx.fillStyle = metal(c - Math.max(w0, w1), c + Math.max(w0, w1), s.tone || 0);
+      cx.fill();
+      strokeEdge();
+      // The top RING of a piece wider than the one it carries: the moulding
+      // read that turns a stack of silhouettes into a stack of castings.
+      if (s.cap) {
+        cx.beginPath();
+        cx.moveTo(c - w0 + lw, y0);
+        cx.quadraticCurveTo(c, y0 + w0 * LAMP_UNDER * 0.55, c + w0 - lw, y0);
+        cx.lineWidth = lw * 0.9;
+        cx.strokeStyle = rgba(shade(0.55), 1);
+        cx.stroke();
+      }
+      // The CROSS-ARM goes on once the column is up: a thin bar with a ball at
+      // each end, under the lantern — the ladder rest every cast-iron lamp
+      // wears, and the one piece that reads as ornament rather than structure.
+      if (i === 4) {
+        const ay0 = S * LAMP_ARM.y0, ay1 = S * LAMP_ARM.y1, aw = S * LAMP_ARM.w;
+        const ah = ay1 - ay0, amy = (ay0 + ay1) / 2, ab = S * LAMP_ARM.ball;
+        cx.beginPath();
+        cx.moveTo(c - aw, ay0); cx.lineTo(c + aw, ay0);
+        cx.quadraticCurveTo(c + aw + ah * 0.7, amy, c + aw, ay1);
+        cx.lineTo(c - aw, ay1);
+        cx.quadraticCurveTo(c - aw - ah * 0.7, amy, c - aw, ay0);
+        cx.closePath();
+        cx.fillStyle = metal(c - aw, c + aw, 0.10); cx.fill(); strokeEdge();
+        for (const sx of [-1, 1]) {
+          cx.beginPath(); cx.arc(c + sx * aw, amy, ab, 0, Math.PI * 2);
+          cx.fillStyle = metal(c + sx * aw - ab, c + sx * aw + ab, 0.20); cx.fill(); strokeEdge();
+        }
+      }
+    }
   }
 
   // The kerb: a hairline pale line along the outer edge of a restored band —
@@ -1429,7 +1568,7 @@
   }
 
   global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
-                         paintLampStone, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_STONE_R_CELLS,
+                         paintLamp, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };
 })(window);
