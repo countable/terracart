@@ -84,6 +84,15 @@ const trailIntroBody = () =>
   'You start repairing the roads — after all, they are the arteries of ' +
   'civilization!\n\n' +
   `Repair ${Trail.GOAL_STEP_M}m of road and the survivors will reward you.`;
+// …but not on the same beat as the repair. The first stretch to come back
+// under a new player is a flash, a scatter of chips and a counter on the
+// street itself, and a dialog opening over the top of that covers the very
+// thing it is there to explain — the player reads "you start repairing the
+// roads" having seen nothing happen. So the greeting waits this long and
+// arrives to explain a moment the player has just watched. Long enough to
+// outlast the repair's own beat (STREET_SHINE_MS, the blast's clock), short
+// enough to still read as part of it.
+const TRAIL_INTRO_DELAY_MS = 2000;
 // How long a stretch of street has to stay IN SIGHT — inside the lit reach,
 // continuously — before it is rebuilt. Walking past a street at the edge of
 // the bubble no longer harvests it in the frame it clips: the metres you bank
@@ -13756,6 +13765,7 @@ class MapScene extends Phaser.Scene {
   // waiting on is the clock, not the player.
   _sweepStreets() {
     if (typeof Streets === 'undefined') return;
+    this._openTrailIntroIfDue();
     const surface = (this.depth ?? 0) === 0;
     // Cave levels carry no streets at all, so don't pay for the scan down
     // there — and the auto-walk home banks nothing.
@@ -14225,15 +14235,18 @@ class MapScene extends Phaser.Scene {
         ...(at ? this._worldToastAt(at.x, at.y, STREET_COUNTER_LIFT_PX) : {}),
       });
     }
-    // THE FIRST REPAIR. The very first metres this save ever banks open the
-    // one dialog that says what a road is for (TRAIL_INTRO_TITLE). Flagged on
-    // the SAVE, so it is once per player and not once per reload;
+    // THE FIRST REPAIR. The very first metres this save ever banks ARM the one
+    // dialog that says what a road is for (TRAIL_INTRO_TITLE) — it opens
+    // TRAIL_INTRO_DELAY_MS later, once the repair it is about has played.
+    // Flagged on the SAVE, so it is once per player and not once per reload;
     // savemigrate.js marks veterans greeted so nobody who has already walked a
-    // ladder gets introduced to it. The flag is only set when the dialog
-    // actually opened — a sweep that lands behind the how-to card leaves it
-    // false and the next one that banks metres tries again, seconds later.
-    const greeting = !st.greeted && this._showTrailIntro();
-    if (greeting) st.greeted = true;
+    // ladder gets introduced to it. The flag is set where the dialog actually
+    // OPENS (_sweepStreets), never here — a greeting that lands behind the
+    // how-to card is refused, and the next sweep that banks metres arms it
+    // again. `greeting` is therefore "a greeting is owed", which is what holds
+    // a prize ceremony back: whatever this sweep queues waits for the dialog
+    // rather than opening in front of it.
+    const greeting = !st.greeted && this._armTrailIntro(now);
     if (out.owed <= 0) return;
     // A wide reach can sweep past more than one goal in a single step, so this
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
@@ -14244,14 +14257,48 @@ class MapScene extends Phaser.Scene {
     if (!greeting) this._drainTrailPrizes();
   }
 
-  // The one-time "you start repairing roads" dialog. Opened from the sweep
-  // that banks a save's first metres. Returns whether it actually opened —
+  // ARM the first-repair dialog, and say whether a greeting is owed. A walker
+  // banks metres on nearly every frame, so this is asked many times over the
+  // wait and must set the deadline exactly once — an arm per sweep would push
+  // the dialog out ahead of a player who keeps walking, which is every player.
+  //
+  // A DEADLINE, not a timer: it is read by _sweepStreets, which runs every
+  // frame whatever the player is doing, so the wait can't fire into a scene
+  // that has moved on — and it is the shape this file already waits with
+  // (_restHoldUntil, _streetCounterAt, the lightmap's own clock).
+  _armTrailIntro(now) {
+    if (!this._trailIntroAt) this._trailIntroAt = now + TRAIL_INTRO_DELAY_MS;
+    return true;
+  }
+
+  // …and the other half: open it once the beat has passed. Read from the top
+  // of _sweepStreets — before that pass's own surface and reach gates, because
+  // a greeting armed by a repair the player then walked away from (into a
+  // cave, onto an empty bar) is still owed.
+  //
+  // The SCREEN is asked here, at the moment it opens, never when it was armed:
+  // two seconds is long enough for a card to have opened in front of it. A
+  // refusal drops the deadline and leaves `greeted` false, so the next sweep
+  // that banks metres arms it again — and the prizes it was holding back are
+  // let go, exactly as they are on a sweep that never armed one.
+  _openTrailIntroIfDue() {
+    if (!this._trailIntroAt || Date.now() < this._trailIntroAt) return;
+    this._trailIntroAt = 0;
+    if (!this._showTrailIntro()) { this._drainTrailPrizes(); return; }
+    const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
+    st.greeted = true;
+    persistSave(this.save);
+  }
+
+  // The one-time "you start repairing roads" dialog. Opened by the wait above,
+  // a beat after the sweep that banks a save's first metres. Returns whether
+  // it actually opened —
   // the caller only spends the save's one greeting on a dialog the player saw.
   //
   // NEVER ON TOP OF ANOTHER. The first sweep can land seconds into a brand new
-  // session, which is exactly when the how-to card is up — so this waits for a
-  // clear screen (body.modal-open, the same live signal _installModalPadGate
-  // keeps for the pads) and the next sweep that banks metres asks again.
+  // session, which is exactly when the how-to card is up — so this refuses a
+  // busy screen (body.modal-open, the same live signal _installModalPadGate
+  // keeps for the pads) and the next sweep that banks metres arms it again.
   //
   // A prize on this same sweep would need GOAL_STEP_M of street inside one
   // reach, which no reach is wide enough for — but if it ever happened the
