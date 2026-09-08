@@ -337,7 +337,7 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
   if (!reward) {
     // Shouldn't happen — context exists — but bail safely if the pool is empty.
     addMoney(save, 1);
-    scene.flashLoot(`${mark} → $1`, '#ffe066');
+    scene.flashLoot(`${mark} → 1`, '#ffe066', 1, null, scene.coinIconEl?.());
     return;
   }
   if (reward.kind === 'relic' || reward.kind === 'armor') {
@@ -353,7 +353,7 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     addMoney(save, reward.amount);
     const label = (typeof gearName === 'function')
       ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
-    scene.flashLoot(`${mark} Already better — $${reward.amount}`, '#aaa', 1.2);
+    scene.flashLoot(`${mark} Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
   } else if (reward.kind === 'item') {
     // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
     if (isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
@@ -368,14 +368,14 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     }
   } else if (reward.kind === 'gold') {
     addMoney(save, reward.amount);
-    scene.flashLoot(`${mark} → $${reward.amount}`, '#ffe066');
+    scene.flashLoot(`${mark} → ${reward.amount}`, '#ffe066', 1, null, scene.coinIconEl?.());
   }
   // Consolation coins for any qty bumps the picker couldn't apply
   // (bracket at cap or single-stack class). Small gold trickle alongside
   // the main loot — never replaces it.
   if (reward.consolation > 0) {
     addMoney(save, reward.consolation);
-    scene.flash(`+$${reward.consolation}`, sx, sy + 16);
+    scene.flash(`+${reward.consolation}`, sx, sy + 16);
   }
 }
 
@@ -946,7 +946,7 @@ const TAP_HANDLERS = [
   }},
 
   // 1a") Coin drops (ATM / bicycle_parking burst). The coin lying in the
-  // TAPPED CELL → +$1, splice it out of entry.coinDrops, mini flash. Runs
+  // TAPPED CELL → +1, splice it out of entry.coinDrops, mini flash. Runs
   // BEFORE the 'object' handler so a coin sitting near a chest sprite still
   // gets picked up cleanly. Does NOT consume energy — it's a tap, not work.
   { name: 'coindrop', try: (ctx) => {
@@ -978,14 +978,14 @@ const TAP_HANDLERS = [
     if (tooFar(ctx, coin.x, coin.y)) return 'far';
     bestEntry.coinDrops.splice(bestIdx, 1);
     addMoney(save, 1);
-    // The "+$1" lands ON the cell the coin was picked from, like every other
+    // The "+1" lands ON the cell the coin was picked from, like every other
     // number on the map (app.js _popCellNumber) — not at the finger, which
     // is over the coin only until it lifts. A stub scene has no cell pops.
     if (typeof scene._popCellNumber === 'function') {
       const cc = worldMetersToAbsCell(scene, coin.x, coin.y);
-      scene._popCellNumber('+$1', UI_GOLD, cc.cellIX, cc.cellIY);
+      scene._popCellNumber('+1', UI_GOLD, cc.cellIX, cc.cellIY);
     } else {
-      scene.flash('+$1', sx, sy);
+      scene.flash('+1', sx, sy);
     }
     ctx.dirty = true;   // money changed — persist
     return true;

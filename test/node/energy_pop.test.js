@@ -8,7 +8,7 @@
 // Until Sep 2026 the rest splash was a 'note' at the viewport centre minus
 // 70px (two cells over anyone's head, and under a peek drag two cells from
 // nowhere) and the drains sat 40px above the same point. The coin pickup's
-// "+$1" is the same cell pop, and the foe's "-N" damage number wears the
+// "+1" is the same cell pop, and the foe's "-N" damage number wears the
 // same dress (stroke + drop shadow) from the same toast table.
 //
 // The placement (_energyPopAt / _cellToastAt / _cellAtScreen / playerScreen)
@@ -162,14 +162,14 @@ test('damage pop: the foe\'s "-N" wears the same dress, from the same table', ()
   assert.truthy(/if \(opts\.mask\) t\.setMask\(opts\.mask\);/.test(app), '_toast honours a mask');
 });
 
-test('coin pop: the "+$1" lands on the cell the coin was picked from', () => {
+test('coin pop: the "+1" lands on the cell the coin was picked from', () => {
   const src = INTERACT_SRC;
-  assert.truthy(/const cc = worldMetersToAbsCell\(scene, coin\.x, coin\.y\);\s*\n\s*scene\._popCellNumber\('\+\$1', UI_GOLD, cc\.cellIX, cc\.cellIY\);/.test(src),
+  assert.truthy(/const cc = worldMetersToAbsCell\(scene, coin\.x, coin\.y\);\s*\n\s*scene\._popCellNumber\('\+1', UI_GOLD, cc\.cellIX, cc\.cellIY\);/.test(src),
     'the coin cell, in gold, through the cell pop');
   // The flash at the finger survives ONLY as the stub-scene fallback.
-  assert.truthy(/\} else \{\s*\n\s*scene\.flash\('\+\$1', sx, sy\);\s*\n\s*\}/.test(src),
+  assert.truthy(/\} else \{\s*\n\s*scene\.flash\('\+1', sx, sy\);\s*\n\s*\}/.test(src),
     'the flash at the finger is the else branch of the cell pop');
-  assert.eq((src.match(/scene\.flash\('\+\$1'/g) || []).length, 1, 'and the only one');
+  assert.eq((src.match(/scene\.flash\('\+1'/g) || []).length, 1, 'and the only one');
 });
 
 test('energy pop: every energy readout goes through _popEnergy, on a cell', () => {

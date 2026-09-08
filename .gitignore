@@ -26,3 +26,6 @@ data/g[0-9]*_*.png
 
 # Full-res gpt-image raws for the story banners (regenerable via tools/gen_story_art.js)
 assets/art/raw/
+
+# Coin generator outbox - the tracked runtime copy is assets/Icons/coin.png
+assets/art/coin_icon.png

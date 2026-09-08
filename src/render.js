@@ -3718,8 +3718,12 @@ Render.drawObjects = function drawObjects(scene) {
       const idH = (c.id || '').length * 2654435761;
       const phase = ((_coinNow + idH) % 800) / 800;     // 0..1
       const pulse = 1.0 + 0.12 * Math.sin(phase * Math.PI * 2);
+      // coin_drop is the 64px pixel-art asset now (was a baked 16px disc).
+      // The drop still draws COIN_DROP_PX across, derived off the frame's own
+      // width so a re-cut asset can't silently resize what the player sees.
+      const COIN_DROP_PX = 24;
       s.setOrigin(0.5, 0.5)
-       .setScale(1.5 * pulse)
+       .setScale((COIN_DROP_PX / s.width) * pulse)
        .setPosition(Math.round(sx), Math.round(sy))
        .setAlpha(1).setTint(0xffffff);
     });

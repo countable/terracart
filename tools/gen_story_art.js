@@ -30,6 +30,20 @@ const STYLE =
 // or { subject, size, width } for a different frame - the safety screen's
 // fullscreen mobile backdrop is portrait.
 const PIECES = {
+  // The ONE money icon: a single gold coin on transparency. Not a banner -
+  // generated large, trimmed to its opaque bounds, downscaled to a 64px
+  // master (assets/art is for banners; the runtime copies live under
+  // assets/Icons/ - see tools/gen_story_art.js --coin).
+  coin_icon: {
+    size: '1024x1024', width: 64, colors: 64, background: 'transparent', trim: true,
+    style:
+      '16-bit pixel art game icon, crisp chunky pixel clusters, warm gold palette. ' +
+      'Transparent background, no shadow, no text.',
+    subject:
+      'A single round gold coin, flat straight-on front view, centred, filling the frame: ' +
+      'darker amber outer rim, warm gold body, a cream pixel highlight at the top-left, an ' +
+      'embossed five-pointed star in the centre. Nothing else in frame.',
+  },
   safety_welcome: {
     size: '1024x1536', width: 640, colors: 96,
     subject:
@@ -95,8 +109,9 @@ async function generate(key, name, piece) {
     headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'gpt-image-1.5',
-      prompt: `${STYLE}\n\nScene: ${piece.subject}`,
+      prompt: `${piece.style || STYLE}\n\nScene: ${piece.subject}`,
       size: piece.size,
+      ...(piece.background ? { background: piece.background } : {}),
       quality: 'high',
       n: 1,
     }),
@@ -110,7 +125,7 @@ async function generate(key, name, piece) {
   return rawPath;
 }
 
-function downscale(rawPath, name, width, colors) {
+function downscale(rawPath, name, width, colors, trim) {
   const outPath = path.join(OUT_DIR, `${name}.png`);
   // The piece's own width (512 for banners, 640 for the fullscreen backdrop),
   // then quantize: pixel art survives palette reduction intact (the clusters
@@ -118,11 +133,29 @@ function downscale(rawPath, name, width, colors) {
   // four instead of ~370KB.
   const py = `
 from PIL import Image
-im = Image.open(${JSON.stringify(rawPath)}).convert('RGB')
+im = Image.open(${JSON.stringify(rawPath)})
+trim = ${trim ? 'True' : 'False'}
+if trim:
+    im = im.convert('RGBA')
+    bbox = im.getchannel('A').getbbox()
+    if bbox: im = im.crop(bbox)
+    # Square the canvas: a trimmed coin is round, but an icon slot is square -
+    # pad the shorter side with transparency so resize never squashes it.
+    w0, h0 = im.size
+    if w0 != h0:
+        side = max(w0, h0)
+        canvas = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+        canvas.paste(im, ((side - w0) // 2, (side - h0) // 2))
+        im = canvas
+else:
+    im = im.convert('RGB')
 w, h = im.size
 tw = ${width}
 im = im.resize((tw, round(h * tw / w)), Image.LANCZOS)
-im = im.quantize(colors=${colors || 128}, method=Image.MEDIANCUT, dither=Image.FLOYDSTEINBERG)
+if im.mode == 'RGBA':
+    im = im.quantize(colors=${colors || 128}, method=Image.FASTOCTREE, dither=Image.FLOYDSTEINBERG)
+else:
+    im = im.quantize(colors=${colors || 128}, method=Image.MEDIANCUT, dither=Image.FLOYDSTEINBERG)
 im.save(${JSON.stringify(outPath)}, optimize=True)
 `;
   execFileSync('python3', ['-c', py]);
@@ -147,7 +180,12 @@ im.save(${JSON.stringify(outPath)}, optimize=True)
     if (!force && !reprocess && fs.existsSync(outPath)) { console.log(`skip ${name} (exists)`); continue; }
     const rawPath = path.join(RAW_DIR, `${name}.png`);
     const raw = reprocess ? rawPath : await generate(key, name, piece);
-    const out = downscale(raw, name, piece.width, piece.colors);
+    const out = downscale(raw, name, piece.width, piece.colors, piece.trim);
+    // The coin's runtime slot is the Icons tree (the art/ copy is just the
+    // generator's outbox); land it there too so a regen can't drift.
+    if (name === 'coin_icon') {
+      fs.copyFileSync(out, path.join(__dirname, '..', 'assets', 'Icons', 'coin.png'));
+    }
     const kb = Math.round(fs.statSync(out).size / 1024);
     console.log(`ok (${kb}KB)`);
     // Gentle pacing: the images endpoint rate-limits bursty accounts.

@@ -491,8 +491,8 @@ const INTERACTABLES = {
         ctx.dirty = true;
         addMoney(save, result.amount || 0);
         scene.showChestRewardModal({
-          iconHTML: '<span style="font-size:48px">🪙</span>',
-          name: `+$${result.amount || 0}`, color: UI_GOLD,
+          iconHTML: scene.coinIconHTML ? scene.coinIconHTML(48) : '',
+          name: `+${result.amount || 0}`, color: UI_GOLD,
         });
         if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(result.jackpot);

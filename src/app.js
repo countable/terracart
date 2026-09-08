@@ -397,7 +397,7 @@ const MODAL_LIFT_PX = 140;
 //             and settles, and stacks ABOVE a gain (hence the depth gap).
 //   cell    — a NUMBER ON THE CELL it belongs to: "+N⚡" / "−N⚡" on the tilled
 //             plot, the felled tree or the player's own cell for a rest tick
-//             or a slime's leech (_popEnergy), "+$1" on the cell a coin was
+//             or a slime's leech (_popEnergy), "+1" on the cell a coin was
 //             picked from (_popCellNumber). No chip, like a note, because it
 //             sits on the map over the very thing it is about; but it is bold,
 //             STROKED and drop-shadowed, because that thing can be any ground
@@ -464,7 +464,7 @@ const MODAL_KINDS = {
   treasure: { icon: '💎', label: 'Treasure'  },   // chests, boxes, loot ceremonies
   supplies: { icon: '🧰', label: 'Supplies'  },   // the starter crates' handout — see below
   trail:    { icon: '🗺️', label: 'Trail'     },   // road/trail completion rewards
-  shop:     { icon: '🪙', label: 'Shop'      },   // buying and selling for money
+  shop:     { coinIcon: true, label: 'Shop' },   // buying and selling for money — glyph is the coin asset (header reads `coinIcon`)
   trade:    { icon: '🤝', label: 'Trade'     },   // goods-for-goods barter
   // The smithy's CATEGORY is 'Smithy', never 'Forge': Forge is one of its two
   // ACTIONS (the Forge / Smelt tab and button), and a header reading FORGE over
@@ -1966,21 +1966,8 @@ class MapScene extends Phaser.Scene {
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
     this.trapPool = [];       // sprites for hidden / sprung traps lying on the ground (src/traps.js)
 
-    // Bake the coin sprite: a 16×16 gold disc with a soft outline + highlight.
-    // Generated once at scene-create so we don't need an art asset on disk.
-    if (!this.textures.exists('coin_drop')) {
-      const cg = this.make.graphics({ x: 0, y: 0, add: false });
-      // Outer dark rim for contrast on any terrain
-      cg.fillStyle(0x6b4a00, 1); cg.fillCircle(8, 8, 7);
-      // Gold body
-      cg.fillStyle(0xffcf3a, 1); cg.fillCircle(8, 8, 6);
-      // Inner brighter ring
-      cg.fillStyle(0xffe066, 1); cg.fillCircle(8, 8, 4);
-      // Top-left highlight dot
-      cg.fillStyle(0xffffff, 0.7); cg.fillCircle(6, 6, 1.5);
-      cg.generateTexture('coin_drop', 16, 16);
-      cg.destroy();
-    }
+    // The coin_drop texture is the 64px pixel-art asset (assets/Icons/coin.png)
+    // loaded through ASSETS — the ONE face of money everywhere (see assets.js).
 
     // Bake a soft building shadow: a flat dark ellipse that fades at the rim.
     // Drawn as concentric ellipses of decreasing alpha so the edge feathers
@@ -7333,7 +7320,7 @@ class MapScene extends Phaser.Scene {
       if (coins > 0) addMoney(save, coins);
       const name = Combat.monster(victim.kind)?.name || 'Slime';
       const elite = Combat.isElite(victim);
-      this.flash(`⚔️ ${name}${coins > 0 ? ` +$${coins}` : ' slain'}`,
+      this.flash(`⚔️ ${name}${coins > 0 ? ` +${coins}` : ' slain'}`,
         this.viewCenterX, this.viewCenterY - 60);
       if (elite) {
         // An elite always pays past the wage: the kind's Discovery badge the
@@ -9049,7 +9036,7 @@ class MapScene extends Phaser.Scene {
       const id = `coin_${poi.id}_${dayKey}_${i}`;
       entry.coinDrops.push({ kind: 'coindrop', x: wmx, y: wmy, id, expiresAt });
     }
-    this.flashLoot(`🪙 Scattered ${n} coins!`, '#ffe066');
+    this.flashLoot(`Scattered ${n} coins!`, '#ffe066', 1, null, this.coinIconEl());
   }
 
   // --- Movement collision & level transitions ---
@@ -9797,7 +9784,7 @@ class MapScene extends Phaser.Scene {
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
       name: 'You pass out from exhaustion and wake up on the surface.',
-      sub: lost > 0 ? `Lost $${lost} while you were out cold.` : undefined,
+      sub: lost > 0 ? `Lost ${this.moneyHTML(lost)} while you were out cold.` : undefined,
       color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
     });
@@ -9816,7 +9803,7 @@ class MapScene extends Phaser.Scene {
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
       name: 'You collapse from exhaustion.',
-      sub: lost > 0 ? `Lost $${lost} while you were out cold.` : undefined,
+      sub: lost > 0 ? `Lost ${this.moneyHTML(lost)} while you were out cold.` : undefined,
       color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
     });
@@ -10294,7 +10281,7 @@ class MapScene extends Phaser.Scene {
     return this._popCellNumber(text, color, ix, iy);
   }
 
-  // Any short number ON a cell — the energy pops above, and the "+$1" on the
+  // Any short number ON a cell — the energy pops above, and the "+1" on the
   // cell a coin was just picked from (interact.js 'coindrop'). Seats the text
   // by _energyPopAt (clear of the cell's top edge, or of the player's head on
   // their own cell) and wears the `cell` tier — the seating is what points at
@@ -10576,7 +10563,7 @@ class MapScene extends Phaser.Scene {
       this.tweens.add({ targets: banner, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
       // Hangs BELOW the headline (originY 0) rather than above it, which is
       // the whole reason `sub` is its own tier.
-      const subText = isNew ? `+$${money}   🔆 +1 Discovery` : `+$${money}`;
+      const subText = isNew ? `+${money}   🔆 +1 Discovery` : `+${money}`;
       // Pinned 8px under the headline's FINAL y (the banner may have been
       // lifted clear of a loot pop — flashShiny is documented to fire after
       // one) and opted out of stacking, so the pair always reads as one unit
@@ -10596,13 +10583,20 @@ class MapScene extends Phaser.Scene {
     // invalidation on each of the ~60 frames a second in between.
     // Money badge always shown.
     if (this.moneyEl) {
-      const money = `$${this.save.money ?? 0}`;
-      if (this._moneyDOM !== money) { this._moneyDOM = money; this.moneyEl.textContent = money; }
+      const money = `${this.save.money ?? 0}`;
+      if (this._moneyDOM !== money) {
+        this._moneyDOM = money;
+        // The chip is a coin icon plus a bare number span (#money-num); the
+        // icon is the symbol, so the number carries no `$`. Fall back to the
+        // chip itself when the span is absent.
+        const numEl = document.getElementById('money-num') || this.moneyEl;
+        numEl.textContent = money;
+      }
       // The chip now holds a real balance, so it can be shown. Until this
       // point body.booting keeps the whole top row off screen: the markup
-      // ships "$0" and "⚡100/100" as placeholder text, and on a fresh save the
+      // ships "0" and "⚡100/100" as placeholder text, and on a fresh save the
       // scene does not exist for the whole opening story — so the first thing
-      // a new player read was a money chip saying $0, which then became $50
+      // a new player read was a money chip saying 0, which then became 50
       // the moment the world came up. (body.modal-open, which dims these two
       // for a dialog, cannot cover that stretch: it is toggled from the
       // scene's own update loop, and there is no scene yet.)
@@ -11023,7 +11017,7 @@ class MapScene extends Phaser.Scene {
   }
 
   _playStarterCheer(done) {
-    this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +$${done.reward.money}` : ''}`, '#a7ffb0', 1.3);
+    this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +${done.reward.money}` : ''}`, '#a7ffb0', 1.3);
     // Hold the COMPLETED step on screen in green for a beat before swapping in
     // the next one, so finishing something is legible instead of an instant
     // relabel. The held text is written from `done` rather than left as
@@ -11036,7 +11030,7 @@ class MapScene extends Phaser.Scene {
     el.querySelector('.step').textContent  = '✓';
     el.querySelector('.title').textContent = done.title;
     el.querySelector('.body').textContent  = done.reward?.money
-      ? `Done — $${done.reward.money} earned.`
+      ? `Done — ${done.reward.money} coins earned.`
       : 'Done.';
     if (this._objectiveTimer) clearTimeout(this._objectiveTimer);
     this._objectiveTimer = setTimeout(() => {
@@ -11740,11 +11734,14 @@ class MapScene extends Phaser.Scene {
         'margin:-2px 0 10px;padding-bottom:8px;' +
         `border-bottom:1px solid ${borderColor}59;`;
       const ico = document.createElement('span');
-      // Desaturated: the emoji is a category glyph, not a prize, so it reads
+      // Desaturated: the glyph is a category marker, not a prize, so it reads
       // in the chrome's own greys rather than pulling colour off the copy —
-      // the same treatment the inactive inventory tab glyphs get.
+      // the same treatment the inactive inventory tab glyphs get. The shop
+      // kind's glyph is the coin ASSET (MODAL_KINDS row's `coinIcon`), money's
+      // one face; everything else is an emoji.
       ico.style.cssText = 'font-size:22px;line-height:1;filter:grayscale(1)';
-      ico.textContent = k.icon;
+      if (k.coinIcon) ico.innerHTML = this.coinIconHTML(22);
+      else ico.textContent = k.icon;
       const lbl = document.createElement('span');
       lbl.style.cssText =
         'font:700 11px ui-monospace,monospace;letter-spacing:.14em;' +
@@ -11852,17 +11849,17 @@ class MapScene extends Phaser.Scene {
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
       blurb: 'Crows and deer steer clear of a planted field.',
-      cost: `$${price}`,
+      cost: this.moneyHTML(price),
       canAfford: canAfford(),
       onAccept: () => {
-        if (!canAfford()) { this.flash(`need $${price}`, sx, sy); return; }
+        if (!canAfford()) { this.flash(`need ${price}`, sx, sy); return; }
         addMoney(this.save, -price);
         this.addToInv(id, 1);
         this.save.scarecrowShopUsed = true;
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
-        this.flashLoot(`🪙 ${item?.name || id}\n−$${price}`, '#ffe066', 1, id);
+        this.flashLoot(`${item?.name || id}\n−${price}`, '#ffe066', 1, id);
       },
     });
   }
@@ -11896,8 +11893,8 @@ class MapScene extends Phaser.Scene {
       const total = unitPrice * q;
       return {
         get: `${iconHTML} ${itemName} ×${q}`,
-        cost: saved > 0 ? `$${total} <span style="opacity:.6">(save $${saved * q})</span>`
-                        : `$${total}`,
+        cost: saved > 0 ? `${this.moneyHTML(total)} <span style="opacity:.6">(save ${this.moneyHTML(saved * q, 12)})</span>`
+                        : this.moneyHTML(total),
         canAfford: money() >= total && q <= room(),
       };
     };
@@ -11916,12 +11913,12 @@ class MapScene extends Phaser.Scene {
         const take = Math.min(want, room());
         if (take <= 0) { this.flash(BAG_FULL_MSG, sx, sy); return; }
         const pay = unitPrice * take;
-        if (money() < pay) { this.flash(`need $${pay}`, sx, sy); return; }
+        if (money() < pay) { this.flash(`need ${pay}`, sx, sy); return; }
         addMoney(this.save, -pay);
         this.addToInv(id, take);
         persistSave(this.save);
         this.buildInventoryDOM();
-        this.flashLoot(`🪙 ${take}× ${itemName}\n−$${pay}`, '#ffe066', 1, id);
+        this.flashLoot(`${take}× ${itemName}\n−${pay}`, '#ffe066', 1, id);
       },
     });
   }
@@ -12014,7 +12011,7 @@ class MapScene extends Phaser.Scene {
       const iconHTML = this.iconSpanHTML(sellId);
       const itemName = item?.name || sellId;
       const fmt = (q) => ({
-        get: `+$${unitPrice * q}`,
+        get: this.moneyHTML(`+${unitPrice * q}`),
         cost: `${q}× ${iconHTML} ${itemName}`,
         canAfford: true,
       });
@@ -12037,7 +12034,7 @@ class MapScene extends Phaser.Scene {
           addMoney(this.save, gain);
           persistSave(this.save);
           this.buildInventoryDOM();
-          this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, sellId);
+          this.flashLoot(`+${gain}`, '#ffe066', 1, sellId);
           this.questEvent('sell');
         },
       });
@@ -12275,7 +12272,7 @@ class MapScene extends Phaser.Scene {
         this.buildInventoryDOM();
         // Use the loud loot pop so a purchase reads as a real gain.
         // Sprite shows the bought item — drop the item-icon emoji.
-        this.flashLoot(`🪙 ${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
+        this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
     });
   }
@@ -12582,12 +12579,12 @@ class MapScene extends Phaser.Scene {
     box.innerHTML =
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">Move Home here?</div>` +
       `<div style="margin:6px 0 12px">Your Home trailer relocates to where you're standing.` +
-      `<br><br>Cost: <b style="color:#ffe066">$${cost}</b>` +
-      `<span style="opacity:.7"> (half your coins, max $500)</span></div>`;
+      `<br><br>Cost: <b style="color:#ffe066">${this.moneyHTML(cost)}</b>` +
+      `<span style="opacity:.7"> (half your coins, max ${this.moneyHTML(500, 12)})</span></div>`;
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:8px;justify-content:center';
     const cancel = mkBtn('Cancel', false);
-    const move   = mkBtn(`Move ($${cost})`, true);
+    const move   = mkBtn(`Move (${this.moneyHTML(cost, 12)})`, true);
     cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     move.addEventListener('click', (e) => {
       e.stopPropagation(); wrap.remove();
@@ -12760,7 +12757,7 @@ class MapScene extends Phaser.Scene {
           + `color:${ready ? 'var(--green)' : '#ddd'};opacity:${ready ? '1' : '.75'};">`
           + `${stock}</span></span>`
           + `<span style="white-space:nowrap;text-align:right;">`
-          + `<b style="color:var(--gold);">+$${setPrice}</b><br>`
+          + `<b style="color:var(--gold);">${this.moneyHTML(`+${setPrice}`)}</b><br>`
           + `<span style="opacity:.7;font-size:11px;">${Math.round(h.dist)}m ›</span></span>`;
         // A row you can complete right now reads as ready.
         if (ready) row.style.borderColor = '#4a8c4a';
@@ -12979,7 +12976,7 @@ class MapScene extends Phaser.Scene {
     // text, and say what the stepper counts.
     const setNames = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(' + ');
     const fmt = (q) => ({
-      get: `+$${setPrice * q}`,
+      get: this.moneyHTML(`+${setPrice * q}`),
       cost: single
         ? `${q} × [ ${setIcons} ${setNames} ]`
         : `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
@@ -13029,7 +13026,7 @@ class MapScene extends Phaser.Scene {
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
-        this.flashLoot(`🪙 +$${gain}`, '#ffe066', 1, wanted[0]);
+        this.flashLoot(`+${gain}`, '#ffe066', 1, wanted[0]);
         if (firstHere) this.flash('🔆 +1 Discovery — new house', sx, sy - 24);
         if (wasFirstDelivery) {
           this._storySplashOnce('delivery', {
@@ -13122,10 +13119,10 @@ class MapScene extends Phaser.Scene {
     const curState = house?.id ? this.shopBucketState(house) : null;
     const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
     return {
-      label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
+      label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(rerollCost, 12)}</span>`,
       disabled: (this.save.money ?? 0) < rerollCost,
       onClick: () => {
-        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need $${rerollCost}.`, sx, sy); return; }
+        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
         if (curState) curState.rerolls += 1;
         const next = this.peekOrBuildRelicOffer(house);
         if (!next) { this.flash(emptyMsg, sx, sy); return; }
@@ -13155,7 +13152,7 @@ class MapScene extends Phaser.Scene {
       cancelLabel: 'Later',
       get: `${iconHtml} ${name}`,
       blurb,
-      cost: `$${price}`,
+      cost: this.moneyHTML(price),
       canAfford: (this.save.money ?? 0) >= price,
       acceptLabel: 'Buy',
       onAccept: () => {
@@ -13165,14 +13162,14 @@ class MapScene extends Phaser.Scene {
           ? (this.save.relics?.[offer.slot]?.tier ?? 0)
           : (this.save.armor?.[offer.slot]?.tier ?? 0);
         if (offer.tier <= curTier) { this.flash('Already carry a finer one.', sx, sy); return; }
-        if ((this.save.money ?? 0) < price) { this.flash(`Purse too light — need $${price}.`, sx, sy); return; }
+        if ((this.save.money ?? 0) < price) { this.flash(`Purse too light — need ${price}.`, sx, sy); return; }
         addMoney(this.save, -price);
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         recordDeal();
         persistSave(this.save);
         this.updateHUD();
-        this.flashLoot(`🪙 ${name}\n−$${price}`, '#ffe066', 1.25);
+        this.flashLoot(`${name}\n−${price}`, '#ffe066', 1.25);
       },
       // Pivot the seed lane so the next peekOrBuildRelicOffer returns
       // something else — no per-house cache to invalidate.
@@ -13551,15 +13548,15 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(
-          `🪙 ${giveQty}× ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
+          `${giveQty}× ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
           '#ffe066', 1, offer.giveId,
         );
       },
       secondary: {
-        label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">$${rerollCost}</span>`,
+        label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(rerollCost, 12)}</span>`,
         disabled: (this.save.money ?? 0) < rerollCost,
         onClick: () => {
-          if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need $${rerollCost}.`, sx, sy); return; }
+          if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
           curState.rerolls += 1;
           addMoney(this.save, -rerollCost);
           persistSave(this.save);
@@ -14234,14 +14231,14 @@ class MapScene extends Phaser.Scene {
     // ladder never pays out without saying where the next rung is.
     const next = trailNextPrizeLine(n | 0);
     if (!choices.length) {
-      // Defensive fallback — give $5 so the player isn't stiffed.
+      // Defensive fallback — give 5 coins so the player isn't stiffed.
       addMoney(this.save, 5);
       this.showChestRewardModal({
         kind: 'trail',
         header,
         art: 'trail_prize',
-        iconHTML: '<span style="font-size:48px">🪙</span>',
-        name: '+$5',
+        iconHTML: this.coinIconHTML ? this.coinIconHTML(48) : '',
+        name: '+5',
         sub: next,
         color: UI_GOLD,
         onDismiss,
@@ -14325,8 +14322,8 @@ class MapScene extends Phaser.Scene {
     }
     if (reward.kind === 'gold') {
       return {
-        iconHTML: '<span style="font-size:48px">🪙</span>',
-        name: `+$${reward.amount}`,
+        iconHTML: this.coinIconHTML ? this.coinIconHTML(48) : '',
+        name: `+${reward.amount}`,
         color: UI_GOLD,
       };
     }
@@ -14652,7 +14649,7 @@ class MapScene extends Phaser.Scene {
     this._markCastleServiceUsed(house);
     if (typeof persistSave === 'function') persistSave(this.save);
     this.buildInventoryDOM();
-    this.flashLoot(`🪙 +$${CASTLE_TAX_GOLD} taxes`, '#ffe066');
+    this.flashLoot(`+${CASTLE_TAX_GOLD} taxes`, '#ffe066', 1, null, this.coinIconEl?.());
   }
   // The castellan's greeting and daily offer. A RESTORED castle (the player
   // solved its quest — see showQuestBoard/_claimCastle) no longer sells
@@ -14676,7 +14673,7 @@ class MapScene extends Phaser.Scene {
       canAfford: true,
       acceptLabel: 'Rest',
       secondary: {
-        label: `Collect $${CASTLE_TAX_GOLD} taxes`,
+        label: `Collect ${this.moneyHTML(CASTLE_TAX_GOLD, 12)} taxes`,
         onClick: () => this._castleTax(sx, sy, house),
       },
       cancelLabel: 'Later',
@@ -14711,7 +14708,7 @@ class MapScene extends Phaser.Scene {
     this.showOfferModal({
       kind: 'quest',
       title: done ? 'Quest complete!' : `#${mine + 1} ${q.title}`,
-      get: done ? `Reward: $${q.reward}` : `${q.have} / ${q.need}`,
+      get: done ? `Reward: ${this.moneyHTML(q.reward)}` : `${q.have} / ${q.need}`,
       blurb: q.body + others,
       canAfford: done,
       acceptLabel: done ? 'Claim Reward' : 'Locked',
@@ -14727,7 +14724,7 @@ class MapScene extends Phaser.Scene {
         const claimed = this._claimCastle(house);
         persistSave(this.save);
         this.buildInventoryDOM();
-        this.flashLoot(`🪙 +$${finished.reward}`, '#ffe066');
+        this.flashLoot(`+${finished.reward}`, '#ffe066', 1, null, this.coinIconEl());
         if (claimed) {
           // The banner IS the moment, once per castle (the ledger key carries
           // the castle's own id). A busy screen returns false unmarked, so
@@ -14909,9 +14906,9 @@ class MapScene extends Phaser.Scene {
       Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.shopCharmMul(opts.house)));
     return {
       kind: 'money',
-      label: `$${cashCost}`,
-      shortGain: `−$${cashCost}`,
-      shortDenial: `need $${cashCost}`,
+      label: this.moneyHTML(cashCost),
+      shortGain: `−${cashCost}`,
+      shortDenial: `need ${cashCost}`,
       canAfford: () => (this.save.money ?? 0) >= cashCost,
       consume: () => { addMoney(this.save, -cashCost); },
     };
@@ -14994,6 +14991,26 @@ class MapScene extends Phaser.Scene {
 
   iconSpanHTML(itemId, sizePx = 20) {
     return this.renderItemIcon(itemId, sizePx, 'inline');
+  }
+
+  // The ONE face of money (assets/Icons/coin.png, the coin_drop world
+  // texture's own file). Deliberately NOT routed through renderItemIcon /
+  // ICON_SHEETS — the coin is no item-sheet icon. Three forms:
+  //   coinIconHTML  — an inline <img> for modal / list HTML strings
+  //   moneyHTML     — that icon plus an amount, for any money readout in HTML
+  //   coinIconEl    — the same coin as a DOM element, for flashLoot's iconEl
+  coinIconHTML(px = 16) {
+    return `<img src="assets/Icons/coin.png" style="width:${px}px;height:${px}px;image-rendering:pixelated;vertical-align:-2px;" alt="">`;
+  }
+  moneyHTML(n, px = 16) {
+    return `${this.coinIconHTML(px)} ${n}`;
+  }
+  coinIconEl(px = 28) {
+    const el = document.createElement('img');
+    el.src = 'assets/Icons/coin.png';
+    el.alt = '';
+    el.style.cssText = `width:${px}px;height:${px}px;image-rendering:pixelated;`;
+    return el;
   }
 
   // Every PNG a DOM modal can ask for outside the Phaser preloader: the

@@ -445,6 +445,7 @@
     #money {
       background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
       font: 700 16px ui-monospace, monospace;
+      display: flex; align-items: center; gap: 6px;
       /* A real 2px rim, like every other chip in the row (it used to fake one
          with an inset ring, which left it visibly thinner than its neighbours).
          Steel, not gold: --chrome-rim is the rim for a surface you can't touch,
@@ -453,6 +454,11 @@
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000, 0 0 10px rgba(255,224,102,0.35);
       -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+    }
+    #money .coin-ico {
+      width: 18px; height: 18px; image-rendering: pixelated;
+      /* Sits ON the chip's gold text line; flexbox above keeps it centred. */
+      pointer-events: none;
     }
     /* Tappable: "how do I refill this?" is the obvious gesture and it used to
        do nothing (UX audit §20). Tapping explains where energy comes from. */
@@ -1048,7 +1054,10 @@
       <span id="energy-label">⚡100/100</span>
       <div id="energy-bar"><div id="energy-bar-fill"></div></div>
     </div>
-    <div id="money">$0</div>
+    <!-- The chip is coin icon + bare number: the coin (assets/Icons/coin.png)
+         is the game's ONE money symbol, so the readout never grows a "$" back.
+         app.js updateHUD writes #money-num. -->
+    <div id="money"><img class="coin-ico" src="assets/Icons/coin.png" alt=""><span id="money-num">0</span></div>
   </div>
   <div id="objective" style="display:none">
     <div class="row">
@@ -2527,15 +2536,15 @@
   <script src="src/rarity.js?v=55a36545"></script>
   <script src="src/loot.js?v=666e1bf1"></script>
   <script src="src/quests.js?v=64d00b74"></script>
-  <script src="src/interactables.js?v=e13b5deb"></script>
+  <script src="src/interactables.js?v=87d8db53"></script>
   <script src="src/combat.js?v=eb2fd0fe"></script>
-  <script src="src/interact.js?v=4bac9be8"></script>
+  <script src="src/interact.js?v=682a5945"></script>
   <script src="src/lighting.js?v=9581e1cd"></script>
-  <script src="src/render.js?v=35a3470d"></script>
+  <script src="src/render.js?v=bb294843"></script>
   <script src="src/multiplayer.js?v=915d6298"></script>
   <script src="src/road_overlay.js?v=ae9fdc59"></script>
   <script src="src/building_overlay.js?v=a9a9fc59"></script>
-  <script src="src/assets.js?v=524c27a7"></script>
+  <script src="src/assets.js?v=71730d4b"></script>
   <script src="src/sandbox.js?v=3393edac"></script>
   <script src="src/testtools.js?v=6790527d"></script>
   <script src="src/geo.js?v=0a205c42"></script>
@@ -2595,7 +2604,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=e6217972';
+      const APP_SRC = 'src/app.js?v=2465ff90';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
