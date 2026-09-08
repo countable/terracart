@@ -2311,13 +2311,6 @@ Render.drawObjects = function drawObjects(scene) {
     picked: pickedSet,
     broken: scene.brokenRockSet || new Set(),
   };
-  // Lowtier chests (chestTier === 1) and starter supply crates render the
-  // `box` sprite instead of the trunk chest.
-  const _chestIsBox = (o) => {
-    if (o.crate) return true;   // starter supply crates always use the box sprite
-    const tier = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth) : 2;
-    return tier === 1;
-  };
   // EVERY opened chest vanishes, crates included. A looted crate used to stay
   // put as an open-lid "already cracked this one" marker, but the empty-crate
   // sprite read as broken art wherever it sat, and an emptied crate is worth
@@ -2381,19 +2374,6 @@ Render.drawObjects = function drawObjects(scene) {
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
   // hides — used for variants that haven't baked yet.
-  // Coin-burst POIs (ATM + bicycle_parking): tapping them spills a burst of
-  // collectible coins, so they render as a "pot of gold" instead of a chest.
-  // A cave-level mirror of one (o.depth > 0, worldgen.js caveChestsFrom) is a
-  // plain chest — the same gate interactables.js puts on the burst itself.
-  const _isCoinBurst = (o) => (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') && !(o.depth > 0);
-  // Which of the chest's three looks (produce stand / pot of gold / crate)
-  // this object wears — resolved ONCE per object and cached on it, the same
-  // way loot.js's produceStandFor caches its own answer in o._standCache.
-  // Every input (poiClass, crate) is fixed at spawn and a rebuilt tile is a
-  // new object, so the memo can't go stale; the chest spec below reads it
-  // from seven fields per chest per frame.
-  const _chestLook = (o) => o._chestLook
-    || (o._chestLook = { stand: produceStandFor(o), coin: _isCoinBurst(o), box: _chestIsBox(o) });
   // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
   // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
   // 32px cell.
@@ -2689,13 +2669,16 @@ Render.drawObjects = function drawObjects(scene) {
                 // toolGatedAlpha reads the same gate the tap refuses on).
                 s.setAlpha(toolGatedAlpha(o, scene.save));
               } },
-    chest:  { key: (o) => { const L = _chestLook(o);
-                            return L.coin ? 'potofgold'
-                                 : (L.stand ? 'market_stand'
-                                 // Opened chests never reach the renderer (they're
-                                 // filtered out above), so there is no "looted" sprite
-                                 // to pick — a crate is either closed or gone.
-                                 : (L.box ? 'box' : 'chest')); },
+    // Which of the chest's four looks (trunk / crate / produce stand / pot of
+    // gold) this object wears is loot.js's `chestLook` — the same resolver the
+    // treasure ceremony asks for its hero icon, so what stands on the map and
+    // what the dialog opens with are one answer. Coin-burst POIs (ATM +
+    // bicycle parking) spill collectible coins, so they render as a "pot of
+    // gold"; a cave-level mirror of one is a plain chest. The look carries the
+    // texture key it means, so nothing here re-decides which art a look is —
+    // and an opened chest never reaches the renderer (filtered out above), so
+    // there is no "looted" sprite to pick: a crate is either closed or gone.
+    chest:  { key: (o) => chestLook(o).texKey,
               // box is a single-frame image; trunk.png is 2-frame.
               // Crates and coin-burst pots leave `frame` at 0.
               // Coin-burst POIs (ATM + bicycle_parking) render the procedural
@@ -2704,11 +2687,11 @@ Render.drawObjects = function drawObjects(scene) {
               // exactly like the themed-house sprites. The pot art is already
               // gold, so no tint is applied. Produce stands pick the market_stand
               // awning frame for their product family (see produceStandFor).
-              frame: (o) => { const L = _chestLook(o);
+              frame: (o) => { const L = chestLook(o);
                               return L.coin ? undefined : (L.stand ? L.stand.frame : 0); },
               // Stand: 80×80 stall art, foot-anchored like a small house so its
               // body rises north over the POI cell.
-              origin: (o) => { const L = _chestLook(o);
+              origin: (o) => { const L = chestLook(o);
                                return L.stand ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
               // Every chest kind and the market stall were drawn 10% smaller
               // than they used to be (per playtest — they crowded their cell),
@@ -2721,7 +2704,7 @@ Render.drawObjects = function drawObjects(scene) {
               // reads as a small prop rather than filling its cell; trunk is
               // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
               // are structures, not chests, and kept their scale.
-              scale: (o) => { const L = _chestLook(o);
+              scale: (o) => { const L = chestLook(o);
                               return L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.72)); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
@@ -2732,7 +2715,7 @@ Render.drawObjects = function drawObjects(scene) {
               // over its POI cell in situ. Both terms are re-derived whenever
               // the scale changes so shrinking the stall leaves its art centre
               // exactly where it was.
-              dxPx: (o) => { const L = _chestLook(o); return L.stand ? -0.24 : (L.coin ? 4 : 0); },
+              dxPx: (o) => { const L = chestLook(o); return L.stand ? -0.24 : (L.coin ? 4 : 0); },
               // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in
               // its cell, so the anchor is pushed down by the distance from the
               // art's middle to that anchor: (0.9-0.5)·16·scale. This is only the
@@ -2745,11 +2728,11 @@ Render.drawObjects = function drawObjects(scene) {
               // at scale 0.6; at 0.54 the same art centre sits at 19.3
               // (= 45px art-centre-above-anchor × 0.54 - 5), which keeps the
               // stall exactly where it was, just 10% smaller.
-              dyPx: (o) => { const L = _chestLook(o);
+              dyPx: (o) => { const L = chestLook(o);
                              return L.stand ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0)); },
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => { const L = _chestLook(o); return !L.stand && !L.coin; },
+              seat: (o) => { const L = chestLook(o); return !L.stand && !L.coin; },
               shadow: true },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
@@ -3246,7 +3229,7 @@ Render.drawObjects = function drawObjects(scene) {
     // centred in their cell now (the one-cell rule), so their art runs to about
     // sy + 12 — the old +4 anchor cut the bottom third off every chest it
     // labelled. Crates are the smaller sprite, so they need less clearance.
-    const labelY = sy + (_chestIsBox(o) ? 13 : 16);
+    const labelY = sy + (chestLook(o).box ? 13 : 16);
     // Switch font size + padding live: fallback labels are smaller. Done
     // BEFORE the layout below, which measures the rendered text.
     tx.setText(label).setVisible(true);
@@ -3260,8 +3243,8 @@ Render.drawObjects = function drawObjects(scene) {
     // horizontal room — the reason the long ones were being clamped and
     // sliced in the first place. Supply crates stay horizontal: they're
     // transient pickups, not places, and their labels are one short word.
-    // The test is `o.crate` and NOT _chestIsBox: that helper also answers true
-    // for every tier-1 POI (an ATM, a bike rack, a bus stop) because they
+    // The test is `o.crate` and NOT chestLook().box: that look also answers
+    // true for every tier-1 POI (an ATM, a bike rack, a bus stop) because they
     // borrow the box SPRITE — but those are places and their names belong
     // with the other POI names.
     // The pool is shared, so BOTH branches set rotation/origin every frame.
@@ -3284,7 +3267,7 @@ Render.drawObjects = function drawObjects(scene) {
     // Same treatment either way — only the ink differs (blue-tinted for a named
     // POI, plain white for a supply crate). The test is `o.crate`, same as the
     // orientation branch above and for the same reason: a tier-1 POI (ATM,
-    // bike rack, bus stop) borrows the box SPRITE via _chestIsBox but is still
+    // bike rack, bus stop) borrows the box SPRITE via chestLook but is still
     // a place, so its label carries the same "this is a place" blue cue as
     // every other POI name. Only a genuine loose supply crate stays plain
     // white. The pool is shared across both, and a pooled slot may have just
@@ -3652,7 +3635,7 @@ Render.drawObjects = function drawObjects(scene) {
   // labels, and pads — never gets occluded.
   // Crates (the `box` sprite — starter supply crates and tier-1 chests) are
   // excluded: the gem is a treasure-chest cue, so it shouldn't float over a crate.
-  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest' && !_chestIsBox(o));
+  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest' && !chestLook(o).box);
   const g = scene.tierGfx;
   g.clear();
   for (const item of chestObjs) {

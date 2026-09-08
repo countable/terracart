@@ -295,8 +295,19 @@
     assert.eq(produceStandFor(under), null, 'the same bakery one level down is a chest');
     assert.truthy(/\(o\.poiClass === 'atm' \|\| o\.poiClass === 'bicycle_parking'\) && !\(o\.depth > 0\)/.test(INTERACTABLES_SRC),
       'the coin-burst hijack stands down underground');
-    assert.truthy(/_isCoinBurst = \(o\) => \(o\.poiClass === 'atm' \|\| o\.poiClass === 'bicycle_parking'\) && !\(o\.depth > 0\)/.test(RENDER_SRC),
-      'and the pot-of-gold look stands down with it');
+    // The look is loot.js's chestLook now — the one resolver render.js draws
+    // from AND the treasure ceremony takes its hero icon from — so the gate
+    // is pinned there, and render.js is pinned to ask rather than re-decide.
+    const prevHome = HomeArea.worldM;
+    HomeArea.worldM = null;   // a chest demoted near Home wears the crate, not the pot
+    try {
+      assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'potofgold',
+        'an ATM on the surface wears the pot of gold');
+      assert.eq(chestLook({ kind: 'chest', poiClass: 'library', x: 0, y: 0, depth: 1 }).texKey, 'chest',
+        'and a POI chest underground is the trunk');
+    } finally { HomeArea.worldM = prevHome; }
+    assert.truthy(!/_isCoinBurst|_chestIsBox/.test(RENDER_SRC),
+      'render.js keeps no second copy of the look');
   });
 
   test('chest tier: every shipping reader passes the chest position', () => {

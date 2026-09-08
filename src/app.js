@@ -448,6 +448,14 @@ const TOAST_TIER = {
 // (the trail prize's "Thou hast traveled far") and keep the kind's icon; see
 // showChestRewardModal.
 //
+// The icon here is the FALLBACK glyph — what a dialog opens with when it has
+// no picture of its own. A dialog whose subject is a thing standing on the map
+// passes that thing's sprite instead (`kindIcon`, makeModalShell): the chest
+// ceremony opens with the crate or the trunk the player just tapped, because
+// TREASURE's diamond said nothing about which chest paid out and drew a gem
+// over a handful of onion seeds. An emoji is what remains for the categories
+// with no sprite behind them — a quest, a trade, the energy explainer.
+//
 // `supplies` exists because the tutorial's own material handout was opening as
 // TREASURE: the objective chip calls them supply crates, they render as the
 // humble box sprite precisely so they read as supplies, and then 9 wood
@@ -1638,6 +1646,16 @@ class MapScene extends Phaser.Scene {
     // back to the item.icon emoji (a 🪦 headstone), so the held item looked
     // nothing like what gets planted. Bake the frame so all surfaces match.
     window.ITEM_DATA_URLS.scarecrow = bakeSheetFrame('scarecrow', 0, 32, 32);
+    // World sprites a DOM dialog can ask for by TEXTURE KEY — not items, so
+    // they don't belong in ITEM_DATA_URLS. The treasure ceremony opens with
+    // the art the chest it came out of was standing as (loot.js chestLook
+    // names the key; worldIconHTML below turns it into a span), so a crate
+    // opens under a crate and a trunk under a trunk. Baked from the same
+    // sheets the renderer draws, at the frame it draws — trunk.png frame 0 is
+    // the CLOSED lid, which is what the player just tapped.
+    window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
+    window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 32, 32);
+    window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
     // Concrete pads under POI chests — one rounded, slightly-oversized slab in
     // the single cell under the chest (texture `pad_round1`, see textures.js).
     makeAllPadShapes(this);
@@ -11680,7 +11698,7 @@ class MapScene extends Phaser.Scene {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, minWidth = 230, maxWidth = 320, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel } = {}) {
+    kind, kindLabel, kindIcon } = {}) {
     document.getElementById(id)?.remove();
     const wrap = document.createElement('div');
     wrap.id = id;
@@ -11724,7 +11742,10 @@ class MapScene extends Phaser.Scene {
     // ── The kind header ────────────────────────────────────────────────
     // A hero icon plus the one-word category (MODAL_KINDS), so every dialog
     // announces what it is before its first line of copy. `kindLabel`
-    // overrides the word for a one-off outcome while keeping the icon.
+    // overrides the word for a one-off outcome while keeping the icon, and
+    // `kindIcon` overrides the GLYPH the same way — HTML rather than text, so
+    // a dialog whose subject is a thing on the map can open with that thing's
+    // own sprite.
     //
     // Built here but inserted in mount(), NOT appended to `box` now: several
     // callers build their contents with `box.innerHTML = …`, which would
@@ -11740,11 +11761,23 @@ class MapScene extends Phaser.Scene {
         'margin:-2px 0 10px;padding-bottom:8px;' +
         `border-bottom:1px solid ${borderColor}59;`;
       const ico = document.createElement('span');
-      // Desaturated: the emoji is a category glyph, not a prize, so it reads
-      // in the chrome's own greys rather than pulling colour off the copy —
-      // the same treatment the inactive inventory tab glyphs get.
-      ico.style.cssText = 'font-size:22px;line-height:1;filter:grayscale(1)';
-      ico.textContent = k.icon;
+      if (kindIcon) {
+        // A SPRITE hero glyph: the art the world drew for the very thing this
+        // dialog is about (scene.worldIconHTML off the object's own texture
+        // key), so a ceremony opens with its own source rather than a stand-in
+        // — a chest that stands on the map as a crate opened under a diamond
+        // until Sep 2026. NOT desaturated: the greying below is right for an
+        // emoji, which is a category glyph borrowed from the font, and wrong
+        // for pixel art of a real object, which reads as broken art in grey.
+        ico.style.cssText = 'display:flex;align-items:center;line-height:0';
+        ico.innerHTML = kindIcon;
+      } else {
+        // Desaturated: the emoji is a category glyph, not a prize, so it reads
+        // in the chrome's own greys rather than pulling colour off the copy —
+        // the same treatment the inactive inventory tab glyphs get.
+        ico.style.cssText = 'font-size:22px;line-height:1;filter:grayscale(1)';
+        ico.textContent = k.icon;
+      }
       const lbl = document.createElement('span');
       lbl.style.cssText =
         'font:700 11px ui-monospace,monospace;letter-spacing:.14em;' +
@@ -14996,6 +15029,20 @@ class MapScene extends Phaser.Scene {
     return this.renderItemIcon(itemId, sizePx, 'inline');
   }
 
+  // A WORLD sprite as a DOM icon, by the texture key the renderer draws it
+  // with (WORLD_ICON_URLS, baked in create()). renderItemIcon above answers
+  // the same question for an ITEM; this one is for a thing on the map that is
+  // not in the catalog — the chest or crate a treasure ceremony came out of.
+  // A data URL paints instantly, so there is no IconNet hole to cover. Returns
+  // '' for a key with no bake, which every caller reads as "use the emoji".
+  worldIconHTML(texKey, sizePx = 26) {
+    const url = window.WORLD_ICON_URLS && window.WORLD_ICON_URLS[texKey];
+    if (!url) return '';
+    return `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;`
+      + `background:url('${url}') center/contain no-repeat;image-rendering:pixelated;`
+      + `vertical-align:middle"></span>`;
+  }
+
   // Every PNG a DOM modal can ask for outside the Phaser preloader: the
   // CSS-clip icon sheets (ICON_SHEETS) plus each gear slot's per-tier art.
   // Handed to IconNet.prewarm shortly after boot (see update()) so the
@@ -15701,16 +15748,22 @@ class MapScene extends Phaser.Scene {
   //                          modal becomes a CHOICE (explicit buttons, no
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
+  //   kindIcon      string? → HTML for the kind header's hero GLYPH, replacing
+  //                          the MODAL_KINDS emoji (see makeModalShell). The
+  //                          chest ceremony passes the sprite the chest it came
+  //                          out of was standing as — scene.worldIconHTML off
+  //                          loot.js chestLook's texKey — so a crate opens
+  //                          under a crate and a trunk under a trunk.
   // `header` is the legacy per-reward line ('Thou hast traveled far', 'Restored!').
   // It now feeds the shared kind header as a LABEL OVERRIDE — the dialog keeps
   // its outcome wording and gains the kind's hero icon — so this modal shows
   // one header, not two. Callers that say nothing get TREASURE, which is what
   // a chest is.
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
-    onDismiss, header, kind = 'treasure', actions, art }) {
+    onDismiss, header, kind = 'treasure', kindIcon, actions, art }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, minWidth: 220, maxWidth: 300, borderColor: accent, wrapBg: '#000c',
-      kind, kindLabel: header,
+      kind, kindLabel: header, kindIcon,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
       boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
         `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,

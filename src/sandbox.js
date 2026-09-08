@@ -197,7 +197,7 @@
       s.startChest('Sandbox Start Chest', 7, 6, { id: 'wood', qty: 5 });   // real starter chest — no pad
       s.creature('chicken', 7, 3, 1);
       // Coin-burst POIs — tapping spills a burst of collectible coins (daily-
-      // gated). Render as the procedural 'potofgold' art (render.js _isCoinBurst).
+      // gated). Render as the procedural 'potofgold' art (loot.js chestLook).
       s.chest('atm', 'Sandbox ATM', 6, 1);
       s.chest('bicycle_parking', 'Sandbox Bike Parking', 8, 2);
     },
