@@ -187,10 +187,18 @@ test('combat: the surface slime oozes slowly enough to walk away from', () => {
   assert.gt(mps, 0.15, 'but it still closes on you eventually');
   // A CHARGE drops the lazy beat and keeps the hop, so it is the same gait
   // read at the base cadence — no third constant, and still walk-away-able.
+  // Compared to a tolerance, not exactly: the two sides divide by the beat in
+  // a different order, and at some hop values the last bit disagrees.
   const charge = (hop * COMBAT_CELL_M) / (beat / 1000);
-  assert.eq(charge, mps * mul, 'a charge is the ooze without the lazy beat');
+  assert.lt(Math.abs(charge - mps * mul), 1e-9,
+    'a charge is the ooze without the lazy beat');
   assert.lt(charge, 1.0,
     `a charging slime moves at ${charge.toFixed(2)} m/s — still slower than a walk`);
+  // How much of that ceiling is left. The ooze was raised 50% (0.45 → 0.675 of
+  // a cell) and the charge came up with it, as it must — one hop feeds every
+  // pace a slime has. There is about 5% of a walk in hand, so the NEXT such
+  // raise is not a knob turn: it takes the walking away with it.
+  assert.gt(charge, 0.9, `the charge sits at ${charge.toFixed(2)} m/s, near the ceiling`);
 });
 
 test('combat: a struck slime CHARGES, unless it is warded', () => {

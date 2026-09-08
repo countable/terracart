@@ -605,15 +605,27 @@ const BEACH_X_PER_CELLS = 20;
 // is. Two numbers over the base wander (STEP_MS / STEP_M in wanderCreatures):
 // how much longer one of its steps takes, and how far that step carries it.
 //
-// Until Sep 2026 it hopped 0.6 of a cell every 5 s — 0.84 m/s, near enough a
-// stroll, so a slime that noticed you followed you home and there was no
-// leaving it behind on foot. 0.45 of a cell every 7.5 s is 0.42 m/s: still
-// drawn to you, still there when you turn around, but now something you can
-// walk away from and something a campfire's repel ring can genuinely hold off.
-// Its pursuit is unchanged — half its steps still amble your way (see the
-// slime branch in wanderCreatures) — it is only the SPEED that came down.
-const SLIME_STEP_MUL = 1.5;    // × the base wander cadence: a longer, lazier beat
-const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
+// It hopped 0.6 of a cell every 5 s once — 0.84 m/s, near enough a stroll, so a
+// slime that noticed you followed you home and there was no leaving it behind
+// on foot. That was cut to 0.45 of a cell (0.42 m/s), which bought the walking
+// away and overshot: at half a metre a second nothing a slime did read as
+// closing on you, and the ooze was a thing you watched rather than a thing you
+// dealt with. It is 0.675 now — the same cut, half of it given back, 0.63 m/s
+// and still comfortably under the stroll that made it inescapable.
+// The ONE number to change is the hop: it is what the amble, the charge and
+// Home's rout are all read off, so raising it lifts every pace a slime has by
+// the same fraction and keeps the relations between them (a charge is the ooze
+// without the lazy beat; a rout is the ooze at the flee pace). The lazy beat
+// is the OTHER half of the threat and is not a speed knob — cutting it to
+// match the charge's cadence would not make a slime quicker, it would delete
+// the charge. Its pursuit is unchanged throughout: half its steps amble your
+// way (see the slime branch in wanderCreatures).
+// The ceiling is a WALK, and combat.test.js is where it is stated: a charging
+// slime is the fastest a slime ever moves, and at 0.945 m/s there is not much
+// of that ceiling left — another 50% would put it past a walking pace and take
+// the "leave it behind on foot" answer away with it.
+const SLIME_STEP_MUL = 1.5;     // × the base wander cadence: a longer, lazier beat
+const SLIME_HOP_CELLS = 0.675;  // cells covered by one ooze
 // ── Struck, a slime CHARGES ──────────────────────────────────────────────────
 // How long a creature keeps reacting to a hit. ONE window, two opposite
 // reactions, because the two kinds of prey are opposite: a crow or a deer that
