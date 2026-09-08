@@ -2094,6 +2094,9 @@
           // progress in the brand-new slot, so "New game" started you off with
           // everything you already had.
           if (typeof disableSave === 'function') disableSave();
+          // A new game is a game from nothing: it opens on the story and the
+          // how-to, exactly as the first game a device ever played does.
+          replayOpening();
           location.reload();
         });
       }
@@ -2180,6 +2183,20 @@
       // Last boot overlay on an already-booted page — release a queued how-to.
       window.__flushPendingHowTo?.();
     });
+    // A FRESH GAME REPLAYS THE OPENING. These two keys are what say the
+    // opening has been seen — `introSeen` for the story slides below,
+    // `howtoSeen` for the how-to card — and they are per-DEVICE storage
+    // answering a per-GAME question, so every path that starts a game from
+    // nothing has to clear them. "Reset THIS game" always did; "+ New game"
+    // did NOT, so the second game a player ever started opened straight on
+    // the location CTA: no trailer, no wrecked neighbourhood, no how-to. ONE
+    // writer of both keys, called immediately before the reload that boots
+    // the new game, so the next such path can't half-remember it.
+    function replayOpening() {
+      try { localStorage.removeItem('terracart.introSeen'); } catch {}
+      try { localStorage.removeItem('terracart.howtoSeen'); } catch {}
+    }
+
     // Two-slide opening story shown once after the safety splash. Slide 1
     // is the player's trailer ("You wake up…"), slide 2 is the wrecked
     // neighbourhood ("…time to rebuild!"). Pure DOM overlay — the game runs
@@ -2405,9 +2422,9 @@
       //    localStorage AFTER we wipe it — silently restoring the old save.
       if (typeof resetCurrentSave === 'function') resetCurrentSave();
       else if (typeof disableSave === 'function') disableSave();
-      // 1) Global runtime state: replay the intro + how-to on the fresh game.
-      try { localStorage.removeItem('terracart.introSeen'); } catch {}
-      try { localStorage.removeItem('terracart.howtoSeen'); } catch {}
+      // 1) Global runtime state: replay the intro + how-to on the fresh game,
+      //    through the same one writer "+ New game" uses.
+      replayOpening();
       // 2) Map-tile caches. Two layers persist tiles across loads:
       //    a) Cache API tile bucket(s) populated by the service worker, and
       //    b) the worldgen IndexedDB ('mapgame-tiles') of raw tile bytes.
