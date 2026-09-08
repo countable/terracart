@@ -899,6 +899,22 @@ const PLAYER_FEET_DROP_PX = 14 / 1.35;
 // The walker's frame edge, in texture px (assets.js `idle`: 32×32). Its head
 // stands half of this plus the feet drop above the fix.
 const PLAYER_FRAME_PX = 32;
+// THE COLLAPSE POSE. At zero energy the player is not standing: the reach is 0,
+// nothing hunts them, no trap springs under them (Combat.playerDowned — the one
+// expression all of that reads). A body that is upright in the picture while
+// every rule treats it as down is the picture lying, so the sprite lies down
+// too — a quarter turn onto its front, where it fell.
+//
+// Phaser rotation is CLOCKWISE-positive and turns about the sprite's own
+// centre, so a quarter turn pitches the walker head-first onto the face it has
+// been showing the camera and lays it head to the screen-right. That is the
+// whole of the pose's shape; where it SITS is the other half, and the two are
+// one lane — playerBodyDy(), which the body, its halo and the labels over its
+// head all read. Standing, the sprite's centre rides playerFeetNudgeY above the
+// fix so the FEET land on it (see PLAYER_FEET_DROP_PX); collapsed, the body is
+// on the ground with its MIDSECTION on that same point — which is a drop of
+// exactly the nudge it stood up by, so the pose costs no second constant.
+const PLAYER_DOWNED_ROTATION = Math.PI / 2;
 // Where an energy pop hangs (_popEnergy). On a cell that isn't the player's,
 // its bottom clears the cell's TOP EDGE by ENERGY_POP_LIFT_PX. On the player's
 // own cell the walker's head is in the way, so it clears the HEAD by the same
@@ -3316,8 +3332,31 @@ class MapScene extends Phaser.Scene {
   // than every frame. The memo is deliberately NOT taken when the tile isn't
   // cached yet — otherwise a trap would be missed for as long as the player
   // stood on the cell they arrived at while it streamed in.
+  //
+  // A BODY DOES NOT STEP. At zero energy the player has collapsed (CLAUDE.md:
+  // NOTHING HUNTS A BODY) — the reach is 0, nothing can be tapped or swung at,
+  // and all three ways a foe reaches them refuse to take a point off an empty
+  // bar. A snare under one is that same state arriving for a different reason:
+  // springing it would spend the trap FOR GOOD (save.sprungTraps is written the
+  // instant it fires) on a player it can charge nothing for, and on hard —
+  // where only Home lifts the bar off zero — the long walk home would clear
+  // every trap it crossed for free. So the whole tick stands down, both costs
+  // with it.
+  //
+  // `Combat.playerDowned`, NOT `isUnnoticed()`: a Shadow Powder hides you from
+  // whatever takes an INTEREST in you, and iron jaws take none — a powder must
+  // not walk you through a minefield.
   _tickTraps(dt) {
     if (typeof Traps === 'undefined' || !this.startWorldM || !this.originPx) return;
+    // The memo goes down with the tick, so the cell is read fresh the moment
+    // the bar lifts: a player revived on top of a hidden trap steps on it then.
+    if (Combat.playerDowned(this.save.energy)) {
+      this._trapCellKey = null;
+      this._trapHere = null;
+      this._trapDrainAccum = 0;
+      this._trapDrainPop = 0;
+      return;
+    }
     const pc = this.playerToWorldCell();
     const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
     const key = `${pc.tx}_${pc.ty}_${lix}_${liy}`;
@@ -6350,11 +6389,17 @@ class MapScene extends Phaser.Scene {
     // this: the camera is normally on them, so it's the viewport centre, but a
     // peek drag slides them across the map like anything else standing on it.
     // playerScreen() is the GROUND point (feet-on-the-fix, the same point the
-    // body's world position projects to); the sprite's centre rises
-    // playerFeetNudgeY above it and the contact shadow sits a pixel under it —
-    // the two offsets they were created with.
+    // body's world position projects to); the contact shadow sits a pixel
+    // under it, the offset it was created with.
     const pScreen = this.playerScreen();
-    this.player?.setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY);
+    // …and the body's own centre rides bodyDy above that ground point: the
+    // feet nudge while it is standing, 0 once it has collapsed onto its front
+    // (playerBodyDy / PLAYER_DOWNED_ROTATION). Everything measured from the
+    // sprite's centre below reads this local rather than the nudge, so the
+    // whole body — labels included — goes down with it.
+    const bodyDy = this.playerBodyDy();
+    this.player?.setPosition(pScreen.x, pScreen.y + bodyDy)
+      .setRotation(this.playerBodyRotation());
     this.playerShadow?.setPosition(pScreen.x, pScreen.y - 1);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
@@ -6372,8 +6417,8 @@ class MapScene extends Phaser.Scene {
       this.dragonTimerText
         .setText(shortDuration(this._dragonUntil - Date.now()))
         // Over the head: measured from the SPRITE CENTRE (the player's screen
-        // point is the feet, and the body rises playerFeetNudgeY above it).
-        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - 35)
+        // point is the ground, and the body rides bodyDy above it).
+        .setPosition(pScreen.x, pScreen.y + bodyDy - 35)
         .setVisible(true);
     }
     // Shadow Powder: the same in-memory minute (this._shadowUntil), the same
@@ -6382,7 +6427,7 @@ class MapScene extends Phaser.Scene {
     if (shadowActive) {
       this.shadowTimerText
         .setText(shortDuration(this._shadowUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - (dragonActive ? 50 : 35))
+        .setPosition(pScreen.x, pScreen.y + bodyDy - (dragonActive ? 50 : 35))
         .setVisible(true);
     } else if (this.shadowTimerText.visible) {
       this.shadowTimerText.setVisible(false);
@@ -6393,7 +6438,7 @@ class MapScene extends Phaser.Scene {
       const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0);
       this.torchTimerText
         .setText(shortDuration(this._torchUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - 35 - 15 * stacked)
+        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
         .setVisible(true);
     } else if (this.torchTimerText.visible) {
       this.torchTimerText.setVisible(false);
@@ -6633,9 +6678,9 @@ class MapScene extends Phaser.Scene {
       // 0 sits it on the centre, negative nudges it below — it rode 2px high
       // once, and now sits 1px under centre, where it lines up with the art.
       const HEAD_DY = -1;
-      // The sprite's centre is its ground point plus playerFeetNudgeY (the
-      // feet are on the point, the body rises above it).
-      const cx = pScreen.x, cy = pScreen.y + this.playerFeetNudgeY - HEAD_DY;
+      // The sprite's centre is its ground point plus bodyDy (the feet are on
+      // the point and the body rises above it — until it collapses onto it).
+      const cx = pScreen.x, cy = pScreen.y + bodyDy - HEAD_DY;
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
       const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
@@ -8934,6 +8979,22 @@ class MapScene extends Phaser.Scene {
     };
   }
 
+  // How far the BODY's centre sits from the ground point its feet stand on —
+  // the one number everything hung on the sprite's centre reads (the sprite
+  // itself, the warning halo behind it, the powder countdowns over its head).
+  // Standing it is playerFeetNudgeY, which lifts the frame so the visible feet
+  // land on the fix; collapsed it is 0, because a body lying down has its
+  // midsection where its feet were (see PLAYER_DOWNED_ROTATION).
+  playerBodyDy() {
+    return Combat.playerDowned(this.save.energy) ? 0 : this.playerFeetNudgeY;
+  }
+
+  // …and which way up it is. Same read, so the seat and the turn can never
+  // disagree about whether the player is on their feet.
+  playerBodyRotation() {
+    return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : 0;
+  }
+
   // A Phaser pointer's position in LOGICAL px (coords.js gamePt), at this
   // canvas's RENDER_SCALE. The scene method stays because every pointer
   // handler reads it as this._gamePt(p) and peek_drag.test.js drives it there.
@@ -9639,10 +9700,14 @@ class MapScene extends Phaser.Scene {
       const alpha = hit ? 0.2 + 0.6 * (hitLeft / HIT_FLASH_MS)
                         : (0.25 + 0.35 * wave) * strength;
       const ps = this.playerScreen();
+      // On the BODY's centre, through the one accessor — the empty-tank red is
+      // the halo that shows while the player is down, so a halo left on the
+      // standing nudge would hang a body-length above the collapsed sprite it
+      // is warning about.
       this.playerHalo
         .setDisplaySize(size, size)
         .setAlpha(alpha)
-        .setPosition(ps.x, ps.y + this.playerFeetNudgeY)
+        .setPosition(ps.x, ps.y + this.playerBodyDy())
         .setVisible(true);
     } else {
       // At rest the farmer wears the save's own colour — the same tint other
