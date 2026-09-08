@@ -1141,7 +1141,7 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
   const a = appSrc.indexOf('  _streetLampsForTile(tx, ty, entry) {');
   const b = appSrc.indexOf('  // The lamps near the frame');
   const c = appSrc.indexOf('  _updateStreetLamps() {');
-  const d = appSrc.indexOf('  // The stones themselves:');
+  const d = appSrc.indexOf('  // THE RIPEN PASS.');
   if (a < 0 || b < 0 || c < 0 || d < 0 || b < a || d < c) {
     console.error('Could not lift the street-lamp passes from src/app.js — update run.js');
     process.exit(2);

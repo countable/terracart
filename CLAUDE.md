@@ -171,7 +171,20 @@
 - **The painter rule: the LOWER object (centre of mass) renders in front.**
   World sprites already obey it via the screen-row z-order in
   `src/render.js` › drawObjects (a sprite in a lower screen row always draws
-  over one in a higher row). It governs hand-drawn geometry too — the castle
+  over one in a higher row) — ONE pass, over one shared layer
+  (`worldContainer`, which `objectsContainer` / `plantedContainer` alias):
+  crops, objects and creatures are ranked together by `_cellRow(dy)`, then by
+  kind, then by `dy`, the index is stamped as each sprite's depth and the
+  container is sorted by it. **So a thing that STANDS on the ground belongs in
+  that pass, and a layer of its own is a promise that nothing will ever pass
+  in front of it.** The street lamp is the case that proves it: it drew from a
+  pool of its own in `cobbleContainer` (ground decoration, under the building
+  footprints and under every sprite) until Sep 2026, so a lamp hid under any
+  footprint or tree on the map whatever row it stood in. It joins the pass the
+  way the placed campfires and scarecrows already did — a `_kind` row in
+  `RENDER_SPEC` and an item pushed onto `filteredObj`. **When you add
+  something that stands up, give it a RENDER_SPEC row; only things that LIE on
+  the ground (traps, pads, the road band, the pier plank) get a layer.** It governs hand-drawn geometry too — the castle
   rampart pieces sort by it (a south wall over the side bands, a north wall
   over the feet of side bands descending from the row above; see the tier-12
   pass in drawCells). When adding anything that overlaps vertically, derive
@@ -194,8 +207,10 @@
   no rect to adjust.
 
 - **The "one cell" sprite-position rule.** For every world sprite EXCEPT
-  buildings (house / tower / shrine / produce stands / pot-of-gold) and moving
-  actors (creatures):
+  buildings (house / tower / shrine / produce stands / pot-of-gold), moving
+  actors (creatures) and the street lamp (a canvas bake, so there are no
+  trimmed PNG bounds to seat from — where it sits on its point was decided
+  where the art was made, `RoadOverlay.LAMP_GROUND_FRAC`):
     1. The sprite's **visible art** (its opaque, trimmed bounds — NOT the frame
        box, which often has transparent padding) must **never cross the cell's
        bottom edge** (never overlap the cell below).
@@ -1140,7 +1155,10 @@
   on the tarmac.
   It is TWO halves on ONE point, because the lightmap MULTIPLIES: baked art
   (`RoadOverlay.paintLamp`, drawn under the lightmap — a light alone does
-  not exist at noon) and the `Lighting.KINDS.cobble` row over it. What the lamp
+  not exist at noon) and the `Lighting.KINDS.cobble` row over it. The art goes
+  through the SHARED world sprite pass (`RENDER_SPEC._streetlamp`, off the same
+  `_updateStreetLamps` list the light collector reads), never a layer of its
+  own — see the painter rule above. What the lamp
   SHEDS — its glass, the bloom round it, the pool at its foot and the cookie
   over all three — is `UI_LAMP_GLOW`, the old activated-cobble violet, brought
   back for the lamp specifically rather than the street's own `UI_STREET_INK`
