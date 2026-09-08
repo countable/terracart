@@ -97,24 +97,36 @@ const PATH_STONE_DWELL_MS = 2000;
 // up — but a sweep restores a whole STRETCH and fires once for all of it, and
 // at that radius the moment read as an explosion on a street the player was
 // only walking along. Repairing a road is steady work, not a detonation: the
-// flash is a nod, and the shine below carries the rest of it.
+// flash is a nod, and the chips, the sparks and the setts pulling themselves
+// back together carry the rest of it.
 const BLAST_STONE_R_CELLS = 1.5;
-// The white SHINE that runs down a stretch the instant it is rebuilt, in ms.
-// Its OWN clock now, not Lighting.BLAST_MS (900 — every OTHER blast in the
+// The white SHINE that ran down a stretch the instant it was rebuilt, in ms.
+// Its OWN clock, not Lighting.BLAST_MS (900 — every OTHER blast in the
 // game, a house included, still uses that default): a street repair reads as
 // a slower, more deliberate "coming together" than a house's — this is the
 // moment the player has been standing still for two seconds to earn, and a
 // sub-second flash undersold it. _blastAt is handed this length explicitly
-// (durationMs) at the one call site that uses it, so the lightmap flash and
-// this shine still end together — just on the street's own longer beat
-// instead of borrowing the generic default. 2.4× the old 900 ms.
+// (durationMs) at the one call site that uses it, so the lightmap flash runs
+// on the street's own longer beat instead of borrowing the generic default.
+// 2.4× the old 900 ms. It outlives the shine it was named for: with the run
+// switched off (below) this is what the length of the moment now means.
 const STREET_SHINE_MS = 2200;
 // How bright that shine starts. Well under full white: the run used to fade
 // from opaque white, which at the widths a trunk road is stroked at whited out
 // the carriageway for a beat every time a sweep landed — and a sweep lands
-// every few paces while the player walks a street. A repair should read as a
-// gleam passing over the new surface, not as a strobe.
-const STREET_SHINE_ALPHA = 0.4;
+// every few paces while the player walks a street.
+//
+// SWITCHED OFF (Sep 2026), the twin of the dwell preview's own switch above:
+// a white run over the new carriageway is the same glow arriving one beat
+// LATER than the preview's, and between them the whole repair was announced
+// in light rather than in stone. What is left is the material — the flash's
+// nod, the chips, the sparks and the gather — so the moment reads as the
+// street being put back rather than lit up.
+// ZERO IS THE SWITCH, exactly as STREET_PREVIEW_ALPHA is: the ripen pass
+// stops recording runs and the live pass stops walking them, so putting 0.4
+// back is the whole of turning it on again. Nothing about the restoration
+// itself is touched — the stretch comes back on the same beat, unshone.
+const STREET_SHINE_ALPHA = 0;
 // THE GATHER's sink: how many points to spread `_ripenStreets`'s stonegather
 // burst across the LONGEST newly-restored piece (_streetSpreadPts), so the
 // setts visibly pull together along the whole stretch rather than converging
@@ -203,8 +215,10 @@ const STREET_LAMP_POOL = 12;
 //
 // SWITCHED OFF (Sep 2026) to see the restoration without it: the glow ramping
 // in ahead of the repair announced every stretch a second and a half before
-// anything happened to it, so the shine and the blast — the moment the street
-// actually comes back — landed on ground the eye had already been told about.
+// anything happened to it, so the blast — the moment the street actually
+// comes back — landed on ground the eye had already been told about. (The
+// shine that followed the blast is switched off too now, for the same reason
+// one beat later; see STREET_SHINE_ALPHA above.)
 // ZERO IS THE SWITCH: the whole preview hangs off this one number (the live
 // pass skips the block, and its own gate would drop the runs anyway), so
 // putting 0.55 back is the whole of turning it on again. The dwell itself is
@@ -217,8 +231,9 @@ const STREET_PREVIEW_ALPHA = 0;
 // the same ink the counter and the chips are drawn in is what says "this is
 // the restoration material arriving", so it's lit rather than darkened (the
 // street lamp is deliberately NOT this ink — see UI_LAMP_GLOW in util.js).
-// The shine that follows it (below) is stroked in flat white for the same
-// reason — nothing about the live pass should read as a shadow.
+// The shine that followed it (below, switched off now) was stroked in flat
+// white for the same reason — nothing about the live pass should read as a
+// shadow.
 const STREET_PREVIEW_COLOR = parseInt(UI_STREET_INK.slice(1), 16);
 // The counter pops at most this often. A wide reach walked along a street
 // restores metres on nearly every frame, and a "137/200 m" re-drawn sixty
@@ -8827,8 +8842,9 @@ class MapScene extends Phaser.Scene {
     if (typeof RoadOverlay === 'undefined') return;
     RoadOverlay.draw(this);
     // …and then the live pass on top of it: the dwell preview and the shine,
-    // re-stroked every frame. AFTER draw(), because draw() is what positions
-    // the container the live Graphics sits in (see _drawStreetLive).
+    // re-stroked every frame — both switched off today, so this clears the
+    // Graphics and draws nothing (see _drawStreetLive). AFTER draw(), because
+    // draw() is what positions the container the live Graphics sits in.
     this._drawStreetLive();
     // …and the lamps a restored street carries, on the surface it just drew.
     // Here rather than in the sweep because this runs on every frame the road
@@ -14090,10 +14106,15 @@ class MapScene extends Phaser.Scene {
             spread: this._streetSpreadPts(meta, seg[0], seg[1], GATHER_SPREAD_POINTS),
           };
         }
-        // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS.
-        const pts = Streets.runPtsWorld(meta, seg[0], seg[1]);
-        if (pts) {
-          (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
+        // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS
+        // — and its alpha IS its switch (see STREET_SHINE_ALPHA), so at 0
+        // the run is never recorded rather than kept for a pass that would
+        // throw it away.
+        if (STREET_SHINE_ALPHA > 0) {
+          const pts = Streets.runPtsWorld(meta, seg[0], seg[1]);
+          if (pts) {
+            (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
+          }
         }
       }
       // What is left of this line's watched metres is what has NOT come back
@@ -14110,8 +14131,9 @@ class MapScene extends Phaser.Scene {
       // impact one, and not just a repair of one point on the street. ONE per
       // sweep — the whole step is one moment, however many separate pieces of
       // street it brought back. durationMs ties the light to the street's own
-      // (longer) shine clock rather than Lighting.BLAST_MS's generic default,
-      // so the flash and the shine still end together.
+      // (longer) shine clock rather than Lighting.BLAST_MS's generic default:
+      // a street repair's moment is the slower one, whether or not the run
+      // that clock was named for is drawn (STREET_SHINE_ALPHA).
       this._blastAt(at.x, at.y, {
         radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',
         gather: 'stonegather', gatherPts: best.spread, durationMs: STREET_SHINE_MS,
@@ -14216,11 +14238,18 @@ class MapScene extends Phaser.Scene {
   //                rather than a delay. Its alpha is the dwell's own
   //                progress: how long this line has been in sight. OFF while
   //                STREET_PREVIEW_ALPHA is 0 (see it) — the dwell still runs,
-  //                it just isn't drawn, so the shine below is the first thing
-  //                the player sees of a stretch coming back.
+  //                it just isn't drawn, so the blast's flash is the first
+  //                thing the player sees of a stretch coming back.
   //   the SHINE    a pale run down a stretch the instant it comes back, from
   //                STREET_SHINE_ALPHA to nothing over STREET_SHINE_MS beside
-  //                the blast's flash.
+  //                the blast's flash. OFF while STREET_SHINE_ALPHA is 0 (see
+  //                it) — the stretch still comes back on the same beat, and
+  //                the blast's flash, chips, sparks and gather are the whole
+  //                of what says so.
+  //
+  // With both switched off this pass has nothing left to draw, and that is
+  // deliberate: it still runs, and still CLEARS the Graphics, which is what
+  // keeps either switch a one-number edit instead of a re-wiring.
   //
   // Called every frame from drawRoadGeometry, AFTER RoadOverlay.draw has moved
   // the container by this frame's sub-cell scroll — drawLive subtracts that
@@ -14245,7 +14274,7 @@ class MapScene extends Phaser.Scene {
         for (const pts of meta.pts) runs.push({ pts, tags: meta.tags, alpha, colour: STREET_PREVIEW_COLOR });
       }
     }
-    const shine = this._streetShine;
+    const shine = STREET_SHINE_ALPHA > 0 ? this._streetShine : null;
     if (shine && shine.length) {
       // Compacted in place, never a splice per rejection: this walks the list
       // every frame and the list is at most a few sweeps deep.
