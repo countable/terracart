@@ -154,7 +154,7 @@ test('boot profiler: drawObjects counts entries scanned and kept', () => {
   WorldGen.tileCache.set(`${WorldGen.Z}/0/0`, {
     objects: [
       { kind: 'tree', x: 5, y: 0, id: 'o1' },            // in range -> kept
-      { kind: 'tree', x: farAway, y: 0, id: 'o2' },       // out of range -> scanned only
+      { kind: 'tree', x: farAway, y: 0, id: 'o2' },       // out of range -> not even walked (chunk index)
       { kind: 'chest', x: 3, y: 3, id: 'c1' },            // in range -> kept
       { kind: 'chest', x: 3.2, y: 3.2, id: 'c2' },        // same cellKey as c1 -> dup, scanned only
     ],
@@ -183,7 +183,7 @@ test('boot profiler: drawObjects counts entries scanned and kept', () => {
     const kept = boot.lastCount('drawObjects kept');
     assert.truthy(scanned, 'scanned count recorded');
     assert.truthy(kept, 'kept count recorded');
-    assert.eq(scanned.n, 8, 'scanned = every object + creature + wildplant iterated');
+    assert.eq(scanned.n, 7, 'scanned = every object + creature + wildplant the walk touched — the far tree sits in a chunk the query never opens');
     assert.eq(kept.n, 4, 'kept = the 4 that survived culling/dedup/caught/picked');
   } finally {
     window.__boot = undefined;

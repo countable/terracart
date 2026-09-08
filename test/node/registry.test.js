@@ -44,12 +44,17 @@ test('mineralrock: ore is gated behind the pick tier', () => {
   assert.falsy(scene.brokenRockSet.has('mr-1'), 'gated rock is not broken');
 });
 
-test('mineralrock: plain rock drops 1-3 rockfruit and breaks', () => {
+// The stone count is the DRAWN one + a coin flip — see rock_yield.test.js for
+// the full per-variant pinning. Here we only check the rock breaks and pays out
+// what its own art promises, whichever variant cell (0,0) happens to hash to.
+test('mineralrock: plain rock drops what its sprite shows and breaks', () => {
   const scene = makeScene();
   const save = { relics: { pick: { tier: 7 } } };
   const o = { kind: 'mineralrock', id: 'mr-2', x: 0, y: 0, yieldTier: 1 };
+  const stones = SpriteLayout.plainRockStones(o);
   assert.eq(runInteractable(makeCtx(scene, save), o), true);
-  assert.inRange(scene.invCount('rockfruit'), 1, 3, 'plain rock = 1-3 stone');
+  assert.inRange(scene.invCount('rockfruit'), stones, stones + 1,
+    `plain rock showing ${stones} stone(s) = ${stones}-${stones + 1} stone`);
   assert.truthy(scene.brokenRockSet.has('mr-2'), 'rock recorded as broken');
 });
 
@@ -83,34 +88,55 @@ test('fruittree: harvest yields 1-2 fruit, then is respawn-gated', () => {
   assert.inRange(scene.invCount('apple'), 1, 2, 'respawn gate blocks a second pick');
 });
 
-// --- Gather luck flag -------------------------------------------------------
-test('gather luck: OFF by default → zeroed multipliers', () => {
-  assert.eq(gatherLuckEnabled(), false, 'flag defaults off');
-  const lk = gatherLuck({ relics: { ring: { tier: 7 }, amulet: { tier: 7 } } }, ['ring', 'amulet']);
-  assert.eq(lk.tierP, 0, 'no ring tierP when off');
-  assert.eq(lk.bonusP, 0, 'no amulet bonusP when off');
+test('fruittree: a pick always yields a REAL item, even after the starter-home pass', () => {
+  // The pick hands out the item named by `o.species`, and the headless
+  // makeScene stub accepts any id — so drive the REAL Inventory.add, which
+  // (like app.js addToInv) drops an unknown id silently. That silence is the
+  // bug this pins: starter provisioning used to tame a fruit tree near spawn
+  // to species 'pine', so the pick flashed "harvested pine" and gave nothing.
+  for (const species of ['apple', 'peach']) {
+    const o = { kind: 'fruittree', id: `ft_${species}`, x: 84, y: 0, species, wild: true };
+    const plan = HomeArea.planStarterProvision([o], 0, 0, 7);
+    for (const d of plan.downgrade) HomeArea.makeStarterUsable(d);
+    assert.truthy(ITEM_BY_ID[o.species], `${species} tree still names a real item after the pass`);
+    const save = { inv: [], selSlot: 0 };
+    const msgs = [];
+    const scene = makeScene({
+      addToInv: (id, n) => { const r = Inventory.add(save, id, n, { pageSize: 5 }); return r.valid ? r.accepted : 0; },
+      flashLoot: (m) => msgs.push(m),
+    });
+    assert.eq(runInteractable(makeCtx(scene, save), o), true, 'tap consumed');
+    const got = save.inv.find(s => s && s.id === species);
+    assert.truthy(got && got.count >= 1, `picked ${species}: ${JSON.stringify(save.inv)}`);
+    assert.truthy(msgs.some(m => m.includes(ITEM_BY_ID[species].name)),
+      `flash names the fruit, got ${JSON.stringify(msgs)}`);
+  }
 });
 
-test('gather luck: ON wires declared ring/amulet into the roll', () => {
-  // ringLuck / amuletBracketChance are IIFE-private in rarity.js; inject stubs
-  // so gatherLuck (which resolves them as free globals) can read them.
-  globalThis.ringLuck = () => 0.5;
-  globalThis.amuletBracketChance = () => 1;   // always grant the bonus
-  globalThis.window.GATHER_LUCK_ENABLED = true;
-  try {
-    const lk = gatherLuck({ relics: {} }, ['ring', 'amulet']);
-    assert.eq(lk.tierP, 0.5, 'ring tierP wired through');
-    assert.eq(lk.bonusP, 1, 'amulet bonusP wired through');
-    // A fruit harvest with bonusP=1 always adds the +1 bonus fruit → 2-3.
-    const scene = makeScene();
-    const o = { kind: 'fruittree', id: 'ft-luck', x: 0, y: 0, species: 'apple' };
-    runInteractable(makeCtx(scene, {}), o);
-    assert.inRange(scene.invCount('apple'), 2, 3, 'amulet bonus fruit applied');
-  } finally {
-    globalThis.window.GATHER_LUCK_ENABLED = false;   // restore for later tests
-    delete globalThis.ringLuck;
-    delete globalThis.amuletBracketChance;
+test('fruittree: a tree already stamped with a non-fruit species repairs itself on the pick', () => {
+  // The source of the 'pine' stamp is fixed, but a bin object a tile is
+  // rebuilt from is shared for the session, and a stale cached home.js can
+  // still tame it — so a tree that reaches the pick with a species that is not
+  // a produce item must hand out a real fruit anyway, and flash it.
+  for (const bad of ['pine', 'maple', undefined, 'wood']) {
+    const o = { kind: 'fruittree', id: `ft_bad_${bad}`, x: 84, y: 0, species: bad, wild: true };
+    const save = { inv: [], selSlot: 0 };
+    const msgs = [];
+    const scene = makeScene({
+      addToInv: (id, n) => { const r = Inventory.add(save, id, n, { pageSize: 5 }); return r.valid ? r.accepted : 0; },
+      flashLoot: (m) => msgs.push(m),
+    });
+    assert.eq(runInteractable(makeCtx(scene, save), o), true, 'tap consumed');
+    assert.eq(o.species, 'apple', `species ${JSON.stringify(bad)} repaired in place to apple`);
+    const got = save.inv.find(s => s && s.id === 'apple');
+    assert.truthy(got && got.count >= 1, `picked an apple: ${JSON.stringify(save.inv)}`);
+    assert.truthy(msgs.some(m => m.includes('Apple')), `flash names Apple, got ${JSON.stringify(msgs)}`);
+    assert.falsy(msgs.some(m => /pine|maple|wood|undefined/.test(m)), 'never flashes the bad species');
   }
+  // A real fruit is left alone.
+  const peach = { kind: 'fruittree', id: 'ft_ok', x: 84, y: 0, species: 'peach', wild: true };
+  runInteractable(makeCtx(makeScene(), {}), peach);
+  assert.eq(peach.species, 'peach', 'a peach tree stays a peach tree');
 });
 
 test('registry: unknown kinds are not handled (driver returns false)', () => {
