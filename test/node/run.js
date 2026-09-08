@@ -832,7 +832,12 @@ Object.assign(ctx, {
 {
   const src = readSrc('app.js');
   let decls = '';
-  for (const name of ['CREATURE_SIM_CELLS', 'PEST_CROW_SPAWN_CELLS', 'VIEW_CELLS']) {
+  for (const name of ['CREATURE_SIM_CELLS', 'PEST_CROW_SPAWN_CELLS', 'VIEW_CELLS',
+                      // The rout's pace, and the slowest gait it has to move:
+                      // home_ward.test.js measures how long the ring takes to
+                      // clear in seconds a player would recognise.
+                      'FLEE_STRIDE_MUL', 'FLEE_BEAT_MUL',
+                      'SLIME_HOP_CELLS', 'SLIME_STEP_MUL']) {
     const m = src.match(new RegExp(`const ${name} = ([^;]+);`));
     if (!m) {
       console.error(`Could not find ${name} in src/app.js — update run.js`);
@@ -1209,6 +1214,9 @@ ctx.APP_JS_SRC = readSrc('app.js');
     num('CREATURE_SIM_CELLS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'),
     num('SLIME_HOP_CELLS'), num('SLIME_STEP_MUL'), num('STALK_JITTER'),
     num('PEST_CROW_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
+    // What a creature in a hurry costs — the struck-prey flee and Home's rout
+    // both run at this pair.
+    num('FLEE_STRIDE_MUL'), num('FLEE_BEAT_MUL'),
     'const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;',
     // The predicates. (faunaBlocksCell is Combat's, already loaded.)
     fn('function slimeCharging(c) {'),

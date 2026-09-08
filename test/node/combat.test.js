@@ -180,7 +180,7 @@ test('combat: the surface slime oozes slowly enough to walk away from', () => {
   assert.truthy(mul > 0 && hop > 0 && beat > 0, 'the gait constants are readable');
   assert.truthy(/c\.kind === 'slime' \? STEP_MS \* \(charging \? 1 : SLIME_STEP_MUL\)/.test(app),
     'the cadence branch reads the constant');
-  assert.truthy(/const stepM = c\.kind === 'slime' \? STEP_M \* SLIME_HOP_CELLS/.test(app),
+  assert.truthy(/const stepM = \(c\.kind === 'slime' \? STEP_M \* SLIME_HOP_CELLS/.test(app),
     'and so does the hop distance');
   const mps = (hop * COMBAT_CELL_M) / ((beat * mul) / 1000);
   assert.lt(mps, 0.7, `a slime oozes at ${mps.toFixed(2)} m/s — well under a walking pace`);
@@ -258,7 +258,7 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
 
   // And the player's own blow turns it round at once — but only once.
   const dmg = app.slice(app.indexOf('_damageEnemy(c, amount) {'));
-  const dmgHead = code(dmg.slice(0, dmg.indexOf('_routedFromHome')));
+  const dmgHead = code(dmg.slice(0, dmg.indexOf('c._hurtUntilT')));
   assert.truthy(/const wasCharging = slimeCharging\(c\);[\s\S]*c\._lastDamagedT = Date\.now\(\);/
     .test(dmgHead), 'the "was it already charging" question is asked before the stamp');
   assert.truthy(/if \(!wasCharging && c\.kind === 'slime'\) c\._nextChooseT = 0;/.test(dmgHead),
