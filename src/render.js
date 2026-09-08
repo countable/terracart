@@ -2631,6 +2631,11 @@ Render.drawObjects = function drawObjects(scene) {
       key: (o) => (o.lit ? STREET_LAMP_TEX : STREET_LAMP_DARK_TEX),
       frame: (o) => (o.lit ? '__BASE' : streetLampDarkFrame(o.tier)),
       origin: (o) => (o.lit ? [0.5, STREET_LAMP_ORIGIN_Y] : [0.5, 0.5]),
+      // The post's own nudge (see STREET_LAMP_DY_PX): the ART sits three
+      // pixels lower than its point, the point itself is untouched. Live
+      // rather than decorative because this row is NOT seated — a seated spec
+      // has its dxPx/dyPx overwritten by the seat pass.
+      dyPx: (o) => (o.lit ? STREET_LAMP_DY_PX : 0),
       scale: 1,
       after: (s, o) => {
         const px = CELL_PX * (o.lit
