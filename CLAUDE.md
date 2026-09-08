@@ -1095,8 +1095,8 @@
 
 - **A restored street LIGHTS ITS OWN WAY — and the lamp spacing is the
   STREET's number, not the ladder's.** (The pebbles of the old cobble trails
-  are gone; this is what came back in their place.) One glowing cobble every
-  `Streets.lampSpacingM()` metres of rebuilt
+  are gone; this is what came back in their place.) One ornate gilded lamp
+  every `Streets.lampSpacingM()` metres of rebuilt
   carriageway — its OWN constant, `Streets.LAMP_SPACING_M` (100 m),
   deliberately NOT `Trail.GOAL_STEP_M` (200 m) any more. It shipped tied to
   the ladder's rung under the `roadOverlayWidthM` discipline, so a walk that
@@ -1121,29 +1121,46 @@
   nearby lamp on ONE list flagged `lit`, and both readers ask that flag: the
   draw pass picks the baked lamp or the grey cobble, `Lighting.collectLamps`
   skips the dark ones. A second list for the dark stones is the bug.
-  **A lamp stands on the VERGE, its stone just touching the band** — never on
+  **A lamp stands on the VERGE, its plinth just touching the band** — never on
   the centreline, which is where every one of them stood until Sep 2026.
-  `Streets.lampsAlong` says how far ALONG the way a stone is and
+  `Streets.lampsAlong` says how far ALONG the way a lamp is and
   `Streets.lampOffsetM` how far OFF it, and both go into the one resolver
   (`Streets.pointAtM(line, mvtToM, s, offM)`), so a verge follows the way's
   own bends. The offset is DERIVED, the `roadOverlayWidthM` discipline again:
   half of `WorldGen.roadOverlayWidthM` — the very width the band is stroked
-  with and `roadMask` stamped from — plus the stone's own radius
+  with and `roadMask` stamped from — plus the art's own footprint radius
   (`STREET_LAMP_R_CELLS`, itself the widest of the two arts a lamp can wear,
-  off `RoadOverlay.LAMP_STONE_R_CELLS` and `STREET_LAMP_DARK_CELLS`). So a
+  off `RoadOverlay.LAMP_FOOT_R_CELLS` — the PLINTH's half-width, and pinned to
+  be the widest thing on the lamp — and `STREET_LAMP_DARK_CELLS`). So a
   motorway seats its lamps further out than a footpath by construction, a
   widened band takes its lamps out with it, and resized art keeps kissing the
   kerb. **Never seat a lamp with a flat offset**, and never give the light a
   point of its own: ONE point comes out of `_streetLampsForTile` and both the
-  stone and `Lighting.collectLamps` read it, so the glow can't be left behind
+  lamp and `Lighting.collectLamps` read it, so the glow can't be left behind
   on the tarmac.
   It is TWO halves on ONE point, because the lightmap MULTIPLIES: baked art
-  (`RoadOverlay.paintLampStone`, drawn under the lightmap — a light alone does
-  not exist at noon) and the `Lighting.KINDS.cobble` row over it, both in
-  `UI_LAMP_GLOW` — the old activated-cobble violet, brought back for the lamp
-  specifically rather than the street's own `UI_STREET_INK` (the chips, the
-  sparks, the counter): the carriageway restores in pale warm stone, but a
-  lamp reads as ACTIVATED, the way a claimed cobble always did. The list
+  (`RoadOverlay.paintLamp`, drawn under the lightmap — a light alone does
+  not exist at noon) and the `Lighting.KINDS.cobble` row over it. What the lamp
+  SHEDS — its glass, the bloom round it, the pool at its foot and the cookie
+  over all three — is `UI_LAMP_GLOW`, the old activated-cobble violet, brought
+  back for the lamp specifically rather than the street's own `UI_STREET_INK`
+  (the chips, the sparks, the counter): the carriageway restores in pale warm
+  stone, but a lamp reads as ACTIVATED, the way a claimed cobble always did.
+  What it is MADE of is the other constant, `UI_LAMP_GOLD` — gilded ironwork,
+  a MATERIAL in the sense `UI_STREET_INK` is one and deliberately not the
+  `UI_GOLD` family, which is the player-control role. Metal is not light: a
+  lamp that lit the street correctly and looked like a lit STONE doing it is
+  what the gild replaced in Sep 2026.
+  **AND IT STANDS ON THE POINT.** The baked square carries the plinth, the
+  ground shadow and the pool of glow on its own ground line
+  (`RoadOverlay.LAMP_GROUND_FRAC`, below the middle because a lamp is mostly
+  post), and `STREET_LAMP_ORIGIN_Y` seats the sprite by that line rather than
+  by its centre — so the light lighting.js stamps on the point pools at the
+  lamp's FOOT while the lantern reads as up in the air above it. Centring the
+  lantern on the point instead puts the pool a lamp's height off its own foot,
+  which is the one thing that gives a seating away. The dark cobble LIES on the
+  point and keeps its centred origin; the pool swaps between the two arts, so
+  the origin is set per lamp beside the texture. The list
   app.js hands to both (`_updateStreetLamps`) is
   collected from the CAMERA ANCHOR and memoised on the anchor cell +
   `Streets.epoch` — never from the feet, which is the restoring sweep's side of
