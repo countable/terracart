@@ -14537,8 +14537,8 @@ class MapScene extends Phaser.Scene {
           const INFO = {
             blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
             market:     { blurb: seedShop
-              ? 'Buys your crops at a premium — and stocks the starter seeds to grow more.'
-              : 'Buys your crops at a premium — and stocks fresh produce.' },
+              ? 'Sells the starter seeds you need to grow more.'
+              : 'Sells fresh produce and seeds to restock your bag.' },
             trader:     { blurb: 'Barters goods and pays a bonus on every sale.' },
             wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage trades 5 Discovery badges a step, up his ladder: a wider reach, then bigger finds, then the Ring that finds the rarer thing.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
