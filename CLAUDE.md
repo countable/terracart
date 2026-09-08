@@ -444,7 +444,26 @@
   damage, so a foe can never be chasing a player it cannot hurt. **When you add
   a hostile behaviour that takes an interest in the player, gate it on
   `unnoticed`, not on `shadowed`.**
-  **Audit it:** `node test/node/run.js` › `test/node/downed_pursuit.test.js`.
+  **And a body does not STEP, either.** `_tickTraps` stands down on the same
+  collapse: springing a snare spends it for good (`save.sprungTraps` is written
+  the instant it fires) on a player it can charge nothing for, and on hard the
+  long walk home would clear every trap it crossed for free. That gate reads
+  `Combat.playerDowned` DIRECTLY, never `unnoticed` — a Shadow Powder hides you
+  from whatever takes an interest in you, and iron jaws take none. So the two
+  halves of `unnoticed` are not interchangeable outside `wanderCreatures`: ask
+  whether the new rule is about being *noticed* or about being *upright*.
+  **The picture says it too.** A body upright on screen while the reach is 0
+  and nothing will bite it is the picture lying, so at zero energy the sprite
+  lies down — `playerBodyRotation()` turns it a quarter turn onto its front
+  (`PLAYER_DOWNED_ROTATION`) and `playerBodyDy()` drops its centre onto the fix,
+  so the midsection ends where the feet were. `playerBodyDy()` is the ONE answer
+  to "where is the body's centre?", so everything hung on it — the sprite, the
+  warning halo, the powder countdowns, the facing arrow — goes down with it;
+  reading `playerFeetNudgeY` directly leaves a mark a body-length in the air
+  over the collapsed sprite (see the feet-anchor rule).
+  **Audit it:** `node test/node/run.js` › `test/node/downed_pursuit.test.js`
+  (the wards, the fade and the pose) and `test/node/traps.test.js` (the tick's
+  stand-down).
 
 - **A tile build stutters on its WORST BLOCK, not its total.** The rasterizer
   is a generator (`rasterizeTileSteps`); the slicer can only hand the frame
@@ -612,8 +631,12 @@
   much above `viewCenter`, and `feetOffsetM` is 0. Ground marks — the contact
   shadow, footprint dots, the GPS crosshair, the walk target, a peer's shadow
   in `multiplayer.js` — sit on the point itself; anything that wants the
-  body's centre (the facing arrow, the dragon timer, the swing arc, the halo)
-  adds `playerFeetNudgeY` to it. **Until Sep 2026 the sprite was CENTRED on
+  body's centre (the facing arrow, the powder countdowns, the swing arc, the
+  halo) adds **`playerBodyDy()`** to it, which is `playerFeetNudgeY` while the
+  player is on their feet and 0 once they have collapsed (the pose in the
+  NOTHING HUNTS A BODY rule — a body lying down has its midsection where its
+  feet were). Add the raw nudge and the mark stays a body-length in the air
+  over a downed sprite. **Until Sep 2026 the sprite was CENTRED on
   the fix** and the feet hung 14px (3 m) south of it, with every ground mark
   carrying its own +13/+14 to follow them down — so standing on a road's
   centreline put the band through the character's waist and the whole map
