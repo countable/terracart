@@ -181,10 +181,11 @@
     // — lighting.test.js pins the order — so a lit cave reads as "a torch
     // there, some fungus here", never two of the same lamp.
     mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.50, flicker: 0, pulse: 0.35 },
-    // A STREET LAMP — the glowing cobble of a RESTORED street, one every
+    // A STREET LAMP — the gilded lamp a RESTORED street stands, one every
     // Streets.lampSpacingM() metres of rebuilt carriageway (streets.js places
-    // them, road_overlay.js paints the stone, app.js hands this collector the
-    // live list). It is the whole point of rebuilding a street after dark: a
+    // them, road_overlay.js paints the lamp, app.js hands this collector the
+    // live list). The cookie lands on the lamp's own point, which is its FOOT
+    // (see LAMP_GROUND_FRAC): the light pools on the road the lamp stands on. It is the whole point of rebuilding a street after dark: a
     // road you have brought back is a road you can walk at night, and the
     // string of lamps behind you is the map of everything you have restored.
     //

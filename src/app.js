@@ -127,14 +127,25 @@ const GATHER_SPREAD_POINTS = 6;
 // every Streets.lampSpacingM() metres of rebuilt carriageway (its own
 // constant, LAMP_SPACING_M — deliberately NOT the treasure ladder's rung, so
 // an ordinary block shorter than a rung still qualifies). Where they stand is
-// generated from the way's geometry and never stored (streets.js); the stone
-// is baked art (RoadOverlay.paintLampStone) and the light it throws after
+// generated from the way's geometry and never stored (streets.js); the lamp
+// itself is baked art (RoadOverlay.paintLamp) and the light it throws after
 // dark is Lighting.KINDS.cobble, on the same point.
 const STREET_LAMP_TEX = 'street_lamp';
-// Drawn LAMP_DRAW_CELLS cells across — the halo included; the stone inside it
-// is about a third of that, so a lamp sits clearly on one cell of the road.
+// Drawn LAMP_DRAW_CELLS cells across — the pool of glow at its foot included;
+// the ironwork inside that is about a fifth of it wide and half of it tall, so
+// a lamp stands on one cell of the verge and reads from a couple away.
 const STREET_LAMP_PX = CELL_PX *
-  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 1.5);
+  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4);
+// WHERE THE ART SITS ON THE POINT. The baked lamp STANDS on its point: its
+// plinth, its shadow and its pool of glow are all on the square's ground line
+// (RoadOverlay.LAMP_GROUND_FRAC), which is below the middle because a lamp is
+// mostly post — so the sprite's origin is that line rather than its centre,
+// and the light lighting.js stamps on the same point pools at the lamp's foot.
+// The dark cobble is a stone LYING on the point and keeps a centred origin;
+// the pool swaps between the two arts, so the origin is set per lamp beside
+// the texture in _drawStreetLamps.
+const STREET_LAMP_ORIGIN_Y =
+  (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_GROUND_FRAC) || 0.62;
 // THE UNLIT LAMP IS THE OLD ROAD COBBLE. A lamp stands on every
 // LAMP_SPACING_M of street whether or not that stretch is restored yet — a
 // dark one is the stone you have not lit, and it has to be VISIBLE or the
@@ -166,17 +177,17 @@ const streetLampDarkFrame = (tier) => {
 // shows round them), and their 57% alpha.
 const STREET_LAMP_DARK_CELLS = { road: 0.64, path: 0.584 };
 const STREET_LAMP_DARK_ALPHA = 0.57;
-// THE LAMP STANDS ON THE VERGE, and this is the stone's own footprint radius
-// in cells — what _streetLampsForTile adds to half the carriageway
+// THE LAMP STANDS ON THE VERGE, and this is the art's own footprint radius in
+// cells — what _streetLampsForTile adds to half the carriageway
 // (Streets.lampOffsetM) so the art just touches the band's edge instead of
 // standing in the traffic. It is the WIDEST of the two arts one lamp can
-// wear, because either of them may be the one showing: the baked stone inside
-// its halo square (RoadOverlay.LAMP_STONE_R_CELLS) and the dark cobble a lamp
-// draws before it lights (STREET_LAMP_DARK_CELLS, a full width, so half it).
+// wear, because either of them may be the one showing: the baked lamp's
+// plinth (RoadOverlay.LAMP_FOOT_R_CELLS) and the dark cobble a lamp draws
+// before it lights (STREET_LAMP_DARK_CELLS, a full width, so half it).
 // Deriving it from the sizes the draw pass actually uses is what keeps a lamp
 // touching the kerb when either art is resized.
 const STREET_LAMP_R_CELLS = Math.max(
-  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_STONE_R_CELLS) || 0.24),
+  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_FOOT_R_CELLS) || 0.204),
   STREET_LAMP_DARK_CELLS.road / 2,
   STREET_LAMP_DARK_CELLS.path / 2);
 // Pool size. One lamp per LAMP_SPACING_M (100 m) against a viewport 11 cells
@@ -1935,21 +1946,21 @@ class MapScene extends Phaser.Scene {
     // proportion to the carriageway at any latitude's cell size. The pool is
     // small: at one lamp per LAMP_SPACING_M (100 m) and a viewport 11 cells
     // across, a couple in view at once is an ordinary block.
-    if (typeof RoadOverlay !== 'undefined' && RoadOverlay.paintLampStone &&
+    if (typeof RoadOverlay !== 'undefined' && RoadOverlay.paintLamp &&
         typeof document !== 'undefined' && !this.textures.exists(STREET_LAMP_TEX)) {
       const S = RoadOverlay.LAMP_TEX_PX;
       const cvs = document.createElement('canvas');
       cvs.width = cvs.height = S;
       const lctx = cvs.getContext('2d');
       if (lctx) {
-        RoadOverlay.paintLampStone(lctx, S);
+        RoadOverlay.paintLamp(lctx, S);
         this.textures.addCanvas(STREET_LAMP_TEX, cvs);
       }
     }
     this.streetLampPool = [];
     if (this.textures.exists(STREET_LAMP_TEX)) {
       for (let i = 0; i < STREET_LAMP_POOL; i++) {
-        const s = this.add.image(0, 0, STREET_LAMP_TEX).setOrigin(0.5, 0.5)
+        const s = this.add.image(0, 0, STREET_LAMP_TEX).setOrigin(0.5, STREET_LAMP_ORIGIN_Y)
           .setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setVisible(false);
         this.cobbleContainer.add(s);
         this.streetLampPool.push(s);
@@ -13878,7 +13889,7 @@ class MapScene extends Phaser.Scene {
     // The stone's radius in metres, in this tile's own basis — the second
     // half of every verge offset below.
     const cellM = (entry.cellsPerEdge > 0) ? tileEdgeM / entry.cellsPerEdge : (this.cellM || 0);
-    const stoneRM = STREET_LAMP_R_CELLS * cellM;
+    const footRM = STREET_LAMP_R_CELLS * cellM;
     for (const layer of entry.layers) {
       if (layer.name !== 'transportation') continue;
       const extent = layer.extent || 4096;
@@ -13892,7 +13903,7 @@ class MapScene extends Phaser.Scene {
         // half-width plus the stone. Per FEATURE — the width is a function of
         // the way's class, so it is the same for every line and every lamp
         // this feature carries.
-        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), stoneRM);
+        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), footRM);
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
@@ -13990,10 +14001,11 @@ class MapScene extends Phaser.Scene {
   // The stones themselves: one pooled sprite per lamp, seated through
   // worldMetersToScreen (the camera-anchored projection — a peek carries them
   // with the ground) into the ground-decoration container, which sits on the
-  // road band and under the lightmap. A LIT lamp is the baked violet stone
-  // (STREET_LAMP_TEX, halo and all, STREET_LAMP_PX across); a DARK one is the
-  // old road cobble (STREET_LAMP_DARK_TEX at its tier's frame), at the old
-  // stones' size and alpha. The light over each lit one is stamped by
+  // road band and under the lightmap. A LIT lamp is the baked lamp itself
+  // (STREET_LAMP_TEX, pool of glow and all, STREET_LAMP_PX across, standing on
+  // the point); a DARK one is the old road cobble (STREET_LAMP_DARK_TEX at its
+  // tier's frame), at the old stones' size and alpha, lying on it. The light
+  // over each lit one is stamped by
   // Lighting.collectLamps from the same list.
   _drawStreetLamps() {
     const pool = this.streetLampPool;
@@ -14013,13 +14025,16 @@ class MapScene extends Phaser.Scene {
       s.setPosition(p.x, p.y);
       if (L.lit) {
         if (!s.texture || s.texture.key !== STREET_LAMP_TEX) s.setTexture(STREET_LAMP_TEX);
-        s.setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setAlpha(1);
+        // The lamp STANDS on the point: its origin is the square's ground line.
+        s.setOrigin(0.5, STREET_LAMP_ORIGIN_Y)
+          .setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setAlpha(1);
       } else {
         const frame = streetLampDarkFrame(L.tier);
         if (!s.texture || s.texture.key !== STREET_LAMP_DARK_TEX) s.setTexture(STREET_LAMP_DARK_TEX, frame);
         else s.setFrame(frame);
         const px = CELL_PX * (isPath(L.tier) ? STREET_LAMP_DARK_CELLS.path : STREET_LAMP_DARK_CELLS.road);
-        s.setDisplaySize(px, px).setAlpha(STREET_LAMP_DARK_ALPHA);
+        // …the cobble LIES on it, so it keeps a centred origin.
+        s.setOrigin(0.5, 0.5).setDisplaySize(px, px).setAlpha(STREET_LAMP_DARK_ALPHA);
       }
     });
   }
