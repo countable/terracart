@@ -659,9 +659,16 @@ const PEST_CROW_SPAWN_CELLS = 10;
 // (`_placeHomeGreeter`; the kind is Difficulty.get().homeGreeter — a chicken on
 // easy, a slime on hard). Chebyshev cells, so the band is a square ring.
 // The floor keeps it off the player's own cell and out of the trailer's
-// doorway — a slime spawned underfoot would start leeching before the first
-// frame drew — and the ceiling keeps it inside the 11-cell viewport, so it is
-// on screen when the map paints and reads as "this is what lives here".
+// doorway — a creature spawned underfoot would be on top of the player before
+// the first frame drew — and the ceiling keeps it inside the 11-cell viewport,
+// so it is on screen when the map paints and reads as "this is what lives
+// here".
+// The floor here is the PLACER's, and it holds whatever the mode: how far its
+// own greeter stands is the mode's to say, in `homeGreeterCells` beside the
+// kind it already declares (a hard-mode slime leeches, so it is seated further
+// out than easy's chicken — far enough that the opening seconds are a sighting
+// rather than a bite). The placer takes whichever is larger, so a mode can
+// push its greeter out but never under the player's feet.
 const HOME_GREETER_MIN_CELLS = 2;
 const HOME_GREETER_MAX_CELLS = 5;
 // ── Home is pest-free until the first harvest ────────────────────────────
@@ -811,6 +818,16 @@ const UNNOTICED_ALPHA = 0.42;
 const PLAYER_SHADOW_ALPHA = 0.34;
 const PLAYER_SHADOW_ALPHA_FLYING = 0.20;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
+// How big a bite the stick walk takes when it bites. The per-cell cost
+// (steerEnergyCost, amulet-scaled) is banked fractionally and spent in LUMPS
+// of this many pips rather than one pip at a time — bare-handed that is 2⚡
+// every 2 cells instead of 1⚡ every cell, so the bar steps in a figure the
+// player can read at a glance and the throttled pop has something to say when
+// it fires. The rate per cell is untouched: this is the GRAIN of the drain,
+// not its price, and dividing the same cost into fewer, bigger debits is the
+// whole point — a one-pip trickle under a 1200ms pop window reads as the bar
+// fraying rather than as travel costing something.
+const STEER_DRAIN_LUMP = 2;
 // FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
 //
 // The dots were round and 3px, dropped dead on the body's centreline — one
@@ -9319,8 +9336,10 @@ class MapScene extends Phaser.Scene {
     this._stickHeading = { x: vx / n, y: vy / n };
     this._lastStickT = Date.now();   // the walk-home timer starts when you stop
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
-    // Per-cell stamina, banked fractionally so a 0.15/cell amulet debits a
-    // whole pip every ~7 cells instead of rounding up to one per cell. Close to
+    // Per-cell stamina, banked fractionally and spent in STEER_DRAIN_LUMP-sized
+    // bites, so a 0.15/cell amulet debits a lump every ~13 cells rather than
+    // rounding up to a pip per cell. The rate is the same either way — the lump
+    // only decides how coarse the steps are. Close to
     // your real position it's a fifth of that: pottering around the block you're
     // actually standing on shouldn't cost what striking out across town does,
     // and the discount is what makes the stick usable for lining up a tap.
@@ -9330,10 +9349,10 @@ class MapScene extends Phaser.Scene {
     while (this._steerDistAccrue >= this.cellM) {
       this._steerDistAccrue -= this.cellM;
       this._steerCostAccrue += costPerCell;
-      while (this._steerCostAccrue >= 1) {
-        this._steerCostAccrue -= 1;
+      while (this._steerCostAccrue >= STEER_DRAIN_LUMP) {
+        this._steerCostAccrue -= STEER_DRAIN_LUMP;
         const before = this.save.energy ?? 0;
-        this.save.energy = Math.max(0, before - 1);
+        this.save.energy = Math.max(0, before - STEER_DRAIN_LUMP);
         // CLAUDE.md: "when you add an energy gain or loss the player can see,
         // pop it with _popEnergy and name the cell." Every other continuous
         // drain (the slime leech, a monster's melee, the trap bleed) rolls up
@@ -10978,12 +10997,14 @@ class MapScene extends Phaser.Scene {
       !Combat.faunaBlocksCell(entry.grid[cy * N + cx]);
     // Nearest cell in the ring that `accept`s, scanned in a fixed order so the
     // same anchor always seats it in the same place.
+    // The mode's own distance, never nearer than the placer's floor.
+    const minD = Math.max(HOME_GREETER_MIN_CELLS, Difficulty.get().homeGreeterCells || 0);
     const pick = (accept) => {
       let best = null, bestD = Infinity;
       for (let cy = ay - HOME_GREETER_MAX_CELLS; cy <= ay + HOME_GREETER_MAX_CELLS; cy++) {
         for (let cx = ax - HOME_GREETER_MAX_CELLS; cx <= ax + HOME_GREETER_MAX_CELLS; cx++) {
           const d = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));
-          if (d < HOME_GREETER_MIN_CELLS || d >= bestD) continue;
+          if (d < minD || d >= bestD) continue;
           if (!standable(cx, cy) || !accept(cx, cy)) continue;
           best = { cx, cy }; bestD = d;
         }

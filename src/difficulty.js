@@ -105,6 +105,12 @@
       // catchable, feedable, lays eggs — and hard puts a slime in the yard.
       // Set it to null for a mode with no greeter at all.
       homeGreeter: 'chicken',
+      // How far out it stands, in Chebyshev cells from the trailer (app.js's
+      // HOME_GREETER_* ring is the placer's own floor and ceiling, and the
+      // floor still holds — this only ever pushes the greeter further out).
+      // A chicken is a welcome, so easy takes the placer's floor: it wants to
+      // be right there in the yard.
+      homeGreeterCells: 2,
     },
     [HARD]: {
       id: HARD,
@@ -126,6 +132,12 @@
       trapCountMul: 100,        // hard means it: the verge is closer to a minefield
       trapBiteMul: 2.5,         // 10⚡ base bite becomes 25⚡ on first contact
       homeGreeter: 'slime',     // "the slimes are in your yard from the first minute" — literally
+      // …but across the yard, not on the doorstep. A slime leeches on contact
+      // and hard doubles the bite, so seated at the easy chicken's 2 cells it
+      // was on the player inside the opening seconds — before the how-to card
+      // is even read. Still well inside the viewport (the ring's ceiling is
+      // 5), so it is seen from the first frame: a sighting, then a choice.
+      homeGreeterCells: 4,
     },
   };
 

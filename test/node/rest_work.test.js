@@ -56,7 +56,9 @@ test('rest/work: a spend holds the rest too, through the one helper', () => {
   assert.eq(writers.length, 1, 'nothing else writes the hold');
   // The stick walk's per-cell drain is travel, not a job: it writes
   // save.energy directly and must NOT hold the rest.
-  const stick = app.slice(app.indexOf('while (this._steerCostAccrue >= 1) {'), app.indexOf('while (this._steerCostAccrue >= 1) {') + 400);
+  const stickAt = app.indexOf('while (this._steerCostAccrue >= STEER_DRAIN_LUMP) {');
+  assert.truthy(stickAt > 0, 'found the stick-walk cost loop');
+  const stick = app.slice(stickAt, stickAt + 400);
   assert.falsy(/_holdRest/.test(stick), 'the stick walk does not hold the rest');
 });
 
