@@ -746,7 +746,12 @@ test('streets: the prize fires at two hundred metres, wherever they were restore
     assert.eq(s.save.trail.prizes, 1, 'the first prize is won');
     assert.eq(s._trailPrizeQueue.length, 1, 'one ceremony queued');
     assert.eq(s._trailPrizeQueue[0], 1, 'and it is the FIRST prize\'s ordinal');
-    assert.eq(s.drained, 1, 'the queue is drained once');
+    // This save has never been greeted, so a greeting is owed and the ceremony
+    // waits behind it — through the greeting's own beat (TRAIL_INTRO_DELAY_MS)
+    // and out the far side on the dialog's dismiss.
+    assert.eq(s.drained, 0, 'nothing drains while the greeting is still owed');
+    clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); s._sweepStreets();
+    assert.eq(s.drained, 1, 'the queue is drained once, behind the dialog');
     // The counter on a paying sweep reads the goal it completed, full, so the
     // street and the ceremony beside it print the same rung.
     assert.eq(s.toasts[0].text, Trail.label(Trail.GOAL_STEP_M, Trail.GOAL_STEP_M),
@@ -894,7 +899,12 @@ test('streets: the first metres ever banked open the one-time dialog', () => {
     const s = sweepScene();
     clock.at(0); sweep(s);
     clock.at(PATH_STONE_DWELL_MS); sweep(s);
-    assert.eq(s.intros.length, 1, 'the dialog opened on the first metres');
+    // Not yet: the repair it is about — the flash, the chips, the counter on
+    // the street — gets its own beat first.
+    assert.eq(s.intros.length, 0, 'nothing opens over the repair itself');
+    assert.falsy(s.save.trail.greeted, 'and the greeting is not spent early');
+    clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
+    assert.eq(s.intros.length, 1, 'the dialog opened a beat after the first metres');
     assert.eq(s.intros[0].title, TRAIL_INTRO_TITLE, 'with the greeting title');
     assert.truthy(s.save.trail.greeted, 'and the save remembers it');
     // The rung it promises is Trail's own, never a retyped 200.
@@ -903,9 +913,49 @@ test('streets: the first metres ever banked open the one-time dialog', () => {
     assert.truthy(/arteries of civilization/.test(s.intros[0].body), 'in the survivors\' voice');
     // …and never again.
     s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
-    clock.at(PATH_STONE_DWELL_MS * 2); sweep(s);
     clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS * 4); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS * 4 + TRAIL_INTRO_DELAY_MS); sweep(s);
     assert.eq(s.intros.length, 1, 'and never opens a second time');
+  });
+});
+
+test('streets: the greeting is armed ONCE and read by the pass that runs every frame', () => {
+  // A walker banks metres on nearly every frame, so the beat has to be a
+  // deadline set once — re-arming per sweep would push the dialog out ahead of
+  // anyone who keeps walking, which is everyone.
+  withStreet(() => {
+    const s = sweepScene();
+    const t0 = Date.now();
+    assert.truthy(s._armTrailIntro(t0), 'arming says a greeting is owed');
+    assert.eq(s._trailIntroAt, t0 + TRAIL_INTRO_DELAY_MS, 'the beat is TRAIL_INTRO_DELAY_MS out');
+    assert.truthy(s._armTrailIntro(t0 + 500), 'a later sweep is still owed one');
+    assert.eq(s._trailIntroAt, t0 + TRAIL_INTRO_DELAY_MS, 'but the deadline does not move');
+  });
+  // …and it is read from the TOP of _sweepStreets, before that pass's own
+  // surface and reach gates: a greeting armed by a repair the player then
+  // walked away from (into a cave, onto an empty bar) is still owed.
+  const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _sweepStreets() {'));
+  assert.truthy(/_sweepStreets\(\) \{\n\s+if \(typeof Streets === 'undefined'\) return;\n\s+this\._openTrailIntroIfDue\(\);/
+    .test(body), 'the wait is read before the sweep gates on depth or reach');
+});
+
+test('streets: the beat lets the repair be seen — nothing opens until it has passed', () => {
+  withStreet((clock) => {
+    const s = sweepScene();
+    clock.at(0); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS); sweep(s);
+    assert.gt(s.save.trail.metres, 0, 'the metres banked');
+    assert.eq(s.toasts.length, 1, 'and the counter popped on the street');
+    // One millisecond short: still nothing over the moment it explains.
+    clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS - 1); sweep(s);
+    assert.eq(s.intros.length, 0, 'a millisecond short of the beat, nothing');
+    clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
+    assert.eq(s.intros.length, 1, 'and on the beat, the dialog');
+    // Two seconds: long enough to outlast the repair's own moment (the blast
+    // runs on STREET_SHINE_MS), short enough to still read as part of it.
+    assert.gte(TRAIL_INTRO_DELAY_MS, 1000, 'a beat, not a blink');
+    assert.lte(TRAIL_INTRO_DELAY_MS, 4000, 'and not a wait the player forgets it is in');
   });
 });
 
@@ -921,14 +971,18 @@ test('streets: the greeting waits for a clear screen, and asks again', () => {
     try {
       clock.at(0); sweep(s);
       clock.at(PATH_STONE_DWELL_MS); sweep(s);
+      // The card is asked about at the moment the dialog would OPEN — a beat
+      // after the metres banked — not when the greeting was armed.
+      clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
       assert.eq(s.intros.length, 0, 'nothing opens behind the card');
       assert.falsy(s.save.trail.greeted, 'and the greeting is not spent');
       assert.gt(s.save.trail.metres, 0, 'though the metres still bank');
       body.classList.has = false;
       s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
-      clock.at(PATH_STONE_DWELL_MS * 2); sweep(s);
       clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
-      assert.eq(s.intros.length, 1, 'and the next sweep with a clear screen asks again');
+      clock.at(PATH_STONE_DWELL_MS * 4); sweep(s);
+      clock.at(PATH_STONE_DWELL_MS * 4 + TRAIL_INTRO_DELAY_MS); sweep(s);
+      assert.eq(s.intros.length, 1, 'and the next metres banked on a clear screen ask again');
       assert.truthy(s.save.trail.greeted, 'spending it then');
     } finally { document.body = realBody; }
   });
@@ -940,8 +994,9 @@ test('streets: a save already up the ladder is never introduced to it', () => {
                                    trail: { metres: 40, prizes: 2, greeted: true } } });
     clock.at(0); sweep(s);
     clock.at(PATH_STONE_DWELL_MS); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
     assert.gt(s.save.trail.metres, 40, 'it still banks');
-    assert.eq(s.intros.length, 0, 'but says nothing');
+    assert.eq(s.intros.length, 0, 'but says nothing, then or a beat later');
   });
 });
 
@@ -956,8 +1011,10 @@ test('streets: a prize on the greeting sweep waits for the dialog to close', () 
     s._drainTrailPrizes = () => { order.push('prize'); s.drained += 1; };
     clock.at(0); sweep(s);
     clock.at(PATH_STONE_DWELL_MS); sweep(s);
-    assert.eq(s.intros.length, 1, 'the dialog opened');
-    assert.eq(s.save.trail.prizes, 1, 'and the sweep really did pay a rung');
+    assert.eq(s.save.trail.prizes, 1, 'the sweep really did pay a rung');
+    assert.eq(order.length, 0, 'and nothing opened on the repair\'s own beat');
+    clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
+    assert.eq(s.intros.length, 1, 'the dialog opened a beat later');
     assert.eq(order.join(','), 'intro,prize', 'and the ceremony followed it, never beside it');
   });
 });

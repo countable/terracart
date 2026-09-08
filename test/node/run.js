@@ -334,6 +334,7 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
                    '_setStreetPreview(meta, iv) {', '_streetSpreadPts(meta, s0, s1, k) {',
                    '_ripenStreets(now, sight) {',
                    '_bankStreetMetres(addedM, at, now) {', '_showTrailIntro() {',
+                   '_armTrailIntro(now) {', '_openTrailIntroIfDue() {',
                    '_drawStreetLive(now) {',
                    '_blastAt(wmx, wmy, opts) {']
     .map(lift).join(',\n');
@@ -375,6 +376,8 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
     // The one-time first-repair dialog's copy — carried as source so the test
     // reads the shipping sentence and the rung it quotes off Trail.
     `globalThis.TRAIL_INTRO_TITLE = ${constOf('TRAIL_INTRO_TITLE')};\n` +
+    // …and the beat it waits out before opening over the repair it explains.
+    `globalThis.TRAIL_INTRO_DELAY_MS = ${constOf('TRAIL_INTRO_DELAY_MS')};\n` +
     declOf('trailIntroBody') + '\n' +
     declOf('trailNextPrizeLine') + '\n' +
     // The energy pop's seating: derived from the walker's art, in the order
@@ -390,6 +393,7 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
                    '_cellAtScreen', 'playerScreen',
                    '_sweepStreets', '_resetStreetSight', '_rescanStreets',
                    '_setStreetPreview', '_ripenStreets', '_bankStreetMetres', '_showTrailIntro',
+                   '_armTrailIntro', '_openTrailIntroIfDue',
                    '_drawStreetLive', '_blastAt']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
