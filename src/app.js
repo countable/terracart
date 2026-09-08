@@ -648,9 +648,16 @@ const PEST_CROW_SPAWN_CELLS = 10;
 // (`_placeHomeGreeter`; the kind is Difficulty.get().homeGreeter — a chicken on
 // easy, a slime on hard). Chebyshev cells, so the band is a square ring.
 // The floor keeps it off the player's own cell and out of the trailer's
-// doorway — a slime spawned underfoot would start leeching before the first
-// frame drew — and the ceiling keeps it inside the 11-cell viewport, so it is
-// on screen when the map paints and reads as "this is what lives here".
+// doorway — a creature spawned underfoot would be on top of the player before
+// the first frame drew — and the ceiling keeps it inside the 11-cell viewport,
+// so it is on screen when the map paints and reads as "this is what lives
+// here".
+// The floor here is the PLACER's, and it holds whatever the mode: how far its
+// own greeter stands is the mode's to say, in `homeGreeterCells` beside the
+// kind it already declares (a hard-mode slime leeches, so it is seated further
+// out than easy's chicken — far enough that the opening seconds are a sighting
+// rather than a bite). The placer takes whichever is larger, so a mode can
+// push its greeter out but never under the player's feet.
 const HOME_GREETER_MIN_CELLS = 2;
 const HOME_GREETER_MAX_CELLS = 5;
 // ── Home is pest-free until the first harvest ────────────────────────────
@@ -10979,12 +10986,14 @@ class MapScene extends Phaser.Scene {
       !Combat.faunaBlocksCell(entry.grid[cy * N + cx]);
     // Nearest cell in the ring that `accept`s, scanned in a fixed order so the
     // same anchor always seats it in the same place.
+    // The mode's own distance, never nearer than the placer's floor.
+    const minD = Math.max(HOME_GREETER_MIN_CELLS, Difficulty.get().homeGreeterCells || 0);
     const pick = (accept) => {
       let best = null, bestD = Infinity;
       for (let cy = ay - HOME_GREETER_MAX_CELLS; cy <= ay + HOME_GREETER_MAX_CELLS; cy++) {
         for (let cx = ax - HOME_GREETER_MAX_CELLS; cx <= ax + HOME_GREETER_MAX_CELLS; cx++) {
           const d = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));
-          if (d < HOME_GREETER_MIN_CELLS || d >= bestD) continue;
+          if (d < minD || d >= bestD) continue;
           if (!standable(cx, cy) || !accept(cx, cy)) continue;
           best = { cx, cy }; bestD = d;
         }
