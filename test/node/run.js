@@ -969,17 +969,18 @@ Object.assign(ctx, {
     process.exit(2);
   }
   const body = src.slice(bodyStart, end);
+  // The ring constants, in declaration order — one of them is DERIVED from the
+  // sim bubble and one is a table, so take each declaration's right-hand side
+  // as written rather than assuming a bare integer.
   let decls = '';
-  for (const name of ['HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS']) {
-    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+  for (const name of ['CREATURE_SIM_CELLS', 'HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS',
+                      'HOME_GREETER_SLACK_CELLS', 'HOME_GREETER_DIR_VEC']) {
+    const m = src.match(new RegExp(`^const ${name} = ([^\\n]+);$`, 'm'));
     if (!m) { console.error(`Could not find ${name} in src/app.js — update run.js`); process.exit(2); }
-    decls += `const ${name} = ${m[1]};\n`;
-    ctx[name] = parseInt(m[1], 10);
+    decls += `const ${name} = ${m[1]};\nglobalThis.${name} = ${name};\n`;
   }
   vm.runInContext(
     decls
-    + 'globalThis.HOME_GREETER_MIN_CELLS = HOME_GREETER_MIN_CELLS;\n'
-    + 'globalThis.HOME_GREETER_MAX_CELLS = HOME_GREETER_MAX_CELLS;\n'
     + `globalThis.placeHomeGreeter = function (entry, tx, ty) {\n${body}\n};`,
     ctx, { filename: 'placeHomeGreeter.js' });
 }

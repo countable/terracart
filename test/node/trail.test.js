@@ -814,21 +814,33 @@ test('streets: the live pass previews the dwell and shines on the rebuild', () =
 
       clock.at(PATH_STONE_DWELL_MS); frame(s);
       const shine = seen.filter((r) => r.colour === 0xffffff);
-      assert.eq(shine.length, 1, 'the rebuilt stretch shines white');
-      // STREET_SHINE_ALPHA, not white: the gleam is a nod over the new
-      // surface, and at the width a trunk road is stroked at a full-white run
-      // whited the carriageway out every few paces of an ordinary walk.
-      assert.inRange(shine[0].alpha, STREET_SHINE_ALPHA - 0.01, STREET_SHINE_ALPHA + 0.01,
-        'brightest at the instant it lands, at the shine\'s own ceiling');
-      assert.lt(STREET_SHINE_ALPHA, 1, 'which is well under full white');
+      // STREET_SHINE_ALPHA is the shine's SWITCH as well as its ceiling, the
+      // twin of the preview's above — it ships at 0, so a rebuilt stretch
+      // comes back unshone and the blast's flash is the whole of the moment.
+      // Both sides are pinned so putting 0.4 back needs no edit here.
+      if (STREET_SHINE_ALPHA > 0) {
+        assert.eq(shine.length, 1, 'the rebuilt stretch shines white');
+        // STREET_SHINE_ALPHA, not white: the gleam is a nod over the new
+        // surface, and at the width a trunk road is stroked at a full-white run
+        // whited the carriageway out every few paces of an ordinary walk.
+        assert.inRange(shine[0].alpha, STREET_SHINE_ALPHA - 0.01, STREET_SHINE_ALPHA + 0.01,
+          'brightest at the instant it lands, at the shine\'s own ceiling');
+        assert.lt(STREET_SHINE_ALPHA, 1, 'which is well under full white');
+      } else {
+        assert.eq(shine.length, 0, 'the shine is switched off — the stretch comes back unshone');
+      }
       assert.eq(seen.filter((r) => r.colour !== 0xffffff).length, 0,
         'and the preview stops drawing over the clean band the same frame');
 
       clock.at(PATH_STONE_DWELL_MS + STREET_SHINE_MS / 2); frame(s);
-      // Eased out (the square of the remaining life), so the gleam spends most
-      // of its clock on the way to gone rather than half-lit behind the player.
-      assert.inRange(seen[0].alpha, STREET_SHINE_ALPHA * 0.25 - 0.01,
-                     STREET_SHINE_ALPHA * 0.25 + 0.01, 'the shine fades over its own clock');
+      if (STREET_SHINE_ALPHA > 0) {
+        // Eased out (the square of the remaining life), so the gleam spends most
+        // of its clock on the way to gone rather than half-lit behind the player.
+        assert.inRange(seen[0].alpha, STREET_SHINE_ALPHA * 0.25 - 0.01,
+                       STREET_SHINE_ALPHA * 0.25 + 0.01, 'the shine fades over its own clock');
+      } else {
+        assert.eq(seen.length, 0, 'nothing left on the layer mid-clock either');
+      }
       clock.at(PATH_STONE_DWELL_MS + STREET_SHINE_MS); frame(s);
       assert.eq(seen.length, 0, 'and is gone when it burns out');
     });

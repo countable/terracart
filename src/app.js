@@ -97,24 +97,36 @@ const PATH_STONE_DWELL_MS = 2000;
 // up — but a sweep restores a whole STRETCH and fires once for all of it, and
 // at that radius the moment read as an explosion on a street the player was
 // only walking along. Repairing a road is steady work, not a detonation: the
-// flash is a nod, and the shine below carries the rest of it.
+// flash is a nod, and the chips, the sparks and the setts pulling themselves
+// back together carry the rest of it.
 const BLAST_STONE_R_CELLS = 1.5;
-// The white SHINE that runs down a stretch the instant it is rebuilt, in ms.
-// Its OWN clock now, not Lighting.BLAST_MS (900 — every OTHER blast in the
+// The white SHINE that ran down a stretch the instant it was rebuilt, in ms.
+// Its OWN clock, not Lighting.BLAST_MS (900 — every OTHER blast in the
 // game, a house included, still uses that default): a street repair reads as
 // a slower, more deliberate "coming together" than a house's — this is the
 // moment the player has been standing still for two seconds to earn, and a
 // sub-second flash undersold it. _blastAt is handed this length explicitly
-// (durationMs) at the one call site that uses it, so the lightmap flash and
-// this shine still end together — just on the street's own longer beat
-// instead of borrowing the generic default. 2.4× the old 900 ms.
+// (durationMs) at the one call site that uses it, so the lightmap flash runs
+// on the street's own longer beat instead of borrowing the generic default.
+// 2.4× the old 900 ms. It outlives the shine it was named for: with the run
+// switched off (below) this is what the length of the moment now means.
 const STREET_SHINE_MS = 2200;
 // How bright that shine starts. Well under full white: the run used to fade
 // from opaque white, which at the widths a trunk road is stroked at whited out
 // the carriageway for a beat every time a sweep landed — and a sweep lands
-// every few paces while the player walks a street. A repair should read as a
-// gleam passing over the new surface, not as a strobe.
-const STREET_SHINE_ALPHA = 0.4;
+// every few paces while the player walks a street.
+//
+// SWITCHED OFF (Sep 2026), the twin of the dwell preview's own switch above:
+// a white run over the new carriageway is the same glow arriving one beat
+// LATER than the preview's, and between them the whole repair was announced
+// in light rather than in stone. What is left is the material — the flash's
+// nod, the chips, the sparks and the gather — so the moment reads as the
+// street being put back rather than lit up.
+// ZERO IS THE SWITCH, exactly as STREET_PREVIEW_ALPHA is: the ripen pass
+// stops recording runs and the live pass stops walking them, so putting 0.4
+// back is the whole of turning it on again. Nothing about the restoration
+// itself is touched — the stretch comes back on the same beat, unshone.
+const STREET_SHINE_ALPHA = 0;
 // THE GATHER's sink: how many points to spread `_ripenStreets`'s stonegather
 // burst across the LONGEST newly-restored piece (_streetSpreadPts), so the
 // setts visibly pull together along the whole stretch rather than converging
@@ -203,8 +215,10 @@ const STREET_LAMP_POOL = 12;
 //
 // SWITCHED OFF (Sep 2026) to see the restoration without it: the glow ramping
 // in ahead of the repair announced every stretch a second and a half before
-// anything happened to it, so the shine and the blast — the moment the street
-// actually comes back — landed on ground the eye had already been told about.
+// anything happened to it, so the blast — the moment the street actually
+// comes back — landed on ground the eye had already been told about. (The
+// shine that followed the blast is switched off too now, for the same reason
+// one beat later; see STREET_SHINE_ALPHA above.)
 // ZERO IS THE SWITCH: the whole preview hangs off this one number (the live
 // pass skips the block, and its own gate would drop the runs anyway), so
 // putting 0.55 back is the whole of turning it on again. The dwell itself is
@@ -217,8 +231,9 @@ const STREET_PREVIEW_ALPHA = 0;
 // the same ink the counter and the chips are drawn in is what says "this is
 // the restoration material arriving", so it's lit rather than darkened (the
 // street lamp is deliberately NOT this ink — see UI_LAMP_GLOW in util.js).
-// The shine that follows it (below) is stroked in flat white for the same
-// reason — nothing about the live pass should read as a shadow.
+// The shine that followed it (below, switched off now) was stroked in flat
+// white for the same reason — nothing about the live pass should read as a
+// shadow.
 const STREET_PREVIEW_COLOR = parseInt(UI_STREET_INK.slice(1), 16);
 // The counter pops at most this often. A wide reach walked along a street
 // restores metres on nearly every frame, and a "137/200 m" re-drawn sixty
@@ -655,22 +670,32 @@ const CREATURE_SIM_CELLS = 12;
 // thinking, and flying at the field, from the tick it is pushed.
 const PEST_CROW_SPAWN_CELLS = 10;
 // ── The doorstep greeter ─────────────────────────────────────────────────────
-// How far from the starting trailer the mode's guaranteed creature is seated
-// (`_placeHomeGreeter`; the kind is Difficulty.get().homeGreeter — a chicken on
-// easy, a slime on hard). Chebyshev cells, so the band is a square ring.
-// The floor keeps it off the player's own cell and out of the trailer's
+// Where the mode's guaranteed creatures are seated around the starting trailer
+// (`_placeHomeGreeter`). WHAT is seated, HOW FAR out and in WHICH DIRECTIONS
+// are all the mode's to say — `homeGreeter` / `homeGreeterCells` /
+// `homeGreeterDirs`, one row in the difficulty table (easy: one chicken close
+// by; hard: a slime on each side, well out). These are the PLACER's own limits,
+// and they hold whatever the row asks for.
+// Chebyshev cells throughout, so every band here is a square ring.
+// The floor keeps a greeter off the player's own cell and out of the trailer's
 // doorway — a creature spawned underfoot would be on top of the player before
-// the first frame drew — and the ceiling keeps it inside the 11-cell viewport,
-// so it is on screen when the map paints and reads as "this is what lives
-// here".
-// The floor here is the PLACER's, and it holds whatever the mode: how far its
-// own greeter stands is the mode's to say, in `homeGreeterCells` beside the
-// kind it already declares (a hard-mode slime leeches, so it is seated further
-// out than easy's chicken — far enough that the opening seconds are a sighting
-// rather than a bite). The placer takes whichever is larger, so a mode can
-// push its greeter out but never under the player's feet.
+// the first frame drew.
 const HOME_GREETER_MIN_CELLS = 2;
-const HOME_GREETER_MAX_CELLS = 5;
+// The ceiling is the sim bubble: past it a creature is frozen at its seat (see
+// CREATURE_SIM_CELLS), so a greeter out there would be a statue until the
+// player walked at it — which is not a greeting. Derived, never retyped, so
+// widening the bubble takes the ring's ceiling out with it.
+const HOME_GREETER_MAX_CELLS = CREATURE_SIM_CELLS;
+// How far off its ideal seat a greeter may be nudged to find legal ground —
+// around a road band, a pond, a sprite already standing there. Small on
+// purpose: a direction the tile cannot seat within this is left empty rather
+// than filled by a creature that has wandered into some other direction's
+// arc. The ceiling above still clamps the result.
+const HOME_GREETER_SLACK_CELLS = 2;
+// The compass points `homeGreeterDirs` names, as cell offsets. The name is
+// what goes in the creature's id, so a seat the player dealt with stays dealt
+// with per direction (save.caught is checked by id).
+const HOME_GREETER_DIR_VEC = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 // ── Home is pest-free until the first harvest ────────────────────────────
 // A slime sits on your crops and drains 3 energy a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
@@ -8827,8 +8852,9 @@ class MapScene extends Phaser.Scene {
     if (typeof RoadOverlay === 'undefined') return;
     RoadOverlay.draw(this);
     // …and then the live pass on top of it: the dwell preview and the shine,
-    // re-stroked every frame. AFTER draw(), because draw() is what positions
-    // the container the live Graphics sits in (see _drawStreetLive).
+    // re-stroked every frame — both switched off today, so this clears the
+    // Graphics and draws nothing (see _drawStreetLive). AFTER draw(), because
+    // draw() is what positions the container the live Graphics sits in.
     this._drawStreetLive();
     // …and the lamps a restored street carries, on the surface it just drew.
     // Here rather than in the sweep because this runs on every frame the road
@@ -10931,17 +10957,25 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── The doorstep greeter ───────────────────────────────────────────────────
-  // ONE creature guaranteed beside the starting trailer, whatever the tile's
-  // biome roll gave it: a chicken on easy, a slime on hard
-  // (Difficulty.get().homeGreeter). It is the first living thing a new save
-  // sees, and it says which game this is before any text does — a bird you can
-  // feed and catch, or a pest already in the yard.
+  // The creatures guaranteed around the starting trailer, whatever the tile's
+  // biome roll gave it: a chicken on easy, slimes on hard
+  // (Difficulty.get().homeGreeter). They are the first living things a new save
+  // sees, and they say which game this is before any text does — a bird you can
+  // feed and catch, or the neighbourhood already surrounded.
+  //
+  // The mode's row says how many and where: `homeGreeterDirs` names a compass
+  // point per seat (hard takes all four, so whichever way the player walks off
+  // the doorstep there is one), and `homeGreeterCells` how far out each stands.
+  // A row that names no direction gets ONE, on the nearest legal cell of the
+  // ring at that distance — easy's chicken, seated as it always was.
   //
   // Seated by the SHARED spawn rule (WorldGen.isSpawnCell over the tile's own
-  // roadMask), nearest valid cell first, in the HOME_GREETER_* ring. The
-  // fallback pass drops only the residential-frontage clause — never the road
-  // mask: "always" does not license standing an animal on the carriageway, and
-  // a greeter with nowhere legal to stand simply isn't seated.
+  // roadMask), nearest legal cell to each seat's ideal point. The fallback pass
+  // drops only the residential-frontage clause — never the road mask: "always"
+  // does not license standing an animal on the carriageway, and a seat with
+  // nowhere legal to stand within HOME_GREETER_SLACK_CELLS simply isn't filled
+  // (a direction that falls off the starter tile's own edge is one such: the
+  // placer writes to that one entry, never a neighbour's).
   //
   // Deliberately NOT routed through the pest amnesty (_pestFreeZone): the mode
   // that seats a slime is the mode with no amnesty, and an amnesty that pushed
@@ -10951,11 +10985,14 @@ class MapScene extends Phaser.Scene {
   // starter tile's build), from _setStarterCratesAt (the anchor freezing after
   // that tile already spawned) and from chooseMode (the card answered after the
   // tile was built with the default-easy chicken) — so a greeter of the WRONG
-  // kind is removed and replaced rather than left standing beside the right one.
-  // Killed or caught, it stays gone: save.caught is checked by id.
+  // kind, or one left over on a seat this mode does not ask for, is removed
+  // rather than left standing beside the right ones.
+  // Killed or caught, it stays gone: save.caught is checked by id, and each
+  // seat carries its own, so dealing with one leaves the rest standing.
   _placeHomeGreeter(entry, tx, ty) {
     if (typeof Difficulty === 'undefined') return;
-    const kind = Difficulty.get().homeGreeter;
+    const prof = Difficulty.get();
+    const kind = prof.homeGreeter;
     // Only a tile that has already rolled its fauna — seating onto a
     // not-yet-spawned entry would hand spawnInTile a non-empty creatures array
     // and its `entry.creatures || creatures` would keep MY one and drop the
@@ -10964,19 +11001,23 @@ class MapScene extends Phaser.Scene {
     const anchor = this.save.starterCratesAt || this._starterTrailAnchor();
     if (!anchor || !Number.isFinite(anchor.x)) return;
     entry.creatures = entry.creatures || [];
-    // One greeter per starter tile: drop any left by an earlier mode. A PET is
-    // never swept — a sapphire-tamed slime is re-minted with a `released_` id
-    // (interact.js `releasedId`) that carries none of this tag, but the guard
-    // is here anyway because sweeping someone's pet is not a bug worth finding
-    // out about in the field.
+    // The seats this mode asks for. A row that names no direction asks for one,
+    // anywhere on the ring — the `null` seat below.
+    const dirs = (Array.isArray(prof.homeGreeterDirs) && prof.homeGreeterDirs.length)
+      ? prof.homeGreeterDirs : [null];
+    // Only the mode's own greeters stand: drop any left by an earlier mode, or
+    // on a seat this mode does not ask for. A PET is never swept — a
+    // sapphire-tamed slime is re-minted with a `released_` id (interact.js
+    // `releasedId`) that carries none of this tag, but the guard is here anyway
+    // because sweeping someone's pet is not a bug worth finding out about in
+    // the field.
     const tag = `_greeter_${tx}_${ty}`;
-    const id = `${kind || ''}${tag}`;
+    const idFor = (dir) => `${kind || ''}${dir ? '_' + dir : ''}${tag}`;
+    const wanted = new Set(dirs.map(idFor));
     const stale = entry.creatures.filter(c => typeof c.id === 'string'
-      && c.id.endsWith(tag) && c.id !== id && !c.id.startsWith('released_'));
+      && c.id.endsWith(tag) && !wanted.has(c.id) && !c.id.startsWith('released_'));
     if (stale.length) entry.creatures = entry.creatures.filter(c => !stale.includes(c));
     if (!kind) return;                                   // a mode with no greeter
-    if (entry.creatures.some(c => c.id === id)) return;   // already standing
-    if (this.save.caught?.includes(id)) return;           // dealt with, stays gone
 
     const N = entry.cellsPerEdge;
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
@@ -10995,29 +11036,48 @@ class MapScene extends Phaser.Scene {
       cx >= 0 && cx < N && cy >= 0 && cy < N &&
       !occupied.has(cx + ',' + cy) &&
       !Combat.faunaBlocksCell(entry.grid[cy * N + cx]);
-    // Nearest cell in the ring that `accept`s, scanned in a fixed order so the
-    // same anchor always seats it in the same place.
     // The mode's own distance, never nearer than the placer's floor.
-    const minD = Math.max(HOME_GREETER_MIN_CELLS, Difficulty.get().homeGreeterCells || 0);
-    const pick = (accept) => {
+    const dist = Math.max(HOME_GREETER_MIN_CELLS, prof.homeGreeterCells || 0);
+    // Nearest cell to (ix, iy) that `accept`s, within `slack` of it and still
+    // inside the placer's own ring from the trailer. Scanned in a fixed order,
+    // so the same anchor always seats the same cells — a placer that wandered
+    // would move its greeters every time the tile rebuilt under the player.
+    const pick = (ix, iy, slack, accept) => {
       let best = null, bestD = Infinity;
-      for (let cy = ay - HOME_GREETER_MAX_CELLS; cy <= ay + HOME_GREETER_MAX_CELLS; cy++) {
-        for (let cx = ax - HOME_GREETER_MAX_CELLS; cx <= ax + HOME_GREETER_MAX_CELLS; cx++) {
-          const d = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));
-          if (d < minD || d >= bestD) continue;
+      for (let cy = iy - slack; cy <= iy + slack; cy++) {
+        for (let cx = ix - slack; cx <= ix + slack; cx++) {
+          const d = Math.max(Math.abs(cx - ix), Math.abs(cy - iy));           // off the ideal
+          const dh = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));          // out from home
+          if (d >= bestD) continue;
+          if (dh < HOME_GREETER_MIN_CELLS || dh > HOME_GREETER_MAX_CELLS) continue;
           if (!standable(cx, cy) || !accept(cx, cy)) continue;
           best = { cx, cy }; bestD = d;
         }
       }
       return best;
     };
-    const seat = pick((cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts))
-              || pick((cx, cy) => !onRoad(cx, cy));
-    if (!seat) return;
-    entry.creatures.push(WorldGen.makeCreature(kind,
-      tx0 + (seat.cx + 0.5) * this.cellM,
-      ty0 + (seat.cy + 0.5) * this.cellM,
-      id, { shiny: faunaShiny(kind, id) }));
+    for (const dir of dirs) {
+      const id = idFor(dir);
+      if (entry.creatures.some(c => c.id === id)) continue;  // already standing
+      if (this.save.caught?.includes(id)) continue;          // dealt with, stays gone
+      const vec = dir ? HOME_GREETER_DIR_VEC[dir] : null;
+      if (dir && !vec) continue;                             // a direction nobody drew
+      // A named direction aims at its own point `dist` out and may be nudged
+      // by the slack. The unnamed seat aims at the TRAILER, so its slack has
+      // to carry the ring's radius too: nearest legal cell of the ring, in
+      // whatever direction the ground allows.
+      const ix = ax + (vec ? vec[0] * dist : 0);
+      const iy = ay + (vec ? vec[1] * dist : 0);
+      const slack = vec ? HOME_GREETER_SLACK_CELLS : dist + HOME_GREETER_SLACK_CELLS;
+      const seat = pick(ix, iy, slack, (cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts))
+                || pick(ix, iy, slack, (cx, cy) => !onRoad(cx, cy));
+      if (!seat) continue;
+      occupied.add(seat.cx + ',' + seat.cy);   // no two seats on the one cell
+      entry.creatures.push(WorldGen.makeCreature(kind,
+        tx0 + (seat.cx + 0.5) * this.cellM,
+        ty0 + (seat.cy + 0.5) * this.cellM,
+        id, { shiny: faunaShiny(kind, id) }));
+    }
   }
 
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
@@ -14090,10 +14150,15 @@ class MapScene extends Phaser.Scene {
             spread: this._streetSpreadPts(meta, seg[0], seg[1], GATHER_SPREAD_POINTS),
           };
         }
-        // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS.
-        const pts = Streets.runPtsWorld(meta, seg[0], seg[1]);
-        if (pts) {
-          (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
+        // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS
+        // — and its alpha IS its switch (see STREET_SHINE_ALPHA), so at 0
+        // the run is never recorded rather than kept for a pass that would
+        // throw it away.
+        if (STREET_SHINE_ALPHA > 0) {
+          const pts = Streets.runPtsWorld(meta, seg[0], seg[1]);
+          if (pts) {
+            (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
+          }
         }
       }
       // What is left of this line's watched metres is what has NOT come back
@@ -14110,8 +14175,9 @@ class MapScene extends Phaser.Scene {
       // impact one, and not just a repair of one point on the street. ONE per
       // sweep — the whole step is one moment, however many separate pieces of
       // street it brought back. durationMs ties the light to the street's own
-      // (longer) shine clock rather than Lighting.BLAST_MS's generic default,
-      // so the flash and the shine still end together.
+      // (longer) shine clock rather than Lighting.BLAST_MS's generic default:
+      // a street repair's moment is the slower one, whether or not the run
+      // that clock was named for is drawn (STREET_SHINE_ALPHA).
       this._blastAt(at.x, at.y, {
         radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',
         gather: 'stonegather', gatherPts: best.spread, durationMs: STREET_SHINE_MS,
@@ -14216,11 +14282,18 @@ class MapScene extends Phaser.Scene {
   //                rather than a delay. Its alpha is the dwell's own
   //                progress: how long this line has been in sight. OFF while
   //                STREET_PREVIEW_ALPHA is 0 (see it) — the dwell still runs,
-  //                it just isn't drawn, so the shine below is the first thing
-  //                the player sees of a stretch coming back.
+  //                it just isn't drawn, so the blast's flash is the first
+  //                thing the player sees of a stretch coming back.
   //   the SHINE    a pale run down a stretch the instant it comes back, from
   //                STREET_SHINE_ALPHA to nothing over STREET_SHINE_MS beside
-  //                the blast's flash.
+  //                the blast's flash. OFF while STREET_SHINE_ALPHA is 0 (see
+  //                it) — the stretch still comes back on the same beat, and
+  //                the blast's flash, chips, sparks and gather are the whole
+  //                of what says so.
+  //
+  // With both switched off this pass has nothing left to draw, and that is
+  // deliberate: it still runs, and still CLEARS the Graphics, which is what
+  // keeps either switch a one-number edit instead of a re-wiring.
   //
   // Called every frame from drawRoadGeometry, AFTER RoadOverlay.draw has moved
   // the container by this frame's sub-cell scroll — drawLive subtracts that
@@ -14245,7 +14318,7 @@ class MapScene extends Phaser.Scene {
         for (const pts of meta.pts) runs.push({ pts, tags: meta.tags, alpha, colour: STREET_PREVIEW_COLOR });
       }
     }
-    const shine = this._streetShine;
+    const shine = STREET_SHINE_ALPHA > 0 ? this._streetShine : null;
     if (shine && shine.length) {
       // Compacted in place, never a splice per rejection: this walks the list
       // every frame and the list is at most a few sweeps deep.
