@@ -36,7 +36,10 @@
 // Trail.GOAL_STEP_M itself: most OSM ways are cut at every intersection, and
 // tying the "gets a lamp at all" floor to a 200 m rung left ordinary
 // suburban blocks (routinely under 100 m) dark however much of the town was
-// actually restored. See the note above LAMP_SPACING_M.
+// actually restored. See the note above LAMP_SPACING_M. ACROSS the way it
+// stands on the VERGE, `lampOffsetM` off the centreline — half the band's own
+// drawn width plus the stone — so it just touches the kerb instead of
+// standing in the traffic.
 //
 // Pure arithmetic on purpose — no Phaser, no DOM, no scene — which is what
 // lets test/node/streets.test.js pin the real shipping maths rather than a
@@ -93,26 +96,46 @@
     return s;
   }
 
+  // A point on segment `i` at fraction `u` along it, pushed `off` metres
+  // SQUARE to that segment — positive to its LEFT (world y runs down, so the
+  // left-hand normal of (dx, dy) is (dy, -dx)). A doubled vertex has no
+  // direction to be beside, so it keeps the point itself rather than
+  // dividing by zero.
+  function atSegM(line, mvtToM, i, u, off) {
+    const a = line[i - 1], b = line[i];
+    const x = (a.x + (b.x - a.x) * u) * mvtToM;
+    const y = (a.y + (b.y - a.y) * u) * mvtToM;
+    if (!off) return { x, y };
+    const dx = (b.x - a.x) * mvtToM, dy = (b.y - a.y) * mvtToM;
+    const len = Math.hypot(dx, dy);
+    if (!(len > 0)) return { x, y };
+    return { x: x + (dy / len) * off, y: y - (dx / len) * off };
+  }
+
   // The point at arclength `s`, clamped to the line's ends. Null for a line
   // with no vertices at all — there is no point to give, and a caller that
   // gets {x:0,y:0} instead would silently stroke to the tile's corner.
-  function pointAtM(line, mvtToM, s) {
+  //
+  // `offM` steps that point sideways off the centreline, square to the way's
+  // own direction there (positive = the left-hand verge). ONE resolver for
+  // "on the way" and "beside the way": a lamp on the verge walks the same
+  // polyline, in the same basis, as the band it stands next to, so it follows
+  // every bend the band takes instead of being nudged by a second one. It
+  // defaults to 0 — the centreline exactly — so every caller that wants the
+  // way itself (the shine, the blast, the preview) is untouched.
+  function pointAtM(line, mvtToM, s, offM) {
     if (!line || !line.length) return null;
+    const off = Number.isFinite(offM) ? offM : 0;
     if (line.length === 1) return { x: line[0].x * mvtToM, y: line[0].y * mvtToM };
     let want = Number.isFinite(s) ? s : 0;
     if (want < 0) want = 0;
     let acc = 0;
     for (let i = 1; i < line.length; i++) {
       const seg = segLenM(line, i, mvtToM);
-      if (want <= acc + seg) {
-        const u = seg > 0 ? (want - acc) / seg : 0;
-        const a = line[i - 1], b = line[i];
-        return { x: (a.x + (b.x - a.x) * u) * mvtToM, y: (a.y + (b.y - a.y) * u) * mvtToM };
-      }
+      if (want <= acc + seg) return atSegM(line, mvtToM, i, seg > 0 ? (want - acc) / seg : 0, off);
       acc += seg;
     }
-    const last = line[line.length - 1];
-    return { x: last.x * mvtToM, y: last.y * mvtToM };
+    return atSegM(line, mvtToM, line.length - 1, 1, off);
   }
 
   // The exact sub-polyline between two arclengths, in tile-local metres:
@@ -273,6 +296,31 @@
     const out = [];
     for (let i = 0; i < n; i++) out.push((i + 0.5) * gap);
     return out;
+  }
+
+  // ── ACROSS the way: THE VERGE ───────────────────────────────────────────
+  // A lamp stands BESIDE the carriageway, its stone just touching the kerb —
+  // never out in the traffic, which is where every one of them stood until
+  // Sep 2026 (the point came straight off the centreline). `lampsAlong` says
+  // how far ALONG the way a stone is; this says how far OFF it, and app.js
+  // hands both to the one resolver (`pointAtM(line, mvtToM, s, offM)`).
+  //
+  // DERIVED, not tuned, and from the number that already says how wide the
+  // road IS: half of WorldGen.roadOverlayWidthM — the same width
+  // road_overlay.js strokes the band with and rasterizeTile stamps roadMask
+  // from — plus the stone's own radius, so the ART kisses the band's edge
+  // rather than sitting on it or floating out in the grass. That is the
+  // roadOverlayWidthM discipline: one width, every reader. A motorway's lamps
+  // stand further out than a footpath's by construction, and a band that is
+  // ever widened takes its lamps out with it.
+  //
+  // Both halves are guarded rather than trusted: a class with no width guess
+  // and art that has not loaded are each a zero, not a NaN that would put the
+  // stone at the tile's corner.
+  function lampOffsetM(widthM, stoneRM) {
+    const w = widthM > 0 ? widthM : 0;
+    const r = stoneRM > 0 ? stoneRM : 0;
+    return w / 2 + r;
   }
 
   // Is the arclength `s` inside one of `list`'s intervals? The lamp test:
@@ -517,7 +565,7 @@
     EPS,
     lineKey, lineLengthM, pointAtM, subLineM, tileSpans, reachIntervals,
     runPtsWorld, pointAtWorld,
-    LAMP_SPACING_M, lampSpacingM, lampsAlong, covers,
+    LAMP_SPACING_M, lampSpacingM, lampsAlong, lampOffsetM, covers,
     mergeIntervals, intersect, subtract, union, totalM, flatten, unflatten,
     createSight, restoredList, restore, epoch,
   };

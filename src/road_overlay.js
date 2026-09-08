@@ -583,6 +583,11 @@
   const LAMP_TEX_PX = 64;          // baked square; the halo fills it
   const LAMP_DRAW_CELLS = 1.5;     // …drawn this many cells across, halo included
   const LAMP_STONE_FRAC = 0.16;    // the stone's radius, as a fraction of the square
+  // …so the stone itself covers this much ground, in CELLS. app.js seats a
+  // lamp on the VERGE by it (Streets.lampOffsetM), so the number that DRAWS
+  // the stone is the number that stands it clear of the band — one value,
+  // two readers, rather than a hand-typed gap that drifts when the art does.
+  const LAMP_STONE_R_CELLS = LAMP_DRAW_CELLS * LAMP_STONE_FRAC;
   const LAMP_CORE_A = 0.85;        // the hot core's alpha at the centre
   const LAMP_HALO_A = 0.42;        // …and the halo's, just outside the stone
   const LAMP_RIM_A = 0.55;         // the stone's dark rim: what makes it a STONE by day
@@ -1375,7 +1380,8 @@
   // every vertex either — that circle's alpha would compost AGAIN on top of
   // the stroke it's sitting on (the exact "translucent stroke composites
   // with ITSELF" trap the canvas passes above exist to dodge; at
-  // STREET_PREVIEW_ALPHA 0.55 the overlap would read at ~0.80). roundJoinFans
+  // the preview's old 0.55 the overlap would read at ~0.80, and the shine is
+  // translucent too). roundJoinFans
   // fills only what a butt-capped, mitred stroke is actually MISSING: the
   // half-disc beyond each end and the wedge on the OUTER side of each bend —
   // never ground the stroke already painted.
@@ -1423,7 +1429,7 @@
   }
 
   global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
-                         paintLampStone, LAMP_TEX_PX, LAMP_DRAW_CELLS,
+                         paintLampStone, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_STONE_R_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };
 })(window);

@@ -261,6 +261,30 @@
   `CROP_SPRITE` entry declares and fails if it is off the sheet, transparent,
   or a single flat colour — and refuses a bare `variants` count outright.
 
+- **A dialog about a thing on the map opens with THAT THING'S SPRITE.** Every
+  modal announces itself with a hero glyph and a one-word category
+  (`app.js` › `MODAL_KINDS`), and the glyph there is the FALLBACK — an emoji is
+  what a category with nothing behind it gets (a quest, a trade, the energy
+  explainer). TREASURE's was a 💎 over every chest ceremony, which named
+  neither the chest that paid out nor what it paid: a starter crate of onion
+  seeds and a trunk of frost bars opened under the same gem. A caller with a
+  picture passes `kindIcon` (HTML, the twin of the existing `kindLabel` word
+  override) and the header draws that instead — ungreyed, because the greying
+  is the emoji's dress and pixel art in grey reads as broken art.
+  It is the `PLAIN_ROCK_VARIANTS` discipline pointed at a sprite: **one
+  resolver both sides read**. `loot.js` › `chestLook` answers which of a
+  chest's four looks (trunk / crate / produce stand / pot of gold) an object
+  wears and carries the **texture key** each look means, so `render.js`'s chest
+  spec draws by that key and `app.js` › `worldIconHTML` shows the same key's
+  baked frame (`WORLD_ICON_URLS`, `bakeSheetFrame` in create() — the ITEM
+  bakes' lane, for a thing that is not in the catalog). Nothing re-decides
+  which art a look is. `chestLook` lived in render.js as a per-frame closure
+  until the ceremony needed the same answer; four render.js call sites and two
+  shipped pins moved with it, which is the proof the two are one lane.
+  **When you add a dialog about an object the player just tapped, hand it that
+  object's sprite; when you add a look, put its texture key on the look.**
+  **Audit it:** `node test/node/run.js` › `test/node/treasure_icon.test.js`.
+
 - **A tilled cell is one BAKED bed, never a per-frame rounded path.** The
   soil is the `tilled_N` texture (`textures.js` › `drawTilledTex`): an opaque
   pad inset `TILLED_INSET_PX` from every edge with `TILLED_CORNER_PX` corners
@@ -1097,6 +1121,22 @@
   nearby lamp on ONE list flagged `lit`, and both readers ask that flag: the
   draw pass picks the baked lamp or the grey cobble, `Lighting.collectLamps`
   skips the dark ones. A second list for the dark stones is the bug.
+  **A lamp stands on the VERGE, its stone just touching the band** — never on
+  the centreline, which is where every one of them stood until Sep 2026.
+  `Streets.lampsAlong` says how far ALONG the way a stone is and
+  `Streets.lampOffsetM` how far OFF it, and both go into the one resolver
+  (`Streets.pointAtM(line, mvtToM, s, offM)`), so a verge follows the way's
+  own bends. The offset is DERIVED, the `roadOverlayWidthM` discipline again:
+  half of `WorldGen.roadOverlayWidthM` — the very width the band is stroked
+  with and `roadMask` stamped from — plus the stone's own radius
+  (`STREET_LAMP_R_CELLS`, itself the widest of the two arts a lamp can wear,
+  off `RoadOverlay.LAMP_STONE_R_CELLS` and `STREET_LAMP_DARK_CELLS`). So a
+  motorway seats its lamps further out than a footpath by construction, a
+  widened band takes its lamps out with it, and resized art keeps kissing the
+  kerb. **Never seat a lamp with a flat offset**, and never give the light a
+  point of its own: ONE point comes out of `_streetLampsForTile` and both the
+  stone and `Lighting.collectLamps` read it, so the glow can't be left behind
+  on the tarmac.
   It is TWO halves on ONE point, because the lightmap MULTIPLIES: baked art
   (`RoadOverlay.paintLampStone`, drawn under the lightmap — a light alone does
   not exist at noon) and the `Lighting.KINDS.cobble` row over it, both in

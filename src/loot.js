@@ -18,6 +18,7 @@
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
 //   STAND_NEVER_CLASSES,
 //   standWordItem, standNameItems, produceStandFor
+//   chestLook
 //
 // Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade),
 // chestRelicAllowedTiers, AND the old per-category loot tables (CATEGORY_LOOT /
@@ -532,6 +533,36 @@ function produceStandFor(o) {
   }
   o._standCache = res;
   return res;
+}
+
+// Which of a chest's four LOOKS this object wears — the ONE resolver, so the
+// sprite the world drew and the picture a dialog shows can't drift apart. It
+// lived in render.js as a per-frame closure until the treasure ceremony needed
+// the same answer for its hero icon (a chest that stands on the map as a crate
+// opened under a diamond).
+//   stand → the market stall: a shop, not a chest (produceStandFor)
+//   coin  → the pot of gold: a coin-burst POI. A cave-level mirror of one
+//           (worldgen.js caveChestsFrom) is a plain chest — the burst is a
+//           street thing, the same gate interactables.js puts on the burst.
+//   box   → the small crate sprite: a starter supply crate, or a tier-1 chest
+//   —     → the trunk chest
+// `texKey` is the texture key the RENDERER draws, so a caller that wants the
+// picture (app.js worldIconHTML) asks for it by the same name rather than
+// re-deciding which art a look means.
+// Resolved ONCE per object and cached on it, the same way produceStandFor
+// caches its own answer: every input (poiClass, crate, depth, position) is
+// fixed at spawn and a rebuilt tile is a NEW object, so the memo can't go
+// stale — and the chest spec in render.js reads it from seven fields per
+// chest per frame.
+function chestLook(o) {
+  if (o._chestLook) return o._chestLook;
+  const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
+  const coin = (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') && !(o.depth > 0);
+  // Starter supply crates always use the box sprite; so does a tier-1 chest.
+  const box = !!o.crate
+    || ((typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth) : 2) === 1;
+  const texKey = coin ? 'potofgold' : (stand ? 'market_stand' : (box ? 'box' : 'chest'));
+  return (o._chestLook = { stand, coin, box, texKey });
 }
 
 

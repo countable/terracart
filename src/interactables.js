@@ -409,6 +409,14 @@ const INTERACTABLES = {
         return true;
       }
       if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
+      // The hero glyph every ceremony below opens with: the sprite this chest
+      // was standing as, off the SAME resolver render.js draws it from
+      // (loot.js chestLook), so a crate opens under a crate and a trunk under
+      // a trunk instead of both under the TREASURE diamond. '' falls back to
+      // the kind's emoji — a market stand and a coin-burst pot never reach
+      // here (both return above), so in practice it is the trunk or the box.
+      const kindIcon = (typeof chestLook === 'function' && scene.worldIconHTML)
+        ? scene.worldIconHTML(chestLook(o).texKey) : '';
       // Every path below that actually spends the chest goes through this, so
       // the starter ladder's "open a crate" step is credited exactly once no
       // matter which branch (item / relic / gold / partial take) claimed it.
@@ -475,7 +483,7 @@ const INTERACTABLES = {
           : `${result.slot} T${result.tier}`;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
-        scene.showChestRewardModal({ iconHTML, name, sub: 'equipped', color: UI_TREASURE });
+        scene.showChestRewardModal({ iconHTML, name, sub: 'equipped', color: UI_TREASURE, kindIcon });
         if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(result.jackpot);
         }
@@ -492,7 +500,7 @@ const INTERACTABLES = {
         addMoney(save, result.amount || 0);
         scene.showChestRewardModal({
           iconHTML: scene.coinIconHTML ? scene.coinIconHTML(48) : '',
-          name: `+${result.amount || 0}`, color: UI_GOLD,
+          name: `+${result.amount || 0}`, color: UI_GOLD, kindIcon,
         });
         if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(result.jackpot);
@@ -510,7 +518,8 @@ const INTERACTABLES = {
           : `${result.slot} T${result.tier}`;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(gearKind, result.slot, result.tier, 64) : '★';
-        scene.showChestRewardModal({ iconHTML, name, sub: 'already own better — discarded', color: '#aaa' });
+        scene.showChestRewardModal({ iconHTML, name, sub: 'already own better — discarded', color: '#aaa',
+                                     kindIcon });
         if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(result.jackpot);
         }
@@ -538,7 +547,7 @@ const INTERACTABLES = {
       const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(lootId) : Infinity;
       if (lootQty > room) {
         scene.showChestRewardModal({
-          iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind,
+          iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind, kindIcon,
           sub: room > 0
             ? `Bag full — room for only ${room} of ${lootQty}.`
             : 'Your bag is full.',
@@ -573,7 +582,7 @@ const INTERACTABLES = {
       if (save.chestHold) delete save.chestHold[o.id];
       ctx.dirty = true;
       scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
-                                   kind: rewardKind,
+                                   kind: rewardKind, kindIcon,
                                    onDismiss: () => scene._revealPendingBookReads() });
       if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
         scene.flashJackpot(result.jackpot);

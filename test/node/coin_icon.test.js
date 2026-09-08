@@ -100,7 +100,7 @@ test('coin icon: money amounts in HTML go through moneyHTML', () => {
 test('coin icon: the shop modal category glyph is the coin asset', () => {
   assert.truthy(/shop:\s*\{ coinIcon: true, label: 'Shop' \}/.test(app),
     'the MODAL_KINDS shop row asks for the coin');
-  assert.truthy(/if \(k\.coinIcon\) ico\.innerHTML = this\.coinIconHTML\(22\);/.test(app),
+  assert.truthy(/\} else if \(k\.coinIcon\) \{[\s\S]*?ico\.innerHTML = this\.coinIconHTML\(22\);/.test(app),
     'the kind header renders it');
 });
 

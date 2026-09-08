@@ -1158,8 +1158,8 @@ test('road overlay live: runs project through the camera anchor, minus the conta
 // ── roundJoinFans ────────────────────────────────────────────────────────
 // The round-cap/join fill NEVER overlaps the stroke it dresses up — that was
 // the bug in the first cut of this (a full circle at every vertex, which
-// double-composited its own alpha over the stroke sitting under it: at
-// STREET_PREVIEW_ALPHA 0.55 the overlap read at ~0.80). Pure, so the exact
+// double-composited its own alpha over the stroke sitting under it: at the
+// preview's old 0.55 the overlap read at ~0.80). Pure, so the exact
 // geometry is pinned without a Phaser Graphics.
 // `near` is shared across the *.test.js files in this directory (run.js
 // loads them all into one context, alphabetically — energy_pop.test.js

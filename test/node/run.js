@@ -1136,6 +1136,19 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
     console.error('Could not lift the street-lamp passes from src/app.js — update run.js');
     process.exit(2);
   }
+  // The verge seat's own constants, lifted with the passes rather than
+  // retyped here: _streetLampsForTile stands each stone off the centreline by
+  // STREET_LAMP_R_CELLS x the tile's cell, and that const is derived from the
+  // two arts a lamp can wear. A copy of the number in this file would be free
+  // to disagree with the one that ships.
+  for (const name of ['STREET_LAMP_DARK_CELLS', 'STREET_LAMP_R_CELLS']) {
+    const m = appSrc.match(new RegExp(`\nconst ${name} = [\\s\\S]*?;\n`));
+    if (!m) {
+      console.error(`Could not lift ${name} from src/app.js — update run.js`);
+      process.exit(2);
+    }
+    vm.runInContext(m[0], ctx, { filename: `app.js#${name}` });
+  }
   vm.runInContext('globalThis.__streetLampPasses = {\n'
     + appSrc.slice(a, b).trimEnd() + ',\n'
     + appSrc.slice(c, d).trimEnd() + '\n};', ctx, { filename: 'app.js#streetLamps' });
