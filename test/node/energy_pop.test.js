@@ -191,9 +191,19 @@ test('energy pop: the stick-walk drain accumulates and flushes as one throttled 
   // bank the pip into an accumulator here, flush it as one throttled pop from
   // a place that runs every frame (see below), never one pop per pip — that
   // would spam a long drag across town.
-  const m = app.match(/while \(this\._steerCostAccrue >= 1\) \{([\s\S]*?)\n      \}\n/);
+  const m = app.match(/while \(this\._steerCostAccrue >= STEER_DRAIN_LUMP\) \{([\s\S]*?)\n      \}\n/);
   assert.truthy(m, 'the steer cost loop exists');
   const body = m[1];
+  // The drain is spent in LUMPS, and the threshold that fires it and the pips
+  // it takes are ONE constant read twice — a loop that tested one number and
+  // debited another would drift the rate away from steerEnergyCost's per-cell
+  // price silently (the pop only ever shows the total, so nothing on screen
+  // would give it away).
+  assert.truthy(/const STEER_DRAIN_LUMP = \d+;/.test(app), 'the lump is a named constant');
+  assert.truthy(/this\._steerCostAccrue -= STEER_DRAIN_LUMP;/.test(body),
+    'the accrual is drawn down by the same lump the loop waits for');
+  assert.truthy(/this\.save\.energy = Math\.max\(0, before - STEER_DRAIN_LUMP\);/.test(body),
+    'and the debit is that same lump — never a hard-typed pip beside it');
   assert.truthy(/this\._steerDrainAccum = \(this\._steerDrainAccum \|\| 0\) \+ \(before - this\.save\.energy\);/.test(body),
     'each pip banks into an accumulator rather than popping per pip');
   assert.falsy(/this\._popEnergy/.test(body), 'never a pop per pip inside the cost loop itself');
