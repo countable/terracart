@@ -6357,7 +6357,7 @@ class MapScene extends Phaser.Scene {
       this._lastSteerFlashT = performance.now();
       const drained = this._steerDrainAccum;
       this._steerDrainAccum = 0;
-      this._popEnergy(-drained, { label: '🚶 steer' });
+      this._popEnergy(-drained);
       if (typeof persistSave === 'function') persistSave(this.save);
     }
 

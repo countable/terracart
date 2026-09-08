@@ -203,8 +203,12 @@ test('energy pop: the stick-walk drain accumulates and flushes as one throttled 
   // lets go. Same 1200ms throttle as the slime / monster / trap roll-ups.
   assert.truthy(/if \(this\._steerDrainAccum > 0 && performance\.now\(\) - \(this\._lastSteerFlashT \|\| 0\) > 1200\) \{/.test(app),
     'flushed on the shared 1200ms accumulator throttle');
-  assert.truthy(/this\._popEnergy\(-drained, \{ label: '🚶 steer' \}\);/.test(app),
+  // Bare number, no label: the walking-off-GPS drain is the one drain whose
+  // label read as an instruction ("steer!") rather than as the name of a
+  // cost, so it says nothing and the −N⚡ speaks for itself.
+  assert.truthy(/this\._popEnergy\(-drained\);/.test(app),
     'pops with no ix/iy — a cost to the BODY lands on the player\'s own cell, like the slime leech');
+  assert.falsy(/label: '🚶/.test(app), 'and carries no label');
 });
 
 test('energy pop: a spend pops its price on the tapped cell, and a cancel hands it back there', () => {
