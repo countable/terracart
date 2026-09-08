@@ -1121,6 +1121,22 @@
   nearby lamp on ONE list flagged `lit`, and both readers ask that flag: the
   draw pass picks the baked lamp or the grey cobble, `Lighting.collectLamps`
   skips the dark ones. A second list for the dark stones is the bug.
+  **A lamp stands on the VERGE, its stone just touching the band** — never on
+  the centreline, which is where every one of them stood until Sep 2026.
+  `Streets.lampsAlong` says how far ALONG the way a stone is and
+  `Streets.lampOffsetM` how far OFF it, and both go into the one resolver
+  (`Streets.pointAtM(line, mvtToM, s, offM)`), so a verge follows the way's
+  own bends. The offset is DERIVED, the `roadOverlayWidthM` discipline again:
+  half of `WorldGen.roadOverlayWidthM` — the very width the band is stroked
+  with and `roadMask` stamped from — plus the stone's own radius
+  (`STREET_LAMP_R_CELLS`, itself the widest of the two arts a lamp can wear,
+  off `RoadOverlay.LAMP_STONE_R_CELLS` and `STREET_LAMP_DARK_CELLS`). So a
+  motorway seats its lamps further out than a footpath by construction, a
+  widened band takes its lamps out with it, and resized art keeps kissing the
+  kerb. **Never seat a lamp with a flat offset**, and never give the light a
+  point of its own: ONE point comes out of `_streetLampsForTile` and both the
+  stone and `Lighting.collectLamps` read it, so the glow can't be left behind
+  on the tarmac.
   It is TWO halves on ONE point, because the lightmap MULTIPLIES: baked art
   (`RoadOverlay.paintLampStone`, drawn under the lightmap — a light alone does
   not exist at noon) and the `Lighting.KINDS.cobble` row over it, both in
