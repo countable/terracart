@@ -445,7 +445,9 @@
     #money {
       background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
       font: 700 16px ui-monospace, monospace;
-      display: flex; align-items: center; gap: 6px;
+      /* Row, not the shared column: coin icon and number sit side by side on
+         the chip's one line. */
+      display: flex; flex-direction: row; align-items: center; gap: 6px;
       /* A real 2px rim, like every other chip in the row (it used to fake one
          with an inset ring, which left it visibly thinner than its neighbours).
          Steel, not gold: --chrome-rim is the rim for a surface you can't touch,
