@@ -1719,7 +1719,7 @@ DIALOGS
    specific offer. A caller may override the label for a one-off outcome
    (the trail prize's "Thou hast traveled far") and keep the kind's icon.
  - MODAL_KINDS (src/app.js) is the whole taxonomy: quest, treasure, trail,
-   shop, trade, forge, relics, delivery, build, wizard, farm, stats, energy,
+   shop, trade, forge, relics, delivery, build, wizard, farm, energy,
    rest, use, note. The header is built by makeModalShell and injected in
    mount(), NOT appended up front — several dialogs build themselves with
    `box.innerHTML = …`, which would wipe a header added earlier.

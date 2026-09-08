@@ -3496,7 +3496,7 @@ Render.drawObjects = function drawObjects(scene) {
     // (invisible) anyway, so just hide them. Skipping the build loop leaves
     // psi at 0, so the hide-tail below collapses the whole pool. Add new
     // full-screen modal ids here if more are introduced.
-    const MODAL_IDS = ['offer-modal', 'chest-reward-modal', 'message-modal', 'stats-modal'];
+    const MODAL_IDS = ['offer-modal', 'chest-reward-modal', 'message-modal'];
     const dialogOpen = MODAL_IDS.some((id) => document.getElementById(id));
     let psi = 0;
     const gameRect = (gameEl && !dialogOpen) ? gameScreenRect() : null;
