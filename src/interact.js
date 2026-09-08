@@ -869,6 +869,9 @@ const TAP_HANDLERS = [
     const catchCost = effectiveCatchCost(save.relics);
     if (catchCost && !scene.spendEnergy(catchCost, sx, sy)) return true;
     const victim = target;
+    // First catch the save ever starts tells its story - after the spend, so
+    // a tap that could not afford the attempt tells none.
+    scene._toolActionStory?.('catch');
     scene.startCatchProgress(victim, catchMs, () => {
       scene.catchCreature(victim, sx, sy);
     }, () => {
@@ -935,6 +938,9 @@ const TAP_HANDLERS = [
         // the wheel on the relic's tool ladder, refunding the cost on cancel.
         const durMs = toolDurationMs(save.relics, reqRelic);
         if (workCost && !scene.spendEnergy(workCost, sx, sy)) return true;
+        // First felling chop the save ever starts tells its story. Only the
+        // axe work counts here - rockfruit debris gathers free, by hand.
+        if (reqRelic === 'axe') scene._toolActionStory?.('chop');
         scene.startWorkProgress(wp.x, wp.y, award, durMs, workCost || 0, reqRelic);
       } else {
         award();
@@ -1386,6 +1392,9 @@ const TAP_HANDLERS = [
       // chance to jump the plant a stage on the spot — nothing without a can,
       // certain at Frost. See crops.js waterJumpChance.
       const jumped = Crops.waterOne(save, p, save.relics) === 'jumped';
+      // First real watering the save ever does tells its story - here, where
+      // the water landed, not on a dry tap of an already-watered plant.
+      scene._toolActionStory?.('water');
       // The can does ONE thing now: the growth jump above — how soon you get
       // it. WHAT you get (produce quality) is the bed's, set by the hoe that
       // tilled it and banked on the crop at planting (Crops.bedQuality).
@@ -1501,6 +1510,9 @@ const TAP_HANDLERS = [
     const cost = effectivePickCost(save.relics);
     if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
     const durMs = toolDurationMs(save.relics, 'pick');
+    // First dig the save ever starts tells its story - after the spend, so a
+    // tap that could not afford it tells none.
+    scene._toolActionStory?.('dig');
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);
       // Cave walls take the shared BASE table (interactables.js
@@ -1659,6 +1671,8 @@ const TAP_HANDLERS = [
     // the grassland half-time below, so every till is twice as fast everywhere.
     tillMs = Math.round(tillMs / 2);
     if (GRASSLAND_TILL.has(cell.type)) tillMs = Math.round(tillMs / 2);
+    // First furrow the save ever turns tells its story, as the wheel starts.
+    scene._toolActionStory?.('till');
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.tilledSet.add(cellKey);
       save.tilled = [...scene.tilledSet];

@@ -30,6 +30,35 @@ const STYLE =
 // or { subject, size, width } for a different frame - the safety screen's
 // fullscreen mobile backdrop is portrait.
 const PIECES = {
+  trap_jaw:
+    'A rusty steel bear trap bursting out of cracked earth, its metal jaws clamped shut ' +
+    'around a farmer\'s boot, dirt and small stones flying, the farmer stumbling. Shock ' +
+    'moment in warm dusk light, close and low to the ground.',
+  trap_free:
+    'A farmer kneels on cracked dry earth prying open a rusty steel bear trap\'s jaws with ' +
+    'both hands, boot just pulled free, effort turning to relief, warm dusk light, close ' +
+    'and low to the ground.',
+  tool_till:
+    'A farmer drives a hoe into meadow soil, the first dark furrow turning over in neat ' +
+    'squares, dew on the grass, dawn light. A satisfying first strike.',
+  tool_chop:
+    'A farmer swings an axe into a tree trunk, wood chips flying, a fresh notch in the ' +
+    'bark, warm afternoon light.',
+  tool_dig:
+    'A farmer swings a pickaxe into a grey boulder, sparks and stone chips flying, a crack ' +
+    'forming in the rock, warm light.',
+  tool_water:
+    'A farmer tips a watering can over a small green sprout in a tilled bed, silver water ' +
+    'arcing down, the soil darkening with damp, morning light.',
+  tool_catch:
+    'A farmer gently lowers a bug net over a startled chicken in long grass, the net hoop ' +
+    'about to settle, playful tension, warm light.',
+  tool_sword:
+    'A farmer raises a simple iron sword against a lunging green slime in a meadow, the ' +
+    'first determined swing, dynamic but cozy, warm light.',
+  tool_shoot:
+    'A farmer draws a short bow and looses an arrow across a meadow, the string still ' +
+    'humming, the arrow in flight, warm light.',
   // The ONE money icon: a single gold coin on transparency. Not a banner -
   // generated large, trimmed to its opaque bounds, downscaled to a 64px
   // master (assets/art is for banners; the runtime copies live under
@@ -104,18 +133,25 @@ function loadKey() {
 }
 
 async function generate(key, name, piece) {
-  const res = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'gpt-image-1.5',
-      prompt: `${piece.style || STYLE}\n\nScene: ${piece.subject}`,
-      size: piece.size,
-      ...(piece.background ? { background: piece.background } : {}),
-      quality: 'high',
-      n: 1,
-    }),
-  });
+  // The images endpoint 500s transiently under load - retry twice with a
+  // short backoff before giving up the whole run over one hiccup.
+  let res = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    res = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-image-1.5',
+        prompt: `${piece.style || STYLE}\n\nScene: ${piece.subject}`,
+        size: piece.size,
+        ...(piece.background ? { background: piece.background } : {}),
+        quality: 'high',
+        n: 1,
+      }),
+    });
+    if (res.ok || res.status < 500) break;
+    if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 8000));
+  }
   if (!res.ok) throw new Error(`${name}: HTTP ${res.status} ${await res.text()}`);
   const json = await res.json();
   const b64 = json.data?.[0]?.b64_json;

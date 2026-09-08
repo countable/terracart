@@ -3291,6 +3291,19 @@ class MapScene extends Phaser.Scene {
       // The reveal has to survive a reload, so it is written now rather than
       // waiting on some later caller's persist.
       if (typeof persistSave === 'function') persistSave(this.save);
+      // TRAP PIN: the jaw clamps your leg - the body holds while the world
+      // waits. update() reads _pinnedUntil and skips the whole movement block
+      // for these three seconds (no walking, so no walking energy drain while
+      // clamped); the "pried free" story fires there when the pin expires.
+      this._pinnedUntil = performance.now() + 3000;
+      // The FIRST trap a save ever springs tells its story. A busy screen
+      // returns false unmarked (see the story ledger), so the next trap asks
+      // again rather than burning the moment - that is correct, not a bug.
+      this._storySplashOnce('trap', {
+        art: 'trap_jaw',
+        title: 'A trap!',
+        body: 'A metal jaw bursts out of the earth and clamps your leg.',
+      });
       return;   // the bite is this frame's cost; the bleed starts on the next
     }
 
@@ -6368,13 +6381,31 @@ class MapScene extends Phaser.Scene {
     // reach/tap origin stay on it — walks toward it. Underground it mines
     // through any wall in the way; on the surface nothing blocks, so it's a
     // plain walk toward the target.
-    // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
-    if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
-    // Stick idle for a few seconds → walk back to where you really are.
-    else this._driftHome(dt);
-    // Keyboard → steer the target directly, free, no offset.
-    this._steerTarget(vx, vy, speedMul, dt);
-    this._followStep(dt);
+    // TRAP PIN: the jaw clamps your leg - the body holds while the world
+    // waits. The whole movement block is gated, so the inputs die with the
+    // body: no steering, no drift home, no follow step, and no walking
+    // energy drain while clamped. When the pin expires it clears itself and
+    // tells the "pried free" story once per save (a busy screen returns
+    // false unmarked; the splash is lost that once, which is fine).
+    if (performance.now() < (this._pinnedUntil || 0)) {
+      // held fast - no movement this frame
+    } else {
+      if (this._pinnedUntil) {
+        this._pinnedUntil = 0;
+        this._storySplashOnce('trap_free', {
+          art: 'trap_free',
+          title: 'You pry yourself free',
+          body: 'The jaw grinds open and you stumble clear. Watch the ground - iron lies hidden out there.',
+        });
+      }
+      // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
+      if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
+      // Stick idle for a few seconds → walk back to where you really are.
+      else this._driftHome(dt);
+      // Keyboard → steer the target directly, free, no offset.
+      this._steerTarget(vx, vy, speedMul, dt);
+      this._followStep(dt);
+    }
     // One throttled flash for the stick-walking drain banked in _steerManual,
     // same shape as the slime-leech / monster-hit roll-ups below (1200ms, one
     // pop for the whole window rather than one per energy pip). Lives here
@@ -6907,7 +6938,12 @@ class MapScene extends Phaser.Scene {
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
                                       Combat.shotDamage(relics, slot) * dmgMul,
                                       relics[slot].tier, reach);
-        if (shot) this._shots.push(shot);
+        if (shot) {
+          this._shots.push(shot);
+          // First bow/staff shot a save ever looses tells its story, here at
+          // the moment the arrow flies - not on equip, not on a dry cadence.
+          this._toolActionStory('shoot');
+        }
       }
     } else {
       // Nothing to shoot at — re-arm, so the next foe to walk on screen is shot
@@ -7313,6 +7349,10 @@ class MapScene extends Phaser.Scene {
   // since every other damage source only makes the fight shorter, that
   // estimate is a true upper bound.
   startCombat(victim, opts = {}) {
+    // First melee the save ever starts tells its story - here in the one
+    // lane both the tapped swing and the auto-engage flow through, fired
+    // regardless of an owned sword: bare hands fight on the tier-0 rung too.
+    this._toolActionStory('sword');
     const dps = Combat.meleeDps(this.save.relics);
     const estMs = (Combat.hp(victim) / Math.max(0.01, dps)) * 1000;
     const now = performance.now();
@@ -10584,6 +10624,32 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
     this.showMessageModal({ title, body, art, okLabel });
     return true;
+  }
+
+  // FIRST-TOOL-ACTION stories: one splash per action, ever, keyed
+  // 'tool:<action>' in the same story ledger as the other first-time
+  // moments. Hooked where each action STARTS (the wheel spinning up, the
+  // shot loosed, the watering landing) - a dry tap that never runs the
+  // action tells no story, and a busy screen just asks again next time.
+  _toolActionStory(action) {
+    const TOOL_STORIES = {
+      till:  { art: 'tool_till',  title: 'First furrow',
+               body: 'The soil turns. Seeds take root in tilled ground.' },
+      chop:  { art: 'tool_chop',  title: 'Timber!',
+               body: 'The axe bites deep. Wood builds everything you will need.' },
+      dig:   { art: 'tool_dig',   title: 'The pick bites',
+               body: 'Stone cracks a strike at a time. The deep rock hides ore.' },
+      water: { art: 'tool_water', title: 'A good soak',
+               body: 'Damp soil wakes the seed. Watered crops grow on faster.' },
+      catch: { art: 'tool_catch', title: 'In the net',
+               body: 'Gentle does it. A caught animal joins your pack.' },
+      sword: { art: 'tool_sword', title: 'Steel out',
+               body: 'Your first swing lands true. Enemies pay coin when they fall.' },
+      shoot: { art: 'tool_shoot', title: 'Loose!',
+               body: 'The arrow flies. Bow and staff fire on their own while a foe is near.' },
+    };
+    const entry = TOOL_STORIES[action];
+    if (entry) this._storySplashOnce('tool:' + action, entry);
   }
 
   // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
