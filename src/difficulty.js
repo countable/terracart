@@ -106,11 +106,16 @@
       // Set it to null for a mode with no greeter at all.
       homeGreeter: 'chicken',
       // How far out it stands, in Chebyshev cells from the trailer (app.js's
-      // HOME_GREETER_* ring is the placer's own floor and ceiling, and the
-      // floor still holds — this only ever pushes the greeter further out).
+      // HOME_GREETER_* ring is the placer's own floor and ceiling, and both
+      // still hold — this only says where inside them the mode wants its own).
       // A chicken is a welcome, so easy takes the placer's floor: it wants to
       // be right there in the yard.
       homeGreeterCells: 2,
+      // Which way each greeter lies, one per compass point named
+      // (app.js HOME_GREETER_DIR_VEC). Null asks for a single one on the
+      // nearest legal cell of the ring, whichever way the ground allows —
+      // one chicken in the yard, not a cordon of them.
+      homeGreeterDirs: null,
     },
     [HARD]: {
       id: HARD,
@@ -132,12 +137,17 @@
       trapCountMul: 100,        // hard means it: the verge is closer to a minefield
       trapBiteMul: 2.5,         // 10⚡ base bite becomes 25⚡ on first contact
       homeGreeter: 'slime',     // "the slimes are in your yard from the first minute" — literally
-      // …but across the yard, not on the doorstep. A slime leeches on contact
-      // and hard doubles the bite, so seated at the easy chicken's 2 cells it
-      // was on the player inside the opening seconds — before the how-to card
-      // is even read. Still well inside the viewport (the ring's ceiling is
-      // 5), so it is seen from the first frame: a sighting, then a choice.
-      homeGreeterCells: 4,
+      // …the whole yard. One on each side, ten cells out: a slime leeches on
+      // contact and hard doubles the bite, so seated at the easy chicken's 2
+      // cells it was on the player inside the opening seconds, before the
+      // how-to card had been read. Ten is past the viewport corner (7.8 cells)
+      // — they are heard of before they are seen — but inside the sim bubble
+      // (CREATURE_SIM_CELLS, the ring's own ceiling), so they are oozing in
+      // from the first tick rather than frozen until the player walks at them.
+      // And one PER SIDE, so there is no free direction to stroll off in: the
+      // opening minute is a choice about which way to go, not a free one.
+      homeGreeterCells: 10,
+      homeGreeterDirs: ['n', 'e', 's', 'w'],
     },
   };
 

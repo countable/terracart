@@ -644,22 +644,32 @@ const CREATURE_SIM_CELLS = 12;
 // thinking, and flying at the field, from the tick it is pushed.
 const PEST_CROW_SPAWN_CELLS = 10;
 // ── The doorstep greeter ─────────────────────────────────────────────────────
-// How far from the starting trailer the mode's guaranteed creature is seated
-// (`_placeHomeGreeter`; the kind is Difficulty.get().homeGreeter — a chicken on
-// easy, a slime on hard). Chebyshev cells, so the band is a square ring.
-// The floor keeps it off the player's own cell and out of the trailer's
+// Where the mode's guaranteed creatures are seated around the starting trailer
+// (`_placeHomeGreeter`). WHAT is seated, HOW FAR out and in WHICH DIRECTIONS
+// are all the mode's to say — `homeGreeter` / `homeGreeterCells` /
+// `homeGreeterDirs`, one row in the difficulty table (easy: one chicken close
+// by; hard: a slime on each side, well out). These are the PLACER's own limits,
+// and they hold whatever the row asks for.
+// Chebyshev cells throughout, so every band here is a square ring.
+// The floor keeps a greeter off the player's own cell and out of the trailer's
 // doorway — a creature spawned underfoot would be on top of the player before
-// the first frame drew — and the ceiling keeps it inside the 11-cell viewport,
-// so it is on screen when the map paints and reads as "this is what lives
-// here".
-// The floor here is the PLACER's, and it holds whatever the mode: how far its
-// own greeter stands is the mode's to say, in `homeGreeterCells` beside the
-// kind it already declares (a hard-mode slime leeches, so it is seated further
-// out than easy's chicken — far enough that the opening seconds are a sighting
-// rather than a bite). The placer takes whichever is larger, so a mode can
-// push its greeter out but never under the player's feet.
+// the first frame drew.
 const HOME_GREETER_MIN_CELLS = 2;
-const HOME_GREETER_MAX_CELLS = 5;
+// The ceiling is the sim bubble: past it a creature is frozen at its seat (see
+// CREATURE_SIM_CELLS), so a greeter out there would be a statue until the
+// player walked at it — which is not a greeting. Derived, never retyped, so
+// widening the bubble takes the ring's ceiling out with it.
+const HOME_GREETER_MAX_CELLS = CREATURE_SIM_CELLS;
+// How far off its ideal seat a greeter may be nudged to find legal ground —
+// around a road band, a pond, a sprite already standing there. Small on
+// purpose: a direction the tile cannot seat within this is left empty rather
+// than filled by a creature that has wandered into some other direction's
+// arc. The ceiling above still clamps the result.
+const HOME_GREETER_SLACK_CELLS = 2;
+// The compass points `homeGreeterDirs` names, as cell offsets. The name is
+// what goes in the creature's id, so a seat the player dealt with stays dealt
+// with per direction (save.caught is checked by id).
+const HOME_GREETER_DIR_VEC = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 // ── Home is pest-free until the first harvest ────────────────────────────
 // A slime sits on your crops and drains 3 energy a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
@@ -10920,17 +10930,25 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── The doorstep greeter ───────────────────────────────────────────────────
-  // ONE creature guaranteed beside the starting trailer, whatever the tile's
-  // biome roll gave it: a chicken on easy, a slime on hard
-  // (Difficulty.get().homeGreeter). It is the first living thing a new save
-  // sees, and it says which game this is before any text does — a bird you can
-  // feed and catch, or a pest already in the yard.
+  // The creatures guaranteed around the starting trailer, whatever the tile's
+  // biome roll gave it: a chicken on easy, slimes on hard
+  // (Difficulty.get().homeGreeter). They are the first living things a new save
+  // sees, and they say which game this is before any text does — a bird you can
+  // feed and catch, or the neighbourhood already surrounded.
+  //
+  // The mode's row says how many and where: `homeGreeterDirs` names a compass
+  // point per seat (hard takes all four, so whichever way the player walks off
+  // the doorstep there is one), and `homeGreeterCells` how far out each stands.
+  // A row that names no direction gets ONE, on the nearest legal cell of the
+  // ring at that distance — easy's chicken, seated as it always was.
   //
   // Seated by the SHARED spawn rule (WorldGen.isSpawnCell over the tile's own
-  // roadMask), nearest valid cell first, in the HOME_GREETER_* ring. The
-  // fallback pass drops only the residential-frontage clause — never the road
-  // mask: "always" does not license standing an animal on the carriageway, and
-  // a greeter with nowhere legal to stand simply isn't seated.
+  // roadMask), nearest legal cell to each seat's ideal point. The fallback pass
+  // drops only the residential-frontage clause — never the road mask: "always"
+  // does not license standing an animal on the carriageway, and a seat with
+  // nowhere legal to stand within HOME_GREETER_SLACK_CELLS simply isn't filled
+  // (a direction that falls off the starter tile's own edge is one such: the
+  // placer writes to that one entry, never a neighbour's).
   //
   // Deliberately NOT routed through the pest amnesty (_pestFreeZone): the mode
   // that seats a slime is the mode with no amnesty, and an amnesty that pushed
@@ -10940,11 +10958,14 @@ class MapScene extends Phaser.Scene {
   // starter tile's build), from _setStarterCratesAt (the anchor freezing after
   // that tile already spawned) and from chooseMode (the card answered after the
   // tile was built with the default-easy chicken) — so a greeter of the WRONG
-  // kind is removed and replaced rather than left standing beside the right one.
-  // Killed or caught, it stays gone: save.caught is checked by id.
+  // kind, or one left over on a seat this mode does not ask for, is removed
+  // rather than left standing beside the right ones.
+  // Killed or caught, it stays gone: save.caught is checked by id, and each
+  // seat carries its own, so dealing with one leaves the rest standing.
   _placeHomeGreeter(entry, tx, ty) {
     if (typeof Difficulty === 'undefined') return;
-    const kind = Difficulty.get().homeGreeter;
+    const prof = Difficulty.get();
+    const kind = prof.homeGreeter;
     // Only a tile that has already rolled its fauna — seating onto a
     // not-yet-spawned entry would hand spawnInTile a non-empty creatures array
     // and its `entry.creatures || creatures` would keep MY one and drop the
@@ -10953,19 +10974,23 @@ class MapScene extends Phaser.Scene {
     const anchor = this.save.starterCratesAt || this._starterTrailAnchor();
     if (!anchor || !Number.isFinite(anchor.x)) return;
     entry.creatures = entry.creatures || [];
-    // One greeter per starter tile: drop any left by an earlier mode. A PET is
-    // never swept — a sapphire-tamed slime is re-minted with a `released_` id
-    // (interact.js `releasedId`) that carries none of this tag, but the guard
-    // is here anyway because sweeping someone's pet is not a bug worth finding
-    // out about in the field.
+    // The seats this mode asks for. A row that names no direction asks for one,
+    // anywhere on the ring — the `null` seat below.
+    const dirs = (Array.isArray(prof.homeGreeterDirs) && prof.homeGreeterDirs.length)
+      ? prof.homeGreeterDirs : [null];
+    // Only the mode's own greeters stand: drop any left by an earlier mode, or
+    // on a seat this mode does not ask for. A PET is never swept — a
+    // sapphire-tamed slime is re-minted with a `released_` id (interact.js
+    // `releasedId`) that carries none of this tag, but the guard is here anyway
+    // because sweeping someone's pet is not a bug worth finding out about in
+    // the field.
     const tag = `_greeter_${tx}_${ty}`;
-    const id = `${kind || ''}${tag}`;
+    const idFor = (dir) => `${kind || ''}${dir ? '_' + dir : ''}${tag}`;
+    const wanted = new Set(dirs.map(idFor));
     const stale = entry.creatures.filter(c => typeof c.id === 'string'
-      && c.id.endsWith(tag) && c.id !== id && !c.id.startsWith('released_'));
+      && c.id.endsWith(tag) && !wanted.has(c.id) && !c.id.startsWith('released_'));
     if (stale.length) entry.creatures = entry.creatures.filter(c => !stale.includes(c));
     if (!kind) return;                                   // a mode with no greeter
-    if (entry.creatures.some(c => c.id === id)) return;   // already standing
-    if (this.save.caught?.includes(id)) return;           // dealt with, stays gone
 
     const N = entry.cellsPerEdge;
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
@@ -10984,29 +11009,48 @@ class MapScene extends Phaser.Scene {
       cx >= 0 && cx < N && cy >= 0 && cy < N &&
       !occupied.has(cx + ',' + cy) &&
       !Combat.faunaBlocksCell(entry.grid[cy * N + cx]);
-    // Nearest cell in the ring that `accept`s, scanned in a fixed order so the
-    // same anchor always seats it in the same place.
     // The mode's own distance, never nearer than the placer's floor.
-    const minD = Math.max(HOME_GREETER_MIN_CELLS, Difficulty.get().homeGreeterCells || 0);
-    const pick = (accept) => {
+    const dist = Math.max(HOME_GREETER_MIN_CELLS, prof.homeGreeterCells || 0);
+    // Nearest cell to (ix, iy) that `accept`s, within `slack` of it and still
+    // inside the placer's own ring from the trailer. Scanned in a fixed order,
+    // so the same anchor always seats the same cells — a placer that wandered
+    // would move its greeters every time the tile rebuilt under the player.
+    const pick = (ix, iy, slack, accept) => {
       let best = null, bestD = Infinity;
-      for (let cy = ay - HOME_GREETER_MAX_CELLS; cy <= ay + HOME_GREETER_MAX_CELLS; cy++) {
-        for (let cx = ax - HOME_GREETER_MAX_CELLS; cx <= ax + HOME_GREETER_MAX_CELLS; cx++) {
-          const d = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));
-          if (d < minD || d >= bestD) continue;
+      for (let cy = iy - slack; cy <= iy + slack; cy++) {
+        for (let cx = ix - slack; cx <= ix + slack; cx++) {
+          const d = Math.max(Math.abs(cx - ix), Math.abs(cy - iy));           // off the ideal
+          const dh = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));          // out from home
+          if (d >= bestD) continue;
+          if (dh < HOME_GREETER_MIN_CELLS || dh > HOME_GREETER_MAX_CELLS) continue;
           if (!standable(cx, cy) || !accept(cx, cy)) continue;
           best = { cx, cy }; bestD = d;
         }
       }
       return best;
     };
-    const seat = pick((cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts))
-              || pick((cx, cy) => !onRoad(cx, cy));
-    if (!seat) return;
-    entry.creatures.push(WorldGen.makeCreature(kind,
-      tx0 + (seat.cx + 0.5) * this.cellM,
-      ty0 + (seat.cy + 0.5) * this.cellM,
-      id, { shiny: faunaShiny(kind, id) }));
+    for (const dir of dirs) {
+      const id = idFor(dir);
+      if (entry.creatures.some(c => c.id === id)) continue;  // already standing
+      if (this.save.caught?.includes(id)) continue;          // dealt with, stays gone
+      const vec = dir ? HOME_GREETER_DIR_VEC[dir] : null;
+      if (dir && !vec) continue;                             // a direction nobody drew
+      // A named direction aims at its own point `dist` out and may be nudged
+      // by the slack. The unnamed seat aims at the TRAILER, so its slack has
+      // to carry the ring's radius too: nearest legal cell of the ring, in
+      // whatever direction the ground allows.
+      const ix = ax + (vec ? vec[0] * dist : 0);
+      const iy = ay + (vec ? vec[1] * dist : 0);
+      const slack = vec ? HOME_GREETER_SLACK_CELLS : dist + HOME_GREETER_SLACK_CELLS;
+      const seat = pick(ix, iy, slack, (cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts))
+                || pick(ix, iy, slack, (cx, cy) => !onRoad(cx, cy));
+      if (!seat) continue;
+      occupied.add(seat.cx + ',' + seat.cy);   // no two seats on the one cell
+      entry.creatures.push(WorldGen.makeCreature(kind,
+        tx0 + (seat.cx + 0.5) * this.cellM,
+        ty0 + (seat.cy + 0.5) * this.cellM,
+        id, { shiny: faunaShiny(kind, id) }));
+    }
   }
 
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
