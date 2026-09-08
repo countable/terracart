@@ -185,11 +185,21 @@ const STREET_LAMP_R_CELLS = Math.max(
 // knot of short ways ever beats that (Render.renderPool).
 const STREET_LAMP_POOL = 12;
 // How faint the DWELL PREVIEW gets at its fullest — the ghost of the clean
-// carriageway creeping in under the player while the dwell runs. Well under
-// half, because the preview is a promise, not the thing: at the instant it
-// completes the restored canvas takes over at RESTORED_ALPHA (0.92) and the
-// step up is what reads as "done".
-const STREET_PREVIEW_ALPHA = 0.55;
+// carriageway creeping in under the player while the dwell runs. It was well
+// under half (0.55), because the preview is a promise, not the thing: at the
+// instant it completes the restored canvas takes over at RESTORED_ALPHA (0.92)
+// and the step up is what reads as "done".
+//
+// SWITCHED OFF (Sep 2026) to see the restoration without it: the glow ramping
+// in ahead of the repair announced every stretch a second and a half before
+// anything happened to it, so the shine and the blast — the moment the street
+// actually comes back — landed on ground the eye had already been told about.
+// ZERO IS THE SWITCH: the whole preview hangs off this one number (the live
+// pass skips the block, and its own gate would drop the runs anyway), so
+// putting 0.55 back is the whole of turning it on again. The dwell itself is
+// untouched — a stretch still ripens after PATH_STONE_DWELL_MS in sight; it
+// just does it unannounced.
+const STREET_PREVIEW_ALPHA = 0;
 // The preview's COLOUR — the pale street ink (UI_STREET_INK), never the
 // finished road's own near-black. A growing wash of RESTORED_ROAD_COLOR over
 // the dilapidated band reads as a stain creeping in, not as work being primed:
@@ -14168,7 +14178,10 @@ class MapScene extends Phaser.Scene {
   //                STREET_PREVIEW_COLOR — the ghost of what is about to
   //                happen, so the two seconds read as a thing being done
   //                rather than a delay. Its alpha is the dwell's own
-  //                progress: how long this line has been in sight.
+  //                progress: how long this line has been in sight. OFF while
+  //                STREET_PREVIEW_ALPHA is 0 (see it) — the dwell still runs,
+  //                it just isn't drawn, so the shine below is the first thing
+  //                the player sees of a stretch coming back.
   //   the SHINE    a pale run down a stretch the instant it comes back, from
   //                STREET_SHINE_ALPHA to nothing over STREET_SHINE_MS beside
   //                the blast's flash.
@@ -14184,7 +14197,10 @@ class MapScene extends Phaser.Scene {
     if (typeof RoadOverlay === 'undefined' || !RoadOverlay.drawLive) return;
     const t = (now == null) ? Date.now() : now;
     const runs = [];
-    const lines = this._streetLines;
+    // The preview is the one thing here that can be switched off outright —
+    // its alpha IS its switch, so at 0 the walk is skipped rather than run to
+    // be thrown away by the gate below.
+    const lines = STREET_PREVIEW_ALPHA > 0 ? this._streetLines : null;
     if (lines) {
       for (const meta of lines.values()) {
         if (!meta.pts || !meta.pts.length) continue;

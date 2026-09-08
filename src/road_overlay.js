@@ -1380,7 +1380,8 @@
   // every vertex either — that circle's alpha would compost AGAIN on top of
   // the stroke it's sitting on (the exact "translucent stroke composites
   // with ITSELF" trap the canvas passes above exist to dodge; at
-  // STREET_PREVIEW_ALPHA 0.55 the overlap would read at ~0.80). roundJoinFans
+  // the preview's old 0.55 the overlap would read at ~0.80, and the shine is
+  // translucent too). roundJoinFans
   // fills only what a butt-capped, mitred stroke is actually MISSING: the
   // half-disc beyond each end and the wedge on the OUTER side of each bend —
   // never ground the stroke already painted.

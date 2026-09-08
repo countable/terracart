@@ -792,16 +792,24 @@ test('streets: the live pass previews the dwell and shines on the rebuild', () =
       assert.eq(seen.length, 0, 'nothing to preview in the frame sight opened');
 
       clock.at(PATH_STONE_DWELL_MS / 2); frame(s);
-      assert.eq(seen.length, 1, 'one preview run');
-      assert.inRange(seen[0].alpha, STREET_PREVIEW_ALPHA / 2 - 0.01, STREET_PREVIEW_ALPHA / 2 + 0.01,
-        'at half the dwell, half the preview alpha');
-      assert.eq(seen[0].colour, STREET_PREVIEW_COLOR, 'in the pale street ink, not the road\'s own near-black');
-      assert.eq(seen[0].tags.class, 'minor', 'carrying the class the width is read from');
-      assert.gte(seen[0].pts.length, 2, 'as a polyline');
-      // WORLD metres, on the way: this tile's origin is (0,0), so the preview
-      // sits on the row the street runs along.
-      for (const q of seen[0].pts) {
-        assert.inRange(q.y, MID_M - 0.01, MID_M + 0.01, 'every point is on the way');
+      // STREET_PREVIEW_ALPHA is the preview's SWITCH as well as its ceiling —
+      // it ships at 0, so mid-dwell draws nothing at all and the shine below
+      // is the first the player sees of a stretch coming back. Both sides are
+      // pinned so putting 0.55 back needs no edit here.
+      if (STREET_PREVIEW_ALPHA > 0) {
+        assert.eq(seen.length, 1, 'one preview run');
+        assert.inRange(seen[0].alpha, STREET_PREVIEW_ALPHA / 2 - 0.01, STREET_PREVIEW_ALPHA / 2 + 0.01,
+          'at half the dwell, half the preview alpha');
+        assert.eq(seen[0].colour, STREET_PREVIEW_COLOR, 'in the pale street ink, not the road\'s own near-black');
+        assert.eq(seen[0].tags.class, 'minor', 'carrying the class the width is read from');
+        assert.gte(seen[0].pts.length, 2, 'as a polyline');
+        // WORLD metres, on the way: this tile's origin is (0,0), so the
+        // preview sits on the row the street runs along.
+        for (const q of seen[0].pts) {
+          assert.inRange(q.y, MID_M - 0.01, MID_M + 0.01, 'every point is on the way');
+        }
+      } else {
+        assert.eq(seen.length, 0, 'the preview is switched off — the dwell runs unannounced');
       }
 
       clock.at(PATH_STONE_DWELL_MS); frame(s);
@@ -824,15 +832,16 @@ test('streets: the live pass previews the dwell and shines on the rebuild', () =
       clock.at(PATH_STONE_DWELL_MS + STREET_SHINE_MS); frame(s);
       assert.eq(seen.length, 0, 'and is gone when it burns out');
     });
-    // Walking into a cave clears the live layer rather than freezing a preview
-    // on the ground.
+    // Walking into a cave forgets the sight (_resetStreetSight), so a dwell in
+    // progress leaves nothing frozen on the ground. With the preview switched
+    // on this is what clears it; with it off there was never anything there.
     withStreet((clock) => {
       const s = sweepScene();
       clock.at(0); frame(s);
       clock.at(PATH_STONE_DWELL_MS / 2); frame(s);
-      assert.gt(seen.length, 0, 'a preview is up');
+      assert.eq(seen.length, STREET_PREVIEW_ALPHA > 0 ? 1 : 0, 'mid-dwell, above ground');
       s.depth = 2; frame(s);
-      assert.eq(seen.length, 0, 'and the cave clears it');
+      assert.eq(seen.length, 0, 'and the cave leaves nothing on the layer');
     });
   } finally {
     RoadOverlay.drawLive = real;
