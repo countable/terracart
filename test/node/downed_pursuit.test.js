@@ -104,6 +104,57 @@ test('downed: the body FADES on the same expression the hunt drops', () => {
   assert.falsy(/UNNOTICED_ALPHA[\s\S]{0,80}setTint/.test(app), 'the fade never touches the tint');
 });
 
+test('downed: the body LIES DOWN, a quarter turn onto its front', () => {
+  // The fade says "less there"; the pose says "not standing". A body that is
+  // upright in the picture while the reach is 0, no foe takes an interest and
+  // no trap springs under it is the picture lying about the state.
+  assert.truthy(/const PLAYER_DOWNED_ROTATION = Math\.PI \/ 2;/.test(app),
+    'the collapse turn is a named constant, and exactly a quarter turn');
+  assert.truthy(/\.setRotation\(this\.playerBodyRotation\(\)\)/.test(app),
+    'the sprite is turned by the accessor, never by a literal at the call site');
+});
+
+test('downed: the collapse seats the body\'s MIDSECTION where its feet were', () => {
+  // Standing, the sprite's centre rides playerFeetNudgeY above the fix so the
+  // visible FEET land on it (feet_anchor.test.js). Lying down, the midsection
+  // is on that point instead — which is a drop of exactly the nudge it stood
+  // up by, so the pose needs no second constant to seat it.
+  const dy = methodBody('playerBodyDy');
+  assert.truthy(
+    /return Combat\.playerDowned\(this\.save\.energy\) \? 0 : this\.playerFeetNudgeY;/.test(dy),
+    'one expression: 0 while down, the standing nudge otherwise');
+  const rot = methodBody('playerBodyRotation');
+  assert.truthy(/Combat\.playerDowned\(this\.save\.energy\)/.test(rot),
+    'the turn reads the same predicate as the seat, so the two cannot disagree');
+});
+
+test('downed: everything hung on the body\'s centre goes down WITH it', () => {
+  // The nudge is the STANDING answer to "where is the body's centre?" — so
+  // anything that keeps reading it directly stays a body-length up in the air
+  // over the collapsed sprite. The empty-tank halo is the sharpest case: it is
+  // the warning that shows precisely while the player is down.
+  const aura = methodBody('_updatePlayerAura');
+  assert.truthy(/this\.playerHalo[\s\S]{0,200}setPosition\(ps\.x, ps\.y \+ this\.playerBodyDy\(\)\)/.test(aura),
+    'the halo sits on the body centre through the accessor');
+  assert.falsy(/playerFeetNudgeY/.test(aura), 'and never on the standing nudge');
+  // In update() the same answer is taken ONCE into a local and shared by the
+  // sprite and every label over its head. (update() is far too long for
+  // methodBody's brace trick, so this is the span from the projection down to
+  // the footprint trail — the sprite seat, the three powder countdowns and the
+  // facing arrow, i.e. everything in the frame measured off the body centre.)
+  const upd = (() => {
+    const a = app.indexOf('    const pScreen = this.playerScreen();');
+    const b = app.indexOf('// Footprint trail.', a);
+    assert.truthy(a > 0 && b > a, 'found the body-placement span of update()');
+    return app.slice(a, b);
+  })();
+  assert.truthy(/const bodyDy = this\.playerBodyDy\(\);/.test(upd), 'read once per frame');
+  assert.truthy(/this\.player\?\.setPosition\(pScreen\.x, pScreen\.y \+ bodyDy\)/.test(upd),
+    'the sprite is seated on it');
+  assert.falsy(/pScreen\.y \+ this\.playerFeetNudgeY/.test(upd),
+    'no label, arrow or sprite in update() is left on the standing nudge');
+});
+
 test('downed: the pursuit gate and the damage guard are the SAME expression', () => {
   // Three places a foe reaches the player; each guards with the predicate the
   // pursuit gate is built from, so "cannot be hurt" and "is not hunted" can
