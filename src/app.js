@@ -84,6 +84,15 @@ const trailIntroBody = () =>
   'You start repairing the roads — after all, they are the arteries of ' +
   'civilization!\n\n' +
   `Repair ${Trail.GOAL_STEP_M}m of road and the survivors will reward you.`;
+// …but not on the same beat as the repair. The first stretch to come back
+// under a new player is a flash, a scatter of chips and a counter on the
+// street itself, and a dialog opening over the top of that covers the very
+// thing it is there to explain — the player reads "you start repairing the
+// roads" having seen nothing happen. So the greeting waits this long and
+// arrives to explain a moment the player has just watched. Long enough to
+// outlast the repair's own beat (STREET_SHINE_MS, the blast's clock), short
+// enough to still read as part of it.
+const TRAIL_INTRO_DELAY_MS = 2000;
 // How long a stretch of street has to stay IN SIGHT — inside the lit reach,
 // continuously — before it is rebuilt. Walking past a street at the edge of
 // the bubble no longer harvests it in the frame it clips: the metres you bank
@@ -97,24 +106,36 @@ const PATH_STONE_DWELL_MS = 2000;
 // up — but a sweep restores a whole STRETCH and fires once for all of it, and
 // at that radius the moment read as an explosion on a street the player was
 // only walking along. Repairing a road is steady work, not a detonation: the
-// flash is a nod, and the shine below carries the rest of it.
+// flash is a nod, and the chips, the sparks and the setts pulling themselves
+// back together carry the rest of it.
 const BLAST_STONE_R_CELLS = 1.5;
-// The white SHINE that runs down a stretch the instant it is rebuilt, in ms.
-// Its OWN clock now, not Lighting.BLAST_MS (900 — every OTHER blast in the
+// The white SHINE that ran down a stretch the instant it was rebuilt, in ms.
+// Its OWN clock, not Lighting.BLAST_MS (900 — every OTHER blast in the
 // game, a house included, still uses that default): a street repair reads as
 // a slower, more deliberate "coming together" than a house's — this is the
 // moment the player has been standing still for two seconds to earn, and a
 // sub-second flash undersold it. _blastAt is handed this length explicitly
-// (durationMs) at the one call site that uses it, so the lightmap flash and
-// this shine still end together — just on the street's own longer beat
-// instead of borrowing the generic default. 2.4× the old 900 ms.
+// (durationMs) at the one call site that uses it, so the lightmap flash runs
+// on the street's own longer beat instead of borrowing the generic default.
+// 2.4× the old 900 ms. It outlives the shine it was named for: with the run
+// switched off (below) this is what the length of the moment now means.
 const STREET_SHINE_MS = 2200;
 // How bright that shine starts. Well under full white: the run used to fade
 // from opaque white, which at the widths a trunk road is stroked at whited out
 // the carriageway for a beat every time a sweep landed — and a sweep lands
-// every few paces while the player walks a street. A repair should read as a
-// gleam passing over the new surface, not as a strobe.
-const STREET_SHINE_ALPHA = 0.4;
+// every few paces while the player walks a street.
+//
+// SWITCHED OFF (Sep 2026), the twin of the dwell preview's own switch above:
+// a white run over the new carriageway is the same glow arriving one beat
+// LATER than the preview's, and between them the whole repair was announced
+// in light rather than in stone. What is left is the material — the flash's
+// nod, the chips, the sparks and the gather — so the moment reads as the
+// street being put back rather than lit up.
+// ZERO IS THE SWITCH, exactly as STREET_PREVIEW_ALPHA is: the ripen pass
+// stops recording runs and the live pass stops walking them, so putting 0.4
+// back is the whole of turning it on again. Nothing about the restoration
+// itself is touched — the stretch comes back on the same beat, unshone.
+const STREET_SHINE_ALPHA = 0;
 // THE GATHER's sink: how many points to spread `_ripenStreets`'s stonegather
 // burst across the LONGEST newly-restored piece (_streetSpreadPts), so the
 // setts visibly pull together along the whole stretch rather than converging
@@ -127,14 +148,37 @@ const GATHER_SPREAD_POINTS = 6;
 // every Streets.lampSpacingM() metres of rebuilt carriageway (its own
 // constant, LAMP_SPACING_M — deliberately NOT the treasure ladder's rung, so
 // an ordinary block shorter than a rung still qualifies). Where they stand is
-// generated from the way's geometry and never stored (streets.js); the stone
-// is baked art (RoadOverlay.paintLampStone) and the light it throws after
+// generated from the way's geometry and never stored (streets.js); the lamp
+// itself is baked art (RoadOverlay.paintLamp) and the light it throws after
 // dark is Lighting.KINDS.cobble, on the same point.
 const STREET_LAMP_TEX = 'street_lamp';
-// Drawn LAMP_DRAW_CELLS cells across — the halo included; the stone inside it
-// is about a third of that, so a lamp sits clearly on one cell of the road.
+// Drawn LAMP_DRAW_CELLS cells across — the pool of glow at its foot included;
+// the ironwork inside that is about a fifth of it wide and half of it tall, so
+// a lamp stands on one cell of the verge and reads from a couple away.
 const STREET_LAMP_PX = CELL_PX *
-  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 1.5);
+  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4);
+// WHERE THE ART SITS ON THE POINT. The baked lamp STANDS on its point: its
+// plinth, its shadow and its pool of glow are all on the square's ground line
+// (RoadOverlay.LAMP_GROUND_FRAC), which is below the middle because a lamp is
+// mostly post — so the sprite's origin is that line rather than its centre,
+// and the light lighting.js stamps on the same point pools at the lamp's foot.
+// The dark cobble is a stone LYING on the point and keeps a centred origin;
+// one RENDER_SPEC row draws both arts, so the origin is picked per lamp beside
+// the texture (render.js RENDER_SPEC._streetlamp).
+const STREET_LAMP_ORIGIN_Y =
+  (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_GROUND_FRAC) || 0.62;
+// …and then a nudge, by eye: the seated lamp read as standing a hair proud of
+// the verge it is on, so the POST is drawn three screen pixels lower. The ART
+// alone moves. The lamp's POINT does not — the verge offset that stands it
+// clear of the carriageway (STREET_LAMP_R_CELLS → Streets.lampOffsetM) and the
+// light lighting.js stamps on that point are both unmoved, which is why this
+// is a draw offset on the sprite (RENDER_SPEC._streetlamp's dyPx) and not a
+// shift of LAMP_GROUND_FRAC: moving the art's own ground line would take the
+// baked pool of glow and the plinth's footprint down with it and re-open the
+// question of where the lamp actually stands. The dark cobble keeps its seat
+// — it LIES on the point, and a stone in the road has nothing to stand proud
+// of.
+const STREET_LAMP_DY_PX = 3;
 // THE UNLIT LAMP IS THE OLD ROAD COBBLE. A lamp stands on every
 // LAMP_SPACING_M of street whether or not that stretch is restored yet — a
 // dark one is the stone you have not lit, and it has to be VISIBLE or the
@@ -163,27 +207,28 @@ const streetLampDarkFrame = (tier) => {
 };
 // The old stones' draw size, in cells: a road cluster at 0.64 of a cell, a
 // path pebble at 0.584 (both "stepped down 20% per playtest" so the ground
-// shows round them), and their 57% alpha.
+// shows round them), and their 57% alpha. Read through streetLampDarkCells for
+// the same reason as the frame: the T codes are looked up live rather than
+// retyped wherever the art is drawn.
 const STREET_LAMP_DARK_CELLS = { road: 0.64, path: 0.584 };
+const streetLampDarkCells = (tier) => {
+  const T = (typeof WorldGen !== 'undefined' && WorldGen.T) || {};
+  return tier === T.PATH ? STREET_LAMP_DARK_CELLS.path : STREET_LAMP_DARK_CELLS.road;
+};
 const STREET_LAMP_DARK_ALPHA = 0.57;
-// THE LAMP STANDS ON THE VERGE, and this is the stone's own footprint radius
-// in cells — what _streetLampsForTile adds to half the carriageway
+// THE LAMP STANDS ON THE VERGE, and this is the art's own footprint radius in
+// cells — what _streetLampsForTile adds to half the carriageway
 // (Streets.lampOffsetM) so the art just touches the band's edge instead of
 // standing in the traffic. It is the WIDEST of the two arts one lamp can
-// wear, because either of them may be the one showing: the baked stone inside
-// its halo square (RoadOverlay.LAMP_STONE_R_CELLS) and the dark cobble a lamp
-// draws before it lights (STREET_LAMP_DARK_CELLS, a full width, so half it).
+// wear, because either of them may be the one showing: the baked lamp's
+// plinth (RoadOverlay.LAMP_FOOT_R_CELLS) and the dark cobble a lamp draws
+// before it lights (STREET_LAMP_DARK_CELLS, a full width, so half it).
 // Deriving it from the sizes the draw pass actually uses is what keeps a lamp
 // touching the kerb when either art is resized.
 const STREET_LAMP_R_CELLS = Math.max(
-  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_STONE_R_CELLS) || 0.24),
+  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_FOOT_R_CELLS) || 0.204),
   STREET_LAMP_DARK_CELLS.road / 2,
   STREET_LAMP_DARK_CELLS.path / 2);
-// Pool size. One lamp per LAMP_SPACING_M (100 m) against a viewport 11 cells
-// (~77 m) across means a couple in view is an ordinary block — lit and dark
-// alike, now that a dark lamp draws too; the pool grows itself if a dense
-// knot of short ways ever beats that (Render.renderPool).
-const STREET_LAMP_POOL = 12;
 // How faint the DWELL PREVIEW gets at its fullest — the ghost of the clean
 // carriageway creeping in under the player while the dwell runs. It was well
 // under half (0.55), because the preview is a promise, not the thing: at the
@@ -192,8 +237,10 @@ const STREET_LAMP_POOL = 12;
 //
 // SWITCHED OFF (Sep 2026) to see the restoration without it: the glow ramping
 // in ahead of the repair announced every stretch a second and a half before
-// anything happened to it, so the shine and the blast — the moment the street
-// actually comes back — landed on ground the eye had already been told about.
+// anything happened to it, so the blast — the moment the street actually
+// comes back — landed on ground the eye had already been told about. (The
+// shine that followed the blast is switched off too now, for the same reason
+// one beat later; see STREET_SHINE_ALPHA above.)
 // ZERO IS THE SWITCH: the whole preview hangs off this one number (the live
 // pass skips the block, and its own gate would drop the runs anyway), so
 // putting 0.55 back is the whole of turning it on again. The dwell itself is
@@ -206,8 +253,9 @@ const STREET_PREVIEW_ALPHA = 0;
 // the same ink the counter and the chips are drawn in is what says "this is
 // the restoration material arriving", so it's lit rather than darkened (the
 // street lamp is deliberately NOT this ink — see UI_LAMP_GLOW in util.js).
-// The shine that follows it (below) is stroked in flat white for the same
-// reason — nothing about the live pass should read as a shadow.
+// The shine that followed it (below, switched off now) was stroked in flat
+// white for the same reason — nothing about the live pass should read as a
+// shadow.
 const STREET_PREVIEW_COLOR = parseInt(UI_STREET_INK.slice(1), 16);
 // The counter pops at most this often. A wide reach walked along a street
 // restores metres on nearly every frame, and a "137/200 m" re-drawn sixty
@@ -579,15 +627,27 @@ const BEACH_X_PER_CELLS = 20;
 // is. Two numbers over the base wander (STEP_MS / STEP_M in wanderCreatures):
 // how much longer one of its steps takes, and how far that step carries it.
 //
-// Until Sep 2026 it hopped 0.6 of a cell every 5 s — 0.84 m/s, near enough a
-// stroll, so a slime that noticed you followed you home and there was no
-// leaving it behind on foot. 0.45 of a cell every 7.5 s is 0.42 m/s: still
-// drawn to you, still there when you turn around, but now something you can
-// walk away from and something a campfire's repel ring can genuinely hold off.
-// Its pursuit is unchanged — half its steps still amble your way (see the
-// slime branch in wanderCreatures) — it is only the SPEED that came down.
-const SLIME_STEP_MUL = 1.5;    // × the base wander cadence: a longer, lazier beat
-const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
+// It hopped 0.6 of a cell every 5 s once — 0.84 m/s, near enough a stroll, so a
+// slime that noticed you followed you home and there was no leaving it behind
+// on foot. That was cut to 0.45 of a cell (0.42 m/s), which bought the walking
+// away and overshot: at half a metre a second nothing a slime did read as
+// closing on you, and the ooze was a thing you watched rather than a thing you
+// dealt with. It is 0.675 now — the same cut, half of it given back, 0.63 m/s
+// and still comfortably under the stroll that made it inescapable.
+// The ONE number to change is the hop: it is what the amble, the charge and
+// Home's rout are all read off, so raising it lifts every pace a slime has by
+// the same fraction and keeps the relations between them (a charge is the ooze
+// without the lazy beat; a rout is the ooze at the flee pace). The lazy beat
+// is the OTHER half of the threat and is not a speed knob — cutting it to
+// match the charge's cadence would not make a slime quicker, it would delete
+// the charge. Its pursuit is unchanged throughout: half its steps amble your
+// way (see the slime branch in wanderCreatures).
+// The ceiling is a WALK, and combat.test.js is where it is stated: a charging
+// slime is the fastest a slime ever moves, and at 0.945 m/s there is not much
+// of that ceiling left — another 50% would put it past a walking pace and take
+// the "leave it behind on foot" answer away with it.
+const SLIME_STEP_MUL = 1.5;     // × the base wander cadence: a longer, lazier beat
+const SLIME_HOP_CELLS = 0.675;  // cells covered by one ooze
 // ── Struck, a slime CHARGES ──────────────────────────────────────────────────
 // How long a creature keeps reacting to a hit. ONE window, two opposite
 // reactions, because the two kinds of prey are opposite: a crow or a deer that
@@ -609,6 +669,17 @@ const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
 // override was written for birds and applied to every prey kind, so a dog
 // worrying a slime shoved it out of its own owner's reach.
 const STRUCK_REACTION_MS = 8000;
+// ── RUNNING, not wandering ───────────────────────────────────────────────────
+// What it costs a creature to be in a hurry, whatever the kind: a stride twice
+// its own and a beat half as long, so it covers FOUR times the ground. Two
+// things read this pair — the struck-prey flee override (a bird shoved off by
+// a pet's teeth) and Home's rout (an enemy driven off the doorstep) — and they
+// have to agree, or "it ran" would mean two different speeds depending on who
+// did the frightening. Per-KIND flee gaits are a separate thing and stay on
+// the kind (CREATURE_BEHAVIOUR's `flee` row): this is the multiplier for the
+// kinds that have none, the slime and every cave monster among them.
+const FLEE_STRIDE_MUL = 2;
+const FLEE_BEAT_MUL = 0.5;
 // The spread on a COMMITTED approach, in radians: tight enough to read as a
 // line rather than a meander. The cave monsters stalk on it (a flyer doubles
 // it, which is what makes a bat careen), and a charging slime borrows it —
@@ -644,15 +715,32 @@ const CREATURE_SIM_CELLS = 12;
 // thinking, and flying at the field, from the tick it is pushed.
 const PEST_CROW_SPAWN_CELLS = 10;
 // ── The doorstep greeter ─────────────────────────────────────────────────────
-// How far from the starting trailer the mode's guaranteed creature is seated
-// (`_placeHomeGreeter`; the kind is Difficulty.get().homeGreeter — a chicken on
-// easy, a slime on hard). Chebyshev cells, so the band is a square ring.
-// The floor keeps it off the player's own cell and out of the trailer's
-// doorway — a slime spawned underfoot would start leeching before the first
-// frame drew — and the ceiling keeps it inside the 11-cell viewport, so it is
-// on screen when the map paints and reads as "this is what lives here".
+// Where the mode's guaranteed creatures are seated around the starting trailer
+// (`_placeHomeGreeter`). WHAT is seated, HOW FAR out and in WHICH DIRECTIONS
+// are all the mode's to say — `homeGreeter` / `homeGreeterCells` /
+// `homeGreeterDirs`, one row in the difficulty table (easy: one chicken close
+// by; hard: a slime on each side, well out). These are the PLACER's own limits,
+// and they hold whatever the row asks for.
+// Chebyshev cells throughout, so every band here is a square ring.
+// The floor keeps a greeter off the player's own cell and out of the trailer's
+// doorway — a creature spawned underfoot would be on top of the player before
+// the first frame drew.
 const HOME_GREETER_MIN_CELLS = 2;
-const HOME_GREETER_MAX_CELLS = 5;
+// The ceiling is the sim bubble: past it a creature is frozen at its seat (see
+// CREATURE_SIM_CELLS), so a greeter out there would be a statue until the
+// player walked at it — which is not a greeting. Derived, never retyped, so
+// widening the bubble takes the ring's ceiling out with it.
+const HOME_GREETER_MAX_CELLS = CREATURE_SIM_CELLS;
+// How far off its ideal seat a greeter may be nudged to find legal ground —
+// around a road band, a pond, a sprite already standing there. Small on
+// purpose: a direction the tile cannot seat within this is left empty rather
+// than filled by a creature that has wandered into some other direction's
+// arc. The ceiling above still clamps the result.
+const HOME_GREETER_SLACK_CELLS = 2;
+// The compass points `homeGreeterDirs` names, as cell offsets. The name is
+// what goes in the creature's id, so a seat the player dealt with stays dealt
+// with per direction (save.caught is checked by id).
+const HOME_GREETER_DIR_VEC = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 // ── Home is pest-free until the first harvest ────────────────────────────
 // A slime sits on your crops and drains 3 energy a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
@@ -800,6 +888,16 @@ const UNNOTICED_ALPHA = 0.42;
 const PLAYER_SHADOW_ALPHA = 0.34;
 const PLAYER_SHADOW_ALPHA_FLYING = 0.20;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
+// How big a bite the stick walk takes when it bites. The per-cell cost
+// (steerEnergyCost, amulet-scaled) is banked fractionally and spent in LUMPS
+// of this many pips rather than one pip at a time — bare-handed that is 2⚡
+// every 2 cells instead of 1⚡ every cell, so the bar steps in a figure the
+// player can read at a glance and the throttled pop has something to say when
+// it fires. The rate per cell is untouched: this is the GRAIN of the drain,
+// not its price, and dividing the same cost into fewer, bigger debits is the
+// whole point — a one-pip trickle under a 1200ms pop window reads as the bar
+// fraying rather than as travel costing something.
+const STEER_DRAIN_LUMP = 2;
 // FOOTPRINT TRAIL geometry (the dots dropped behind a walking player).
 //
 // The dots were round and 3px, dropped dead on the body's centreline — one
@@ -826,6 +924,22 @@ const PLAYER_FEET_DROP_PX = 14 / 1.35;
 // The walker's frame edge, in texture px (assets.js `idle`: 32×32). Its head
 // stands half of this plus the feet drop above the fix.
 const PLAYER_FRAME_PX = 32;
+// THE COLLAPSE POSE. At zero energy the player is not standing: the reach is 0,
+// nothing hunts them, no trap springs under them (Combat.playerDowned — the one
+// expression all of that reads). A body that is upright in the picture while
+// every rule treats it as down is the picture lying, so the sprite lies down
+// too — a quarter turn onto its front, where it fell.
+//
+// Phaser rotation is CLOCKWISE-positive and turns about the sprite's own
+// centre, so a quarter turn pitches the walker head-first onto the face it has
+// been showing the camera and lays it head to the screen-right. That is the
+// whole of the pose's shape; where it SITS is the other half, and the two are
+// one lane — playerBodyDy(), which the body, its halo and the labels over its
+// head all read. Standing, the sprite's centre rides playerFeetNudgeY above the
+// fix so the FEET land on it (see PLAYER_FEET_DROP_PX); collapsed, the body is
+// on the ground with its MIDSECTION on that same point — which is a drop of
+// exactly the nudge it stood up by, so the pose costs no second constant.
+const PLAYER_DOWNED_ROTATION = Math.PI / 2;
 // Where an energy pop hangs (_popEnergy). On a cell that isn't the player's,
 // its bottom clears the cell's TOP EDGE by ENERGY_POP_LIFT_PX. On the player's
 // own cell the walker's head is in the way, so it clears the HEAD by the same
@@ -1921,38 +2035,28 @@ class MapScene extends Phaser.Scene {
       this.cobblePool.push(s);
     }
 
-    // THE STREET LAMPS — the glowing cobbles a restored street carries, one
-    // every Streets.lampSpacingM() metres of rebuilt carriageway. Baked once
-    // (road_overlay.js paints the stone; a canvas, because the halo is a
-    // radial gradient and Phaser's Graphics has no gradient primitive) and
-    // drawn from its own pool into the SAME ground-decoration container as
-    // the pier plank: a lamp lies on the road surface, above the band and
-    // below the lightmap that turns it into a light after dark. The UNLIT
-    // lamps draw from the same pool as the old 'cobble' sheet (assets.js) —
-    // the pool sprites swap texture per lamp in _drawStreetLamps.
+    // THE STREET LAMPS — the gilded lamps a restored street carries, one every
+    // Streets.lampSpacingM() metres of rebuilt carriageway. Baked ONCE here
+    // (road_overlay.js paints the lamp; a canvas, because the glow is a radial
+    // gradient and Phaser's Graphics has no gradient primitive), and drawn by
+    // the shared world sprite pass — RENDER_SPEC._streetlamp, into
+    // worldContainer with every other standing thing, so a lamp sorts by
+    // SCREEN ROW against the trees, houses and animals around it. It had a
+    // pool of its own in cobbleContainer (ground decoration) until Sep 2026,
+    // which is why a lamp used to hide under any building footprint or sprite
+    // on the map, whatever row it stood in.
     //
-    // Sized in CELLS (RoadOverlay.LAMP_DRAW_CELLS), so the stone keeps its
-    // proportion to the carriageway at any latitude's cell size. The pool is
-    // small: at one lamp per LAMP_SPACING_M (100 m) and a viewport 11 cells
-    // across, a couple in view at once is an ordinary block.
-    if (typeof RoadOverlay !== 'undefined' && RoadOverlay.paintLampStone &&
+    // Sized in CELLS (RoadOverlay.LAMP_DRAW_CELLS) by that spec, so the lamp
+    // keeps its proportion to the carriageway at any latitude's cell size.
+    if (typeof RoadOverlay !== 'undefined' && RoadOverlay.paintLamp &&
         typeof document !== 'undefined' && !this.textures.exists(STREET_LAMP_TEX)) {
       const S = RoadOverlay.LAMP_TEX_PX;
       const cvs = document.createElement('canvas');
       cvs.width = cvs.height = S;
       const lctx = cvs.getContext('2d');
       if (lctx) {
-        RoadOverlay.paintLampStone(lctx, S);
+        RoadOverlay.paintLamp(lctx, S);
         this.textures.addCanvas(STREET_LAMP_TEX, cvs);
-      }
-    }
-    this.streetLampPool = [];
-    if (this.textures.exists(STREET_LAMP_TEX)) {
-      for (let i = 0; i < STREET_LAMP_POOL; i++) {
-        const s = this.add.image(0, 0, STREET_LAMP_TEX).setOrigin(0.5, 0.5)
-          .setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setVisible(false);
-        this.cobbleContainer.add(s);
-        this.streetLampPool.push(s);
       }
     }
 
@@ -3243,8 +3347,31 @@ class MapScene extends Phaser.Scene {
   // than every frame. The memo is deliberately NOT taken when the tile isn't
   // cached yet — otherwise a trap would be missed for as long as the player
   // stood on the cell they arrived at while it streamed in.
+  //
+  // A BODY DOES NOT STEP. At zero energy the player has collapsed (CLAUDE.md:
+  // NOTHING HUNTS A BODY) — the reach is 0, nothing can be tapped or swung at,
+  // and all three ways a foe reaches them refuse to take a point off an empty
+  // bar. A snare under one is that same state arriving for a different reason:
+  // springing it would spend the trap FOR GOOD (save.sprungTraps is written the
+  // instant it fires) on a player it can charge nothing for, and on hard —
+  // where only Home lifts the bar off zero — the long walk home would clear
+  // every trap it crossed for free. So the whole tick stands down, both costs
+  // with it.
+  //
+  // `Combat.playerDowned`, NOT `isUnnoticed()`: a Shadow Powder hides you from
+  // whatever takes an INTEREST in you, and iron jaws take none — a powder must
+  // not walk you through a minefield.
   _tickTraps(dt) {
     if (typeof Traps === 'undefined' || !this.startWorldM || !this.originPx) return;
+    // The memo goes down with the tick, so the cell is read fresh the moment
+    // the bar lifts: a player revived on top of a hidden trap steps on it then.
+    if (Combat.playerDowned(this.save.energy)) {
+      this._trapCellKey = null;
+      this._trapHere = null;
+      this._trapDrainAccum = 0;
+      this._trapDrainPop = 0;
+      return;
+    }
     const pc = this.playerToWorldCell();
     const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
     const key = `${pc.tx}_${pc.ty}_${lix}_${liy}`;
@@ -6290,11 +6417,17 @@ class MapScene extends Phaser.Scene {
     // this: the camera is normally on them, so it's the viewport centre, but a
     // peek drag slides them across the map like anything else standing on it.
     // playerScreen() is the GROUND point (feet-on-the-fix, the same point the
-    // body's world position projects to); the sprite's centre rises
-    // playerFeetNudgeY above it and the contact shadow sits a pixel under it —
-    // the two offsets they were created with.
+    // body's world position projects to); the contact shadow sits a pixel
+    // under it, the offset it was created with.
     const pScreen = this.playerScreen();
-    this.player?.setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY);
+    // …and the body's own centre rides bodyDy above that ground point: the
+    // feet nudge while it is standing, 0 once it has collapsed onto its front
+    // (playerBodyDy / PLAYER_DOWNED_ROTATION). Everything measured from the
+    // sprite's centre below reads this local rather than the nudge, so the
+    // whole body — labels included — goes down with it.
+    const bodyDy = this.playerBodyDy();
+    this.player?.setPosition(pScreen.x, pScreen.y + bodyDy)
+      .setRotation(this.playerBodyRotation());
     this.playerShadow?.setPosition(pScreen.x, pScreen.y - 1);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
@@ -6312,8 +6445,8 @@ class MapScene extends Phaser.Scene {
       this.dragonTimerText
         .setText(shortDuration(this._dragonUntil - Date.now()))
         // Over the head: measured from the SPRITE CENTRE (the player's screen
-        // point is the feet, and the body rises playerFeetNudgeY above it).
-        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - 35)
+        // point is the ground, and the body rides bodyDy above it).
+        .setPosition(pScreen.x, pScreen.y + bodyDy - 35)
         .setVisible(true);
     }
     // Shadow Powder: the same in-memory minute (this._shadowUntil), the same
@@ -6322,7 +6455,7 @@ class MapScene extends Phaser.Scene {
     if (shadowActive) {
       this.shadowTimerText
         .setText(shortDuration(this._shadowUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - (dragonActive ? 50 : 35))
+        .setPosition(pScreen.x, pScreen.y + bodyDy - (dragonActive ? 50 : 35))
         .setVisible(true);
     } else if (this.shadowTimerText.visible) {
       this.shadowTimerText.setVisible(false);
@@ -6333,7 +6466,7 @@ class MapScene extends Phaser.Scene {
       const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0);
       this.torchTimerText
         .setText(shortDuration(this._torchUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + this.playerFeetNudgeY - 35 - 15 * stacked)
+        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
         .setVisible(true);
     } else if (this.torchTimerText.visible) {
       this.torchTimerText.setVisible(false);
@@ -6591,9 +6724,9 @@ class MapScene extends Phaser.Scene {
       // 0 sits it on the centre, negative nudges it below — it rode 2px high
       // once, and now sits 1px under centre, where it lines up with the art.
       const HEAD_DY = -1;
-      // The sprite's centre is its ground point plus playerFeetNudgeY (the
-      // feet are on the point, the body rises above it).
-      const cx = pScreen.x, cy = pScreen.y + this.playerFeetNudgeY - HEAD_DY;
+      // The sprite's centre is its ground point plus bodyDy (the feet are on
+      // the point and the body rises above it — until it collapses onto it).
+      const cx = pScreen.x, cy = pScreen.y + bodyDy - HEAD_DY;
       const tx = cx + fx * tip, ty = cy + fy * tip;
       const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
       const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
@@ -7294,24 +7427,11 @@ class MapScene extends Phaser.Scene {
     // the hop it is part-way through each time, leaving a slime under constant
     // fire twitching on the spot instead of closing.
     if (!wasCharging && c.kind === 'slime') c._nextChooseT = 0;
-    // ROUTED FROM THE DOORSTEP. Home's ward already turns an enemy inside the
-    // ring around and switches its bite off (wanderCreatures' homeWard), but
-    // the ring is only HOME_R — four cells — so a foe walked out, stopped
-    // being warded on the doorstep's edge and came straight back at you. Hit
-    // one while it is being warded and it does not merely leave the ring, it
-    // RUNS: the ward radius becomes CREATURE_SIM_CELLS for this foe alone
-    // until it is out, which is the edge of the sim bubble — as far as
-    // anything is driven in this game, and far enough that the yard is quiet
-    // for a while rather than for a step. The flag clears itself on the first
-    // tick it is outside (see wanderCreatures), so nothing about it persists.
-    if (!c._routedFromHome && Combat.isEnemy(c)) {
-      const home = this.homeWorldPos();
-      if (home) {
-        const r = HOME_R * this.cellM;
-        const hx = c.x - home.x, hy = c.y - home.y;
-        if (hx * hx + hy * hy <= r * r) c._routedFromHome = true;
-      }
-    }
+    // Nothing here about Home's rout: a foe hit at the doorstep is a foe
+    // INSIDE Home's ring, and the ring itself is what routs it now
+    // (wanderCreatures' `_routedFromHome` latch). This carried a second copy
+    // of that test — homeWorldPos, HOME_R, Combat.isEnemy — for the case where
+    // the ward was a bare radius and only a blow could extend it.
     const now = performance.now();
     c._hurtUntilT = now + ENEMY_HEALTH_RING_MS;
     // Damage numbers. Accumulate-and-beat rather than pop-per-call: a shot
@@ -7893,9 +8013,9 @@ class MapScene extends Phaser.Scene {
     // which is what switches the ward off.
     const homePos = this.homeWorldPos();
     const HOME_WARD_R2 = (HOME_R * this.cellM) * (HOME_R * this.cellM);
-    // The radius a foe STRUCK inside the ring is driven out to instead — the
-    // sim bubble's own edge (CREATURE_SIM_CELLS), so "it ran off" means it is
-    // gone rather than circling the doormat. Set by _damageEnemy.
+    // The radius a routed foe is driven out to — the sim bubble's own edge
+    // (CREATURE_SIM_CELLS), which is where a creature stops thinking at all, so
+    // "it ran off" means gone rather than circling the doormat.
     const HOME_ROUT_R2 = (CREATURE_SIM_CELLS * this.cellM) * (CREATURE_SIM_CELLS * this.cellM);
     // Pest spawn: if the player has any planted crop and there are NO wild
     // crows already near the player, spawn one off-screen every ~90 s. The
@@ -7975,23 +8095,34 @@ class MapScene extends Phaser.Scene {
       // useFrostPowder, which also pins its hop in place) takes no step and
       // lands no hit until the ice thaws. It can still be hit.
       if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;
-      // WARDED BY HOME: this foe is standing inside Home's ring (HOME_R). It
-      // turns and walks out (the angle chain below) and it cannot bite while
-      // it goes — a ward that let a slime leech its way to the door would make
-      // the doorstep no safer, only slower to lose the bar on.
+      // WARDED BY HOME: this foe crossed into Home's ring (HOME_R), so it turns
+      // and RUNS (the angle chain below, at the flee pace) and it cannot bite
+      // while it goes — a ward that let a slime leech its way to the door would
+      // make the doorstep no safer, only slower to lose the bar on.
       // Combat.isEnemy is the registered-hostile test (the wild slime, every
       // cave monster), so a kind added to the monster table is warded the day
       // it ships, and a sapphire-tamed slime is a pet and walks where it likes.
-      // A foe hit while it was being warded keeps being warded all the way out
-      // to the bubble's edge (_routedFromHome, set in _damageEnemy) — same
-      // away-from-Home angle, same bite switched off, just a bigger ring.
+      //
+      // THE WARD IS A LATCH, NOT A FENCE, and that is the whole of it: crossing
+      // HOME_R sets `_routedFromHome`, and only the sim bubble's edge clears it.
+      // A plain radius test made the ring a turnstile — a foe stepped out at
+      // four cells, stopped being warded on the doorstep's own edge and turned
+      // straight back in, so the yard was quiet for one hop and the player
+      // watched a slime bob in and out of the same three cells forever. Two
+      // radii, one flag: HOME_R is what TRIPS it and CREATURE_SIM_CELLS is what
+      // RELEASES it, the hysteresis a lair guard's hold/hunt/return already has
+      // (Lairs.guardState). Being hit inside the ring needs no branch of its
+      // own any more — a foe close enough to hit at Home is already inside the
+      // ring, so it is already routed.
       const homeD2 = homePos
         ? (c.x - homePos.x) * (c.x - homePos.x) + (c.y - homePos.y) * (c.y - homePos.y)
         : Infinity;
-      const homeWard = !!homePos && !isTame && Combat.isEnemy(c) &&
-        homeD2 <= (c._routedFromHome ? HOME_ROUT_R2 : HOME_WARD_R2);
-      // Out at last: it rejoins the ordinary rules and may hunt again.
-      if (c._routedFromHome && homeD2 > HOME_ROUT_R2) c._routedFromHome = false;
+      const homeFoe = !!homePos && !isTame && Combat.isEnemy(c);
+      if (homeFoe) {
+        if (homeD2 <= HOME_WARD_R2) c._routedFromHome = true;          // tripped
+        else if (homeD2 > HOME_ROUT_R2) c._routedFromHome = false;     // released
+      }
+      const homeWard = homeFoe && !!c._routedFromHome;
       // A LAIR GUARD'S THREE STATES — src/lairs.js owns the rings, the
       // hysteresis and the arrival test; this asks once and stores the
       // hysteresis back (session state on the creature, like `_hp`).
@@ -8179,14 +8310,22 @@ class MapScene extends Phaser.Scene {
       // own pair with the note that tunes them beside them, and a monster's
       // cadence and stride come from the MONSTERS row it is registered in.
       // Everything else is its gait row, or the loop's own base beat.
+      // A ROUTED FOE RUNS, at the same pace anything else in a hurry runs
+      // (FLEE_*). Without it the rout was the crawl it was fleeing at: an
+      // oozing slime is 0.45 cells every 7.5 s, so being driven off the
+      // doorstep meant a full minute parked in the yard just to clear the
+      // four-cell ring and minutes more to reach the bubble — a ward you had
+      // to take on trust, because nothing you could see was leaving. The
+      // slime's charge quickens the BEAT alone; a rout takes the stride too,
+      // because the thing being asked for is distance, not urgency.
       const stepMs = (c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
                    : isMon ? STEP_MS / mon.speed
                    : bolting ? (bolt.stepMs ?? STEP_MS)
-                   : (gait?.stepMs ?? STEP_MS)) * shinyFast;
-      const stepM = c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
+                   : (gait?.stepMs ?? STEP_MS)) * shinyFast * (homeWard ? FLEE_BEAT_MUL : 1);
+      const stepM = (c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
                   : isMon ? STEP_M * (mon.fly ? 1.0 : 0.6)
                   : bolting ? STEP_M * (bolt.stepCells ?? 1)
-                  : STEP_M * (gait?.stepCells ?? 1);
+                  : STEP_M * (gait?.stepCells ?? 1)) * (homeWard ? FLEE_STRIDE_MUL : 1);
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
         c._startX = c.x; c._startY = c.y;
@@ -8244,14 +8383,14 @@ class MapScene extends Phaser.Scene {
           const fa = c._fleeAngle ?? 0;
           for (let attempt = 0; attempt < 4; attempt++) {
             const fleeAngle = fa + (Math.random() - 0.5) * 0.6;
-            const ftx = c.x + Math.cos(fleeAngle) * stepM * 2;
-            const fty = c.y + Math.sin(fleeAngle) * stepM * 2;
+            const ftx = c.x + Math.cos(fleeAngle) * stepM * FLEE_STRIDE_MUL;
+            const fty = c.y + Math.sin(fleeAngle) * stepM * FLEE_STRIDE_MUL;
             const dest = this.cellAt(ftx, fty);
             if (dest.loaded && !Combat.faunaBlocksCell(dest.type)) {
               c._startX = c.x; c._startY = c.y;
               c._targetX = ftx; c._targetY = fty;
               c._stepT0 = now;
-              c._nextChooseT = now + stepMs * 0.5;
+              c._nextChooseT = now + stepMs * FLEE_BEAT_MUL;
               break;
             }
           }
@@ -8839,16 +8978,18 @@ class MapScene extends Phaser.Scene {
     if (typeof RoadOverlay === 'undefined') return;
     RoadOverlay.draw(this);
     // …and then the live pass on top of it: the dwell preview and the shine,
-    // re-stroked every frame. AFTER draw(), because draw() is what positions
-    // the container the live Graphics sits in (see _drawStreetLive).
+    // re-stroked every frame — both switched off today, so this clears the
+    // Graphics and draws nothing (see _drawStreetLive). AFTER draw(), because
+    // draw() is what positions the container the live Graphics sits in.
     this._drawStreetLive();
-    // …and the lamps a restored street carries, on the surface it just drew.
+    // …and WHICH lamps a restored street carries, on the surface it just drew.
     // Here rather than in the sweep because this runs on every frame the road
     // is drawn on — including the ones the sweep's gates refuse — and because
-    // the list it refreshes is what Lighting.collectLamps reads a moment later
-    // in drawObjects.
+    // the list it refreshes has two readers a moment later in drawObjects: the
+    // sprite pass that DRAWS each lamp (render.js RENDER_SPEC._streetlamp — a
+    // lamp stands on the ground, so it sorts by screen row with every other
+    // standing thing) and Lighting.collectLamps, which lights the lit ones.
     this._updateStreetLamps();
-    this._drawStreetLamps();
   }
   drawBuildingGeometry() { if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.draw(this); }
   drawObjects() {
@@ -8892,6 +9033,22 @@ class MapScene extends Phaser.Scene {
       x: this.viewCenterX - this.peekM.x * k,
       y: this.viewCenterY - this.peekM.y * k,
     };
+  }
+
+  // How far the BODY's centre sits from the ground point its feet stand on —
+  // the one number everything hung on the sprite's centre reads (the sprite
+  // itself, the warning halo behind it, the powder countdowns over its head).
+  // Standing it is playerFeetNudgeY, which lifts the frame so the visible feet
+  // land on the fix; collapsed it is 0, because a body lying down has its
+  // midsection where its feet were (see PLAYER_DOWNED_ROTATION).
+  playerBodyDy() {
+    return Combat.playerDowned(this.save.energy) ? 0 : this.playerFeetNudgeY;
+  }
+
+  // …and which way up it is. Same read, so the seat and the turn can never
+  // disagree about whether the player is on their feet.
+  playerBodyRotation() {
+    return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : 0;
   }
 
   // A Phaser pointer's position in LOGICAL px (coords.js gamePt), at this
@@ -9348,8 +9505,10 @@ class MapScene extends Phaser.Scene {
     this._stickHeading = { x: vx / n, y: vy / n };
     this._lastStickT = Date.now();   // the walk-home timer starts when you stop
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
-    // Per-cell stamina, banked fractionally so a 0.15/cell amulet debits a
-    // whole pip every ~7 cells instead of rounding up to one per cell. Close to
+    // Per-cell stamina, banked fractionally and spent in STEER_DRAIN_LUMP-sized
+    // bites, so a 0.15/cell amulet debits a lump every ~13 cells rather than
+    // rounding up to a pip per cell. The rate is the same either way — the lump
+    // only decides how coarse the steps are. Close to
     // your real position it's a fifth of that: pottering around the block you're
     // actually standing on shouldn't cost what striking out across town does,
     // and the discount is what makes the stick usable for lining up a tap.
@@ -9359,10 +9518,10 @@ class MapScene extends Phaser.Scene {
     while (this._steerDistAccrue >= this.cellM) {
       this._steerDistAccrue -= this.cellM;
       this._steerCostAccrue += costPerCell;
-      while (this._steerCostAccrue >= 1) {
-        this._steerCostAccrue -= 1;
+      while (this._steerCostAccrue >= STEER_DRAIN_LUMP) {
+        this._steerCostAccrue -= STEER_DRAIN_LUMP;
         const before = this.save.energy ?? 0;
-        this.save.energy = Math.max(0, before - 1);
+        this.save.energy = Math.max(0, before - STEER_DRAIN_LUMP);
         // CLAUDE.md: "when you add an energy gain or loss the player can see,
         // pop it with _popEnergy and name the cell." Every other continuous
         // drain (the slime leech, a monster's melee, the trap bleed) rolls up
@@ -9597,10 +9756,14 @@ class MapScene extends Phaser.Scene {
       const alpha = hit ? 0.2 + 0.6 * (hitLeft / HIT_FLASH_MS)
                         : (0.25 + 0.35 * wave) * strength;
       const ps = this.playerScreen();
+      // On the BODY's centre, through the one accessor — the empty-tank red is
+      // the halo that shows while the player is down, so a halo left on the
+      // standing nudge would hang a body-length above the collapsed sprite it
+      // is warning about.
       this.playerHalo
         .setDisplaySize(size, size)
         .setAlpha(alpha)
-        .setPosition(ps.x, ps.y + this.playerFeetNudgeY)
+        .setPosition(ps.x, ps.y + this.playerBodyDy())
         .setVisible(true);
     } else {
       // At rest the farmer wears the save's own colour — the same tint other
@@ -10967,17 +11130,25 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── The doorstep greeter ───────────────────────────────────────────────────
-  // ONE creature guaranteed beside the starting trailer, whatever the tile's
-  // biome roll gave it: a chicken on easy, a slime on hard
-  // (Difficulty.get().homeGreeter). It is the first living thing a new save
-  // sees, and it says which game this is before any text does — a bird you can
-  // feed and catch, or a pest already in the yard.
+  // The creatures guaranteed around the starting trailer, whatever the tile's
+  // biome roll gave it: a chicken on easy, slimes on hard
+  // (Difficulty.get().homeGreeter). They are the first living things a new save
+  // sees, and they say which game this is before any text does — a bird you can
+  // feed and catch, or the neighbourhood already surrounded.
+  //
+  // The mode's row says how many and where: `homeGreeterDirs` names a compass
+  // point per seat (hard takes all four, so whichever way the player walks off
+  // the doorstep there is one), and `homeGreeterCells` how far out each stands.
+  // A row that names no direction gets ONE, on the nearest legal cell of the
+  // ring at that distance — easy's chicken, seated as it always was.
   //
   // Seated by the SHARED spawn rule (WorldGen.isSpawnCell over the tile's own
-  // roadMask), nearest valid cell first, in the HOME_GREETER_* ring. The
-  // fallback pass drops only the residential-frontage clause — never the road
-  // mask: "always" does not license standing an animal on the carriageway, and
-  // a greeter with nowhere legal to stand simply isn't seated.
+  // roadMask), nearest legal cell to each seat's ideal point. The fallback pass
+  // drops only the residential-frontage clause — never the road mask: "always"
+  // does not license standing an animal on the carriageway, and a seat with
+  // nowhere legal to stand within HOME_GREETER_SLACK_CELLS simply isn't filled
+  // (a direction that falls off the starter tile's own edge is one such: the
+  // placer writes to that one entry, never a neighbour's).
   //
   // Deliberately NOT routed through the pest amnesty (_pestFreeZone): the mode
   // that seats a slime is the mode with no amnesty, and an amnesty that pushed
@@ -10987,11 +11158,14 @@ class MapScene extends Phaser.Scene {
   // starter tile's build), from _setStarterCratesAt (the anchor freezing after
   // that tile already spawned) and from chooseMode (the card answered after the
   // tile was built with the default-easy chicken) — so a greeter of the WRONG
-  // kind is removed and replaced rather than left standing beside the right one.
-  // Killed or caught, it stays gone: save.caught is checked by id.
+  // kind, or one left over on a seat this mode does not ask for, is removed
+  // rather than left standing beside the right ones.
+  // Killed or caught, it stays gone: save.caught is checked by id, and each
+  // seat carries its own, so dealing with one leaves the rest standing.
   _placeHomeGreeter(entry, tx, ty) {
     if (typeof Difficulty === 'undefined') return;
-    const kind = Difficulty.get().homeGreeter;
+    const prof = Difficulty.get();
+    const kind = prof.homeGreeter;
     // Only a tile that has already rolled its fauna — seating onto a
     // not-yet-spawned entry would hand spawnInTile a non-empty creatures array
     // and its `entry.creatures || creatures` would keep MY one and drop the
@@ -11000,19 +11174,23 @@ class MapScene extends Phaser.Scene {
     const anchor = this.save.starterCratesAt || this._starterTrailAnchor();
     if (!anchor || !Number.isFinite(anchor.x)) return;
     entry.creatures = entry.creatures || [];
-    // One greeter per starter tile: drop any left by an earlier mode. A PET is
-    // never swept — a sapphire-tamed slime is re-minted with a `released_` id
-    // (interact.js `releasedId`) that carries none of this tag, but the guard
-    // is here anyway because sweeping someone's pet is not a bug worth finding
-    // out about in the field.
+    // The seats this mode asks for. A row that names no direction asks for one,
+    // anywhere on the ring — the `null` seat below.
+    const dirs = (Array.isArray(prof.homeGreeterDirs) && prof.homeGreeterDirs.length)
+      ? prof.homeGreeterDirs : [null];
+    // Only the mode's own greeters stand: drop any left by an earlier mode, or
+    // on a seat this mode does not ask for. A PET is never swept — a
+    // sapphire-tamed slime is re-minted with a `released_` id (interact.js
+    // `releasedId`) that carries none of this tag, but the guard is here anyway
+    // because sweeping someone's pet is not a bug worth finding out about in
+    // the field.
     const tag = `_greeter_${tx}_${ty}`;
-    const id = `${kind || ''}${tag}`;
+    const idFor = (dir) => `${kind || ''}${dir ? '_' + dir : ''}${tag}`;
+    const wanted = new Set(dirs.map(idFor));
     const stale = entry.creatures.filter(c => typeof c.id === 'string'
-      && c.id.endsWith(tag) && c.id !== id && !c.id.startsWith('released_'));
+      && c.id.endsWith(tag) && !wanted.has(c.id) && !c.id.startsWith('released_'));
     if (stale.length) entry.creatures = entry.creatures.filter(c => !stale.includes(c));
     if (!kind) return;                                   // a mode with no greeter
-    if (entry.creatures.some(c => c.id === id)) return;   // already standing
-    if (this.save.caught?.includes(id)) return;           // dealt with, stays gone
 
     const N = entry.cellsPerEdge;
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
@@ -11031,27 +11209,48 @@ class MapScene extends Phaser.Scene {
       cx >= 0 && cx < N && cy >= 0 && cy < N &&
       !occupied.has(cx + ',' + cy) &&
       !Combat.faunaBlocksCell(entry.grid[cy * N + cx]);
-    // Nearest cell in the ring that `accept`s, scanned in a fixed order so the
-    // same anchor always seats it in the same place.
-    const pick = (accept) => {
+    // The mode's own distance, never nearer than the placer's floor.
+    const dist = Math.max(HOME_GREETER_MIN_CELLS, prof.homeGreeterCells || 0);
+    // Nearest cell to (ix, iy) that `accept`s, within `slack` of it and still
+    // inside the placer's own ring from the trailer. Scanned in a fixed order,
+    // so the same anchor always seats the same cells — a placer that wandered
+    // would move its greeters every time the tile rebuilt under the player.
+    const pick = (ix, iy, slack, accept) => {
       let best = null, bestD = Infinity;
-      for (let cy = ay - HOME_GREETER_MAX_CELLS; cy <= ay + HOME_GREETER_MAX_CELLS; cy++) {
-        for (let cx = ax - HOME_GREETER_MAX_CELLS; cx <= ax + HOME_GREETER_MAX_CELLS; cx++) {
-          const d = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));
-          if (d < HOME_GREETER_MIN_CELLS || d >= bestD) continue;
+      for (let cy = iy - slack; cy <= iy + slack; cy++) {
+        for (let cx = ix - slack; cx <= ix + slack; cx++) {
+          const d = Math.max(Math.abs(cx - ix), Math.abs(cy - iy));           // off the ideal
+          const dh = Math.max(Math.abs(cx - ax), Math.abs(cy - ay));          // out from home
+          if (d >= bestD) continue;
+          if (dh < HOME_GREETER_MIN_CELLS || dh > HOME_GREETER_MAX_CELLS) continue;
           if (!standable(cx, cy) || !accept(cx, cy)) continue;
           best = { cx, cy }; bestD = d;
         }
       }
       return best;
     };
-    const seat = pick((cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts))
-              || pick((cx, cy) => !onRoad(cx, cy));
-    if (!seat) return;
-    entry.creatures.push(WorldGen.makeCreature(kind,
-      tx0 + (seat.cx + 0.5) * this.cellM,
-      ty0 + (seat.cy + 0.5) * this.cellM,
-      id, { shiny: faunaShiny(kind, id) }));
+    for (const dir of dirs) {
+      const id = idFor(dir);
+      if (entry.creatures.some(c => c.id === id)) continue;  // already standing
+      if (this.save.caught?.includes(id)) continue;          // dealt with, stays gone
+      const vec = dir ? HOME_GREETER_DIR_VEC[dir] : null;
+      if (dir && !vec) continue;                             // a direction nobody drew
+      // A named direction aims at its own point `dist` out and may be nudged
+      // by the slack. The unnamed seat aims at the TRAILER, so its slack has
+      // to carry the ring's radius too: nearest legal cell of the ring, in
+      // whatever direction the ground allows.
+      const ix = ax + (vec ? vec[0] * dist : 0);
+      const iy = ay + (vec ? vec[1] * dist : 0);
+      const slack = vec ? HOME_GREETER_SLACK_CELLS : dist + HOME_GREETER_SLACK_CELLS;
+      const seat = pick(ix, iy, slack, (cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts))
+                || pick(ix, iy, slack, (cx, cy) => !onRoad(cx, cy));
+      if (!seat) continue;
+      occupied.add(seat.cx + ',' + seat.cy);   // no two seats on the one cell
+      entry.creatures.push(WorldGen.makeCreature(kind,
+        tx0 + (seat.cx + 0.5) * this.cellM,
+        ty0 + (seat.cy + 0.5) * this.cellM,
+        id, { shiny: faunaShiny(kind, id) }));
+    }
   }
 
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
@@ -13730,6 +13929,7 @@ class MapScene extends Phaser.Scene {
   // waiting on is the clock, not the player.
   _sweepStreets() {
     if (typeof Streets === 'undefined') return;
+    this._openTrailIntroIfDue();
     const surface = (this.depth ?? 0) === 0;
     // Cave levels carry no streets at all, so don't pay for the scan down
     // there — and the auto-walk home banks nothing.
@@ -13882,12 +14082,15 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── THE STREET LAMPS ─────────────────────────────────────────────────────
-  // One glowing cobble every Streets.lampSpacingM() metres of RESTORED street.
+  // One gilded lamp every Streets.lampSpacingM() metres of RESTORED street.
   // Three passes, in the order the frame needs them:
   //
   //   _streetLampsForTile  where every lamp in one tile stands (geometry)
   //   _updateStreetLamps   which of them are lit and near enough to matter
-  //   _drawStreetLamps     the stones, as pooled sprites on the road surface
+  //
+  // …and render.js's sprite pass draws them (RENDER_SPEC._streetlamp, off this
+  // same list), in the shared world layer so each lamp takes its turn in the
+  // screen-row z-order rather than sitting under every sprite on the map.
   //
   // and lighting.js's collectLamps turns the same list into the light each one
   // throws. Nothing here reaches the save: a lamp is generated from the way
@@ -13920,9 +14123,9 @@ class MapScene extends Phaser.Scene {
   // touches the band's edge. The cell size is the TILE's own
   // (tileEdgeM / cellsPerEdge, the basis its geometry is in) rather than the
   // scene's global CELL_M, for the same reason rasterizeTile uses it.
-  // One point comes out of it, and BOTH readers take that point: the stone
-  // that _drawStreetLamps seats and the light Lighting.collectLamps stamps,
-  // so the glow can never be left behind on the tarmac.
+  // One point comes out of it, and BOTH readers take that point: the sprite
+  // the world pass seats and the light Lighting.collectLamps stamps, so the
+  // glow can never be left behind on the tarmac.
   _streetLampsForTile(tx, ty, entry) {
     if (entry._streetLamps) return entry._streetLamps;
     const out = [];
@@ -13944,7 +14147,7 @@ class MapScene extends Phaser.Scene {
     // The stone's radius in metres, in this tile's own basis — the second
     // half of every verge offset below.
     const cellM = (entry.cellsPerEdge > 0) ? tileEdgeM / entry.cellsPerEdge : (this.cellM || 0);
-    const stoneRM = STREET_LAMP_R_CELLS * cellM;
+    const footRM = STREET_LAMP_R_CELLS * cellM;
     for (const layer of entry.layers) {
       if (layer.name !== 'transportation') continue;
       const extent = layer.extent || 4096;
@@ -13958,7 +14161,7 @@ class MapScene extends Phaser.Scene {
         // half-width plus the stone. Per FEATURE — the width is a function of
         // the way's class, so it is the same for every line and every lamp
         // this feature carries.
-        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), stoneRM);
+        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), footRM);
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
@@ -13981,11 +14184,11 @@ class MapScene extends Phaser.Scene {
     return out;
   }
 
-  // The lamps near the frame, on this._streetLamps, each flagged `lit` —
-  // read by _drawStreetLamps for the stones (a lit one as the baked lamp, a
-  // dark one as the old grey cobble) and by Lighting.collectLamps for the
-  // lights (lit ones only), so the two can never disagree about which lamps
-  // are on: ONE list, one flag, both readers.
+  // The lamps near the frame, on this._streetLamps, each flagged `lit` — read
+  // by render.js's sprite pass for the art (a lit one as the baked lamp, a dark
+  // one as the old grey cobble) and by Lighting.collectLamps for the lights
+  // (lit ones only), so the two can never disagree about which lamps are on:
+  // ONE list, one flag, both readers.
   //
   // Measured from the CAMERA ANCHOR, not the feet: this asks "what do I DRAW",
   // and a peek drag has to bring the lamps at the peeked edge with it (the
@@ -14053,43 +14256,6 @@ class MapScene extends Phaser.Scene {
     this._streetLampKey = pending ? null : key;
   }
 
-  // The stones themselves: one pooled sprite per lamp, seated through
-  // worldMetersToScreen (the camera-anchored projection — a peek carries them
-  // with the ground) into the ground-decoration container, which sits on the
-  // road band and under the lightmap. A LIT lamp is the baked violet stone
-  // (STREET_LAMP_TEX, halo and all, STREET_LAMP_PX across); a DARK one is the
-  // old road cobble (STREET_LAMP_DARK_TEX at its tier's frame), at the old
-  // stones' size and alpha. The light over each lit one is stamped by
-  // Lighting.collectLamps from the same list.
-  _drawStreetLamps() {
-    const pool = this.streetLampPool;
-    if (!pool || !this.cobbleContainer || typeof Render === 'undefined') return;
-    const hasLit = this.textures.exists(STREET_LAMP_TEX);
-    const hasDark = this.textures.exists(STREET_LAMP_DARK_TEX);
-    // No art at all (no canvas at boot AND the sheet failed to load) — the
-    // lamps still LIGHT, they just have no stone. Better than growing the
-    // pool with untextured sprites.
-    if (!hasLit && !hasDark) return;
-    const list = this._streetLamps || [];
-    const isPath = (tier) => typeof WorldGen !== 'undefined' && WorldGen.T && tier === WorldGen.T.PATH;
-    Render.renderPool(this, pool, this.cobbleContainer, list, (s, L) => {
-      // A lamp whose texture is missing keeps its slot but shows nothing.
-      if (L.lit ? !hasLit : !hasDark) { s.setVisible(false); return; }
-      const p = this.worldMetersToScreen(L.x, L.y);
-      s.setPosition(p.x, p.y);
-      if (L.lit) {
-        if (!s.texture || s.texture.key !== STREET_LAMP_TEX) s.setTexture(STREET_LAMP_TEX);
-        s.setDisplaySize(STREET_LAMP_PX, STREET_LAMP_PX).setAlpha(1);
-      } else {
-        const frame = streetLampDarkFrame(L.tier);
-        if (!s.texture || s.texture.key !== STREET_LAMP_DARK_TEX) s.setTexture(STREET_LAMP_DARK_TEX, frame);
-        else s.setFrame(frame);
-        const px = CELL_PX * (isPath(L.tier) ? STREET_LAMP_DARK_CELLS.path : STREET_LAMP_DARK_CELLS.road);
-        s.setDisplaySize(px, px).setAlpha(STREET_LAMP_DARK_ALPHA);
-      }
-    });
-  }
-
   // THE RIPEN PASS. Everything that has been in sight for the whole dwell is
   // rebuilt, and the whole step is banked ONCE: one blast, one counter, one
   // prize check, one save write however many stretches came back.
@@ -14120,10 +14286,15 @@ class MapScene extends Phaser.Scene {
             spread: this._streetSpreadPts(meta, seg[0], seg[1], GATHER_SPREAD_POINTS),
           };
         }
-        // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS.
-        const pts = Streets.runPtsWorld(meta, seg[0], seg[1]);
-        if (pts) {
-          (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
+        // THE SHINE: a white run down the stretch, fading over STREET_SHINE_MS
+        // — and its alpha IS its switch (see STREET_SHINE_ALPHA), so at 0
+        // the run is never recorded rather than kept for a pass that would
+        // throw it away.
+        if (STREET_SHINE_ALPHA > 0) {
+          const pts = Streets.runPtsWorld(meta, seg[0], seg[1]);
+          if (pts) {
+            (this._streetShine || (this._streetShine = [])).push({ pts, tags: meta.tags, t0: now });
+          }
         }
       }
       // What is left of this line's watched metres is what has NOT come back
@@ -14140,8 +14311,9 @@ class MapScene extends Phaser.Scene {
       // impact one, and not just a repair of one point on the street. ONE per
       // sweep — the whole step is one moment, however many separate pieces of
       // street it brought back. durationMs ties the light to the street's own
-      // (longer) shine clock rather than Lighting.BLAST_MS's generic default,
-      // so the flash and the shine still end together.
+      // (longer) shine clock rather than Lighting.BLAST_MS's generic default:
+      // a street repair's moment is the slower one, whether or not the run
+      // that clock was named for is drawn (STREET_SHINE_ALPHA).
       this._blastAt(at.x, at.y, {
         radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',
         gather: 'stonegather', gatherPts: best.spread, durationMs: STREET_SHINE_MS,
@@ -14189,15 +14361,18 @@ class MapScene extends Phaser.Scene {
         ...(at ? this._worldToastAt(at.x, at.y, STREET_COUNTER_LIFT_PX) : {}),
       });
     }
-    // THE FIRST REPAIR. The very first metres this save ever banks open the
-    // one dialog that says what a road is for (TRAIL_INTRO_TITLE). Flagged on
-    // the SAVE, so it is once per player and not once per reload;
+    // THE FIRST REPAIR. The very first metres this save ever banks ARM the one
+    // dialog that says what a road is for (TRAIL_INTRO_TITLE) — it opens
+    // TRAIL_INTRO_DELAY_MS later, once the repair it is about has played.
+    // Flagged on the SAVE, so it is once per player and not once per reload;
     // savemigrate.js marks veterans greeted so nobody who has already walked a
-    // ladder gets introduced to it. The flag is only set when the dialog
-    // actually opened — a sweep that lands behind the how-to card leaves it
-    // false and the next one that banks metres tries again, seconds later.
-    const greeting = !st.greeted && this._showTrailIntro();
-    if (greeting) st.greeted = true;
+    // ladder gets introduced to it. The flag is set where the dialog actually
+    // OPENS (_sweepStreets), never here — a greeting that lands behind the
+    // how-to card is refused, and the next sweep that banks metres arms it
+    // again. `greeting` is therefore "a greeting is owed", which is what holds
+    // a prize ceremony back: whatever this sweep queues waits for the dialog
+    // rather than opening in front of it.
+    const greeting = !st.greeted && this._armTrailIntro(now);
     if (out.owed <= 0) return;
     // A wide reach can sweep past more than one goal in a single step, so this
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
@@ -14208,14 +14383,48 @@ class MapScene extends Phaser.Scene {
     if (!greeting) this._drainTrailPrizes();
   }
 
-  // The one-time "you start repairing roads" dialog. Opened from the sweep
-  // that banks a save's first metres. Returns whether it actually opened —
+  // ARM the first-repair dialog, and say whether a greeting is owed. A walker
+  // banks metres on nearly every frame, so this is asked many times over the
+  // wait and must set the deadline exactly once — an arm per sweep would push
+  // the dialog out ahead of a player who keeps walking, which is every player.
+  //
+  // A DEADLINE, not a timer: it is read by _sweepStreets, which runs every
+  // frame whatever the player is doing, so the wait can't fire into a scene
+  // that has moved on — and it is the shape this file already waits with
+  // (_restHoldUntil, _streetCounterAt, the lightmap's own clock).
+  _armTrailIntro(now) {
+    if (!this._trailIntroAt) this._trailIntroAt = now + TRAIL_INTRO_DELAY_MS;
+    return true;
+  }
+
+  // …and the other half: open it once the beat has passed. Read from the top
+  // of _sweepStreets — before that pass's own surface and reach gates, because
+  // a greeting armed by a repair the player then walked away from (into a
+  // cave, onto an empty bar) is still owed.
+  //
+  // The SCREEN is asked here, at the moment it opens, never when it was armed:
+  // two seconds is long enough for a card to have opened in front of it. A
+  // refusal drops the deadline and leaves `greeted` false, so the next sweep
+  // that banks metres arms it again — and the prizes it was holding back are
+  // let go, exactly as they are on a sweep that never armed one.
+  _openTrailIntroIfDue() {
+    if (!this._trailIntroAt || Date.now() < this._trailIntroAt) return;
+    this._trailIntroAt = 0;
+    if (!this._showTrailIntro()) { this._drainTrailPrizes(); return; }
+    const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
+    st.greeted = true;
+    persistSave(this.save);
+  }
+
+  // The one-time "you start repairing roads" dialog. Opened by the wait above,
+  // a beat after the sweep that banks a save's first metres. Returns whether
+  // it actually opened —
   // the caller only spends the save's one greeting on a dialog the player saw.
   //
   // NEVER ON TOP OF ANOTHER. The first sweep can land seconds into a brand new
-  // session, which is exactly when the how-to card is up — so this waits for a
-  // clear screen (body.modal-open, the same live signal _installModalPadGate
-  // keeps for the pads) and the next sweep that banks metres asks again.
+  // session, which is exactly when the how-to card is up — so this refuses a
+  // busy screen (body.modal-open, the same live signal _installModalPadGate
+  // keeps for the pads) and the next sweep that banks metres arms it again.
   //
   // A prize on this same sweep would need GOAL_STEP_M of street inside one
   // reach, which no reach is wide enough for — but if it ever happened the
@@ -14246,11 +14455,18 @@ class MapScene extends Phaser.Scene {
   //                rather than a delay. Its alpha is the dwell's own
   //                progress: how long this line has been in sight. OFF while
   //                STREET_PREVIEW_ALPHA is 0 (see it) — the dwell still runs,
-  //                it just isn't drawn, so the shine below is the first thing
-  //                the player sees of a stretch coming back.
+  //                it just isn't drawn, so the blast's flash is the first
+  //                thing the player sees of a stretch coming back.
   //   the SHINE    a pale run down a stretch the instant it comes back, from
   //                STREET_SHINE_ALPHA to nothing over STREET_SHINE_MS beside
-  //                the blast's flash.
+  //                the blast's flash. OFF while STREET_SHINE_ALPHA is 0 (see
+  //                it) — the stretch still comes back on the same beat, and
+  //                the blast's flash, chips, sparks and gather are the whole
+  //                of what says so.
+  //
+  // With both switched off this pass has nothing left to draw, and that is
+  // deliberate: it still runs, and still CLEARS the Graphics, which is what
+  // keeps either switch a one-number edit instead of a re-wiring.
   //
   // Called every frame from drawRoadGeometry, AFTER RoadOverlay.draw has moved
   // the container by this frame's sub-cell scroll — drawLive subtracts that
@@ -14275,7 +14491,7 @@ class MapScene extends Phaser.Scene {
         for (const pts of meta.pts) runs.push({ pts, tags: meta.tags, alpha, colour: STREET_PREVIEW_COLOR });
       }
     }
-    const shine = this._streetShine;
+    const shine = STREET_SHINE_ALPHA > 0 ? this._streetShine : null;
     if (shine && shine.length) {
       // Compacted in place, never a splice per rejection: this walks the list
       // every frame and the list is at most a few sweeps deep.

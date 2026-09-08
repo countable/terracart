@@ -1,5 +1,5 @@
-// home_greeter.test.js — the ONE creature guaranteed beside the starting
-// trailer: a chicken on easy, a slime on hard.
+// home_greeter.test.js — the creatures guaranteed around the starting
+// trailer: a chicken in the yard on easy, a slime on each side on hard.
 //
 // What this suite is defending:
 //
@@ -8,10 +8,11 @@
 //     living thing a player sees was luck. It is the mode's statement of what
 //     kind of game this is, and it has to be there.
 //
-//  2. AND IT MEANS THE MODE'S OWN. A save reads as EASY until the how-to card
-//     is answered, so a starter tile built before the answer stands a chicken
-//     in a hard-mode yard. The placer swaps it rather than seating a second
-//     one beside it.
+//  2. AND IT MEANS THE MODE'S OWN — its kind, its distance, its directions,
+//     all off the one difficulty row. A save reads as EASY until the how-to
+//     card is answered, so a starter tile built before the answer stands a
+//     chicken in a hard-mode yard. The placer swaps it rather than seating the
+//     slimes beside it.
 //
 //  3. IT STILL OBEYS THE ROAD RULE. "Guaranteed" is not a licence to stand an
 //     animal on the carriageway. Both passes consult entry.roadMask — the
@@ -65,8 +66,10 @@
   };
   const hgPlace = (scene, entry, mode = 'easy') =>
     hgMode(mode, () => { placeHomeGreeter.call(scene, entry, 0, 0); return entry.creatures; });
-  // The greeter among a tile's creatures — the one whose id carries the tag.
+  // The greeters among a tile's creatures — the ones whose ids carry the tag.
   const hgOf = (entry) => entry.creatures.filter(c => /_greeter_0_0$/.test(c.id));
+  // How many seats a mode asks for, and which way each lies.
+  const hgDirs = (mode) => Difficulty.PROFILES[mode].homeGreeterDirs || [null];
   const hgCell = (c) => ({
     cx: Math.floor(c.x / CELL_M),
     cy: Math.floor(c.y / CELL_M),
@@ -78,32 +81,98 @@
 
   // ── The guarantee ─────────────────────────────────────────────────────────
 
-  test('home greeter: easy seats a chicken, hard seats a slime', () => {
+  test('home greeter: easy seats a chicken, hard seats a slime on each side', () => {
     for (const [mode, kind] of [['easy', 'chicken'], ['hard', 'slime']]) {
       const entry = hgEntry();
       hgPlace(hgScene(), entry, mode);
       const got = hgOf(entry);
-      assert.eq(got.length, 1, `${mode}: exactly one greeter`);
-      assert.eq(got[0].kind, kind, `${mode} greets you with a ${kind}`);
+      assert.eq(got.length, hgDirs(mode).length, `${mode}: one greeter per declared seat`);
+      for (const c of got) assert.eq(c.kind, kind, `${mode} greets you with a ${kind}`);
       // And it is the table that said so — not a literal in the placer.
       assert.eq(Difficulty.PROFILES[mode].homeGreeter, kind,
         `${mode}'s greeter is declared in the difficulty table`);
     }
+    assert.eq(hgDirs('easy').length, 1, 'easy is one chicken, not a cordon of them');
+    assert.eq(hgDirs('hard').join(','), 'n,e,s,w',
+      'hard leaves no free direction to stroll off in');
   });
 
-  test('home greeter: it lands in the ring — off your feet, inside the view', () => {
-    // The floor keeps a hard-mode slime from leeching before the first frame
-    // draws; the ceiling keeps it inside the 11-cell viewport, so it is on
-    // screen when the map paints.
+  test('home greeter: it lands in the ring — off your feet, inside the bubble', () => {
+    // The floor keeps a greeter from standing on the player; the ceiling is
+    // the creature sim bubble, past which a creature is frozen at its seat —
+    // a statue on the horizon is not a greeting.
     for (const mode of ['easy', 'hard']) {
       const entry = hgEntry();
       hgPlace(hgScene(), entry, mode);
-      const d = hgDist(hgOf(entry)[0]);
-      assert.gte(d, HOME_GREETER_MIN_CELLS, `${mode}: never underfoot`);
-      assert.lte(d, HOME_GREETER_MAX_CELLS, `${mode}: never off screen`);
+      for (const c of hgOf(entry)) {
+        const d = hgDist(c);
+        assert.gte(d, HOME_GREETER_MIN_CELLS, `${mode}: never underfoot`);
+        assert.lte(d, HOME_GREETER_MAX_CELLS, `${mode}: never past the sim bubble`);
+      }
     }
-    assert.lt(HOME_GREETER_MAX_CELLS, VIEW_CELLS / 2 + 1,
-      'the ring stays inside the drawn viewport');
+    assert.eq(HOME_GREETER_MAX_CELLS, CREATURE_SIM_CELLS,
+      'the ceiling IS the sim bubble — derived, not retyped');
+    // Easy's chicken is the one that has to be on screen when the map paints:
+    // it is the welcome. Hard's slimes are deliberately further out than that.
+    assert.lt(Difficulty.PROFILES.easy.homeGreeterCells, VIEW_CELLS / 2,
+      'the chicken is in shot from the first frame');
+    assert.gt(Difficulty.PROFILES.hard.homeGreeterCells, VIEW_CELLS / 2,
+      'the slimes are heard of before they are seen');
+  });
+
+  test('home greeter: how far out they stand is the MODE\'s number', () => {
+    // A slime leeches on contact and hard doubles the bite, so they are seated
+    // far further out than easy's chicken — the opening seconds are a sighting,
+    // not a bite. The distance is declared beside the kind, in the difficulty
+    // row, and on open ground the placer seats exactly there.
+    for (const mode of ['easy', 'hard']) {
+      const want = Difficulty.PROFILES[mode].homeGreeterCells;
+      assert.gte(want, HOME_GREETER_MIN_CELLS, `${mode}: never under the placer's floor`);
+      assert.lte(want + HOME_GREETER_SLACK_CELLS, HOME_GREETER_MAX_CELLS,
+        `${mode}: the slack still fits inside the ring`);
+      const entry = hgEntry();
+      hgPlace(hgScene(), entry, mode);
+      for (const c of hgOf(entry)) {
+        assert.eq(hgDist(c), want, `${mode} seats it at its declared distance`);
+      }
+    }
+    assert.gt(Difficulty.PROFILES.hard.homeGreeterCells,
+      Difficulty.PROFILES.easy.homeGreeterCells,
+      'the hard-mode slimes stand further off than the easy chicken');
+  });
+
+  test('home greeter: one on each side — the seats are the row\'s compass points', () => {
+    // Whichever way the player walks off the hard-mode doorstep, there is one.
+    const entry = hgEntry();
+    hgPlace(hgScene(), entry, 'hard');
+    const want = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+    const d = Difficulty.PROFILES.hard.homeGreeterCells;
+    for (const dir of hgDirs('hard')) {
+      const got = hgOf(entry).filter(c => c.id === `slime_${dir}_greeter_0_0`);
+      assert.eq(got.length, 1, `exactly one slime to the ${dir}`);
+      // Open ground: it sits on its ideal point, so the id names where it is.
+      assert.eq(JSON.stringify(hgCell(got[0])),
+        JSON.stringify({ cx: ANCHOR + want[dir][0] * d, cy: ANCHOR + want[dir][1] * d }),
+        `the ${dir} slime lies to the ${dir}`);
+    }
+  });
+
+  test('home greeter: a seat with no legal ground is left empty, not moved', () => {
+    // The slack is a nudge around a road band or a pond, not a licence to
+    // wander into another direction's arc — a whole side of the ring blocked
+    // means that side has none, and the other three are unaffected.
+    const entry = hgEntry();
+    const d = Difficulty.PROFILES.hard.homeGreeterCells;
+    const mask = new Uint8Array(N * N);           // the north seat's whole reach
+    for (let cy = 0; cy <= ANCHOR - d + HOME_GREETER_SLACK_CELLS; cy++) {
+      for (let cx = 0; cx < N; cx++) mask[cy * N + cx] = 1;
+    }
+    entry.roadMask = mask;
+    hgPlace(hgScene(), entry, 'hard');
+    const ids = hgOf(entry).map(c => c.id).sort();
+    assert.eq(ids.join(' '),
+      ['slime_e_greeter_0_0', 'slime_s_greeter_0_0', 'slime_w_greeter_0_0'].join(' '),
+      'the north seat stays empty; the other three stand');
   });
 
   test('home greeter: the same anchor always seats it in the same cell', () => {
@@ -118,11 +187,14 @@
 
   test('home greeter: a chicken can be shiny, a slime never is', () => {
     // Straight through faunaShiny — the one place the slime exception lives,
-    // shared with the tile's own fauna roll.
+    // shared with the tile's own fauna roll. Each seat has its own id, so each
+    // rolls for itself and every one of them must come back plain.
     const entry = hgEntry();
     hgPlace(hgScene(), entry, 'hard');
     const slime = hgOf(entry)[0];
-    assert.eq(slime.shiny, false, 'a shiny slime would promise a payout it has none of');
+    for (const c of hgOf(entry)) {
+      assert.eq(c.shiny, false, 'a shiny slime would promise a payout it has none of');
+    }
     assert.eq(faunaShiny('slime', slime.id), false, 'and the helper is what says so');
     assert.eq(faunaShiny('chicken', 'chicken_greeter_0_0'),
       isShiny('chicken_greeter_0_0', SHINY_RATE.animal), 'a chicken rolls like any animal');
@@ -133,11 +205,13 @@
   test('home greeter: running the placer again seats no second one', () => {
     // It runs from three sites — spawnInTile, _setStarterCratesAt and
     // chooseMode — and any of them can fire after another already has.
-    const entry = hgEntry();
-    hgPlace(hgScene(), entry);
-    hgPlace(hgScene(), entry);
-    hgPlace(hgScene(), entry);
-    assert.eq(hgOf(entry).length, 1, 'still exactly one');
+    for (const mode of ['easy', 'hard']) {
+      const entry = hgEntry();
+      hgPlace(hgScene(), entry, mode);
+      hgPlace(hgScene(), entry, mode);
+      hgPlace(hgScene(), entry, mode);
+      assert.eq(hgOf(entry).length, hgDirs(mode).length, `${mode}: still one per seat`);
+    }
   });
 
   test('home greeter: answering the card swaps the wrong mode\'s greeter', () => {
@@ -149,8 +223,12 @@
     assert.eq(hgOf(entry)[0].kind, 'chicken', 'the default-easy greeter');
     hgPlace(hgScene(), entry, 'hard');
     const got = hgOf(entry);
-    assert.eq(got.length, 1, 'the chicken is removed, not joined');
-    assert.eq(got[0].kind, 'slime', 'and the mode\'s own is standing there');
+    assert.eq(got.length, hgDirs('hard').length, 'the chicken is removed, not joined');
+    for (const c of got) assert.eq(c.kind, 'slime', 'and the mode\'s own are standing there');
+    // And back again: the four slimes go when easy's one chicken returns.
+    hgPlace(hgScene(), entry, 'easy');
+    assert.eq(hgOf(entry).length, 1, 'a seat this mode does not ask for is swept too');
+    assert.eq(hgOf(entry)[0].kind, 'chicken', 'the yard is a yard again');
   });
 
   test('home greeter: dealt with, it stays gone', () => {
@@ -171,13 +249,16 @@
     // fresh hostile slime next to it.
     const scene = hgScene(), entry = hgEntry();
     hgPlace(scene, entry, 'hard');
-    const pet = hgOf(entry)[0];
+    const pet = hgOf(entry).find(c => c.id === 'slime_n_greeter_0_0');
     scene.save.caught = [pet.id];
     pet.id = 'released_slime_1757000000000_424242';   // what tameInPlace mints
     hgPlace(scene, entry, 'hard');
-    assert.eq(entry.creatures.length, 1, 'no second slime beside the pet');
-    assert.eq(entry.creatures[0].id, 'released_slime_1757000000000_424242',
-      'and the pet is still standing there');
+    assert.eq(entry.creatures.filter(c => c.id === 'released_slime_1757000000000_424242').length, 1,
+      'the pet is still standing there');
+    // The seat it was tamed on stays empty; its three siblings are untouched.
+    assert.eq(hgOf(entry).map(c => c.id).sort().join(' '),
+      ['slime_e_greeter_0_0', 'slime_s_greeter_0_0', 'slime_w_greeter_0_0'].join(' '),
+      'no second slime on the pet\'s side, and the rest are left alone');
   });
 
   test('home greeter: it keeps the tile\'s own creatures', () => {
@@ -278,9 +359,18 @@
     const choose = app.slice(app.indexOf('  chooseMode(mode) {'), app.indexOf('  _stripStarterCrates(entry) {'));
     assert.truthy(/this\._starterTileEntry\(\)[\s\S]{0,200}_placeHomeGreeter/.test(choose),
       'chooseMode corrects the greeter the default-easy read seated');
-    // The kind is never spelled in app.js — it comes from the mode table.
-    assert.truthy(/Difficulty\.get\(\)\.homeGreeter/.test(app),
+    // The kind is never spelled in app.js — it comes from the mode table, and
+    // so do how far out they stand and which ways they lie.
+    assert.truthy(/const prof = Difficulty\.get\(\);[\s\S]{0,200}prof\.homeGreeter\b/.test(app),
       'the kind is read from the difficulty table');
+    assert.truthy(/Math\.max\(HOME_GREETER_MIN_CELLS, prof\.homeGreeterCells/.test(app),
+      "the mode's distance is read from the table, clamped by the placer's floor");
+    assert.truthy(/prof\.homeGreeterDirs/.test(app),
+      'and so are the seats it asks for');
+    for (const lit of ["'n'", "'e'", "'s'", "'w'"]) {
+      assert.falsy(new RegExp(`homeGreeterDirs[^\\n]*${lit}`).test(app),
+        `app.js must not hard-code ${lit} as a greeter seat`);
+    }
     for (const lit of ["'chicken'", "'slime'"]) {
       assert.falsy(new RegExp(`homeGreeter[^\\n]*${lit}`).test(app),
         `app.js must not hard-code ${lit} as the greeter`);

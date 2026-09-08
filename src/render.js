@@ -2293,6 +2293,21 @@ Render.drawObjects = function drawObjects(scene) {
     o: { kind: '_fire', x: fr.x, y: fr.y, id: `fire_${fr.x.toFixed(2)}_${fr.y.toFixed(2)}` },
     dx: fr.x - pWorldX, dy: fr.y - pWorldY,
   })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
+  // STREET LAMPS on a restored street — the same treatment, for the same
+  // reason: a lamp STANDS on the ground, so it has to take its turn in the
+  // screen-row z-order below rather than sit in a layer of its own. It drew
+  // from its own pool in cobbleContainer (ground decoration) until Sep 2026,
+  // which put every lamp under every building footprint and every sprite on
+  // the map, whatever row they were in — a lamp behind a house is in front of
+  // the house north of it.
+  // app.js owns the live list (_updateStreetLamps, refreshed in
+  // drawRoadGeometry a moment before this pass) and the same `lit` flag decides
+  // the art here and the light in Lighting.collectLamps.
+  const lampList = (scene._streetLamps || []).map(L => ({
+    o: { kind: '_streetlamp', x: L.x, y: L.y, lit: L.lit, tier: L.tier,
+         id: `lamp_${L.x.toFixed(2)}_${L.y.toFixed(2)}` },
+    dx: L.x - pWorldX, dy: L.y - pWorldY,
+  })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
 
   // Hide objects that are temporarily gone — an opened chest (its pad, label
   // and tier diamond go with it until it refills), a chopped tree, a mined-out
@@ -2324,6 +2339,7 @@ Render.drawObjects = function drawObjects(scene) {
   // '_scarecrow') anchors the pole base on the placement cell.
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
+  for (const L of lampList) filteredObj.push(L);
   filteredObj.sort((a, b) => a.dy - b.dy);
   // ── Screen-row z-order ──────────────────────────────────────────────────
   // Crops, world objects and creatures all live in ONE display layer
@@ -2594,6 +2610,40 @@ Render.drawObjects = function drawObjects(scene) {
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
+    // A STREET LAMP on a restored street. ONE row, two arts, picked by the
+    // same `lit` flag Lighting.collectLamps reads: the baked lamp
+    // (RoadOverlay.paintLamp — a CANVAS texture, so its frame is '__BASE')
+    // standing on its own ground line, or the plain road cobble a lamp wears
+    // before that stretch is rebuilt, lying flat on the point.
+    //
+    // NOT seated: SpriteLayout has no trimmed bounds for a canvas bake (the
+    // audit decodes real PNGs), and it needs none — where the art sits on its
+    // point was decided where the art was MADE, by the ground line
+    // road_overlay.js paints the plinth, the shadow and the pool of glow on
+    // (LAMP_GROUND_FRAC → STREET_LAMP_ORIGIN_Y). Same discipline as the seat
+    // pass, one step earlier.
+    //
+    // Sized through `after` rather than `scale`: both arts are sized in CELLS
+    // (the baked square in LAMP_DRAW_CELLS, the cobble in
+    // STREET_LAMP_DARK_CELLS), and setDisplaySize says that without this row
+    // having to know either texture's pixel size.
+    _streetlamp: {
+      key: (o) => (o.lit ? STREET_LAMP_TEX : STREET_LAMP_DARK_TEX),
+      frame: (o) => (o.lit ? '__BASE' : streetLampDarkFrame(o.tier)),
+      origin: (o) => (o.lit ? [0.5, STREET_LAMP_ORIGIN_Y] : [0.5, 0.5]),
+      // The post's own nudge (see STREET_LAMP_DY_PX): the ART sits three
+      // pixels lower than its point, the point itself is untouched. Live
+      // rather than decorative because this row is NOT seated — a seated spec
+      // has its dxPx/dyPx overwritten by the seat pass.
+      dyPx: (o) => (o.lit ? STREET_LAMP_DY_PX : 0),
+      scale: 1,
+      after: (s, o) => {
+        const px = CELL_PX * (o.lit
+          ? ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4)
+          : streetLampDarkCells(o.tier));
+        s.setDisplaySize(px, px).setAlpha(o.lit ? 1 : STREET_LAMP_DARK_ALPHA);
+      },
+    },
     // Cave torch — 16×32 like the campfire, same scale, same flicker cadence
     // (the 4 frames differ only in the flame, so seat off frame 0 and the
     // stake never bobs). Its light is Lighting.KINDS.torch — offered to the

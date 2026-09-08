@@ -238,6 +238,17 @@
   //             this one's.
   //   airborne  it flies: its contact shadow reads smaller and fainter.
   // A row with neither `anim` nor `frameMs` is drawn at rest, on frame 0.
+  //
+  // Two of those beats are shared, so they are named rather than typed per row:
+  // CREATURE_FRAME_MS is what every stepped kind runs at unless it says
+  // otherwise, and SLIME_FRAME_MS is HALF that rate — the slime sheet's ooze
+  // reads as a slow swell rather than a flutter, which it needs more now that
+  // the surface slime covers ground faster (app.js SLIME_HOP_CELLS). It is
+  // derived from the common beat, not a second number, and BOTH rows on the
+  // slime sheet read it: the cave slime is the surface slime's art, so if the
+  // two ever animate at different rates it is the same blob moving two ways.
+  const CREATURE_FRAME_MS = 160;
+  const SLIME_FRAME_MS = CREATURE_FRAME_MS * 2;
   const CREATURE_ART = {
     chicken:       { sheet: 'chicken',   anim: 'chicken-idle', fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
     cow:           { sheet: 'cow',       anim: 'cow-idle',     fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
@@ -246,20 +257,20 @@
     deer:          { sheet: 'deer',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
     rabbit:        { sheet: 'rabbit',    fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
     crow:          { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
-    // The butterfly's 7 frames are the sheet's whole top row; it is the one
-    // kind the renderer steps at anything but the 160 ms creature beat.
+    // The butterfly's 7 frames are the sheet's whole top row, stepped faster
+    // than the common creature beat — a flutter, not a plod.
     butterfly:     { sheet: 'butterfly', frames: 7, frameMs: 100, airborne: true, fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
-    slime:         { sheet: 'slime',     frames: 4, frameMs: 160, hop: true, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
+    slime:         { sheet: 'slime',     frames: 4, frameMs: SLIME_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
     // Underground monsters. The cave slime is the SURFACE SLIME'S SHEET — same
     // file, same frames, same trimmed rows — so everything the art decides has
     // to match the row above it, and the one thing that may differ is the
     // tint. It carried `foot: 0.9` (the blanket fallback from before this
     // table existed) until Sep 2026, which hung it ~10px above its own contact
     // shadow: one body cannot have two ground lines.
-    cave_slime:    { sheet: 'slime',     frames: 4, frameMs: 160, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: CAVE_SLIME_TINT },
-    purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: 160, hop: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
-    goblin:        { sheet: 'goblin',        frames: 6, frameMs: 160, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
-    goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: 160, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
+    cave_slime:    { sheet: 'slime',     frames: 4, frameMs: SLIME_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: CAVE_SLIME_TINT },
+    purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
+    goblin:        { sheet: 'goblin',        frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
+    goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
   };
   // ── GIANTS ────────────────────────────────────────────────────────────────
   // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four

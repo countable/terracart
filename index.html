@@ -1134,7 +1134,6 @@
   <div id="safety" class="game-modal">
     <div class="box">
       <h2 style="margin:0 0 12px;font:700 18px ui-monospace,monospace;color:var(--gold);">Welcome to Pocket Acres</h2>
-      <p style="margin:0 0 12px;font:700 15px ui-monospace,monospace;color:var(--green);">Rebuild your neighbourhood.</p>
       <p><strong style="color:#ff8c3b;">Warning:</strong> Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
       <!-- Player name — shown over your farmer to other players (multiplayer.js).
            Only rendered while the save has no name; the CTA stays disabled
@@ -2094,6 +2093,9 @@
           // progress in the brand-new slot, so "New game" started you off with
           // everything you already had.
           if (typeof disableSave === 'function') disableSave();
+          // A new game is a game from nothing: it opens on the story and the
+          // how-to, exactly as the first game a device ever played does.
+          replayOpening();
           location.reload();
         });
       }
@@ -2180,6 +2182,20 @@
       // Last boot overlay on an already-booted page — release a queued how-to.
       window.__flushPendingHowTo?.();
     });
+    // A FRESH GAME REPLAYS THE OPENING. These two keys are what say the
+    // opening has been seen — `introSeen` for the story slides below,
+    // `howtoSeen` for the how-to card — and they are per-DEVICE storage
+    // answering a per-GAME question, so every path that starts a game from
+    // nothing has to clear them. "Reset THIS game" always did; "+ New game"
+    // did NOT, so the second game a player ever started opened straight on
+    // the location CTA: no trailer, no wrecked neighbourhood, no how-to. ONE
+    // writer of both keys, called immediately before the reload that boots
+    // the new game, so the next such path can't half-remember it.
+    function replayOpening() {
+      try { localStorage.removeItem('terracart.introSeen'); } catch {}
+      try { localStorage.removeItem('terracart.howtoSeen'); } catch {}
+    }
+
     // Two-slide opening story shown once after the safety splash. Slide 1
     // is the player's trailer ("You wake up…"), slide 2 is the wrecked
     // neighbourhood ("…time to rebuild!"). Pure DOM overlay — the game runs
@@ -2405,9 +2421,9 @@
       //    localStorage AFTER we wipe it — silently restoring the old save.
       if (typeof resetCurrentSave === 'function') resetCurrentSave();
       else if (typeof disableSave === 'function') disableSave();
-      // 1) Global runtime state: replay the intro + how-to on the fresh game.
-      try { localStorage.removeItem('terracart.introSeen'); } catch {}
-      try { localStorage.removeItem('terracart.howtoSeen'); } catch {}
+      // 1) Global runtime state: replay the intro + how-to on the fresh game,
+      //    through the same one writer "+ New game" uses.
+      replayOpening();
       // 2) Map-tile caches. Two layers persist tiles across loads:
       //    a) Cache API tile bucket(s) populated by the service worker, and
       //    b) the worldgen IndexedDB ('mapgame-tiles') of raw tile bytes.
@@ -2510,12 +2526,12 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=19697332"></script>
-  <script src="src/difficulty.js?v=0ae46533"></script>
-  <script src="src/util.js?v=7ee0a3b0"></script>
+  <script src="src/difficulty.js?v=d403aa46"></script>
+  <script src="src/util.js?v=c650c589"></script>
   <script src="src/particles.js?v=0d05cb17"></script>
   <script src="src/trail.js?v=d361a1f2"></script>
-  <script src="src/streets.js?v=a3c1c95d"></script>
-  <script src="src/sprite_layout.js?v=a2fdd14f"></script>
+  <script src="src/streets.js?v=e60e49cb"></script>
+  <script src="src/sprite_layout.js?v=10e78156"></script>
   <script src="src/placed_floor.js?v=67e7fb11"></script>
   <script src="src/home.js?v=b050b87d"></script>
   <script src="src/coords.js?v=12b26a93"></script>
@@ -2541,12 +2557,12 @@
   <script src="src/interactables.js?v=66616fbd"></script>
   <script src="src/combat.js?v=eb2fd0fe"></script>
   <script src="src/interact.js?v=42750943"></script>
-  <script src="src/lighting.js?v=9581e1cd"></script>
-  <script src="src/render.js?v=55666e7a"></script>
+  <script src="src/lighting.js?v=32cf2b72"></script>
+  <script src="src/render.js?v=5887c7bb"></script>
   <script src="src/multiplayer.js?v=915d6298"></script>
-  <script src="src/road_overlay.js?v=9172170a"></script>
+  <script src="src/road_overlay.js?v=cfa5b5fc"></script>
   <script src="src/building_overlay.js?v=a9a9fc59"></script>
-  <script src="src/assets.js?v=71730d4b"></script>
+  <script src="src/assets.js?v=e859cc15"></script>
   <script src="src/sandbox.js?v=4d7c88ea"></script>
   <script src="src/testtools.js?v=6790527d"></script>
   <script src="src/geo.js?v=0a205c42"></script>
@@ -2606,7 +2622,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=574618db';
+      const APP_SRC = 'src/app.js?v=2c964cab';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

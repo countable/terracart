@@ -19,9 +19,15 @@ const app = APP_JS_SRC;
 const forTileSrc = app.slice(app.indexOf('  _streetLampsForTile(tx, ty, entry) {'),
                               app.indexOf('  // The lamps near the frame'));
 const updateSrc = app.slice(app.indexOf('  _updateStreetLamps() {'),
-                             app.indexOf('  // The stones themselves:'));
-const drawSrc = app.slice(app.indexOf('  _drawStreetLamps() {'),
-                           app.indexOf('  // THE RIPEN PASS.'));
+                             app.indexOf('  // THE RIPEN PASS.'));
+// …and the DRAW is render.js's: a lamp goes through the shared world sprite
+// pass like every other standing thing, so what is pinned here is the list it
+// builds off scene._streetLamps and the RENDER_SPEC row that draws it.
+const render = RENDER_SRC;
+const lampListSrc = render.slice(render.indexOf('  const lampList ='),
+                                 render.indexOf('  // Hide objects that are temporarily gone'));
+const lampSpecSrc = render.slice(render.indexOf('    _streetlamp: {'),
+                                 render.indexOf('    // Cave torch —'));
 
 test('street lamps: the lit list is built from the CAMERA ANCHOR, never from the feet', () => {
   // The camera rule (CLAUDE.md): a world-DRAWN thing measures from the
@@ -96,12 +102,29 @@ test('street lamps: surface only — a cave has no streets to light', () => {
   assert.truthy(/this\._streetLamps = null;/.test(updateSrc), 'and clears the list rather than leaving a stale one lit');
 });
 
-test('street lamps: the stones are seated through worldMetersToScreen, never viewCenterX/Y, into cobbleContainer', () => {
-  assert.truthy(/const p = this\.worldMetersToScreen\(L\.x, L\.y\);/.test(drawSrc),
-    'the camera-anchored projection — a peek carries the stones with the ground');
-  assert.falsy(/viewCenterX|viewCenterY/.test(drawSrc), 'never drawn at the viewport centre');
-  assert.truthy(/Render\.renderPool\(this, pool, this\.cobbleContainer, list,/.test(drawSrc),
-    'pooled sprites go into cobbleContainer — the road-surface layer, under the lightmap');
+test('street lamps: a lamp is a STANDING sprite — it sorts by screen row with everything else', () => {
+  // THE PAINTER RULE (CLAUDE.md): the lower object renders in front, and the
+  // one place that implements it is drawObjects' screen-row z-order pass over
+  // the shared world layer. A lamp had a pool of its own in cobbleContainer
+  // (ground decoration, below the building footprints and below every sprite)
+  // until Sep 2026, so it hid under any footprint or sprite on the map
+  // whatever row it stood in — which is exactly what a layer of its own buys
+  // you. It joins the pass the way the placed campfires and scarecrows do:
+  // an item on filteredObj, which the z-order pass ranks by cell row.
+  assert.truthy(/const lampList = \(scene\._streetLamps \|\| \[\]\)\.map\(L => \(\{/.test(lampListSrc),
+    'the list comes off the one app.js keeps (scene._streetLamps)');
+  assert.truthy(/kind: '_streetlamp'/.test(lampListSrc), 'as items of its own RENDER_SPEC kind');
+  assert.truthy(/dx: L\.x - pWorldX, dy: L\.y - pWorldY/.test(lampListSrc),
+    'measured from the CAMERA ANCHOR the whole pass projects from — a peek carries the lamps with the ground');
+  assert.truthy(/for \(const L of lampList\) filteredObj\.push\(L\);/.test(render),
+    'and pushed onto filteredObj, which is what the z-order pass ranks');
+  // The z-order pass itself: rank by CELL ROW first, so a lamp in a lower row
+  // draws over a house in a higher one and under one in a lower.
+  assert.truthy(/zList\.sort\(\(a, b\) => \(_cellRow\(a\.it\.dy\) - _cellRow\(b\.it\.dy\)\)/.test(render),
+    'the one screen-row sort, ranking every item on that list');
+  // …and app.js no longer draws lamps itself.
+  assert.falsy(/_drawStreetLamps/.test(app), 'the lamp has no draw pass of its own any more');
+  assert.falsy(/streetLampPool/.test(app), 'nor a pool of its own in the ground-decoration layer');
 });
 
 test('street lamps: an UNLIT lamp draws as the OLD ROAD COBBLE sprite, a lit one as the baked lamp', () => {
@@ -121,14 +144,15 @@ test('street lamps: an UNLIT lamp draws as the OLD ROAD COBBLE sprite, a lit one
   assert.eq(m.slice(1).map(Number).join(','), '0,5,1,3', 'the frames the per-cell stones drew');
   // A 5x4 sheet of 16px frames: every frame the table names is on it.
   for (const f of m.slice(1).map(Number)) assert.truthy(f >= 0 && f < 20, `frame ${f} is on the 80x64 sheet`);
-  // The draw pass branches on the one `lit` flag: the baked lamp at its halo
-  // size for a lit one, the cobble frame at the old stones' size and alpha
-  // for a dark one — never the violet stone for both.
-  assert.truthy(/if \(L\.lit\) \{/.test(drawSrc), 'the draw branches on L.lit');
-  assert.truthy(/s\.setTexture\(STREET_LAMP_TEX\)/.test(drawSrc), 'a lit lamp is the baked stone');
-  assert.truthy(/s\.setTexture\(STREET_LAMP_DARK_TEX, frame\)/.test(drawSrc), 'a dark lamp is the cobble sheet at its tier frame');
-  assert.truthy(/const frame = streetLampDarkFrame\(L\.tier\);/.test(drawSrc), 'the frame comes from the lamp\'s own tier');
-  assert.truthy(/setAlpha\(STREET_LAMP_DARK_ALPHA\)/.test(drawSrc), 'at the old stones\' alpha');
+  // ONE RENDER_SPEC row, two arts, picked by the one `lit` flag: the baked
+  // lamp for a lit one, the cobble sheet at its tier's frame, size and alpha
+  // for a dark one — never one art for both.
+  assert.truthy(/key: \(o\) => \(o\.lit \? STREET_LAMP_TEX : STREET_LAMP_DARK_TEX\)/.test(lampSpecSrc),
+    'the texture branches on o.lit');
+  assert.truthy(/frame: \(o\) => \(o\.lit \? '__BASE' : streetLampDarkFrame\(o\.tier\)\)/.test(lampSpecSrc),
+    'a dark lamp takes the frame its own tier drew, the baked canvas its only frame');
+  assert.truthy(/streetLampDarkCells\(o\.tier\)/.test(lampSpecSrc), 'and that tier\'s own size');
+  assert.truthy(/setAlpha\(o\.lit \? 1 : STREET_LAMP_DARK_ALPHA\)/.test(lampSpecSrc), 'at the old stones\' alpha');
   assert.truthy(/const STREET_LAMP_DARK_ALPHA = 0\.57;/.test(app), 'the 57% the per-cell cobbles drew at');
   assert.truthy(/const STREET_LAMP_DARK_CELLS = \{ road: 0\.64, path: 0\.584 \};/.test(app), 'and their sizes: a road cluster at 0.64 of a cell, a path pebble at 0.584');
   // The tier is the terrain classifier's own answer, not a second class list.
@@ -155,13 +179,20 @@ test('street lamps: the light collector reads the same list and skips the dark o
   assert.truthy(/if \(!L\.lit\) continue;/.test(LIGHTING_SRC), 'collectLamps skips a dark lamp');
 });
 
-test('street lamps: drawRoadGeometry runs the three passes in the order the frame needs them', () => {
+test('street lamps: which lamps are lit is settled before the pass that draws them', () => {
   const body = app.slice(app.indexOf('  drawRoadGeometry() {'), app.indexOf('  drawBuildingGeometry() {'));
   const iLive = body.indexOf('this._drawStreetLive();');
   const iUpdate = body.indexOf('this._updateStreetLamps();');
-  const iDraw = body.indexOf('this._drawStreetLamps();');
-  assert.truthy(iLive > 0 && iUpdate > iLive && iDraw > iUpdate,
-    'RoadOverlay.draw, then the live preview, then which lamps are lit, then the stones themselves');
+  assert.truthy(iLive > 0 && iUpdate > iLive,
+    'RoadOverlay.draw, then the live preview, then which lamps are lit');
+  // …and the frame runs drawRoadGeometry BEFORE drawObjects, which is where
+  // both readers of that list are: the sprite pass that draws each lamp and
+  // Lighting.collectLamps that lights it. A list refreshed after them would
+  // draw a frame late on the sweep that lights a stretch.
+  const frame = app.slice(app.indexOf('    this.drawCells();'), app.indexOf('  drawCells() {'));
+  const iRoad = frame.indexOf('this.drawRoadGeometry();');
+  const iObjects = frame.indexOf('this.drawObjects();');
+  assert.truthy(iRoad > 0 && iObjects > iRoad, 'the road pass runs before the sprite pass');
 });
 
 test('street lamps: STREET_LAMP_PX is derived from RoadOverlay.LAMP_DRAW_CELLS x CELL_PX, not a hand-typed pixel count', () => {
@@ -180,10 +211,36 @@ test('street lamps: STREET_LAMP_PX is derived from RoadOverlay.LAMP_DRAW_CELLS x
   assert.eq(Number(m[1]), RoadOverlay.LAMP_DRAW_CELLS, 'the load-order fallback matches RoadOverlay.LAMP_DRAW_CELLS');
 });
 
-test('street lamps: the texture is baked once with RoadOverlay.paintLampStone, keyed off the module\'s own LAMP_TEX_PX', () => {
-  assert.truthy(/RoadOverlay\.paintLampStone\(lctx, S\)/.test(app), 'the real painter draws the baked texture');
+test('street lamps: the texture is baked once with RoadOverlay.paintLamp, keyed off the module\'s own LAMP_TEX_PX', () => {
+  assert.truthy(/RoadOverlay\.paintLamp\(lctx, S\)/.test(app), 'the real painter draws the baked texture');
   assert.truthy(/const S = RoadOverlay\.LAMP_TEX_PX;/.test(app), 'sized off road_overlay.js\'s own texture constant');
   assert.truthy(/!this\.textures\.exists\(STREET_LAMP_TEX\)/.test(app), 'baked once, not re-painted every boot');
+});
+
+test('street lamps: the lamp STANDS on its point — the sprite\'s origin is the art\'s own ground line', () => {
+  // road_overlay.js composes the baked square with the plinth, the shadow and
+  // the pool of glow on LAMP_GROUND_FRAC (road_overlay.test.js pins that end),
+  // which is BELOW the middle because a lamp is mostly post. Seating the
+  // sprite by that fraction rather than by its centre is what puts the foot on
+  // the lamp's world point — and so puts lighting.js's cookie, which lands on
+  // that same point, in a pool at the lamp's foot instead of up in its glass.
+  assert.truthy(/const STREET_LAMP_ORIGIN_Y =\s*\n?\s*\(typeof RoadOverlay !== 'undefined' && RoadOverlay\.LAMP_GROUND_FRAC\) \|\| ([\d.]+);/.test(app),
+    'the origin comes from the module that paints the art, with a literal fallback only for load order');
+  assert.eq(Number(app.match(/RoadOverlay\.LAMP_GROUND_FRAC\) \|\| ([\d.]+);/)[1]), RoadOverlay.LAMP_GROUND_FRAC,
+    'and the load-order fallback agrees with it');
+  assert.truthy(/origin: \(o\) => \(o\.lit \? \[0\.5, STREET_LAMP_ORIGIN_Y\] : \[0\.5, 0\.5\]\)/.test(lampSpecSrc),
+    'a LIT lamp is seated on its ground line, and the dark cobble — which LIES on the point — stays centred');
+  // The post is drawn three pixels below its point — art only: the verge
+  // offset above and the light on the same point are unmoved. It counts
+  // BECAUSE the row is not seated (a seated spec has its dyPx overwritten by
+  // the seat pass, which is how three tuned offsets that moved nothing came to
+  // ship), so the two pins belong together.
+  assert.truthy(/dyPx: \(o\) => \(o\.lit \? STREET_LAMP_DY_PX : 0\)/.test(lampSpecSrc),
+    'the lit post takes the nudge, the cobble lying on the point does not');
+  assert.truthy(/const STREET_LAMP_DY_PX = 3;/.test(app), 'three screen pixels, by eye');
+  assert.falsy(/seat: true/.test(lampSpecSrc),
+    'and it is NOT run through the seat pass: SpriteLayout has no trimmed bounds for a canvas bake, '
+    + 'and the ground line the art was painted at is the same answer one step earlier');
 });
 
 test('street lamps: nothing here reaches the save — generated, never stored, like the traps', () => {
@@ -292,19 +349,19 @@ test('street lamps: a lamp stands ON THE VERGE — its stone just touching the b
   // roadMask from — plus the stone's radius, so the art kisses the kerb.
   const lamps = P._streetLampsForTile.call({}, TX, TY, readyEntry());
   const halfBandM = WorldGen.roadOverlayWidthM({ class: 'residential' }) / 2;
-  const stoneRM = STREET_LAMP_R_CELLS * CELL_M_T;
+  const footRM = STREET_LAMP_R_CELLS * CELL_M_T;
   for (const L of lamps) {
     // The way runs due east down y = 178, so the whole offset is in y.
     const off = Math.abs((L.y - TY * TILE_EDGE_M) - 178);
-    assert.inRange(off, halfBandM + stoneRM - 1e-6, halfBandM + stoneRM + 1e-6,
-      'half the carriageway plus the stone — off the road, touching it');
-    assert.truthy(off - stoneRM >= halfBandM - 1e-6, 'no part of the stone overlaps the band');
-    assert.truthy(off - stoneRM <= halfBandM + 1e-6, 'and it is not floating out in the grass');
+    assert.inRange(off, halfBandM + footRM - 1e-6, halfBandM + footRM + 1e-6,
+      'half the carriageway plus the lamp\'s footprint — off the road, touching it');
+    assert.truthy(off - footRM >= halfBandM - 1e-6, 'no part of the lamp overlaps the band');
+    assert.truthy(off - footRM <= halfBandM + 1e-6, 'and it is not floating out in the grass');
   }
   // …and the offset is the WAY's own, not one number for every road: a
   // motorway's band is far wider, so its lamps stand further out.
-  const wide = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'motorway' }), stoneRM);
-  const narrow = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'footway' }), stoneRM);
+  const wide = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'motorway' }), footRM);
+  const narrow = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'footway' }), footRM);
   assert.truthy(wide > narrow, 'a motorway seats its lamps further off the centreline than a footway');
 });
 
@@ -313,16 +370,16 @@ test('street lamps: the verge offset is derived from the art the draw pass uses'
   // the baked one inside its halo square and the dark cobble it draws before
   // it lights — so NEITHER art overlaps the band, whichever is showing.
   assert.truthy(/const STREET_LAMP_R_CELLS = Math\.max\(/.test(app), 'the widest of the arts, not a typed gap');
-  assert.truthy(/RoadOverlay\.LAMP_STONE_R_CELLS/.test(app), 'the baked stone\'s own radius, from the module that paints it');
+  assert.truthy(/RoadOverlay\.LAMP_FOOT_R_CELLS/.test(app), 'the baked lamp\'s own plinth, from the module that paints it');
   assert.truthy(/STREET_LAMP_DARK_CELLS\.road \/ 2/.test(app), 'and the dark cobble\'s, halved to a radius');
-  assert.eq(RoadOverlay.LAMP_STONE_R_CELLS, RoadOverlay.LAMP_DRAW_CELLS * 0.16,
-    'road_overlay derives it from the square it bakes the stone in');
-  assert.truthy(STREET_LAMP_R_CELLS >= RoadOverlay.LAMP_STONE_R_CELLS, 'the lit stone fits inside it');
+  assert.eq(RoadOverlay.LAMP_FOOT_R_CELLS, RoadOverlay.LAMP_DRAW_CELLS * 0.085,
+    'road_overlay derives it from the square it bakes the lamp in');
+  assert.truthy(STREET_LAMP_R_CELLS >= RoadOverlay.LAMP_FOOT_R_CELLS, 'the lit lamp\'s foot fits inside it');
   assert.truthy(STREET_LAMP_R_CELLS >= STREET_LAMP_DARK_CELLS.road / 2, 'and so does the dark cobble');
   // The placement pass asks streets.js for the offset and hands it to the one
   // point resolver — never a second projection of its own.
-  assert.truthy(/Streets\.lampOffsetM\(WorldGen\.roadOverlayWidthM\(f\.tags \|\| \{\}\), stoneRM\)/.test(forTileSrc),
-    'the offset is half the way\'s roadOverlayWidthM plus the stone');
+  assert.truthy(/Streets\.lampOffsetM\(WorldGen\.roadOverlayWidthM\(f\.tags \|\| \{\}\), footRM\)/.test(forTileSrc),
+    'the offset is half the way\'s roadOverlayWidthM plus the lamp\'s footprint');
   assert.truthy(/Streets\.pointAtM\(line, mvtToM, sM, offM\)/.test(forTileSrc),
     'and the point comes out of the same resolver the centreline does');
 });

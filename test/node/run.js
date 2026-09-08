@@ -334,6 +334,7 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
                    '_setStreetPreview(meta, iv) {', '_streetSpreadPts(meta, s0, s1, k) {',
                    '_ripenStreets(now, sight) {',
                    '_bankStreetMetres(addedM, at, now) {', '_showTrailIntro() {',
+                   '_armTrailIntro(now) {', '_openTrailIntroIfDue() {',
                    '_drawStreetLive(now) {',
                    '_blastAt(wmx, wmy, opts) {']
     .map(lift).join(',\n');
@@ -375,6 +376,8 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
     // The one-time first-repair dialog's copy — carried as source so the test
     // reads the shipping sentence and the rung it quotes off Trail.
     `globalThis.TRAIL_INTRO_TITLE = ${constOf('TRAIL_INTRO_TITLE')};\n` +
+    // …and the beat it waits out before opening over the repair it explains.
+    `globalThis.TRAIL_INTRO_DELAY_MS = ${constOf('TRAIL_INTRO_DELAY_MS')};\n` +
     declOf('trailIntroBody') + '\n' +
     declOf('trailNextPrizeLine') + '\n' +
     // The energy pop's seating: derived from the walker's art, in the order
@@ -390,6 +393,7 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
                    '_cellAtScreen', 'playerScreen',
                    '_sweepStreets', '_resetStreetSight', '_rescanStreets',
                    '_setStreetPreview', '_ripenStreets', '_bankStreetMetres', '_showTrailIntro',
+                   '_armTrailIntro', '_openTrailIntroIfDue',
                    '_drawStreetLive', '_blastAt']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
@@ -832,7 +836,12 @@ Object.assign(ctx, {
 {
   const src = readSrc('app.js');
   let decls = '';
-  for (const name of ['CREATURE_SIM_CELLS', 'PEST_CROW_SPAWN_CELLS', 'VIEW_CELLS']) {
+  for (const name of ['CREATURE_SIM_CELLS', 'PEST_CROW_SPAWN_CELLS', 'VIEW_CELLS',
+                      // The rout's pace, and the slowest gait it has to move:
+                      // home_ward.test.js measures how long the ring takes to
+                      // clear in seconds a player would recognise.
+                      'FLEE_STRIDE_MUL', 'FLEE_BEAT_MUL',
+                      'SLIME_HOP_CELLS', 'SLIME_STEP_MUL']) {
     const m = src.match(new RegExp(`const ${name} = ([^;]+);`));
     if (!m) {
       console.error(`Could not find ${name} in src/app.js — update run.js`);
@@ -969,17 +978,18 @@ Object.assign(ctx, {
     process.exit(2);
   }
   const body = src.slice(bodyStart, end);
+  // The ring constants, in declaration order — one of them is DERIVED from the
+  // sim bubble and one is a table, so take each declaration's right-hand side
+  // as written rather than assuming a bare integer.
   let decls = '';
-  for (const name of ['HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS']) {
-    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+  for (const name of ['CREATURE_SIM_CELLS', 'HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS',
+                      'HOME_GREETER_SLACK_CELLS', 'HOME_GREETER_DIR_VEC']) {
+    const m = src.match(new RegExp(`^const ${name} = ([^\\n]+);$`, 'm'));
     if (!m) { console.error(`Could not find ${name} in src/app.js — update run.js`); process.exit(2); }
-    decls += `const ${name} = ${m[1]};\n`;
-    ctx[name] = parseInt(m[1], 10);
+    decls += `const ${name} = ${m[1]};\nglobalThis.${name} = ${name};\n`;
   }
   vm.runInContext(
     decls
-    + 'globalThis.HOME_GREETER_MIN_CELLS = HOME_GREETER_MIN_CELLS;\n'
-    + 'globalThis.HOME_GREETER_MAX_CELLS = HOME_GREETER_MAX_CELLS;\n'
     + `globalThis.placeHomeGreeter = function (entry, tx, ty) {\n${body}\n};`,
     ctx, { filename: 'placeHomeGreeter.js' });
 }
@@ -1131,7 +1141,7 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
   const a = appSrc.indexOf('  _streetLampsForTile(tx, ty, entry) {');
   const b = appSrc.indexOf('  // The lamps near the frame');
   const c = appSrc.indexOf('  _updateStreetLamps() {');
-  const d = appSrc.indexOf('  // The stones themselves:');
+  const d = appSrc.indexOf('  // THE RIPEN PASS.');
   if (a < 0 || b < 0 || c < 0 || d < 0 || b < a || d < c) {
     console.error('Could not lift the street-lamp passes from src/app.js — update run.js');
     process.exit(2);
@@ -1208,6 +1218,9 @@ ctx.APP_JS_SRC = readSrc('app.js');
     num('CREATURE_SIM_CELLS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'),
     num('SLIME_HOP_CELLS'), num('SLIME_STEP_MUL'), num('STALK_JITTER'),
     num('PEST_CROW_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
+    // What a creature in a hurry costs — the struck-prey flee and Home's rout
+    // both run at this pair.
+    num('FLEE_STRIDE_MUL'), num('FLEE_BEAT_MUL'),
     'const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;',
     // The predicates. (faunaBlocksCell is Combat's, already loaded.)
     fn('function slimeCharging(c) {'),

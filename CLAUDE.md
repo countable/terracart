@@ -171,7 +171,20 @@
 - **The painter rule: the LOWER object (centre of mass) renders in front.**
   World sprites already obey it via the screen-row z-order in
   `src/render.js` › drawObjects (a sprite in a lower screen row always draws
-  over one in a higher row). It governs hand-drawn geometry too — the castle
+  over one in a higher row) — ONE pass, over one shared layer
+  (`worldContainer`, which `objectsContainer` / `plantedContainer` alias):
+  crops, objects and creatures are ranked together by `_cellRow(dy)`, then by
+  kind, then by `dy`, the index is stamped as each sprite's depth and the
+  container is sorted by it. **So a thing that STANDS on the ground belongs in
+  that pass, and a layer of its own is a promise that nothing will ever pass
+  in front of it.** The street lamp is the case that proves it: it drew from a
+  pool of its own in `cobbleContainer` (ground decoration, under the building
+  footprints and under every sprite) until Sep 2026, so a lamp hid under any
+  footprint or tree on the map whatever row it stood in. It joins the pass the
+  way the placed campfires and scarecrows already did — a `_kind` row in
+  `RENDER_SPEC` and an item pushed onto `filteredObj`. **When you add
+  something that stands up, give it a RENDER_SPEC row; only things that LIE on
+  the ground (traps, pads, the road band, the pier plank) get a layer.** It governs hand-drawn geometry too — the castle
   rampart pieces sort by it (a south wall over the side bands, a north wall
   over the feet of side bands descending from the row above; see the tier-12
   pass in drawCells). When adding anything that overlaps vertically, derive
@@ -194,8 +207,10 @@
   no rect to adjust.
 
 - **The "one cell" sprite-position rule.** For every world sprite EXCEPT
-  buildings (house / tower / shrine / produce stands / pot-of-gold) and moving
-  actors (creatures):
+  buildings (house / tower / shrine / produce stands / pot-of-gold), moving
+  actors (creatures) and the street lamp (a canvas bake, so there are no
+  trimmed PNG bounds to seat from — where it sits on its point was decided
+  where the art was made, `RoadOverlay.LAMP_GROUND_FRAC`):
     1. The sprite's **visible art** (its opaque, trimmed bounds — NOT the frame
        box, which often has transparent padding) must **never cross the cell's
        bottom edge** (never overlap the cell below).
@@ -444,7 +459,26 @@
   damage, so a foe can never be chasing a player it cannot hurt. **When you add
   a hostile behaviour that takes an interest in the player, gate it on
   `unnoticed`, not on `shadowed`.**
-  **Audit it:** `node test/node/run.js` › `test/node/downed_pursuit.test.js`.
+  **And a body does not STEP, either.** `_tickTraps` stands down on the same
+  collapse: springing a snare spends it for good (`save.sprungTraps` is written
+  the instant it fires) on a player it can charge nothing for, and on hard the
+  long walk home would clear every trap it crossed for free. That gate reads
+  `Combat.playerDowned` DIRECTLY, never `unnoticed` — a Shadow Powder hides you
+  from whatever takes an interest in you, and iron jaws take none. So the two
+  halves of `unnoticed` are not interchangeable outside `wanderCreatures`: ask
+  whether the new rule is about being *noticed* or about being *upright*.
+  **The picture says it too.** A body upright on screen while the reach is 0
+  and nothing will bite it is the picture lying, so at zero energy the sprite
+  lies down — `playerBodyRotation()` turns it a quarter turn onto its front
+  (`PLAYER_DOWNED_ROTATION`) and `playerBodyDy()` drops its centre onto the fix,
+  so the midsection ends where the feet were. `playerBodyDy()` is the ONE answer
+  to "where is the body's centre?", so everything hung on it — the sprite, the
+  warning halo, the powder countdowns, the facing arrow — goes down with it;
+  reading `playerFeetNudgeY` directly leaves a mark a body-length in the air
+  over the collapsed sprite (see the feet-anchor rule).
+  **Audit it:** `node test/node/run.js` › `test/node/downed_pursuit.test.js`
+  (the wards, the fade and the pose) and `test/node/traps.test.js` (the tick's
+  stand-down).
 
 - **A tile build stutters on its WORST BLOCK, not its total.** The rasterizer
   is a generator (`rasterizeTileSteps`); the slicer can only hand the frame
@@ -612,8 +646,12 @@
   much above `viewCenter`, and `feetOffsetM` is 0. Ground marks — the contact
   shadow, footprint dots, the GPS crosshair, the walk target, a peer's shadow
   in `multiplayer.js` — sit on the point itself; anything that wants the
-  body's centre (the facing arrow, the dragon timer, the swing arc, the halo)
-  adds `playerFeetNudgeY` to it. **Until Sep 2026 the sprite was CENTRED on
+  body's centre (the facing arrow, the powder countdowns, the swing arc, the
+  halo) adds **`playerBodyDy()`** to it, which is `playerFeetNudgeY` while the
+  player is on their feet and 0 once they have collapsed (the pose in the
+  NOTHING HUNTS A BODY rule — a body lying down has its midsection where its
+  feet were). Add the raw nudge and the mark stays a body-length in the air
+  over a downed sprite. **Until Sep 2026 the sprite was CENTRED on
   the fix** and the feet hung 14px (3 m) south of it, with every ground mark
   carrying its own +13/+14 to follow them down — so standing on a road's
   centreline put the band through the character's waist and the whole map
@@ -1095,8 +1133,8 @@
 
 - **A restored street LIGHTS ITS OWN WAY — and the lamp spacing is the
   STREET's number, not the ladder's.** (The pebbles of the old cobble trails
-  are gone; this is what came back in their place.) One glowing cobble every
-  `Streets.lampSpacingM()` metres of rebuilt
+  are gone; this is what came back in their place.) One ornate gilded lamp
+  every `Streets.lampSpacingM()` metres of rebuilt
   carriageway — its OWN constant, `Streets.LAMP_SPACING_M` (100 m),
   deliberately NOT `Trail.GOAL_STEP_M` (200 m) any more. It shipped tied to
   the ladder's rung under the `roadOverlayWidthM` discipline, so a walk that
@@ -1121,29 +1159,49 @@
   nearby lamp on ONE list flagged `lit`, and both readers ask that flag: the
   draw pass picks the baked lamp or the grey cobble, `Lighting.collectLamps`
   skips the dark ones. A second list for the dark stones is the bug.
-  **A lamp stands on the VERGE, its stone just touching the band** — never on
+  **A lamp stands on the VERGE, its plinth just touching the band** — never on
   the centreline, which is where every one of them stood until Sep 2026.
-  `Streets.lampsAlong` says how far ALONG the way a stone is and
+  `Streets.lampsAlong` says how far ALONG the way a lamp is and
   `Streets.lampOffsetM` how far OFF it, and both go into the one resolver
   (`Streets.pointAtM(line, mvtToM, s, offM)`), so a verge follows the way's
   own bends. The offset is DERIVED, the `roadOverlayWidthM` discipline again:
   half of `WorldGen.roadOverlayWidthM` — the very width the band is stroked
-  with and `roadMask` stamped from — plus the stone's own radius
+  with and `roadMask` stamped from — plus the art's own footprint radius
   (`STREET_LAMP_R_CELLS`, itself the widest of the two arts a lamp can wear,
-  off `RoadOverlay.LAMP_STONE_R_CELLS` and `STREET_LAMP_DARK_CELLS`). So a
+  off `RoadOverlay.LAMP_FOOT_R_CELLS` — the PLINTH's half-width, and pinned to
+  be the widest thing on the lamp — and `STREET_LAMP_DARK_CELLS`). So a
   motorway seats its lamps further out than a footpath by construction, a
   widened band takes its lamps out with it, and resized art keeps kissing the
   kerb. **Never seat a lamp with a flat offset**, and never give the light a
   point of its own: ONE point comes out of `_streetLampsForTile` and both the
-  stone and `Lighting.collectLamps` read it, so the glow can't be left behind
+  lamp and `Lighting.collectLamps` read it, so the glow can't be left behind
   on the tarmac.
   It is TWO halves on ONE point, because the lightmap MULTIPLIES: baked art
-  (`RoadOverlay.paintLampStone`, drawn under the lightmap — a light alone does
-  not exist at noon) and the `Lighting.KINDS.cobble` row over it, both in
-  `UI_LAMP_GLOW` — the old activated-cobble violet, brought back for the lamp
-  specifically rather than the street's own `UI_STREET_INK` (the chips, the
-  sparks, the counter): the carriageway restores in pale warm stone, but a
-  lamp reads as ACTIVATED, the way a claimed cobble always did. The list
+  (`RoadOverlay.paintLamp`, drawn under the lightmap — a light alone does
+  not exist at noon) and the `Lighting.KINDS.cobble` row over it. The art goes
+  through the SHARED world sprite pass (`RENDER_SPEC._streetlamp`, off the same
+  `_updateStreetLamps` list the light collector reads), never a layer of its
+  own — see the painter rule above. What the lamp
+  SHEDS — its glass, the bloom round it, the pool at its foot and the cookie
+  over all three — is `UI_LAMP_GLOW`, the old activated-cobble violet, brought
+  back for the lamp specifically rather than the street's own `UI_STREET_INK`
+  (the chips, the sparks, the counter): the carriageway restores in pale warm
+  stone, but a lamp reads as ACTIVATED, the way a claimed cobble always did.
+  What it is MADE of is the other constant, `UI_LAMP_GOLD` — gilded ironwork,
+  a MATERIAL in the sense `UI_STREET_INK` is one and deliberately not the
+  `UI_GOLD` family, which is the player-control role. Metal is not light: a
+  lamp that lit the street correctly and looked like a lit STONE doing it is
+  what the gild replaced in Sep 2026.
+  **AND IT STANDS ON THE POINT.** The baked square carries the plinth, the
+  ground shadow and the pool of glow on its own ground line
+  (`RoadOverlay.LAMP_GROUND_FRAC`, below the middle because a lamp is mostly
+  post), and `STREET_LAMP_ORIGIN_Y` seats the sprite by that line rather than
+  by its centre — so the light lighting.js stamps on the point pools at the
+  lamp's FOOT while the lantern reads as up in the air above it. Centring the
+  lantern on the point instead puts the pool a lamp's height off its own foot,
+  which is the one thing that gives a seating away. The dark cobble LIES on the
+  point and keeps its centred origin; the pool swaps between the two arts, so
+  the origin is set per lamp beside the texture. The list
   app.js hands to both (`_updateStreetLamps`) is
   collected from the CAMERA ANCHOR and memoised on the anchor cell +
   `Streets.epoch` — never from the feet, which is the restoring sweep's side of
