@@ -21,11 +21,10 @@ const QUEST_SLOTS = 3;
 // `unit` is what one of a thing is worth, and it is the only place a template
 // says anything about value: restoring a wreck pays many times what tilling a
 // cell does because it costs many times as much.
-const QUEST_RAMP_K = 0.35;
 const QUEST_REWARD_RAMP = 0.15;
 
 // The verbs. `event` is the gameplay event that credits one unit (see
-// scene.questEvent and the onKill / onPoiVisit / onItemAcquired hooks), so
+// scene.questEvent and the onKill / onPoiVisit hooks), so
 // adding a verb here is a template plus a call site, not a new subsystem.
 const QUEST_TEMPLATES = [
   { id: 'kill',    event: 'kill',    base: 1, k: 0.6,  max: 12, unit: 22, weight: 3,
@@ -56,12 +55,30 @@ const QUEST_TEMPLATES = [
 
 // A single enemy at rank 0 — "pest control starts with just a single of each" —
 // and a different foe each time the verb comes up. The surface slime leads
-// because it is the only one you can meet without going underground.
-const QUEST_ENEMIES = ['slime', 'cave_slime', 'purple_slime', 'goblin', 'goblin_archer'];
-const QUEST_ENEMY_NAMES = {
-  slime: 'slime', cave_slime: 'cave slime', purple_slime: 'purple slime',
-  goblin: 'goblin', goblin_archer: 'goblin archer',
-};
+// because it is the only one you can meet without going underground. The list
+// is ordered by how deep you must go to meet the kind, and rank r opens the
+// first r + 1 of them (see generate), so the giants — a level or three below
+// their base kinds — only come up on the board once a player has claimed a
+// handful of jobs. A GIANT IS ITS OWN KIND here: "defeat 2 goblins" is not
+// satisfied by a giant goblin, and a giant-goblin job is not by a goblin —
+// the board asks for exactly the foe it names (resolveDefeat credits
+// victim.kind as-is).
+//
+// DERIVED, never listed. `Combat.enemyKinds()` is the surface slime plus the
+// registered MONSTERS table in its own order — shallowest kind first, each
+// giant right after the kind it is a giant of, which is exactly the ordering
+// described above — and `Combat.enemyName` opens the underscores out for the
+// quest body.
+// Hand-typing them here meant a kind added to MONSTERS was a foe everywhere in
+// the game EXCEPT the one board that pays a bounty for it, and there was
+// nothing to notice the omission.
+//
+// It must be read at USE time, not load time: app.js registers the table at
+// scene boot, long after this file's <script> tag has run (see
+// Combat.enemyKinds' own note). Hence a function, and hence no constant.
+function questEnemies() {
+  return (typeof Combat !== 'undefined' && Combat.enemyKinds) ? Combat.enemyKinds() : ['slime'];
+}
 // POI classes worth sending somebody to look at. Common enough to exist in a
 // real neighbourhood, distinct enough to be a destination.
 const QUEST_POIS = ['well', 'fountain', 'library', 'museum', 'park', 'place_of_worship', 'playground'];
@@ -78,13 +95,22 @@ const QUEST_POIS = ['well', 'fountain', 'library', 'museum', 'park', 'place_of_w
 // sees; only the node vm harness — which reloads each test file in its own
 // separate vm.runInContext call — needs the property on the shared global.
 if (typeof window !== 'undefined') window.QUEST_POIS = QUEST_POIS;
+// QUEST_ENEMIES is exported the same way and for the same reason, but as an
+// ACCESSOR rather than a value: the list is derived from a table that does not
+// exist yet when this line runs (Combat's is registered at scene boot), so a
+// snapshot taken here would be the surface slime alone for the rest of the
+// session. The setter is a no-op because the harness's bridge assigns the
+// property back onto the global; without one that assignment would throw.
+if (typeof window !== 'undefined' && !('QUEST_ENEMIES' in window)) {
+  Object.defineProperty(window, 'QUEST_ENEMIES', { get: questEnemies, set() {}, configurable: true });
+}
 const QUEST_POI_NAMES = {
   well: 'an old well', fountain: 'a fountain', library: 'a library', museum: 'a museum',
   park: 'a park', place_of_worship: 'a chapel', playground: 'a playground',
 };
 
 const _plural = (w, n) => (n === 1 ? w : (w.endsWith('s') ? w + 'es' : w + 's'));
-const _enemyName = (k) => QUEST_ENEMY_NAMES[k] || k;
+const _enemyName = (k) => ((typeof Combat !== 'undefined' && Combat.enemyName) ? Combat.enemyName(k) : k);
 const _a = (k) => QUEST_POI_NAMES[k] || k;
 
 // The opening three, authored rather than rolled. A first impression is worth
@@ -127,9 +153,7 @@ const Quests = {
   // keeps its slot for life and two castles side by side rarely share one.
   slotForCastle(key) {
     if (!key) return 0;
-    let h = 2166136261;
-    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return (h >>> 0) % QUEST_SLOTS;
+    return fnv1a(key) % QUEST_SLOTS;
   },
 
   // THE GENERATOR. Pure and seeded off (salt, slot, gen), so the same board
@@ -151,15 +175,16 @@ const Quests = {
       for (const t of QUEST_TEMPLATES) for (let i = 0; i < t.weight; i++) bag.push(t);
       tpl = bag[Math.floor(rnd() * bag.length)] || QUEST_TEMPLATES[0];
     }
-    const need = Math.max(1, Math.min(tpl.max,
-      Math.ceil(tpl.base * (1 + rank * tpl.k))));
+    const need = clamp(Math.ceil(tpl.base * (1 + rank * tpl.k)), 1, tpl.max);
     const q = {
       id: `q${gen}`, slot, gen, verb: tpl.id, event: tpl.event, need, have: 0,
       reward: Math.round(need * tpl.unit * (1 + rank * QUEST_REWARD_RAMP)),
     };
     if (tpl.id === 'kill') {
+      const kinds = questEnemies();
       q.target = (opener && opener.target)
-        || QUEST_ENEMIES[Math.min(QUEST_ENEMIES.length - 1, Math.floor(rnd() * (1 + Math.min(rank, 4))))];
+        || kinds[Math.min(kinds.length - 1,
+             Math.floor(rnd() * (1 + Math.min(rank, kinds.length - 1))))];
     }
     if (tpl.id === 'poi') q.target = QUEST_POIS[Math.floor(rnd() * QUEST_POIS.length)];
     q.title = tpl.title;
@@ -204,11 +229,10 @@ const Quests = {
     return any;
   },
 
-  // The three hooks the gameplay sites already call, kept so no call site has
+  // The two hooks the gameplay sites already call, kept so no call site has
   // to know the board exists.
   onKill(save, kind) { return this.onEvent(save, 'kill', { target: kind }); },
   onPoiVisit(save, poiClass) { return this.onEvent(save, 'poi', { target: poiClass }); },
-  onItemAcquired() { return false; },   // retired: the item quest is a POI visit now
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -238,25 +262,25 @@ const STARTER_CHAIN = [
   {
     id: 's1_crate', event: 'chest',
     title: 'Gather your supplies',
-    body: 'Supply crates were left along the road nearby. Open one.',
+    body: 'Supply crates line the road nearby. Open one.',
     reward: { money: 5 },
   },
   {
     id: 's2_till', event: 'till',
     title: 'Break ground',
-    body: 'Tap a patch of open grass within reach to till it into soil.',
+    body: 'Tap open grass within reach to till it.',
     reward: { money: 5 },
   },
   {
     id: 's3_plant', event: 'plant',
     title: 'Sow a seed',
-    body: 'Select a seed from your bag, then tap your tilled soil to plant it.',
+    body: 'Pick a seed from your bag, then tap the tilled soil.',
     reward: { money: 5 },
   },
   {
     id: 's4_restore', event: 'restore',
     title: 'Rebuild a neighbour',
-    body: 'Ruined houses can be rebuilt with wood or stone. Tap a wreck to restore it.',
+    body: 'Tap a ruined house to rebuild it with wood or stone.',
     reward: { money: 5 },
   },
   {
@@ -269,14 +293,14 @@ const STARTER_CHAIN = [
     // only advances a WATERED plant, and clears the watering as it does), so a
     // player who took the old line at its word came back to a plant that had
     // not moved and no explanation of why.
-    body: 'Tap the plant to water it. It grows a stage 15 min later, then '
-        + 'wants watering again — four times over to ripe.',
+    body: 'Tap to water. A stage grows 15 min later, then water again — '
+        + 'four times to ripe.',
     reward: { money: 5 },
   },
   {
     id: 's6_sell', event: 'sell',
     title: 'Cash out at Home',
-    body: 'Selling only happens at Home. Carry your haul back and tap your house to sell.',
+    body: 'Only Home buys. Carry your haul back and tap your house.',
     reward: { money: 25 },
   },
 ];
@@ -286,10 +310,8 @@ const STARTER_CHAIN = [
 // accidentally drive the wrong ladder.
 Object.assign(Quests, {
   _ss(save) {
-    if (!save.starter) save.starter = { step: 0, done: {}, dismissed: false };
-    // A save written before the starter chain existed has the mid-game shape
-    // already — treat it as a veteran and keep the chip off its screen.
-    if (!save.starter.done) save.starter.done = {};
+    // (Older saves also carry a write-only `done` map here; nothing reads it.)
+    if (!save.starter) save.starter = { step: 0, dismissed: false };
     return save.starter;
   },
 
@@ -349,7 +371,6 @@ Object.assign(Quests, {
     const step = this.starterCurrent(save);
     if (!step || step.event !== event) return null;
     const ss = this._ss(save);
-    ss.done[step.id] = true;
     ss.step = (ss.step ?? 0) + 1;
     return step;
   },

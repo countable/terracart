@@ -101,14 +101,7 @@ const Geo = (function () {
     }, RELEASE_GRACE_MS);
   }
 
-  return {
-    subscribe,
-    unsubscribe,
-    isWatching: () => watchId != null,
-    subscriberCount: () => subs.size,
-    get lastFix() { return lastFix; },
-    RELEASE_GRACE_MS,
-  };
+  return { subscribe, unsubscribe };
 })();
 
 if (typeof window !== 'undefined') window.Geo = Geo;

@@ -105,10 +105,54 @@
   });
 
   test('quest board: kill jobs name a real enemy', () => {
+    Combat.registerMonsters(MONSTERS);
     for (let g = 0; g < 80; g++) {
       const q = Quests.generate(g % QUEST_SLOTS, g, 9, 8);
       if (q.verb !== 'kill') continue;
-      assert.includes(QUEST_ENEMIES, q.target, `gen ${g} targets a registered enemy`);
+      assert.includes(questEnemies(), q.target, `gen ${g} targets a registered enemy`);
+    }
+  });
+
+  // ── The board's foes are DERIVED, not listed ─────────────────────────────
+  // These nine kinds were hand-typed in quests.js beside the MONSTERS table
+  // that already had eight of them, so a kind added there was hostile
+  // everywhere in the game except the one board that pays a bounty for it.
+  // The list is Combat.enemyKinds() now — the surface slime, then the
+  // registered table in its own order — and this pins that the derivation
+  // still hands back exactly what was typed, in the order it was typed in.
+  test('quest board: the enemy list derives to the same nine, in the same order', () => {
+    Combat.registerMonsters(MONSTERS);
+    const expected = [
+      'slime', 'cave_slime', 'purple_slime', 'goblin', 'goblin_archer',
+      'giant_cave_slime', 'giant_purple_slime', 'giant_goblin', 'giant_goblin_archer',
+    ];
+    assert.eq(questEnemies().join(','), expected.join(','), 'same nine, same order');
+    // …and the same names, which the kill job's body reads through
+    // Combat.enemyName: the id with its underscores opened out.
+    assert.eq(expected.map(Combat.enemyName).join('|'),
+      'slime|cave slime|purple slime|goblin|goblin archer|giant cave slime|'
+      + 'giant purple slime|giant goblin|giant goblin archer', 'display names');
+    // The surface slime leads: the only foe you can meet without going down.
+    assert.eq(questEnemies()[0], 'slime', 'the slime is still first');
+  });
+
+  test('quest board: a kind registered into Combat reaches the board on its own', () => {
+    // The point of the derivation. Nothing in quests.js is edited here — the
+    // kind is registered the way app.js registers its table, and the board
+    // offers it (at a rank high enough to have opened the whole list).
+    try {
+      Combat.registerMonsters({ ...MONSTERS, mud_golem: { name: 'Mud Golem', hp: 30, dmg: 2, minDepth: 4 } });
+      assert.includes(questEnemies(), 'mud_golem', 'the new kind is on the list');
+      assert.eq(questEnemies().length, 10, 'appended, not swapped in');
+      assert.eq(Combat.enemyName('mud_golem'), 'mud golem', 'and it has a readable name');
+      const seen = new Set();
+      for (let g = 0; g < 400; g++) {
+        const q = Quests.generate(g % QUEST_SLOTS, g, 30, 3);
+        if (q.verb === 'kill') seen.add(q.target);
+      }
+      assert.truthy(seen.has('mud_golem'), 'and the generator offers it: ' + [...seen].join(', '));
+    } finally {
+      Combat.registerMonsters(MONSTERS);   // the real table back, for every test after this one
     }
   });
 

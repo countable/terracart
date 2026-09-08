@@ -1,5 +1,5 @@
 // Headless tests for the inventory core (src/inventory.js) — the stack / cap /
-// dedupe / autoselect rules extracted from app.js's MapScene.
+// dedupe rules (and the no-autoselect rule) extracted from app.js's MapScene.
 
 test('stackCap: 9 with no bag, 249 at tier 7, monotonic between', () => {
   assert.eq(Inventory.stackCap({ relics: {} }), 9, 'no bag = 9');
@@ -48,22 +48,26 @@ test('add: folds legacy duplicate stacks into one canonical stack', () => {
   assert.eq(Inventory.count(save, 'wood'), 6, '2 + 3 + 1');
 });
 
-test('add: autoselect points selSlot/invPage at a new stack only when asked', () => {
-  const save = { inv: [{ id: 'wood', count: 1 }], relics: {}, selSlot: 0, invPage: 0 };
-  // Sixth distinct new item lands on page 1 (PAGE size 5).
-  for (const id of ['rockfruit', 'coal', 'apple', 'potato']) Inventory.add(save, id, 1);  // fills slots 1-4
-  Inventory.add(save, 'gold_bar', 1, { autoselect: true });  // slot 5 → page 1
-  assert.eq(save.selSlot, 5, 'selected the new stack');
-  assert.eq(save.invPage, 1, 'paged to it');
-  // Without autoselect, selection is untouched.
-  const before = save.selSlot;
-  Inventory.add(save, 'ruby', 1);   // no autoselect opt
-  assert.eq(save.selSlot, before, 'selection unchanged without autoselect');
+test('add: a new stack never selects itself — empty hands stay empty', () => {
+  const save = { inv: [{ id: 'wood', count: 1 }], relics: {}, selSlot: -1, invPage: 0 };
+  for (const id of ['rockfruit', 'coal', 'apple', 'potato', 'gold_bar']) Inventory.add(save, id, 1);
+  assert.eq(save.selSlot, -1, 'nothing in hand after five new pickups');
+  assert.eq(save.invPage, 0, 'page untouched');
+  // The legacy opt-in must be inert too — the option no longer exists.
+  Inventory.add(save, 'ruby', 1, { autoselect: true });
+  assert.eq(save.selSlot, -1, 'a stale autoselect opt cannot select');
+});
+
+test('add: a new stack never displaces what the player is holding', () => {
+  const save = { inv: [{ id: 'potato_seed', count: 3 }], relics: {}, selSlot: 0, invPage: 0 };
+  Inventory.add(save, 'coal', 1);
+  assert.eq(save.selSlot, 0, 'seeds still in hand after picking up coal');
+  assert.eq(save.inv[save.selSlot].id, 'potato_seed', 'and it is the same stack');
 });
 
 test('add: topping up an existing stack never moves the selection', () => {
   const save = { inv: [{ id: 'wood', count: 1 }, { id: 'coal', count: 1 }], relics: {}, selSlot: 1, invPage: 0 };
-  Inventory.add(save, 'wood', 1, { autoselect: true });   // existing stack → keep selection
+  Inventory.add(save, 'wood', 1);   // existing stack → keep selection
   assert.eq(save.selSlot, 1, 'harvest→replant loop keeps its selection');
 });
 

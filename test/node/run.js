@@ -54,8 +54,23 @@ vm.createContext(ctx);
 
 // ── Load the pure / data modules (index.html order, render/app/etc. omitted) ─
 const FILES = [
+  // The game-mode table — first, because items.js / combat.js / energy.js
+  // read Difficulty.get() at call time and app.js pins it at boot.
+  'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'worldgen.js', 'save.js',
+  'mvt.js', 'util.js', 'particles.js', 'trail.js',
+  // Street restoration's arithmetic: interval lists, the line key, the exact
+  // grid traversal and the dwell sight. Pure — no Phaser, no scene — so it
+  // loads here beside trail.js, whose ladder it feeds.
+  'streets.js',
+  'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
+  // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
+  // loads either side of worldgen.js; index.html puts it first, so do we.
+  'traps.js',
+  // Derelict lairs — the hard-mode garrison in an unclaimed ruin. Pure, and
+  // reads WorldGen at CALL time like traps.js, so it loads beside it.
+  'lairs.js',
+  'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
@@ -75,19 +90,47 @@ const FILES = [
   // load time (see the CANVAS_W comment in drawObjects), so loading it here is
   // safe and gives the pure decision helpers it exports — edgeNeedsBorder —
   // a home in the headless suite.
+  // The lightmap: the light table, the per-frame collector and the derived
+  // levels are pure; only draw() touches Phaser, and no test calls it.
+  'lighting.js',
   'render.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  INTERACTABLES, runInteractable, gatherLuck, gatherLuckEnabled,
-  ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE,
+  INTERACTABLES, runInteractable,
+  // The lit boundary's corner rule (coords.js) — read by the plateau fill,
+  // the one pass that draws that edge; reach_corners.test.js drives it.
+  REACH_CORNER_PX, ReachCorner,
+  isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
+  ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,
+  // Which ground takes a hoe, and the inventory's type tabs — both item-side
+  // tables that used to be regex-lifted out of app.js.
+  NON_TILLABLE, INV_CATS, INV_CAT_BY_KEY,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
+  plantedTreeStage, PLANTED_TREE_GROW_MS, acornDropChance, ACORN_P_BASE, ACORN_P_FROST,
+  // The one building roof-scale rule — house_scale.test.js asserts against the
+  // SHIPPING table rather than its own copies of it.
+  houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
   HomeArea,
-  itemValue, randInt, pickFromArray, isShiny,
+  itemValue, randInt, pickFromArray, isShiny, faunaShiny,
+  TRAILER_SELL_MUL,
+  // The market-stall sign/stock tables — vendor_parity.test.js pins that what
+  // a stall's name promises is what it sells.
+  POI_CATEGORY, CHEST_TIER_BY_CATEGORY, CHEST_TIER_HOME_RINGS_M,
+  CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_TIER_COLOR,
+  chestTierHomeDrop, chestTierDepthBonus, chestTier, chestMirrorsUnderground,
+  CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
+  STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
+  // The other half of the crop table: what a WILD plant does when tapped —
+  // what it drops, which relic times its wheel, what that costs, the bonus it
+  // hides and whether it glows. wildplant_table.test.js drives the accessors,
+  // and interact.js / lighting.js / render.js are the three readers.
+  WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
+  wildplantWorkCost, wildplantTreasure, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
   Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
@@ -100,29 +143,13 @@ try {
   process.exit(2);
 }
 
-// app.js can't load headlessly (it needs Phaser), but its NON_TILLABLE set is
-// the contract interact.js' TERRAIN_FLAVOR has to cover — every non-tillable
-// terrain code reaches the 'flavor' handler and needs a real label instead of
-// a bare '·'. Lift the codes straight out of the source text so the coverage
-// test in interact_tap.test.js can't drift from app.js.
-{
-  const m = readSrc('app.js').match(/const NON_TILLABLE = new Set\(\[([^\]]*)\]\)/);
-  if (!m) {
-    console.error('Could not find NON_TILLABLE in src/app.js — update run.js');
-    process.exit(2);
-  }
-  ctx.NON_TILLABLE_CODES = m[1].split(',')
-    .map((s) => parseInt(s.trim(), 10))
-    .filter((n) => Number.isFinite(n));
-  // interact.js calls the global isTillable (defined in app.js) — stub it from
-  // the same parsed set so handlers that gate on it can be driven headlessly.
-  const nonTillable = new Set(ctx.NON_TILLABLE_CODES);
-  ctx.isTillable = (type) => !nonTillable.has(type);
-  // …and isTillableCell (also app.js): the cell-level test that additionally
-  // refuses cells under a drawn road band (cellAt's roadMask-derived
-  // underRoad flag). Mirrors the app.js one-liner exactly.
-  ctx.isTillableCell = (cell) => ctx.isTillable(cell.type) && !cell.underRoad;
-}
+// NON_TILLABLE is the contract interact.js' TERRAIN_FLAVOR has to cover — every
+// non-tillable terrain code reaches the 'flavor' handler and needs a real label
+// instead of a bare '·'. It is items.js' table now (loaded above with the rest
+// of the bundle, isTillable / isTillableCell with it), so the coverage test in
+// interact_tap.test.js reads the SHIPPING codes rather than a set this file
+// used to parse out of app.js' source text.
+ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
 
 // The walk-home timings live in app.js too. Lift them the same way, so the
 // tests below assert on the REAL numbers rather than a copy that would quietly
@@ -130,6 +157,7 @@ try {
 {
   const src = readSrc('app.js');
   for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS',
+                      'WALK_HOME_SPEED_MUL',
                       // The walk-home behaviour tests below drive the REAL
                       // _driftHome, so they need the numbers it reads: walking
                       // pace, and the gap past which a return is placed rather
@@ -147,7 +175,26 @@ try {
                       // The starting-neighbourhood reveal radii — fog.test.js
                       // checks they actually cover the trail the onboarding
                       // seater lays, which is what broke when fog shipped.
-                      'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS']) {
+                      'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS',
+                      // The peek drag's own numbers — peek_drag.test.js drives
+                      // the REAL clamp and spring-back with them.
+                      'PEEK_MAX_CELLS', 'PEEK_DRAG_SLOP_PX', 'PEEK_RETURN_MS',
+                      // The campfire's warmth ring — lighting.js resolves the
+                      // fire's light radius to it at call time, and
+                      // lighting.test.js pins that the two are one number.
+                      'FIRE_REST_R',
+                      // Home's ring, which is the same three-way rule one step
+                      // further: light, warmth AND ward. lighting.test.js pins
+                      // the light against it, home_ward.test.js the other two.
+                      'HOME_R',
+                      // How thick buried X marks lie on sand — the beach
+                      // bonus stream's cap (beach_treasure.test.js drives the
+                      // lifted block against it).
+                      'BEACH_X_PER_CELLS',
+                      // The campfire's depth cap on its ward — the only piece
+                      // of the old monster block still authored in app.js,
+                      // since it is the FIRE's rule rather than the table's.
+                      'FIRE_WARD_MAX_DEPTH']) {
     // parseFloat, not parseInt: WALK_M_S is 1.4, and rounding walking pace to
     // 1 m/s would silently retune every distance the tests below measure.
     const m = src.match(new RegExp(`const ${name} = ([\\d.]+);`));
@@ -177,11 +224,23 @@ try {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_driftHome(dt) {', 'syncMoveTarget() {', '_gpsAwayM() {']
+  const methods = ['_driftHome(dt) {', 'syncMoveTarget() {', '_gpsAwayM() {',
+                   // The stick's countdown to that walk — same gates, so it's
+                   // tested against the same stub scene.
+                   '_walkHomeCountdownS() {',
+                   // The far return PLACES the body, and underground that
+                   // placement carves the landing cell — lift both so the
+                   // cave case runs the shipping dig, not a stub of it.
+                   '_placeBodyOnFix() {', '_carveLanding(onlyTile = null) {',
+                   // syncMoveTarget snaps the peek camera back (a warp lands on
+                   // ground the peek knows nothing about), so the real method
+                   // comes along rather than being stubbed out here.
+                   'clearPeek() {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
-  for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM']) {
+  for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS',
+                   '_placeBodyOnFix', '_carveLanding', 'clearPeek']) {
     if (typeof ctx.__walkHome[k] !== 'function') {
       console.error(`__walkHome.${k} did not come back as a function — update run.js`);
       process.exit(2);
@@ -189,70 +248,227 @@ try {
   }
 }
 
-// The monster table and the defeat bounty derived from it are pure data + pure
-// math, but they live in app.js (which needs Phaser). Lift the whole block as
-// text — same trick as above — so the reward tests below run the REAL table and
-// the REAL formula rather than a copy that would drift the first time a kind is
-// added or a number retuned.
-//
-// The block includes app.js's `Combat.registerMonsters(MONSTERS)` call, which
-// is what lets the bounty ask Combat how much HP a kind has: without it every
-// monster would fall through to the fauna ladder's default and the coins would
-// be measured against the wrong numbers here but not in the game.
+// A TRAIL PRIZE is now a CHOICE, which splits one method into two: the card a
+// reward DRAWS as, and the payout it makes when the player keeps it. Nothing
+// may be granted by the drawing half — the option the player turns down is
+// rendered too — so both halves are lifted out of app.js and run for real on a
+// stub scene in trail.test.js, rather than pinned as source text that would say
+// nothing about what they actually pay.
 {
   const src = readSrc('app.js');
-  const start = src.indexOf('const MONSTERS = {');
-  const endMark = 'function isMonster(kind)';
-  const end = src.indexOf('\n', src.indexOf(endMark));
-  if (start < 0 || end < 0) {
-    console.error('Could not find the MONSTERS / bounty block in src/app.js — update run.js');
-    process.exit(2);
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['_trailRewardCard(reward) {', '_claimTrailReward(reward, opts = {}) {']
+    .map(lift).join(',\n');
+  vm.runInContext(`globalThis.__trailPrize = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#_claimTrailReward' });
+  for (const k of ['_trailRewardCard', '_claimTrailReward']) {
+    if (typeof ctx.__trailPrize[k] !== 'function') {
+      console.error(`__trailPrize.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
   }
-  const block = src.slice(start, end + 1);
-  if (!/Combat\.registerMonsters\(MONSTERS\)/.test(block)) {
-    console.error('The lifted MONSTERS block no longer registers the table with combat.js — '
-      + 'move the registration back beside the table, or update run.js');
-    process.exit(2);
-  }
-  // The stats the table is AUTHORED at, before CAVE_ENEMY_MUL doubles them —
-  // evaluated from the same literal text, so a test can prove the doubling is
-  // actually applied (and applied once) instead of trusting the numbers.
-  const tableEnd = src.indexOf('};', start) + 2;
-  if (tableEnd < 2) {
-    console.error('Could not find the end of the MONSTERS literal — update run.js');
-    process.exit(2);
-  }
-  vm.runInContext(
-    src.slice(start, tableEnd).replace('const MONSTERS =', 'globalThis.MONSTERS_BASELINE ='),
-    ctx, { filename: 'monsters-baseline.js' });
-  vm.runInContext(block
-    + '\n;Object.assign(globalThis, { MONSTERS, isMonster, enemyBounty, CAVE_ENEMY_MUL,'
-    + ' ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, MONSTER_TREASURE_CHANCE });',
-    ctx, { filename: 'monsters.js' });
 }
 
-// The inventory category tabs are declared in app.js (which needs Phaser, so it
-// can't load here). Lift the {key, label, sym} triples straight out of the
-// source text — same trick as NON_TILLABLE above — so the tab-chrome tests can
-// assert on the real table instead of a copy that would drift.
+// HOME IS A CAMPFIRE YOU OWN — one ring (HOME_R) that lights, rests and wards.
+// The rest half is a plain distance test on a real method, so lift it and RUN
+// it: a radius pinned as source text says nothing about where it actually
+// rests you. homeWorldPos comes with it because it is the thing all three
+// effects ask, and its depth gate is half the answer.
 {
-  const m = readSrc('app.js').match(/const INV_CATS = \[([\s\S]*?)\n\];/);
-  if (!m) {
-    console.error('Could not find INV_CATS in src/app.js — update run.js');
-    process.exit(2);
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['homeWorldPos() {', 'isRestingAtHome(pWX, pWY) {']
+    .map(lift).join(',\n');
+  vm.runInContext(`globalThis.__home = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#homeWorldPos' });
+  for (const k of ['homeWorldPos', 'isRestingAtHome']) {
+    if (typeof ctx.__home[k] !== 'function') {
+      console.error(`__home.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
   }
-  const cats = [];
-  const re = /\{\s*key:\s*'([^']+)'[^}]*?label:\s*'([^']+)'[^}]*?sym:\s*'([^']+)'/g;
-  let row;
-  while ((row = re.exec(m[1])) !== null) {
-    cats.push({ key: row[1], label: row[2], sym: row[3] });
-  }
-  if (!cats.length) {
-    console.error('Parsed no entries out of INV_CATS — update run.js');
-    process.exit(2);
-  }
-  ctx.INV_CATS = cats;
 }
+
+// THE STREET COUNTER lands on the stretch that came back, not at the screen
+// centre, so its seating is a projection question — and projections are
+// exactly what the peek drag breaks when someone measures them off the player
+// instead of the camera anchor. Lifted with it: the whole STREET SWEEP, so
+// trail.test.js drives the shipping dwell, the shipping reach gate and the
+// shipping bank against a synthetic tile rather than a transcription of them.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  // _worldToastAt is the ONE world→toast seating the street counter and the
+  // energy pops share (_cellToastAt is its cell face); _energyPopAt /
+  // _cellAtScreen / playerScreen are the energy pop's own placement
+  // (energy_pop.test.js drives them on the same stub scene).
+  const methods = ['_worldToastAt(wmx, wmy, liftPx) {', '_cellToastAt(ix, iy, liftPx) {',
+                   '_energyPopAt(ix, iy) {', '_isPlayerCell(ix, iy) {',
+                   '_cellAtScreen(sx, sy) {', 'playerScreen() {',
+                   '_sweepStreets() {', '_resetStreetSight() {',
+                   '_rescanStreets(p, reachM, now, sight) {',
+                   '_setStreetPreview(meta, iv) {', '_streetSpreadPts(meta, s0, s1, k) {',
+                   '_ripenStreets(now, sight) {',
+                   '_bankStreetMetres(addedM, at, now) {', '_showTrailIntro() {',
+                   '_drawStreetLive(now) {',
+                   '_blastAt(wmx, wmy, opts) {']
+    .map(lift).join(',\n');
+  // The seating reads two app.js module constants that don't exist in this
+  // context. Carry them across as SOURCE TEXT rather than retyping the
+  // numbers — a retune in app.js has to move the test with it.
+  const constOf = (name) => {
+    const m = src.match(new RegExp(`const ${name} = ([^;\n]+);`));
+    if (!m) {
+      console.error(`Could not lift ${name} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return m[1];
+  };
+  // A whole `const NAME = …;` declaration, re-bound onto globalThis. For the
+  // multi-line ones constOf's single-line regex can't reach (the intro copy).
+  const declOf = (name) => {
+    const start = src.indexOf(`const ${name} = `);
+    const end = start < 0 ? -1 : src.indexOf(';\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift the ${name} declaration out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return 'globalThis.' + src.slice(start + 'const '.length, end + 1);
+  };
+  vm.runInContext(
+    `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
+    `globalThis.STREET_COUNTER_LIFT_PX = ${constOf('STREET_COUNTER_LIFT_PX')};\n` +
+    `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};\n` +
+    // The blast the sweep fires per step that restores (app.js _blastAt), the
+    // shine's own clock, the preview's ceiling and the counter's throttle.
+    `globalThis.BLAST_STONE_R_CELLS = ${constOf('BLAST_STONE_R_CELLS')};\n` +
+    `globalThis.STREET_SHINE_MS = ${constOf('STREET_SHINE_MS')};\n` +
+    `globalThis.GATHER_SPREAD_POINTS = ${constOf('GATHER_SPREAD_POINTS')};\n` +
+    `globalThis.STREET_PREVIEW_ALPHA = ${constOf('STREET_PREVIEW_ALPHA')};\n` +
+    `globalThis.STREET_PREVIEW_COLOR = ${constOf('STREET_PREVIEW_COLOR')};\n` +
+    `globalThis.STREET_COUNTER_MIN_MS = ${constOf('STREET_COUNTER_MIN_MS')};\n` +
+    `globalThis.STREET_SHINE_ALPHA = ${constOf('STREET_SHINE_ALPHA')};\n` +
+    // The one-time first-repair dialog's copy — carried as source so the test
+    // reads the shipping sentence and the rung it quotes off Trail.
+    `globalThis.TRAIL_INTRO_TITLE = ${constOf('TRAIL_INTRO_TITLE')};\n` +
+    declOf('trailIntroBody') + '\n' +
+    declOf('trailNextPrizeLine') + '\n' +
+    // The energy pop's seating: derived from the walker's art, in the order
+    // app.js declares them (the head clearance reads the two before it).
+    `globalThis.PLAYER_FEET_DROP_PX = ${constOf('PLAYER_FEET_DROP_PX')};\n` +
+    `globalThis.PLAYER_FRAME_PX = ${constOf('PLAYER_FRAME_PX')};\n` +
+    `globalThis.ENERGY_POP_LIFT_PX = ${constOf('ENERGY_POP_LIFT_PX')};\n` +
+    `globalThis.ENERGY_POP_HEAD_PX = ${constOf('ENERGY_POP_HEAD_PX')};`,
+    ctx, { filename: 'app.js#STREET_COUNTER_LIFT_PX' });
+  vm.runInContext(`globalThis.__trailCounter = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#_worldToastAt' });
+  for (const k of ['_worldToastAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
+                   '_cellAtScreen', 'playerScreen',
+                   '_sweepStreets', '_resetStreetSight', '_rescanStreets',
+                   '_setStreetPreview', '_ripenStreets', '_bankStreetMetres', '_showTrailIntro',
+                   '_drawStreetLive', '_blastAt']) {
+    if (typeof ctx.__trailCounter[k] !== 'function') {
+      console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
+// The PEEK DRAG: the camera-offset maths (clamp, spring-back, where the player
+// sprite goes) plus the pointer-release rule that decides whether a pointer was
+// a tap or a drag. Both are lifted as text and run on a stub scene — the same
+// trick as __walkHome above — so peek_drag.test.js drives the SHIPPING code.
+// A reimplementation here would happily pass while a drag also chopped the tree
+// it slid over, which is the whole thing this feature must not do.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  const methods = ['playerScreen() {', 'isPeeking() {', '_setPeekFromDrag(dxPx, dyPx) {',
+                   '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {', '_gamePt(p) {']
+    .map(lift).join(',\n');
+  // The tap-or-drag decision itself, straight out of create()'s input wiring.
+  const relSig = '    const endPeekPointer = (p) => {';
+  const relStart = src.indexOf(relSig);
+  const relEnd = relStart < 0 ? -1 : src.indexOf('\n    };\n', relStart);
+  if (relStart < 0 || relEnd < 0) {
+    console.error('Could not lift endPeekPointer out of src/app.js — update run.js');
+    process.exit(2);
+  }
+  // _gamePt divides by RENDER_SCALE (app.js's canvas-resolution constant, a
+  // module-level `let` the browser sets from the live screen). Seed it at 1 —
+  // the logical grid — so every existing expectation reads in game px; the
+  // HiDPI cases below reassign it to drive the same shipped line at 2× and 3×.
+  ctx.RENDER_SCALE = 1;
+  // Rebound as a method so `this` is the stub scene rather than a closed-over
+  // one; the body is otherwise the shipped text, character for character.
+  const release = 'endPeekPointer(p) {'
+    + src.slice(relStart + relSig.length, relEnd) + '\n  }';
+  vm.runInContext(`globalThis.__peek = {\n${methods},\n${release}\n};`, ctx,
+                  { filename: 'app.js#peek' });
+  for (const k of ['playerScreen', 'isPeeking', '_setPeekFromDrag', '_releasePeek',
+                   'clearPeek', '_tickPeek', '_gamePt', 'endPeekPointer']) {
+    if (typeof ctx.__peek[k] !== 'function') {
+      console.error(`__peek.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
+// The monster table, the defeat bounty derived from it and the fauna's blocked
+// terrain all live in combat.js now — real module exports, loaded above with
+// the rest of the bundle. They used to be lifted out of app.js as source text
+// (the table, its giants, the cave doubling and every constant around them),
+// which is what a missing extraction looks like: the tests below run the
+// SHIPPING table and the SHIPPING formula because there is only one of each.
+// Republished here under their bare names so the test files reach them the way
+// app.js does.
+Object.assign(ctx, {
+  MONSTERS: ctx.Combat.MONSTERS,
+  MONSTERS_BASELINE: ctx.Combat.MONSTERS_BASELINE,
+  CAVE_ENEMY_MUL: ctx.Combat.CAVE_ENEMY_MUL,
+  GIANT_HP_MUL: ctx.Combat.GIANT_HP_MUL,
+  GIANT_DEPTH_STEP: ctx.Combat.GIANT_DEPTH_STEP,
+  isMonster: ctx.Combat.isMonster,
+  enemyBounty: ctx.Combat.enemyBounty,
+  ENEMY_COIN_PER_HP: ctx.Combat.ENEMY_COIN_PER_HP,
+  ENEMY_DEPTH_BONUS: ctx.Combat.ENEMY_DEPTH_BONUS,
+  MONSTER_TREASURE_CHANCE: ctx.Combat.MONSTER_TREASURE_CHANCE,
+  ELITE_TREASURE_CONTEXT: ctx.Combat.ELITE_TREASURE_CONTEXT,
+  eliteRollBonus: ctx.Combat.eliteRollBonus,
+  faunaBlocksCell: ctx.Combat.faunaBlocksCell,
+});
 
 // The starter-home provisioner seats the wood / rock / wreck a new player needs
 // onto real cells and freezes the result. It's pure grid + save math, but it
@@ -348,7 +564,6 @@ try {
     + '  _castleKey(house) {\n' + grab('  _castleKey(house) {\n') + '\n  },\n'
     + '  isCastleClaimed(house) {\n' + grab('  isCastleClaimed(house) {\n') + '\n  },\n'
     + '  _claimCastle(house) {\n' + grab('  _claimCastle(house) {\n') + '\n  },\n'
-    + '  _castleServiceDayKey() {\n' + grab('  _castleServiceDayKey() {\n') + '\n  },\n'
     + '  _castleServiceUsedToday(house) {\n' + grab('  _castleServiceUsedToday(house) {\n') + '\n  },\n'
     + '  _markCastleServiceUsed(house) {\n' + grab('  _markCastleServiceUsed(house) {\n') + '\n  },\n'
     + '  _castleRest(sx, sy, house) {\n' + grab('  _castleRest(sx, sy, house) {\n') + '\n  },\n'
@@ -483,6 +698,50 @@ try {
     ctx, { filename: 'carveStarterPlot.js' });
 }
 
+// The fishing pond (_carveStarterPond): a 2x2 of water carved two screens out
+// from Home, beside a POI chest when one stands in the band. Pure grid + save
+// + tileCache math on the scene class — lifted as methods (with the painter
+// and the late-anchor sweep it works through, and the three band constants it
+// reads) so starter_pond.test.js drives the SHIPPING placer on a scene stub.
+{
+  const src = readSrc('app.js');
+  const lift = (sig) => {
+    const start = src.indexOf('\n  ' + sig);
+    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+    if (start < 0 || end < 0) {
+      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
+      process.exit(2);
+    }
+    return src.slice(start + 1, end + 4);
+  };
+  let decls = '';
+  for (const name of ['POND_MIN_CELLS', 'POND_MAX_CELLS', 'POND_POI_CELLS']) {
+    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+    if (!m) {
+      console.error(`Could not find ${name} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    decls += `const ${name} = ${m[1]};\nglobalThis.${name} = ${name};\n`;
+  }
+  // The spawn pass has to actually CALL the placer, or the pond exists only
+  // in the tests — the exact shape of the bug spawn_rebuild.test.js pins.
+  if (!/this\._carveStarterPond\(entry, tx, ty\);/.test(src)) {
+    console.error('spawnInTile no longer calls _carveStarterPond — update run.js');
+    process.exit(2);
+  }
+  const methods = ['_carveStarterPond(entry, tx, ty) {', '_paintPond(entry, tx, ty, cx, cy) {',
+                   '_carveStarterPondAround() {']
+    .map(lift).join(',\n');
+  vm.runInContext(`${decls}globalThis.__pond = {\n${methods}\n};`, ctx,
+                  { filename: 'app.js#_carveStarterPond' });
+  for (const k of ['_carveStarterPond', '_paintPond', '_carveStarterPondAround']) {
+    if (typeof ctx.__pond[k] !== 'function') {
+      console.error(`__pond.${k} did not come back as a function — update run.js`);
+      process.exit(2);
+    }
+  }
+}
+
 // The green starter arrow's per-step target (_starterGuidanceGoal) is pure
 // save + tileCache math on the scene class. Lift it — alongside the three
 // helpers it calls — into an object of methods a test can graft onto a scene
@@ -560,6 +819,44 @@ try {
     + `globalThis.CROW_PUMP_GATE_SRC = ${JSON.stringify(pump[0])};\n`
     + `globalThis.pestFreeZone = function (tx, ty) {\n${src.slice(bodyStart, end)}\n};`,
     ctx, { filename: 'pestFreeZone.js' });
+}
+
+// The creature SIM BUBBLE — the radius inside which wanderCreatures lets a
+// creature think, and the radius the crow pump seats its bird at. Both are
+// plain constants, but the two lines that USE them are inside the per-frame
+// loop on the scene class and can't be lifted, so hand their source text over
+// too: creature_sim_range.test.js pins that the cull reads the constant (not a
+// re-typed number), that it measures from the player rather than the camera
+// anchor, and that the spawn radius stays between the viewport corner and the
+// bubble — the invariant a dispatched crow's whole behaviour rests on.
+{
+  const src = readSrc('app.js');
+  let decls = '';
+  for (const name of ['CREATURE_SIM_CELLS', 'PEST_CROW_SPAWN_CELLS', 'VIEW_CELLS']) {
+    const m = src.match(new RegExp(`const ${name} = ([^;]+);`));
+    if (!m) {
+      console.error(`Could not find ${name} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    decls += `globalThis.${name} = ${m[1]};\n`;
+  }
+  const cull = src.match(/const RANGE_M = [^\n]+\n\s*const RANGE_SQ = [^\n]+/);
+  const feet = src.match(/const px = this\.startWorldM[^\n]+\n\s*const py = [^\n]+/);
+  // There are two `const SPAWN_R` in app.js (the cave entrance scatter is the
+  // other), so take the one in the pump — the last before the pest-crow id.
+  const pumpAt = src.indexOf('`pest_crow_${');
+  const spawnAt = pumpAt < 0 ? -1 : src.lastIndexOf('const SPAWN_R = ', pumpAt);
+  const spawn = spawnAt < 0 ? null : [src.slice(spawnAt, src.indexOf('\n', spawnAt))];
+  if (!cull || !feet || !spawn) {
+    console.error('Could not find the creature sim-range lines in src/app.js — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext(
+    decls
+    + `globalThis.CREATURE_CULL_SRC = ${JSON.stringify(cull[0])};\n`
+    + `globalThis.CREATURE_FEET_SRC = ${JSON.stringify(feet[0])};\n`
+    + `globalThis.PEST_CROW_SPAWN_SRC = ${JSON.stringify(spawn[0])};\n`,
+    ctx, { filename: 'creatureSimRange.js' });
 }
 
 // The spawn relic chest (_placeStarterRelicChest) seats a treasure chest one
@@ -650,6 +947,43 @@ try {
     ctx, { filename: 'placeStarterRelicChest.js' });
 }
 
+// The doorstep greeter (_placeHomeGreeter) — the ONE creature guaranteed beside
+// the starting trailer, a chicken on easy and a slime on hard. Same lift as the
+// relic chest above: it lives on the Phaser scene class, but the seating is
+// pure grid math over the shared spawn rule, so hand the real body to
+// home_greeter.test.js rather than a transcription. It reads
+// Combat.faunaBlocksCell (resolved at CALL time, off the loaded module) plus
+// the two ring constants.
+{
+  const src = readSrc('app.js');
+  const head = '  _placeHomeGreeter(entry, tx, ty) {\n';
+  const at = src.indexOf(head);
+  if (at < 0) {
+    console.error('Could not find _placeHomeGreeter in src/app.js — update run.js');
+    process.exit(2);
+  }
+  const bodyStart = at + head.length;
+  const end = src.indexOf('\n  }\n', bodyStart);
+  if (end < 0) {
+    console.error('Could not find the end of _placeHomeGreeter — update run.js');
+    process.exit(2);
+  }
+  const body = src.slice(bodyStart, end);
+  let decls = '';
+  for (const name of ['HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS']) {
+    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
+    if (!m) { console.error(`Could not find ${name} in src/app.js — update run.js`); process.exit(2); }
+    decls += `const ${name} = ${m[1]};\n`;
+    ctx[name] = parseInt(m[1], 10);
+  }
+  vm.runInContext(
+    decls
+    + 'globalThis.HOME_GREETER_MIN_CELLS = HOME_GREETER_MIN_CELLS;\n'
+    + 'globalThis.HOME_GREETER_MAX_CELLS = HOME_GREETER_MAX_CELLS;\n'
+    + `globalThis.placeHomeGreeter = function (entry, tx, ty) {\n${body}\n};`,
+    ctx, { filename: 'placeHomeGreeter.js' });
+}
+
 // The road-geometry overlay must keep stroking its bands with the same width
 // function worldgen stamps its no-spawn road mask from — a private copy there
 // would let a way be DRAWN wider than the ground the spawners keep clear, which
@@ -688,6 +1022,25 @@ try {
   ctx.SPAWN_CAVE_SRC         = slice(appSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Dark-outlined', 'spawnCaveCreatures');
   ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
   ctx.STARTER_TRAIL_SRC      = slice(appSrc, '  _placeStarterTrail(entry, tx, ty) {\n', '\n  _revealStarterTrail', 'the starter trail');
+  ctx.ENSURE_STARTER_TRAILER_SRC = slice(appSrc, '  ensureStarterTrailerObject() {\n',
+    '\n  }\n\n  // Nothing sits inside the Home trailer.', 'ensureStarterTrailerObject');
+  // The sidecar chest injection loop in loadTile — poi_dedup.test.js pins that
+  // it consults the shared one-place-one-chest rule before pushing a chest.
+  ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of (bin.chests || [])) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
+  // The tree + mineralrock RENDER_SPEC entries (a const inside drawObjects, so
+  // not reachable as a value) — tool_gate_fade.test.js pins that both `after`
+  // hooks apply the shared tool-gate fade rather than a local copy of it.
+  ctx.RENDER_TREE_ROCK_SPEC_SRC = slice(readSrc('render.js'), '    tree:   { key: (o) => {', '    // Stone pillar', 'the tree/mineralrock render specs');
+  // The fruit-tree life-cycle frame table + its RENDER_SPEC entry, and the
+  // pass that draws the fruit ON the tree — all inside drawObjects, so
+  // fruit_overlay.test.js pins them as text: what has to hold is that the
+  // tree's ART never depends on whether it is bearing.
+  ctx.RENDER_FRUIT_FRAMES_SRC = slice(readSrc('render.js'),
+    '  const FRUIT_FRAMES = {', '};', 'the fruit-tree frame table');
+  ctx.RENDER_FRUITTREE_SPEC_SRC = slice(readSrc('render.js'),
+    '    fruittree: { key: (o) =>', '    mineralrock: {', 'the fruittree render spec');
+  ctx.RENDER_FRUIT_PASS_SRC = slice(readSrc('render.js'),
+    '  // ── Ripe fruit ─', '  });', 'the fruit render pass');
 }
 
 // ── Wild-crow flee (FINDING 1) + fauna spawn / caught-array fixes (FINDING 2,
@@ -703,15 +1056,11 @@ try {
     return src.slice(from, end);
   };
 
-  // faunaBlocksCell / FAUNA_BLOCKED_TYPES / crowEatsCrop are plain top-level
-  // helpers in app.js that _wildCrowTick (and the fauna spawner) call — lift
-  // them verbatim so the lifted method bodies below resolve for real instead
-  // of against a stub that could drift from the shipping set.
-  {
-    const m = src.match(/const FAUNA_BLOCKED_TYPES = new Set\(\[[^\]]*\]\);\nfunction faunaBlocksCell\(type\) \{ return FAUNA_BLOCKED_TYPES\.has\(type\); \}/);
-    if (!m) { console.error('Could not find FAUNA_BLOCKED_TYPES/faunaBlocksCell in src/app.js — update run.js'); process.exit(2); }
-    vm.runInContext(m[0] + '\n;globalThis.faunaBlocksCell = faunaBlocksCell;', ctx, { filename: 'faunaBlocksCell.js' });
-  }
+  // crowEatsCrop is a plain top-level helper in app.js that _wildCrowTick
+  // calls — lift it verbatim so the lifted method bodies below resolve for
+  // real instead of against a stub that could drift. (faunaBlocksCell used to
+  // be lifted here beside it; it is Combat.faunaBlocksCell now, so the lifted
+  // bodies reach the shipping predicate through the loaded module.)
   {
     const m = src.match(/function crowEatsCrop\(p\) \{ return Crops\.crowEats\(p\); \}/);
     if (!m) { console.error('Could not find crowEatsCrop in src/app.js — update run.js'); process.exit(2); }
@@ -730,7 +1079,7 @@ try {
   // lookup) and it only closes over rng/N/entry/_spawnOpts/pestFree/caughtSet/
   // creatures/tx/ty, all cheap to stub.
   ctx.TRY_PLACE_SRC = grabBetween(
-    '    const tryPlace = (kindWant, classesOK, idx, kindStr) => {\n', '\n    };\n', 'the tryPlace closure');
+    '    const tryPlace = (classesOK, idx, kindStr) => {\n', '\n    };\n', 'the tryPlace closure');
 
   // FINDING 3(b), other half — spawnCaveCreatures is small and self-contained
   // enough (this.save.caught, this.tileEdgeM, WorldGen, MONSTERS, entry.* —
@@ -747,7 +1096,50 @@ try {
     'the save.caught pest-crow prune block');
 }
 
+// ── The bonus buried-X streams (spawnInTile) ──────────────────────────────
+// The path-side and beach streams, and the single grid pass that feeds them,
+// lifted as ONE runnable block so beach_treasure.test.js drives the SHIPPING
+// code rather than a transcription: the cap, the cell packing (which was
+// wrong above 256 cells per edge) and the "on the sand, beside the path"
+// difference are all decided in here. It closes over entry / tx / ty / N /
+// rng / _spawnOpts and `this` (tileEdgeM, cellM), all cheap to stub.
+{
+  const appSrc = readSrc('app.js');
+  const from = appSrc.indexOf('    // ONE pass over the grid for both bonus streams below');
+  const to = appSrc.indexOf('    // Player-planted saplings (save.fruittrees)');
+  if (from < 0 || to < 0 || to < from) {
+    console.error('Could not lift the bonus-X streams from spawnInTile — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext(
+    'globalThis.__bonusXMarks = function (entry, tx, ty, N, rng, _spawnOpts) {\n'
+    + appSrc.slice(from, to) + '\n};', ctx, { filename: 'app.js#bonusXMarks' });
+}
+
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
+
+// ── The STREET LAMPS' two placement passes (app.js) ───────────────────────
+// A restored street lights its own way, and where the stones stand is decided
+// by these two methods alone. They reach for nothing Phaser-shaped — Streets,
+// WorldGen.tileCache, and the coords projection, all loaded above — so lift
+// them and let street_lamps.test.js drive the SHIPPING passes over a real tile
+// entry instead of only reading them as text. That is what caught the bug the
+// text pins could not see: the lamp list was memoised onto a tile entry that
+// was still LOADING, so no tile in the world ever grew a lamp.
+{
+  const appSrc = readSrc('app.js');
+  const a = appSrc.indexOf('  _streetLampsForTile(tx, ty, entry) {');
+  const b = appSrc.indexOf('  // The lamps near the frame');
+  const c = appSrc.indexOf('  _updateStreetLamps() {');
+  const d = appSrc.indexOf('  // The stones themselves:');
+  if (a < 0 || b < 0 || c < 0 || d < 0 || b < a || d < c) {
+    console.error('Could not lift the street-lamp passes from src/app.js — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext('globalThis.__streetLampPasses = {\n'
+    + appSrc.slice(a, b).trimEnd() + ',\n'
+    + appSrc.slice(c, d).trimEnd() + '\n};', ctx, { filename: 'app.js#streetLamps' });
+}
 
 // app.js can't load headlessly (it needs Phaser — see above), so the perf-
 // profiler hooks that live there (the update()/drawCells/drawObjects ticks,
@@ -758,10 +1150,164 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+
+// ── wanderCreatures, lifted and RUN ───────────────────────────────────────
+// The creature sim is 680 lines inside app.js, so for years the only thing any
+// test could say about it was that a regex still matched — which is how the
+// lair chase was originally shipped: a state machine tested for real, and a
+// movement loop that consumed it tested not at all. Source pins cannot tell
+// you that a guard actually leaves its seat, closes the distance, turns round
+// at the leash and lands back on its spot.
+//
+// So it is lifted the same way _driftHome is: the REAL method text, plus the
+// app.js top-level constants and helpers it closes over, evaluated into one
+// function the tests call on a stub scene. A reimplementation here would pass
+// while the shipping loop did something else entirely.
+{
+  const src = readSrc('app.js');
+  const num = (name) => {
+    const m = src.match(new RegExp(`const ${name} = ([-\\d.]+);`));
+    if (!m) { console.error(`Could not lift ${name} for __wander — update run.js`); process.exit(2); }
+    return `const ${name} = ${m[1]};`;
+  };
+  // A top-level function by its signature line: the whole line when it is a
+  // one-liner, otherwise through the `}` that closes it at column 0.
+  const fn = (sig) => {
+    const i = src.indexOf('\n' + sig);
+    if (i < 0) { console.error(`Could not lift ${sig} for __wander — update run.js`); process.exit(2); }
+    const lineEnd = src.indexOf('\n', i + 1);
+    const line = src.slice(i + 1, lineEnd);
+    if (line.trimEnd().endsWith('}')) return line;
+    const close = src.indexOf('\n}\n', i);
+    if (close < 0) { console.error(`Could not find the end of ${sig} — update run.js`); process.exit(2); }
+    return src.slice(i + 1, close + 2);
+  };
+  const start = src.indexOf('  wanderCreatures() {');
+  const end = src.indexOf('\n  }\n', start);
+  if (start < 0 || end < 0) {
+    console.error('Could not lift wanderCreatures out of src/app.js — update run.js');
+    process.exit(2);
+  }
+  const method = src.slice(start + 2, end + 4);
+  const preamble = [
+    // The numbers the loop reads. Lifted, never retyped: a retune has to move
+    // the simulation with it or these tests are measuring last week's game.
+    num('CREATURE_SIM_CELLS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'),
+    num('SLIME_HOP_CELLS'), num('SLIME_STEP_MUL'), num('STALK_JITTER'),
+    num('PEST_CROW_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
+    'const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;',
+    // The predicates. (faunaBlocksCell is Combat's, already loaded.)
+    fn('function slimeCharging(c) {'),
+  ].join('\n');
+  // ONE script, so the method closes over the preamble's consts — a second
+  // runInContext would not see them (a vm script's top-level `const` does not
+  // land on the context global; that is what the BRIDGE above exists for).
+  // The method text is a class method, so it is wrapped as an object literal
+  // and the property taken off it.
+  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\n})();`,
+    ctx, { filename: 'app.js#wanderCreatures' });
+  if (typeof ctx.__wander !== 'function') {
+    console.error('__wander did not come back as a function — update run.js');
+    process.exit(2);
+  }
+}
+// interact.js loads headlessly, but the burst call sites in its crop handler are
+// pinned as source text (particles.test.js) beside the app.js ones.
+ctx.INTERACT_JS_SRC = readSrc('interact.js');
+// items.js loads fine, but its PLAY_TIPS / comments are prose the rope test
+// sweeps as text, and a new icon's PNG has to exist on disk at the size the
+// ICON_SHEETS row claims — the two-table rule (docs/QC_RULES.md §1) is a
+// promise between items.js, app.js and a file, and only a test that reads
+// all three can hold it. pngDims reads the IHDR of an asset under ROOT.
+ctx.ITEMS_JS_SRC = readSrc('items.js');
+ctx.pngDims = (rel) => {
+  const p = path.join(ROOT, rel.replace(/\?.*$/, ''));
+  if (!fs.existsSync(p)) return null;
+  const b = fs.readFileSync(p);
+  if (b.readUInt32BE(0) !== 0x89504e47) return null;
+  return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+};
+// index.html is what actually MEASURES the screen — the CSS scale app.js sizes
+// the canvas from is published by its fitGame. canvas_scale.test.js pins the
+// two halves of that handshake against each other; nothing else can, because
+// each half is unreachable from the other's language.
+ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+// The canvas-resolution rule itself (app.js, the note beside W/H): lifted so
+// canvas_scale.test.js drives the shipping cap/floor rather than a copy of it.
+{
+  const m = ctx.APP_JS_SRC.match(/const RENDER_SCALE_MAX = \d+;[\s\S]*?\nfunction renderScale\(\) \{[\s\S]*?\n\}/);
+  if (!m) {
+    console.error('Could not lift renderScale() out of src/app.js — update run.js');
+    process.exit(2);
+  }
+  vm.runInContext(m[0], ctx, { filename: 'app.js#renderScale' });
+}
 ctx.RENDER_SRC = readSrc('render.js');
+// textures.js loads headlessly (plain canvas-2D drawing against whatever ctx
+// it is handed) — in its OWN context, since its module constants share names
+// with the stubs above. tilled_bed.test.js runs drawTilledTex from here
+// against a recording 2D context (the test vm has no require()).
+ctx.TILLED_TEX = (() => {
+  const c = vm.createContext({ window: { addEventListener() {} }, console });
+  vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
+    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR };',
+    c, { filename: 'textures.js#tilled' });
+  return c.__x;
+})();
+// textures.js as TEXT, for the makers that need a scene to run: traps.test.js
+// pins that both trap textures are baked one cell square off the one TRAP_PX.
+ctx.TEXTURES_SRC = readSrc('textures.js');
+// The trap art. Same trick as TILLED_TEX above — its own context, since the
+// module's constants collide with the stubs here — but these makers take a
+// SCENE, so traps.test.js hands them a stub whose createCanvas returns a
+// recording 2D context and runs the real drawing code.
+ctx.TRAP_TEX = (() => {
+  const c = vm.createContext({ window: { addEventListener() {} }, console });
+  vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
+    + '\nglobalThis.__x = { makeHiddenTrapTexture, makeSprungTrapTexture, makeTrapTextures, TRAP_PX };',
+    c, { filename: 'textures.js#traps' });
+  return c.__x;
+})();
+// The texture catalog, as text: assets.js is not bundled (it is data for the
+// Phaser loader), so a test that needs to know a sheet is declared pins it.
+ctx.ASSETS_SRC = readSrc('assets.js');
+// lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as
+// source text — draw() is the one Phaser-bound function in the module.
+ctx.LIGHTING_SRC = readSrc('lighting.js');
+// reach_corners.test.js pins that the lit boundary's corner radius is
+// coords.js' one number, read by both passes that draw the edge.
+ctx.COORDS_SRC = readSrc('coords.js');
+// multiplayer.js draws peers with the same feet-on-the-fix seating app.js
+// gives the local player; feet_anchor.test.js pins both as text.
+ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
+ctx.INTERACT_SRC = readSrc('interact.js');
+// interactables.js loads headlessly too, but chest_tier.test.js pins that its
+// chest loot roll resolves the tier WITH the chest position — a text pin.
+ctx.INTERACTABLES_SRC = readSrc('interactables.js');
+ctx.GEAR_JS_SRC = readSrc('gear.js');
 // worldgen.js loads headlessly, but tile_url.test.js also pins that the only
 // raw tile fetch in it goes through the resolver — a text pin, like the above.
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');
+// loot.js loads headlessly, but wildplant_table.test.js pins that the wild
+// plant's surprise-treasure row LEFT it for items.js' one WILDPLANT_RULES
+// table — a text pin, so a second per-crop list can't quietly grow back here.
+ctx.LOOT_SRC = readSrc('loot.js');
+
+// ── Countdown notation: the source of every file that owns a timed readout ──
+// duration_notation.test.js sweeps these for hand-rolled "${n}m" / "${n}h"
+// ladders and for the unquantified "tomorrow" / "later" copy the shared
+// shortDuration() notation replaced. The labels live inside Phaser scene
+// methods and per-frame draw passes that can't be called headlessly, so the
+// pin is on the source text — the same trick feet_anchor.test.js uses. A file
+// that grows a new countdown belongs in this map.
+ctx.DURATION_SOURCES = {
+  'app.js': readSrc('app.js'),
+  'interact.js': readSrc('interact.js'),
+  'interactables.js': readSrc('interactables.js'),
+  'render.js': readSrc('render.js'),
+  'shops_math.js': readSrc('shops_math.js'),
+  'util.js': readSrc('util.js'),
+};
 
 // ── In-context test framework: test() / assert / makeScene ────────────────
 vm.runInContext(`
@@ -853,6 +1399,41 @@ for (const f of testFiles) {
       if (r.violations.length) throw new Error(r.violations.join('; '));
     } });
   }
+  // …and the fruit-tree crowns the fruit overlay hangs off: re-derived from
+  // the PNGs, so repainted tree art can't leave a bearing tree's fruit stuck
+  // on its trunk or floating over its canopy.
+  for (const r of audit.evaluateCrowns()) {
+    ctx.__tests.push({ name: `fruit-tree crown: ${r.lookup}`, fn: () => {
+      if (r.violations.length) throw new Error(r.violations.join('; '));
+    } });
+  }
+  // Every frame a wildplant DECLARES has to carry art. Nothing in the renderer
+  // can tell a frame holding a shell from one holding nothing, so a blank
+  // frame ships a pickup the player can tap but not see — which is what
+  // emptied the beaches (see test/node/shell_variants.test.js).
+  for (const r of audit.wildFrameRows()) {
+    ctx.__tests.push({ name: `wildplant frame: ${r.name}`, fn: () => {
+      if (r.violations.length) throw new Error(r.violations.join('; '));
+    } });
+  }
+  // …and the tripwire still fires on the art that set it off: the cells the
+  // shell sheet does NOT declare are blanks and flat mask rows, so the three
+  // declared frames are the whole of its shell art, not a third of it.
+  ctx.__tests.push({ name: 'wildplant frames: Shell.png carries 3 shells, not 12', fn: () => {
+    const sheet = audit.ASSETS.shell_sheet;
+    const img = audit.loadPng(sheet.path);
+    const ink = (f) => audit.frameInk(img, sheet.frameWidth, sheet.frameHeight, f);
+    for (const f of [7, 8, 10, 11]) {
+      if (ink(f).opaque !== 0) throw new Error(`frame ${f} was expected blank`);
+    }
+    for (const f of [6, 9]) {
+      if (ink(f).colours !== 1) throw new Error(`frame ${f} was expected a flat mask row`);
+    }
+    const declared = audit.CROP_SPRITE.shell.frames;
+    for (const f of [6, 7, 8, 9, 10, 11]) {
+      if (declared.includes(f)) throw new Error(`shell declares frame ${f}, which is not shell art`);
+    }
+  } });
 }
 
 // ── App-shell audit (tools/shell_audit.js) ────────────────────────────────
@@ -861,6 +1442,16 @@ for (const f of testFiles) {
 {
   const shell = require('../../tools/shell_audit.js');
   for (const c of shell.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
+// ── Cache-bust audit (tools/cachebust.js) ─────────────────────────────────
+// Every module's ?v= is a hash of that module's bytes, so a changed file
+// cannot keep its old URL and go on being served from the HTTP cache beside a
+// fresh app.js that calls into it ("Combat.playerDowned is not a function").
+// Node scope for fs + crypto, like the audits above.
+{
+  const cachebust = require('../../tools/cachebust.js');
+  for (const c of cachebust.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
 // ── Vertical-layout audit (tools/layout_audit.js) ─────────────────────────

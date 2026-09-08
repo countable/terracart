@@ -1,4 +1,4 @@
-// The cave-enemy difficulty rule (src/app.js › MONSTERS + CAVE_ENEMY_MUL).
+// The cave-enemy difficulty rule (src/combat.js › MONSTERS + CAVE_ENEMY_MUL).
 //
 // The first slime is the tutorial. The wild surface slime is the only enemy
 // above ground and the first one anybody meets — a crop pest you can walk away
@@ -51,7 +51,8 @@
     // The surface slime is the tutorial fight and keeps its own numbers: it is
     // fauna, not a monster-table kind, so the multiplier can never reach it.
     assert.falsy(MONSTERS.slime, 'the surface slime is not in the monster table');
-    assert.eq(Combat.creatureMaxHp('slime'), 15, 'and still has its 15 HP');
+    assert.eq(Combat.creatureMaxHp('slime'), Combat.FAUNA_HP.slime,
+      'and still answers from the fauna ladder');
   });
 
   test('cave enemies: a doubled foe still pays a bounty, and a bigger one', () => {
