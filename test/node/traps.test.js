@@ -503,6 +503,37 @@ test('traps: the tick asks where the PLAYER is, never where the camera is', () =
     'the bleed is per SECOND, accumulated off the frame delta');
 });
 
+test('traps: a downed player springs nothing — the whole tick stands down', () => {
+  // NOTHING HUNTS A BODY, and a body does not step. At zero energy the reach is
+  // 0, no hostile takes an interest and every damage path refuses the bar; a
+  // snare is the same state one lane over. Springing one would spend it FOR
+  // GOOD (save.sprungTraps is written the instant it fires) on a player who can
+  // be charged nothing for it, and on hard — where only Home lifts the bar off
+  // zero — the walk home would clear every trap it crossed for free.
+  const block = (() => {
+    const a = APP_JS_SRC.indexOf('  _tickTraps(dt) {');
+    const b = APP_JS_SRC.indexOf('\n  }\n', a);
+    assert.truthy(a > 0 && b > a, 'found _tickTraps in app.js');
+    return APP_JS_SRC.slice(a, b);
+  })();
+  assert.truthy(/if \(Combat\.playerDowned\(this\.save\.energy\)\) \{/.test(block),
+    'the tick reads the SAME expression the pursuit gate and the damage guards do');
+  // …and it reads it before anything can fire: the gate must sit above the
+  // cell lookup, not between the bite and the bleed.
+  const gate = block.indexOf('Combat.playerDowned(this.save.energy)');
+  assert.truthy(gate > 0 && gate < block.indexOf('this.playerToWorldCell()'),
+    'the stand-down comes before the cell is even resolved');
+  // NOT isUnnoticed(): a Shadow Powder hides you from what takes an INTEREST in
+  // you, and iron jaws take none — a powder must not walk you through a
+  // minefield.
+  assert.falsy(/isUnnoticed|isShadowActive/.test(block),
+    'the trap ward is the collapse alone, never the Shadow Powder');
+  // The memo goes down with it, or a player revived on top of a hidden trap
+  // would stand on it forever without ever stepping on it.
+  assert.truthy(/this\._trapCellKey = null;/.test(block.slice(gate)),
+    'the cell memo is dropped so the trap under a revived player is re-read');
+});
+
 test('traps: the numbers land on the trap\'s own cell, through _popEnergy', () => {
   const block = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _tickTraps(dt) {'));
   const head = block.slice(0, block.indexOf('\n  }\n'));
