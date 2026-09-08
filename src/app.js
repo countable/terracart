@@ -644,6 +644,17 @@ const SLIME_HOP_CELLS = 0.45;  // cells covered by one ooze
 // override was written for birds and applied to every prey kind, so a dog
 // worrying a slime shoved it out of its own owner's reach.
 const STRUCK_REACTION_MS = 8000;
+// ── RUNNING, not wandering ───────────────────────────────────────────────────
+// What it costs a creature to be in a hurry, whatever the kind: a stride twice
+// its own and a beat half as long, so it covers FOUR times the ground. Two
+// things read this pair — the struck-prey flee override (a bird shoved off by
+// a pet's teeth) and Home's rout (an enemy driven off the doorstep) — and they
+// have to agree, or "it ran" would mean two different speeds depending on who
+// did the frightening. Per-KIND flee gaits are a separate thing and stay on
+// the kind (CREATURE_BEHAVIOUR's `flee` row): this is the multiplier for the
+// kinds that have none, the slime and every cave monster among them.
+const FLEE_STRIDE_MUL = 2;
+const FLEE_BEAT_MUL = 0.5;
 // The spread on a COMMITTED approach, in radians: tight enough to read as a
 // line rather than a meander. The cave monsters stalk on it (a flyer doubles
 // it, which is what makes a bat careen), and a charging slime borrows it —
@@ -7320,24 +7331,11 @@ class MapScene extends Phaser.Scene {
     // the hop it is part-way through each time, leaving a slime under constant
     // fire twitching on the spot instead of closing.
     if (!wasCharging && c.kind === 'slime') c._nextChooseT = 0;
-    // ROUTED FROM THE DOORSTEP. Home's ward already turns an enemy inside the
-    // ring around and switches its bite off (wanderCreatures' homeWard), but
-    // the ring is only HOME_R — four cells — so a foe walked out, stopped
-    // being warded on the doorstep's edge and came straight back at you. Hit
-    // one while it is being warded and it does not merely leave the ring, it
-    // RUNS: the ward radius becomes CREATURE_SIM_CELLS for this foe alone
-    // until it is out, which is the edge of the sim bubble — as far as
-    // anything is driven in this game, and far enough that the yard is quiet
-    // for a while rather than for a step. The flag clears itself on the first
-    // tick it is outside (see wanderCreatures), so nothing about it persists.
-    if (!c._routedFromHome && Combat.isEnemy(c)) {
-      const home = this.homeWorldPos();
-      if (home) {
-        const r = HOME_R * this.cellM;
-        const hx = c.x - home.x, hy = c.y - home.y;
-        if (hx * hx + hy * hy <= r * r) c._routedFromHome = true;
-      }
-    }
+    // Nothing here about Home's rout: a foe hit at the doorstep is a foe
+    // INSIDE Home's ring, and the ring itself is what routs it now
+    // (wanderCreatures' `_routedFromHome` latch). This carried a second copy
+    // of that test — homeWorldPos, HOME_R, Combat.isEnemy — for the case where
+    // the ward was a bare radius and only a blow could extend it.
     const now = performance.now();
     c._hurtUntilT = now + ENEMY_HEALTH_RING_MS;
     // Damage numbers. Accumulate-and-beat rather than pop-per-call: a shot
@@ -7915,9 +7913,9 @@ class MapScene extends Phaser.Scene {
     // which is what switches the ward off.
     const homePos = this.homeWorldPos();
     const HOME_WARD_R2 = (HOME_R * this.cellM) * (HOME_R * this.cellM);
-    // The radius a foe STRUCK inside the ring is driven out to instead — the
-    // sim bubble's own edge (CREATURE_SIM_CELLS), so "it ran off" means it is
-    // gone rather than circling the doormat. Set by _damageEnemy.
+    // The radius a routed foe is driven out to — the sim bubble's own edge
+    // (CREATURE_SIM_CELLS), which is where a creature stops thinking at all, so
+    // "it ran off" means gone rather than circling the doormat.
     const HOME_ROUT_R2 = (CREATURE_SIM_CELLS * this.cellM) * (CREATURE_SIM_CELLS * this.cellM);
     // Pest spawn: if the player has any planted crop and there are NO wild
     // crows already near the player, spawn one off-screen every ~90 s. The
@@ -7997,23 +7995,34 @@ class MapScene extends Phaser.Scene {
       // useFrostPowder, which also pins its hop in place) takes no step and
       // lands no hit until the ice thaws. It can still be hit.
       if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;
-      // WARDED BY HOME: this foe is standing inside Home's ring (HOME_R). It
-      // turns and walks out (the angle chain below) and it cannot bite while
-      // it goes — a ward that let a slime leech its way to the door would make
-      // the doorstep no safer, only slower to lose the bar on.
+      // WARDED BY HOME: this foe crossed into Home's ring (HOME_R), so it turns
+      // and RUNS (the angle chain below, at the flee pace) and it cannot bite
+      // while it goes — a ward that let a slime leech its way to the door would
+      // make the doorstep no safer, only slower to lose the bar on.
       // Combat.isEnemy is the registered-hostile test (the wild slime, every
       // cave monster), so a kind added to the monster table is warded the day
       // it ships, and a sapphire-tamed slime is a pet and walks where it likes.
-      // A foe hit while it was being warded keeps being warded all the way out
-      // to the bubble's edge (_routedFromHome, set in _damageEnemy) — same
-      // away-from-Home angle, same bite switched off, just a bigger ring.
+      //
+      // THE WARD IS A LATCH, NOT A FENCE, and that is the whole of it: crossing
+      // HOME_R sets `_routedFromHome`, and only the sim bubble's edge clears it.
+      // A plain radius test made the ring a turnstile — a foe stepped out at
+      // four cells, stopped being warded on the doorstep's own edge and turned
+      // straight back in, so the yard was quiet for one hop and the player
+      // watched a slime bob in and out of the same three cells forever. Two
+      // radii, one flag: HOME_R is what TRIPS it and CREATURE_SIM_CELLS is what
+      // RELEASES it, the hysteresis a lair guard's hold/hunt/return already has
+      // (Lairs.guardState). Being hit inside the ring needs no branch of its
+      // own any more — a foe close enough to hit at Home is already inside the
+      // ring, so it is already routed.
       const homeD2 = homePos
         ? (c.x - homePos.x) * (c.x - homePos.x) + (c.y - homePos.y) * (c.y - homePos.y)
         : Infinity;
-      const homeWard = !!homePos && !isTame && Combat.isEnemy(c) &&
-        homeD2 <= (c._routedFromHome ? HOME_ROUT_R2 : HOME_WARD_R2);
-      // Out at last: it rejoins the ordinary rules and may hunt again.
-      if (c._routedFromHome && homeD2 > HOME_ROUT_R2) c._routedFromHome = false;
+      const homeFoe = !!homePos && !isTame && Combat.isEnemy(c);
+      if (homeFoe) {
+        if (homeD2 <= HOME_WARD_R2) c._routedFromHome = true;          // tripped
+        else if (homeD2 > HOME_ROUT_R2) c._routedFromHome = false;     // released
+      }
+      const homeWard = homeFoe && !!c._routedFromHome;
       // A LAIR GUARD'S THREE STATES — src/lairs.js owns the rings, the
       // hysteresis and the arrival test; this asks once and stores the
       // hysteresis back (session state on the creature, like `_hp`).
@@ -8201,14 +8210,22 @@ class MapScene extends Phaser.Scene {
       // own pair with the note that tunes them beside them, and a monster's
       // cadence and stride come from the MONSTERS row it is registered in.
       // Everything else is its gait row, or the loop's own base beat.
+      // A ROUTED FOE RUNS, at the same pace anything else in a hurry runs
+      // (FLEE_*). Without it the rout was the crawl it was fleeing at: an
+      // oozing slime is 0.45 cells every 7.5 s, so being driven off the
+      // doorstep meant a full minute parked in the yard just to clear the
+      // four-cell ring and minutes more to reach the bubble — a ward you had
+      // to take on trust, because nothing you could see was leaving. The
+      // slime's charge quickens the BEAT alone; a rout takes the stride too,
+      // because the thing being asked for is distance, not urgency.
       const stepMs = (c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
                    : isMon ? STEP_MS / mon.speed
                    : bolting ? (bolt.stepMs ?? STEP_MS)
-                   : (gait?.stepMs ?? STEP_MS)) * shinyFast;
-      const stepM = c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
+                   : (gait?.stepMs ?? STEP_MS)) * shinyFast * (homeWard ? FLEE_BEAT_MUL : 1);
+      const stepM = (c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
                   : isMon ? STEP_M * (mon.fly ? 1.0 : 0.6)
                   : bolting ? STEP_M * (bolt.stepCells ?? 1)
-                  : STEP_M * (gait?.stepCells ?? 1);
+                  : STEP_M * (gait?.stepCells ?? 1)) * (homeWard ? FLEE_STRIDE_MUL : 1);
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
         c._startX = c.x; c._startY = c.y;
@@ -8266,14 +8283,14 @@ class MapScene extends Phaser.Scene {
           const fa = c._fleeAngle ?? 0;
           for (let attempt = 0; attempt < 4; attempt++) {
             const fleeAngle = fa + (Math.random() - 0.5) * 0.6;
-            const ftx = c.x + Math.cos(fleeAngle) * stepM * 2;
-            const fty = c.y + Math.sin(fleeAngle) * stepM * 2;
+            const ftx = c.x + Math.cos(fleeAngle) * stepM * FLEE_STRIDE_MUL;
+            const fty = c.y + Math.sin(fleeAngle) * stepM * FLEE_STRIDE_MUL;
             const dest = this.cellAt(ftx, fty);
             if (dest.loaded && !Combat.faunaBlocksCell(dest.type)) {
               c._startX = c.x; c._startY = c.y;
               c._targetX = ftx; c._targetY = fty;
               c._stepT0 = now;
-              c._nextChooseT = now + stepMs * 0.5;
+              c._nextChooseT = now + stepMs * FLEE_BEAT_MUL;
               break;
             }
           }

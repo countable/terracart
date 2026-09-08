@@ -114,7 +114,7 @@ const wander = (() => {
 })();
 
 test('ward: what is warded is what the game calls an ENEMY', () => {
-  assert.truthy(/const homeWard = !!homePos && !isTame && Combat\.isEnemy\(c\) &&/.test(wander),
+  assert.truthy(/const homeFoe = !!homePos && !isTame && Combat\.isEnemy\(c\);/.test(wander),
     'Combat.isEnemy — the registered-hostile test, so a kind added to the '
     + 'monster table is warded the day it ships, and a tamed slime is not');
   assert.truthy(/const homePos = this\.homeWorldPos\(\);/.test(wander),
@@ -178,29 +178,14 @@ test('ward: away-from-home actually LEAVES, from anywhere in the ring', () => {
   }
 });
 
-test('ward: a foe struck on the doorstep is routed to the sim bubble\'s edge', () => {
-  // Home's ring is only HOME_R (4 cells), so a warded foe walked out, stopped
-  // being warded the moment it crossed, and turned straight back around — the
-  // yard was quiet for a step. Hit one WHILE it is being warded and the ward
-  // radius becomes CREATURE_SIM_CELLS for that foe alone until it is out: the
-  // edge of the sim bubble, which is as far as anything is driven in this game.
+test('ward: it is a LATCH — tripped at the ring, released at the bubble', () => {
+  // A bare radius test made the ring a turnstile: a foe stepped out at four
+  // cells, stopped being warded on the doorstep's own edge and turned straight
+  // back in. The yard was quiet for one hop. Crossing HOME_R now TRIPS the
+  // rout and only CREATURE_SIM_CELLS — where a creature stops being simulated
+  // at all — RELEASES it.
   assert.gt(CREATURE_SIM_CELLS, HOME_R,
     'the rout is a bigger ring than the ward, or it would not be a rout');
-
-  // The mark is set where the damage is BANKED — _damageEnemy is the one place
-  // every source of player damage funnels through (melee wheel, bow, staff,
-  // a turret), so no route can rout and another not.
-  const dmg = app.slice(app.indexOf('  _damageEnemy(c, amount) {'));
-  const head = dmg.slice(0, dmg.indexOf('\n  }\n'));
-  assert.truthy(/c\._routedFromHome = true;/.test(head),
-    'a hit inside the ring marks the foe routed');
-  assert.truthy(/this\.homeWorldPos\(\)/.test(head),
-    'against the SHARED resolver — surface-only and memoised, not a second '
-    + 'idea of where Home is');
-  assert.truthy(/HOME_R \* this\.cellM/.test(head),
-    'and the mark is set by the WARD ring: routed means it was being warded');
-  assert.truthy(/Combat\.isEnemy\(c\)/.test(head),
-    'a pet is never routed from its own home');
 
   // The bigger ring is the sim bubble's own radius, derived not retyped.
   assert.truthy(
@@ -208,14 +193,58 @@ test('ward: a foe struck on the doorstep is routed to the sim bubble\'s edge', (
       .test(app),
     'the rout radius IS CREATURE_SIM_CELLS — the 12-cell edge, one number');
 
-  // And the ward branch reads it, so a routed foe keeps the same treatment
-  // (away-from-Home angle, bite switched off) all the way out.
-  assert.truthy(
-    /homeD2 <= \(c\._routedFromHome \? HOME_ROUT_R2 : HOME_WARD_R2\)/.test(app),
-    'one ward, two radii — the routed foe is warded to the bubble edge');
-  assert.truthy(/if \(c\._routedFromHome && homeD2 > HOME_ROUT_R2\) c\._routedFromHome = false;/
-    .test(app),
-    'and it clears itself once out, so nothing about the rout persists');
+  const wander = app.slice(app.indexOf('  wanderCreatures('));
+  assert.truthy(/if \(homeD2 <= HOME_WARD_R2\) c\._routedFromHome = true;/.test(wander),
+    'HOME_R is what trips it');
+  assert.truthy(/else if \(homeD2 > HOME_ROUT_R2\) c\._routedFromHome = false;/.test(wander),
+    'and the bubble edge is the ONLY thing that releases it');
+  assert.truthy(/const homeWard = homeFoe && !!c\._routedFromHome;/.test(wander),
+    'the ward IS the latch — no second radius test to fall out of');
+  assert.truthy(/const homeFoe = !!homePos && !isTame && Combat\.isEnemy\(c\);/.test(wander),
+    'a pet is never routed from its own home, and there is no ward off the surface');
+
+  // A blow no longer routs on its own: a foe close enough to hit at Home is
+  // already inside the ring, so _damageEnemy carried a second copy of the ward
+  // test — homeWorldPos, HOME_R, Combat.isEnemy — for a case the latch covers.
+  const dmg = app.slice(app.indexOf('  _damageEnemy(c, amount) {'));
+  // Comments stripped: this one talks about the ward it no longer implements.
+  const head = dmg.slice(0, dmg.indexOf('\n  }\n'))
+    .split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+  assert.falsy(/_routedFromHome = true/.test(head),
+    'the rout is the ring\'s to set, not the blow\'s');
+  assert.falsy(/HOME_R|homeWorldPos/.test(head),
+    'and _damageEnemy has no idea of Home at all any more');
+});
+
+test('ward: a routed foe RUNS — the rout is distance, not just a heading', () => {
+  // The ward turned a slime around and then let it ooze: 0.45 cells every
+  // 7.5 s, a full minute parked in the yard just to clear the four-cell ring.
+  // Nothing the player could see was leaving, which is what "the ward doesn't
+  // work" looked like. A routed foe takes the flee pace instead — the same
+  // pair the struck-prey override runs at, so "it ran" is one speed.
+  const wander = app.slice(app.indexOf('  wanderCreatures('));
+  assert.truthy(/\* shinyFast \* \(homeWard \? FLEE_BEAT_MUL : 1\);/.test(wander),
+    'a routed foe steps more often');
+  assert.truthy(/\* \(homeWard \? FLEE_STRIDE_MUL : 1\);/.test(wander),
+    'and carries further with each step — a charge quickens the beat alone');
+  // One pair of numbers, read by both things that run.
+  assert.truthy(/Math\.cos\(fleeAngle\) \* stepM \* FLEE_STRIDE_MUL/.test(wander),
+    'the struck-prey flee override reads the same stride');
+  assert.truthy(/c\._nextChooseT = now \+ stepMs \* FLEE_BEAT_MUL;/.test(wander),
+    'and the same beat');
+  assert.eq(FLEE_STRIDE_MUL * (1 / FLEE_BEAT_MUL), 4,
+    'four times the ground — if this changes, both fleers change together');
+
+  // What that buys, in the units the player experiences: the slowest thing in
+  // the game clears Home's ring in seconds rather than a minute, and reaches
+  // the bubble's edge — where it freezes — well inside a minute.
+  const slimeCellsPerSec = (cells, ms) => cells / (ms / 1000);
+  const amble = slimeCellsPerSec(SLIME_HOP_CELLS, 5000 * SLIME_STEP_MUL);
+  const rout = slimeCellsPerSec(SLIME_HOP_CELLS * FLEE_STRIDE_MUL,
+    5000 * SLIME_STEP_MUL * FLEE_BEAT_MUL);
+  assert.eq(rout / amble, 4, 'a routed slime covers four times the ground');
+  assert.lt(HOME_R / rout, 20, 'it is out of the ring in under twenty seconds');
+  assert.lt(CREATURE_SIM_CELLS / rout, 60, 'and out of the bubble inside a minute');
 });
 
 test('ward: the routed foe is driven by the SAME angle, so it cannot stall', () => {
