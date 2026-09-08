@@ -93,6 +93,47 @@
     assert.eq(S.pointAtM([], MVT_TO_M, 0), null, 'no vertices, no point');
   });
 
+  test('streets: pointAtM steps SIDEWAYS off the centreline — the verge a lamp stands on', () => {
+    // The fourth argument is how far OFF the way the point is, square to the
+    // way's own direction there. Positive is the left-hand verge (world y
+    // runs down), and it defaults to zero, so every caller that wants the
+    // centreline — the shine, the blast, the dwell preview — is untouched.
+    const line = [pt(0, 0), pt(100, 0), pt(100, 100)];
+    const on = S.pointAtM(line, MVT_TO_M, 50);
+    const off = S.pointAtM(line, MVT_TO_M, 50, 4);
+    near(off.x, on.x, 1e-9, 'never moved ALONG the way');
+    near(off.y, on.y - 4, 1e-9, 'four metres to the left of a way running due east');
+    near(S.pointAtM(line, MVT_TO_M, 50, -4).y, on.y + 4, 1e-9, 'and the other side is the other sign');
+    near(Math.hypot(off.x - on.x, off.y - on.y), 4, 1e-9, 'square to the way, so the step is the whole offset');
+    // Past the corner the way runs due SOUTH, so the same offset lands east
+    // of it — the offset follows the LINE's own bends, not one fixed axis.
+    const bend = S.pointAtM(line, MVT_TO_M, 130), bendOff = S.pointAtM(line, MVT_TO_M, 130, 4);
+    near(bendOff.x, bend.x + 4, 1e-9, 'the leg turned, and so did the verge');
+    near(bendOff.y, bend.y, 1e-9);
+    // The ends clamp with their offset intact, and a doubled vertex has no
+    // direction to be beside — it keeps the point rather than a NaN.
+    near(S.pointAtM(line, MVT_TO_M, 9999, 4).x, 104, 1e-9, 'past the end clamps, still on the verge');
+    const dup = [pt(10, 10), pt(10, 10)];
+    near(S.pointAtM(dup, MVT_TO_M, 0, 4).x, 10, 1e-9, 'a zero-length segment is not divided by');
+  });
+
+  test('streets lamps: the verge offset is half the band plus the stone', () => {
+    // Where a lamp stands ACROSS the way. Derived from the one number that
+    // already says how wide the road is (WorldGen.roadOverlayWidthM, the
+    // width the band is stroked with), so the stone kisses the kerb rather
+    // than standing in the traffic — and a wider class seats its lamps
+    // further out by construction.
+    near(S.lampOffsetM(5.5, 2.24), 5.5 / 2 + 2.24, 1e-9, 'half the carriageway, plus the stone');
+    assert.truthy(S.lampOffsetM(12, 2.24) > S.lampOffsetM(2, 2.24), 'a motorway seats them further out than a footway');
+    assert.eq(S.lampOffsetM(0, 0), 0, 'no width and no stone is no offset');
+    // Guarded, never trusted: a class with no width guess and art that has
+    // not loaded are each a zero, not a NaN that would put the stone at the
+    // tile's corner.
+    assert.eq(S.lampOffsetM(undefined, undefined), 0, 'nothing in, nothing out');
+    assert.eq(S.lampOffsetM(NaN, 3), 3, 'a missing width leaves the stone\'s own radius');
+    assert.eq(S.lampOffsetM(-4, 0), 0, 'a negative width never pulls a lamp across the road');
+  });
+
   test('streets: subLineM interpolates its ends and keeps the bends', () => {
     // The whole point of arclength intervals: a restored run follows the
     // street's real corners instead of cutting across them.

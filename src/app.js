@@ -143,9 +143,11 @@ const STREET_LAMP_PX = CELL_PX *
 // road band replaced in Sep 2026), at the frame that sheet used for the way's
 // tier — the same frames the old per-cell stones drew, so a dark lamp reads
 // as exactly the grey cobble a road always carried — and at the old stones'
-// own size and alpha: stepped down inside the cell so the band shows round
-// it, and see-through enough to sit ON the road rather than cover it. The
-// lit stone keeps its own baked art (STREET_LAMP_TEX) over the same point.
+// own size and alpha: stepped down inside the cell so the ground shows round
+// it, and see-through enough to read as a sett laid IN the verge rather than
+// a chip dropped on it. The lit stone keeps its own baked art
+// (STREET_LAMP_TEX) over the same point — the verge point both are seated on
+// (see STREET_LAMP_R_CELLS and _streetLampsForTile), never the centreline.
 const STREET_LAMP_DARK_TEX = 'cobble';
 // Frame per way tier, keyed by the WorldGen.T code classifyLine hands back:
 // motorway/trunk/primary the biggest densest cluster, secondary/tertiary the
@@ -164,6 +166,19 @@ const streetLampDarkFrame = (tier) => {
 // shows round them), and their 57% alpha.
 const STREET_LAMP_DARK_CELLS = { road: 0.64, path: 0.584 };
 const STREET_LAMP_DARK_ALPHA = 0.57;
+// THE LAMP STANDS ON THE VERGE, and this is the stone's own footprint radius
+// in cells — what _streetLampsForTile adds to half the carriageway
+// (Streets.lampOffsetM) so the art just touches the band's edge instead of
+// standing in the traffic. It is the WIDEST of the two arts one lamp can
+// wear, because either of them may be the one showing: the baked stone inside
+// its halo square (RoadOverlay.LAMP_STONE_R_CELLS) and the dark cobble a lamp
+// draws before it lights (STREET_LAMP_DARK_CELLS, a full width, so half it).
+// Deriving it from the sizes the draw pass actually uses is what keeps a lamp
+// touching the kerb when either art is resized.
+const STREET_LAMP_R_CELLS = Math.max(
+  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_STONE_R_CELLS) || 0.24),
+  STREET_LAMP_DARK_CELLS.road / 2,
+  STREET_LAMP_DARK_CELLS.path / 2);
 // Pool size. One lamp per LAMP_SPACING_M (100 m) against a viewport 11 cells
 // (~77 m) across means a couple in view is an ordinary block — lit and dark
 // alike, now that a dark lamp draws too; the pool grows itself if a dense
@@ -13787,6 +13802,18 @@ class MapScene extends Phaser.Scene {
   // Each lamp carries the way's TIER (WorldGen.classifyLine — the terrain
   // code the grid was painted with), which is what picks its unlit stone's
   // frame: the old cobble sheet drew a different cluster per road tier.
+  //
+  // AND IT STANDS ON THE VERGE, not on the centreline. `lampsAlong` says how
+  // far along the way each stone is; how far OFF it is Streets.lampOffsetM —
+  // half the way's own drawn width (WorldGen.roadOverlayWidthM, the number
+  // the band is stroked with) plus the stone's own radius
+  // (STREET_LAMP_R_CELLS x this tile's metres per cell), so the art just
+  // touches the band's edge. The cell size is the TILE's own
+  // (tileEdgeM / cellsPerEdge, the basis its geometry is in) rather than the
+  // scene's global CELL_M, for the same reason rasterizeTile uses it.
+  // One point comes out of it, and BOTH readers take that point: the stone
+  // that _drawStreetLamps seats and the light Lighting.collectLamps stamps,
+  // so the glow can never be left behind on the tarmac.
   _streetLampsForTile(tx, ty, entry) {
     if (entry._streetLamps) return entry._streetLamps;
     const out = [];
@@ -13805,6 +13832,10 @@ class MapScene extends Phaser.Scene {
     }
     const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
     const tileKey = WorldGen.tileKey(tx, ty);
+    // The stone's radius in metres, in this tile's own basis — the second
+    // half of every verge offset below.
+    const cellM = (entry.cellsPerEdge > 0) ? tileEdgeM / entry.cellsPerEdge : (this.cellM || 0);
+    const stoneRM = STREET_LAMP_R_CELLS * cellM;
     for (const layer of entry.layers) {
       if (layer.name !== 'transportation') continue;
       const extent = layer.extent || 4096;
@@ -13814,6 +13845,11 @@ class MapScene extends Phaser.Scene {
         const cls = (f.tags && f.tags.class) || '';
         if (cls === 'rail' || cls === 'transit') continue;
         const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
+        // How far off the centreline this way's lamps stand: its own band's
+        // half-width plus the stone. Per FEATURE — the width is a function of
+        // the way's class, so it is the same for every line and every lamp
+        // this feature carries.
+        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), stoneRM);
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
@@ -13824,7 +13860,7 @@ class MapScene extends Phaser.Scene {
           const lineKey = Streets.lineKey(f, i);
           for (const sM of at) {
             if (!Streets.covers(spans, sM)) continue;   // in the buffer — the neighbour's stone
-            const q = Streets.pointAtM(line, mvtToM, sM);
+            const q = Streets.pointAtM(line, mvtToM, sM, offM);
             if (!q) continue;
             out.push({ tileKey, lineKey, tier, s: sM, x: ox + q.x, y: oy + q.y,
                        id: `lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });

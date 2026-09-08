@@ -275,9 +275,56 @@ test('street lamps: a ready tile stands one lamp per Streets.lampSpacingM() of s
   const lamps = P._streetLampsForTile.call({}, TX, TY, entry);
   assert.eq(lamps.length, 2, 'a 180 m way carries two lamps');
   assert.eq(lamps.map((L) => Math.round(L.s)).join(','), '45,135', 'spread evenly, a half interval in at each end');
-  // In ABSOLUTE world metres: the tile's own origin plus the point on the line.
+  // In ABSOLUTE world metres: the tile's own origin plus the point BESIDE the
+  // line — 145 m along a way that runs due east, and one verge offset off it.
+  const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'residential' }),
+                                   STREET_LAMP_R_CELLS * CELL_M_T);
   assert.inRange(lamps[0].x - TX * TILE_EDGE_M, 144.9, 145.1, 'the first stone stands 145 m into the tile');
-  assert.inRange(lamps[0].y - TY * TILE_EDGE_M, 177.9, 178.1, '…on the street itself');
+  assert.inRange(lamps[0].y - TY * TILE_EDGE_M, 178 - offM - 0.1, 178 - offM + 0.1,
+    '…and a verge offset off the centreline, square to a way running due east');
+});
+
+test('street lamps: a lamp stands ON THE VERGE — its stone just touching the band, never in the traffic', () => {
+  // Until Sep 2026 the point came straight off the centreline, so every lamp
+  // stood in the middle of the road it lit. The seat is DERIVED (streets.js
+  // lampOffsetM): half the way's own drawn width — WorldGen.roadOverlayWidthM,
+  // the number road_overlay.js strokes the band with and rasterizeTile stamps
+  // roadMask from — plus the stone's radius, so the art kisses the kerb.
+  const lamps = P._streetLampsForTile.call({}, TX, TY, readyEntry());
+  const halfBandM = WorldGen.roadOverlayWidthM({ class: 'residential' }) / 2;
+  const stoneRM = STREET_LAMP_R_CELLS * CELL_M_T;
+  for (const L of lamps) {
+    // The way runs due east down y = 178, so the whole offset is in y.
+    const off = Math.abs((L.y - TY * TILE_EDGE_M) - 178);
+    assert.inRange(off, halfBandM + stoneRM - 1e-6, halfBandM + stoneRM + 1e-6,
+      'half the carriageway plus the stone — off the road, touching it');
+    assert.truthy(off - stoneRM >= halfBandM - 1e-6, 'no part of the stone overlaps the band');
+    assert.truthy(off - stoneRM <= halfBandM + 1e-6, 'and it is not floating out in the grass');
+  }
+  // …and the offset is the WAY's own, not one number for every road: a
+  // motorway's band is far wider, so its lamps stand further out.
+  const wide = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'motorway' }), stoneRM);
+  const narrow = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'footway' }), stoneRM);
+  assert.truthy(wide > narrow, 'a motorway seats its lamps further off the centreline than a footway');
+});
+
+test('street lamps: the verge offset is derived from the art the draw pass uses', () => {
+  // STREET_LAMP_R_CELLS is the widest of the two stones a lamp can wear —
+  // the baked one inside its halo square and the dark cobble it draws before
+  // it lights — so NEITHER art overlaps the band, whichever is showing.
+  assert.truthy(/const STREET_LAMP_R_CELLS = Math\.max\(/.test(app), 'the widest of the arts, not a typed gap');
+  assert.truthy(/RoadOverlay\.LAMP_STONE_R_CELLS/.test(app), 'the baked stone\'s own radius, from the module that paints it');
+  assert.truthy(/STREET_LAMP_DARK_CELLS\.road \/ 2/.test(app), 'and the dark cobble\'s, halved to a radius');
+  assert.eq(RoadOverlay.LAMP_STONE_R_CELLS, RoadOverlay.LAMP_DRAW_CELLS * 0.16,
+    'road_overlay derives it from the square it bakes the stone in');
+  assert.truthy(STREET_LAMP_R_CELLS >= RoadOverlay.LAMP_STONE_R_CELLS, 'the lit stone fits inside it');
+  assert.truthy(STREET_LAMP_R_CELLS >= STREET_LAMP_DARK_CELLS.road / 2, 'and so does the dark cobble');
+  // The placement pass asks streets.js for the offset and hands it to the one
+  // point resolver — never a second projection of its own.
+  assert.truthy(/Streets\.lampOffsetM\(WorldGen\.roadOverlayWidthM\(f\.tags \|\| \{\}\), stoneRM\)/.test(forTileSrc),
+    'the offset is half the way\'s roadOverlayWidthM plus the stone');
+  assert.truthy(/Streets\.pointAtM\(line, mvtToM, sM, offM\)/.test(forTileSrc),
+    'and the point comes out of the same resolver the centreline does');
 });
 
 test('street lamps: a tile still LOADING is never memoised as lampless — the bug that lit nothing', () => {
