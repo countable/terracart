@@ -150,7 +150,8 @@ const GATHER_SPREAD_POINTS = 6;
 // an ordinary block shorter than a rung still qualifies). Where they stand is
 // generated from the way's geometry and never stored (streets.js); the lamp
 // itself is baked art (RoadOverlay.paintLamp) and the light it throws after
-// dark is Lighting.KINDS.cobble, on the same point.
+// dark is Lighting.KINDS.cobble, on the same point — lifted off it to the
+// LANTERN, which is where a lamp burns (RoadOverlay.LAMP_LANTERN_RISE_CELLS).
 const STREET_LAMP_TEX = 'street_lamp';
 // Drawn LAMP_DRAW_CELLS cells across — the pool of glow at its foot included;
 // the ironwork inside that is about a fifth of it wide and half of it tall, so
@@ -161,7 +162,9 @@ const STREET_LAMP_PX = CELL_PX *
 // plinth, its shadow and its pool of glow are all on the square's ground line
 // (RoadOverlay.LAMP_GROUND_FRAC), which is below the middle because a lamp is
 // mostly post — so the sprite's origin is that line rather than its centre,
-// and the light lighting.js stamps on the same point pools at the lamp's foot.
+// and the lamp stands on the point rather than hovering a post's height over
+// it. The light lighting.js stamps is on that same one point, lifted to the
+// lantern the way the art rises to it (see the note at RoadOverlay.paintLamp).
 // The dark cobble is a stone LYING on the point and keeps a centred origin;
 // one RENDER_SPEC row draws both arts, so the origin is picked per lamp beside
 // the texture (render.js RENDER_SPEC._streetlamp).

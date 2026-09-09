@@ -349,6 +349,28 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   assert.truthy(/if \(!L\.lit\) continue;/.test(LIGHTING_SRC), 'collectLamps skips a dark lamp by the one `lit` flag app.js sets');
   assert.eq(byId.near.kind, 'cobble', 'a lamp lights as the cobble kind');
   assert.eq(byId.near.dx, 3); assert.eq(byId.near.dy, -4, 'absolute metres minus the anchor');
+  // …AND THE COOKIE BURNS AT THE LANTERN. The lamp's point is its FOOT — dx/dy
+  // above are exactly that point, which is what the cull and the peek anchor
+  // read — but what is alight is the glass up the post, so the stamp is lifted
+  // by the ART's own rise: RoadOverlay.LAMP_LANTERN_RISE_CELLS (the ground
+  // line to the lit glass's midline) in screen px. A DRAW-space lift, like
+  // RENDER_SPEC's dyPx on the sprite, never metres folded into dy — fold it in
+  // and the light acquires a world position of its own a cell north of the
+  // lamp, which the road mask, the cull and every reader of the point would
+  // then disagree with.
+  const rise = Lighting.lampRiseCells();
+  assert.eq(rise, RoadOverlay.LAMP_LANTERN_RISE_CELLS, 'the rise is the art\'s own, read live');
+  assert.gt(rise, 0.5, 'a real lift up the post, not a nudge');
+  assert.lt(rise, RoadOverlay.LAMP_DRAW_CELLS / 2, 'and inside the square the lamp is drawn in');
+  assert.eq(byId.near.dyPx, -rise * CELL_PX, 'lifted UP the screen by the rise, in px');
+  assert.eq(byId.edge.dyPx, byId.near.dyPx, 'every lamp by the same rise — one art, one lantern');
+  // The stamp adds it to the anchored screen point, and the still-frame key
+  // names it: a light the key does not name is a light that cannot repaint.
+  const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('    const stamp = (L) => {'));
+  assert.truthy(/scene\.viewCenterY \+ L\.dy \* k \+ \(L\.dyPx \|\| 0\) - oy - d \/ 2/.test(st),
+    'the stamp lifts the cookie by dyPx, on top of the anchored metres');
+  assert.truthy(/L\.dx\},\$\{L\.dy\},\$\{L\.dyPx\}/.test(LIGHTING_SRC),
+    'and frameKey names dyPx, so a lift that moves repaints');
   // No list, or an empty one, is a no-op — like collectFires with no fires.
   assert.eq(Lighting.collectLamps(scene({ cellM }), 0, 0, HALF_M), 0, 'no list at all');
   assert.eq(Lighting.collectLamps(scene({ cellM, _streetLamps: [] }), 0, 0, HALF_M), 0, 'an empty list');
