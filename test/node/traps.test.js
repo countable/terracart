@@ -370,9 +370,9 @@ test('traps: the deeper you go the more of them there are', () => {
 
 // ─── The costs ───────────────────────────────────────────────────────────────
 
-test('traps: the bite is a tenth of a full bar and the bleed is 2⚡/s', () => {
+test('traps: the bite is a tenth of a full bar and the bleed is 3⚡/s', () => {
   assert.eq(Traps.STEP_ENERGY, 10, 'stepping on a hidden trap');
-  assert.eq(Traps.STAND_ENERGY_PER_S, 2, 'standing on the sprung one');
+  assert.eq(Traps.STAND_ENERGY_PER_S, 3, 'standing on the sprung one');
   assert.eq(Traps.STEP_ENERGY, STARTING_ENERGY / 10,
     'the bite is stated against the bar it comes out of');
 });
