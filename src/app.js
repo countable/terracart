@@ -171,8 +171,9 @@ const STREET_LAMP_PX = CELL_PX *
 const STREET_LAMP_ORIGIN_Y =
   (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_GROUND_FRAC) || 0.62;
 // …and then a nudge, by eye: the seated lamp read as standing a hair proud of
-// the verge it is on, so the POST is drawn three screen pixels lower. The ART
-// alone moves. The lamp's POINT does not — the verge offset that stands it
+// the verge it is on, so the POST is drawn one screen pixel lower — three
+// until the base still sat a shade low in its cell and the whole art came up
+// two. The ART alone moves. The lamp's POINT does not — the verge offset that stands it
 // clear of the carriageway (STREET_LAMP_R_CELLS → Streets.lampOffsetM) and the
 // light lighting.js stamps on that point are both unmoved, which is why this
 // is a draw offset on the sprite (RENDER_SPEC._streetlamp's dyPx) and not a
@@ -181,7 +182,7 @@ const STREET_LAMP_ORIGIN_Y =
 // question of where the lamp actually stands. The dark cobble keeps its seat
 // — it LIES on the point, and a stone in the road has nothing to stand proud
 // of.
-const STREET_LAMP_DY_PX = 3;
+const STREET_LAMP_DY_PX = 1;
 // THE UNLIT LAMP IS THE OLD ROAD COBBLE. A lamp stands on every
 // LAMP_SPACING_M of street whether or not that stretch is restored yet — a
 // dark one is the stone you have not lit, and it has to be VISIBLE or the
