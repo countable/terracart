@@ -1009,9 +1009,10 @@ test('street lamp: it STANDS on its point — ironwork above the ground line, th
   // The whole seating rule, in one test. app.js puts the sprite's origin on
   // LAMP_GROUND_FRAC (street_lamps.test.js pins that end), so this line is the
   // lamp's world point: the plinth sits on it, the pool of glow is centred on
-  // it — which is where lighting.js's cookie lands too — and the post is
-  // ABOVE it. Centre the lantern on the point instead and the light pools a
-  // lamp's height off its own foot.
+  // it, and the post is ABOVE it. Centre the lantern on the point instead and
+  // the plinth stands a lamp's height off the ground it is on. (The LIGHT is
+  // on that same point lifted to the lantern — LAMP_LANTERN_RISE_CELLS, its
+  // own test below.)
   const S = RoadOverlay.LAMP_TEX_PX, c = S / 2;
   const gy = S * RoadOverlay.LAMP_GROUND_FRAC;
   const r = S * RoadOverlay.LAMP_FOOT_R_CELLS / RoadOverlay.LAMP_DRAW_CELLS;
@@ -1036,7 +1037,15 @@ test('street lamp: it STANDS on its point — ironwork above the ground line, th
   const lowest = Math.max(...pts.map(([, y]) => y));
   const highest = Math.min(...pts.map(([, y]) => y));
   assert.inRange(lowest, gy, gy + r * 0.5, 'the ironwork stands ON the ground line');
-  assert.gt((gy - highest) / S, 0.4, 'and rises most of the square above it — a post, not a stone');
+  // HOW FAR above it: enough to read as a post, and no further. The profile
+  // stood 0.578 of the square tall until Sep 2026 — a tree is 1.5 cells and
+  // the square is LAMP_DRAW_CELLS across, so a lamp was as tall as the trees
+  // it stood between and a restored street read as a row of masts. Every row
+  // of LAMP_PROFILE was pulled toward the ground line by one linear map (the
+  // widths untouched), which is why nothing else in this file moved.
+  const height = (gy - highest) / S;
+  assert.gt(height, 0.4, 'it rises most of the square above the line — a post, not a stone');
+  assert.lt(height, 0.55, 'and not a mast: shorter than the trees it stands between');
   // The ground shadow: one flat ellipse, down-RIGHT of the foot (the side
   // every sprite in here shadows on), laid before the lamp that throws it.
   const ell = ops.filter(([k]) => k === 'ellipse');
@@ -1165,6 +1174,37 @@ test('street lamp: LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_GROUND_FRAC and LAMP_FOOT_
   assert.eq(RoadOverlay.LAMP_FOOT_R_CELLS, RoadOverlay.LAMP_DRAW_CELLS * 0.085,
     'the footprint is derived from the square the lamp is baked in');
   assert.lt(RoadOverlay.LAMP_FOOT_R_CELLS, 0.5, 'and a lamp\'s foot is a fraction of a cell');
+});
+
+test('street lamp: the LIGHT comes out of the lantern — one point, lifted, never a second position', () => {
+  // A lamp's point is its FOOT (the test above), but the thing that is
+  // burning is the glass up the post. So lighting.js's cookie is stamped on
+  // that one point LIFTED by this rise — the ground line to the lit glass's
+  // midline — rather than pooling on the tarmac under a dark head.
+  //
+  // It is DERIVED from the profile, the roadOverlayWidthM discipline: the
+  // same LAMP_LANTERN_FRAC paintLamp centres the bloom on, so re-mapping the
+  // table's heights takes the bloom, the glass and the light with it. A
+  // hand-typed rise would drift the glow off the glass the first time the
+  // lamp changed height — which is exactly the pass this shipped with.
+  const G = RoadOverlay.LAMP_GROUND_FRAC, F = RoadOverlay.LAMP_LANTERN_FRAC;
+  assert.lt(F, G, 'the lantern is ABOVE the ground line');
+  assert.gt(F, 0.1, 'and below the finial: it is the glass, not the top of the lamp');
+  assert.eq(RoadOverlay.LAMP_LANTERN_RISE_CELLS, (G - F) * RoadOverlay.LAMP_DRAW_CELLS,
+    'the rise is that gap in the cells the lamp is drawn across');
+  assert.gt(RoadOverlay.LAMP_LANTERN_RISE_CELLS, 0.5, 'a real lift up the post');
+  assert.lt(RoadOverlay.LAMP_LANTERN_RISE_CELLS, RoadOverlay.LAMP_DRAW_CELLS / 2,
+    'inside the square the lamp is baked in');
+  // The bloom paintLamp lays around the glass is centred on the SAME
+  // fraction, so the painted glow and the stamped cookie are one place.
+  const S = RoadOverlay.LAMP_TEX_PX, c = S / 2;
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintLamp(ctx, S);
+  const bloom = ops.filter(([k]) => k === 'createRadialGradient')[1];
+  assert.eq(bloom[1], c, 'the bloom is on the lamp\'s middle');
+  assert.eq(bloom[2], S * F, 'and on the lantern fraction the light is lifted to');
+  assert.truthy(/const gcy = S \* LAMP_LANTERN_FRAC;/.test(ROAD_OVERLAY_SRC),
+    'one expression for where the lantern is, read by the bloom and the lift');
 });
 
 // ── The live pass ─────────────────────────────────────────────────────────

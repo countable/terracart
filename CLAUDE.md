@@ -1192,14 +1192,30 @@
   `UI_GOLD` family, which is the player-control role. Metal is not light: a
   lamp that lit the street correctly and looked like a lit STONE doing it is
   what the gild replaced in Sep 2026.
-  **AND IT STANDS ON THE POINT.** The baked square carries the plinth, the
-  ground shadow and the pool of glow on its own ground line
-  (`RoadOverlay.LAMP_GROUND_FRAC`, below the middle because a lamp is mostly
-  post), and `STREET_LAMP_ORIGIN_Y` seats the sprite by that line rather than
-  by its centre — so the light lighting.js stamps on the point pools at the
-  lamp's FOOT while the lantern reads as up in the air above it. Centring the
-  lantern on the point instead puts the pool a lamp's height off its own foot,
-  which is the one thing that gives a seating away. The dark cobble LIES on the
+  **AND IT STANDS ON THE POINT — BUT IT BURNS AT THE LANTERN.** The baked
+  square carries the plinth, the ground shadow and the pool of glow on its own
+  ground line (`RoadOverlay.LAMP_GROUND_FRAC`, below the middle because a lamp
+  is mostly post), and `STREET_LAMP_ORIGIN_Y` seats the sprite by that line
+  rather than by its centre, so the lamp STANDS where it says it does and the
+  lantern reads as up in the air above its own foot. Centring the lantern on
+  the point instead puts the plinth a lamp's height off the ground, which is
+  the one thing that gives a seating away. The LIGHT is on that same one point
+  — there is still only one, so the glow can never be left behind on the
+  tarmac — LIFTED to the lantern by `RoadOverlay.LAMP_LANTERN_RISE_CELLS` (the
+  ground line to the lit glass's own midline, `LAMP_LANTERN_FRAC`, which is
+  also what `paintLamp` centres its bloom on). It rides as `dyPx` on the light
+  entry, a DRAW-space lift in screen px — the shape `RENDER_SPEC`'s own `dyPx`
+  has for the art — never as metres folded into `dx`/`dy`, which would hand
+  the light a world position of its own a cell north of the lamp that the cull
+  and every other reader of the point would disagree with. Until Sep 2026 the
+  cookie sat on the foot, so a lit street was a row of pools of light under
+  dark heads. **The lamp is also 15% SHORTER than it shipped**: every row of
+  `LAMP_PROFILE` was pulled toward the ground line by one linear map (the
+  widths untouched, so the casting is unchanged and every overlap survived) —
+  it stood 0.578 of the baked square tall, near enough a tree, and stands
+  0.494 now. Retune the height by re-mapping that table, never by moving
+  `LAMP_GROUND_FRAC`: that line is where the lamp STANDS, not how tall it is.
+  The dark cobble LIES on the
   point and keeps its centred origin; the pool swaps between the two arts, so
   the origin is set per lamp beside the texture. The list
   app.js hands to both (`_updateStreetLamps`) is
@@ -1221,7 +1237,9 @@
   cell. **When you cache an answer read off a tile entry, ask what it says
   while that tile is still loading.**
   **Audit it:** `node test/node/run.js` › `test/node/street_lamps.test.js`
-  (the wiring and the memo) and `test/node/streets.test.js` (the placement).
+  (the wiring and the memo), `test/node/streets.test.js` (the placement),
+  `test/node/road_overlay.test.js` (the height and the lantern's rise) and
+  `test/node/lighting.test.js` (the lifted cookie).
 
 - **The restored patch is SOFT, and its edge only.** The rebuilt band is laid
   crisp — clean setts, a hairline kerb — and then FEATHERED as the last step of

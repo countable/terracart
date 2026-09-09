@@ -565,11 +565,18 @@
   // footprint, the ground shadow and the painted pool of glow all sit on the
   // square's GROUND LINE (LAMP_GROUND_FRAC — which app.js seats the sprite's
   // origin at, so that line lands on the lamp's own world point), and the post
-  // rises above it. So the pool lands on the ground the lamp stands on —
-  // exactly where lighting.js's cookie, on that same point, paints over it —
-  // while the lantern reads as being up in the air above its own foot. Centre
-  // the LANTERN on the point instead and the light pools a lamp's height off
-  // the foot, which is the one thing that gives a seating away.
+  // rises above it. So the pool lands on the ground the lamp stands on, while
+  // the lantern reads as being up in the air above its own foot. Centre the
+  // LANTERN on the point instead and the plinth stands a lamp's height off the
+  // ground it is on, which is the one thing that gives a seating away.
+  //
+  // …AND IT BURNS AT THE LANTERN. The lamp's world point is its foot and stays
+  // its foot — one point, which both the art and lighting.js read — but the
+  // light lighting.js stamps is LIFTED off it by LAMP_LANTERN_RISE_CELLS, so
+  // the cookie comes out of the glass rather than pooling on the tarmac under
+  // a dark head. The rise is a draw-space lift over the one point (the shape
+  // RENDER_SPEC's dyPx already has for the art), never a second position for
+  // the light to be left behind on.
   //
   // The FOOTPRINT is what stands the lamp clear of the carriageway
   // (LAMP_FOOT_R_CELLS → app.js STREET_LAMP_R_CELLS → Streets.lampOffsetM), so
@@ -639,23 +646,45 @@
   // it — the painter rule (CLAUDE.md), inside the one object. The lit glass is
   // not here: it is the one part that is not metal, and it is painted between
   // the eaves and the skirt (see paintLamp).
+  //
+  // HOW TALL. Every row here was pulled toward the ground line by one linear
+  // map about LAMP_GROUND_FRAC (×0.85, Sep 2026) — one transform over the
+  // whole table, so every overlap between the pieces, the lantern's share of
+  // the lamp and the rhythm of the mouldings survived it exactly; the widths
+  // are untouched, so the lamp reads as the same casting, standing a head
+  // shorter. It used to rise 0.578 of the square above its foot, near enough
+  // a tree's height (a tree is 1.5 cells and the square is LAMP_DRAW_CELLS
+  // across), which made a restored street a row of masts; it rises 0.494 now.
+  // Retune the HEIGHT by re-mapping the table the same way, never by moving
+  // LAMP_GROUND_FRAC — that line is where the lamp STANDS (app.js seats the
+  // sprite on it), not how tall it is.
   const LAMP_PROFILE = [
-    { y0: 0.072, y1: 0.146, w0: 0.015, w1: 0.058, tone: -0.18, curve: -0.30 }, // the crown
-    { y0: 0.144, y1: 0.166, w0: 0.072, w1: 0.066, tone: 0.30, cap: true },     // its eaves
-    { y0: 0.248, y1: 0.290, w0: 0.058, w1: 0.030, tone: -0.10, curve: -0.28 }, // the lantern's skirt
-    { y0: 0.288, y1: 0.306, w0: 0.036, w1: 0.030, tone: 0.28, curve: 0.35 },   // the collar under it
-    { y0: 0.302, y1: 0.512, w0: 0.013, w1: 0.019, tone: 0 },                   // the column
-    { y0: 0.392, y1: 0.408, w0: 0.023, w1: 0.023, tone: 0.25, curve: 0.35 },   // a moulding band on it
-    { y0: 0.500, y1: 0.552, w0: 0.020, w1: 0.054, tone: -0.05, curve: -0.45 }, // the base's flare
-    { y0: 0.550, y1: 0.582, w0: 0.060, w1: 0.068, tone: 0.22, curve: 0.15, cap: true }, // its step
-    { y0: 0.580, y1: 0.620, w0: 0.074, w1: 0.085, tone: -0.12, curve: 0.10, cap: true }, // the plinth
+    { y0: 0.154, y1: 0.217, w0: 0.015, w1: 0.058, tone: -0.18, curve: -0.30 }, // the crown
+    { y0: 0.215, y1: 0.234, w0: 0.072, w1: 0.066, tone: 0.30, cap: true },     // its eaves
+    { y0: 0.304, y1: 0.339, w0: 0.058, w1: 0.030, tone: -0.10, curve: -0.28 }, // the lantern's skirt
+    { y0: 0.338, y1: 0.353, w0: 0.036, w1: 0.030, tone: 0.28, curve: 0.35 },   // the collar under it
+    { y0: 0.350, y1: 0.528, w0: 0.013, w1: 0.019, tone: 0 },                   // the column
+    { y0: 0.426, y1: 0.440, w0: 0.023, w1: 0.023, tone: 0.25, curve: 0.35 },   // a moulding band on it
+    { y0: 0.518, y1: 0.562, w0: 0.020, w1: 0.054, tone: -0.05, curve: -0.45 }, // the base's flare
+    { y0: 0.560, y1: 0.588, w0: 0.060, w1: 0.068, tone: 0.22, curve: 0.15, cap: true }, // its step
+    { y0: 0.586, y1: 0.620, w0: 0.074, w1: 0.085, tone: -0.12, curve: 0.10, cap: true }, // the plinth
   ];
   // The lit glass, in the same units — wider at its foot, like every lantern.
-  const LAMP_GLASS = { y0: 0.162, y1: 0.250, w0: 0.038, w1: 0.056 };
+  const LAMP_GLASS = { y0: 0.231, y1: 0.305, w0: 0.038, w1: 0.056 };
   // The finial over the crown, and the cross-arm (the old ladder rest) under
   // the lantern: the two pieces that are not sections of the turn.
-  const LAMP_FINIAL = { cy: 0.058, r: 0.016 };
-  const LAMP_ARM = { y0: 0.318, y1: 0.332, w: 0.066, ball: 0.014 };
+  const LAMP_FINIAL = { cy: 0.142, r: 0.016 };
+  const LAMP_ARM = { y0: 0.363, y1: 0.375, w: 0.066, ball: 0.014 };
+  // WHERE THE LIGHT COMES OUT: the lit glass's own midline, and how far that
+  // is ABOVE the lamp's point, in CELLS. The lamp STANDS on its point (the
+  // plinth, the shadow and the painted pool are all on the ground line), but
+  // the thing that is burning is up in the lantern — so lighting.js lifts its
+  // cookie by this rise rather than pooling it on the tarmac, and the glow
+  // comes out of the glass the bloom is already painted around. Derived from
+  // the profile above, so a re-mapped table takes the light with it: one
+  // number, two readers (paintLamp's bloom and Lighting.collectLamps).
+  const LAMP_LANTERN_FRAC = (LAMP_GLASS.y0 + LAMP_GLASS.y1) / 2;
+  const LAMP_LANTERN_RISE_CELLS = (LAMP_GROUND_FRAC - LAMP_LANTERN_FRAC) * LAMP_DRAW_CELLS;
 
   const lampRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const lampMix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
@@ -743,7 +772,7 @@
     cx.restore();
     // 2. THE BLOOM around the glass, laid BEFORE the ironwork so the metal
     //    over it stays metal and only the air around the lantern glows.
-    const gcy = S * (LAMP_GLASS.y0 + LAMP_GLASS.y1) / 2;
+    const gcy = S * LAMP_LANTERN_FRAC;
     const br = S * LAMP_BLOOM_FRAC;
     const bloom = cx.createRadialGradient(c, gcy, 0, c, gcy, br);
     for (let i = 0; i <= 8; i++) {
@@ -1569,6 +1598,7 @@
 
   global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
                          paintLamp, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
+                         LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };
 })(window);

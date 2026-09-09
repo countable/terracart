@@ -184,8 +184,9 @@
     // A STREET LAMP — the gilded lamp a RESTORED street stands, one every
     // Streets.lampSpacingM() metres of rebuilt carriageway (streets.js places
     // them, road_overlay.js paints the lamp, app.js hands this collector the
-    // live list). The cookie lands on the lamp's own point, which is its FOOT
-    // (see LAMP_GROUND_FRAC): the light pools on the road the lamp stands on. It is the whole point of rebuilding a street after dark: a
+    // live list). The lamp's point is its FOOT (see LAMP_GROUND_FRAC) and the
+    // cookie is LIFTED off it to the lantern, where the burning is (see
+    // collectLamps). It is the whole point of rebuilding a street after dark: a
     // road you have brought back is a road you can walk at night, and the
     // string of lamps behind you is the map of everything you have restored.
     //
@@ -741,16 +742,30 @@
   // were removed). Handing over a plain array of points instead keeps the
   // finding of them — nine tiles of transportation lines, their arclengths
   // and the save's restored intervals — in app.js, where the tile cache is.
+  //
+  // AND IT BURNS AT THE LANTERN, not on the tarmac. A lamp's point is its FOOT
+  // — one point, which the art stands on and this culls by — but what is
+  // alight is the glass up the post, so the cookie is LIFTED off that point by
+  // the art's own rise (RoadOverlay.LAMP_LANTERN_RISE_CELLS, the ground line
+  // to the lit glass's midline, in cells). It rides as `dyPx`, a DRAW-space
+  // lift in screen pixels — the shape RENDER_SPEC's own dyPx has for the
+  // sprite — rather than as metres folded into dy, so the light's world
+  // position stays exactly the lamp's, and one number lifts the glow and the
+  // glass together whatever a cell is worth in metres.
+  function lampRiseCells() {
+    return (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_LANTERN_RISE_CELLS) || 0;
+  }
   function collectLamps(scene, ax, ay, halfM) {
     const list = scene && scene._streetLamps;
     if (!list || !list.length) return 0;
     if (!scene._lights) scene._lights = [];
+    const dyPx = -lampRiseCells() * ((typeof CELL_PX !== 'undefined') ? CELL_PX : 32);
     let n = 0;
     for (const L of list) {
       if (!L.lit) continue;                        // a dark stone is not a light
       const dx = L.x - ax, dy = L.y - ay;
       if (!inRange(scene, dx, dy, 'cobble', halfM)) continue;
-      scene._lights.push({ kind: 'cobble', dx, dy, id: L.id });
+      scene._lights.push({ kind: 'cobble', dx, dy, dyPx, id: L.id });
       n++;
     }
     return n;
@@ -818,7 +833,7 @@
       + `|${prof.depth},${prof.dimA},${prof.dimColour},${prof.farA},${prof.ambient},${prof.edge},${prof.lit},${prof.litColour},${prof.night}`;
     if (rp) k += `|${rp.cellIX},${rp.cellIY},${pc.tx},${pc.ty},${pc.cx},${pc.cy}`;
     if (animates(scene)) k += `|t${now}`;
-    for (const L of scene._lights) k += `|${L.kind},${L.id},${L.dx},${L.dy},${L.r},${L.colour},${L.a},${L.s}`;
+    for (const L of scene._lights) k += `|${L.kind},${L.id},${L.dx},${L.dy},${L.dyPx},${L.r},${L.colour},${L.a},${L.s}`;
     return k;
   }
 
@@ -1109,8 +1124,10 @@
 
     // The lights: the objects' — drawObjects' scan, plus the fires and the
     // blasts. A light may carry its own alpha / scale multipliers (`a`, `s` — a blast drives both off its own
-    // clock) on top of the row's flicker, and its own radius / colour (`r`,
-    // `colour` — a blast is sized to the thing it went off on).
+    // clock) on top of the row's flicker, its own radius / colour (`r`,
+    // `colour` — a blast is sized to the thing it went off on), and a `dyPx`:
+    // a draw-space lift off its own point, for a source that burns up in the
+    // air over the ground it stands on (a street lamp's lantern).
     const stamp = (L) => {
       const row = KINDS[L.kind];
       const ck = ensureKindCookie(scene, L.kind, L.r, L.colour);
@@ -1120,7 +1137,7 @@
       ctx.globalAlpha = clamp01(a);
       ctx.drawImage(ck.canvas,
         scene.viewCenterX + L.dx * k - ox - d / 2,
-        scene.viewCenterY + L.dy * k - oy - d / 2, d, d);
+        scene.viewCenterY + L.dy * k + (L.dyPx || 0) - oy - d / 2, d, d);
     };
     for (const L of scene._lights) stamp(L);
     ctx.globalAlpha = 1;
@@ -1143,7 +1160,7 @@
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires, objectLightPadCells,
-    collectPlayer, collectLamps,
+    collectPlayer, collectLamps, lampRiseCells,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, BLAST_MAX, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
     LIGHT_TICK_MS, lightClock, animates, frameKey,
