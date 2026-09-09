@@ -4875,9 +4875,15 @@
   // Roughly one clump per PIVOT² cells: at PIVOT 8 / FIRE 0.25 that is about
   // one mushroom per viewport, in ones and threes. Deterministic per
   // tile+depth; ids carry the depth so save.picked keeps levels apart.
+  // Levels 1 and 4 are the two mushroom-heavy levels — a rich forage layer
+  // right under the surface and again at the mid-depths — so they fire twice
+  // as often as every other level; the clump shape (PIVOT/RADIUS/cluster
+  // size) is unchanged, same as depth-1's ore-heavy weights in
+  // spawnCaveRocks above being the one thing that varies for that level.
   function spawnCaveMushrooms(grid, N, tx, ty, tileEdgeM, depth, wildplants, occupied) {
     const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x27D4EB2F)) >>> 0);
-    const PIVOT = 8, FIRE = 0.25, CLUSTER_MIN = 1, CLUSTER_SPAN = 3, RADIUS = 1;
+    const FIRE = (depth === 1 || depth === 4) ? 0.5 : 0.25;
+    const PIVOT = 8, CLUSTER_MIN = 1, CLUSTER_SPAN = 3, RADIUS = 1;
     for (let py = 1; py < N; py += PIVOT) {
       for (let px = 1; px < N; px += PIVOT) {
         if (rng() > FIRE) continue;
