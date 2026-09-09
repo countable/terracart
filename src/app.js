@@ -1195,14 +1195,14 @@ const BUILDING_TYPES = new Set([9, 11, 12]);
 // Both rates PAUSE while a work wheel runs (see the `working` gate in
 // update()): a job done from the doorstep costs its energy on the bar, and
 // the rest earns it back only once the wheel has cleared.
-const HOME_FULL_REST_S = 90;
+const HOME_FULL_REST_S = 50;
 // A SIT-DOWN IS A PAUSE, AND THE PAUSE OUTLASTS THE JOB. Pausing the rests
 // for the wheel alone was not enough: the starter tree and rock are seated
 // 4–5 cells from the trailer (HomeArea.TOKEN_MIN_CELLS..POCKET_CELLS), inside
 // Home's ring from anywhere the player can reach them, and the instant a
-// bare-handed 9⚡ chop or dig cleared, the rest resumed at ~1.1⚡/s and had the
-// whole price back on the bar eight seconds later — "mining and chopping took
-// no energy", the till bug one lane over. So `working` in update() is ALSO
+// bare-handed 9⚡ chop or dig cleared, the rest resumed at 2⚡/s and had the
+// whole price back on the bar four and a half seconds later — "mining and
+// chopping took no energy", the till bug one lane over. So `working` in update() is ALSO
 // true for REST_SETTLE_S after the last moment the player was working: every
 // frame a wheel is up, and every spend through spendEnergy (a plant, a
 // harvest, a placed rock, the auto-mine's dig), each pushes _restHoldUntil
@@ -6646,12 +6646,12 @@ class MapScene extends Phaser.Scene {
       // fight) suspends both rests below. The starter trailer is dropped under
       // the player at spawn and the starter plot is carved two cells from it,
       // inside reach from the trailer's own cell — so a new player's first
-      // till ran with the Home rest ticking at ~1.1⚡/s under a 2.25 s wheel
+      // till ran with the Home rest ticking at 2⚡/s under a 2.25 s wheel
       // that had cost 2⚡, and the bar read the same number before and after
       // ("tilling takes no energy"). And the wheel alone was not enough: a
       // rest that resumed the moment it cleared had a bare-handed 9⚡ chop
-      // back on the bar eight seconds later ("mining and chopping took no
-      // energy"). So a wheel up on any frame, or a spend (spendEnergy), holds
+      // back on the bar four and a half seconds later ("mining and chopping
+      // took no energy"). So a wheel up on any frame, or a spend (spendEnergy), holds
       // the rests for REST_SETTLE_S past it — the player has to actually stop
       // before Home earns a job's price back. See REST_SETTLE_S.
       const restNow = performance.now();
