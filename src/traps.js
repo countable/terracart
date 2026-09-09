@@ -44,11 +44,11 @@
   // ── What a trap costs ────────────────────────────────────────────────────
   // Stepping on a hidden one is a BITE: a tenth of a full bar (STARTING_ENERGY
   // is 100) in one go, the same order as a bare-handed rock break. Standing on
-  // the sprung one is a bleed the player is meant to walk out of — two a
-  // second is faster than any passive rest can refill (Home is ~1.1⚡/s), so
+  // the sprung one is a bleed the player is meant to walk out of — three a
+  // second is faster than any passive rest can refill (Home is 2⚡/s), so
   // waiting it out is never the answer; stepping off is.
   const STEP_ENERGY = 10;
-  const STAND_ENERGY_PER_S = 2;
+  const STAND_ENERGY_PER_S = 3;
 
   // ── How many, and where ──────────────────────────────────────────────────
   // A tile is ~236 cells (≈1.65 km) on an edge — about 21 screens across — so

@@ -259,8 +259,8 @@ test('tips: the list is substantial and every entry is a real sentence', () => {
 test('tips: the home rest quotes HOME_FULL_REST_S, and no tip rests you in a stranger\'s house', () => {
   const m = APP_JS_SRC.match(/const HOME_FULL_REST_S = (\d+);/);
   assert.truthy(m, 'app.js still owns HOME_FULL_REST_S');
-  assert.eq(Number(m[1]), 90, 'the home rest is ninety seconds');
-  assert.truthy(someTip(/ninety seconds/i), 'and a tip says so');
+  assert.eq(Number(m[1]), 50, 'the home rest is fifty seconds');
+  assert.truthy(someTip(/fifty seconds/i), 'and a tip says so');
   // The stale claim: every building used to rest you at INDOOR_FULL_REST_S.
   assert.falsy(/stand inside any building/i.test(TIPS_BLOB), 'no tip rests you indoors anywhere');
   assert.falsy(/full bar in five minutes/i.test(TIPS_BLOB), 'and none quotes the dead 5-minute rate');
@@ -649,10 +649,10 @@ test('tips: no tip promises a mechanic that does not exist', () => {
 
 test('tips: the snares are documented — nothing else can say where they are', () => {
   assert.eq(Traps.STEP_ENERGY, 10, 'treading on one bites 10⚡');
-  assert.eq(Traps.STAND_ENERGY_PER_S, 2, 'and standing on it bleeds 2 a second');
+  assert.eq(Traps.STAND_ENERGY_PER_S, 3, 'and standing on it bleeds 3 a second');
   const tip = PLAY_TIPS.find((t) => /snare/i.test(t));
   assert.truthy(tip, 'a tip warns about them');
-  assert.truthy(/10⚡/.test(tip) && /2 a second/.test(tip), 'and quotes both costs');
+  assert.truthy(/10⚡/.test(tip) && /3 a second/.test(tip), 'and quotes both costs');
   assert.truthy(/verge|road/i.test(tip) && /stair|underground/i.test(tip),
     'and says where they lie');
 });

@@ -868,7 +868,7 @@ const PLAY_TIPS = [
   // ── The first ten minutes — you cannot act without these ────
   'Actions cost energy. Eat to refill — or just rest; an hour away from the game hands the whole bar back.',
   'Hard mode is harsher on an empty tank: food, a campfire and time away all stop working, and only your trailer starts you moving again.',
-  'Only your OWN home rests you — a full bar in ninety seconds. A stranger\'s roof is just a roof.',
+  'Only your OWN home rests you — a full bar in fifty seconds. A stranger\'s roof is just a roof.',
   'A campfire rests you slowly out in the open, and slimes keep their distance.',
   'Resting stops while a work wheel turns. A job done on the doorstep still costs what it costs; the sit-down afterwards is what earns it back.',
   'Selling is home-only. Carry your haul back to your trailer, select a stack, and tap it to cash out.',
@@ -876,7 +876,7 @@ const PLAY_TIPS = [
   'How far you can touch is your own light: nothing at all on an empty bar, and half a cell less for every level you descend.',
   'The bar over a foe is its health, not a timer — green, then amber, then red.',
   'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
-  'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 2 a second, so step off rather than wait it out.',
+  'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 3 a second, so step off rather than wait it out.',
   // ── The starter loop — till, plant, rebuild, harvest, sell ───
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
