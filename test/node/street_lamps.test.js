@@ -230,14 +230,14 @@ test('street lamps: the lamp STANDS on its point — the sprite\'s origin is the
     'and the load-order fallback agrees with it');
   assert.truthy(/origin: \(o\) => \(o\.lit \? \[0\.5, STREET_LAMP_ORIGIN_Y\] : \[0\.5, 0\.5\]\)/.test(lampSpecSrc),
     'a LIT lamp is seated on its ground line, and the dark cobble — which LIES on the point — stays centred');
-  // The post is drawn a pixel below its point — art only: the verge
+  // The post is drawn a few pixels below its point — art only: the verge
   // offset above and the light on the same point are unmoved. It counts
   // BECAUSE the row is not seated (a seated spec has its dyPx overwritten by
   // the seat pass, which is how three tuned offsets that moved nothing came to
   // ship), so the two pins belong together.
   assert.truthy(/dyPx: \(o\) => \(o\.lit \? STREET_LAMP_DY_PX : 0\)/.test(lampSpecSrc),
     'the lit post takes the nudge, the cobble lying on the point does not');
-  assert.truthy(/const STREET_LAMP_DY_PX = 1;/.test(app), 'one screen pixel, by eye — it was 3 until the base came up 2 into its cell');
+  assert.truthy(/const STREET_LAMP_DY_PX = 3;/.test(app), 'three screen pixels, by eye — it dropped to one when the base came up 2 into its cell, now nudged back down 2px');
   assert.falsy(/seat: true/.test(lampSpecSrc),
     'and it is NOT run through the seat pass: SpriteLayout has no trimmed bounds for a canvas bake, '
     + 'and the ground line the art was painted at is the same answer one step earlier');
