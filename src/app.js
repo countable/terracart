@@ -11971,8 +11971,15 @@ class MapScene extends Phaser.Scene {
   // the survivors' voice) and stay scenic for the rest.
   dialogArtHTML(art, accent) {
     if (!art) return '';
+    // Capped and cropped (object-fit: cover) rather than full aspect-ratio
+    // height — at 100% width alone, a 512×341 banner ran the trail-pick
+    // ceremony (banner + name + sub + a row of reward-choice cards) taller
+    // than the viewport on a short screen and forced it to scroll, which no
+    // story dialog wants. The crop keeps the centred subject; it's a banner
+    // strip, not the whole piece.
     return `<img src="assets/art/${art}.png" alt="" ` +
-      `style="display:block;width:100%;image-rendering:pixelated;` +
+      `style="display:block;width:100%;max-height:130px;object-fit:cover;` +
+      `image-rendering:pixelated;` +
       `border-radius:8px;border:1px solid ${accent || UI_CONTROL_DIM}59;` +
       `margin:0 0 10px">`;
   }
@@ -14671,11 +14678,15 @@ class MapScene extends Phaser.Scene {
   // outcome line ("equipped"), and on an option the player hasn't taken yet
   // that would state as done the very thing the button is asking about.
   _trailChoiceLabel(reward) {
-    const card = this._trailRewardCard(reward);
+    // A smaller icon than the single-reward ceremony's own (64px): this one
+    // sits in a button, stacked under the banner and the "Take your pick"
+    // copy, and at 64px the choice row was the last straw that pushed the
+    // ceremony past the viewport height into a scroll.
+    const card = this._trailRewardCard(reward, 44);
     if (!card) return '';
     const qty = card.qty
       ? `<div style="font-size:12px;font-weight:700;color:${card.color}">${card.qty}</div>` : '';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:78px">' +
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:64px">' +
            `<div style="font-size:0;line-height:0">${card.iconHTML}</div>` +
            `<div style="font-size:11px;font-weight:700;color:${card.color};line-height:1.2">${card.name}</div>` +
            qty + '</div>';
@@ -14683,13 +14694,16 @@ class MapScene extends Phaser.Scene {
 
   // How ONE reward PRESENTS: icon, name, quantity, colour. Display only — it
   // grants nothing, because an option the player didn't take still has to be
-  // drawn. _claimTrailReward is the half that pays out.
-  _trailRewardCard(reward) {
+  // drawn. _claimTrailReward is the half that pays out. `iconPx` defaults to
+  // the single-reward ceremony's size (64); the choice row asks for a
+  // smaller one (see _trailChoiceLabel) so a pick of two options doesn't
+  // push the ceremony past the viewport height.
+  _trailRewardCard(reward, iconPx = 64) {
     if (!reward) return null;
     if (reward.kind === 'item') {
       const item = ITEM_BY_ID[reward.id];
       return {
-        iconHTML: this.iconSpanHTML ? this.iconSpanHTML(reward.id, 64) : '',
+        iconHTML: this.iconSpanHTML ? this.iconSpanHTML(reward.id, iconPx) : '',
         name: item?.name || reward.id,
         qty: reward.qty > 1 ? `× ${reward.qty}` : null,
         color: (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff'),
@@ -14697,7 +14711,7 @@ class MapScene extends Phaser.Scene {
     }
     if (reward.kind === 'gold') {
       return {
-        iconHTML: this.coinIconHTML ? this.coinIconHTML(48) : '',
+        iconHTML: this.coinIconHTML ? this.coinIconHTML(Math.round(iconPx * 0.75)) : '',
         name: `+${reward.amount}`,
         color: UI_GOLD,
       };
@@ -14705,7 +14719,7 @@ class MapScene extends Phaser.Scene {
     if (reward.kind === 'relic' || reward.kind === 'armor') {
       return {
         iconHTML: this.gearIconHTML
-          ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, 64) : '★',
+          ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, iconPx) : '★',
         name: (typeof gearName === 'function')
           ? gearName(reward.kind, reward.slot, reward.tier)
           : `${reward.slot} T${reward.tier}`,
@@ -16177,7 +16191,7 @@ class MapScene extends Phaser.Scene {
       // must pick an action so the chest is never left half-resolved. Overlay
       // clicks are inert (no close listener on wrap).
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap;';
+      row.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap;';
       for (const a of actions) {
         const b = document.createElement('button');
         b.innerHTML = a.label;
