@@ -265,7 +265,7 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_trailRewardCard(reward) {', '_claimTrailReward(reward, opts = {}) {']
+  const methods = ['_trailRewardCard(reward, iconPx = 64) {', '_claimTrailReward(reward, opts = {}) {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__trailPrize = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_claimTrailReward' });
