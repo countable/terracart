@@ -125,7 +125,8 @@ test('delivery: the first delivery to a house banks a Discovery badge, once', ()
   const accept = app.slice(start, app.indexOf('\n  }\n', app.indexOf('onAccept: (q) =>', start)));
   assert.truthy(/const firstHere = this\._bankDiscovery\(`house:\$\{house\.id\}`\);/.test(accept),
     'the accept handler banks house:<id> through the shared ledger');
-  assert.truthy(/if \(firstHere\) this\.flash\('🔆 \+1 Discovery/.test(accept), 'and says so');
+  assert.truthy(/if \(firstHere\) this\.flashShiny\(gain, true, '🏠 NEW DOOR 🏠'\);/.test(accept),
+    'and gets the same fanfare as any other Discovery badge');
   // The ledger itself: one badge per key, ever.
   const lStart = app.indexOf('_bankDiscovery(key) {');
   const ledger = app.slice(lStart, app.indexOf('flashShiny(money, isNew = true', lStart));

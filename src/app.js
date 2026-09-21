@@ -13365,7 +13365,10 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`+${gain}`, '#ffe066', 1, wanted[0]);
-        if (firstHere) this.flash('🔆 +1 Discovery — new house', sx, sy - 24);
+        // A new door gets the same fanfare as any other Discovery badge — the
+        // shiny-find banner + burst, not a bare flash — so every "first time"
+        // moment in the game reads the same way (see the elite-kill call site).
+        if (firstHere) this.flashShiny(gain, true, '🏠 NEW DOOR 🏠');
         if (wasFirstDelivery) {
           this._storySplashOnce('delivery', {
             art: 'delivery_first',
