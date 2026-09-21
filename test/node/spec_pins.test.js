@@ -211,9 +211,10 @@ test('#7 T2 chest relic path resolves via rollGearUpgrade (relic or armor or gol
 // defining gem +100% / produce +50% / trader +25%.
 //
 // Current shops.js: the Shops namespace exposes only shopType, shopInk,
-// toRoman (shopLabel/shopTint have since been deleted as dead code —
-// render.js never called them). shopSellBonus is not defined anywhere in the
-// loaded module set.
+// roleLabel (shopLabel/shopTint/toRoman have since been deleted as dead code —
+// render.js never called shopLabel/shopTint, and stopped calling toRoman once
+// the address-numeral suffix was dropped from every building sign).
+// shopSellBonus is not defined anywhere in the loaded module set.
 //
 // SPEC BUG (audit #8): specialty sell bonus is defined but was never wired into
 // a sale path. The function has since been removed entirely; the bonus is still
@@ -233,12 +234,14 @@ test('#8 Shops namespace exposes exactly the expected surface (no sell-bonus ent
   // The known exported keys from shops.js IIFE global.Shops = { ... }.
   // shopLabel/shopTint were dropped entirely (dead code — render.js
   // deliberately reimplements both off the resolved house role instead of
-  // the address digit these read; see the comment atop shops.js).
+  // the address digit these read; see the comment atop shops.js). toRoman
+  // was dropped once its one call site (the sign's address-numeral suffix)
+  // was removed — no building sign carries a street number any more.
   assert.truthy(exposed.includes('shopType'),  'shopType present');
   assert.falsy(exposed.includes('shopLabel'),  'shopLabel removed (dead code)');
   assert.falsy(exposed.includes('shopTint'),   'shopTint removed (dead code)');
   assert.truthy(exposed.includes('shopInk'),   'shopInk present');
-  assert.truthy(exposed.includes('toRoman'),   'toRoman present');
+  assert.falsy(exposed.includes('toRoman'),    'toRoman removed (no more address numerals)');
   assert.falsy(exposed.includes('shopSellBonus'), 'shopSellBonus is absent from Shops');
 });
 

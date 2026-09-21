@@ -13,7 +13,6 @@
 //   Shops.shopType(house)         → 'blacksmith' | 'market' | 'trader' | null
 //   Shops.shopInk(house)          → signage lettering colour or null
 //   Shops.roleLabel(role, seed, goods) → the player-facing NAME of a shop role
-//   Shops.toRoman(n)              → "XXVI" for 26 (clamped 1..3999)
 //
 // shopTint() and shopLabel() used to live here too, but render.js deliberately
 // reimplements both rather than calling them (see the comments by
@@ -96,22 +95,8 @@
   // SHOP_INK_BG (warm dark wood — see the label block in render.js).
   const shopInk = (house) => shopConfig(house)?.ink ?? null;
 
-  // Roman numeral renderer (1..3999). Used for the "Produce Shop XXVI" labels
-  // above specialty shops.
-  function toRoman(n) {
-    n = Math.max(1, Math.min(3999, n | 0));
-    const v = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
-    const s = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
-    let out = '';
-    for (let i = 0; i < v.length; i++) {
-      while (n >= v[i]) { out += s[i]; n -= v[i]; }
-    }
-    return out;
-  }
-
   global.Shops = {
     shopType, shopInk,
     ROLE_LABEL, SEED_SHOP_LABEL, roleLabel,
-    toRoman,
   };
 })(window);
