@@ -16639,7 +16639,9 @@ class MapScene extends Phaser.Scene {
         }
         slot.addEventListener('click', (e) => {
           e.stopPropagation();
-          this.save.selSlot = idx;
+          // Tapping the already-selected stack deselects it (empty hand)
+          // rather than re-selecting itself as a no-op tap.
+          this.save.selSlot = (this.save.selSlot === idx) ? -1 : idx;
           persistSave(this.save);
           this.refreshInventoryHighlight();
         });
