@@ -1171,7 +1171,7 @@ const RELIC_DEFS = {
   // the tier-0 rung for both, only slowly enough that a quick animal usually
   // slips out of reach first. Single 16×16 icon under Extras (handled by
   // gearAssetPath below).
-  bugnet:  { slot: 'bugnet', name: 'Bug Net',     icon: 'Bug net.png',     baseCost: 60,
+  bugnet:  { slot: 'bugnet', name: 'Net',         icon: 'Bug net.png',     baseCost: 60,
              effectKey: 'bugCatch',  blurb: 'catch + hunt animals faster' },
   // Fishing Rod — standard 32×16 weapon sheet per tier folder.
   // NOT a gate, the way the net stopped being one: a bare-handed cast works
