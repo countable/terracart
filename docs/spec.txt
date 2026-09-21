@@ -809,9 +809,8 @@ CREATURES
        always something you chose.
      * ENEMIES (slime, and every cave monster) — see COMBAT. Tapping one starts
        the HP-driven combat wheel instead, and a sword starts it for you.
- - RELEASE: select a caught animal and tap a passable cell to place it (chickens
-   release as a flock of 4; others one at a time). Released animals persist in
-   save.released and re-spawn at their spot.
+ - RELEASE: select a caught animal and tap a passable cell to place it, one at a
+   time. Released animals persist in save.released and re-spawn at their spot.
  - PET: tap a released ("tame") animal with anything (or nothing) for a happy
    sound + a 10-minute petting boost (the +50% double-yield above). Petting a
    cat also makes it follow you for 5 minutes.
