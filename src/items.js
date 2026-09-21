@@ -688,7 +688,7 @@ const PRICES = {
   fireflower: 300, // T5 magical flower
   iceflower: 500,  // T6 — rarest flower, gates the Frost bar; price ceiling
   // ── Animals ──────────────────────────────────────────────
-  chicken: 4,      // 150–250/tile, yields 4 per catch
+  chicken: 4,      // 150–250/tile
   cow: 200,        // ~15–30/tile, premium catch
   cat: 35,         // companion animal (wants milk/fish) — modest sale, never eaten
   dog: 35,         // companion animal (wants meat) — modest sale, never eaten

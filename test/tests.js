@@ -2530,9 +2530,11 @@ test('pickDurationMs: tier curve matches spec ladder (bare 9s → wood 4s → fr
   assert.eq(pickDurationMs({ pick: { tier: 7 } }), 300,  'frost → 0.3s');
 });
 
-// CHICKEN FLOCK RELEASE — chickens release in groups of 4. Stack must hold ≥4;
-// otherwise the tap flashes 'need 4 chickens' and leaves the stack untouched.
-test('chicken release: needs ≥4 in stack, then places 4 spread out', (scene) => {
+// CHICKEN RELEASE — one chicken sprite is one bird now (the sheet that used
+// to draw a clutch of 4 was fixed), so a chicken releases one at a time from
+// the stack exactly like a cow or any other animal. Placing one must not
+// touch the rest of the stack.
+test('chicken release: places one at a time, like any other animal', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   // resetTestState cleared save.caught, so every nearby chicken/cow is
   // suddenly "uncaught" and the creature handler would intercept the tap
@@ -2576,18 +2578,9 @@ test('chicken release: needs ≥4 in stack, then places 4 spread out', (scene) =
   if (!target) return;
   teleport(scene, target.wx, target.wy);
   tapWorld(scene, target.wx, target.wy);
-  assert.eq(scene.save.released.length, 0, '3 chickens: nothing released');
-  assert.eq(invCount(scene, 'chicken'), 3, 'stack untouched');
-  // Top up to 4 — now the release succeeds.
-  scene.save.inv = [{ id: 'chicken', count: 4 }];
-  scene.save.selSlot = 0;
-  tapWorld(scene, target.wx, target.wy);
-  assert.eq(scene.save.released.length, 4, '4 chickens released');
-  assert.eq(invCount(scene, 'chicken'), 0, 'whole stack consumed (released 4)');
-  // Spread: each released bird sits at a distinct world position.
-  const xs = new Set(scene.save.released.map(r => r.x.toFixed(3)));
-  const ys = new Set(scene.save.released.map(r => r.y.toFixed(3)));
-  assert.gt(xs.size + ys.size, 2, 'released chickens are not all stacked');
+  assert.eq(scene.save.released.length, 1, 'one chicken released');
+  assert.eq(invCount(scene, 'chicken'), 2, 'stack only drops by one');
+  assert.eq(scene.save.released[0].kind, 'chicken', 'released as a chicken');
 });
 
 // HOUSE SHOP TYPE — derived from house.address last digit.

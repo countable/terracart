@@ -1169,37 +1169,19 @@ const TAP_HANDLERS = [
     // re-catch back into the shiny stack.
     const baseKind = item.base || item.id;
     const isShinyItem = !!item.shiny;
-    // Chickens are flock animals — one "release" drops a clutch of 4 hens, so
-    // you need at least 4 in the stack to place any. Cows (and any future
-    // non-flock animal) still release one at a time.
-    const flockSize = baseKind === 'chicken' ? 4 : 1;
-    if ((sel.count ?? 0) < flockSize) {
-      scene.flash(`Need ${flockSize}× ${item.name || item.id}.`, sx, sy);
-      return true;
-    }
     const tx = Math.floor(cwmx / scene.tileEdgeM);
     const ty = Math.floor(cwmy / scene.tileEdgeM);
     save.released = save.released || [];
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-    // Spread the flock around the tap point so they don't all stack on one
-    // pixel. Tight ~1.2m cluster keeps them in the same cell visually but
-    // still gives wanderCreatures distinct starting positions.
-    const SPREAD = 1.2;
-    for (let i = 0; i < flockSize; i++) {
-      const angle = (i / flockSize) * Math.PI * 2;
-      const ox = flockSize === 1 ? 0 : Math.cos(angle) * SPREAD;
-      const oy = flockSize === 1 ? 0 : Math.sin(angle) * SPREAD;
-      const id = releasedId(baseKind, i);
-      save.released.push({ x: cwmx + ox, y: cwmy + oy, kind: baseKind, id, tx, ty, shiny: isShinyItem });
-      if (entry && entry.creatures) {
-        entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx + ox, cwmy + oy, id,
-          { shiny: isShinyItem }));
-      }
+    const id = releasedId(baseKind);
+    save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem });
+    if (entry && entry.creatures) {
+      entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx, cwmy, id, { shiny: isShinyItem }));
     }
-    consumeSelected(save, flockSize);
+    consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
-    scene.flash(`released ${flockSize}× ${item.name || item.id}`, sx, sy);
+    scene.flash(`released ${item.name || item.id}`, sx, sy);
     return true;
   }},
 
