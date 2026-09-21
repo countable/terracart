@@ -235,12 +235,17 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
                    // syncMoveTarget snaps the peek camera back (a warp lands on
                    // ground the peek knows nothing about), so the real method
                    // comes along rather than being stubbed out here.
-                   'clearPeek() {']
+                   'clearPeek() {',
+                   // The far return now goes through the same fade-to-black
+                   // cut a jumped fix uses (_teleportCut) — lifted so a stub
+                   // scene with no camera exercises its no-camera fallback
+                   // rather than a copy of that branch.
+                   '_teleportCut(place) {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
   for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS',
-                   '_placeBodyOnFix', '_carveLanding', 'clearPeek']) {
+                   '_placeBodyOnFix', '_carveLanding', 'clearPeek', '_teleportCut']) {
     if (typeof ctx.__walkHome[k] !== 'function') {
       console.error(`__walkHome.${k} did not come back as a function — update run.js`);
       process.exit(2);

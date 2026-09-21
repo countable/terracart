@@ -118,6 +118,9 @@ function walkHomeScene(awayM, opts = {}) {
     syncMoveTarget: __walkHome.syncMoveTarget,
     _placeBodyOnFix: __walkHome._placeBodyOnFix,
     _carveLanding: __walkHome._carveLanding,
+    // No `cameras` on this stub, so the real method's no-camera fallback
+    // runs `place` immediately — the far return stays synchronous here.
+    _teleportCut: __walkHome._teleportCut,
     // What the placement's landing carve reads: the cell under the feet. The
     // surface never asks; underground `landing` says what the fix stands in
     // (25 = CAVE_WALL) and `dug` records what the shipping dig was told.

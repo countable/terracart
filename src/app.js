@@ -316,6 +316,15 @@ const PEEK_RETURN_MS = 90;
 // Underground is exempt: down there the body mines its way to the target no
 // matter how far, and a snap would drop the player inside solid rock.
 const GPS_SNAP_M = 200;
+// The SNAP's own cut — a placement past GPS_SNAP_M moves the body somewhere
+// the player never walked, so it earns a transition rather than the world
+// just resetting under them mid-frame: a small burst where they're standing,
+// a fade to black, the placement itself hidden behind it, then a fade back in
+// on the result. TELEPORT_FADE_OUT_MS + TELEPORT_FADE_IN_MS is the whole cut,
+// 2000 ms — long enough to read as a trip rather than a flicker, short enough
+// that it's over before the player wonders what happened. See _teleportCut.
+const TELEPORT_FADE_OUT_MS = 700;
+const TELEPORT_FADE_IN_MS = 1300;
 // Backoff for re-fetching a 3x3 tile block that came back short (see
 // _scheduleTileRetry). The floor clears WorldGen's own per-tile failure
 // backoff (TILE_RETRY_MS, 3 s) so a retry isn't answered from it, and the cap
@@ -3087,7 +3096,11 @@ class MapScene extends Phaser.Scene {
               // leaves the player standing inside a wall — the same rule
               // the walk home applies past the same gap (_driftHome).
               off.x = 0; off.y = 0;
-              this._placeBodyOnFix();
+              // The first fix of the session is the world simply arriving,
+              // not a trip the player takes — it gets no cut, only a real
+              // jump off an already-placed body does.
+              if (prev) this._teleportCut(() => this._placeBodyOnFix());
+              else this._placeBodyOnFix();
             }
             this._targetM = { x: this.gpsM.x + off.x, y: this.gpsM.y + off.y };
             this._followPaused = false;
@@ -9380,6 +9393,32 @@ class MapScene extends Phaser.Scene {
     this.playerM.y = this.gpsM.y;
     this._carveLanding();
   }
+  // THE CUT — wraps a "place the body outright" moment (see _placeBodyOnFix)
+  // in the transition described at TELEPORT_FADE_OUT_MS above: a burst where
+  // the player is currently standing, fade to black, `place()` runs hidden
+  // behind the black (so it can do whatever a caller needs — placement,
+  // re-targeting — in whatever order that caller already does it), then fade
+  // back in on wherever `place` left the body. `_teleporting` guards re-entry:
+  // both call sites re-check their own gap every frame, and the gap is still
+  // "too far" for the whole 2 s the cut takes — re-entry is a no-op (the cut
+  // already under way owns the eventual placement), never a second fade
+  // stacked on the first.
+  // Falls back to running `place` immediately when there's no camera to fade
+  // (headless tests, a stub scene) — the cut is a courtesy, not a dependency.
+  _teleportCut(place) {
+    const cam = this.cameras?.main;
+    if (!cam || typeof cam.fadeOut !== 'function') { place(); return; }
+    if (this._teleporting) return;
+    this._teleporting = true;
+    const p = this.playerScreen();
+    this._burstAt('shiny', p.x, p.y);
+    cam.fadeOut(TELEPORT_FADE_OUT_MS, 0, 0, 0);
+    cam.once('camerafadeoutcomplete', () => {
+      place();
+      cam.fadeIn(TELEPORT_FADE_IN_MS, 0, 0, 0);
+      this._teleporting = false;
+    });
+  }
   // Dig out the cave-wall cell under the player's feet, if that is what they
   // are standing in. Called after a placement underground, and again from the
   // tile loader for each cave tile that arrives, because the tile under a
@@ -9587,8 +9626,10 @@ class MapScene extends Phaser.Scene {
     // one real reason to stay off the caves was this snap dropping the body
     // inside rock, and _placeBodyOnFix carves the landing cell instead.
     if (this._gpsAwayM() > GPS_SNAP_M) {
-      this._placeBodyOnFix();
-      this.syncMoveTarget();      // drops the offset, the target and the ghost
+      this._teleportCut(() => {
+        this._placeBodyOnFix();
+        this.syncMoveTarget();    // drops the offset, the target and the ghost
+      });
       return;
     }
     const off = this._manualOffsetM;
