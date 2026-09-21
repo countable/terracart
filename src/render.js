@@ -3355,8 +3355,9 @@ Render.drawObjects = function drawObjects(scene) {
   // seeds, not produce, so it signs "Seed Shop" (see Shops.roleLabel). The
   // trader's sign follows its OFFER: it is named for the item it barters away
   // ("Rockfruit Trader" — scene.traderGoodsName reads the same seeded pick the
-  // barter modal hands over), and carries no street numeral, since which house
-  // number a trader occupies says nothing about what it sells.
+  // barter modal hands over). No sign carries a street-address numeral any
+  // more — which house number a building occupies said nothing about what
+  // it sells or who lives there.
   const _roleLabel = (role, o) => Shops.roleLabel(role,
     role === 'market' && typeof scene.isFirstMarket === 'function' && scene.isFirstMarket(o),
     role === 'trader' && typeof scene.traderGoodsName === 'function' ? scene.traderGoodsName(o) : null);
@@ -3370,28 +3371,23 @@ Render.drawObjects = function drawObjects(scene) {
     // After the sale it reverts to its underlying role (handled below).
     if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
         && !scene.save.scarecrowShopUsed) {
-      return `Scarecrows ${Shops.toRoman((o.address ?? 0) + 1)}`;
+      return 'Scarecrows';
     }
     // Frozen restore-order shop role (blacksmith / trader / market / wizard).
     const role = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
     const label = role ? _roleLabel(role, o) : null;
-    if (label) {
-      if (role === 'trader') return label;   // named for its goods, not its address
-      return `${label} ${Shops.toRoman((o.address ?? 0) + 1)}`;
-    }
+    if (label) return label;
     // No specialty? Still give the building a label so the map reads as a
-    // populated street instead of rows of anonymous huts. Roman-numeral
-    // suffix from address+1 keeps consistency with the shop labels above.
-    const roman = Shops.toRoman((o.address ?? 0) + 1);
-    if (o.tier === 12) return `Castle ${roman}`;
-    if (o.tier === 11) return `Fort ${roman}`;
+    // populated street instead of rows of anonymous huts.
+    if (o.tier === 12) return 'Castle';
+    if (o.tier === 11) return 'Fort';
     if (o.tier === 9) {
       // Plain residential — the delivery callout (wishlist icons while hungry,
       // a happy face once fed) is drawn by the DOM produce-sign overlay below,
-      // not as emoji text. Fall back to a plain "House III" label only for
+      // not as emoji text. Fall back to a plain "House" label only for
       // non-host tier-9 buildings that have no callout to show.
       if (_houseIsHost(o)) return null;   // the roof bubble handles it
-      return `House ${roman}`;
+      return 'House';
     }
     return null;
   };

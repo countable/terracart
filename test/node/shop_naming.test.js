@@ -52,11 +52,11 @@ test('shop naming: the trader is named for its goods, never its address', () => 
   assert.eq(Shops.roleLabel('blacksmith', false, 'Rockfruit'), 'Blacksmith', 'goods is trader-only');
   assert.eq(Shops.roleLabel('wizard', false, 'Rockfruit'), 'Wizard', 'goods is trader-only');
 
-  // render.js: the sign asks the scene for the goods and skips the numeral.
+  // render.js: the sign asks the scene for the goods. No sign — trader or
+  // otherwise — carries an address numeral any more (Shops.toRoman is gone).
   assert.truthy(/role === 'trader' && typeof scene\.traderGoodsName === 'function' \? scene\.traderGoodsName\(o\)/.test(render),
     'the map sign passes the trader\'s goods into Shops.roleLabel');
-  assert.truthy(/if \(role === 'trader'\) return label;/.test(render),
-    'a trader sign carries no address numeral');
+  assert.falsy(/toRoman/.test(render), 'no building sign carries an address numeral');
 
   // app.js: ONE give-pick feeds both the sign and the barter modal.
   const pickCalls = app.match(/this\.traderGivePick\(house\)/g) || [];
