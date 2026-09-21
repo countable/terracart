@@ -1610,7 +1610,7 @@ class MapScene extends Phaser.Scene {
     this.pairyCompass = null;   // { targetId, x, y, until } when active
     if (needsMigrationPersist) persistSave(this.save);
 
-    this.cameras.main.setBackgroundColor('#222');
+    this.cameras.main.setBackgroundColor('#000');
     // Everything below this line is in LOGICAL px; the camera is what maps
     // them onto the device-resolution canvas (see the note by W/H).
     applyRenderScale(this.cameras.main);
@@ -9998,7 +9998,7 @@ class MapScene extends Phaser.Scene {
     this._turretNextT = {};
     this._turretScan = null;
     this.syncMoveTarget();
-    this.cameras.main.setBackgroundColor(target > 0 ? '#0a0a12' : '#222');
+    this.cameras.main.setBackgroundColor(target > 0 ? '#0a0a12' : '#000');
     this.ensureTilesAround().catch(() => {});
     this.flash(target > 0 ? `Descended — depth ${target}` : 'Back on the surface',
                this.viewCenterX, this.viewCenterY);
@@ -10025,7 +10025,7 @@ class MapScene extends Phaser.Scene {
     // Same world coordinates, now on the surface — park the target on the body
     // so the walk up top doesn't start by chasing the cave target we woke with.
     this.syncMoveTarget();
-    this.cameras.main.setBackgroundColor('#222');
+    this.cameras.main.setBackgroundColor('#000');
     this.ensureTilesAround().catch(() => {});
     const lost = Math.floor((this.save.money ?? 0) / 2);
     if (lost > 0) addMoney(this.save, -lost);
