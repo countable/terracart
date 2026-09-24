@@ -1901,7 +1901,10 @@ Render.drawCells = function drawCells(scene) {
   const pWorldY = _anchor.y;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const found = setOf(scene.save.foundTreasures);
-  g.lineStyle(2, 0x2a1d10, 0.55);
+  // Dark earth on the surface; pale scratched stone underground, where the
+  // floor (0x2a2622) is darker than the surface ink and would swallow it.
+  if ((scene.depth || 0) > 0) g.lineStyle(2, 0xc9b48a, 0.6);
+  else g.lineStyle(2, 0x2a1d10, 0.55);
   const drawX = (tr) => {
     if (!tr || found.has(tr.id)) return;
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;

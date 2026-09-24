@@ -4903,6 +4903,165 @@
     }
   }
 
+  // ── The level's OWN extras: everything below is rolled AFTER the rocks ──
+  // The torches above stand where the street furniture overhead was, and the
+  // monsters crowd the up-staircases — so a level under a quiet suburb, or the
+  // stretch of it a rope or a portal drops you into, had nothing in it at all:
+  // no light, no foe, no find. The passes below fill the whole floor instead,
+  // each off its OWN seeded stream (tile + depth + salt) and each run after
+  // spawnCaveRocks and spawnCaveMushrooms, because both of those skip their
+  // remaining draws on an occupied cell: claiming a cell ahead of them would
+  // re-roll every rock and cap downstream of it, and every cave already walked
+  // would rearrange itself. Placed last, they only ever take what is left.
+
+  // Wall torches: a landmark light every so often whatever is overhead. Same
+  // `torch` kind as the street-furniture torches (one light row, one sprite),
+  // seated on a floor cell with rock beside it so it reads as a sconce on the
+  // wall rather than a stake in the middle of a passage.
+  const CAVE_SCONCE_PIVOT = 18, CAVE_SCONCE_P = 0.45, CAVE_SCONCE_TRIES = 10;
+  function caveWallTorches(grid, N, tx, ty, tileEdgeM, depth, occupied) {
+    const out = [];
+    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x165667B1)) >>> 0);
+    const byWall = (lix, liy) =>
+      (lix > 0 && grid[liy * N + lix - 1] === T.CAVE_WALL) ||
+      (lix < N - 1 && grid[liy * N + lix + 1] === T.CAVE_WALL) ||
+      (liy > 0 && grid[(liy - 1) * N + lix] === T.CAVE_WALL) ||
+      (liy < N - 1 && grid[(liy + 1) * N + lix] === T.CAVE_WALL);
+    for (let py = 0; py < N; py += CAVE_SCONCE_PIVOT) {
+      for (let px = 0; px < N; px += CAVE_SCONCE_PIVOT) {
+        if (rng() > CAVE_SCONCE_P) continue;
+        for (let k = 0; k < CAVE_SCONCE_TRIES; k++) {
+          const lix = px + Math.floor(rng() * CAVE_SCONCE_PIVOT);
+          const liy = py + Math.floor(rng() * CAVE_SCONCE_PIVOT);
+          if (lix >= N || liy >= N) continue;
+          const idx = liy * N + lix;
+          if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx) || !byWall(lix, liy)) continue;
+          occupied.add(idx);
+          const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+          out.push({ kind: 'torch', x: cx, y: cy, id: `torch_w_${depth}_${tx}_${ty}_${lix}_${liy}`, depth });
+          break;
+        }
+      }
+    }
+    return out;
+  }
+
+  // Fairy rings: some mirrored chests sit in a clearing ringed by the blue
+  // cave mushrooms — a chest you can find from across the dark by its glow.
+  // The ring is the cells whose distance from the chest rounds to
+  // CAVE_RING_R (a round loop of 12 at radius 2); the clearing inside it and
+  // the ring itself are swept (in place) of the rocks spawnCaveRocks laid, so the
+  // loop is never broken by a boulder. Taking rocks OUT keeps every other
+  // rock's roll intact (see the note above) and is as positional as laying
+  // them: the same chest clears the same cells on every build. A stair, a
+  // torch or another chest on a ring cell is left alone and leaves a gap.
+  // Mushrooms are forage, not walls — the chest is still walked up to.
+  const CAVE_RING_P = 0.3, CAVE_RING_R = 2;
+  const CAVE_RING_CELLS = [], CAVE_RING_INSIDE = [];
+  for (let dy = -CAVE_RING_R; dy <= CAVE_RING_R; dy++) {
+    for (let dx = -CAVE_RING_R; dx <= CAVE_RING_R; dx++) {
+      const d = Math.round(Math.hypot(dx, dy));
+      if (d === CAVE_RING_R) CAVE_RING_CELLS.push([dx, dy]);
+      else if (d < CAVE_RING_R && (dx || dy)) CAVE_RING_INSIDE.push([dx, dy]);
+    }
+  }
+  function caveChestRings(objects, grid, N, tx, ty, tileEdgeM, depth, wildplants, occupied) {
+    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0xD3A2646D)) >>> 0);
+    const cellOf = (o) => cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
+    const wpCells = new Set();
+    for (const w of wildplants) {
+      const { lix, liy } = cellOf(w);
+      wpCells.add(liy * N + lix);
+    }
+    const sweep = new Set();       // rock cells to clear
+    const rings = [];
+    for (const o of objects) {
+      if (o.kind !== 'chest') continue;
+      if (rng() >= CAVE_RING_P) continue;     // one roll per chest, in object order
+      const { lix, liy } = cellOf(o);
+      rings.push({ lix, liy });
+      for (const [dx, dy] of CAVE_RING_CELLS.concat(CAVE_RING_INSIDE)) {
+        const cx = lix + dx, cy = liy + dy;
+        if (cx >= 0 && cy >= 0 && cx < N && cy < N) sweep.add(cy * N + cx);
+      }
+    }
+    if (!rings.length) return;
+    let w = 0;                     // compact in place — the caller's array stays the level's
+    for (const o of objects) {
+      if (o.kind === 'mineralrock') {
+        const { lix, liy } = cellOf(o);
+        const idx = liy * N + lix;
+        if (sweep.has(idx)) { occupied.delete(idx); continue; }
+      }
+      objects[w++] = o;
+    }
+    objects.length = w;
+    for (const { lix, liy } of rings) {
+      for (const [dx, dy] of CAVE_RING_CELLS) {
+        const cx = lix + dx, cy = liy + dy;
+        if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+        const idx = cy * N + cx;
+        if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx) || wpCells.has(idx)) continue;
+        occupied.add(idx);
+        wpCells.add(idx);
+        const { x: wx, y: wy } = cellCentreM(tx, ty, cx, cy, tileEdgeM, N);
+        wildplants.push(makeWildplant('mushroom', wx, wy,
+          `cwr_${depth}_${tx}_${ty}_${cx}_${cy}`, { _ix: cx, _iy: cy, _cave: true }));
+      }
+    }
+  }
+
+  // Loose gold on the floor, spread over the whole level: GENERATED where it
+  // lies, and the only thing the save keeps is which ones were picked up
+  // (`seeded` tells the coin tap to write the id into save.foundTreasures, the
+  // X marks' delta list — a coin you found is a treasure you found). app.js
+  // folds these into entry.coinDrops, the lane every coin already walks.
+  const CAVE_COIN_PIVOT = 12, CAVE_COIN_P = 0.35;
+  function caveCoins(grid, N, tx, ty, tileEdgeM, depth, occupied) {
+    const out = [];
+    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0xFD7046C5)) >>> 0);
+    for (let py = 0; py < N; py += CAVE_COIN_PIVOT) {
+      for (let px = 0; px < N; px += CAVE_COIN_PIVOT) {
+        const fire = rng() < CAVE_COIN_P;
+        const lix = px + Math.floor(rng() * CAVE_COIN_PIVOT);
+        const liy = py + Math.floor(rng() * CAVE_COIN_PIVOT);
+        if (!fire || lix >= N || liy >= N) continue;
+        const idx = liy * N + lix;
+        if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
+        occupied.add(idx);
+        const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+        out.push({ kind: 'coindrop', x: cx, y: cy, id: `ccoin_${depth}_${tx}_${ty}_${lix}_${liy}`, seeded: true });
+      }
+    }
+    return out;
+  }
+
+  // X marks underground: the surface's buried-treasure scatter (app.js
+  // spawnInTile's 4..10 per tile), dug with the same tap and recorded in the
+  // same save.foundTreasures — the id carries the depth so each level's marks
+  // are their own. Never under an object: an X beneath a rock can't be dug.
+  // Off in test mode for the reason the surface scatter is: the treasure
+  // handler runs ahead of every other tap and would steal a test's tap.
+  const CAVE_X_MIN = 4, CAVE_X_SPAN = 7, CAVE_X_TRIES = 8;
+  function caveTreasureMarks(grid, N, tx, ty, tileEdgeM, depth, occupied) {
+    const out = [];
+    if (typeof window !== 'undefined' && window.__TEST_MODE) return out;
+    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0xB55A4F09)) >>> 0);
+    const n = CAVE_X_MIN + Math.floor(rng() * CAVE_X_SPAN);
+    for (let k = 0; k < n; k++) {
+      for (let attempt = 0; attempt < CAVE_X_TRIES; attempt++) {
+        const lix = Math.floor(rng() * N), liy = Math.floor(rng() * N);
+        const idx = liy * N + lix;
+        if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
+        occupied.add(idx);
+        const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+        out.push({ x: cx, y: cy, id: `treasure_c${depth}_${tx}_${ty}_${lix}_${liy}` });
+        break;
+      }
+    }
+    return out;
+  }
+
   async function loadCaveTile(cache, depth, key, x, y, lat) {
     const above = await loadTile.atDepth(depth - 1, x, y, lat);
     if (above.status === 'loading') await above.promise;
@@ -4955,9 +5114,15 @@
     spawnCaveRocks(grid, N, x, y, tileEdgeM, depth, objects, occupied);
     const wildplants = [];
     spawnCaveMushrooms(grid, N, x, y, tileEdgeM, depth, wildplants, occupied);
+    // The level's own extras — after everything above, so they only take
+    // what is left (see the note over caveWallTorches).
+    caveChestRings(objects, grid, N, x, y, tileEdgeM, depth, wildplants, occupied);
+    for (const t of caveWallTorches(grid, N, x, y, tileEdgeM, depth, occupied)) objects.push(t);
+    const caveCoinSeeds = caveCoins(grid, N, x, y, tileEdgeM, depth, occupied);
+    const extraTreasures = caveTreasureMarks(grid, N, x, y, tileEdgeM, depth, occupied);
     const entry = {
       status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
-      objects, wildplants, parkingTreasures: [],
+      objects, wildplants, parkingTreasures: [], extraTreasures, caveCoinSeeds,
       roadLabels: {}, pathUnder: {}, torchSites,
     };
     cache.set(key, entry);
@@ -5101,6 +5266,7 @@
     forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
+    caveWallTorches, caveChestRings, CAVE_RING_CELLS, caveCoins, caveTreasureMarks,
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule
     // end to end (test/node/spawn_roads.test.js).
