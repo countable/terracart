@@ -1,4 +1,5 @@
-// Single global quest chain. Completing all quests unseals the castle vault.
+// The castle quest board. Solving the job AT a castle claims it (and is the
+// only thing that unseals it — see app.js _isBuildingSealed).
 // All functions are pure (only read/write save.quests) — no Phaser / DOM deps.
 
 // ── THE CASTLE BOARD ────────────────────────────────────────────────────────
@@ -45,6 +46,9 @@ const QUEST_TEMPLATES = [
   { id: 'sell',    event: 'sell',    base: 1, k: 0.7,  max: 8,  unit: 18, weight: 2,
     title: 'Trade run',
     body: (q) => `Cash out at Home ${q.need === 1 ? 'once' : `${q.need} times`}.` },
+  { id: 'deliver', event: 'deliver', base: 1, k: 0.3,  max: 5,  unit: 30, weight: 2,
+    title: 'Neighbourly',
+    body: (q) => `Fill ${q.need === 1 ? 'a household\'s wishlist' : `${q.need} households' wishlists`}.` },
   { id: 'restore', event: 'restore', base: 1, k: 0.3,  max: 4,  unit: 70, weight: 1,
     title: 'Rebuild a neighbour',
     body: (q) => `Raise ${q.need} ruined ${_plural('house', q.need)} back up.` },

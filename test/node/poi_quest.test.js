@@ -3,7 +3,7 @@
 // site: the well interactable, hardcoded to the literal string 'well'.
 // QUEST_POIS names SEVEN targets ('well', 'fountain', 'library', 'museum',
 // 'park', 'place_of_worship', 'playground'); the other six could be rolled
-// onto the board (the 'poi' template has weight 1 in a 16-wide bag — roughly
+// onto the board (the 'poi' template has weight 1 in an 18-wide bag — roughly
 // 1 in 20 generated slots) but nothing anywhere could ever complete them: a
 // slot would sit there forever with no way to claim it.
 //
