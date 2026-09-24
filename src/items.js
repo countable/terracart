@@ -916,7 +916,7 @@ const PLAY_TIPS = [
   'A household never changes its mind about what it wants — and one bundle keeps it happy for good.',
   'Every 20 deliveries behind you, the houses you rebuild from then on start asking for the next tier of crop.',
   'Forts handle up to 5 deals per hour, plain houses just 1. Castles and towers never make you wait.',
-  'Castles deal only in relics — and never run out of stock.',
+  'A castle you have claimed offers one favour a day: a rest, or its taxes.',
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
   // ── The land you walk over ──────────────────────────────────
   'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
@@ -959,7 +959,7 @@ const PLAY_TIPS = [
   'A shiny monster underground is twice the fight and hits twice as hard — and its end always pays past the usual wage.',
   // ── The long gates — hours in ───────────────────────────────
   'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
-  'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
+  'A castle stays sealed until you finish the job on its board — then it is yours.',
   'The castle board always holds three jobs, and each castle offers only one of them: the next castle along has different work.',
   'A castle job grows with the number you have already finished, and so does the purse it pays.',
   'The wizard trades 5 Discovery badges a step, up his ladder: wider reach first, then bigger finds, then the Ring.',
