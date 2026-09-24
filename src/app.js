@@ -802,6 +802,11 @@ const ENEMY_HEALTH_RING_MS = 4000;
 // Combat.MELEE_INTERVAL_MS, which is slower than this beat, so each one pops
 // on its own.
 const DMG_POPUP_BEAT_MS = 500;
+// The tool drawn in the middle of a work wheel (_setWorkProgressIcon). Near
+// full strength so the tier's colour reads — it is the only thing on the
+// wheel that says WHICH tool you are swinging — but a touch under 1 so the
+// sprite being worked still shows through, as the ring's own alphas do.
+const WORK_TOOL_ALPHA = 0.85;
 // How long ONE drawn sword swing lasts, in ms — the slash sweeps across its
 // arc over this window, then fades. A swing is drawn BY the blow that lands
 // it (_drawWorkProgress' combat branch), so the blade and the number it earns
@@ -2289,7 +2294,11 @@ class MapScene extends Phaser.Scene {
 
     // Work-progress wheel — drawn above all world objects, not masked.
     this._workProgressGfx = this.add.graphics().setDepth(95);
-    this._workProgressIcon = null;   // DOM element created per-action, removed on cancel/complete
+    // The tool in the middle of the ring — one image, re-textured per wheel by
+    // _setWorkProgressIcon and placed by _drawWorkProgress. Hidden between wheels.
+    this._workProgressIcon = this.add.image(0, 0, '__WHITE')
+      .setDepth(95.5).setAlpha(WORK_TOOL_ALPHA).setVisible(false);
+    this._workProgressToolKey = null;
     this._workProgress = null;
 
     const frame = this.add.graphics();
@@ -7450,8 +7459,8 @@ class MapScene extends Phaser.Scene {
   //
   // The wheel sits ON the thing being worked, so its alphas have been walked
   // back twice: first 20% off everything (0.55 → 0.44 backing, 0.9 → 0.72 arc),
-  // then a flat 0.1 off each — backing 0.34, arc 0.62, tool icon 0.7 (that one
-  // set on the DOM element in startWorkProgress / startCatchProgress). At full
+  // then a flat 0.1 off each — backing 0.34, arc 0.62 (the tool in the middle
+  // is WORK_TOOL_ALPHA, drawn by _drawWorkProgress). At full
   // strength it hid the very sprite it was reporting progress against. The
   // track is thinned in step with the arc (×0.62/0.72) rather than by the flat
   // 0.1, which would have all but erased it.
@@ -7650,12 +7659,22 @@ class MapScene extends Phaser.Scene {
     this._setWorkProgressIcon(toolSlot);
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), track: trackCreature };
   }
-  // Swap the small tool badge shown beside a work-progress wheel: remove
-  // whatever badge is up, then (if `toolSlot` is equipped and has an icon)
-  // build the fixed-position DOM element and stash it as _workProgressIcon so
-  // the next call — or cancelWorkProgress — can remove it in turn. Shared by
-  // every wheel starter (combat, mine/chop/fish, catch) so the DOM/cssText
-  // can't drift between them.
+  // Pick the tool drawn in the MIDDLE of a work-progress wheel: the equipped
+  // tier's own art for `toolSlot`, or nothing. Shared by every wheel starter
+  // (combat, mine/chop/fish, catch, till, dig, the interactables table).
+  //
+  // The tool is drawn IN THE CANVAS, by _drawWorkProgress, at the ring's own
+  // centre (cx, cy) and at 1:1 game pixels. It used to be a 16 CSS px DOM
+  // badge placed by converting that centre through gameScreenRect(): at the
+  // usual ~2× CSS scale that was half the ring's size, faded to 0.7 and
+  // repositioned off a rect cached for a second — and on a cold cache
+  // IconNet's dark loading plate stood in for it, which on the wheel's dark
+  // backing disc drew nothing at all for the length of a short job. One
+  // coordinate space with the ring is what keeps it in the middle.
+  //
+  // The texture is fetched on demand (_toolTexture) — gear art is never in the
+  // boot preload — and warmed for every equipped wheel tool whenever relics
+  // change (updateRelicRow), so it is normally ready before the first swing.
   //
   // BARE HANDS WEAR NO BADGE, and that test lives HERE, once. Every job on
   // this wheel can be done with nothing in hand — that is the tier-0, 9 s rung
@@ -7673,18 +7692,30 @@ class MapScene extends Phaser.Scene {
   // and it is the gate _drawWorkProgress' swing branch already claims to
   // share with the badge.
   _setWorkProgressIcon(toolSlot) {
-    this._workProgressIcon?.remove();
-    this._workProgressIcon = null;
+    this._workProgressToolKey = null;
+    this._workProgressIcon?.setVisible(false);
     if (!toolSlot) return;
     const tier = this.save.relics?.[toolSlot]?.tier;
     if (!tier) return;
-    const html = this.gearIconHTML('relic', toolSlot, tier, 16);
-    if (!html) return;
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0.7;';
-    el.innerHTML = html;
-    document.body.appendChild(el);
-    this._workProgressIcon = el;
+    this._workProgressToolKey = this._toolTexture(toolSlot, tier);
+  }
+  // Texture key for a wheel tool's art at `tier`, queuing the load the first
+  // time it is asked for (null when the slot has no art). Every wheel tool's
+  // sheet is 16 px frames with the plain icon on frame 0 — the 32×16 tool
+  // sheets and the net's single 16×16 alike — so one framing covers them.
+  _toolTexture(slot, tier) {
+    const path = gearAssetPath('relic', slot, tier);
+    if (!path) return null;
+    const key = `wheeltool:${path}`;
+    if (!this.textures.exists(key)) {
+      this._toolTexQueued = this._toolTexQueued || new Set();
+      if (!this._toolTexQueued.has(key)) {
+        this._toolTexQueued.add(key);
+        this.load.spritesheet(key, path, { frameWidth: 16, frameHeight: 16 });
+        this.load.start();
+      }
+    }
+    return key;
   }
   // Catch wheel: like startWorkProgress, but the TARGET CREATURE flees the
   // player at FLEE_MPS while it runs (see _drawWorkProgress). If it escapes the
@@ -7707,8 +7738,8 @@ class MapScene extends Phaser.Scene {
     if (this._workProgress?.flee) this._workProgress.flee._beingCaught = false;
     this._workProgress = null;
     this._workProgressGfx?.clear();
-    this._workProgressIcon?.remove();
-    this._workProgressIcon = null;
+    this._workProgressIcon?.setVisible(false);
+    this._workProgressToolKey = null;
   }
   // Player bailed on an in-flight mine/chop/cast (any tap aborts the wheel).
   // Refund the energy that was charged up-front when the action started, so
@@ -7992,14 +8023,17 @@ class MapScene extends Phaser.Scene {
     } else {
       this._strokeWorkRing(g, cx, cy, progress);
     }
-    if (this._workProgressIcon) {
-      const gr = gameScreenRect();
-      if (!gr) return;
-      const scaleX = gr.width / W, scaleY = gr.height / H;
-      const ICON_PX = 16;
-      const px = gr.left + cx * scaleX - ICON_PX / 2;
-      const py = gr.top  + cy * scaleY - ICON_PX / 2;
-      this._workProgressIcon.style.transform = `translate(${Math.round(px)}px,${Math.round(py)}px)`;
+    // The tool, dead centre on the ring (see _setWorkProgressIcon). Shown only
+    // once its texture has landed; until then the ring runs on its own.
+    const key = this._workProgressToolKey;
+    const icon = this._workProgressIcon;
+    if (icon) {
+      if (key && this.textures.exists(key)) {
+        if (icon.texture.key !== key) icon.setTexture(key, 0);
+        icon.setPosition(cx, cy).setVisible(true);
+      } else {
+        icon.setVisible(false);
+      }
     }
   }
 
@@ -16192,6 +16226,11 @@ class MapScene extends Phaser.Scene {
     // The stick doesn't depend on gear any more, but syncing here (idempotent)
     // is what puts it on screen on the first frame.
     this.syncMovePad();
+    // Warm the work wheel's tool art for everything equipped, so a wheel's
+    // centre is drawn from its first frame rather than after a fetch.
+    for (const [slot, eq] of Object.entries(this.save.relics || {})) {
+      if (eq?.tier) this._toolTexture(slot, eq.tier);
+    }
     // If a gear tab is currently showing, rebuild the inventory bars so a newly
     // bought/forged/looted relic or armor piece appears immediately.
     const cat = INV_CAT_BY_KEY[this.save.invCat];

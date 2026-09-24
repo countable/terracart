@@ -1,7 +1,9 @@
 // Regression guard: BARE HANDS WEAR NO TOOL BADGE.
 //
-// The work wheel hangs a 16 px relic icon in the middle of the ring
-// (app.js _setWorkProgressIcon), and its job is to say what you are swinging.
+// The work wheel draws the equipped tool, at its tier, in the middle of the
+// ring (app.js _setWorkProgressIcon picks it, _drawWorkProgress draws it in
+// the canvas at the ring's centre), and its job is to say what you are
+// swinging.
 // Every job the wheel runs can be done with NOTHING in hand — that is the
 // tier-0, 9 s rung of items.js toolDurationMs — so an unowned slot must draw
 // no badge at all.
@@ -35,7 +37,7 @@ test('work badge: the wood fallback is gone', () => {
   assert.truthy(!/relics\?\.\[toolSlot\]\?\.tier \|\| 1/.test(helper),
     "the tier no longer falls back to `|| 1` (Wood) for a slot the player doesn't own");
   assert.truthy(/const tier = this\.save\.relics\?\.\[toolSlot\]\?\.tier;\s*\n\s*if \(!tier\) return;/.test(helper),
-    'an unequipped slot returns before any DOM node is built');
+    'an unequipped slot returns before any texture is asked for');
 });
 
 // Run the real helper against a stub scene. `new Function` wraps the lifted
@@ -45,42 +47,55 @@ const runHelper = (relics, toolSlot) => {
   const calls = [];
   const scene = {
     save: { relics },
-    _workProgressIcon: null,
-    gearIconHTML(kind, slot, tier, px) { calls.push({ kind, slot, tier, px }); return '<span></span>'; },
+    _workProgressToolKey: 'stale-from-the-last-wheel',
+    _workProgressIcon: { setVisible(v) { calls.push({ visible: v }); return this; } },
+    _toolTexture(slot, tier) { calls.push({ slot, tier }); return `tex:${slot}:${tier}`; },
   };
-  // The helper appends to document.body when it builds a badge; record that
-  // instead of needing a DOM.
-  const document = {
-    createElement: () => ({ style: { cssText: '' }, innerHTML: '', remove() {} }),
-    body: { appendChild: (el) => { calls.push({ appended: true }); return el; } },
-  };
-  new Function('document', 'toolSlot', `(function(){${body}}).call(this)`)
-    .call(scene, document, toolSlot);
-  return { calls, icon: scene._workProgressIcon };
+  new Function('toolSlot', `(function(){${body}}).call(this)`).call(scene, toolSlot);
+  return { calls, key: scene._workProgressToolKey };
 };
 
 test('work badge: a bare-handed catch draws nothing', () => {
-  const { calls, icon } = runHelper({}, 'bugnet');
-  assert.eq(calls.length, 0, 'no icon HTML is built and nothing is appended');
-  assert.eq(icon, null, 'no badge element is stashed');
+  const { calls, key } = runHelper({}, 'bugnet');
+  assert.truthy(!calls.some((c) => c.slot), 'no tool texture is asked for');
+  assert.eq(key, null, "the last wheel's tool is cleared, not carried over");
 });
 
 test('work badge: an owned net still draws, at ITS tier', () => {
-  const { calls, icon } = runHelper({ bugnet: { tier: 4 } }, 'bugnet');
-  assert.truthy(icon, 'a badge element is stashed');
+  const { calls, key } = runHelper({ bugnet: { tier: 4 } }, 'bugnet');
   const built = calls.find((c) => c.slot === 'bugnet');
-  assert.truthy(built, 'gearIconHTML was asked for the net');
+  assert.truthy(built, 'the net texture was asked for');
   assert.eq(built.tier, 4, 'at the tier actually owned, not Wood');
-  assert.eq(built.px, 16, 'at the wheel badge size');
+  assert.eq(key, 'tex:bugnet:4', 'and the wheel will draw that texture');
 });
 
 test('work badge: every bare-handable job is covered by the one gate', () => {
   // The slots below all reach the wheel through a call site that passes the
   // slot unconditionally, and all of them have a tier-0 (bare hands) rung.
   for (const slot of ['bugnet', 'hoe', 'pick', 'axe', 'rod', 'sword']) {
-    const { icon } = runHelper({}, slot);
-    assert.eq(icon, null, `bare-handed "${slot}" wears no badge`);
+    const { key } = runHelper({}, slot);
+    assert.eq(key, null, `bare-handed "${slot}" wears no badge`);
   }
+});
+
+test('work badge: every owned wheel tool is drawn at its tier', () => {
+  for (const slot of ['bugnet', 'hoe', 'pick', 'axe', 'rod', 'sword']) {
+    for (let tier = 1; tier <= 7; tier++) {
+      const { key } = runHelper({ [slot]: { tier } }, slot);
+      assert.eq(key, `tex:${slot}:${tier}`, `${slot} tier ${tier} is drawn`);
+    }
+  }
+});
+
+test('work badge: drawn in the canvas at the ring centre, not a DOM overlay', () => {
+  const a = app.indexOf('  _drawWorkProgress() {');
+  const b = app.indexOf('\n  }\n', a);
+  const draw = app.slice(a, b);
+  assert.truthy(/icon\.setPosition\(cx, cy\)/.test(draw),
+    'the tool is placed at the same (cx, cy) the ring is stroked around');
+  assert.truthy(!/gameScreenRect\(\)/.test(draw),
+    'no second, screen-space conversion that could drift off the ring');
+  assert.truthy(!/document\.createElement/.test(helper), 'no DOM badge is built');
 });
 
 test('work badge: the call sites hand over the slot plainly', () => {

@@ -1417,6 +1417,22 @@ for (const f of testFiles) {
   }
 }
 
+// ── Work-wheel tool art (app.js _setWorkProgressIcon / _toolTexture) ─────
+// The wheel draws the equipped tool at its tier, so every tool a wheel can be
+// started with must ship art at every tier — a missing PNG is a wheel with an
+// empty middle. Files on disk, so checked here in node scope.
+{
+  for (const slot of ['axe', 'bugnet', 'hoe', 'pick', 'rod', 'sword']) {
+    ctx.__tests.push({ name: `work wheel: ${slot} art ships at every tier`, fn: () => {
+      for (const tier of Object.keys(ctx.TIER_BY_NUM || {}).map(Number)) {
+        const rel = ctx.gearAssetPath('relic', slot, tier);
+        if (!rel) throw new Error(`no gear asset path for relic/${slot}/T${tier}`);
+        if (!fs.existsSync(path.join(ROOT, rel))) throw new Error(`missing art file: ${rel}`);
+      }
+    } });
+  }
+}
+
 // ── Sprite-position rule (tools/sprite_audit.js) ──────────────────────────
 // Folded into the suite so a non-compliant sprite — or a stale ART_BOUNDS
 // table in src/sprite_layout.js — fails CI. The audit decodes the real PNGs,
