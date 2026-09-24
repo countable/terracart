@@ -246,13 +246,15 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
                    '_teleportCut(place) {',
                    // Grabbing the stick mid-walk re-anchors target AND offset;
                    // lifted so the takeover is tested against the same scene.
-                   '_steerManual(vx, vy, dt) {']
+                   '_steerManual(vx, vy, dt) {',
+                   // What pauses the debounce (a wheel, a dialog).
+                   '_walkHomeHeld() {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
   for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS',
                    '_placeBodyOnFix', '_carveLanding', 'clearPeek', '_teleportCut',
-                   '_steerManual']) {
+                   '_steerManual', '_walkHomeHeld']) {
     if (typeof ctx.__walkHome[k] !== 'function') {
       console.error(`__walkHome.${k} did not come back as a function — update run.js`);
       process.exit(2);

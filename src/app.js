@@ -9644,6 +9644,14 @@ class MapScene extends Phaser.Scene {
       }
     }
   }
+  // Is the walk home ON HOLD? A work wheel (standing still to chop a tree is
+  // being busy, not idle — an AUTO wheel, auto-mining, isn't) or any dialog on
+  // screen (body.modal-open, the same live signal the pads hide on). Held is a
+  // PAUSE of the debounce, not a block: see _driftHome.
+  _walkHomeHeld() {
+    if (this._busyWheel()) return true;
+    return typeof document !== 'undefined' && !!document.body?.classList?.contains('modal-open');
+  }
   // Let go of the stick and, after a few seconds, the character walks itself
   // back to where you actually are. Stick walking builds up an offset from the
   // GPS (see _steerManual); this bleeds that offset back toward zero, dragging
@@ -9661,7 +9669,17 @@ class MapScene extends Phaser.Scene {
     // once the offset is actually being bled off.
     this._driftingHome = false;
     if (!this.gpsM || this._gpsManualOverride) return;
-    if (this._busyWheel() || this._stickPushed()) return;
+    if (this._stickPushed()) return;
+    // A wheel or a dialog PAUSES the debounce rather than just blocking the
+    // walk: the clock slides forward with the frame, so the countdown resumes
+    // where it stood (and a mid-return picks up its ramp where it was) —
+    // never a 6s chop ending with the walk already overdue.
+    if (this._walkHomeHeld()) {
+      if (this._lastStickT) {
+        this._lastStickT = Math.min(Date.now(), this._lastStickT + dt * 1000);
+      }
+      return;
+    }
     if (Date.now() - (this._lastStickT || 0) < WALK_HOME_IDLE_MS) return;
     // TOO FAR TO WALK — place the body instead. Past GPS_SNAP_M the gap is the
     // same thing a jumped fix treats as travel the player never made on foot,
@@ -9721,7 +9739,7 @@ class MapScene extends Phaser.Scene {
   // gone when the walk starts. Pure — no DOM — so the test suite drives it.
   _walkHomeCountdownS() {
     if (!this.gpsM || this._gpsManualOverride) return null;
-    if (this._busyWheel() || this._stickPushed()) return null;
+    if (this._walkHomeHeld() || this._stickPushed()) return null;
     const off = this._manualOffsetM;
     if (!off || Math.hypot(off.x, off.y) < 0.01) return null;
     const left = WALK_HOME_IDLE_MS - (Date.now() - (this._lastStickT || 0));
