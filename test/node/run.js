@@ -1243,6 +1243,7 @@ ctx.APP_JS_SRC = readSrc('app.js');
     'const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;',
     // The predicates. (faunaBlocksCell is Combat's, already loaded.)
     fn('function slimeCharging(c) {'),
+    fn('function monsterRout(c, now, cellM) {'),
     fn('function monsterWanderingOff(c, now, distM, cellM) {'),
   ].join('\n');
   // ONE script, so the method closes over the preamble's consts — a second

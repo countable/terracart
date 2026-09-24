@@ -276,6 +276,8 @@ const MINERAL_ICON_SHEET = {
   // so the pair read as one potion in two strengths.
   revive_potion:       { sheet: 'icon_potions', frame: 16 },
   resurrection_potion: { sheet: 'icon_potions', frame: 21 },
+  // Potion of Thunder — the blue jug of row 4 (frame 24): lightning blue.
+  thunder_potion:      { sheet: 'icon_potions', frame: 24 },
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
@@ -422,6 +424,8 @@ const BASE_TIER = {
   // Revival: getting up where you fell instead of walking Home at a crawl.
   // A tenth of a bar is a T2 emergency; half a bar is a T5 find.
   revive_potion: 2, resurrection_potion: 5,
+  // Thunder: a screen-wide strike that also breaks a fight up — T4.
+  thunder_potion: 4,
   // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
   // it: a minute of not being hunted is a way to WALK AWAY from a fight, the
   // same shape as the reach/speed/shield potions it now shares a tier with.
@@ -528,6 +532,8 @@ const ITEMS = [
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
   { id: 'revive_potion',       name: 'Potion of Revival',       kind: 'consumable' },
   { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'consumable' },
+  // Drunk to strike every foe on screen (app.js drinkThunderPotion).
+  { id: 'thunder_potion',      name: 'Potion of Thunder',      kind: 'consumable' },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
   // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
@@ -738,7 +744,8 @@ const PRICES = {
   shield_potion: 40,   // T2 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura hurting every foe 2 HP/s
   revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
-  resurrection_potion: 250,   // T5 — get up where you fell with half the bar
+  resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
+  thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 1 min of monsters ignoring you entirely (priced for the
@@ -819,6 +826,9 @@ const SHOP_CHARM_MS = 5 * 60 * 1000;
 // energy, either mode), because above zero they would just be Vigor potions.
 // One table, read by the eat / drink, the ✦ lines below, the Eat button and
 // the Drink dialog.
+// Potion of Thunder: the HP the bolt takes off every foe in sight (app.js
+// drinkThunderPotion). Here so the ✦ line quotes the live number.
+const THUNDER_DMG = 10;
 const REVIVE_ITEM_FRAC = { crow_feather: 0.10, revive_potion: 0.30, resurrection_potion: 0.60 };
 const revivePct = (id) => Math.round(REVIVE_ITEM_FRAC[id] * 100);
 
@@ -1081,6 +1091,7 @@ const ITEM_EFFECTS = {
   speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   blight_potion: 'Drink to hurt foes near you 2 HP/s (1 min)',
+  thunder_potion:      `Drink: ${THUNDER_DMG} damage to every foe in sight; the rest flee`,
   revive_potion:       `Drink when down to get up with ${revivePct('revive_potion')}% energy`,
   resurrection_potion: `Drink when down to get up with ${revivePct('resurrection_potion')}% energy`,
   dragon_powder: 'Use to become a dragon for 1 min: faster legs, 2× damage',

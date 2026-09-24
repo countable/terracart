@@ -774,6 +774,20 @@ const WANDER_OFF_TIMEOUT_MS = 60000;    // gives up and turns back after this
 // A tick gap longer than this means the foe was out of the bubble (or the tab
 // was asleep); only this much of it counts toward the next wander-off.
 const WANDER_OFF_TICK_CAP_MS = 1000;
+// Start a wander-off NOW: the foe turns its back and walks away from the
+// player to a rolled distance past the sim bubble's edge (the usual random
+// range), standing down the whole way (no leech, no hit, no shot, no charge).
+// The schedule in monsterWanderingOff calls it when its clock runs out; the
+// Potion of Thunder calls it on every foe the bolt leaves standing. One
+// retreat, two reasons.
+function monsterRout(c, now, cellM) {
+  c._wanderOffInMs = null;
+  c._wanderOffUntilT = now + WANDER_OFF_TIMEOUT_MS;
+  c._wanderOffDistM = CREATURE_SIM_CELLS * cellM * (1 + Math.random() * (WANDER_OFF_MAX_MUL - 1));
+  // Turn NOW rather than finishing a hop at the player. (A creature that has
+  // never chosen a step is seeded by the loop's own init; leave it to that.)
+  if (c._nextChooseT != null) c._nextChooseT = now;
+}
 // Is this foe wandering off right now? Advances its schedule, starts a
 // wander-off when the schedule runs out and ends one on arrival (distM, the
 // foe's distance from the player, past its rolled distance) or on the timeout.
@@ -791,12 +805,7 @@ function monsterWanderingOff(c, now, distM, cellM) {
   if (c._wanderOffInMs == null) c._wanderOffInMs = WANDER_OFF_MIN_MS + Math.random() * WANDER_OFF_SPREAD_MS;
   c._wanderOffInMs -= dt;
   if (c._wanderOffInMs > 0) return false;
-  c._wanderOffInMs = null;
-  c._wanderOffUntilT = now + WANDER_OFF_TIMEOUT_MS;
-  c._wanderOffDistM = CREATURE_SIM_CELLS * cellM * (1 + Math.random() * (WANDER_OFF_MAX_MUL - 1));
-  // Turn NOW rather than finishing a hop at the player. (A creature that has
-  // never chosen a step is seeded by the loop's own init; leave it to that.)
-  if (c._nextChooseT != null) c._nextChooseT = now;
+  monsterRout(c, now, cellM);
   return true;
 }
 // ── The doorstep greeter ─────────────────────────────────────────────────────
@@ -1102,6 +1111,10 @@ const MINUTE_MS = 60 * 1000;
 // foe for half a minute (useGrowthPowder / useFrostPowder).
 const GROWTH_POWDER_R_M = 20;
 const FROST_POWDER_MS = 30 * 1000;
+// The Potion of Thunder's flash (drinkThunderPotion) — long enough to read as
+// lightning, short enough not to blind the next tap. Its damage is items.js
+// THUNDER_DMG, beside the ✦ line that quotes it.
+const THUNDER_FLASH_MS = 350;
 // Potion of Blight: for BLIGHT_MS a round aura on the ground around the
 // player hurts every ENEMY whose centre is inside BLIGHT_R_CELLS cells of the
 // feet, BLIGHT_DPS HP a second (_tickBlightAura). A plain Euclidean radius on
@@ -12287,6 +12300,46 @@ class MapScene extends Phaser.Scene {
     );
   }
 
+  // Potion of Thunder: a white flash across the screen, and every ENEMY
+  // (Combat.isEnemy — never a crow, a deer or a pet) VISIBLE on it — drawn
+  // inside the viewport, so this one is a draw-space test (Particles.onScreen
+  // on worldMetersToScreen), not a reach test — takes THUNDER_DMG through
+  // _damageEnemy (the one damage lane: popups, bar, bounty). Whatever the bolt
+  // leaves standing turns tail (monsterRout — the ordinary wander-off, away
+  // from the player to the usual random range). A lair guard is on its own
+  // leash (Lairs.guardState), so it takes the damage but holds its ruin.
+  // Refused, and the potion kept, when nothing hostile is in sight.
+  drinkThunderPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'thunder_potion' || (sel.count ?? 0) <= 0) return false;
+    const caughtSet = setOf(this.save.caught);
+    const pc = this.playerToWorldCell();
+    const targets = [];
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
+      if (!Combat.isEnemy(c) || caughtSet.has(c.id)) return;
+      const p = this.worldMetersToScreen(c.x, c.y);
+      if (p && Particles.onScreen(this, p.x, p.y)) targets.push(c);
+    });
+    if (targets.length === 0) {
+      this.flash('No foe in sight — potion kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    this.cameras?.main?.flash(THUNDER_FLASH_MS, 255, 255, 255);
+    const now = performance.now();
+    let felled = 0;
+    for (const c of targets) {
+      if (this._damageEnemy(c, THUNDER_DMG)) { felled++; continue; }
+      if (!c.lair) monsterRout(c, now, this.cellM);
+    }
+    const n = targets.length;
+    return this._finishConsumable(
+      '\u26a1 You drink the Potion of Thunder',
+      `The sky splits. ${n} foe${n === 1 ? '' : 's'} in sight took ${THUNDER_DMG} damage`
+        + (felled ? `, ${felled} of them fatally` : '')
+        + (felled < n ? ' — and the rest have remembered urgent business elsewhere.' : '.'),
+    );
+  }
+
   // Frost Powder: every ENEMY (Combat.isEnemy — never a crow, a deer or a pet)
   // standing IN REACH — the lit plateau the tap gate accepts, cellInReach —
   // is frozen for FROST_POWDER_MS: wanderCreatures skips it (no step, no hit)
@@ -17905,6 +17958,7 @@ class MapScene extends Phaser.Scene {
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 amulet walking for 1 min' },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
+      thunder_potion: { verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?', get: `⚡ every foe in sight takes ${THUNDER_DMG} damage, and the rest flee` },
       blight_potion: { verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',    get: `☠ foes within ${BLIGHT_R_CELLS} cells lose ${BLIGHT_DPS} HP/s for ${shortDuration(BLIGHT_MS)}` },
       // Revival: only while down (drinkRevivePotion refuses otherwise, and
       // `usable` greys the dialog's Drink off the same Combat.playerDowned).

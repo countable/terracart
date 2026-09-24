@@ -200,7 +200,8 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
   ]);
   const seen = new Set();
   for (const src of [APP_JS_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
-    for (const m of src.matchAll(/flash(?:Loot)?\(\s*([A-Za-z_$][\w$]*)/g)) seen.add(m[1]);
+    // (?<!main\??\.) skips Phaser's camera flash — a white-out, not a toast.
+    for (const m of src.matchAll(/(?<!main\??\.)flash(?:Loot)?\(\s*([A-Za-z_$][\w$]*)/g)) seen.add(m[1]);
   }
   const unknown = [...seen].filter((v) => !known.has(v));
   assert.eq(unknown.length, 0,
