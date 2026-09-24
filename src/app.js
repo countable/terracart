@@ -12571,6 +12571,14 @@ class MapScene extends Phaser.Scene {
     }
     const mount = () => {
       if (kindNode) box.insertBefore(kindNode, box.firstChild);
+      // The ENTRANCE (index.html .modal-anim): the backdrop fades in and the
+      // box pops up from a touch smaller and lower. Only when nothing was on
+      // screen — body.modal-open is synced by a MutationObserver that runs
+      // AFTER this tap's handler, so a dialog that REPLACES another in the
+      // same tap (a pager turn, a re-roll, a tab) still sees it set and swaps
+      // in place instead of popping on every page.
+      box.classList.add('modal-box');
+      if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
       wrap.appendChild(box);
       (document.getElementById('game') || document.body).appendChild(wrap);
     };
