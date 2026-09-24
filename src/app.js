@@ -750,7 +750,8 @@ const CROW_DEPART_MS = [150000, 90000];
 // a foe that cannot reach you — a slime refused at a campfire's ring, a cave
 // monster held off by a fire at the stairs — stalks the ring's edge forever,
 // and a long rest at a fire ends with a wall of them piled against it.
-//   HOW FAR: out to the edge of its RANGE × [1, WANDER_OFF_MAX_MUL]. A foe has
+//   HOW FAR: out to the edge of its RANGE × its kind's retreat (Combat.retreatMul,
+// 1 unless the monster row says less) × [1, WANDER_OFF_MAX_MUL]. A foe has
 // no notice radius of its own — it stalks you from anywhere it thinks at all —
 // so its range IS the sim bubble, CREATURE_SIM_CELLS from the player's feet
 // (the same edge Home's rout drives a foe out to). Past 1× it has left the
@@ -783,7 +784,8 @@ const WANDER_OFF_TICK_CAP_MS = 1000;
 function monsterRout(c, now, cellM) {
   c._wanderOffInMs = null;
   c._wanderOffUntilT = now + WANDER_OFF_TIMEOUT_MS;
-  c._wanderOffDistM = CREATURE_SIM_CELLS * cellM * (1 + Math.random() * (WANDER_OFF_MAX_MUL - 1));
+  c._wanderOffDistM = CREATURE_SIM_CELLS * cellM * Combat.retreatMul(c.kind)
+    * (1 + Math.random() * (WANDER_OFF_MAX_MUL - 1));
   // Turn NOW rather than finishing a hop at the player. (A creature that has
   // never chosen a step is seeded by the loop's own init; leave it to that.)
   if (c._nextChooseT != null) c._nextChooseT = now;
@@ -1215,7 +1217,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 // Pre-seeded house roles by RESTORE ORDER (0-based). Rather than skinning the
 // two nearest houses as blacksmith/trader up front, a wreck reveals its role
 // from the order the player restores it: the opening stretch is a fixed
-// tutorial run (blacksmith, trader, house, market, house, house) and the 15th
+// tutorial run (blacksmith, trader, house, market) and the 15th
 // restore is always a wizard tower. Restores BEYOND these slots fall back to
 // the address-derived Shops.shopType so the wider neighbourhood keeps its
 // organic variety. 'plain' === a plain residential house (no shop). The chosen
@@ -1226,8 +1228,6 @@ const PRESEED_RESTORE_ROLES = {
   1:  'trader',
   2:  'plain',
   3:  'market',
-  4:  'plain',
-  5:  'plain',
   14: 'wizard',   // the 15th restored wreck is a wizard tower
 };
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
@@ -12696,6 +12696,14 @@ class MapScene extends Phaser.Scene {
     }
     const mount = () => {
       if (kindNode) box.insertBefore(kindNode, box.firstChild);
+      // The ENTRANCE (index.html .modal-anim): the backdrop fades in and the
+      // box pops up from a touch smaller and lower. Only when nothing was on
+      // screen — body.modal-open is synced by a MutationObserver that runs
+      // AFTER this tap's handler, so a dialog that REPLACES another in the
+      // same tap (a pager turn, a re-roll, a tab) still sees it set and swaps
+      // in place instead of popping on every page.
+      box.classList.add('modal-box');
+      if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
       wrap.appendChild(box);
       (document.getElementById('game') || document.body).appendChild(wrap);
     };
@@ -13848,10 +13856,22 @@ class MapScene extends Phaser.Scene {
   // defers to the address-derived shop type so the neighbourhood keeps its
   // variety. Always returns a concrete role string ('plain' for a house).
   _preseedRestoreRole(order, house) {
+    // A save with NO blacksmith gets one on its next rebuild, whatever slot
+    // that is. Slot 0 is the smithy, so a new save never needs this — but a
+    // save whose first rebuilds predate the restore-order roles (or any other
+    // path that left it without one) would otherwise never meet the forge.
+    if (!this._hasBlacksmith()) return 'blacksmith';
     if (Object.prototype.hasOwnProperty.call(PRESEED_RESTORE_ROLES, order)) {
       return PRESEED_RESTORE_ROLES[order];
     }
     return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
+  }
+
+  // Does this save have a smithy? The stamped starter smithy, or any restored
+  // house frozen as one (a later address-9 house counts too).
+  _hasBlacksmith() {
+    if (this.save.starterBlacksmithId != null) return true;
+    return Object.values(this.save.restoredHouses || {}).includes('blacksmith');
   }
 
   // The line and tier a themed shop (role key 'market') sells: its place in

@@ -827,6 +827,20 @@
     /* No real number yet (scripts still streaming) — breathe instead of lying
        still. Replaced by the true asset fraction as soon as app.js reports. */
     #bootload.indet .fill { animation: bootbreathe 1.2s ease-in-out infinite alternate; }
+    /* Dialog entrance (app.js makeModalShell): the backdrop fades, the box
+       pops up from slightly smaller and lower. Short — a dialog should feel
+       placed, not performed. Skipped for a dialog that replaces another in
+       the same tap, and for anyone who asks the OS for less motion. */
+    .modal-anim { animation: modal-fade 140ms ease-out both; }
+    .modal-anim > .modal-box { animation: modal-pop 190ms cubic-bezier(.2, .9, .3, 1.15) both; }
+    @keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes modal-pop {
+      from { opacity: 0; transform: translateY(10px) scale(.94); }
+      to   { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .modal-anim, .modal-anim > .modal-box { animation: none; }
+    }
     @keyframes bootbreathe { from { width: 6%; } to { width: 24%; } }
     #bootload .cap { margin-top: 10px; font-size: 12px; opacity: .8; }
     /* Modal sprite icons whose sheet PNG is still fetching (treasure / trade
@@ -2555,7 +2569,7 @@
   <script src="src/loot.js?v=f5d3bb17"></script>
   <script src="src/quests.js?v=dfb7e9fc"></script>
   <script src="src/interactables.js?v=253bf5e8"></script>
-  <script src="src/combat.js?v=6a123a32"></script>
+  <script src="src/combat.js?v=f34ae942"></script>
   <script src="src/interact.js?v=aefded65"></script>
   <script src="src/lighting.js?v=1d56ab46"></script>
   <script src="src/render.js?v=63bd3a3c"></script>
@@ -2622,7 +2636,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=c6b935ff';
+      const APP_SRC = 'src/app.js?v=7eec8704';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

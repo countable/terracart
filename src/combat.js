@@ -91,12 +91,18 @@
   //   dmg    → energy drained per hit (one hit per MONSTER_HIT_MS per monster)
   //   speed  → step cadence multiplier (1 = slime cadence; higher = more often)
   //   weight → relative spawn share among the kinds eligible at a given depth
+  //   retreat → how far it goes when it WANDERS OFF (app.js
+  //            monsterWanderingOff), as a fraction of its activation range;
+  //            the trip is range × retreat × [1, 2]. Default 1 — a full
+  //            retreat that leaves the bubble, so it comes back only if you
+  //            follow. Under 1 it can stop inside the bubble and come back on
+  //            its own: the lower, the likelier. Read via retreatMul.
   // hp and dmg here are the BASELINE: every entry is doubled by CAVE_ENEMY_MUL
   // below, so what the game runs on is twice what is written.
   const MONSTERS_BASELINE = {
     cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5 },
-    purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true },
-    goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.3,  minDepth: 2, weight: 3 },
+    purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true, retreat: 0.75 },
+    goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.3,  minDepth: 2, weight: 3, retreat: 0.5 },
     goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 1.04, minDepth: 3, weight: 2 },
   };
   // Both goblin rows were 30% too slow to feel like a pursuer (1.0 / 0.8 →
@@ -166,6 +172,13 @@
   // ward ask through this rather than reaching for the literal, so a test that
   // registered a synthetic kind is answered about that kind.
   function monster(kind) { return MONSTER_STATS[kind]; }
+  // How far a kind wanders off, as a fraction of its activation range (the
+  // `retreat` column above; 1 — a full retreat — for any kind without one,
+  // the surface slime included). A giant inherits its base kind's.
+  function retreatMul(kind) {
+    const r = MONSTER_STATS[kind]?.retreat;
+    return (typeof r === 'number' && r > 0) ? r : 1;
+  }
   // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
   // the surface slime.
   function isMonster(kind) { return !!MONSTER_STATS[kind]; }
@@ -934,7 +947,7 @@
 
   const api = {
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
-    registerMonsters, monster, isMonster, FAUNA_HP, creatureMaxHp,
+    registerMonsters, monster, isMonster, retreatMul, FAUNA_HP, creatureMaxHp,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,

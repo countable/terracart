@@ -171,4 +171,18 @@ test('wander-off sim: a pet never wanders off its owner', () => {
   assert.eq(pet._wanderOffUntilT, undefined, 'the schedule never even runs for a pet');
 });
 
+test('wander-off: each kind retreats its own fraction of the range (default a full retreat)', () => {
+  assert.eq(Combat.retreatMul('slime'), 1, 'the surface slime: full retreat');
+  assert.eq(Combat.retreatMul('cave_slime'), 1, 'a kind with no retreat column: full');
+  assert.eq(Combat.retreatMul('goblin'), 0.5, 'a goblin goes half as far — and comes back');
+  assert.eq(Combat.retreatMul('giant_goblin'), 0.5, 'a giant inherits its base kind');
+  assert.eq(Combat.retreatMul('purple_slime'), 0.75);
+  const W = __monsterWanderingOff;
+  const CELL = 7, RANGE = SIM_CELLS * CELL;
+  const c = { kind: 'goblin', _wanderOffInMs: 1, _wanderOffSimT: 1e6 };
+  withRandom(0, () => assert.truthy(W(c, 1e6 + 250, 0, CELL), 'starts'));
+  assert.inRange(c._wanderOffDistM, RANGE * 0.5 - 1e-6, RANGE * 0.5 + 1e-6, 'range × retreat × 1');
+  assert.truthy(/Combat\.retreatMul\(c\.kind\)/.test(APP_JS_SRC), 'the distance reads the kind\'s row');
+});
+
 })();
