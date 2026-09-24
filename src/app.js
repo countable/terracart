@@ -13707,7 +13707,7 @@ class MapScene extends Phaser.Scene {
     // the surface spot above the player. Refuse with an explanation instead.
     if ((this.depth || 0) !== 0) {
       this.showMessageModal({ title: 'Move Home',
-        body: 'Your trailer stays on the surface — climb back up before moving Home.' });
+        body: 'Your trailer stays on the surface — it has never been much of a caver. Climb back up before moving Home.' });
       return;
     }
     const cost = Math.min(500, Math.floor((this.save.money ?? 0) / 2));
@@ -14155,7 +14155,7 @@ class MapScene extends Phaser.Scene {
           this._storySplashOnce('delivery', {
             art: 'delivery_first',
             title: 'First delivery',
-            body: 'A neighbour pays coin for your produce bundle. Every house keeps a wishlist - fill it for coin, and earn a Discovery badge at each new door.',
+            body: 'A neighbour pays coin for your produce bundle and very nearly smiles. Every house keeps a wishlist - fill it for coin, and earn a Discovery badge at each new door.',
           });
         }
       },
@@ -15774,19 +15774,19 @@ class MapScene extends Phaser.Scene {
           // shop's blurb follows its line (marketTheme).
           const theme = role === 'market' ? this.marketTheme(house).theme : null;
           const THEME_BLURB = {
-            seed:   'Sells seeds to plant.',
-            supply: 'Sells rope, torches, kits and building stock.',
-            potion: 'Sells potions and powders.',
-            ore:    'Sells coal, bars and gems for the forge.',
-            relic:  'Sells tools and armour finer than yours.',
-            pet:    'Sells animals — pets, livestock and more.',
+            seed:   'Sells seeds to plant. What you do after that is between you and the crows.',
+            supply: 'Sells rope, torches, kits and building stock — everything for the dark except courage.',
+            potion: 'Sells potions and powders. Labels are, broadly, accurate.',
+            ore:    'Sells coal, bars and gems for the forge. The shopkeeper has never been underground.',
+            relic:  'Sells tools and armour finer than yours, and knows it.',
+            pet:    'Sells animals — pets, livestock and more. No refunds on affection.',
           };
           const INFO = {
-            blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
+            blacksmith: { blurb: 'Forge tools and trade gems for relics here. Mind the sparks; the smith does not.' },
             market:     { blurb: `${THEME_BLURB[theme] || 'Sells one line of goods.'} A new line every shop you rebuild.` },
-            trader:     { blurb: 'Barters goods and pays a bonus on every sale.' },
+            trader:     { blurb: 'Barters goods and pays a bonus on every sale. Money is so last civilisation.' },
             wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage trades 5 Discovery badges a step, up his ladder: a wider reach, then bigger finds, then the Ring that finds the rarer thing.' },
-            plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
+            plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave, and they crave very specifically.' },
           };
           const info = INFO[role] || INFO.plain;
           const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
@@ -16062,7 +16062,7 @@ class MapScene extends Phaser.Scene {
       title: 'Unseal this fort?',
       cancelLabel: 'Later',
       get: '🛡️ the fort quartermaster',
-      blurb: 'Shore up the gate and the garrison will trade relics with you.',
+      blurb: 'Shore up the gate and the quartermaster opens his slot machine to you — the one thing the garrison still maintains.',
       cost: `${need}× ${this.iconSpanHTML('wood')} ${ITEM_BY_ID['wood']?.name || 'Wood'}`
         + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
       canAfford,
@@ -16086,7 +16086,7 @@ class MapScene extends Phaser.Scene {
             art: 'fort_unseal',
             header: 'Unsealed!',
             name: 'You unsealed a Fort',
-            sub: 'The quartermaster trades relics — up to 5 deals an hour.',
+            sub: 'The quartermaster runs a slot machine: three of a kind wins a prize, and a spin costs exactly what it pays on average. He calls that fair. He also calls it morale.',
             color: '#a7ffb0', accent: '#a7ffb0',
           });
         } else {
