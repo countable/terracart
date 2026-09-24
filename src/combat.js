@@ -495,14 +495,14 @@
   // delivered rate is cadence-independent.
   //
   // A slot may fire on its own beat (SHOT[slot].fireIntervalMs, read through
-  // fireIntervalMs() below). The STAFF fires on half the bow's cadence — one
-  // bolt every other beat — and because shotDamage prices a shot at its own
+  // fireIntervalMs() below). The STAFF fires on a quarter of the bow's
+  // cadence — one bolt every fourth beat — and because shotDamage prices a shot at its own
   // slot's interval, that is PACING and not a nerf: a staff bolt simply
-  // carries two beats' worth of damage and the dps identity above still
+  // carries four beats' worth of damage and the dps identity above still
   // holds. Never halve a cadence without letting shotDamage see it, or the
   // weapon quietly loses half its damage.
   const FIRE_INTERVAL_MS = 2000;
-  const STAFF_BEAT_MUL = 2;
+  const STAFF_BEAT_MUL = 4;
   const RANGED_SLOTS = ['bow', 'staff'];
   // Per-slot shot geometry. `phaseMs` used to stagger the staff half a beat
   // off the bow so a player carrying both fired simultaneously heard an
@@ -525,8 +525,9 @@
   //           draws energyCost (1⚡) from the caster — app.js gates the shot
   //           on affording it — and delivers twice an arrow's damage PER
   //           SECOND (SHOT_DMG_MUL below): the energy is the price of the
-  //           pierce and the punch. It arrives half as often as an arrow
-  //           (fireIntervalMs), so one BOLT is four times one arrow.
+  //           pierce and the punch. It arrives a quarter as often as an arrow
+  //           (fireIntervalMs), so one BOLT is eight times one arrow; and it
+  //           drifts slowly (1 cell/s, under a quarter of the arrow's).
   //
   // And they differ in how they AIM (`aim`):
   //   'compass' — the bow. The arrow goes where you are facing; aiming is
@@ -554,7 +555,7 @@
   const SHOT = {
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
              phaseMs: 0, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS },
-    staff: { speedCps: 2.0, rangeCells: 3.5, rangeFromReach: 1,
+    staff: { speedCps: 1.0, rangeCells: 3.5, rangeFromReach: 1,
              color: 0x9ad6ff, dotPx: 3,
              phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest',
              growsWithTier: true,

@@ -1153,7 +1153,7 @@ const RELIC_DEFS = {
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on
   // its OWN beat (Combat.fireIntervalMs): the bow along the compass every 2 s,
-  // the staff at the nearest foe in range every 4 s. The staff's slower beat
+  // the staff at the nearest foe in range every 8 s. The staff's slower beat
   // is pacing, not a nerf — one bolt carries the extra beat's damage.
   // These blurbs are the WHOLE disclosure for a weapon — the Book no longer
   // carries a second copy — so the bow's blurb has to say it aims by the
