@@ -214,6 +214,10 @@ const treeScale = treeCtx.treeScale;
 // so hand it over explicitly.
 const itemsCtx = { Math, console };
 vm.createContext(itemsCtx);
+// util.js first, as index.html orders them: the catalog formats a ✦ line with
+// util.js' shortDuration at load time.
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
+  itemsCtx, { filename: 'util.js' });
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
   itemsCtx, { filename: 'items.js' });
 vm.runInContext('globalThis.CROP_SPRITE = CROP_SPRITE;', itemsCtx);

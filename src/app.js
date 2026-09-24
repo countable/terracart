@@ -1026,10 +1026,8 @@ const MINUTE_MS = 60 * 1000;
 // foe for half a minute (useGrowthPowder / useFrostPowder).
 const GROWTH_POWDER_R_M = 20;
 const FROST_POWDER_MS = 30 * 1000;
-// Flower charm — gifting a Flowers stack item to a cash shop halves its
-// prices at that building for this long (see the flower-gift branch in
-// shopInteract + shopCharmMul).
-const SHOP_CHARM_MS = 5 * MINUTE_MS;
+// SHOP_CHARM_MS (the Flowers charm) lives in items.js beside the Flowers ✦
+// line that quotes it.
 const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
 // Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the amulet
@@ -12669,7 +12667,7 @@ class MapScene extends Phaser.Scene {
       this.showOfferModal({
         kind: 'shop',
         title: 'Charm the shopkeeper?',
-        get: `💐 half prices here, ${Math.round(SHOP_CHARM_MS / MINUTE_MS)} min`,
+        get: `💐 half prices here, ${shortDuration(SHOP_CHARM_MS)}`,
         cost: `1× ${this.iconSpanHTML('flowers')} Flowers`,
         canAfford: true,
         acceptLabel: 'Gift',
@@ -17046,6 +17044,22 @@ class MapScene extends Phaser.Scene {
 
     this.refreshInventoryHighlight();
   }
+  // The ✦ effect line under the selected stack or relic. It is one nowrap
+  // line with an ellipsis, so a long description is cut off on a narrow
+  // phone — TAPPING it opens the whole sentence in a message dialog. The
+  // strip it sits in (#inv-name) is pointer-events:none so it never eats a
+  // tap meant for the map; only this line opts back in.
+  _effectLineEl(text, titleHTML) {
+    const fx = document.createElement('div');
+    fx.textContent = `✦ ${text}`;
+    fx.style.cssText = 'font:10px/12px ui-monospace,monospace;color:#9fe6ff;opacity:0.92;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:auto;cursor:pointer;';
+    fx.addEventListener('pointerdown', (e) => e.stopPropagation());
+    fx.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.showMessageModal({ title: titleHTML, body: `✦ ${text}` });   // catalog text, static — no markup in it
+    });
+    return fx;
+  }
   refreshInventoryHighlight() {
     const bar = document.getElementById('inv');
     if (!bar) return;
@@ -17080,10 +17094,9 @@ class MapScene extends Phaser.Scene {
           nameLbl.appendChild(nameSpan);
           const def = (g.kind === 'relic' && typeof RELIC_DEFS !== 'undefined') ? RELIC_DEFS[g.slot] : null;
           if (def && def.blurb) {
-            const fx = document.createElement('div');
-            fx.textContent = `✦ ${def.blurb}`;
-            fx.style.cssText = 'font:10px/12px ui-monospace,monospace;color:#9fe6ff;opacity:0.92;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-            nameLbl.appendChild(fx);
+            const tier = this.save.relics?.[g.slot]?.tier;
+            nameLbl.appendChild(this._effectLineEl(def.blurb,
+              `${this.gearIconHTML(g.kind, g.slot, tier)} ${nameSpan.textContent}`));
           }
         }
       } else {
@@ -17097,10 +17110,8 @@ class MapScene extends Phaser.Scene {
           nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(nameSpan);
           if (effect) {
-            const fx = document.createElement('div');
-            fx.textContent = `✦ ${effect}`;
-            fx.style.cssText = 'font:10px/12px ui-monospace,monospace;color:#9fe6ff;opacity:0.92;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-            nameLbl.appendChild(fx);
+            nameLbl.appendChild(this._effectLineEl(effect,
+              `${this.iconSpanHTML(sel.id)} ${it.name}`));
           }
         }
       }

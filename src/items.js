@@ -976,7 +976,15 @@ const PLAY_TIPS = [
 // strip) whenever such an item is selected, so a non-obvious power isn't a
 // secret the player only learns from a Book. Keyed by item id; absent = no
 // special effect (a plain crop / mineral that's just worth money or energy).
+// Flower charm — gifting a Flowers stack item to a cash shop (market, fort
+// storefront, unclaimed castle) halves its prices at that building for this
+// long (the flower-gift branch in app.js shopInteract + shopCharmMul). Lives
+// here so the Flowers ✦ line below quotes the live number.
+const SHOP_CHARM_MS = 5 * 60 * 1000;
 const ITEM_EFFECTS = {
+  // Not a secret: the charm is a cash-shop mechanic the player otherwise only
+  // meets by accident (tapping a shop with Flowers selected).
+  flowers:   `Gift to a shopkeeper: half prices there for ${shortDuration(SHOP_CHARM_MS)}`,
   // Foods with a side-effect when eaten (on top of their energy restore).
   rainberry: 'Eat to water every crop within 20m',
   pairy:     'Eat to reveal the nearest unfound chest for 5 min',

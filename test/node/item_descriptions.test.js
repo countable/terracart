@@ -179,3 +179,20 @@ test('tips: the source comment tells the next author where a description goes', 
   assert.truthy(/does not|NOT/i.test(note), 'and says what does not belong in the list');
 });
 })();
+
+test('flowers: the ✦ line names the shop charm and quotes its live length', () => {
+  const line = ITEM_EFFECTS.flowers;
+  assert.truthy(line && /half prices/.test(line), 'Flowers say what a gift buys');
+  assert.truthy(line.includes(shortDuration(SHOP_CHARM_MS)), 'the length is SHOP_CHARM_MS, formatted');
+  assert.truthy(line.length <= 55, `fits the ✦ row (${line.length} chars)`);
+});
+
+test('effect line: a tap opens the whole description in a dialog', () => {
+  const m = APP_JS_SRC.match(/\n  _effectLineEl\(text, titleHTML\) \{[\s\S]*?\n  \}\n/);
+  assert.truthy(m, '_effectLineEl exists');
+  assert.truthy(/pointer-events:auto/.test(m[0]), 'the line opts back into taps');
+  assert.truthy(/showMessageModal\(/.test(m[0]), 'the tap opens a message dialog');
+  const uses = APP_JS_SRC.match(/this\._effectLineEl\(/g) || [];
+  assert.eq(uses.length, 2, 'both ✦ lines (item and relic) go through it');
+  assert.eq((APP_JS_SRC.match(/textContent = `✦/g) || []).length, 1, 'the helper builds the only ✦ line');
+});
