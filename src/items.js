@@ -1108,7 +1108,10 @@ function animalLikesFood(kind, foodId) {
 // effect AND higher price. Player can hold one relic per slot, one armor per
 // slot. Buying an equal-or-lower-tier item into an occupied slot is refused.
 const MATERIAL_TIERS = [
-  { tier: 1, folder: '1. Wood',     name: 'Wood',     costMul: 1,   effMul: 1.0 },
+  // Wood is 2, not 1: at 1 a Wood relic listed at $15-25 and sold for pocket
+  // change, so the first tool was an impulse buy rather than a goal. Still
+  // under Copper's 3, so the ladder keeps rising.
+  { tier: 1, folder: '1. Wood',     name: 'Wood',     costMul: 2,   effMul: 1.0 },
   { tier: 2, folder: '2. Cooper',   name: 'Copper',   costMul: 3,   effMul: 1.5 },
   { tier: 3, folder: '3. Iron',     name: 'Iron',     costMul: 8,   effMul: 2.2 },
   { tier: 4, folder: '4. Gold',     name: 'Gold',     costMul: 20,  effMul: 3.0 },
