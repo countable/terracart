@@ -1,9 +1,8 @@
-// The produce storefront is named for the GOODS IT SELLS, not for the trade
-// idiom: it is a "Produce Shop" on the map sign, on the restoration card and in
-// the offer modal — never a "Market". The one that carries something else says
-// so: the tutorial's FIRST market stocks starter seeds instead of produce
-// (app.js isFirstMarket) and signs "Seed Shop", so no sign promises stock the
-// shop doesn't have.
+// A themed shop (role key 'market') is named for the LINE IT SELLS, not for the
+// trade idiom: "Potion Shop" on the map sign, on the restoration card and in
+// the offer modal — never a "Market". The line comes from its restore order
+// (Shops.themeAt via app.js marketTheme), so no sign promises stock the shop
+// doesn't have.
 //
 // The trap here is the same one shops.js already documents for shopLabel: THREE
 // call sites name this building (render.js's sign, app.js's restoration card,
@@ -19,10 +18,12 @@
 const app = APP_JS_SRC;
 const render = RENDER_SRC;
 
-test('shop naming: the produce shop is named for its stock, not "Market"', () => {
-  assert.eq(Shops.roleLabel('market'), 'Produce Shop', 'the standing produce storefront');
-  assert.eq(Shops.roleLabel('market', true), 'Seed Shop', 'the first one, which stocks seeds');
-  assert.eq(Shops.ROLE_LABEL.market, 'Produce Shop', 'the table agrees with the accessor');
+test('shop naming: a themed shop is named for its line, not "Market"', () => {
+  assert.eq(Shops.roleLabel('market', 'seed'), 'Seed Shop');
+  assert.eq(Shops.roleLabel('market', 'potion'), 'Potion Shop');
+  assert.eq(Shops.roleLabel('market', 'pet'), 'Pet Shop');
+  for (const t of Shops.THEMES) assert.truthy(Shops.roleLabel('market', t), 'every line has a name: ' + t);
+  assert.eq(Shops.roleLabel('market'), 'Shop', 'no line to name → a bare Shop');
   for (const label of Object.values(Shops.ROLE_LABEL)) {
     assert.truthy(label !== 'Market', 'no role is labelled "Market"');
   }
@@ -34,8 +35,8 @@ test('shop naming: the other roles keep their names, and unknown roles get none'
   assert.eq(Shops.roleLabel('wizard'), 'Wizard');
   assert.eq(Shops.roleLabel('plain'), null, 'a plain house has no shop sign');
   assert.eq(Shops.roleLabel(null), null, 'no role → no label');
-  // seedStock only ever touches the produce shop.
-  assert.eq(Shops.roleLabel('blacksmith', true), 'Blacksmith', 'seedStock is market-only');
+  // a theme only ever touches the themed shop.
+  assert.eq(Shops.roleLabel('blacksmith', 'seed'), 'Blacksmith', 'theme is market-only');
 });
 
 // The trader is named for the item it barters away, not its street number: a
@@ -43,14 +44,14 @@ test('shop naming: the other roles keep their names, and unknown roles get none'
 // worth it. The goods name comes from the same seeded give-pick the barter
 // modal hands over (app.js traderGivePick), so sign and deal can't disagree.
 test('shop naming: the trader is named for its goods, never its address', () => {
-  assert.eq(Shops.roleLabel('trader', false, 'Rockfruit'), 'Rockfruit Trader');
-  assert.eq(Shops.roleLabel('trader', false, 'Potato Seed'), 'Potato Seed Trader');
-  assert.eq(Shops.roleLabel('trader', false, null), 'Trader', 'no goods → bare Trader');
-  assert.eq(Shops.roleLabel('trader', false, ''), 'Trader', 'empty goods → bare Trader');
+  assert.eq(Shops.roleLabel('trader', null, 'Rockfruit'), 'Rockfruit Trader');
+  assert.eq(Shops.roleLabel('trader', null, 'Potato Seed'), 'Potato Seed Trader');
+  assert.eq(Shops.roleLabel('trader', null, null), 'Trader', 'no goods → bare Trader');
+  assert.eq(Shops.roleLabel('trader', null, ''), 'Trader', 'empty goods → bare Trader');
   // goods only ever touches the trader.
-  assert.eq(Shops.roleLabel('market', false, 'Rockfruit'), 'Produce Shop', 'goods is trader-only');
-  assert.eq(Shops.roleLabel('blacksmith', false, 'Rockfruit'), 'Blacksmith', 'goods is trader-only');
-  assert.eq(Shops.roleLabel('wizard', false, 'Rockfruit'), 'Wizard', 'goods is trader-only');
+  assert.eq(Shops.roleLabel('market', 'seed', 'Rockfruit'), 'Seed Shop', 'goods is trader-only');
+  assert.eq(Shops.roleLabel('blacksmith', null, 'Rockfruit'), 'Blacksmith', 'goods is trader-only');
+  assert.eq(Shops.roleLabel('wizard', null, 'Rockfruit'), 'Wizard', 'goods is trader-only');
 
   // render.js: the sign asks the scene for the goods. No sign — trader or
   // otherwise — carries an address numeral any more (Shops.toRoman is gone).
@@ -77,9 +78,9 @@ test('shop naming: every call site reads Shops.roleLabel, none inlines a name', 
   assert.truthy(/Shops\.roleLabel\(role,/.test(render), 'the map sign resolves through Shops.roleLabel');
   assert.falsy(/market: 'Market'/.test(render), 'render.js no longer carries its own label table');
   // app.js's offer title + restoration card.
-  assert.truthy(/Shops\.roleLabel\('market', this\.isFirstMarket\(house\)\)/.test(app),
+  assert.truthy(/Shops\.roleLabel\('market', this\.marketTheme\(house\)\.theme\)/.test(app),
     'the offer title resolves through Shops.roleLabel');
-  assert.truthy(/Shops\.roleLabel\(role, seedShop\)/.test(app),
+  assert.truthy(/Shops\.roleLabel\(role, theme\)/.test(app),
     'the restoration card resolves through Shops.roleLabel');
   assert.falsy(/name: 'Market'/.test(app), 'the restoration card no longer hardcodes "Market"');
   assert.falsy(/The market has fresh stock/.test(app), 'the old offer title is gone');

@@ -345,7 +345,7 @@ test('shop source: no NEW unseeded randomness creeps into the offer path', () =>
   // expected in this stretch: the documented fallback for a null house on the
   // swap coin. Anything else rolled between picking the item and presenting it
   // would re-roll on reopen, so seed it or update this pin deliberately.
-  const stock = SHOP_INTERACT_SRC.slice(SHOP_INTERACT_SRC.indexOf('// Markets skip'));
+  const stock = SHOP_INTERACT_SRC.slice(SHOP_INTERACT_SRC.indexOf('// SEEDED, not Math.random'));
   const hits = stock.match(/Math\.random\(\)/g) || [];
   assert.eq(hits.length, 1, `unseeded rolls in the offer path: ${hits.length}`);
 });

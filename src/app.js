@@ -12400,10 +12400,10 @@ class MapScene extends Phaser.Scene {
     // 'buy'
     if (castle) return "From the castle's vault:";
     if (isFort)   return 'The fort quartermaster offers:';
-    // Named for its stock, so the line matches the sign outside: "The produce
-    // shop has fresh stock:", or "The seed shop …" for the tutorial's first one.
+    // Named for its line, so the words match the sign outside: "The potion
+    // shop has fresh stock:".
     if (st === 'market') {
-      return `The ${Shops.roleLabel('market', this.isFirstMarket(house)).toLowerCase()} has fresh stock:`;
+      return `The ${Shops.roleLabel('market', this.marketTheme(house).theme).toLowerCase()} has fresh stock:`;
     }
     if (st === 'trader')     return 'The trader proposes a barter:';
     if (st === 'blacksmith') return 'The blacksmith has on hand:';
@@ -12658,7 +12658,12 @@ class MapScene extends Phaser.Scene {
       this.presentWizardOffer(sx, sy, recordDeal);
       return;
     }
-    // Markets skip the 10% relic-swap; the market shop kind is dedicated.
+    // THEMED SHOPS (role key 'market') sell one line each — seed, supply,
+    // potion, ore, relic or pet, by restore order — see presentThemedShop.
+    if (shopType === 'market') {
+      this.presentThemedShop(sx, sy, house, recordDeal);
+      return;
+    }
     // SEEDED, not Math.random: this coin decides WHAT the shop is selling, so
     // an unseeded flip let the player reopen a fort until it came up relic.
     // Its own lane, so it can't consume a roll the offer itself needs.
@@ -12669,25 +12674,16 @@ class MapScene extends Phaser.Scene {
       const relicOffer = this.peekOrBuildRelicOffer(house);
       if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
     }
-    // Each house has a deterministic "shop kind" derived from its world
-    // position: ~30% of houses sell PRODUCE (harvested crops), the rest sell
-    // SEEDS from the rotating buyIndex. Same house always offers the same
-    // category, so the player learns "this house sells crops". Markets force
-    // produce regardless of the position-derived flag.
+    // Each remaining storefront (a fort's quartermaster) has a deterministic
+    // "shop kind" derived from its world position: ~30% sell PRODUCE
+    // (harvested crops), the rest sell SEEDS from the rotating buyIndex. Same
+    // house always offers the same category.
     const houseSeed = house
       ? ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0)
       : 0;
-    // The tutorial's first market is the guaranteed beginner SEED shop: it
-    // rotates through T1/T2 (low-tier) seeds only, never produce or higher-tier
-    // crops the player can't use yet.
-    const isFirstMarket = this.isFirstMarket(house);
-    const sellsProduce = !isFirstMarket && ((shopType === 'market')
-      || (houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3));
+    const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
     let id;
-    if (isFirstMarket) {
-      const lowSeeds = BUY_LIST.filter(isLowTierSeed);
-      id = lowSeeds[(this.save.buyIndex ?? 0) % lowSeeds.length] || BUY_LIST[0];
-    } else if (sellsProduce) {
+    if (sellsProduce) {
       // Cycle through produce, weighted toward the buyIndex so it still rotates.
       const produceIds = Object.keys(CROP_ROW);
       id = produceIds[((this.save.buyIndex ?? 0) + (houseSeed >>> 8)) % produceIds.length];
@@ -13118,24 +13114,14 @@ class MapScene extends Phaser.Scene {
     return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
   }
 
-  // The tutorial's first restored market (PRESEED_RESTORE_ROLES order 3) is the
-  // player's guaranteed early SEED shop: it vends only T1/T2 seeds for cash
-  // instead of the produce a normal market sells, so a beginner always has a
-  // reliable source of plantable starter crops. Memoize its id; self-heal for
-  // saves that restored it before this stamp existed by scanning restoredHouses
-  // in insertion order (object keys preserve insert order, so the first 'market'
-  // entry is the earliest-restored market).
-  ensureFirstMarketId() {
-    if (this.save.firstMarketId) return this.save.firstMarketId;
-    const rh = this.save.restoredHouses || {};
-    for (const id of Object.keys(rh)) {
-      if (rh[id] === 'market') { this.save.firstMarketId = id; persistSave(this.save); return id; }
-    }
-    return null;
-  }
-
-  isFirstMarket(house) {
-    return !!house && !!house.id && this.ensureFirstMarketId() === house.id;
+  // The line and tier a themed shop (role key 'market') sells: its place in
+  // the save's restore order of shops, through Shops.themeAt — seed, supply,
+  // potion, ore, relic, pet, then round again a tier up. The tutorial's market
+  // (PRESEED_RESTORE_ROLES order 3) is the first shop, so it is still the
+  // beginner's T1 seed shop. The sign, the offer title, the restoration card
+  // and the stock all read this one answer.
+  marketTheme(house) {
+    return Shops.themeAt(Shops.shopOrder(this.save, house));
   }
 
   // Every restored delivery house currently asking for a bundle (not satisfied
@@ -13536,11 +13522,12 @@ class MapScene extends Phaser.Scene {
   // seeded RNG so the same shop in the same bucket always shows the same
   // offer — no need to persist the offer object. Re-roll bumps cur.rerolls
   // which pivots the seed lane.
-  peekOrBuildRelicOffer(house) {
+  // opts.maxTier caps the roll at a themed relic shop's tier (Gear.buildRelicOffer).
+  peekOrBuildRelicOffer(house, opts = {}) {
     const castle = isCastle(house);
-    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle });
+    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle, ...opts });
     const rng = this.shopRng(house, 'relic');
-    return this.buildRelicOffer(rng, { isCastle: castle });
+    return this.buildRelicOffer(rng, { isCastle: castle, ...opts });
   }
 
   // Pick a random relic OR armor piece the player can actually use — meaning
@@ -13564,16 +13551,21 @@ class MapScene extends Phaser.Scene {
   // flash text and which present* method re-renders. Cost = 5 × 2^rerolls.
   // (The trader offer's re-roll is structurally different — it has no peek
   // step — so it stays inline in presentTraderOffer.)
-  _makeRerollSecondary(house, sx, sy, emptyMsg, present) {
+  // A themed shop rides the same button with its own `opts.cost` (the cheaper
+  // ShopsMath.themedRerollCost) and `opts.peek` (its next item, or its capped
+  // relic roll).
+  _makeRerollSecondary(house, sx, sy, emptyMsg, present, opts = {}) {
     const curState = house?.id ? this.shopBucketState(house) : null;
-    const rerollCost = 5 * Math.pow(2, curState?.rerolls || 0);
+    const n = curState?.rerolls || 0;
+    const rerollCost = opts.cost ? opts.cost(n) : 5 * Math.pow(2, n);
+    const peek = opts.peek || (() => this.peekOrBuildRelicOffer(house));
     return {
       label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(rerollCost, 12)}</span>`,
       disabled: (this.save.money ?? 0) < rerollCost,
       onClick: () => {
         if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
         if (curState) curState.rerolls += 1;
-        const next = this.peekOrBuildRelicOffer(house);
+        const next = peek();
         if (!next) { this.flash(emptyMsg, sx, sy); return; }
         addMoney(this.save, -rerollCost);
         persistSave(this.save);
@@ -13583,11 +13575,68 @@ class MapScene extends Phaser.Scene {
     };
   }
 
+  // A THEMED SHOP's visit: one item from its line at its tier (marketTheme),
+  // seeded on the shop's hour like every offer, priced through buildShopOffer
+  // (the 1.2–3.0× markup over PRICES, so a shop always asks above list), with a
+  // re-roll that starts at $2 and grows ×1.5 (ShopsMath.themedRerollCost). The
+  // relic line hands off to the relic offer — capped at the shop's tier, never
+  // at or below what the player wears — with the same cheap re-roll.
+  presentThemedShop(sx, sy, house, recordDeal) {
+    const { theme, tier } = this.marketTheme(house);
+    const cost = ShopsMath.themedRerollCost;
+    if (theme === 'relic') {
+      const peek = () => this.peekOrBuildRelicOffer(house, { maxTier: tier });
+      const offer = peek();
+      if (!offer) { this.flash('Nothing here beats your kit.', sx, sy); return; }
+      this.presentRelicOffer(sx, sy, offer, recordDeal, house, true, { cost, peek });
+      return;
+    }
+    const id = this.themedShopPick(house);
+    if (!id) { this.flash(`No stock. Back ${this.shopWaitLabel(house)}.`, sx, sy); return; }
+    this._presentThemedItem(sx, sy, house, recordDeal, id);
+  }
+
+  // The item a themed shop is selling right now — its own seeded lane, so it
+  // holds for the hour and a re-roll (which bumps the bucket's rerolls, part
+  // of the seed) moves it on.
+  themedShopPick(house) {
+    const { theme, tier } = this.marketTheme(house);
+    const rng = house?.id ? this.shopRng(house, 'theme') : Math.random;
+    return Shops.pickThemed(theme, tier, rng);
+  }
+
+  _presentThemedItem(sx, sy, house, recordDeal, id) {
+    const item = ITEM_BY_ID[id];
+    const offer = this.buildShopOffer(id, itemValue(id), { house });
+    // One unit, as every cash buy — low-tier seeds keep their bulk bonus.
+    const buyQty = 1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
+    this.showOfferModal({
+      kind: 'shop',
+      title: this.buildingFlavorTitle(house, 'buy'),
+      cancelLabel: 'Later',
+      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
+      cost: offer.label,
+      canAfford: offer.canAfford(),
+      onAccept: () => {
+        if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
+        offer.consume();
+        this.addToInv(id, buyQty);
+        recordDeal();
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
+      },
+      secondary: this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
+        (nextId) => this._presentThemedItem(sx, sy, house, recordDeal, nextId),
+        { cost: ShopsMath.themedRerollCost, peek: () => this.themedShopPick(house) }),
+    });
+  }
+
   // Present a relic/armor offer. Re-roll is only shown at castles — regular
   // houses + the starter shop hide it. The offer is derived from the bucket
   // seed via peekOrBuildRelicOffer, so no per-tap persistence is needed; the
   // re-roll button bumps cur.rerolls which pivots the seed lane.
-  presentRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false) {
+  presentRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false, rerollOpts = {}) {
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = offer.kind === 'relic'
@@ -13624,7 +13673,7 @@ class MapScene extends Phaser.Scene {
       // something else — no per-house cache to invalidate.
       secondary: allowReroll
         ? this._makeRerollSecondary(house, sx, sy, 'Stalls are empty for now.',
-            next => this.presentRelicOffer(sx, sy, next, recordDeal, house, true))
+            next => this.presentRelicOffer(sx, sy, next, recordDeal, house, true, rerollOpts), rerollOpts)
         : undefined,
     });
   }
@@ -14978,11 +15027,6 @@ class MapScene extends Phaser.Scene {
         if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
           this.save.starterBlacksmithId = house.id;
         }
-        // The first restored market becomes the guaranteed T1/T2 seed shop
-        // (see isFirstMarket / the buy branch in shopInteract).
-        if (restoredRole === 'market' && this.save.firstMarketId == null) {
-          this.save.firstMarketId = house.id;
-        }
         persistSave(this.save);
         // THE BLAST, before the card opens: the same fanfare a street gets,
         // scaled to a building. The flash covers the footprint's half-diagonal
@@ -15006,21 +15050,26 @@ class MapScene extends Phaser.Scene {
           // frozen restore-order role; 'plain' for a role-less residential house.
           const role = this.houseShopRole(house) || 'plain';
           // Names come from Shops.roleLabel so the card, the sign outside and
-          // the offer modal all call the building the same thing. The produce
-          // shop's blurb follows its label: the first one restored stocks
-          // seeds, so it's introduced as the Seed Shop and its blurb says so.
-          const seedShop = role === 'market' && this.isFirstMarket(house);
+          // the offer modal all call the building the same thing. A themed
+          // shop's blurb follows its line (marketTheme).
+          const theme = role === 'market' ? this.marketTheme(house).theme : null;
+          const THEME_BLURB = {
+            seed:   'Sells seeds to plant.',
+            supply: 'Sells rope, torches, kits and building stock.',
+            potion: 'Sells potions and powders.',
+            ore:    'Sells coal, bars and gems for the forge.',
+            relic:  'Sells tools and armour finer than yours.',
+            pet:    'Sells animals — pets, livestock and more.',
+          };
           const INFO = {
             blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
-            market:     { blurb: seedShop
-              ? 'Sells the starter seeds you need to grow more.'
-              : 'Sells fresh produce and seeds to restock your bag.' },
+            market:     { blurb: `${THEME_BLURB[theme] || 'Sells one line of goods.'} A new line every shop you rebuild.` },
             trader:     { blurb: 'Barters goods and pays a bonus on every sale.' },
             wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage trades 5 Discovery badges a step, up his ladder: a wider reach, then bigger finds, then the Ring that finds the rarer thing.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;
-          const name = info.name || Shops.roleLabel(role, seedShop) || INFO.plain.name;
+          const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
           this.showChestRewardModal({
             kind: 'build',
             // The banner carries the picture now - one art piece per role
