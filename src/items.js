@@ -268,6 +268,9 @@ const MINERAL_ICON_SHEET = {
   vigor_potion:  { sheet: 'icon_potions', frame: 11 },
   speed_potion:  { sheet: 'icon_potions', frame: 12 },
   shield_potion: { sheet: 'icon_potions', frame: 13 },
+  // Potion of Blight — the red flask of the next row down (row 3, y=48:
+  // frame 17), so it doesn't read as the Speed potion's red beside it.
+  blight_potion: { sheet: 'icon_potions', frame: 17 },
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
@@ -409,6 +412,7 @@ const BASE_TIER = {
   cow: 5,
   // Consumables
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
+  blight_potion: 3,
   dragon_powder: 3,
   // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
   // it: a minute of not being hunted is a way to WALK AWAY from a fight, the
@@ -511,6 +515,7 @@ const ITEMS = [
   { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'consumable' },
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'consumable' },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'consumable' },
+  { id: 'blight_potion', name: 'Potion of Blight',    kind: 'consumable' },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
   // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
@@ -719,6 +724,7 @@ const PRICES = {
   vigor_potion:  35,   // T2 — instant 40-energy restore
   speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
+  blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura hurting every foe 2 HP/s
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 1 min of monsters ignoring you entirely (priced for the
@@ -1019,6 +1025,7 @@ const ITEM_EFFECTS = {
   vigor_potion:  'Drink to restore 40 energy',
   speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
+  blight_potion: 'Drink to hurt foes near you 2 HP/s (1 min)',
   dragon_powder: 'Use to become a dragon for 1 min: faster legs, 2× damage',
   growth_powder: 'Use to spring every crop within 20m ahead a stage',
   shadow_powder: 'Use to make monsters ignore you (1 min)',
