@@ -301,11 +301,11 @@ test('combat: a shot carries its tier\'s FULL melee-equivalent rate, weighted by
   // The ladder in concrete, so a silent regression in TOOL_DURATION_MS or the
   // fire beat shows up as a combat failure too. Wood's rung is 4000 ms, i.e.
   // 3.75 HP/s of melee; over the bow's 2 s beat that's 7.5 per arrow (rounds
-  // to 8). The staff carries the same rate over its OWN 8 s beat, so one
-  // bolt is four arrows — 30 — landing the arrow's rate per second.
+  // to 8). The staff lands 4/15 of that rate over its OWN 5 s beat: a wood
+  // bolt is 5 damage every 5 s.
   assert.eq(Combat.shotDamage({ bow: { tier: 1 } }, 'bow'), 8, 'wood bow');
   assert.eq(Combat.shotDamage({ bow: { tier: 7 } }, 'bow'), 100, 'frost bow');
-  assert.eq(Combat.shotDamage({ staff: { tier: 1 } }, 'staff'), 30, 'wood staff — four arrows a bolt');
+  assert.eq(Combat.shotDamage({ staff: { tier: 1 } }, 'staff'), 5, 'wood staff — 5 damage a bolt');
 });
 
 test('combat: the fire beat is 2 s, and the delivered rate is beat-independent', () => {
@@ -314,8 +314,8 @@ test('combat: the fire beat is 2 s, and the delivered rate is beat-independent',
   // per-shot damage, never the delivered rate.
   assert.eq(Combat.FIRE_INTERVAL_MS, 2000, 'one shot per 2 s');
   assert.eq(Combat.fireIntervalMs('bow'), 2000, 'the bow keeps the base beat');
-  assert.eq(Combat.fireIntervalMs('staff'), 8000, 'the staff fires a quarter as often');
-  assert.eq(Combat.STAFF_BEAT_MUL, 4, 'and that slowing is one named number');
+  assert.eq(Combat.fireIntervalMs('staff'), 5000, 'the staff fires every 5 s');
+  assert.eq(Combat.STAFF_BEAT_MUL, 2.5, 'and that slowing is one named number');
   assert.eq(Combat.SHOT.staff.speedCps, 1.0, 'and its bolt drifts at a cell a second');
   // An unknown slot falls back to the base beat rather than NaN-ing a clock.
   assert.eq(Combat.fireIntervalMs('sword'), 2000, 'a slot with no beat of its own takes the base');
@@ -325,7 +325,7 @@ test('combat: the staff\'s slow beat never changes its damage per second', () =>
   // The point of the slower beat is PACING, not a nerf. Halving a cadence
   // without letting shotDamage see it would quietly halve the weapon, so pin
   // the two halves against each other: the beat slows, the bolt grows. The
-  // staff's RATE is set by SHOT_DMG_MUL alone (1 — a sword's rate).
+  // staff's RATE is set by SHOT_DMG_MUL alone (4/15 of a sword's).
   for (let tier = 1; tier <= 7; tier++) {
     const shot = Combat.shotDamage({ staff: { tier } }, 'staff');
     const perSec = shot * 1000 / Combat.fireIntervalMs('staff');
@@ -334,18 +334,18 @@ test('combat: the staff\'s slow beat never changes its damage per second', () =>
     assert.lt(Math.abs(perSec - want), 0.5 * 1000 / Combat.fireIntervalMs('staff') + 1e-9,
       `T${tier}: staff lands its weighted sword rate on the slower beat`);
   }
-  assert.eq(Combat.SHOT_DMG_MUL.staff, 1, 'the staff lands what a sword does per second');
+  assert.eq(Combat.SHOT_DMG_MUL.staff, 4 / 15, 'the staff lands 4/15 of a sword per second');
 });
 
-test('combat: staff matches the bow per second — and is four arrows per shot', () => {
+test('combat: staff lands 4/15 of the bow per second, on a 5 s bolt', () => {
   for (let tier = 1; tier <= 7; tier++) {
     const bowShot = Combat.shotDamage({ bow: { tier } }, 'bow');
     const staffShot = Combat.shotDamage({ staff: { tier } }, 'staff');
-    // The same weight over a quadruple beat: one bolt is four arrows.
-    // Per-shot rounding (0.5 an arrow, ×4) gives a couple of points of slack.
-    assert.lt(Math.abs(staffShot - 4 * bowShot), 2.5,
-      `T${tier}: staff shot ${staffShot} should be ~four times the arrow's ${bowShot}`);
-    // What actually matters is the delivered rate, which is the same.
+    // 4/15 the weight over 2.5× the beat: one bolt is 2/3 of an arrow.
+    // Per-shot rounding (0.5 an arrow) gives a point of slack.
+    assert.lt(Math.abs(staffShot - (2 / 3) * bowShot), 1.5,
+      `T${tier}: staff shot ${staffShot} should be ~2/3 of the arrow's ${bowShot}`);
+    // What actually matters is the delivered rate: 4/15 of the arrow's.
     const bowBeats = 1000 / Combat.fireIntervalMs('bow');
     const staffBeats = 1000 / Combat.fireIntervalMs('staff');
     const bowPerSec = bowShot * bowBeats;
@@ -353,8 +353,8 @@ test('combat: staff matches the bow per second — and is four arrows per shot',
     // Each side rounds by up to half a point per shot; the bow's error is
     // doubled by the comparison, and the staff's slower beat divides its own.
     const slack = 2 * (0.5 * bowBeats) + 0.5 * staffBeats + 1e-9;
-    assert.lt(Math.abs(staffPerSec - bowPerSec), slack,
-      `T${tier}: staff lands the arrow's damage per second`);
+    assert.lt(Math.abs(staffPerSec - (4 / 15) * bowPerSec), slack,
+      `T${tier}: staff lands 4/15 of the arrow's damage per second`);
   }
   // And the staff pays for it: every bolt draws energy; arrows are free.
   assert.eq(Combat.SHOT.staff.energyCost, 1, 'a bolt costs 1 energy');
@@ -403,11 +403,11 @@ test('combat: staff bolts ignore walls; arrows do not', () => {
   assert.eq(run('staff'), 1, 'the bolt sails over it');
 });
 
-test('combat: a single active bow or staff matches the sword of its tier', () => {
+test('combat: a single active bow matches the sword of its tier; the staff lands 4/15', () => {
   // Exclusivity (only save.activeWeapon fights) is what makes pricing either
   // ranged weapon at its full rate safe: a bow can no longer stack with a
   // staff, so there's nothing left for a split to guard against. The bow
-  // lands what a sword of its tier does, and so does the staff, which pays
+  // lands what a sword of its tier does; the staff 4/15 of it, and pays
   // energy per bolt for its pierce and its seeking.
   for (let tier = 1; tier <= 7; tier++) {
     const bowBeats = 1000 / Combat.fireIntervalMs('bow');
@@ -418,7 +418,7 @@ test('combat: a single active bow or staff matches the sword of its tier', () =>
     // Per-shot rounding is the only slack: half a point per shot, per beat.
     const slack = 0.5 * bowBeats + 1e-9;
     assert.lt(Math.abs(bowDps - sword), slack, `T${tier}: bow alone should land what a sword does`);
-    assert.lt(Math.abs(staffDps - sword), 2 * slack, `T${tier}: staff alone should land what a sword does`);
+    assert.lt(Math.abs(staffDps - (4 / 15) * sword), 2 * slack, `T${tier}: staff alone should land 4/15 of a sword`);
   }
 });
 
@@ -894,4 +894,15 @@ test('staff range: the trigger and the flight are the same number', () => {
   assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, enemies, this\.cellM, reach\)/.test(APP_JS_SRC),
     'and hands it to the trigger');
   assert.truthy(/relics\[slot\]\.tier, reach\);/.test(APP_JS_SRC), 'and to the spawn');
+});
+
+test('combat: the staff\'s next bolt charges by the hand between shots', () => {
+  const app = APP_JS_SRC;
+  assert.truthy(/1 - \(due - now\) \/ Combat\.fireIntervalMs\(slot\)/.test(app),
+    'the charge is read off the same clock that fires the bolt');
+  assert.truthy(/if \(slot === 'staff'\) this\._staffCharge = 0;/.test(app), 'a loosed bolt empties the charge');
+  const body = app.slice(app.indexOf('\n  _drawStaffCharge(g) {'), app.indexOf('\n  }\n', app.indexOf('\n  _drawStaffCharge(g) {')));
+  assert.truthy(/this\.playerScreen\(\)/.test(body), 'drawn AT the player (the camera rule)');
+  assert.truthy(/Combat\.shotDotPx\('staff', tier\)/.test(body), 'grows to the bolt\'s own drawn size');
+  assert.falsy(/viewCenterX|viewCenterY/.test(body), 'never off the viewport centre');
 });

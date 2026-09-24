@@ -52,10 +52,9 @@
 // double-dip the split existed to fix. What's left is SHOT_DMG_MUL, a
 // deliberate difference in KIND rather than a stacking guard: the bow (an
 // arrow) delivers its tier's full melee-equivalent rate, same as the sword;
-// the staff (a piercing bolt) delivers the SAME rate, and its energy per bolt
-// pays for the pierce and the seeking — see the SHOT table below. (It was
-// double until Sep 2026; halved with its fire rate, it no longer out-damages
-// the bow.)
+// the staff (a piercing, seeking bolt) delivers 4/15 of it — 5 damage every
+// 5 s at Wood — and still costs energy per bolt; see the SHOT table below.
+// (It was DOUBLE the bow until Sep 2026.)
 //
 // WHAT COUNTS AS AN ENEMY (`isEnemy`): things that attack YOU — the cave
 // monsters and the wild surface slime. Crows and deer are NOT enemies: they're
@@ -497,14 +496,14 @@
   // delivered rate is cadence-independent.
   //
   // A slot may fire on its own beat (SHOT[slot].fireIntervalMs, read through
-  // fireIntervalMs() below). The STAFF fires on a quarter of the bow's
-  // cadence — one bolt every fourth beat — and because shotDamage prices a shot at its own
+  // fireIntervalMs() below). The STAFF fires on its own slower beat — a bolt
+  // every 5 s (STAFF_BEAT_MUL × the bow's 2 s) — and because shotDamage prices a shot at its own
   // slot's interval, that is PACING and not a nerf: a staff bolt simply
-  // carries four beats' worth of damage and the dps identity above still
+  // carries its whole beat's worth of damage and the dps identity above still
   // holds. Never halve a cadence without letting shotDamage see it, or the
   // weapon quietly loses half its damage.
   const FIRE_INTERVAL_MS = 2000;
-  const STAFF_BEAT_MUL = 4;
+  const STAFF_BEAT_MUL = 2.5;   // a bolt every 5 s
   const RANGED_SLOTS = ['bow', 'staff'];
   // Per-slot shot geometry. `phaseMs` used to stagger the staff half a beat
   // off the bow so a player carrying both fired simultaneously heard an
@@ -525,10 +524,10 @@
   //           every foe it passes exactly once and ignores the world test
   //           entirely (magic goes over rock and timber alike). Each bolt
   //           draws energyCost (1⚡) from the caster — app.js gates the shot
-  //           on affording it — and delivers an arrow's damage PER
-  //           SECOND (SHOT_DMG_MUL below): the energy is the price of the
-  //           pierce and the seeking. It arrives a quarter as often as an arrow
-  //           (fireIntervalMs), so one BOLT is four times one arrow; and it
+  //           on affording it — and delivers 4/15 of an arrow's damage
+  //           PER SECOND (SHOT_DMG_MUL below): what it has is the pierce and
+  //           the seeking, not the punch. It arrives on a 5 s beat (fireIntervalMs); between bolts app.js
+  //           shows the next one charging by the player's hand; and it
   //           drifts slowly (1 cell/s, under a quarter of the arrow's).
   //
   // And they differ in how they AIM (`aim`):
@@ -584,8 +583,11 @@
     const spec = SHOT[slot];
     return (spec && spec.fireIntervalMs) || FIRE_INTERVAL_MS;
   }
-  // Damage weight per slot: the staff lands an arrow's share per second.
-  const SHOT_DMG_MUL = { bow: 1, staff: 1 };
+  // Damage weight per slot. The staff's is set so a WOOD bolt is 5 damage
+  // every 5 s (1 HP/s): the wood rung's melee rate is 15000/4000 = 3.75 HP/s,
+  // and 3.75 × 4/15 = 1. Higher tiers scale off their own rung the same way
+  // (a Frost bolt: 50 HP/s × 4/15 × 5 s ≈ 67). Pinned in combat.test.js.
+  const SHOT_DMG_MUL = { bow: 1, staff: 4 / 15 };
   // How close a shot has to pass to a foe's feet to count as a hit, in cells.
   // Both weapons now sweep the SAME tight radius: a shot has to actually
   // reach a foe, not just pass somewhere in its neighbourhood. The bow used
@@ -625,11 +627,11 @@
   }
 
   // Damage per shot: one firing-interval's worth of that weapon tier's
-  // melee-equivalent rate, weighted by the slot (SHOT_DMG_MUL — equal for
-  // bow and staff today). No split across ranged slots:
+  // melee-equivalent rate, weighted by the slot (SHOT_DMG_MUL — the staff
+  // lands 4/15 of it: 5 damage a 5 s bolt at Wood). No split across ranged slots:
   // only one weapon ever fires (save.activeWeapon, app.js), so a bow alone
   // delivers its tier's FULL melee rate — same as a sword of that tier — and
-  // so does a staff alone. The interval cancels out of the
+  // a staff alone lands 4/15 of that. The interval cancels out of the
   // delivered per-second rate entirely; it only paces how chunky each hit
   // looks. An empty slot fires nothing at all.
   //

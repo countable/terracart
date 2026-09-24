@@ -813,6 +813,8 @@ const SWORD_SWING_MS = 220;
 // every creature and the player use), so without this they'd skim the ground
 // under the bodies they hit.
 const SHOT_DRAW_LIFT_PX = 10;
+// How far to the side of the body the staff's next bolt charges (_drawStaffCharge).
+const STAFF_CHARGE_HAND_DX = 7;
 // Screen-px lift a CASTLE TURRET's arrow starts at: the battlements. The tower
 // art is 42px tall (textures.js makeTowerTexture) and stands with its foot on
 // the cell's bottom edge, CELL_PX/2 below the cell centre the turret object
@@ -7102,6 +7104,10 @@ class MapScene extends Phaser.Scene {
     // Only the ACTIVE weapon fires (save.activeWeapon) — an owned-but-inactive
     // bow or staff sits quiet, exactly like an owned-but-inactive sword doesn't
     // auto-engage below.
+    // The staff's next bolt CHARGES by the hand between shots (_drawShots):
+    // 0 → 1 over its beat, read off the same clock that fires it. Null (no
+    // orb) while nothing is on screen to shoot at or the staff isn't in hand.
+    this._staffCharge = null;
     if (enemies.length) {
       for (const slot of Combat.RANGED_SLOTS) {
         if (!relics[slot] || this.save.activeWeapon !== slot) continue;
@@ -7111,6 +7117,10 @@ class MapScene extends Phaser.Scene {
           // (phaseMs is 0 for both slots now that only one can ever fire).
           this._nextShotT[slot] = now + Combat.SHOT[slot].phaseMs;
           continue;
+        }
+        if (slot === 'staff') {
+          this._staffCharge = Math.max(0, Math.min(1,
+            1 - (due - now) / Combat.fireIntervalMs(slot)));
         }
         if (now < due) continue;
         // Where this shot goes — the compass for the bow, the line to the
@@ -7133,6 +7143,7 @@ class MapScene extends Phaser.Scene {
         const eCost = Combat.SHOT[slot].energyCost || 0;
         if (eCost && !this.spendEnergy(eCost)) continue;
         this._nextShotT[slot] = now + Combat.fireIntervalMs(slot);
+        if (slot === 'staff') this._staffCharge = 0;
         // The tier sizes the shot too (a staff bolt grows with it — both its
         // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
@@ -7371,6 +7382,29 @@ class MapScene extends Phaser.Scene {
       g.lineTo(hx, hy);
       g.strokePath();
     }
+    this._drawStaffCharge(g);
+  }
+
+  // The staff's next bolt, gathering by the player's hand between shots: a
+  // dot that grows from a spark to the bolt's own size (Combat.shotDotPx at
+  // the staff's tier) over the beat, in the bolt's colour, and pulses once it
+  // is full and waiting for a foe to come into range. Drawn AT the player
+  // (playerScreen, the camera rule), at the height a bolt is drawn in flight
+  // (SHOT_DRAW_LIFT_PX) so the loosed bolt leaves from where it charged.
+  _drawStaffCharge(g) {
+    const f = this._staffCharge;
+    const tier = this.save.relics?.staff?.tier;
+    if (f == null || !tier) return;
+    const full = Combat.shotDotPx('staff', tier);
+    const p = this.playerScreen();
+    const x = Math.round(p.x + STAFF_CHARGE_HAND_DX);
+    const y = Math.round(p.y - SHOT_DRAW_LIFT_PX);
+    const pulse = f >= 1 ? 0.75 + 0.25 * Math.sin(performance.now() / 160) : 1;
+    const r = Math.max(1, full * (0.25 + 0.75 * f) * pulse);
+    g.fillStyle(Combat.SHOT.staff.color, 0.25 + 0.6 * f);
+    g.fillCircle(x, y, r);
+    g.lineStyle(1, 0xffffff, 0.2 + 0.4 * f);
+    g.strokeCircle(x, y, r);
   }
 
   // A health bar over every enemy hurt in the last few seconds — the same bar
