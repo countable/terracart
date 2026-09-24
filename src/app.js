@@ -292,6 +292,16 @@ const WALK_TIRED_SLOW_MUL = 0.5;
 // fix actually lands at. Not a cell multiple on purpose: this measures GPS lag,
 // which has nothing to do with the grid.
 const FOLLOW_RAMP_M = 4;
+// DETOUR COMMITMENT (see _detourDir): once the body picks a side to walk round
+// a wall, it keeps that side for as long as it keeps jogging, and this long
+// after the last jog. The side used to be re-read every frame from the target's
+// lean off the body's heading — and the jog itself swings that lean: the first
+// sidestep puts the body off the target's line, so the target now leans the
+// OTHER way and the next frame jogged straight back. Behind a one-cell rock the
+// body vibrated on the spot forever. Long enough to see a half-cell jog through
+// against the follow step pulling it back toward the line; short enough that
+// the next wall along gets a fresh choice.
+const DETOUR_COMMIT_MS = 1000;
 // ─── The peek drag (see the PEEK DRAG block on the scene) ────────────────────
 // How far the camera may slide off the player, in cells. Three cells is a
 // little over half the 5.5-cell half-view: enough to see what the frame was
@@ -2494,10 +2504,13 @@ class MapScene extends Phaser.Scene {
     // Target-follow state. _targetM is the walk target in body-relative world
     // metres; _autoMineKey marks the wall cell a wheel is currently chewing
     // through (underground only); _followPaused halts pursuit after the player
-    // taps to interrupt auto-mining (cleared on the next steer input or fix).
+    // taps to interrupt auto-mining (cleared on the next steer input or fix);
+    // _detourHold is the side the body has committed to walking round a wall
+    // on (see _detourDir / DETOUR_COMMIT_MS).
     this._targetM = null;
     this._autoMineKey = null;
     this._followPaused = false;
+    this._detourHold = null;
     // Facing direction indicator — arrow rendered via Graphics, pointed in the
     // direction of the device compass (or last movement as a fallback).
     this.facingGfx = this.add.graphics().setDepth(11).setMask(mask);
@@ -9379,6 +9392,7 @@ class MapScene extends Phaser.Scene {
     this._steerDistAccrue = 0;
     this._steerCostAccrue = 0;
     this._followPaused = false;
+    this._detourHold = null;   // a side of a wall back where the body was
   }
   // Place the body ON the GPS fix — the "too far to walk" answer shared by a
   // jumped fix (the GPS watcher) and the walk home (_driftHome), so the two
@@ -9926,6 +9940,9 @@ class MapScene extends Phaser.Scene {
   // through). "Trivial" means: the cell one step to the side is open AND the
   // cell forward of that sidestep is open, so a single jog clears a 1-cell-wide
   // wall. A thicker wall fails the forward check and falls through to mining.
+  // The side it picks is COMMITTED (_detourHold, DETOUR_COMMIT_MS): the same
+  // heading axis asks the same side first until the hold lapses, so the jog
+  // can't flip the choice it was made by.
   _detourDir(ux, uy) {
     const m = this.cellM;
     const bx = this.startWorldM.x + this.playerM.x;
@@ -9936,11 +9953,23 @@ class MapScene extends Phaser.Scene {
     if (!fwd[0] && !fwd[1]) return null;
     const perp = fwd[0] !== 0 ? [0, 1] : [1, 0];
     // Prefer the side the target leans toward, so we round the corner the short
-    // way; with no lean (pure-axis heading) try one side then the other.
+    // way; with no lean (pure-axis heading) try one side then the other. But a
+    // side already chosen on this heading axis, and still held, goes first
+    // whatever the lean now says — the lean is read from where the body stands,
+    // and every jog moves it. Each jog re-stamps the hold, so it lasts the whole
+    // way round and DETOUR_COMMIT_MS past it. The other side is still tried if
+    // the held one has closed, so a hold can't wall the body in.
+    const now = performance.now();
+    const hold = this._detourHold;
+    const held = hold && now < hold.until && hold.fx === fwd[0] && hold.fy === fwd[1];
     const lean = fwd[0] !== 0 ? Math.sign(uy) : Math.sign(ux);
-    for (const s of (lean < 0 ? [-1, 1] : [1, -1])) {
+    const first = held ? hold.side : (lean < 0 ? -1 : 1);
+    for (const s of [first, -first]) {
       const px = perp[0] * s, py = perp[1] * s;
-      if (open(px, py) && open(px + fwd[0], py + fwd[1])) return { x: px, y: py };
+      if (open(px, py) && open(px + fwd[0], py + fwd[1])) {
+        this._detourHold = { fx: fwd[0], fy: fwd[1], side: s, until: now + DETOUR_COMMIT_MS };
+        return { x: px, y: py };
+      }
     }
     return null;
   }
