@@ -171,6 +171,10 @@ const ASSETS = {
   // and nothing may roll a frame index over the sheet's size. Spawns as
   // wildplant debris on sand cells; the frame is hashed off the spawn cell.
   shell_sheet: { kind: 'spritesheet', path: 'assets/Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
+  // The Torch consumable's own 16×16 icon, drawn in the world where one lies
+  // on a cave floor to be picked up (worldgen.js caveFloorTorches →
+  // CROP_SPRITE.torch). Not the wall `torch` stake below, which is a light.
+  icon_torch:  { kind: 'spritesheet', path: 'assets/Icons/Items/Torch.png', frameWidth: 16, frameHeight: 16 },
   // Orchard fruit icons — 32×16 each, two 16×16 frames (frame 0 is the whole
   // fruit; frame 1 a slice). These are the inventory icons (items.js
   // MINERAL_ICON_SHEET), loaded as WORLD textures too because a bearing fruit

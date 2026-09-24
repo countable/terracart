@@ -95,6 +95,10 @@ const CROP_SPRITE = {
   // tools/sprite_audit.js decodes the real PNG and fails if a declared frame
   // is transparent (or a flat mask row), so a re-cut sheet can't do it again.
   shell: { sheet: 'shell_sheet', custom: true, frames: [0, 1, 2] },
+  // Torch — the consumable lying on a level-1 cave floor (worldgen.js
+  // caveFloorTorches), drawn with its own inventory icon; picking it is a
+  // Torch. Same 1.36 as the mushroom so a floor pickup reads at one size.
+  torch: { sheet: 'icon_torch', custom: true, frame: 0, scale: 1.36 },
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct
   // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
   // They spawn sparsely on a matching biome (see the per-biome flora in

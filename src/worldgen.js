@@ -5062,6 +5062,49 @@
     return out;
   }
 
+  // Torches you can PICK UP, on the first level down only — the Torch
+  // consumable (items.js), lying on the floor as a `torch` wildplant, so it
+  // takes the lane every floor pickup already walks: generated here, drawn by
+  // CROP_SPRITE.torch, picked by the wildplant tap, and remembered only as its
+  // id in save.picked. NOT the wall `torch` object above, which is a fixed
+  // light you cannot take.
+  //   • One at the foot of every up-ladder: that is where a descent lands, so
+  //     the first thing the dark hands a new player is the way to push it back.
+  //     Seated on the nearest free floor cell (seekFloorSeat), keyed on the
+  //     stair's own id.
+  //   • A few dozen more strewn over the rest of the level.
+  // Last of all the level's passes, off its own stream, so every rock, cap,
+  // coin and X already walked keeps its cell (see the note over
+  // caveWallTorches). Ids carry the depth and the cell, like the mushrooms'.
+  const FLOOR_TORCH_DEPTH = 1;
+  const FLOOR_TORCH_MIN = 24, FLOOR_TORCH_SPAN = 13, FLOOR_TORCH_TRIES = 8;
+  function caveFloorTorches(objects, grid, N, tx, ty, tileEdgeM, depth, wildplants, occupied) {
+    if (depth !== FLOOR_TORCH_DEPTH) return;
+    const lay = (idx, cx, cy, id) => {
+      occupied.add(idx);
+      const { x: wx, y: wy } = cellCentreM(tx, ty, cx, cy, tileEdgeM, N);
+      wildplants.push(makeWildplant('torch', wx, wy, id, { _ix: cx, _iy: cy }));
+    };
+    for (const s of objects) {
+      if (s.kind !== 'staircase' || s.dir !== 'up') continue;
+      const { lix, liy } = cellIndexOf(tx, ty, s.x, s.y, tileEdgeM, N);
+      if (lix < 0 || lix >= N || liy < 0 || liy >= N) continue;
+      const seat = seekFloorSeat(grid, N, lix, liy, occupied);
+      if (seat) lay(seat.idx, seat.cx, seat.cy, `ctorch_${s.id}`);
+    }
+    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x5BD1E995)) >>> 0);
+    const n = FLOOR_TORCH_MIN + Math.floor(rng() * FLOOR_TORCH_SPAN);
+    for (let k = 0; k < n; k++) {
+      for (let attempt = 0; attempt < FLOOR_TORCH_TRIES; attempt++) {
+        const lix = Math.floor(rng() * N), liy = Math.floor(rng() * N);
+        const idx = liy * N + lix;
+        if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
+        lay(idx, lix, liy, `ctorch_${depth}_${tx}_${ty}_${lix}_${liy}`);
+        break;
+      }
+    }
+  }
+
   async function loadCaveTile(cache, depth, key, x, y, lat) {
     const above = await loadTile.atDepth(depth - 1, x, y, lat);
     if (above.status === 'loading') await above.promise;
@@ -5120,6 +5163,7 @@
     for (const t of caveWallTorches(grid, N, x, y, tileEdgeM, depth, occupied)) objects.push(t);
     const caveCoinSeeds = caveCoins(grid, N, x, y, tileEdgeM, depth, occupied);
     const extraTreasures = caveTreasureMarks(grid, N, x, y, tileEdgeM, depth, occupied);
+    caveFloorTorches(objects, grid, N, x, y, tileEdgeM, depth, wildplants, occupied);
     const entry = {
       status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
       objects, wildplants, parkingTreasures: [], extraTreasures, caveCoinSeeds,
@@ -5266,6 +5310,7 @@
     forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
+    caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
     caveWallTorches, caveChestRings, CAVE_RING_CELLS, caveCoins, caveTreasureMarks,
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule

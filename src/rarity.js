@@ -150,7 +150,12 @@
     // wood and stone a repair eats comes from, and at T1 (chainSteps 0) the
     // ordinary mineral roll hands over a single stick. A fifth of lowtier
     // chests, so it is a thing the player comes to expect from them.
-    'chest:lowtier':    { classBias: { seed:0.36, produce:0.30, bundle:0.20, mineral:0.05, consumable:0.05, animal:0.005, relic:0.0375 } },
+    // …and the TORCH, the way a school is known for its Book: the consumable
+    // share is 0.15 and eight times in ten that consumable is a Torch, so
+    // about one lowtier box in nine hands one over — the cheap light a player
+    // wants before the first ladder down, from the box they pass most often.
+    'chest:lowtier':    { classBias: { seed:0.36, produce:0.30, bundle:0.20, mineral:0.05, consumable:0.15, animal:0.005, relic:0.0375 },
+                          favourite: { id: 'torch', p: 0.80 } },
     // Commerce is a SHOP, and a shop's chest is its till: CASH is the second
     // heaviest class on the row, behind the produce a market actually stocks.
     'chest:commerce':   { classBias: { cash:0.28, produce:0.27, seed:0.22, mineral:0.06, consumable:0.10, animal:0.01,  relic:0.0525 } },
@@ -632,11 +637,11 @@
     }
     // FAVOURITE — a context may pin ONE item id inside its own class: when
     // that class is rolled, the pinned id wins with probability `p` instead of
-    // an even draw from the class/tier pool. The school chest's Book is the
-    // only user (see 'chest:school'), and it is deliberately NOT a dropWeight:
-    // a weight is global to every context, while this says "at a SCHOOL, the
-    // consumable you find is a book" without making books the commonest thing
-    // in a hospital.
+    // an even draw from the class/tier pool. The school chest's Book and the
+    // lowtier box's Torch are its users, and it is deliberately NOT a
+    // dropWeight: a weight is global to every context, while this says "at a
+    // SCHOOL, the consumable you find is a book" without making books the
+    // commonest thing in a hospital.
     //
     // The pin ignores the rolled TIER on purpose. A school demoted to T1 by
     // the Home rings (loot.js chestTierHomeDrop) rolls tier 1, where the whole
