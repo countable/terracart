@@ -137,7 +137,8 @@
     // Restored-houses / forts default to empty objects.
     if (!save.restoredHouses || typeof save.restoredHouses !== 'object') save.restoredHouses = {};
     if (!save.unlockedForts || typeof save.unlockedForts !== 'object') save.unlockedForts = {};
-    if (!save.openedCastles || typeof save.openedCastles !== 'object') save.openedCastles = {};
+    // openedCastles: legacy, read-only (castles opened under the retired
+    // delivery gate stay open). Never written, so no default needed.
     // Soft cap on unbounded history fields so a heavy player can't balloon the
     // save past the localStorage quota and silently break writes. `placedRocks`
     // is deliberately EXEMPT: unlike the others (which just re-arm a respawn —

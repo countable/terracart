@@ -1097,20 +1097,6 @@ const EAT_COOLING_EDGE = '#37522f';
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
-// A castle stays sealed until the player has proven themselves on the delivery
-// routes. Gated by the lifetime tally (save.deliveryCount): the vault opens
-// after a number of completed deliveries. Replaces the old one-time goods
-// tribute — the price of entry is footwork, not a stack of produce.
-//
-// The gate FOLLOWS A PROGRESSION across castles: the first castle you open
-// asks for CASTLE_DELIVERY_GATE_START (2) deliveries, and each subsequent
-// castle steps up by CASTLE_DELIVERY_GATE_STEP (1) — 2, 3, 4, 5 … — capped at
-// CASTLE_DELIVERY_GATE (5). "How many castles already opened" is tracked in
-// save.openedCastles (a per-castle id map, recorded the first time you reach
-// an unsealed vault).
-const CASTLE_DELIVERY_GATE = 5;
-const CASTLE_DELIVERY_GATE_START = 2;
-const CASTLE_DELIVERY_GATE_STEP = 1;
 // A fort, by contrast, is unsealed with materials — like restoring a wreck
 // house, the player pays a one-time stack of wood to open the quartermaster.
 // Recorded per-fort in save.unlockedForts.
@@ -6488,7 +6474,10 @@ class MapScene extends Phaser.Scene {
     // un-latches within ~330 ms at the FPS_LIMIT cadence, which the eye
     // reads as instant.
     this._modalGateTick = (this._modalGateTick || 0) + 1;
-    if (this._modalGateTick % 10 === 0) this._syncModalGate?.();
+    if (this._modalGateTick % 10 === 0) {
+      this._syncModalGate?.();
+      this._drainBadgeStories();
+    }
     const dt = dtMs / 1000;
     // Spring the peek camera home (no-op unless a drag just ended). FIRST, so
     // every projection below — and every draw pass this frame — reads one
@@ -7609,7 +7598,7 @@ class MapScene extends Phaser.Scene {
         // An elite always pays past the wage: the kind's Discovery badge the
         // first time, a relic-biased treasure roll at a depth-commensurate
         // tier every time after (see ELITE_TREASURE_CONTEXT / eliteRollBonus).
-        if (this._bankDiscovery(victim.kind)) {
+        if (this._bankDiscovery(victim.kind, `slaying an elite ${name}`)) {
           this.flashShiny(coins, true, '✨ ELITE SLAIN ✨');
         } else {
           grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
@@ -10861,7 +10850,8 @@ class MapScene extends Phaser.Scene {
     // Discovery badge: at most ONE per type of interactable (keyed by baseId —
     // the species/kind/produce id); later shinies of the same type still pay
     // the cash windfall but don't re-award the badge.
-    const isNew = this._bankDiscovery(baseId);
+    const name = ITEM_BY_ID[baseId]?.name || Combat.monster(baseId)?.name || baseId;
+    const isNew = this._bankDiscovery(baseId, `a shiny ${name}`);
     persistSave(this.save);
     this.flashShiny(money, isNew);
     return money;
@@ -10877,13 +10867,37 @@ class MapScene extends Phaser.Scene {
   // The badge is a normal inventory stack (id 'discovery', cap-exempt so a
   // full bag can never eat one), added silent so the moment doesn't hijack the
   // player's selected tab/stack; the rebuild makes the new count show at once.
-  _bankDiscovery(key) {
+  //
+  // EVERY BANKED BADGE TELLS ITS STORY: `label` finishes the sentence "You
+  // have gained one discovery badge for ____" and is queued for the
+  // discovery_badge splash. Here, in the one writer, so no badge can land
+  // without it. It is QUEUED, never opened on the spot: a badge lands
+  // beside other first-time splashes (the first shiny, the first delivery)
+  // and opening it first would find those a busy screen and burn nothing —
+  // but make them wait a whole shiny. _drainBadgeStories shows the queue
+  // one dialog at a time, on a clear screen.
+  _bankDiscovery(key, label) {
     const found = this.save.discovered = this.save.discovered || {};
     if (found[key]) return false;
     found[key] = 1;
     this.addToInv('discovery', 1, true);
     if (this.buildInventoryDOM) this.buildInventoryDOM();
+    (this._badgeStories = this._badgeStories || []).push(label || 'a new discovery');
     return true;
+  }
+
+  // Opens the next queued badge story once nothing else is up. Rides the
+  // modal-gate backstop's throttle in update(), right after the sync, so
+  // body.modal-open is fresh when it is read.
+  _drainBadgeStories() {
+    if (!this._badgeStories?.length) return;
+    if (document.body?.classList?.contains('modal-open')) return;
+    const label = this._badgeStories.shift();
+    this.showMessageModal({
+      art: 'discovery_badge',
+      title: 'Discovery!',
+      body: `A glowing emblem appears in your vision. You have gained one discovery badge for ${label}.`,
+    });
   }
 
   // THE STORY LEDGER. One story splash per key, ever: `save.storySeen` is
@@ -12560,9 +12574,8 @@ class MapScene extends Phaser.Scene {
       this.presentFortUnlockModal(sx, sy, house);
       return;
     }
-    // Castle → sealed until the player has logged enough lifetime deliveries
-    // (5 for the vault). A locked-until-earned gate with no payment: the entry
-    // fee is delivery footwork rather than a stack of goods.
+    // Castle → sealed until the player solves the job on its quest board
+    // (_isBuildingSealed); the sealed modal IS that board.
     if (house && this._isBuildingSealed && this._isBuildingSealed(house)) {
       this.presentSealedBuildingModal(sx, sy, house);
       return;
@@ -12684,20 +12697,12 @@ class MapScene extends Phaser.Scene {
     // (Home / starter trailer is handled at the top of this function — it
     // only sells, never buys.)
     if (castle) {
-      // First time the player reaches this (now-unsealed) vault, record it so
-      // the NEXT un-opened castle ramps to a higher delivery gate (see
-      // _deliveryGate / CASTLE_DELIVERY_GATE_START). The seal check above
-      // already returned for sealed castles, so reaching here means it's open.
-      if (house.id && !this.save.openedCastles?.[house.id]) {
-        this.save.openedCastles = this.save.openedCastles || {};
-        this.save.openedCastles[house.id] = true;
-        persistSave(this.save);
-      }
       // A RESTORED castle (the player solved its quest here — see
       // showQuestBoard/_claimCastle) is home turf: instead of the vault's
-      // relic trade, its castellan offers one daily favour. Every other
-      // open-but-unclaimed castle (reached only via the delivery-count gate)
-      // still deals in relics below, same as before.
+      // relic trade, its castellan offers one daily favour. The only other
+      // castle that gets past the seal is a LEGACY-open one (a save that
+      // finished the old chain, or opened it under the retired delivery gate
+      // — see _isBuildingSealed); those still deal in relics below.
       if (this.isCastleClaimed(house)) {
         this.presentCastleServiceOffer(sx, sy, house);
         return;
@@ -13551,10 +13556,13 @@ class MapScene extends Phaser.Scene {
         // story moment, so catch the tally before it moves off zero.
         const wasFirstDelivery = (this.save.deliveryCount ?? 0) === 0;
         this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
+        // One household served — a castle job may be counting them.
+        this.questEvent('deliver');
         // The FIRST delivery to this household is a discovery: one Discovery
         // badge per house, ever, through the same ledger a shiny find uses
         // (keyed `house:<id>` so a house can't collide with an item id).
-        const firstHere = this._bankDiscovery(`house:${house.id}`);
+        const firstHere = this._bankDiscovery(`house:${house.id}`,
+          'a first delivery to a new household');
         // That badge IS the household's "fed" record (Delivery.isSatisfied
         // reads it): it stops asking and shows a smiling face for good.
         recordDeal();
@@ -15075,28 +15083,6 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // Lifetime deliveries this building demands before it'll trade, or 0 if it
-  // has no delivery gate. Only castles (BUILDING_LARGE / tower, tier 12) gate
-  // on deliveries now — forts unseal with wood (see _isFortLocked).
-  //
-  // The gate ramps per castle (see CASTLE_DELIVERY_GATE_START): an already-opened
-  // castle has no gate (0); an un-opened one asks START + STEP×(castles already
-  // opened), capped at CASTLE_DELIVERY_GATE.
-  _deliveryGate(house) {
-    if (!house) return 0;
-    if (isCastle(house)) {
-      // Already opened → no gate. (id-less castles can't be recorded, so they
-      // always read the ramped gate below.)
-      if (house.id && this.save.openedCastles?.[house.id]) return 0;
-      const opened = Object.keys(this.save.openedCastles || {}).length;
-      return Math.min(
-        CASTLE_DELIVERY_GATE_START + CASTLE_DELIVERY_GATE_STEP * opened,
-        CASTLE_DELIVERY_GATE,
-      );
-    }
-    return 0;
-  }
-
   // Wood this fort demands to unseal, following the per-fort progression
   // (see FORT_UNLOCK_WOOD_START): START + STEP×(forts already unsealed), capped
   // at FORT_UNLOCK_WOOD. A locked fort isn't yet in save.unlockedForts, so the
@@ -15109,12 +15095,14 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // True iff `house` is a castle still sealed because the player hasn't logged
-  // enough lifetime deliveries (save.deliveryCount). The delivery-gate analogue
-  // of _isHouseWreck. The gate reads the global delivery tally, so — unlike the
-  // old per-castle tribute — an id-less building is gated too; there's no
-  // payment to record against a house key.
+  // True iff `house` is a castle still sealed: a castle opens by solving the
+  // job on ITS quest board and nothing else. (Until Sep 2026 a lifetime
+  // delivery tally of 2..5 also unsealed it, left behind when the quest board
+  // replaced that gate — so five deliveries opened every castle in the world
+  // and the board was skipped. Reaching a delivery count is a quest VERB now,
+  // quests.js 'deliver', never a gate of its own.)
   _isBuildingSealed(house) {
+    if (!house || !isCastle(house)) return false;
     // Claimed outright — the player solved a quest at THIS castle, so it is
     // theirs for good and the quest board never comes back here.
     if (this.isCastleClaimed(house)) return false;
@@ -15122,10 +15110,10 @@ class MapScene extends Phaser.Scene {
     // open; the per-castle seal must not take that back (see the migration in
     // quests.js _qs).
     if (this.save.castlesLegacyOpen) return false;
-    const need = this._deliveryGate(house);
-    if (!need) return false;
-    // Players who passed the old delivery threshold keep access.
-    if ((this.save.deliveryCount ?? 0) >= need) return false;
+    // A castle opened under the retired delivery gate stays open — the same
+    // courtesy castlesLegacyOpen pays the old chain. Read-only: nothing
+    // writes save.openedCastles any more.
+    if (house.id && this.save.openedCastles?.[house.id]) return false;
     // PER CASTLE, now that the board never runs dry. This was global — finish
     // the three-quest chain and every castle in the world opened at once —
     // which was the only thing it could be while there were exactly three
