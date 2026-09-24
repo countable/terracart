@@ -15101,14 +15101,18 @@ class MapScene extends Phaser.Scene {
   }
 
   // Restoration cost: stone (rockfruit — wild residential debris, gatherable
-  // bare-handed), WRECK_RESTORE_BASE_QTY for the first rebuilds and one more
-  // for every WRECK_RESTORE_STEP_EVERY already restored (3, 3, 3, 4, 4, 4,
-  // 5 …). Themed shops and plain residential alike rebuild from the same
-  // masonry. The count is the live restoredHouses size — the modal guard
-  // keeps it stable while the offer is open, the same as the role index.
+  // bare-handed), rising half a stone per house already restored and rounded
+  // at random, seeded on this house + the live count (wreckRestoreQty in
+  // items.js), so the price the dialog shows is the price accept charges.
+  // Themed shops and plain residential alike rebuild from the same masonry.
+  // With no house (the starter arrow asking "can the bag pay yet?") it quotes
+  // the rounded-DOWN price, the least any wreck could ask.
   _wreckRestoreCost(house) {
     const restored = Object.keys(this.save?.restoredHouses || {}).length;
-    return { id: 'rockfruit', qty: wreckRestoreQty(restored), material: 'stone' };
+    const qty = house?.id != null
+      ? wreckRestoreQty(restored, house.id)
+      : Math.floor(wreckRestoreExact(restored));
+    return { id: 'rockfruit', qty, material: 'stone' };
   }
 
   presentWreckRestoreModal(sx, sy, house) {

@@ -885,7 +885,7 @@ const PLAY_TIPS = [
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
   'A ripe crop pays one to three of itself, and about one pick in four hands a seed back as well.',
-  'A ruined house can be rebuilt for 3 stone, and every third one you rebuild asks one stone more.',
+  'A ruined house can be rebuilt for 3 stone, and each one you rebuild adds half a stone to the next.',
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
   'Crows raid ripe crops but never touch potatoes.',
   'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
@@ -1206,13 +1206,28 @@ const RELIC_DEFS = {
 };
 
 // Stone a wreck costs to restore, given how many the player has already
-// restored: WRECK_RESTORE_BASE_QTY, plus one for every
-// WRECK_RESTORE_STEP_EVERY behind them (3, 3, 3, 4, 4, 4, 5 …). Lives with
-// the catalog so the Book tip can quote it (books.test re-derives it).
-const WRECK_RESTORE_BASE_QTY   = 3;
-const WRECK_RESTORE_STEP_EVERY = 3;
-function wreckRestoreQty(restoredCount) {
-  return WRECK_RESTORE_BASE_QTY + Math.floor((restoredCount || 0) / WRECK_RESTORE_STEP_EVERY);
+// restored: WRECK_RESTORE_BASE_QTY plus WRECK_RESTORE_PER_HOUSE for each one
+// behind them — a CONTINUOUS price (3, 3.5, 4, 4.5 …) paid in whole stones
+// by rounding at random: the fraction is the chance of the stone above, so
+// 3.5 is 3 or 4 on a coin flip and the average is the exact price.
+// The coin is SEEDED, never Math.random: the restore dialog prices the wreck
+// when it opens and charges it on accept, and a reopened dialog must not
+// reroll the price until it comes up cheap. `key` (the house id) plus the
+// restored count fix the flip, so one house at one point in the save always
+// asks the same; the next restore reprices it. Lives with the catalog so the
+// Book tip can quote it (books.test re-derives it).
+const WRECK_RESTORE_BASE_QTY  = 3;
+const WRECK_RESTORE_PER_HOUSE = 0.5;
+function wreckRestoreExact(restoredCount) {
+  return WRECK_RESTORE_BASE_QTY + WRECK_RESTORE_PER_HOUSE * (restoredCount || 0);
+}
+function wreckRestoreQty(restoredCount, key) {
+  const exact = wreckRestoreExact(restoredCount);
+  const lo = Math.floor(exact);
+  const frac = exact - lo;
+  if (frac <= 0) return lo;
+  const u = fnv1a(`restore:${key ?? ''}:${restoredCount || 0}`) / 4294967296;
+  return lo + (u < frac ? 1 : 0);
 }
 
 // Per-stack inventory cap as a function of the bag tier (0 = no bag).
