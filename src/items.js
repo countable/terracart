@@ -271,6 +271,11 @@ const MINERAL_ICON_SHEET = {
   // Potion of Blight — the red flask of the next row down (row 3, y=48:
   // frame 17), so it doesn't read as the Speed potion's red beside it.
   blight_potion: { sheet: 'icon_potions', frame: 17 },
+  // Revival potions — green for life, the small flask of row 3 (frame 16) for
+  // the T2 draught and the larger bottle of row 4 (frame 21) for the T5 one,
+  // so the pair read as one potion in two strengths.
+  revive_potion:       { sheet: 'icon_potions', frame: 16 },
+  resurrection_potion: { sheet: 'icon_potions', frame: 21 },
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
@@ -414,6 +419,9 @@ const BASE_TIER = {
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   blight_potion: 3,
   dragon_powder: 3,
+  // Revival: getting up where you fell instead of walking Home at a crawl.
+  // A tenth of a bar is a T2 emergency; half a bar is a T5 find.
+  revive_potion: 2, resurrection_potion: 5,
   // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
   // it: a minute of not being hunted is a way to WALK AWAY from a fight, the
   // same shape as the reach/speed/shield potions it now shares a tier with.
@@ -516,6 +524,10 @@ const ITEMS = [
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'consumable' },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'consumable' },
   { id: 'blight_potion', name: 'Potion of Blight',    kind: 'consumable' },
+  // Drunk while DOWN (zero energy) to get back up on the spot — see
+  // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
+  { id: 'revive_potion',       name: 'Potion of Revival',       kind: 'consumable' },
+  { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'consumable' },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
   // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
@@ -725,6 +737,8 @@ const PRICES = {
   speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura hurting every foe 2 HP/s
+  revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
+  resurrection_potion: 250,   // T5 — get up where you fell with half the bar
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 1 min of monsters ignoring you entirely (priced for the
@@ -877,7 +891,7 @@ const STARTING_MONEY = 50;
 const PLAY_TIPS = [
   // ── The first ten minutes — you cannot act without these ────
   'Actions cost energy. Eat to refill — or just rest; an hour away from the game hands the whole bar back.',
-  'Hard mode is harsher on an empty tank: food, a campfire and time away all stop working, and only your trailer starts you moving again.',
+  'Hard mode is harsher on an empty tank: food, a campfire and time away all stop working. Your trailer, a Crow Feather or a revival potion get you moving again.',
   'Only your OWN home rests you — a full bar in fifty seconds. A stranger\'s roof is just a roof.',
   'A campfire rests you slowly out in the open, and slimes keep their distance.',
   'Resting stops while a work wheel turns. A job done on the doorstep still costs what it costs; the sit-down afterwards is what earns it back.',
@@ -990,6 +1004,14 @@ const PLAY_TIPS = [
 // long (the flower-gift branch in app.js shopInteract + shopCharmMul). Lives
 // here so the Flowers ✦ line below quotes the live number.
 const SHOP_CHARM_MS = 5 * 60 * 1000;
+// REVIVAL POTIONS: the fraction of the bar each one stands you back up with.
+// Only drinkable while DOWN (Combat.playerDowned — zero energy, either mode):
+// above zero it would just be a Vigor potion, and the point of it is getting
+// up where you fell instead of crawling Home. One table, read by the drink
+// (app.js drinkRevivePotion), its ✦ line below and the Drink dialog.
+const REVIVE_POTION_FRAC = { revive_potion: 0.10, resurrection_potion: 0.50 };
+const revivePct = (id) => Math.round(REVIVE_POTION_FRAC[id] * 100);
+
 const ITEM_EFFECTS = {
   // Not a secret: the charm is a cash-shop mechanic the player otherwise only
   // meets by accident (tapping a shop with Flowers selected).
@@ -1014,8 +1036,8 @@ const ITEM_EFFECTS = {
   sapphire:  'Use to open a portal one level down',
   // The Frost jewel: where it comes from and what it is for, in one line.
   diamond:   'Mined from Frost-tier ore; Frost jewelry is cut around it',
-  // The one thing that still works through the hard-mode zero-energy
-  // lockout (see PLAY_TIPS) — a quarter bar, the same floor reaching the
+  // The one FOOD that still works through the hard-mode zero-energy
+  // lockout (see PLAY_TIPS; the revival potions are drunk, not eaten) — a quarter bar, the same floor reaching the
   // trailer gives. Never a normal food: it carries no FOOD_ENERGY entry, so
   // the Eat button only ever offers this while the lockout actually holds.
   crow_feather: 'Eat at zero to fill a quarter of your bar (hard mode)',
@@ -1027,6 +1049,8 @@ const ITEM_EFFECTS = {
   speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   blight_potion: 'Drink to hurt foes near you 2 HP/s (1 min)',
+  revive_potion:       `Drink when down to get up with ${revivePct('revive_potion')}% energy`,
+  resurrection_potion: `Drink when down to get up with ${revivePct('resurrection_potion')}% energy`,
   dragon_powder: 'Use to become a dragon for 1 min: faster legs, 2× damage',
   growth_powder: 'Use to spring every crop within 20m ahead a stage',
   shadow_powder: 'Use to make monsters ignore you (1 min)',

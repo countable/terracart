@@ -120,6 +120,7 @@
     seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
     supply: () => ['wood', 'rockfruit', 'torch', 'rope', 'trap_kit', 'scarecrow', 'book'],
     potion: () => ['reach_potion', 'vigor_potion', 'speed_potion', 'shield_potion', 'blight_potion',
+                   'revive_potion', 'resurrection_potion',
                    'growth_powder', 'shadow_powder', 'dragon_powder', 'frost_powder'],
     ore:    () => ['coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar',
                    'frost_bar', 'sapphire', 'ruby', 'emerald', 'diamond'],

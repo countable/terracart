@@ -11945,6 +11945,35 @@ class MapScene extends Phaser.Scene {
     );
   }
 
+  // The Drink dialog's line for a revival potion: what it will do while you
+  // are down, and why the button is grey while you are not.
+  _reviveGetLine(id) {
+    return Combat.playerDowned(this.save.energy)
+      ? `❤ get back up with ${revivePct(id)}% energy`
+      : `❤ only works when you're down (${revivePct(id)}% energy)`;
+  }
+
+  // Potion of Revival (T2) and Potion of Resurrection (T5): drunk while
+  // DOWN, it stands you back up where you fell with REVIVE_POTION_FRAC of the
+  // bar — the field answer to the walk Home, and on hard the way out of the
+  // zero-energy lockout besides the Crow Feather. Refused above zero (the Drink dialog
+  // greys its button off the same test), so it can't be wasted as a top-up.
+  drinkRevivePotion() {
+    const sel = getSelectedSlot(this.save);
+    const frac = sel && REVIVE_POTION_FRAC[sel.id];
+    if (!frac || (sel.count ?? 0) <= 0) return false;
+    if (!Combat.playerDowned(this.save.energy)) return false;
+    const before = this.save.energy ?? 0;
+    this.save.energy = Math.max(before, Math.max(1, Math.round(this.getMaxEnergy() * frac)));
+    this._popEnergy(this.save.energy - before);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    const name = ITEM_BY_ID[sel.id]?.name || 'Potion of Revival';
+    return this._finishConsumable(
+      `\u2728 You drink the ${name}`,
+      `Your eyes snap open. You are back on your feet with ${revivePct(sel.id)}% of your energy.`,
+    );
+  }
+
   drinkBlightPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'blight_potion' || (sel.count ?? 0) <= 0) return false;
@@ -17732,6 +17761,14 @@ class MapScene extends Phaser.Scene {
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 amulet walking for 1 min' },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
       blight_potion: { verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',    get: `☠ foes within ${BLIGHT_R_CELLS} cells lose ${BLIGHT_DPS} HP/s for ${shortDuration(BLIGHT_MS)}` },
+      // Revival: only while down (drinkRevivePotion refuses otherwise, and
+      // `usable` greys the dialog's Drink off the same Combat.playerDowned).
+      revive_potion:       { verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Revival?',
+                             get: () => this._reviveGetLine('revive_potion'),
+                             usable: () => Combat.playerDowned(this.save.energy) },
+      resurrection_potion: { verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Resurrection?',
+                             get: () => this._reviveGetLine('resurrection_potion'),
+                             usable: () => Combat.playerDowned(this.save.energy) },
       dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon for 1 min — tier-8 amulet legs + 2× damage' },
       growth_powder: { verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',       get: `🌱 every crop within ${GROWTH_POWDER_R_M}m springs ahead a stage` },
       shadow_powder: { verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',       get: '🌑 monsters ignore you for 1 min — no stalking, no hits' },
@@ -17800,7 +17837,7 @@ class MapScene extends Phaser.Scene {
         title: entry.title,
         get: typeof entry.get === 'function' ? entry.get() : entry.get,
         cost: `1× ${this.iconSpanHTML(id)} ${item?.name || id}`,
-        canAfford: true,
+        canAfford: typeof entry.usable === 'function' ? entry.usable() : true,
         acceptLabel: entry.acceptLabel || entry.verb,
         secondary,
         onAccept: () => { this[fn](); this.syncConsumableButton(); },
