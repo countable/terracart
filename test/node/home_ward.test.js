@@ -252,9 +252,9 @@ test('ward: a routed foe RUNS — the rout is distance, not just a heading', () 
   // work" looked like. A routed foe takes the flee pace instead — the same
   // pair the struck-prey override runs at, so "it ran" is one speed.
   const wander = app.slice(app.indexOf('  wanderCreatures('));
-  assert.truthy(/\* shinyFast \* \(homeWard \? FLEE_BEAT_MUL : 1\);/.test(wander),
+  assert.truthy(/\* shinyFast \* \(routed \? FLEE_BEAT_MUL : 1\);/.test(wander),
     'a routed foe steps more often');
-  assert.truthy(/\* \(homeWard \? FLEE_STRIDE_MUL : 1\);/.test(wander),
+  assert.truthy(/\* \(routed \? FLEE_STRIDE_MUL : 1\);/.test(wander),
     'and carries further with each step — a charge quickens the beat alone');
   // One pair of numbers, read by both things that run.
   assert.truthy(/Math\.cos\(fleeAngle\) \* stepM \* FLEE_STRIDE_MUL/.test(wander),

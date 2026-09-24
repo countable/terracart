@@ -740,6 +740,62 @@ const CREATURE_SIM_CELLS = 12;
 // never seen popping into being, but inside CREATURE_SIM_CELLS so it is
 // thinking, and flying at the field, from the tick it is pushed.
 const PEST_CROW_SPAWN_CELLS = 10;
+// ── A foe WANDERS OFF now and then ───────────────────────────────────────────
+// Every few minutes each hostile (Combat.isEnemy — the wild slime and every
+// cave monster; never a pet, never a lair guard, whose seat and leash are
+// Lairs.guardState's) turns its back on the player and walks away. Without it
+// a foe that cannot reach you — a slime refused at a campfire's ring, a cave
+// monster held off by a fire at the stairs — stalks the ring's edge forever,
+// and a long rest at a fire ends with a wall of them piled against it.
+//   HOW FAR: out to the edge of its RANGE × [1, WANDER_OFF_MAX_MUL]. A foe has
+// no notice radius of its own — it stalks you from anywhere it thinks at all —
+// so its range IS the sim bubble, CREATURE_SIM_CELLS from the player's feet
+// (the same edge Home's rout drives a foe out to). Past 1× it has left the
+// bubble and freezes where it stands; the extra only plays out if you follow
+// it, which is what makes the distance read as a choice rather than a leash.
+//   HOW OFTEN: MIN + random × SPREAD of time it has spent THINKING (in the
+// bubble), not wall time — a foe met after an hour away must not turn tail on
+// the first frame just because its clock ran out while it was frozen.
+//   NOT A NEW MOVER: while it goes, `wanderOff` is one more reason in the
+// wanderCreatures lanes that already exist — `standDown` (no leech, no hit,
+// no shot, no charge), the routed flee pace, and an away angle in the chain
+// every step shares (so walls, water, rocks and fires refuse its cells as
+// they refuse anybody's; Home's latch still trips if it strays into HOME_R,
+// and Home's ward outranks it). Arriving, or the timeout, ends it and
+// schedules the next one. Session state on the live creature (like `_hp`),
+// never the save; a tile rebuild carries `creatures`, so it survives one.
+const WANDER_OFF_MIN_MS = 120000;       // 2 minutes…
+const WANDER_OFF_SPREAD_MS = 180000;    // …to 5, per foe, rerolled each time
+const WANDER_OFF_MAX_MUL = 2;           // distance = range × [1, 2]
+const WANDER_OFF_TIMEOUT_MS = 60000;    // gives up and turns back after this
+// A tick gap longer than this means the foe was out of the bubble (or the tab
+// was asleep); only this much of it counts toward the next wander-off.
+const WANDER_OFF_TICK_CAP_MS = 1000;
+// Is this foe wandering off right now? Advances its schedule, starts a
+// wander-off when the schedule runs out and ends one on arrival (distM, the
+// foe's distance from the player, past its rolled distance) or on the timeout.
+// Only called for a wild, non-lair enemy; see the block above for the rest.
+function monsterWanderingOff(c, now, distM, cellM) {
+  const dt = c._wanderOffSimT != null
+    ? Math.min(WANDER_OFF_TICK_CAP_MS, Math.max(0, now - c._wanderOffSimT)) : 0;
+  c._wanderOffSimT = now;
+  if (c._wanderOffUntilT != null) {
+    if (now < c._wanderOffUntilT && distM < c._wanderOffDistM) return true;
+    c._wanderOffUntilT = null;           // arrived, or gave up: back to normal
+    c._wanderOffDistM = null;
+    c._wanderOffInMs = null;             // and the next one is rolled below
+  }
+  if (c._wanderOffInMs == null) c._wanderOffInMs = WANDER_OFF_MIN_MS + Math.random() * WANDER_OFF_SPREAD_MS;
+  c._wanderOffInMs -= dt;
+  if (c._wanderOffInMs > 0) return false;
+  c._wanderOffInMs = null;
+  c._wanderOffUntilT = now + WANDER_OFF_TIMEOUT_MS;
+  c._wanderOffDistM = CREATURE_SIM_CELLS * cellM * (1 + Math.random() * (WANDER_OFF_MAX_MUL - 1));
+  // Turn NOW rather than finishing a hop at the player. (A creature that has
+  // never chosen a step is seeded by the loop's own init; leave it to that.)
+  if (c._nextChooseT != null) c._nextChooseT = now;
+  return true;
+}
 // ── The doorstep greeter ─────────────────────────────────────────────────────
 // Where the mode's guaranteed creatures are seated around the starting trailer
 // (`_placeHomeGreeter`). WHAT is seated, HOW FAR out and in WHICH DIRECTIONS
@@ -8359,6 +8415,16 @@ class MapScene extends Phaser.Scene {
         else if (homeD2 > HOME_ROUT_R2) c._routedFromHome = false;     // released
       }
       const homeWard = homeFoe && !!c._routedFromHome;
+      // WANDERING OFF (monsterWanderingOff, WANDER_OFF_*): every few minutes a
+      // wild foe turns its back and walks to the edge of its range, so none
+      // piles up forever against a campfire's refused ring. A lair guard has
+      // its own leash (Lairs.guardState) and is left to it.
+      const wanderOff = !isTame && !c.lair && Combat.isEnemy(c)
+        && monsterWanderingOff(c, now, Math.sqrt(ddx * ddx + ddy * ddy), this.cellM);
+      // ROUTED: turned onto an away angle at the flee pace — by Home's ward, or
+      // by wandering off. Two reasons, one pace; the angle chain says away from
+      // WHAT (Home, or the player).
+      const routed = homeWard || wanderOff;
       // A LAIR GUARD'S THREE STATES — src/lairs.js owns the rings, the
       // hysteresis and the arrival test; this asks once and stores the
       // hysteresis back (session state on the creature, like `_hp`).
@@ -8373,13 +8439,14 @@ class MapScene extends Phaser.Scene {
       c._hunting = lairState === 'hunt';
       // ONE READ FOR "THIS FOE IS NOT ATTACKING YOU RIGHT NOW", the way
       // `unnoticed` is one read for "no hostile takes an interest in you".
-      // Home's ward is one reason and a garrison that has not noticed you (or
-      // has given up on you) is the other two — the same lane arriving for a
+      // Home's ward is one reason, a foe wandering off is another, and a
+      // garrison that has not noticed you (or has given up on you) is two
+      // more — the same lane arriving for a
       // different reason, so the attack gates below ask this rather than
       // growing a second condition each. The MOVEMENT chain still asks
       // `homeWard` by name: an away-from-Home angle and a walk back to a seat
       // are two mechanisms, not one, whatever they have in common here.
-      const standDown = homeWard || (!!lairState && lairState !== 'hunt');
+      const standDown = homeWard || wanderOff || (!!lairState && lairState !== 'hunt');
       // Slime energy steal: a slime sitting on/near the player drains 1 energy
       // on a per-slime cooldown. Accumulated across all slimes this frame and
       // surfaced with one throttled flash after the loop (see below) so a swarm
@@ -8557,11 +8624,11 @@ class MapScene extends Phaser.Scene {
       const stepMs = (c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
                    : isMon ? STEP_MS / mon.speed
                    : bolting ? (bolt.stepMs ?? STEP_MS)
-                   : (gait?.stepMs ?? STEP_MS)) * shinyFast * (homeWard ? FLEE_BEAT_MUL : 1);
+                   : (gait?.stepMs ?? STEP_MS)) * shinyFast * (routed ? FLEE_BEAT_MUL : 1);
       const stepM = (c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
                   : isMon ? STEP_M * (mon.fly ? 1.0 : 0.6)
                   : bolting ? STEP_M * (bolt.stepCells ?? 1)
-                  : STEP_M * (gait?.stepCells ?? 1)) * (homeWard ? FLEE_STRIDE_MUL : 1);
+                  : STEP_M * (gait?.stepCells ?? 1)) * (routed ? FLEE_STRIDE_MUL : 1);
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
         c._startX = c.x; c._startY = c.y;
@@ -8731,6 +8798,12 @@ class MapScene extends Phaser.Scene {
             // "surrounded by scarecrows" comment further down warns about.
             angle = Math.atan2(c.y - homePos.y, c.x - homePos.x)
                   + (Math.random() - 0.5) * 0.8;
+          } else if (wanderOff) {
+            // WANDERING OFF: away from the PLAYER, on the same spread as the
+            // rout above — out of whatever ring it was stalking the edge of.
+            // An angle, not a refused cell, for the same reason as the rout;
+            // the cell tests below still refuse water, rocks and fires.
+            angle = Math.atan2(c.y - py, c.x - px) + (Math.random() - 0.5) * 0.8;
           } else if (lairState === 'hunt') {
             // THE GARRISON COMES AT YOU, as a group and with commitment. Its
             // own branch rather than the kind's idle logic below: a lair slime

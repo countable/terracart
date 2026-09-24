@@ -241,8 +241,8 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   for (const ward of ['!isTame', '!standDown', '!unnoticed']) {
     assert.truthy(gate.includes(ward), `the charge is off when ${ward}`);
   }
-  assert.truthy(/const standDown = homeWard \|\| \(!!lairState && lairState !== 'hunt'\);/.test(app),
-    'and standDown is still built from Home\'s ward plus the lair state');
+  assert.truthy(/const standDown = homeWard \|\| wanderOff \|\| \(!!lairState && lairState !== 'hunt'\);/.test(app),
+    'and standDown is still built from Home\'s ward, the wander-off and the lair state');
   // Home's ward is checked EARLIER in the same chain, so a warded slime is
   // walking out whether or not it has been hit.
   assert.lt(app.indexOf('} else if (homeWard) {'),
