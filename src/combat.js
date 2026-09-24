@@ -52,8 +52,10 @@
 // double-dip the split existed to fix. What's left is SHOT_DMG_MUL, a
 // deliberate difference in KIND rather than a stacking guard: the bow (an
 // arrow) delivers its tier's full melee-equivalent rate, same as the sword;
-// the staff (a piercing bolt) delivers DOUBLE that, priced in energy per
-// bolt — see the SHOT table below.
+// the staff (a piercing bolt) delivers the SAME rate, and its energy per bolt
+// pays for the pierce and the seeking — see the SHOT table below. (It was
+// double until Sep 2026; halved with its fire rate, it no longer out-damages
+// the bow.)
 //
 // WHAT COUNTS AS AN ENEMY (`isEnemy`): things that attack YOU — the cave
 // monsters and the wild surface slime. Crows and deer are NOT enemies: they're
@@ -523,10 +525,10 @@
   //           every foe it passes exactly once and ignores the world test
   //           entirely (magic goes over rock and timber alike). Each bolt
   //           draws energyCost (1⚡) from the caster — app.js gates the shot
-  //           on affording it — and delivers twice an arrow's damage PER
+  //           on affording it — and delivers an arrow's damage PER
   //           SECOND (SHOT_DMG_MUL below): the energy is the price of the
-  //           pierce and the punch. It arrives a quarter as often as an arrow
-  //           (fireIntervalMs), so one BOLT is eight times one arrow; and it
+  //           pierce and the seeking. It arrives a quarter as often as an arrow
+  //           (fireIntervalMs), so one BOLT is four times one arrow; and it
   //           drifts slowly (1 cell/s, under a quarter of the arrow's).
   //
   // And they differ in how they AIM (`aim`):
@@ -582,8 +584,8 @@
     const spec = SHOT[slot];
     return (spec && spec.fireIntervalMs) || FIRE_INTERVAL_MS;
   }
-  // Damage weight per slot: a staff bolt lands double an arrow's share.
-  const SHOT_DMG_MUL = { bow: 1, staff: 2 };
+  // Damage weight per slot: the staff lands an arrow's share per second.
+  const SHOT_DMG_MUL = { bow: 1, staff: 1 };
   // How close a shot has to pass to a foe's feet to count as a hit, in cells.
   // Both weapons now sweep the SAME tight radius: a shot has to actually
   // reach a foe, not just pass somewhere in its neighbourhood. The bow used
@@ -623,11 +625,11 @@
   }
 
   // Damage per shot: one firing-interval's worth of that weapon tier's
-  // melee-equivalent rate, weighted by the slot (SHOT_DMG_MUL — the staff
-  // hits double, priced in energy per bolt). No split across ranged slots:
+  // melee-equivalent rate, weighted by the slot (SHOT_DMG_MUL — equal for
+  // bow and staff today). No split across ranged slots:
   // only one weapon ever fires (save.activeWeapon, app.js), so a bow alone
   // delivers its tier's FULL melee rate — same as a sword of that tier — and
-  // a staff alone delivers double that. The interval cancels out of the
+  // so does a staff alone. The interval cancels out of the
   // delivered per-second rate entirely; it only paces how chunky each hit
   // looks. An empty slot fires nothing at all.
   //
