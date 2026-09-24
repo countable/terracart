@@ -33,8 +33,37 @@ function trailerScene(over) {
             starterTrailer: { id: 'starter_trailer', x: 0, y: 0 } },
     homeWorldPos: __home.homeWorldPos,
     isRestingAtHome: __home.isRestingAtHome,
+    inHomeRing: __home.inHomeRing,
+    homeGuardsCrop: __home.homeGuardsCrop,
+    _crowRaids: __home._crowRaids,
   }, over);
 }
+
+test('home: crop raiders keep out of Home\'s ring', () => {
+  const s = trailerScene();
+  const r = HOME_R * CELL_M;
+  const yard = { crop: 'berry', x: 2 * CELL_M, y: 0 };
+  const field = { crop: 'berry', x: r * 1.01, y: 0 };
+  assert.truthy(s.homeGuardsCrop(yard), 'a crop two cells from Home is guarded');
+  assert.falsy(s.homeGuardsCrop(field), 'one a step past the ring is not');
+  assert.falsy(s._crowRaids(yard), 'so a crow leaves the yard crop alone');
+  assert.truthy(s._crowRaids(field), 'and still raids the field past it');
+  assert.falsy(s._crowRaids({ crop: 'potato', x: r * 2, y: 0 }), 'potato stays crow-proof anywhere');
+  assert.falsy(trailerScene({ depth: 2 }).homeGuardsCrop(yard), 'no Home underground, no guard');
+  assert.truthy(trailerScene({ save: {} })._crowRaids(yard), 'no Home yet, nothing is guarded');
+});
+
+test('home: every crop raider asks the guard, none keeps its own test', () => {
+  const app = APP_JS_SRC;
+  assert.eq((app.match(/if \(!crowEatsCrop\(pp\)\) continue;/g) || []).length, 0,
+    'the crow\'s notice and landing ask _crowRaids, not the bare kind test');
+  assert.eq((app.match(/if \(!this\._crowRaids\(pp\)\) continue;/g) || []).length, 2,
+    'both crow crop scans (landing + notice) read _crowRaids');
+  assert.truthy(/this\.save\.planted\.some\(\(p\) => this\._crowRaids\(p\)\)/.test(app),
+    'the hard-mode pump only dispatches a crow for a crop it may eat');
+  assert.truthy(/if \(this\.homeGuardsCrop\(p\)\) return false;   \/\/ Home's yard/.test(app),
+    'the deer graze skips Home\'s yard');
+});
 
 test('home: the rest is a RING, not a doormat', () => {
   const s = trailerScene();

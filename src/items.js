@@ -893,7 +893,7 @@ const PLAY_TIPS = [
   'A ripe crop pays one to three of itself, and about one pick in four hands a seed back as well.',
   'A ruined house can be rebuilt for 1 stone, and each one you rebuild adds a stone to the next, up to 20.',
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
-  'Crows raid ripe crops but never touch potatoes.',
+  'Crows and deer raid your crops, though crows never touch potatoes — and nothing raids the ones growing right by your Home.',
   'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
   // Placed with the slime it is about, and BEFORE the swing-reach page: the
   // first thing a player does about a slime is hit it, so what a half-hearted

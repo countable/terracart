@@ -8273,7 +8273,7 @@ class MapScene extends Phaser.Scene {
     // Timer gate first: the planted-crop scan is O(planted) and has no
     // business running on the ~5400 frames between pest windows.
     if (now - this._lastPestT > 90000) {
-      const hasCrowCrop = this.save.planted && this.save.planted.some(crowEatsCrop);
+      const hasCrowCrop = this.save.planted && this.save.planted.some((p) => this._crowRaids(p));
       if (hasCrowCrop && Difficulty.get().cropPests) {
         this._lastPestT = now;
         // Count nearby wild (non-released, not-yet-caught) crows.
@@ -8820,12 +8820,13 @@ class MapScene extends Phaser.Scene {
         // protect.
         if (!foundValidTarget) { tx = c.x; ty = c.y; }
         // Deer crop damage: each wander step, 20% chance to eat the nearest
-        // planted crop within 1.5 cells. Scarecrows already avert the deer
+        // planted crop within 1.5 cells, outside Home's ring (homeGuardsCrop). Scarecrows already avert the deer
         // before this point, so no extra scarecrow check needed here.
         if (beh?.raidsCrops && !isTame && this.save.planted?.length) {
           const DR2 = (1.5 * this.cellM) * (1.5 * this.cellM);
           if (Math.random() < 0.20) {
             const idx = this.save.planted.findIndex(p => {
+              if (this.homeGuardsCrop(p)) return false;   // Home's yard
               const ddx = p.x - c.x, ddy = p.y - c.y;
               return ddx * ddx + ddy * ddy <= DR2;
             });
@@ -8995,7 +8996,7 @@ class MapScene extends Phaser.Scene {
         const NEAR2 = (this.cellM * 0.5) * (this.cellM * 0.5);
         let landedOn = null;
         for (const pp of this.save.planted) {
-          if (!crowEatsCrop(pp)) continue;   // crows ignore potato crops
+          if (!this._crowRaids(pp)) continue;   // not potato, not in Home's yard
           const ddx = pp.x - c.x, ddy = pp.y - c.y;
           if (ddx * ddx + ddy * ddy <= NEAR2) { landedOn = pp; break; }
         }
@@ -9062,7 +9063,7 @@ class MapScene extends Phaser.Scene {
         const DETECT_R = 8 * this.cellM;
         let nearest = null, bestD2 = isPest ? Infinity : DETECT_R * DETECT_R;
         for (const pp of this.save.planted) {
-          if (!crowEatsCrop(pp)) continue;   // crows ignore potato crops
+          if (!this._crowRaids(pp)) continue;   // not potato, not in Home's yard
           const dx = pp.x - c.x, dy = pp.y - c.y;
           const d2 = dx * dx + dy * dy;
           if (d2 < bestD2) { bestD2 = d2; nearest = pp; }
@@ -13378,11 +13379,35 @@ class MapScene extends Phaser.Scene {
   // stand on). Neither rested you on the DOORSTEP, which is where the player
   // stands while farming the plot two cells away.
   isRestingAtHome(pWX, pWY) {
+    return this.inHomeRing(pWX, pWY);
+  }
+  // Is the world point (x, y) inside Home's ring (HOME_R)? THE one distance
+  // test behind every effect of the ring that is asked about a point — the
+  // rest above, and the yard crop raiders keep out of (homeGuardsCrop).
+  // Surface only, through homeWorldPos; no Home, no ring.
+  inHomeRing(x, y) {
     const home = this.homeWorldPos();
     if (!home) return false;
     const r = HOME_R * this.cellM;
-    const dx = home.x - pWX, dy = home.y - pWY;
+    const dx = home.x - x, dy = home.y - y;
     return dx * dx + dy * dy <= r * r;
+  }
+  // HOME GUARDS ITS YARD. A planted crop inside Home's ring is off the menu
+  // for every crop raider: the crow neither notices nor lands on it, the
+  // hard-mode pump doesn't dispatch a crow for it, and the deer won't graze
+  // it. Home already turns enemies away on this ring; a bird eating the
+  // lettuce on your doorstep while you rest there read as Home doing nothing.
+  // Out past the ring the field is as exposed as it always was (scarecrows are
+  // the answer there). It is a REASON on the raider's existing "may I eat
+  // this?" test, never a second lane: _crowRaids for the crow, the deer's
+  // graze filter for the deer.
+  homeGuardsCrop(p) {
+    return !!p && this.inHomeRing(p.x, p.y);
+  }
+  // May a crow eat this crop? Its kind (Crops.crowEats — never potato) and
+  // where it grows (homeGuardsCrop). Every crow-side crop test reads this.
+  _crowRaids(p) {
+    return crowEatsCrop(p) && !this.homeGuardsCrop(p);
   }
 
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid

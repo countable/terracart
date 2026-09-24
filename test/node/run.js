@@ -308,11 +308,12 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['homeWorldPos() {', 'isRestingAtHome(pWX, pWY) {']
+  const methods = ['homeWorldPos() {', 'isRestingAtHome(pWX, pWY) {', 'inHomeRing(x, y) {',
+                   'homeGuardsCrop(p) {', '_crowRaids(p) {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__home = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#homeWorldPos' });
-  for (const k of ['homeWorldPos', 'isRestingAtHome']) {
+  for (const k of ['homeWorldPos', 'isRestingAtHome', 'inHomeRing', 'homeGuardsCrop', '_crowRaids']) {
     if (typeof ctx.__home[k] !== 'function') {
       console.error(`__home.${k} did not come back as a function — update run.js`);
       process.exit(2);
