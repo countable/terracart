@@ -1341,10 +1341,9 @@ test('castle always offers relics with no rate-limit', (scene) => {
   // worldgen happening to load one nearby.
   const fakeCastle = { kind: 'tower', id: 'test_castle', tier: 12,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
-  // Castles start sealed until the player has logged enough lifetime
-  // deliveries; satisfy the gate up front so we exercise the relic-vault path,
-  // not the lock. The delivery gate has its own test below.
-  scene.save.deliveryCount = 999;
+  // Castles start sealed until their quest is solved; a legacy-open save is
+  // the one that still reaches the relic vault, so exercise that path.
+  scene.save.castlesLegacyOpen = true;
   teleport(scene, fakeCastle.x, fakeCastle.y - 2);
   // 50 consecutive shops — all should open a relic modal (never blocked).
   let opened = 0;
@@ -1362,49 +1361,26 @@ test('castle always offers relics with no rate-limit', (scene) => {
     } else { m?.remove(); break; }
   }
   assert.gt(opened, 5, 'castle keeps opening relic offers');
+  scene.save.castlesLegacyOpen = false;
 });
 
-test('castle delivery gate ramps per castle, then opens the vault', (scene) => {
+test('castle: no delivery count unseals it — only its quest board', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   document.getElementById('offer-modal')?.remove();
   document.getElementById('chest-reward-modal')?.remove();
-  scene.save.money = 100000000;
-  scene.save.relics = { pick: { tier: 1 }, axe: { tier: 1 } };
-  scene.save.inv = []; scene.save.selSlot = 0;
+  scene.save.castlesLegacyOpen = false;
   scene.save.openedCastles = {};
-  const castle = { kind: 'tower', id: 'test_castle_gate', tier: 12,
+  scene.save.deliveryCount = 999;
+  const castle = { kind: 'tower', id: 'test_castle_gate', tier: 12, castle: 'test_castle_gate_key',
     x: scene.startWorldM.x, y: scene.startWorldM.y };
   teleport(scene, castle.x, castle.y - 2);
-  // The FIRST castle asks only CASTLE_DELIVERY_GATE_START deliveries (the
-  // bottom of the ramp), not the full CASTLE_DELIVERY_GATE.
-  assert.eq(scene._deliveryGate(castle), CASTLE_DELIVERY_GATE_START,
-    'first castle gates at the start of the ramp');
-  // (1) Below the gate → first tap shows the locked info modal (no Buy button,
-  // a disabled "Locked" action), not the relic vault.
-  scene.save.deliveryCount = CASTLE_DELIVERY_GATE_START - 1;
+  assert.truthy(scene._isBuildingSealed(castle), 'sealed however many deliveries');
   scene.shopInteract(0, 0, castle);
-  let m = document.getElementById('offer-modal');
-  assert.truthy(m, 'sealed castle opens an info modal');
-  let buy = [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
-  assert.falsy(buy, 'no Buy button while sealed');
-  const locked = [...m.querySelectorAll('button')].find(b => /locked/i.test(b.textContent));
-  assert.truthy(locked && locked.disabled, 'Locked action is present and disabled');
+  const m = document.getElementById('offer-modal');
+  assert.truthy(m, 'the sealed castle shows its quest board');
+  const buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
+  assert.falsy(buy, 'no relic vault behind a delivery count');
   m?.remove();
-  // (2) Exactly at the gate → the relic vault opens (a "Buy" button) and the
-  // castle is recorded as opened.
-  scene.save.deliveryCount = CASTLE_DELIVERY_GATE_START;
-  scene.shopInteract(0, 0, castle);
-  m = document.getElementById('offer-modal');
-  buy = m && [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy');
-  assert.truthy(buy, 'castle opens the relic vault at the delivery gate');
-  assert.truthy(scene.save.openedCastles['test_castle_gate'], 'castle recorded as opened');
-  document.getElementById('offer-modal')?.remove();
-  // (3) A SECOND castle now steps one further up the ramp.
-  const castle2 = { kind: 'tower', id: 'test_castle_gate_2', tier: 12,
-    x: scene.startWorldM.x, y: scene.startWorldM.y };
-  assert.eq(scene._deliveryGate(castle2),
-    CASTLE_DELIVERY_GATE_START + CASTLE_DELIVERY_GATE_STEP,
-    'second castle gates one step higher');
 });
 
 test('fort wood cost ramps per fort, then trades once unsealed', (scene) => {
@@ -1483,8 +1459,8 @@ test('castle relic offer has NO re-roll button (balance pass)', (scene) => {
   scene.save.money = 100000;
   const fakeCastle = { kind: 'tower', id: 'test_castle_noreroll', tier: 12,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
-  // Past the delivery gate so the vault is open, not sealed.
-  scene.save.deliveryCount = 999;
+  // Legacy-open so the vault is open, not sealed.
+  scene.save.castlesLegacyOpen = true;
   teleport(scene, fakeCastle.x, fakeCastle.y - 2);
   scene.shopInteract(0, 0, fakeCastle);
   const modal = document.getElementById('offer-modal');
@@ -1492,6 +1468,7 @@ test('castle relic offer has NO re-roll button (balance pass)', (scene) => {
   const reroll = [...modal.querySelectorAll('button')].find(b => b.innerHTML.includes('Re-roll'));
   assert.falsy(reroll, 'no Re-roll button at castle');
   document.getElementById('offer-modal')?.remove();
+  scene.save.castlesLegacyOpen = false;
 });
 
 test('shop offer persists across multiple taps on same house', (scene) => {

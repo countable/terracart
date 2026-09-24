@@ -578,6 +578,7 @@ const MODAL_KINDS = {
   relics:   { icon: '💍', label: 'Relics'    },   // relic + armor offers
   delivery: { icon: '📦', label: 'Delivery'  },   // household orders
   build:    { icon: '🛠', label: 'Build'     },   // restoring wrecks, unsealing forts, moving home
+  craft:    { icon: '🪵', label: 'Craft'     },   // Home's Craft page (HOME_RECIPES)
   wizard:   { icon: '🔮', label: 'Wizard'    },   // the Discovery upgrade ladder
   farm:     { icon: '🌾', label: 'Farm'      },   // scarecrows, feeding fauna
   energy:   { icon: '⚡', label: 'Energy'    },   // the energy explainer
@@ -1096,20 +1097,6 @@ const EAT_COOLING_EDGE = '#37522f';
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
-// A castle stays sealed until the player has proven themselves on the delivery
-// routes. Gated by the lifetime tally (save.deliveryCount): the vault opens
-// after a number of completed deliveries. Replaces the old one-time goods
-// tribute — the price of entry is footwork, not a stack of produce.
-//
-// The gate FOLLOWS A PROGRESSION across castles: the first castle you open
-// asks for CASTLE_DELIVERY_GATE_START (2) deliveries, and each subsequent
-// castle steps up by CASTLE_DELIVERY_GATE_STEP (1) — 2, 3, 4, 5 … — capped at
-// CASTLE_DELIVERY_GATE (5). "How many castles already opened" is tracked in
-// save.openedCastles (a per-castle id map, recorded the first time you reach
-// an unsealed vault).
-const CASTLE_DELIVERY_GATE = 5;
-const CASTLE_DELIVERY_GATE_START = 2;
-const CASTLE_DELIVERY_GATE_STEP = 1;
 // A fort, by contrast, is unsealed with materials — like restoring a wreck
 // house, the player pays a one-time stack of wood to open the quartermaster.
 // Recorded per-fort in save.unlockedForts.
@@ -1819,6 +1806,13 @@ class MapScene extends Phaser.Scene {
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
     window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 32, 32);
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
+    // Home's panel opens with the trailer the player just tapped — the whole
+    // image, which is one frame.
+    const trailerSrc = this.textures.get('house_trailer')?.getSourceImage();
+    if (trailerSrc && trailerSrc.width) {
+      window.WORLD_ICON_URLS.house_trailer =
+        bakeSheetFrame('house_trailer', 0, trailerSrc.width, trailerSrc.height);
+    }
     // Concrete pads under POI chests — one rounded, slightly-oversized slab in
     // the single cell under the chest (texture `pad_round1`, see textures.js).
     makeAllPadShapes(this);
@@ -12424,6 +12418,143 @@ class MapScene extends Phaser.Scene {
     if (st === 'wizard')     return 'The wizard conjures a relic:';
     return 'A villager offers:';
   }
+  // ── HOME: a Sell page and a Craft page ───────────────────────────────
+  // The trailer's panel, as the blacksmith's Forge / Smelt is: sibling
+  // offer modals joined by a tab row, each tab re-presenting the other. A
+  // new page is a new tab here and a present* method beside these two.
+  _homeTabs(active, sx, sy) {
+    return [
+      { label: 'Sell',  active: active === 'sell',  onSelect: () => this.presentHomeSell(sx, sy) },
+      { label: 'Craft', active: active === 'craft', onSelect: () => this.presentHomeCraft(sx, sy) },
+    ];
+  }
+  // The dialog opens with Home's own sprite when Home is the trailer; an
+  // adopted house falls back to the category glyph.
+  _homeKindIcon() {
+    const st = this.save.starterTrailer;
+    return (st && st.id === this.save.starterShopId)
+      ? (this.worldIconHTML('house_trailer', 30) || undefined) : undefined;
+  }
+
+  // SELL page: the selected stack, with a quantity stepper — confirm first so
+  // an accidental home tap can't silently dump a high-value item. Sword relic
+  // scales the price from half (no sword) up to full base value at tier 7, and
+  // the trailer takes a flat 25% off that (TRAILER_SELL_MUL, items.js). No shop
+  // specialty bonus at home — it's a private sale, not a shopkeep's bid.
+  presentHomeSell(sx, sy) {
+    const sel = this.save.inv[this.save.selSlot];
+    const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
+    const tabs = this._homeTabs('sell', sx, sy);
+    const kindIcon = this._homeKindIcon();
+    // Nothing sellable in hand: the page says what it is for rather than
+    // flashing a stock phrase — selling is home-only, the single most
+    // easily-missed rule in the economy. noSell items (the Discovery badge)
+    // never enter the sale; the wizard tower is the only place they're worth
+    // anything.
+    if (!hasSel || ITEM_BY_ID[sel.id]?.noSell) {
+      this.showOfferModal({
+        kind: 'shop', kindIcon, tabs,
+        title: 'Sell from your stash',
+        get: hasSel ? 'Only the wizard values that' : 'Nothing picked to sell',
+        blurb: 'Pick a stack in your bag, then tap Home to sell it.',
+        cost: '', canAfford: false, cancelLabel: 'Later', acceptLabel: 'Sell',
+        onAccept: () => {},
+      });
+      return;
+    }
+    const unitPrice = trailerSellPrice(PRICES[sel.id] ?? 1, this.save.relics);
+    const item = ITEM_BY_ID[sel.id];
+    const sellId = sel.id;
+    const maxQty = Math.max(1, sel.count | 0);
+    const iconHTML = this.iconSpanHTML(sellId);
+    const itemName = item?.name || sellId;
+    const fmt = (q) => ({
+      get: this.moneyHTML(`+${unitPrice * q}`),
+      cost: `${q}× ${iconHTML} ${itemName}`,
+      canAfford: true,
+    });
+    const first = fmt(1);
+    this.showOfferModal({
+      kind: 'shop', kindIcon, tabs,
+      title: 'Sell from your stash?',
+      get: first.get,
+      cost: first.cost,
+      canAfford: true,
+      acceptLabel: 'Sell',
+      quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
+      onAccept: (q) => {
+        const have = Inventory.count(this.save, sellId);
+        if (have <= 0) { this.flash('Gone — already used.', sx, sy); return; }
+        const sold = clamp(q ?? 1, 1, have);
+        Inventory.remove(this.save, sellId, sold);
+        this._clampSelSlot();
+        const gain = unitPrice * sold;
+        addMoney(this.save, gain);
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flashLoot(`+${gain}`, '#ffe066', 1, sellId);
+        this.questEvent('sell');
+      },
+    });
+  }
+
+  // CRAFT page: one recipe of HOME_RECIPES (items.js) at a time, with a
+  // quantity stepper, and a Next button that walks the rest — the smithy's
+  // Smelt page, pointed at Home. `targetId` defaults to the first recipe the
+  // bag can make, so the page opens on something usable.
+  presentHomeCraft(sx, sy, targetId = null) {
+    const held = (id) => Inventory.count(this.save, id);
+    const capOf = (r) => recipeCap(r.cost, held);
+    const rec = HOME_RECIPES.find(r => r.id === targetId)
+      || HOME_RECIPES.find(r => capOf(r) >= 1) || HOME_RECIPES[0];
+    const cap = capOf(rec);
+    const outName = ITEM_BY_ID[rec.id]?.name || rec.id;
+    const costLine = (n) => rec.cost.map(c => {
+      const ok = held(c.id) >= c.qty * n;
+      return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
+        + `${c.qty * n}× ${this.iconSpanHTML(c.id)} ${ITEM_BY_ID[c.id]?.name || c.id}</span>`;
+    }).join(' + ');
+    const fmt = (n) => ({
+      get: `${n}× ${this.iconSpanHTML(rec.id)} ${outName}`,
+      cost: costLine(n),
+      canAfford: cap >= n && n >= 1,
+    });
+    const next = HOME_RECIPES[(HOME_RECIPES.indexOf(rec) + 1) % HOME_RECIPES.length];
+    this.showOfferModal({
+      kind: 'craft', kindIcon: this._homeKindIcon(),
+      tabs: this._homeTabs('craft', sx, sy),
+      title: 'Make something at home:',
+      cancelLabel: 'Later',
+      get: fmt(1).get,
+      blurb: ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined,
+      cost: costLine(1),
+      canAfford: cap >= 1,
+      acceptLabel: 'Craft',
+      getLabel: 'You make', costLabel: 'You use',
+      quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
+      secondary: next !== rec
+        ? { label: `Next: ${ITEM_BY_ID[next.id]?.name || next.id}`,
+            onClick: () => this.presentHomeCraft(sx, sy, next.id) }
+        : undefined,
+      onAccept: (n) => {
+        const q = Math.max(1, n ?? 1);
+        if (capOf(rec) < q) {
+          const missing = rec.cost.find(c => held(c.id) < c.qty * q);
+          const short = missing ? missing.qty * q - held(missing.id) : 0;
+          this.flash(missing ? `Need ${short} more ${ITEM_BY_ID[missing.id]?.name || missing.id}.`
+                             : 'Not enough to craft.', sx, sy);
+          return;
+        }
+        for (const c of rec.cost) Inventory.remove(this.save, c.id, c.qty * q);
+        this._clampSelSlot();
+        this.addToInv(rec.id, q);
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flashLoot(`✨ ${outName} ×${q}`, '#ffe066', 1.25, rec.id);
+      },
+    });
+  }
+
   shopInteract(sx, sy, house) {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
@@ -12443,19 +12574,17 @@ class MapScene extends Phaser.Scene {
       this.presentFortUnlockModal(sx, sy, house);
       return;
     }
-    // Castle → sealed until the player has logged enough lifetime deliveries
-    // (5 for the vault). A locked-until-earned gate with no payment: the entry
-    // fee is delivery footwork rather than a stack of goods.
+    // Castle → sealed until the player solves the job on its quest board
+    // (_isBuildingSealed); the sealed modal IS that board.
     if (house && this._isBuildingSealed && this._isBuildingSealed(house)) {
       this.presentSealedBuildingModal(sx, sy, house);
       return;
     }
     // House routing:
-    //   HOME (starter trailer)  → only SELL. Tap with nothing selected
-    //                              just flashes "home sweet home"; tap
-    //                              with a selected stack opens the sell
-    //                              modal (no specialty bonus — home isn't
-    //                              a specialty shop).
+    //   HOME (starter trailer)  → the Home panel: a SELL page and a CRAFT
+    //                              page (presentHomeSell / presentHomeCraft).
+    //                              A tap holding a stack opens on Sell, an
+    //                              empty-handed tap on Craft.
     //   Every other house       → only its PRIMARY interaction (buy /
     //                              trade / smith / relic). Selling
     //                              anywhere but home is intentionally
@@ -12465,56 +12594,8 @@ class MapScene extends Phaser.Scene {
     const sel = this.save.inv[this.save.selSlot];
     const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
     if (isHome) {
-      // Tapping your own home empty-handed is the one moment the game can
-      // say what home is FOR. Selling is home-only — the single most
-      // easily-missed rule in the economy — and this tap was answering it
-      // with a stock phrase and nothing else.
-      if (!hasSel) { this.flash('Home. Pick a stack to sell.', sx, sy); return; }
-      // noSell items (the Discovery badge) never enter the sell modal — the
-      // wizard tower is the only place they're worth anything.
-      if (ITEM_BY_ID[sel.id]?.noSell) { this.flash('Only the wizard values that.', sx, sy); return; }
-      // SELL one of the selected stack — confirm first so an accidental
-      // home tap can't silently dump a high-value item. Sword relic scales
-      // the price from half (no sword) up to full base value at tier 7, and
-      // the trailer takes a flat 25% off that (TRAILER_SELL_MUL, items.js).
-      // No shop specialty bonus at home — it's a private sale, not a
-      // shopkeep's bid.
-      const unitPrice = (typeof trailerSellPrice === 'function')
-        ? trailerSellPrice(PRICES[sel.id] ?? 1, this.save.relics)
-        : Math.max(1, Math.ceil((PRICES[sel.id] ?? 1) * 0.5 * 0.75));
-      const item = ITEM_BY_ID[sel.id];
-      const sellId = sel.id;
-      const maxQty = Math.max(1, sel.count | 0);
-      const iconHTML = this.iconSpanHTML(sellId);
-      const itemName = item?.name || sellId;
-      const fmt = (q) => ({
-        get: this.moneyHTML(`+${unitPrice * q}`),
-        cost: `${q}× ${iconHTML} ${itemName}`,
-        canAfford: true,
-      });
-      const first = fmt(1);
-      this.showOfferModal({
-        kind: 'shop',
-        title: 'Sell from your stash?',
-        get: first.get,
-        cost: first.cost,
-        canAfford: true,
-        acceptLabel: 'Sell',
-        quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
-        onAccept: (q) => {
-          const have = Inventory.count(this.save, sellId);
-          if (have <= 0) { this.flash('Gone — already used.', sx, sy); return; }
-          const sold = clamp(q ?? 1, 1, have);
-          Inventory.remove(this.save, sellId, sold);
-          this._clampSelSlot();
-          const gain = unitPrice * sold;
-          addMoney(this.save, gain);
-          persistSave(this.save);
-          this.buildInventoryDOM();
-          this.flashLoot(`+${gain}`, '#ffe066', 1, sellId);
-          this.questEvent('sell');
-        },
-      });
+      if (hasSel) this.presentHomeSell(sx, sy);
+      else this.presentHomeCraft(sx, sy);
       return;
     }
     // Per-building deal rate-limit — see shopDealCap() / shopReadiness() for
@@ -12616,20 +12697,12 @@ class MapScene extends Phaser.Scene {
     // (Home / starter trailer is handled at the top of this function — it
     // only sells, never buys.)
     if (castle) {
-      // First time the player reaches this (now-unsealed) vault, record it so
-      // the NEXT un-opened castle ramps to a higher delivery gate (see
-      // _deliveryGate / CASTLE_DELIVERY_GATE_START). The seal check above
-      // already returned for sealed castles, so reaching here means it's open.
-      if (house.id && !this.save.openedCastles?.[house.id]) {
-        this.save.openedCastles = this.save.openedCastles || {};
-        this.save.openedCastles[house.id] = true;
-        persistSave(this.save);
-      }
       // A RESTORED castle (the player solved its quest here — see
       // showQuestBoard/_claimCastle) is home turf: instead of the vault's
-      // relic trade, its castellan offers one daily favour. Every other
-      // open-but-unclaimed castle (reached only via the delivery-count gate)
-      // still deals in relics below, same as before.
+      // relic trade, its castellan offers one daily favour. The only other
+      // castle that gets past the seal is a LEGACY-open one (a save that
+      // finished the old chain, or opened it under the retired delivery gate
+      // — see _isBuildingSealed); those still deal in relics below.
       if (this.isCastleClaimed(house)) {
         this.presentCastleServiceOffer(sx, sy, house);
         return;
@@ -13483,6 +13556,8 @@ class MapScene extends Phaser.Scene {
         // story moment, so catch the tally before it moves off zero.
         const wasFirstDelivery = (this.save.deliveryCount ?? 0) === 0;
         this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
+        // One household served — a castle job may be counting them.
+        this.questEvent('deliver');
         // The FIRST delivery to this household is a discovery: one Discovery
         // badge per house, ever, through the same ledger a shiny find uses
         // (keyed `house:<id>` so a house can't collide with an item id).
@@ -13718,14 +13793,9 @@ class MapScene extends Phaser.Scene {
     }
     const recipe = Gear.smeltingRecipe(target);
     const outItem = ITEM_BY_ID[target];
-    // Max smeltable = min over ingredients of floor(held / qty). Guard the
-    // empty/missing-recipe case explicitly: an empty recipe would leave the
-    // reduce seed (Infinity) untouched, and `Infinity || 0` is Infinity (truthy)
-    // — so an unbounded stepper. Treat a non-2-ingredient recipe as cap 0.
-    const cap = (Array.isArray(recipe) && recipe.length)
-      ? Math.max(0, recipe.reduce(
-          (m, r) => Math.min(m, Math.floor(heldCount(r.id) / r.qty)), Infinity))
-      : 0;
+    // Max smeltable — the same count Home's Craft page uses (items.js
+    // recipeCap, which also makes an empty recipe 0 rather than unbounded).
+    const cap = recipeCap(recipe, heldCount);
     const recipeLine = (n) => recipe.map(r => {
       const it = ITEM_BY_ID[r.id];
       const ok = heldCount(r.id) >= r.qty * n;
@@ -14778,29 +14848,9 @@ class MapScene extends Phaser.Scene {
       });
       return;
     }
-    // The pick. Each button IS a reward card (the shell takes HTML labels), so
-    // the player reads the two the same way they read a single ceremony. An
-    // actions modal has no tap-to-dismiss, so the prize can't be lost to a
-    // stray tap on the overlay.
-    this.showChestRewardModal({
-      kind: 'trail',
-      header,
-      art: 'trail_prize',
-      // No icon: the banner is the picture and each choice button carries its
-      // own. A gem here made the dialog taller than the screen.
-      name: 'Take your pick',
+    this._offerTreasurePick({
+      kind: 'trail', header, art: 'trail_prize', choices, onDismiss,
       sub: `${walked} restored · ${choices.length} finds — one is yours<br>${next}`,
-      onDismiss,
-      actions: choices.map((reward) => ({
-        label: this._trailChoiceLabel(reward),
-        onClick: () => {
-          const card = this._claimTrailReward(reward);
-          if (!card) return;
-          this.flashLoot(card.qty ? `${card.name} ${card.qty}` : card.name,
-                         card.color || UI_TREASURE, 1,
-                         reward.kind === 'item' ? reward.id : null);
-        },
-      })),
     });
   }
 
@@ -14885,6 +14935,74 @@ class MapScene extends Phaser.Scene {
     }
     if (reward.consolation > 0) addMoney(this.save, reward.consolation);
     return card;
+  }
+
+  // THE PICK — one lane for every "two finds, keep one" in the game: the road
+  // ladder above and a dug-up X (digTreasurePick). Each button IS a reward
+  // card (the shell takes HTML labels), so the player reads the two the same
+  // way they read a single ceremony. An actions modal has no tap-to-dismiss,
+  // so the prize can't be lost to a stray tap on the overlay. Nothing is paid
+  // until a button is pressed: the option turned down was never theirs.
+  _offerTreasurePick({ kind, header, art, choices, sub, kindIcon, onDismiss }) {
+    this.showChestRewardModal({
+      kind,
+      header,
+      art,
+      kindIcon,
+      // No icon: the banner is the picture and each choice button carries its
+      // own. A gem here made the dialog taller than the screen.
+      name: 'Take your pick',
+      sub,
+      onDismiss,
+      actions: choices.map((reward) => ({
+        label: this._trailChoiceLabel(reward),
+        onClick: () => {
+          const card = this._claimTrailReward(reward);
+          if (!card) return;
+          this.flashLoot(card.qty ? `${card.name} ${card.qty}` : card.name,
+                         card.color || UI_TREASURE, 1,
+                         reward.kind === 'item' ? reward.id : null);
+          if (reward.jackpot >= 1 && typeof this.flashJackpot === 'function') {
+            this.flashJackpot(reward.jackpot);
+          }
+          persistSave(this.save);
+        },
+      })),
+    });
+  }
+
+  // A buried X, dug up: two finds from the pool an X has always paid
+  // ('treasure:default'), keep one — the road ladder's pick (Trail.rollChoices
+  // owns "the two must differ"). The mark is already spent in
+  // save.foundTreasures before this opens, so a reload can't re-roll it.
+  // Low-tier seeds keep the bulk bonus grantTreasureRoll gives them. When the
+  // pool can't find two distinct finds, the one it found pays the way an X
+  // always did.
+  digTreasurePick(sx, sy) {
+    const roll = () => {
+      const r = (typeof pickReward === 'function') ? pickReward('treasure:default', this.save) : null;
+      if (r && r.kind === 'item' && isLowTierSeed(r.id)) r.qty += LOW_TIER_SEED_QTY_BONUS;
+      return r;
+    };
+    const choices = Trail.rollChoices(roll);
+    if (choices.length < 2) {
+      if (!choices.length) { grantTreasureRoll(this, this.save, sx, sy, '✕'); return; }
+      const card = this._claimTrailReward(choices[0]);
+      if (card) this.flashLoot(`✕ → ${card.qty ? `${card.name} ${card.qty}` : card.name}`,
+                               card.color || UI_TREASURE, 1,
+                               choices[0].kind === 'item' ? choices[0].id : null);
+      persistSave(this.save);
+      return;
+    }
+    // The hero glyph is the X itself — the mark the player just dug, drawn
+    // in the pale scratched-stone ink render.js uses for it underground (the
+    // dark surface ink would vanish on the dialog).
+    const kindIcon = '<svg width="22" height="22" viewBox="0 0 12 12" style="display:block">'
+      + '<path d="M2 2L10 10M10 2L2 10" stroke="#c9b48a" stroke-width="2" stroke-linecap="round"/></svg>';
+    this._offerTreasurePick({
+      kind: 'treasure', header: 'Buried treasure', kindIcon, choices,
+      sub: `${choices.length} finds in the hole — one is yours`,
+    });
   }
 
   // by shopInteract to route to the restore modal and by the render layer
@@ -15013,28 +15131,6 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // Lifetime deliveries this building demands before it'll trade, or 0 if it
-  // has no delivery gate. Only castles (BUILDING_LARGE / tower, tier 12) gate
-  // on deliveries now — forts unseal with wood (see _isFortLocked).
-  //
-  // The gate ramps per castle (see CASTLE_DELIVERY_GATE_START): an already-opened
-  // castle has no gate (0); an un-opened one asks START + STEP×(castles already
-  // opened), capped at CASTLE_DELIVERY_GATE.
-  _deliveryGate(house) {
-    if (!house) return 0;
-    if (isCastle(house)) {
-      // Already opened → no gate. (id-less castles can't be recorded, so they
-      // always read the ramped gate below.)
-      if (house.id && this.save.openedCastles?.[house.id]) return 0;
-      const opened = Object.keys(this.save.openedCastles || {}).length;
-      return Math.min(
-        CASTLE_DELIVERY_GATE_START + CASTLE_DELIVERY_GATE_STEP * opened,
-        CASTLE_DELIVERY_GATE,
-      );
-    }
-    return 0;
-  }
-
   // Wood this fort demands to unseal, following the per-fort progression
   // (see FORT_UNLOCK_WOOD_START): START + STEP×(forts already unsealed), capped
   // at FORT_UNLOCK_WOOD. A locked fort isn't yet in save.unlockedForts, so the
@@ -15047,12 +15143,14 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // True iff `house` is a castle still sealed because the player hasn't logged
-  // enough lifetime deliveries (save.deliveryCount). The delivery-gate analogue
-  // of _isHouseWreck. The gate reads the global delivery tally, so — unlike the
-  // old per-castle tribute — an id-less building is gated too; there's no
-  // payment to record against a house key.
+  // True iff `house` is a castle still sealed: a castle opens by solving the
+  // job on ITS quest board and nothing else. (Until Sep 2026 a lifetime
+  // delivery tally of 2..5 also unsealed it, left behind when the quest board
+  // replaced that gate — so five deliveries opened every castle in the world
+  // and the board was skipped. Reaching a delivery count is a quest VERB now,
+  // quests.js 'deliver', never a gate of its own.)
   _isBuildingSealed(house) {
+    if (!house || !isCastle(house)) return false;
     // Claimed outright — the player solved a quest at THIS castle, so it is
     // theirs for good and the quest board never comes back here.
     if (this.isCastleClaimed(house)) return false;
@@ -15060,10 +15158,10 @@ class MapScene extends Phaser.Scene {
     // open; the per-castle seal must not take that back (see the migration in
     // quests.js _qs).
     if (this.save.castlesLegacyOpen) return false;
-    const need = this._deliveryGate(house);
-    if (!need) return false;
-    // Players who passed the old delivery threshold keep access.
-    if ((this.save.deliveryCount ?? 0) >= need) return false;
+    // A castle opened under the retired delivery gate stays open — the same
+    // courtesy castlesLegacyOpen pays the old chain. Read-only: nothing
+    // writes save.openedCastles any more.
+    if (house.id && this.save.openedCastles?.[house.id]) return false;
     // PER CASTLE, now that the board never runs dry. This was global — finish
     // the three-quest chain and every castle in the world opened at once —
     // which was the only thing it could be while there were exactly three
@@ -16050,9 +16148,9 @@ class MapScene extends Phaser.Scene {
   //                 "Later" reads as "still on the table" rather than "gone".
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, art }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { maxWidth: 340, onClose: () => {}, kind, kindLabel });
+      { maxWidth: 340, onClose: () => {}, kind, kindLabel, kindIcon });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"

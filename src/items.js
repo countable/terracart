@@ -916,7 +916,7 @@ const PLAY_TIPS = [
   'A household never changes its mind about what it wants — and one bundle keeps it happy for good.',
   'Every 20 deliveries behind you, the houses you rebuild from then on start asking for the next tier of crop.',
   'Forts handle up to 5 deals per hour, plain houses just 1. Castles and towers never make you wait.',
-  'Castles deal only in relics — and never run out of stock.',
+  'A castle you have claimed offers one favour a day: a rest, or its taxes.',
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
   // ── The land you walk over ──────────────────────────────────
   'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
@@ -959,7 +959,7 @@ const PLAY_TIPS = [
   'A shiny monster underground is twice the fight and hits twice as hard — and its end always pays past the usual wage.',
   // ── The long gates — hours in ───────────────────────────────
   'Forts are sealed until you pay the quartermaster in wood — 6 for your first, rising by 6 up to 30.',
-  'A castle vault stays shut until you have deliveries behind you: 2 for the first castle, rising to 5.',
+  'A castle stays sealed until you finish the job on its board — then it is yours.',
   'The castle board always holds three jobs, and each castle offers only one of them: the next castle along has different work.',
   'A castle job grows with the number you have already finished, and so does the purse it pays.',
   'The wizard trades 5 Discovery badges a step, up his ladder: wider reach first, then bigger finds, then the Ring.',
@@ -1542,6 +1542,20 @@ function trailerSellMultiplier(relics) {
 // and the haircut only bites above the floor.
 function trailerSellPrice(baseValue, relics) {
   return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier(relics)));
+}
+// What Home CRAFTS — the Craft page beside the Sell page at the trailer
+// (app.js presentHomeCraft). One row per recipe, in the order the page's
+// "Next" button walks them; each craft makes one of `id` from `cost`.
+const HOME_RECIPES = [
+  { id: 'torch',     cost: [{ id: 'wood', qty: 1 }] },
+  { id: 'scarecrow', cost: [{ id: 'wood', qty: 3 }] },
+];
+// How many times a recipe can be made from what is held: the fewest times
+// any one ingredient covers its share. `count(id)` reads the bag. An empty
+// recipe makes nothing — the min over no ingredients would be Infinity.
+function recipeCap(cost, count) {
+  if (!Array.isArray(cost) || !cost.length) return 0;
+  return Math.max(0, cost.reduce((m, r) => Math.min(m, Math.floor(count(r.id) / r.qty)), Infinity));
 }
 // Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
 // share this discount, but it's been demoted to a pure combat weapon (it's a

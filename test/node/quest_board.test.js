@@ -270,4 +270,25 @@
     for (let i = 0; i < 60; i++) seen.add(Quests.slotForCastle(`b_${i * 37}_${i * 11}`));
     assert.eq(seen.size, QUEST_SLOTS, 'all three slots are handed out across the map');
   });
+
+  // ── Deliveries are a VERB, not a gate ────────────────────────────────────
+
+  test('quest board: "deliver" is a verb, credited by the delivery accept', () => {
+    const t = QUEST_TEMPLATES.find(x => x.id === 'deliver');
+    assert.truthy(t, 'a deliver template exists');
+    const save = { quests: { slots: [
+      { id: 'q0', slot: 0, gen: 0, verb: 'deliver', event: 'deliver', need: 2, have: 0, reward: 60 },
+    ], gen: 1, done: 0 } };
+    assert.truthy(Quests.onEvent(save, 'deliver'), 'one delivery credits it');
+    assert.eq(save.quests.slots[0].have, 1);
+    assert.truthy(/this\.questEvent\('deliver'\)/.test(APP_JS_SRC), 'the delivery accept fires the event');
+  });
+
+  test('quest board: no delivery count unseals a castle — the board replaced that gate', () => {
+    assert.falsy(/_deliveryGate|CASTLE_DELIVERY_GATE/.test(APP_JS_SRC), 'the delivery gate is gone');
+    const i = APP_JS_SRC.indexOf('  _isBuildingSealed(house) {');
+    const body = APP_JS_SRC.slice(i, APP_JS_SRC.indexOf('\n  }\n', i));
+    assert.falsy(/deliveryCount/.test(body), 'the seal never reads the delivery tally');
+    assert.falsy(/openedCastles\s*\[[^\]]+\]\s*=/.test(APP_JS_SRC), 'nothing records a delivery-opened castle any more');
+  });
 })();

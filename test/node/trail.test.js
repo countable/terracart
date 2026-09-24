@@ -293,12 +293,17 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   const at = app.indexOf('_fireTrailPrize(n, onDismiss) {');
   assert.gt(at, 0, 'found the prize path');
   const body = app.slice(at, app.indexOf('\n  _trailChoiceLabel', at));
-  assert.truthy(/actions: choices\.map\(/.test(body), 'the choice opens as an actions modal');
-  assert.truthy(/onClick: \(\) => \{\s*\n\s*const card = this\._claimTrailReward\(reward\);/.test(body),
+  // The pick itself is the shared lane (_offerTreasurePick — the X dig opens
+  // it too), so the button wiring is pinned there.
+  assert.truthy(/this\._offerTreasurePick\(\{/.test(body), 'the choice opens the shared pick');
+  const pat = app.indexOf('\n  _offerTreasurePick({');
+  const pick = app.slice(pat, app.indexOf('\n  }\n', pat));
+  assert.truthy(/actions: choices\.map\(/.test(pick), 'the choice opens as an actions modal');
+  assert.truthy(/onClick: \(\) => \{\s*\n\s*const card = this\._claimTrailReward\(reward\);/.test(pick),
     'and each option only pays when its own button is clicked');
+  assert.truthy(/Take your pick/.test(pick), 'the offer names itself as a pick');
   // The modal shell gives an actions dialog no tap-to-dismiss, so a stray tap
   // can't drop the prize — pin that the offer really is the actions variant.
-  assert.truthy(/Take your pick/.test(body), 'the offer names itself as a pick');
   // The header: the survivors' thanks, one constant for all three shapes of
   // the ceremony, with the count it paid at on the pick's flavour line.
   assert.truthy(/const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';/.test(app),
