@@ -139,7 +139,9 @@
     if (!Number.isFinite(maxE)) maxE = _fallbackMaxE;
     save.maxEnergy = maxE;
     if (!Number.isFinite(save.energy)) save.energy = maxE;
-    save.energy = Math.min(maxE, Math.max(0, save.energy));
+    // Whole numbers only — heals a bar a pre-fix revive left at a quarter of
+    // an odd max (22.25⚡), see Energy.reviveLevel.
+    save.energy = Math.round(Math.min(maxE, Math.max(0, save.energy)));
     // Restored-houses / forts default to empty objects.
     if (!save.restoredHouses || typeof save.restoredHouses !== 'object') save.restoredHouses = {};
     if (!save.unlockedForts || typeof save.unlockedForts !== 'object') save.unlockedForts = {};
