@@ -86,7 +86,7 @@ const ASSETS = {
   pier:        { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Bridge Beach.png', frameWidth: 16, frameHeight: 16 },
   // Wilderness art — all copied out of the gitignored Sprites/ source dump
   // into Objects/Wilderness/ so the tree can build without the raw asset pack.
-  // The ONE face of money — a 64x64 transparent pixel-art gold coin. It is
+  // The ONE face of money — a 64x64 transparent pixel-art jade coin (green: no ore is). It is
   // the coin_drop world sprite (the old 16px disc was baked in app.js create()
   // until Oct 2026; renderer scales it down to 24px), the HUD money chip's
   // icon, and the icon every money toast / modal wears (app.js coinIconHTML /

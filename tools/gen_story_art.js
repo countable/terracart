@@ -59,18 +59,21 @@ const PIECES = {
   tool_shoot:
     'A farmer draws a short bow and looses an arrow across a meadow, the string still ' +
     'humming, the arrow in flight, warm light.',
-  // The ONE money icon: a single gold coin on transparency. Not a banner -
+  // The ONE money icon: a single JADE coin on transparency. Not a banner -
   // generated large, trimmed to its opaque bounds, downscaled to a 64px
   // master (assets/art is for banners; the runtime copies live under
-  // assets/Icons/ - see tools/gen_story_art.js --coin).
+  // assets/Icons/ - see tools/gen_story_art.js --coin). Green on purpose:
+  // the ore ladder already owns orange (copper, gold), grey (iron,
+  // platinum), red (crimson) and blue (frost), and a gold coin read as a
+  // copper one. No ore is green, so the money can't be taken for a metal.
   coin_icon: {
     size: '1024x1024', width: 64, colors: 64, background: 'transparent', trim: true,
     style:
-      '16-bit pixel art game icon, crisp chunky pixel clusters, warm gold palette. ' +
-      'Transparent background, no shadow, no text.',
+      '16-bit pixel art game icon, crisp chunky pixel clusters, jade green and verdigris ' +
+      'palette. Transparent background, no shadow, no text.',
     subject:
-      'A single round gold coin, flat straight-on front view, centred, filling the frame: ' +
-      'darker amber outer rim, warm gold body, a cream pixel highlight at the top-left, an ' +
+      'A single round green jade-bronze metal coin, flat straight-on front view, centred, ' +
+      'filling the frame: darker outer rim, a bright pixel highlight at the top-left, an ' +
       'embossed five-pointed star in the centre. Nothing else in frame.',
   },
   safety_welcome: {

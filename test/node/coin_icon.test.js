@@ -1,4 +1,4 @@
-// The ONE face of money — assets/Icons/coin.png, a 64x64 pixel-art gold coin.
+// The ONE face of money — assets/Icons/coin.png, a 64x64 pixel-art jade coin.
 // It is the coin_drop world texture (ASSETS, replacing the 16px disc app.js
 // used to bake in create()), the HUD money chip's icon, and the icon every
 // money toast and modal wears through the app.js helpers coinIconHTML /
