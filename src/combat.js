@@ -554,8 +554,12 @@
   // agree where a new save begins). The BOW keeps a flat range: it is the
   // weapon you buy to hit what you cannot punch, and it does not aim itself.
   const SHOT = {
+    // `ammo`: the bow burns one WOOD per `shots` arrows, and will not fire
+    // with none in the bag (app.js _combatTick). Energy is the staff's price;
+    // wood is the bow's.
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
-             phaseMs: 0, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS },
+             phaseMs: 0, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
+             ammo: { id: 'wood', shots: 20 } },
     staff: { speedCps: 1.0, rangeCells: 3.5, rangeFromReach: 1,
              color: 0x9ad6ff, dotPx: 3,
              phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest',

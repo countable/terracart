@@ -906,3 +906,14 @@ test('combat: the staff\'s next bolt charges by the hand between shots', () => {
   assert.truthy(/Combat\.shotDotPx\('staff', tier\)/.test(body), 'grows to the bolt\'s own drawn size');
   assert.falsy(/viewCenterX|viewCenterY/.test(body), 'never off the viewport centre');
 });
+
+test('combat: the bow burns a wood every 20 arrows and will not fire without one', () => {
+  assert.eq(JSON.stringify(Combat.SHOT.bow.ammo), JSON.stringify({ id: 'wood', shots: 20 }), 'the bow\'s ammo');
+  assert.falsy(Combat.SHOT.staff.ammo, 'the staff pays in energy, not wood');
+  const app = APP_JS_SRC;
+  assert.truthy(/if \(ammo && Inventory\.count\(this\.save, ammo\.id\) < 1\) \{/.test(app), 'no wood, no arrow');
+  assert.truthy(/if \(!this\._ammoDryWarned\) \{\s*this\._ammoDryWarned = true;/.test(app), 'the dry message fires once');
+  assert.truthy(/if \(this\.save\.ammoShots >= ammo\.shots\) \{\s*this\.save\.ammoShots = 0;\s*Inventory\.remove\(this\.save, ammo\.id, 1\);/.test(app),
+    'every 20th arrow takes one wood, counted in the save');
+  assert.truthy(/1 wood\/20 shots/.test(RELIC_DEFS.bow.blurb), 'and the bow says so');
+});

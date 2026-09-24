@@ -1164,7 +1164,7 @@ const RELIC_DEFS = {
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
              effectKey: 'sellPrice',     blurb: 'melee: auto-fights adjacent foes · better sell prices' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
-             effectKey: 'buyPrice',      blurb: 'ranged: auto-shoots along the compass · better buy prices' },
+             effectKey: 'buyPrice',      blurb: 'auto-shoots along the compass · 1 wood/20 shots · cheaper buys' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
              effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt · bigger bolt per tier' },
   // Watering can — HOW SOON, not what. Every watering has a tier/7 chance

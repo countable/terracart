@@ -7141,6 +7141,18 @@ class MapScene extends Phaser.Scene {
         // flashes when handed coordinates). The cadence is left due, so the
         // first bolt after a meal fires immediately.
         const eCost = Combat.SHOT[slot].energyCost || 0;
+        // The bow's AMMO (Combat.SHOT.bow.ammo): no wood in the bag, no arrow.
+        // Said ONCE per dry spell, at the player, then silent until wood is
+        // back — an auto-firing weapon must not flash every beat.
+        const ammo = Combat.SHOT[slot].ammo;
+        if (ammo && Inventory.count(this.save, ammo.id) < 1) {
+          if (!this._ammoDryWarned) {
+            this._ammoDryWarned = true;
+            const ps = this.playerScreen();
+            this.flash(`Out of ${ITEM_BY_ID[ammo.id]?.name || ammo.id} — bow idle`, ps.x, ps.y + this.playerBodyDy());
+          }
+          continue;
+        }
         if (eCost && !this.spendEnergy(eCost)) continue;
         this._nextShotT[slot] = now + Combat.fireIntervalMs(slot);
         if (slot === 'staff') this._staffCharge = 0;
@@ -7149,6 +7161,19 @@ class MapScene extends Phaser.Scene {
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
                                       Combat.shotDamage(relics, slot) * dmgMul,
                                       relics[slot].tier, reach);
+        if (shot && ammo) {
+          // Every `ammo.shots`-th arrow burns one wood (save.ammoShots counts
+          // toward it, so the tally survives a reload).
+          this._ammoDryWarned = false;
+          this.save.ammoShots = (this.save.ammoShots || 0) + 1;
+          if (this.save.ammoShots >= ammo.shots) {
+            this.save.ammoShots = 0;
+            Inventory.remove(this.save, ammo.id, 1);
+            this._clampSelSlot();
+            if (this.buildInventoryDOM) this.buildInventoryDOM();
+            persistSave(this.save);
+          }
+        }
         if (shot) {
           this._shots.push(shot);
           // First bow/staff shot a save ever looses tells its story, here at
