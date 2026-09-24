@@ -296,3 +296,24 @@ test('walk home: a body lagging behind a spent offset is still brought home', ()
   assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 0,
     'the gap is body-to-fix, not whatever is left of the stick offset');
 });
+
+// ── Grabbing the stick mid-walk ───────────────────────────────────────────
+// The takeover pulls the target back onto the body so the first push moves it.
+// The offset has to come back with it: the target is gpsM + offset, and a walk
+// home bleeds the offset ahead of the body. Left behind, the next fix
+// re-targeted a point the body wasn't at, and the auto walk resumed the moment
+// the stick was let go — under a countdown that had just reset to 5s.
+
+test('walk home: grabbing the stick mid-return cancels the return, not just the frame', () => {
+  // Body 40 m out, the drift has already bled the offset (and target) to 10 m.
+  const scene = walkHomeScene(40, { offset: 10 });
+  scene._targetM = { x: 10, y: 0 };
+  Object.assign(scene, { cellM: 1, save: { energy: 100 }, compassDeg: 0, _stickHeading: null });
+  __walkHome._steerManual.call(scene, 0, 1, 1 / 60);   // a push at right angles
+  // A fresh fix re-targets gpsM + offset — it must land on the body, not ahead.
+  const tx = scene.gpsM.x + scene._manualOffsetM.x, ty = scene.gpsM.y + scene._manualOffsetM.y;
+  assert.lt(Math.hypot(tx - scene._targetM.x, ty - scene._targetM.y), 1e-9,
+    'target and gpsM + offset must agree after the takeover');
+  assert.lt(Math.hypot(scene._targetM.x - scene.playerM.x, scene._targetM.y - scene.playerM.y), 0.5,
+    'the next fix would walk the body on toward home without waiting out the countdown');
+});

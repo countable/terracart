@@ -164,6 +164,9 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
                       // than walked (the same constant the GPS fix path snaps
                       // on — that shared number is the point).
                       'WALK_M_S', 'GPS_SNAP_M', 'DEBUG_SPEED_MUL',
+                      // ...and what _steerManual reads, for the stick-takeover
+                      // tests (the near-home discount and the drain lump).
+                      'NEAR_GPS_CELLS', 'NEAR_GPS_COST_MUL', 'STEER_DRAIN_LUMP',
                       // VIEW_CELLS is the ceiling on the fog reveal radius —
                       // see fog.test.js. Lifted for the same reason: a copy
                       // would drift the moment the viewport was resized.
@@ -240,12 +243,16 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
                    // cut a jumped fix uses (_teleportCut) — lifted so a stub
                    // scene with no camera exercises its no-camera fallback
                    // rather than a copy of that branch.
-                   '_teleportCut(place) {']
+                   '_teleportCut(place) {',
+                   // Grabbing the stick mid-walk re-anchors target AND offset;
+                   // lifted so the takeover is tested against the same scene.
+                   '_steerManual(vx, vy, dt) {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
   for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS',
-                   '_placeBodyOnFix', '_carveLanding', 'clearPeek', '_teleportCut']) {
+                   '_placeBodyOnFix', '_carveLanding', 'clearPeek', '_teleportCut',
+                   '_steerManual']) {
     if (typeof ctx.__walkHome[k] !== 'function') {
       console.error(`__walkHome.${k} did not come back as a function — update run.js`);
       process.exit(2);

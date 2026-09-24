@@ -9578,13 +9578,21 @@ class MapScene extends Phaser.Scene {
     // the accumulated offset wins. It reads as momentum, and nobody asked for
     // momentum. Re-anchoring on takeover makes the first push move the body.
     //
-    // The offset banked below is deliberately untouched: it records the ground
-    // the player covered BY HAND, and abandoning an in-flight GPS chase is a
-    // different thing. The next fix re-targets gpsM + offset as it always did.
+    // The OFFSET moves with the target. The target is gpsM + offset, so
+    // pulling the target back onto the body without the offset leaves the
+    // abandoned lead in the offset — a walk home that had bled the offset
+    // ahead of the body, or a GPS chase that hadn't caught up. The next fix
+    // then re-targets gpsM + offset, a point the body is NOT at, and the auto
+    // walk carries on the moment the stick is let go, under a countdown that
+    // promised it wouldn't. Shifting the offset by the same delta keeps
+    // target == gpsM + offset == body, so the only way home again is
+    // _driftHome, after its debounce.
     // The half-cell test only ever fires on takeover — while steering, the gap
     // is one step, far inside it.
     if (Math.hypot(this._targetM.x - this.playerM.x, this._targetM.y - this.playerM.y)
         > this.cellM * 0.5) {
+      this._manualOffsetM.x += this.playerM.x - this._targetM.x;
+      this._manualOffsetM.y += this.playerM.y - this._targetM.y;
       this._targetM.x = this.playerM.x;
       this._targetM.y = this.playerM.y;
     }
