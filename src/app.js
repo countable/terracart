@@ -1192,7 +1192,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 // Pre-seeded house roles by RESTORE ORDER (0-based). Rather than skinning the
 // two nearest houses as blacksmith/trader up front, a wreck reveals its role
 // from the order the player restores it: the opening stretch is a fixed
-// tutorial run (blacksmith, trader, house, market, house, house) and the 15th
+// tutorial run (blacksmith, trader, house, market) and the 15th
 // restore is always a wizard tower. Restores BEYOND these slots fall back to
 // the address-derived Shops.shopType so the wider neighbourhood keeps its
 // organic variety. 'plain' === a plain residential house (no shop). The chosen
@@ -1203,8 +1203,6 @@ const PRESEED_RESTORE_ROLES = {
   1:  'trader',
   2:  'plain',
   3:  'market',
-  4:  'plain',
-  5:  'plain',
   14: 'wizard',   // the 15th restored wreck is a wizard tower
 };
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
@@ -13725,10 +13723,22 @@ class MapScene extends Phaser.Scene {
   // defers to the address-derived shop type so the neighbourhood keeps its
   // variety. Always returns a concrete role string ('plain' for a house).
   _preseedRestoreRole(order, house) {
+    // A save with NO blacksmith gets one on its next rebuild, whatever slot
+    // that is. Slot 0 is the smithy, so a new save never needs this — but a
+    // save whose first rebuilds predate the restore-order roles (or any other
+    // path that left it without one) would otherwise never meet the forge.
+    if (!this._hasBlacksmith()) return 'blacksmith';
     if (Object.prototype.hasOwnProperty.call(PRESEED_RESTORE_ROLES, order)) {
       return PRESEED_RESTORE_ROLES[order];
     }
     return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
+  }
+
+  // Does this save have a smithy? The stamped starter smithy, or any restored
+  // house frozen as one (a later address-9 house counts too).
+  _hasBlacksmith() {
+    if (this.save.starterBlacksmithId != null) return true;
+    return Object.values(this.save.restoredHouses || {}).includes('blacksmith');
   }
 
   // The line and tier a themed shop (role key 'market') sells: its place in
