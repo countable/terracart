@@ -701,19 +701,13 @@ test('books: the rebuild tip quotes the live restore price', () => {
   const tip = PLAY_TIPS.find((t) => /^A ruined house can be rebuilt/.test(t));
   assert.truthy(tip, 'the rebuild tip exists');
   assert.truthy(tip.includes(`for ${WRECK_RESTORE_BASE_QTY} stone`), 'base cost matches WRECK_RESTORE_BASE_QTY');
-  assert.eq(WRECK_RESTORE_PER_HOUSE, 0.5, 'the tip says "half a stone" — reword it if this moves');
+  assert.eq(WRECK_RESTORE_PER_HOUSE, 1, 'the tip says "adds a stone" — reword it if this moves');
+  assert.truthy(tip.includes(`up to ${WRECK_RESTORE_MAX_QTY}`), 'the cap matches WRECK_RESTORE_MAX_QTY');
   assert.truthy(!/5 wood/.test(tip), 'the stale wood price is gone');
 });
 
-test('restore cost: +0.5 stone per house restored, rounded at random', () => {
-  assert.eq([0, 1, 2, 6].map(wreckRestoreExact).join(','), '3,3.5,4,6', 'the exact price');
-  // A whole price never rolls.
-  for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(2, k), 4, 'whole price is exact');
-  // A half price lands on either neighbour, and averages to the exact price.
-  let sum = 0; const seen = new Set(); const N = 2000;
-  for (let i = 0; i < N; i++) { const q = wreckRestoreQty(1, `h${i}`); seen.add(q); sum += q; }
-  assert.eq([...seen].sort().join(','), '3,4', '3.5 pays 3 or 4');
-  assert.truthy(Math.abs(sum / N - 3.5) < 0.05, `mean ${sum / N} ≈ 3.5`);
-  // Seeded: the dialog's price is the accept's price.
-  assert.eq(wreckRestoreQty(7, 'house_x'), wreckRestoreQty(7, 'house_x'), 'same house, same count, same price');
+test('restore cost: 1 stone, one more per house restored, capped at 20', () => {
+  assert.eq([0, 1, 2, 6, 18, 19, 20, 50].map(wreckRestoreExact).join(','), '1,2,3,7,19,20,20,20', 'the ladder');
+  // Whole prices: the house key never changes the quote.
+  for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 5, 'same price for every house');
 });

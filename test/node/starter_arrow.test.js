@@ -119,7 +119,8 @@
       { kind: 'house', id, tier: tier ?? 9 }, cellCentre(cx, cy));
     const scene = makeScene({
       save: {
-        inv: [{ id: cost.id, count: cost.qty }],
+        // One house already restored, so the next rebuild asks its price.
+        inv: [{ id: cost.id, count: wreckRestoreQty(1) }],
         restoredHouses: { h_done: 'plain' },
       },
     });
