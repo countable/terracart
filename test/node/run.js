@@ -1237,16 +1237,20 @@ ctx.APP_JS_SRC = readSrc('app.js');
     // What a creature in a hurry costs — the struck-prey flee and Home's rout
     // both run at this pair.
     num('FLEE_STRIDE_MUL'), num('FLEE_BEAT_MUL'),
+    // The wander-off schedule, distance and timeout (wander_off.test.js).
+    num('WANDER_OFF_MIN_MS'), num('WANDER_OFF_SPREAD_MS'), num('WANDER_OFF_MAX_MUL'),
+    num('WANDER_OFF_TIMEOUT_MS'), num('WANDER_OFF_TICK_CAP_MS'),
     'const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;',
     // The predicates. (faunaBlocksCell is Combat's, already loaded.)
     fn('function slimeCharging(c) {'),
+    fn('function monsterWanderingOff(c, now, distM, cellM) {'),
   ].join('\n');
   // ONE script, so the method closes over the preamble's consts — a second
   // runInContext would not see them (a vm script's top-level `const` does not
   // land on the context global; that is what the BRIDGE above exists for).
   // The method text is a class method, so it is wrapped as an object literal
   // and the property taken off it.
-  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\n})();`,
+  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\n})();`,
     ctx, { filename: 'app.js#wanderCreatures' });
   if (typeof ctx.__wander !== 'function') {
     console.error('__wander did not come back as a function — update run.js');
