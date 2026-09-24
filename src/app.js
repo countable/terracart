@@ -4019,14 +4019,17 @@ class MapScene extends Phaser.Scene {
         // cached, the tile builds with it first time, and no rebuild happens.
         // A flag the rebuild does not carry says what the carried state
         // cannot: this entry has not been through the spawn pass.
+        // The home up-staircase goes down BEFORE the cave spawn pass, so the
+        // occupancy snapshot that pass takes (spawnCaveCreatures' occupiedIdx,
+        // built off entry.objects) already holds it and no monster, trap or
+        // coin is seated on the ladder. Nothing spawns on a stair cell.
+        if (this.depth > 0) this._ensureHomeUpStair(entry, tx, ty);
         if (this.depth === 0 && !entry._spawned) this.spawnInTile(entry, tx, ty);
         else if (this.depth > 0 && !entry._spawned) this.spawnCaveCreatures(entry, tx, ty, this.depth);
-        // Re-open any walls the player has already mined on this level, and
-        // guarantee an up-staircase by the starting house so you can always
-        // climb back to the surface from home.
+        // Re-open any walls the player has already mined on this level (the
+        // home up-staircase is guaranteed above, before the spawn pass).
         if (this.depth > 0) {
           this._applyDugWalls(entry, tx, ty);
-          this._ensureHomeUpStair(entry, tx, ty);
           // A body placed on a far fix (_placeBodyOnFix) usually lands on a
           // tile that hasn't loaded yet; open the cell under it now if the
           // grid put rock there.
@@ -10522,6 +10525,10 @@ class MapScene extends Phaser.Scene {
   // Guarantee an UP staircase (and never a DOWN one) on the home cell of every
   // cave level, so the player can always climb back toward the surface from the
   // starting house. Idempotent — runs on each (re)load of the home tile.
+  //   NOTHING ELSE STANDS ON A LADDER. The cave build (loadCaveTile) seated
+  // its rocks, chests, mushrooms and torches before this cell was a stair, so
+  // whatever landed here is cleared; the spawn pass runs AFTER this (buildOne)
+  // and reads the stair out of entry.objects like any other occupant.
   _ensureHomeUpStair(entry, tx, ty) {
     if (!entry || !entry.grid || typeof HomeArea === 'undefined' || !HomeArea.worldM) return;
     const N = entry.cellsPerEdge;
@@ -10538,8 +10545,10 @@ class MapScene extends Phaser.Scene {
     const half = mPerCell * 0.5;
     const atHome = (o) => Math.abs(o.x - cx) < half && Math.abs(o.y - cy) < half;
     entry.objects = entry.objects || [];
-    // No descending from the house — drop any down-stair that landed here.
-    entry.objects = entry.objects.filter(o => !(o.kind === 'staircase' && o.dir === 'down' && atHome(o)));
+    // No descending from the house, and nothing sitting on the ladder: drop
+    // every object on this cell but an up-stair, and any wildplant.
+    entry.objects = entry.objects.filter(o => !atHome(o) || (o.kind === 'staircase' && o.dir === 'up'));
+    if (entry.wildplants) entry.wildplants = entry.wildplants.filter(w => !atHome(w));
     if (!entry.objects.some(o => o.kind === 'staircase' && o.dir === 'up' && atHome(o))) {
       entry.objects.push(WorldGen.makeObject('staircase', cx, cy,
         `homeup_${entry.depth}_${tx}_${ty}_${lix}_${liy}`,

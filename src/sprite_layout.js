@@ -268,7 +268,13 @@
     // table existed) until Sep 2026, which hung it ~10px above its own contact
     // shadow: one body cannot have two ground lines.
     cave_slime:    { sheet: 'slime',     frames: 4, frameMs: SLIME_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: CAVE_SLIME_TINT },
-    purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 8,  minY: 10, maxY: 21 },
+    // The purple slime is a SLIME: it oozes at the slime beat and sits on its
+    // own shadow. It ran at the common creature beat and floated 8px up (plus
+    // a flyer's quick, tall bounce in render.js), which read as a bat — twice
+    // the frame rate, twice the bounce rate, and a body hanging over its
+    // shadow. Its combat `fly` (combat.js) is a MOVEMENT trait — long steps,
+    // a wider stalk jitter — and never a look.
+    purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
     goblin:        { sheet: 'goblin',        frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
     goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
   };

@@ -4036,13 +4036,14 @@ Render.drawObjects = function drawObjects(scene) {
       // Phase-offset per creature off a cached hash of its id, so a pack of
       // slimes doesn't pulse in unison.
       if (c._hopSeed == null) c._hopSeed = strHash31(c.id || '') % 600;
-      // HOW HIGH and HOW QUICK is the MONSTER table's business, not the art
-      // table's: a flyer (the bat-like purple slime) darts, everything else
-      // lumbers. The surface slime is in no monster table and lumbers.
-      const fly = !!(Combat.MONSTERS[c.kind] && Combat.MONSTERS[c.kind].fly);
-      const period = fly ? 320 : 600;
+      // One bounce for every hopping kind: a 600 ms beat, 6px at the top.
+      // It used to read the monster table's `fly` and give the purple slime a
+      // 320 ms, 10px bounce — a flyer's dart on a slime's body, which (with
+      // its old float) made it look airborne. `fly` is a movement trait
+      // (app.js step length / stalk jitter); the LOOK is the art row's.
+      const period = 600;
       const ph = ((performance.now() + c._hopSeed) % period) / period;
-      lift += Math.round(Math.abs(Math.sin(ph * Math.PI)) * (fly ? 10 : 6));
+      lift += Math.round(Math.abs(Math.sin(ph * Math.PI)) * 6);
     }
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
