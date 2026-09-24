@@ -473,7 +473,14 @@ function applyRenderScale(cam) {
 // box). Reserved as bottom padding on the shared modal wrap so the flex-centred
 // box lifts clear of the bottom inventory/HUD cluster. See makeModalShell —
 // this is the one knob that moves all dialogs together.
-const MODAL_LIFT_PX = 140;
+// EVERY DIALOG IS THE MAP VIEWPORT: makeModalShell seats its box exactly
+// over the map square (viewLeft/viewTop/viewSize — 352×352 game px) whatever
+// it holds; the content never sizes the box. Short content sits centred in
+// it, long content scrolls inside it. A STORY dialog (one with an art banner
+// — story splashes, ceremonies) may be a little bigger: the square grows by
+// STORY_MODAL_GROW_PX, a quarter of it above the map and the rest below.
+// (The map already spans the column's full width, so "bigger" is taller.)
+const STORY_MODAL_GROW_PX = 96;
 
 // ── Toast style ────────────────────────────────────────────────────────────
 // One dark chip for every in-world message, and one four-step type scale. The
@@ -3386,7 +3393,7 @@ class MapScene extends Phaser.Scene {
   showEnergyHelp() {
     const cur = Math.floor(this.save.energy ?? 0), max = this.getMaxEnergy();
     const { wrap, box, mount, mkBtn } = this.makeModalShell('energy-help',
-      { maxWidth: 300, textAlign: 'left', onClose: () => {}, kind: 'energy' });
+      { textAlign: 'left', onClose: () => {}, kind: 'energy' });
     const h = document.createElement('div');
     h.style.cssText = 'font:700 14px ui-monospace,monospace;color:var(--green);'
       + 'margin-bottom:8px;text-align:center;';
@@ -12607,9 +12614,9 @@ class MapScene extends Phaser.Scene {
   //   borderColor — defaults to the CONTROL gold: an ordinary dialog is
   //             something the player drives. Treasure ceremonies override it
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
-  makeModalShell(id, { zIndex = 50, minWidth = 230, maxWidth = 320, borderColor = UI_CONTROL_DIM,
+  makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon } = {}) {
+    kind, kindLabel, kindIcon, story = false } = {}) {
     document.getElementById(id)?.remove();
     const wrap = document.createElement('div');
     wrap.id = id;
@@ -12617,33 +12624,31 @@ class MapScene extends Phaser.Scene {
     // hide the movement pads (which otherwise sit on top of the modal — see the
     // gate). Every modal goes through here, so one class covers them all.
     wrap.classList.add('game-modal');
-    // Single source of truth for where EVERY dialog sits vertically. The wrap
-    // fills #game's 844px box and flex-centres the box, but we reserve space at
-    // the bottom (MODAL_LIFT_PX) so the centred dialog rides ABOVE dead-centre,
-    // clear of the bottom inventory/HUD cluster (tabs/slots/name/action btns).
-    // Because all modals go through here, they all position identically — tweak
-    // this one constant to move them all.
-    // Cover the VISIBLE slice of the game box, not the whole 844-tall box —
-    // fitGame publishes it as --view-top/--view-h in game px. Centring on the
-    // box put a dialog's middle below the viewport on every short screen.
+    // The backdrop covers the VISIBLE slice of the game box (fitGame
+    // publishes it as --view-top/--view-h in game px); the box itself is
+    // seated on the MAP VIEWPORT, not centred on the backdrop — see
+    // STORY_MODAL_GROW_PX. Every dialog goes through here, so every dialog
+    // is the same square in the same place.
     wrap.style.cssText =
       `position:absolute;left:0;right:0;top:var(--view-top,0px);height:var(--view-h,100%);` +
-      `z-index:${zIndex};display:flex;align-items:center;justify-content:center;` +
-      `padding-bottom:${MODAL_LIFT_PX}px;box-sizing:border-box;` +
+      `z-index:${zIndex};box-sizing:border-box;` +
       `background:${wrapBg};pointer-events:auto;${wrapExtra}`;
+    const vSize = this.viewSize || VIEW_CELLS * CELL_PX;
+    const vLeft = this.viewLeft ?? 0;
+    const vTop = this.viewTop ?? 0;
+    const grow = story ? STORY_MODAL_GROW_PX : 0;
     const box = document.createElement('div');
     box.style.cssText =
-      `min-width:${minWidth}px;max-width:${maxWidth}px;background:#1a1612;color:#fff;` +
+      // Seated on the map square, in #game's own (game px) space; the wrap
+      // starts at --view-top, so the box's top is measured back from it.
+      `position:absolute;left:${vLeft}px;width:${vSize}px;` +
+      `top:calc(${vTop - Math.round(grow / 4)}px - var(--view-top, 0px));height:${vSize + grow}px;` +
+      `box-sizing:border-box;display:flex;flex-direction:column;` +
+      `background:#1a1612;color:#fff;` +
       `border:2px solid ${borderColor};border-radius:10px;padding:14px 16px;` +
       `font:13px ui-monospace,monospace;` +
-      // Any dialog taller than the viewport scrolls INSIDE itself. Stats &
-      // Relics had neither cap nor scroll, so its header was clipped off the
-      // top and its Close button ran off the bottom — the only way out was a
-      // backdrop tap on whatever sliver of wrap was still visible.
-      // Minus the wrap's own bottom lift as well as the margin: the lift eats
-      // into the flex content box, so a dialog capped only against --view-h
-      // still overflowed BOTH ends (its header clipped off the top).
-      `max-height:calc(var(--view-h, 100%) - ${MODAL_LIFT_PX}px - 32px);` +
+      // Content that outgrows the square scrolls INSIDE it — the box never
+      // grows to fit. (Stats & Relics is the long one.)
       `overflow-y:auto;overscroll-behavior:contain;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
@@ -12704,7 +12709,17 @@ class MapScene extends Phaser.Scene {
       kindNode.appendChild(lbl);
     }
     const mount = () => {
-      if (kindNode) box.insertBefore(kindNode, box.firstChild);
+      // Everything the caller put in the box rides in one body block with
+      // auto margins: centred in the square when it is short, flush to the
+      // top (and scrolling) when it is long — auto margins collapse to zero
+      // on overflow, where centring would clip the top. The kind header stays
+      // pinned to the top edge above it.
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      body.style.cssText = 'margin:auto 0;flex:0 0 auto;';
+      while (box.firstChild) body.appendChild(box.firstChild);
+      box.appendChild(body);
+      if (kindNode) { kindNode.style.flex = '0 0 auto'; box.insertBefore(kindNode, box.firstChild); }
       // The ENTRANCE (index.html .modal-anim): the backdrop fades in and the
       // box pops up from a touch smaller and lower. Only when nothing was on
       // screen — body.modal-open is synced by a MutationObserver that runs
@@ -12737,7 +12752,7 @@ class MapScene extends Phaser.Scene {
   showMessageModal({ title, body, okLabel = 'OK', onDismiss, art }) {
     document.getElementById('offer-modal')?.remove();
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: () => {}, kind: 'note' });
+      { zIndex: 60, onClose: () => {}, kind: 'note', story: !!art });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
       this.dialogArtHTML(art) +
@@ -13072,7 +13087,7 @@ class MapScene extends Phaser.Scene {
     const m = this.fortSlotMachine(house);
     if (!m.prizes.length) { this.flash('The machine is broken.', sx, sy); return; }
     const { wrap, box, mount, mkBtn } = this.makeModalShell('slots-modal',
-      { maxWidth: 330, onClose: () => {}, kind: 'slots' });
+      { onClose: () => {}, kind: 'slots' });
     const GOLD = '#ffd24a';
     const title = document.createElement('div');
     title.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:8px';
@@ -13925,7 +13940,7 @@ class MapScene extends Phaser.Scene {
   // house. Opened from the ☰ menu's "Deliveries" button (wired in index.html).
   openDeliveryMenu() {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('delivery-menu',
-      { maxWidth: 320, textAlign: 'left', onClose: () => {}, kind: 'delivery' });
+      { textAlign: 'left', onClose: () => {}, kind: 'delivery' });
     // No title line — the kind header already says DELIVERY.
     const houses = this.knownDeliveryHouses();
     if (!houses.length) {
@@ -16922,7 +16937,7 @@ class MapScene extends Phaser.Scene {
   //                 to look at the next bar.
   showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { maxWidth: 340, onClose: () => {}, kind, kindLabel, kindIcon });
+      { onClose: () => {}, kind, kindLabel, kindIcon, story: !!art });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -17168,7 +17183,7 @@ class MapScene extends Phaser.Scene {
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
     onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
-      zIndex: 55, minWidth: 220, maxWidth: 300, borderColor: accent, wrapBg: '#000c',
+      zIndex: 55, borderColor: accent, wrapBg: '#000c', story: !!art,
       kind, kindLabel: header, kindIcon,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
       boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
