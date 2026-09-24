@@ -472,6 +472,35 @@
   //   { kind: 'relic', slot, tier, jackpot }
   //   { kind: 'gold',  slot, tier, amount, jackpot }     ← from walk-up
   // ────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────
+  // CAVE SUPPLIES. A shallow chest underground (T1/T2 — the tiers a cave
+  // mirror of an ordinary surface chest still rolls; deeper ones promote past
+  // it, loot.js chestTier) leans toward what a player DOWN THERE runs out of:
+  // coin, light, a way back up, and a potion. Not a new context — it is an
+  // OVERLAY on the chest's own biome row, so a park chest below a park is
+  // still a park chest, only better stocked for the dark:
+  //   classAdd  — added to the row's classBias before the pick (weightedPick
+  //               renormalises, so this draws share off the row's other classes)
+  //   favourite — the row's favourite widened to a weighted SET: when the
+  //               class comes up consumable, `p` of the time the item is drawn
+  //               from `ids` (torch, rope, or one of the four potions — a third
+  //               each for light / rope / potion) instead of the T1/T2 pool.
+  //               It REPLACES the row's own favourite down here, so a school
+  //               chest in a cave hands over a torch rather than a Book.
+  // Caller passes opts.depth (the chest's cave level; 0/absent = surface).
+  const CAVE_SUPPLY_MAX_TIER = 2;
+  const CAVE_SUPPLY_SKEW = {
+    classAdd:  { cash: 0.25, consumable: 0.25 },
+    favourite: { p: 0.85, ids: {
+      torch: 1, rope: 1,
+      vigor_potion: 0.25, shield_potion: 0.25, reach_potion: 0.25, speed_potion: 0.25,
+    } },
+  };
+  function caveSupplyApplies(contextKey, opts) {
+    return contextKey.startsWith('chest:') && (opts?.depth || 0) > 0
+      && ((opts?.tier) || 2) <= CAVE_SUPPLY_MAX_TIER;
+  }
+
   function pickReward(contextKey, save, rng, opts) {
     rng = rng || Math.random;
     const baseCtx = LOOT_CONTEXTS[contextKey];
@@ -485,6 +514,11 @@
       const mod = (RARITY_TUNING.chestTierMod && RARITY_TUNING.chestTierMod[t])
         || RARITY_TUNING.chestTierMod?.[2] || {};
       ctx = { ...baseCtx, ...mod };
+    }
+    if (caveSupplyApplies(contextKey, opts)) {
+      const classBias = { ...ctx.classBias };
+      for (const [c, w] of Object.entries(CAVE_SUPPLY_SKEW.classAdd)) classBias[c] = (classBias[c] || 0) + w;
+      ctx = { ...ctx, classBias, favourite: CAVE_SUPPLY_SKEW.favourite };
     }
 
     // 1) Pick class. If the context's relicCap is 0, scrub the relic weight so
@@ -649,11 +683,20 @@
     // the first one a new player ever reaches, would be the one that never
     // handed over a book. A Book is the one item whose worth is the same at
     // every tier, so letting it out of a humble chest costs nothing.
+    // A favourite is one `id`, or a weighted set `ids` ({ id: weight }) — the
+    // cave supplies' torch / rope / potions (CAVE_SUPPLY_SKEW). Only members
+    // of the rolled class count, so a set never hands over the wrong kind.
     const fav = ctx.favourite;
-    const favItem = fav && _ITEM_BY_ID[fav.id];
-    const id = (favItem && favItem.kind === cls && rng() < (fav.p ?? 0))
-      ? fav.id
-      : pickItemInClass(cls, tier, rng);
+    let favId = null;
+    if (fav) {
+      const cand = fav.ids
+        ? Object.entries(fav.ids).filter(([k]) => _ITEM_BY_ID[k]?.kind === cls)
+        : (_ITEM_BY_ID[fav.id]?.kind === cls ? [[fav.id, 1]] : []);
+      if (cand.length && rng() < (fav.p ?? 0)) {
+        favId = cand.length === 1 ? cand[0][0] : weightedPick(Object.fromEntries(cand), rng);
+      }
+    }
+    const id = favId || pickItemInClass(cls, tier, rng);
     if (!id) return null;
     // Quantity from chain+jackpot qty BUMPS. Each bump adds 1..N to the
     // stack where N is tierQtyPerBump[itemTier]. A T1 seed bump adds 1..5,
@@ -735,6 +778,7 @@
   global.CASH_TIER_VALUE        = CASH_TIER_VALUE;
   global.BUNDLE_IDS             = BUNDLE_IDS;
   global.LOOT_CONTEXTS          = LOOT_CONTEXTS;
+  global.CAVE_SUPPLY_SKEW       = CAVE_SUPPLY_SKEW;
   global.ITEMS_BY_CLASS_TIER    = ITEMS_BY_CLASS_TIER;
   global.pickReward             = pickReward;
   global.reconcileRelicOffer    = reconcileRelicOffer;

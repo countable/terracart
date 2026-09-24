@@ -387,3 +387,40 @@ test('road: the ceiling the bonus can climb to is the old T4 prize ceiling', () 
   assert.gt(over, 0, 'but the jackpot can');
 });
 })();
+
+// The cave supplies: a shallow chest underground (T1/T2) leans toward coin,
+// torches, rope and potions. Measured against the SAME biome row and tier on
+// the surface, so the overlay is what moved the numbers.
+test('cave supplies: T1/T2 chests underground pay coin, torches, rope and potions more often', () => {
+  const SUPPLY = new Set(Object.keys(CAVE_SUPPLY_SKEW.favourite.ids));
+  const rate = (depth, tier, biome = 'park') => {
+    const rng = seeded(4242 + depth * 7 + tier);
+    const save = { relics: {}, armor: {} };
+    let cash = 0, supply = 0; const N = 4000;
+    for (let i = 0; i < N; i++) {
+      const r = pickReward('chest:' + biome, save, rng, { tier, depth });
+      if (r && r.kind === 'gold' && r.slot == null) cash++;
+      if (r && r.kind === 'item' && SUPPLY.has(r.id)) supply++;
+    }
+    return { cash: cash / N, supply: supply / N };
+  };
+  for (const tier of [1, 2]) {
+    const up = rate(0, tier), down = rate(1, tier);
+    assert.truthy(down.cash > up.cash + 0.1, `T${tier}: coin ${up.cash.toFixed(3)} → ${down.cash.toFixed(3)}`);
+    assert.truthy(down.supply > up.supply * 2 && down.supply > 0.2,
+      `T${tier}: supplies ${up.supply.toFixed(3)} → ${down.supply.toFixed(3)}`);
+  }
+  // T3+ underground is untouched: the skew is for the shallow tiers only.
+  const t3up = rate(0, 3), t3down = rate(2, 3);
+  assert.truthy(Math.abs(t3up.cash - t3down.cash) < 0.03, 'T3 underground rolls like T3 on the surface');
+});
+
+test('cave supplies: the favourite set only ever pays a consumable', () => {
+  const rng = seeded(99);
+  for (let i = 0; i < 3000; i++) {
+    const r = pickReward('chest:civic', { relics: {}, armor: {} }, rng, { tier: 2, depth: 1 });
+    if (r && r.kind === 'item' && CAVE_SUPPLY_SKEW.favourite.ids[r.id] != null) {
+      assert.eq(ITEM_BY_ID[r.id].kind, 'consumable', `${r.id} is a consumable`);
+    }
+  }
+});

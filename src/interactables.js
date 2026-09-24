@@ -461,7 +461,7 @@ const INTERACTABLES = {
             : (stand
                 ? { kind: 'item', id: stand.item, qty: 2 + Math.floor(Math.random() * 3), consolation: 0 }
                 : ((typeof pickReward === 'function')
-                    ? pickReward('chest:' + category, save, undefined, { tier: chestT })
+                    ? pickReward('chest:' + category, save, undefined, { tier: chestT, depth: o.depth || 0 })
                     : null)));
       if (!result) {
         addMoney(save, 1);
