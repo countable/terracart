@@ -623,18 +623,33 @@
   const LAMP_FOOT_R_CELLS = LAMP_DRAW_CELLS * LAMP_FOOT_FRAC;
   const LAMP_HALO_FRAC = 0.30;     // the pool of glow on the ground, as a fraction of the square
   const LAMP_HALO_A = 0.36;        // …its alpha at the foot
-  const LAMP_HALO_SQUASH = 0.5;    // …and how flat it lies: light on a road, not a ball of it
+  // THE VIEW. The lamp is drawn as the map is looked at: from LAMP_VIEW_DEG
+  // above the ground, an orthographic view. Everything that lies FLAT (the
+  // pool, the shadow, the top face and underside of every section of the
+  // turn) is a circle squashed by LAMP_VIEW_K = sin(view); everything that
+  // STANDS is shortened by cos(view). The profile below was authored as seen
+  // from LAMP_AUTHORED_DEG (a lamp seen nearly side-on — a street of masts),
+  // so its heights go through LAMP_TILT, one linear map about the ground line.
+  // Change the look of the angle HERE, never by retyping the table.
+  const LAMP_VIEW_DEG = 45;
+  const LAMP_AUTHORED_DEG = 15;
+  const LAMP_VIEW_K = Math.sin(LAMP_VIEW_DEG * Math.PI / 180);
+  const LAMP_TILT = Math.cos(LAMP_VIEW_DEG * Math.PI / 180) / Math.cos(LAMP_AUTHORED_DEG * Math.PI / 180);
+  const LAMP_HALO_SQUASH = LAMP_VIEW_K; // …and how flat it lies: light on a road, not a ball of it
   const LAMP_BLOOM_FRAC = 0.18;    // the bloom around the lit glass
   const LAMP_BLOOM_A = 0.46;
   const LAMP_GLASS_A = 0.96;       // the glass at its hot core
   const LAMP_SHADOW_A = 0.34;      // the ground shadow's alpha
   const LAMP_EDGE_MIX = 0.68;      // how far the outline bronze is mixed toward the ink
-  const LAMP_UNDER = 0.7;          // every section's underside bulge, as a fraction of its width
+  // Every section's rim bulge — a quadratic's control point, so twice the
+  // depth it reaches: the rim of a circle seen from LAMP_VIEW_DEG above.
+  const LAMP_UNDER = 2 * LAMP_VIEW_K;
   const LAMP_INK = (typeof UI_LAMP_GLOW === 'string') ? UI_LAMP_GLOW : '#9a8cff';
   const LAMP_GOLD = (typeof UI_LAMP_GOLD === 'string') ? UI_LAMP_GOLD : '#d9a441';
   const LAMP_DARK = [28, 24, 20];  // the outline ink every sprite in here is drawn with
 
-  // THE PROFILE — the lamp as a lathe turns it, listed top to bottom. Each row
+  // THE PROFILE — the lamp as a lathe turns it, listed top to bottom (as
+  // authored, from LAMP_AUTHORED_DEG; lampTilt stands it at LAMP_VIEW_DEG). Each row
   // is one section: its top and bottom edge and its half-width at each, all as
   // fractions of the baked square, with the ground at LAMP_GROUND_FRAC. `tone`
   // lightens (+, a moulding catching the light) or darkens (−, a face turned
@@ -642,10 +657,14 @@
   // torus) or in (the flare of the base); `cap` strokes the visible top ring
   // of a piece wider than the one above it.
   //
-  // The rows are drawn IN THIS ORDER, so a lower piece overlaps the one above
-  // it — the painter rule (CLAUDE.md), inside the one object. The lit glass is
-  // not here: it is the one part that is not metal, and it is painted between
-  // the eaves and the skirt (see paintLamp).
+  // The rows are drawn BOTTOM UP (paintLamp walks the table backwards): each
+  // piece STANDS ON the top face of the one below it, and seen from above the
+  // piece standing there is nearer the eye than the face it stands on, so it
+  // covers that face's middle and leaves its rim showing. (The painter rule
+  // in CLAUDE.md ranks separate things on the ground; inside one stack the
+  // higher piece is in front.) The moulding band and the cross-arm are drawn
+  // after the column they wrap. The lit glass is not here: it is the one part
+  // that is not metal, and it is painted between the skirt and the eaves.
   //
   // HOW TALL. Every row here was pulled toward the ground line by one linear
   // map about LAMP_GROUND_FRAC (×0.85, Sep 2026) — one transform over the
@@ -654,13 +673,16 @@
   // are untouched, so the lamp reads as the same casting, standing a head
   // shorter. It used to rise 0.578 of the square above its foot, near enough
   // a tree's height (a tree is 1.5 cells and the square is LAMP_DRAW_CELLS
-  // across), which made a restored street a row of masts; it rises 0.494 now.
+  // across), which made a restored street a row of masts; the table rises
+  // 0.529 (the lantern was lengthened for the 45° view, so the eaves seen
+  // from above leave the glass showing), and LAMP_TILT stands it about 0.39.
   // Retune the HEIGHT by re-mapping the table the same way, never by moving
   // LAMP_GROUND_FRAC — that line is where the lamp STANDS (app.js seats the
   // sprite on it), not how tall it is.
+  const lampTilt = (y) => LAMP_GROUND_FRAC - (LAMP_GROUND_FRAC - y) * LAMP_TILT;
   const LAMP_PROFILE = [
-    { y0: 0.154, y1: 0.217, w0: 0.015, w1: 0.058, tone: -0.18, curve: -0.30 }, // the crown
-    { y0: 0.215, y1: 0.234, w0: 0.072, w1: 0.066, tone: 0.30, cap: true },     // its eaves
+    { y0: 0.119, y1: 0.182, w0: 0.015, w1: 0.058, tone: -0.18, curve: -0.30 }, // the crown
+    { y0: 0.180, y1: 0.199, w0: 0.068, w1: 0.060, tone: 0.30, cap: true },     // its eaves
     { y0: 0.304, y1: 0.339, w0: 0.058, w1: 0.030, tone: -0.10, curve: -0.28 }, // the lantern's skirt
     { y0: 0.338, y1: 0.353, w0: 0.036, w1: 0.030, tone: 0.28, curve: 0.35 },   // the collar under it
     { y0: 0.350, y1: 0.528, w0: 0.013, w1: 0.019, tone: 0 },                   // the column
@@ -668,13 +690,14 @@
     { y0: 0.518, y1: 0.562, w0: 0.020, w1: 0.054, tone: -0.05, curve: -0.45 }, // the base's flare
     { y0: 0.560, y1: 0.588, w0: 0.060, w1: 0.068, tone: 0.22, curve: 0.15, cap: true }, // its step
     { y0: 0.586, y1: 0.620, w0: 0.074, w1: 0.085, tone: -0.12, curve: 0.10, cap: true }, // the plinth
-  ];
+  ].map((s) => ({ ...s, y0: lampTilt(s.y0), y1: lampTilt(s.y1) }));
   // The lit glass, in the same units — wider at its foot, like every lantern.
-  const LAMP_GLASS = { y0: 0.231, y1: 0.305, w0: 0.038, w1: 0.056 };
+  const LAMP_GLASS = { y0: lampTilt(0.196), y1: lampTilt(0.305), w0: 0.038, w1: 0.056 };
   // The finial over the crown, and the cross-arm (the old ladder rest) under
   // the lantern: the two pieces that are not sections of the turn.
-  const LAMP_FINIAL = { cy: 0.142, r: 0.016 };
-  const LAMP_ARM = { y0: 0.363, y1: 0.375, w: 0.066, ball: 0.014 };
+  const LAMP_FINIAL = { cy: lampTilt(0.107), r: 0.016 };
+  const LAMP_ARM = { y0: lampTilt(0.363), y1: lampTilt(0.375), w: 0.066, ball: 0.014 };
+  const LAMP_BAND_ROW = 5, LAMP_COLUMN_ROW = 4, LAMP_SKIRT_ROW = 2;
   // WHERE THE LIGHT COMES OUT: the lit glass's own midline, and how far that
   // is ABOVE the lamp's point, in CELLS. The lamp STANDS on its point (the
   // plinth, the shadow and the painted pool are all on the ground line), but
@@ -712,9 +735,9 @@
       g.addColorStop(1, rgba(shade(t - 0.45), 1));
       return g;
     };
-    // One section of the turn: straight top, bowed sides, and an underside
-    // that bulges toward the viewer — the thickness you see of every piece,
-    // because the world is drawn from a little above.
+    // One section of the turn: bowed sides, the far rim of its top face
+    // arching away from the viewer and the near rim of its underside bulging
+    // toward them — both circles seen from LAMP_VIEW_DEG above.
     const sectionPath = (y0, y1, w0, w1, curve) => {
       const k = (curve || 0) * (w0 + w1) / 2;
       const ym = (y0 + y1) / 2, wm = (w0 + w1) / 2 + k;
@@ -723,7 +746,21 @@
       cx.quadraticCurveTo(c - wm, ym, c - w1, y1);
       cx.quadraticCurveTo(c, y1 + w1 * LAMP_UNDER, c + w1, y1);
       cx.quadraticCurveTo(c + wm, ym, c + w0, y0);
+      cx.quadraticCurveTo(c, y0 - w0 * LAMP_UNDER, c - w0, y0);
       cx.closePath();
+    };
+    // The TOP FACE of a piece wider than the one it carries: the whole
+    // circle, seen from above — what makes a stack of castings read as looked
+    // DOWN on rather than across.
+    const topFace = (y0, w0, tone) => {
+      cx.beginPath();
+      cx.moveTo(c - w0, y0);
+      cx.quadraticCurveTo(c, y0 - w0 * LAMP_UNDER, c + w0, y0);
+      cx.quadraticCurveTo(c, y0 + w0 * LAMP_UNDER, c - w0, y0);
+      cx.closePath();
+      cx.fillStyle = metal(c - w0, c + w0, tone);
+      cx.fill();
+      strokeEdge();
     };
     const strokeEdge = () => { cx.lineWidth = lw; cx.strokeStyle = rgba(edge, 1); cx.stroke(); };
     // THE LIT GLASS — the one part of a lamp that is not metal. White-hot
@@ -785,36 +822,34 @@
     //    sprite here shadows on — and squashed flat: it lies on the road.
     cx.fillStyle = `rgba(${LAMP_DARK[0]},${LAMP_DARK[1]},${LAMP_DARK[2]},${LAMP_SHADOW_A})`;
     cx.beginPath();
-    cx.ellipse(c + r * 0.40, gy + r * 0.26, r * 1.25, r * 0.50, 0, 0, Math.PI * 2);
+    cx.ellipse(c + r * 0.40, gy + r * 0.26, r * 1.25, r * 1.25 * LAMP_VIEW_K, 0, 0, Math.PI * 2);
     cx.fill();
-    // 4. THE FINIAL: the ball over the crown, the top of the whole lamp.
-    const fr = S * LAMP_FINIAL.r, fy = S * LAMP_FINIAL.cy;
-    cx.beginPath(); cx.arc(c, fy, fr, 0, Math.PI * 2);
-    cx.fillStyle = metal(c - fr, c + fr, 0.15); cx.fill(); strokeEdge();
-    // 5. THE TURN, top to bottom — a lower piece over the one above it — with
-    //    the lit glass painted in its place between the eaves and the skirt.
-    for (let i = 0; i < LAMP_PROFILE.length; i++) {
-      if (i === 2) glass();
+    // 4. THE TURN, BOTTOM UP — each piece stands on the one below it, so it
+    //    covers that one's top face (see LAMP_PROFILE) — with the lit glass
+    //    painted in its place between the skirt and the eaves, and the band
+    //    held back until the column it wraps is up.
+    const order = [];
+    for (let i = LAMP_PROFILE.length - 1; i >= 0; i--) {
+      if (i === LAMP_BAND_ROW) continue;
+      order.push(i);
+      if (i === LAMP_COLUMN_ROW) order.push(LAMP_BAND_ROW);
+    }
+    for (const i of order) {
       const s = LAMP_PROFILE[i];
       const y0 = s.y0 * S, y1 = s.y1 * S, w0 = s.w0 * S, w1 = s.w1 * S;
       sectionPath(y0, y1, w0, w1, s.curve);
       cx.fillStyle = metal(c - Math.max(w0, w1), c + Math.max(w0, w1), s.tone || 0);
       cx.fill();
       strokeEdge();
-      // The top RING of a piece wider than the one it carries: the moulding
-      // read that turns a stack of silhouettes into a stack of castings.
-      if (s.cap) {
-        cx.beginPath();
-        cx.moveTo(c - w0 + lw, y0);
-        cx.quadraticCurveTo(c, y0 + w0 * LAMP_UNDER * 0.55, c + w0 - lw, y0);
-        cx.lineWidth = lw * 0.9;
-        cx.strokeStyle = rgba(shade(0.55), 1);
-        cx.stroke();
-      }
+      // The top face of a piece wider than the one it carries, catching the
+      // light: the moulding read that turns a stack of silhouettes into a
+      // stack of castings.
+      if (s.cap) topFace(y0, w0 - lw * 0.5, (s.tone || 0) + 0.35);
+      if (i === LAMP_SKIRT_ROW) glass();
       // The CROSS-ARM goes on once the column is up: a thin bar with a ball at
       // each end, under the lantern — the ladder rest every cast-iron lamp
       // wears, and the one piece that reads as ornament rather than structure.
-      if (i === 4) {
+      if (i === LAMP_BAND_ROW) {
         const ay0 = S * LAMP_ARM.y0, ay1 = S * LAMP_ARM.y1, aw = S * LAMP_ARM.w;
         const ah = ay1 - ay0, amy = (ay0 + ay1) / 2, ab = S * LAMP_ARM.ball;
         cx.beginPath();
@@ -830,6 +865,10 @@
         }
       }
     }
+    // 5. THE FINIAL: the ball on the crown, the top of the whole lamp.
+    const fr = S * LAMP_FINIAL.r, fy = S * LAMP_FINIAL.cy;
+    cx.beginPath(); cx.arc(c, fy, fr, 0, Math.PI * 2);
+    cx.fillStyle = metal(c - fr, c + fr, 0.15); cx.fill(); strokeEdge();
   }
 
   // The kerb: a hairline pale line along the outer edge of a restored band —
@@ -1598,7 +1637,7 @@
 
   global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
                          paintLamp, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
-                         LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS,
+                         LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };
 })(window);

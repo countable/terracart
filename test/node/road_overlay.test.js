@@ -1031,21 +1031,23 @@ test('street lamp: it STANDS on its point — ironwork above the ground line, th
   assert.eq(scale[1], 1, 'unsquashed across the road');
   assert.lt(scale[2], 1, 'and flattened along it: a pool, not a ball');
   // The lamp itself: every path point is above the ground line, bar the near
-  // edge of the plinth's own footprint, which dips below it the way the
-  // underside of every section here bulges toward the viewer.
+  // rim of the plinth's own footprint — a circle of radius r seen from
+  // LAMP_VIEW_DEG above, so it dips r·sin(view) toward the viewer.
   const pts = roLampPath(ops);
   const lowest = Math.max(...pts.map(([, y]) => y));
   const highest = Math.min(...pts.map(([, y]) => y));
-  assert.inRange(lowest, gy, gy + r * 0.5, 'the ironwork stands ON the ground line');
+  assert.inRange(lowest, gy, gy + r * RoadOverlay.LAMP_VIEW_K + 0.5, 'the ironwork stands ON the ground line');
   // HOW FAR above it: enough to read as a post, and no further. The profile
   // stood 0.578 of the square tall until Sep 2026 — a tree is 1.5 cells and
   // the square is LAMP_DRAW_CELLS across, so a lamp was as tall as the trees
   // it stood between and a restored street read as a row of masts. Every row
   // of LAMP_PROFILE was pulled toward the ground line by one linear map (the
-  // widths untouched), which is why nothing else in this file moved.
+  // widths untouched), which is why nothing else in this file moved. The 45°
+  // view (LAMP_TILT) shortened it again the same way: seen from above, a post
+  // is foreshortened by cos(view).
   const height = (gy - highest) / S;
-  assert.gt(height, 0.4, 'it rises most of the square above the line — a post, not a stone');
-  assert.lt(height, 0.55, 'and not a mast: shorter than the trees it stands between');
+  assert.gt(height, 0.33, 'it rises most of the way up the square — a post, not a stone');
+  assert.lt(height, 0.45, 'and not a mast: shorter than the trees it stands between');
   // The ground shadow: one flat ellipse, down-RIGHT of the foot (the side
   // every sprite in here shadows on), laid before the lamp that throws it.
   const ell = ops.filter(([k]) => k === 'ellipse');
@@ -1069,14 +1071,17 @@ test('street lamp: nothing on it is wider than the footprint the verge offset is
   RoadOverlay.paintLamp(ctx, S);
   const widest = Math.max(...roLampPath(ops).map(([x]) => Math.abs(x - c)));
   assert.inRange(widest, r - 0.75, r + 0.75, `the widest part IS the footprint (${r.toFixed(1)}px), got ${widest.toFixed(1)}`);
-  // …and the piece that owns it is drawn LAST: the plinth is the lowest thing
-  // on the lamp, so it covers the flare above it — the painter rule (CLAUDE.md)
-  // inside the one object.
-  const lastFill = ops.length - 1 - [...ops].reverse().findIndex(([k]) => k === 'fill');
-  const after = roLampPath(ops.slice(0, lastFill));
-  const before = roLampPath(ops.slice(0, ops.findIndex(([k]) => k === 'fill')));
-  assert.gt(Math.max(...after.map(([x]) => Math.abs(x - c))), Math.max(...before.map(([x]) => Math.abs(x - c))),
-    'the last piece painted is wider than the first — the stack runs top to bottom');
+  // …and the piece that owns it is the FIRST casting drawn: seen from above,
+  // each piece stands on the top face of the one below it and so covers that
+  // face's middle — the stack is painted bottom up, the finial last.
+  const fills = ops.map(([k], i) => k === 'fill' ? i : -1).filter((i) => i >= 0);
+  const shadowFill = fills[0], plinthFill = fills[1];
+  const plinth = roLampPath(ops.slice(shadowFill + 1, plinthFill));
+  assert.inRange(Math.max(...plinth.map(([x]) => Math.abs(x - c))), r - 0.75, r + 0.75,
+    'the first casting painted is the plinth — the stack runs bottom up');
+  const lastArc = ops.map(([k]) => k).lastIndexOf('arc');
+  assert.gt(lastArc, ops.map(([k]) => k).lastIndexOf('quadraticCurveTo'),
+    'and the last is the finial on top of it all');
 });
 
 test('street lamp: real gradients and opaque outlines, never a stack of translucent strokes', () => {
