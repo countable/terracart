@@ -74,7 +74,7 @@ test('isSatisfied: a house fed ONCE is happy for good (the house Discovery badge
 
 test('delivery: the accept path banks the house badge and writes no day stamp', () => {
   const src = APP_JS_SRC;
-  assert.truthy(/_bankDiscovery\(`house:\$\{house\.id\}`\)/.test(src), 'first delivery banks house:<id>');
+  assert.truthy(/_bankDiscovery\(`house:\$\{house\.id\}`,/.test(src), 'first delivery banks house:<id>');
   assert.falsy(/houseSatisfied\[house\.id\]\s*=/.test(src), 'no per-day happy stamp any more');
 });
 

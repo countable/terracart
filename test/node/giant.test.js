@@ -105,7 +105,7 @@
     const app = APP_JS_SRC;
     assert.truthy(/const qDone = Quests\.onKill\(save, victim\.kind\);/.test(app), 'quest credit is the kind as-is');
     assert.falsy(/\.giant \|\| victim\.kind/.test(app), 'no fold to the base kind anywhere');
-    assert.truthy(/if \(this\._bankDiscovery\(victim\.kind\)\)/.test(app), 'the elite badge is keyed by the kind as-is');
+    assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(app), 'the elite badge is keyed by the kind as-is');
   });
 
   test('giants: the shipping consumers resolve a giant to its base kind for ART only', () => {

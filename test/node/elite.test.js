@@ -107,7 +107,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   const kill = app.slice(app.indexOf('resolveDefeat(victim) {'), app.indexOf('_busyWheel() {'));
   assert.truthy(/Combat\.enemyBounty\(victim\.kind, this\.depth, Combat\.eliteMul\(victim\)\)/.test(kill),
     'the bounty is paid at the elite multiplier');
-  assert.truthy(/if \(this\._bankDiscovery\(victim\.kind\)\)/.test(kill),
+  assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(kill),
     'an elite kill banks the kind\'s Discovery badge the first time');
   assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ rollBonus: Combat\.eliteRollBonus\(victim\.kind, this\.depth\) \}\)/.test(kill),
     'and rolls the elite treasure at the commensurate tier after that');
@@ -123,12 +123,12 @@ test('delivery: the first delivery to a house banks a Discovery badge, once', ()
   const start = app.indexOf('presentDeliveryOffer(sx, sy, house, recordDeal) {');
   assert.gt(start, 0, 'the delivery handler exists');
   const accept = app.slice(start, app.indexOf('\n  }\n', app.indexOf('onAccept: (q) =>', start)));
-  assert.truthy(/const firstHere = this\._bankDiscovery\(`house:\$\{house\.id\}`\);/.test(accept),
+  assert.truthy(/const firstHere = this\._bankDiscovery\(`house:\$\{house\.id\}`,/.test(accept),
     'the accept handler banks house:<id> through the shared ledger');
   assert.truthy(/if \(firstHere\) this\.flashShiny\(gain, true, '🏠 NEW DOOR 🏠'\);/.test(accept),
     'and gets the same fanfare as any other Discovery badge');
   // The ledger itself: one badge per key, ever.
-  const lStart = app.indexOf('_bankDiscovery(key) {');
+  const lStart = app.indexOf('_bankDiscovery(key, label) {');
   const ledger = app.slice(lStart, app.indexOf('flashShiny(money, isNew = true', lStart));
   assert.truthy(/if \(found\[key\]\) return false;/.test(ledger), 'a banked key is refused');
   assert.truthy(/this\.addToInv\('discovery', 1, true\)/.test(ledger), 'a new key pays the badge');
