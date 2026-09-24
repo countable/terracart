@@ -994,6 +994,8 @@ const ITEM_EFFECTS = {
   // one exception, and the line says so: it is the only place that caveat is
   // written now that the Book no longer repeats the mango's effect.
   mango:     'Feed to tame any wild animal — never a cave monster',
+  // An ingredient: the Craft page at Home is the only place that says so.
+  longgrass: 'Twist 3 into a Rope on Home\'s Craft page',
   // The sapphire's ADVERTISED use — the one its Portal button opens, and the
   // only one this line may name. Until Sep 2026 it read "Offer to a slime to
   // tame it": the game's one real secret, printed on the inventory bar the
@@ -1588,6 +1590,9 @@ function trailerSellPrice(baseValue, relics) {
 const HOME_RECIPES = [
   { id: 'torch',     cost: [{ id: 'wood', qty: 1 }] },
   { id: 'scarecrow', cost: [{ id: 'wood', qty: 3 }] },
+  // Three strands of long grass twist into one rope — the way back up a cave
+  // without buying one or finding one in a shallow cave chest.
+  { id: 'rope',      cost: [{ id: 'longgrass', qty: 3 }] },
 ];
 // How many times a recipe can be made from what is held: the fewest times
 // any one ingredient covers its share. `count(id)` reads the bag. An empty
