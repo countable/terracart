@@ -14757,29 +14757,9 @@ class MapScene extends Phaser.Scene {
       });
       return;
     }
-    // The pick. Each button IS a reward card (the shell takes HTML labels), so
-    // the player reads the two the same way they read a single ceremony. An
-    // actions modal has no tap-to-dismiss, so the prize can't be lost to a
-    // stray tap on the overlay.
-    this.showChestRewardModal({
-      kind: 'trail',
-      header,
-      art: 'trail_prize',
-      // No icon: the banner is the picture and each choice button carries its
-      // own. A gem here made the dialog taller than the screen.
-      name: 'Take your pick',
+    this._offerTreasurePick({
+      kind: 'trail', header, art: 'trail_prize', choices, onDismiss,
       sub: `${walked} restored · ${choices.length} finds — one is yours<br>${next}`,
-      onDismiss,
-      actions: choices.map((reward) => ({
-        label: this._trailChoiceLabel(reward),
-        onClick: () => {
-          const card = this._claimTrailReward(reward);
-          if (!card) return;
-          this.flashLoot(card.qty ? `${card.name} ${card.qty}` : card.name,
-                         card.color || UI_TREASURE, 1,
-                         reward.kind === 'item' ? reward.id : null);
-        },
-      })),
     });
   }
 
@@ -14864,6 +14844,74 @@ class MapScene extends Phaser.Scene {
     }
     if (reward.consolation > 0) addMoney(this.save, reward.consolation);
     return card;
+  }
+
+  // THE PICK — one lane for every "two finds, keep one" in the game: the road
+  // ladder above and a dug-up X (digTreasurePick). Each button IS a reward
+  // card (the shell takes HTML labels), so the player reads the two the same
+  // way they read a single ceremony. An actions modal has no tap-to-dismiss,
+  // so the prize can't be lost to a stray tap on the overlay. Nothing is paid
+  // until a button is pressed: the option turned down was never theirs.
+  _offerTreasurePick({ kind, header, art, choices, sub, kindIcon, onDismiss }) {
+    this.showChestRewardModal({
+      kind,
+      header,
+      art,
+      kindIcon,
+      // No icon: the banner is the picture and each choice button carries its
+      // own. A gem here made the dialog taller than the screen.
+      name: 'Take your pick',
+      sub,
+      onDismiss,
+      actions: choices.map((reward) => ({
+        label: this._trailChoiceLabel(reward),
+        onClick: () => {
+          const card = this._claimTrailReward(reward);
+          if (!card) return;
+          this.flashLoot(card.qty ? `${card.name} ${card.qty}` : card.name,
+                         card.color || UI_TREASURE, 1,
+                         reward.kind === 'item' ? reward.id : null);
+          if (reward.jackpot >= 1 && typeof this.flashJackpot === 'function') {
+            this.flashJackpot(reward.jackpot);
+          }
+          persistSave(this.save);
+        },
+      })),
+    });
+  }
+
+  // A buried X, dug up: two finds from the pool an X has always paid
+  // ('treasure:default'), keep one — the road ladder's pick (Trail.rollChoices
+  // owns "the two must differ"). The mark is already spent in
+  // save.foundTreasures before this opens, so a reload can't re-roll it.
+  // Low-tier seeds keep the bulk bonus grantTreasureRoll gives them. When the
+  // pool can't find two distinct finds, the one it found pays the way an X
+  // always did.
+  digTreasurePick(sx, sy) {
+    const roll = () => {
+      const r = (typeof pickReward === 'function') ? pickReward('treasure:default', this.save) : null;
+      if (r && r.kind === 'item' && isLowTierSeed(r.id)) r.qty += LOW_TIER_SEED_QTY_BONUS;
+      return r;
+    };
+    const choices = Trail.rollChoices(roll);
+    if (choices.length < 2) {
+      if (!choices.length) { grantTreasureRoll(this, this.save, sx, sy, '✕'); return; }
+      const card = this._claimTrailReward(choices[0]);
+      if (card) this.flashLoot(`✕ → ${card.qty ? `${card.name} ${card.qty}` : card.name}`,
+                               card.color || UI_TREASURE, 1,
+                               choices[0].kind === 'item' ? choices[0].id : null);
+      persistSave(this.save);
+      return;
+    }
+    // The hero glyph is the X itself — the mark the player just dug, drawn
+    // in the pale scratched-stone ink render.js uses for it underground (the
+    // dark surface ink would vanish on the dialog).
+    const kindIcon = '<svg width="22" height="22" viewBox="0 0 12 12" style="display:block">'
+      + '<path d="M2 2L10 10M10 2L2 10" stroke="#c9b48a" stroke-width="2" stroke-linecap="round"/></svg>';
+    this._offerTreasurePick({
+      kind: 'treasure', header: 'Buried treasure', kindIcon, choices,
+      sub: `${choices.length} finds in the hole — one is yours`,
+    });
   }
 
   // by shopInteract to route to the restore modal and by the render layer
