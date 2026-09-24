@@ -12794,7 +12794,7 @@ class MapScene extends Phaser.Scene {
     // around here is written null-tolerant, so keep the unseeded fallback.)
     const swapRoll = house?.id ? this.shopRng(house, 'relicswap')() : Math.random();
     if (!shopType && swapRoll < 0.10) {
-      const relicOffer = this.peekOrBuildRelicOffer(house);
+      const relicOffer = this.peekOrBuildRelicOffer(house, { markupScale: ShopsMath.markupFor(house) });
       if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
     }
     // Each remaining storefront (a fort's quartermaster) has a deterministic
@@ -15616,7 +15616,8 @@ class MapScene extends Phaser.Scene {
       : undefined;
     // Flower charm halves the quoted price (floor $1) — see shopCharmMul.
     const cashCost = Math.max(1,
-      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.shopCharmMul(opts.house)));
+      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng, ShopsMath.markupFor(opts.house))
+        * this.shopCharmMul(opts.house)));
     return {
       kind: 'money',
       label: this.moneyHTML(cashCost),

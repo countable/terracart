@@ -332,11 +332,11 @@ test('shop source: the relic-swap coin is seeded, not Math.random', () => {
 test('shop source: the markup roll is seeded off the shop bucket', () => {
   const src = BUILD_SHOP_OFFER_SRC;
   assert.truthy(/shopRng\(/.test(src), 'buildShopOffer reaches for the seeded rng');
-  // buyPrice(save, baseValue, rng) — the third argument is the whole point;
+  // buyPrice(save, baseValue, rng, markupScale) — the third argument is the whole point;
   // without it the call falls back to Math.random and the price re-rolls.
   const call = src.match(/buyPrice\(([^)]*)\)/);
   assert.truthy(call, 'found the buyPrice call');
-  assert.eq(call[1].split(',').length, 3, 'buyPrice is passed an explicit rng');
+  assert.eq((call[1].split(',')[2] || '').trim(), 'priceRng', 'buyPrice is passed an explicit rng');
 });
 
 test('shop source: no NEW unseeded randomness creeps into the offer path', () => {
@@ -409,3 +409,23 @@ test('shop source: no NEW unseeded randomness creeps into the offer path', () =>
     }
   });
 })();
+
+test('forts: half the markup a market charges, never below par', () => {
+  const save = { relics: {} };
+  const at = (u) => () => u;
+  const fort = { tier: 11 }, market = { tier: 9 };
+  assert.eq(ShopsMath.markupFor(fort), 0.5);
+  assert.eq(ShopsMath.markupFor(market), 1);
+  assert.eq(ShopsMath.markupFor(null), 1);
+  for (const u of [0, 0.5, 0.999]) {
+    const m = ShopsMath.buyPrice(save, 100, at(u), ShopsMath.markupFor(market));
+    const f = ShopsMath.buyPrice(save, 100, at(u), ShopsMath.markupFor(fort));
+    assert.truthy(Math.abs((f - 100) - (m - 100) / 2) <= 1, `u=${u}: fort ${f} is half of market ${m}'s markup`);
+    assert.truthy(f >= 100, 'never under par');
+  }
+  const app = APP_JS_SRC;
+  assert.truthy(/ShopsMath\.buyPrice\(this\.save, baseValue, priceRng, ShopsMath\.markupFor\(opts\.house\)\)/.test(app),
+    'the cash offer passes the shop\'s markup scale');
+  assert.truthy(/peekOrBuildRelicOffer\(house, \{ markupScale: ShopsMath\.markupFor\(house\) \}\)/.test(app),
+    'and so does the fort\'s relic swap');
+});

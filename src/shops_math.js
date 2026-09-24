@@ -129,10 +129,24 @@
   // Cash price to BUY an item worth baseValue. The Bow relic shrinks the markup:
   // no bow → 1.2..3.0× base; Bow T7 → a flat 1.0× (par). `r` defaults to
   // Math.random — pass a seeded one for a stable per-bucket price.
-  function buyPrice(save, baseValue, r = Math.random) {
+  // `markupScale` shrinks the MARKUP (the part of the multiplier above par),
+  // never the list price under it: a scale of 0.5 turns a 3.0× roll into
+  // 2.0× and leaves a 1.0× roll at par. A fort's quartermaster charges
+  // FORT_MARKUP_SCALE of a market's inflation — see markupFor.
+  function buyPrice(save, baseValue, r = Math.random, markupScale = 1) {
     const { lo, hi } = (typeof buyMarkupRange === 'function')
       ? buyMarkupRange(save.relics) : { lo: 1.2, hi: 3.0 };
-    return Math.max(1, Math.ceil(baseValue * (lo + r() * (hi - lo))));
+    const mul = lo + r() * (hi - lo);
+    return Math.max(1, Math.ceil(baseValue * (1 + (mul - 1) * markupScale)));
+  }
+
+  // A fort sells at HALF the markup a market does — a quartermaster supplying
+  // the garrison, not a village shop restocking at a profit. One scale both
+  // of its sales read: the cash offer (buyPrice) and the relic swap
+  // (Gear.buildRelicOffer's non-castle markup).
+  const FORT_MARKUP_SCALE = 0.5;
+  function markupFor(house) {
+    return (house && house.tier === 11) ? FORT_MARKUP_SCALE : 1;
   }
 
   // ── Roadside stands ──────────────────────────────────────────────────
@@ -258,7 +272,7 @@
     return c;
   }
 
-  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
+  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice, FORT_MARKUP_SCALE, markupFor,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
                      TRADER_AFFORDABLE_CHANCE, TRADER_MAX_OVERPAY, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
