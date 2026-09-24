@@ -107,5 +107,5 @@
     return n - left;
   }
 
-  root.Inventory = { stackCap, count, roomFor, add, remove };
+  root.Inventory = { stackCap, stackCapFor, count, roomFor, add, remove };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

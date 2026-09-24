@@ -14035,22 +14035,18 @@ class MapScene extends Phaser.Scene {
     const baseValue = Math.max(1, PRICES[giveId] ?? 1);
     // Target trade value the trader considers appropriate.
     const target = baseValue * (1.0 + rng());
-    // Asking item: any priced item, excluding the offered id. Prefer something
-    // the player actually owns so the offer is acceptable on the spot;
-    // otherwise fall back to a wishlist pick so the player still learns what
-    // the trader wants.
-    const owned = (this.save.inv || []).filter(s =>
-      s && s.id && s.id !== giveId && (s.count ?? 0) > 0 && (PRICES?.[s.id] ?? 0) > 0);
-    let askId;
-    if (owned.length) {
-      askId = owned[Math.floor(rng() * owned.length)].id;
-    } else {
-      const wishlist = Object.keys(PRICES).filter(k =>
-        k !== giveId && (PRICES[k] ?? 0) > 0 && ITEM_BY_ID[k]);
-      if (!wishlist.length) return null;
-      askId = wishlist[Math.floor(rng() * wishlist.length)];
-    }
-    const askQty = Math.max(1, Math.ceil(target / Math.max(1, PRICES[askId] ?? 1)));
+    // Asking item: ShopsMath.traderAsk — half the time a stack that already
+    // covers the count, otherwise anything owned, then the wishlist; never a
+    // count the bag's stack cap could not hold.
+    const ask = ShopsMath.traderAsk({
+      rng, giveId, target,
+      inv: this.save.inv,
+      prices: PRICES,
+      isItem: (id) => !!ITEM_BY_ID[id],
+      capFor: (id) => Inventory.stackCapFor(this.save, id),
+    });
+    if (!ask) return null;
+    const { askId, askQty } = ask;
     return { giveId, askId, askQty };
   }
 

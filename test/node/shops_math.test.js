@@ -349,3 +349,51 @@ test('shop source: no NEW unseeded randomness creeps into the offer path', () =>
   const hits = stock.match(/Math\.random\(\)/g) || [];
   assert.eq(hits.length, 1, `unseeded rolls in the offer path: ${hits.length}`);
 });
+
+// ─── Trader ask (ShopsMath.traderAsk) ───────────────────────────────────────
+// A wooden-backpack player was offered 2 Fireflowers for 54 Potato Seeds — an
+// ask the bag could never hold. Half the asks must be takeable on the spot, and
+// none may exceed the stack cap while a holdable choice exists.
+(function () {
+  const prices = { potato_seed: 1, carrot: 10, stone: 2, gem: 500 };
+  const base = (over) => Object.assign({
+    giveId: 'fireflower', target: 54, prices,
+    isItem: () => true, capFor: () => 19,
+    inv: [{ id: 'potato_seed', count: 15 }, { id: 'carrot', count: 8 }],
+  }, over);
+  const seeded = (seed) => { let a = seed >>> 0; return () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }; };
+
+  test('traderAsk: never asks more than the stack cap can hold', () => {
+    for (let i = 0; i < 400; i++) {
+      const a = ShopsMath.traderAsk(base({ rng: seeded(i) }));
+      assert.truthy(a.askQty <= 19, `ask ${a.askQty}× ${a.askId} fits a 19-stack`);
+      assert.truthy(a.askId !== 'potato_seed', '54 potato seeds is never asked of a 19-stack bag');
+    }
+  });
+
+  test('traderAsk: about half of all asks are affordable from the bag as it stands', () => {
+    let ok = 0; const N = 2000;
+    for (let i = 0; i < N; i++) {
+      const a = ShopsMath.traderAsk(base({ rng: seeded(i * 7919 + 1) }));
+      const have = a.askId === 'carrot' ? 8 : a.askId === 'potato_seed' ? 15 : 0;
+      if (have >= a.askQty) ok++;
+    }
+    // The affordable pass alone is 50%; the fallback's owned pick adds more.
+    assert.truthy(ok / N >= 0.5, `affordable share ${(ok / N).toFixed(2)} ≥ 0.5`);
+  });
+
+  test('traderAsk: nothing affordable → still asks for something owned, then the wishlist', () => {
+    const a = ShopsMath.traderAsk(base({ rng: () => 0, inv: [{ id: 'carrot', count: 1 }] }));
+    assert.eq(a.askId, 'carrot', 'an owned, holdable stack beats the wishlist');
+    assert.eq(a.askQty, 6, 'ceil(54 / 10)');
+    const w = ShopsMath.traderAsk(base({ rng: () => 0, inv: [] }));
+    assert.truthy(w && w.askId !== 'fireflower', 'empty bag → a wishlist ask');
+  });
+
+  test('traderAsk: never asks for the item it gives', () => {
+    for (let i = 0; i < 200; i++) {
+      const a = ShopsMath.traderAsk(base({ rng: seeded(i), giveId: 'carrot' }));
+      assert.truthy(a.askId !== 'carrot');
+    }
+  });
+})();

@@ -183,6 +183,57 @@
     return Math.max(1, Math.ceil(baseValue * standBuyMul(save && save.relics)));
   }
 
+  // ─── Trader ask ──────────────────────────────────────────────────────────
+  // What a trader asks in return for its goods: an item id and a count worth
+  // `target` (the give side's value × 1..2). The ask used to be ANY priced
+  // stack in the bag, whatever it held — so a trader happily asked a wooden-
+  // backpack player for 54 Potato Seeds against a stack that can't hold a
+  // third of that. A deal the player can never accept is not an offer.
+  //
+  // So the pick runs in two passes on one rng:
+  //   1. On TRADER_AFFORDABLE_CHANCE of rolls, only stacks that ALREADY cover
+  //      the count are considered — the trade can be taken on the spot.
+  //   2. Otherwise (or when nothing covers it) any owned stack, then the
+  //      wishlist of every priced item, as before — the player still learns
+  //      what a trader wants and can go and gather it.
+  // Every pass drops an ask larger than the stack cap for that id: a count the
+  // bag can never hold is refused in both, falling back to the unfiltered list
+  // only when the target is so dear nothing cheap enough exists.
+  //
+  // The chance roll is drawn EVERY time, before any list is read, so what the
+  // bag holds changes which list is picked from and never how many numbers the
+  // stream spends.
+  const TRADER_AFFORDABLE_CHANCE = 0.5;
+
+  // opts: { rng, giveId, target, inv, prices, isItem(id), capFor(id) }
+  // Returns { askId, askQty } or null when no priced item exists at all.
+  function traderAsk(opts) {
+    const { rng, giveId, target, inv, prices, isItem, capFor } = opts;
+    const priceOf = (id) => Math.max(1, prices[id] ?? 1);
+    const qtyFor = (id) => Math.max(1, Math.ceil(target / priceOf(id)));
+    const priced = (id) => id && id !== giveId && (prices[id] ?? 0) > 0;
+    const holdable = (id) => qtyFor(id) <= capFor(id);
+    const held = new Map();
+    for (const s of (inv || [])) {
+      if (!s || !priced(s.id) || !((s.count ?? 0) > 0)) continue;
+      held.set(s.id, (held.get(s.id) || 0) + s.count);
+    }
+    const owned = [...held.keys()];
+    const wantAffordable = rng() < TRADER_AFFORDABLE_CHANCE;
+    const pick = (ids) => ids[Math.floor(rng() * ids.length)];
+    const firstNonEmpty = (...lists) => lists.find(l => l.length) || [];
+    let ids = [];
+    if (wantAffordable) ids = owned.filter(id => held.get(id) >= qtyFor(id));
+    if (!ids.length) {
+      const wishlist = Object.keys(prices).filter(k => priced(k) && isItem(k));
+      ids = firstNonEmpty(owned.filter(holdable), wishlist.filter(holdable), owned, wishlist);
+    }
+    if (!ids.length) return null;
+    const askId = pick(ids);
+    return { askId, askQty: qtyFor(askId) };
+  }
+
   root.ShopsMath = { HOUR, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
-                     STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice };
+                     STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
+                     TRADER_AFFORDABLE_CHANCE, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
