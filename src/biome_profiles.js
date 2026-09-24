@@ -17,7 +17,8 @@
 // concern); this file only references texture variant counts for documentation.
 //
 // Depends on: nothing. Pure data + small lookups. Exposes globals
-//   BiomeProfiles (accessors: T, flora, tint, atmos, mixHex, allows),
+//   BiomeProfiles (accessors: T, flora, tint, atmos, mixHex, allows, yard,
+//   yardAllows),
 //   BIOME_PROFILES (raw), BIOME_FAUNA, FAUNA_ORDER.
 
 (function (global) {
@@ -61,6 +62,7 @@
     WET_FMN: 0xf10a0007,
     ORCH_LG: 0x5a17b108,
     ORCH_MAR: 0xf10a0008,
+    YARD_FLORA: 0x7a4d0f10,   // residential yard grass/scrub (see `yard` below)
   };
 
   // Default debris density window. D_MAX = 0.15 so any single flora type
@@ -129,7 +131,25 @@
     sand:  { flora: [fix('shell', 0.04, 0.07, S.SHELL)], tint: {} },
     rocky: { flora: [], tint: {} },
     farm:  { flora: [dyn('longgrass', 0.10, S.FARM_LG)], tint: {} },
-    urban: { flora: [fix('mushroom', 0.008, 0.025, S.MUSH_RESID)], tint: {} },
+    urban: {
+      flora: [fix('mushroom', 0.008, 0.025, S.MUSH_RESID)],
+      // YARD flora — NOT a debris scatter. A bit of long grass and scrub grown
+      // IN AMONG the yard rubble: worldgen scatters these around each fired
+      // residential rock-cluster pivot (_spawnYardFloraSteps, riding the rock
+      // lane's pivots) from this row's own salted stream, so the rocks never
+      // re-roll, and the post-pass culls them by the ROCK's rule (_mrDrop:
+      // road band, building moat, POI plaza, residential frontage). Deliberately
+      // NOT in `flora` and NOT in allows(): a lawn-wide longgrass scatter
+      // spilled from an overlapping grass landcover must still die on a
+      // residential cell — only yard-lane plants survive there (yardAllows).
+      //   per cluster: min + floor(rng*span) tries within radiusK × the rock
+      //   cluster radius (the rocks carpet ~1×; the flora rings them), each try
+      //   picking a crop by `share`. Numbers chosen so surviving flora lands
+      //   near the surviving rock count (residential_flora.test.js measures it).
+      yard: { min: 14, span: 12, radiusK: 2, salt: S.YARD_FLORA,
+              crops: [{ crop: 'longgrass', share: 0.5 }, { crop: 'shrub', share: 0.5 }] },
+      tint: {},
+    },
     water: { flora: [], tint: {} },
     paved: { flora: [], tint: {} },   // roads / buildings / cave — never grow flora
   };
@@ -263,6 +283,17 @@
     if (fams) return fams.has(familyOf(type));
     return GROUND.has(type);
   };
+  // yard(type): the biome's yard-flora row (see FAMILY_PROFILE.urban.yard), or
+  // null. yardAllows(crop, type): may a YARD-LANE plant survive on this cell?
+  // Everything allows() tolerates, plus the yard's own crops on a cell whose
+  // biome carries that yard row. Only the yard lane asks this; every other
+  // wild plant still goes through allows().
+  const yard = (type) => get(type).yard || null;
+  const yardAllows = (crop, type) => {
+    if (allows(crop, type)) return true;
+    const y = yard(type);
+    return !!(y && y.crops.some((c) => c.crop === crop));
+  };
 
   // ── Atmosphere ──────────────────────────────────────────────────────────────
   // The post-apocalyptic grade, and the reason twenty biomes read as twenty
@@ -357,7 +388,7 @@
 
   // The accessors. The raw tables reach app.js as the bare globals below
   // (BIOME_FAUNA / FAUNA_ORDER for the fauna spawner), not through here.
-  const api = { T, flora, tint, atmos, mixHex, allows };
+  const api = { T, flora, tint, atmos, mixHex, allows, yard, yardAllows };
   global.BiomeProfiles = api;
   global.BIOME_PROFILES = BIOME_PROFILES;
   global.BIOME_FAUNA = BIOME_FAUNA;

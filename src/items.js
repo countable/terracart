@@ -925,6 +925,7 @@ const PLAY_TIPS = [
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
   'On hard, ruins are held — about a third of wrecked houses, most forts, and nearly every castle. None within a dozen cells of home, then more guards the bigger the building and the further out: a castle a kilometre away can hide fifteen. Wrecked houses are squatted by slimes; forts and castles are held by goblins.',
+  'On hard, you learn to make a thing only by first finding one out in the world.',
   'A held ruin waits. Come within a few cells and the whole garrison comes at you at once — but it never strays far from its own building, so get seventy metres from the ruin and they give up and walk back to it.',
   // ── Animals — meeting them, then keeping them ───────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
@@ -996,6 +997,7 @@ const ITEM_EFFECTS = {
   mango:     'Feed to tame any wild animal — never a cave monster',
   // An ingredient: the Craft page at Home is the only place that says so.
   longgrass: 'Twist 3 into a Rope on Home\'s Craft page',
+  rockfruit: '4 make a Trap Disarm Kit on Home\'s Craft page',
   // The sapphire's ADVERTISED use — the one its Portal button opens, and the
   // only one this line may name. Until Sep 2026 it read "Offer to a slime to
   // tame it": the game's one real secret, printed on the inventory bar the
@@ -1593,7 +1595,16 @@ const HOME_RECIPES = [
   // Three strands of long grass twist into one rope — the way back up a cave
   // without buying one or finding one in a shallow cave chest.
   { id: 'rope',      cost: [{ id: 'longgrass', qty: 3 }] },
+  // Four stones knock a snare's jaw shut for good.
+  { id: 'trap_kit',  cost: [{ id: 'rockfruit', qty: 4 }] },
 ];
+// On HARD, Home can only craft what the player has first FOUND out in the
+// world — a chest, a pickup, a drop — never bought, bartered, forged or
+// crafted. save.foundWild is that ledger (app.js addToInv writes it for every
+// grant not flagged `notWild`). Easy crafts everything from the start.
+function homeRecipeLocked(save, id, hard) {
+  return !!hard && !(save && save.foundWild && save.foundWild[id]);
+}
 // How many times a recipe can be made from what is held: the fewest times
 // any one ingredient covers its share. `count(id)` reads the bag. An empty
 // recipe makes nothing — the min over no ingredients would be Infinity.

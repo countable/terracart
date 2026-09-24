@@ -39,6 +39,8 @@ test('home craft: the recipes are a Torch from 1 wood, a Scarecrow from 3, a Rop
   assert.eq(JSON.stringify(by.torch), JSON.stringify([{ id: 'wood', qty: 1 }]), 'torch');
   assert.eq(JSON.stringify(by.scarecrow), JSON.stringify([{ id: 'wood', qty: 3 }]), 'scarecrow');
   assert.eq(JSON.stringify(by.rope), JSON.stringify([{ id: 'longgrass', qty: 3 }]), 'rope from three long grass');
+  assert.eq(JSON.stringify(by.trap_kit), JSON.stringify([{ id: 'rockfruit', qty: 4 }]), 'a disarm kit from four stones');
+  assert.truthy(/Trap Disarm Kit/.test(ITEM_EFFECTS.rockfruit || ''), 'the stone line names the recipe');
   assert.truthy(/Rope/.test(ITEM_EFFECTS.longgrass || ''), 'the long grass line names the recipe');
   for (const r of HOME_RECIPES) {
     assert.truthy(ITEM_BY_ID[r.id], `${r.id} is a real item`);
@@ -110,6 +112,39 @@ test('home craft: Home routes a held stack to Sell and an empty hand to Craft', 
   const body = APP_JS_SRC.slice(start, APP_JS_SRC.indexOf('\n  }\n', start));
   assert.truthy(/if \(isHome\) \{\s*if \(hasSel\) this\.presentHomeSell\(sx, sy\);\s*else this\.presentHomeCraft\(sx, sy\);/.test(body),
     'shopInteract hands Home to its two pages');
+});
+
+test('home craft: on hard a recipe stays locked until its item is found in the wild', () => {
+  const was = Difficulty.mode();
+  try {
+    Difficulty.setMode(Difficulty.HARD);
+    const s = scene([['rockfruit', 8]]);
+    s.presentHomeCraft(0, 0, 'trap_kit');
+    let m = last(s);
+    assert.falsy(m.canAfford, 'locked: the Craft button is off even with the stones');
+    assert.truthy(/Find a Trap Disarm Kit/.test(m.blurb || ''), `the page says how to unlock: ${m.blurb}`);
+    m.onAccept(1);
+    assert.eq(Inventory.count(s.save, 'trap_kit'), 0, 'nothing crafted');
+    s.save.foundWild = { trap_kit: 1 };
+    s.presentHomeCraft(0, 0, 'trap_kit');
+    m = last(s);
+    assert.truthy(m.canAfford, 'found once — now it can be made');
+    m.onAccept(2);
+    assert.eq(Inventory.count(s.save, 'trap_kit'), 2, 'two kits from eight stones');
+    Difficulty.setMode(Difficulty.EASY);
+    const e = scene([['rockfruit', 4]]);
+    e.presentHomeCraft(0, 0, 'trap_kit');
+    assert.truthy(last(e).canAfford, 'easy crafts from the start');
+  } finally { Difficulty.setMode(was); }
+});
+
+test('home craft: the wild-finds ledger — every grant counts except bought, bartered, forged or crafted', () => {
+  const add = APP_JS_SRC.slice(APP_JS_SRC.indexOf('\n  addToInv(id, n = 1, silent = false, opts = {}) {'));
+  assert.truthy(/if \(!opts\.notWild\) \(this\.save\.foundWild = this\.save\.foundWild \|\| \{\}\)\[id\] = 1;/.test(add.slice(0, 3000)),
+    'addToInv records the find');
+  const notWild = (APP_JS_SRC.match(/\{ notWild: true \}/g) || []).length;
+  assert.eq(notWild, 7, 'the seven non-wild grants in app.js: craft, smelt, trader, stand, farmhand, two shop buys');
+  assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });
 
 })();

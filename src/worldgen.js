@@ -1931,6 +1931,11 @@
     // claimed/unclaimed state the tiled paint would have drawn.
     const buildingShapes = [];
     const wildplants = [];
+    // Residential YARD flora (_spawnYardFloraSteps). Held apart and appended
+    // to `wildplants` only at the post-pass sweep, so every older wild plant
+    // keeps first claim on its cell in the occupancy pass — the yard lane is
+    // new and must not displace what existing worlds already grow.
+    const yardFlora = [];
     const parkingTreasures = []; // one guaranteed treasure-X per parking-POI
     // Grid indices of synthesized CONCRETE POI pads (the hospital cross /
     // school pyramid painted around a POI chest). Scatter interactables are
@@ -2449,6 +2454,8 @@
                   if (!pointInRings(geom, xx + o.pivotStep * 0.5, yy + o.pivotStep * 0.5)) continue;
                   if (rng() > o.fireChance) continue;
                   const clusterN = o.clusterMin + Math.floor(rng() * o.clusterSpan);
+                  // Record the fired pivot for the yard-flora lane (no rng).
+                  if (o.pivots) o.pivots.push({ x: xx, y: yy });
                   // Per-cluster tier table — defaults to the shared one, but a
                   // vein cluster gets a fresh table with one tier boosted.
                   const tbl = (o.veinChance && o.weights)
@@ -2464,6 +2471,48 @@
                     const jy = yy + (rng() - 0.5) * 2 * o.clusterR;
                     _pushMineralrock(rng, jx, jy, tbl, o.residential, clusterId);
                   }
+                }
+              }
+            };
+
+            // Residential YARD flora — a bit of long grass and scrub grown in
+            // among the yard rubble. Rides the rock lane: scatters around each
+            // pivot the residential rock pass FIRED (`pivots`, recorded by
+            // _spawnRockClustersSteps without touching its rng), within
+            // `radiusK` × the rock cluster radius, from its OWN salted stream
+            // (BiomeProfiles.yard(t).salt ^ polyKey) — the rocks' draws are
+            // untouched, so existing worlds keep every rock where it was.
+            // Cells are the tile-local basis spawnDebrisSteps uses; the id
+            // carries a `_ry` suffix so it never collides with a debris tuft
+            // (`wp_…_ix_iy`) or a POI pad's greenery (`_pp` / `_pl`). The
+            // plants are flagged `_yard` so the post-pass culls them by the
+            // ROCK's rule (_mrDrop) and the occupancy pass admits them via
+            // BiomeProfiles.yardAllows. A generator for the tile-build rule:
+            // one yield per 8 pivots.
+            const _spawnYardFloraSteps = function* (geom, polyKey, pivots, clusterR, yard) {
+              const yrng = makeRng((polyKey ^ (yard.salt >>> 0)) >>> 0);
+              const r = clusterR * yard.radiusK;
+              for (let p = 0; p < pivots.length; p++) {
+                if ((p & 7) === 7) yield 'yard flora clusters';
+                const n = yard.min + Math.floor(yrng() * yard.span);
+                for (let k = 0; k < n; k++) {
+                  // Fixed three draws per try, so a rejected try never shifts
+                  // the stream for the ones after it.
+                  const jx = pivots[p].x + (yrng() - 0.5) * 2 * r;
+                  const jy = pivots[p].y + (yrng() - 0.5) * 2 * r;
+                  let pick = yrng();
+                  if (!pointInRings(geom, jx, jy)) continue;
+                  const ix = Math.floor(jx * mvtToCell);
+                  const iy = Math.floor(jy * mvtToCell);
+                  if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
+                  let crop = yard.crops[yard.crops.length - 1].crop;
+                  for (const c of yard.crops) {
+                    if (pick < c.share) { crop = c.crop; break; }
+                    pick -= c.share;
+                  }
+                  const { mx, my } = cellCenterMeters(ix, iy);
+                  yardFlora.push(makeWildplant(crop, mx, my,
+                    `wp_${tx}_${ty}_${ix}_${iy}_ry`, { _ix: ix, _iy: iy, _yard: true }));
                 }
               }
             };
@@ -2492,10 +2541,15 @@
               // veinChance 0.30: ~30 % of clusters become a "vein" where one
               // random tier is VEIN_MUL× more likely (see rollVeinTable). Pass
               // the raw `weights` so the vein path can rebuild a boosted table.
+              const pivots = [];
               yield* _spawnRockClustersSteps(resRng, f.geom, {
                 pivotStep, clusterR, fireChance: 0.585,
                 clusterMin: 25, clusterSpan: 16, tbl: SURFACE_ROCK_CUM, residential: true,
-                weights, veinChance: 0.30 });
+                weights, veinChance: 0.30, pivots });
+              const yard = BiomeProfiles.yard(t);
+              if (yard && pivots.length) {
+                yield* _spawnYardFloraSteps(f.geom, polyKey, pivots, clusterR, yard);
+              }
               // (Sparse residential-yard mushrooms now spawn via the
               // BIOME_PROFILES flora loop above — see the RESIDENTIAL profile.)
             }
@@ -3141,13 +3195,21 @@
       // 337 ms in this one loop, the longest unbroken block in a tile build and
       // the thing the live profiler blamed for every walking stutter. Writing
       // the survivors forward and truncating once is the same answer in O(n).
+      // Yard flora joins here, AFTER every older wild plant (see yardFlora).
+      for (let i = 0; i < yardFlora.length; i++) wildplants.push(yardFlora[i]);
       let wpKeep = 0;
       for (let i = 0; i < wildplants.length; i++) {
         if ((i & 63) === 0) yield 'mineralrock wildplant sweep';
         const wp = wildplants[i];
         const { ix, iy } = paintCellOf(wp.x, wp.y);
         let drop = false;
-        if (ix >= 0 && ix < w && iy >= 0 && iy < h) {
+        if (wp._yard) {
+          // A yard plant grows among the rocks, so it goes by the ROCK's rule
+          // (one lane): _mrDrop's road/band, building moat, POI plaza and
+          // frontage tests, plus the rock's blocked-terrain test.
+          drop = _mrDrop(wp)
+            || (ix >= 0 && ix < w && iy >= 0 && iy < h && _mrIsBlocked(ix, iy));
+        } else if (ix >= 0 && ix < w && iy >= 0 && iy < h) {
           const wtc = grid[iy * w + ix];
           // Concrete POI pads stay bare — a shrub/marigold that survived the
           // biome filter (rocky-family crops) still doesn't belong on the plaza.
@@ -3276,10 +3338,11 @@
       wpOccI++;
       const t = grid[wp._iy * w + wp._ix];
       const cellKey = `${wp._ix}_${wp._iy}`;
-      if (BiomeProfiles.allows(wp.crop, t) && !occupiedCells.has(cellKey)) {
+      const grows = wp._yard ? BiomeProfiles.yardAllows(wp.crop, t) : BiomeProfiles.allows(wp.crop, t);
+      if (grows && !occupiedCells.has(cellKey)) {
         occupiedCells.add(cellKey);
         wp._biome = t;
-        delete wp._ix; delete wp._iy;
+        delete wp._ix; delete wp._iy; delete wp._yard;
         filtered.push(wp);
       }
     }

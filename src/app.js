@@ -12349,7 +12349,7 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         if (!canAfford()) { this.flash(`need ${price}`, sx, sy); return; }
         addMoney(this.save, -price);
-        this.addToInv(id, 1);
+        this.addToInv(id, 1, false, { notWild: true });
         this.save.scarecrowShopUsed = true;
         recordDeal();
         persistSave(this.save);
@@ -12410,7 +12410,7 @@ class MapScene extends Phaser.Scene {
         const pay = unitPrice * take;
         if (money() < pay) { this.flash(`need ${pay}`, sx, sy); return; }
         addMoney(this.save, -pay);
-        this.addToInv(id, take);
+        this.addToInv(id, take, false, { notWild: true });
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`${take}× ${itemName}\n−${pay}`, '#ffe066', 1, id);
@@ -12529,9 +12529,11 @@ class MapScene extends Phaser.Scene {
   presentHomeCraft(sx, sy, targetId = null) {
     const held = (id) => Inventory.count(this.save, id);
     const capOf = (r) => recipeCap(r.cost, held);
+    const locked = (r) => homeRecipeLocked(this.save, r.id, Difficulty.isHard());
     const rec = HOME_RECIPES.find(r => r.id === targetId)
-      || HOME_RECIPES.find(r => capOf(r) >= 1) || HOME_RECIPES[0];
-    const cap = capOf(rec);
+      || HOME_RECIPES.find(r => !locked(r) && capOf(r) >= 1) || HOME_RECIPES[0];
+    const isLocked = locked(rec);
+    const cap = isLocked ? 0 : capOf(rec);
     const outName = ITEM_BY_ID[rec.id]?.name || rec.id;
     const costLine = (n) => rec.cost.map(c => {
       const ok = held(c.id) >= c.qty * n;
@@ -12552,7 +12554,9 @@ class MapScene extends Phaser.Scene {
       title: 'Make something at home:',
       cancelLabel: 'Later',
       get: fmt(1).get,
-      blurb: ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined,
+      blurb: isLocked
+        ? `🔒 Find a ${outName} out in the world to learn it.`
+        : (ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined),
       cost: costLine(1),
       canAfford: cap >= 1,
       acceptLabel: 'Craft',
@@ -12565,6 +12569,7 @@ class MapScene extends Phaser.Scene {
       },
       onAccept: (n) => {
         const q = Math.max(1, n ?? 1);
+        if (locked(rec)) { this.flash(`Find a ${outName} first.`, sx, sy); return; }
         if (capOf(rec) < q) {
           const missing = rec.cost.find(c => held(c.id) < c.qty * q);
           const short = missing ? missing.qty * q - held(missing.id) : 0;
@@ -12574,7 +12579,7 @@ class MapScene extends Phaser.Scene {
         }
         for (const c of rec.cost) Inventory.remove(this.save, c.id, c.qty * q);
         this._clampSelSlot();
-        this.addToInv(rec.id, q);
+        this.addToInv(rec.id, q, false, { notWild: true });
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`✨ ${outName} ×${q}`, '#ffe066', 1.25, rec.id);
@@ -12838,7 +12843,7 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
         offer.consume();
-        this.addToInv(id, buyQty);
+        this.addToInv(id, buyQty, false, { notWild: true });
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
         persistSave(this.save);
@@ -13751,7 +13756,7 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
         offer.consume();
-        this.addToInv(id, buyQty);
+        this.addToInv(id, buyQty, false, { notWild: true });
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
@@ -13930,7 +13935,7 @@ class MapScene extends Phaser.Scene {
           return;
         }
         for (const r of recipe) consume(r.id, r.qty * q);
-        this.addToInv(target, q);
+        this.addToInv(target, q, false, { notWild: true });
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
@@ -14168,7 +14173,7 @@ class MapScene extends Phaser.Scene {
         }
         Inventory.remove(this.save, offer.askId, offer.askQty);
         this._clampSelSlot();
-        this.addToInv(offer.giveId, giveQty);
+        this.addToInv(offer.giveId, giveQty, false, { notWild: true });
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
         persistSave(this.save);
@@ -16664,6 +16669,9 @@ class MapScene extends Phaser.Scene {
     }
     const r = Inventory.add(this.save, id, n);
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
+    // The wild-finds ledger (items.js homeRecipeLocked): every grant counts
+    // unless its caller says it was bought, bartered, forged or crafted.
+    if (!opts.notWild) (this.save.foundWild = this.save.foundWild || {})[id] = 1;
     if (!silent) {
       // A brand-new stack surfaces on its own type tab. Switch the active tab
       // and page so the freshly-obtained item is VISIBLE — but never select it:

@@ -92,6 +92,12 @@
     // none; each house pins itself the first time its sign is read.
     if (save.houseWishlists === undefined) save.houseWishlists = {};
     if (save.discovered === undefined) save.discovered = {};
+    // Wild-finds ledger (items.js homeRecipeLocked). An older save never
+    // recorded where its items came from, so everything it holds counts.
+    if (save.foundWild === undefined) {
+      save.foundWild = {};
+      for (const st of (save.inv || [])) if (st && st.id) save.foundWild[st.id] = 1;
+    }
     // Self-heal: pre-fix, id-less trees pushed `undefined` into save.chopped,
     // and a choppedSet.has(undefined) match wiped whole groves. Strip falsy ids.
     if (Array.isArray(save.chopped)) {

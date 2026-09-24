@@ -1221,7 +1221,7 @@ const TAP_HANDLERS = [
       Math.abs(s.x - cwmx) < half && Math.abs(s.y - cwmy) < half);
     if (idx < 0) return false;
     arr.splice(idx, 1);
-    scene.addToInv('scarecrow', 1);
+    scene.addToInv('scarecrow', 1, false, { notWild: true });   // reclaimed, not found
     ctx.dirty = true;
     scene.flash('🪦 reclaimed', sx, sy);
     return true;
