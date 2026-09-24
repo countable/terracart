@@ -229,3 +229,22 @@ test('wantedProduce: a standing house draws a coherent bundle from its theme', (
   const again = Delivery.wantedProduce(save, { id: 'e' }, JUNE6);
   assert.eq(JSON.stringify(again), JSON.stringify(got), 'deterministic for the house');
 });
+
+test('missingLine: a tap names only what the bags still lack', () => {
+  const held = { potato: 2, carrot: 0, onion: 1 };
+  const count = (id) => held[id] || 0;
+  const name = (id) => id[0].toUpperCase() + id.slice(1);
+  const part = Delivery.missingLine(['potato', 'carrot', 'onion'], count, name);
+  assert.eq(part.ids.join(), 'carrot', 'only the carrot is missing');
+  assert.eq(part.line, 'still needs: Carrot');
+  assert.eq(Delivery.missingLine(['carrot', 'beet'], count, name).line, 'wants the set: Carrot, Beet',
+    'none in hand — the whole set');
+  assert.eq(Delivery.missingLine(['carrot'], count, name).line, 'wants: Carrot', 'a single errand');
+});
+
+test('missingLine: the delivery tap uses it, and the callout stands down under a toast', () => {
+  assert.truthy(/Delivery\.missingLine\(wanted, invCount,/.test(APP_JS_SRC), 'presentDeliveryOffer flashes the missing line');
+  assert.falsy(/wants the set: \$\{names\}/.test(APP_JS_SRC), 'the whole-list flash is gone');
+  assert.truthy(/scene\._liveToasts/.test(RENDER_SRC) && /slot\.el\.style\.visibility = covered \? 'hidden' : 'visible'/.test(RENDER_SRC),
+    'a wishlist bubble hides while a live toast overlaps it');
+});
