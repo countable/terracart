@@ -1543,6 +1543,20 @@ function trailerSellMultiplier(relics) {
 function trailerSellPrice(baseValue, relics) {
   return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier(relics)));
 }
+// What Home CRAFTS — the Craft page beside the Sell page at the trailer
+// (app.js presentHomeCraft). One row per recipe, in the order the page's
+// "Next" button walks them; each craft makes one of `id` from `cost`.
+const HOME_RECIPES = [
+  { id: 'torch',     cost: [{ id: 'wood', qty: 1 }] },
+  { id: 'scarecrow', cost: [{ id: 'wood', qty: 3 }] },
+];
+// How many times a recipe can be made from what is held: the fewest times
+// any one ingredient covers its share. `count(id)` reads the bag. An empty
+// recipe makes nothing — the min over no ingredients would be Infinity.
+function recipeCap(cost, count) {
+  if (!Array.isArray(cost) || !cost.length) return 0;
+  return Math.max(0, cost.reduce((m, r) => Math.min(m, Math.floor(count(r.id) / r.qty)), Infinity));
+}
 // Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
 // share this discount, but it's been demoted to a pure combat weapon (it's a
 // ranged weapon in combat.js, and still counts toward the crow/deer hunt-speed
