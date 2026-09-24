@@ -96,9 +96,11 @@
   const MONSTERS_BASELINE = {
     cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5 },
     purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true },
-    goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.0, minDepth: 2, weight: 3 },
-    goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 0.8, minDepth: 3, weight: 2 },
+    goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.3,  minDepth: 2, weight: 3 },
+    goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 1.04, minDepth: 3, weight: 2 },
   };
+  // Both goblin rows were 30% too slow to feel like a pursuer (1.0 / 0.8 →
+  // ×1.3); the archer keeps its lag behind the melee goblin in proportion.
   // What the game runs on: the authored rows above, plus their giants, all
   // doubled. Built here rather than mutated in place so MONSTERS_BASELINE
   // stays readable as what was AUTHORED — the two derivations below are

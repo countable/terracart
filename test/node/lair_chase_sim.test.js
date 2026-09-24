@@ -102,7 +102,7 @@ const distFromSeat = (g) => Math.hypot(g.x - g.seatX, g.y - g.seatY);
 const distToPlayer = (g, s) => Math.hypot(g.x - s.playerM.x, g.y - s.playerM.y);
 
 // Run `seconds` of game time, in frames. The tick MUST be well under a kind's
-// own step cadence (STEP_MS / speed, five seconds for a goblin): the loop
+// own step cadence (STEP_MS / speed, under four seconds for a goblin): the loop
 // chooses a target and then LERPS onto it across later ticks, so a tick as
 // long as the cadence re-chooses every time, leaves the interpolation at zero
 // and moves nothing at all — which looks exactly like a guard that refuses to
@@ -111,7 +111,7 @@ const TICK_MS = 250;
 function run(scene, seconds) {
   for (let i = 0; i < (seconds * 1000) / TICK_MS; i++) tick(scene, TICK_MS);
 }
-// A goblin covers STEP_M * 0.6 every STEP_MS / speed — about 0.84 m/s. Sizing
+// A goblin covers STEP_M * 0.6 every STEP_MS / speed — about 1.1 m/s. Sizing
 // the runs off that rather than off a step count keeps them readable.
 const GOBLIN_MPS = (CELL * 0.6) / (5000 / MONSTERS.goblin.speed / 1000);
 
