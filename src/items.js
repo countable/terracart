@@ -885,7 +885,7 @@ const PLAY_TIPS = [
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
   'A ripe crop pays one to three of itself, and about one pick in four hands a seed back as well.',
-  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a shop, trader or smithy.',
+  'A ruined house can be rebuilt for 3 stone, and every third one you rebuild asks one stone more.',
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
   'Crows raid ripe crops but never touch potatoes.',
   'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
@@ -1196,6 +1196,16 @@ const RELIC_DEFS = {
   bags:    { slot: 'bags',   name: 'Bag',         icon: 'Bags.png',        baseCost: 70,
              effectKey: 'stackCap',  blurb: 'carry more of each item' },
 };
+
+// Stone a wreck costs to restore, given how many the player has already
+// restored: WRECK_RESTORE_BASE_QTY, plus one for every
+// WRECK_RESTORE_STEP_EVERY behind them (3, 3, 3, 4, 4, 4, 5 …). Lives with
+// the catalog so the Book tip can quote it (books.test re-derives it).
+const WRECK_RESTORE_BASE_QTY   = 3;
+const WRECK_RESTORE_STEP_EVERY = 3;
+function wreckRestoreQty(restoredCount) {
+  return WRECK_RESTORE_BASE_QTY + Math.floor((restoredCount || 0) / WRECK_RESTORE_STEP_EVERY);
+}
 
 // Per-stack inventory cap as a function of the bag tier (0 = no bag).
 // Roughly GEOMETRIC, not linear: each tier multiplies the cap by ~1.5-1.7,

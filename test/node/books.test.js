@@ -696,3 +696,16 @@ test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
   assert.truthy(/first 200m restored pays a seed/i.test(tip.replace(/\d+m/, `${Trail.GOAL_STEP_M}m`)),
     'which is what the tip promises');
 });
+
+test('books: the rebuild tip quotes the live restore ladder', () => {
+  const tip = PLAY_TIPS.find((t) => /^A ruined house can be rebuilt/.test(t));
+  assert.truthy(tip, 'the rebuild tip exists');
+  assert.truthy(tip.includes(`for ${WRECK_RESTORE_BASE_QTY} stone`), 'base cost matches WRECK_RESTORE_BASE_QTY');
+  assert.eq(WRECK_RESTORE_STEP_EVERY, 3, 'the tip says "every third" — reword it if this moves');
+  assert.truthy(!/5 wood/.test(tip), 'the stale wood price is gone');
+});
+
+test('restore cost: 3 stone, one more for every three already restored', () => {
+  const ladder = [0, 1, 2, 3, 4, 5, 6, 9].map(wreckRestoreQty);
+  assert.eq(ladder.join(','), '3,3,3,4,4,4,5,6', 'wreckRestoreQty by restored count');
+});

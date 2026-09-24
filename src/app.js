@@ -15101,11 +15101,15 @@ class MapScene extends Phaser.Scene {
     return !this.save.restoredHouses?.[house.id];
   }
 
-  // Restoration cost: every house repair costs a flat 3 stone (rockfruit —
-  // wild residential debris, gatherable bare-handed). Themed shops and plain
-  // residential alike rebuild from the same masonry.
+  // Restoration cost: stone (rockfruit — wild residential debris, gatherable
+  // bare-handed), WRECK_RESTORE_BASE_QTY for the first rebuilds and one more
+  // for every WRECK_RESTORE_STEP_EVERY already restored (3, 3, 3, 4, 4, 4,
+  // 5 …). Themed shops and plain residential alike rebuild from the same
+  // masonry. The count is the live restoredHouses size — the modal guard
+  // keeps it stable while the offer is open, the same as the role index.
   _wreckRestoreCost(house) {
-    return { id: 'rockfruit', qty: 3, material: 'stone' };
+    const restored = Object.keys(this.save?.restoredHouses || {}).length;
+    return { id: 'rockfruit', qty: wreckRestoreQty(restored), material: 'stone' };
   }
 
   presentWreckRestoreModal(sx, sy, house) {
