@@ -19,9 +19,8 @@
     with what message; and any other **token-heavy, judgement-light** job:
     grepping the tree for every call site of a symbol, reading a long file to
     answer one question, summarising a big diff, sweeping for stale comments.
-    The point of these is to keep a wall of output OUT of the parent's
-    context — so ask for the conclusion (the failing assertions, the file:line
-    list), never the raw dump.
+    Ask for the conclusion (the failing assertions, the file:line list), never
+    the raw dump — the point is to keep that output out of the parent's context.
   - **sonnet** — clear and obvious dev work: a change whose shape is already
     decided and whose files are already known. Adding a constant and its
     call sites, a mechanical rename, writing a test against a spec you hand
@@ -45,1259 +44,561 @@
 - **Subagents must NOT modify `index.html`.** The script-tag list is the
   parent's responsibility: the subagent reports *what* should be added, and
   the parent edits index.html in one place at the end. The cache-bust `?v=`
-  is nobody's to type — it is derived from the file's bytes, and the parent
-  runs `node tools/cachebust.js --write` once after the last edit (see the
-  cache-bust rule below).
+  is nobody's to type — the parent runs `node tools/cachebust.js --write`
+  once after the last edit (see the cache-bust rule below).
 - For multi-file refactors that delete from a shared file (e.g. extracting
   modules from `app.js`), tell each subagent to **CREATE its new module
   only** and **report exact line ranges to delete from the shared file**.
   The parent does the deletions in one coordinated pass after all subagents
-  return — this avoids merge-conflict-style line-number drift between
-  parallel agents touching `app.js`.
+  return — this avoids line-number drift between parallel agents touching
+  `app.js`.
 
 ## QC rules
 
-- **Find the mechanic that already ships: a new rule is usually a new REASON,
-  not a new lane.** Before writing a gate, a flag or a ward, look for the one
-  the game already has — the odds are the behaviour you want exists under
-  another name, wanting one more reason to fire.
-  The Sep 2026 "enemies chase a dead player" fix is the model. The game already
-  had a state in which no hostile takes an interest in the player: the Shadow
-  Powder's minute, read once per tick as `shadowed` and consulted by five
-  branches (the leech, the monster's hit and its arrow, the struck slime's
-  charge, and both stalk branches, each falling back to the aimless wander).
-  "A player on an empty bar is not worth hunting" is that SAME state arriving
-  for a different reason — so the fix ORed the new reason into the old read
-  (`unnoticed = shadowed || Combat.playerDowned(save.energy)`) and renamed what
-  those five branches ask. One line and a rename. A `_downed` flag threaded to
-  five NEW conditions would have been five more places to keep in step with the
-  five that already existed, and the next ward would have made ten.
-  **The existing tests are the tell.** Four shipped pins (`powders`,
-  `home_ward`, `lairs`, `combat`) failed on that rename and moved to the new
-  name — which is the proof the two behaviours are one lane. Had the new reason
-  needed branches of its own, every one of those tests would have passed
-  untouched and the duplication would have shipped invisibly. **A change that
-  breaks no existing pin has probably not touched the existing mechanic at
-  all** — ask whether it should have.
-  The shape is everywhere in here, and most of these rules are an instance of
-  it: Home is the campfire's three effects on one radius (`HOME_R`), a pet's
-  kill calls `resolveDefeat` rather than its own copy of the payout (the copy
-  is why a dog's kill paid no bounty), `Traps.isRoadside` reads `entry.roadMask`
-  instead of a second road test, the work wheel and the health bar both seat off
-  `CREATURE_ART`, and the plain rock's draw and its drop resolve through one
-  `plainRockVariant`. It is the `roadOverlayWidthM` discipline pointed at
-  BEHAVIOUR rather than at a number: one lane, many reasons.
-  **Reuse the lane when the MECHANISM is the same, never because the words
-  match.** A campfire's ward and Home's ward both repel the same foes and are
-  still two mechanisms — the fire refuses a target cell, Home turns the foe onto
-  an away-from-Home angle — because a refused cell freezes a foe already inside
-  the ring on the doormat. Merging those would ship that stall. The question is
-  "would ONE implementation serve both?", not "do these sound alike?".
-  **So before you add a flag, grep for the state it duplicates.** If a per-tick
-  read or a shared predicate already answers your question, add your reason to
-  it and rename it for what it now means; if nothing does, say in the new one's
-  comment what it is NOT, so the next reason lands in the right lane.
+Most rules below point at the code that enforces them; the full rationale and
+history live in the comments on the named symbols. Read those before changing
+the mechanic.
 
-- **Nothing spawns on a road, and "road" is not a terrain code.** The terrain
-  grid under-reports the road every time: a way rasterizes exactly ONE cell
-  wide however wide it really is, and parking aisles rasterize to no cell at
-  all — while the overlay draws each way at its real carriageway width. So a
-  motorway's band covers a cell either side of the cells it paints, a parking
-  lot is asphalt the grid still calls landuse, and a filter that reads `grid[]`
-  is told "grass" for both. That is why this bug kept coming back.
-  The answer is **`entry.roadMask`** (built in `rasterizeTile`, stamped from
-  **`WorldGen.roadOverlayWidthM`** — the same number `road_overlay.js` strokes
-  its band with, so drawn-as-road and no-spawn-here can't drift apart). It sets
-  no terrain: a masked cell keeps its biome and stays walkable, it just can't
-  host a spawn. Every spawner consults it, by passing `opts.roadMask` to
-  `WorldGen.isSpawnCell` (the shared rule) or reading the mask directly.
-  **When you add a spawner, pass the mask.** Checking road TERRAIN alone is the
-  bug, not the fix.
-  **Audit it:** `node test/node/run.js` › `test/node/spawn_roads.test.js` runs
-  the real rasterizer over synthetic MVT layers and fails if any object, wild
-  plant or buried-X lands on a road cell or under a road band.
-  **Nor on top of anything already there.** Road terrain and the road mask are
-  half the "don't spawn here" rule — the other half is `opts.occupied`, a Set
-  of flat cell indices (`cy*w+cx`, same shape as `roadMask`) already claimed by
-  an object or wild plant. `spawnInTile` (app.js) builds it ONCE from
-  `entry.objects` + `entry.wildplants` before any spawner runs and hands it to
-  every one of them through the same `_spawnOpts` the road mask rides in on —
-  so a trap can't spring under a rock sprite (the art is its only warning) and
-  an X mark can't bury itself under a tree, undiggable until the tree is
-  felled. Caves have always checked this directly (`Traps.spawnCave`'s
-  `occupiedIdx`); `opts.occupied` is the surface side of the same rule, read by
-  `WorldGen.isSpawnCell` right beside `opts.roadMask`. **When you add a
-  spawner, pass both.**
+- **One lane, many reasons: a new rule is usually a new REASON, not a new
+  lane.** Before writing a gate, flag or ward, grep for the state it
+  duplicates — the behaviour usually already exists under another name. If a
+  per-tick read or shared predicate already answers your question, OR your
+  reason into it and rename it for what it now means (the model:
+  `unnoticed = shadowed || Combat.playerDowned(save.energy)` in
+  `wanderCreatures`). Likewise a NUMBER two sides read is ONE table both read
+  — the `roadOverlayWidthM` discipline (drawn-as-road and no-spawn-here off one
+  constant); later rules just call this "one table both sides read".
+  **The existing tests are the tell: a change that breaks no existing pin has
+  probably not touched the existing mechanic at all** — ask whether it should
+  have. **Reuse the lane when the MECHANISM is the same, never because the
+  words match** — a campfire's ward (refuses a target cell) and Home's ward
+  (turns the foe onto an away-from-Home angle) are two mechanisms; merging
+  them freezes a foe inside the ring. If nothing existing fits, say in the new
+  one's comment what it is NOT, so the next reason lands in the right lane.
 
-- **The camera is not the player.** Since the peek drag (drag the map to look a
-  few cells past the edge; it springs back on release), the viewport centres on
-  a CAMERA ANCHOR — the player plus `scene.peekM`. The split is absolute:
-  anything asking **"where do I DRAW this?"** goes through
-  **`coords.js` › `viewAnchorWorldM` / `viewAnchorCell`** (or `worldMetersToScreen`
-  / `screenToWorldMeters` / `cellScreenXY`, which already do), and anything
-  asking **"where IS the player?"** keeps using `playerM` / `playerToWorldCell()`
-  — reach, every tap gate, fog reveal, tile loading, the 3×3 tile scans. Mixing
-  them is the bug in both directions: a draw pass left on the body tears that
-  layer off the ground under a peek (the road bands, the building footprints and
-  the reach glow each had to be re-anchored), and a gameplay test moved onto the
-  anchor would let a peek reach three cells further than the arm does.
-  Anything drawn AT the player rather than at a world position — the sprite, its
-  shadow, halo, facing arrow, sword swing — reads `scene.playerScreen()`, never
-  `viewCenterX/Y`. **When you add a world-drawn layer, anchor it; when you add a
-  reach or gate test, don't.**
-  A third case sits beside those two: a layer too expensive to rebuild per frame
-  is cached about `viewCenterX/Y` and SLID by the peek (`setPosition(-peekPx)`)
-  instead. That is fine, but a slid image must be drawn WIDER than the frame —
-  by `PEEK_MAX_CELLS` cells, the drag's own clamp — or the peek pulls its outer
-  edge into view. The distance falloff shipped stopping exactly at the viewport
-  half-diagonal, so a drag put a hard circular arc of the darkness's own edge
-  across the corner of the map. The lightmap (`src/lighting.js`) is drawn at
-  the player's screen point every frame rather than slid, and its ramp ends ON
-  ZERO — `PLAYER_RAMP_PAST_CORNER_CELLS` (one cell) beyond the half-diagonal,
-  so the corners stay just lit — with the ambient floor past it the same value,
-  so there is no edge for a peek to find. **When you cache a layer about the
-  viewport centre and slide it, give it the peek margin.** Note that NOTHING
-  slides today: `render.js`'s `peekPxOf` has no caller left, and every cached
-  overlay (border, grid, fog, the road and building canvases) rebuilds on
-  `viewAnchorCell` and shifts only by the sub-cell fraction. So this case is
-  advice for the next such layer, not a description of a live one — do not go
-  hunting for the slid layer it describes.
-  **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js` drives the
-  lifted shipping code: the projection round-trip under a peek, that a tap lands
-  in the cell it was drawn over, that reach is unmoved by the camera, that a
-  pointer which dragged taps nothing, and that no viewport corner escapes the
-  falloff rings at any peek angle.
+- **Nothing spawns on a road, nor on top of anything already there — and
+  "road" is not a terrain code.** The terrain grid rasterizes a way one cell
+  wide and parking aisles to nothing, so `grid[]` under-reports the road. The
+  answer is **`entry.roadMask`** (built in `rasterizeTile`, stamped from
+  **`WorldGen.roadOverlayWidthM`**, the width `road_overlay.js` strokes). It
+  sets no terrain; a masked cell just can't host a spawn. The other half is
+  **`opts.occupied`**, a Set of flat cell indices (`cy*w+cx`) claimed by an
+  object or wild plant, built once by `spawnInTile` (app.js) and handed to
+  every spawner via `_spawnOpts`; `WorldGen.isSpawnCell` reads both (caves use
+  `Traps.spawnCave`'s `occupiedIdx`). Checking road TERRAIN alone is the bug.
+  **When you add a spawner, pass both** (`opts.roadMask` and `opts.occupied`).
+  **Audit it:** `node test/node/run.js` › `test/node/spawn_roads.test.js`.
+
+- **The camera is not the player.** The viewport centres on a CAMERA ANCHOR
+  (player + `scene.peekM`, the peek drag). **"Where do I DRAW this?"** goes
+  through `coords.js` › `viewAnchorWorldM` / `viewAnchorCell` (or
+  `worldMetersToScreen` / `screenToWorldMeters` / `cellScreenXY`); **"where
+  IS the player?"** uses `playerM` / `playerToWorldCell()` — reach, every tap
+  gate, fog reveal, tile loading, the 3×3 tile scans. Anything drawn AT the
+  player (sprite, shadow, halo, facing arrow, swing) reads
+  `scene.playerScreen()`, never `viewCenterX/Y`. **When you add a
+  world-drawn layer, anchor it; when you add a reach or gate test, don't.**
+  If you ever cache a layer about the viewport centre and SLIDE it by the
+  peek, draw it wider by `PEEK_MAX_CELLS` cells (nothing slides today —
+  `render.js`'s `peekPxOf` has no caller; every cached overlay rebuilds on
+  `viewAnchorCell`). The lightmap is drawn at the player's screen point and
+  its ramp ends on zero past the corner (`PLAYER_RAMP_PAST_CORNER_CELLS`).
+  **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js`.
 
 - **The painter rule: the LOWER object (centre of mass) renders in front.**
-  World sprites already obey it via the screen-row z-order in
-  `src/render.js` › drawObjects (a sprite in a lower screen row always draws
-  over one in a higher row) — ONE pass, over one shared layer
-  (`worldContainer`, which `objectsContainer` / `plantedContainer` alias):
-  crops, objects and creatures are ranked together by `_cellRow(dy)`, then by
-  kind, then by `dy`, the index is stamped as each sprite's depth and the
-  container is sorted by it. **So a thing that STANDS on the ground belongs in
-  that pass, and a layer of its own is a promise that nothing will ever pass
-  in front of it.** The street lamp is the case that proves it: it drew from a
-  pool of its own in `cobbleContainer` (ground decoration, under the building
-  footprints and under every sprite) until Sep 2026, so a lamp hid under any
-  footprint or tree on the map whatever row it stood in. It joins the pass the
-  way the placed campfires and scarecrows already did — a `_kind` row in
-  `RENDER_SPEC` and an item pushed onto `filteredObj`. **When you add
-  something that stands up, give it a RENDER_SPEC row; only things that LIE on
-  the ground (traps, pads, the road band, the pier plank) get a layer.** It governs hand-drawn geometry too — the castle
-  rampart pieces sort by it (a south wall over the side bands, a north wall
-  over the feet of side bands descending from the row above; see the tier-12
-  pass in drawCells). When adding anything that overlaps vertically, derive
-  its draw order from this rule, not from a hand-picked layer.
-  `window.__RAMPART_DEBUG = true` tints the castle wall pieces apart
-  (north blue / south green / sides red) when the stacking needs eyeballing.
+  `src/render.js` › drawObjects ranks crops, objects and creatures together
+  in ONE pass over `worldContainer` (`objectsContainer` / `plantedContainer`
+  alias it) by `_cellRow(dy)`, then kind, then `dy`, stamped as depth. A layer
+  of its own is a promise nothing will ever pass in front of it (the street
+  lamp's own pool hid it under every footprint). **When you add something
+  that stands up, give it a `RENDER_SPEC` row** (a `_kind` row + an item on
+  `filteredObj`, as campfires, scarecrows and `_streetlamp` do); **only things
+  that LIE on the ground (traps, pads, the road band, the pier plank) get a
+  layer.** Hand-drawn geometry obeys it too (castle rampart pieces, the
+  tier-12 pass in drawCells; `window.__RAMPART_DEBUG = true` tints them).
+  Derive any vertical-overlap draw order from this rule, not a hand-picked
+  layer.
 
-- **Interactables must be clearly in one cell — and the TAP is the CELL, not
-  the art.** There is no pixel hitbox anywhere in this codebase: every tap
-  resolves through `coords.js` › `sameAbsCell` against the object's own data
-  cell, so "collision box" here means nothing more than which cell the object
-  records itself in. That is precisely why the art has to agree with it — a
-  sprite that straddles a boundary is a thing the player must tap a cell away
-  from where it appears to be. The seat rule below is the ENFORCEMENT and
-  carries the real exemption list (buildings — house / tower / shrine /
-  produce stands / pot-of-gold — plus moving actors); this bullet is the WHY,
-  not a second mechanism, and its old "other than houses and fauna" was a
-  narrower list than either the seat rule or `tools/sprite_audit.js` has ever
-  used. If a sprite and its cell disagree, fix the anchor or the seat: there is
-  no rect to adjust.
+- **Interactables sit clearly in ONE cell — the TAP is the CELL, not the
+  art.** There is no pixel hitbox: every tap resolves through `coords.js` ›
+  `sameAbsCell` against the object's data cell, so the art must agree with
+  it. For every world sprite EXCEPT buildings (house / tower / shrine /
+  produce stands / pot-of-gold), moving actors (creatures) and the street lamp
+  (a canvas bake, seated by `RoadOverlay.LAMP_GROUND_FRAC`):
+    1. The **visible art** (trimmed opaque bounds, not the frame box) **never
+       crosses the cell's bottom edge**.
+    2. Art that fits (height ≤ one cell) is **centred** vertically.
+    3. Art that doesn't fit is seated with its **bottom 1px above** the edge.
+    4. Art is **always centred horizontally**.
+  Enforced by the seat pass in `src/render.js` and `src/sprite_layout.js`
+  (`seatInCell` + the `ART_BOUNDS` table). To make a sprite obey, give its
+  `RENDER_SPEC` entry `seat: true` (animated sheets: set `seatFrame` to a
+  stable frame). If a sprite and its cell disagree, fix the anchor or the
+  seat — there is no rect to adjust. When art changes, regenerate with
+  `node tools/sprite_audit.js --emit-bounds` and paste into
+  `src/sprite_layout.js`.
+  **Audit it:** `node tools/sprite_audit.js` (also run by `node test/node/run.js`).
 
-- **The "one cell" sprite-position rule.** For every world sprite EXCEPT
-  buildings (house / tower / shrine / produce stands / pot-of-gold), moving
-  actors (creatures) and the street lamp (a canvas bake, so there are no
-  trimmed PNG bounds to seat from — where it sits on its point was decided
-  where the art was made, `RoadOverlay.LAMP_GROUND_FRAC`):
-    1. The sprite's **visible art** (its opaque, trimmed bounds — NOT the frame
-       box, which often has transparent padding) must **never cross the cell's
-       bottom edge** (never overlap the cell below).
-    2. Art that **fits** in the cell (height ≤ one cell) is **centred** vertically.
-    3. Art that **doesn't fit** is seated with its **bottom 1px above** the edge.
-    4. Art is **always centred horizontally** on the cell.
-  This is enforced in code by the seat pass in `src/render.js` + the single
-  source of truth in **`src/sprite_layout.js`** (`seatInCell` + the `ART_BOUNDS`
-  trimmed-bounds table). To make a sprite obey it, give its `RENDER_SPEC` entry
-  `seat: true` (the renderer computes `dxPx`/`dyPx` from the rule; `origin` is
-  then just the no-SpriteLayout fallback anchor). For animated sheets, set
-  `seatFrame` to a stable frame so the art doesn't bob.
-  **Audit it:** `node tools/sprite_audit.js` (also run as part of
-  `node test/node/run.js`). It decodes the real PNGs, checks `ART_BOUNDS` hasn't
-  drifted, and verifies every seated sprite obeys the rule. When art changes,
-  regenerate the table with `node tools/sprite_audit.js --emit-bounds` and paste
-  it into `src/sprite_layout.js`.
-
-- **What the art SHOWS is what it DROPS.** A sprite variant is not free
-  cosmetics when the variants differ in COUNT. The plain rock's four looks
-  (mineralrock sheet row 15, cols 3..6) include one that draws a PAIR of
-  stones — and until Sep 2026 the variant was a bare `(x+y) % 4` hash in
-  `render.js` while every plain rock dropped the same `randInt(1,3)`, so the
-  double rock could hand you one and a lone pebble could hand you three. The
-  answer is the same discipline as `roadOverlayWidthM`: **one table both sides
-  read**. `SpriteLayout.PLAIN_ROCK_VARIANTS` carries `col` (what render.js
-  draws) beside `stones` (what `plainRockBaseDrop` pays, `stones + randInt(0,1)`),
-  and both callers (`SpriteLayout.plainRockFrame` for the draw,
-  `SpriteLayout.plainRockStones` for the drop) resolve the variant through the
-  one internal `plainRockVariant` so they can't pick different rocks. A surface with no rock sprite promises
-  nothing and passes `stones = null` for the old flat roll — that's the cave
-  WALL dig, not a rock. Note the pair is one connected blob, so no pixel pass
-  can count it: `stones` is authored, and the tripwire if the sheet is re-cut
-  is the `ART_BOUNDS` width drift check in `tools/sprite_audit.js`.
-  **And say the real number.** The plain-rock toast read `+1 Rock` while
-  handing over three — if a loot path rolls a quantity, its flash prints that
-  quantity.
+- **What the art SHOWS is what it DROPS.** Variants that differ in COUNT are
+  not cosmetic: one table both sides read. `SpriteLayout.PLAIN_ROCK_VARIANTS`
+  carries `col` (drawn) beside `stones` (paid by `plainRockBaseDrop`,
+  `stones + randInt(0,1)`); `SpriteLayout.plainRockFrame` and
+  `plainRockStones` both resolve through the one `plainRockVariant`. A surface
+  with no rock sprite (the cave WALL dig) passes `stones = null`. `stones` is
+  authored (the pair is one blob); the `ART_BOUNDS` width drift check in
+  `tools/sprite_audit.js` is the tripwire if the sheet is re-cut. **And say
+  the real number: if a loot path rolls a quantity, its flash prints that
+  quantity.**
   **Audit it:** `node test/node/run.js` › `test/node/rock_yield.test.js`.
 
-- **A frame index is not a frame COUNT — list the art, never count the cells.**
-  A sprite sheet is a grid, and nothing in the renderer can tell a cell holding
-  a sprite from one holding nothing. `CROP_SPRITE.shell` said `variants: 12`
-  because Shell.png is 3×4 — but only its TOP ROW is shells (three cowries);
-  the rest is three keyline duplicates, two flat mask rows and four BLANK
-  cells, the same layout `Gemstones.png` has. So the beaches were empty: the
-  renderer drew `hash % 12` and most shells landed on a blank frame — a pickup
-  you could tap but not see. The answer is the `PLAIN_ROCK_VARIANTS`
-  discipline: **`frames: [0, 1, 2]`**, the frames that carry art, listed.
-  **And the hash must read the whole KEY.** The same pass hashed `_ix`/`_iy` —
-  which `rasterizeTile`'s occupancy pass DELETES before the entry is ever
-  drawn — XORed with the wildplant id's `.length`, one number for a whole tile,
-  so every shell on a beach drew the same frame chosen by how many digits its
-  cell index happened to have. One resolver owns it now
-  (**`items.js` › `wildplantFrame`**, off `util.js`'s `fnv1a` of the id, the
-  same stable key a reload and a tile rebuild both reproduce), and the
-  renderer asks it rather than rolling its own. The shiny twinkle's phase was
-  the same `.length` hash one function over — a "desync" that put every shiny
-  in a tile in unison. **When a look varies per cell, hash the id, not its
-  shape; and when a crop varies, list its frames.**
+- **A frame index is not a frame COUNT — list the art, never count the
+  cells.** A sheet cell can be blank; the renderer can't tell. A
+  `CROP_SPRITE` entry declares **`frames: [...]`** (the frames that carry
+  art), never a bare `variants` count. **And the hash must read the whole
+  KEY**: per-cell looks resolve through `items.js` › `wildplantFrame` (off
+  `util.js`'s `fnv1a` of the id), never `_ix`/`_iy` (deleted by
+  `rasterizeTile`) or an id's `.length`. **When a look varies per cell, hash
+  the id, not its shape; and when a crop varies, list its frames.**
   **Audit it:** `node test/node/run.js` › `test/node/shell_variants.test.js`
-  (the resolver over a real rasterized beach) and `node tools/sprite_audit.js`
-  › `wildFrameRows`, which decodes the real PNG behind every frame a
-  `CROP_SPRITE` entry declares and fails if it is off the sheet, transparent,
-  or a single flat colour — and refuses a bare `variants` count outright.
+  and `node tools/sprite_audit.js` › `wildFrameRows`.
 
-- **A dialog about a thing on the map opens with THAT THING'S SPRITE.** Every
-  modal announces itself with a hero glyph and a one-word category
-  (`app.js` › `MODAL_KINDS`), and the glyph there is the FALLBACK — an emoji is
-  what a category with nothing behind it gets (a quest, a trade, the energy
-  explainer). TREASURE's was a 💎 over every chest ceremony, which named
-  neither the chest that paid out nor what it paid: a starter crate of onion
-  seeds and a trunk of frost bars opened under the same gem. A caller with a
-  picture passes `kindIcon` (HTML, the twin of the existing `kindLabel` word
-  override) and the header draws that instead — ungreyed, because the greying
-  is the emoji's dress and pixel art in grey reads as broken art.
-  It is the `PLAIN_ROCK_VARIANTS` discipline pointed at a sprite: **one
-  resolver both sides read**. `loot.js` › `chestLook` answers which of a
-  chest's four looks (trunk / crate / produce stand / pot of gold) an object
-  wears and carries the **texture key** each look means, so `render.js`'s chest
-  spec draws by that key and `app.js` › `worldIconHTML` shows the same key's
-  baked frame (`WORLD_ICON_URLS`, `bakeSheetFrame` in create() — the ITEM
-  bakes' lane, for a thing that is not in the catalog). Nothing re-decides
-  which art a look is. `chestLook` lived in render.js as a per-frame closure
-  until the ceremony needed the same answer; four render.js call sites and two
-  shipped pins moved with it, which is the proof the two are one lane.
-  **When you add a dialog about an object the player just tapped, hand it that
-  object's sprite; when you add a look, put its texture key on the look.**
+- **A dialog about a thing on the map opens with THAT THING'S SPRITE.**
+  `app.js` › `MODAL_KINDS` supplies a fallback emoji glyph per category; a
+  caller with a picture passes `kindIcon` (HTML, twin of `kindLabel`), drawn
+  ungreyed. One resolver both sides read: `loot.js` › `chestLook` picks a
+  chest's look and carries its **texture key**; `render.js` draws by that key
+  and `app.js` › `worldIconHTML` shows its baked frame (`WORLD_ICON_URLS`,
+  `bakeSheetFrame`). **When you add a dialog about an object the player just
+  tapped, hand it that object's sprite; when you add a look, put its texture
+  key on the look.**
   **Audit it:** `node test/node/run.js` › `test/node/treasure_icon.test.js`.
 
 - **A tilled cell is one BAKED bed, never a per-frame rounded path.** The
-  soil is the `tilled_N` texture (`textures.js` › `drawTilledTex`): an opaque
-  pad inset `TILLED_INSET_PX` from every edge with `TILLED_CORNER_PX` corners
-  and a transparent ring, so each cell reads as its own bed with the ground
-  colour showing between neighbours, and `render.js` paints NO soil fill under
-  it. Until Sep 2026 it painted one — and at a sand/residential zone corner it
-  was a `fillRoundedRect` wearing the ZONE's radii, which Phaser tessellates
-  into ~400 points and triangulates every frame (cellGfx is cleared each
-  frame). Any shape a cell wears every frame belongs in its texture, not in a
-  Graphics path. The watered darkening is a TINT on that pad sprite
-  (`WATERED_TINT`), set on every frame the pool sprite is reused: a wash under
-  an opaque pad is hidden, and one over it darkens the ground ring too.
-  **Audit it:** `node test/node/run.js` › `test/node/tilled_bed.test.js` runs
-  the real `drawTilledTex` against a recording 2D context.
+  soil is the `tilled_N` texture (`textures.js` › `drawTilledTex`, inset
+  `TILLED_INSET_PX`, corners `TILLED_CORNER_PX`, transparent ring), and
+  `render.js` paints NO soil fill under it. The watered look is a TINT on the
+  pad sprite (`WATERED_TINT`), set every frame the pool sprite is reused. Any
+  shape a cell wears every frame belongs in its texture, not a Graphics path
+  (cellGfx is cleared and re-tessellated each frame).
+  **Audit it:** `node test/node/run.js` › `test/node/tilled_bed.test.js`.
 
-- **The creature "crown" rule (work wheel).** Creatures are exempt from the
-  one-cell rule above (they're feet-anchored moving actors), but the
-  work-progress wheel drawn over one is not free-floating: it **rests on** that
-  kind's **crown** — the ring's TOP EDGE sits on the top row of its visible art
-  at rest — so the whole wheel reads as sitting on the animal, at any size.
-  An animal shorter than the wheel's diameter can't give up a full radius
-  without the ring sliding off its feet, so the drop is capped at half the art's
-  height and the wheel centres on its midline instead.
-  It's derived, not tuned: the per-kind draw geometry (frame, scale, foot
-  origin, constant float, trimmed art rows) lives in
-  **`src/sprite_layout.js`** › `CREATURE_ART`, which `render.js` draws from and
-  `app.js` places the wheel from via `creatureWheelDy(kind)`; the ring radius
-  lives there too (`CREATURE_WHEEL_R`) so the number that draws the wheel and
-  the number that seats it can't drift apart. Never re-tune the wheel with a
-  flat px offset — one number can't fit a chicken and a cow, which is how it
-  ended up 4px above the chicken and down at a perched crow's feet.
-  **The wheel CENTRED on the crown until Aug 2026**, which left a full radius
-  (10px) of ring in the empty sky above every animal — a constant overshoot, so
-  it read as too high on all of them and worst as a fraction of the small ones.
-  If you are tempted to centre it on the crown again, that is the bug.
-  **Audit it:** `node tools/sprite_audit.js` (also in `node test/node/run.js`)
-  re-decodes the creature PNGs and fails if `CREATURE_ART` has drifted from the
-  art, if a wheel has left its seating, or if any ring floats above a crown it
-  is tall enough to sit on.
-  **Enemy health is a BAR, not the wheel's ring.** The health readout over a
-  wounded enemy (`_drawEnemyHealth` / `_drawEnemyHealthBar` in `app.js`, worn
-  bright by the combat wheel's own target in `_drawWorkProgress`) is a small
-  strip floating a fixed gap ABOVE the kind's crown — deliberately a different
-  shape on the other side of the crown from the work wheel, so a fight and a
-  job can't be misread for each other. Its seating is derived the same way the
-  wheel's is: `SpriteLayout.creatureHealthBarTop(kind)` + the
-  `HEALTH_BAR_W/H/GAP` constants live in `src/sprite_layout.js`, off the same
-  `CREATURE_ART` table. Never seat it with a flat px offset, and never draw
-  health as a ring again. Damage lands as floating "-N" popups
-  (`_popDamageNumber`, fed by `_damageEnemy` on a `DMG_POPUP_BEAT_MS` throttle
-  that accumulates the melee wheel's per-frame fractions into whole numbers).
-  **Audit it:** `node test/node/run.js` › `test/node/health_bar.test.js`.
+- **The creature "crown" rule (work wheel) and the enemy health BAR.** The
+  work wheel over a creature **rests on** its crown: the ring's TOP EDGE sits
+  on the top row of the art at rest (drop capped at half the art's height for
+  short animals). Derived from `src/sprite_layout.js` › `CREATURE_ART`, which
+  `render.js` draws from and `app.js` seats via `creatureWheelDy(kind)`, with
+  `CREATURE_WHEEL_R` there too. **Never re-tune the wheel with a flat px
+  offset, and never CENTRE it on the crown** (that was the old bug — a full
+  radius of ring floating above every animal).
+  **Enemy health is a BAR, not a ring**: `_drawEnemyHealth` /
+  `_drawEnemyHealthBar` (app.js) float a strip a fixed gap ABOVE the crown,
+  seated by `SpriteLayout.creatureHealthBarTop(kind)` +
+  `HEALTH_BAR_W/H/GAP` — never a flat offset, never health as a ring again.
+  Damage lands as "-N" popups (`_popDamageNumber`, fed by `_damageEnemy` on a
+  `DMG_POPUP_BEAT_MS` throttle).
+  **Audit it:** `node tools/sprite_audit.js` (the wheel) and
+  `node test/node/run.js` › `test/node/health_bar.test.js`.
 
 - **A KIND is a ROW, never a chain of literals — and a kind GROUP is a
   predicate.** What a creature DOES lives in `src/sprite_layout.js` ›
-  `CREATURE_BEHAVIOUR`, one row per base kind beside `CREATURE_ART`'s one row
-  for how it draws, both resolved through `baseKind` so a giant inherits: who
-  wanders, who is a pet and what it hunts (`prey`), who is GAME (crow + deer,
-  hunted, never shot), what a kill drops, what a fed animal gives, who a
-  scarecrow turns back, and the gait and the bolt. `wanderCreatures`, the
-  creature draw pass, the tap handler and `resolveDefeat` all ask it
-  (`isPet` / `isGame` / `creatureDrop` / `creatureProduce` / …). Until Sep
-  2026 the same facts were fifty-two `kind === '…'` comparisons across app.js,
-  render.js and interact.js — a seven-branch draw chain whose branches differed
-  only in values the art table already held, a `wanders` OR-chain of nine
-  names, `CAT_PREY` / `DOG_PREY` / `HUNT_KINDS` as three spellings of one
-  table, and a drop ternary. The row is NOT the enemy registry: whether a kind
-  is HOSTILE stays `combat.js` › `MONSTERS` via `Combat.isEnemy`, and
-  `creature_table.test.js` refuses a fight stat in a behaviour row.
-  The same discipline one level up: a GROUP of kinds that more than one place
-  tests is a predicate in `src/interactables.js` — `isCastle(o)`,
-  `isTreeLike(kind)`, `isBuilding(kind)` — and "is this object spent" is
-  `isSpent(o, spentSets(scene, save))`, which the registry's own `spent` rows
-  and both the renderer and the tap read. Five copies of `kind === 'tower' ||
-  tier === 12` and two of the four-clause spent test, each with a comment
-  asking you to keep the other in step, are what those replaced. **When you
-  add a creature, add its row; when you test a kind group twice, name it.**
+  `CREATURE_BEHAVIOUR` (beside `CREATURE_ART`, both via `baseKind` so a giant
+  inherits): wandering, pets and `prey`, GAME (crow + deer), drops, produce,
+  scarecrow response, gait and bolt — asked through `isPet` / `isGame` /
+  `creatureDrop` / `creatureProduce` / …, never `kind === '…'`. HOSTILITY is
+  NOT in the row: it stays `combat.js` › `MONSTERS` via `Combat.isEnemy`. A
+  group of kinds tested in more than one place is a predicate in
+  `src/interactables.js` — `isCastle(o)`, `isTreeLike(kind)`,
+  `isBuilding(kind)` — and "is this object spent" is
+  `isSpent(o, spentSets(scene, save))`. **When you add a creature, add its
+  row; when you test a kind group twice, name it.**
   **Audit it:** `node test/node/run.js` › `test/node/creature_table.test.js`
   and `test/node/predicates.test.js`.
 
-- **Combat is HIT POINTS, and the numbers are derived.** Fighting an enemy is
-  not a timer any more: `src/combat.js` owns one HP pool per foe that the melee
-  wheel, bow/staff shots and a pet's teeth all drain. The damage rates are NOT
-  tuned — they're pinned to the old timed wheel by the identity
-  `dps = 15000 / toolDurationMs`, so a weapon tier still kills a given foe in
-  exactly the time it used to, and one shot carries one second of that rate.
-  If a fight feels wrong, change `TOOL_DURATION_MS` or the kind's `hp`; adding a
-  fudge factor in combat.js breaks the correspondence the tests pin.
-  **"Enemy" is narrower than "defeatable".** Enemies (`Combat.isEnemy`) are the
-  wild slime and the cave monsters — things that attack you. Crow and deer are
-  GAME: nothing auto-fires at them and no shot may hit them, or hunting stops
-  being a choice. A sapphire-tamed slime (`released_*`) is a pet, never a
-  target. **When you add a hostile kind, put it in the monster table** — that
-  registration is what makes it an enemy everywhere at once.
+- **Combat is HIT POINTS, and the numbers are derived.** `src/combat.js` owns
+  one HP pool per foe, drained by the melee wheel, bow/staff shots and pets.
+  Damage is pinned to the old timed wheel by `dps = 15000 / toolDurationMs`
+  (one shot = one second of that rate). If a fight feels wrong, change
+  `TOOL_DURATION_MS` or the kind's `hp` — never a fudge factor in combat.js.
+  **"Enemy" is narrower than "defeatable"**: enemies (`Combat.isEnemy`) are
+  the wild slime and cave monsters. Crow and deer are GAME — nothing
+  auto-fires at them, no shot may hit them. A tamed slime (`released_*`) is a
+  pet, never a target. **When you add a hostile kind, put it in the monster
+  table.**
   **Audit it:** `node test/node/run.js` › `test/node/combat.test.js`.
-  The two rules that come out of this pool have bullets of their own below:
-  what ARMOUR takes off a blow before it lands, and who may take an
-  interest in the player at all.
 
-- **ARMOUR IS THE OTHER SIDE OF THAT POOL, and it soaks — it does not grow the
-  bar.** Until Sep 2026 each worn piece added `energyPerTier × tier` to the max
-  ENERGY, which is a bigger tank rather than better protection: it paid a player
-  who never fought exactly what it paid one who lived underground, and no amount
-  of it made a goblin's bite land any softer. A piece now contributes **its
-  TIER** to a reduction pool (`items.js` › `armorSlotReduction` /
-  `armorReduction` — every slot pays the same for a tier and they differ only in
-  PRICE), and `Combat.mitigate` spends that pool against a blow in
-  `MITIGATION_ROUNDS` passes: soak up to HALF the damage, halve what is LEFT of
-  the pool, soak up to half of what is left of the blow, four times over.
-  Halves round DOWN and `MIN_PLAYER_DAMAGE` is the floor, so four halvings cap
-  armour at 15/16ths of a hit however good it is — nobody ever out-equips the
-  game. **The mode and the potion scale the blow BEFORE armour spends against
-  it** (`Difficulty.enemyDmgMul`, the shield's halving), so a hard-mode hit is
-  soaked as a hard-mode hit.
-  **Two rules keep the ladder legible, and both were learned by shipping it
-  wrong for a day.** First, **the soak is LINEAR and lives on the damage's own
-  scale**: everything that hits the player deals 1..4 (`MONSTERS[].dmg`),
-  doubled for an elite and again on hard — the whole damage space is **1..16**.
-  It shipped as tier SQUARED, which put a full Frost set at 196 against that, so
-  every tier from Iron up flattened every blow to the floor and the entire
-  ladder above Wood was invisible. A quadratic soak needs damage numbers an
-  order of magnitude bigger than this game has. Second, **the pool is SPENT, not
-  re-charged**: handing each round the full halved pool afresh lets P soak
-  `P + P/2 + P/4 + P/8` ≈ 1.9P, so a full Wood set (4) took SEVEN points off a
-  blow — more than most blows are worth. What survives a round is halved before
-  the next, the total can never exceed the pool, and the halving does its work
-  by decaying the UNSPENT remainder. Between them a T1 piece is a flat −1 on
-  every blow and every rung of the ladder still tells against the worst hit in
-  the game. **If armour ever stops discriminating between tiers, check those two
-  before retuning anything.**
-  There are exactly three places a foe reaches the player — the surface slime's
-  leech, a cave monster's melee, and a goblin archer's arrow — and all three go
-  through `Combat.playerDamage(dmg, this.save.armor)`. The arrow passes
-  `shot.hits` as well: it carries `MONSTER_ARROW_HITS` hits of the table in one
-  projectile so its damage per minute matches the melee cadence it stands in
-  for, and soaking that bundle in ONE lump would hand the parity straight back —
-  the archer would become the one foe armour barely helps against. **When you
-  add a way for something to hit the player, mitigate it**; a raw
-  `save.energy -= dmg` is the bug. And what a piece soaks is printed ON the
-  piece (the Stats row, the shop offer) from `armorSlotReduction` — one table,
-  both sides, the `roadOverlayWidthM` discipline.
+- **Armour SOAKS a blow — it does not grow the bar.** Each worn piece adds its
+  TIER to a reduction pool (`items.js` › `armorSlotReduction` /
+  `armorReduction`; slots differ only in price), and `Combat.mitigate` SPENDS
+  that pool against a blow over `MITIGATION_ROUNDS` halving rounds, floored at
+  `MIN_PLAYER_DAMAGE`. The soak is LINEAR on the 1..16 damage scale and the
+  pool is spent, not re-charged — if armour stops discriminating between
+  tiers, check those two before retuning anything (see `Combat.mitigate`'s
+  comment). Mode and potion (`Difficulty.enemyDmgMul`, the shield) scale the
+  blow BEFORE armour. The three ways a foe reaches the player (slime leech,
+  cave-monster melee, goblin arrow) all go through
+  `Combat.playerDamage(dmg, this.save.armor)`; the arrow also passes
+  `shot.hits` (`MONSTER_ARROW_HITS`) so its bundle is soaked per hit. **When
+  you add a way for something to hit the player, mitigate it; a raw
+  `save.energy -= dmg` is the bug.** What a piece soaks is printed on the
+  piece (Stats row, shop offer) from `armorSlotReduction`.
   **Audit it:** `node test/node/run.js` › `test/node/armor.test.js`.
 
-- **NOTHING HUNTS A BODY.** At zero energy the player has collapsed: the reach
-  is 0 (`coords.js` › `reachRadiusM`), so nothing can be tapped, swung at or
-  dug, and all three of those damage paths already refuse to take a point off
-  an empty bar. A foe that goes on stalking one is chasing something it is
-  forbidden to bite — and on hard, where nothing but Home lifts the bar off
-  zero, it escorts the player the whole way home. So a downed player is not
-  THERE to be hunted, exactly as a Shadow Powder makes them:
-  `wanderCreatures` ORs the two wards once per tick into **`unnoticed`**
-  (`Combat.playerDowned(save.energy)` beside `shadowed`) and every
-  hostile-interest branch reads that — the leech, the monster's hit and arrow,
-  the struck slime's charge, and both stalk branches, each falling back to the
-  aimless wander. It is ONE expression on both sides, the `roadOverlayWidthM`
-  discipline: the test that drops the pursuit is the same one that refuses the
-  damage, so a foe can never be chasing a player it cannot hurt. **When you add
-  a hostile behaviour that takes an interest in the player, gate it on
+- **NOTHING HUNTS A BODY.** At zero energy the reach is 0
+  (`coords.js` › `reachRadiusM`) and no damage path takes a point off an empty
+  bar, so a downed player is not there to be hunted: `wanderCreatures` ORs
+  `Combat.playerDowned(save.energy)` beside `shadowed` into **`unnoticed`**,
+  and every hostile-interest branch reads it (the leech, the monster's hit and
+  arrow, the struck slime's charge, both stalk branches). **When you add a
+  hostile behaviour that takes an interest in the player, gate it on
   `unnoticed`, not on `shadowed`.**
-  **And a body does not STEP, either.** `_tickTraps` stands down on the same
-  collapse: springing a snare spends it for good (`save.sprungTraps` is written
-  the instant it fires) on a player it can charge nothing for, and on hard the
-  long walk home would clear every trap it crossed for free. That gate reads
-  `Combat.playerDowned` DIRECTLY, never `unnoticed` — a Shadow Powder hides you
-  from whatever takes an interest in you, and iron jaws take none. So the two
-  halves of `unnoticed` are not interchangeable outside `wanderCreatures`: ask
-  whether the new rule is about being *noticed* or about being *upright*.
-  **The picture says it too.** A body upright on screen while the reach is 0
-  and nothing will bite it is the picture lying, so at zero energy the sprite
-  lies down — `playerBodyRotation()` turns it a quarter turn onto its front
-  (`PLAYER_DOWNED_ROTATION`) and `playerBodyDy()` drops its centre onto the fix,
-  so the midsection ends where the feet were. `playerBodyDy()` is the ONE answer
-  to "where is the body's centre?", so everything hung on it — the sprite, the
-  warning halo, the powder countdowns, the facing arrow — goes down with it;
-  reading `playerFeetNudgeY` directly leaves a mark a body-length in the air
-  over the collapsed sprite (see the feet-anchor rule).
+  `_tickTraps` also stands down on collapse, but reads `Combat.playerDowned`
+  DIRECTLY, never `unnoticed` — a Shadow Powder hides you from what notices
+  you; iron jaws notice nothing. Ask whether a new rule is about being
+  *noticed* or about being *upright*.
+  At zero energy the sprite lies down (`playerBodyRotation()`,
+  `PLAYER_DOWNED_ROTATION`; `playerBodyDy()` drops its centre onto the fix).
+  `playerBodyDy()` is the ONE answer to "where is the body's centre?" —
+  reading `playerFeetNudgeY` directly leaves marks in the air over a downed
+  sprite.
   **Audit it:** `node test/node/run.js` › `test/node/downed_pursuit.test.js`
-  (the wards, the fade and the pose) and `test/node/traps.test.js` (the tick's
-  stand-down).
+  and `test/node/traps.test.js`.
 
 - **A tile build stutters on its WORST BLOCK, not its total.** The rasterizer
-  is a generator (`rasterizeTileSteps`); the slicer can only hand the frame
-  back at a `yield`, so one pass that runs straight through freezes the game
-  for exactly as long as it takes, however small the budget is. The boot
-  profile names it — `worst block <N>ms in <label>` — and the label is the
-  yield the block ENDED at, i.e. the culprit is the code just before it.
-  Three of these have shipped now: the building cover scan, the wildplant
-  sweep, and the merged-house thinning (`worst block 1397ms in after the layer
-  loop`, an O(H^2) scan of the kept roofs, now a Set of cells). The two shapes
-  to watch for are a **quadratic** (a scan of everything kept so far, or a
-  `splice` per rejection inside a reverse walk — compact in place instead) and
-  a **helper called plainly from the generator** that walks a whole polygon
-  (make it a `function*` and `yield*` it, as `spawnDebrisSteps` and
-  `_spawnRockClustersSteps` are).
-  **When you add a pass over every cell, object or polygon, give it a yield.**
+  is a generator (`rasterizeTileSteps`); the slicer can only yield at a
+  `yield`. The boot profile's `worst block <N>ms in <label>` names the yield
+  the block ENDED at — the culprit is the code just before it. Watch for a
+  **quadratic** (scanning everything kept so far, or a `splice` per rejection
+  — compact in place) and a **helper called plainly from the generator** that
+  walks a whole polygon (make it a `function*` and `yield*` it, like
+  `spawnDebrisSteps` / `_spawnRockClustersSteps`). **When you add a pass over
+  every cell, object or polygon, give it a yield.**
+  The post-rasterize path in `loadTile` (cross-tile dedup, cave entrance,
+  Overpass bin injection) has no slicer at all, so anything there must be O(n)
+  by construction — the house dedup is a bucket grid
+  (`collectDedupIndex`'s `houseNear` / `addHouse`), never a walk of
+  `housePositions`.
   **Audit it:** `node test/node/run.js` › `test/node/tile_build_blocks.test.js`
-  times every step of a real build over a 3000- and a 6000-building tile and
-  fails if any single block runs long.
-  **The post-rasterize path in `loadTile` has no slicer at all** — the
-  cross-tile dedup, the cave entrance, the Overpass bin injection all run
-  straight through when the rasterize resolves, and they are charged to no
-  span narrower than `neighbour ring (in the background)`, so a profile can
-  only point at them by elimination. Anything there must be O(n) by
-  construction: the house dedup was a scan of every house in every cached tile
-  per house of the new one (six frames over 100 ms, worsening with each tile
-  the ring added) and is a bucket grid now — `collectDedupIndex`'s `houseNear`
-  / `addHouse`, never a walk of `housePositions`.
-  **Audit it:** `test/node/worldgen_dedup.test.js`.
+  and `test/node/worldgen_dedup.test.js`.
 
 - **The loop STEPS on a cap, and a per-frame pass either skips a still step
-  or walks an index — never the tile.** Until Sep 2026 the Phaser config
-  carried no `fps`, so the game stepped at the display's refresh rate (60 on
-  most phones, 90 or 120 on many), and every pass in `_updateTimed`, the
-  lightmap's canvas upload and the GPU's fill scaled with it. A GPS walker
-  spends most of a session standing still — the first phone profile read 87%
-  still steps — and nothing in it needs a step every 8 ms. Three things hold
-  now, and each was measured on a phone before it shipped:
-    1. **`FPS_LIMIT`** (app.js, 30) is what the loop steps at, on any display.
-       Phaser is handed **`PHASER_FPS_LIMIT`** = one fps MORE, because
-       `TimeStep.stepLimitFPS` sums rAF deltas against `1000 / limit` and drops
-       the remainder — a gate that is an exact multiple of the vsync fires on
-       the second frame or the third as the float falls, and a "30" cap
-       measured ~23 steps/s. Time-based motion (tweens, anims, the peek
-       spring) is untouched; the one frame-counted throttle (the modal-gate
-       backstop's `% 10`) is now ~330 ms and reads as instant.
-    2. **`Lighting.draw` paints only when its inputs move.** It keys each step
-       on everything the paint reads — `frameKey`: the feet point, the anchor
-       cell and fraction, the reach, the whole profile, every light's fields —
-       and reuses the last upload when the key stands. What ANIMATES (a fire's
-       flicker, a POI's breath, a blast, the low-energy heartbeat) reads the
-       clock through `lightClock`, quantised to `LIGHT_TICK_MS` (100 ms), so an
-       animated view repaints ten times a second and a still one not at all.
-       That is the fog's and the road canvas's rebuild-on-a-key shape pointed
-       at the one layer that lacked it. **The key must name every input**: a
-       new thing the paint reads goes into `frameKey` or it will not repaint.
-    3. **`drawObjects` walks `WorldGen.forEachItemInBox`**, a per-tile chunk
-       index (`CHUNK_M` squares, `chunkIndex`, hung on the entry), never
-       `entry.objects` / `entry.wildplants` flat — the flat walk touched
-       37,000 entries per step to keep 37, a quarter of the main thread while
-       standing still. The query box is the sprite cull plus the widest thing
-       offered BEFORE the cull (`HOUSE_PAD_M`, or the widest scanned light —
-       `Lighting.objectLightPadCells`, derived from `KINDS` so a new row
-       widens it by itself). The index is DERIVED, never stored, so the rebuild
-       rule below holds by construction (a rebuilt entry lays it again on the
-       first query), and it is keyed on the array's identity, length AND last
-       element — the three things every mutation the code makes moves (a
-       push, a splice, a `filter()` reassignment, the trailer swap's
-       splice-then-push). **Objects never move in place**; creatures do, and
-       are not indexed. **When you add a per-tile array a per-frame pass
-       reads, index it the same way; when you add an offer before the sprite
-       cull, widen the box.**
-  **The profile can tell the cap from the passes**: ☰ › Load profile prints
-  game steps against display frames, the main thread's busy share, still
-  steps apart from walking ones (`update @still`, `phaser render @still`),
-  the lightmap's own tick (taken back out of `drawObjects`, which it runs
-  inside) and its repaint rate, and `drawObjects scanned` — the number that
-  says whether a walk has crept back. `?fps=N` (0 = uncapped) and `?rscale=N`
-  are the A/B knobs; neither survives a PWA launch.
+  or walks an index — never the tile.**
+    1. **`FPS_LIMIT`** (app.js, 30) is the step rate on any display; Phaser is
+       handed **`PHASER_FPS_LIMIT`** = one more, because `stepLimitFPS` drops
+       remainders and an exact vsync multiple under-delivers.
+    2. **`Lighting.draw` paints only when its inputs move**, keyed by
+       `frameKey`; animated inputs read `lightClock`, quantised to
+       `LIGHT_TICK_MS`. **The key must name every input**: a new thing the
+       paint reads goes into `frameKey` or it will not repaint.
+    3. **`drawObjects` walks `WorldGen.forEachItemInBox`** (a derived per-tile
+       chunk index, `CHUNK_M` / `chunkIndex`, keyed on the array's identity,
+       length and last element), never `entry.objects` / `entry.wildplants`
+       flat. The query box is the sprite cull plus the widest thing offered
+       before the cull (`HOUSE_PAD_M`, `Lighting.objectLightPadCells`).
+       Objects never move in place; creatures do and are not indexed.
+  **When you add a per-tile array a per-frame pass reads, index it the same
+  way; when you add an offer before the sprite cull, widen the box.**
+  ☰ › Load profile reports steps vs frames, still vs walking steps, the
+  lightmap tick and `drawObjects scanned`; `?fps=N` (0 = uncapped) and
+  `?rscale=N` are A/B knobs.
   **Audit it:** `node test/node/run.js` › `test/node/still_frames.test.js`
-  (the clock, the key, the animates test, the cap and the ticks) and
-  `test/node/chunk_index.test.js` (the index against a brute-force walk, every
-  mutation shape, the query margin and a light past the cull).
+  and `test/node/chunk_index.test.js`.
 
 - **A tile can be REBUILT under you, and a rebuilt entry is a NEW object.**
-  When a tile rasterizes before its Overpass bin arrives, `rebuildTileWithBin`
-  builds a replacement and swaps it into the cache. It carries over only what
-  it cannot reconstruct — live `creatures`, `coinDrops` — so ANY other state
-  app.js hung on the old entry is gone, and `spawnInTile` has to run again.
-  That pass is therefore gated on **`entry._spawned`**, a flag the rebuild does
-  NOT carry, never on carried state: gating on `entry.creatures` made a
-  rebuilt tile look spawned, and the starter crates, the buried X, the treasure
-  scatter and the fruit trees all vanished a few seconds into the session and
-  "came back on refresh" (on reload the bin is cached, so no rebuild happens).
-  This is the third bug of the shape — the chest dedup, then the house dedup,
-  now the spawn gate. **When you put per-session state on a tile entry, decide
-  what a rebuild does with it**: carried across, or re-derived by a pass that a
-  flag the rebuild drops will re-run.
+  `rebuildTileWithBin` swaps in a replacement carrying only live `creatures`
+  and `coinDrops`; any other state hung on the old entry is gone and
+  `spawnInTile` must run again. That pass is gated on **`entry._spawned`**, a
+  flag the rebuild does NOT carry — never on carried state (gating on
+  `entry.creatures` made spawns vanish until refresh). **When you put
+  per-session state on a tile entry, decide what a rebuild does with it**:
+  carried across, or re-derived by a pass that a dropped flag re-runs.
   **Audit it:** `node test/node/run.js` › `test/node/spawn_rebuild.test.js`
-  runs the shipping gate line against a rebuilt entry. Note that
-  `starter_relic.test.js` drives `_placeStarterTrail` directly and passed
-  throughout the bug — the trail was fine, the CALL to it was not.
+  (note `starter_relic.test.js` tests `_placeStarterTrail` directly and does
+  not cover the call gate).
 
-- **The tile URL is RESOLVED, never pinned.** OpenFreeMap serves each weekly
-  planet build from a dated directory (`/planet/20260520_001001_pt/…`) and its
-  host keeps two versions, deleting the rest — so a version baked into
-  `src/worldgen.js` stops answering within weeks, and it fails as a NETWORK
-  error, not a tile 404 (there is no location block for a gone version). That
-  was "can't reach the map — tap to retry" on a blank ground that no tap could
-  clear, invisible to anyone whose home tiles were already in IndexedDB.
-  `WorldGen.resolveTileUrl` asks the TileJSON (`TILEJSON_URL`) for the live
-  template at the first fetch, remembers it in IndexedDB for a day, and
-  `fetchTileResponse` re-asks it ONCE when a tile fetch fails — a rotation
-  mid-session heals on the next tile. `TILE_URL_FALLBACK` is only the
-  last-known-good for an offline first run; bumping it is never the fix.
-  **Every tile fetch goes through `fetchTileResponse`** — a raw
-  `fetch(tileUrlFor(...))` anywhere else is the bug coming back.
+- **The tile URL is RESOLVED, never pinned.** OpenFreeMap rotates its dated
+  planet directories. `WorldGen.resolveTileUrl` asks the TileJSON
+  (`TILEJSON_URL`) for the live template, caches it in IndexedDB for a day,
+  and `fetchTileResponse` re-asks once when a fetch fails.
+  `TILE_URL_FALLBACK` is only an offline first-run fallback; bumping it is
+  never the fix. **Every tile fetch goes through `fetchTileResponse`** — a raw
+  `fetch(tileUrlFor(...))` is the bug.
   **Audit it:** `node test/node/run.js` › `test/node/tile_url.test.js`.
 
 - **A module's `?v=` is DERIVED from its bytes — never typed, never bumped.**
-  `index.html` loads ~43 same-origin scripts at versioned URLs, and the version
-  is the ONLY thing that invalidates them: the URL is what the browser's HTTP
-  cache matches on, so a module whose content changed while its `?v=` stood
-  still keeps serving the OLD file to everyone who already has it — beside a
-  fresh `app.js` that calls into it. That is a crash with no stack in the
-  changed code and no repro on a cold cache.
-  It shipped in Sep 2026 as **`Combat.playerDowned is not a function`**: the
-  commit that added `playerDowned` to `src/combat.js` and its five call sites
-  to `src/app.js` never touched index.html, and the merge that landed it
-  resolved index.html by hand and carried only app.js's bump across, so
-  combat.js stayed at `?v=15`. Bumping `SHELL_VERSION` does not reach it —
-  that drops the service worker's shell cache, but the HTTP cache underneath
-  still matches the byte-identical URL. An audit of every tag at the time found
-  **fourteen more** modules changed since their last bump, each the same latent
-  crash waiting for app.js to call into it.
-  A hand-typed counter cannot be right by construction: it records what somebody
-  remembered rather than what changed, and it collides on every merge — two
-  branches both bumped `app.js` to `v=531` and `SHELL_VERSION` to `shell-v182`
-  for different content, which is a second way to serve a stale file. So the
-  number is derived: **`tools/cachebust.js`** writes each `?v=` as 8 hex of the
-  file's own sha256 and `SHELL_VERSION` as a hash of the resulting list, so it
-  moves when any module does and only then. What ships and what the URL claims
-  are one value read twice — the `roadOverlayWidthM` discipline pointed at the
-  tags. A merge cannot collide two hashes, because the hash follows the MERGED
-  content rather than either side's counter.
-  **`node tools/cachebust.js --write` after the last edit** is the whole
-  workflow; there is no number to choose and `vendor/phaser.js` is covered too.
-  **A merge that conflicts on a tag is resolved by keeping EITHER side and
-  running `--write`** — the hash follows the merged bytes. Resolve the markers
-  first: `--write` refuses a file that still carries `<<<<<<<`, because it
-  once hashed both sides of a hunk and left the markers in place (an
-  index.html that rendered `<<<<<<< HEAD` as text, an sw.js that was a syntax
-  error, and a green suite), and the first cache-bust check fails on one.
-  **Audit it:** `node test/node/run.js` › `tools/cachebust.js`'s own CHECKS
-  (node scope, like the sprite and shell audits — the `*.test.js` sandbox has
-  no `require()`). The first names every stale tag and fails the suite so the
-  drift can't ship; the rest pin the derivation under it, since that check is
-  only as good as the hashing it asks.
+  The `?v=` on each `index.html` script tag is the only thing that
+  invalidates the browser's HTTP cache for it; a module changed under a stale
+  `?v=` serves the OLD file beside a fresh `app.js` (a crash with no repro on
+  a cold cache). Bumping `SHELL_VERSION` does not fix that. **`node
+  tools/cachebust.js --write` after the last edit** writes each `?v=` as 8 hex
+  of the file's sha256 and `SHELL_VERSION` as a hash of the list — there is no
+  number to choose (`vendor/phaser.js` is covered). **A merge that conflicts
+  on a tag is resolved by keeping EITHER side and running `--write`** —
+  resolve conflict markers first; `--write` refuses a file still carrying
+  `<<<<<<<`.
+  **Audit it:** `node test/node/run.js` runs `tools/cachebust.js`'s own
+  CHECKS, which fail on any stale tag.
 
 - **The player's FEET are on the GPS fix.** `playerM` is the projected fix,
-  and every world layer (ground cells, the road band, the building polygons)
-  is drawn in that one frame with the fix at `viewCenter`. The player sprite
-  is seated so its visible feet land ON that point: `playerFeetNudgeY` (app.js
-  create()) is the NEGATIVE of the frame's feet drop, the sprite is drawn that
-  much above `viewCenter`, and `feetOffsetM` is 0. Ground marks — the contact
-  shadow, footprint dots, the GPS crosshair, the walk target, a peer's shadow
-  in `multiplayer.js` — sit on the point itself; anything that wants the
-  body's centre (the facing arrow, the powder countdowns, the swing arc, the
-  halo) adds **`playerBodyDy()`** to it, which is `playerFeetNudgeY` while the
-  player is on their feet and 0 once they have collapsed (the pose in the
-  NOTHING HUNTS A BODY rule — a body lying down has its midsection where its
-  feet were). Add the raw nudge and the mark stays a body-length in the air
-  over a downed sprite. **Until Sep 2026 the sprite was CENTRED on
-  the fix** and the feet hung 14px (3 m) south of it, with every ground mark
-  carrying its own +13/+14 to follow them down — so standing on a road's
-  centreline put the band through the character's waist and the whole map
-  read as shifted a body-length north of where you stood. If the map looks
-  offset from the feet along one axis, the seating has drifted; never fix it
-  by moving the projection or by re-adding a per-mark offset.
-  The road band's WIDTH is a different question: it is drawn at true scale
-  (`widthPxFor` = metres × CELL_PX / cellM) from the per-class guess table in
-  `WorldGen.roadWidthM` (the tiles carry no width tag), so a band that reads
-  too narrow or wide against the real street is that table's number to change.
-  **Audit it:** `node test/node/run.js` › `test/node/feet_anchor.test.js`
-  pins the seating as source text (app.js can't load headlessly).
+  drawn at `viewCenter`; the sprite is raised by `playerFeetNudgeY` (app.js
+  create(), the negative of the frame's feet drop) so its feet land on the
+  point, and `feetOffsetM` is 0. Ground marks (contact shadow, footprints,
+  GPS crosshair, walk target, a peer's shadow in `multiplayer.js`) sit on the
+  point itself; anything wanting the body's centre (facing arrow, powder
+  countdowns, swing arc, halo) adds **`playerBodyDy()`**, never the raw nudge.
+  If the map looks offset from the feet along one axis, the seating has
+  drifted — never fix it by moving the projection or re-adding a per-mark
+  offset. The road band's WIDTH is drawn true-scale (`widthPxFor`) from
+  `WorldGen.roadWidthM`'s per-class table — change that table if a band's
+  width reads wrong.
+  **Audit it:** `node test/node/run.js` › `test/node/feet_anchor.test.js`.
 
-- **Every wait the player can read is `shortDuration`.** One notation, one
-  helper: the LARGEST unit that applies, an integer, and a unit letter —
-  `20d`, `3h`, `30m`, `12s`. Never a compound (`1h 5m`), never a bare number,
-  never `0m` while the gate still refuses (the ceil cascades, so 59.5 minutes
-  is `1h` and the smallest pending wait is `1s`). It lives in
-  **`src/util.js`** › `shortDuration`, beside `msToNextUtcDay` — the companion
-  for anything gated on a UTC day key (`Delivery.dayKey`, the castle favour,
-  the coin-burst POIs), because "come back tomorrow" is twenty hours or twenty
-  minutes and the player can't tell which.
-  Until Sep 2026 there were FIVE shapes for the same question: the fruit tree
-  rolled its own `d`/`h` ladder, the produce cooldown printed `(43m)`, the shop
-  plaque `12m`, the crop badge a **bare `7`** with no unit at all, and the
-  delivery house, the castle, the coin-burst POI and the resting anvil gave no
-  number whatsoever. A shop's wait is the one number two call sites both draw
-  (`ShopsMath.readiness().waitMs` for the plaque, `shopWaitLabel` for the tap),
-  so both format the same ms — the `roadOverlayWidthM` discipline again.
-  **When you add a timed thing, format its wait with `shortDuration`** — and if
-  it has no readout at all, that is the bug, not a style choice.
-  **Audit it:** `node test/node/run.js` › `test/node/duration_notation.test.js`
-  pins the formatter and sweeps the call-site sources for a re-grown ladder or
-  a fresh unquantified "tomorrow" / "later".
+- **Every wait the player can read is `shortDuration`.** `src/util.js` ›
+  `shortDuration`: the LARGEST unit that applies, an integer, a unit letter
+  (`20d`, `3h`, `30m`, `12s`) — never a compound, never a bare number, never
+  `0m` while the gate still refuses (it ceils). Pair it with `msToNextUtcDay`
+  for anything gated on a UTC day key (`Delivery.dayKey`, castle favour,
+  coin-burst POIs). A shop's wait is one number both call sites format
+  (`ShopsMath.readiness().waitMs`, `shopWaitLabel`). **When you add a timed
+  thing, format its wait with `shortDuration`** — and if it has no readout at
+  all, that is the bug.
+  **Audit it:** `node test/node/run.js` › `test/node/duration_notation.test.js`.
 
 - **An energy number lands ON ITS CELL, by the player.** Every `+N⚡` / `−N⚡`
-  goes through `app.js` › `_popEnergy(delta, { ix, iy })`: the absolute cell
-  the change belongs to (the plot a till paid for, the wall a dig cost — a
-  spend resolves it from the TAP via `_cellAtScreen`), defaulting to the
-  player's own cell when the change is to the body (a rest tick, a slime's
-  leech, the offline refill). It seats through the projection
-  (`_energyPopAt` → `_cellToastAt` / `playerScreen`, never `viewCenterX/Y`),
-  hangs just clear of the cell's top edge — or of the player's HEAD on their
-  own cell, `ENERGY_POP_HEAD_PX`, derived from the walker's frame and feet
-  drop, `_isPlayerCell(ix, iy)` being the test that picks the body — so where
-  the number hangs is what tells the reader WHICH cell. **The number is the
-  whole mark: nothing is drawn on the ground.** A thin outline used to tick on
-  the cell under it in the same ink, which read as a flash of red or green
-  damage on whatever you had just tapped; it was removed in Sep 2026 along
-  with `_flashCellOutline`, and adding a ring back is the bug returning.
-  It wears the `cell` toast tier: bold, stroked and
-  drop-shadowed, no chip, because it sits on any ground at all. Until Sep
-  2026 the rest splash was a note at the viewport centre minus 70px and the
-  drains sat 40px above the same point — nowhere in particular, and under a
-  peek drag two cells from anyone. **When you add an energy gain or loss the
-  player can see, pop it with `_popEnergy` and name the cell** — a `flash` of
-  a ⚡ number at the viewport centre is the bug coming back.
-  **Every other number on the map is the same thing.** `_popEnergy` is the
-  ⚡ face of `_popCellNumber(text, color, ix, iy)`, which the coin pickup's
-  `+$1` uses on the coin's cell (it used to flash at the finger, which is
-  over the coin only until it lifts). The foe's `-N` (`_popDamageNumber`)
-  stays on the foe's health bar — that IS its cell — but is a `damage` row
-  of the same `TOAST_TIER` table, so it wears the same stroke and shadow;
-  it was a hand-set `add.text` beside the table with no shadow. **A number
-  drawn on the map is a `_toast` tier, never its own `add.text`**, and it
-  names the cell or the foe it is about.
-  **And the body flinches.** A blow on the player (the slime leech, a
-  monster's melee, an arrow in `_shotHitsPlayer`) calls `_flashPlayerHit`
-  at the instant it lands — never from the throttled pop, which rolls a
-  second of bites into one number — and `_updatePlayerAura` flicks the
-  character red for `HIT_FLASH_MS` on TWO channels: the sprite tint and the
-  halo's red texture, because `setTint` is a no-op under Phaser's Canvas
-  fallback and a tint-only flinch is invisible there. **When you add a
-  drain on the body, call `_flashPlayerHit` where the loss is banked.**
-  **Audit it:** `test/node/hit_flash.test.js`.
-  **Audit it:** `node test/node/run.js` › `test/node/energy_pop.test.js` runs
-  the lifted seating on a stub scene (cell edge, head clearance, peek) and
-  pins the call sites and the tiers as source text.
+  goes through `app.js` › `_popEnergy(delta, { ix, iy })` — the cell the
+  change belongs to (a spend resolves it from the TAP via `_cellAtScreen`),
+  defaulting to the player's cell for changes to the body. It seats through
+  the projection (`_energyPopAt` → `_cellToastAt` / `playerScreen`, never
+  `viewCenterX/Y`), clear of the cell's top edge or of the player's head
+  (`ENERGY_POP_HEAD_PX`, `_isPlayerCell`), in the `cell` toast tier. **The
+  number is the whole mark: nothing is drawn on the ground** — adding a cell
+  outline back (the removed `_flashCellOutline`) is the bug. **When you add an
+  energy gain or loss the player can see, pop it with `_popEnergy` and name
+  the cell** — a `flash` of a ⚡ number at the viewport centre is the bug.
+  **Every other number on the map is the same thing**: `_popCellNumber(text,
+  color, ix, iy)` (coin `+$1` on the coin's cell); the foe's `-N`
+  (`_popDamageNumber`) is a `damage` row of `TOAST_TIER`. **A number drawn on
+  the map is a `_toast` tier, never its own `add.text`**, and names the cell
+  or foe it is about.
+  **And the body flinches**: a blow on the player calls `_flashPlayerHit` at
+  the instant it lands (never from the throttled pop); `_updatePlayerAura`
+  flicks it red for `HIT_FLASH_MS` on both the tint and the halo texture
+  (`setTint` is a no-op under Canvas). **When you add a drain on the body,
+  call `_flashPlayerHit` where the loss is banked.**
+  **Audit it:** `node test/node/run.js` › `test/node/energy_pop.test.js` and
+  `test/node/hit_flash.test.js`.
 
 - **Working is not resting.** The passive rests in `app.js` update() — Home
-  (`HOME_FULL_REST_S`) and campfire warmth (`FIRE_FULL_REST_S`) — pause while
-  a work wheel runs (`const working = !!this._workProgress`). Until Sep 2026
-  they didn't, and a new player's first till was free: the starter trailer is
-  dropped under the player at spawn, the starter plot is carved two cells from
-  it inside reach from the trailer's own cell, and the Home rest ticked at
-  ~1.1⚡/s under a 2.25 s wheel that had cost 2⚡ — the bar read the same
-  number before and after. Never fix a "free" job by raising its cost or
-  slowing its wheel. **And the pause outlasts the wheel.** Resuming the rest
-  the moment the wheel cleared was the same bug one lane over: the starter
-  tree and rock sit 4–5 cells from the trailer, inside Home's ring from
-  anywhere they can be reached, and a bare-handed 9⚡ chop or dig was back on
-  the bar eight seconds after it finished ("mining and chopping took no
-  energy"). So `working` is the wheel OR a hold that every frame of a wheel
-  and every successful `spendEnergy` push out by `REST_SETTLE_S`
-  (`_holdRest`, the one writer of `_restHoldUntil`): the rests resume only
-  once the player has done nothing for that long, which is what sitting
-  down is. The stick walk's per-cell drain and a foe's blow are deliberately
-  NOT jobs — arriving Home by stick or wounded rests you at once. **When you
-  add a passive energy source, gate it on `working`; when you add a way to
-  spend energy on a job, send it through `spendEnergy` so it holds the rest.**
-  **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js` pins
-  the gates, the hold and its two writers as source text, and shows both an
-  ungated rest out-earning the till and an instant resume refunding the
-  bare-handed chop inside one wheel's length.
+  (`HOME_FULL_REST_S`) and campfire (`FIRE_FULL_REST_S`) — pause while
+  `working`: a work wheel is running OR the rest hold hasn't expired. Every
+  frame of a wheel and every successful `spendEnergy` push the hold out by
+  `REST_SETTLE_S` (`_holdRest`, sole writer of `_restHoldUntil`). The stick
+  walk's per-cell drain and a foe's blow are deliberately NOT jobs. Never fix
+  a "free" job by raising its cost or slowing its wheel. **When you add a
+  passive energy source, gate it on `working`; when you add a way to spend
+  energy on a job, send it through `spendEnergy` so it holds the rest.**
+  **Audit it:** `node test/node/run.js` › `test/node/rest_work.test.js`.
 
 - **The world is GENERATED; the save is only what you CHANGED.** Every
-  interactable outside the starting area is a pure function of WHERE it is.
-  `WorldGen.makeRng` is a mulberry32 seeded from integers, and the integers are
-  the tile's coordinates (`HASH_MUL_X` / `HASH_MUL_Y`), its depth underground,
-  and a per-stream salt constant — the traps, the X-mark scatter, the cave
-  rocks and flora, the cave monsters and their coins, the chest tiers, the POI
-  loot, the wild plants, the lairs, the rock clusters. There is **no global
-  world seed** and no stored object list, and that buys three things at once: a
-  tile evicted from the cache and rasterized again lays the identical world, a
-  tile REBUILT under the player (see the rebuild rule below) lays it again
-  unchanged, and two players standing on the same real street see the same one.
-  So a new interactable belongs in exactly one of three buckets, and saying
-  which is the whole design decision:
-    1. **GENERATED** — where it is, what tier it is, what it drops. NOTHING
-       reaches the save. This is the default and it should stay the default:
-       storage is what makes a world diverge from itself.
-    2. **THE DELTA** — what the player DID to a generated thing, as a list of
-       exceptions and never a copy of the thing: `caught`, `chopped`, `picked`,
-       `opened`, `sprungTraps`, `disarmedTraps`, `brokenRocks`,
-       `foundTreasures`, `dugWalls`, `tilled`. The generator still lays the
-       thing every time; the list only says "…except that one".
-    3. **PLACED** — things that exist because somebody PUT them there, which no
-       coordinate can re-derive, so they are stored in full with their
-       positions: `planted`, `fruittrees`, `placedRocks`, `scarecrows`, `fires`,
-       `released`, and the starting area the game lays down once
-       (`starterTrailer` / `starterShopId`, `starterCratesAt`, `starterPlotAt`,
-       `starterPondAt`).
-  **Bucket 2 rests entirely on the ID**, so an id must be derived from POSITION
-  — never from a counter, an array index or `Date.now()`. A re-rasterized tile
-  has to mint the identical id or the delta stops applying and the "dead" thing
-  walks back in. The pest crow is the one exception and it proves the rule: its
-  id comes off `Date.now() + Math.random()` and is never minted again, which is
-  why `wanderCreatures` PRUNES its marker when the tile leaves the cache
-  instead of keeping it forever like every other id in `save.caught`.
-  **The SEAT is location-keyed; only the CONTENTS may be salted.** A per-save
-  salt (`save.relicSalt`) is mixed into what the starter chest HOLDS and what
-  the quest board offers, so a reset rerolls the prize — while the seat stream
-  stays purely positional, so the chest sits where it always sat and a rebuild
-  mid-save reproduces both. Salt the roll, never the position.
-  **And each spawner seeds its OWN stream** rather than drawing from the
-  caller's: `spawnInTile` and `spawnCaveCreatures` are long chains off one rng
-  (fauna, then treasure, then the path bonus…), so taking numbers out of one
-  would re-roll every world seed downstream of it. A separate stream costs
-  nothing and leaves every existing world exactly as it was.
-  **Audit it:** the determinism pins — `test/node/traps.test.js` ('a cave level
-  is deterministic per (tile, depth)', 'same ids, in the same order — a rebuilt
-  or re-rasterized tile is identical'), `test/node/cave_coins.test.js` ('the
-  pass is deterministic per tile and depth') and `test/node/beach_treasure.test.js`
-  ('same tile, same seed, same marks').
+  interactable outside the starting area is a pure function of where it is:
+  `WorldGen.makeRng` (mulberry32) seeded from tile coords (`HASH_MUL_X` /
+  `HASH_MUL_Y`), depth and a per-stream salt. No global seed, no stored object
+  list. A new interactable belongs in exactly one bucket:
+    1. **GENERATED** — position, tier, drop. Nothing reaches the save. The
+       default.
+    2. **THE DELTA** — what the player DID to a generated thing, as an
+       exception list of ids: `caught`, `chopped`, `picked`, `opened`,
+       `sprungTraps`, `disarmedTraps`, `brokenRocks`, `foundTreasures`,
+       `dugWalls`, `tilled`.
+    3. **PLACED** — things somebody PUT there, stored in full: `planted`,
+       `fruittrees`, `placedRocks`, `scarecrows`, `fires`, `released`, and the
+       starting area (`starterTrailer` / `starterShopId`, `starterCratesAt`,
+       `starterPlotAt`, `starterPondAt`).
+  **Bucket 2 ids must be derived from POSITION** — never a counter, array
+  index or `Date.now()` (the pest crow is the one exception, which is why
+  `wanderCreatures` prunes its marker). **Salt the roll, never the position**:
+  a per-save salt (`save.relicSalt`) may change what the starter chest holds
+  or the quest board offers, never where things sit. **Each spawner seeds its
+  OWN stream** rather than drawing from the caller's, so existing worlds don't
+  re-roll.
+  **Traps are the sharpest instance** (`src/traps.js`): generated; only
+  `save.sprungTraps` and `save.disarmedTraps` reach the save. Surface traps go
+  on the verge (`Traps.isRoadside` over `entry.roadMask`, seat cleared by
+  `WorldGen.isSpawnCell` with `_spawnOpts`); cave traps sit around
+  up-staircases, never under an object sprite. The tick reads
+  `playerToWorldCell()` (the feet), and costs pop through `_popEnergy` on the
+  trap's cell.
+  **Audit it:** the determinism pins in `test/node/traps.test.js`,
+  `test/node/cave_coins.test.js` and `test/node/beach_treasure.test.js`.
 
-  **A trap is the sharpest instance: generated, never stored — until it is
-  sprung.** Where the traps are (`src/traps.js`) is that pure function of tile
-  coordinates and depth; the only things that ever reach the save are
-  `save.sprungTraps` (the ids of the ones stepped on, which keeps a discovered
-  trap discovered across a reload, an eviction and a rebuild) and
-  `save.disarmedTraps` (spent with a Trap Disarm Kit — a removed trap stays
-  removed). Surface traps go ON THE VERGE, never on the road: roadside-ness is
-  `Traps.isRoadside` over **`entry.roadMask`** and the seat is cleared by
-  `WorldGen.isSpawnCell` with the tile's own `_spawnOpts` — the road rule
-  above, not a copy of it. Cave traps sit around the up-staircases (the
-  monsters' and coins' anchors) and never under an object sprite, since down
-  there the art is the only warning. The per-frame tick reads
-  `playerToWorldCell()` — the FEET, never the peek anchor — and both costs pop
-  through `_popEnergy` on the trap's own cell.
-  **Audit it:** `node test/node/run.js` › `test/node/traps.test.js`, which also
-  runs both procedural textures against a recording 2D context and fails if the
-  hidden one stops being subtle or either leaves its cell.
+- **Light ADDS, darkness doesn't — the lightmap is the only lighting pass,
+  and its numbers are DERIVED.** `src/lighting.js`: a viewport-sized 2D
+  CANVAS (`scene.lightTex`, shown by `scene.lightMap`) filled with the ambient
+  floor, each source adding its radial cookie with `'lighter'`, MULTIPLIED
+  over the world from above the sprites. Never paint darkness in a Graphics
+  pass, never use a RenderTexture for it, and `Render.spriteTint` must never
+  compose the reach dim onto a sprite (double-darkens).
+  **The plateau is per cell**: its edge is painted from `cellInReach`'s own
+  expressions (rounded by `ReachCorner`), so what is lit is exactly what the
+  tap gate accepts — a circle for the plateau is the bug. Inside it
+  `plateauFill` / `plateauLevel` shade by `PLATEAU_FALL`.
+  **THE LIGHT IS THE AFFORDANCE — never stroke a reach outline back on.** If
+  the boundary stops reading, widen the STEP at its edge in `lighting.js`
+  (pinned to outweigh `PLATEAU_FALL`) and check `PLATEAU_OUTPUT_K` first.
+  `reachGfx` carries only the unmapped-tile reveal.
+  **The knobs**: `Lighting.profile` derives ambient, plateau and edge from
+  `Render.reachDimColor` / `reachDimAlpha` and `FALLOFF_A` / `FALLOFF_P`.
+  Retune a look through `PLAYER_OUTPUT_K` (the ramp outside reach) and
+  `PLATEAU_OUTPUT_K` (the reach area — a CEILING, measured; re-measure before
+  raising it); `AMBIENT_K` is the contrast knob; `AMBIENT_DAY_LUM` is the
+  noon floor stated as a luminance (via `atLuminance`). A further factor
+  added in lighting.js breaks the pinned correspondence. **State a look you
+  can see as a luminance; keep `AMBIENT_K` for the contrast between them.**
+  **Day/night**: `Lighting.daylight(scene, now)` from `sunElevationDeg`
+  (ramp `DAY_ELEV_DEG` → `NIGHT_ELEV_DEG`) moves the out-of-reach wash toward
+  `NIGHT_DIM_A` / `NIGHT_TINT_KEEP`; the plateau is not darkened and caves
+  ignore the sun. `profile()` with no daylight is noon.
+  `window.__DAYLIGHT = 0..1` forces it.
+  **Every light source is a ROW in `Lighting.KINDS` — when you add one, add a
+  row and return its kind from `Lighting.sourceKind`.** For a POINT light
+  (placed fire, lamp), add a collector called from `draw()` beside
+  `collectFires` / `collectLamps`, culling at `halfM` + the row's radius, not
+  the sprite cull. Rows today: player; Home (`trailer`, radius `HOME_R`);
+  restored building (keyed on `isClaimedKey`); campfire (radius
+  `FIRE_REST_R`); live POIs (breathing on `POI_PULSE_PERIOD_S` — this IS the
+  POI marker, never draw a ring back); street lamps (`cobble` row, spacing
+  `Streets.lampSpacingM()`, never retyped).
+  **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js`,
+  `test/node/reach_corners.test.js` and `tools/layer_audit.js`.
 
-- **Light ADDS, darkness doesn't — the lightmap is the only lighting pass.**
-  Until Sep 2026 the lighting was five Graphics workarounds for "Phaser has no
-  gradient primitive": a fillRect per unlit cell, a second wash over the lit
-  cells underground, a pink wash at low energy and ~100 cached strokeCircle
-  falloff rings. All of it painted DARKNESS, which
-  composes one way only (two dims overlap darker), so a campfire could never
-  be built out of it. `src/lighting.js` replaced the lot with one model:
-  a viewport-sized CANVAS texture (`scene.lightTex`, shown by the
-  `scene.lightMap` image, app.js create()) filled with the ambient floor,
-  every light source adding its baked radial-gradient cookie into it with
-  `'lighter'`, and the whole thing MULTIPLIED over the world from ABOVE the
-  sprites — so a house or a tree outside every light goes as dark as the
-  ground it stands on, and `Render.spriteTint` must never compose the reach
-  dim onto a sprite again (that darkens a wreck twice). It is a 2D canvas,
-  not a RenderTexture, on purpose: the cookies drawn through Phaser's
-  render-texture batch came back cut and quadrant-scrambled on some GPUs,
-  and a canvas composites the same way everywhere.
-  **The plateau is per cell.** The lit area's sharp edge is painted with
-  `cellInReach`'s own expressions over every reach cell, so it IS the
-  staircase the white outline traces and the tap gate accepts; only the
-  falloff outside it is a circle. A circle for the plateau is the bug.
-  Inside the staircase the plateau is NOT flat: the fill is a radial
-  gradient about the feet (`plateauFill`), full `lit` at the player and
-  `PLATEAU_FALL` of it gone by the reach rim (`plateauLevel`, quadratic so
-  the middle stays flat), clipped by the per-cell path so the edge is still
-  exact. It is shading, not a second falloff: the test pins that the step
-  off the plateau to `edge` outweighs the fall across it at every depth and
-  hour. Deepen the look through `PLATEAU_FALL`; if the rim ever needs to be
-  darker than that step, that is a reach-affordance change, not a lighting
-  tweak.
-  **THE LIGHT IS THE AFFORDANCE — there is no reach outline any more.** A
-  white line (2px, 0.15 alpha) was stroked over the same staircase on
-  `reachGfx` until Sep 2026, and `Render.reachOutlineCell` + a per-cell
-  `isReach` loop + an arc helper existed to draw it. It made sense while
-  `PLAYER_OUTPUT_K` had the plateau at a bit over half its light and the
-  boundary needed underlining; once `PLATEAU_OUTPUT_K` lit the reach area back
-  up, the line and the light were two drawings of one boundary and the line
-  was the louder. The plateau is painted per reach cell from `cellInReach`'s
-  own expressions, rounded by the same `ReachCorner` rule the line rounded by,
-  so what is LIT is exactly what the tap gate accepts — cell-exact, not a
-  circle. **Never stroke a reach outline back on:** if the boundary stops
-  reading, widen the STEP at its edge in `lighting.js` (that step is pinned to
-  outweigh `PLATEAU_FALL` at every depth and hour), and check
-  `PLATEAU_OUTPUT_K` before anything else. `reachGfx` now carries the
-  unmapped-tile reveal alone, and `ReachCorner` keeps only the corner
-  classification — `shortenH` / `shortenV` said where a STROKED edge stopped
-  short of a round, and left with the stroke.
-  **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` (the
-  compositing model and the levels), `test/node/reach_corners.test.js` (the
-  plateau rounds every corner of the staircase exactly once — and the outline
-  is gone and stays gone) and `tools/layer_audit.js` (the lightmap above
-  ground, halo and sprites, below the labels).
+- **A message on the MAP is thirty characters.** `util.js` › `MAP_MSG_MAX`
+  budgets every `flash` / `flashLoot` — the whole rendered line including
+  interpolations, per line for `\n` toasts. When a line doesn't fit, cut the
+  sentence (the scaffolding, not the information) — never wrap it; anything
+  needing more room is a modal (`showMessageModal` / `showOfferModal`). **Do
+  not interpolate anything unbounded** (e.g. an OSM POI name — name the KIND).
+  **Audit it:** `node test/node/run.js` › `test/node/copy_voice.test.js`.
 
-- **The lighting numbers are DERIVED, not tuned — and two of them are the
-  knobs you retune a LOOK with.** `Lighting.profile` builds the
-  ambient, the plateau and the edge level from the same
-  `Render.reachDimColor` / `reachDimAlpha` the old wash painted with plus the
-  falloff pair (`FALLOFF_A` / `FALLOFF_P`), so the surface with only the
-  player lit looks as it did — except the FLOOR, which `AMBIENT_K` scales
-  down for contrast ("totally unlit areas should be darker"), and the two
-  OUTPUT knobs, which say how much of that reproduced wash the player's own
-  light gives back: `PLAYER_OUTPUT_K` for the ramp OUTSIDE the reach area
-  (`edge`, and the falloff hung off it) and `PLATEAU_OUTPUT_K` for the reach
-  area itself (`lit`). Retune a look through those; `AMBIENT_K` is the
-  contrast knob, and a further factor added in lighting.js breaks the
-  correspondence the test pins.
-  **The two output knobs are two numbers because the picture wants opposite
-  things of them.** They were one until Sep 2026, and dimming the mid-field so
-  the placed lights — a campfire, Home, a POI — would tell against the body
-  took the ground the player actually WORKS on down with it. Splitting them
-  costs none of the relations the shared knob was keeping, because raising
-  `lit` alone only widens them: the falloff's shape is `edge`'s alone,
-  `PLATEAU_FALL` is a fraction of `lit` so the plateau's easing scales with
-  it, `lit > edge` holds by a bigger margin, and the step off the plateau
-  grows faster than the fall across it. **And `PLATEAU_OUTPUT_K` is a CEILING,
-  not a taste:** the plateau ADDS over the ambient floor, which at noon is
-  already `AMBIENT_DAY_LUM` bright, so past 0.60 the reach area clips to white
-  and takes `PLATEAU_FALL`'s shading with it. The number was measured over
-  every `COLORS` × `DUST_OF` pairing the biome palette can produce (the
-  tightest is 0x35261e, the most saturated dim in the world, at 0.602), not
-  eyeballed — **re-measure it before raising it, and re-measure it if the far
-  field is ever brightened again.**
-  **The floor's DAY end is a level, not a scale.** `AMBIENT_DAY_LUM` (0.40) is
-  what unlit ground is WORTH at midday — 40% of the art's own brightness, read
-  off the screen — and `atLuminance` puts the derived floor there by mixing it
-  toward white. A multiplier could not say that: the floor is the biome's dim
-  colour, so one number landed at a different brightness in every biome, and
-  raising it scaled channels that overflow their byte. The NIGHT end is
-  untouched by construction — its target is `AMBIENT_K` × the floor's own
-  luminance, which `atLuminance` reaches by scaling, the exact expression it
-  always was. **State a look you can see as a luminance; keep `AMBIENT_K` for
-  the contrast between them.**
-  **The surface picture is HIGH NOON, and the real sun darkens it.**
-  `Lighting.daylight(scene, now)` is 0..1 from the sun's elevation at the
-  player's lon/lat (`sunElevationDeg`, recomputed once a minute), a twilight
-  ramp from `DAY_ELEV_DEG` down to `NIGHT_ELEV_DEG`; `profile(scene, daylight)`
-  moves the out-of-reach wash toward `NIGHT_DIM_A` and drains its biome tint
-  to `NIGHT_TINT_KEEP`. The reach plateau is NOT darkened — it is the Inner
-  Light — and caves ignore the sun. `window.__DAYLIGHT = 0..1` forces it for
-  eyeballing. `profile()` with no daylight is noon, which is what keeps the
-  derivation tests clock-free.
-  **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` — the
-  derived levels, and the noon headroom `PLATEAU_OUTPUT_K` is set at.
+- **What an item DOES is written on the ITEM, not in the Book.** The
+  description surfaces are `ITEM_EFFECTS[id]` (the `✦` line, ~55 chars max,
+  nowrap), `RELIC_DEFS[slot].blurb`, the Eat button's `+N⚡` and the Stats
+  panel's armour row. `PLAY_TIPS` is not one of them. **When a tip and a
+  description overlap, the description wins and the tip goes**; move any
+  extra fact onto the line. **The one exception is the one SECRET**: the
+  sapphire's ✦ line describes its open use (the portal); the slime taming is
+  hinted only in `PLAY_TIPS`' closing riddle. **When an item has a secret
+  use, its ✦ line describes the open one.**
+  **Audit it:** `node test/node/run.js` › `test/node/item_descriptions.test.js`.
 
-- **Every light source is a ROW in `Lighting.KINDS` — when you add one, add a
-  row and return its kind from `Lighting.sourceKind`.** For a light that is a
-  POINT rather than a scanned object (a placed fire, a lamp), give it a
-  collector of its own instead, called from `draw()` beside `collectFires` /
-  `collectLamps`; a collector culls at `halfM` + the row's own radius, NOT the
-  sprite cull, so a lantern a cell off-screen still lights the edge.
-  The rows today: the player; Home (`trailer` — the starter trailer or the
-  house adopted in its place); a restored building, keyed on the SAME
-  `isClaimedKey` test the derelict wash reads, so it lights the frame its wash
-  lifts; a campfire whose radius IS `FIRE_REST_R` — stand in the light, stand
-  in the warmth; every live POI, a small treasure blue-white light breathing on
-  `POI_PULSE_PERIOD_S` with a per-id phase, which IS the old halo ping (the
-  ring layer, its pool and its texture are gone), so a place reads from across
-  the map by its own light in the dark and never by a ring drawn back under the
-  pad; and a STREET LAMP every `Streets.lampSpacingM()` metres of restored
-  street (the `cobble` row — that is the STREET's own constant, 100 m,
-  deliberately NOT the prize ladder's 200 m rung; see the street rule below,
-  and never retype the number here).
-  **Audit it:** `node test/node/run.js` › `test/node/lighting.test.js` — the
-  table, the collectors and the per-source pins.
+- **What NO item can say is written in the Book — truthfully, in the order
+  it's needed.** A mechanic the player can't discover by looking and no ✦
+  line can carry (a derived number, a gate, a side-effect — e.g. the
+  first-taste energy cap `Energy.maxEnergy`, `SLOW_GRIND_MS`, `enemyBounty`,
+  `CHEST_TIER_HOME_RINGS_M`, `DELIVERY_BONUS_MULT`, `QUEST_SLOTS`) is
+  documented in `PLAY_TIPS` or nowhere. **When you add a mechanic of that
+  shape, add its tip.** Numbers in a tip are **re-derived from the module that
+  owns them**, never retyped. **Grep both tables (`PLAY_TIPS` and the item
+  descriptions) for a constant before you change it.**
+  The Book is drawn often enough to read: `dropWeight: 3`, and places of
+  learning (`POI_CATEGORY` `'school'` in `loot.js`) pin it via `rarity.js`'s
+  per-context `favourite`. Use `favourite` when a PLACE should be known for a
+  thing; `dropWeight` when a thing should be commoner everywhere.
+  **THE ORDER IS THE CURRICULUM**: `app.js` `_bookRead` walks `PLAY_TIPS`
+  front to back, one page per Book, bookmarked in `save.tipsRead`. Tips run
+  by **when they first become ACTIONABLE**, not by subject (first ten
+  minutes, starter loop, what's lying around, village economy, the land,
+  animals, fighting, underground, long gates, the riddle last). **Put a new
+  tip with the moment the player first needs it, and don't re-randomise the
+  draw.**
+  **Audit it:** `node test/node/run.js` › `test/node/books.test.js`.
 
-- **A message on the MAP is thirty characters.** `util.js` `MAP_MSG_MAX` is
-  the budget for every `flash` / `flashLoot` — a toast drawn over the world, on
-  a phone, read at a glance while the player is looking at the cell they just
-  tapped. Past about thirty characters it stops being a glance and starts
-  covering the thing it describes. **The budget is the whole rendered line**,
-  including any name or number interpolated into it, and a `\n` toast gets it
-  per line.
-  So it is a real constraint on what a flash can SAY, and the answer when a
-  line does not fit is to cut the sentence — never to wrap it. Anything that
-  genuinely needs more room is a **modal** (`showMessageModal` /
-  `showOfferModal`), where the player has stopped to read: that is why the
-  consumable dialogs run to two clauses and their flashes do not.
-  Two consequences worth knowing before you write one. **Do not interpolate
-  anything unbounded**: a chest's POI name is arbitrary OSM text ('Saint
-  Someone Memorial Library and Reading Room'), so the till refusal names the
-  KIND instead. And when the budget forces a cut, cut the scaffolding, not the
-  information — 'A tree stands here — fell it first.' lost four words and kept
-  both the obstacle and the verb.
-  **Audit it:** `node test/node/run.js` › `test/node/copy_voice.test.js`
-  measures every static flash literal (a template is measured as its skeleton,
-  since its real width is a runtime value), the terrain table and every till
-  refusal, plus the name-bearing lines against the longest name the catalog
-  can actually produce.
-
-- **What an item DOES is written on the ITEM, not in the Book.** There are
-  four description surfaces, and the player reads every one while HOLDING the
-  thing, exactly when the answer is wanted: `ITEM_EFFECTS[id]` (the `✦ …` line
-  under the selected stack), `RELIC_DEFS[slot].blurb` (the same line for a
-  relic, plus the Stats panel's per-slot row), the Eat button's `+N⚡` for a
-  food, and the Stats panel's `+N max energy` for armour. **`PLAY_TIPS` is not
-  one of them.** A Book is a consumable: spending one to be told what the
-  inventory bar was already showing is a wasted read, and the two copies drift.
-  Until Sep 2026 a THIRD of the list was that — the Rope tip and
-  `ITEM_EFFECTS.rope` said the same sentence twice, the Hoe tip was its blurb
-  reworded, and one tip explained what a Book does, which you could only read
-  by burning a Book. The drift was real and shipped: the Bow/Staff tip still
-  said "one shot a second" long after `Combat.FIRE_INTERVAL_MS` was halved to
-  2000, and the tool tip still said a Wood relic was "three times quicker"
-  after `TOOL_DURATION_MS[1]` moved 3000 → 4000 ms (it is 2.25×).
-  A tip carries what no single item can — where things grow, how a shop or a
-  gate behaves, what an animal wants, what a readout means, a riddle. **When a
-  tip and a description overlap, the description wins and the tip goes**; if the
-  tip carried a fact the line didn't, move the fact onto the line (keep it
-  short — the `✦` row is `nowrap` + ellipsis, so ~55 chars is the ceiling).
-  **The one exception is the one SECRET.** What an item secretly does is not a
-  description — printing it spoils it. `ITEM_EFFECTS.sapphire` read `Offer to a
-  slime to tame it` until Sep 2026: the game's single real secret, on the
-  inventory bar the instant anyone held a sapphire, while the gem's ADVERTISED
-  use (the portal down, its own Portal button) went undescribed. The line names
-  the portal now, and the taming is hinted in exactly one place — the closing
-  riddle in `PLAY_TIPS`, which says "creature" before it says "slime". Nothing
-  else names it: `ANIMAL_FOOD.slime` is unreachable through `animalLikesFood`
-  in practice (a slime is an enemy, so `interact.js` takes the sapphire branch
-  and then the combat branch long before the favourite-food path), so no
-  "it wants X" hint can leak it. **When an item has a secret use, its ✦ line
-  describes the open one.**
-  **Audit it:** `node test/node/run.js` › `test/node/item_descriptions.test.js`
-  sweeps every tip against every description for word overlap (three distinct
-  words is a restatement), re-checks that the sweep still catches the six real
-  tips deleted in the prune, pins that the facts they carried landed on the
-  items, and pins the sapphire's one-hint rule.
-
-- **And what NO item can say is written in the Book — truthfully, and often
-  enough to be read.** The rule above says what to take OUT of `PLAY_TIPS`; this
-  is what has to go IN. A mechanic the player cannot discover by looking at it —
-  a derived number, a gate, a side-effect, a place that behaves differently —
-  and that no single item's `✦` line can carry, is documented HERE or nowhere.
-  The Sep 2026 audit found a long list living only in the code: the first-taste
-  energy cap (`Energy.maxEnergy` reads `save.eaten.length`), the slow grind
-  (`SLOW_GRIND_MS` / `_ENERGY`), the reach the dark takes back (`reachCells`),
-  the roadside snares, the giants, the coin a kill pays (`enemyBounty`), the
-  10% monster hoard, the chest Home rings (`CHEST_TIER_HOME_RINGS_M`) and depth
-  promotion, the delivery premium (`DELIVERY_BONUS_MULT`), the three-slot quest
-  board, the stall discount, pets hunting, castle turrets. **When you add a
-  mechanic of that shape, add its tip.**
-  And the numbers in a tip are **re-derived from the module that owns them**,
-  never retyped — because retyping is exactly how the stale ones got there.
-  Five shipped at once: `HOME_FULL_REST_S` (a tip still rested you in *any*
-  building, at a rate deleted with `INDOOR_FULL_REST_S`), `Delivery`'s pin (a
-  tip "rerolled" a wishlist that never rerolls), `QUEST_SLOTS` (a tip still
-  named the hand-written chain the board replaced), the T5 chest gem, and the
-  deep ore that mines the bars a tip called "smelted, never mined".
-  Nor is the Book the only surface that lies: `COFFEE_AMULET_BOOST` has been 2
-  while `ITEM_EFFECTS.coffee` said "+1 tier", and `RELIC_DEFS.bugnet.blurb`
-  advertised "catch crows" — the one animal a net cannot take (a crow is
-  HUNTED, `SpriteLayout.isGame` off `CREATURE_BEHAVIOUR`). **Grep both tables for a constant before
-  you change it.**
-  **A tip nobody draws is a tip nobody has.** The Book carries `dropWeight: 3`
-  so it is the plurality of the T2 consumable pool everywhere instead of one
-  seventh of it, and the places of learning — school / college / library /
-  bookshop, their own `POI_CATEGORY` `'school'` in `loot.js` — pin it through
-  `rarity.js`'s per-context **`favourite`**, so about a THIRD of their chests
-  hand one over against under 3% anywhere else. That category is civic in every
-  other respect (tier, pad, cave mirror) on purpose: the split moved the loot,
-  not the price. Use `favourite` when a PLACE should be known for a thing; use
-  `dropWeight` when a thing should simply be commoner everywhere.
-  **THE ORDER IS THE CURRICULUM.** `PLAY_TIPS` is READ FRONT TO BACK — `app.js`
-  `_bookRead` walks it one page per Book, bookmarked in `save.tipsRead` — so
-  where a tip sits decides WHEN in a playthrough it is taught, and adding one
-  is a placement decision rather than an append. The pages run by **when a tip
-  first becomes ACTIONABLE**, which is not the same as grouping it by subject,
-  and the difference is the whole point: grouping by subject put 'A ruined
-  house can be rebuilt' at page 63 as a "progression gate" when rebuilding is
-  starter-chain STEP FOUR — so what your first rebuild becomes was taught
-  forty-six pages before the fact that you could rebuild at all — and left
-  chests, which most players open minutes in, behind the entire village
-  economy and twelve consecutive pages of animal husbandry. The stages: the
-  first ten minutes, the starter loop, what is already lying around, the
-  village economy, the land you walk over, animals, fighting, underground, the
-  long gates — and the single riddle last, so the secret is the end of the
-  course rather than a 1-in-72 accident. **Ask when the player can first ACT
-  on a tip, not what it is about.** It used to be a uniform random draw with no
-  memory, which threw the ordering away, put a repeat inside the first ~10
-  reads and needed ~370 books to cover the list. The directional chest hint is
-  gated on the course being finished for the same reason: at a 50% flip, every
-  hint was a read that taught nothing new. **Put a new tip with the moment the
-  player first needs it, and don't re-randomise the draw.**
-  **Audit it:** `node test/node/run.js` › `test/node/books.test.js` re-derives
-  every number a tip quotes from the module that owns it, blacklists each stale
-  sentence by name, pins the front-to-back read and the block order, and
-  measures the school chest's book rate against every other chest.
-
-
-- **Home is a CAMPFIRE YOU OWN, and its ring is ONE number.** A placed
-  campfire lights, warms and repels on one radius (`FIRE_REST_R` — the
-  `Lighting.KINDS.fire` row resolves to it). Home does the same three on
-  **`HOME_R`**: the `trailer` light row resolves to it, `isRestingAtHome` is a
-  plain distance test against it (`HOME_FULL_REST_S`), and `wanderCreatures`'
-  `homeWard` turns every `Combat.isEnemy` foe inside it around and switches
-  its bite off while it leaves. The lit circle IS the safe circle IS the
-  circle you recover in, so the player reads the whole rule off the picture —
-  three numbers would drift and two of them would be invisible.
-  Home keeps the one thing a fire hasn't: the trade panel, which is a TAP on
-  the building and no part of the ring.
-  Two shapes to avoid. The rest was **two special cases that agreed on
-  nothing** — an adopted house counted only from INSIDE (a building cell plus
-  a nearest-house scan), the trailer only from its own snapped cell, and
-  neither rested you on the DOORSTEP, which is where the player stands to work
-  the starter plot. And the ward is an **angle away from HOME**, never a
-  refused target cell like the scarecrow's: a foe deep inside the ring would
-  have all six attempts rejected and freeze on the doormat (the stall the
-  "surrounded by scarecrows" comment warns about), and away-from-PLAYER would
-  drive a foe on the far side straight through the door.
-  Where Home IS comes from **`homeWorldPos()`** — surface-only (the world is
-  GPS-mirrored, so a Home must not ward a cave below it) and memoised on the
-  home id, because all three effects ask every frame and the adopted-house
-  branch is a walk of every object in every cached tile. Only a HIT is
-  memoised; a miss just means the tile isn't loaded yet.
-  **When you add an effect to Home, put it on `HOME_R`.**
-  **Audit it:** `node test/node/run.js` › `test/node/home_ward.test.js` (the
-  rest ring and the resolver run for real on a stub scene; the ward is pinned
-  as source text) and `test/node/lighting.test.js` for the light radius.
+- **Home is a CAMPFIRE YOU OWN, and its ring is ONE number.** A campfire
+  lights, warms and repels on `FIRE_REST_R`; Home does all three on
+  **`HOME_R`**: the `trailer` light row, `isRestingAtHome` (a plain distance
+  test, `HOME_FULL_REST_S`), and `wanderCreatures`' `homeWard`, which turns
+  every `Combat.isEnemy` foe inside it onto an angle AWAY FROM HOME (never a
+  refused target cell, which freezes a foe inside; never away-from-player,
+  which drives far-side foes through the door) and switches its bite off.
+  The trade panel is a tap on the building, no part of the ring. Where Home
+  is comes from **`homeWorldPos()`** — surface-only, memoised on the home id,
+  only a HIT memoised. **When you add an effect to Home, put it on `HOME_R`.**
+  **Audit it:** `node test/node/run.js` › `test/node/home_ward.test.js` and
+  `test/node/lighting.test.js`.
 
 - **A street is restored ALONG THE WAY, never per cell — and the way is a
   LINE of a feature, never the feature.** `src/streets.js` measures
-  restoration as float metre intervals of arclength along each
-  `transportation` line the tile hands us, keyed
-  `Streets.lineKey(feature, lineIdx)` (the MVT feature id, which real tiles
-  carry on every feature and keep across seams, plus a hash of the line's
-  endpoints, count and class — because a quarter of features are Planetiler
-  MERGES of every same-tagged way in the tile, one of them 42 disconnected
-  lines, so a feature-level key would be nonsense). Only the metres INSIDE
-  the tile square count (`tileSpans`): MVT geometry runs into the buffer and
-  the neighbour tile carries those metres itself. "In reach" is
-  `reachIntervals` over `cellInReach` from the player's reach cell (the
-  camera-anchor rule), an exact grid traversal, and the two-second dwell is
-  `createSight`'s sliding window: a stretch ripens only when it has been in
-  reach for EVERY instant of the window. The restored look is a SECOND
-  canvas in `road_overlay.js` rebuilt on `Streets.epoch(save)`, never a
-  per-frame path; the dwell preview and the shine are the one per-frame
-  Graphics (`RoadOverlay.drawLive`), drawn from `drawRoadGeometry` so they
-  seat against the same sub-cell scroll the band uses. The ladder
-  (`src/trail.js`) counts metres — `GOAL_STEP_M`, 200 m — and one blast and
-  one throttled counter fire per sweep, not per piece. Until Sep 2026 this
-  was COBBLE TRAILS: pebble sprites on paved cells, keyed per cell and
-  thinned by a hash, so the counted stones and the drawn road were two
-  different things; do not bring a per-cell road state back.
-  **Audit it:** `node test/node/run.js` › `test/node/streets.test.js` — the
-  algebra, the sight window, restore/epoch — and `test/node/road_overlay.test.js`
-  for the restored pass and its tiles.
+  restoration as metre intervals of arclength per `transportation` line, keyed
+  `Streets.lineKey(feature, lineIdx)` (features can be merges of many lines).
+  Only metres inside the tile square count (`tileSpans`). "In reach" is
+  `reachIntervals` over `cellInReach` from the player's reach cell; the dwell
+  is `createSight`'s sliding window. The restored look is a second canvas in
+  `road_overlay.js` rebuilt on `Streets.epoch(save)`; the dwell preview and
+  shine are the one per-frame Graphics (`RoadOverlay.drawLive`, from
+  `drawRoadGeometry`). The ladder (`src/trail.js`) counts metres
+  (`GOAL_STEP_M`), one blast and counter per sweep. **Do not bring a per-cell
+  road state back.**
+  The restored band is feathered at its edge only (`softenEdge`, last step of
+  `commitRestored`; radius `RESTORED_BLUR_FRAC` capped at `RESTORED_BLUR_PX`,
+  both measured) — never blur the drawn layer, never fake it with stacked
+  translucent strokes; where canvas can't `filter`, ship the hard edge.
+  `STREET_SHINE_ALPHA` and `BLAST_STONE_R_CELLS` keep the moment quiet.
+  **Audit it:** `node test/node/run.js` › `test/node/streets.test.js` and
+  `test/node/road_overlay.test.js`.
 
-- **A restored street LIGHTS ITS OWN WAY — and the lamp spacing is the
-  STREET's number, not the ladder's.** (The pebbles of the old cobble trails
-  are gone; this is what came back in their place.) One ornate gilded lamp
-  every `Streets.lampSpacingM()` metres of rebuilt
-  carriageway — its OWN constant, `Streets.LAMP_SPACING_M` (100 m),
-  deliberately NOT `Trail.GOAL_STEP_M` (200 m) any more. It shipped tied to
-  the ladder's rung under the `roadOverlayWidthM` discipline, so a walk that
-  earned a prize lit about one lamp — but the "gets a lamp at all" floor
-  (`lampsAlong`: a line under half the spacing gets none, on purpose, so a
-  dense block of driveways doesn't read as a lit car park) rode along with
-  that number, and OSM cuts a way at every intersection: an ordinary
-  suburban block is routinely under the 100 m a 200 m spacing demanded, so a
-  whole town could be walked clean and never show a single lamp. Halving the
-  spacing to 100 m (floor 50 m) lets a normal block qualify without touching
-  the ladder's own pacing — the two are allowed to disagree now; 200 m of
-  restoration still pays one prize, but may light two lamps. A lamp is
-  GENERATED, never stored
-  (`Streets.lampsAlong` off the line's own geometry, lit when `Streets.covers`
-  finds its metre in the restored list) — the traps rule, so a rebuilt tile
-  lights the same stones and the save gains nothing by it. **An UNLIT lamp is
-  drawn too, as the OLD ROAD COBBLE** — `assets.js` › `cobble` (Road
-  copiar.png, the per-cell pebble sheet the road band replaced) at the frame
-  that sheet used for the way's tier (`STREET_LAMP_DARK_FRAME`, keyed off
-  `WorldGen.classifyLine`), at the old stones' size and alpha — so the stones
-  to light are visible before they light. `_updateStreetLamps` keeps every
-  nearby lamp on ONE list flagged `lit`, and both readers ask that flag: the
-  draw pass picks the baked lamp or the grey cobble, `Lighting.collectLamps`
-  skips the dark ones. A second list for the dark stones is the bug.
-  **A lamp stands on the VERGE, its plinth just touching the band** — never on
-  the centreline, which is where every one of them stood until Sep 2026.
-  `Streets.lampsAlong` says how far ALONG the way a lamp is and
-  `Streets.lampOffsetM` how far OFF it, and both go into the one resolver
-  (`Streets.pointAtM(line, mvtToM, s, offM)`), so a verge follows the way's
-  own bends. The offset is DERIVED, the `roadOverlayWidthM` discipline again:
-  half of `WorldGen.roadOverlayWidthM` — the very width the band is stroked
-  with and `roadMask` stamped from — plus the art's own footprint radius
-  (`STREET_LAMP_R_CELLS`, itself the widest of the two arts a lamp can wear,
-  off `RoadOverlay.LAMP_FOOT_R_CELLS` — the PLINTH's half-width, and pinned to
-  be the widest thing on the lamp — and `STREET_LAMP_DARK_CELLS`). So a
-  motorway seats its lamps further out than a footpath by construction, a
-  widened band takes its lamps out with it, and resized art keeps kissing the
-  kerb. **Never seat a lamp with a flat offset**, and never give the light a
-  point of its own: ONE point comes out of `_streetLampsForTile` and both the
-  lamp and `Lighting.collectLamps` read it, so the glow can't be left behind
-  on the tarmac.
-  It is TWO halves on ONE point, because the lightmap MULTIPLIES: baked art
-  (`RoadOverlay.paintLamp`, drawn under the lightmap — a light alone does
-  not exist at noon) and the `Lighting.KINDS.cobble` row over it. The art goes
-  through the SHARED world sprite pass (`RENDER_SPEC._streetlamp`, off the same
-  `_updateStreetLamps` list the light collector reads), never a layer of its
-  own — see the painter rule above. What the lamp
-  SHEDS — its glass, the bloom round it, the pool at its foot and the cookie
-  over all three — is `UI_LAMP_GLOW`, the old activated-cobble violet, brought
-  back for the lamp specifically rather than the street's own `UI_STREET_INK`
-  (the chips, the sparks, the counter): the carriageway restores in pale warm
-  stone, but a lamp reads as ACTIVATED, the way a claimed cobble always did.
-  What it is MADE of is the other constant, `UI_LAMP_GOLD` — gilded ironwork,
-  a MATERIAL in the sense `UI_STREET_INK` is one and deliberately not the
-  `UI_GOLD` family, which is the player-control role. Metal is not light: a
-  lamp that lit the street correctly and looked like a lit STONE doing it is
-  what the gild replaced in Sep 2026.
-  **AND IT STANDS ON THE POINT — BUT IT BURNS AT THE LANTERN.** The baked
-  square carries the plinth, the ground shadow and the pool of glow on its own
-  ground line (`RoadOverlay.LAMP_GROUND_FRAC`, below the middle because a lamp
-  is mostly post), and `STREET_LAMP_ORIGIN_Y` seats the sprite by that line
-  rather than by its centre, so the lamp STANDS where it says it does and the
-  lantern reads as up in the air above its own foot. Centring the lantern on
-  the point instead puts the plinth a lamp's height off the ground, which is
-  the one thing that gives a seating away. The LIGHT is on that same one point
-  — there is still only one, so the glow can never be left behind on the
-  tarmac — LIFTED to the lantern by `RoadOverlay.LAMP_LANTERN_RISE_CELLS` (the
-  ground line to the lit glass's own midline, `LAMP_LANTERN_FRAC`, which is
-  also what `paintLamp` centres its bloom on). It rides as `dyPx` on the light
-  entry, a DRAW-space lift in screen px — the shape `RENDER_SPEC`'s own `dyPx`
-  has for the art — never as metres folded into `dx`/`dy`, which would hand
-  the light a world position of its own a cell north of the lamp that the cull
-  and every other reader of the point would disagree with. Until Sep 2026 the
-  cookie sat on the foot, so a lit street was a row of pools of light under
-  dark heads. **The lamp is also 15% SHORTER than it shipped**: every row of
-  `LAMP_PROFILE` was pulled toward the ground line by one linear map (the
-  widths untouched, so the casting is unchanged and every overlap survived) —
-  it stood 0.578 of the baked square tall, near enough a tree, and stands
-  0.494 now. Retune the height by re-mapping that table, never by moving
-  `LAMP_GROUND_FRAC`: that line is where the lamp STANDS, not how tall it is.
-  The dark cobble LIES on the
-  point and keeps its centred origin; the pool swaps between the two arts, so
-  the origin is set per lamp beside the texture. The list
-  app.js hands to both (`_updateStreetLamps`) is
-  collected from the CAMERA ANCHOR and memoised on the anchor cell +
-  `Streets.epoch` — never from the feet, which is the restoring sweep's side of
-  the camera rule, not the drawing side.
-  **NEITHER MEMO MAY BE STAMPED ON A TILE THAT IS STILL LOADING** — the
-  `_neighborZoneCache` rule ("don't memoise a 'no neighbour found'"), and the
-  reason no lamp lit at all between Sep 2026 and the fix. A tile's entry is in
-  `WorldGen.tileCache` from the moment its FETCH starts, with no `layers` until
-  the build lands seconds later, and `_updateStreetLamps` runs on every frame —
-  so it always meets tiles in that state. `_streetLampsForTile` wrote its empty
-  answer onto the entry, and the entry IS the cache: every tile in the world
-  was measured for lamps while it was still loading and answered "none here"
-  for the rest of the session. The per-tile list is now returned uncached
-  until the tile has data, and `_updateStreetLamps` leaves its own key unset
-  while any tile of the ring is unready — otherwise a reload would hold every
-  lamp already in the save dark until the player happened to step onto another
-  cell. **When you cache an answer read off a tile entry, ask what it says
-  while that tile is still loading.**
-  **Audit it:** `node test/node/run.js` › `test/node/street_lamps.test.js`
-  (the wiring and the memo), `test/node/streets.test.js` (the placement),
-  `test/node/road_overlay.test.js` (the height and the lantern's rise) and
-  `test/node/lighting.test.js` (the lifted cookie).
+- **A restored street LIGHTS ITS OWN WAY.** A lamp every
+  `Streets.lampSpacingM()` metres (`Streets.LAMP_SPACING_M`, the STREET's own
+  constant — deliberately NOT `Trail.GOAL_STEP_M`; `lampsAlong` skips lines
+  under half the spacing). Lamps are GENERATED, never stored
+  (`Streets.lampsAlong`, lit when `Streets.covers` finds the metre restored).
+  An unlit lamp draws as the old road cobble (`assets.js` › `cobble`,
+  `STREET_LAMP_DARK_FRAME` via `WorldGen.classifyLine`). `_updateStreetLamps`
+  keeps every nearby lamp on ONE list flagged `lit`; the draw pass and
+  `Lighting.collectLamps` both read the flag — a second list for dark stones
+  is the bug.
+  **Seat on the VERGE, derived**: `Streets.lampOffsetM` = half
+  `WorldGen.roadOverlayWidthM` + `STREET_LAMP_R_CELLS` (widest art footprint,
+  off `RoadOverlay.LAMP_FOOT_R_CELLS` / `STREET_LAMP_DARK_CELLS`), resolved
+  through `Streets.pointAtM(line, mvtToM, s, offM)`. **Never seat a lamp with
+  a flat offset, and never give the light a point of its own**: one point
+  comes out of `_streetLampsForTile` for both art and light.
+  The art (`RoadOverlay.paintLamp`, colours `UI_LAMP_GLOW` for what it sheds
+  and `UI_LAMP_GOLD` for its metal) goes through `RENDER_SPEC._streetlamp`,
+  seated on its ground line (`LAMP_GROUND_FRAC`, `STREET_LAMP_ORIGIN_Y`); the
+  light is lifted to the lantern by `RoadOverlay.LAMP_LANTERN_RISE_CELLS` as a
+  draw-space `dyPx` on the light entry — never as metres in `dx`/`dy`.
+  Retune the lamp's height by re-mapping `LAMP_PROFILE`, never by moving
+  `LAMP_GROUND_FRAC`. The dark cobble keeps a centred origin (set per lamp).
+  The lamp list is collected from the CAMERA ANCHOR, memoised on anchor cell
+  + `Streets.epoch`. **Neither memo may be stamped on a tile that is still
+  loading** (entries sit in `WorldGen.tileCache` with no `layers` until the
+  build lands) — the `_neighborZoneCache` rule. **When you cache an answer
+  read off a tile entry, ask what it says while that tile is still loading.**
+  **Audit it:** `node test/node/run.js` › `test/node/street_lamps.test.js`,
+  `test/node/streets.test.js`, `test/node/road_overlay.test.js` and
+  `test/node/lighting.test.js`.
 
-- **The restored patch is SOFT, and its edge only.** The rebuilt band is laid
-  crisp — clean setts, a hairline kerb — and then FEATHERED as the last step of
-  `commitRestored`, through `softenEdge`: a blurred mask of the same strokes
-  composited `destination-in`, so the silhouette melts into the dilapidated
-  band under it while the setts inside stay sharp. At the band's FULL width (a
-  Gaussian leaves its half-maximum on the original edge, so nothing is stroked
-  in to compensate) and with a radius derived from that width
-  (`RESTORED_BLUR_FRAC`, capped at `RESTORED_BLUR_PX`) — a fixed radius eats a
-  footway alive, its centre never reaching full alpha. Both numbers were
-  measured against a real canvas, not guessed; past about a third of the width
-  a narrow way restores ghostly rather than soft. Blurring the drawn layer
-  instead smears the cobble into grey, which is the one thing the restored look
-  is for; a stack of translucent strokes standing in for the blur blotches at
-  every junction (a translucent stroke composites with ITSELF where a path
-  doubles back — the same trap the opaque-then-alpha rule at the top of the
-  file exists to avoid), so where canvas cannot `filter`, the hard edge ships.
-  The moment itself is quiet to match: `STREET_SHINE_ALPHA` is well under full
-  white and eased out, and `BLAST_STONE_R_CELLS` is a nod, not a detonation —
-  a sweep lands every few paces of an ordinary walk.
-
-  **Audit it:** `node test/node/run.js` › `test/node/road_overlay.test.js`.
-
-- **The ladder pays out of the ROAD's own pool, and the first rung is fixed.**
-  `Trail.PRIZE_CONTEXT` is `rarity.js` › `'treasure:road'` — seeds first, with
-  coins and produce as the other two faces of the pick and nothing else, because
-  a two-way choice drawn from six classes is a lottery rather than a decision.
-  Prize #1 is not rolled at all: `Trail.firstPrize` hands over the onion seed,
-  so the first thing a road ever pays names what roads pay in. The first metres
-  a save ever banks open the one-time dialog (`_showTrailIntro`, flagged
-  `save.trail.greeted`), and EVERY ceremony prints the next rung through
-  `trailNextPrizeLine` off `Trail.goalFor` — a prize that pays without saying
-  where the ladder goes next is a dead end.
-
-
-  **Two synthetic classes sit in `classBias` beside the item kinds**, because
-  what makes each a reward is not which item came out of the pool. `cash`
-  resolves to `{ kind:'gold', amount }` with NO `slot` — that missing field is
-  how every payer tells money from a gear cash-out — and its worth is DERIVED:
-  `CASH_TIER_VALUE` is the median of `PRICES` over each tier, made monotone and
-  capped, so a coin option and a loot option on the same roll are the same
-  prize stated twice. `bundle` is a pile of wood and stone, its own class
-  because what makes it a bundle is the COUNT (a T1 chest rolls no quantity
-  bracket at all, so wood out of the ordinary pool arrives one stick at a
-  time). **When you add a class that isn't an items.js `kind`, give it a
-  ceiling in `CLASS_MAX_TIER` and a branch before the item resolution** — the
-  pool lookup will otherwise hand back null and the roll pays nothing.
-
-  **Audit it:** `node test/node/run.js` › `test/node/trail.test.js` (the
-  lifted sweep on a synthetic tile, the first rung, the dialogs) and
-  `test/node/loot.test.js` (the two synthetic classes and the road pool).
+- **The ladder pays out of the ROAD's own pool, and the first rung is
+  fixed.** `Trail.PRIZE_CONTEXT` is `rarity.js` › `'treasure:road'` (seeds,
+  coins, produce). Prize #1 is `Trail.firstPrize` (the onion seed). The first
+  banked metres open `_showTrailIntro` (flagged `save.trail.greeted`), and
+  every ceremony prints the next rung via `trailNextPrizeLine` off
+  `Trail.goalFor`. Two synthetic classes sit in `classBias`: `cash` →
+  `{ kind:'gold', amount }` with NO `slot` (how payers tell money from gear),
+  worth `CASH_TIER_VALUE` (derived from `PRICES`); and `bundle` (wood + stone
+  by count). **When you add a class that isn't an items.js `kind`, give it a
+  ceiling in `CLASS_MAX_TIER` and a branch before the item resolution** — or
+  the roll pays nothing.
+  **Audit it:** `node test/node/run.js` › `test/node/trail.test.js` and
+  `test/node/loot.test.js`.
 
 ## Testing
 
-- The test harness (`test/run_tests.py`) needs a browser, which isn't always
-  available in this environment. When you can't run it, just say the tests
-  weren't run and rely on a careful code review — **don't editorialize about
-  lacking browser access or blocked downloads.** State it plainly and move on.
+- **Run `node test/node/run.js`** — the main suite; it runs headlessly and
+  includes `tools/sprite_audit.js` and `tools/cachebust.js`'s checks. After
+  the last edit of any file `index.html` loads, run
+  `node tools/cachebust.js --write`.
+- The browser harness (`test/run_tests.py`) needs a browser that isn't always
+  available. When you can't run it, say so plainly and rely on careful review
+  — don't editorialize about it.
 
 ## Commits
 
