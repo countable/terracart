@@ -747,7 +747,8 @@ const PEST_CROW_SPAWN_CELLS = 10;
 // a foe that cannot reach you — a slime refused at a campfire's ring, a cave
 // monster held off by a fire at the stairs — stalks the ring's edge forever,
 // and a long rest at a fire ends with a wall of them piled against it.
-//   HOW FAR: out to the edge of its RANGE × [1, WANDER_OFF_MAX_MUL]. A foe has
+//   HOW FAR: out to the edge of its RANGE × its kind's retreat (Combat.retreatMul,
+// 1 unless the monster row says less) × [1, WANDER_OFF_MAX_MUL]. A foe has
 // no notice radius of its own — it stalks you from anywhere it thinks at all —
 // so its range IS the sim bubble, CREATURE_SIM_CELLS from the player's feet
 // (the same edge Home's rout drives a foe out to). Past 1× it has left the
@@ -790,7 +791,8 @@ function monsterWanderingOff(c, now, distM, cellM) {
   if (c._wanderOffInMs > 0) return false;
   c._wanderOffInMs = null;
   c._wanderOffUntilT = now + WANDER_OFF_TIMEOUT_MS;
-  c._wanderOffDistM = CREATURE_SIM_CELLS * cellM * (1 + Math.random() * (WANDER_OFF_MAX_MUL - 1));
+  c._wanderOffDistM = CREATURE_SIM_CELLS * cellM * Combat.retreatMul(c.kind)
+    * (1 + Math.random() * (WANDER_OFF_MAX_MUL - 1));
   // Turn NOW rather than finishing a hop at the player. (A creature that has
   // never chosen a step is seeded by the loop's own init; leave it to that.)
   if (c._nextChooseT != null) c._nextChooseT = now;
