@@ -279,11 +279,12 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_trailRewardCard(reward, iconPx = 64) {', '_claimTrailReward(reward, opts = {}) {']
+  const methods = ['_trailRewardCard(reward, iconPx = 64) {', '_claimTrailReward(reward, opts = {}) {',
+                   '_trailRewardBlurb(reward) {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__trailPrize = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_claimTrailReward' });
-  for (const k of ['_trailRewardCard', '_claimTrailReward']) {
+  for (const k of ['_trailRewardCard', '_claimTrailReward', '_trailRewardBlurb']) {
     if (typeof ctx.__trailPrize[k] !== 'function') {
       console.error(`__trailPrize.${k} did not come back as a function — update run.js`);
       process.exit(2);

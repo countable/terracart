@@ -140,13 +140,17 @@
   // caller shows the plain single-reward ceremony when it gets one. Distinct
   // means "reads differently to the player" (rewardKey) — the same item at a
   // different quantity is still the same card, and gold is gold.
-  const PRIZE_CHOICES = 2;
+  // Three, not two: with two the pick was usually "the seed or the coins".
+  // A third card makes it a real comparison while the row still fits across
+  // the ceremony (app.js lays the cards three across and keeps each one's
+  // description behind an ⓘ so the row stays one line of pictures).
+  const PRIZE_CHOICES = 3;
   // Rolls to spend looking for a distinct option before settling for fewer.
-  // The road curve is seed-heavy and pays coins a fifth of the time, so two
-  // rolls land on the same card often enough that a couple of retries is the
+  // The road curve is seed-heavy and pays coins a fifth of the time, so rolls
+  // land on the same card often enough that a few retries per option is the
   // difference between an offer and a formality; past that it's just burning
-  // entropy.
-  const PRIZE_ROLL_TRIES = 6;
+  // entropy. Three tries per card offered.
+  const PRIZE_ROLL_TRIES = 3 * PRIZE_CHOICES;
 
   // ── The prize gets BETTER as the walks get longer ────────────────────────
   // Extra boost-chain steps the roll gets over a plain chest of the same tier

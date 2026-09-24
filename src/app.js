@@ -15158,7 +15158,9 @@ class MapScene extends Phaser.Scene {
   }
 
   // The button face for one option: the reward's own icon over its name, so
-  // the two options read as two small ceremonies rather than two words.
+  // the options read as small ceremonies rather than words. What the reward
+  // DOES is not on the face — it sits behind the card's ⓘ (_trailRewardBlurb,
+  // shown by showChestRewardModal's `info`), so three cards fit across.
   // The card's `sub` is deliberately NOT drawn here — it's the ceremony's
   // outcome line ("equipped"), and on an option the player hasn't taken yet
   // that would state as done the very thing the button is asking about.
@@ -15171,7 +15173,7 @@ class MapScene extends Phaser.Scene {
     if (!card) return '';
     const qty = card.qty
       ? `<div style="font-size:12px;font-weight:700;color:${card.color}">${card.qty}</div>` : '';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:64px">' +
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0">' +
            `<div style="font-size:0;line-height:0">${card.iconHTML}</div>` +
            `<div style="font-size:11px;font-weight:700;color:${card.color};line-height:1.2">${card.name}</div>` +
            qty + '</div>';
@@ -15181,8 +15183,8 @@ class MapScene extends Phaser.Scene {
   // grants nothing, because an option the player didn't take still has to be
   // drawn. _claimTrailReward is the half that pays out. `iconPx` defaults to
   // the single-reward ceremony's size (64); the choice row asks for a
-  // smaller one (see _trailChoiceLabel) so a pick of two options doesn't
-  // push the ceremony past the viewport height.
+  // smaller one (see _trailChoiceLabel) so the choice row doesn't push the
+  // ceremony past the viewport height.
   _trailRewardCard(reward, iconPx = 64) {
     if (!reward) return null;
     if (reward.kind === 'item') {
@@ -15215,6 +15217,26 @@ class MapScene extends Phaser.Scene {
     return null;   // an unrecognised kind draws no card and opens no modal
   }
 
+  // What ONE reward DOES, for the ⓘ on its pick card — the same line the item
+  // already carries elsewhere (the ✦ effect, a relic's blurb, the soak an
+  // armour piece prints in the shop), never a second description. Null when
+  // there is nothing to say (gold, an item with no ✦ line): that card gets
+  // no ⓘ at all rather than one that opens on nothing.
+  _trailRewardBlurb(reward) {
+    if (!reward) return null;
+    if (reward.kind === 'item') {
+      const fx = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[reward.id] : null;
+      return fx ? `✦ ${fx}` : null;
+    }
+    if (reward.kind === 'relic') {
+      return (typeof gearDef === 'function' ? gearDef('relic', reward.slot)?.blurb : null) || null;
+    }
+    if (reward.kind === 'armor' && typeof armorSlotReduction === 'function') {
+      return `−${armorSlotReduction(reward.tier)} damage soaked`;
+    }
+    return null;
+  }
+
   // Pay out the reward the player KEPT — item into the bag, gold into the
   // purse, gear equipped — and hand back its card so the caller can say what
   // arrived. Consolation coins ride along with whatever was taken; a roll
@@ -15240,10 +15262,11 @@ class MapScene extends Phaser.Scene {
     return card;
   }
 
-  // THE PICK — one lane for every "two finds, keep one" in the game: the road
-  // ladder above and a dug-up X (digTreasurePick). Each button IS a reward
-  // card (the shell takes HTML labels), so the player reads the two the same
-  // way they read a single ceremony. An actions modal has no tap-to-dismiss,
+  // THE PICK — one lane for every "several finds, keep one" in the game
+  // (Trail.PRIZE_CHOICES of them): the road ladder above and a dug-up X
+  // (digTreasurePick). Each button IS a reward card (the shell takes HTML
+  // labels), so the player reads them the same way they read a single
+  // ceremony; each card's description waits behind its ⓘ (`info`). An actions modal has no tap-to-dismiss,
   // so the prize can't be lost to a stray tap on the overlay. Nothing is paid
   // until a button is pressed: the option turned down was never theirs.
   _offerTreasurePick({ kind, header, art, choices, sub, kindIcon, onDismiss }) {
@@ -15257,8 +15280,10 @@ class MapScene extends Phaser.Scene {
       name: 'Take your pick',
       sub,
       onDismiss,
+      cards: true,
       actions: choices.map((reward) => ({
         label: this._trailChoiceLabel(reward),
+        info: this._trailRewardBlurb(reward),
         onClick: () => {
           const card = this._claimTrailReward(reward);
           if (!card) return;
@@ -15274,13 +15299,13 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // A buried X, dug up: two finds from the pool an X has always paid
-  // ('treasure:default'), keep one — the road ladder's pick (Trail.rollChoices
-  // owns "the two must differ"). The mark is already spent in
+  // A buried X, dug up: Trail.PRIZE_CHOICES finds from the pool an X has
+  // always paid ('treasure:default'), keep one — the road ladder's pick
+  // (Trail.rollChoices owns "the options must differ"). The mark is already spent in
   // save.foundTreasures before this opens, so a reload can't re-roll it.
   // Low-tier seeds keep the bulk bonus grantTreasureRoll gives them. When the
-  // pool can't find two distinct finds, the one it found pays the way an X
-  // always did.
+  // pool can't find even two distinct finds, the one it found pays the way an
+  // X always did.
   digTreasurePick(sx, sy) {
     const roll = () => {
       const r = (typeof pickReward === 'function') ? pickReward('treasure:default', this.save) : null;
@@ -16694,6 +16719,13 @@ class MapScene extends Phaser.Scene {
   //                          modal becomes a CHOICE (explicit buttons, no
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
+  //                          An action may carry `info` (HTML): its button
+  //                          grows an ⓘ, and tapping THAT (not the button)
+  //                          shows the text under the row — tap again, or
+  //                          another card's ⓘ, to swap or hide it. Nothing is
+  //                          chosen by reading.
+  //   cards         bool?  → lay the actions out as equal-width cards on ONE
+  //                          row (the pick) instead of wrapping word buttons.
   //   kindIcon      string? → HTML for the kind header's hero GLYPH, replacing
   //                          the MODAL_KINDS emoji (see makeModalShell). The
   //                          chest ceremony passes the sprite the chest it came
@@ -16706,7 +16738,7 @@ class MapScene extends Phaser.Scene {
   // one header, not two. Callers that say nothing get TREASURE, which is what
   // a chest is.
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
-    onDismiss, header, kind = 'treasure', kindIcon, actions, art }) {
+    onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, minWidth: 220, maxWidth: 300, borderColor: accent, wrapBg: '#000c',
       kind, kindLabel: header, kindIcon,
@@ -16764,15 +16796,39 @@ class MapScene extends Phaser.Scene {
       // must pick an action so the chest is never left half-resolved. Overlay
       // clicks are inert (no close listener on wrap).
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap;';
+      row.style.cssText = 'display:flex;gap:' + (cards ? 6 : 8) + 'px;justify-content:center;margin-top:10px;'
+        + (cards ? 'flex-wrap:nowrap;align-items:stretch;' : 'flex-wrap:wrap;');
+      // One shared line under the row for whichever card's ⓘ was tapped.
+      const infoLine = document.createElement('div');
+      infoLine.style.cssText = 'display:none;margin-top:10px;font-size:12px;line-height:1.35;opacity:.9;';
+      let infoOpen = null;
       for (const a of actions) {
         const b = document.createElement('button');
         b.innerHTML = a.label;
         b.style.cssText =
-          'padding:9px 14px;border-radius:7px;font:700 12px ui-monospace,monospace;cursor:pointer;' +
+          'position:relative;border-radius:7px;font:700 12px ui-monospace,monospace;cursor:pointer;' +
+          (cards ? 'flex:1 1 0;min-width:0;padding:12px 4px 9px;' : 'padding:9px 14px;') +
           (a.primary
             ? `background:${accent};color:#1a1612;border:0;`
             : 'background:transparent;color:#ddd;border:2px solid #555;');
+        if (a.info) {
+          const i = document.createElement('span');
+          i.textContent = 'ⓘ';
+          i.setAttribute('role', 'button');
+          i.setAttribute('aria-label', 'What does this do?');
+          i.style.cssText = 'position:absolute;top:0;right:0;width:24px;height:24px;'
+            + 'display:flex;align-items:center;justify-content:center;'
+            + `font:400 15px/1 sans-serif;color:${accent};opacity:.85;`;
+          i.addEventListener('click', (e) => {
+            e.stopPropagation();   // reading a card never takes it
+            const same = infoOpen === b;
+            for (const other of row.children) other.style.outline = '';
+            infoOpen = same ? null : b;
+            infoLine.style.display = same ? 'none' : 'block';
+            if (!same) { infoLine.innerHTML = a.info; b.style.outline = `2px solid ${accent}`; }
+          });
+          b.appendChild(i);
+        }
         b.addEventListener('click', (e) => {
           e.stopPropagation();
           wrap.remove();
@@ -16782,6 +16838,7 @@ class MapScene extends Phaser.Scene {
         row.appendChild(b);
       }
       box.appendChild(row);
+      box.appendChild(infoLine);
     } else {
       // Dismiss on any tap — overlay or box, doesn't matter (this is a "tap
       // to acknowledge" not a "choose action" modal). stopPropagation on the

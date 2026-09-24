@@ -158,7 +158,7 @@
 })();
 
 // ── The prize is a CHOICE ─────────────────────────────────────────────────
-// A prize pays two rolls and the player keeps ONE. Two rules carry it:
+// A prize pays three rolls and the player keeps ONE. Two rules carry it:
 // the options must actually differ (Trail.rollChoices), and NOTHING may be
 // granted until the player picks — the roll they turn down was never theirs.
 // The second rule is the one that would silently break: the option not taken
@@ -233,7 +233,7 @@ test('trail prize: rolling stops at PRIZE_CHOICES even when every roll differs',
   let n = 0;
   const out = T.rollChoices(() => ({ kind: 'item', id: `x${n++}`, qty: 1 }));
   assert.eq(out.length, T.PRIZE_CHOICES, 'never more than the offer');
-  assert.eq(T.PRIZE_CHOICES, 2, 'and the offer is two');
+  assert.eq(T.PRIZE_CHOICES, 3, 'and the offer is three');
 });
 
 test('trail prize: DRAWING an option grants nothing', () => {
@@ -283,6 +283,35 @@ test('trail prize: an unrecognised reward draws no card and pays nothing', () =>
   assert.falsy(s._claimTrailReward({ kind: 'mystery' }), 'no claim');
   assert.falsy(s._trailRewardCard(null), 'and null is survivable');
   assert.eq(s.save.money, 0, 'nothing paid out');
+});
+
+test('trail prize: each card\'s ⓘ says what it does, off the lines the item already carries', () => {
+  const { _trailRewardBlurb } = __trailPrize;
+  const fxId = Object.keys(ITEM_EFFECTS)[0];
+  assert.eq(_trailRewardBlurb({ kind: 'item', id: fxId, qty: 1 }), `✦ ${ITEM_EFFECTS[fxId]}`,
+    'an item reads its own ✦ line');
+  const plain = ITEMS.find((it) => !ITEM_EFFECTS[it.id]);
+  if (plain) assert.eq(_trailRewardBlurb({ kind: 'item', id: plain.id, qty: 1 }), null,
+    'an item with no ✦ line gets no ⓘ');
+  assert.eq(_trailRewardBlurb({ kind: 'relic', slot: 'axe', tier: 3 }), RELIC_DEFS.axe.blurb,
+    'a relic reads its blurb');
+  assert.eq(_trailRewardBlurb({ kind: 'armor', slot: 'helmet', tier: 4 }),
+    `−${armorSlotReduction(4)} damage soaked`, 'armour reads its soak, as the shop prints it');
+  assert.eq(_trailRewardBlurb({ kind: 'gold', amount: 5 }), null, 'gold needs no ⓘ');
+});
+
+test('trail prize: the pick lays its cards out in one row, descriptions behind the ⓘ', () => {
+  const app = APP_JS_SRC;
+  const pat = app.indexOf('\n  _offerTreasurePick({');
+  const pick = app.slice(pat, app.indexOf('\n  }\n', pat));
+  assert.truthy(/cards: true,/.test(pick), 'the pick asks for the card row');
+  assert.truthy(/info: this\._trailRewardBlurb\(reward\),/.test(pick), 'each card carries its description as info');
+  const mat = app.indexOf('\n  showChestRewardModal(');
+  const modal = app.slice(mat, app.indexOf('\n  }\n', mat));
+  assert.truthy(/if \(a\.info\) \{/.test(modal), 'the shell draws an ⓘ only for an action with info');
+  assert.truthy(/e\.stopPropagation\(\);\s*\/\/ reading a card never takes it/.test(modal),
+    'tapping the ⓘ does not pick the card');
+  assert.truthy(/infoLine\.style\.cssText = 'display:none;/.test(modal), 'descriptions start hidden');
 });
 
 // app.js can't load headlessly, so the wiring AROUND those two methods — that

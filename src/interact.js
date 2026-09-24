@@ -455,7 +455,7 @@ const TAP_HANDLERS = [
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
-      // Two finds, keep one (app.js digTreasurePick — the road ladder's pick).
+      // Several finds, keep one (app.js digTreasurePick — the road ladder's pick).
       if (typeof scene.digTreasurePick === 'function') scene.digTreasurePick(sx, sy);
       else grantTreasureRoll(scene, save, sx, sy, '✕');
       ctx.dirty = true;
