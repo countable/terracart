@@ -233,7 +233,19 @@
     return { askId, askQty: qtyFor(askId) };
   }
 
-  root.ShopsMath = { HOUR, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
+  // A themed shop's re-roll: $2, then ×1.5 rounded DOWN per re-roll this hour
+  // ($2, 3, 4, 6, 9, 13, 19 …). Deliberately cheaper than the smithy's and the
+  // trader's 5 × 2^n — a themed shop sells one ordinary item, and looking
+  // along its shelf should cost less than asking a smith for another relic.
+  const THEMED_REROLL_START = 2;
+  const THEMED_REROLL_MUL = 1.5;
+  function themedRerollCost(rerolls = 0) {
+    let c = THEMED_REROLL_START;
+    for (let i = 0; i < (rerolls | 0); i++) c = Math.floor(c * THEMED_REROLL_MUL);
+    return c;
+  }
+
+  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
                      TRADER_AFFORDABLE_CHANCE, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

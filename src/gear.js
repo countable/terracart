@@ -62,6 +62,15 @@
     }
     for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, save.armor?.[slot]?.tier ?? 0);
     if (!candidates.length) return null;
+    // A themed relic shop sells up to its own tier (opts.maxTier) — and, when
+    // the player has outgrown that, the lowest tier still above what they wear.
+    if (opts.maxTier != null) {
+      const within = candidates.filter((c) => c.tier <= opts.maxTier);
+      const lo = Math.min(...candidates.map((c) => c.tier));
+      const keep = within.length ? within : candidates.filter((c) => c.tier === lo);
+      candidates.length = 0;
+      candidates.push(...keep);
+    }
 
     const tierW = (t) => 1 / Math.pow(2, t - 1);
     const relicSum = candidates.filter((c) => c.kind === 'relic').reduce((a, c) => a + tierW(c.tier), 0);

@@ -305,7 +305,7 @@ test('copy: a shop with nothing to offer says WHEN, not just no', () => {
   // while; the storefront and the trader said a bare 'no deal'.
   assert.falsy(/flash\('no deal'/.test(APP_JS_SRC), 'the bare fragment is gone');
   const waits = APP_JS_SRC.match(/Back \$\{this\.shopWaitLabel\(house\)\}/g) || [];
-  assert.eq(waits.length, 2, 'both the storefront and the trader now name the wait');
+  assert.eq(waits.length, 3, 'the storefront, the themed shop and the trader all name the wait');
 });
 
 test('copy: a short smelt names the ingredient and the shortfall', () => {

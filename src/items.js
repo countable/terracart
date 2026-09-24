@@ -885,7 +885,7 @@ const PLAY_TIPS = [
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
   'A ripe crop pays one to three of itself, and about one pick in four hands a seed back as well.',
-  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a produce shop, trader or smithy.',
+  'A ruined house can be rebuilt: 5 wood for a plain one, 5 stone for a shop, trader or smithy.',
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
   'Crows raid ripe crops but never touch potatoes.',
   'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
@@ -911,7 +911,7 @@ const PLAY_TIPS = [
   'A Wood rod puts bass in the water, Iron the trout, Platinum the salmon — and a goldenfish rises for nothing under Frost.',
   // ── The village economy, once you have a house to trade with ───
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
-  'Addresses ending 2 or 6 are Produce Shops, stocked with crops. Endings 1 and 8 are Traders, who barter only.',
+  'Addresses ending 2 or 6 are shops. Each one you rebuild sells the next line — seeds, supplies, potions, ore, relics, pets — then round again, a tier up. Endings 1 and 8 are Traders, who barter only.',
   'Plain houses sell nothing. Each posts a wishlist of produce and pays half again what the same goods would fetch sold loose.',
   'A household never changes its mind about what it wants — and one bundle keeps it happy for good.',
   'Every 20 deliveries behind you, the houses you rebuild from then on start asking for the next tier of crop.',

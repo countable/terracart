@@ -3354,15 +3354,15 @@ Render.drawObjects = function drawObjects(scene) {
   // Shops.shopLabel (deleted): that was address-derived, and restore-order
   // roles no longer track the street address, so it would mislabel them.
   //
-  // The produce shop's sign follows its STOCK: the tutorial's first one carries
-  // seeds, not produce, so it signs "Seed Shop" (see Shops.roleLabel). The
+  // A themed shop's sign follows its LINE (scene.marketTheme — the restore-order
+  // theme the offer and the restoration card read too): "Potion Shop". The
   // trader's sign follows its OFFER: it is named for the item it barters away
   // ("Rockfruit Trader" — scene.traderGoodsName reads the same seeded pick the
   // barter modal hands over). No sign carries a street-address numeral any
   // more — which house number a building occupies said nothing about what
   // it sells or who lives there.
   const _roleLabel = (role, o) => Shops.roleLabel(role,
-    role === 'market' && typeof scene.isFirstMarket === 'function' && scene.isFirstMarket(o),
+    role === 'market' && typeof scene.marketTheme === 'function' ? scene.marketTheme(o).theme : null,
     role === 'trader' && typeof scene.traderGoodsName === 'function' ? scene.traderGoodsName(o) : null);
   const _houseSignText = (o) => {
     // Wrecks have no sign — their identity is hidden until the player

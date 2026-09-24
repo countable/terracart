@@ -1,7 +1,8 @@
 // Shop registry: specialty-shop taxonomy + per-type config (label, tint) for
 // small-house shops. Address ending → role mapping:
 //   9       → blacksmith (sooty tint, gem→relic forge)
-//   2 / 6   → market    (red tint, produce-only stock — signs "Produce Shop")
+//   2 / 6   → market    (red tint, a THEMED shop — seed / supply / potion /
+//                        ore / relic / pet, by restore order; see themeAt)
 //   1 / 8   → trader    (no tint, barter-only deals)
 // Forts (BUILDING_MED) and civic slabs (BUILDING_LARGE) are excluded — the
 // shopType helper returns null for any house that isn't the small tier.
@@ -40,13 +41,11 @@
   // modal's flavour line (app.js buildingFlavorTitle) all read it, so a rename
   // lands in all three at once instead of drifting between them.
   //
-  // The produce storefront is named for the GOODS IT SELLS, not for the trade
-  // idiom — it signs as "Produce Shop", never "Market". Its stock is the shop's
-  // identity, so the one that carries something else says so: the tutorial's
-  // FIRST market stocks starter seeds instead of produce (app.js isFirstMarket)
-  // and signs as "Seed Shop", so no sign promises stock the shop doesn't have.
-  // Category, not item: the specific produce rotates with save.buyIndex, so a
-  // per-item name would rewrite the sign every time the player bought anything.
+  // The themed storefront (role key 'market') is named for the LINE IT SELLS,
+  // never for the trade idiom — "Potion Shop", never "Market" — off its theme
+  // (THEME_LABEL, resolved by themeAt). Category, not item: the specific stock
+  // re-rolls every hour and on a paid re-roll, so a per-item name would rewrite
+  // the sign every time the player looked away.
   //
   // The trader is named for the GOODS IT OFFERS, never for its street number:
   // "Rockfruit Trader", "Potato Seed Trader". Its barter is one item at a time
@@ -58,22 +57,18 @@
   // to name (no house id, an empty catalogue) it falls back to a bare "Trader".
   //
   // The role KEY stays 'market'. It is persisted in save.restoredHouses and
-  // stamped on save.firstMarketId, so renaming it would strand every save.
+  // is read back by shopOrder, so renaming it would strand every save.
   const ROLE_LABEL = {
     blacksmith: 'Blacksmith',
-    market:     'Produce Shop',
+    market:     'Shop',          // a themed shop with no theme to name (see THEME_LABEL)
     trader:     'Trader',
     wizard:     'Wizard',
   };
-  // What the produce shop signs as when it stocks seeds instead.
-  const SEED_SHOP_LABEL = 'Seed Shop';
-
   // Player-facing name for a shop role, or null for a role with no sign.
-  // `seedStock` flips the produce shop to its seed variant; `goods` is the
-  // display name of the item a trader currently offers ("Rockfruit"), which
-  // names the trader for it.
-  function roleLabel(role, seedStock = false, goods = null) {
-    if (role === 'market' && seedStock) return SEED_SHOP_LABEL;
+  // `theme` names a themed shop's line (THEMES); `goods` is the display name of
+  // the item a trader currently offers ("Rockfruit"), which names the trader.
+  function roleLabel(role, theme = null, goods = null) {
+    if (role === 'market' && THEME_LABEL[theme]) return THEME_LABEL[theme];
     if (role === 'trader' && goods) return `${goods} ${ROLE_LABEL.trader}`;
     return ROLE_LABEL[role] ?? null;
   }
@@ -95,8 +90,97 @@
   // SHOP_INK_BG (warm dark wood — see the label block in render.js).
   const shopInk = (house) => shopConfig(house)?.ink ?? null;
 
+  // ── THEMED SHOPS ──────────────────────────────────────────────────────────
+  // A shop (role key 'market') sells ONE LINE, and which line is its place in
+  // the order the player restored shops: the first is a seed shop, then a
+  // supply shop, a potion shop, an ore shop, a relic shop and a pet shop — and
+  // round again one TIER higher (the seventh shop is a T2 seed shop). So the
+  // neighbourhood opens up in the order a player can use it, and every shop
+  // after the sixth is a better version of one they already know.
+  //
+  // The order is the save's own record (save.restoredHouses keeps insertion
+  // order, the delivery.js houseOrder idiom), so a restored shop keeps its
+  // line for good and a save that restored its shops before themes existed is
+  // converted in place, in the order it restored them.
+  //
+  // Each visit sells ONE random item from the line at the shop's tier — the
+  // nearest tier the line actually stocks (ties go LOWER), since no line has
+  // an item at every tier. The relic line is gear, rolled by Gear.buildRelicOffer
+  // (never at or below what the player already wears), so it has no pool here.
+  const THEMES = ['seed', 'supply', 'potion', 'ore', 'relic', 'pet'];
+  const THEME_LABEL = {
+    seed: 'Seed Shop', supply: 'Supply Shop', potion: 'Potion Shop',
+    ore: 'Ore Shop', relic: 'Relic Shop', pet: 'Pet Shop',
+  };
+  // Resolved at CALL time: items.js (BUY_LIST, the catalogue) is read when a
+  // shop is opened, not when this file loads.
+  const THEME_POOL = {
+    // The seeds any shop may sell (BUY_LIST: T1..T3 crops — the magical
+    // flowers stay find-only).
+    seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
+    supply: () => ['wood', 'rockfruit', 'torch', 'rope', 'trap_kit', 'scarecrow', 'book'],
+    potion: () => ['reach_potion', 'vigor_potion', 'speed_potion', 'shield_potion',
+                   'growth_powder', 'shadow_powder', 'dragon_powder', 'frost_powder'],
+    ore:    () => ['coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar',
+                   'frost_bar', 'sapphire', 'ruby', 'emerald', 'diamond'],
+    pet:    () => ['chicken', 'dog', 'rabbit', 'cat', 'butterfly', 'crow', 'deer', 'cow'],
+  };
+
+  // The line + tier for the Nth shop restored (0-based).
+  function themeAt(order) {
+    const o = Math.max(0, order | 0);
+    return { theme: THEMES[o % THEMES.length], tier: 1 + Math.floor(o / THEMES.length) };
+  }
+
+  // 0-based place of this shop among the save's restored shops, in restore
+  // order. A shop that isn't in the record (an address-derived market from
+  // before roles were frozen) gets a stable place off its id instead, within
+  // the first round, so it still has a line and it never shifts.
+  function shopOrder(save, house) {
+    if (!house || !house.id) return 0;
+    const rh = (save && save.restoredHouses) || {};
+    if (rh[house.id] === 'market') {
+      let n = 0;
+      for (const id of Object.keys(rh)) {
+        if (rh[id] !== 'market') continue;
+        if (id === house.id) return n;
+        n++;
+      }
+    }
+    return fnv1a(String(house.id) + '|theme') % THEMES.length;
+  }
+
+  function itemTier(id) {
+    const it = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
+    return (it && it.baseTier) ?? ((typeof BASE_TIER !== 'undefined' && BASE_TIER[id]) || 1);
+  }
+
+  // What a shop of this line and tier can stock: every item of the line at the
+  // nearest tier it carries (ties go to the lower tier). [] for the relic line.
+  function themedStock(theme, tier) {
+    const pool = THEME_POOL[theme];
+    if (!pool) return [];
+    const ids = pool().filter((id) => typeof ITEM_BY_ID === 'undefined' || ITEM_BY_ID[id]);
+    if (!ids.length) return [];
+    let best = null;
+    for (const id of ids) {
+      const t = itemTier(id);
+      const d = Math.abs(t - tier);
+      if (best === null || d < best.d || (d === best.d && t < best.t)) best = { d, t };
+    }
+    return ids.filter((id) => itemTier(id) === best.t);
+  }
+
+  // The one item this shop sells right now, off the caller's seeded rng.
+  function pickThemed(theme, tier, rng = Math.random) {
+    const stock = themedStock(theme, tier);
+    if (!stock.length) return null;
+    return stock[Math.floor(rng() * stock.length) % stock.length];
+  }
+
   global.Shops = {
     shopType, shopInk,
-    ROLE_LABEL, SEED_SHOP_LABEL, roleLabel,
+    ROLE_LABEL, roleLabel,
+    THEMES, THEME_LABEL, themeAt, shopOrder, themedStock, pickThemed,
   };
 })(window);
