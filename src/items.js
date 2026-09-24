@@ -807,6 +807,42 @@ const STARTING_MONEY = 50;
 // till, and harvest deduct energy via ENERGY_COST and refuse when the current
 // pool is too low. ARMOR does not touch the cap: it SOAKS the damage an attack
 // takes off the bar (armorReduction below, spent by Combat.mitigate).
+// Flower charm — gifting a Flowers stack item to a cash shop (market, fort
+// storefront, unclaimed castle) halves its prices at that building for this
+// long (the flower-gift branch in app.js shopInteract + shopCharmMul). Lives
+// here so the Flowers ✦ line below quotes the live number.
+const SHOP_CHARM_MS = 5 * 60 * 1000;
+// ITEMS THAT REVIVE: the fraction of the bar each one stands you back up
+// with (through Energy.reviveLevel, so it rounds like Home's quarter). The
+// Crow Feather is EATEN, and only through the hard-mode lockout (eatSelected);
+// the revival potions are DRUNK, only while down (Combat.playerDowned — zero
+// energy, either mode), because above zero they would just be Vigor potions.
+// One table, read by the eat / drink, the ✦ lines below, the Eat button and
+// the Drink dialog.
+const REVIVE_ITEM_FRAC = { crow_feather: 0.10, revive_potion: 0.30, resurrection_potion: 0.60 };
+const revivePct = (id) => Math.round(REVIVE_ITEM_FRAC[id] * 100);
+
+// ── ITEM GUIDES: the Book pages about a THING ──────────────────────────────
+// The one deliberate exception to "what an item does is written on the item,
+// not in the Book" (see the Book of Tips header below). For a handful of key
+// mechanical items — the Crow Feather, every Home craftable — and two
+// behaviours that no single item can explain (flowers as a bargaining tool,
+// slimes that can be won over), a page gives the WHY: when to reach for it,
+// what it saves you from. It may restate its own item's ✦ line — the test
+// (item_descriptions.test.js) exempts a guide against its own key only — but
+// it must earn the page with the strategy the ✦ line has no room for.
+// Numbers are re-derived from their owners, never retyped. PLAY_TIPS slots
+// each guide in where it first becomes actionable.
+const ITEM_GUIDE_TIPS = {
+  crow_feather: `A Crow Feather is hard mode's pocket resurrection: eaten on an empty bar, it stands you up with ${revivePct('crow_feather')}% of your energy. Crows drop them. Carry one before any long walk — crawling home is not a strategy, merely a hobby.`,
+  scarecrow: 'A scarecrow keeps crows and deer off the crops around it for good, for a little wood at Home. Cheaper than replanting, and it has never once asked for a day off.',
+  trap_kit: 'A disarm kit shuts a snare\'s jaw for good: hold it and tap the snare. Snares favour roadside verges and the stairs underground, so one in the bag costs less than a limp.',
+  torch: 'Underground, your light IS your reach, and every level down trims it. A torch doubles it for a while — light one at the top of the stairs, not after you have met the goblin.',
+  rope: 'Rope is the exit you carry: up a level, or down one, from wherever you stand. Long grass makes it at Home, so never go deeper than you have rope to climb back.',
+  flowers: `A bouquet of wild flowers halves a shop's prices for ${shortDuration(SHOP_CHARM_MS)}. Save it for the relic you have been eyeing, not a packet of seeds — shopkeepers are flattered, not stupid.`,
+  slime: 'A slime can be won over as well as beaten, though no net and no food will do it. The very last page knows how. Keep reading — the answer is further in than you would like.',
+};
+
 // === Book of Tips ============================================
 // Non-obvious play tips revealed when the player uses a Book consumable.
 //
@@ -891,7 +927,8 @@ const STARTING_MONEY = 50;
 const PLAY_TIPS = [
   // ── The first ten minutes — you cannot act without these ────
   'Actions cost energy. Eat to refill — or just rest; an hour away from the game hands the whole bar back.',
-  'Hard mode is harsher on an empty tank: food, a campfire and time away all stop working. Your trailer, a Crow Feather or a revival potion get you moving again.',
+  'Hard mode is harsher on an empty tank: food, a campfire and time away all stop working. Only your trailer, a Crow Feather or a revival potion will put you back on your feet.',
+  ITEM_GUIDE_TIPS.crow_feather,
   'Only your OWN home rests you — a full bar in fifty seconds. A stranger\'s roof is just a roof.',
   'A campfire rests you slowly out in the open, and slimes keep their distance.',
   'Resting stops while a work wheel turns. A job done on the doorstep still costs what it costs; the sit-down afterwards is what earns it back.',
@@ -901,6 +938,7 @@ const PLAY_TIPS = [
   'The bar over a foe is its health, not a timer — green, then amber, then red.',
   'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
   'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 3 a second, so step off rather than wait it out.',
+  ITEM_GUIDE_TIPS.trap_kit,
   // ── The starter loop — till, plant, rebuild, harvest, sell ───
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
@@ -908,6 +946,7 @@ const PLAY_TIPS = [
   'A ruined house can be rebuilt for 1 stone, and each one you rebuild adds a stone to the next, up to 20.',
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
   'Crows and deer raid your crops, though crows never touch potatoes — and nothing raids the ones growing right by your Home.',
+  ITEM_GUIDE_TIPS.scarecrow,
   'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
   // Placed with the slime it is about, and BEFORE the swing-reach page: the
   // first thing a player does about a slime is hit it, so what a half-hearted
@@ -936,6 +975,7 @@ const PLAY_TIPS = [
   'A household never changes its mind about what it wants — and one bundle keeps it happy for good.',
   'Every 20 deliveries behind you, the houses you rebuild from then on start asking for the next tier of crop.',
   'A shop makes one deal an hour. Castles and towers never make you wait.',
+  ITEM_GUIDE_TIPS.flowers,
   'A fort runs a slot machine: five prizes a day, three of a kind wins one, and the gold-rimmed prize is the jackpot. A spin costs exactly what it wins on average.',
   'A castle you have claimed offers one favour a day: a rest, or its taxes.',
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
@@ -961,6 +1001,7 @@ const PLAY_TIPS = [
   'Chasing an animal down is a chase: it bolts while the wheel turns, and if it stays out of your reach for a second it is gone.',
   'A deer or a crow can be brought down bare-handed, but it is a long slog. No weapon hurries a hunt — that is what the net is for.',
   'A shiny animal pays ten times its plain kind, bolts twice as fast, and takes twice the work to bring down.',
+  ITEM_GUIDE_TIPS.slime,
   // ── Fighting, once you are armed ────────────────────────────
   'Only one weapon is ever in play. Tap another in the Relics tab to make it the one that answers a foe.',
   'Worn armour soaks what a blow takes off your bar, and a set stacks: the pool covers half a hit, then half of what is left, four times over. It can never soak a blow to nothing — something always gets through.',
@@ -970,6 +1011,8 @@ const PLAY_TIPS = [
   'Towers on a castle you have CLAIMED fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate. An unclaimed castle\'s walls stay silent.',
   // ── Underground, which you go looking for ───────────────────
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
+  ITEM_GUIDE_TIPS.torch,
+  ITEM_GUIDE_TIPS.rope,
   'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',
   'Ore wants a pickaxe one tier under what it holds, and every tier it out-tiers yours adds 9\u26a1 to the swing.',
   'Gems come only out of the deeper stone: sapphire from gold-bearing rock, ruby from platinum, emerald from crimson, and a diamond only from frost.',
@@ -999,18 +1042,6 @@ const PLAY_TIPS = [
 // strip) whenever such an item is selected, so a non-obvious power isn't a
 // secret the player only learns from a Book. Keyed by item id; absent = no
 // special effect (a plain crop / mineral that's just worth money or energy).
-// Flower charm — gifting a Flowers stack item to a cash shop (market, fort
-// storefront, unclaimed castle) halves its prices at that building for this
-// long (the flower-gift branch in app.js shopInteract + shopCharmMul). Lives
-// here so the Flowers ✦ line below quotes the live number.
-const SHOP_CHARM_MS = 5 * 60 * 1000;
-// REVIVAL POTIONS: the fraction of the bar each one stands you back up with.
-// Only drinkable while DOWN (Combat.playerDowned — zero energy, either mode):
-// above zero it would just be a Vigor potion, and the point of it is getting
-// up where you fell instead of crawling Home. One table, read by the drink
-// (app.js drinkRevivePotion), its ✦ line below and the Drink dialog.
-const REVIVE_POTION_FRAC = { revive_potion: 0.10, resurrection_potion: 0.50 };
-const revivePct = (id) => Math.round(REVIVE_POTION_FRAC[id] * 100);
 
 const ITEM_EFFECTS = {
   // Not a secret: the charm is a cash-shop mechanic the player otherwise only
@@ -1036,11 +1067,12 @@ const ITEM_EFFECTS = {
   sapphire:  'Use to open a portal one level down',
   // The Frost jewel: where it comes from and what it is for, in one line.
   diamond:   'Mined from Frost-tier ore; Frost jewelry is cut around it',
-  // The one FOOD that still works through the hard-mode zero-energy
-  // lockout (see PLAY_TIPS; the revival potions are drunk, not eaten) — a quarter bar, the same floor reaching the
-  // trailer gives. Never a normal food: it carries no FOOD_ENERGY entry, so
-  // the Eat button only ever offers this while the lockout actually holds.
-  crow_feather: 'Eat at zero to fill a quarter of your bar (hard mode)',
+  // The one FOOD that still works through the hard-mode zero-energy lockout
+  // (see PLAY_TIPS; the revival potions are drunk, not eaten) — a tenth of
+  // the bar (REVIVE_ITEM_FRAC). Never a normal food: it carries no
+  // FOOD_ENERGY entry, so the Eat button only ever offers this while the
+  // lockout actually holds.
+  crow_feather: `Eat at zero to get up with ${revivePct('crow_feather')}% energy (hard mode)`,
   // Consumables used on yourself / the world.
   honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',

@@ -35,8 +35,8 @@ test('rope: is a T2 consumable with a price and an effect line', () => {
   // spends a consumable to print what the inventory bar already showed.
   assert.truthy(/up/i.test(ITEM_EFFECTS.rope || '') && /down/i.test(ITEM_EFFECTS.rope || ''),
     'ITEM_EFFECTS discloses the climb, both ways');
-  assert.falsy(PLAY_TIPS.some(t => /\bRope\b/.test(t)),
-    'and no Book tip repeats it');
+  assert.falsy(PLAY_TIPS.some(t => /\bRope\b/.test(t) && t !== ITEM_GUIDE_TIPS.rope),
+    'and no Book tip repeats it — bar the rope\'s own guide page (ITEM_GUIDE_TIPS)');
 });
 
 test('rope: two-table icon rule — MINERAL_ICON_SHEET → ICON_SHEETS → a real 16×16 PNG', () => {

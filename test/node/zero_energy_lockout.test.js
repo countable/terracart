@@ -1,8 +1,8 @@
 // Hard mode's zero-energy lockout: once the tank reads empty on hard, every
 // ordinary recovery path (food, campfire rest, offline/passive rest) refuses.
-// Only two things still work — reaching the trailer, or eating a Crow
-// Feather — and both put the bar at exactly 25% of max, never a free full
-// tank. Easy mode is untouched: _zeroEnergyLocked() is always false there,
+// What still works: reaching the trailer (a quarter of max), eating a Crow
+// Feather or drinking a revival potion (REVIVE_ITEM_FRAC) — never a free
+// full tank. Easy mode is untouched: _zeroEnergyLocked() is always false there,
 // so every existing path (all pinned by energy.test.js / rest_work.test.js)
 // behaves exactly as it did before this feature.
 //
@@ -32,8 +32,9 @@ test('lockout: eatSelected refuses every food while locked, except a feather rev
     'only a Crow Feather gets through the lockout');
   assert.truthy(/if \(locked && !featherRevive\) return false;/.test(body),
     'every other food refuses outright while locked');
-  assert.truthy(/Energy\.reviveLevel\(this\.getMaxEnergy\(\)\)/.test(body),
-    'the feather revive is a (rounded) quarter of max, not a flat FOOD_ENERGY number');
+  assert.truthy(/Energy\.reviveLevel\(this\.getMaxEnergy\(\), REVIVE_ITEM_FRAC\.crow_feather\)/.test(body),
+    'the feather revive is a (rounded) share of max off REVIVE_ITEM_FRAC, not a flat FOOD_ENERGY number');
+  assert.eq(REVIVE_ITEM_FRAC.crow_feather, 0.10, 'a tenth of the bar');
 });
 
 test('lockout: crow_feather carries no ordinary FOOD_ENERGY — it only works through the lockout', () => {

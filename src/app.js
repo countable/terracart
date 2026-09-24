@@ -6869,8 +6869,8 @@ class MapScene extends Phaser.Scene {
       const working = !!this._workProgress || restNow < (this._restHoldUntil ?? 0);
       // Hard mode's zero-energy lockout (_zeroEnergyLocked): the trailer
       // doesn't trickle you back up from empty — arriving there puts you
-      // straight at a quarter bar, the same floor a Crow Feather gives
-      // (eatSelected). A campfire is NOT the trailer, so its rest below stays
+      // straight at a quarter bar (Energy.REVIVE_FRAC; a Crow Feather eaten
+      // in the field gives less, see REVIVE_ITEM_FRAC). A campfire is NOT the trailer, so its rest below stays
       // blocked until that floor is crossed.
       const locked = this._zeroEnergyLocked();
       if (atHome && locked) {
@@ -11306,9 +11306,9 @@ class MapScene extends Phaser.Scene {
 
   // Hard mode's zero-energy lockout. Once the tank reads empty on hard, food
   // (eatSelected), campfire rest and offline/passive rest (applyOfflineRest)
-  // all refuse — the only two ways back are reaching the trailer (the Home
-  // rest branch in update()) or eating a Crow Feather, and both put the bar
-  // at exactly a quarter, never a free full tank. Easy mode has no floor:
+  // all refuse — the ways back are reaching the trailer (the Home rest branch
+  // in update(), a quarter bar), eating a Crow Feather or drinking a revival
+  // potion (REVIVE_ITEM_FRAC) — never a free full tank. Easy mode has no floor:
   // this is always false there, so every existing recovery path is untouched.
   _zeroEnergyLocked() {
     return Difficulty.isHard() && (this.save.energy ?? 0) <= 0;
@@ -12027,17 +12027,17 @@ class MapScene extends Phaser.Scene {
   }
 
   // Potion of Revival (T2) and Potion of Resurrection (T5): drunk while
-  // DOWN, it stands you back up where you fell with REVIVE_POTION_FRAC of the
+  // DOWN, it stands you back up where you fell with REVIVE_ITEM_FRAC of the
   // bar — the field answer to the walk Home, and on hard the way out of the
   // zero-energy lockout besides the Crow Feather. Refused above zero (the Drink dialog
   // greys its button off the same test), so it can't be wasted as a top-up.
   drinkRevivePotion() {
     const sel = getSelectedSlot(this.save);
-    const frac = sel && REVIVE_POTION_FRAC[sel.id];
+    const frac = sel && sel.id !== 'crow_feather' && REVIVE_ITEM_FRAC[sel.id];
     if (!frac || (sel.count ?? 0) <= 0) return false;
     if (!Combat.playerDowned(this.save.energy)) return false;
     const before = this.save.energy ?? 0;
-    this.save.energy = Math.max(before, Math.max(1, Math.round(this.getMaxEnergy() * frac)));
+    this.save.energy = Math.max(before, Energy.reviveLevel(this.getMaxEnergy(), frac));
     this._popEnergy(this.save.energy - before);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     const name = ITEM_BY_ID[sel.id]?.name || 'Potion of Revival';
@@ -12330,8 +12330,8 @@ class MapScene extends Phaser.Scene {
     if (!sel || (sel.count ?? 0) <= 0) return false;
     // Hard mode's zero-energy lockout (see _zeroEnergyLocked): once the tank
     // is empty, a Crow Feather is the one food that still works — it revives
-    // to a quarter bar, the same floor reaching the trailer gives (see the
-    // Home rest in update()). Every other food refuses outright while locked,
+    // to REVIVE_ITEM_FRAC of the bar, less than reaching the trailer gives
+    // (see the Home rest in update()). Every other food refuses outright while locked,
     // so eating around the lockout isn't an option.
     const locked = this._zeroEnergyLocked();
     const featherRevive = locked && sel.id === 'crow_feather';
@@ -12357,7 +12357,7 @@ class MapScene extends Phaser.Scene {
     }
     const before = this.save.energy ?? 0;
     this.save.energy = featherRevive
-      ? Energy.reviveLevel(this.getMaxEnergy())
+      ? Energy.reviveLevel(this.getMaxEnergy(), REVIVE_ITEM_FRAC.crow_feather)
       : Math.min(this.getMaxEnergy(), before + restore);
     const gained = this.save.energy - before;
     consumeSelected(this.save);
@@ -17684,8 +17684,8 @@ class MapScene extends Phaser.Scene {
   syncEatButton() {
     const sel = this.save.inv?.[this.save.selSlot];
     // A Crow Feather carries no ordinary FOOD_ENERGY — it only works through
-    // the hard-mode zero-energy lockout (eatSelected), reviving to a quarter
-    // bar, so the button only appears for it while that lockout actually
+    // the hard-mode zero-energy lockout (eatSelected), reviving to a tenth of
+    // the bar, so the button only appears for it while that lockout actually
     // holds (never in easy mode, never above 0 energy).
     const featherRevive = !!sel && sel.id === 'crow_feather' && this._zeroEnergyLocked();
     const restore = (sel && typeof FOOD_ENERGY !== 'undefined') ? FOOD_ENERGY[sel.id] : null;
@@ -17717,7 +17717,7 @@ class MapScene extends Phaser.Scene {
     // While the gate refuses, the wait REPLACES the "+N⚡" it would otherwise
     // advertise: the restore isn't the actionable number until the bar fills.
     const text = cooling ? `Eat ${this._eatCdShown}`
-      : featherRevive ? 'Use → 25%⚡'
+      : featherRevive ? `Use → ${revivePct('crow_feather')}%⚡`
       : `Eat +${restore}⚡`;
     const btn = existing || this._makeEatButton();
     // The icon is rebuilt only when the SELECTED STACK changes, not on every

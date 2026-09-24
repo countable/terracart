@@ -56,16 +56,35 @@ const overlap = (tip, desc) => {
   return new Set(words(desc).filter((w) => tw.has(w))).size;
 };
 
+// ITEM GUIDES (items.js ITEM_GUIDE_TIPS) are the one sanctioned exception: a
+// guide page may restate ITS OWN item's line, because its job is the strategy
+// around that line. Against every other description it is held to the rule.
+const guideOf = new Map(Object.entries(ITEM_GUIDE_TIPS).map(([id, tip]) => [tip, id]));
+
 test('tips: no Book tip restates an item or relic description', () => {
   const descs = descriptions();
   for (const tip of PLAY_TIPS) {
+    const own = guideOf.has(tip) ? `ITEM_EFFECTS.${guideOf.get(tip)}` : null;
     for (const [key, desc] of descs) {
+      if (key === own) continue;
       const n = overlap(tip, desc);
       assert.lte(n, OVERLAP_MAX,
         `tip overlaps ${key} on ${n} words — the description owns this, drop the tip:\n` +
         `    tip:  ${tip}\n    desc: ${desc}`);
     }
   }
+});
+
+test('item guides: every guide is a page of the Book, and a guide only excuses its own item', () => {
+  for (const [id, tip] of Object.entries(ITEM_GUIDE_TIPS)) {
+    assert.truthy(PLAY_TIPS.includes(tip), `the ${id} guide is in the Book`);
+  }
+  for (const id of ['crow_feather', 'torch', 'scarecrow', 'rope', 'trap_kit']) {
+    assert.truthy(ITEM_GUIDE_TIPS[id], `${id} (a key item or a Home craftable) has a guide`);
+  }
+  for (const r of HOME_RECIPES) assert.truthy(ITEM_GUIDE_TIPS[r.id], `craftable ${r.id} has a guide`);
+  assert.truthy(ITEM_GUIDE_TIPS.flowers && ITEM_GUIDE_TIPS.slime, 'flowers and slimes have theirs');
+  assert.falsy(/sapphire/i.test(ITEM_GUIDE_TIPS.slime), 'the slime guide points at the riddle, never the gem');
 });
 
 test('tips: the sweep actually catches a restatement', () => {
@@ -92,6 +111,8 @@ test('tips: no tip explains a Book, a Potion or a Rope — their own lines do', 
   // item it describes.
   for (const tip of PLAY_TIPS) {
     assert.falsy(/\bBook\b/.test(tip), 'a Book tip explaining Books: ' + tip);
+    // The rope's own guide page (ITEM_GUIDE_TIPS) is the sanctioned exception.
+    if (tip === ITEM_GUIDE_TIPS.rope) continue;
     assert.falsy(/\bRope\b/.test(tip), 'the Rope is described by ITEM_EFFECTS.rope: ' + tip);
     assert.falsy(/\bPotions? (run|last)\b/.test(tip), 'potion durations are on each potion: ' + tip);
   }

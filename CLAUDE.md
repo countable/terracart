@@ -483,7 +483,12 @@ the mechanic.
   nowrap), `RELIC_DEFS[slot].blurb`, the Eat button's `+N⚡` and the Stats
   panel's armour row. `PLAY_TIPS` is not one of them. **When a tip and a
   description overlap, the description wins and the tip goes**; move any
-  extra fact onto the line. **The one exception is the one SECRET**: the
+  extra fact onto the line. **The one sanctioned exception is
+  `items.js` › `ITEM_GUIDE_TIPS`**: a guide page for a key mechanical item
+  (the Crow Feather, every `HOME_RECIPES` craftable) or a behaviour (flowers
+  as a gift, winning a slime over) may restate its OWN item's line, because
+  its job is the strategy around it — the overlap test exempts a guide
+  against its own key only. Add a craftable, add its guide. **The one exception is the one SECRET**: the
   sapphire's ✦ line describes its open use (the portal); the slime taming is
   hinted only in `PLAY_TIPS`' closing riddle. **When an item has a secret
   use, its ✦ line describes the open one.**

@@ -1,4 +1,5 @@
-// A revive lifts an empty bar to a quarter of it, ROUNDED (Energy.reviveLevel)
+// A revive lifts an empty bar to a share of it, ROUNDED (Energy.reviveLevel):
+// a quarter at Home, an item's own REVIVE_ITEM_FRAC for the feather/potions
 // — energy is a whole number everywhere, and a bare maxE * 0.25 left a player
 // on 22.25⚡ after reviving at a max of 89.
 
@@ -11,7 +12,12 @@ test('revive: a quarter of the bar, as a whole number', () => {
   for (let m = 1; m <= 300; m++) assert.eq(Energy.reviveLevel(m) % 1, 0, `max ${m}: whole`);
 });
 
-test('revive: both revive paths use it — Home on hard and the Crow Feather', () => {
-  assert.eq((APP_JS_SRC.match(/Energy\.reviveLevel\(/g) || []).length, 2, 'two callers');
+test('revive: an item passes its own share, rounded the same way', () => {
+  assert.eq(Energy.reviveLevel(89, 0.10), 9, '8.9 → 9');
+  assert.eq(Energy.reviveLevel(5, 0.10), 1, 'never below 1');
+});
+
+test('revive: every revive path uses it — Home on hard, the Crow Feather, the potions', () => {
+  assert.eq((APP_JS_SRC.match(/Energy\.reviveLevel\(/g) || []).length, 3, 'three callers');
   assert.falsy(/energy = [^;\n]*\* 0\.25/.test(APP_JS_SRC), 'no bare quarter-bar left');
 });

@@ -122,13 +122,15 @@
     return save.energy - before;
   }
 
-  // The floor a revive lifts an empty bar to — arriving Home on hard with
-  // nothing left, or a Crow Feather eaten on an empty bar. A quarter of the
-  // bar, ROUNDED: energy is a whole number everywhere (spends, rests, blows),
-  // and a bare maxE * 0.25 left a player on 22.25⚡ after reviving at 89.
+  // The floor a revive lifts an empty bar to. REVIVE_FRAC (a quarter) is
+  // Home's: arriving there on hard with nothing left. An item that revives
+  // (the Crow Feather, the revival potions — items.js REVIVE_ITEM_FRAC)
+  // passes its own `frac`. ROUNDED either way: energy is a whole number
+  // everywhere (spends, rests, blows), and a bare maxE * 0.25 left a player
+  // on 22.25⚡ after reviving at 89.
   const REVIVE_FRAC = 0.25;
-  function reviveLevel(maxE) {
-    return Math.max(1, Math.round((maxE || 0) * REVIVE_FRAC));
+  function reviveLevel(maxE, frac = REVIVE_FRAC) {
+    return Math.max(1, Math.round((maxE || 0) * frac));
   }
 
   root.Energy = { REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tiredThreshold, crossedTired,
