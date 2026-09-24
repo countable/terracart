@@ -6108,6 +6108,37 @@ class MapScene extends Phaser.Scene {
         break;
       }
     }
+    // ROAMERS: the rest of the level. The pack above crowds the stair mouths,
+    // SPAWN_R cells out — a small corner of a ~229-cell tile — so a player who
+    // walked off from the stair, or came down a rope or a portal somewhere
+    // else, met nothing at all ("no slimes underground"). One chance per
+    // ROAM_PIVOT-cell square across the whole floor, scaled by the mode's
+    // monsterCountMul like the pack. Off its OWN stream, so every draw the
+    // pack, the rabbits and the coins make keeps the number it had. Ids are
+    // POSITIONAL (the seat cell), so save.caught keeps a roamer dead.
+    const ROAM_PIVOT = 12, ROAM_TRIES = 6;
+    const roamP = Math.min(0.6, 0.4 * Difficulty.get().monsterCountMul);
+    const roamRng = WorldGen.makeRng((tx * 0x2c1b3a5f ^ ty * 0x9e3779b1 ^ depth * 0x5bd1e995) >>> 0);
+    for (let py = 0; py < N; py += ROAM_PIVOT) {
+      for (let px = 0; px < N; px += ROAM_PIVOT) {
+        if (roamRng() >= roamP) continue;
+        const kind = bag[Math.floor(roamRng() * bag.length)];
+        for (let attempt = 0; attempt < ROAM_TRIES; attempt++) {
+          const cx = px + Math.floor(roamRng() * ROAM_PIVOT);
+          const cy = py + Math.floor(roamRng() * ROAM_PIVOT);
+          if (cx >= N || cy >= N) continue;
+          if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+          if (occupiedIdx.has(cy * N + cx)) continue;
+          const id = `mon_${kind}_${depth}_${tx}_${ty}_r${cx}_${cy}`;
+          if (caughtSet.has(id)) break;
+          const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
+          const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
+          creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
+            { shiny: isShiny(id, SHINY_RATE.monster) }));
+          break;
+        }
+      }
+    }
     // Loose coins on the cave floor: a handful per level tile, scattered the
     // same way as the fauna (around the entrances, so the ~2-cell torch bubble
     // actually meets them) and picked up with the same tap as a coin-burst
@@ -6144,6 +6175,17 @@ class MapScene extends Phaser.Scene {
           coins.push({ kind: 'coindrop', x: wmx, y: wmy, id: `cavecoin_${depth}_${tx}_${ty}_${i}` });
           break;
         }
+      }
+      // And the level's SEEDED gold (worldgen.js caveCoins): generated where
+      // it lies over the whole floor, less the ones already picked up — the
+      // coin tap writes a `seeded` coin's id into save.foundTreasures.
+      const foundSet = setOf(this.save.foundTreasures || []);
+      for (const c of (entry.caveCoinSeeds || [])) {
+        if (foundSet.has(c.id)) continue;
+        const idx = Math.floor((c.y - ty * entry.tileEdgeM) / cellSizeM) * N
+          + Math.floor((c.x - tx * entry.tileEdgeM) / cellSizeM);
+        if (taken.has(idx)) continue;
+        coins.push(c);
       }
       entry.coinDrops = coins;
     }

@@ -983,6 +983,10 @@ const TAP_HANDLERS = [
     const coin = bestEntry.coinDrops[bestIdx];
     if (tooFar(ctx, coin.x, coin.y)) return 'far';
     bestEntry.coinDrops.splice(bestIdx, 1);
+    // A cave coin is GENERATED where it lies (worldgen.js caveCoins), so the
+    // pickup is the delta: the id goes in the X marks' found list, and the
+    // next build of the level leaves it out.
+    if (coin.seeded) save.foundTreasures = [...(save.foundTreasures || []), coin.id];
     addMoney(save, 1);
     // The "+1" lands ON the cell the coin was picked from, like every other
     // number on the map (app.js _popCellNumber) — not at the finger, which
