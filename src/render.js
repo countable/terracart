@@ -3394,7 +3394,7 @@ Render.drawObjects = function drawObjects(scene) {
   // True if this house is a residential delivery host — a plain tier-9 home
   // (not a wreck, the player's own home, the starter smithy, a scarecrow shop,
   // or any specialty shop) that asks for produce bundles. Hosts always show a
-  // roof callout: a wishlist while hungry, a happy face once fed for the day.
+  // roof callout: a wishlist while hungry, a happy face once fed (for good).
   const _houseIsHost = (o) => {
     if (!o || o.kind !== 'house' || o.tier !== 9) return false;
     if (_houseRole(o) === 'wreck') return false;                          // hidden until restored
@@ -3407,13 +3407,12 @@ Render.drawObjects = function drawObjects(scene) {
     const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
     return wanted.length > 0;
   };
-  // Has this host already been fed today (so it shows a happy face, not a
-  // wishlist)? The interact handler stamps it on delivery; both reset at the
-  // UTC day boundary.
+  // Has this host ever been fed (so it shows a happy face, not a wishlist)?
+  // One delivery per house — it stays happy for good (Delivery.isSatisfied).
   const _houseSatisfied = (o) =>
     (typeof scene.isHouseSatisfied === 'function') && scene.isHouseSatisfied(o);
   // The residential wishlist a house should show as an ICON plaque, or null —
-  // a host that's still hungry today. A satisfied host returns null here and
+  // a host that's still hungry. A satisfied host returns null here and
   // shows the happy bubble instead (see the produce-sign block below).
   const _houseProduceWanted = (o) =>
     (_houseIsHost(o) && !_houseSatisfied(o)) ? scene.wantedProduce(o) : null;
@@ -3536,9 +3535,9 @@ Render.drawObjects = function drawObjects(scene) {
       const sizePx = Math.max(8, Math.round(ICON_GAME * scale));  // displayed px
       for (const it of filteredObj) {
         // Every delivery host gets a roof callout. While hungry it's the
-        // wishlist of produce icons; once a bundle's been delivered today the
-        // house is happy and shows a smiling face instead (it'll want a fresh
-        // bundle tomorrow). Non-host buildings get nothing here.
+        // wishlist of produce icons; once a bundle's been delivered the house
+        // is happy and shows a smiling face for good (one delivery per house).
+        // Non-host buildings get nothing here.
         if (it.wide || !_houseIsHost(it.o)) continue;
         const happy = _houseSatisfied(it.o);
         const wanted = happy ? null : scene.wantedProduce(it.o);

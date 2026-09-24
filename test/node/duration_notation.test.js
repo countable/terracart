@@ -147,8 +147,9 @@ test('the crop stage badge shows a unit, not a bare number', () => {
 
 test('the day-gated messages name the wait to the UTC roll', () => {
   const src = DURATION_SOURCES['app.js'];
-  // Delivery house, castle favour, coin-burst POI — all three keyed on a UTC
-  // day stamp, all three now saying how long that is.
+  // Castle favour, coin-burst POI — both keyed on a UTC day stamp, both
+  // saying how long that is. (A fed delivery house is no longer day-gated:
+  // one delivery per house, ever.)
   const n = (src.match(/msToNextUtcDay\(\)/g) || []).length;
-  assert.gte(n, 4, `expected the 3 day-gated messages + the castle blurb, found ${n}`);
+  assert.gte(n, 3, `expected the 2 day-gated messages + the castle blurb, found ${n}`);
 });

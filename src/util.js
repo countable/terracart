@@ -87,9 +87,8 @@ function shortDuration(ms) {
 }
 
 // Milliseconds from `now` to the next UTC midnight — the reset the game's
-// day-gated things actually run on. A fed house's "happy" (Delivery.dayKey), the
-// castle's daily favour and the coin-burst POIs all key off a UTC "YYYYMMDD"
-// stamp, so "come back tomorrow" can mean anything from a minute to 24 hours.
+// day-gated things actually run on. The castle's daily favour and the
+// coin-burst POIs both key off a UTC "YYYYMMDD" stamp, so "come back tomorrow" can mean anything from a minute to 24 hours.
 // Feeding this to shortDuration() turns that into the honest number ("in 23h",
 // "in 40m"). Use it wherever a UTC day key is the gate; a LOCAL-midnight gate
 // would need its own helper, and there isn't one because there isn't one.

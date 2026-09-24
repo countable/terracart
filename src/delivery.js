@@ -8,8 +8,9 @@
 // they come back with the goods — whatever day it is and however far the tier
 // cap has climbed since. (Until Sep 2026 the list re-rolled every UTC day, and
 // the produce you gathered for a house on Tuesday was the wrong produce on
-// Wednesday.) What still resets daily is the DELIVERY: one bundle per house
-// per UTC day (isSatisfied), then the same ask again tomorrow.
+// Wednesday.) A house takes ONE delivery, ever: once fed it is happy for good
+// (isSatisfied) and its roof callout stays a smiling face. (Until Sep 2026 the
+// happy state reset every UTC day and the wishlist came back.)
 //
 // The first roll draws from every produce up to a tier cap that rises one step
 // every 20 lifetime deliveries. The first houses you restore run a SCRIPTED
@@ -96,8 +97,8 @@
   };
   const BUNDLE_THEME_KEYS = Object.keys(BUNDLE_THEMES);
 
-  // UTC day stamp "YYYYMMDD" — a delivery's "happy" state resets on the day
-  // boundary (isSatisfied). The wishlist itself does NOT.
+  // UTC day stamp "YYYYMMDD" — the scene's one day key (the castle favour,
+  // the coin-burst POIs). Deliveries no longer read it: a fed house stays fed.
   function dayKey(now = new Date()) {
     return now.toISOString().slice(0, 10).replace(/-/g, '');
   }
@@ -159,9 +160,14 @@
     return o >= 0 && o < EARLY_HOUSES;
   }
 
-  // Did this house already receive a bundle TODAY? (resets on the UTC boundary)
+  // Has this house EVER been fed? One delivery per house, then it is happy for
+  // good. The record is the Discovery ledger the first delivery already banks
+  // (app.js _bankDiscovery, `house:<id>`) — the same fact, so no second flag.
+  // A legacy `save.houseSatisfied` day stamp for TODAY also counts, so a house
+  // fed on an older build before its badge existed doesn't flip back today.
   function isSatisfied(save, house, now = new Date()) {
     if (!house?.id) return false;
+    if (save.discovered?.['house:' + house.id]) return true;
     return (save.houseSatisfied?.[house.id]) === dayKey(now);
   }
 

@@ -408,7 +408,7 @@ test('descriptions: the net and the rod speed a job, they do not unlock one', ()
 test('tips: the delivery ladder quotes Delivery.TIER_UNLOCK_EVERY, and no tip rerolls a wishlist', () => {
   assert.eq(Delivery.TIER_UNLOCK_EVERY, 20, 'the produce tier climbs every 20 deliveries');
   assert.truthy(someTip(/every 20 deliveries/i), 'and a tip says so');
-  // A pinned wishlist is read back forever — only the SATISFIED flag is daily.
+  // A pinned wishlist is read back forever.
   const save = { restoredHouses: { h1: {} }, houseWishlists: {} };
   const house = { id: 'h1' };
   const first = Delivery.wantedProduce(save, house);

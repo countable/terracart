@@ -6822,10 +6822,9 @@ class MapScene extends Phaser.Scene {
     // Delivery waypoint — a solid WHITE arrow at the viewport edge pointing at
     // the house the player picked from the delivery menu (openDeliveryMenu).
     // Same edge-compass geometry as the pairy arrow but persistent (no blink),
-    // cleared once the player arrives or the house is satisfied for the day.
+    // cleared once the player arrives or the house has been fed.
     if (this.deliveryCompass) {
-      const dayKey = Delivery.dayKey();
-      const satisfied = this.save.houseSatisfied?.[this.deliveryCompass.id] === dayKey;
+      const satisfied = Delivery.isSatisfied(this.save, { id: this.deliveryCompass.id });
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
       const mag = Math.hypot(this.deliveryCompass.x - pWX, this.deliveryCompass.y - pWY);
@@ -13079,7 +13078,7 @@ class MapScene extends Phaser.Scene {
         if (this.houseShopRole(o) !== null) continue;             // only plain (no shop role)
         if (this._isHouseWreck && this._isHouseWreck(o)) continue; // still a wreck
         if (this.isStarterShop(o)) continue;                      // home sells, doesn't ask
-        if (this.isHouseSatisfied(o)) continue;                   // happy until tomorrow
+        if (this.isHouseSatisfied(o)) continue;                   // fed once, happy for good
         const wanted = this.wantedProduce(o);
         if (!wanted.length) continue;
         seen.add(o.id);
@@ -13304,8 +13303,7 @@ class MapScene extends Phaser.Scene {
     return Delivery.wantedProduce(this.save, house);
   }
 
-  // True if this house had a bundle delivered already TODAY — happy until the
-  // next UTC day boundary.
+  // True once this house has had a bundle delivered — it is happy for good.
   isHouseSatisfied(house) {
     return Delivery.isSatisfied(this.save, house);
   }
@@ -13324,13 +13322,10 @@ class MapScene extends Phaser.Scene {
   // drops the set wording (and the "sets" stepper unit) in that case, so the
   // first errand reads "wants: Potato" rather than "wants the set: Potato".
   presentDeliveryOffer(sx, sy, house, recordDeal) {
-    // Already fed today — the household is happy and won't take another
-    // bundle until tomorrow. It will want the SAME bundle again then.
+    // Already fed — one delivery per house, ever. The household stays happy
+    // (and its callout stays a smiling face) for good.
     if (this.isHouseSatisfied(house)) {
-      // "Tomorrow" is the UTC day rollover (Delivery.dayKey), which can be
-      // twenty hours off or twenty minutes — so say which. Same notation as
-      // every other wait in the game.
-      this.flash(`happy — back in ${shortDuration(msToNextUtcDay())}`, sx, sy);
+      this.flash('A happy household.', sx, sy);
       return;
     }
     const wanted = this.wantedProduce(house);
@@ -13393,15 +13388,8 @@ class MapScene extends Phaser.Scene {
         // badge per house, ever, through the same ledger a shiny find uses
         // (keyed `house:<id>` so a house can't collide with an item id).
         const firstHere = this._bankDiscovery(`house:${house.id}`);
-        // Mark this household satisfied for the rest of the UTC day — it stops
-        // asking (shows "happy" instead of a wishlist) and wants its bundle
-        // again tomorrow. Prune stale day stamps so the map stays small over weeks.
-        const dayKey = Delivery.dayKey();
-        this.save.houseSatisfied = this.save.houseSatisfied || {};
-        for (const k of Object.keys(this.save.houseSatisfied)) {
-          if (this.save.houseSatisfied[k] !== dayKey) delete this.save.houseSatisfied[k];
-        }
-        this.save.houseSatisfied[house.id] = dayKey;
+        // That badge IS the household's "fed" record (Delivery.isSatisfied
+        // reads it): it stops asking and shows a smiling face for good.
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();

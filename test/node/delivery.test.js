@@ -61,11 +61,21 @@ test('houseOrder / isEarly: 0-based index among restored plain houses', () => {
   assert.eq(Delivery.isEarly(save, { id: 'ghost' }), false, 'not a delivery house → not early');
 });
 
-test('isSatisfied: matches today’s day key in save.houseSatisfied', () => {
-  const save = { houseSatisfied: { h1: '20260606' } };
-  assert.eq(Delivery.isSatisfied(save, { id: 'h1' }, JUNE6), true, 'stamped today → happy');
-  assert.eq(Delivery.isSatisfied(save, { id: 'h1' }, new Date('2026-06-07T00:00:00Z')), false, 'stale → asks again');
+test('isSatisfied: a house fed ONCE is happy for good (the house Discovery badge is the record)', () => {
+  const save = { discovered: { 'house:h1': 1 } };
+  assert.eq(Delivery.isSatisfied(save, { id: 'h1' }, JUNE6), true, 'fed → happy');
+  assert.eq(Delivery.isSatisfied(save, { id: 'h1' }, new Date('2027-01-01T00:00:00Z')), true,
+    'still happy on any later day — the callout never reverts to a wishlist');
   assert.eq(Delivery.isSatisfied(save, { id: 'h2' }, JUNE6), false, 'never fed → asks');
+  // A legacy day stamp from an older build still counts for its own day.
+  const legacy = { houseSatisfied: { h3: '20260606' } };
+  assert.eq(Delivery.isSatisfied(legacy, { id: 'h3' }, JUNE6), true, 'legacy stamp today → happy');
+});
+
+test('delivery: the accept path banks the house badge and writes no day stamp', () => {
+  const src = APP_JS_SRC;
+  assert.truthy(/_bankDiscovery\(`house:\$\{house\.id\}`\)/.test(src), 'first delivery banks house:<id>');
+  assert.falsy(/houseSatisfied\[house\.id\]\s*=/.test(src), 'no per-day happy stamp any more');
 });
 
 test('wantedProduce: 2-3 real produce ids, deterministic + cached on the house', () => {
@@ -98,9 +108,9 @@ test('wantedProduce: a house is LOCKED to its first ask — not the day, not the
   save.deliveryCount = 500;
   assert.eq(JSON.stringify(Delivery.wantedProduce(save, { id: 'h' }, NEXT)), JSON.stringify(first),
     'unchanged after the tier cap has climbed');
-  // Being fed today does not touch the ask — it just goes "happy" until tomorrow.
-  save.houseSatisfied = { h: Delivery.dayKey(NEXT) };
-  assert.eq(Delivery.isSatisfied(save, { id: 'h' }, NEXT), true, 'fed today');
+  // Being fed does not touch the ask — it just goes "happy" for good.
+  save.discovered = { 'house:h': 1 };
+  assert.eq(Delivery.isSatisfied(save, { id: 'h' }, NEXT), true, 'fed');
   assert.eq(JSON.stringify(Delivery.wantedProduce(save, { id: 'h' }, NEXT)), JSON.stringify(first),
     'the same ask waits behind the happy face');
   // The pin is authoritative over a fresh roll: a save carrying a pin gets THAT
