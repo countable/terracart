@@ -527,10 +527,17 @@ test('books: the turret tip says only a CLAIMED castle fights for you', () => {
 });
 
 test('tips: the shop ladder quotes ShopsMath.dealCap', () => {
-  assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 11 }), 5, 'a fort takes 5 deals an hour');
-  assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 9 }), 1, 'a plain house just 1');
+  assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 9 }), 1, 'a shop just 1 an hour');
+  assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 11 }), Infinity, 'a fort\'s slots never wait');
   assert.eq(ShopsMath.dealCap({ kind: 'tower' }), Infinity, 'a tower never waits');
-  assert.truthy(someTip(/up to 5 deals per hour, plain houses just 1/i), 'and a tip says so');
+  assert.truthy(someTip(/A shop makes one deal an hour/i), 'and a tip says so');
+});
+
+test('tips: the fort slot machine quotes ShopsMath', () => {
+  assert.eq(ShopsMath.SLOT_PRIZES, 5, 'five prizes');
+  assert.eq(ShopsMath.SLOT_REELS, 3, 'three of a kind');
+  assert.truthy(someTip(/five prizes a day, three of a kind wins one, and the gold-rimmed prize is the jackpot/i),
+    'and a tip says so');
 });
 
 test('tips: the shiny multiplier quotes PRICES', () => {

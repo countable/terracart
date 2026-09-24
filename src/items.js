@@ -921,7 +921,8 @@ const PLAY_TIPS = [
   'Plain houses sell nothing. Each posts a wishlist of produce and pays half again what the same goods would fetch sold loose.',
   'A household never changes its mind about what it wants — and one bundle keeps it happy for good.',
   'Every 20 deliveries behind you, the houses you rebuild from then on start asking for the next tier of crop.',
-  'Forts handle up to 5 deals per hour, plain houses just 1, and a fort marks its goods up half as much as a shop. Castles and towers never make you wait.',
+  'A shop makes one deal an hour. Castles and towers never make you wait.',
+  'A fort runs a slot machine: five prizes a day, three of a kind wins one, and the gold-rimmed prize is the jackpot. A spin costs exactly what it wins on average.',
   'A castle you have claimed offers one favour a day: a rest, or its taxes.',
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
   // ── The land you walk over ──────────────────────────────────

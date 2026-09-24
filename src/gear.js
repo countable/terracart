@@ -87,15 +87,14 @@
     for (const w of weighted) { r -= w.w; if (r <= 0) { pick = w.c; break; } }
 
     // Pricing: castle = flat 4.0× discounted by Bow tier (1 - t/7) → T7 par;
-    // everything else = random 1.2..3.0× markup (a fort: half the markup).
+    // everything else = random 1.2..3.0× markup.
     const baseP = gearPrice(pick.kind, pick.slot, pick.tier);
     let mul;
     if (opts.isCastle) {
       const f = 1 - ((typeof bestWeaponTier === 'function') ? bestWeaponTier(save.relics) : 0) / 7;
       mul = 1 + 3 * f;
     } else {
-      // opts.markupScale shrinks the markup above par (a fort: ShopsMath.markupFor).
-      mul = 1 + (0.2 + rng() * 1.8) * (opts.markupScale ?? 1);
+      mul = 1.2 + rng() * 1.8;
     }
     const price = Math.max(1, Math.ceil(baseP * mul));
     return { ...pick, price };

@@ -39,7 +39,9 @@
     // time — which is the only time dealCap runs.
     if (isCastle(house)) return Infinity;
     if (isStarterBlacksmith) return Infinity;
-    if (house.tier === 11) return 5;
+    // A fort runs a slot machine now (app.js presentFortSlots): every spin is
+    // paid for at its fair price, so there is nothing for a deal cap to ration.
+    if (house.tier === 11) return Infinity;
     return 1;
   }
 
@@ -129,24 +131,10 @@
   // Cash price to BUY an item worth baseValue. The Bow relic shrinks the markup:
   // no bow → 1.2..3.0× base; Bow T7 → a flat 1.0× (par). `r` defaults to
   // Math.random — pass a seeded one for a stable per-bucket price.
-  // `markupScale` shrinks the MARKUP (the part of the multiplier above par),
-  // never the list price under it: a scale of 0.5 turns a 3.0× roll into
-  // 2.0× and leaves a 1.0× roll at par. A fort's quartermaster charges
-  // FORT_MARKUP_SCALE of a market's inflation — see markupFor.
-  function buyPrice(save, baseValue, r = Math.random, markupScale = 1) {
+  function buyPrice(save, baseValue, r = Math.random) {
     const { lo, hi } = (typeof buyMarkupRange === 'function')
       ? buyMarkupRange(save.relics) : { lo: 1.2, hi: 3.0 };
-    const mul = lo + r() * (hi - lo);
-    return Math.max(1, Math.ceil(baseValue * (1 + (mul - 1) * markupScale)));
-  }
-
-  // A fort sells at HALF the markup a market does — a quartermaster supplying
-  // the garrison, not a village shop restocking at a profit. One scale both
-  // of its sales read: the cash offer (buyPrice) and the relic swap
-  // (Gear.buildRelicOffer's non-castle markup).
-  const FORT_MARKUP_SCALE = 0.5;
-  function markupFor(house) {
-    return (house && house.tier === 11) ? FORT_MARKUP_SCALE : 1;
+    return Math.max(1, Math.ceil(baseValue * (lo + r() * (hi - lo))));
   }
 
   // ── Roadside stands ──────────────────────────────────────────────────
@@ -272,7 +260,73 @@
     return c;
   }
 
-  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice, FORT_MARKUP_SCALE, markupFor,
+  // ─── Fort slot machine ───────────────────────────────────────────────────
+  // A fort's quartermaster runs a three-reel slot machine instead of a shop.
+  // Five prizes a day (the caller picks them, seeded on the fort + the UTC
+  // day); three of a kind hands over that prize. The most valuable is the
+  // JACKPOT — gold-rimmed on the machine, and half as likely on each reel as
+  // any other symbol (SLOT_JACKPOT_WEIGHT vs SLOT_WEIGHT).
+  //
+  // The stake is FAIR: exactly the expected payout of one spin, rounded UP to
+  // a whole coin — Σ over prizes of P(three of it) × its value, where
+  // P(three of i) = (wᵢ / Σw)³. Derived, never tuned: change a weight or a
+  // prize and the price follows. The round-up is the house's only edge, and
+  // it is under one coin a spin.
+  const SLOT_REELS = 3;
+  const SLOT_PRIZES = 5;
+  const SLOT_WEIGHT = 2;
+  const SLOT_JACKPOT_WEIGHT = 1;
+
+  // ids: the day's prize ids; valueOf(id): an item's worth in coin.
+  // Returns { prizes: [{ id, value, weight, jackpot }], cost, winChance }.
+  function slotMachine(ids, valueOf) {
+    const prizes = (ids || []).map((id) => ({ id, value: Math.max(0, valueOf(id) || 0) }));
+    let jp = -1;
+    prizes.forEach((p, i) => { if (jp < 0 || p.value > prizes[jp].value) jp = i; });
+    prizes.forEach((p, i) => {
+      p.jackpot = i === jp;
+      p.weight = p.jackpot ? SLOT_JACKPOT_WEIGHT : SLOT_WEIGHT;
+    });
+    const total = prizes.reduce((a, p) => a + p.weight, 0) || 1;
+    let ev = 0, winChance = 0;
+    for (const p of prizes) {
+      const three = Math.pow(p.weight / total, SLOT_REELS);
+      ev += three * p.value;
+      winChance += three;
+    }
+    return { prizes, cost: Math.max(1, Math.ceil(ev - 1e-9)), ev, winChance };
+  }
+
+  // The day's prizes: SLOT_PRIZES distinct ids drawn from `candidates` by a
+  // stream seeded on `key` (the fort id + the UTC day, app.js) — the same
+  // five all day, new ones tomorrow, and never stored.
+  function slotPrizes(key, candidates) {
+    const rng = makeRng32(fnv1a(String(key)));
+    const pool = (candidates || []).slice();
+    const out = [];
+    while (out.length < SLOT_PRIZES && pool.length) {
+      out.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
+    }
+    return out;
+  }
+
+  // One spin: a prize index per reel, drawn by weight, and the index won
+  // (every reel the same) or -1.
+  function slotSpin(machine, rng = Math.random) {
+    const ps = machine.prizes;
+    const total = ps.reduce((a, p) => a + p.weight, 0);
+    const reels = [];
+    for (let r = 0; r < SLOT_REELS; r++) {
+      let u = rng() * total, pick = ps.length - 1;
+      for (let i = 0; i < ps.length; i++) { u -= ps[i].weight; if (u < 0) { pick = i; break; } }
+      reels.push(pick);
+    }
+    const won = reels.every((i) => i === reels[0]) ? reels[0] : -1;
+    return { reels, won };
+  }
+
+  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
+                     SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, slotMachine, slotSpin, slotPrizes,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
                      TRADER_AFFORDABLE_CHANCE, TRADER_MAX_OVERPAY, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -20,12 +20,12 @@ test('bucket: advances by one each hour; the offset shifts the boundary', () => 
   assert.eq(ShopsMath.bucket(id, boundary), b0 + 1, 'rotates at the staggered boundary');
 });
 
-test('dealCap: castle/tower & starter-blacksmith infinite; fort 5; house 1', () => {
+test('dealCap: castle/tower, starter-blacksmith and fort infinite; house 1', () => {
   assert.eq(ShopsMath.dealCap(null), Infinity, 'no house = infinite');
   assert.eq(ShopsMath.dealCap({ kind: 'tower' }), Infinity, 'tower');
   assert.eq(ShopsMath.dealCap({ tier: 12 }), Infinity, 'castle (tier 12)');
   assert.eq(ShopsMath.dealCap({ tier: 9 }, true), Infinity, 'starter blacksmith flag');
-  assert.eq(ShopsMath.dealCap({ tier: 11 }), 5, 'fort');
+  assert.eq(ShopsMath.dealCap({ tier: 11 }), Infinity, 'fort (a slot machine)');
   assert.eq(ShopsMath.dealCap({ tier: 9 }), 1, 'small house');
 });
 
@@ -89,8 +89,8 @@ test('pruneShopState: no-op on an empty or missing shopState', () => {
 
 test('readiness: ready until the cap, then reports a positive waitMin', () => {
   const save = {};
-  const fort = { id: 'fortB', tier: 11 };
-  const cap = ShopsMath.dealCap(fort);           // 5
+  const fort = { id: 'fortB', tier: 9 };         // an ordinary shop
+  const cap = ShopsMath.dealCap(fort);           // 1
   let r = ShopsMath.readiness(save, fort, cap, 0);
   assert.eq(r.ready, true, 'fresh bucket is ready');
   assert.eq(r.waitMin, 0);
@@ -249,7 +249,7 @@ function openShop(save, house, now) {
 
 test('shop offer: reopening within the hour re-derives the identical offer', () => {
   const save = { offerSalt: 7, relics: {} };
-  const fort = { id: 'h_4343959_8778563', kind: 'house', tier: 11 };
+  const fort = { id: 'h_4343959_8778563', kind: 'house', tier: 9 };
   const first = openShop(save, fort, 0);
   for (let open = 0; open < 25; open++) {
     const again = openShop(save, fort, 0);
@@ -260,7 +260,7 @@ test('shop offer: reopening within the hour re-derives the identical offer', () 
 
 test('shop offer: it still holds as the hour advances, and turns over at the bucket', () => {
   const save = { offerSalt: 7, relics: {} };
-  const fort = { id: 'fort-A', kind: 'house', tier: 11 };
+  const fort = { id: 'fort-A', kind: 'house', tier: 9 };
   const off = ShopsMath.bucketOffset(fort.id);
   const bucketEnd = HOUR - off;                  // this shop's own rotation moment
   const first = openShop(save, fort, 0);
@@ -276,13 +276,14 @@ test('shop offer: it still holds as the hour advances, and turns over at the buc
     'the offer turns over at the hour boundary');
 });
 
-test('shop offer: spending a fort\'s 5 deals does not reshuffle the offer', () => {
-  // A fort allows 5 deals an hour. Recording a deal bumps cur.deals, which must
-  // not feed the offer seed — otherwise buying once would re-roll the rest.
+test('shop offer: spending deals does not reshuffle the offer', () => {
+  // Recording a deal bumps cur.deals, which must not feed the offer seed —
+  // otherwise buying once would re-roll the rest. (Forts, which allowed 5 an
+  // hour, run a slot machine now; any count of deals is checked here.)
   const save = { offerSalt: 3, relics: {} };
-  const fort = { id: 'fort-B', kind: 'house', tier: 11 };
+  const fort = { id: 'fort-B', kind: 'house', tier: 9 };
   const first = openShop(save, fort, 0);
-  for (let deal = 1; deal <= ShopsMath.dealCap(fort); deal++) {
+  for (let deal = 1; deal <= 5; deal++) {
     ShopsMath.bucketState(save, fort, 0).deals = deal;
     const after = openShop(save, fort, 0);
     assert.eq(after.swap, first.swap, `after ${deal} deals: swap unchanged`);
@@ -290,19 +291,19 @@ test('shop offer: spending a fort\'s 5 deals does not reshuffle the offer', () =
   }
 });
 
-test('shop offer: two forts in the same hour make their own independent offers', () => {
+test('shop offer: two shops in the same hour make their own independent offers', () => {
   // Stability must come from the seed, not from the offer being constant.
   const save = { offerSalt: 11, relics: {} };
   const prices = new Set();
   for (let i = 0; i < 12; i++) {
-    prices.add(openShop(save, { id: 'fort-' + i, kind: 'house', tier: 11 }, 0).price);
+    prices.add(openShop(save, { id: 'fort-' + i, kind: 'house', tier: 9 }, 0).price);
   }
   assert.gt(prices.size, 1, 'different shops price the same item differently');
 });
 
 test('shop offer: a paid re-roll is still the one thing that CAN change it', () => {
   const save = { offerSalt: 5, relics: {} };
-  const fort = { id: 'fort-C', kind: 'house', tier: 11 };
+  const fort = { id: 'fort-C', kind: 'house', tier: 9 };
   const first = openShop(save, fort, 0);
   ShopsMath.bucketState(save, fort, 0).rerolls += 1;
   const rerolled = openShop(save, fort, 0);
@@ -332,7 +333,7 @@ test('shop source: the relic-swap coin is seeded, not Math.random', () => {
 test('shop source: the markup roll is seeded off the shop bucket', () => {
   const src = BUILD_SHOP_OFFER_SRC;
   assert.truthy(/shopRng\(/.test(src), 'buildShopOffer reaches for the seeded rng');
-  // buyPrice(save, baseValue, rng, markupScale) — the third argument is the whole point;
+  // buyPrice(save, baseValue, rng) — the third argument is the whole point;
   // without it the call falls back to Math.random and the price re-rolls.
   const call = src.match(/buyPrice\(([^)]*)\)/);
   assert.truthy(call, 'found the buyPrice call');
@@ -410,22 +411,47 @@ test('shop source: no NEW unseeded randomness creeps into the offer path', () =>
   });
 })();
 
-test('forts: half the markup a market charges, never below par', () => {
-  const save = { relics: {} };
-  const at = (u) => () => u;
-  const fort = { tier: 11 }, market = { tier: 9 };
-  assert.eq(ShopsMath.markupFor(fort), 0.5);
-  assert.eq(ShopsMath.markupFor(market), 1);
-  assert.eq(ShopsMath.markupFor(null), 1);
-  for (const u of [0, 0.5, 0.999]) {
-    const m = ShopsMath.buyPrice(save, 100, at(u), ShopsMath.markupFor(market));
-    const f = ShopsMath.buyPrice(save, 100, at(u), ShopsMath.markupFor(fort));
-    assert.truthy(Math.abs((f - 100) - (m - 100) / 2) <= 1, `u=${u}: fort ${f} is half of market ${m}'s markup`);
-    assert.truthy(f >= 100, 'never under par');
-  }
-  const app = APP_JS_SRC;
-  assert.truthy(/ShopsMath\.buyPrice\(this\.save, baseValue, priceRng, ShopsMath\.markupFor\(opts\.house\)\)/.test(app),
-    'the cash offer passes the shop\'s markup scale');
-  assert.truthy(/peekOrBuildRelicOffer\(house, \{ markupScale: ShopsMath\.markupFor\(house\) \}\)/.test(app),
-    'and so does the fort\'s relic swap');
+// ─── Fort slot machine ──────────────────────────────────────────────────────
+test('slots: the most valuable prize is the gold-rimmed jackpot, half as likely a reel', () => {
+  const vals = { a: 10, b: 40, c: 5, d: 300, e: 20 };
+  const m = ShopsMath.slotMachine(Object.keys(vals), (id) => vals[id]);
+  const jp = m.prizes.filter((p) => p.jackpot);
+  assert.eq(jp.length, 1, 'one jackpot');
+  assert.eq(jp[0].id, 'd', 'the dearest prize');
+  assert.eq(jp[0].weight * 2, m.prizes.find((p) => p.id === 'a').weight, 'half the weight of the others');
+});
+
+test('slots: the stake is the expected win, rounded up to a coin', () => {
+  const vals = { a: 10, b: 40, c: 5, d: 300, e: 20 };
+  const m = ShopsMath.slotMachine(Object.keys(vals), (id) => vals[id]);
+  // weights 2,2,2,1,2 → total 9; P(three of a) = (2/9)^3; jackpot (1/9)^3.
+  const ev = (8 * (10 + 40 + 5 + 20) + 300) / 729;
+  assert.truthy(Math.abs(m.ev - ev) < 1e-9, `ev ${m.ev} = ${ev}`);
+  assert.eq(m.cost, Math.ceil(ev), 'cost = ceil(ev)');
+  assert.truthy(m.cost - m.ev < 1, 'the house edge is under one coin');
+  // Monte Carlo: the average payout per spin matches the ev.
+  let a = 12345; const rng = () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
+  let paid = 0; const N = 200000;
+  for (let i = 0; i < N; i++) { const r = ShopsMath.slotSpin(m, rng); if (r.won >= 0) paid += m.prizes[r.won].value; }
+  assert.truthy(Math.abs(paid / N - ev) < 0.1 * ev + 0.05, `mean payout ${paid / N} ≈ ${ev}`);
+});
+
+test('slots: a spin wins only on three of a kind', () => {
+  const m = ShopsMath.slotMachine(['a', 'b', 'c', 'd', 'e'], () => 10);
+  const seq = (xs) => { let i = 0; return () => xs[i++]; };
+  // total weight 9 (one jackpot — the first, on a tie); u*9 picks by weight.
+  const same = ShopsMath.slotSpin(m, seq([0.5, 0.5, 0.5]));
+  assert.truthy(same.won >= 0 && same.reels.every((r) => r === same.won), 'three of a kind wins');
+  const diff = ShopsMath.slotSpin(m, seq([0.05, 0.5, 0.95]));
+  assert.eq(diff.won, -1, 'a mixed row loses');
+});
+
+test('slots: five distinct prizes a day, the same all day, seeded on the fort and the day', () => {
+  const cands = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
+  const d1 = ShopsMath.slotPrizes('slots:fort1:20260924', cands);
+  assert.eq(d1.length, 5, 'five prizes');
+  assert.eq(new Set(d1).size, 5, 'all different');
+  assert.eq(d1.join(), ShopsMath.slotPrizes('slots:fort1:20260924', cands).join(), 'stable within the day');
+  const others = ['slots:fort1:20260925', 'slots:fort2:20260924'].map((k) => ShopsMath.slotPrizes(k, cands).join());
+  assert.truthy(others.some((o) => o !== d1.join()), 'a new day or another fort rolls its own');
 });
