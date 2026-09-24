@@ -268,10 +268,12 @@
       save: { starterCratesAt: { x: (SPAWN + 0.5) * CELL_M, y: (SPAWN + 0.5) * CELL_M } },
       _starterTrailAnchor() { return this.save.starterCratesAt; },
       _placeStarterRelicChest: placeStarterRelicChest,
-      // The soil plot and the home provision are their own passes with their
-      // own tests; stub them so this one is about the trail alone.
+      // The soil plot, the home provision and the starter stash are their own
+      // passes with their own tests; stub them so this one is about the trail
+      // alone.
       _carveStarterPlot() {},
       _provisionStarterHome() {},
+      _scatterStarterStash() {},
       // The fog lift is NOT stubbed — it is the real method. Fog of war hid
       // this entire trail when it shipped, so "no crate is laid under fog" is
       // a property of the trail, checked below against the real seater.

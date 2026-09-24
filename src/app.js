@@ -845,6 +845,15 @@ const HOME_GREETER_DIR_VEC = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 // covers everything the opening asks a player to walk to, plus a few cells
 // so a pest isn't spawned right on the edge of it.
 const PEST_FREE_CELLS = 20;
+// The starter stash (_scatterStarterStash): one crate per entry, scattered in
+// the resource ring around home — past the trail and the soil plot, inside
+// the ring of trees and rocks (HomeArea RING_MIN..RING_MAX, 6..16) — so it is
+// found while gathering rather than handed over at the door.
+const STARTER_STASH = [
+  { id: 'book', qty: 1 }, { id: 'book', qty: 1 }, { id: 'book', qty: 1 }, { id: 'book', qty: 1 },
+  { id: 'rope', qty: 1 }, { id: 'trap_kit', qty: 1 },
+];
+const STARTER_STASH_R_CELLS = [8, 16];
 // How long a wounded enemy keeps its floating health bar after the last hit.
 // A bow shot lands from clear across the screen, so without this the only
 // feedback for a hit would be the foe eventually vanishing — but a bar that
@@ -5016,7 +5025,57 @@ class MapScene extends Phaser.Scene {
     this._trailDebug = dbg.join(' | ');
     this._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     this._provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats);
+    this._scatterStarterStash(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     this._revealStarterTrail(entry, tx, ty, spawnIX, spawnIY);
+  }
+
+  // THE STARTER STASH: a few small crates scattered through the resource ring
+  // around home (STARTER_STASH_R_CELLS), each holding one of STARTER_STASH —
+  // four Books (the Book is otherwise a rare find outside a school), a Rope
+  // and a Trap Disarm Kit. Not on the tutorial trail: the trail is the
+  // ladder's path and the green arrow walks it (`chest_start_*`); these are
+  // things to stumble on while gathering, so they carry their own id prefix
+  // (`stash_start_*`) and the arrow never points at them.
+  //   PLACED bucket, like the trail: a pure function of the frozen anchor
+  // (save.starterCratesAt) through its own rng stream (seeded off the anchor
+  // cell under a 'starter_stash' key — never the trail's), so a rebuild or
+  // a reload seats the same crates on the same cells, and `save.opened` is
+  // all that remembers one was taken. Only cells in THIS tile are used; a
+  // stash crate whose seat falls off the tile edge tries another angle.
+  _scatterStarterStash(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+    const N = entry.cellsPerEdge;
+    const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
+    const BLOCKED = new Set([3 /* WATER */, 7, 8, 9, 11, 12, 13, 14]);
+    const occupied = new Set(usedSeats);
+    const mark = (wx, wy) => occupied.add(
+      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM));
+    for (const o of (entry.objects || [])) mark(o.x, o.y);
+    for (const w of (entry.wildplants || [])) mark(w.x, w.y);
+    const rng = WorldGen.makeRng(fnv1a(`starter_stash:${tx}:${ty}:${spawnIX}:${spawnIY}`));
+    const [R0, R1] = STARTER_STASH_R_CELLS;
+    const n = STARTER_STASH.length;
+    for (let i = 0; i < n; i++) {
+      // Spread round the compass (one sector each) with a jittered radius, so
+      // they are sprinkled rather than bunched on one side.
+      for (let attempt = 0; attempt < 24; attempt++) {
+        const ang = ((i + rng()) / n) * Math.PI * 2 + attempt * 0.7;
+        const r = R0 + rng() * (R1 - R0);
+        const cx = spawnIX + Math.round(Math.cos(ang) * r);
+        const cy = spawnIY + Math.round(Math.sin(ang) * r);
+        if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+        if (BLOCKED.has(entry.grid[cy * N + cx])) continue;
+        if (entry.roadMask && entry.roadMask[cy * N + cx] === 1) continue;
+        if (occupied.has(cx + ',' + cy)) continue;
+        const { cellIX, cellIY } = worldMetersToAbsCell(this,
+          tx0 + (cx + 0.5) * this.cellM, ty0 + (cy + 0.5) * this.cellM);
+        const { x, y } = absCellCenterMeters(this, cellIX, cellIY);
+        entry.objects.push(WorldGen.makeObject('chest', x, y,
+          `stash_start_${tx}_${ty}_${i + 1}`,
+          { fixedLoot: STARTER_STASH[i], crate: true }));
+        occupied.add(cx + ',' + cy);
+        break;
+      }
+    }
   }
 
   // Lift the fog off the onboarding trail the moment it is laid.
