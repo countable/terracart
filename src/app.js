@@ -12499,7 +12499,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // CRAFT page: one recipe of HOME_RECIPES (items.js) at a time, with a
-  // quantity stepper, and a Next button that walks the rest — the smithy's
+  // quantity stepper, and the ‹ › pager that walks the rest — the smithy's
   // Smelt page, pointed at Home. `targetId` defaults to the first recipe the
   // bag can make, so the page opens on something usable.
   presentHomeCraft(sx, sy, targetId = null) {
@@ -12519,7 +12519,9 @@ class MapScene extends Phaser.Scene {
       cost: costLine(n),
       canAfford: cap >= n && n >= 1,
     });
-    const next = HOME_RECIPES[(HOME_RECIPES.indexOf(rec) + 1) % HOME_RECIPES.length];
+    const idx = HOME_RECIPES.indexOf(rec);
+    const n = HOME_RECIPES.length;
+    const pageTo = (r) => () => this.presentHomeCraft(sx, sy, r.id);
     this.showOfferModal({
       kind: 'craft', kindIcon: this._homeKindIcon(),
       tabs: this._homeTabs('craft', sx, sy),
@@ -12532,10 +12534,11 @@ class MapScene extends Phaser.Scene {
       acceptLabel: 'Craft',
       getLabel: 'You make', costLabel: 'You use',
       quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
-      secondary: next !== rec
-        ? { label: `Next: ${ITEM_BY_ID[next.id]?.name || next.id}`,
-            onClick: () => this.presentHomeCraft(sx, sy, next.id) }
-        : undefined,
+      pager: {
+        index: idx, count: n,
+        onPrev: pageTo(HOME_RECIPES[(idx - 1 + n) % n]),
+        onNext: pageTo(HOME_RECIPES[(idx + 1) % n]),
+      },
       onAccept: (n) => {
         const q = Math.max(1, n ?? 1);
         if (capOf(rec) < q) {
@@ -13800,7 +13803,7 @@ class MapScene extends Phaser.Scene {
 
   // Smelt tab at the blacksmith. Focuses ONE unlocked top bar at a time, with a
   // quantity stepper, consuming the recipe ingredients to mint bars. The
-  // `secondary` button rotates through the other unlocked bars, and a Forge /
+  // modal's ‹ › `pager` pages through the other unlocked bars, and a Forge /
   // Smelt tab row (forgeBack re-opens the forge tab) lets the player toggle
   // back without leaving the shop. `target` defaults to the highest unlocked
   // bar the player can currently afford, so the modal opens on something usable.
@@ -13834,7 +13837,7 @@ class MapScene extends Phaser.Scene {
     // the highest unlocked. An explicit `target` (from the rotate button) wins
     // as long as it's actually unlocked. Prefer the highest unlocked bar the
     // player can actually afford ≥1 of, so the modal opens on something usable
-    // rather than a bar they lack ingredients for (the rotate button still
+    // rather than a bar they lack ingredients for (the pager still
     // reaches the others).
     if (!target || !bars.includes(target)) {
       target = bars.slice().reverse().find(id =>
@@ -13851,9 +13854,9 @@ class MapScene extends Phaser.Scene {
       return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
         + `${r.qty * n}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}</span>`;
     }).join(' + ');
-    // Rotate-target button cycles to the next unlocked bar (wraps around).
+    // The ‹ › pager walks the unlocked bars (wraps around).
     const idx = bars.indexOf(target);
-    const next = bars[(idx + 1) % bars.length];
+    const pageTo = (id) => () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, id);
     const fmt = (n) => ({
       get: `${n}× ${this.iconSpanHTML(target)} ${outItem?.name || target}`,
       cost: recipeLine(n),
@@ -13871,10 +13874,11 @@ class MapScene extends Phaser.Scene {
       getLabel: 'You receive', costLabel: 'You give',
       tabs,
       quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
-      secondary: (bars.length > 1 && next !== target)
-        ? { label: `Smelt ${ITEM_BY_ID[next]?.name || 'other'}`,
-            onClick: () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, next) }
-        : undefined,
+      pager: {
+        index: idx, count: bars.length,
+        onPrev: pageTo(bars[(idx - 1 + bars.length) % bars.length]),
+        onNext: pageTo(bars[(idx + 1) % bars.length]),
+      },
       onAccept: (n) => {
         const q = clamp(n ?? 1, 1, cap);
         if (q < 1 || !recipe.every(r => heldCount(r.id) >= r.qty * q)) {
@@ -16193,7 +16197,14 @@ class MapScene extends Phaser.Scene {
   //                 "Later" reads as "still on the table" rather than "gone".
   //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
   //                 — rendered between Cancel and accept (re-roll button).
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
+  //   pager:        OPTIONAL { index, count, onPrev, onNext } — the page is
+  //                 one of `count` options (a smelt bar, a Home recipe), and
+  //                 small ‹ › arrows flank the `get` line with an "i / n"
+  //                 under it. Paging is not an action: it used to be a
+  //                 full-size "Smelt Platinum" button beside the real one,
+  //                 which read as a second way to SMELT rather than as a way
+  //                 to look at the next bar.
+  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { maxWidth: 340, onClose: () => {}, kind, kindLabel, kindIcon });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
@@ -16252,7 +16263,31 @@ class MapScene extends Phaser.Scene {
     const getDiv = document.createElement('div');
     getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0;color:#ffe066';
     getDiv.innerHTML = get;
-    box.appendChild(getDiv);
+    if (pager && pager.count > 1) {
+      const pageRow = document.createElement('div');
+      pageRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;';
+      const mkArrow = (glyph, aria, fn) => {
+        const b = document.createElement('button');
+        b.textContent = glyph;
+        b.setAttribute('aria-label', aria);
+        b.style.cssText =
+          'flex:none;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1;'
+          + 'font:700 18px ui-monospace,monospace;background:transparent;color:#ddd;border:2px solid #555;';
+        b.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); fn(); });
+        return b;
+      };
+      getDiv.style.flex = '1';
+      pageRow.appendChild(mkArrow('‹', 'Previous', pager.onPrev));
+      pageRow.appendChild(getDiv);
+      pageRow.appendChild(mkArrow('›', 'Next', pager.onNext));
+      box.appendChild(pageRow);
+      const pageNo = document.createElement('div');
+      pageNo.style.cssText = 'font:700 10px ui-monospace,monospace;opacity:.55;margin-bottom:2px';
+      pageNo.textContent = `${pager.index + 1} / ${pager.count}`;
+      box.appendChild(pageNo);
+    } else {
+      box.appendChild(getDiv);
+    }
     if (blurb) {
       const blurbDiv = document.createElement('div');
       blurbDiv.style.cssText = 'font-size:11px;opacity:.75;margin-bottom:6px';

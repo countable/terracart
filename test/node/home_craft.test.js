@@ -80,14 +80,17 @@ test('home craft: short on wood, the page says so and nothing changes hands', ()
   assert.truthy(/Need 1 more Wood/.test(s.flashes[0] || ''), `names the shortfall: ${s.flashes[0]}`);
 });
 
-test('home craft: opens on something the bag can make, and Next walks the recipes', () => {
+test('home craft: opens on something the bag can make, and the pager walks the recipes', () => {
   const s = scene([['wood', 1]]);
   s.presentHomeCraft(0, 0);
   const m = last(s);
   assert.truthy(m.canAfford, 'one wood: the page opens on the torch it can make');
-  assert.truthy(/Scarecrow/.test(m.secondary.label), `Next names the next recipe: ${m.secondary.label}`);
-  m.secondary.onClick();
+  assert.eq(m.secondary, undefined, 'paging is the pager, not a second action button');
+  assert.eq(m.pager.count, HOME_RECIPES.length, 'one page per recipe');
+  m.pager.onNext();
   assert.falsy(last(s).canAfford, 'and the scarecrow page shows it cannot be made yet');
+  last(s).pager.onPrev();
+  assert.truthy(last(s).canAfford, '‹ goes back to the torch');
 });
 
 test('home craft: the Sell and Craft pages are tabs of one panel', () => {
