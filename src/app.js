@@ -17600,6 +17600,14 @@ class MapScene extends Phaser.Scene {
     // appear here, which is the whole of their exemption.
     const cdLeft = Energy.eatCooldownLeft(this.save);
     const cooling = cdLeft > 0;
+    // DOWN AND LOCKED OUT (hard mode, empty bar — _zeroEnergyLocked): every
+    // food but the feather is refused by eatSelected, so the button wears the
+    // same dimmed face the cooldown does. Same expression both sides read, so
+    // the grey button and the refused tap can't disagree.
+    // _eatLockShown holds the raw lockout for _tickEatButton's change check.
+    this._eatLockShown = this._zeroEnergyLocked();
+    const locked = this._eatLockShown && !featherRevive;
+    const dim = cooling || locked;
     // Held so _tickEatButton knows when the readout has actually changed and
     // this rebuild is worth running again (it drives the bar every frame, but
     // the label only moves on the whole second).
@@ -17622,9 +17630,9 @@ class MapScene extends Phaser.Scene {
     // Ready is the button's own green; cooling is that same green gone dim —
     // never the control gold, which in this palette means "a thing you press"
     // and would read as a different button rather than the same one waiting.
-    btn.style.color = cooling ? EAT_COOLING_INK : UI_GREEN;
-    btn.style.borderColor = cooling ? EAT_COOLING_EDGE : '#4a8c4a';
-    btn.style.cursor = cooling ? 'default' : 'pointer';
+    btn.style.color = dim ? EAT_COOLING_INK : UI_GREEN;
+    btn.style.borderColor = dim ? EAT_COOLING_EDGE : '#4a8c4a';
+    btn.style.cursor = dim ? 'default' : 'pointer';
     this._paintEatCooldownBar(btn, cdLeft);
   }
 
@@ -17703,7 +17711,9 @@ class MapScene extends Phaser.Scene {
     const left = Energy.eatCooldownLeft(this.save);
     this._paintEatCooldownBar(btn, left);
     const shown = left > 0 ? shortDuration(left) : '';
-    if (shown !== this._eatCdShown) this.syncEatButton();
+    // Also rebuild when the bar empties or refills, which greys / un-greys it.
+    const locked = this._zeroEnergyLocked();
+    if (shown !== this._eatCdShown || locked !== this._eatLockShown) this.syncEatButton();
   }
 
   // Book / Honey Read / Use button. Mirror of syncEatButton — sits next
