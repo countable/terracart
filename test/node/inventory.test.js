@@ -12,6 +12,12 @@ test('stackCap: 9 with no bag, 249 at tier 7, monotonic between', () => {
   }
 });
 
+test('stackCap: the bag ladder is geometric, not linear', () => {
+  const caps = [];
+  for (let t = 0; t <= 7; t++) caps.push(Inventory.stackCap({ relics: { bags: { tier: t } } }));
+  assert.eq(caps.join(','), '9,15,25,40,60,99,149,249', 'bag caps by tier');
+});
+
 test('add: a fresh item creates one stack and accepts all of n', () => {
   const save = { inv: [], relics: {} };
   const r = Inventory.add(save, 'wood', 5);
