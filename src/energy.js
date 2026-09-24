@@ -122,6 +122,15 @@
     return save.energy - before;
   }
 
-  root.Energy = { OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tiredThreshold, crossedTired,
+  // The floor a revive lifts an empty bar to — arriving Home on hard with
+  // nothing left, or a Crow Feather eaten on an empty bar. A quarter of the
+  // bar, ROUNDED: energy is a whole number everywhere (spends, rests, blows),
+  // and a bare maxE * 0.25 left a player on 22.25⚡ after reviving at 89.
+  const REVIVE_FRAC = 0.25;
+  function reviveLevel(maxE) {
+    return Math.max(1, Math.round((maxE || 0) * REVIVE_FRAC));
+  }
+
+  root.Energy = { REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tiredThreshold, crossedTired,
                   spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
