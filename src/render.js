@@ -3536,6 +3536,15 @@ Render.drawObjects = function drawObjects(scene) {
       const scale = rect.width / W;            // uniform CSS scale (W = game px width)
       const ICON_GAME = 16;                    // per-icon side in game px (callout bubble)
       const sizePx = Math.max(8, Math.round(ICON_GAME * scale));  // displayed px
+      // A toast is canvas text and the callouts are <body> elements over the
+      // canvas, so no depth can put the message in front of a bubble — a tap
+      // on a house flashed its answer UNDER that house's own wishlist. So a
+      // bubble stands down while a live toast overlaps it: the message is on
+      // top because the thing it would sit under steps out of the way. Rects
+      // are game px (toast getBounds), the bubble's from its CSS box ÷ scale.
+      const toastRects = (scene._liveToasts || [])
+        .filter((t) => t && t.scene && t.active !== false && t.alpha > 0.05)
+        .map((t) => t.getBounds());
       for (const it of filteredObj) {
         // Every delivery host gets a roof callout. While hungry it's the
         // wishlist of produce icons; once a bundle's been delivered the house
@@ -3593,6 +3602,15 @@ Render.drawObjects = function drawObjects(scene) {
         const py = rect.top  + (sy - 18) * scale;
         slot.el.style.transform = `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`;
         slot.el.style.display = 'flex';
+        // Bubble box in game px: n icons + 3px gaps, 5px/3px padding, 1px
+        // border, 6px tail (CSS px ÷ scale).
+        const n = happy ? 1 : Math.max(1, wanted.length);
+        const bw = n * ICON_GAME + ((n - 1) * 3 + 12) / scale;
+        const bh = ICON_GAME + (8 + 6) / scale;
+        const bl = sx - bw / 2, bb = sy - 18 + 6 / scale, bt = bb - bh;
+        const covered = toastRects.some((r) =>
+          !(bl + bw <= r.left || bl >= r.right || bb <= r.top || bt >= r.bottom));
+        slot.el.style.visibility = covered ? 'hidden' : 'visible';
         psi++;
       }
     }

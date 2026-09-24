@@ -13497,8 +13497,8 @@ class MapScene extends Phaser.Scene {
   // their 1-3 wanted produce, delivered together. Tap with the full set in
   // your bags → deliver 1 of each per set for the summed full price (no sword
   // sellMul, no specialty bonus); the quantity selector lets you turn in
-  // multiple complete sets at once. Tap without the full set → flash the
-  // wanted icons so the player can see what to gather. Selling a produce the
+  // multiple complete sets at once. Tap without the full set → flash what is
+  // still MISSING from it, so the player sees what is left to gather. Selling a produce the
   // house didn't ask for isn't accepted here; that keeps plain houses distinct
   // from markets.
   //
@@ -13522,8 +13522,9 @@ class MapScene extends Phaser.Scene {
     const maxSets = wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity);
     const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
     if (!maxSets) {
-      const names = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(', ');
-      this.flash(single ? `wants: ${names}` : `wants the set: ${names}`, sx, sy);
+      // Only what is still missing — not the whole list (Delivery.missingLine).
+      const { line } = Delivery.missingLine(wanted, invCount, id => ITEM_BY_ID[id]?.name || id);
+      this.flash(line, sx, sy);
       return;
     }
     // Price of one complete set = sum of each wanted item's full price, plus a

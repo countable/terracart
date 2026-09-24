@@ -266,10 +266,24 @@
     return pin(picks);
   }
 
+  // What a tap on a hungry house says when the bags can't fill the set: only
+  // the items still MISSING (held < 1), never the whole wishlist — the player
+  // standing there with two of three already knows about those two. Returns
+  // { ids, line }: `line` is the map flash. A one-item wishlist "wants" its
+  // item; a set with some of it in hand "still needs" the rest; a set with
+  // none of it in hand "wants the set".
+  function missingLine(wanted, count, nameOf) {
+    const ids = (wanted || []).filter((id) => (count(id) || 0) < 1);
+    const names = ids.map(nameOf).join(', ');
+    if ((wanted || []).length <= 1) return { ids, line: `wants: ${names}` };
+    if (ids.length < wanted.length) return { ids, line: `still needs: ${names}` };
+    return { ids, line: `wants the set: ${names}` };
+  }
+
   root.Delivery = {
     PRODUCE_TIER_MIN, PRODUCE_TIER_MAX, TIER_UNLOCK_EVERY, BUNDLE_THEMES,
     SCRIPTED_WISHLISTS, SCRIPTED_SINGLES, EARLY_HOUSES,
     dayKey, wantedRng, produceTier, tierCap, houseOrder, isEarly, isSatisfied,
-    bundleTheme, pinnedProduce, wantedProduce,
+    bundleTheme, pinnedProduce, wantedProduce, missingLine,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
