@@ -203,7 +203,15 @@
   // The chance roll is drawn EVERY time, before any list is read, so what the
   // bag holds changes which list is picked from and never how many numbers the
   // stream spends.
+  //
+  // And every pass keeps the deal inside the trader's ratio. The count rounds
+  // UP, so an item dearer than the target is asked for once whatever it is
+  // worth — a target of 54 asked one 500-coin gem, nine times the goods. The
+  // affordable pass made that commoner (one of anything is "affordable"), so
+  // an ask worth more than TRADER_MAX_OVERPAY × the target is dropped, and
+  // only asked when no fairer item exists anywhere.
   const TRADER_AFFORDABLE_CHANCE = 0.5;
+  const TRADER_MAX_OVERPAY = 2;
 
   // opts: { rng, giveId, target, inv, prices, isItem(id), capFor(id) }
   // Returns { askId, askQty } or null when no priced item exists at all.
@@ -213,6 +221,7 @@
     const qtyFor = (id) => Math.max(1, Math.ceil(target / priceOf(id)));
     const priced = (id) => id && id !== giveId && (prices[id] ?? 0) > 0;
     const holdable = (id) => qtyFor(id) <= capFor(id);
+    const fair = (id) => qtyFor(id) * priceOf(id) <= TRADER_MAX_OVERPAY * target;
     const held = new Map();
     for (const s of (inv || [])) {
       if (!s || !priced(s.id) || !((s.count ?? 0) > 0)) continue;
@@ -223,10 +232,14 @@
     const pick = (ids) => ids[Math.floor(rng() * ids.length)];
     const firstNonEmpty = (...lists) => lists.find(l => l.length) || [];
     let ids = [];
-    if (wantAffordable) ids = owned.filter(id => held.get(id) >= qtyFor(id));
+    if (wantAffordable) ids = owned.filter(id => fair(id) && held.get(id) >= qtyFor(id));
     if (!ids.length) {
       const wishlist = Object.keys(prices).filter(k => priced(k) && isItem(k));
-      ids = firstNonEmpty(owned.filter(holdable), wishlist.filter(holdable), owned, wishlist);
+      const both = (id) => fair(id) && holdable(id);
+      ids = firstNonEmpty(
+        owned.filter(both), wishlist.filter(both),
+        owned.filter(holdable), wishlist.filter(holdable),
+        owned, wishlist);
     }
     if (!ids.length) return null;
     const askId = pick(ids);
@@ -247,5 +260,5 @@
 
   root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
-                     TRADER_AFFORDABLE_CHANCE, traderAsk };
+                     TRADER_AFFORDABLE_CHANCE, TRADER_MAX_OVERPAY, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

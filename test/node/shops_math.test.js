@@ -390,6 +390,18 @@ test('shop source: no NEW unseeded randomness creeps into the offer path', () =>
     assert.truthy(w && w.askId !== 'fireflower', 'empty bag → a wishlist ask');
   });
 
+  test('traderAsk: the ask stays inside the trader\'s value ratio — no 500-coin gem for a 54 target', () => {
+    const inv = [{ id: 'gem', count: 3 }, { id: 'carrot', count: 8 }, { id: 'potato_seed', count: 15 }];
+    for (let i = 0; i < 400; i++) {
+      const a = ShopsMath.traderAsk(base({ rng: seeded(i), inv }));
+      const value = a.askQty * prices[a.askId];
+      assert.truthy(value <= ShopsMath.TRADER_MAX_OVERPAY * 54, `${a.askQty}× ${a.askId} = ${value} for a 54 target`);
+    }
+    // Only a gem in the world → it is still asked, rather than no trade at all.
+    const only = ShopsMath.traderAsk(base({ rng: () => 0, inv: [], prices: { gem: 500 } }));
+    assert.eq(only.askId, 'gem', 'no fairer item exists, so the dear one is the fallback');
+  });
+
   test('traderAsk: never asks for the item it gives', () => {
     for (let i = 0; i < 200; i++) {
       const a = ShopsMath.traderAsk(base({ rng: seeded(i), giveId: 'carrot' }));
