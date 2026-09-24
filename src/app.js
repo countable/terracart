@@ -13704,6 +13704,13 @@ class MapScene extends Phaser.Scene {
     return Shops.pickThemed(theme, tier, rng);
   }
 
+  // How many items this themed shop can stock — the list themedShopPick
+  // draws from.
+  _themedStockCount(house) {
+    const { theme, tier } = this.marketTheme(house);
+    return Shops.themedStock(theme, tier).length;
+  }
+
   _presentThemedItem(sx, sy, house, recordDeal, id) {
     const item = ITEM_BY_ID[id];
     const offer = this.buildShopOffer(id, itemValue(id), { house });
@@ -13725,9 +13732,14 @@ class MapScene extends Phaser.Scene {
         this.buildInventoryDOM();
         this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
-      secondary: this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
-        (nextId) => this._presentThemedItem(sx, sy, house, recordDeal, nextId),
-        { cost: ShopsMath.themedRerollCost, peek: () => this.themedShopPick(house) }),
+      // A re-roll can only land on another item of the same stock, so a line
+      // that carries ONE item at this tier (an ore shop is one bar a tier)
+      // has nothing to re-roll to — paying would hand back the same item.
+      secondary: this._themedStockCount(house) > 1
+        ? this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
+            (nextId) => this._presentThemedItem(sx, sy, house, recordDeal, nextId),
+            { cost: ShopsMath.themedRerollCost, peek: () => this.themedShopPick(house) })
+        : undefined,
     });
   }
 

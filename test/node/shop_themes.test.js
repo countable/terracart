@@ -108,3 +108,17 @@ test('themed shops: the wiring — the tap, the stock, the price and the re-roll
   assert.truthy(/peekOrBuildRelicOffer\(house, \{ maxTier: tier \}\)/.test(app), 'the relic line is capped at its tier');
   assert.falsy(/isFirstMarket/.test(app + RENDER_SRC), 'the old first-market seed shop is folded into the themes');
 });
+
+test('themed shops: no re-roll where the tier stocks one item', () => {
+  // The ore line is one bar a tier — a re-roll would sell the same bar again.
+  const single = [];
+  for (const t of ['seed', 'supply', 'potion', 'ore', 'pet']) {
+    for (let tier = 1; tier <= 8; tier++) if (Shops.themedStock(t, tier).length === 1) single.push(`${t} T${tier}`);
+  }
+  assert.truthy(single.some(k => k.startsWith('ore')), `some ore tier is a single item: ${single.join(', ')}`);
+  const app = APP_JS_SRC;
+  assert.truthy(/secondary: this\._themedStockCount\(house\) > 1\s*\?\s*this\._makeRerollSecondary/.test(app),
+    'the themed item offers its re-roll only when the stock has another item');
+  assert.truthy(/_themedStockCount\(house\) \{[\s\S]{0,200}?Shops\.themedStock\(theme, tier\)\.length/.test(app),
+    'counted off the same stock the pick draws from');
+});
