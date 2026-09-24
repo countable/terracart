@@ -580,6 +580,7 @@ const MODAL_KINDS = {
   build:    { icon: '🛠', label: 'Build'     },   // restoring wrecks, unsealing forts, moving home
   craft:    { icon: '🪵', label: 'Craft'     },   // Home's Craft page (HOME_RECIPES)
   wizard:   { icon: '🔮', label: 'Wizard'    },   // the Discovery upgrade ladder
+  slots:    { icon: '🎰', label: 'Slots'     },   // a fort's slot machine (presentFortSlots)
   farm:     { icon: '🌾', label: 'Farm'      },   // scarecrows, feeding fauna
   energy:   { icon: '⚡', label: 'Energy'    },   // the energy explainer
   rest:     { icon: '😵', label: 'Exhausted' },   // passing out underground
@@ -1089,6 +1090,14 @@ if (typeof window !== 'undefined') {
 // sentence twice in two registers. A Bag relic is what fixes it, so the line
 // names the fix rather than just the wall.
 const BAG_FULL_MSG = 'Bag full — sell or eat first.';
+// Fort slot machine (presentFortSlots): what can be a prize, and the reels'
+// animation — a flicker every FORT_SLOT_TICK_MS, the first reel stopping at
+// FORT_SLOT_FIRST_STOP_MS and each next one FORT_SLOT_STOP_GAP_MS later.
+const FORT_SLOT_KINDS = ['seed', 'produce', 'consumable', 'mineral'];
+const FORT_SLOT_EXCLUDE = new Set(['book']);   // a Book reads itself on pickup
+const FORT_SLOT_TICK_MS = 70;
+const FORT_SLOT_FIRST_STOP_MS = 700;
+const FORT_SLOT_STOP_GAP_MS = 450;
 // The other line every player meets constantly: an action they cannot afford.
 // It was a bare lowercase fragment at three call sites — the stick, the cave
 // dig and the shared spendEnergy gate — and it named the STATE without the
@@ -12799,10 +12808,142 @@ class MapScene extends Phaser.Scene {
     });
   }
 
+  // ─── FORT SLOTS ───────────────────────────────────────────────────────────
+  // A fort's quartermaster runs a three-reel slot machine. The maths — the
+  // day's five prizes, the gold-rimmed jackpot, the fair stake, a spin — is
+  // ShopsMath's (slotPrizes / slotMachine / slotSpin); this is the machine.
+  // Prizes come from what a find can be (seeds, produce, consumables,
+  // minerals) at their catalog worth (PRICES), which is what the stake is
+  // priced on.
+  fortSlotMachine(house) {
+    const kinds = new Set(FORT_SLOT_KINDS);
+    const cands = ITEMS.filter((it) => kinds.has(it.kind) && (PRICES[it.id] ?? 0) > 0
+      && !FORT_SLOT_EXCLUDE.has(it.id)).map((it) => it.id);
+    const ids = ShopsMath.slotPrizes(`slots:${house.id}:${Delivery.dayKey()}`, cands);
+    return ShopsMath.slotMachine(ids, (id) => PRICES[id] ?? 0);
+  }
+
+  presentFortSlots(sx, sy, house) {
+    const m = this.fortSlotMachine(house);
+    if (!m.prizes.length) { this.flash('The machine is broken.', sx, sy); return; }
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('slots-modal',
+      { maxWidth: 330, onClose: () => {}, kind: 'slots' });
+    const GOLD = '#ffd24a';
+    const title = document.createElement('div');
+    title.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:8px';
+    title.textContent = "The quartermaster's slot machine — three of a kind wins:";
+    box.appendChild(title);
+    // The day's prizes, jackpot gold-rimmed.
+    const prizeRow = document.createElement('div');
+    prizeRow.style.cssText = 'display:flex;gap:5px;justify-content:center;margin-bottom:10px;';
+    for (const p of m.prizes) {
+      const cell = document.createElement('div');
+      cell.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;'
+        + 'padding:4px 3px;border-radius:6px;min-width:44px;'
+        + (p.jackpot
+          ? `border:2px solid ${GOLD};box-shadow:0 0 8px ${GOLD}aa;background:#3a3016;`
+          : 'border:1px solid #555;background:#221d18;');
+      cell.innerHTML = `${this.iconSpanHTML(p.id, 24)}`
+        + `<span style="font-size:9px;opacity:.8">${this.moneyHTML(p.value, 9)}</span>`
+        + (p.jackpot ? `<span style="font:700 8px ui-monospace,monospace;color:${GOLD};letter-spacing:.08em">JACKPOT</span>` : '');
+      cell.title = ITEM_BY_ID[p.id]?.name || p.id;
+      prizeRow.appendChild(cell);
+    }
+    box.appendChild(prizeRow);
+    // The reels.
+    const reelRow = document.createElement('div');
+    reelRow.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-bottom:8px;';
+    const reels = [];
+    for (let r = 0; r < ShopsMath.SLOT_REELS; r++) {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:58px;height:58px;display:flex;align-items:center;justify-content:center;'
+        + 'border-radius:8px;border:2px solid #666;background:#0d0b09;box-shadow:inset 0 0 10px #000;';
+      el.innerHTML = this.iconSpanHTML(m.prizes[r % m.prizes.length].id, 34);
+      reelRow.appendChild(el);
+      reels.push(el);
+    }
+    box.appendChild(reelRow);
+    const result = document.createElement('div');
+    result.style.cssText = 'min-height:18px;font-weight:700;margin-bottom:8px;';
+    box.appendChild(result);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;justify-content:center;';
+    const later = mkBtn('Later', false, false);
+    const spin = mkBtn(`Spin ${this.moneyHTML(m.cost, 12)}`, true, false);
+    row.appendChild(later);
+    row.appendChild(spin);
+    box.appendChild(row);
+    let spinning = false;
+    const timers = [];
+    const setSpinEnabled = () => {
+      const ok = !spinning && (this.save.money ?? 0) >= m.cost;
+      spin.disabled = !ok;
+      spin.style.opacity = ok ? '1' : '0.4';
+      spin.style.cursor = ok ? 'pointer' : 'not-allowed';
+    };
+    later.addEventListener('click', (e) => { e.stopPropagation(); timers.forEach(clearTimeout); wrap.remove(); });
+    spin.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (spinning) return;
+      if ((this.save.money ?? 0) < m.cost) { result.textContent = `Need ${m.cost} coin.`; return; }
+      addMoney(this.save, -m.cost);
+      this.updateHUD();
+      persistSave(this.save);
+      spinning = true;
+      setSpinEnabled();
+      result.textContent = '';
+      const out = ShopsMath.slotSpin(m);
+      reels.forEach((el) => { el.style.borderColor = '#666'; el.style.boxShadow = 'inset 0 0 10px #000'; });
+      // Each reel flickers through random prizes, then stops in turn.
+      reels.forEach((el, r) => {
+        const tick = setInterval(() => {
+          const p = m.prizes[Math.floor(Math.random() * m.prizes.length)];
+          el.innerHTML = this.iconSpanHTML(p.id, 34);
+        }, FORT_SLOT_TICK_MS);
+        timers.push(setTimeout(() => {
+          clearInterval(tick);
+          el.innerHTML = this.iconSpanHTML(m.prizes[out.reels[r]].id, 34);
+          if (r === reels.length - 1) settle();
+        }, FORT_SLOT_FIRST_STOP_MS + r * FORT_SLOT_STOP_GAP_MS));
+        timers.push(tick);
+      });
+      const settle = () => {
+        spinning = false;
+        if (out.won >= 0) {
+          const p = m.prizes[out.won];
+          const name = ITEM_BY_ID[p.id]?.name || p.id;
+          const rim = p.jackpot ? GOLD : '#a7ffb0';
+          reels.forEach((el) => { el.style.borderColor = rim; el.style.boxShadow = `0 0 12px ${rim}`; });
+          if (this.invRoomFor(p.id) >= 1) {
+            this.addToInv(p.id, 1, false, { notWild: true });
+            result.style.color = rim;
+            result.textContent = p.jackpot ? `JACKPOT! ${name}` : `You win: ${name}`;
+            const line = p.jackpot ? `🎰 JACKPOT ${name}` : `🎰 ${name}`;
+            this.flashLoot(line, rim, p.jackpot ? 1.5 : 1.2, p.id);
+          } else {
+            // A full bag takes the prize in coin, at the worth the stake was priced on.
+            addMoney(this.save, p.value);
+            this.updateHUD();
+            result.style.color = rim;
+            result.textContent = `Bag full — paid ${p.value} coin`;
+          }
+          persistSave(this.save);
+          this.buildInventoryDOM();
+        } else {
+          result.style.color = '#ff8a7a';
+          result.textContent = 'No match.';
+        }
+        setSpinEnabled();
+      };
+    });
+    setSpinEnabled();
+    mount();
+  }
+
   shopInteract(sx, sy, house) {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
-    if (document.getElementById('offer-modal')) return;
+    if (document.getElementById('offer-modal') || document.getElementById('slots-modal')) return;
     // Wreck → restoration modal. Every tier-9 small house starts as a
     // wreck (see save.restoredHouses); the trailer is exempt and forts /
     // castles never wreck. Plain houses cost 5 wood (tree); themed
@@ -12842,6 +12983,13 @@ class MapScene extends Phaser.Scene {
       else this.presentHomeCraft(sx, sy);
       return;
     }
+    // A FORT runs a slot machine (presentFortSlots) — before the deal cap and
+    // the flower charm: every spin is paid at its fair price, so there is
+    // nothing to ration and nothing a charm could discount.
+    if (house && house.tier === 11) {
+      this.presentFortSlots(sx, sy, house);
+      return;
+    }
     // Per-building deal rate-limit — see shopDealCap() / shopReadiness() for
     // the ladder + bucket math. Renderer reuses the same helpers to draw the
     // ready/timer pip above each house, so the player sees the same state
@@ -12879,7 +13027,7 @@ class MapScene extends Phaser.Scene {
     // castle is excluded too — it no longer sells anything to discount, only
     // the daily rest/tax favour (see presentCastleServiceOffer).
     if (house && house.id != null && sel && sel.id === 'flowers' && (sel.count ?? 0) > 0
-        && ((castle && !this.isCastleClaimed(house)) || isFort || shopType === 'market')
+        && ((castle && !this.isCastleClaimed(house)) || shopType === 'market')
         && this.shopCharmMul(house) === 1) {
       this.showOfferModal({
         kind: 'shop',
@@ -13011,7 +13159,7 @@ class MapScene extends Phaser.Scene {
     // around here is written null-tolerant, so keep the unseeded fallback.)
     const swapRoll = house?.id ? this.shopRng(house, 'relicswap')() : Math.random();
     if (!shopType && swapRoll < 0.10) {
-      const relicOffer = this.peekOrBuildRelicOffer(house, { markupScale: ShopsMath.markupFor(house) });
+      const relicOffer = this.peekOrBuildRelicOffer(house);
       if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
     }
     // Each remaining storefront (a fort's quartermaster) has a deterministic
@@ -15828,8 +15976,7 @@ class MapScene extends Phaser.Scene {
       : undefined;
     // Flower charm halves the quoted price (floor $1) — see shopCharmMul.
     const cashCost = Math.max(1,
-      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng, ShopsMath.markupFor(opts.house))
-        * this.shopCharmMul(opts.house)));
+      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.shopCharmMul(opts.house)));
     return {
       kind: 'money',
       label: this.moneyHTML(cashCost),
