@@ -16679,9 +16679,8 @@ class MapScene extends Phaser.Scene {
     if (!cat || !cat.kinds) return [];
     const out = [];
     (this.save.inv || []).forEach((entry, idx) => {
-      if (!entry) return;
-      const kind = ITEM_BY_ID[entry.id]?.kind;
-      if (cat.kinds.includes(kind)) out.push({ idx, entry });
+      if (!entry || !ITEM_BY_ID[entry.id]) return;
+      if (invCatForItem(entry.id) === catKey) out.push({ idx, entry });
     });
     return out;
   }

@@ -114,3 +114,10 @@ test('roomFor: cap minus held, floored at 0', () => {
   Inventory.add(save, 'wood', 99);        // overfill attempt
   assert.eq(Inventory.roomFor(save, 'wood'), 0, 'full → no room');
 });
+
+test('tabs: Rock files under Ores beside Wood, though it stays produce', () => {
+  assert.eq(invCatForItem('rockfruit'), 'ores', 'rock is in the Ores tab');
+  assert.eq(invCatForItem('wood'), 'ores', 'wood is in the Ores tab');
+  assert.eq(ITEM_BY_ID.rockfruit.kind, 'produce', 'rock keeps its kind (price, loot, eat)');
+  assert.eq(invCatForItem('egg'), 'produce', 'other produce is unmoved');
+});

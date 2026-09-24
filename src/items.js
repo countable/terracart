@@ -1641,9 +1641,18 @@ const INV_CATS = [
   { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable', 'badge'] },
 ];
 const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
-// Which type tab an item id belongs to (by its `kind`). Falls back to the
-// Produce tab for anything unmapped so a stray item is still reachable.
+// Items whose TAB is not their kind's. Rock is the `rockfruit` crop — a
+// 'produce' item to the seed/sell/loot machinery, which keys on kind — but the
+// player files it with the wood and the ore it is gathered beside, so only its
+// tab moves. The kind stays put: re-kinding it would move its price, its loot
+// class and its Eat button along with the tab.
+const INV_CAT_OVERRIDE = { rockfruit: 'ores' };
+// Which type tab an item id belongs to (its override, else its `kind`). Falls
+// back to the Produce tab for anything unmapped so a stray item is still
+// reachable. The ONE answer: the tab filter (app.js invEntriesForCat) asks it
+// too, so the tab a pickup jumps to is the tab the stack is listed in.
 function invCatForItem(id) {
+  if (INV_CAT_OVERRIDE[id]) return INV_CAT_OVERRIDE[id];
   const kind = ITEM_BY_ID[id]?.kind;
   for (const c of INV_CATS) if (c.kinds && c.kinds.includes(kind)) return c.key;
   return 'produce';
