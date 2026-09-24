@@ -1033,6 +1033,15 @@ const MINUTE_MS = 60 * 1000;
 // foe for half a minute (useGrowthPowder / useFrostPowder).
 const GROWTH_POWDER_R_M = 20;
 const FROST_POWDER_MS = 30 * 1000;
+// Potion of Blight: for BLIGHT_MS a round aura on the ground around the
+// player hurts every ENEMY whose centre is inside BLIGHT_R_CELLS cells of the
+// feet, BLIGHT_DPS HP a second (_tickBlightAura). A plain Euclidean radius on
+// purpose — it is a smooth circle, not the per-cell reach staircase — and the
+// baked 'aura_blight' texture is drawn exactly that wide, so the edge the
+// player sees is the edge that bites.
+const BLIGHT_MS = MINUTE_MS;
+const BLIGHT_R_CELLS = 1.5;
+const BLIGHT_DPS = 2;
 // SHOP_CHARM_MS (the Flowers charm) lives in items.js beside the Flowers ✦
 // line that quotes it.
 const DRAGON_AMULET_TIER = 8;
@@ -1904,6 +1913,12 @@ class MapScene extends Phaser.Scene {
     // reach area on its own, and it traces the same cell-exact staircase the
     // line did. What remains here is the reveal alone.
     this.reachGfx = this.add.graphics();
+    // The Potion of Blight's aura (_tickBlightAura) — a disc LYING on the
+    // ground around the feet, so it is a ground layer: over the terrain and
+    // the reveal, under every standing sprite (a foe walking into it stands
+    // in it) and under the lightmap (it is not a light — it doesn't shine).
+    // The image itself is added in create() once its texture is baked.
+    this.auraContainer = this.add.container(0, 0);
     // (The POI halo layer — a ring "ping" under every live POI — lived here
     // until Sep 2026. A live POI is a LIGHT now, breathing in the lightmap:
     // Lighting.KINDS.poi.)
@@ -2176,6 +2191,25 @@ class MapScene extends Phaser.Scene {
     };
     bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
     bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
+    // The Potion of Blight's aura. A canvas radial gradient rather than
+    // stacked fillCircles: the aura is BLIGHT_R_CELLS across the ground, big
+    // enough that ring steps would show, and it has to read as one smooth
+    // disc. Faint in the middle (you can still see what you're standing on),
+    // densest just inside the rim, then falling to nothing AT the rim — the
+    // texture's edge is the damage radius (see _tickBlightAura).
+    if (!this.textures.exists('aura_blight')) {
+      const S = 128;
+      const tex = this.textures.createCanvas('aura_blight', S, S);
+      const ctx = tex.getContext();
+      const grad = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+      grad.addColorStop(0,    'rgba(120, 10, 60, 0.12)');
+      grad.addColorStop(0.55, 'rgba(170, 20, 70, 0.26)');
+      grad.addColorStop(0.85, 'rgba(210, 40, 90, 0.42)');
+      grad.addColorStop(1,    'rgba(210, 40, 90, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, S, S);
+      tex.refresh();
+    }
     // GPS crosshair — the marker at your REAL (GPS) position (see gpsGhost
     // below). An open ring with four ticks crossing it, deliberately NOT a
     // filled disc: a small gold disc IS a coin in this game, and the map is
@@ -2282,6 +2316,7 @@ class MapScene extends Phaser.Scene {
     this.shadowContainer.setMask(mask);
     this.atmosGroundGfx.setMask(mask);
     this.reachGfx.setMask(mask);
+    this.auraContainer.setMask(mask);
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
     this.rampartFrontGfx.setMask(mask);
@@ -2459,6 +2494,16 @@ class MapScene extends Phaser.Scene {
       font: fontMono('bold 13px'), color: '#ffb347',
       stroke: '#3a1600', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
+    // The Potion of Blight's countdown — the same label in blight crimson,
+    // stacked above whichever of the others are showing.
+    this.blightTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
+      font: fontMono('bold 13px'), color: '#ff6f9a',
+      stroke: '#3a0418', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
+    this.blightAura = this.add.image(this.viewCenterX, this.viewCenterY, 'aura_blight')
+      .setOrigin(0.5, 0.5)
+      .setVisible(false);
+    this.auraContainer.add(this.blightAura);
     // There is NO walk-target marker. Movement is target-follow at every depth:
     // GPS fixes and steering input move a free-flying target (this._targetM)
     // and the opaque body (this.player) walks toward it — underground it also
@@ -6550,6 +6595,27 @@ class MapScene extends Phaser.Scene {
     } else if (this.torchTimerText.visible) {
       this.torchTimerText.setVisible(false);
     }
+    // Potion of Blight: its countdown over the head, and the aura itself on
+    // the ground point (a ground mark sits on the fix — no body nudge).
+    if (this.isBlightActive()) {
+      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0) + (this.isTorchActive() ? 1 : 0);
+      this.blightTimerText
+        .setText(shortDuration(this.save.blightPotionUntil - Date.now()))
+        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
+        .setVisible(true);
+      // A slow breath in alpha only: the SIZE never moves, because the size
+      // is the damage radius.
+      const breath = 0.5 + 0.5 * Math.sin((performance.now() / 1000 / 1.6) * Math.PI * 2);
+      const d = 2 * BLIGHT_R_CELLS * CELL_PX;
+      this.blightAura
+        .setDisplaySize(d, d)
+        .setPosition(pScreen.x, pScreen.y)
+        .setAlpha(0.8 + 0.2 * breath)
+        .setVisible(true);
+    } else if (this.blightAura.visible) {
+      this.blightAura.setVisible(false);
+      this.blightTimerText.setVisible(false);
+    }
     // The fourth countdown, and the only one that isn't over the player's head:
     // the bite cooldown lives ON the Eat button, so it is DOM rather than a
     // Phaser label (see _tickEatButton). No-ops in a frame where no food is
@@ -7003,6 +7069,7 @@ class MapScene extends Phaser.Scene {
     // foes actually are this frame) and BEFORE the wheel, which is where melee
     // damage lands.
     this._combatTick(dt);
+    this._tickBlightAura();
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
@@ -11866,6 +11933,58 @@ class MapScene extends Phaser.Scene {
       '\u2728 You drink the Potion of Shielding',
       'A shimmering barrier wraps you — for one minute every monster blow lands at half its weight.',
     );
+  }
+
+  drinkBlightPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'blight_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.blightPotionUntil = Date.now() + BLIGHT_MS;
+    return this._finishConsumable(
+      '\u2728 You drink the Potion of Blight',
+      `A sickly crimson haze seeps out around you — for one minute every monster within ${BLIGHT_R_CELLS} cells of you loses ${BLIGHT_DPS} HP a second.`,
+    );
+  }
+
+  // True while a Potion of Blight's minute runs. In the save like the other
+  // potions (save.blightPotionUntil), so it survives a tile reload; the
+  // timestamp self-expires.
+  isBlightActive() {
+    return (this.save.blightPotionUntil ?? 0) > Date.now();
+  }
+
+  // The Blight aura's bite: every ENEMY (Combat.isEnemy — never a crow, a deer
+  // or a pet) whose centre is within BLIGHT_R_CELLS of the player's FEET
+  // (playerM, never the camera anchor) loses BLIGHT_DPS × dt through
+  // _damageEnemy — the one damage lane, so the "-N" popups, the health bar,
+  // the regen stamp and the kill payout all come with it. Collected first and
+  // hurt after: a kill removes the foe from its tile's array mid-scan.
+  //
+  // Timed off its own wall clock (like the melee wheel), not the frame's dt:
+  // Phaser smooths and caps its delta, so a slow device would bite for less
+  // than BLIGHT_DPS. Capped per step so a stalled tab can't land seconds of
+  // bite at once.
+  _tickBlightAura() {
+    const nowT = performance.now();
+    const lastT = this._blightLastT;
+    this._blightLastT = nowT;
+    if (!this.isBlightActive() || lastT == null) return;
+    const dt = Math.min(0.25, (nowT - lastT) / 1000);
+    if (!(dt > 0)) return;
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    const rM = BLIGHT_R_CELLS * this.cellM;
+    const caughtSet = setOf(this.save.caught);
+    const pc = this.playerToWorldCell();
+    const inside = [];
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
+      const dx = c.x - px, dy = c.y - py;
+      if (dx * dx + dy * dy > rM * rM) return;
+      if (!Combat.isEnemy(c)) return;
+      if (caughtSet.has(c.id)) return;
+      inside.push(c);
+    });
+    const step = BLIGHT_DPS * dt;
+    for (const c of inside) this._damageEnemy(c, step);
   }
 
   // True while a Dragon Powder is active. The buff is a 1-minute in-memory
@@ -17378,6 +17497,7 @@ class MapScene extends Phaser.Scene {
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 amulet walking for 1 min' },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
+      blight_potion: { verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',    get: `☠ foes within ${BLIGHT_R_CELLS} cells lose ${BLIGHT_DPS} HP/s for ${shortDuration(BLIGHT_MS)}` },
       dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon for 1 min — tier-8 amulet legs + 2× damage' },
       growth_powder: { verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',       get: `🌱 every crop within ${GROWTH_POWDER_R_M}m springs ahead a stage` },
       shadow_powder: { verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',       get: '🌑 monsters ignore you for 1 min — no stalking, no hits' },
