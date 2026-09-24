@@ -1188,22 +1188,24 @@ const RELIC_DEFS = {
   // tells the player a rod is worth buying at all.
   rod:     { slot: 'rod',    name: 'Fishing Rod', icon: 'Fishing Rod.png', baseCost: 90,
              effectKey: 'fishing',   blurb: 'quicker, cheaper casts — bare hands land only minnows' },
-  // Bags — raise the per-stack inventory cap. No bag = 9; each tier adds ~34,
-  // tier 7 = 249. Icon lives under Extras (single image, tier shown via badge).
+  // Bags — raise the per-stack inventory cap (STACK_CAP_BY_TIER below).
+  // Icon lives under Extras (single image, tier shown via badge).
   bags:    { slot: 'bags',   name: 'Bag',         icon: 'Bags.png',        baseCost: 70,
              effectKey: 'stackCap',  blurb: 'carry more of each item' },
 };
 
 // Per-stack inventory cap as a function of the bag tier (0 = no bag).
-// Linear 9 → 249 across tiers 0..7 (matches user spec: start 9, max 249).
-const STACK_CAP_BASE = 9;
-const STACK_CAP_MAX  = 249;
+// Roughly GEOMETRIC, not linear: each tier multiplies the cap by ~1.5-1.7,
+// so the first bag is a modest step (9 -> 15) and the big numbers are what
+// the top tiers are for. A linear ladder handed a Wood bag 43 of everything,
+// nearly a fifth of the ceiling for the cheapest bag in the game.
+const STACK_CAP_BY_TIER = [9, 15, 25, 40, 60, 99, 149, 249];
+const STACK_CAP_BASE = STACK_CAP_BY_TIER[0];
+const STACK_CAP_MAX  = STACK_CAP_BY_TIER[STACK_CAP_BY_TIER.length - 1];
 function stackCapForBags(bagsRelic) {
   const t = bagsRelic?.tier || 0;
   if (t <= 0) return STACK_CAP_BASE;
-  if (t >= 7) return STACK_CAP_MAX;
-  // 9, 43, 78, 112, 146, 181, 215, 249 across tiers 0..7.
-  return Math.round(STACK_CAP_BASE + (STACK_CAP_MAX - STACK_CAP_BASE) * (t / 7));
+  return STACK_CAP_BY_TIER[Math.min(t, STACK_CAP_BY_TIER.length - 1)];
 }
 // The four wearable slots. Armor carries NO per-slot effect number: what a
 // piece is worth is its TIER, and every slot pays the same for it
