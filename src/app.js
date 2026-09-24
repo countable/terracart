@@ -740,6 +740,9 @@ const CREATURE_SIM_CELLS = 12;
 // never seen popping into being, but inside CREATURE_SIM_CELLS so it is
 // thinking, and flying at the field, from the tick it is pushed.
 const PEST_CROW_SPAWN_CELLS = 10;
+// How long a departing crow keeps flying away (_crowDepart): [base, spread]
+// ms, so ~2.5–4 minutes — after a meal, or once the player starts hunting it.
+const CROW_DEPART_MS = [150000, 90000];
 // ── A foe WANDERS OFF now and then ───────────────────────────────────────────
 // Every few minutes each hostile (Combat.isEnemy — the wild slime and every
 // cave monster; never a pet, never a lair guard, whose seat and leash are
@@ -9019,6 +9022,19 @@ class MapScene extends Phaser.Scene {
   // cycle counter each landing; it eats only when the counter hits 0.
   // Defeating the crow during the pause cancels the destruction, giving the
   // player a generous grace window.
+  // A crow's FULL RETREAT: it launches on this very tick (out of its perch,
+  // any flight cut short) and hops straight away from the player for the
+  // usual ~2.5–4 minutes (CROW_DEPART_MS), ignoring crops, until it drifts
+  // off the sim range and is simply gone. One retreat, two reasons: a crow
+  // that has eaten, and a crow the player has started to hunt (interact.js)
+  // — a hunted crow used to carry on orbiting as if nothing had happened.
+  _crowDepart(c, now = performance.now()) {
+    const [base, spread] = CROW_DEPART_MS;
+    c._departUntilT = now + base + Math.random() * spread;
+    c._perchUntilT = now;
+    c._flightUntilT = null;
+  }
+
   _wildCrowTick(c, now, px, py) {
     // A fleeing crow (just hit by a pet) skips crop logic and bolts away in
     // short fast dashes, reusing the SAME FLIGHT-phase fields (_flightUntilT /
@@ -9094,11 +9110,8 @@ class MapScene extends Phaser.Scene {
         this.save.planted.splice(idx, 1);
         this.flash?.('🐦 crop eaten!', this.viewCenterX, this.viewCenterY - 60);
         // Sated: after a meal the crow takes off and stays away for a few
-        // minutes before it will case the field again. Force it out of the
-        // current perch so it launches an outbound flight on this very tick.
-        c._departUntilT = now + 150000 + Math.random() * 90000;   // ~2.5–4 min
-        c._perchUntilT = now;
-        c._flightUntilT = null;
+        // minutes before it will case the field again.
+        this._crowDepart(c, now);
       }
       c._destroyCropRef = null;
       c._destroyAtT = null;

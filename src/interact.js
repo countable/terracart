@@ -693,6 +693,9 @@ const TAP_HANDLERS = [
       // the scene as resolveDefeat so all three routes pay out identically.
       scene.startWorkProgress(victim.x, victim.y, () => scene.resolveDefeat(victim),
         durMs * hpMul * dmgMul, 0, netSlot, victim);   // track the victim → hunt aborts if it flees out of reach
+      // A hunted crow takes fright and retreats in full — the same departure
+      // a fed crow makes — so the wheel is a race against it leaving reach.
+      if (victim.kind === 'crow') scene._crowDepart?.(victim);
       return true;
     }
     // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
