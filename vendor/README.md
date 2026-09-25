@@ -14,10 +14,12 @@ longer downloads, parses and holds: measured locally it cut the JS heap from
 33.5 MB to 20.5 MB and domContentLoaded from ~378 ms to ~250 ms, and on a
 real mobile connection the transfer saving dominates both.
 
-Keep the filename `phaser.js` — `index.html` and `sw.js` both reference it by
-that path. When bumping Phaser, take `dist/phaser.min.js` from the npm
-tarball again rather than a CDN URL, and bump `SHELL_VERSION` in `sw.js` so
-cached copies of the old build are dropped.
+Keep the filename `phaser.js` — `index.html` loads it by that path and
+`sw.js` precaches it. When bumping Phaser, take `dist/phaser.min.js` from the
+npm tarball again rather than a CDN URL, then run
+`node tools/cachebust.js --write`: it re-derives the file's `?v=` in
+`index.html` and `SHELL_VERSION` in `sw.js` from the bytes, so cached copies
+of the old build are dropped. Never type either by hand.
 
 The game uses no Phaser physics system, so a custom build (or
 `phaser-arcade-physics.min.js`) could trim this further if it ever matters.

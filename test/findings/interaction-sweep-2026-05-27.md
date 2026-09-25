@@ -1,5 +1,9 @@
 # Sandbox Interaction Sweep — 2026-05-27
 
+> **Historical snapshot.** Kept because `test/node/interact_tap.test.js` cites
+> it for the fishing-vs-can-refill ordering bug (since fixed, and the
+> `can-refill` handler since retired). Line numbers are as of the sweep.
+
 Drove every player-interaction path in the sandbox view via the preview MCP
 (`/?sandbox=true`, all relics granted at T2, energy/money topped up, all foods
 in inventory). Each test teleports the player to the target, sets selSlot

@@ -1,8 +1,10 @@
-# terracart relay — deploy
+# Mending Lane relay — deploy
 
 `server/index.js` is a tiny Node WebSocket relay: players connected to it see
-each other move. It holds no game state. One process, one port (8787):
-`GET /` answers `{"ok":true,"online":N}` and WebSocket upgrades share the port.
+each other move (the client is `src/multiplayer.js`). The package, systemd
+unit, user and install path keep the old `terracart` name on purpose
+(`terracart-relay`, `/opt/terracart`). It holds no game state. One process,
+one port (`PORT`, default 8787): `GET /` answers `{"ok":true,"online":N}` and WebSocket upgrades share the port.
 
 The game is served from https://countable.github.io/terracart/ (HTTPS), so the
 browser will only open `wss://` — the relay needs TLS. That is what Caddy and

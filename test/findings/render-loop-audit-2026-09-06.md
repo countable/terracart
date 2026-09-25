@@ -1,5 +1,10 @@
 # Render-loop efficiency audit — 2026-09-06
 
+> **Historical snapshot.** Kept as the performance baseline that
+> `tools/perf_loop.js` and `test/perf.html` point to. Its recommendations
+> became CLAUDE.md's "loop STEPS on a cap" rule (`FPS_LIMIT`, `Lighting.draw`'s
+> `frameKey`, `WorldGen.forEachItemInBox`). Line numbers are as of the audit.
+
 Scope: everything that runs once per frame from `MapScene.update()`
 (`src/app.js` › `_updateTimed`) — the app.js helpers, `Render.drawCells`,
 `Render.drawObjects`, the lightmap, the two geometry overlays, fog, and

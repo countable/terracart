@@ -1,5 +1,10 @@
 # Spec Audit — 2026-05-31
 
+> **Historical snapshot.** Kept because `test/node/spec_pins.test.js` pins code
+> behaviour against these numbered findings. Many have since been fixed or
+> superseded (e.g. path stones → street restoration, chest milestones removed);
+> `docs/spec.txt` has been revised since. Line numbers are as of the audit.
+
 Audited the codebase (`src/*.js`, `index.html`) against `docs/spec.txt` using six
 parallel subagents, each owning a disjoint set of spec sections and source files.
 Findings below are grouped by severity. Line numbers reflect state at the time of

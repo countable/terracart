@@ -1,178 +1,158 @@
 # QC Rules — Art & Asset Checklist
 
-A checklist of things that **actually break** in this project, derived from the
-commit history and play-test findings. The single most common class of bug here
-is **the same item showing the wrong art** (or no art) on one of its surfaces:
+A checklist of the art/asset bugs that **actually recur** in this project. It
+complements CLAUDE.md, which owns the mechanic invariants (seat pass, painter
+rule, camera vs player, lighting, …) — where the two overlap, CLAUDE.md wins.
+Source comments cite this file by section (`QC_RULES §1`, `§3`, `§4`), so keep
+the numbering stable.
+
+The single most common class of bug here is **the same item showing the wrong
+art** (or no art) on one of its surfaces:
 
 - **map** (in-world Phaser sprite)
 - **inventory / item bar** (DOM CSS-background tile)
 - **shops, traders, deliveries** (offer/sell modals)
 - **tooltip / splash / pickup-toast popups**
 
-These four surfaces draw from different code paths, so art that looks right in
-one place is routinely wrong in another. Walk this list before committing any
+These surfaces draw from different code paths, so art that looks right in one
+place is routinely wrong in another. Walk this list before committing any
 change that touches a sheet, frame index, item id, scale, or placement.
 
 ---
 
 ## 1. New / changed item icon — verify ALL surfaces
 
-When you add an item or repoint its art, the icon resolves through
-`inventoryIconSource()` (items.js) → `renderItemIcon()` `SHEETS` table (app.js).
-A frame that exists in one table but not the other renders as the **wrong
-sprite, not an error**.
+An item's icon resolves through `inventoryIconSource()` (items.js) →
+`renderItemIcon()` (app.js), which clips a frame out of the module-scope
+`ICON_SHEETS` table (app.js). A frame that exists in one table but not the
+other renders as the **wrong sprite, not an error**.
 
-- [ ] **Two-table rule:** a non-crop icon needs BOTH an entry in
-      `MINERAL_ICON_SHEET` (items.js) AND a matching `sheet` key in the `SHEETS`
-      table inside `renderItemIcon` (app.js ~line 4301). Missing the `SHEETS`
-      entry silently falls through to `SHEETS.crops` → renders as a random crop.
-      *(Real bugs: sapphire rendered as rainberry stage-4 "berry bush"; bars
-      rendered as a grass sprout in smith/shrine modals.)*
-- [ ] **Sheet geometry matches the file:** `cols`, `srcW`, `srcH` in the `SHEETS`
-      entry equal the real PNG's column count and pixel dimensions. Frame math is
+- [ ] **Two-table rule:** a non-crop icon needs BOTH a row in
+      `MINERAL_ICON_SHEET` (items.js) AND a matching `sheet` key in
+      `ICON_SHEETS` (app.js). A missing sheet key silently falls through to
+      `ICON_SHEETS.crops` → renders as a random crop. *(Real bugs: sapphire
+      rendered as rainberry stage-4; bars rendered as a grass sprout.)*
+      `test/node/run.js` hands the tests `pngDims` so the PNG behind each
+      `ICON_SHEETS` row is checked against the size the row claims.
+- [ ] **Sheet geometry matches the file:** `cols`, `srcW`, `srcH` equal the real
+      PNG's column count and pixel dimensions. Frame math is
       `col = frame % cols; row = floor(frame / cols)` — a wrong `cols` shifts
       every frame.
-- [ ] **Frame index points at non-empty art.** Confirm the chosen frame isn't a
-      blank cell, a flat mask/silhouette row, or a half-clipped neighbour.
-      *(Real bugs: mushroom frame 0 was empty → switched to frame 2/35; frame 36
-      was a different clipped prop.)* For wildplants this is now automated —
-      `tools/sprite_audit.js` › `wildFrameRows` decodes the PNG behind every
-      frame a `CROP_SPRITE` entry declares.
-- [ ] **List the frames, never count the cells.** A sheet is a grid, not a set
-      of sprites: a variant COUNT claims every cell is art. *(Real bug: `shell`
-      declared `variants: 12` on a sheet with three shells, three keyline
-      duplicates, two mask rows and four blanks — 62 % of the shells on a beach
-      drew nothing.)*
-- [ ] **Inventory icon == map sprite** for the same item where both exist. If the
-      world object uses a different sheet than the inventory icon, that's a
-      deliberate choice — note it, don't let it drift. *(Real bug: shrub's
-      inventory icon fell back to crops.png row 1 = pairy fruit; longgrass used a
-      retired procedural texture.)*
+- [ ] **Frame index points at non-empty art** — not a blank cell, a mask row,
+      or a half-clipped neighbour. For wildplants this is automated:
+      `tools/sprite_audit.js` › `wildFrameRows` decodes every frame a
+      `CROP_SPRITE` entry declares.
+- [ ] **List the frames, never count the cells.** A `CROP_SPRITE` entry
+      declares `frames: [...]`, never a bare `variants` count (CLAUDE.md's
+      frame-index rule). *(Real bug: `shell` declared `variants: 12` on a sheet
+      with three shells — 62 % of beach shells drew nothing.)*
+- [ ] **Inventory icon == map sprite** for the same item where both exist. If
+      they differ on purpose, say so in a comment so it doesn't drift.
 - [ ] **Render it in a shop/trader offer AND the inventory bar AND a pickup
-      toast.** Don't trust one surface. The pickup toast and offer modals both go
-      through `renderItemIcon`, but `ITEM_DATA_URLS` (baked snapshots:
-      longgrass/chicken/cow/wood/fauna) takes priority over the sheet path — so a
-      baked item can look right as a toast and wrong in a shop, or vice-versa.
-- [ ] **Items ALWAYS use game art, never emoji — in every context they appear.**
-      Hard rule. An item must render as its sprite on every surface: map, the
-      house delivery plaque, inventory/item bar, shop/trader/offer modals, and
-      pickup/flash toasts. Emoji is reserved for non-item UI only (energy ⚡,
-      currency 🪙, menu ☰, sparkle/burst effects). If a surface can't host a
-      Phaser sprite or CSS-background tile (e.g. plain-text Phaser toasts),
-      show the item's **name**, never its emoji. The `renderItemIcon` fallback
-      returns a neutral `·`/`?` (NOT `item.icon`) precisely so a missing sprite
-      source surfaces as a visible gap instead of silently masking as an emoji.
-      *(Real bugs: scarecrow showed a 🪦 headstone; catch/trade/release/harvest
-      toasts and house signs carried emoji item glyphs — all replaced with the
-      sprite or name.)*
+      toast.** Baked snapshots in `window.ITEM_DATA_URLS` take priority over
+      the sheet path, so a baked item can look right in one surface and wrong
+      in another.
+- [ ] **Items ALWAYS use game art, never emoji — in every context.** Emoji is
+      for non-item UI only (energy ⚡, menu ☰, sparkle effects). A surface that
+      can't host a sprite (plain-text Phaser toast) shows the item's **name**.
+      `renderItemIcon`'s fallback is a neutral `·` / `?`, never `item.icon`, so
+      a missing sprite shows as a gap; item rows carry no `icon:` field at all
+      (`powders.test.js`, `torch.test.js`). An EMPTY inventory slot is not a
+      missing sprite and must not wear the `·`.
 
 ## 2. Scale consistency (map)
 
-- [ ] **New creature/object scale is sane against its neighbours.** Sprites share
-      cells; mismatched scale reads as "broken/giant". Cross-check against the
-      cow (the visual size anchor). *(Endless real churn: chicken 2→1.5→0.75,
-      deer/cow 1.1→1.65→1.3, fort scaled down ~3×, mushroom 32×32@2 was twice
-      every other prop.)*
+- [ ] **New creature/object scale is sane against its neighbours.** Cross-check
+      against the cow (the visual size anchor). Creature scale lives in
+      `SpriteLayout.CREATURE_ART`, not a per-call literal.
 - [ ] **A 32×32 sheet and a 16×16 sheet at the same `scale` are NOT the same
-      display size.** Set scale relative to the frame size, not copy-pasted from
-      another entry.
+      display size.** Set scale relative to the frame size.
 
 ## 3. Placement / origin / depth (map)
 
-- [ ] **Object sits in its own tile.** Check the `origin` (e.g. `[0.5, 0.95]` for
-      foot-anchored buildings/trees) and any y-nudge. *(Real bugs: trees lowered
-      half a cell; houses sit 5px lower; seed centered in cell.)*
+- [ ] **Object sits in its own cell.** Give its `RENDER_SPEC` entry
+      `seat: true` and let `seatInCell` + `ART_BOUNDS` (sprite_layout.js) place
+      it; regenerate bounds with `node tools/sprite_audit.js --emit-bounds`
+      when art changes (CLAUDE.md's one-cell rule).
 - [ ] **Overlays anchor to the sprite, not the cell corner** — labels, signs,
-      footprints, water-timer, produce-on-rock. *(Real bugs: footprint y offset
-      tuned to the feet; house signs moved to foot-of-building; rockfruit icon
-      rendered on top of the rock tile.)*
-- [ ] **Depth ordering:** player `setDepth(10)` so ground decals (footprints)
-      can't draw over the character. New decals need a depth below sprites.
-- [ ] **One interactable per cell.** Worldgen and OSM injection must enforce it;
-      a second interactable in a cell creates an untappable/ghost object. *(Real
-      bugs: "Enforce one-interactable-per-cell", OSM tree injection.)*
+      footprints, produce-on-rock, the work wheel (crown rule).
+- [ ] **Nothing on the ground draws over the player.** The player sprite sits
+      at depth 10; ground decals go below it. Labels that must read over
+      buildings draw above, so any label overlapping the player fades
+      (`LABEL_OVER_PLAYER_ALPHA`, render.js).
+- [ ] **One interactable per cell.** Every spawner passes `opts.occupied` and
+      `opts.roadMask` to `WorldGen.isSpawnCell`; a second interactable in a
+      cell is an untappable ghost.
 - [ ] **Post-pass edits look up the RIGHT cell.** Index/coord drift in a
-      post-processing pass places art on the wrong tile. *(Real bugs: "residential
-      rocks post-pass was looking up the WRONG cell"; "houses rendering as tilled
-      soil after GPS jump".)*
+      post-processing pass places art on the wrong tile. Pack cells as
+      `cy * w + cx`.
 
 ## 4. Item id vs display name vs sheet (data integrity)
 
 - [ ] **Item id is stable for save-compat; display name can change freely.**
-      Renaming art does NOT mean renaming the id. *(Real bugs: id `longgrass`
-      shows "Fern"; `rockfruit` shows "Rock".)*
+      *(id `longgrass` shows "Fern"; `rockfruit` shows "Rock".)* A raw internal
+      id must never reach the screen — toasts and flashes print the name.
 - [ ] **Don't hand out a removed item id.** Crates/loot/shops referencing a
-      retired id give nothing or crash. *(Real bug: starter crate gave removed
-      'tree' item → fixed to 'wood'.)*
-- [ ] **Crop sprite overrides are coherent:** `CROP_SPRITE` (springcrops vs
-      crops vs custom-prop) row/frame must match the crop's actual sheet, and the
-      seed/produce column logic (`col 7 seed / col 8 produce` for springcrops;
-      `col 8 / col 7` for crops.png) must line up.
+      retired id give nothing or crash.
+- [ ] **Crop sprite overrides are coherent:** a `CROP_SPRITE` row/frame must
+      match the crop's actual sheet, and the seed/produce column logic must
+      line up with that sheet's layout.
 
 ## 5. Shops / traders / deliveries (semantics, not just art)
 
-- [ ] **Right shop does the right thing.** Selling is **Home-only**; markets pay
-      **cash**; traders **barter** (with re-roll); plain houses buy a **full
-      wanted set** at full price. Don't reintroduce sell flows in non-Home shops.
-- [ ] **Offer icons go through `renderItemIcon`** so shop/trader/inventory stay in
-      sync — never hardcode a sheet/frame in a modal. Same for gear:
-      `gearIconHTML()` keeps Stats + Offer modals identical.
-- [ ] **A trader never offers to swap an item FOR the same item.** Guard the
-      barter roll.
-- [ ] **Building sprite/label matches its role** (blacksmith/market/trader/fort/
-      Home) and the label color/placement convention is intact.
+- [ ] **Right shop does the right thing.** Selling is **Home-only**; themed
+      shops (role `market`) sell one line for **cash**; traders **barter**
+      (with re-roll); plain houses take **deliveries** (a full wanted set);
+      forts run the slot machine. Don't add sell flows to non-Home shops.
+- [ ] **Offer icons go through `renderItemIcon`** — never a hardcoded
+      sheet/frame in a modal. Gear goes through `gearIconHTML()`. A dialog about
+      a map object passes that object's sprite as `kindIcon` (CLAUDE.md).
+- [ ] **A trader never offers to swap an item FOR the same item.**
+- [ ] **Building sprite/label matches its role** (blacksmith / market / trader
+      / wizard / fort / Home).
 
 ## 6. Tooltip / splash / pickup-toast popups
 
-- [ ] **Toast icon uses the DOM renderer**, appended as a child element — not a
+- [ ] **Toast icons use the DOM renderer**, appended as a child element — not a
       Phaser sprite (which needs preload and shows broken textures).
-- [ ] **Dwell time is intentional.** Tooltip/splash hold ~2s (user feedback:
-      "a little too quick"). Don't regress the timing.
-- [ ] **The safety splash's dismiss button is the sensor-permission gesture.**
-      Compass/GPS permission is gated behind that click — don't move permission
-      requests off it or auto-dismiss the splash.
+- [ ] **Dwell time is intentional** (~2 s for tooltip/splash). Don't regress it.
+- [ ] **The safety splash's button is the sensor-permission gesture.**
+      Compass/GPS permission is requested from that click — don't move the
+      request off it or auto-dismiss the splash.
+- [ ] **A message on the map is ≤ 30 characters** (`MAP_MSG_MAX`, CLAUDE.md).
 
 ## 7. Click targets & reachability (interaction)
 
-The symptom class: a target you can SEE, that looks in range, doesn't respond —
-or responds with a "too far" flash or the wrong action. Several distinct causes,
-all real bugs that have shipped here:
+The symptom: a target you can SEE, that looks in range, doesn't respond — or
+responds with "too far" or the wrong action.
 
-- [ ] **Reach outline ⇔ tap-accept must agree.** `cellInReach()` is the single
-      source of truth for BOTH the lit reach silhouette (render.js) AND the tap
-      "too far" gate (interact.js). If a cell that's *inside the range indicator*
-      flashes "can't reach", or an unlit cell accepts a tap, the two callers have
-      diverged — never recompute reach independently in either place.
-- [ ] **Reach is FEET-anchored, not the sprite head.** `playerReachCell()` /
-      the tap proximity tests measure from the player's feet cell (`feetOffsetM`
-      ≈ 3.75 m south of the body), not the sprite centre. A tap on the visible
-      head can miss. Keep the tap target and the reach origin on the same anchor.
-- [ ] **Handler priority can swallow a valid tap.** `TAP_HANDLERS` is
-      priority-ordered; the first handler that returns `true` consumes the tap.
-      A creature within `REACH_CREATURE_M` (4 m) claims the tap before
-      wildplant/object/cell — so tapping a tree next to a chicken can flash
-      "needs Rainberry" instead of chopping. A passive handler can also shadow a
-      later one entirely. When adding/reordering handlers, confirm no visible,
-      in-range target becomes unreachable. *(Real bug: fishing was dead while a
-      watering can was owned — `can-refill` claimed every water tap first.)*
-- [ ] **No invisible cell collision.** A second interactable dropped on an
-      occupied cell becomes an untappable ghost (the tap resolves to the first).
-      Enforce one-per-cell at worldgen/injection time (see §3). The
-      `one-interactable-per-cell` test in `test/tests.js` guards this — run it.
-- [ ] **Coordinate basis stays consistent.** `cellAt()`,
-      `worldMetersToAbsCell()`, and the object's stored cell must agree, or a tap
-      lands on a neighbour cell. *(REG #11 chest-centre test guards chest coords;
-      a GPS-jump once put houses on the wrong cell. NOTE: these tile-iterating
-      tests are timing-flaky in the headless preview — re-run before trusting a
-      red.)*
+- [ ] **Lit ⇔ tappable.** `cellInReach()` (coords.js) is the single source for
+      BOTH the lit plateau (lighting.js) and the tap gates (interact.js
+      `tooFar`, cell-resolve). Never recompute reach in either place.
+- [ ] **Reach is measured from the FEET.** The feet sit on the GPS fix
+      (`feetOffsetM` is 0; the sprite is raised by `playerFeetNudgeY`), and
+      `playerReachCell()` is the origin — never the camera anchor.
+- [ ] **Handler priority can swallow a valid tap.** `TAP_HANDLERS`
+      (interact.js) is priority-ordered and the first handler returning `true`
+      consumes the tap. The `creature` handler claims any tap inside a
+      creature's DRAWN box, so a tap on a tree behind an animal hits the
+      animal. When adding/reordering handlers, confirm no visible, in-range
+      target becomes unreachable. *(Real bug: fishing was dead while a watering
+      can was owned — the since-retired `can-refill` handler claimed every
+      water tap first; `interact_tap.test.js` pins the fix.)*
+- [ ] **The TAP is the CELL.** Non-creature objects are hit through
+      `sameAbsCell` against their data cell; the art must agree with it.
+      `test/tests.js` › `one-interactable-per-cell invariant` and
+      `REG #11: chest position aligns with cellAt()` guard it in the browser
+      harness.
 
 ## 8. Before you commit
 
-- [ ] **Bump the `?v=NN` cache-bust** in `index.html` for every changed JS module
-      (parent agent only — see CLAUDE.md). Stale cache = "my fix didn't work".
-- [ ] **Drive the change in `/?sandbox=true`** and eyeball the item on all
-      relevant surfaces (map, item bar, shop, toast). The interaction sweep
-      (`test/findings/`) is the model: walk every path the change touches.
+- [ ] **Run `node test/node/run.js`** (it includes `tools/sprite_audit.js`).
+- [ ] **Cache-bust is derived, never typed:** the parent runs
+      `node tools/cachebust.js --write` once after the last edit.
+- [ ] **Drive the change in `?sandbox=true`** (docs/SANDBOX.md) and eyeball the
+      item on every relevant surface (map, item bar, shop, toast).
 - [ ] **Shared-logic invariants didn't drift.** Where one helper backs two
-      behaviours (e.g. `cellInReach()` for the visual outline AND the tap test),
-      confirm both still agree.
+      behaviours (e.g. `cellInReach()` for the light AND the tap), confirm both
+      still agree.

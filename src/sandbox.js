@@ -793,8 +793,8 @@
     //    15 house restorations. The sandbox pre-seeds 'wizard' immediately
     //    (loop just above) on a house planted right next to PLAYER SPAWN, so
     //    without this it wins the "nearest house" search: it renders as the
-    //    Home trailer instead of the shrine, and tapping it opens the sell
-    //    modal instead of the smelt/forge UI documented in docs/SANDBOX.md.
+    //    Home trailer instead of the wizard tower, and tapping it opens the
+    //    sell modal instead of the tower's offers (docs/SANDBOX.md).
     {
       const { cellIX, cellIY } = sceneCell('PLAZA', 0, 3);
       const { x, y } = cellCenter(cellIX, cellIY);

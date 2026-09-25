@@ -1,8 +1,8 @@
 # satextract
 
 Pull plausible map features (trees, props, structured POIs) out of satellite
-imagery for a bbox and emit a single GeoJSON FeatureCollection the game can
-consume.
+imagery for a bbox and emit a single GeoJSON FeatureCollection that Mending
+Lane consumes as a sidecar (`data/satextract_osm.geojson`).
 
 Three independent sources, each opt-in via `--sources`:
 
@@ -76,21 +76,36 @@ A GeoJSON FeatureCollection of `Point` features in EPSG:4326. Each feature has:
 }
 ```
 
-## Wiring into terracart
+## How the game uses it
 
-The game's `worldgen.js` already loads MVT tiles by `(z=14, x, y)`. To add a
-satextract layer:
+The sidecar is already wired in. `src/worldgen.js` fetches
+`data/satextract_osm.geojson` once (`ensureSatextract` — bump its `?v=` when
+you regenerate the file), bins the features by z14 tile
+(`buildBinsFromGeoJSON`) and injects each tile's share after it rasterizes:
+`natural=tree` points become choppable trees, tree rows become shrub
+clusters, street furniture becomes low-tier POI chests (`src/loot.js`).
+DeepForest crowns below a confidence floor are dropped on load; a crown's
+`size` class drives the tree's size (`src/util.js`).
 
-1. Run the CLI for the bbox of one MVT tile (or a few) and save the resulting
-   GeoJSON next to the MVT cache.
-2. In `worldgen.js`, after the existing POI / building pass, load the GeoJSON
-   and for each feature project `(lon, lat)` into the same 5 m game-cell grid
-   the MVT pipeline uses, then place a sprite keyed off `properties.kind`.
-3. The `kind` strings are stable; map them in `assets.js` to existing sprites
-   (e.g. `tree` → `Maple Tree.png`, `bench` → a new 16×16 sprite).
+The static file only covers the pre-extracted bbox (around the default Home in
+Kelowna). Outside it, the same feature shape comes from a live Overpass query
+per tile (`fetchOverpassBin`, cached in IndexedDB, on by default; opt out with
+`?overpass=off`). That revives OSM-tagged features only — the CV detections
+stay exclusive to the static file.
 
-The two pipelines stay decoupled: MVT continues to drive terrain classes and
-chest POIs; satextract just sprinkles extra props on top.
+To regenerate the file:
+
+1. Run the CLI (`--sources osm`, plus `trees` if you want new crowns).
+2. Fold classified DeepForest trees into the pristine OSM base with
+   `python3 tools/build_tree_sidecar.py` (reads
+   `data/satextract_osm.base.geojson` + `data/trees_z20_classified.geojson`,
+   writes `data/satextract_osm.geojson`; idempotent). The older
+   `satextract/merge_deepforest_trees.py` does the same merge from a raw
+   detection file.
+3. Bump the `?v=` in `ensureSatextract`.
+
+`compare_trees_osm.py` / `compare_objects_osm.py` match CV detections against
+OSM for evaluation; they are not part of the pipeline.
 
 ## Tuning
 
@@ -98,17 +113,20 @@ chest POIs; satextract just sprinkles extra props on top.
   Grounding DINO see goalposts and dumpsters; zoom 18 is fine for trees.
 - **Prompts**: pass `--prompts "a,b,c"` to override `objects.DEFAULT_PROMPTS`.
   Phrasing matters — "soccer goalpost" works better than "goal".
-- **Thresholds**: edit `box_threshold` / `text_threshold` in `objects.py`.
-  Lower to recall more, higher to cut noise.
-- **Tile size**: Grounding DINO is run on 1024 px overlapping crops by
-  default. Smaller crops find smaller objects but increase wall time.
+- **Thresholds**: `--box_threshold` (objects) and `--tree_score_thresh`
+  (trees). Lower to recall more, higher to cut noise.
+- **Model**: `--model base` swaps Grounding DINO-tiny for the SwinB checkpoint
+  — much better recall at ~3–5× the runtime.
+- **Tile size**: `--tile_size` (default 1024 px). Smaller crops find smaller
+  objects but increase wall time.
+- **Filtering**: `--exclude_kinds bus_stop,pitch,...` drops classes the game
+  already gets from the vector tiles.
 
 ## Limits
 
 - DeepForest was trained on NEON 10 cm/px aerial imagery. Z19 satellite tiles
   are ~30 cm/px at this latitude — usable but noisier than the paper numbers.
-- Grounding DINO-tiny is the fastest checkpoint and the weakest. Swap
-  `MODEL_ID` in `objects.py` to `IDEA-Research/grounding-dino-base` for
-  better recall at ~3× the runtime.
+- Grounding DINO-tiny (the default) is the fastest checkpoint and the
+  weakest; see `--model base` above.
 - OSM coverage is uneven. Dense urban areas are well-tagged; suburbs are
   spotty for street furniture and almost empty for dumpsters / sheds.

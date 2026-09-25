@@ -21,15 +21,17 @@ Band 1  COUNTRYSIDE      FOREST · ORCHARD · ROCK
    ── Oak Road (road) ──
 Band 2  WATER & PASTURE  BARNYARD · PETTING PADDOCK · BEACH(sand+water+pier+well) · WETLAND/GOLF
    ── Main Street (road_lg) ──
-Band 3  CENTRE           PLAYER SPAWN(shrine+well+coins+treasure) · FARMLAND
+Band 3  CENTRE           PLAYER SPAWN(Home+wizard tower+well+coin bursts+treasure) · FARMLAND
    ── Mill Lane (road_md) ──
 Band 4  TOWN             RESIDENTIAL ST(road+4 house types) · CIVIC(school/commerce/hospital+path) · SMALL HOUSE
    ── Garden Row (road) ──
 Band 5  RECREATION       PARK · PLAYGROUND · PITCH · CASTLE · FORT
 ```
 
-Total footprint ≈ 32 × 44 cells (≈ 192 m × 264 m at 6 m/cell), centred in the
-start tile. The player teleports to the PLAYER SPAWN scene.
+Total footprint 36 × 56 cells (≈ 252 m × 392 m at 7 m/cell), centred in the
+start tile (`buildLayout` computes it from the scenes' `w`/`h`). The player
+teleports to the PLAYER SPAWN scene, where a synthetic Home trailer is pinned
+so the wizard tower next to spawn isn't adopted as Home.
 
 ## Coverage matrix
 
@@ -73,10 +75,11 @@ start tile. The player teleports to the PLAYER SPAWN scene.
 | chest (pad) | farm/park/orchard/shop/school/hospital/playground/pitch all share one rounded oversized pad (round1); bus = no pad | CIVIC / RECREATION / etc. |
 | chest (coin burst) | atm + bicycle_parking → pot-of-gold art + coin spill | PLAZA |
 | house | blacksmith (addr 9), market (6), trader (8), plain/delivery (3); all on BUILDING-terrain footprints | RESIDENTIAL ST |
-| house (fort/cluster) | fort building (tier 11 shop); small-house cluster (4× plain, tier 9) | CASTLE / SMALL HOUSE |
-| tower | castle relic shop ×4 | CASTLE |
-| well | watering-can refill ×2 | BEACH, PLAZA |
-| shrine | smelt/forge UI | PLAZA |
+| house (fort/cluster) | fort building (tier 11); small-house cluster (4× plain, tier 9) | CASTLE / SMALL HOUSE |
+| house (wizard) | wizard tower (drawn with the `shrine` art) — memory-priced offers | PLAZA |
+| tower | castle towers ×4 (quest board → claim) | CASTLE |
+| well | well ×2 (landmark) | BEACH, PLAZA |
+| chest (starter) | real starter chest, no pad | PLAZA |
 | flora | flower variants 0–3, mushroom decals | BARNYARD/PARK/RESIDENTIAL |
 | groundstack | wood ×2 | BARNYARD |
 | wildplant | longgrass, shrub, nut, shell, mushroom, rockfruit (placed-rock ring) | various |
@@ -92,25 +95,30 @@ start tile. The player teleports to the PLAYER SPAWN scene.
 |---|---|---|
 | chicken, cow, cat, dog | catch + produce | BARNYARD, FARMLAND |
 | released_* (each tameable) | pet path, cat-follow, +50% double-produce | PETTING PADDOCK |
-| rabbit, deer | wilderness (deer weapon-gated, drops meat) | FOREST |
-| crow | pest (feather); scarecrow aversion | RECREATION |
-| butterfly (wild) | **bug-net gate** (bare hands fail) | FOREST, RECREATION |
-| slime | energy-drain pest | FOREST, BARNYARD |
+| rabbit, deer | wilderness; deer is GAME (bug-net hunt wheel, drops meat) | FOREST |
+| crow | GAME (feather); scarecrow aversion | RECREATION |
+| butterfly (wild) | catch wheel (bare hands work, slowly; the net speeds it) | FOREST, RECREATION |
+| slime | ENEMY — energy leech, combat on HP | FOREST, BARNYARD |
 | fish (minnow→goldenfish) | FISHING — stand on the BEACH pier, tap water | BEACH |
 
 ### Test kit granted on load
 
-- Inventory: ~5 of every item (seeds → produce → animals → minerals → consumables).
-- Gear: one of every relic + armor at **T3** — clears every action gate while
-  staying *below* the T4–T7 rocks, so the "pickaxe too weak" branch is still
-  demonstrable on the high-tier ROCK samples.
-- All sandbox houses marked restored so shop sprites + signs render immediately.
+- Inventory: 5 of every item (seeds → produce → animals → minerals →
+  consumables → the rest), plus at least 20 memories so the wizard's offers
+  can be bought.
+- Gear: one of every relic + armor at **T3**, except the pickaxe at **T7**
+  (Frost) so every ore tier in the ROCK scene can be mined and checked.
+  Energy is topped up to max.
+- All sandbox houses marked restored (the wizard house as `'wizard'`) so shop
+  sprites + signs render immediately.
 
 ## Notes
 
 - Everything is **clobbered on every load** (inventory, gear, planted, released,
   placed rocks) for a predictable baseline.
 - Scene-name captions float over each scene (white-on-black) to help orient.
+- Cave levels, traps and derelict lairs are not in the sandbox; test those in
+  the real world or headlessly.
 - To extend: add a scene object, drop it into a `BANDS` row, and add its
   coverage to this matrix. The layout (sizes → positions) is computed from the
   scene `w`/`h`, so you never hand-place coordinates.

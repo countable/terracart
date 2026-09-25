@@ -1,5 +1,13 @@
 # UX & Visual Audit
 
+> **Historical snapshot — not a to-do list.** The findings below have been
+> acted on (spot-checked fixed: §1 portrait clamp, §4 `.game-modal` on the
+> static overlays, §5 tile-failure banner, §9 labels fade over the player,
+> §12 objectives restorable, §18 haptics, §19 empty slots, §20 energy chip).
+> The file is kept only because source comments cite its section numbers
+> (`src/app.js`, `tools/vignette_audit.js` — "UX audit §N"). Line numbers and
+> test counts are as of the audit.
+
 Findings from a driven play session of the running game, not a code read-through.
 Everything below was reproduced in a real browser and screenshotted.
 
