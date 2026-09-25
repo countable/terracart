@@ -7451,6 +7451,13 @@ class MapScene extends Phaser.Scene {
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
                                       Combat.shotDamage(relics, slot) * dmgMul,
                                       relics[slot].tier, reach);
+        // A bow's arrow wears its bow's MATERIAL colour (MATERIAL_TIERS
+        // .color) — a Frost bow looses ice-blue arrows. _drawShots reads a
+        // shot's own `color` ahead of the slot's.
+        if (shot && slot === 'bow') {
+          const c = TIER_BY_NUM[relics[slot].tier]?.color;
+          if (c != null) shot.color = c;
+        }
         if (shot && ammo) {
           // Every `ammo.shots`-th arrow burns one wood (save.ammoShots counts
           // toward it, so the tally survives a reload).

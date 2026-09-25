@@ -1217,17 +1217,19 @@ function animalLikesFood(kind, foodId) {
 // Material tier 1..7 mirrors the Icons/RPG icons folders. Higher tier = stronger
 // effect AND higher price. Player can hold one relic per slot, one armor per
 // slot. Buying an equal-or-lower-tier item into an occupied slot is refused.
+// `color` is the material's own hue — what a thing MADE of it looks like
+// in flight or in the world (the bow's arrows, Combat shots).
 const MATERIAL_TIERS = [
   // Wood is 1.5, not 1: at 1 a Wood relic listed at $15-25 and sold for
   // pocket change, so the first tool was an impulse buy rather than a goal.
   // Still under Copper's 3, so the ladder keeps rising.
-  { tier: 1, folder: '1. Wood',     name: 'Wood',     costMul: 1.5, effMul: 1.0 },
-  { tier: 2, folder: '2. Cooper',   name: 'Copper',   costMul: 3,   effMul: 1.5 },
-  { tier: 3, folder: '3. Iron',     name: 'Iron',     costMul: 8,   effMul: 2.2 },
-  { tier: 4, folder: '4. Gold',     name: 'Gold',     costMul: 20,  effMul: 3.0 },
-  { tier: 5, folder: '5. Platinum', name: 'Platinum', costMul: 50,  effMul: 4.0 },
-  { tier: 6, folder: '6. Crimson',  name: 'Crimson',  costMul: 120, effMul: 5.0 },
-  { tier: 7, folder: '7. Frost',    name: 'Frost',    costMul: 280, effMul: 6.0 },
+  { tier: 1, folder: '1. Wood',     name: 'Wood',     costMul: 1.5, effMul: 1.0 , color: 0xb5834f },
+  { tier: 2, folder: '2. Cooper',   name: 'Copper',   costMul: 3,   effMul: 1.5 , color: 0xe08a4c },
+  { tier: 3, folder: '3. Iron',     name: 'Iron',     costMul: 8,   effMul: 2.2 , color: 0xb9c2cc },
+  { tier: 4, folder: '4. Gold',     name: 'Gold',     costMul: 20,  effMul: 3.0 , color: 0xf4cc4a },
+  { tier: 5, folder: '5. Platinum', name: 'Platinum', costMul: 50,  effMul: 4.0 , color: 0xe8f1f6 },
+  { tier: 6, folder: '6. Crimson',  name: 'Crimson',  costMul: 120, effMul: 5.0 , color: 0xe0384f },
+  { tier: 7, folder: '7. Frost',    name: 'Frost',    costMul: 280, effMul: 6.0 , color: 0x8fdcff },
 ];
 const TIER_BY_NUM = Object.fromEntries(MATERIAL_TIERS.map(t => [t.tier, t]));
 // Relic SLOT defs. icon=file under Icons/RPG icons/Weapons and Armor/<folder>/.
