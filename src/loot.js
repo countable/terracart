@@ -14,7 +14,8 @@
 //   PAD_CATEGORIES, padShapeKeyForPoi
 //   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, CHEST_TIER_HOME_RINGS_M,
 //   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_CAVE_SKIP_CATEGORIES,
-//   chestTierHomeDrop, chestTierDepthBonus, chestTier, chestMirrorsUnderground
+//   chestTierHomeDrop, chestTierDepthBonus, chestTier, chestRollTier,
+//   chestMirrorsUnderground
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
 //   STAND_NEVER_CLASSES,
 //   standWordItem, standNameItems, produceStandFor
@@ -242,17 +243,21 @@ const CHEST_TIER_COLOR = {
   4: 0xc77dff, // violet — epic
   5: 0xffc23d, // gold — legendary (only reached underground, see chestTier)
 };
-// Chests near Home are DEMOTED. The base tier above is what the POI class
-// promises; a chest standing inside one of these rings around the spawn origin
-// (HomeArea.worldM — the same world-metre frame every object's x/y lives in)
-// loses one tier per ring it is inside, cumulatively: within 700 m is one
-// tier down, within 350 m is two. The floor is T1, so a lowtier box (T1
-// already) is untouched and a T2 park chest within 700 m of Home reads and
-// pays as a plain box. Rings are radii in metres, largest first; the test in
+// Chests near Home pay HUMBLER CONTENTS — the chest itself is not demoted.
+// A chest's TYPE (look, gem, tier) is a pure function of the world — its POI
+// class and cave depth — so every player sees the same chest on the same
+// street wherever their own Home is. What Home softens is the ROLL: a chest
+// standing inside one of these rings around the spawn origin (HomeArea.worldM
+// — the same world-metre frame every object's x/y lives in) rolls its loot
+// one tier lower per ring it is inside, cumulatively: within 700 m is one
+// tier down, within 350 m is two, floored at T1 (chestRollTier). So a T4
+// flora chest by the trailer still wears its violet gem, but pays like a T2.
+// Rings are radii in metres, largest first; the test in
 // test/node/chest_tier.test.js walks the boundaries.
 const CHEST_TIER_HOME_RINGS_M = [700, 350];
-// Tier drop for a chest at world-metres (x, y). 0 when the origin isn't
-// known yet (HomeArea.worldM null — a headless test or a pre-origin build).
+// Roll-tier drop for a chest at world-metres (x, y) — CONTENTS only, read by
+// chestRollTier and nothing else. 0 when the origin isn't known yet
+// (HomeArea.worldM null — a headless test or a pre-origin build).
 function chestTierHomeDrop(x, y) {
   if (typeof HomeArea === 'undefined' || !HomeArea.worldM
       || !Number.isFinite(x) || !Number.isFinite(y)) return 0;
@@ -282,14 +287,25 @@ function chestMirrorsUnderground(poiClass) {
 function chestTierDepthBonus(depth) {
   return Math.floor(Math.max(0, depth || 0) / CHEST_TIER_DEPTH_STEP);
 }
-// Effective tier (1-5) of a chest of POI class `poiClass` at world-metres
-// (x, y) on cave level `depth` (0 / omitted = surface). Every reader — the
-// sprite/gem in render.js, the loot roll in interactables.js — resolves the
-// tier through here so a chest can't draw as one tier and pay as another.
-// The Home demotion is applied and floored FIRST, then the depth bonus, so a
-// chest two levels under Home is still a tier better than the one overhead.
+// The chest's TIER (1-5): the one every player sees. POI class `poiClass` on
+// cave level `depth` (0 / omitted = surface) — a pure function of the world.
+// The sprite/gem in render.js and the look (chestLook) resolve through here.
+// x, y are NOT read: position (and so Home) never enters the chest's type.
+// They stay in the signature so this and its roll-side twin chestRollTier
+// take the same arguments at every call site.
 // Omit x/y/depth for the class's plain base tier.
 function chestTier(poiClass, x, y, depth) {
+  const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
+  return Math.min(CHEST_TIER_MAX, base + chestTierDepthBonus(depth));
+}
+// The tier a chest's CONTENTS roll at (the `tier` handed to pickReward).
+// The world tier, softened near Home: the Home drop is applied to the class
+// base and floored at T1 FIRST, then the depth bonus, so a chest two levels
+// under Home still rolls a tier better than the one overhead. Far from Home
+// (or with no origin) it IS chestTier — the drop is the only difference, and
+// it never shows on the map. The loot roll in interactables.js reads this;
+// nothing that draws a chest may.
+function chestRollTier(poiClass, x, y, depth) {
   const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
   const surface = Math.max(1, base - chestTierHomeDrop(x, y));
   return Math.min(CHEST_TIER_MAX, surface + chestTierDepthBonus(depth));
@@ -552,7 +568,8 @@ function produceStandFor(o) {
 // Resolved ONCE per object and cached on it, the same way produceStandFor
 // caches its own answer: every input (poiClass, crate, depth, position) is
 // fixed at spawn and a rebuilt tile is a NEW object, so the memo can't go
-// stale — and the chest spec in render.js reads it from seven fields per
+// stale. Home never enters it (chestTier is the world's tier, not the roll's),
+// so every player sees the same look on the same chest — and the chest spec in render.js reads it from seven fields per
 // chest per frame.
 function chestLook(o) {
   if (o._chestLook) return o._chestLook;

@@ -1389,15 +1389,17 @@ const HOME_R = 4;   // cells — Home's light / rest / ward ring
 // linearly) now lives with the offline-rest formula in energy.js as
 // Energy.OFFLINE_FULL_REST_MS.
 
-// Chest tiers are not rolled: a chest's tier (1-4) is a fixed lookup from its
+// Chest tiers are not rolled: a chest's tier (1-5) is a fixed lookup from its
 // OSM POI class via loot.js › chestTier (POI_CATEGORY → CHEST_TIER_BY_CATEGORY),
-// demoted a tier for each Home ring the chest stands inside (700 m / 350 m,
-// CHEST_TIER_HOME_RINGS_M, floor T1), then raised one tier per two cave
-// levels down (CHEST_TIER_DEPTH_STEP, cap T5) for the POI's underground
-// mirrors (worldgen.js caveChestsFrom; lowtier street furniture never goes
-// down, loot.js chestMirrorsUnderground). The tier drives the sprite/gem in
-// render.js and the chestTierMod loot curve in rarity.js; only the loot roll
-// itself is random.
+// raised one tier per two cave levels down (CHEST_TIER_DEPTH_STEP, cap T5) for
+// the POI's underground mirrors (worldgen.js caveChestsFrom; lowtier street
+// furniture never goes down, loot.js chestMirrorsUnderground). That tier — and
+// the look and gem render.js draws from it — is the WORLD's: every player sees
+// the same chest on the same street (CLAUDE.md "Every player sees the SAME
+// generated world"). Home's rings (700 m / 350 m, CHEST_TIER_HOME_RINGS_M,
+// floor T1) no longer demote the chest; they soften only THIS player's loot
+// roll, via loot.js › chestRollTier, which is what feeds the chestTierMod
+// curve in rarity.js. Only the roll itself is random.
 
 // Tool slots the starter blacksmith can forge a wooden (T1) relic for. All
 // six have wooden-tier art via gearAssetPath. The smithy picks 2 at random
@@ -1796,13 +1798,22 @@ class MapScene extends Phaser.Scene {
     this.originPx = origin;
     this.mPerPx = WorldGen.metersPerPixel(START_LAT, WorldGen.Z);
     this.cellM = WorldGen.CELL_M;
+    // A tile's cell grid is its ROW's (WorldGen.cellsPerEdgeForTile — CLAUDE.md
+    // "Every player sees the SAME generated world"); cellsForRow hands that to
+    // coords.js, which indexes every tile by it. cellsPerTile is only the
+    // frame's REFERENCE count (START_LAT's, the pre-per-row grid): the
+    // absolute-cell encoding (tilled / dug-wall / placed-rock keys) is anchored
+    // on it so a save's keys stay put on every row whose grid still matches it.
+    // Never index a tile's arrays by it — entry.cellsPerEdge / rowCells().
     this.cellsPerTile = WorldGen.cellsPerEdgeForLat(START_LAT);
+    this.cellsForRow = WorldGen.cellsPerEdgeForTile;
     this.tileEdgeM = WorldGen.tileEdgeMeters(START_LAT);
     // Fog of war — load the explored-cell masks. Keyed by tile and sized by
-    // cellsPerTile, so it has to come after that is known and before the first
-    // draw. (src/fog.js owns the storage; the masks deliberately do NOT live on
-    // the WorldGen tile-cache entries, which get evicted and re-rasterised.)
-    Fog.init(this.save, this.cellsPerTile);
+    // that tile's row grid, so it has to come after the grid is known and
+    // before the first draw. (src/fog.js owns the storage; the masks
+    // deliberately do NOT live on the WorldGen tile-cache entries, which get
+    // evicted and re-rasterised.)
+    Fog.init(this.save, this.cellsPerTile, this._fogGeom());
     // THE FEET ARE ON THE FIX. playerM is the GPS position, and the player
     // sprite is seated so its visible feet land exactly on it (see
     // playerFeetNudgeY below) — so the ground under your real position is the
@@ -3569,15 +3580,26 @@ class MapScene extends Phaser.Scene {
 
   playerToWorldCell() {
     // playerM is the LOCAL frame (zero = startWorldM), so it converts through
-    // coords.js' local half — same arithmetic, one place.
+    // coords.js' local half — same arithmetic, one place. cx / cy are on the
+    // tile's OWN grid (its row's cell count).
     const { x: wx, y: wy } = localMetersToTilePx(this, this.playerM.x, this.playerM.y);
-    const tilePx = WorldGen.TILE_PX;
-    const tx = Math.floor(wx / tilePx);
-    const ty = Math.floor(wy / tilePx);
-    const cps = cellPxSize(this);
-    const cx = (wx - tx * tilePx) / cps;
-    const cy = (wy - ty * tilePx) / cps;
-    return { tx, ty, cx, cy };
+    return tilePxToTileCellF(this, wx, wy);
+  }
+
+  // The player's absolute cell (coords.js encoding) — what Fog, _popEnergy and
+  // every save key take. Never pc.tx * N + floor(pc.cx) by hand: N is per row.
+  playerAbsCell() {
+    const pc = this.playerToWorldCell();
+    return tileCellToAbs(this, pc.tx, pc.ty, Math.floor(pc.cx), Math.floor(pc.cy));
+  }
+
+  // Fog's view of the per-row grid (fog.js stays WorldGen-free).
+  _fogGeom() {
+    return {
+      rowCells: (ty) => rowCells(this, ty),
+      absToTile: (ax, ay) => absCellToTile(this, ax, ay),
+      offset: (ax, ay, dx, dy) => absCellOffset(this, ax, ay, dx, dy),
+    };
   }
 
   // Fog of war — mark the ground under and around the player as explored.
@@ -3593,9 +3615,7 @@ class MapScene extends Phaser.Scene {
   // ones, and revealing them would hand the player the map above them.
   _revealFog() {
     if (this.depth !== 0) return;
-    const pc = this.playerToWorldCell();
-    const ix = pc.tx * this.cellsPerTile + Math.floor(pc.cx);
-    const iy = pc.ty * this.cellsPerTile + Math.floor(pc.cy);
+    const { cellIX: ix, cellIY: iy } = this.playerAbsCell();
     if (!Fog.reveal(ix, iy)) return;
     // Persist on a 10 s throttle, not per revealed cell. Continuous walking
     // reveals a new cell every second or two, and each persistSave lands a
@@ -3677,8 +3697,7 @@ class MapScene extends Phaser.Scene {
     if (!trap) return;
     // The cell the numbers land on — an ABSOLUTE cell, which is what _popEnergy
     // wants (it is the trap's own cell, which is also the player's).
-    const ix = pc.tx * this.cellsPerTile + lix;
-    const iy = pc.ty * this.cellsPerTile + liy;
+    const { cellIX: ix, cellIY: iy } = tileCellToAbs(this, pc.tx, pc.ty, lix, liy);
 
     // First contact. spring() returns false for one already recorded, so this
     // branch runs exactly once per trap however long the player stands on it.
@@ -4134,11 +4153,16 @@ class MapScene extends Phaser.Scene {
         // cached, the tile builds with it first time, and no rebuild happens.
         // A flag the rebuild does not carry says what the carried state
         // cannot: this entry has not been through the spawn pass.
-        // The home up-staircase goes down BEFORE the cave spawn pass, so the
-        // occupancy snapshot that pass takes (spawnCaveCreatures' occupiedIdx,
-        // built off entry.objects) already holds it and no monster, trap or
-        // coin is seated on the ladder. Nothing spawns on a stair cell.
-        if (this.depth > 0) this._ensureHomeUpStair(entry, tx, ty);
+        // The player's own up-staircases (Home's, and the one under the
+        // starter ladder) go down BEFORE the cave spawn pass. They are
+        // `_synthetic` — not part of the level's generated layer — so the pass
+        // neither anchors on them nor lets them refuse a seat (that would
+        // reshuffle the cave for everyone else); it CULLS whatever it draws
+        // onto one (heldByPlayer). Nothing spawns on a stair cell.
+        if (this.depth > 0) {
+          this._ensureHomeUpStair(entry, tx, ty);
+          this._ensureLadderUpStairs(entry, tx, ty);
+        }
         if (this.depth === 0 && !entry._spawned) this.spawnInTile(entry, tx, ty);
         else if (this.depth > 0 && !entry._spawned) this.spawnCaveCreatures(entry, tx, ty, this.depth);
         // Re-open any walls the player has already mined on this level (the
@@ -4312,6 +4336,21 @@ class MapScene extends Phaser.Scene {
     const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
     const creatures = [];
     const N = entry.cellsPerEdge;
+    // Frame metres per cell of THIS tile's grid (its row's N, not the save's
+    // cellsPerTile, and never the nominal cellM — CLAUDE.md "Every player sees
+    // the SAME generated world"). Every metre⇄cell step below goes through it.
+    const cellM = this.tileEdgeM / N;
+    // What the draws below ASK is the tile's GENERATED layer — baseGrid /
+    // genObjects, frozen by loadTile before anything per-player or
+    // order-dependent lands on it (the starter plot and pond repaint cells,
+    // the home stair, an Overpass bin's chests that were only there if they
+    // happened to be cached). An answer read off the live entry would change
+    // which attempt succeeds, and so every later draw of this tile's stream,
+    // for one player (CLAUDE.md "Every player sees the SAME generated world").
+    // What the live entry holds instead is applied AFTER the draws, as a
+    // cull (see _cullOffLiveGround at the end of this pass).
+    const genGrid = entry.baseGrid || entry.grid;
+    const genObjects = entry.genObjects || entry.objects || [];
     // Memoised Set, not an Array.includes: tryPlace below calls this per
     // spawn ATTEMPT (up to 12 per creature, across every species in
     // FAUNA_ORDER), so an .includes here was an O(save.caught length) scan
@@ -4328,14 +4367,14 @@ class MapScene extends Phaser.Scene {
     // under a tree, undiggable until the tree is felled: roads and buildings
     // were never the whole rule, just the two terrain alone could see.
     const _occupiedIdx = new Set();
-    for (const o of (entry.objects || [])) {
-      const ix = Math.floor((o.x - tx * this.tileEdgeM) / this.cellM);
-      const iy = Math.floor((o.y - ty * this.tileEdgeM) / this.cellM);
+    for (const o of genObjects) {
+      const ix = Math.floor((o.x - tx * this.tileEdgeM) / cellM);
+      const iy = Math.floor((o.y - ty * this.tileEdgeM) / cellM);
       if (ix >= 0 && iy >= 0 && ix < N && iy < N) _occupiedIdx.add(iy * N + ix);
     }
     for (const wp of (entry.wildplants || [])) {
-      const ix = Math.floor((wp.x - tx * this.tileEdgeM) / this.cellM);
-      const iy = Math.floor((wp.y - ty * this.tileEdgeM) / this.cellM);
+      const ix = Math.floor((wp.x - tx * this.tileEdgeM) / cellM);
+      const iy = Math.floor((wp.y - ty * this.tileEdgeM) / cellM);
       if (ix >= 0 && iy >= 0 && ix < N && iy < N) _occupiedIdx.add(iy * N + ix);
     }
     // Even pets only belong near street frontage / public space inside a
@@ -4349,11 +4388,11 @@ class MapScene extends Phaser.Scene {
       // is told "grass", and buries treasure in the middle of the asphalt.
       roadMask: entry.roadMask,
       occupied: _occupiedIdx,
-      pois: (entry.objects || [])
+      pois: genObjects
         .filter(o => o.kind === 'chest')
         .map(o => ({
-          ix: Math.floor((o.x - tx * this.tileEdgeM) / this.cellM),
-          iy: Math.floor((o.y - ty * this.tileEdgeM) / this.cellM),
+          ix: Math.floor((o.x - tx * this.tileEdgeM) / cellM),
+          iy: Math.floor((o.y - ty * this.tileEdgeM) / cellM),
         })),
     };
     // Home holds no slimes or crows until the first harvest (see
@@ -4364,11 +4403,7 @@ class MapScene extends Phaser.Scene {
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
-        // `continue`, not `return`: the pest is re-rolled onto another cell
-        // rather than dropped, so the amnesty moves slimes and crows out of
-        // the starting area without thinning the tile's population.
-        if ((kindStr === 'slime' || kindStr === 'crow') && pestFree && pestFree.has(cx, cy)) continue;
-        const t = entry.grid[cy * N + cx];
+        const t = genGrid[cy * N + cx];
         if (classesOK.has(t)) {
           // Route EVERY candidate cell through the shared spawn rule, not just
           // RESIDENTIAL ones. isSpawnCell checks opts.roadMask FIRST — before
@@ -4383,11 +4418,19 @@ class MapScene extends Phaser.Scene {
           // etc. only ever pays the (cheap) roadMask lookup, never the
           // frontage scan. See CLAUDE.md's road-mask invariant / FINDING 2 /
           // test/node/fauna_spawn.test.js.
-          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, _spawnOpts)) continue;
-          const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-          const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) continue;
+          const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
+          const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
           if (caughtSet.has(id)) return;
+          // The pest amnesty DROPS a slime or crow that lands in the zone —
+          // after the cell was drawn exactly as it would be for anyone else.
+          // It used to re-roll (`continue`) instead, which took extra draws out
+          // of the shared stream and reshuffled every later spawn on this tile
+          // for this one player (CLAUDE.md "Every player sees the SAME
+          // generated world": per-player state may hide a thing, never move
+          // the others). Thinning the starting area is the point anyway.
+          if ((kindStr === 'slime' || kindStr === 'crow') && pestFree && pestFree.has(cx, cy)) return;
           // ~5% of wild animals spawn as the rare shiny variant — stamped at
           // spawn off the stable id so it survives reloads and rides along
           // through tame/release/re-catch. The slime exception (an energy pest
@@ -4453,6 +4496,14 @@ class MapScene extends Phaser.Scene {
     // below (entry.objects, kind:'chest' with fixedLoot). No loose groundstack
     // logs / rockfruit piles near spawn — the tutorial pocket stays clean.
     entry.objects = entry.objects || [];
+    // Softwood near home — THIS player's overlay on the world's tree species
+    // (HomeArea.applySoftwood; CLAUDE.md "Every player sees the SAME generated
+    // world": per-player data may adjust a thing, never decide what it is in
+    // the generated world). Here, not in worldgen, and on every build: a
+    // rebuilt entry mints fresh objects and re-runs this pass (the `_spawned`
+    // gate), so it gets the overlay again. Before any placed/planted tree is
+    // added below — a sapling keeps the species it was planted as.
+    if (typeof HomeArea !== 'undefined') HomeArea.applySoftwood(entry.objects);
 
     // Wild debris is generated per-polygon in worldgen and lives on entry.wildplants
     // (set by rasterizeTile). Picked-state filtering happens at render/interact time
@@ -4483,7 +4534,7 @@ class MapScene extends Phaser.Scene {
     // entry drops it along with `_spawned`, and this pass puts it back.
     entry._spawnOpts = _spawnOpts;
     entry.traps = (typeof Traps !== 'undefined' && !window.__TEST_MODE)
-      ? Traps.spawnSurface(entry.grid, entry.roadMask, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
+      ? Traps.spawnSurface(genGrid, entry.roadMask, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
           Difficulty.get().trapCountMul)
       : [];
 
@@ -4533,7 +4584,13 @@ class MapScene extends Phaser.Scene {
     // any surface tile it reaches into may plan it, and the tile that owns it
     // repaints it on every build (see _carveStarterPond).
     this._carveStarterPond(entry, tx, ty);
-    if (!isStarterTile && rng() < 1 / 2) {
+    // The roll and its placement draws are taken on EVERY tile — the starter
+    // tile included — and only the RESULT is dropped there. Which tile is a
+    // player's starter tile is per-player; skipping the draws on it shifted
+    // every later draw of this tile's stream (the X scatter, the path and
+    // beach bonuses) for that one player (CLAUDE.md "Every player sees the
+    // SAME generated world").
+    if (rng() < 1 / 2) {
       // 1/200 → 1/4 → 1/2. Combined with the scatter below, players see X's
       // frequently instead of stumbling onto one a session. This stream caps
       // at ONE mark per tile however it rolls, so the probability IS its yield.
@@ -4541,10 +4598,10 @@ class MapScene extends Phaser.Scene {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
         // Walkable, off-road, and not deep in a private yard — one shared rule.
-        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, _spawnOpts)) continue;
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
-        entry.treasure = { x: wmx, y: wmy, id: `treasure_${tx}_${ty}` };
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) continue;
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
+        if (!isStarterTile) entry.treasure = { x: wmx, y: wmy, id: `treasure_${tx}_${ty}` };
         break;
       }
     }
@@ -4561,9 +4618,9 @@ class MapScene extends Phaser.Scene {
       for (let attempt = 0; attempt < 8 && !placed; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
-        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, _spawnOpts)) continue;
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) continue;
+        const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
+        const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
         entry.extraTreasures.push({ x: wmx, y: wmy, id: `treasure_x_${tx}_${ty}_${cx}_${cy}` });
         placed = true;
       }
@@ -4590,7 +4647,7 @@ class MapScene extends Phaser.Scene {
     const sandCells = [];
     for (let cy = 0; cy < N; cy++) {
       for (let cx = 0; cx < N; cx++) {
-        const t = entry.grid[cy * N + cx];
+        const t = genGrid[cy * N + cx];
         if (t === 8 /* PATH */) pathCells.push(cy * N + cx);
         else if (t === WorldGen.T.SAND) sandCells.push(cy * N + cx);
       }
@@ -4619,10 +4676,10 @@ class MapScene extends Phaser.Scene {
           // Want the X visually OFF the trail: not on the path cell itself,
           // and otherwise a legitimate spawn cell (walkable, off-road, out of
           // private yards). Avoid stacking on an existing X below.
-          if (entry.grid[ncy * N + ncx] === 8 /* PATH */) continue;
-          if (!WorldGen.isSpawnCell(entry.grid, N, N, ncx, ncy, _spawnOpts)) continue;
-          const wmx = tx * this.tileEdgeM + (ncx + 0.5) * this.cellM;
-          const wmy = ty * this.tileEdgeM + (ncy + 0.5) * this.cellM;
+          if (genGrid[ncy * N + ncx] === 8 /* PATH */) continue;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, ncx, ncy, _spawnOpts)) continue;
+          const wmx = tx * this.tileEdgeM + (ncx + 0.5) * cellM;
+          const wmy = ty * this.tileEdgeM + (ncy + 0.5) * cellM;
           const id = `treasure_path_${tx}_${ty}_${ncx}_${ncy}`;
           if (entry.extraTreasures.some(t => t.id === id)) continue;
           entry.extraTreasures.push({ x: wmx, y: wmy, id });
@@ -4649,9 +4706,9 @@ class MapScene extends Phaser.Scene {
         for (let attempt = 0; attempt < 8 && !placed; attempt++) {
           const cell = sandCells[Math.floor(rng() * sandCells.length)];
           const scx = cell % N, scy = Math.floor(cell / N);
-          if (!WorldGen.isSpawnCell(entry.grid, N, N, scx, scy, _spawnOpts)) continue;
-          const wmx = tx * this.tileEdgeM + (scx + 0.5) * this.cellM;
-          const wmy = ty * this.tileEdgeM + (scy + 0.5) * this.cellM;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, _spawnOpts)) continue;
+          const wmx = tx * this.tileEdgeM + (scx + 0.5) * cellM;
+          const wmy = ty * this.tileEdgeM + (scy + 0.5) * cellM;
           const id = `treasure_sand_${tx}_${ty}_${scx}_${scy}`;
           if (entry.extraTreasures.some(t => t.id === id)) continue;
           entry.extraTreasures.push({ x: wmx, y: wmy, id });
@@ -4686,6 +4743,53 @@ class MapScene extends Phaser.Scene {
                 planted: true, planted_t: ft.planted_t }));
       }
     }
+    // The per-player cull, AFTER every draw of the shared stream above.
+    this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
+  }
+
+  // The live-ground cull. spawnInTile draws every creature, trap and X mark
+  // off the tile's GENERATED layer so the stream is the same for everyone;
+  // this then takes back, for THIS player, whatever landed where their live
+  // entry says nothing can stand: a cell repainted unwalkable after
+  // generation (the starter pond) or one an object holds that the generated
+  // layer doesn't (a starter crate, an Overpass bin's chest). A cull, never a
+  // re-roll — it takes no draws, so the stream stays shared (CLAUDE.md "Every
+  // player sees the SAME generated world"). `creatures` is this pass's fresh
+  // roll, compacted in place (entry.creatures may be that same array).
+  _cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures) {
+    const grid = entry.grid;
+    if (!grid) return;
+    const x0 = tx * this.tileEdgeM, y0 = ty * this.tileEdgeM;
+    const idxOf = (x, y) => {
+      const ix = Math.floor((x - x0) / cellM), iy = Math.floor((y - y0) / cellM);
+      return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
+    };
+    const gen = new Set(genObjects);
+    const held = new Set();
+    for (const o of (entry.objects || [])) {
+      if (gen.has(o)) continue;
+      const i = idxOf(o.x, o.y);
+      if (i >= 0) held.add(i);
+    }
+    const repainted = grid !== genGrid;
+    const off = (t) => {
+      const i = idxOf(t.x, t.y);
+      if (i < 0) return false;
+      if (held.has(i)) return true;
+      return repainted && grid[i] !== genGrid[i] && !WorldGen.isWalkable(grid[i]);
+    };
+    if (!held.size && !repainted) return;
+    const keep = (arr) => {
+      if (!arr) return arr;
+      let w = 0;
+      for (let r = 0; r < arr.length; r++) if (!off(arr[r])) arr[w++] = arr[r];
+      arr.length = w;
+      return arr;
+    };
+    keep(creatures);
+    keep(entry.traps);
+    keep(entry.extraTreasures);
+    if (entry.treasure && off(entry.treasure)) entry.treasure = null;
   }
 
   // Resolve — and freeze — the world-metre anchor of the starter crate
@@ -4739,8 +4843,10 @@ class MapScene extends Phaser.Scene {
     const a = (sv.starterCratesAt && Number.isFinite(sv.starterCratesAt.x))
       ? sv.starterCratesAt : this.startWorldM;
     if (!a || !Number.isFinite(a.x)) return null;
-    const cx = Math.floor((a.x - tx * this.tileEdgeM) / this.cellM);
-    const cy = Math.floor((a.y - ty * this.tileEdgeM) / this.cellM);
+    // In THIS tile's cells (its row's grid), which is what the spawner asks in.
+    const cellM = rowCellM(this, ty);
+    const cx = Math.floor((a.x - tx * this.tileEdgeM) / cellM);
+    const cy = Math.floor((a.y - ty * this.tileEdgeM) / cellM);
     // `has` travels with the zone so the spawner and the tests ask the same
     // question of the same object — the containment rule can't be restated
     // (and mis-stated) at the call site.
@@ -4805,6 +4911,7 @@ class MapScene extends Phaser.Scene {
   // from _setStarterCratesAt when the anchor resolves after the tile already
   // spawned.
   _placeStarterTrail(entry, tx, ty) {
+    const cellM = rowCellM(this, ty);   // THIS tile's cells (its row's grid)
     const anchor = this.save.starterCratesAt || this._starterTrailAnchor();
     if (!anchor || entry._starterTrail) return;
     entry._starterTrail = true;             // once per build (rebuilds re-run)
@@ -4820,8 +4927,8 @@ class MapScene extends Phaser.Scene {
     // existed (or underground) — then the terrain test stands alone.
     const onRoadBand = (cx, cy) =>
       !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
-    const spawnIX = Math.floor((anchor.x - tx0) / this.cellM);
-    const spawnIY = Math.floor((anchor.y - ty0) / this.cellM);
+    const spawnIX = Math.floor((anchor.x - tx0) / cellM);
+    const spawnIY = Math.floor((anchor.y - ty0) / cellM);
     // Forensics for the ☰ Dump-tile readout (dumpTileDebug): which mode this
     // pass took and why, one compact line recorded as it runs. The trail has
     // three fallbacks, so "the crates aren't where the objective said" is
@@ -4849,8 +4956,8 @@ class MapScene extends Phaser.Scene {
       isTreeLike(o.kind) &&
       (o.individual || o.crown_color || o.size);
     const _nearSpawn = (wx, wy) => {
-      const oIx = Math.floor((wx - tx0) / this.cellM);
-      const oIy = Math.floor((wy - ty0) / this.cellM);
+      const oIx = Math.floor((wx - tx0) / cellM);
+      const oIy = Math.floor((wy - ty0) / cellM);
       return Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY)) <= CLEAR_R;
     };
     entry.objects = entry.objects.filter(o =>
@@ -4864,7 +4971,7 @@ class MapScene extends Phaser.Scene {
     // reads as a bug whichever one the renderer draws second.
     const occupied = new Set();
     const cellKeyAt = (wx, wy) =>
-      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM);
+      Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM);
     for (const o of entry.objects) occupied.add(cellKeyAt(o.x, o.y));
     for (const w of (entry.wildplants || [])) occupied.add(cellKeyAt(w.x, w.y));
     // BFS from the anchor cell for the nearest road cell within 15 cells.
@@ -4921,8 +5028,8 @@ class MapScene extends Phaser.Scene {
       // chest ~0.8 m off the centre cellAt() resolves it to. Round-tripping
       // through worldMetersToAbsCell → absCellCenterMeters (the same basis
       // POI chests and every cell tap use) keeps the chest exactly on-grid.
-      const rawX = tx * this.tileEdgeM + (cx + 0.5) * this.cellM;
-      const rawY = ty * this.tileEdgeM + (cy + 0.5) * this.cellM;
+      const rawX = tx * this.tileEdgeM + (cx + 0.5) * cellM;
+      const rawY = ty * this.tileEdgeM + (cy + 0.5) * cellM;
       const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
       const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
       // A real chest with hardcoded contents — opens via the standard chest
@@ -5177,12 +5284,13 @@ class MapScene extends Phaser.Scene {
   // all that remembers one was taken. Only cells in THIS tile are used; a
   // stash crate whose seat falls off the tile edge tries another angle.
   _scatterStarterStash(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+    const cellM = rowCellM(this, ty);   // THIS tile's cells (its row's grid)
     const N = entry.cellsPerEdge;
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
     const BLOCKED = new Set([3 /* WATER */, 7, 8, 9, 11, 12, 13, 14]);
     const occupied = new Set(usedSeats);
     const mark = (wx, wy) => occupied.add(
-      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM));
+      Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM));
     for (const o of (entry.objects || [])) mark(o.x, o.y);
     for (const w of (entry.wildplants || [])) mark(w.x, w.y);
     const rng = WorldGen.makeRng(fnv1a(`starter_stash:${tx}:${ty}:${spawnIX}:${spawnIY}`));
@@ -5201,7 +5309,7 @@ class MapScene extends Phaser.Scene {
         if (entry.roadMask && entry.roadMask[cy * N + cx] === 1) continue;
         if (occupied.has(cx + ',' + cy)) continue;
         const { cellIX, cellIY } = worldMetersToAbsCell(this,
-          tx0 + (cx + 0.5) * this.cellM, ty0 + (cy + 0.5) * this.cellM);
+          tx0 + (cx + 0.5) * cellM, ty0 + (cy + 0.5) * cellM);
         const { x, y } = absCellCenterMeters(this, cellIX, cellIY);
         entry.objects.push(WorldGen.makeObject('chest', x, y,
           `stash_start_${tx}_${ty}_${i + 1}`,
@@ -5228,9 +5336,14 @@ class MapScene extends Phaser.Scene {
   // including the way the trail does not go. Following the crates is what
   // opens the map up; this only makes the crates themselves findable.
   _revealStarterTrail(entry, tx, ty, spawnIX, spawnIY) {
+    const cellM = rowCellM(this, ty);   // THIS tile's cells (its row's grid)
     if (typeof Fog === 'undefined' || this.depth !== 0) return;
-    const N = entry.cellsPerEdge;
-    const abs = (cx, cy) => ({ ix: tx * N + cx, iy: ty * N + cy });
+    // Tile-local cell → the ABSOLUTE cell Fog takes (coords.js encoding —
+    // never tx * N + cx by hand: the rows' grids differ).
+    const abs = (cx, cy) => {
+      const c = tileCellToAbs(this, tx, ty, cx, cy);
+      return { ix: c.cellIX, iy: c.cellIY };
+    };
     // Home: the tutorial pocket _placeStarterTrail has just cleared and
     // curated. The player lives here; they are not discovering it.
     const home = abs(spawnIX, spawnIY);
@@ -5242,8 +5355,8 @@ class MapScene extends Phaser.Scene {
     // can't disagree about what the trail consists of.
     for (const o of (entry.objects || [])) {
       if (!o.id || !String(o.id).startsWith('chest_start_')) continue;
-      const cx = Math.floor((o.x - tx * this.tileEdgeM) / this.cellM);
-      const cy = Math.floor((o.y - ty * this.tileEdgeM) / this.cellM);
+      const cx = Math.floor((o.x - tx * this.tileEdgeM) / cellM);
+      const cy = Math.floor((o.y - ty * this.tileEdgeM) / cellM);
       const a = abs(cx, cy);
       if (Fog.revealDisc(a.ix, a.iy, TRAIL_REVEAL_CELLS)) changed = true;
     }
@@ -5285,6 +5398,7 @@ class MapScene extends Phaser.Scene {
   // cell) for the same reason save.opened keys off it: an opened chest must
   // stay opened even if a future rebuild ever seats it one cell over.
   _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {
+    const cellM = rowCellM(this, ty);   // THIS tile's cells (its row's grid)
     const grid = entry.grid;
     if (!grid || typeof WorldGen === 'undefined') return null;
     const N = entry.cellsPerEdge;
@@ -5301,7 +5415,7 @@ class MapScene extends Phaser.Scene {
     const taken = new Set(usedSeats || []);
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
     const markTaken = (wx, wy) => taken.add(
-      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM));
+      Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM));
     for (const o of entry.objects) markTaken(o.x, o.y);
     for (const w of (entry.wildplants || [])) markTaken(w.x, w.y);
     // The shared spawn rule — walkable, off anyone's road BAND (not merely off
@@ -5390,8 +5504,8 @@ class MapScene extends Phaser.Scene {
     if (!seat) return null;
     // Snap to the canonical global cell centre, the basis seatCrate and every
     // cell tap share (the tile-relative basis drifts off it — see seatCrate).
-    const rawX = tx0 + (seat.cx + 0.5) * this.cellM;
-    const rawY = ty0 + (seat.cy + 0.5) * this.cellM;
+    const rawX = tx0 + (seat.cx + 0.5) * cellM;
+    const rawY = ty0 + (seat.cy + 0.5) * cellM;
     const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
     const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
     const chest = {
@@ -5435,6 +5549,7 @@ class MapScene extends Phaser.Scene {
   // the tile, so the plot can never drift out from under a player who has
   // already tilled it.
   _carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+    const cellM = rowCellM(this, ty);   // THIS tile's cells (its row's grid)
     const grid = entry.grid;
     if (!grid) return;
     // Only for a player the ladder is still guiding. A veteran save has no use
@@ -5459,8 +5574,8 @@ class MapScene extends Phaser.Scene {
     // neighbour and is that tile's job to paint.
     const frozen = this.save.starterPlotAt;
     if (frozen && Number.isFinite(frozen.x)) {
-      const fcx = Math.floor((frozen.x - tx0) / this.cellM);
-      const fcy = Math.floor((frozen.y - ty0) / this.cellM);
+      const fcx = Math.floor((frozen.x - tx0) / cellM);
+      const fcy = Math.floor((frozen.y - ty0) / cellM);
       if (inTile(fcx, fcy)) paint(fcx, fcy);
       return;
     }
@@ -5478,7 +5593,7 @@ class MapScene extends Phaser.Scene {
     // street trees, houses, the crates themselves).
     const occupied = new Set();
     const mark = (wx, wy) => occupied.add(
-      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM));
+      Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM));
     for (const o of (entry.objects || [])) mark(o.x, o.y);
     for (const w of (entry.wildplants || [])) mark(w.x, w.y);
 
@@ -5520,8 +5635,8 @@ class MapScene extends Phaser.Scene {
     // Snap the frozen point to the canonical global cell centre, the same
     // basis seatCrate uses, so the arrow and the tap grid agree on where the
     // plot is.
-    const rawX = tx0 + (found.cx + 0.5) * this.cellM;
-    const rawY = ty0 + (found.cy + 0.5) * this.cellM;
+    const rawX = tx0 + (found.cx + 0.5) * cellM;
+    const rawY = ty0 + (found.cy + 0.5) * cellM;
     const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
     const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
     this.save.starterPlotAt = { x: wmx, y: wmy };
@@ -5557,12 +5672,13 @@ class MapScene extends Phaser.Scene {
   // fixed (no RNG), so a rebuild reaching this path again reaches the same
   // answer even if the freeze were somehow missing.
   _carveStarterPond(entry, tx, ty) {
+    const cellM = rowCellM(this, ty);   // THIS tile's cells (its row's grid)
     const grid = entry.grid;
     if (!grid || (this.depth || 0) !== 0 || this._sandboxMode) return;
     const N = entry.cellsPerEdge;
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
     const localCell = (wx, wy) => ({
-      cx: Math.floor((wx - tx0) / this.cellM), cy: Math.floor((wy - ty0) / this.cellM) });
+      cx: Math.floor((wx - tx0) / cellM), cy: Math.floor((wy - ty0) / cellM) });
     const inTile = (cx, cy) => cx >= 0 && cy >= 0 && cx + 1 < N && cy + 1 < N;
 
     // Already frozen — repaint in place when this tile owns it. A pond on a
@@ -5585,13 +5701,13 @@ class MapScene extends Phaser.Scene {
     // reads as `miss`, never guessed at.
     const cellAt = (cx, cy, read, miss) => {
       if (cx >= 0 && cy >= 0 && cx < N && cy < N) return read(entry, cy * N + cx);
-      const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
+      const wx = tx0 + (cx + 0.5) * cellM, wy = ty0 + (cy + 0.5) * cellM;
       const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
       const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
       if (!e || !e.grid || (e.status && e.status !== 'ready')) return miss;
       const nN = e.cellsPerEdge;
-      const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
-      const iy = Math.floor((wy - nty * this.tileEdgeM) / this.cellM);
+      const ix = Math.floor((wx - ntx * this.tileEdgeM) / rowCellM(this, nty));
+      const iy = Math.floor((wy - nty * this.tileEdgeM) / rowCellM(this, nty));
       if (ix < 0 || iy < 0 || ix >= nN || iy >= nN) return miss;
       return read(e, iy * nN + ix);
     };
@@ -5603,7 +5719,7 @@ class MapScene extends Phaser.Scene {
     // Which tile owns a cell, by world position — so the 2x2 can be required
     // to sit inside ONE tile's grid rather than straddle a seam.
     const ownerOf = (cx, cy) => {
-      const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
+      const wx = tx0 + (cx + 0.5) * cellM, wy = ty0 + (cy + 0.5) * cellM;
       return Math.floor(wx / this.tileEdgeM) + ',' + Math.floor(wy / this.tileEdgeM);
     };
     if (gridAt(a.cx, a.cy) == null) return;    // the anchor's own tile has to be readable
@@ -5757,8 +5873,8 @@ class MapScene extends Phaser.Scene {
     }
     // Freeze the top-left on the canonical global cell centre — the basis
     // every tap uses — so the fishing tap and the painted cell agree.
-    const rawX = tx0 + (found.cx + 0.5) * this.cellM;
-    const rawY = ty0 + (found.cy + 0.5) * this.cellM;
+    const rawX = tx0 + (found.cx + 0.5) * cellM;
+    const rawY = ty0 + (found.cy + 0.5) * cellM;
     const { cellIX, cellIY } = worldMetersToAbsCell(this, rawX, rawY);
     const { x: wmx, y: wmy } = absCellCenterMeters(this, cellIX, cellIY);
     this.save.starterPondAt = { x: wmx, y: wmy };
@@ -5772,8 +5888,8 @@ class MapScene extends Phaser.Scene {
     const e = WorldGen.tileCache.get(WorldGen.tileKey(otx, oty));
     if (!e || !e.grid || (e.status && e.status !== 'ready')) return;   // its own spawn pass paints it
     const oc = {
-      cx: Math.floor((wmx - otx * this.tileEdgeM) / this.cellM),
-      cy: Math.floor((wmy - oty * this.tileEdgeM) / this.cellM),
+      cx: Math.floor((wmx - otx * this.tileEdgeM) / rowCellM(this, oty)),
+      cy: Math.floor((wmy - oty * this.tileEdgeM) / rowCellM(this, oty)),
     };
     if (oc.cx >= 0 && oc.cy >= 0 && oc.cx + 1 < e.cellsPerEdge && oc.cy + 1 < e.cellsPerEdge) {
       this._paintPond(e, otx, oty, oc.cx, oc.cy);
@@ -5784,6 +5900,7 @@ class MapScene extends Phaser.Scene {
   // and sweep the four cells clear: a rebuild regenerates the rocks and scrub
   // the seat pass avoided, and nothing stands in open water.
   _paintPond(entry, tx, ty, cx, cy) {
+    const cellM = rowCellM(this, ty);   // THIS tile's cells (its row's grid)
     const N = entry.cellsPerEdge;
     const WATER = 3;
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
@@ -5795,7 +5912,7 @@ class MapScene extends Phaser.Scene {
       }
     }
     const on = (wx, wy) =>
-      cells.has(Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM));
+      cells.has(Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM));
     if (entry.objects) entry.objects = entry.objects.filter(o => !on(o.x, o.y));
     if (entry.wildplants) entry.wildplants = entry.wildplants.filter(w => !on(w.x, w.y));
     if (entry.extraTreasures) entry.extraTreasures = entry.extraTreasures.filter(t => !on(t.x, t.y));
@@ -5896,6 +6013,7 @@ class MapScene extends Phaser.Scene {
   // token tree and one token rock so the first thing to chop and mine is in
   // sight of Home; everything else seats in the ring just outside it.
   _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {
+    const cellM = rowCellM(this, ty);   // THIS tile's cells (its row's grid)
     const grid = entry.grid;
     if (!grid || typeof HomeArea === 'undefined' || typeof WorldGen === 'undefined') return;
     // Same gate as the starter plot: provision only while the ladder is still
@@ -5912,8 +6030,8 @@ class MapScene extends Phaser.Scene {
     if (spawnIX == null || spawnIY == null) {
       const a = this.save.starterCratesAt;
       if (!a || !Number.isFinite(a.x)) return;
-      spawnIX = Math.floor((a.x - tx0) / this.cellM);
-      spawnIY = Math.floor((a.y - ty0) / this.cellM);
+      spawnIX = Math.floor((a.x - tx0) / cellM);
+      spawnIY = Math.floor((a.y - ty0) / cellM);
     }
     if (!usedSeats) usedSeats = new Set();
 
@@ -5968,8 +6086,8 @@ class MapScene extends Phaser.Scene {
     // plans. (The ring reaches 16 cells and a tile is ~222, so the area sits
     // inside one tile except right on a seam — where the audit simply sees
     // less of the neighbourhood and errs toward providing a little extra.)
-    const anchorX = tx0 + (spawnIX + 0.5) * this.cellM;
-    const anchorY = ty0 + (spawnIY + 0.5) * this.cellM;
+    const anchorX = tx0 + (spawnIX + 0.5) * cellM;
+    const anchorY = ty0 + (spawnIY + 0.5) * cellM;
     // Audit every loaded tile the home area touches. Reading this tile alone
     // would miss both the neighbourhood across a seam and the items an earlier
     // pass already seated there, and would re-provision them all over again.
@@ -6022,7 +6140,7 @@ class MapScene extends Phaser.Scene {
     const key = (cx, cy) => cx + ',' + cy;
     const taken = new Set();
     const mark = (wx, wy) => taken.add(key(
-      Math.floor((wx - tx0) / this.cellM), Math.floor((wy - ty0) / this.cellM)));
+      Math.floor((wx - tx0) / cellM), Math.floor((wy - ty0) / cellM)));
     // Terrain lookup that CROSSES TILE SEAMS, in cells relative to the anchor
     // tile. Seating used to be clamped to the anchor's own tile, so a spawn
     // landing within ring-distance of a seam lost that whole arc — measured on
@@ -6038,13 +6156,13 @@ class MapScene extends Phaser.Scene {
     // reads as `miss` whichever array is asked for.
     const cellAt = (cx, cy, read, miss) => {
       if (cx >= 0 && cy >= 0 && cx < N && cy < N) return read(entry, cy * N + cx);
-      const wx = tx0 + (cx + 0.5) * this.cellM, wy = ty0 + (cy + 0.5) * this.cellM;
+      const wx = tx0 + (cx + 0.5) * cellM, wy = ty0 + (cy + 0.5) * cellM;
       const ntx = Math.floor(wx / this.tileEdgeM), nty = Math.floor(wy / this.tileEdgeM);
       const e = WorldGen.tileCache.get(WorldGen.tileKey(ntx, nty));
       if (!e || (e.status && e.status !== 'ready')) return miss;
       const nN = e.cellsPerEdge;
-      const ix = Math.floor((wx - ntx * this.tileEdgeM) / this.cellM);
-      const iy = Math.floor((wy - nty * this.tileEdgeM) / this.cellM);
+      const ix = Math.floor((wx - ntx * this.tileEdgeM) / rowCellM(this, nty));
+      const iy = Math.floor((wy - nty * this.tileEdgeM) / rowCellM(this, nty));
       if (ix < 0 || iy < 0 || ix >= nN || iy >= nN) return miss;
       return read(e, iy * nN + ix);
     };
@@ -6085,8 +6203,8 @@ class MapScene extends Phaser.Scene {
     // The soil plot is a 2x2 the player is about to till — keep it clear.
     const plot = this.save.starterPlotAt;
     if (plot && Number.isFinite(plot.x)) {
-      const pcx = Math.floor((plot.x - tx0) / this.cellM);
-      const pcy = Math.floor((plot.y - ty0) / this.cellM);
+      const pcx = Math.floor((plot.x - tx0) / cellM);
+      const pcy = Math.floor((plot.y - ty0) / cellM);
       for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) taken.add(key(pcx + dx, pcy + dy));
     }
     // Nothing goes in the Home trailer's moat (clearHomeTrailerOverlap would
@@ -6152,7 +6270,7 @@ class MapScene extends Phaser.Scene {
       }
       if (!best) return false;
       best.used = true;
-      const raw = { x: tx0 + (best.cx + 0.5) * this.cellM, y: ty0 + (best.cy + 0.5) * this.cellM };
+      const raw = { x: tx0 + (best.cx + 0.5) * cellM, y: ty0 + (best.cy + 0.5) * cellM };
       // Snap to the canonical global cell centre, the basis every tap and
       // every other placed object uses (see seatCrate).
       const abs = worldMetersToAbsCell(this, raw.x, raw.y);
@@ -6322,7 +6440,17 @@ class MapScene extends Phaser.Scene {
     // the far-away swarm was never seen ("I never see monsters underground").
     // Falls back to the tile centre when no staircase exists on this tile.
     const cellSizeM = entry.tileEdgeM / N;
-    const anchors = (entry.objects || [])
+    // Every draw below asks the level's GENERATED layer (baseGrid /
+    // genObjects, frozen by loadCaveTile) — never the live entry, which
+    // carries this player's own edits: dug walls, the home up-stair and the
+    // up-stair under the starter ladder (both `_synthetic`). Anchoring on, or
+    // refusing seats around, a player's own stairs reshuffled the whole cave
+    // population everyone else sees (CLAUDE.md "Every player sees the SAME
+    // generated world"). What the live entry holds is a CULL after the draw
+    // (`heldByPlayer` below), never a re-roll.
+    const genGrid = entry.baseGrid || entry.grid;
+    const genObjects = (entry.genObjects || entry.objects || []).filter(o => !o._synthetic);
+    const anchors = genObjects
       .filter(o => o.kind === 'staircase' && o.dir === 'up')
       .map(s => ({
         lix: Math.floor((s.x - tx * entry.tileEdgeM) / cellSizeM),
@@ -6342,10 +6470,21 @@ class MapScene extends Phaser.Scene {
     // an object sitting on top of it, same as the surface roadMask can't see
     // an object sitting on top of a grass cell.
     const occupiedIdx = new Set();
-    for (const o of (entry.objects || [])) {
+    for (const o of genObjects) {
       const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
       occupiedIdx.add(oy * N + ox);
+    }
+    // Cells THIS player's live entry holds that the generated layer doesn't —
+    // their stairs. A seat drawn onto one is dropped (the attempt still ends
+    // exactly where it would for anyone else).
+    const genSet = new Set(genObjects);
+    const heldByPlayer = new Set();
+    for (const o of (entry.objects || [])) {
+      if (genSet.has(o)) continue;
+      const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
+      const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
+      if (ox >= 0 && oy >= 0 && ox < N && oy < N) heldByPlayer.add(oy * N + ox);
     }
     const SPAWN_R = 25; // cells — fills 2–3 screens worth around each entry point
     const randCell = () => {
@@ -6374,7 +6513,7 @@ class MapScene extends Phaser.Scene {
       for (let attempt = 0; attempt < 20; attempt++) {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-        if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
         // Don't SEAT a monster on a staircase or inside a rock sprite — see
         // the occupiedIdx comment above. This is a rejected attempt, not an
         // extra rng() draw: randCell() already made its 3 calls for this
@@ -6383,6 +6522,7 @@ class MapScene extends Phaser.Scene {
         if (occupiedIdx.has(cy * N + cx)) continue;
         const id = `mon_${kind}_${depth}_${tx}_${ty}_${i}`;
         if (caughtSet.has(id)) break;   // already defeated — stays dead
+        if (heldByPlayer.has(cy * N + cx)) break;   // on the player's own stair
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
         // ~5% spawn as ELITES — the shiny variant, stamped off the stable id
@@ -6402,12 +6542,13 @@ class MapScene extends Phaser.Scene {
       for (let attempt = 0; attempt < 20; attempt++) {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-        if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
         // Same seat-time occupancy check as the monster loop above — a rabbit
         // is no less able to spawn inside a rock than a slime is.
         if (occupiedIdx.has(cy * N + cx)) continue;
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
         if (caughtSet.has(id)) break;   // already caught — stays gone
+        if (heldByPlayer.has(cy * N + cx)) break;   // on the player's own stair
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
         creatures.push(WorldGen.makeCreature('rabbit', wmx, wmy, id));
@@ -6433,10 +6574,11 @@ class MapScene extends Phaser.Scene {
           const cx = px + Math.floor(roamRng() * ROAM_PIVOT);
           const cy = py + Math.floor(roamRng() * ROAM_PIVOT);
           if (cx >= N || cy >= N) continue;
-          if (entry.grid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+          if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
           if (occupiedIdx.has(cy * N + cx)) continue;
           const id = `mon_${kind}_${depth}_${tx}_${ty}_r${cx}_${cy}`;
           if (caughtSet.has(id)) break;
+          if (heldByPlayer.has(cy * N + cx)) break;
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
           creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
@@ -6474,8 +6616,9 @@ class MapScene extends Phaser.Scene {
           const { cx, cy } = randCell();
           if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
           const idx = cy * N + cx;
-          if (entry.grid[idx] !== 24 /* CAVE_FLOOR */ || taken.has(idx)) continue;
+          if (genGrid[idx] !== 24 /* CAVE_FLOOR */ || taken.has(idx)) continue;
           taken.add(idx);
+          if (heldByPlayer.has(idx)) break;   // on the player's own stair
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
           coins.push({ kind: 'coindrop', x: wmx, y: wmy, id: `cavecoin_${depth}_${tx}_${ty}_${i}` });
@@ -6490,7 +6633,7 @@ class MapScene extends Phaser.Scene {
         if (foundSet.has(c.id)) continue;
         const idx = Math.floor((c.y - ty * entry.tileEdgeM) / cellSizeM) * N
           + Math.floor((c.x - tx * entry.tileEdgeM) / cellSizeM);
-        if (taken.has(idx)) continue;
+        if (taken.has(idx) || heldByPlayer.has(idx)) continue;
         coins.push(c);
       }
       entry.coinDrops = coins;
@@ -6508,8 +6651,9 @@ class MapScene extends Phaser.Scene {
       // now it's the one this function already has in scope.
       // Flat multiplier regardless of game mode — a dungeon is dangerous on
       // either one (see Traps.DUNGEON_DENSITY_MUL).
-      entry.traps = Traps.spawnCave(entry.grid, N, tx, ty, entry.tileEdgeM, depth,
-        anchors, occupiedIdx, Traps.DUNGEON_DENSITY_MUL);
+      entry.traps = Traps.spawnCave(genGrid, N, tx, ty, entry.tileEdgeM, depth,
+        anchors, occupiedIdx, Traps.DUNGEON_DENSITY_MUL)
+        .filter(t => !heldByPlayer.has(t._iy * N + t._ix));
     }
     entry._spawned = true;
     entry.creatures = entry.creatures || creatures;
@@ -8000,7 +8144,7 @@ class MapScene extends Phaser.Scene {
       // crops, and for a long time killing one paid nothing, which is the gap
       // this branch closes by asking Combat what an enemy is rather than
       // asking the cave-monster table.
-      const coins = Combat.enemyBounty(victim.kind, this.depth, Combat.eliteMul(victim));
+      const coins = Combat.enemyBounty(victim.kind, this.depth, Combat.powerMul(victim));
       if (coins > 0) addMoney(save, coins);
       const name = Combat.monster(victim.kind)?.name || 'Slime';
       const elite = Combat.isElite(victim);
@@ -8679,7 +8823,10 @@ class MapScene extends Phaser.Scene {
             // WORN ARMOUR SOAKS WHAT IS LEFT (Combat.playerDamage — the mode and
             // the potion scale the blow, armour spends its pool against the
             // result), and never to nothing: a bite always costs at least 1.
-            const slimeRaw = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3) * Difficulty.get().enemyDmgMul;
+            // Scaled by the slime's own power (Combat.powerMul — an elite or a
+            // lair guard leeches harder, the same multiplier its HP carries).
+            const slimeRaw = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3)
+              * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
             const slimeDmg = Combat.playerDamage(slimeRaw, this.save.armor);
             this.save.energy = Math.max(0, before - slimeDmg);
             this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
@@ -8724,7 +8871,7 @@ class MapScene extends Phaser.Scene {
           // dmg, doubled for an elite, scaled by the mode — so the slower
           // cadence costs the archer none of its damage per minute.
           c._nextShotT = now + Combat.MONSTER_SHOT_INTERVAL_MS;
-          const dmg = m.dmg * MONSTER_ARROW_HITS * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
+          const dmg = m.dmg * MONSTER_ARROW_HITS * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
           // The arrow carries its hit COUNT as well as its damage, so armour
           // can soak the volley one hit at a time when it lands
           // (_shotHitsPlayer) — mitigating the bundle in one lump would make
@@ -8736,9 +8883,10 @@ class MapScene extends Phaser.Scene {
           c._nextStealT = now + MONSTER_HIT_MS;
           const before = this.save.energy ?? 0;
           if (!Combat.playerDowned(before)) {
-            // An elite (shiny) monster hits for double — Combat.eliteMul is
-            // the one multiplier its HP is scaled by too.
-            const dmg = m.dmg * Combat.eliteMul(c) * Difficulty.get().enemyDmgMul;
+            // An elite (shiny) monster hits for double, and a lair guard for its
+            // garrison's multiplier — Combat.powerMul (eliteMul × lairMul) is
+            // the one multiplier its HP and bounty are scaled by too.
+            const dmg = m.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
             const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
             // Worn armour soaks the rest — see the slime leech above; the same
             // pool, the same floor of 1.
@@ -9459,25 +9607,30 @@ class MapScene extends Phaser.Scene {
     // a viewport had ≥20 road cells. Cache is unbounded by design but each
     // entry is small and only ever-rendered road cells are populated.
     if (!this._neighborZoneCache) this._neighborZoneCache = new Map();
-    const key = Math.floor(wcx) * 100000 + Math.floor(wcy);
+    // (wcx, wcy) is an ABSOLUTE cell (coords.js encoding; a fraction is
+    // floored). Its neighbours are walked by POSITION (absCellOffset), and
+    // each resolved to its own tile's grid — a 7×7 sample can straddle a row
+    // seam whose cells are a different size.
+    const cx0 = Math.floor(wcx), cy0 = Math.floor(wcy);
+    // (2^23 per axis: an absolute cell index tops out near 16384 * 350 < 2^23,
+    // so the key can't alias two cells the way a ×100000 key could.)
+    const key = cx0 * 8388608 + cy0;
     const hit = this._neighborZoneCache.get(key);
     if (hit !== undefined) return hit;
     const R = 3;
     // Flat counts array beats Map for ~20-element domains; saves the per-call
     // Map allocation and avoids string keys.
     const counts = new Int16Array(32);
+    const scratch = this._nnScratch || (this._nnScratch = {});
     let bestT = -1, bestN = 0;
     for (let dy = -R; dy <= R; dy++) {
       for (let dx = -R; dx <= R; dx++) {
         if (dx === 0 && dy === 0) continue;
-        const ncx = wcx + dx, ncy = wcy + dy;
-        const tx = Math.floor(ncx / this.cellsPerTile);
-        const ty = Math.floor(ncy / this.cellsPerTile);
-        const ix = Math.floor(ncx - tx * this.cellsPerTile);
-        const iy = Math.floor(ncy - ty * this.cellsPerTile);
-        const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+        const nc = absCellOffset(this, cx0, cy0, dx, dy);
+        const c3 = absCellToTile(this, nc.cellIX, nc.cellIY, scratch);
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(c3.tx, c3.ty));
         if (!entry || !entry.grid) continue;
-        const t = entry.grid[iy * this.cellsPerTile + ix] || 0;
+        const t = entry.grid[c3.iy * c3.n + c3.ix] || 0;
         // Skip roads (any tier), path, and buildings — those are overlays.
         if (t === 7 || t === 8 || t === 13 || t === 14 || t === 9 || t === 11 || t === 12) continue;
         const c = ++counts[t];
@@ -9684,9 +9837,7 @@ class MapScene extends Phaser.Scene {
     // We restrict to the POI's home tile (cells_per_edge × cells_per_edge)
     // — the burst radius is ~5 cells at 5m/cell which fits inside one tile
     // for almost every POI placement, and saves us a multi-tile scan.
-    const N = this.cellsPerTile;
     const tileEdgeM = this.tileEdgeM;
-    const cellM = this.cellM;
     const tx = Math.floor(poi.x / tileEdgeM);
     const ty = Math.floor(poi.y / tileEdgeM);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
@@ -9696,6 +9847,9 @@ class MapScene extends Phaser.Scene {
       this.flash('...', sx, sy);
       return;
     }
+    // The host tile's OWN grid (its row's N) and its cell size in the frame.
+    const N = entry.cellsPerEdge || rowCells(this, ty);
+    const cellM = tileEdgeM / N;
     const poiLocalCX = Math.floor((poi.x - tx * tileEdgeM) / cellM);
     const poiLocalCY = Math.floor((poi.y - ty * tileEdgeM) / cellM);
     const RADIUS_CELLS = Math.max(2, Math.ceil(25 / cellM));   // ~5 cells at 5m
@@ -9838,9 +9992,8 @@ class MapScene extends Phaser.Scene {
   // (so collision + rendering update at once) and records the dug cell so the
   // passage is re-opened whenever this tile is regenerated (_applyDugWalls).
   digCaveWall(tx, ty, ix, iy, cellIX, cellIY) {
-    const N = this.cellsPerTile;
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-    if (entry && entry.grid) entry.grid[iy * N + ix] = 24;   // CAVE_FLOOR
+    if (entry && entry.grid) entry.grid[iy * entry.cellsPerEdge + ix] = 24;   // CAVE_FLOOR
     this.dugWallSet.add(`${this.depth}:${cellKeyFromAbsCell(cellIX, cellIY)}`);
     this.save.dugWalls = [...this.dugWallSet];
   }
@@ -9851,13 +10004,17 @@ class MapScene extends Phaser.Scene {
     if (!entry || !entry.grid || !this.dugWallSet.size) return;
     const N = entry.cellsPerEdge;
     const prefix = `${entry.depth}:`;
+    const scratch = {};
     for (const k of this.dugWallSet) {
       if (!k.startsWith(prefix)) continue;
       const coord = k.slice(prefix.length);          // "absIX_absIY"
       const us = coord.indexOf('_');
       const aix = parseInt(coord.slice(0, us), 10);
       const aiy = parseInt(coord.slice(us + 1), 10);
-      const ix = aix - tx * N, iy = aiy - ty * N;
+      // Absolute → this tile's own cell (coords.js; the rows' grids differ).
+      const t = absCellToTile(this, aix, aiy, scratch);
+      if (t.tx !== tx || t.ty !== ty) continue;
+      const ix = t.ix, iy = t.iy;
       if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
       const idx = iy * N + ix;
       if (entry.grid[idx] === 25) entry.grid[idx] = 24;   // CAVE_WALL → CAVE_FLOOR
@@ -9954,8 +10111,7 @@ class MapScene extends Phaser.Scene {
                           this.startWorldM.y + this.playerM.y + this.feetOffsetM);
     if (onlyTile && (c.tx !== onlyTile.tx || c.ty !== onlyTile.ty)) return;
     if (!c.loaded || c.type !== 25 /* CAVE_WALL */) return;
-    const N = this.cellsPerTile;
-    this.digCaveWall(c.tx, c.ty, c.ix, c.iy, c.tx * N + c.ix, c.ty * N + c.iy);
+    this.digCaveWall(c.tx, c.ty, c.ix, c.iy, c.cellIX, c.cellIY);
   }
   // How far the character is standing from the player's REAL position, in
   // metres. That gap is what stick walking buys and what the map's warnings are
@@ -10536,8 +10692,7 @@ class MapScene extends Phaser.Scene {
   // drops stone — the same payout/cost as tapping a wall by hand. Auto-pauses on
   // empty energy so the player isn't silently stuck against a wall.
   _beginAutoMine(c) {
-    const N = this.cellsPerTile;
-    const cellIX = c.tx * N + c.ix, cellIY = c.ty * N + c.iy;
+    const { cellIX, cellIY } = c;
     const { x: wx, y: wy } = absCellCenterMeters(this, cellIX, cellIY);
     const cost = (typeof effectivePickCost === 'function') ? effectivePickCost(this.save.relics) : 0;
     // Affordability GATE only — do NOT deduct here. Unlike a hand-tapped mine
@@ -10678,31 +10833,53 @@ class MapScene extends Phaser.Scene {
   //   NOTHING ELSE STANDS ON A LADDER. The cave build (loadCaveTile) seated
   // its rocks, chests, mushrooms and torches before this cell was a stair, so
   // whatever landed here is cleared; the spawn pass runs AFTER this (buildOne)
-  // and reads the stair out of entry.objects like any other occupant.
+  // and culls anything it draws onto the stair (spawnCaveCreatures'
+  // heldByPlayer — it is not one of the level's GENERATED objects).
   _ensureHomeUpStair(entry, tx, ty) {
     if (!entry || !entry.grid || typeof HomeArea === 'undefined' || !HomeArea.worldM) return;
+    this._laySyntheticUpStair(entry, tx, ty, HomeArea.worldM.x, HomeArea.worldM.y, 'homeup');
+  }
+  // The same for the STARTER LADDER — the `_synthetic` down-stair
+  // _provisionStarterHome seats beside Home (a frozen `ladder` record in
+  // save.starterHome). loadCaveTile mirrors only GENERATED down-stairs (a
+  // player's own ladder must not reshape the cave everyone else descends
+  // into), so the way back up under it is laid here, per player, on every
+  // cave level — exactly as the home stair is.
+  _ensureLadderUpStairs(entry, tx, ty) {
+    const placed = this.save && this.save.starterHome && this.save.starterHome.placed;
+    if (!entry || !entry.grid || !Array.isArray(placed)) return;
+    for (const rec of placed) {
+      if (!rec || rec.k !== 'ladder' || !Number.isFinite(rec.x)) continue;
+      this._laySyntheticUpStair(entry, tx, ty, rec.x, rec.y, 'ladderup');
+    }
+  }
+  // One per-player up-stair at world point (wx, wy) on a cave level, when it
+  // falls in this tile: floor under it, nothing else on the cell, never a
+  // down-stair there. `_synthetic` — a player overlay, never part of the
+  // level's generated layer (CLAUDE.md "Every player sees the SAME generated
+  // world"), so no spawn anchors on it and no level below mirrors it.
+  _laySyntheticUpStair(entry, tx, ty, wx, wy, prefix) {
     const N = entry.cellsPerEdge;
     const tileEdgeM = entry.tileEdgeM;
-    const hx = HomeArea.worldM.x, hy = HomeArea.worldM.y;
-    if (Math.floor(hx / tileEdgeM) !== tx || Math.floor(hy / tileEdgeM) !== ty) return;
+    if (Math.floor(wx / tileEdgeM) !== tx || Math.floor(wy / tileEdgeM) !== ty) return;
     const mPerCell = tileEdgeM / N;
-    const lix = Math.floor((hx - tx * tileEdgeM) / mPerCell);
-    const liy = Math.floor((hy - ty * tileEdgeM) / mPerCell);
+    const lix = Math.floor((wx - tx * tileEdgeM) / mPerCell);
+    const liy = Math.floor((wy - ty * tileEdgeM) / mPerCell);
     if (lix < 0 || liy < 0 || lix >= N || liy >= N) return;
     entry.grid[liy * N + lix] = 24;   // CAVE_FLOOR — the stair must sit on floor
     const cx = tx * tileEdgeM + (lix + 0.5) * mPerCell;
     const cy = ty * tileEdgeM + (liy + 0.5) * mPerCell;
     const half = mPerCell * 0.5;
-    const atHome = (o) => Math.abs(o.x - cx) < half && Math.abs(o.y - cy) < half;
+    const atCell = (o) => Math.abs(o.x - cx) < half && Math.abs(o.y - cy) < half;
     entry.objects = entry.objects || [];
-    // No descending from the house, and nothing sitting on the ladder: drop
-    // every object on this cell but an up-stair, and any wildplant.
-    entry.objects = entry.objects.filter(o => !atHome(o) || (o.kind === 'staircase' && o.dir === 'up'));
-    if (entry.wildplants) entry.wildplants = entry.wildplants.filter(w => !atHome(w));
-    if (!entry.objects.some(o => o.kind === 'staircase' && o.dir === 'up' && atHome(o))) {
+    // No descending from here, and nothing sitting on the ladder: drop every
+    // object on this cell but an up-stair, and any wildplant.
+    entry.objects = entry.objects.filter(o => !atCell(o) || (o.kind === 'staircase' && o.dir === 'up'));
+    if (entry.wildplants) entry.wildplants = entry.wildplants.filter(w => !atCell(w));
+    if (!entry.objects.some(o => o.kind === 'staircase' && o.dir === 'up' && atCell(o))) {
       entry.objects.push(WorldGen.makeObject('staircase', cx, cy,
-        `homeup_${entry.depth}_${tx}_${ty}_${lix}_${liy}`,
-        { dir: 'up', depth: entry.depth }));
+        `${prefix}_${entry.depth}_${tx}_${ty}_${lix}_${liy}`,
+        { dir: 'up', depth: entry.depth, _synthetic: true }));
     }
   }
   cellAt(wmx, wmy) {
@@ -10710,8 +10887,10 @@ class MapScene extends Phaser.Scene {
     // (coords.js) every cell index in the game is floored out of.
     const { x: wx, y: wy } = worldMetersToTilePx(this, wmx, wmy);
     const TILE_PX = WorldGen.TILE_PX;
-    const cps = TILE_PX / this.cellsPerTile;
     const tx = Math.floor(wx / TILE_PX), ty = Math.floor(wy / TILE_PX);
+    // The tile's OWN grid — its row's cell count (coords.js rowCells).
+    const N = rowCells(this, ty);
+    const cps = TILE_PX / N;
     const ix = Math.floor((wx - tx * TILE_PX) / cps);
     const iy = Math.floor((wy - ty * TILE_PX) / cps);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
@@ -10722,8 +10901,12 @@ class MapScene extends Phaser.Scene {
     // from the same WorldGen.roadOverlayWidthM the overlay strokes with.
     // Checking road TERRAIN alone is the bug, not the fix.
     const underRoad = !!(loaded && entry.roadMask
-      && entry.roadMask[iy * this.cellsPerTile + ix]);
-    return { tx, ty, ix, iy, loaded, underRoad, type: loaded ? entry.grid[iy * this.cellsPerTile + ix] : 0 };
+      && entry.roadMask[iy * N + ix]);
+    // cellIX / cellIY: the same cell as an ABSOLUTE key (coords.js encoding) —
+    // what dug-wall keys and _popEnergy take. Never tx * N + ix by hand.
+    const abs = tileCellToAbs(this, tx, ty, ix, iy);
+    return { tx, ty, ix, iy, cellIX: abs.cellIX, cellIY: abs.cellIY, loaded, underRoad,
+      type: loaded ? entry.grid[iy * N + ix] : 0 };
   }
   catchCreature(c, sx, sy) {
     this.save.caught.push(c.id);   // keep so the creature doesn't respawn
@@ -10796,7 +10979,10 @@ class MapScene extends Phaser.Scene {
     // Deterministic visit key by game cell — matches the render/tap dedupe so the
     // teleport cycle visits exactly the crates you can see. Chest ids are cell-snapped,
     // so duplicates of one POI across tile seams share a cell and count as a single stop.
-    const chestKey = (o) => Math.floor(o.x / this.cellM) + '_' + Math.floor(o.y / this.cellM);
+    const chestKey = (o) => {
+      const c = worldMetersToAbsCell(this, o.x, o.y);
+      return cellKeyFromAbsCell(c.cellIX, c.cellIY);
+    };
     // First press: try to find the named seed POI (e.g. Windermere Park).
     if (this._poiTpVisited.size === 0 && this._poiTpFirst) {
       WorldGen.forEachItem('objects', (o) => {
@@ -11972,7 +12158,10 @@ class MapScene extends Phaser.Scene {
       const tx = Number(sx), ty = Number(sy);
       if (!Number.isFinite(tx) || !Number.isFinite(ty)) return;
       const N = entry.cellsPerEdge;
-      const laid = Traps.spawnSurface(entry.grid, entry.roadMask, N, N, tx, ty,
+      // Off the GENERATED grid, like the spawn pass's own roll — the live one
+      // carries this player's edits (spawnInTile's genGrid note).
+      const genGrid = entry.baseGrid || entry.grid;
+      const laid = Traps.spawnSurface(genGrid, entry.roadMask, N, N, tx, ty,
         this.tileEdgeM, entry._spawnOpts, mul);
       // Keep any already-discovered trap the new roll missed, one per cell.
       const cells = new Set(laid.map((t) => t._iy * N + t._ix));
@@ -11981,6 +12170,9 @@ class MapScene extends Phaser.Scene {
         laid.push(t);
       }
       entry.traps = laid;
+      // …and the same per-player cull the spawn pass ends on.
+      this._cullOffLiveGround(entry, tx, ty, N, this.tileEdgeM / N, genGrid,
+        entry.genObjects || entry.objects || [], null);
     });
   }
 
@@ -12074,14 +12266,15 @@ class MapScene extends Phaser.Scene {
     if (!kind) return;                                   // a mode with no greeter
 
     const N = entry.cellsPerEdge;
+    const cellM = this.tileEdgeM / N;   // THIS tile's cells (its row's grid)
     const tx0 = tx * this.tileEdgeM, ty0 = ty * this.tileEdgeM;
-    const ax = Math.floor((anchor.x - tx0) / this.cellM);
-    const ay = Math.floor((anchor.y - ty0) / this.cellM);
+    const ax = Math.floor((anchor.x - tx0) / cellM);
+    const ay = Math.floor((anchor.y - ty0) / cellM);
     // Cells already carrying something drawn — a chicken standing inside a
     // starter crate reads as a bug whichever the renderer draws second.
     const occupied = new Set();
     const cellKeyAt = (wx, wy) =>
-      Math.floor((wx - tx0) / this.cellM) + ',' + Math.floor((wy - ty0) / this.cellM);
+      Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM);
     for (const o of (entry.objects || [])) occupied.add(cellKeyAt(o.x, o.y));
     for (const w of (entry.wildplants || [])) occupied.add(cellKeyAt(w.x, w.y));
     const opts = { roadMask: entry.roadMask };
@@ -12128,8 +12321,8 @@ class MapScene extends Phaser.Scene {
       if (!seat) continue;
       occupied.add(seat.cx + ',' + seat.cy);   // no two seats on the one cell
       entry.creatures.push(WorldGen.makeCreature(kind,
-        tx0 + (seat.cx + 0.5) * this.cellM,
-        ty0 + (seat.cy + 0.5) * this.cellM,
+        tx0 + (seat.cx + 0.5) * cellM,
+        ty0 + (seat.cy + 0.5) * cellM,
         id, { shiny: faunaShiny(kind, id) }));
     }
   }
@@ -12865,8 +13058,7 @@ class MapScene extends Phaser.Scene {
     };
     if (target > 0) {
       const c = this.cellAt(anchor.x, anchor.y);
-      const N = this.cellsPerTile;
-      this.dugWallSet.add(`${target}:${cellKeyFromAbsCell(c.tx * N + c.ix, c.ty * N + c.iy)}`);
+      this.dugWallSet.add(`${target}:${cellKeyFromAbsCell(c.cellIX, c.cellIY)}`);
       this.save.dugWalls = [...this.dugWallSet];
     }
     consumeSelected(this.save);
@@ -13873,12 +14065,11 @@ class MapScene extends Phaser.Scene {
       if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
     }
     // Each remaining storefront (a fort's quartermaster) has a deterministic
-    // "shop kind" derived from its world position: ~30% sell PRODUCE
-    // (harvested crops), the rest sell SEEDS from the rotating buyIndex. Same
-    // house always offers the same category.
-    const houseSeed = house
-      ? ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0)
-      : 0;
+    // "shop kind" derived from the house (_houseSeed — its id, never its
+    // frame metres): ~30% sell PRODUCE (harvested crops), the rest sell SEEDS
+    // from the rotating buyIndex. Same house always offers the same category,
+    // for every player.
+    const houseSeed = this._houseSeed(house);
     const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
     let id;
     if (sellsProduce) {
@@ -15184,11 +15375,20 @@ class MapScene extends Phaser.Scene {
   // rng lane, so the sign can't advertise a different item than the modal
   // hands over; the ask side is drawn afterwards from the same stream, so the
   // offer itself is unchanged by the split.
+  // A storefront's fixed per-house seed (the produce-vs-seeds flip, and the
+  // trader's sign). Hashed off the house's ID — generated from tile + cell or
+  // its OSM id — never its x/y: those are frame metres, and the frame is per
+  // save, so a position hash gave the same shop a different trade in every
+  // player's world (CLAUDE.md "Every player sees the SAME generated world").
+  // 0 for a house with no id (the unseeded fallback).
+  _houseSeed(house) {
+    return (house && house.id != null) ? (fnv1a(String(house.id)) >>> 0) : 0;
+  }
   traderGivePick(house) {
     if (!house?.id) return null;
     const rng = this.shopRng(house, 'trader');
     // Same houseSeed produce-vs-buylist coin flip the generic path uses.
-    const houseSeed = ((Math.round(house.x * 100) ^ Math.round(house.y * 100)) >>> 0);
+    const houseSeed = this._houseSeed(house);
     const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
     let giveId;
     if (sellsProduce) {
@@ -15370,15 +15570,19 @@ class MapScene extends Phaser.Scene {
     // A cell of slack: reachIntervals charges a whole cell to the reach, so a
     // line grazing the cell at the rim is still in bounds.
     const pad = reachM + this.cellM;
-    const NT = this.cellsPerTile;
-    const ptx = Math.floor(p.cellIX / NT), pty = Math.floor(p.cellIY / NT);
-    eachTile3x3(ptx, pty, (tx, ty) => {
+    const pt = absCellToTile(this, p.cellIX, p.cellIY);
+    eachTile3x3(pt.tx, pt.ty, (tx, ty) => {
       const tileKey = WorldGen.tileKey(tx, ty);
       const entry = WorldGen.tileCache.get(tileKey);
       if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) return;
       const tileEdgeM = entry.tileEdgeM;
-      const N = entry.cellsPerEdge || NT;
-      const baseIX = tx * N, baseIY = ty * N;
+      const N = entry.cellsPerEdge || rowCells(this, ty);
+      // The line is walked over THIS tile's own grid (its row's cells, in
+      // frame metres), and each local cell asked of the reach through its
+      // absolute key — never tx * N + lix by hand (coords.js encoding).
+      const tileCellM = tileEdgeM / N;
+      const base = tileCellToAbs(this, tx, ty, 0, 0);
+      const baseIX = base.cellIX, baseIY = base.cellIY;
       const lx = rc.x - tx * tileEdgeM, ly = rc.y - ty * tileEdgeM;
       for (const layer of entry.layers) {
         if (layer.name !== 'transportation') continue;
@@ -15405,7 +15609,7 @@ class MapScene extends Phaser.Scene {
             }
             if (x1 < lx - pad || x0 > lx + pad || y1 < ly - pad || y0 > ly + pad) continue;
             const lineKey = Streets.lineKey(f, i);
-            let iv = Streets.reachIntervals(line, mvtToM, this.cellM,
+            let iv = Streets.reachIntervals(line, mvtToM, tileCellM,
               (lix, liy) => cellInReach(this, baseIX + lix, baseIY + liy));
             if (!iv.length) continue;
             iv = Streets.intersect(iv, Streets.tileSpans(line, mvtToM, extent));
@@ -15597,8 +15801,7 @@ class MapScene extends Phaser.Scene {
     // derives them (coords.js overlayFrame) — the tile ring is the anchor's
     // 3×3, so a peek at a tile edge still finds the lamps it drags into view.
     const a = viewAnchorCell(this);
-    const cellIX = a.tx * this.cellsPerTile + Math.floor(a.cx);
-    const cellIY = a.ty * this.cellsPerTile + Math.floor(a.cy);
+    const { cellIX, cellIY } = viewAnchorAbsCell(this, a);
     const key = `${cellIX},${cellIY}|${Streets.epoch(this.save)}`;
     if (this._streetLampKey === key && this._streetLamps) return;
     const c = absCellCenterMeters(this, cellIX, cellIY);
@@ -17269,9 +17472,10 @@ class MapScene extends Phaser.Scene {
     const tx = Math.floor(wmx / this.tileEdgeM), ty = Math.floor(wmy / this.tileEdgeM);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.grid) return null;
-    const N = this.cellsPerTile;
-    const ix = Math.floor((wmx - tx * this.tileEdgeM) / this.cellM);
-    const iy = Math.floor((wmy - ty * this.tileEdgeM) / this.cellM);
+    const N = entry.cellsPerEdge || rowCells(this, ty);
+    const cellM = this.tileEdgeM / N;   // THIS tile's cells (its row's grid)
+    const ix = Math.floor((wmx - tx * this.tileEdgeM) / cellM);
+    const iy = Math.floor((wmy - ty * this.tileEdgeM) / cellM);
     if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
     if (!WorldGen.isWalkable(entry.grid[iy * N + ix])) return null;
     return entry;

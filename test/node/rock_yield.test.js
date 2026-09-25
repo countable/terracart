@@ -13,7 +13,7 @@ const PRV = SpriteLayout.PLAIN_ROCK_VARIANTS;
 const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
 
 // Mine one plain rock and return how many rockfruit it dropped. `o` decides
-// the variant (x+y for a surface rock, caveVariant for a cave one).
+// the variant (a hash of the id for a surface rock, caveVariant for a cave one).
 function mineOnce(o) {
   const scene = makeScene();
   const save = { relics: { pick: { tier: 7 } } };
@@ -22,8 +22,15 @@ function mineOnce(o) {
   return scene.invCount('rockfruit');
 }
 
-// A surface plain rock whose cell hashes to variant `v`.
-const surfaceRock = (v, i) => ({ kind: 'mineralrock', id: `mr-s${v}-${i}`, x: v, y: 0, yieldTier: 1 });
+// A surface plain rock whose ID hashes to variant `v`: walk candidate ids
+// (the tile+cell shape worldgen mints) until the shipping hash lands on it.
+const surfaceRock = (v, i) => {
+  for (let k = 0; ; k++) {
+    const id = `mineralrock_12_34_${i}_${k}`;
+    const o = { kind: 'mineralrock', id, x: 0, y: 0, yieldTier: 1 };
+    if (SpriteLayout.plainRockFrame(o) === 15 * 11 + PRV[v].col) return o;
+  }
+};
 // A cave plain rock wearing variant `v`.
 const caveRock = (v, i) => ({ kind: 'mineralrock', id: `mr-c${v}-${i}`, x: 0, y: 0, caveVariant: v });
 
@@ -61,6 +68,25 @@ PRV.forEach((variant, v) => {
         'cave rock pays what its art shows');
     }
   });
+});
+
+// --- The variant is the world's, not the save frame's ----------------------
+test('plain rock: a surface rock\'s variant is keyed on its id, never its metres', () => {
+  // x/y are in each save's own frame; the id (tile + tile-grid cell) is not.
+  // The same rock moved to any metres keeps its look and its yield.
+  for (let i = 0; i < 50; i++) {
+    const id = `mineralrock_7_-3_${i}_${(i * 7) % 40}`;
+    const a = { kind: 'mineralrock', id, x: 12.5, y: 3 };
+    const b = { kind: 'mineralrock', id, x: 90731.2, y: -4410.9 };
+    assert.eq(SpriteLayout.plainRockFrame(a), SpriteLayout.plainRockFrame(b), id + ': the frame moved with the frame');
+    assert.eq(SpriteLayout.plainRockStones(a), SpriteLayout.plainRockStones(b), id + ': the yield moved with the frame');
+  }
+  // …and the ids spread across the whole table, so no variant is dead.
+  const seen = new Set();
+  for (let i = 0; i < 200; i++) seen.add(SpriteLayout.plainRockFrame({ id: `mineralrock_1_1_${i}_0` }));
+  assert.eq(seen.size, PRV.length, 'every variant is reachable from an id');
+  // A cave rock's caveVariant still wins over its id.
+  assert.eq(SpriteLayout.plainRockStones({ id: 'x', caveVariant: 0 }), PRV[0].stones, 'caveVariant first');
 });
 
 // --- The pair genuinely out-yields a single --------------------------------

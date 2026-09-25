@@ -100,16 +100,19 @@
   const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
 
   // Which variant a given plain rock wears. Stable per rock: a cave rock keys
-  // off its caveVariant, a surface rock off its cell so the same spot always
-  // renders (and yields) the same. BOTH callers go through here — the frame in
+  // off its caveVariant, a surface rock off a hash of its ID (util.js fnv1a,
+  // salted '#rock' so it never moves in step with the other id-keyed looks).
+  // The id is the rock's tile + tile-grid cell, so every player sees — and
+  // mines — the same variant; the old key was its x+y in METRES, which are
+  // in each save's own frame, so the same rock drew as a pair for one player
+  // and a pebble for the next. BOTH callers go through here — the frame in
   // render.js and the yield in interactables.js — so neither can pick a
   // different rock than the other.
   function plainRockVariant(o) {
+    const n = PLAIN_ROCK_VARIANTS.length;
     const v = (o && o.caveVariant != null)
-      ? (o.caveVariant % PLAIN_ROCK_VARIANTS.length)
-      : ((((Math.round((o && o.x) || 0) + Math.round((o && o.y) || 0))
-          % PLAIN_ROCK_VARIANTS.length) + PLAIN_ROCK_VARIANTS.length)
-          % PLAIN_ROCK_VARIANTS.length);
+      ? (((o.caveVariant % n) + n) % n)
+      : (root.fnv1a(String((o && o.id) ?? '') + '#rock') % n);
     return PLAIN_ROCK_VARIANTS[v];
   }
   // Sheet frame index for a plain rock — what render.js draws.

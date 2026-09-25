@@ -53,7 +53,7 @@
 //
 // Depends on:
 //   scene fields (read-only): buildingGeomGfx, buildingGeomContainer,
-//     startWorldM, playerM, cellM, cellsPerTile, depth, textures,
+//     startWorldM, playerM, cellM, cellsPerTile / cellsForRow (coords.js), depth, textures,
 //     viewCenterX/Y, viewLeft, viewTop, viewSize
 //     helpers: playerToWorldCell(), isClaimedKey()
 //   worldgen.js — WorldGen.tileCache, WorldGen.tileKey, WorldGen.makeRng;

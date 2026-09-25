@@ -1,16 +1,17 @@
-// Chest tier vs distance from Home (loot.js chestTier / chestTierHomeDrop).
+// Chest tier vs distance from Home (loot.js chestTier / chestRollTier /
+// chestTierHomeDrop).
 //
-// A chest's BASE tier is a fixed lookup from its POI class. Near Home it is
-// demoted one tier per ring of CHEST_TIER_HOME_RINGS_M it stands inside —
-// within 700 m is one down, within 350 m is two — and never below T1, so the
-// lowtier boxes are untouched. Home is HomeArea.worldM, the spawn origin in
-// the same world-metre frame every object's x/y lives in; when it isn't set
-// (headless, or before the scene publishes it) nothing is demoted.
+// A chest's TIER is the world's: a fixed lookup from its POI class, raised by
+// cave depth — identical for every player, wherever their Home is. Home
+// softens only the CONTENTS: chestRollTier (the tier the loot rolls at) drops
+// one tier per ring of CHEST_TIER_HOME_RINGS_M the chest stands inside —
+// within 700 m is one down, within 350 m is two — never below T1. Home is
+// HomeArea.worldM, the spawn origin in the same world-metre frame every
+// object's x/y lives in; when it isn't set nothing is softened.
 //
-// Every reader resolves through chestTier(poiClass, x, y, depth): the sprite/gem in
-// render.js and the loot roll in interactables.js — so a chest can't draw as
-// one tier and pay as another. The source sweep at the bottom pins that no
-// caller has fallen back to the position-less lookup.
+// The sprite/gem (render.js) and the look (chestLook) read chestTier; the
+// loot roll (interactables.js) reads chestRollTier. The source sweep at the
+// bottom pins each reader to its side.
 (() => {
   const HX = 100000, HY = 200000;
   const withHome = (fn) => {
@@ -25,12 +26,13 @@
     assert.eq(JSON.stringify(CHEST_TIER_HOME_RINGS_M), '[700,350]', 'rings');
   });
 
-  test('chest tier: no origin → no demotion', () => {
+  test('chest tier: no origin → no softening', () => {
     const prev = HomeArea.worldM;
     HomeArea.worldM = null;
     try {
       assert.eq(chestTierHomeDrop(0, 0), 0, 'drop without an origin');
       assert.eq(chestTier('florist', 0, 0), 4, 'flora keeps T4');
+      assert.eq(chestRollTier('florist', 0, 0), 4, 'and rolls at T4');
       assert.eq(chestTier('florist'), 4, 'position-less lookup is the base tier');
     } finally { HomeArea.worldM = prev; }
   });
@@ -52,12 +54,12 @@
     assert.eq(chestTierHomeDrop(HX + 500, HY - 500), 0, 'diagonal 707 m');
   }));
 
-  test('chest tier: every class demotes by ring, floored at T1', () => withHome(() => {
+  test('chest roll tier: every class softens by ring, floored at T1', () => withHome(() => {
     const bands = [[1000, 0], [500, 1], [100, 2]];
     for (const cls of Object.keys(POI_CATEGORY)) {
       const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[cls]] || 2;
       for (const [d, drop] of bands) {
-        const t = chestTier(cls, ...east(d));
+        const t = chestRollTier(cls, ...east(d));
         assert.eq(t, Math.max(1, base - drop), cls + ' at ' + d + ' m');
         assert.gte(t, 1, cls + ' never below T1');
         assert.lte(t, base, cls + ' never above its base');
@@ -65,22 +67,22 @@
     }
   }));
 
-  test('chest tier: worked examples — flora, civic, park, lowtier', () => withHome(() => {
-    assert.eq(chestTier('florist', ...east(1000)), 4, 'flora far out is T4');
-    assert.eq(chestTier('florist', ...east(500)),  3, 'flora inside 700 m is T3');
-    assert.eq(chestTier('florist', ...east(100)),  2, 'flora inside 350 m is T2');
-    assert.eq(chestTier('school',  ...east(500)),  2, 'civic inside 700 m is T2');
-    assert.eq(chestTier('school',  ...east(100)),  1, 'civic inside 350 m is T1');
-    assert.eq(chestTier('park',    ...east(500)),  1, 'park inside 700 m is already the floor');
-    assert.eq(chestTier('park',    ...east(100)),  1, 'park inside 350 m stays T1');
-    assert.eq(chestTier('bus',     ...east(100)),  1, 'lowtier is as it was');
-    assert.eq(chestTier('bus',     ...east(1000)), 1, 'lowtier is as it was, far out too');
+  test('chest roll tier: worked examples — flora, civic, park, lowtier', () => withHome(() => {
+    assert.eq(chestRollTier('florist', ...east(1000)), 4, 'flora far out is T4');
+    assert.eq(chestRollTier('florist', ...east(500)),  3, 'flora inside 700 m is T3');
+    assert.eq(chestRollTier('florist', ...east(100)),  2, 'flora inside 350 m is T2');
+    assert.eq(chestRollTier('school',  ...east(500)),  2, 'civic inside 700 m is T2');
+    assert.eq(chestRollTier('school',  ...east(100)),  1, 'civic inside 350 m is T1');
+    assert.eq(chestRollTier('park',    ...east(500)),  1, 'park inside 700 m is already the floor');
+    assert.eq(chestRollTier('park',    ...east(100)),  1, 'park inside 350 m stays T1');
+    assert.eq(chestRollTier('bus',     ...east(100)),  1, 'lowtier is as it was');
+    assert.eq(chestRollTier('bus',     ...east(1000)), 1, 'lowtier is as it was, far out too');
   }));
 
-  test('chest tier: an unknown class falls back to T2 and still demotes', () => withHome(() => {
-    assert.eq(chestTier('no_such_class', ...east(1000)), 2, 'fallback base');
-    assert.eq(chestTier('no_such_class', ...east(500)),  1, 'fallback demoted');
-    assert.eq(chestTier(undefined, ...east(100)),        1, 'no class at all');
+  test('chest roll tier: an unknown class falls back to T2 and still softens', () => withHome(() => {
+    assert.eq(chestRollTier('no_such_class', ...east(1000)), 2, 'fallback base');
+    assert.eq(chestRollTier('no_such_class', ...east(500)),  1, 'fallback demoted');
+    assert.eq(chestRollTier(undefined, ...east(100)),        1, 'no class at all');
   }));
 
   // ── Depth: the cave mirrors are promoted ─────────────────────────────
@@ -99,6 +101,45 @@
     assert.eq(chestTierDepthBonus(undefined), 0, 'surface object (no depth field)');
     assert.eq(chestTierDepthBonus(-2), 0, 'a negative depth is the surface');
   });
+
+  test('chest tier: the TYPE is the world\'s — Home never moves tier or look', () => {
+    // Same chest, three different Homes (none, far, on top of it): the tier,
+    // the gem colour and the look are identical. Only the roll moves.
+    const chests = Object.keys(POI_CATEGORY).map((cls, i) =>
+      ({ kind: 'chest', poiClass: cls, x: HX + 100, y: HY, depth: i % 3, id: 'c' + i }));
+    const seen = () => chests.map(o => {
+      const c = { ...o };
+      return chestTier(c.poiClass, c.x, c.y, c.depth) + ':' + chestLook(c).texKey;
+    }).join(',');
+    const prev = HomeArea.worldM;
+    try {
+      HomeArea.worldM = null;
+      const none = seen();
+      HomeArea.setOrigin(HX + 5000, HY);
+      const far = seen();
+      HomeArea.setOrigin(HX, HY);
+      const near = seen();
+      assert.eq(far, none, 'a far Home changes no chest');
+      assert.eq(near, none, 'a Home 100 m away changes no chest');
+      // …while the roll under the near Home IS softened.
+      assert.eq(chestTier('florist', ...east(100)), 4, 'flora by Home still wears T4');
+      assert.eq(chestRollTier('florist', ...east(100)), 2, 'but rolls at T2');
+      assert.eq(chestLook({ kind: 'chest', poiClass: 'school', x: HX + 100, y: HY }).texKey,
+        'chest', 'a civic chest by Home is the trunk, not the crate');
+    } finally { HomeArea.worldM = prev; }
+  });
+
+  test('chest roll tier: the softened tier is what pickReward is handed near Home', () => withHome(() => {
+    // Contents are softened: at a softened roll tier the curve caps relics
+    // lower (chestTierMod.relicCap), so a T4 flora chest by Home never pays
+    // what the same chest pays far out.
+    const cap = (t) => (RARITY_TUNING.chestTierMod[t] || {}).relicCap;
+    const nearT = chestRollTier('florist', ...east(100));
+    const farT = chestRollTier('florist', ...east(1000));
+    assert.lt(nearT, farT, 'the roll is lower near Home');
+    assert.eq(farT, chestTier('florist', ...east(1000)), 'far out the roll IS the world tier');
+    assert.lte(cap(nearT), cap(farT), 'and its relic ceiling is no higher');
+  }));
 
   test('chest tier: depth promotes every class, capped at T5', () => {
     const prev = HomeArea.worldM;
@@ -122,13 +163,13 @@
     } finally { HomeArea.worldM = prev; }
   });
 
-  test('chest tier: the Home demotion is floored BEFORE the depth bonus', () => withHome(() => {
+  test('chest roll tier: the Home softening is floored BEFORE the depth bonus', () => withHome(() => {
     // Park (T2) inside 350 m: surface floor T1; two levels down it is T2, not
     // clamp(2 - 2 + 1) = T1. Going underground always buys the tier.
-    assert.eq(chestTier('park', ...east(100), 0), 1, 'park under Home, surface');
-    assert.eq(chestTier('park', ...east(100), 2), 2, 'park under Home, depth 2');
-    assert.eq(chestTier('school', ...east(100), 4), 3, 'civic under Home, depth 4');
-    assert.eq(chestTier('florist', ...east(1000), 2), 5, 'flora far out, depth 2');
+    assert.eq(chestRollTier('park', ...east(100), 0), 1, 'park under Home, surface');
+    assert.eq(chestRollTier('park', ...east(100), 2), 2, 'park under Home, depth 2');
+    assert.eq(chestRollTier('school', ...east(100), 4), 3, 'civic under Home, depth 4');
+    assert.eq(chestRollTier('florist', ...east(1000), 2), 5, 'flora far out, depth 2');
   }));
 
   test('chest tier: rarity.js carries a T5 curve that the picker honours', () => {
@@ -299,7 +340,7 @@
     // from AND the treasure ceremony takes its hero icon from — so the gate
     // is pinned there, and render.js is pinned to ask rather than re-decide.
     const prevHome = HomeArea.worldM;
-    HomeArea.worldM = null;   // a chest demoted near Home wears the crate, not the pot
+    HomeArea.worldM = null;
     try {
       assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'potofgold',
         'an ATM on the surface wears the pot of gold');
@@ -310,14 +351,19 @@
       'render.js keeps no second copy of the look');
   });
 
-  test('chest tier: every shipping reader passes the chest position', () => {
-    const sources = { 'render.js': RENDER_SRC, 'interactables.js': INTERACTABLES_SRC };
-    for (const [f, src] of Object.entries(sources)) {
-      const calls = src.match(/chestTier\(o\.poiClass[^)]*\)/g) || [];
-      assert.gt(calls.length, 0, f + ' resolves chest tiers through chestTier');
+  test('chest tier: the drawer reads the world tier, the roll reads the roll tier', () => {
+    // render.js draws the gem: chestTier, never the Home-softened roll.
+    // interactables.js rolls the loot: chestRollTier, never the bare world tier
+    // (that would pay full price on the trailer's doorstep).
+    const want = { 'render.js': [RENDER_SRC, 'chestTier', 'chestRollTier'],
+                   'interactables.js': [INTERACTABLES_SRC, 'chestRollTier', 'chestTier'] };
+    for (const [f, [src, fn, not]] of Object.entries(want)) {
+      const calls = src.match(new RegExp('\\b' + fn + '\\(o\\.poiClass[^)]*\\)', 'g')) || [];
+      assert.gt(calls.length, 0, f + ' resolves chest tiers through ' + fn);
       for (const c of calls) {
-        assert.eq(c, 'chestTier(o.poiClass, o.x, o.y, o.depth)', f + ': ' + c + ' must pass o.x, o.y, o.depth');
+        assert.eq(c, fn + '(o.poiClass, o.x, o.y, o.depth)', f + ': ' + c + ' must pass o.x, o.y, o.depth');
       }
+      assert.falsy(new RegExp('\\b' + not + '\\(o\\.poiClass').test(src), f + ' never calls ' + not);
     }
   });
 })();

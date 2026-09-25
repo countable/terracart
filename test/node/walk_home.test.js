@@ -128,8 +128,10 @@ function walkHomeScene(awayM, opts = {}) {
     startWorldM: { x: 0, y: 0 },
     feetOffsetM: 0,
     cellsPerTile: 16,
-    cellAt: () => ({ tx: 3, ty: 4, ix: 5, iy: 6, loaded: opts.landing != null,
-                     type: opts.landing ?? 0 }),
+    // cellAt's shape: the tile cell AND its absolute key (coords.js encoding —
+    // tx*N+ix / ty*N+iy on a uniform grid like this one's).
+    cellAt: () => ({ tx: 3, ty: 4, ix: 5, iy: 6, cellIX: 53, cellIY: 70,
+                     loaded: opts.landing != null, type: opts.landing ?? 0 }),
     dug: [],
     digCaveWall(tx, ty, ix, iy, cellIX, cellIY) { this.dug.push([tx, ty, ix, iy, cellIX, cellIY]); },
     // A warp snaps the peek camera home; this scene never peeks (no peekM), so
@@ -215,7 +217,7 @@ test('walk home: a body placed into rock has its landing cell carved', () => {
   assert.eq(Math.round(__walkHome._gpsAwayM.call(scene)), 0, 'placed on the fix');
   assert.eq(scene.dug.length, 1, 'the wall under the feet is dug out — never a body inside rock');
   assert.eq(scene.dug[0].join(','), '3,4,5,6,53,70',
-    'through the shipping digCaveWall with the absolute cell (tx*N+ix, ty*N+iy)');
+    'through the shipping digCaveWall with cellAt\'s absolute cell (tx*N+ix, ty*N+iy here)');
 });
 
 test('walk home: a placement onto an unloaded tile carves once the grid lands', () => {
@@ -225,7 +227,7 @@ test('walk home: a placement onto an unloaded tile carves once the grid lands', 
   const scene = walkHomeScene(500, { depth: 2 });   // landing: unloaded
   drift(scene);
   assert.eq(scene.dug.length, 0, 'nothing to carve while the cell is unknown');
-  scene.cellAt = () => ({ tx: 3, ty: 4, ix: 5, iy: 6, loaded: true, type: 25 });
+  scene.cellAt = () => ({ tx: 3, ty: 4, ix: 5, iy: 6, cellIX: 53, cellIY: 70, loaded: true, type: 25 });
   __walkHome._carveLanding.call(scene, { tx: 9, ty: 9 });
   assert.eq(scene.dug.length, 0, 'a different tile arriving is not the one under the feet');
   __walkHome._carveLanding.call(scene, { tx: 3, ty: 4 });

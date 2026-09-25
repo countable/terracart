@@ -79,6 +79,20 @@
   const HASH_MUL_X = 73856093;
   const HASH_MUL_Y = 19349663;
 
+  // A 32-bit seed for one CELL of one TILE: (tx, ty) plus the tile-local cell
+  // (ix, iy) on the tile's own grid (cellsPerEdgeForTile(ty) cells an edge).
+  // Every generated id and per-thing seed is keyed this way — never on frame
+  // metres (Math.round of an x/y, or a global floor(x / CELL_M) cell), which
+  // move with the save's home latitude and so gave two players two worlds.
+  // Integer maths only (Math.imul + a murmur3 finaliser), so it is exact.
+  function cellHash(tx, ty, ix, iy) {
+    let h = Math.imul(tx | 0, HASH_MUL_X) ^ Math.imul(ty | 0, HASH_MUL_Y)
+          ^ Math.imul(ix | 0, 83492791) ^ Math.imul(iy | 0, 0x27D4EB2F);
+    h = Math.imul(h ^ (h >>> 15), 0x85EBCA6B);
+    h = Math.imul(h ^ (h >>> 13), 0xC2B2AE35);
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+
   // Terrain class enum (uint8). 0 = unknown/grass default.
   const T = {
     GRASS: 0,
@@ -1079,80 +1093,6 @@
   // a genuinely offline session doesn't rebuild on every call.
   const TILE_RETRY_MS = 3000;
   const _tileFailedAt = new Map();   // "z/x/y" → Date.now() of the last failure
-  // Set while rebuildTileWithBin is replacing a tile: the cross-tile spawn
-  // dedup skips this key so the rebuild doesn't dedupe against the very entry
-  // it is about to replace.
-  let _dedupSkipKey = null;
-
-  // Cross-tile spawn-dedup index: everything a newly-built tile's objects are
-  // checked against. One pass over the cache collects named chests (name →
-  // positions) and house positions.
-  //
-  // skipKey excludes that tile's own live entry while rebuildTileWithBin
-  // replaces it in place — the rebuild produces chests AND houses at exactly
-  // the coordinates of the copies it is about to swap out, so without the
-  // skip it dedupes against itself and drops them all. Houses learned this
-  // the hard way: the skip originally covered only the chest index, and every
-  // rebuilt tile (any tile whose Overpass bin landed after it rasterized)
-  // kept its painted building footprints but lost every house sprite —
-  // brick footings with nothing standing on them.
-  // THE HOUSE INDEX IS BUCKETED, and that is the whole reason `houseNear`
-  // exists rather than callers walking `housePositions`. "Is there a house
-  // within HOUSE_DEDUP_M of this one" used to be a linear scan of every house
-  // in every cached tile, run once per house of the tile being built — so it
-  // grew as (houses per tile) x (houses in the ring), and it runs OUTSIDE the
-  // sliced build, in one unbroken stretch after rasterize resolves. A boot
-  // trace showed it as six frames over 100 ms (worst 253) charged to nothing
-  // more specific than `neighbour ring (in the background)`, getting worse with
-  // every tile the ring added. A house within HOUSE_DEDUP_M is within
-  // HOUSE_DEDUP_M on each axis, so it can only be in this house's own bucket or
-  // one of the eight around it: nine lookups, whatever the ring holds.
-  const HOUSE_DEDUP_M = 6;
-  const HOUSE_DEDUP_M2 = HOUSE_DEDUP_M * HOUSE_DEDUP_M;
-  function collectDedupIndex(tileCache, skipKey) {
-    const byName = new Map();   // chest name → [{ x, y }]
-    const housePositions = [];  // flat list, in cache order (the index's record)
-    const houseBuckets = new Map();   // `bx,by` → [{ x, y }]
-    const addHouse = (x, y) => {
-      const p = { x, y };
-      housePositions.push(p);
-      const k = `${Math.floor(x / HOUSE_DEDUP_M)},${Math.floor(y / HOUSE_DEDUP_M)}`;
-      const arr = houseBuckets.get(k);
-      if (arr) arr.push(p); else houseBuckets.set(k, [p]);
-    };
-    // True when any indexed house is within HOUSE_DEDUP_M of (x, y). Same
-    // answer the linear scan gave — the distance test below is the same one,
-    // the buckets only decide which houses are worth testing.
-    const houseNear = (x, y) => {
-      const bx = Math.floor(x / HOUSE_DEDUP_M), by = Math.floor(y / HOUSE_DEDUP_M);
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const arr = houseBuckets.get(`${bx + dx},${by + dy}`);
-          if (!arr) continue;
-          for (let i = 0; i < arr.length; i++) {
-            const ex = arr[i].x - x, ey = arr[i].y - y;
-            if (ex * ex + ey * ey <= HOUSE_DEDUP_M2) return true;
-          }
-        }
-      }
-      return false;
-    };
-    for (const [ek, e] of tileCache) {
-      if (!e || !e.objects) continue;
-      if (ek === skipKey) continue;
-      for (const p of e.objects) {
-        if (p.kind === 'chest' && p.name) {
-          const k = p.name.trim().toLowerCase();
-          let arr = byName.get(k);
-          if (!arr) { arr = []; byName.set(k, arr); }
-          arr.push({ x: p.x, y: p.y });
-        } else if (p.kind === 'house') {
-          addHouse(p.x, p.y);
-        }
-      }
-    }
-    return { byName, housePositions, addHouse, houseNear };
-  }
 
   // ── The live tile URL template (see the TILE_HOST block at the top) ─────
   let _tileUrl = TILE_URL_FALLBACK;
@@ -1846,8 +1786,7 @@
     'police','fire_station','harbor',
     // ── Bike-related: bicycle_parking + atm get the COIN-BURST
     // mechanic via a separate render path (see render.js); they
-    // still spawn as objects here so cross-tile dedupe + persistent
-    // ids work. (motorcycle_parking is NOT here — like car parking it's
+    // still spawn as objects here so persistent ids work. (motorcycle_parking is NOT here — like car parking it's
     // diverted to a buried-treasure X below, not a chest.)
     'bicycle_parking','atm',
   ]);
@@ -1913,10 +1852,26 @@
     // Reduced to the pathCross mask below once every way has been walked.
     const pathSpan = new Float32Array(w * h);
     const mvtToCell = cellsPerEdge / TILE_EXTENT;
-    const mvtToM = tileEdgeM / TILE_EXTENT;
-    // Metres per cell in THIS tile's basis. Not CELL_M: cellsPerEdge is a
-    // rounded division, so the tile's own cells are a few mm off the nominal
-    // size and the grid was painted with these, not those.
+    // TWO METRE BASES, and generation may only read the first.
+    //
+    // `mvtToM` is GENERATION metres: every "one candidate per 11.3 m", "~1
+    // rock per 25 m²", "cluster radius 7 m" below is measured in it. It is a
+    // pure function of the tile's own cell count (CELL_M nominal metres per
+    // cell), so it is the same number in every save that loads this tile —
+    // and cellsPerEdge is itself a pure function of the tile's row
+    // (cellsPerEdgeForTile). Two players with different home latitudes read
+    // the same step, the same area, the same draw count: the same world.
+    //
+    // `mvtToFrameM` is the per-save WORLD FRAME (tileEdgeM comes from the
+    // save's START_LAT, placing this tile at tx * tileEdgeM). It is used ONLY
+    // to turn a settled cell into x/y metres for drawing (cellCenterMeters,
+    // cellOfWorldM, paintCellOf, the overlay rings). A frame metre fed
+    // into a step, an area, a threshold, a seed or an id is the bug — it made
+    // the world depend on where the player's home was.
+    const mvtToM = (w * CELL_M) / TILE_EXTENT;
+    const mvtToFrameM = tileEdgeM / TILE_EXTENT;
+    // Frame metres per cell (positions only — see above). Generation widths
+    // are in cells: a width in metres over CELL_M.
     const cellWidthM = tileEdgeM / w;
     const objects = [];
     // The tile's SOURCE building polygons, kept for the polygonal footprint
@@ -1951,7 +1906,8 @@
     // pavement-blob erosion pass can restore the biome a dissolved road cell
     // was stamped over. See erodePavementBlobs.
     const roadUnder = {};
-    const rng = makeRng(tx * HASH_MUL_X ^ ty * HASH_MUL_Y);
+    // (No tile-wide rng: every scatter seeds its OWN stream from its polygon
+    // or cell, so one pass's draw count can never shift another's.)
 
     // Helper: spawn debris within a polygon's rings at the polygon's own stable density.
     // density seed = polygon centroid → stable across reloads.
@@ -2058,29 +2014,34 @@
       // grid pitch: 8m read as twice too dense, and 8·√2 halves the trees
       // per area.
       const stepMvt = 11.3 / mvtToM;
+      // The polygon's OWN stream, like every other scatter (debris, rock
+      // clusters, yard flora): drawing from the tile-wide rng made each
+      // forest's jitter depend on how many draws every earlier forest on the
+      // tile had taken.
+      const frng = makeRng((polyKey ^ 0x7EE5F0E5) >>> 0);
       let _row = 0;
       for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
         if ((++_row & 7) === 7) yield 'forest tree scatter rows';
         for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
-          const jx = xx + (rng() - 0.5) * stepMvt;
-          const jy = yy + (rng() - 0.5) * stepMvt;
+          const jx = xx + (frng() - 0.5) * stepMvt;
+          const jy = yy + (frng() - 0.5) * stepMvt;
           if (pointInRings(rings, jx, jy)) {
             // Snap to this tile's cell grid (shared with rocks/wildplants/
             // flora) so the occupancy pass can dedupe — and it keeps the
             // forest from looking jittery.
-            const { cx, cy } = snapCell(jx, jy);
+            const { ix, iy, cx, cy } = snapCell(jx, jy);
             // Stable per-cell id so chop tracking can target an individual
             // tree. Pre-fix, every forest tree spawned with `id === undefined`;
             // pushing one undefined into save.chopped made
             // choppedSet.has(undefined) match every other tree → felling one
-            // cleared the grove.
+            // cleared the grove. Tile + LOCAL cell, never frame metres.
+            // The species is the WORLD's: the softwood-near-home rule is a
+            // per-player overlay (HomeArea.applySoftwood, app.js), never a
+            // generation input.
             objects.push(makeObject('tree', cx, cy,
-              `tree_${Math.round(cx)}_${Math.round(cy)}`, {
-                variant: 1 + Math.floor(rng() * 4),
-                // Trees near the start are softwood (home.js) for easy early wood.
-                // (Procedural forest trees carry no size → never bush-tier.)
-                species: (typeof HomeArea !== 'undefined')
-                  ? HomeArea.softwoodSpeciesNear(cx, cy, species) : species,
+              `tree_${tx}_${ty}_${ix}_${iy}`, {
+                variant: 1 + Math.floor(frng() * 4),
+                species,
               }));
           }
         }
@@ -2112,20 +2073,16 @@
       }
     }
 
-    // mvt(x,y) within this tile -> ABSOLUTE world meters (anchor: tile(0,0) NW corner at z14).
+    // This tile's origin in the per-save world frame (positions only).
     const tileOriginMx = tx * tileEdgeM;
     const tileOriginMy = ty * tileEdgeM;
-    const toMeters = (mx, my) => ({
-      x: tileOriginMx + mx * mvtToM,
-      y: tileOriginMy + my * mvtToM,
-    });
 
     // Local-cell index (ix, iy) -> absolute world-meter coordinates of that
     // cell's CENTRE. Same arithmetic the grid/snapCell/object placement all
     // share; extracted so the byte-identical expression isn't repeated ~7×.
     const cellCenterMeters = (ix, iy) => ({
-      mx: tileOriginMx + (ix + 0.5) * (1 / mvtToCell) * mvtToM,
-      my: tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToM,
+      mx: tileOriginMx + (ix + 0.5) * (1 / mvtToCell) * mvtToFrameM,
+      my: tileOriginMy + (iy + 0.5) * (1 / mvtToCell) * mvtToFrameM,
     });
     // The inverse: absolute world metres -> this tile's local cell index, on
     // the MVT basis (metres -> mvt units -> cells). This is the spelling the
@@ -2136,8 +2093,8 @@
     // pinned on each pass's own spelling, so the two are deliberately NOT
     // unified; a site must keep the spelling it had.
     const cellOfWorldM = (x, y) => ({
-      ix: Math.floor(((x - tileOriginMx) / mvtToM) * mvtToCell),
-      iy: Math.floor(((y - tileOriginMy) / mvtToM) * mvtToCell),
+      ix: Math.floor(((x - tileOriginMx) / mvtToFrameM) * mvtToCell),
+      iy: Math.floor(((y - tileOriginMy) / mvtToFrameM) * mvtToCell),
     });
     // Snap an mvt-space point to THIS tile's local cell grid — the same grid
     // the terrain `grid[]` and wildplants (spawnDebrisSteps) already use. Every placed object must share this one grid: structs
@@ -2312,7 +2269,7 @@
                 const jx = bb.minX + rng2() * (bb.maxX - bb.minX);
                 const jy = bb.minY + rng2() * (bb.maxY - bb.minY);
                 if (!pointInRings(f.geom, jx, jy)) continue;
-                const { cx, cy } = snapCell(jx, jy);
+                const { ix, iy, cx, cy } = snapCell(jx, jy);
                 // Cheap quarry rock. Roll a YIELD tier (mostly T1, occasional
                 // T2/T3 for variety) and DERIVE the pick requirement from it —
                 // the same single-field model the cluster spawner uses (see
@@ -2327,7 +2284,7 @@
                 const yieldTier = r < 0.05 ? 3 : r < 0.15 ? 2 : 1;
                 const requiredTier = Math.max(1, yieldTier - 1);
                 objects.push(makeObject('mineralrock', cx, cy,
-                  `rb_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}`,
+                  `rb_${tx}_${ty}_${ix}_${iy}`,
                   { requiredTier, yieldTier }));
                 placed++;
               }
@@ -2407,17 +2364,17 @@
             // rollRock (same draws as the cave spawner).
             const _pushMineralrock = (rng, jx, jy, tbl, clusterId) => {
               if (!pointInRings(f.geom, jx, jy)) return;
-              const { cx, cy } = snapCell(jx, jy);
+              const { ix, iy, cx, cy } = snapCell(jx, jy);
               const roll = rollRock(rng, _CAVE_ROCK_P, tbl);
               if (roll.plain) {
                 objects.push(makeObject('mineralrock', cx, cy,
-                  `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}`, {
+                  `mr_${tx}_${ty}_${ix}_${iy}`, {
                     requiredTier: 1, caveVariant: roll.caveVariant, _clusterId: clusterId,
                   }));
                 return;
               }
               objects.push(makeObject('mineralrock', cx, cy,
-                `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}`, {
+                `mr_${tx}_${ty}_${ix}_${iy}`, {
                   requiredTier: roll.requiredTier, yieldTier: roll.yieldTier,
                 }));
             };
@@ -2462,7 +2419,7 @@
                   // Stable id for this cluster (residential only) so the cave
                   // entrance pass can roll a per-cluster chance over its rocks.
                   const clusterId = o.residential
-                    ? `rc_${tx}_${ty}_${Math.round(xx)}_${Math.round(yy)}`
+                    ? `rc_${tx}_${ty}_${Math.floor(xx * mvtToCell)}_${Math.floor(yy * mvtToCell)}`
                     : undefined;
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (rng() - 0.5) * 2 * o.clusterR;
@@ -2600,7 +2557,10 @@
             // Fractional width, no rounding: the stamp is an exact coverage
             // test, so the mask lands on precisely the cells the band draws
             // over — including a cell the band only spills partway into.
-            const widthCells = roadOverlayWidthM(f.tags) / cellWidthM;
+            // In CELLS (metres over CELL_M, the generation basis), never over
+            // the frame's cellWidthM: the mask is generated, so it must not
+            // move with the save's home latitude.
+            const widthCells = roadOverlayWidthM(f.tags) / CELL_M;
             for (const line of f.geom) stampMaskLine(roadMask, w, h, line, widthCells, mvtToCell);
           }
           // Parking-lot aisles carpet a lot with parallel service lines spaced
@@ -2616,7 +2576,7 @@
           // Piers keep their measured width (their plank sprite fills the
           // whole cell, so coverage IS their width).
           const wCells = (t === T.PIER)
-            ? Math.max(1, Math.round(roadWidthM(f.tags) / cellWidthM))
+            ? Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M))
             : 1;
           // PATH records its under-biome in pathUnder (render draws it beneath
           // the sparse path pebbles); vehicle road tiers record theirs in the
@@ -2632,33 +2592,41 @@
           // POI points → a generic chest (single sprite, no themed subkinds).
           // Only spawn for "useful" POI classes.  Parking POIs are diverted to treasure marks instead.
           const cls = f.tags.class || '';
-          // Snap POI-derived features to the LOCAL-TILE cell centre — same basis the
-          // grid uses (tileEdgeM/cellsPerEdge, which differs slightly from 5m). This
-          // matches `offsetForPlacement` and `cellAt()`, so the chest's stored x/y
-          // agrees with grid lookups instead of drifting by sub-meter per cell.
-          // (cellWidthM is the tile-basis cell size hoisted at the top.)
-          const snap = (v) => {
-            // Project v back into the tile's local cell index, then expand to cell-centre.
-            const origin = Math.floor(v / tileEdgeM) * tileEdgeM;
-            const localCell = Math.floor((v - origin) / cellWidthM);
-            return origin + (localCell + 0.5) * cellWidthM;
-          };
+          // POI points settle on THIS tile's own cell grid: the cell index is
+          // floored straight out of the MVT point (the grid's own basis), and
+          // only the settled cell is turned into frame metres. The old snap
+          // went through frame metres (tileEdgeM / cellWidthM), which made the
+          // chest's cell — and so its id — depend on the save's home latitude.
+          //
+          // ONE TILE OWNS A POINT. An MVT tile carries every point inside its
+          // buffer, so a POI near a seam arrives in two (or four) tiles, each
+          // of which used to mint its own chest and rely on a cross-tile dedup
+          // whose survivor was whichever tile loaded FIRST. Now a tile keeps a
+          // POI only when the point lies inside its own square [0, EXTENT) —
+          // a fact of the point, not of the load order — and the neighbour
+          // that owns it mints it. Same for the parking X below.
+          const ownsPoint = (p) => p.x >= 0 && p.y >= 0 && p.x < TILE_EXTENT && p.y < TILE_EXTENT;
           if (cls === 'parking' || cls === 'motorcycle_parking') {
             // Car + motorcycle parking → guaranteed treasure X (no chest).
             for (const ring of f.geom) {
               const p = ring[0];
-              const m = toMeters(p.x, p.y);
-              const cx = snap(m.x), cy = snap(m.y);
-              parkingTreasures.push({ x: cx, y: cy, id: `t_park_${Math.round(cx)}_${Math.round(cy)}` });
+              if (!ownsPoint(p)) continue;
+              const pix = Math.floor(p.x * mvtToCell), piy = Math.floor(p.y * mvtToCell);
+              const { mx: cx, my: cy } = cellCenterMeters(pix, piy);
+              parkingTreasures.push({ x: cx, y: cy, id: `t_park_${tx}_${ty}_${pix}_${piy}` });
             }
             continue;
           }
           if (!POI_USEFUL.has(cls)) continue;
           for (const ring of f.geom) {
             const p = ring[0];
-            const m = toMeters(p.x, p.y);
-            const cx = snap(m.x), cy = snap(m.y);
-            const id = `c_${Math.round(cx)}_${Math.round(cy)}`;
+            if (!ownsPoint(p)) continue;
+            // The POI's own cell (before any placement offset): the pad
+            // greenery's seed below reads it, so it is fixed by the point.
+            const poiIX = Math.floor(p.x * mvtToCell);
+            const poiIY = Math.floor(p.y * mvtToCell);
+            const { mx: cx, my: cy } = cellCenterMeters(poiIX, poiIY);
+            const id = `c_${tx}_${ty}_${poiIX}_${poiIY}`;
             objects.push(makeObject('chest', cx, cy, id,
               { poiClass: cls, name: f.tags.name || '' }));
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
@@ -2666,8 +2634,8 @@
             // point lands on or right next to a building, slide it to the nearest non-
             // building cell — preferring one next to a road/path (so the player can
             // actually reach the chest). See offsetForPlacement / POI_PAD_KEEP above.
-            let cellIX = Math.floor(p.x * mvtToCell);
-            let cellIY = Math.floor(p.y * mvtToCell);
+            let cellIX = poiIX;
+            let cellIY = poiIY;
 
             // If the POI is INSIDE a building polygon, dissolve that building into a plain
             // concrete pad: remove the house sprite, leave the BUILDING_LARGE cells as-is
@@ -2793,7 +2761,7 @@
               const lastChest = objects[objects.length - 1];
               if (lastChest && lastChest.kind === 'chest' && lastChest.id === id) {
                 lastChest.x = adjustedMx; lastChest.y = adjustedMy;
-                lastChest.id = `c_${Math.round(adjustedMx)}_${Math.round(adjustedMy)}`;
+                lastChest.id = `c_${tx}_${ty}_${cellIX}_${cellIY}`;
               }
             }
             // No synthesized pad when the POI dissolved a building (the building IS the pad).
@@ -2827,7 +2795,7 @@
               }
             }
             if (shapeOffsets) {
-              const poiKey = ((Math.round(cx) * HASH_MUL_X) ^ (Math.round(cy) * HASH_MUL_Y)) >>> 0;
+              const poiKey = cellHash(tx, ty, poiIX, poiIY);
               const prng = makeRng(poiKey ^ 0xfade5a17);
               const shrubDensity = 0.18;
               const longgrassDensity = 0.10;
@@ -2918,8 +2886,8 @@
           // The key is the footprint's own anchor cell in ABSOLUTE cell
           // coords, so every cell and every turret of one castle agrees on it
           // and it survives a tile rebuild. (A footprint split across a tile
-          // seam mints one key per side — the same limitation houses already
-          // have, where the two halves are reconciled by proximity dedup.)
+          // seam mints one key per side. Houses don't have that limitation any
+          // more — see the house anchor below.)
           if (fpCells.length && bp.tier === T.BUILDING_LARGE) {
             let kx = 0, ky = 0;
             for (const [fx, fy] of fpCells) { kx += fx; ky += fy; }
@@ -2936,38 +2904,60 @@
           // code fell back to the ring centroid here, which planted a house
           // roof on a cell that wasn't part of any building footprint.
           if (!fpCells.length) continue;
-          // Anchor the house on its RASTERIZED FOOTPRINT (the tiles it's painted
-          // on), not the geometric ring centroid: take the footprint cells'
-          // centroid, then pick the footprint cell nearest it. This guarantees
-          // the sprite's bottom-middle sits on an actual building tile even for
-          // L-shaped / tile-clipped footprints (where the ring centroid can land
-          // off the block). Snapping to a cell also keeps the occupancy pass and
-          // row alignment working.
-          let sxc = 0, syc = 0;
-          for (const [fx, fy] of fpCells) { sxc += fx + 0.5; syc += fy + 0.5; }
-          const ccx = sxc / fpCells.length, ccy = syc / fpCells.length;
-          let best = fpCells[0], bd = Infinity;
-          for (const [fx, fy] of fpCells) {
-            const ex = fx + 0.5 - ccx, ey = fy + 0.5 - ccy, d = ex * ex + ey * ey;
-            if (d < bd) { bd = d; best = [fx, fy]; }
+          // Anchor the house on its RASTERIZED FOOTPRINT: take the footprint
+          // cells' centroid, then pick the footprint cell nearest it. This
+          // guarantees the sprite's bottom-middle sits on an actual building
+          // tile even for L-shaped footprints (where the ring centroid can land
+          // off the block). Snapping to a cell also keeps the occupancy pass
+          // and row alignment working.
+          //
+          // THE WHOLE FOOTPRINT, pad cells included — and that is what makes
+          // a house at a seam ONE house. assignBuildingFootprints shapes a
+          // building with a 3-cell pad past the tile bounds, so the two tiles
+          // either side of a seam compute the same footprint and so the same
+          // anchor; the tile whose square holds the anchor OWNS the house and
+          // mints it, and the other emits nothing (its half still paints, and
+          // its cells resolve to the owner's id below). This replaced a
+          // cross-tile proximity dedup whose survivor was whichever tile
+          // happened to load first — two players got two different houses.
+          // Integer arithmetic (doubled coordinates) so the pick is exact and
+          // translation-invariant: both tiles see the same numbers shifted by
+          // a whole tile, and ties break on (row, column), never array order.
+          const allFp = footprints[_bi];
+          const nFp = allFp.length;
+          let sx2 = 0, sy2 = 0;
+          for (const [fx, fy] of allFp) { sx2 += 2 * fx + 1; sy2 += 2 * fy + 1; }
+          let best = allFp[0], bd = Infinity;
+          for (const [fx, fy] of allFp) {
+            const ex = nFp * (2 * fx + 1) - sx2, ey = nFp * (2 * fy + 1) - sy2;
+            const d = ex * ex + ey * ey;
+            if (d < bd || (d === bd && (fy < best[1] || (fy === best[1] && fx < best[0])))) {
+              bd = d; best = [fx, fy];
+            }
           }
-          const cc = cellCenterMeters(best[0], best[1]);
-          const cx = cc.mx, cy = cc.my;
-          // The address (→ shop type) stays keyed to the GLOBAL cell of the
-          // house's chosen position so its shop role is stable across reloads.
-          const ix = Math.floor(cx / CELL_M);
-          const iy = Math.floor(cy / CELL_M);
+          // Which tile owns the anchor, and the anchor's cell on THAT tile.
+          // (A neighbour across an east/west seam always has this tile's cell
+          // count; one across a north/south seam does too except on the rare
+          // row where cellsPerEdgeForTile steps by one, where the two grids
+          // differ and a seam building can come out doubled or missing.)
+          const otx = tx + Math.floor(best[0] / w), oty = ty + Math.floor(best[1] / h);
+          const oix = best[0] - Math.floor(best[0] / w) * w;
+          const oiy = best[1] - Math.floor(best[1] / h) * h;
           // Stable id for per-house shop state (deal rate-limit, future ledger).
-          const id = `h_${Math.round(cx)}_${Math.round(cy)}`;
-          // Synthetic 3-digit street address derived from cell coords. Houses
-          // whose address ends in 9 become blacksmiths (~10% of houses).
-          const address = (((ix * HASH_MUL_X) ^ (iy * HASH_MUL_Y)) >>> 0) % 1000;
+          const id = `h_${otx}_${oty}_${oix}_${oiy}`;
           // House / fort cells resolve to the house object's own id — the key
           // save.restoredHouses and save.unlockedForts are stored under — so
-          // "is the building under this cell claimed" is one lookup. (A castle
-          // has no house object at all, so it keys on its footprint instead;
-          // see the BUILDING_LARGE mint above.)
+          // "is the building under this cell claimed" is one lookup, from
+          // either side of a seam. (A castle has no house object at all, so it
+          // keys on its footprint instead; see the BUILDING_LARGE mint above.)
           ownerKeys[ownerId] = id;
+          if (otx !== tx || oty !== ty) continue;   // the neighbour mints it
+          const cc = cellCenterMeters(best[0], best[1]);
+          const cx = cc.mx, cy = cc.my;
+          // Synthetic 3-digit street address derived from the house's own
+          // tile + cell (→ shop type), so its shop role is the same in every
+          // save. Houses whose address ends in 9 become blacksmiths (~10%).
+          const address = cellHash(otx, oty, oix, oiy) % 1000;
           objects.push(makeObject('house', cx, cy, id,
             { area: bp.areaM2, tier: bp.tier, address }));
         }
@@ -2979,8 +2969,8 @@
         for (const bp of buildingPolys) {
           const ring = new Float32Array(bp.ring.length * 2);
           for (let i = 0; i < bp.ring.length; i++) {
-            ring[i * 2] = bp.ring[i].x * mvtToM;
-            ring[i * 2 + 1] = bp.ring[i].y * mvtToM;
+            ring[i * 2] = bp.ring[i].x * mvtToFrameM;
+            ring[i * 2 + 1] = bp.ring[i].y * mvtToFrameM;
           }
           buildingShapes.push({
             ring,
@@ -3017,7 +3007,9 @@
         const _dropHouse = new Set();
         for (const k of _houseIdx) {
           const o = objects[k];
-          const hix = Math.floor(o.x / CELL_M), hiy = Math.floor(o.y / CELL_M);
+          // This tile's own cell (every house here is on it), not a global
+          // floor(x / CELL_M) cell of frame metres.
+          const { ix: hix, iy: hiy } = cellOfWorldM(o.x, o.y);
           let tooClose = false;
           for (let dy = -1; dy <= 1 && !tooClose; dy++) {
             for (let dx = -1; dx <= 1; dx++) {
@@ -3232,7 +3224,7 @@
         if (moved.ix === ix && moved.iy === iy) continue;
         const { mx, my } = cellCenterMeters(moved.ix, moved.iy);
         t.x = mx; t.y = my;
-        t.id = `t_park_${Math.round(mx)}_${Math.round(my)}`;
+        t.id = `t_park_${tx}_${ty}_${moved.ix}_${moved.iy}`;
       }
     }
 
@@ -3295,7 +3287,10 @@
       // then id as a final stable key.
       if (a.x !== b.x) return a.x - b.x;
       if (a.y !== b.y) return a.y - b.y;
-      return String(a.id ?? '').localeCompare(String(b.id ?? ''));
+      // Plain code-unit order, never localeCompare: collation is the
+      // runtime's locale, so two players' engines could order it differently.
+      const ai = String(a.id ?? ''), bi = String(b.id ?? '');
+      return ai < bi ? -1 : ai > bi ? 1 : 0;
     });
     const keptStructs = [];
     yield 'structure sort';
@@ -3426,13 +3421,23 @@
     // POI points for one physical place (e.g. an entrance + main label + amenity).
     // Group by normalized name, then drop any chest within DEDUP_M of an already-
     // kept chest of the same name. Unnamed chests are left untouched.
+    // Distances here are in CELLS of this tile (nominal CELL_M metres each),
+    // never frame metres — a threshold in frame metres is a threshold that
+    // moves with the save's home latitude. Chests sit on cell centres, so the
+    // squared cell distance is an exact integer.
+    const cellDist2 = (a, b) => {
+      const A = cellOfWorldM(a.x, a.y), B = cellOfWorldM(b.x, b.y);
+      const dx = A.ix - B.ix, dy = A.iy - B.iy;
+      return dx * dx + dy * dy;
+    };
     const DEDUP_M = 80;
+    const DEDUP_CELLS2 = (DEDUP_M / CELL_M) * (DEDUP_M / CELL_M);
     const byName = new Map();
     for (const o of objects) {
       if (o.kind !== 'chest' || !o.name) { continue; }
       const key = o.name.trim().toLowerCase();
       const prev = byName.get(key);
-      const tooClose = prev && prev.some(p => Math.hypot(p.x - o.x, p.y - o.y) <= DEDUP_M);
+      const tooClose = prev && prev.some(p => cellDist2(p, o) <= DEDUP_CELLS2);
       if (tooClose) { o._drop = true; continue; }
       (byName.get(key) || byName.set(key, []).get(key)).push(o);
     }
@@ -3443,13 +3448,13 @@
     // catch. Keep the NAMED chest (so the meaningful place wins over a generic
     // marker), else the first seen, and drop its neighbour so two POI sprites
     // don't stack on adjacent cells.
-    const NEAR_M = CELL_M * 1.2;   // catches same + orthogonally-adjacent cells
+    const NEAR_CELLS2 = 1.2 * 1.2;   // catches same + orthogonally-adjacent cells
     const keptChests = [];
     const chestsByPriority = objects
       .filter(o => o.kind === 'chest' && !o._drop)
       .sort((a, b) => (b.name ? 1 : 0) - (a.name ? 1 : 0));   // named first
     for (const o of chestsByPriority) {
-      if (keptChests.some(k => Math.hypot(k.x - o.x, k.y - o.y) <= NEAR_M)) o._drop = true;
+      if (keptChests.some(k => cellDist2(k, o) <= NEAR_CELLS2)) o._drop = true;
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
@@ -3507,8 +3512,40 @@
     // edge in meters at z=14 at given latitude
     return metersPerPixel(lat, Z) * TILE_PX;
   }
+  // DEPRECATED for anything generated or indexed. app.js keeps START_LAT's
+  // count as the frame's REFERENCE grid (scene.cellsPerTile), which only
+  // anchors coords.js' absolute-cell encoding so a save's keys stay put; every
+  // tile is indexed by its own row's count, cellsPerEdgeForTile(ty), below.
   function cellsPerEdgeForLat(lat) {
     return Math.round(tileEdgeMeters(lat) / CELL_M);
+  }
+  // Latitude of the CENTRE of tile row ty at Z. Web-mercator latitude depends
+  // on the row alone, so this is a pure function of ty.
+  function latOfRowCentre(ty) {
+    return tileLat(ty + 0.5);
+  }
+  // THE TILE'S OWN CELL COUNT — cells per edge from the tile's own latitude,
+  // never the save's. This is what makes the world the same for everyone:
+  // every generation input (the grid, every step, every id, every seed) is in
+  // this tile's cells, and this is a pure function of the row. Two saves with
+  // different home latitudes (a different START_LAT, so a different
+  // tileEdgeM frame) still rasterize a tile onto the SAME N x N grid. Memoised
+  // per row — the trig is cheap, but it is asked per tile per frame.
+  const _cpeByRow = new Map();
+  function cellsPerEdgeForTile(ty) {
+    let n = _cpeByRow.get(ty);
+    if (n === undefined) {
+      n = Math.round(tileEdgeMeters(latOfRowCentre(ty)) / CELL_M);
+      _cpeByRow.set(ty, n);
+    }
+    return n;
+  }
+  // Frame metres per cell of a tile in row ty: the save's tile edge (its
+  // frame, from START_LAT) over the tile's own cell count. What a consumer
+  // draws or measures a cell of that tile with — never CELL_M, and never
+  // tileEdgeM / cellsPerEdgeForLat(START_LAT).
+  function cellSizeM(tileEdgeM, ty) {
+    return tileEdgeM / cellsPerEdgeForTile(ty);
   }
 
   // Tile builds decode + rasterize on the MAIN thread (no worker), and each
@@ -3552,11 +3589,9 @@
   // entry and swapped in only once it is ready.
   async function loadTile(x, y, lat, opts) {
     const detached = !!(opts && opts.detached);
-    // NOTE: cache key is `${Z}/${x}/${y}` — same tile at a different latitude would alias.
-    // Safe today because the player session is anchored to one START_LAT. If we ever
-    // support session-scale long-distance teleports between very different latitudes,
-    // include `cellsPerEdgeForLat(lat)` in this key AND in every `tileCache.get(...)`
-    // call site in app.js.
+    // NOTE: cache key is `${Z}/${x}/${y}`. The grid (cellsPerEdge) is a pure
+    // function of the tile, so it never aliases; only the frame (tileEdgeM,
+    // from `lat`) would, and the session is anchored to one START_LAT.
     //
     // `tileCache` here shadows the module-level one with the ACTIVE depth's map
     // so the surface-build body below (dedup scans, eviction, .set) all operate
@@ -3574,11 +3609,14 @@
     // offline stretch doesn't spin on rebuild attempts.
     const failedAt = detached ? 0 : _tileFailedAt.get(key);
     if (failedAt && Date.now() - failedAt < TILE_RETRY_MS) {
-      return { status: 'loading', grid: null, cellsPerEdge: cellsPerEdgeForLat(lat),
+      return { status: 'loading', grid: null, cellsPerEdge: cellsPerEdgeForTile(y),
                tileEdgeM: tileEdgeMeters(lat), promise: Promise.reject(new Error(`tile ${key} backoff`)),
                _transient: true };
     }
-    const entry = { status: 'loading', grid: null, cellsPerEdge: cellsPerEdgeForLat(lat) };
+    // The grid is the TILE's (cellsPerEdgeForTile — a function of the row);
+    // only the frame (tileEdgeM, where this tile sits in world metres) comes
+    // from the save's lat.
+    const entry = { status: 'loading', grid: null, cellsPerEdge: cellsPerEdgeForTile(y) };
     const tileEdgeM = tileEdgeMeters(lat);
     entry.tileEdgeM = tileEdgeM;
     entry.promise = (async () => {
@@ -3597,39 +3635,18 @@
       const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
-      // Cross-tile dedup: drop any newly-spawned chest whose name matches one
-      // already in a previously-loaded tile within 120m (typical OSM intersection
-      // POIs duplicate across the four tiles meeting at that corner), and any
-      // new house within HOUSE_DEDUP_M of an existing one — the same building
-      // can be duplicated across the 4 tiles meeting at its corner, producing
-      // 2-4 sprites for the same physical structure (no name available — OSM
-      // doesn't usually name dwellings).
-      //
-      // Chests are indexed by lowercased name to keep dedup O(new × matches)
-      // rather than O(new × total) — the prior triple-nested scan was quadratic
-      // across the entire tileCache for every tile load.
-      const DEDUP_M = 120;
-      const DEDUP_M2 = DEDUP_M * DEDUP_M;
-      const { byName, addHouse, houseNear } = collectDedupIndex(tileCache, _dedupSkipKey);
-      const filteredObjects = [];
-      for (const o of objects) {
-        if (o.kind === 'chest' && o.name) {
-          const arr = byName.get(o.name.trim().toLowerCase());
-          let drop = false;
-          if (arr) for (const p of arr) {
-            const dx = p.x - o.x, dy = p.y - o.y;
-            if (dx * dx + dy * dy <= DEDUP_M2) { drop = true; break; }
-          }
-          if (drop) continue;
-        }
-        if (o.kind === 'house') {
-          if (houseNear(o.x, o.y)) continue;
-          // Record the kept house so other newly-pushed houses in this same
-          // tile also dedup against it (not just cross-tile).
-          addHouse(o.x, o.y);
-        }
-        filteredObjects.push(o);
-      }
+      // NO cross-tile dedup. A seam used to hand the same POI / the same
+      // house to two tiles, and a proximity dedup against whatever was already
+      // cached kept the copy of whichever tile loaded FIRST — so two players
+      // (or one player on two visits) could hold different chests and houses,
+      // under different ids. The rasterizer now decides ownership from the
+      // data itself: a POI belongs to the tile whose square holds its point,
+      // a house to the tile whose square holds its full footprint's anchor
+      // (see ownsPoint and the house anchor in rasterizeTileSteps). Each copy
+      // is minted by exactly one tile whatever else is loaded, so there is
+      // nothing left to reconcile here — and nothing O(cache) to run outside
+      // the sliced build.
+      const filteredObjects = objects.slice();
       entry.grid = grid;
       entry.owners = owners;
       entry.ownerKeys = ownerKeys;
@@ -3650,15 +3667,26 @@
       // cave-rock cluster (a mine mouth). Tiles with no cave rock get no
       // entrance — not every block has a way down, which reads naturally.
       //
-      // Pass the PRE-dedup `objects`, not entry.objects (filteredObjects,
-      // just above) — see maybePlaceCaveEntrance's own comment for why: the
-      // cross-tile dedup result is volatile across a rebuild (a tile can be
-      // REBUILT under you — see CLAUDE.md), and once a player has descended,
-      // loadCaveTile has already baked this tile's staircase position into a
-      // cached cave level (its 'up' stair is minted at that exact x,y). If a
-      // later rebuild moved the surface stair, that cached level is orphaned.
+      // Pass the rasterizer's own `objects`, not entry.objects — see
+      // maybePlaceCaveEntrance's own comment: a tile can be REBUILT under you
+      // (see CLAUDE.md), and once a player has descended, loadCaveTile has
+      // already baked this tile's staircase into a cached cave level. The
+      // stair must be a pure function of this tile's MVT bytes.
       maybePlaceCaveEntrance(entry, x, y, tileEdgeM, objects, wildplants);
       entry.wildplants = wildplants;
+      // THE GENERATED LAYER, frozen before anything order-dependent lands on
+      // it. The Overpass bin below is injected only if it happens to be in
+      // IndexedDB at build time (a cold cache builds without it and is rebuilt
+      // later), and app.js writes into entry.grid / entry.objects for its own
+      // per-player reasons (the home stair, dug walls, the starter kit, a
+      // well repaint). A cave level is derived from the level above, so it
+      // must be derived from THIS, never from the live entry, or two players —
+      // or one player before and after a rebuild — descend into two caves.
+      //   baseGrid    — the rasterized terrain, copied, never written again.
+      //   genObjects  — the rasterized objects + generated mine mouths (no
+      //                 bin injections, nothing app.js pushes).
+      entry.baseGrid = grid.slice();
+      entry.genObjects = entry.objects.slice();
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLabels = roadLabels || {};
       entry.pathUnder   = pathUnder   || {};
@@ -3684,6 +3712,30 @@
           return { ix: lix, iy: liy };
         };
         const _sxCentre = (ix, iy) => cellCentreM(x, y, ix, iy, tileEdgeM, cpe);
+        // A bin row carries its TILE-LOCAL cell (lix, liy on this tile's own
+        // grid — see buildBinsFromGeoJSON), never frame metres, so the same
+        // bin reads the same in every save. It is snapped ONCE, here, onto
+        // this tile's cell centre in this save's frame. And it is CLONED: a
+        // bin is shared (the static sidecar map lives all session, an
+        // Overpass bin is the IndexedDB value), and the passes below write
+        // x/y and relocate rows — mutating the bin in place moved a tree a
+        // second time on the next build of the same tile.
+        const _sxRows = (rows) => {
+          const out = [];
+          for (const r of (rows || [])) {
+            if (r == null || r.lix == null || r.liy == null) continue;
+            const c = _sxCentre(r.lix, r.liy);
+            const o = { ...r, x: c.x, y: c.y };
+            delete o.lix; delete o.liy;
+            out.push(o);
+          }
+          return out;
+        };
+        const sx = {
+          chests: _sxRows(bin.chests), trees: _sxRows(bin.trees),
+          fruittrees: _sxRows(bin.fruittrees), shrubs: _sxRows(bin.shrubs),
+          poles: _sxRows(bin.poles), wells: _sxRows(bin.wells), parking: _sxRows(bin.parking),
+        };
         const onWater = (wx, wy) => {
           const { ix: lix, iy: liy } = _sxCell(wx, wy);
           if (lix < 0 || liy < 0 || lix >= cpe || liy >= cpe) return false;
@@ -3698,16 +3750,9 @@
           const { ix: lix, iy: liy } = _sxCell(wx, wy);
           return `${lix}_${liy}`;
         };
-        // Re-centre an injected feature onto THIS tile's local cell grid. The
-        // bins were snapped to the global 5 m grid at fetch time, but every
-        // other object on the tile sits on the local grid (tileEdgeM/cpe,
-        // anchored at the tile origin) — leaving these on the global grid would
-        // reintroduce the sub-cell misalignment that lets a tree and a rock in
-        // the "same" cell both survive the occupancy check.
-        const localCentre = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          return _sxCentre(ix, iy);
-        };
+        // Frame metres per cell of this tile — only to turn the cell-unit
+        // dedup radii below into this frame's distances.
+        const _sxCellM = tileEdgeM / cpe;
         // Occupancy set — seed from everything rasterizeTile already placed so
         // injected features never land on an existing interactable (a rasterized
         // tree / rock / house / chest).
@@ -3722,7 +3767,7 @@
         // inject — count as public anchors.
         const _sxPois = [];
         for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
-        for (const ch of (bin.chests || [])) _sxPois.push(_sxCell(ch.x, ch.y));
+        for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
         const _sxSpawnOpts = { pois: _sxPois, roadMask };
         const _sxYardOK = (wx, wy) => {
           const { ix, iy } = _sxCell(wx, wy);
@@ -3811,15 +3856,13 @@
           }
           return true;
         };
-        for (const ch of (bin.chests || [])) {
+        for (const ch of sx.chests) {
           if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
           if (!_sxYardOK(ch.x, ch.y)) continue;
-          if (isDupPoiChest(entry.objects, ch)) continue;
+          if (isDupPoiChest(entry.objects, ch, _sxCellM)) continue;
           const k = cellKeyOf(ch.x, ch.y);
           if (occupied.has(k) && !evictSceneryAt(k)) continue;
           occupied.add(k);
-          const c = localCentre(ch.x, ch.y);
-          ch.x = c.x; ch.y = c.y;
           delete ch.garden;   // internal flag — don't leak into the chest object
           entry.objects.push(ch);
         }
@@ -3846,16 +3889,22 @@
           for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy); if (r) return r; }
           return null;
         };
-        const allTrees = [...(bin.trees || []), ...(bin.fruittrees || [])]
+        const allTrees = [...sx.trees, ...sx.fruittrees]
           .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
         for (const t of allTrees) {
           const r = placeTree(t.x, t.y);
           if (!r) continue;
           occupied.add(r.key);
           t.x = r.x; t.y = r.y;
+          // A detection with no OSM id is named by the cell it SETTLED on —
+          // unique (one tree per cell, just claimed) and positional. Its bin
+          // cell alone was not: two detections in one cell, or one relocated
+          // onto a cell a forest tree's id already named, shared an id, and
+          // chopping one felled the other.
+          if (!t.id) t.id = `${t.kind === 'fruittree' ? 'ft' : 'tree'}_sx_${x}_${y}_${r.ix}_${r.iy}`;
           entry.objects.push(t);
         }
-        for (const s of (bin.shrubs || [])) {
+        for (const s of sx.shrubs) {
           if (onWater(s.x, s.y)) continue;
           if (_sxHard(s.x, s.y)) continue;            // never on road / building / hard cell
           if (_sxNearChest(s.x, s.y)) continue;       // keep the POI frontage clear
@@ -3863,7 +3912,7 @@
           const k = cellKeyOf(s.x, s.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
-          const c = localCentre(s.x, s.y);
+          const c = s;   // already on this tile's cell centre (_sxRows)
           // Minted HERE rather than where the bin row was built (buildBin's
           // `shrubs.push`): a bin is CACHED in IndexedDB, so a bin written
           // before a stream's shape changed would otherwise inject records
@@ -3872,7 +3921,7 @@
           // file's, applied at the moment the row joins the stream.
           entry.wildplants.push(makeWildplant(s.crop, c.x, c.y, s.id));
         }
-        for (const p of (bin.poles || [])) {
+        for (const p of sx.poles) {
           if (onWater(p.x, p.y)) continue;
           if (_sxHard(p.x, p.y)) continue;            // never on road / building / hard cell
           if (_sxNearBuilding(p.x, p.y)) continue;    // nor inside a house sprite's overhang
@@ -3881,13 +3930,11 @@
           const k = cellKeyOf(p.x, p.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
-          const c = localCentre(p.x, p.y);
-          p.x = c.x; p.y = c.y;
           entry.objects.push(p);
         }
         // Wells (OSM amenity=fountain) → a tappable well object that refills the
         // watering can (interact.js 'well' branch), rendered as the well sprite.
-        for (const wl of (bin.wells || [])) {
+        for (const wl of sx.wells) {
           if (onWater(wl.x, wl.y)) continue;
           if (_sxBuilding(wl.x, wl.y)) continue;      // never on a building (roads are superseded below)
           if (_sxNearBuilding(wl.x, wl.y)) continue;  // nor inside a house sprite's overhang
@@ -3896,8 +3943,6 @@
           const k = cellKeyOf(wl.x, wl.y);
           if (occupied.has(k)) continue;
           occupied.add(k);
-          const c = localCentre(wl.x, wl.y);
-          wl.x = c.x; wl.y = c.y;
           entry.objects.push(wl);
           // A well supersedes a road/path tile it lands on — repaint the cell to
           // the dominant soft neighbour biome (so it blends, not a hard grass
@@ -3929,9 +3974,7 @@
         // spot" mark, claimed via the treasure handler (same array the MVT
         // parking path fills). No per-cell occupancy — X marks sit under the
         // terrain and don't block other interactables.
-        for (const pk of (bin.parking || [])) {
-          const c = localCentre(pk.x, pk.y);
-          pk.x = c.x; pk.y = c.y;
+        for (const pk of sx.parking) {
           // Same treatment the MVT parking path gets in the rasterize
           // post-pass: a lot's anchor lands on its aisle or the street beside
           // it as often as on standable ground, so walk the X to the nearest
@@ -3943,13 +3986,21 @@
             const moved = relocateToSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
             if (!moved) continue;
             ({ x: pk.x, y: pk.y } = _sxCentre(moved.ix, moved.iy));
+            // Named by its settled cell, in the MVT parking path's own format,
+            // so the same lot from both sources is the same X.
+            pk.id = `t_park_${x}_${y}_${moved.ix}_${moved.iy}`;
           }
-          // Skip if an X already sits within ~8m — the MVT parking path fills
-          // the SAME array (before this injection) and snaps on a slightly
-          // different basis, so the same lot present in both sources would
-          // otherwise drop two separately-claimable treasures.
-          const dupe = entry.parkingTreasures.some(t =>
-            (t.x - pk.x) * (t.x - pk.x) + (t.y - pk.y) * (t.y - pk.y) <= 8 * 8);
+          // Skip if an X already sits within ~8m (in CELLS: 8 / CELL_M, so
+          // the same cell or an orthogonal neighbour) — the MVT parking path
+          // fills the SAME array (before this injection), so the same lot
+          // present in both sources would otherwise drop two
+          // separately-claimable treasures.
+          const pkc = _sxCell(pk.x, pk.y);
+          const dupe = entry.parkingTreasures.some(t => {
+            const tc = _sxCell(t.x, t.y);
+            const dx = tc.ix - pkc.ix, dy = tc.iy - pkc.iy;
+            return (dx * dx + dy * dy) * CELL_M * CELL_M <= 8 * 8;
+          });
           if (dupe) continue;
           entry.parkingTreasures.push(pk);
         }
@@ -4032,20 +4083,24 @@
     // trees carry no `score` and are always kept. The z20 classified run is
     // already filtered at 0.30 (the reviewed sweet spot), so match it here.
     const SATEXTRACT_TREE_MIN_SCORE = 0.30;
-    const tileEdgeM = tileEdgeMeters(lat);
-    // lon/lat -> the z14 tile it falls in, plus its world-metre position
-    // SNAPPED to the global CELL_M grid's cell centre (cx, cy) — every feature
-    // kind below is placed on that snap. (loadTile re-centres each onto the
-    // tile's own local grid when it injects the bin.)
+    // lon/lat -> the z14 tile it falls in, plus its TILE-LOCAL CELL (lix,
+    // liy) on that tile's OWN grid (cellsPerEdgeForTile(ty) cells an edge).
+    // Frame-free: the tile fraction comes straight off the mercator, and the
+    // tile's cell count off its row — nothing here reads a latitude the save
+    // chose, so every save bins a feature into the same cell. (This used to
+    // snap to a GLOBAL CELL_M grid in frame metres — `lat` was the save's
+    // START_LAT — so which cell, which id and which species seed a feature got
+    // moved with the player's home.) loadTile snaps the cell onto its frame.
+    // `lat` is accepted and ignored, for callers that still pass it.
+    void lat;
     const project = (lon, lat0) => {
       const px = lonLatToWorldPx(lon, lat0, Z);
       const fx = px.x / TILE_PX, fy = px.y / TILE_PX;
-      const wmx = fx * tileEdgeM, wmy = fy * tileEdgeM;
-      return {
-        tx: Math.floor(fx), ty: Math.floor(fy),
-        cx: (Math.floor(wmx / CELL_M) + 0.5) * CELL_M,
-        cy: (Math.floor(wmy / CELL_M) + 0.5) * CELL_M,
-      };
+      const tx = Math.floor(fx), ty = Math.floor(fy);
+      const N = cellsPerEdgeForTile(ty);
+      const lix = Math.min(N - 1, Math.floor((fx - tx) * N));
+      const liy = Math.min(N - 1, Math.floor((fy - ty) * N));
+      return { tx, ty, lix, liy };
     };
         const bins = new Map();
         const binFor = (tx, ty) => {
@@ -4089,24 +4144,22 @@
             // score (undefined) and pass through untouched.
             if (props.score != null && props.score < SATEXTRACT_TREE_MIN_SCORE) continue;
             const p = project(lon, lat0);
-            const { cx, cy } = p;
+            const { lix, liy } = p;
             // Species / growth-variant seed. OSM trees key off their stable
             // osm_id; DeepForest trees have none, so derive a stable seed from
-            // the snapped cell so a given tree always renders the same.
-            const seed = osmId ||
-              (((Math.round(cx) * HASH_MUL_X) ^ (Math.round(cy) * HASH_MUL_Y)) >>> 0);
+            // the tile + cell so a given tree always renders the same.
+            const seed = osmId || cellHash(p.tx, p.ty, lix, liy);
             binFor(p.tx, p.ty).trees.push({
-              kind: 'tree', x: cx, y: cy,
+              kind: 'tree', lix, liy,
               variant: 1 + (seed % 4),
               // DeepForest trees carry a colour-classified species (pine/maple);
               // OSM trees have none → fall back to the seeded random species.
-              // Trees near the start are forced softwood (home.js) for easy early
-              // wood — except bush-tier crowns, which render as a uniform bush and
-              // gain nothing from the pine stamp (so they keep their own species).
-              species: (typeof HomeArea !== 'undefined')
-                ? HomeArea.softwoodSpeciesNear(cx, cy, props.species || TREE_SPECIES[seed % TREE_SPECIES.length], props.size)
-                : (props.species || TREE_SPECIES[seed % TREE_SPECIES.length]),
-              id: `tree_${Math.round(cx)}_${Math.round(cy)}`,
+              // The WORLD's species: softwood-near-home is a per-player overlay
+              // (HomeArea.applySoftwood, app.js), never baked into a bin.
+              species: props.species || TREE_SPECIES[seed % TREE_SPECIES.length],
+              // An OSM tree is named by its osm_id; a detection (no id) is
+              // named by the cell it SETTLES on, at injection (loadTile).
+              id: osmId ? `tree_osm_${osmId}` : undefined,
               // DeepForest crown diameter (metres) + discrete size class + sampled
               // crown colour → sprite size / tint in render.js. Undefined for OSM
               // trees, which fall back to the flat species scale and no tint.
@@ -4122,15 +4175,17 @@
             const props = f.properties || {};
             if (props.score != null && props.score < SATEXTRACT_TREE_MIN_SCORE) continue;
             const p = project(lon, lat0);
-            const { cx, cy } = p;
+            const { lix, liy } = p;
             // Peaches are 5× rarer than apples (apple:peach = 5:1). The satellite
             // colour classifier over-reported peaches, so assign species from a
             // stable per-cell hash (1 in 6 → peach) instead of trusting it.
-            const ftHash = ((Math.round(cx) * HASH_MUL_X) ^ (Math.round(cy) * HASH_MUL_Y)) >>> 0;
+            const ftHash = cellHash(p.tx, p.ty, lix, liy);
             binFor(p.tx, p.ty).fruittrees.push({
-              kind: 'fruittree', x: cx, y: cy,
+              kind: 'fruittree', lix, liy,
               species: ftHash % 6 === 0 ? 'peach' : 'apple',
-              id: `ft_${Math.round(cx)}_${Math.round(cy)}`,
+              // Named by osm_id when it has one, else by its settled cell at
+              // injection (loadTile) — see the tree row above.
+              id: osmId ? `ft_osm_${osmId}` : undefined,
               crown_m: props.crown_m,
               size: props.size,
               wild: true,            // mature & fruiting (vs a planted sapling)
@@ -4140,10 +4195,10 @@
             // Utility pole / post → decorative stone pillar. Snapped to the cell
             // grid like trees; rendered via RENDER_SPEC.pole, no interaction.
             const p = project(lon, lat0);
-            const { cx, cy } = p;
+            const { lix, liy } = p;
             binFor(p.tx, p.ty).poles.push({
-              kind: 'pole', x: cx, y: cy,
-              id: `pole_${osmId}`,
+              kind: 'pole', lix, liy,
+              id: osmId ? `pole_${osmId}` : `pole_${p.tx}_${p.ty}_${lix}_${liy}`,
             });
           } else if (kind === 'tree_row') {
             // Scatter ~5 bushes in a small disc around the row centroid.
@@ -4157,40 +4212,42 @@
               const rad = 2 + rng() * 10;   // 2–12 m from the centroid
               const p = project(lon + (rad * Math.cos(ang)) / mPerLon,
                                 lat0 + (rad * Math.sin(ang)) / mPerLat);
-              const { cx, cy } = p;
+              const { lix, liy } = p;
               binFor(p.tx, p.ty).shrubs.push({
-                x: cx, y: cy, crop: 'shrub', id: `sxbush_${osmId}_${i}`,
+                lix, liy, crop: 'shrub', id: `sxbush_${osmId}_${i}`,
               });
             }
           } else if (kind === 'fountain') {
             // amenity=fountain → a well (water source). Snapped to the cell grid
             // like trees; rendered + interacted as a 'well' object.
             const p = project(lon, lat0);
-            const { cx, cy } = p;
+            const { lix, liy } = p;
             binFor(p.tx, p.ty).wells.push({
-              kind: 'well', x: cx, y: cy,
-              id: `well_${osmId || (Math.round(cx) + '_' + Math.round(cy))}`,
+              kind: 'well', lix, liy,
+              id: osmId ? `well_${osmId}` : `well_${p.tx}_${p.ty}_${lix}_${liy}`,
             });
           } else if (kind === 'parking') {
             // amenity=parking → a buried-treasure X (claimed via the treasure
             // handler), matching the MVT parking path's parkingTreasures.
             const p = project(lon, lat0);
-            const { cx, cy } = p;
+            const { lix, liy } = p;
             binFor(p.tx, p.ty).parking.push({
-              x: cx, y: cy, id: `t_park_${Math.round(cx)}_${Math.round(cy)}`,
+              // Re-minted from the SETTLED cell at injection (loadTile), in
+              // the MVT parking path's own format.
+              lix, liy, id: `t_park_${p.tx}_${p.ty}_${lix}_${liy}`,
             });
           } else if (SX_CHEST_POI[kind]) {
             // Everything else we care about becomes a POI chest.
             const p = project(lon, lat0);
-            const { cx, cy } = p;
+            const { lix, liy } = p;
             const tags = (f.properties && f.properties.tags) || {};
             binFor(p.tx, p.ty).chests.push({
-              kind: 'chest', x: cx, y: cy,
+              kind: 'chest', lix, liy,
               poiClass: SX_CHEST_POI[kind],
               name: tags.name || '',
               // Garden chests scatter a flower burst at injection time.
               garden: kind === 'garden' || undefined,
-              id: `sxc_${osmId || (Math.round(cx) + '_' + Math.round(cy))}`,
+              id: osmId ? `sxc_${osmId}` : `sxc_${p.tx}_${p.ty}_${lix}_${liy}`,
             });
           }
         }
@@ -4310,8 +4367,14 @@
   }
   // Does `objects` already hold a chest of ch's class within its radius?
   // Same class only — a signal post beside a crossing is two places.
-  function isDupPoiChest(objects, ch) {
-    const r = poiDupRadiusM(ch.poiClass);
+  //
+  // The radii are GENERATION metres (CELL_M per cell). `cellM`, when given,
+  // is the frame metres per cell of the tile being built, and the radius is
+  // rescaled into that frame — so the verdict is a count of cells, the same
+  // in every save whatever its home latitude. Without it the radius is taken
+  // as frame metres (headless callers building in a nominal frame).
+  function isDupPoiChest(objects, ch, cellM) {
+    const r = poiDupRadiusM(ch.poiClass) * (cellM ? cellM / CELL_M : 1);
     const r2 = r * r;
     for (let i = 0; i < objects.length; i++) {
       const o = objects[i];
@@ -4417,9 +4480,16 @@
   const OVERPASS_429_TTL_MS  = 15 * 60 * 1000;   // 15 min — rate limited
 
   // Per-tile cache + in-flight dedup so a tile is queried at most once.
+  //
+  // THE CACHE HOLDS FRAME-FREE BINS. A bin row carries its tile-local cell on
+  // the tile's own grid (buildBinsFromGeoJSON), so the same cached bin injects
+  // the same features in every save. The key was `ovp/…` while bins held
+  // frame metres (snapped on the save's START_LAT grid); the `ovp2/` prefix
+  // orphans every one of those, so no old-format row is ever read back.
+  const OVERPASS_IDB_PREFIX = 'ovp2';
   const _overpassInflight = new Map();
   async function fetchOverpassBin(x, y, lat) {
-    const key = `ovp/${Z}/${x}/${y}`;
+    const key = `${OVERPASS_IDB_PREFIX}/${Z}/${x}/${y}`;
     const cached = await idbGet(key);
     if (cached) {
       if (cached._failed) {
@@ -4451,7 +4521,14 @@
             });
             if (resp.status === 429) { got429 = true; continue; }
             if (!resp.ok) continue;            // load-shed → next mirror
-            json = await resp.json();
+            const j = await resp.json();
+            // A `remark` is Overpass saying the answer is PARTIAL (a runtime
+            // timeout or memory cap cut the query short) while still sending
+            // 200 and some elements. Caching that "forever" would bake a
+            // half-decorated tile into one player's world and not another's.
+            // Treat it as a failure: next mirror, else the negative cache.
+            if (!j || j.remark) continue;
+            json = j;
             break;
           } catch (_) { /* abort/network error → try next endpoint */ }
           finally { if (timer) clearTimeout(timer); }
@@ -4490,7 +4567,7 @@
     const stat = sx && sx.get(`${x}_${y}`);
     if (stat) { ovpNote(x, y, 'static', stat); return stat; }
     if (!overpassLiveEnabled()) return null;
-    const key = `ovp/${Z}/${x}/${y}`;
+    const key = `${OVERPASS_IDB_PREFIX}/${Z}/${x}/${y}`;
     let cached = null;
     try { cached = await idbGet(key); } catch (_) { cached = null; }   // local, fast, can't hang on the network
     if (cached) {
@@ -4544,23 +4621,19 @@
   // is built alongside the live entry and only swapped in once it is ready; a
   // failed rebuild leaves the original untouched.
   //
-  // The build's cross-tile chest dedup has to ignore the tile's own live entry,
-  // or the rebuild would dedupe its chests against the copies it is replacing
-  // and drop them all.
+  // (The build has no cross-tile dedup to confuse with the live entry any
+  // more — ownership is decided per tile from its own data; see loadTile.)
   async function rebuildTileWithBin(x, y, lat) {
     const cache = cacheFor(0);
     const key = tileKey(x, y);
     const prev = cache.get(key);
     if (!prev || prev.status !== 'ready') return false;
-    _dedupSkipKey = key;
     let fresh = null;
     try {
       fresh = await loadTile(x, y, lat, { detached: true });
       await fresh.promise;
     } catch (_) {
       fresh = null;                      // rebuild failed — the original stands
-    } finally {
-      _dedupSkipKey = null;
     }
     if (!fresh || fresh.status !== 'ready') return false;
     // Carry over live per-session state the rebuild can't reconstruct.
@@ -4581,8 +4654,12 @@
   // floor, letting you keep descending. Same-coordinate (GPS-mirror) model:
   // a staircase's x/y never changes between levels.
 
-  function caveStairId(dir, depth, x, y) {
-    return `stair_${dir}_${depth}_${Math.round(x)}_${Math.round(y)}`;
+  // A staircase's id: direction, level, and its TILE + LOCAL CELL — never its
+  // frame metres (Math.round of an x/y moved with the save's home latitude).
+  // An up-stair sits on the cell of the down-stair it mirrors, so the pair
+  // share every field but `dir` and the depth.
+  function caveStairId(dir, depth, tx, ty, lix, liy) {
+    return `stair_${dir}_${depth}_${tx}_${ty}_${lix}_${liy}`;
   }
 
   // World-meter centre of local cell (lix,liy) on tile (tx,ty).
@@ -4608,7 +4685,8 @@
     }
     if (!floors.length) return null;
     const idx = floors[Math.floor(rng() * floors.length)];
-    return cellCentreM(tx, ty, idx % N, Math.floor(idx / N), tileEdgeM, N);
+    const lix = idx % N, liy = Math.floor(idx / N);
+    return { ...cellCentreM(tx, ty, lix, liy, tileEdgeM, N), lix, liy };
   }
 
   // Surface entrances: ~30 % of residential rock clusters get a down-staircase
@@ -4616,27 +4694,20 @@
   // least one entrance — anchored to a cave rock where one exists, otherwise on
   // a random walkable cell.
   //
-  // `stableObjects` — the tile's PRE-dedup object list — is what occupancy
-  // (objCells/nearChest) is judged against, NOT entry.objects. entry.objects
-  // is filteredObjects (see loadTile): the survivor of cross-tile chest/house
-  // dedup, whose outcome depends on which OTHER tiles happen to be cached at
-  // build time. A tile can be REBUILT under you (see CLAUDE.md) once its
-  // Overpass bin arrives, and by then more neighbour tiles are usually
-  // cached, so the SAME tile's dedup can drop or keep a different set of
-  // chests/houses than it did the first time. Once a player has descended,
-  // loadCaveTile has already baked this tile's staircase x,y into a cached
-  // cave level (its 'up' stair is minted at that exact point) — if the
-  // occupancy check that placed it depends on the volatile dedup outcome, a
-  // rebuild can move the staircase and orphan that cached level. The raw,
-  // pre-dedup object list is a pure function of this tile's own MVT bytes and
-  // coordinates (see rasterizeTileSliced) — stable no matter what else is
-  // cached — and it is a safe SUPERSET of what survives dedup (dedup only
-  // ever drops a chest/house, never moves one), so judging occupancy against
-  // it never lets a stair land on a chest/house that did survive. Falls back
+  // `stableObjects` — the rasterizer's own object list — is what occupancy
+  // (objCells/nearChest) is judged against, NOT whatever entry.objects holds
+  // by the time anything else has touched it. A tile can be REBUILT under you
+  // (see CLAUDE.md) once its Overpass bin arrives, and once a player has
+  // descended, loadCaveTile has already baked this tile's staircase into a
+  // cached cave level (its 'up' stair is minted on that exact cell) — if the
+  // occupancy check that placed it read anything but this tile's own MVT
+  // bytes, a rebuild could move the staircase and orphan that cached level.
+  // (There is no cross-tile dedup any more — ownership is decided from the
+  // data — so this list is exactly the tile's generated objects.) Falls back
   // to entry.objects when no separate list is given (fixtures/tests that
-  // build a synthetic entry with nothing to dedup). `stableWildplants` is the
-  // rasterizer's separate, already-filtered wildplant list; loadTile passes it
-  // before assigning entry.wildplants so those cells are occupied too.
+  // build a synthetic entry). `stableWildplants` is the rasterizer's
+  // separate, already-filtered wildplant list; loadTile passes it before
+  // assigning entry.wildplants so those cells are occupied too.
   function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM, stableObjects, stableWildplants) {
     const occupancySource = stableObjects || entry.objects || [];
     const wildplantSource = stableWildplants || entry.wildplants || [];
@@ -4704,7 +4775,7 @@
         used.add(idx);
         markPlaced(lix, liy);
         const { x, y } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
-        entry.objects.push(makeObject('staircase', x, y, caveStairId('down', 0, x, y),
+        entry.objects.push(makeObject('staircase', x, y, caveStairId('down', 0, tx, ty, lix, liy),
           { dir: 'down', depth: 0 }));
         return true;
       }
@@ -4725,7 +4796,8 @@
       used.add(idx);
       markPlaced(idx % N, Math.floor(idx / N));
       const { x, y } = cellCentreM(tx, ty, idx % N, Math.floor(idx / N), tileEdgeM, N);
-      entry.objects.push(makeObject('staircase', x, y, caveStairId('down', 0, x, y),
+      entry.objects.push(makeObject('staircase', x, y,
+        caveStairId('down', 0, tx, ty, idx % N, Math.floor(idx / N)),
         { dir: 'down', depth: 0 }));
       return true;
     };
@@ -4786,15 +4858,20 @@
         const n = CLUSTER_MIN + Math.floor(rng() * CLUSTER_SPAN);
         const tbl = rollVeinTable(rng, weights, VEIN_CHANCE, baseTbl);
         for (let k = 0; k < n; k++) {
+          // ROLL, THEN SWEEP: every rock takes its full set of draws (two for
+          // the seat, then the rock roll) whether or not its cell is free, so
+          // what is already seated on the level (a chest, a torch, a stair)
+          // only REMOVES the rocks that would stand on it — it can never
+          // shift the stream and re-roll every rock after it.
           const lix = px + Math.round((rng() - 0.5) * 2 * RADIUS);
           const liy = py + Math.round((rng() - 0.5) * 2 * RADIUS);
+          const roll = rollRock(rng, plainP, tbl);
           if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
           const idx = liy * N + lix;
           if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
           occupied.add(idx);
           const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
           const id = `cmr_${depth}_${tx}_${ty}_${lix}_${liy}`;
-          const roll = rollRock(rng, plainP, tbl);
           if (roll.plain) {
             objects.push(makeObject('mineralrock', cx, cy, id,
               { requiredTier: 1, caveVariant: roll.caveVariant }));
@@ -4893,7 +4970,9 @@
     if (above.torchSites) return above.torchSites;
     const sites = [];
     if (typeof chestMirrorsUnderground !== 'function') return sites;
-    for (const o of above.objects || []) {
+    // The GENERATED chests only (genObjects — see loadTile): a sidecar chest
+    // is on the live entry only when its bin happened to be cached at build.
+    for (const o of above.genObjects || above.objects || []) {
       if (o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) continue;
       if (chestMirrorsUnderground(o.poiClass)) continue;
       sites.push({ x: o.x, y: o.y, id: o.id });
@@ -5165,29 +5244,41 @@
     if (above.status === 'loading') await above.promise;
     const N = above.cellsPerEdge;
     const tileEdgeM = above.tileEdgeM;
+    // Derived from the level above's GENERATED layer only (baseGrid /
+    // genObjects — see loadTile): never the live entry, which carries the
+    // Overpass bin when it happened to be cached, and whatever app.js wrote
+    // into it for this one player (the home up-stair, the starter ladder, dug
+    // walls, a well's repaint). A live read made the cave under a tile depend
+    // on who descended into it and when.
+    const aboveGrid = above.baseGrid || above.grid;
+    const aboveObjects = above.genObjects || above.objects || [];
     const grid = new Uint8Array(N * N);
     for (let i = 0; i < grid.length; i++) {
-      grid[i] = isWalkable(above.grid[i]) ? T.CAVE_FLOOR : T.CAVE_WALL;
+      grid[i] = isWalkable(aboveGrid[i]) ? T.CAVE_FLOOR : T.CAVE_WALL;
     }
     const objects = [];
-    const downAbove = (above.objects || []).filter(
-      o => o.kind === 'staircase' && o.dir === 'down');
+    // Only GENERATED down-stairs lead down. A `_synthetic` one (the starter
+    // ladder app.js lays beside Home) is a per-player overlay: mirroring it
+    // here would seat a different cave — every rock and cap after the stair
+    // claims its cell — for the player who has one. app.js lays its own
+    // up-stair below a synthetic ladder, as it does for the home stair.
+    const downAbove = aboveObjects.filter(
+      o => o.kind === 'staircase' && o.dir === 'down' && !o._synthetic);
     for (const s of downAbove) {
+      const { lix: ulix, liy: uliy } = cellIndexOf(x, y, s.x, s.y, tileEdgeM, N);
+      const inTile = ulix >= 0 && ulix < N && uliy >= 0 && uliy < N;
       // Way back up: stand on it the moment you descend.
-      objects.push(makeObject('staircase', s.x, s.y, caveStairId('up', depth, s.x, s.y),
+      objects.push(makeObject('staircase', s.x, s.y, caveStairId('up', depth, x, y, ulix, uliy),
         { dir: 'up', depth }));
       // Way deeper: a random floor cell anywhere on this level, so the descent
       // shaft wanders instead of stacking straight down. Seeded off the source
-      // stair + depth so the layout is stable across reloads.
-      const { lix: ulix, liy: uliy } = cellIndexOf(x, y, s.x, s.y, tileEdgeM, N);
-      const skipIdx = (ulix >= 0 && ulix < N && uliy >= 0 && uliy < N)
-        ? uliy * N + ulix : -1;
-      const dnRng = makeRng(
-        ((Math.round(s.x) * HASH_MUL_X) ^ (Math.round(s.y) * HASH_MUL_Y)
-          ^ (depth * 0x9E3779B1)) >>> 0);
+      // stair's tile + cell + depth so the layout is stable across reloads —
+      // and across saves (the old seed was the stair's frame metres).
+      const skipIdx = inTile ? uliy * N + ulix : -1;
+      const dnRng = makeRng((cellHash(x, y, ulix, uliy) ^ Math.imul(depth, 0x9E3779B1)) >>> 0);
       const dn = randomFloorCell(grid, N, x, y, tileEdgeM, dnRng, skipIdx);
       if (dn) {
-        objects.push(makeObject('staircase', dn.x, dn.y, caveStairId('down', depth, dn.x, dn.y),
+        objects.push(makeObject('staircase', dn.x, dn.y, caveStairId('down', depth, x, y, dn.lix, dn.liy),
           { dir: 'down', depth }));
       }
     }
@@ -5200,7 +5291,7 @@
     }
     // The POI chests overhead, mirrored down to this level (they claim their
     // cells in `occupied` before the rocks are rolled).
-    for (const c of caveChestsFrom(above.objects, grid, N, x, y, tileEdgeM, depth, occupied)) {
+    for (const c of caveChestsFrom(aboveObjects, grid, N, x, y, tileEdgeM, depth, occupied)) {
       objects.push(c);
     }
     // Torches where the lowtier POIs overhead would have been (a random
@@ -5223,6 +5314,9 @@
       status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
       objects, wildplants, parkingTreasures: [], extraTreasures, caveCoinSeeds,
       roadLabels: {}, pathUnder: {}, torchSites,
+      // The generated layer, frozen for the level below (see loadTile): app.js
+      // digs walls into `grid` and lays the home up-stair into `objects`.
+      baseGrid: grid.slice(), genObjects: objects.slice(),
     };
     cache.set(key, entry);
     pruneCache(cache, key);
@@ -5360,7 +5454,19 @@
     rasterizeTileSteps,
     setSliceBudgetMs, sliceBudgetMs, noteSliceFrame, sliceFrameTargetMs,
     RASTER_SLICE_LIVE_MS, SLICE_MIN_MS,
-    lonLatToWorldPx, metersPerPixel, tileEdgeMeters, cellsPerEdgeForLat,
+    lonLatToWorldPx, metersPerPixel, tileEdgeMeters,
+    // The tile's OWN grid: cells per edge from the tile's row (a pure
+    // function of ty), and the frame metres per cell of a tile in a save's
+    // frame. cellsPerEdgeForLat is the per-save legacy (START_LAT) size —
+    // nothing generates or indexes by it; app.js keeps it only as the frame's
+    // reference count anchoring coords.js' absolute-cell encoding.
+    cellsPerEdgeForTile, cellSizeM, latOfRowCentre, cellsPerEdgeForLat,
+    // Tile + local-cell hash every generated id/seed is keyed on, and the
+    // stair id built from it.
+    cellHash, caveStairId,
+    // Sidecar / Overpass GeoJSON → per-tile bins of tile-local cells —
+    // exported so world_frame.test.js can pin that binning is frame-free.
+    buildBinsFromGeoJSON,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
@@ -5388,10 +5494,6 @@
     // building floors with it, so the overlay and the grid agree on what a
     // building is.
     isBuildingTerrain,
-    // Cross-tile spawn dedup — exported so the headless tests can pin that a
-    // tile being rebuilt in place is excluded from its own dedup index (the
-    // bug that stripped every house sprite off rebuilt tiles).
-    collectDedupIndex,
     // POI chest dedupe (one place, one chest) — exported so the headless tests
     // can pin the radii against the real Gordon-at-KLO crossing cluster.
     isDupPoiChest, poiDupRadiusM, POI_DUP_AREA_M, POI_DUP_POINT_M,

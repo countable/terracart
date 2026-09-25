@@ -677,9 +677,13 @@ test('lighting: the map multiplies, the cookies add, and the plateau is per cell
   assert.truthy(/ctx\.fillStyle = hex\(prof\.ambient\)/.test(L), 'the floor is the derived ambient');
   assert.truthy(/scene\.playerScreen\(\)/.test(L), 'the ramp is centred on the feet-on-the-fix point');
   assert.truthy(/tex\.refresh\(\)/.test(L), 'and the texture is refreshed each frame');
-  // The plateau uses cellInReach's own expressions, hoisted the way drawCells does.
-  assert.truthy(/const dx = \(absIX - rp\.cellIX\) \* scene\.cellM;/.test(L) && /if \(dx \* dx \+ dy \* dy > reachM2\) continue;/.test(L),
+  // The plateau uses cellInReach's own expressions (whole cells from the reach
+  // cell, by position across a row whose grid differs — coords.js
+  // absCellDelta — then the metre test), and every lit cell passes it.
+  assert.truthy(/const d = absCellDelta\(scene, rp\.cellIX, rp\.cellIY,/.test(L)
+    && /const ddx = d\.dx \* scene\.cellM;/.test(L) && /return ddx \* ddx \+ ddy \* ddy <= reachM2;/.test(L),
     'the plateau cells are picked by the reach test, not a circle');
+  assert.truthy(/if \(!inReach\(col, row\)\) continue;/.test(L), 'every lit cell passes it');
 });
 
 test('lighting: the plateau cells land on the lit level, red when tired', () => {

@@ -109,7 +109,7 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   // cadences rather than typed in.
   assert.truthy(/const MONSTER_ARROW_HITS = Combat\.MONSTER_SHOT_INTERVAL_MS \/ MONSTER_HIT_MS;/.test(app),
     'MONSTER_ARROW_HITS is the ratio of the two cadences');
-  assert.truthy(/const dmg = m\.dmg \* MONSTER_ARROW_HITS \* Combat\.eliteMul\(c\) \* Difficulty\.get\(\)\.enemyDmgMul;/.test(app),
+  assert.truthy(/const dmg = m\.dmg \* MONSTER_ARROW_HITS \* Combat\.powerMul\(c\) \* Difficulty\.get\(\)\.enemyDmgMul;/.test(app),
     'and the arrow carries that many hits');
   const hitMs = Number(app.match(/const MONSTER_HIT_MS = (\d+);/)[1]);
   assert.eq(Combat.MONSTER_SHOT_INTERVAL_MS / hitMs, 5, 'five hits an arrow at today\'s cadences');

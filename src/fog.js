@@ -5,7 +5,12 @@
 //
 // Exports as globals:
 //   Fog.REVEAL_CELLS      — vision radius, in cells, around the player
-//   Fog.init(save, w)     — load the persisted masks; w = cellsPerTile
+//   Fog.init(save, w, geom) — load the persisted masks; w = the frame's
+//                           reference cells per edge (scene.cellsPerTile), geom
+//                           = the per-row grid (optional; absent = uniform w):
+//                           { rowCells(ty), absToTile(ax, ay), offset(ax, ay,
+//                           dx, dy) } — coords.js' rowCells / absCellToTile /
+//                           absCellOffset bound to the scene.
 //   Fog.reveal(ix, iy)    — reveal the PLAYER's vision circle; true if anything changed
 //   Fog.revealDisc(ix, iy, r) — reveal an arbitrary disc (the onboarding trail)
 //   Fog.seen(tx, ty, ix, iy) — is that cell revealed? (No shipping caller —
@@ -72,10 +77,16 @@
   // that actually moved. A walk only ever dirties the one or two tiles the
   // player is standing across, so the rest keep last flush's blob.
   let _enc = new Map();
-  // Cells per tile edge. Latitude-dependent (WorldGen.cellsPerEdgeForLat), so a
-  // save carries the width its masks were built at and we drop them rather than
-  // mis-index if it ever changes under us.
+  // The frame's REFERENCE cells per tile edge (scene.cellsPerTile). A tile's
+  // own mask is sized by ITS row's count (_rowN, from geom.rowCells — a tile's
+  // grid is its row's, CLAUDE.md "Every player sees the SAME generated
+  // world"), which equals _w on almost every row. save.fog records each tile's
+  // width where it differs from _w, and a mask whose width doesn't match its
+  // row any more is dropped rather than mis-indexed.
   let _w = 0;
+  let _geom = null;
+  const _rowN = (ty) => (_geom ? _geom.rowCells(ty) : _w);
+  const _maskBytes = (n) => Math.ceil((n * n) / 8);
   // Bumped on every actual reveal. The renderer keeps the last value it drew
   // and rebuilds only when this moves — see the fog pass in render.js.
   let _revision = 0;
@@ -157,7 +168,7 @@
     const k = key(tx, ty);
     let m = _masks.get(k);
     if (!m) {
-      m = new Uint8Array(Math.ceil((_w * _w) / 8));
+      m = new Uint8Array(_maskBytes(_rowN(ty)));
       _masks.set(k, m);
     }
     return m;
@@ -165,7 +176,7 @@
 
   function seen(tx, ty, ix, iy) {
     const m = maskFor(tx, ty);
-    return !!m && !!bit(m, iy * _w + ix);
+    return !!m && !!bit(m, iy * _rowN(ty) + ix);
   }
 
   // Reveal a disc of radius R around one ABSOLUTE cell (tile-pixel basis, the
@@ -178,9 +189,15 @@
     // Absolute cell → owning tile + local cell. Floor-div / floor-mod so
     // negative world coordinates (west / north of the origin tile) land in
     // the right tile instead of collapsing toward zero.
-    const tx = Math.floor(ax / _w), ty = Math.floor(ay / _w);
-    const ix = ax - tx * _w, iy = ay - ty * _w;
-    const i = iy * _w + ix;
+    let tx, ty, ix, iy, n;
+    if (_geom) {
+      const t = _geom.absToTile(ax, ay);
+      tx = t.tx; ty = t.ty; ix = t.ix; iy = t.iy; n = t.n;
+    } else {
+      tx = Math.floor(ax / _w); ty = Math.floor(ay / _w);
+      ix = ax - tx * _w; iy = ay - ty * _w; n = _w;
+    }
+    const i = iy * n + ix;
     const m = ensureMask(tx, ty);
     const byte = i >> 3, mask = 1 << (i & 7);
     if (m[byte] & mask) return false;
@@ -198,7 +215,10 @@
     for (let dy = -R; dy <= R; dy++) {
       for (let dx = -R; dx <= R; dx++) {
         if (dx * dx + dy * dy > R2) continue;   // a disc, not a square
-        if (revealCell(cellIX + dx, cellIY + dy)) changed = true;
+        // Across a row seam whose grid differs the neighbour is a POSITION
+        // (coords.js absCellOffset), not cellIX + dx.
+        const c = _geom ? _geom.offset(cellIX, cellIY, dx, dy) : null;
+        if (revealCell(c ? c.cellIX : cellIX + dx, c ? c.cellIY : cellIY + dy)) changed = true;
       }
     }
     return changed;
@@ -223,21 +243,27 @@
     return changed;
   }
 
-  // save.fog = { w, tiles: { "tx/ty": "<rle+base64>" } }.
-  // A save written at a different cells-per-tile width can't be re-indexed, so
-  // it is dropped: the player re-reveals as they walk rather than seeing fog
-  // torn at tile seams. (Only reachable if the world's latitude anchor moves —
-  // see the cellsPerEdgeForLat note on the tile cache key in worldgen.js.)
-  function init(save, w) {
+  // save.fog = { w, tiles: { "tx/ty": "<rle+base64>" }, n?: { "tx/ty": width } }.
+  // A mask written at a different width than its row's grid now has can't be
+  // re-indexed, so it is dropped (per tile — the frame's reference width w
+  // changing drops them all): the player re-reveals as they walk rather than
+  // seeing fog torn at tile seams.
+  function init(save, w, geom) {
     _masks = new Map();
     _enc = new Map();
     _w = w | 0;
+    _geom = geom || null;
     _revision++;
     _lastIX = _lastIY = null;
     const fog = save && save.fog;
     if (!fog || !fog.tiles || fog.w !== _w) return;
-    const bytes = Math.ceil((_w * _w) / 8);
+    const widths = fog.n || {};
     for (const k of Object.keys(fog.tiles)) {
+      // The width this mask was written at, and the width its row has now.
+      const ty = Number(k.split('/')[1]);
+      const n = _rowN(ty);
+      if ((widths[k] ?? fog.w) !== n) continue;
+      const bytes = _maskBytes(n);
       try {
         const m = rleDecode(fromB64(fog.tiles[k]), bytes);
         // Re-seed the blob cache from what we just read, so the first flush
@@ -250,9 +276,16 @@
   function flush(save) {
     if (!save || !_w) return;
     const tiles = {};
+    const widths = {};
+    let anyWidth = false;
     for (const [k, m] of _masks) {
+      const n = _rowN(Number(k.split('/')[1]));
       const cached = _enc.get(k);
-      if (cached !== undefined) { tiles[k] = cached; continue; }
+      if (cached !== undefined) {
+        tiles[k] = cached;
+        if (n !== _w) { widths[k] = n; anyWidth = true; }
+        continue;
+      }
       // Skip tiles whose every bit is still 0 — ensureMask allocates on the
       // first write, but a reveal that changed nothing (re-walking known
       // ground) shouldn't add an all-zero blob to the save forever.
@@ -262,8 +295,11 @@
       const blob = toB64(Uint8Array.from(rleEncode(m)));
       _enc.set(k, blob);
       tiles[k] = blob;
+      if (n !== _w) { widths[k] = n; anyWidth = true; }
     }
-    save.fog = { w: _w, tiles };
+    // Only tiles on a row whose grid differs from the frame's carry a width,
+    // so a save whose every row matches is written exactly as before.
+    save.fog = anyWidth ? { w: _w, tiles, n: widths } : { w: _w, tiles };
   }
 
   window.Fog = {

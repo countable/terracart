@@ -1106,14 +1106,28 @@
       const reachM2 = reachM * reachM;
       const fracX = pc.cx - Math.floor(pc.cx);
       const fracY = pc.cy - Math.floor(pc.cy);
-      const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
-      const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
+      const { cellIX: baseCellIX, cellIY: baseCellIY } = viewAnchorAbsCell(scene, pc);
       const half = (VIEW_CELLS - 1) / 2;
+      // Each slot row's band (coords.js viewBand): the column shift and screen
+      // phase of a row whose tile row has a different grid to the anchor's —
+      // the same slots render.js drawCells paints, so the plateau lights
+      // exactly the cells drawn under it. Rows -2..VIEW_CELLS+1 (the probe
+      // reaches one past the drawn range).
+      const bandDX = new Int32Array(VIEW_CELLS + 4), bandPh = new Float32Array(VIEW_CELLS + 4);
+      for (let r = -2; r <= VIEW_CELLS + 1; r++) {
+        const b = viewBand(scene, pc, baseCellIY + (r - half));
+        bandDX[r + 2] = b.dX; bandPh[r + 2] = b.phaseX;
+      }
       // The neighbour probe for the corner rounding — the same test again, so
-      // a corner is rounded by exactly the cells the loop below lights.
+      // a corner is rounded by exactly the cells the loop below lights. It is
+      // cellInReach's expression; across a row whose grid differs the
+      // distance is measured by position (coords.js absCellDelta), which on a
+      // shared grid is the plain subtraction.
       const inReach = (c, r) => {
-        const ddx = (baseCellIX + (c - half) - rp.cellIX) * scene.cellM;
-        const ddy = (baseCellIY + (r - half) - rp.cellIY) * scene.cellM;
+        const d = absCellDelta(scene, rp.cellIX, rp.cellIY,
+          baseCellIX + (c - half) + bandDX[r + 2], baseCellIY + (r - half));
+        const ddx = d.dx * scene.cellM;
+        const ddy = d.dy * scene.cellM;
         return ddx * ddx + ddy * ddy <= reachM2;
       };
       ctx.fillStyle = plateauFill(ctx, prof, ps.x - ox, ps.y - oy, r0);
@@ -1123,13 +1137,10 @@
       ctx.beginPath();
       for (let row = -1; row <= VIEW_CELLS; row++) {
         for (let col = -1; col <= VIEW_CELLS; col++) {
-          const absIX = baseCellIX + (col - half);
-          const absIY = baseCellIY + (row - half);
-          const dx = (absIX - rp.cellIX) * scene.cellM;
-          const dy = (absIY - rp.cellIY) * scene.cellM;
-          if (dx * dx + dy * dy > reachM2) continue;
+          if (!inReach(col, row)) continue;
           // cellScreenXY's expression (render.js), in lightmap-local px.
-          const sx = Math.round(scene.viewCenterX + (col - half - fracX + 0.5) * CELL_PX - CELL_PX / 2) - ox;
+          const sx = Math.round(scene.viewCenterX + (col - half - fracX + 0.5) * CELL_PX - CELL_PX / 2
+            + (bandPh[row + 2] || 0)) - ox;
           const sy = Math.round(scene.viewCenterY + (row - half - fracY + 0.5) * CELL_PX - CELL_PX / 2) - oy;
           plateauCellPath(ctx, sx, sy,
             !inReach(col, row - 1), !inReach(col, row + 1), !inReach(col - 1, row), !inReach(col + 1, row),

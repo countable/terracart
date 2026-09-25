@@ -61,7 +61,7 @@ test('poi dedupe: only the same class merges', () => {
 test('poi dedupe: the sidecar injection loop consults the rule', () => {
   // The helper is only worth anything if loadTile's chest loop calls it
   // before pushing the chest — a local reimplementation there would drift.
-  assert.truthy(SX_CHEST_INJECT_SRC.includes('isDupPoiChest(entry.objects, ch)'),
+  assert.truthy(/isDupPoiChest\(entry\.objects, ch\b/.test(SX_CHEST_INJECT_SRC),
     'loadTile must ask isDupPoiChest against the tile\'s live objects before injecting a sidecar chest');
 });
 })();

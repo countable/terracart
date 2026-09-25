@@ -271,11 +271,11 @@ the mechanic.
   walks a whole polygon (make it a `function*` and `yield*` it, like
   `spawnDebrisSteps` / `_spawnRockClustersSteps`). **When you add a pass over
   every cell, object or polygon, give it a yield.**
-  The post-rasterize path in `loadTile` (cross-tile dedup, cave entrance,
-  Overpass bin injection) has no slicer at all, so anything there must be O(n)
-  by construction — the house dedup is a bucket grid
-  (`collectDedupIndex`'s `houseNear` / `addHouse`), never a walk of
-  `housePositions`.
+  The post-rasterize path in `loadTile` (cave entrance, Overpass bin
+  injection) has no slicer at all, so anything there must be O(n) by
+  construction. Cross-tile duplicates are settled by POINT OWNERSHIP inside
+  the rasterize (a seam house / POI is emitted only by the tile holding its
+  anchor), never by scanning neighbour tiles — that read load order.
   **Audit it:** `node test/node/run.js` › `test/node/tile_build_blocks.test.js`
   and `test/node/worldgen_dedup.test.js`.
 
@@ -428,6 +428,40 @@ the mechanic.
   trap's cell.
   **Audit it:** the determinism pins in `test/node/traps.test.js`,
   `test/node/cave_coins.test.js` and `test/node/beach_treasure.test.js`.
+
+- **Every player sees the SAME generated world — the save's frame is for
+  DRAWING, never for generating.** Multiplayer players talk about places ("the
+  peach tree by the church"), so given the same tile bytes a tile must
+  generate identically on every device. Each save projects the world in its
+  own metre frame (`START_LAT`, the frozen home latitude, scales
+  `tileEdgeM`), so **absolute world metres differ between players** — by
+  metres for homes metres apart. Therefore:
+    1. **A tile's cell grid is the TILE's, from its own latitude**
+       (`WorldGen.cellsPerEdgeForTile(ty)`), never `START_LAT`'s. A cell's
+       size in the frame is `tileEdgeM / entry.cellsPerEdge` — never assume
+       `CELL_M` or `scene.cellsPerTile` when indexing a tile's cells.
+    2. **Ids, seeds and hashes come from tile + local cell** (`${prefix}_${tx}_
+       ${ty}_${ix}_${iy}`) or an OSM id — never `Math.round(x)`, a metre in a
+       hash, or a global `floor(x / CELL_M)`. A metre-denominated step or area
+       in generation is converted through the tile's CELLS, not `mvtToM`.
+    3. **Per-player data never reaches the generated world.** Home distance,
+       game progress and the starting area may ADJUST a thing for its own
+       player (an overlay applied after generation, a nerf, softer contents),
+       never decide what the thing IS or WHERE it sits: species, a chest's
+       type / tier / look, which ruins hold a garrison and what's in it, which
+       guards are elite. Player edits (dug walls, the pond, placed stairs) stay
+       off the generated grid a deeper level is derived from.
+    4. **Nothing depends on load order or network luck**: cross-tile dedup
+       picks its survivor from the data, not from which tile was cached
+       first; cached Overpass bins are stored frame-free.
+  **What MAY differ between players, by design**: chest CONTENTS and every
+  drop roll, recurring random events (coin bursts, respawns, wandering,
+  shop stock), game-mode counts (easy vs hard creature / trap numbers), and
+  per-player progress (restoration is per-save today — sharing it is shelved in
+  `docs/SHARED_RESTORATION_PLAN.md`). **When you add a generated thing, ask
+  what two players with different homes and modes would each see.**
+  **Audit it:** `node test/node/run.js` › `test/node/world_frame.test.js`
+  and `test/node/lairs.test.js`.
 
 - **Light ADDS, darkness doesn't — the lightmap is the only lighting pass,
   and its numbers are DERIVED.** `src/lighting.js`: a viewport-sized 2D

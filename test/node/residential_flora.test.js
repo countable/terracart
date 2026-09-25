@@ -50,7 +50,11 @@ const cellIdx = (p) => cellY(p.y) * CPE + cellX(p.x);
 // Measured on this fixture BEFORE the yard lane existed. The yard flora draws
 // from its own salted stream and only joins `wildplants` after every older
 // plant, so neither the rocks nor the older plants may move by one cell.
-const ROCKS_BEFORE = { n: 395, hash: 3517605594 };
+// (The rock hash was re-pinned when ids moved from frame metres to tile +
+// local cell, `mr_${tx}_${ty}_${ix}_${iy}`: the same 395 rocks on the same
+// cells — the old-format ids rebuilt from these positions still hash to the
+// old 3517605594.)
+const ROCKS_BEFORE = { n: 395, hash: 764627900 };
 const OLDER_PLANTS_BEFORE = { n: 32, hash: 2568163975 };
 
 test('residential yard flora: rocks and older wild plants are exactly where they were', () => {

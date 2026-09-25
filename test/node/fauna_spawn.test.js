@@ -36,10 +36,17 @@
 // an arrow function (to keep the original's `this` semantics) inside a host
 // function that supplies the variables tryPlace closes over.
 function makeTryPlace(scene, rng, N, pestFree, entry, _spawnOpts, tx, ty, caughtSet, creatures) {
+  // spawnInTile's own locals the closure also reads: the tile's cell size in
+  // frame metres, and the GENERATED grid its draws ask (baseGrid when the
+  // entry has one — these stubs don't, so it is the grid itself).
+  const cellM = scene.cellM;
+  const genGrid = entry.baseGrid || entry.grid;
   const factory = new Function(
     'rng', 'N', 'pestFree', 'entry', '_spawnOpts', 'tx', 'ty', 'caughtSet', 'creatures',
+    'cellM', 'genGrid',
     'return (kindWant, classesOK, idx, kindStr) => {\n' + TRY_PLACE_SRC + '\n};');
-  return factory.call(scene, rng, N, pestFree, entry, _spawnOpts, tx, ty, caughtSet, creatures);
+  return factory.call(scene, rng, N, pestFree, entry, _spawnOpts, tx, ty, caughtSet, creatures,
+    cellM, genGrid);
 }
 
 const GRASS = 0, RESIDENTIAL = 5, ROAD = 7;

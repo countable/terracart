@@ -63,8 +63,9 @@
       // are NOT this flag: both modes get those.
       cropPests: false,
       // DERELICT LAIRS (src/lairs.js): a garrison of immobile monsters
-      // squatting in every unclaimed structure past a safe ring around home,
-      // growing with the building's tier and its distance from home — the tier
+      // squatting in unclaimed structures, the same garrison for every player
+      // (sized by the building's tier and its own seeded strength), softened
+      // near home by a nerf that fades out by LAIR_FAR_M — the tier
       // also deciding WHETHER it is held at all (a third of wrecks, most
       // forts, nearly every castle) and WHAT is in there (a wreck is squatted
       // by slimes, a fort or a castle is held by goblins). A garrison holds

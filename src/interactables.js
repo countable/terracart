@@ -31,7 +31,7 @@
 // `complete` without smuggling state through closures.
 //
 // Helpers referenced here (treeAxeReqTier, effectiveChopCost, effectivePickCost,
-// TIER_BY_NUM, isShiny, SHINY_RATE, randInt, pickFromArray, ITEM_BY_ID,
+// TIER_BY_NUM, chestRollTier (loot.js), isShiny, SHINY_RATE, randInt, pickFromArray, ITEM_BY_ID,
 // persistSave, toolDurationMs) are globals from util.js / items.js / save.js,
 // all loaded before this module.
 
@@ -449,7 +449,7 @@ const INTERACTABLES = {
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).
       const held = save.chestHold && save.chestHold[o.id];
-      const chestT = (typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth) : 2;
+      const chestT = (typeof chestRollTier === 'function') ? chestRollTier(o.poiClass, o.x, o.y, o.depth) : 2;
       const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }

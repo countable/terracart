@@ -46,7 +46,8 @@
 //      reposition playerM to the PLAYER PLAZA scene.
 //
 // Dependencies (globals):
-//   WorldGen — Z, tileCache, cellsPerEdgeForLat, tileEdgeMeters, makeRng
+//   WorldGen — Z, tileCache, tileEdgeMeters, makeRng
+//   coords.js — rowCells (each tile's own grid)
 //   ITEMS / RELIC_DEFS / ARMOR_DEFS — for the test kit
 //   fnv1a (util.js) — shared FNV-1a hash, for the flora-placer's seed
 //
@@ -650,17 +651,21 @@
       scene.gpsWatchId = null;
     }
     scene.gpsAvailable = false;
-    const cellsPerEdge = scene.cellsPerTile;
     const tileEdgeM = scene.tileEdgeM;
-    const cellM = scene.cellM;
+    const startCell = scene.playerToWorldCell();
+    const centreTX = startCell.tx;
+    const centreTY = startCell.ty;
+    // Every synthetic tile is built on ITS row's grid, exactly as a real one
+    // is (coords.js rowCells — a tile's grid is its row's, never the save's
+    // cellsPerTile), with that grid's own cell size in frame metres.
+    const rowN = (ty) => rowCells(scene, ty);
+    const rowM = (ty) => tileEdgeM / rowN(ty);
+    const cellsPerEdge = rowN(centreTY);
+    const cellM = rowM(centreTY);
     // Centre the whole scene map in the start tile so the player's start
     // (somewhere inside the tile) is close to it. We reposition to PLAZA below.
     const gridOriginIX = Math.floor((cellsPerEdge - LAYOUT.width) / 2);
     const gridOriginIY = Math.floor((cellsPerEdge - LAYOUT.height) / 2);
-
-    const startCell = scene.playerToWorldCell();
-    const centreTX = startCell.tx;
-    const centreTY = startCell.ty;
 
     // Build the centre tile (the sandbox) and 8 grass-only neighbours so the
     // viewport edge doesn't show "loading…" tiles.
@@ -671,7 +676,7 @@
         if (WorldGen.tileCache.has(key)) continue;
         const isCentre = (dtx === 0 && dty === 0);
         const entry = makeTileEntry({
-          tx, ty, cellsPerEdge, tileEdgeM, cellM,
+          tx, ty, cellsPerEdge: rowN(ty), tileEdgeM, cellM: rowM(ty),
           populate: isCentre
             ? populateSandbox.bind(null, gridOriginIX, gridOriginIY)
             : () => { /* grass everywhere, no items */ },
@@ -764,7 +769,7 @@
     const centreEntry = WorldGen.tileCache.get(WorldGen.tileKey(centreTX, centreTY));
 
     // Helpers ────────────────────────────────────────────────────────────────
-    // Absolute cell of (dx, dy) inside a named scene.
+    // Centre-tile LOCAL cell of (dx, dy) inside a named scene.
     const sceneCell = (name, dx, dy) => {
       const s = sceneByName(name);
       return { cellIX: originIX + s.lx + dx, cellIY: originIY + s.ly + dy };
@@ -773,6 +778,13 @@
       x: centreTX * tileEdgeM + (cellIX + 0.5) * cellM,
       y: centreTY * tileEdgeM + (cellIY + 0.5) * cellM,
     });
+    // The save key of a centre-tile cell: its ABSOLUTE cell (coords.js
+    // encoding — what the till / rock handlers key by), not the tile-local
+    // index sceneCell returns.
+    const absKey = (cellIX, cellIY) => {
+      const c = tileCellToAbs(scene, centreTX, centreTY, cellIX, cellIY);
+      return cellKeyFromAbsCell(c.cellIX, c.cellIY);
+    };
 
     // ── Restore every house in the sandbox tile. Tier-9 houses render as a
     //    generic "wreck" until restored — so without this, the blacksmith /
@@ -808,7 +820,7 @@
     const CROPS_AT_STAGE = ['rainberry', 'pairy', 'nut', 'potato', 'rockfruit'];
     for (let stage = 0; stage < 5; stage++) {
       const { cellIX, cellIY } = sceneCell('FARMLAND', 2 + stage, 2);
-      const key = `${cellIX}_${cellIY}`;
+      const key = absKey(cellIX, cellIY);
       scene.tilledSet.add(key); save.tilled.push(key);
       const { x, y } = cellCenter(cellIX, cellIY);
       save.planted.push({ x, y, crop: CROPS_AT_STAGE[stage], stage, watered_t: 0 });
@@ -830,7 +842,7 @@
       const s = sceneByName('BARNYARD');
       const ring = (dx, dy) => {
         const { cellIX, cellIY } = sceneCell('BARNYARD', dx, dy);
-        const key = `${cellIX}_${cellIY}`;
+        const key = absKey(cellIX, cellIY);
         if (!scene.placedRockSet.has(key)) { scene.placedRockSet.add(key); save.placedRocks.push(key); }
       };
       for (let d = 0; d < s.w; d++) { ring(d, 0); ring(d, s.h - 1); }
@@ -839,7 +851,7 @@
     // A lone placed rockfruit-rock in the PLAZA for the pickaxe-on-placed cycle.
     {
       const { cellIX, cellIY } = sceneCell('PLAZA', 2, 6);
-      const key = `${cellIX}_${cellIY}`;
+      const key = absKey(cellIX, cellIY);
       if (!scene.placedRockSet.has(key)) { scene.placedRockSet.add(key); save.placedRocks.push(key); }
     }
 
@@ -881,11 +893,13 @@
     const swKey = WorldGen.tileKey(centreTX - 1, centreTY + 1);
     const swEntry = WorldGen.tileCache.get(swKey);
     if (swEntry && !swEntry.treasure) {
-      const cellIX = cellsPerEdge - 2, cellIY = 1;
+      // On the SW tile's own grid (its row's — coords.js rowCellM).
+      const swN = swEntry.cellsPerEdge, swM = tileEdgeM / swN;
+      const cellIX = swN - 2, cellIY = 1;
       swEntry.treasure = {
         id: `sandbox_treasure_sw_${centreTX - 1}_${centreTY + 1}`,
-        x: (centreTX - 1) * tileEdgeM + (cellIX + 0.5) * cellM,
-        y: (centreTY + 1) * tileEdgeM + (cellIY + 0.5) * cellM,
+        x: (centreTX - 1) * tileEdgeM + (cellIX + 0.5) * swM,
+        y: (centreTY + 1) * tileEdgeM + (cellIY + 0.5) * swM,
       };
     }
 

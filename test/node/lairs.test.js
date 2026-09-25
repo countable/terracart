@@ -5,15 +5,15 @@
 //
 // Four things this file exists to hold:
 //
-//   THE NUMBERS ARE DERIVED. A house 1, a fort 2, a castle 3 at the near ring
-//   and a castle 15 at a kilometre are the ONLY authored figures; the ramp
+//   THE NUMBERS ARE DERIVED. A house 1, a fort 2, a castle 3 at t = 0
+//   and a castle 15 at t = 1 are the ONLY authored figures; the ramp
 //   between them and the other two tiers' ceilings fall out of the table. So
 //   the tests re-derive rather than restate — a retuned TIER_GUARDS row moves
 //   every figure here with it, and a fudge factor added inside the module
 //   fails instead of quietly changing the curve.
 //
-//   A GARRISON BELONGS TO ITS BUILDING, NOT ITS TILE. It is seeded from the
-//   footprint's own absolute-cell key, so waking a ruin at any time, in any
+//   A GARRISON BELONGS TO ITS BUILDING, NOT ITS TILE — NOR ITS PLAYER. It is
+//   seeded from the footprint's own key (tile + cell on the tile's own grid), so waking a ruin at any time, in any
 //   order, from any tile build, hands back the same monsters. That is what
 //   makes residency safe, and every "does it depend on X" test below is
 //   checking that nothing has crept back into the seed.
@@ -29,21 +29,13 @@
 
   const APP = APP_JS_SRC;
   const CELL_M = 7;
-  const NEAR_M = Lairs.LAIR_MIN_HOME_CELLS * CELL_M;
 
   // ── The curve ────────────────────────────────────────────────────────────
+  // `t` is the structure's OWN strength (a draw off its stream), never the
+  // player's distance from Home.
 
-  test('lairs: nothing is seated inside the ring around home', () => {
-    for (const tier of Lairs.TIERS) {
-      assert.eq(Lairs.capFor(tier, 0, CELL_M), 0, `tier ${tier}: home itself`);
-      assert.eq(Lairs.capFor(tier, NEAR_M, CELL_M), 0, `tier ${tier}: ON the ring is still inside`);
-      assert.eq(Lairs.capFor(tier, NEAR_M - 1, CELL_M), 0, `tier ${tier}: a metre short`);
-      assert.gt(Lairs.capFor(tier, NEAR_M + 1, CELL_M), 0, `tier ${tier}: a metre past it holds one`);
-    }
-  });
-
-  test('lairs: the named figures at the near ring — house 1, fort 2, castle 3', () => {
-    const at = (tier) => Lairs.capFor(tier, NEAR_M + 0.5, CELL_M);
+  test('lairs: the named figures at t = 0 — house 1, fort 2, castle 3', () => {
+    const at = (tier) => Lairs.capFor(tier, 0);
     assert.eq(at(9), Lairs.TIER_GUARDS[9], 'a wrecked house holds its figure');
     assert.eq(at(11), Lairs.TIER_GUARDS[11], 'a fort holds its figure');
     assert.eq(at(12), Lairs.TIER_GUARDS[12], 'a castle holds its figure');
@@ -52,16 +44,15 @@
     assert.eq(Lairs.TIER_GUARDS[12], 3, 'castle: 3');
   });
 
-  test('lairs: the ramp maxes at a kilometre, and the ceiling is the castle', () => {
-    const far = Lairs.LAIR_FAR_M;
-    assert.eq(Lairs.capFor(12, far, CELL_M), Lairs.LAIR_MAX_PER_STRUCTURE,
-      'a castle at the far ring holds the ceiling');
+  test('lairs: the strength ramp maxes at t = 1, and the ceiling is the castle', () => {
+    assert.eq(Lairs.capFor(12, 1), Lairs.LAIR_MAX_PER_STRUCTURE,
+      'a castle at full strength holds the ceiling');
     assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 15, 'the ceiling is the figure the design named');
-    // Clamped, not extrapolated, or a lair two towns over would hold hundreds.
-    assert.eq(Lairs.capFor(12, far * 4, CELL_M), Lairs.LAIR_MAX_PER_STRUCTURE,
-      'four kilometres out is the same as one');
+    // Clamped, not extrapolated.
+    assert.eq(Lairs.capFor(12, 4), Lairs.LAIR_MAX_PER_STRUCTURE, 't past 1 is the same as 1');
+    assert.eq(Lairs.capFor(12, -1), Lairs.TIER_GUARDS[12], 't below 0 is the same as 0');
     for (const tier of Lairs.TIERS) {
-      assert.eq(Lairs.capFor(tier, far, CELL_M),
+      assert.eq(Lairs.capFor(tier, 1),
         Math.round(Lairs.TIER_GUARDS[tier] * Lairs.FAR_MUL),
         `tier ${tier} reaches its base times the one multiplier`);
     }
@@ -69,24 +60,58 @@
       'FAR_MUL is derived from the ceiling and the table, never typed');
   });
 
-  test('lairs: bigger is always more, further is always more', () => {
-    for (let d = NEAR_M + 1; d <= Lairs.LAIR_FAR_M; d += 13) {
-      const house = Lairs.capFor(9, d, CELL_M);
-      const fort = Lairs.capFor(11, d, CELL_M);
-      const castle = Lairs.capFor(12, d, CELL_M);
-      assert.gte(fort, house, `at ${d}m a fort is never lighter than a house`);
-      assert.gte(castle, fort, `at ${d}m a castle is never lighter than a fort`);
+  test('lairs: bigger is always more, stronger is always more', () => {
+    for (let t = 0; t <= 1.0001; t += 0.02) {
+      const house = Lairs.capFor(9, t);
+      const fort = Lairs.capFor(11, t);
+      const castle = Lairs.capFor(12, t);
+      assert.gte(fort, house, `at t=${t.toFixed(2)} a fort is never lighter than a house`);
+      assert.gte(castle, fort, `at t=${t.toFixed(2)} a castle is never lighter than a fort`);
       for (const tier of Lairs.TIERS) {
-        assert.gte(Lairs.capFor(tier, d + 13, CELL_M), Lairs.capFor(tier, d, CELL_M),
-          `tier ${tier} never thins out further from home`);
+        assert.gte(Lairs.capFor(tier, t + 0.02), Lairs.capFor(tier, t),
+          `tier ${tier} never thins out with strength`);
       }
     }
   });
 
   test('lairs: a tier the table does not name holds nothing', () => {
     for (const tier of [0, 5, 7, 10, 13, 99, undefined, null]) {
-      assert.eq(Lairs.capFor(tier, Lairs.LAIR_FAR_M, CELL_M), 0, `tier ${tier}: no lair`);
+      assert.eq(Lairs.capFor(tier, 1), 0, `tier ${tier}: no lair`);
     }
+  });
+
+  // ── The Home nerf ────────────────────────────────────────────────────────
+
+  test('lairs: the Home nerf is derived — 1/FAR_MUL at Home, 1 from LAIR_FAR_M out', () => {
+    assert.eq(Lairs.LAIR_NEAR_MUL, 1 / Lairs.FAR_MUL, 'the near power is the old near:far garrison ratio');
+    assert.eq(Lairs.lairMulFor(0), Lairs.LAIR_NEAR_MUL, 'at Home itself');
+    assert.eq(Lairs.lairMulFor(Lairs.LAIR_FAR_M), 1, 'full strength at the far ring');
+    assert.eq(Lairs.lairMulFor(Lairs.LAIR_FAR_M * 5), 1, 'and never above it');
+    assert.eq(Lairs.lairMulFor(NaN), 1, 'no Home known → no nerf');
+    let prev = 0;
+    for (let d = 0; d <= Lairs.LAIR_FAR_M * 1.5; d += 25) {
+      const m = Lairs.lairMulFor(d);
+      assert.gte(m, prev, `the nerf never deepens further from Home (at ${d} m)`);
+      assert.lte(m, 1, `never a buff (at ${d} m)`);
+      assert.gt(m, 0, `never zero (at ${d} m)`);
+      prev = m;
+    }
+  });
+
+  test('lairs: the nerf rides Combat.powerMul — HP and bounty, beside the elite', () => {
+    Combat.registerMonsters(MONSTERS);
+    const base = Combat.creatureMaxHp('goblin');
+    const plain = { kind: 'goblin', id: 'g' };
+    const soft = { kind: 'goblin', id: 'g2', lairMul: 0.5 };
+    const eliteSoft = { kind: 'goblin', id: 'g3', lairMul: 0.5, shiny: true };
+    assert.eq(Combat.lairMul(plain), 1, 'a creature with no stamp is at full power');
+    assert.eq(Combat.powerMul(soft), 0.5, 'the stamp is the power');
+    assert.eq(Combat.powerMul(eliteSoft), Combat.ELITE_MUL * 0.5, 'elite × nerf, one lane');
+    assert.eq(Combat.maxHp(soft), Math.round(base * 0.5), 'a softened pool');
+    assert.eq(Combat.maxHp(plain), base, 'an unstamped pool is unchanged');
+    assert.lt(Combat.enemyBounty('goblin', 0, Combat.powerMul(soft)),
+      Combat.enemyBounty('goblin', 0, Combat.powerMul(plain)), 'a softer guard pays the smaller wage');
+    assert.eq(Combat.lairMul({ kind: 'goblin', lairMul: 0 }), 1, 'a nonsense stamp is ignored');
   });
 
   // ── The roll ─────────────────────────────────────────────────────────────
@@ -178,13 +203,13 @@
     }
   });
 
-  test('lairs: each ladder escalates with distance, and a wreck starts with the known slime', () => {
+  test('lairs: each ladder escalates with strength, and a wreck starts with the known slime', () => {
     const near9 = Lairs.kindsAt(9, 0);
-    assert.eq(near9.length, 1, 'a wreck at the near ring holds one kind only');
+    assert.eq(near9.length, 1, 'a wreck at t = 0 holds one kind only');
     assert.eq(near9[0], 'slime', 'and it is the surface slime the player already knows');
     for (const tier of Object.keys(Lairs.KIND_ORDER)) {
       const near = Lairs.kindsAt(tier, 0);
-      assert.eq(near.length, 1, `tier ${tier}: the near ring opens one rung`);
+      assert.eq(near.length, 1, `tier ${tier}: t = 0 opens one rung`);
       assert.truthy(Lairs.kindsAt(tier, 1).length > near.length,
         `tier ${tier}: the far end unlocks more`);
       let prev = 0;
@@ -294,7 +319,7 @@
     };
   }
 
-  // Home far enough away that the whole tile is well past the near ring.
+  // Home far enough away that the whole tile is at full strength (no nerf).
   const HOME = { x: -Lairs.LAIR_FAR_M, y: 0 };
   const CENTRE = { x: 20 * CELL_M, y: 20 * CELL_M };
 
@@ -313,7 +338,7 @@
   // the REAL roll — same key, same hash, same rng, same rate — so a fixture
   // built on it cannot drift from the shipping decision.
   const heldAt = (tier, cxM, cyM, thin) => {
-    const sid = Lairs.structureKey(Math.floor(cxM / CELL_M), Math.floor(cyM / CELL_M));
+    const sid = Lairs.structureKey(0, 0, Math.floor(cxM / CELL_M), Math.floor(cyM / CELL_M));
     return WorldGen.makeRng(Lairs.hashKey(sid))() < Lairs.occupancyFor(tier, thin);
   };
   // …and a shape of `tier` as near (cxM, cyM) as a HELD one gets: the centre is
@@ -359,7 +384,7 @@
         const entry = mkEntry([mkShape(tier, cx, cy, CELL_M)]);
         const idx = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
         const [cand] = [...idx.buckets.values()][0];
-        cand.sid = Lairs.structureKey(cand.acx, cand.acy);
+        cand.sid = Lairs.structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
         n++;
         if (Lairs.garrisonFor(entry, cand, {
           cellM: CELL_M, tileEdgeM: TILE_M, homeM: far, caughtSet: new Set(),
@@ -399,7 +424,8 @@
 
   test('lairs: the same building holds the same garrison in EVERY playthrough', () => {
     // THERE IS NO WORLD SEED. A lair is seeded from hashKey(structureKey) and
-    // structureKey is the footprint's centre in ABSOLUTE cell coordinates — a
+    // structureKey is the tile plus the footprint centre's cell on that
+    // tile's own grid — a
     // fact about a real building on a real map. Nothing about the save, the
     // session, the device or the order the tiles loaded reaches the stream, so
     // two players standing at the same ruin meet the same monsters, and one
@@ -426,7 +452,7 @@
       const idx = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
       for (const bucket of idx.buckets.values()) {
         for (const cand of bucket) {
-          cand.sid = Lairs.structureKey(cand.acx, cand.acy);
+          cand.sid = Lairs.structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
           if (cand.key !== 'target') continue;
           return Lairs.garrisonFor(entry, cand, {
             cellM: CELL_M, tileEdgeM: TILE_M, homeM: far, caughtSet: new Set(),
@@ -440,6 +466,93 @@
     assert.truthy(first && first.length, 'the target castle woke empty');
     assert.eq(first.join('|'), second.join('|'),
       'the same ruin handed back a different garrison on a differently-built tile');
+  });
+
+  // ── The same world for every player ──────────────────────────────────────
+
+  // One ruin, seen from one save frame: a tile (tx, ty) of `edgeM` metres
+  // with the tile's own N cells, the footprint at tile-local cell (fx, fy)
+  // (fractional, so it scales with the frame), and a Home at `homeM`.
+  // Returns every guard as its frame-free facts — id, kind, elite flag and
+  // seat as a TILE-LOCAL CELL — plus the nerf it carries.
+  function garrisonIn(edgeM, tx, ty, fx, fy, sizeCells, homeM) {
+    const cM = edgeM / N;
+    const entry = mkEntry([mkShape(12, fx * cM, fy * cM, sizeCells * cM, 'target')]);
+    entry.tileEdgeM = edgeM;
+    const idx = Lairs.buildIndex(entry, tx, ty, cM, edgeM);
+    const [cand] = [...idx.buckets.values()][0];
+    const ox = tx * edgeM, oy = ty * edgeM;
+    const gs = Lairs.garrisonFor(entry, cand, {
+      cellM: cM, tileEdgeM: edgeM, homeM, caughtSet: new Set(),
+    });
+    return {
+      facts: gs.map((g) => `${g.id}:${g.kind}:${g.shiny ? 'elite' : 'plain'}:`
+        + `${Math.floor((g.seatX - ox) / cM)},${Math.floor((g.seatY - oy) / cM)}`).join('|'),
+      muls: gs.map((g) => g.lairMul ?? 1),
+      n: gs.length, elites: gs.filter((g) => g.shiny).length,
+    };
+  }
+
+  test('lairs: the garrison is identical for any Home and any save frame', () => {
+    // THE DETERMINISM PIN. Two players' saves project the world at different
+    // latitudes (tileEdgeM differs) and live different distances from the
+    // ruin — yet the tile's own grid (entry.cellsPerEdge) is the same, so
+    // the garrison must be too: held or not, count, kinds, elites, seats.
+    const TX = 1043, TY = -377;
+    const frames = [280, 331.7];                       // metres per tile edge
+    const homes = (edgeM) => [
+      { x: TX * edgeM + 20 * edgeM / N, y: TY * edgeM + 20 * edgeM / N },   // on the doorstep
+      { x: TX * edgeM - 5000, y: TY * edgeM },                              // five km off
+    ];
+    let checked = 0, withElite = 0;
+    for (let k = 0; k < 40; k++) {
+      const fx = 12.37 + (k % 8) * 2, fy = 11.61 + Math.floor(k / 8) * 3;
+      const runs = [];
+      for (const edgeM of frames) for (const h of homes(edgeM)) runs.push(garrisonIn(edgeM, TX, TY, fx, fy, 4, h));
+      for (const r of runs) {
+        assert.eq(r.facts, runs[0].facts, `ruin ${k}: the garrison differs between players`);
+      }
+      if (runs[0].n) checked++;
+      if (runs[0].elites) withElite++;
+      // Only the nerf differs: the doorstep Home softens, the far one does not.
+      for (const m of runs[0].muls) assert.lt(m, 1, `ruin ${k}: a doorstep guard is softened`);
+      for (const m of runs[1].muls) assert.eq(m, 1, `ruin ${k}: a far guard is at full power`);
+    }
+    assert.gt(checked, 20, 'too few of the fixture castles were held to prove anything');
+    assert.gt(withElite, 0, 'no guard in 40 castles was an elite — the elite roll is not rolling');
+  });
+
+  test('lairs: a guard is an elite off its own id, the cave monsters\' way', () => {
+    // Static: the elite flag is isShiny(id, SHINY_RATE.monster), a hash of the
+    // stable id — never a roll, never hard-coded off. The wreck's surface
+    // slime is never one (only a MONSTER can be an elite).
+    let seen = 0;
+    for (let k = 0; k < 60; k++) {
+      const entry = mkEntry([mkShape(k % 2 ? 12 : 9, (8 + (k % 24)) * CELL_M, (8 + Math.floor(k / 24) * 8) * CELL_M, 2 * CELL_M)]);
+      step(entry, { x: (8 + (k % 24)) * CELL_M, y: (8 + Math.floor(k / 24) * 8) * CELL_M });
+      for (const g of guardsOf(entry)) {
+        seen++;
+        const want = Combat.isMonster(g.kind) && isShiny(g.id, SHINY_RATE.monster);
+        assert.eq(!!g.shiny, want, `${g.id} (${g.kind}): elite flag is not its id's`);
+        if (g.kind === 'slime') assert.falsy(g.shiny, 'a surface slime guard went shiny');
+      }
+    }
+    assert.gt(seen, 10, 'the fixture woke too few guards');
+  });
+
+  test('lairs: the key is the tile plus the tile-grid cell, never frame metres', () => {
+    assert.eq(Lairs.structureKey(3, -4, 17, 9), '3_-4_17_9', 'the key shape');
+    // The same footprint under two frames lands on the same key.
+    const key = (edgeM) => {
+      const cM = edgeM / N;
+      const entry = mkEntry([mkShape(12, 20.4 * cM, 7.2 * cM, 3 * cM)]);
+      const idx = Lairs.buildIndex(entry, 9, 2, cM, edgeM);
+      const [cand] = [...idx.buckets.values()][0];
+      return Lairs.structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
+    };
+    assert.eq(key(280), '9_2_20_7', 'the key reads the tile grid');
+    assert.eq(key(412.9), key(280), 'a different frame moved the key');
+    assert.eq(Lairs.tileCellM({ cellsPerEdge: 40 }, 400, 7), 10, 'the tile cell is tileEdgeM / cellsPerEdge');
   });
 
   // ── The per-tile budget ──────────────────────────────────────────────────
@@ -649,7 +762,7 @@
       .map((g) => g.id).sort().join();
     assert.eq(idsAt(shifted), idsAt(first), 'the ids moved with the polygon order');
     for (const g of guardsOf(first)) {
-      assert.truthy(/^lair_-?\d+_-?\d+_\d+$/.test(g.id), `id is not building-keyed: ${g.id}`);
+      assert.truthy(/^lair_-?\d+_-?\d+_-?\d+_-?\d+_\d+$/.test(g.id), `id is not building-keyed: ${g.id}`);
       // save.caught keeps a defeat forever, so an id must never look tamed.
       assert.falsy(g.id.startsWith('released_'), 'a guard id must not read as a pet');
     }
@@ -710,17 +823,29 @@
     assert.eq(guardsOf(claimed).length, 0, 'a ruin the player has taken back still held monsters');
   });
 
-  test('lairs: a structure inside the home ring holds nothing', () => {
-    const entry = mkEntry([mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
-    step(entry, CENTRE, { homeM: { x: CENTRE.x, y: CENTRE.y } });
-    assert.eq(guardsOf(entry).length, 0, 'a lair was seated inside the safe ring around home');
+  test('lairs: a structure next to Home is held the SAME — only softened', () => {
+    // No safe ring: presence is the world's. Home on the ruin's doorstep wakes
+    // the very garrison a far Home does, each guard stamped with the nerf.
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M);
+    const far = mkEntry([shape]);
+    step(far, CENTRE);
+    const near = mkEntry([shape]);
+    step(near, CENTRE, { homeM: { x: CENTRE.x, y: CENTRE.y } });
+    const sig = (e) => guardsOf(e).map((g) => `${g.id}:${g.kind}:${g.shiny}:${g.seatX},${g.seatY}`).join('|');
+    assert.truthy(guardsOf(far).length > 0, 'the far-Home ruin is held');
+    assert.eq(sig(near), sig(far), 'a Home next door changed the garrison');
+    for (const g of guardsOf(far)) assert.eq(g.lairMul, undefined, 'a far guard carries no nerf');
+    for (const g of guardsOf(near)) {
+      assert.truthy(g.lairMul > 0 && g.lairMul < 1, 'a guard by Home is softened');
+      assert.truthy(Math.abs(g.lairMul - Lairs.LAIR_NEAR_MUL) < 0.05, 'to about the near power');
+    }
   });
 
-  test('lairs: no anchor yet means no lair, not a crash', () => {
+  test('lairs: no anchor yet means no wake yet, not a crash', () => {
     for (const home of [null, undefined, {}, { x: NaN, y: 0 }]) {
       const entry = mkEntry([mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
       step(entry, CENTRE, { homeM: home });
-      assert.eq(guardsOf(entry).length, 0, 'woke without an anchor to measure from');
+      assert.eq(guardsOf(entry).length, 0, 'woke before the nerf could be read');
     }
   });
 

@@ -124,7 +124,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   // a stall's name promises is what it sells.
   POI_CATEGORY, CHEST_TIER_BY_CATEGORY, CHEST_TIER_HOME_RINGS_M,
   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_TIER_COLOR,
-  chestTierHomeDrop, chestTierDepthBonus, chestTier, chestMirrorsUnderground,
+  chestTierHomeDrop, chestTierDepthBonus, chestTier, chestRollTier, chestMirrorsUnderground,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
@@ -824,7 +824,7 @@ Object.assign(ctx, {
     }
     decls += `const ${name} = ${m[1]};\n`;
   }
-  const guard = src.match(/if \(\(kindStr === [^\n]+pestFree[^\n]+continue;/);
+  const guard = src.match(/if \(\(kindStr === [^\n]+pestFree[^\n]+(?:continue|return);/);
   if (!guard) {
     console.error('Could not find the pest-free spawner guard in src/app.js — update run.js');
     process.exit(2);
@@ -1055,7 +1055,7 @@ Object.assign(ctx, {
     '\n  }\n\n  // Nothing sits inside the Home trailer.', 'ensureStarterTrailerObject');
   // The sidecar chest injection loop in loadTile — poi_dedup.test.js pins that
   // it consults the shared one-place-one-chest rule before pushing a chest.
-  ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of (bin.chests || [])) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
+  ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of sx.chests) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
   // The tree + mineralrock RENDER_SPEC entries (a const inside drawObjects, so
   // not reachable as a value) — tool_gate_fade.test.js pins that both `after`
   // hooks apply the shared tool-gate fade rather than a local copy of it.
@@ -1131,7 +1131,7 @@ Object.assign(ctx, {
 // code rather than a transcription: the cap, the cell packing (which was
 // wrong above 256 cells per edge) and the "on the sand, beside the path"
 // difference are all decided in here. It closes over entry / tx / ty / N /
-// rng / _spawnOpts and `this` (tileEdgeM, cellM), all cheap to stub.
+// rng / _spawnOpts and `this` (tileEdgeM), all cheap to stub.
 {
   const appSrc = readSrc('app.js');
   const from = appSrc.indexOf('    // ONE pass over the grid for both bonus streams below');
@@ -1142,6 +1142,10 @@ Object.assign(ctx, {
   }
   vm.runInContext(
     'globalThis.__bonusXMarks = function (entry, tx, ty, N, rng, _spawnOpts) {\n'
+    // The two locals spawnInTile declares up top that the block reads: the
+    // tile's own cell size and its generated grid.
+    + 'const cellM = this.tileEdgeM / N;\n'
+    + 'const genGrid = entry.baseGrid || entry.grid;\n'
     + appSrc.slice(from, to) + '\n};', ctx, { filename: 'app.js#bonusXMarks' });
 }
 

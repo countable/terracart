@@ -3,9 +3,10 @@
 //
 // A ruin you walk past is scenery. A ruin with something living in it is a
 // decision: go around, or go in for what the building is worth. On hard
-// (Difficulty.get().derelictLairs) every unclaimed structure past a safe ring
-// around home holds a small garrison, and BOTH what is in it and how many
-// there are come off the same two facts and no others:
+// (Difficulty.get().derelictLairs) an unclaimed structure may hold a small
+// garrison, and BOTH what is in it and how many there are come off two facts
+// about THE BUILDING and no others — so every player meets the same garrison
+// in the same ruin:
 //
 //   HOW BIG THE BUILDING IS — a castle is worth more guards than a fort, a
 //   fort more than a house. The tiers are the world's own building tiers
@@ -14,20 +15,31 @@
 //   there: a wrecked house is SQUATTED by slimes, a fort or a castle is HELD
 //   by goblins — see KIND_ORDER.
 //
-//   HOW FAR IT IS FROM HOME — nothing at all inside LAIR_MIN_HOME_CELLS, the
-//   named figures at that ring, and a straight ramp out to LAIR_FAR_M where a
-//   castle holds LAIR_MAX_PER_STRUCTURE. The map gets more dangerous the
+//   ITS OWN STRENGTH — a world-fixed value `t` in [0, 1] drawn from the
+//   structure's own stream (garrisonFor). t = 0 is the named figures, t = 1
+//   a castle holding LAIR_MAX_PER_STRUCTURE; the same t picks the rung of the
+//   kind ladder. It used to be distance from the player's HOME, which made a
+//   ruin's garrison depend on where each player happened to start.
+//
+//   DISTANCE FROM HOME IS A NERF, NOT A PRESENCE. A ruin by the trailer is held
+//   exactly as it is for everyone else, but each of its guards is softened:
+//   `lairMul` (lairMulFor), stamped on the guard and read by combat.js's
+//   powerMul over its HP, its blow and its bounty. It runs from LAIR_NEAR_MUL
+//   at Home up to 1 at LAIR_FAR_M — the map still gets more dangerous the
 //   further you push, which is the only pressure a GPS game can apply: it
-//   cannot gate an area behind a key, so it prices the walk instead.
+//   cannot gate an area behind a key, so it prices the walk instead. Only the
+//   challenge differs between players; the garrison does not.
 //
 // THE NUMBERS ARE DERIVED, NOT TUNED — the same discipline as combat.js's
 // dps identity. There are exactly three authored figures (TIER_GUARDS: a
-// house 1, a fort 2, a castle 3, at the near ring) plus the far ceiling, and
-// the distance multiplier falls out of them: FAR_MUL is the ceiling over the
-// biggest base, so a castle reaches exactly LAIR_MAX_PER_STRUCTURE at
-// LAIR_FAR_M and the other two tiers scale by the same factor (a fort 2 → 10,
-// a house 1 → 5). Retune a lair by moving a TIER_GUARDS row or the ceiling;
-// a fudge factor added here breaks the correspondence the tests pin.
+// house 1, a fort 2, a castle 3, at t = 0) plus the ceiling, and the strength
+// multiplier falls out of them: FAR_MUL is the ceiling over the biggest base,
+// so a castle reaches exactly LAIR_MAX_PER_STRUCTURE at t = 1 and the other
+// two tiers scale by the same factor (a fort 2 → 10, a house 1 → 5). The
+// Home nerf is the same ratio read the other way: LAIR_NEAR_MUL = 1/FAR_MUL,
+// so a guard at Home fights at the strength the old near-ring garrison had
+// against the far one. Retune a lair by moving a TIER_GUARDS row or the
+// ceiling; a fudge factor added here breaks the correspondence the tests pin.
 //
 // THEY HOLD, THEY HUNT, THEY GIVE UP. A garrison is a place, not a patrol:
 // each guard carries `immobile: true`, meaning it does not WANDER, and
@@ -74,9 +86,13 @@
 // enemy like any other and pays its bounty).
 //
 // Residency sharpens that from per-TILE to per-STRUCTURE. A garrison is seeded
-// from its own building's identity — `structureKey`, the footprint's centre in
-// ABSOLUTE cell coordinates, the same shape a castle already mints its claim
-// key from — so it depends on nothing but the building itself. That is what
+// from its own building's identity — `structureKey`, the tile plus the
+// footprint centre's cell on THAT TILE'S OWN grid (tileEdgeM /
+// entry.cellsPerEdge) — so it depends on nothing but the building itself.
+// Never an absolute cell off world metres: those metres are in each save's
+// own frame (tx * tileEdgeM, with tileEdgeM from the player's start
+// latitude), so the same ruin would carry a different key — and a different
+// garrison — for every player. That is what
 // makes waking safe, and it retires a whole class of hazard the per-tile stream
 // had: the draw no longer depends on the ORDER the polygons come in (a rebuild
 // that adds an Overpass building would have shifted every index after it), on
@@ -91,25 +107,19 @@
 (function (root) {
   'use strict';
 
-  // ── The near ring ────────────────────────────────────────────────────────
-  // No garrison within this many cells of HOME. Home is where a player is
-  // sent to rest, trade and store things; a ruin across the road from it
-  // holding three guards would make the one safe place in the game a siege.
-  // It is deliberately its OWN number and not CREATURE_SIM_CELLS, which it
-  // happens to equal today: that one is how far a creature thinks from the
-  // PLAYER, this one is how close a lair may sit to HOME. Nothing about a
-  // change to either implies the other.
-  const LAIR_MIN_HOME_CELLS = 12;
-  // Where the ramp tops out. A kilometre is roughly a fifteen-minute walk in
-  // a game whose map IS the walk, so it is far enough that reaching a maxed
-  // lair is a trip you plan and near enough that one exists on a real map.
+  // ── The Home nerf's reach ────────────────────────────────────────────────
+  // Where the nerf tops out: a guard this far from HOME fights at full
+  // strength (lairMul 1). A kilometre is roughly a fifteen-minute walk in a
+  // game whose map IS the walk. There is NO safe ring any more: a ruin by the
+  // trailer is held exactly as it is for every other player (the garrison is
+  // the world's), and what Home buys is weaker guards, not absent ones.
   const LAIR_FAR_M = 1000;
-  // The most guards any one structure may hold, at LAIR_FAR_M.
+  // The most guards any one structure may hold, at t = 1.
   const LAIR_MAX_PER_STRUCTURE = 15;
 
   // ── The three authored figures ───────────────────────────────────────────
-  // Guards at the NEAR ring, by the world's own building tier. Everything
-  // else in this module is derived from these four numbers.
+  // Guards at t = 0, by the world's own building tier. Everything else in
+  // this module is derived from these four numbers.
   const TIER_GUARDS = {
     9:  1,   // T.BUILDING       — a wrecked house
     11: 2,   // T.BUILDING_MED   — a fort
@@ -117,10 +127,16 @@
   };
   const TIERS = [9, 11, 12];
   const MAX_TIER_GUARDS = Math.max(...Object.values(TIER_GUARDS));
-  // The distance multiplier — NOT a tuned number. It is exactly what carries
-  // the biggest structure from its near figure to the ceiling, so the ceiling
+  // The strength multiplier — NOT a tuned number. It is exactly what carries
+  // the biggest structure from its t = 0 figure to the ceiling, so the ceiling
   // and the tier table are the only things to change.
   const FAR_MUL = LAIR_MAX_PER_STRUCTURE / MAX_TIER_GUARDS;   // 15 / 3 = 5
+  // A guard's power at Home itself — the same ratio read per guard. When
+  // distance set the COUNT, a castle by Home held its 3 and one a kilometre
+  // out its 15: the near garrison was 1/FAR_MUL of the far one. The count is
+  // the world's now, so that ratio is carried by each guard's HP and blow
+  // instead (lairMulFor ramps it to 1 at LAIR_FAR_M).
+  const LAIR_NEAR_MUL = 1 / FAR_MUL;                           // 1/5
 
   // ── The roll ─────────────────────────────────────────────────────────────
   // The cap is the nominal garrison; the actual count is the cap less a
@@ -134,9 +150,9 @@
   const LAIR_SLACK = 0.4;
 
   // ── What is in it ────────────────────────────────────────────────────────
-  // TWO AXES, one each. The BUILDING TIER picks the FAMILY, and the distance
-  // ramp picks the rung within it — the same two facts the count is already
-  // made of, saying a second thing.
+  // TWO AXES, one each. The BUILDING TIER picks the FAMILY, and the
+  // structure's own strength `t` picks the rung within it — the same two
+  // facts the count is already made of, saying a second thing.
   //
   //   A WRECKED HOUSE IS SQUATTED. Nobody holds it; slimes have simply moved
   //   into the damp, and the ladder is the three slimes: the surface pest the
@@ -152,7 +168,7 @@
   //   meet one. Every wreck on the map is still slimes.
   //
   // THE RUNGS ARE EVENLY SPACED, not authored. A ladder is just its kinds in
-  // order, weakest first, and rung `i` of `n` unlocks at `i / n` of the ramp —
+  // order, weakest first, and rung `i` of `n` unlocks at `i / n` of `t` —
   // which reproduces the thirds the slime ladder used to carry as literals
   // (0, 0.34, 0.67) and gives the two-rung goblin ladder its halves for free.
   // Adding a kind re-spaces its own ladder and nothing else.
@@ -173,7 +189,7 @@
   }
 
   // ── Is this ruin held AT ALL? ────────────────────────────────────────────
-  // Until Sep 2026 every eligible structure past the near ring was, which made
+  // Until Sep 2026 every eligible structure past a safe ring was, which made
   // a garrison a property of the MAP rather than a discovery: on a suburban
   // street the player learned within a minute that all of it was held and
   // stopped looking. Looking in a building has to be a gamble, so each one
@@ -398,23 +414,31 @@
   // pushing a guard somewhere it does not belong.
   const LAIR_SEAT_TRIES = 8;
 
-  // 0 at the near ring, 1 at LAIR_FAR_M and beyond. Everything the difficulty
-  // of a lair depends on is a function of this one number.
-  function ramp(distM, cellM) {
-    const near = LAIR_MIN_HOME_CELLS * cellM;
-    if (!(distM > near)) return -1;          // inside the ring: no lair at all
-    return clamp01((distM - near) / (LAIR_FAR_M - near));
+  // How far along the Home nerf a point `distM` metres from Home is: 0 at
+  // Home, 1 at LAIR_FAR_M and beyond. It says nothing about WHETHER a ruin is
+  // held or what by — only how hard its guards hit (lairMulFor).
+  function homeRamp(distM) {
+    if (!Number.isFinite(distM)) return 1;
+    return clamp01(distM / LAIR_FAR_M);
+  }
+  // The guard's power factor at `distM` from Home — stamped on it as
+  // `lairMul` and read by Combat.powerMul. The same straight line the count
+  // used to ride (1 → FAR_MUL), normalised to the far end: LAIR_NEAR_MUL at
+  // Home, 1 from LAIR_FAR_M out, never above 1. No Home known → no nerf.
+  function lairMulFor(distM) {
+    const t = homeRamp(distM);
+    return (1 + t * (FAR_MUL - 1)) / FAR_MUL;
   }
 
-  // The nominal garrison for a structure of `tier` at `distM` from home.
-  // 0 when the tier holds no lair or the structure is inside the near ring.
-  function capFor(tier, distM, cellM) {
+  // The nominal garrison for a structure of `tier` at strength `t` (0..1,
+  // the structure's own draw — see garrisonFor). 0 when the tier holds no
+  // lair.
+  function capFor(tier, t) {
     const base = TIER_GUARDS[tier];
     if (!base) return 0;
-    const t = ramp(distM, cellM);
-    if (t < 0) return 0;
+    const u = clamp01(Number.isFinite(t) ? t : 0);
     return Math.min(LAIR_MAX_PER_STRUCTURE,
-                    Math.round(base * (1 + t * (FAR_MUL - 1))));
+                    Math.round(base * (1 + u * (FAR_MUL - 1))));
   }
 
   // The rolled count: the cap less a seeded shortfall. Takes exactly one draw
@@ -425,7 +449,7 @@
     return cap - (slack > 0 ? Math.floor(rng() * (slack + 1)) : 0);
   }
 
-  // Which kinds a lair of `tier` at ramp position `t` may hold, toughest last.
+  // Which kinds a lair of `tier` at strength `t` may hold, toughest last.
   // Empty for a tier that holds no lair at all — the same answer capFor gives.
   function kindsAt(tier, t) {
     const rows = KIND_LADDER[tier];
@@ -443,12 +467,22 @@
     return ks[Math.min(ks.length - 1, Math.floor(r * ks.length))];
   }
 
-  // THE STRUCTURE'S OWN IDENTITY, and the seed of its garrison: the centre of
-  // its footprint in ABSOLUTE cell coordinates. Same shape worldgen already
-  // mints a castle's claim key from, and for the same reason — it is a fact
-  // about the building, so it survives a tile rebuild, an eviction, a change
-  // in polygon order, and a garrison woken from a different tile of the ring.
-  function structureKey(acx, acy) { return `${acx}_${acy}`; }
+  // THE STRUCTURE'S OWN IDENTITY, and the seed of its garrison: its tile and
+  // the centre of its footprint as a cell on THAT TILE'S grid (tile-local
+  // metres over tileEdgeM / entry.cellsPerEdge). The same `${tx}_${ty}_${ix}_${iy}`
+  // shape worldgen mints object ids from. It is a fact about the building,
+  // so it survives a tile rebuild, an eviction, a change in polygon order and
+  // a garrison woken from a different tile of the ring — and, because neither
+  // half is in world metres, it is the SAME key in every save, whatever
+  // latitude that save's frame was projected at.
+  function structureKey(tx, ty, ix, iy) { return `${tx}_${ty}_${ix}_${iy}`; }
+  // A tile's own cell edge in metres — the grid a key and a seat are read on.
+  // entry.cellsPerEdge is the tile's own (its latitude's), so this is too.
+  // Falls back to the caller's cellM only for an entry with no grid size.
+  function tileCellM(entry, tileEdgeM, cellM) {
+    const n = entry && entry.cellsPerEdge;
+    return (n > 0 && tileEdgeM > 0) ? tileEdgeM / n : cellM;
+  }
 
   // The bounding box of a buildingShapes ring (tile-local metres), or null.
   // The same read _houseBlastGeometry does — a building's SOURCE polygon is
@@ -497,6 +531,7 @@
   function indexChunk(idx, entry, tx, ty, cellM, tileEdgeM, limit) {
     const shapes = (entry && entry.buildingShapes) || [];
     const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
+    const tcM = tileCellM(entry, tileEdgeM, cellM);
     const bucketM = idx.bucketM, buckets = idx.buckets;
     const end = Math.min(shapes.length, idx.next + (limit > 0 ? limit : shapes.length));
     for (let si = idx.next; si < end; si++) {
@@ -515,10 +550,11 @@
       if (!Number.isFinite(x0) || !Number.isFinite(y0)) continue;
       const lx = (x0 + x1) / 2, ly = (y0 + y1) / 2;
       // Absolute centre — the world point the player's distance is measured
-      // to, and (as a cell) the structure's identity.
+      // to (this save's frame; proximity only). The IDENTITY is the tile plus
+      // the centre's cell on the tile's own grid (structureKey).
       const wx = ox + lx, wy = oy + ly;
       const cand = {
-        acx: Math.floor(wx / cellM), acy: Math.floor(wy / cellM),
+        tx, ty, ix: Math.floor(lx / tcM), iy: Math.floor(ly / tcM),
         tier: sh.tier, key: sh.key || null,
         wx, wy,                                  // absolute metres
         lx, ly,                                  // tile-local metres (seating)
@@ -567,18 +603,28 @@
   // creature objects to add — the same shape spawnInTile builds, plus
   // `immobile` and the lair's own centre (so the sleep pass can measure a
   // guard's distance without looking its building back up).
+  //
+  // THE DRAW ORDER is fixed and pinned — every guard's kind and seat sit
+  // downstream of it, so moving a draw re-rolls every lair on the map:
+  //   1. held at all?          (occupancy — the tile's thinning is the only
+  //                             input that is not the building's own)
+  //   2. t, its strength       (0..1 → cap and kind ladder)
+  //   3. the count             (countFor, exactly one draw)
+  //   then per guard: its kind (kindFor, exactly one draw), then its seat
+  //   tries (two draws each).
+  // NOTHING about the player — Home, save, frame — reaches a draw. Home is
+  // read after the fact, for the nerf stamped on each guard (lairMul).
   function garrisonFor(entry, cand, opts) {
     const WG = root.WorldGen;
     const o = opts || {};
-    const cellM = o.cellM, tileEdgeM = o.tileEdgeM;
-    if (!WG || !entry || !entry.grid || !(cellM > 0) || !(tileEdgeM > 0)) return [];
-    const home = o.homeM;
-    if (!home || !Number.isFinite(home.x) || !Number.isFinite(home.y)) return [];
-    const distM = Math.hypot(cand.wx - home.x, cand.wy - home.y);
-    const t = ramp(distM, cellM);
-    if (t < 0) return [];
-    const cap = capFor(cand.tier, distM, cellM);
-    if (cap <= 0) return [];
+    const tileEdgeM = o.tileEdgeM;
+    if (!WG || !entry || !entry.grid || !(tileEdgeM > 0)) return [];
+    const N = entry.cellsPerEdge;
+    if (!(N > 0)) return [];
+    // The tile's OWN cell — a seat is a cell on this tile's grid, so every
+    // player seats the same guard on the same cell.
+    const cellM = tileEdgeM / N;
+    if (!cand.sid) cand.sid = structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
 
     // ONE STREAM PER STRUCTURE, seeded from the structure's own key. Nothing
     // outside this building can move a single number in it.
@@ -592,13 +638,22 @@
     // The tile's thinning factor is the only thing here that is not the
     // building's own — see tileThin.
     if (rng() >= occupancyFor(cand.tier, tileThin(entry))) return [];
+    // ITS STRENGTH — the world's, not the player's. Uniform, so the garrison
+    // sizes and ladders spread across the whole range on any one street.
+    const t = rng();
+    const cap = capFor(cand.tier, t);
+    if (cap <= 0) return [];
     const n = countFor(cap, rng);
-    const N = entry.cellsPerEdge;
+    // The Home nerf: how hard THIS player's guards hit. Read after every draw.
+    const home = o.homeM;
+    const lairMul = (home && Number.isFinite(home.x) && Number.isFinite(home.y))
+      ? lairMulFor(Math.hypot(cand.wx - home.x, cand.wy - home.y)) : 1;
     const ox = cand.ox, oy = cand.oy;
     const caught = o.caughtSet;
     const hpMemo = o.hpMemo;
     const spawnOpts = entry._spawnOpts || o.spawnOpts;
     const seatR = Math.hypot(cand.halfW, cand.halfH) + LAIR_RING_PAD_CELLS * cellM;
+    const C = root.Combat;
     const out = [];
     for (let i = 0; i < n; i++) {
       const id = `lair_${cand.sid}_${i}`;
@@ -626,8 +681,14 @@
       // WG.makeCreature is the tile stream's one shape (worldgen.js) — reached
       // at CALL time, like every other WorldGen read in this file, because
       // lairs.js loads BEFORE worldgen.js.
+      // ELITES ARE THE WORLD'S TOO: stamped off the guard's stable id at the
+      // cave monsters' rate (app.js spawns them the same way), so the same
+      // guard is an elite for every player. Only a MONSTER can be one
+      // (Combat.isElite) — the wreck's surface slime never rolls shiny, the
+      // faunaShiny exception.
+      const shiny = !!(C && C.isMonster(kind)) && root.isShiny(id, root.SHINY_RATE.monster);
       const g = WG.makeCreature(kind, seat.x, seat.y, id, {
-        shiny: false,
+        shiny,
         // `immobile` still means "this creature does not wander": app.js reads
         // it to route the guard through Lairs.guardState instead of the
         // ordinary fauna step. Where it goes from here is that state's answer,
@@ -636,6 +697,9 @@
         // from (see LAIR_AGGRO_CELLS).
         immobile: true, lair: cand.sid, lairX: cand.wx, lairY: cand.wy,
         lairR: seatR, seatX: seat.x, seatY: seat.y,
+        // The Home nerf (Combat.powerMul). Omitted at full strength so a far
+        // guard is exactly the creature it always was.
+        ...(lairMul < 1 ? { lairMul } : {}),
       });
       // A guard the player wounded and walked away from comes back wounded.
       // Session-only, like every other creature's `_hp` (combat.js) — it is
@@ -650,11 +714,7 @@
   // buildings differ in one cell coordinate, so the mixing matters more here
   // than the range does.
   //
-  // This WAS a hand-written loop that looked like a djb2 variant and was not:
-  // `h + (h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24)` is h × 16777619, the FNV
-  // prime spelled out in shifts, over the FNV offset basis with the same
-  // xor-then-multiply order — i.e. it was fnv1a all along, bit for bit. So it
-  // is fnv1a now, and every lair in every save is seeded exactly as it was.
+  // util.js's fnv1a — the one string hash the world's per-id looks read.
   const hashKey = fnv1a;
 
   // ── What a guard is doing this tick ──────────────────────────────────────
@@ -702,7 +762,7 @@
   // sleep ring are removed. Returns a small report for the tests.
   //
   //   ring   [{ entry, tx, ty }] — the player's 3×3 tile neighbourhood
-  //   opts   cellM, tileEdgeM, playerM {x,y}, homeM {x,y},
+  //   opts   cellM, tileEdgeM, playerM {x,y}, homeM {x,y} (the nerf only),
   //          isClaimed(key), caughtSet, hpMemo (Map id → hp, session-only),
   //          liveMax (test override)
   function stepResidency(ring, opts) {
@@ -776,6 +836,14 @@
     // of distance so the cap, when it binds, refuses the FURTHEST — the ones
     // the player is least likely to be looking at.
     if (live >= liveMax) { report.live = live; return report; }
+    // NO HOME YET, NO WAKE. Home decides nothing about a garrison but how hard
+    // it hits (lairMulFor) — yet a garrison woken before the anchor lands
+    // would stand at full strength by the trailer until it next slept. So the
+    // wake waits a pass for the anchor; nothing already standing is touched.
+    const home = o.homeM;
+    if (!home || !Number.isFinite(home.x) || !Number.isFinite(home.y)) {
+      report.live = live; return report;
+    }
     const near = [];
     for (const t of ring) {
       const entry = t && t.entry;
@@ -801,7 +869,7 @@
             // The structure's own key, built HERE rather than in the index:
             // only the few candidates that reach the wake ring ever need it,
             // and the index runs over every building on the tile.
-            if (!cand.sid) cand.sid = structureKey(cand.acx, cand.acy);
+            if (!cand.sid) cand.sid = structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
             if (resident.has(cand.sid)) continue;
             // A structure the player has taken back is not derelict any more —
             // the same isClaimedKey test the derelict wash reads, so what is
@@ -852,13 +920,14 @@
   }
 
   root.Lairs = {
-    LAIR_MIN_HOME_CELLS, LAIR_FAR_M, LAIR_MAX_PER_STRUCTURE, LAIR_SLACK,
+    LAIR_FAR_M, LAIR_MAX_PER_STRUCTURE, LAIR_SLACK, LAIR_NEAR_MUL,
     LAIR_WAKE_CELLS, LAIR_SLEEP_CELLS, LAIR_LIVE_MAX, LAIR_BUCKET_CELLS,
     LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
     TIER_GUARDS, TIERS, MAX_TIER_GUARDS, FAR_MUL, KIND_ORDER, KIND_LADDER,
-    ramp, capFor, countFor, kindsAt, kindFor, structureKey, hashKey, ringBox,
+    homeRamp, lairMulFor, capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
+    hashKey, ringBox,
     bucketKey,
     newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency,
     assertRingsClear,
