@@ -1909,61 +1909,62 @@ class MapScene extends Phaser.Scene {
     // back to the item.icon emoji (a 🪦 headstone), so the held item looked
     // nothing like what gets planted. Bake the frame so all surfaces match.
     window.ITEM_DATA_URLS.scarecrow = bakeSheetFrame('scarecrow', 0, 32, 32);
-    // Crops.png seeds: the one generic bag, each badged with its crop's own
-    // produce so no two seeds look alike (seedBadgeFrame, items.js). Baked at
-    // 32×32 with the bag at 2×. The badge is trimmed to its opaque pixels
-    // (a rainberry is a few pixels in the corner of its cell) and drawn at 2×
-    // when that fits SEED_BADGE_MAX_PX, else 1× — whole pixels either way —
-    // seated in the bottom-right corner with a 1px dark rim so it reads
-    // against the bag.
-    const SEED_BADGE_MAX_PX = 20;
-    const cropsSrc = this.textures.get('crops')?.getSourceImage();
-    if (cropsSrc && cropsSrc.width) {
-      const cellAt = (f) => [(f % CROPS_SHEET_COLS) * 16, Math.floor(f / CROPS_SHEET_COLS) * 16];
-      for (const it of ITEMS) {
-        const badge = seedBadgeFrame(it.id);
-        if (badge == null) continue;
-        const c = document.createElement('canvas');
-        c.width = c.height = 32;
-        const cx = c.getContext('2d');
-        cx.imageSmoothingEnabled = false;
-        const [bx, by] = cellAt(inventoryIconSource(it.id).frame);
-        cx.drawImage(cropsSrc, bx, by, 16, 16, 0, 0, 32, 32);
-        // The badge cell, and its opaque bounds.
-        const [px, py] = cellAt(badge);
-        const art = document.createElement('canvas');
-        art.width = art.height = 16;
-        const ax = art.getContext('2d');
-        ax.drawImage(cropsSrc, px, py, 16, 16, 0, 0, 16, 16);
-        const a = ax.getImageData(0, 0, 16, 16).data;
-        let x0 = 16, y0 = 16, x1 = -1, y1 = -1;
-        for (let i = 0; i < 256; i++) {
-          // Half-opaque and up: the sheet carries faint stray pixels
-          // across the cell that would stretch the bounds to nearly all of it.
-          if (a[i * 4 + 3] < 128) continue;
-          const x = i % 16, y = (i / 16) | 0;
-          if (x < x0) x0 = x; if (x > x1) x1 = x;
-          if (y < y0) y0 = y; if (y > y1) y1 = y;
-        }
-        if (x1 < 0) { window.ITEM_DATA_URLS[it.id] = c.toDataURL(); continue; }
-        const w = x1 - x0 + 1, h = y1 - y0 + 1;
-        const k = Math.max(w, h) * 2 <= SEED_BADGE_MAX_PX ? 2 : 1;
-        const dw = w * k, dh = h * k;
-        const dx = 32 - 1 - dw, dy = 32 - 1 - dh;
-        // The rim: the badge's silhouette in dark, stamped one pixel out.
-        const rim = document.createElement('canvas');
-        rim.width = rim.height = 16;
-        const rx = rim.getContext('2d');
-        rx.drawImage(art, 0, 0);
-        rx.globalCompositeOperation = 'source-in';
-        rx.fillStyle = '#1a1210';
-        rx.fillRect(0, 0, 16, 16);
-        for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-          cx.drawImage(rim, x0, y0, w, h, dx + ox, dy + oy, dw, dh);
-        }
-        cx.drawImage(art, x0, y0, w, h, dx, dy, dw, dh);
-        window.ITEM_DATA_URLS[it.id] = c.toDataURL();
+    // Badged icons (iconBadgeItem, items.js): the items whose own art is
+    // shared — the Crops.png seeds' one bag, the saplings' one young tree —
+    // wear the icon of what they yield in the corner. Baked at 32×32 off the
+    // same sheet frames the icons resolve to (inventoryIconSource). Both
+    // pieces are trimmed to their half-opaque pixels (these sheets carry faint
+    // stray pixels across a cell) and drawn at a whole-pixel scale: the base
+    // as large as fits (≤2×) and centred, the badge 2× when that fits
+    // BADGE_MAX_PX, else 1×, in the bottom-right corner with a 1px dark rim
+    // so it reads against the base.
+    const BADGE_MAX_PX = 20;
+    const trimmedFrame = (src) => {
+      const fr = src && this.textures.getFrame(src.sheet, src.frame);
+      if (!fr || !fr.source?.image) return null;
+      const c = document.createElement('canvas');
+      c.width = fr.cutWidth; c.height = fr.cutHeight;
+      const cx = c.getContext('2d');
+      cx.drawImage(fr.source.image, fr.cutX, fr.cutY, fr.cutWidth, fr.cutHeight, 0, 0, fr.cutWidth, fr.cutHeight);
+      const a = cx.getImageData(0, 0, c.width, c.height).data;
+      let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+      for (let i = 0; i < c.width * c.height; i++) {
+        if (a[i * 4 + 3] < 128) continue;
+        const x = i % c.width, y = (i / c.width) | 0;
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
       }
+      return x1 < 0 ? null : { c, x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+    };
+    for (const it of ITEMS) {
+      const badgeId = iconBadgeItem(it.id);
+      if (!badgeId) continue;
+      const base = trimmedFrame(inventoryIconSource(it.id));
+      const badge = trimmedFrame(inventoryIconSource(badgeId));
+      if (!base || !badge) continue;
+      const out = document.createElement('canvas');
+      out.width = out.height = 32;
+      const ox = out.getContext('2d');
+      ox.imageSmoothingEnabled = false;
+      const kb = Math.max(1, Math.min(2, Math.floor(32 / Math.max(base.w, base.h))));
+      ox.drawImage(base.c, base.x0, base.y0, base.w, base.h,
+        Math.floor((32 - base.w * kb) / 2), Math.floor((32 - base.h * kb) / 2), base.w * kb, base.h * kb);
+      const k = Math.max(badge.w, badge.h) * 2 <= BADGE_MAX_PX ? 2 : 1;
+      const dw = badge.w * k, dh = badge.h * k;
+      const dx = 32 - 1 - dw, dy = 32 - 1 - dh;
+      // The rim: the badge's silhouette in dark, stamped one pixel out.
+      const rim = document.createElement('canvas');
+      rim.width = badge.c.width; rim.height = badge.c.height;
+      const rx = rim.getContext('2d');
+      rx.drawImage(badge.c, 0, 0);
+      rx.globalCompositeOperation = 'source-in';
+      rx.fillStyle = '#1a1210';
+      rx.fillRect(0, 0, rim.width, rim.height);
+      for (const [mx, my] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        ox.drawImage(rim, badge.x0, badge.y0, badge.w, badge.h, dx + mx, dy + my, dw, dh);
+      }
+      ox.drawImage(badge.c, badge.x0, badge.y0, badge.w, badge.h, dx, dy, dw, dh);
+      window.ITEM_DATA_URLS[it.id] = out.toDataURL();
     }
     // World sprites a DOM dialog can ask for by TEXTURE KEY — not items, so
     // they don't belong in ITEM_DATA_URLS. The treasure ceremony opens with
