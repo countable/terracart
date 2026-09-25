@@ -76,6 +76,9 @@ const FILES = [
   // design (the monster stat table is registered from app.js at boot, and
   // combat.test.js registers a synthetic one), so it runs headless.
   'combat.js',
+  // The wizard tower's offers — pure (reads Combat / Trail / Energy /
+  // RARITY_TUNING at call time), so wizard.test.js drives the shipping rules.
+  'wizard.js',
   'interact.js',
   // Pure save-state ladders (castle chain + starter chain), no Phaser/DOM.
   'quests.js',

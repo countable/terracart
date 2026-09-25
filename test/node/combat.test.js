@@ -160,7 +160,7 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // spending the clock.
   assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS;/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
-  assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\.isDragonActive\(\) \? 2 : 1\)/.test(wheel),
+  assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\.isDragonActive\(\) \? 2 : 1(?:, [^)]+)?\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
   assert.falsy(/const dps = Combat\.meleeDps\(this\.save\.relics\) \* \(this\.isDragonActive/.test(app),
     'no per-frame melee drain may return');
@@ -916,4 +916,35 @@ test('combat: the bow burns a wood every 20 arrows and will not fire without one
   assert.truthy(/if \(this\.save\.ammoShots >= ammo\.shots\) \{\s*this\.save\.ammoShots = 0;\s*Inventory\.remove\(this\.save, ammo\.id, 1\);/.test(app),
     'every 20th arrow takes one wood, counted in the save');
   assert.truthy(/1 wood\/20 shots/.test(RELIC_DEFS.bow.blurb), 'and the bow says so');
+});
+
+// ── Class bonuses (src/wizard.js CLASSES) ─────────────────────────────────
+test('combat: a HUNTER\'s bow shot carries HUNTER_BOW_MUL of the rate; nothing else moves', () => {
+  assert.eq(Combat.HUNTER_BOW_MUL, 1.5, 'half as much again');
+  for (const tier of [1, 4, 7]) {
+    const relics = { bow: { tier }, staff: { tier } };
+    const want = Math.max(1, Math.round(Combat.dpsForDurationMs(toolDurationMs(relics, 'bow'))
+                          * Combat.HUNTER_BOW_MUL * Combat.fireIntervalMs('bow') / 1000));
+    assert.eq(Combat.shotDamage(relics, 'bow', 'hunter'), want, `hunter bow T${tier}`);
+    assert.eq(Combat.shotDamage(relics, 'staff', 'hunter'), Combat.shotDamage(relics, 'staff'),
+      'the staff is not a bow');
+    assert.eq(Combat.shotDamage(relics, 'bow', 'enforcer'), Combat.shotDamage(relics, 'bow'),
+      'another class gets no bow bonus');
+  }
+  assert.eq(Combat.shotDamage({}, 'bow', 'hunter'), 0, 'no bow, no shot, class or not');
+  assert.eq(Combat.turretShotDamage(), Combat.shotDamage({ bow: { tier: Combat.TURRET.tier } }, 'bow'),
+    'a turret is nobody\'s hunter');
+});
+
+test('combat: an ENFORCER lands ENFORCER_MELEE_DPS more a second, through the swing too', () => {
+  assert.eq(Combat.ENFORCER_MELEE_DPS, 5, 'five HP a second');
+  for (const relics of [{}, { sword: { tier: 1 } }, { sword: { tier: 7 } }]) {
+    const base = Combat.meleeDps(relics);
+    assert.inRange(Combat.meleeDps(relics, 'enforcer') - base - 5, -1e-9, 1e-9, 'flat +5 dps');
+    assert.eq(Combat.meleeDps(relics, 'hunter'), base, 'no other class moves melee');
+    const blow = Combat.meleeSwingDamage(relics, 1, 'enforcer');
+    assert.inRange(blow - (base + 5) * Combat.MELEE_INTERVAL_MS / 1000, -1e-9, 1e-9,
+      'one blow is one interval of the bonused rate');
+    assert.eq(Combat.meleeSwingDamage(relics, 2, 'enforcer'), 2 * blow, 'the dragon doubles it all');
+  }
 });
