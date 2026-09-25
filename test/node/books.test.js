@@ -534,10 +534,11 @@ test('tips: the shop ladder quotes ShopsMath.dealCap', () => {
 });
 
 test('tips: the fort slot machine quotes ShopsMath', () => {
-  assert.eq(ShopsMath.SLOT_PRIZES, 5, 'five prizes');
+  assert.eq(ShopsMath.SLOT_PRIZES, 3, 'three prizes');
   assert.eq(ShopsMath.SLOT_REELS, 3, 'three of a kind');
-  assert.truthy(someTip(/five prizes a day, three of a kind wins one, and the gold-rimmed prize is the jackpot/i),
-    'and a tip says so');
+  assert.truthy(someTip(/three prizes a day, and three of a kind wins one/i), 'and a tip says so');
+  const pair = ShopsMath.SLOT_JACKPOT_PAIR_COINS;
+  assert.truthy(someTip(new RegExp(`two of it pays ${pair} coin back`, 'i')), 'the pair coin, quoted');
 });
 
 test('tips: the shiny multiplier quotes PRICES', () => {

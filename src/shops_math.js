@@ -262,23 +262,27 @@
 
   // ─── Fort slot machine ───────────────────────────────────────────────────
   // A fort's quartermaster runs a three-reel slot machine instead of a shop.
-  // Five prizes a day (the caller picks them, seeded on the fort + the UTC
-  // day); three of a kind hands over that prize. The most valuable is the
-  // JACKPOT — gold-rimmed on the machine, and half as likely on each reel as
-  // any other symbol (SLOT_JACKPOT_WEIGHT vs SLOT_WEIGHT).
+  // Three prizes a day (the caller picks them, seeded on the fort + the UTC
+  // day), kept off the machine's face — the reels are all the player sees;
+  // three of a kind hands over that prize. The most valuable is the JACKPOT,
+  // half as likely on each reel as any other symbol (SLOT_JACKPOT_WEIGHT vs
+  // SLOT_WEIGHT). Exactly TWO jackpots (a near miss) pays
+  // SLOT_JACKPOT_PAIR_COINS back in coin.
   //
   // The stake is FAIR: exactly the expected payout of one spin, rounded UP to
   // a whole coin — Σ over prizes of P(three of it) × its value, where
-  // P(three of i) = (wᵢ / Σw)³. Derived, never tuned: change a weight or a
-  // prize and the price follows. The round-up is the house's only edge, and
-  // it is under one coin a spin.
+  // P(three of i) = (wᵢ / Σw)³, plus P(exactly two jackpots) × the pair coin.
+  // Derived, never tuned: change a weight or a prize and the price follows.
+  // The round-up is the house's only edge, and it is under one coin a spin.
   const SLOT_REELS = 3;
-  const SLOT_PRIZES = 5;
+  const SLOT_PRIZES = 3;
   const SLOT_WEIGHT = 2;
   const SLOT_JACKPOT_WEIGHT = 1;
+  const SLOT_JACKPOT_PAIR_COINS = 3;
 
   // ids: the day's prize ids; valueOf(id): an item's worth in coin.
-  // Returns { prizes: [{ id, value, weight, jackpot }], cost, winChance }.
+  // Returns { prizes: [{ id, value, weight, jackpot }], cost, ev, winChance,
+  // pairChance, pairCoins } — winChance is three of a kind only.
   function slotMachine(ids, valueOf) {
     const prizes = (ids || []).map((id) => ({ id, value: Math.max(0, valueOf(id) || 0) }));
     let jp = -1;
@@ -294,12 +298,17 @@
       ev += three * p.value;
       winChance += three;
     }
-    return { prizes, cost: Math.max(1, Math.ceil(ev - 1e-9)), ev, winChance };
+    // Exactly two of the jackpot's three reels: C(3,2) · q² · (1 − q).
+    const q = jp >= 0 ? prizes[jp].weight / total : 0;
+    const pairChance = SLOT_REELS * q * q * (1 - q);
+    const pairCoins = jp >= 0 ? SLOT_JACKPOT_PAIR_COINS : 0;
+    ev += pairChance * pairCoins;
+    return { prizes, cost: Math.max(1, Math.ceil(ev - 1e-9)), ev, winChance, pairChance, pairCoins };
   }
 
   // The day's prizes: SLOT_PRIZES distinct ids drawn from `candidates` by a
   // stream seeded on `key` (the fort id + the UTC day, app.js) — the same
-  // five all day, new ones tomorrow, and never stored.
+  // three all day, new ones tomorrow, and never stored.
   function slotPrizes(key, candidates) {
     const rng = makeRng32(fnv1a(String(key)));
     const pool = (candidates || []).slice();
@@ -310,8 +319,8 @@
     return out;
   }
 
-  // One spin: a prize index per reel, drawn by weight, and the index won
-  // (every reel the same) or -1.
+  // One spin: a prize index per reel, drawn by weight, the index won (every
+  // reel the same) or -1, and `coins` — the jackpot-pair payout, else 0.
   function slotSpin(machine, rng = Math.random) {
     const ps = machine.prizes;
     const total = ps.reduce((a, p) => a + p.weight, 0);
@@ -322,11 +331,13 @@
       reels.push(pick);
     }
     const won = reels.every((i) => i === reels[0]) ? reels[0] : -1;
-    return { reels, won };
+    const jackpots = reels.filter((i) => ps[i].jackpot).length;
+    const coins = jackpots === SLOT_REELS - 1 ? (machine.pairCoins || 0) : 0;
+    return { reels, won, coins };
   }
 
   root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
-                     SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, slotMachine, slotSpin, slotPrizes,
+                     SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS, slotMachine, slotSpin, slotPrizes,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
                      TRADER_AFFORDABLE_CHANCE, TRADER_MAX_OVERPAY, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -13159,8 +13159,9 @@ class MapScene extends Phaser.Scene {
 
   // ─── FORT SLOTS ───────────────────────────────────────────────────────────
   // A fort's quartermaster runs a three-reel slot machine. The maths — the
-  // day's five prizes, the gold-rimmed jackpot, the fair stake, a spin — is
-  // ShopsMath's (slotPrizes / slotMachine / slotSpin); this is the machine.
+  // day's three prizes, the jackpot and its pair payout, the fair stake, a
+  // spin — is ShopsMath's (slotPrizes / slotMachine / slotSpin); this is the
+  // machine. The prizes are not listed on its face: the reels are the show.
   // Prizes come from what a find can be (seeds, produce, consumables,
   // minerals) at their catalog worth (PRICES), which is what the stake is
   // priced on.
@@ -13182,23 +13183,6 @@ class MapScene extends Phaser.Scene {
     title.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:8px';
     title.textContent = "The quartermaster's slot machine — three of a kind wins:";
     box.appendChild(title);
-    // The day's prizes, jackpot gold-rimmed.
-    const prizeRow = document.createElement('div');
-    prizeRow.style.cssText = 'display:flex;gap:5px;justify-content:center;margin-bottom:10px;';
-    for (const p of m.prizes) {
-      const cell = document.createElement('div');
-      cell.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;'
-        + 'padding:4px 3px;border-radius:6px;min-width:44px;'
-        + (p.jackpot
-          ? `border:2px solid ${GOLD};box-shadow:0 0 8px ${GOLD}aa;background:#3a3016;`
-          : 'border:1px solid #555;background:#221d18;');
-      cell.innerHTML = `${this.iconSpanHTML(p.id, 24)}`
-        + `<span style="font-size:9px;opacity:.8">${this.moneyHTML(p.value, 9)}</span>`
-        + (p.jackpot ? `<span style="font:700 8px ui-monospace,monospace;color:${GOLD};letter-spacing:.08em">JACKPOT</span>` : '');
-      cell.title = ITEM_BY_ID[p.id]?.name || p.id;
-      prizeRow.appendChild(cell);
-    }
-    box.appendChild(prizeRow);
     // The reels.
     const reelRow = document.createElement('div');
     reelRow.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-bottom:8px;';
@@ -13278,6 +13262,17 @@ class MapScene extends Phaser.Scene {
           }
           persistSave(this.save);
           this.buildInventoryDOM();
+        } else if (out.coins > 0) {
+          // Two jackpots, not three: a few coin back.
+          addMoney(this.save, out.coins);
+          this.updateHUD();
+          persistSave(this.save);
+          reels.forEach((el, r) => {
+            if (!m.prizes[out.reels[r]].jackpot) return;
+            el.style.borderColor = GOLD; el.style.boxShadow = `0 0 12px ${GOLD}`;
+          });
+          result.style.color = GOLD;
+          result.textContent = `So close! +${out.coins} coin`;
         } else {
           result.style.color = '#ff8a7a';
           result.textContent = 'No match.';
