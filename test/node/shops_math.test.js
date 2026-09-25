@@ -422,44 +422,119 @@ test('slots: the most valuable prize is the jackpot, half as likely a reel', () 
 });
 
 test('slots: the stake is the expected win, rounded up to a coin', () => {
+  const S = ShopsMath;
   const vals = { a: 10, d: 300, e: 20 };
-  const m = ShopsMath.slotMachine(Object.keys(vals), (id) => vals[id]);
-  // weights 2,1,2 → total 5; P(three of a) = (2/5)^3; jackpot (1/5)^3;
-  // exactly two jackpots 3·(1/5)^2·(4/5) = 12/125, paying the pair coin.
-  const pair = ShopsMath.SLOT_JACKPOT_PAIR_COINS;
-  const ev = (8 * (10 + 20) + 300) / 125 + (12 / 125) * pair;
+  const m = S.slotMachine(Object.keys(vals), (id) => vals[id]);
+  // weights a2 d1 e2 + star 1 → total 6. Each outcome, priced exactly:
+  //   natural triple  p³ · 2 · value     star-completed  3p²s · value
+  //   jackpot pair    3q²(1−q−s) · 3     two stars       3s²(1−s) · 5
+  //   three stars     s³ · 100 (a badge valued at the coin it becomes)
+  const T = 216;
+  const natural = (8 * (10 + 20) + 1 * 300) * S.SLOT_NATURAL_MUL / T;
+  const starred = 3 * (4 * (10 + 20) + 1 * 300) / T;
+  const jpPair = 3 * 1 * 4 / T * S.SLOT_JACKPOT_PAIR_COINS;
+  const starPair = 3 * 1 * 5 / T * S.SLOT_STAR_PAIR_COINS;
+  const stars = 1 / T * S.SLOT_STAR_JACKPOT_COINS;
+  const ev = natural + starred + jpPair + starPair + stars;
   assert.truthy(Math.abs(m.ev - ev) < 1e-9, `ev ${m.ev} = ${ev}`);
   assert.eq(m.cost, Math.ceil(ev), 'cost = ceil(ev)');
   assert.truthy(m.cost - m.ev < 1, 'the house edge is under one coin');
-  // Monte Carlo: the average payout per spin matches the ev.
+  // Monte Carlo: the average payout per spin matches the ev, counting three
+  // stars at the coin the stake prices them at.
   let a = 12345; const rng = () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
-  let paid = 0; const N = 200000;
-  for (let i = 0; i < N; i++) { const r = ShopsMath.slotSpin(m, rng); if (r.won >= 0) paid += m.prizes[r.won].value; paid += r.coins; }
-  assert.truthy(Math.abs(paid / N - ev) < 0.1 * ev + 0.05, `mean payout ${paid / N} ≈ ${ev}`);
+  let paid = 0; const N = 400000;
+  for (let i = 0; i < N; i++) {
+    const r = S.slotSpin(m, rng);
+    if (r.won >= 0) paid += r.qty * m.symbols[r.won].value;
+    if (r.starJackpot) paid += S.SLOT_STAR_JACKPOT_COINS;
+    paid += r.coins;
+  }
+  assert.truthy(Math.abs(paid / N - ev) < 0.05 * ev, `mean payout ${paid / N} ≈ ${ev}`);
 });
 
-test('slots: a spin wins only on three of a kind', () => {
+// ['a','b','c'] at one price: 'a' is the jackpot (the first, on a tie).
+// Weights a1 b2 c2 star1 → total 6; u·6 picks: a < 1/6, b < 1/2, c < 5/6, then star.
+const SLOT_U = { a: 0.1, b: 0.3, c: 0.7, star: 0.9 };
+const slotSeq = (xs) => { let i = 0; return () => SLOT_U[xs[i++]]; };
+
+test('slots: the star is a fourth symbol on the reel, and no prize', () => {
   const m = ShopsMath.slotMachine(['a', 'b', 'c'], () => 10);
-  const seq = (xs) => { let i = 0; return () => xs[i++]; };
-  // weights 1,2,2 (one jackpot — the first, on a tie) → total 5; u*5 picks.
-  const same = ShopsMath.slotSpin(m, seq([0.5, 0.5, 0.5]));
-  assert.truthy(same.won >= 0 && same.reels.every((r) => r === same.won), 'three of a kind wins');
-  assert.eq(same.coins, 0, 'three of a non-jackpot pays no pair coin');
-  const diff = ShopsMath.slotSpin(m, seq([0.1, 0.5, 0.95]));
+  assert.eq(m.symbols.length, 4, 'three prizes and the star');
+  const star = m.symbols[3];
+  assert.truthy(star.star && star.weight === ShopsMath.SLOT_STAR_WEIGHT, 'the star, at its weight');
+  assert.falsy(m.prizes.some((p) => p.star), 'it is not one of the prizes');
+  assert.falsy(star.jackpot, 'and never the jackpot');
+});
+
+test('slots: a natural three pays double; a star completes a pair for one', () => {
+  const m = ShopsMath.slotMachine(['a', 'b', 'c'], () => 10);
+  const nat = ShopsMath.slotSpin(m, slotSeq(['b', 'b', 'b']));
+  assert.eq(nat.won, 1, 'three b win b');
+  assert.truthy(nat.natural, 'a natural triple');
+  assert.eq(nat.qty, ShopsMath.SLOT_NATURAL_MUL, 'at double quantity');
+  for (const row of [['star', 'c', 'c'], ['c', 'star', 'c'], ['c', 'c', 'star']]) {
+    const r = ShopsMath.slotSpin(m, slotSeq(row));
+    assert.eq(r.won, 2, `${row.join(',')} wins c`);
+    assert.falsy(r.natural, 'not natural');
+    assert.eq(r.qty, 1, 'one of it');
+  }
+  const jp = ShopsMath.slotSpin(m, slotSeq(['a', 'star', 'a']));
+  assert.eq(jp.won, 0, 'a star completes a jackpot pair into the jackpot');
+  assert.eq(jp.coins, 0, 'with no pair coin on top');
+  const mixed = ShopsMath.slotSpin(m, slotSeq(['b', 'star', 'c']));
+  assert.eq(mixed.won, -1, 'a star does not join two different prizes');
+  assert.eq(mixed.coins, 0, 'and pays nothing');
+});
+
+test('slots: a prize the caller says does not double pays one on a natural', () => {
+  const m = ShopsMath.slotMachine(['a', 'b', 'c'], () => 10, (id) => id !== 'b');
+  const nat = ShopsMath.slotSpin(m, slotSeq(['b', 'b', 'b']));
+  assert.eq(nat.won, 1, 'still wins');
+  assert.eq(nat.qty, 1, 'but one of it (a relic is one of a kind)');
+  assert.eq(ShopsMath.slotSpin(m, slotSeq(['c', 'c', 'c'])).qty, 2, 'the others still double');
+});
+
+test('slots: two jackpots and another prize pays the pair coin', () => {
+  const m = ShopsMath.slotMachine(['a', 'b', 'c'], (id) => ({ a: 99, b: 5, c: 7 }[id]));
+  const pair = ShopsMath.slotSpin(m, slotSeq(['a', 'b', 'a']));
+  assert.eq(pair.won, -1, 'no prize');
+  assert.eq(pair.coins, ShopsMath.SLOT_JACKPOT_PAIR_COINS, 'the pair coin');
+  const three = ShopsMath.slotSpin(m, slotSeq(['a', 'a', 'a']));
+  assert.eq(three.won, 0, 'three jackpots win the jackpot');
+  assert.eq(three.qty, 2, 'a natural jackpot doubles too');
+  assert.eq(three.coins, 0, 'and not the pair coin on top');
+});
+
+test('slots: two stars pay coin, three stars are the star jackpot', () => {
+  const m = ShopsMath.slotMachine(['a', 'b', 'c'], () => 10);
+  for (const row of [['star', 'star', 'b'], ['a', 'star', 'star']]) {
+    const r = ShopsMath.slotSpin(m, slotSeq(row));
+    assert.eq(r.won, -1, `${row.join(',')} wins no prize`);
+    assert.eq(r.coins, ShopsMath.SLOT_STAR_PAIR_COINS, 'the star-pair coin');
+    assert.falsy(r.starJackpot, 'not the star jackpot');
+  }
+  const three = ShopsMath.slotSpin(m, slotSeq(['star', 'star', 'star']));
+  assert.truthy(three.starJackpot, 'three stars');
+  assert.eq(three.won, -1, 'no prize');
+  assert.eq(three.coins, 0, 'the caller pays it (badge or coin)');
+});
+
+test('slots: a mixed row with no star loses', () => {
+  const m = ShopsMath.slotMachine(['a', 'b', 'c'], () => 10);
+  const diff = ShopsMath.slotSpin(m, slotSeq(['a', 'b', 'c']));
   assert.eq(diff.won, -1, 'a mixed row loses');
   assert.eq(diff.coins, 0, 'one jackpot pays nothing');
 });
 
-test('slots: two jackpots but not three pays a few coin', () => {
-  const m = ShopsMath.slotMachine(['a', 'b', 'c'], (id) => ({ a: 99, b: 5, c: 7 }[id]));
-  const seq = (xs) => { let i = 0; return () => xs[i++]; };
-  // 'a' is the jackpot at weight 1 of 5: u < 0.2 lands it.
-  const pair = ShopsMath.slotSpin(m, seq([0.1, 0.5, 0.1]));
-  assert.eq(pair.won, -1, 'no prize');
-  assert.eq(pair.coins, ShopsMath.SLOT_JACKPOT_PAIR_COINS, 'the pair coin');
-  const three = ShopsMath.slotSpin(m, seq([0.1, 0.1, 0.1]));
-  assert.eq(three.won, 0, 'three jackpots win the jackpot');
-  assert.eq(three.coins, 0, 'and not the pair coin on top');
+test('slots: app.js pays three stars from the badge ledger, then coin', () => {
+  const app = APP_JS_SRC;
+  const m = app.match(/\n  _payStarJackpot\(\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(m, '_payStarJackpot exists');
+  assert.truthy(/ShopsMath\.SLOT_STAR_BADGES/.test(m[1]), 'counts up to SLOT_STAR_BADGES');
+  assert.truthy(/this\._bankDiscovery\(`slots:stars:\$\{n \+ 1\}`/.test(m[1]), 'one ledger key per badge');
+  assert.truthy(/addMoney\(this\.save, ShopsMath\.SLOT_STAR_JACKPOT_COINS\)/.test(m[1]), 'then the coin');
+  assert.truthy(/if \(out\.starJackpot\) \{[\s\S]{0,200}this\._payStarJackpot\(\)/.test(app), 'the machine calls it on three stars');
+  assert.truthy(/const qty = out\.qty \|\| 1;/.test(app), 'a win pays the spin\'s quantity');
 });
 
 test('slots: three distinct prizes a day, the same all day, seeded on the fort and the day', () => {

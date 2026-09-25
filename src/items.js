@@ -1008,7 +1008,7 @@ const PLAY_TIPS = [
   'Every 20 deliveries behind you, the houses you rebuild from then on start asking for the next tier of crop.',
   'A shop makes one deal an hour. Castles and towers never make you wait.',
   ITEM_GUIDE_TIPS.flowers,
-  'A fort runs a slot machine: three prizes a day, and three of a kind wins one. The dearest is the jackpot — two of it pays 3 coin back. A spin costs exactly what it wins on average.',
+  'A fort runs a slot machine: three prizes a day, and three of a kind wins one — a natural three pays double, and a star completes any pair. The dearest is the jackpot — two of it pays 3 coin back. Two stars pay 5 coin; three stars pay a Discovery badge the first 3 times, then 100 coin. A spin costs exactly what it wins on average, each badge counted as 100 coin.',
   'A castle you have claimed offers one favour a day: a rest, or its taxes.',
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
   // ── The land you walk over ──────────────────────────────────

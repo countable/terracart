@@ -263,47 +263,86 @@
   // ─── Fort slot machine ───────────────────────────────────────────────────
   // A fort's quartermaster runs a three-reel slot machine instead of a shop.
   // Three prizes a day (the caller picks them, seeded on the fort + the UTC
-  // day), kept off the machine's face — the reels are all the player sees;
-  // three of a kind hands over that prize. The most valuable is the JACKPOT,
-  // half as likely on each reel as any other symbol (SLOT_JACKPOT_WEIGHT vs
-  // SLOT_WEIGHT). Exactly TWO jackpots (a near miss) pays
-  // SLOT_JACKPOT_PAIR_COINS back in coin.
+  // day), kept off the machine's face — the reels are all the player sees.
+  // The most valuable is the JACKPOT, half as likely on each reel as any other
+  // prize (SLOT_JACKPOT_WEIGHT vs SLOT_WEIGHT). A fourth symbol, the STAR
+  // (SLOT_STAR_WEIGHT), is no prize of its own:
+  //   • three of a prize, no star (a NATURAL triple) — that prize ×
+  //     SLOT_NATURAL_MUL (for a prize the caller says doubles — a relic
+  //     would not; today's pool is all stackable finds, so every one does);
+  //   • two of a prize and one star — the star completes it: that prize ×1;
+  //   • two jackpots and one other prize (not a star, which would complete
+  //     them) — SLOT_JACKPOT_PAIR_COINS back;
+  //   • two stars — SLOT_STAR_PAIR_COINS;
+  //   • three stars — the STAR JACKPOT: a Discovery badge the first
+  //     SLOT_STAR_BADGES times (app.js keeps that count), then
+  //     SLOT_STAR_JACKPOT_COINS.
   //
   // The stake is FAIR: exactly the expected payout of one spin, rounded UP to
-  // a whole coin — Σ over prizes of P(three of it) × its value, where
-  // P(three of i) = (wᵢ / Σw)³, plus P(exactly two jackpots) × the pair coin.
+  // a whole coin. With p = a prize's share of the reel weight, s the star's
+  // and q the jackpot's, the outcomes are disjoint and each is priced exactly:
+  //   natural triple      p³ · mul · value
+  //   star-completed      3p²s · value
+  //   jackpot pair        3q²(1 − q − s) · pair coin
+  //   two stars           3s²(1 − s) · star-pair coin
+  //   three stars         s³ · star jackpot
+  // The one ESTIMATE is the star jackpot while it still pays a badge: a
+  // Discovery badge can't be sold (noSell), so it has no coin price. It is
+  // valued at SLOT_STAR_JACKPOT_COINS — the coin the same line pays once the
+  // badges run out, the one exchange rate the machine itself states — so the
+  // stake is the same for every player whatever they have already won. At
+  // s³ = 1/216 a spin that difference is a fraction of a coin either way.
   // Derived, never tuned: change a weight or a prize and the price follows.
   // The round-up is the house's only edge, and it is under one coin a spin.
   const SLOT_REELS = 3;
   const SLOT_PRIZES = 3;
   const SLOT_WEIGHT = 2;
   const SLOT_JACKPOT_WEIGHT = 1;
+  const SLOT_STAR_WEIGHT = 1;
+  const SLOT_NATURAL_MUL = 2;
   const SLOT_JACKPOT_PAIR_COINS = 3;
+  const SLOT_STAR_PAIR_COINS = 5;
+  const SLOT_STAR_BADGES = 3;
+  const SLOT_STAR_JACKPOT_COINS = 100;
 
-  // ids: the day's prize ids; valueOf(id): an item's worth in coin.
-  // Returns { prizes: [{ id, value, weight, jackpot }], cost, ev, winChance,
-  // pairChance, pairCoins } — winChance is three of a kind only.
-  function slotMachine(ids, valueOf) {
+  // ids: the day's prize ids; valueOf(id): an item's worth in coin;
+  // doubles(id): whether a natural triple of it pays SLOT_NATURAL_MUL (default
+  // every prize). Returns { prizes, symbols, cost, ev, winChance, pairChance,
+  // pairCoins, starChance, starPairChance }. `symbols` is what the reels
+  // carry: the prizes, then the star ({ star: true }); a reel index is an
+  // index into it. winChance is every way to win a prize (natural + starred).
+  function slotMachine(ids, valueOf, doubles) {
     const prizes = (ids || []).map((id) => ({ id, value: Math.max(0, valueOf(id) || 0) }));
     let jp = -1;
     prizes.forEach((p, i) => { if (jp < 0 || p.value > prizes[jp].value) jp = i; });
     prizes.forEach((p, i) => {
       p.jackpot = i === jp;
       p.weight = p.jackpot ? SLOT_JACKPOT_WEIGHT : SLOT_WEIGHT;
+      p.naturalQty = (!doubles || doubles(p.id)) ? SLOT_NATURAL_MUL : 1;
     });
-    const total = prizes.reduce((a, p) => a + p.weight, 0) || 1;
+    const star = { star: true, id: null, value: 0, weight: prizes.length ? SLOT_STAR_WEIGHT : 0 };
+    const symbols = prizes.concat([star]);
+    const total = symbols.reduce((a, p) => a + p.weight, 0) || 1;
+    const s = star.weight / total;
     let ev = 0, winChance = 0;
     for (const p of prizes) {
-      const three = Math.pow(p.weight / total, SLOT_REELS);
-      ev += three * p.value;
-      winChance += three;
+      const w = p.weight / total;
+      const natural = Math.pow(w, SLOT_REELS);
+      const starred = SLOT_REELS * w * w * s;
+      ev += natural * p.naturalQty * p.value + starred * p.value;
+      winChance += natural + starred;
     }
-    // Exactly two of the jackpot's three reels: C(3,2) · q² · (1 − q).
+    // Exactly two jackpots and a third reel that is neither (a star would
+    // have completed them): C(3,2) · q² · (1 − q − s).
     const q = jp >= 0 ? prizes[jp].weight / total : 0;
-    const pairChance = SLOT_REELS * q * q * (1 - q);
+    const pairChance = SLOT_REELS * q * q * Math.max(0, 1 - q - s);
     const pairCoins = jp >= 0 ? SLOT_JACKPOT_PAIR_COINS : 0;
     ev += pairChance * pairCoins;
-    return { prizes, cost: Math.max(1, Math.ceil(ev - 1e-9)), ev, winChance, pairChance, pairCoins };
+    const starPairChance = SLOT_REELS * s * s * (1 - s);
+    const starChance = Math.pow(s, SLOT_REELS);
+    ev += starPairChance * SLOT_STAR_PAIR_COINS + starChance * SLOT_STAR_JACKPOT_COINS;
+    return { prizes, symbols, cost: Math.max(1, Math.ceil(ev - 1e-9)), ev, winChance,
+             pairChance, pairCoins, starChance, starPairChance };
   }
 
   // The day's prizes: SLOT_PRIZES distinct ids drawn from `candidates` by a
@@ -319,25 +358,40 @@
     return out;
   }
 
-  // One spin: a prize index per reel, drawn by weight, the index won (every
-  // reel the same) or -1, and `coins` — the jackpot-pair payout, else 0.
+  // One spin: a symbol index per reel (into machine.symbols), drawn by
+  // weight. Returns { reels, won, qty, natural, coins, starJackpot }: `won` is
+  // the prize index won (natural triple or star-completed pair) or -1, `qty`
+  // how many of it, `coins` any coin payout (jackpot pair, two stars), and
+  // `starJackpot` true on three stars — what that pays is the caller's (the
+  // badge count lives in the save).
   function slotSpin(machine, rng = Math.random) {
-    const ps = machine.prizes;
-    const total = ps.reduce((a, p) => a + p.weight, 0);
+    const syms = machine.symbols || machine.prizes;
+    const total = syms.reduce((a, p) => a + p.weight, 0);
     const reels = [];
     for (let r = 0; r < SLOT_REELS; r++) {
-      let u = rng() * total, pick = ps.length - 1;
-      for (let i = 0; i < ps.length; i++) { u -= ps[i].weight; if (u < 0) { pick = i; break; } }
+      let u = rng() * total, pick = syms.length - 1;
+      for (let i = 0; i < syms.length; i++) { u -= syms[i].weight; if (u < 0) { pick = i; break; } }
       reels.push(pick);
     }
-    const won = reels.every((i) => i === reels[0]) ? reels[0] : -1;
-    const jackpots = reels.filter((i) => ps[i].jackpot).length;
-    const coins = jackpots === SLOT_REELS - 1 ? (machine.pairCoins || 0) : 0;
-    return { reels, won, coins };
+    const out = { reels, won: -1, qty: 0, natural: false, coins: 0, starJackpot: false };
+    const stars = reels.filter((i) => syms[i].star).length;
+    if (stars === SLOT_REELS) { out.starJackpot = true; return out; }
+    if (stars === SLOT_REELS - 1) { out.coins = SLOT_STAR_PAIR_COINS; return out; }
+    const plain = reels.filter((i) => !syms[i].star);
+    if (plain.every((i) => i === plain[0])) {
+      out.won = plain[0];
+      out.natural = stars === 0;
+      out.qty = out.natural ? (syms[out.won].naturalQty || 1) : 1;
+      return out;
+    }
+    const jackpots = reels.filter((i) => syms[i].jackpot).length;
+    if (jackpots === SLOT_REELS - 1) out.coins = machine.pairCoins || 0;
+    return out;
   }
 
   root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
-                     SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS, slotMachine, slotSpin, slotPrizes,
+                     SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,
+                     SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_COINS, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
                      TRADER_AFFORDABLE_CHANCE, TRADER_MAX_OVERPAY, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

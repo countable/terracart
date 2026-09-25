@@ -69,7 +69,7 @@ test('badge story: the drain opens one dialog per badge, with the label in the b
 
 test('badge story: every ledger caller names what the badge is for, and the tick drains', () => {
   const calls = [...app.matchAll(/this\._bankDiscovery\(([^\n]*)/g)].map((m) => m[1]);
-  assert.eq(calls.length, 3, 'shiny, elite, first delivery');
+  assert.eq(calls.length, 4, 'shiny, elite, first delivery, three slot stars');
   for (const c of calls) assert.truthy(/,\s*\S/.test(c) || /,$/.test(c.trim()), `label passed: ${c}`);
   assert.truthy(/_syncModalGate\?\.\(\);\s*this\._drainBadgeStories\(\);/.test(app),
     'the modal-gate tick drains the queue right after the sync');

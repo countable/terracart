@@ -1190,6 +1190,10 @@ const FORT_SLOT_EXCLUDE = new Set(['book']);   // a Book reads itself on pickup
 const FORT_SLOT_TICK_MS = 70;
 const FORT_SLOT_FIRST_STOP_MS = 700;
 const FORT_SLOT_STOP_GAP_MS = 450;
+// The machine's STAR symbol (ShopsMath's wild): the small gold star of the
+// pickup sheet — frame 115, beside the Discovery badge's bigger star (116) —
+// so a star on the reel reads as the badge's little cousin, not the badge.
+const FORT_SLOT_STAR_FRAME = 115;
 // The other line every player meets constantly: an action they cannot afford.
 // It was a bare lowercase fragment at three call sites — the stick, the cave
 // dig and the shared spendEnergy gate — and it named the STATE without the
@@ -13165,13 +13169,43 @@ class MapScene extends Phaser.Scene {
   // machine. The prizes are not listed on its face: the reels are the show.
   // Prizes come from what a find can be (seeds, produce, consumables,
   // minerals) at their catalog worth (PRICES), which is what the stake is
-  // priced on.
+  // priced on. A natural triple pays double of anything that stacks — every
+  // prize today; a relic, which is one of a kind, would not.
   fortSlotMachine(house) {
     const kinds = new Set(FORT_SLOT_KINDS);
     const cands = ITEMS.filter((it) => kinds.has(it.kind) && (PRICES[it.id] ?? 0) > 0
       && !FORT_SLOT_EXCLUDE.has(it.id)).map((it) => it.id);
     const ids = ShopsMath.slotPrizes(`slots:${house.id}:${Delivery.dayKey()}`, cands);
-    return ShopsMath.slotMachine(ids, (id) => PRICES[id] ?? 0);
+    return ShopsMath.slotMachine(ids, (id) => PRICES[id] ?? 0,
+      (id) => ITEM_BY_ID[id]?.kind !== 'relic');
+  }
+
+  // One reel symbol as HTML: a prize's own icon, or the star.
+  _slotSymbolHTML(sym, px) {
+    if (!sym.star) return this.iconSpanHTML(sym.id, px);
+    const sh = ICON_SHEETS.pickup;
+    const k = px / 16;
+    const col = FORT_SLOT_STAR_FRAME % sh.cols, row = Math.floor(FORT_SLOT_STAR_FRAME / sh.cols);
+    return `<span style="display:inline-block;vertical-align:middle;width:${px}px;height:${px}px;`
+      + `image-rendering:pixelated;background-image:url('${sh.url}');`
+      + `background-size:${sh.srcW * k}px ${sh.srcH * k}px;background-position:-${col * px}px -${row * px}px"></span>`;
+  }
+
+  // Three stars: a Discovery badge for each of the first SLOT_STAR_BADGES
+  // times — keyed slots:stars:1..N in the badge ledger, so the count IS the
+  // ledger and nothing new reaches the save — then SLOT_STAR_JACKPOT_COINS.
+  // Returns the line the machine prints.
+  _payStarJackpot() {
+    const found = this.save.discovered || {};
+    let n = 0;
+    while (n < ShopsMath.SLOT_STAR_BADGES && found[`slots:stars:${n + 1}`]) n++;
+    if (n < ShopsMath.SLOT_STAR_BADGES) {
+      this._bankDiscovery(`slots:stars:${n + 1}`, 'three stars on a fort slot machine');
+      return 'THREE STARS! A Discovery badge';
+    }
+    addMoney(this.save, ShopsMath.SLOT_STAR_JACKPOT_COINS);
+    this.updateHUD();
+    return `THREE STARS! +${ShopsMath.SLOT_STAR_JACKPOT_COINS} coin`;
   }
 
   presentFortSlots(sx, sy, house) {
@@ -13182,7 +13216,7 @@ class MapScene extends Phaser.Scene {
     const GOLD = '#ffd24a';
     const title = document.createElement('div');
     title.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:8px';
-    title.textContent = "The quartermaster's slot machine — three of a kind wins:";
+    title.textContent = "The quartermaster's slot machine — three of a kind wins, and a star completes a pair:";
     box.appendChild(title);
     // The reels.
     const reelRow = document.createElement('div');
@@ -13192,7 +13226,7 @@ class MapScene extends Phaser.Scene {
       const el = document.createElement('div');
       el.style.cssText = 'width:58px;height:58px;display:flex;align-items:center;justify-content:center;'
         + 'border-radius:8px;border:2px solid #666;background:#0d0b09;box-shadow:inset 0 0 10px #000;';
-      el.innerHTML = this.iconSpanHTML(m.prizes[r % m.prizes.length].id, 34);
+      el.innerHTML = this._slotSymbolHTML(m.symbols[r % m.symbols.length], 34);
       reelRow.appendChild(el);
       reels.push(el);
     }
@@ -13231,49 +13265,61 @@ class MapScene extends Phaser.Scene {
       // Each reel flickers through random prizes, then stops in turn.
       reels.forEach((el, r) => {
         const tick = setInterval(() => {
-          const p = m.prizes[Math.floor(Math.random() * m.prizes.length)];
-          el.innerHTML = this.iconSpanHTML(p.id, 34);
+          const p = m.symbols[Math.floor(Math.random() * m.symbols.length)];
+          el.innerHTML = this._slotSymbolHTML(p, 34);
         }, FORT_SLOT_TICK_MS);
         timers.push(setTimeout(() => {
           clearInterval(tick);
-          el.innerHTML = this.iconSpanHTML(m.prizes[out.reels[r]].id, 34);
+          el.innerHTML = this._slotSymbolHTML(m.symbols[out.reels[r]], 34);
           if (r === reels.length - 1) settle();
         }, FORT_SLOT_FIRST_STOP_MS + r * FORT_SLOT_STOP_GAP_MS));
         timers.push(tick);
       });
       const settle = () => {
         spinning = false;
-        if (out.won >= 0) {
-          const p = m.prizes[out.won];
+        // Light the reels that paid: every reel on a prize win (the star that
+        // completed it included), the jackpots of a jackpot pair, the stars.
+        const light = (color, which) => reels.forEach((el, r) => {
+          if (!which(m.symbols[out.reels[r]])) return;
+          el.style.borderColor = color; el.style.boxShadow = `0 0 12px ${color}`;
+        });
+        if (out.starJackpot) {
+          light(GOLD, () => true);
+          result.style.color = GOLD;
+          result.textContent = this._payStarJackpot();
+          this.flashLoot('🎰 THREE STARS', GOLD, 1.5);
+          persistSave(this.save);
+        } else if (out.won >= 0) {
+          const p = m.symbols[out.won];
           const name = ITEM_BY_ID[p.id]?.name || p.id;
           const rim = p.jackpot ? GOLD : '#a7ffb0';
-          reels.forEach((el) => { el.style.borderColor = rim; el.style.boxShadow = `0 0 12px ${rim}`; });
-          if (this.invRoomFor(p.id) >= 1) {
-            this.addToInv(p.id, 1, false, { notWild: true });
-            result.style.color = rim;
-            result.textContent = p.jackpot ? `JACKPOT! ${name}` : `You win: ${name}`;
-            const line = p.jackpot ? `🎰 JACKPOT ${name}` : `🎰 ${name}`;
-            this.flashLoot(line, rim, p.jackpot ? 1.5 : 1.2, p.id);
-          } else {
-            // A full bag takes the prize in coin, at the worth the stake was priced on.
-            addMoney(this.save, p.value);
-            this.updateHUD();
-            result.style.color = rim;
-            result.textContent = `Bag full — paid ${p.value} coin`;
-          }
+          light(rim, () => true);
+          // As many as fit go in the bag; the rest is paid in coin at the
+          // worth the stake was priced on.
+          const qty = out.qty || 1;
+          const fit = Math.min(qty, Math.max(0, this.invRoomFor(p.id)));
+          if (fit > 0) this.addToInv(p.id, fit, false, { notWild: true });
+          const paid = (qty - fit) * p.value;
+          if (paid > 0) { addMoney(this.save, paid); this.updateHUD(); }
+          const what = qty > 1 ? `${qty}× ${name}` : name;
+          result.style.color = rim;
+          result.textContent = (p.jackpot ? `JACKPOT! ${what}` : `You win: ${what}`)
+            + (out.natural && qty > 1 ? ' (natural — double)' : '')
+            + (paid > 0 ? ` — bag full, ${paid} coin for the rest` : '');
+          const tag = qty > 1 ? ` ×${qty}` : '';
+          const line = p.jackpot ? `🎰 JACKPOT${tag}` : `🎰 You win${tag}`;   // ≤ 13 chars
+          this.flashLoot(line, rim, p.jackpot ? 1.5 : 1.2, p.id);
           persistSave(this.save);
           this.buildInventoryDOM();
         } else if (out.coins > 0) {
-          // Two jackpots, not three: a few coin back.
+          // Two jackpots (not three, no star to finish them), or two stars.
           addMoney(this.save, out.coins);
           this.updateHUD();
           persistSave(this.save);
-          reels.forEach((el, r) => {
-            if (!m.prizes[out.reels[r]].jackpot) return;
-            el.style.borderColor = GOLD; el.style.boxShadow = `0 0 12px ${GOLD}`;
-          });
+          const twoStars = out.reels.filter((i) => m.symbols[i].star).length === 2;
+          light(GOLD, twoStars ? (sym) => sym.star : (sym) => sym.jackpot);
           result.style.color = GOLD;
-          result.textContent = `So close! +${out.coins} coin`;
+          result.textContent = twoStars ? `Two stars! +${out.coins} coin` : `So close! +${out.coins} coin`;
         } else {
           result.style.color = '#ff8a7a';
           result.textContent = 'No match.';

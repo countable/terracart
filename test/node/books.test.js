@@ -539,6 +539,12 @@ test('tips: the fort slot machine quotes ShopsMath', () => {
   assert.truthy(someTip(/three prizes a day, and three of a kind wins one/i), 'and a tip says so');
   const pair = ShopsMath.SLOT_JACKPOT_PAIR_COINS;
   assert.truthy(someTip(new RegExp(`two of it pays ${pair} coin back`, 'i')), 'the pair coin, quoted');
+  const S = ShopsMath;
+  assert.eq(S.SLOT_NATURAL_MUL, 2, 'a natural three pays double');
+  assert.truthy(someTip(/a natural three pays double, and a star completes any pair/i), 'the star and the natural, quoted');
+  assert.truthy(someTip(new RegExp(`Two stars pay ${S.SLOT_STAR_PAIR_COINS} coin; three stars pay a Discovery badge the first ${S.SLOT_STAR_BADGES} times, then ${S.SLOT_STAR_JACKPOT_COINS} coin`, 'i')),
+    'the star payouts, quoted');
+  assert.truthy(someTip(new RegExp(`each badge counted as ${S.SLOT_STAR_JACKPOT_COINS} coin`, 'i')), 'and how the stake prices a badge');
 });
 
 test('tips: the shiny multiplier quotes PRICES', () => {
