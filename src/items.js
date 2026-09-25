@@ -982,7 +982,7 @@ const PLAY_TIPS = [
   'Treasure X marks are buried in car parks — every parking lot hides one.',
   'Sand is dug ground: a beach hides X marks far thicker than the streets and fields inland.',
   'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
-  'Chests near home are humbler: a tier down within 700m of your trailer, two within 350m. The prizes are a walk away.',
+  'Chests near home pay humbler: whatever their gem, they give a tier less within 700m of your trailer, two within 350m. The prizes are a walk away.',
   'One stone in ten gathered off the ground hides a gemfruit.',
   'Every new kind of thing you discover brings back a memory, and a full tank with it. Unspent, they hum with a power you might yet learn to use.',
   'A shiny flower or tree is worth ten times the money, and brings back a memory with it.',
@@ -1007,7 +1007,7 @@ const PLAY_TIPS = [
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
-  'On hard, ruins are held — about a third of wrecked houses, most forts, and nearly every castle. None within a dozen cells of home, then more guards the bigger the building and the further out: a castle a kilometre away can hide fifteen. Wrecked houses are squatted by slimes; forts and castles are held by goblins.',
+  'On hard, ruins are held — about a third of wrecked houses, most forts, and nearly every castle — and the bigger the building the bigger the garrison: a castle can hide fifteen. Near home the guards fight at a fifth of their strength, at full strength a kilometre out. Wrecked houses are squatted by slimes; forts and castles are held by goblins.',
   'On hard, you learn to make a thing only by first finding one out in the world.',
   'A held ruin waits. Come within a few cells and the whole garrison comes at you at once — but it never strays far from its own building, so get seventy metres from the ruin and they give up and walk back to it.',
   // ── Animals — meeting them, then keeping them ───────────────

@@ -132,11 +132,13 @@
     // ── Chests: BIOME × TIER ─────────────────────────────────────
     // A chest has TWO orthogonal axes:
     //   - biome (POI category): drives the classBias — WHAT it contains
-    //   - tier 1..5 (T5 only underground, see loot.js chestTier): drives the curve
-    //     — HOW MUCH and HOW RARE the contents are
+    //   - tier 1..5 (T5 only underground): drives the curve — HOW MUCH and HOW
+    //     RARE the contents are. It is the ROLL tier (loot.js chestRollTier):
+    //     the chest's world tier (chestTier, what its gem shows), softened
+    //     near Home
     // Biome rows declare classBias only; the tier modifier (CHEST_TIER_MOD
     // below) supplies chainSteps / chainMax / maxTier / relicCap. Call sites:
-    //   pickReward('chest:' + biome, save, rng, { tier: chestTier(poiClass) })
+    //   pickReward('chest:' + biome, save, rng, { tier: chestRollTier(poiClass, x, y, depth) })
     // The picker merges the biome row with the tier mod at pick time.
     // Relic share is roughly half what it used to be — relics were turning
     // up too often across the board. They're still strongly weighted on the
@@ -677,8 +679,9 @@
     // SCHOOL, the consumable you find is a book" without making books the
     // commonest thing in a hospital.
     //
-    // The pin ignores the rolled TIER on purpose. A school demoted to T1 by
-    // the Home rings (loot.js chestTierHomeDrop) rolls tier 1, where the whole
+    // The pin ignores the rolled TIER on purpose. A school whose roll is
+    // softened to T1 by the Home rings (loot.js chestRollTier — the chest
+    // itself keeps its world tier) rolls tier 1, where the whole
     // consumable pool is the scarecrow — so the school on your own street,
     // the first one a new player ever reaches, would be the one that never
     // handed over a book. A Book is the one item whose worth is the same at

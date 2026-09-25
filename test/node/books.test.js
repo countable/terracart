@@ -108,9 +108,9 @@ test('books: the dropWeight lifts books everywhere, not just at school', () => {
   }
 });
 
-test('books: a school demoted to T1 by the Home rings still pays a book', () => {
-  // The Home rings drop a school chest to T1 within 350 m of the trailer
-  // (loot.js chestTierHomeDrop), and the whole T1 consumable pool is the
+test('books: a school whose roll the Home rings soften to T1 still pays a book', () => {
+  // The Home rings drop a school chest's ROLL to T1 within 350 m of the
+  // trailer (loot.js chestRollTier; the chest keeps its world tier), and the whole T1 consumable pool is the
   // scarecrow — so without the pin the school on your own street would be the
   // one that never handed over a book. The favourite ignores the rolled tier
   // for exactly this case.
@@ -438,6 +438,10 @@ test('tips: the chest rings and the depth step are the ones loot.js applies', ()
   assert.eq(JSON.stringify(CHEST_TIER_HOME_RINGS_M), JSON.stringify([700, 350]),
     'the Home rings are 700 m and 350 m');
   assert.truthy(someTip(/700m/) && someTip(/350m/), 'and a tip quotes both');
+  // The rings soften what a chest PAYS, never its gem (chestTier is the
+  // world's, chestRollTier the roll's): the tip must not say the chest is
+  // a lower tier, only that it gives less.
+  assert.truthy(someTip(/whatever their gem/i), 'and the tip says the gem is unchanged');
   assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'a chest climbs a tier every two levels down');
   assert.truthy(someTip(/every two levels down/i), 'and a tip says so');
   assert.eq(CHEST_TIER_COLOR[CHEST_TIER_MAX], 0xffc23d, 'the deepest chest wears a gold gem');
@@ -446,23 +450,28 @@ test('tips: the chest rings and the depth step are the ones loot.js applies', ()
 
 test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   // A hard-mode ruin's garrison is invisible until you are standing in it, and
-  // the RULE behind it — a safe ring, then more for a bigger building and more
-  // the further out — is not visible at all. So it is Book-documented, and the
-  // three figures the sentence quotes come from the module that owns them.
-  assert.eq(Lairs.LAIR_MIN_HOME_CELLS, 12,
-    'the tip says "a dozen cells of home" — re-word it or move the constant back');
-  assert.eq(Lairs.LAIR_FAR_M, 1000, 'the tip says "a kilometre away"');
+  // the RULE behind it — the same garrison for everyone, more for a bigger
+  // building, softer guards near Home — is not visible at all. So it is
+  // Book-documented, and the figures the sentence quotes come from the module
+  // that owns them.
+  assert.eq(Lairs.LAIR_FAR_M, 1000, 'the tip says "a kilometre out"');
   assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 15, 'the tip says "can hide fifteen"');
   // And the sentence's claim is the module's actual answer, not a nearby one.
-  assert.eq(Lairs.capFor(12, Lairs.LAIR_FAR_M, 7), 15,
-    'a castle at the far ring no longer holds the fifteen the tip promises');
+  assert.eq(Lairs.capFor(12, 1), 15,
+    'a castle at full strength no longer holds the fifteen the tip promises');
   assert.gt(Lairs.TIER_GUARDS[12], Lairs.TIER_GUARDS[9],
-    'the tip says "more the bigger the building"');
-  assert.truthy(someTip(/a dozen cells of home/i), 'a tip names the safe ring');
-  assert.truthy(someTip(/a kilometre away can hide fifteen/i), 'and the far end');
+    'the tip says "the bigger the building the bigger the garrison"');
+  // The Home nerf: "a fifth of their strength" at Home, full a kilometre out.
+  assert.eq(Lairs.lairMulFor(0), 1 / 5, 'the tip says "a fifth of their strength" near home');
+  assert.eq(Lairs.lairMulFor(Lairs.LAIR_FAR_M), 1, 'and "full strength a kilometre out"');
+  assert.truthy(someTip(/a castle can hide fifteen/i), 'a tip names the ceiling');
+  assert.truthy(someTip(/a fifth of their strength, at full strength a kilometre out/i),
+    'and the Home nerf');
+  // No safe ring is promised any more — a ruin by Home is held like any other.
+  assert.falsy(someTip(/a dozen cells of home/i), 'the retired safe ring is gone from the Book');
   // It has to say WHICH GAME it is describing: easy has no lairs at all
   // (Difficulty derelictLairs), and a Book is read in both modes.
-  const tip = PLAY_TIPS.find((t) => /a dozen cells of home/i.test(t));
+  const tip = PLAY_TIPS.find((t) => /a castle can hide fifteen/i.test(t));
   assert.truthy(/^On hard,/.test(tip), 'the tip must name the mode — it is false on easy');
   assert.falsy(Difficulty.PROFILES.easy.derelictLairs, 'which is only worth saying while easy has none');
   // THE ODDS — the part that makes looking in a building worth doing, and the

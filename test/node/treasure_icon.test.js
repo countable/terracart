@@ -33,9 +33,9 @@ const WORLD_ICON_SRC = lift('worldIconHTML(texKey, sizePx = 26) {', 'worldIconHT
 
 // ── The one resolver, run for real ────────────────────────────────────────
 const chest = (over) => ({ kind: 'chest', poiClass: 'library', x: 0, y: 0, ...over });
-// A chest's tier is demoted near Home (chestTier), and a demoted POI chest
-// wears the crate — which is the look, not the bug. Run these away from any
-// origin so each case says what it means.
+// A chest's tier (chestTier) is the world's — Home softens only what it
+// PAYS (chestRollTier), never its look. These still run with no origin so
+// each case says only what it means.
 const noHome = (fn) => {
   const prev = HomeArea.worldM;
   HomeArea.worldM = null;
