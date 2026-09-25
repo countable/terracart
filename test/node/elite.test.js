@@ -1,6 +1,6 @@
 // Elite (shiny) monsters — src/combat.js › ELITE_MUL / isElite / maxHp, the
 // spawn stamp and kill payout in app.js, and the relic-biased
-// 'treasure:elite' pool in rarity.js. Plus the first-delivery Discovery badge.
+// 'treasure:elite' pool in rarity.js. Plus the first-delivery memory.
 
 function seeded(seed) {
   let a = seed >>> 0;
@@ -108,7 +108,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   assert.truthy(/Combat\.enemyBounty\(victim\.kind, this\.depth, Combat\.eliteMul\(victim\)\)/.test(kill),
     'the bounty is paid at the elite multiplier');
   assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(kill),
-    'an elite kill banks the kind\'s Discovery badge the first time');
+    'an elite kill banks the kind\'s memory the first time');
   assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ rollBonus: Combat\.eliteRollBonus\(victim\.kind, this\.depth\) \}\)/.test(kill),
     'and rolls the elite treasure at the commensurate tier after that');
   // The relic-capable roll has somewhere to land: grantTreasureRoll equips a
@@ -118,7 +118,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   assert.truthy(/equipGearReward\(reward, save, scene\)/.test(grant), 'and equipped');
 });
 
-test('delivery: the first delivery to a house banks a Discovery badge, once', () => {
+test('delivery: the first delivery to a house banks a memory, once', () => {
   const app = APP_JS_SRC;
   const start = app.indexOf('presentDeliveryOffer(sx, sy, house, recordDeal) {');
   assert.gt(start, 0, 'the delivery handler exists');
@@ -126,12 +126,13 @@ test('delivery: the first delivery to a house banks a Discovery badge, once', ()
   assert.truthy(/const firstHere = this\._bankDiscovery\(`house:\$\{house\.id\}`,/.test(accept),
     'the accept handler banks house:<id> through the shared ledger');
   assert.truthy(/if \(firstHere\) this\.flashShiny\(gain, true, '🏠 NEW DOOR 🏠'\);/.test(accept),
-    'and gets the same fanfare as any other Discovery badge');
-  // The ledger itself: one badge per key, ever.
+    'and gets the same fanfare as any other memory');
+  // The ledger itself: one memory per key, ever.
   const lStart = app.indexOf('_bankDiscovery(key, label) {');
   const ledger = app.slice(lStart, app.indexOf('flashShiny(money, isNew = true', lStart));
   assert.truthy(/if \(found\[key\]\) return false;/.test(ledger), 'a banked key is refused');
-  assert.truthy(/this\.addToInv\('discovery', 1, true\)/.test(ledger), 'a new key pays the badge');
-  assert.eq((app.match(/addToInv\('discovery'/g) || []).length, 1,
-    'the ledger is the ONLY place a Discovery badge is handed out');
+  assert.truthy(/this\.save\.memories = this\.memoriesUnspent\(\) \+ 1;/.test(ledger), 'a new key pays a memory');
+  assert.eq((app.match(/this\.save\.memories = this\.memoriesUnspent\(\) \+ 1/g) || []).length, 1,
+    'the ledger is the ONLY place a memory is handed out');
+  assert.falsy(/addToInv\('discovery'/.test(app), 'and no bag stack is');
 });

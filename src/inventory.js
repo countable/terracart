@@ -5,8 +5,9 @@
 //   - At most ONE stack per item id; legacy duplicate stacks self-heal (fold
 //     into one) on the next add.
 //   - Each stack is capped at stackCapForBags(bags relic): 9 with no bag, 249
-//     at tier 7. Excess is rejected (this game has no ground drops). Items
-//     flagged `capExempt` in items.js (the Discovery badge) are uncapped.
+//     at tier 7. Excess is rejected (this game has no ground drops). No item is
+//     exempt: the one that was (the old Discovery badge) is now a save
+//     counter, save.memories, and never enters the bag.
 //
 // The scene keeps thin wrappers (app.js addToInv / invRoomFor) that call these
 // and then do the side effects cores must not own: persistSave, buildInventory
@@ -28,12 +29,9 @@
     return (typeof stackCapForBags === 'function') ? stackCapForBags(save?.relics?.bags) : 9;
   }
 
-  // Effective cap for ONE item id. Items flagged `capExempt` in items.js (the
-  // Discovery badge) ignore the bag cap entirely — they're irreplaceable
-  // one-per-type earns, so "bag full" must never reject one.
+  // Effective cap for ONE item id. Every id shares the bag's cap today; the
+  // id stays in the signature so a per-item cap has one place to land.
   function stackCapFor(save, id) {
-    const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
-    if (item && item.capExempt) return Infinity;
     return stackCap(save);
   }
 

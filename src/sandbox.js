@@ -898,9 +898,8 @@
     const COUNT = 5;
     const inv = [];
     // Most-tested kinds first (seeds → produce → animals → minerals →
-    // consumables). 'badge' = 5 Discovery badges — exactly one rung of the
-    // wizard tower's ladder, so that flow is exercisable too.
-    const ORDER = ['seed', 'produce', 'animal', 'mineral', 'consumable', 'badge'];
+    // consumables).
+    const ORDER = ['seed', 'produce', 'animal', 'mineral', 'consumable'];
     const byKind = {};
     for (const it of ITEMS) {
       if (!it || !it.id || !it.kind) continue;
@@ -915,6 +914,10 @@
     }
     scene.save.inv = inv;
     scene.save.selSlot = 0;
+    // Unspent memories (a save counter, not a bag stack) so the wizard
+    // tower's offers are exercisable too.
+    scene.save.memories = Math.max(scene.save.memories ?? 0, 20);
+    if (typeof scene.updateMemoriesDOM === 'function') scene.updateMemoriesDOM();
     if (typeof scene.buildInventoryDOM === 'function') scene.buildInventoryDOM();
     if (typeof scene.persistSave === 'function') scene.persistSave();
   }

@@ -161,10 +161,10 @@
   }
 
   // Has this house EVER been fed? One delivery per house, then it is happy for
-  // good. The record is the Discovery ledger the first delivery already banks
+  // good. The record is the memory ledger the first delivery already banks
   // (app.js _bankDiscovery, `house:<id>`) — the same fact, so no second flag.
   // A legacy `save.houseSatisfied` day stamp for TODAY also counts, so a house
-  // fed on an older build before its badge existed doesn't flip back today.
+  // fed on an older build before its memory existed doesn't flip back today.
   function isSatisfied(save, house, now = new Date()) {
     if (!house?.id) return false;
     if (save.discovered?.['house:' + house.id]) return true;

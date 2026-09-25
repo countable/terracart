@@ -586,7 +586,8 @@ const MODAL_KINDS = {
   delivery: { icon: '📦', label: 'Delivery'  },   // household orders
   build:    { icon: '🛠', label: 'Build'     },   // restoring wrecks, unsealing forts, moving home
   craft:    { icon: '🪵', label: 'Craft'     },   // Home's Craft page (HOME_RECIPES)
-  wizard:   { icon: '🔮', label: 'Wizard'    },   // the Discovery upgrade ladder
+  wizard:   { icon: '🔮', label: 'Wizard'    },   // spends memories on gifts
+  memory:   { icon: '🌟', label: 'Memories'  },   // the memories chip's explainer
   slots:    { icon: '🎰', label: 'Slots'     },   // a fort's slot machine (presentFortSlots)
   farm:     { icon: '🌾', label: 'Farm'      },   // scarecrows, feeding fauna
   energy:   { icon: '⚡', label: 'Energy'    },   // the energy explainer
@@ -1488,6 +1489,35 @@ if (typeof document !== 'undefined' && document.body) IconNet.observe();
 // plus a row in MINERAL_ICON_SHEET (items.js) — a hardcoded if-else here once
 // silently fell through to Crops.png for any unknown sheet, so a request like
 // { sheet: 'gems', frame: 4 } rendered as rainberry stage 4.
+// The memories chip's rule (app.js _buildMemoriesChip). It lives here, not in
+// index.html, because the chip is built from JS: the box restates the shared
+// top-row chip box (#menu summary, #energy, #money) off the same --hud-chip-*
+// variables, the rim is the control rim (--ctl-rim) because the chip is
+// tappable, and body.modal-open dims it with its neighbours.
+const MEMORIES_CHIP_CSS = `
+#memories {
+  box-sizing: border-box; position: relative;
+  height: var(--hud-chip-h); padding: var(--hud-chip-pad);
+  border: var(--hud-chip-rim) solid var(--ctl-rim); border-radius: 8px;
+  display: flex; flex-direction: row; align-items: center; gap: 5px;
+  background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
+  font: 700 14px ui-monospace, monospace;
+  box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+  text-shadow: 0 1px 0 #000;
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  pointer-events: auto; cursor: pointer; user-select: none;
+}
+#memories .mem-ico { width: 18px; height: 18px; image-rendering: pixelated; pointer-events: none; }
+#memories .mem-unspent {
+  position: absolute; top: -7px; right: -7px;
+  min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: 8px; background: var(--gold); color: #3a3322;
+  font: 700 10px/16px ui-monospace, monospace; text-align: center; text-shadow: none;
+  box-shadow: var(--chrome-key); pointer-events: none;
+}
+body.modal-open #memories { opacity: 0.25; pointer-events: none; }
+`;
+
 const ICON_SHEETS = {
   crops:       { url: 'assets/Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
   springcrops: { url: 'assets/Objects/Spring Crops.png',                cols: 14, srcW: 224, srcH: 128 },
@@ -2878,6 +2908,7 @@ class MapScene extends Phaser.Scene {
     // HUD + banner + inventory
     this.hud = document.getElementById('hud');
     this.moneyEl = document.getElementById('money');
+    this._buildMemoriesChip();
     this.banner = document.getElementById('banner');
     this._settleInvCatOnBoot();
     this.buildInventoryDOM();
@@ -6340,7 +6371,7 @@ class MapScene extends Phaser.Scene {
         // like a shiny animal so it survives reloads. The same `shiny` flag
         // the renderer already tints and sparkles; combat.js reads it as
         // double HP and damage (Combat.isElite), and resolveDefeat pays the
-        // badge-or-treasure it promises.
+        // memory-or-treasure it promises.
         creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
           { shiny: isShiny(id, SHINY_RATE.monster) }));
         break;
@@ -7950,7 +7981,7 @@ class MapScene extends Phaser.Scene {
       this.flash(`⚔️ ${name}${coins > 0 ? ` +${coins}` : ' slain'}`,
         this.viewCenterX, this.viewCenterY - 60);
       if (elite) {
-        // An elite always pays past the wage: the kind's Discovery badge the
+        // An elite always pays past the wage: the kind's memory the
         // first time, a relic-biased treasure roll at a depth-commensurate
         // tier every time after (see ELITE_TREASURE_CONTEXT / eliteRollBonus).
         if (this._bankDiscovery(victim.kind, `slaying an elite ${name}`)) {
@@ -7981,7 +8012,7 @@ class MapScene extends Phaser.Scene {
     persistSave(save);
     // Rare shiny deer / crow — hunted fauna drop their product (meat /
     // feather), so there's no live shiny animal to keep, but the shiny find
-    // still pays the 10× money + discovery bonus with fanfare.
+    // still pays the 10× money + memory with fanfare.
     if (victim.shiny && dropId) {
       this.awardShinyBonus(victim.kind, this.viewCenterX, this.viewCenterY - 60);
     }
@@ -10675,7 +10706,7 @@ class MapScene extends Phaser.Scene {
     }
     // A shiny animal stays shiny in its own per-kind stack (shiny_chicken,
     // shiny_cow, …) — never folded into the plain stack or other shinies. It
-    // also pays the headline 10× money + discovery bonus with fanfare.
+    // also pays the headline 10× money + memory with fanfare.
     const isShinyCatch = !!c.shiny && !!ITEM_BY_ID[`shiny_${c.kind}`];
     const invId = isShinyCatch ? `shiny_${c.kind}` : c.kind;
     // addToInv already persists; passing silent=true to avoid a double write.
@@ -11289,7 +11320,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // A rare SHINY find (yellow-tinted flora / tree / animal). Pays 10× the
-  // harvested/caught item's value in cash, banks a Discovery point, and fires
+  // harvested/caught item's value in cash, banks a memory, and fires
   // the shiny fanfare. `baseId` is the plain item id used to read the value
   // (e.g. 'wood', 'apple', 'cow'). Returns the cash awarded.
   awardShinyBonus(baseId, sx, sy) {
@@ -11298,9 +11329,9 @@ class MapScene extends Phaser.Scene {
       : (PRICES[baseId] ?? 1);
     const money = Math.max(10, Math.round(value * 10));
     addMoney(this.save, money);
-    // Discovery badge: at most ONE per type of interactable (keyed by baseId —
-    // the species/kind/produce id); later shinies of the same type still pay
-    // the cash windfall but don't re-award the badge.
+    // A memory: at most ONE per type of interactable (keyed by baseId — the
+    // species/kind/produce id); later shinies of the same type still pay the
+    // cash windfall but bring back no further memory.
     const name = ITEM_BY_ID[baseId]?.name || Combat.monster(baseId)?.name || baseId;
     const isNew = this._bankDiscovery(baseId, `a shiny ${name}`);
     persistSave(this.save);
@@ -11308,21 +11339,28 @@ class MapScene extends Phaser.Scene {
     return money;
   }
 
-  // THE BADGE LEDGER. One Discovery badge per key, ever: `save.discovered` is
-  // the set of keys already banked, and this is the only thing that writes it
-  // or hands out the 'discovery' stack. Keys are whatever "a thing you can
-  // discover once" is — a shiny type's base item id, an elite monster's kind,
-  // `house:<id>` for a household's first delivery — all in the one map, so
-  // there is one answer to "has this been discovered". Returns true when the
-  // badge was banked just now, false when the key was already in the ledger.
-  // The badge is a normal inventory stack (id 'discovery', cap-exempt so a
-  // full bag can never eat one), added silent so the moment doesn't hijack the
-  // player's selected tab/stack; the rebuild makes the new count show at once.
+  // THE MEMORY LEDGER. One memory per key, ever: `save.discovered` is the
+  // set of keys already banked, and this is the only thing that writes it or
+  // adds to `save.memories`. Keys are whatever "a thing you can discover once"
+  // is — a shiny type's base item id, an elite monster's kind, `house:<id>`
+  // for a household's first delivery — all in the one map, so there is one
+  // answer to "has this been discovered". Returns true when the memory was
+  // banked just now, false when the key was already in the ledger.
   //
-  // EVERY BANKED BADGE TELLS ITS STORY: `label` finishes the sentence "You
-  // have gained one discovery badge for ____" and is queued for the
-  // discovery_badge splash. Here, in the one writer, so no badge can land
-  // without it. It is QUEUED, never opened on the spot: a badge lands
+  // TWO NUMBERS, ONE LEDGER. Memories recovered = the keys in
+  // save.discovered (memoriesTotal); memories UNSPENT = save.memories, a
+  // plain counter (not a bag stack — the old 'discovery' item was folded
+  // into it by savemigrate.js, schema 2), which only spendMemories takes
+  // from. The HUD chip (updateMemoriesDOM) reads both.
+  //
+  // EVERY MEMORY HEALS. The moment you feel whole again is literal: the bar
+  // goes to the live cap, popped on the body through _popEnergy. A one-shot
+  // gain, not a passive rest, so it is not gated on `working`.
+  //
+  // EVERY BANKED MEMORY TELLS ITS STORY: `label` finishes the sentence "A
+  // glimpse of a memory comes back as you find ____" and is queued for the
+  // discovery_badge splash. Here, in the one writer, so no memory can land
+  // without it. It is QUEUED, never opened on the spot: a memory lands
   // beside other first-time splashes (the first shiny, the first delivery)
   // and opening it first would find those a busy screen and burn nothing —
   // but make them wait a whole shiny. _drainBadgeStories shows the queue
@@ -11331,13 +11369,45 @@ class MapScene extends Phaser.Scene {
     const found = this.save.discovered = this.save.discovered || {};
     if (found[key]) return false;
     found[key] = 1;
-    this.addToInv('discovery', 1, true);
-    if (this.buildInventoryDOM) this.buildInventoryDOM();
-    (this._badgeStories = this._badgeStories || []).push(label || 'a new discovery');
+    this.save.memories = this.memoriesUnspent() + 1;
+    const maxE = this.getMaxEnergy();
+    const healed = Math.round(maxE - Math.max(0, this.save.energy ?? 0));
+    if (healed > 0) {
+      this.save.energy = maxE;
+      this._popEnergy(healed);
+    }
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    if (this.updateMemoriesDOM) this.updateMemoriesDOM();
+    (this._badgeStories = this._badgeStories || []).push(label || 'something new');
     return true;
   }
 
-  // Opens the next queued badge story once nothing else is up. Rides the
+  // Memories recovered, ever — one per key in the ledger.
+  memoriesTotal() {
+    return Object.keys(this.save.discovered || {}).length;
+  }
+
+  // Memories not yet spent (the wizard's currency). Whole, never negative.
+  memoriesUnspent() {
+    const n = Math.floor(this.save.memories ?? 0);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  // Spend `n` memories. False (nothing spent) when fewer than n are unspent;
+  // on success the counter drops, the HUD chip repaints and the save is
+  // written. The ONE place save.memories goes down.
+  spendMemories(n) {
+    n = Math.floor(n);
+    if (!(n > 0)) return false;
+    const have = this.memoriesUnspent();
+    if (have < n) return false;
+    this.save.memories = have - n;
+    if (this.updateMemoriesDOM) this.updateMemoriesDOM();
+    persistSave(this.save);
+    return true;
+  }
+
+  // Opens the next queued memory story once nothing else is up. Rides the
   // modal-gate backstop's throttle in update(), right after the sync, so
   // body.modal-open is fresh when it is read.
   _drainBadgeStories() {
@@ -11346,8 +11416,8 @@ class MapScene extends Phaser.Scene {
     const label = this._badgeStories.shift();
     this.showMessageModal({
       art: 'discovery_badge',
-      title: 'Discovery!',
-      body: `A glowing emblem appears in your vision. You have gained one discovery badge for ${label}.`,
+      title: 'A memory returns',
+      body: `A glimpse of a memory comes back as you find ${label}. You feel whole again.`,
     });
   }
 
@@ -11405,7 +11475,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
-  // banner + a money line + a Discovery line, with a star burst. Call AFTER the
+  // banner + a money line + a memory line, with a star burst. Call AFTER the
   // loot/catch flash so it stacks above (depth 110). `title` is the headline —
   // the elite kill wears its own.
   flashShiny(money, isNew = true, title = SHINY_FIND_TITLE) {
@@ -11419,7 +11489,7 @@ class MapScene extends Phaser.Scene {
     if (title === SHINY_FIND_TITLE) this._storySplashOnce('shiny', {
       art: 'shiny_first',
       title: 'A shiny find!',
-      body: 'Gold shimmer, ten times the money, and a Discovery badge. Shinies hide among the ordinary - keep looking.',
+      body: 'Gold shimmer, ten times the money, and a memory comes back. Shinies hide among the ordinary - keep looking.',
     });
     try {
       const banner = this._toast(title,
@@ -11427,7 +11497,7 @@ class MapScene extends Phaser.Scene {
       this.tweens.add({ targets: banner, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
       // Hangs BELOW the headline (originY 0) rather than above it, which is
       // the whole reason `sub` is its own tier.
-      const subText = isNew ? `+${money}   🔆 +1 Discovery` : `+${money}`;
+      const subText = isNew ? `+${money}   🌟 +1 memory` : `+${money}`;
       // Pinned 8px under the headline's FINAL y (the banner may have been
       // lifted clear of a loot pop — flashShiny is documented to fire after
       // one) and opted out of stacking, so the pair always reads as one unit
@@ -11467,6 +11537,7 @@ class MapScene extends Phaser.Scene {
       document.body.classList.remove('booting');
     }
     this.updateEnergyDOM();
+    this.updateMemoriesDOM();
     this.updateRelicRow();
     // Debug HUD: only show when GPS is unavailable or unfixed — i.e. an
     // exception case (desktop/wasd, denied permission, still acquiring).
@@ -11561,6 +11632,85 @@ class MapScene extends Phaser.Scene {
       fill.style.width = `${Math.round(pct * 100)}%`;
       fill.style.background = color;
     }
+  }
+
+  // ── The memories chip ───────────────────────────────────────────────────
+  // A third chip in the top row (#hud-row), beside the energy gauge: the gold
+  // star, the memories RECOVERED ever (memoriesTotal), and a corner pip with
+  // the UNSPENT count (memoriesUnspent, hidden at 0). Built here rather than
+  // in index.html's markup, so its rule rides in with it (MEMORIES_CHIP_CSS);
+  // the box is the row's shared chip box, restated, and it dims under
+  // body.modal-open exactly like #energy / #money. Tapping it explains itself
+  // (showMemoriesHelp) and never reaches the map.
+  _buildMemoriesChip() {
+    if (typeof document === 'undefined') return;
+    const row = document.getElementById('hud-row');
+    if (!row) return;
+    if (!document.getElementById('memories-style')) {
+      const st = document.createElement('style');
+      st.id = 'memories-style';
+      st.textContent = MEMORIES_CHIP_CSS;
+      document.head.appendChild(st);
+    }
+    let el = document.getElementById('memories');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'memories';
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', 'Memories');
+      const ico = this.renderItemIcon('memory', 18, 'block');
+      ico.classList.add('mem-ico');
+      const num = document.createElement('span');
+      num.className = 'mem-num';
+      num.textContent = '0';
+      const pip = document.createElement('span');
+      pip.className = 'mem-unspent';
+      pip.style.display = 'none';
+      el.append(ico, num, pip);
+      // The chip sits over the map: swallow the press so no tap lands on the
+      // world under it, then explain on the click.
+      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
+        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      el.addEventListener('click', (e) => { e.stopPropagation(); this.showMemoriesHelp(); });
+      const energy = document.getElementById('energy');
+      if (energy && energy.parentNode === row) row.insertBefore(el, energy);
+      else row.prepend(el);
+    }
+    this.memoriesEl = el;
+    this._memoriesDOM = null;
+    this.updateMemoriesDOM();
+  }
+
+  // Paints the chip from the two numbers. Called every frame from updateHUD
+  // (guarded on the pair having moved) and at once by every writer.
+  updateMemoriesDOM() {
+    const el = this.memoriesEl;
+    if (!el) return;
+    const total = this.memoriesTotal(), unspent = this.memoriesUnspent();
+    const key = total + '|' + unspent;
+    if (this._memoriesDOM === key) return;
+    this._memoriesDOM = key;
+    const num = el.querySelector('.mem-num');
+    if (num) num.textContent = String(total);
+    const pip = el.querySelector('.mem-unspent');
+    if (pip) {
+      pip.textContent = String(unspent);
+      pip.style.display = unspent > 0 ? '' : 'none';
+    }
+    el.title = `Memories: ${total} recovered, ${unspent} unspent`;
+  }
+
+  // What the memories chip says when tapped.
+  showMemoriesHelp() {
+    const total = this.memoriesTotal(), unspent = this.memoriesUnspent();
+    this.showMessageModal({
+      kind: 'memory',
+      title: `${total} recovered · ${unspent} unspent`,
+      body: 'A memory comes back each time you discover something new: a shiny, '
+        + 'a new household fed, an elite foe.\n\n'
+        + 'A Wizard Tower can turn unspent memories into power.',
+      okLabel: 'Got it',
+    });
   }
 
   // ── First-session objective chip ────────────────────────────────────────
@@ -12838,10 +12988,11 @@ class MapScene extends Phaser.Scene {
   // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
   // `art` (optional) — a banner stem for dialogArtHTML, shown above the title
   // on the story dialogs (the trail intro, a book read).
-  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art }) {
+  // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = 'note' }) {
     document.getElementById('offer-modal')?.remove();
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: () => {}, kind: 'note', story: !!art });
+      { zIndex: 60, onClose: () => {}, kind: kind, story: !!art });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
       this.dialogArtHTML(art) +
@@ -13042,14 +13193,12 @@ class MapScene extends Phaser.Scene {
     const kindIcon = this._homeKindIcon();
     // Nothing sellable in hand: the page says what it is for rather than
     // flashing a stock phrase — selling is home-only, the single most
-    // easily-missed rule in the economy. noSell items (the Discovery badge)
-    // never enter the sale; the wizard tower is the only place they're worth
-    // anything.
-    if (!hasSel || ITEM_BY_ID[sel.id]?.noSell) {
+    // easily-missed rule in the economy.
+    if (!hasSel) {
       this.showOfferModal({
         kind: 'shop', kindIcon, tabs,
         title: 'Sell from your stash',
-        get: hasSel ? 'Only the wizard values that' : 'Nothing picked to sell',
+        get: 'Nothing picked to sell',
         blurb: 'Pick a stack in your bag, then tap Home to sell it.',
         cost: '', canAfford: false, cancelLabel: 'Later', acceptLabel: 'Sell',
         onAccept: () => {},
@@ -13483,9 +13632,8 @@ class MapScene extends Phaser.Scene {
       return;
     }
     // Wizard tower (the 15th restored wreck) — no longer a relic vendor. The
-    // mage trades the player's hard-won Discovery badges for the rungs of his
-    // ladder: Inner Light (reach), then Full Measure (quantity luck), then
-    // Keen Eye (the Ring — tier luck). See presentWizardOffer.
+    // mage sees power in the player's memories and spends them on his gifts.
+    // See presentWizardOffer.
     if (shopType === 'wizard') {
       this.presentWizardOffer(sx, sy, recordDeal);
       return;
@@ -14317,18 +14465,18 @@ class MapScene extends Phaser.Scene {
         this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
         // One household served — a castle job may be counting them.
         this.questEvent('deliver');
-        // The FIRST delivery to this household is a discovery: one Discovery
-        // badge per house, ever, through the same ledger a shiny find uses
+        // The FIRST delivery to this household is a discovery: one memory
+        // per house, ever, through the same ledger a shiny find uses
         // (keyed `house:<id>` so a house can't collide with an item id).
         const firstHere = this._bankDiscovery(`house:${house.id}`,
           'a first delivery to a new household');
-        // That badge IS the household's "fed" record (Delivery.isSatisfied
+        // That ledger key IS the household's "fed" record (Delivery.isSatisfied
         // reads it): it stops asking and shows a smiling face for good.
         recordDeal();
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`+${gain}`, '#ffe066', 1, wanted[0]);
-        // A new door gets the same fanfare as any other Discovery badge — the
+        // A new door gets the same fanfare as any other memory — the
         // shiny-find banner + burst, not a bare flash — so every "first time"
         // moment in the game reads the same way (see the elite-kill call site).
         if (firstHere) this.flashShiny(gain, true, '🏠 NEW DOOR 🏠');
@@ -14336,7 +14484,7 @@ class MapScene extends Phaser.Scene {
           this._storySplashOnce('delivery', {
             art: 'delivery_first',
             title: 'First delivery',
-            body: 'A neighbour pays coin for your produce bundle and very nearly smiles. Every house keeps a wishlist - fill it for coin, and earn a Discovery badge at each new door.',
+            body: 'A neighbour pays coin for your produce bundle and very nearly smiles. Every house keeps a wishlist - fill it for coin, and a memory comes back at each new door.',
           });
         }
       },
@@ -15966,7 +16114,7 @@ class MapScene extends Phaser.Scene {
             blacksmith: { blurb: 'Forge tools and trade gems for relics here. Mind the sparks; the smith does not.' },
             market:     { blurb: `${THEME_BLURB[theme] || 'Sells one line of goods.'} A new line every shop you rebuild.` },
             trader:     { blurb: 'Barters goods and pays a bonus on every sale. Money is so last civilisation.' },
-            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage trades 5 Discovery badges a step, up his ladder: a wider reach, then bigger finds, then the Ring that finds the rarer thing.' },
+            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage sees power in your memories. He offers two gifts at once: a cheap one (more energy, then a class) and a dear one (wider reach, bigger finds, the Ring).' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave, and they crave very specifically.' },
           };
           const info = INFO[role] || INFO.plain;

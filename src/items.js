@@ -325,16 +325,20 @@ const MINERAL_ICON_SHEET = {
   // The acorn plants a plain timber tree, so it shows the same sheet that
   // tree draws from ('trees', the maple/default sheet) at its young frame.
   acorn:         { sheet: 'trees',      frame: 2 },
-  // Discovery badge — the gold five-point star at row 8 col 4 of
-  // 7_Pickup_Items (frame 8 * 14 + 4 = 116). Same sheet as the boot.
-  discovery:     { sheet: 'pickup',     frame: 116 },
+  // MEMORY — the gold five-point star at row 8 col 4 of 7_Pickup_Items
+  // (frame 8 * 14 + 4 = 116). Same sheet as the boot. Not an item: memories
+  // are a save counter (save.memories, app.js _bankDiscovery), and this row
+  // is only the star the HUD chip draws (renderItemIcon('memory')) —
+  // inventoryIconSource answers it with no ITEMS row behind it.
+  memory:        { sheet: 'pickup',     frame: 116 },
 };
 
 function inventoryIconSource(itemId) {
+  // Minerals + gems use the dedicated sheet table above. Read BEFORE the item
+  // lookup: the memory star has a row there and no ITEMS entry.
+  if (MINERAL_ICON_SHEET[itemId]) return MINERAL_ICON_SHEET[itemId];
   const item = ITEM_BY_ID[itemId];
   if (!item) return null;
-  // Minerals + gems use the dedicated sheet table above.
-  if (MINERAL_ICON_SHEET[itemId]) return MINERAL_ICON_SHEET[itemId];
   const cropKey = item.grows || item.crop;
   if (!cropKey) return null;
   const ov = CROP_SPRITE[cropKey];
@@ -603,20 +607,6 @@ const ITEMS = [
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
-  // Discovery badge — earned once per discoverable KEY (app.js _bankDiscovery:
-  // a shiny type found, an elite monster kind slain, a household's first
-  // delivery), spent at the wizard tower on Inner Lights. Lives as a normal
-  // inventory stack so
-  // the player can see / count their badges, but it's deliberately walled off
-  // from the rest of the economy:
-  //   kind 'badge'    → in no rarity.js classBias, so chests / shops / traders /
-  //                     deliveries never roll it (the Items tab lists the kind).
-  //   capExempt       → inventory.js ignores the bag stack-cap; a badge is
-  //                     irreplaceable (one per type, ever), so "bag full" must
-  //                     never eat one.
-  //   noSell          → the home sell modal refuses it; only the wizard trades
-  //                     in Discovery. No PRICES entry keeps it out of barter asks.
-  { id: 'discovery',    name: 'Discovery',    kind: 'badge', capExempt: true, noSell: true },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
   // share within the (produce, tier) pool so chest loot reads as mostly crops
   // and fruit, with fish as an occasional aquatic surprise rather than the
@@ -807,7 +797,7 @@ function itemValue(id) {
   return TIER_VALUE[t] || TIER_VALUE[TIER_VALUE.length - 1];
 }
 // Shiny animals sell at 10× their plain counterpart's value — a real prize in
-// the bag, on top of the catch-time money + discovery bonus.
+// the bag, on top of the catch-time money + memory.
 for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly']) {
   PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
@@ -990,8 +980,8 @@ const PLAY_TIPS = [
   'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
   'Chests near home are humbler: a tier down within 700m of your trailer, two within 350m. The prizes are a walk away.',
   'One stone in ten gathered off the ground hides a gemfruit.',
-  'Every new kind of thing you discover banks a Discovery badge. Only the wizard values those.',
-  'A shiny flower or tree is worth ten times the money, and banks a Discovery badge with it.',
+  'Every new kind of thing you discover brings back a memory, and a full tank with it. Only the wizard values those.',
+  'A shiny flower or tree is worth ten times the money, and brings back a memory with it.',
   // Fishing: available from the first water tile with nothing in hand, so it
   // is taught here beside the other things already lying around — and what
   // the ✦ row on the rod cannot carry is which fish arrives at which tier.
@@ -1056,7 +1046,7 @@ const PLAY_TIPS = [
   'A castle stays sealed until you finish the job on its board — then it is yours.',
   'The castle board always holds three jobs, and each castle offers only one of them: the next castle along has different work.',
   'A castle job grows with the number you have already finished, and so does the purse it pays.',
-  'The wizard trades 5 Discovery badges a step, up his ladder: wider reach first, then bigger finds, then the Ring.',
+  'The wizard sees power in your memories. He offers two gifts at once: a cheap one (more energy, and at the third a class: Hunter, Runner, Enforcer or Enchanter) and a dear one (wider reach, bigger finds, then the Ring).',
   'No shop, smithy or castle vault deals in Rings. The wizard\'s Keen Eye is what puts one on your hand.',
   'Platinum, Crimson and Frost bars are smelted from a magical flower and the bar below it — or prised out of the rarest deep rock, if your tools are nearly its equal.',
   'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
@@ -1778,9 +1768,7 @@ const INV_CATS = [
   { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic' },
   { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
   { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
-  // 'badge' = the Discovery badge stack — listed here so it's visible/countable,
-  // though it's spent only at the wizard tower (no tap-to-use handler).
-  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable', 'badge'] },
+  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable'] },
 ];
 const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
 // Items whose TAB is not their kind's. Rock is the `rockfruit` crop — a

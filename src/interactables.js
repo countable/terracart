@@ -192,7 +192,7 @@ const INTERACTABLES = {
       // Say what the tree actually gave. A drop the player isn't told about is
       // a drop that didn't happen as far as they know.
       if (gotAcorn) scene.flashLoot(`+1 ${ITEM_BY_ID.acorn?.name || 'Acorn'}`, '#d9b382', 1.1, 'acorn');
-      // Rare shiny tree — 10× wood value in cash + a discovery point.
+      // Rare shiny tree — 10× wood value in cash + a memory.
       if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus('wood', sx, sy);
     },
   },
@@ -350,7 +350,7 @@ const INTERACTABLES = {
       ctx.dirty = true;
       const item = ITEM_BY_ID[o.species];
       scene.flashLoot(`harvested ${item?.name || o.species}`, '#a7ffb0', 1, o.species);
-      // Rare shiny fruit tree — 10× fruit value in cash + a discovery point.
+      // Rare shiny fruit tree — 10× fruit value in cash + a memory.
       if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus(o.species, sx, sy);
       return true;
     },
