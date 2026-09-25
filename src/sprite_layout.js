@@ -232,12 +232,13 @@
   //   frameMs   ms per frame when the renderer steps the row-0 cycle itself,
   //             over `frames` (which is therefore a COUNT OF REAL ART, listed
   //             per row — see the frame-index rule in CLAUDE.md).
-  //   hop       the continuous bounce a slime and every cave monster wear,
-  //             phase-offset per creature off its id. `hopMs` / `hopPx` set
-  //             its beat and height (default HOP_MS / HOP_PX, creatureHop);
-  //             a slime's is slow and never taller than half its contact
-  //             shadow (SLIME_HOP_*), or the blob lifts clear of the shadow
-  //             at the top of each hop and reads as floating.
+  //   hop       a code-drawn continuous bounce, phase-offset per creature off
+  //             its id (HOP_MS / HOP_PX, creatureHop) — for a kind whose
+  //             sheet has no hop of its own (the goblins).
+  //   hopRow    the sheet DRAWS a hop in this row (`cols` frames a row):
+  //             played on a beat while the creature is moving (hopFrameMs a
+  //             frame, then hopRestMs on idle frame 0), the idle row-0 cycle
+  //             while it sits (creatureHopRow). The slimes.
   //   airborne  it flies: its contact shadow reads smaller and fainter.
   // A row with neither `anim` nor `frameMs` is drawn at rest, on frame 0.
   //
@@ -251,12 +252,23 @@
   // two ever animate at different rates it is the same blob moving two ways.
   const CREATURE_FRAME_MS = 160;
   const SLIME_FRAME_MS = CREATURE_FRAME_MS * 2;
-  // The bounce. Every hopping kind's default, and the slimes' own — slower,
-  // and 3px: a slime's shadow is ~7px tall and centred on its feet, so a
-  // bounce past ~3.5px opens a gap under the body (it hopped 6px every 600 ms
-  // until Sep 2026 and a cave slime read as hovering).
+  // The CODE bounce (`hop`): every hopping kind without art of its own for
+  // it — the goblins. Up HOP_PX and back every HOP_MS.
   const HOP_MS = 600, HOP_PX = 6;
-  const SLIME_HOP_MS = 1000, SLIME_HOP_PX = 3;
+  // The slime sheets DRAW their hop: rows in threes (idle 0-2, HOP 3-5, move
+  // 6-8, splat 9-11), and row 3 rises ~6px over frames 1-2 and lands squashed
+  // on frame 3. So a slime oozes on row 0 while it sits and plays row 3 across
+  // each step it takes (`hopRow`, creatureHopRow; render.js times it to the
+  // step). It used to wear the code bounce on top of the idle ooze instead —
+  // two rhythms out of step (a 1.28 s ooze under a 0.6 s bounce), bouncing in
+  // place whether it moved or not, which read as rapid and airborne.
+  const SLIME_HOP_ROW = 3;
+  // A slime's step is a long glide (app.js: 5 s / its speed — ~7 s for a cave
+  // slime), so one hop can't span it: while it moves it hops on a beat — the
+  // row's frames at SLIME_HOP_FRAME_MS each, then SLIME_HOP_REST_MS sat on
+  // idle frame 0 — hop, pause, hop, for as long as the glide lasts.
+  const SLIME_HOP_FRAME_MS = 150;
+  const SLIME_HOP_REST_MS = 600;
   const CREATURE_ART = {
     chicken:       { sheet: 'chicken',   anim: 'chicken-idle', fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
     cow:           { sheet: 'cow',       anim: 'cow-idle',     fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
@@ -268,21 +280,21 @@
     // The butterfly's 7 frames are the sheet's whole top row, stepped faster
     // than the common creature beat — a flutter, not a plod.
     butterfly:     { sheet: 'butterfly', frames: 7, frameMs: 100, airborne: true, fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
-    slime:         { sheet: 'slime',     frames: 4, frameMs: SLIME_FRAME_MS, hop: true, hopMs: SLIME_HOP_MS, hopPx: SLIME_HOP_PX, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
+    slime:         { sheet: 'slime',     frames: 4, frameMs: SLIME_FRAME_MS, hopRow: SLIME_HOP_ROW, hopFrameMs: SLIME_HOP_FRAME_MS, hopRestMs: SLIME_HOP_REST_MS, cols: 4, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
     // Underground monsters. The cave slime is the SURFACE SLIME'S SHEET — same
     // file, same frames, same trimmed rows — so everything the art decides has
     // to match the row above it, and the one thing that may differ is the
     // tint. It carried `foot: 0.9` (the blanket fallback from before this
     // table existed) until Sep 2026, which hung it ~10px above its own contact
     // shadow: one body cannot have two ground lines.
-    cave_slime:    { sheet: 'slime',     frames: 4, frameMs: SLIME_FRAME_MS, hop: true, hopMs: SLIME_HOP_MS, hopPx: SLIME_HOP_PX, fw: 32, fh: 32, scale: 1.25, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: CAVE_SLIME_TINT },
+    cave_slime:    { sheet: 'slime',     frames: 4, frameMs: SLIME_FRAME_MS, hopRow: SLIME_HOP_ROW, hopFrameMs: SLIME_HOP_FRAME_MS, hopRestMs: SLIME_HOP_REST_MS, cols: 4, fw: 32, fh: 32, scale: 1.25, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: CAVE_SLIME_TINT },
     // The purple slime is a SLIME: it oozes at the slime beat and sits on its
     // own shadow. It ran at the common creature beat and floated 8px up (plus
     // a flyer's quick, tall bounce in render.js), which read as a bat — twice
     // the frame rate, twice the bounce rate, and a body hanging over its
     // shadow. Its combat `fly` (combat.js) is a MOVEMENT trait — long steps,
     // a wider stalk jitter — and never a look.
-    purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hop: true, hopMs: SLIME_HOP_MS, hopPx: SLIME_HOP_PX, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
+    purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hopRow: SLIME_HOP_ROW, hopFrameMs: SLIME_HOP_FRAME_MS, hopRestMs: SLIME_HOP_REST_MS, cols: 4, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
     goblin:        { sheet: 'goblin',        frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
     goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
   };
@@ -438,11 +450,26 @@
   function creatureAnim(kind) { return creatureArt(kind)?.anim ?? null; }
   function creatureFrameMs(kind) { return creatureArt(kind)?.frameMs ?? 0; }
   function creatureHops(kind) { return !!creatureArt(kind)?.hop; }
-  // The bounce a hopping kind wears: { ms, px } (null if it doesn't hop).
+  // The code bounce a hopping kind wears: { ms, px } (null if it doesn't).
   function creatureHop(kind) {
     const a = creatureArt(kind);
     if (!a?.hop) return null;
     return { ms: a.hopMs ?? HOP_MS, px: a.hopPx ?? HOP_PX };
+  }
+  // The sheet row a kind DRAWS its hop in: { row, cols, frames, frameMs,
+  // restMs } (null if its art has none).
+  function creatureHopRow(kind) {
+    const a = creatureArt(kind);
+    if (a?.hopRow == null) return null;
+    return { row: a.hopRow, cols: a.cols || a.frames || 1, frames: a.frames || 1,
+             frameMs: a.hopFrameMs || 150, restMs: a.hopRestMs || 0 };
+  }
+  // Which frame a hop-row kind shows `t` ms into a move: the hop row's frames
+  // on the beat, then idle frame 0 for the rest.
+  function hopRowFrame(hr, t) {
+    const hopLen = hr.frames * hr.frameMs;
+    const k = Math.max(0, t) % (hopLen + hr.restMs);
+    return k < hopLen ? hr.row * hr.cols + Math.floor(k / hr.frameMs) : 0;
   }
   function creatureAirborne(kind) { return !!creatureArt(kind)?.airborne; }
   // The multiply colour a kind is drawn in — white for art that is already its
@@ -512,8 +539,8 @@
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, creatureBehaviour, creatureWanders, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureFollows, creatureAvoids,
-    creatureAnim, creatureFrameMs, creatureHops, creatureHop, creatureAirborne,
-    HOP_MS, HOP_PX, SLIME_HOP_MS, SLIME_HOP_PX,
+    creatureAnim, creatureFrameMs, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
+    HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, creatureSheet, creatureFrames, creatureTint,

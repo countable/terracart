@@ -3994,6 +3994,8 @@ Render.drawObjects = function drawObjects(scene) {
   const creatureAnim = (SL && SL.creatureAnim) || (() => null);
   const creatureFrameMs = (SL && SL.creatureFrameMs) || (() => 0);
   const creatureHop = (SL && SL.creatureHop) || (() => null);
+  const creatureHopRow = (SL && SL.creatureHopRow) || (() => null);
+  const hopRowFrame = (SL && SL.hopRowFrame) || (() => 0);
   const creatureAirborne = (SL && SL.creatureAirborne) || (() => false);
   // A giant's sheet, frame count and shadow are its base kind's.
   const baseKind = (SL && SL.baseKind) || ((kind) => kind);
@@ -4025,9 +4027,21 @@ Render.drawObjects = function drawObjects(scene) {
       if (setTextureIfDifferent(s, texKey)) s.play(anim);
     } else {
       if (s.texture.key !== texKey) { s.anims?.stop(); s.setTexture(texKey, 0); }
-      // Stepped here, or drawn at rest on frame 0.
-      const frameMs = creatureFrameMs(c.kind);
-      s.setFrame(frameMs ? Math.floor(performance.now() / frameMs) % creatureFrames(c.kind) : 0);
+      // A kind whose sheet DRAWS a hop (creatureHopRow — the slimes) plays it
+      // on a beat while it is MOVING — mid-step, as app.js stamps it
+      // (_stepT0 / _hopMs / _startX..._targetY) — so it hops along the glide
+      // and sits still when it stops (SpriteLayout.hopRowFrame). Otherwise,
+      // and whenever it sits, the row-0 cycle, stepped here, or frame 0.
+      const hopRow = creatureHopRow(c.kind);
+      const tStep = hopRow && c._stepT0 != null ? performance.now() - c._stepT0 : -1;
+      const stepping = tStep >= 0 && tStep < (c._hopMs || 0)
+        && (c._targetX !== c._startX || c._targetY !== c._startY);
+      if (stepping) {
+        s.setFrame(hopRowFrame(hopRow, tStep + (c._hopSeed ?? 0)));
+      } else {
+        const frameMs = creatureFrameMs(c.kind);
+        s.setFrame(frameMs ? Math.floor(performance.now() / frameMs) % creatureFrames(c.kind) : 0);
+      }
     }
     // How far off the ground the body is drawn: its constant float (a crow
     // perches high, a bat hovers) plus, for a hopping kind, the live bounce.
@@ -4037,11 +4051,10 @@ Render.drawObjects = function drawObjects(scene) {
       // Phase-offset per creature off a cached hash of its id, so a pack of
       // slimes doesn't pulse in unison.
       if (c._hopSeed == null) c._hopSeed = strHash31(c.id || '');
-      // The bounce is the ART ROW's (SpriteLayout.creatureHop — a slime's is
-      // slow and low enough to stay on its shadow). It used to read the
-      // monster table's `fly` and give the purple slime a 320 ms, 10px
-      // bounce — a flyer's dart on a slime's body. `fly` is a movement trait
-      // (app.js step length / stalk jitter); the LOOK is the art row's.
+      // The bounce is the ART ROW's (SpriteLayout.creatureHop — only a kind
+      // whose sheet has no hop of its own; the slimes draw theirs, above).
+      // `fly` is a movement trait (app.js step length / stalk jitter); the
+      // LOOK is the art row's.
       const ph = ((performance.now() + c._hopSeed) % hop.ms) / hop.ms;
       lift += Math.round(Math.abs(Math.sin(ph * Math.PI)) * hop.px);
     }
