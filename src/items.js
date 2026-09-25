@@ -1327,11 +1327,14 @@ function stackCapForBags(bagsRelic) {
 // the max-energy CAP — a bigger bar, which helped exactly as much whether or
 // not anything was hitting you. It soaks damage now, so it is worth wearing
 // for the reason armour is worth wearing.
+// The prices sit CLOSE together (a full set still totals 580 base): the
+// pieces are equal protection, so a chestplate at three times the boots read
+// as three times the armour.
 const ARMOR_DEFS = {
-  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 100 },
-  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 250 },
+  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 135 },
+  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 165 },
   legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150 },
-  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost:  80 },
+  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost: 130 },
 };
 function gearDef(kind, slot) {
   return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);
