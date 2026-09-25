@@ -60,3 +60,16 @@ test('hit flash: the haptic sits between a pickup and a refusal', () => {
   assert.truthy(ok < hit && hit < no, `ok ${ok} < hit ${hit} < reject ${no}`);
 });
 })();
+
+(function () {
+const app = APP_JS_SRC;
+test('hit flash: a FOE\'s blow closes an open shop dialog — a trap\'s does not', () => {
+  const sites = app.match(/\(before - this\.save\.energy\);\s*\n\s*this\._flashPlayerHit\(before - this\.save\.energy\);\s*\n\s*this\._closeShopOnHit\(\);/g) || [];
+  assert.eq(sites.length, 3, 'the slime leech, the monster melee and the arrow all close it');
+  const m = app.match(/\n  _closeShopOnHit\(\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(m && /\.game-modal\[data-kind="shop"\]/.test(m[1]), 'it finds shop dialogs by kind');
+  assert.truthy(/if \(typeof kind === 'string'\) wrap\.dataset\.kind = kind;/.test(app), 'makeModalShell stamps the kind');
+  const flash = app.match(/\n  _flashPlayerHit\(dmg\) \{([\s\S]*?)\n  \}\n/);
+  assert.falsy(/_closeShopOnHit/.test(flash[1]), 'not from the shared flinch a trap also uses');
+});
+})();

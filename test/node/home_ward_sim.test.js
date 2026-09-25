@@ -36,7 +36,7 @@ function wardScene(creature, over = {}) {
     _nearAny: () => false,
     placedRockSet: null,
     resolveDefeat: () => {},
-    _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {},
+    _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
   }, over);
   scene.creatures = [creature];

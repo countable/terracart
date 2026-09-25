@@ -49,7 +49,7 @@ function mkScene(creature, over = {}) {
     _nearAny: () => false,                    // no fires, no scarecrows
     placedRockSet: null,
     resolveDefeat: () => {},
-    _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {},
+    _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
   }, over);
   scene.creatures = [creature];

@@ -361,6 +361,20 @@ function inventoryIconSource(itemId) {
   return null;
 }
 
+// A Crops.png seed has no bag of its own: the sheet carries ONE generic bag
+// (row 15, SEEDBOX_COL) for every crop on it, so nine seeds were one picture.
+// The inventory icon is that bag with the crop's own PRODUCE icon badged on
+// its corner (baked in app.js create(), into ITEM_DATA_URLS). This answers
+// "which produce frame badges this seed?" — null for anything that is not a
+// Crops.png seed (the Spring Crops seeds have their own seed art, col 7).
+function seedBadgeFrame(itemId) {
+  const item = ITEM_BY_ID[itemId];
+  if (!item || item.kind !== 'seed') return null;
+  if (CROP_SPRITE[item.grows]) return null;
+  const row = CROP_ROW[item.grows];
+  return row == null ? null : row * CROPS_SHEET_COLS + PRODUCE_COL;
+}
+
 // Build ITEMS from CROP_ROW so seed/produce stay in sync with the crop list.
 const CROP_NAMES = {
   rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',

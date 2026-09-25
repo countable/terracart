@@ -126,7 +126,7 @@ function fireScene(creature, over = {}) {
     // The fire at the player's feet refuses every cell within 4 of it.
     _nearAny: (what, x, y, r) => what === 'fires' && Math.hypot(x - FIRE.x, y - FIRE.y) <= r * CELL,
     placedRockSet: null, resolveDefeat: () => {},
-    _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {},
+    _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
   }, over);
   scene.creatures = [creature];
