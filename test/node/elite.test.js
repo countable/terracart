@@ -99,14 +99,14 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
   assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: isShiny\(id, SHINY_RATE\.monster\) \}\)\)/.test(spawn),
     'spawnCaveCreatures stamps shiny off the stable id at the monster rate');
-  assert.truthy(/const dmg = m\.dmg \* Combat\.eliteMul\(c\) \* Difficulty\.get\(\)\.enemyDmgMul;/.test(app),
-    'the monster hit is scaled by Combat.eliteMul (and the mode)');
+  assert.truthy(/const dmg = m\.dmg \* Combat\.powerMul\(c\) \* Difficulty\.get\(\)\.enemyDmgMul;/.test(app),
+    'the monster hit is scaled by Combat.powerMul — elite × lair (and the mode)');
   assert.truthy(/c\._hp = Combat\.maxHp\(c\);/.test(app), 'the heal refills to the instance max');
   assert.falsy(/c\._hp = Combat\.creatureMaxHp\(c\.kind\)/.test(app),
     'nothing refills a creature from the KIND max any more');
   const kill = app.slice(app.indexOf('resolveDefeat(victim) {'), app.indexOf('_busyWheel() {'));
-  assert.truthy(/Combat\.enemyBounty\(victim\.kind, this\.depth, Combat\.eliteMul\(victim\)\)/.test(kill),
-    'the bounty is paid at the elite multiplier');
+  assert.truthy(/Combat\.enemyBounty\(victim\.kind, this\.depth, Combat\.powerMul\(victim\)\)/.test(kill),
+    'the bounty is paid at the power multiplier (elite × lair)');
   assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(kill),
     'an elite kill banks the kind\'s memory the first time');
   assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ rollBonus: Combat\.eliteRollBonus\(victim\.kind, this\.depth\) \}\)/.test(kill),

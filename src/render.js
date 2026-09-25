@@ -21,7 +21,8 @@
 //                                (chestLabelPool may be pushed to)
 //                    View:       viewCenterX/Y, viewLeft, viewTop, viewSize
 //                    World:      startWorldM, playerM, cellM, tileEdgeM,
-//                                cellsPerTile, feetOffsetM,
+//                                cellsPerTile + cellsForRow (via coords.js —
+//                                a tile's grid is its row's), feetOffsetM,
 //                                originPx, mPerPx
 //                    State:      tilledSet, placedRockSet, brokenRockSet,
 //                                save (.foundTreasures, .planted, .picked,
@@ -213,8 +214,11 @@ function peekPxOf(scene) {
 // to VIEW_CELLS² times per pass, several times a frame, so this avoids an
 // allocation per cell; read sx/sy out of it before the next call.
 const _cellScreenXY = { x: 0, y: 0 };
-function cellScreenXY(scene, ox, oy, fracX, fracY) {
-  _cellScreenXY.x = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2);
+// `phaseX` (optional, screen px) is a row band's column phase — coords.js
+// viewBand — for a band whose tile row has a different grid to the anchor's.
+// 0 / omitted everywhere else, which is the plain slot position exactly.
+function cellScreenXY(scene, ox, oy, fracX, fracY, phaseX) {
+  _cellScreenXY.x = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2 + (phaseX || 0));
   _cellScreenXY.y = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
   return _cellScreenXY;
 }
@@ -519,6 +523,7 @@ let _fogAxis = null, _fogSq = null, _fogFlat = null;
 // Returns D, the edge of the field, which covers -2..VIEW_CELLS+1: one cell
 // beyond the drawn range on each side, so the bilinear read at the very edge of
 // the texture still has a neighbour to interpolate towards.
+const _fogScratchCell = {};
 function fogFieldAround(scene, baseIX, baseIY, half) {
   const D = VIEW_CELLS + 4;
   const W = D + 2 * FOG_FIELD_R;
@@ -527,22 +532,28 @@ function fogFieldAround(scene, baseIX, baseIY, half) {
     _fogDist = new Float32Array(D * D);
     _fogOpen = new Float32Array(D * D);
   }
-  const N = scene.cellsPerTile;
   const haveFog = (typeof Fog !== 'undefined');
   const off = FOG_FIELD_R + 2;          // bits index 0 is cell -2-R
+  // Each row resolved on ITS tile row's grid (a mask is sized by its row's
+  // cell count), with the row band's column shift (coords.js viewBand) so a
+  // band across a grid-stepping seam reads the cells drawn in its slots.
+  const pc = scene.cellsForRow ? viewAnchorCell(scene) : null;
+  const t = _fogScratchCell;
   let mTx = NaN, mTy = NaN, mMask = null;
   for (let r = 0; r < W; r++) {
     const ay = baseIY + (r - off) - half;
-    const ty2 = Math.floor(ay / N);
-    const iy2 = ay - ty2 * N;
+    const band = viewBand(scene, pc, ay);
+    absCellToTile(scene, baseIX + band.dX, ay, t);
+    const ty2 = t.ty, iy2 = t.iy, N = t.n;
+    const shift = absColShift(scene, ty2);
     for (let c = 0; c < W; c++) {
-      const ax = baseIX + (c - off) - half;
-      const tx2 = Math.floor(ax / N);
+      const lx = baseIX + (c - off) - half + band.dX - shift;
+      const tx2 = Math.floor(lx / N);
       if (tx2 !== mTx || ty2 !== mTy) {
         mTx = tx2; mTy = ty2;
         mMask = haveFog ? Fog.maskFor(tx2, ty2) : null;
       }
-      _fogBits[r * W + c] = mMask ? Fog.bit(mMask, iy2 * N + (ax - tx2 * N)) : 0;
+      _fogBits[r * W + c] = mMask ? Fog.bit(mMask, iy2 * N + (lx - tx2 * N)) : 0;
     }
   }
   _fogDist = fogDistField(_fogBits, W, _fogDist);
@@ -683,6 +694,15 @@ if (typeof window !== 'undefined') {
 let _ringTypes  = null;
 let _ringOwners = null;
 let _ringUnclaimed = null;
+// Each ring slot's cell, resolved ONCE per pass: its absolute key (coords.js
+// encoding) and its tile + local cell on that tile's own grid — every per-cell
+// lookup below reads these rather than re-deriving a tile from cellsPerTile
+// arithmetic (a tile's grid is its ROW's; rows differ). _ringPhase is each
+// ring row's screen-px column phase (coords.js viewBand; 0 on every row that
+// shares the anchor row's grid).
+let _ringAX = null, _ringAY = null, _ringTX = null, _ringTY = null;
+let _ringIX = null, _ringIY = null, _ringPhase = null;
+const _ringScratch = {};
 // Flat [sx, sy, southFaceDepth] triples for the unclaimed-building wash. Reused
 // every frame — the pass runs for every visible building cell, and a fresh
 // array per frame is garbage the render loop can't afford. CASTLES ARE NOT IN
@@ -959,15 +979,14 @@ Render.drawCells = function drawCells(scene) {
   // moves this and the whole 11×11 pass paints a different patch of ground for
   // the same cost (see coords.js viewAnchorCell).
   const pc = viewAnchorCell(scene);
-  const _wBaseX = pc.cx + pc.tx * scene.cellsPerTile; // hoisted for inferredColor
-  const _wBaseY = pc.cy + pc.ty * scene.cellsPerTile;
   const fracX = pc.cx - Math.floor(pc.cx);
   const fracY = pc.cy - Math.floor(pc.cy);
-  // Player's absolute cell index in the unified tile-pixel basis. All per-cell
-  // state lookups (tilled, watered) must derive from this same basis or they'll
-  // drift relative to the rendered cell positions.
-  const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
-  const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
+  // The anchor's absolute cell (coords.js encoding). All per-cell state
+  // lookups (tilled, watered) must derive from this same basis or they'll
+  // drift relative to the rendered cell positions — and every slot's own cell
+  // is resolved once, in the ring pass below (a row band across a tile-row
+  // seam can sit on a different grid: coords.js viewBand).
+  const { cellIX: baseCellIX, cellIY: baseCellIY } = viewAnchorAbsCell(scene, pc);
   // Planted entries near the viewport, filtered ONCE per pass. The tilled-cell
   // loop below matches each visible tilled cell against save.planted (watered
   // tint + the orphaned-soil self-heal); scanning the whole planted list per
@@ -989,8 +1008,16 @@ Render.drawCells = function drawCells(scene) {
   // Between crossings scroll the container for sub-cell fractional movement.
   // This keeps the Graphics object's draw-command list stable across frames,
   // eliminating the GC churn from clear()+rebuild every frame.
-  const borderDirty = baseCellIX !== scene._lastBorderIX || baseCellIY !== scene._lastBorderIY;
-  if (borderDirty) { gb2.clear(); scene._lastBorderIX = baseCellIX; scene._lastBorderIY = baseCellIY; }
+  // A row band on a different grid has its own column phase (viewBand), and
+  // it can step on a band-cell crossing that isn't an anchor-cell crossing —
+  // so the band layout is part of the key. '' on every uniform view.
+  const _bandKey = viewBandKey(scene, pc, baseCellIY, half);
+  const borderDirty = baseCellIX !== scene._lastBorderIX || baseCellIY !== scene._lastBorderIY
+    || _bandKey !== scene._lastBorderBands;
+  if (borderDirty) {
+    gb2.clear(); scene._lastBorderIX = baseCellIX; scene._lastBorderIY = baseCellIY;
+    scene._lastBorderBands = _bandKey;
+  }
   // Stamped for the profiler: app.js's drawCells/update wrappers read this
   // to label a crossing frame's cost separately from steady-state frames
   // (see the 'update @crossing' / 'drawCells @crossing' ticks). Plain
@@ -1034,6 +1061,13 @@ Render.drawCells = function drawCells(scene) {
     // Parallel ring of "this building cell belongs to somebody else". 1 =
     // unclaimed, and gets the dark-green wash below.
     _ringUnclaimed = new Uint8Array(RING * RING);
+    _ringAX = new Int32Array(RING * RING);
+    _ringAY = new Int32Array(RING * RING);
+    _ringTX = new Int32Array(RING * RING);
+    _ringTY = new Int32Array(RING * RING);
+    _ringIX = new Int32Array(RING * RING);
+    _ringIY = new Int32Array(RING * RING);
+    _ringPhase = new Float32Array(RING);
   }
   const types  = _ringTypes;
   const owners = _ringOwners;
@@ -1058,16 +1092,24 @@ Render.drawCells = function drawCells(scene) {
   // the Map for all 225 cells on every frame.
   let mTx = NaN, mTy = NaN, mEntry = null, mSalt = 0, mVeil = 0;
   for (let r = 0; r < RING; r++) {
+    // The row: its absolute cellIY, its band (column shift + phase), and its
+    // tile row / local row / grid size, resolved once for the whole row.
+    const aY = baseCellIY + (r - 2 - half);
+    const band = viewBand(scene, pc, aY);
+    _ringPhase[r] = band.phaseX;
+    const rowT = absCellToTile(scene, baseCellIX + band.dX, aY, _ringScratch);
+    const ty2 = rowT.ty, iy2 = rowT.iy, N = rowT.n;
+    const colShift = absColShift(scene, ty2);
     for (let c = 0; c < RING; c++) {
-      const wcx = pc.cx + (c - 2 - half) + pc.tx * scene.cellsPerTile;
-      const wcy = pc.cy + (r - 2 - half) + pc.ty * scene.cellsPerTile;
-      const N = scene.cellsPerTile;
-      const tx2 = Math.floor(wcx / N);
-      const ty2 = Math.floor(wcy / N);
-      // Integer-modulo for the local cell index — guard against FP drift that can
-      // produce ix==N (out-of-bounds → silent grass fallback) at exact tile seams.
-      const ix2 = ((Math.floor(wcx) % N) + N) % N;
-      const iy2 = ((Math.floor(wcy) % N) + N) % N;
+      const aX = baseCellIX + (c - 2 - half) + band.dX;
+      // Integer division of the row-local column — no FP at a tile seam, so
+      // never ix==N (out-of-bounds → silent grass fallback).
+      const lx = aX - colShift;
+      const tx2 = Math.floor(lx / N);
+      const ix2 = lx - tx2 * N;
+      const si = r * RING + c;
+      _ringAX[si] = aX; _ringAY[si] = aY;
+      _ringTX[si] = tx2; _ringTY[si] = ty2; _ringIX[si] = ix2; _ringIY[si] = iy2;
       if (tx2 !== mTx || ty2 !== mTy) {
         mTx = tx2; mTy = ty2;
         mEntry = WorldGen.tileCache.get(WorldGen.tileKey(tx2, ty2));
@@ -1094,6 +1136,10 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   const T = (c, r) => types[(r + 2) * RING + (c + 2)];   // c,r in -1..VIEW_CELLS (rendered range), -2..VIEW_CELLS+1 reads still valid for halo
+  // The absolute cell in slot (c, r) — same indexing as T.
+  const AX = (c, r) => _ringAX[(r + 2) * RING + (c + 2)];
+  const AY = (c, r) => _ringAY[(r + 2) * RING + (c + 2)];
+  const PHASE = (r) => _ringPhase[r + 2];
   // Atmosphere: re-sample the dominant biome on cell crossings only (borderDirty
   // is exactly that signal), then ease toward it every frame.
   const atmos = updateAtmos(scene, types, RING, borderDirty);
@@ -1130,8 +1176,8 @@ Render.drawCells = function drawCells(scene) {
       // Per-cell state override: placed rockfruit rocks render as ROCK (10),
       // broken natural rocks revert to GRASS (0). cellKey here matches the
       // tile-pixel basis used for tilled / planted state.
-      const _absIX = baseCellIX + ox;
-      const _absIY = baseCellIY + oy;
+      const _absIX = AX(col, row);
+      const _absIY = AY(col, row);
       const _cellKey = cellKeyFromAbsCell(_absIX, _absIY);
       let type = T(col, row);
       if (scene.placedRockSet && scene.placedRockSet.has(_cellKey)) type = 10;
@@ -1161,8 +1207,7 @@ Render.drawCells = function drawCells(scene) {
       let polyGround = -1;
       const polyB = POLY && isBuildingType(type);
       if (isRoadType(type) || type === T_PATH || polyB) {
-        const wcx = pc.cx + ox + pc.tx * scene.cellsPerTile;
-        const wcy = pc.cy + oy + pc.ty * scene.cellsPerTile;
+        const wcx = _absIX, wcy = _absIY;
         if (polyB) {
           const nt = scene.neighborNonRoadType ? scene.neighborNonRoadType(wcx, wcy) : null;
           if (nt != null) { polyGround = nt; color = COLORS[nt] ?? color; }
@@ -1170,7 +1215,7 @@ Render.drawCells = function drawCells(scene) {
           color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
         }
       }
-      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
+      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
 
       // Mid-reveal cell: its tile just loaded, so the real terrain paints
       // below and the fog fades off it on the lighting layer (drawn there so
@@ -1205,7 +1250,7 @@ Render.drawCells = function drawCells(scene) {
         // Paint diagonal-neighbor color in each rounded corner first so the pixels
         // revealed outside the curve are the correct adjacent-zone colour.
         const cornerColor = (t, dnx, dny) => lookThrough(t)
-          ? (scene.neighborNonRoadColor(_wBaseX + ox + dnx, _wBaseY + oy + dny) ?? GRASS_FALLBACK_COLOR)
+          ? (scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR)
           : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
         if (tr) { g.fillStyle(cornerColor(tne, 1, -1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
@@ -1226,7 +1271,7 @@ Render.drawCells = function drawCells(scene) {
         const tW = T(col - 1, row), tE = T(col + 1, row);
         // Resolve the inferred colour of a road/path neighbour by looking through it.
         const nbrInferred = (dnx, dny) =>
-          scene.neighborNonRoadColor(_wBaseX + ox + dnx, _wBaseY + oy + dny) ?? GRASS_FALLBACK_COLOR;
+          scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR;
         // An edge needs the wavy border exactly when the PAINTED colours differ
         // across it — nothing else (edgeNeedsBorder, above). That sounds
         // obvious, but the old test ALSO short-circuited "both sides are
@@ -1258,7 +1303,7 @@ Render.drawCells = function drawCells(scene) {
           // Draw at integer-snapped positions — the borderContainer scrolls by
           // (-fracX*CELL_PX, -fracY*CELL_PX) each frame to handle sub-cell movement,
           // so geometry only needs to be rebuilt when baseCellIX/IY changes.
-          const bx = scene.viewCenterX + ox * CELL_PX;
+          const bx = scene.viewCenterX + ox * CELL_PX + Math.round(PHASE(row));
           const by = scene.viewCenterY + oy * CELL_PX;
           // One wavy strip of thickness BLUR_W along `side`, `inset` px in from
           // that edge. Runs are coalesced by wave offset exactly as before —
@@ -1326,8 +1371,9 @@ Render.drawCells = function drawCells(scene) {
       // fillRect on the shared boundary, leaving missing segments.)
 
       // Tilled check — use the same tile-pixel basis as cell rendering.
-      const absCellIX = baseCellIX + ox;
-      const absCellIY = baseCellIY + oy;
+      const absCellIX = _absIX;
+      const absCellIY = _absIY;
+      const _si = (row + 2) * RING + (col + 2);
       const tilledKey = cellKeyFromAbsCell(absCellIX, absCellIY);
       // Tilling is a surface-only activity (cave floor isn't tillable). Gate the
       // overlay on depth 0 so surface farm plots don't bleed through onto the
@@ -1343,11 +1389,10 @@ Render.drawCells = function drawCells(scene) {
       // lookup runs only for cells actually marked tilled — a handful at most.
       let _tilledUnderRoad = false;
       if (isTilled) {
-        const N3 = scene.cellsPerTile;
-        const t3x = Math.floor(absCellIX / N3), t3y = Math.floor(absCellIY / N3);
-        const e3 = WorldGen.tileCache.get(WorldGen.tileKey(t3x, t3y));
+        const e3 = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
+        const N3 = e3 && (e3.cellsPerEdge || rowCells(scene, _ringTY[_si]));
         _tilledUnderRoad = !!(e3 && e3.roadMask
-          && e3.roadMask[(absCellIY - t3y * N3) * N3 + (absCellIX - t3x * N3)]);
+          && e3.roadMask[_ringIY[_si] * N3 + _ringIX[_si]]);
       }
       if (isTilled && (!isTillable(type) || _tilledUnderRoad)) {
         const cc = absCellCenterMeters(scene, absCellIX, absCellIY);
@@ -1397,12 +1442,8 @@ Render.drawCells = function drawCells(scene) {
           // as a floor.
           if (polyGround >= 0) baseType = polyGround;
           else if (type === T_PATH) {
-            const N = scene.cellsPerTile;
-            const txp = Math.floor(absCellIX / N);
-            const typ = Math.floor(absCellIY / N);
-            const lix = absCellIX - txp * N;
-            const liy = absCellIY - typ * N;
-            const e = WorldGen.tileCache.get(WorldGen.tileKey(txp, typ));
+            const lix = _ringIX[_si], liy = _ringIY[_si];
+            const e = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
             const u = e && e.pathUnder && e.pathUnder[`${lix}_${liy}`];
             if (u != null && BIOME_TEX[u]) baseType = u;
           }
@@ -1447,13 +1488,8 @@ Render.drawCells = function drawCells(scene) {
         // to carry a label), so the isRoad gate also keeps lookups cheap.
         if (!isTilled && isRoadType(type)) {
           // Look up this cell's label anchor from its owning tile.
-          const wcxL = pc.cx + ox + pc.tx * scene.cellsPerTile;
-          const wcyL = pc.cy + oy + pc.ty * scene.cellsPerTile;
-          const tx2 = Math.floor(wcxL / scene.cellsPerTile);
-          const ty2 = Math.floor(wcyL / scene.cellsPerTile);
-          const ix2 = Math.floor(wcxL - tx2 * scene.cellsPerTile);
-          const iy2 = Math.floor(wcyL - ty2 * scene.cellsPerTile);
-          const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx2, ty2));
+          const ix2 = _ringIX[_si], iy2 = _ringIY[_si];
+          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
           const info = entry && entry.roadLabels && entry.roadLabels[`${ix2}_${iy2}`];
           if (info) {
             // Anchored at the cell centre; the word overhangs neighbouring
@@ -1547,7 +1583,7 @@ Render.drawCells = function drawCells(scene) {
       // would trace the staircase silhouette the polygon exists to replace.
       if (POLY) continue;
       const ox = col - half, oy = row - half;
-      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY);
+      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
       // Note it for the unclaimed wash below, with the depth its south wall
       // extrudes into the row underneath so the wash covers the wall face too
       // (tier 11 pickets stand 5 px proud; 9 and 12 use their own face depth).
@@ -1672,7 +1708,7 @@ Render.drawCells = function drawCells(scene) {
           //     (sy+CELL_PX+WALL).
           const occ = scene._rampartOccludedCells;
           const southHosted = occ &&
-            occ.has((baseCellIX + ox) + '_' + (baseCellIY + oy + 1));
+            occ.has(AX(col, row + 1) + '_' + AY(col, row + 1));
           const tr = scene._homeTrailerRect;
           const gw = (southHosted || (tr &&
             (tr.y0 + tr.y1) / 2 > sy + CELL_PX &&   // trailer's cell is south of the wall
@@ -1872,11 +1908,13 @@ Render.drawCells = function drawCells(scene) {
   // 1,300 lineBetween calls/frame at 60fps fills the GC nursery quickly;
   // the container scroll handles sub-cell movement between redraws.
   const gg = scene.gridGfx;
-  const gridDirty = baseCellIX !== scene._lastGridIX || baseCellIY !== scene._lastGridIY;
+  const gridDirty = baseCellIX !== scene._lastGridIX || baseCellIY !== scene._lastGridIY
+    || _bandKey !== scene._lastGridBands;
   if (gridDirty) {
     gg.clear();
     scene._lastGridIX = baseCellIX;
     scene._lastGridIY = baseCellIY;
+    scene._lastGridBands = _bandKey;
     gg.lineStyle(GRID_LINE.width, GRID_LINE.color, GRID_LINE.alpha);
     const DASH = GRID_LINE.dash, GAP = GRID_LINE.gap;
     const vTop = scene.viewTop, vLeft = scene.viewLeft, vSize = scene.viewSize;
@@ -1884,8 +1922,19 @@ Render.drawCells = function drawCells(scene) {
     for (let i = -1; i <= VIEW_CELLS + 1; i++) {
       const x = Math.round(vLeft + i * CELL_PX + CELL_PX / 2);
       const y = Math.round(vTop  + i * CELL_PX + CELL_PX / 2);
-      for (let d = vTop; d < vTop + vSize; d += DASH + GAP)
-        gg.lineBetween(x, d, x, Math.min(d + DASH, vTop + vSize));
+      if (!_bandKey) {
+        for (let d = vTop; d < vTop + vSize; d += DASH + GAP)
+          gg.lineBetween(x, d, x, Math.min(d + DASH, vTop + vSize));
+      } else {
+        // A row band on another grid (coords.js viewBand) has its own column
+        // phase: its vertical lines are drawn row by row, shifted with it.
+        for (let d = vTop; d < vTop + vSize; d += DASH + GAP) {
+          const d1 = Math.min(d + DASH, vTop + vSize);
+          const row = Math.floor((d + DASH / 2 - vTop - CELL_PX / 2) / CELL_PX);
+          const px = Math.round(PHASE(Math.max(-2, Math.min(VIEW_CELLS + 1, row))));
+          gg.lineBetween(x + px, d, x + px, d1);
+        }
+      }
       for (let d = vLeft; d < vLeft + vSize; d += DASH + GAP)
         gg.lineBetween(d, y, Math.min(d + DASH, vLeft + vSize), y);
     }

@@ -824,7 +824,7 @@ Object.assign(ctx, {
     }
     decls += `const ${name} = ${m[1]};\n`;
   }
-  const guard = src.match(/if \(\(kindStr === [^\n]+pestFree[^\n]+continue;/);
+  const guard = src.match(/if \(\(kindStr === [^\n]+pestFree[^\n]+(?:continue|return);/);
   if (!guard) {
     console.error('Could not find the pest-free spawner guard in src/app.js — update run.js');
     process.exit(2);
@@ -1131,7 +1131,7 @@ Object.assign(ctx, {
 // code rather than a transcription: the cap, the cell packing (which was
 // wrong above 256 cells per edge) and the "on the sand, beside the path"
 // difference are all decided in here. It closes over entry / tx / ty / N /
-// rng / _spawnOpts and `this` (tileEdgeM, cellM), all cheap to stub.
+// rng / _spawnOpts and `this` (tileEdgeM), all cheap to stub.
 {
   const appSrc = readSrc('app.js');
   const from = appSrc.indexOf('    // ONE pass over the grid for both bonus streams below');
@@ -1142,6 +1142,10 @@ Object.assign(ctx, {
   }
   vm.runInContext(
     'globalThis.__bonusXMarks = function (entry, tx, ty, N, rng, _spawnOpts) {\n'
+    // The two locals spawnInTile declares up top that the block reads: the
+    // tile's own cell size and its generated grid.
+    + 'const cellM = this.tileEdgeM / N;\n'
+    + 'const genGrid = entry.baseGrid || entry.grid;\n'
     + appSrc.slice(from, to) + '\n};', ctx, { filename: 'app.js#bonusXMarks' });
 }
 

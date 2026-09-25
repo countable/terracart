@@ -407,10 +407,11 @@ test('traps: standing on one out-drains the fastest passive rest in the game', (
 
 test('traps: the surface spawn passes the SHARED spawn options, mask and all', () => {
   assert.truthy(
-    /Traps\.spawnSurface\(entry\.grid, entry\.roadMask, N, N, tx, ty, this\.tileEdgeM, _spawnOpts,/
+    /Traps\.spawnSurface\(genGrid, entry\.roadMask, N, N, tx, ty, this\.tileEdgeM, _spawnOpts,/
       .test(APP_JS_SRC),
     'spawnInTile hands Traps.spawnSurface entry.roadMask and _spawnOpts — the same '
-    + 'options every other spawner in that method uses');
+    + 'options every other spawner in that method uses — over the GENERATED grid '
+    + '(genGrid), like every other draw in the pass');
   assert.truthy(/Traps\.spawnSurface\([^;]*Difficulty\.get\(\)\.trapCountMul/.test(APP_JS_SRC),
     'the surface density scales with the game mode, not a fixed rate');
 });
@@ -428,8 +429,13 @@ test('traps: _spawnOpts carries opts.occupied, built from the tile\'s own object
     assert.truthy(a > 0 && b > a, 'found spawnInTile in app.js');
     return APP_JS_SRC.slice(a, b);
   })();
-  assert.truthy(/for \(const o of \(entry\.objects \|\| \[\]\)\) \{[\s\S]*?_occupiedIdx\.add/.test(block),
-    'the occupied set is seeded from entry.objects');
+  // From the tile's GENERATED objects (entry.genObjects, falling back to
+  // entry.objects): what an Overpass bin or this player's starter kit put on
+  // the live entry is culled after the draws, never fed into them.
+  assert.truthy(/const genObjects = entry\.genObjects \|\| entry\.objects \|\| \[\];/.test(block),
+    'the generated object list falls back to entry.objects');
+  assert.truthy(/for \(const o of genObjects\) \{[\s\S]*?_occupiedIdx\.add/.test(block),
+    'the occupied set is seeded from the tile\'s objects');
   assert.truthy(/for \(const wp of \(entry\.wildplants \|\| \[\]\)\) \{[\s\S]*?_occupiedIdx\.add/.test(block),
     'and from entry.wildplants — a trap or an X must not bury itself under a tuft of grass either');
   assert.truthy(/occupied: _occupiedIdx,/.test(block),

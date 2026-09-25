@@ -43,6 +43,7 @@ const runGate = (entry, depth = 0) => {
     spawnInTile: (e) => { calls.push('surface'); e._spawned = true; },
     spawnCaveCreatures: (e) => { calls.push('cave'); e._spawned = true; },
     _ensureHomeUpStair: () => { calls.push('stair'); },
+    _ensureLadderUpStairs: () => { calls.push('ladder'); },
   };
   new Function('entry', 'tx', 'ty', SPAWN_GATE_SRC).call(self, entry, 0, 0);
   return calls;
@@ -50,8 +51,8 @@ const runGate = (entry, depth = 0) => {
 
 test('spawn gate: a freshly built tile is spawned into', () => {
   assert.eq(runGate({}).join(), 'surface', 'a new surface tile runs the spawn pass');
-  assert.eq(runGate({}, 2).join(), 'stair,cave',
-    'a new cave tile gets monsters — AFTER the home ladder, so none is seated on it');
+  assert.eq(runGate({}, 2).join(), 'stair,ladder,cave',
+    'a new cave tile gets monsters — AFTER the player-owned up-stairs, so none is seated on one');
 });
 
 test('spawn gate: a tile already spawned into is left alone', () => {

@@ -233,9 +233,9 @@
       setRelic('pick', 3);   // iron = 1.5 s wheel
       setEnergy(50);
       // Find any rock cell in the start tile.
-      const N = s.cellsPerTile;
       const pc = s.playerToWorldCell();
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+      const N = entry.cellsPerEdge;   // the tile's own grid (its row's)
       let target = null;
       for (let iy = 0; iy < N && !target; iy++) {
         for (let ix = 0; ix < N; ix++) {
@@ -244,8 +244,7 @@
       }
       if (!target) return { name: 'break_rock', pass: false, details: 'no rock cell' };
       // Teleport to the rock cell, then tap it (cell-resolve uses our cell).
-      const wmx = pc.tx * s.tileEdgeM + (target.ix + 0.5) * s.cellM;
-      const wmy = pc.ty * s.tileEdgeM + (target.iy + 0.5) * s.cellM;
+      const { x: wmx, y: wmy } = tileCellCenterMeters(s, pc.tx, pc.ty, target.ix, target.iy);
       teleport(wmx, wmy);
       const before = s.brokenRockSet.size;
       tapWorld(wmx, wmy);
@@ -337,9 +336,9 @@
       setEnergy(50);
       // Find an empty grass cell near the player plot — the sandbox's farmland
       // / player plots are reliable starts.
-      const N = s.cellsPerTile;
       const pc = s.playerToWorldCell();
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+      const N = entry.cellsPerEdge;   // the tile's own grid (its row's)
       let cellIX = -1, cellIY = -1;
       for (let r = 1; r < 10 && cellIX < 0; r++) {
         for (let dy = -r; dy <= r && cellIX < 0; dy++) {
@@ -354,7 +353,8 @@
       if (cellIX < 0) return { name: 'crop_cycle', pass: false, details: 'no grass cell' };
       // Use the SAME cell-centre coords the cell-resolve handler will compute,
       // so the entries the planter writes are findable by exact equality.
-      const cc = absCellCenterMeters(s, cellIX, cellIY);
+      // (cellIX / cellIY here are the tile-LOCAL cell the scan found.)
+      const cc = tileCellCenterMeters(s, pc.tx, pc.ty, cellIX, cellIY);
       const wmx = cc.x, wmy = cc.y;
       teleport(wmx, wmy + s.cellM);   // stand south of target
       // Till — empty hands.

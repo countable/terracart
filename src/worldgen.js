@@ -3519,9 +3519,10 @@
     // edge in meters at z=14 at given latitude
     return metersPerPixel(lat, Z) * TILE_PX;
   }
-  // DEPRECATED for anything generated — kept exported while app.js / coords.js
-  // / render.js still size the per-save grid (scene.cellsPerTile) from
-  // START_LAT. A tile's cell count is cellsPerEdgeForTile(ty), below.
+  // DEPRECATED for anything generated or indexed. app.js keeps START_LAT's
+  // count as the frame's REFERENCE grid (scene.cellsPerTile), which only
+  // anchors coords.js' absolute-cell encoding so a save's keys stay put; every
+  // tile is indexed by its own row's count, cellsPerEdgeForTile(ty), below.
   function cellsPerEdgeForLat(lat) {
     return Math.round(tileEdgeMeters(lat) / CELL_M);
   }
@@ -5465,7 +5466,8 @@
     // The tile's OWN grid: cells per edge from the tile's row (a pure
     // function of ty), and the frame metres per cell of a tile in a save's
     // frame. cellsPerEdgeForLat is the per-save legacy (START_LAT) size —
-    // generation no longer reads it; consumers still migrating do.
+    // nothing generates or indexes by it; app.js keeps it only as the frame's
+    // reference count anchoring coords.js' absolute-cell encoding.
     cellsPerEdgeForTile, cellSizeM, latOfRowCentre, cellsPerEdgeForLat,
     // Tile + local-cell hash every generated id/seed is keyed on, and the
     // stair id built from it.

@@ -67,14 +67,40 @@
     assert.falsy(saZone(saScene({ save: null })), 'and a missing save is not a crash');
   });
 
-  test('pest amnesty: the spawner re-rolls BOTH pests, and only pests', () => {
+  test('pest amnesty: the spawner DROPS both pests, and only pests', () => {
     // The spawner's whole use of the zone is one line; run.js hands its source
     // text over so this can't drift silently. Both pest kinds must be in it —
-    // checking one and shipping was exactly the previous gap — and `continue`
-    // (re-roll), not `return` (cull), is what keeps the tile's population.
-    assert.truthy(PEST_FREE_GUARD_SRC.includes("kindStr === 'slime'"), 'slimes are re-rolled');
+    // checking one and shipping was exactly the previous gap. It CULLS
+    // (`return`), never re-rolls (`continue`): a re-roll takes extra draws out
+    // of the tile's shared stream, so every later spawn on the tile moved for
+    // the one player with a grace running (CLAUDE.md "Every player sees the
+    // SAME generated world" — per-player state may hide a thing, never move
+    // the others).
+    assert.truthy(PEST_FREE_GUARD_SRC.includes("kindStr === 'slime'"), 'slimes are dropped');
     assert.truthy(PEST_FREE_GUARD_SRC.includes("kindStr === 'crow'"), 'and so are crows');
-    assert.truthy(PEST_FREE_GUARD_SRC.includes('continue'), 're-rolled, not culled');
+    assert.truthy(PEST_FREE_GUARD_SRC.includes('return'), 'culled');
+    assert.falsy(PEST_FREE_GUARD_SRC.includes('continue'), 'never re-rolled onto another cell');
+  });
+
+  test('pest amnesty: the zone never changes the tile\'s draw count', () => {
+    // The guard sits AFTER the attempt has drawn its cell and passed every
+    // world rule — the same place the caught-id check culls — so a player
+    // inside a grace takes exactly the draws everyone else takes, and every
+    // later tryPlace / treasure roll on the tile lands where it does for them.
+    const src = SPAWN_IN_TILE_SRC;
+    const tp = src.indexOf('const tryPlace =');
+    const guardAt = src.indexOf(PEST_FREE_GUARD_SRC, tp);
+    assert.gt(tp, -1, 'tryPlace found');
+    assert.gt(guardAt, -1, 'the guard is inside tryPlace');
+    const drawY = src.indexOf('const cy = Math.floor(rng() * N);', tp);
+    const spawnRule = src.indexOf('WorldGen.isSpawnCell(', tp);
+    const caught = src.indexOf('if (caughtSet.has(id)) return;', tp);
+    assert.lt(drawY, guardAt, 'after the cell is drawn');
+    assert.lt(spawnRule, guardAt, 'after the shared spawn rule accepts it');
+    assert.lt(caught, guardAt, 'beside the per-player caught cull');
+    // And nothing between the draw and the push re-draws on the zone's say.
+    const body = src.slice(tp, src.indexOf('creatures.push(', tp));
+    assert.eq((body.match(/pestFree\.has\(/g) || []).length, 1, 'the zone is asked once, in the guard');
   });
 
   test('pest amnesty: the crow pump is off in the mode that has the grace', () => {

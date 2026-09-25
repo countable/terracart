@@ -3,7 +3,8 @@
 // stays unified (see CLAUDE.md / past coord-drift bugs).
 //
 // Depends on:
-//   scene fields: startWorldM, mPerPx, originPx, cellsPerTile.
+//   scene fields: startWorldM, mPerPx, originPx, cellsPerTile, and optionally
+//   cellsForRow(ty) (the game's per-row grid; absent = one uniform grid).
 //
 // Exports as globals:
 //   cellKeyFromAbsCell(absIX, absIY)         — "ix_iy"
@@ -13,6 +14,12 @@
 //   localMetersToTile / worldMetersToTile    — the TILE either of those falls in
 //   eachTile3x3(tx, ty, fn)                  — the 3×3 tile ring, in row order
 //   gamePt(p, renderScale)                   — a canvas-px pointer in LOGICAL px
+//   rowCells / rowCellPx / rowCellM(scene, ty) — a tile ROW's own grid
+//   tileCellToAbs / absCellToTile            — (tx,ty,ix,iy) ⇄ absolute cell
+//   absRowOf / absRowStart / absColShift     — the per-row absolute encoding
+//   absCellOffset / absCellDelta             — neighbour / distance across seams
+//   worldMetersToTileCell / tileCellCenterMeters — metres ⇄ a tile's own cell
+//   viewAnchorAbsCell / viewBand / viewBandKey — the drawn window across a seam
 //   worldMetersToAbsCell(scene, wmx, wmy)    — { cellIX, cellIY }
 //   absCellCenterMeters(scene, cellIX, cellIY) — { x, y }
 //   sameAbsCell(scene, ax, ay, bx, by)       — do both points share a cell?
@@ -30,10 +37,198 @@ function cellKeyFromAbsCell(absIX, absIY) {
   return `${absIX}_${absIY}`;
 }
 
-// Pixel size of one game cell in z=14 tile-pixel space. One tile is
-// WorldGen.TILE_PX (256) px wide and holds scene.cellsPerTile cells.
+// Pixel size of one REFERENCE cell in z=14 tile-pixel space — the frame's own
+// legacy grid (scene.cellsPerTile, sized from START_LAT). A tile's REAL grid
+// is its row's (rowCells below); this is what a stub scene with no per-row
+// grid uses everywhere, and what the absolute-cell encoding is anchored on.
 function cellPxSize(scene) {
   return WorldGen.TILE_PX / scene.cellsPerTile;
+}
+
+// ─── Per-row cell grids (CLAUDE.md: "Every player sees the SAME generated
+// world") ──────────────────────────────────────────────────────────────────────
+// A tile's grid is the TILE's: WorldGen.cellsPerEdgeForTile(ty) cells an edge,
+// from its own row's latitude — NOT the save's scene.cellsPerTile. The two
+// agree on almost every row, but not all: rows ~20 km apart step by one cell.
+//
+// scene.cellsForRow(ty) is the row's cell count (the game sets it to
+// WorldGen.cellsPerEdgeForTile). A scene without it — every headless stub —
+// is UNIFORM: every row is scene.cellsPerTile and every function below
+// collapses to the old one-grid arithmetic exactly.
+function rowCells(scene, ty) {
+  const f = scene.cellsForRow;
+  return f ? f(ty) : scene.cellsPerTile;
+}
+// One cell of row ty, in z=14 tile px.
+function rowCellPx(scene, ty) {
+  return WorldGen.TILE_PX / rowCells(scene, ty);
+}
+// One cell of row ty, in FRAME metres (the save's tileEdgeM over the row's
+// count) — what a metre⇄cell step inside a tile of that row uses, never the
+// nominal scene.cellM. A stub scene with no grid at all falls back to cellM.
+function rowCellM(scene, ty) {
+  const n = rowCells(scene, ty);
+  return (n > 0 && scene.tileEdgeM > 0) ? scene.tileEdgeM / n : scene.cellM;
+}
+
+// ─── The ABSOLUTE cell encoding ──────────────────────────────────────────────
+// Every per-cell key in the save (tilled, dug walls, placed rocks) and every
+// "cell next door" walk is an absolute (cellIX, cellIY). With one grid for the
+// whole world that was floor(tile px / cell px) on both axes. With a grid per
+// ROW it is:
+//   cellIY = rowStart(ty) + iy        — rows stacked contiguously, so the row
+//                                       below a seam starts exactly one past
+//                                       the last row above it
+//   cellIX = tx * N(ty) + ix + colShift(ty)
+// anchored on the frame's REFERENCE tile (the one holding originPx) and its
+// reference count Nref = scene.cellsPerTile: rowStart(ty) = ty*Nref plus the
+// sum of (N(r) - Nref) over the rows between the reference row and ty, and
+// colShift(ty) = -refTx * (N(ty) - Nref). So on every row whose N equals Nref
+// both terms are ZERO and the encoding is the old one bit for bit — a save's
+// keys stay where they were, and the keys of a row that DOES differ start
+// where the reference column's cells did.
+//
+// What the encoding is NOT: a uniform lattice. Columns of two rows with
+// different N do not line up (their cells differ in width by ~0.4%), so
+// cellIX + 1 is the next cell ALONG a row, but "the cell below" across a row
+// seam is a POSITION question — absCellOffset / absCellDelta answer it via
+// tile px, never cellIX arithmetic.
+function _cellRef(scene) {
+  const T = WorldGen.TILE_PX;
+  return {
+    tx: Math.floor(scene.originPx.x / T),
+    ty: Math.floor(scene.originPx.y / T),
+  };
+}
+function _rowMemo(scene) {
+  const nref = scene.cellsPerTile;
+  const refTy = Math.floor(scene.originPx.y / WorldGen.TILE_PX);
+  let m = scene._absRowMemo;
+  if (!m || m.nref !== nref || m.refTy !== refTy || m.fn !== scene.cellsForRow) {
+    m = { nref, refTy, fn: scene.cellsForRow, start: new Map() };
+    scene._absRowMemo = m;
+  }
+  return m;
+}
+// First absolute cellIY of tile row ty.
+function absRowStart(scene, ty) {
+  const nref = scene.cellsPerTile;
+  if (!scene.cellsForRow) return ty * nref;
+  const m = _rowMemo(scene);
+  let v = m.start.get(ty);
+  if (v !== undefined) return v;
+  let s = 0;
+  if (ty > m.refTy) { for (let r = m.refTy; r < ty; r++) s += rowCells(scene, r) - nref; }
+  else { for (let r = ty; r < m.refTy; r++) s -= rowCells(scene, r) - nref; }
+  v = ty * nref + s;
+  m.start.set(ty, v);
+  return v;
+}
+// Constant added to tx * N(ty) + ix to make row ty's absolute cellIX.
+function absColShift(scene, ty) {
+  if (!scene.cellsForRow) return 0;
+  const d = rowCells(scene, ty) - scene.cellsPerTile;
+  return d === 0 ? 0 : -Math.floor(scene.originPx.x / WorldGen.TILE_PX) * d;
+}
+// Which tile row holds absolute cellIY.
+function absRowOf(scene, cellIY) {
+  const nref = scene.cellsPerTile;
+  let ty = Math.floor(cellIY / nref);
+  if (!scene.cellsForRow) return ty;
+  while (absRowStart(scene, ty) > cellIY) ty--;
+  while (absRowStart(scene, ty + 1) <= cellIY) ty++;
+  return ty;
+}
+
+// (tx, ty, ix, iy) on the tile's own grid → absolute cell.
+function tileCellToAbs(scene, tx, ty, ix, iy) {
+  if (!scene.cellsForRow) {
+    const N = scene.cellsPerTile;
+    return { cellIX: tx * N + ix, cellIY: ty * N + iy };
+  }
+  const N = rowCells(scene, ty);
+  return { cellIX: tx * N + ix + absColShift(scene, ty), cellIY: absRowStart(scene, ty) + iy };
+}
+// Absolute cell → { tx, ty, ix, iy, n } (n = that tile's cells per edge). Pass
+// `out` to fill a scratch object instead of allocating (per-cell hot loops).
+function absCellToTile(scene, cellIX, cellIY, out) {
+  const o = out || {};
+  let ty, N, lx, ly;
+  if (!scene.cellsForRow) {
+    N = scene.cellsPerTile;
+    ty = Math.floor(cellIY / N);
+    ly = cellIY - ty * N;
+    lx = cellIX;
+  } else {
+    ty = absRowOf(scene, cellIY);
+    N = rowCells(scene, ty);
+    ly = cellIY - absRowStart(scene, ty);
+    lx = cellIX - absColShift(scene, ty);
+  }
+  const tx = Math.floor(lx / N);
+  o.tx = tx; o.ty = ty; o.ix = lx - tx * N; o.iy = ly; o.n = N;
+  return o;
+}
+
+// Tile px → absolute cell, the one floor every metre→cell conversion shares.
+function tilePxToAbsCell(scene, px, py) {
+  if (!scene.cellsForRow) {
+    const cps = cellPxSize(scene);
+    return { cellIX: Math.floor(px / cps), cellIY: Math.floor(py / cps) };
+  }
+  const ty = Math.floor(py / WorldGen.TILE_PX);
+  const N = rowCells(scene, ty);
+  const cps = WorldGen.TILE_PX / N;
+  return {
+    cellIX: Math.floor(px / cps) + absColShift(scene, ty),
+    cellIY: Math.floor(py / cps) + (absRowStart(scene, ty) - ty * N),
+  };
+}
+// Absolute cell → the tile px of its CENTRE.
+function absCellCenterPx(scene, cellIX, cellIY) {
+  if (!scene.cellsForRow) {
+    const cps = cellPxSize(scene);
+    return { x: (cellIX + 0.5) * cps, y: (cellIY + 0.5) * cps };
+  }
+  const ty = absRowOf(scene, cellIY);
+  const N = rowCells(scene, ty);
+  const cps = WorldGen.TILE_PX / N;
+  return {
+    x: (cellIX - absColShift(scene, ty) + 0.5) * cps,
+    y: (cellIY - (absRowStart(scene, ty) - ty * N) + 0.5) * cps,
+  };
+}
+
+// The cell (dx, dy) cells away from an absolute cell, as a POSITION: along a
+// row (or between rows sharing a grid) it is plain addition; into a row whose
+// grid differs it is the cell of that row whose centre is nearest the point
+// dx cells across, measured in the starting row's cells.
+function absCellOffset(scene, cellIX, cellIY, dx, dy) {
+  const tIY = cellIY + dy;
+  if (!scene.cellsForRow) return { cellIX: cellIX + dx, cellIY: tIY };
+  const ty0 = absRowOf(scene, cellIY);
+  const ty1 = dy === 0 ? ty0 : absRowOf(scene, tIY);
+  const n0 = rowCells(scene, ty0), n1 = rowCells(scene, ty1);
+  if (n0 === n1) return { cellIX: cellIX + dx, cellIY: tIY };
+  const T = WorldGen.TILE_PX;
+  const px = (cellIX - absColShift(scene, ty0) + 0.5 + dx) * (T / n0);
+  const lx = Math.round(px / (T / n1) - 0.5);
+  return { cellIX: lx + absColShift(scene, ty1), cellIY: tIY };
+}
+// How many cells (dx, dy) cell B sits from cell A, in A's row's cells — the
+// inverse question. dy is exact (rows are stacked contiguously); dx across a
+// grid change rounds the centre-to-centre distance to whole cells.
+function absCellDelta(scene, aIX, aIY, bIX, bIY) {
+  const dy = bIY - aIY;
+  if (!scene.cellsForRow) return { dx: bIX - aIX, dy };
+  const tyA = absRowOf(scene, aIY);
+  const tyB = dy === 0 ? tyA : absRowOf(scene, bIY);
+  const nA = rowCells(scene, tyA), nB = rowCells(scene, tyB);
+  if (nA === nB) return { dx: bIX - aIX, dy };
+  const T = WorldGen.TILE_PX;
+  const ax = (aIX - absColShift(scene, tyA) + 0.5) * (T / nA);
+  const bx = (bIX - absColShift(scene, tyB) + 0.5) * (T / nB);
+  return { dx: Math.round((bx - ax) / (T / nA)), dy };
 }
 
 // Compare-only squared distance between two points — avoids the sqrt. Lives
@@ -102,21 +297,38 @@ function gamePt(p, renderScale) {
 
 function worldMetersToAbsCell(scene, wmx, wmy) {
   const p = worldMetersToTilePx(scene, wmx, wmy);
-  const cps = cellPxSize(scene);
-  return {
-    cellIX: Math.floor(p.x / cps),
-    cellIY: Math.floor(p.y / cps),
-  };
+  return tilePxToAbsCell(scene, p.x, p.y);
 }
 
 function absCellCenterMeters(scene, cellIX, cellIY) {
-  const cps = cellPxSize(scene);
-  const wx = (cellIX + 0.5) * cps;
-  const wy = (cellIY + 0.5) * cps;
+  const c = absCellCenterPx(scene, cellIX, cellIY);
   return {
-    x: scene.startWorldM.x + (wx - scene.originPx.x) * scene.mPerPx,
-    y: scene.startWorldM.y + (wy - scene.originPx.y) * scene.mPerPx,
+    x: scene.startWorldM.x + (c.x - scene.originPx.x) * scene.mPerPx,
+    y: scene.startWorldM.y + (c.y - scene.originPx.y) * scene.mPerPx,
   };
+}
+
+// A world point's tile and cell on THAT tile's own grid: { tx, ty, ix, iy, n }.
+// The answer to "which cell of which tile's arrays is this?" — never
+// floor(metres / cellM).
+function worldMetersToTileCell(scene, wmx, wmy) {
+  const c = worldMetersToAbsCell(scene, wmx, wmy);
+  return absCellToTile(scene, c.cellIX, c.cellIY);
+}
+// Centre of cell (ix, iy) of tile (tx, ty), in world metres.
+function tileCellCenterMeters(scene, tx, ty, ix, iy) {
+  const c = tileCellToAbs(scene, tx, ty, ix, iy);
+  return absCellCenterMeters(scene, c.cellIX, c.cellIY);
+}
+
+// Tile px → { tx, ty, cx, cy }: the tile, and the FRACTIONAL cell inside it on
+// its own grid. The shape playerToWorldCell / viewAnchorCell return.
+function tilePxToTileCellF(scene, wx, wy) {
+  const tilePx = WorldGen.TILE_PX;
+  const tx = Math.floor(wx / tilePx);
+  const ty = Math.floor(wy / tilePx);
+  const cps = scene.cellsForRow ? rowCellPx(scene, ty) : cellPxSize(scene);
+  return { tx, ty, cx: (wx - tx * tilePx) / cps, cy: (wy - ty * tilePx) / cps };
 }
 
 // Do two world points fall in the SAME absolute cell? The single answer to
@@ -168,11 +380,60 @@ function viewAnchorCell(scene) {
   const p = peekM(scene);
   const wx = scene.originPx.x + (scene.playerM.x + p.x) / scene.mPerPx;
   const wy = scene.originPx.y + (scene.playerM.y + p.y) / scene.mPerPx;
-  const tilePx = WorldGen.TILE_PX;
-  const tx = Math.floor(wx / tilePx);
-  const ty = Math.floor(wy / tilePx);
-  const cps = tilePx / scene.cellsPerTile;
-  return { tx, ty, cx: (wx - tx * tilePx) / cps, cy: (wy - ty * tilePx) / cps };
+  return tilePxToTileCellF(scene, wx, wy);
+}
+
+// The anchor's absolute cell — the (baseCellIX, baseCellIY) every drawn window
+// offsets its slots from.
+function viewAnchorAbsCell(scene, pc) {
+  return tileCellToAbs(scene, pc.tx, pc.ty, Math.floor(pc.cx), Math.floor(pc.cy));
+}
+
+// ─── Drawing a window that crosses a row seam ────────────────────────────────
+// The drawn window is a fixed grid of CELL_PX slots around the anchor cell:
+// slot (ox, oy) holds absolute cell (baseCellIX + ox, baseCellIY + oy). That
+// is exact on every row sharing the anchor row's grid. A row band whose grid
+// DIFFERS (a cellsPerEdgeForTile step inside the view) has its own column
+// phase: viewBand says which of its cells sits in the anchor's column (`dX`,
+// added to baseCellIX + ox) and how far its cells' true left edges sit from
+// the anchor grid's slots (`phaseX`, screen px added to the slot's x). Rows
+// stay on the slot grid vertically — the seam is a tile edge, which is a slot
+// edge on both sides — and each band's cells are drawn CELL_PX apart from its
+// own true origin, so the band tiles seamlessly; the ~0.4% size difference
+// drifts it < 0.03 cell across the whole view.
+const _SAME_BAND = Object.freeze({ dX: 0, phaseX: 0 });
+function viewBand(scene, pc, cellIY) {
+  if (!scene.cellsForRow) return _SAME_BAND;
+  const ty = absRowOf(scene, cellIY);
+  if (ty === pc.ty) return _SAME_BAND;
+  const n = rowCells(scene, ty);
+  const nA = rowCells(scene, pc.ty);
+  if (n === nA) return _SAME_BAND;
+  const T = WorldGen.TILE_PX;
+  const cpsA = T / nA, cps = T / n;
+  const ax = pc.tx * T + pc.cx * cpsA;          // the anchor, in tile px
+  const lx = Math.floor(ax / cps);              // the band's cell under it
+  const baseIX = tileCellToAbs(scene, pc.tx, pc.ty, Math.floor(pc.cx), 0).cellIX;
+  return {
+    dX: lx + absColShift(scene, ty) - baseIX,
+    phaseX: ((lx * cps - ax) / cpsA + (pc.cx - Math.floor(pc.cx))) * CELL_PX,
+  };
+}
+
+// A string naming every row band of the drawn ring (VIEW_CELLS + 4 rows
+// around the anchor) that is off the anchor's grid — '' on a uniform view,
+// which is every view not within a few cells of a row seam whose grid steps.
+// A pass that caches geometry on the anchor cell adds it to its key: a band's
+// column can step without the anchor cell changing.
+function viewBandKey(scene, pc, baseCellIY, half) {
+  if (!scene.cellsForRow) return '';
+  const R = VIEW_CELLS + 4;
+  let k = '';
+  for (let r = 0; r < R; r++) {
+    const b = viewBand(scene, pc, baseCellIY + (r - 2 - half));
+    if (b.dX || b.phaseX) k += r + ':' + b.dX + ':' + Math.round(b.phaseX) + '|';
+  }
+  return k;
 }
 
 // ─── The geometry overlays' frame ───────────────────────────────────────────
@@ -189,8 +450,7 @@ function overlayFrame(scene, entryReady) {
   const pc = viewAnchorCell(scene);
   const fracX = pc.cx - Math.floor(pc.cx);
   const fracY = pc.cy - Math.floor(pc.cy);
-  const baseCellIX = pc.tx * scene.cellsPerTile + Math.floor(pc.cx);
-  const baseCellIY = pc.ty * scene.cellsPerTile + Math.floor(pc.cy);
+  const { cellIX: baseCellIX, cellIY: baseCellIY } = viewAnchorAbsCell(scene, pc);
   const tiles = [];
   let ready = '';
   for (let dty = -1; dty <= 1; dty++) {
@@ -202,6 +462,10 @@ function overlayFrame(scene, entryReady) {
       ready += `${dtx}${dty}|`;
     }
   }
+  // A row band off the anchor's grid can step without the anchor cell moving,
+  // so its layout is part of the cache key too ('' on a uniform view).
+  const bands = viewBandKey(scene, pc, baseCellIY, (VIEW_CELLS - 1) / 2);
+  if (bands) ready += '#' + bands;
   return { pc, fracX, fracY, baseCellIX, baseCellIY, tiles, ready };
 }
 
@@ -244,11 +508,7 @@ function timedOverlayRebuild(label, fn) {
 function playerReachCell(scene) {
   const wx = scene.originPx.x + scene.playerM.x / scene.mPerPx;
   const wy = scene.originPx.y + (scene.playerM.y + scene.feetOffsetM) / scene.mPerPx;
-  const cps = cellPxSize(scene);
-  return {
-    cellIX: Math.floor(wx / cps),
-    cellIY: Math.floor(wy / cps),
-  };
+  return tilePxToAbsCell(scene, wx, wy);
 }
 
 // SINGLE SOURCE OF TRUTH for the player's reach radius, in metres. Everything
@@ -297,8 +557,11 @@ function cellInReach(scene, cellIX, cellIY) {
   const reachM = reachRadiusM(scene);
   if (reachM <= 0) return false;
   const p = playerReachCell(scene);
-  const dx = (cellIX - p.cellIX) * scene.cellM;
-  const dy = (cellIY - p.cellIY) * scene.cellM;
+  // Whole cells from the reach cell — across a row whose grid differs, by
+  // position (absCellDelta), never raw cellIX arithmetic.
+  const d = absCellDelta(scene, p.cellIX, p.cellIY, cellIX, cellIY);
+  const dx = d.dx * scene.cellM;
+  const dy = d.dy * scene.cellM;
   return dx * dx + dy * dy <= reachM * reachM;
 }
 

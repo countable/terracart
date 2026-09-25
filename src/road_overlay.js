@@ -38,7 +38,7 @@
 // Depends on:
 //   scene fields (read-only): roadGeomGfx, roadRestoredGfx (headless only),
 //     roadGeomContainer, roadLiveGfx (created here), save,
-//     startWorldM, playerM, cellM, cellsPerTile, depth,
+//     startWorldM, playerM, cellM, cellsPerTile / cellsForRow (coords.js), depth,
 //     viewCenterX/Y, viewLeft, viewTop, viewSize
 //     helpers: playerToWorldCell(), worldMetersToScreen() (drawLive only)
 //   worldgen.js — WorldGen.tileCache, WorldGen.Z, WorldGen.roadOverlayWidthM,
@@ -1298,16 +1298,25 @@
     const ox1 = Math.ceil((maxX - scene.viewCenterX) / CELL_PX);
     const oy0 = Math.floor((minY - scene.viewCenterY) / CELL_PX);
     const oy1 = Math.ceil((maxY - scene.viewCenterY) / CELL_PX);
-    const N = scene.cellsPerTile;
+    // Each row is read on ITS tile row's grid (coords.js — a tile's grid is its
+    // row's), with the row band's column shift and screen phase (viewBand) for
+    // a row across a seam whose grid differs from the anchor's — the cells
+    // drawCells paints in those slots.
+    const pc = scene.cellsForRow ? viewAnchorCell(scene) : null;
+    const t0 = {};
     // Tile lookups are memoised across the row-major walk: a padded viewport
     // spans at most 4 tiles, so this is 4 Map.gets instead of one per cell.
     let curTX = null, curTY = null, curGrid = null;
     for (let oy = oy0; oy <= oy1; oy++) {
       const acy = baseCellIY + oy;
-      const ty = Math.floor(acy / N), iy = acy - ty * N;
+      const band = viewBand(scene, pc, acy);
+      absCellToTile(scene, baseCellIX + band.dX, acy, t0);
+      const ty = t0.ty, iy = t0.iy, N = t0.n;
+      const shift = absColShift(scene, ty);
+      const phase = Math.round(band.phaseX);
       for (let ox = ox0; ox <= ox1; ox++) {
-        const acx = baseCellIX + ox;
-        const tx = Math.floor(acx / N), ix = acx - tx * N;
+        const lx = baseCellIX + ox + band.dX - shift;
+        const tx = Math.floor(lx / N), ix = lx - tx * N;
         if (tx !== curTX || ty !== curTY) {
           curTX = tx; curTY = ty;
           const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
@@ -1316,7 +1325,7 @@
         if (!curGrid) continue;
         const t = curGrid[iy * N + ix];
         if (t !== WATER_T && (polyB || !WorldGen.isBuildingTerrain(t))) continue;
-        g.eraseRect(scene.viewCenterX + ox * CELL_PX,
+        g.eraseRect(scene.viewCenterX + ox * CELL_PX + phase,
                     scene.viewCenterY + oy * CELL_PX, CELL_PX, CELL_PX);
       }
     }
