@@ -3993,7 +3993,7 @@ Render.drawObjects = function drawObjects(scene) {
   // wear, and `airborne` is a flier's smaller, fainter contact shadow.
   const creatureAnim = (SL && SL.creatureAnim) || (() => null);
   const creatureFrameMs = (SL && SL.creatureFrameMs) || (() => 0);
-  const creatureHops = (SL && SL.creatureHops) || (() => false);
+  const creatureHop = (SL && SL.creatureHop) || (() => null);
   const creatureAirborne = (SL && SL.creatureAirborne) || (() => false);
   // A giant's sheet, frame count and shadow are its base kind's.
   const baseKind = (SL && SL.baseKind) || ((kind) => kind);
@@ -4032,18 +4032,18 @@ Render.drawObjects = function drawObjects(scene) {
     // How far off the ground the body is drawn: its constant float (a crow
     // perches high, a bat hovers) plus, for a hopping kind, the live bounce.
     let lift = creatureFloat(c.kind);
-    if (creatureHops(c.kind)) {
+    const hop = creatureHop(c.kind);
+    if (hop) {
       // Phase-offset per creature off a cached hash of its id, so a pack of
       // slimes doesn't pulse in unison.
-      if (c._hopSeed == null) c._hopSeed = strHash31(c.id || '') % 600;
-      // One bounce for every hopping kind: a 600 ms beat, 6px at the top.
-      // It used to read the monster table's `fly` and give the purple slime a
-      // 320 ms, 10px bounce — a flyer's dart on a slime's body, which (with
-      // its old float) made it look airborne. `fly` is a movement trait
+      if (c._hopSeed == null) c._hopSeed = strHash31(c.id || '');
+      // The bounce is the ART ROW's (SpriteLayout.creatureHop — a slime's is
+      // slow and low enough to stay on its shadow). It used to read the
+      // monster table's `fly` and give the purple slime a 320 ms, 10px
+      // bounce — a flyer's dart on a slime's body. `fly` is a movement trait
       // (app.js step length / stalk jitter); the LOOK is the art row's.
-      const period = 600;
-      const ph = ((performance.now() + c._hopSeed) % period) / period;
-      lift += Math.round(Math.abs(Math.sin(ph * Math.PI)) * 6);
+      const ph = ((performance.now() + c._hopSeed) % hop.ms) / hop.ms;
+      lift += Math.round(Math.abs(Math.sin(ph * Math.PI)) * hop.px);
     }
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
