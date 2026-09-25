@@ -272,11 +272,11 @@ the mechanic.
   walks a whole polygon (make it a `function*` and `yield*` it, like
   `spawnDebrisSteps` / `_spawnRockClustersSteps`). **When you add a pass over
   every cell, object or polygon, give it a yield.**
-  The post-rasterize path in `loadTile` (cross-tile dedup, cave entrance,
-  Overpass bin injection) has no slicer at all, so anything there must be O(n)
-  by construction — the house dedup is a bucket grid
-  (`collectDedupIndex`'s `houseNear` / `addHouse`), never a walk of
-  `housePositions`.
+  The post-rasterize path in `loadTile` (cave entrance, Overpass bin
+  injection) has no slicer at all, so anything there must be O(n) by
+  construction. Cross-tile duplicates are settled by POINT OWNERSHIP inside
+  the rasterize (a seam house / POI is emitted only by the tile holding its
+  anchor), never by scanning neighbour tiles — that read load order.
   **Audit it:** `node test/node/run.js` › `test/node/tile_build_blocks.test.js`
   and `test/node/worldgen_dedup.test.js`.
 
