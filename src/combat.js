@@ -102,7 +102,7 @@
   const MONSTERS_BASELINE = {
     cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5 },
     purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true, retreat: 0.75 },
-    goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 1.3,  minDepth: 2, weight: 3, retreat: 0.5 },
+    goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 2, speed: 1.3,  minDepth: 2, weight: 3, retreat: 0.5 },
     goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 1.04, minDepth: 3, weight: 2 },
   };
   // Both goblin rows were 30% too slow to feel like a pursuer (1.0 / 0.8 →

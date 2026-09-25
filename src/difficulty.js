@@ -130,7 +130,7 @@
       buyMul: 1.5,              // traders want 1.8..4.5× base; a T7 bow still only reaches 1.5× par
       sellMul: 0.6,             // Home pays 60% — farming is a living, not the fastest one
       enemyHpMul: 1.5,          // 1.5× the pool, 1.5× the time — and 1.5× the coins
-      enemyDmgMul: 2,           // a slime leeches 6/s, a goblin hits for 16
+      enemyDmgMul: 2,           // a slime leeches 6/s, a goblin hits for 8 (4/s)
       monsterCountMul: 1.5,     // 75 + 15/level, still under the spawner's 160 cap
       slimeCountMul: 2,         // 100 surface slimes a tile, and none of them wait for a harvest
       crowCountMul: 1,          // the base 200/tile — easy is the one that's cut
