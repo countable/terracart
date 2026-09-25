@@ -354,8 +354,8 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
     'all three shapes carry a sub line');
   assert.eq((body.match(/\$\{next\}|sub: next/g) || []).length, 3,
     'and all three print the next rung');
-  assert.truthy(/const next = trailNextPrizeLine\(n \| 0\);/.test(body),
-    'through the one formatter, off Trail.goalFor');
+  assert.truthy(/const next = trailNextPrizeLine\(n \| 0, this\.save\.playerClass\);/.test(body),
+    'through the one formatter, off Trail.goalFor — on the save\'s own ladder');
   assert.falsy(/cobbles walked/.test(body), 'nothing counts pebbles any more');
 });
 

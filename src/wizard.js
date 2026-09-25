@@ -201,7 +201,7 @@
     return {
       kind: 'class', key: c.key, cost: CLASS_COST, rung: null, icon: c.icon,
       title: c.name, accept: 'Choose', get: `${c.icon} ${c.name} — ${c.blurb()}`,
-      header: `✨ You are a ${c.name} ✨`, name: c.name, sub: c.blurb(),
+      header: `✨ You are ${/^[AEIOU]/.test(c.name) ? 'an' : 'a'} ${c.name} ✨`, name: c.name, sub: c.blurb(),
       canAfford: int(save.memories) >= CLASS_COST,
     };
   }
@@ -243,6 +243,13 @@
   //   reach        — true for Inner Light (reach redraws on its own).
   //   playerClass  — the calling just chosen, for a class purchase.
   // The caller persists the save and rebuilds its UI.
+  //
+  // THE SPEND. `opts.spend(cost)`, when given, IS the payment: buy() calls it
+  // once every check has passed and, if it returns false, refuses with nothing
+  // changed. app.js passes its spendMemories — the ONE place save.memories goes
+  // down (it repaints the HUD chip and persists) — so the scene has a single
+  // writer. With no hook (headless tests) buy() decrements save.memories
+  // itself.
   function buy(save, key, opts) {
     if (!save) return null;
     const offer = offers(save, opts).find((o) => o.key === key);
@@ -250,7 +257,9 @@
     const mem = int(save.memories);
     if (mem < offer.cost) return null;
     const before = buys(save);
-    save.memories = mem - offer.cost;
+    const spend = opts && typeof opts.spend === 'function' ? opts.spend : null;
+    if (spend) { if (!spend(offer.cost)) return null; }
+    else save.memories = mem - offer.cost;
     const out = {
       kind: offer.kind, key, cost: offer.cost, rung: offer.rung, offer,
       memories: save.memories, wizardBuys: before + 1,

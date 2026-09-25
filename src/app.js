@@ -69,9 +69,11 @@ const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
 // The line under every prize: what the NEXT rung asks for. The ladder grows by
 // GOAL_STEP_M a rung and the prize gets a step better with it
 // (Trail.rollBonusFor), so the number and the promise beside it are the same
-// fact — and the number is Trail's, never retyped here.
-const trailNextPrizeLine = (prizesWon) =>
-  `Repair ${Trail.goalFor(prizesWon)}m more for a better prize.`;
+// fact — and the number is Trail's, never retyped here. `playerClass` is
+// save.playerClass (the Runner's rungs are shorter — Trail.goalDiv); every
+// caller passes it, so the promise matches the ladder the save actually climbs.
+const trailNextPrizeLine = (prizesWon, playerClass) =>
+  `Repair ${Trail.goalFor(prizesWon, playerClass)}m more for a better prize.`;
 // ── THE FIRST REPAIR ───────────────────────────────────────────────────────
 // The one moment the game says out loud what a road is FOR. Restoration has no
 // tap and no tool — stand by a street and it comes back — so without this the
@@ -80,10 +82,10 @@ const trailNextPrizeLine = (prizesWon) =>
 // on the first metres ever banked (save.trail.greeted), and it names the rung
 // from Trail so the promise and the ladder can't drift.
 const TRAIL_INTRO_TITLE = 'The survivors are watching';
-const trailIntroBody = () =>
+const trailIntroBody = (playerClass) =>
   'You start repairing the roads — after all, they are the arteries of ' +
   'civilization!\n\n' +
-  `Repair ${Trail.GOAL_STEP_M}m of road and the survivors will reward you.`;
+  `Repair ${Trail.goalFor(0, playerClass)}m of road and the survivors will reward you.`;
 // …but not on the same beat as the repair. The first stretch to come back
 // under a new player is a flash, a scatter of chips and a counter on the
 // street itself, and a dialog opening over the top of that covers the very
@@ -7475,7 +7477,7 @@ class MapScene extends Phaser.Scene {
         // The tier sizes the shot too (a staff bolt grows with it — both its
         // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
-                                      Combat.shotDamage(relics, slot) * dmgMul,
+                                      Combat.shotDamage(relics, slot, this.save.playerClass) * dmgMul,
                                       relics[slot].tier, reach);
         if (shot && ammo) {
           // Every `ammo.shots`-th arrow burns one wood (save.ammoShots counts
@@ -7928,7 +7930,7 @@ class MapScene extends Phaser.Scene {
     // lane both the tapped swing and the auto-engage flow through, fired
     // regardless of an owned sword: bare hands fight on the tier-0 rung too.
     this._toolActionStory('sword');
-    const dps = Combat.meleeDps(this.save.relics);
+    const dps = Combat.meleeDps(this.save.relics, this.save.playerClass);
     const estMs = (Combat.hp(victim) / Math.max(0.01, dps)) * 1000;
     const now = performance.now();
     // A fight shows the foe's health bar, not a progress arc, so the tool
@@ -8349,7 +8351,7 @@ class MapScene extends Phaser.Scene {
           const d = Math.hypot(dx, dy) || 1;
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
         }
-        const blow = Combat.meleeSwingDamage(this.save.relics, this.isDragonActive() ? 2 : 1);
+        const blow = Combat.meleeSwingDamage(this.save.relics, this.isDragonActive() ? 2 : 1, this.save.playerClass);
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
       }
     }
@@ -11701,14 +11703,19 @@ class MapScene extends Phaser.Scene {
   }
 
   // What the memories chip says when tapped.
+  // Once the wizard has granted a calling, this is where the player can see
+  // which one (Wizard.CLASSES row: its icon, name and blurb).
   showMemoriesHelp() {
     const total = this.memoriesTotal(), unspent = this.memoriesUnspent();
+    const key = typeof Wizard !== 'undefined' ? Wizard.playerClass(this.save) : null;
+    const cls = key ? Wizard.CLASSES.find((c) => c.key === key) : null;
     this.showMessageModal({
       kind: 'memory',
       title: `${total} recovered · ${unspent} unspent`,
       body: 'A memory comes back each time you discover something new: a shiny, '
         + 'a new household fed, an elite foe.\n\n'
-        + 'A Wizard Tower can turn unspent memories into power.',
+        + 'A Wizard Tower can turn unspent memories into power.'
+        + (cls ? `\n\nYour calling: ${cls.icon} ${cls.name} — ${cls.blurb()}` : ''),
       okLabel: 'Got it',
     });
   }
@@ -12146,8 +12153,13 @@ class MapScene extends Phaser.Scene {
   // modal. Returns true so callers can `return this._finishConsumable(...)`.
   // NOTE: eatSelected deliberately does NOT use this — it consumes mid-method
   // (before computing side-effects) and gives flash feedback + energy DOM.
-  _finishConsumable(title, body) {
-    consumeSelected(this.save);
+  // `opts.channel` — the ENCHANTER's channel (channelPotion): the effect and
+  // its timer were applied, but the flask is NOT drunk, so nothing is
+  // consumed and the modal says so. The one place a consumable is removed is
+  // here, so this is the one place a channel can skip it.
+  _finishConsumable(title, body, opts = {}) {
+    if (opts.channel) body = `${body}\n\nThe flask stays full.`;
+    else consumeSelected(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();
     this.showMessageModal({ title, body });
@@ -12307,13 +12319,14 @@ class MapScene extends Phaser.Scene {
   // the lit silhouette AND every tap-accept gate cover everything on screen.
   // Stored in `save` (not just in-memory) so the buff survives tile reloads
   // within the minute; the timestamp self-expires, so a stale save is harmless.
-  drinkReachPotion() {
+  drinkReachPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'reach_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.reachPotionUntil = Date.now() + MINUTE_MS;
     return this._finishConsumable(
-      '✨ You drink the Potion of Reach',
+      `✨ You ${opts.channel ? 'channel' : 'drink'} the Potion of Reach`,
       'The whole world snaps into reach — for one minute, everything on screen is yours to touch.',
+      opts,
     );
   }
 
@@ -12335,23 +12348,25 @@ class MapScene extends Phaser.Scene {
   // Potion of Speed: a minute of tier-9 amulet walking, even without an amulet
   // — the stick moves you faster and costs almost no stamina (_walkRelics
   // reads speedPotionUntil).
-  drinkSpeedPotion() {
+  drinkSpeedPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'speed_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.speedPotionUntil = Date.now() + MINUTE_MS;
     return this._finishConsumable(
-      '\u2728 You drink the Potion of Speed',
+      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Speed`,
       'Your legs blaze. For one minute the stick carries you faster than any amulet could.',
+      opts,
     );
   }
 
-  drinkShieldPotion() {
+  drinkShieldPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.shieldPotionUntil = Date.now() + MINUTE_MS;
     return this._finishConsumable(
-      '\u2728 You drink the Potion of Shielding',
+      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Shielding`,
       'A shimmering barrier wraps you — for one minute every monster blow lands at half its weight.',
+      opts,
     );
   }
 
@@ -12384,14 +12399,42 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  drinkBlightPotion() {
+  drinkBlightPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'blight_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.blightPotionUntil = Date.now() + BLIGHT_MS;
     return this._finishConsumable(
-      '\u2728 You drink the Potion of Blight',
+      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Blight`,
       `A sickly crimson haze seeps out around you — for one minute every monster within ${BLIGHT_R_CELLS} cells of you loses ${BLIGHT_DPS} HP a second.`,
+      opts,
     );
+  }
+
+  // THE ENCHANTER'S CHANNEL (src/wizard.js CLASSES › enchanter). An
+  // enchanter holding a TIMED potion (the CONSUMABLE rows marked `channel` in
+  // syncConsumableButton) may pay Wizard.ENCHANTER_ENERGY_COST energy for its
+  // effect and timer without drinking it: the drink method runs with
+  // { channel: true } and _finishConsumable skips the removal. The price goes
+  // through spendEnergy — it is a job, so it holds the rest (CLAUDE.md
+  // "Working is not resting") — popped on the player's own cell, and a short
+  // bar refuses with the standard too-tired flash. `id` is the potion the
+  // dialog was opened for, re-checked against the live selection BEFORE the
+  // spend, so energy is never taken for a drink that then refuses.
+  channelPotion(id, method) {
+    if (typeof Wizard === 'undefined' || !Wizard.isClass(this.save, 'enchanter')) return false;
+    if (typeof this[method] !== 'function') return false;
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== id || (sel.count ?? 0) <= 0) return false;
+    const ps = this.playerScreen ? this.playerScreen() : null;
+    const sx = ps ? ps.x : this.viewCenterX;
+    const sy = ps ? ps.y + (this.playerBodyDy ? this.playerBodyDy() : 0) : this.viewCenterY;
+    let cell = null;
+    if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
+      const p = playerReachCell(this);
+      cell = { ix: p.cellIX, iy: p.cellIY };
+    }
+    if (!this.spendEnergy(Wizard.ENCHANTER_ENERGY_COST, sx, sy, cell)) return false;
+    return this[method]({ channel: true });
   }
 
   // True while a Potion of Blight's minute runs. In the save like the other
@@ -14557,8 +14600,8 @@ class MapScene extends Phaser.Scene {
     // relic pools normalised to ~50% airtime each, low-tier biased, castle vs
     // regular pricing. Kept as a scene method so peekOrBuildRelicOffer (which
     // threads the seeded shopRng) calls it the same way. The Ring is excluded
-    // there (it's the wizard tower's exclusive gift — the Keen Eye rung of
-    // wizardLadder).
+    // there (it's the wizard tower's exclusive gift — the Keen Eye track of
+    // src/wizard.js).
     return Gear.buildRelicOffer(this.save, rng, opts);
   }
 
@@ -14832,148 +14875,126 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // ─── Wizard tower: three gifts, climbed in order ─────────────────
-  // The wizard spends the player's hard-won Discovery badges on a LADDER, one
-  // rung per visit, at WIZARD_UPGRADE_COST badges a rung. The rungs are
-  // climbed strictly in order, and the wizard always offers the first one the
-  // player has not finished:
+  // ─── Wizard tower: memories into power ──────────────────────────
+  // The wizard draws power from the player's MEMORIES (save.memories, the
+  // unspent count — memoriesUnspent) and turns it into rungs of power. What
+  // is on the table is src/wizard.js's business, never re-derived here:
+  //   • Wizard.offers(save) — TWO track offers a visit (Inner Light, Full
+  //     Measure, Keen Eye, Vigour; seeded, stable until a purchase), or all
+  //     four CLASS offers when the calling is due (the third purchase).
+  //   • Wizard.buy(save, key, { spend }) — re-validates the pick against the
+  //     LIVE table and the LIVE count, writes the rung / calling, and tells
+  //     us what is still ours to do: `equip` (the Keen Eye Ring, through
+  //     _equipGear) and `energyCap` (Vigour raises Energy.maxEnergy).
   //
-  //   1. INNER LIGHT  — +0.5 cell of reach, REACH_UPGRADE_MAX rungs (2 → 5).
-  //   2. FULL MEASURE — the QUANTITY luck: a chance that a find comes in a
-  //                     bigger stack (RARITY_TUNING.qtyLuckMaxP, rolled by
-  //                     rarity.js qtyLuck). This was the AMULET's, 0.05 per
-  //                     amulet tier, until Sep 2026; the ceiling is unchanged,
-  //                     so the amulet lost a bonus rather than the player.
-  //   3. KEEN EYE     — the RING, i.e. the TIER luck: a chance that a find
-  //                     comes a tier rarer (rarity.js ringLuck). Until Sep
-  //                     2026 the Ring rode along with the Inner Light — one
-  //                     purchase bought both — and it is its own rung now, so
-  //                     the two kinds of luck are two things you buy.
+  // ONE WRITER. buy() is handed spendMemories as its `spend` hook, so the
+  // counter still goes down in exactly one place on the scene (which
+  // repaints the HUD chip and persists); buy() only decrements save.memories
+  // itself when no hook is given (the headless wizard.test.js).
   //
   // The Ring is still the wizard's EXCLUSIVE gift: gear.js buildRelicOffer
   // skips the slot, so no shop, smithy or castle ever sells one.
-  WIZARD_UPGRADE_COST = 5;
-  // The Ring tops out at the material ladder's 7 tiers.
-  RING_UPGRADE_MAX = 7;
-  // The quantity ladder's rung count is rarity.js's, not a second copy: the
-  // percentages the modal prints and the roll the picker makes come off the
-  // one table (qtyLuck), so a rung can't advertise a number it doesn't pay.
-  get QTY_UPGRADE_MAX() {
-    return (typeof RARITY_TUNING !== 'undefined' && RARITY_TUNING.qtyLuckLevels) || 3;
-  }
-
-  // The ladder itself. Each rung says where the player stands, what the next
-  // step buys, and how to grant it — so presentWizardOffer is just "find the
-  // first unfinished rung and offer it".
-  wizardLadder() {
-    const save = this.save;
-    const pct = (p) => `${Math.round(p * 100)}%`;
-    return [
-      {
-        key: 'light',
-        have: save.reachUpgrades ?? 0,
-        max: this.REACH_UPGRADE_MAX,
-        title: 'The wizard offers an Inner Light:',
-        accept: 'Kindle',
-        // Reach runs 2 cells + 0.5 a rung, capped at 5 (coords.js reads the
-        // same save field).
-        get: (n) => `🔆 Inner Light — reach ${Math.min(5, 2 + 0.5 * n)} cells`,
-        header: '✨ Inner Light kindled ✨',
-        name: (n) => `Reach ${Math.min(5, 2 + 0.5 * n)} cells`,
-        sub: 'The wizard channels your discoveries into wider sight.',
-        grant: (n) => { save.reachUpgrades = n; },
-      },
-      {
-        key: 'measure',
-        have: save.qtyUpgrades ?? 0,
-        max: this.QTY_UPGRADE_MAX,
-        title: 'The wizard offers a Full Measure:',
-        accept: 'Accept',
-        get: (n) => `🎒 Full Measure — ${pct(this.wizardQtyLuckAt(n))} chance of a bigger find`,
-        header: '✨ Full Measure granted ✨',
-        name: (n) => `Bigger finds — ${pct(this.wizardQtyLuckAt(n))} of the time`,
-        sub: 'What the world gives you, it gives you more of.',
-        grant: (n) => { save.qtyUpgrades = n; },
-      },
-      {
-        key: 'eye',
-        have: save.relics?.ring?.tier ?? 0,
-        max: this.RING_UPGRADE_MAX,
-        title: 'The wizard offers a Keen Eye:',
-        accept: 'Accept',
-        get: (n) => `👁 Keen Eye — Ring T${n} · rarer finds`,
-        header: '✨ Keen Eye opened ✨',
-        name: (n) => `Ring T${n} · rarer finds`,
-        sub: 'A Ring to bear the sight — the world yields its rarer things.',
-        grant: (n) => { this._equipGear('relic', 'ring', n); },
-      },
-    ];
-  }
-
-  // What the quantity ladder pays at rung `n`. Reads rarity.js's own qtyLuck
-  // against a stand-in save, so the modal's percentage is literally the number
-  // the loot roll will use — never a second formula that can drift from it.
-  wizardQtyLuckAt(n) {
-    return (typeof qtyLuck === 'function') ? qtyLuck({ qtyUpgrades: n }) : 0;
-  }
-
-  // The rung on offer: the first one not yet finished, or null when the
-  // wizard has nothing left to give.
-  wizardNextRung() {
-    return this.wizardLadder().find((r) => r.have < r.max) || null;
-  }
-
   presentWizardOffer(sx, sy, recordDeal) {
-    const cost = this.WIZARD_UPGRADE_COST;
-    const rung = this.wizardNextRung();
-    if (!rung) {
+    const offers = Wizard.offers(this.save);
+    if (!offers.length) {
       this.flash('The wizard has nothing left.', sx, sy);
       return;
     }
-    const next = rung.have + 1;
-    const have = Inventory.count(this.save, 'discovery');
-    this.showOfferModal({
+    const have = this.memoriesUnspent();
+    const calling = offers[0].kind === 'class';
+    const mem = (px) => this.iconSpanHTML('memory', px);
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
+      { onClose: () => {}, kind: 'wizard' });
+    const intro = document.createElement('div');
+    intro.style.cssText = 'font-size:13px;margin-bottom:4px;color:#ffe066';
+    intro.textContent = Wizard.INTRO;
+    box.appendChild(intro);
+    const ask = document.createElement('div');
+    ask.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:6px';
+    ask.textContent = calling ? 'Choose your calling — once, for good:'
+                              : 'He offers you a choice:';
+    box.appendChild(ask);
+    const purse = document.createElement('div');
+    purse.className = 'wizard-memories';
+    purse.style.cssText = 'font-size:12px;margin-bottom:10px';
+    purse.innerHTML = `${mem(14)} ${have} unspent ${have === 1 ? 'memory' : 'memories'}`;
+    box.appendChild(purse);
+    // The choices: side by side (two tracks), a 2×2 grid (four callings), or
+    // one card when a single track is left. Each card is the button.
+    const grid = document.createElement('div');
+    grid.className = 'wizard-choices';
+    grid.style.cssText = 'display:grid;gap:8px;margin-bottom:10px;'
+      + `grid-template-columns:${offers.length > 1 ? '1fr 1fr' : '1fr'};`;
+    for (const o of offers) {
+      const card = document.createElement('button');
+      card.className = 'wizard-choice';
+      card.dataset.key = o.key;
+      card.style.cssText =
+        'display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;'
+        + 'border-radius:8px;border:2px solid ' + (o.canAfford ? UI_CONTROL_DIM : '#444') + ';'
+        + 'background:#231d16;color:#fff;font:12px ui-monospace,monospace;cursor:pointer;';
+      const what = o.kind === 'class' ? o.sub : o.name;
+      const rung = o.kind === 'track' ? `<div style="opacity:.6;font-size:10px">rung ${o.rung}/${o.max}</div>` : '';
+      card.innerHTML =
+        `<div style="font-size:24px;line-height:1.1">${o.icon}</div>`
+        + `<div style="font-weight:700;color:#ffe066">${o.title}</div>`
+        + `<div style="font-size:11px;line-height:1.3">${what}</div>`
+        + rung
+        + `<div style="margin-top:2px;font-weight:700">${mem(12)} ${o.cost}</div>`;
+      if (!o.canAfford) {
+        card.disabled = true;
+        card.style.opacity = '0.4';
+        card.style.cursor = 'not-allowed';
+      }
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wrap.remove();
+        this._buyWizardOffer(o.key, sx, sy, recordDeal);
+      });
+      grid.appendChild(card);
+    }
+    box.appendChild(grid);
+    const later = mkBtn('Later', false, false);
+    later.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    box.appendChild(later);
+    mount();
+  }
+
+  // The purchase behind a wizard card. Wizard.buy re-reads the live table
+  // and the live count (so a modal left open can't buy a rung already taken
+  // or overspend), and pays through spendMemories — the scene's one writer.
+  _buyWizardOffer(key, sx, sy, recordDeal) {
+    const shown = Wizard.offers(this.save).find((o) => o.key === key);
+    if (!shown) { this.flash('The wizard has moved on.', sx, sy); return null; }
+    if (this.memoriesUnspent() < shown.cost) { this.flash('Not enough memories.', sx, sy); return null; }
+    const r = Wizard.buy(this.save, key, { spend: (n) => this.spendMemories(n) });
+    if (!r) { this.flash('The wizard has moved on.', sx, sy); return null; }
+    if (r.equip) this._equipGear(r.equip.kind, r.equip.slot, r.equip.tier);
+    recordDeal();
+    // The reach silhouette redraws every frame from reachRadiusM, so a wider
+    // reach shows on the next frame with no explicit invalidation; a Vigour
+    // rung moves Energy.maxEnergy, which the gauge reads live.
+    persistSave(this.save);
+    if (this.buildInventoryDOM) this.buildInventoryDOM();
+    if (this.updateMemoriesDOM) this.updateMemoriesDOM();
+    if (r.energyCap && this.updateEnergyDOM) this.updateEnergyDOM();
+    const o = r.offer;
+    this.showChestRewardModal({
       kind: 'wizard',
-      title: rung.title,
-      cancelLabel: 'Later',
-      acceptLabel: rung.accept,
-      get: rung.get(next),
-      cost: `🔆 ${cost} Discovery (you have ${have})`,
-      canAfford: have >= cost,
-      onAccept: () => {
-        // Re-read the live stack AND the live rung so a stale modal can't
-        // overspend badges or grant a rung the player has since climbed.
-        if (Inventory.count(this.save, 'discovery') < cost) { this.flash('Not enough Discovery.', sx, sy); return; }
-        const live = this.wizardNextRung();
-        if (!live || live.key !== rung.key || live.have !== rung.have) {
-          this.flash('The wizard has moved on.', sx, sy);
-          return;
-        }
-        Inventory.remove(this.save, 'discovery', cost);
-        this._clampSelSlot();
-        live.grant(next);
-        recordDeal();
-        // The reach silhouette redraws every frame from reachRadiusM, so a
-        // wider reach shows on the next frame with no explicit invalidation.
-        persistSave(this.save);
-        if (this.buildInventoryDOM) this.buildInventoryDOM();
-        this.showChestRewardModal({
-          kind: 'wizard',
-          header: live.header,
-          iconHTML: '',
-          name: live.name(next),
-          sub: live.sub,
-          color: UI_TREASURE,
-        });
-      },
+      header: o.header,
+      iconHTML: `<span style="font-size:40px;line-height:1">${o.icon}</span>`,
+      name: o.name,
+      sub: o.sub,
+      color: UI_TREASURE,
     });
+    return r;
   }
 
   // ─── Reach / Inner Light cap ─────────────────────────────────────
   // Six +0.5-cell steps carry reach from 2 cells to 5. They're claimed
-  // EXCLUSIVELY at the wizard tower's Inner Light (presentWizardOffer),
-  // the first rung of its ladder.
-  REACH_UPGRADE_MAX = 6;
+  // EXCLUSIVELY at the wizard tower's Inner Light track (src/wizard.js,
+  // which owns the number).
+  get REACH_UPGRADE_MAX() { return Wizard.REACH_UPGRADE_MAX; }
 
   // Trader offer: barter-only, qty scaled to a target trade value. The trader
   // picks an item to give the player, picks an asking item from inventory,
@@ -15520,7 +15541,7 @@ class MapScene extends Phaser.Scene {
   // counter and queue whatever prizes the new total has earned.
   _bankStreetMetres(addedM, at, now) {
     const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
-    const out = Trail.bank(st.metres, st.prizes, addedM);
+    const out = Trail.bank(st.metres, st.prizes, addedM, this.save.playerClass);
     st.metres = out.metres;
     st.prizes = out.prizes;
     // The counter: metres banked toward the current goal, popped ON THE STREET
@@ -15549,7 +15570,7 @@ class MapScene extends Phaser.Scene {
     const due = (now - (this._streetCounterAt || 0)) >= STREET_COUNTER_MIN_MS;
     if (due || out.owed > 0) {
       this._streetCounterAt = now;
-      this._toast(Trail.readout(out).label, {
+      this._toast(Trail.readout(out, this.save.playerClass).label, {
         tier: 'note', color: UI_STREET_INK,
         ...(at ? this._worldToastAt(at.x, at.y, STREET_COUNTER_LIFT_PX) : {}),
       });
@@ -15627,7 +15648,7 @@ class MapScene extends Phaser.Scene {
     if (document.body?.classList?.contains('modal-open')) return false;
     this.showMessageModal({
       title: TRAIL_INTRO_TITLE,
-      body: trailIntroBody(),
+      body: trailIntroBody(this.save.playerClass),
       // The banner the promise is made in: survivors watching the repair —
       // the story this dialog tells, drawn rather than described.
       art: 'trail_intro',
@@ -15788,11 +15809,11 @@ class MapScene extends Phaser.Scene {
     // pick's flavour line repeats it under the header — through Trail.label,
     // the ONE formatter, so the two can't print the same walk differently.
     const header = TRAIL_PRIZE_HEADER;
-    const goal = Trail.goalFor(Math.max(0, (n | 0) - 1));
+    const goal = Trail.goalFor(Math.max(0, (n | 0) - 1), this.save.playerClass);
     const walked = Trail.label(goal, goal);
     // What the NEXT rung asks. On every ceremony, single or choice, so the
     // ladder never pays out without saying where the next rung is.
-    const next = trailNextPrizeLine(n | 0);
+    const next = trailNextPrizeLine(n | 0, this.save.playerClass);
     if (!choices.length) {
       // Defensive fallback — give 5 coins so the player isn't stiffed.
       addMoney(this.save, 5);
@@ -18230,12 +18251,15 @@ class MapScene extends Phaser.Scene {
     const CONSUMABLE = {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       honey: { verb: 'Use',  method: 'useHoney',  title: 'Set out the honey?', get: '🍯 lure nearby chickens & cows' },
-      reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: '✨ full-screen reach for 1 min' },
+      reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: '✨ full-screen reach for 1 min', channel: true },
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
-      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 amulet walking for 1 min' },
-      shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min' },
+      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 amulet walking for 1 min', channel: true },
+      shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min', channel: true },
       thunder_potion: { verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?', get: `⚡ every foe in sight takes ${THUNDER_DMG} damage, and the rest flee` },
-      blight_potion: { verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',    get: `☠ foes within ${BLIGHT_R_CELLS} cells lose ${BLIGHT_DPS} HP/s for ${shortDuration(BLIGHT_MS)}` },
+      blight_potion: { verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',    get: `☠ foes within ${BLIGHT_R_CELLS} cells lose ${BLIGHT_DPS} HP/s for ${shortDuration(BLIGHT_MS)}`, channel: true },
+      // `channel: true` marks the TIMED potions — the ones an Enchanter
+      // (src/wizard.js CLASSES) may channel for Wizard.ENCHANTER_ENERGY_COST
+      // energy instead of drinking (channelPotion); see the dialog below.
       // Revival: only while down (drinkRevivePotion refuses otherwise, and
       // `usable` greys the dialog's Drink off the same Combat.playerDowned).
       revive_potion:       { verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Revival?',
@@ -18299,7 +18323,7 @@ class MapScene extends Phaser.Scene {
       // its own method, its own live disabled test, the same consume-then-
       // resync flow as the primary.
       const sec = entry.secondary;
-      const secondary = sec ? {
+      let secondary = sec ? {
         label: sec.label,
         disabled: typeof sec.disabled === 'function' ? sec.disabled() : !!sec.disabled,
         onClick: () => {
@@ -18307,6 +18331,19 @@ class MapScene extends Phaser.Scene {
           this.syncConsumableButton();
         },
       } : undefined;
+      // The Enchanter's CHANNEL is the same middle button on a timed potion
+      // (a `channel` row — none of them has a `secondary` of its own): the
+      // effect and its timer for energy, the flask kept. Greyed while the bar
+      // is short; channelPotion re-checks and spends through spendEnergy.
+      if (!secondary && entry.channel && typeof Wizard !== 'undefined'
+          && Wizard.isClass(this.save, 'enchanter')) {
+        const cost = Wizard.ENCHANTER_ENERGY_COST;
+        secondary = {
+          label: `Channel −${cost}⚡`,
+          disabled: (this.save.energy ?? 0) < cost,
+          onClick: () => { this.channelPotion(id, fn); this.syncConsumableButton(); },
+        };
+      }
       this.showOfferModal({
         kind: 'use',
         title: entry.title,

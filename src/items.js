@@ -1046,7 +1046,8 @@ const PLAY_TIPS = [
   'A castle stays sealed until you finish the job on its board — then it is yours.',
   'The castle board always holds three jobs, and each castle offers only one of them: the next castle along has different work.',
   'A castle job grows with the number you have already finished, and so does the purse it pays.',
-  'The wizard sees power in your memories. He offers two gifts at once: a cheap one (more energy, and at the third a class: Hunter, Runner, Enforcer or Enchanter) and a dear one (wider reach, bigger finds, then the Ring).',
+  'The wizard sees power in your memories. Each visit he offers two gifts from four — wider reach, bigger finds, the Ring, more energy — and every purchase changes the pair.',
+  'Your third purchase from the wizard is a calling instead: Hunter, Runner, Enforcer or Enchanter. You choose once, for good. An Enchanter can channel a timed potion for energy and keep the flask.',
   'No shop, smithy or castle vault deals in Rings. The wizard\'s Keen Eye is what puts one on your hand.',
   'Platinum, Crimson and Frost bars are smelted from a magical flower and the bar below it — or prised out of the rarest deep rock, if your tools are nearly its equal.',
   'No shop stocks sunflower, fireflower or iceflower seeds. The magical flowers have to be found.',
@@ -1224,7 +1225,7 @@ const RELIC_DEFS = {
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
              effectKey: 'chopSpeed',     blurb: 'lets you chop trees' },
   // The Ring is TIER luck, and the wizard tower's exclusive gift (his Keen Eye
-  // rung — app.js wizardLadder). Never sold, never forged.
+  // track — src/wizard.js TRACKS). Never sold, never forged.
   ring:    { slot: 'ring',   name: 'Ring',    icon: 'Rings.png',   baseCost:  60,
              effectKey: 'lootTier',      blurb: 'rarer chest loot' },
   // The Amulet is stick walking and nothing else. It also gave QUANTITY luck

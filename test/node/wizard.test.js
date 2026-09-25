@@ -159,4 +159,23 @@
     assert.truthy(vig.get.includes(`+${Energy.VIGOUR_ENERGY_STEP}`), 'vigour prints energy.js\'s step');
     assert.eq(W.playerClass({ playerClass: 'wizard' }), null, 'an unknown class is no class');
   });
+  test('wizard: a spend hook IS the payment — the scene keeps one writer', () => {
+    // app.js hands buy() its spendMemories, the one place save.memories goes
+    // down. buy() must call it exactly once, with the offer's cost, and must
+    // not decrement the counter a second time itself.
+    const save = fresh({ memories: 10 });
+    const o = W.offers(save)[0];
+    const calls = [];
+    const spend = (n) => { calls.push(n); save.memories -= n; return true; };
+    const r = W.buy(save, o.key, { spend });
+    assert.truthy(r, 'bought');
+    assert.eq(calls.join(), String(o.cost), 'the hook paid the cost, once');
+    assert.eq(save.memories, 10 - o.cost, 'and nothing else took a second bite');
+    assert.eq(r.memories, save.memories, 'the result reports what is left');
+    // A hook that refuses leaves everything untouched.
+    const before = JSON.stringify(save);
+    const next = W.offers(save)[0];
+    assert.eq(W.buy(save, next.key, { spend: () => false }), null, 'refused');
+    assert.eq(JSON.stringify(save), before, 'nothing written on a refused spend');
+  });
 })();
