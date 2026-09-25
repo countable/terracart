@@ -274,7 +274,7 @@
     // the frame rate, twice the bounce rate, and a body hanging over its
     // shadow. Its combat `fly` (combat.js) is a MOVEMENT trait — long steps,
     // a wider stalk jitter — and never a look.
-    purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
+    purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hop: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
     goblin:        { sheet: 'goblin',        frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
     goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
   };

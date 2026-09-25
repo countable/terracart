@@ -32,9 +32,10 @@ test('lockout: eatSelected refuses every food while locked, except a feather rev
     'only a Crow Feather gets through the lockout');
   assert.truthy(/if \(locked && !featherRevive\) return false;/.test(body),
     'every other food refuses outright while locked');
-  assert.truthy(/Energy\.reviveLevel\(this\.getMaxEnergy\(\), REVIVE_ITEM_FRAC\.crow_feather\)/.test(body),
-    'the feather revive is a (rounded) share of max off REVIVE_ITEM_FRAC, not a flat FOOD_ENERGY number');
-  assert.eq(REVIVE_ITEM_FRAC.crow_feather, 0.10, 'a tenth of the bar');
+  assert.truthy(/\? FEATHER_REVIVE_ENERGY\n/.test(body),
+    'the feather revive is FEATHER_REVIVE_ENERGY, not a FOOD_ENERGY number');
+  assert.eq(FEATHER_REVIVE_ENERGY, 1, 'a feather stands you up with 1 energy');
+  assert.eq(REVIVE_ITEM_FRAC.crow_feather, undefined, 'and is no longer a share of the bar');
 });
 
 test('lockout: crow_feather carries no ordinary FOOD_ENERGY — it only works through the lockout', () => {

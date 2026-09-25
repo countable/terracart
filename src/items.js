@@ -829,8 +829,12 @@ const SHOP_CHARM_MS = 5 * 60 * 1000;
 // Potion of Thunder: the HP the bolt takes off every foe in sight (app.js
 // drinkThunderPotion). Here so the ✦ line quotes the live number.
 const THUNDER_DMG = 10;
-const REVIVE_ITEM_FRAC = { crow_feather: 0.10, revive_potion: 0.30, resurrection_potion: 0.60 };
+const REVIVE_ITEM_FRAC = { revive_potion: 0.30, resurrection_potion: 0.60 };
 const revivePct = (id) => Math.round(REVIVE_ITEM_FRAC[id] * 100);
+// The Crow Feather stands you up with a flat 1 energy — enough to crawl, not
+// to fight: its pocket resurrection only buys the walk home. (It rode the
+// table above at 10% until Sep 2026.)
+const FEATHER_REVIVE_ENERGY = 1;
 
 // ── ITEM GUIDES: the Book pages about a THING ──────────────────────────────
 // The one deliberate exception to "what an item does is written on the item,
@@ -844,7 +848,7 @@ const revivePct = (id) => Math.round(REVIVE_ITEM_FRAC[id] * 100);
 // Numbers are re-derived from their owners, never retyped. PLAY_TIPS slots
 // each guide in where it first becomes actionable.
 const ITEM_GUIDE_TIPS = {
-  crow_feather: `A Crow Feather is hard mode's pocket resurrection: eaten on an empty bar, it stands you up with ${revivePct('crow_feather')}% of your energy. Crows drop them. Carry one before any long walk — crawling home is not a strategy, merely a hobby.`,
+  crow_feather: `A Crow Feather is hard mode's pocket resurrection: eaten on an empty bar, it stands you up with ${FEATHER_REVIVE_ENERGY} energy — enough to crawl home, not to fight. Crows drop them. Carry one before any long walk — crawling home is not a strategy, merely a hobby.`,
   scarecrow: 'A scarecrow keeps crows and deer off the crops around it for good, for a little wood at Home. Cheaper than replanting, and it has never once asked for a day off.',
   trap_kit: 'A disarm kit shuts a snare\'s jaw for good: hold it and tap the snare. Snares favour roadside verges and the stairs underground, so one in the bag costs less than a limp.',
   torch: 'Underground, your light IS your reach, and every level down trims it. A torch doubles it for a while — light one at the top of the stairs, not after you have met the goblin.',
@@ -1082,7 +1086,7 @@ const ITEM_EFFECTS = {
   // the bar (REVIVE_ITEM_FRAC). Never a normal food: it carries no
   // FOOD_ENERGY entry, so the Eat button only ever offers this while the
   // lockout actually holds.
-  crow_feather: `Eat at zero to get up with ${revivePct('crow_feather')}% energy (hard mode)`,
+  crow_feather: `Eat at zero to get up with ${FEATHER_REVIVE_ENERGY} energy (hard mode)`,
   // Consumables used on yourself / the world.
   honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',

@@ -12498,7 +12498,7 @@ class MapScene extends Phaser.Scene {
     }
     const before = this.save.energy ?? 0;
     this.save.energy = featherRevive
-      ? Energy.reviveLevel(this.getMaxEnergy(), REVIVE_ITEM_FRAC.crow_feather)
+      ? FEATHER_REVIVE_ENERGY
       : Math.min(this.getMaxEnergy(), before + restore);
     const gained = this.save.energy - before;
     consumeSelected(this.save);
@@ -17886,7 +17886,7 @@ class MapScene extends Phaser.Scene {
     // While the gate refuses, the wait REPLACES the "+N⚡" it would otherwise
     // advertise: the restore isn't the actionable number until the bar fills.
     const text = cooling ? `Eat ${this._eatCdShown}`
-      : featherRevive ? `Use → ${revivePct('crow_feather')}%⚡`
+      : featherRevive ? `Use → ${FEATHER_REVIVE_ENERGY}⚡`
       : `Eat +${restore}⚡`;
     const btn = existing || this._makeEatButton();
     // The icon is rebuilt only when the SELECTED STACK changes, not on every

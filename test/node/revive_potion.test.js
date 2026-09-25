@@ -1,7 +1,7 @@
 // Revival potions: drunk while DOWN (zero energy, either mode) to get back up
 // where you fell — the Potion of Revival (T2) at 30% of the bar, the
-// Potion of Resurrection (T5) at 60%. (The Crow Feather shares the table at
-// 10%, but is EATEN, through the hard-mode lockout.) One table (items.js REVIVE_ITEM_FRAC)
+// Potion of Resurrection (T5) at 60%. (The Crow Feather is a flat 1 energy,
+// FEATHER_REVIVE_ENERGY, and is EATEN, through the hard-mode lockout.) One table (items.js REVIVE_ITEM_FRAC)
 // is read by the drink, the ✦ line and the Drink dialog.
 //
 // The drink is a Phaser scene method, so it is lifted and RUN on a stub scene
@@ -14,7 +14,7 @@ const app = APP_JS_SRC;
 test('revive potions: T2 at 30%, T5 at 60%, both drunk not eaten', () => {
   assert.eq(REVIVE_ITEM_FRAC.revive_potion, 0.30, 'Revival stands you up with 30%');
   assert.eq(REVIVE_ITEM_FRAC.resurrection_potion, 0.60, 'Resurrection with 60%');
-  assert.eq(REVIVE_ITEM_FRAC.crow_feather, 0.10, 'the Crow Feather with 10%');
+  assert.eq(FEATHER_REVIVE_ENERGY, 1, 'the Crow Feather with a flat 1 energy');
   assert.eq(BASE_TIER.revive_potion, 2, 'Revival is tier 2');
   assert.eq(BASE_TIER.resurrection_potion, 5, 'Resurrection is tier 5');
   for (const id of ['revive_potion', 'resurrection_potion']) {
