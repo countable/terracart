@@ -30,10 +30,11 @@
 // Exposed as a global (no bundler): HomeArea
 const HomeArea = {
   // World-metre position of the spawn/home origin. Set ONCE by the scene
-  // (app.js) the moment startWorldM is known — before any tile is generated —
-  // so worldgen, which runs on the same thread, can ask "is this near home?"
-  // mid-build. Null until then, which `isNear` treats as "not near home" so
-  // nothing is mis-flagged before the origin exists.
+  // (app.js) the moment startWorldM is known. Worldgen must NOT read it —
+  // generation is the same for every player, and this is one player's home —
+  // it is for per-player overlays applied after a tile is built
+  // (applySoftwood). Null until then, which `isNear` treats as "not near
+  // home" so nothing is mis-flagged before the origin exists.
   worldM: null,
   setOrigin(x, y) { this.worldM = { x, y }; },
 
@@ -42,8 +43,9 @@ const HomeArea = {
 
   // True iff (x, y) world-metres is within `radiusM` of the spawn origin. Meant
   // as the shared "near home" test; today its one caller is softwoodSpeciesNear
-  // below — a new home-area feature should route through it rather than an
-  // inline hypot check, so the zone keeps one definition.
+  // below (via applySoftwood, app.js's per-player overlay) — a new home-area
+  // feature should route through it rather than an inline hypot check, so the
+  // zone keeps one definition.
   isNear(x, y, radiusM = HomeArea.NEAR_M) {
     if (!this.worldM) return false;
     const dx = x - this.worldM.x, dy = y - this.worldM.y;
@@ -56,6 +58,12 @@ const HomeArea = {
   // so the home grove is reliably harvestable bare-handed / with a Wood axe.
   // Returns the species string to store on the tree (the fallback elsewhere).
   //
+  // A PER-PLAYER OVERLAY, never a generation input. Where "home" is differs
+  // per save, and worldgen used to call this mid-build — so the same tree was
+  // a pine in one player's world and a maple in another's. Worldgen now
+  // generates the world's species; applySoftwood (below) stamps this rule
+  // onto a built tile's trees for THIS player, from app.js's spawn pass.
+  //
   // EXCEPT bush-tier trees: the smallest size class renders as a uniform
   // `bushes` sprite regardless of species (render.js), AND it's already
   // bare-hands tier-0 with no species shift / 1× wood (util.js), so stamping
@@ -65,6 +73,25 @@ const HomeArea = {
   softwoodSpeciesNear(x, y, fallbackSpecies, size) {
     if (size === 'bush') return fallbackSpecies;
     return this.isNear(x, y) ? 'pine' : fallbackSpecies;
+  },
+
+  // The overlay itself: re-species every generated `tree` object in `objects`
+  // (a tile entry's list) by softwoodSpeciesNear. Idempotent — a pine stays a
+  // pine, a tree outside the zone keeps its species — so running it again on
+  // the same entry is harmless. Call it once per built entry, in the spawn
+  // pass (app.js spawnInTile), which a rebuilt entry re-runs (the `_spawned`
+  // gate) — so a rebuild, which mints fresh objects, gets it again. Fruit
+  // trees and anything that is not a `tree` are left alone. Returns the
+  // number of trees it changed.
+  applySoftwood(objects) {
+    if (!objects || !this.worldM) return 0;
+    let n = 0;
+    for (const o of objects) {
+      if (!o || o.kind !== 'tree') continue;
+      const sp = this.softwoodSpeciesNear(o.x, o.y, o.species, o.size);
+      if (sp !== o.species) { o.species = sp; n++; }
+    }
+    return n;
   },
 
   // ── Starter provisioning ──────────────────────────────────────────────

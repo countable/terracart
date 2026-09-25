@@ -1055,7 +1055,7 @@ Object.assign(ctx, {
     '\n  }\n\n  // Nothing sits inside the Home trailer.', 'ensureStarterTrailerObject');
   // The sidecar chest injection loop in loadTile — poi_dedup.test.js pins that
   // it consults the shared one-place-one-chest rule before pushing a chest.
-  ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of (bin.chests || [])) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
+  ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of sx.chests) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
   // The tree + mineralrock RENDER_SPEC entries (a const inside drawObjects, so
   // not reachable as a value) — tool_gate_fade.test.js pins that both `after`
   // hooks apply the shared tool-gate fade rather than a local copy of it.

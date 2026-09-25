@@ -1,145 +1,96 @@
-// Tests for WorldGen.collectDedupIndex — the cross-tile spawn-dedup index a
-// newly-built tile's chests and houses are checked against.
+// Seam ownership — the rule that replaced the cross-tile spawn dedup.
 //
-// The load-bearing contract is the skipKey: while rebuildTileWithBin replaces
-// a tile in place (its Overpass bin landed after it rasterized), the tile's
-// own live entry stays in the cache and must be EXCLUDED from the index for
-// BOTH kinds. The rebuild spawns its chests and houses at exactly the
-// coordinates of the copies it is about to swap out, so an index that still
-// sees the old entry dedupes the rebuild against itself and drops them all.
-// That happened to houses for real: the skip originally covered only the
-// chest index, and every rebuilt tile kept its painted brick footprints but
-// lost every house sprite.
-
-const mkCache = () => new Map([
-  ['14/5/5', { objects: [
-    { kind: 'chest', name: 'Old Mill', x: 100, y: 200 },
-    { kind: 'house', x: 350, y: 420 },
-    { kind: 'house', x: 357, y: 420 },
-    { kind: 'tree', x: 1, y: 2 },              // other kinds are not indexed
-  ] }],
-  ['14/5/6', { objects: [
-    { kind: 'chest', name: 'old mill ', x: 900, y: 900 },   // same name, case/space-insensitive
-    { kind: 'house', x: 800, y: 810 },
-  ] }],
-  ['14/6/5', {}],                              // entry with no objects — skipped
-  ['14/6/6', null],                            // dead entry — skipped
-]);
-
-test('dedup index: collects chests by normalized name and houses by position', () => {
-  const { byName, housePositions } = WorldGen.collectDedupIndex(mkCache(), null);
-  assert.eq(byName.size, 1, 'both chests share one normalized name key');
-  assert.eq(byName.get('old mill').length, 2, 'both positions recorded under it');
-  assert.eq(housePositions.length, 3, 'every cached house position indexed');
-});
-
-test('dedup index: skipKey excludes that tile\'s houses AND chests (rebuild-in-place)', () => {
-  const { byName, housePositions } = WorldGen.collectDedupIndex(mkCache(), '14/5/5');
-  // The regression: houses from the entry being replaced must not be indexed,
-  // or the rebuild drops every one of its own house sprites as a "duplicate"
-  // and the tile's building footprints render bare.
-  assert.eq(housePositions.length, 1, 'skipped tile contributes no house positions');
-  assert.eq(housePositions[0].x, 800, 'the remaining house is the other tile\'s');
-  assert.eq(byName.get('old mill').length, 1, 'skipped tile contributes no chests');
-});
-
-test('dedup index: other tiles still index normally while one is skipped', () => {
-  const { byName, housePositions } = WorldGen.collectDedupIndex(mkCache(), '14/5/6');
-  assert.eq(housePositions.length, 2, 'houses of non-skipped tiles survive');
-  assert.eq(byName.get('old mill').length, 1, 'chest of the non-skipped tile survives');
-});
-
-// ── houseNear: the same answer the linear scan gave, without the scan ──────
+// An MVT tile carries every feature inside its BUFFER, so a POI point near a
+// seam, or a building straddling one, reaches two (or four) tiles. The old
+// answer was collectDedupIndex: each newly-built tile dropped any chest/house
+// near one already in the cache — so the copy that survived was the one in
+// whichever tile LOADED FIRST. Two players (or one player before and after a
+// rebuild) could hold different houses under different ids, and the dedup ran
+// outside the sliced build scanning the whole cache.
 //
-// "Is a house already within HOUSE_DEDUP_M of this one" was a walk of every
-// house in every cached tile, run once per house of the tile being built — so
-// its cost was (houses per tile) x (houses in the ring), growing with each tile
-// the neighbour ring added, and it runs AFTER rasterize resolves, outside the
-// sliced build where nothing can break it up. A boot trace charged it six
-// frames over 100ms (worst 253ms) with no span more specific than
-// `neighbour ring (in the background)` open. The index buckets houses by
-// HOUSE_DEDUP_M now and probes nine buckets.
-//
-// These tests pin the ANSWER, since that is what the rewrite could have
-// changed: a bucketing that misses a neighbour lets duplicate roofs through,
-// and one that over-reaches eats real houses off a dense street.
+// Now each copy is minted by exactly one tile, decided from the data alone:
+//   • a POI (chest / parking X) belongs to the tile whose square [0, EXTENT)
+//     holds its point;
+//   • a house belongs to the tile whose square holds its FULL footprint's
+//     anchor — both tiles shape the building with the same 3-cell pad, so
+//     both compute the same anchor — and the other tile's half of the
+//     footprint resolves to the owner's id.
+// These tests build the two tiles either side of a seam, in either order.
 (function () {
-const near = (idx, x, y) => idx.houseNear(x, y);
-// The rule as it was written: any indexed house within 6 m, Euclidean.
-const brute = (idx, x, y) => idx.housePositions.some((p) => {
-  const dx = p.x - x, dy = p.y - y;
-  return dx * dx + dy * dy <= 36;
+const T = WorldGen.T;
+const CPE = 64;
+const EDGE_M = CPE * 7;
+const EXTENT = 4096;
+const CELL_MVT = EXTENT / CPE;
+const TY = 5, TXA = 10, TXB = 11;       // A is west of B; the seam is A's x = EXTENT
+const rect = (x0, y0, x1, y1) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }, { x: x0, y: y0 }];
+// One small house straddling the seam, most of it in A: in A's MVT units it
+// runs from 2.3 cells west of the seam to 1.3 cells east of it.
+const HOUSE_A = rect(EXTENT - 2.3 * CELL_MVT, 20.2 * CELL_MVT, EXTENT + 1.3 * CELL_MVT, 22.8 * CELL_MVT);
+const shift = (ring, dx) => ring.map((p) => ({ x: p.x + dx, y: p.y }));
+// A POI 0.6 cells east of the seam: inside B's square, in A's buffer.
+const POI_A = { x: EXTENT + 0.6 * CELL_MVT, y: 40.5 * CELL_MVT };
+function layersFor(dx) {
+  return [
+    { name: 'building', features: [{ type: 3, tags: {}, geom: [shift(HOUSE_A, dx)] }] },
+    { name: 'poi', features: [
+      { type: 1, tags: { class: 'restaurant', name: 'Seam Cafe' }, geom: [[{ x: POI_A.x + dx, y: POI_A.y }]] },
+      { type: 1, tags: { class: 'parking' }, geom: [[{ x: POI_A.x + dx, y: POI_A.y + 8 * CELL_MVT }]] },
+    ] },
+  ];
+}
+const buildA = () => WorldGen.rasterizeTile(layersFor(0), CPE, TXA, TY, EDGE_M);
+const buildB = () => WorldGen.rasterizeTile(layersFor(-EXTENT), CPE, TXB, TY, EDGE_M);
+const houses = (r) => r.objects.filter((o) => o.kind === 'house');
+const chests = (r) => r.objects.filter((o) => o.kind === 'chest');
+// Every ownerKey stamped on a building cell of this tile.
+const cellKeys = (r) => {
+  const out = new Set();
+  for (let i = 0; i < r.owners.length; i++) if (r.owners[i]) out.add(r.ownerKeys[r.owners[i]]);
+  return out;
+};
+
+test('seam ownership: the cross-tile dedup index is gone', () => {
+  assert.eq(WorldGen.collectDedupIndex, undefined,
+    'a load-order dedup must not come back — ownership is decided from the data');
 });
 
-test('house dedup: agrees with a full scan everywhere, including bucket seams', () => {
-  // A ring of houses on deliberately awkward coordinates — negative, on and
-  // either side of the 6 m bucket boundaries, and clustered — then probed on a
-  // fine lattice that straddles every seam.
-  const cache = new Map([['14/1/1', { objects: [] }]]);
-  const objs = cache.get('14/1/1').objects;
-  let s = 20250901;
-  const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-  for (let i = 0; i < 400; i++) objs.push({ kind: 'house', x: (rnd() - 0.5) * 400, y: (rnd() - 0.5) * 400 });
-  for (let i = 0; i < 40; i++) objs.push({ kind: 'house', x: i * 6, y: 0 });       // exactly on the seams
-  const idx = WorldGen.collectDedupIndex(cache, null);
-  let probes = 0, agreed = 0;
-  for (let x = -60; x <= 60; x += 1.5) {
-    for (let y = -60; y <= 60; y += 1.5) {
-      probes++;
-      if (near(idx, x, y) === brute(idx, x, y)) agreed++;
-    }
-  }
-  assert.gt(probes, 5000, 'the lattice actually probed the space');
-  assert.eq(agreed, probes, 'the bucketed answer differs from the full scan somewhere');
+test('seam ownership: a house straddling a seam is minted by exactly ONE tile', () => {
+  const a = buildA(), b = buildB();
+  const all = [...houses(a), ...houses(b)];
+  assert.eq(all.length, 1, 'one building, one house object across both tiles');
+  const h = all[0];
+  assert.eq(houses(a).length, 1, 'the tile holding most of the footprint owns it');
+  assert.truthy(/^h_10_5_\d+_\d+$/.test(h.id), `owner id is tile + local cell: ${h.id}`);
+  // Both halves of the footprint resolve to the owner's id, so a claim reads
+  // the same from either side of the seam.
+  assert.truthy(cellKeys(a).has(h.id), 'the owner tile\'s cells resolve to the house');
+  assert.truthy(cellKeys(b).has(h.id), 'the other tile\'s half resolves to the SAME house');
+  assert.eq(cellKeys(b).size, 1, 'and to nothing else');
 });
 
-test('house dedup: the radius is exactly HOUSE_DEDUP_M, not a bucket', () => {
-  const cache = new Map([['14/1/1', { objects: [{ kind: 'house', x: 100, y: 100 }] }]]);
-  const idx = WorldGen.collectDedupIndex(cache, null);
-  assert.eq(near(idx, 105.9, 100), true, 'just inside 6 m is a duplicate');
-  assert.eq(near(idx, 106.1, 100), false, 'just outside 6 m is a different house');
-  // The diagonal is the case a naive 3x3-bucket test gets wrong: two houses can
-  // share a neighbouring bucket and still be 8 m apart.
-  assert.eq(near(idx, 104.5, 104.5), false, 'a diagonal neighbour outside the radius survives');
-  assert.eq(near(idx, 104, 104), true, 'a diagonal neighbour inside it does not');
+test('seam ownership: load order changes nothing (same survivors, same ids)', () => {
+  const ab = [buildA(), buildB()];
+  const ba = [buildB(), buildA()].reverse();
+  const sig = (rs) => rs.map((r) => r.objects.map((o) => `${o.kind}:${o.id}`).sort().join(',')).join(' | ');
+  assert.eq(sig(ba), sig(ab), 'building the tiles in the other order yields the identical world');
 });
 
-test('house dedup: a kept house is indexed for the rest of the same tile', () => {
-  // Two roofs of the SAME tile land on the same spot (a building duplicated
-  // across the seam of the tile being built). The first is kept, and it has to
-  // be in the index by the time the second is judged.
-  const idx = WorldGen.collectDedupIndex(new Map(), null);
-  assert.eq(near(idx, 500, 500), false, 'nothing indexed yet');
-  idx.addHouse(500, 500);
-  assert.eq(near(idx, 502, 501), true, 'the house just kept is now a duplicate source');
-  assert.eq(idx.housePositions.length, 1, 'and it joins the flat index too');
+test('seam ownership: a POI in a tile\'s buffer is minted only by the tile that owns its point', () => {
+  const a = buildA(), b = buildB();
+  assert.eq(chests(a).length, 0, 'the west tile sees the point in its buffer and leaves it');
+  assert.eq(chests(b).length, 1, 'the east tile owns the point and mints the chest');
+  assert.truthy(/^c_11_5_\d+_\d+$/.test(chests(b)[0].id), `chest id is tile + cell: ${chests(b)[0].id}`);
+  assert.eq(a.parkingTreasures.length, 0, 'same for a parking X: not the west tile\'s');
+  assert.eq(b.parkingTreasures.length, 1, 'the owner lays the X');
+  assert.truthy(/^t_park_11_5_\d+_\d+$/.test(b.parkingTreasures[0].id), 'parking id is tile + cell');
 });
 
-test('house dedup: a full neighbour ring of houses stays cheap', () => {
-  // The shape that stuttered: eight cached tiles of houses, then a ninth tile's
-  // worth judged against them. Held to a block cap rather than a benchmark —
-  // the old scan took seconds here, so a machine being slow cannot fail it, but
-  // anything that goes quadratic again will.
-  const cache = new Map();
-  let s = 13699;
-  const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-  const EDGE = 2366;
-  for (let t = 0; t < 8; t++) {
-    const objects = [];
-    const ox = (t % 3) * EDGE, oy = Math.floor(t / 3) * EDGE;
-    for (let i = 0; i < 4000; i++) objects.push({ kind: 'house', x: ox + rnd() * EDGE, y: oy + rnd() * EDGE });
-    cache.set(`14/${t}/0`, { objects });
-  }
-  const idx = WorldGen.collectDedupIndex(cache, null);
-  assert.eq(idx.housePositions.length, 32000, 'the ring is as big as a dense ring really is');
-  const t0 = Date.now();
-  let kept = 0;
-  for (let i = 0; i < 4000; i++) {
-    const x = EDGE * 0.9 + rnd() * EDGE, y = rnd() * EDGE;
-    if (!idx.houseNear(x, y)) { idx.addHouse(x, y); kept++; }
-  }
-  const took = Date.now() - t0;
-  assert.gt(kept, 0, 'the pass actually kept houses — not a vacuous timing');
-  assert.lt(took, 400, `judging one tile against the ring took ${took}ms — the index went linear again`);
+test('seam ownership: a building wholly inside one tile is untouched by the rule', () => {
+  const inner = [{ name: 'building', features: [{ type: 3, tags: {},
+    geom: [rect(10.2 * CELL_MVT, 10.2 * CELL_MVT, 12.8 * CELL_MVT, 12.8 * CELL_MVT)] }] }];
+  const r = WorldGen.rasterizeTile(inner, CPE, TXA, TY, EDGE_M);
+  assert.eq(houses(r).length, 1, 'an interior house is still minted');
+  assert.eq(T.BUILDING, houses(r)[0].tier, 'as a small house');
 });
 })();
