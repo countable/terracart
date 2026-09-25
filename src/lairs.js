@@ -217,7 +217,7 @@
   //   and castles and forts are rare by construction, so they can never be the
   //   flood the budget exists for. On a village (100 buildings, ~33 expected)
   //   nothing is thinned and one house in three really is held; on a
-  //   3000-building city the wrecks drop to ~1.7% and the landmarks are
+  //   3000-building city the wrecks drop to ~8% and the landmarks are
   //   untouched.
   //
   //   OVER BUDGET ON LANDMARKS ALONE (a tile of nothing but castles — not a
@@ -226,7 +226,7 @@
   //   lands on the ceiling. This is what makes the cap a promise rather than a
   //   hope: there is no composition of buildings that puts more than
   //   LAIR_MAX_PER_TILE expected garrisons on one tile.
-  const LAIR_MAX_PER_TILE = 50;
+  const LAIR_MAX_PER_TILE = 250;
 
   // The two factors this tile's rates are multiplied by — `common` for the
   // THINNED tiers, `landmark` for the rest. Both are 1 on a tile inside its

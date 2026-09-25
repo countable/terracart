@@ -458,10 +458,10 @@
     // A city: 3000 wrecks, ~1000 expected — thinned back to the ceiling.
     const city = wrecks(3000);
     const thin = Lairs.tileThin(city);
-    assert.lt(thin.common, 0.1, 'a city tile is barely thinned at all');
+    assert.lt(thin.common, 0.3, 'a city tile\'s wrecks are thinned hard (to a quarter of their odds)');
     assert.truthy(Math.abs(3000 * Lairs.occupancyFor(9, thin) - Lairs.LAIR_MAX_PER_TILE) < 1e-6,
       'the thinned rate does not land on the ceiling');
-    assert.eq(Lairs.LAIR_MAX_PER_TILE, 50, 'the ceiling is the figure the design named');
+    assert.eq(Lairs.LAIR_MAX_PER_TILE, 250, 'the ceiling is the figure the design named');
     // THE LANDMARKS ARE NOT THINNED. This is the whole reason the budget is
     // spent on the rare tiers first: scaling everything equally would make a
     // castle in a city a 5% chance, which is the opposite of what it promises.
@@ -473,12 +473,12 @@
   });
 
   test('lairs: the budget is spent on the landmarks FIRST', () => {
-    // 40 castles (38 expected) leave 12 of the 50 for 200 wrecks (67 expected).
+    // 200 castles (190 expected) leave 60 of the 250 for 200 wrecks (67 expected).
     // The castles are paid in full and the wrecks take what is left — never
     // the other way round, and never both scaled equally, which is what would
     // quietly turn a castle into a coin flip on a busy tile.
     const shapes = [];
-    for (let i = 0; i < 40; i++) shapes.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
+    for (let i = 0; i < 200; i++) shapes.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
     for (let i = 0; i < 200; i++) shapes.push(mkShape(9, (i % 30) * CELL_M, (10 + Math.floor(i / 30)) * CELL_M, CELL_M));
     const entry = mkEntry(shapes);
     const thin = Lairs.tileThin(entry);
