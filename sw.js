@@ -1,4 +1,4 @@
-// Terracart service worker.
+// Mending Lane service worker (the repo and storage keys keep the old "terracart" name).
 //
 // Two caches:
 //   1. SHELL_CACHE — versioned. Bumped on every deploy to invalidate stale
@@ -9,7 +9,7 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-202feb2b';
+const SHELL_VERSION = 'shell-ffbdcccc';
 const TILE_CACHE    = 'tiles-v1';
 // How old a cached tile may get before it is refreshed IN THE BACKGROUND. It
 // is never an expiry: a stale tile is still served, and a failed refresh keeps

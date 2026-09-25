@@ -1,4 +1,4 @@
-// terracart prototype — gameplay layer on top of MVT-driven world.
+// Mending Lane — gameplay layer on top of MVT-driven world.
 // - Mobile-sized Phaser canvas (390x844). 11x11 viewport of 5m cells.
 // - Real GPS (Geolocation API) if available + permitted; WASD fallback.
 // - Tap player to lock/unlock GPS snap.

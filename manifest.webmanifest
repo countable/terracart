@@ -1,7 +1,7 @@
 {
-  "name": "Terracart",
-  "short_name": "Terracart",
-  "description": "Map-based farming + exploration prototype.",
+  "name": "Mending Lane",
+  "short_name": "Mending Lane",
+  "description": "Walk your real streets and mend the neighbourhood back to life — farm, rebuild, relight.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
