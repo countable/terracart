@@ -262,7 +262,8 @@
   }
 
   function decodeTile(bytes) {
-    // gzip auto-decompress if needed (uncommon for MVT in browsers, but safe)
+    // Raw protobuf only — no gzip sniffing here. The browser's fetch already
+    // undoes a Content-Encoding: gzip response before the bytes reach us.
     const r = new Reader(bytes);
     const layers = [];
     while (r.pos < r.len) {

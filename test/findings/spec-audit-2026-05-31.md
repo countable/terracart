@@ -69,6 +69,9 @@ Spec (CHESTS): opens "roll a RELIC or ARMOR … gated by your harvest/catch mile
 - `chestRelicAllowedTiers(progress)` (`rarity.js:415`) exists but is never called from the
   chest path, so milestone gating (sunflower→Gold, etc.) is not applied to chest relics;
   tier is bounded only by per-chest `relicCap`.
+  *(Sep 2026: `chestRelicAllowedTiers` — by then a stub returning every tier — was removed as
+  dead code; milestone gating is still absent, tier is bounded by the chest-tier clamp in
+  `rollGearUpgrade`. The pin in spec_pins.test.js #7 was repointed.)*
 
 ### 8. Specialty sell bonus is never applied (and selling only works at home)
 Spec (ECONOMY): "SELL: with a stack selected, tapping a house sells one. Sale price =
@@ -177,7 +180,7 @@ Spec implies the unified rarity picker drives shops. All `shop:*` LOOT_CONTEXTS 
 - **Advance-stage flash mislabel** — `interact.js:1160` flashes "🌱 Watered." when advancing a
   crop stage (should read as a growth advance). Behavior correct.
 - **"10s" / "1.5-3.5 cells" stale comments** — `interact.js:586` comment says "10s bare-handed"
-  (code is 9s); `app.js:2044` wander comment claims crow "ring 1.5-3.5 cells" (code orbits
+  (code is 9s) *(FIXED Sep 2026: the wild-plant wheel comment now cites toolDurationMs)*; `app.js:2044` wander comment claims crow "ring 1.5-3.5 cells" (code orbits
   0.75-1.75). Behavior unaffected.
 - **Coin-burst floor** — `app.js:2604-2605` clamps target to [8,12] then `min(target,
   candidates)`, so with <8 walkable cells a burst drops fewer than the spec's 8. Edge case.

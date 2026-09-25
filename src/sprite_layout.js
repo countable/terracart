@@ -532,6 +532,25 @@
     return artTop - HEALTH_BAR_GAP - HEALTH_BAR_H;
   }
 
+  // THE TAP BOX (interact.js tap-creature): the vertical span of the kind's
+  // VISIBLE art, in screen px from its projected point (negative = up), read
+  // off the same row the renderer draws from — scale, foot, float and the
+  // trimmed minY/maxY, giant-aware via creatureArt — so the tappable body is
+  // the drawn body. The top reaches the peak of a hop (the code bounce's
+  // HOP_PX, or the ~HOP_PX rise a slime's hop row draws). It used to be a
+  // second hand table in interact.js that had drifted (cow 1.50 vs 1.30, the
+  // crow and butterfly lifts). Returns null for a kind with no art row.
+  function creatureTapSpanPx(kind) {
+    const a = creatureArt(kind);
+    if (!a) return null;
+    const anchorY = CREATURE_GROUND_DY - a.float;
+    const hopPx = creatureHop(kind)?.px ?? (a.hopRow != null ? HOP_PX : 0);
+    return {
+      top: anchorY - (a.foot * a.fh - a.minY) * a.scale - hopPx,
+      bottom: anchorY + (a.maxY - a.foot * a.fh) * a.scale,
+    };
+  }
+
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell,
     PLAIN_ROCK_VARIANTS, plainRockFrame, plainRockStones,
@@ -544,7 +563,7 @@
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, creatureSheet, creatureFrames, creatureTint,
-    creatureFoot, creatureScale, creatureFloat, creatureWheelDy, creatureHealthBarTop,
+    creatureFoot, creatureScale, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

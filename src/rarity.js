@@ -724,20 +724,14 @@
              consolation: ctx.singleItem ? 0 : consolationFor(itemTier) };
   }
 
-  // ────────────────────────────────────────────────────────────────
-  // Allowed relic tiers. Every tier 1-7 is permitted here — the real ceiling
-  // on how high a roll can go is the per-source loot rule (the `maxTier` /
-  // `relicCap` in RARITY_TUNING / LOOT_CONTEXTS, plus the chest-tier-derived
-  // `preferred` clamp in rollGearUpgrade below), so a low-tier chest still
-  // can't cough up a Frost relic. The old harvest/catch "milestone" unlocks
-  // were removed: they duplicated that gating with a second, invisible lock
-  // the player couldn't see, so a bus chest was already incapable of dropping
-  // Gold regardless. `progress` is kept in the signature for call-site
-  // compatibility but is no longer read.
-  // ────────────────────────────────────────────────────────────────
-  function chestRelicAllowedTiers(progress) {
-    return [1, 2, 3, 4, 5, 6, 7];
-  }
+  // Every gear tier a roll may land on. There is no second, progress-based
+  // lock: the real ceiling on how high a roll can go is the per-source loot
+  // rule (the `maxTier` / `relicCap` in RARITY_TUNING / LOOT_CONTEXTS, plus the
+  // chest-tier-derived `preferred` clamp in rollGearUpgrade below), so a
+  // low-tier chest still can't cough up a Frost relic. (The old harvest/catch
+  // "milestone" unlocks — chestRelicAllowedTiers — duplicated that gating with
+  // an invisible lock and had long since returned every tier; removed.)
+  const GEAR_ROLL_TIERS = [1, 2, 3, 4, 5, 6, 7];
 
   // Dedicated relic/armor jackpot picker — used by fishing (2% cast jackpot)
   // and by the chest relic path in pickReward. Guarantees a gear result (relic
@@ -745,12 +739,11 @@
   // the old pickChestRelic. `chestT` 1-5 drives the preferred/ceiling tier.
   function rollGearUpgrade(rng, currentRelics, chestT = 2, currentArmor = null) {
     const random = rng || Math.random;
-    const allowed = chestRelicAllowedTiers();
-    if (!allowed.length || !Object.keys(_RELIC_DEFS).length) return null;
+    if (!Object.keys(_RELIC_DEFS).length) return null;
     // preferred is clamped to 1..7 and every tier 1..7 is allowed, so the
     // capped pool is never empty.
     const preferred = Math.min(7, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
-    const capped = allowed.filter(t => t <= preferred);
+    const capped = GEAR_ROLL_TIERS.filter(t => t <= preferred);
     const weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
     const total = weighted.reduce((a, b) => a + b.w, 0);
     let r = random() * total;
@@ -782,7 +775,6 @@
   global.ITEMS_BY_CLASS_TIER    = ITEMS_BY_CLASS_TIER;
   global.pickReward             = pickReward;
   global.reconcileRelicOffer    = reconcileRelicOffer;
-  global.chestRelicAllowedTiers = chestRelicAllowedTiers;
   global.rollGearUpgrade        = rollGearUpgrade;
   // The two luck ladders, exported so the wizard's rungs and the tests can
   // read the SAME numbers the picker rolls against.

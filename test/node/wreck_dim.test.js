@@ -20,7 +20,6 @@
 (function () {
 
 const ch = (c, sh) => (c >> sh) & 255;
-const luma = (c) => 0.299 * ch(c, 16) + 0.587 * ch(c, 8) + 0.114 * ch(c, 0);
 
 // cellM 5 m, reach measured from the player's own cell — a house at the origin
 // is inside reach, one 50 m away is not. originPx/mPerPx are what coords.js
@@ -78,12 +77,6 @@ test('wreck dim: the reach numbers the lightmap derives from are the wash\'s own
   assert.eq(Render.reachDimColor(cave), 0x000000, 'underground is pure black');
   assert.gt(Render.reachDimAlpha(cave), Render.reachDimAlpha(scene({ depth: 1 })),
     'and deepens with every level down');
-  // The tint is that wash expressed as a multiply — white when there is no
-  // wash at all, and never brighter than the wash it stands for.
-  assert.eq(Render.reachDimTint(scene({ _atmos: { dim: 0xffffff } })), 0xffffff,
-    'a white dim is no dim');
-  assert.lt(luma(Render.reachDimTint(cave)), luma(Render.reachDimTint(surf)),
-    'a cave dims harder than daylight does');
 });
 
 test('wreck dim: only houses take it', () => {

@@ -121,7 +121,12 @@ test('tips: no tip explains a Book, a Potion or a Rope — their own lines do', 
 // ── The facts the deleted tips were carrying landed on the items ──────────
 test('items: every fact moved off a tip is readable on the thing itself', () => {
   // Placeables that look like plain sell-value in the bag.
-  assert.truthy(/fence/i.test(ITEM_EFFECTS.rock || ''), 'rock says it drops a stone fence');
+  assert.truthy(/set on .* as a stone/i.test(ITEM_EFFECTS.rockfruit || ''), 'rock says it can be set down as a stone');
+  // Keyed by the real item id — a line under an id nothing carries is never shown
+  // (the rock's placeable line sat under 'rock', not 'rockfruit').
+  for (const k of Object.keys(ITEM_EFFECTS)) {
+    assert.truthy(ITEM_BY_ID[k], `ITEM_EFFECTS.${k} is keyed to a real item id`);
+  }
   assert.truthy(/campfire/i.test(ITEM_EFFECTS.coal || ''), 'coal says it burns into a campfire');
   // Caveats that had no other home.
   assert.truthy(/monster/i.test(ITEM_EFFECTS.mango || ''),

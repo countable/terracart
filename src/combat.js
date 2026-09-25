@@ -488,7 +488,7 @@
   // start and up to 5.5 with the six Inner Light upgrades — while every melee
   // monster (MONSTERS[kind].range 1) and the surface slime's leech had to be
   // ADJACENT. So you could stand three cells off a goblin and punch it to
-  // death while it walked, and the Magic Shrine's reach upgrades quietly
+  // death while it walked, and the Inner Light's reach upgrades quietly
   // doubled as combat range. Closing to arm's length is the whole cost of
   // choosing to melee something; the lit reach is about what you can WORK,
   // and it kept paying for a fight it was never priced for.
@@ -533,11 +533,10 @@
   const FIRE_INTERVAL_MS = 2000;
   const STAFF_BEAT_MUL = 2.5;   // a bolt every 5 s
   const RANGED_SLOTS = ['bow', 'staff'];
-  // Per-slot shot geometry. `phaseMs` used to stagger the staff half a beat
-  // off the bow so a player carrying both fired simultaneously heard an
-  // alternating patter; only one ranged slot can ever be the active weapon
-  // now, so it's a no-op, kept at 0 for both rather than an unexplained
-  // half-second delay the first time the staff becomes active. Ranges/speeds
+  // Per-slot shot geometry. (A `phaseMs` once staggered the staff half a beat
+  // off the bow; only one ranged slot can ever be the active weapon now, so it
+  // was 0 for both and the field is gone — app.js arms a newly active weapon
+  // to fire on the next pass.) Ranges/speeds
   // are in CELLS and cells-per-second so they hold at any cell size; the
   // viewport is 11 cells wide, so a bow shot crosses the screen and a staff
   // bolt very nearly does.
@@ -586,11 +585,11 @@
     // with none in the bag (app.js _combatTick). Energy is the staff's price;
     // wood is the bow's.
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
-             phaseMs: 0, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
+             aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
              ammo: { id: 'wood', shots: 20 } },
     staff: { speedCps: 1.0, rangeCells: 3.5, rangeFromReach: 1,
              color: 0x9ad6ff, dotPx: 3,
-             phaseMs: 0, pierce: true, energyCost: 1, aim: 'nearest',
+             pierce: true, energyCost: 1, aim: 'nearest',
              growsWithTier: true,
              fireIntervalMs: FIRE_INTERVAL_MS * STAFF_BEAT_MUL },
   };

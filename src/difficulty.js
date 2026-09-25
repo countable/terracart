@@ -22,9 +22,10 @@
 // bounty keeps its coin-per-5-HP, the cave spawner its 50 + 10/level — so a
 // knob most easy multipliers still leave at 1 (the base value unchanged) is
 // BY CONSTRUCTION the game exactly as it was, and hard mode can't drift into
-// a second copy of the balance. `crowCountMul` is the one deliberate
-// exception: easy halves the base crow count rather than leaving it be. A
-// knob that is not in this table is not a mode difference.
+// a second copy of the balance. The deliberate exceptions, where easy does
+// NOT leave the base be: `crowCountMul` (easy halves the base crow count) and
+// `trapCountMul` (10× on easy too — the base roadside rate reads as too rare
+// to ever meet). A knob that is not in this table is not a mode difference.
 //
 // The mode is per SAVE (save.mode, 'easy' | 'hard'), chosen once and kept —
 // switching mid-game would let a player sell on easy and hunt on hard. A save

@@ -348,4 +348,19 @@ test('copy: a consumable dialog reads as a sensation, not a stat line', () => {
   assert.truthy(/tier-9 amulet/.test(ITEM_EFFECTS.speed_potion),
     'the speed potion still states its tier where the player can re-read it');
 });
+
+test('copy: the Drink / Use dialog lines derive their durations and tiers', () => {
+  // syncConsumableButton's CONSUMABLE table quoted '1 min', 'tier-9' and
+  // 'tier-8' as typed text beside the constants that decide them.
+  const m = APP_JS_SRC.match(/\n    const CONSUMABLE = \{([\s\S]*?)\n    \};/);
+  assert.truthy(m, 'the CONSUMABLE table is findable');
+  assert.falsy(/\b1 min\b/.test(m[1]), 'no hand-typed "1 min"');
+  assert.falsy(/tier-\d/.test(m[1]), 'no hand-typed relic tier');
+  assert.truthy(/tier-\$\{SPEED_POTION_AMULET_TIER\}/.test(m[1]), 'the speed potion quotes its constant');
+  assert.truthy(/tier-\$\{DRAGON_AMULET_TIER\}/.test(m[1]), 'the dragon powder quotes its constant');
+  for (const k of ['REACH_POTION_MS', 'SPEED_POTION_MS', 'SHIELD_POTION_MS', 'DRAGON_POWDER_MS', 'SHADOW_POWDER_MS']) {
+    assert.truthy(new RegExp('shortDuration\\(' + k + '\\)').test(m[1]), k + ' is quoted through shortDuration');
+    assert.truthy(new RegExp('Date\\.now\\(\\) \\+ ' + k + ';').test(APP_JS_SRC), k + ' is also what starts the buff');
+  }
+});
 })();

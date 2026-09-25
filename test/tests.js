@@ -2494,8 +2494,8 @@ test('placed-rock cycle: place rockfruit then pick it back up via work-wheel', (
 // ladder: ~1.54× per rung between the pinned wood (4s) and frost (0.3s) ends.
 // Bare hands sits off the curve at 9s, a deliberate 2.25× below wood.
 // (test/node/tables.test.js pins the RATIO; this pins the concrete numbers.)
-test('pickDurationMs: tier curve matches spec ladder (bare 9s → wood 4s → frost 0.3s)', () => {
-  if (typeof pickDurationMs !== 'function') return;
+test('toolDurationMs(pick): tier curve matches spec ladder (bare 9s → wood 4s → frost 0.3s)', () => {
+  const pickDurationMs = (relics) => toolDurationMs(relics, 'pick');
   assert.eq(pickDurationMs(null), 9000, 'no relic → 9s bare-handed (2.25× wood)');
   assert.eq(pickDurationMs({}), 9000, 'no .pick entry → 9s');
   assert.eq(pickDurationMs({ pick: { tier: 1 } }), 4000, 'wood pick → 4s');

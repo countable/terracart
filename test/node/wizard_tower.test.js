@@ -280,9 +280,10 @@ const DRINKS = {
 const DRINK_SRC = Object.values(DRINKS).map(([m]) => lift(`${m}(opts = {}) {`, m)).join('\n');
 
 function potionScene({ id = 'reach_potion', count = 2, energy = 50, cls = 'enchanter' } = {}) {
-  const methods = new Function('persistSave', 'MINUTE_MS', 'BLIGHT_MS', 'BLIGHT_R_CELLS', 'BLIGHT_DPS', 'REST_SETTLE_S', 'TOO_TIRED_MSG',
+  const methods = new Function('persistSave', 'MINUTE_MS', 'REACH_POTION_MS', 'SPEED_POTION_MS', 'SHIELD_POTION_MS',
+    'BLIGHT_MS', 'BLIGHT_R_CELLS', 'BLIGHT_DPS', 'REST_SETTLE_S', 'TOO_TIRED_MSG',
     `return class { ${FINISH_SRC}\n${CHANNEL_SRC}\n${SPEND_E_SRC}\n${HOLD_SRC}\n${DRINK_SRC} }`);
-  const s = new (methods(() => {}, 60000, 60000, 3, 5, 3, 'Too tired — eat or rest.'))();
+  const s = new (methods(() => {}, 60000, 60000, 60000, 60000, 60000, 3, 5, 3, 'Too tired — eat or rest.'))();
   s.save = { inv: [{ id, count }], selSlot: 0, energy, playerClass: cls };
   s.flashes = []; s.flash = (m) => s.flashes.push(m);
   s.pops = []; s._popEnergy = (d, at) => s.pops.push([d, at]);

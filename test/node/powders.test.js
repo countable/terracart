@@ -174,7 +174,8 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
 // ── Shadow ─────────────────────────────────────────────────────────────────
 test('shadow: a 1-minute in-memory buff, read out with shortDuration beside the dragon\'s', () => {
   const body = methodBody('useShadowPowder');
-  assert.truthy(/this\._shadowUntil = Date\.now\(\) \+ MINUTE_MS;/.test(body), 'one MINUTE_MS on this._shadowUntil');
+  assert.truthy(/this\._shadowUntil = Date\.now\(\) \+ SHADOW_POWDER_MS;/.test(body), 'one SHADOW_POWDER_MS on this._shadowUntil');
+  assert.truthy(/const SHADOW_POWDER_MS = MINUTE_MS;/.test(app), 'and that is one minute');
   assert.truthy(/return this\._finishConsumable\(/.test(body), 'consumed through the shared tail');
   assert.truthy(/isShadowActive\(\) \{\n    return \(this\._shadowUntil \?\? 0\) > Date\.now\(\);/.test(app),
     'isShadowActive reads the timer');

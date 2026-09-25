@@ -367,8 +367,8 @@
           for (const slot of Object.keys(ARMOR_DEFS)) armor[slot] = { tier: owned };
         }
       }
-      // Pretend the player has hit every gating milestone so the chest-relic
-      // path isn't filtered by chestRelicAllowedTiers.
+      // Pretend the player has hit every harvest/catch milestone (the flower
+      // and cow gates).
       return { relics, armor, harvested: { sunflower: 1, fireflower: 1, iceflower: 1 },
                caughtKinds: { cow: 1 } };
     }

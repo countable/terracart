@@ -1,5 +1,5 @@
 // Mending Lane — gameplay layer on top of MVT-driven world.
-// - Mobile-sized Phaser canvas (390x844). 11x11 viewport of 5m cells.
+// - Mobile-sized Phaser canvas (390x844). VIEW_CELLS-wide viewport of CELL_M (7 m) cells.
 // - Real GPS (Geolocation API) if available + permitted; WASD fallback.
 // - Tap player to lock/unlock GPS snap.
 // - Random creatures spawn in grass/farmland cells (seeded per tile).
@@ -1119,6 +1119,14 @@ const WALK_HOME_HINT_IDLE_MS = 6500;
 // potion, dragon powder, coffee, pairy compass) so a duration reads as a
 // count of minutes instead of a repeated 60 * 1000 literal.
 const MINUTE_MS = 60 * 1000;
+// The timed consumables' lengths — each read by the method that starts the
+// buff AND by the Drink / Use dialog line that quotes it (syncConsumableButton,
+// through shortDuration), so the copy can't drift from the timer.
+const REACH_POTION_MS = MINUTE_MS;
+const SPEED_POTION_MS = MINUTE_MS;
+const SHIELD_POTION_MS = MINUTE_MS;
+const DRAGON_POWDER_MS = MINUTE_MS;
+const SHADOW_POWDER_MS = MINUTE_MS;
 // The powders' reach: Growth sweeps the rainberry's crop radius; Frost holds a
 // foe for half a minute (useGrowthPowder / useFrostPowder).
 const GROWTH_POWDER_R_M = 20;
@@ -1162,20 +1170,16 @@ if (typeof window !== 'undefined') {
   window.DEBUG_TAPS = DEBUG || /[?&]debugtaps\b/.test(location.search || '');
 }
 
-// --- Tap reach (metres). Used by handleWorldTap distance checks. ---
-// The per-target tap-PRECISION radii that used to live here (wild plant 4 m,
-// object 3.5 m, house 6 m + a 4 m northward rise, treasure 7.5 m) are gone:
-// every non-fauna target is now hit-tested against its OWN CELL (interact.js
-// findItemInTapCell / sameAbsCell), because any disk wide enough to cover its
-// own cell also spilled into the neighbouring ones. Creatures still use a
-// per-kind drawn-sprite box in interact.js — they move and aren't cell-bound.
-// Outer "too far" gate. Matches the lit reach area drawn by the lightmap
-// plateau (coords.js reachRadiusM). Distance is measured from the player's
-// CELL CENTRE (not their feet) — same basis as the visual — so any cell shown
-// inside the lit staircase is tappable, regardless of where in the cell the
-// player stands.
-// 16m = √(5² + 15²) + ε, just enough to include (±1, ±3) and (±3, ±1) so the
-// reach silhouette is a rounded square rather than a strict 3-cell diamond.
+// --- Tap reach. There is no reach constant in this file. ---
+// Every non-fauna target is hit-tested against its OWN CELL (interact.js
+// findItemInTapCell / sameAbsCell) — the old per-target tap-precision radii
+// that lived here are gone, because any disk wide enough to cover its own cell
+// also spilled into the neighbouring ones. Creatures use a drawn-sprite box
+// (interact.js, off SpriteLayout.creatureTapSpanPx) — they move and aren't
+// cell-bound. The "too far" gate is ONE rule, interact.js tooFar →
+// coords.js cellInReach: is the cell lit? — measured from the player's reach
+// CELL with reachRadiusM (reachCells × cellM + 1 m), the same expressions the
+// lightmap plateau paints, so any cell shown lit is tappable.
 
 // The one wording for "that would not fit". It is raised from two places —
 // the deferred flash after an addToInv rejection, and the buy modal refusing a
@@ -2658,15 +2662,15 @@ class MapScene extends Phaser.Scene {
       .setDepth(10)
       .play('idle-down')
       .setMask(mask);
-    // Contact shadow under the player's feet. The player is camera-locked at
-    // viewCentre, so this never moves — it just sits at the feet, which ARE
-    // viewCentre (a pixel above it, so the sole reads as resting on the
-    // shadow rather than cut by it — the same 1px the footprint dots keep).
+    // Contact shadow under the player's feet. It is created at viewCentre and
+    // re-seated every frame on scene.playerScreen() (update(): the feet, which
+    // a peek drag slides off the viewport centre) — a pixel above them, so the
+    // sole reads as resting on the shadow rather than cut by it (the same 1px
+    // the footprint dots keep).
     // Depth 9.5: above the footprint trail (9) so a fresh dot can't sit on
     // top of the shadow, below the character (10). Created here rather than
-    // in the per-frame pass because there is exactly one and it never
-    // relocates. 'bldg_shadow' is baked further up in create(), so it always
-    // exists.
+    // in the per-frame pass because there is exactly one. 'bldg_shadow' is
+    // baked further up in create(), so it always exists.
     this.playerShadow = this.add.image(this.viewCenterX, this.viewCenterY - 1, 'bldg_shadow')
       .setOrigin(0.5, 0.5)
       .setDisplaySize(17, 6)
@@ -2675,8 +2679,8 @@ class MapScene extends Phaser.Scene {
       .setMask(mask);
     // Countdown label floated over the dragon's head while Dragon Powder is
     // active — shows whole seconds of the buff remaining. Hidden whenever the
-    // player isn't a dragon. The player sprite is camera-locked at viewCenter,
-    // so this just rides a fixed offset above it (set per-frame in update()).
+    // player isn't a dragon. Seated per-frame in update() a fixed offset above
+    // the body on scene.playerScreen() (the camera is not the player).
     this.dragonTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
       font: fontMono('bold 13px'), color: UI_GOLD,
       stroke: '#5a1400', strokeThickness: 3,
@@ -3000,9 +3004,8 @@ class MapScene extends Phaser.Scene {
       this.ensureTilesAround?.().catch?.(() => {});
     });
 
-    // Movement-stick state. The stick is ALWAYS on screen (the debug pad is
-    // the only thing that ever takes its slot) — it's the control that walks
-    // you somewhere other than where the GPS puts you, and an amulet only
+    // Movement-stick state. The stick is ALWAYS on screen — it's the control
+    // that walks you somewhere other than where the GPS puts you, and an amulet only
     // makes that walking faster and cheaper. joystickVec is driven by pointer
     // events on the pad, _movePadHeld says whether the pointer is currently
     // down, and _manualOffsetM accumulates how far the stick has walked you
@@ -7445,8 +7448,9 @@ class MapScene extends Phaser.Scene {
         const due = this._nextShotT[slot];
         if (due == null) {
           // First sighting this weapon has been active for: arm the cadence
-          // (phaseMs is 0 for both slots now that only one can ever fire).
-          this._nextShotT[slot] = now + Combat.SHOT[slot].phaseMs;
+          // (the next pass fires it — only one ranged slot is ever active, so
+          // there is no stagger between them).
+          this._nextShotT[slot] = now;
           continue;
         }
         if (slot === 'staff') {
@@ -8162,7 +8166,7 @@ class MapScene extends Phaser.Scene {
     }
     // Tapping to bail on an underground auto-mine pauses the body's pursuit of
     // the target so the player can do something else; the next steer (GPS fix,
-    // stick, keyboard, debug pad) clears the pause and resumes following.
+    // stick, keyboard) clears the pause and resumes following.
     if (this._autoMineKey) {
       this._followPaused = true;
       this._autoMineKey = null;
@@ -8171,8 +8175,8 @@ class MapScene extends Phaser.Scene {
   }
   // The visible slash to go with a sword swing — a short arc drawn near the
   // player's chest, swept toward whatever it's engaged with. Player-anchored
-  // (the player sprite is camera-locked at viewCentre, so no world→screen
-  // projection is needed) rather than world-anchored, unlike every other
+  // (drawn about scene.playerScreen() + playerBodyDy(), the body — never the
+  // viewport centre) rather than world-anchored, unlike every other
   // combat visual here (shots, health bars): this reads as coming FROM the
   // player, not landing at a world point.
   _drawSwordSwing() {
@@ -9094,7 +9098,10 @@ class MapScene extends Phaser.Scene {
           // depth cap anyway; this is what covers the slimes.
           const fireAverts = !c.lair && (c.kind === 'slime' ||
             (isMon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH));
-          if (fireAverts && this._nearAny('fires', tx, ty, 4)) continue;
+          // The ward's ring is FIRE_REST_R — the same ring the fire lights
+          // (Lighting.KINDS.fire) and warms (update()'s rest) — never a
+          // literal of its own (it was 4 while light and rest were 3).
+          if (fireAverts && this._nearAny('fires', tx, ty, FIRE_REST_R)) continue;
           foundValidTarget = true;
           break;
         }
@@ -9864,7 +9871,7 @@ class MapScene extends Phaser.Scene {
   // _cellBlocked is always false, so the same code degrades to a plain walk and
   // the mining branches can never fire.
   //
-  // Steer the target by an input velocity (keyboard / debug pad). The target
+  // Steer the target by an input velocity (the keyboard). The target
   // ignores walls entirely — it's just a point the body heads toward. Any steer
   // clears the auto-mine pause so pursuit resumes.
   _steerTarget(vx, vy, speedMul, dt) {
@@ -9991,8 +9998,8 @@ class MapScene extends Phaser.Scene {
     return { amulet: { tier } };
   }
   // Steer with the STICK — the one control that walks you somewhere other than
-  // where the GPS says you are. Unlike _steerTarget (keyboard / debug pad,
-  // which is a free debug takeover) this is a first-class part of play:
+  // where the GPS says you are. Unlike _steerTarget (the keyboard, which is
+  // a free debug takeover) this is a first-class part of play:
   //
   //   • it moves the target AND banks the same delta into _manualOffsetM, so
   //     the next fix targets gpsM + offset and the ground you covered by hand
@@ -10002,7 +10009,7 @@ class MapScene extends Phaser.Scene {
   //     actually walking.
   //
   // The amulet is the upgrade to exactly this: steerSpeedMul scales how fast
-  // the stick walks you (5× bare — one cell a second — → 15.5× at Frost) and
+  // the stick walks you (STEER_MUL_FLOOR× bare → STEER_MUL_FROST× at Frost) and
   // steerEnergyCost scales what it costs (1 pip/cell bare → 0.15 at Frost).
   // Dragon Powder and the speed potion stand in for tier 8 / 9 amulets on both
   // counts for their minute (see _walkRelics).
@@ -11106,6 +11113,22 @@ class MapScene extends Phaser.Scene {
   // to the thing they touched. `color` is optional — omit for the default ink.
   flash(text, x, y, color) {
     this._toast(text, { tier: 'note', x, y, color });
+  }
+
+  // A note ABOUT a thing on the map that isn't where the finger is — a
+  // creature that slipped the net (it has moved since the tap), a landmark's
+  // quest tick. Seated on the absolute CELL under world point (wmx, wmy) by
+  // the same seat as the cell numbers (_energyPopAt: clear of the cell's top
+  // edge, or of the player's head on their own cell), never at
+  // viewCenterX/Y, which is the camera, not the cell. Falls back to the
+  // toast's centred default when nothing projects.
+  flashAtWorld(text, wmx, wmy, color) {
+    let at = {};
+    if (this.startWorldM && this.originPx && typeof worldMetersToAbsCell === 'function') {
+      const c = worldMetersToAbsCell(this, wmx, wmy);
+      at = this._energyPopAt(c.cellIX, c.cellIY);
+    }
+    this.flash(text, at.x, at.y, color);
   }
 
   // ── Energy pops ──────────────────────────────────────────────────────────
@@ -12431,7 +12454,7 @@ class MapScene extends Phaser.Scene {
   drinkReachPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'reach_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.reachPotionUntil = Date.now() + MINUTE_MS;
+    this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
     return this._finishConsumable(
       `✨ You ${opts.channel ? 'channel' : 'drink'} the Potion of Reach`,
       'The whole world snaps into reach — for one minute, everything on screen is yours to touch.',
@@ -12460,7 +12483,7 @@ class MapScene extends Phaser.Scene {
   drinkSpeedPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'speed_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.speedPotionUntil = Date.now() + MINUTE_MS;
+    this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS;
     return this._finishConsumable(
       `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Speed`,
       'Your legs blaze. For one minute the stick carries you faster than any amulet could.',
@@ -12471,7 +12494,7 @@ class MapScene extends Phaser.Scene {
   drinkShieldPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.shieldPotionUntil = Date.now() + MINUTE_MS;
+    this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS;
     return this._finishConsumable(
       `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Shielding`,
       'A shimmering barrier wraps you — for one minute every monster blow lands at half its weight.',
@@ -12604,7 +12627,7 @@ class MapScene extends Phaser.Scene {
   useDragonPowder() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'dragon_powder' || (sel.count ?? 0) <= 0) return false;
-    this._dragonUntil = Date.now() + MINUTE_MS;
+    this._dragonUntil = Date.now() + DRAGON_POWDER_MS;
     return this._finishConsumable(
       '🐉 You toss the Dragon Powder',
       'Scales erupt across your skin — you ARE a dragon for one minute: dragon legs on the stick, and every blow lands twice as hard.',
@@ -12672,7 +12695,7 @@ class MapScene extends Phaser.Scene {
   useShadowPowder() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'shadow_powder' || (sel.count ?? 0) <= 0) return false;
-    this._shadowUntil = Date.now() + MINUTE_MS;
+    this._shadowUntil = Date.now() + SHADOW_POWDER_MS;
     return this._finishConsumable(
       '🌑 You cast the Shadow Powder',
       'The dark takes you in — for one minute no monster can find you: none will stalk you, none will strike. Your own blows still land.',
@@ -16099,13 +16122,11 @@ class MapScene extends Phaser.Scene {
       addMoney(this.save, reward.amount);
     } else if (reward.kind === 'relic' || reward.kind === 'armor') {
       // A gear roll can yield a relic OR armor (armor is just another gear
-      // slot). equipGearReward handles both and bumps energy for armor.
-      if (typeof equipGearReward === 'function') {
-        equipGearReward(reward, this.save, this);
-      } else {
-        this.save.relics[reward.slot] = { tier: reward.tier };
-        this.markRelicsDirty?.();
-      }
+      // slot). Both go through Gear.equip — the one equip path chests and
+      // shops use — which files armour under save.armor and bumps energy for
+      // it. (A fallback here used to write ARMOUR into save.relics.)
+      this._equipGear(reward.kind, reward.slot, reward.tier);
+      this.markRelicsDirty?.();
     }
     if (reward.consolation > 0) addMoney(this.save, reward.consolation);
     return card;
@@ -17262,7 +17283,7 @@ class MapScene extends Phaser.Scene {
   // Relics/armor used to render as a read-only icon strip at the top-right.
   // That strip is gone: equipped gear now lives in the Relics / Armor tabs of
   // the two-bar inventory HUD (buildInventoryDOM). This method survives because
-  // it's the per-frame hook that keeps the movement stick / debug pad on screen
+  // it's the per-frame hook that keeps the movement stick on screen
   // — guarded by a generation counter so it only does work
   // when gear actually changed (markRelicsDirty bumps the counter).
   updateRelicRow() {
@@ -18403,10 +18424,10 @@ class MapScene extends Phaser.Scene {
     const CONSUMABLE = {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       honey: { verb: 'Use',  method: 'useHoney',  title: 'Set out the honey?', get: '🍯 lure nearby chickens & cows' },
-      reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: '✨ full-screen reach for 1 min', channel: true },
+      reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: `✨ full-screen reach for ${shortDuration(REACH_POTION_MS)}`, channel: true },
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
-      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: 'tier-9 amulet walking for 1 min', channel: true },
-      shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: 'half monster damage for 1 min', channel: true },
+      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `tier-${SPEED_POTION_AMULET_TIER} amulet walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
+      shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: `half monster damage for ${shortDuration(SHIELD_POTION_MS)}`, channel: true },
       thunder_potion: { verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?', get: `⚡ every foe in sight takes ${THUNDER_DMG} damage, and the rest flee` },
       blight_potion: { verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',    get: `☠ foes within ${BLIGHT_R_CELLS} cells lose ${BLIGHT_DPS} HP/s for ${shortDuration(BLIGHT_MS)}`, channel: true },
       // `channel: true` marks the TIMED potions — the ones an Enchanter
@@ -18420,9 +18441,9 @@ class MapScene extends Phaser.Scene {
       resurrection_potion: { verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Resurrection?',
                              get: () => this._reviveGetLine('resurrection_potion'),
                              usable: () => Combat.playerDowned(this.save.energy) },
-      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: '🐉 become a dragon for 1 min — tier-8 amulet legs + 2× damage' },
+      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: `🐉 become a dragon for ${shortDuration(DRAGON_POWDER_MS)} — tier-${DRAGON_AMULET_TIER} amulet legs + 2× damage` },
       growth_powder: { verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',       get: `🌱 every crop within ${GROWTH_POWDER_R_M}m springs ahead a stage` },
-      shadow_powder: { verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',       get: '🌑 monsters ignore you for 1 min — no stalking, no hits' },
+      shadow_powder: { verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',       get: `🌑 monsters ignore you for ${shortDuration(SHADOW_POWDER_MS)} — no stalking, no hits` },
       frost_powder:  { verb: 'Use', method: 'useFrostPowder',  title: 'Use the Frost Powder?',        get: `❄ every enemy in reach frozen for ${shortDuration(FROST_POWDER_MS)}` },
       // Torch: `get` is a function so that, with one already burning, the line
       // says the new one ADDS to it (useTorch extends from the current end).

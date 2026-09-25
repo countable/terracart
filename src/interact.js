@@ -161,7 +161,8 @@ function findClosestItem(layer, px, py, reach, accept, offset) {
 // had not decided a tap in a long time. Two gates that disagree is exactly the
 // bug the paragraph above describes; keeping the losing one behind an
 // unreachable condition just made it unfalsifiable. (It would not have survived
-// running, either: its REACH_FAR_M lives in app.js, which never loads headless.)
+// running, either: its REACH_FAR_M lived in app.js, which never loads headless;
+// the constant is gone now too.)
 function tooFar(ctx, x, y) {
   const { scene } = ctx;
   // Reach gate = "is it in a lit cell?" — byte-identical to the on-screen
@@ -287,8 +288,9 @@ const TILL_BLOCKER_LINE = {
   staircase:   'A stairway drops away here.',
   house:       'A building stands here.',
   tower:       'A watchtower stands here.',
-  shrine:      'A shrine stands here.',
-  trailer:     'Your own home stands here.',
+  // No shrine / trailer rows: no world object has either kind — Home is a
+  // `house` (its role is the trailer) and the wizard's tower draws on the
+  // shrine art as a house too — so both land on the `house` line above.
 };
 function tillBlockerLine(o) {
   // NOT the chest's name: a POI name is arbitrary OSM text ('Saint Someone
@@ -503,43 +505,27 @@ const TAP_HANDLERS = [
     const { scene, save, wm, sx, sy } = ctx;
     // Every creature is drawn FEET-ANCHORED (setOrigin(0.5, 0.9) in render.js),
     // so its visible BODY sits well ABOVE the logical ground point (c.x, c.y) —
-    // a cow's body tops out ~1.3 cells north of its feet, a chicken's ~0.5. A
+    // a cow's body tops out ~0.75 cell north of its feet, a chicken's ~0.6. A
     // tap disk centred on the foot therefore misses the body the player is
     // actually pointing at and the tap falls through to the cell handler, which
     // tills the tile UNDER the animal — the reported "tapping an animal/slime
     // hits the tile below it" bug.
     //
     // Fix: accept a tap anywhere inside the sprite's DRAWN box instead of a
-    // foot disk. Horizontally it's a per-kind half-width (the old well-tuned
-    // footprint radii); vertically it spans from just under the feet up to the
-    // top of the body, computed from the same frame size / scale / extra-lift
-    // the renderer uses. This keeps the tappable area byte-aligned with what's
-    // on screen for tall sprites (cow/deer) and floated/hopping ones
-    // (crow/butterfly/bat, slimes + the monsters that reuse the slime sheet).
+    // foot disk. Vertically the box is the kind's VISIBLE art —
+    // SpriteLayout.creatureTapSpanPx, read off CREATURE_ART (scale, foot,
+    // float, trimmed minY/maxY, the hop peak; a giant through creatureArt),
+    // the one row the renderer draws from — so the tappable area is the body
+    // on screen for tall sprites (cow/deer), floated ones (crow/butterfly) and
+    // hopping ones (slimes, goblins). It was a second hand table here that had
+    // drifted from the art; one table both sides read. Horizontally it's a
+    // per-kind half-width (HALF_W): tap FORGIVENESS, not art — the row carries
+    // no horizontal trim — scaled with a giant like the drawn body.
     // Metres per screen pixel: one cell is scene.cellM metres and
     // scene.cellPx (app.js CELL_PX) pixels. (This used to be derived from
     // feetOffsetM / 14, which is 0 / 14 now that the feet sit on the fix.)
     const px2m = scene.cellM / scene.cellPx;
-    const ORIGIN_Y = 0.9;                   // render.js setOrigin(0.5, 0.9)
-    // [frameH px, scale, extra-lift px] — keep in sync with render.js creaturePool.
-    // extra-lift folds in explicit floats (crow 14, butterfly 8) and the
-    // peak of the idle hop (slimes/monsters ~6, purple_slime ~10) so the box reaches the
-    // body at the top of its bounce.
-    const SPRITE = {
-      cow:           [32, 1.50, 0],
-      cat:           [32, 1.30, 0],
-      dog:           [32, 1.30, 0],
-      deer:          [32, 1.30, 0],
-      rabbit:        [16, 1.50, 0],
-      crow:          [32, 1.30, 14],
-      butterfly:     [16, 2.00, 8],
-      slime:         [32, 1.20, 6],
-      cave_slime:    [32, 1.25, 6],
-      goblin:        [32, 1.25, 6],
-      goblin_archer: [32, 1.25, 6],
-      purple_slime:  [32, 0.95, 18],   // 8 hover + ~10 hop
-      chicken:       [16, 1.20, 0],
-    };
+    const UNDER_FEET_PAD_M = 0.3;          // a little grace below the art's bottom row
     // Per-kind horizontal grab half-width (m) — the old footprint-tuned radii.
     const HALF_W = {
       cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
@@ -551,28 +537,25 @@ const TAP_HANDLERS = [
     let target = null, bestD2 = Infinity;
     WorldGen.forEachItem('creatures', (c) => {
       if (save.caught.includes(c.id)) return;
-      // A giant monster is its base kind's box scaled by the same number the
-      // renderer draws it with (SpriteLayout.GIANT_ART_SCALE), so the tappable
-      // area stays the drawn body.
-      const bk = (typeof SpriteLayout !== 'undefined' && SpriteLayout.baseKind)
-        ? SpriteLayout.baseKind(c.kind) : c.kind;
-      const gMul = (typeof SpriteLayout !== 'undefined' && SpriteLayout.isGiantKind
-        && SpriteLayout.isGiantKind(c.kind)) ? SpriteLayout.GIANT_ART_SCALE : 1;
-      const [frame, baseScale, lift] = SPRITE[bk] || SPRITE.chicken;
-      const scale = baseScale * gMul;
+      // A giant monster is its base kind's art scaled by the same number the
+      // renderer draws it with (SpriteLayout.GIANT_ART_SCALE, applied inside
+      // creatureArt), so the tappable area stays the drawn body.
+      const bk = SpriteLayout.baseKind(c.kind);
+      const gMul = SpriteLayout.isGiantKind(c.kind) ? SpriteLayout.GIANT_ART_SCALE : 1;
+      const span = SpriteLayout.creatureTapSpanPx(c.kind)
+        || SpriteLayout.creatureTapSpanPx('chicken');
       const halfW = (HALF_W[bk] ?? 2.0) * gMul;
-      const spanPx = frame * scale;
-      const topM = (ORIGIN_Y * spanPx + lift) * px2m;        // feet → top of frame
-      const botM = (1 - ORIGIN_Y) * spanPx * px2m + 0.3;     // small under-feet pad
-      const bodyCY = c.y - ((ORIGIN_Y - 0.5) * spanPx + lift) * px2m;  // drawn centre
+      const topY = c.y + span.top * px2m;                         // crown (or hop peak)
+      const botY = c.y + span.bottom * px2m + UNDER_FEET_PAD_M;   // under the feet
+      const bodyCY = c.y + (span.top + span.bottom) / 2 * px2m;   // drawn centre
       if (Math.abs(wm.x - c.x) > halfW) return;
-      if (wm.y < c.y - topM || wm.y > c.y + botM) return;
+      if (wm.y < topY || wm.y > botY) return;
       const ddx = wm.x - c.x, ddy = wm.y - bodyCY;
       const d2 = ddx * ddx + ddy * ddy;
       if (d2 < bestD2) { bestD2 = d2; target = c; }
     });
     if (!target) return false;
-    // Player-reach gate (same 16m feet-cell limit as treasure/wildplant/object
+    // Player-reach gate (the same lit-cell tooFar test as treasure/wildplant/object
     // and the lit reach indicator). The sprite-box test above is tap-
     // forgiveness measured from the TAP point, not the player — without this a
     // visible-but-out-of-reach animal could be caught/fed by tapping it. Keeps
@@ -880,7 +863,9 @@ const TAP_HANDLERS = [
     scene.startCatchProgress(victim, catchMs, () => {
       scene.catchCreature(victim, sx, sy);
     }, () => {
-      scene.flash('🏃 it got away', scene.viewCenterX, scene.viewCenterY - 60);
+      // On the cell the animal escaped FROM (where it stands now), not the
+      // viewport centre.
+      scene.flashAtWorld('🏃 it got away', victim.x, victim.y);
     }, 'bugnet', catchCost);
     return true;
   }},
@@ -905,7 +890,8 @@ const TAP_HANDLERS = [
       // hard-object cousins:
       //   rockfruit (stone debris) → pick relic speeds up rock-breaking work
       //   shrub     (woody bush)   → axe  relic speeds up chop work
-      // Both: 3s with the matching relic, 10s bare-handed. Other wildplants
+      // Both run toolDurationMs of that relic (items.js TOOL_DURATION_MS —
+      // 9s bare-handed, faster per tier). Other wildplants
       // (rainberry, pairy, nut, longgrass …) stay instant.
       const award = () => {
         // Re-check picked at callback time. The work wheel runs async — if a
@@ -1088,7 +1074,8 @@ const TAP_HANDLERS = [
   // direction and shorten it the other — players reported sometimes seeing
   // only 2 cells of reach in one direction. Cell-centre origin makes the
   // reachable area depend only on which cell you're in, not where in it you
-  // stand, so the 3-cell cardinal reach is consistent everywhere.
+  // stand, so the reach (coords.js reachCells — 2.5 cells to start, more
+  // with the Inner Light, less underground) is consistent everywhere.
   { name: 'cell-resolve', try: (ctx) => {
     const { scene, wm, sx, sy } = ctx;
     const cell = scene.cellAt(wm.x, wm.y);

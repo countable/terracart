@@ -1530,8 +1530,9 @@ CONSUMABLES
    unopened chest ("about N paces northwest").
  - CAMPFIRE: select a COAL and tap an empty bare (tillable) cell to light a fire
    (consumes the coal). A fire is a safe, slow recovery spot: it refills energy
-   within 3 cells (full bar in 360s, see REST) and repels the surface slime
-   within 4 cells, so it doubles as a perimeter ward in the wild. Placeable
+   within FIRE_REST_R (3 cells; full bar in 360s, see REST) and repels the
+   surface slime within the same FIRE_REST_R — it lights, warms and wards on
+   one ring — so it doubles as a perimeter ward in the wild. Placeable
    underground too, where it wards the cave's own entry-level monsters (cave
    slime, purple slime) the same way — but a goblin or its archer, from the
    2nd cave level down, is undeterred by firelight (see FIRE_WARD_MAX_DEPTH,

@@ -1386,7 +1386,7 @@ vm.runInContext(`
       invCount: (id) => inv[id] || 0,
       spendEnergy: () => true,
       startWorkProgress: (x, y, cb) => { if (cb) cb(); },
-      flash: () => {}, flashLoot: () => {}, flashJackpot: () => {},
+      flash: () => {}, flashAtWorld: () => {}, flashLoot: () => {}, flashJackpot: () => {},
       awardShinyBonus: () => {},
       shopInteract: () => {}, shrineInteract: () => {},
       showChestRewardModal: () => {}, iconSpanHTML: () => '', gearIconHTML: () => '',

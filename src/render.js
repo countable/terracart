@@ -196,16 +196,6 @@ function setPaddingOnce(tx, key, left, top) {
   tx.setPadding(left, top);
 }
 
-// The peek drag in SCREEN pixels — how far the camera has slid off the player
-// (coords.js peekM, converted through the fixed cell size). Cached geometry
-// that is drawn about the viewport centre because the player is normally there
-// rides it with setPosition(-x, -y) instead of being rebuilt every frame.
-function peekPxOf(scene) {
-  const p = peekM(scene);
-  const k = CELL_PX / scene.cellM;
-  return { x: p.x * k, y: p.y * k };
-}
-
 // Cell offset (ox, oy) -> rounded top-left screen pixel, given the sub-cell
 // pan fraction (fracX, fracY). drawCells inlined this expression at six call
 // sites; factored out here since they all had to stay byte-identical anyway.
@@ -732,21 +722,11 @@ const _shadeOnce = (n) => {
 // (Tints compose with util.js's mulTint — channel-wise multiply — so an
 // unclaimed shop keeps its role colour AND takes the wash, instead of one
 // replacing the other.)
-// A wash laid on the GROUND, expressed as the multiply tint that lands a
-// SPRITE in the same place — white lerped `alpha` of the way to the wash
-// colour, exactly the construction UNCLAIMED_SPRITE_TINT is built with. A
-// multiply can't reproduce a lerp exactly; what it does reproduce is the
-// mid-tones, which is what makes a sprite read as standing in the same light
-// as the cells under it.
-const _washTint = (color, alpha) => {
-  const ch = (sh) => Math.round(255 * (1 - alpha) + ((color >> sh) & 255) * alpha);
-  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
-};
 // ── The out-of-reach wash, in ONE place ───────────────────────────────────
-// drawCells PAINTS it over every unlit cell (on the lighting layer); the wreck
-// sprite tint in drawObjects READS it, so a roof whose footprint just went
-// dark goes dark by the same amount instead of by a number of its own. Both
-// halves are the same expressions the ground pass has always used: the biome's
+// Lighting.profile derives the lightmap's ambient, plateau and edge from these
+// two numbers (the lightmap is the only lighting pass; no sprite tint composes
+// them — spriteTint below). They are the expressions the old ground wash
+// used: the biome's
 // `dim` at 0.38 on the surface, pure black deepening half a step per level
 // underground (see the long note at the wash itself for why each is what it
 // is).
@@ -756,7 +736,6 @@ Render.reachDimAlpha = (scene) => {
   const d = scene.depth ?? 0;
   return d > 0 ? Math.min(0.88, 0.74 + 0.06 * (d - 1)) : 0.38;
 };
-Render.reachDimTint = (scene) => _washTint(Render.reachDimColor(scene), Render.reachDimAlpha(scene));
 
 // The multiply tint a world sprite wears, resolved in ONE place so the rules
 // compose in a fixed order instead of racing each other down configureObject:
@@ -3414,11 +3393,6 @@ Render.drawObjects = function drawObjects(scene) {
   // One delivery per house — it stays happy for good (Delivery.isSatisfied).
   const _houseSatisfied = (o) =>
     (typeof scene.isHouseSatisfied === 'function') && scene.isHouseSatisfied(o);
-  // The residential wishlist a house should show as an ICON plaque, or null —
-  // a host that's still hungry. A satisfied host returns null here and
-  // shows the happy bubble instead (see the produce-sign block below).
-  const _houseProduceWanted = (o) =>
-    (_houseIsHost(o) && !_houseSatisfied(o)) ? scene.wantedProduce(o) : null;
   // Sign ink for themed houses → matches the role's primary colour (same
   // hue we mix into the brick base under each one), so the label and the
   // foundation read as the same "house identity" at a glance. Plain houses /

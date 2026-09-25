@@ -1080,7 +1080,9 @@ const ITEM_EFFECTS = {
   mango:     'Feed to tame any wild animal — never a cave monster',
   // An ingredient: the Craft page at Home is the only place that says so.
   longgrass: 'Twist 3 into a Rope on Home\'s Craft page',
-  rockfruit: '4 make a Trap Disarm Kit on Home\'s Craft page',
+  // A rock is both: an ingredient (the Craft page's kit) and a placeable
+  // (interact.js 'place-rock' — held-and-tapped, so the line has to say so).
+  rockfruit: 'Set on a bare tile as a stone; 4 make a Trap Disarm Kit',
   // The sapphire's ADVERTISED use — the one its Portal button opens, and the
   // only one this line may name. Until Sep 2026 it read "Offer to a slime to
   // tame it": the game's one real secret, printed on the inventory bar the
@@ -1120,8 +1122,7 @@ const ITEM_EFFECTS = {
   // whole reason it drops off a fell.
   acorn:        'Plant on bare ground to grow a timber tree',
   // Materials that are also placeables — held-and-tapped, so the line has to
-  // say so or nothing does (a rock in the bag looks like pure sell value).
-  rock:         'Hold and tap an empty tile to drop a stone fence',
+  // say so or nothing does (the rock's line is `rockfruit`, above — its id).
   coal:         'Burn on bare ground to make a campfire',
 };
 
@@ -1185,7 +1186,7 @@ const ANIMAL_FOOD = {
   cow:     ['pairy'],      // pears to munch
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
-  dog:     ['meat'],       // raw meat — hunt deer with a weapon relic
+  dog:     ['meat'],       // raw meat — hunt a deer with the bug net
   // Secret: slimes can be tamed with a sapphire — hinted only in book tips,
   // and true again as of Sep 2026 (ITEM_EFFECTS.sapphire used to spell it out).
   // Not reachable through animalLikesFood in practice: a slime is an enemy, so
@@ -1558,7 +1559,7 @@ function effectiveTillCost(relics, rng) {
 // bare-handed at 9s — so chop / mine / fish / defeat are always possible, only
 // slow. Per-tier times: wood 4s, copper 2.6s, iron 1.69s, gold 1.1s, platinum
 // .71s, crimson .46s, frost .3s. The bug net is the lone exception — butterflies
-// still need it (gated in the catch path). pickDurationMs is a back-compat alias.
+// still need it (gated in the catch path).
 //
 // THE RUNGS ARE GEOMETRIC: one tier is ~1.54× faster than the tier below it,
 // every step of the way. That is what "about 1.5× per tier" comes out as once
@@ -1596,12 +1597,12 @@ function toolDurationMs(relics, slot) {
   if (!eq) return 9000;   // tier 0 (bare hands) = 2.25 × wood
   return TOOL_DURATION_MS[eq.tier] ?? 9000;
 }
-function pickDurationMs(relics) { return toolDurationMs(relics, 'pick'); }
 // Amulet relic: powers STICK WALKING — steering yourself somewhere other than
 // where the GPS says you are. The stick is always there and always works; the
 // amulet is purely an upgrade to it, so both functions answer for a bare hand
 // too (no amulet = tier 0 = the baseline, never "unavailable").
-//   steerSpeedMul   no amulet → 6× walk, tier 7 → 15.5× (linear between).
+//   steerSpeedMul   no amulet → STEER_MUL_FLOOR× walk, tier 7 → STEER_MUL_FROST×
+//                   (linear between; the numbers are the two constants below).
 //   steerEnergyCost no amulet → 1.0 / cell, tier 1 → 1.0, tier 7 → 0.15 (linear).
 // The bare baseline is 6× walk pace deliberately: at WALK_M_S that is a little
 // over one 7 m cell per second, about the slowest the stick can move and still
@@ -1626,9 +1627,9 @@ function steerSpeedMul(relics) {
   const t = relics?.amulet?.tier || 0;
   // The FLOOR was lifted 20% (5 → 6): one cell a second is the speed the
   // player spends the whole opening at, and it sat right on the edge of
-  // reading as a drag. The Frost end of the ladder is deliberately unchanged —
-  // 15.5× is a tuned endpoint — so the per-tier step absorbs the lift instead
-  // of every tier shifting up with it.
+  // reading as a drag. The Frost end is its own tuned endpoint
+  // (STEER_MUL_FROST, above), so the per-tier step absorbs both instead of
+  // every tier shifting up with the floor.
   return STEER_MUL_FLOOR + ((STEER_MUL_FROST - STEER_MUL_FLOOR) / 7) * t;
 }
 function steerEnergyCost(relics) {

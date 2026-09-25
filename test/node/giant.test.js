@@ -124,9 +124,21 @@
       'the shadow follows the giant scale');
     assert.falsy(/CA\[kind\]\?\.scale/.test(render), 'render.js no longer reads the art table directly');
     const interact = INTERACT_SRC;
-    assert.truthy(/const \[frame, baseScale, lift\] = SPRITE\[bk\] \|\| SPRITE\.chicken;/.test(interact),
-      'the tap box is the base kind\'s');
-    assert.truthy(/const scale = baseScale \* gMul;/.test(interact), 'scaled by the giant multiplier');
+    assert.truthy(/const span = SpriteLayout\.creatureTapSpanPx\(c\.kind\)/.test(interact),
+      'the tap box is read off the art table (creatureArt resolves the giant)');
+    assert.falsy(/const SPRITE = \{/.test(interact), 'no second hand table of frame/scale/lift');
+    const g = SpriteLayout.creatureTapSpanPx('giant_goblin');
+    const b = SpriteLayout.creatureTapSpanPx('goblin');
+    assert.truthy(g.top < b.top && g.bottom >= b.bottom, 'a giant\'s tap box is taller than its base kind\'s');
+    // The span IS the drawn art: the crown row is the wheel seat's art top.
+    for (const kind of Object.keys(SpriteLayout.CREATURE_ART)) {
+      const a = SpriteLayout.creatureArt(kind);
+      const s = SpriteLayout.creatureTapSpanPx(kind);
+      const anchor = SpriteLayout.CREATURE_GROUND_DY - a.float;
+      const hop = SpriteLayout.creatureHop(kind)?.px ?? (a.hopRow != null ? SpriteLayout.HOP_PX : 0);
+      assert.eq(s.top, anchor - (a.foot * a.fh - a.minY) * a.scale - hop, kind + ' tap top = art crown (+ hop)');
+      assert.eq(s.bottom, anchor + (a.maxY - a.foot * a.fh) * a.scale, kind + ' tap bottom = art bottom row');
+    }
     assert.truthy(/const halfW = \(HALF_W\[bk\] \?\? 2\.0\) \* gMul;/.test(interact), 'and so is its half-width');
   });
 })();

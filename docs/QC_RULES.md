@@ -135,7 +135,9 @@ responds with "too far" or the wrong action.
 - [ ] **Handler priority can swallow a valid tap.** `TAP_HANDLERS`
       (interact.js) is priority-ordered and the first handler returning `true`
       consumes the tap. The `creature` handler claims any tap inside a
-      creature's DRAWN box, so a tap on a tree behind an animal hits the
+      creature's DRAWN box (vertically `SpriteLayout.creatureTapSpanPx`, read
+      off `CREATURE_ART` — the row the renderer draws from, never a second
+      table), so a tap on a tree behind an animal hits the
       animal. When adding/reordering handlers, confirm no visible, in-range
       target becomes unreachable. *(Real bug: fishing was dead while a watering
       can was owned — the since-retired `can-refill` handler claimed every

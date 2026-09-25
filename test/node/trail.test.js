@@ -177,6 +177,8 @@ const scene = (over = {}) => ({
   iconSpanHTML: (id) => `<i>${id}</i>`,
   gearIconHTML: (kind, slot, tier) => `<i>${kind}:${slot}:${tier}</i>`,
   markRelicsDirty() {},
+  // The real equip path (app.js _equipGear is a one-line Gear.equip).
+  _equipGear(kind, slot, tier) { Gear.equip(this.save, kind, slot, tier); },
   _trailRewardCard, _claimTrailReward,
   ...over,
 });
@@ -266,6 +268,13 @@ test('trail prize: CLAIMING pays exactly the option taken', () => {
   const r = scene();
   r._claimTrailReward({ kind: 'relic', slot: 'axe', tier: 4 });
   assert.eq(r.save.relics.axe?.tier, 4, 'gear is equipped');
+
+  // Armour goes through the same equip path as a chest's: it lands under
+  // save.armor, never in save.relics (the old fallback's bug).
+  const a = scene();
+  a._claimTrailReward({ kind: 'armor', slot: 'helmet', tier: 3 });
+  assert.eq(a.save.armor?.helmet?.tier, 3, 'armour is worn');
+  assert.falsy(a.save.relics.helmet, 'and not filed as a relic');
 });
 
 test('trail prize: consolation coins ride with the option taken, not the other', () => {

@@ -734,9 +734,14 @@ test('creature: a tap on the body ABOVE the foot resolves to the creature (chick
 });
 
 test('creature: tall sprite (cow) is tappable far up its body', () => {
-  // ~6 m north of the foot — high on the cow, well above any foot disk.
-  assert.eq(runCreatureTap('cow', { x: 0, y: -6 }, false), 'far',
+  // ~4.5 m north of the foot — high on the cow (its crown row sits ~5 m up:
+  // SpriteLayout.creatureTapSpanPx off CREATURE_ART), well above any foot disk.
+  assert.eq(runCreatureTap('cow', { x: 0, y: -4.5 }, false), 'far',
     'tap high on the cow body still finds the cow');
+  // And the box stops at the ART, not the frame: a tap in the empty sky above
+  // the crown falls through (the old hand table reached ~9 m up).
+  assert.eq(runCreatureTap('cow', { x: 0, y: -7 }, false), false,
+    'a tap above the cow\'s drawn crown is not the cow');
 });
 
 test('creature: a slime tap on the hopping blob resolves (not the tile below)', () => {

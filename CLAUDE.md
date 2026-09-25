@@ -100,8 +100,7 @@ the mechanic.
   world-drawn layer, anchor it; when you add a reach or gate test, don't.**
   If you ever cache a layer about the viewport centre and SLIDE it by the
   peek, draw it wider by `PEEK_MAX_CELLS` cells (nothing slides today —
-  `render.js`'s `peekPxOf` has no caller; every cached overlay rebuilds on
-  `viewAnchorCell`). The lightmap is drawn at the player's screen point and
+  every cached overlay rebuilds on `viewAnchorCell`). The lightmap is drawn at the player's screen point and
   its ramp ends on zero past the corner (`PLAYER_RAMP_PAST_CORNER_CELLS`).
   **Audit it:** `node test/node/run.js` › `test/node/peek_drag.test.js`.
 

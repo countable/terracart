@@ -428,7 +428,6 @@ const UI_SHADOW     = '#000000';   // text stroke / drop shadow
 // I press, or something I just won?" without reading a word of it.
 const UI_TREASURE      = '#f4f8ff';   // near-white with a blue cast — treasure surfaces + frames
 const UI_TREASURE_INK  = '#cfe2ff';   // blue-white as TEXT on a dark ground
-const UI_TREASURE_DEEP = '#7fb0ff';   // saturated blue — glow, side faces, deep accents
 // STREET INK — the colour of a street coming back. Pale, warm stone: what a
 // restored carriageway is MADE of, so the chips that fly off it, the sparks
 // that ring it and the "137/200 m" counting the walk all read as the same

@@ -340,7 +340,7 @@ test('fire ward: wanderCreatures reads the same cap the table is built on', () =
   assert.truthy(
     /const fireAverts = !c\.lair && \(c\.kind === 'slime' \|\|\s*\(isMon && \(mon\.minDepth \|\| 1\) <= FIRE_WARD_MAX_DEPTH\)\);/.test(wander),
     'the surface slime and any monster at or under the depth cap are averted');
-  assert.truthy(/if \(fireAverts && this\._nearAny\('fires', tx, ty, 4\)\) continue;/.test(wander),
+  assert.truthy(/if \(fireAverts && this\._nearAny\('fires', tx, ty, FIRE_REST_R\)\) continue;/.test(wander),
     "a refused target cell, exactly like the scarecrow ward above it — a fire never triggers a home-style flee");
   // The fire ward never gates a monster's ATTACK the way homeWard does — it
   // only keeps a warded kind from wandering closer, so a monster already in

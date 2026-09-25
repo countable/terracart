@@ -280,4 +280,22 @@ test('energy pop: a body pop hangs on the player, and nothing is drawn on the gr
   assert.falsy(/strokeRoundedRect\([^)]*color/.test(app), 'no ring is stroked in a pop\'s ink');
 });
 
+test('a note about a cell seats on the cell, not the camera (interact / interactables)', () => {
+  // flashAtWorld is the cell numbers' seat (_energyPopAt) under a note tier,
+  // on the cell under the world point it is handed.
+  const fc = app.match(/\n  flashAtWorld\(text, wmx, wmy, color\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(fc, 'app.js has flashAtWorld');
+  assert.truthy(/worldMetersToAbsCell\(this, wmx, wmy\)/.test(fc[1]), 'resolves the cell');
+  assert.truthy(/this\._energyPopAt\(c\.cellIX, c\.cellIY\)/.test(fc[1]), 'seated by _energyPopAt');
+  // The escaped catch and the well's quest tick used to sit at the viewport
+  // centre minus 60px — the camera, not the cell they are about.
+  for (const [name, src] of [['interact.js', INTERACT_SRC], ['interactables.js', INTERACTABLES_SRC]]) {
+    assert.falsy(/flash\([^;]*viewCenter[XY]/.test(src), name + ' flashes no note at the viewport centre');
+  }
+  assert.truthy(/scene\.flashAtWorld\('🏃 it got away', victim\.x, victim\.y\)/.test(INTERACT_SRC),
+    'a slipped catch names the animal\'s cell');
+  assert.truthy(/scene\.flashAtWorld\('Quest done — see the castle\.', o\.x, o\.y\)/.test(INTERACTABLES_SRC),
+    'the well\'s quest tick names the well\'s cell');
+});
+
 })();

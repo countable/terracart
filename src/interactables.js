@@ -177,7 +177,8 @@ const INTERACTABLES = {
       scene.addToInv('wood', wood);
       // ACORN — the axe tier's other reward (acornDropChance, items.js): a
       // sapling that plants a new timber tree, so a felled wood can be
-      // replanted. 5% bare-handed up to 25% with a Frost axe.
+      // replanted. ACORN_P_BASE bare-handed, climbing geometrically to
+      // ACORN_P_FROST with a Frost axe (10% → certain, today).
       const gotAcorn = Math.random() < acornDropChance(save.relics);
       if (gotAcorn) scene.addToInv('acorn', 1);
       persistSave(save);
@@ -604,7 +605,7 @@ const INTERACTABLES = {
         const done = Quests.onPoiVisit(save, 'well');
         if (done) {
           ctx.dirty = true;
-          scene.flash('Quest done — see the castle.', scene.viewCenterX, scene.viewCenterY - 60);
+          scene.flashAtWorld('Quest done — see the castle.', o.x, o.y);
           return true;
         }
       }

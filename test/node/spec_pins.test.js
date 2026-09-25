@@ -135,31 +135,31 @@ test('#6 relic odds across biomes are not equal to each other', () => {
 //
 // Spec: chest opens roll relic OR ARMOR, "gated by your harvest/catch
 // milestones." Code: ARMOR is producible (rollGearUpgrade returns armor/relic);
-// chestRelicAllowedTiers() always returns [1..7] (milestone gating removed).
+// every gear tier 1..7 is rollable (milestone gating removed).
 // T1 chests: relicCap=0 → relic weight is scrubbed → no relic/armor at all.
 //
-// SPEC BUG (audit #7 partial): milestone gating is absent; chestRelicAllowedTiers
-// ignores its `progress` argument and always returns all tiers.
+// SPEC BUG (audit #7 partial): milestone gating is absent; the only ceiling
+// is the chest tier's `preferred` clamp in rollGearUpgrade.
 // NOTE: The claim "ARMOR is never producible" was TRUE at audit time but the
 // code has since been updated — rollGearUpgrade now handles armor. We pin the
 // CURRENT (fixed) behaviour.
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('#7 chestRelicAllowedTiers: always returns all 7 tiers regardless of progress (SPEC BUG)', () => {
-  // SPEC BUG (audit #7): spec requires harvest/catch milestone gating;
-  // code ignores progress and returns every tier unconditionally.
-  const noProgress = {};
-  const lowProgress = { harvest: 2, catch: 1 };
-  const highProgress = { harvest: 100, catch: 50 };
-
-  const fromNone = chestRelicAllowedTiers(noProgress);
-  const fromLow  = chestRelicAllowedTiers(lowProgress);
-  const fromHigh = chestRelicAllowedTiers(highProgress);
-
-  assert.eq(fromNone.length, 7, 'no progress: all 7 tiers allowed (milestone gating absent)');
-  assert.eq(fromLow.length,  7, 'low progress: still all 7 (gating absent)');
-  assert.eq(fromHigh.length, 7, 'high progress: still all 7 (gating absent)');
-  assert.eq(JSON.stringify(fromNone), JSON.stringify(fromHigh), 'progress has no effect on allowed tiers');
+test('#7 no milestone gate on gear tiers: a top chest can roll every tier', () => {
+  // SPEC BUG (audit #7): spec requires harvest/catch milestone gating; the
+  // code has none. chestRelicAllowedTiers (which ignored its progress and
+  // returned every tier) was dead weight and is gone — the ceiling is the
+  // chest tier's own `preferred` clamp inside rollGearUpgrade.
+  assert.eq(typeof chestRelicAllowedTiers, 'undefined', 'the always-all-tiers stub is gone');
+  const seen = new Set();
+  let s = 7;
+  const rng = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+  for (let i = 0; i < 4000; i++) {
+    const r = rollGearUpgrade(rng, {}, 5, {});
+    if (r && r.kind !== 'gold') seen.add(r.tier);
+  }
+  assert.eq([...seen].sort((a, b) => a - b).join(','), '1,2,3,4,5,6,7',
+    'with no progress at all, a tier-5 chest reaches every gear tier');
 });
 
 test('#7 T1 chests (relicCap=0) cannot produce relic or armor', () => {
@@ -262,25 +262,14 @@ test('#8 shopType: address-digit routing matches documented digit rules', () => 
 // FINDING #9 — index.html's boot-time save-key fallback can silently drift
 // from save.js's real constants
 //
-// index.html's inline readActiveSaveRaw() (~line 1399) runs at PARSE time,
-// before save.js has loaded, so it can't call into save.js — it hardcodes its
-// own copies of the two localStorage keys instead: 'terracart.saves' (the slot
-// registry, ~line 1401) and 'terracart.save.v4' (the legacy/default slot's
-// data key, the `key` fallback at ~line 1402). save.js:22,24 defines the same
-// two strings as SAVES_KEY / SAVE_VERSION_KEY. Nothing ties the two copies
-// together, so a future version bump (v4 → v5) that only touches save.js
-// would leave index.html quietly reading the WRONG key before the scene even
-// boots.
-//
-// The vm sandbox this suite runs in has no fs/require (see the comments in
-// mvt.test.js and spawn_roads.test.js), so this test can't open index.html and
-// diff it live the way SHOP_INTERACT_SRC etc. do for app.js (those are lifted
-// by run.js, in plain node scope, before the sandbox exists). Instead the
-// index.html literals are hand-mirrored below, tagged with the line they come
-// from, and checked against save.js's REAL (live, loaded-from-source)
-// constants — so bumping SAVE_VERSION_KEY/SAVES_KEY without updating BOTH
-// index.html and this mirror fails the suite immediately, loudly, instead of
-// only in a browser with a stale localStorage key.
+// index.html's inline readActiveSlotData() runs at PARSE time, before save.js
+// has loaded, so it can't call into save.js — it hardcodes its own copy of the
+// slot-registry key ('terracart.saves'), which save.js defines as SAVES_KEY.
+// It reads the active slot's data through the registry's own `slot.key`, so
+// it no longer carries a copy of SAVE_VERSION_KEY at all — and the pin below
+// fails if one ever comes back out of step with save.js. (This pin used to
+// mirror an older readActiveSaveRaw() by hand; that function was renamed and
+// the check went vacuous. It now reads INDEX_HTML_SRC, lifted by run.js.)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -304,13 +293,18 @@ test('#10 app.js CELL_PX literal matches SpriteLayout.CELL_PX', () => {
 });
 
 test('#9 index.html\'s hardcoded save-key fallback matches save.js\'s constants', () => {
-  // Hand-mirrored from index.html readActiveSaveRaw() — keep these two
-  // literals equal to what's actually written there.
-  const INDEX_HTML_SAVES_KEY = 'terracart.saves';       // index.html ~line 1401
-  const INDEX_HTML_SAVE_KEY  = 'terracart.save.v4';     // index.html ~line 1402
-  assert.eq(SAVES_KEY, INDEX_HTML_SAVES_KEY,
-    'save.js SAVES_KEY must match index.html\'s hardcoded slot-registry key');
-  assert.eq(SAVE_VERSION_KEY, INDEX_HTML_SAVE_KEY,
-    'save.js SAVE_VERSION_KEY must match index.html\'s hardcoded fallback data key — '
-    + 'a version bump here MUST also update index.html\'s readActiveSaveRaw() and this pin');
+  const src = INDEX_HTML_SRC;
+  const m = src.match(/\n\s*function readActiveSlotData\(\) \{([\s\S]*?)\n\s*\}\n/);
+  assert.truthy(m, 'index.html still has readActiveSlotData() — if it was renamed, repoint this pin');
+  const body = m[1];
+  const keys = [...body.matchAll(/localStorage\.getItem\(\s*'([^']+)'/g)].map((x) => x[1]);
+  assert.eq(keys.length, 1, 'exactly one hardcoded key: the slot registry');
+  assert.eq(keys[0], SAVES_KEY, 'index.html\'s slot-registry key must match save.js SAVES_KEY');
+  assert.truthy(/localStorage\.getItem\(slot\.key/.test(body),
+    'the slot\'s data is read through the registry\'s own key, not a hardcoded version key');
+  // Any save-data key literal anywhere in index.html must be save.js's.
+  for (const lit of src.match(/'terracart\.save\.v\d+'/g) || []) {
+    assert.eq(lit.slice(1, -1), SAVE_VERSION_KEY,
+      'a hardcoded save-data key in index.html must match save.js SAVE_VERSION_KEY');
+  }
 });

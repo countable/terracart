@@ -20,8 +20,8 @@
 //   standWordItem, standNameItems, produceStandFor
 //   chestLook
 //
-// Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade),
-// chestRelicAllowedTiers, AND the old per-category loot tables (CATEGORY_LOOT /
+// Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade)
+// AND the old per-category loot tables (CATEGORY_LOOT /
 // DEFAULT_LOOT / getLootConfig / TIER_YIELD) have been migrated to / superseded
 // by rarity.js's pickReward + classBias engine.
 

@@ -2400,27 +2400,25 @@
             // where roads haven't been painted yet. The cleanup pass at
             // the end of the feature loop (search for "Post-pass:
             // mineralrock cleanup") walks the finished grid and drops any
-            // rock on a blocked cell, plus any residential rock not
-            // adjacent to a road. Just spawn here; the filter handles
+            // rock on a blocked cell, plus any rock whose final cell is
+            // residential and fails isSpawnCell. Just spawn here; the filter handles
             // correctness.
             // `tbl` is a cumWeights() table; the roll itself is the shared
             // rollRock (same draws as the cave spawner).
-            const _pushMineralrock = (rng, jx, jy, tbl, residential, clusterId) => {
+            const _pushMineralrock = (rng, jx, jy, tbl, clusterId) => {
               if (!pointInRings(f.geom, jx, jy)) return;
               const { cx, cy } = snapCell(jx, jy);
               const roll = rollRock(rng, _CAVE_ROCK_P, tbl);
               if (roll.plain) {
                 objects.push(makeObject('mineralrock', cx, cy,
                   `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}`, {
-                    requiredTier: 1, caveVariant: roll.caveVariant,
-                    _residential: residential || undefined, _clusterId: clusterId,
+                    requiredTier: 1, caveVariant: roll.caveVariant, _clusterId: clusterId,
                   }));
                 return;
               }
               objects.push(makeObject('mineralrock', cx, cy,
                 `mr_${tx}_${ty}_${Math.round(cx)}_${Math.round(cy)}`, {
                   requiredTier: roll.requiredTier, yieldTier: roll.yieldTier,
-                  _residential: residential || undefined,
                 }));
             };
 
@@ -2469,7 +2467,7 @@
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (rng() - 0.5) * 2 * o.clusterR;
                     const jy = yy + (rng() - 0.5) * 2 * o.clusterR;
-                    _pushMineralrock(rng, jx, jy, tbl, o.residential, clusterId);
+                    _pushMineralrock(rng, jx, jy, tbl, clusterId);
                   }
                 }
               }
@@ -3066,11 +3064,8 @@
     // mineralrock now that the grid is final and drop:
     //   (1) any whose cell became blocked terrain (road, path, water,
     //       building of any tier)
-    //   (2) any flagged as residential whose 3×3 neighbourhood contains
-    //       no road cell (so residential rocks always read as a kerb or
-    //       driveway feature)
-    // Strip the temp _residential flag from survivors so it doesn't leak
-    // into save state or the render pipeline.
+    //   (2) any whose FINAL cell is residential and fails the shared spawn
+    //       rule (isSpawnCell), whichever polygon spawned it
     {
       // Under a drawn road band — see roadMask. Checked everywhere a road TIER
       // is checked: the two answer the same question, and the tier alone gets
@@ -3156,10 +3151,8 @@
           // bait the player into someone's back yard. Terrain-based, NOT tied
           // to which polygon spawned the rock: a wilderness ROCK or INDUSTRIAL
           // cluster can drop a rock that ends up on a residential cell after
-          // the grid is fully painted. The _residential flag is preserved for
-          // telemetry but no longer drives the check.
+          // the grid is fully painted.
           if (here === T.RESIDENTIAL && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) return true;
-          delete o._residential;
           return false;
         }
         // Every OTHER object that landed on a residential cell must pass the
@@ -3976,7 +3969,6 @@
       }
 
       entry.status = 'ready';
-      entry.fromCache = fromCache;
       _tileFailedAt.delete(key);
       return entry;
     })().catch((err) => {
