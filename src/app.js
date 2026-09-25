@@ -1180,6 +1180,8 @@ if (typeof window !== 'undefined') {
 // sentence twice in two registers. A Bag relic is what fixes it, so the line
 // names the fix rather than just the wall.
 const BAG_FULL_MSG = 'Bag full — sell or eat first.';
+// flashShiny's default headline — and the one that earns the first-shiny story card.
+const SHINY_FIND_TITLE = '✨ SHINY FIND ✨';
 // Fort slot machine (presentFortSlots): what can be a prize, and the reels'
 // animation — a flicker every FORT_SLOT_TICK_MS, the first reel stopping at
 // FORT_SLOT_FIRST_STOP_MS and each next one FORT_SLOT_STOP_GAP_MS later.
@@ -11325,12 +11327,15 @@ class MapScene extends Phaser.Scene {
   // banner + a money line + a Discovery line, with a star burst. Call AFTER the
   // loot/catch flash so it stacks above (depth 110). `title` is the headline —
   // the elite kill wears its own.
-  flashShiny(money, isNew = true, title = '✨ SHINY FIND ✨') {
+  flashShiny(money, isNew = true, title = SHINY_FIND_TITLE) {
     if (!this.add) return;
     // The FIRST shiny a save ever finds gets its story splash, ahead of the
     // fanfare toasts. A busy screen returns false unmarked (see the ledger),
     // so the next shiny asks again rather than burning the moment.
-    this._storySplashOnce('shiny', {
+    // ONLY for a shiny: the same fanfare also crowns a first delivery to a
+    // new house (🏠 NEW DOOR) and an elite kill, and a save whose first
+    // fanfare was a delivery was told "A shiny find!" for it.
+    if (title === SHINY_FIND_TITLE) this._storySplashOnce('shiny', {
       art: 'shiny_first',
       title: 'A shiny find!',
       body: 'Gold shimmer, ten times the money, and a Discovery badge. Shinies hide among the ordinary - keep looking.',

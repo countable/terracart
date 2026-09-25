@@ -34,7 +34,7 @@ const WRECK_SRC = lift('presentWreckRestoreModal(sx, sy, house) {',
   'presentWreckRestoreModal');
 const FORT_SRC = lift('presentFortUnlockModal(sx, sy, house) {',
   'presentFortUnlockModal');
-const SHINY_SRC = lift("flashShiny(money, isNew = true, title = '✨ SHINY FIND ✨') {",
+const SHINY_SRC = lift('flashShiny(money, isNew = true, title = SHINY_FIND_TITLE) {',
   'flashShiny');
 
 // ── The ledger, as source ─────────────────────────────────────────────────
@@ -88,6 +88,8 @@ test('story splash: first delivery captures the tally BEFORE it moves off zero',
 test('story splash: the first shiny splash precedes the fanfare toasts', () => {
   const splash = SHINY_SRC.indexOf("this._storySplashOnce('shiny', {");
   assert.truthy(splash > 0, 'flashShiny opens with the shiny splash');
+  assert.truthy(/if \(title === SHINY_FIND_TITLE\) this\._storySplashOnce\('shiny', \{/.test(SHINY_SRC),
+    'only a real shiny gets it — not a first delivery (NEW DOOR) or an elite kill');
   assert.truthy(/art: 'shiny_first'/.test(SHINY_SRC), 'the splash carries the shiny_first banner');
   const fanfare = SHINY_SRC.indexOf('this._toast(title,');
   assert.truthy(fanfare > splash, 'the splash is asked before the fanfare toasts fire');
