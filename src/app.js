@@ -11717,6 +11717,14 @@ class MapScene extends Phaser.Scene {
   // What the memories chip says when tapped.
   // Once the wizard has granted a calling, this is where the player can see
   // which one (Wizard.CLASSES row: its icon, name and blurb).
+  // Has the player met the wizard? A restored house frozen as his tower, or a
+  // purchase already made from him (an older save whose tower predates the
+  // role-freezing). Until then no memory copy names him.
+  _metWizard() {
+    if (Object.values(this.save.restoredHouses || {}).includes('wizard')) return true;
+    return typeof Wizard !== 'undefined' && Wizard.buys(this.save) > 0;
+  }
+
   showMemoriesHelp() {
     const total = this.memoriesTotal(), unspent = this.memoriesUnspent();
     const key = typeof Wizard !== 'undefined' ? Wizard.playerClass(this.save) : null;
@@ -11726,7 +11734,11 @@ class MapScene extends Phaser.Scene {
       title: `${total} recovered · ${unspent} unspent`,
       body: 'A memory comes back each time you discover something new: a shiny, '
         + 'a new household fed, an elite foe.\n\n'
-        + 'A Wizard Tower can turn unspent memories into power.'
+        // The wizard is a secret until the player has met him (_metWizard):
+        // before that, the power is only a feeling.
+        + (this._metWizard()
+          ? 'A Wizard Tower can turn unspent memories into power.'
+          : 'They hum with a strange power. It feels like you could use it somehow…')
         + (cls ? `\n\nYour calling: ${cls.icon} ${cls.name} — ${cls.blurb()}` : ''),
       okLabel: 'Got it',
     });
