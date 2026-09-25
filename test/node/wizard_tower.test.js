@@ -32,6 +32,7 @@ const BUY_SRC = lift('_buyWizardOffer(key, sx, sy, recordDeal) {', '_buyWizardOf
 const UNSPENT_SRC = lift('memoriesUnspent() {', 'memoriesUnspent');
 const SPEND_SRC = lift('spendMemories(n) {', 'spendMemories');
 const HELP_SRC = lift('showMemoriesHelp() {', 'showMemoriesHelp');
+const MET_SRC = lift('_metWizard() {', '_metWizard');
 
 // ── A just-enough DOM for the modal builder ───────────────────────────────
 function fakeEl(tag) {
@@ -55,7 +56,7 @@ function withDom(fn) {
 
 function mkScene(save) {
   const methods = new Function('persistSave', 'UI_TREASURE', 'UI_CONTROL_DIM',
-    `return class { ${PRESENT_SRC}\n${BUY_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC} }`);
+    `return class { ${PRESENT_SRC}\n${BUY_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC}\n${MET_SRC} }`);
   const s = new (methods((sv) => { s.persisted = (s.persisted || 0) + 1; }, '#treasure', '#gold'))();
   s.save = save;
   s.flashes = [];

@@ -116,9 +116,21 @@
   // plateau — that is the Inner Light, and the tap gate's — it widens the
   // FALLOFF: while it burns the collector stamps the `handtorch` cookie at the
   // player's feet ON TOP of the ramp (light adds), white like the player's
-  // own light, out to TORCH_RADIUS_MUL player radii. Nothing here asks the
-  // depth: a torch by night on the surface is fine, and free.
+  // own light, out to TORCH_RADIUS_MUL player radii.
+  //
+  // THE SUN OUTSHINES IT. On the surface the cookie's strength follows the
+  // daylight (torchStrength): full by night, down to TORCH_DAY_FLOOR at full
+  // day. At full strength under a noon ambient the white add lifted the
+  // out-of-reach ground up to the plateau's level, and the edge step that
+  // IS the reach affordance vanished. Underground there is no sun, so a
+  // torch always burns at full strength.
   const TORCH_RADIUS_MUL = 2;
+  const TORCH_DAY_FLOOR = 0.15;
+  function torchStrength(depth, day) {
+    if ((depth ?? 0) > 0) return 1;
+    const d = clamp01(day == null ? 1 : day);
+    return TORCH_DAY_FLOOR + (1 - TORCH_DAY_FLOOR) * (1 - d);
+  }
 
   // The street lamp's own ink (util.js UI_LAMP_GLOW) as a number, with the
   // same literal fallback the other reader (road_overlay.js's baked stone)
@@ -782,7 +794,12 @@
     if (kind === 'player') return kind;
     const dx = scene.startWorldM.x + scene.playerM.x - ax;
     const dy = scene.startWorldM.y + scene.playerM.y - ay;
-    if (inRange(scene, dx, dy, kind, halfM)) scene._lights.push({ kind, dx, dy, id: PLAYER_OBJ.id });
+    if (!inRange(scene, dx, dy, kind, halfM)) return kind;
+    // The entry's own alpha (the blast's lane): the torch dimmed by the sun.
+    // The row flickers, so it repaints on the light clock anyway, and the
+    // alpha is in frameKey — no new input to key.
+    const a = torchStrength(scene.depth, daylight(scene, lightClock(Date.now())));
+    scene._lights.push(a < 1 ? { kind, dx, dy, a, id: PLAYER_OBJ.id } : { kind, dx, dy, id: PLAYER_OBJ.id });
     return kind;
   }
 
@@ -1153,7 +1170,7 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, TORCH_RADIUS_MUL, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, mixToWhite, scaleColour, lum, atLuminance,

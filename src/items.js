@@ -984,7 +984,7 @@ const PLAY_TIPS = [
   'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
   'Chests near home are humbler: a tier down within 700m of your trailer, two within 350m. The prizes are a walk away.',
   'One stone in ten gathered off the ground hides a gemfruit.',
-  'Every new kind of thing you discover brings back a memory, and a full tank with it. Only the wizard values those.',
+  'Every new kind of thing you discover brings back a memory, and a full tank with it. Unspent, they hum with a power you might yet learn to use.',
   'A shiny flower or tree is worth ten times the money, and brings back a memory with it.',
   // Fishing: available from the first water tile with nothing in hand, so it
   // is taught here beside the other things already lying around — and what

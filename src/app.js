@@ -1197,6 +1197,14 @@ const FORT_SLOT_STOP_GAP_MS = 450;
 // pickup sheet — frame 115, beside the memory's bigger star (116) —
 // so a star on the reel reads as the memory's little cousin, not the memory.
 const FORT_SLOT_STAR_FRAME = 115;
+// The jackpot fanfare OVER A DIALOG (flashJackpot's DOM form): the canvas
+// toast can't be seen through a DOM modal, so while one is open the same
+// banner is set in HTML above it — larger than the canvas one (26px), since a
+// dialog is what it has to out-shout — seated this far down the map square
+// (over the dialog's header, clear of its body), with the same star burst.
+const DOM_FANFARE_PX = 34;
+const DOM_FANFARE_Y_FRAC = 0.16;
+const DOM_FANFARE_SPARKS = 14;
 // The other line every player meets constantly: an action they cannot afford.
 // It was a bare lowercase fragment at three call sites — the stick, the cave
 // dig and the shared spendEnergy gate — and it named the STATE without the
@@ -11322,15 +11330,92 @@ class MapScene extends Phaser.Scene {
   // (+1 or larger) since rarity.js now gates the geometric chain at a low
   // jackpotEntryP (~16%) so each fanfare feels earned. Call AFTER flashLoot
   // — stacks above the loot pop at depth 110.
-  flashJackpot(n) {
+  //
+  // `text` overrides the headline (the slot machine's JACKPOT / THREE STARS).
+  // While a dialog is open — a chest ceremony, the slot machine — the canvas
+  // toast would sit hidden BEHIND it, so the fanfare is set in the DOM above
+  // the dialog instead (_domFanfare), in the same colours, larger.
+  flashJackpot(n, text) {
     if (!n || n < 1) return;
+    const headline = text || `✨ JACKPOT +${n} ✨`;
+    if (this._dialogOpen()) { this._domFanfare(headline, UI_GOLD, '#3a1f5a'); return; }
     if (!this.add) return;
     try {
-      const t = this._toast(`✨ JACKPOT +${n} ✨`,
+      const t = this._toast(headline,
         { tier: 'fanfare', color: UI_GOLD, bg: '#3a1f5a' });
       this.tweens.add({ targets: t, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
       this._burstAt('jackpot', t.x, t.y);
     } catch (_) {}
+  }
+
+  // Is a dialog up right now? Read off the DOM, not body.modal-open: that
+  // class is synced by a MutationObserver AFTER the tap's handler, and the
+  // fanfare fires in the same handler that just mounted the dialog.
+  _dialogOpen() {
+    if (typeof document === 'undefined') return false;
+    return [...document.querySelectorAll('.game-modal')]
+      .some((el) => el.isConnected && el.style.display !== 'none' && el.getClientRects().length > 0);
+  }
+
+  // The fanfare as HTML, over whatever dialog is open: the canvas toast's
+  // purple chip and gold ink at DOM_FANFARE_PX, popping in with the same
+  // overshoot, three wobbles, a hold and the same rise-and-fade, with a ring
+  // of gold ✦ thrown off it (the 'jackpot' particle preset's count and reach).
+  // Reduced motion keeps only a fade. Never takes a tap (pointer-events:none),
+  // so it can't cover the dialog's buttons.
+  _domFanfare(text, color, bg) {
+    if (typeof document === 'undefined') return;
+    const host = document.getElementById('game') || document.body;
+    const vs = this.viewSize || VIEW_CELLS * CELL_PX;
+    const cx = (this.viewLeft ?? 0) + vs / 2;
+    const cy = (this.viewTop ?? 0) + Math.round(vs * DOM_FANFARE_Y_FRAC);
+    const el = document.createElement('div');
+    el.className = 'dom-fanfare';
+    el.textContent = text;
+    el.style.cssText = `position:absolute;left:${cx}px;top:${cy}px;z-index:300;pointer-events:none;`
+      + `white-space:nowrap;font:700 ${DOM_FANFARE_PX}px ui-monospace,monospace;color:${color};`
+      + `background:${bg};padding:8px 18px;border-radius:12px;border:2px solid ${color};`
+      + `text-shadow:0 2px 0 #000,0 0 12px ${color}99;box-shadow:0 0 28px ${color}88;`
+      + 'transform:translate(-50%,-50%);';
+    host.appendChild(el);
+    // Never wider than the dialog it crowns: a long headline at full size
+    // would run off both edges of a phone's map square, so it shrinks to fit.
+    const fit = Math.min(1, (vs - 12) / Math.max(1, el.offsetWidth));
+    el.style.transform = `translate(-50%,-50%) scale(${fit})`;   // the reduced-motion fade's resting size
+    const at = (dy, sc, rot) => `translate(-50%, calc(-50% + ${dy}px)) scale(${sc * fit}) rotate(${rot}deg)`;
+    const HOLD_END = 0.76;   // pop + wobble + hold, then the last quarter fades
+    const anim = this._reducedMotion
+      ? el.animate([{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 1, offset: HOLD_END }, { opacity: 0 }],
+          { duration: 2900, fill: 'forwards' })
+      : el.animate([
+          { transform: at(0, 0.2, 0), opacity: 0 },
+          { transform: at(0, 1.1, 0), opacity: 1, offset: 0.075, easing: 'ease-in-out' },
+          { transform: at(0, 1, 0), offset: 0.15 },
+          { transform: at(0, 1, 4), offset: 0.22 },
+          { transform: at(0, 1, -4), offset: 0.33 },
+          { transform: at(0, 1, 4), offset: 0.44 },
+          { transform: at(0, 1, 0), offset: 0.52 },
+          { transform: at(0, 1, 0), opacity: 1, offset: HOLD_END, easing: 'ease-in' },
+          { transform: at(-60, 1, 0), opacity: 0 },
+        ], { duration: 2900, fill: 'forwards' });
+    anim.onfinish = () => el.remove();
+    if (this._reducedMotion) return;
+    for (let i = 0; i < DOM_FANFARE_SPARKS; i++) {
+      const sp = document.createElement('div');
+      sp.textContent = '✦';
+      sp.style.cssText = `position:absolute;left:${cx}px;top:${cy}px;z-index:301;pointer-events:none;`
+        + `font:700 ${14 + Math.round(Math.random() * 10)}px ui-monospace,monospace;color:${color};`
+        + 'text-shadow:0 0 6px #fff;transform:translate(-50%,-50%);';
+      host.appendChild(sp);
+      const a = Math.random() * Math.PI * 2;
+      const d = 90 + Math.random() * 110;
+      const spin = Math.round(Math.random() * 360);
+      sp.animate([
+        { transform: 'translate(-50%,-50%) scale(1) rotate(0deg)', opacity: 1 },
+        { transform: `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d + 30}px)) scale(0.2) rotate(${spin}deg)`, opacity: 0 },
+      ], { duration: 700 + Math.random() * 400, delay: 120, easing: 'cubic-bezier(.2,.7,.4,1)', fill: 'both' })
+        .onfinish = () => sp.remove();
+    }
   }
 
   // A rare SHINY find (yellow-tinted flora / tree / animal). Pays 10× the
@@ -11717,6 +11802,14 @@ class MapScene extends Phaser.Scene {
   // What the memories chip says when tapped.
   // Once the wizard has granted a calling, this is where the player can see
   // which one (Wizard.CLASSES row: its icon, name and blurb).
+  // Has the player met the wizard? A restored house frozen as his tower, or a
+  // purchase already made from him (an older save whose tower predates the
+  // role-freezing). Until then no memory copy names him.
+  _metWizard() {
+    if (Object.values(this.save.restoredHouses || {}).includes('wizard')) return true;
+    return typeof Wizard !== 'undefined' && Wizard.buys(this.save) > 0;
+  }
+
   showMemoriesHelp() {
     const total = this.memoriesTotal(), unspent = this.memoriesUnspent();
     const key = typeof Wizard !== 'undefined' ? Wizard.playerClass(this.save) : null;
@@ -11726,7 +11819,11 @@ class MapScene extends Phaser.Scene {
       title: `${total} recovered · ${unspent} unspent`,
       body: 'A memory comes back each time you discover something new: a shiny, '
         + 'a new household fed, an elite foe.\n\n'
-        + 'A Wizard Tower can turn unspent memories into power.'
+        // The wizard is a secret until the player has met him (_metWizard):
+        // before that, the power is only a feeling.
+        + (this._metWizard()
+          ? 'A Wizard Tower can turn unspent memories into power.'
+          : 'They hum with a strange power. It feels like you could use it somehow…')
         + (cls ? `\n\nYour calling: ${cls.icon} ${cls.name} — ${cls.blurb()}` : ''),
       okLabel: 'Got it',
     });
@@ -13486,7 +13583,7 @@ class MapScene extends Phaser.Scene {
           light(GOLD, () => true);
           result.style.color = GOLD;
           result.textContent = this._payStarJackpot();
-          this.flashLoot('🎰 THREE STARS', GOLD, 1.5);
+          this.flashJackpot(1, '✨ THREE STARS ✨');
           persistSave(this.save);
         } else if (out.won >= 0) {
           const p = m.symbols[out.won];
@@ -13508,6 +13605,7 @@ class MapScene extends Phaser.Scene {
           const tag = qty > 1 ? ` ×${qty}` : '';
           const line = p.jackpot ? `🎰 JACKPOT${tag}` : `🎰 You win${tag}`;   // ≤ 13 chars
           this.flashLoot(line, rim, p.jackpot ? 1.5 : 1.2, p.id);
+          if (p.jackpot) this.flashJackpot(1, '✨ JACKPOT ✨');
           persistSave(this.save);
           this.buildInventoryDOM();
         } else if (out.coins > 0) {
@@ -16041,9 +16139,9 @@ class MapScene extends Phaser.Scene {
           this.flashLoot(card.qty ? `${card.name} ${card.qty}` : card.name,
                          card.color || UI_TREASURE, 1,
                          reward.kind === 'item' ? reward.id : null);
-          if (reward.jackpot >= 1 && typeof this.flashJackpot === 'function') {
-            this.flashJackpot(reward.jackpot);
-          }
+          // NO jackpot fanfare on a pick: with several finds on offer, the
+          // boost chain that fattened one of them is not a moment the player
+          // won — they chose among what was laid out.
           persistSave(this.save);
         },
       })),

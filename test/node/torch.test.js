@@ -127,7 +127,7 @@ test('torch: the cull pads by the torch\'s own radius', () => {
   Lighting.beginFrame(far);
   Lighting.collectPlayer(far, HALF_M + R + 1, 0, HALF_M);
   assert.eq(far._lights.length, 0, 'past its own radius it is dropped');
-  assert.truthy(/if \(inRange\(scene, dx, dy, kind, halfM\)\) scene\._lights\.push\(\{ kind, dx, dy, id: PLAYER_OBJ\.id \}\);/.test(LIGHTING_SRC),
+  assert.truthy(/if \(!inRange\(scene, dx, dy, kind, halfM\)\) return kind;/.test(LIGHTING_SRC),
     'the push goes through inRange with the row the player lit as');
 });
 
@@ -145,7 +145,7 @@ test('torch: the plateau is untouched — reach, the profile and the tap gate ig
     'collectPlayer runs in draw(), after the fires and the street lamps');
   assert.truthy(/ctx\.drawImage\(player\.canvas,/.test(draw), 'the ramp is still drawn — the torch adds to it');
   const pk = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('function playerKind('), LIGHTING_SRC.indexOf('function beginFrame('));
-  assert.falsy(/depth/.test(pk), 'playerKind never asks the depth — a torch by night on the surface is fine, and free');
+  assert.falsy(/depth/.test(pk), 'playerKind never asks the depth — a torch lights on the surface too (the sun only dims it)');
   assert.eq(Lighting.playerKind(scene({ depth: 0, isTorchActive: () => true })), 'handtorch', 'lit on the surface too');
 });
 
@@ -188,4 +188,36 @@ test('torch: the Use button row — confirm dialog → useTorch, and the `get` l
     'with one lit, the line says the new one ADDS to what is left');
   assert.truthy(/for \$\{shortDuration\(TORCH_MS\)\}/.test(row), 'otherwise, how long it burns — shortDuration, never a bare number');
 });
+test('torch: the sun outshines it on the surface — full by night, TORCH_DAY_FLOOR at noon', () => {
+  const F = Lighting.TORCH_DAY_FLOOR;
+  assert.truthy(F > 0 && F < 0.5, 'a faint hint of the torch survives full day');
+  assert.eq(Lighting.torchStrength(0, 0), 1, 'surface, night: full');
+  assert.eq(Lighting.torchStrength(0, 1), F, 'surface, noon: the floor');
+  const dusk = Lighting.torchStrength(0, 0.5);
+  assert.truthy(dusk > F && dusk < 1, 'dusk sits between');
+  assert.eq(Lighting.torchStrength(1, 1), 1, 'underground there is no sun');
+  assert.eq(Lighting.torchStrength(3, 0), 1);
+});
+
+test('torch: the collector stamps the dimmed strength as the entry alpha', () => {
+  const w = globalThis.window, old = w.__DAYLIGHT;
+  w.__DAYLIGHT = 1;
+  try {
+    const noon = scene({ depth: 0, isTorchActive: () => true });
+    Lighting.beginFrame(noon);
+    Lighting.collectPlayer(noon, 103, 196, HALF_M);
+    assert.eq(noon._lights[0].a, Lighting.TORCH_DAY_FLOOR, 'noon on the surface: the floor');
+    w.__DAYLIGHT = 0;
+    const night = scene({ depth: 0, isTorchActive: () => true });
+    Lighting.beginFrame(night);
+    Lighting.collectPlayer(night, 103, 196, HALF_M);
+    assert.eq(night._lights[0].a, undefined, 'night: full strength, no alpha');
+    w.__DAYLIGHT = 1;
+    const cave = scene({ depth: 2, isTorchActive: () => true });
+    Lighting.beginFrame(cave);
+    Lighting.collectPlayer(cave, 103, 196, HALF_M);
+    assert.eq(cave._lights[0].a, undefined, 'a cave ignores the sun');
+  } finally { if (old === undefined) delete w.__DAYLIGHT; else w.__DAYLIGHT = old; }
+});
+
 })();

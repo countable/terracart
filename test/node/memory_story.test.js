@@ -25,10 +25,11 @@ const TOTAL_SRC = lift('memoriesTotal() {', 'memoriesTotal');
 const UNSPENT_SRC = lift('memoriesUnspent() {', 'memoriesUnspent');
 const SPEND_SRC = lift('spendMemories(n) {', 'spendMemories');
 const HELP_SRC = lift('showMemoriesHelp() {', 'showMemoriesHelp');
+const MET_SRC = lift('_metWizard() {', '_metWizard');
 
 function mkScene({ energy = 100, max = 100 } = {}) {
   const methods = new Function('persistSave',
-    `return class { ${BANK_SRC}\n${DRAIN_SRC}\n${TOTAL_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC} }`);
+    `return class { ${BANK_SRC}\n${DRAIN_SRC}\n${TOTAL_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC}\n${MET_SRC} }`);
   const s = new (methods((save) => { s.persisted = (s.persisted || 0) + 1; }))();
   s.save = { inv: [], energy };
   s.getMaxEnergy = () => max;
@@ -125,7 +126,15 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   assert.eq(m.kind, 'memory');
   assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  memory:/.test(app), 'memory is a MODAL_KINDS row');
   assert.truthy(/2 recovered/.test(m.title) && /1 unspent/.test(m.title), 'both numbers');
-  assert.truthy(/Wizard Tower/.test(m.body), 'names where they are spent');
+  assert.falsy(/wizard/i.test(m.body), 'the wizard is a secret until his tower is restored');
+  assert.truthy(/use it somehow/.test(m.body), 'only a vague sense of the power');
+  s.save.restoredHouses = { h1: 'blacksmith', h2: 'wizard' };
+  s.showMemoriesHelp();
+  assert.truthy(/Wizard Tower/.test(s.modals[1].body), 'once his tower stands, it names where they are spent');
+  s.save.restoredHouses = {};
+  s.save.wizardBuys = 1;
+  s.showMemoriesHelp();
+  assert.truthy(/Wizard Tower/.test(s.modals[2].body), 'a save that has already bought from him knows him too');
   assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = 'note' \}\)/.test(app),
     'showMessageModal forwards a kind, defaulting to note');
 });
