@@ -542,9 +542,9 @@ test('tips: the fort slot machine quotes ShopsMath', () => {
   const S = ShopsMath;
   assert.eq(S.SLOT_NATURAL_MUL, 2, 'a natural three pays double');
   assert.truthy(someTip(/a natural three pays double, and a star completes any pair/i), 'the star and the natural, quoted');
-  assert.truthy(someTip(new RegExp(`Two stars pay ${S.SLOT_STAR_PAIR_COINS} coin; three stars pay a Discovery badge the first ${S.SLOT_STAR_BADGES} times, then ${S.SLOT_STAR_JACKPOT_COINS} coin`, 'i')),
+  assert.truthy(someTip(new RegExp(`Two stars pay ${S.SLOT_STAR_PAIR_COINS} coin; three stars bring back a memory the first ${S.SLOT_STAR_BADGES} times, then ${S.SLOT_STAR_JACKPOT_COINS} coin`, 'i')),
     'the star payouts, quoted');
-  assert.truthy(someTip(new RegExp(`each badge counted as ${S.SLOT_STAR_JACKPOT_COINS} coin`, 'i')), 'and how the stake prices a badge');
+  assert.truthy(someTip(new RegExp(`each memory counted as ${S.SLOT_STAR_JACKPOT_COINS} coin`, 'i')), 'and how the stake prices a memory');
 });
 
 test('tips: the shiny multiplier quotes PRICES', () => {
@@ -724,4 +724,22 @@ test('restore cost: 1 stone, one more per house restored, capped at 20', () => {
   assert.eq([0, 1, 2, 6, 18, 19, 20, 50].map(wreckRestoreExact).join(','), '1,2,3,7,19,20,20,20', 'the ladder');
   // Whole prices: the house key never changes the quote.
   for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 5, 'same price for every house');
+});
+
+test('books: the wizard\'s calling is in the Book, right after the wizard, and true to wizard.js', () => {
+  const at = PLAY_TIPS.findIndex((t) => /wizard sees power in your memories/.test(t));
+  assert.gte(at, 0, 'the wizard tip exists');
+  const tip = PLAY_TIPS[at + 1];
+  assert.truthy(/calling/.test(tip), 'the calling tip follows the wizard tip — the moment it is needed');
+  // The purchase it is offered at is wizard.js's own gate (CLASS_AT_BUYS
+  // purchases already made), so "third" is re-derived, not trusted.
+  assert.eq(Wizard.CLASS_AT_BUYS + 1, 3, 'the tip says "third purchase" — reword it if this moves');
+  assert.truthy(/third purchase/.test(tip), 'names the purchase');
+  for (const c of Wizard.CLASSES) assert.truthy(tip.includes(c.name), `names ${c.name}`);
+  assert.truthy(/once, for good/.test(tip), 'says the choice is permanent');
+  assert.falsy(tip.includes(String(Wizard.ENCHANTER_ENERGY_COST)), 'the channel price is the class card\'s to print, never retyped here');
+  // The wizard tip itself names the four tracks wizard.js actually offers.
+  assert.eq(Wizard.TRACKS.length, 4, 'the tip says "two gifts from four"');
+  assert.eq(Wizard.OFFER_COUNT, 2);
+  assert.truthy(/two gifts from four/.test(PLAY_TIPS[at]), 'and the wizard tip counts them');
 });

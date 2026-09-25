@@ -245,7 +245,7 @@
     'treasure:road':    { classBias: { seed:0.56, produce:0.24, cash:0.20 },
                           chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0 },
     // ── Elite monster drop ──────────────────────────────────────
-    // What a shiny cave monster pays once its kind's Discovery badge is
+    // What a shiny cave monster pays once its kind's memory is
     // banked (app.js › resolveDefeat). Biased to RELICS — half the class
     // weight, the heaviest relic share of any context — because the foe was
     // twice the fight. "Commensurate tier" is the caller's: one chain step

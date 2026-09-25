@@ -342,7 +342,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   // The flavour line prints the walk through Trail.label — the ONE formatter
   // the street counter also prints with — so the ceremony and the number that
   // was on the street a moment ago can't disagree about the rung just paid.
-  assert.truthy(/const goal = Trail\.goalFor\(Math\.max\(0, \(n \| 0\) - 1\)\);/.test(body),
+  assert.truthy(/const goal = Trail\.goalFor\(Math\.max\(0, \(n \| 0\) - 1\)(?:, [^;]+)?\);/.test(body),
     'the goal just completed');
   assert.truthy(/const walked = Trail\.label\(goal, goal\);/.test(body),
     'formatted by Trail.label, never a second `${x}/${y} m`');
@@ -354,8 +354,8 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
     'all three shapes carry a sub line');
   assert.eq((body.match(/\$\{next\}|sub: next/g) || []).length, 3,
     'and all three print the next rung');
-  assert.truthy(/const next = trailNextPrizeLine\(n \| 0\);/.test(body),
-    'through the one formatter, off Trail.goalFor');
+  assert.truthy(/const next = trailNextPrizeLine\(n \| 0, this\.save\.playerClass\);/.test(body),
+    'through the one formatter, off Trail.goalFor — on the save\'s own ladder');
   assert.falsy(/cobbles walked/.test(body), 'nothing counts pebbles any more');
 });
 
@@ -416,7 +416,7 @@ test('trail counter: the street reads Trail.readout of the bank, not raw progres
   const at = app.indexOf('  _bankStreetMetres(addedM, at, now) {');
   assert.gt(at, 0, 'found the bank');
   const body = app.slice(at, app.indexOf('\n  }\n', at));
-  assert.truthy(/this\._toast\(Trail\.readout\(out\)\.label, \{/.test(body),
+  assert.truthy(/this\._toast\(Trail\.readout\(out(?:, [^)]+)?\)\.label, \{/.test(body),
     'the paying sweep reads the completed goal, full — and through the one formatter');
   assert.falsy(/Trail\.progress\(/.test(body), 'raw progress is not what the street shows');
 });
@@ -1053,3 +1053,25 @@ test('streets: a prize on the greeting sweep waits for the dialog to close', () 
   });
 });
 })();
+
+// ── The RUNNER's ladder: every goal halved, everywhere a goal is read ─────
+test('trail: a runner\'s goals are halved — goalFor, progress, bank and readout agree', () => {
+  const T = Trail;
+  assert.eq(T.RUNNER_GOAL_DIV, 2, 'twice as often');
+  for (const won of [0, 1, 4, 9]) {
+    assert.eq(T.goalFor(won, 'runner'), T.goalFor(won) / 2, `goal after ${won} prizes`);
+    assert.eq(T.goalFor(won, 'hunter'), T.goalFor(won), 'another class keeps the full ladder');
+  }
+  assert.eq(T.progress(50, 0, 'runner').label, '50/100 m', 'the counter reads the halved goal');
+  // 100 m pays a runner's first rung (not a walker's), carrying nothing.
+  const a = T.bank(0, 0, 100, 'runner');
+  assert.eq(a.owed, 1, 'paid'); assert.eq(a.prizes, 1); assert.eq(a.metres, 0);
+  assert.eq(T.readout(a, 'runner').label, '100/100 m', 'the paying sweep reads the rung just paid');
+  assert.eq(T.bank(0, 0, 100).owed, 0, 'the same walk pays a non-runner nothing yet');
+  // A long sweep crosses several halved rungs: 100 + 200 = 300 m, 50 over.
+  const b = T.bank(0, 0, 350, 'runner');
+  assert.eq(b.owed, 2); assert.eq(b.metres, 50);
+  assert.eq(T.readout(b, 'runner').label, '200/200 m', 'the second, halved rung');
+  assert.eq(T.readout({ metres: 50, prizes: 2, owed: 0 }, 'runner').label, '50/300 m',
+    'and the next sweep counts toward the third');
+});

@@ -91,3 +91,14 @@ test('applyOfflineRest: a zero/negative gap restores nothing', () => {
   assert.eq(Energy.applyOfflineRest(save, -5), 0);
   assert.eq(save.energy, 20, 'untouched');
 });
+
+// ── Vigour: the wizard's cheap track ──────────────────────────────────────
+test('maxEnergy: each Vigour rung adds VIGOUR_ENERGY_STEP to the cap', () => {
+  assert.eq(Energy.VIGOUR_ENERGY_STEP, 10, 'ten a rung — the promise the wizard prints');
+  assert.eq(Energy.maxEnergy({ vigourUpgrades: 0 }), STARTING_ENERGY, 'no rungs, base cap');
+  assert.eq(Energy.maxEnergy({ vigourUpgrades: 3 }), STARTING_ENERGY + 30, 'three rungs');
+  const save = { vigourUpgrades: 2, eaten: ['potato', 'onion'] };
+  assert.eq(Energy.maxEnergy(save), STARTING_ENERGY + 2 + 20, 'stacks with the first-taste bonus');
+  assert.eq(save.maxEnergy, STARTING_ENERGY + 22, 'and is written back');
+  assert.eq(Energy.maxEnergy({ vigourUpgrades: -4 }), STARTING_ENERGY, 'a junk count adds nothing');
+});

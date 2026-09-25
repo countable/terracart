@@ -55,12 +55,12 @@ test('migrate: re-derives maxEnergy from armor and clamps energy into range', ()
 test('migrate: stamps the save-shape generation, and asks to persist once', () => {
   const save = {};
   const persist = SaveMigrate.migrate(save);
-  assert.eq(save.schema, 1, 'a migrated save carries the generation');
+  assert.eq(save.schema, 2, 'a migrated save carries the generation');
   assert.eq(persist, true, 'the first stamp is a real change → persist');
   // Already stamped: nothing left to write.
   const persist2 = SaveMigrate.migrate(save);
   assert.eq(persist2, false, 'a stamped save asks for no further persist');
-  assert.eq(save.schema, 1, 'and the stamp is unchanged');
+  assert.eq(save.schema, 2, 'and the stamp is unchanged');
 });
 
 test('migrate: the pre-schema migrations are RETIRED — old saves are forfeit', () => {
@@ -86,6 +86,40 @@ test('migrate: the pre-schema migrations are RETIRED — old saves are forfeit',
   assert.eq(save.released[0].golden, true, 'the released golden flag is not renamed');
   assert.eq(save.relics.pick.tier, 1, 'the free wooden pick is not stripped');
   assert.eq('starterToolsStripped' in save, false, 'and no strip flag is written');
+});
+
+test('migrate: discovery badges in the bag become save.memories', () => {
+  const save = {
+    schema: 1,
+    inv: [{ id: 'wood', count: 2 }, { id: 'discovery', count: 7 }, { id: 'coal', count: 3 }],
+    selSlot: 2,                                  // coal
+  };
+  const persist = SaveMigrate.migrate(save);
+  assert.truthy(persist, 'a real fold asks for a persist');
+  assert.eq(save.memories, 7, 'the stack is now the unspent counter');
+  assert.falsy(save.inv.find((s) => s.id === 'discovery'), 'and the stack left the bag');
+  assert.eq(save.inv.map((s) => s.id).join(','), 'wood,coal', 'the rest of the bag keeps its order');
+  assert.eq(save.inv[save.selSlot].id, 'coal', 'the selection still points at what was held');
+  assert.eq(save.schema, 2);
+  // Idempotent: nothing left to fold.
+  assert.eq(SaveMigrate.migrate(save), false, 'a second pass is a no-op');
+  assert.eq(save.memories, 7);
+});
+
+test('migrate: memories fold ADDS to an existing counter; a held badge stack drops the selection', () => {
+  const save = { memories: 2, inv: [{ id: 'discovery', count: 3 }, { id: 'wood', count: 1 }], selSlot: 0 };
+  SaveMigrate.migrate(save);
+  assert.eq(save.memories, 5);
+  assert.eq(save.selSlot, -1, 'the selected stack is gone, so nothing is selected');
+});
+
+test('migrate: a save with no memories field gets 0; junk is healed', () => {
+  const fresh = {};
+  SaveMigrate.migrate(fresh);
+  assert.eq(fresh.memories, 0);
+  const junk = { memories: -4 };
+  SaveMigrate.migrate(junk);
+  assert.eq(junk.memories, 0);
 });
 
 test('migrate: a bag rewrite runs ONLY when it has something to rewrite', () => {

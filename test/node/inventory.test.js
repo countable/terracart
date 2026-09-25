@@ -87,21 +87,21 @@ test('add: an unknown id or n<=0 is an invalid no-op', () => {
   assert.eq(save.inv.length, 0, 'still untouched');
 });
 
-test('capExempt: discovery badges ignore the bag cap entirely', () => {
-  const save = { inv: [], relics: {} };        // no bag → cap 9 for normal items
-  const r = Inventory.add(save, 'discovery', 20);
-  assert.eq(r.accepted, 20, 'all 20 accepted past the bag cap');
-  assert.eq(r.rejected, 0, 'nothing rejected');
-  assert.eq(Inventory.count(save, 'discovery'), 20);
-  assert.eq(Inventory.roomFor(save, 'discovery'), Infinity, 'always room for a badge');
+test('no item is cap-exempt: the old Discovery badge left the bag', () => {
+  // Memories are a save counter now (save.memories), so nothing in ITEMS
+  // may still carry the flag that once let a badge stack past the cap.
+  assert.eq(ITEM_BY_ID.discovery, undefined, 'the discovery item is gone');
+  assert.falsy(ITEMS.some((it) => it.capExempt), 'no item claims capExempt');
+  const save = { inv: [], relics: {} };
+  assert.eq(Inventory.stackCapFor(save, 'wood'), Inventory.stackCap(save), 'every id shares the bag cap');
 });
 
 test('remove: deducts across stacks, splices empties, reports the shortfall', () => {
-  const save = { inv: [{ id: 'wood', count: 2 }, { id: 'discovery', count: 6 }], relics: {} };
-  assert.eq(Inventory.remove(save, 'discovery', 5), 5, 'removed the full ask');
-  assert.eq(Inventory.count(save, 'discovery'), 1, '6 - 5 left');
-  assert.eq(Inventory.remove(save, 'discovery', 5), 1, 'short stack → partial removal reported');
-  assert.eq(save.inv.find((s) => s.id === 'discovery'), undefined, 'emptied stack spliced out');
+  const save = { inv: [{ id: 'wood', count: 2 }, { id: 'coal', count: 6 }], relics: {} };
+  assert.eq(Inventory.remove(save, 'coal', 5), 5, 'removed the full ask');
+  assert.eq(Inventory.count(save, 'coal'), 1, '6 - 5 left');
+  assert.eq(Inventory.remove(save, 'coal', 5), 1, 'short stack → partial removal reported');
+  assert.eq(save.inv.find((s) => s.id === 'coal'), undefined, 'emptied stack spliced out');
   assert.eq(Inventory.count(save, 'wood'), 2, 'other stacks untouched');
   assert.eq(Inventory.remove(save, 'wood', 0), 0, 'n<=0 is a no-op');
 });

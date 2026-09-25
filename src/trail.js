@@ -37,10 +37,27 @@
   // tenth is a proper expedition.
   const GOAL_STEP_M = 200;
 
+  // ── The RUNNER's ladder ──────────────────────────────────────────────────
+  // The wizard's Runner calling (src/wizard.js CLASSES, save.playerClass)
+  // pays road treasure twice as often: every goal is divided by
+  // RUNNER_GOAL_DIV — 100, 200, 300 … instead of 200, 400, 600 … . It is the
+  // GOAL that moves, never the metres banked, so a runner's counter, payout
+  // and ceremony line all read the same halved rung.
+  //
+  // EVERY function below that derives a goal takes the same optional trailing
+  // `playerClass` and resolves it through goalDiv — pass it to all of them or
+  // to none, or the counter and the payout disagree about which rung paid.
+  // The prize count (and so rollBonusFor) is unchanged: a runner reaches each
+  // rung sooner, not a better rung.
+  const RUNNER_GOAL_DIV = 2;
+  function goalDiv(playerClass) {
+    return playerClass === 'runner' ? RUNNER_GOAL_DIV : 1;
+  }
+
   // Metres the NEXT prize wants, given how many are already won. (The nth
-  // prize, 1-based, wants GOAL_STEP_M × n.)
-  function goalFor(prizes) {
-    return GOAL_STEP_M * (Math.max(0, prizes | 0) + 1);
+  // prize, 1-based, wants GOAL_STEP_M × n — over goalDiv for a runner.)
+  function goalFor(prizes, playerClass) {
+    return GOAL_STEP_M * (Math.max(0, prizes | 0) + 1) / goalDiv(playerClass);
   }
 
   // ONE FORMATTER. The counter that pops on the street and the prize
@@ -55,9 +72,9 @@
   }
 
   // Metres banked toward the current goal — the "N/M m" the player sees.
-  function progress(metres, prizes) {
+  function progress(metres, prizes, playerClass) {
     const pos = Math.max(0, Number.isFinite(metres) ? metres : 0);
-    const target = goalFor(prizes);
+    const target = goalFor(prizes, playerClass);
     return { pos, target, label: label(pos, target) };
   }
 
@@ -69,12 +86,12 @@
   // counter used to say "out of 400" while the walk had paid at 200, and the
   // two read as a disagreement (Sep 2026). The remainder is still banked and
   // shows on the next sweep; only the readout of the paying sweep changes.
-  function readout(out) {
+  function readout(out, playerClass) {
     if (out && (out.owed | 0) > 0) {
-      const goal = goalFor((out.prizes | 0) - 1);
+      const goal = goalFor((out.prizes | 0) - 1, playerClass);
       return { pos: goal, target: goal, label: label(goal, goal) };
     }
-    return progress(out ? out.metres : 0, out ? out.prizes : 0);
+    return progress(out ? out.metres : 0, out ? out.prizes : 0, playerClass);
   }
 
   // Bank `addM` newly restored metres. Returns the new running total, the new
@@ -88,14 +105,14 @@
   // a goal is long, and each goal crossed makes the next one longer, so the
   // remainder has to be re-tested against the NEW goal. (The goals grow, so it
   // always terminates; the guard is belt and braces.)
-  function bank(metres, prizes, addM) {
+  function bank(metres, prizes, addM, playerClass) {
     const base = Math.max(0, Number.isFinite(metres) ? metres : 0);
     const add = Math.max(0, Number.isFinite(addM) ? addM : 0);
     let s = base + add;
     let p = Math.max(0, prizes | 0);
     let owed = 0;
     for (let guard = 0; guard < 1000; guard++) {
-      const goal = goalFor(p);
+      const goal = goalFor(p, playerClass);
       if (s < goal) break;
       s -= goal; p += 1; owed += 1;
     }
@@ -207,7 +224,7 @@
   }
 
   root.Trail = {
-    GOAL_STEP_M, goalFor, progress, bank, readout, label,
+    GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, progress, bank, readout, label,
     PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, rollChoices,
     PRIZE_ROLL_BONUS, PRIZE_ROLL_BONUS_MAX, rollBonusFor,

@@ -274,7 +274,7 @@
   //   • two jackpots and one other prize (not a star, which would complete
   //     them) — SLOT_JACKPOT_PAIR_COINS back;
   //   • two stars — SLOT_STAR_PAIR_COINS;
-  //   • three stars — the STAR JACKPOT: a Discovery badge the first
+  //   • three stars — the STAR JACKPOT: a memory (app.js) the first
   //     SLOT_STAR_BADGES times (app.js keeps that count), then
   //     SLOT_STAR_JACKPOT_COINS.
   //
@@ -287,7 +287,7 @@
   //   two stars           3s²(1 − s) · star-pair coin
   //   three stars         s³ · star jackpot
   // The one ESTIMATE is the star jackpot while it still pays a badge: a
-  // Discovery badge can't be sold (noSell), so it has no coin price. It is
+  // memory can't be sold, so it has no coin price. It is
   // valued at SLOT_STAR_JACKPOT_COINS — the coin the same line pays once the
   // badges run out, the one exchange rate the machine itself states — so the
   // stake is the same for every player whatever they have already won. At

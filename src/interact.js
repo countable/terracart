@@ -928,7 +928,7 @@ const TAP_HANDLERS = [
         const outName = ITEM_BY_ID[outId]?.name || outId;
         if (bonus) scene.flashLoot(`${outName}${bonus}`, '#ff8aff', 1, outId);
         else scene.flashLoot(`+1 ${outName}`, undefined, 1, outId);
-        // Rare shiny flora — 10× money + a discovery point, on top of the
+        // Rare shiny flora — 10× money + a memory, on top of the
         // normal pickup, with fanfare.
         if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
       };

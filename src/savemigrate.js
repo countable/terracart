@@ -4,7 +4,7 @@
 // migrate(save) mutates `save` in place: backfills slots/defaults added since a
 // save was created, re-derives maxEnergy, applies the history-size
 // cap, and runs the surviving data migrations (flute→honey rename, cobble
-// stones→street metres).
+// stones→street metres, the 'discovery' bag stack → save.memories).
 //
 // WHAT IS NOT HERE ANY MORE, AND THE RULE THAT DECIDES IT. A migration exists
 // to carry a save across a shape change, and it has to be retired eventually or
@@ -46,7 +46,9 @@
   // The save-shape generation. Bump this when a migration is ADDED, so the one
   // after it can tell which saves have already been through it — that is the
   // whole point of the field, and the thing this file spent its life without.
-  const SAVE_SCHEMA = 1;
+  //   1 — the field itself (Sep 2026).
+  //   2 — memories: the 'discovery' bag stack folded into save.memories.
+  const SAVE_SCHEMA = 2;
 
   function migrate(save) {
     let needsPersist = false;
@@ -240,6 +242,32 @@
         else { const ns = { ...s, id }; byId.set(id, ns); out.push(ns); }
       }
       save.inv = out;
+    }
+    // DISCOVERY BADGES → MEMORIES (schema 2). Unspent memories used to be an
+    // inventory stack (item id 'discovery', kind 'badge'); they are a plain
+    // counter now, save.memories, and the ITEMS row is gone — so a stack left
+    // in the bag would be an item with no name. Fold every such stack into the
+    // counter and take it out of the bag. Guarded on actually FINDING one (the
+    // flute rule above): save.selSlot is positional, so the selection is
+    // re-seated only when a stack before it, or under it, is removed.
+    if (!Number.isFinite(save.memories) || save.memories < 0) save.memories = 0;
+    save.memories = Math.floor(save.memories);
+    if (Array.isArray(save.inv) && save.inv.some((st) => st && st.id === 'discovery')) {
+      const out = [];
+      let sel = Number.isInteger(save.selSlot) ? save.selSlot : -1;
+      const selWas = sel;
+      save.inv.forEach((st, i) => {
+        if (st && st.id === 'discovery') {
+          save.memories += Math.max(0, Math.floor(st.count ?? 0));
+          if (i === selWas) sel = -1;
+          else if (i < selWas && sel >= 0) sel -= 1;
+          return;
+        }
+        out.push(st);
+      });
+      save.inv = out;
+      if (Number.isInteger(save.selSlot)) save.selSlot = sel;
+      needsPersist = true;
     }
     // Stamp the save-shape generation (see SAVE_SCHEMA). A save that reaches
     // here has been through every migration this build carries, so the next

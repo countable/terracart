@@ -446,9 +446,20 @@
   // Melee is the SWORD's job now. Bow and staff shoot instead of swinging, so
   // they no longer shorten the combat wheel — carrying one and no sword fights
   // at the bare-handed rung, and the shots are what make up the difference.
-  function meleeDps(relics) {
+  //
+  // `playerClass` (optional — save.playerClass, the wizard's one-time calling,
+  // src/wizard.js CLASSES) is the PLAYER's own melee only: an ENFORCER lands
+  // ENFORCER_MELEE_DPS more HP a second on top of the tier's rung. It is a
+  // CLASS BONUS the player bought, not a fudge factor on the ladder: the rung
+  // itself (15000 / toolDurationMs) is untouched, and a flat add rather than a
+  // multiplier so it matters most where the rung is weakest — bare hands
+  // (1.67 dps) nearly quadruple, a Frost blade (50 dps) barely notices.
+  // Pets, turrets and monsters never pass a class.
+  const ENFORCER_MELEE_DPS = 5;
+  function meleeDps(relics, playerClass) {
     const slot = relics && relics.sword ? 'sword' : null;
-    return dpsForDurationMs(toolDurationMs(relics, slot));
+    const bonus = playerClass === 'enforcer' ? ENFORCER_MELEE_DPS : 0;
+    return dpsForDurationMs(toolDurationMs(relics, slot)) + bonus;
   }
 
   // ── Melee cadence ────────────────────────────────────────────────────────
@@ -500,9 +511,11 @@
   // times `mul` for anything that multiplies the swing itself (app.js passes
   // 2 while the dragon is out). Damage per blow is derived here rather than
   // at the call site so the cadence and the payload can't drift apart — the
-  // shotDamage discipline, for the blade.
-  function meleeSwingDamage(relics, mul = 1) {
-    return meleeDps(relics) * (mul || 1) * MELEE_INTERVAL_MS / 1000;
+  // shotDamage discipline, for the blade. `playerClass` is meleeDps's (the
+  // enforcer's flat bonus rides inside the rate, so the dragon doubles it too
+  // — it multiplies the swing, whatever the swing is made of).
+  function meleeSwingDamage(relics, mul = 1, playerClass) {
+    return meleeDps(relics, playerClass) * (mul || 1) * MELEE_INTERVAL_MS / 1000;
   }
 
   // The BASE fire beat — one shot every two seconds, and what the bow keeps.
@@ -657,9 +670,18 @@
   // The floor of 1 is what keeps a wooden weapon firing at all once the
   // rounding is through; it only ever binds on rungs whose full rate is
   // already under two per second.
-  function shotDamage(relics, slot) {
+  //
+  // `playerClass` (optional — save.playerClass, src/wizard.js CLASSES): a
+  // HUNTER's BOW shots carry HUNTER_BOW_MUL of the rate. A CLASS BONUS the
+  // player bought at the wizard tower, not a fudge factor: it scales the
+  // player's own arrows only, applied to the rate before rounding so the
+  // floor of 1 still means what it says. The staff is not a bow, and
+  // turretShotDamage passes no class — a turret is nobody's hunter.
+  const HUNTER_BOW_MUL = 1.5;
+  function shotDamage(relics, slot, playerClass) {
     if (!relics || !relics[slot]) return 0;
-    const perSecond = dpsForDurationMs(toolDurationMs(relics, slot)) * (SHOT_DMG_MUL[slot] || 1);
+    const classMul = (slot === 'bow' && playerClass === 'hunter') ? HUNTER_BOW_MUL : 1;
+    const perSecond = dpsForDurationMs(toolDurationMs(relics, slot)) * (SHOT_DMG_MUL[slot] || 1) * classMul;
     return Math.max(1, Math.round(perSecond * fireIntervalMs(slot) / 1000));
   }
 
@@ -954,6 +976,7 @@
     isEnemyKind, isEnemy, enemyKinds, enemyName, hp, damage, hpFraction,
     ELITE_MUL, isElite, eliteMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
+    HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDowned,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,

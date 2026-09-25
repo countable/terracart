@@ -152,11 +152,11 @@ function makeRng32(seed) {
 // === Rare "shiny" variants =================================================
 // A small fraction of biome flora, trees and wild animals spawn as a rare
 // yellow-tinted ("shiny") version. Harvesting / catching one pays a 10× money
-// bonus plus a Discovery badge (a 'discovery' inventory stack), all with a
+// bonus plus a memory (app.js _bankDiscovery → save.memories), all with a
 // fanfare popup.
 // Cave monsters go shiny too — an ELITE: the same gold sheen and sparkle, with
 // double HP and double damage (combat.js › ELITE_MUL). Killing one banks a
-// Discovery badge the first time per kind and a relic-biased treasure roll
+// memory the first time per kind and a relic-biased treasure roll
 // every time after (app.js › resolveDefeat). The surface slime, the tutorial
 // foe, never does.
 // Spawn rates per category. Tuned per the design: flora + trees 1%, animals
@@ -194,7 +194,7 @@ function isShiny(id, rate) {
 }
 // Is this WILD ANIMAL a shiny one? The rate plus the one exception: the
 // surface slime never rolls shiny, because shiny is a promise of a payout
-// (a 10× catch bonus and a Discovery badge) and a slime is an energy pest
+// (a 10× catch bonus and a memory) and a slime is an energy pest
 // with nothing to catch. Both spawners read this rather than restating the
 // `kind !== 'slime' && …` test — the tile's fauna roll and the guaranteed
 // doorstep greeter (app.js) — so the exception can't hold in one and not the
