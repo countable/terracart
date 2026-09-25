@@ -319,11 +319,12 @@ test('walk home: grabbing the stick mid-return cancels the return, not just the 
     'the next fix would walk the body on toward home without waiting out the countdown');
 });
 
-// ── A wheel or a dialog PAUSES the countdown ──────────────────────────────
+// ── A wheel RESETS the countdown; a dialog PAUSES it ───────────────────────
 // Blocking the walk isn't enough: with the clock still running, a chop or a
 // dialog that outlasted the debounce ended with the walk already overdue, and
-// the character set off the instant it closed. Held, the clock slides forward
-// with the frame, so the countdown resumes where it stood.
+// the character set off the instant it closed. A work wheel is interacting,
+// so it puts the full countdown back (as a map tap does); under a dialog the
+// clock slides forward with the frame, so the countdown resumes where it stood.
 
 function withDialog(open, fn) {
   const had = Object.prototype.hasOwnProperty.call(document, 'body'), prev = document.body;
@@ -340,14 +341,20 @@ const heldFor = (scene, ms) => {
   scene._lastStickT -= ms;                         // hand back to the real clock
 };
 
-test('walk home: a work wheel pauses the countdown rather than running it out', () => {
+test('walk home: a work wheel resets the countdown to the full 5 s', () => {
   const scene = walkHomeScene(20, { idleMs: 2000 });
   scene._workProgress = { auto: false };
-  heldFor(scene, 10000);                           // a long chop
-  assert.eq(__walkHome._walkHomeCountdownS.call(scene), null, 'hidden while held');
-  scene._workProgress = null;
-  assert.eq(__walkHome._walkHomeCountdownS.call(scene), 3,
-    'the countdown resumes where the wheel found it (3s left), not overdue');
+  const realNow = Date.now, t0 = realNow();
+  let t = 0;
+  Date.now = () => t0 + t;
+  try {
+    for (; t < 10000; t += 100) drift(scene, 0.1);  // a long chop
+    assert.eq(__walkHome._walkHomeCountdownS.call(scene), null, 'hidden while held');
+    scene._workProgress = null;
+    assert.eq(__walkHome._walkHomeCountdownS.call(scene), 5,
+      'back to the full countdown when the wheel ends, not where it stood');
+  } finally { Date.now = realNow; }
+  scene._lastStickT = Date.now();
   drift(scene);
   assert.eq(scene._manualOffsetM.x, 20, 'no walk home the moment the wheel ends');
 });
@@ -377,4 +384,12 @@ test('walk home: an auto wheel (auto-mining) does not hold the walk', () => {
   scene._workProgress = { auto: true };
   drift(scene, 0.1);
   assert.lt(scene._manualOffsetM.x, 20, 'auto work is not the player being busy');
+});
+
+test('walk home: a tap on the world puts the countdown back to full', () => {
+  const app = APP_JS_SRC;
+  assert.truthy(/this\._resetWalkHome\(\);\s+\/\/ a tap on the world is interacting\n\s+this\.handleWorldTap\(up\.x, up\.y\);/.test(app),
+    'every world tap resets it before it is handled');
+  assert.truthy(/_resetWalkHome\(\) \{\n\s+if \(this\._lastStickT\) this\._lastStickT = Date\.now\(\);/.test(app),
+    'to now — the full WALK_HOME_IDLE_MS');
 });

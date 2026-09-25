@@ -231,6 +231,7 @@ function tapScene(over) {
   const s = peekScene(Object.assign({
     _peekPointerId: 1,
     handleWorldTap(sx, sy) { taps.push({ sx, sy }); },
+    _resetWalkHome() {},
   }, over || {}));
   s.taps = taps;
   return s;

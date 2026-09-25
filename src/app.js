@@ -2766,6 +2766,7 @@ class MapScene extends Phaser.Scene {
       if (wasDrag) return;             // dragged the map; nothing was tapped
       const up = this._gamePt(p);
       if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, up.x, up.y)) return;
+      this._resetWalkHome();           // a tap on the world is interacting
       this.handleWorldTap(up.x, up.y);
     };
     this.input.on('pointerup', endPeekPointer);
@@ -9982,6 +9983,11 @@ class MapScene extends Phaser.Scene {
       }
     }
   }
+  // Interacting with the world puts the walk-home countdown back to its full
+  // WALK_HOME_IDLE_MS (a no-op before the stick has ever been let go).
+  _resetWalkHome() {
+    if (this._lastStickT) this._lastStickT = Date.now();
+  }
   // Is the walk home ON HOLD? A work wheel (standing still to chop a tree is
   // being busy, not idle — an AUTO wheel, auto-mining, isn't) or any dialog on
   // screen (body.modal-open, the same live signal the pads hide on). Held is a
@@ -10008,13 +10014,17 @@ class MapScene extends Phaser.Scene {
     this._driftingHome = false;
     if (!this.gpsM || this._gpsManualOverride) return;
     if (this._stickPushed()) return;
-    // A wheel or a dialog PAUSES the debounce rather than just blocking the
-    // walk: the clock slides forward with the frame, so the countdown resumes
-    // where it stood (and a mid-return picks up its ramp where it was) —
-    // never a 6s chop ending with the walk already overdue.
+    // A work wheel RESETS the debounce: working is interacting, so the full
+    // WALK_HOME_IDLE_MS starts again when the wheel ends (a map tap does the
+    // same, _resetWalkHome). A dialog PAUSES it instead: the clock slides
+    // forward with the frame, so the countdown resumes where it stood (and a
+    // mid-return picks up its ramp where it was) — never a dialog ending with
+    // the walk already overdue.
     if (this._walkHomeHeld()) {
       if (this._lastStickT) {
-        this._lastStickT = Math.min(Date.now(), this._lastStickT + dt * 1000);
+        this._lastStickT = this._busyWheel()
+          ? Date.now()
+          : Math.min(Date.now(), this._lastStickT + dt * 1000);
       }
       return;
     }
