@@ -350,6 +350,11 @@ const TELEPORT_FADE_IN_MS = 1300;
 // widens until it can seat them (see _coinBurstInteract) — a burst that came
 // back with one coin was the search giving up, never the reward being small.
 const COIN_BURST_MIN = 8;
+// And a few more land around the player's own feet (within
+// COIN_BURST_NEAR_R cells), so a burst always puts coins in reach —
+// whatever the ground around the pot itself is like.
+const COIN_BURST_NEAR_PLAYER = 3;
+const COIN_BURST_NEAR_R = 2;
 const RING_IDLE_TIMEOUT_MS = 400;
 const TILE_RETRY_BASE_MS = 4000;
 const TILE_RETRY_MAX_MS = 60000;
@@ -9944,14 +9949,6 @@ class MapScene extends Phaser.Scene {
       this.flash(`Already used — back in ${shortDuration(msToNextUtcDay())}.`, sx, sy);
       return;
     }
-    // Mark BEFORE spawning so a double-tap can't double-spawn.
-    this.save.coinBurstClaimed[claimedKey] = 1;
-    // Opportunistic prune: drop any keys for days other than today so the
-    // dictionary stays small over weeks of play.
-    for (const k of Object.keys(this.save.coinBurstClaimed)) {
-      if (!k.endsWith(dayKey)) delete this.save.coinBurstClaimed[k];
-    }
-    if (typeof persistSave === 'function') persistSave(this.save);
 
     // Find walkable cells within ~25m of the POI on the POI's host tile.
     // We restrict to the POI's home tile (cells_per_edge × cells_per_edge)
@@ -10034,10 +10031,6 @@ class MapScene extends Phaser.Scene {
       candidates = gather(r, true);
     }
     if (candidates.length < COIN_BURST_MIN) candidates = gather(MAX_BURST_CELLS, false);
-    if (candidates.length === 0) {
-      this.flash('No room to scatter!', sx, sy);
-      return;
-    }
     // Constrain to the visible SCREEN AREA — coins may sit right at its edge,
     // never past it. The widen/relax escalation above can reach out to
     // MAX_BURST_CELLS (3x the spec'd ~25m) when a suburb has too few
@@ -10050,16 +10043,11 @@ class MapScene extends Phaser.Scene {
     // actually matches what's on screen.
     const anchor = viewAnchorWorldM(this);
     const screenHalfM = (VIEW_CELLS / 2) * cellM;
-    const onScreen = candidates.filter(({ cx, cy }) => {
+    candidates = candidates.filter(({ cx, cy }) => {
       const wx = tx * tileEdgeM + (cx + 0.5) * cellM;
       const wy = ty * tileEdgeM + (cy + 0.5) * cellM;
       return Math.abs(wx - anchor.x) <= screenHalfM && Math.abs(wy - anchor.y) <= screenHalfM;
     });
-    if (onScreen.length === 0) {
-      this.flash('No room to scatter!', sx, sy);
-      return;
-    }
-    candidates = onScreen;
     // Sort the (now on-screen) candidates nearest-to-the-POI-first so the
     // burst still reads as clustered on the chest the player just tapped,
     // rather than an even spread across the whole visible screen.
@@ -10080,16 +10068,84 @@ class MapScene extends Phaser.Scene {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
-    entry.coinDrops = entry.coinDrops || [];
-    const expiresAt = Date.now() + 60_000;
+    // Where each coin lands: { entry, x, y } — the pot's scatter on the pot's
+    // tile, then COIN_BURST_NEAR_PLAYER more at the player's feet.
+    const drops = [];
+    const taken = new Set();
     for (let i = 0; i < n; i++) {
       const { cx, cy } = pool[i];
-      const wmx = tx * tileEdgeM + (cx + 0.5) * cellM;
-      const wmy = ty * tileEdgeM + (cy + 0.5) * cellM;
-      const id = `coin_${poi.id}_${dayKey}_${i}`;
-      entry.coinDrops.push({ kind: 'coindrop', x: wmx, y: wmy, id, expiresAt });
+      const x = tx * tileEdgeM + (cx + 0.5) * cellM, y = ty * tileEdgeM + (cy + 0.5) * cellM;
+      taken.add(`${tx}_${ty}_${cx}_${cy}`);
+      drops.push({ entry, x, y });
     }
-    this.flashLoot(`Scattered ${n} coins!`, '#ffe066', 1, null, this.coinIconEl());
+    for (const d of this._coinCellsNearPlayer(COIN_BURST_NEAR_PLAYER, COIN_BURST_NEAR_R, taken)) drops.push(d);
+    // NOTHING SEATED, NOTHING SPENT. The day's claim is written only once a
+    // coin will actually land: "No room to scatter!" used to fire AFTER the
+    // claim, so a pot in a tight spot (or tapped with the view peeked away)
+    // ate the day's burst and paid nothing.
+    if (drops.length === 0) {
+      this.flash('No room to scatter!', sx, sy);
+      return;
+    }
+    this.save.coinBurstClaimed[claimedKey] = 1;
+    // Opportunistic prune: drop any keys for days other than today so the
+    // dictionary stays small over weeks of play.
+    for (const k of Object.keys(this.save.coinBurstClaimed)) {
+      if (!k.endsWith(dayKey)) delete this.save.coinBurstClaimed[k];
+    }
+    if (typeof persistSave === 'function') persistSave(this.save);
+    const expiresAt = Date.now() + 60_000;
+    drops.forEach((d, i) => {
+      d.entry.coinDrops = d.entry.coinDrops || [];
+      d.entry.coinDrops.push({ kind: 'coindrop', x: d.x, y: d.y, id: `coin_${poi.id}_${dayKey}_${i}`, expiresAt });
+    });
+    this.flashLoot(`Scattered ${drops.length} coins!`, '#ffe066', 1, null, this.coinIconEl());
+  }
+
+  // Up to `count` coin cells around the PLAYER's feet (never the feet cell
+  // itself), within `r` cells, nearest ring first: walkable, off the road
+  // band, not under anything (the pot scatter's relaxed rule). On the tile
+  // the player stands on, in that tile's own grid. `taken` holds cells
+  // already used ("tx_ty_cx_cy"). Returns [{ entry, x, y }].
+  _coinCellsNearPlayer(count, r, taken) {
+    const out = [];
+    if (count <= 0) return out;
+    const tileEdgeM = this.tileEdgeM;
+    const wx = this.startWorldM.x + this.playerM.x, wy = this.startWorldM.y + this.playerM.y;
+    const tx = Math.floor(wx / tileEdgeM), ty = Math.floor(wy / tileEdgeM);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry || !entry.grid) return out;
+    const N = entry.cellsPerEdge || rowCells(this, ty);
+    const cellM = tileEdgeM / N;
+    const pcx = Math.floor((wx - tx * tileEdgeM) / cellM), pcy = Math.floor((wy - ty * tileEdgeM) / cellM);
+    const occupied = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
+    for (let ring = 1; ring <= r && out.length < count; ring++) {
+      const cells = [];
+      for (let dy = -ring; dy <= ring; dy++) {
+        for (let dx = -ring; dx <= ring; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+          const cx = pcx + dx, cy = pcy + dy;
+          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+          const i = cy * N + cx;
+          if (!WorldGen.isWalkable(entry.grid[i])) continue;
+          if (entry.roadMask && entry.roadMask[i]) continue;
+          if (occupied && occupied.has(i)) continue;
+          if (taken.has(`${tx}_${ty}_${cx}_${cy}`)) continue;
+          cells.push({ cx, cy });
+        }
+      }
+      for (let k = cells.length - 1; k > 0; k--) {
+        const j = Math.floor(Math.random() * (k + 1));
+        [cells[k], cells[j]] = [cells[j], cells[k]];
+      }
+      for (const { cx, cy } of cells) {
+        if (out.length >= count) break;
+        taken.add(`${tx}_${ty}_${cx}_${cy}`);
+        out.push({ entry, x: tx * tileEdgeM + (cx + 0.5) * cellM, y: ty * tileEdgeM + (cy + 0.5) * cellM });
+      }
+    }
+    return out;
+  }
   }
 
   // --- Movement collision & level transitions ---
