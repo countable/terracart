@@ -509,11 +509,14 @@ const STORY_MODAL_GROW_PX = 96;
 // whatever the dialog says.
 const ART_FRAME_ASPECT = 352 / (352 + STORY_MODAL_GROW_PX);
 const ART_DETAIL_FRAC = 0.42;
-// The pieces already painted to that rule. A stem not in here is an old 3:2
-// banner (subject in the middle, detail to the edges) and still seats as the
-// strip dialogArtHTML draws; the rollout moves every stem in here, and then
-// the strip goes.
-const SCENE_ART = new Set(['fire_first']);
+// THE BAND — the same painting for a TEXT-HEAVY dialog. When the copy will
+// not fit the quiet zone, the shell (mount()) shows only the painting's
+// subject line, rows ART_BAND_FROM..ART_DETAIL_FRAC (the sky above it is what
+// gives), in a band ART_BAND_FRAC of the box tall, and the content region
+// takes the rest. Chosen by MEASURING the copy, never by the caller, so a
+// dialog that grows a paragraph moves to the band by itself.
+const ART_BAND_FROM = 0.14;
+const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;
 
 // ── Toast style ────────────────────────────────────────────────────────────
 // One dark chip for every in-world message, and one four-step type scale. The
@@ -604,30 +607,36 @@ const TOAST_TIER = {
 //
 // Keys are referenced by every modal call site and pinned by
 // tools/modal_audit.js, which fails the build if a dialog opens without one.
+// `art` is the category's default SCENE painting (assets/art/, see SCENE ART
+// by STORY_MODAL_GROW_PX) — every dialog of the kind opens on it unless its
+// caller hands a painting of its own.
 const MODAL_KINDS = {
-  quest:    { icon: '🏰', label: 'Quest'     },   // castle quest board
-  treasure: { icon: '💎', label: 'Treasure'  },   // chests, boxes, loot ceremonies
-  supplies: { icon: '🧰', label: 'Supplies'  },   // the starter crates' handout — see below
-  trail:    { icon: '🗺️', label: 'Trail'     },   // road/trail completion rewards
-  shop:     { coinIcon: true, label: 'Shop' },   // buying and selling for money — glyph is the coin asset (header reads `coinIcon`)
-  trade:    { icon: '🤝', label: 'Trade'     },   // goods-for-goods barter
+  quest:    { icon: '🏰', label: 'Quest', art: 'kind_quest' },   // castle quest board
+  treasure: { icon: '💎', label: 'Treasure', art: 'kind_treasure' },   // chests, boxes, loot ceremonies
+  supplies: { icon: '🧰', label: 'Supplies', art: 'kind_supplies' },   // the starter crates' handout — see below
+  trail:    { icon: '🗺️', label: 'Trail', art: 'kind_trail' },   // road/trail completion rewards
+  shop:     { coinIcon: true, label: 'Shop', art: 'kind_shop' },   // buying and selling for money — glyph is the coin asset (header reads `coinIcon`)
+  trade:    { icon: '🤝', label: 'Trade', art: 'kind_trade' },   // goods-for-goods barter
   // The smithy's CATEGORY is 'Smithy', never 'Forge': Forge is one of its two
   // ACTIONS (the Forge / Smelt tab and button), and a header reading FORGE over
   // the Smelt tab used the one word for two unrelated things.
-  forge:    { icon: '🔨', label: 'Smithy'    },   // blacksmith: forging + smelting
-  relics:   { icon: '💍', label: 'Relics'    },   // relic + armor offers
-  delivery: { icon: '📦', label: 'Delivery'  },   // household orders
-  build:    { icon: '🛠', label: 'Build'     },   // restoring wrecks, unsealing forts, moving home
-  craft:    { icon: '🪵', label: 'Craft'     },   // Home's Craft page (HOME_RECIPES)
-  wizard:   { icon: '🔮', label: 'Wizard'    },   // spends memories on gifts
-  memory:   { icon: '🌟', label: 'Memories'  },   // the memories chip's explainer
-  slots:    { icon: '🎰', label: 'Slots'     },   // a fort's slot machine (presentFortSlots)
-  farm:     { icon: '🌾', label: 'Farm'      },   // scarecrows, feeding fauna
-  energy:   { icon: '⚡', label: 'Energy'    },   // the energy explainer
-  rest:     { icon: '😵', label: 'Exhausted' },   // passing out underground
-  use:      { icon: '🎒', label: 'Use'       },   // confirming a consumable from the bag
-  fire:     { icon: '🔥', label: 'Campfire'  },   // burning a held item (presentBurnConfirm)
-  note:     { icon: '📜', label: 'Note'      },   // generic message dialog
+  forge:    { icon: '🔨', label: 'Smithy', art: 'kind_forge' },   // blacksmith: forging + smelting
+  relics:   { icon: '💍', label: 'Relics', art: 'kind_relics' },   // relic + armor offers
+  delivery: { icon: '📦', label: 'Delivery', art: 'kind_delivery' },   // household orders
+  build:    { icon: '🛠', label: 'Build', art: 'kind_build' },   // restoring wrecks, unsealing forts, moving home
+  craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Home's Craft page (HOME_RECIPES)
+  wizard:   { icon: '🔮', label: 'Wizard', art: 'kind_wizard' },   // spends memories on gifts
+  memory:   { icon: '🌟', label: 'Memories', art: 'kind_memory' },   // the memories chip's explainer
+  slots:    { icon: '🎰', label: 'Slots', art: 'kind_slots' },   // a fort's slot machine (presentFortSlots)
+  farm:     { icon: '🌾', label: 'Farm', art: 'kind_farm' },   // scarecrows, feeding fauna
+  energy:   { icon: '⚡', label: 'Energy', art: 'kind_energy' },   // the energy explainer
+  rest:     { icon: '😵', label: 'Exhausted', art: 'kind_rest' },   // passing out underground
+  use:      { icon: '🎒', label: 'Use', art: 'kind_use' },   // confirming a consumable from the bag
+  fire:     { icon: '🔥', label: 'Campfire', art: 'kind_fire' },   // burning a held item (presentBurnConfirm)
+  note:     { icon: '📜', label: 'Note', art: 'kind_note' },   // generic message dialog
+  // A story splash (_storySplashOnce, a badge, a book): always carries its own
+  // painting, so the row has no default one.
+  story:    { icon: '📜', label: 'Story' },
 };
 
 // Inventory category tabs (the top bar of the two-bar bottom HUD). The order
@@ -13862,31 +13871,6 @@ class MapScene extends Phaser.Scene {
     return n;
   }
 
-  // ── DIALOG BANNER ART ──────────────────────────────────────────────────
-  // Story dialogs carry a pixel-art banner (generated with gpt-image-1.5,
-  // palette-matched to the sprite sheets: dark plum #1c0a18 outlines,
-  // terracotta/sand fills, gold light). ONE seating for every dialog that
-  // shows one — full-width, nearest-neighbour, a hairline border in the
-  // dialog's own accent so the banner belongs to the box it sits in, seated
-  // under the kind header and above the copy. `art` is the file stem under
-  // assets/art/. The pieces show SURVIVORS where the story names them (the
-  // trail intro and the prize ceremony — the two moments the copy speaks in
-  // the survivors' voice) and stay scenic for the rest.
-  dialogArtHTML(art, accent) {
-    if (!art) return '';
-    // Capped and cropped (object-fit: cover) rather than full aspect-ratio
-    // height — at 100% width alone, a 512×341 banner ran the trail-pick
-    // ceremony (banner + name + sub + a row of reward-choice cards) taller
-    // than the viewport on a short screen and forced it to scroll, which no
-    // story dialog wants. The crop keeps the centred subject; it's a banner
-    // strip, not the whole piece.
-    return `<img src="assets/art/${art}.png" alt="" ` +
-      `style="display:block;width:100%;max-height:130px;object-fit:cover;` +
-      `image-rendering:pixelated;` +
-      `border-radius:8px;border:1px solid ${accent || UI_CONTROL_DIM}59;` +
-      `margin:0 0 10px">`;
-  }
-
   // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.
   //   onClose — if provided, backdrop click (tap on wrap outside box) removes
   //             the modal and calls onClose(). Pass () => {} for no-op backdrop.
@@ -13899,8 +13883,11 @@ class MapScene extends Phaser.Scene {
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
     kind, kindLabel, kindIcon, story = false, art } = {}) {
     document.getElementById(id)?.remove();
+    // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog by definition — its frame is cut to
     // the grown box (ART_FRAME_ASPECT).
+    const kRow = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
+    art = art || kRow?.art;
     if (art) story = true;
     const wrap = document.createElement('div');
     wrap.id = id;
@@ -13939,21 +13926,26 @@ class MapScene extends Phaser.Scene {
       `overflow-y:auto;overscroll-behavior:contain;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
-    if (art) {
-      // The painting fills the box; the scrim darkens the quiet zone from
-      // ART_DETAIL_FRAC down, so the content region always sits on near-solid
-      // ground. The box itself stops scrolling — the body does (see mount()).
-      const top = Math.round(ART_DETAIL_FRAC * 100);
+    // The painting fills the box; the scrim darkens everything below the
+    // art's line, so the content region always sits on near-solid ground.
+    // The box itself stops scrolling — the body does (see mount()). `band`
+    // lifts the painting so only its subject line shows (THE BAND).
+    const paintScene = (band) => {
+      const line = Math.round((band ? ART_BAND_FRAC : ART_DETAIL_FRAC) * 100);
       box.style.backgroundImage =
-        `linear-gradient(to bottom, rgba(26,22,18,0) ${top - 8}%, rgba(26,22,18,.82) ${top + 10}%, #1a1612 ${top + 30}%),` +
+        `linear-gradient(to bottom, rgba(26,22,18,0) ${line - 8}%, rgba(26,22,18,.82) ${line + 6}%, #1a1612 ${line + 22}%),` +
         `url(assets/art/${art}.png)`;
       box.style.backgroundSize = '100% 100%, cover';
-      box.style.backgroundPosition = 'center, center top';
+      box.style.backgroundPosition = band
+        ? `center, center ${-Math.round(ART_BAND_FROM * vSize / ART_FRAME_ASPECT)}px`
+        : 'center, center top';
       box.style.backgroundRepeat = 'no-repeat';
       box.style.imageRendering = 'pixelated';
       box.style.overflow = 'hidden';
       box.classList.add('modal-scene');
-    }
+      box.classList.toggle('modal-scene-band', !!band);
+    };
+    if (art) paintScene(false);
     if (onClose !== undefined) {
       wrap.addEventListener('click', (e) => { if (e.target === wrap) { wrap.remove(); onClose?.(); } });
     }
@@ -13973,15 +13965,24 @@ class MapScene extends Phaser.Scene {
     let kindNode = null;
     if (k && art) {
       // With a painting, the painting is the hero: the category shrinks to a
-      // label chip on its top-left corner — no glyph, no rule under it.
+      // label chip on its top-left corner — no emoji, no rule under it. A
+      // SPRITE hero (kindIcon — the thing on the map this dialog is about)
+      // still rides in the chip: that is the object, not a category glyph.
       kindNode = document.createElement('div');
       kindNode.className = 'modal-kind';
       kindNode.style.cssText =
         'position:absolute;top:10px;left:10px;z-index:1;padding:3px 8px;border-radius:4px;' +
+        'display:flex;align-items:center;gap:6px;' +
         `background:rgba(20,16,12,.72);border:1px solid ${borderColor}8c;` +
         'font:700 10px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;' +
         `color:${borderColor};`;
-      kindNode.textContent = kindLabel ?? k.label;
+      if (kindIcon) {
+        const ico = document.createElement('span');
+        ico.style.cssText = 'display:flex;align-items:center;line-height:0';
+        ico.innerHTML = kindIcon;
+        kindNode.appendChild(ico);
+      }
+      kindNode.appendChild(document.createTextNode(kindLabel ?? k.label));
     } else if (k) {
       kindNode = document.createElement('div');
       kindNode.className = 'modal-kind';
@@ -14048,6 +14049,12 @@ class MapScene extends Phaser.Scene {
       if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
       wrap.appendChild(box);
       (document.getElementById('game') || document.body).appendChild(wrap);
+      // TEXT-HEAVY → THE BAND. Measured now it is laid out: copy that
+      // overflows the quiet zone gets the band's taller content region.
+      if (art && body.scrollHeight > body.clientHeight + 1) {
+        paintScene(true);
+        body.style.maxHeight = `${Math.round((1 - ART_BAND_FRAC) * 100)}%`;
+      }
     };
     const mkBtn = (label, primary = true, disabled = false) => {
       const b = document.createElement('button');
@@ -14065,17 +14072,15 @@ class MapScene extends Phaser.Scene {
   }
 
   // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
-  // `art` (optional) — a banner stem for dialogArtHTML, shown above the title
-  // on the story dialogs (the trail intro, a book read).
+  // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
+  // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = 'note' }) {
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = art ? 'story' : 'note' }) {
     document.getElementById('offer-modal')?.remove();
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: () => {}, kind: kind, story: !!art,
-        art: SCENE_ART.has(art) ? art : undefined });
+      { zIndex: 60, onClose: () => {}, kind: kind, art });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
-      (SCENE_ART.has(art) ? '' : this.dialogArtHTML(art)) +
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
       `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
@@ -18439,7 +18444,7 @@ class MapScene extends Phaser.Scene {
   //                 to look at the next bar.
   showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: () => {}, kind, kindLabel, kindIcon, story: !!art });
+      { onClose: () => {}, kind, kindLabel, kindIcon, art });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -18467,14 +18472,6 @@ class MapScene extends Phaser.Scene {
     // present) can live-update the get/cost lines without re-rendering the
     // whole modal — tap − / + and the headline price + cost-line stack count
     // refresh in place.
-    // The optional story banner (dialogArtHTML) sits above the title — the
-    // one node innerHTML callers can't wipe, because this modal builds its
-    // chrome from appends.
-    if (art) {
-      const artDiv = document.createElement('div');
-      artDiv.innerHTML = this.dialogArtHTML(art);
-      box.appendChild(artDiv);
-    }
     const titleDiv = document.createElement('div');
     titleDiv.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:6px';
     titleDiv.textContent = title;
@@ -18685,7 +18682,7 @@ class MapScene extends Phaser.Scene {
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
     onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
-      zIndex: 55, borderColor: accent, wrapBg: '#000c', story: !!art,
+      zIndex: 55, borderColor: accent, wrapBg: '#000c', art,
       kind, kindLabel: header, kindIcon,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
       boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
@@ -18721,7 +18718,6 @@ class MapScene extends Phaser.Scene {
       : '';
     const hasActions = Array.isArray(actions) && actions.length > 0;
     box.innerHTML =
-      this.dialogArtHTML(art, accent) +
       // The icon row is optional and collapses when a card passes no
       // iconHTML: the story cards let the banner carry the picture, and a
       // ceremony with an art banner plus card buttons (the trail pick) has

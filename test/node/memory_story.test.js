@@ -135,8 +135,8 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   s.save.wizardBuys = 1;
   s.showMemoriesHelp();
   assert.truthy(/Wizard Tower/.test(s.modals[2].body), 'a save that has already bought from him knows him too');
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = 'note' \}\)/.test(app),
-    'showMessageModal forwards a kind, defaulting to note');
+  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note' \}\)/.test(app),
+    'showMessageModal forwards a kind, defaulting to note (a story when it has a painting)');
 });
 
 test('memory chip: built beside #energy, repainted by updateHUD, dimmed under a modal, tap swallowed', () => {
