@@ -35,7 +35,8 @@ test('home ladder: whatever was on its cell is gone, and the up-stair is there',
     wildplants: [{ crop: 'mushroom', ...at(5, 5) }, { crop: 'mushroom', id: 'keep', ...at(4, 4) }],
   };
   const HomeArea = { worldM: at(5, 5) };
-  const WorldGen = { makeObject: (kind, x, y, id, extra) => ({ kind, x, y, id, ...extra }) };
+  const WorldGen = { makeObject: (kind, x, y, id, extra) => ({ kind, x, y, id, ...extra }),
+    cellId: (p, tx, ty, ix, iy) => `${p}_${tx}_${ty}_${ix}_${iy}` };
   new Function('entry', 'tx', 'ty', 'HomeArea', 'WorldGen', homeBody)
     .call(self(WorldGen), entry, 0, 0, HomeArea, WorldGen);
   const onCell = entry.objects.filter((o) => Math.floor(o.x) === 5 && Math.floor(o.y) === 5);
@@ -52,7 +53,8 @@ test('home ladder: the stair is the PLAYER\'s, flagged _synthetic', () => {
   // SAME generated world"), and no level below mirrors it.
   const N = 8;
   const entry = { grid: new Array(N * N).fill(25), cellsPerEdge: N, tileEdgeM: N, depth: 1, objects: [] };
-  const WorldGen = { makeObject: (kind, x, y, id, extra) => ({ kind, x, y, id, ...extra }) };
+  const WorldGen = { makeObject: (kind, x, y, id, extra) => ({ kind, x, y, id, ...extra }),
+    cellId: (p, tx, ty, ix, iy) => `${p}_${tx}_${ty}_${ix}_${iy}` };
   new Function('entry', 'tx', 'ty', 'HomeArea', 'WorldGen', homeBody)
     .call(self(WorldGen), entry, 0, 0, { worldM: { x: 2.5, y: 3.5 } }, WorldGen);
   const st = entry.objects.find((o) => o.kind === 'staircase');
@@ -65,7 +67,8 @@ test('starter ladder: every cave level gets its own way back up under it', () =>
   // end is laid here — at the ladder's cell, flagged the same way.
   const N = 8;
   const mk = () => ({ grid: new Array(N * N).fill(25), cellsPerEdge: N, tileEdgeM: N, objects: [] });
-  const WorldGen = { makeObject: (kind, x, y, id, extra) => ({ kind, x, y, id, ...extra }) };
+  const WorldGen = { makeObject: (kind, x, y, id, extra) => ({ kind, x, y, id, ...extra }),
+    cellId: (p, tx, ty, ix, iy) => `${p}_${tx}_${ty}_${ix}_${iy}` };
   const save = { starterHome: { placed: [
     { k: 'tree', x: 1.5, y: 1.5, id: 't' },
     { k: 'ladder', x: 6.5, y: 4.5, id: 'l' },

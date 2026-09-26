@@ -106,6 +106,7 @@ function trapperScene(creature, over = {}) {
     _nearAny: () => false,
     placedRockSet: null, resolveDefeat: () => {},
     _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
+    _losePlayerEnergy(d) { const b = this.save.energy ?? 0; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
     lays: 0,
     _trapperLay() { this.lays++; },

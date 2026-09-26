@@ -89,14 +89,51 @@ test('copy: "bag full" is one line raised from both call sites', () => {
 // budget, and it covers the WHOLE rendered line — a name or a number
 // interpolated into it counts. Anything that needs more room is a modal.
 
+// Every string LITERAL that sits at the top level of a flash(...) /
+// flashLoot(...) call's FIRST argument — i.e. the map message itself, never a
+// literal buried inside a nested call in that argument (e.g. the 'x' in
+// `cropName('x')`, which is a helper's own concern, not text on the map).
+// Two shapes the earlier sweep (a plain `flash(['`]...` match) missed:
+//   (a) a double-quoted literal: flash("...")
+//   (b) a literal that isn't the first thing after the paren, because the
+//       first argument is a ternary: flash(cond ? `...` : '...', sx, sy) —
+//       BOTH branches are map text and both get checked.
+// Depth tracking (not a lone regex) is what lets this reach into a ternary
+// without also reaching into a nested call's own string arguments.
+function firstArgLiterals(src, callName) {
+  const out = [];
+  const callRe = new RegExp(`\\b${callName}\\(`, 'g');
+  let m;
+  while ((m = callRe.exec(src))) {
+    let i = m.index + m[0].length;
+    let depth = 0; // nested (), [], {} inside this first argument
+    while (i < src.length) {
+      const c = src[i];
+      if (depth === 0 && (c === "'" || c === '"' || c === '`')) {
+        const quote = c;
+        let j = i + 1;
+        while (j < src.length && src[j] !== quote) j += (src[j] === '\\') ? 2 : 1;
+        out.push(src.slice(i + 1, j));
+        i = j + 1;
+        continue;
+      }
+      if (c === '(' || c === '[' || c === '{') depth++;
+      else if (c === ')' || c === ']' || c === '}') {
+        if (c === ')' && depth === 0) break; // end of the call
+        depth--;
+      } else if (c === ',' && depth === 0) break; // end of the first argument
+      i++;
+    }
+  }
+  return out;
+}
 // Every static flash literal in the three files that own player-facing taps.
 function mapMessages() {
   const out = [];
   const files = { 'app.js': APP_JS_SRC, 'interact.js': INTERACT_SRC, 'interactables.js': INTERACTABLES_SRC };
   for (const [name, src] of Object.entries(files)) {
-    for (const m of src.matchAll(/flash(?:Loot)?\(\s*(['`])((?:[^\\]|\\.)*?)\1/g)) {
-      out.push({ file: name, raw: m[2] });
-    }
+    for (const raw of firstArgLiterals(src, 'flash')) out.push({ file: name, raw });
+    for (const raw of firstArgLiterals(src, 'flashLoot')) out.push({ file: name, raw });
   }
   return out;
 }
@@ -124,7 +161,8 @@ const shownWidth = (raw) => {
   const flat = raw
     .replace(/\$\{([^}]*)\}/g, (_, b) => 'x'.repeat(interpWidth(b)))
     .replace(/\\u[0-9a-fA-F]{4}/g, 'x')
-    .replace(/\\'/g, "'");
+    .replace(/\\'/g, "'")
+    .replace(/\\"/g, '"');
   return Math.max(...flat.split(/\\n/).map((line) => [...line].length));
 };
 
@@ -313,7 +351,7 @@ test('copy: a short smelt names the ingredient and the shortfall', () => {
   assert.falsy(/flash\('not enough to smelt'/.test(APP_JS_SRC), 'the bare fragment is gone');
   assert.truthy(/const missing = recipe\.find\(r => heldCount\(r\.id\) < r\.qty \* q\);/.test(APP_JS_SRC),
     'it finds which ingredient is short');
-  assert.truthy(/Need \$\{short\} more \$\{name\} to smelt that\./.test(APP_JS_SRC),
+  assert.truthy(/Need \$\{short\} more \$\{name\}`/.test(APP_JS_SRC),
     'and says how many more of it are wanted');
 });
 

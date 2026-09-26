@@ -85,6 +85,7 @@ const ccScene = (over = {}) => Object.assign({
   _maxE: 100,
   getMaxEnergy() { return this._maxE; },
   buildInventoryDOM() {},
+  _popEnergy() {},
   flashLoot() { this._flashes = (this._flashes || 0) + 1; },
 }, CastleMethods, over);
 

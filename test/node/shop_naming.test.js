@@ -62,7 +62,7 @@ test('shop naming: the trader is named for its goods, never its address', () => 
   // app.js: ONE give-pick feeds both the sign and the barter modal.
   const pickCalls = app.match(/this\.traderGivePick\(house\)/g) || [];
   assert.eq(pickCalls.length, 2, 'traderGoodsName and peekOrBuildTraderOffer both read traderGivePick');
-  assert.truthy(/traderGoodsName\(house\) \{[\s\S]{0,400}?ITEM_BY_ID\[pick\.giveId\]\?\.name/.test(app),
+  assert.truthy(/traderGoodsName\(house\) \{[\s\S]{0,400}?itemName\(pick\.giveId\)/.test(app),
     'the sign names the offered item by its catalogue name');
   assert.falsy(/peekOrBuildTraderOffer\(house\) \{[\s\S]{0,300}?BUY_LIST\[Math\.floor/.test(app),
     'the modal no longer rolls its own give item beside the sign\'s');

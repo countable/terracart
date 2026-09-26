@@ -128,6 +128,7 @@ function fireScene(creature, over = {}) {
     _nearAny: (what, x, y, r) => what === 'fires' && Math.hypot(x - FIRE.x, y - FIRE.y) <= r * CELL,
     placedRockSet: null, resolveDefeat: () => {},
     _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
+    _losePlayerEnergy(d) { const b = this.save.energy ?? 0; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
   }, over);
   scene.creatures = [creature];

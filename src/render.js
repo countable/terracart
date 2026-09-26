@@ -1946,8 +1946,7 @@ Render.drawCells = function drawCells(scene) {
     if (!tr || found.has(tr.id)) return;
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
-    const cx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-    const cy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+    const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
     const s = 5.1;   // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));

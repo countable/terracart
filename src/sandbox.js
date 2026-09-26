@@ -984,8 +984,7 @@
         for (const d of data) {
           const dx = d.wx - a.x, dy = d.wy - a.y;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) { d.t.setVisible(false); continue; }
-          const sx = scene.viewCenterX + (dx / scene.cellM) * CELL_PX;
-          const sy = scene.viewCenterY + (dy / scene.cellM) * CELL_PX;
+          const { x: sx, y: sy } = deltaMToScreen(scene, dx, dy);
           d.t.setVisible(true).setPosition(Math.round(sx), Math.round(sy));
         }
       };

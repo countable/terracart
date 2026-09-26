@@ -199,6 +199,9 @@
   function spawnSurface(grid, roadMask, w, h, tx, ty, tileEdgeM, spawnOpts, countMul) {
     if (!grid || !roadMask || !root.WorldGen) return [];
     const WG = root.WorldGen;
+    // Deliberately NOT WorldGen.tileStreamSeed / HASH_MUL_X/Y: traps seed their
+    // OWN stream, and "unifying" these constants would move every trap in every
+    // existing world. Leave them.
     const rng = WG.makeRng(((tx * 0x7f4a7c15) ^ (ty * 0x2545f491) ^ 0x51ed270b) >>> 0);
     const mul = countMul > 0 ? countMul : 1;
     const n = Math.round((ROAD_TRAP_MIN + Math.floor(rng() * ROAD_TRAP_SPAN)) * mul);
@@ -220,7 +223,7 @@
         if (!WG.isSpawnCell(grid, w, h, lix, liy, spawnOpts)) continue;
         taken.add(idx);
         traps.push(makeTrap(tx, ty, tileEdgeM, w, lix, liy,
-          `trap_${tx}_${ty}_${lix}_${liy}`));
+          WG.cellId('trap', tx, ty, lix, liy)));
         break;
       }
     }
@@ -240,6 +243,7 @@
     if (!grid || !root.WorldGen) return [];
     const WG = root.WorldGen;
     const FLOOR = WG.T.CAVE_FLOOR;
+    // Own stream on purpose — see spawnSurface; never "unify" with tileStreamSeed.
     const rng = WG.makeRng(
       ((tx * 0x7f4a7c15) ^ (ty * 0x2545f491) ^ (depth * 0x9e3779b1) ^ 0x1b873593) >>> 0);
     const anch = (anchors && anchors.length)
@@ -261,7 +265,7 @@
         if (occupiedIdx && occupiedIdx.has(idx)) continue;
         taken.add(idx);
         traps.push(makeTrap(tx, ty, tileEdgeM, N, lix, liy,
-          `trap_d${depth}_${tx}_${ty}_${lix}_${liy}`));
+          WG.cellId(`trap_d${depth}`, tx, ty, lix, liy)));
         break;
       }
     }
@@ -356,7 +360,7 @@
   function layTrap(entry, tx, ty, tileEdgeM, lix, liy, byId, now, depth) {
     const N = entry.cellsPerEdge;
     const t = makeTrap(tx, ty, tileEdgeM, N, lix, liy,
-      `laid_d${depth || 0}_${tx}_${ty}_${lix}_${liy}`);
+      root.WorldGen.cellId(`laid_d${depth || 0}`, tx, ty, lix, liy));
     t._laid = true;
     t._by = byId;
     t._expiresAt = (now == null ? Date.now() : now) + LAID_LIFE_MS;
@@ -432,7 +436,7 @@
   //   damage — one TIER-2 BOW SHOT (Combat.shotDamage at the item's own
   //            tier): the trap is a tier-2 weapon that fires once.
   function magicTrapId(depth, tx, ty, lix, liy) {
-    return `mtrap_d${depth || 0}_${tx}_${ty}_${lix}_${liy}`;
+    return root.WorldGen.cellId(`mtrap_d${depth || 0}`, tx, ty, lix, liy);
   }
 
   // ── Lookup ───────────────────────────────────────────────────────────────

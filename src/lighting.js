@@ -21,7 +21,7 @@
 //   Lighting.collectFires(scene, ax, ay, halfM) — add the placed campfires
 //   Lighting.collectMagicTraps(scene, ax, ay, halfM) — add the set magic traps
 //   Lighting.collectLamps(scene, ax, ay, halfM) — add the restored streets' lamps
-//   Lighting.collectPlayer(scene, ax, ay, halfM) — add the player's torch, if lit
+//   Lighting.collectPlayer(scene, ax, ay, halfM, now?) — add the player's torch, if lit
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
 //   Lighting.lowEnergyFrac(scene) — 0..1, how far into the low-energy warning
@@ -467,10 +467,9 @@
     return (ch(16) << 16) | (ch(8) << 8) | ch(0);
   }
   // Rec. 601 luminance of a colour, 0..1 — "how bright is this, to an eye".
-  function lum(colour) {
-    return (0.299 * ((colour >> 16) & 255) + 0.587 * ((colour >> 8) & 255)
-      + 0.114 * (colour & 255)) / 255;
-  }
+  // (the util.js copy — `lum` stays the local/exported name, both here and on
+  // window.Lighting, which lighting.test.js reads directly).
+  const lum = luminance;
   // The same colour, put AT a luminance. Brightening mixes toward white (which
   // desaturates, and cannot overflow a channel); darkening scales, which keeps
   // the hue exactly — so a target below the colour's own luminance reproduces
@@ -817,7 +816,7 @@
   // pushes nothing: the ramp IS that light, and a cookie on top of it would
   // brighten the surface picture the profile derivation pins.
   const PLAYER_OBJ = { kind: 'player', id: 'player' };
-  function collectPlayer(scene, ax, ay, halfM) {
+  function collectPlayer(scene, ax, ay, halfM, now) {
     const kind = sourceKind(scene, PLAYER_OBJ);
     if (kind === 'player') return kind;
     const dx = scene.startWorldM.x + scene.playerM.x - ax;
@@ -825,8 +824,11 @@
     if (!inRange(scene, dx, dy, kind, halfM)) return kind;
     // The entry's own alpha (the blast's lane): the torch dimmed by the sun.
     // The row flickers, so it repaints on the light clock anyway, and the
-    // alpha is in frameKey — no new input to key.
-    const a = torchStrength(scene.depth, daylight(scene, lightClock(Date.now())));
+    // alpha is in frameKey — no new input to key. draw() hands in its own
+    // `now`, so the torch reads the SAME clock as the rest of the frame; a
+    // direct call with none reads the clock itself.
+    const t = now ?? lightClock(Date.now());
+    const a = torchStrength(scene.depth, daylight(scene, t));
     scene._lights.push(a < 1 ? { kind, dx, dy, a, id: PLAYER_OBJ.id } : { kind, dx, dy, id: PLAYER_OBJ.id });
     return kind;
   }
@@ -883,7 +885,7 @@
   }
 
   function rgba(colour, a) {
-    return `rgba(${(colour >> 16) & 255},${(colour >> 8) & 255},${colour & 255},${clamp01(a).toFixed(4)})`;
+    return rgbaOf(colour, clamp01(a).toFixed(4));
   }
   function hex(colour) {
     return '#' + (colour & 0xffffff).toString(16).padStart(6, '0');
@@ -1079,11 +1081,11 @@
     const tex = scene.lightTex;
     if (!tex || typeof document === 'undefined') return false;
     if (!scene._lights) scene._lights = [];
+    const now = lightClock(Date.now());
     collectMagicTraps(scene, ax, ay, halfM);
     collectFires(scene, ax, ay, halfM);
     collectLamps(scene, ax, ay, halfM);
-    collectPlayer(scene, ax, ay, halfM);
-    const now = lightClock(Date.now());
+    collectPlayer(scene, ax, ay, halfM, now);
     // The live blasts, converted against THIS frame's anchor (they are stored
     // in world metres) and pruned as they burn out.
     collectBlasts(scene, ax, ay, halfM, now);
@@ -1218,7 +1220,7 @@
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires, objectLightPadCells,
     collectPlayer, collectLamps, collectMagicTraps, lampRiseCells,
-    blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, BLAST_MAX, FLASH_SCALE_FROM,
+    blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
     LIGHT_TICK_MS, lightClock, animates, frameKey,
   };
