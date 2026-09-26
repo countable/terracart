@@ -113,6 +113,19 @@ const FILES = [
   // levels are pure; only draw() touches Phaser, and no test calls it.
   'lighting.js',
   'render.js',
+  // The modal shell: its methods are DOM work on a mixin class nobody runs
+  // here, but its top level (MODAL_KINDS, the ART_* frame consts, the class
+  // body, installSceneMixin) must load with no app.js in scope — it is
+  // loaded before app.js in the page too.
+  'modal_shell.js',
+  // The scene's geography (GPS / sensors / lifecycle, the 3x3 tile loading
+  // and its retry): again a mixin class nobody runs here plus four consts,
+  // loaded with no app.js in scope, as in the page.
+  'scene_geo.js',
+  // The scene's creatures (per-tile spawning, the wanderCreatures sim and the
+  // crow tick, catching): a third mixin class nobody runs here plus four
+  // consts (one reads Combat, loaded above), loaded with no app.js in scope.
+  'scene_creatures.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
@@ -238,9 +251,10 @@ const starterWrapper = (name) => {
 
 // The walk-home timings live in app.js too. Lift them the same way, so the
 // tests below assert on the REAL numbers rather than a copy that would quietly
-// drift the moment someone retunes the feel.
+// drift the moment someone retunes the feel. (BEACH_X_PER_CELLS and
+// FIRE_WARD_MAX_DEPTH moved to scene_creatures.js with their one reader.)
 {
-  const src = readSrc('app.js');
+  const src = readSrc('app.js') + '\n' + readSrc('scene_creatures.js');
   for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS',
                       'WALK_HOME_SPEED_MUL',
                       // The walk-home behaviour tests below drive the REAL
@@ -613,9 +627,10 @@ Object.assign(ctx, {
     console.error('Could not find PROVISIONAL_ORIGIN_KEYS in src/app.js — update run.js');
     process.exit(2);
   }
-  // The capture path's own clearing line, so the test can pin that it clears
-  // the SAME list _worldPlaced skips rather than a hand-written subset.
-  const clear = src.match(/for \(const k of PROVISIONAL_ORIGIN_KEYS\) this\.save\[k\] = null;/);
+  // The capture path's own clearing line (startGps, scene_geo.js), so the
+  // test can pin that it clears the SAME list _worldPlaced skips rather than
+  // a hand-written subset.
+  const clear = readSrc('scene_geo.js').match(/for \(const k of PROVISIONAL_ORIGIN_KEYS\) this\.save\[k\] = null;/);
   if (!clear) {
     console.error('The home-capture path no longer clears PROVISIONAL_ORIGIN_KEYS — update run.js');
     process.exit(2);
@@ -678,14 +693,15 @@ Object.assign(ctx, {
 // The tile-block retry backoff (_scheduleTileRetry). Nothing re-fetched a 3x3
 // block that came back short, so one bad moment at boot left a brand-new
 // player on an empty map for good — see tile_retry.test.js. Pure timer logic,
-// but it lives on the Phaser scene class, so lift it as text with the two
-// constants it reads and let the test drive the real thing.
+// but it lives on the Phaser scene class (the SceneGeo mixin, scene_geo.js),
+// so lift it as text with the two constants it reads and let the test drive
+// the real thing.
 {
-  const src = readSrc('app.js');
+  const src = readSrc('scene_geo.js');
   const head = '  _scheduleTileRetry(anyFailed) {\n';
   const at = src.indexOf(head);
   if (at < 0) {
-    console.error('Could not find _scheduleTileRetry in src/app.js — update run.js');
+    console.error('Could not find _scheduleTileRetry in src/scene_geo.js — update run.js');
     process.exit(2);
   }
   const bodyStart = at + head.length;
@@ -700,11 +716,11 @@ Object.assign(ctx, {
     console.error('ensureTilesAround no longer arms _scheduleTileRetry — update run.js');
     process.exit(2);
   }
-  let decls = '';
+  // The two consts are already lexical globals here (scene_geo.js is in the
+  // bundle above), so they are checked, not re-declared.
   for (const n of ['TILE_RETRY_BASE_MS', 'TILE_RETRY_MAX_MS']) {
     const m = src.match(new RegExp(`const ${n} = (\\d+);`));
-    if (!m) { console.error(`Could not find ${n} in src/app.js — update run.js`); process.exit(2); }
-    decls += `const ${n} = ${m[1]};\n`;
+    if (!m) { console.error(`Could not find ${n} in src/scene_geo.js — update run.js`); process.exit(2); }
     ctx[n] = parseInt(m[1], 10);
   }
   // ...and the classifier that decides WHICH of the three a tile failure was.
@@ -713,7 +729,7 @@ Object.assign(ctx, {
   const kindHead = '  _tileFailureKind(err, entry) {\n';
   const kindAt = src.indexOf(kindHead);
   if (kindAt < 0) {
-    console.error('Could not find _tileFailureKind in src/app.js — update run.js');
+    console.error('Could not find _tileFailureKind in src/scene_geo.js — update run.js');
     process.exit(2);
   }
   const kindEnd = src.indexOf('\n  }\n', kindAt + kindHead.length);
@@ -732,8 +748,7 @@ Object.assign(ctx, {
     }
   }
   vm.runInContext(
-    decls
-    + 'globalThis.TILE_RETRY_BASE_MS = TILE_RETRY_BASE_MS;\n'
+    'globalThis.TILE_RETRY_BASE_MS = TILE_RETRY_BASE_MS;\n'
     + 'globalThis.TILE_RETRY_MAX_MS = TILE_RETRY_MAX_MS;\n'
     + 'globalThis.scheduleTileRetry = function (anyFailed) {\n'
     + src.slice(bodyStart, end) + '\n};\n'
@@ -793,7 +808,8 @@ Object.assign(ctx, {
 // through (the band constants are injected once above), so
 // starter_pond.test.js drives the SHIPPING placer on a scene stub.
 {
-  const src = readSrc('app.js');
+  // spawnInTile is the SceneCreatures mixin's (scene_creatures.js).
+  const src = readSrc('scene_creatures.js');
   // The spawn pass has to actually CALL the placer, or the pond exists only
   // in the tests — the exact shape of the bug spawn_rebuild.test.js pins.
   if (!/this\._carveStarterPond\(entry, tx, ty\);/.test(src)) {
@@ -853,16 +869,18 @@ Object.assign(ctx, {
 // pest_amnesty.test.js pins it against the source text — hand it the tryPlace
 // body here.
 {
-  const src = readSrc('app.js');
+  // Both lines are the SceneCreatures mixin's (spawnInTile's tryPlace and
+  // wanderCreatures' pump), in scene_creatures.js.
+  const src = readSrc('scene_creatures.js');
   const guard = src.match(/if \(\(kindStr === [^\n]+pestFree[^\n]+(?:continue|return);/);
   if (!guard) {
-    console.error('Could not find the pest-free spawner guard in src/app.js — update run.js');
+    console.error('Could not find the pest-free spawner guard in src/scene_creatures.js — update run.js');
     process.exit(2);
   }
   // The crow pump's gate line, for the same reason.
   const pump = src.match(/if \(hasCrowCrop && [^\n]+\{/);
   if (!pump) {
-    console.error('Could not find the crow-pump gate in src/app.js — update run.js');
+    console.error('Could not find the crow-pump gate in src/scene_creatures.js — update run.js');
     process.exit(2);
   }
   vm.runInContext(
@@ -897,15 +915,20 @@ Object.assign(ctx, {
     }
     decls += `globalThis.${name} = ${m[1]};\n`;
   }
-  const cull = src.match(/const RANGE_M = [^\n]+\n\s*const RANGE_SQ = [^\n]+/);
-  const feet = src.match(/const px = this\.startWorldM[^\n]+\n\s*const py = [^\n]+/);
-  // There are two `const SPAWN_R` in app.js (the cave entrance scatter is the
-  // other), so take the one in the pump — the last before the pest-crow id.
-  const pumpAt = src.indexOf('`pest_crow_${');
-  const spawnAt = pumpAt < 0 ? -1 : src.lastIndexOf('const SPAWN_R = ', pumpAt);
-  const spawn = spawnAt < 0 ? null : [src.slice(spawnAt, src.indexOf('\n', spawnAt))];
+  // The three LINES live in wanderCreatures, which moved to
+  // scene_creatures.js (the SceneCreatures mixin) — read them there, so the
+  // feet line is the sim's own and not the first look-alike in app.js.
+  const sim = readSrc('scene_creatures.js');
+  const cull = sim.match(/const RANGE_M = [^\n]+\n\s*const RANGE_SQ = [^\n]+/);
+  const feet = sim.match(/const px = this\.startWorldM[^\n]+\n\s*const py = [^\n]+/);
+  // There are two `const SPAWN_R` in scene_creatures.js (the cave entrance
+  // scatter is the other), so take the one in the pump — the last before the
+  // pest-crow id.
+  const pumpAt = sim.indexOf('`pest_crow_${');
+  const spawnAt = pumpAt < 0 ? -1 : sim.lastIndexOf('const SPAWN_R = ', pumpAt);
+  const spawn = spawnAt < 0 ? null : [sim.slice(spawnAt, sim.indexOf('\n', spawnAt))];
   if (!cull || !feet || !spawn) {
-    console.error('Could not find the creature sim-range lines in src/app.js — update run.js');
+    console.error('Could not find the creature sim-range lines in src/scene_creatures.js — update run.js');
     process.exit(2);
   }
   vm.runInContext(
@@ -982,12 +1005,16 @@ Object.assign(ctx, {
     }
     return src.slice(from, end);
   };
-  // The two lines in _ensureTilesAroundPass that decide whether to spawn.
-  ctx.SPAWN_GATE_SRC = slice(appSrc,
+  // The two lines in _ensureTilesAroundPass (scene_geo.js) that decide whether to spawn.
+  ctx.SPAWN_GATE_SRC = slice(readSrc('scene_geo.js'),
     '        // Surface fauna on depth 0; hostile wandering monsters underground.\n',
     '\n        // Re-open any walls', 'the spawn gate');
-  ctx.SPAWN_IN_TILE_SRC      = slice(appSrc, '  spawnInTile(entry, tx, ty) {\n', '\n  _pestFreeZone', 'spawnInTile');
-  ctx.SPAWN_CAVE_SRC         = slice(appSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Dark-outlined', 'spawnCaveCreatures');
+  // The two spawn passes are the SceneCreatures mixin's (scene_creatures.js).
+  // spawnInTile runs through its live-ground cull (_cullOffLiveGround) as it
+  // always did; each slice ends on the method's own closing `  }`.
+  const creaturesSrc = readSrc('scene_creatures.js');
+  ctx.SPAWN_IN_TILE_SRC      = slice(creaturesSrc, '  spawnInTile(entry, tx, ty) {\n', '\n  // Cave fauna: hostile', 'spawnInTile');
+  ctx.SPAWN_CAVE_SRC         = slice(creaturesSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Catch wheel:', 'spawnCaveCreatures');
   ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
   // The trail placer is starter.js's now (scene methods read `scene.`, not
   // `this.`); the slice runs to the reveal, as it did in app.js.
@@ -1015,16 +1042,19 @@ Object.assign(ctx, {
 }
 
 // ── Wild-crow flee (FINDING 1) + fauna spawn / caught-array fixes (FINDING 2,
-// FINDING 3) — all three need slices of app.js it cannot load headlessly.
+// FINDING 3) — all three need slices of scene methods that cannot load
+// headlessly. The methods are the SceneCreatures mixin's (scene_creatures.js);
+// crowEatsCrop, the top-level helper, stays in app.js.
 {
   const src = readSrc('app.js');
+  const creaturesSrc = readSrc('scene_creatures.js');
   const grabBetween = (head, endMark, what) => {
-    const at = src.indexOf(head);
-    if (at < 0) { console.error(`Could not find ${what} in src/app.js — update run.js`); process.exit(2); }
+    const at = creaturesSrc.indexOf(head);
+    if (at < 0) { console.error(`Could not find ${what} in src/scene_creatures.js — update run.js`); process.exit(2); }
     const from = at + head.length;
-    const end = src.indexOf(endMark, from);
-    if (end < 0) { console.error(`Could not find the end of ${what} in src/app.js — update run.js`); process.exit(2); }
-    return src.slice(from, end);
+    const end = creaturesSrc.indexOf(endMark, from);
+    if (end < 0) { console.error(`Could not find the end of ${what} in src/scene_creatures.js — update run.js`); process.exit(2); }
+    return creaturesSrc.slice(from, end);
   };
 
   // crowEatsCrop is a plain top-level helper in app.js that _wildCrowTick
@@ -1075,7 +1105,7 @@ Object.assign(ctx, {
 // difference are all decided in here. It closes over entry / tx / ty / N /
 // rng / _spawnOpts and `this` (tileEdgeM), all cheap to stub.
 {
-  const appSrc = readSrc('app.js');
+  const appSrc = readSrc('scene_creatures.js');   // spawnInTile's home now
   const from = appSrc.indexOf('    // ONE pass over the grid for both bonus streams below');
   const to = appSrc.indexOf('    // Player-planted saplings (save.fruittrees)');
   if (from < 0 || to < 0 || to < from) {
@@ -1088,7 +1118,7 @@ Object.assign(ctx, {
     // tile's own cell size and its generated grid.
     + 'const cellM = this.tileEdgeM / N;\n'
     + 'const genGrid = entry.baseGrid || entry.grid;\n'
-    + appSrc.slice(from, to) + '\n};', ctx, { filename: 'app.js#bonusXMarks' });
+    + appSrc.slice(from, to) + '\n};', ctx, { filename: 'scene_creatures.js#bonusXMarks' });
 }
 
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
@@ -1138,12 +1168,23 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+// The modal shell (makeModalShell and the stock dialogs, MODAL_KINDS, the
+// scene-art frame consts) moved out of app.js; tests that pin it read this.
+ctx.MODAL_SHELL_SRC = readSrc('modal_shell.js');
+// The scene's geography (startGps & the sensors / lifecycle, ensureTilesAround
+// and the tile retry, dumpTileDebug) moved out of app.js too.
+ctx.SCENE_GEO_SRC = readSrc('scene_geo.js');
+// The scene's creatures (spawnInTile / _cullOffLiveGround / spawnCaveCreatures,
+// wanderCreatures and the crow tick, the catch wheel and catchCreature, and the
+// four consts only they read) moved out of app.js too.
+ctx.SCENE_CREATURES_SRC = readSrc('scene_creatures.js');
 // Every module's text, for sweeps across the whole tree (lexical_globals.test.js).
 ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   .filter(f => f.endsWith('.js')).map(f => [f, readSrc(f)]));
 
 // ── wanderCreatures, lifted and RUN ───────────────────────────────────────
-// The creature sim is 680 lines inside app.js, so for years the only thing any
+// The creature sim is 680 lines inside the scene class (app.js then, the
+// SceneCreatures mixin in scene_creatures.js now), so for years the only thing any
 // test could say about it was that a regex still matched — which is how the
 // lair chase was originally shipped: a state machine tested for real, and a
 // movement loop that consumed it tested not at all. Source pins cannot tell
@@ -1155,8 +1196,11 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
 // function the tests call on a stub scene. A reimplementation here would pass
 // while the shipping loop did something else entirely.
 {
-  // The creature-AI consts and helpers moved to creature_ai.js; look in both.
-  const src = readSrc('app.js') + '\n' + readSrc('creature_ai.js');
+  // The method and the consts only it reads are scene_creatures.js's (the
+  // SceneCreatures mixin); the creature-AI consts and helpers are
+  // creature_ai.js's; the rest stay in app.js. Look in all three — the method
+  // is found in scene_creatures.js and nowhere else.
+  const src = readSrc('app.js') + '\n' + readSrc('creature_ai.js') + '\n' + readSrc('scene_creatures.js');
   const num = (name) => {
     const m = src.match(new RegExp(`const ${name} = ([-\\d.]+);`));
     if (!m) { console.error(`Could not lift ${name} for __wander — update run.js`); process.exit(2); }
@@ -1177,7 +1221,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   const start = src.indexOf('  wanderCreatures() {');
   const end = src.indexOf('\n  }\n', start);
   if (start < 0 || end < 0) {
-    console.error('Could not lift wanderCreatures out of src/app.js — update run.js');
+    console.error('Could not lift wanderCreatures out of src/scene_creatures.js — update run.js');
     process.exit(2);
   }
   const method = src.slice(start + 2, end + 4);
@@ -1221,7 +1265,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   // The method text is a class method, so it is wrapped as an object literal
   // and the property taken off it.
   vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN, GHOST_GROUP_MAX, GHOST_NEAR_MAX, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, monsterStrideCells, ghostSunExposure, ghostSpawnDelay };\n})();`,
-    ctx, { filename: 'app.js#wanderCreatures' });
+    ctx, { filename: 'scene_creatures.js#wanderCreatures' });
   if (typeof ctx.__wander !== 'function') {
     console.error('__wander did not come back as a function — update run.js');
     process.exit(2);
@@ -1320,6 +1364,8 @@ ctx.LOOT_SRC = readSrc('loot.js');
 // that grows a new countdown belongs in this map.
 ctx.DURATION_SOURCES = {
   'app.js': readSrc('app.js'),
+  // The creature sim and spawning, moved out of app.js — swept like it was.
+  'scene_creatures.js': readSrc('scene_creatures.js'),
   'interact.js': readSrc('interact.js'),
   'interactables.js': readSrc('interactables.js'),
   'render.js': readSrc('render.js'),

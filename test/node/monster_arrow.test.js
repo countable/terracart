@@ -99,7 +99,9 @@ test('monster arrow: a hostile arrow stops in rock like any other', () => {
 
 // ── The app.js call sites ───────────────────────────────────────────────────
 test('monster arrow: app.js — a ranged kind shoots instead of leeching, and the hit lands on energy', () => {
-  const app = APP_JS_SRC;
+  // The trigger and the cadence consts are wanderCreatures' (scene_creatures.js,
+  // the SceneCreatures mixin); the shot list and _shotHitsPlayer are app.js's.
+  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
   assert.truthy(/if \(clear && m\.range > 1 && ddx \* ddx \+ ddy \* ddy <= R \* R\s*\n\s*&& \(!c\._nextShotT \|\| now >= c\._nextShotT\)\) \{/.test(app),
     'a ranged monster fires on its own clock, inside its range, with a clear line');
   assert.truthy(/c\._nextShotT = now \+ Combat\.MONSTER_SHOT_INTERVAL_MS;/.test(app),
@@ -145,7 +147,7 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
 // the archer can never outrange your own ranged weapon, and it tracks the
 // same Inner-Light growth / underground tightening the staff does.
 test('monster arrow: the ranged trigger radius is the player\'s live reach, same as the staff', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_CREATURES_SRC;   // the trigger is wanderCreatures'
   assert.truthy(
     /const rangeCells = m\.range > 1 \? Combat\.rangeCellsFor\('staff', reachCells\(this\)\) : m\.range;/.test(app),
     'a ranged kind\'s trigger radius is resolved off the SAME call the staff uses for its own range');

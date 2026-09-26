@@ -384,7 +384,7 @@
   // Pre-install a "ready" synthetic tile entry into WorldGen.tileCache so
   // WorldGen.loadTile() short-circuits on the cache lookup. The entry mirrors
   // the shape rasterizeTile() returns, plus a creatures[] array (normally
-  // added by app.js spawnInTile — we set it here so spawnInTile is skipped).
+  // added by scene_creatures.js spawnInTile — we set it here so spawnInTile is skipped).
   function makeTileEntry({ tx, ty, cellsPerEdge, tileEdgeM, cellM, populate }) {
     const grid = new Uint8Array(cellsPerEdge * cellsPerEdge);   // default 0 = grass
     const objects = [];

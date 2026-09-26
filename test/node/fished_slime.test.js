@@ -126,7 +126,7 @@ test('fished slime: comes up angry and attacks at once', () => {
 test('fished slime: session state, pruned like the ghost', () => {
   const c = spawn(slimeScene());
   assert.truthy(/^fished_slime_3_-4_/.test(c.id), `id minted on the player's tile (${c.id})`);
-  assert.truthy(/\(\?:pest_crow\|ghost\|fished_slime\)_/.test(APP_JS_SRC),
+  assert.truthy(/\(\?:pest_crow\|ghost\|fished_slime\)_/.test(SCENE_CREATURES_SRC),   // wanderCreatures' prune
     'save.caught prune names the fished slime\'s prefix');
 });
 

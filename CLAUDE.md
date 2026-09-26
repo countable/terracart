@@ -65,7 +65,7 @@ the mechanic.
   per-tick read or shared predicate already answers your question, OR your
   reason into it and rename it for what it now means (the model:
   `unnoticed = shadowed || Combat.playerDowned(save.energy)` in
-  `wanderCreatures`). Likewise a NUMBER two sides read is ONE table both read
+  `wanderCreatures`, `scene_creatures.js`). Likewise a NUMBER two sides read is ONE table both read
   — the `roadOverlayWidthM` discipline (drawn-as-road and no-spawn-here off one
   constant); later rules just call this "one table both sides read".
   **The existing tests are the tell: a change that breaks no existing pin has
@@ -83,7 +83,7 @@ the mechanic.
   **`WorldGen.roadOverlayWidthM`**, the width `road_overlay.js` strokes). It
   sets no terrain; a masked cell just can't host a spawn. The other half is
   **`opts.occupied`**, a Set of flat cell indices (`cy*w+cx`) claimed by an
-  object or wild plant, built once by `spawnInTile` (app.js) and handed to
+  object or wild plant, built once by `spawnInTile` (`scene_creatures.js`) and handed to
   every spawner via `_spawnOpts`; `WorldGen.isSpawnCell` reads both (caves use
   `Traps.spawnCave`'s `occupiedIdx`). Checking road TERRAIN alone is the bug.
   **When you add a spawner, pass both** (`opts.roadMask` and `opts.occupied`).
@@ -96,7 +96,8 @@ the mechanic.
   through `coords.js` › `viewAnchorWorldM` / `viewAnchorCell` (or
   `worldMetersToScreen` / `screenToWorldMeters` / `cellScreenXY`); **"where
   IS the player?"** uses `playerM` / `playerToWorldCell()` — reach, every tap
-  gate, fog reveal, tile loading, the 3×3 tile scans. Anything drawn AT the
+  gate, fog reveal, tile loading (`scene_geo.js` › `ensureTilesAround`), the
+  3×3 tile scans. Anything drawn AT the
   player (sprite, shadow, halo, facing arrow, swing) reads
   `scene.playerScreen()`, never `viewCenterX/Y`. **When you add a
   world-drawn layer, anchor it; when you add a reach or gate test, don't.**
@@ -167,7 +168,7 @@ the mechanic.
   a painting, and the corner label carries no sprite. `kindIcon` is still
   plumbed through and drawn only by the no-painting fallback header.)**
   **A dialog about a thing on the map opens with THAT THING'S SPRITE.**
-  `app.js` › `MODAL_KINDS` supplies a fallback emoji glyph per category; a
+  `modal_shell.js` › `MODAL_KINDS` supplies a fallback emoji glyph per category; a
   caller with a picture passes `kindIcon` (HTML, twin of `kindLabel`), drawn
   ungreyed. One resolver both sides read: `loot.js` › `chestLook` picks a
   chest's look and carries its **texture key**; `render.js` draws by that key
@@ -178,7 +179,7 @@ the mechanic.
   **Audit it:** `node test/node/run.js` › `test/node/treasure_icon.test.js`.
 
 - **Every dialog opens on a PAINTING, and the painting is the box.** The
-  shared shell (`app.js` › `makeModalShell` `art`) draws a scene piece
+  shared shell (`modal_shell.js` › `makeModalShell` `art`) draws a scene piece
   full-bleed as the box background: the caller's own, or its kind's default
   (`MODAL_KINDS[kind].art`, `kind_<kind>`). A story splash is kind `story`.
   The piece is made to ONE composition rule (`tools/gen_story_art.js` ›
@@ -288,7 +289,8 @@ the mechanic.
 
 - **NOTHING HUNTS A BODY.** At zero energy the reach is 0
   (`coords.js` › `reachRadiusM`) and no damage path takes a point off an empty
-  bar, so a downed player is not there to be hunted: `wanderCreatures` ORs
+  bar, so a downed player is not there to be hunted: `wanderCreatures`
+  (`scene_creatures.js`) ORs
   `Combat.playerDowned(save.energy)` beside `shadowed` into **`unnoticed`**,
   and every hostile-interest branch reads it (the leech, the monster's hit and
   arrow, the struck slime's charge, both stalk branches). **When you add a
@@ -349,7 +351,8 @@ the mechanic.
 - **A tile can be REBUILT under you, and a rebuilt entry is a NEW object.**
   `rebuildTileWithBin` swaps in a replacement carrying only live `creatures`
   and `coinDrops`; any other state hung on the old entry is gone and
-  `spawnInTile` must run again. That pass is gated on **`entry._spawned`**, a
+  `spawnInTile` (`scene_creatures.js`) must run again. That pass is gated on **`entry._spawned`** (in
+  `scene_geo.js` › `_ensureTilesAroundPass`), a
   flag the rebuild does NOT carry — never on carried state (gating on
   `entry.creatures` made spawns vanish until refresh). **When you put
   per-session state on a tile entry, decide what a rebuild does with it**:
@@ -596,7 +599,8 @@ the mechanic.
 - **Home is a CAMPFIRE YOU OWN, and its ring is ONE number.** A campfire
   lights, warms and repels on `FIRE_REST_R`; Home does all three on
   **`HOME_R`**: the `trailer` light row, `isRestingAtHome` (a plain distance
-  test, `HOME_FULL_REST_S`), and `wanderCreatures`' `homeWard`, which turns
+  test, `HOME_FULL_REST_S`), and `wanderCreatures`' `homeWard`
+  (`scene_creatures.js`), which turns
   every `Combat.isEnemy` foe inside it onto an angle AWAY FROM HOME (never a
   refused target cell, which freezes a foe inside; never away-from-player,
   which drives far-side foes through the door) and switches its bite off.

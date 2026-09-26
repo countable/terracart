@@ -189,11 +189,13 @@ test('bounty coin: a PLAYER (or pet) kill still pays everything past the wage', 
 });
 
 test('bounty coin: every kill route names its killer', () => {
-  assert.truthy(/this\.resolveDefeat\(c, source\);/.test(APP), '_damageEnemy passes its source on');
-  assert.truthy(/this\.resolveDefeat\(tgt, 'pet'\);/.test(APP), 'a pet\'s kill is the pet\'s');
-  assert.truthy(/this\._damageEnemy\(target, shot\.damage, Combat\.shotSource\(shot\)\)/.test(APP),
+  // A pet's kill lands in wanderCreatures (scene_creatures.js); the rest in app.js.
+  const SCENE = APP + '\n' + SCENE_CREATURES_SRC;
+  assert.truthy(/this\.resolveDefeat\(c, source\);/.test(SCENE), '_damageEnemy passes its source on');
+  assert.truthy(/this\.resolveDefeat\(tgt, 'pet'\);/.test(SCENE), 'a pet\'s kill is the pet\'s');
+  assert.truthy(/this\._damageEnemy\(target, shot\.damage, Combat\.shotSource\(shot\)\)/.test(SCENE),
     'a shot\'s hit carries the shot\'s source');
-  assert.falsy(/addMoney\(save, coins\)/.test(APP), 'no kill credits its bounty directly');
+  assert.falsy(/addMoney\(save, coins\)/.test(SCENE), 'no kill credits its bounty directly');
 });
 
 test('bounty coin: the Book says the kill pays per HP, re-derived', () => {

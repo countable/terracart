@@ -79,7 +79,7 @@ const HomeArea = {
   // (a tile entry's list) by softwoodSpeciesNear. Idempotent — a pine stays a
   // pine, a tree outside the zone keeps its species — so running it again on
   // the same entry is harmless. Call it once per built entry, in the spawn
-  // pass (app.js spawnInTile), which a rebuilt entry re-runs (the `_spawned`
+  // pass (scene_creatures.js spawnInTile), which a rebuilt entry re-runs (the `_spawned`
   // gate) — so a rebuild, which mints fresh objects, gets it again. Fruit
   // trees and anything that is not a `tree` are left alone. Returns the
   // number of trees it changed.

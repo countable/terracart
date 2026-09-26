@@ -383,7 +383,7 @@ test('save: getSelectedSlot reflects selSlot changes on the same save object', (
 // ── GPS / world-origin field (fc37965) ───────────────────────────────────────
 //
 // The `save.home` field (a { lat, lon } object) is populated by startGps() in
-// app.js and read back at the top of app.js before MapScene boots. The field
+// scene_geo.js and read back at the top of app.js before MapScene boots. The field
 // is stored in the save slot exactly like any other data and round-trips via
 // persistSave / flushSave / loadSave. The anchoring logic (capturing the GPS
 // fix, gating on _homeCapturePending, reloading the page) lives entirely in

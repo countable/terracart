@@ -314,11 +314,13 @@ const CHECKS = [
   },
 ];
 
-// Every kind key declared in the MODAL_KINDS table in src/app.js.
+// Every kind key declared in the MODAL_KINDS table — it lives with the shell
+// in src/modal_shell.js.
+const KINDS_FILE = 'src/modal_shell.js';
 function declaredKinds() {
-  const src = blankComments(fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8'));
+  const src = blankComments(fs.readFileSync(path.resolve(ROOT, KINDS_FILE), 'utf8'));
   const open = src.indexOf('const MODAL_KINDS = {');
-  if (open < 0) throw new Error('modal_audit: MODAL_KINDS not found in src/app.js');
+  if (open < 0) throw new Error(`modal_audit: MODAL_KINDS not found in ${KINDS_FILE}`);
   const body = objectLiteralAt(src, src.indexOf('{', open));
   if (body == null) throw new Error('modal_audit: could not read the MODAL_KINDS table');
   return new Set([...topLevelEntries(body).keys()]);
@@ -327,8 +329,15 @@ function declaredKinds() {
 // Modals built directly on makeModalShell rather than through showOfferModal —
 // the stats readout, the energy explainer, the delivery list and so on. Their
 // kind rides in the shell's OPTIONS object, so they need their own scan.
-function shellCalls() {
-  const src = blankComments(fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8'));
+// The stock dialogs (showMessageModal & co.) call it from src/modal_shell.js,
+// every other dialog from src/app.js — both are scanned.
+function shellCalls(files = ['src/app.js', KINDS_FILE]) {
+  const calls = [];
+  for (const file of files) calls.push(...shellCallsIn(file));
+  return calls;
+}
+function shellCallsIn(file) {
+  const src = blankComments(fs.readFileSync(path.resolve(ROOT, file), 'utf8'));
   const calls = [];
   const CALL = 'makeModalShell(';
   let at = 0;
@@ -342,7 +351,7 @@ function shellCalls() {
     const body = objectLiteralAt(src, brace);
     if (body == null) continue;
     const idMatch = src.slice(at, brace).match(/['"]([\w-]+)['"]/);
-    calls.push({ line: src.slice(0, i).split('\n').length, id: idMatch ? idMatch[1] : '?',
+    calls.push({ file, line: src.slice(0, i).split('\n').length, id: idMatch ? idMatch[1] : '?',
                  args: topLevelEntries(body) });
   }
   return calls;
@@ -355,12 +364,12 @@ CHECKS.push({
     const bad = [];
     const check = (c, what) => {
       const k = c.args.get('kind');
-      if (k == null) { bad.push(`src/app.js:${c.line} (${what}) opens without a kind`); return; }
+      if (k == null) { bad.push(`${c.file || 'src/app.js'}:${c.line} (${what}) opens without a kind`); return; }
       // A literal key must exist in MODAL_KINDS; a computed one (a variable or
       // a default forwarded from an outer call) is checked where it originates.
       const lit = k.match(/^'([\w]+)'$/) || k.match(/^"([\w]+)"$/);
       if (lit && !kinds.has(lit[1])) {
-        bad.push(`src/app.js:${c.line} (${what}) uses kind '${lit[1]}', which MODAL_KINDS does not define`);
+        bad.push(`${c.file || 'src/app.js'}:${c.line} (${what}) uses kind '${lit[1]}', which MODAL_KINDS does not define`);
       }
     };
     for (const c of offerCalls()) check(c, 'offer modal');

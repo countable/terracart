@@ -1,4 +1,4 @@
-// SCENE ART — the dialog-painting standard (app.js makeModalShell `art`,
+// SCENE ART — the dialog-painting standard (modal_shell.js makeModalShell `art`,
 // ART_FRAME_ASPECT / ART_DETAIL_FRAC / ART_BAND_*; tools/gen_story_art.js
 // scene()). Every dialog opens on a painting — its caller's, or its kind's
 // MODAL_KINDS default. The piece IS the box: cut to the box's shape, subject
@@ -8,12 +8,15 @@
 
 (function () {
 const app = APP_JS_SRC;
-const kindsSrc = app.slice(app.indexOf('const MODAL_KINDS = {'), app.indexOf('\n};', app.indexOf('const MODAL_KINDS = {')));
+// The shell, MODAL_KINDS and the ART_* frame consts live in modal_shell.js.
+const shell = MODAL_SHELL_SRC;
+const kindsSrc = shell.slice(shell.indexOf('const MODAL_KINDS = {'), shell.indexOf('\n};', shell.indexOf('const MODAL_KINDS = {')));
 
 // Every stem a dialog can open on: the literal `art: '…'`s, the kind rows'
 // defaults, and the restore roles (built as 'restore_' + role).
 const stems = new Set();
 for (const m of app.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
+for (const m of shell.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const m of INTERACT_SRC.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) stems.add('restore_' + r);
 
@@ -37,44 +40,44 @@ test('scene art: every kind has a default painting, except STORY, which brings i
       assert.truthy(new RegExp(`art: 'kind_${key}'`).test(body), `${key} opens on kind_${key}`);
     }
   }
-  assert.truthy(/art = art \|\| kRow\?\.art;/.test(app), 'the shell falls back to the kind row');
+  assert.truthy(/art = art \|\| kRow\?\.art;/.test(shell), 'the shell falls back to the kind row');
 });
 
 test('scene art: a message with a painting is a STORY', () => {
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note' \}\)/.test(app),
+  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note' \}\)/.test(shell),
     'art makes it a story; a plain message stays a note');
 });
 
 test('scene art: the content region is capped at the quiet zone and scrolls inside it', () => {
-  assert.truthy(/const ART_DETAIL_FRAC = 0\.\d+;/.test(app), 'the detail line is one constant');
-  assert.truthy(/max-height:\$\{Math\.round\(\(1 - ART_DETAIL_FRAC\) \* 100\)\}%;/.test(app),
+  assert.truthy(/const ART_DETAIL_FRAC = 0\.\d+;/.test(shell), 'the detail line is one constant');
+  assert.truthy(/max-height:\$\{Math\.round\(\(1 - ART_DETAIL_FRAC\) \* 100\)\}%;/.test(shell),
     'the body never grows past the quiet zone');
-  assert.truthy(/margin-top:auto;[^`]*`\s*\+\s*'overflow-y:auto/.test(app), 'bottom-anchored, scrolling');
+  assert.truthy(/margin-top:auto;[^`]*`\s*\+\s*'overflow-y:auto/.test(shell), 'bottom-anchored, scrolling');
 });
 
 test('scene art: text-heavy copy moves to THE BAND by measurement', () => {
-  assert.truthy(/const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;/.test(app),
+  assert.truthy(/const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;/.test(shell),
     'the band shows the subject line, the sky above it gives');
-  const i = app.indexOf('TEXT-HEAVY → THE BAND');
+  const i = shell.indexOf('TEXT-HEAVY → THE BAND');
   assert.truthy(i > 0, 'mount() decides');
-  const tail = app.slice(i, i + 400);
+  const tail = shell.slice(i, i + 400);
   assert.truthy(/body\.scrollHeight > body\.clientHeight/.test(tail), 'it measures the copy');
   assert.truthy(/paintScene\(true\)/.test(tail), 'and repaints as the band');
   assert.truthy(/\(1 - ART_BAND_FRAC\)/.test(tail), 'with the band\'s taller content region');
 });
 
 test('scene art: the hero becomes a bare label chip — no emoji, no sprite', () => {
-  const i = app.indexOf('if (k && art) {');
+  const i = shell.indexOf('if (k && art) {');
   assert.truthy(i > 0, 'the art branch of the kind header');
-  const branch = app.slice(i, app.indexOf('} else if (k) {', i));
+  const branch = shell.slice(i, shell.indexOf('} else if (k) {', i));
   assert.truthy(/kindLabel \?\? k\.label/.test(branch), 'the label');
   assert.falsy(/k\.icon/.test(branch), 'no emoji glyph');
   assert.falsy(/kindIcon/.test(branch), 'the painting is the picture; no sprite in the corner');
 });
 
 test('scene art: the old banner strip is gone', () => {
-  assert.falsy(/dialogArtHTML/.test(app), 'no strip seating left');
-  assert.falsy(/SCENE_ART/.test(app), 'no half-rolled-out registry left');
+  assert.falsy(/dialogArtHTML/.test(app + shell), 'no strip seating left');
+  assert.falsy(/SCENE_ART/.test(app + shell), 'no half-rolled-out registry left');
 });
 
 test('scene art: the lore rides in the generator, one hint per piece at most', () => {

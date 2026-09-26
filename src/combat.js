@@ -28,7 +28,7 @@
 //   monster arrows — a ranged monster (the goblin archer) shoots a visible
 //                    arrow AT the player at the turret's cadence; it flies as
 //                    a bow arrow and hits the player (monsterShot below,
-//                    stepShots' `hostile` lane; app.js wanderCreatures fires
+//                    stepShots' `hostile` lane; scene_creatures.js wanderCreatures fires
 //                    it and _shotHitsPlayer takes the hit).
 //   castle turrets — every `tower` object on screen with the player looses a
 //                    Wood-tier bow arrow at the nearest enemy on screen, at
@@ -81,7 +81,7 @@
   // arrow at the player at the castle turret's cadence, carrying
   // MONSTER_ARROW_HITS hits of `dmg` so its damage per minute is unchanged
   // (see monsterShot); everything else is melee (range 1) and leeches on
-  // app.js's MONSTER_HIT_MS. Tougher kinds are gated to deeper levels via
+  // scene_creatures.js's MONSTER_HIT_MS. Tougher kinds are gated to deeper levels via
   // minDepth, so descending introduces new foes. Placeholder art: every
   // monster reuses the slime sprite with a per-kind TINT (see render.js) until
   // dedicated sheets land — swapping in real art is a one-line assets.js +
@@ -228,7 +228,7 @@
   // What a monster LAYS instead of hitting ('trap'), or null. A giant inherits
   // its base kind's (the giant rows are spreads of the base row).
   function monsterLays(kind) { return MONSTER_STATS[kind]?.lays || null; }
-  // Does the cave bag (app.js spawnCaveCreatures) draw this kind? Every row
+  // Does the cave bag (scene_creatures.js spawnCaveCreatures) draw this kind? Every row
   // without a `spawn` column — the ghost's 'night' is the one that has one.
   function spawnsUnderground(kind) {
     const m = MONSTER_STATS[kind];
@@ -314,7 +314,7 @@
 
   // The one call site shape app.js uses: a blow of `damage` against the worn
   // set. `hits` is for a monster ARROW, which carries several hits of the
-  // table in one projectile (app.js MONSTER_ARROW_HITS) — armour soaks each
+  // table in one projectile (scene_creatures.js MONSTER_ARROW_HITS) — armour soaks each
   // of those hits, not the bundle, or a slow archer would out-damage a melee
   // kind against armour precisely because its damage arrives in one lump.
   function playerDamage(damage, armor, hits = 1) {
@@ -334,7 +334,7 @@
   // bar off zero) it escorts the player the whole way home.
   //
   // So a downed player is simply NOT THERE to be hunted, exactly as a
-  // Shadow Powder makes them: app.js's wanderCreatures reads this beside
+  // Shadow Powder makes them: scene_creatures.js's wanderCreatures reads this beside
   // `shadowed` and every hostile falls back to an aimless wander — no stalk,
   // no charge, no leech, no arrow — until the bar lifts off zero.
   // ONE expression, both sides: the test that drops the pursuit is the same
@@ -588,7 +588,7 @@
   // to hit what you cannot punch (SHOT[].rangeCells).
   const MELEE_REACH_CELLS = 1;
   // The reach in metres, and the test both sides run. Centre-to-centre, which
-  // is what the monster's own attack gate measures (app.js wanderCreatures
+  // is what the monster's own attack gate measures (scene_creatures.js wanderCreatures
   // compares the creature's position against the player's FEET), so the two
   // are symmetric by construction rather than by two similar-looking circles.
   function meleeReachM(cellM) { return MELEE_REACH_CELLS * cellM; }
@@ -999,7 +999,7 @@
   // ── Monster arrows ───────────────────────────────────────────────────────
   // A RANGED monster (MONSTERS[kind].range > 1 — the goblin archer and its
   // giant) attacks with a visible arrow, not the silent energy leech the
-  // melee kinds land: app.js (wanderCreatures) looses one at the player
+  // melee kinds land: scene_creatures.js (wanderCreatures) looses one at the player
   // whenever they are inside the kind's range with a clear line of fire
   // (lineOfFire — the same rock that stops your arrow stops theirs), and the
   // arrow flies exactly as a bow arrow does, joining the one shot list. It is

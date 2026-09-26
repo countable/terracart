@@ -365,7 +365,7 @@
   };
 
   // ── Fauna ───────────────────────────────────────────────────────────────────
-  // Per-species spawn config consumed by app.js spawnInTile. Each species has a
+  // Per-species spawn config consumed by scene_creatures.js spawnInTile. Each species has a
   // PRIMARY biome set (its dominant home, ~`share` of its count) and a wider
   // FALLBACK set (the rest), so animals read correct (cows in fields, butterflies
   // in parks) while still scattering everywhere. Extending fallback sets to the

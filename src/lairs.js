@@ -43,7 +43,7 @@
 //
 // THEY HOLD, THEY HUNT, THEY GIVE UP. A garrison is a place, not a patrol:
 // each guard carries `immobile: true`, meaning it does not WANDER, and
-// app.js's wanderCreatures routes it through `guardState` instead. At rest it
+// scene_creatures.js's wanderCreatures routes it through `guardState` instead. At rest it
 // stands on its seat, so the ruin reads as held from across the street — a
 // garrison that wandered would walk itself off the building within a minute
 // and the whole point, that THIS ruin is held, would be gone before the player
@@ -361,7 +361,7 @@
   // fraction of the leash. The leash is what catches the player who stands and
   // fights and then thinks better of it.
   //   A GUARD WALKING HOME CAN FREEZE, and it is meant to. Past
-  // CREATURE_SIM_CELLS (app.js, 12) wanderCreatures culls a creature entirely,
+  // CREATURE_SIM_CELLS (creature_ai.js, 12) wanderCreatures (scene_creatures.js) culls a creature entirely,
   // so a returning guard whose player kept going simply stops where it is.
   // That is the ordinary frozen-outside-the-bubble rule and it is harmless
   // here because of the ring order: the bubble is OUTSIDE the sprite cull, so
@@ -722,7 +722,7 @@
   const hashKey = fnv1a;
 
   // ── What a guard is doing this tick ──────────────────────────────────────
-  // The one answer app.js's wanderCreatures asks per guard, so the rings, the
+  // The one answer scene_creatures.js's wanderCreatures asks per guard, so the rings, the
   // hysteresis and the arrival test live HERE with the numbers rather than
   // spread across the movement loop. Three states and no others:
   //

@@ -124,7 +124,7 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   s.showMemoriesHelp();
   const m = s.modals[0];
   assert.eq(m.kind, 'memory');
-  assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  memory:/.test(app), 'memory is a MODAL_KINDS row');
+  assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  memory:/.test(MODAL_SHELL_SRC), 'memory is a MODAL_KINDS row');
   assert.truthy(/2 recovered/.test(m.title) && /1 unspent/.test(m.title), 'both numbers');
   assert.falsy(/wizard/i.test(m.body), 'the wizard is a secret until his tower is restored');
   assert.truthy(/use it somehow/.test(m.body), 'only a vague sense of the power');
@@ -135,7 +135,7 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   s.save.wizardBuys = 1;
   s.showMemoriesHelp();
   assert.truthy(/Wizard Tower/.test(s.modals[2].body), 'a save that has already bought from him knows him too');
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note' \}\)/.test(app),
+  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note' \}\)/.test(MODAL_SHELL_SRC),
     'showMessageModal forwards a kind, defaulting to note (a story when it has a painting)');
 });
 

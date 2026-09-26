@@ -19,11 +19,11 @@
 (function () {
 const app = APP_JS_SRC;
 
-const lift = (sig, what) => {
-  const start = app.indexOf('\n  ' + sig);
-  const end = start < 0 ? -1 : app.indexOf('\n  }\n', start);
-  assert.truthy(start > 0 && end > start, `found ${what} in app.js`);
-  return app.slice(start + 1, end + 4);
+const lift = (sig, what, src = app, file = 'app.js') => {
+  const start = src.indexOf('\n  ' + sig);
+  const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
+  assert.truthy(start > 0 && end > start, `found ${what} in ${file}`);
+  return src.slice(start + 1, end + 4);
 };
 
 const SPLASH_SRC = lift('_storySplashOnce(key, { art, title, body, okLabel } = {}) {',
@@ -85,7 +85,7 @@ test('story splash: the Unsealed! card shows the fort_unseal banner, not the bui
 
 test('story splash: the chest reward modal collapses an empty icon row', () => {
   const modal = lift('showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,',
-    'showChestRewardModal');
+    'showChestRewardModal', MODAL_SHELL_SRC, 'modal_shell.js');
   assert.truthy(/iconHTML \? `<div style="margin:6px 0 10px;font-size:0">\$\{iconHTML\}<\/div>` : ''/.test(modal),
     'an empty iconHTML leaves no blank band under the banner');
 });

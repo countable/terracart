@@ -1,10 +1,10 @@
 // A crow retreats IN FULL when the player starts hunting it — the same
-// departure a crow makes after eating (app.js _crowDepart, creature_ai.js CROW_DEPART_MS):
+// departure a crow makes after eating (scene_creatures.js _crowDepart, creature_ai.js CROW_DEPART_MS):
 // out of its perch on the spot, then straight away from the player for the
 // usual ~2.5–4 minutes. It used to ignore the hunt wheel and keep orbiting.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_CREATURES_SRC;   // _crowDepart and its caller are the SceneCreatures mixin's
 const a = app.indexOf('\n  _crowDepart(c, now = performance.now()) {');
 assert.truthy(a > 0, 'found _crowDepart');
 const body = app.slice(app.indexOf('{', a) + 1, app.indexOf('\n  }\n', a));

@@ -403,16 +403,16 @@ test('traps: standing on one out-drains the fastest passive rest in the game', (
     + `(${homeRestPerS.toFixed(2)}⚡/s) — otherwise standing still is a way to win`);
 });
 
-// ─── The call sites (app.js / render.js can't load headlessly) ───────────────
+// ─── The call sites (app.js / scene_creatures.js / render.js can't load headlessly) ─
 
 test('traps: the surface spawn passes the SHARED spawn options, mask and all', () => {
   assert.truthy(
     /Traps\.spawnSurface\(genGrid, entry\.roadMask, N, N, tx, ty, this\.tileEdgeM, _spawnOpts,/
-      .test(APP_JS_SRC),
+      .test(SCENE_CREATURES_SRC),
     'spawnInTile hands Traps.spawnSurface entry.roadMask and _spawnOpts — the same '
     + 'options every other spawner in that method uses — over the GENERATED grid '
     + '(genGrid), like every other draw in the pass');
-  assert.truthy(/Traps\.spawnSurface\([^;]*Difficulty\.get\(\)\.trapCountMul/.test(APP_JS_SRC),
+  assert.truthy(/Traps\.spawnSurface\([^;]*Difficulty\.get\(\)\.trapCountMul/.test(SCENE_CREATURES_SRC),
     'the surface density scales with the game mode, not a fixed rate');
 });
 
@@ -423,11 +423,12 @@ test('traps: _spawnOpts carries opts.occupied, built from the tile\'s own object
   // carries it (it just forwards `spawnOpts` to WorldGen.isSpawnCell); the
   // one thing worth pinning is that the set is actually built and actually on
   // the object every spawner in this method shares.
+  // spawnInTile is the SceneCreatures mixin's (scene_creatures.js).
   const block = (() => {
-    const a = APP_JS_SRC.indexOf('  spawnInTile(entry, tx, ty) {');
-    const b = APP_JS_SRC.indexOf('\n  }\n', a);
-    assert.truthy(a > 0 && b > a, 'found spawnInTile in app.js');
-    return APP_JS_SRC.slice(a, b);
+    const a = SCENE_CREATURES_SRC.indexOf('  spawnInTile(entry, tx, ty) {');
+    const b = SCENE_CREATURES_SRC.indexOf('\n  }\n', a);
+    assert.truthy(a > 0 && b > a, 'found spawnInTile in scene_creatures.js');
+    return SCENE_CREATURES_SRC.slice(a, b);
   })();
   // From the tile's GENERATED objects (entry.genObjects, falling back to
   // entry.objects): what an Overpass bin or this player's starter kit put on
@@ -484,7 +485,7 @@ test('traps: answering the how-to card re-lays the traps at that mode\'s density
     'a trap the player has already sprung is carried across: the new roll draws '
     + 'a different sequence, and a trap that has bitten you must not blink out');
   // And the entry has to be CARRYING those options for any of that to work.
-  assert.truthy(/entry\._spawnOpts = _spawnOpts;/.test(APP_JS_SRC),
+  assert.truthy(/entry\._spawnOpts = _spawnOpts;/.test(SCENE_CREATURES_SRC),
     'spawnInTile keeps the tile\'s spawn options on the entry for the re-lay');
 });
 
