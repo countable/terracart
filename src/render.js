@@ -4059,6 +4059,7 @@ Render.drawObjects = function drawObjects(scene) {
   const creatureFrames = (SL && SL.creatureFrames) || (() => 1);
   const creatureTint = (SL && SL.creatureTint) || (() => 0xffffff);
   const creatureAlpha = (SL && SL.creatureAlpha) || (() => 1);
+  const creatureGlow = (SL && SL.creatureGlow) || (() => null);
   // HOW the sheet moves — the same table, for the same reason as the tint
   // above. `anim` names a Phaser animation, which owns the cycle; `frameMs`
   // steps the row-0 cycle here instead; a kind with neither is drawn at rest
@@ -4148,7 +4149,25 @@ Render.drawObjects = function drawObjects(scene) {
     // The row's opacity (the ghost's see-through body), every frame — a pooled
     // sprite keeps whatever alpha its last creature wore.
     s.setAlpha(creatureAlpha(c.kind));
+    // Where the body's centre landed — the glow pass below sits on it, so the
+    // halo rides the hover and the bob with the sprite.
+    item._bodyY = s.y - (s.originY - 0.5) * s.displayHeight;
   });
+
+  // THE GHOST'S GLOW — a non-lighting halo on each glowing kind, on its body
+  // centre, in the layer ABOVE the lightmap (app.js ghostGlowContainer), so it
+  // reads in the dark without lighting anything. See SpriteLayout.GHOST_GLOW.
+  if (scene.ghostGlowPool && scene.ghostGlowContainer) {
+    const glowList = creatureList.filter((it) => creatureGlow(it.c.kind));
+    Render.renderPool(scene, scene.ghostGlowPool, scene.ghostGlowContainer, glowList, (s, item) => {
+      const glow = creatureGlow(item.c.kind);
+      const { sx } = project(item.dx, item.dy);
+      setTextureIfDifferent(s, 'ghost_glow');
+      s.setOrigin(0.5, 0.5).setDisplaySize(glow.px, glow.px)
+       .setPosition(Math.round(sx), Math.round(item._bodyY))
+       .setAlpha(glow.alpha).setTint(0xffffff);
+    });
+  }
 
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays

@@ -130,8 +130,7 @@ const PEST_CROW_SPAWN_CELLS = 10;
 // A MONSTER'S STRIDE, in cells: how far one step of the step chain carries it
 // (wanderCreatures' stepM) — a full cell for a flier, 0.6 for everything that
 // walks. Its PACE is this over its beat (the loop's STEP_MS / its row's
-// speed); the ghost's continuous glide reads the same pair, so "twice the
-// goblin's speed" is twice the goblin's ground speed and not a second number.
+// speed). The ghost does not step — it glides at its row's `mps`.
 function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // ── GHOSTS ───────────────────────────────────────────────────────────────────
 // After dark a few ghosts rise in the dark around the player, hover a moment,
@@ -172,21 +171,23 @@ const GHOST_HOVER_MS = 2000;
 // A touch: the ghost within this many cells of the player's feet.
 const GHOST_TOUCH_CELLS = 0.5;
 // THE BURN. A ghost's damage per second is its whole pool, times its light
-// exposure, over GHOST_PLATEAU_BURN_S — where exposure 1 is the player's own
-// reach plateau at night at its brightest (Lighting.profile(scene, 0).lit,
-// the plateau's derived level), so a ghost held at the player's feet lasts
-// GHOST_PLATEAU_BURN_S seconds. Daylight past GHOST_DARK_DAYLIGHT burns too
-// (ghostSunExposure — 1 at noon), so a ghost caught out at dawn is gone.
-//   Why 6: a ghost rushing a player at base reach (2.5 cells) from the spawn
-// ring takes ~1 plateau-second in the ramp and ~3 crossing the plateau —
-// about 4.1 of its 6 (measured: ~69% of its pool), so it arrives with about a
-// third of itself left and the touch lands. Two Inner Light upgrades still
-// let it through, barely; from three (reach 4 cells) it burns out on the
-// doorstep, and a torch's light burns it out long before. A campfire and a lit
-// lamp hold it at their ring (ghostRefused) in the player's light until it
-// burns; Home and a claimed castle rout it (the ward). ghosts.test.js runs the
-// race.
-const GHOST_PLATEAU_BURN_S = 6;
+// exposure, over GHOST_PLATEAU_BURN_S — where exposure 1 is the player's reach
+// plateau at night at its brightest (Lighting.profile(scene, 0).lit, the
+// plateau's derived level — a UNIT here, not a source). Daylight past
+// GHOST_DARK_DAYLIGHT burns too (ghostSunExposure — 1 at noon), so a ghost
+// caught out at dawn is gone.
+//   THE PLAYER'S OWN GLOW DOES NOT BURN IT: exposure is brightnessAt with
+// `playerGlow: false` — no plateau, no ramp, at any Inner Light reach. What
+// burns it is a light the player CARRIES or STANDS BY: the hand torch (a
+// collected source, so it stays in), a campfire, a lit lamp, a lit building.
+// No light's ring refuses its step either — it is not afraid of the light, it
+// comes straight in and burns if the light is one that burns it. A campfire
+// does more than burn: it ROUTS the ghost (fireWardTrip, the ward latch).
+//   Why 13: a torch must burn it out before it arrives. At its run
+// (Combat.GHOST_SPEED_MPS, 3 m/s) from the spawn ring, the torch race is won
+// up to ~17 and lost by 22 (ghosts.test.js runs it); 13 keeps a margin.
+// Home, a claimed castle and a campfire rout it (the ward).
+const GHOST_PLATEAU_BURN_S = 13;
 // The burn is banked on this beat, not every frame (brightnessAt runs the
 // collectors).
 const GHOST_LIGHT_TICK_MS = 250;
@@ -235,7 +236,6 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
       { _spawnT: now }));
     made++;
   }
-  if (made && scene.flash) scene.flash('👻 Ghosts in the dark!', scene.viewCenterX, scene.viewCenterY - 60);
   return made;
 }
 // ── THE FISHED SLIME ─────────────────────────────────────────────────────────
@@ -271,35 +271,36 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
   }
   return null;
 }
-// A STANDING LIGHT'S RING REFUSES A GHOST'S STEP — the campfire's ward
-// mechanism (a refused target, never a turn, so it holds at the edge rather
-// than freezing inside), and for the ghost the lit street lamp's too: it is a
-// thing of the dark, and the two lights a player can stand beside on purpose
-// are the two it will not cross. The ring is each light's own radius — the
-// fire's FIRE_REST_R, the lamp's Lighting.KINDS.cobble row — so what refuses
-// it is exactly what is lit. It holds there in the player's light and burns.
-// NOT Home's ward (that routs, _wardFrom) and not the burn (that is
-// brightnessAt, and reaches every light).
-function ghostRefused(scene, x, y) {
-  if (scene._nearAny('fires', x, y, FIRE_REST_R)) return true;
-  const lamps = scene._streetLamps;
-  if (!lamps || !lamps.length) return false;
-  const r = Lighting.radiusCells('cobble') * scene.cellM;
-  for (const L of lamps) {
-    if (L.lit && (L.x - x) * (L.x - x) + (L.y - y) * (L.y - y) < r * r) return true;
+// A CAMPFIRE ROUTS A GHOST — Home's mechanism (the ward latch: turned onto
+// an away-from-the-fire angle and run to the sim bubble's edge), not the
+// fire's own ward on other foes (a refused target cell, which held a ghost
+// hovering at the ring). A ghost is not afraid of light — it comes straight
+// through the player's glow — but a fire drives it off. This is a second
+// REASON on the ward lane, asked only for a haunting kind: the nearest
+// campfire on this depth whose FIRE_REST_R ring the ghost has crossed, or null.
+function fireWardTrip(scene, c) {
+  const fires = scene.save && scene.save.fires;
+  if (!fires || !fires.length) return null;
+  let best = null, bestD2 = (FIRE_REST_R * scene.cellM) * (FIRE_REST_R * scene.cellM);
+  for (const f of fires) {
+    if (!PlacedFloor.onDepth(f, scene.depth ?? 0)) continue;
+    const dx = c.x - f.x, dy = c.y - f.y, d2 = dx * dx + dy * dy;
+    if (d2 <= bestD2) { best = f; bestD2 = d2; }
   }
-  return false;
+  return best;
 }
 // ONE GHOST'S TICK — its mover, its burn, its touch. Returns what became of it:
 //   'touch'   it reached the player (wanderCreatures lands the blow and spends it)
 //   'burned'  the light finished it (_damageEnemy has already paid its coin)
 //   'faded'   its GHOST_LIFETIME_MS ran out
 //   null      it is still about.
-// `pace` is metres per ms (monsterStrideCells over its beat). HOVER first, in
+// `pace` is metres per ms (its row's `mps`, Combat.GHOST_SPEED_MPS). HOVER first, in
 // place; then a committed line at the player's feet at that pace, over any
-// terrain (it is a ghost) — except a campfire's or a lit lamp's ring
-// (ghostRefused: the fire ward's refused step, never a turn). Warded
-// (Home, a claimed castle — `warded`, the same latch every foe wears) it runs
+// terrain (it is a ghost) and into any light — it is not afraid of the light,
+// the light only burns it (no ring refuses its step, unlike the campfire's
+// ward on other foes). Warded
+// (Home, a claimed castle, and for a ghost a campfire — fireWardTrip;
+// `warded`, the same latch every foe wears) it runs
 // straight away from the ward; `unnoticed` (NOTHING HUNTS A BODY, or a Shadow
 // Powder) it hovers where it is. Neither touches.
 function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
@@ -311,7 +312,7 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
     const burnS = (now - c._burnT) / 1000;
     c._burnT = now;
     const wall = Date.now();
-    const exposure = Lighting.brightnessAt(scene, c.x, c.y, wall) / Lighting.profile(scene, 0).lit
+    const exposure = Lighting.brightnessAt(scene, c.x, c.y, wall, { playerGlow: false }) / Lighting.profile(scene, 0).lit
       + ghostSunExposure(Lighting.daylight(scene, wall));
     if (exposure > 0 && scene._damageEnemy(c, Combat.maxHp(c) * exposure * burnS / GHOST_PLATEAU_BURN_S, 'light')) {
       return 'burned';
@@ -326,10 +327,8 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
   const toPlayer = Math.hypot(px - c.x, py - c.y);
   const step = Math.min(pace * dt, warded ? Infinity : toPlayer);
   const nx = c.x + Math.cos(ang) * step, ny = c.y + Math.sin(ang) * step;
-  if (!ghostRefused(scene, nx, ny)) {
-    c.x = nx; c.y = ny;
-    if (Math.abs(Math.cos(ang)) > 1e-6) c._faceFlip = Math.cos(ang) < 0;
-  }
+  c.x = nx; c.y = ny;
+  if (Math.abs(Math.cos(ang)) > 1e-6) c._faceFlip = Math.cos(ang) < 0;
   if (warded) return null;
   return Math.hypot(px - c.x, py - c.y) <= GHOST_TOUCH_CELLS * scene.cellM ? 'touch' : null;
 }

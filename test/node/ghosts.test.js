@@ -2,16 +2,16 @@
 // (run.js __wander) and its two helpers (__ghostSpawnPass / __ghostTick).
 //
 // What is pinned:
-//   · the row: a MONSTERS kind (an enemy — wards, shots, bounty), twice the
-//     melee goblin's speed DERIVED from the goblin row, a touch of 25 before
+//   · the row: a MONSTERS kind (an enemy — wards, shots, bounty), a run
+//     (Combat.GHOST_SPEED_MPS, 3 m/s), a touch of 25 before
 //     the mode / shield / armour, never drawn by the cave bag, no giant;
 //   · the pump: surface only, only after dark, on its ~5-minute cadence, only
 //     where it is dark, never inside Home's ring;
 //   · the mover: it hovers, then it rushes; a touch lands the blow through
 //     Combat.playerDamage and spends the ghost; nothing hunts a body;
 //   · the burn: Lighting.brightnessAt — the lightmap's own model — scales the
-//     damage, which is not a player kill; the race is won in the open at base
-//     reach, and lost by a torch or a campfire.
+//     damage, which is not a player kill; the player's own glow never burns it (at
+//     any reach) and a torch burns it out; no light's ring refuses its step.
 (function () {
 
 const CELL = 7;                          // WorldGen.CELL_M
@@ -101,18 +101,12 @@ function race(scene, g, seconds) {
 }
 
 // ── The row ─────────────────────────────────────────────────────────────────
-test('ghost: a MONSTERS row — an enemy, twice the goblin\'s speed, derived', () => {
+test('ghost: a MONSTERS row — an enemy, a jog over the ground', () => {
   const g = Combat.monster('ghost');
   assert.truthy(g, 'registered in the monster table');
   assert.truthy(Combat.isEnemy({ kind: 'ghost', id: 'ghost_x' }), 'an enemy: wards, shots, bounty');
-  assert.eq(Combat.GHOST_SPEED_MUL, 2, 'twice, per the ask');
-  assert.eq(MONSTERS_BASELINE.ghost.speed, MONSTERS_BASELINE.goblin.speed * Combat.GHOST_SPEED_MUL,
-    'derived from the goblin row, not retyped');
-  assert.eq(g.speed, 2 * Combat.monster('goblin').speed, 'and the live table agrees');
-  // The ground speed, not only the number: the same stride as the goblin, so
-  // twice the speed is twice the pace (a `fly` stride would make it 3.3×).
-  assert.eq(__ghost.monsterStrideCells(g), __ghost.monsterStrideCells(Combat.monster('goblin')),
-    'the goblin\'s stride');
+  assert.eq(Combat.GHOST_SPEED_MPS, 3, '3 m/s, per the ask');
+  assert.eq(g.mps, Combat.GHOST_SPEED_MPS, 'the live row carries it');
   assert.eq(g.dmg, 25, 'the touch is 25 before the mode, shield and armour');
   assert.eq(Combat.GHOST_TOUCH_DMG, 25);
   assert.falsy(Combat.spawnsUnderground('ghost'), 'never drawn by the cave bag');
@@ -246,12 +240,10 @@ test('ghost: it hovers where it rose, then rushes the player', () => {
     for (let t = 0; t < 3000; t += TICK_MS) tick(s, TICK_MS);
     assert.lt(dist(g), d0, 'then it closes');
     assert.lt(Math.abs(g.y - P.y), 1e-9, 'on a committed line at the player — no meander');
-    // At its pace: twice the goblin's ground speed (stride over beat).
-    const gob = Combat.monster('goblin');
-    const gobCellsPerS = __ghost.monsterStrideCells(gob) * gob.speed * 1000 / 5000;
-    const moved = d0 - dist(g);
-    assert.inRange(moved / 3, 2 * gobCellsPerS * 0.9, 2 * gobCellsPerS * 1.1,
-      `${(moved / 3).toFixed(2)} cells/s, twice the goblin's ${gobCellsPerS.toFixed(2)}`);
+    // At its pace: GHOST_SPEED_MPS over the ground.
+    const mps = (d0 - dist(g)) * CELL / 3;
+    assert.inRange(mps, Combat.GHOST_SPEED_MPS * 0.9, Combat.GHOST_SPEED_MPS * 1.1,
+      `${mps.toFixed(2)} m/s`);
   });
 });
 
@@ -278,19 +270,22 @@ test('ghost: a touch lands 25 through armour and spends the ghost — no coin', 
   });
 });
 
-test('ghost: in the open at night, at base reach, it wins the race', () => {
+test('ghost: the player\'s own glow does not burn it — at any reach', () => {
   atDaylight(0, () => {
     const g = mkGhost();
     const s = ghostScene([g]);
     race(s, g, 60);
     assert.eq(s._hits.length, 1, 'it reached the player');
-    const burned = s._dmgCalls.reduce((a, d) => a + d.amount, 0);
-    assert.gt(burned, 0, 'but the player\'s own light burned it on the way in');
-    assert.truthy(s._dmgCalls.every((d) => d.source === 'light'), 'and that burn is the light\'s');
+    assert.eq(s._dmgCalls.length, 0, 'unburned by the plateau or the ramp');
+    const g2 = mkGhost({ id: 'ghost_0_0_3_0_1' });
+    const s2 = ghostScene([g2]);
+    s2.save.reachUpgrades = 3;           // reach 4 cells
+    race(s2, g2, 60);
+    assert.eq(s2._hits.length, 1, 'three Inner Light upgrades do not hold it off either');
   });
 });
 
-test('ghost: a torch, or a brighter Inner Light, burns it out before it arrives', () => {
+test('ghost: a torch burns it out before it arrives', () => {
   atDaylight(0, () => {
     const g = mkGhost();
     const s = ghostScene([g], { isTorchActive: () => true });
@@ -298,36 +293,50 @@ test('ghost: a torch, or a brighter Inner Light, burns it out before it arrives'
     assert.eq(s._hits.length, 0, 'never touched the player');
     assert.eq(g._felledBy, 'light', 'burned out');
     assert.falsy(Combat.isPlayerKill('light'), 'a light kill is not the player\'s — the coin only');
-    const g2 = mkGhost({ id: 'ghost_0_0_3_0_1' });
-    const s2 = ghostScene([g2]);
-    s2.save.reachUpgrades = 3;           // reach 4 cells
-    race(s2, g2, 60);
-    assert.eq(s2._hits.length, 0, 'three Inner Light upgrades hold it off');
   });
 });
 
-test('ghost: a campfire at the player\'s side turns it away', () => {
+test('ghost: a campfire at the player\'s side routs it — the ward, not a refused step', () => {
   atDaylight(0, () => {
     const g = mkGhost();
     const s = ghostScene([g]);
-    s.save.fires = [{ x: P.x, y: P.y }];
-    race(s, g, 60);
-    assert.eq(s._hits.length, 0, 'it never reached the player');
-    assert.gte(dist(g), FIRE_REST_R - 0.01, 'held at the fire\'s ring');
+    const fire = { x: P.x, y: P.y };
+    s.save.fires = [fire];
+    let routed = false, closest = Infinity, after = 0;
+    for (let t = 0; t < 60000 && alive(s, g); t += TICK_MS) {
+      tick(s, TICK_MS);
+      closest = Math.min(closest, dist(g));
+      if (g._wardFrom === fire) routed = true;
+      if (routed) after = Math.max(after, dist(g));
+    }
+    assert.eq(s._hits.length, 0, 'it never touched the player by the fire');
+    assert.truthy(routed, 'the fire tripped the ward latch');
+    assert.gte(closest, FIRE_REST_R - 0.5, 'turned at the fire\'s ring, not inside it');
+    if (alive(s, g)) assert.gt(after, FIRE_REST_R + 1, 'and driven off, not hovering at the ring');
   });
 });
 
-test('ghost: so does a lit street lamp; a dark one does not', () => {
+test('ghost: a campfire on another depth does not rout it', () => {
+  atDaylight(0, () => {
+    const g = mkGhost();
+    const s = ghostScene([g]);
+    s.save.fires = [{ x: P.x, y: P.y, depth: 1 }];
+    race(s, g, 60);
+    assert.eq(s._hits.length, 1, 'a cave fire is no ward on the surface');
+  });
+});
+
+test('ghost: so does a lit street lamp — its light only burns', () => {
   atDaylight(0, () => {
     const g = mkGhost();
     const s = ghostScene([g], { _streetLamps: [{ id: 'L', x: P.x, y: P.y, lit: true }] });
-    race(s, g, 60);
-    assert.eq(s._hits.length, 0, 'never reached the player under the lamp');
-    assert.eq(g._felledBy, 'light', 'held at the lamp\'s ring in the player\'s light, and burned');
-    const g2 = mkGhost({ id: 'ghost_0_0_5_0_1' });
-    const s2 = ghostScene([g2], { _streetLamps: [{ id: 'L', x: P.x, y: P.y, lit: false }] });
-    race(s2, g2, 60);
-    assert.eq(s2._hits.length, 1, 'an unlit lamp is only a stone');
+    let closest = Infinity;
+    for (let t = 0; t < 60000 && alive(s, g); t += TICK_MS) {
+      tick(s, TICK_MS);
+      closest = Math.min(closest, dist(g));
+    }
+    const r = Lighting.radiusCells('cobble');
+    assert.lt(closest, r - 0.5, 'it crossed into the lamp\'s ring');
   });
 });
 
@@ -337,6 +346,16 @@ test('ghost: Home\'s ward routs it like any foe', () => {
     const s = ghostScene([g], { homeWorldPos: () => ({ x: P.x, y: P.y }) });
     race(s, g, 60);
     assert.eq(s._hits.length, 0, 'never touched the player at Home');
+  });
+});
+
+test('ghost: a claimed castle routs it like Home', () => {
+  atDaylight(0, () => {
+    const g = mkGhost();
+    const s = ghostScene([g], { _castleWardPoints: () => [{ x: P.x, y: P.y }] });
+    race(s, g, 60);
+    assert.eq(s._hits.length, 0, 'never touched the player at a castle they took back');
+    assert.truthy(g._wardFrom, 'on the ward latch');
   });
 });
 
@@ -387,7 +406,7 @@ test('ghost burn: damage scales with brightness, and darkness is safe', () => {
     assert.eq(dark.dmg, 0, 'out of every light: no burn at all');
     // Proportional: the damage over a second is the pool × exposure / burn-s.
     const sc = near.s;
-    const b = Lighting.brightnessAt(sc, near.g.x, near.g.y) / Lighting.profile(sc, 0).lit;
+    const b = Lighting.brightnessAt(sc, near.g.x, near.g.y, undefined, { playerGlow: false }) / Lighting.profile(sc, 0).lit;
     const expect = Combat.maxHp(near.g) * b * 1 / __ghost.GHOST_PLATEAU_BURN_S;
     assert.inRange(near.dmg, expect * 0.7, expect * 1.3, 'the pool × exposure over GHOST_PLATEAU_BURN_S');
   });

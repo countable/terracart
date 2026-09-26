@@ -241,6 +241,13 @@
   // tint is a no-op). Replacing it is a sheet in assets.js and this row.
   const GHOST_TINT = 0xc8d8ff;
   const GHOST_ALPHA = 0.6;
+  // Its GLOW: a faint cold halo drawn ABOVE the lightmap (render.js, the
+  // ghostGlowContainer layer), so a ghost can be seen coming across the dark.
+  // It is NOT a light — no Lighting.KINDS row, it lights nothing around it and
+  // nothing reads it (brightnessAt never sees it). `px` is its diameter on
+  // screen, `alpha` its peak; the colour is GHOST_TINT's, baked into the
+  // 'ghost_glow' texture (app.js create()).
+  const GHOST_GLOW = { px: 34, alpha: 0.5 };
 
   // ── WHAT THE RENDERER DOES WITH THE SHEET ─────────────────────────────────
   // Beside the geometry (sheet / frame size / scale / foot / float / trimmed
@@ -324,7 +331,7 @@
     // The ghost (temporary — see GHOST_TINT): the purple slime's sheet and
     // geometry, oozing on row 0 with no hop row (it never lands), floated off
     // its shadow and bobbing slowly — `airborne`, so the shadow reads small.
-    ghost:         { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hop: true, hopMs: 1600, hopPx: 3, airborne: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 6,  minY: 10, maxY: 21, tint: GHOST_TINT, alpha: GHOST_ALPHA },
+    ghost:         { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hop: true, hopMs: 1600, hopPx: 3, airborne: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 6,  minY: 10, maxY: 21, tint: GHOST_TINT, alpha: GHOST_ALPHA, glow: GHOST_GLOW },
   };
   // ── GIANTS ────────────────────────────────────────────────────────────────
   // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
@@ -520,6 +527,8 @@
   // How opaque a kind is drawn — 1 for everything but a row that says
   // otherwise (the ghost). Set every frame by the renderer: sprites are pooled.
   function creatureAlpha(kind) { return creatureArt(kind)?.alpha ?? 1; }
+  // A kind's non-lighting halo ({ px, alpha }), or null — the ghost's only.
+  function creatureGlow(kind) { return creatureArt(kind)?.glow || null; }
 
   // THE CREATURE WHEEL RULE: the work-progress wheel RESTS ON the animal's
   // CROWN — the top row of its visible art, at rest. The ring's top edge sits
@@ -605,7 +614,7 @@
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
-    CAVE_SLIME_TINT, TRAPPER_TINT, GHOST_TINT, GHOST_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha,
+    CAVE_SLIME_TINT, TRAPPER_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
     creatureFoot, creatureScale, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;

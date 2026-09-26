@@ -988,14 +988,18 @@ class SceneCreatures {
       //   The latch remembers WHICH ward tripped it (`_wardFrom`, a point:
       // Home, or a claimed castle's turret), because the rout angle and the
       // release both measure from that point.
-      const wardFoe = (!!homePos || castleWards.length > 0) && !isTame && Combat.isEnemy(c);
+      //   A GHOST has one more ward point: a campfire (fireWardTrip) — the
+      // same latch, a third reason, asked only for a haunting kind.
+      const haunts = SpriteLayout.creatureHaunts(c.kind);
+      const wardFoe = (!!homePos || castleWards.length > 0 || haunts) && !isTame && Combat.isEnemy(c);
       if (wardFoe) {
         const from = c._wardFrom;
         if (from) {
           const fd2 = (c.x - from.x) * (c.x - from.x) + (c.y - from.y) * (c.y - from.y);
           if (fd2 > HOME_ROUT_R2) c._wardFrom = null;                   // released
         } else {
-          c._wardFrom = wardTrip(c, homePos, castleWards, HOME_WARD_R2); // tripped?
+          c._wardFrom = wardTrip(c, homePos, castleWards, HOME_WARD_R2)  // tripped?
+            || (haunts ? fireWardTrip(this, c) : null);
         }
       }
       const warded = wardFoe && !!c._wardFrom;
@@ -1036,9 +1040,9 @@ class SceneCreatures {
       // armour like every blow, and then it is spent — marked in save.caught
       // like a kill, but no coin (nobody felled it). Nothing else below runs
       // for it: it has no leech, no step chain and no crop to eat.
-      if (SpriteLayout.creatureHaunts(c.kind)) {
+      if (haunts) {
         const gm = Combat.monster(c.kind);
-        const pace = STEP_M * monsterStrideCells(gm) * gm.speed / STEP_MS;
+        const pace = gm.mps / 1000;
         const fate = ghostTick(this, c, now, px, py, unnoticed, warded, pace);
         if (fate === 'touch') {
           const before = this.save.energy ?? 0;

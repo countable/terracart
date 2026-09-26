@@ -126,20 +126,19 @@
   // bag (spawnsUnderground) and has NO giant (the derivation below skips it,
   // so no board job can ever name a foe that never appears). Its `minDepth`
   // is 0 — the surface — so the elite roll's depth bonus reads it plainly.
-  //   SPEED is the melee goblin's, doubled (GHOST_SPEED_MUL) — derived from
-  // the goblin row, never retyped, so a goblin retune carries the ghost with
-  // it. It walks the goblin's stride (no `fly`: that lengthens the stride and
-  // would make it more than twice as fast over the ground).
+  //   SPEED is a run, GHOST_SPEED_MPS metres per second over the ground — its
+  // own glide (creature_ai.js ghostTick), not the step chain's beat, so the
+  // row carries `mps` and no `speed` (the step chain never moves a ghost).
   //   DMG is its TOUCH: one blow of GHOST_TOUCH_DMG before the mode, the
   // shield and armour, then it is gone (creature_ai.js ghostTick). Authored at the
   // baseline so the cave doubling below lands it on exactly that number.
   //   HP is small — it dies in the light (creature_ai.js GHOST_PLATEAU_BURN_S) and to
   // two or three honest blows; the bounty is derived from it like any foe's.
-  const GHOST_SPEED_MUL = 2;
+  const GHOST_SPEED_MPS = 3;
   const GHOST_TOUCH_DMG = 25;
   MONSTERS_BASELINE.ghost = {
     name: 'Ghost', hp: 10, range: 1, dmg: GHOST_TOUCH_DMG / CAVE_ENEMY_MUL,
-    speed: MONSTERS_BASELINE.goblin.speed * GHOST_SPEED_MUL,
+    mps: GHOST_SPEED_MPS,
     minDepth: 0, weight: 1, spawn: 'night',
   };
   // Both goblin rows were too slow to feel like a pursuer: ×1.3 (1.0 / 0.8 →
@@ -1060,7 +1059,7 @@
 
   const api = {
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
-    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MUL, GHOST_TOUCH_DMG, retreatMul, FAUNA_HP, creatureMaxHp,
+    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, retreatMul, FAUNA_HP, creatureMaxHp,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
