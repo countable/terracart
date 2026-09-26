@@ -4038,6 +4038,10 @@ class MapScene extends Phaser.Scene {
         if (gainedE > 0) this._splashEnergyGain(gainedE);
         if (this.updateEnergyDOM) this.updateEnergyDOM();
         persistSave(this.save);
+        // The first time Home stands a downed player back up, the villagers'
+        // part in it is told (the REVIVAL STORYBOARD). Home only: a Crow
+        // Feather or a revival potion is the player's own doing.
+        if (gainedE > 0) this._reviveStoryboard();
       } else if (atHome && !working && (this.save.energy ?? 0) < maxE) {
         this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE);
       } else {
@@ -7759,6 +7763,34 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
     this.showMessageModal({ title, body, art, okLabel });
     return true;
+  }
+
+  // THE REVIVAL STORYBOARD: three panels, read in order, the first time a
+  // save is revived at Home (update()'s hard-mode lockout lift) — out cold,
+  // found by villagers, back at Home. Once per save, in the story ledger
+  // under 'revive'; a busy screen leaves it unmarked for the next revival,
+  // the _storySplashOnce rule. It tells no numbers: the energy the revival
+  // gave is the on-screen pop's (_splashEnergyGain), not the story's.
+  _reviveStoryboard() {
+    const seen = this.save.storySeen = this.save.storySeen || {};
+    if (seen.revive) return;
+    this._syncModalGate?.();
+    if (document.body?.classList?.contains('modal-open')) return;
+    seen.revive = 1;
+    persistSave(this.save);
+    const PANELS = [
+      { art: 'revive_fall',  title: 'Out cold', body: 'Your legs gave out, and the world went dark.' },
+      { art: 'revive_found', title: 'Found',    body: 'Lantern light. Villagers lift you and help you home.' },
+      // The carer is the villager revive_wake draws; they say nothing, which
+      // is the point. What the revival GAVE is the energy pop's to say.
+      { art: 'revive_wake',  title: 'Home',     body: 'You wake in the care of a grizzled farmhand. They are silent, bid you farewell with a nod.' },
+    ];
+    const show = (i) => this.showMessageModal({
+      ...PANELS[i], kind: 'story',
+      okLabel: i < PANELS.length - 1 ? 'Next' : 'OK',
+      onDismiss: i < PANELS.length - 1 ? () => show(i + 1) : undefined,
+    });
+    show(0);
   }
 
   // FIRST-TOOL-ACTION stories: one splash per action, ever, keyed
