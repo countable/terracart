@@ -236,6 +236,28 @@
     // under white, and a peak this high tips a cell to full white for the
     // first frames, which is the flash.
     blast:    { radiusCells: 2.5, colour: 0xe4defc, peak: 1.0, flicker: 0 },
+    // A SHINY — a rare gold tree, wild plant or animal (util.js SHINY_RATE;
+    // an elite monster wears the same flag). Until Sep 2026 a shiny was
+    // marked by a spinning gold star floated over its cell and a gold
+    // multiply tint; the tint is a no-op under the Canvas fallback and a gold
+    // multiply over green art reads as olive, not as treasure. The shiny now
+    // GLOWS: a small pale-gold pool on its cell, breathing on the POI's slow
+    // beat (`pulse`, phased by its id) because it is the same kind of mark —
+    // a thing worth walking over to, findable from across the screen. What it
+    // is NOT: a POI (blue-white, a place with loot in it) or a fire (orange,
+    // warmth). Pale gold keeps it apart from both, and from Home's amber.
+    // Offered by drawObjects off the same shiny test its sprite reads, so a
+    // chopped shiny tree (no sprite) throws no light either.
+    shiny:    { radiusCells: 1.5, colour: 0xfff0a0, peak: 0.85, flicker: 0, pulse: 0.45 },
+    // A STAFF BOLT in flight (Combat.SHOT.staff — the seeking, piercing magic
+    // shot). The bolt is a light: it lights the ground it crosses and the foe
+    // it passes through, which is most of what makes it read as magic rather
+    // than as a thrown dot. In the bolt's own colour; a quick crackle
+    // (`flicker`) because it is live energy, not a lamp. Collected from
+    // scene._shots (collectBolts) — a list, like the lamps — and lifted to
+    // the height the bolt is DRAWN at (SHOT_DRAW_LIFT_PX) as a draw-space
+    // `dyPx`, so the glow sits on the orb, not on the ground under it.
+    bolt:     { radiusCells: 1.5, colour: 0x9ad6ff, peak: 0.95, flicker: 0.14 },
   };
 
   // Seconds per POI breath. Slow on purpose (see the row above).
@@ -733,6 +755,16 @@
     return true;
   }
 
+  // Offer a SHINY (the `shiny` row). Not through sourceKind: shiny is not a
+  // kind of object but a flag any tree, wild plant or creature can carry, and
+  // drawObjects already resolves it for each (the list its sprite pass builds)
+  // — so the caller hands over the id it hashed and this only culls and keeps.
+  function offerShiny(scene, id, dx, dy, halfM) {
+    if (!inRange(scene, dx, dy, 'shiny', halfM)) return false;
+    scene._lights.push({ kind: 'shiny', dx, dy, id: `shiny_${id}` });
+    return true;
+  }
+
   // The placed campfires on this depth, within light range of the view.
   function collectFires(scene, ax, ay, halfM) {
     const PF = window.PlacedFloor;
@@ -809,6 +841,35 @@
     }
     return n;
   }
+
+  // The STAFF BOLTS in flight. app.js keeps its shots on scene._shots, in
+  // ABSOLUTE world metres (the feet line they fly along); a bolt is the one
+  // with a drawn dot (`dotPx` — spawnShot stamps it for the staff, 0 for an
+  // arrow). Converted against THIS frame's anchor, like the blasts, and
+  // lifted to the drawn orb by SHOT_DRAW_LIFT_PX (app.js, read at call time)
+  // as `dyPx`. The id is the shot's own spawn stamp, so a bolt keeps its
+  // flicker phase across frames.
+  //
+  // Paint only: brightnessAt does not call this. A bolt is a fleeting thing
+  // crossing the view, and what "stands in the light" (the ghost) must not
+  // start answering to the player's own gunfire as a side-effect of a look.
+  function collectBolts(scene, ax, ay, halfM) {
+    const list = scene && scene._shots;
+    if (!list || !list.length) return 0;
+    if (!scene._lights) scene._lights = [];
+    const liftPx = (typeof SHOT_DRAW_LIFT_PX !== 'undefined') ? SHOT_DRAW_LIFT_PX : 0;
+    let n = 0;
+    for (const s of list) {
+      if (!s || !s.dotPx || s.hostile) continue;
+      const dx = s.x - ax, dy = s.y - ay;
+      if (!inRange(scene, dx, dy, 'bolt', halfM)) continue;
+      if (s._lightId == null) s._lightId = `bolt_${++boltSeq}`;
+      scene._lights.push({ kind: 'bolt', dx, dy, dyPx: -liftPx, id: s._lightId });
+      n++;
+    }
+    return n;
+  }
+  let boltSeq = 0;
 
   // The player's light beyond the ramp: the torch cookie, at the feet (metres
   // from the camera anchor, like every light — it slides with a peek), while
@@ -1183,6 +1244,7 @@
     collectFires(scene, ax, ay, halfM);
     collectLamps(scene, ax, ay, halfM);
     collectPlayer(scene, ax, ay, halfM, now);
+    collectBolts(scene, ax, ay, halfM);
     // The live blasts, converted against THIS frame's anchor (they are stored
     // in world metres) and pruned as they burn out.
     collectBlasts(scene, ax, ay, halfM, now);
@@ -1315,7 +1377,7 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
-    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires, objectLightPadCells,
+    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, collectFires, collectBolts, objectLightPadCells,
     collectPlayer, collectLamps, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
