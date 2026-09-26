@@ -4041,6 +4041,7 @@ Render.drawObjects = function drawObjects(scene) {
   const creatureSheet = (kind) => (SL && SL.creatureSheet ? SL.creatureSheet(kind) : kind) || 'chicken';
   const creatureFrames = (SL && SL.creatureFrames) || (() => 1);
   const creatureTint = (SL && SL.creatureTint) || (() => 0xffffff);
+  const creatureAlpha = (SL && SL.creatureAlpha) || (() => 1);
   // HOW the sheet moves — the same table, for the same reason as the tint
   // above. `anim` names a Phaser animation, which owns the cycle; `frameMs`
   // steps the row-0 cycle here instead; a kind with neither is drawn at rest
@@ -4126,6 +4127,9 @@ Render.drawObjects = function drawObjects(scene) {
     // both say something about this INSTANCE, which outranks what it is.
     const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
     s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : creatureTint(c.kind));
+    // The row's opacity (the ghost's see-through body), every frame — a pooled
+    // sprite keeps whatever alpha its last creature wore.
+    s.setAlpha(creatureAlpha(c.kind));
   });
 
 
@@ -4137,7 +4141,7 @@ Render.drawObjects = function drawObjects(scene) {
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
       cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, rabbit: 14, chicken: 14,
-      butterfly: 9, slime: 22, cave_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22,
+      butterfly: 9, slime: 22, cave_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
       const { c, dx, dy } = item;

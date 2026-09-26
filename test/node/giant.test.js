@@ -3,7 +3,9 @@
 // kind's art at GIANT_ART_SCALE with the wheel / bar / tap box following.
 
 (() => {
-  const baseKinds = Object.keys(MONSTERS).filter((k) => !MONSTERS[k].giant);
+  // A giant is a CAVE kind's: a row with its own `spawn` (the ghost, which
+  // rises on the surface at night) has none, and is pinned so below.
+  const baseKinds = Object.keys(MONSTERS).filter((k) => !MONSTERS[k].giant && Combat.spawnsUnderground(k));
   const giantKinds = Object.keys(MONSTERS).filter((k) => MONSTERS[k].giant);
 
   test('giants: every base kind has one, at 4× HP and two levels deeper', () => {
@@ -34,6 +36,12 @@
       // The deeper introduction buys the elite roll its +2 tier.
       assert.eq(eliteRollBonus('giant_' + kind, 1), eliteRollBonus(kind, 1) + GIANT_DEPTH_STEP, kind + ' giant elite rolls two tiers higher');
     }
+  });
+
+  test('giants: a kind that never spawns in a cave has no giant', () => {
+    const night = Object.keys(MONSTERS).filter((k) => !MONSTERS[k].giant && !Combat.spawnsUnderground(k));
+    assert.includes(night, 'ghost', 'the ghost is the night kind');
+    for (const k of night) assert.falsy(MONSTERS['giant_' + k], k + ' has no giant form');
   });
 
   test('giants: drawn on the base art at 1.8×, and everything seated on the body follows', () => {

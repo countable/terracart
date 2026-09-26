@@ -99,6 +99,9 @@
   //            its own: the lower, the likelier. Read via retreatMul.
   // hp and dmg here are the BASELINE: every entry is doubled by CAVE_ENEMY_MUL
   // below, so what the game runs on is twice what is written.
+  // The cave doubling (see "The first slime is the tutorial" below) — named
+  // up here only because the ghost row after the table is authored against it.
+  const CAVE_ENEMY_MUL = 2;
   const MONSTERS_BASELINE = {
     cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5 },
     purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true, retreat: 0.75 },
@@ -114,6 +117,30 @@
     // shallower than the one below it), with the archer's gait and HP a
     // touch over it: it is the one you have to walk THROUGH its traps to reach.
     goblin_trapper: { name: 'Goblin Trapper', hp: 20, range: 3, dmg: 0, speed: 2.08, minDepth: 3, weight: 2, lays: 'trap', retreat: 0.5 },
+  };
+  // THE GHOST — the one monster that is not a cave kind. Its `spawn` column
+  // says where it comes from instead of the cave bag: 'night' is app.js's
+  // ghost spawner (GHOST_SPAWN_MS — the surface, after dark, a few at a time
+  // in the dark around the player; session state like the pest crow, never
+  // generated and never on a tile). A row with `spawn` is skipped by the cave
+  // bag (spawnsUnderground) and has NO giant (the derivation below skips it,
+  // so no board job can ever name a foe that never appears). Its `minDepth`
+  // is 0 — the surface — so the elite roll's depth bonus reads it plainly.
+  //   SPEED is the melee goblin's, doubled (GHOST_SPEED_MUL) — derived from
+  // the goblin row, never retyped, so a goblin retune carries the ghost with
+  // it. It walks the goblin's stride (no `fly`: that lengthens the stride and
+  // would make it more than twice as fast over the ground).
+  //   DMG is its TOUCH: one blow of GHOST_TOUCH_DMG before the mode, the
+  // shield and armour, then it is gone (app.js ghostTick). Authored at the
+  // baseline so the cave doubling below lands it on exactly that number.
+  //   HP is small — it dies in the light (app.js GHOST_PLATEAU_BURN_S) and to
+  // two or three honest blows; the bounty is derived from it like any foe's.
+  const GHOST_SPEED_MUL = 2;
+  const GHOST_TOUCH_DMG = 25;
+  MONSTERS_BASELINE.ghost = {
+    name: 'Ghost', hp: 10, range: 1, dmg: GHOST_TOUCH_DMG / CAVE_ENEMY_MUL,
+    speed: MONSTERS_BASELINE.goblin.speed * GHOST_SPEED_MUL,
+    minDepth: 0, weight: 1, spawn: 'night',
   };
   // Both goblin rows were too slow to feel like a pursuer: ×1.3 (1.0 / 0.8 →
   // 1.3 / 1.04), then doubled again (2.6 / 2.08). The archer keeps its lag
@@ -144,6 +171,7 @@
   const GIANT_HP_MUL = 4;
   const GIANT_DEPTH_STEP = 2;
   for (const [kind, m] of Object.entries(MONSTERS)) {
+    if (m.spawn) continue;          // not a cave kind: no giant (the ghost)
     MONSTERS[`giant_${kind}`] = {
       ...m,
       name: `Giant ${m.name}`,
@@ -167,7 +195,8 @@
   // double HP is exactly double the time to kill at any weapon tier, and
   // enemyBounty pays per HP, so a foe that takes twice as long pays twice as
   // much.
-  const CAVE_ENEMY_MUL = 2;
+  // (CAVE_ENEMY_MUL itself is declared above the table — the ghost row
+  // authors its touch against it.)
   for (const m of Object.values(MONSTERS)) {
     m.hp *= CAVE_ENEMY_MUL;
     m.dmg *= CAVE_ENEMY_MUL;
@@ -200,6 +229,12 @@
   // What a monster LAYS instead of hitting ('trap'), or null. A giant inherits
   // its base kind's (the giant rows are spreads of the base row).
   function monsterLays(kind) { return MONSTER_STATS[kind]?.lays || null; }
+  // Does the cave bag (app.js spawnCaveCreatures) draw this kind? Every row
+  // without a `spawn` column — the ghost's 'night' is the one that has one.
+  function spawnsUnderground(kind) {
+    const m = MONSTER_STATS[kind];
+    return !!m && !m.spawn;
+  }
 
   // Non-monster fauna that can take damage. cat/dog/crow/deer are the pet-combat
   // ladder (a tame dog hunting a deer); `slime` is the surface pest, the one
@@ -1025,7 +1060,7 @@
 
   const api = {
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
-    registerMonsters, monster, isMonster, monsterHits, monsterLays, retreatMul, FAUNA_HP, creatureMaxHp,
+    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MUL, GHOST_TOUCH_DMG, retreatMul, FAUNA_HP, creatureMaxHp,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,

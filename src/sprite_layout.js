@@ -233,6 +233,14 @@
   // (there is no red to lift), which is why the hue shift is the whole of it
   // rather than a shade: a merely darker goblin would read as one in shadow.
   const TRAPPER_TINT = 0xff4a3a;
+  // THE GHOST — TEMPORARY ART. It has no sheet yet, so it is the purple
+  // slime's drawn pale and see-through: a cold tint (a multiply can only take
+  // colour away, so the purple is cooled toward blue-grey rather than made
+  // white) and GHOST_ALPHA, the one creature drawn part-transparent
+  // (creatureAlpha — alpha still renders under the Canvas fallback, where the
+  // tint is a no-op). Replacing it is a sheet in assets.js and this row.
+  const GHOST_TINT = 0xc8d8ff;
+  const GHOST_ALPHA = 0.6;
 
   // ── WHAT THE RENDERER DOES WITH THE SHEET ─────────────────────────────────
   // Beside the geometry (sheet / frame size / scale / foot / float / trimmed
@@ -313,6 +321,10 @@
     // goblin row above (one body cannot have two ground lines); the tint is
     // the one thing that differs (TRAPPER_TINT).
     goblin_trapper: { sheet: 'goblin',       frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27, tint: TRAPPER_TINT },
+    // The ghost (temporary — see GHOST_TINT): the purple slime's sheet and
+    // geometry, oozing on row 0 with no hop row (it never lands), floated off
+    // its shadow and bobbing slowly — `airborne`, so the shadow reads small.
+    ghost:         { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hop: true, hopMs: 1600, hopPx: 3, airborne: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 6,  minY: 10, maxY: 21, tint: GHOST_TINT, alpha: GHOST_ALPHA },
   };
   // ── GIANTS ────────────────────────────────────────────────────────────────
   // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
@@ -402,12 +414,18 @@
     // The bounty coin still falls beside it; an enemy's drop is ON TOP of the
     // wage, never instead of it.
     goblin_trapper: { wanders: true, drop: 'magic_trap' },
+    // THE GHOST has its own mover (app.js ghostTick — hover, then a committed
+    // rush at the player, over any terrain; a touch spends it; light burns
+    // it). `haunts` is what hands it there instead of the step chain.
+    ghost:         { wanders: true, haunts: true },
   };
   // The behaviour row for `kind` — the base row for a giant, like its art.
   function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[baseKind(kind)]; }
   // Does this kind think at all? wanderCreatures culls on it before anything
   // else, so a kind with no row is furniture.
   function creatureWanders(kind) { return !!creatureBehaviour(kind)?.wanders; }
+  // Does this kind move by the ghost's mover rather than the step chain?
+  function creatureHaunts(kind) { return !!creatureBehaviour(kind)?.haunts; }
   // A tame one of these hunts for its owner (cat, dog) — see `prey`.
   function isPet(kind) { return !!creatureBehaviour(kind)?.pet; }
   // GAME: taken by a tap on the hunt wheel, with the bug net. Deliberately NOT
@@ -499,6 +517,9 @@
   // (see CAVE_SLIME_TINT), so it is read from the table rather than branched
   // on in the renderer, and a giant inherits its base kind's.
   function creatureTint(kind) { return creatureArt(kind)?.tint ?? 0xffffff; }
+  // How opaque a kind is drawn — 1 for everything but a row that says
+  // otherwise (the ghost). Set every frame by the renderer: sprites are pooled.
+  function creatureAlpha(kind) { return creatureArt(kind)?.alpha ?? 1; }
 
   // THE CREATURE WHEEL RULE: the work-progress wheel RESTS ON the animal's
   // CROWN — the top row of its visible art, at rest. The ring's top edge sits
@@ -578,13 +599,13 @@
     PLAIN_ROCK_VARIANTS, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
-    CREATURE_BEHAVIOUR, creatureBehaviour, creatureWanders, isPet, isGame,
+    CREATURE_BEHAVIOUR, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureFollows, creatureAvoids,
     creatureAnim, creatureFrameMs, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
-    CAVE_SLIME_TINT, TRAPPER_TINT, creatureSheet, creatureFrames, creatureTint,
+    CAVE_SLIME_TINT, TRAPPER_TINT, GHOST_TINT, GHOST_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha,
     creatureFoot, creatureScale, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;

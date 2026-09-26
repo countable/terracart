@@ -1258,13 +1258,24 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     fn('function wardTrip(c, homePos, castleWards, r2) {'),
     // The goblin trapper's stalk: hold its row's range off the player.
     fn('function keepDistanceAngle(dist, dxp, dyp, keepM, cellM) {'),
+    // The ghosts: the stride both movers read, the night pump and the mover.
+    fn('function monsterStrideCells(mon) {'),
+    num('GHOST_DARK_DAYLIGHT'), num('GHOST_SPAWN_MS'), num('GHOST_SPAWN_JITTER_MS'),
+    num('GHOST_GROUP_MIN'), num('GHOST_GROUP_MAX'), num('GHOST_NEAR_MAX'), num('GHOST_GROUP_SPREAD'),
+    num('GHOST_SPAWN_DARK'), num('GHOST_HOVER_MS'), num('GHOST_TOUCH_CELLS'),
+    num('GHOST_PLATEAU_BURN_S'), num('GHOST_LIGHT_TICK_MS'), num('GHOST_LIFETIME_MS'),
+    fn('function ghostSpawnDelay(r) {'),
+    fn('function ghostSunExposure(day) {'),
+    fn('function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {'),
+    fn('function ghostRefused(scene, x, y) {'),
+    fn('function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {'),
   ].join('\n');
   // ONE script, so the method closes over the preamble's consts — a second
   // runInContext would not see them (a vm script's top-level `const` does not
   // land on the context global; that is what the BRIDGE above exists for).
   // The method text is a class method, so it is wrapped as an object literal
   // and the property taken off it.
-  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\n})();`,
+  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN, GHOST_GROUP_MAX, GHOST_NEAR_MAX, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, monsterStrideCells, ghostSunExposure, ghostSpawnDelay };\n})();`,
     ctx, { filename: 'app.js#wanderCreatures' });
   if (typeof ctx.__wander !== 'function') {
     console.error('__wander did not come back as a function — update run.js');

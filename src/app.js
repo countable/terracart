@@ -800,6 +800,179 @@ const CREATURE_SIM_CELLS = 12;
 // never seen popping into being, but inside CREATURE_SIM_CELLS so it is
 // thinking, and flying at the field, from the tick it is pushed.
 const PEST_CROW_SPAWN_CELLS = 10;
+// A MONSTER'S STRIDE, in cells: how far one step of the step chain carries it
+// (wanderCreatures' stepM) — a full cell for a flier, 0.6 for everything that
+// walks. Its PACE is this over its beat (the loop's STEP_MS / its row's
+// speed); the ghost's continuous glide reads the same pair, so "twice the
+// goblin's speed" is twice the goblin's ground speed and not a second number.
+function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
+// ── GHOSTS ───────────────────────────────────────────────────────────────────
+// After dark a few ghosts rise in the dark around the player, hover a moment,
+// then rush them: a touch costs Combat's GHOST_TOUCH_DMG (the mode, the shield
+// and armour have their say, as with every blow) and spends the ghost; light
+// burns them (Lighting.brightnessAt, the lightmap's own model). Their row is
+// combat.js MONSTERS.ghost (`spawn: 'night'` — never the cave bag, no giant),
+// their mover is ghostTick below (SpriteLayout `haunts`), and they are SESSION
+// state exactly like the pest crow: pushed into the player's tile entry with an
+// id minted off the clock, never generated and never seated on a tile — a
+// spent or slain ghost's marker in save.caught is pruned by the same pass the
+// pest crow's is (wanderCreatures).
+//   "After dark" is the daylight (Lighting.daylight, 1 noon .. 0 night) under
+// GHOST_DARK_DAYLIGHT: 0.5 is the sun on the horizon, and 0.25 is a few
+// degrees under it — dusk gone to dark. Underground there is no night to
+// rise in (the caves have their own foes).
+const GHOST_DARK_DAYLIGHT = 0.25;
+// The cadence: one group every GHOST_SPAWN_MS (5 minutes), ± the jitter, so a
+// night reads as "every so often", not as a clock.
+const GHOST_SPAWN_MS = 300000;
+const GHOST_SPAWN_JITTER_MS = 60000;
+// How many rise at once, and the most that may be about the player at a time
+// (a long night with the pump outpacing the light must not become a swarm).
+const GHOST_GROUP_MIN = 1;
+const GHOST_GROUP_MAX = 3;
+const GHOST_NEAR_MAX = 6;
+// A group rises together: its members' angles about the player fan across
+// this much of a turn (radians), on the pest crow's ring (PEST_CROW_SPAWN_CELLS
+// — past the viewport corner, inside the sim bubble, for the same reason).
+const GHOST_GROUP_SPREAD = 1.2;
+// "Dark": a spawn point whose added light (Lighting.brightnessAt) is at most
+// this. Past the player's ramp (it ends one cell past the viewport corner) the
+// player adds nothing, so what this refuses is a campfire, a lamp, a lit
+// building — anywhere a light is standing.
+const GHOST_SPAWN_DARK = 0.02;
+// The hover: how long a risen ghost bobs where it rose before it rushes.
+const GHOST_HOVER_MS = 2000;
+// A touch: the ghost within this many cells of the player's feet.
+const GHOST_TOUCH_CELLS = 0.5;
+// THE BURN. A ghost's damage per second is its whole pool, times its light
+// exposure, over GHOST_PLATEAU_BURN_S — where exposure 1 is the player's own
+// reach plateau at night at its brightest (Lighting.profile(scene, 0).lit,
+// the plateau's derived level), so a ghost held at the player's feet lasts
+// GHOST_PLATEAU_BURN_S seconds. Daylight past GHOST_DARK_DAYLIGHT burns too
+// (ghostSunExposure — 1 at noon), so a ghost caught out at dawn is gone.
+//   Why 6: a ghost rushing a player at base reach (2.5 cells) from the spawn
+// ring takes ~1 plateau-second in the ramp and ~3 crossing the plateau —
+// about 4.1 of its 6 (measured: ~69% of its pool), so it arrives with about a
+// third of itself left and the touch lands. Two Inner Light upgrades still
+// let it through, barely; from three (reach 4 cells) it burns out on the
+// doorstep, and a torch's light burns it out long before. A campfire and a lit
+// lamp hold it at their ring (ghostRefused) in the player's light until it
+// burns; Home and a claimed castle rout it (the ward). ghosts.test.js runs the
+// race.
+const GHOST_PLATEAU_BURN_S = 6;
+// The burn is banked on this beat, not every frame (brightnessAt runs the
+// collectors).
+const GHOST_LIGHT_TICK_MS = 250;
+// A ghost that has not found the player in this long fades away (spent, no
+// coin) — a night of dodging must not leave the neighbourhood full of them.
+const GHOST_LIFETIME_MS = 180000;
+// The wait to the next group: GHOST_SPAWN_MS ± GHOST_SPAWN_JITTER_MS.
+function ghostSpawnDelay(r) { return GHOST_SPAWN_MS + (2 * r - 1) * GHOST_SPAWN_JITTER_MS; }
+// The sun's share of a ghost's exposure: 0 while it is dark enough for them,
+// rising to a full plateau's worth at noon.
+function ghostSunExposure(day) {
+  return clamp01((day - GHOST_DARK_DAYLIGHT) / (1 - GHOST_DARK_DAYLIGHT));
+}
+// THE NIGHT PUMP — seats a group of ghosts in the dark about the player, once
+// every ghostSpawnDelay while it is dark on the surface. Returns how many
+// rose. The timer is disarmed by day and underground, so the first group of a
+// night comes one delay after dark (or after a load at night), never at once.
+// `wardPts` / `wardR2` are wanderCreatures' Home + claimed-castle wards: a
+// ghost never rises inside a ring that would only rout it.
+function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {
+  if ((scene.depth || 0) !== 0) { scene._nextGhostT = null; return 0; }
+  if (!(Lighting.daylight(scene, Date.now()) < GHOST_DARK_DAYLIGHT)) { scene._nextGhostT = null; return 0; }
+  if (scene._nextGhostT == null) { scene._nextGhostT = now + ghostSpawnDelay(Math.random()); return 0; }
+  if (now < scene._nextGhostT) return 0;
+  scene._nextGhostT = now + ghostSpawnDelay(Math.random());
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
+  if (!entry || !entry.creatures) return 0;
+  let near = 0;
+  WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
+    if (SpriteLayout.creatureHaunts(c.kind) && !caughtSet.has(c.id)) near++;
+  });
+  const want = Math.min(GHOST_NEAR_MAX - near,
+    GHOST_GROUP_MIN + Math.floor(Math.random() * (GHOST_GROUP_MAX - GHOST_GROUP_MIN + 1)));
+  const R = PEST_CROW_SPAWN_CELLS * scene.cellM;
+  const base = Math.random() * Math.PI * 2;
+  let made = 0;
+  for (let i = 0; made < want && i < want * 8; i++) {
+    // The fan first; if the dark is not there, anywhere on the ring.
+    const a = i < want * 4 ? base + (Math.random() - 0.5) * GHOST_GROUP_SPREAD : Math.random() * Math.PI * 2;
+    const x = px + Math.cos(a) * R, y = py + Math.sin(a) * R;
+    if (!scene.cellAt(x, y).loaded) continue;
+    if (wardTrip({ x, y }, homePos, castleWards, wardR2)) continue;
+    if (Lighting.brightnessAt(scene, x, y) > GHOST_SPAWN_DARK) continue;
+    entry.creatures.push(WorldGen.makeCreature('ghost', x, y,
+      `ghost_${pcW.tx}_${pcW.ty}_${Math.floor(now)}_${made}_${Math.floor(Math.random() * 1e4)}`,
+      { _spawnT: now }));
+    made++;
+  }
+  if (made && scene.flash) scene.flash('👻 Ghosts in the dark!', scene.viewCenterX, scene.viewCenterY - 60);
+  return made;
+}
+// A STANDING LIGHT'S RING REFUSES A GHOST'S STEP — the campfire's ward
+// mechanism (a refused target, never a turn, so it holds at the edge rather
+// than freezing inside), and for the ghost the lit street lamp's too: it is a
+// thing of the dark, and the two lights a player can stand beside on purpose
+// are the two it will not cross. The ring is each light's own radius — the
+// fire's FIRE_REST_R, the lamp's Lighting.KINDS.cobble row — so what refuses
+// it is exactly what is lit. It holds there in the player's light and burns.
+// NOT Home's ward (that routs, _wardFrom) and not the burn (that is
+// brightnessAt, and reaches every light).
+function ghostRefused(scene, x, y) {
+  if (scene._nearAny('fires', x, y, FIRE_REST_R)) return true;
+  const lamps = scene._streetLamps;
+  if (!lamps || !lamps.length) return false;
+  const r = Lighting.radiusCells('cobble') * scene.cellM;
+  for (const L of lamps) {
+    if (L.lit && (L.x - x) * (L.x - x) + (L.y - y) * (L.y - y) < r * r) return true;
+  }
+  return false;
+}
+// ONE GHOST'S TICK — its mover, its burn, its touch. Returns what became of it:
+//   'touch'   it reached the player (wanderCreatures lands the blow and spends it)
+//   'burned'  the light finished it (_damageEnemy has already paid its coin)
+//   'faded'   its GHOST_LIFETIME_MS ran out
+//   null      it is still about.
+// `pace` is metres per ms (monsterStrideCells over its beat). HOVER first, in
+// place; then a committed line at the player's feet at that pace, over any
+// terrain (it is a ghost) — except a campfire's or a lit lamp's ring
+// (ghostRefused: the fire ward's refused step, never a turn). Warded
+// (Home, a claimed castle — `warded`, the same latch every foe wears) it runs
+// straight away from the ward; `unnoticed` (NOTHING HUNTS A BODY, or a Shadow
+// Powder) it hovers where it is. Neither touches.
+function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
+  if (c._spawnT == null) c._spawnT = now;
+  const dt = c._ghostT != null ? Math.max(0, now - c._ghostT) : 0;
+  c._ghostT = now;
+  if (c._burnT == null) c._burnT = now;
+  if (now - c._burnT >= GHOST_LIGHT_TICK_MS) {
+    const burnS = (now - c._burnT) / 1000;
+    c._burnT = now;
+    const wall = Date.now();
+    const exposure = Lighting.brightnessAt(scene, c.x, c.y, wall) / Lighting.profile(scene, 0).lit
+      + ghostSunExposure(Lighting.daylight(scene, wall));
+    if (exposure > 0 && scene._damageEnemy(c, Combat.maxHp(c) * exposure * burnS / GHOST_PLATEAU_BURN_S, 'light')) {
+      return 'burned';
+    }
+  }
+  if (now - c._spawnT >= GHOST_LIFETIME_MS) return 'faded';
+  if (now - c._spawnT < GHOST_HOVER_MS) return null;
+  let ang = null;
+  if (warded) ang = Math.atan2(c.y - c._wardFrom.y, c.x - c._wardFrom.x);
+  else if (!unnoticed) ang = Math.atan2(py - c.y, px - c.x);
+  if (ang == null) return null;
+  const toPlayer = Math.hypot(px - c.x, py - c.y);
+  const step = Math.min(pace * dt, warded ? Infinity : toPlayer);
+  const nx = c.x + Math.cos(ang) * step, ny = c.y + Math.sin(ang) * step;
+  if (!ghostRefused(scene, nx, ny)) {
+    c.x = nx; c.y = ny;
+    if (Math.abs(Math.cos(ang)) > 1e-6) c._faceFlip = Math.cos(ang) < 0;
+  }
+  if (warded) return null;
+  return Math.hypot(px - c.x, py - c.y) <= GHOST_TOUCH_CELLS * scene.cellM ? 'touch' : null;
+}
 // How long a departing crow keeps flying away (_crowDepart): [base, spread]
 // ms, so ~2.5–4 minutes — after a meal, or once the player starts hunting it.
 const CROW_DEPART_MS = [150000, 90000];
@@ -6648,7 +6821,10 @@ class MapScene extends Phaser.Scene {
     const caughtSet = setOf(this.save.caught);
     // Weighted bag of the kinds that may appear at this depth.
     const bag = [];
+    // Only the cave kinds: a row with its own `spawn` (the ghost, which the
+    // night spawner seats on the surface) is never drawn here.
     for (const [kind, m] of Object.entries(Combat.MONSTERS)) {
+      if (!Combat.spawnsUnderground(kind)) continue;
       if (depth >= m.minDepth) for (let w = 0; w < (m.weight || 1); w++) bag.push(kind);
     }
     if (!bag.length) { entry._spawned = true; entry.creatures = entry.creatures || creatures; return; }
@@ -8409,10 +8585,12 @@ class MapScene extends Phaser.Scene {
             Combat.ELITE_TREASURE_CONTEXT,
             { rollBonus: Combat.eliteRollBonus(victim.kind, this.depth) });
         }
-      } else if (Combat.isMonster(victim.kind) && Math.random() < Combat.MONSTER_TREASURE_CHANCE) {
+      } else if (Combat.isMonster(victim.kind) && Combat.spawnsUnderground(victim.kind)
+                 && Math.random() < Combat.MONSTER_TREASURE_CHANCE) {
         // One in ten plain cave monsters also drops a buried-treasure roll —
         // the same table an X pays, so a lucky kill reads as finding one.
-        // Underground only; see MONSTER_TREASURE_CHANCE.
+        // Underground only (a cave kind — not the night's ghost); see
+        // MONSTER_TREASURE_CHANCE.
         grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀');
       }
     } else if (mine && !dropId) {
@@ -8929,7 +9107,9 @@ class MapScene extends Phaser.Scene {
         now - (this._lastCaughtPruneT || 0) > 90000) {
       this._lastCaughtPruneT = now;
       this.save.caught = this.save.caught.filter((id) => {
-        const m = typeof id === 'string' && /^pest_crow_(-?\d+)_(-?\d+)_/.exec(id);
+        // The ghosts (ghostSpawnPass) mint their ids the same way and are
+        // pruned by the same rule.
+        const m = typeof id === 'string' && /^(?:pest_crow|ghost)_(-?\d+)_(-?\d+)_/.exec(id);
         return !m || WorldGen.tileCache.has(WorldGen.tileKey(+m[1], +m[2]));
       });
     }
@@ -9004,6 +9184,9 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
+
+    // The night's ghosts: a group now and then in the dark about the player.
+    ghostSpawnPass(this, now, px, py, pcW, homePos, castleWards, HOME_WARD_R2, caughtSet);
 
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
       // Cheapest reject first: the sim range cull. Everything below runs only
@@ -9092,6 +9275,36 @@ class MapScene extends Phaser.Scene {
       // `warded` by name: an away-from-the-ward angle and a walk back to a seat
       // are two mechanisms, not one, whatever they have in common here.
       const standDown = warded || wanderOff || (!!lairState && lairState !== 'hunt');
+      // A GHOST has its own mover (ghostTick — hover, rush, burn) and its own
+      // blow: ONE touch of its row's dmg, through the mode, the shield and the
+      // armour like every blow, and then it is spent — marked in save.caught
+      // like a kill, but no coin (nobody felled it). Nothing else below runs
+      // for it: it has no leech, no step chain and no crop to eat.
+      if (SpriteLayout.creatureHaunts(c.kind)) {
+        const gm = Combat.monster(c.kind);
+        const pace = STEP_M * monsterStrideCells(gm) * gm.speed / STEP_MS;
+        const fate = ghostTick(this, c, now, px, py, unnoticed, warded, pace);
+        if (fate === 'touch') {
+          const before = this.save.energy ?? 0;
+          if (!Combat.playerDowned(before)) {
+            const raw = gm.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
+            const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(raw / 2) : raw;
+            const dmg = Combat.playerDamage(shielded, this.save.armor);
+            this.save.energy = Math.max(0, before - dmg);
+            const lost = before - this.save.energy;
+            this._flashPlayerHit(lost);
+            this._popEnergy(-lost, { label: '👻 ghost' });
+            this._closeShopOnHit();
+            this._warnIfTiring(before);
+            if (this.updateEnergyDOM) this.updateEnergyDOM();
+          }
+        }
+        if (fate === 'touch' || fate === 'faded') {
+          (this.save.caught = this.save.caught || []).push(c.id);
+          if (typeof persistSave === 'function') persistSave(this.save);
+        }
+        return;
+      }
       // Slime energy steal: a slime sitting on/near the player drains 1 energy
       // on a per-slime cooldown. Accumulated across all slimes this frame and
       // surfaced with one throttled flash after the loop (see below) so a swarm
@@ -9290,7 +9503,7 @@ class MapScene extends Phaser.Scene {
                    : bolting ? (bolt.stepMs ?? STEP_MS)
                    : (gait?.stepMs ?? STEP_MS)) * shinyFast * (routed ? FLEE_BEAT_MUL : 1);
       const stepM = (c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
-                  : isMon ? STEP_M * (mon.fly ? 1.0 : 0.6)
+                  : isMon ? STEP_M * monsterStrideCells(mon)
                   : bolting ? STEP_M * (bolt.stepCells ?? 1)
                   : STEP_M * (gait?.stepCells ?? 1)) * (routed ? FLEE_STRIDE_MUL : 1);
       if (c._nextChooseT == null) {

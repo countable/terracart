@@ -992,6 +992,11 @@ const PLAY_TIPS = [
   'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
   'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 3 a second, so step off rather than wait it out.',
   ITEM_GUIDE_TIPS.trap_kit,
+  // The ghosts (app.js GHOST_*, combat.js MONSTERS.ghost): the first night
+  // can be the first session, and a touch is a quarter of a fresh bar — so
+  // this is safety, taught beside the snares. books.test.js re-derives the
+  // five minutes, the "twice" and the 25.
+  'After dark, ghosts rise out of the dark every five minutes or so. One hovers a moment, then rushes you at twice a goblin\'s pace, and its touch costs 25\u26a1 before armour. Light burns them — your own glow, a torch, a lamp, a fire — and none will cross a campfire\'s ring or a lit lamp\'s, nor linger near Home.',
   // ── The starter loop — till, plant, rebuild, harvest, sell ───
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',

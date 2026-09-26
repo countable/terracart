@@ -247,6 +247,20 @@ test('course: the pages run in the order the player needs them', () => {
   assert.eq(seq.secret, PLAY_TIPS.length - 1, 'the riddle closes the course');
 });
 
+test('tips: the ghost page quotes its owners\' numbers', () => {
+  const t = PLAY_TIPS.find((x) => /ghosts rise/i.test(x));
+  assert.truthy(t, 'the ghost page is in the course');
+  const ms = Number(APP_JS_SRC.match(/const GHOST_SPAWN_MS = (\d+);/)?.[1]);
+  assert.eq(ms, 5 * 60000, 'every five minutes, as the page says');
+  assert.truthy(/every five minutes/.test(t), 'and it says five');
+  assert.eq(Combat.GHOST_SPEED_MUL, 2, 'twice a goblin, as the page says');
+  assert.truthy(/twice a goblin/.test(t));
+  assert.eq(Combat.monster('ghost').dmg, 25, 'a 25 touch, as the page says');
+  assert.truthy(/25\u26a1 before armour/.test(t));
+  const i = PLAY_TIPS.indexOf(t);
+  assert.lt(i, PLAY_TIPS.length / 5, 'taught in the first fifth, beside the snares — the first night can be the first session');
+});
+
 test('tips: the list is substantial and every entry is a real sentence', () => {
   assert.gt(PLAY_TIPS.length, 60, 'a Book read repeats itself rarely');
   assert.eq(new Set(PLAY_TIPS).size, PLAY_TIPS.length, 'no tip is duplicated');

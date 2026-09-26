@@ -831,6 +831,99 @@
     return kind;
   }
 
+  // ── BRIGHTNESS AT A POINT ─────────────────────────────────────────────────
+  // How much light the lightmap ADDS at world point (wx, wy) — 0 in the dark
+  // (the ambient floor alone), clamped at 1 — for anything in the game that
+  // has to know whether it is standing in the light (app.js: the ghost, which
+  // burns in it and is only ever seated where this reads dark). It is the
+  // paint's own model, never a second guess at it:
+  //   · the player's light — the plateau over the reach cells (cellInReach,
+  //     the tap gate's test, and plateauLevel's shading) and the ramp outside
+  //     them (playerCookieAlpha), in the profile's litColour;
+  //   · every collected source — magic traps, campfires, lit street lamps
+  //     (lifted to the lantern), the hand torch, live blasts — collected by
+  //     the SAME collectors draw() calls, around the query point instead of
+  //     the camera;
+  //   · every source drawObjects' scan offered on the last frame (Home, a
+  //     restored building, a live POI, a cave torch, a glowing mushroom),
+  //     read back off scene._lights against the anchor that frame was drawn
+  //     about (scene._lightAnchor, stamped by draw()). Those are the lights
+  //     within reach of the VIEW; one further off than that is not on the
+  //     list — the scan has not looked there.
+  // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
+  // or pulse and the entry's own alpha / scale, at the colour's luminance.
+  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'fire', 'magic_trap', 'cobble', 'blast']);
+  function cookieLevel(L, qx, qy, cellM, now) {
+    const row = KINDS[L.kind];
+    if (!row || !(row.peak > 0)) return 0;
+    const a = flickerAlpha(row, L.dx, L.dy, now, L.id) * (L.a == null ? 1 : L.a);
+    const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
+    const R = (L.r != null ? L.r : radiusCells(L.kind)) * cellM * sc;
+    const d = Math.hypot(qx, qy);
+    if (!(R > 0) || d >= R) return 0;
+    const t = 1 - d / R;
+    return clamp01(a) * row.peak * t * t * lum(L.colour == null ? row.colour : L.colour);
+  }
+  // A light's draw-space lift (a lamp's lantern), back in metres.
+  function liftM(L, cellM) {
+    if (!L.dyPx) return 0;
+    return L.dyPx / ((typeof CELL_PX !== 'undefined') ? CELL_PX : 32) * cellM;
+  }
+  function playerLightAt(scene, wx, wy, prof) {
+    if (!scene.playerM || !scene.startWorldM) return 0;
+    const cellM = scene.cellM;
+    const d = Math.hypot(wx - (scene.startWorldM.x + scene.playerM.x),
+                         wy - (scene.startWorldM.y + scene.playerM.y));
+    const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
+    let inReach = false;
+    if (reachM > 0 && prof.lit > prof.edge) {
+      if (typeof cellInReach === 'function' && typeof worldMetersToAbsCell === 'function') {
+        const c = worldMetersToAbsCell(scene, wx, wy);
+        inReach = cellInReach(scene, c.cellIX, c.cellIY);
+      } else {
+        inReach = d <= reachM;
+      }
+    }
+    if (inReach) {
+      const rim = reachM + cellM * Math.SQRT1_2;
+      return plateauLevel(prof, d / rim) * lum(prof.litColour);
+    }
+    const rMaxM = radiusCells('player') * cellM;
+    if (d >= rMaxM) return 0;
+    const t = rMaxM > reachM ? Math.max(0, (d - reachM) / (rMaxM - reachM)) : 1;
+    return playerCookieAlpha(t, prof);
+  }
+  function brightnessAt(scene, wx, wy, nowIn) {
+    if (!scene || !Number.isFinite(wx) || !Number.isFinite(wy)) return 0;
+    const cellM = scene.cellM;
+    const now = lightClock(nowIn == null ? Date.now() : nowIn);
+    const prof = profile(scene, daylight(scene, now), now);
+    let b = playerLightAt(scene, wx, wy, prof);
+    // The collectors push onto scene._lights; point them at a scratch list for
+    // the one call and put the frame's list back whatever happens.
+    const frame = scene._lights;
+    const own = [];
+    scene._lights = own;
+    try {
+      collectMagicTraps(scene, wx, wy, 0);
+      collectFires(scene, wx, wy, 0);
+      collectLamps(scene, wx, wy, 0);
+      if (scene.playerM && scene.startWorldM) collectPlayer(scene, wx, wy, 0);
+      collectBlasts(scene, wx, wy, 0, now);
+    } finally {
+      scene._lights = frame;
+    }
+    for (const L of own) b += cookieLevel(L, -L.dx, -(L.dy + liftM(L, cellM)), cellM, now);
+    const A = scene._lightAnchor;
+    if (frame && A) {
+      for (const L of frame) {
+        if (COLLECTED_KINDS.has(L.kind)) continue;
+        b += cookieLevel(L, wx - (A.x + L.dx), wy - (A.y + L.dy + liftM(L, cellM)), cellM, now);
+      }
+    }
+    return clamp01(b);
+  }
+
   // ── Drawing (the browser from here down) ──────────────────────────────────
   // The lightmap is a plain 2D canvas — scene.lightTex, a Phaser canvas
   // texture shown by the scene.lightMap image with MULTIPLY blend. Each frame:
@@ -1076,6 +1169,10 @@
   // last upload. Times itself for the load profile: scene._boot_lightMs is
   // what drawObjects' own tick subtracts, since this runs inside that pass.
   function draw(scene, ax, ay, halfM) {
+    // The anchor this frame's scanned lights are measured from — brightnessAt
+    // reads them back against it.
+    const anchor = scene._lightAnchor || (scene._lightAnchor = { x: 0, y: 0 });
+    anchor.x = ax; anchor.y = ay;
     const tex = scene.lightTex;
     if (!tex || typeof document === 'undefined') return false;
     if (!scene._lights) scene._lights = [];
@@ -1217,7 +1314,7 @@
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires, objectLightPadCells,
-    collectPlayer, collectLamps, collectMagicTraps, lampRiseCells,
+    collectPlayer, collectLamps, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, BLAST_MAX, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
     LIGHT_TICK_MS, lightClock, animates, frameKey,
