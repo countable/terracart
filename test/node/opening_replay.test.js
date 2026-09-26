@@ -38,7 +38,7 @@ test('opening: every path that boots a game from nothing replays it', () => {
   // "+ New game": createSave points the registry at an empty slot and the page
   // reloads into it — a game from nothing, so the opening is due. The call has
   // to come BEFORE the reload that boots it.
-  const iNew = html.indexOf("const name = prompt('Name your new game:'");
+  const iNew = html.indexOf("const raw = prompt('Your character\\'s name:'");
   assert.gt(iNew, 0, 'index.html has a "+ New game" handler');
   const newGame = html.slice(iNew, html.indexOf('buildSavesMenu();', iNew));
   assert.truthy(/replayOpening\(\);\s*\n\s*location\.reload\(\);/.test(newGame),

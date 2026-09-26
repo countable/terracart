@@ -2096,8 +2096,13 @@
         newBtn._wired = true;
         newBtn.addEventListener('click', (ev) => {
           ev.stopPropagation();
-          const name = prompt('Name your new game:', 'Game ' + (listSaves().length + 1));
-          if (name === null) return;   // cancelled
+          // The one question a new game asks is who you are: the answer is the
+          // character's name (what other players see) AND the slot's label.
+          // Left blank, the slot falls back to "Game N" and the welcome splash
+          // asks for the name as it does on any nameless save.
+          const raw = prompt('Your character\'s name:', readPlayerName());
+          if (raw === null) return;   // cancelled
+          const name = (typeof Multiplayer !== 'undefined') ? Multiplayer.cleanName(raw) : String(raw || '').trim().slice(0, 16);
           if (typeof flushSave === 'function') flushSave();
           if (typeof createSave === 'function') createSave(name);
           // createSave points SAVE_KEY at the new, EMPTY slot — but the scene is
@@ -2107,6 +2112,15 @@
           // progress in the brand-new slot, so "New game" started you off with
           // everything you already had.
           if (typeof disableSave === 'function') disableSave();
+          // Seed the empty slot with the name straight to storage (writes are
+          // frozen above) — the same {playerName, playerColor} a nameless
+          // save's splash writes before the scene boots.
+          if (name) {
+            try {
+              const color = (typeof Multiplayer !== 'undefined') ? Multiplayer.pickColor() : undefined;
+              localStorage.setItem(SAVE_KEY, JSON.stringify({ playerName: name, playerColor: color }));
+            } catch (_) {}
+          }
           // A new game is a game from nothing: it opens on the story and the
           // how-to, exactly as the first game a device ever played does.
           replayOpening();
