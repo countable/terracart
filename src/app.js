@@ -14095,9 +14095,9 @@ class MapScene extends Phaser.Scene {
     let kindNode = null;
     if (k && art) {
       // With a painting, the painting is the hero: the category shrinks to a
-      // label chip on its top-left corner — no emoji, no rule under it. A
-      // SPRITE hero (kindIcon — the thing on the map this dialog is about)
-      // still rides in the chip: that is the object, not a category glyph.
+      // bare label chip on its top-left corner — no emoji, no sprite, no rule
+      // under it. The painting already shows the chest or the crate, so a
+      // sprite of it in the corner was a second, smaller picture of it.
       kindNode = document.createElement('div');
       kindNode.className = 'modal-kind';
       kindNode.style.cssText =
@@ -14106,13 +14106,7 @@ class MapScene extends Phaser.Scene {
         `background:rgba(20,16,12,.72);border:1px solid ${borderColor}8c;` +
         'font:700 10px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;' +
         `color:${borderColor};`;
-      if (kindIcon) {
-        const ico = document.createElement('span');
-        ico.style.cssText = 'display:flex;align-items:center;line-height:0';
-        ico.innerHTML = kindIcon;
-        kindNode.appendChild(ico);
-      }
-      kindNode.appendChild(document.createTextNode(kindLabel ?? k.label));
+      kindNode.textContent = kindLabel ?? k.label;
     } else if (k) {
       kindNode = document.createElement('div');
       kindNode.className = 'modal-kind';

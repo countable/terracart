@@ -63,14 +63,13 @@ test('scene art: text-heavy copy moves to THE BAND by measurement', () => {
   assert.truthy(/\(1 - ART_BAND_FRAC\)/.test(tail), 'with the band\'s taller content region');
 });
 
-test('scene art: the emoji hero becomes a label chip, but a SPRITE hero stays', () => {
+test('scene art: the hero becomes a bare label chip — no emoji, no sprite', () => {
   const i = app.indexOf('if (k && art) {');
   assert.truthy(i > 0, 'the art branch of the kind header');
   const branch = app.slice(i, app.indexOf('} else if (k) {', i));
   assert.truthy(/kindLabel \?\? k\.label/.test(branch), 'the label');
   assert.falsy(/k\.icon/.test(branch), 'no emoji glyph');
-  assert.truthy(/if \(kindIcon\)[\s\S]*innerHTML = kindIcon/.test(branch),
-    'the thing on the map still opens the dialog (the treasure_icon rule)');
+  assert.falsy(/kindIcon/.test(branch), 'the painting is the picture; no sprite in the corner');
 });
 
 test('scene art: the old banner strip is gone', () => {

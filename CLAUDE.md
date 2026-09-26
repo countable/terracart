@@ -163,7 +163,10 @@ the mechanic.
   **Audit it:** `node test/node/run.js` › `test/node/shell_variants.test.js`
   and `node tools/sprite_audit.js` › `wildFrameRows`.
 
-- **A dialog about a thing on the map opens with THAT THING'S SPRITE.**
+- **(Superseded Sep 2026 by the scene-art rule below: every dialog opens on
+  a painting, and the corner label carries no sprite. `kindIcon` is still
+  plumbed through and drawn only by the no-painting fallback header.)**
+  **A dialog about a thing on the map opens with THAT THING'S SPRITE.**
   `app.js` › `MODAL_KINDS` supplies a fallback emoji glyph per category; a
   caller with a picture passes `kindIcon` (HTML, twin of `kindLabel`), drawn
   ungreyed. One resolver both sides read: `loot.js` › `chestLook` picks a
@@ -186,8 +189,9 @@ the mechanic.
   it, so text can never land on the subject. Copy too long for the quiet zone
   is not the caller's problem — `mount()` MEASURES it and switches the dialog
   to THE BAND (only the painting's subject line, `ART_BAND_FROM`..
-  `ART_DETAIL_FRAC`, and a taller content region). With a painting the emoji
-  hero becomes a label chip; a SPRITE hero (`kindIcon`) rides in the chip.
+  `ART_DETAIL_FRAC`, and a taller content region). With a painting the hero
+  is a bare label chip — no emoji and no `kindIcon` sprite (see the next
+  rule: the painting supersedes it).
   Until Sep 2026 art was a 130px strip cropped out of a 3:2 banner, which cut
   the subject off (the first-fire strip lost its fire). **When you add a
   dialog, give it a kind (its painting comes with it); when you add a
