@@ -95,6 +95,34 @@ const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;
 // `art` is the category's default SCENE painting (assets/art/, see SCENE ART
 // by STORY_MODAL_GROW_PX) — every dialog of the kind opens on it unless its
 // caller hands a painting of its own.
+// PIXEL RESOLVE's cuts: the 22×28 thumbnail redrawn at RESOLVE_STEPS widths
+// (the box's 11:14), coarse to fine, the last the thumbnail itself. Cut once
+// per painting on a canvas and kept; `cb` gets the list once the inline
+// thumbnail has decoded (a few ms — the tone covers that).
+const RESOLVE_STEPS = [3, 6, 11, 22];
+const RESOLVE_STEP_MS = 150;
+const mosaicCutsCache = new Map();
+function mosaicCuts(stem, cb) {
+  if (mosaicCutsCache.has(stem)) { cb(mosaicCutsCache.get(stem)); return; }
+  const src = (typeof ART_THUMBS !== 'undefined') && ART_THUMBS[stem];
+  if (!src || typeof document === 'undefined') return;
+  const thumb = new Image();
+  thumb.onload = () => {
+    const cuts = RESOLVE_STEPS.map((w) => {
+      const h = Math.round(w * 14 / 11);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const g = c.getContext('2d');
+      g.imageSmoothingEnabled = true;
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(thumb, 0, 0, w, h);
+      return c.toDataURL('image/png');
+    });
+    mosaicCutsCache.set(stem, cuts);
+    cb(cuts);
+  };
+  thumb.src = src;
+}
 // The ONE address of a scene painting — the shell draws it and the boot
 // preloader (app.js _prewarmModalIcons) fetches it, so the warm copy is the
 // very URL the dialog asks for.
@@ -190,37 +218,51 @@ class SceneModals {
     // The box itself stops scrolling — the body does (see mount()). `band`
     // lifts the painting so only its subject line shows (THE BAND).
     //
-    // PIXEL RESOLVE. The painting is a request; its thumbnail (ART_THUMBS,
-    // src/art_thumbs.js — a 22×28 inline WebP) is not. So the BOX wears the
-    // thumbnail, drawn pixelated — a chunky mosaic of the scene the instant
-    // the dialog opens — and the full painting rides a layer of its own over
-    // it that fades in once the image has loaded. A cached painting skips the
-    // fade and is simply there. Both layers carry the same scrim, so the copy
-    // sits on the same ground before and after.
+    // PIXEL RESOLVE. The painting is a request; its TONE and thumbnail
+    // (ART_TONES / ART_THUMBS, src/art_thumbs.js) are inline. An uncached
+    // painting opens on a solid block of its tone and resolves on a MOSAIC
+    // layer through ever finer cuts of the thumbnail (RESOLVE_STEPS, one per
+    // RESOLVE_STEP_MS), then breathes on the last cut while it still waits —
+    // so the wait reads as LOADING, not as a blurry picture. When the
+    // painting lands, the mosaic takes the full thumbnail and the painting
+    // fades in over it on a layer of its own. A cached painting skips all of
+    // it and is simply there. Every layer carries the same scrim, so the copy
+    // sits on the same ground throughout.
     const artLayer = art ? document.createElement('div') : null;
+    const mosaicLayer = art ? document.createElement('div') : null;
+    let mosaicImg = null;   // the current cut (a data URL), or null for the bare tone
+    const tone = (art && typeof ART_TONES !== 'undefined' && ART_TONES[art]) || '#1a1612';
+    let scenePos = 'center, center top';
+    let sceneScrim = '';
+    const paintLayer = (el, img) => {
+      el.style.backgroundImage = img
+        ? `${sceneScrim}, url(${img})`
+        : `${sceneScrim}, linear-gradient(${tone}, ${tone})`;
+      el.style.backgroundSize = '100% 100%, cover';
+      el.style.backgroundPosition = scenePos;
+      el.style.backgroundRepeat = 'no-repeat';
+      el.style.imageRendering = 'pixelated';
+    };
     const paintScene = (band) => {
       const line = Math.round((band ? ART_BAND_FRAC : ART_DETAIL_FRAC) * 100);
-      const scrim =
+      sceneScrim =
         `linear-gradient(to bottom, rgba(26,22,18,0) ${line - 8}%, rgba(26,22,18,.82) ${line + 6}%, #1a1612 ${line + 22}%)`;
-      const pos = band
+      scenePos = band
         ? `center, center ${-Math.round(ART_BAND_FROM * vSize / ART_FRAME_ASPECT)}px`
         : 'center, center top';
-      const thumb = (typeof ART_THUMBS !== 'undefined') && ART_THUMBS[art];
-      for (const [el, img] of [[box, thumb], [artLayer, sceneArtUrl(art)]]) {
-        el.style.backgroundImage = img ? `${scrim}, url(${img})` : scrim;
-        el.style.backgroundSize = '100% 100%, cover';
-        el.style.backgroundPosition = pos;
-        el.style.backgroundRepeat = 'no-repeat';
-        el.style.imageRendering = 'pixelated';
-      }
+      paintLayer(mosaicLayer, mosaicImg);
+      paintLayer(artLayer, sceneArtUrl(art));
       box.style.overflow = 'hidden';
       box.classList.add('modal-scene');
       box.classList.toggle('modal-scene-band', !!band);
     };
     if (art) {
+      for (const el of [mosaicLayer, artLayer]) {
+        el.style.cssText =
+          'position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;';
+      }
+      mosaicLayer.className = 'modal-art-mosaic';
       artLayer.className = 'modal-art';
-      artLayer.style.cssText =
-        'position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;';
       paintScene(false);
       const img = new Image();
       img.src = sceneArtUrl(art);
@@ -229,7 +271,22 @@ class SceneModals {
       } else {
         artLayer.style.opacity = '0';
         artLayer.style.transition = 'opacity 420ms ease-out';
-        img.onload = () => { artLayer.style.opacity = '1'; };
+        const timers = [];
+        const setCut = (url) => { mosaicImg = url; paintLayer(mosaicLayer, url); };
+        mosaicCuts(art, (cuts) => {
+          if (img.complete) return;
+          cuts.slice(0, -1).forEach((url, i) =>
+            timers.push(setTimeout(() => setCut(url), (i + 1) * RESOLVE_STEP_MS)));
+          timers.push(setTimeout(() => mosaicLayer.classList.add('modal-art-waiting'),
+            (cuts.length - 1) * RESOLVE_STEP_MS));
+        });
+        img.onload = () => {
+          timers.forEach(clearTimeout);
+          mosaicLayer.classList.remove('modal-art-waiting');
+          const full = mosaicCutsCache.get(art);
+          if (full) setCut(full[full.length - 1]);
+          artLayer.style.opacity = '1';
+        };
       }
     }
     if (onClose !== undefined) {
@@ -320,7 +377,7 @@ class SceneModals {
         : 'margin:auto 0;flex:0 0 auto;';
       while (box.firstChild) body.appendChild(box.firstChild);
       box.appendChild(body);
-      if (artLayer) box.insertBefore(artLayer, box.firstChild);
+      if (artLayer) { box.insertBefore(artLayer, box.firstChild); box.insertBefore(mosaicLayer, artLayer); }
       if (kindNode) { kindNode.style.flex = '0 0 auto'; box.insertBefore(kindNode, box.firstChild); }
       // The ENTRANCE (index.html .modal-anim): the backdrop fades in and the
       // box pops up from a touch smaller and lower. Only when nothing was on
