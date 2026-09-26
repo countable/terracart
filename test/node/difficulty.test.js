@@ -225,7 +225,7 @@
     // true: on a hard-mode save, an underground blackout drops you to the
     // surface at 0 energy, which the hard-mode surface gate then blacks out
     // AGAIN immediately, chaining into a loop that halved the purse every
-    // frame until it hit $0. `_exhausted` is the second latch that fixes it:
+    // frame until it hit $0. `save.exhausted` is the second latch that fixes it:
     // it outlives the modal and only clears once energy is actually back
     // above 0 (a rest, a meal), so both gates fire at most once per dry spell.
     const app = APP_JS_SRC;
@@ -233,14 +233,23 @@
     const b = app.indexOf('this._passOutOnSurface();');
     assert.truthy(a > 0 && b > a, 'found the update() exhaustion gate block');
     const block = app.slice(a, b + 40);
-    assert.truthy(/this\._exhausted && \(this\.save\.energy \?\? 0\) > 0\) this\._exhausted = false/.test(block),
+    assert.truthy(/if \(this\.save\.exhausted && \(this\.save\.energy \?\? 0\) > 0\) \{\s*this\.save\.exhausted = false;/.test(block),
       'the latch clears only once energy has actually recovered');
     // Both gates must check the latch before firing, and set it before
     // calling the pass-out handler (so a re-entrant frame during the same
     // dry spell can never slip through).
-    const underground = /!this\._passingOut && !this\._exhausted[\s\S]{0,40}\{\s*this\._exhausted = true;\s*this\._passOutToSurface\(\)/;
-    const surface = /!this\._passingOut && !this\._exhausted[\s\S]{0,40}\{\s*this\._exhausted = true;\s*this\._passOutOnSurface\(\)/;
+    const underground = /!this\._passingOut && !this\.save\.exhausted[\s\S]{0,40}\{\s*this\.save\.exhausted = true;\s*this\._passOutToSurface\(\)/;
+    const surface = /!this\._passingOut && !this\.save\.exhausted[\s\S]{0,40}\{\s*this\.save\.exhausted = true;\s*this\._passOutOnSurface\(\)/;
     assert.truthy(underground.test(block), 'the underground gate checks and then sets the latch');
     assert.truthy(surface.test(block), 'the hard-mode surface gate checks and then sets the latch');
+    // And it lives in the SAVE, not on the scene: a refresh while lying on an
+    // empty bar rebuilt the scene with a scene-side latch cleared and charged
+    // the half-purse again on every reload.
+    assert.falsy(/this\._exhausted\b/.test(app), 'no scene-side latch a reload would forget');
+    for (const fn of ['_passOutToSurface() {', '_passOutOnSurface() {']) {
+      const i = app.indexOf(fn);
+      const body = app.slice(i, app.indexOf('\n  }\n', i));
+      assert.truthy(/persistSave\(this\.save\)/.test(body), `${fn} persists the latch with the penalty`);
+    }
   });
 })();

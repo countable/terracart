@@ -7171,14 +7171,22 @@ class MapScene extends Phaser.Scene {
     // common case rather than a corner one: once the tank reads empty on
     // hard, food/campfire/offline rest all refuse, so nothing but reaching
     // Home lifts energy off 0 — which used to mean passing out every single
-    // frame until Home was reached. `_exhausted` is a second latch that
+    // frame until Home was reached. `save.exhausted` is a second latch that
     // outlives the modal: once tripped it blocks BOTH gates until energy
     // actually recovers above 0 (Home, a Crow Feather), so a single dry
     // spell costs the purse exactly once.
-    if (this._exhausted && (this.save.energy ?? 0) > 0) this._exhausted = false;
+    //   THE LATCH LIVES IN THE SAVE (`save.exhausted`), not on the scene: a
+    // refresh while lying on an empty bar rebuilt the scene with the latch
+    // cleared and the bar still 0, so reloading charged the half-purse again —
+    // every reload, a fresh penalty for the same collapse. The pass-out
+    // persists it alongside the money it took.
+    if (this.save.exhausted && (this.save.energy ?? 0) > 0) {
+      this.save.exhausted = false;
+      persistSave(this.save);
+    }
     if (this.depth > 0 && (this.save.energy ?? 0) <= 0
-        && !this._passingOut && !this._exhausted && !window.__TEST_MODE) {
-      this._exhausted = true;
+        && !this._passingOut && !this.save.exhausted && !window.__TEST_MODE) {
+      this.save.exhausted = true;
       this._passOutToSurface();
     }
     // Hard mode only: the surface is not risk-free either. Running the tank
@@ -7186,8 +7194,8 @@ class MapScene extends Phaser.Scene {
     // blackout (_passOutOnSurface) — easy mode's surface stays exactly as it
     // was, a hard stop with no cost (see the "too tired" flashes elsewhere).
     if (this.depth === 0 && Difficulty.isHard() && (this.save.energy ?? 0) <= 0
-        && !this._passingOut && !this._exhausted && !window.__TEST_MODE) {
-      this._exhausted = true;
+        && !this._passingOut && !this.save.exhausted && !window.__TEST_MODE) {
+      this.save.exhausted = true;
       this._passOutOnSurface();
     }
 
