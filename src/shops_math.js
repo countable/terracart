@@ -327,7 +327,7 @@
   const SLOT_STAR_PAIR_MUL = 2;
   const SLOT_DELUXE_SPINS = 10;
   const SLOT_DELUXE_MUL = 2;
-  const SLOT_STAR_BADGES = 2;   // the machine's third memory is the first deluxe (app.js)
+  const SLOT_STAR_BADGES = 1;   // the machine's other memory is the first deluxe (app.js)
   const SLOT_STAR_JACKPOT_COINS = 100;
 
   // ids: the day's prize ids; valueOf(id): an item's worth in coin;

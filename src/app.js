@@ -13977,7 +13977,7 @@ class MapScene extends Phaser.Scene {
         if (out.deluxe) {
           light(GOLD, (sym) => sym.star || sym.jackpot);
           result.style.color = GOLD;
-          // The machine's third memory (after SLOT_STAR_BADGES of three
+          // The machine's other memory (beside SLOT_STAR_BADGES of three
           // stars): the FIRST deluxe ever, one ledger key, so it pays once.
           const firstDeluxe = this._bankDiscovery('slots:deluxe', 'the first deluxe on a fort slot machine');
           result.textContent = (wasDeluxe
