@@ -690,7 +690,15 @@ const STAFF_CHARGE_HAND_DX = 7;
 const BOLT_GLOW_TEX_PX = 64;
 const BOLT_TRAIL_N = 8;
 const BOLT_TRAIL_STEP_CELLS = 0.12;   // trail points this far apart: ~a cell of comet
-const BOLT_SPARK_COLOUR = '#' + (Combat.SHOT.staff.color >>> 0).toString(16).padStart(6, '0');
+// A shot's colour by tier: the relic's MATERIAL colour (MATERIAL_TIERS
+// .color), the slot's own for a tier the table lacks. One answer for the
+// bow's arrow and the staff's bolt, stamped on the shot where it is loosed
+// and read by the staff's charging orb, so the orb and the bolt it becomes
+// are the same colour.
+function shotTierColour(slot, tier) {
+  const c = TIER_BY_NUM[tier]?.color;
+  return c != null ? c : Combat.SHOT[slot].color;
+}
 // Screen-px lift a CASTLE TURRET's arrow starts at: the battlements. The tower
 // art is 42px tall (textures.js makeTowerTexture) and stands with its foot on
 // the cell's bottom edge, CELL_PX/2 below the cell centre the turret object
@@ -4454,12 +4462,12 @@ class MapScene extends Phaser.Scene {
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
                                       Combat.shotDamage(relics, slot, this.save.playerClass) * dmgMul,
                                       relics[slot].tier, reach);
-        // A bow's arrow wears its bow's MATERIAL colour (MATERIAL_TIERS
-        // .color) — a Frost bow looses ice-blue arrows. _drawShots reads a
-        // shot's own `color` ahead of the slot's.
-        if (shot && slot === 'bow') {
-          const c = TIER_BY_NUM[relics[slot].tier]?.color;
-          if (c != null) shot.color = c;
+        // A bow's arrow and a staff's bolt wear the relic's MATERIAL colour
+        // (MATERIAL_TIERS .color) — a Frost bow looses ice-blue arrows, a
+        // Crimson staff red bolts. _drawShots reads a shot's own `color`
+        // ahead of the slot's.
+        if (shot && (slot === 'bow' || slot === 'staff')) {
+          shot.color = shotTierColour(slot, relics[slot].tier);
         }
         if (shot && ammo) {
           // Every `ammo.shots`-th arrow burns one wood (save.ammoShots counts
@@ -4720,7 +4728,7 @@ class MapScene extends Phaser.Scene {
         // own (stamped by Combat.spawnShot from the staff's tier, off the same
         // scale as the radius it hits with), never the spec's base dotPx; the
         // glow around it is drawn wider, but the hot core is that radius.
-        this._drawBolt(s, spec.color, lift);
+        this._drawBolt(s, s.color != null ? s.color : spec.color, lift);
         continue;
       }
       // The tail trails a fixed number of SCREEN pixels back along the
@@ -4785,9 +4793,12 @@ class MapScene extends Phaser.Scene {
   // camera rule), fading and thinning behind it; the HALO is a wide soft glow
   // that breathes quickly; the CORE is the hot centre at the bolt's own
   // drawn radius. The ground under it is lit by Lighting's `bolt` row, which
-  // reads the same shot list.
+  // reads the same shot list. The tier shows three ways: the radius (dotPx,
+  // boltScale), the colour (the staff's metal, shotTierColour) and how hard
+  // it burns (Combat.boltGlow, on the halo and trail; the core stays hot).
   _drawBolt(s, colour, lift) {
     const key = this._boltGlowKey(colour);
+    const glow = Combat.boltGlow(s.slot, s.tier);
     const trail = s._trail || (s._trail = []);
     const last = trail[trail.length - 1];
     const stepM = BOLT_TRAIL_STEP_CELLS * this.cellM;
@@ -4803,22 +4814,23 @@ class MapScene extends Phaser.Scene {
     const struck = s._struck ? s._struck.size : 0;
     if (struck > (s._sparked || 0)) {
       s._sparked = struck;
-      this._burstAtWorld('trailspark', s.x, s.y, { colour: BOLT_SPARK_COLOUR });
+      this._burstAtWorld('trailspark', s.x, s.y,
+        { colour: '#' + (colour >>> 0).toString(16).padStart(6, '0') });
     }
     const r = s.dotPx;
     const n = trail.length;
     for (let i = 0; i < n - 1; i++) {
       const p = this.worldMetersToScreen(trail[i].x, trail[i].y);
       const f = (i + 1) / n;                        // 0 oldest → 1 the head
-      this._boltGlow(key, p.x, p.y - lift, r * (1.2 + 1.6 * f), 0.5 * f * f);
+      this._boltGlow(key, p.x, p.y - lift, r * (1.2 + 1.6 * f), 0.5 * f * f * glow);
     }
     const head = this.worldMetersToScreen(s.x, s.y);
     const hx = head.x, hy = head.y - lift;
     const t = performance.now();
     if (s._boltPhase == null) s._boltPhase = Math.random() * Math.PI * 2;   // a look, not the world
     const breathe = 0.5 + 0.5 * Math.sin(t / 70 + s._boltPhase);
-    this._boltGlow(key, hx, hy, r * (5.5 + 1.2 * breathe), 0.5 + 0.25 * breathe);
-    this._boltGlow(key, hx, hy, r * 2.2, 1);
+    this._boltGlow(key, hx, hy, r * (5.5 + 1.2 * breathe), (0.5 + 0.25 * breathe) * glow);
+    this._boltGlow(key, hx, hy, r * 2.2, 0.5 + 0.5 * glow);
   }
 
   // The staff's next bolt, gathering by the player's hand between shots: a
@@ -4839,9 +4851,10 @@ class MapScene extends Phaser.Scene {
     const r = Math.max(1, full * (0.25 + 0.75 * f) * pulse);
     // The same glow as the bolt it becomes (_drawBolt): a soft halo gathering
     // round a hot core, both growing with the charge.
-    const key = this._boltGlowKey(Combat.SHOT.staff.color);
-    this._boltGlow(key, x, y, r * 3.6, (0.2 + 0.45 * f) * pulse);
-    this._boltGlow(key, x, y, r * 2.2, 0.35 + 0.65 * f);
+    const key = this._boltGlowKey(shotTierColour('staff', tier));
+    const glow = Combat.boltGlow('staff', tier);
+    this._boltGlow(key, x, y, r * 3.6, (0.2 + 0.45 * f) * pulse * glow);
+    this._boltGlow(key, x, y, r * 2.2, (0.35 + 0.65 * f) * (0.5 + 0.5 * glow));
   }
 
   // A health bar over every enemy hurt in the last few seconds — the same bar

@@ -35,6 +35,24 @@ function scene(over) {
 }
 const HALF_M = (11 / 2 + 1) * 5;   // drawObjects' halfM at cellM 5
 
+test('lighting: a staff bolt lights by its tier — radius, strength and metal', () => {
+  const shot = (tier, x) => Object.assign(
+    Combat.spawnShot('staff', x || 0, 0, { x: 1, y: 0 }, 5, 1, tier), { color: TIER_BY_NUM[tier].color });
+  const sc = scene({ _shots: [shot(1), shot(7)], _lights: [] });
+  assert.eq(Lighting.collectBolts(sc, 0, 0, HALF_M), 2);
+  const [wood, frost] = sc._lights;
+  assert.eq(wood.r, Lighting.radiusCells('bolt'), 'a Wood bolt lights the row radius');
+  assert.eq(frost.r, Lighting.radiusCells('bolt') * Combat.BOLT_MAX_TIER_MUL, 'a Frost bolt, as much wider as it is bigger');
+  assert.eq(wood.a, Combat.BOLT_MIN_GLOW, 'Wood burns dimmer');
+  assert.eq(frost.a, 1, 'Frost at full');
+  assert.eq(wood.colour, TIER_BY_NUM[1].color, 'in the staff\'s own metal');
+  // The cull pads by the bolt's own radius: just past a Wood light's reach,
+  // a Frost light still spills into view.
+  const edge = HALF_M + Lighting.radiusCells('bolt') * 5 + 1;
+  const far = scene({ _shots: [shot(1, edge), shot(7, edge)], _lights: [] });
+  assert.eq(Lighting.collectBolts(far, 0, 0, HALF_M), 1, 'only the Frost bolt\'s wider light is kept');
+});
+
 test('lighting: a fire and a Home light exactly the ring they warm you in', () => {
   assert.eq(Lighting.radiusCells('fire'), FIRE_REST_R,
     'the fire light radius is FIRE_REST_R — stand in the light, stand in the warmth');

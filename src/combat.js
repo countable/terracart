@@ -738,6 +738,20 @@
     const t = clamp(Math.floor(Number(tier) || 1), 1, MAX_TIER);
     return 1 + ((t - 1) / (MAX_TIER - 1)) * (BOLT_MAX_TIER_MUL - 1);
   }
+  // How BRIGHT a bolt burns at `tier`, 0..1: BOLT_MIN_GLOW at Wood up to full
+  // at Frost, linear, on the same tier ramp as boltScale. A multiplier on the
+  // bolt's glow (app.js _drawBolt / _drawStaffCharge) and on the light it
+  // throws (lighting.js collectBolts) — a look, never a hit: damage and the
+  // sweep stay boltScale's and shotDamage's. Its TINT is the staff's material
+  // colour (items.js MATERIAL_TIERS, stamped by app.js like the bow's), so a
+  // bolt shows its tier twice over: bigger and brighter, and in its metal.
+  const BOLT_MIN_GLOW = 0.55;
+  function boltGlow(slot, tier) {
+    const spec = SHOT[slot];
+    if (!spec || !spec.growsWithTier) return 1;
+    const t = clamp(Math.floor(Number(tier) || 1), 1, MAX_TIER);
+    return BOLT_MIN_GLOW + ((t - 1) / (MAX_TIER - 1)) * (1 - BOLT_MIN_GLOW);
+  }
   // The hit radius of a `slot` shot at `tier`, in world metres.
   function shotRadiusM(slot, tier, cellM) {
     return HIT_RADIUS_CELLS * cellM * boltScale(slot, tier);
@@ -827,6 +841,7 @@
       pierce: !!spec.pierce,
       radiusM: shotRadiusM(slot, tier, cellM),
       dotPx: shotDotPx(slot, tier),
+      tier: tier || 1,
     };
   }
 
@@ -1072,7 +1087,7 @@
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
-    MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, shotRadiusM, shotDotPx,
+    MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
     MONSTER_SHOT_INTERVAL_MS, HOSTILE_ARROW_COLOR, monsterShot,

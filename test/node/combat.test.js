@@ -696,6 +696,22 @@ test('combat: a staff bolt grows with the tier, Wood base to double at Frost', (
   assert.eq(Combat.boltScale('bow', 7), 1, 'an arrow is an arrow at every tier');
 });
 
+test('combat: a staff bolt burns brighter with the tier, and an arrow is unaffected', () => {
+  assert.eq(Combat.boltGlow('staff', 1), Combat.BOLT_MIN_GLOW, 'Wood burns at the floor');
+  assert.eq(Combat.boltGlow('staff', Combat.MAX_TIER), 1, 'Frost burns at full');
+  assert.truthy(Combat.BOLT_MIN_GLOW > 0 && Combat.BOLT_MIN_GLOW < 1, 'a Wood bolt is dimmer, never dark');
+  let prev = 0;
+  for (let t = 1; t <= Combat.MAX_TIER; t++) {
+    const g = Combat.boltGlow('staff', t);
+    assert.truthy(g > prev, `tier ${t} is brighter than tier ${t - 1}`);
+    prev = g;
+  }
+  assert.eq(Combat.boltGlow('staff', 99), 1, 'over the top clamps to Frost');
+  assert.eq(Combat.boltGlow('bow', 1), 1, 'an arrow has no glow ramp');
+  assert.eq(Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 5).tier, 5,
+    'the shot carries its tier for the draw and the light');
+});
+
 test('combat: the radius a bolt HITS with and the radius it DRAWS share one scale', () => {
   const wood  = Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 1);
   const frost = Combat.spawnShot('staff', 0, 0, { x: 1, y: 0 }, COMBAT_CELL_M, 1, 7);

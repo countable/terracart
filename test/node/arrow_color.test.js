@@ -9,9 +9,15 @@ test('arrow colour: every material tier has its own colour', () => {
   assert.eq(new Set(cols).size, 7, 'all seven distinct');
 });
 
-test('arrow colour: the bow shot is stamped with its tier colour, and drawn in it', () => {
-  assert.truthy(/if \(shot && slot === 'bow'\) \{\s*const c = TIER_BY_NUM\[relics\[slot\]\.tier\]\?\.color;\s*if \(c != null\) shot\.color = c;/.test(APP_JS_SRC),
-    'app.js stamps the bow tier colour on the arrow');
+test('arrow colour: the bow and staff shots are stamped with their tier colour, and drawn in it', () => {
+  assert.truthy(/if \(shot && \(slot === 'bow' \|\| slot === 'staff'\)\) \{\s*shot\.color = shotTierColour\(slot, relics\[slot\]\.tier\);/.test(APP_JS_SRC),
+    'app.js stamps the tier colour on the arrow and the bolt');
+  assert.truthy(/function shotTierColour\(slot, tier\) \{\s*const c = TIER_BY_NUM\[tier\]\?\.color;/.test(APP_JS_SRC),
+    'the tier colour is the MATERIAL_TIERS colour');
   assert.truthy(/g\.lineStyle\(spec\.widthPx, s\.color != null \? s\.color : spec\.color, 0\.9\)/.test(APP_JS_SRC),
-    '_drawShots draws a shot in its own colour');
+    '_drawShots draws an arrow in its own colour');
+  assert.truthy(/this\._drawBolt\(s, s\.color != null \? s\.color : spec\.color, lift\)/.test(APP_JS_SRC),
+    'and a bolt in its own colour');
+  assert.truthy(/this\._boltGlowKey\(shotTierColour\('staff', tier\)\)/.test(APP_JS_SRC),
+    'the charging orb is the colour of the bolt it becomes');
 });
