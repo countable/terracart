@@ -21,12 +21,23 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const readSrc = (p) => fs.readFileSync(path.join(ROOT, 'src', p), 'utf8');
+// Every module PARSES — compiled, never run. The bundle below only loads the
+// headless modules and app.js is only ever sliced as text, so a syntax error
+// in app.js (a stray brace once closed MapScene early and shipped the game
+// dead) would otherwise pass the whole suite. campfire_cook.test.js asserts
+// this list is empty.
+const SRC_PARSE_ERRORS = {};
+for (const f of fs.readdirSync(path.join(ROOT, 'src')).filter((n) => n.endsWith('.js'))) {
+  try { new vm.Script(readSrc(f), { filename: f }); }
+  catch (e) { SRC_PARSE_ERRORS[f] = e.message; }
+}
 
 // ── Context: browser-ish globals the modules expect at load time ──────────
 const ctx = {};
 ctx.window = ctx;            // modules do `(function(window){…})(window)` and `window.X = …`
 ctx.self = ctx;
 ctx.console = console;
+ctx.SRC_PARSE_ERRORS = SRC_PARSE_ERRORS;
 ctx.Math = Math; ctx.Date = Date; ctx.JSON = JSON;
 ctx.Object = Object; ctx.Array = Array; ctx.Number = Number; ctx.String = String;
 ctx.Boolean = Boolean; ctx.RegExp = RegExp; ctx.Set = Set; ctx.Map = Map;
@@ -1292,14 +1303,6 @@ ctx.pngDims = (rel) => {
 // two halves of that handshake against each other; nothing else can, because
 // each half is unreachable from the other's language.
 ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-// The whole-file parse check (scripts_parse.test.js). The suite lifts METHODS
-// out of app.js by regex, so a stray brace between two methods parses fine
-// here and still kills the real page — compile each whole file (no run).
-ctx.__parseScript = (rel) => {
-  const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
-  try { new vm.Script(src, { filename: rel }); return null; }
-  catch (e) { return `${rel}: ${e.message}`; }
-};
 // The canvas-resolution rule itself (app.js, the note beside W/H): lifted so
 // canvas_scale.test.js drives the shipping cap/floor rather than a copy of it.
 {
