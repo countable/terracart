@@ -1622,10 +1622,15 @@
     // browser zoom-to-block on some engines.
     document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 
-    // Close menu on outside click / world tap.
+    // Close menu on outside click / world tap. While open, the menu's list
+    // lives in its dialog (#menu-modal, app.js › _openMenuDialog), not under
+    // <details id="menu"> — a tap there is INSIDE the menu. The dialog's own
+    // backdrop tap closes it through the shell's onClose.
     document.addEventListener('pointerdown', (e) => {
       const m = document.getElementById('menu');
-      if (m && m.open && !m.contains(e.target)) m.open = false;
+      if (!m || !m.open || m.contains(e.target)) return;
+      if (document.getElementById('menu-modal')) return;
+      m.open = false;
     }, true);
     document.getElementById('delivery-list').addEventListener('click', (e) => {
       e.stopPropagation();
