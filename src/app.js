@@ -5967,7 +5967,7 @@ class MapScene extends Phaser.Scene {
         this._storySplashOnce('trap_free', {
           art: 'trap_free',
           title: 'You pry yourself free',
-          body: 'The jaw grinds open and you stumble clear. Watch the ground - iron lies hidden out there.',
+          body: 'The jaw grinds open and you stumble clear.',
         });
       }
       // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
@@ -9934,7 +9934,7 @@ class MapScene extends Phaser.Scene {
       this._storySplashOnce('cave', {
         art: 'cave_first',
         title: 'Into the dark',
-        body: 'The air turns cold and the dark closes in. Your light reaches less far down here, and things live in it. The rock is richer below - ore, gems, and older things still.',
+        body: 'The air turns cold and the dark closes in. Your light reaches less far down here, and older things live in it.',
       });
     }
   }
@@ -10891,7 +10891,7 @@ class MapScene extends Phaser.Scene {
     this.showMessageModal({
       art: 'discovery_badge',
       title: 'A memory returns',
-      body: `A glimpse of a memory comes back as you find ${label}. You feel whole again.`,
+      body: `A glimpse of a memory comes back as you find ${label}.`,
     });
   }
 
@@ -10930,17 +10930,17 @@ class MapScene extends Phaser.Scene {
   _toolActionStory(action) {
     const TOOL_STORIES = {
       till:  { art: 'tool_till',  title: 'First furrow',
-               body: 'The soil turns. Seeds take root in tilled ground.' },
+               body: 'The soil turns.' },
       chop:  { art: 'tool_chop',  title: 'Timber!',
-               body: 'The axe bites deep. Wood builds everything you will need.' },
+               body: 'The axe bites deep.' },
       dig:   { art: 'tool_dig',   title: 'The pick bites',
-               body: 'Stone cracks a strike at a time. The deep rock hides ore.' },
+               body: 'Stone cracks a strike at a time.' },
       water: { art: 'tool_water', title: 'A good soak',
-               body: 'Damp soil wakes the seed. Watered crops grow on faster.' },
+               body: 'Damp soil wakes the seed.' },
       catch: { art: 'tool_catch', title: 'In the net',
-               body: 'Gentle does it. A caught animal joins your pack.' },
+               body: 'Gentle does it.' },
       sword: { art: 'tool_sword', title: 'Steel out',
-               body: 'Your first swing lands true. Enemies pay coin when they fall.' },
+               body: 'Your first swing lands true.' },
       shoot: { art: 'tool_shoot', title: 'Loose!',
                body: 'The arrow flies. Bow and staff fire on their own while a foe is near.' },
     };
@@ -11726,7 +11726,7 @@ class MapScene extends Phaser.Scene {
     const detail = read.title.replace(/^📖\s*/, '');
     const body = detail.startsWith('The book falls open') ? `${detail}\n${read.body}` : read.body;
     this.showMessageModal({
-      title: 'Your curiosity compels you to read the book:',
+      title: 'You read the book:',
       body,
       // A book read by firelight — the picture of the places of learning the
       // Book comes from, survivors sharing what they know.
@@ -14133,7 +14133,7 @@ class MapScene extends Phaser.Scene {
           this._storySplashOnce('delivery', {
             art: 'delivery_first',
             title: 'First delivery',
-            body: 'A neighbour pays coin for your produce bundle and very nearly smiles. Every house keeps a wishlist - fill it for coin, and a memory comes back at each new door.',
+            body: 'A neighbour pays coin for your produce bundle and very nearly smiles.',
           });
         }
       },
@@ -15677,10 +15677,11 @@ class MapScene extends Phaser.Scene {
     // than a tease. The player will dismiss, go collect, come back.
     this.showOfferModal({
       kind: 'build',
-      title: 'Restore this wreck?',
+      // The question and the price, nothing else: what the wreck BECOMES is
+      // the Restored card's reveal, not a line to read before it.
+      get: 'Restore this wreck?',
+      costLabel: 'Cost',
       cancelLabel: 'Later',
-      get: `🛠 a working ${isThemed ? 'shop' : 'house'}`,
-      blurb: 'Hauls the rubble away and pulls back the boards.',
       cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`
         + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
       canAfford,
@@ -15733,19 +15734,19 @@ class MapScene extends Phaser.Scene {
           // shop's blurb follows its line (marketTheme).
           const theme = role === 'market' ? this.marketTheme(house).theme : null;
           const THEME_BLURB = {
-            seed:   'Sells seeds to plant. What you do after that is between you and the crows.',
-            supply: 'Sells rope, torches, kits and building stock — everything for the dark except courage.',
-            potion: 'Sells potions and powders. Labels are, broadly, accurate.',
-            ore:    'Sells flint, bars and gems for the forge. The shopkeeper has never been underground.',
-            relic:  'Sells tools and armour finer than yours, and knows it.',
-            pet:    'Sells animals — pets, livestock and more. No refunds on affection.',
+            seed:   'Sells seeds to plant.',
+            supply: 'Sells rope, torches, kits and building stock.',
+            potion: 'Sells potions and powders.',
+            ore:    'Sells flint, bars and gems for the forge.',
+            relic:  'Sells tools and armour finer than yours.',
+            pet:    'Sells animals — pets, livestock and more.',
           };
           const INFO = {
-            blacksmith: { blurb: 'Forge tools and trade gems for relics here. Mind the sparks; the smith does not.' },
+            blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
             market:     { blurb: `${THEME_BLURB[theme] || 'Sells one line of goods.'} A new line every shop you rebuild.` },
             trader:     { blurb: 'Barters goods and pays a bonus on every sale. Money is so last civilisation.' },
-            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage sees power in your memories. He offers two gifts at once: a cheap one (more energy, then a class) and a dear one (wider reach, bigger finds, the Ring).' },
-            plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave, and they crave very specifically.' },
+            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage sees power in your memories.' },
+            plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
           const info = INFO[role] || INFO.plain;
           const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
@@ -15901,7 +15902,7 @@ class MapScene extends Phaser.Scene {
           const splashed = this._storySplashOnce('castle:' + (this._castleKey(house) || house.id), {
             art: 'castle_claim',
             title: 'The castle is yours',
-            body: 'The vault opens and your banner rises. The castellan now offers you one favour a day.',
+            body: 'The vault opens and your banner rises.',
           });
           if (!splashed) {
             this.flash('The castle vault is yours.',
@@ -15952,7 +15953,7 @@ class MapScene extends Phaser.Scene {
             art: 'fort_unseal',
             header: 'Unsealed!',
             name: 'You unsealed a Fort',
-            sub: 'The quartermaster runs a slot machine: three of a kind wins a prize, and a spin costs exactly what it pays on average. He calls that fair. He also calls it morale.',
+            sub: 'The quartermaster runs a slot machine: three of a kind wins a prize.',
             color: '#a7ffb0', accent: '#a7ffb0',
           });
         } else {
@@ -16788,10 +16789,12 @@ class MapScene extends Phaser.Scene {
     // present) can live-update the get/cost lines without re-rendering the
     // whole modal — tap − / + and the headline price + cost-line stack count
     // refresh in place.
-    const titleDiv = document.createElement('div');
-    titleDiv.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:6px';
-    titleDiv.textContent = title;
-    box.appendChild(titleDiv);
+    if (title) {
+      const titleDiv = document.createElement('div');
+      titleDiv.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:6px';
+      titleDiv.textContent = title;
+      box.appendChild(titleDiv);
+    }
     // `getLabel` / `costLabel` are explicit captions over the two halves of
     // the trade ("You receive" / "You give"). A goods-for-goods trade like the
     // smithy's — gear for bars, or bars for bars on the Smelt tab — reads as

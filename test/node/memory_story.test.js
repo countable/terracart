@@ -71,7 +71,7 @@ test('memory story: the drain opens one dialog per memory, with the label in the
   assert.eq(s.modals[0].art, 'discovery_badge');
   assert.eq(s.modals[0].title, 'A memory returns');
   assert.eq(s.modals[0].body,
-    'A glimpse of a memory comes back as you find a shiny Cow. You feel whole again.');
+    'A glimpse of a memory comes back as you find a shiny Cow.');
   let busy = true;
   withBody(() => busy, () => {
     s._drainBadgeStories();
@@ -80,7 +80,7 @@ test('memory story: the drain opens one dialog per memory, with the label in the
     s._drainBadgeStories();
   });
   assert.eq(s.modals.length, 2);
-  assert.truthy(/slaying an elite Goblin\. You feel whole again\.$/.test(s.modals[1].body), 'the second memory follows');
+  assert.truthy(/slaying an elite Goblin\.$/.test(s.modals[1].body), 'the second memory follows');
 });
 
 test('memory: every memory fills the bar to the live cap, popped on the body', () => {
