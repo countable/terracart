@@ -1176,11 +1176,11 @@ const TAP_HANDLERS = [
     const sel = getSelectedSlot(save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
     const half = scene.cellM / 2;
-    const onFire = (save.fires || []).some(f => PlacedFloor.onDepth(f, scene.depth) &&
+    const fire = (save.fires || []).find(f => PlacedFloor.onDepth(f, scene.depth) &&
       Math.abs(f.x - cwmx) < half && Math.abs(f.y - cwmy) < half);
-    if (!onFire) return false;
+    if (!fire) return false;
     const made = CAMPFIRE_MAKES[sel.id];
-    if (!made) { scene.presentBurnConfirm(sel.id); return true; }
+    if (!made) { scene.presentBurnConfirm(sel.id, { x: fire.x, y: fire.y }); return true; }
     // The product has to fit before the input goes — unless this is the last
     // one, whose own slot frees up for it.
     const input = sel.id;

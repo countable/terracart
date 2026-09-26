@@ -21,12 +21,23 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const readSrc = (p) => fs.readFileSync(path.join(ROOT, 'src', p), 'utf8');
+// Every module PARSES — compiled, never run. The bundle below only loads the
+// headless modules and app.js is only ever sliced as text, so a syntax error
+// in app.js (a stray brace once closed MapScene early and shipped the game
+// dead) would otherwise pass the whole suite. campfire_cook.test.js asserts
+// this list is empty.
+const SRC_PARSE_ERRORS = {};
+for (const f of fs.readdirSync(path.join(ROOT, 'src')).filter((n) => n.endsWith('.js'))) {
+  try { new vm.Script(readSrc(f), { filename: f }); }
+  catch (e) { SRC_PARSE_ERRORS[f] = e.message; }
+}
 
 // ── Context: browser-ish globals the modules expect at load time ──────────
 const ctx = {};
 ctx.window = ctx;            // modules do `(function(window){…})(window)` and `window.X = …`
 ctx.self = ctx;
 ctx.console = console;
+ctx.SRC_PARSE_ERRORS = SRC_PARSE_ERRORS;
 ctx.Math = Math; ctx.Date = Date; ctx.JSON = JSON;
 ctx.Object = Object; ctx.Array = Array; ctx.Number = Number; ctx.String = String;
 ctx.Boolean = Boolean; ctx.RegExp = RegExp; ctx.Set = Set; ctx.Map = Map;
