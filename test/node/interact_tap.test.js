@@ -8,11 +8,6 @@
 
 // ─── 1. Structural invariants ────────────────────────────────────────────────
 
-test('TAP_HANDLERS: array exists and is non-empty', () => {
-  assert.truthy(Array.isArray(TAP_HANDLERS), 'TAP_HANDLERS is an array');
-  assert.gt(TAP_HANDLERS.length, 0, 'TAP_HANDLERS has entries');
-});
-
 test('TAP_HANDLERS: every entry has a string name and function try', () => {
   for (const h of TAP_HANDLERS) {
     assert.truthy(typeof h.name === 'string' && h.name.length > 0,

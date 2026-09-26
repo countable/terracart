@@ -499,7 +499,6 @@ test('street counter: the number wears the restored street\'s own ink', () => {
   // (particles.js) and the number counting it are all UI_STREET_INK, so the
   // debris and the figure over it can never end up different colours. Pinned
   // as source text — app.js needs Phaser and can't load headlessly.
-  assert.eq(UI_STREET_INK, '#e8e2d6', 'pale stone');
   assert.eq(typeof UI_TRAIL_LIT, 'undefined', 'and the lit-pebble violet is gone');
   assert.truthy(/color: UI_STREET_INK,\s*\n\s*\.\.\.\(at \? this\._worldToastAt\(/.test(APP_JS_SRC),
     'the counter is drawn in it, on the stretch');

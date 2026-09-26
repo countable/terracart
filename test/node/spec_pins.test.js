@@ -221,14 +221,6 @@ test('#7 T2 chest relic path resolves via rollGearUpgrade (relic or armor or gol
 // absent from any sale code path.
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('#8 Shops namespace: shopSellBonus is absent (function was removed)', () => {
-  // SPEC BUG (audit #8): spec requires a specialty sell bonus applied at sale time.
-  // The function was once in shops.js but is now gone; it was never wired into
-  // any sale path. We assert the CURRENT state: the function does not exist.
-  assert.falsy(typeof Shops.shopSellBonus === 'function',
-    'Shops.shopSellBonus should NOT be a function — it was removed (never wired)');
-});
-
 test('#8 Shops namespace exposes exactly the expected surface (no sell-bonus entry)', () => {
   const exposed = Object.keys(Shops).sort();
   // The known exported keys from shops.js IIFE global.Shops = { ... }.

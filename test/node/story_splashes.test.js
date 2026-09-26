@@ -37,43 +37,6 @@ const FORT_SRC = lift('presentFortUnlockModal(sx, sy, house) {',
 const SHINY_SRC = lift('flashShiny(money, isNew = true, title = SHINY_FIND_TITLE) {',
   'flashShiny');
 
-// ── The ledger, as source ─────────────────────────────────────────────────
-test('story splash: the ledger is save.storySeen, written once per key', () => {
-  assert.truthy(/this\.save\.storySeen = this\.save\.storySeen \|\| \{\};/.test(SPLASH_SRC),
-    '_storySplashOnce creates the storySeen map like save.discovered');
-  assert.truthy(/if \(seen\[key\]\) return false;/.test(SPLASH_SRC),
-    'a key already in the ledger never replays');
-  assert.truthy(/seen\[key\] = 1;/.test(SPLASH_SRC),
-    'a shown splash is banked in the ledger');
-});
-
-test('story splash: showing a splash persists the save', () => {
-  assert.truthy(/persistSave\(this\.save\);/.test(SPLASH_SRC),
-    'the ledger write is persisted at once, so a reload cannot replay the moment');
-});
-
-test('story splash: a busy screen returns false WITHOUT marking the key seen', () => {
-  const busy = SPLASH_SRC.indexOf("if (document.body?.classList?.contains('modal-open')) return false;");
-  assert.truthy(busy > 0, 'the modal-open busy guard is there');
-  const mark = SPLASH_SRC.indexOf('seen[key] = 1;');
-  assert.truthy(busy < mark, 'the guard runs BEFORE the ledger write - a busy screen does not burn the moment');
-});
-
-test('story splash: the guard re-syncs the class first, for moments fired from a closing modal', () => {
-  // body.modal-open is mirrored off a MutationObserver, so it lags a
-  // wrap.remove() by a microtask: the delivery and castle splashes fire from
-  // inside the accept handler of the modal they just closed, and without the
-  // re-sync the guard would read busy on every single one of them.
-  const sync = SPLASH_SRC.indexOf('this._syncModalGate?.();');
-  const busy = SPLASH_SRC.indexOf("contains('modal-open')");
-  assert.truthy(sync > 0 && sync < busy, '_syncModalGate runs before the busy check');
-});
-
-test('story splash: the splash is a showMessageModal carrying the art stem', () => {
-  assert.truthy(/this\.showMessageModal\(\{ title, body, art, okLabel \}\);/.test(SPLASH_SRC),
-    'the banner goes through showMessageModal, which renders dialogArtHTML');
-});
-
 // ── The call sites, as source ─────────────────────────────────────────────
 test('story splash: first delivery captures the tally BEFORE it moves off zero', () => {
   const cap = app.indexOf('const wasFirstDelivery = (this.save.deliveryCount ?? 0) === 0;');

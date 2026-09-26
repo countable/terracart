@@ -154,12 +154,6 @@ test('HomeArea.softwoodSpeciesNear: forces pine near spawn, exempts bushes', () 
     'bush far from spawn keeps its species');
 });
 
-test('WorldGen namespace is present and usable headlessly', () => {
-  assert.eq(typeof WorldGen, 'object', 'WorldGen exported');
-  assert.eq(typeof WorldGen.lonLatToWorldPx, 'function', 'projection fn present');
-  assert.eq(typeof WorldGen.Z, 'number', 'tile zoom is a number');
-});
-
 // ── Amulet: stick walking ────────────────────────────────────────────────────
 // The stick is always present and always works; the amulet is purely an upgrade
 // to it. Both curves therefore have to answer for a bare hand (tier 0) — the

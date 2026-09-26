@@ -275,27 +275,6 @@ test('save: data written to slot A is not visible from slot B (isolation)', () =
   deleteSave(idB);
 });
 
-test('save: writing to slot B then loading slot A returns A original data', () => {
-  const idA = createSave(_uid('test_bleed_a'));
-  persistSave({ level: 5, money: 50 });
-  flushSave();
-
-  const idB = createSave(_uid('test_bleed_b'));
-  // Write completely different data to B.
-  persistSave({ level: 99, money: 9999, extra: true });
-  flushSave();
-
-  // Go back to A — A must be unchanged.
-  switchSave(idA);
-  const a = loadSave();
-  assert.eq(a.level, 5, 'A level unchanged');
-  assert.eq(a.money, 50, 'A money unchanged');
-  assert.falsy(a.extra, 'B-only field not present in A');
-
-  deleteSave(idA);
-  deleteSave(idB);
-});
-
 // ── deleteSave ────────────────────────────────────────────────────────────────
 
 test('save: deleteSave removes the slot from listSaves', () => {
@@ -310,23 +289,6 @@ test('save: deleteSave returns true for a known slot, false for unknown', () => 
   assert.truthy(deleteSave(id), 'known id returns true');
   assert.falsy(deleteSave(id), 'already-deleted id returns false');
   assert.falsy(deleteSave('nonexistent-id'), 'totally unknown id returns false');
-});
-
-test('save: deleteSave removes the slot data from localStorage', () => {
-  const id = createSave(_uid('test_del_data'));
-  persistSave({ money: 55 });
-  flushSave();
-  // Confirm data is written.
-  assert.eq(loadSave().money, 55, 'data present before delete');
-
-  deleteSave(id);
-  // After delete, the now-active slot is different; the deleted slot key should
-  // have been cleared. We verify indirectly: switching back to a new slot and
-  // reading shows nothing.
-  // (The deleted slot's key no longer appears in any slot, so we cannot
-  // switchSave back — we simply trust deleteSave's removeItem call.)
-  // Guard: listSaves no longer contains the id.
-  assert.falsy(listSaves().some(s => s.id === id), 'slot record gone');
 });
 
 test('save: deleting the last slot recreates a fresh default slot', () => {

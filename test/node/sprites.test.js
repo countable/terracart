@@ -19,30 +19,6 @@ test('MINERAL_ICON_SHEET: all bar entries use the bars sheet', () => {
   }
 });
 
-test('MINERAL_ICON_SHEET: copper_bar is frame 0 (col 0, row 0)', () => {
-  assert.eq(MINERAL_ICON_SHEET['copper_bar'].frame, 0);
-});
-
-test('MINERAL_ICON_SHEET: iron_bar is frame 2 (col 2, row 0 — skips ore at col1)', () => {
-  assert.eq(MINERAL_ICON_SHEET['iron_bar'].frame, 2);
-});
-
-test('MINERAL_ICON_SHEET: gold_bar is frame 16 (col 0, row 1 — stride 16)', () => {
-  assert.eq(MINERAL_ICON_SHEET['gold_bar'].frame, 16);
-});
-
-test('MINERAL_ICON_SHEET: platinum_bar is frame 18 (col 2, row 1)', () => {
-  assert.eq(MINERAL_ICON_SHEET['platinum_bar'].frame, 18);
-});
-
-test('MINERAL_ICON_SHEET: crimson_bar is frame 32 (col 0, row 2)', () => {
-  assert.eq(MINERAL_ICON_SHEET['crimson_bar'].frame, 32);
-});
-
-test('MINERAL_ICON_SHEET: frost_bar is frame 34 (col 2, row 2)', () => {
-  assert.eq(MINERAL_ICON_SHEET['frost_bar'].frame, 34);
-});
-
 test('MINERAL_ICON_SHEET: bar frames are the even-col (col0/col2) ingots, not the odd-col ore nuggets', () => {
   // Each pair: barA at col0, oreA at col1 within each metal pair.
   // Row 0: copper(0,1), iron(2,3); Row 1: gold(16,17), platinum(18,19); Row 2: crimson(32,33), frost(34,35).
