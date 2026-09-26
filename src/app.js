@@ -15076,7 +15076,6 @@ class MapScene extends Phaser.Scene {
         if (!tileReadyAt(ox, oy)) return;        // a viewport tile is still streaming — wait
     // Drop a trailer under the player.
     this._makeStarterTrailer(ax, ay);
-    this.save.starterShopId = this.save.starterTrailer.id;
     this._starterShopOk = true;
     this._setStarterCratesAt(ax, ay);
   }
@@ -15186,6 +15185,12 @@ class MapScene extends Phaser.Scene {
     // tier = T.BUILDING (a plain small house); the starter role overrides the
     // wreck/shop skin in the renderer, so it draws as the trailer regardless.
     this.save.starterTrailer = { id, x, y, tier: WorldGen.T.BUILDING, address };
+    // The trailer IS Home from here on — set before the inject, which only
+    // runs for the active Home. That inject may ADOPT a real house standing on
+    // this very cell instead (it nulls save.starterTrailer and points
+    // starterShopId at the house), so callers must never read
+    // save.starterTrailer back after this: Home is starterShopId.
+    this.save.starterShopId = id;
     this._starterTrailerObj = null;            // force a rebuild on next inject
     this.ensureStarterTrailerObject();
   }
@@ -15343,7 +15348,6 @@ class MapScene extends Phaser.Scene {
     const ax = this.startWorldM.x + this.playerM.x;
     const ay = this.startWorldM.y + this.playerM.y;
     this._makeStarterTrailer(ax, ay);
-    this.save.starterShopId = this.save.starterTrailer.id;
     this._starterShopOk = true;
   }
 
