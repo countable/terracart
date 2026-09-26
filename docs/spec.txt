@@ -1303,7 +1303,7 @@ ECONOMY (buying & selling)
    (quests.js; the sealed-castle tap opens the board). Completing one CLAIMS
    the castle: its turrets fight for you (see COMBAT), it lights up, and its
    castellan offers ONE daily favour per UTC day (save.castleServiceClaimed):
-   REST for CASTLE_REST_FRAC (10%) of the energy bar, or COLLECT
+   REST for a flat CASTLE_REST_ENERGY (35) energy, or COLLECT
    CASTLE_TAX_GOLD ($10) — presentCastleServiceOffer / _castleRest /
    _castleTax in app.js. (The old lifetime-delivery gate is retired; castles
    it opened, save.openedCastles, stay open.)

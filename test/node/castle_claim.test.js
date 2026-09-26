@@ -134,12 +134,13 @@ test('castle service: an unclaimed castle gives nothing, either way', () => {
   assert.eq(s.save.money, undefined, 'no claim, no tax either');
 });
 
-test('castle service: resting at a claimed castle gives back a tenth of the bar', () => {
+test('castle service: resting at a claimed castle gives a flat 35 energy', () => {
   const s = ccScene();
   const t = ccTower('b_1_1');
   s._claimCastle(t);
   s._castleRest(0, 0, t);
-  assert.eq(s.save.energy, 40 + Math.round(100 * CASTLE_REST_FRAC), 'a tenth of max');
+  assert.eq(CASTLE_REST_ENERGY, 35);
+  assert.eq(s.save.energy, 40 + CASTLE_REST_ENERGY, '+35, whatever the bar');
 });
 
 test('castle service: collecting taxes adds the flat gold amount', () => {

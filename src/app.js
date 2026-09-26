@@ -1365,12 +1365,12 @@ const FIRE_FULL_REST_S = 360;
 // A CLAIMED castle no longer trades relics — it's the player's own — and
 // instead its castellan offers ONE favour a day (save.castleServiceClaimed[key]
 // holds the UTC day it was last used, same day-key idiom as houseSatisfied):
-// REST, a lump of a tenth of the bar handed over on arrival rather than a
+// REST, a flat lump of CASTLE_REST_ENERGY handed over on arrival rather than a
 // rest rate like the ones above (the castle is somewhere you travel to, so
 // the payoff should land the moment you get there), or COLLECT, a flat tax
 // take in gold. Small enough either way that it can't replace food or
 // sleeping at Home — once a day is a courtesy for the walk, not an income.
-const CASTLE_REST_FRAC = 0.10;
+const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until Sep 2026)
 const CASTLE_TAX_GOLD = 10;
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
@@ -16650,7 +16650,8 @@ class MapScene extends Phaser.Scene {
     }
     this.save.castleServiceClaimed[key] = dayKey;
   }
-  // REST: a lump of CASTLE_REST_FRAC of the bar, same fraction the old hourly
+  // REST: a flat CASTLE_REST_ENERGY, once a day (it was a tenth of the bar, the
+  // same fraction the old hourly
   // hearth gave — just once a day now instead of once an hour. Silent (no-op)
   // once the day's favour is already spent or the castle isn't claimed; the
   // modal that calls this never offers the choice in either case.
@@ -16658,7 +16659,7 @@ class MapScene extends Phaser.Scene {
     if (!this.isCastleClaimed(house) || this._castleServiceUsedToday(house)) return;
     const maxE = this.getMaxEnergy();
     const cur = this.save.energy ?? 0;
-    const gain = Math.max(1, Math.round(maxE * CASTLE_REST_FRAC));
+    const gain = CASTLE_REST_ENERGY;
     this.save.energy = Math.min(maxE, cur + gain);
     this._markCastleServiceUsed(house);
     if (typeof persistSave === 'function') persistSave(this.save);
@@ -16694,7 +16695,7 @@ class MapScene extends Phaser.Scene {
       get: 'One favour a day — your call.',
       blurb: `Whichever you pick, it won't be on offer again for ${shortDuration(msToNextUtcDay())}.`,
       canAfford: true,
-      acceptLabel: 'Rest',
+      acceptLabel: `Rest +${CASTLE_REST_ENERGY}⚡`,
       secondary: {
         label: `Collect ${this.moneyHTML(CASTLE_TAX_GOLD, 12)} taxes`,
         onClick: () => this._castleTax(sx, sy, house),

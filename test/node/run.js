@@ -573,15 +573,15 @@ Object.assign(ctx, {
     return src.slice(bodyStart, end);
   };
   let decls = '';
-  const frac = src.match(/const CASTLE_REST_FRAC = ([\d.]+);/);
-  if (!frac) { console.error('Could not find CASTLE_REST_FRAC in src/app.js — update run.js'); process.exit(2); }
-  decls += `const CASTLE_REST_FRAC = ${frac[1]};\n`;
+  const rest = src.match(/const CASTLE_REST_ENERGY = (\d+);/);
+  if (!rest) { console.error('Could not find CASTLE_REST_ENERGY in src/app.js — update run.js'); process.exit(2); }
+  decls += `const CASTLE_REST_ENERGY = ${rest[1]};\n`;
   const tax = src.match(/const CASTLE_TAX_GOLD = (\d+);/);
   if (!tax) { console.error('Could not find CASTLE_TAX_GOLD in src/app.js — update run.js'); process.exit(2); }
   decls += `const CASTLE_TAX_GOLD = ${tax[1]};\n`;
   vm.runInContext(
     decls
-    + 'globalThis.CASTLE_REST_FRAC = CASTLE_REST_FRAC;\n'
+    + 'globalThis.CASTLE_REST_ENERGY = CASTLE_REST_ENERGY;\n'
     + 'globalThis.CASTLE_TAX_GOLD = CASTLE_TAX_GOLD;\n'
     + 'globalThis.CastleMethods = {\n'
     + '  _castleKey(house) {\n' + grab('  _castleKey(house) {\n') + '\n  },\n'
