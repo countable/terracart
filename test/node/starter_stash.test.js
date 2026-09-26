@@ -1,20 +1,22 @@
 // The starter stash: four Books, a Rope and a Trap Disarm Kit, one per small
 // crate, scattered through the resource ring around home
-// (app.js _scatterStarterStash, STARTER_STASH, STARTER_STASH_R_CELLS).
+// (starter.js scatterStarterStash behind app.js's _scatterStarterStash
+// wrapper; STARTER_STASH, STARTER_STASH_R_CELLS in app.js).
 //
-// The method is lifted out of app.js and RUN on a synthetic tile, with the
+// The function is lifted out of starter.js and RUN on a synthetic tile, with the
 // coords helpers stubbed to the tile's own metre grid (1 m cells), so what is
 // tested is where it actually seats crates and what they hold.
 
 (function () {
 const app = APP_JS_SRC;
+const starter = STARTER_JS_SRC;
 const lift = (sig) => {
-  const a = app.indexOf('\n  ' + sig);
+  const a = starter.indexOf('\n  ' + sig);
   assert.truthy(a > 0, 'found ' + sig);
-  const b = app.indexOf('\n  }\n', a);
-  return app.slice(a + 1 + 2 + sig.length, b);
+  const b = starter.indexOf('\n  }\n', a);
+  return starter.slice(a + 1 + 2 + sig.length, b);
 };
-const body = lift('_scatterStarterStash(entry, tx, ty, spawnIX, spawnIY, usedSeats) {');
+const body = lift('function scatterStarterStash(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats) {');
 const stash = eval(app.match(/const STARTER_STASH = (\[[\s\S]*?\]);/)[1]);
 const R = eval(app.match(/const STARTER_STASH_R_CELLS = (\[[^\]]*\]);/)[1]);
 
@@ -24,9 +26,9 @@ const run = (grid, opts = {}) => {
   const scene = { tileEdgeM: N, cellM: 1 };
   const w2c = (s, x, y) => ({ cellIX: Math.floor(x), cellIY: Math.floor(y) });
   const c2w = (s, ix, iy) => ({ x: ix + 0.5, y: iy + 0.5 });
-  new Function('entry', 'tx', 'ty', 'spawnIX', 'spawnIY', 'usedSeats',
+  new Function('scene', 'entry', 'tx', 'ty', 'spawnIX', 'spawnIY', 'usedSeats',
                'worldMetersToAbsCell', 'absCellCenterMeters', 'STARTER_STASH', 'STARTER_STASH_R_CELLS', body)
-    .call(scene, entry, 0, 0, 32, 32, new Set(), w2c, c2w, stash, R);
+    .call(null, scene, entry, 0, 0, 32, 32, new Set(), w2c, c2w, stash, R);
   return entry.objects;
 };
 
@@ -68,7 +70,7 @@ test('starter stash: never on water or a road', () => {
 });
 
 test('starter stash: runs once per tile build, beside the trail', () => {
-  assert.truthy(/this\._scatterStarterStash\(entry, tx, ty, spawnIX, spawnIY, usedSeats\);/.test(app),
+  assert.truthy(/scene\._scatterStarterStash\(entry, tx, ty, spawnIX, spawnIY, usedSeats\);/.test(starter),
     'called from _placeStarterTrail (gated on entry._starterTrail, re-run on a rebuild)');
 });
 })();

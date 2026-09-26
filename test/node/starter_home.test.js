@@ -1,6 +1,7 @@
 // Headless tests for the starter-home provisioning POLICY
 // (src/home.js › HomeArea.planStarterProvision + friends). The seating half
-// lives in app.js (_provisionStarterHome) and needs a tile; everything that
+// lives in starter.js (Starter.provisionStarterHome, the scene's
+// _provisionStarterHome) and needs a tile; everything that
 // decides WHAT the home area owes a new player is pure and lives here.
 //
 // The problem being solved: the starter ladder assumes there is something to

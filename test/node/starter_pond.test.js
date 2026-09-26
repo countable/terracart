@@ -8,8 +8,9 @@
 // stands in the band, frozen once on the save and repainted in place on every
 // rebuild of its tile.
 //
-// The methods under test are lifted out of src/app.js by run.js (they live on
-// the Phaser scene class), so these run against the real shipping code.
+// The code under test is src/starter.js's, reached through the scene's
+// one-line wrappers that run.js hands over, so these run against the real
+// shipping code.
 
 (() => {
   const T = { GRASS: 0, FOREST: 1, WATER: 3, RESIDENTIAL: 5, ROAD: 7, BUILDING: 9 };

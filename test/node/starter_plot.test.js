@@ -7,8 +7,9 @@
 // till in the first place. The plot is what makes that step always performable
 // and gives the arrow an honest target.
 //
-// The function under test is lifted out of src/app.js by run.js (it lives on
-// the Phaser scene class), so these run against the real shipping code.
+// The function under test is src/starter.js's, reached through the scene's
+// one-line wrapper that run.js hands over, so these run against the real
+// shipping code.
 
 // Wrapped in an IIFE: every *.test.js shares one global scope in the runner,
 // so bare top-level consts here would collide with another file's.

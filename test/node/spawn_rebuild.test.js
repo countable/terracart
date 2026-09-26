@@ -117,7 +117,7 @@ test('starter trail: its own guard is per-entry, so a rebuild re-lays it', () =>
   // the save, or the re-run this whole file is about would still place nothing.
   assert.truthy(/entry\._starterTrail/.test(STARTER_TRAIL_SRC),
     'the trail guard is no longer per-entry — a rebuilt tile would skip it');
-  assert.falsy(/this\.save\.[A-Za-z]*[Tt]rail[A-Za-z]*Placed/.test(STARTER_TRAIL_SRC),
+  assert.falsy(/(?:this|scene)\.save\.[A-Za-z]*[Tt]rail[A-Za-z]*Placed/.test(STARTER_TRAIL_SRC),
     'the trail guard moved into the save — a rebuilt tile would never re-lay the crates');
 });
 })();

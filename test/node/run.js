@@ -83,6 +83,11 @@ const FILES = [
   'lairs.js',
   'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js', 'houses.js',
+  // The starter-area placers (trail, stash, relic chest, plot, pond, starter
+  // home, greeter, pest amnesty) — moved out of app.js's MapScene. They read
+  // the scene they are handed plus app.js's starter constants as GLOBALS at
+  // call time; run.js injects those once, below (STARTER_CONSTS).
+  'starter.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
   // combat.test.js registers a synthetic one), so it runs headless.
@@ -164,6 +169,70 @@ try {
 // interact_tap.test.js reads the SHIPPING codes rather than a set this file
 // used to parse out of app.js' source text.
 ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
+
+// ── The starter-area module (starter.js) and its app.js constants ─────────
+// starter.js holds the seventeen starter placers that used to be MapScene
+// methods; app.js keeps a one-line wrapper per method
+// (`_paintPond(entry, …) { return Starter.paintPond(this, entry, …); }`), and
+// the placers call each other THROUGH the scene, so a stub scene carrying the
+// wrappers drives the real code. Their constants stay top-level in app.js and
+// are read as globals at call time — lifted here, ONCE, from the app.js
+// declarations (right-hand side as written: one is derived, some are tables),
+// in declaration order so a derived one sees what it derives from.
+ctx.STARTER_JS_SRC = readSrc('starter.js');
+{
+  const src = readSrc('app.js');
+  const STARTER_CONSTS = [
+    'VIEW_CELLS', 'CREATURE_SIM_CELLS',
+    'HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS', 'HOME_GREETER_SLACK_CELLS', 'HOME_GREETER_DIR_VEC',
+    'PEST_FREE_CELLS', 'STARTER_STASH', 'STARTER_STASH_R_CELLS',
+    'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS', 'NEAR_ROAD_CELLS',
+    'POND_MIN_CELLS', 'POND_MAX_CELLS', 'POND_POI_CELLS',
+    'STARTER_SMITH_SLOTS', 'STARTER_RELIC_SLOTS', 'STARTER_RELIC_TIER',
+  ];
+  // Every UPPER_CASE global starter.js reads must be on this list — a
+  // constant the moved code picked up later would otherwise only fail on the
+  // one test path that reaches it.
+  const code = ctx.STARTER_JS_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+    .replace(/'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, '""');
+  const own = new Set([...code.matchAll(/(?:const|let|var)\s+([A-Z][A-Z0-9_]+)/g)].map(m => m[1]));
+  for (const id of new Set(code.match(/(?<![.\w])[A-Z][A-Z0-9_]{2,}\b/g))) {
+    if (!own.has(id) && !STARTER_CONSTS.includes(id) && !(id in ctx)) {
+      console.error(`starter.js reads ${id}, which run.js does not inject — add it to STARTER_CONSTS`);
+      process.exit(2);
+    }
+  }
+  let decls = '';
+  for (const name of STARTER_CONSTS) {
+    const m = src.match(new RegExp(`^const ${name} = ([\\s\\S]*?);$`, 'm'));
+    if (!m) {
+      console.error(`Could not find ${name} in src/app.js — update run.js`);
+      process.exit(2);
+    }
+    decls += `globalThis.${name} = ${m[1]};\n`;
+  }
+  // _starterTrailAnchor reads app.js's boot-time `let _saveHome` (the saved
+  // home the projection was anchored on). Headless there is none.
+  decls += 'globalThis._saveHome = null;\n';
+  vm.runInContext(decls, ctx, { filename: 'app.js#starterConsts' });
+}
+// The scene's one-line wrapper for a moved starter method, exactly as app.js
+// ships it — verified to delegate to Starter.<name>(this, …) with its own
+// params in order — so a lift block can hand tests the REAL scene entry point.
+const STARTER_WRAPPER_RE = /^  (_(\w+))\(([^)]*)\) \{ return Starter\.(\w+)\(this((?:, [^)]*)?)\); \}$/;
+const starterWrapper = (name) => {
+  const src = readSrc('app.js');
+  const line = src.split('\n').find(l => l.startsWith(`  ${name}(`) && l.includes('return Starter.'));
+  const m = line && line.match(STARTER_WRAPPER_RE);
+  const want = m && m[2].charAt(0).toLowerCase() + m[2].slice(1);
+  const params = m && m[3].split(',').map(x => x.trim()).filter(Boolean).join(', ');
+  const args = m && m[5].replace(/^, /, '');
+  if (!m || m[4] !== want || params !== args) {
+    console.error(`Could not find ${name}'s one-line Starter wrapper in src/app.js — update run.js`);
+    process.exit(2);
+  }
+  return line.slice(2);
+};
 
 // The walk-home timings live in app.js too. Lift them the same way, so the
 // tests below assert on the REAL numbers rather than a copy that would quietly
@@ -505,10 +574,10 @@ Object.assign(ctx, {
 });
 
 // The starter-home provisioner seats the wood / rock / wreck a new player needs
-// onto real cells and freezes the result. It's pure grid + save math, but it
-// lives on the Phaser scene class, so lift both methods out as text (same trick
-// as _carveStarterPlot below) and expose them for a test to .call() with a
-// scene stub — exercising the real shipping code instead of a copy of it.
+// onto real cells and freezes the result. It's pure grid + save math in
+// starter.js, reached through the scene's one-line wrappers; expose those (and
+// _worldPlaced, still a scene method, lifted as text) for a test to .call()
+// with a scene stub — exercising the real shipping code instead of a copy.
 {
   const src = readSrc('app.js');
   const grab = (head) => {
@@ -525,13 +594,13 @@ Object.assign(ctx, {
     }
     return src.slice(bodyStart, end);
   };
-  const objBody = grab('  _starterHomeObject(rec) {\n');
-  // The starter provision crosses into a SECOND tile stream: a mushroom is a
-  // wild plant, not an object. Lift both halves of that routing too, or the
-  // seating tests drive a provisioner that can't place food.
-  const wpBody = grab('  _starterHomeWildplant(rec) {\n');
-  const streamBody = grab('  _starterHomeStream(entry, rec) {\n');
-  const provBody = grab('  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n');
+  // The four starter-home methods are one-line wrappers over starter.js now
+  // (Starter.starterHomeObject & co); hand the test the wrappers as app.js
+  // ships them, so a stub scene drives the real provisioner. The provision
+  // crosses into a SECOND tile stream (a mushroom is a wild plant, not an
+  // object), so both halves of that routing ride along.
+  const homeWrappers = ['_starterHomeObject', '_starterHomeWildplant', '_starterHomeStream',
+                        '_provisionStarterHome'].map(starterWrapper);
   // _worldPlaced decides whether a late first GPS fix may still become this
   // save's home origin, and it reads PROVISIONAL_ORIGIN_KEYS — the starter kit
   // the pre-capture passes lay down, which must NOT count. Lifted with the
@@ -553,10 +622,7 @@ Object.assign(ctx, {
     `const PROVISIONAL_ORIGIN_KEYS = ${keys[1]};\n`
     + 'globalThis.PROVISIONAL_ORIGIN_KEYS = PROVISIONAL_ORIGIN_KEYS;\n'
     + 'globalThis.StarterHomeMethods = {\n'
-    + '  _starterHomeObject(rec) {\n' + objBody + '\n  },\n'
-    + '  _starterHomeWildplant(rec) {\n' + wpBody + '\n  },\n'
-    + '  _starterHomeStream(entry, rec) {\n' + streamBody + '\n  },\n'
-    + '  _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n' + provBody + '\n  },\n'
+    + homeWrappers.map(w => '  ' + w + ',\n').join('')
     + '  _worldPlaced() {\n' + placedBody + '\n  },\n'
     + '};', ctx, { filename: 'starterHome.js' });
 }
@@ -679,8 +745,8 @@ Object.assign(ctx, {
 // reopening the modal re-rolls what the shop sells, which is exactly the bug
 // where a player could reopen a fort until it offered a relic and then reopen
 // until the price came up cheap. app.js needs Phaser so it can't load here;
-// lift the two method bodies as text (same trick as NON_TILLABLE / INV_CATS /
-// _carveStarterPlot above) so shops_math.test.js asserts on the real shipping
+// lift the two method bodies as text (same trick as NON_TILLABLE / INV_CATS
+// above) so shops_math.test.js asserts on the real shipping
 // source rather than a transcription that could drift.
 {
   const src = readSrc('app.js');
@@ -708,67 +774,33 @@ Object.assign(ctx, {
 }
 
 // The starter plot (_carveStarterPlot) is pure grid math — no Phaser, no
-// rendering — but it lives on the Phaser scene class, so it can't be imported.
-// Lift the METHOD BODY straight out of the source text (same trick as
-// NON_TILLABLE / INV_CATS above) and expose it as a plain function the test can
-// .call() with a scene stub. The test then exercises the real shipping code
-// rather than a transcription of it, so the two can't drift.
+// rendering. It lives in starter.js now (Starter.carveStarterPlot), behind the
+// scene's one-line wrapper; expose that wrapper as a plain function the test
+// can .call() with a scene stub, so the test drives the real shipping code
+// through the same entry point the scene uses.
 {
-  const src = readSrc('app.js');
-  const head = '  _carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n';
-  const at = src.indexOf(head);
-  if (at < 0) {
-    console.error('Could not find _carveStarterPlot in src/app.js — update run.js');
-    process.exit(2);
-  }
-  // The method ends at the first line that is exactly two-space-indented '}'.
-  const bodyStart = at + head.length;
-  const end = src.indexOf('\n  }\n', bodyStart);
-  if (end < 0) {
-    console.error('Could not find the end of _carveStarterPlot — update run.js');
-    process.exit(2);
-  }
-  const body = src.slice(bodyStart, end);
   vm.runInContext(
-    `globalThis.carveStarterPlot = function (entry, tx, ty, spawnIX, spawnIY, usedSeats) {\n${body}\n};`,
-    ctx, { filename: 'carveStarterPlot.js' });
+    `globalThis.carveStarterPlot = ({\n  ${starterWrapper('_carveStarterPlot')}\n})._carveStarterPlot;`,
+    ctx, { filename: 'app.js#_carveStarterPlot' });
 }
 
 // The fishing pond (_carveStarterPond): a 2x2 of water carved two screens out
 // from Home, beside a POI chest when one stands in the band. Pure grid + save
-// + tileCache math on the scene class — lifted as methods (with the painter
-// and the late-anchor sweep it works through, and the three band constants it
-// reads) so starter_pond.test.js drives the SHIPPING placer on a scene stub.
+// + tileCache math, in starter.js (Starter.carveStarterPond) — hand the test
+// the scene's wrappers for it, the painter and the late-anchor sweep it works
+// through (the band constants are injected once above), so
+// starter_pond.test.js drives the SHIPPING placer on a scene stub.
 {
   const src = readSrc('app.js');
-  const lift = (sig) => {
-    const start = src.indexOf('\n  ' + sig);
-    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
-    if (start < 0 || end < 0) {
-      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
-      process.exit(2);
-    }
-    return src.slice(start + 1, end + 4);
-  };
-  let decls = '';
-  for (const name of ['POND_MIN_CELLS', 'POND_MAX_CELLS', 'POND_POI_CELLS']) {
-    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
-    if (!m) {
-      console.error(`Could not find ${name} in src/app.js — update run.js`);
-      process.exit(2);
-    }
-    decls += `const ${name} = ${m[1]};\nglobalThis.${name} = ${name};\n`;
-  }
   // The spawn pass has to actually CALL the placer, or the pond exists only
   // in the tests — the exact shape of the bug spawn_rebuild.test.js pins.
   if (!/this\._carveStarterPond\(entry, tx, ty\);/.test(src)) {
     console.error('spawnInTile no longer calls _carveStarterPond — update run.js');
     process.exit(2);
   }
-  const methods = ['_carveStarterPond(entry, tx, ty) {', '_paintPond(entry, tx, ty, cx, cy) {',
-                   '_carveStarterPondAround() {']
-    .map(lift).join(',\n');
-  vm.runInContext(`${decls}globalThis.__pond = {\n${methods}\n};`, ctx,
+  const methods = ['_carveStarterPond', '_paintPond', '_carveStarterPondAround']
+    .map(starterWrapper).join(',\n');
+  vm.runInContext(`globalThis.__pond = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_carveStarterPond' });
   for (const k of ['_carveStarterPond', '_paintPond', '_carveStarterPondAround']) {
     if (typeof ctx.__pond[k] !== 'function') {
@@ -813,33 +845,13 @@ Object.assign(ctx, {
 
 // The pest amnesty (_pestFreeZone) decides whether a save is still ahead of
 // its first harvest and, if so, which cells of a tile hold no slime or crow.
-// Pure save + grid math on the scene class, so lift it the same way, along
-// with the radius constant it reads. The spawner's one-line use of the zone
-// (which KINDS it re-rolls) can't be lifted, so pest_amnesty.test.js pins it
-// against the source text — hand it the tryPlace body here.
+// Pure save + grid math in starter.js (Starter.pestFreeZone); hand the test
+// the scene's wrapper (PEST_FREE_CELLS is injected once above). The spawner's
+// one-line use of the zone (which KINDS it re-rolls) can't be lifted, so
+// pest_amnesty.test.js pins it against the source text — hand it the tryPlace
+// body here.
 {
   const src = readSrc('app.js');
-  const head = '  _pestFreeZone(tx, ty) {\n';
-  const at = src.indexOf(head);
-  if (at < 0) {
-    console.error('Could not find _pestFreeZone in src/app.js — update run.js');
-    process.exit(2);
-  }
-  const bodyStart = at + head.length;
-  const end = src.indexOf('\n  }\n', bodyStart);
-  if (end < 0) {
-    console.error('Could not find the end of _pestFreeZone — update run.js');
-    process.exit(2);
-  }
-  let decls = '';
-  for (const name of ['PEST_FREE_CELLS']) {
-    const m = src.match(new RegExp(`const ${name} = ([^;]+);`));
-    if (!m) {
-      console.error(`Could not find ${name} in src/app.js — update run.js`);
-      process.exit(2);
-    }
-    decls += `const ${name} = ${m[1]};\n`;
-  }
   const guard = src.match(/if \(\(kindStr === [^\n]+pestFree[^\n]+(?:continue|return);/);
   if (!guard) {
     console.error('Could not find the pest-free spawner guard in src/app.js — update run.js');
@@ -852,12 +864,10 @@ Object.assign(ctx, {
     process.exit(2);
   }
   vm.runInContext(
-    decls
-    + 'globalThis.PEST_FREE_CELLS = PEST_FREE_CELLS;\n'
-    + `globalThis.PEST_FREE_GUARD_SRC = ${JSON.stringify(guard[0])};\n`
+    `globalThis.PEST_FREE_GUARD_SRC = ${JSON.stringify(guard[0])};\n`
     + `globalThis.CROW_PUMP_GATE_SRC = ${JSON.stringify(pump[0])};\n`
-    + `globalThis.pestFreeZone = function (tx, ty) {\n${src.slice(bodyStart, end)}\n};`,
-    ctx, { filename: 'pestFreeZone.js' });
+    + `globalThis.pestFreeZone = ({\n  ${starterWrapper('_pestFreeZone')}\n})._pestFreeZone;`,
+    ctx, { filename: 'app.js#_pestFreeZone' });
 }
 
 // The creature SIM BUBBLE — the radius inside which wanderCreatures lets a
@@ -905,128 +915,38 @@ Object.assign(ctx, {
 
 // The spawn relic chest (_placeStarterRelicChest) seats a treasure chest one
 // screen out from the anchor and decides which wooden relic is inside it. Pure
-// grid + seeded-rng math, but it lives on the Phaser scene class — lift the
-// method body as text (same trick as _carveStarterPlot above) plus the two
-// constants and VIEW_CELLS it reads, so the test drives the REAL placer and the
-// REAL slot list rather than a transcription that could drift.
+// grid + seeded-rng math in starter.js; hand the test the scene's wrapper (the
+// slot list, tier and VIEW_CELLS it reads are injected once above), so the
+// test drives the REAL placer and the REAL slot list rather than a
+// transcription that could drift.
 {
-  const src = readSrc('app.js');
-  const head = '  _placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {\n';
-  const at = src.indexOf(head);
-  if (at < 0) {
-    console.error('Could not find _placeStarterRelicChest in src/app.js — update run.js');
-    process.exit(2);
-  }
-  const bodyStart = at + head.length;
-  const end = src.indexOf('\n  }\n', bodyStart);
-  if (end < 0) {
-    console.error('Could not find the end of _placeStarterRelicChest — update run.js');
-    process.exit(2);
-  }
-  const body = src.slice(bodyStart, end);
-  const consts = ['VIEW_CELLS', 'STARTER_RELIC_TIER', 'NEAR_ROAD_CELLS'];
-  let decls = '';
-  for (const name of consts) {
-    const m = src.match(new RegExp(`const ${name} = (\\d+);`));
-    if (!m) {
-      console.error(`Could not find ${name} in src/app.js — update run.js`);
-      process.exit(2);
-    }
-    decls += `const ${name} = ${m[1]};\n`;
-    ctx[name] = parseInt(m[1], 10);
-  }
-  const slots = src.match(/const STARTER_RELIC_SLOTS = (\[[^\]]*\]);/);
-  if (!slots) {
-    console.error('Could not find STARTER_RELIC_SLOTS in src/app.js — update run.js');
-    process.exit(2);
-  }
-  decls += `const STARTER_RELIC_SLOTS = ${slots[1]};\n`;
-  for (const n of ['HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS']) {
-    const m = src.match(new RegExp(`const ${n} = (\\d+);`));
-    if (!m) { console.error(`Could not find ${n} in src/app.js — update run.js`); process.exit(2); }
-    decls += `const ${n} = ${m[1]};\n`;
-  }
-  // The trail layer above it — same lift, because the thing worth testing is
-  // that the crates come down ALONG the route the chest placer hands back.
-  const trailHead = '  _placeStarterTrail(entry, tx, ty) {\n';
-  const trailAt = src.indexOf(trailHead);
-  if (trailAt < 0) {
-    console.error('Could not find _placeStarterTrail in src/app.js — update run.js');
-    process.exit(2);
-  }
-  const trailBodyStart = trailAt + trailHead.length;
-  const trailEnd = src.indexOf('\n  }\n', trailBodyStart);
-  if (trailEnd < 0) {
-    console.error('Could not find the end of _placeStarterTrail — update run.js');
-    process.exit(2);
-  }
-  const trailBody = src.slice(trailBodyStart, trailEnd);
-  // ...and the fog lift that runs at the end of it. Fog of war hid the whole
-  // trail when it shipped (the walk reveals 3 cells, the seater reaches 15), so
-  // the reveal is lifted for real rather than stubbed — starter_relic.test.js
-  // drives it against the real seater to check no crate is laid under fog.
-  const revealHead = '  _revealStarterTrail(entry, tx, ty, spawnIX, spawnIY) {\n';
-  const revealAt = src.indexOf(revealHead);
-  if (revealAt < 0) {
-    console.error('Could not find _revealStarterTrail in src/app.js — update run.js');
-    process.exit(2);
-  }
-  const revealBodyStart = revealAt + revealHead.length;
-  const revealEnd = src.indexOf('\n  }\n', revealBodyStart);
-  if (revealEnd < 0) {
-    console.error('Could not find the end of _revealStarterTrail — update run.js');
-    process.exit(2);
-  }
-  const revealBody = src.slice(revealBodyStart, revealEnd);
-  vm.runInContext(
-    decls
-    + `globalThis.placeStarterTrail = function (entry, tx, ty) {\n${trailBody}\n};\n`
-    + 'globalThis.HOME_REVEAL_CELLS = HOME_REVEAL_CELLS;\n'
-    + 'globalThis.TRAIL_REVEAL_CELLS = TRAIL_REVEAL_CELLS;\n'
-    + `globalThis.revealStarterTrail = function (entry, tx, ty, spawnIX, spawnIY) {\n${revealBody}\n};\n`
-    + 'globalThis.STARTER_RELIC_SLOTS = STARTER_RELIC_SLOTS;\n'
-    + 'globalThis.STARTER_RELIC_TIER = STARTER_RELIC_TIER;\n'
-    + 'globalThis.VIEW_CELLS = VIEW_CELLS;\n'
-    + `globalThis.placeStarterRelicChest = function (entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {\n${body}\n};`,
-    ctx, { filename: 'placeStarterRelicChest.js' });
+  // The trail layer above it rides along, because the thing worth testing is
+  // that the crates come down ALONG the route the chest placer hands back —
+  // and so does the fog lift that runs at the end of it. Fog of war hid the
+  // whole trail when it shipped (the walk reveals 3 cells, the seater reaches
+  // 15), so the reveal is driven for real rather than stubbed —
+  // starter_relic.test.js drives it against the real seater to check no crate
+  // is laid under fog.
+  const fns = {
+    placeStarterTrail: '_placeStarterTrail',
+    revealStarterTrail: '_revealStarterTrail',
+    placeStarterRelicChest: '_placeStarterRelicChest',
+  };
+  vm.runInContext(Object.entries(fns).map(([g, m]) =>
+    `globalThis.${g} = ({\n  ${starterWrapper(m)}\n}).${m};\n`).join(''),
+    ctx, { filename: 'app.js#_placeStarterRelicChest' });
 }
 
 // The doorstep greeter (_placeHomeGreeter) — the ONE creature guaranteed beside
-// the starting trailer, a chicken on easy and a slime on hard. Same lift as the
-// relic chest above: it lives on the Phaser scene class, but the seating is
-// pure grid math over the shared spawn rule, so hand the real body to
-// home_greeter.test.js rather than a transcription. It reads
-// Combat.faunaBlocksCell (resolved at CALL time, off the loaded module) plus
-// the two ring constants.
+// the starting trailer, a chicken on easy and a slime on hard. Same as the
+// relic chest above: the seating is pure grid math over the shared spawn rule,
+// in starter.js, so hand home_greeter.test.js the scene's wrapper rather than
+// a transcription. It reads Combat.faunaBlocksCell (resolved at CALL time, off
+// the loaded module) plus the ring constants injected once above.
 {
-  const src = readSrc('app.js');
-  const head = '  _placeHomeGreeter(entry, tx, ty) {\n';
-  const at = src.indexOf(head);
-  if (at < 0) {
-    console.error('Could not find _placeHomeGreeter in src/app.js — update run.js');
-    process.exit(2);
-  }
-  const bodyStart = at + head.length;
-  const end = src.indexOf('\n  }\n', bodyStart);
-  if (end < 0) {
-    console.error('Could not find the end of _placeHomeGreeter — update run.js');
-    process.exit(2);
-  }
-  const body = src.slice(bodyStart, end);
-  // The ring constants, in declaration order — one of them is DERIVED from the
-  // sim bubble and one is a table, so take each declaration's right-hand side
-  // as written rather than assuming a bare integer.
-  let decls = '';
-  for (const name of ['CREATURE_SIM_CELLS', 'HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS',
-                      'HOME_GREETER_SLACK_CELLS', 'HOME_GREETER_DIR_VEC']) {
-    const m = src.match(new RegExp(`^const ${name} = ([^\\n]+);$`, 'm'));
-    if (!m) { console.error(`Could not find ${name} in src/app.js — update run.js`); process.exit(2); }
-    decls += `const ${name} = ${m[1]};\nglobalThis.${name} = ${name};\n`;
-  }
   vm.runInContext(
-    decls
-    + `globalThis.placeHomeGreeter = function (entry, tx, ty) {\n${body}\n};`,
-    ctx, { filename: 'placeHomeGreeter.js' });
+    `globalThis.placeHomeGreeter = ({\n  ${starterWrapper('_placeHomeGreeter')}\n})._placeHomeGreeter;`,
+    ctx, { filename: 'app.js#_placeHomeGreeter' });
 }
 
 // The road-geometry overlay must keep stroking its bands with the same width
@@ -1066,7 +986,10 @@ Object.assign(ctx, {
   ctx.SPAWN_IN_TILE_SRC      = slice(appSrc, '  spawnInTile(entry, tx, ty) {\n', '\n  _pestFreeZone', 'spawnInTile');
   ctx.SPAWN_CAVE_SRC         = slice(appSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Dark-outlined', 'spawnCaveCreatures');
   ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
-  ctx.STARTER_TRAIL_SRC      = slice(appSrc, '  _placeStarterTrail(entry, tx, ty) {\n', '\n  _revealStarterTrail', 'the starter trail');
+  // The trail placer is starter.js's now (scene methods read `scene.`, not
+  // `this.`); the slice runs to the reveal, as it did in app.js.
+  ctx.STARTER_TRAIL_SRC      = slice(ctx.STARTER_JS_SRC, '  function placeStarterTrail(scene, entry, tx, ty) {\n',
+    '\n  function revealStarterTrail', 'the starter trail');
   ctx.ENSURE_STARTER_TRAILER_SRC = slice(appSrc, '  ensureStarterTrailerObject() {\n',
     '\n  }\n\n  // Nothing sits inside the Home trailer.', 'ensureStarterTrailerObject');
   // The sidecar chest injection loop in loadTile — poi_dedup.test.js pins that
