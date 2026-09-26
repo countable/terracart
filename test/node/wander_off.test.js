@@ -15,7 +15,8 @@
 // is the top-level helper monsterWanderingOff, lifted by run.js as
 // __monsterWanderingOff; the loop is the REAL wanderCreatures (__wander).
 (function () {
-const app = APP_JS_SRC;
+// wanderCreatures is the SceneCreatures mixin's (scene_creatures.js).
+const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
 const numOf = (name) => {
   // The wander-off consts live in creature_ai.js; CREATURE_SIM_CELLS too.
   const m = (app + '\n' + CREATURE_AI_SRC).match(new RegExp(`\\nconst ${name} = ([-\\d.]+);`));

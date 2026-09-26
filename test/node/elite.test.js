@@ -94,7 +94,9 @@ test('elite: the treasure pool is biased to relics and pays a real reward', () =
 });
 
 test('elite: the shipping code stamps, scales, heals and pays the elite', () => {
-  const app = APP_JS_SRC;
+  // The spawn and the monster's hit are the SceneCreatures mixin's
+  // (scene_creatures.js); the kill and the heal are app.js's.
+  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
   assert.inRange(SHINY_RATE.monster, 0.001, 0.5, 'monsters have a shiny rate');
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
   assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: isShiny\(id, SHINY_RATE\.monster\) \}\)\)/.test(spawn),

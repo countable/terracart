@@ -37,10 +37,11 @@ test('creature hop: while moving, hop on a beat — the row, then a rest on idle
   assert.lte(F * 4, 800, 'one hop is quick, not stretched over a 7 s glide');
 });
 
-test('creature hop: render.js plays it only mid-step, as app.js stamps the step', () => {
+test('creature hop: render.js plays it only mid-step, as wanderCreatures stamps the step', () => {
   const r = RENDER_SRC;
   assert.truthy(/const hopRow = creatureHopRow\(c\.kind\);/.test(r), 'reads the row');
   assert.truthy(/const stepping = tStep >= 0 && tStep < \(c\._hopMs \|\| 0\)/.test(r), 'only while a step is under way');
   assert.truthy(/s\.setFrame\(hopRowFrame\(hopRow, tStep/.test(r), 'the beat off the step clock');
-  assert.truthy(/c\._stepT0 = now;\s*c\._hopMs = stepMs;/.test(APP_JS_SRC), 'app.js stamps the step it picks');
+  assert.truthy(/c\._stepT0 = now;\s*c\._hopMs = stepMs;/.test(SCENE_CREATURES_SRC),
+    'wanderCreatures (scene_creatures.js) stamps the step it picks');
 });

@@ -252,7 +252,9 @@ test('armor: no source still folds a gear bonus into the cap', () => {
 // ── The three call sites (app.js can't load headlessly) ─────────────────────
 
 test('armor: every blow on the player is soaked before it reaches the bar', () => {
-  const app = APP_JS_SRC;
+  // The leech and the melee are wanderCreatures' (scene_creatures.js); the
+  // arrow lands in app.js's _combatTick.
+  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
   // 1. The surface slime's leech.
   assert.truthy(/const slimeDmg = Combat\.playerDamage\(slimeRaw, this\.save\.armor\);/.test(app),
     'the slime leech is mitigated');

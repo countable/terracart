@@ -54,7 +54,7 @@
       starterCrates: true,      // the supply-crate trail (seeds, rockfruit, wood)
       pestAmnesty: true,        // no slime / crow near home until the first harvest
       // ── Pests ──
-      // The crop-raiding crow PUMP (app.js wanderCreatures): a wild crow
+      // The crop-raiding crow PUMP (scene_creatures.js wanderCreatures): a wild crow
       // dispatched just off-screen every ~90 s whenever a crow-edible crop is
       // planted and no wild crow is already near, which then flies at the
       // field. Off on easy — a crow you meet by walking into one is the whole

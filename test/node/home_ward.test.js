@@ -15,11 +15,13 @@
 //
 // The rest half runs for real — run.js lifts homeWorldPos + isRestingAtHome
 // out of app.js onto a stub scene. The ward half lives inside wanderCreatures
-// (which needs Phaser), so it is pinned as source text, plus the arithmetic
+// (scene_creatures.js, which needs Phaser), so it is pinned as source text, plus the arithmetic
 // that says why the branch is shaped the way it is.
 
 (function () {
-const app = APP_JS_SRC;
+// Home's rest half and _damageEnemy are app.js's; the ward half is
+// wanderCreatures' (scene_creatures.js, the SceneCreatures mixin). Both.
+const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
 const CELL_M = 5;
 
 // A stub scene for the lifted methods: Home is the synthetic starter trailer
@@ -54,7 +56,9 @@ test('home: crop raiders keep out of Home\'s ring', () => {
 });
 
 test('home: every crop raider asks the guard, none keeps its own test', () => {
-  const app = APP_JS_SRC;
+  // The raiders are the crow tick and the deer graze (scene_creatures.js);
+  // counted across both files, as they were across app.js.
+  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
   assert.eq((app.match(/if \(!crowEatsCrop\(pp\)\) continue;/g) || []).length, 0,
     'the crow\'s notice and landing ask _crowRaids, not the bare kind test');
   assert.eq((app.match(/if \(!this\._crowRaids\(pp\)\) continue;/g) || []).length, 2,

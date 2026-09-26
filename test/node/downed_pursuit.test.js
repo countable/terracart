@@ -18,18 +18,19 @@
 // stalk branches, each falling back to the aimless wander.
 //
 // combat.js loads headlessly so the predicate runs for real; wanderCreatures
-// needs Phaser, so its wiring is pinned as source text (APP_JS_SRC) the way
-// home_ward.test.js pins the Home ward.
+// needs Phaser, so its wiring is pinned as source text the way
+// home_ward.test.js pins the Home ward — wanderCreatures is the SceneCreatures
+// mixin's (scene_creatures.js), the rest app.js's, so both.
 
 (function () {
-const app = APP_JS_SRC;
+const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
 
 // The method body: an inner brace is indented deeper than two spaces, so the
 // first "\n  }\n" after the header closes the method (the zero_energy_lockout
 // slice, same trick).
 function methodBody(name) {
   const a = app.indexOf(`  ${name}(`);
-  assert.truthy(a > 0, `found ${name} in app.js`);
+  assert.truthy(a > 0, `found ${name} in app.js / scene_creatures.js`);
   const b = app.indexOf('\n  }\n', a);
   assert.truthy(b > a, `found the end of ${name}`);
   return app.slice(a, b);

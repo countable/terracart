@@ -173,8 +173,9 @@ test('combat: the surface slime oozes slowly enough to walk away from', () => {
   // on you, so a slime that keeps pace with a walk can never be left behind.
   // Derived from the two gait constants and the base wander beat rather than
   // pinned, so retuning either shows up here as a speed, not a diff.
-  const app = APP_JS_SRC;
-  // The gait constants live in creature_ai.js; the loop that reads them in app.js.
+  // The gait constants live in creature_ai.js; the loop that reads them
+  // (wanderCreatures) in scene_creatures.js.
+  const app = SCENE_CREATURES_SRC;
   const mul = Number(/const SLIME_STEP_MUL = ([\d.]+);/.exec(CREATURE_AI_SRC)?.[1]);
   const hop = Number(/const SLIME_HOP_CELLS = ([\d.]+);/.exec(CREATURE_AI_SRC)?.[1]);
   const beat = Number(/const STEP_MS = (\d+);/.exec(app)?.[1]);
@@ -207,7 +208,9 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   // PET's bite actively shoved it away (the flee override was written for birds
   // and ran for every prey kind). Pinned as source text — app.js never loads
   // headlessly — plus the one predicate, which is pure enough to lift.
-  const app = APP_JS_SRC;
+  // The chain and the pet's bite are wanderCreatures' (scene_creatures.js);
+  // _damageEnemy stays in app.js.
+  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
   const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
 
   // The state is DERIVED from the damage stamp both paths already set, so
@@ -823,7 +826,7 @@ test('combat: every melee gate the player has runs the shared test', () => {
     'a missed swing must not spend the blow clock — a foe that closes is hit at once');
 
   // The surface slime reads the one number rather than its own copy of it.
-  assert.truthy(/const STEAL_R = Combat\.meleeReachM\(this\.cellM\);/.test(APP_JS_SRC),
+  assert.truthy(/const STEAL_R = Combat\.meleeReachM\(this\.cellM\);/.test(SCENE_CREATURES_SRC),
     'the slime\'s leech radius IS the melee reach, not a second 1-cell constant');
 });
 

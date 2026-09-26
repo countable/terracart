@@ -28,7 +28,9 @@
 // rope.test.js. The crop helper is exercised for real.
 
 (function () {
-const app = APP_JS_SRC;
+// wanderCreatures is the SceneCreatures mixin's (scene_creatures.js); the
+// powders themselves are app.js's. Pinned across both.
+const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
 const POWDERS = {
   growth_powder: { tier: 2, price: 60,  frame: 6, method: 'useGrowthPowder' },
   shadow_powder: { tier: 2, price: 110, frame: 8, method: 'useShadowPowder' },

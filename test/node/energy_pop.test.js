@@ -18,7 +18,9 @@
 // needs Phaser and can't load headlessly.
 
 (function () {
-const app = APP_JS_SRC;
+// The leech and the monster hit pop from wanderCreatures (scene_creatures.js,
+// the SceneCreatures mixin); everything else is app.js's. Pin across both.
+const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
 const { _worldToastAt, _cellToastAt, _energyPopAt, _isPlayerCell, _cellAtScreen,
         playerScreen } = __trailCounter;
 const near = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);

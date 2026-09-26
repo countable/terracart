@@ -6,13 +6,14 @@
 //
 // Moved verbatim out of the top of app.js. Everything here is a plain
 // top-level `const` / `function`, so it stays a global exactly as it was:
-// wanderCreatures (app.js) and the tests call these by bare name. This file
-// loads BEFORE app.js, so an initializer here may only read literals or names
-// defined above it in this file — anything from app.js is read at CALL time.
+// wanderCreatures (scene_creatures.js) and the tests call these by bare name.
+// This file loads BEFORE app.js, so an initializer here may only read literals
+// or names defined above it in this file — anything from app.js is read at
+// CALL time.
 //
 // What this is NOT: wanderCreatures itself. The per-tick branch logic (the
-// `unnoticed` gate, the wards, Home's rout) stays in app.js; these are the
-// pieces it calls. See CLAUDE.md "NOTHING HUNTS A BODY" and "Home is a
+// `unnoticed` gate, the wards, Home's rout) lives in scene_creatures.js (the
+// SceneCreatures mixin on the scene); these are the pieces it calls. See CLAUDE.md "NOTHING HUNTS A BODY" and "Home is a
 // CAMPFIRE YOU OWN" before changing a pace or a ward here.
 
 // ── The wild slime's gait ────────────────────────────────────────────────────

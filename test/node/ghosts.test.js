@@ -126,7 +126,7 @@ test('ghost: a MONSTERS row — an enemy, twice the goblin\'s speed, derived', (
 });
 
 test('ghost: the cave bag skips a row with its own spawn', () => {
-  const src = APP_JS_SRC;
+  const src = SCENE_CREATURES_SRC;   // spawnCaveCreatures is the SceneCreatures mixin's
   const body = src.slice(src.indexOf('  spawnCaveCreatures(entry, tx, ty, depth) {'));
   assert.truthy(/if \(!Combat\.spawnsUnderground\(kind\)\) continue;/.test(body.slice(0, 3000)),
     'spawnCaveCreatures asks the row before bagging it');

@@ -27,7 +27,9 @@
 //   the leech and the monster attack it would make a garrison harmless.
 (function () {
 
-  const APP = APP_JS_SRC;
+  // update()'s residency call is app.js's; spawnInTile and wanderCreatures
+  // are the SceneCreatures mixin's (scene_creatures.js).
+  const APP = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
   const CELL_M = 7;
 
   // ── The curve ────────────────────────────────────────────────────────────
@@ -1123,7 +1125,7 @@
     assert.eq(cand.oy, -2 * TILE_M, 'the candidate forgot its own tile origin (y)');
   });
 
-  // ── The two call sites in app.js ─────────────────────────────────────────
+  // ── The two call sites (app.js, scene_creatures.js) ──────────────────────
 
   test('lairs: the residency pass is hard-mode, surface, throttled, off the feet', () => {
     const call = APP.slice(APP.indexOf('// DERELICT LAIRS — hard mode only. Wake'),
@@ -1152,8 +1154,8 @@
     // The eager pass is gone. What the tile build owes residency is the ONE
     // shared spawn options object (the road rule must not be re-derived), and
     // nothing else.
-    const spawn = APP.slice(APP.indexOf('  spawnInTile(entry, tx, ty) {'),
-                            APP.indexOf('entry._spawned = true;'));
+    const spawn = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  spawnInTile(entry, tx, ty) {'),
+                            SCENE_CREATURES_SRC.indexOf('entry._spawned = true;'));
     assert.truthy(spawn.includes('entry._spawnOpts = _spawnOpts;'),
       'residency has no road mask without this');
     assert.falsy(/Lairs\.(spawnForTile|garrisonFor|stepResidency)/.test(spawn),
