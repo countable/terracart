@@ -7,7 +7,7 @@
 // updateEnergyDOM, the 'too tired' / 'getting tired…' flashes, and the
 // energy-gain splash.
 //
-// Depends on globals from items.js: STARTING_ENERGY.
+// Depends on globals from items.js: STARTING_ENERGY, ITEM_BY_ID.
 
 (function (root) {
   'use strict';
@@ -17,9 +17,11 @@
   // the formula it belongs to.
   const OFFLINE_FULL_REST_MS = 60 * 60 * 1000;
 
-  // The cap is STARTING_ENERGY plus the FIRST-TASTE bonus: +1 max energy for
-  // every distinct edible the player has ever eaten (save.eaten, appended by
-  // app.js eatSelected), plus the wizard's VIGOUR rungs (below). Derived fresh every call and written back, so a stale
+  // The cap is STARTING_ENERGY plus the FIRST-TASTE bonus: every distinct
+  // edible the player has ever eaten (save.eaten, appended by app.js
+  // eatSelected) adds its FOOD TIER (tasteBonus — the item's baseTier, the
+  // same 1..7 rarity the loot tables roll), so a first potato is +1 and a
+  // first iceflower +6, plus the wizard's VIGOUR rungs (below). Derived fresh every call and written back, so a stale
   // save.maxEnergy — one banked when armour still raised the cap, say — can
   // never outlive the rule.
   //
@@ -37,9 +39,16 @@
   // changes it. The wizard owns how many rungs there are; this owns what one
   // is worth.
   const VIGOUR_ENERGY_STEP = 10;
+  // What a FIRST taste of `id` adds to the cap: its food tier. One number the
+  // cap (maxEnergy) and the eat flash (app.js eatSelected) both read.
+  function tasteBonus(id) {
+    const it = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
+    return Math.max(1, Math.floor(Number(it?.baseTier) || 1));
+  }
   function maxEnergy(save) {
     const base = (typeof STARTING_ENERGY !== 'undefined') ? STARTING_ENERGY : 100;
-    const tasted = Array.isArray(save.eaten) ? save.eaten.length : 0;
+    let tasted = 0;
+    if (Array.isArray(save.eaten)) for (const id of new Set(save.eaten)) tasted += tasteBonus(id);
     const vigour = Math.max(0, Math.floor(Number(save.vigourUpgrades) || 0));
     save.maxEnergy = base + tasted + vigour * VIGOUR_ENERGY_STEP;
     return save.maxEnergy;
@@ -141,6 +150,6 @@
     return Math.max(1, Math.round((maxE || 0) * frac));
   }
 
-  root.Energy = { VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tiredThreshold, crossedTired,
+  root.Energy = { VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
                   spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

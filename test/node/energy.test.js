@@ -22,13 +22,24 @@ test('maxEnergy: the derived cap is written back over a stale stored one', () =>
   assert.eq(save.maxEnergy, 100, 'stored max overwritten by the derived cap');
 });
 
-test('maxEnergy: first-taste bonus — +1 per distinct edible in save.eaten', () => {
+test('maxEnergy: first-taste bonus — each distinct edible adds its FOOD TIER', () => {
   const save = { armor: {}, eaten: ['potato', 'nut', 'berry'] };
-  assert.eq(Energy.maxEnergy(save), 103, '3 tasted foods = +3 over the 100 base');
-  assert.eq(save.maxEnergy, 103, 'bonus folded into the written-back cap');
-  save.eaten.push('milk');
-  assert.eq(Energy.maxEnergy(save), 104, 'a new taste grows the cap by 1');
+  const sum = (ids) => ids.reduce((n, id) => n + ITEM_BY_ID[id].baseTier, 0);
+  assert.eq(Energy.maxEnergy(save), 100 + sum(save.eaten), 'tasted foods add their tiers over the 100 base');
+  assert.eq(Energy.maxEnergy(save), 104, 'potato 1 + nut 2 + berry 1');
+  assert.eq(save.maxEnergy, 104, 'bonus folded into the written-back cap');
+  save.eaten.push('iceflower');
+  assert.eq(Energy.tasteBonus('iceflower'), ITEM_BY_ID.iceflower.baseTier, 'the bonus IS the item tier');
+  assert.eq(Energy.maxEnergy(save), 104 + ITEM_BY_ID.iceflower.baseTier, 'a rare taste grows the cap by its tier');
+  assert.eq(Energy.maxEnergy({ armor: {}, eaten: ['nut', 'nut'] }), 100 + ITEM_BY_ID.nut.baseTier, 'a duplicate id counts once');
   assert.eq(Energy.maxEnergy({ armor: {} }), 100, 'no eaten list = no bonus');
+});
+
+test('tasteBonus: every edible has a tier of at least 1', () => {
+  for (const id of Object.keys(FOOD_ENERGY)) {
+    assert.eq(Energy.tasteBonus(id), ITEM_BY_ID[id].baseTier, `${id}: bonus is its baseTier`);
+    assert.gt(Energy.tasteBonus(id), 0, `${id}: never zero`);
+  }
 });
 
 test('spend: success deducts and clamps at 0, reports before/spent', () => {
@@ -98,7 +109,7 @@ test('maxEnergy: each Vigour rung adds VIGOUR_ENERGY_STEP to the cap', () => {
   assert.eq(Energy.maxEnergy({ vigourUpgrades: 0 }), STARTING_ENERGY, 'no rungs, base cap');
   assert.eq(Energy.maxEnergy({ vigourUpgrades: 3 }), STARTING_ENERGY + 30, 'three rungs');
   const save = { vigourUpgrades: 2, eaten: ['potato', 'onion'] };
-  assert.eq(Energy.maxEnergy(save), STARTING_ENERGY + 2 + 20, 'stacks with the first-taste bonus');
-  assert.eq(save.maxEnergy, STARTING_ENERGY + 22, 'and is written back');
+  assert.eq(Energy.maxEnergy(save), STARTING_ENERGY + 3 + 20, 'stacks with the first-taste bonus (potato 1 + onion 2)');
+  assert.eq(save.maxEnergy, STARTING_ENERGY + 23, 'and is written back');
   assert.eq(Energy.maxEnergy({ vigourUpgrades: -4 }), STARTING_ENERGY, 'a junk count adds nothing');
 });

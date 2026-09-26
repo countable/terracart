@@ -13289,9 +13289,8 @@ class MapScene extends Phaser.Scene {
     if (!Energy.canEat(this.save)) return false;
     const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
     if (!featherRevive && restore == null) return false;
-    // First taste of a new edible permanently grows the bar: +1 max energy per
-    // distinct food ever eaten (Energy.maxEnergy folds save.eaten into the
-    // cap). Recorded BEFORE the restore below so the new headroom is fillable
+    // First taste of a new edible permanently grows the bar by its food tier
+    // (Energy.tasteBonus; Energy.maxEnergy folds save.eaten into the cap). Recorded BEFORE the restore below so the new headroom is fillable
     // by this very bite.
     let firstTaste = false;
     this.save.eaten = this.save.eaten || [];
@@ -13324,7 +13323,7 @@ class MapScene extends Phaser.Scene {
       this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
       extra = `\n☕ amulet buzz: +${COFFEE_AMULET_BOOST} tier, 3 min`;
     }
-    if (firstTaste) extra += `\n🍽 first taste: +1 max ⚡`;
+    if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(sel.id)} max ⚡`;
     // Armed only now, after a bite has actually landed.
     Energy.startEatCooldown(this.save);
     persistSave(this.save);
