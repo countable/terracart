@@ -26,6 +26,25 @@ const STYLE =
   'anti-aliased smooth gradients. Wide landscape composition, gentle melancholy turning to hope. ' +
   'No text, no letters, no UI, no watermark.';
 
+// SCENE ART — the standard every dialog painting is made to (app.js
+// makeModalShell `art`, ART_FRAME_ASPECT / ART_DETAIL_FRAC / SCENE_ART). The
+// piece IS the dialog box: generated portrait, cut top-anchored to the box's
+// 11:14 shape, and the copy sits over its lower part. So the composition is a
+// rule, not a taste: subject and detail in the top ~40%, and a QUIET ZONE
+// below it - broad, dark, low-detail ground with nothing in it - that a scrim
+// darkens and the text sits on. scene('subject') builds such a piece.
+const SCENE_ASPECT = 352 / 448;
+const SCENE_RULE =
+  'COMPOSITION (strict): tall portrait frame. Put the subject and ALL detail, figures and ' +
+  'bright light in the TOP 40% of the frame, seen from a little distance. The BOTTOM 60% is a ' +
+  'calm, empty QUIET ZONE: broad dark foreground ground (soil, grass or shadow) in large ' +
+  'simple dithered areas, darkening toward the bottom edge, with no objects, no figures, no ' +
+  'bright spots and no fine detail - text will be printed over it.';
+const scene = (subject) => ({
+  size: '1024x1536', width: 512, aspect: SCENE_ASPECT, colors: 128,
+  subject: `${subject}\n\n${SCENE_RULE}`,
+});
+
 // A piece is either a subject string (landscape 1536x1024 -> 512px banner)
 // or { subject, size, width } for a different frame - the safety screen's
 // fullscreen mobile backdrop is portrait.
@@ -116,11 +135,11 @@ const PIECES = {
     'A rare sparkling creature — a small chicken with shimmering golden iridescent feathers — ' +
     'bathed in a beam of light among ordinary dull ones, four-pointed golden glints floating above ' +
     'it in a meadow at dusk. Wonder and discovery.',
-  fire_first:
-    'A young survivor kneels beside a freshly lit campfire of stones and coal at dusk, flames ' +
-    'leaping up and throwing a warm ring of light over the grass; at the edge of the light a ' +
-    'green slime shrinks back into the shadows. A skewer of food rests by the fire. Warmth, ' +
-    'safety and curiosity.',
+  fire_first: scene(
+    'A young survivor kneels beside a freshly lit campfire ringed with stones at dusk, flames ' +
+    'leaping up and throwing a warm ring of light; at the edge of the light a green slime ' +
+    'shrinks back into the shadows. A skewer of food rests over the flames. Warmth, safety ' +
+    'and curiosity.'),
   discovery_badge:
     'A glowing golden five-pointed star emblem hovering in the air before a young survivor\'s ' +
     'eyes, radiating soft rays and floating golden glints, the survivor looking up in wonder ' +
@@ -173,7 +192,7 @@ async function generate(key, name, piece) {
   return rawPath;
 }
 
-function downscale(rawPath, name, width, colors, trim) {
+function downscale(rawPath, name, width, colors, trim, aspect) {
   const outPath = path.join(OUT_DIR, `${name}.png`);
   // The piece's own width (512 for banners, 640 for the fullscreen backdrop),
   // then quantize: pixel art survives palette reduction intact (the clusters
@@ -198,6 +217,13 @@ if trim:
 else:
     im = im.convert('RGB')
 w, h = im.size
+aspect = ${aspect || 0}
+if aspect:
+    # A SCENE piece: cut to the dialog box's shape, keeping the TOP (the
+    # subject lives there; the quiet zone is what gives).
+    ch = min(h, round(w / aspect))
+    im = im.crop((0, 0, w, ch))
+    w, h = im.size
 tw = ${width}
 im = im.resize((tw, round(h * tw / w)), Image.LANCZOS)
 if im.mode == 'RGBA':
@@ -228,7 +254,7 @@ im.save(${JSON.stringify(outPath)}, optimize=True)
     if (!force && !reprocess && fs.existsSync(outPath)) { console.log(`skip ${name} (exists)`); continue; }
     const rawPath = path.join(RAW_DIR, `${name}.png`);
     const raw = reprocess ? rawPath : await generate(key, name, piece);
-    const out = downscale(raw, name, piece.width, piece.colors, piece.trim);
+    const out = downscale(raw, name, piece.width, piece.colors, piece.trim, piece.aspect);
     // The coin's runtime slot is the Icons tree (the art/ copy is just the
     // generator's outbox); land it there too so a regen can't drift.
     if (name === 'coin_icon') {
