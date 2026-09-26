@@ -334,6 +334,13 @@ function equipGearReward(reward, save, scene) {
 // or its cash-out, so those two shapes are handled here too, the way a chest
 // handles them: an upgrade auto-equips, a dupe pays half its price.
 // Sets no dirty flag and does not persist; the caller owns that.
+// What a coin on the ground is worth: its `amount` (a kill's bounty coin,
+// app.js _dropBountyCoin), else 1 — every burst / cave coin is a single.
+function coinAmount(coin) {
+  const n = Math.floor(coin?.amount);
+  return n >= 1 ? n : 1;
+}
+
 function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:default', opts) {
   const reward = pickReward(contextKey, save, undefined, opts);
   if (!reward) {
@@ -942,8 +949,9 @@ const TAP_HANDLERS = [
     return false;
   }},
 
-  // 1a") Coin drops (ATM / bicycle_parking burst). The coin lying in the
-  // TAPPED CELL → +1, splice it out of entry.coinDrops, mini flash. Runs
+  // 1a") Coin drops (ATM / bicycle_parking burst, cave coins, a kill's
+  // bounty). The coin lying in the TAPPED CELL → +its amount (coinAmount),
+  // splice it out of entry.coinDrops, pop the number on its cell. Runs
   // BEFORE the 'object' handler so a coin sitting near a chest sprite still
   // gets picked up cleanly. Does NOT consume energy — it's a tap, not work.
   { name: 'coindrop', try: (ctx) => {
@@ -978,15 +986,19 @@ const TAP_HANDLERS = [
     // pickup is the delta: the id goes in the X marks' found list, and the
     // next build of the level leaves it out.
     if (coin.seeded) save.foundTreasures = [...(save.foundTreasures || []), coin.id];
-    addMoney(save, 1);
-    // The "+1" lands ON the cell the coin was picked from, like every other
+    // A coin is worth its `amount` — a kill's bounty coin (app.js
+    // _dropBountyCoin) carries the whole wage; every other coin is a single.
+    const amount = coinAmount(coin);
+    addMoney(save, amount);
+    // The "+N" lands ON the cell the coin was picked from, like every other
     // number on the map (app.js _popCellNumber) — not at the finger, which
     // is over the coin only until it lifts. A stub scene has no cell pops.
+    // The real number, always: it is the amount just banked.
     if (typeof scene._popCellNumber === 'function') {
       const cc = worldMetersToAbsCell(scene, coin.x, coin.y);
-      scene._popCellNumber('+1', UI_GOLD, cc.cellIX, cc.cellIY);
+      scene._popCellNumber(`+${amount}`, UI_GOLD, cc.cellIX, cc.cellIY);
     } else {
-      scene.flash('+1', sx, sy);
+      scene.flash(`+${amount}`, sx, sy);
     }
     ctx.dirty = true;   // money changed — persist
     return true;

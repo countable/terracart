@@ -119,7 +119,7 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
     'the melee leech is now for range-1 kinds only — an archer never double-dips');
   assert.truthy(/const playerTarget = \{ id: 'player', x: px, y: py \};/.test(app),
     'the player is the hostile target, at the feet');
-  assert.truthy(/\(target, shot\) => \(shot\.hostile \? this\._shotHitsPlayer\(shot\)\s*\n\s*: this\._damageEnemy\(target, shot\.damage\)\)/.test(app),
+  assert.truthy(/\(target, shot\) => \(shot\.hostile \? this\._shotHitsPlayer\(shot\)\s*\n\s*: this\._damageEnemy\(target, shot\.damage, Combat\.shotSource\(shot\)\)\)/.test(app),
     'a hostile hit routes to the player, a friendly one to the foe');
   assert.truthy(/hostileTargets: \[playerTarget\]/.test(app), 'and is handed to stepShots');
   const hit = app.slice(app.indexOf('  _shotHitsPlayer(shot) {'), app.indexOf('  _turretFire('));

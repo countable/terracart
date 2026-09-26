@@ -396,6 +396,21 @@
     return Math.max(1, Math.round(creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP))
          + Math.floor(Math.max(0, depth || 0) * ENEMY_DEPTH_BONUS);
   }
+  // WHO FELLED IT. The bounty is paid by every death — it drops on the foe's
+  // cell as ONE coin carrying the whole amount (app.js _dropBountyCoin), for
+  // whoever walks over to pick it up. Everything PAST the wage (the kind's
+  // drop, the elite badge and roll, the 10% monster roll, the quest tick, the
+  // shiny fanfare) is the PLAYER's reward and is paid only when the killer was
+  // the player — their blade, bow, staff, potion or aura — or the player's own
+  // pet. A claimed castle's turret (shot.source 'turret') is not the player:
+  // it fells a foe for the coin alone, or a ring of walls would farm badges
+  // and quests while you stood still. A source not on this list — a future
+  // environmental killer — is not the player either. The one predicate
+  // resolveDefeat reads; a shot's source is stamped on the shot (turretShot)
+  // and read back through shotSource.
+  const PLAYER_KILL_SOURCES = new Set(['player', 'pet']);
+  function isPlayerKill(source) { return PLAYER_KILL_SOURCES.has(source); }
+  function shotSource(shot) { return (shot && shot.source) || 'player'; }
   // Chance a defeated CAVE MONSTER also drops a buried-treasure roll —
   // literally the same pickReward('treasure:default') payout digging an X
   // gives, so the rare drop needs no table of its own and can't drift from the
@@ -905,7 +920,7 @@
     if (!heading) return null;
     const shot = spawnShot(TURRET.slot, x, y, heading, cellM, turretShotDamage(), TURRET.tier);
     if (!shot) return null;
-    shot.turret = true;
+    shot.source = 'turret';   // not the player's: see isPlayerKill
     shot.aimDistM = Math.hypot(heading.x, heading.y);
     return shot;
   }
@@ -995,6 +1010,7 @@
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
     registerMonsters, monster, isMonster, retreatMul, FAUNA_HP, creatureMaxHp,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
+    PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     isEnemyKind, isEnemy, enemyKinds, enemyName, hp, damage, hpFraction,

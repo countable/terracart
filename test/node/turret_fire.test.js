@@ -49,7 +49,9 @@ test('turret: the arrow is the bow arrow, aimed at the nearest foe in range', ()
   const shot = Combat.turretShot(0, 0, [far, near], CELL);
   assert.truthy(shot, 'fires');
   assert.eq(shot.slot, 'bow', 'a bow shot');
-  assert.truthy(shot.turret, 'flagged as the turret\'s');
+  assert.eq(shot.source, 'turret', 'flagged as the turret\'s');
+  assert.eq(Combat.shotSource(shot), 'turret', 'read back as the turret\'s');
+  assert.falsy(Combat.isPlayerKill(Combat.shotSource(shot)), 'and a turret kill is not the player\'s');
   assert.eq(shot.speedMps, Combat.SHOT.bow.speedCps * CELL, 'the bow\'s speed');
   assert.eq(shot.rangeM, Combat.SHOT.bow.rangeCells * CELL, 'the bow\'s range');
   assert.falsy(shot.pierce, 'an arrow stops in the first foe and in solid ground');

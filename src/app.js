@@ -7789,7 +7789,7 @@ class MapScene extends Phaser.Scene {
       this._shots = Combat.stepShots(this._shots, dt, enemies,
         Combat.HIT_RADIUS_CELLS * this.cellM,
         (target, shot) => (shot.hostile ? this._shotHitsPlayer(shot)
-                                        : this._damageEnemy(target, shot.damage)),
+                                        : this._damageEnemy(target, shot.damage, Combat.shotSource(shot))),
         { blocked: shotBlocked, cellM: this.cellM, hostileTargets: [playerTarget] });
     }
     this._drawShots();
@@ -7890,7 +7890,9 @@ class MapScene extends Phaser.Scene {
   // keeps a swapped-in entry's turrets firing without any hook there).
   // Turret arrows join _shots and fly exactly as the player's do: same
   // stepShots, same solid-cell test, same _damageEnemy — so a turret's kill
-  // pays the bounty the way an arrow of your own does.
+  // drops the bounty coin the way an arrow of your own does. Only the coin:
+  // the shot carries source 'turret' (Combat.turretShot), which is not a
+  // player kill (Combat.isPlayerKill), so nothing past the wage is paid.
   _turretFire(now, px, py, halfSpanM, enemies, pc) {
     let scan = this._turretScan;
     if (!scan || now - scan.t > TURRET_SCAN_MS) {
@@ -8099,8 +8101,9 @@ class MapScene extends Phaser.Scene {
   // Returns true if that blow killed it. `_hurtUntilT` is what keeps the
   // floating health bar up for a few seconds after the hit; `_lastDamagedT`
   // feeds the existing 20-minute regen in wanderCreatures, so a foe you wound
-  // and abandon does heal back up.
-  _damageEnemy(c, amount) {
+  // and abandon does heal back up. `source` names the killer for
+  // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
+  _damageEnemy(c, amount, source = 'player') {
     if (!(amount > 0)) return false;
     const left = Combat.damage(c, amount);
     // Asked BEFORE the stamp below, which is what makes it "was it already
@@ -8141,7 +8144,7 @@ class MapScene extends Phaser.Scene {
     }
     if (!dead) return false;
     if (this._workProgress?.combat === c) this.cancelWorkProgress();
-    this.resolveDefeat(c);
+    this.resolveDefeat(c, source);
     return true;
   }
 
@@ -8184,17 +8187,24 @@ class MapScene extends Phaser.Scene {
 
   // The kill payload — drops, bounty, quest tick, shiny fanfare. Every route
   // to a dead creature funnels through here (the tap-hunt wheel in interact.js,
-  // the combat wheel, and a killing bow/staff shot) so they can't pay out
-  // differently.
-  resolveDefeat(victim) {
+  // the combat wheel, a killing bow/staff shot, a pet's bite, a turret arrow)
+  // so they can't pay out differently.
+  //
+  // `source` is WHO felled it. The BOUNTY is paid on every death, as a coin on
+  // the ground (_dropBountyCoin); everything past it — the kind's drop, the
+  // elite badge and roll, the monster treasure roll, the quest tick, the shiny
+  // bonus — only when Combat.isPlayerKill(source): the player or their pet. A
+  // castle turret's kill leaves the coin and nothing else.
+  resolveDefeat(victim, source = 'player') {
     const save = this.save;
     save.caught = save.caught || [];
     if (save.caught.includes(victim.id)) return;
     save.caught.push(victim.id);
+    const mine = Combat.isPlayerKill(source);
     // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
     // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a
     // bounty instead — which is Combat's question, asked just below.
-    const dropId = SpriteLayout.creatureDrop(victim.kind);
+    const dropId = mine ? SpriteLayout.creatureDrop(victim.kind) : null;
     if (dropId) {
       this.addToInv(dropId, 1);
       const item = ITEM_BY_ID[dropId];
@@ -8207,18 +8217,22 @@ class MapScene extends Phaser.Scene {
       // crops, and for a long time killing one paid nothing, which is the gap
       // this branch closes by asking Combat what an enemy is rather than
       // asking the cave-monster table.
+      // It is NOT credited: it falls as one coin on the foe's cell carrying
+      // the whole amount, and the coin tap (interact.js 'coindrop') pays it
+      // and pops the real number there.
       const coins = Combat.enemyBounty(victim.kind, this.depth, Combat.powerMul(victim));
-      if (coins > 0) addMoney(save, coins);
+      if (coins > 0) this._dropBountyCoin(victim, coins);
       const name = Combat.monster(victim.kind)?.name || 'Slime';
       const elite = Combat.isElite(victim);
-      this.flash(`⚔️ ${name}${coins > 0 ? ` +${coins}` : ' slain'}`,
-        this.viewCenterX, this.viewCenterY - 60);
-      if (elite) {
+      if (mine) this.flash(`⚔️ ${name} slain`, this.viewCenterX, this.viewCenterY - 60);
+      if (!mine) {
+        // A turret's (or any non-player) kill: the coin is the whole payout.
+      } else if (elite) {
         // An elite always pays past the wage: the kind's memory the
         // first time, a relic-biased treasure roll at a depth-commensurate
         // tier every time after (see ELITE_TREASURE_CONTEXT / eliteRollBonus).
         if (this._bankDiscovery(victim.kind, `slaying an elite ${name}`)) {
-          this.flashShiny(coins, true, '✨ ELITE SLAIN ✨');
+          this.flashShiny(0, true, '✨ ELITE SLAIN ✨');   // the wage is the coin
         } else {
           grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
             Combat.ELITE_TREASURE_CONTEXT,
@@ -8230,15 +8244,16 @@ class MapScene extends Phaser.Scene {
         // Underground only; see MONSTER_TREASURE_CHANCE.
         grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀');
       }
-    } else {
+    } else if (mine) {
       // Nothing defeatable reaches here today — interact.js sends only slimes,
       // crows and deer down the hunt wheel, and the other two routes only ever
       // carry enemies. A kind that ever did would otherwise die in silence.
       this.flash(`${victim.kind} defeated`, this.viewCenterX, this.viewCenterY - 60);
     }
-    if (typeof Quests !== 'undefined') {
+    if (mine && typeof Quests !== 'undefined') {
       // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
-      // never credit toward its base kind's.
+      // never credit toward its base kind's. A turret's kill is not the
+      // player's job done.
       const qDone = Quests.onKill(save, victim.kind);
       if (qDone) this.flash('Quest done — see the castle.', this.viewCenterX, this.viewCenterY - 60);
     }
@@ -8249,6 +8264,34 @@ class MapScene extends Phaser.Scene {
     if (victim.shiny && dropId) {
       this.awardShinyBonus(victim.kind, this.viewCenterX, this.viewCenterY - 60);
     }
+  }
+
+  // A kill's bounty, left ON THE GROUND: one coin at the centre of the foe's
+  // cell in the tile that holds it, carrying the whole `amount` — the same
+  // entry.coinDrops lane the coin bursts and cave coins ride (render.js draws
+  // it, interact.js 'coindrop' pays `amount` and pops it on the cell), at any
+  // depth since WorldGen.tileCache is the current level's. Session state like
+  // every unseeded coin: no expiresAt (it waits for you), no save entry, and
+  // the id is the dead foe's own, which it only ever has once. A tile REBUILT
+  // under it carries coinDrops across (rebuildTileWithBin). Returns the coin,
+  // or null when the foe's tile isn't loaded.
+  _dropBountyCoin(victim, amount) {
+    const edge = this.tileEdgeM;
+    const tx = Math.floor(victim.x / edge), ty = Math.floor(victim.y / edge);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry) return null;
+    const cellSizeM = edge / (entry.cellsPerEdge || this.cellsPerTile);
+    const cx = Math.floor((victim.x - tx * edge) / cellSizeM);
+    const cy = Math.floor((victim.y - ty * edge) / cellSizeM);
+    const coin = {
+      kind: 'coindrop',
+      x: tx * edge + (cx + 0.5) * cellSizeM,
+      y: ty * edge + (cy + 0.5) * cellSizeM,
+      id: `bounty_${victim.id}`,
+      amount,
+    };
+    (entry.coinDrops = entry.coinDrops || []).push(coin);
+    return coin;
   }
 
   // The wheel that BLOCKS things — taps, the body's footsteps, the walk home.
@@ -9193,7 +9236,9 @@ class MapScene extends Phaser.Scene {
               // which is how a pet's kill came to skip the bounty, the quest
               // tick, the treasure roll and the shiny fanfare: your dog killing
               // a slime paid nothing while your arrow paid coins.
-              this.resolveDefeat(tgt);
+              // A pet is the player's (Combat.isPlayerKill): its kill pays
+              // everything the player's own would.
+              this.resolveDefeat(tgt, 'pet');
               c._chaseTarget = null;
             }
             if (c._hp <= 0) {
@@ -11879,12 +11924,16 @@ class MapScene extends Phaser.Scene {
       this.tweens.add({ targets: banner, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
       // Hangs BELOW the headline (originY 0) rather than above it, which is
       // the whole reason `sub` is its own tier.
-      const subText = isNew ? `+${money}   🌟 +1 memory` : `+${money}`;
+      // `money` is what was actually banked alongside the fanfare; a caller
+      // that banked none (an elite kill — its bounty lies on the ground as a
+      // coin) passes 0 and the line claims only the memory.
+      const subText = [money ? `+${money}` : '', isNew ? '🌟 +1 memory' : '']
+        .filter(Boolean).join('   ');
       // Pinned 8px under the headline's FINAL y (the banner may have been
       // lifted clear of a loot pop — flashShiny is documented to fire after
       // one) and opted out of stacking, so the pair always reads as one unit
       // instead of the sub wandering off to find its own clear slot.
-      this._toast(subText, {
+      if (subText) this._toast(subText, {
         tier: 'sub', color: UI_GOLD_DEEP, originY: 0,
         y: banner.y + 8, stack: false,
       });

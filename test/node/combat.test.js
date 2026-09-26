@@ -265,7 +265,7 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
     'the flee window is the shared constant, not a hand-typed number');
 
   // And the player's own blow turns it round at once — but only once.
-  const dmg = app.slice(app.indexOf('_damageEnemy(c, amount) {'));
+  const dmg = app.slice(app.indexOf("_damageEnemy(c, amount, source = 'player') {"));
   const dmgHead = code(dmg.slice(0, dmg.indexOf('c._hurtUntilT')));
   assert.truthy(/const wasCharging = slimeCharging\(c\);[\s\S]*c\._lastDamagedT = Date\.now\(\);/
     .test(dmgHead), 'the "was it already charging" question is asked before the stamp');

@@ -104,7 +104,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   assert.truthy(/c\._hp = Combat\.maxHp\(c\);/.test(app), 'the heal refills to the instance max');
   assert.falsy(/c\._hp = Combat\.creatureMaxHp\(c\.kind\)/.test(app),
     'nothing refills a creature from the KIND max any more');
-  const kill = app.slice(app.indexOf('resolveDefeat(victim) {'), app.indexOf('_busyWheel() {'));
+  const kill = app.slice(app.indexOf("resolveDefeat(victim, source = 'player') {"), app.indexOf('_busyWheel() {'));
   assert.truthy(/Combat\.enemyBounty\(victim\.kind, this\.depth, Combat\.powerMul\(victim\)\)/.test(kill),
     'the bounty is paid at the power multiplier (elite × lair)');
   assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(kill),

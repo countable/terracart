@@ -235,7 +235,7 @@ test('ward: it is a LATCH — tripped at the ring, released at the bubble', () =
   // A blow no longer routs on its own: a foe close enough to hit at Home is
   // already inside the ring, so _damageEnemy carried a second copy of the ward
   // test — homeWorldPos, HOME_R, Combat.isEnemy — for a case the latch covers.
-  const dmg = app.slice(app.indexOf('  _damageEnemy(c, amount) {'));
+  const dmg = app.slice(app.indexOf("  _damageEnemy(c, amount, source = 'player') {"));
   // Comments stripped: this one talks about the ward it no longer implements.
   const head = dmg.slice(0, dmg.indexOf('\n  }\n'))
     .split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
