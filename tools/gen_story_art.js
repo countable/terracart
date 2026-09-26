@@ -369,4 +369,6 @@ else:
     // Gentle pacing: the images endpoint rate-limits bursty accounts.
     await new Promise(r => setTimeout(r, 2000));
   }
+  // Every painting needs its PIXEL RESOLVE thumbnail (src/art_thumbs.js).
+  execFileSync('node', [path.join(__dirname, 'art_thumbs.js')], { stdio: 'inherit' });
 })().catch(e => { console.error(e.message || e); process.exit(1); });

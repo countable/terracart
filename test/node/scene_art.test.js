@@ -97,3 +97,27 @@ test('cave story: the first descent below the surface tells its story, once', ()
   assert.truthy(body.indexOf("_storySplashOnce('cave'") > body.indexOf('this.depth = target;'),
     'only after the descent actually happened (not on a refused one)');
 });
+
+test('pixel resolve: every dialog painting has an inline thumbnail', () => {
+  const keys = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): 'data:image\/webp;base64,[A-Za-z0-9+/=]+',$/gm)].map((m) => m[1]));
+  const used = new Set();
+  for (const src of [APP_JS_SRC, INTERACT_SRC, MODAL_SHELL_SRC_TEXT]) {
+    for (const m of src.matchAll(/\bart: '([^']+)'/g)) used.add(m[1]);
+  }
+  for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) used.add('restore_' + r);
+  assert.truthy(used.size > 30, `stems collected (${used.size})`);
+  for (const stem of used) assert.truthy(keys.has(stem), `${stem} has a thumbnail (node tools/art_thumbs.js)`);
+  assert.truthy(ART_THUMBS_SRC.length < 40 * 1024, 'the thumbnails stay small — they load with the code');
+});
+
+test('pixel resolve: the box wears the thumbnail, the painting fades in over it', () => {
+  const src = MODAL_SHELL_SRC_TEXT;
+  assert.truthy(/ART_THUMBS\[art\]/.test(src), 'the shell reads the thumbnail');
+  assert.truthy(/\[\[box, thumb\], \[artLayer, `assets\/art\/\$\{art\}\.webp`\]\]/.test(src),
+    'thumbnail on the box, the painting on its own layer, both with the scrim');
+  assert.truthy(/if \(img\.complete\) \{\s*artLayer\.style\.opacity = '1';/.test(src), 'a cached painting is simply there');
+  assert.truthy(/img\.onload = \(\) => \{ artLayer\.style\.opacity = '1'; \}/.test(src), 'otherwise it fades in on load');
+  assert.truthy(/position:relative;z-index:1;/.test(src), 'the copy sits above the painting layer');
+  assert.truthy(INDEX_HTML_SRC.indexOf('src/art_thumbs.js') < INDEX_HTML_SRC.indexOf('src/modal_shell.js'),
+    'index.html loads the thumbnails before the shell');
+});
