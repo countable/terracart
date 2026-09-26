@@ -814,8 +814,11 @@
       padding: 22px 20px; box-sizing: border-box;
       box-shadow: 0 8px 40px rgba(0,0,0,.7);
     }
+    /* The warning sits OUTSIDE #safety so it stays on the loading view for
+       the whole load, every load — #safety (just the CTA) is removed once
+       answered, or up front on a same-session reload. */
+    #safety-note { margin: 0 0 18px; }
     #safety { display: flex; flex-direction: column; align-items: center; margin-bottom: 18px; }
-    #safety p { margin: 0 0 18px; }
     #bootload .title {
       font: 700 18px ui-monospace, monospace; color: var(--gold);
       letter-spacing: .06em; margin-bottom: 16px;
@@ -1137,8 +1140,8 @@
   <div id="bootload" class="indet">
     <div class="box">
       <div class="title">MENDING LANE</div>
+      <p id="safety-note"><strong style="color:#ff8c3b;">Warning:</strong> Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
       <div id="safety" class="game-modal">
-        <p><strong style="color:#ff8c3b;">Warning:</strong> Watch where you are going and do not enter unsafe or prohibited areas while playing!</p>
         <button id="safety-dismiss">Go to my location</button>
       </div>
       <div class="bar"><div class="fill" id="bootload-fill"></div></div>
