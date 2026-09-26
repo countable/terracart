@@ -497,6 +497,23 @@ function applyRenderScale(cam) {
 // STORY_MODAL_GROW_PX, a quarter of it above the map and the rest below.
 // (The map already spans the column's full width, so "bigger" is taller.)
 const STORY_MODAL_GROW_PX = 96;
+// SCENE ART — the standard for a dialog with a painting (makeModalShell
+// `art`). The piece IS the box: generated tall and cut to the story box's own
+// shape (ART_FRAME_ASPECT, width:height), drawn full-bleed as its background.
+// Every piece is composed to one rule (tools/gen_story_art.js SCENE): the
+// subject and all the detail in the top ART_DETAIL_FRAC of the frame, and a
+// calm, low-detail QUIET ZONE below it. The copy is the dialog's CONTENT
+// REGION: anchored to the bottom, never taller than the quiet zone (it
+// scrolls inside it rather than climbing onto the subject), over a scrim
+// that darkens exactly the quiet zone — so text and subject cannot collide
+// whatever the dialog says.
+const ART_FRAME_ASPECT = 352 / (352 + STORY_MODAL_GROW_PX);
+const ART_DETAIL_FRAC = 0.42;
+// The pieces already painted to that rule. A stem not in here is an old 3:2
+// banner (subject in the middle, detail to the edges) and still seats as the
+// strip dialogArtHTML draws; the rollout moves every stem in here, and then
+// the strip goes.
+const SCENE_ART = new Set(['fire_first']);
 
 // ── Toast style ────────────────────────────────────────────────────────────
 // One dark chip for every in-world message, and one four-step type scale. The
@@ -13880,8 +13897,11 @@ class MapScene extends Phaser.Scene {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, story = false } = {}) {
+    kind, kindLabel, kindIcon, story = false, art } = {}) {
     document.getElementById(id)?.remove();
+    // Scene art is a story-sized dialog by definition — its frame is cut to
+    // the grown box (ART_FRAME_ASPECT).
+    if (art) story = true;
     const wrap = document.createElement('div');
     wrap.id = id;
     // Shared marker so _installModalPadGate can tell when ANY dialog is open and
@@ -13919,6 +13939,21 @@ class MapScene extends Phaser.Scene {
       `overflow-y:auto;overscroll-behavior:contain;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
+    if (art) {
+      // The painting fills the box; the scrim darkens the quiet zone from
+      // ART_DETAIL_FRAC down, so the content region always sits on near-solid
+      // ground. The box itself stops scrolling — the body does (see mount()).
+      const top = Math.round(ART_DETAIL_FRAC * 100);
+      box.style.backgroundImage =
+        `linear-gradient(to bottom, rgba(26,22,18,0) ${top - 8}%, rgba(26,22,18,.82) ${top + 10}%, #1a1612 ${top + 30}%),` +
+        `url(assets/art/${art}.png)`;
+      box.style.backgroundSize = '100% 100%, cover';
+      box.style.backgroundPosition = 'center, center top';
+      box.style.backgroundRepeat = 'no-repeat';
+      box.style.imageRendering = 'pixelated';
+      box.style.overflow = 'hidden';
+      box.classList.add('modal-scene');
+    }
     if (onClose !== undefined) {
       wrap.addEventListener('click', (e) => { if (e.target === wrap) { wrap.remove(); onClose?.(); } });
     }
@@ -13936,7 +13971,18 @@ class MapScene extends Phaser.Scene {
     // so injecting at the top there is the one placement no caller can undo.
     const k = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
     let kindNode = null;
-    if (k) {
+    if (k && art) {
+      // With a painting, the painting is the hero: the category shrinks to a
+      // label chip on its top-left corner — no glyph, no rule under it.
+      kindNode = document.createElement('div');
+      kindNode.className = 'modal-kind';
+      kindNode.style.cssText =
+        'position:absolute;top:10px;left:10px;z-index:1;padding:3px 8px;border-radius:4px;' +
+        `background:rgba(20,16,12,.72);border:1px solid ${borderColor}8c;` +
+        'font:700 10px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;' +
+        `color:${borderColor};`;
+      kindNode.textContent = kindLabel ?? k.label;
+    } else if (k) {
       kindNode = document.createElement('div');
       kindNode.className = 'modal-kind';
       kindNode.style.cssText =
@@ -13983,7 +14029,12 @@ class MapScene extends Phaser.Scene {
       // pinned to the top edge above it.
       const body = document.createElement('div');
       body.className = 'modal-body';
-      body.style.cssText = 'margin:auto 0;flex:0 0 auto;';
+      body.style.cssText = art
+        // THE CONTENT REGION of a scene dialog: bottom-anchored, capped at the
+        // quiet zone, scrolling inside it when the copy is long.
+        ? `margin-top:auto;flex:0 1 auto;max-height:${Math.round((1 - ART_DETAIL_FRAC) * 100)}%;` +
+          'overflow-y:auto;overscroll-behavior:contain;text-shadow:0 1px 2px #000;'
+        : 'margin:auto 0;flex:0 0 auto;';
       while (box.firstChild) body.appendChild(box.firstChild);
       box.appendChild(body);
       if (kindNode) { kindNode.style.flex = '0 0 auto'; box.insertBefore(kindNode, box.firstChild); }
@@ -14020,10 +14071,11 @@ class MapScene extends Phaser.Scene {
   showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = 'note' }) {
     document.getElementById('offer-modal')?.remove();
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: () => {}, kind: kind, story: !!art });
+      { zIndex: 60, onClose: () => {}, kind: kind, story: !!art,
+        art: SCENE_ART.has(art) ? art : undefined });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
-      this.dialogArtHTML(art) +
+      (SCENE_ART.has(art) ? '' : this.dialogArtHTML(art)) +
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
       `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
