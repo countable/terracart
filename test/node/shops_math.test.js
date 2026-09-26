@@ -439,13 +439,14 @@ test('slots: the stake is the expected win, rounded up to a coin', () => {
   const dl = 1 + f * (S.SLOT_DELUXE_MUL - 1);
   const natural = (8 * (10 + 20) + 1 * 300) * S.SLOT_NATURAL_MUL / T * dl;
   const starred = 3 * (4 * (10 + 20) + 1 * 300) / T * dl;
-  const jpPair = 3 * 1 * 4 / T * S.SLOT_JACKPOT_PAIR_COINS;
-  const stars = 1 / T * S.SLOT_STAR_JACKPOT_COINS;
+  // Deluxe doubles the coin too, so every coin term carries dl as well.
+  const jpPair = 3 * 1 * 4 / T * S.SLOT_JACKPOT_PAIR_COINS * dl;
+  const stars = 1 / T * S.SLOT_STAR_JACKPOT_COINS * dl;
   const rest = natural + starred + jpPair + stars;
   // Two stars pay SLOT_STAR_PAIR_MUL stakes, so the price is a fixed point:
   // the least whole c with rest + k·c ≤ c.
   // two stars + a b/e (not the jackpot, not a star): 3 · 1 · 4 / T
-  const k = 3 * 1 * 4 / T * S.SLOT_STAR_PAIR_MUL;
+  const k = 3 * 1 * 4 / T * S.SLOT_STAR_PAIR_MUL * dl;
   const cost = Math.ceil(rest / (1 - k));
   const ev = rest + k * cost;
   assert.truthy(Math.abs(m.ev - ev) < 1e-9, `ev ${m.ev} = ${ev}`);
@@ -461,7 +462,7 @@ test('slots: the stake is the expected win, rounded up to a coin', () => {
     const r = S.slotSpin(m, rng, left > 0);
     left = S.slotDeluxeNext(left, r);
     if (r.won >= 0) paid += r.qty * m.symbols[r.won].value;
-    if (r.starJackpot) paid += S.SLOT_STAR_JACKPOT_COINS;
+    if (r.starJackpot) paid += S.SLOT_STAR_JACKPOT_COINS * (r.doubled ? S.SLOT_DELUXE_MUL : 1);
     paid += r.coins;
   }
   assert.truthy(Math.abs(paid / N - ev) < 0.05 * ev, `mean payout ${paid / N} ≈ ${ev}`);
@@ -551,6 +552,20 @@ test('slots: two stars and the jackpot go deluxe — no coin — for SLOT_DELUXE
   assert.eq(S.slotDeluxeNext(4, { deluxe: true }), 10, 'a hit while deluxe restores the ten — never stacks');
 });
 
+test('slots: deluxe doubles the coin payouts too', () => {
+  const S = ShopsMath;
+  const m = S.slotMachine(['a', 'b', 'c'], () => 10);   // 'a' is the jackpot
+  const D = S.SLOT_DELUXE_MUL;
+  assert.eq(S.slotSpin(m, slotSeq(['a', 'b', 'a']), true).coins, S.SLOT_JACKPOT_PAIR_COINS * D, 'the jackpot pair');
+  assert.eq(S.slotSpin(m, slotSeq(['star', 'star', 'b']), true).coins, S.SLOT_STAR_PAIR_MUL * m.cost * D, 'the star pair');
+  const three = S.slotSpin(m, slotSeq(['star', 'star', 'star']), true);
+  assert.truthy(three.starJackpot && three.doubled, 'three stars, flagged for the caller to double its coin');
+  assert.falsy(S.slotSpin(m, slotSeq(['star', 'star', 'star'])).doubled, 'not doubled outside deluxe');
+  assert.eq(S.slotSpin(m, slotSeq(['a', 'b', 'a'])).coins, S.SLOT_JACKPOT_PAIR_COINS, 'plain spins pay plain');
+  assert.truthy(/_payStarJackpot\(out\.doubled \? ShopsMath\.SLOT_DELUXE_MUL : 1\)/.test(APP_JS_SRC),
+    'the machine pays the star jackpot\'s coin doubled');
+});
+
 test('slots: deluxe doubles a prize that doubles, and not a relic', () => {
   const S = ShopsMath;
   const m = S.slotMachine(['a', 'b', 'c'], () => 10, (id) => id !== 'c');
@@ -574,12 +589,12 @@ test('slots: a mixed row with no star loses', () => {
 
 test('slots: app.js pays three stars from the badge ledger, then coin', () => {
   const app = APP_JS_SRC;
-  const m = app.match(/\n  _payStarJackpot\(\) \{([\s\S]*?)\n  \}\n/);
+  const m = app.match(/\n  _payStarJackpot\(mul = 1\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_payStarJackpot exists');
   assert.truthy(/ShopsMath\.SLOT_STAR_BADGES/.test(m[1]), 'counts up to SLOT_STAR_BADGES');
   assert.truthy(/this\._bankDiscovery\(`slots:stars:\$\{n \+ 1\}`/.test(m[1]), 'one ledger key per badge');
-  assert.truthy(/addMoney\(this\.save, ShopsMath\.SLOT_STAR_JACKPOT_COINS\)/.test(m[1]), 'then the coin');
-  assert.truthy(/if \(out\.starJackpot\) \{[\s\S]{0,200}this\._payStarJackpot\(\)/.test(app), 'the machine calls it on three stars');
+  assert.truthy(/const coins = ShopsMath\.SLOT_STAR_JACKPOT_COINS \* mul;[\s\S]*addMoney\(this\.save, coins\)/.test(m[1]), 'then the coin (times the deluxe mul)');
+  assert.truthy(/if \(out\.starJackpot\) \{[\s\S]{0,200}this\._payStarJackpot\(/.test(app), 'the machine calls it on three stars');
   assert.truthy(/const qty = out\.qty \|\| 1;/.test(app), 'a win pays the spin\'s quantity');
 });
 

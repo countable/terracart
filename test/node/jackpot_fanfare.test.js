@@ -30,6 +30,6 @@ test('jackpot fanfare: a treasure dialog with more than one choice fires none', 
 
 test('jackpot fanfare: the slot machine fires it for the jackpot and for three stars', () => {
   assert.truthy(/if \(p\.jackpot\) this\.flashJackpot\(1, '✨ JACKPOT ✨'\);/.test(app), 'the jackpot prize');
-  assert.truthy(/this\._payStarJackpot\(\);\s*\n\s*this\.flashJackpot\(1, '✨ THREE STARS ✨'\);/.test(app), 'three stars');
+  assert.truthy(/this\._payStarJackpot\([^)]*\);\s*\n\s*this\.flashJackpot\(1, '✨ THREE STARS ✨'\);/.test(app), 'three stars');
 });
 })();

@@ -13706,7 +13706,7 @@ class MapScene extends Phaser.Scene {
   // times — keyed slots:stars:1..N in the discovery ledger, so the count IS the
   // ledger and nothing new reaches the save — then SLOT_STAR_JACKPOT_COINS.
   // Returns the line the machine prints.
-  _payStarJackpot() {
+  _payStarJackpot(mul = 1) {
     const found = this.save.discovered || {};
     let n = 0;
     while (n < ShopsMath.SLOT_STAR_BADGES && found[`slots:stars:${n + 1}`]) n++;
@@ -13714,9 +13714,10 @@ class MapScene extends Phaser.Scene {
       this._bankDiscovery(`slots:stars:${n + 1}`, 'three stars on a fort slot machine');
       return 'THREE STARS! A memory returns';
     }
-    addMoney(this.save, ShopsMath.SLOT_STAR_JACKPOT_COINS);
+    const coins = ShopsMath.SLOT_STAR_JACKPOT_COINS * mul;   // deluxe doubles the coin
+    addMoney(this.save, coins);
     this.updateHUD();
-    return `THREE STARS! +${ShopsMath.SLOT_STAR_JACKPOT_COINS} coin`;
+    return `THREE STARS! +${coins} coin`;
   }
 
   presentFortSlots(sx, sy, house) {
@@ -13845,7 +13846,7 @@ class MapScene extends Phaser.Scene {
         } else if (out.starJackpot) {
           light(GOLD, () => true);
           result.style.color = GOLD;
-          result.textContent = this._payStarJackpot();
+          result.textContent = this._payStarJackpot(out.doubled ? ShopsMath.SLOT_DELUXE_MUL : 1);
           this.flashJackpot(1, '✨ THREE STARS ✨');
           persistSave(this.save);
         } else if (out.won >= 0) {
@@ -13881,7 +13882,8 @@ class MapScene extends Phaser.Scene {
           const twoStars = out.reels.filter((i) => m.symbols[i].star).length === 2;
           light(GOLD, twoStars ? (sym) => sym.star : (sym) => sym.jackpot);
           result.style.color = GOLD;
-          result.textContent = twoStars ? `Two stars! +${out.coins} coin` : `So close! +${out.coins} coin`;
+          result.textContent = (twoStars ? `Two stars! +${out.coins} coin` : `So close! +${out.coins} coin`)
+            + (wasDeluxe ? ' (deluxe ×2)' : '');
         } else {
           result.style.color = '#ff8a7a';
           result.textContent = 'No match.';
