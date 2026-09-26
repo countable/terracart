@@ -224,6 +224,15 @@
   // STANDING IN SHADOW, not as another kind. Same luminance, different hue, is
   // the one change a player can read at noon and underground alike.
   const CAVE_SLIME_TINT = 0xffa4f0;
+  // THE TRAPPER'S TINT — the goblin sheet drawn RED, the same reason as the
+  // cave slime's: it has no art of its own, and it is the third rung of the
+  // garrison ladder (lairs.js), so it must not read as the melee goblin. The
+  // same constraint too: a tint MULTIPLIES and the goblin's body is #4ca32b
+  // (red 0x4c), so the free move is to strip green and blue and let the red
+  // that is there carry — a rust-red goblin. It is darker than the green one
+  // (there is no red to lift), which is why the hue shift is the whole of it
+  // rather than a shade: a merely darker goblin would read as one in shadow.
+  const TRAPPER_TINT = 0xff4a3a;
 
   // ── WHAT THE RENDERER DOES WITH THE SHEET ─────────────────────────────────
   // Beside the geometry (sheet / frame size / scale / foot / float / trimmed
@@ -300,6 +309,10 @@
     purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hopRow: SLIME_HOP_ROW, hopFrameMs: SLIME_HOP_FRAME_MS, hopRestMs: SLIME_HOP_REST_MS, cols: 4, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
     goblin:        { sheet: 'goblin',        frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
     goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
+    // The trapper is the GOBLIN'S SHEET — every geometry column matches the
+    // goblin row above (one body cannot have two ground lines); the tint is
+    // the one thing that differs (TRAPPER_TINT).
+    goblin_trapper: { sheet: 'goblin',       frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27, tint: TRAPPER_TINT },
   };
   // ── GIANTS ────────────────────────────────────────────────────────────────
   // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
@@ -384,6 +397,11 @@
     purple_slime:  { wanders: true },
     goblin:        { wanders: true },
     goblin_archer: { wanders: true },
+    // A trapper's kill (by the player or their pet — resolveDefeat pays a
+    // drop only then) hands over one of its own snares, tamed: a Magic Trap.
+    // The bounty coin still falls beside it; an enemy's drop is ON TOP of the
+    // wage, never instead of it.
+    goblin_trapper: { wanders: true, drop: 'magic_trap' },
   };
   // The behaviour row for `kind` — the base row for a giant, like its art.
   function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[baseKind(kind)]; }
@@ -398,8 +416,9 @@
   function isGame(kind) { return !!creatureBehaviour(kind)?.game; }
   // What a tame pet of this kind hunts, as a Set — null for everything else.
   function creaturePrey(kind) { return creatureBehaviour(kind)?.prey || null; }
-  // The one item a kill of this kind drops (resolveDefeat), or null: an enemy
-  // pays a bounty instead, and that is Combat's question, not this table's.
+  // The one item a kill of this kind drops (resolveDefeat), or null. An enemy
+  // pays its bounty whether or not it has a drop (the trapper has both) —
+  // the bounty is Combat's question, not this table's.
   function creatureDrop(kind) { return creatureBehaviour(kind)?.drop || null; }
   // What a fed farm animal gives — { item, verb } — or null.
   function creatureProduce(kind) { return creatureBehaviour(kind)?.produce || null; }
@@ -565,7 +584,7 @@
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
-    CAVE_SLIME_TINT, creatureSheet, creatureFrames, creatureTint,
+    CAVE_SLIME_TINT, TRAPPER_TINT, creatureSheet, creatureFrames, creatureTint,
     creatureFoot, creatureScale, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;

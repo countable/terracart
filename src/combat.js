@@ -104,6 +104,16 @@
     purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true, retreat: 0.75 },
     goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 2, speed: 2.6,  minDepth: 2, weight: 3, retreat: 0.5 },
     goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 2.08, minDepth: 3, weight: 2 },
+    // THE TRAPPER never lands a blow (dmg 0 — monsterHits says no, so the
+    // melee drain and the arrow both skip it). What it does instead is its
+    // `lays` column: it keeps `range` cells off the player and, on a cadence,
+    // lays a snare on an empty cell on the line between them (app.js
+    // _trapperLay → Traps.layTrap) — the existing trap mechanic, bite and
+    // bleed and all. Introduced beside the archer (the garrison ladder in
+    // lairs.js climbs goblin → archer → trapper, and a rung is never met
+    // shallower than the one below it), with the archer's gait and HP a
+    // touch over it: it is the one you have to walk THROUGH its traps to reach.
+    goblin_trapper: { name: 'Goblin Trapper', hp: 20, range: 3, dmg: 0, speed: 2.08, minDepth: 3, weight: 2, lays: 'trap', retreat: 0.5 },
   };
   // Both goblin rows were too slow to feel like a pursuer: ×1.3 (1.0 / 0.8 →
   // 1.3 / 1.04), then doubled again (2.6 / 2.08). The archer keeps its lag
@@ -183,6 +193,13 @@
   // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
   // the surface slime.
   function isMonster(kind) { return !!MONSTER_STATS[kind]; }
+  // Does this monster land blows at all? A row with no `dmg` (the trapper)
+  // never hits: app.js's melee drain and monster arrow both ask this, so a
+  // harmless kind is harmless by its row, never by a `kind === …`.
+  function monsterHits(kind) { return (MONSTER_STATS[kind]?.dmg || 0) > 0; }
+  // What a monster LAYS instead of hitting ('trap'), or null. A giant inherits
+  // its base kind's (the giant rows are spreads of the base row).
+  function monsterLays(kind) { return MONSTER_STATS[kind]?.lays || null; }
 
   // Non-monster fauna that can take damage. cat/dog/crow/deer are the pet-combat
   // ladder (a tame dog hunting a deer); `slime` is the surface pest, the one
@@ -1008,7 +1025,7 @@
 
   const api = {
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
-    registerMonsters, monster, isMonster, retreatMul, FAUNA_HP, creatureMaxHp,
+    registerMonsters, monster, isMonster, monsterHits, monsterLays, retreatMul, FAUNA_HP, creatureMaxHp,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,

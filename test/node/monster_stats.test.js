@@ -43,7 +43,11 @@
     // NaN and quietly become unkillable / harmless.
     for (const kind of msKinds) {
       assert.gt(MONSTERS[kind].hp, 0, `${kind} has HP`);
-      assert.gt(MONSTERS[kind].dmg, 0, `${kind} deals damage`);
+      // A LAYER (the goblin trapper, `lays: 'trap'`) lands no blow of its own
+      // — its snares do the hurting (the trap's bite, Traps.STEP_ENERGY) — so
+      // "hurts" is a blow OR a trap, and a row with neither is the bug.
+      assert.truthy(MONSTERS[kind].dmg > 0 || !!MONSTERS[kind].lays,
+        `${kind} deals damage, or lays something that does`);
     }
   });
 

@@ -256,7 +256,13 @@ test('classes: every player call site passes save.playerClass', () => {
   const code = app.split('\n').filter((l) => !/^\s*\/\//.test(l));
   const calls = code.filter((l) => /(Combat\.(shotDamage|meleeDps|meleeSwingDamage)|Trail\.(bank|readout|goalFor|progress))\(/.test(l));
   assert.gte(calls.length, 8, 'found the calls');
-  for (const l of calls) assert.truthy(/playerClass/.test(l), `class threaded: ${l.trim()}`);
+  // magicTrapDamage is the one shotDamage call that is NOT the player's own
+  // weapon: a Magic Trap is a tier-2 bow shot fired by the trap, so no
+  // calling (a Hunter's bow bonus) applies to it.
+  for (const l of calls) {
+    if (/BASE_TIER\.magic_trap/.test(l)) continue;
+    assert.truthy(/playerClass/.test(l), `class threaded: ${l.trim()}`);
+  }
 });
 
 test('classes: the trail copy quotes the Runner\'s shorter rungs', () => {

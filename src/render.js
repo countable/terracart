@@ -2283,6 +2283,21 @@ Render.drawObjects = function drawObjects(scene) {
           _boot_kept++;
         }
       }
+      // A goblin trapper's snares (traps.js LAID traps) — the same mark in the
+      // same two textures, on their own session list. Their state is on the
+      // record, not the save: gone once expired or disarmed (Traps.isLive),
+      // and sprung by `_sprung`.
+      if (entry.laidTraps && entry.laidTraps.length && typeof Traps !== 'undefined') {
+        const nowMs = Date.now();
+        for (const tr of entry.laidTraps) {
+          _boot_scanned++;
+          if (!Traps.isLive(tr, nowMs)) continue;
+          const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
+          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          trapList.push({ tr, dx, dy, sprung: !!tr._sprung });
+          _boot_kept++;
+        }
+      }
     }
   }
   // B.count keeps n/sum/worst like B.tick, just printed without 'ms' — the
@@ -2317,6 +2332,19 @@ Render.drawObjects = function drawObjects(scene) {
   // Placed scarecrows render as world objects — 3-cell-tall single image,
   // anchored at the base so it appears to stand on the cell. Pool reuses
   // objectPool slots so it integrates with depth-sort and viewport clip.
+  // The player's MAGIC TRAPS (save.magicTraps) lie on the ground like a
+  // snare, so they ride the trap layer: the hidden scuff, tinted MAGIC_TRAP_TINT
+  // — the mark that says which cell. The GLOW is the look (Lighting.KINDS
+  // .magic_trap, collected by Lighting.collectMagicTraps); this is only what
+  // still reads under a noon sun, when a light barely lifts the ground.
+  // One colour, two readers: the tint IS the glow's own row colour.
+  const MAGIC_TRAP_TINT = (typeof Lighting !== 'undefined' && Lighting.KINDS.magic_trap)
+    ? Lighting.KINDS.magic_trap.colour : 0xff3cdc;
+  for (const mt of PlacedFloor.forDepth(scene.save.magicTraps, _curDepth)) {
+    const dx = mt.x - pWorldX, dy = mt.y - pWorldY;
+    if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+    trapList.push({ tr: mt, dx, dy, sprung: false, tint: MAGIC_TRAP_TINT });
+  }
   const scarecrowList = PlacedFloor.forDepth(scene.save.scarecrows, _curDepth).map(sc => ({
     o: { kind: '_scarecrow', x: sc.x, y: sc.y, id: `scarecrow_${sc.x.toFixed(2)}_${sc.y.toFixed(2)}` },
     dx: sc.x - pWorldX, dy: sc.y - pWorldY,
@@ -3226,13 +3254,13 @@ Render.drawObjects = function drawObjects(scene) {
   // is the difference between the two halves of this feature.
   if (scene.trapPool && scene.trapContainer) {
     Render.renderPool(scene, scene.trapPool, scene.trapContainer, trapList, (s, item) => {
-      const { dx, dy, sprung } = item;
+      const { dx, dy, sprung, tint } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, sprung ? 'trap_open' : 'trap_hidden');
       s.setOrigin(0.5, 0.5)
        .setScale(1)
        .setPosition(Math.round(sx), Math.round(sy))
-       .setAlpha(1).setTint(0xffffff);
+       .setAlpha(1).setTint(tint ?? 0xffffff);
     });
   }
 
@@ -4109,7 +4137,7 @@ Render.drawObjects = function drawObjects(scene) {
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
       cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, rabbit: 14, chicken: 14,
-      butterfly: 9, slime: 22, cave_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22,
+      butterfly: 9, slime: 22, cave_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
       const { c, dx, dy } = item;

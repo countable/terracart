@@ -87,6 +87,8 @@ the mechanic.
   every spawner via `_spawnOpts`; `WorldGen.isSpawnCell` reads both (caves use
   `Traps.spawnCave`'s `occupiedIdx`). Checking road TERRAIN alone is the bug.
   **When you add a spawner, pass both** (`opts.roadMask` and `opts.occupied`).
+  The one exception is a COIN DROP (a pickup, not scenery): it may lie on a
+  road, never under anything (`app.js` › `coinGround` / `coinRoadCell`).
   **Audit it:** `node test/node/run.js` › `test/node/spawn_roads.test.js`.
 
 - **The camera is not the player.** The viewport centres on a CAMERA ANCHOR

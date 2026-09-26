@@ -303,6 +303,10 @@ const MINERAL_ICON_SHEET = {
   // separate per-tier gear-icon path (gearAssetPath), not this ICON_SHEETS
   // lookup, so the two uses of the same source PNG never collide on screen.
   trap_kit:      { sheet: 'icon_kit', frame: 0 },
+  // Magic Trap — the same Bags sheet as the disarm kit, frame 3: the rose
+  // pouch, so the snare you SET and the kit that SHUTS one read as a pair and
+  // the pink says magic before the glow on the ground does.
+  magic_trap:    { sheet: 'icon_kit', frame: 3 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -460,6 +464,8 @@ const BASE_TIER = {
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
   trap_kit: 2,
+  // Magic Trap — the tier-2 cave supply the goblin trapper also drops.
+  magic_trap: 2,
   // Torch — the T1 cave staple: light for the dark, cheap and common.
   torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
@@ -591,6 +597,13 @@ const ITEMS = [
   // src/traps.js and the 'disarm-trap' tap handler in interact.js. One kit
   // per trap; unlike stepping on one, disarming never costs energy.
   { id: 'trap_kit',      name: 'Trap Disarm Kit',     kind: 'consumable' },
+  // Magic Trap: hold it and tap an empty cell in reach to set it (interact.js
+  // 'place-magic-trap' → save.magicTraps). The first ENEMY to step on the
+  // cell is held and hurt, and the trap is spent (app.js _tickMagicTraps; the
+  // numbers are in traps.js's MAGIC TRAP note). `caveOnly`: it is never in
+  // the surface class/tier pool — rarity.js reaches it only through the cave
+  // supply favourite — and a slain goblin trapper drops one.
+  { id: 'magic_trap',    name: 'Magic Trap',          kind: 'consumable', caveOnly: true },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -776,6 +789,7 @@ const PRICES = {
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   rope:          25,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft)
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
+  magic_trap:    40,   // T2 — one tier-2 shot and a staff beat's hold on one foe; a revive's worth
   torch:         15,   // T1 — 3 min of the player's own light reaching twice as far (useTorch)
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
@@ -1060,6 +1074,10 @@ const PLAY_TIPS = [
   'The shallow chests and X marks underground are packed for the dark: more coin, torches, rope and potions than their twins overhead.',
   'The deeper chests and X marks underground hoard instead: potions, powders, and — once they run rich enough — gems.',
   'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
+  // The trapper: what it does (lays snares, never swings) and what it pays
+  // (its own trap, tamed) are mechanics no item line can carry — the Magic
+  // Trap's ✦ says what the trap does, not where it comes from.
+  'A red goblin never swings at you: it hangs back and lays snares on the ground between you. Put it down and one of its traps is yours.',
   'Every monster has a giant form: four times the health, met two levels below its ordinary kind.',
   'One cave monster in ten is standing on a buried hoard.',
   'A shiny monster underground is twice the fight and hits twice as hard — and its end always pays past the usual wage.',
@@ -1134,6 +1152,7 @@ const ITEM_EFFECTS = {
   rope:          'Use to climb up or lower down one level, right here',
   torch:         'Use to make your light reach twice as far (3 min)',
   trap_kit:      'Hold and tap a trap to disarm it',
+  magic_trap:    'Hold and tap a cell to set; a foe stepping in is held',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
   // A sapling's Plant button says it plants something; only this says WHAT.
   // The acorn is the one that puts back timber rather than fruit, which is the

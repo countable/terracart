@@ -285,6 +285,11 @@
     const out = {};
     for (const it of _ITEMS) {
       if (it.shiny) continue;
+      // CAVE-ONLY finds (items.js `caveOnly` — the Magic Trap) are the same
+      // shape of exception as a shiny: reachable only through the one lane
+      // meant for them (CAVE_SUPPLY_SKEW's favourite set, below), never the
+      // class/tier pool every surface chest, X mark and shop draws from.
+      if (it.caveOnly) continue;
       // Made at a campfire, never found (items.js CAMPFIRE_MAKES).
       if (it.cooked) continue;
       const cls = it.kind;
@@ -487,8 +492,9 @@
   //               renormalises, so this draws share off the row's other classes)
   //   favourite — the row's favourite widened to a weighted SET: when the
   //               class comes up consumable, `p` of the time the item is drawn
-  //               from `ids` (torch, rope, or one of the four potions — a third
-  //               each for light / rope / potion) instead of the T1/T2 pool.
+  //               from `ids` (torch, rope, one of the four potions — equal
+  //               shares for light / rope / potion — or, at half a share, the
+  //               cave-only Magic Trap) instead of the T1/T2 pool.
   //               It REPLACES the row's own favourite down here, so a school
   //               chest in a cave hands over a torch rather than a Book.
   // Caller passes opts.depth (the chest's cave level; 0/absent = surface).
@@ -498,6 +504,10 @@
     favourite: { p: 0.85, ids: {
       torch: 1, rope: 1,
       vigor_potion: 0.25, shield_potion: 0.25, reach_potion: 0.25, speed_potion: 0.25,
+      // The Magic Trap — the cave's own tier-2 find (items.js `caveOnly`), and
+      // the one door into it besides a slain trapper. Half a share: a thing
+      // you are glad to find, not a staple like light or rope.
+      magic_trap: 0.5,
     } },
   };
   // Which pools a cave skew reaches: every chest, and a buried X dug

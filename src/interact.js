@@ -537,7 +537,7 @@ const TAP_HANDLERS = [
     const HALF_W = {
       cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
-      slime: 2.0, cave_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, purple_slime: 1.4,
+      slime: 2.0, cave_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
     // distance to the body CENTRE so the most on-target animal wins overlaps.
@@ -1128,8 +1128,10 @@ const TAP_HANDLERS = [
     if (!(sel && sel.id === 'trap_kit' && (sel.count ?? 0) > 0)) return false;
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
     const trap = entry ? Traps.trapAt(entry, cell.ix, cell.iy) : null;
-    if (!trap || Traps.isDisarmed(save, trap.id)) return false;
-    Traps.disarm(save, trap.id);
+    // isTrapDisarmed / disarmTrap: a goblin's LAID snare keeps its state on
+    // the record, never as a save id (traps.js) — the same kit shuts either.
+    if (!trap || Traps.isTrapDisarmed(save, trap)) return false;
+    Traps.disarmTrap(save, trap);
     consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
@@ -1312,6 +1314,42 @@ const TAP_HANDLERS = [
     },
     flashMsg: '🔥 The fire crackles.',
   })},
+
+  // 2-place-magic-trap) With a Magic Trap selected, set it on an empty cell in
+  // reach (reach is cell-resolve's gate). PLACED-bucket state: save.magicTraps
+  // = [{ id, x, y, depth }], the id from the cell (Traps.magicTrapId — tile +
+  // local cell + level), never a clock. Not placeOnEmptyCell: that asks for
+  // TILLABLE ground, and cave floor is not — the trap's home is the dark. The
+  // cell test is the one a snare goes down by (Traps.canLay: walkable, off
+  // the drawn road, not under a seated object, no trap there already) — one
+  // question, "can a trap sit here", whoever is setting it — plus the placed
+  // things only the save knows about: a crop, a tilled bed, a fire, a
+  // scarecrow, another magic trap. app.js _tickMagicTraps springs it.
+  { name: 'place-magic-trap', try: (ctx) => {
+    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
+    if (typeof Traps === 'undefined') return false;
+    const sel = getSelectedSlot(save);
+    if (!(sel && sel.id === 'magic_trap' && (sel.count ?? 0) > 0)) return false;
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+    const half = scene.cellM / 2;
+    const onCell = (list) => (list || []).some(o => PlacedFloor.onDepth(o, scene.depth) &&
+      Math.abs(o.x - cwmx) < half && Math.abs(o.y - cwmy) < half);
+    const free = !!entry && Traps.canLay(entry, cell.ix, cell.iy)
+      && !(PlacedFloor.isSurface(scene.depth) && scene.tilledSet?.has(cellKey))
+      && !onCell(save.planted) && !onCell(save.fires) && !onCell(save.scarecrows)
+      && !onCell(save.magicTraps);
+    if (!free) { scene.flash("can't set a trap here", sx, sy); return true; }
+    save.magicTraps = save.magicTraps || [];
+    save.magicTraps.push(PlacedFloor.stampDepth({
+      id: Traps.magicTrapId(scene.depth, cell.tx, cell.ty, cell.ix, cell.iy),
+      x: cwmx, y: cwmy,
+    }, scene.depth));
+    consumeSelected(save);
+    ctx.dirty = true;
+    scene.buildInventoryDOM();
+    scene.flash('✨ The trap is set.', sx, sy);
+    return true;
+  }},
 
   // 2-place-rock) With rockfruit selected, drop a stone on an empty tillable cell.
   { name: 'place-rock', try: (ctx) => placeOnEmptyCell(ctx, {

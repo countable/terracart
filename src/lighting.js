@@ -19,6 +19,7 @@
 //   Lighting.blast(scene, wmx, wmy, opts) — fire a transient restoration flash
 //   Lighting.collectBlasts(scene, ax, ay, halfM, now) — the live ones, pruned
 //   Lighting.collectFires(scene, ax, ay, halfM) — add the placed campfires
+//   Lighting.collectMagicTraps(scene, ax, ay, halfM) — add the set magic traps
 //   Lighting.collectLamps(scene, ax, ay, halfM) — add the restored streets' lamps
 //   Lighting.collectPlayer(scene, ax, ay, halfM) — add the player's torch, if lit
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
@@ -179,6 +180,13 @@
     // throb in lockstep. Small, so it marks the place rather than lighting
     // the block.
     poi:      { radiusCells: 2.0, colour: 0xcfe2ff, peak: 0.88, flicker: 0, pulse: 0.5 },
+    // A MAGIC TRAP the player has set (save.magicTraps, traps.js MAGIC TRAP):
+    // a magenta glowing region on its cell, breathing on the POI's slow beat
+    // (`pulse`, POI_PULSE_PERIOD_S, phased by its id) because it is the same
+    // kind of mark — a place the player should be able to find again from
+    // across the screen. Smaller than the POI's 2 cells: it marks ONE cell
+    // and the ring of cells a foe crosses to reach it, not a building.
+    magic_trap: { radiusCells: 1.5, colour: 0xff3cdc, peak: 0.90, flicker: 0, pulse: 0.5 },
     // A cave torch (worldgen.js caveTorchesFrom — planted where a lowtier
     // street-furniture POI stands overhead, the one chest class that does not
     // mirror underground). A real flame: warm, a little smaller than a
@@ -592,6 +600,7 @@
       return (scene.isClaimedKey && scene.isClaimedKey(o.castle)) ? 'building' : null;
     }
     if (o.kind === '_fire') return 'fire';
+    if (o.kind === '_magic_trap') return 'magic_trap';
     if (o.kind === 'torch') return 'torch';
     // A wild plant is offered as ITSELF from drawObjects' wildplant scan, and
     // which of them glows is items.js' WILDPLANT_RULES to say — the same table
@@ -735,6 +744,25 @@
       const dx = fr.x - ax, dy = fr.y - ay;
       if (!inRange(scene, dx, dy, 'fire', halfM)) continue;
       scene._lights.push({ kind: 'fire', dx, dy, id: `fire_${fr.x.toFixed(2)}_${fr.y.toFixed(2)}` });
+      n++;
+    }
+    return n;
+  }
+
+  // The MAGIC TRAPS set on this depth, within light range of the view — the
+  // campfire collector's shape exactly (a PLACED list on the save, filtered
+  // to the level, culled at halfM + the row's radius). Each is a light only
+  // while it is armed: a sprung trap is removed from the save, which is what
+  // moves frameKey (its entry leaves the list) and repaints the frame.
+  function collectMagicTraps(scene, ax, ay, halfM) {
+    const PF = window.PlacedFloor;
+    const list = scene.save && scene.save.magicTraps;
+    if (!PF || !list || !list.length) return 0;
+    let n = 0;
+    for (const t of PF.forDepth(list, scene.depth ?? 0)) {
+      const dx = t.x - ax, dy = t.y - ay;
+      if (!inRange(scene, dx, dy, 'magic_trap', halfM)) continue;
+      scene._lights.push({ kind: 'magic_trap', dx, dy, id: t.id });
       n++;
     }
     return n;
@@ -1051,6 +1079,7 @@
     const tex = scene.lightTex;
     if (!tex || typeof document === 'undefined') return false;
     if (!scene._lights) scene._lights = [];
+    collectMagicTraps(scene, ax, ay, halfM);
     collectFires(scene, ax, ay, halfM);
     collectLamps(scene, ax, ay, halfM);
     collectPlayer(scene, ax, ay, halfM);
@@ -1188,7 +1217,7 @@
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, collectFires, objectLightPadCells,
-    collectPlayer, collectLamps, lampRiseCells,
+    collectPlayer, collectLamps, collectMagicTraps, lampRiseCells,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, BLAST_MAX, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
     LIGHT_TICK_MS, lightClock, animates, frameKey,

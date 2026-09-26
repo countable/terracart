@@ -268,16 +268,195 @@
     return traps;
   }
 
+  // ── LAID traps: a goblin trapper's snares ────────────────────────────────
+  // The trapper (combat.js MONSTERS.goblin_trapper, `lays: 'trap'`) puts a
+  // snare on an empty cell on the line between itself and the player
+  // (app.js _trapperLay). It is the SAME trap — the same record shape, the
+  // same bite and bleed in app.js _tickTraps, the same two textures, the same
+  // Trap Disarm Kit — and it is in NONE of the world's buckets: not
+  // GENERATED (nothing about where it sits is a function of the tile), not
+  // the DELTA and not PLACED. It is SESSION state, like a bounty coin:
+  //   • it lives on `entry.laidTraps`, beside the generated `entry.traps`
+  //     rather than in it, so the passes that REWRITE the generated list (the
+  //     spawn pass, _relayTrapsForMode) never touch it, and a tile REBUILT
+  //     under the player carries it across (worldgen.js rebuildTileWithBin,
+  //     beside coinDrops). A tile evicted from the cache loses it — by then
+  //     it has long expired.
+  //   • it is never written to the save: springing one sets `_sprung` on the
+  //     record and disarming one sets `_disarmed` (springTrap / disarmTrap
+  //     below), never save.sprungTraps / save.disarmedTraps — ids in those
+  //     arrays must be derived from a generated position, and a laid one is
+  //     gone at the next reload anyway.
+  //   • it EXPIRES, LAID_LIFE_MS after it went down: two full rounds of a
+  //     trapper's cap (LAID_MAX) at its laying cadence (app.js
+  //     TRAPPER_LAY_MS, the archer's arrow beat — 10 s), so a trapper you
+  //     walk away from leaves a minute of mess, not a minefield.
+  const LAID_MAX = 3;
+  const LAID_LIFE_MS = 60 * 1000;
+
+  // Is this trap record still in play at `now` (wall-clock ms)? A generated
+  // trap always is (its state lives on the save); a laid one until it
+  // expires or is disarmed.
+  function isLive(t, now) {
+    if (!t) return false;
+    if (!t._laid) return true;
+    return !t._disarmed && (now == null ? Date.now() : now) < t._expiresAt;
+  }
+
+  // The three questions every consumer asks of a trap, answered for BOTH
+  // kinds: a generated trap's state is its id on the save, a laid one's is
+  // on the record. Callers ask these rather than Traps.isSprung(save, id) so
+  // a laid snare never mints a save id.
+  function isTrapSprung(save, t) {
+    if (!t) return false;
+    return t._laid ? !!t._sprung : isSprung(save, t.id);
+  }
+  function isTrapDisarmed(save, t) {
+    if (!t) return false;
+    return t._laid ? !!t._disarmed : isDisarmed(save, t.id);
+  }
+  // Returns true the FIRST time, like spring() — the bite's one-shot gate.
+  function springTrap(save, t) {
+    if (!t) return false;
+    if (!t._laid) return spring(save, t.id);
+    if (t._sprung) return false;
+    t._sprung = true;
+    return true;
+  }
+  function disarmTrap(save, t) {
+    if (!t) return false;
+    if (!t._laid) return disarm(save, t.id);
+    if (t._disarmed) return false;
+    t._disarmed = true;
+    return true;
+  }
+
+  // Can a snare go down on LOCAL cell (lix, liy) of `entry`? Walkable ground
+  // on the LIVE grid (a dug wall is floor now), off the drawn road band
+  // (entry.roadMask — the half of the spawn rule the terrain under-reports),
+  // not under anything the spawn pass seated (entry._spawnOpts.occupied — the
+  // other half), and not on a trap already there, generated or laid. The
+  // caller adds what only it knows: not the player's cell, not the layer's.
+  function canLay(entry, lix, liy) {
+    if (!entry || !entry.grid || !root.WorldGen) return false;
+    const N = entry.cellsPerEdge;
+    if (!(N > 0) || lix < 0 || liy < 0 || lix >= N || liy >= N) return false;
+    const i = liy * N + lix;
+    if (!root.WorldGen.isWalkable(entry.grid[i])) return false;
+    if (entry.roadMask && entry.roadMask[i]) return false;
+    const occ = entry._spawnOpts && entry._spawnOpts.occupied;
+    if (occ && occ.has(i)) return false;
+    return !trapAt(entry, lix, liy);
+  }
+
+  // Lay a snare on LOCAL cell (lix, liy) of tile (tx, ty) at `depth`, for
+  // the trapper `byId`. Returns the record. The id names the level and the
+  // cell (a cell holds one trap at a time — canLay), which is all it has to
+  // be unique for: it never reaches the save.
+  function layTrap(entry, tx, ty, tileEdgeM, lix, liy, byId, now, depth) {
+    const N = entry.cellsPerEdge;
+    const t = makeTrap(tx, ty, tileEdgeM, N, lix, liy,
+      `laid_d${depth || 0}_${tx}_${ty}_${lix}_${liy}`);
+    t._laid = true;
+    t._by = byId;
+    t._expiresAt = (now == null ? Date.now() : now) + LAID_LIFE_MS;
+    (entry.laidTraps = entry.laidTraps || []).push(t);
+    return t;
+  }
+
+  // Drop every expired or disarmed snare from `entry.laidTraps`, compacted
+  // in place (never a splice per rejection). Each one dropped is flagged
+  // `_gone`, so a caller still holding it (app.js memoises the trap under the
+  // feet) can tell. Returns how many are left.
+  function pruneLaid(entry, now) {
+    const list = entry && entry.laidTraps;
+    if (!list) return 0;
+    let w = 0;
+    for (let r = 0; r < list.length; r++) {
+      const t = list[r];
+      if (isLive(t, now)) list[w++] = t;
+      else t._gone = true;
+    }
+    list.length = w;
+    return w;
+  }
+
+  // How many of `byId`'s snares are still OUT in `entries` — live and not yet
+  // sprung (a sprung jaw has done its job and no longer counts toward the
+  // trapper's LAID_MAX).
+  function laidOut(entries, byId, now) {
+    let n = 0;
+    for (const e of entries) {
+      const list = e && e.laidTraps;
+      if (!list) continue;
+      for (const t of list) if (t._by === byId && !t._sprung && isLive(t, now)) n++;
+    }
+    return n;
+  }
+
+  // The points a trapper tries, in order: one per cell-length step strictly
+  // BETWEEN the two bodies (never the endpoints — those are the trapper's own
+  // cell and the player's), nearest the midpoint first, so the snare lands
+  // in the middle of the path the player would take to reach it. World
+  // metres in, world metres out; the caller resolves each to a cell.
+  function layPoints(x0, y0, x1, y1, cellM) {
+    const dx = x1 - x0, dy = y1 - y0;
+    const dist = Math.hypot(dx, dy);
+    const steps = Math.floor(dist / (cellM || 1));
+    const out = [];
+    for (let k = 1; k < steps; k++) {
+      const u = k / steps;
+      out.push({ x: x0 + dx * u, y: y0 + dy * u, u });
+    }
+    out.sort((a, b) => Math.abs(a.u - 0.5) - Math.abs(b.u - 0.5));
+    return out;
+  }
+
+  // ── The player's MAGIC TRAP ──────────────────────────────────────────────
+  // The trapper's snare, turned: a tier-2 item (items.js magic_trap — a
+  // cave-supply find, and what a slain trapper drops) the player sets on an
+  // empty cell in reach (interact.js 'place-magic-trap'). PLACED-bucket
+  // state: save.magicTraps = [{ id, x, y, depth }], the id from the cell it
+  // was set on (tile + local cell + level), never a clock. Drawn as a magenta
+  // glow (Lighting.KINDS.magic_trap) over a tinted scuff on its cell.
+  //
+  // An ENEMY (Combat.isEnemy — never game, never a pet, never the player)
+  // that walks onto the cell is HELD — the Frost Powder's own freeze
+  // (c._frozenUntil; one lane, a second reason) for MAGIC_HOLD_MS — and takes
+  // one hit, and the trap is spent. The numbers, both derived in app.js
+  // (MAGIC_TRAP_HOLD_MS / magicTrapDamage) so they read off the tables they
+  // stand for:
+  //   hold   — one STAFF beat (Combat.fireIntervalMs('staff'), 5 s): long
+  //            enough that the slowest weapon the player owns lands a shot on
+  //            a foe that cannot step out of its line.
+  //   damage — one TIER-2 BOW SHOT (Combat.shotDamage at the item's own
+  //            tier): the trap is a tier-2 weapon that fires once.
+  function magicTrapId(depth, tx, ty, lix, liy) {
+    return `mtrap_d${depth || 0}_${tx}_${ty}_${lix}_${liy}`;
+  }
+
   // ── Lookup ───────────────────────────────────────────────────────────────
   // The trap on LOCAL cell (lix, liy) of a tile entry, or null. A linear scan:
   // a tile holds at most a couple of dozen traps, and the caller only asks when
   // the player crosses a cell (app.js memoises on the cell key), so an index
-  // would cost more to keep than it saves.
-  function trapAt(entry, lix, liy) {
-    const list = entry && entry.traps;
-    if (!list) return null;
-    for (let i = 0; i < list.length; i++) {
-      if (list[i]._ix === lix && list[i]._iy === liy) return list[i];
+  // would cost more to keep than it saves. The generated list first, then the
+  // laid one — skipping a laid snare that has expired or been disarmed (a
+  // generated one is returned whatever its state; the save decides that).
+  function trapAt(entry, lix, liy, now) {
+    if (!entry) return null;
+    const list = entry.traps;
+    if (list) {
+      for (let i = 0; i < list.length; i++) {
+        if (list[i]._ix === lix && list[i]._iy === liy) return list[i];
+      }
+    }
+    const laid = entry.laidTraps;
+    if (laid && laid.length) {
+      const t0 = now == null ? Date.now() : now;
+      for (let i = 0; i < laid.length; i++) {
+        const t = laid[i];
+        if (t._ix === lix && t._iy === liy && isLive(t, t0)) return t;
+      }
     }
     return null;
   }
@@ -290,5 +469,8 @@
     isSprung, spring,
     isDisarmed, disarm,
     isRoadside, sampleRoadsideCells, spawnSurface, spawnCave, trapAt,
+    LAID_MAX, LAID_LIFE_MS, isLive, isTrapSprung, isTrapDisarmed, springTrap, disarmTrap,
+    canLay, layTrap, pruneLaid, laidOut, layPoints,
+    magicTrapId,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

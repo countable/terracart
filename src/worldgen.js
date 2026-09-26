@@ -165,6 +165,10 @@
     T.CAVE_WALL,
   ]);
   function isWalkable(t) { return !NON_WALKABLE.has(t); }
+  // The road tiers as terrain. Nothing SPAWNS here (isSpawnCell, the road
+  // mask) — but a coin is a pickup, not scenery, and may lie in the street
+  // (app.js coinGround).
+  function isRoadTerrain(t) { return t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG; }
 
   // Default Chebyshev radius for the residential-frontage test: a private cell
   // is only spawnable if a public anchor sits within this many cells.
@@ -4639,6 +4643,10 @@
     // Carry over live per-session state the rebuild can't reconstruct.
     if (prev.creatures && !fresh.creatures) fresh.creatures = prev.creatures;
     if (prev.coinDrops && !fresh.coinDrops) fresh.coinDrops = prev.coinDrops;
+    // A goblin trapper's snares (traps.js LAID traps) — session state on
+    // their own list, carried like the coins: a trap that just bit you must
+    // not blink out because the Overpass bin landed.
+    if (prev.laidTraps && !fresh.laidTraps) fresh.laidTraps = prev.laidTraps;
     cache.set(key, fresh);               // atomic swap — never a missing tile
     return true;
   }
@@ -5468,7 +5476,7 @@
     // exported so world_frame.test.js can pin that binning is frame-free.
     buildBinsFromGeoJSON,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, isWalkable, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, isWalkable, isRoadTerrain, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
