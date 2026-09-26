@@ -9382,7 +9382,7 @@ class MapScene extends Phaser.Scene {
     // easily-missed rule in the economy.
     if (!hasSel) {
       this.showOfferModal({
-        kind: 'shop', kindIcon, tabs,
+        kind: 'shop', kindIcon, tabs, art: 'home_sell',
         title: 'Sell from your stash',
         get: 'Nothing picked to sell',
         blurb: 'Pick a stack in your bag, then tap Home to sell it.',
@@ -9404,7 +9404,7 @@ class MapScene extends Phaser.Scene {
     });
     const first = fmt(1);
     this.showOfferModal({
-      kind: 'shop', kindIcon, tabs,
+      kind: 'shop', kindIcon, tabs, art: 'home_sell',
       title: 'Sell from your stash?',
       get: first.get,
       cost: first.cost,
