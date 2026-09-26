@@ -14,7 +14,7 @@
 const app = APP_JS_SRC;
 
 test('smithy: the modal category is Smithy, so Forge names only the action', () => {
-  const m = app.match(/\n  forge:\s*\{ icon: '🔨', label: '([^']+)'\s*\}/);
+  const m = app.match(/\n  forge:\s*\{ icon: '🔨', label: '([^']+)'[,\s}]/);
   assert.truthy(m, 'MODAL_KINDS.forge row');
   assert.eq(m[1], 'Smithy', 'category label');
   // The key stays `forge` — every call site and tools/modal_audit.js pin it.

@@ -1,24 +1,48 @@
 // SCENE ART — the dialog-painting standard (app.js makeModalShell `art`,
-// ART_FRAME_ASPECT / ART_DETAIL_FRAC / SCENE_ART; tools/gen_story_art.js
-// scene()). A scene piece IS the dialog box: cut to the box's shape, subject
-// in the top ART_DETAIL_FRAC, the copy bottom-anchored over a scrim and
-// capped at the quiet zone so it can never climb onto the subject.
+// ART_FRAME_ASPECT / ART_DETAIL_FRAC / ART_BAND_*; tools/gen_story_art.js
+// scene()). Every dialog opens on a painting — its caller's, or its kind's
+// MODAL_KINDS default. The piece IS the box: cut to the box's shape, subject
+// in the top ART_DETAIL_FRAC, the copy bottom-anchored over a scrim and capped
+// at the quiet zone so it can never climb onto the subject; copy too long for
+// the quiet zone switches the dialog to THE BAND by measurement.
 
 (function () {
 const app = APP_JS_SRC;
-const stems = (() => {
-  const m = app.match(/const SCENE_ART = new Set\(\[([^\]]*)\]\)/);
-  assert.truthy(m, 'SCENE_ART is declared');
-  return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
-})();
+const kindsSrc = app.slice(app.indexOf('const MODAL_KINDS = {'), app.indexOf('\n};', app.indexOf('const MODAL_KINDS = {')));
 
-test('scene art: every SCENE_ART piece is cut to the dialog box shape', () => {
-  assert.truthy(stems.length > 0, 'at least the pilot');
+// Every stem a dialog can open on: the literal `art: '…'`s, the kind rows'
+// defaults, and the restore roles (built as 'restore_' + role).
+const stems = new Set();
+for (const m of app.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
+for (const m of INTERACT_SRC.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
+for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) stems.add('restore_' + r);
+
+test('scene art: every dialog painting is cut to the dialog box shape', () => {
+  assert.truthy(stems.size > 30, `the stems were collected (${stems.size})`);
   for (const stem of stems) {
     const d = pngDims(`assets/art/${stem}.png`);
     assert.truthy(d, `${stem}.png exists`);
-    assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01, `${stem} is 11:14 (got ${d.w}x${d.h})`);
+    assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01, `${stem} is 11:14 (got ${d && d.w}x${d && d.h})`);
   }
+});
+
+test('scene art: every kind has a default painting, except STORY, which brings its own', () => {
+  const rows = [...kindsSrc.matchAll(/^  (\w+):\s+\{([^}]*)\}/gm)];
+  assert.truthy(rows.length >= 20, 'the rows were read');
+  for (const [, key, body] of rows) {
+    if (key === 'story') {
+      assert.truthy(/label: 'Story'/.test(body), 'the STORY label');
+      assert.falsy(/art:/.test(body), 'a story always carries its own');
+    } else {
+      assert.truthy(new RegExp(`art: 'kind_${key}'`).test(body), `${key} opens on kind_${key}`);
+    }
+  }
+  assert.truthy(/art = art \|\| kRow\?\.art;/.test(app), 'the shell falls back to the kind row');
+});
+
+test('scene art: a message with a painting is a STORY', () => {
+  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note' \}\)/.test(app),
+    'art makes it a story; a plain message stays a note');
 });
 
 test('scene art: the content region is capped at the quiet zone and scrolls inside it', () => {
@@ -28,18 +52,36 @@ test('scene art: the content region is capped at the quiet zone and scrolls insi
   assert.truthy(/margin-top:auto;[^`]*`\s*\+\s*'overflow-y:auto/.test(app), 'bottom-anchored, scrolling');
 });
 
-test('scene art: a scene dialog drops the emoji hero for a label chip', () => {
+test('scene art: text-heavy copy moves to THE BAND by measurement', () => {
+  assert.truthy(/const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;/.test(app),
+    'the band shows the subject line, the sky above it gives');
+  const i = app.indexOf('TEXT-HEAVY → THE BAND');
+  assert.truthy(i > 0, 'mount() decides');
+  const tail = app.slice(i, i + 400);
+  assert.truthy(/body\.scrollHeight > body\.clientHeight/.test(tail), 'it measures the copy');
+  assert.truthy(/paintScene\(true\)/.test(tail), 'and repaints as the band');
+  assert.truthy(/\(1 - ART_BAND_FRAC\)/.test(tail), 'with the band\'s taller content region');
+});
+
+test('scene art: the emoji hero becomes a label chip, but a SPRITE hero stays', () => {
   const i = app.indexOf('if (k && art) {');
   assert.truthy(i > 0, 'the art branch of the kind header');
   const branch = app.slice(i, app.indexOf('} else if (k) {', i));
-  assert.truthy(/kindNode\.textContent = kindLabel \?\? k\.label;/.test(branch), 'the label only');
+  assert.truthy(/kindLabel \?\? k\.label/.test(branch), 'the label');
   assert.falsy(/k\.icon/.test(branch), 'no emoji glyph');
+  assert.truthy(/if \(kindIcon\)[\s\S]*innerHTML = kindIcon/.test(branch),
+    'the thing on the map still opens the dialog (the treasure_icon rule)');
 });
 
-test('scene art: showMessageModal routes only SCENE_ART stems into the frame', () => {
-  const s = app.slice(app.indexOf('  showMessageModal({'), app.indexOf('  showFeedConfirm('));
-  assert.truthy(/art: SCENE_ART\.has\(art\) \? art : undefined/.test(s), 'scene pieces fill the box');
-  assert.truthy(/SCENE_ART\.has\(art\) \? '' : this\.dialogArtHTML\(art\)/.test(s),
-    'an old banner keeps its strip until it is repainted');
+test('scene art: the old banner strip is gone', () => {
+  assert.falsy(/dialogArtHTML/.test(app), 'no strip seating left');
+  assert.falsy(/SCENE_ART/.test(app), 'no half-rolled-out registry left');
+});
+
+test('scene art: the lore rides in the generator, one hint per piece at most', () => {
+  const gen = STORY_ART_GEN_SRC;
+  assert.truthy(/const LORE = \{/.test(gen), 'the LORE table');
+  assert.truthy(/const scene = \(subject, lore\) =>/.test(gen), 'scene() takes one hint');
+  assert.truthy(/LORE\[lore\]/.test(gen), 'and appends it');
 });
 })();

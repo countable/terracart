@@ -1370,6 +1370,8 @@ ctx.COORDS_SRC = readSrc('coords.js');
 // gives the local player; feet_anchor.test.js pins both as text.
 ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
 ctx.INTERACT_SRC = readSrc('interact.js');
+// The dialog-painting generator, for scene_art.test.js's lore and scene() pins.
+ctx.STORY_ART_GEN_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'gen_story_art.js'), 'utf8');
 // interactables.js loads headlessly too, but chest_tier.test.js pins that its
 // chest loot roll resolves the tier WITH the chest position — a text pin.
 ctx.INTERACTABLES_SRC = readSrc('interactables.js');

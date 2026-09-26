@@ -174,6 +174,34 @@ the mechanic.
   key on the look.**
   **Audit it:** `node test/node/run.js` › `test/node/treasure_icon.test.js`.
 
+- **Every dialog opens on a PAINTING, and the painting is the box.** The
+  shared shell (`app.js` › `makeModalShell` `art`) draws a scene piece
+  full-bleed as the box background: the caller's own, or its kind's default
+  (`MODAL_KINDS[kind].art`, `kind_<kind>`). A story splash is kind `story`.
+  The piece is made to ONE composition rule (`tools/gen_story_art.js` ›
+  `scene()` / `SCENE_RULE`): portrait, cut top-anchored to the box's 11:14
+  (`ART_FRAME_ASPECT`), the subject LARGE in the top `ART_DETAIL_FRAC` and a
+  calm, low-detail QUIET ZONE below it. The copy is the CONTENT REGION:
+  bottom-anchored over a scrim, capped at the quiet zone and scrolling inside
+  it, so text can never land on the subject. Copy too long for the quiet zone
+  is not the caller's problem — `mount()` MEASURES it and switches the dialog
+  to THE BAND (only the painting's subject line, `ART_BAND_FROM`..
+  `ART_DETAIL_FRAC`, and a taller content region). With a painting the emoji
+  hero becomes a label chip; a SPRITE hero (`kindIcon`) rides in the chip.
+  Until Sep 2026 art was a 130px strip cropped out of a 3:2 banner, which cut
+  the subject off (the first-fire strip lost its fire). **When you add a
+  dialog, give it a kind (its painting comes with it); when you add a
+  painting, make it with `scene()`** — a landscape banner will be cropped to
+  nonsense by the frame.
+  **The paintings carry the LORE, quietly.** The world was burned by a demon,
+  and the survivor the player walks IS that demon, unremembering — never
+  stated. `LORE` in the generator holds the hints (the fall: claw scorches, a
+  horned mural, a sigil; the secret: a horned shadow, embers drawn to the
+  survivor, a red glint, a wary glance), at most ONE per piece, in the detail
+  zone, and only where it fits; most pieces carry none. Never add one that
+  gives the secret away outright.
+  **Audit it:** `node test/node/run.js` › `test/node/scene_art.test.js`.
+
 - **A tilled cell is one BAKED bed, never a per-frame rounded path.** The
   soil is the `tilled_N` texture (`textures.js` › `drawTilledTex`, inset
   `TILLED_INSET_PX`, corners `TILLED_CORNER_PX`, transparent ring), and
