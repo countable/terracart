@@ -1311,6 +1311,13 @@ const TAP_HANDLERS = [
       save.fires = save.fires || [];
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
       save.fires.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
+      // The FIRST fire a save ever lights tells its story. A busy screen
+      // returns false unmarked (the story ledger), so the next fire asks again.
+      scene._storySplashOnce?.('fire', {
+        art: 'fire_first',
+        title: 'First fire',
+        body: 'The flames catch and crackle. Monsters will not cross into its light, and resting beside it heals you. And who knows what could happen when you cook things?',
+      });
     },
     flashMsg: '🔥 The fire crackles.',
   })},
