@@ -12354,7 +12354,7 @@ class MapScene extends Phaser.Scene {
           const INFO = {
             blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
             market:     { blurb: `${THEME_BLURB[theme] || 'Sells one line of goods.'} A new line every shop you rebuild.` },
-            trader:     { blurb: 'Barters goods, and pays a bonus on every sale.' },
+            trader:     { blurb: 'Swaps one good for another — no coin changes hands.' },
             wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage sees power in your memories.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
