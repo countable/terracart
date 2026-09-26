@@ -1072,6 +1072,7 @@ const PLAY_TIPS = [
   // is taught here beside the other things already lying around — and what
   // the ✦ row on the rod cannot carry is which fish arrives at which tier.
   'A Wood rod puts bass in the water, Iron the trout, Platinum the salmon — and a goldenfish rises for nothing under Frost.',
+  'Now and then a cast hooks a slime instead of a fish. It lands beside you, and it is not happy about it.',
   // ── The village economy, once you have a house to trade with ───
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
   'Addresses ending 2 or 6 are shops. Each one you rebuild sells the next line — seeds, supplies, potions, ore, relics, pets — then round again, a tier up. Endings 1 and 8 are Traders, who barter only.',
@@ -1607,6 +1608,9 @@ function fishWhiffChance(tier) {
 const FISH_COST_MULT = 2;
 const FISH_JACKPOT_CHANCE = 0.02;   // → a gear roll (rollGearUpgrade)
 const FISH_BOOT_CHANCE = 0.12;      // → an Old Boot (was 0.06)
+// → a wild SLIME on the line: it lands beside the player and charges (app.js
+// fishedSlimeSpawn). Rolled on a strike, after the jackpot and the boot.
+const FISH_SLIME_CHANCE = 0.05;
 // The catch table. `minTier` is the rod a species needs before it is IN the
 // water at all — one species per odd tier, so every rod up the ladder opens
 // exactly one new fish and a Frost rod is what the goldenfish is for. `w` is

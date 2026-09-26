@@ -933,6 +933,39 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   if (made && scene.flash) scene.flash('👻 Ghosts in the dark!', scene.viewCenterX, scene.viewCenterY - 60);
   return made;
 }
+// ── THE FISHED SLIME ─────────────────────────────────────────────────────────
+// Now and then a cast hooks a wild slime instead of a fish (items.js
+// FISH_SLIME_CHANCE, rolled by the fishing handler in interact.js). It lands on
+// a land cell BESIDE the player — one cell out, any of the eight directions,
+// never water, a road or a building (WorldGen.isWalkable) — and comes up
+// ANGRY: its `_lastDamagedT` is stamped at the landing, so slimeCharging reads
+// it as struck and it charges for STRUCK_REACTION_MS, leeching the moment it
+// is in arm's reach. That is the existing "a struck slime charges" lane with a
+// second reason (it was yanked out of the water), not a new aggression flag;
+// every ward that turns a struck slime back (Home, a fire's ring, `unnoticed`)
+// turns this one back too.
+//   It is SESSION state exactly like the ghost and the pest crow: pushed into
+// the player's tile entry with an id minted off the clock
+// (`fished_slime_<tx>_<ty>_…`), pruned from save.caught by the same pass.
+// Returns the creature, or null when no cell beside the player will take it
+// (the handler then pays the fish instead).
+function fishedSlimeSpawn(scene, now, px, py, pcW) {
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
+  if (!entry || !entry.creatures) return null;
+  const base = Math.floor(Math.random() * 8);
+  for (let k = 0; k < 8; k++) {
+    const a = (base + k) * Math.PI / 4;
+    const x = px + Math.cos(a) * scene.cellM, y = py + Math.sin(a) * scene.cellM;
+    const cell = scene.cellAt(x, y);
+    if (!cell.loaded || !WorldGen.isWalkable(cell.type)) continue;
+    const c = WorldGen.makeCreature('slime', x, y,
+      `fished_slime_${pcW.tx}_${pcW.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
+      { _lastDamagedT: Date.now() });
+    entry.creatures.push(c);
+    return c;
+  }
+  return null;
+}
 // A STANDING LIGHT'S RING REFUSES A GHOST'S STEP — the campfire's ward
 // mechanism (a refused target, never a turn, so it holds at the edge rather
 // than freezing inside), and for the ghost the lit street lamp's too: it is a
@@ -9133,9 +9166,9 @@ class MapScene extends Phaser.Scene {
         now - (this._lastCaughtPruneT || 0) > 90000) {
       this._lastCaughtPruneT = now;
       this.save.caught = this.save.caught.filter((id) => {
-        // The ghosts (ghostSpawnPass) mint their ids the same way and are
-        // pruned by the same rule.
-        const m = typeof id === 'string' && /^(?:pest_crow|ghost)_(-?\d+)_(-?\d+)_/.exec(id);
+        // The ghosts (ghostSpawnPass) and the fished slime (fishedSlimeSpawn)
+        // mint their ids the same way and are pruned by the same rule.
+        const m = typeof id === 'string' && /^(?:pest_crow|ghost|fished_slime)_(-?\d+)_(-?\d+)_/.exec(id);
         return !m || WorldGen.tileCache.has(WorldGen.tileKey(+m[1], +m[2]));
       });
     }
@@ -10586,6 +10619,13 @@ class MapScene extends Phaser.Scene {
   // placement. The player has always been free to walk over roads and rivers
   // (they're really out there doing it), so feeding that predicate to the
   // follow step would wall the body in behind the nearest street.
+  // A cast that hooks a slime (interact.js fishing): seat it beside the
+  // player's FEET, angry. See fishedSlimeSpawn.
+  spawnFishedSlime() {
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    return fishedSlimeSpawn(this, performance.now(), px, py, this.playerToWorldCell());
+  }
   _cellBlocked(wmx, wmy) {
     if (this.depth === 0) return false;
     const c = this.cellAt(wmx, wmy);
