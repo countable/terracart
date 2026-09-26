@@ -843,7 +843,7 @@
     /* No real number yet (scripts still streaming) — breathe instead of lying
        still. Replaced by the true asset fraction as soon as app.js reports. */
     #bootload.indet .fill { animation: bootbreathe 1.2s ease-in-out infinite alternate; }
-    /* Dialog entrance (app.js makeModalShell): the backdrop fades, the box
+    /* Dialog entrance (modal_shell.js makeModalShell): the backdrop fades, the box
        pops up from slightly smaller and lower. Short — a dialog should feel
        placed, not performed. Skipped for a dialog that replaces another in
        the same tap, and for anyone who asks the OS for less motion. */
@@ -2612,6 +2612,7 @@
   <script src="src/sandbox.js?v=8a7ed35f"></script>
   <script src="src/testtools.js?v=cbd1d4fa"></script>
   <script src="src/geo.js?v=0a205c42"></script>
+  <script src="src/modal_shell.js?v=7a859b0f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2672,7 +2673,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=8d08b56c';
+      const APP_SRC = 'src/app.js?v=e29d1b0f';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

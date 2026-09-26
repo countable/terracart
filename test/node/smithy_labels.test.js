@@ -8,13 +8,14 @@
 // both smithy offers caption their halves "You receive" / "You give", which
 // showOfferModal renders in place of the "for" row.
 //
-// app.js needs Phaser, so this is pinned as source text.
+// app.js needs Phaser, so this is pinned as source text (the MODAL_KINDS row
+// and showOfferModal itself in modal_shell.js).
 
 (function () {
 const app = APP_JS_SRC;
 
 test('smithy: the modal category is Smithy, so Forge names only the action', () => {
-  const m = app.match(/\n  forge:\s*\{ icon: '🔨', label: '([^']+)'[,\s}]/);
+  const m = MODAL_SHELL_SRC.match(/\n  forge:\s*\{ icon: '🔨', label: '([^']+)'[,\s}]/);
   assert.truthy(m, 'MODAL_KINDS.forge row');
   assert.eq(m[1], 'Smithy', 'category label');
   // The key stays `forge` — every call site and tools/modal_audit.js pin it.
@@ -23,11 +24,11 @@ test('smithy: the modal category is Smithy, so Forge names only the action', () 
 });
 
 test('smithy: showOfferModal renders getLabel / costLabel captions, costLabel replacing the "for" row', () => {
-  assert.truthy(/showOfferModal\(\{[^}]*forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art \}\)/.test(app),
+  assert.truthy(/showOfferModal\(\{[^}]*forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art \}\)/.test(MODAL_SHELL_SRC),
     'the params exist');
-  assert.truthy(/if \(getLabel\) box\.appendChild\(mkCaption\(getLabel\)\);\n    const getDiv/.test(app),
+  assert.truthy(/if \(getLabel\) box\.appendChild\(mkCaption\(getLabel\)\);\n    const getDiv/.test(MODAL_SHELL_SRC),
     'the receive caption sits directly above the get line');
-  assert.truthy(/if \(hasCost\) \{\n      if \(costLabel\) \{\n        box\.appendChild\(mkCaption\(costLabel\)\);\n      \} else \{\n        const forDiv/.test(app),
+  assert.truthy(/if \(hasCost\) \{\n      if \(costLabel\) \{\n        box\.appendChild\(mkCaption\(costLabel\)\);\n      \} else \{\n        const forDiv/.test(MODAL_SHELL_SRC),
     'the give caption stands in for the "for" row, never beside it');
 });
 

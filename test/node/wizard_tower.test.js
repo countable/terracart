@@ -91,7 +91,7 @@ test('wizard tower: the modal shows Wizard.offers as priced, greyable cards (kin
   assert.eq(s.shells.length, 1, 'one dialog');
   const sh = s.shells[0];
   assert.eq(sh.opts.kind, 'wizard', 'declares the wizard kind');
-  assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  wizard:/.test(app), 'which is a MODAL_KINDS row');
+  assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  wizard:/.test(MODAL_SHELL_SRC), 'which is a MODAL_KINDS row');
   assert.truthy(sh.mounted, 'mounted');
   const texts = walk(sh.box).map((e) => e.textContent + '|' + e.innerHTML).join('\n');
   assert.truthy(texts.includes(Wizard.INTRO), 'the wizard speaks of memories');

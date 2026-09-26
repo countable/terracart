@@ -167,7 +167,7 @@ the mechanic.
   a painting, and the corner label carries no sprite. `kindIcon` is still
   plumbed through and drawn only by the no-painting fallback header.)**
   **A dialog about a thing on the map opens with THAT THING'S SPRITE.**
-  `app.js` › `MODAL_KINDS` supplies a fallback emoji glyph per category; a
+  `modal_shell.js` › `MODAL_KINDS` supplies a fallback emoji glyph per category; a
   caller with a picture passes `kindIcon` (HTML, twin of `kindLabel`), drawn
   ungreyed. One resolver both sides read: `loot.js` › `chestLook` picks a
   chest's look and carries its **texture key**; `render.js` draws by that key
@@ -178,7 +178,7 @@ the mechanic.
   **Audit it:** `node test/node/run.js` › `test/node/treasure_icon.test.js`.
 
 - **Every dialog opens on a PAINTING, and the painting is the box.** The
-  shared shell (`app.js` › `makeModalShell` `art`) draws a scene piece
+  shared shell (`modal_shell.js` › `makeModalShell` `art`) draws a scene piece
   full-bleed as the box background: the caller's own, or its kind's default
   (`MODAL_KINDS[kind].art`, `kind_<kind>`). A story splash is kind `story`.
   The piece is made to ONE composition rule (`tools/gen_story_art.js` ›

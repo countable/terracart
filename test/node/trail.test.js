@@ -315,8 +315,9 @@ test('trail prize: the pick lays its cards out in one row, descriptions behind t
   const pick = app.slice(pat, app.indexOf('\n  }\n', pat));
   assert.truthy(/cards: true,/.test(pick), 'the pick asks for the card row');
   assert.truthy(/info: this\._trailRewardBlurb\(reward\),/.test(pick), 'each card carries its description as info');
-  const mat = app.indexOf('\n  showChestRewardModal(');
-  const modal = app.slice(mat, app.indexOf('\n  }\n', mat));
+  const shell = MODAL_SHELL_SRC;
+  const mat = shell.indexOf('\n  showChestRewardModal(');
+  const modal = shell.slice(mat, shell.indexOf('\n  }\n', mat));
   assert.truthy(/if \(a\.info\) \{/.test(modal), 'the shell draws an ⓘ only for an action with info');
   assert.truthy(/e\.stopPropagation\(\);\s*\/\/ reading a card never takes it/.test(modal),
     'tapping the ⓘ does not pick the card');

@@ -98,9 +98,9 @@ test('coin icon: money amounts in HTML go through moneyHTML', () => {
 });
 
 test('coin icon: the shop modal category glyph is the coin asset', () => {
-  assert.truthy(/shop:\s*\{ coinIcon: true, label: 'Shop'[,}]/.test(app),
+  assert.truthy(/shop:\s*\{ coinIcon: true, label: 'Shop'[,}]/.test(MODAL_SHELL_SRC),
     'the MODAL_KINDS shop row asks for the coin');
-  assert.truthy(/\} else if \(k\.coinIcon\) \{[\s\S]*?ico\.innerHTML = this\.coinIconHTML\(22\);/.test(app),
+  assert.truthy(/\} else if \(k\.coinIcon\) \{[\s\S]*?ico\.innerHTML = this\.coinIconHTML\(22\);/.test(MODAL_SHELL_SRC),
     'the kind header renders it');
 });
 

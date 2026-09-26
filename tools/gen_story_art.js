@@ -26,7 +26,7 @@ const STYLE =
   'anti-aliased smooth gradients. Wide landscape composition, gentle melancholy turning to hope. ' +
   'No text, no letters, no UI, no watermark.';
 
-// SCENE ART — the standard every dialog painting is made to (app.js
+// SCENE ART — the standard every dialog painting is made to (modal_shell.js
 // makeModalShell `art`, ART_FRAME_ASPECT / ART_DETAIL_FRAC / SCENE_ART). The
 // piece IS the dialog box: generated portrait, cut top-anchored to the box's
 // 11:14 shape, and the copy sits over its lower part. So the composition is a

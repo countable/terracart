@@ -74,7 +74,7 @@ test('hit flash: a FOE\'s blow closes an open shop dialog — a trap\'s does not
   assert.truthy(/if \(closeShop\) this\._closeShopOnHit\(\);/.test(lose[1]), 'only when the caller asks — a trap does not');
   const m = app.match(/\n  _closeShopOnHit\(\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m && /\.game-modal\[data-kind="shop"\]/.test(m[1]), 'it finds shop dialogs by kind');
-  assert.truthy(/if \(typeof kind === 'string'\) wrap\.dataset\.kind = kind;/.test(app), 'makeModalShell stamps the kind');
+  assert.truthy(/if \(typeof kind === 'string'\) wrap\.dataset\.kind = kind;/.test(MODAL_SHELL_SRC), 'makeModalShell stamps the kind');
   const flash = app.match(/\n  _flashPlayerHit\(dmg\) \{([\s\S]*?)\n  \}\n/);
   assert.falsy(/_closeShopOnHit/.test(flash[1]), 'not from the shared flinch a trap also uses');
 });

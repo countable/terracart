@@ -113,6 +113,11 @@ const FILES = [
   // levels are pure; only draw() touches Phaser, and no test calls it.
   'lighting.js',
   'render.js',
+  // The modal shell: its methods are DOM work on a mixin class nobody runs
+  // here, but its top level (MODAL_KINDS, the ART_* frame consts, the class
+  // body, installSceneMixin) must load with no app.js in scope — it is
+  // loaded before app.js in the page too.
+  'modal_shell.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
@@ -1138,6 +1143,9 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+// The modal shell (makeModalShell and the stock dialogs, MODAL_KINDS, the
+// scene-art frame consts) moved out of app.js; tests that pin it read this.
+ctx.MODAL_SHELL_SRC = readSrc('modal_shell.js');
 // Every module's text, for sweeps across the whole tree (lexical_globals.test.js).
 ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   .filter(f => f.endsWith('.js')).map(f => [f, readSrc(f)]));

@@ -106,9 +106,10 @@ test('treasure icon: the bake reads the sheets the renderer draws', () => {
 
 // ── The header takes it ───────────────────────────────────────────────────
 test('treasure icon: a sprite glyph replaces the emoji, ungreyed', () => {
-  const at = app.indexOf('const ico = document.createElement(\'span\');');
+  const shell = MODAL_SHELL_SRC;
+  const at = shell.indexOf('const ico = document.createElement(\'span\');');
   assert.truthy(at > 0, 'the kind header builds its glyph span');
-  const hdr = app.slice(at, at + 2400);
+  const hdr = shell.slice(at, at + 2400);
   assert.truthy(/if \(kindIcon\) \{/.test(hdr), 'a sprite glyph wins over the kind emoji');
   assert.truthy(/ico\.innerHTML = kindIcon;/.test(hdr), 'and is HTML, not text');
   // The greying is the EMOJI's dress — a grey chest reads as broken art.
@@ -118,9 +119,9 @@ test('treasure icon: a sprite glyph replaces the emoji, ungreyed', () => {
   assert.truthy(!/grayscale/.test(coin), 'nor is the coin branch - it is pixel art too');
   assert.truthy(/grayscale\(1\)/.test(hdr.slice(hdr.lastIndexOf('} else {'))),
     'the emoji branch still is');
-  assert.truthy(/kind, kindLabel, kindIcon[,\s\w=]*\} = \{\}\) \{/.test(app),
+  assert.truthy(/kind, kindLabel, kindIcon[,\s\w=]*\} = \{\}\) \{/.test(shell),
     'makeModalShell takes the override');
-  assert.truthy(/kind, kindLabel: header, kindIcon,/.test(app),
+  assert.truthy(/kind, kindLabel: header, kindIcon,/.test(shell),
     'and showChestRewardModal forwards it');
 });
 
