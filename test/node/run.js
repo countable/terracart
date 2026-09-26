@@ -82,7 +82,7 @@ const FILES = [
   // reads WorldGen at CALL time like traps.js, so it loads beside it.
   'lairs.js',
   'worldgen.js', 'save.js',
-  'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js',
+  'items.js', 'inventory.js', 'energy.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'shops_math.js', 'shops.js', 'rarity.js', 'loot.js', 'interactables.js', 'houses.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
   // combat.test.js registers a synthetic one), so it runs headless.
@@ -563,10 +563,10 @@ Object.assign(ctx, {
 
 // Claiming a castle — which castle it IS (a castle emits no house object; it is
 // a footprint plus a scatter of turrets), whether it has been claimed, and its
-// once-a-day favour (rest or a tax collection). Pure save + clock logic on the
-// Phaser scene class, so lift the methods as text and let castle_claim.test.js
-// drive the real ones. Depends on the global Delivery (delivery.js, loaded
-// above) for its day-key.
+// once-a-day favour (rest or a tax collection). The claim / key / daily-gate
+// rules are houses.js (Houses.*, tested directly in houses.test.js); the rest
+// and tax still live on the Phaser scene class, so lift those as text and let
+// castle_claim.test.js drive the real ones over the Houses wrappers.
 {
   const src = readSrc('app.js');
   const grab = (head) => {
@@ -595,11 +595,13 @@ Object.assign(ctx, {
     + 'globalThis.CASTLE_REST_ENERGY = CASTLE_REST_ENERGY;\n'
     + 'globalThis.CASTLE_TAX_GOLD = CASTLE_TAX_GOLD;\n'
     + 'globalThis.CastleMethods = {\n'
-    + '  _castleKey(house) {\n' + grab('  _castleKey(house) {\n') + '\n  },\n'
-    + '  isCastleClaimed(house) {\n' + grab('  isCastleClaimed(house) {\n') + '\n  },\n'
-    + '  _claimCastle(house) {\n' + grab('  _claimCastle(house) {\n') + '\n  },\n'
-    + '  _castleServiceUsedToday(house) {\n' + grab('  _castleServiceUsedToday(house) {\n') + '\n  },\n'
-    + '  _markCastleServiceUsed(house) {\n' + grab('  _markCastleServiceUsed(house) {\n') + '\n  },\n'
+    // The pure half now lives in houses.js; these are the scene's own one-line
+    // wrappers, so _castleRest / _castleTax below reach the real rules.
+    + '  _castleKey(house) { return Houses.castleKey(house); },\n'
+    + '  isCastleClaimed(house) { return Houses.isCastleClaimed(this.save, house); },\n'
+    + '  _claimCastle(house) { return Houses.claimCastle(this.save, house); },\n'
+    + '  _castleServiceUsedToday(house) { return Houses.castleServiceUsedToday(this.save, house); },\n'
+    + '  _markCastleServiceUsed(house) { return Houses.markCastleServiceUsed(this.save, house); },\n'
     + '  _castleRest(sx, sy, house) {\n' + grab('  _castleRest(sx, sy, house) {\n') + '\n  },\n'
     + '  _castleTax(sx, sy, house) {\n' + grab('  _castleTax(sx, sy, house) {\n') + '\n  },\n'
     + '};', ctx, { filename: 'castleClaim.js' });
@@ -793,9 +795,12 @@ Object.assign(ctx, {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {',
-                   '_isHouseWreck(house) {', '_wreckRestoreCost(house) {']
-    .map(lift).join(',\n');
+  // The wreck rules are houses.js now; the scene keeps one-line wrappers.
+  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {']
+    .map(lift).concat([
+      '_isHouseWreck(house) { return Houses.isHouseWreck(this.save, house); }',
+      '_wreckRestoreCost(house) { return Houses.wreckRestoreCost(this.save, house); }',
+    ]).join(',\n');
   vm.runInContext(`globalThis.__starterArrow = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_starterGuidanceGoal' });
   for (const k of ['_starterGuidanceGoal', '_nearestStarterCrate', '_isHouseWreck', '_wreckRestoreCost']) {

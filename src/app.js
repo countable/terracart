@@ -1509,33 +1509,8 @@ const EAT_COOLING_EDGE = '#37522f';
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
-// A fort, by contrast, is unsealed with materials — like restoring a wreck
-// house, the player pays a one-time stack of wood to open the quartermaster.
-// Recorded per-fort in save.unlockedForts.
-//
-// The wood price ALSO FOLLOWS A PROGRESSION: the first fort you unseal costs
-// FORT_UNLOCK_WOOD_START (6) wood and each later fort steps up by
-// FORT_UNLOCK_WOOD_STEP (6) — 6, 12, 18, 24, 30 … — capped at FORT_UNLOCK_WOOD
-// (30). The step index is "how many forts already unsealed" (save.unlockedForts).
-const FORT_UNLOCK_WOOD = 30;
-const FORT_UNLOCK_WOOD_START = 6;
-const FORT_UNLOCK_WOOD_STEP = 6;
-// Pre-seeded house roles by RESTORE ORDER (0-based). Rather than skinning the
-// two nearest houses as blacksmith/trader up front, a wreck reveals its role
-// from the order the player restores it: the opening stretch is a fixed
-// tutorial run (blacksmith, trader, house, market) and the 15th
-// restore is always a wizard tower. Restores BEYOND these slots fall back to
-// the address-derived Shops.shopType so the wider neighbourhood keeps its
-// organic variety. 'plain' === a plain residential house (no shop). The chosen
-// role is frozen into save.restoredHouses[id] at restore time so it never
-// shifts on later loads.
-const PRESEED_RESTORE_ROLES = {
-  0:  'blacksmith',
-  1:  'trader',
-  2:  'plain',
-  3:  'market',
-  14: 'wizard',   // the 15th restored wreck is a wizard tower
-};
+// The fort unlock wood ladder (FORT_UNLOCK_WOOD*) and the pre-seeded restore
+// roles (Houses.PRESEED_RESTORE_ROLES) live in houses.js with the rules that read them.
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
 // the tier cap (PRODUCE_TIER_MIN/MAX, TIER_UNLOCK_EVERY) and the wishlist roll
 // now live with the rest of the delivery logic in delivery.js (Delivery.tierCap).
@@ -15379,59 +15354,14 @@ class MapScene extends Phaser.Scene {
     this._starterShopOk = true;
   }
 
-  // Wooden-tool blacksmith. The house closest to Home (the starter shop)
-  // is forced to be a Blacksmith that forges T1 pick / axe / hoe out of
-  // a flat 5 wood each (see starterBlacksmithRecipe).
-  // Memoized once like starterShopId so reloads + roaming keep the same shop.
-  // Falls through to the normal random-relic forge once all three wooden
-  // tools have been crafted — the smithy keeps doing useful business.
-  isStarterBlacksmith(house) {
-    if (!house || !house.id) return false;
-    // The starter blacksmith is now whichever wreck is restored FIRST (it gets
-    // the 'blacksmith' role + this id stamped at restore time — see
-    // presentWreckRestoreModal). No longer force-anchored to the nearest house,
-    // so there's no lazy nearest-house resolution here.
-    return this.save.starterBlacksmithId != null
-      && this.save.starterBlacksmithId === house.id;
-  }
+  isStarterBlacksmith(house) { return Houses.isStarterBlacksmith(this.save, house); }
 
-  // The shop role a (restored) house plays: 'blacksmith' | 'trader' | 'market'
-  // | 'wizard', or null for a plain residential house. Single source of truth
-  // for both the renderer and the interaction handler. Once a wreck is restored
-  // its role is frozen into save.restoredHouses[id] as a role string and read
-  // straight back here. Legacy `true` entries (saved before role-freezing) and
-  // any house consulted before restore fall back to the address-derived
-  // Shops.shopType, plus the first-restored starter blacksmith.
-  houseShopRole(house) {
-    if (!house || house.kind !== 'house') return null;
-    const stored = this.save.restoredHouses && this.save.restoredHouses[house.id];
-    if (typeof stored === 'string') return stored === 'plain' ? null : stored;
-    if (this.save.starterBlacksmithId && this.save.starterBlacksmithId === house.id) return 'blacksmith';
-    return (typeof Shops !== 'undefined' && Shops.shopType(house)) || null;
-  }
+  houseShopRole(house) { return Houses.houseShopRole(this.save, house); }
 
-  // Resolve the role a wreck reveals when restored, given its 0-based restore
-  // order. Fixed tutorial slots (PRESEED_RESTORE_ROLES) win; everything else
-  // defers to the address-derived shop type so the neighbourhood keeps its
-  // variety. Always returns a concrete role string ('plain' for a house).
-  _preseedRestoreRole(order, house) {
-    // A save with NO blacksmith gets one on its next rebuild, whatever slot
-    // that is. Slot 0 is the smithy, so a new save never needs this — but a
-    // save whose first rebuilds predate the restore-order roles (or any other
-    // path that left it without one) would otherwise never meet the forge.
-    if (!this._hasBlacksmith()) return 'blacksmith';
-    if (Object.prototype.hasOwnProperty.call(PRESEED_RESTORE_ROLES, order)) {
-      return PRESEED_RESTORE_ROLES[order];
-    }
-    return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
-  }
+  // Resolve the role a wreck reveals when restored — see Houses.preseedRestoreRole.
+  _preseedRestoreRole(order, house) { return Houses.preseedRestoreRole(this.save, order, house); }
 
-  // Does this save have a smithy? The stamped starter smithy, or any restored
-  // house frozen as one (a later address-9 house counts too).
-  _hasBlacksmith() {
-    if (this.save.starterBlacksmithId != null) return true;
-    return Object.values(this.save.restoredHouses || {}).includes('blacksmith');
-  }
+  _hasBlacksmith() { return Houses.hasBlacksmith(this.save); }
 
   // The line and tier a themed shop (role key 'market') sells: its place in
   // the save's restore order of shops, through Shops.themeAt — seed, supply,
@@ -15817,16 +15747,8 @@ class MapScene extends Phaser.Scene {
     const ms = ShopsMath.msToNextBucket(house);
     return ms > 0 ? `in ${shortDuration(ms)}` : 'later';
   }
-  // Flower charm: 0.5 while this building holds an unexpired charm (bought
-  // with a Flowers gift — see the flower-gift branch in shopInteract), else 1.
-  // Every cash price a shop quotes multiplies by this in one of two places:
-  // buildShopOffer (seed/produce storefronts) and presentRelicOffer (castle /
-  // relic-swap offers).
-  shopCharmMul(house) {
-    const until = house && house.id != null && this.save.shopCharm
-      ? this.save.shopCharm[house.id] : 0;
-    return until && Date.now() < until ? 0.5 : 1;
-  }
+  // Flower charm multiplier — see Houses.shopCharmMul.
+  shopCharmMul(house) { return Houses.shopCharmMul(this.save, house); }
   shopBucketState(house) {
     return ShopsMath.bucketState(this.save, house);
   }
@@ -17310,24 +17232,11 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // by shopInteract to route to the restore modal and by the render layer
-  // indirectly via save.restoredHouses (see _houseRole in render.js).
-  _isHouseWreck(house) {
-    if (!house || house.kind !== 'house') return false;
-    if (house.tier !== 9) return false;   // forts (11) + castles (12) skip wreck
-    if (this.save.starterShopId && this.save.starterShopId === house.id) return false;
-    return !this.save.restoredHouses?.[house.id];
-  }
+  // A wreck the player has not restored yet — see Houses.isHouseWreck.
+  _isHouseWreck(house) { return Houses.isHouseWreck(this.save, house); }
 
-  // Restoration cost: stone (rockfruit — wild residential debris, gatherable
-  // bare-handed): 1 for the first rebuild, one more per house already
-  // restored, capped at 20 (wreckRestoreQty in items.js). A whole price, so
-  // the dialog's quote is the accept's charge. Themed shops and plain
-  // residential alike rebuild from the same masonry.
-  _wreckRestoreCost(house) {
-    const restored = Object.keys(this.save?.restoredHouses || {}).length;
-    return { id: 'rockfruit', qty: wreckRestoreQty(restored), material: 'stone' };
-  }
+  // Restoration cost — see Houses.wreckRestoreCost.
+  _wreckRestoreCost(house) { return Houses.wreckRestoreCost(this.save, house); }
 
   presentWreckRestoreModal(sx, sy, house) {
     const cost = this._wreckRestoreCost(house);
@@ -17439,121 +17348,30 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // Wood this fort demands to unseal, following the per-fort progression
-  // (see FORT_UNLOCK_WOOD_START): START + STEP×(forts already unsealed), capped
-  // at FORT_UNLOCK_WOOD. A locked fort isn't yet in save.unlockedForts, so the
-  // map's size is the 0-based index of the fort about to be paid for.
-  _fortUnlockCost() {
-    const unlocked = Object.keys(this.save.unlockedForts || {}).length;
-    return Math.min(
-      FORT_UNLOCK_WOOD_START + FORT_UNLOCK_WOOD_STEP * unlocked,
-      FORT_UNLOCK_WOOD,
-    );
-  }
+  // Wood this fort demands to unseal — see Houses.fortUnlockCost / FORT_UNLOCK_WOOD*.
+  _fortUnlockCost() { return Houses.fortUnlockCost(this.save); }
 
-  // True iff `house` is a castle still sealed: a castle opens by solving the
-  // job on ITS quest board and nothing else. (Until Sep 2026 a lifetime
-  // delivery tally of 2..5 also unsealed it, left behind when the quest board
-  // replaced that gate — so five deliveries opened every castle in the world
-  // and the board was skipped. Reaching a delivery count is a quest VERB now,
-  // quests.js 'deliver', never a gate of its own.)
-  _isBuildingSealed(house) {
-    if (!house || !isCastle(house)) return false;
-    // Claimed outright — the player solved a quest at THIS castle, so it is
-    // theirs for good and the quest board never comes back here.
-    if (this.isCastleClaimed(house)) return false;
-    // A save that finished the old global three-quest chain had every castle
-    // open; the per-castle seal must not take that back (see the migration in
-    // quests.js _qs).
-    if (this.save.castlesLegacyOpen) return false;
-    // A castle opened under the retired delivery gate stays open — the same
-    // courtesy castlesLegacyOpen pays the old chain. Read-only: nothing
-    // writes save.openedCastles any more.
-    if (house.id && this.save.openedCastles?.[house.id]) return false;
-    // PER CASTLE, now that the board never runs dry. This was global — finish
-    // the three-quest chain and every castle in the world opened at once —
-    // which was the only thing it could be while there were exactly three
-    // quests. With a generator behind the board there is always a job at every
-    // castle, so each one is earned where it stands.
-    return true;
-  }
+  // True iff `house` is a castle still sealed — see Houses.isBuildingSealed.
+  _isBuildingSealed(house) { return Houses.isBuildingSealed(this.save, house); }
 
   // The sealed castle gate — now delegates to the quest board.
   presentSealedBuildingModal(sx, sy, house) {
     this.showQuestBoard(sx, sy, house);
   }
 
-  // WHICH CASTLE this is. A castle emits no house object of its own — it is a
-  // block of tier-12 cells with a scatter of `tower` objects round its rim,
-  // one per ~5 perimeter cells, each carrying its own id. So a tower id names
-  // A TURRET, not a castle, and anything recorded against one made the same
-  // castle read as claimed from one corner and unclaimed from another.
-  // worldgen stamps every turret with its footprint's stable key (`castle`);
-  // that is the only thing that means "this castle".
-  _castleKey(house) {
-    return (house && house.castle) || null;
-  }
+  // WHICH CASTLE this is — see Houses.castleKey.
+  _castleKey(house) { return Houses.castleKey(house); }
 
-  // IS THE BUILDING UNDER THIS CELL THE PLAYER'S? One predicate over every way
-  // a building can become yours, keyed by whatever worldgen stamped on the
-  // cell (see ownerKeys): a house by its own id, a fort by its own id, a
-  // castle by its footprint key. Home counts however it was adopted — a real
-  // house or the synthetic trailer.
-  //
-  // Everything else is somebody else's, and the renderer washes it toward
-  // dark green so the map reads at a glance as what you have taken back.
-  isClaimedKey(key) {
-    if (!key) return false;
-    const sv = this.save;
-    if (sv.starterShopId && sv.starterShopId === key) return true;   // Home
-    if (sv.restoredHouses && sv.restoredHouses[key]) return true;    // rebuilt wreck
-    if (sv.unlockedForts && sv.unlockedForts[key]) return true;      // unsealed fort
-    if (sv.claimedCastles && sv.claimedCastles[key] != null) return true;
-    return false;
-  }
+  // IS THE BUILDING UNDER THIS CELL THE PLAYER'S? — see Houses.isClaimedKey.
+  isClaimedKey(key) { return Houses.isClaimedKey(this.save, key); }
 
-  // Has the player solved a quest AT this castle? Claiming is per castle and
-  // permanent: the vault opens, the banner goes up, and the quest board never
-  // comes back here — the next job is somewhere else, which is what makes the
-  // map worth walking.
-  isCastleClaimed(house) {
-    const key = this._castleKey(house);
-    // PRESENCE, not truthiness: the value is the last hearth draw and a castle
-    // claimed but never drawn from stores 0, which is falsy.
-    return !!key && this.save.claimedCastles?.[key] != null;
-  }
+  isCastleClaimed(house) { return Houses.isCastleClaimed(this.save, house); }
 
-  // Record the claim. Stores the last hearth draw (0 = never drawn), so the
-  // one map carries both "is it claimed" and "when did it last feed you".
-  _claimCastle(house) {
-    const key = this._castleKey(house);
-    if (!key) return false;
-    this.save.claimedCastles = this.save.claimedCastles || {};
-    if (this.save.claimedCastles[key] != null) return false;
-    this.save.claimedCastles[key] = 0;
-    return true;
-  }
+  _claimCastle(house) { return Houses.claimCastle(this.save, house); }
 
-  // The castle's daily favour, gated to once per castle per UTC day. Reuses
-  // the scene's one day key (Delivery.dayKey) rather than the
-  // coin-burst POI's composite-key idiom, since there's only ever one thing to
-  // remember per castle: the day its service was last used.
-  _castleServiceUsedToday(house) {
-    const key = this._castleKey(house);
-    return !!key && this.save.castleServiceClaimed?.[key] === Delivery.dayKey();
-  }
-  _markCastleServiceUsed(house) {
-    const key = this._castleKey(house);
-    if (!key) return;
-    const dayKey = Delivery.dayKey();
-    this.save.castleServiceClaimed = this.save.castleServiceClaimed || {};
-    // Prune every OTHER castle's stale day stamp while we're here — the map
-    // can't grow without bound across weeks of play.
-    for (const k of Object.keys(this.save.castleServiceClaimed)) {
-      if (this.save.castleServiceClaimed[k] !== dayKey) delete this.save.castleServiceClaimed[k];
-    }
-    this.save.castleServiceClaimed[key] = dayKey;
-  }
+  // Once-per-castle-per-UTC-day gate — see Houses.castleServiceUsedToday.
+  _castleServiceUsedToday(house) { return Houses.castleServiceUsedToday(this.save, house); }
+  _markCastleServiceUsed(house) { return Houses.markCastleServiceUsed(this.save, house); }
   // REST: a flat CASTLE_REST_ENERGY, once a day (it was a tenth of the bar, the
   // same fraction the old hourly
   // hearth gave — just once a day now instead of once an hour. Silent (no-op)
@@ -17674,13 +17492,8 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // True iff `house` is a fort the player hasn't unsealed yet. Forts (tier 11)
-  // open with a one-time wood payment (FORT_UNLOCK_WOOD), tracked per-fort in
-  // save.unlockedForts — the wood analogue of _isHouseWreck for tier-9 homes.
-  _isFortLocked(house) {
-    if (!house || house.tier !== 11) return false;
-    return !this.save.unlockedForts?.[house.id];
-  }
+  // True iff `house` is a fort the player hasn't unsealed yet — see Houses.isFortLocked.
+  _isFortLocked(house) { return Houses.isFortLocked(this.save, house); }
 
   // Pay-to-unseal modal for a locked fort. Costs FORT_UNLOCK_WOOD wood, mirrors
   // the wreck-restore flow: shown even when unaffordable (so the player sees
