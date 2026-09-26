@@ -91,10 +91,10 @@ test('wander-off: one more reason in the lanes that exist, not a lane of its own
   const w = app.slice(start, app.indexOf('\n  }\n', start));
   assert.truthy(/const wanderOff = !isTame && !c\.lair && Combat\.isEnemy\(c\)\s*&& monsterWanderingOff\(/.test(w),
     'only a wild, non-lair enemy wanders off');
-  assert.truthy(/const standDown = homeWard \|\| wanderOff \|\| /.test(w),
+  assert.truthy(/const standDown = warded \|\| wanderOff \|\| /.test(w),
     'while it goes it does not leech, hit, shoot or charge (standDown)');
-  assert.truthy(/const routed = homeWard \|\| wanderOff;/.test(w), 'it runs at the rout pace');
-  const ward = w.indexOf('} else if (homeWard) {');
+  assert.truthy(/const routed = warded \|\| wanderOff;/.test(w), 'it runs at the rout pace');
+  const ward = w.indexOf('} else if (warded) {');
   const off = w.indexOf('} else if (wanderOff) {');
   const slime = w.indexOf("} else if (c.kind === 'slime') {");
   const mon = w.indexOf('} else if (isMon) {');
@@ -120,6 +120,7 @@ function fireScene(creature, over = {}) {
     isShadowActive: () => false,
     isUnnoticed() { return this.isShadowActive() || Combat.playerDowned(this.save.energy); },
     homeWorldPos: () => null,
+    _castleWardPoints: () => [],
     playerToWorldCell: () => ({ tx: 0, ty: 0, ix: 0, iy: 0 }),
     cellAt: () => ({ loaded: true, type: 0 }),
     _cellBlocked: () => false,

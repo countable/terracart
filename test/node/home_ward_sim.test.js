@@ -30,6 +30,7 @@ function wardScene(creature, over = {}) {
     isShadowActive: () => false,
     isUnnoticed() { return this.isShadowActive() || Combat.playerDowned(this.save.energy); },
     homeWorldPos: () => HOME,                 // the ward is ON
+    _castleWardPoints: () => [],              // no claimed castle near
     playerToWorldCell: () => ({ tx: 0, ty: 0, ix: 0, iy: 0 }),
     cellAt: () => ({ loaded: true, type: 0 }),   // 0 = GRASS, walkable
     _cellBlocked: () => false,
@@ -142,6 +143,40 @@ test('ward: no Home, no ward — the same slime hangs around the player', () => 
   run(scene, 90);
   assert.lt(fromHome(slime), CREATURE_SIM_CELLS - 1,
     'without Home there is nothing driving it off');
+});
+
+// A CASTLE YOU CLAIMED wards like Home: the same latch and rout, from the
+// turret the foe strayed near. Home switched OFF, one claimed turret at the
+// origin where Home stood.
+test('ward: a claimed castle routs a foe the way Home does', () => {
+  const slime = mkSlime();
+  const tower = { kind: 'tower', castle: 'castle_1', x: 0, y: 0 };
+  const scene = wardScene(slime, { homeWorldPos: () => null, _castleWardPoints: () => [tower] });
+  run(scene, 90);
+  assert.gt(fromHome(slime), CREATURE_SIM_CELLS - 1, 'it ran the whole way out from the turret');
+});
+
+test('ward: a goblin runs from a claimed castle too', () => {
+  const gob = { kind: 'goblin', id: 'mon_ward_gob', x: CELL, y: 0 };
+  const tower = { kind: 'tower', castle: 'castle_1', x: 0, y: 0 };
+  const scene = wardScene(gob, { homeWorldPos: () => null, _castleWardPoints: () => [tower] });
+  run(scene, 90);
+  assert.gt(fromHome(gob), CREATURE_SIM_CELLS - 1, 'a cave monster is an enemy and is warded');
+});
+
+test('ward: wardTrip — Home first, else the nearest turret inside the ring', () => {
+  const r2 = (HOME_R * CELL) ** 2;
+  const home = { x: 0, y: 0 }, far = { x: 100 * CELL, y: 0 }, near = { x: 3 * CELL, y: 0 };
+  assert.eq(__wardTrip({ x: CELL, y: 0 }, home, [near], r2), home, 'inside Home\'s ring: Home');
+  assert.eq(__wardTrip({ x: 5 * CELL, y: 0 }, null, [far, near], r2), near, 'the turret it is near');
+  assert.eq(__wardTrip({ x: 50 * CELL, y: 0 }, home, [near], r2), null, 'outside every ring: nothing');
+});
+
+test('ward: only a CLAIMED castle\'s turrets ward, and only on the surface', () => {
+  const src = APP_JS_SRC;
+  const body = src.slice(src.indexOf('  _castleWardPoints(now, pc) {'), src.indexOf('  homeWorldPos() {'));
+  assert.truthy(/if \(\(this\.depth \|\| 0\) !== 0 \|\| !pc\) return \[\];/.test(body), 'surface only');
+  assert.truthy(/o\.kind === 'tower' && this\.isClaimedKey\(o\.castle\)/.test(body), 'the turret test _turretFire reads');
 });
 
 test('ward: a tamed slime is a pet and is not driven from its own home', () => {

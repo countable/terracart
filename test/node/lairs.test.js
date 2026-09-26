@@ -1200,7 +1200,7 @@
     const body = w.slice(0, w.indexOf('\n  }\n'));
     const hunt = body.indexOf("} else if (lairState === 'hunt') {");
     const home = body.indexOf("} else if (lairState === 'return') {");
-    const ward = body.indexOf('} else if (homeWard) {');
+    const ward = body.indexOf('} else if (warded) {');
     const slime = body.indexOf("} else if (c.kind === 'slime') {");
     assert.gt(hunt, ward, "Home's ward outranks a garrison's chase");
     assert.gt(home, hunt, 'the chase is asked before the walk home');

@@ -69,7 +69,7 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
     'the Shadow Powder is never read on its own inside the sim loop');
   // The five branches, by the expression each is gated on.
   const gates = [
-    // The `!homeWard` half of these three became `!standDown` when the lair
+    // The `!warded` half of these three became `!standDown` when the lair
     // guards learned to give up and walk home: same lane, one more reason
     // (Home's ward, or a garrison that is not hunting you).
     [/c\.kind === 'slime' && !isTame && !unnoticed && !standDown/, 'the slime leech'],

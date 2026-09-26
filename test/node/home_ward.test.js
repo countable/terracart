@@ -143,7 +143,7 @@ const wander = (() => {
 })();
 
 test('ward: what is warded is what the game calls an ENEMY', () => {
-  assert.truthy(/const homeFoe = !!homePos && !isTame && Combat\.isEnemy\(c\);/.test(wander),
+  assert.truthy(/const wardFoe = \(!!homePos \|\| castleWards\.length > 0\) && !isTame && Combat\.isEnemy\(c\);/.test(wander),
     'Combat.isEnemy — the registered-hostile test, so a kind added to the '
     + 'monster table is warded the day it ships, and a tamed slime is not');
   assert.truthy(/const homePos = this\.homeWorldPos\(\);/.test(wander),
@@ -153,7 +153,7 @@ test('ward: what is warded is what the game calls an ENEMY', () => {
 });
 
 test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', () => {
-  assert.truthy(/\} else if \(homeWard\) \{[\s\S]{0,900}?angle = Math\.atan2\(c\.y - homePos\.y, c\.x - homePos\.x\)/.test(wander),
+  assert.truthy(/\} else if \(warded\) \{[\s\S]{0,900}?angle = Math\.atan2\(c\.y - c\._wardFrom\.y, c\.x - c\._wardFrom\.x\)/.test(wander),
     'the angle is away from HOME');
   // Away-from-PLAYER would shove the foe around the ring with the player
   // still inside it, so the branch must not read the player's bearing.
@@ -161,24 +161,24 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
   // hunt and walk-home branches were added between this one and the slime's,
   // and a slice pinned to the slime would have swept them in and read their
   // player bearing as this branch's.
-  const branch = wander.match(/\} else if \(homeWard\) \{([\s\S]*?)\n          \} else if /);
+  const branch = wander.match(/\} else if \(warded\) \{([\s\S]*?)\n          \} else if /);
   assert.truthy(branch, 'the ward branch has a branch after it');
   assert.falsy(/dxp|dyp/.test(branch[1]), 'not away-from-player');
   // It still outranks everything that chases: a foe being walked out of the
   // ring goes, whatever else it would rather be doing.
-  assert.lt(wander.indexOf('} else if (homeWard) {'),
+  assert.lt(wander.indexOf('} else if (warded) {'),
     wander.indexOf("} else if (lairState === 'hunt') {"),
     'the ward outranks a garrison\'s chase');
   // And it is an ANGLE, never a refused target cell — a foe deep inside the
   // ring would have all six attempts rejected by a cell test and freeze on
   // the doorstep (the stall the scarecrow comment warns about).
-  assert.falsy(/homeWard[^\n]*\)\s*continue;/.test(wander), 'no refused-cell ward');
+  assert.falsy(/warded[^\n]*\)\s*continue;/.test(wander), 'no refused-cell ward');
   // Both drains are gated: a ward that let a slime leech its way to the door
   // makes the doorstep no safer, only slower to lose the bar on.
   // Through `standDown`, which is Home's ward plus the two lair-guard reasons
   // for the same thing — one read, three reasons (CLAUDE.md).
-  assert.truthy(/const standDown = homeWard \|\| /.test(wander),
-    'standDown is built from homeWard');
+  assert.truthy(/const standDown = warded \|\| /.test(wander),
+    'standDown is built from warded');
   assert.truthy(/if \(c\.kind === 'slime' && !isTame &&[^)]*!standDown\) \{/.test(wander),
     "the slime's leech is off inside the ring");
   assert.truthy(/if \(Combat\.isMonster\(c\.kind\) &&[^)]*!standDown\) \{/.test(wander),
@@ -223,13 +223,13 @@ test('ward: it is a LATCH — tripped at the ring, released at the bubble', () =
     'the rout radius IS CREATURE_SIM_CELLS — the 12-cell edge, one number');
 
   const wander = app.slice(app.indexOf('  wanderCreatures('));
-  assert.truthy(/if \(homeD2 <= HOME_WARD_R2\) c\._routedFromHome = true;/.test(wander),
+  assert.truthy(/c\._wardFrom = wardTrip\(c, homePos, castleWards, HOME_WARD_R2\);/.test(wander),
     'HOME_R is what trips it');
-  assert.truthy(/else if \(homeD2 > HOME_ROUT_R2\) c\._routedFromHome = false;/.test(wander),
+  assert.truthy(/if \(fd2 > HOME_ROUT_R2\) c\._wardFrom = null;/.test(wander),
     'and the bubble edge is the ONLY thing that releases it');
-  assert.truthy(/const homeWard = homeFoe && !!c\._routedFromHome;/.test(wander),
+  assert.truthy(/const warded = wardFoe && !!c\._wardFrom;/.test(wander),
     'the ward IS the latch — no second radius test to fall out of');
-  assert.truthy(/const homeFoe = !!homePos && !isTame && Combat\.isEnemy\(c\);/.test(wander),
+  assert.truthy(/const wardFoe = \(!!homePos \|\| castleWards\.length > 0\) && !isTame && Combat\.isEnemy\(c\);/.test(wander),
     'a pet is never routed from its own home, and there is no ward off the surface');
 
   // A blow no longer routs on its own: a foe close enough to hit at Home is
@@ -239,7 +239,7 @@ test('ward: it is a LATCH — tripped at the ring, released at the bubble', () =
   // Comments stripped: this one talks about the ward it no longer implements.
   const head = dmg.slice(0, dmg.indexOf('\n  }\n'))
     .split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
-  assert.falsy(/_routedFromHome = true/.test(head),
+  assert.falsy(/_wardFrom =/.test(head),
     'the rout is the ring\'s to set, not the blow\'s');
   assert.falsy(/HOME_R|homeWorldPos/.test(head),
     'and _damageEnemy has no idea of Home at all any more');
@@ -282,9 +282,9 @@ test('ward: the routed foe is driven by the SAME angle, so it cannot stall', () 
   // foe around the ring, and a cell test would reject all six attempts for one
   // deep inside a 12-cell ring and freeze it on the doormat — which is exactly
   // the stall the ward's own comment warns about, made twelve cells wide.
-  const ward = app.slice(app.indexOf('} else if (homeWard) {') + 1);
+  const ward = app.slice(app.indexOf('} else if (warded) {') + 1);
   const branch = ward.slice(0, ward.indexOf('} else if'));
-  assert.truthy(/Math\.atan2\(c\.y - homePos\.y, c\.x - homePos\.x\)/.test(branch),
+  assert.truthy(/Math\.atan2\(c\.y - c\._wardFrom\.y, c\.x - c\._wardFrom\.x\)/.test(branch),
     'away from HOME, at any radius');
   assert.falsy(/continue;/.test(branch),
     'an angle, never a refused cell — a 12-cell refusal ring would stall it');
@@ -310,7 +310,7 @@ test('ward: the ring is one number, and Home out-rests and out-reaches a fire', 
     'Home reaches further than the field expedient it replaces');
   // Selling is untouched by any of this: the trade panel is a tap on the
   // building, not an effect of the ring.
-  assert.falsy(/homeWard[^\n]*shop/i.test(app), 'the ward knows nothing about the shop');
+  assert.falsy(/warded[^\n]*shop/i.test(app), 'the ward knows nothing about the shop');
 });
 
 // ── The fire ward's depth cap ────────────────────────────────────────────
@@ -342,7 +342,7 @@ test('fire ward: wanderCreatures reads the same cap the table is built on', () =
     'the surface slime and any monster at or under the depth cap are averted');
   assert.truthy(/if \(fireAverts && this\._nearAny\('fires', tx, ty, FIRE_REST_R\)\) continue;/.test(wander),
     "a refused target cell, exactly like the scarecrow ward above it — a fire never triggers a home-style flee");
-  // The fire ward never gates a monster's ATTACK the way homeWard does — it
+  // The fire ward never gates a monster's ATTACK the way warded does — it
   // only keeps a warded kind from wandering closer, so a monster already in
   // range when the fire is lit can still land its hit. Weaker than Home on
   // purpose: a campfire is a field expedient, not a doorstep.

@@ -1385,6 +1385,23 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // What Home has that a fire hasn't is the shop: the trade panel is a TAP on
 // the building, not an effect of the ring, and is untouched by any of this.
 const HOME_R = 4;   // cells — Home's light / rest / ward ring
+
+// Which ward, if any, a foe at c has just crossed into: Home first, then the
+// nearest claimed-castle turret, each on the one ring (r2 = HOME_R², metres).
+// Returns the ward's point (the rout runs away from it) or null. Pure, so the
+// ward test drives it headless.
+function wardTrip(c, homePos, castleWards, r2) {
+  if (homePos) {
+    const dx = c.x - homePos.x, dy = c.y - homePos.y;
+    if (dx * dx + dy * dy <= r2) return homePos;
+  }
+  let best = null, bestD2 = r2;
+  for (const t of castleWards || []) {
+    const dx = c.x - t.x, dy = c.y - t.y, d2 = dx * dx + dy * dy;
+    if (d2 <= bestD2) { best = t; bestD2 = d2; }
+  }
+  return best;
+}
 // Time-since-tab-close that grants the FULL energy bar back (1h, pro-rated
 // linearly) now lives with the offline-rest formula in energy.js as
 // Energy.OFFLINE_FULL_REST_MS.
@@ -8092,7 +8109,7 @@ class MapScene extends Phaser.Scene {
     if (!wasCharging && c.kind === 'slime') c._nextChooseT = 0;
     // Nothing here about Home's rout: a foe hit at the doorstep is a foe
     // INSIDE Home's ring, and the ring itself is what routs it now
-    // (wanderCreatures' `_routedFromHome` latch). This carried a second copy
+    // (wanderCreatures' `_wardFrom` latch). This carried a second copy
     // of that test — homeWorldPos, HOME_R, Combat.isEnemy — for the case where
     // the ward was a bare radius and only a blow could extend it.
     const now = performance.now();
@@ -8705,6 +8722,11 @@ class MapScene extends Phaser.Scene {
     // (CREATURE_SIM_CELLS), which is where a creature stops thinking at all, so
     // "it ran off" means gone rather than circling the doormat.
     const HOME_ROUT_R2 = (CREATURE_SIM_CELLS * this.cellM) * (CREATURE_SIM_CELLS * this.cellM);
+    // A CASTLE YOU HAVE TAKEN BACK WARDS LIKE HOME: every turret of a claimed
+    // castle (the same isClaimedKey test that mans its walls — _turretFire) is
+    // a ward point on Home's ring, HOME_R. One lane, a second reason: the same
+    // latch, the same away-from-the-point angle, the same stood-down bite.
+    const castleWards = this._castleWardPoints(now, pcW);
     // Pest spawn: if the player has any planted crop and there are NO wild
     // crows already near the player, spawn one off-screen every ~90 s. The
     // crow's wander loop targets the nearest crop and destroys it on contact
@@ -8792,7 +8814,7 @@ class MapScene extends Phaser.Scene {
       // it ships, and a sapphire-tamed slime is a pet and walks where it likes.
       //
       // THE WARD IS A LATCH, NOT A FENCE, and that is the whole of it: crossing
-      // HOME_R sets `_routedFromHome`, and only the sim bubble's edge clears it.
+      // HOME_R sets `_wardFrom`, and only the sim bubble's edge clears it.
       // A plain radius test made the ring a turnstile — a foe stepped out at
       // four cells, stopped being warded on the doorstep's own edge and turned
       // straight back in, so the yard was quiet for one hop and the player
@@ -8802,15 +8824,20 @@ class MapScene extends Phaser.Scene {
       // (Lairs.guardState). Being hit inside the ring needs no branch of its
       // own any more — a foe close enough to hit at Home is already inside the
       // ring, so it is already routed.
-      const homeD2 = homePos
-        ? (c.x - homePos.x) * (c.x - homePos.x) + (c.y - homePos.y) * (c.y - homePos.y)
-        : Infinity;
-      const homeFoe = !!homePos && !isTame && Combat.isEnemy(c);
-      if (homeFoe) {
-        if (homeD2 <= HOME_WARD_R2) c._routedFromHome = true;          // tripped
-        else if (homeD2 > HOME_ROUT_R2) c._routedFromHome = false;     // released
+      //   The latch remembers WHICH ward tripped it (`_wardFrom`, a point:
+      // Home, or a claimed castle's turret), because the rout angle and the
+      // release both measure from that point.
+      const wardFoe = (!!homePos || castleWards.length > 0) && !isTame && Combat.isEnemy(c);
+      if (wardFoe) {
+        const from = c._wardFrom;
+        if (from) {
+          const fd2 = (c.x - from.x) * (c.x - from.x) + (c.y - from.y) * (c.y - from.y);
+          if (fd2 > HOME_ROUT_R2) c._wardFrom = null;                   // released
+        } else {
+          c._wardFrom = wardTrip(c, homePos, castleWards, HOME_WARD_R2); // tripped?
+        }
       }
-      const homeWard = homeFoe && !!c._routedFromHome;
+      const warded = wardFoe && !!c._wardFrom;
       // WANDERING OFF (monsterWanderingOff, WANDER_OFF_*): every few minutes a
       // wild foe turns its back and walks to the edge of its range, so none
       // piles up forever against a campfire's refused ring. A lair guard has
@@ -8820,7 +8847,7 @@ class MapScene extends Phaser.Scene {
       // ROUTED: turned onto an away angle at the flee pace — by Home's ward, or
       // by wandering off. Two reasons, one pace; the angle chain says away from
       // WHAT (Home, or the player).
-      const routed = homeWard || wanderOff;
+      const routed = warded || wanderOff;
       // A LAIR GUARD'S THREE STATES — src/lairs.js owns the rings, the
       // hysteresis and the arrival test; this asks once and stores the
       // hysteresis back (session state on the creature, like `_hp`).
@@ -8835,14 +8862,14 @@ class MapScene extends Phaser.Scene {
       c._hunting = lairState === 'hunt';
       // ONE READ FOR "THIS FOE IS NOT ATTACKING YOU RIGHT NOW", the way
       // `unnoticed` is one read for "no hostile takes an interest in you".
-      // Home's ward is one reason, a foe wandering off is another, and a
+      // A ward (Home, or a castle you claimed) is one reason, a foe wandering off is another, and a
       // garrison that has not noticed you (or has given up on you) is two
       // more — the same lane arriving for a
       // different reason, so the attack gates below ask this rather than
       // growing a second condition each. The MOVEMENT chain still asks
-      // `homeWard` by name: an away-from-Home angle and a walk back to a seat
+      // `warded` by name: an away-from-the-ward angle and a walk back to a seat
       // are two mechanisms, not one, whatever they have in common here.
-      const standDown = homeWard || wanderOff || (!!lairState && lairState !== 'hunt');
+      const standDown = warded || wanderOff || (!!lairState && lairState !== 'hunt');
       // Slime energy steal: a slime sitting on/near the player drains 1 energy
       // on a per-slime cooldown. Accumulated across all slimes this frame and
       // surfaced with one throttled flash after the loop (see below) so a swarm
@@ -9004,7 +9031,7 @@ class MapScene extends Phaser.Scene {
       // not warded off. Resolved once here because both halves of the charge
       // read it — the quickened beat just below and the committed angle in the
       // chain — and they must not disagree about whether this is a charge.
-      // A tamed slime is a pet and never charges its owner; `homeWard` and
+      // A tamed slime is a pet and never charges its owner; `warded` and
       // `unnoticed` (shadowed, or a player downed on an empty bar) are the two
       // wards that switch it off (the campfire's is a refused target cell, so
       // it needs nothing here).
@@ -9187,8 +9214,9 @@ class MapScene extends Phaser.Scene {
             // all three were the same line with a different number in it —
             // and the number is on the kind now.
             angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * bolt.jitter;
-          } else if (homeWard) {
-            // Away from HOME, not away from the PLAYER: away-from-player would
+          } else if (warded) {
+            // Away from the WARD (Home, or the claimed castle's turret that
+            // tripped it — `_wardFrom`), not away from the PLAYER: away-from-player would
             // shove the foe around the ring with the player still inside it,
             // and one standing on the far side of Home would be driven
             // straight through the door. Away-from-home always leaves.
@@ -9198,7 +9226,7 @@ class MapScene extends Phaser.Scene {
             // test — every hop it can reach is still inside — and it would
             // freeze on the doorstep forever, which is the stall the
             // "surrounded by scarecrows" comment further down warns about.
-            angle = Math.atan2(c.y - homePos.y, c.x - homePos.x)
+            angle = Math.atan2(c.y - c._wardFrom.y, c.x - c._wardFrom.x)
                   + (Math.random() - 0.5) * 0.8;
           } else if (wanderOff) {
             // WANDERING OFF: away from the PLAYER, on the same spread as the
@@ -9226,7 +9254,7 @@ class MapScene extends Phaser.Scene {
             stepLen = Math.min(stepM, Math.hypot(c.seatX - c.x, c.seatY - c.y));
           } else if (c.kind === 'slime') {
             // STRUCK: it charges. Every hop at the player, on the monsters'
-            // stalk jitter — no coin flip, no meander. Below the homeWard
+            // stalk jitter — no coin flip, no meander. Below the warded
             // branch above on purpose: a slime being walked out of Home's ring
             // is warded whether or not you hit it, which is the whole point of
             // the ring.
@@ -14412,6 +14440,23 @@ class MapScene extends Phaser.Scene {
   // every cached tile. Only a HIT is memoised: a miss means the house's tile
   // simply isn't loaded yet, and caching that would leave Home dark and
   // unwarded until the player adopted somewhere else.
+  // The turrets of every castle the player has claimed, near the player —
+  // the ward points wanderCreatures adds beside Home. SURFACE ONLY, like
+  // homeWorldPos (a surface castle must not ward the cave under it). Rescanned
+  // on the turret's own cadence (TURRET_SCAN_MS): claims change rarely, and
+  // the objects near the player only as the player walks.
+  _castleWardPoints(now, pc) {
+    if ((this.depth || 0) !== 0 || !pc) return [];
+    const memo = this._castleWardScan;
+    if (memo && now - memo.t < TURRET_SCAN_MS && memo.tx === pc.tx && memo.ty === pc.ty) return memo.list;
+    const list = [];
+    WorldGen.forEachItemNear('objects', pc.tx, pc.ty, (o) => {
+      if (o.kind === 'tower' && this.isClaimedKey(o.castle)) list.push(o);
+    });
+    this._castleWardScan = { t: now, tx: pc.tx, ty: pc.ty, list };
+    return list;
+  }
+
   homeWorldPos() {
     if ((this.depth || 0) !== 0) return null;
     this.ensureStarterShopId();

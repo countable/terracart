@@ -1255,13 +1255,14 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     fn('function slimeCharging(c) {'),
     fn('function monsterRout(c, now, cellM) {'),
     fn('function monsterWanderingOff(c, now, distM, cellM) {'),
+    fn('function wardTrip(c, homePos, castleWards, r2) {'),
   ].join('\n');
   // ONE script, so the method closes over the preamble's consts — a second
   // runInContext would not see them (a vm script's top-level `const` does not
   // land on the context global; that is what the BRIDGE above exists for).
   // The method text is a class method, so it is wrapped as an object literal
   // and the property taken off it.
-  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\n})();`,
+  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\n})();`,
     ctx, { filename: 'app.js#wanderCreatures' });
   if (typeof ctx.__wander !== 'function') {
     console.error('__wander did not come back as a function — update run.js');

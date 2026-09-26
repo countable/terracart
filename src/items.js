@@ -1030,7 +1030,7 @@ const PLAY_TIPS = [
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
   'Anything hostile you put down pays coins for its trouble — about a coin per 5 hit points, and a little more for every level down.',
-  'Towers on a castle you have CLAIMED fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate. An unclaimed castle\'s walls stay silent.',
+  'Towers on a castle you have CLAIMED fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate, and a foe that strays near its walls turns and runs, as it would from Home. An unclaimed castle\'s walls stay silent.',
   // ── Underground, which you go looking for ───────────────────
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
   ITEM_GUIDE_TIPS.torch,
