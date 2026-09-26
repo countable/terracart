@@ -301,6 +301,8 @@
   // badges run out, the one exchange rate the machine itself states — so the
   // stake is the same for every player whatever they have already won. At
   // s³ = 1/216 a spin that difference is a fraction of a coin either way.
+  // The memory the FIRST deluxe brings back (app.js, once per save) is not
+  // priced at all: a one-off, not a rate, it has no per-spin value.
   // DELUXE IS PRICED AS A LONG-RUN SHARE. The stake is one price whatever
   // state the machine is in, so it covers the average spin: f, the share of
   // spins played deluxe (slotDeluxeShare), from the trigger chance t = 3s²q.
@@ -309,7 +311,8 @@
   // L = ((1 − t)^−N − 1) / t; f = L / (1/t + L).
   //
   // The star pair pays in STAKES, so the price appears on both sides: with
-  // e the rest of the ev and k = 3s²(1 − s) · SLOT_STAR_PAIR_MUL, the cost is
+  // e the rest of the ev and k = 3s²(1 − s − q) · SLOT_STAR_PAIR_MUL · (the
+  // deluxe multiplier's long-run average), the cost is
   // the least whole coin c with e + k·c ≤ c, i.e. c = ⌈e / (1 − k)⌉ — which
   // also keeps c − 1 below e + k·c, so it is still the fair price rounded up.
   // Derived, never tuned: change a weight or a prize and the price follows.
@@ -324,7 +327,7 @@
   const SLOT_STAR_PAIR_MUL = 2;
   const SLOT_DELUXE_SPINS = 10;
   const SLOT_DELUXE_MUL = 2;
-  const SLOT_STAR_BADGES = 3;
+  const SLOT_STAR_BADGES = 1;   // the machine's other memory is the first deluxe (app.js)
   const SLOT_STAR_JACKPOT_COINS = 100;
 
   // ids: the day's prize ids; valueOf(id): an item's worth in coin;

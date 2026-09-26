@@ -615,4 +615,5 @@ test('slots: the machine fixes a spin\'s deluxe state when it is paid, and saves
   assert.truthy(/const wasDeluxe = deluxeLeft\(\) > 0;\s*\n\s*const out = ShopsMath\.slotSpin\(m, Math\.random, wasDeluxe\);\s*\n\s*this\.save\.slotDeluxe = ShopsMath\.slotDeluxeNext\(deluxeLeft\(\), out\);\s*\n\s*persistSave\(this\.save\);/.test(body),
     'deluxe is read, the spin rolled with it, the count moved on and persisted — all before the reels turn');
   assert.truthy(/if \(out\.deluxe\) \{/.test(body), 'the trigger has its own result branch (no coin)');
+  assert.truthy(/this\._bankDiscovery\('slots:deluxe'/.test(body), 'the first deluxe banks a memory, once, under one ledger key');
 });
