@@ -116,6 +116,11 @@ const PIECES = {
     'A rare sparkling creature — a small chicken with shimmering golden iridescent feathers — ' +
     'bathed in a beam of light among ordinary dull ones, four-pointed golden glints floating above ' +
     'it in a meadow at dusk. Wonder and discovery.',
+  fire_first:
+    'A young survivor kneels beside a freshly lit campfire of stones and coal at dusk, flames ' +
+    'leaping up and throwing a warm ring of light over the grass; at the edge of the light a ' +
+    'green slime shrinks back into the shadows. A skewer of food rests by the fire. Warmth, ' +
+    'safety and curiosity.',
   discovery_badge:
     'A glowing golden five-pointed star emblem hovering in the air before a young survivor\'s ' +
     'eyes, radiating soft rays and floating golden glints, the survivor looking up in wonder ' +

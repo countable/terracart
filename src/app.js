@@ -1690,6 +1690,10 @@ const ICON_SHEETS = {
   // for a small carried tool kit. See MINERAL_ICON_SHEET.trap_kit in items.js.
   icon_kit:      { url: 'assets/Icons/RPG icons/Extras/Bags.png',            cols: 7,  srcW: 112, srcH: 16  },
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
+  // The campfire's dishes — one 16px frame per items.js COOKED_FOODS row,
+  // baked from each raw icon by tools/cook_icons.js (ImageMagick).
+  icon_cooked:   { url: 'assets/Icons/Food Icons/Cooked.png',
+    cols: Object.keys(COOKED_FOODS).length, srcW: 16 * Object.keys(COOKED_FOODS).length, srcH: 16 },
   icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
   icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
   // Beach pickup — 48×64 = 3×4 of 16×16, only the top row shell art (see

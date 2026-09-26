@@ -42,6 +42,41 @@ test('campfire: grilled meat is 1.5× the raw energy and price, and is never loo
   assert.eq(MINERAL_ICON_SHEET.grilled_meat.frame, 2, 'the cooked steak, not the raw cut');
 });
 
+test('campfire: every COOKED_FOODS raw cooks through the same lane as meat', () => {
+  for (const [raw, c] of Object.entries(COOKED_FOODS)) {
+    assert.eq(CAMPFIRE_MAKES[raw], c.id, `${raw} cooks into ${c.id}`);
+    const it = ITEM_BY_ID[c.id];
+    assert.truthy(it && it.kind === 'produce' && it.cooked, `${c.id} is cooked produce`);
+    assert.eq(FOOD_ENERGY[c.id], Math.round(FOOD_ENERGY[raw] * GRILL_ENERGY_MUL), `${c.id} energy`);
+    assert.eq(PRICES[c.id], Math.round(PRICES[raw] * GRILL_ENERGY_MUL), `${c.id} price`);
+    assert.truthy(ITEM_EFFECTS[raw].includes('campfire'), `${raw}'s ✦ line says a fire cooks it`);
+  }
+  const rare = ITEMS.filter((i) => i.cooked).map((i) => i.id);
+  assert.eq(rare.length, Object.keys(COOKED_FOODS).length + 1, 'every dish is flagged cooked, meat included');
+});
+
+test('campfire: the cooked icons are one baked sheet, a frame per dish, all art', () => {
+  const ids = Object.values(COOKED_FOODS).map((c) => c.id);
+  ids.forEach((id, i) => {
+    assert.eq(MINERAL_ICON_SHEET[id].sheet, 'icon_cooked');
+    assert.eq(MINERAL_ICON_SHEET[id].frame, i, `${id} sits at frame ${i}`);
+  });
+  const dims = pngDims('assets/Icons/Food Icons/Cooked.png');
+  assert.truthy(dims, 'Cooked.png exists');
+  assert.eq(dims.w, 16 * ids.length, 'one 16px frame per dish');
+  assert.eq(dims.h, 16);
+  assert.truthy(/icon_cooked:\s*\{ url: 'assets\/Icons\/Food Icons\/Cooked\.png',\s*cols: Object\.keys\(COOKED_FOODS\)\.length/.test(APP_JS_SRC),
+    'ICON_SHEETS loads the sheet');
+});
+
+test('campfire: a held potato becomes a baked potato', () => {
+  const { scene, calls } = fireScene();
+  const ctx = fireCtx(scene, [{ id: 'potato', count: 2 }]);
+  assert.eq(fireHeld.try(ctx), true);
+  assert.eq(scene.invCount('baked_potato'), 1);
+  assert.eq(calls.burn.length, 0, 'no burn question');
+});
+
 test('campfire: meat on the fire becomes grilled meat, one per tap', () => {
   const { scene, calls } = fireScene();
   const ctx = fireCtx(scene, [{ id: 'meat', count: 3 }]);
@@ -70,9 +105,9 @@ test('campfire: a full bag keeps the input when the product has no room', () => 
 
 test('campfire: anything else asks to BURN it and spends nothing yet', () => {
   const { scene, calls } = fireScene();
-  const ctx = fireCtx(scene, [{ id: 'potato', count: 2 }]);
+  const ctx = fireCtx(scene, [{ id: 'berry', count: 2 }]);
   assert.eq(fireHeld.try(ctx), true);
-  assert.eq(calls.burn[0], 'potato', 'the burn confirm is asked about the held item');
+  assert.eq(calls.burn[0], 'berry', 'the burn confirm is asked about the held item');
   assert.eq(ctx.save.inv[0].count, 2, 'the confirm spends, not the tap');
 });
 
@@ -131,4 +166,13 @@ test('flint: the coal item is called Flint everywhere the player reads it', () =
 test('every src/*.js module PARSES (a stray brace once shipped app.js dead)', () => {
   // Compiled in run.js (vm.Script, never executed) — see SRC_PARSE_ERRORS.
   assert.eq(JSON.stringify(SRC_PARSE_ERRORS), '{}', 'modules that fail to parse');
+});
+
+test('campfire: the first fire lit tells its story, through the story ledger', () => {
+  const src = INTERACT_SRC;
+  const place = src.slice(src.indexOf("{ name: 'light-fire'"), src.indexOf("{ name: 'place-magic-trap'"));
+  assert.truthy(/scene\._storySplashOnce\?\.\('fire', \{\s*art: 'fire_first'/.test(place),
+    'light-fire opens the fire story once per save');
+  assert.truthy(/who knows what could happen when you cook things\?/.test(place), 'it teases cooking');
+  assert.truthy(pngDims('assets/art/fire_first.png'), 'the banner exists');
 });
