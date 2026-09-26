@@ -22,8 +22,9 @@
 //  4. IT NEVER RE-SEATS WHAT THE PLAYER DEALT WITH. Kill the slime, catch the
 //     chicken, and a tile rebuild must not put it back.
 //
-// The placer lives on the Phaser scene class and is lifted out of src/app.js
-// as text by run.js, so these tests drive the real shipping code.
+// The placer lives in src/starter.js behind the scene's one-line wrapper,
+// which run.js hands over as placeHomeGreeter, so these tests drive the real
+// shipping code.
 
 // Wrapped in an IIFE: every *.test.js shares one global scope in the runner.
 (() => {
@@ -353,27 +354,35 @@
     // The anchor freezing after that tile already spawned, and the how-to card
     // being answered after the tile was built as default-easy. Both resolve
     // the starter tile through the one shared lookup.
-    const setAt = app.slice(app.indexOf('  _setStarterCratesAt(x, y) {'));
-    assert.truthy(/this\._starterTileEntry\(\)[\s\S]{0,300}_placeHomeGreeter/.test(setAt),
+    // _setStarterCratesAt is starter.js's setStarterCratesAt now (the scene
+    // keeps a one-line wrapper), so the retro-place is pinned there.
+    const starter = STARTER_JS_SRC;
+    const setAtFrom = starter.indexOf('  function setStarterCratesAt(scene, x, y) {');
+    assert.truthy(setAtFrom >= 0, 'setStarterCratesAt found in starter.js');
+    const setAt = starter.slice(setAtFrom, starter.indexOf('\n  }\n', setAtFrom));
+    assert.truthy(/scene\._starterTileEntry\(\)[\s\S]{0,300}_placeHomeGreeter/.test(setAt),
       '_setStarterCratesAt retro-places it');
     const choose = app.slice(app.indexOf('  chooseMode(mode) {'), app.indexOf('  _stripStarterCrates(entry) {'));
     assert.truthy(/this\._starterTileEntry\(\)[\s\S]{0,200}_placeHomeGreeter/.test(choose),
       'chooseMode corrects the greeter the default-easy read seated');
-    // The kind is never spelled in app.js — it comes from the mode table, and
-    // so do how far out they stand and which ways they lie.
-    assert.truthy(/const prof = Difficulty\.get\(\);[\s\S]{0,200}prof\.homeGreeter\b/.test(app),
+    // The kind is never spelled in the placer — it comes from the mode table,
+    // and so do how far out they stand and which ways they lie. The placer is
+    // starter.js's (placeHomeGreeter); app.js keeps the call sites.
+    assert.truthy(/const prof = Difficulty\.get\(\);[\s\S]{0,200}prof\.homeGreeter\b/.test(starter),
       'the kind is read from the difficulty table');
-    assert.truthy(/Math\.max\(HOME_GREETER_MIN_CELLS, prof\.homeGreeterCells/.test(app),
+    assert.truthy(/Math\.max\(HOME_GREETER_MIN_CELLS, prof\.homeGreeterCells/.test(starter),
       "the mode's distance is read from the table, clamped by the placer's floor");
-    assert.truthy(/prof\.homeGreeterDirs/.test(app),
+    assert.truthy(/prof\.homeGreeterDirs/.test(starter),
       'and so are the seats it asks for');
-    for (const lit of ["'n'", "'e'", "'s'", "'w'"]) {
-      assert.falsy(new RegExp(`homeGreeterDirs[^\\n]*${lit}`).test(app),
-        `app.js must not hard-code ${lit} as a greeter seat`);
-    }
-    for (const lit of ["'chicken'", "'slime'"]) {
-      assert.falsy(new RegExp(`homeGreeter[^\\n]*${lit}`).test(app),
-        `app.js must not hard-code ${lit} as the greeter`);
+    for (const [name, src] of [['app.js', app], ['starter.js', starter]]) {
+      for (const lit of ["'n'", "'e'", "'s'", "'w'"]) {
+        assert.falsy(new RegExp(`homeGreeterDirs[^\\n]*${lit}`).test(src),
+          `${name} must not hard-code ${lit} as a greeter seat`);
+      }
+      for (const lit of ["'chicken'", "'slime'"]) {
+        assert.falsy(new RegExp(`homeGreeter[^\\n]*${lit}`).test(src),
+          `${name} must not hard-code ${lit} as the greeter`);
+      }
     }
   });
 })();

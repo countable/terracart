@@ -1,4 +1,4 @@
-// The pest amnesty (src/app.js › _pestFreeZone + the fauna spawner + the crow
+// The pest amnesty (src/starter.js › pestFreeZone + app.js's fauna spawner + the crow
 // pump). Formerly the first-day slime amnesty — same zone, two changes: crows
 // are covered too, and it ends at the FIRST HARVEST instead of on a clock.
 //
@@ -15,7 +15,7 @@
 // (a permanent pest-free home is a different game — bringing in the first crop
 // is the ladder's own proof the player has the loop), and it has to be about
 // WHERE, not HOW MANY — the tile keeps its pests, they just live further out.
-// The zone resolver is lifted out of app.js by run.js; the spawner's use of it
+// The zone resolver is the scene's wrapper, handed over by run.js; the spawner's use of it
 // and the pump's gate are one line each, pinned below against the source text
 // run.js hands over (PEST_FREE_GUARD_SRC / CROW_PUMP_GATE_SRC).
 
