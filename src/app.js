@@ -1537,6 +1537,30 @@ const MEMORIES_CHIP_CSS = `
 }
 body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 `;
+// The ROAD chip (_buildRoadChip): the road-repair ladder at a glance — a
+// road glyph, a thin bar filling toward the next prize, and the metres in
+// the counter's own words (Trail.progress). Same shared chip box as the
+// memories chip beside it; the bar wears the restored street's ink.
+const ROAD_CHIP_CSS = `
+#roadchip {
+  box-sizing: border-box; position: relative;
+  height: var(--hud-chip-h); padding: var(--hud-chip-pad);
+  border: var(--hud-chip-rim) solid var(--ctl-rim); border-radius: 8px;
+  display: flex; flex-direction: row; align-items: center; gap: 3px;
+  background: var(--chrome-scuff), var(--chrome-panel); color: #e8e2d6;
+  font: 700 11px ui-monospace, monospace;
+  box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+  text-shadow: 0 1px 0 #000;
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  pointer-events: auto; cursor: pointer; user-select: none;
+}
+#roadchip .road-ico { font-size: 13px; line-height: 1; pointer-events: none; }
+#roadchip .road-col { display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+#roadchip .road-bar { width: 30px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.18); overflow: hidden; }
+#roadchip .road-fill { height: 100%; width: 0%; background: #e8e2d6; }
+#roadchip .road-num { font-size: 10px; line-height: 1; white-space: nowrap; }
+body.modal-open #roadchip { opacity: 0.25; pointer-events: none; }
+`;
 
 const ICON_SHEETS = {
   crops:       { url: 'assets/Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
@@ -2939,6 +2963,7 @@ class MapScene extends Phaser.Scene {
     this.hud = document.getElementById('hud');
     this.moneyEl = document.getElementById('money');
     this._buildMemoriesChip();
+    this._buildRoadChip();
     this.banner = document.getElementById('banner');
     this._settleInvCatOnBoot();
     this.buildInventoryDOM();
@@ -11846,6 +11871,7 @@ class MapScene extends Phaser.Scene {
     }
     this.updateEnergyDOM();
     this.updateMemoriesDOM();
+    this.updateRoadChipDOM();
     this.updateRelicRow();
     // Debug HUD: only show when GPS is unavailable or unfixed — i.e. an
     // exception case (desktop/wasd, denied permission, still acquiring).
@@ -12006,6 +12032,71 @@ class MapScene extends Phaser.Scene {
       pip.style.display = unspent > 0 ? '' : 'none';
     }
     el.title = `Memories: ${total} recovered, ${unspent} unspent`;
+  }
+
+  // ── The road chip ─────────────────────────────────────────────────────
+  // Beside the memories chip: how far along the road-repair ladder the next
+  // prize is. The numbers are Trail.progress over save.trail — the same pair
+  // the on-street counter prints — so the chip and the counter can't disagree
+  // (the Runner's shorter rungs come through save.playerClass, as everywhere).
+  _buildRoadChip() {
+    if (typeof document === 'undefined' || typeof Trail === 'undefined') return;
+    const row = document.getElementById('hud-row');
+    if (!row) return;
+    if (!document.getElementById('roadchip-style')) {
+      const st = document.createElement('style');
+      st.id = 'roadchip-style';
+      st.textContent = ROAD_CHIP_CSS;
+      document.head.appendChild(st);
+    }
+    let el = document.getElementById('roadchip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'roadchip';
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', 'Road repair');
+      el.innerHTML = '<span class="road-ico">🛣️</span>'
+        + '<span class="road-col"><span class="road-bar"><span class="road-fill"></span></span>'
+        + '<span class="road-num">0m</span></span>';
+      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
+        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      el.addEventListener('click', (e) => { e.stopPropagation(); this._showRoadChipHelp(); });
+      const mem = document.getElementById('memories');
+      if (mem && mem.parentNode === row) mem.after(el);
+      else row.append(el);
+    }
+    this.roadChipEl = el;
+    this._roadChipDOM = null;
+    this.updateRoadChipDOM();
+  }
+
+  // The chip's numbers: { pos, target } toward the next road prize.
+  roadChipProgress() {
+    const st = this.save?.trail || { metres: 0, prizes: 0 };
+    return Trail.progress(st.metres, st.prizes, this.save?.playerClass);
+  }
+
+  // Paints the chip. Every frame from updateHUD, guarded on the numbers.
+  updateRoadChipDOM() {
+    const el = this.roadChipEl;
+    if (!el || typeof Trail === 'undefined') return;
+    const p = this.roadChipProgress();
+    const pos = Math.floor(p.pos), key = pos + '|' + p.target;
+    if (this._roadChipDOM === key) return;
+    this._roadChipDOM = key;
+    const fill = el.querySelector('.road-fill');
+    if (fill) fill.style.width = `${Math.min(100, Math.round(100 * pos / Math.max(1, p.target)))}%`;
+    // Just the metres still to go: the bar already shows the fraction, and a
+    // full "1200/2000m" pushed the top row into the ☰ button on a 375px phone.
+    const num = el.querySelector('.road-num');
+    if (num) num.textContent = `${Math.max(0, Math.ceil(p.target - pos))}m`;
+    el.title = `Road repair: ${pos} of ${p.target} m to the next prize`;
+  }
+
+  _showRoadChipHelp() {
+    const p = this.roadChipProgress();
+    const toGoM = Math.max(0, Math.ceil(p.target - p.pos));   // metres, not a countdown
+    this.flash(`${toGoM}m to the next road prize`, this.viewCenterX, 60);
   }
 
   // What the memories chip says when tapped.
