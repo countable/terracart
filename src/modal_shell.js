@@ -95,6 +95,10 @@ const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;
 // `art` is the category's default SCENE painting (assets/art/, see SCENE ART
 // by STORY_MODAL_GROW_PX) — every dialog of the kind opens on it unless its
 // caller hands a painting of its own.
+// The ONE address of a scene painting — the shell draws it and the boot
+// preloader (app.js _prewarmModalIcons) fetches it, so the warm copy is the
+// very URL the dialog asks for.
+const sceneArtUrl = (stem) => `assets/art/${stem}.webp`;
 const MODAL_KINDS = {
   quest:    { icon: '🏰', label: 'Quest', art: 'kind_quest' },   // castle quest board
   treasure: { icon: '💎', label: 'Treasure', art: 'kind_treasure' },   // chests, boxes, loot ceremonies
@@ -202,7 +206,7 @@ class SceneModals {
         ? `center, center ${-Math.round(ART_BAND_FROM * vSize / ART_FRAME_ASPECT)}px`
         : 'center, center top';
       const thumb = (typeof ART_THUMBS !== 'undefined') && ART_THUMBS[art];
-      for (const [el, img] of [[box, thumb], [artLayer, `assets/art/${art}.webp`]]) {
+      for (const [el, img] of [[box, thumb], [artLayer, sceneArtUrl(art)]]) {
         el.style.backgroundImage = img ? `${scrim}, url(${img})` : scrim;
         el.style.backgroundSize = '100% 100%, cover';
         el.style.backgroundPosition = pos;
@@ -219,7 +223,7 @@ class SceneModals {
         'position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;';
       paintScene(false);
       const img = new Image();
-      img.src = `assets/art/${art}.webp`;
+      img.src = sceneArtUrl(art);
       if (img.complete) {
         artLayer.style.opacity = '1';
       } else {

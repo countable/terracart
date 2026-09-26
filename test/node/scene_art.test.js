@@ -113,11 +113,22 @@ test('pixel resolve: every dialog painting has an inline thumbnail', () => {
 test('pixel resolve: the box wears the thumbnail, the painting fades in over it', () => {
   const src = MODAL_SHELL_SRC_TEXT;
   assert.truthy(/ART_THUMBS\[art\]/.test(src), 'the shell reads the thumbnail');
-  assert.truthy(/\[\[box, thumb\], \[artLayer, `assets\/art\/\$\{art\}\.webp`\]\]/.test(src),
+  assert.truthy(/\[\[box, thumb\], \[artLayer, sceneArtUrl\(art\)\]\]/.test(src),
     'thumbnail on the box, the painting on its own layer, both with the scrim');
   assert.truthy(/if \(img\.complete\) \{\s*artLayer\.style\.opacity = '1';/.test(src), 'a cached painting is simply there');
   assert.truthy(/img\.onload = \(\) => \{ artLayer\.style\.opacity = '1'; \}/.test(src), 'otherwise it fades in on load');
   assert.truthy(/position:relative;z-index:1;/.test(src), 'the copy sits above the painting layer');
   assert.truthy(INDEX_HTML_SRC.indexOf('src/art_thumbs.js') < INDEX_HTML_SRC.indexOf('src/modal_shell.js'),
     'index.html loads the thumbnails before the shell');
+});
+
+test('preload: every kind painting is warmed after boot, at the address the shell draws', () => {
+  assert.truthy(/const sceneArtUrl = \(stem\) => `assets\/art\/\$\{stem\}\.webp`;/.test(MODAL_SHELL_SRC_TEXT),
+    'one address for a painting');
+  assert.falsy(/`assets\/art\/\$\{art\}\.webp`/.test(MODAL_SHELL_SRC_TEXT), 'the shell builds no second one');
+  const i = APP_JS_SRC.indexOf('  _prewarmModalIcons() {');
+  const body = APP_JS_SRC.slice(i, APP_JS_SRC.indexOf('\n  }\n', i));
+  assert.truthy(/for \(const k of Object\.values\(MODAL_KINDS\)\) if \(k\.art\) urls\.add\(sceneArtUrl\(k\.art\)\);/.test(body),
+    'the boot prewarm queues every kind painting');
+  assert.truthy(body.indexOf('sceneArtUrl') < body.indexOf('IconNet.prewarm('), 'into the same two-at-a-time queue');
 });

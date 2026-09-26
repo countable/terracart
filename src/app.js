@@ -12817,6 +12817,12 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
+    // Then every category's default painting (MODAL_KINDS `art`), queued
+    // after the icons: most dialogs then open on a painting already in the
+    // cache, and the PIXEL RESOLVE mosaic is only ever seen by a story piece
+    // on a cold start. Same two-at-a-time queue, so it never competes with
+    // the map for more than two connections.
+    for (const k of Object.values(MODAL_KINDS)) if (k.art) urls.add(sceneArtUrl(k.art));
     IconNet.prewarm([...urls]);
   }
 
