@@ -11395,6 +11395,17 @@ class MapScene extends Phaser.Scene {
     this.flash(target > 0 ? `Descended — depth ${target}` : 'Back on the surface',
                this.viewCenterX, this.viewCenterY);
     persistSave(this.save);
+    // The FIRST time a save goes below the surface tells its story. Every way
+    // down (stairs, rope, the sapphire portal) comes through here, and a busy
+    // screen returns false unmarked (the story ledger), so the next descent
+    // asks again.
+    if (delta > 0) {
+      this._storySplashOnce('cave', {
+        art: 'cave_first',
+        title: 'Into the dark',
+        body: 'The air turns cold and the dark closes in. Your light reaches less far down here, and things live in it. The rock is richer below - ore, gems, and older things still.',
+      });
+    }
   }
   // Black out at 0 energy underground and wake on the surface. Keeps the same
   // world coordinates (GPS re-asserts position up top); the player wakes still
