@@ -1863,6 +1863,10 @@ const ICON_SHEETS = {
   // for a small carried tool kit. See MINERAL_ICON_SHEET.trap_kit in items.js.
   icon_kit:      { url: 'assets/Icons/RPG icons/Extras/Bags.png',            cols: 7,  srcW: 112, srcH: 16  },
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
+  // The campfire's dishes — one 16px frame per items.js COOKED_FOODS row,
+  // baked from each raw icon by tools/cook_icons.js (ImageMagick).
+  icon_cooked:   { url: 'assets/Icons/Food Icons/Cooked.png',
+    cols: Object.keys(COOKED_FOODS).length, srcW: 16 * Object.keys(COOKED_FOODS).length, srcH: 16 },
   icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
   icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
   // Beach pickup — 48×64 = 3×4 of 16×16, only the top row shell art (see
@@ -10549,7 +10553,6 @@ class MapScene extends Phaser.Scene {
     }
     return out;
   }
-  }
 
   // --- Movement collision & level transitions ---
   // True if the cell at world point (wmx,wmy) is a solid cave wall. Unloaded
@@ -14081,19 +14084,24 @@ class MapScene extends Phaser.Scene {
   // the cash branch of the regular buy modal (loud loot pop, real sprite).
   // Anything held over a campfire that the fire can't MAKE something of
   // (items.js CAMPFIRE_MAKES) is burned — one of it, after this confirm.
-  // Tapped from interact.js 'fire-held'. The accept re-checks the hand: the
-  // selection can change while the dialog is up, and only what is still held
-  // goes in.
-  presentBurnConfirm(id) {
+  // Tapped from interact.js 'fire-held' with the fire's world point. The
+  // accept re-checks the hand: the selection can change while the dialog is
+  // up, and only what is still held goes in. What the fire does with it is
+  // items.js fireBurnOutcome: ash, a potion TRANSMUTED, or a potion that
+  // EXPLODES (_potionBlast). The dialog hints, never names, which.
+  presentBurnConfirm(id, fire = null) {
     if (document.getElementById('offer-modal')) return;
     const name = ITEM_BY_ID[id]?.name || id;
+    const out = fireBurnOutcome(id);
     this.showOfferModal({
       kind: 'fire',
       kindIcon: this.worldIconHTML('bonfire') || undefined,
       title: `Burn ${name}?`,
       getLabel: 'Into the fire',
       get: `${this.iconSpanHTML(id)} ${name} ×1`,
-      blurb: 'It will not come back.',
+      blurb: out.transmute ? 'Something in it stirs at the heat.'
+        : out.blastDmg ? 'It fizzes dangerously near the flame.'
+        : 'It will not come back.',
       canAfford: true,
       acceptLabel: 'Burn',
       cancelLabel: 'Keep',
@@ -14101,11 +14109,45 @@ class MapScene extends Phaser.Scene {
         const sel = getSelectedSlot(this.save);
         if (!sel || sel.id !== id || (sel.count ?? 0) <= 0) return;
         consumeSelected(this.save);
+        if (out.transmute) {
+          // One potion out, one in: a stack of one freed its own slot, and a
+          // bigger stack still has it, so a refusal only ever means a full
+          // bag with a new stack — hand the potion back rather than lose it.
+          if (!this.addToInv(out.transmute, 1, false, { notWild: true })) {
+            this.addToInv(id, 1, true, { notWild: true });
+          } else {
+            if (fire) this._burstAtWorld('greenspark', fire.x, fire.y);
+            this.flashLoot(`✨ ${ITEM_BY_ID[out.transmute]?.name || out.transmute}`, '#c7a7ff', 1.4, out.transmute);
+          }
+        } else if (out.blastDmg) {
+          this._potionBlast(out.blastDmg, fire);
+        } else {
+          this.flashLoot('🔥 burned', '#ffb070', 1, id);
+        }
         persistSave(this.save);
         this.buildInventoryDOM();
-        this.flashLoot('🔥 burned', '#ffb070', 1, id);
       },
     });
+  }
+
+  // A potion that explodes in the fire (items.js fireBurnOutcome). A blow on
+  // the body like any other: armour soaks it (Combat.playerDamage), nothing
+  // comes off an empty bar, it flinches the sprite where it is banked and
+  // pops its −N⚡ on the player's cell.
+  _potionBlast(rawDmg, fire) {
+    const before = this.save.energy ?? 0;
+    if (fire) this._burstAtWorld('pain', fire.x, fire.y, { ringPx: CELL_PX / 3 });
+    if (fire) this.flashAtWorld('💥 It exploded!', fire.x, fire.y);
+    else this.flash('💥 It exploded!');
+    if (Combat.playerDowned(before)) return 0;
+    const dmg = Combat.playerDamage(rawDmg, this.save.armor);
+    this.save.energy = Math.max(0, before - dmg);
+    const lost = before - this.save.energy;
+    this._flashPlayerHit(lost);
+    this._popEnergy(-lost);
+    this._warnIfTiring(before);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    return lost;
   }
 
   presentScarecrowOffer(sx, sy, house, recordDeal) {
@@ -17279,7 +17321,7 @@ class MapScene extends Phaser.Scene {
             seed:   'Sells seeds to plant. What you do after that is between you and the crows.',
             supply: 'Sells rope, torches, kits and building stock — everything for the dark except courage.',
             potion: 'Sells potions and powders. Labels are, broadly, accurate.',
-            ore:    'Sells coal, bars and gems for the forge. The shopkeeper has never been underground.',
+            ore:    'Sells flint, bars and gems for the forge. The shopkeeper has never been underground.',
             relic:  'Sells tools and armour finer than yours, and knows it.',
             pet:    'Sells animals — pets, livestock and more. No refunds on affection.',
           };

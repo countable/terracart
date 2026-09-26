@@ -1176,11 +1176,11 @@ const TAP_HANDLERS = [
     const sel = getSelectedSlot(save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
     const half = scene.cellM / 2;
-    const onFire = (save.fires || []).some(f => PlacedFloor.onDepth(f, scene.depth) &&
+    const fire = (save.fires || []).find(f => PlacedFloor.onDepth(f, scene.depth) &&
       Math.abs(f.x - cwmx) < half && Math.abs(f.y - cwmy) < half);
-    if (!onFire) return false;
+    if (!fire) return false;
     const made = CAMPFIRE_MAKES[sel.id];
-    if (!made) { scene.presentBurnConfirm(sel.id); return true; }
+    if (!made) { scene.presentBurnConfirm(sel.id, { x: fire.x, y: fire.y }); return true; }
     // The product has to fit before the input goes — unless this is the last
     // one, whose own slot frees up for it.
     const input = sel.id;
@@ -1311,6 +1311,13 @@ const TAP_HANDLERS = [
       save.fires = save.fires || [];
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
       save.fires.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
+      // The FIRST fire a save ever lights tells its story. A busy screen
+      // returns false unmarked (the story ledger), so the next fire asks again.
+      scene._storySplashOnce?.('fire', {
+        art: 'fire_first',
+        title: 'First fire',
+        body: 'The flames catch and crackle. Monsters will not cross into its light, and resting beside it heals you. And who knows what could happen when you cook things?',
+      });
     },
     flashMsg: '🔥 The fire crackles.',
   })},
