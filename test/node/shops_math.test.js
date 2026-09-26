@@ -427,17 +427,22 @@ test('slots: the stake is the expected win, rounded up to a coin', () => {
   const m = S.slotMachine(Object.keys(vals), (id) => vals[id]);
   // weights a2 d1 e2 + star 1 → total 6. Each outcome, priced exactly:
   //   natural triple  p³ · 2 · value     star-completed  3p²s · value
-  //   jackpot pair    3q²(1−q−s) · 3     two stars       3s²(1−s) · 5
+  //   jackpot pair    3q²(1−q−s) · 3     two stars       3s²(1−s) · 2 · cost
   //   three stars     s³ · 100 (a badge valued at the coin it becomes)
   const T = 216;
   const natural = (8 * (10 + 20) + 1 * 300) * S.SLOT_NATURAL_MUL / T;
   const starred = 3 * (4 * (10 + 20) + 1 * 300) / T;
   const jpPair = 3 * 1 * 4 / T * S.SLOT_JACKPOT_PAIR_COINS;
-  const starPair = 3 * 1 * 5 / T * S.SLOT_STAR_PAIR_COINS;
   const stars = 1 / T * S.SLOT_STAR_JACKPOT_COINS;
-  const ev = natural + starred + jpPair + starPair + stars;
+  const rest = natural + starred + jpPair + stars;
+  // Two stars pay SLOT_STAR_PAIR_MUL stakes, so the price is a fixed point:
+  // the least whole c with rest + k·c ≤ c.
+  const k = 3 * 1 * 5 / T * S.SLOT_STAR_PAIR_MUL;
+  const cost = Math.ceil(rest / (1 - k));
+  const ev = rest + k * cost;
   assert.truthy(Math.abs(m.ev - ev) < 1e-9, `ev ${m.ev} = ${ev}`);
-  assert.eq(m.cost, Math.ceil(ev), 'cost = ceil(ev)');
+  assert.eq(m.cost, cost, 'cost = the least whole coin covering its own ev');
+  assert.eq(m.cost, Math.ceil(m.ev), 'which is still the ev, rounded up');
   assert.truthy(m.cost - m.ev < 1, 'the house edge is under one coin');
   // Monte Carlo: the average payout per spin matches the ev, counting three
   // stars at the coin the stake prices them at.
@@ -505,12 +510,12 @@ test('slots: two jackpots and another prize pays the pair coin', () => {
   assert.eq(three.coins, 0, 'and not the pair coin on top');
 });
 
-test('slots: two stars pay coin, three stars are the star jackpot', () => {
+test('slots: two stars pay double the stake, three stars are the star jackpot', () => {
   const m = ShopsMath.slotMachine(['a', 'b', 'c'], () => 10);
   for (const row of [['star', 'star', 'b'], ['a', 'star', 'star']]) {
     const r = ShopsMath.slotSpin(m, slotSeq(row));
     assert.eq(r.won, -1, `${row.join(',')} wins no prize`);
-    assert.eq(r.coins, ShopsMath.SLOT_STAR_PAIR_COINS, 'the star-pair coin');
+    assert.eq(r.coins, ShopsMath.SLOT_STAR_PAIR_MUL * m.cost, 'two stars pay double the stake');
     assert.falsy(r.starJackpot, 'not the star jackpot');
   }
   const three = ShopsMath.slotSpin(m, slotSeq(['star', 'star', 'star']));

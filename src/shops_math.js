@@ -273,7 +273,7 @@
   //   • two of a prize and one star — the star completes it: that prize ×1;
   //   • two jackpots and one other prize (not a star, which would complete
   //     them) — SLOT_JACKPOT_PAIR_COINS back;
-  //   • two stars — SLOT_STAR_PAIR_COINS;
+  //   • two stars — SLOT_STAR_PAIR_MUL × the stake (the spin's own cost);
   //   • three stars — the STAR JACKPOT: a memory (app.js) the first
   //     SLOT_STAR_BADGES times (app.js keeps that count), then
   //     SLOT_STAR_JACKPOT_COINS.
@@ -284,7 +284,7 @@
   //   natural triple      p³ · mul · value
   //   star-completed      3p²s · value
   //   jackpot pair        3q²(1 − q − s) · pair coin
-  //   two stars           3s²(1 − s) · star-pair coin
+  //   two stars           3s²(1 − s) · SLOT_STAR_PAIR_MUL · cost
   //   three stars         s³ · star jackpot
   // The one ESTIMATE is the star jackpot while it still pays a badge: a
   // memory can't be sold, so it has no coin price. It is
@@ -292,6 +292,10 @@
   // badges run out, the one exchange rate the machine itself states — so the
   // stake is the same for every player whatever they have already won. At
   // s³ = 1/216 a spin that difference is a fraction of a coin either way.
+  // The star pair pays in STAKES, so the price appears on both sides: with
+  // e the rest of the ev and k = 3s²(1 − s) · SLOT_STAR_PAIR_MUL, the cost is
+  // the least whole coin c with e + k·c ≤ c, i.e. c = ⌈e / (1 − k)⌉ — which
+  // also keeps c − 1 below e + k·c, so it is still the fair price rounded up.
   // Derived, never tuned: change a weight or a prize and the price follows.
   // The round-up is the house's only edge, and it is under one coin a spin.
   const SLOT_REELS = 3;
@@ -301,7 +305,7 @@
   const SLOT_STAR_WEIGHT = 1;
   const SLOT_NATURAL_MUL = 2;
   const SLOT_JACKPOT_PAIR_COINS = 3;
-  const SLOT_STAR_PAIR_COINS = 5;
+  const SLOT_STAR_PAIR_MUL = 2;
   const SLOT_STAR_BADGES = 3;
   const SLOT_STAR_JACKPOT_COINS = 100;
 
@@ -340,8 +344,11 @@
     ev += pairChance * pairCoins;
     const starPairChance = SLOT_REELS * s * s * (1 - s);
     const starChance = Math.pow(s, SLOT_REELS);
-    ev += starPairChance * SLOT_STAR_PAIR_COINS + starChance * SLOT_STAR_JACKPOT_COINS;
-    return { prizes, symbols, cost: Math.max(1, Math.ceil(ev - 1e-9)), ev, winChance,
+    ev += starChance * SLOT_STAR_JACKPOT_COINS;
+    const k = starPairChance * SLOT_STAR_PAIR_MUL;
+    const cost = Math.max(1, Math.ceil(ev / (1 - k) - 1e-9));
+    ev += k * cost;
+    return { prizes, symbols, cost, ev, winChance,
              pairChance, pairCoins, starChance, starPairChance };
   }
 
@@ -376,7 +383,7 @@
     const out = { reels, won: -1, qty: 0, natural: false, coins: 0, starJackpot: false };
     const stars = reels.filter((i) => syms[i].star).length;
     if (stars === SLOT_REELS) { out.starJackpot = true; return out; }
-    if (stars === SLOT_REELS - 1) { out.coins = SLOT_STAR_PAIR_COINS; return out; }
+    if (stars === SLOT_REELS - 1) { out.coins = SLOT_STAR_PAIR_MUL * (machine.cost || 0); return out; }
     const plain = reels.filter((i) => !syms[i].star);
     if (plain.every((i) => i === plain[0])) {
       out.won = plain[0];
@@ -391,7 +398,7 @@
 
   root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
                      SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,
-                     SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_COINS, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,
+                     SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_MUL, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
                      TRADER_AFFORDABLE_CHANCE, TRADER_MAX_OVERPAY, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
