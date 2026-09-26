@@ -430,14 +430,22 @@ test('slots: the stake is the expected win, rounded up to a coin', () => {
   //   jackpot pair    3q²(1−q−s) · 3     two stars       3s²(1−s) · 2 · cost
   //   three stars     s³ · 100 (a badge valued at the coin it becomes)
   const T = 216;
-  const natural = (8 * (10 + 20) + 1 * 300) * S.SLOT_NATURAL_MUL / T;
-  const starred = 3 * (4 * (10 + 20) + 1 * 300) / T;
+  // Deluxe: t = 3s²q = 3/216; f is the long-run deluxe share, and every
+  // prize (all double here) pays SLOT_DELUXE_MUL over that share.
+  const t = 3 / T;
+  const L = (Math.pow(1 - t, -S.SLOT_DELUXE_SPINS) - 1) / t;
+  const f = L / (1 / t + L);
+  assert.truthy(Math.abs(m.deluxeShare - f) < 1e-12, `deluxe share ${m.deluxeShare} = ${f}`);
+  const dl = 1 + f * (S.SLOT_DELUXE_MUL - 1);
+  const natural = (8 * (10 + 20) + 1 * 300) * S.SLOT_NATURAL_MUL / T * dl;
+  const starred = 3 * (4 * (10 + 20) + 1 * 300) / T * dl;
   const jpPair = 3 * 1 * 4 / T * S.SLOT_JACKPOT_PAIR_COINS;
   const stars = 1 / T * S.SLOT_STAR_JACKPOT_COINS;
   const rest = natural + starred + jpPair + stars;
   // Two stars pay SLOT_STAR_PAIR_MUL stakes, so the price is a fixed point:
   // the least whole c with rest + k·c ≤ c.
-  const k = 3 * 1 * 5 / T * S.SLOT_STAR_PAIR_MUL;
+  // two stars + a b/e (not the jackpot, not a star): 3 · 1 · 4 / T
+  const k = 3 * 1 * 4 / T * S.SLOT_STAR_PAIR_MUL;
   const cost = Math.ceil(rest / (1 - k));
   const ev = rest + k * cost;
   assert.truthy(Math.abs(m.ev - ev) < 1e-9, `ev ${m.ev} = ${ev}`);
@@ -445,11 +453,13 @@ test('slots: the stake is the expected win, rounded up to a coin', () => {
   assert.eq(m.cost, Math.ceil(m.ev), 'which is still the ev, rounded up');
   assert.truthy(m.cost - m.ev < 1, 'the house edge is under one coin');
   // Monte Carlo: the average payout per spin matches the ev, counting three
-  // stars at the coin the stake prices them at.
+  // stars at the coin the stake prices them at, and carrying the deluxe count
+  // from spin to spin the way the machine does.
   let a = 12345; const rng = () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
-  let paid = 0; const N = 400000;
+  let paid = 0, left = 0; const N = 600000;
   for (let i = 0; i < N; i++) {
-    const r = S.slotSpin(m, rng);
+    const r = S.slotSpin(m, rng, left > 0);
+    left = S.slotDeluxeNext(left, r);
     if (r.won >= 0) paid += r.qty * m.symbols[r.won].value;
     if (r.starJackpot) paid += S.SLOT_STAR_JACKPOT_COINS;
     paid += r.coins;
@@ -512,7 +522,7 @@ test('slots: two jackpots and another prize pays the pair coin', () => {
 
 test('slots: two stars pay double the stake, three stars are the star jackpot', () => {
   const m = ShopsMath.slotMachine(['a', 'b', 'c'], () => 10);
-  for (const row of [['star', 'star', 'b'], ['a', 'star', 'star']]) {
+  for (const row of [['star', 'star', 'b'], ['c', 'star', 'star']]) {
     const r = ShopsMath.slotSpin(m, slotSeq(row));
     assert.eq(r.won, -1, `${row.join(',')} wins no prize`);
     assert.eq(r.coins, ShopsMath.SLOT_STAR_PAIR_MUL * m.cost, 'two stars pay double the stake');
@@ -522,6 +532,37 @@ test('slots: two stars pay double the stake, three stars are the star jackpot', 
   assert.truthy(three.starJackpot, 'three stars');
   assert.eq(three.won, -1, 'no prize');
   assert.eq(three.coins, 0, 'the caller pays it (badge or coin)');
+});
+
+test('slots: two stars and the jackpot go deluxe — no coin — for SLOT_DELUXE_SPINS', () => {
+  const S = ShopsMath;
+  const m = S.slotMachine(['a', 'b', 'c'], () => 10);   // 'a' is the jackpot
+  for (const row of [['star', 'star', 'a'], ['a', 'star', 'star'], ['star', 'a', 'star']]) {
+    const r = S.slotSpin(m, slotSeq(row));
+    assert.truthy(r.deluxe, `${row.join(',')} goes deluxe`);
+    assert.eq(r.coins, 0, 'and pays no coin');
+    assert.eq(r.won, -1, 'nor a prize');
+  }
+  assert.eq(S.SLOT_DELUXE_SPINS, 10, 'ten spins');
+  assert.eq(S.slotDeluxeNext(0, { deluxe: true }), 10, 'a trigger starts the count');
+  assert.eq(S.slotDeluxeNext(10, {}), 9, 'a spin uses one');
+  assert.eq(S.slotDeluxeNext(1, {}), 0, 'down to none');
+  assert.eq(S.slotDeluxeNext(0, {}), 0, 'never below');
+  assert.eq(S.slotDeluxeNext(4, { deluxe: true }), 10, 'a hit while deluxe restores the ten — never stacks');
+});
+
+test('slots: deluxe doubles a prize that doubles, and not a relic', () => {
+  const S = ShopsMath;
+  const m = S.slotMachine(['a', 'b', 'c'], () => 10, (id) => id !== 'c');
+  const nat = S.slotSpin(m, slotSeq(['b', 'b', 'b']), true);
+  assert.eq(nat.qty, S.SLOT_NATURAL_MUL * S.SLOT_DELUXE_MUL, 'a natural, deluxe: 2 × 2');
+  assert.truthy(nat.doubled, 'flagged');
+  const starred = S.slotSpin(m, slotSeq(['b', 'star', 'b']), true);
+  assert.eq(starred.qty, S.SLOT_DELUXE_MUL, 'a starred pair, deluxe: 2');
+  const relic = S.slotSpin(m, slotSeq(['c', 'c', 'c']), true);
+  assert.eq(relic.qty, 1, 'a relic never doubles');
+  assert.falsy(relic.doubled);
+  assert.eq(S.slotSpin(m, slotSeq(['b', 'b', 'b'])).qty, S.SLOT_NATURAL_MUL, 'not deluxe: the natural double only');
 });
 
 test('slots: a mixed row with no star loses', () => {
@@ -550,4 +591,13 @@ test('slots: three distinct prizes a day, the same all day, seeded on the fort a
   assert.eq(d1.join(), ShopsMath.slotPrizes('slots:fort1:20260924', cands).join(), 'stable within the day');
   const others = ['slots:fort1:20260925', 'slots:fort2:20260924'].map((k) => ShopsMath.slotPrizes(k, cands).join());
   assert.truthy(others.some((o) => o !== d1.join()), 'a new day or another fort rolls its own');
+});
+
+test('slots: the machine fixes a spin\'s deluxe state when it is paid, and saves the count at once', () => {
+  const app = APP_JS_SRC;
+  const i = app.indexOf('\n  presentFortSlots(sx, sy, house) {');
+  const body = app.slice(i, app.indexOf('\n  }\n', i));
+  assert.truthy(/const wasDeluxe = deluxeLeft\(\) > 0;\s*\n\s*const out = ShopsMath\.slotSpin\(m, Math\.random, wasDeluxe\);\s*\n\s*this\.save\.slotDeluxe = ShopsMath\.slotDeluxeNext\(deluxeLeft\(\), out\);\s*\n\s*persistSave\(this\.save\);/.test(body),
+    'deluxe is read, the spin rolled with it, the count moved on and persisted — all before the reels turn');
+  assert.truthy(/if \(out\.deluxe\) \{/.test(body), 'the trigger has its own result branch (no coin)');
 });
