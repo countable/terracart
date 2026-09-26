@@ -1049,7 +1049,7 @@ const PLAY_TIPS = [
   // can be the first session, and a touch is a quarter of a fresh bar — so
   // this is safety, taught beside the snares. books.test.js re-derives the
   // five minutes, the "twice" and the 25.
-  'After dark, ghosts rise out of the dark every five minutes or so. One hovers a moment, then rushes you at a run, and its touch costs 25\u26a1 before armour. Your own glow won\'t stop them, but a torch, a lamp or a fire burns them, and none will linger near Home.',
+  'After dark, ghosts rise out of the dark every five minutes or so. One hovers a moment, then rushes you at a run, and its touch costs 25\u26a1 before armour. Your own glow won\'t stop them, but a torch or a lamp burns them, a campfire drives them off, and none will linger near Home or a castle you\'ve taken back.',
   // ── The starter loop — till, plant, rebuild, harvest, sell ───
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',

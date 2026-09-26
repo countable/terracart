@@ -296,17 +296,33 @@ test('ghost: a torch burns it out before it arrives', () => {
   });
 });
 
-test('ghost: a campfire at the player\'s side does not hold it off — it comes in', () => {
+test('ghost: a campfire at the player\'s side routs it — the ward, not a refused step', () => {
   atDaylight(0, () => {
     const g = mkGhost();
     const s = ghostScene([g]);
-    s.save.fires = [{ x: P.x, y: P.y }];
-    let closest = Infinity;
+    const fire = { x: P.x, y: P.y };
+    s.save.fires = [fire];
+    let routed = false, closest = Infinity, after = 0;
     for (let t = 0; t < 60000 && alive(s, g); t += TICK_MS) {
       tick(s, TICK_MS);
       closest = Math.min(closest, dist(g));
+      if (g._wardFrom === fire) routed = true;
+      if (routed) after = Math.max(after, dist(g));
     }
-    assert.lt(closest, FIRE_REST_R - 0.5, 'it crossed into the fire\'s ring');
+    assert.eq(s._hits.length, 0, 'it never touched the player by the fire');
+    assert.truthy(routed, 'the fire tripped the ward latch');
+    assert.gte(closest, FIRE_REST_R - 0.5, 'turned at the fire\'s ring, not inside it');
+    if (alive(s, g)) assert.gt(after, FIRE_REST_R + 1, 'and driven off, not hovering at the ring');
+  });
+});
+
+test('ghost: a campfire on another depth does not rout it', () => {
+  atDaylight(0, () => {
+    const g = mkGhost();
+    const s = ghostScene([g]);
+    s.save.fires = [{ x: P.x, y: P.y, depth: 1 }];
+    race(s, g, 60);
+    assert.eq(s._hits.length, 1, 'a cave fire is no ward on the surface');
   });
 });
 
@@ -330,6 +346,16 @@ test('ghost: Home\'s ward routs it like any foe', () => {
     const s = ghostScene([g], { homeWorldPos: () => ({ x: P.x, y: P.y }) });
     race(s, g, 60);
     assert.eq(s._hits.length, 0, 'never touched the player at Home');
+  });
+});
+
+test('ghost: a claimed castle routs it like Home', () => {
+  atDaylight(0, () => {
+    const g = mkGhost();
+    const s = ghostScene([g], { _castleWardPoints: () => [{ x: P.x, y: P.y }] });
+    race(s, g, 60);
+    assert.eq(s._hits.length, 0, 'never touched the player at a castle they took back');
+    assert.truthy(g._wardFrom, 'on the ward latch');
   });
 });
 

@@ -180,11 +180,12 @@ const GHOST_TOUCH_CELLS = 0.5;
 // burns it is a light the player CARRIES or STANDS BY: the hand torch (a
 // collected source, so it stays in), a campfire, a lit lamp, a lit building.
 // No light's ring refuses its step either — it is not afraid of the light, it
-// comes straight in and burns if the light is one that burns it.
+// comes straight in and burns if the light is one that burns it. A campfire
+// does more than burn: it ROUTS the ghost (fireWardTrip, the ward latch).
 //   Why 13: a torch must burn it out before it arrives. At its run
 // (Combat.GHOST_SPEED_MPS, 3 m/s) from the spawn ring, the torch race is won
 // up to ~17 and lost by 22 (ghosts.test.js runs it); 13 keeps a margin.
-// Home and a claimed castle rout it (the ward).
+// Home, a claimed castle and a campfire rout it (the ward).
 const GHOST_PLATEAU_BURN_S = 13;
 // The burn is banked on this beat, not every frame (brightnessAt runs the
 // collectors).
@@ -269,6 +270,24 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
   }
   return null;
 }
+// A CAMPFIRE ROUTS A GHOST — Home's mechanism (the ward latch: turned onto
+// an away-from-the-fire angle and run to the sim bubble's edge), not the
+// fire's own ward on other foes (a refused target cell, which held a ghost
+// hovering at the ring). A ghost is not afraid of light — it comes straight
+// through the player's glow — but a fire drives it off. This is a second
+// REASON on the ward lane, asked only for a haunting kind: the nearest
+// campfire on this depth whose FIRE_REST_R ring the ghost has crossed, or null.
+function fireWardTrip(scene, c) {
+  const fires = scene.save && scene.save.fires;
+  if (!fires || !fires.length) return null;
+  let best = null, bestD2 = (FIRE_REST_R * scene.cellM) * (FIRE_REST_R * scene.cellM);
+  for (const f of fires) {
+    if (!PlacedFloor.onDepth(f, scene.depth ?? 0)) continue;
+    const dx = c.x - f.x, dy = c.y - f.y, d2 = dx * dx + dy * dy;
+    if (d2 <= bestD2) { best = f; bestD2 = d2; }
+  }
+  return best;
+}
 // ONE GHOST'S TICK — its mover, its burn, its touch. Returns what became of it:
 //   'touch'   it reached the player (wanderCreatures lands the blow and spends it)
 //   'burned'  the light finished it (_damageEnemy has already paid its coin)
@@ -279,7 +298,8 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
 // terrain (it is a ghost) and into any light — it is not afraid of the light,
 // the light only burns it (no ring refuses its step, unlike the campfire's
 // ward on other foes). Warded
-// (Home, a claimed castle — `warded`, the same latch every foe wears) it runs
+// (Home, a claimed castle, and for a ghost a campfire — fireWardTrip;
+// `warded`, the same latch every foe wears) it runs
 // straight away from the ward; `unnoticed` (NOTHING HUNTS A BODY, or a Shadow
 // Powder) it hovers where it is. Neither touches.
 function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {

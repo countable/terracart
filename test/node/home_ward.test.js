@@ -143,7 +143,7 @@ const wander = (() => {
 })();
 
 test('ward: what is warded is what the game calls an ENEMY', () => {
-  assert.truthy(/const wardFoe = \(!!homePos \|\| castleWards\.length > 0\) && !isTame && Combat\.isEnemy\(c\);/.test(wander),
+  assert.truthy(/const wardFoe = \(!!homePos \|\| castleWards\.length > 0 \|\| haunts\) && !isTame && Combat\.isEnemy\(c\);/.test(wander),
     'Combat.isEnemy — the registered-hostile test, so a kind added to the '
     + 'monster table is warded the day it ships, and a tamed slime is not');
   assert.truthy(/const homePos = this\.homeWorldPos\(\);/.test(wander),
@@ -223,13 +223,13 @@ test('ward: it is a LATCH — tripped at the ring, released at the bubble', () =
     'the rout radius IS CREATURE_SIM_CELLS — the 12-cell edge, one number');
 
   const wander = app.slice(app.indexOf('  wanderCreatures('));
-  assert.truthy(/c\._wardFrom = wardTrip\(c, homePos, castleWards, HOME_WARD_R2\);/.test(wander),
+  assert.truthy(/c\._wardFrom = wardTrip\(c, homePos, castleWards, HOME_WARD_R2\)\s*\/\/ tripped\?\s*\|\| \(haunts \? fireWardTrip\(this, c\) : null\);/.test(wander),
     'HOME_R is what trips it');
   assert.truthy(/if \(fd2 > HOME_ROUT_R2\) c\._wardFrom = null;/.test(wander),
     'and the bubble edge is the ONLY thing that releases it');
   assert.truthy(/const warded = wardFoe && !!c\._wardFrom;/.test(wander),
     'the ward IS the latch — no second radius test to fall out of');
-  assert.truthy(/const wardFoe = \(!!homePos \|\| castleWards\.length > 0\) && !isTame && Combat\.isEnemy\(c\);/.test(wander),
+  assert.truthy(/const wardFoe = \(!!homePos \|\| castleWards\.length > 0 \|\| haunts\) && !isTame && Combat\.isEnemy\(c\);/.test(wander),
     'a pet is never routed from its own home, and there is no ward off the surface');
 
   // A blow no longer routs on its own: a foe close enough to hit at Home is
