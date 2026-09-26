@@ -417,12 +417,16 @@
   // and `deluxe` true when this spin (re)starts deluxe.
   function slotSpin(machine, rng = Math.random, deluxe = false) {
     const syms = machine.symbols || machine.prizes;
-    const total = syms.reduce((a, p) => a + p.weight, 0);
     const reels = [];
+    // Reel symbols always carry a positive weight in practice (slotMachine's
+    // prizes are SLOT_WEIGHT/SLOT_JACKPOT_WEIGHT, the star SLOT_STAR_WEIGHT
+    // whenever there is at least one prize), so weightedPickBy's null branch
+    // (no positive weight at all) is not reachable here; the fallback to the
+    // last index preserves the old `pick = syms.length - 1` default.
+    const idx = syms.map((_, i) => i);
     for (let r = 0; r < SLOT_REELS; r++) {
-      let u = rng() * total, pick = syms.length - 1;
-      for (let i = 0; i < syms.length; i++) { u -= syms[i].weight; if (u < 0) { pick = i; break; } }
-      reels.push(pick);
+      const pick = weightedPickBy(idx, (i) => syms[i].weight, rng);
+      reels.push(pick ?? syms.length - 1);
     }
     const out = { reels, won: -1, qty: 0, natural: false, coins: 0, starJackpot: false, deluxe: false, doubled: false };
     const stars = reels.filter((i) => syms[i].star).length;

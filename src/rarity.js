@@ -381,13 +381,7 @@
   // ────────────────────────────────────────────────────────────────
   function weightedPick(weightsObj, rng) {
     const keys = Object.keys(weightsObj);
-    if (!keys.length) return null;
-    let total = 0;
-    for (const k of keys) total += weightsObj[k];
-    if (total <= 0) return null;
-    let r = rng() * total;
-    for (const k of keys) { r -= weightsObj[k]; if (r <= 0) return k; }
-    return keys[keys.length - 1];
+    return weightedPickBy(keys, (k) => weightsObj[k], rng);
   }
   function ringLuck(save) {
     return (save?.relics?.ring?.tier || 0) * RARITY_TUNING.ringLuckPerTier;
@@ -414,18 +408,13 @@
     if (!pool || !pool.length) return null;
     // Weighted pick by item.dropWeight (defaults to 1). Lets items like fish
     // declare dropWeight: 0.4 in items.js to show up less often than their
-    // peers at the same tier without us re-tiering them.
-    let total = 0;
-    const weights = pool.map(id => {
+    // peers at the same tier without us re-tiering them. Every weight
+    // defaults to (and floors at) 1, so the pool's total is always positive
+    // and weightedPickBy's null/empty branches never fire here.
+    return weightedPickBy(pool, (id) => {
       const w = _ITEM_BY_ID[id]?.dropWeight;
-      const v = (typeof w === 'number' && w > 0) ? w : 1;
-      total += v;
-      return v;
-    });
-    if (total <= 0) return pool[Math.floor(rng() * pool.length)];
-    let r = rng() * total;
-    for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i]; }
-    return pool[pool.length - 1];
+      return (typeof w === 'number' && w > 0) ? w : 1;
+    }, rng);
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -789,10 +778,7 @@
     const preferred = Math.min(7, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
     const capped = GEAR_ROLL_TIERS.filter(t => t <= preferred);
     const weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
-    const total = weighted.reduce((a, b) => a + b.w, 0);
-    let r = random() * total;
-    let pickedTier = weighted[0].t;
-    for (const w of weighted) { r -= w.w; if (r <= 0) { pickedTier = w.t; break; } }
+    const pickedTier = weightedPickBy(weighted, (w) => w.w, random).t;
     const relicSlots = Object.keys(_RELIC_DEFS);
     const armorSlots = Object.keys(_ARMOR_DEFS);
     const slotPool = [

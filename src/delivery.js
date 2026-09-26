@@ -269,15 +269,20 @@
   // What a tap on a hungry house says when the bags can't fill the set: only
   // the items still MISSING (held < 1), never the whole wishlist — the player
   // standing there with two of three already knows about those two. Returns
-  // { ids, line }: `line` is the map flash. A one-item wishlist "wants" its
-  // item; a set with some of it in hand "still needs" the rest; a set with
-  // none of it in hand "wants the set".
+  // { ids, line }: `line` is the map flash, so it names the FIRST missing
+  // item and folds the rest into " +N" — a joined list of real names blows
+  // MAP_MSG_MAX at two items. "still needs:" when some of a set is already in
+  // hand, else "wants:" (a single item, or none of the set). The worst case
+  // over every real wishlist id is pinned in delivery.test.js.
   function missingLine(wanted, count, nameOf) {
-    const ids = (wanted || []).filter((id) => (count(id) || 0) < 1);
-    const names = ids.map(nameOf).join(', ');
-    if ((wanted || []).length <= 1) return { ids, line: `wants: ${names}` };
-    if (ids.length < wanted.length) return { ids, line: `still needs: ${names}` };
-    return { ids, line: `wants the set: ${names}` };
+    const list = wanted || [];
+    const ids = list.filter((id) => (count(id) || 0) < 1);
+    const first = ids.length ? nameOf(ids[0]) : '';
+    const extra = ids.length - 1;
+    const suffix = extra > 0 ? ` +${extra}` : '';
+    const partial = list.length > 1 && ids.length < list.length;
+    const scaffold = partial ? 'still needs: ' : 'wants: ';
+    return { ids, line: `${scaffold}${first}${suffix}` };
   }
 
   root.Delivery = {

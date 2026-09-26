@@ -53,6 +53,7 @@ function ghostScene(creatures, over = {}) {
     resolveDefeat: () => {},
     _popEnergy: (d, o) => pops.push({ d, o }),
     _warnIfTiring: () => {}, _flashPlayerHit: (n) => hits.push(n), _closeShopOnHit: () => {},
+    _losePlayerEnergy(d) { const b = this.save.energy ?? 0; this.save.energy = Math.max(0, b - d); const l = b - this.save.energy; this._flashPlayerHit(l); return l; },
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
   }, over);
   scene.creatures = creatures;

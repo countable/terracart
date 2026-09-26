@@ -93,6 +93,22 @@
     return (h ^ (h >>> 16)) >>> 0;
   }
 
+  // The id of a generated thing on one CELL of one TILE:
+  // `${prefix}_${tx}_${ty}_${ix}_${iy}`. A level or variant goes INTO the
+  // prefix (`c_${depth}`), never on the end, so every id minted through here
+  // keeps the tile + local-cell tail the rule above asks for.
+  function cellId(prefix, tx, ty, ix, iy) {
+    return `${prefix}_${tx}_${ty}_${ix}_${iy}`;
+  }
+
+  // The seed of one spawner's OWN per-tile stream: the (tx, ty) spatial hash,
+  // XOR a per-spawner salt times the level. The float multiply (not imul) and
+  // the `>>> 0` are what every stream has always used — do not "fix" them, or
+  // every existing world re-rolls. depth 0 (the surface) drops the salt.
+  function tileStreamSeed(tx, ty, salt = 0, depth = 0) {
+    return ((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * salt)) >>> 0;
+  }
+
   // Terrain class enum (uint8). 0 = unknown/grass default.
   const T = {
     GRASS: 0,
@@ -1945,7 +1961,7 @@
           if (prng() < density) {
             // Stash local ix/iy on the wp so the post-pass filter can read grid[] directly.
             wildplants.push(makeWildplant(crop, cx, cy,
-              `wp_${tx}_${ty}_${localIX}_${localIY}`, { _ix: localIX, _iy: localIY }));
+              cellId('wp', tx, ty, localIX, localIY), { _ix: localIX, _iy: localIY }));
           }
         }
       }
@@ -1991,7 +2007,7 @@
           if (!hedge) continue;
           const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
           wildplants.push(makeWildplant(crop, cx, cy,
-            `hm_${tx}_${ty}_${ix}_${iy}`, { _ix: ix, _iy: iy }));
+            cellId('hm', tx, ty, ix, iy), { _ix: ix, _iy: iy }));
         }
       }
     }
@@ -2043,7 +2059,7 @@
             // per-player overlay (HomeArea.applySoftwood, app.js), never a
             // generation input.
             objects.push(makeObject('tree', cx, cy,
-              `tree_${tx}_${ty}_${ix}_${iy}`, {
+              cellId('tree', tx, ty, ix, iy), {
                 variant: 1 + Math.floor(frng() * 4),
                 species,
               }));
@@ -2071,7 +2087,7 @@
         for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
           if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
           const { ix, iy, cx, cy } = snapCell(xx + stepMvt * 0.5, yy + stepMvt * 0.5);
-          objects.push(makeObject('fruittree', cx, cy, `ft_${tx}_${ty}_${ix}_${iy}`,
+          objects.push(makeObject('fruittree', cx, cy, cellId('ft', tx, ty, ix, iy),
             { species }));
         }
       }
@@ -2288,7 +2304,7 @@
                 const yieldTier = r < 0.05 ? 3 : r < 0.15 ? 2 : 1;
                 const requiredTier = Math.max(1, yieldTier - 1);
                 objects.push(makeObject('mineralrock', cx, cy,
-                  `rb_${tx}_${ty}_${ix}_${iy}`,
+                  cellId('rb', tx, ty, ix, iy),
                   { requiredTier, yieldTier }));
                 placed++;
               }
@@ -2372,13 +2388,13 @@
               const roll = rollRock(rng, _CAVE_ROCK_P, tbl);
               if (roll.plain) {
                 objects.push(makeObject('mineralrock', cx, cy,
-                  `mr_${tx}_${ty}_${ix}_${iy}`, {
+                  cellId('mr', tx, ty, ix, iy), {
                     requiredTier: 1, caveVariant: roll.caveVariant, _clusterId: clusterId,
                   }));
                 return;
               }
               objects.push(makeObject('mineralrock', cx, cy,
-                `mr_${tx}_${ty}_${ix}_${iy}`, {
+                cellId('mr', tx, ty, ix, iy), {
                   requiredTier: roll.requiredTier, yieldTier: roll.yieldTier,
                 }));
             };
@@ -2423,7 +2439,7 @@
                   // Stable id for this cluster (residential only) so the cave
                   // entrance pass can roll a per-cluster chance over its rocks.
                   const clusterId = o.residential
-                    ? `rc_${tx}_${ty}_${Math.floor(xx * mvtToCell)}_${Math.floor(yy * mvtToCell)}`
+                    ? cellId('rc', tx, ty, Math.floor(xx * mvtToCell), Math.floor(yy * mvtToCell))
                     : undefined;
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (rng() - 0.5) * 2 * o.clusterR;
@@ -2617,7 +2633,7 @@
               if (!ownsPoint(p)) continue;
               const pix = Math.floor(p.x * mvtToCell), piy = Math.floor(p.y * mvtToCell);
               const { mx: cx, my: cy } = cellCenterMeters(pix, piy);
-              parkingTreasures.push({ x: cx, y: cy, id: `t_park_${tx}_${ty}_${pix}_${piy}` });
+              parkingTreasures.push({ x: cx, y: cy, id: cellId('t_park', tx, ty, pix, piy) });
             }
             continue;
           }
@@ -2630,7 +2646,7 @@
             const poiIX = Math.floor(p.x * mvtToCell);
             const poiIY = Math.floor(p.y * mvtToCell);
             const { mx: cx, my: cy } = cellCenterMeters(poiIX, poiIY);
-            const id = `c_${tx}_${ty}_${poiIX}_${poiIY}`;
+            const id = cellId('c', tx, ty, poiIX, poiIY);
             objects.push(makeObject('chest', cx, cy, id,
               { poiClass: cls, name: f.tags.name || '' }));
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
@@ -2690,13 +2706,25 @@
               // Remove every house sprite whose centroid falls inside the dissolved footprint.
               // A school/mall is often several adjacent building polygons, each of which pushed
               // its own house sprite — removing only the nearest leaves the others on the pad.
-              for (let i = objects.length - 1; i >= 0; i--) {
-        if ((i & 255) === 0) yield 'civic building dedupe';
-                const o = objects[i];
-                if (o.kind !== 'house') continue;
-                const { ix: ox, iy: oy } = cellOfWorldM(o.x, o.y);
-                if (ox < 0 || oy < 0 || ox >= w || oy >= h) continue;
-                if (seen.has(oy * w + ox)) objects.splice(i, 1);
+              // COMPACTED IN PLACE (one write index, order kept), not spliced: a
+              // reverse walk calling objects.splice(i, 1) per hit rewrites the tail
+              // every time — quadratic on a big civic slab with many house sprites.
+              // Kept per footprint (O(objects) per dissolve) rather than deferred to
+              // one pass after the POI loop: `objects` is read and pushed between
+              // POIs, so a deferred sweep would have to prove nothing in between
+              // sees (or adds) a house on a dissolved cell.
+              {
+                let wr = 0;
+                for (let i = 0; i < objects.length; i++) {
+                  if ((i & 255) === 0) yield 'civic building dedupe';
+                  const o = objects[i];
+                  if (o.kind === 'house') {
+                    const { ix: ox, iy: oy } = cellOfWorldM(o.x, o.y);
+                    if (ox >= 0 && oy >= 0 && ox < w && oy < h && seen.has(oy * w + ox)) continue;
+                  }
+                  objects[wr++] = o;
+                }
+                objects.length = wr;
               }
               // Public-facing chest placement. Most civic buildings are closed to the
               // public (school hours, hospital wings, etc.) — dropping the chest deep
@@ -2765,7 +2793,7 @@
               const lastChest = objects[objects.length - 1];
               if (lastChest && lastChest.kind === 'chest' && lastChest.id === id) {
                 lastChest.x = adjustedMx; lastChest.y = adjustedMy;
-                lastChest.id = `c_${tx}_${ty}_${cellIX}_${cellIY}`;
+                lastChest.id = cellId('c', tx, ty, cellIX, cellIY);
               }
             }
             // No synthesized pad when the POI dissolved a building (the building IS the pad).
@@ -2948,7 +2976,7 @@
           const oix = best[0] - Math.floor(best[0] / w) * w;
           const oiy = best[1] - Math.floor(best[1] / h) * h;
           // Stable id for per-house shop state (deal rate-limit, future ledger).
-          const id = `h_${otx}_${oty}_${oix}_${oiy}`;
+          const id = cellId('h', otx, oty, oix, oiy);
           // House / fort cells resolve to the house object's own id — the key
           // save.restoredHouses and save.unlockedForts are stored under — so
           // "is the building under this cell claimed" is one lookup, from
@@ -3228,7 +3256,7 @@
         if (moved.ix === ix && moved.iy === iy) continue;
         const { mx, my } = cellCenterMeters(moved.ix, moved.iy);
         t.x = mx; t.y = my;
-        t.id = `t_park_${tx}_${ty}_${moved.ix}_${moved.iy}`;
+        t.id = cellId('t_park', tx, ty, moved.ix, moved.iy);
       }
     }
 
@@ -3848,16 +3876,26 @@
         // scenery instead; only another chest or a structure (house / tower /
         // staircase) genuinely blocks the cell.
         const SX_CHEST_BLOCKERS = new Set(['chest', 'house', 'tower', 'staircase']);
+        //
+        // O(n) BY CONSTRUCTION — this post-rasterize path has no slicer (see
+        // CLAUDE.md, "A tile build stutters on its WORST BLOCK"). The blocker
+        // cells are indexed ONCE; an eviction only records its cell, and one
+        // in-place compaction after the loop drops every evicted item, order
+        // kept. That is the same result as evicting on the spot: an evicted
+        // cell held no blocker, so everything on it is scenery (never a chest,
+        // so isDupPoiChest never sees the difference), and the only thing the
+        // loop adds to that cell afterwards is the winning chest itself —
+        // which sits past `preLen`, outside the sweep, and is a blocker for
+        // any later chest on the same cell.
+        const sxBlockerCells = new Set();
+        for (const o of entry.objects) {
+          if (SX_CHEST_BLOCKERS.has(o.kind)) sxBlockerCells.add(cellKeyOf(o.x, o.y));
+        }
+        const sxEvicted = new Set();
+        const sxPreLen = entry.objects.length;
         const evictSceneryAt = (k) => {
-          for (const o of entry.objects) {
-            if (SX_CHEST_BLOCKERS.has(o.kind) && cellKeyOf(o.x, o.y) === k) return false;
-          }
-          for (let i = entry.objects.length - 1; i >= 0; i--) {
-            if (cellKeyOf(entry.objects[i].x, entry.objects[i].y) === k) entry.objects.splice(i, 1);
-          }
-          for (let i = entry.wildplants.length - 1; i >= 0; i--) {
-            if (cellKeyOf(entry.wildplants[i].x, entry.wildplants[i].y) === k) entry.wildplants.splice(i, 1);
-          }
+          if (sxBlockerCells.has(k)) return false;
+          sxEvicted.add(k);
           return true;
         };
         for (const ch of sx.chests) {
@@ -3869,6 +3907,27 @@
           occupied.add(k);
           delete ch.garden;   // internal flag — don't leak into the chest object
           entry.objects.push(ch);
+          // A chest blocks its cell for every later chest (kind-checked, exactly
+          // as the old per-chest scan of entry.objects would have seen it).
+          if (SX_CHEST_BLOCKERS.has(ch.kind)) sxBlockerCells.add(k);
+        }
+        if (sxEvicted.size) {
+          const objs = entry.objects;
+          let wr = 0;
+          for (let i = 0; i < objs.length; i++) {
+            const o = objs[i];
+            if (i < sxPreLen && sxEvicted.has(cellKeyOf(o.x, o.y))) continue;
+            objs[wr++] = o;
+          }
+          objs.length = wr;
+          const wps = entry.wildplants;
+          wr = 0;
+          for (let i = 0; i < wps.length; i++) {
+            const wp = wps[i];
+            if (sxEvicted.has(cellKeyOf(wp.x, wp.y))) continue;
+            wps[wr++] = wp;
+          }
+          wps.length = wr;
         }
         const tryTreeCell = (ix, iy) => {
           if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
@@ -3905,7 +3964,7 @@
           // cell alone was not: two detections in one cell, or one relocated
           // onto a cell a forest tree's id already named, shared an id, and
           // chopping one felled the other.
-          if (!t.id) t.id = `${t.kind === 'fruittree' ? 'ft' : 'tree'}_sx_${x}_${y}_${r.ix}_${r.iy}`;
+          if (!t.id) t.id = cellId(`${t.kind === 'fruittree' ? 'ft' : 'tree'}_sx`, x, y, r.ix, r.iy);
           entry.objects.push(t);
         }
         for (const s of sx.shrubs) {
@@ -3992,7 +4051,7 @@
             ({ x: pk.x, y: pk.y } = _sxCentre(moved.ix, moved.iy));
             // Named by its settled cell, in the MVT parking path's own format,
             // so the same lot from both sources is the same X.
-            pk.id = `t_park_${x}_${y}_${moved.ix}_${moved.iy}`;
+            pk.id = cellId('t_park', x, y, moved.ix, moved.iy);
           }
           // Skip if an X already sits within ~8m (in CELLS: 8 / CELL_M, so
           // the same cell or an orthogonal neighbour) — the MVT parking path
@@ -4202,7 +4261,7 @@
             const { lix, liy } = p;
             binFor(p.tx, p.ty).poles.push({
               kind: 'pole', lix, liy,
-              id: osmId ? `pole_${osmId}` : `pole_${p.tx}_${p.ty}_${lix}_${liy}`,
+              id: osmId ? `pole_${osmId}` : cellId('pole', p.tx, p.ty, lix, liy),
             });
           } else if (kind === 'tree_row') {
             // Scatter ~5 bushes in a small disc around the row centroid.
@@ -4228,7 +4287,7 @@
             const { lix, liy } = p;
             binFor(p.tx, p.ty).wells.push({
               kind: 'well', lix, liy,
-              id: osmId ? `well_${osmId}` : `well_${p.tx}_${p.ty}_${lix}_${liy}`,
+              id: osmId ? `well_${osmId}` : cellId('well', p.tx, p.ty, lix, liy),
             });
           } else if (kind === 'parking') {
             // amenity=parking → a buried-treasure X (claimed via the treasure
@@ -4238,7 +4297,7 @@
             binFor(p.tx, p.ty).parking.push({
               // Re-minted from the SETTLED cell at injection (loadTile), in
               // the MVT parking path's own format.
-              lix, liy, id: `t_park_${p.tx}_${p.ty}_${lix}_${liy}`,
+              lix, liy, id: cellId('t_park', p.tx, p.ty, lix, liy),
             });
           } else if (SX_CHEST_POI[kind]) {
             // Everything else we care about becomes a POI chest.
@@ -4251,7 +4310,7 @@
               name: tags.name || '',
               // Garden chests scatter a flower burst at injection time.
               garden: kind === 'garden' || undefined,
-              id: osmId ? `sxc_${osmId}` : `sxc_${p.tx}_${p.ty}_${lix}_${liy}`,
+              id: osmId ? `sxc_${osmId}` : cellId('sxc', p.tx, p.ty, lix, liy),
             });
           }
         }
@@ -4667,7 +4726,7 @@
   // An up-stair sits on the cell of the down-stair it mirrors, so the pair
   // share every field but `dir` and the depth.
   function caveStairId(dir, depth, tx, ty, lix, liy) {
-    return `stair_${dir}_${depth}_${tx}_${ty}_${lix}_${liy}`;
+    return cellId(`stair_${dir}_${depth}`, tx, ty, lix, liy);
   }
 
   // World-meter centre of local cell (lix,liy) on tile (tx,ty).
@@ -4729,7 +4788,7 @@
     // middle of a motorway's band or a parking lot the grid still calls
     // landuse. stairCellOK below must consult it, same as every other spawner.
     const roadMask = entry.roadMask;
-    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y)) >>> 0);
+    const rng = makeRng(tileStreamSeed(tx, ty));
     const used = new Set();
 
     // Keep surface entrances spread out: reject a candidate cell that sits
@@ -4845,7 +4904,7 @@
   // the same rollRock. Rocks land only on CAVE_FLOOR cells, never on a
   // staircase cell (`occupied`). Deterministic per tile+depth.
   function spawnCaveRocks(grid, N, tx, ty, tileEdgeM, depth, objects, occupied) {
-    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x85EBCA6B)) >>> 0);
+    const rng = makeRng(tileStreamSeed(tx, ty, 0x85EBCA6B, depth));
     const plainP = caveRockP(depth);
     // Depth-1 is the intro cave: ~80 % of ore rolls land on T2 (copper) so
     // the player reliably finds copper without grinding. Deeper levels use
@@ -4879,7 +4938,7 @@
           if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
           occupied.add(idx);
           const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
-          const id = `cmr_${depth}_${tx}_${ty}_${lix}_${liy}`;
+          const id = cellId(`cmr_${depth}`, tx, ty, lix, liy);
           if (roll.plain) {
             objects.push(makeObject('mineralrock', cx, cy, id,
               { requiredTier: 1, caveVariant: roll.caveVariant }));
@@ -4989,7 +5048,7 @@
   }
   function caveTorchesFrom(sites, grid, N, tx, ty, tileEdgeM, depth, occupied) {
     const out = [];
-    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0xC2B2AE35)) >>> 0);
+    const rng = makeRng(tileStreamSeed(tx, ty, 0xC2B2AE35, depth));
     for (const s of sites || []) {
       const lit = rng() < CAVE_TORCH_P;     // roll for every site, so the sequence is stable
       if (!lit) continue;
@@ -5023,7 +5082,7 @@
   // size) is unchanged, same as depth-1's ore-heavy weights in
   // spawnCaveRocks above being the one thing that varies for that level.
   function spawnCaveMushrooms(grid, N, tx, ty, tileEdgeM, depth, wildplants, occupied) {
-    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x27D4EB2F)) >>> 0);
+    const rng = makeRng(tileStreamSeed(tx, ty, 0x27D4EB2F, depth));
     const FIRE = (depth === 1 || depth === 4) ? 0.5 : 0.25;
     const PIVOT = 8, CLUSTER_MIN = 1, CLUSTER_SPAN = 3, RADIUS = 1;
     for (let py = 1; py < N; py += PIVOT) {
@@ -5039,7 +5098,7 @@
           occupied.add(idx);
           const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
           wildplants.push(makeWildplant('mushroom', cx, cy,
-            `cwp_${depth}_${tx}_${ty}_${lix}_${liy}`, { _ix: lix, _iy: liy, _cave: true }));
+            cellId(`cwp_${depth}`, tx, ty, lix, liy), { _ix: lix, _iy: liy, _cave: true }));
         }
       }
     }
@@ -5063,7 +5122,7 @@
   const CAVE_SCONCE_PIVOT = 18, CAVE_SCONCE_P = 0.45, CAVE_SCONCE_TRIES = 10;
   function caveWallTorches(grid, N, tx, ty, tileEdgeM, depth, occupied) {
     const out = [];
-    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x165667B1)) >>> 0);
+    const rng = makeRng(tileStreamSeed(tx, ty, 0x165667B1, depth));
     const byWall = (lix, liy) =>
       (lix > 0 && grid[liy * N + lix - 1] === T.CAVE_WALL) ||
       (lix < N - 1 && grid[liy * N + lix + 1] === T.CAVE_WALL) ||
@@ -5080,7 +5139,7 @@
           if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx) || !byWall(lix, liy)) continue;
           occupied.add(idx);
           const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
-          out.push({ kind: 'torch', x: cx, y: cy, id: `torch_w_${depth}_${tx}_${ty}_${lix}_${liy}`, depth });
+          out.push({ kind: 'torch', x: cx, y: cy, id: cellId(`torch_w_${depth}`, tx, ty, lix, liy), depth });
           break;
         }
       }
@@ -5108,7 +5167,7 @@
     }
   }
   function caveChestRings(objects, grid, N, tx, ty, tileEdgeM, depth, wildplants, occupied) {
-    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0xD3A2646D)) >>> 0);
+    const rng = makeRng(tileStreamSeed(tx, ty, 0xD3A2646D, depth));
     const cellOf = (o) => cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
     const wpCells = new Set();
     for (const w of wildplants) {
@@ -5148,7 +5207,7 @@
         wpCells.add(idx);
         const { x: wx, y: wy } = cellCentreM(tx, ty, cx, cy, tileEdgeM, N);
         wildplants.push(makeWildplant('mushroom', wx, wy,
-          `cwr_${depth}_${tx}_${ty}_${cx}_${cy}`, { _ix: cx, _iy: cy, _cave: true }));
+          cellId(`cwr_${depth}`, tx, ty, cx, cy), { _ix: cx, _iy: cy, _cave: true }));
       }
     }
   }
@@ -5161,7 +5220,7 @@
   const CAVE_COIN_PIVOT = 12, CAVE_COIN_P = 0.35;
   function caveCoins(grid, N, tx, ty, tileEdgeM, depth, occupied) {
     const out = [];
-    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0xFD7046C5)) >>> 0);
+    const rng = makeRng(tileStreamSeed(tx, ty, 0xFD7046C5, depth));
     for (let py = 0; py < N; py += CAVE_COIN_PIVOT) {
       for (let px = 0; px < N; px += CAVE_COIN_PIVOT) {
         const fire = rng() < CAVE_COIN_P;
@@ -5172,7 +5231,7 @@
         if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
         occupied.add(idx);
         const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
-        out.push({ kind: 'coindrop', x: cx, y: cy, id: `ccoin_${depth}_${tx}_${ty}_${lix}_${liy}`, seeded: true });
+        out.push({ kind: 'coindrop', x: cx, y: cy, id: cellId(`ccoin_${depth}`, tx, ty, lix, liy), seeded: true });
       }
     }
     return out;
@@ -5188,7 +5247,7 @@
   function caveTreasureMarks(grid, N, tx, ty, tileEdgeM, depth, occupied) {
     const out = [];
     if (typeof window !== 'undefined' && window.__TEST_MODE) return out;
-    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0xB55A4F09)) >>> 0);
+    const rng = makeRng(tileStreamSeed(tx, ty, 0xB55A4F09, depth));
     const n = CAVE_X_MIN + Math.floor(rng() * CAVE_X_SPAN);
     for (let k = 0; k < n; k++) {
       for (let attempt = 0; attempt < CAVE_X_TRIES; attempt++) {
@@ -5197,7 +5256,7 @@
         if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
         occupied.add(idx);
         const { x: cx, y: cy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
-        out.push({ x: cx, y: cy, id: `treasure_c${depth}_${tx}_${ty}_${lix}_${liy}` });
+        out.push({ x: cx, y: cy, id: cellId(`treasure_c${depth}`, tx, ty, lix, liy) });
         break;
       }
     }
@@ -5234,14 +5293,14 @@
       const seat = seekFloorSeat(grid, N, lix, liy, occupied);
       if (seat) lay(seat.idx, seat.cx, seat.cy, `ctorch_${s.id}`);
     }
-    const rng = makeRng(((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * 0x5BD1E995)) >>> 0);
+    const rng = makeRng(tileStreamSeed(tx, ty, 0x5BD1E995, depth));
     const n = FLOOR_TORCH_MIN + Math.floor(rng() * FLOOR_TORCH_SPAN);
     for (let k = 0; k < n; k++) {
       for (let attempt = 0; attempt < FLOOR_TORCH_TRIES; attempt++) {
         const lix = Math.floor(rng() * N), liy = Math.floor(rng() * N);
         const idx = liy * N + lix;
         if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
-        lay(idx, lix, liy, `ctorch_${depth}_${tx}_${ty}_${lix}_${liy}`);
+        lay(idx, lix, liy, cellId(`ctorch_${depth}`, tx, ty, lix, liy));
         break;
       }
     }
@@ -5471,7 +5530,7 @@
     cellsPerEdgeForTile, cellSizeM, latOfRowCentre, cellsPerEdgeForLat,
     // Tile + local-cell hash every generated id/seed is keyed on, and the
     // stair id built from it.
-    cellHash, caveStairId,
+    cellHash, cellId, tileStreamSeed, caveStairId,
     // Sidecar / Overpass GeoJSON → per-tile bins of tile-local cells —
     // exported so world_frame.test.js can pin that binning is frame-free.
     buildBinsFromGeoJSON,

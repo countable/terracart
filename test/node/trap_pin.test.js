@@ -150,6 +150,7 @@ function trapScene() {
     _painFlash: () => {},
     _popEnergy: () => {},
     _warnIfTiring: () => {},
+    _losePlayerEnergy(d) { const b = this.save.energy ?? 0; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
     flash: () => {},
     modals: [],
     showMessageModal(opts) { this.modals.push(opts); },

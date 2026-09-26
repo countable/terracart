@@ -132,9 +132,9 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   // MONSTER_ARROW_HITS exists to preserve.
   assert.truthy(/const dmg = Combat\.playerDamage\(shielded, this\.save\.armor, shot\.hits\);/.test(hit),
     'armour soaks each carried hit, not the bundle');
-  assert.truthy(/this\.save\.energy = Math\.max\(0, before - dmg\);/.test(hit), 'it comes off energy');
-  assert.truthy(/this\._monsterDmgAccum = \(this\._monsterDmgAccum \|\| 0\) \+ \(before - this\.save\.energy\);/.test(hit),
-    'and rolls into the monsters-hit flash');
+  const body = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/)[1];
+  assert.truthy(/this\._monsterDmgAccum = \(this\._monsterDmgAccum \|\| 0\)\s*\+ this\._losePlayerEnergy\(dmg, \{ closeShop: true \}\);/.test(body),
+    'it comes off energy, and rolls into the monsters-hit flash');
 });
 
 // ── The archer's trigger range IS the staff's range ─────────────────────────

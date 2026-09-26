@@ -377,7 +377,7 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   // And draw() collects them every frame, between the fires and the player.
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(
-    /collectFires\(scene, ax, ay, halfM\);\s*\n\s*collectLamps\(scene, ax, ay, halfM\);\s*\n\s*collectPlayer\(scene, ax, ay, halfM\);/
+    /collectFires\(scene, ax, ay, halfM\);\s*\n\s*collectLamps\(scene, ax, ay, halfM\);\s*\n\s*collectPlayer\(scene, ax, ay, halfM, now\);/
       .test(d),
     'collectLamps runs between collectFires and collectPlayer, every frame');
 });

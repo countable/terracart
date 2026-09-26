@@ -580,7 +580,7 @@ const TAP_HANDLERS = [
     // Underground monsters can't be befriended — they're DEFEAT-only foes.
     if (!isTame && !Combat.isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
       const doMangoTame = () => tameInPlace(scene, save, target,
-        `🥭 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, 'mango', 1.2);
+        `🥭 tamed ${itemName(target.kind)}`, 'mango', 1.2);
       confirmFeed(scene, 'mango', target.kind, doMangoTame);
       return true;
     }
@@ -771,7 +771,7 @@ const TAP_HANDLERS = [
     if (!isTame && sel && likes && (sel.count ?? 0) > 0) {
       const favId = sel.id;
       const doTame = () => tameInPlace(scene, save, target,
-        `🐾 tamed ${ITEM_BY_ID[target.kind]?.name || target.kind}`, target.kind, 1);
+        `🐾 tamed ${itemName(target.kind)}`, target.kind, 1);
       confirmFeed(scene, favId, target.kind, doTame);
       return true;
     }
@@ -820,7 +820,7 @@ const TAP_HANDLERS = [
           }
           scene.addToInv(yieldId, yieldN);
           scene.buildInventoryDOM();
-          scene.flashLoot(`+${yieldN} ${ITEM_BY_ID[yieldId]?.name || yieldId}`, '#a7ffb0', 1, yieldId);
+          scene.flashLoot(`+${yieldN} ${itemName(yieldId)}`, '#a7ffb0', 1, yieldId);
           // Stamp the cooldown on the creature (in-memory) AND in the save
           // (survives tile reload + game restart). Re-read the clock here since
           // the confirm dialog may have sat open for a while.
@@ -912,13 +912,13 @@ const TAP_HANDLERS = [
         const treasure = wildplantTreasure(wp.crop);
         if (treasure && Math.random() < treasure.chance) {
           scene.addToInv(treasure.bonus, 1);
-          bonus = ` ✨${ITEM_BY_ID[treasure.bonus]?.name || treasure.bonus}`;
+          bonus = ` ✨${itemName(treasure.bonus)}`;
         }
         persistSave(save);
         // Display NAMES, never raw ids — every other loot toast resolves the
         // name first (QC_RULES §4), so this path used to be the one that
         // flashed "+1 longgrass" instead of "+1 Long grass".
-        const outName = ITEM_BY_ID[outId]?.name || outId;
+        const outName = itemName(outId);
         if (bonus) scene.flashLoot(`${outName}${bonus}`, '#ff8aff', 1, outId);
         else scene.flashLoot(`+1 ${outName}`, undefined, 1, outId);
         // Rare shiny flora — 10× money + a memory, on top of the
@@ -1176,8 +1176,8 @@ const TAP_HANDLERS = [
     const sel = getSelectedSlot(save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
     const half = scene.cellM / 2;
-    const fire = (save.fires || []).find(f => PlacedFloor.onDepth(f, scene.depth) &&
-      Math.abs(f.x - cwmx) < half && Math.abs(f.y - cwmy) < half);
+    const fireIdx = PlacedFloor.indexAt(save.fires, cwmx, cwmy, scene.depth, half);
+    const fire = fireIdx >= 0 ? save.fires[fireIdx] : null;
     if (!fire) return false;
     const made = CAMPFIRE_MAKES[sel.id];
     if (!made) { scene.presentBurnConfirm(sel.id, { x: fire.x, y: fire.y }); return true; }
@@ -1193,7 +1193,7 @@ const TAP_HANDLERS = [
     if (!last) consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
-    scene.flashLoot(`🔥 ${ITEM_BY_ID[made]?.name || made}`, '#ffb070', 1, made);
+    scene.flashLoot(`🔥 ${itemName(made)}`, '#ffb070', 1, made);
     return true;
   }},
 
@@ -1253,8 +1253,7 @@ const TAP_HANDLERS = [
     // Only match a scarecrow placed on the level we're standing on — a surface
     // scarecrow and the cave cell below it share world coords (GPS mirror), so
     // without the depth gate a cave tap would reclaim the farm scarecrow above.
-    const idx = arr.findIndex(s => PlacedFloor.onDepth(s, scene.depth) &&
-      Math.abs(s.x - cwmx) < half && Math.abs(s.y - cwmy) < half);
+    const idx = PlacedFloor.indexAt(arr, cwmx, cwmy, scene.depth, half);
     if (idx < 0) return false;
     arr.splice(idx, 1);
     scene.addToInv('scarecrow', 1, false, { notWild: true });   // reclaimed, not found
@@ -1270,8 +1269,7 @@ const TAP_HANDLERS = [
     // scarecrow already sits on this cell (rock has no such per-cell list to
     // check — placedRockSet membership is implied by the tilled/planted gates).
     extraGuard: ({ scene, save, cwmx, cwmy }) =>
-      !(save.scarecrows || []).some(s => PlacedFloor.onDepth(s, scene.depth) &&
-        Math.abs(s.x - cwmx) < 0.1 && Math.abs(s.y - cwmy) < 0.1),
+      PlacedFloor.indexAt(save.scarecrows, cwmx, cwmy, scene.depth, 0.1) < 0,
     place: ({ scene, save, cwmx, cwmy }) => {
       save.scarecrows = save.scarecrows || [];
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
@@ -1289,8 +1287,7 @@ const TAP_HANDLERS = [
     const half = scene.cellM / 2;
     // Match only a fire lit on this level — fires are placeable underground
     // (they ward slimes), so the GPS-mirror depth gate matters here too.
-    const idx = arr.findIndex(f => PlacedFloor.onDepth(f, scene.depth) &&
-      Math.abs(f.x - cwmx) < half && Math.abs(f.y - cwmy) < half);
+    const idx = PlacedFloor.indexAt(arr, cwmx, cwmy, scene.depth, half);
     if (idx < 0) return false;
     arr.splice(idx, 1);
     ctx.dirty = true;
@@ -1305,8 +1302,7 @@ const TAP_HANDLERS = [
   { name: 'light-fire', try: (ctx) => placeOnEmptyCell(ctx, {
     itemId: 'coal',
     extraGuard: ({ scene, save, cwmx, cwmy }) =>
-      !(save.fires || []).some(f => PlacedFloor.onDepth(f, scene.depth) &&
-        Math.abs(f.x - cwmx) < 0.1 && Math.abs(f.y - cwmy) < 0.1),
+      PlacedFloor.indexAt(save.fires, cwmx, cwmy, scene.depth, 0.1) < 0,
     place: ({ scene, save, cwmx, cwmy }) => {
       save.fires = save.fires || [];
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
@@ -1688,7 +1684,7 @@ const TAP_HANDLERS = [
       // beside every other loot toast (QC_RULES §4). The tree branch says what
       // it will become, since a bare 'a tree' is the one plant whose payoff is
       // days away and needs to read as deliberate.
-      scene.flash(asTree ? '\ud83c\udf31 Timber tree planted — 4d.'
+      scene.flash(asTree ? `\ud83c\udf31 Timber tree planted — ${shortDuration(PLANTED_TREE_GROW_MS)}.`
                          : `\ud83c\udf31 ${cropName(item.grows)} sapling planted.`, sx, sy);
       scene.questEvent?.('plant');
       return true;

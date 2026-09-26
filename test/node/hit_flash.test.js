@@ -12,13 +12,17 @@
 const app = APP_JS_SRC;
 
 test('hit flash: every drain on the body flinches at the instant it lands, with what it cost', () => {
-  // Four drains, four calls, each right after the loss is banked — and each
-  // hands the actual points taken through, so a graze can throw a shorter
+  // Four drains bank through ONE method, and it flinches right after the loss
+  // is banked with the actual points taken, so a graze can throw a shorter
   // burst than the worst hit in the game (Particles.dmgSpeedScale).
-  const sites = app.match(/\(before - this\.save\.energy\);\s*\n\s*this\._flashPlayerHit\(before - this\.save\.energy\);/g) || [];
-  assert.eq(sites.length, 4, 'slime leech, monster melee, arrow, standing on a sprung trap');
+  const lose = app.match(/\n  _losePlayerEnergy\(dmg, [^)]*\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(lose, '_losePlayerEnergy exists');
+  assert.truthy(/this\.save\.energy = Math\.max\(0, before - dmg\);\s*\n\s*const lost = before - this\.save\.energy;\s*\n\s*this\._flashPlayerHit\(lost\);/.test(lose[1]),
+    'the flinch lands the instant the loss is banked, with what it cost');
+  const sites = app.match(/this\._losePlayerEnergy\(/g) || [];
+  assert.eq(sites.length, 5, 'slime leech, monster melee, arrow, a ghost\'s touch, standing on a sprung trap');
   const arrow = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/);
-  assert.truthy(arrow && /this\._flashPlayerHit\(before - this\.save\.energy\);/.test(arrow[1]), 'the arrow is one of them');
+  assert.truthy(arrow && /this\._losePlayerEnergy\(dmg/.test(arrow[1]), 'the arrow is one of them');
   // …and the trap's BITE, which lands through the pain effect rather than in
   // that shape, because it carries the rim pulse and the shake with it.
   const pain = app.match(/\n  _painFlash\(dmg\) \{([\s\S]*?)\n  \}\n/);
@@ -64,8 +68,10 @@ test('hit flash: the haptic sits between a pickup and a refusal', () => {
 (function () {
 const app = APP_JS_SRC;
 test('hit flash: a FOE\'s blow closes an open shop dialog — a trap\'s does not', () => {
-  const sites = app.match(/\(before - this\.save\.energy\);\s*\n\s*this\._flashPlayerHit\(before - this\.save\.energy\);\s*\n\s*this\._closeShopOnHit\(\);/g) || [];
-  assert.eq(sites.length, 3, 'the slime leech, the monster melee and the arrow all close it');
+  const sites = app.match(/this\._losePlayerEnergy\([^)]*\{ closeShop: true \}\)/g) || [];
+  assert.eq(sites.length, 4, 'the slime leech, the monster melee, the arrow and a ghost\'s touch all close it');
+  const lose = app.match(/\n  _losePlayerEnergy\(dmg, [^)]*\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(/if \(closeShop\) this\._closeShopOnHit\(\);/.test(lose[1]), 'only when the caller asks — a trap does not');
   const m = app.match(/\n  _closeShopOnHit\(\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m && /\.game-modal\[data-kind="shop"\]/.test(m[1]), 'it finds shop dialogs by kind');
   assert.truthy(/if \(typeof kind === 'string'\) wrap\.dataset\.kind = kind;/.test(app), 'makeModalShell stamps the kind');

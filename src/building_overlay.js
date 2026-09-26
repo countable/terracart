@@ -286,8 +286,8 @@
   // floor is too dark to take a dark line, at the same weight, rhythm and
   // alpha: the lattice stays the ground's lattice, it just stays VISIBLE.
   // Rec. 601 luma, and the threshold is where a mid-grey stops reading dark.
+  // (luminance() comes from util.js.)
   const LUMA_FLIP = 0.42;
-  const luma = (c) => (0.299 * ((c >> 16) & 255) + 0.587 * ((c >> 8) & 255) + 0.114 * (c & 255)) / 255;
   // …and one thing more: the WEIGHT. 8% reads on the ground because the ground
   // is quiet — grass tufts, sand ripples, a park's flowers are all low-contrast
   // at this scale. A floor is not: house cobbles, fort planks and castle paving
@@ -301,12 +301,10 @@
   const gridInkFor = (style, floor) => ({
     ...style,
     alpha: style.alpha * GRID_OVER_FLOOR_MUL,
-    color: luma(floor) >= LUMA_FLIP ? style.color : 0xffffff,
+    color: luminance(floor) >= LUMA_FLIP ? style.color : 0xffffff,
   });
 
-  // cssOf (int → '#rrggbb') comes from util.js.
-  const rgbaOf = (c, a) =>
-    `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${a})`;
+  // cssOf / rgbaOf (int → '#rrggbb' / 'rgba(...)') come from util.js.
 
   // ── The polygonal mode switch ────────────────────────────────────────────
   // Default ON — this branch exists to look at it. `false` (not merely falsy)

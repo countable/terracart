@@ -237,9 +237,46 @@ test('missingLine: a tap names only what the bags still lack', () => {
   const part = Delivery.missingLine(['potato', 'carrot', 'onion'], count, name);
   assert.eq(part.ids.join(), 'carrot', 'only the carrot is missing');
   assert.eq(part.line, 'still needs: Carrot');
-  assert.eq(Delivery.missingLine(['carrot', 'beet'], count, name).line, 'wants the set: Carrot, Beet',
-    'none in hand — the whole set');
+  assert.eq(Delivery.missingLine(['carrot', 'beet'], count, name).line, 'wants: Carrot +1',
+    'none in hand — names the first, folds the rest into +N');
   assert.eq(Delivery.missingLine(['carrot'], count, name).line, 'wants: Carrot', 'a single errand');
+  assert.eq(Delivery.missingLine(['potato', 'carrot', 'onion'], () => 0, name).line, 'wants: Potato +2',
+    'a full 3-item set missing folds two into +2');
+});
+
+test('missingLine: fits MAP_MSG_MAX over every real wishlist item, worst case', () => {
+  // Every id any wishlist can actually name (scripted ladder + every theme
+  // pool) — the one table both the roll and this test read.
+  const allIds = [
+    ...Delivery.SCRIPTED_WISHLISTS.flat(),
+    ...Object.values(Delivery.BUNDLE_THEMES).flat(),
+  ].filter((id) => ITEM_BY_ID[id]);
+  const uniq = [...new Set(allIds)];
+  const held = {}; // nothing in hand — the widest scaffold + suffix combos
+  const count = (id) => held[id] || 0;
+  const name = (id) => itemName(id);
+  // Longest single name, alone: "wants: <name>".
+  const longest = uniq.reduce((a, b) => (name(a).length >= name(b).length ? a : b));
+  assert.truthy(Delivery.missingLine([longest], count, name).line.length <= MAP_MSG_MAX,
+    `single-item worst case: "${Delivery.missingLine([longest], count, name).line}"`);
+  // Widest "still needs" case: a 3-item wishlist with 2 still missing (1
+  // already delivered), the missing item with the longest name first.
+  for (const id of uniq) {
+    const wanted = [id, '__had__', '__had__2'];
+    held.__had__ = 1; held.__had__2 = 1;
+    const nameOf = (x) => (x === '__had__' || x === '__had__2') ? 'X' : name(x);
+    const line = Delivery.missingLine(wanted, count, nameOf).line;
+    assert.truthy(line.length <= MAP_MSG_MAX, `still-needs worst case over "${id}": "${line}" (${line.length})`);
+  }
+  delete held.__had__; delete held.__had__2;
+  // Widest "wants the set" case: a full 3-item wishlist, nothing delivered,
+  // the longest-named item first.
+  for (const id of uniq) {
+    const wanted = [id, '__b__', '__c__'];
+    const nameOf = (x) => (x === '__b__' || x === '__c__') ? 'X' : name(x);
+    const line = Delivery.missingLine(wanted, () => 0, nameOf).line;
+    assert.truthy(line.length <= MAP_MSG_MAX, `full-set worst case over "${id}": "${line}" (${line.length})`);
+  }
 });
 
 test('missingLine: the delivery tap uses it, and the callout stands down under a toast', () => {

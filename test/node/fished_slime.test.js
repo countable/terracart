@@ -40,6 +40,7 @@ function slimeScene(cellType = () => GRASS) {
     resolveDefeat: () => {},
     _popEnergy: () => {},
     _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
+    _losePlayerEnergy(d) { const b = this.save.energy ?? 0; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
   };
   scene._entry = entry;

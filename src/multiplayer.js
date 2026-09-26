@@ -81,7 +81,7 @@ const Multiplayer = (function () {
   function fromWorldPx(scene, px, py) {
     return { x: px * scene.mPerPx, y: py * scene.mPerPx };
   }
-  function hexCss(n) { return '#' + (n & 0xffffff).toString(16).padStart(6, '0'); }
+  // int → '#rrggbb': cssOf, from util.js.
 
   // Where an edge marker for something off-screen sits: the point on the
   // square view edge along the line from the view centre toward it, `inset`
@@ -299,7 +299,7 @@ const Multiplayer = (function () {
     p.spr = scene.add.sprite(0, 0, 'idle', 0).setScale(scene.playerScale || 1).setTint(p.color);
     p.spr.play('idle-down');
     p.lbl = scene.add.text(0, 0, p.name, {
-      font: fontMono('bold 10px'), color: hexCss(p.color),
+      font: fontMono('bold 10px'), color: cssOf(p.color),
       stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
     }).setOrigin(0.5, 1);
     S.container.add([p.sh, p.spr, p.lbl]);
@@ -376,7 +376,7 @@ const Multiplayer = (function () {
       const dx = wm.x - (scene.startWorldM.x + scene.playerM.x), dy = wm.y - (scene.startWorldM.y + scene.playerM.y);
       const dist = Math.round(Math.hypot(dx, dy));
       const arrow = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'][((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8];
-      scene._toast?.(`📍 ${ping.name}: ${ping.label || 'here'} · ${dist} m ${arrow}`, { tier: 'sub', color: hexCss(ping.color) });
+      scene._toast?.(`📍 ${ping.name}: ${ping.label || 'here'} · ${dist} m ${arrow}`, { tier: 'sub', color: cssOf(ping.color) });
     }
   }
   function drawPings(scene, now) {
@@ -392,7 +392,7 @@ const Multiplayer = (function () {
       if (!q.gfx) {
         q.gfx = scene.add.graphics();
         q.txt = scene.add.text(0, 0, '', {
-          font: fontMono('bold 10px'), color: hexCss(q.color),
+          font: fontMono('bold 10px'), color: cssOf(q.color),
           stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
         }).setOrigin(0.5, 1);
         S.container.add([q.gfx, q.txt]);

@@ -4094,11 +4094,7 @@ class MapScene extends Phaser.Scene {
       this._trapDrainAccum -= pips;
       const before = this.save.energy ?? 0;
       if (before > 0) {
-        this.save.energy = Math.max(0, before - pips);
-        this._trapDrainPop = (this._trapDrainPop || 0) + (before - this.save.energy);
-        this._flashPlayerHit(before - this.save.energy);
-        this._warnIfTiring(before);
-        if (this.updateEnergyDOM) this.updateEnergyDOM();
+        this._trapDrainPop = (this._trapDrainPop || 0) + this._losePlayerEnergy(pips);
       }
     }
     // One throttled pop for everything the trap has taken this window — the
@@ -5074,7 +5070,7 @@ class MapScene extends Phaser.Scene {
         if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) continue;
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
-        entry.extraTreasures.push({ x: wmx, y: wmy, id: `treasure_x_${tx}_${ty}_${cx}_${cy}` });
+        entry.extraTreasures.push({ x: wmx, y: wmy, id: WorldGen.cellId('treasure_x', tx, ty, cx, cy) });
         placed = true;
       }
     }
@@ -5133,7 +5129,7 @@ class MapScene extends Phaser.Scene {
           if (!WorldGen.isSpawnCell(genGrid, N, N, ncx, ncy, _spawnOpts)) continue;
           const wmx = tx * this.tileEdgeM + (ncx + 0.5) * cellM;
           const wmy = ty * this.tileEdgeM + (ncy + 0.5) * cellM;
-          const id = `treasure_path_${tx}_${ty}_${ncx}_${ncy}`;
+          const id = WorldGen.cellId('treasure_path', tx, ty, ncx, ncy);
           if (entry.extraTreasures.some(t => t.id === id)) continue;
           entry.extraTreasures.push({ x: wmx, y: wmy, id });
           placed = true;
@@ -5162,7 +5158,7 @@ class MapScene extends Phaser.Scene {
           if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, _spawnOpts)) continue;
           const wmx = tx * this.tileEdgeM + (scx + 0.5) * cellM;
           const wmy = ty * this.tileEdgeM + (scy + 0.5) * cellM;
-          const id = `treasure_sand_${tx}_${ty}_${scx}_${scy}`;
+          const id = WorldGen.cellId('treasure_sand', tx, ty, scx, scy);
           if (entry.extraTreasures.some(t => t.id === id)) continue;
           entry.extraTreasures.push({ x: wmx, y: wmy, id });
           placed = true;
@@ -8094,7 +8090,7 @@ class MapScene extends Phaser.Scene {
           if (!this._ammoDryWarned) {
             this._ammoDryWarned = true;
             const ps = this.playerScreen();
-            this.flash(`Out of ${ITEM_BY_ID[ammo.id]?.name || ammo.id} — bow idle`, ps.x, ps.y + this.playerBodyDy());
+            this.flash(`Out of ${itemName(ammo.id)} — bow idle`, ps.x, ps.y + this.playerBodyDy());
           }
           continue;
         }
@@ -8236,12 +8232,8 @@ class MapScene extends Phaser.Scene {
     // One arrow can carry several hits of the kind's table (shot.hits,
     // MONSTER_ARROW_HITS) — armour soaks each of them, not the bundle.
     const dmg = Combat.playerDamage(shielded, this.save.armor, shot.hits);
-    this.save.energy = Math.max(0, before - dmg);
-    this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
-    this._flashPlayerHit(before - this.save.energy);
-    this._closeShopOnHit();
-    this._warnIfTiring(before);
-    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    this._monsterDmgAccum = (this._monsterDmgAccum || 0)
+      + this._losePlayerEnergy(dmg, { closeShop: true });
     return true;
   }
 
@@ -8281,6 +8273,23 @@ class MapScene extends Phaser.Scene {
         Particles.burst(this, 'pain', ps.x, ps.y + this.playerFeetNudgeY, { dmg });
       }
     }
+  }
+
+  // A blow BANKED on the body — the one place a foe's (already mitigated) hit
+  // or a trap's bleed comes off the bar: floored at 0, the flinch at the
+  // instant it lands, the shop shut if `closeShop`, the tiring warning, the
+  // HUD. Returns what was actually lost, for the caller's throttled pop
+  // accumulator. It does NOT mitigate: Combat.playerDamage stays at the
+  // caller, where the blow's own shield/armour inputs are.
+  _losePlayerEnergy(dmg, { closeShop = false } = {}) {
+    const before = this.save.energy ?? 0;
+    this.save.energy = Math.max(0, before - dmg);
+    const lost = before - this.save.energy;
+    this._flashPlayerHit(lost);
+    if (closeShop) this._closeShopOnHit();
+    this._warnIfTiring(before);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    return lost;
   }
 
   // The castle turrets' volley — one arrow per turret per Combat.TURRET
@@ -9349,13 +9358,8 @@ class MapScene extends Phaser.Scene {
             const raw = gm.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
             const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(raw / 2) : raw;
             const dmg = Combat.playerDamage(shielded, this.save.armor);
-            this.save.energy = Math.max(0, before - dmg);
-            const lost = before - this.save.energy;
-            this._flashPlayerHit(lost);
+            const lost = this._losePlayerEnergy(dmg, { closeShop: true });
             this._popEnergy(-lost, { label: '👻 ghost' });
-            this._closeShopOnHit();
-            this._warnIfTiring(before);
-            if (this.updateEnergyDOM) this.updateEnergyDOM();
           }
         }
         if (fate === 'touch' || fate === 'faded') {
@@ -9387,12 +9391,8 @@ class MapScene extends Phaser.Scene {
             const slimeRaw = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3)
               * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
             const slimeDmg = Combat.playerDamage(slimeRaw, this.save.armor);
-            this.save.energy = Math.max(0, before - slimeDmg);
-            this._slimeStealAccum = (this._slimeStealAccum || 0) + (before - this.save.energy);
-            this._flashPlayerHit(before - this.save.energy);
-            this._closeShopOnHit();
-            this._warnIfTiring(before);
-            if (this.updateEnergyDOM) this.updateEnergyDOM();
+            this._slimeStealAccum = (this._slimeStealAccum || 0)
+              + this._losePlayerEnergy(slimeDmg, { closeShop: true });
           }
         }
       }
@@ -9454,12 +9454,8 @@ class MapScene extends Phaser.Scene {
             // Worn armour soaks the rest — see the slime leech above; the same
             // pool, the same floor of 1.
             const monDmg = Combat.playerDamage(shielded, this.save.armor);
-            this.save.energy = Math.max(0, before - monDmg);
-            this._monsterDmgAccum = (this._monsterDmgAccum || 0) + (before - this.save.energy);
-            this._flashPlayerHit(before - this.save.energy);
-            this._closeShopOnHit();
-            this._warnIfTiring(before);
-            if (this.updateEnergyDOM) this.updateEnergyDOM();
+            this._monsterDmgAccum = (this._monsterDmgAccum || 0)
+              + this._losePlayerEnergy(monDmg, { closeShop: true });
           }
         }
       }
@@ -10413,8 +10409,9 @@ class MapScene extends Phaser.Scene {
     // — the burst radius is ~5 cells at 5m/cell which fits inside one tile
     // for almost every POI placement, and saves us a multi-tile scan.
     const tileEdgeM = this.tileEdgeM;
-    const tx = Math.floor(poi.x / tileEdgeM);
-    const ty = Math.floor(poi.y / tileEdgeM);
+    // The POI's tile and its cell on that tile's own grid (coords.js — the
+    // same conversion every tap gate uses, never floor(metres / cellM)).
+    const { tx, ty, ix: poiLocalCX, iy: poiLocalCY } = worldMetersToTileCell(this, poi.x, poi.y);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.grid) {
       // Tile evicted between render and tap — shouldn't happen since the
@@ -10425,8 +10422,6 @@ class MapScene extends Phaser.Scene {
     // The host tile's OWN grid (its row's N) and its cell size in the frame.
     const N = entry.cellsPerEdge || rowCells(this, ty);
     const cellM = tileEdgeM / N;
-    const poiLocalCX = Math.floor((poi.x - tx * tileEdgeM) / cellM);
-    const poiLocalCY = Math.floor((poi.y - ty * tileEdgeM) / cellM);
     const RADIUS_CELLS = Math.max(2, Math.ceil(25 / cellM));   // ~5 cells at 5m
     const MAX_BURST_CELLS = RADIUS_CELLS * 3;                  // ~75 m, the escalated reach
     // Scatter only on legitimate spawn cells: walkable, off-road, and not deep
@@ -10526,11 +10521,7 @@ class MapScene extends Phaser.Scene {
     // Shuffle only the near buffer we're actually drawing coins from, so the
     // exact cells still vary run to run without reaching past it for cells
     // near the far edge of the search box.
-    const pool = candidates.slice(0, Math.max(n, COIN_BURST_MIN * 2));
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
+    const pool = shuffleInPlace(candidates.slice(0, Math.max(n, COIN_BURST_MIN * 2)));
     // Where each coin lands: { entry, x, y } — the pot's scatter on the pot's
     // tile, then COIN_BURST_NEAR_PLAYER more at the player's feet.
     const drops = [];
@@ -10575,12 +10566,11 @@ class MapScene extends Phaser.Scene {
     if (count <= 0) return out;
     const tileEdgeM = this.tileEdgeM;
     const wx = this.startWorldM.x + this.playerM.x, wy = this.startWorldM.y + this.playerM.y;
-    const tx = Math.floor(wx / tileEdgeM), ty = Math.floor(wy / tileEdgeM);
+    const { tx, ty, ix: pcx, iy: pcy } = worldMetersToTileCell(this, wx, wy);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.grid) return out;
     const N = entry.cellsPerEdge || rowCells(this, ty);
     const cellM = tileEdgeM / N;
-    const pcx = Math.floor((wx - tx * tileEdgeM) / cellM), pcy = Math.floor((wy - ty * tileEdgeM) / cellM);
     const occupied = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
     for (let ring = 1; ring <= r && out.length < count; ring++) {
       const cells = [];
@@ -10596,10 +10586,7 @@ class MapScene extends Phaser.Scene {
           cells.push({ cx, cy });
         }
       }
-      for (let k = cells.length - 1; k > 0; k--) {
-        const j = Math.floor(Math.random() * (k + 1));
-        [cells[k], cells[j]] = [cells[j], cells[k]];
-      }
+      shuffleInPlace(cells);
       for (const { cx, cy } of cells) {
         if (out.length >= count) break;
         taken.add(`${tx}_${ty}_${cx}_${cy}`);
@@ -11522,7 +11509,7 @@ class MapScene extends Phaser.Scene {
     if (entry.wildplants) entry.wildplants = entry.wildplants.filter(w => !atCell(w));
     if (!entry.objects.some(o => o.kind === 'staircase' && o.dir === 'up' && atCell(o))) {
       entry.objects.push(WorldGen.makeObject('staircase', cx, cy,
-        `${prefix}_${entry.depth}_${tx}_${ty}_${lix}_${liy}`,
+        WorldGen.cellId(`${prefix}_${entry.depth}`, tx, ty, lix, liy),
         { dir: 'up', depth: entry.depth, _synthetic: true }));
     }
   }
@@ -11635,7 +11622,8 @@ class MapScene extends Phaser.Scene {
         this.playerM.x = o.x - this.startWorldM.x;
         this.playerM.y = o.y - this.startWorldM.y + 4;
         this.syncMoveTarget();
-        this.flash(`→ ${rusticifyName(o.name)} (${o.poiClass})`, this.viewCenterX, this.viewCenterY - 40);
+        // Name the KIND, never the OSM name (unbounded — MAP_MSG_MAX).
+        this.flash(`→ ${o.poiClass || 'chest'}`, this.viewCenterX, this.viewCenterY - 40);
         return true; // short-circuit
       });
       if (this._poiTpVisited.size > 0) return;
@@ -11663,8 +11651,7 @@ class MapScene extends Phaser.Scene {
     this.playerM.x = best.x - this.startWorldM.x;
     this.playerM.y = best.y - this.startWorldM.y + 4;
     this.syncMoveTarget();
-    const label = best.name ? rusticifyName(best.name) : best.poiClass;
-    this.flash(`→ ${label} (${best.poiClass}, ${Math.round(bestD)}m)`, this.viewCenterX, this.viewCenterY - 40);
+    this.flash(`→ ${best.poiClass} ${Math.round(bestD)}m`, this.viewCenterX, this.viewCenterY - 40);
   }
 
   // ── Toasts ───────────────────────────────────────────────────────────────
@@ -13385,6 +13372,7 @@ class MapScene extends Phaser.Scene {
     const max = this.getMaxEnergy();
     const restored = Math.min(40, max - (this.save.energy ?? 0));
     this.save.energy = Math.min(max, (this.save.energy ?? 0) + 40);
+    if (restored > 0) this._popEnergy(restored);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return this._finishConsumable(
       '\u2728 You drink the Potion of Vigor',
@@ -14141,8 +14129,8 @@ class MapScene extends Phaser.Scene {
     // A confirm dialog is already open (rapid double-tap) — ignore the new one
     // so we never stack two over the same animal.
     if (document.getElementById('feed-confirm-modal')) return;
-    const foodName  = ITEM_BY_ID[foodId]?.name || foodId;
-    const faunaName = ITEM_BY_ID[faunaKind]?.name || faunaKind;
+    const foodName  = itemName(foodId);
+    const faunaName = itemName(faunaKind);
     const { wrap, box, mount, mkBtn } =
       this.makeModalShell('feed-confirm-modal', { zIndex: 60, onClose: () => {}, kind: 'farm' });
     const side = (iconId, label) =>
@@ -14188,7 +14176,7 @@ class MapScene extends Phaser.Scene {
   // EXPLODES (_potionBlast). The dialog hints, never names, which.
   presentBurnConfirm(id, fire = null) {
     if (document.getElementById('offer-modal')) return;
-    const name = ITEM_BY_ID[id]?.name || id;
+    const name = itemName(id);
     const out = fireBurnOutcome(id);
     this.showOfferModal({
       kind: 'fire',
@@ -14214,7 +14202,7 @@ class MapScene extends Phaser.Scene {
             this.addToInv(id, 1, true, { notWild: true });
           } else {
             if (fire) this._burstAtWorld('greenspark', fire.x, fire.y);
-            this.flashLoot(`✨ ${ITEM_BY_ID[out.transmute]?.name || out.transmute}`, '#c7a7ff', 1.4, out.transmute);
+            this.flashLoot(`✨ ${itemName(out.transmute)}`, '#c7a7ff', 1.4, out.transmute);
           }
         } else if (out.blastDmg) {
           this._potionBlast(out.blastDmg, fire);
@@ -14446,11 +14434,11 @@ class MapScene extends Phaser.Scene {
       || HOME_RECIPES.find(r => !locked(r) && capOf(r) >= 1) || HOME_RECIPES[0];
     const isLocked = locked(rec);
     const cap = isLocked ? 0 : capOf(rec);
-    const outName = ITEM_BY_ID[rec.id]?.name || rec.id;
+    const outName = itemName(rec.id);
     const costLine = (n) => rec.cost.map(c => {
       const ok = held(c.id) >= c.qty * n;
       return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
-        + `${c.qty * n}× ${this.iconSpanHTML(c.id)} ${ITEM_BY_ID[c.id]?.name || c.id}</span>`;
+        + `${c.qty * n}× ${this.iconSpanHTML(c.id)} ${itemName(c.id)}</span>`;
     }).join(' + ');
     const fmt = (n) => ({
       get: `${n}× ${this.iconSpanHTML(rec.id)} ${outName}`,
@@ -14485,7 +14473,7 @@ class MapScene extends Phaser.Scene {
         if (capOf(rec) < q) {
           const missing = rec.cost.find(c => held(c.id) < c.qty * q);
           const short = missing ? missing.qty * q - held(missing.id) : 0;
-          this.flash(missing ? `Need ${short} more ${ITEM_BY_ID[missing.id]?.name || missing.id}.`
+          this.flash(missing ? `Need ${short} more ${itemName(missing.id)}.`
                              : 'Not enough to craft.', sx, sy);
           return;
         }
@@ -14682,7 +14670,7 @@ class MapScene extends Phaser.Scene {
           persistSave(this.save);
         } else if (out.won >= 0) {
           const p = m.symbols[out.won];
-          const name = ITEM_BY_ID[p.id]?.name || p.id;
+          const name = itemName(p.id);
           const rim = p.jackpot ? GOLD : '#a7ffb0';
           light(rim, () => true);
           // As many as fit go in the bag; the rest is paid in coin at the
@@ -14895,7 +14883,7 @@ class MapScene extends Phaser.Scene {
       // Every relic + armor slot is at max tier. Castles only deal in relics,
       // so there's nothing left to sell — say so explicitly rather than
       // silently swapping the player onto potato seeds.
-      this.flash("The castellan shrugs — you've outgrown the vault.", sx, sy);
+      this.flash(`You've outgrown the vault.`, sx, sy);
       return;
     }
     if (shopType === 'blacksmith') {
@@ -15508,7 +15496,7 @@ class MapScene extends Phaser.Scene {
         // show how many of each you're carrying against the one needed, and
         // price the set.
         const icons = h.wanted.map(id => this.iconSpanHTML(id)).join(' ');
-        const names = h.wanted.map(id => ITEM_BY_ID[id]?.name || id).join(' + ');
+        const names = h.wanted.map(id => itemName(id)).join(' + ');
         const have = h.wanted.map(id => Inventory.count(this.save, id));
         const ready = have.every(n => n >= 1);
         // Say what's MISSING rather than printing a have/need ratio per item —
@@ -15516,7 +15504,7 @@ class MapScene extends Phaser.Scene {
         // do this run?".
         const missing = h.wanted
           .filter((id, i) => have[i] < 1)
-          .map(id => ITEM_BY_ID[id]?.name || id);
+          .map(id => itemName(id));
         const stock = missing.length ? `need ${missing.join(', ')}` : '✓ you have everything';
         const setPrice = Math.max(1, Math.round(
           h.wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
@@ -15641,12 +15629,8 @@ class MapScene extends Phaser.Scene {
   // two they don't yet own — owned slots are skipped in starterBlacksmithOffer.)
   starterSmithSlots() {
     if (!Array.isArray(this.save.starterSmithSlots) || this.save.starterSmithSlots.length !== 2) {
-      const pool = [...STARTER_SMITH_SLOTS];
-      // Fisher–Yates the pool, take the first two for a distinct random pair.
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-      }
+      // Shuffle the pool, take the first two for a distinct random pair.
+      const pool = shuffleInPlace([...STARTER_SMITH_SLOTS]);
       this.save.starterSmithSlots = [pool[0], pool[1]];
       persistSave(this.save);
     }
@@ -15731,7 +15715,7 @@ class MapScene extends Phaser.Scene {
     const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
     if (!maxSets) {
       // Only what is still missing — not the whole list (Delivery.missingLine).
-      const { line } = Delivery.missingLine(wanted, invCount, id => ITEM_BY_ID[id]?.name || id);
+      const { line } = Delivery.missingLine(wanted, invCount, id => itemName(id));
       this.flash(line, sx, sy);
       return;
     }
@@ -15742,7 +15726,7 @@ class MapScene extends Phaser.Scene {
       wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
     // Name the goods rather than showing bare ~20px icons against 13px body
     // text, and say what the stepper counts.
-    const setNames = wanted.map(id => ITEM_BY_ID[id]?.name || id).join(' + ');
+    const setNames = wanted.map(id => itemName(id)).join(' + ');
     const fmt = (q) => ({
       get: this.moneyHTML(`+${setPrice * q}`),
       cost: single
@@ -16132,8 +16116,8 @@ class MapScene extends Phaser.Scene {
           // the recipe line right there on screen in red.
           const missing = recipe.find(r => heldCount(r.id) < r.qty * q);
           const short = missing ? (missing.qty * q) - heldCount(missing.id) : 0;
-          const name = missing ? (ITEM_BY_ID[missing.id]?.name || missing.id) : '';
-          this.flash(missing ? `Need ${short} more ${name} to smelt that.`
+          const name = missing ? itemName(missing.id) : '';
+          this.flash(missing ? `Need ${short} more ${name}`
                              : 'Not enough to smelt.', sx, sy);
           return;
         }
@@ -16311,7 +16295,7 @@ class MapScene extends Phaser.Scene {
   traderGoodsName(house) {
     const pick = this.traderGivePick(house);
     if (!pick) return null;
-    return ITEM_BY_ID[pick.giveId]?.name || pick.giveId;
+    return itemName(pick.giveId);
   }
   peekOrBuildTraderOffer(house) {
     const pick = this.traderGivePick(house);
@@ -17584,7 +17568,9 @@ class MapScene extends Phaser.Scene {
     this._markCastleServiceUsed(house);
     if (typeof persistSave === 'function') persistSave(this.save);
     this.buildInventoryDOM();
-    this.flashLoot(`💚 +${Math.min(gain, maxE - cur)} energy`, '#a7ffb0');
+    // A gain to the BODY: it lands on the player's own cell (_popEnergy's
+    // default), not on the castle the modal was opened from.
+    this._popEnergy(Math.max(0, Math.min(gain, maxE - cur)));
   }
   // COLLECT: a flat CASTLE_TAX_GOLD from the crown's coffers instead of rest.
   _castleTax(sx, sy, house) {
