@@ -290,6 +290,8 @@
       // meant for them (CAVE_SUPPLY_SKEW's favourite set, below), never the
       // class/tier pool every surface chest, X mark and shop draws from.
       if (it.caveOnly) continue;
+      // Made at a campfire, never found (items.js CAMPFIRE_MAKES).
+      if (it.cooked) continue;
       const cls = it.kind;
       const t = it.baseTier;
       if (!cls || typeof t !== 'number') continue;

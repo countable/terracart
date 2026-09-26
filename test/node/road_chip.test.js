@@ -20,8 +20,12 @@ test('road chip: the tap hint adds every metre restored (Trail.totalMetres)', ()
   assert.eq(Trail.totalMetres(120, 2), 720);
   assert.eq(Trail.totalMetres(120, 2, 'runner'), 420, 'a runner\'s paid rungs are half');
   assert.eq(Trail.totalMetres(0, 0), 0);
-  assert.eq(Trail.distanceLabel(720), '720m');
+  assert.eq(Trail.distanceLabel(0), '0km');
+  assert.eq(Trail.distanceLabel(720), '0.72km');
   assert.eq(Trail.distanceLabel(1480), '1.4km', 'floored, never rounded up past what is done');
+  assert.eq(Trail.distanceLabel(1500), '1.5km');
+  assert.eq(Trail.distanceLabel(26400), '26km', 'two significant figures');
+  assert.eq(Trail.distanceLabel(134000), '130km');
   assert.truthy(/_showRoadChipHelp\(\) \{[\s\S]{0,500}?Trail\.totalMetres\(/.test(APP_JS_SRC), 'the hint reads the total');
   // Longest plausible line still fits a map message.
   const line = `${9999}m to go · ${Trail.distanceLabel(999999)} fixed`;
@@ -35,7 +39,8 @@ test('energy chip: the readout has no denominator', () => {
 
 test('road chip: an SVG road strip is the bar, the number small beneath, no icon', () => {
   const app = APP_JS_SRC;
-  assert.truthy(/el\.innerHTML = ROAD_CHIP_SVG \+ '<span class="road-num">0m<\/span>';/.test(app), 'strip then number');
+  assert.truthy(/el\.innerHTML = ROAD_CHIP_SVG \+ '<span class="road-num">0km<\/span>';/.test(app), 'strip then number');
+  assert.truthy(/num\.textContent = total;/.test(app), 'the number is the total restored');
   assert.truthy(/clip\.setAttribute\('width', \(ROAD_CHIP_W \* frac\)/.test(app), 'the repave clip tracks the fraction');
   assert.truthy(!/🛣/.test(app.slice(app.indexOf('_buildRoadChip() {'), app.indexOf('_showRoadChipHelp() {'))), 'no emoji icon');
 });

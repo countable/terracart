@@ -79,10 +79,16 @@
     for (let k = 0; k < Math.max(0, prizes | 0); k++) sum += goalFor(k, playerClass);
     return sum;
   }
-  // A distance at a glance: metres under a kilometre, then km to one place.
+  // A distance at a glance: kilometres to TWO significant figures (0.72km,
+  // 1.5km, 26km, 130km) — the road chip's number and the tap hint both print
+  // the running total through this one formatter. FLOORED, never rounded up
+  // past what is done; under 10 m that reads 0km (resolution 0.01 km).
   function distanceLabel(m) {
-    const v = Math.max(0, m || 0);
-    return v < 1000 ? `${Math.floor(v)}m` : `${(Math.floor(v / 100) / 10).toFixed(1)}km`;
+    const km = Math.max(0, m || 0) / 1000;
+    if (km < 1) return `${(Math.floor(km * 100 + 1e-9) / 100).toFixed(km < 0.01 ? 0 : 2)}km`;
+    if (km < 10) return `${(Math.floor(km * 10 + 1e-9) / 10).toFixed(1)}km`;
+    const step = Math.pow(10, Math.floor(Math.log10(km)) - 1);
+    return `${Math.round(Math.floor(km / step + 1e-9) * step)}km`;
   }
 
   // Metres banked toward the current goal — the "N/M m" the player sees.

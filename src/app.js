@@ -350,6 +350,11 @@ const TELEPORT_FADE_IN_MS = 1300;
 // widens until it can seat them (see _coinBurstInteract) — a burst that came
 // back with one coin was the search giving up, never the reward being small.
 const COIN_BURST_MIN = 8;
+// And a few more land around the player's own feet (within
+// COIN_BURST_NEAR_R cells), so a burst always puts coins in reach —
+// whatever the ground around the pot itself is like.
+const COIN_BURST_NEAR_PLAYER = 3;
+const COIN_BURST_NEAR_R = 2;
 const RING_IDLE_TIMEOUT_MS = 400;
 const TILE_RETRY_BASE_MS = 4000;
 const TILE_RETRY_MAX_MS = 60000;
@@ -595,6 +600,7 @@ const MODAL_KINDS = {
   energy:   { icon: '⚡', label: 'Energy'    },   // the energy explainer
   rest:     { icon: '😵', label: 'Exhausted' },   // passing out underground
   use:      { icon: '🎒', label: 'Use'       },   // confirming a consumable from the bag
+  fire:     { icon: '🔥', label: 'Campfire'  },   // burning a held item (presentBurnConfirm)
   note:     { icon: '📜', label: 'Note'      },   // generic message dialog
 };
 
@@ -1591,8 +1597,9 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 `;
 // The ROAD chip (_buildRoadChip): the road-repair ladder at a glance — a tiny
 // SVG strip of road that IS the progress bar (worn asphalt, repaved from the
-// left as metres bank toward the next prize), with the metres still to go in
-// small type under it (Trail.progress, the counter's own numbers). Same shared
+// left as metres bank toward the next prize — the CURRENT rung only), with the
+// TOTAL road restored in small type under it (Trail.totalMetres through
+// Trail.distanceLabel: 1.5km, 26km). Same shared
 // chip box as the memories chip beside it.
 const ROAD_CHIP_CSS = `
 #roadchip {
@@ -2124,6 +2131,8 @@ class MapScene extends Phaser.Scene {
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
     window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 32, 32);
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
+    // The burn confirm opens with the campfire the player just tapped.
+    window.WORLD_ICON_URLS.bonfire = bakeSheetFrame('bonfire', 0, 16, 32);
     // Home's panel opens with the trailer the player just tapped — the whole
     // image, which is one frame.
     const trailerSrc = this.textures.get('house_trailer')?.getSourceImage();
@@ -10117,14 +10126,6 @@ class MapScene extends Phaser.Scene {
       this.flash(`Already used — back in ${shortDuration(msToNextUtcDay())}.`, sx, sy);
       return;
     }
-    // Mark BEFORE spawning so a double-tap can't double-spawn.
-    this.save.coinBurstClaimed[claimedKey] = 1;
-    // Opportunistic prune: drop any keys for days other than today so the
-    // dictionary stays small over weeks of play.
-    for (const k of Object.keys(this.save.coinBurstClaimed)) {
-      if (!k.endsWith(dayKey)) delete this.save.coinBurstClaimed[k];
-    }
-    if (typeof persistSave === 'function') persistSave(this.save);
 
     // Find walkable cells within ~25m of the POI on the POI's host tile.
     // We restrict to the POI's home tile (cells_per_edge × cells_per_edge)
@@ -10207,10 +10208,6 @@ class MapScene extends Phaser.Scene {
       candidates = gather(r, true);
     }
     if (candidates.length < COIN_BURST_MIN) candidates = gather(MAX_BURST_CELLS, false);
-    if (candidates.length === 0) {
-      this.flash('No room to scatter!', sx, sy);
-      return;
-    }
     // Constrain to the visible SCREEN AREA — coins may sit right at its edge,
     // never past it. The widen/relax escalation above can reach out to
     // MAX_BURST_CELLS (3x the spec'd ~25m) when a suburb has too few
@@ -10223,16 +10220,11 @@ class MapScene extends Phaser.Scene {
     // actually matches what's on screen.
     const anchor = viewAnchorWorldM(this);
     const screenHalfM = (VIEW_CELLS / 2) * cellM;
-    const onScreen = candidates.filter(({ cx, cy }) => {
+    candidates = candidates.filter(({ cx, cy }) => {
       const wx = tx * tileEdgeM + (cx + 0.5) * cellM;
       const wy = ty * tileEdgeM + (cy + 0.5) * cellM;
       return Math.abs(wx - anchor.x) <= screenHalfM && Math.abs(wy - anchor.y) <= screenHalfM;
     });
-    if (onScreen.length === 0) {
-      this.flash('No room to scatter!', sx, sy);
-      return;
-    }
-    candidates = onScreen;
     // Sort the (now on-screen) candidates nearest-to-the-POI-first so the
     // burst still reads as clustered on the chest the player just tapped,
     // rather than an even spread across the whole visible screen.
@@ -10253,16 +10245,84 @@ class MapScene extends Phaser.Scene {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
-    entry.coinDrops = entry.coinDrops || [];
-    const expiresAt = Date.now() + 60_000;
+    // Where each coin lands: { entry, x, y } — the pot's scatter on the pot's
+    // tile, then COIN_BURST_NEAR_PLAYER more at the player's feet.
+    const drops = [];
+    const taken = new Set();
     for (let i = 0; i < n; i++) {
       const { cx, cy } = pool[i];
-      const wmx = tx * tileEdgeM + (cx + 0.5) * cellM;
-      const wmy = ty * tileEdgeM + (cy + 0.5) * cellM;
-      const id = `coin_${poi.id}_${dayKey}_${i}`;
-      entry.coinDrops.push({ kind: 'coindrop', x: wmx, y: wmy, id, expiresAt });
+      const x = tx * tileEdgeM + (cx + 0.5) * cellM, y = ty * tileEdgeM + (cy + 0.5) * cellM;
+      taken.add(`${tx}_${ty}_${cx}_${cy}`);
+      drops.push({ entry, x, y });
     }
-    this.flashLoot(`Scattered ${n} coins!`, '#ffe066', 1, null, this.coinIconEl());
+    for (const d of this._coinCellsNearPlayer(COIN_BURST_NEAR_PLAYER, COIN_BURST_NEAR_R, taken)) drops.push(d);
+    // NOTHING SEATED, NOTHING SPENT. The day's claim is written only once a
+    // coin will actually land: "No room to scatter!" used to fire AFTER the
+    // claim, so a pot in a tight spot (or tapped with the view peeked away)
+    // ate the day's burst and paid nothing.
+    if (drops.length === 0) {
+      this.flash('No room to scatter!', sx, sy);
+      return;
+    }
+    this.save.coinBurstClaimed[claimedKey] = 1;
+    // Opportunistic prune: drop any keys for days other than today so the
+    // dictionary stays small over weeks of play.
+    for (const k of Object.keys(this.save.coinBurstClaimed)) {
+      if (!k.endsWith(dayKey)) delete this.save.coinBurstClaimed[k];
+    }
+    if (typeof persistSave === 'function') persistSave(this.save);
+    const expiresAt = Date.now() + 60_000;
+    drops.forEach((d, i) => {
+      d.entry.coinDrops = d.entry.coinDrops || [];
+      d.entry.coinDrops.push({ kind: 'coindrop', x: d.x, y: d.y, id: `coin_${poi.id}_${dayKey}_${i}`, expiresAt });
+    });
+    this.flashLoot(`Scattered ${drops.length} coins!`, '#ffe066', 1, null, this.coinIconEl());
+  }
+
+  // Up to `count` coin cells around the PLAYER's feet (never the feet cell
+  // itself), within `r` cells, nearest ring first: walkable, off the road
+  // band, not under anything (the pot scatter's relaxed rule). On the tile
+  // the player stands on, in that tile's own grid. `taken` holds cells
+  // already used ("tx_ty_cx_cy"). Returns [{ entry, x, y }].
+  _coinCellsNearPlayer(count, r, taken) {
+    const out = [];
+    if (count <= 0) return out;
+    const tileEdgeM = this.tileEdgeM;
+    const wx = this.startWorldM.x + this.playerM.x, wy = this.startWorldM.y + this.playerM.y;
+    const tx = Math.floor(wx / tileEdgeM), ty = Math.floor(wy / tileEdgeM);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry || !entry.grid) return out;
+    const N = entry.cellsPerEdge || rowCells(this, ty);
+    const cellM = tileEdgeM / N;
+    const pcx = Math.floor((wx - tx * tileEdgeM) / cellM), pcy = Math.floor((wy - ty * tileEdgeM) / cellM);
+    const occupied = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
+    for (let ring = 1; ring <= r && out.length < count; ring++) {
+      const cells = [];
+      for (let dy = -ring; dy <= ring; dy++) {
+        for (let dx = -ring; dx <= ring; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+          const cx = pcx + dx, cy = pcy + dy;
+          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+          const i = cy * N + cx;
+          if (!WorldGen.isWalkable(entry.grid[i])) continue;
+          if (entry.roadMask && entry.roadMask[i]) continue;
+          if (occupied && occupied.has(i)) continue;
+          if (taken.has(`${tx}_${ty}_${cx}_${cy}`)) continue;
+          cells.push({ cx, cy });
+        }
+      }
+      for (let k = cells.length - 1; k > 0; k--) {
+        const j = Math.floor(Math.random() * (k + 1));
+        [cells[k], cells[j]] = [cells[j], cells[k]];
+      }
+      for (const { cx, cy } of cells) {
+        if (out.length >= count) break;
+        taken.add(`${tx}_${ty}_${cx}_${cy}`);
+        out.push({ entry, x: tx * tileEdgeM + (cx + 0.5) * cellM, y: ty * tileEdgeM + (cy + 0.5) * cellM });
+      }
+    }
+    return out;
+  }
   }
 
   // --- Movement collision & level transitions ---
@@ -12330,8 +12390,8 @@ class MapScene extends Phaser.Scene {
       el.id = 'roadchip';
       el.setAttribute('role', 'button');
       el.setAttribute('aria-label', 'Road repair');
-      // The road strip is the bar; the metres to go sit small beneath it.
-      el.innerHTML = ROAD_CHIP_SVG + '<span class="road-num">0m</span>';
+      // The road strip is the bar; the total restored sits small beneath it.
+      el.innerHTML = ROAD_CHIP_SVG + '<span class="road-num">0km</span>';
       for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
         el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
       el.addEventListener('click', (e) => { e.stopPropagation(); this._showRoadChipHelp(); });
@@ -12355,17 +12415,21 @@ class MapScene extends Phaser.Scene {
     const el = this.roadChipEl;
     if (!el || typeof Trail === 'undefined') return;
     const p = this.roadChipProgress();
-    const pos = Math.floor(p.pos), key = pos + '|' + p.target;
+    const st = this.save?.trail || { metres: 0, prizes: 0 };
+    const total = Trail.distanceLabel(Trail.totalMetres(st.metres, st.prizes, this.save?.playerClass));
+    const pos = Math.floor(p.pos), key = pos + '|' + p.target + '|' + total;
     if (this._roadChipDOM === key) return;
     this._roadChipDOM = key;
+    // The bar is THIS rung: metres banked toward the next prize.
     const clip = el.querySelector('.road-clip');
     const frac = Math.min(1, Math.max(0, pos / Math.max(1, p.target)));
     if (clip) clip.setAttribute('width', (ROAD_CHIP_W * frac).toFixed(1));
-    // Just the metres still to go: the bar already shows the fraction, and a
-    // full "1200/2000m" pushed the top row into the ☰ button on a 375px phone.
+    // The number is the whole walk: every metre restored, 2 significant
+    // figures in km. The bar already shows the rung, and a full
+    // "1200/2000m" pushed the top row into the ☰ button on a 375px phone.
     const num = el.querySelector('.road-num');
-    if (num) num.textContent = `${Math.max(0, Math.ceil(p.target - pos))}m`;
-    el.title = `Road repair: ${pos} of ${p.target} m to the next prize`;
+    if (num) num.textContent = total;
+    el.title = `Road repair: ${total} fixed · ${pos} of ${p.target} m to the next prize`;
   }
 
   _showRoadChipHelp() {
@@ -13458,9 +13522,8 @@ class MapScene extends Phaser.Scene {
     if (!Energy.canEat(this.save)) return false;
     const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
     if (!featherRevive && restore == null) return false;
-    // First taste of a new edible permanently grows the bar: +1 max energy per
-    // distinct food ever eaten (Energy.maxEnergy folds save.eaten into the
-    // cap). Recorded BEFORE the restore below so the new headroom is fillable
+    // First taste of a new edible permanently grows the bar by its food tier
+    // (Energy.tasteBonus; Energy.maxEnergy folds save.eaten into the cap). Recorded BEFORE the restore below so the new headroom is fillable
     // by this very bite.
     let firstTaste = false;
     this.save.eaten = this.save.eaten || [];
@@ -13493,7 +13556,7 @@ class MapScene extends Phaser.Scene {
       this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
       extra = `\n☕ amulet buzz: +${COFFEE_AMULET_BOOST} tier, 3 min`;
     }
-    if (firstTaste) extra += `\n🍽 first taste: +1 max ⚡`;
+    if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(sel.id)} max ⚡`;
     // Armed only now, after a bite has actually landed.
     Energy.startEatCooldown(this.save);
     persistSave(this.save);
@@ -13790,6 +13853,35 @@ class MapScene extends Phaser.Scene {
   // accept it deducts the price, grants one scarecrow, and flips
   // save.scarecrowShopUsed so the house reverts to its normal role. Mirrors
   // the cash branch of the regular buy modal (loud loot pop, real sprite).
+  // Anything held over a campfire that the fire can't MAKE something of
+  // (items.js CAMPFIRE_MAKES) is burned — one of it, after this confirm.
+  // Tapped from interact.js 'fire-held'. The accept re-checks the hand: the
+  // selection can change while the dialog is up, and only what is still held
+  // goes in.
+  presentBurnConfirm(id) {
+    if (document.getElementById('offer-modal')) return;
+    const name = ITEM_BY_ID[id]?.name || id;
+    this.showOfferModal({
+      kind: 'fire',
+      kindIcon: this.worldIconHTML('bonfire') || undefined,
+      title: `Burn ${name}?`,
+      getLabel: 'Into the fire',
+      get: `${this.iconSpanHTML(id)} ${name} ×1`,
+      blurb: 'It will not come back.',
+      canAfford: true,
+      acceptLabel: 'Burn',
+      cancelLabel: 'Keep',
+      onAccept: () => {
+        const sel = getSelectedSlot(this.save);
+        if (!sel || sel.id !== id || (sel.count ?? 0) <= 0) return;
+        consumeSelected(this.save);
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flashLoot('🔥 burned', '#ffb070', 1, id);
+      },
+    });
+  }
+
   presentScarecrowOffer(sx, sy, house, recordDeal) {
     const id = 'scarecrow';
     const item = ITEM_BY_ID[id];

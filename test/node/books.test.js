@@ -285,8 +285,8 @@ test('tips: the first-taste bonus is documented, because it is in the cap', () =
   const save = { armor: {}, eaten: [] };
   const before = Energy.maxEnergy(save);
   save.eaten = ['potato', 'berry', 'nut'];
-  assert.eq(Energy.maxEnergy(save), before + 3, 'each new food tasted is +1 max energy');
-  assert.truthy(someTip(/first time raises your maximum energy/i), 'and a tip says so');
+  assert.eq(Energy.maxEnergy(save), before + 4, 'each new food tasted adds its tier (potato 1 + berry 1 + nut 2)');
+  assert.truthy(someTip(/first time raises your maximum energy by its tier/i), 'and a tip says so');
 });
 
 test('tips: the armour tip quotes the real mitigation ladder', () => {

@@ -571,6 +571,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'cell-resolve',
     'disarm-trap',
     'building-zone',
+    'fire-held',
     'release',
     'pickup-rock',
     'pickup-scarecrow',
