@@ -69,6 +69,24 @@
     });
   });
 
+  test('starter arrow: supply crates before the relic chest, however near it is', () => {
+    // The relic chest (no `crate` flag) one cell SOUTH, the crates EAST and
+    // farther: the arrow still leads to a crate. "It pointed south but the
+    // crates were east."
+    const relic = Object.assign({ kind: 'chest', id: 'chest_start_relic_0_0' }, cellCentre(0, 1));
+    const scene = makeScene({ save: { opened: [] } });
+    withTiles([relic, crate(6, 0, 1), crate(8, 0, 2)], () => {
+      assert.eq(scene._starterGuidanceGoal(STEP.chest).id, 'chest_start_test_1',
+        'an unopened supply crate beats a nearer relic chest');
+    });
+    // Every crate opened → the chest at the end of the trail is the target.
+    const done = makeScene({ save: { opened: ['chest_start_test_1', 'chest_start_test_2'] } });
+    withTiles([relic, crate(6, 0, 1), crate(8, 0, 2)], () => {
+      assert.eq(done._starterGuidanceGoal(STEP.chest).id, 'chest_start_relic_0_0',
+        'the relic chest once the crates are gone');
+    });
+  });
+
   test('starter arrow: "Break ground" points at the plot middle, crates only as a fallback', () => {
     const plotAt = cellCentre(5, 5);        // top-left cell centre
     const scene = makeScene({ save: { starterPlotAt: plotAt } });

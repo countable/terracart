@@ -7212,11 +7212,19 @@ class MapScene extends Phaser.Scene {
   // trail spawns off-screen, and without a bearing the "follow the breadcrumbs"
   // onboarding is unfollowable. Ids are stamped `chest_start_*` at placement,
   // which is what distinguishes them from ordinary POI chests.
+  //
+  // SUPPLY CRATES FIRST, the relic chest LAST. The relic chest carries the
+  // same stamp but is not a crate: it sits a screen out, and on the kerb /
+  // ring fallbacks in _placeStarterTrail not necessarily the way the crates
+  // went. Plain nearest-first sent the arrow to it whenever the player stood
+  // nearer it than the crates — "it pointed south but the crates were east".
+  // The chest is the trail's END, so it is the target only once no supply
+  // crate is left unopened.
   _nearestStarterCrate() {
     const opened = setOf(this.save.opened);
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
-    let best = null, bestD2 = Infinity;
+    let crate = null, crateD2 = Infinity, chest = null, chestD2 = Infinity;
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
         if (o.kind !== 'chest' || !o.id) continue;
@@ -7224,10 +7232,11 @@ class MapScene extends Phaser.Scene {
         if (opened.has(o.id)) continue;
         const dx = o.x - pWX, dy = o.y - pWY;
         const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; best = o; }
+        if (o.crate) { if (d2 < crateD2) { crateD2 = d2; crate = o; } }
+        else if (d2 < chestD2) { chestD2 = d2; chest = o; }
       }
     }
-    return best;
+    return crate || chest;
   }
 
   // Where the green starter arrow points for the ACTIVE ladder step: the space
