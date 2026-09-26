@@ -102,7 +102,7 @@ const TRAIL_INTRO_DELAY_MS = 2000;
 // clock restarts from zero (Streets.createSight drops a key's whole history
 // when it goes empty); the same reset covers the auto-walk home, which is the
 // character moving itself and never the player looking.
-const PATH_STONE_DWELL_MS = 2000;
+const PATH_STONE_DWELL_MS = 3000;
 // A RESTORATION'S BLAST (_blastAt): the flash a stretch coming back throws, in
 // cells. Inherited at 2.5 from the old per-pebble flash — one stone lighting
 // up — but a sweep restores a whole STRETCH and fires once for all of it, and

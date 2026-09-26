@@ -692,8 +692,8 @@ test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
   assert.truthy(tip.includes(`${Trail.GOAL_STEP_M}m`), 'and quotes the rung the ladder owns');
   // The dwell, in whole seconds, said in words.
   const dwell = +/const PATH_STONE_DWELL_MS = (\d+);/.exec(APP_JS_SRC)[1];
-  assert.eq(dwell, 2000, 'two seconds of sight rebuilds a stretch');
-  assert.truthy(/two seconds/i.test(tip), 'and the tip says two seconds');
+  assert.eq(dwell, 3000, 'three seconds of sight rebuilds a stretch');
+  assert.truthy(/three seconds/i.test(tip), 'and the tip says three seconds');
   // Each rung asks GOAL_STEP_M MORE than the last — "every 200m" would be a
   // lie by the second prize.
   assert.eq(Trail.goalFor(1) - Trail.goalFor(0), Trail.GOAL_STEP_M, 'the rungs grow by a step');

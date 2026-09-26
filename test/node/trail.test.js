@@ -702,7 +702,7 @@ test('streets: leaving the bubble restarts the clock from zero', () => {
     clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
     assert.eq(restoredM(s), 0, 'the first look bought nothing');
     clock.at(1600 + PATH_STONE_DWELL_MS); s._sweepStreets();
-    assert.gt(restoredM(s), 0, 'two seconds from the RETURN, not from the first glimpse');
+    assert.gt(restoredM(s), 0, 'the dwell from the RETURN, not from the first glimpse');
   });
 });
 
