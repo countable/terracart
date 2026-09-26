@@ -1400,6 +1400,13 @@ ctx.DURATION_SOURCES = {
   'util.js': readSrc('util.js'),
 };
 
+// ── Energy writes: every src module's text, keyed by file name ────────────
+// energy_int.test.js sweeps these for a raw `.energy =` write that bypasses
+// Energy.set, the one writer that keeps the bar a whole number.
+ctx.ENERGY_WRITE_SOURCES = Object.fromEntries(
+  fs.readdirSync(path.join(ROOT, 'src')).filter((n) => n.endsWith('.js'))
+    .map((n) => [n, readSrc(n)]));
+
 // ── In-context test framework: test() / assert / makeScene ────────────────
 vm.runInContext(`
   globalThis.__tests = [];

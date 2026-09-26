@@ -73,6 +73,25 @@
     return before >= tired && (save.energy ?? 0) < tired;
   }
 
+  // THE ONE WRITER of save.energy. Energy is a WHOLE number: the bar, the
+  // pops and every gate read it as one. Blows are not — a hit is scaled by
+  // Combat.powerMul (elite / lair) and Difficulty.enemyDmgMul, so a raw
+  // `save.energy = before - dmg` left saves on 99.948…⚡. Every write goes
+  // through here: rounded, floored at 0, and capped at `maxE` when the caller
+  // passes one (a gain; a loss needs no cap). A non-finite value keeps the
+  // current reading rather than poisoning the save with NaN. Returns the new
+  // value. Per-frame fractional drains still bank whole pips in their own
+  // accumulators first (the rests, the trap bleed) — rounding them here each
+  // frame would erase them. test/node/energy_int.test.js fails on any raw
+  // write outside this module.
+  function set(save, value, maxE) {
+    const cur = Number.isFinite(save.energy) ? save.energy : 0;
+    let v = Number.isFinite(value) ? Math.round(value) : Math.round(cur);
+    if (Number.isFinite(maxE)) v = Math.min(Math.round(maxE), v);
+    save.energy = Math.max(0, v);
+    return save.energy;
+  }
+
   // Spend `cost`. Mutates save.energy only on success. Returns:
   //   ok    — false iff the player can't afford it (no mutation)
   //   before— energy reading before the drain (for a tired-threshold check)
@@ -81,7 +100,7 @@
     const before = save.energy ?? 0;
     if (cost <= 0) return { ok: true, before, spent: 0 };
     if (before < cost) return { ok: false, before, spent: 0 };
-    save.energy = Math.max(0, before - cost);
+    set(save, before - cost);
     return { ok: true, before, spent: before - save.energy };
   }
 
@@ -135,7 +154,7 @@
     const restored = Math.floor(maxE * (gapMs / OFFLINE_FULL_REST_MS));
     if (restored <= 0) return 0;
     const before = save.energy ?? 0;
-    save.energy = Math.min(maxE, before + restored);
+    set(save, before + restored, maxE);
     return save.energy - before;
   }
 
@@ -150,6 +169,6 @@
     return Math.max(1, Math.round((maxE || 0) * frac));
   }
 
-  root.Energy = { VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
+  root.Energy = { set, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
                   spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

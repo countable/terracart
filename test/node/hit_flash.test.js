@@ -17,7 +17,7 @@ test('hit flash: every drain on the body flinches at the instant it lands, with 
   // burst than the worst hit in the game (Particles.dmgSpeedScale).
   const lose = app.match(/\n  _losePlayerEnergy\(dmg, [^)]*\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(lose, '_losePlayerEnergy exists');
-  assert.truthy(/this\.save\.energy = Math\.max\(0, before - dmg\);\s*\n\s*const lost = before - this\.save\.energy;\s*\n\s*this\._flashPlayerHit\(lost\);/.test(lose[1]),
+  assert.truthy(/Energy\.set\(this\.save, before - dmg\);\s*\n\s*const lost = before - this\.save\.energy;\s*\n\s*this\._flashPlayerHit\(lost\);/.test(lose[1]),
     'the flinch lands the instant the loss is banked, with what it cost');
   const sites = app.match(/this\._losePlayerEnergy\(/g) || [];
   assert.eq(sites.length, 5, 'slime leech, monster melee, arrow, a ghost\'s touch, standing on a sprung trap');

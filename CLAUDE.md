@@ -272,6 +272,16 @@ the mechanic.
   piece (Stats row, shop offer) from `armorSlotReduction`.
   **Audit it:** `node test/node/run.js` › `test/node/armor.test.js`.
 
+- **Energy is a WHOLE number, and `Energy.set` is its one writer.**
+  `src/energy.js` › `set(save, value, maxE)` rounds, floors at 0 and caps at
+  `maxE` when handed one. Blows are fractional (`Combat.powerMul`,
+  `enemyDmgMul`), so a raw `save.energy = before - dmg` left saves on 99.948⚡.
+  A per-frame fractional drain or gain banks whole pips in its own
+  accumulator first (the rests, the trap bleed) — never round per frame.
+  `savemigrate.js` (load-time normalising) is the one exemption. **When you
+  add a way to change energy, write it with `Energy.set`.**
+  **Audit it:** `node test/node/run.js` › `test/node/energy_int.test.js`.
+
 - **NOTHING HUNTS A BODY.** At zero energy the reach is 0
   (`coords.js` › `reachRadiusM`) and no damage path takes a point off an empty
   bar, so a downed player is not there to be hunted: `wanderCreatures` ORs

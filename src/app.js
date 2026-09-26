@@ -4039,7 +4039,7 @@ class MapScene extends Phaser.Scene {
       // 2.5x — 10⚡ base becomes 25⚡). The bleed rate (STAND_ENERGY_PER_S)
       // is untouched by mode.
       const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul;
-      this.save.energy = Math.max(0, before - bite);
+      Energy.set(this.save, before - bite);
       const spent = before - this.save.energy;
       this._painFlash(spent);
       // Say the real number: an empty bar loses nothing, so nothing is popped —
@@ -7665,7 +7665,7 @@ class MapScene extends Phaser.Scene {
       const locked = this._zeroEnergyLocked();
       if (atHome && locked) {
         const beforeE = this.save.energy ?? 0;
-        this.save.energy = Energy.reviveLevel(maxE);
+        Energy.set(this.save, Energy.reviveLevel(maxE));
         this._restAccrueE = 0;
         const gainedE = this.save.energy - beforeE;
         if (gainedE > 0) this._splashEnergyGain(gainedE);
@@ -8276,7 +8276,7 @@ class MapScene extends Phaser.Scene {
   // caller, where the blow's own shield/armour inputs are.
   _losePlayerEnergy(dmg, { closeShop = false } = {}) {
     const before = this.save.energy ?? 0;
-    this.save.energy = Math.max(0, before - dmg);
+    Energy.set(this.save, before - dmg);
     const lost = before - this.save.energy;
     this._flashPlayerHit(lost);
     if (closeShop) this._closeShopOnHit();
@@ -8814,7 +8814,7 @@ class MapScene extends Phaser.Scene {
     const wp = this._workProgress;
     if (wp && wp.energyRefund > 0) {
       const before = this.save.energy ?? 0;
-      this.save.energy = Math.min(this.getMaxEnergy(), before + wp.energyRefund);
+      Energy.set(this.save, before + wp.energyRefund, this.getMaxEnergy());
       // The spend popped a "−N⚡" on the cell when the wheel started; hand it
       // back on the same cell, or the bar climbing on its own reads as a bug.
       const refunded = this.save.energy - before;
@@ -10875,7 +10875,7 @@ class MapScene extends Phaser.Scene {
       while (this._steerCostAccrue >= STEER_DRAIN_LUMP) {
         this._steerCostAccrue -= STEER_DRAIN_LUMP;
         const before = this.save.energy ?? 0;
-        this.save.energy = Math.max(0, before - STEER_DRAIN_LUMP);
+        Energy.set(this.save, before - STEER_DRAIN_LUMP);
         // CLAUDE.md: "when you add an energy gain or loss the player can see,
         // pop it with _popEnergy and name the cell." Every other continuous
         // drain (the slime leech, a monster's melee, the trap bleed) rolls up
@@ -12047,7 +12047,7 @@ class MapScene extends Phaser.Scene {
     if (pip <= 0) return;
     this[accrueKey] -= pip;
     const beforeE = this.save.energy ?? 0;
-    this.save.energy = Math.min(maxE, beforeE + pip);
+    Energy.set(this.save, beforeE + pip, maxE);
     const gainedE = this.save.energy - beforeE;
     // Accumulate rest gains and splash a throttled "+N⚡" so a long rest shows
     // periodic ticks rather than one pop per energy pip.
@@ -12305,7 +12305,7 @@ class MapScene extends Phaser.Scene {
     const maxE = this.getMaxEnergy();
     const healed = Math.round(maxE - Math.max(0, this.save.energy ?? 0));
     if (healed > 0) {
-      this.save.energy = maxE;
+      Energy.set(this.save, maxE);
       this._popEnergy(healed);
     }
     if (this.updateEnergyDOM) this.updateEnergyDOM();
@@ -13364,7 +13364,7 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'vigor_potion' || (sel.count ?? 0) <= 0) return false;
     const max = this.getMaxEnergy();
     const restored = Math.min(40, max - (this.save.energy ?? 0));
-    this.save.energy = Math.min(max, (this.save.energy ?? 0) + 40);
+    Energy.set(this.save, (this.save.energy ?? 0) + 40, max);
     if (restored > 0) this._popEnergy(restored);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return this._finishConsumable(
@@ -13419,7 +13419,7 @@ class MapScene extends Phaser.Scene {
     if (!frac || (sel.count ?? 0) <= 0) return false;
     if (!Combat.playerDowned(this.save.energy)) return false;
     const before = this.save.energy ?? 0;
-    this.save.energy = Math.max(before, Energy.reviveLevel(this.getMaxEnergy(), frac));
+    Energy.set(this.save, Math.max(before, Energy.reviveLevel(this.getMaxEnergy(), frac)));
     this._popEnergy(this.save.energy - before);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     const name = ITEM_BY_ID[sel.id]?.name || 'Potion of Revival';
@@ -13804,9 +13804,8 @@ class MapScene extends Phaser.Scene {
       firstTaste = true;
     }
     const before = this.save.energy ?? 0;
-    this.save.energy = featherRevive
-      ? FEATHER_REVIVE_ENERGY
-      : Math.min(this.getMaxEnergy(), before + restore);
+    if (featherRevive) Energy.set(this.save, FEATHER_REVIVE_ENERGY);
+    else Energy.set(this.save, before + restore, this.getMaxEnergy());
     const gained = this.save.energy - before;
     consumeSelected(this.save);
     // Special effects.
@@ -14215,7 +14214,7 @@ class MapScene extends Phaser.Scene {
     else this.flash('💥 It exploded!');
     if (Combat.playerDowned(before)) return 0;
     const dmg = Combat.playerDamage(rawDmg, this.save.armor);
-    this.save.energy = Math.max(0, before - dmg);
+    Energy.set(this.save, before - dmg);
     const lost = before - this.save.energy;
     this._flashPlayerHit(lost);
     this._popEnergy(-lost);
@@ -17396,7 +17395,7 @@ class MapScene extends Phaser.Scene {
     const maxE = this.getMaxEnergy();
     const cur = this.save.energy ?? 0;
     const gain = CASTLE_REST_ENERGY;
-    this.save.energy = Math.min(maxE, cur + gain);
+    Energy.set(this.save, cur + gain, maxE);
     this._markCastleServiceUsed(house);
     if (typeof persistSave === 'function') persistSave(this.save);
     this.buildInventoryDOM();

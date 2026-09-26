@@ -745,9 +745,7 @@
     const armor = {};
     for (const slot of Object.keys(ARMOR_DEFS)) armor[slot] = { tier: TIER };
     scene.save.armor = armor;
-    scene.save.energy = (typeof Energy !== 'undefined')
-      ? Energy.maxEnergy(scene.save)
-      : (scene.save.maxEnergy || scene.save.energy);
+    Energy.set(scene.save, Energy.maxEnergy(scene.save));
     if (typeof scene.updateHUD === 'function') scene.updateHUD();
     if (typeof scene.persistSave === 'function') scene.persistSave();
   }

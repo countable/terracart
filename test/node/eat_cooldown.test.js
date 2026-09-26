@@ -165,7 +165,7 @@ test('eat cooldown: potions are exempt because they never go through the gate', 
   const body = app.slice(a, b);
   assert.truthy(!/Energy\.canEat|Energy\.startEatCooldown/.test(body),
     'the energy potion neither checks nor arms the bite cooldown');
-  assert.truthy(/this\.save\.energy = Math\.min\(max, \(this\.save\.energy \?\? 0\) \+ 40\)/.test(body),
+  assert.truthy(/Energy\.set\(this\.save, \(this\.save\.energy \?\? 0\) \+ 40, max\)/.test(body),
     'and it still restores on the spot');
 });
 })();

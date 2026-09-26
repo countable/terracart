@@ -202,7 +202,7 @@ test('energy pop: the stick-walk drain accumulates and flushes as one throttled 
   assert.truthy(/const STEER_DRAIN_LUMP = \d+;/.test(app), 'the lump is a named constant');
   assert.truthy(/this\._steerCostAccrue -= STEER_DRAIN_LUMP;/.test(body),
     'the accrual is drawn down by the same lump the loop waits for');
-  assert.truthy(/this\.save\.energy = Math\.max\(0, before - STEER_DRAIN_LUMP\);/.test(body),
+  assert.truthy(/Energy\.set\(this\.save, before - STEER_DRAIN_LUMP\);/.test(body),
     'and the debit is that same lump — never a hard-typed pip beside it');
   assert.truthy(/this\._steerDrainAccum = \(this\._steerDrainAccum \|\| 0\) \+ \(before - this\.save\.energy\);/.test(body),
     'each pip banks into an accumulator rather than popping per pip');
