@@ -1517,8 +1517,8 @@ if (typeof document !== 'undefined' && document.body) IconNet.observe();
 const MEMORIES_CHIP_CSS = `
 #memories {
   box-sizing: border-box; position: relative;
-  height: var(--hud-chip-h); padding: var(--hud-chip-pad);
-  border: var(--hud-chip-rim) solid var(--ctl-rim); border-radius: 8px;
+  height: var(--hud-chip-h); padding: 0 6px;
+  border: var(--hud-chip-rim) solid var(--chrome-rim); border-radius: 8px;
   display: flex; flex-direction: row; align-items: center; gap: 5px;
   background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
   font: 700 14px ui-monospace, monospace;
@@ -1546,19 +1546,18 @@ const ROAD_CHIP_CSS = `
   box-sizing: border-box; position: relative;
   height: var(--hud-chip-h); padding: var(--hud-chip-pad);
   border: var(--hud-chip-rim) solid var(--ctl-rim); border-radius: 8px;
-  display: flex; flex-direction: row; align-items: center; gap: 3px;
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
   background: var(--chrome-scuff), var(--chrome-panel); color: #e8e2d6;
-  font: 700 11px ui-monospace, monospace;
+  font: 700 12px ui-monospace, monospace;
   box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
 }
-#roadchip .road-ico { font-size: 13px; line-height: 1; pointer-events: none; }
-#roadchip .road-col { display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
-#roadchip .road-bar { width: 30px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.18); overflow: hidden; }
-#roadchip .road-fill { height: 100%; width: 0%; background: #e8e2d6; }
-#roadchip .road-num { font-size: 10px; line-height: 1; white-space: nowrap; }
+#roadchip .road-num { line-height: 1; white-space: nowrap; pointer-events: none; }
+#roadchip .road-bar { height: 4px; border-radius: 2px; overflow: hidden; pointer-events: none;
+  background: var(--chrome-sunk); box-shadow: inset 0 1px 2px rgba(0,0,0,0.7); }
+#roadchip .road-fill { height: 100%; width: 0%; border-radius: 2px; background: #e8e2d6; }
 body.modal-open #roadchip { opacity: 0.25; pointer-events: none; }
 `;
 
@@ -11959,8 +11958,11 @@ class MapScene extends Phaser.Scene {
     const color = pct > 0.30 ? '#a7ffb0' : (pct > 0.10 ? '#ffe066' : '#ff8a7a');
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
-    if (label) { label.style.color = color; label.textContent = `⚡${cur}/${max}`; }
-    else { el.style.color = color; el.textContent = `⚡${cur}/${max}`; }
+    // Just the current energy: the bar under it already shows how full it is,
+    // and the max rides in the tooltip (the top row is tight on a phone).
+    if (label) { label.style.color = color; label.textContent = `⚡${cur}`; }
+    else { el.style.color = color; el.textContent = `⚡${cur}`; }
+    el.title = `Energy ${cur} of ${max}`;
     const fill = els.fill;
     if (fill) {
       fill.style.width = `${Math.round(pct * 100)}%`;
@@ -12055,9 +12057,9 @@ class MapScene extends Phaser.Scene {
       el.id = 'roadchip';
       el.setAttribute('role', 'button');
       el.setAttribute('aria-label', 'Road repair');
-      el.innerHTML = '<span class="road-ico">🛣️</span>'
-        + '<span class="road-col"><span class="road-bar"><span class="road-fill"></span></span>'
-        + '<span class="road-num">0m</span></span>';
+      // Stacked like the energy chip beside it: the readout over a thin bar.
+      el.innerHTML = '<span class="road-num">🛣0m</span>'
+        + '<span class="road-bar"><span class="road-fill"></span></span>';
       for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
         el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
       el.addEventListener('click', (e) => { e.stopPropagation(); this._showRoadChipHelp(); });
@@ -12089,14 +12091,17 @@ class MapScene extends Phaser.Scene {
     // Just the metres still to go: the bar already shows the fraction, and a
     // full "1200/2000m" pushed the top row into the ☰ button on a 375px phone.
     const num = el.querySelector('.road-num');
-    if (num) num.textContent = `${Math.max(0, Math.ceil(p.target - pos))}m`;
+    if (num) num.textContent = `🛣${Math.max(0, Math.ceil(p.target - pos))}m`;
     el.title = `Road repair: ${pos} of ${p.target} m to the next prize`;
   }
 
   _showRoadChipHelp() {
     const p = this.roadChipProgress();
+    // Metres to the next prize, and every metre restored so far (Trail.totalMetres).
     const toGoM = Math.max(0, Math.ceil(p.target - p.pos));   // metres, not a countdown
-    this.flash(`${toGoM}m to the next road prize`, this.viewCenterX, 60);
+    const st = this.save?.trail || { metres: 0, prizes: 0 };
+    const doneM = Trail.totalMetres(st.metres, st.prizes, this.save?.playerClass);
+    this.flash(`${toGoM}m to go · ${Trail.distanceLabel(doneM)} fixed`, this.viewCenterX, 60);
   }
 
   // What the memories chip says when tapped.

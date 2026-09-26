@@ -71,6 +71,20 @@
     return `${Math.round(pos)}/${target} m`;
   }
 
+  // Every metre of road restored so far: the goals already paid, plus what is
+  // banked toward the next. (save.trail keeps only the remainder and the prize
+  // count; the ladder is arithmetic, so the total is re-derived, never stored.)
+  function totalMetres(metres, prizes, playerClass) {
+    let sum = Math.max(0, Number.isFinite(metres) ? metres : 0);
+    for (let k = 0; k < Math.max(0, prizes | 0); k++) sum += goalFor(k, playerClass);
+    return sum;
+  }
+  // A distance at a glance: metres under a kilometre, then km to one place.
+  function distanceLabel(m) {
+    const v = Math.max(0, m || 0);
+    return v < 1000 ? `${Math.floor(v)}m` : `${(Math.floor(v / 100) / 10).toFixed(1)}km`;
+  }
+
   // Metres banked toward the current goal — the "N/M m" the player sees.
   function progress(metres, prizes, playerClass) {
     const pos = Math.max(0, Number.isFinite(metres) ? metres : 0);
@@ -224,7 +238,7 @@
   }
 
   root.Trail = {
-    GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, progress, bank, readout, label,
+    GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, distanceLabel, progress, bank, readout, label,
     PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, rollChoices,
     PRIZE_ROLL_BONUS, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
