@@ -850,13 +850,13 @@ const TAP_HANDLERS = [
     // non-favourite selection) — favourite food TAMED above, edible food was
     // yuck'd above. The animal FLEES the player at 2 m/s while the wheel runs
     // (startCatchProgress); if it stays outside the player's reach for 1 s the
-    // catch fails (butterflies: 3× faster flee, 2 s grace). A Bug Net shortens
+    // catch fails (butterflies: 2.7× faster flee, 2 s grace). A Bug Net shortens
     // the wheel by tier; bare hands take the tier-0 (9s) time — long enough
     // that a slow target usually slips out of reach and escapes. Butterflies
     // catch bare-handed too — no tool gate.
     let catchMs = toolDurationMs(save.relics, 'bugnet') * CATCH_SPEED_MUL;
     // Rare shiny fauna have DOUBLE HP — the catch wheel runs twice as long, so
-    // a shiny animal (which also flees at 2× speed) is much harder to net: it
+    // a shiny animal (which also flees at SHINY_SPEED_MUL, app.js) is much harder to net: it
     // has more time to slip out of reach and escape. Plain kinds are unchanged.
     if (target.shiny) catchMs *= 2;
     // Catching costs energy (refunded if the player cancels the wheel; not

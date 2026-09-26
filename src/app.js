@@ -754,6 +754,11 @@ const STRUCK_REACTION_MS = 8000;
 // kinds that have none, the slime and every cave monster among them.
 const FLEE_STRIDE_MUL = 2;
 const FLEE_BEAT_MUL = 0.5;
+// A rare SHINY animal (isShiny, SHINY_RATE.animal) moves this much faster than
+// its plain kind — its wander beat and its bolt from the net alike. One number
+// both read. It was 2×, which stacked on the butterfly's own quickness into a
+// blur that no net under tier 3 could hold.
+const SHINY_SPEED_MUL = 1.5;
 // The spread on a COMMITTED approach, in radians: tight enough to read as a
 // line rather than a meander. The cave monsters stalk on it (a flyer doubles
 // it, which is what makes a bat careen), and a charging slime borrows it —
@@ -8850,12 +8855,12 @@ class MapScene extends Phaser.Scene {
       let dx = c.x - px, dy = c.y - py;
       let dist = Math.hypot(dx, dy);
       if (dist < 0.001) { dx = 1; dy = 0; dist = 1; }   // degenerate — pick a heading
-      // Butterflies bolt 3× faster than other fauna while the net wheel runs.
-      // Rare shiny animals flee at 2× too — consistent with their 2× wander
-      // speed, making them a genuinely slippery catch.
+      // Butterflies bolt 2.7× faster than other fauna while the net wheel runs.
+      // Rare shiny animals flee at SHINY_SPEED_MUL too — the same factor as
+      // their wander, making them a slippery catch.
       const isButterfly = c.kind === 'butterfly';
-      const shinyFast = isShiny(c.id, SHINY_RATE.animal) ? 2 : 1;
-      const FLEE_MPS = (isButterfly ? 6 : 2) * shinyFast;
+      const shinyFast = isShiny(c.id, SHINY_RATE.animal) ? SHINY_SPEED_MUL : 1;
+      const FLEE_MPS = (isButterfly ? 5.4 : 2) * shinyFast;
       c.x += (dx / dist) * FLEE_MPS * dt;
       c.y += (dy / dist) * FLEE_MPS * dt;
       wp.worldX = c.x; wp.worldY = c.y;
@@ -9472,13 +9477,13 @@ class MapScene extends Phaser.Scene {
       // lumber like the slime (0.6 cell).
       const isMon = Combat.isMonster(c.kind);
       const mon = isMon ? Combat.monster(c.kind) : null;
-      // Rare shiny animals move at 2× speed — same hop distances, but the
-      // whole step cadence (hop duration + any pause) is halved, so they cover
-      // ground twice as fast. isShiny() is keyed off the creature id, so the
+      // Rare shiny animals move at SHINY_SPEED_MUL — same hop distances, but
+      // the whole step cadence (hop duration + any pause) is divided by it, so
+      // they cover ground that much faster. isShiny() is keyed off the creature id, so the
       // status is stable across reloads (matches the shiny-tint in render).
       // An ELITE monster hits harder, not faster: its cadence comes purely
       // from SPEED, so the shiny check is for animals only.
-      const shinyFast = (!isMon && isShiny(c.id, SHINY_RATE.animal)) ? 0.5 : 1;
+      const shinyFast = (!isMon && isShiny(c.id, SHINY_RATE.animal)) ? 1 / SHINY_SPEED_MUL : 1;
       // CHARGING: hit by the player or their pet within STRUCK_REACTION_MS and
       // not warded off. Resolved once here because both halves of the charge
       // read it — the quickened beat just below and the committed angle in the
