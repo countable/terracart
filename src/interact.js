@@ -1163,6 +1163,38 @@ const TAP_HANDLERS = [
   // Only on passable (tillable) ground — water, roads, paths, buildings, and cement
   // pads all refuse the release so the creature sprite never ends up floating on a
   // roof / inside a wall.
+  { name: 'fire-held', try: (ctx) => {
+    // 2-fire-held) Tap a lit campfire while HOLDING something. The fire either
+    // MAKES something of it (items.js CAMPFIRE_MAKES: meat → grilled meat,
+    // wood → torch) or, for anything else, asks "Burn <name>?" and destroys
+    // one on yes (app.js presentBurnConfirm). Empty-handed, the tap falls
+    // through to extinguish-fire. Runs before `release` so a held animal
+    // over a fire is a burn question, not a release into the flames.
+    const { scene, save, sx, sy, cwmx, cwmy } = ctx;
+    const sel = getSelectedSlot(save);
+    if (!sel || (sel.count ?? 0) <= 0) return false;
+    const half = scene.cellM / 2;
+    const onFire = (save.fires || []).some(f => PlacedFloor.onDepth(f, scene.depth) &&
+      Math.abs(f.x - cwmx) < half && Math.abs(f.y - cwmy) < half);
+    if (!onFire) return false;
+    const made = CAMPFIRE_MAKES[sel.id];
+    if (!made) { scene.presentBurnConfirm(sel.id); return true; }
+    // The product has to fit before the input goes — unless this is the last
+    // one, whose own slot frees up for it.
+    const input = sel.id;
+    const last = sel.count === 1;
+    if (last) consumeSelected(save);
+    if (!scene.addToInv(made, 1, false, { notWild: true })) {
+      if (last) scene.addToInv(input, 1, true, { notWild: true });   // put it back
+      return true;
+    }
+    if (!last) consumeSelected(save);
+    ctx.dirty = true;
+    scene.buildInventoryDOM();
+    scene.flashLoot(`🔥 ${ITEM_BY_ID[made]?.name || made}`, '#ffb070', 1, made);
+    return true;
+  }},
+
   { name: 'release', try: (ctx) => {
     const { scene, save, sx, sy, cwmx, cwmy, cell } = ctx;
     const sel = getSelectedSlot(save);

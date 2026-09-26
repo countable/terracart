@@ -285,6 +285,8 @@
     const out = {};
     for (const it of _ITEMS) {
       if (it.shiny) continue;
+      // Made at a campfire, never found (items.js CAMPFIRE_MAKES).
+      if (it.cooked) continue;
       const cls = it.kind;
       const t = it.baseTier;
       if (!cls || typeof t !== 'number') continue;
