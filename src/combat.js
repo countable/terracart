@@ -126,7 +126,7 @@
   // bag (spawnsUnderground) and has NO giant (the derivation below skips it,
   // so no board job can ever name a foe that never appears). Its `minDepth`
   // is 0 — the surface — so the elite roll's depth bonus reads it plainly.
-  //   SPEED is a jog, GHOST_SPEED_MPS metres per second over the ground — its
+  //   SPEED is a run, GHOST_SPEED_MPS metres per second over the ground — its
   // own glide (creature_ai.js ghostTick), not the step chain's beat, so the
   // row carries `mps` and no `speed` (the step chain never moves a ghost).
   //   DMG is its TOUCH: one blow of GHOST_TOUCH_DMG before the mode, the
@@ -134,7 +134,7 @@
   // baseline so the cave doubling below lands it on exactly that number.
   //   HP is small — it dies in the light (creature_ai.js GHOST_PLATEAU_BURN_S) and to
   // two or three honest blows; the bounty is derived from it like any foe's.
-  const GHOST_SPEED_MPS = 2;
+  const GHOST_SPEED_MPS = 3;
   const GHOST_TOUCH_DMG = 25;
   MONSTERS_BASELINE.ghost = {
     name: 'Ghost', hp: 10, range: 1, dmg: GHOST_TOUCH_DMG / CAVE_ENEMY_MUL,

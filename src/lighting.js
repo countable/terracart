@@ -897,8 +897,9 @@
   // ── BRIGHTNESS AT A POINT ─────────────────────────────────────────────────
   // How much light the lightmap ADDS at world point (wx, wy) — 0 in the dark
   // (the ambient floor alone), clamped at 1 — for anything in the game that
-  // has to know whether it is standing in the light (app.js: the ghost, which
-  // burns in it and is only ever seated where this reads dark). It is the
+  // has to know whether it is standing in the light (creature_ai.js: the
+  // ghost, which burns in it — minus the player's own glow — and is only ever
+  // seated where this reads dark). It is the
   // paint's own model, never a second guess at it:
   //   · the player's light — the plateau over the reach cells (cellInReach,
   //     the tap gate's test, and plateauLevel's shading) and the ramp outside
@@ -956,12 +957,16 @@
     const t = rMaxM > reachM ? Math.max(0, (d - reachM) / (rMaxM - reachM)) : 1;
     return playerCookieAlpha(t, prof);
   }
-  function brightnessAt(scene, wx, wy, nowIn) {
+  // `opts.playerGlow: false` leaves out the player's OWN light (the plateau
+  // and the ramp, playerLightAt) and keeps everything else — the hand torch
+  // included, which is a collected source, not the glow. The ghost's burn asks
+  // it that way: a ghost is not hurt by the player's glow, only by a torch.
+  function brightnessAt(scene, wx, wy, nowIn, opts) {
     if (!scene || !Number.isFinite(wx) || !Number.isFinite(wy)) return 0;
     const cellM = scene.cellM;
     const now = lightClock(nowIn == null ? Date.now() : nowIn);
     const prof = profile(scene, daylight(scene, now), now);
-    let b = playerLightAt(scene, wx, wy, prof);
+    let b = (opts && opts.playerGlow === false) ? 0 : playerLightAt(scene, wx, wy, prof);
     // The collectors push onto scene._lights; point them at a scratch list for
     // the one call and put the frame's list back whatever happens.
     const frame = scene._lights;

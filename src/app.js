@@ -2158,6 +2158,12 @@ class MapScene extends Phaser.Scene {
     // is a grey smudge), BELOW the labels and the fog. The emitters
     // themselves are created lazily on first burst and parked in here.
     this.fxContainer = this.add.container(0, 0);
+    // THE GHOST'S GLOW (SpriteLayout.creatureGlow) — a faint halo per ghost,
+    // ABOVE the lightmap so the night dim cannot swallow it and a ghost can be
+    // seen coming across the dark, BELOW the labels and the fog. It is not a
+    // light: it lights nothing around it (no Lighting row) — which is why it
+    // lives here and not in the lightmap.
+    this.ghostGlowContainer = this.add.container(0, 0);
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
     // rampartFrontGfx) so a label always reads ABOVE map objects like castle
@@ -2290,6 +2296,7 @@ class MapScene extends Phaser.Scene {
     this.plantedPool = [];
     this.plantedTimerPool = []; // small Phaser.Text in cell corner: growth minutes remaining
     this.creaturePool = [];
+    this.ghostGlowPool = [];  // the ghost's non-lighting halo (render.js)
     this.sparkPool = [];      // gold sparkle sprites floated above shiny entities
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
@@ -2344,6 +2351,23 @@ class MapScene extends Phaser.Scene {
     // disc. Faint in the middle (you can still see what you're standing on),
     // densest just inside the rim, then falling to nothing AT the rim — the
     // texture's edge is the damage radius (see _tickBlightAura).
+    // The ghost's glow (SpriteLayout.GHOST_GLOW): a soft disc in GHOST_TINT,
+    // opaque at the centre and gone at the rim; the renderer scales it to the
+    // row's px and fades it to the row's alpha.
+    if (!this.textures.exists('ghost_glow')) {
+      const S = 64;
+      const tex = this.textures.createCanvas('ghost_glow', S, S);
+      const ctx = tex.getContext();
+      const t = SpriteLayout.GHOST_TINT;
+      const rgb = `${(t >> 16) & 255}, ${(t >> 8) & 255}, ${t & 255}`;
+      const grad = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+      grad.addColorStop(0,   `rgba(${rgb}, 1)`);
+      grad.addColorStop(0.4, `rgba(${rgb}, 0.45)`);
+      grad.addColorStop(1,   `rgba(${rgb}, 0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, S, S);
+      tex.refresh();
+    }
     if (!this.textures.exists('aura_blight')) {
       const S = 128;
       const tex = this.textures.createCanvas('aura_blight', S, S);
@@ -2472,6 +2496,7 @@ class MapScene extends Phaser.Scene {
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);
     this.fxContainer.setMask(mask);
+    this.ghostGlowContainer.setMask(mask);
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
     this.fogContainer.setMask(mask);

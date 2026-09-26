@@ -170,22 +170,21 @@ const GHOST_HOVER_MS = 2000;
 // A touch: the ghost within this many cells of the player's feet.
 const GHOST_TOUCH_CELLS = 0.5;
 // THE BURN. A ghost's damage per second is its whole pool, times its light
-// exposure, over GHOST_PLATEAU_BURN_S — where exposure 1 is the player's own
-// reach plateau at night at its brightest (Lighting.profile(scene, 0).lit,
-// the plateau's derived level), so a ghost held at the player's feet lasts
-// GHOST_PLATEAU_BURN_S seconds. Daylight past GHOST_DARK_DAYLIGHT burns too
-// (ghostSunExposure — 1 at noon), so a ghost caught out at dawn is gone.
-//   Why 13: the burn is a race against its pace, so it scales with the time
-// the rush spends in the light — inverse to the speed. It was 6 at the old
-// ~4.4 m/s, where a rush on a player at base reach (2.5 cells) took ~4.1
-// plateau-seconds (~69% of its pool) and arrived with a third left; at the
-// jog (Combat.GHOST_SPEED_MPS, 2 m/s) the same rush is ~2.2× as long, so
-// 6 × 4.37 / 2 ≈ 13 keeps that outcome: the touch lands at base reach; from
-// three Inner Light upgrades (reach 4 cells) it burns out on the doorstep, and
-// a torch's light burns it out long before. A campfire or a lit
-// lamp does not hold it off — it rushes straight in — but their light adds to
-// the burn; Home and a claimed castle rout it (the ward). ghosts.test.js runs the
-// race.
+// exposure, over GHOST_PLATEAU_BURN_S — where exposure 1 is the player's reach
+// plateau at night at its brightest (Lighting.profile(scene, 0).lit, the
+// plateau's derived level — a UNIT here, not a source). Daylight past
+// GHOST_DARK_DAYLIGHT burns too (ghostSunExposure — 1 at noon), so a ghost
+// caught out at dawn is gone.
+//   THE PLAYER'S OWN GLOW DOES NOT BURN IT: exposure is brightnessAt with
+// `playerGlow: false` — no plateau, no ramp, at any Inner Light reach. What
+// burns it is a light the player CARRIES or STANDS BY: the hand torch (a
+// collected source, so it stays in), a campfire, a lit lamp, a lit building.
+// No light's ring refuses its step either — it is not afraid of the light, it
+// comes straight in and burns if the light is one that burns it.
+//   Why 13: a torch must burn it out before it arrives. At its run
+// (Combat.GHOST_SPEED_MPS, 3 m/s) from the spawn ring, the torch race is won
+// up to ~17 and lost by 22 (ghosts.test.js runs it); 13 keeps a margin.
+// Home and a claimed castle rout it (the ward).
 const GHOST_PLATEAU_BURN_S = 13;
 // The burn is banked on this beat, not every frame (brightnessAt runs the
 // collectors).
@@ -292,7 +291,7 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
     const burnS = (now - c._burnT) / 1000;
     c._burnT = now;
     const wall = Date.now();
-    const exposure = Lighting.brightnessAt(scene, c.x, c.y, wall) / Lighting.profile(scene, 0).lit
+    const exposure = Lighting.brightnessAt(scene, c.x, c.y, wall, { playerGlow: false }) / Lighting.profile(scene, 0).lit
       + ghostSunExposure(Lighting.daylight(scene, wall));
     if (exposure > 0 && scene._damageEnemy(c, Combat.maxHp(c) * exposure * burnS / GHOST_PLATEAU_BURN_S, 'light')) {
       return 'burned';

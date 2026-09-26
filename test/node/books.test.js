@@ -253,8 +253,8 @@ test('tips: the ghost page quotes its owners\' numbers', () => {
   const ms = Number(CREATURE_AI_SRC.match(/const GHOST_SPAWN_MS = (\d+);/)?.[1]);
   assert.eq(ms, 5 * 60000, 'every five minutes, as the page says');
   assert.truthy(/every five minutes/.test(t), 'and it says five');
-  assert.eq(Combat.GHOST_SPEED_MPS, 2, 'a jog, as the page says');
-  assert.truthy(/at a jog/.test(t));
+  assert.eq(Combat.GHOST_SPEED_MPS, 3, 'a run, as the page says');
+  assert.truthy(/at a run/.test(t));
   assert.eq(Combat.monster('ghost').dmg, 25, 'a 25 touch, as the page says');
   assert.truthy(/25\u26a1 before armour/.test(t));
   const i = PLAY_TIPS.indexOf(t);
