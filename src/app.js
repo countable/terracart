@@ -1197,6 +1197,15 @@ const SWORD_SWING_MS = 220;
 const SHOT_DRAW_LIFT_PX = 10;
 // How far to the side of the body the staff's next bolt charges (_drawStaffCharge).
 const STAFF_CHARGE_HAND_DX = 7;
+// The staff bolt's glow (_boltGlowKey): the baked texture's edge, in px, and
+// how many of the bolt's recent positions its comet trail keeps, how far
+// apart (in cells — distance, not frames, so the tail is the same length at
+// any frame rate). The sparks a
+// bolt throws off a foe it passes through are in the bolt's own colour.
+const BOLT_GLOW_TEX_PX = 64;
+const BOLT_TRAIL_N = 8;
+const BOLT_TRAIL_STEP_CELLS = 0.12;   // trail points this far apart: ~a cell of comet
+const BOLT_SPARK_COLOUR = '#' + (Combat.SHOT.staff.color >>> 0).toString(16).padStart(6, '0');
 // Screen-px lift a CASTLE TURRET's arrow starts at: the battlements. The tower
 // art is 42px tall (textures.js makeTowerTexture) and stands with its foot on
 // the cell's bottom edge, CELL_PX/2 below the cell centre the turret object
@@ -3105,6 +3114,14 @@ class MapScene extends Phaser.Scene {
     // facing arrow — a shot travels along that arrow, so it has to read as
     // coming off the tip rather than sliding under it.
     this.projGfx = this.add.graphics().setDepth(12).setMask(mask);
+    // The staff's bolts and its charging orb are not Graphics: they are soft
+    // baked glows (_boltGlowKey) with ADD blending, pooled in their own layer
+    // at the shots' depth — see _drawShots. ADD composites as 'lighter' under
+    // the Canvas fallback too, and the colour is baked, never tinted. One
+    // mask on the container, not one per image (a mask per object is a
+    // stencil pass each under WebGL).
+    this.boltContainer = this.add.container(0, 0).setDepth(12).setMask(mask);
+    this._boltPool = [];
     this._shots = [];
     this._nextShotT = {};              // per-slot next-fire clock, in performance.now() ms
     // Castle turrets' own clocks (turret id → next-fire ms) and the cached
@@ -8336,6 +8353,7 @@ class MapScene extends Phaser.Scene {
     const g = this.projGfx;
     if (!g) return;
     g.clear();
+    this._boltUsed = 0;
     for (const s of this._shots) {
       const spec = Combat.SHOT[s.slot];
       const head = this.worldMetersToScreen(s.x, s.y);
@@ -8355,14 +8373,12 @@ class MapScene extends Phaser.Scene {
       }
       const hx = Math.round(head.x), hy = Math.round(head.y - lift);
       if (s.dotPx) {
-        // The staff bolt is a fat glowing dot, not a streak — a bolt reads as
+        // The staff bolt is a ball of light, not a streak — a bolt reads as
         // a thrown thing, an arrow as a flying line. Its radius is the shot's
         // own (stamped by Combat.spawnShot from the staff's tier, off the same
-        // scale as the radius it hits with), never the spec's base dotPx.
-        g.fillStyle(spec.color, 0.95);
-        g.fillCircle(hx, hy, s.dotPx);
-        g.lineStyle(1, 0xffffff, 0.5);
-        g.strokeCircle(hx, hy, s.dotPx);
+        // scale as the radius it hits with), never the spec's base dotPx; the
+        // glow around it is drawn wider, but the hot core is that radius.
+        this._drawBolt(s, spec.color, lift);
         continue;
       }
       // The tail trails a fixed number of SCREEN pixels back along the
@@ -8377,6 +8393,90 @@ class MapScene extends Phaser.Scene {
       g.strokePath();
     }
     this._drawStaffCharge(g);
+    for (let i = this._boltUsed; i < this._boltPool.length; i++) this._boltPool[i].setVisible(false);
+  }
+
+  // A soft round glow in `colour`, baked once per colour: a white-hot core
+  // running out through the colour to nothing. The bolt, its trail and the
+  // charging orb are all this one texture at different sizes and alphas.
+  _boltGlowKey(colour) {
+    const key = `bolt_glow_${(colour >>> 0).toString(16)}`;
+    if (this.textures.exists(key)) return key;
+    const S = BOLT_GLOW_TEX_PX;
+    const tex = this.textures.createCanvas(key, S, S);
+    const ctx = tex.context;
+    const r = (colour >> 16) & 255, gg = (colour >> 8) & 255, b = colour & 255;
+    const c = (a) => `rgba(${r},${gg},${b},${a})`;
+    const grad = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.16, 'rgba(255,255,255,0.95)');
+    grad.addColorStop(0.3, c(0.85));
+    grad.addColorStop(0.55, c(0.32));
+    grad.addColorStop(0.8, c(0.08));
+    grad.addColorStop(1, c(0));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, S, S);
+    tex.refresh();
+    return key;
+  }
+
+  // One glow from the pool, placed at screen (x, y) with radius `rPx` (the
+  // texture's own edge — where it has faded to nothing).
+  _boltGlow(key, x, y, rPx, alpha) {
+    let im = this._boltPool[this._boltUsed];
+    if (!im) {
+      im = this.add.image(0, 0, key).setBlendMode(Phaser.BlendModes.ADD);
+      this.boltContainer.add(im);
+      this._boltPool.push(im);
+    } else if (im.texture.key !== key) {
+      im.setTexture(key);
+    }
+    this._boltUsed++;
+    im.setVisible(true).setPosition(x, y)
+      .setScale(Math.max(0.01, rPx / (BOLT_GLOW_TEX_PX / 2)))
+      .setAlpha(Math.max(0, Math.min(1, alpha)));
+    return im;
+  }
+
+  // A staff bolt in flight: a comet. The TRAIL is where the bolt has been, in
+  // world metres (so a peek drag leaves it on the street it crossed — the
+  // camera rule), fading and thinning behind it; the HALO is a wide soft glow
+  // that breathes quickly; the CORE is the hot centre at the bolt's own
+  // drawn radius. The ground under it is lit by Lighting's `bolt` row, which
+  // reads the same shot list.
+  _drawBolt(s, colour, lift) {
+    const key = this._boltGlowKey(colour);
+    const trail = s._trail || (s._trail = []);
+    const last = trail[trail.length - 1];
+    const stepM = BOLT_TRAIL_STEP_CELLS * this.cellM;
+    if (!last || Math.hypot(s.x - last.x, s.y - last.y) >= stepM) {
+      trail.push({ x: s.x, y: s.y });
+      if (trail.length > BOLT_TRAIL_N) trail.shift();
+    }
+    // A foe the bolt has just passed through (stepShots' pierce ledger,
+    // `_struck`, grew since the last draw) throws a ring of sparks in the
+    // bolt's colour off the bolt. Sparks only, never a Lighting.blast: a
+    // blast counts in brightnessAt, and a ghost the bolt crosses must not
+    // take a burn from what is only the look of the hit.
+    const struck = s._struck ? s._struck.size : 0;
+    if (struck > (s._sparked || 0)) {
+      s._sparked = struck;
+      this._burstAtWorld('trailspark', s.x, s.y, { colour: BOLT_SPARK_COLOUR });
+    }
+    const r = s.dotPx;
+    const n = trail.length;
+    for (let i = 0; i < n - 1; i++) {
+      const p = this.worldMetersToScreen(trail[i].x, trail[i].y);
+      const f = (i + 1) / n;                        // 0 oldest → 1 the head
+      this._boltGlow(key, p.x, p.y - lift, r * (1.2 + 1.6 * f), 0.5 * f * f);
+    }
+    const head = this.worldMetersToScreen(s.x, s.y);
+    const hx = head.x, hy = head.y - lift;
+    const t = performance.now();
+    if (s._boltPhase == null) s._boltPhase = Math.random() * Math.PI * 2;   // a look, not the world
+    const breathe = 0.5 + 0.5 * Math.sin(t / 70 + s._boltPhase);
+    this._boltGlow(key, hx, hy, r * (5.5 + 1.2 * breathe), 0.5 + 0.25 * breathe);
+    this._boltGlow(key, hx, hy, r * 2.2, 1);
   }
 
   // The staff's next bolt, gathering by the player's hand between shots: a
@@ -8395,10 +8495,11 @@ class MapScene extends Phaser.Scene {
     const y = Math.round(p.y - SHOT_DRAW_LIFT_PX);
     const pulse = f >= 1 ? 0.75 + 0.25 * Math.sin(performance.now() / 160) : 1;
     const r = Math.max(1, full * (0.25 + 0.75 * f) * pulse);
-    g.fillStyle(Combat.SHOT.staff.color, 0.25 + 0.6 * f);
-    g.fillCircle(x, y, r);
-    g.lineStyle(1, 0xffffff, 0.2 + 0.4 * f);
-    g.strokeCircle(x, y, r);
+    // The same glow as the bolt it becomes (_drawBolt): a soft halo gathering
+    // round a hot core, both growing with the charge.
+    const key = this._boltGlowKey(Combat.SHOT.staff.color);
+    this._boltGlow(key, x, y, r * 3.6, (0.2 + 0.45 * f) * pulse);
+    this._boltGlow(key, x, y, r * 2.2, 0.35 + 0.65 * f);
   }
 
   // A health bar over every enemy hurt in the last few seconds — the same bar
