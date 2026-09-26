@@ -188,8 +188,10 @@ const PIECES = {
   // stands a downed player back up): collapse, found, home. Three panels read in order, so they share a palette and a
   // survivor — the same young survivor in a hooded brown cloak throughout.
   revive_fall: scene(
+    // Nothing dropped beside the body: a collapse costs no gear, and the
+    // player may own none — the picture must not promise either.
     'A young survivor in a hooded brown cloak has collapsed face-down on a dirt path at dusk, ' +
-    'a dropped satchel and pickaxe beside them, the world around dimming and blurring at the ' +
+    'empty-handed, with nothing lying around them, the world around dimming and blurring at the ' +
     'edges as if their eyes are closing.'),
   revive_found: scene(
     'Two villagers - a stout woman holding up a lantern and an older man - kneel beside the ' +
@@ -198,7 +200,8 @@ const PIECES = {
   revive_wake: scene(
     'The young survivor in a hooded brown cloak sits up weakly on a straw bedroll beside a ' +
     'small camper trailer at dawn, wrapped in a blanket, a small campfire crackling, while a ' +
-    'kindly villager hands them a steaming bowl. Relief, home.'),
+    'kindly villager hands them a steaming bowl. No bags, packs or tools anywhere near the ' +
+    'survivor. Relief, home.'),
   home_sell: scene(
     'A rough wooden crate brimming with fresh produce - potatoes, onions, apples and a few ' +
     'carrots - set out on the grass beside a small camper trailer at golden hour, a little ' +
