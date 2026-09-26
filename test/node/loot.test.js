@@ -480,3 +480,28 @@ test('cave supplies: the favourite set only ever pays a consumable', () => {
     }
   }
 });
+
+// A buried X dug underground takes the same cave skew as a cave chest (the
+// depth's tier picks shallow supplies or the deep hoard); on the surface it
+// pays the pool it always has.
+test('cave X: a dig underground leans the cave way, a surface dig does not', () => {
+  const SUPPLY = new Set(Object.keys(CAVE_SUPPLY_SKEW.favourite.ids));
+  const HOARD = new Set(Object.keys(CAVE_DEEP_SKEW.favourite.ids));
+  const rate = (set, opts, seed) => {
+    const rng = seeded(seed);
+    let n = 0; const N = 4000;
+    for (let i = 0; i < N; i++) {
+      const r = pickReward('treasure:default', { relics: {}, armor: {} }, rng, opts);
+      if (r && r.kind === 'item' && set.has(r.id)) n++;
+    }
+    return n / N;
+  };
+  const surf = rate(SUPPLY, undefined, 5), shallow = rate(SUPPLY, { depth: 1, tier: 2 }, 6);
+  assert.truthy(shallow > surf * 2, `supplies ${surf.toFixed(3)} → ${shallow.toFixed(3)} one level down`);
+  const surfH = rate(HOARD, undefined, 7), deep = rate(HOARD, { depth: 4, tier: 4 }, 8);
+  assert.truthy(deep > surfH * 2, `hoard ${surfH.toFixed(3)} → ${deep.toFixed(3)} deep down`);
+  assert.truthy(/digTreasureOpts\(\) \{[\s\S]{0,400}?return \{ depth, tier: 2 \+ bonus \};/.test(APP_JS_SRC),
+    'app.js hands a cave dig its depth and the depth\'s tier');
+  assert.truthy(/grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default', scene\.digTreasureOpts\?\.\(\)\)/.test(INTERACT_SRC),
+    'the fallback dig passes them too');
+});

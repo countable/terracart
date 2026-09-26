@@ -16,13 +16,14 @@ test('treasure pick: digging an X routes to the pick, the old single roll is the
   const src = INTERACT_SRC;
   assert.truthy(/save\.foundTreasures = \[\.\.\.found, tr\.id\];\s*\n[^\n]*\n\s*if \(typeof scene\.digTreasurePick === 'function'\) scene\.digTreasurePick\(sx, sy\);/.test(src),
     'the mark is spent BEFORE the pick opens (no reload re-roll), then the pick opens');
-  assert.truthy(/else grantTreasureRoll\(scene, save, sx, sy, '✕'\);/.test(src),
-    'a scene without the pick still pays the single roll');
+  assert.truthy(/else grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default', scene\.digTreasureOpts\?\.\(\)\);/.test(src),
+    'a scene without the pick still pays the single roll (with the cave skew underground)');
 });
 
 test('treasure pick: the X rolls its own pool through Trail.rollChoices', () => {
   const body = methodBody(APP_JS_SRC, 'digTreasurePick(sx, sy) {');
-  assert.truthy(/pickReward\('treasure:default', this\.save\)/.test(body), 'the pool an X has always paid');
+  assert.truthy(/pickReward\('treasure:default', this\.save, undefined, opts\)/.test(body),
+    'the pool an X has always paid (skewed underground by digTreasureOpts)');
   assert.truthy(/Trail\.rollChoices\(roll\)/.test(body), 'the two options must differ — the road\'s rule');
   assert.truthy(/isLowTierSeed\(r\.id\)\) r\.qty \+= LOW_TIER_SEED_QTY_BONUS/.test(body),
     'low-tier seeds keep the bulk bonus the single roll gave them');

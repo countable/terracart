@@ -459,7 +459,7 @@ const TAP_HANDLERS = [
       save.foundTreasures = [...found, tr.id];
       // Several finds, keep one (app.js digTreasurePick — the road ladder's pick).
       if (typeof scene.digTreasurePick === 'function') scene.digTreasurePick(sx, sy);
-      else grantTreasureRoll(scene, save, sx, sy, '✕');
+      else grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default', scene.digTreasureOpts?.());
       ctx.dirty = true;
       return true;
     };

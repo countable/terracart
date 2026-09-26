@@ -16431,15 +16431,28 @@ class MapScene extends Phaser.Scene {
   // Low-tier seeds keep the bulk bonus grantTreasureRoll gives them. When the
   // pool can't find even two distinct finds, the one it found pays the way an
   // X always did.
+  // What a dig passes pickReward: underground, the depth and the depth's
+  // tier (2, one more every CHEST_TIER_DEPTH_STEP levels — the ramp a cave
+  // chest climbs), so a cave X takes the same cave skew a cave chest does:
+  // supplies in the shallows, the deep hoard below (rarity.js caveSkewable).
+  // On the surface, nothing — the X pays the pool it always has.
+  digTreasureOpts() {
+    const depth = this.depth || 0;
+    if (depth <= 0) return undefined;
+    const bonus = (typeof chestTierDepthBonus === 'function') ? chestTierDepthBonus(depth) : 0;
+    return { depth, tier: 2 + bonus };
+  }
+
   digTreasurePick(sx, sy) {
+    const opts = this.digTreasureOpts();
     const roll = () => {
-      const r = (typeof pickReward === 'function') ? pickReward('treasure:default', this.save) : null;
+      const r = (typeof pickReward === 'function') ? pickReward('treasure:default', this.save, undefined, opts) : null;
       if (r && r.kind === 'item' && isLowTierSeed(r.id)) r.qty += LOW_TIER_SEED_QTY_BONUS;
       return r;
     };
     const choices = Trail.rollChoices(roll);
     if (choices.length < 2) {
-      if (!choices.length) { grantTreasureRoll(this, this.save, sx, sy, '✕'); return; }
+      if (!choices.length) { grantTreasureRoll(this, this.save, sx, sy, '✕', 'treasure:default', opts); return; }
       const card = this._claimTrailReward(choices[0]);
       if (card) this.flashLoot(`✕ → ${card.qty ? `${card.name} ${card.qty}` : card.name}`,
                                card.color || UI_TREASURE, 1,

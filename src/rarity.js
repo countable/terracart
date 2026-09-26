@@ -498,8 +498,14 @@
       vigor_potion: 0.25, shield_potion: 0.25, reach_potion: 0.25, speed_potion: 0.25,
     } },
   };
+  // Which pools a cave skew reaches: every chest, and a buried X dug
+  // underground ('treasure:default' — app.js digTreasureOpts hands it the
+  // depth and the depth's tier, the same ramp a cave chest's tier climbs).
+  function caveSkewable(contextKey) {
+    return contextKey.startsWith('chest:') || contextKey === 'treasure:default';
+  }
   function caveSupplyApplies(contextKey, opts) {
-    return contextKey.startsWith('chest:') && (opts?.depth || 0) > 0
+    return caveSkewable(contextKey) && (opts?.depth || 0) > 0
       && ((opts?.tier) || 2) <= CAVE_SUPPLY_MAX_TIER;
   }
   // THE DEEP HOARD — the same overlay for a cave chest ABOVE the supply tiers
@@ -519,7 +525,7 @@
     } },
   };
   function caveDeepApplies(contextKey, opts) {
-    return contextKey.startsWith('chest:') && (opts?.depth || 0) > 0
+    return caveSkewable(contextKey) && (opts?.depth || 0) > 0
       && ((opts?.tier) || 2) > CAVE_SUPPLY_MAX_TIER;
   }
 
