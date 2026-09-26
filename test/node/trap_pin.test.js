@@ -276,10 +276,10 @@ test('tool stories (behaviour): each action splashes once under its own ledger k
 });
 
 // ── The art files exist ───────────────────────────────────────────────────
-test('trap pin + tool stories: every new art stem exists as a PNG in assets/art/', () => {
+test('trap pin + tool stories: every new art stem exists as a WebP in assets/art/', () => {
   for (const stem of [...TRAP_STEMS, ...TOOL_STEMS]) {
-    const dims = pngDims(`assets/art/${stem}.png`);
-    assert.truthy(dims, `assets/art/${stem}.png exists and is a PNG`);
+    const dims = webpDims(`assets/art/${stem}.webp`);
+    assert.truthy(dims, `assets/art/${stem}.webp exists and is a WebP`);
   }
 });
 })();

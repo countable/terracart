@@ -70,17 +70,17 @@ test('opening: the FULL sequence is two slides, in order, each with its own art'
   // partly there (the CTA, then the world) with the story and the how-to
   // missing, so what the sequence IS gets pinned beside the flag that plays it.
   const slides = html.slice(html.indexOf('const STORY_SLIDES = ['), html.indexOf('let __storyStarted'));
-  const arts = [...slides.matchAll(/assets\/art\/(story_\w+)\.png/g)].map((m) => m[1]);
+  const arts = [...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1]);
   assert.eq(arts.length, 2, 'two slides');
   assert.eq(arts[0], 'story_wake', 'the trailer first');
   assert.eq(arts[1], 'story_wrecks', 'then the neighbourhood');
   assert.truthy(/btn: 'Next'/.test(slides) && /btn: "Let's go"/.test(slides),
     'the last slide says where it is going, the first just turns the page');
   // Both banners are real files with real pixels (the vm sandbox has no fs —
-  // pngDims is run.js's bridge, the same one the item icons are checked with).
+  // webpDims is run.js's bridge, beside the pngDims the item icons use).
   for (const stem of arts) {
-    const d = pngDims('assets/art/' + stem + '.png');
-    assert.truthy(d && d.w > 0 && d.h > 0, `assets/art/${stem}.png exists`);
+    const d = webpDims('assets/art/' + stem + '.webp');
+    assert.truthy(d && d.w > 0 && d.h > 0, `assets/art/${stem}.webp exists`);
   }
 });
 

@@ -1,4 +1,4 @@
-// Story splashes: the banner art (assets/art/*.png) wired into the one-time
+// Story splashes: the banner art (assets/art/*.webp) wired into the one-time
 // game moments - a first delivery, a first shiny, a castle's claim, a wreck
 // restored, a fort unsealed.
 //
@@ -91,7 +91,7 @@ test('story splash: the chest reward modal collapses an empty icon row', () => {
 });
 
 // ── The art files exist ───────────────────────────────────────────────────
-test('story splash: every art stem app.js names exists as a PNG in assets/art/', () => {
+test('story splash: every art stem app.js names exists as a WebP in assets/art/', () => {
   const stems = new Set();
   for (const m of app.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
   // The dynamic restore stems, derived from the INFO role table in
@@ -104,8 +104,8 @@ test('story splash: every art stem app.js names exists as a PNG in assets/art/',
   assert.includes([...stems], 'castle_claim', 'the castle stem was collected');
   assert.includes([...stems], 'fort_unseal', 'the fort stem was collected');
   for (const stem of stems) {
-    const dims = pngDims(`assets/art/${stem}.png`);
-    assert.truthy(dims, `assets/art/${stem}.png exists and is a PNG`);
+    const dims = webpDims(`assets/art/${stem}.webp`);
+    assert.truthy(dims, `assets/art/${stem}.webp exists and is a WebP`);
   }
 });
 

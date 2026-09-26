@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-// Generate the story-splash banners (assets/art/*.png) with gpt-image-1.5.
+// Generate the story-splash banners (assets/art/*.webp) with gpt-image-1.5.
+// Paintings ship as lossy WebP at ART_WEBP_QUALITY (about half the bytes of the
+// 128-colour PNG they used to be, and indistinguishable at dialog size —
+// lossless WebP saves nothing, the dithering reads as noise to it). Trimmed
+// ICON pieces (the coin) stay PNG: they are copied into assets/Icons/.
 //
 // Reads OPENAI_API_KEY from ~/.env (or the environment), renders each piece at
 // 1536x1024, then downscales to 512px wide (the size the dialogs lazy-load)
@@ -16,6 +20,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+const ART_WEBP_QUALITY = 85;
 const OUT_DIR = path.join(__dirname, '..', 'assets', 'art');
 const RAW_DIR = path.join(OUT_DIR, 'raw');
 
@@ -289,7 +294,7 @@ async function generate(key, name, piece) {
 }
 
 function downscale(rawPath, name, width, colors, trim, aspect) {
-  const outPath = path.join(OUT_DIR, `${name}.png`);
+  const outPath = path.join(OUT_DIR, `${name}.${trim ? 'png' : 'webp'}`);
   // The piece's own width (512 for banners, 640 for the fullscreen backdrop),
   // then quantize: pixel art survives palette reduction intact (the clusters
   // ARE the palette), and it lands a banner near the ~60-80KB of the original
@@ -326,7 +331,10 @@ if im.mode == 'RGBA':
     im = im.quantize(colors=${colors || 128}, method=Image.FASTOCTREE, dither=Image.FLOYDSTEINBERG)
 else:
     im = im.quantize(colors=${colors || 128}, method=Image.MEDIANCUT, dither=Image.FLOYDSTEINBERG)
-im.save(${JSON.stringify(outPath)}, optimize=True)
+if trim:
+    im.save(${JSON.stringify(outPath)}, optimize=True)
+else:
+    im.convert('RGB').save(${JSON.stringify(outPath)}, 'WEBP', quality=${ART_WEBP_QUALITY}, method=6)
 `;
   execFileSync('python3', ['-c', py]);
   return outPath;
@@ -346,7 +354,7 @@ im.save(${JSON.stringify(outPath)}, optimize=True)
     const piece = typeof PIECES[name] === 'string'
       ? { subject: PIECES[name], size: '1536x1024', width: 512 }
       : PIECES[name];
-    const outPath = path.join(OUT_DIR, `${name}.png`);
+    const outPath = path.join(OUT_DIR, `${name}.${piece.trim ? 'png' : 'webp'}`);
     if (!force && !reprocess && fs.existsSync(outPath)) { console.log(`skip ${name} (exists)`); continue; }
     const rawPath = path.join(RAW_DIR, `${name}.png`);
     const raw = reprocess ? rawPath : await generate(key, name, piece);

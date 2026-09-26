@@ -189,7 +189,7 @@ class SceneModals {
       const line = Math.round((band ? ART_BAND_FRAC : ART_DETAIL_FRAC) * 100);
       box.style.backgroundImage =
         `linear-gradient(to bottom, rgba(26,22,18,0) ${line - 8}%, rgba(26,22,18,.82) ${line + 6}%, #1a1612 ${line + 22}%),` +
-        `url(assets/art/${art}.png)`;
+        `url(assets/art/${art}.webp)`;
       box.style.backgroundSize = '100% 100%, cover';
       box.style.backgroundPosition = band
         ? `center, center ${-Math.round(ART_BAND_FROM * vSize / ART_FRAME_ASPECT)}px`

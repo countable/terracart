@@ -1287,6 +1287,23 @@ ctx.pngDims = (rel) => {
   if (b.readUInt32BE(0) !== 0x89504e47) return null;
   return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
 };
+// The dialog paintings ship as WebP (assets/art/*.webp, tools/gen_story_art.js).
+// Reads the canvas size off the RIFF header: VP8X (extended), VP8L (lossless)
+// or VP8 (lossy) — null for anything that is not a WebP.
+ctx.webpDims = (rel) => {
+  const p = path.join(ROOT, rel.replace(/\?.*$/, ''));
+  if (!fs.existsSync(p)) return null;
+  const b = fs.readFileSync(p);
+  if (b.toString('ascii', 0, 4) !== 'RIFF' || b.toString('ascii', 8, 12) !== 'WEBP') return null;
+  const chunk = b.toString('ascii', 12, 16);
+  if (chunk === 'VP8X') return { w: 1 + b.readUIntLE(24, 3), h: 1 + b.readUIntLE(27, 3) };
+  if (chunk === 'VP8L') {
+    const v = b.readUInt32LE(21);
+    return { w: 1 + (v & 0x3fff), h: 1 + ((v >> 14) & 0x3fff) };
+  }
+  if (chunk === 'VP8 ') return { w: b.readUInt16LE(26) & 0x3fff, h: b.readUInt16LE(28) & 0x3fff };
+  return null;
+};
 // index.html is what actually MEASURES the screen — the CSS scale app.js sizes
 // the canvas from is published by its fitGame. canvas_scale.test.js pins the
 // two halves of that handshake against each other; nothing else can, because

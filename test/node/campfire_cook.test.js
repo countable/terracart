@@ -174,5 +174,5 @@ test('campfire: the first fire lit tells its story, through the story ledger', (
   assert.truthy(/scene\._storySplashOnce\?\.\('fire', \{\s*art: 'fire_first'/.test(place),
     'light-fire opens the fire story once per save');
   assert.truthy(/who knows what could happen when you cook things\?/.test(place), 'it teases cooking');
-  assert.truthy(pngDims('assets/art/fire_first.png'), 'the banner exists');
+  assert.truthy(webpDims('assets/art/fire_first.webp'), 'the banner exists');
 });

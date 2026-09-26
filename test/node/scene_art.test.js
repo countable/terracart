@@ -23,7 +23,7 @@ for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) stems.add
 test('scene art: every dialog painting is cut to the dialog box shape', () => {
   assert.truthy(stems.size > 30, `the stems were collected (${stems.size})`);
   for (const stem of stems) {
-    const d = pngDims(`assets/art/${stem}.png`);
+    const d = webpDims(`assets/art/${stem}.webp`);
     assert.truthy(d, `${stem}.png exists`);
     assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01, `${stem} is 11:14 (got ${d && d.w}x${d && d.h})`);
   }
