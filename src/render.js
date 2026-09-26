@@ -238,6 +238,39 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
   hidePoolFrom(pool, i);
 };
 
+// The SHINE on a shiny: a bright band that sweeps across the sprite's own
+// pixels (Phaser 3.60+ preFX Shine), so the glint is ON the object rather
+// than a star hovering over it. WebGL-only — under the Canvas fallback the
+// FX draws nothing (Phaser may still hand out a preFX controller), so the
+// shiny's light (Lighting.KINDS.shiny) and the spark marker carry it there
+// (Render.canShine gates the star). Pooled sprites
+// are reused for other things, so every pool callback that can hold a shiny
+// calls this EVERY frame with the current answer, and the FX comes off the
+// moment the slot holds something plain. `id` phases nothing yet (Shine has
+// no phase of its own) but keeps the call shape the same as the light's.
+const SHINE_SPEED = 0.35;       // sweeps per second, roughly — a slow glint, not a strobe
+const SHINE_LINE_W = 0.35;      // the band's width, as a fraction of the sprite
+const SHINE_GRADIENT = 3;       // how soft the band's edges are
+Render.setShine = function setShine(s, on, id) {
+  const fx = s && s.preFX;
+  if (!fx) return false;
+  if (on) {
+    if (!s._shineFx) s._shineFx = fx.addShine(SHINE_SPEED, SHINE_LINE_W, SHINE_GRADIENT, false);
+    return true;
+  }
+  if (s._shineFx) {
+    fx.remove(s._shineFx);
+    s._shineFx = null;
+  }
+  return false;
+};
+// Whether this renderer can draw the shine at all — the spark marker is the
+// Canvas fallback's cue and stands down where the shine is drawn.
+Render.canShine = function canShine(scene) {
+  const r = scene && scene.sys && scene.sys.game && scene.sys.game.renderer;
+  return !!(r && typeof Phaser !== 'undefined' && r.type === Phaser.WEBGL);
+};
+
 // Linear blend between two packed RGB colours. t=0 -> a, t=1 -> b.
 // Same implementation as BiomeProfiles.mixHex (biome_profiles.js loads before
 // this file) — aliased locally rather than deleted since this runs in the
@@ -768,7 +801,7 @@ Render.reachDimAlpha = (scene) => {
 
 // The multiply tint a world sprite wears, resolved in ONE place so the rules
 // compose in a fixed order instead of racing each other down configureObject:
-// a shiny's sheen, then the biome's, then — for a house that isn't the
+// the biome's, then — for a house that isn't the
 // player's — the derelict wash.
 //
 // NOT in here any more: the out-of-reach dim. Until Sep 2026 the lighting
@@ -789,11 +822,9 @@ Render.spriteTint = function spriteTint(o, scene) {
   // The only thing a house can wear is the derelict wash (+ reach dim) at the
   // bottom of this function.
   let tint = 0xffffff;
-  // Rare shiny flora — trees + fruit trees get the warm yellow sheen so the
-  // player can spot a shiny harvest from across the tile.
-  if (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree)) {
-    tint = SHINY_TINT;
-  }
+  // No shiny sheen here any more: a gold multiply over a green canopy reads
+  // as olive, not as treasure. A shiny tree GLOWS (Lighting.KINDS.shiny) and,
+  // under WebGL, glints (Render.setShine) — both set in drawObjects.
   // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
   // industrial lot) — only when nothing more specific (shop/shiny) already
   // tinted it. The cell's terrain was stamped as `_biome` at worldgen time.
@@ -3128,6 +3159,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    Render.setShine(s, isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree), o.id);
     const spec = RENDER_SPEC[o.kind];
     if (!spec) return;
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
@@ -3841,49 +3873,26 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
 
-  const _shinyNow = Date.now();
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
-    // Rare shiny wild flora gets the warm sheen; everything else (farmed crops,
-    // placed rocks) renders untinted. Pooled sprites keep their last tint, so
-    // set it explicitly every frame. A flat gold multiply on already-green
-    // flora reads too subtly (the player can't spot a shiny harvest), so a
-    // shiny plant also TWINKLES: its tint shimmers between warm gold and a
-    // pale near-white gold while it gently pulses in scale. Motion + brightness
-    // are renderer-agnostic (Phaser.AUTO may fall back to canvas, so a WebGL
-    // glow FX wouldn't be reliable) and make a shiny plant unmistakable.
+    // Wild flora wears its biome's tint; farmed crops and placed rocks render
+    // untinted. Pooled sprites keep their last tint, so set it explicitly
+    // every frame. A SHINY plant is not tinted: what marks it is its light
+    // (Lighting.KINDS.shiny, offered below with the spark list) and, under
+    // WebGL, the shine sweep (Render.setShine). Until Sep 2026 it lerped a
+    // gold multiply tint and pulsed its scale every frame — gold multiplied
+    // over green art only ever reads as olive, and the throb looked like a
+    // glitch rather than a glint.
     const isShinyFlora = !!(p.wildId && isShiny(p.wildId, SHINY_RATE.flora));
-    let shinyScale = 1;
-    if (isShinyFlora) {
-      // Desync each plant's twinkle off a stable per-id phase so a field of
-      // shinys shimmers out of step rather than blinking in unison. The id is
-      // hashed as a STRING (util.js's one fnv1a): its LENGTH is the same
-      // number for every wildplant in a tile, so hashing that put the whole
-      // field back in unison — the same slip that emptied the beaches, see
-      // items.js's wildplantFrame.
-      const idH = fnv1a(p.wildId || '') >>> 0;
-      const phase = ((_shinyNow + idH) % 1100) / 1100;          // 0..1
-      const wave = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);  // 0..1
-      shinyScale = 1.0 + 0.12 * wave;                           // 1.00..1.12 size pulse
-      // Lerp the tint between deep gold and a bright pale gold (toward white,
-      // which under a multiply tint brightens the sprite back up — a glint).
-      const lo = SHINY_TINT, hi = 0xfff6cc;
-      const lr = (lo >> 16) & 0xff, lg = (lo >> 8) & 0xff, lb = lo & 0xff;
-      const hr = (hi >> 16) & 0xff, hg = (hi >> 8) & 0xff, hb = hi & 0xff;
-      const r = Math.round(lr + (hr - lr) * wave);
-      const g = Math.round(lg + (hg - lg) * wave);
-      const b = Math.round(lb + (hb - lb) * wave);
-      s.setTint((r << 16) | (g << 8) | b);
-    } else {
-      // Per-biome flora tint (golden field grass, swampy reeds, …) — the cell's
-      // terrain was stamped onto the wildplant at worldgen time (`_biome`). Falls
-      // back to no tint (0xffffff) when the biome has no tint for this crop.
-      const bt = (typeof BiomeProfiles !== 'undefined' && p._biome != null)
-        ? BiomeProfiles.tint(p._biome, p.crop) : null;
-      s.setTint(bt || 0xffffff);
-    }
+    Render.setShine(s, isShinyFlora, p.wildId);
+    // Per-biome flora tint (golden field grass, swampy reeds, …) — the cell's
+    // terrain was stamped onto the wildplant at worldgen time (`_biome`). Falls
+    // back to no tint (0xffffff) when the biome has no tint for this crop.
+    const bt = (typeof BiomeProfiles !== 'undefined' && p._biome != null)
+      ? BiomeProfiles.tint(p._biome, p.crop) : null;
+    s.setTint(bt || 0xffffff);
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
     if (p._placedRock) {
@@ -3941,7 +3950,7 @@ Render.drawObjects = function drawObjects(scene) {
     // pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
     // than the shared crop art.
     const isPlantedCrop = p.wildId == null && !p._placedRock;
-    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * shinyScale * (isPlantedCrop ? 0.8 : 1);
+    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * (isPlantedCrop ? 0.8 : 1);
     const plantedYOffset = isPlantedCrop ? 3 : 0;
     s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy) - plantedYOffset);
   });
@@ -4135,6 +4144,7 @@ Render.drawObjects = function drawObjects(scene) {
     // both say something about this INSTANCE, which outranks what it is.
     const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
     s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : creatureTint(c.kind));
+    Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
     // sprite keeps whatever alpha its last creature wore.
     s.setAlpha(creatureAlpha(c.kind));
@@ -4166,14 +4176,20 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
 
-  // Renderer-AGNOSTIC shiny markers. The gold setTint() above (and on trees /
-  // wild flora) is a WebGL multiply that silently does NOTHING under Phaser's
+  // Renderer-AGNOSTIC shiny markers. The gold setTint() above (on shiny
+  // creatures) is a WebGL multiply that silently does NOTHING under Phaser's
   // Canvas fallback, so on those devices a shiny animal/plant looked identical
   // to a plain one — players reported never seeing shinies. Float a baked-gold
   // sparkle above every shiny entity instead: its colour is in the texture and
   // it animates with pure transforms (scale / alpha / rotation + a small bob),
-  // both of which render under WebGL and Canvas alike. The existing tint/twinkle
-  // stays as an extra flourish where WebGL is available.
+  // both of which render under WebGL and Canvas alike.
+  //
+  // Since Sep 2026 this list is first the SHINIES' LIGHTS (Lighting.KINDS
+  // .shiny — a pale-gold pool that breathes on each one's cell, drawn by the
+  // 2D-canvas lightmap and so on every renderer), and the star is the Canvas
+  // fallback's extra cue only: under WebGL the shine sweep on the sprite
+  // itself (Render.setShine) replaces it, since a spinning star over a cell
+  // read as UI stuck to the map rather than as the thing glinting.
   const sparkList = [];
   const pushSpark = (it, id) => sparkList.push({ dx: it.dx, dy: it.dy, id: id || '' });
   for (const it of creatureList) if (it.c.shiny) pushSpark(it, it.c.id);
@@ -4189,8 +4205,10 @@ Render.drawObjects = function drawObjects(scene) {
       pushSpark(it, it.o.id);
     }
   }
+  if (LIGHTS) for (const it of sparkList) LIGHTS.offerShiny(scene, it.id, it.dx, it.dy, halfM);
   const _sparkNow = Date.now();
-  Render.renderPool(scene, scene.sparkPool, scene.sparkContainer, sparkList, (s, item) => {
+  const sparkDrawn = Render.canShine(scene) ? [] : sparkList;
+  Render.renderPool(scene, scene.sparkPool, scene.sparkContainer, sparkDrawn, (s, item) => {
     setTextureIfDifferent(s, 'shiny_spark');
     const { sx, sy } = project(item.dx, item.dy);
     // Desync each marker's twinkle off a stable per-id phase so a cluster of

@@ -176,6 +176,10 @@ const PIECES = {
     'leaping up and throwing a warm ring of light; at the edge of the light a green slime ' +
     'shrinks back into the shadows. A skewer of food rests over the flames. Warmth, safety ' +
     'and curiosity.', 'embers'),
+  cave_first: scene(
+    'A young survivor holding a lantern steps down worn stone stairs into a cave, the cold dark ' +
+    'closing in beyond the small circle of lantern light, glints of ore in the rough walls, a ' +
+    'pair of eyes shining faintly deeper in. Awe and unease.', 'claws'),
   discovery_badge:
     scene(
     'A glowing golden five-pointed star emblem hovering in the air before a young survivor\'s ' +

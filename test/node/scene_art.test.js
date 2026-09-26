@@ -85,3 +85,13 @@ test('scene art: the lore rides in the generator, one hint per piece at most', (
   assert.truthy(/LORE\[lore\]/.test(gen), 'and appends it');
 });
 })();
+
+test('cave story: the first descent below the surface tells its story, once', () => {
+  const src = APP_JS_SRC;
+  const i = src.indexOf('  changeDepth(delta, stair) {');
+  const body = src.slice(i, src.indexOf('\n  }\n', i));
+  assert.truthy(/if \(delta > 0\) \{\s*this\._storySplashOnce\('cave', \{\s*art: 'cave_first'/.test(body),
+    'changeDepth (every way down: stairs, rope, portal) opens the cave story on a descent');
+  assert.truthy(body.indexOf("_storySplashOnce('cave'") > body.indexOf('this.depth = target;'),
+    'only after the descent actually happened (not on a refused one)');
+});
