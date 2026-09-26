@@ -110,3 +110,23 @@ test('starter trailer footing: a house in a NEIGHBOURING cell is left alone (not
     assert.truthy(entry.objects.some(o => o.id === 'starter_trailer'), 'the trailer is still injected');
   } finally { WorldGen.tileCache.delete(EST_KEY); }
 });
+
+// "Move Home here" onto a real house's cell crashed: _makeStarterTrailer's
+// inject adopted the house (nulling save.starterTrailer) and the caller then
+// read save.starterTrailer.id. The trailer claims Home INSIDE
+// _makeStarterTrailer, before the inject, and no caller reads the record back.
+test('starter trailer footing: no caller reads the trailer record back after making it', () => {
+  const app = APP_JS_SRC;
+  const at = app.indexOf('  _makeStarterTrailer(wmx, wmy) {');
+  const body = app.slice(at, app.indexOf('\n  }\n', at));
+  assert.truthy(body.indexOf('this.save.starterShopId = id;') >= 0
+    && body.indexOf('this.save.starterShopId = id;') < body.indexOf('this.ensureStarterTrailerObject();'),
+    'Home is claimed before the inject that may adopt a real house');
+  let i = 0, calls = 0;
+  while ((i = app.indexOf('this._makeStarterTrailer(', i)) >= 0) {
+    const after = app.slice(i, app.indexOf('\n  }\n', i));
+    assert.falsy(/save\.starterTrailer\.id/.test(after), 'a caller reads save.starterTrailer.id after making it');
+    i++; calls++;
+  }
+  assert.eq(calls, 2, 'the starter placement and Move Home here');
+});
