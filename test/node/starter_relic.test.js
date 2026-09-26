@@ -8,8 +8,8 @@
 // opening hour being playable and being a chore — and every other relic in the
 // game has to be bought or forged first.
 //
-// The placer lives on the Phaser scene class and is lifted out of src/app.js as
-// text by run.js, so these tests drive the real shipping code.
+// The placer lives in src/starter.js behind the scene's one-line wrapper,
+// which run.js hands over, so these tests drive the real shipping code.
 
 // Wrapped in an IIFE: every *.test.js shares one global scope in the runner,
 // so bare top-level consts here would collide with another file's.

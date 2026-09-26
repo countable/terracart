@@ -190,7 +190,7 @@
     assert.truthy(app.includes('window.__chooseMode = (mode) => this.chooseMode(mode)'), 'app.js answers it');
     assert.truthy(app.includes('Quests.starterSkipAll(this.save)') && /chooseMode\(mode\) \{[\s\S]*?Quests\.starterSkipAll/.test(app),
       'hard mode retires the starter ladder for good');
-    assert.truthy(/_stripStarterCrates\(entry\)/.test(app), 'and sweeps the supply crates');
+    assert.truthy(/this\._stripStarterCrates\(entry\)/.test(app), 'and sweeps the supply crates');
   });
 
   test('difficulty: hard mode also blacks out on the SURFACE, easy mode never does', () => {
