@@ -273,7 +273,14 @@
   //   • two of a prize and one star — the star completes it: that prize ×1;
   //   • two jackpots and one other prize (not a star, which would complete
   //     them) — SLOT_JACKPOT_PAIR_COINS back;
-  //   • two stars — SLOT_STAR_PAIR_MUL × the stake (the spin's own cost);
+  //   • two stars and a third reel that is not the jackpot —
+  //     SLOT_STAR_PAIR_MUL × the stake (the spin's own cost);
+  //   • two stars AND the jackpot — no coin: the machine goes DELUXE for
+  //     the next SLOT_DELUXE_SPINS spins (slotDeluxeNext; the count is the
+  //     caller's, in the save). While deluxe, every prize that doubles (not
+  //     a relic) pays SLOT_DELUXE_MUL times over, on top of a natural's
+  //     double. Hitting it again while deluxe restarts the count — it never
+  //     stacks past SLOT_DELUXE_SPINS;
   //   • three stars — the STAR JACKPOT: a memory (app.js) the first
   //     SLOT_STAR_BADGES times (app.js keeps that count), then
   //     SLOT_STAR_JACKPOT_COINS.
@@ -284,7 +291,8 @@
   //   natural triple      p³ · mul · value
   //   star-completed      3p²s · value
   //   jackpot pair        3q²(1 − q − s) · pair coin
-  //   two stars           3s²(1 − s) · SLOT_STAR_PAIR_MUL · cost
+  //   two stars           3s²(1 − s − q) · SLOT_STAR_PAIR_MUL · cost
+  //   deluxe              the prizes' ev again × f · (SLOT_DELUXE_MUL − 1)
   //   three stars         s³ · star jackpot
   // The one ESTIMATE is the star jackpot while it still pays a badge: a
   // memory can't be sold, so it has no coin price. It is
@@ -292,6 +300,13 @@
   // badges run out, the one exchange rate the machine itself states — so the
   // stake is the same for every player whatever they have already won. At
   // s³ = 1/216 a spin that difference is a fraction of a coin either way.
+  // DELUXE IS PRICED AS A LONG-RUN SHARE. The stake is one price whatever
+  // state the machine is in, so it covers the average spin: f, the share of
+  // spins played deluxe (slotDeluxeShare), from the trigger chance t = 3s²q.
+  // A normal stretch lasts 1/t spins (the trigger spin included); a deluxe
+  // stretch lasts until SLOT_DELUXE_SPINS spins in a row miss the trigger,
+  // L = ((1 − t)^−N − 1) / t; f = L / (1/t + L).
+  //
   // The star pair pays in STAKES, so the price appears on both sides: with
   // e the rest of the ev and k = 3s²(1 − s) · SLOT_STAR_PAIR_MUL, the cost is
   // the least whole coin c with e + k·c ≤ c, i.e. c = ⌈e / (1 − k)⌉ — which
@@ -306,6 +321,8 @@
   const SLOT_NATURAL_MUL = 2;
   const SLOT_JACKPOT_PAIR_COINS = 3;
   const SLOT_STAR_PAIR_MUL = 2;
+  const SLOT_DELUXE_SPINS = 10;
+  const SLOT_DELUXE_MUL = 2;
   const SLOT_STAR_BADGES = 3;
   const SLOT_STAR_JACKPOT_COINS = 100;
 
@@ -322,34 +339,54 @@
     prizes.forEach((p, i) => {
       p.jackpot = i === jp;
       p.weight = p.jackpot ? SLOT_JACKPOT_WEIGHT : SLOT_WEIGHT;
-      p.naturalQty = (!doubles || doubles(p.id)) ? SLOT_NATURAL_MUL : 1;
+      p.doubles = !doubles || !!doubles(p.id);
+      p.naturalQty = p.doubles ? SLOT_NATURAL_MUL : 1;
     });
     const star = { star: true, id: null, value: 0, weight: prizes.length ? SLOT_STAR_WEIGHT : 0 };
     const symbols = prizes.concat([star]);
     const total = symbols.reduce((a, p) => a + p.weight, 0) || 1;
     const s = star.weight / total;
+    const q = jp >= 0 ? prizes[jp].weight / total : 0;
+    const deluxeChance = SLOT_REELS * s * s * q;
+    const deluxeShare = slotDeluxeShare(deluxeChance);
     let ev = 0, winChance = 0;
     for (const p of prizes) {
       const w = p.weight / total;
       const natural = Math.pow(w, SLOT_REELS);
       const starred = SLOT_REELS * w * w * s;
-      ev += natural * p.naturalQty * p.value + starred * p.value;
+      const prizeEv = natural * p.naturalQty * p.value + starred * p.value;
+      ev += prizeEv * (p.doubles ? 1 + deluxeShare * (SLOT_DELUXE_MUL - 1) : 1);
       winChance += natural + starred;
     }
     // Exactly two jackpots and a third reel that is neither (a star would
     // have completed them): C(3,2) · q² · (1 − q − s).
-    const q = jp >= 0 ? prizes[jp].weight / total : 0;
     const pairChance = SLOT_REELS * q * q * Math.max(0, 1 - q - s);
     const pairCoins = jp >= 0 ? SLOT_JACKPOT_PAIR_COINS : 0;
     ev += pairChance * pairCoins;
-    const starPairChance = SLOT_REELS * s * s * (1 - s);
+    // Two stars and a third reel that is neither a star nor the jackpot.
+    const starPairChance = SLOT_REELS * s * s * Math.max(0, 1 - s - q);
     const starChance = Math.pow(s, SLOT_REELS);
     ev += starChance * SLOT_STAR_JACKPOT_COINS;
     const k = starPairChance * SLOT_STAR_PAIR_MUL;
     const cost = Math.max(1, Math.ceil(ev / (1 - k) - 1e-9));
     ev += k * cost;
     return { prizes, symbols, cost, ev, winChance,
-             pairChance, pairCoins, starChance, starPairChance };
+             pairChance, pairCoins, starChance, starPairChance, deluxeChance, deluxeShare };
+  }
+
+  // The long-run share of spins played deluxe, given the per-spin trigger
+  // chance t (see the pricing note above).
+  function slotDeluxeShare(t) {
+    if (!(t > 0)) return 0;
+    const L = (Math.pow(1 - t, -SLOT_DELUXE_SPINS) - 1) / t;
+    return L / (1 / t + L);
+  }
+
+  // Deluxe spins left after a spin: a trigger (re)starts the count, any other
+  // spin uses one up. Never stacks.
+  function slotDeluxeNext(left, out) {
+    if (out && out.deluxe) return SLOT_DELUXE_SPINS;
+    return Math.max(0, (left | 0) - 1);
   }
 
   // The day's prizes: SLOT_PRIZES distinct ids drawn from `candidates` by a
@@ -371,7 +408,7 @@
   // how many of it, `coins` any coin payout (jackpot pair, two stars), and
   // `starJackpot` true on three stars — what that pays is the caller's (the
   // badge count lives in the save).
-  function slotSpin(machine, rng = Math.random) {
+  function slotSpin(machine, rng = Math.random, deluxe = false) {
     const syms = machine.symbols || machine.prizes;
     const total = syms.reduce((a, p) => a + p.weight, 0);
     const reels = [];
@@ -380,15 +417,20 @@
       for (let i = 0; i < syms.length; i++) { u -= syms[i].weight; if (u < 0) { pick = i; break; } }
       reels.push(pick);
     }
-    const out = { reels, won: -1, qty: 0, natural: false, coins: 0, starJackpot: false };
+    const out = { reels, won: -1, qty: 0, natural: false, coins: 0, starJackpot: false, deluxe: false, doubled: false };
     const stars = reels.filter((i) => syms[i].star).length;
     if (stars === SLOT_REELS) { out.starJackpot = true; return out; }
-    if (stars === SLOT_REELS - 1) { out.coins = SLOT_STAR_PAIR_MUL * (machine.cost || 0); return out; }
+    if (stars === SLOT_REELS - 1) {
+      if (reels.some((i) => syms[i].jackpot)) out.deluxe = true;
+      else out.coins = SLOT_STAR_PAIR_MUL * (machine.cost || 0);
+      return out;
+    }
     const plain = reels.filter((i) => !syms[i].star);
     if (plain.every((i) => i === plain[0])) {
       out.won = plain[0];
       out.natural = stars === 0;
       out.qty = out.natural ? (syms[out.won].naturalQty || 1) : 1;
+      if (deluxe && syms[out.won].doubles !== false) { out.qty *= SLOT_DELUXE_MUL; out.doubled = true; }
       return out;
     }
     const jackpots = reels.filter((i) => syms[i].jackpot).length;
@@ -398,7 +440,7 @@
 
   root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
                      SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,
-                     SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_MUL, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,
+                     SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_MUL, SLOT_DELUXE_SPINS, SLOT_DELUXE_MUL, slotDeluxeShare, slotDeluxeNext, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
                      TRADER_AFFORDABLE_CHANCE, TRADER_MAX_OVERPAY, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

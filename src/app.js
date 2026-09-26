@@ -13725,10 +13725,22 @@ class MapScene extends Phaser.Scene {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('slots-modal',
       { onClose: () => {}, kind: 'slots' });
     const GOLD = '#ffd24a';
+    const TITLE = "The quartermaster's slot machine — three of a kind wins, and a star completes a pair:";
     const title = document.createElement('div');
     title.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:8px';
-    title.textContent = "The quartermaster's slot machine — three of a kind wins, and a star completes a pair:";
+    title.textContent = TITLE;
     box.appendChild(title);
+    // DELUXE (ShopsMath.slotDeluxeNext): two stars beside the jackpot light
+    // the machine up for the next SLOT_DELUXE_SPINS spins, every prize that
+    // doubles paid twice over. The count lives in the save (save.slotDeluxe)
+    // so walking away doesn't end it, and one count serves every fort.
+    const deluxeLeft = () => Math.max(0, this.save.slotDeluxe | 0);
+    const plainBox = box.style.cssText;
+    const reelStyle = (el, on) => {
+      el.style.border = `2px solid ${on ? GOLD : '#666'}`;
+      el.style.background = on ? 'radial-gradient(circle,#3a2c08,#0d0b09)' : '#0d0b09';
+      el.style.boxShadow = on ? `0 0 10px ${GOLD}88, inset 0 0 10px #000` : 'inset 0 0 10px #000';
+    };
     // The reels.
     const reelRow = document.createElement('div');
     reelRow.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-bottom:8px;';
@@ -13736,7 +13748,8 @@ class MapScene extends Phaser.Scene {
     for (let r = 0; r < ShopsMath.SLOT_REELS; r++) {
       const el = document.createElement('div');
       el.style.cssText = 'width:58px;height:58px;display:flex;align-items:center;justify-content:center;'
-        + 'border-radius:8px;border:2px solid #666;background:#0d0b09;box-shadow:inset 0 0 10px #000;';
+        + 'border-radius:8px;';
+      reelStyle(el, false);
       el.innerHTML = this._slotSymbolHTML(m.symbols[r % m.symbols.length], 34);
       reelRow.appendChild(el);
       reels.push(el);
@@ -13752,6 +13765,29 @@ class MapScene extends Phaser.Scene {
     row.appendChild(later);
     row.appendChild(spin);
     box.appendChild(row);
+    // The fancy face: a gold rim and glow on the cabinet and the reels, and the
+    // title turned into the countdown. The cabinet is redrawn after every
+    // settle; the reels only at rest (on open) and when a spin starts, so a
+    // win's lit reels stay lit until the next pull.
+    const paintDeluxe = (withReels) => {
+      const n = deluxeLeft();
+      if (n > 0) {
+        box.style.cssText = plainBox + `;border:2px solid ${GOLD};`
+          + `box-shadow:0 0 24px ${GOLD}aa, inset 0 0 18px ${GOLD}33;`
+          + 'background:linear-gradient(160deg,#3a2a0a,#1a1408 55%,#2e2208);';
+        title.style.opacity = '1';
+        title.style.color = GOLD;
+        title.style.fontWeight = '700';
+        title.textContent = `✨ DELUXE ✨ ${n} spin${n === 1 ? '' : 's'} left — prizes doubled`;
+      } else {
+        box.style.cssText = plainBox;
+        title.style.opacity = '.75';
+        title.style.color = '';
+        title.style.fontWeight = '';
+        title.textContent = TITLE;
+      }
+      if (withReels) reels.forEach((el) => reelStyle(el, n > 0));
+    };
     let spinning = false;
     const timers = [];
     const setSpinEnabled = () => {
@@ -13771,8 +13807,13 @@ class MapScene extends Phaser.Scene {
       spinning = true;
       setSpinEnabled();
       result.textContent = '';
-      const out = ShopsMath.slotSpin(m);
-      reels.forEach((el) => { el.style.borderColor = '#666'; el.style.boxShadow = 'inset 0 0 10px #000'; });
+      // The spin's deluxe state is fixed when it is paid for, and the count
+      // moves on at once (persisted), so closing mid-spin can't dodge it.
+      const wasDeluxe = deluxeLeft() > 0;
+      const out = ShopsMath.slotSpin(m, Math.random, wasDeluxe);
+      this.save.slotDeluxe = ShopsMath.slotDeluxeNext(deluxeLeft(), out);
+      persistSave(this.save);
+      reels.forEach((el) => reelStyle(el, wasDeluxe));
       // Each reel flickers through random prizes, then stops in turn.
       reels.forEach((el, r) => {
         const tick = setInterval(() => {
@@ -13794,7 +13835,14 @@ class MapScene extends Phaser.Scene {
           if (!which(m.symbols[out.reels[r]])) return;
           el.style.borderColor = color; el.style.boxShadow = `0 0 12px ${color}`;
         });
-        if (out.starJackpot) {
+        if (out.deluxe) {
+          light(GOLD, (sym) => sym.star || sym.jackpot);
+          result.style.color = GOLD;
+          result.textContent = wasDeluxe
+            ? `DELUXE again! Back to ${ShopsMath.SLOT_DELUXE_SPINS} spins`
+            : `DELUXE! ${ShopsMath.SLOT_DELUXE_SPINS} spins, prizes doubled`;
+          this.flashJackpot(1, '✨ DELUXE ✨');
+        } else if (out.starJackpot) {
           light(GOLD, () => true);
           result.style.color = GOLD;
           result.textContent = this._payStarJackpot();
@@ -13815,7 +13863,9 @@ class MapScene extends Phaser.Scene {
           const what = qty > 1 ? `${qty}× ${name}` : name;
           result.style.color = rim;
           result.textContent = (p.jackpot ? `JACKPOT! ${what}` : `You win: ${what}`)
-            + (out.natural && qty > 1 ? ' (natural — double)' : '')
+            + (out.natural && out.doubled ? ' (natural + deluxe)'
+              : out.natural && qty > 1 ? ' (natural — double)'
+              : out.doubled ? ' (deluxe — double)' : '')
             + (paid > 0 ? ` — bag full, ${paid} coin for the rest` : '');
           const tag = qty > 1 ? ` ×${qty}` : '';
           const line = p.jackpot ? `🎰 JACKPOT${tag}` : `🎰 You win${tag}`;   // ≤ 13 chars
@@ -13836,9 +13886,11 @@ class MapScene extends Phaser.Scene {
           result.style.color = '#ff8a7a';
           result.textContent = 'No match.';
         }
+        paintDeluxe(false);
         setSpinEnabled();
       };
     });
+    paintDeluxe(true);
     setSpinEnabled();
     mount();
   }
