@@ -1132,10 +1132,13 @@ const TAP_HANDLERS = [
     // the record, never as a save id (traps.js) — the same kit shuts either.
     if (!trap || Traps.isTrapDisarmed(save, trap)) return false;
     Traps.disarmTrap(save, trap);
-    consumeSelected(save);
+    // The kit usually survives the job (TRAP_KIT_KEEP_CHANCE, items.js).
+    const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
+    if (!kept) consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();
-    scene.flash('🧰 trap disarmed', sx, sy);
+    if (kept) scene.flash('🧰 trap disarmed, kit kept', sx, sy);
+    else scene.flash('🧰 trap disarmed, kit used', sx, sy);
     return true;
   }},
 

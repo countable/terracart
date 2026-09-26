@@ -618,8 +618,9 @@ const ITEMS = [
   { id: 'torch',         name: 'Torch',               kind: 'consumable' },
   // Trap Disarm Kit: hold it and tap a trap (hidden scuff or already-sprung
   // jaw, surface or cave) to remove it for good — see Traps.disarm in
-  // src/traps.js and the 'disarm-trap' tap handler in interact.js. One kit
-  // per trap; unlike stepping on one, disarming never costs energy.
+  // src/traps.js and the 'disarm-trap' tap handler in interact.js. A kit
+  // usually SURVIVES the job (TRAP_KIT_KEEP_CHANCE); unlike stepping on a
+  // trap, disarming never costs energy.
   { id: 'trap_kit',      name: 'Trap Disarm Kit',     kind: 'consumable' },
   // Magic Trap: hold it and tap an empty cell in reach to set it (interact.js
   // 'place-magic-trap' → save.magicTraps). The first ENEMY to step on the
@@ -934,10 +935,14 @@ const FEATHER_REVIVE_ENERGY = 1;
 // it must earn the page with the strategy the ✦ line has no room for.
 // Numbers are re-derived from their owners, never retyped. PLAY_TIPS slots
 // each guide in where it first becomes actionable.
+// The chance a Trap Disarm Kit is KEPT after disarming a trap — one number
+// the tap (interact.js 'disarm-trap') rolls and the kit's ✦ line prints.
+const TRAP_KIT_KEEP_CHANCE = 0.8;
+
 const ITEM_GUIDE_TIPS = {
   crow_feather: `A Crow Feather is hard mode's pocket resurrection: eaten on an empty bar, it stands you up with ${FEATHER_REVIVE_ENERGY} energy — enough to crawl home, not to fight. Crows drop them. Carry one before any long walk — crawling home is not a strategy, merely a hobby.`,
   scarecrow: 'A scarecrow keeps crows and deer off the crops around it for good, for a little wood at Home. Cheaper than replanting, and it has never once asked for a day off.',
-  trap_kit: 'A disarm kit shuts a snare\'s jaw for good: hold it and tap the snare. Snares favour roadside verges and the stairs underground, so one in the bag costs less than a limp.',
+  trap_kit: 'A disarm kit shuts a snare\'s jaw for good: hold it and tap the snare, and most kits live to do it again. Snares favour roadside verges and the stairs underground, so one in the bag costs less than a limp.',
   torch: 'Underground, your light IS your reach, and every level down trims it. A torch doubles it for a while — light one at the top of the stairs, not after you have met the goblin.',
   rope: 'Rope is the exit you carry: up a level, or down one, from wherever you stand. Long grass makes it at Home, so never go deeper than you have rope to climb back.',
   flowers: `A bouquet of wild flowers halves a shop's prices for ${shortDuration(SHOP_CHARM_MS)}. Save it for the relic you have been eyeing, not a packet of seeds — shopkeepers are flattered, not stupid.`,
@@ -1205,7 +1210,7 @@ const ITEM_EFFECTS = {
   frost_powder:  'Use to freeze every enemy in reach for 30s',
   rope:          'Use to climb up or lower down one level, right here',
   torch:         'Use to make your light reach twice as far (3 min)',
-  trap_kit:      'Hold and tap a trap to disarm it',
+  trap_kit:      `Hold and tap a trap to disarm it (${Math.round(TRAP_KIT_KEEP_CHANCE * 100)}% kept)`,
   magic_trap:    'Hold and tap a cell to set; a foe stepping in is held',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
   // A sapling's Plant button says it plants something; only this says WHAT.

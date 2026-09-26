@@ -101,7 +101,7 @@ test('TAP_HANDLERS: disarm-trap runs right after cell-resolve, before till/plant
   }
 });
 
-test('disarm-trap: spends one kit and disarms the trap on the tapped cell', () => {
+test('disarm-trap: disarms the trap on the tapped cell, and usually keeps the kit', () => {
   const src = INTERACT_SRC.slice(INTERACT_SRC.indexOf("{ name: 'disarm-trap'"),
     INTERACT_SRC.indexOf("{ name: 'building-zone'"));
   assert.truthy(/sel\.id === 'trap_kit'/.test(src), 'gated on the kit being selected');
@@ -110,7 +110,13 @@ test('disarm-trap: spends one kit and disarms the trap on the tapped cell', () =
   // disarmTrap / isTrapDisarmed: a generated trap's state is its id on the
   // save, a goblin's LAID snare's is on its record (traps.js) — one kit, both.
   assert.truthy(/Traps\.disarmTrap\(save, trap\)/.test(src), 'records the disarm');
-  assert.truthy(/consumeSelected\(save\)/.test(src), 'spends exactly one kit');
+  // The kit survives TRAP_KIT_KEEP_CHANCE of the time: the roll is that
+  // constant, and a kit is spent only when the roll misses — never always.
+  assert.eq(TRAP_KIT_KEEP_CHANCE, 0.8, 'an 80% chance the kit is kept');
+  assert.truthy(/const kept = Math\.random\(\) < TRAP_KIT_KEEP_CHANCE;/.test(src), 'rolls the shared chance');
+  assert.truthy(/if \(!kept\) consumeSelected\(save\);/.test(src), 'spends a kit only when the roll misses');
+  assert.eq((src.match(/consumeSelected\(/g) || []).length, 1, 'and nowhere else');
+  assert.truthy(/80% kept/.test(ITEM_EFFECTS.trap_kit), 'the kit\'s ✦ line prints the chance');
   assert.truthy(/if \(!trap \|\| Traps\.isTrapDisarmed\(save, trap\)\) return false;/.test(src),
     'a cell with no trap (or an already-disarmed one) falls through instead of eating the tap');
 });
