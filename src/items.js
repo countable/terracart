@@ -653,7 +653,7 @@ const ITEMS = [
   { id: 'acorn', name: 'Acorn', kind: 'sapling', plants: 'tree', baseTier: 2 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
-  { id: 'coal',     name: 'Coal',     kind: 'mineral' },
+  { id: 'coal',     name: 'Flint',    kind: 'mineral' },   // id kept: saves carry 'coal'
   // Sapphire doubles as a one-shot descent charge: tap the Portal button with
   // it selected to spend one gem and sink straight down a level in place.
   // See useSapphirePortal in app.js.
@@ -717,6 +717,23 @@ const CAMPFIRE_MAKES = { meat: 'grilled_meat', wood: 'torch' };
 // Grilling multiplies the raw cut's energy — and its price, so a grilled
 // steak is worth the fire to sell as well as to eat.
 const GRILL_ENERGY_MUL = 1.5;
+// POTIONS IN THE FIRE (the burn confirm's accept, app.js presentBurnConfirm).
+// Two TRANSMUTE into another potion of the SAME tier — never up the ladder, so
+// the fire is a curiosity, not a value pump. Every other potion EXPLODES,
+// hurting the player by POTION_BLAST_DMG_PER_TIER × its tier, soaked by
+// armour like any other blow (Combat.playerDamage).
+const POTION_FIRE_TRANSMUTE = { vigor_potion: 'revive_potion', speed_potion: 'reach_potion' };
+const POTION_BLAST_DMG_PER_TIER = 3;
+function isPotion(id) {
+  return /_potion$/.test(id) && ITEM_BY_ID[id]?.kind === 'consumable';
+}
+// What the fire does with one of `id`, burned. One answer both the dialog's
+// hint and the accept read: { transmute: id } | { blastDmg: n } | {} (ash).
+function fireBurnOutcome(id) {
+  if (POTION_FIRE_TRANSMUTE[id]) return { transmute: POTION_FIRE_TRANSMUTE[id] };
+  if (isPotion(id)) return { blastDmg: POTION_BLAST_DMG_PER_TIER * (ITEM_BY_ID[id]?.baseTier || 1) };
+  return {};
+}
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
@@ -1141,7 +1158,7 @@ const ITEM_EFFECTS = {
   acorn:        'Plant on bare ground to grow a timber tree',
   // Materials that are also placeables — held-and-tapped, so the line has to
   // say so or nothing does (the rock's line is `rockfruit`, above — its id).
-  coal:         'Burn on bare ground to make a campfire',
+  coal:         'Strike on bare ground to make a campfire',
   // The campfire's recipes (CAMPFIRE_MAKES) — nothing else says a fire cooks.
   meat:         `Hold over a campfire to grill it: ${GRILL_ENERGY_MUL}× energy`,
   wood:         'Hold over a campfire to make a torch',
