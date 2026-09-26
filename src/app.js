@@ -634,6 +634,7 @@ const MODAL_KINDS = {
   use:      { icon: '🎒', label: 'Use', art: 'kind_use' },   // confirming a consumable from the bag
   fire:     { icon: '🔥', label: 'Campfire', art: 'kind_fire' },   // burning a held item (presentBurnConfirm)
   note:     { icon: '📜', label: 'Note', art: 'kind_note' },   // generic message dialog
+  menu:     { icon: '☰', label: 'Menu', art: 'kind_menu' },   // the ☰ menu (_openMenuDialog)
   // A story splash (_storySplashOnce, a badge, a book): always carries its own
   // painting, so the row has no default one.
   story:    { icon: '📜', label: 'Story' },
@@ -3257,6 +3258,7 @@ class MapScene extends Phaser.Scene {
     // gets stuck: "I can still walk around but can't interact." Gate the pads
     // behind a body.modal-open class toggled whenever a .game-modal is shown.
     this._installModalPadGate();
+    this._installMenuDialog();
 
     // HUD + banner + inventory
     this.hud = document.getElementById('hud');
@@ -17894,6 +17896,55 @@ class MapScene extends Phaser.Scene {
   // taps meant to close it (the "taps stop working after opening a crate" bug).
   // Observing #game's direct children is enough: makeModalShell appends every
   // wrap there, and pads created mid-dialog are caught by the CSS rule itself.
+  // THE ☰ MENU IS A STANDARD DIALOG. The <details id="menu"> stays the menu's
+  // STATE — every entry closes it with `m.open = false` / removeAttribute
+  // ('open'), and the modal gate shuts it under any other dialog — but while
+  // it is open, its list (#menu-items, with every id-bound handler, the saves
+  // rows and the teleport buttons already on it) is MOVED into a
+  // makeModalShell box, and moved home again when it closes. One `toggle`
+  // listener is the only bridge, so however the menu is closed, the dialog
+  // follows. Before create() runs this never installs, and the <details>
+  // falls back to its own dropdown panel.
+  _installMenuDialog() {
+    const menu = document.getElementById('menu');
+    const items = document.getElementById('menu-items');
+    if (!menu || !items) return;
+    this._menuItemsEl = items;
+    menu.addEventListener('toggle', () => {
+      if (menu.open) this._openMenuDialog();
+      else this._closeMenuDialog();
+    });
+    if (menu.open) this._openMenuDialog();
+  }
+  _openMenuDialog() {
+    const menu = document.getElementById('menu');
+    const items = this._menuItemsEl;
+    if (!menu || !items || document.getElementById('menu-modal')) return;
+    const { box, mount, mkBtn } = this.makeModalShell('menu-modal', {
+      kind: 'menu', textAlign: 'left',
+      // A tap on the backdrop closes it like any dialog; the shell has
+      // already removed the wrap, and the toggle brings the list home.
+      onClose: () => { menu.open = false; },
+    });
+    box.appendChild(items);
+    const done = mkBtn('Close', false);
+    done.style.marginTop = '10px';
+    done.style.alignSelf = 'center';
+    done.addEventListener('click', (e) => { e.stopPropagation(); menu.open = false; });
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:center';
+    row.appendChild(done);
+    box.appendChild(row);
+    mount();
+  }
+  _closeMenuDialog() {
+    const menu = document.getElementById('menu');
+    const items = this._menuItemsEl;
+    if (menu && items && items.parentNode !== menu) menu.appendChild(items);
+    document.getElementById('menu-modal')?.remove();
+    this._syncModalGate?.();
+  }
+
   _installModalPadGate() {
     if (typeof MutationObserver === 'undefined') return;
     const gameEl = document.getElementById('game');
@@ -17911,7 +17962,11 @@ class MapScene extends Phaser.Scene {
       // The ☰ menu is hidden under the class (index.html); fold it shut as
       // well, so a menu left open behind a dialog doesn't spring back open
       // the moment the dialog is dismissed.
-      if (any) { const m = document.getElementById('menu'); if (m && m.open) m.open = false; }
+      // Its OWN dialog (#menu-modal, _openMenuDialog) is the menu itself, not
+      // a dialog over it — counting it would shut the menu the frame it opens.
+      if ([...document.querySelectorAll('.game-modal')].some(el => el.id !== 'menu-modal' && shown(el))) {
+        const m = document.getElementById('menu'); if (m && m.open) m.open = false;
+      }
       // Nothing covering the screen — so anything the starter ladder is
       // holding can be said now. See _celebrateStarterStep: cheers always
       // queue and this is the only thing that plays them, which is why the
