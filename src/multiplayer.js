@@ -25,11 +25,13 @@
 //   save.js   — persistSave
 //
 // Exports as global: Multiplayer
-//   start(scene)              — connect once the save has a name; safe to call again
+//   start(scene)              — connect once the save has opted in (save.multiplayer,
+//                               the ☰ toggle) and has a name; safe to call again
+//   stop(scene)               — leave: close the socket, drop peers and pings
 //   tick(scene)               — per frame: send position, draw peers + pings
 //   consumeTap(scene, sx, sy) — true when ping mode ate the tap
 //   ping(scene, wmx, wmy)     — ping a world-metre spot
-//   setName(scene, name)      — rename (reconnects)
+//   setName(scene, name)      — rename (reconnects if online)
 //   cleanName / pickColor / toWorldPx / fromWorldPx / describeAt / edgeDot — pure, tested headlessly
 
 const Multiplayer = (function () {
@@ -153,6 +155,10 @@ const Multiplayer = (function () {
   // ── connection ───────────────────────────────────────────────────────────
   function start(scene) {
     S.scene = scene;
+    // Multiplayer is OPT-IN, per game, from the ☰ menu. A game that hasn't
+    // opted in never connects and is never asked for a name — the name is
+    // asked for at the toggle, the moment it starts to mean something.
+    if (!scene.save.multiplayer) { stop(scene); return; }
     S.stopped = false;
     if (!cleanName(scene.save.playerName)) { setStatus('noname'); return; }
     if (!scene.save.playerColor) { scene.save.playerColor = pickColor(); persistSave(scene.save); }
@@ -174,6 +180,19 @@ const Multiplayer = (function () {
         }
       });
     }
+  }
+  // Leave the relay: no socket, no retry, no peers or pings on the map. The
+  // chip hides itself on 'off' (paintButton).
+  function stop(scene) {
+    if (scene) S.scene = scene;
+    S.stopped = true;
+    if (S.retryTimer) { clearTimeout(S.retryTimer); S.retryTimer = null; }
+    if (S.ws) { const ws = S.ws; S.ws = null; S.id = null; ws.onclose = null; ws.close(); }
+    clearPeers();
+    for (const p of S.pings) { p.gfx?.destroy(); p.txt?.destroy(); }
+    S.pings = [];
+    S.pingMode = false;
+    setStatus('off');
   }
   function connect() {
     if (S.retryTimer) { clearTimeout(S.retryTimer); S.retryTimer = null; }
@@ -524,7 +543,7 @@ const Multiplayer = (function () {
     return true;
   }
 
-  return { start, tick, consumeTap, setName,
+  return { start, stop, tick, consumeTap, setName,
            cleanName, pickColor, toWorldPx, fromWorldPx, describeAt, edgeDot,
            COLORS, NAME_MAX, PEER_NEAR_M, PEER_DOT_INSET };
 })();

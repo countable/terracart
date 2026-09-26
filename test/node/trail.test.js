@@ -369,7 +369,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
 });
 
 // ── THE FIRST PRIZE IS AN ONION SEED ──────────────────────────────────────
-// Prize #1 is not rolled. What the road pays in is seeds, and the first rung
+// Prize #1 always offers the onion seed. What the road pays in is seeds, and the first rung
 // says so out loud rather than sampling a pool that could hand a new player
 // coins and leave them none the wiser.
 test('trail prize: the first rung is the onion seed, and only the first', () => {
@@ -405,7 +405,20 @@ test('trail prize: the ceremony rolls the ROAD pool, and rung one skips the roll
   assert.falsy(/chest:lowtier/.test(body), 'the ladder no longer borrows the lowtier chest curve');
   assert.truthy(/const fixed = Trail\.firstPrize \? Trail\.firstPrize\(n\) : null;/.test(body),
     'rung one is asked for first');
-  assert.truthy(/const choices = fixed \? \[fixed\]/.test(body), 'and short-circuits the roll');
+  assert.truthy(/Trail\.rollChoices\(roll, Trail\.PRIZE_CHOICES, Trail\.PRIZE_ROLL_TRIES, fixed \? \[fixed\] : \[\]\)/.test(body),
+    'and leads the rolled row rather than replacing it');
+});
+
+test('trail prize: rung one offers the onion seed AND a full row to pick from', () => {
+  let n = 0;
+  const rolls = [{ kind: 'item', id: 'onion_seed', qty: 1 }, { kind: 'gold', amount: 4 },
+                 { kind: 'item', id: 'carrot_seed', qty: 2 }];
+  const out = Trail.rollChoices(() => rolls[n++] || null, Trail.PRIZE_CHOICES,
+                                Trail.PRIZE_ROLL_TRIES, [Trail.firstPrize(1)]);
+  assert.eq(out.length, Trail.PRIZE_CHOICES, 'three cards, not one');
+  assert.eq(out[0].id, 'onion_seed', 'the seed leads');
+  assert.eq(out[0].qty, Trail.FIRST_PRIZE_QTY, 'as the fixed pack, not the rolled duplicate');
+  assert.eq(out.filter(r => r.id === 'onion_seed').length, 1, 'a rolled onion is re-rolled');
 });
 
 test('trail prize: every ceremony says where the next rung is', () => {

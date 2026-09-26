@@ -148,11 +148,12 @@
   const PRIZE_CONTEXT = 'treasure:road';
 
   // ── The FIRST prize is an ONION SEED ─────────────────────────────────────
-  // Prize #1 is not rolled. The road ladder pays in seeds, and the first rung
-  // says so out loud instead of sampling a pool that might hand a new player
-  // coins and leave them none the wiser about what the road is for — the same
-  // reason the starter chests carry a fixed payload. Every rung after it rolls
-  // PRIZE_CONTEXT normally.
+  // Prize #1 always OFFERS the onion seed. The road ladder pays in seeds, and
+  // the first rung says so out loud instead of sampling a pool that might hand
+  // a new player coins and leave them none the wiser about what the road is
+  // for — the same reason the starter chests carry a fixed payload. It is
+  // still a choice like every other rung: the seed is the first card, and
+  // rollChoices fills the rest of the row from PRIZE_CONTEXT (`preset`).
   //
   // The shape is exactly what pickReward returns, so the ceremony, the card
   // and the payout all take it without a special case.
@@ -228,10 +229,19 @@
   // Roll up to `count` rewards the player can choose between. `roll` is the
   // caller's picker (app.js hands it pickReward, the tests a stub); it may
   // return null, which ends the search — a picker with nothing to give won't
-  // start having something on the next call.
-  function rollChoices(roll, count = PRIZE_CHOICES, tries = PRIZE_ROLL_TRIES) {
-    if (typeof roll !== 'function') return [];
+  // start having something on the next call. `preset` rewards (the first
+  // rung's onion seed) lead the row and count toward it; rolls that repeat
+  // one are re-rolled like any other duplicate.
+  function rollChoices(roll, count = PRIZE_CHOICES, tries = PRIZE_ROLL_TRIES, preset = []) {
     const out = [], keys = new Set();
+    for (const r of preset || []) {
+      if (!r || out.length >= count) continue;
+      const k = rewardKey(r);
+      if (k !== null && keys.has(k)) continue;
+      if (k !== null) keys.add(k);
+      out.push(r);
+    }
+    if (typeof roll !== 'function') return out;
     for (let i = 0; i < tries && out.length < count; i++) {
       const r = roll();
       if (!r) break;

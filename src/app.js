@@ -16967,8 +16967,9 @@ class MapScene extends Phaser.Scene {
   // Routed through showChestRewardModal so it shares the same fanfare +
   // sparkles as chest opens. `onDismiss` walks the prize queue on.
   //
-  // PRIZE #1 IS NOT ROLLED: Trail.firstPrize hands back the onion seed, so the
-  // first thing a road ever pays names what roads pay in.
+  // PRIZE #1 LEADS WITH THE ONION SEED: Trail.firstPrize is the first card,
+  // so the first thing a road ever offers names what roads pay in — and the
+  // rest of the row is rolled, so rung one is a choice like every other.
   //
   // THE PRIZE IS A CHOICE: it rolls Trail.PRIZE_CHOICES rewards and the
   // player keeps ONE. Nothing is granted until they pick — the roll they turn
@@ -16983,9 +16984,9 @@ class MapScene extends Phaser.Scene {
       ? pickReward(Trail.PRIZE_CONTEXT, this.save, undefined, { rollBonus: bonus })
       : null);
     const fixed = Trail.firstPrize ? Trail.firstPrize(n) : null;
-    const choices = fixed ? [fixed]
-      : ((typeof Trail !== 'undefined' && Trail.rollChoices)
-          ? Trail.rollChoices(roll) : [roll()].filter(Boolean));
+    const choices = (typeof Trail !== 'undefined' && Trail.rollChoices)
+      ? Trail.rollChoices(roll, Trail.PRIZE_CHOICES, Trail.PRIZE_ROLL_TRIES, fixed ? [fixed] : [])
+      : (fixed ? [fixed] : [roll()].filter(Boolean));
     // The header is the survivors' thanks, not the way — a street has no name
     // here because the ladder no longer asks which one you were on. The goal just completed (200, 400, 600 … metres) is the number
     // the counter on the street read when it paid (Trail.readout), and the
