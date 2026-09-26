@@ -129,8 +129,7 @@ const PEST_CROW_SPAWN_CELLS = 10;
 // A MONSTER'S STRIDE, in cells: how far one step of the step chain carries it
 // (wanderCreatures' stepM) — a full cell for a flier, 0.6 for everything that
 // walks. Its PACE is this over its beat (the loop's STEP_MS / its row's
-// speed); the ghost's continuous glide reads the same pair, so "twice the
-// goblin's speed" is twice the goblin's ground speed and not a second number.
+// speed). The ghost does not step — it glides at its row's `mps`.
 function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // ── GHOSTS ───────────────────────────────────────────────────────────────────
 // After dark a few ghosts rise in the dark around the player, hover a moment,
@@ -176,16 +175,18 @@ const GHOST_TOUCH_CELLS = 0.5;
 // the plateau's derived level), so a ghost held at the player's feet lasts
 // GHOST_PLATEAU_BURN_S seconds. Daylight past GHOST_DARK_DAYLIGHT burns too
 // (ghostSunExposure — 1 at noon), so a ghost caught out at dawn is gone.
-//   Why 6: a ghost rushing a player at base reach (2.5 cells) from the spawn
-// ring takes ~1 plateau-second in the ramp and ~3 crossing the plateau —
-// about 4.1 of its 6 (measured: ~69% of its pool), so it arrives with about a
-// third of itself left and the touch lands. Two Inner Light upgrades still
-// let it through, barely; from three (reach 4 cells) it burns out on the
-// doorstep, and a torch's light burns it out long before. A campfire or a lit
+//   Why 13: the burn is a race against its pace, so it scales with the time
+// the rush spends in the light — inverse to the speed. It was 6 at the old
+// ~4.4 m/s, where a rush on a player at base reach (2.5 cells) took ~4.1
+// plateau-seconds (~69% of its pool) and arrived with a third left; at the
+// jog (Combat.GHOST_SPEED_MPS, 2 m/s) the same rush is ~2.2× as long, so
+// 6 × 4.37 / 2 ≈ 13 keeps that outcome: the touch lands at base reach; from
+// three Inner Light upgrades (reach 4 cells) it burns out on the doorstep, and
+// a torch's light burns it out long before. A campfire or a lit
 // lamp does not hold it off — it rushes straight in — but their light adds to
 // the burn; Home and a claimed castle rout it (the ward). ghosts.test.js runs the
 // race.
-const GHOST_PLATEAU_BURN_S = 6;
+const GHOST_PLATEAU_BURN_S = 13;
 // The burn is banked on this beat, not every frame (brightnessAt runs the
 // collectors).
 const GHOST_LIGHT_TICK_MS = 250;
@@ -274,7 +275,7 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
 //   'burned'  the light finished it (_damageEnemy has already paid its coin)
 //   'faded'   its GHOST_LIFETIME_MS ran out
 //   null      it is still about.
-// `pace` is metres per ms (monsterStrideCells over its beat). HOVER first, in
+// `pace` is metres per ms (its row's `mps`, Combat.GHOST_SPEED_MPS). HOVER first, in
 // place; then a committed line at the player's feet at that pace, over any
 // terrain (it is a ghost) and into any light — it is not afraid of the light,
 // the light only burns it (no ring refuses its step, unlike the campfire's

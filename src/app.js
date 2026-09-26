@@ -7473,7 +7473,7 @@ class MapScene extends Phaser.Scene {
       // for it: it has no leech, no step chain and no crop to eat.
       if (SpriteLayout.creatureHaunts(c.kind)) {
         const gm = Combat.monster(c.kind);
-        const pace = STEP_M * monsterStrideCells(gm) * gm.speed / STEP_MS;
+        const pace = gm.mps / 1000;
         const fate = ghostTick(this, c, now, px, py, unnoticed, warded, pace);
         if (fate === 'touch') {
           const before = this.save.energy ?? 0;

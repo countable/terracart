@@ -2,8 +2,8 @@
 // (run.js __wander) and its two helpers (__ghostSpawnPass / __ghostTick).
 //
 // What is pinned:
-//   · the row: a MONSTERS kind (an enemy — wards, shots, bounty), twice the
-//     melee goblin's speed DERIVED from the goblin row, a touch of 25 before
+//   · the row: a MONSTERS kind (an enemy — wards, shots, bounty), a jog
+//     (Combat.GHOST_SPEED_MPS, 2 m/s), a touch of 25 before
 //     the mode / shield / armour, never drawn by the cave bag, no giant;
 //   · the pump: surface only, only after dark, on its ~5-minute cadence, only
 //     where it is dark, never inside Home's ring;
@@ -101,18 +101,12 @@ function race(scene, g, seconds) {
 }
 
 // ── The row ─────────────────────────────────────────────────────────────────
-test('ghost: a MONSTERS row — an enemy, twice the goblin\'s speed, derived', () => {
+test('ghost: a MONSTERS row — an enemy, a jog over the ground', () => {
   const g = Combat.monster('ghost');
   assert.truthy(g, 'registered in the monster table');
   assert.truthy(Combat.isEnemy({ kind: 'ghost', id: 'ghost_x' }), 'an enemy: wards, shots, bounty');
-  assert.eq(Combat.GHOST_SPEED_MUL, 2, 'twice, per the ask');
-  assert.eq(MONSTERS_BASELINE.ghost.speed, MONSTERS_BASELINE.goblin.speed * Combat.GHOST_SPEED_MUL,
-    'derived from the goblin row, not retyped');
-  assert.eq(g.speed, 2 * Combat.monster('goblin').speed, 'and the live table agrees');
-  // The ground speed, not only the number: the same stride as the goblin, so
-  // twice the speed is twice the pace (a `fly` stride would make it 3.3×).
-  assert.eq(__ghost.monsterStrideCells(g), __ghost.monsterStrideCells(Combat.monster('goblin')),
-    'the goblin\'s stride');
+  assert.eq(Combat.GHOST_SPEED_MPS, 2, 'a jog: 2 m/s, per the ask');
+  assert.eq(g.mps, Combat.GHOST_SPEED_MPS, 'the live row carries it');
   assert.eq(g.dmg, 25, 'the touch is 25 before the mode, shield and armour');
   assert.eq(Combat.GHOST_TOUCH_DMG, 25);
   assert.falsy(Combat.spawnsUnderground('ghost'), 'never drawn by the cave bag');
@@ -246,12 +240,10 @@ test('ghost: it hovers where it rose, then rushes the player', () => {
     for (let t = 0; t < 3000; t += TICK_MS) tick(s, TICK_MS);
     assert.lt(dist(g), d0, 'then it closes');
     assert.lt(Math.abs(g.y - P.y), 1e-9, 'on a committed line at the player — no meander');
-    // At its pace: twice the goblin's ground speed (stride over beat).
-    const gob = Combat.monster('goblin');
-    const gobCellsPerS = __ghost.monsterStrideCells(gob) * gob.speed * 1000 / 5000;
-    const moved = d0 - dist(g);
-    assert.inRange(moved / 3, 2 * gobCellsPerS * 0.9, 2 * gobCellsPerS * 1.1,
-      `${(moved / 3).toFixed(2)} cells/s, twice the goblin's ${gobCellsPerS.toFixed(2)}`);
+    // At its pace: a jog, GHOST_SPEED_MPS over the ground.
+    const mps = (d0 - dist(g)) * CELL / 3;
+    assert.inRange(mps, Combat.GHOST_SPEED_MPS * 0.9, Combat.GHOST_SPEED_MPS * 1.1,
+      `${mps.toFixed(2)} m/s, a jog`);
   });
 });
 
