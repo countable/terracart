@@ -181,6 +181,13 @@ const PIECES = {
     'leaping up and throwing a warm ring of light; at the edge of the light a green slime ' +
     'shrinks back into the shadows. A skewer of food rests over the flames. Warmth, safety ' +
     'and curiosity.', 'embers'),
+  // Home's Sell page (app.js presentHomeSell) — a private sale off your own
+  // doorstep, not a shopkeeper's counter, so it wears its own piece rather
+  // than kind_shop.
+  home_sell: scene(
+    'A rough wooden crate brimming with fresh produce - potatoes, onions, apples and a few ' +
+    'carrots - set out on the grass beside a small camper trailer at golden hour, a little ' +
+    'hand-painted wooden sign propped against it showing a gold coin, meaning for sale.'),
   cave_first: scene(
     'A young survivor holding a lantern steps down worn stone stairs into a cave, the cold dark ' +
     'closing in beyond the small circle of lantern light, glints of ore in the rough walls, a ' +
