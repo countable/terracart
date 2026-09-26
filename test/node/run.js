@@ -1210,7 +1210,6 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     fn('function ghostSpawnDelay(r) {'),
     fn('function ghostSunExposure(day) {'),
     fn('function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {'),
-    fn('function ghostRefused(scene, x, y) {'),
     fn('function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {'),
     // The fished slime: a cast's slime, seated beside the player, angry.
     fn('function fishedSlimeSpawn(scene, now, px, py, pcW) {'),

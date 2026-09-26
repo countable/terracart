@@ -181,9 +181,9 @@ const GHOST_TOUCH_CELLS = 0.5;
 // about 4.1 of its 6 (measured: ~69% of its pool), so it arrives with about a
 // third of itself left and the touch lands. Two Inner Light upgrades still
 // let it through, barely; from three (reach 4 cells) it burns out on the
-// doorstep, and a torch's light burns it out long before. A campfire and a lit
-// lamp hold it at their ring (ghostRefused) in the player's light until it
-// burns; Home and a claimed castle rout it (the ward). ghosts.test.js runs the
+// doorstep, and a torch's light burns it out long before. A campfire or a lit
+// lamp does not hold it off — it rushes straight in — but their light adds to
+// the burn; Home and a claimed castle rout it (the ward). ghosts.test.js runs the
 // race.
 const GHOST_PLATEAU_BURN_S = 6;
 // The burn is banked on this beat, not every frame (brightnessAt runs the
@@ -234,7 +234,6 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
       { _spawnT: now }));
     made++;
   }
-  if (made && scene.flash) scene.flash('👻 Ghosts in the dark!', scene.viewCenterX, scene.viewCenterY - 60);
   return made;
 }
 // ── THE FISHED SLIME ─────────────────────────────────────────────────────────
@@ -270,25 +269,6 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
   }
   return null;
 }
-// A STANDING LIGHT'S RING REFUSES A GHOST'S STEP — the campfire's ward
-// mechanism (a refused target, never a turn, so it holds at the edge rather
-// than freezing inside), and for the ghost the lit street lamp's too: it is a
-// thing of the dark, and the two lights a player can stand beside on purpose
-// are the two it will not cross. The ring is each light's own radius — the
-// fire's FIRE_REST_R, the lamp's Lighting.KINDS.cobble row — so what refuses
-// it is exactly what is lit. It holds there in the player's light and burns.
-// NOT Home's ward (that routs, _wardFrom) and not the burn (that is
-// brightnessAt, and reaches every light).
-function ghostRefused(scene, x, y) {
-  if (scene._nearAny('fires', x, y, FIRE_REST_R)) return true;
-  const lamps = scene._streetLamps;
-  if (!lamps || !lamps.length) return false;
-  const r = Lighting.radiusCells('cobble') * scene.cellM;
-  for (const L of lamps) {
-    if (L.lit && (L.x - x) * (L.x - x) + (L.y - y) * (L.y - y) < r * r) return true;
-  }
-  return false;
-}
 // ONE GHOST'S TICK — its mover, its burn, its touch. Returns what became of it:
 //   'touch'   it reached the player (wanderCreatures lands the blow and spends it)
 //   'burned'  the light finished it (_damageEnemy has already paid its coin)
@@ -296,8 +276,9 @@ function ghostRefused(scene, x, y) {
 //   null      it is still about.
 // `pace` is metres per ms (monsterStrideCells over its beat). HOVER first, in
 // place; then a committed line at the player's feet at that pace, over any
-// terrain (it is a ghost) — except a campfire's or a lit lamp's ring
-// (ghostRefused: the fire ward's refused step, never a turn). Warded
+// terrain (it is a ghost) and into any light — it is not afraid of the light,
+// the light only burns it (no ring refuses its step, unlike the campfire's
+// ward on other foes). Warded
 // (Home, a claimed castle — `warded`, the same latch every foe wears) it runs
 // straight away from the ward; `unnoticed` (NOTHING HUNTS A BODY, or a Shadow
 // Powder) it hovers where it is. Neither touches.
@@ -325,10 +306,8 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
   const toPlayer = Math.hypot(px - c.x, py - c.y);
   const step = Math.min(pace * dt, warded ? Infinity : toPlayer);
   const nx = c.x + Math.cos(ang) * step, ny = c.y + Math.sin(ang) * step;
-  if (!ghostRefused(scene, nx, ny)) {
-    c.x = nx; c.y = ny;
-    if (Math.abs(Math.cos(ang)) > 1e-6) c._faceFlip = Math.cos(ang) < 0;
-  }
+  c.x = nx; c.y = ny;
+  if (Math.abs(Math.cos(ang)) > 1e-6) c._faceFlip = Math.cos(ang) < 0;
   if (warded) return null;
   return Math.hypot(px - c.x, py - c.y) <= GHOST_TOUCH_CELLS * scene.cellM ? 'touch' : null;
 }

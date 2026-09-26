@@ -11,7 +11,7 @@
 //     Combat.playerDamage and spends the ghost; nothing hunts a body;
 //   · the burn: Lighting.brightnessAt — the lightmap's own model — scales the
 //     damage, which is not a player kill; the race is won in the open at base
-//     reach, and lost by a torch or a campfire.
+//     reach, and lost by a torch; no light's ring refuses its step.
 (function () {
 
 const CELL = 7;                          // WorldGen.CELL_M
@@ -306,28 +306,31 @@ test('ghost: a torch, or a brighter Inner Light, burns it out before it arrives'
   });
 });
 
-test('ghost: a campfire at the player\'s side turns it away', () => {
+test('ghost: a campfire at the player\'s side does not hold it off — it comes in', () => {
   atDaylight(0, () => {
     const g = mkGhost();
     const s = ghostScene([g]);
     s.save.fires = [{ x: P.x, y: P.y }];
-    race(s, g, 60);
-    assert.eq(s._hits.length, 0, 'it never reached the player');
-    assert.gte(dist(g), FIRE_REST_R - 0.01, 'held at the fire\'s ring');
+    let closest = Infinity;
+    for (let t = 0; t < 60000 && alive(s, g); t += TICK_MS) {
+      tick(s, TICK_MS);
+      closest = Math.min(closest, dist(g));
+    }
+    assert.lt(closest, FIRE_REST_R - 0.5, 'it crossed into the fire\'s ring');
   });
 });
 
-test('ghost: so does a lit street lamp; a dark one does not', () => {
+test('ghost: so does a lit street lamp — its light only burns', () => {
   atDaylight(0, () => {
     const g = mkGhost();
     const s = ghostScene([g], { _streetLamps: [{ id: 'L', x: P.x, y: P.y, lit: true }] });
-    race(s, g, 60);
-    assert.eq(s._hits.length, 0, 'never reached the player under the lamp');
-    assert.eq(g._felledBy, 'light', 'held at the lamp\'s ring in the player\'s light, and burned');
-    const g2 = mkGhost({ id: 'ghost_0_0_5_0_1' });
-    const s2 = ghostScene([g2], { _streetLamps: [{ id: 'L', x: P.x, y: P.y, lit: false }] });
-    race(s2, g2, 60);
-    assert.eq(s2._hits.length, 1, 'an unlit lamp is only a stone');
+    let closest = Infinity;
+    for (let t = 0; t < 60000 && alive(s, g); t += TICK_MS) {
+      tick(s, TICK_MS);
+      closest = Math.min(closest, dist(g));
+    }
+    const r = Lighting.radiusCells('cobble');
+    assert.lt(closest, r - 0.5, 'it crossed into the lamp\'s ring');
   });
 });
 
