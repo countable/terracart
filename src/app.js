@@ -9468,7 +9468,7 @@ class MapScene extends Phaser.Scene {
       getLabel: 'You make', costLabel: 'You use',
       quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
       pager: {
-        index: idx, count: n,
+        index: idx, count: n, showIndex: false,
         onPrev: pageTo(HOME_RECIPES[(idx - 1 + n) % n]),
         onNext: pageTo(HOME_RECIPES[(idx + 1) % n]),
       },

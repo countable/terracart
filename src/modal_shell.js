@@ -511,7 +511,8 @@ class SceneModals {
   //                 under it. Paging is not an action: it used to be a
   //                 full-size "Smelt Platinum" button beside the real one,
   //                 which read as a second way to SMELT rather than as a way
-  //                 to look at the next bar.
+  //                 to look at the next bar. `showIndex: false` drops the
+  //                 "i / n" line (Home's Craft page) and keeps the arrows.
   showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { onClose: () => {}, kind, kindLabel, kindIcon, art });
@@ -583,10 +584,12 @@ class SceneModals {
       pageRow.appendChild(getDiv);
       pageRow.appendChild(mkArrow('›', 'Next', pager.onNext));
       box.appendChild(pageRow);
-      const pageNo = document.createElement('div');
-      pageNo.style.cssText = 'font:700 10px ui-monospace,monospace;opacity:.55;margin-bottom:2px';
-      pageNo.textContent = `${pager.index + 1} / ${pager.count}`;
-      box.appendChild(pageNo);
+      if (pager.showIndex !== false) {
+        const pageNo = document.createElement('div');
+        pageNo.style.cssText = 'font:700 10px ui-monospace,monospace;opacity:.55;margin-bottom:2px';
+        pageNo.textContent = `${pager.index + 1} / ${pager.count}`;
+        box.appendChild(pageNo);
+      }
     } else {
       box.appendChild(getDiv);
     }
