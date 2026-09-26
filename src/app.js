@@ -10562,7 +10562,7 @@ class MapScene extends Phaser.Scene {
     if (title === SHINY_FIND_TITLE) this._storySplashOnce('shiny', {
       art: 'shiny_first',
       title: 'A shiny find!',
-      body: 'Gold shimmer, ten times the money, and a memory comes back. Shinies hide among the ordinary - keep looking.',
+      body: 'As you approach the glow, you feel memories forming. Nothing specific yet...',
     });
     try {
       const banner = this._toast(title,
@@ -15343,7 +15343,7 @@ class MapScene extends Phaser.Scene {
           const INFO = {
             blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
             market:     { blurb: `${THEME_BLURB[theme] || 'Sells one line of goods.'} A new line every shop you rebuild.` },
-            trader:     { blurb: 'Barters goods and pays a bonus on every sale. Money is so last civilisation.' },
+            trader:     { blurb: 'Barters goods, and pays a bonus on every sale.' },
             wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage sees power in your memories.' },
             plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
           };
