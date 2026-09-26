@@ -306,6 +306,8 @@ const MINERAL_ICON_SHEET = {
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
+  // Beef.png is 2×2: row 0 raw (plain, outlined), row 1 COOKED — frame 2.
+  grilled_meat: { sheet: 'icon_meat',    frame: 2 },
   rabbit_pelt:  { sheet: 'icon_pelt',    frame: 0 },
   crow_feather: { sheet: 'icon_feather', frame: 0 },
   // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png carries three shells
@@ -463,6 +465,8 @@ const BASE_TIER = {
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
   meat: 2, rabbit_pelt: 2,
+  // Grilled at a campfire (CAMPFIRE_MAKES) — one step up from the raw cut.
+  grilled_meat: 3,
   crow_feather: 3,
   sapphire: 4, ruby: 5, emerald: 6,
   // Diamond tops the gem ladder at the Frost tier — the T7 rock's headline gem.
@@ -596,6 +600,9 @@ const ITEMS = [
   // produce pool of the rarity picker, not the mineral pool (which is
   // reserved for coal / gemstones).
   { id: 'meat',         name: 'Meat',         kind: 'produce' },
+  // Made, never found: only a campfire turns meat into this (CAMPFIRE_MAKES),
+  // so `cooked` keeps it out of the rarity picker's loot pools.
+  { id: 'grilled_meat', name: 'Grilled Meat', kind: 'produce', cooked: true },
   { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'produce' },
   { id: 'crow_feather', name: 'Crow Feather', kind: 'produce' },
   // Beach pickup — shells spawn as wildplant debris on sand cells (the sand
@@ -702,6 +709,14 @@ const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // would need a $0 seed — the $8 seed price stands on its own terms instead
 // (it's sold as a stone/building-material commodity, not grown for profit;
 // see the rockfruit note under produce below).
+// CAMPFIRE WORK — what a lit campfire turns a HELD item into when you tap it
+// (interact.js 'fire-held'). One table both sides read: the tap handler and
+// the ✦ lines on the inputs. Anything held over a fire that is NOT a key here
+// is burned, after a "Burn <name>?" confirm (app.js presentBurnConfirm).
+const CAMPFIRE_MAKES = { meat: 'grilled_meat', wood: 'torch' };
+// Grilling multiplies the raw cut's energy — and its price, so a grilled
+// steak is worth the fire to sell as well as to eat.
+const GRILL_ENERGY_MUL = 1.5;
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
@@ -790,6 +805,7 @@ const PRICES = {
   // ── Orchard fruit ────────────────────────────────────────
   apple: 8, cherry: 12, peach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
+PRICES.grilled_meat = Math.round(PRICES.meat * GRILL_ENERGY_MUL);
 // Canonical "sell value" of an item. Used for the shiny-find money bonus
 // (10× this) and as a value fall-through. Items with no explicit PRICES entry
 // (e.g. live animals) fall back to a tier-scaled ladder so the bonus still
@@ -1126,6 +1142,9 @@ const ITEM_EFFECTS = {
   // Materials that are also placeables — held-and-tapped, so the line has to
   // say so or nothing does (the rock's line is `rockfruit`, above — its id).
   coal:         'Burn on bare ground to make a campfire',
+  // The campfire's recipes (CAMPFIRE_MAKES) — nothing else says a fire cooks.
+  meat:         `Hold over a campfire to grill it: ${GRILL_ENERGY_MUL}× energy`,
+  wood:         'Hold over a campfire to make a torch',
 };
 
 const STARTING_ENERGY = 100;
@@ -1154,6 +1173,7 @@ const FOOD_ENERGY = {
   minnow:      5, bass: 15, trout: 25, salmon: 50, goldenfish: 100,
   meat:       45,   // hunted from deer; dog favourite
 };
+FOOD_ENERGY.grilled_meat = Math.round(FOOD_ENERGY.meat * GRILL_ENERGY_MUL);
 const ENERGY_COST = {
   till: 2,
   plant: 1,

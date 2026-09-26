@@ -600,6 +600,7 @@ const MODAL_KINDS = {
   energy:   { icon: '⚡', label: 'Energy'    },   // the energy explainer
   rest:     { icon: '😵', label: 'Exhausted' },   // passing out underground
   use:      { icon: '🎒', label: 'Use'       },   // confirming a consumable from the bag
+  fire:     { icon: '🔥', label: 'Campfire'  },   // burning a held item (presentBurnConfirm)
   note:     { icon: '📜', label: 'Note'      },   // generic message dialog
 };
 
@@ -2095,6 +2096,8 @@ class MapScene extends Phaser.Scene {
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
     window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 32, 32);
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
+    // The burn confirm opens with the campfire the player just tapped.
+    window.WORLD_ICON_URLS.bonfire = bakeSheetFrame('bonfire', 0, 16, 32);
     // Home's panel opens with the trailer the player just tapped — the whole
     // image, which is one frame.
     const trailerSrc = this.textures.get('house_trailer')?.getSourceImage();
@@ -13676,6 +13679,35 @@ class MapScene extends Phaser.Scene {
   // accept it deducts the price, grants one scarecrow, and flips
   // save.scarecrowShopUsed so the house reverts to its normal role. Mirrors
   // the cash branch of the regular buy modal (loud loot pop, real sprite).
+  // Anything held over a campfire that the fire can't MAKE something of
+  // (items.js CAMPFIRE_MAKES) is burned — one of it, after this confirm.
+  // Tapped from interact.js 'fire-held'. The accept re-checks the hand: the
+  // selection can change while the dialog is up, and only what is still held
+  // goes in.
+  presentBurnConfirm(id) {
+    if (document.getElementById('offer-modal')) return;
+    const name = ITEM_BY_ID[id]?.name || id;
+    this.showOfferModal({
+      kind: 'fire',
+      kindIcon: this.worldIconHTML('bonfire') || undefined,
+      title: `Burn ${name}?`,
+      getLabel: 'Into the fire',
+      get: `${this.iconSpanHTML(id)} ${name} ×1`,
+      blurb: 'It will not come back.',
+      canAfford: true,
+      acceptLabel: 'Burn',
+      cancelLabel: 'Keep',
+      onAccept: () => {
+        const sel = getSelectedSlot(this.save);
+        if (!sel || sel.id !== id || (sel.count ?? 0) <= 0) return;
+        consumeSelected(this.save);
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        this.flashLoot('🔥 burned', '#ffb070', 1, id);
+      },
+    });
+  }
+
   presentScarecrowOffer(sx, sy, house, recordDeal) {
     const id = 'scarecrow';
     const item = ITEM_BY_ID[id];
