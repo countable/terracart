@@ -29,3 +29,16 @@ test('cauldron: a burst drops extra coins at the player\'s feet, and claims only
   assert.eq(body.split("'No room to scatter!'").length - 1, 1, 'one bail, after both searches');
   assert.truthy(/Scattered \$\{drops\.length\} coins!/.test(body), 'the flash says the real count');
 });
+
+test('cauldron: coins may lie on a road, never in water or under anything', () => {
+  const app = APP_JS_SRC;
+  assert.truthy(/function coinGround\(t\) \{ return WorldGen\.isWalkable\(t\) \|\| WorldGen\.isRoadTerrain\(t\); \}/.test(app),
+    'walkable ground or the road');
+  const T = WorldGen.T;
+  assert.truthy(WorldGen.isRoadTerrain(T.ROAD) && WorldGen.isRoadTerrain(T.ROAD_LG), 'the road tiers');
+  assert.falsy(WorldGen.isRoadTerrain(T.WATER) || WorldGen.isRoadTerrain(T.GRASS), 'nothing else');
+  const body = app.slice(app.indexOf('  _coinBurstInteract(sx, sy, poi) {'), app.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
+  assert.truthy(/const onRoad = coinRoadCell\(entry, i\);/.test(body), 'the pot scatter takes road cells');
+  const near = app.slice(app.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
+  assert.falsy(/roadMask/.test(near.slice(0, near.indexOf('\n  }\n'))), 'the feet scatter does not refuse the road');
+});

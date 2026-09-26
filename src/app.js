@@ -354,6 +354,15 @@ const COIN_BURST_MIN = 8;
 // COIN_BURST_NEAR_R cells), so a burst always puts coins in reach —
 // whatever the ground around the pot itself is like.
 const COIN_BURST_NEAR_PLAYER = 3;
+// WHERE A COIN MAY LIE: anywhere a person can stand, AND the road. The
+// no-spawn-on-a-road rule (CLAUDE.md) is for scenery that stays put; a coin
+// is a pickup that lasts a minute, and the street is where the player walks.
+// Never water, a wall or a building. Occupancy is the caller's check.
+function coinGround(t) { return WorldGen.isWalkable(t) || WorldGen.isRoadTerrain(t); }
+// Is this cell part of the road — its terrain, or the band drawn over it?
+function coinRoadCell(entry, i) {
+  return !!(entry.roadMask && entry.roadMask[i]) || WorldGen.isRoadTerrain(entry.grid[i]);
+}
 const COIN_BURST_NEAR_R = 2;
 const RING_IDLE_TIMEOUT_MS = 400;
 const TILE_RETRY_BASE_MS = 4000;
@@ -10183,12 +10192,17 @@ class MapScene extends Phaser.Scene {
           if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
           // Skip the POI's own cell (chest sprite sits there).
           if (dx === 0 && dy === 0) continue;
-          if (strict) {
+          const i = cy * N + cx;
+          // A COIN MAY LIE IN THE STREET: road cells (terrain or the drawn
+          // band) take one on either pass — a coin is a pickup, not scenery.
+          const onRoad = coinRoadCell(entry, i);
+          if (onRoad) {
+            if (!coinGround(entry.grid[i]) || (occupiedIdx && occupiedIdx.has(i))) continue;
+          } else if (strict) {
             if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, burstOpts)) continue;
           } else {
-            if (!WorldGen.isWalkable(entry.grid[cy * N + cx])) continue;
-            if (entry.roadMask && entry.roadMask[cy * N + cx]) continue;
-            if (occupiedIdx && occupiedIdx.has(cy * N + cx)) continue;
+            if (!coinGround(entry.grid[i])) continue;
+            if (occupiedIdx && occupiedIdx.has(i)) continue;
           }
           out.push({ cx, cy });
         }
@@ -10280,8 +10294,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // Up to `count` coin cells around the PLAYER's feet (never the feet cell
-  // itself), within `r` cells, nearest ring first: walkable, off the road
-  // band, not under anything (the pot scatter's relaxed rule). On the tile
+  // itself), within `r` cells, nearest ring first: ground a coin can lie on
+  // (coinGround — roads included), not under anything. On the tile
   // the player stands on, in that tile's own grid. `taken` holds cells
   // already used ("tx_ty_cx_cy"). Returns [{ entry, x, y }].
   _coinCellsNearPlayer(count, r, taken) {
@@ -10304,8 +10318,7 @@ class MapScene extends Phaser.Scene {
           const cx = pcx + dx, cy = pcy + dy;
           if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
           const i = cy * N + cx;
-          if (!WorldGen.isWalkable(entry.grid[i])) continue;
-          if (entry.roadMask && entry.roadMask[i]) continue;
+          if (!coinGround(entry.grid[i])) continue;       // roads welcome
           if (occupied && occupied.has(i)) continue;
           if (taken.has(`${tx}_${ty}_${cx}_${cy}`)) continue;
           cells.push({ cx, cy });
