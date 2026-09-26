@@ -1290,6 +1290,14 @@ ctx.pngDims = (rel) => {
 // two halves of that handshake against each other; nothing else can, because
 // each half is unreachable from the other's language.
 ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+// The whole-file parse check (scripts_parse.test.js). The suite lifts METHODS
+// out of app.js by regex, so a stray brace between two methods parses fine
+// here and still kills the real page — compile each whole file (no run).
+ctx.__parseScript = (rel) => {
+  const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  try { new vm.Script(src, { filename: rel }); return null; }
+  catch (e) { return `${rel}: ${e.message}`; }
+};
 // The canvas-resolution rule itself (app.js, the note beside W/H): lifted so
 // canvas_scale.test.js drives the shipping cap/floor rather than a copy of it.
 {
