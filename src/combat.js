@@ -105,8 +105,8 @@
   const MONSTERS_BASELINE = {
     cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5 },
     purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true, retreat: 0.75 },
-    goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 2, speed: 2.6,  minDepth: 2, weight: 3, retreat: 0.5 },
-    goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 2.08, minDepth: 3, weight: 2 },
+    goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 2, speed: 3.38, minDepth: 2, weight: 3, retreat: 0.5 },
+    goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 2.7,  minDepth: 3, weight: 2 },
     // THE TRAPPER never lands a blow (dmg 0 — monsterHits says no, so the
     // melee drain and the arrow both skip it). What it does instead is its
     // `lays` column: it keeps `range` cells off the player and, on a cadence,
@@ -116,7 +116,7 @@
     // lairs.js climbs goblin → archer → trapper, and a rung is never met
     // shallower than the one below it), with the archer's gait and HP a
     // touch over it: it is the one you have to walk THROUGH its traps to reach.
-    goblin_trapper: { name: 'Goblin Trapper', hp: 20, range: 3, dmg: 0, speed: 2.08, minDepth: 3, weight: 2, lays: 'trap', retreat: 0.5 },
+    goblin_trapper: { name: 'Goblin Trapper', hp: 20, range: 3, dmg: 0, speed: 2.7,  minDepth: 3, weight: 2, lays: 'trap', retreat: 0.5 },
   };
   // THE GHOST — the one monster that is not a cave kind. Its `spawn` column
   // says where it comes from instead of the cave bag: 'night' is app.js's

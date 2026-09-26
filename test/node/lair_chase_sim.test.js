@@ -113,7 +113,7 @@ const TICK_MS = 250;
 function run(scene, seconds) {
   for (let i = 0; i < (seconds * 1000) / TICK_MS; i++) tick(scene, TICK_MS);
 }
-// A goblin covers STEP_M * 0.6 every STEP_MS / speed — about 1.1 m/s. Sizing
+// A goblin covers STEP_M * 0.6 every STEP_MS / speed — about 1.4 m/s. Sizing
 // the runs off that rather than off a step count keeps them readable.
 const GOBLIN_MPS = (CELL * 0.6) / (5000 / MONSTERS.goblin.speed / 1000);
 
