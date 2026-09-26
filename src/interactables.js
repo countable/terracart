@@ -529,7 +529,7 @@ const INTERACTABLES = {
       // kind === 'item'
       const lootId  = result.id;
       const lootQty = result.qty;
-      const lootName = (ITEM_BY_ID[lootId]?.name || lootId).toString();
+      const lootName = itemName(lootId).toString();
       const lootColor = (typeof tierInfo === 'function') ? tierInfo(lootId).color : UI_TREASURE;
       // A starter supply crate is not treasure. `o.crate` is the same test the
       // renderer uses to draw the box sprite instead of the tier-2 trunk, and

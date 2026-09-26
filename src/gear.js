@@ -81,10 +81,7 @@
       c,
       w: (c.kind === 'relic' ? relicNorm : armorNorm) * tierW(c.tier),
     }));
-    const total = weighted.reduce((a, b) => a + b.w, 0);
-    let r = rng() * total;
-    let pick = weighted[weighted.length - 1].c;
-    for (const w of weighted) { r -= w.w; if (r <= 0) { pick = w.c; break; } }
+    const pick = weightedPickBy(weighted, (w) => w.w, rng).c;
 
     // Pricing: castle = flat 4.0× discounted by Bow tier (1 - t/7) → T7 par;
     // everything else = random 1.2..3.0× markup.
