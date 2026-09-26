@@ -238,6 +238,11 @@ const PIECES = {
     'A campfire ringed with stones burning brightly at night, sparks rising, a log half-consumed in the flames.', 'sigil'),
   kind_note: scene(
     'A folded parchment letter weighted with a stone on a wooden fence post at dusk, a meadow and ruined village beyond.', 'claws'),
+  // The ☰ menu. Shipped as a crop of safety_welcome (the survivor rebuilding
+  // a ruined home) until this is generated — the script only renders pieces
+  // missing from assets/art/, so run it with this name (or --force).
+  kind_menu: scene(
+    'A small half-rebuilt cottage with bare roof rafters, a lone sunflower by its wall, a survivor with a hammer and a sack of stones looking at it at golden hour.'),
 };
 
 function loadKey() {

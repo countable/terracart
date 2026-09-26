@@ -596,7 +596,10 @@
        through behind 12px text, and on a 360-wide phone the panel overlaps the
        objective chip, which made both unreadable. Capped + scrollable so a tall
        panel (Developer open) can't run its destructive "Reset this game" row
-       down onto the item bar. */
+       down onto the item bar. This panel is only the FALLBACK before the scene
+       exists: once it does, an open menu is a standard dialog (app.js
+       _openMenuDialog) and the list moves into it, so the ROW styles below
+       are keyed on .menu-items, not on #menu. */
     #menu .items {
       margin-top: 4px; min-width: 140px;
       background: #14110d; border: 2px solid var(--gold-dark); border-radius: 8px;
@@ -621,24 +624,30 @@
        menu still read as a sparse list that scrolled sooner than it needed
        to — packed to ~26px (4px pad on the 12px line, zero gap) so the whole
        menu fits a short screen without feeling like a spreadsheet. */
-    #menu .items button {
+    /* Inside the dialog the box is the panel — the list sheds its own. */
+    .game-modal .menu-items {
+      display: flex; flex-direction: column; gap: 0;
+      margin: 0; padding: 0; min-width: 0; background: none; border: 0;
+      box-shadow: none; max-height: none; overflow: visible;
+    }
+    .menu-items button {
       background: transparent; color: var(--bone); border: 0;
       text-align: left; padding: 4px 8px; border-radius: 4px;
       font: 12px ui-monospace, monospace; cursor: pointer;
       min-height: 26px;
     }
-    #menu .items button:hover {
+    .menu-items button:hover {
       background: linear-gradient(180deg, #ffffff1f, #ffffff0a);
       box-shadow: var(--chrome-lip);
     }
-    #menu .items button:active { background: #0006; box-shadow: var(--chrome-well); }
-    #menu .items button.danger { color: var(--danger-ink); }
+    .menu-items button:active { background: #0006; box-shadow: var(--chrome-well); }
+    .menu-items button.danger { color: var(--danger-ink); }
     /* Saved-game rows: a name button (selects/plays the slot) + a delete ✕.
        The active slot is marked with a leading ✓ and highlighted. */
-    #menu .save-row { display: flex; align-items: stretch; gap: 2px; }
-    #menu .save-row .save-pick { flex: 1; min-width: 0; }
-    #menu .save-row .save-pick.active { color: var(--green); font-weight: 700; }
-    #menu .save-row .save-del {
+    .menu-items .save-row { display: flex; align-items: stretch; gap: 2px; }
+    .menu-items .save-row .save-pick { flex: 1; min-width: 0; }
+    .menu-items .save-row .save-pick.active { color: var(--green); font-weight: 700; }
+    .menu-items .save-row .save-del {
       flex: 0 0 auto; color: var(--danger-ink); padding: 6px 8px;
     }
     /* ── Inventory HUD chrome ────────────────────────────────────────────
@@ -1092,7 +1101,7 @@
   </div>
   <details id="menu">
     <summary>☰<span id="mode-badge" class="mode-badge" hidden></span></summary>
-    <div class="items">
+    <div class="items menu-items" id="menu-items">
       <button id="help-howto">How to play</button>
       <button id="delivery-list">Deliveries</button>
       <!-- Only shown when the objective ladder has been dismissed but isn't
@@ -2662,7 +2671,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=1cbd488e';
+      const APP_SRC = 'src/app.js?v=460ccbe4';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
