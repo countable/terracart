@@ -47,6 +47,32 @@ function randInt(min, max, rng) {
 function clamp(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
 function clamp01(x) { return clamp(x, 0, 1); }
 function lerp(a, b, t) { return a * (1 - t) + b * t; }
+// Fisher–Yates, in place; returns `arr`. One rng() call per swap step.
+function shuffleInPlace(arr, rng) {
+  const r = rng ?? Math.random;
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1));
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+// One item drawn in proportion to weightOf(item): ONE rng() call, walked by
+// subtracting each weight until the remainder reaches zero (`<= 0`). Items
+// weighing <= 0 are never drawn; an empty or weightless list returns null.
+// Floating-point slack past the last positive weight lands on that weight.
+function weightedPickBy(items, weightOf, rng) {
+  let total = 0, last = null;
+  for (const it of items) { const w = weightOf(it); if (w > 0) { total += w; last = it; } }
+  if (!(total > 0)) return null;
+  let r = (rng ?? Math.random)() * total;
+  for (const it of items) {
+    const w = weightOf(it);
+    if (!(w > 0)) continue;
+    r -= w;
+    if (r <= 0) return it;
+  }
+  return last;
+}
 // Degrees ↔ radians. rad2deg DIVIDES by the same constant deg2rad multiplies
 // by rather than multiplying by 180/π: the two are not the same double (they
 // differ by an ulp), and the sun's elevation (lighting.js) is a chain of them
@@ -401,6 +427,14 @@ function mulTint(a, b) {
 // here rather than a local per file. `>>> 0` keeps a sign-bit int positive.
 function cssOf(c) {
   return '#' + (c >>> 0).toString(16).padStart(6, '0');
+}
+// Packed 0xRRGGBB + alpha → CSS 'rgba(r,g,b,a)'. `a` is printed as given.
+function rgbaOf(c, a) {
+  return `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${a})`;
+}
+// Rec. 601 luminance of a packed colour, 0..1 — "how bright is this, to an eye".
+function luminance(c) {
+  return (0.299 * ((c >> 16) & 255) + 0.587 * ((c >> 8) & 255) + 0.114 * (c & 255)) / 255;
 }
 const fontSerif = (spec) => `${spec} ${FONT_SERIF_STACK}`;
 

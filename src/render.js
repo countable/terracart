@@ -129,6 +129,15 @@ const isRoadType = (t) => t === 7 || t === 13 || t === 14;
 // The anchor is spelled out here rather than taken from viewAnchorWorldM: these
 // two run per object, per creature and per label EVERY frame, and the helper's
 // return object would be a second allocation on each of them.
+// The same projection for a delta already measured FROM the anchor (dx, dy in
+// metres) — the per-object form, where the caller has the offset in hand.
+function deltaMToScreen(scene, dx, dy) {
+  return {
+    x: scene.viewCenterX + (dx / scene.cellM) * CELL_PX,
+    y: scene.viewCenterY + (dy / scene.cellM) * CELL_PX,
+  };
+}
+
 function worldMetersToScreen(scene, wmx, wmy) {
   const p = peekM(scene);
   const ax = scene.startWorldM.x + scene.playerM.x + p.x;

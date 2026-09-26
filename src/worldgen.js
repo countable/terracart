@@ -93,6 +93,22 @@
     return (h ^ (h >>> 16)) >>> 0;
   }
 
+  // The id of a generated thing on one CELL of one TILE:
+  // `${prefix}_${tx}_${ty}_${ix}_${iy}`. A level or variant goes INTO the
+  // prefix (`c_${depth}`), never on the end, so every id minted through here
+  // keeps the tile + local-cell tail the rule above asks for.
+  function cellId(prefix, tx, ty, ix, iy) {
+    return `${prefix}_${tx}_${ty}_${ix}_${iy}`;
+  }
+
+  // The seed of one spawner's OWN per-tile stream: the (tx, ty) spatial hash,
+  // XOR a per-spawner salt times the level. The float multiply (not imul) and
+  // the `>>> 0` are what every stream has always used — do not "fix" them, or
+  // every existing world re-rolls. depth 0 (the surface) drops the salt.
+  function tileStreamSeed(tx, ty, salt = 0, depth = 0) {
+    return ((tx * HASH_MUL_X) ^ (ty * HASH_MUL_Y) ^ (depth * salt)) >>> 0;
+  }
+
   // Terrain class enum (uint8). 0 = unknown/grass default.
   const T = {
     GRASS: 0,
@@ -5471,7 +5487,7 @@
     cellsPerEdgeForTile, cellSizeM, latOfRowCentre, cellsPerEdgeForLat,
     // Tile + local-cell hash every generated id/seed is keyed on, and the
     // stair id built from it.
-    cellHash, caveStairId,
+    cellHash, cellId, tileStreamSeed, caveStairId,
     // Sidecar / Overpass GeoJSON → per-tile bins of tile-local cells —
     // exported so world_frame.test.js can pin that binning is frame-free.
     buildBinsFromGeoJSON,

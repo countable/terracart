@@ -56,8 +56,19 @@
   // Gate for the surface-locked, Set-based interactables (placed rocks,
   // tilling) that can't carry a per-item depth tag.
   function isSurface(depth) { return levelOf(depth) === 0; }
+  // Index of the first entry of `list` on `depth` within `eps` metres of
+  // (x, y) on both axes, else -1. `eps` is the caller's question: half a cell
+  // asks "is one on the tapped cell", a hair asks "is one on this exact spot".
+  function indexAt(list, x, y, depth, eps) {
+    if (!list) return -1;
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      if (onDepth(e, depth) && Math.abs(e.x - x) < eps && Math.abs(e.y - y) < eps) return i;
+    }
+    return -1;
+  }
 
-  const api = { placedDepth, stampDepth, onDepth, forDepth, isSurface };
+  const api = { placedDepth, stampDepth, onDepth, forDepth, isSurface, indexAt };
   root.PlacedFloor = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
