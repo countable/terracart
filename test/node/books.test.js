@@ -286,7 +286,7 @@ test('tips: the home rest quotes HOME_FULL_REST_S, and no tip rests you in a str
 
 test('tips: the offline rest quotes Energy.OFFLINE_FULL_REST_MS', () => {
   assert.eq(Energy.OFFLINE_FULL_REST_MS, 60 * 60 * 1000, 'an hour away refills the bar');
-  assert.truthy(someTip(/an hour away from the game/i), 'and a tip says an hour, not just "trickles back"');
+  assert.truthy(someTip(/an hour away hands the whole bar back/i), 'and a tip says an hour, not just "trickles back"');
 });
 
 test('tips: working-is-not-resting is documented, because it is enforced', () => {
@@ -646,7 +646,7 @@ test('tips: Home\'s ward is documented, rout and all', () => {
   assert.truthy(tip, 'Home warding enemies is invisible and derived — Book or nowhere');
   assert.truthy(/cannot bite/i.test(tip),
     'the ward switches the bite off, which is the half that makes it a ward');
-  assert.truthy(/runs clear off the screen/i.test(tip),
+  assert.truthy(/runs until it is out of sight/i.test(tip),
     'and striking a warded foe routes it to the sim bubble edge');
   // No number is quoted, on purpose: the ring is HOME_R and the rout is
   // CREATURE_SIM_CELLS, and a player reads both off the picture (the lit

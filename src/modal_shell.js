@@ -470,6 +470,10 @@ class SceneModals {
       // credits the step one line BEFORE it opens the reward modal, so at that
       // point no modal exists and none of this class's state has been updated
       // for the one that is about to. One frame later it has.
+      // A cheer that waited out a dialog lost its toast: the dialog already
+      // said it (the Restored! card names the rebuild), so a second notice
+      // after it closes is noise. See _playStarterCheer.
+      if (any && this._pendingStarterCheers?.length) this._starterCheerBehindDialog = true;
       if (!any) this._flushStarterCheers();
     };
     this._modalPadObserver = new MutationObserver(sync);

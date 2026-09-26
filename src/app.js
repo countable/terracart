@@ -8337,12 +8337,16 @@ class MapScene extends Phaser.Scene {
     // Own try/catch: this is also called from _installModalPadGate's
     // MutationObserver callback, which runs outside update()'s guard — a throw
     // escaping from a microtask there is uncatchable by the game loop.
-    try { this._playStarterCheer(queued[queued.length - 1]); }
+    const quiet = !!this._starterCheerBehindDialog;
+    this._starterCheerBehindDialog = false;
+    try { this._playStarterCheer(queued[queued.length - 1], { quiet }); }
     catch (e) { this._reportLoopError?.(e); }
   }
 
-  _playStarterCheer(done) {
-    this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +${done.reward.money}` : ''}`, '#a7ffb0', 1.3);
+  // `quiet`: the step completed behind a dialog, which was the notice — the
+  // chip still holds the green ✓, but no toast repeats it.
+  _playStarterCheer(done, { quiet = false } = {}) {
+    if (!quiet) this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +${done.reward.money}` : ''}`, '#a7ffb0', 1.3);
     // Hold the COMPLETED step on screen in green for a beat before swapping in
     // the next one, so finishing something is legible instead of an instant
     // relabel. The held text is written from `done` rather than left as
@@ -8593,7 +8597,7 @@ class MapScene extends Phaser.Scene {
     this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
     return this._finishConsumable(
       `✨ You ${opts.channel ? 'channel' : 'drink'} the Potion of Reach`,
-      'The whole world snaps into reach — for one minute, everything on screen is yours to touch.',
+      'The whole world snaps into reach — for one minute, everything in sight is yours to touch.',
       opts,
     );
   }
@@ -13952,7 +13956,7 @@ class MapScene extends Phaser.Scene {
     const CONSUMABLE = {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       honey: { verb: 'Use',  method: 'useHoney',  title: 'Set out the honey?', get: '🍯 lure nearby chickens & cows' },
-      reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: `✨ full-screen reach for ${shortDuration(REACH_POTION_MS)}`, channel: true },
+      reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: `✨ reach anything in sight for ${shortDuration(REACH_POTION_MS)}`, channel: true },
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `tier-${SPEED_POTION_AMULET_TIER} amulet walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: `half monster damage for ${shortDuration(SHIELD_POTION_MS)}`, channel: true },

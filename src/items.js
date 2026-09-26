@@ -1032,7 +1032,7 @@ const ITEM_GUIDE_TIPS = {
 // a third of their chests. That is what makes this list worth keeping honest.
 const PLAY_TIPS = [
   // ── The first ten minutes — you cannot act without these ────
-  'Actions cost energy. Eat to refill — or just rest; an hour away from the game hands the whole bar back.',
+  'Actions cost energy. Eat to refill — or just rest; an hour away hands the whole bar back.',
   'Hard mode is harsher on an empty tank: food, a campfire and time away all stop working. Only your trailer, a Crow Feather or a revival potion will put you back on your feet.',
   ITEM_GUIDE_TIPS.crow_feather,
   'Only your OWN home rests you — a full bar in fifty seconds. A stranger\'s roof is just a roof.',
@@ -1064,7 +1064,7 @@ const PLAY_TIPS = [
   // swing turns it into is actionable the moment the pest tip above is.
   'Strike a slime and it stops meandering: for eight seconds it comes straight at you, and a pet\'s bite provokes it just the same. Home\'s circle and a lit fire still turn it back.',
   'Swinging reaches one cell — exactly as far as a monster\'s bite. Your light reaches further, but only for work: closing in is what a fight costs.',
-  'Your home turns enemies away inside its circle, and they cannot bite while they go. Strike one there and it does not merely leave — it runs clear off the screen.',
+  'Your home turns enemies away inside its circle, and they cannot bite while they go. Strike one there and it does not merely leave — it runs until it is out of sight.',
   'Every new food you taste for the first time raises your maximum energy by its tier, for good — the rarer the food, the bigger the gain.',
   'A job one tier past your equipment is not refused outright: you can grind it out for 15\u26a1 and half a minute. Two tiers short is a flat no.',
   // ── What is already lying around — chests, X marks, foraging ───
@@ -1120,7 +1120,7 @@ const PLAY_TIPS = [
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
   'Anything hostile you put down drops its pay as one coin where it fell — about a coin per 5 hit points, a little more for every level down. Walk over and pick it up.',
-  'Towers on a castle you have CLAIMED fight on your side: any on screen looses an arrow at the nearest foe, at a fifth of your own rate, and a foe that strays near its walls turns and runs, as it would from Home. A tower\'s kill leaves its coin and nothing more. An unclaimed castle\'s walls stay silent.',
+  'Towers on a castle you have CLAIMED fight on your side: any in sight looses an arrow at the nearest foe, at a fifth of your own rate, and a foe that strays near its walls turns and runs, as it would from Home. A tower\'s kill leaves its coin and nothing more. An unclaimed castle\'s walls stay silent.',
   // ── Underground, which you go looking for ───────────────────
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
   ITEM_GUIDE_TIPS.torch,
@@ -1196,7 +1196,7 @@ const ITEM_EFFECTS = {
   // Consumables used on yourself / the world.
   honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',
-  reach_potion:  'Drink for full-screen reach (1 min)',
+  reach_potion:  'Drink to reach anything in sight (1 min)',
   vigor_potion:  'Drink to restore 40 energy',
   speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
