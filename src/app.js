@@ -1556,8 +1556,9 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 `;
 // The ROAD chip (_buildRoadChip): the road-repair ladder at a glance — a tiny
 // SVG strip of road that IS the progress bar (worn asphalt, repaved from the
-// left as metres bank toward the next prize), with the metres still to go in
-// small type under it (Trail.progress, the counter's own numbers). Same shared
+// left as metres bank toward the next prize — the CURRENT rung only), with the
+// TOTAL road restored in small type under it (Trail.totalMetres through
+// Trail.distanceLabel: 1.5km, 26km). Same shared
 // chip box as the memories chip beside it.
 const ROAD_CHIP_CSS = `
 #roadchip {
@@ -12156,8 +12157,8 @@ class MapScene extends Phaser.Scene {
       el.id = 'roadchip';
       el.setAttribute('role', 'button');
       el.setAttribute('aria-label', 'Road repair');
-      // The road strip is the bar; the metres to go sit small beneath it.
-      el.innerHTML = ROAD_CHIP_SVG + '<span class="road-num">0m</span>';
+      // The road strip is the bar; the total restored sits small beneath it.
+      el.innerHTML = ROAD_CHIP_SVG + '<span class="road-num">0km</span>';
       for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
         el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
       el.addEventListener('click', (e) => { e.stopPropagation(); this._showRoadChipHelp(); });
@@ -12181,17 +12182,21 @@ class MapScene extends Phaser.Scene {
     const el = this.roadChipEl;
     if (!el || typeof Trail === 'undefined') return;
     const p = this.roadChipProgress();
-    const pos = Math.floor(p.pos), key = pos + '|' + p.target;
+    const st = this.save?.trail || { metres: 0, prizes: 0 };
+    const total = Trail.distanceLabel(Trail.totalMetres(st.metres, st.prizes, this.save?.playerClass));
+    const pos = Math.floor(p.pos), key = pos + '|' + p.target + '|' + total;
     if (this._roadChipDOM === key) return;
     this._roadChipDOM = key;
+    // The bar is THIS rung: metres banked toward the next prize.
     const clip = el.querySelector('.road-clip');
     const frac = Math.min(1, Math.max(0, pos / Math.max(1, p.target)));
     if (clip) clip.setAttribute('width', (ROAD_CHIP_W * frac).toFixed(1));
-    // Just the metres still to go: the bar already shows the fraction, and a
-    // full "1200/2000m" pushed the top row into the ☰ button on a 375px phone.
+    // The number is the whole walk: every metre restored, 2 significant
+    // figures in km. The bar already shows the rung, and a full
+    // "1200/2000m" pushed the top row into the ☰ button on a 375px phone.
     const num = el.querySelector('.road-num');
-    if (num) num.textContent = `${Math.max(0, Math.ceil(p.target - pos))}m`;
-    el.title = `Road repair: ${pos} of ${p.target} m to the next prize`;
+    if (num) num.textContent = total;
+    el.title = `Road repair: ${total} fixed · ${pos} of ${p.target} m to the next prize`;
   }
 
   _showRoadChipHelp() {
