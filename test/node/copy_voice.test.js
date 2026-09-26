@@ -127,10 +127,12 @@ function firstArgLiterals(src, callName) {
   }
   return out;
 }
-// Every static flash literal in the three files that own player-facing taps.
+// Every static flash literal in the files that own player-facing taps (and
+// scene_geo.js, which carries the GPS-off toast moved out of app.js).
 function mapMessages() {
   const out = [];
-  const files = { 'app.js': APP_JS_SRC, 'interact.js': INTERACT_SRC, 'interactables.js': INTERACTABLES_SRC };
+  const files = { 'app.js': APP_JS_SRC, 'scene_geo.js': SCENE_GEO_SRC,
+                  'interact.js': INTERACT_SRC, 'interactables.js': INTERACTABLES_SRC };
   for (const [name, src] of Object.entries(files)) {
     for (const raw of firstArgLiterals(src, 'flash')) out.push({ file: name, raw });
     for (const raw of firstArgLiterals(src, 'flashLoot')) out.push({ file: name, raw });

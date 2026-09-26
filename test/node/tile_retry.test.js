@@ -1,4 +1,4 @@
-// Re-fetching a 3×3 tile block that came back short (app.js
+// Re-fetching a 3×3 tile block that came back short (scene_geo.js
 // _scheduleTileRetry, armed from ensureTilesAround).
 //
 // THE BUG THIS PINS: nothing re-fetched it. The only automatic re-fetch in the

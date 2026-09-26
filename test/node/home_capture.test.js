@@ -2,7 +2,7 @@
 // permanent origin (app.js _worldPlaced + PROVISIONAL_ORIGIN_KEYS).
 //
 // A brand-new save has no origin until the player's first fix arrives. The
-// world can't wait forever, so a 2-minute safety net in startGps unblocks
+// world can't wait forever, so a 2-minute safety net in startGps (scene_geo.js) unblocks
 // PLACEMENT at the default origin — but the ADOPTION deliberately stays armed,
 // so a fix that finally lands at three minutes (a cold start indoors, a new
 // install, a permission dialog left sitting) still anchors the save where the

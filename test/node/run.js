@@ -118,6 +118,10 @@ const FILES = [
   // body, installSceneMixin) must load with no app.js in scope — it is
   // loaded before app.js in the page too.
   'modal_shell.js',
+  // The scene's geography (GPS / sensors / lifecycle, the 3x3 tile loading
+  // and its retry): again a mixin class nobody runs here plus four consts,
+  // loaded with no app.js in scope, as in the page.
+  'scene_geo.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
@@ -618,9 +622,10 @@ Object.assign(ctx, {
     console.error('Could not find PROVISIONAL_ORIGIN_KEYS in src/app.js — update run.js');
     process.exit(2);
   }
-  // The capture path's own clearing line, so the test can pin that it clears
-  // the SAME list _worldPlaced skips rather than a hand-written subset.
-  const clear = src.match(/for \(const k of PROVISIONAL_ORIGIN_KEYS\) this\.save\[k\] = null;/);
+  // The capture path's own clearing line (startGps, scene_geo.js), so the
+  // test can pin that it clears the SAME list _worldPlaced skips rather than
+  // a hand-written subset.
+  const clear = readSrc('scene_geo.js').match(/for \(const k of PROVISIONAL_ORIGIN_KEYS\) this\.save\[k\] = null;/);
   if (!clear) {
     console.error('The home-capture path no longer clears PROVISIONAL_ORIGIN_KEYS — update run.js');
     process.exit(2);
@@ -683,14 +688,15 @@ Object.assign(ctx, {
 // The tile-block retry backoff (_scheduleTileRetry). Nothing re-fetched a 3x3
 // block that came back short, so one bad moment at boot left a brand-new
 // player on an empty map for good — see tile_retry.test.js. Pure timer logic,
-// but it lives on the Phaser scene class, so lift it as text with the two
-// constants it reads and let the test drive the real thing.
+// but it lives on the Phaser scene class (the SceneGeo mixin, scene_geo.js),
+// so lift it as text with the two constants it reads and let the test drive
+// the real thing.
 {
-  const src = readSrc('app.js');
+  const src = readSrc('scene_geo.js');
   const head = '  _scheduleTileRetry(anyFailed) {\n';
   const at = src.indexOf(head);
   if (at < 0) {
-    console.error('Could not find _scheduleTileRetry in src/app.js — update run.js');
+    console.error('Could not find _scheduleTileRetry in src/scene_geo.js — update run.js');
     process.exit(2);
   }
   const bodyStart = at + head.length;
@@ -705,11 +711,11 @@ Object.assign(ctx, {
     console.error('ensureTilesAround no longer arms _scheduleTileRetry — update run.js');
     process.exit(2);
   }
-  let decls = '';
+  // The two consts are already lexical globals here (scene_geo.js is in the
+  // bundle above), so they are checked, not re-declared.
   for (const n of ['TILE_RETRY_BASE_MS', 'TILE_RETRY_MAX_MS']) {
     const m = src.match(new RegExp(`const ${n} = (\\d+);`));
-    if (!m) { console.error(`Could not find ${n} in src/app.js — update run.js`); process.exit(2); }
-    decls += `const ${n} = ${m[1]};\n`;
+    if (!m) { console.error(`Could not find ${n} in src/scene_geo.js — update run.js`); process.exit(2); }
     ctx[n] = parseInt(m[1], 10);
   }
   // ...and the classifier that decides WHICH of the three a tile failure was.
@@ -718,7 +724,7 @@ Object.assign(ctx, {
   const kindHead = '  _tileFailureKind(err, entry) {\n';
   const kindAt = src.indexOf(kindHead);
   if (kindAt < 0) {
-    console.error('Could not find _tileFailureKind in src/app.js — update run.js');
+    console.error('Could not find _tileFailureKind in src/scene_geo.js — update run.js');
     process.exit(2);
   }
   const kindEnd = src.indexOf('\n  }\n', kindAt + kindHead.length);
@@ -737,8 +743,7 @@ Object.assign(ctx, {
     }
   }
   vm.runInContext(
-    decls
-    + 'globalThis.TILE_RETRY_BASE_MS = TILE_RETRY_BASE_MS;\n'
+    'globalThis.TILE_RETRY_BASE_MS = TILE_RETRY_BASE_MS;\n'
     + 'globalThis.TILE_RETRY_MAX_MS = TILE_RETRY_MAX_MS;\n'
     + 'globalThis.scheduleTileRetry = function (anyFailed) {\n'
     + src.slice(bodyStart, end) + '\n};\n'
@@ -987,8 +992,8 @@ Object.assign(ctx, {
     }
     return src.slice(from, end);
   };
-  // The two lines in _ensureTilesAroundPass that decide whether to spawn.
-  ctx.SPAWN_GATE_SRC = slice(appSrc,
+  // The two lines in _ensureTilesAroundPass (scene_geo.js) that decide whether to spawn.
+  ctx.SPAWN_GATE_SRC = slice(readSrc('scene_geo.js'),
     '        // Surface fauna on depth 0; hostile wandering monsters underground.\n',
     '\n        // Re-open any walls', 'the spawn gate');
   ctx.SPAWN_IN_TILE_SRC      = slice(appSrc, '  spawnInTile(entry, tx, ty) {\n', '\n  _pestFreeZone', 'spawnInTile');
@@ -1146,6 +1151,9 @@ ctx.APP_JS_SRC = readSrc('app.js');
 // The modal shell (makeModalShell and the stock dialogs, MODAL_KINDS, the
 // scene-art frame consts) moved out of app.js; tests that pin it read this.
 ctx.MODAL_SHELL_SRC = readSrc('modal_shell.js');
+// The scene's geography (startGps & the sensors / lifecycle, ensureTilesAround
+// and the tile retry, dumpTileDebug) moved out of app.js too.
+ctx.SCENE_GEO_SRC = readSrc('scene_geo.js');
 // Every module's text, for sweeps across the whole tree (lexical_globals.test.js).
 ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   .filter(f => f.endsWith('.js')).map(f => [f, readSrc(f)]));

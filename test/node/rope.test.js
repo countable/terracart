@@ -117,7 +117,7 @@ test('rope: the landing cell is stamped into dugWalls at the TARGET depth, befor
     'stamped before changeDepth, so the ensureTilesAround it triggers re-applies it');
   // And the re-apply really does run on every pass, cached tile or fresh —
   // otherwise a stamp on an already-loaded level would open nothing.
-  assert.truthy(/if \(this\.depth > 0\) \{\n\s*this\._applyDugWalls\(entry, tx, ty\);/.test(app),
+  assert.truthy(/if \(this\.depth > 0\) \{\n\s*this\._applyDugWalls\(entry, tx, ty\);/.test(SCENE_GEO_SRC),
     '_applyDugWalls runs in the ensureTilesAround loop for every underground tile');
 });
 })();

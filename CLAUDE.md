@@ -96,7 +96,8 @@ the mechanic.
   through `coords.js` › `viewAnchorWorldM` / `viewAnchorCell` (or
   `worldMetersToScreen` / `screenToWorldMeters` / `cellScreenXY`); **"where
   IS the player?"** uses `playerM` / `playerToWorldCell()` — reach, every tap
-  gate, fog reveal, tile loading, the 3×3 tile scans. Anything drawn AT the
+  gate, fog reveal, tile loading (`scene_geo.js` › `ensureTilesAround`), the
+  3×3 tile scans. Anything drawn AT the
   player (sprite, shadow, halo, facing arrow, swing) reads
   `scene.playerScreen()`, never `viewCenterX/Y`. **When you add a
   world-drawn layer, anchor it; when you add a reach or gate test, don't.**
@@ -349,7 +350,8 @@ the mechanic.
 - **A tile can be REBUILT under you, and a rebuilt entry is a NEW object.**
   `rebuildTileWithBin` swaps in a replacement carrying only live `creatures`
   and `coinDrops`; any other state hung on the old entry is gone and
-  `spawnInTile` must run again. That pass is gated on **`entry._spawned`**, a
+  `spawnInTile` must run again. That pass is gated on **`entry._spawned`** (in
+  `scene_geo.js` › `_ensureTilesAroundPass`), a
   flag the rebuild does NOT carry — never on carried state (gating on
   `entry.creatures` made spawns vanish until refresh). **When you put
   per-session state on a tile entry, decide what a rebuild does with it**:
