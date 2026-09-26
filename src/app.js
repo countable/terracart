@@ -7756,8 +7756,8 @@ class MapScene extends Phaser.Scene {
   // save is revived at Home (update()'s hard-mode lockout lift) — out cold,
   // found by villagers, back at Home. Once per save, in the story ledger
   // under 'revive'; a busy screen leaves it unmarked for the next revival,
-  // the _storySplashOnce rule. Nothing it says is a new mechanic: the
-  // quarter bar is Energy.REVIVE_FRAC, read off the module that grants it.
+  // the _storySplashOnce rule. It tells no numbers: the energy the revival
+  // gave is the on-screen pop's (_splashEnergyGain), not the story's.
   _reviveStoryboard() {
     const seen = this.save.storySeen = this.save.storySeen || {};
     if (seen.revive) return;
@@ -7765,11 +7765,12 @@ class MapScene extends Phaser.Scene {
     if (document.body?.classList?.contains('modal-open')) return;
     seen.revive = 1;
     persistSave(this.save);
-    const pct = Math.round(Energy.REVIVE_FRAC * 100);
     const PANELS = [
       { art: 'revive_fall',  title: 'Out cold', body: 'Your legs gave out, and the world went dark.' },
       { art: 'revive_found', title: 'Found',    body: 'Lantern light. Villagers lift you and help you home.' },
-      { art: 'revive_wake',  title: 'Home',     body: `You come to by the fire with ${pct}% of your strength back.` },
+      // The carer is the villager revive_wake draws; they say nothing, which
+      // is the point. What the revival GAVE is the energy pop's to say.
+      { art: 'revive_wake',  title: 'Home',     body: 'You wake in the care of a grizzled farmhand. They are silent, bid you farewell with a nod.' },
     ];
     const show = (i) => this.showMessageModal({
       ...PANELS[i], kind: 'story',

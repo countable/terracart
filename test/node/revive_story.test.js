@@ -36,7 +36,8 @@ test('revive story: three panels in order, Next between them, once per save', ()
     s.modals[1].onDismiss();
     assert.eq(s.modals[2].art, 'revive_wake');
     assert.eq(s.modals[2].okLabel, 'OK');
-    assert.truthy(/25% of your strength/.test(s.modals[2].body), 'the quarter bar, read off Energy.REVIVE_FRAC');
+    assert.truthy(/^You wake in the care of /.test(s.modals[2].body), 'a silent carer');
+    assert.falsy(/\d|%|energy|strength/i.test(s.modals[2].body), 'no numbers — the energy pop says what was restored');
     assert.eq(s.modals[2].onDismiss, undefined, 'the last panel ends it');
     for (const m of s.modals) assert.eq(m.kind, 'story');
     s._reviveStoryboard();
