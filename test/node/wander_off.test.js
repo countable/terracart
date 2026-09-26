@@ -17,8 +17,9 @@
 (function () {
 const app = APP_JS_SRC;
 const numOf = (name) => {
-  const m = app.match(new RegExp(`\\nconst ${name} = ([-\\d.]+);`));
-  if (!m) throw new Error(`no const ${name} in app.js`);
+  // The wander-off consts live in creature_ai.js; CREATURE_SIM_CELLS too.
+  const m = (app + '\n' + CREATURE_AI_SRC).match(new RegExp(`\\nconst ${name} = ([-\\d.]+);`));
+  if (!m) throw new Error(`no const ${name} in app.js / creature_ai.js`);
   return +m[1];
 };
 const MIN_MS = numOf('WANDER_OFF_MIN_MS');
@@ -184,7 +185,7 @@ test('wander-off: each kind retreats its own fraction of the range (default a fu
   const c = { kind: 'goblin', _wanderOffInMs: 1, _wanderOffSimT: 1e6 };
   withRandom(0, () => assert.truthy(W(c, 1e6 + 250, 0, CELL), 'starts'));
   assert.inRange(c._wanderOffDistM, RANGE * 0.5 - 1e-6, RANGE * 0.5 + 1e-6, 'range × retreat × 1');
-  assert.truthy(/Combat\.retreatMul\(c\.kind\)/.test(APP_JS_SRC), 'the distance reads the kind\'s row');
+  assert.truthy(/Combat\.retreatMul\(c\.kind\)/.test(CREATURE_AI_SRC), 'the distance reads the kind\'s row');
 });
 
 })();

@@ -38,10 +38,10 @@ test('thunder potion: enemies in SIGHT, through _damageEnemy, the rest routed', 
 });
 
 test('thunder potion: the retreat is the wander-off, to the usual random range', () => {
-  const rout = eval('(' + app.match(/function monsterRout\(c, now, cellM\) \{[\s\S]*?\n\}/)[0] + ')');
+  const rout = eval('(' + CREATURE_AI_SRC.match(/function monsterRout\(c, now, cellM\) \{[\s\S]*?\n\}/)[0] + ')');
   const g = globalThis;
   // monsterRout reads these module constants; lift their values.
-  const num = (k) => Number(app.match(new RegExp(`const ${k} = ([^;]+);`))[1].replace(/\s*\*\s*/g, '*').split('*').reduce((a, b) => a * Number(b), 1));
+  const num = (k) => Number(CREATURE_AI_SRC.match(new RegExp(`const ${k} = ([^;]+);`))[1].replace(/\s*\*\s*/g, '*').split('*').reduce((a, b) => a * Number(b), 1));
   g.WANDER_OFF_TIMEOUT_MS = g.WANDER_OFF_TIMEOUT_MS ?? num('WANDER_OFF_TIMEOUT_MS');
   g.CREATURE_SIM_CELLS = g.CREATURE_SIM_CELLS ?? num('CREATURE_SIM_CELLS');
   g.WANDER_OFF_MAX_MUL = g.WANDER_OFF_MAX_MUL ?? num('WANDER_OFF_MAX_MUL');
@@ -52,7 +52,7 @@ test('thunder potion: the retreat is the wander-off, to the usual random range',
   assert.truthy(c._wanderOffDistM >= edge && c._wanderOffDistM <= edge * g.WANDER_OFF_MAX_MUL,
     'out past the sim bubble\'s edge, by the usual random margin');
   assert.eq(c._nextChooseT, 1000, 'turning now, not finishing a hop at the player');
-  assert.truthy(/if \(c\._wanderOffInMs > 0\) return false;\s*\n\s*monsterRout\(c, now, cellM\);/.test(app),
+  assert.truthy(/if \(c\._wanderOffInMs > 0\) return false;\s*\n\s*monsterRout\(c, now, cellM\);/.test(CREATURE_AI_SRC),
     'the scheduled wander-off starts through the same function');
 });
 })();

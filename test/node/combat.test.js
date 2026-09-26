@@ -174,8 +174,9 @@ test('combat: the surface slime oozes slowly enough to walk away from', () => {
   // Derived from the two gait constants and the base wander beat rather than
   // pinned, so retuning either shows up here as a speed, not a diff.
   const app = APP_JS_SRC;
-  const mul = Number(/const SLIME_STEP_MUL = ([\d.]+);/.exec(app)?.[1]);
-  const hop = Number(/const SLIME_HOP_CELLS = ([\d.]+);/.exec(app)?.[1]);
+  // The gait constants live in creature_ai.js; the loop that reads them in app.js.
+  const mul = Number(/const SLIME_STEP_MUL = ([\d.]+);/.exec(CREATURE_AI_SRC)?.[1]);
+  const hop = Number(/const SLIME_HOP_CELLS = ([\d.]+);/.exec(CREATURE_AI_SRC)?.[1]);
   const beat = Number(/const STEP_MS = (\d+);/.exec(app)?.[1]);
   assert.truthy(mul > 0 && hop > 0 && beat > 0, 'the gait constants are readable');
   assert.truthy(/c\.kind === 'slime' \? STEP_MS \* \(charging \? 1 : SLIME_STEP_MUL\)/.test(app),
@@ -211,12 +212,12 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
 
   // The state is DERIVED from the damage stamp both paths already set, so
   // "the player or their pet hit it" cannot drift from the damage itself.
-  const fn = /function slimeCharging\(c\) \{([\s\S]*?)\n\}/.exec(app);
+  const fn = /function slimeCharging\(c\) \{([\s\S]*?)\n\}/.exec(CREATURE_AI_SRC);
   assert.truthy(fn, 'slimeCharging is there to read');
   assert.truthy(/_lastDamagedT/.test(fn[1]),
     'it reads the one damage stamp, not a second aggro flag');
   assert.truthy(/STRUCK_REACTION_MS/.test(fn[1]), 'and the shared reaction window');
-  const win = Number(/const STRUCK_REACTION_MS = (\d+);/.exec(app)?.[1]);
+  const win = Number(/const STRUCK_REACTION_MS = (\d+);/.exec(CREATURE_AI_SRC)?.[1]);
   const beat = Number(/const STEP_MS = (\d+);/.exec(app)?.[1]);
   assert.gt(win, beat, 'a reaction must outlast the wander step it interrupts');
 
