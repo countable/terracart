@@ -185,22 +185,49 @@ class SceneModals {
     // art's line, so the content region always sits on near-solid ground.
     // The box itself stops scrolling — the body does (see mount()). `band`
     // lifts the painting so only its subject line shows (THE BAND).
+    //
+    // PIXEL RESOLVE. The painting is a request; its thumbnail (ART_THUMBS,
+    // src/art_thumbs.js — a 22×28 inline WebP) is not. So the BOX wears the
+    // thumbnail, drawn pixelated — a chunky mosaic of the scene the instant
+    // the dialog opens — and the full painting rides a layer of its own over
+    // it that fades in once the image has loaded. A cached painting skips the
+    // fade and is simply there. Both layers carry the same scrim, so the copy
+    // sits on the same ground before and after.
+    const artLayer = art ? document.createElement('div') : null;
     const paintScene = (band) => {
       const line = Math.round((band ? ART_BAND_FRAC : ART_DETAIL_FRAC) * 100);
-      box.style.backgroundImage =
-        `linear-gradient(to bottom, rgba(26,22,18,0) ${line - 8}%, rgba(26,22,18,.82) ${line + 6}%, #1a1612 ${line + 22}%),` +
-        `url(assets/art/${art}.webp)`;
-      box.style.backgroundSize = '100% 100%, cover';
-      box.style.backgroundPosition = band
+      const scrim =
+        `linear-gradient(to bottom, rgba(26,22,18,0) ${line - 8}%, rgba(26,22,18,.82) ${line + 6}%, #1a1612 ${line + 22}%)`;
+      const pos = band
         ? `center, center ${-Math.round(ART_BAND_FROM * vSize / ART_FRAME_ASPECT)}px`
         : 'center, center top';
-      box.style.backgroundRepeat = 'no-repeat';
-      box.style.imageRendering = 'pixelated';
+      const thumb = (typeof ART_THUMBS !== 'undefined') && ART_THUMBS[art];
+      for (const [el, img] of [[box, thumb], [artLayer, `assets/art/${art}.webp`]]) {
+        el.style.backgroundImage = img ? `${scrim}, url(${img})` : scrim;
+        el.style.backgroundSize = '100% 100%, cover';
+        el.style.backgroundPosition = pos;
+        el.style.backgroundRepeat = 'no-repeat';
+        el.style.imageRendering = 'pixelated';
+      }
       box.style.overflow = 'hidden';
       box.classList.add('modal-scene');
       box.classList.toggle('modal-scene-band', !!band);
     };
-    if (art) paintScene(false);
+    if (art) {
+      artLayer.className = 'modal-art';
+      artLayer.style.cssText =
+        'position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;';
+      paintScene(false);
+      const img = new Image();
+      img.src = `assets/art/${art}.webp`;
+      if (img.complete) {
+        artLayer.style.opacity = '1';
+      } else {
+        artLayer.style.opacity = '0';
+        artLayer.style.transition = 'opacity 420ms ease-out';
+        img.onload = () => { artLayer.style.opacity = '1'; };
+      }
+    }
     if (onClose !== undefined) {
       wrap.addEventListener('click', (e) => { if (e.target === wrap) { wrap.remove(); onClose?.(); } });
     }
@@ -283,10 +310,13 @@ class SceneModals {
         // THE CONTENT REGION of a scene dialog: bottom-anchored, capped at the
         // quiet zone, scrolling inside it when the copy is long.
         ? `margin-top:auto;flex:0 1 auto;max-height:${Math.round((1 - ART_DETAIL_FRAC) * 100)}%;` +
-          'overflow-y:auto;overscroll-behavior:contain;text-shadow:0 1px 2px #000;'
+          'overflow-y:auto;overscroll-behavior:contain;text-shadow:0 1px 2px #000;' +
+          // Above the painting layer (PIXEL RESOLVE), which is absolute.
+          'position:relative;z-index:1;'
         : 'margin:auto 0;flex:0 0 auto;';
       while (box.firstChild) body.appendChild(box.firstChild);
       box.appendChild(body);
+      if (artLayer) box.insertBefore(artLayer, box.firstChild);
       if (kindNode) { kindNode.style.flex = '0 0 auto'; box.insertBefore(kindNode, box.firstChild); }
       // The ENTRANCE (index.html .modal-anim): the backdrop fades in and the
       // box pops up from a touch smaller and lower. Only when nothing was on
