@@ -10149,7 +10149,6 @@ class MapScene extends Phaser.Scene {
     }
     return out;
   }
-  }
 
   // --- Movement collision & level transitions ---
   // True if the cell at world point (wmx,wmy) is a solid cave wall. Unloaded
