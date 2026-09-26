@@ -502,6 +502,26 @@
     return contextKey.startsWith('chest:') && (opts?.depth || 0) > 0
       && ((opts?.tier) || 2) <= CAVE_SUPPLY_MAX_TIER;
   }
+  // THE DEEP HOARD — the same overlay for a cave chest ABOVE the supply tiers
+  // (T3+, the ones depth promotes): what a deep chest is known for is the
+  // good stuff — potions, powders and gems. Consumables and minerals are
+  // added to the row's classes, and when one comes up the favourite set is
+  // drawn `p` of the time, TIER-CAPPED (`tierCapped`: only members at or
+  // under the rolled tier), so a T3 chest leans to potions and powders and a
+  // gem arrives only where its tier does — a sapphire from T4, a diamond at T7.
+  const CAVE_DEEP_SKEW = {
+    classAdd:  { consumable: 0.25, mineral: 0.25 },
+    favourite: { p: 0.75, tierCapped: true, ids: {
+      vigor_potion: 1, shield_potion: 1, reach_potion: 1, speed_potion: 1,
+      revive_potion: 1, blight_potion: 1, thunder_potion: 1, resurrection_potion: 1,
+      growth_powder: 1, shadow_powder: 1, dragon_powder: 1, frost_powder: 1,
+      sapphire: 1, ruby: 1, emerald: 1, diamond: 1,
+    } },
+  };
+  function caveDeepApplies(contextKey, opts) {
+    return contextKey.startsWith('chest:') && (opts?.depth || 0) > 0
+      && ((opts?.tier) || 2) > CAVE_SUPPLY_MAX_TIER;
+  }
 
   function pickReward(contextKey, save, rng, opts) {
     rng = rng || Math.random;
@@ -517,10 +537,12 @@
         || RARITY_TUNING.chestTierMod?.[2] || {};
       ctx = { ...baseCtx, ...mod };
     }
-    if (caveSupplyApplies(contextKey, opts)) {
+    const caveSkew = caveSupplyApplies(contextKey, opts) ? CAVE_SUPPLY_SKEW
+      : caveDeepApplies(contextKey, opts) ? CAVE_DEEP_SKEW : null;
+    if (caveSkew) {
       const classBias = { ...ctx.classBias };
-      for (const [c, w] of Object.entries(CAVE_SUPPLY_SKEW.classAdd)) classBias[c] = (classBias[c] || 0) + w;
-      ctx = { ...ctx, classBias, favourite: CAVE_SUPPLY_SKEW.favourite };
+      for (const [c, w] of Object.entries(caveSkew.classAdd)) classBias[c] = (classBias[c] || 0) + w;
+      ctx = { ...ctx, classBias, favourite: caveSkew.favourite };
     }
 
     // 1) Pick class. If the context's relicCap is 0, scrub the relic weight so
@@ -693,7 +715,8 @@
     let favId = null;
     if (fav) {
       const cand = fav.ids
-        ? Object.entries(fav.ids).filter(([k]) => _ITEM_BY_ID[k]?.kind === cls)
+        ? Object.entries(fav.ids).filter(([k]) => _ITEM_BY_ID[k]?.kind === cls
+            && (!fav.tierCapped || (_ITEM_BY_ID[k]?.baseTier ?? 1) <= tier))
         : (_ITEM_BY_ID[fav.id]?.kind === cls ? [[fav.id, 1]] : []);
       if (cand.length && rng() < (fav.p ?? 0)) {
         favId = cand.length === 1 ? cand[0][0] : weightedPick(Object.fromEntries(cand), rng);
@@ -775,6 +798,7 @@
   global.BUNDLE_IDS             = BUNDLE_IDS;
   global.LOOT_CONTEXTS          = LOOT_CONTEXTS;
   global.CAVE_SUPPLY_SKEW       = CAVE_SUPPLY_SKEW;
+  global.CAVE_DEEP_SKEW         = CAVE_DEEP_SKEW;
   global.ITEMS_BY_CLASS_TIER    = ITEMS_BY_CLASS_TIER;
   global.pickReward             = pickReward;
   global.reconcileRelicOffer    = reconcileRelicOffer;

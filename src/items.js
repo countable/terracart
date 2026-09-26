@@ -1041,6 +1041,7 @@ const PLAY_TIPS = [
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
   'A chest mirrored underground climbs a tier every two levels down, to a gold gem no surface chest ever wears.',
   'The shallow chests underground are packed for the dark: more coin, torches, rope and potions than their twins overhead.',
+  'The deeper chests underground hoard instead: potions, powders, and — once they run rich enough — gems.',
   'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
   'Every monster has a giant form: four times the health, met two levels below its ordinary kind.',
   'One cave monster in ten is standing on a buried hoard.',

@@ -410,9 +410,65 @@ test('cave supplies: T1/T2 chests underground pay coin, torches, rope and potion
     assert.truthy(down.supply > up.supply * 2 && down.supply > 0.2,
       `T${tier}: supplies ${up.supply.toFixed(3)} → ${down.supply.toFixed(3)}`);
   }
-  // T3+ underground is untouched: the skew is for the shallow tiers only.
-  const t3up = rate(0, 3), t3down = rate(2, 3);
-  assert.truthy(Math.abs(t3up.cash - t3down.cash) < 0.03, 'T3 underground rolls like T3 on the surface');
+  // T3+ underground takes the DEEP hoard instead (below), not the supplies.
+  assert.truthy(rate(2, 3).supply < 0.2, 'a T3 cave chest is not a supply crate');
+});
+
+// The deep hoard: a cave chest above the supply tiers (T3+) leans to potions,
+// powders and gems, tier-capped so a gem only comes where its tier does.
+test('deep hoard: T3+ chests underground pay potions, powders and gems more often', () => {
+  const HOARD = new Set(Object.keys(CAVE_DEEP_SKEW.favourite.ids));
+  const rate = (depth, tier) => {
+    const rng = seeded(777 + depth * 11 + tier);
+    let n = 0; const N = 4000;
+    for (let i = 0; i < N; i++) {
+      const r = pickReward('chest:park', { relics: {}, armor: {} }, rng, { tier, depth });
+      if (r && r.kind === 'item' && HOARD.has(r.id)) n++;
+    }
+    return n / N;
+  };
+  for (const tier of [3, 4, 5]) {
+    const up = rate(0, tier), down = rate(2, tier);
+    assert.truthy(down > up * 2 && down > 0.2, `T${tier}: hoard ${up.toFixed(3)} → ${down.toFixed(3)}`);
+  }
+});
+
+test('deep hoard: tier-capped — at T3 it favours potions and powders, not gems', () => {
+  // Gems start at T4, so a T3 cave chest's favourite has none to offer: the
+  // hoard must not make gems any commoner there than on the surface (a jackpot
+  // can still lift the ordinary roll into one, exactly as it does up top).
+  const GEMS = new Set(['sapphire', 'ruby', 'emerald', 'diamond']);
+  const gemRate = (depth, tier) => {
+    const rng = seeded(31 + depth * 5 + tier);
+    let n = 0; const N = 6000;
+    for (let i = 0; i < N; i++) {
+      const r = pickReward('chest:civic', { relics: {}, armor: {} }, rng, { tier, depth });
+      if (r && r.kind === 'item' && GEMS.has(r.id)) n++;
+    }
+    return n / N;
+  };
+  // At T3 a gem only arrives when a jackpot lifts the roll to T4+, so it stays
+  // rare, and the hoard there is the potions and powders.
+  const t3down = gemRate(3, 3);
+  assert.lt(t3down, 0.03, `T3 gems ${t3down.toFixed(4)} stay rare`);
+  {
+    const rng = seeded(4040);
+    let cons = 0, all = 0;
+    for (let i = 0; i < 6000; i++) {
+      const r = pickReward('chest:civic', { relics: {}, armor: {} }, rng, { tier: 3, depth: 3 });
+      if (!r || r.kind !== 'item' || CAVE_DEEP_SKEW.favourite.ids[r.id] == null) continue;
+      all++;
+      if (ITEM_BY_ID[r.id].kind === 'consumable') cons++;
+    }
+    assert.gt(cons / all, 0.85, `T3 hoard is ${(100 * cons / all).toFixed(0)}% potions and powders`);
+  }
+  const t5up = gemRate(0, 5), t5down = gemRate(3, 5);
+  assert.truthy(t5down > t5up * 1.5, `T5 gems ${t5up.toFixed(4)} → ${t5down.toFixed(4)}: favoured where their tier is`);
+  for (const id of Object.keys(CAVE_DEEP_SKEW.favourite.ids)) {
+    assert.truthy(ITEM_BY_ID[id], `${id} is a real item`);
+    const k = ITEM_BY_ID[id].kind;
+    assert.truthy(k === 'consumable' || k === 'mineral', `${id} is a potion, powder or gem`);
+  }
 });
 
 test('cave supplies: the favourite set only ever pays a consumable', () => {
