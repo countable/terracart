@@ -32,3 +32,10 @@ test('energy chip: the readout has no denominator', () => {
   assert.truthy(/label\.textContent = `⚡\$\{cur\}`;/.test(APP_JS_SRC), 'just ⚡N');
   assert.truthy(!/⚡\$\{cur\}\/\$\{max\}/.test(APP_JS_SRC), 'no /max');
 });
+
+test('road chip: an SVG road strip is the bar, the number small beneath, no icon', () => {
+  const app = APP_JS_SRC;
+  assert.truthy(/el\.innerHTML = ROAD_CHIP_SVG \+ '<span class="road-num">0m<\/span>';/.test(app), 'strip then number');
+  assert.truthy(/clip\.setAttribute\('width', \(ROAD_CHIP_W \* frac\)/.test(app), 'the repave clip tracks the fraction');
+  assert.truthy(!/🛣/.test(app.slice(app.indexOf('_buildRoadChip() {'), app.indexOf('_showRoadChipHelp() {'))), 'no emoji icon');
+});

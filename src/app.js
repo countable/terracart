@@ -1537,29 +1537,43 @@ const MEMORIES_CHIP_CSS = `
 }
 body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 `;
-// The ROAD chip (_buildRoadChip): the road-repair ladder at a glance — a
-// road glyph, a thin bar filling toward the next prize, and the metres in
-// the counter's own words (Trail.progress). Same shared chip box as the
-// memories chip beside it; the bar wears the restored street's ink.
+// The ROAD chip (_buildRoadChip): the road-repair ladder at a glance — a tiny
+// SVG strip of road that IS the progress bar (worn asphalt, repaved from the
+// left as metres bank toward the next prize), with the metres still to go in
+// small type under it (Trail.progress, the counter's own numbers). Same shared
+// chip box as the memories chip beside it.
 const ROAD_CHIP_CSS = `
 #roadchip {
   box-sizing: border-box; position: relative;
-  height: var(--hud-chip-h); padding: var(--hud-chip-pad);
+  height: var(--hud-chip-h); padding: 0 5px;
   border: var(--hud-chip-rim) solid var(--ctl-rim); border-radius: 8px;
-  display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   background: var(--chrome-scuff), var(--chrome-panel); color: #e8e2d6;
-  font: 700 12px ui-monospace, monospace;
+  font: 700 9px ui-monospace, monospace;
   box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
 }
-#roadchip .road-num { line-height: 1; white-space: nowrap; pointer-events: none; }
-#roadchip .road-bar { height: 4px; border-radius: 2px; overflow: hidden; pointer-events: none;
-  background: var(--chrome-sunk); box-shadow: inset 0 1px 2px rgba(0,0,0,0.7); }
-#roadchip .road-fill { height: 100%; width: 0%; border-radius: 2px; background: #e8e2d6; }
+#roadchip svg { display: block; width: 40px; height: 12px; pointer-events: none; }
+#roadchip .road-num { line-height: 1; white-space: nowrap; pointer-events: none; opacity: 0.85; }
 body.modal-open #roadchip { opacity: 0.25; pointer-events: none; }
 `;
+// The strip itself: a worn band with a dim broken centre line, and over it the
+// same road repaved (light band, bright dashes, kerb lines) clipped to the
+// fraction done — updateRoadChipDOM moves only the clip rect's width.
+const ROAD_CHIP_W = 40;
+const ROAD_CHIP_SVG =
+  `<svg viewBox="0 0 ${ROAD_CHIP_W} 12" aria-hidden="true">`
+  + '<defs><clipPath id="roadchip-clip"><rect class="road-clip" x="0" y="0" width="0" height="12"/></clipPath></defs>'
+  + `<rect x="0.5" y="1.5" width="${ROAD_CHIP_W - 1}" height="9" rx="2" fill="#26211a" stroke="#000" stroke-opacity="0.6"/>`
+  + `<line x1="3" y1="6" x2="${ROAD_CHIP_W - 3}" y2="6" stroke="#4d4538" stroke-width="1" stroke-dasharray="3 3"/>`
+  + '<g clip-path="url(#roadchip-clip)">'
+  +   `<rect x="0.5" y="1.5" width="${ROAD_CHIP_W - 1}" height="9" rx="2" fill="#7a7160"/>`
+  +   `<line x1="1" y1="2.5" x2="${ROAD_CHIP_W - 1}" y2="2.5" stroke="#e8e2d6" stroke-opacity="0.7" stroke-width="1"/>`
+  +   `<line x1="1" y1="9.5" x2="${ROAD_CHIP_W - 1}" y2="9.5" stroke="#e8e2d6" stroke-opacity="0.7" stroke-width="1"/>`
+  +   `<line x1="3" y1="6" x2="${ROAD_CHIP_W - 3}" y2="6" stroke="#fff6d8" stroke-width="1.2" stroke-dasharray="3 3"/>`
+  + '</g></svg>';
 
 const ICON_SHEETS = {
   crops:       { url: 'assets/Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
@@ -12057,9 +12071,8 @@ class MapScene extends Phaser.Scene {
       el.id = 'roadchip';
       el.setAttribute('role', 'button');
       el.setAttribute('aria-label', 'Road repair');
-      // Stacked like the energy chip beside it: the readout over a thin bar.
-      el.innerHTML = '<span class="road-num">🛣0m</span>'
-        + '<span class="road-bar"><span class="road-fill"></span></span>';
+      // The road strip is the bar; the metres to go sit small beneath it.
+      el.innerHTML = ROAD_CHIP_SVG + '<span class="road-num">0m</span>';
       for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
         el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
       el.addEventListener('click', (e) => { e.stopPropagation(); this._showRoadChipHelp(); });
@@ -12086,12 +12099,13 @@ class MapScene extends Phaser.Scene {
     const pos = Math.floor(p.pos), key = pos + '|' + p.target;
     if (this._roadChipDOM === key) return;
     this._roadChipDOM = key;
-    const fill = el.querySelector('.road-fill');
-    if (fill) fill.style.width = `${Math.min(100, Math.round(100 * pos / Math.max(1, p.target)))}%`;
+    const clip = el.querySelector('.road-clip');
+    const frac = Math.min(1, Math.max(0, pos / Math.max(1, p.target)));
+    if (clip) clip.setAttribute('width', (ROAD_CHIP_W * frac).toFixed(1));
     // Just the metres still to go: the bar already shows the fraction, and a
     // full "1200/2000m" pushed the top row into the ☰ button on a 375px phone.
     const num = el.querySelector('.road-num');
-    if (num) num.textContent = `🛣${Math.max(0, Math.ceil(p.target - pos))}m`;
+    if (num) num.textContent = `${Math.max(0, Math.ceil(p.target - pos))}m`;
     el.title = `Road repair: ${pos} of ${p.target} m to the next prize`;
   }
 
