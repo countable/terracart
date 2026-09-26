@@ -15,7 +15,7 @@
 // ── INDEX of home-area customization still living elsewhere ──────────────────
 // (Migrate each into here as it's next touched, routing through HomeArea.)
 //   • Start origin / synthetic trailer ……… app.js  isStarterShop / ensureStarterShopId
-//   • Starter blacksmith (1st restored) …… app.js  isStarterBlacksmith, PRESEED_RESTORE_ROLES
+//   • Starter blacksmith (1st restored) …… houses.js  isStarterBlacksmith, PRESEED_RESTORE_ROLES
 //   • Scarecrow shop (early house) ………… app.js  isScarecrowShop
 //   • Shops sell a line by restore order … app.js  marketTheme
 //     (the first is the Seed Shop — see shops.js themeAt / roleLabel)
@@ -25,7 +25,7 @@
 //   • Starter loot crates (wood/rockfruit/seeds) app.js  STARTER_LOOT
 //   • Starting money / no free tools …… items.js STARTING_MONEY; a fresh save's
 //                                        relic slots all default to null
-//   • Fort unlock cost ………………………… app.js  FORT_UNLOCK_WOOD
+//   • Fort unlock cost ………………………… houses.js  FORT_UNLOCK_WOOD
 //
 // Exposed as a global (no bundler): HomeArea
 const HomeArea = {
