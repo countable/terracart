@@ -169,7 +169,7 @@ test('memory copy: no player-facing "Discovery badge" is left', () => {
 
 test('memory story: every ledger caller names what the memory is for, and the tick drains', () => {
   const calls = [...app.matchAll(/this\._bankDiscovery\(([^\n]*)/g)].map((m) => m[1]);
-  assert.eq(calls.length, 4, 'shiny, elite, first delivery, three slot stars');
+  assert.eq(calls.length, 5, 'shiny, elite, first delivery, three slot stars, the first slot deluxe');
   for (const c of calls) assert.truthy(/,\s*\S/.test(c) || /,$/.test(c.trim()), `label passed: ${c}`);
   assert.truthy(/_syncModalGate\?\.\(\);\s*this\._drainBadgeStories\(\);/.test(app),
     'the modal-gate tick drains the queue right after the sync');
