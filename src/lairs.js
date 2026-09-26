@@ -686,7 +686,10 @@
       // guard is an elite for every player. Only a MONSTER can be one
       // (Combat.isElite) — the wreck's surface slime never rolls shiny, the
       // faunaShiny exception.
-      const shiny = !!(C && C.isMonster(kind)) && root.isShiny(id, root.SHINY_RATE.monster);
+      // SHINY_RATE by bare name: a top-level `const` in util.js is a script-
+      // global binding, never a property of window, so reading it off root is
+      // undefined in the browser (the node bridge used to hide that).
+      const shiny = !!(C && C.isMonster(kind)) && root.isShiny(id, SHINY_RATE.monster);
       const g = WG.makeCreature(kind, seat.x, seat.y, id, {
         shiny,
         // `immobile` still means "this creature does not wander": app.js reads

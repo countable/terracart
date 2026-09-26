@@ -1196,6 +1196,9 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+// Every module's text, for sweeps across the whole tree (lexical_globals.test.js).
+ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
+  .filter(f => f.endsWith('.js')).map(f => [f, readSrc(f)]));
 
 // ── wanderCreatures, lifted and RUN ───────────────────────────────────────
 // The creature sim is 680 lines inside app.js, so for years the only thing any
