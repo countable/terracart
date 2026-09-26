@@ -279,7 +279,8 @@
   //     the next SLOT_DELUXE_SPINS spins (slotDeluxeNext; the count is the
   //     caller's, in the save). While deluxe, every prize that doubles (not
   //     a relic) pays SLOT_DELUXE_MUL times over, on top of a natural's
-  //     double. Hitting it again while deluxe restarts the count — it never
+  //     double, and so does every COIN payout (the jackpot pair, the star
+  //     pair, the star jackpot's coin — a memory is one memory either way). Hitting it again while deluxe restarts the count — it never
   //     stacks past SLOT_DELUXE_SPINS;
   //   • three stars — the STAR JACKPOT: a memory (app.js) the first
   //     SLOT_STAR_BADGES times (app.js keeps that count), then
@@ -292,7 +293,7 @@
   //   star-completed      3p²s · value
   //   jackpot pair        3q²(1 − q − s) · pair coin
   //   two stars           3s²(1 − s − q) · SLOT_STAR_PAIR_MUL · cost
-  //   deluxe              the prizes' ev again × f · (SLOT_DELUXE_MUL − 1)
+  //   deluxe              every term above × (1 + f · (SLOT_DELUXE_MUL − 1))
   //   three stars         s³ · star jackpot
   // The one ESTIMATE is the star jackpot while it still pays a badge: a
   // memory can't be sold, so it has no coin price. It is
@@ -349,25 +350,26 @@
     const q = jp >= 0 ? prizes[jp].weight / total : 0;
     const deluxeChance = SLOT_REELS * s * s * q;
     const deluxeShare = slotDeluxeShare(deluxeChance);
+    const dl = 1 + deluxeShare * (SLOT_DELUXE_MUL - 1);   // the average multiplier
     let ev = 0, winChance = 0;
     for (const p of prizes) {
       const w = p.weight / total;
       const natural = Math.pow(w, SLOT_REELS);
       const starred = SLOT_REELS * w * w * s;
       const prizeEv = natural * p.naturalQty * p.value + starred * p.value;
-      ev += prizeEv * (p.doubles ? 1 + deluxeShare * (SLOT_DELUXE_MUL - 1) : 1);
+      ev += prizeEv * (p.doubles ? dl : 1);
       winChance += natural + starred;
     }
     // Exactly two jackpots and a third reel that is neither (a star would
     // have completed them): C(3,2) · q² · (1 − q − s).
     const pairChance = SLOT_REELS * q * q * Math.max(0, 1 - q - s);
     const pairCoins = jp >= 0 ? SLOT_JACKPOT_PAIR_COINS : 0;
-    ev += pairChance * pairCoins;
+    ev += pairChance * pairCoins * dl;
     // Two stars and a third reel that is neither a star nor the jackpot.
     const starPairChance = SLOT_REELS * s * s * Math.max(0, 1 - s - q);
     const starChance = Math.pow(s, SLOT_REELS);
-    ev += starChance * SLOT_STAR_JACKPOT_COINS;
-    const k = starPairChance * SLOT_STAR_PAIR_MUL;
+    ev += starChance * SLOT_STAR_JACKPOT_COINS * dl;
+    const k = starPairChance * SLOT_STAR_PAIR_MUL * dl;
     const cost = Math.max(1, Math.ceil(ev / (1 - k) - 1e-9));
     ev += k * cost;
     return { prizes, symbols, cost, ev, winChance,
@@ -403,11 +405,13 @@
   }
 
   // One spin: a symbol index per reel (into machine.symbols), drawn by
-  // weight. Returns { reels, won, qty, natural, coins, starJackpot }: `won` is
-  // the prize index won (natural triple or star-completed pair) or -1, `qty`
-  // how many of it, `coins` any coin payout (jackpot pair, two stars), and
+  // weight; `deluxe` multiplies what it pays by SLOT_DELUXE_MUL. Returns
+  // { reels, won, qty, natural, coins, starJackpot, deluxe, doubled }: `won`
+  // is the prize index won (natural triple or star-completed pair) or -1,
+  // `qty` how many of it, `coins` any coin payout (jackpot pair, two stars),
   // `starJackpot` true on three stars — what that pays is the caller's (the
-  // badge count lives in the save).
+  // memory count lives in the save; `doubled` says its coin is doubled) —
+  // and `deluxe` true when this spin (re)starts deluxe.
   function slotSpin(machine, rng = Math.random, deluxe = false) {
     const syms = machine.symbols || machine.prizes;
     const total = syms.reduce((a, p) => a + p.weight, 0);
@@ -419,10 +423,10 @@
     }
     const out = { reels, won: -1, qty: 0, natural: false, coins: 0, starJackpot: false, deluxe: false, doubled: false };
     const stars = reels.filter((i) => syms[i].star).length;
-    if (stars === SLOT_REELS) { out.starJackpot = true; return out; }
+    if (stars === SLOT_REELS) { out.starJackpot = true; out.doubled = !!deluxe; return out; }
     if (stars === SLOT_REELS - 1) {
       if (reels.some((i) => syms[i].jackpot)) out.deluxe = true;
-      else out.coins = SLOT_STAR_PAIR_MUL * (machine.cost || 0);
+      else out.coins = SLOT_STAR_PAIR_MUL * (machine.cost || 0) * (deluxe ? SLOT_DELUXE_MUL : 1);
       return out;
     }
     const plain = reels.filter((i) => !syms[i].star);
@@ -434,7 +438,7 @@
       return out;
     }
     const jackpots = reels.filter((i) => syms[i].jackpot).length;
-    if (jackpots === SLOT_REELS - 1) out.coins = machine.pairCoins || 0;
+    if (jackpots === SLOT_REELS - 1) out.coins = (machine.pairCoins || 0) * (deluxe ? SLOT_DELUXE_MUL : 1);
     return out;
   }
 

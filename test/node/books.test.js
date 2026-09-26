@@ -553,7 +553,7 @@ test('tips: the fort slot machine quotes ShopsMath', () => {
   assert.truthy(someTip(/a natural three pays double, and a star completes any pair/i), 'the star and the natural, quoted');
   assert.truthy(someTip(new RegExp(`Two stars pay back double your stake; three stars bring back a memory the first ${S.SLOT_STAR_BADGES} times, then ${S.SLOT_STAR_JACKPOT_COINS} coin`, 'i')),
     'the star payouts, quoted');
-  assert.truthy(someTip(new RegExp(`Two stars beside the jackpot turn the machine deluxe: the next ${S.SLOT_DELUXE_SPINS} spins pay every prize double`, 'i')),
+  assert.truthy(someTip(new RegExp(`Two stars beside the jackpot turn the machine deluxe: the next ${S.SLOT_DELUXE_SPINS} spins pay every prize and coin double`, 'i')),
     'deluxe, quoted');
   assert.eq(S.SLOT_DELUXE_MUL, 2, 'deluxe doubles');
   assert.truthy(someTip(new RegExp(`each memory counted as ${S.SLOT_STAR_JACKPOT_COINS} coin`, 'i')), 'and how the stake prices a memory');
