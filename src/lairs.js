@@ -170,7 +170,8 @@
   // THE RUNGS ARE EVENLY SPACED, not authored. A ladder is just its kinds in
   // order, weakest first, and rung `i` of `n` unlocks at `i / n` of `t` —
   // which reproduces the thirds the slime ladder used to carry as literals
-  // (0, 0.34, 0.67) and gives the two-rung goblin ladder its halves for free.
+  // (0, 0.34, 0.67) — and the three-rung garrison ladder (goblin, archer,
+  // trapper) takes the same thirds for free.
   // Adding a kind re-spaces its own ladder and nothing else.
   //
   // Every kind here must be a registered enemy (Combat.isEnemyKind) or the
@@ -180,8 +181,8 @@
   // rung the player cannot see is not an escalation.
   const KIND_ORDER = {
     9:  ['slime', 'cave_slime', 'purple_slime'],   // T.BUILDING       — squatted
-    11: ['goblin', 'goblin_archer'],               // T.BUILDING_MED   — held
-    12: ['goblin', 'goblin_archer'],               // T.BUILDING_LARGE — held
+    11: ['goblin', 'goblin_archer', 'goblin_trapper'],   // T.BUILDING_MED   — held
+    12: ['goblin', 'goblin_archer', 'goblin_trapper'],   // T.BUILDING_LARGE — held
   };
   const KIND_LADDER = {};
   for (const [tier, kinds] of Object.entries(KIND_ORDER)) {

@@ -1256,6 +1256,8 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     fn('function monsterRout(c, now, cellM) {'),
     fn('function monsterWanderingOff(c, now, distM, cellM) {'),
     fn('function wardTrip(c, homePos, castleWards, r2) {'),
+    // The goblin trapper's stalk: hold its row's range off the player.
+    fn('function keepDistanceAngle(dist, dxp, dyp, keepM, cellM) {'),
   ].join('\n');
   // ONE script, so the method closes over the preamble's consts — a second
   // runInContext would not see them (a vm script's top-level `const` does not

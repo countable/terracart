@@ -4639,6 +4639,10 @@
     // Carry over live per-session state the rebuild can't reconstruct.
     if (prev.creatures && !fresh.creatures) fresh.creatures = prev.creatures;
     if (prev.coinDrops && !fresh.coinDrops) fresh.coinDrops = prev.coinDrops;
+    // A goblin trapper's snares (traps.js LAID traps) — session state on
+    // their own list, carried like the coins: a trap that just bit you must
+    // not blink out because the Overpass bin landed.
+    if (prev.laidTraps && !fresh.laidTraps) fresh.laidTraps = prev.laidTraps;
     cache.set(key, fresh);               // atomic swap — never a missing tile
     return true;
   }

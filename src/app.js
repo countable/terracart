@@ -638,6 +638,29 @@ const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;
 // deeper still — are past what a lit campfire can plausibly hold off; only
 // Home's stronger ward (HOME_R, surface only) turns those around.
 const FIRE_WARD_MAX_DEPTH = 1;
+// THE GOBLIN TRAPPER'S CADENCE — one snare per archer's arrow
+// (Combat.MONSTER_SHOT_INTERVAL_MS, 10 s): the garrison's two ranged rungs
+// work at one pace, and at Traps.LAID_MAX out it has a full set down in half
+// a minute. Its lay RANGE is its keep distance (its MONSTERS row `range`)
+// plus TRAPPER_LAY_SLACK_CELLS — it lays while it closes to that ring, not
+// only once it stands on it.
+const TRAPPER_LAY_MS = Combat.MONSTER_SHOT_INTERVAL_MS;
+const TRAPPER_LAY_SLACK_CELLS = 2;
+// THE MAGIC TRAP (traps.js MAGIC TRAP note): what it does to the enemy that
+// steps on it, both DERIVED —
+//   the HOLD is one staff beat (Combat.fireIntervalMs('staff'), 5 s): long
+//   enough that the slowest weapon the player owns lands a shot on a foe that
+//   cannot step out of the line. It is the Frost Powder's freeze
+//   (c._frozenUntil) — one lane, a second reason.
+//   the DAMAGE is one tier-2 bow shot (Combat.shotDamage at the item's own
+//   BASE_TIER): the trap is a tier-2 weapon that fires once.
+const MAGIC_TRAP_HOLD_MS = Combat.fireIntervalMs('staff');
+function magicTrapDamage() {
+  return Combat.shotDamage({ bow: { tier: BASE_TIER.magic_trap } }, 'bow');
+}
+// How often the trap scan runs. Foes step on a multi-second beat, so ten
+// times a second can never miss one crossing a cell.
+const MAGIC_TRAP_TICK_MS = 100;
 
 // What a kill pays — enemyBounty, MONSTER_TREASURE_CHANCE,
 // ELITE_TREASURE_CONTEXT and eliteRollBonus — is Combat's, derived from the
@@ -721,6 +744,18 @@ const FLEE_BEAT_MUL = 0.5;
 // it, which is what makes a bat careen), and a charging slime borrows it —
 // once it has been hit, it moves like the things that hunt you.
 const STALK_JITTER = 0.8;
+// A LAYER'S STALK (the goblin trapper — Combat.monsterLays): it wants to be
+// `keepM` off the player, not on top of them. Inside that ring less half a
+// cell it steps AWAY, past it plus half a cell it closes, and on the ring it
+// circles (a quarter turn either way) — so it stays out of sword reach and
+// keeps moving across the line it lays its snares on. The stalk's own jitter.
+function keepDistanceAngle(dist, dxp, dyp, keepM, cellM) {
+  const toward = Math.atan2(dyp, dxp);
+  const j = (Math.random() - 0.5) * STALK_JITTER;
+  if (dist < keepM - 0.5 * cellM) return toward + Math.PI + j;
+  if (dist > keepM + 0.5 * cellM) return toward + j;
+  return toward + (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2 + j;
+}
 // Is this slime still coming for whoever hit it? Derived from `_lastDamagedT`
 // — the stamp BOTH damage paths already set, the player's blows and shots via
 // _damageEnemy and a pet's teeth in wanderCreatures — so "the player or their
@@ -3743,20 +3778,28 @@ class MapScene extends Phaser.Scene {
       // never bleeds, and never draws (see render.js). trapAt still finds
       // the record (it's a pure function of the tile), so the disarm has to
       // be checked here rather than removed from entry.traps itself.
-      this._trapHere = (found && Traps.isDisarmed(this.save, found.id)) ? null : found;
+      // isTrapDisarmed: a goblin's LAID snare keeps that on the record, not
+      // the save (traps.js) — one question for both.
+      this._trapHere = (found && Traps.isTrapDisarmed(this.save, found)) ? null : found;
       // Stepping off ends the bleed: no partial second carries to the next trap.
       this._trapDrainAccum = 0;
       this._trapDrainPop = 0;
     }
     const trap = this._trapHere;
     if (!trap) return;
+    // A goblin's snare EXPIRES (Traps.LAID_LIFE_MS) — and is disarmed on its
+    // record — under a player who may still be standing on the cell the memo
+    // was taken for; a snare that is gone stops biting then, not at the next
+    // cell crossed.
+    if (trap._laid && !Traps.isLive(trap, Date.now())) { this._trapHere = null; return; }
     // The cell the numbers land on — an ABSOLUTE cell, which is what _popEnergy
     // wants (it is the trap's own cell, which is also the player's).
     const { cellIX: ix, cellIY: iy } = tileCellToAbs(this, pc.tx, pc.ty, lix, liy);
 
     // First contact. spring() returns false for one already recorded, so this
     // branch runs exactly once per trap however long the player stands on it.
-    if (Traps.spring(this.save, trap.id)) {
+    // springTrap: a laid snare springs on its record and mints no save id.
+    if (Traps.springTrap(this.save, trap)) {
       const before = this.save.energy ?? 0;
       // Hard mode bites harder on first contact (Difficulty.trapBiteMul,
       // 2.5x — 10⚡ base becomes 25⚡). The bleed rate (STAND_ENERGY_PER_S)
@@ -3819,6 +3862,111 @@ class MapScene extends Phaser.Scene {
       this._popEnergy(-drained, { ix, iy, label: '🪤 trap' });
       if (typeof persistSave === 'function') persistSave(this.save);
     }
+  }
+
+  // ── The goblin trapper's snares ───────────────────────────────────────────
+  // A trapper (Combat.monsterLays) that has noticed the player lays a snare
+  // every TRAPPER_LAY_MS on an EMPTY cell on the line between them
+  // (Traps.layPoints — midpoint first, never either body's own cell), up to
+  // Traps.LAID_MAX live snares of its own at once. The cell must pass
+  // Traps.canLay (walkable on the live grid, off the drawn road, under no
+  // seated object, no trap already there) and hold none of the player's
+  // Magic Traps. The snare itself is the ordinary trap (Traps.layTrap →
+  // entry.laidTraps), so _tickTraps bites and bleeds on it exactly as on a
+  // generated one, and a Trap Disarm Kit shuts it. Called from
+  // wanderCreatures behind the same `unnoticed` / `standDown` gates the blows
+  // sit behind. `now` is the loop's performance clock (the cadence); a
+  // snare's expiry is wall-clock, like every other expiry on a record.
+  _trapperLay(c, now, px, py) {
+    if (typeof Traps === 'undefined') return;
+    if (c._nextLayT && now < c._nextLayT) return;
+    const m = Combat.monster(c.kind);
+    const dist = Math.hypot(px - c.x, py - c.y);
+    if (dist > ((m?.range || 1) + TRAPPER_LAY_SLACK_CELLS) * this.cellM) return;
+    const wall = Date.now();
+    const pc = this.playerToWorldCell();
+    // The 3×3 ring of tiles round the player's feet: the trapper is inside
+    // the sim bubble, so every cell on the line to the player is in here.
+    const ring = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dx, pc.ty + dy));
+        if (e) { Traps.pruneLaid(e, wall); ring.push(e); }
+      }
+    }
+    if (Traps.laidOut(ring, c.id, wall) >= Traps.LAID_MAX) {
+      c._nextLayT = now + TRAPPER_LAY_MS;
+      return;
+    }
+    const same = (a, b) => a.tx === b.tx && a.ty === b.ty && a.ix === b.ix && a.iy === b.iy;
+    const mine = this.cellAt(px, py), own = this.cellAt(c.x, c.y);
+    const half = this.cellM / 2;
+    const magic = PlacedFloor.forDepth(this.save.magicTraps, this.depth || 0);
+    for (const p of Traps.layPoints(c.x, c.y, px, py, this.cellM)) {
+      const cell = this.cellAt(p.x, p.y);
+      if (!cell.loaded || same(cell, mine) || same(cell, own)) continue;
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+      if (!Traps.canLay(entry, cell.ix, cell.iy)) continue;
+      const cc = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+      if (magic.some(t => Math.abs(t.x - cc.x) < half && Math.abs(t.y - cc.y) < half)) continue;
+      Traps.layTrap(entry, cell.tx, cell.ty, entry.tileEdgeM || this.tileEdgeM,
+        cell.ix, cell.iy, c.id, wall, this.depth || 0);
+      c._nextLayT = now + TRAPPER_LAY_MS;
+      return;
+    }
+    // Nowhere on the line will take one (rock, road, the player too close):
+    // look again in a second rather than on every frame.
+    c._nextLayT = now + 1000;
+  }
+
+  // ── The player's Magic Traps ──────────────────────────────────────────────
+  // Every MAGIC_TRAP_TICK_MS: the first ENEMY (Combat.isEnemy — never game,
+  // never a pet, never the player) standing on the cell of an armed trap on
+  // this level is HELD for MAGIC_TRAP_HOLD_MS — the Frost Powder's own
+  // c._frozenUntil, with its hop pinned where it stands — and takes
+  // magicTrapDamage() through _damageEnemy with source 'player': the player
+  // set the trap, so a trap kill is a player kill (bounty, drop, quest tick).
+  // The trap is spent — spliced out of save.magicTraps, which also takes its
+  // light off the lightmap (Lighting.collectMagicTraps) — and the save
+  // persists. Cells are compared as ABSOLUTE cells (worldMetersToAbsCell), the
+  // way every tap and every placed thing is.
+  _tickMagicTraps() {
+    const list = this.save && this.save.magicTraps;
+    if (!list || !list.length || !this.startWorldM) return;
+    const now = performance.now();
+    if (now - (this._magicTrapT || 0) < MAGIC_TRAP_TICK_MS) return;
+    this._magicTrapT = now;
+    let armed = null;
+    for (const t of PlacedFloor.forDepth(list, this.depth || 0)) {
+      const a = worldMetersToAbsCell(this, t.x, t.y);
+      (armed || (armed = new Map())).set(cellKeyFromAbsCell(a.cellIX, a.cellIY), t);
+    }
+    if (!armed) return;
+    const caughtSet = setOf(this.save.caught);
+    const pc = this.playerToWorldCell();
+    const hits = [];
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
+      if (!Combat.isEnemy(c) || caughtSet.has(c.id)) return;
+      const a = worldMetersToAbsCell(this, c.x, c.y);
+      const key = cellKeyFromAbsCell(a.cellIX, a.cellIY);
+      const t = armed.get(key);
+      if (!t) return;
+      armed.delete(key);                   // one foe per trap
+      hits.push({ t, c, ix: a.cellIX, iy: a.cellIY });
+    });
+    if (!hits.length) return;
+    const until = Date.now() + MAGIC_TRAP_HOLD_MS;
+    for (const { t, c, ix, iy } of hits) {
+      const i = list.indexOf(t);
+      if (i >= 0) list.splice(i, 1);
+      c._frozenUntil = Math.max(c._frozenUntil || 0, until);
+      c._startX = c._targetX = c.x;
+      c._startY = c._targetY = c.y;
+      this._damageEnemy(c, magicTrapDamage(), 'player');
+      const at = this._cellToastAt(ix, iy, CELL_PX);
+      this.flash('✨ Magic trap sprung', at.x, at.y);
+    }
+    persistSave(this.save);
   }
 
   // THE PAIN EFFECT — what being bitten looks like. Two things on top of the
@@ -7541,6 +7689,8 @@ class MapScene extends Phaser.Scene {
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
     this._tickTraps(dt);
+    // …and did an enemy just walk onto one of the player's Magic Traps?
+    this._tickMagicTraps();
     this._revealFog();
     this.drawCells();
     this.drawRoadGeometry();
@@ -8204,12 +8354,15 @@ class MapScene extends Phaser.Scene {
     // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
     // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a
     // bounty instead — which is Combat's question, asked just below.
+    // An ENEMY may carry one too (the goblin trapper's Magic Trap), and it is
+    // paid ON TOP of the wage below, never instead of it.
     const dropId = mine ? SpriteLayout.creatureDrop(victim.kind) : null;
     if (dropId) {
       this.addToInv(dropId, 1);
       const item = ITEM_BY_ID[dropId];
       this.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
-    } else if (Combat.isEnemyKind(victim.kind)) {
+    }
+    if (Combat.isEnemyKind(victim.kind)) {
       // Every enemy kill pays a bounty (enemyBounty — derived from the kind's
       // HP plus a depth climb). The gold is the reliable part: before this a
       // foe dropped nothing at all and the only sane play was to walk around
@@ -8244,7 +8397,7 @@ class MapScene extends Phaser.Scene {
         // Underground only; see MONSTER_TREASURE_CHANCE.
         grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀');
       }
-    } else if (mine) {
+    } else if (mine && !dropId) {
       // Nothing defeatable reaches here today — interact.js sends only slimes,
       // crows and deer down the hunt wheel, and the other two routes only ever
       // carry enemies. A kind that ever did would otherwise die in silence.
@@ -8967,6 +9120,10 @@ class MapScene extends Phaser.Scene {
       // flashed once per window after the loop, like the slime swarm.
       if (Combat.isMonster(c.kind) && !unnoticed && !standDown) {
         const m = Combat.monster(c.kind);
+        // A kind whose row lands no blow (Combat.monsterHits — the trapper,
+        // dmg 0) skips both halves below: it is not a melee drain at strength
+        // zero, which the armour floor would round up to a bite.
+        const hits = Combat.monsterHits(c.kind);
         const rangeCells = m.range > 1 ? Combat.rangeCellsFor('staff', reachCells(this)) : m.range;
         const R = rangeCells * this.cellM;
         // A RANGED monster needs a clear line, for the same reason your bow
@@ -8974,8 +9131,8 @@ class MapScene extends Phaser.Scene {
         // and through rock that is a foe you often cannot even see chipping
         // at your energy from inside a wall. Melee kinds (range 1) are
         // adjacent by definition, so they skip the walk and the cost of it.
-        const clear = m.range <= 1 ||
-          Combat.lineOfFire(c.x, c.y, px, py, (x, y) => this._cellBlocked(x, y), this.cellM);
+        const clear = hits && (m.range <= 1 ||
+          Combat.lineOfFire(c.x, c.y, px, py, (x, y) => this._cellBlocked(x, y), this.cellM));
         if (clear && m.range > 1 && ddx * ddx + ddy * ddy <= R * R
             && (!c._nextShotT || now >= c._nextShotT)) {
           // A RANGED kind SHOOTS instead: a visible arrow loosed at the player
@@ -9031,6 +9188,15 @@ class MapScene extends Phaser.Scene {
       // `immobile` is set by src/lairs.js; nothing else in the game seats an
       // immobile creature, and anything that does must land below the same
       // line.
+      // THE TRAPPER'S "ATTACK": a snare on the line between it and you
+      // (_trapperLay). Gated exactly as the blows above are — `unnoticed` (a
+      // powder, or a body on an empty bar: NOTHING HUNTS A BODY) and
+      // `standDown` (a ward, a wander-off, a garrison at rest) — because laying
+      // a trap for the player is taking an interest in them. Above the lair
+      // guard's hold line like the blows, so a hunting garrison lays too.
+      if (Combat.monsterLays(c.kind) && !isTame && !unnoticed && !standDown) {
+        this._trapperLay(c, now, px, py);
+      }
       if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;
       // Wild-crow flight rhythm: perch (still 2-4 s) → one long flight
       // burst (500-800 ms, eased) → perch again. Targets a nearest planted
@@ -9293,9 +9459,13 @@ class MapScene extends Phaser.Scene {
             // would otherwise fall into the lazy half-the-hops meander that
             // makes a wild one read as a pest, and a garrison that ambles is
             // not something anybody runs from.
-            angle = distToPlayer > 0.5 * this.cellM
-              ? Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER
-              : Math.random() * Math.PI * 2;
+            // A trapper in the garrison hunts at its own distance: it comes
+            // for you to lay, not to bite (keepDistanceAngle).
+            angle = Combat.monsterLays(c.kind)
+              ? keepDistanceAngle(distToPlayer, dxp, dyp, Combat.monster(c.kind).range * this.cellM, this.cellM)
+              : distToPlayer > 0.5 * this.cellM
+                ? Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER
+                : Math.random() * Math.PI * 2;
           } else if (lairState === 'return') {
             // GIVEN UP: straight back to the seat it was spawned on, with only
             // enough jitter to keep a rank of them from marching in lockstep.
@@ -9327,7 +9497,11 @@ class MapScene extends Phaser.Scene {
             // than the slime's meander), no home-bias. Flyers (bats) careen with
             // wide jitter so they read as erratic. The archer closes in too —
             // its range only lets it start draining sooner, not hang back.
-            if (!unnoticed && distToPlayer > 0.5 * this.cellM) {
+            // The TRAPPER does hang back: it holds its row's `range` off the
+            // player and circles there (keepDistanceAngle), laying as it goes.
+            if (!unnoticed && Combat.monsterLays(c.kind)) {
+              angle = keepDistanceAngle(distToPlayer, dxp, dyp, mon.range * this.cellM, this.cellM);
+            } else if (!unnoticed && distToPlayer > 0.5 * this.cellM) {
               angle = Math.atan2(dyp, dxp)
                     + (Math.random() - 0.5) * (mon.fly ? STALK_JITTER * 2 : STALK_JITTER);
             } else {

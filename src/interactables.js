@@ -644,10 +644,26 @@ const INTERACTABLES = {
 // `spentAction` with it — those rows are readers of this, not a second lane.
 // And it is not "can this be worked": an unopened chest, a fruit tree between
 // harvests and a house are all un-spent.
+// The coin-burst POIs (the golden cauldrons) tapped TODAY, as a Set of POI
+// ids. save.coinBurstClaimed is keyed `<poiId>YYYYMMDD` on the UTC day
+// (app.js _coinBurstInteract), so a used cauldron is spent until the day
+// rolls and then stands again — hidden like an opened chest meanwhile.
+function coinBurstUsedSet(save) {
+  const out = new Set();
+  const m = save && save.coinBurstClaimed;
+  if (!m || typeof Delivery === 'undefined') return out;
+  const day = String(Delivery.dayKey());
+  for (const k of Object.keys(m)) {
+    if (m[k] === 1 && k.endsWith(day)) out.add(k.slice(0, -day.length));
+  }
+  return out;
+}
+
 function spentSets(scene, save) {
   const s = save || (scene && scene.save) || {};
   return {
     opened: setOf(s.opened),
+    burst: coinBurstUsedSet(s),
     chopped: setOf(s.chopped),
     picked: setOf(s.picked),
     // The broken-rock ids live on the scene as a Set already (app.js rebuilds
@@ -657,7 +673,8 @@ function spentSets(scene, save) {
 }
 function isSpent(o, sets) {
   switch (o && o.kind) {
-    case 'chest':       return sets.opened.has(o.id);
+    // A used golden cauldron (coin-burst POI) is spent until the UTC day rolls.
+    case 'chest':       return sets.opened.has(o.id) || !!(sets.burst && sets.burst.has(o.id));
     // o.chopped is the in-memory flag the chop wheel sets; save.chopped is the
     // source of truth that survives a tile re-rasterize. Both, as both sites
     // always checked both.

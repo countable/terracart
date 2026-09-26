@@ -94,9 +94,13 @@ test('creature table: a PET is exactly the cat and the dog, and each hunts its o
 test('creature table: what a kill drops is the kind\'s own row', () => {
   assert.eq(CT_SL.creatureDrop('crow'), 'crow_feather');
   assert.eq(CT_SL.creatureDrop('deer'), 'meat');
-  // Only GAME drops a body part: an enemy pays a bounty instead (app.js
-  // resolveDefeat asks Combat, not this table), and livestock is caught alive.
-  assert.eq(ctKinds((k) => CT_BEH[k].drop), 'crow,deer');
+  // GAME drops a body part, and livestock is caught alive. One ENEMY carries
+  // a drop too — the goblin trapper's Magic Trap — paid ON TOP of its bounty
+  // (app.js resolveDefeat asks Combat for the wage, this table for the drop).
+  assert.eq(ctKinds((k) => CT_BEH[k].drop), 'crow,deer,goblin_trapper');
+  assert.eq(CT_SL.creatureDrop('goblin_trapper'), 'magic_trap', 'a trapper drops its trap');
+  assert.eq(CT_SL.creatureDrop('giant_goblin_trapper'), 'magic_trap', 'and so does its giant');
+  assert.truthy(ITEM_BY_ID.magic_trap, 'which is a real item');
   for (const k of ['slime', 'chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', ...CT_MONSTERS])
     assert.eq(CT_SL.creatureDrop(k), null, `${k} drops no item on defeat`);
   assert.eq(CT_SL.creatureDrop('giant_goblin'), null, 'and neither does a giant');

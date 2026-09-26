@@ -59,7 +59,7 @@ const TOOL_STEMS = ['tool_till', 'tool_chop', 'tool_dig', 'tool_water',
 
 // ── The pin, as source ────────────────────────────────────────────────────
 test('trap pin: the spring branch stamps _pinnedUntil 3 s out', () => {
-  const spring = TICK_SRC.indexOf('if (Traps.spring(this.save, trap.id)) {');
+  const spring = TICK_SRC.indexOf('if (Traps.springTrap(this.save, trap)) {');
   const ret = TICK_SRC.indexOf('return;', spring);
   const branch = TICK_SRC.slice(spring, ret);
   assert.truthy(spring > 0 && ret > spring, 'found the first-contact branch');

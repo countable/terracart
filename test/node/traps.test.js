@@ -500,8 +500,10 @@ test('traps: the tick asks where the PLAYER is, never where the camera is', () =
   assert.falsy(/viewAnchorCell|viewAnchorWorldM|viewCenterX/.test(block),
     'a peek drag must not spring a trap the body is nowhere near (CLAUDE.md: '
     + 'the camera is not the player)');
-  assert.truthy(/Traps\.spring\(this\.save, trap\.id\)/.test(block),
-    'the reveal goes through Traps.spring, which is what makes the bite land once');
+  // springTrap: Traps.spring for a generated trap (the save id), the record's
+  // own flag for a goblin's laid snare — either way the one-shot gate.
+  assert.truthy(/Traps\.springTrap\(this\.save, trap\)/.test(block),
+    'the reveal goes through Traps.springTrap, which is what makes the bite land once');
   assert.truthy(/persistSave\(this\.save\)/.test(block),
     'and it is written straight away, so a discovered trap stays discovered');
   assert.truthy(/this\._painFlash\(spent\)/.test(block), 'the bite carries the pain effect');
@@ -568,7 +570,7 @@ test('traps: a disarmed trap is dropped from the render list, not retextured', (
 
 test('traps: the tick treats a disarmed trap as no trap at all', () => {
   const block = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _tickTraps(dt) {'));
-  assert.truthy(/Traps\.isDisarmed\(this\.save, found\.id\)/.test(block.slice(0, 2000)),
+  assert.truthy(/Traps\.isTrapDisarmed\(this\.save, found\)/.test(block.slice(0, 2400)),
     'the disarmed check runs before the bite/bleed logic below it');
 });
 

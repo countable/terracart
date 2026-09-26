@@ -112,9 +112,11 @@ test('disarm-trap: spends one kit and disarms the trap on the tapped cell', () =
   assert.truthy(/sel\.id === 'trap_kit'/.test(src), 'gated on the kit being selected');
   assert.truthy(/Traps\.trapAt\(entry, cell\.ix, cell\.iy\)/.test(src),
     'looks the trap up on the TAPPED cell, not the player\'s');
-  assert.truthy(/Traps\.disarm\(save, trap\.id\)/.test(src), 'records the disarm');
+  // disarmTrap / isTrapDisarmed: a generated trap's state is its id on the
+  // save, a goblin's LAID snare's is on its record (traps.js) — one kit, both.
+  assert.truthy(/Traps\.disarmTrap\(save, trap\)/.test(src), 'records the disarm');
   assert.truthy(/consumeSelected\(save\)/.test(src), 'spends exactly one kit');
-  assert.truthy(/if \(!trap \|\| Traps\.isDisarmed\(save, trap\.id\)\) return false;/.test(src),
+  assert.truthy(/if \(!trap \|\| Traps\.isTrapDisarmed\(save, trap\)\) return false;/.test(src),
     'a cell with no trap (or an already-disarmed one) falls through instead of eating the tap');
 });
 
@@ -575,6 +577,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'place-scarecrow',
     'extinguish-fire',
     'light-fire',
+    'place-magic-trap',
     'place-rock',
     'planted',
     'fishing',
