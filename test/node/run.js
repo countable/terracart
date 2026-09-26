@@ -91,7 +91,7 @@ const FILES = [
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
   // combat.test.js registers a synthetic one), so it runs headless.
-  'combat.js',
+  'combat.js', 'creature_ai.js',
   // The wizard tower's offers — pure (reads Combat / Trail / Energy /
   // RARITY_TUNING at call time), so wizard.test.js drives the shipping rules.
   'wizard.js',
@@ -180,8 +180,10 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
 // declarations (right-hand side as written: one is derived, some are tables),
 // in declaration order so a derived one sees what it derives from.
 ctx.STARTER_JS_SRC = readSrc('starter.js');
+ctx.CREATURE_AI_SRC = readSrc('creature_ai.js');
 {
-  const src = readSrc('app.js');
+  // The creature-AI consts and helpers moved to creature_ai.js; look in both.
+  const src = readSrc('app.js') + '\n' + readSrc('creature_ai.js');
   const STARTER_CONSTS = [
     'VIEW_CELLS', 'CREATURE_SIM_CELLS',
     'HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS', 'HOME_GREETER_SLACK_CELLS', 'HOME_GREETER_DIR_VEC',
@@ -879,7 +881,8 @@ Object.assign(ctx, {
 // anchor, and that the spawn radius stays between the viewport corner and the
 // bubble — the invariant a dispatched crow's whole behaviour rests on.
 {
-  const src = readSrc('app.js');
+  // The creature-AI consts and helpers moved to creature_ai.js; look in both.
+  const src = readSrc('app.js') + '\n' + readSrc('creature_ai.js');
   let decls = '';
   for (const name of ['CREATURE_SIM_CELLS', 'PEST_CROW_SPAWN_CELLS', 'VIEW_CELLS',
                       // The rout's pace, and the slowest gait it has to move:
@@ -1152,7 +1155,8 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
 // function the tests call on a stub scene. A reimplementation here would pass
 // while the shipping loop did something else entirely.
 {
-  const src = readSrc('app.js');
+  // The creature-AI consts and helpers moved to creature_ai.js; look in both.
+  const src = readSrc('app.js') + '\n' + readSrc('creature_ai.js');
   const num = (name) => {
     const m = src.match(new RegExp(`const ${name} = ([-\\d.]+);`));
     if (!m) { console.error(`Could not lift ${name} for __wander — update run.js`); process.exit(2); }

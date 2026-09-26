@@ -250,7 +250,7 @@ test('course: the pages run in the order the player needs them', () => {
 test('tips: the ghost page quotes its owners\' numbers', () => {
   const t = PLAY_TIPS.find((x) => /ghosts rise/i.test(x));
   assert.truthy(t, 'the ghost page is in the course');
-  const ms = Number(APP_JS_SRC.match(/const GHOST_SPAWN_MS = (\d+);/)?.[1]);
+  const ms = Number(CREATURE_AI_SRC.match(/const GHOST_SPAWN_MS = (\d+);/)?.[1]);
   assert.eq(ms, 5 * 60000, 'every five minutes, as the page says');
   assert.truthy(/every five minutes/.test(t), 'and it says five');
   assert.eq(Combat.GHOST_SPEED_MUL, 2, 'twice a goblin, as the page says');
@@ -659,7 +659,7 @@ test('tips: a struck slime charges, and the tip quotes STRUCK_REACTION_MS', () =
   assert.truthy(tip, 'what a hit turns a slime into is invisible until it happens — Book or nowhere');
   // The window is app.js', so it is re-derived rather than retyped. Spelt in
   // words, like every other duration the Book quotes.
-  const m = APP_JS_SRC.match(/const STRUCK_REACTION_MS = (\d+);/);
+  const m = CREATURE_AI_SRC.match(/const STRUCK_REACTION_MS = (\d+);/);
   assert.truthy(m, 'app.js still owns the reaction window');
   const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
     'eight', 'nine', 'ten'];

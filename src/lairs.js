@@ -319,7 +319,7 @@
   // How close the player must come for a ruin's garrison to exist, and how far
   // they must go for it to stop existing. The wake ring has to clear every
   // radius that could reveal a garrison that is not there yet — the sim bubble
-  // (app.js CREATURE_SIM_CELLS, 12: a creature outside it does not think), the
+  // (creature_ai.js CREATURE_SIM_CELLS, 12: a creature outside it does not think), the
   // sprite cull (VIEW_CELLS/2 + 1, whose corner is under 10), and bow range
   // (Combat SHOT_SPECS bow, 8) — so nothing is ever woken in view or shot at
   // before it is woken. `assertRingsClear` is the check, called by the test.

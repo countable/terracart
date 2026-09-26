@@ -1552,7 +1552,7 @@ const TAP_HANDLERS = [
         return;
       }
       // FISH_SLIME_CHANCE per cast → a wild slime on the line, landed beside
-      // the player and charging (app.js fishedSlimeSpawn). If no cell beside
+      // the player and charging (creature_ai.js fishedSlimeSpawn). If no cell beside
       // the player will take it, the cast pays a fish as usual.
       if (Math.random() < FISH_SLIME_CHANCE && scene.spawnFishedSlime?.()) {
         scene.flashLoot('🎣 A slime on the line!', '#ff8a8a', 1.2);

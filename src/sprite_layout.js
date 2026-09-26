@@ -266,7 +266,7 @@
   // CREATURE_FRAME_MS is what every stepped kind runs at unless it says
   // otherwise, and SLIME_FRAME_MS is HALF that rate — the slime sheet's ooze
   // reads as a slow swell rather than a flutter, which it needs more now that
-  // the surface slime covers ground faster (app.js SLIME_HOP_CELLS). It is
+  // the surface slime covers ground faster (creature_ai.js SLIME_HOP_CELLS). It is
   // derived from the common beat, not a second number, and BOTH rows on the
   // slime sheet read it: the cave slime is the surface slime's art, so if the
   // two ever animate at different rates it is the same blob moving two ways.
@@ -414,7 +414,7 @@
     // The bounty coin still falls beside it; an enemy's drop is ON TOP of the
     // wage, never instead of it.
     goblin_trapper: { wanders: true, drop: 'magic_trap' },
-    // THE GHOST has its own mover (app.js ghostTick — hover, then a committed
+    // THE GHOST has its own mover (creature_ai.js ghostTick — hover, then a committed
     // rush at the player, over any terrain; a touch spends it; light burns
     // it). `haunts` is what hands it there instead of the step chain.
     ghost:         { wanders: true, haunts: true },

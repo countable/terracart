@@ -131,9 +131,9 @@
   // it. It walks the goblin's stride (no `fly`: that lengthens the stride and
   // would make it more than twice as fast over the ground).
   //   DMG is its TOUCH: one blow of GHOST_TOUCH_DMG before the mode, the
-  // shield and armour, then it is gone (app.js ghostTick). Authored at the
+  // shield and armour, then it is gone (creature_ai.js ghostTick). Authored at the
   // baseline so the cave doubling below lands it on exactly that number.
-  //   HP is small — it dies in the light (app.js GHOST_PLATEAU_BURN_S) and to
+  //   HP is small — it dies in the light (creature_ai.js GHOST_PLATEAU_BURN_S) and to
   // two or three honest blows; the bounty is derived from it like any foe's.
   const GHOST_SPEED_MUL = 2;
   const GHOST_TOUCH_DMG = 25;
