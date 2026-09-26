@@ -235,7 +235,7 @@ test('armor: the max-energy cap has no idea armour exists', () => {
   for (const slot of Object.keys(ARMOR_DEFS)) worn[slot] = { tier: 7 };
   assert.eq(Energy.maxEnergy({ armor: worn }), STARTING_ENERGY,
     'a full Frost set does not lengthen the bar');
-  assert.eq(Energy.maxEnergy({ armor: worn, eaten: ['nut', 'berry'] }), STARTING_ENERGY + 2,
+  assert.eq(Energy.maxEnergy({ armor: worn, eaten: ['nut', 'berry'] }), STARTING_ENERGY + 3,
     'only the first-taste bonus moves it');
   // The retired function must not come back under its old name either.
   assert.eq(typeof globalThis.maxEnergyFromArmor, 'undefined',

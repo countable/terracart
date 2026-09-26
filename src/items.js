@@ -817,7 +817,8 @@ const STARTING_MONEY = 50;
 
 // === Energy / food ===
 // Player starts at STARTING_ENERGY; the only thing that ever raises the cap is
-// the FIRST-TASTE bonus (+1 per distinct edible ever eaten — Energy.maxEnergy).
+// the FIRST-TASTE bonus (each distinct edible ever eaten adds its tier —
+// Energy.tasteBonus / maxEnergy).
 // Eating food restores energy by FOOD_ENERGY[id]. Actions like rock-break,
 // till, and harvest deduct energy via ENERGY_COST and refuse when the current
 // pool is too low. ARMOR does not touch the cap: it SOAKS the damage an attack
@@ -976,7 +977,7 @@ const PLAY_TIPS = [
   'Strike a slime and it stops meandering: for eight seconds it comes straight at you, and a pet\'s bite provokes it just the same. Home\'s circle and a lit fire still turn it back.',
   'Swinging reaches one cell — exactly as far as a monster\'s bite. Your light reaches further, but only for work: closing in is what a fight costs.',
   'Your home turns enemies away inside its circle, and they cannot bite while they go. Strike one there and it does not merely leave — it runs clear off the screen.',
-  'Every new food you taste for the first time raises your maximum energy by one, for good.',
+  'Every new food you taste for the first time raises your maximum energy by its tier, for good — the rarer the food, the bigger the gain.',
   'A job one tier past your equipment is not refused outright: you can grind it out for 15\u26a1 and half a minute. Two tiers short is a flat no.',
   // ── What is already lying around — chests, X marks, foraging ───
   'Treasure X marks are buried in car parks — every parking lot hides one.',
