@@ -511,8 +511,8 @@ test('lighting: the halo ping is gone — the POI light replaced it', () => {
   assert.falsy(/poiHaloContainer|halo_poi|POI_HALO_PERIOD_S/.test(APP_JS_SRC + RENDER_SRC),
     'the ring layer, its texture and its period are gone from app.js / render.js');
   const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  assert.truthy(/if \(LIGHTS && o\.kind === 'chest' && !o\.crate && !openedSet\.has\(o\.id\)\) LIGHTS\.consider\(scene, o, dx, dy, halfM\);/.test(body),
-    'live POIs are offered to the lightmap from the tile scan, opened ones never');
+  assert.truthy(/if \(LIGHTS && o\.kind === 'chest' && !o\.crate && !openedSet\.has\(o\.id\) && !burstSet\.has\(o\.id\)\) LIGHTS\.consider\(scene, o, dx, dy, halfM\);/.test(body),
+    'live POIs are offered to the lightmap from the tile scan, opened (or used-today) ones never');
   const offer = body.indexOf("if (LIGHTS && o.kind === 'chest'");
   // (`return`, not `continue`: the object walk is forEachItemInBox's callback
   // since the chunk index — see chunk_index.test.js.)

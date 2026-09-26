@@ -2175,6 +2175,9 @@ Render.drawObjects = function drawObjects(scene) {
   // Opened chests: dropped from the sprite list below AND never offered to the
   // lightmap — an emptied POI is no longer a place that glows.
   const openedSet = setOf(scene.save.opened);
+  // Golden cauldrons used today (interactables.js coinBurstUsedSet): hidden,
+  // and unlit, exactly like an opened chest until the UTC day rolls.
+  const burstSet = coinBurstUsedSet(scene.save);
   const pc = scene.playerToWorldCell();
   // Counted alongside the loop below, not derived after it: "how much does
   // this walk touch" is the number the case for a spatial index needs, and
@@ -2221,7 +2224,7 @@ Render.drawObjects = function drawObjects(scene) {
           // order the sprite pass does) and inside the sprite cull, which its
           // small radius makes near enough: a cell off-screen it shows a hand's
           // width of glow at most.
-          if (LIGHTS && o.kind === 'chest' && !o.crate && !openedSet.has(o.id)) LIGHTS.consider(scene, o, dx, dy, halfM);
+          if (LIGHTS && o.kind === 'chest' && !o.crate && !openedSet.has(o.id) && !burstSet.has(o.id)) LIGHTS.consider(scene, o, dx, dy, halfM);
           // Anchor outside the ordinary viewport: the SPRITE (and its shadow)
           // still draw, but the label passes skip it — a sign or open/busy
           // plaque for an off-screen building would be clamped to the screen
@@ -2351,6 +2354,7 @@ Render.drawObjects = function drawObjects(scene) {
   // it runs over every object of the 3×3 ring, every frame.)
   const spentIds = {
     opened: openedSet,
+    burst: burstSet,
     // In-memory o.chopped is set by the chop wheel; save.chopped is the source
     // of truth that survives a tile re-rasterize. isSpent checks both.
     chopped: setOf(scene.save.chopped),
