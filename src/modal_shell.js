@@ -396,16 +396,44 @@ class SceneModals {
         body.style.maxHeight = `${Math.round((1 - ART_BAND_FRAC) * 100)}%`;
       }
     };
+    // Buttons are CONTROLS — gold, always (spec §UI COLOUR LANGUAGE). An
+    // ENABLED primary is the full UI_CONTROL gold, RAISED (a darker-gold
+    // under-edge and a soft glow) so it reads as something to press, and it
+    // presses: the tap sinks it onto its edge. A DISABLED one is the flat
+    // UI_CONTROL_DIM the token is named for ("inactive controls"), faded.
+    // One setter (b._setEnabled) for the first paint and every live toggle
+    // (the quantity stepper's canAfford), so the two looks can't drift.
+    const RAISED = `0 3px 0 ${UI_CONTROL_DIM}, 0 0 10px rgba(255,224,102,0.35)`;
+    const PRESSED = `0 1px 0 ${UI_CONTROL_DIM}, 0 0 6px rgba(255,224,102,0.25)`;
     const mkBtn = (label, primary = true, disabled = false) => {
       const b = document.createElement('button');
       b.innerHTML = label;
       b.style.cssText =
         `padding:8px 14px;border-radius:6px;font:700 13px ui-monospace,monospace;cursor:pointer;` +
+        'transition:transform 60ms,box-shadow 60ms,background-color 120ms;' +
         (primary
-          // Buttons are CONTROLS — gold, always (spec §UI COLOUR LANGUAGE).
-          ? `background:${UI_CONTROL_DIM};color:#1a1612;border:0;`
-          : 'background:transparent;color:#ddd;border:2px solid #444;');
-      if (disabled) { b.disabled = true; b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; }
+          ? `color:#1a1612;border:0;`
+          : 'background:transparent;color:#eee;border:2px solid #666;');
+      b._setEnabled = (on) => {
+        b.disabled = !on;
+        b.style.opacity = on ? '1' : '0.4';
+        b.style.cursor = on ? 'pointer' : 'not-allowed';
+        b.style.transform = '';
+        if (primary) {
+          b.style.background = on ? UI_CONTROL : UI_CONTROL_DIM;
+          b.style.boxShadow = on ? RAISED : 'none';
+        }
+      };
+      const press = (down) => {
+        if (b.disabled) return;
+        b.style.transform = down ? 'translateY(2px)' : '';
+        if (primary) b.style.boxShadow = down ? PRESSED : RAISED;
+      };
+      b.addEventListener('pointerdown', () => press(true));
+      for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) {
+        b.addEventListener(ev, () => press(false));
+      }
+      b._setEnabled(!disabled);
       return b;
     };
     return { wrap, box, mount, mkBtn };
@@ -667,6 +695,7 @@ class SceneModals {
           }
         }
         const dim = (b, off) => {
+          if (b._setEnabled) { b._setEnabled(!off); return; }
           b.disabled = off;
           b.style.opacity = off ? '0.4' : '1';
           b.style.cursor  = off ? 'not-allowed' : 'pointer';
@@ -674,11 +703,7 @@ class SceneModals {
         dim(minusBtn, qty <= minQ);
         dim(plusBtn,  qty >= maxQ);
         // Keep the primary action button in sync with the live canAfford.
-        if (accept) {
-          accept.disabled = !liveCanAfford;
-          accept.style.opacity = liveCanAfford ? '1' : '0.4';
-          accept.style.cursor  = liveCanAfford ? 'pointer' : 'not-allowed';
-        }
+        if (accept) accept._setEnabled(liveCanAfford);
       };
       minusBtn.addEventListener('click', (e) => {
         e.stopPropagation();

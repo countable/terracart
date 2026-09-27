@@ -9685,9 +9685,7 @@ class MapScene extends Phaser.Scene {
     const timers = [];
     const setSpinEnabled = () => {
       const ok = !spinning && (this.save.money ?? 0) >= m.cost;
-      spin.disabled = !ok;
-      spin.style.opacity = ok ? '1' : '0.4';
-      spin.style.cursor = ok ? 'pointer' : 'not-allowed';
+      spin._setEnabled(ok);   // mkBtn's one enabled/disabled look
     };
     later.addEventListener('click', (e) => { e.stopPropagation(); timers.forEach(clearTimeout); wrap.remove(); });
     spin.addEventListener('click', (e) => {
