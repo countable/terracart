@@ -144,19 +144,24 @@ test('SCRIPTED_SINGLES: the ladder opens with a run of FIVE single-item asks', (
   assert.truthy(ladder[Delivery.SCRIPTED_SINGLES].length > 1, 'the first non-single is a bundle');
   // Every id in the ladder is real produce. Deliberately NOT a tier assertion:
   // the ladder is hand-picked and overrides the early tier cap — the onion is a
-  // T2 whose seed the first market stocks, and the three field flowers are
+  // T2 whose seed the first market stocks, the three field flowers are
   // T2/T3 only because they're foraged wild plants (biome_profiles.js spawns
-  // them in grassland/forest), not crops the tier cap gates.
+  // them in grassland/forest), not crops the tier cap gates, and the crow
+  // feather is a game drop (crows wander every map).
   for (const w of ladder) {
     for (const id of w) {
       assert.truthy(ITEM_BY_ID[id] && ITEM_BY_ID[id].kind === 'produce', id + ' is real produce');
     }
   }
   // The bundles are drawn from the SAME produce the singles already asked for —
-  // the shifted-later pair/trio, not new demands.
+  // the shifted-later pair/trio — save the wild rose, whose single slot went
+  // to the crow feather: the trio's one new demand.
   const singles = new Set(ladder.slice(0, Delivery.SCRIPTED_SINGLES).flat());
   for (const w of ladder.slice(Delivery.SCRIPTED_SINGLES)) {
-    for (const id of w) assert.truthy(singles.has(id), id + ' was already asked for as a single');
+    for (const id of w) {
+      if (id === 'wildrose') continue;
+      assert.truthy(singles.has(id), id + ' was already asked for as a single');
+    }
   }
 });
 
@@ -169,8 +174,8 @@ test('wantedProduce: the first five houses each ask for ONE item', () => {
     assert.eq(JSON.stringify(got), JSON.stringify(Delivery.SCRIPTED_WISHLISTS[i]), 'follows the ladder');
     seen.push(got[0]);
   }
-  assert.eq(JSON.stringify(seen), JSON.stringify(['potato', 'onion', 'marigold', 'forgetmenot', 'wildrose']),
-    'potato, onion, then the three field flowers — one per house');
+  assert.eq(JSON.stringify(seen), JSON.stringify(['potato', 'onion', 'marigold', 'forgetmenot', 'crow_feather']),
+    'potato, onion, two field flowers, then a crow feather — one per house');
   assert.eq(new Set(seen).size, seen.length, 'no house repeats another single');
 });
 

@@ -44,7 +44,9 @@
   // is ordered by BUNDLE SIZE: the first SCRIPTED_SINGLES houses each want ONE
   // item, and only then do the multi-item bundles (the starter kitchen-garden
   // pair and the colored field-flower trio) appear — the same produce, asked
-  // for one at a time first and then as a set. Index = houseOrder.
+  // for one at a time first and then as a set (the wild rose is the one new
+  // ask in the trio: its single slot went to the crow feather, so the ladder
+  // sends the player after a crow once). Index = houseOrder.
   //
   // Ids missing from a build are filtered out at roll time; an entry that ends
   // up empty falls through to the tier-1 early pool below, so the ladder can
@@ -54,7 +56,7 @@
     ['onion'],                                     // 1
     ['marigold'],                                  // 2 — first foraged flower
     ['forgetmenot'],                               // 3
-    ['wildrose'],                                  // 4
+    ['crow_feather'],                              // 4 — first game drop: a crow's feather
     ['potato', 'onion'],                           // 5 — the starter kitchen-garden pair
     ['marigold', 'forgetmenot', 'wildrose'],       // 6 — the colored field-flower trio
   ];
