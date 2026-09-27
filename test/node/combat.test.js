@@ -979,3 +979,29 @@ test('combat: off the GPS the player attacks a third softer, through the one att
   assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\),/.test(APP_JS_SRC), 'and the melee wheel');
   assert.truthy(/_offGps\(\) \{\s*if \(!this\.gpsM\) return false;/.test(APP_JS_SRC), 'no fix, nothing to be away from');
 });
+
+// ── Sight ─────────────────────────────────────────────────────────────────
+// Goblins see further than slimes: every slime (the surface one, the cave
+// kinds, their giants) notices the player only within SLIME_SIGHT_CELLS, and
+// every goblin across the whole sim bubble (CREATURE_SIM_CELLS).
+test('sight: slimes are short-sighted, goblins see across the bubble', () => {
+  const S = Combat.SLIME_SIGHT_CELLS;
+  assert.gt(S, 0, 'a slime sees something');
+  assert.lt(S, 12, 'and less than the sim bubble (CREATURE_SIM_CELLS 12), or it is no limit');
+  for (const k of ['slime', 'cave_slime', 'purple_slime', 'giant_cave_slime', 'giant_purple_slime']) {
+    assert.eq(Combat.sightCells(k), S, `${k} is a slime`);
+  }
+  for (const k of ['goblin', 'goblin_archer', 'goblin_trapper', 'giant_goblin']) {
+    assert.gt(Combat.sightCells(k), 12, `${k} sees past the bubble's edge`);
+    assert.gt(Combat.sightCells(k), Combat.sightCells('slime'), `${k} sees further than a slime`);
+  }
+  const m = 7;
+  assert.truthy(Combat.seesPlayer('slime', S * m, m), 'a slime sees to the edge of its sight');
+  assert.falsy(Combat.seesPlayer('slime', (S + 0.5) * m, m), 'and not past it');
+  assert.truthy(Combat.seesPlayer('goblin', 11.9 * m, m), 'a goblin sees you from the bubble edge');
+  // A ranged kind must be able to see as far as it shoots, or it would fire
+  // at a player it is not stalking.
+  for (const k of Object.keys(MONSTERS)) {
+    assert.gte(Combat.sightCells(k), MONSTERS[k].range, `${k} sees at least its own range`);
+  }
+});

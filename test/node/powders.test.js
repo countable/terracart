@@ -206,9 +206,11 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
   assert.truthy(/if \(Combat\.isMonster\(c\.kind\) && !unnoticed[^)]*\) \{\n\s*const m = Combat\.monster\(c\.kind\);/.test(w),
     'the monster drain is gated');
   // The pursuits.
-  assert.truthy(/if \(!unnoticed && Math\.random\(\) < 0\.5 && distToPlayer > 0\.5 \* this\.cellM\) \{/.test(w),
+  // (through `unseen`, which is `unnoticed` plus the foe's own sight).
+  assert.truthy(/const unseen = unnoticed \|\|/.test(w), 'unseen carries unnoticed');
+  assert.truthy(/if \(!unseen && Math\.random\(\) < 0\.5 && distToPlayer > 0\.5 \* this\.cellM\) \{/.test(w),
     'the slime\'s meander toward the player is gated');
-  assert.truthy(/if \(!unnoticed && distToPlayer > 0\.5 \* this\.cellM\) \{\n\s*angle = Math\.atan2\(dyp, dxp\)/.test(w),
+  assert.truthy(/if \(!unseen && distToPlayer > 0\.5 \* this\.cellM\) \{\n\s*angle = Math\.atan2\(dyp, dxp\)/.test(w),
     'the monsters\' stalk is gated');
   // And NOT the player's weapons.
   const combat = app.match(/\n  _combatTick\(dt\) \{\n([\s\S]*?)\n  \}\n/);
