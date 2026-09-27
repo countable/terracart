@@ -10713,7 +10713,7 @@ class MapScene extends Phaser.Scene {
   // The opening ladder (delivery.js SCRIPTED_WISHLISTS) makes the first houses
   // ask for ONE item, and a one-item wishlist isn't a "set" — the copy below
   // drops the set wording (and the "sets" stepper unit) in that case, so the
-  // first errand reads "wants: Potato" rather than "wants the set: Potato".
+  // first errand reads "1 × [ Potato ]" rather than "1 set × [ Potato ]".
   presentDeliveryOffer(sx, sy, house, recordDeal) {
     // Already fed — one delivery per house, ever. The household stays happy
     // (and its callout stays a smiling face) for good.
@@ -10753,7 +10753,10 @@ class MapScene extends Phaser.Scene {
     const first = fmt(1);
     this.showOfferModal({
       kind: 'delivery',
-      title: single ? 'The household wants:' : 'The household wants the full set:',
+      // The title captions the `get` line (the coins), so it names what the
+      // household OFFERS — "wants: +$5" read as the house asking for money.
+      // What it wants is the cost line, whose "set" wording covers a bundle.
+      title: 'The household offers:',
       cancelLabel: 'Later',
       get: first.get,
       cost: first.cost,
