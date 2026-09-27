@@ -84,9 +84,10 @@ test('creature table: a PET is exactly the cat and the dog, and each hunts its o
   // one row answers both halves of the wander loop's scan.
   assert.eq(ctKinds((k) => CT_BEH[k].prey), 'cat,dog');
   assert.eq(CT_SL.creaturePrey('chicken'), null, 'a chicken hunts nothing');
-  // FOLLOWING is the cat's alone (interact.js arms the timer, wanderCreatures
-  // honours it) — and it is not the same question as being a pet.
-  assert.eq(ctKinds((k) => CT_BEH[k].follows), 'cat');
+  // FOLLOWING is the cat's (interact.js arms the timer, wanderCreatures
+  // honours it) and the spirit raven's (app.js _tickSpiritRaven arms it for
+  // the bird's whole life) — and it is not the same question as being a pet.
+  assert.eq(ctKinds((k) => CT_BEH[k].follows), 'cat,spirit_raven');
   assert.truthy(CT_SL.creatureFollows('cat'));
   assert.falsy(CT_SL.creatureFollows('dog'), 'a dog does not trail you around');
 });

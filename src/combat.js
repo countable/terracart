@@ -248,6 +248,15 @@
   // now rather than $3), and BASELINE_HP below is a fixed anchor, not a
   // reading of this table.
   const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 10 };
+  // A SUMMONED ally borrows a kind's stats rather than carrying its own: the
+  // spirit raven (the Potion of the Raven) is "equal to a slime", so
+  // its pool is the surface slime's here and its bite is the slime's below
+  // (petBite). One row, derived — a retune of the slime retunes the raven.
+  // Its pool is the slime's BASE (FAUNA_HP), never the hard-mode enemy scale:
+  // creatureMaxHp only scales Combat.isEnemy kinds, and the raven is yours.
+  const SUMMONED_AS = { spirit_raven: 'slime' };
+  for (const [kind, model] of Object.entries(SUMMONED_AS)) FAUNA_HP[kind] = FAUNA_HP[model];
+  function summonedAs(kind) { return SUMMONED_AS[kind] || null; }
 
   // Hard mode scales ENEMY pools (Difficulty.enemyHpMul, 1.5×) here, in the
   // one place both the wheel and the bounty read — so a hard-mode foe takes
@@ -501,6 +510,28 @@
     if (!c) return false;
     if (typeof c.id === 'string' && c.id.startsWith('released_')) return false;
     return isEnemyKind(c.kind);
+  }
+
+  // ── A pet's bite ─────────────────────────────────────────────────────────
+  // What ONE bite in wanderCreatures' pet fight takes off the prey (the fight
+  // resolves once per wander step). A tame animal worries its prey down, a
+  // point a bite — PET_BITE, what the fight always dealt. A SUMMONED ally
+  // bites with the blow of the kind it is summoned as (SUMMONED_AS): the
+  // spirit raven lands the surface slime's leech, SLIME_LEECH_ENERGY (items.js
+  // — the slime's one bite a second), and its row steps once a second, so it
+  // deals what a slime deals at the rate a slime deals it. A monster model
+  // would bite for its registered `dmg`.
+  const PET_BITE = 1;
+  function enemyBlow(kind) {
+    const m = MONSTER_STATS[kind];
+    if (m) return m.dmg || 0;
+    // The surface slime — the one enemy with no MONSTERS row (isEnemyKind).
+    if (isEnemyKind(kind) && typeof SLIME_LEECH_ENERGY === 'number') return SLIME_LEECH_ENERGY;
+    return PET_BITE;
+  }
+  function petBite(kind) {
+    const model = SUMMONED_AS[kind];
+    return model ? enemyBlow(model) : PET_BITE;
   }
 
   // Current HP, lazily seeded from the kind's max the first time anything hits
@@ -1089,6 +1120,7 @@
   const api = {
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
     registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, retreatMul, FAUNA_HP, creatureMaxHp,
+    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,

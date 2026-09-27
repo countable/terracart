@@ -544,6 +544,9 @@ const TAP_HANDLERS = [
     let target = null, bestD2 = Infinity;
     WorldGen.forEachItem('creatures', (c) => {
       if (save.caught.includes(c.id)) return;
+      // A SUMMONED ally (the spirit raven) is not a tap target: nothing to
+      // catch, tame, feed or pet — a tap goes through it to whatever is there.
+      if (SpriteLayout.isSummoned(c.kind)) return;
       // A giant monster is its base kind's art scaled by the same number the
       // renderer draws it with (SpriteLayout.GIANT_ART_SCALE, applied inside
       // creatureArt), so the tappable area stays the drawn body.

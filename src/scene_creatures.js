@@ -863,9 +863,10 @@ class SceneCreatures {
         now - (this._lastCaughtPruneT || 0) > 90000) {
       this._lastCaughtPruneT = now;
       this.save.caught = this.save.caught.filter((id) => {
-        // The ghosts (ghostSpawnPass) and the fished slime (fishedSlimeSpawn)
-        // mint their ids the same way and are pruned by the same rule.
-        const m = typeof id === 'string' && /^(?:pest_crow|ghost|fished_slime)_(-?\d+)_(-?\d+)_/.exec(id);
+        // The ghosts (ghostSpawnPass), the fished slime (fishedSlimeSpawn)
+        // and a dismissed spirit raven (app.js _tickSpiritRaven) mint their
+        // ids the same way and are pruned by the same rule.
+        const m = typeof id === 'string' && /^(?:pest_crow|ghost|fished_slime|spirit_raven)_(-?\d+)_(-?\d+)_/.exec(id);
         return !m || WorldGen.tileCache.has(WorldGen.tileKey(+m[1], +m[2]));
       });
     }
@@ -950,6 +951,14 @@ class SceneCreatures {
       const ddx = c.x - px, ddy = c.y - py;
       if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
+      // HUNTS FOR THE PLAYER: a tame pet, or a summoned ally (the spirit
+      // raven, conjured by a potion — yours without being tame). One flag
+      // the pet scan and its fight read; see huntsPrey for what each takes.
+      const summoned = SpriteLayout.isSummoned(c.kind);
+      // A spent ally (its HP ran out — see the pet fight) stands still until
+      // app.js _tickSpiritRaven lifts it off the map.
+      if (summoned && c._spent) return;
+      const huntsForPlayer = (isTame && SpriteLayout.isPet(c.kind)) || summoned;
       // WHAT THINKS AT ALL: everything with a row in the creature behaviour
       // table (SpriteLayout.CREATURE_BEHAVIOUR) — the farm and pet animals,
       // the wild fauna, the surface slime and every cave monster, giants
@@ -1223,7 +1232,8 @@ class SceneCreatures {
       // status is stable across reloads (matches the shiny-tint in render).
       // An ELITE monster hits harder, not faster: its cadence comes purely
       // from SPEED, so the shiny check is for animals only.
-      const shinyFast = (!isMon && isShiny(c.id, SHINY_RATE.animal)) ? 1 / SHINY_SPEED_MUL : 1;
+      // A summoned ally is never shiny-fast: its cadence IS its bite rate.
+      const shinyFast = (!isMon && !summoned && isShiny(c.id, SHINY_RATE.animal)) ? 1 / SHINY_SPEED_MUL : 1;
       // CHARGING: hit by the player or their pet within STRUCK_REACTION_MS and
       // not warded off. Resolved once here because both halves of the charge
       // read it — the quickened beat just below and the committed angle in the
@@ -1286,20 +1296,20 @@ class SceneCreatures {
           c._lastDamagedT = null;
         }
 
-        // Pet combat: a tame PET (a kind whose row says it hunts for its
-        // owner — cats crows, dogs deer + slimes) scans for the nearest valid
-        // prey within 8 cells each wander step. Both halves are the one row:
-        // which kinds hunt, and what each of them hunts.
-        if (isTame && SpriteLayout.isPet(c.kind)) {
+        // Pet combat: a creature that HUNTS FOR THE PLAYER scans for the
+        // nearest valid prey within 8 cells each wander step. Two reasons, one
+        // lane: a tame PET (a kind whose row says it hunts for its owner —
+        // cats crows, dogs deer + slimes), or a SUMMONED ally (the spirit
+        // raven — every foe and pest crow). What each may take is huntsPrey
+        // (creature_ai.js), off the same row.
+        if (huntsForPlayer) {
           const CHASE_R = 8 * this.cellM;
           const CHASE_R2 = CHASE_R * CHASE_R;
-          const PREY = SpriteLayout.creaturePrey(c.kind);
           let nearest = null, nearestD2 = CHASE_R2;
           // Pet is within sim range of the player and prey within 8 cells of
           // the pet, so the player's 3×3 tile ring covers the search box.
           WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (cr) => {
-            if (!PREY.has(cr.kind)) return;
-            if (cr.id?.startsWith('released_')) return;
+            if (!huntsPrey(c.kind, cr)) return;
             if (caughtSet.has(cr.id)) return;
             const d2 = (cr.x - c.x) ** 2 + (cr.y - c.y) ** 2;
             if (d2 < nearestD2) { nearestD2 = d2; nearest = cr; }
@@ -1339,6 +1349,12 @@ class SceneCreatures {
         const FOLLOW_GAP = 1.5 * this.cellM;
         const isFollowing = SpriteLayout.creatureFollows(c.kind)
           && c._followUntilT && c._followUntilT > now;
+        // A SUMMONED follower's home is its summoner: re-anchored on the
+        // player every step, so between hunts it hovers at your side instead
+        // of the home-bias below dragging it back to where it was conjured.
+        // (A cat keeps its own release point — it goes home after its five
+        // minutes.)
+        if (isFollowing && summoned) { c._homeX = px; c._homeY = py; }
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
         const retreating = c._retreatUntilT && c._retreatUntilT > now;
         const homeRadius = retreating ? 0 : isTame ? 5 * this.cellM : 3 * this.cellM;
@@ -1356,8 +1372,10 @@ class SceneCreatures {
             // One HP table for every fight in the game (combat.js) — a slime a
             // dog has been worrying shows the damage on the player's health
             // ring too, and finishing it off with an arrow is that much less
-            // work.
-            tgt._hp = Combat.damage(tgt, 1);
+            // work. The bite is Combat.petBite: a point for a tame pet, the
+            // slime's own blow for the spirit raven (summoned as a slime).
+            // The prey bites back a point either way.
+            tgt._hp = Combat.damage(tgt, Combat.petBite(c.kind));
             c._hp   = Combat.damage(c, 1);
             tgt._lastDamagedT = Date.now();
             c._lastDamagedT   = Date.now();
@@ -1387,7 +1405,14 @@ class SceneCreatures {
               this.resolveDefeat(tgt, 'pet');
               c._chaseTarget = null;
             }
-            if (c._hp <= 0) {
+            if (c._hp <= 0 && summoned) {
+              // A SUMMONED ally is spent, not wounded: it has no home to limp
+              // to. Flagged here, removed by its owner's tick (app.js
+              // _tickSpiritRaven) — never spliced out of the array this scan
+              // is walking.
+              c._spent = true;
+              c._chaseTarget = null;
+            } else if (c._hp <= 0) {
               // Pet retreats home to recover.
               c._hp = 1;
               c._chaseTarget = null;

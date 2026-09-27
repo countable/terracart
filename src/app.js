@@ -914,6 +914,8 @@ const MINUTE_MS = 60 * 1000;
 const REACH_POTION_MS = MINUTE_MS;
 const SPEED_POTION_MS = MINUTE_MS;
 const SHIELD_POTION_MS = MINUTE_MS;
+// (The Potion of the Raven's length, SPIRIT_RAVEN_MS, lives in items.js
+// beside the ✦ line that quotes it.)
 const DRAGON_POWDER_MS = MINUTE_MS;
 const SHADOW_POWDER_MS = MINUTE_MS;
 // The powders' reach: Growth sweeps the rainberry's crop radius; Frost holds a
@@ -4302,6 +4304,7 @@ class MapScene extends Phaser.Scene {
     // damage lands.
     this._combatTick(dt);
     this._tickBlightAura();
+    this._tickSpiritRaven();
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
@@ -8710,6 +8713,84 @@ class MapScene extends Phaser.Scene {
       'A shimmering barrier wraps you — for one minute every monster blow lands at half its weight.',
       opts,
     );
+  }
+
+  // Potion of the Raven: SPIRIT_RAVEN_MS of a slime-strength ally
+  // (SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven) hunting the nearest foe or
+  // pest crow through wanderCreatures' pet lane. Only the EXPIRY reaches the
+  // save (save.spiritRavenUntil), so the timer is honest across a reload; the
+  // bird is session state that _tickSpiritRaven keeps at your side while it
+  // runs. Drinking again while one is out refreshes the timer on the SAME
+  // bird — never a second raven.
+  drinkRavenPotion(opts = {}) {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'raven_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
+    // A living bird's follow timer is its lifetime — stretch it with the refresh.
+    if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS;
+    this._tickSpiritRaven();   // summoned now, not a frame later
+    return this._finishConsumable(
+      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of the Raven`,
+      `A raven of smoke and starlight shakes itself out of the flask. For ${shortDuration(SPIRIT_RAVEN_MS)} it hunts the nearest monster or pest crow, bites as hard as a slime, and keeps to your side between fights.`,
+      opts,
+    );
+  }
+
+  // THE SPIRIT RAVEN'S KEEPER — once a frame, beside the Blight aura. The bird
+  // is SESSION state (an id minted off the clock, like the pest crow and the
+  // ghost), pushed into the live creature list of the player's tile; what
+  // persists is only save.spiritRavenUntil. So one pass answers everything:
+  //   the timer ran out, or its HP did (the pet fight flags `_spent`) → it is
+  //     dismissed with a note on its cell;
+  //   it is LOST while the timer runs — a reload, its tile evicted or rebuilt
+  //     out from under it, a stair to another level (WorldGen.tileCache is
+  //     repointed), or left beyond the sim bubble (CREATURE_SIM_CELLS) where
+  //     it would stop thinking → it is dismissed quietly and a fresh one is
+  //     summoned at the player's feet. Re-summoning is the whole rebuild
+  //     story (CLAUDE.md "A tile can be REBUILT under you"): nothing about
+  //     the bird has to survive one.
+  // Dismissed = its id pushed onto save.caught, the one "gone" every pass
+  // already honours (render, the wander loop, taps) — so a bird left behind
+  // in a cache this pass can no longer reach is gone too, and the caught
+  // prune (wanderCreatures) forgets the id once its tile leaves the cache.
+  _tickSpiritRaven() {
+    const r = this._spiritRaven || null;
+    let live = (this.save.spiritRavenUntil ?? 0) > Date.now();
+    if (!r && !live) return;
+    if (!this.startWorldM || !this.playerM) return;
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    const pc = this.playerToWorldCell();
+    if (r) {
+      const here = !!WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => c === r);
+      const simR = CREATURE_SIM_CELLS * this.cellM;
+      const lost = !here || Math.hypot(r.x - px, r.y - py) > simR;
+      if (!live || r._spent || lost) {
+        (this.save.caught = this.save.caught || []).push(r.id);
+        this._spiritRaven = null;
+        if (r._spent) {
+          this.save.spiritRavenUntil = 0;
+          live = false;
+        }
+        if (here && (r._spent || !live)) {
+          this.flashAtWorld(r._spent ? 'The spirit raven is spent.' : 'The spirit raven fades.', r.x, r.y);
+        }
+        persistSave(this.save);
+      }
+    }
+    if (!live || this._spiritRaven) return;
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+    // Only into a tile whose creatures have spawned: seeding the array first
+    // would make spawnInTile keep ours and drop its own (`entry.creatures ||
+    // creatures`). A tile still loading just tries again next frame.
+    if (!entry || !entry.creatures) return;
+    const now = performance.now();
+    const c = WorldGen.makeCreature('spirit_raven', px, py,
+      `spirit_raven_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
+      // Its FOLLOW (the row's `follows`) runs for the rest of its life.
+      { _followUntilT: now + Math.max(0, this.save.spiritRavenUntil - Date.now()) });
+    entry.creatures.push(c);
+    this._spiritRaven = c;
   }
 
   // The Drink dialog's line for a revival potion: what it will do while you
@@ -14039,6 +14120,7 @@ class MapScene extends Phaser.Scene {
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `tier-${SPEED_POTION_AMULET_TIER} amulet walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: `half monster damage for ${shortDuration(SHIELD_POTION_MS)}`, channel: true },
+      raven_potion:  { verb: 'Drink', method: 'drinkRavenPotion',  title: 'Drink the Potion of the Raven?', get: `🐦 a spirit raven hunts foes & pest crows for ${shortDuration(SPIRIT_RAVEN_MS)}`, channel: true },
       thunder_potion: { verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?', get: `⚡ every foe in sight takes ${THUNDER_DMG} damage, and the rest flee` },
       blight_potion: { verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',    get: `☠ foes within ${BLIGHT_R_CELLS} cells lose ${BLIGHT_DPS} HP/s for ${shortDuration(BLIGHT_MS)}`, channel: true },
       // `channel: true` marks the TIMED potions — the ones an Enchanter
