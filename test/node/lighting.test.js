@@ -168,20 +168,53 @@ test('lighting: low energy tints the bubble red, progressively, nothing else doe
     0xffffff, 'a Potion of Reach pins the view lit');
 });
 
-test('lighting: below 15% energy the tint throbs like a heartbeat, not a flat wash', () => {
+test('lighting: critically low, every light turns red and stutters on the heartbeat', () => {
+  const low = scene({ save: { energy: 20, maxEnergy: 100 } });
+  const ok = scene({ save: { energy: 25, maxEnergy: 100 } });
+  assert.eq(Lighting.criticalLights(ok, 0), null, 'above 20% the lights are untouched');
+  const still = Lighting.criticalLights(low, null);
+  assert.eq(still.mix, Lighting.CRITICAL_LIGHT_MIX, 'at 20% every light is pulled toward the red');
+  assert.eq(still.a, 1, 'no clock, no stutter');
+  // The stutter is the SAME heartbeat the plateau throbs on: strongest dip on
+  // the lub, back to full between beats, periodic.
+  let minA = 1, maxA = 0;
+  for (let t = 0; t < Lighting.HEARTBEAT_PERIOD_MS; t += 5) {
+    const a = Lighting.criticalLights(low, t).a;
+    assert.inRange(a, 1 - Lighting.CRITICAL_LIGHT_DIP - 1e-9, 1, 'dips, never brightens');
+    minA = Math.min(minA, a); maxA = Math.max(maxA, a);
+  }
+  assert.lt(minA, 1 - Lighting.CRITICAL_LIGHT_DIP * 0.9, 'the beat dips the lights hard');
+  assert.gt(maxA, 0.97, 'and lets them back up between beats');
+  assert.eq(Lighting.criticalLights(low, 0).a,
+    Lighting.criticalLights(low, Lighting.HEARTBEAT_PERIOD_MS).a, 'periodic');
+  // A Potion of Reach silences it with the rest of the cue.
+  const potion = scene({ save: { energy: 10, maxEnergy: 100, reachPotionUntil: Date.now() + 60000 } });
+  assert.eq(Lighting.criticalLights(potion, 0), null, 'the potion pins the view lit');
+  // The tint is a colour mix toward the warning red; the paint reads it, and
+  // the frame key names it (a light that stutters must repaint).
+  assert.eq(Lighting.mixColour(0xffffff, Lighting.LOW_ENERGY_TINT, 1), Lighting.LOW_ENERGY_TINT);
+  assert.eq(Lighting.mixColour(0x123456, Lighting.LOW_ENERGY_TINT, 0), 0x123456);
+  assert.truthy(/const crit = criticalLights\(scene, now\);[\s\S]*?\* \(crit \? crit\.a : 1\)/.test(LIGHTING_SRC),
+    'draw() dims every stamped light by the stutter');
+  assert.truthy(/if \(crit\) k \+= `\|crit/.test(LIGHTING_SRC), 'and frameKey names it');
+});
+
+test('lighting: at 20% energy and below the tint throbs like a heartbeat, not a flat wash', () => {
   // A clock-free profile() call — every assertion above uses one — gets the
   // flat ceiling alone, whatever the energy: the pulse must never disturb a
   // derivation test that never mentions time.
-  const critical = scene({ save: { energy: 10, maxEnergy: 100 } }); // 10% < 15%
+  const critical = scene({ save: { energy: 10, maxEnergy: 100 } }); // 10% < 20%
   const w = Lighting.lowEnergyFrac(critical);
   assert.eq(Lighting.profile(critical).litColour,
     Lighting.mixToWhite(Lighting.LOW_ENERGY_TINT, Lighting.LOW_ENERGY_A * w),
     'no `now` argument means no animation — the ceiling alone, as before');
 
   // Above the critical threshold the multiplier is pinned at 1 regardless of
-  // the clock — 20% energy never throbs, however `now` reads.
-  const mild = Lighting.lowEnergyFrac(scene({ save: { energy: 20, maxEnergy: 100 } }));
-  assert.lt(mild, Lighting.CRITICAL_W, '20% energy is above the critical band');
+  // the clock — 25% energy never throbs, however `now` reads.
+  const mild = Lighting.lowEnergyFrac(scene({ save: { energy: 25, maxEnergy: 100 } }));
+  assert.lt(mild, Lighting.CRITICAL_W, '25% energy is above the critical band');
+  assert.gte(Lighting.lowEnergyFrac(scene({ save: { energy: 20, maxEnergy: 100 } })), Lighting.CRITICAL_W,
+    'and 20% is inside it — the line is drawn AT 20%');
   for (const t of [0, 137, 424, 849]) {
     assert.eq(Lighting.heartbeatMul(mild, t), 1, 'never engages above CRITICAL_W');
   }
@@ -507,7 +540,8 @@ test('lighting: a blast is stored in WORLD metres and re-anchored every frame, s
   // The stamp reads the entry's radius and colour, so one row serves every size.
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
-  assert.truthy(/ensureKindCookie\(scene, L\.kind, L\.r, L\.colour\)/.test(d),
+  assert.truthy(/ensureKindCookie\(scene, L\.kind, L\.r, colour\)/.test(d)
+    && /: L\.colour;/.test(d),
     'the cookie is baked at the entry\'s own radius and colour');
   assert.truthy(/collectBlasts\(scene, ax, ay, halfM, now\)/.test(d),
     'and draw() collects the live blasts against this frame\'s anchor');

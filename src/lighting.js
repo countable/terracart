@@ -439,15 +439,15 @@
   const LOW_ENERGY_A = 0.30;
   const LOW_ENERGY_FRAC = 0.30;
 
-  // Below this energy fraction — half again past the low-energy threshold,
-  // where LOW_ENERGY_FRAC's own warning band is HALFWAY spent — the tint
-  // stops being a flat wash and starts THROBBING. A static red at 5% energy
-  // reads no more urgent than the same static red at 14%, so the second
-  // stage is an escalation of the SAME cue, not a separate one: it only ever
-  // engages once lowEnergyFrac has already crossed halfway to its own
-  // ceiling (frac 0.30 → 0.15 is exactly half of the 0.30 → 0 band).
-  const CRITICAL_ENERGY_FRAC = 0.15;
-  const CRITICAL_W = 1 - CRITICAL_ENERGY_FRAC / LOW_ENERGY_FRAC; // 0.5
+  // Below this energy fraction the tint stops being a flat wash and starts
+  // THROBBING — and every OTHER light joins in (criticalLights, below): the
+  // whole map turns red and stutters on the heartbeat. A static red at 5%
+  // energy reads no more urgent than the same static red at 18%, so the
+  // second stage is an escalation of the SAME cue, not a separate one: it
+  // only ever engages once lowEnergyFrac has already crossed a third of the
+  // way to its own ceiling (frac 0.30 → 0.20 of the 0.30 → 0 band).
+  const CRITICAL_ENERGY_FRAC = 0.20;
+  const CRITICAL_W = 1 - CRITICAL_ENERGY_FRAC / LOW_ENERGY_FRAC; // 1/3
 
   // A hurried heartbeat: quicker than POI_PULSE_PERIOD_S's calm 4.5s
   // breathing, because this is an alarm, not ambience. Two decaying spikes a
@@ -476,6 +476,31 @@
     if (now == null || w < CRITICAL_W) return 1;
     const phase = (now % HEARTBEAT_PERIOD_MS) / HEARTBEAT_PERIOD_MS;
     return 1 + HEARTBEAT_AMPLITUDE * heartbeatShape(phase);
+  }
+
+  // Past CRITICAL_W every light source — fires, Home, lamps, POIs, bolts,
+  // blasts — is pulled CRITICAL_LIGHT_MIX of the way to LOW_ENERGY_TINT and
+  // STUTTERS: its strength dips by up to CRITICAL_LIGHT_DIP on each lub and
+  // dub of the same heartbeat the player's own plateau throbs on, so the
+  // world's light and the player's pulse beat together. One cue, one clock:
+  // it reads lowEnergyFrac (so a Potion of Reach silences it too) and
+  // heartbeatShape, never a second threshold. The tint is a FIXED mix, not
+  // pulsed, because a light's colour keys a baked cookie
+  // (ensureKindCookie) — a per-frame colour would bake one every tick;
+  // the beat lives in the alpha instead. null when not critical.
+  // `now == null` means "don't animate", as heartbeatMul.
+  const CRITICAL_LIGHT_MIX = 0.7;
+  const CRITICAL_LIGHT_DIP = 0.55;
+  function criticalLights(scene, now) {
+    if (lowEnergyFrac(scene) < CRITICAL_W) return null;
+    const beat = now == null ? 0
+      : heartbeatShape((now % HEARTBEAT_PERIOD_MS) / HEARTBEAT_PERIOD_MS);
+    return { mix: CRITICAL_LIGHT_MIX, a: 1 - CRITICAL_LIGHT_DIP * beat };
+  }
+  // `a` lerped `t` of the way to `b`, per channel.
+  function mixColour(a, b, t) {
+    const ch = (sh) => Math.round(((a >> sh) & 255) * (1 - t) + ((b >> sh) & 255) * t);
+    return (ch(16) << 16) | (ch(8) << 8) | ch(0);
   }
 
   // White lerped `alpha` of the way to `colour` — the multiply tint that
@@ -1049,6 +1074,8 @@
       + `|${prof.depth},${prof.dimA},${prof.dimColour},${prof.farA},${prof.ambient},${prof.edge},${prof.lit},${prof.litColour},${prof.night}`;
     if (rp) k += `|${rp.cellIX},${rp.cellIY},${pc.tx},${pc.ty},${pc.cx},${pc.cy}`;
     if (animates(scene)) k += `|t${now}`;
+    const crit = criticalLights(scene, now);           // every light's tint + stutter
+    if (crit) k += `|crit${crit.mix},${crit.a.toFixed(4)}`;
     for (const L of scene._lights) k += `|${L.kind},${L.id},${L.dx},${L.dy},${L.dyPx},${L.r},${L.colour},${L.a},${L.s}`;
     return k;
   }
@@ -1361,10 +1388,15 @@
     // `colour` — a blast is sized to the thing it went off on), and a `dyPx`:
     // a draw-space lift off its own point, for a source that burns up in the
     // air over the ground it stands on (a street lamp's lantern).
+    // Critically low: every light red and stuttering (criticalLights).
+    const crit = criticalLights(scene, now);
     const stamp = (L) => {
       const row = KINDS[L.kind];
-      const ck = ensureKindCookie(scene, L.kind, L.r, L.colour);
-      const a = flickerAlpha(row, L.dx, L.dy, now, L.id) * (L.a == null ? 1 : L.a);
+      const colour = crit ? mixColour(L.colour == null ? row.colour : L.colour, LOW_ENERGY_TINT, crit.mix)
+                          : L.colour;
+      const ck = ensureKindCookie(scene, L.kind, L.r, colour);
+      const a = flickerAlpha(row, L.dx, L.dy, now, L.id) * (L.a == null ? 1 : L.a)
+        * (crit ? crit.a : 1);
       const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
       const d = 2 * ck.R * sc;
       ctx.globalAlpha = clamp01(a);
@@ -1389,7 +1421,7 @@
     KINDS, radiusCells, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
-    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, mixToWhite, scaleColour, lum, atLuminance,
+    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIP, criticalLights, mixColour, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, collectFires, collectBolts, objectLightPadCells,
