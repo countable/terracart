@@ -160,11 +160,36 @@ test('ghost pump: nothing by day', () => {
   });
 });
 
-test('ghost pump: nothing underground, night or not', () => {
-  atDaylight(0, () => {
-    const s = pumpScene({ depth: 1 });
-    for (let t = 0; t < 30 * 60000; t += 1000) pump(s, t);
-    assert.eq(s._entry.creatures.length, 0, 'the caves have their own foes');
+test('ghost pump: nothing on an ODD cave level, night or not', () => {
+  for (const depth of [1, 3, 5]) {
+    atDaylight(0, () => {
+      const s = pumpScene({ depth });
+      for (let t = 0; t < 30 * 60000; t += 1000) pump(s, t);
+      assert.eq(s._entry.creatures.length, 0, `depth ${depth}: the odd levels are not haunted`);
+    });
+  }
+});
+
+test('ghost pump: an EVEN cave level is haunted at every hour', () => {
+  for (const depth of [2, 4]) {
+    for (const day of [1, 0]) {
+      atDaylight(day, () => {
+        const s = pumpScene({ depth });
+        let rose = 0;
+        for (let t = 0; t < 30 * 60000; t += 1000) rose += pump(s, t);
+        assert.gt(rose, 0, `depth ${depth}, daylight ${day}: ghosts rise`);
+      });
+    }
+  }
+  assert.eq(__ghost.GHOST_CAVE_EVERY, 2, 'every other level: 2, 4, 6…');
+  assert.truthy(__ghost.ghostsHaunt(2, 1) && !__ghost.ghostsHaunt(3, 0) && !__ghost.ghostsHaunt(0, 1) && __ghost.ghostsHaunt(0, 0),
+    'the one predicate: even levels always, the surface only after dark');
+});
+
+test('ghost: no sun burn underground, even at noon', () => {
+  atDaylight(1, () => {
+    assert.eq(__ghost.ghostSunExposureAt({ depth: 2 }, Date.now()), 0, 'a cave level has no sun');
+    assert.eq(__ghost.ghostSunExposureAt(pumpScene(), Date.now()), 1, 'the surface at noon burns');
   });
 });
 

@@ -1074,8 +1074,9 @@ const PLAY_TIPS = [
   // The ghosts (app.js GHOST_*, combat.js MONSTERS.ghost): the first night
   // can be the first session, and a touch is an eighth of a fresh bar — so
   // this is safety, taught beside the snares. books.test.js re-derives the
-  // five minutes, the "twice" and the touch (Combat.GHOST_TOUCH_DMG).
-  'After dark, ghosts rise out of the dark every five minutes or so. One hovers a moment, then rushes you at a run, and its touch costs 12\u26a1 before armour. A torch or a lamp burns them, a campfire drives them off, and none will linger near Home or a castle you\'ve taken back.',
+  // five minutes, the "twice", the touch (Combat.GHOST_TOUCH_DMG) and
+  // the haunted levels (creature_ai.js GHOST_CAVE_EVERY).
+  'After dark, ghosts rise out of the dark every five minutes or so. One hovers a moment, then rushes you at a run, and its touch costs 12\u26a1 before armour. Below ground, every second level is haunted at every hour. A torch or a lamp burns them, a campfire drives them off, and none will linger near Home or a castle you\'ve taken back.',
   // ── The starter loop — till, plant, rebuild, harvest, sell ───
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',

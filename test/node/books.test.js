@@ -258,6 +258,9 @@ test('tips: the ghost page quotes its owners\' numbers', () => {
   const touch = Combat.monster('ghost').dmg;
   assert.eq(touch, Combat.GHOST_TOUCH_DMG, 'the live row carries the touch');
   assert.truthy(t.includes(`${touch}\u26a1 before armour`), `a ${touch} touch, as the page says`);
+  const every = Number(CREATURE_AI_SRC.match(/const GHOST_CAVE_EVERY = (\d+);/)?.[1]);
+  assert.eq(every, 2, 'every second cave level is haunted');
+  assert.truthy(/every second level is haunted at every hour/.test(t), 'and the page says so');
   const i = PLAY_TIPS.indexOf(t);
   assert.lt(i, PLAY_TIPS.length / 5, 'taught in the first fifth, beside the snares — the first night can be the first session');
 });

@@ -133,7 +133,8 @@ const PEST_CROW_SPAWN_CELLS = 10;
 // speed). The ghost does not step — it glides at its row's `mps`.
 function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // ── GHOSTS ───────────────────────────────────────────────────────────────────
-// After dark a few ghosts rise in the dark around the player, hover a moment,
+// After dark (and at any hour on an even cave level — ghostsHaunt) a few
+// ghosts rise in the dark around the player, hover a moment,
 // then rush them: a touch costs Combat's GHOST_TOUCH_DMG (the mode, the shield
 // and armour have their say, as with every blow) and spends the ghost; light
 // burns them (Lighting.brightnessAt, the lightmap's own model). Their row is
@@ -145,9 +146,18 @@ function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // pest crow's is (wanderCreatures).
 //   "After dark" is the daylight (Lighting.daylight, 1 noon .. 0 night) under
 // GHOST_DARK_DAYLIGHT: 0.5 is the sun on the horizon, and 0.25 is a few
-// degrees under it — dusk gone to dark. Underground there is no night to
-// rise in (the caves have their own foes).
+// degrees under it — dusk gone to dark.
+//   Underground there is no night, so the gate is the LEVEL instead: every
+// GHOST_CAVE_EVERY-th depth (2, 4, 6, …) is haunted at every hour, the odd
+// levels never. The sun never reaches them either (ghostSunExposureAt).
 const GHOST_DARK_DAYLIGHT = 0.25;
+const GHOST_CAVE_EVERY = 2;
+// Is this a time and place ghosts rise? One predicate the pump reads: the
+// surface after dark, or a haunted cave level at any hour.
+function ghostsHaunt(depth, day) {
+  if (depth > 0) return depth % GHOST_CAVE_EVERY === 0;
+  return day < GHOST_DARK_DAYLIGHT;
+}
 // The cadence: one group every GHOST_SPAWN_MS (5 minutes), ± the jitter, so a
 // night reads as "every so often", not as a clock.
 const GHOST_SPAWN_MS = 300000;
@@ -201,15 +211,27 @@ function ghostSpawnDelay(r) { return GHOST_SPAWN_MS + (2 * r - 1) * GHOST_SPAWN_
 function ghostSunExposure(day) {
   return clamp01((day - GHOST_DARK_DAYLIGHT) / (1 - GHOST_DARK_DAYLIGHT));
 }
+// …and where the sun can reach it: nowhere underground (Lighting.daylight
+// knows nothing of depth, so a cave ghost at noon must be told).
+function ghostSunExposureAt(scene, wall) {
+  return (scene.depth || 0) > 0 ? 0 : ghostSunExposure(Lighting.daylight(scene, wall));
+}
 // THE NIGHT PUMP — seats a group of ghosts in the dark about the player, once
-// every ghostSpawnDelay while it is dark on the surface. Returns how many
-// rose. The timer is disarmed by day and underground, so the first group of a
-// night comes one delay after dark (or after a load at night), never at once.
+// every ghostSpawnDelay while ghostsHaunt says so (the surface after dark, an
+// even cave level always). Returns how many rose. The timer is disarmed
+// whenever it doesn't, so the first group comes one delay after dark, a load,
+// or the stairs down to a haunted level — never at once.
 // `wardPts` / `wardR2` are wanderCreatures' Home + claimed-castle wards: a
 // ghost never rises inside a ring that would only rout it.
 function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {
-  if ((scene.depth || 0) !== 0) { scene._nextGhostT = null; return 0; }
-  if (!(Lighting.daylight(scene, Date.now()) < GHOST_DARK_DAYLIGHT)) { scene._nextGhostT = null; return 0; }
+  const depth = scene.depth || 0;
+  // Daylight is only asked on the surface (a cave level has no sun).
+  if (!ghostsHaunt(depth, depth > 0 ? 0 : Lighting.daylight(scene, Date.now()))) {
+    scene._nextGhostT = null; return 0;
+  }
+  // The stairs repoint the level: a timer armed on another depth is not this
+  // level's, so a group can't rise the instant you arrive.
+  if (scene._ghostDepth !== depth) { scene._ghostDepth = depth; scene._nextGhostT = null; }
   if (scene._nextGhostT == null) { scene._nextGhostT = now + ghostSpawnDelay(Math.random()); return 0; }
   if (now < scene._nextGhostT) return 0;
   scene._nextGhostT = now + ghostSpawnDelay(Math.random());
@@ -313,7 +335,7 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
     c._burnT = now;
     const wall = Date.now();
     const exposure = Lighting.brightnessAt(scene, c.x, c.y, wall, { playerGlow: false }) / Lighting.profile(scene, 0).lit
-      + ghostSunExposure(Lighting.daylight(scene, wall));
+      + ghostSunExposureAt(scene, wall);
     if (exposure > 0 && scene._damageEnemy(c, Combat.maxHp(c) * exposure * burnS / GHOST_PLATEAU_BURN_S, 'light')) {
       return 'burned';
     }
