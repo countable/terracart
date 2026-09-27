@@ -8307,9 +8307,9 @@ class MapScene extends Phaser.Scene {
     const home = this._starterTileEntry();
     if (home) this._placeHomeGreeter(home.entry, home.tx, home.ty);
     // And the same race for the TRAPS, which is the one the player notices:
-    // trapCountMul is 10x on easy against 100x on hard, so a starter tile laid
-    // before the card was answered carries a TENTH of hard mode's verge — about
-    // two traps a screen instead of nineteen — on the one tile a new hard save
+    // trapCountMul is 10x on easy against 50x on hard, so a starter tile laid
+    // before the card was answered carries a FIFTH of hard mode's verge — about
+    // two traps a screen instead of ten — on the one tile a new hard save
     // spends its first minutes walking over. Re-lay every cached surface tile
     // at the density the answer just chose.
     this._relayTrapsForMode();

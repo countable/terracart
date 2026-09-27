@@ -70,7 +70,7 @@
   const CAVE_SPAWN_R = 25;            // cells around each anchor — matches the monster/coin spread
   // Dungeons are dangerous on EITHER game mode, so their density multiplier is
   // flat rather than read off Difficulty (which only scales the surface rate —
-  // Difficulty.PROFILES[mode].trapCountMul, 10x easy / 100x hard). Named here,
+  // Difficulty.PROFILES[mode].trapCountMul, 10x easy / 50x hard). Named here,
   // beside the base counts it scales, rather than inlined at the one call site
   // in app.js that reads it.
   const DUNGEON_DENSITY_MUL = 100;
@@ -193,7 +193,7 @@
   // frontage rule by construction rather than by a copy of them here.
   // A tile with no charted road gets no traps: there is no roadside to be on.
   // `countMul` scales the base 10..18 rate — the caller passes
-  // Difficulty.get().trapCountMul (10x easy / 100x hard) — so this module stays
+  // Difficulty.get().trapCountMul (10x easy / 50x hard) — so this module stays
   // free of a Difficulty dependency and the base rate above stays the number a
   // test can pin without reading the mode.
   function spawnSurface(grid, roadMask, w, h, tx, ty, tileEdgeM, spawnOpts, countMul) {

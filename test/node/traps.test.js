@@ -447,7 +447,7 @@ test('traps: answering the how-to card re-lays the traps at that mode\'s density
   // THE BUG: the card that picks easy/hard is answered AFTER boot, and a save
   // with no mode yet reads as easy (difficulty.js). So the starter tile — the
   // one a new save spends its first minutes on — was laid at trapCountMul 10
-  // when the player had just asked for 100. A tenth of the verge, on the only
+  // when the player had just asked for hard's 50. A fifth of the verge, on the only
   // ground they can see. chooseMode already repairs the purse, the ladder, the
   // crates and the doorstep greeter for exactly this race; the traps were the
   // one thing on that list nobody had put there.
