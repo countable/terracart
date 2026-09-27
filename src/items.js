@@ -1120,7 +1120,7 @@ const PLAY_TIPS = [
   'Pet a tame cat and it trails after you for five minutes.',
   'A tame cat hunts crows; a tame dog goes after deer and slimes.',
   'Chasing an animal down is a chase: it bolts while the wheel turns, and if it stays out of your reach for a second it is gone.',
-  'A deer or a crow can be brought down bare-handed, but it is a long slog. No weapon hurries a hunt — that is what the net is for.',
+  'A deer or a crow can be brought down bare-handed, but it is a long slog. No weapon hurries a hunt — that is what the net is for. And a deer does not run from the net: it turns and butts you until it falls.',
   'A shiny animal pays ten times its plain kind, bolts half again as fast, and takes twice the work to bring down.',
   ITEM_GUIDE_TIPS.slime,
   // ── Fighting, once you are armed ────────────────────────────

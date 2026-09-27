@@ -172,3 +172,24 @@ test('creature table: it says how a kind BEHAVES, never whether it is a FOE', ()
     }
   }
 });
+
+test('creatures: a hunted deer fights back — a row, wired through the one blow path', () => {
+  const fb = SpriteLayout.creatureFightsBack('deer');
+  assert.truthy(fb && fb.dmg > 0 && fb.hitMs > 0 && fb.rageMs > 0, 'the deer row carries fightsBack');
+  assert.eq(SpriteLayout.creatureFightsBack('crow'), null, 'a crow still just flies off');
+  assert.truthy(SpriteLayout.isGame('deer'), 'and the deer is still GAME');
+  assert.falsy(Combat.isEnemy({ kind: 'deer', id: 'deer_1' }), 'never an enemy — nothing auto-fires at it');
+  assert.truthy(/const fb = SpriteLayout\.creatureFightsBack\(victim\.kind\);\s*if \(fb\) victim\._rageUntil = Date\.now\(\) \+ fb\.rageMs;/.test(INTERACT_SRC),
+    'starting a hunt enrages it');
+  const w = SCENE_CREATURES_SRC;
+  assert.truthy(/const gameCharge = enraged && !standDown && !unnoticed;/.test(w),
+    'it charges only when noticed and not warded (NOTHING HUNTS A BODY; Home wards it)');
+  assert.truthy(/Combat\.playerDamage\(shielded, this\.save\.armor\), \{ closeShop: true \}\)/.test(w)
+    && /fightsBack\.dmg \* Difficulty\.get\(\)\.enemyDmgMul/.test(w), 'the butt is mode-scaled, shielded and soaked');
+  assert.truthy(/const bolting = !!bolt && !gameCharge &&/.test(w), 'a charging deer does not bolt');
+});
+
+test('creatures: no pest crow is dispatched underground', () => {
+  assert.truthy(/if \(\(this\.depth \|\| 0\) === 0 && now - this\._lastPestT > 90000\)/.test(SCENE_CREATURES_SRC),
+    'the pump is surface-only');
+});

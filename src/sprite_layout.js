@@ -401,9 +401,15 @@
     // hoisted Set the per-step scan reads, so it allocates nothing.
     cat:           { wanders: true, pet: true, follows: true, prey: new Set(['crow']) },
     dog:           { wanders: true, pet: true, prey: new Set(['deer', 'slime']) },
+    // `fightsBack`: GAME that turns on the hunter. Starting a hunt on it
+    // (interact.js) enrages it for `rageMs`; while enraged it charges at its
+    // flee stride instead of fleeing, and butts for `dmg` every `hitMs` at
+    // arm's length (scene_creatures.js). It is still GAME, never an enemy:
+    // nothing auto-fires at it. See creatureFightsBack.
     deer:          { wanders: true, game: true, drop: 'meat', raidsCrops: true,
                      avoids: ['scarecrow'], tameSettles: true,
-                     flee: { cells: 5, jitter: 0.6, stepMs: 340, stepCells: 1.8 } },
+                     flee: { cells: 5, jitter: 0.6, stepMs: 340, stepCells: 1.8 },
+                     fightsBack: { dmg: 3, hitMs: 2000, rageMs: 20000 } },
     rabbit:        { wanders: true, tameSettles: true,
                      stepMs: 420, stepCells: 0.5, pauseMs: [700, 1300],
                      flee: { cells: 4, jitter: 1.1, stepMs: 300, stepCells: 1.4,
@@ -486,6 +492,8 @@
   // — a softened lair guard is drawn smaller); omitted, 1. Every reader of the
   // art's size below takes it, so the wheel, the health bar and the tap box
   // stay on the drawn body.
+  // A game kind's `fightsBack` row ({ dmg, hitMs, rageMs }), or null.
+  function creatureFightsBack(kind) { return creatureBehaviour(kind)?.fightsBack || null; }
   function creatureScale(kind, inst = 1) { return (creatureArt(kind)?.scale ?? 1) * inst; }
   // One creature's own size multiplier: a lair guard softened by Home is
   // drawn smaller (Lairs.guardDrawScale); everything else is 1.
@@ -626,7 +634,7 @@
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, TRAPPER_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
-    creatureFoot, creatureScale, creatureInstScale, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
+    creatureFoot, creatureScale, creatureInstScale, creatureFightsBack, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -689,6 +689,12 @@ const TAP_HANDLERS = [
       // A hunted crow takes fright and retreats in full — the same departure
       // a fed crow makes — so the wheel is a race against it leaving reach.
       if (victim.kind === 'crow') scene._crowDepart?.(victim);
+      // A kind that FIGHTS BACK (the deer — SpriteLayout.creatureFightsBack)
+      // turns on the hunter instead: enraged for its rageMs, it charges and
+      // butts (scene_creatures.js wanderCreatures). Wall clock, like
+      // _lastDamagedT.
+      const fb = SpriteLayout.creatureFightsBack(victim.kind);
+      if (fb) victim._rageUntil = Date.now() + fb.rageMs;
       return true;
     }
     // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through

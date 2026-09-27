@@ -904,7 +904,10 @@ class SceneCreatures {
     // wait out, so the check could only ever answer "true" where it still ran.
     // Timer gate first: the planted-crop scan is O(planted) and has no
     // business running on the ~5400 frames between pest windows.
-    if (now - this._lastPestT > 90000) {
+    // SURFACE ONLY: underground WorldGen.tileCache is the cave level's map
+    // (see the prune's depth gate above), so a pest crow minted here landed
+    // in the dungeon — a bird with no crop to fly at, in a cave.
+    if ((this.depth || 0) === 0 && now - this._lastPestT > 90000) {
       const hasCrowCrop = this.save.planted && this.save.planted.some((p) => this._crowRaids(p));
       if (hasCrowCrop && Difficulty.get().cropPests) {
         this._lastPestT = now;
@@ -991,7 +994,14 @@ class SceneCreatures {
       //   A GHOST has one more ward point: a campfire (fireWardTrip) — the
       // same latch, a third reason, asked only for a haunting kind.
       const haunts = SpriteLayout.creatureHaunts(c.kind);
-      const wardFoe = (!!homePos || castleWards.length > 0 || haunts) && !isTame && Combat.isEnemy(c);
+      // An ENRAGED game animal (a hunted deer — `fightsBack`, _rageUntil) is
+      // hostile for as long as it is angry, so it takes Home's ward exactly as
+      // an enemy does: one lane, another reason. Warded, it is turned away
+      // and `standDown` switches its butt off.
+      const fightsBack = !isTame ? SpriteLayout.creatureFightsBack(c.kind) : null;
+      const enraged = !!fightsBack && !!c._rageUntil && Date.now() < c._rageUntil;
+      const wardFoe = (!!homePos || castleWards.length > 0 || haunts) && !isTame
+        && (Combat.isEnemy(c) || enraged);
       if (wardFoe) {
         const from = c._wardFrom;
         if (from) {
@@ -1035,6 +1045,10 @@ class SceneCreatures {
       // `warded` by name: an away-from-the-ward angle and a walk back to a seat
       // are two mechanisms, not one, whatever they have in common here.
       const standDown = warded || wanderOff || (!!lairState && lairState !== 'hunt');
+      // A HUNTED DEER CHARGES: enraged, and neither warded nor ignoring you
+      // (`unnoticed` — a powder, or a body on an empty bar). Read by the butt
+      // below, the stride and the angle chain, so the three agree.
+      const gameCharge = enraged && !standDown && !unnoticed;
       // A GHOST has its own mover (ghostTick — hover, rush, burn) and its own
       // blow: ONE touch of its row's dmg, through the mode, the shield and the
       // armour like every blow, and then it is spent — marked in save.caught
@@ -1087,6 +1101,24 @@ class SceneCreatures {
             const slimeDmg = Combat.playerDamage(slimeRaw, this.save.armor);
             this._slimeStealAccum = (this._slimeStealAccum || 0)
               + this._losePlayerEnergy(slimeDmg, { closeShop: true });
+          }
+        }
+      }
+      // THE HUNTED DEER'S BUTT: at arm's length (Combat.meleeReachM, the reach
+      // the player swings at) every `hitMs`, for its row's `dmg` — through the
+      // mode, the shield and the armour like every blow (Combat.playerDamage),
+      // banked by _losePlayerEnergy (Energy.set + the hit flash) and popped on
+      // the player's cell with the monsters' roll-up (_monsterDmgAccum).
+      if (gameCharge) {
+        const BUTT_R = Combat.meleeReachM(this.cellM);
+        if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
+          c._nextStealT = now + fightsBack.hitMs;
+          const before = this.save.energy ?? 0;
+          if (!Combat.playerDowned(before)) {
+            const raw = fightsBack.dmg * Difficulty.get().enemyDmgMul;
+            const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(raw / 2) : raw;
+            this._monsterDmgAccum = (this._monsterDmgAccum || 0)
+              + this._losePlayerEnergy(Combat.playerDamage(shielded, this.save.armor), { closeShop: true });
           }
         }
       }
@@ -1209,9 +1241,13 @@ class SceneCreatures {
       // close enough to spook it), or the two-minute escape window a failed
       // net-catch arms (`flee.escapes` over _escapingUntil, set in
       // _drawWorkProgress — the butterfly's, and only ever stamped on one).
-      const bolting = !!bolt && (
+      // A charging deer does not bolt — it comes at you (gameCharge).
+      const bolting = !!bolt && !gameCharge && (
         (bolt.cells != null && ddx * ddx + ddy * ddy <= (bolt.cells * this.cellM) ** 2)
         || (!!bolt.escapes && !!(c._escapingUntil && now < c._escapingUntil)));
+      // The charge runs at the kind's own flee stride and beat: one pace for
+      // "in a hurry", whichever way it is going.
+      const sprinting = bolting || (gameCharge && !!bolt);
       // Underground monsters: cadence scales by SPEED (faster ⇒ shorter step,
       // moves more often); flyers (bats) dart a full cell, ground monsters
       // lumber like the slime (0.6 cell).
@@ -1249,11 +1285,11 @@ class SceneCreatures {
       // because the thing being asked for is distance, not urgency.
       const stepMs = (c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
                    : isMon ? STEP_MS / mon.speed
-                   : bolting ? (bolt.stepMs ?? STEP_MS)
+                   : sprinting ? (bolt.stepMs ?? STEP_MS)
                    : (gait?.stepMs ?? STEP_MS)) * shinyFast * (routed ? FLEE_BEAT_MUL : 1);
       const stepM = (c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
                   : isMon ? STEP_M * monsterStrideCells(mon)
-                  : bolting ? STEP_M * (bolt.stepCells ?? 1)
+                  : sprinting ? STEP_M * (bolt.stepCells ?? 1)
                   : STEP_M * (gait?.stepCells ?? 1)) * (routed ? FLEE_STRIDE_MUL : 1);
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
@@ -1406,6 +1442,13 @@ class SceneCreatures {
             angle = Math.atan2(tgt.y - c.y, tgt.x - c.x) + (Math.random() - 0.5) * 0.3;
           } else if (isFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
+          } else if (gameCharge) {
+            // A HUNTED DEER turns on you: every stride at the player, on the
+            // monsters' stalk jitter, until it is close enough to butt.
+            angle = distToPlayer > 0.5 * this.cellM
+              ? Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER
+              : Math.random() * Math.PI * 2;
+            if (distToPlayer > 0.5 * this.cellM) stepLen = Math.min(stepM, Math.max(0, distToPlayer - 0.5 * this.cellM));
           } else if (bolting) {
             // AWAY FROM THE PLAYER, at the kind's own spread: a rabbit
             // zig-zags in a panic (wide jitter), a deer runs a committed line
@@ -1555,7 +1598,7 @@ class SceneCreatures {
         c._hopMs = stepMs;
         // A kind that sits still between hops does it for [base, spread] ms —
         // the rabbit, short when it is bolting and long when it is not.
-        const pause = bolting ? bolt.pauseMs : (gait ? gait.pauseMs : null);
+        const pause = sprinting ? bolt.pauseMs : (gait ? gait.pauseMs : null);
         const pauseMs = pause ? pause[0] + Math.random() * pause[1] : 0;
         c._nextChooseT = now + stepMs + pauseMs;
         c._faceFlip = (c._targetX - c._startX) < 0;
