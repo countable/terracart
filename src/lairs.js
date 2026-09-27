@@ -155,8 +155,10 @@
   // facts the count is already made of, saying a second thing.
   //
   //   A WRECKED HOUSE IS SQUATTED. Nobody holds it; slimes have simply moved
-  //   into the damp, and the ladder is the three slimes: the surface pest the
-  //   player already knows, then the cave slime, then the purple.
+  //   into the damp — the SURFACE slime and nothing else. Until Sep 2026 the
+  //   ladder climbed on to the cave slime and the purple, which put cave
+  //   kinds on the surface; the cave keeps its own now, so a wreck's
+  //   escalation is its COUNT (countFor), not its kind.
   //
   //   A FORT OR A CASTLE IS HELD. A fortification with nobody in it is not
   //   derelict, it is empty — so what squats a ruined keep is a GARRISON, and
@@ -180,7 +182,7 @@
   // ladder may be drawn the same — see the tint rule in sprite_layout.js; a
   // rung the player cannot see is not an escalation.
   const KIND_ORDER = {
-    9:  ['slime', 'cave_slime', 'purple_slime'],   // T.BUILDING       — squatted
+    9:  ['slime'],                                 // T.BUILDING       — squatted (surface kind only)
     11: ['goblin', 'goblin_archer', 'goblin_trapper'],   // T.BUILDING_MED   — held
     12: ['goblin', 'goblin_archer', 'goblin_trapper'],   // T.BUILDING_LARGE — held
   };

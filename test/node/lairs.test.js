@@ -209,11 +209,15 @@
     const near9 = Lairs.kindsAt(9, 0);
     assert.eq(near9.length, 1, 'a wreck at t = 0 holds one kind only');
     assert.eq(near9[0], 'slime', 'and it is the surface slime the player already knows');
+    // A wreck never climbs past it: cave kinds stay in the cave.
+    assert.eq(Lairs.kindsAt(9, 1).join(), 'slime', 'a wreck at full strength is still only the surface slime');
     for (const tier of Object.keys(Lairs.KIND_ORDER)) {
       const near = Lairs.kindsAt(tier, 0);
       assert.eq(near.length, 1, `tier ${tier}: t = 0 opens one rung`);
-      assert.truthy(Lairs.kindsAt(tier, 1).length > near.length,
-        `tier ${tier}: the far end unlocks more`);
+      if (Lairs.KIND_ORDER[tier].length > 1) {
+        assert.truthy(Lairs.kindsAt(tier, 1).length > near.length,
+          `tier ${tier}: the far end unlocks more`);
+      }
       let prev = 0;
       for (let t = 0; t <= 1.0001; t += 0.05) {
         const n = Lairs.kindsAt(tier, Math.min(1, t)).length;
