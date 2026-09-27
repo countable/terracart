@@ -332,8 +332,8 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   const at = app.indexOf('_fireTrailPrize(n, onDismiss) {');
   assert.gt(at, 0, 'found the prize path');
   const body = app.slice(at, app.indexOf('\n  _trailChoiceLabel', at));
-  // The pick itself is the shared lane (_offerTreasurePick — the X dig opens
-  // it too), so the button wiring is pinned there.
+  // The pick itself is its own method (_offerTreasurePick), so the button
+  // wiring is pinned there.
   assert.truthy(/this\._offerTreasurePick\(\{/.test(body), 'the choice opens the shared pick');
   const pat = app.indexOf('\n  _offerTreasurePick({');
   const pick = app.slice(pat, app.indexOf('\n  }\n', pat));

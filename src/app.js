@@ -12391,8 +12391,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // THE PICK — one lane for every "several finds, keep one" in the game
-  // (Trail.PRIZE_CHOICES of them): the road ladder above and a dug-up X
-  // (digTreasurePick). Each button IS a reward card (the shell takes HTML
+  // (Trail.PRIZE_CHOICES of them): the road ladder above. (A dug-up X was a
+  // pick for a while in Sep 2026; it went back to paying one find.) Each button IS a reward card (the shell takes HTML
   // labels), so the player reads them the same way they read a single
   // ceremony; each card's description waits behind its ⓘ (`info`). An actions modal has no tap-to-dismiss,
   // so the prize can't be lost to a stray tap on the overlay. Nothing is paid
@@ -12427,13 +12427,6 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // A buried X, dug up: Trail.PRIZE_CHOICES finds from the pool an X has
-  // always paid ('treasure:default'), keep one — the road ladder's pick
-  // (Trail.rollChoices owns "the options must differ"). The mark is already spent in
-  // save.foundTreasures before this opens, so a reload can't re-roll it.
-  // Low-tier seeds keep the bulk bonus grantTreasureRoll gives them. When the
-  // pool can't find even two distinct finds, the one it found pays the way an
-  // X always did.
   // What a dig passes pickReward: underground, the depth and the depth's
   // tier (2, one more every CHEST_TIER_DEPTH_STEP levels — the ramp a cave
   // chest climbs), so a cave X takes the same cave skew a cave chest does:
@@ -12444,34 +12437,6 @@ class MapScene extends Phaser.Scene {
     if (depth <= 0) return undefined;
     const bonus = (typeof chestTierDepthBonus === 'function') ? chestTierDepthBonus(depth) : 0;
     return { depth, tier: 2 + bonus };
-  }
-
-  digTreasurePick(sx, sy) {
-    const opts = this.digTreasureOpts();
-    const roll = () => {
-      const r = (typeof pickReward === 'function') ? pickReward('treasure:default', this.save, undefined, opts) : null;
-      if (r && r.kind === 'item' && isLowTierSeed(r.id)) r.qty += LOW_TIER_SEED_QTY_BONUS;
-      return r;
-    };
-    const choices = Trail.rollChoices(roll);
-    if (choices.length < 2) {
-      if (!choices.length) { grantTreasureRoll(this, this.save, sx, sy, '✕', 'treasure:default', opts); return; }
-      const card = this._claimTrailReward(choices[0]);
-      if (card) this.flashLoot(`✕ → ${card.qty ? `${card.name} ${card.qty}` : card.name}`,
-                               card.color || UI_TREASURE, 1,
-                               choices[0].kind === 'item' ? choices[0].id : null);
-      persistSave(this.save);
-      return;
-    }
-    // The hero glyph is the X itself — the mark the player just dug, drawn
-    // in the pale scratched-stone ink render.js uses for it underground (the
-    // dark surface ink would vanish on the dialog).
-    const kindIcon = '<svg width="22" height="22" viewBox="0 0 12 12" style="display:block">'
-      + '<path d="M2 2L10 10M10 2L2 10" stroke="#c9b48a" stroke-width="2" stroke-linecap="round"/></svg>';
-    this._offerTreasurePick({
-      kind: 'treasure', header: 'Buried treasure', kindIcon, choices,
-      sub: `${choices.length} finds in the hole — one is yours`,
-    });
   }
 
   // A wreck the player has not restored yet — see Houses.isHouseWreck.

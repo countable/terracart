@@ -466,9 +466,10 @@ const TAP_HANDLERS = [
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
-      // Several finds, keep one (app.js digTreasurePick — the road ladder's pick).
-      if (typeof scene.digTreasurePick === 'function') scene.digTreasurePick(sx, sy);
-      else grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default', scene.digTreasureOpts?.());
+      // ONE find, paid on the spot — no pick (the road ladder's pick is the
+      // only "several finds, keep one"). Underground the roll takes the cave
+      // skew (app.js digTreasureOpts).
+      grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default', scene.digTreasureOpts?.());
       ctx.dirty = true;
       return true;
     };
