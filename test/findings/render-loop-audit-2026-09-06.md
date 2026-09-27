@@ -359,3 +359,27 @@ cost, and it is now gone from the profile.
 
 Against the 09-06 baseline (phaser render 3.5 / 4.2, busy 8.1 / 7.9 on that
 run's machine) the render step is now a small fraction of the frame.
+
+## Street restore, measured (2026-09-27)
+
+`tools/perf_loop.js` has a third phase now: a second page on the recorded
+fixture tiles (`test/perf.html?fixtures=1`), the feet put on the nearest
+road cell, and the real `_sweepStreets` driven at 30 Hz (update() only sweeps
+outside `__TEST_MODE`, which perf.html is in). One restore fires, 35 m.
+
+| (ms)                                   | avg   | worst |
+|----------------------------------------|------:|------:|
+| `_sweepStreets` per frame              | 0.17  | 17.6  |
+| `_ripenStreets` (the restore frame)    | 0.10  | 17.6  |
+| `_rescanStreets` (per reach-cell move) | 2.1   | 2.1 – 13.8 across runs |
+| road overlay rebuild after the restore | 5.3   | 5.5 – 10.4 |
+| `_updateStreetLamps`                   | 0.01  | 0.4   |
+
+So the restore itself is a ~18 ms frame plus a ~5–10 ms canvas repaint on
+the next: a visible hitch at 30 fps, once per restored stretch.
+
+**A regression found on the way:** the restore opens the trail intro dialog,
+and its PIXEL RESOLVE (modal_shell.js `mosaicCuts`) cut the mosaics with
+four `canvas.toDataURL('image/png')` calls — **~200 ms of main thread** in
+both runs (a GPU readback per call under an accelerated 2D canvas). The cuts
+should be baked by tools/art_thumbs.js instead of made at runtime.

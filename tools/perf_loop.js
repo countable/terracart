@@ -7,8 +7,9 @@
 // replays per frame, the pool sizes, and a CDP CPU profile with Phaser-
 // internal time attributed back to the nearest call site of ours.
 //
-// Two phases: standing still, then walking a square (the fix moved at the
-// DEBUG keyboard's pace). The baseline and the reading of it are in
+// Three phases: standing still, walking a square (the fix moved at the
+// DEBUG keyboard's pace), then standing on a real street while it restores
+// (the recorded fixture tiles — the sandbox has no road lines). The baseline and the reading of it are in
 // test/findings/render-loop-audit-2026-09-06.md.
 //
 //   npm install                       # playwright-core (devDependency)
@@ -16,7 +17,8 @@
 //
 // Env: PW_CHROMIUM=/path/to/chrome to use a specific binary (the remote
 // sandbox has one at /opt/pw-browsers/chromium); IDLE_MS / WALK_MS to change
-// the phase lengths, WALK_SPEED_MPS the walk's pace (default 10); PORT for the static server (default 7731).
+// the phase lengths, WALK_SPEED_MPS the walk's pace (default 10), RESTORE_MS
+// the street-restore phase (0 skips it); PORT for the static server (default 7731).
 //
 // Read the numbers with the caveats in the findings doc: under headless
 // SwiftShader the frame GAPS are meaningless (rAF runs at ~15 Hz) — the
@@ -31,6 +33,8 @@ const PORT = +(process.env.PORT || 7731);
 const OUT = process.argv[2] || '';
 const IDLE_MS = +(process.env.IDLE_MS || 6000);
 const WALK_MS = +(process.env.WALK_MS || 8000);
+const RESTORE_MS = +(process.env.RESTORE_MS ?? 8000);
+const RESTORE_SETTLE_MS = +(process.env.RESTORE_SETTLE_MS || 15000);
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 
 function serve() {
@@ -97,11 +101,93 @@ async function main() {
   const walkProf = (await cdp.send('Profiler.stop')).profile;
   const walk = await page.evaluate(() => window.__perfSnap());
 
+  // ── RESTORE: stand on a real street while it rebuilds ──────────────────
+  // The sandbox carries no transportation lines, so nothing restores there;
+  // this phase loads a second page on the recorded tiles (perf.html
+  // ?fixtures=1), puts the FEET on the nearest road cell and stands. The
+  // dwell ripens, Streets.restore fires, the epoch bump repaints the road
+  // overlay's restored canvas (its 'road overlay rebuild' tick) and the
+  // lamps light. The street functions are timed directly on top.
+  let restore = null, restoreProf = null, restoreStats = null;
+  if (RESTORE_MS > 0) {
+    const rp = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    rp.on('pageerror', (e) => errs.push('[restore] ' + String(e)));
+    await rp.goto(`http://127.0.0.1:${PORT}/test/perf.html?fixtures=1`, { timeout: 60000 });
+    await rp.evaluate(() => window.__perfReady);
+    const at = await rp.evaluate(() => {
+      const s = window.__scene, pc = s.playerToWorldCell();
+      const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+      if (!e || !e.roadMask) return null;
+      const n = Math.round(Math.sqrt(e.roadMask.length));
+      let best = null;
+      for (let i = 0; i < e.roadMask.length; i++) {
+        if (!e.roadMask[i]) continue;
+        const cx = i % n, cy = (i / n) | 0, d = (cx - pc.cx) ** 2 + (cy - pc.cy) ** 2;
+        if (!best || d < best.d) best = { cx, cy, d };
+      }
+      if (!best) return null;
+      const m = tileCellCenterMeters(s, pc.tx, pc.ty, best.cx, best.cy);
+      s.playerM.x = m.x - s.startWorldM.x;
+      s.playerM.y = m.y - s.startWorldM.y;
+      if (s.syncMoveTarget) s.syncMoveTarget();
+      return Math.sqrt(best.d);
+    });
+    if (at == null) {
+      errs.push('[restore] no road cell on the start tile');
+    } else {
+      // Let the recorded world finish building first: the neighbour ring
+      // rasterizes in the background for several seconds on these tiles, and
+      // a phase that overlaps it measures tile builds, not the street.
+      await rp.waitForTimeout(RESTORE_SETTLE_MS);
+      await rp.evaluate(() => {
+        window.__boot.reset();
+        const s = window.__scene;
+        const st = window.__streetT = { restores: 0, metres: 0, fns: {} };
+        for (const fn of ['_sweepStreets', '_rescanStreets', '_ripenStreets', '_updateStreetLamps']) {
+          if (typeof s[fn] !== 'function') continue;
+          const orig = s[fn].bind(s), rec = st.fns[fn] = { n: 0, sum: 0, worst: 0 };
+          s[fn] = function (...a) {
+            const t = performance.now(); const r = orig(...a); const ms = performance.now() - t;
+            rec.n++; rec.sum += ms; if (ms > rec.worst) rec.worst = ms; return r;
+          };
+        }
+        // update() sweeps the streets only outside __TEST_MODE (the block
+        // that also holds the passive rests), and perf.html runs in test
+        // mode — so the harness calls the real sweep at the loop's own cadence
+        // (FPS_LIMIT, 30) instead.
+        window.__perfSweep = setInterval(() => s._sweepStreets(), 1000 / 30);
+        const orig = Streets.restore;
+        Streets.restore = function (...a) {
+          const r = orig.apply(this, a);
+          if (r && r.addedM > 0) { st.restores++; st.metres += r.addedM; }
+          return r;
+        };
+      });
+      const rcdp = await rp.context().newCDPSession(rp);
+      await rcdp.send('Profiler.enable');
+      await rcdp.send('Profiler.setSamplingInterval', { interval: 250 });
+      await rcdp.send('Profiler.start');
+      await rp.waitForTimeout(RESTORE_MS);
+      await rp.evaluate(() => clearInterval(window.__perfSweep));
+      restoreProf = (await rcdp.send('Profiler.stop')).profile;
+      restore = await rp.evaluate(() => window.__perfSnap());
+      restoreStats = await rp.evaluate(() => window.__streetT);
+      restoreStats.movedCells = at;
+    }
+  }
+
   await browser.close();
   srv.close();
-  if (OUT) fs.writeFileSync(OUT, JSON.stringify({ idle, walk, errs, idleProf, walkProf }));
+  if (OUT) fs.writeFileSync(OUT, JSON.stringify({ idle, walk, restore, restoreStats, errs, idleProf, walkProf, restoreProf }));
   print('STANDING STILL', idle, idleProf);
   print('WALKING', walk, walkProf);
+  if (restore) {
+    print('RESTORING A STREET (recorded tiles)', restore, restoreProf);
+    console.log(`street restores: ${restoreStats.restores} (${restoreStats.metres.toFixed(0)} m) — feet moved ${restoreStats.movedCells.toFixed(1)} cells onto the road`);
+    for (const [k, v] of Object.entries(restoreStats.fns)) {
+      console.log(`  ${k.padEnd(20)} ${(v.sum / Math.max(1, v.n)).toFixed(3)} / ${v.worst.toFixed(2)} ms  (${v.n})`);
+    }
+  }
   if (errs.length) console.log('\nERRORS:\n' + errs.slice(0, 10).join('\n'));
 }
 

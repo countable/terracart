@@ -91,6 +91,32 @@
     </div>
   </div>
   <script>
+    // ?fixtures=1 — the REAL-MAP mode: the nine recorded tiles in
+    // test/fixtures/ (the browser harness's own world) instead of the
+    // sandbox, so a street can actually be restored — the sandbox is laid by
+    // hand and carries no transportation lines. The TileJSON is answered
+    // here too: a live lookup can hang offline, and nothing is fetched until
+    // it resolves. Tiles outside the window are an empty 504, as in
+    // test/harness.html.
+    if (/[?&]fixtures=1\b/.test(location.search)) {
+      const realFetch = window.fetch;
+      window.fetch = (input, init) => {
+        const url = typeof input === 'string' ? input : input.url;
+        if (/\/planet$/.test(url)) {
+          return Promise.resolve(new Response(JSON.stringify({
+            tiles: ['https://tiles.openfreemap.org/planet/fixture/{z}/{x}/{y}.pbf'],
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        }
+        const m = url.match(/\/14\/(\d+)\/(\d+)\.pbf(?:\?|$)/);
+        if (m) {
+          return realFetch(`/test/fixtures/${m[1]}_${m[2]}.pbf`, init)
+            .then((r) => (r.ok ? r : new Response('', { status: 504 })));
+        }
+        return realFetch(input, init);
+      };
+    }
+  </script>
+  <script>
     document.write([
       '/vendor/phaser.js', '/src/mvt.js', '/src/difficulty.js', '/src/util.js', '/src/particles.js', '/src/trail.js',
       '/src/streets.js', '/src/sprite_layout.js', '/src/placed_floor.js', '/src/home.js', '/src/coords.js', '/src/fog.js',
