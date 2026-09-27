@@ -88,6 +88,21 @@ Render.BUILDING_FACE_PX = BUILDING_FACE_PX;
 const GRID_LINE = { width: 1, color: 0x000000, alpha: 0.08, dash: 4, gap: 4 };
 Render.GRID_LINE = GRID_LINE;
 
+// A quarter disc of radius r about (cx, cy), in the quadrant (dx, dy) = ±1,
+// as CORNER_FAN triangles: the rounded zone corner (drawCells) without the
+// ~100-point earcut'd arc a fillRoundedRect costs every frame.
+const CORNER_FAN = 6;
+function fillCornerFan(g, cx, cy, r, dx, dy) {
+  let px = cx + dx * r, py = cy;
+  for (let i = 1; i <= CORNER_FAN; i++) {
+    const a = (i / CORNER_FAN) * (Math.PI / 2);
+    const nx = cx + dx * r * Math.cos(a), ny = cy + dy * r * Math.sin(a);
+    g.fillTriangle(cx, cy, px, py, nx, ny);
+    px = nx; py = ny;
+  }
+}
+Render.fillCornerFan = fillCornerFan;
+
 // ── BAKED GRAPHICS ─────────────────────────────────────────────────────────
 // A cached Graphics layer is NOT free between rebuilds: Phaser's WebGL
 // renderer replays the whole command buffer every frame — every dash of the
@@ -113,7 +128,9 @@ class BakedGfx {
     this.key = key;
     this.tex = null;
     this.image = scene.add.image(0, 0, '__DEFAULT').setOrigin(0, 0);
-    container.add(this.image);
+    // No container: the image takes this layer's own place in the display
+    // list (the atmosphere rim, which never scrolls).
+    if (container) container.add(this.image);
     this._fill = rgbaOf(0, 1);   // util.js
     this._stroke = rgbaOf(0, 1);
     this._lw = 1;
@@ -166,6 +183,16 @@ class BakedGfx {
     this._dirty = true;
     return this;
   }
+  // Phaser's strokeRect: the path's centreline, `width` wide.
+  strokeRect(x, y, w, h) {
+    const c = this.ctx;
+    c.strokeStyle = this._stroke;
+    c.lineWidth = this._lw;
+    c.strokeRect(x, y, w, h);
+    this._dirty = true;
+    return this;
+  }
+  setMask(mask) { this.image.setMask(mask); return this; }
   // Phaser's lineBetween is a butt-ended quad `width` wide along the segment.
   lineBetween(x1, y1, x2, y2) {
     const c = this.ctx;
@@ -1074,6 +1101,7 @@ function drawAtmosRim(scene, haze) {
       scene.viewSize - 2 * i - 1, scene.viewSize - 2 * i - 1,
     );
   }
+  if (g.flush) g.flush();   // BAKED (app.js): one upload per haze change
 }
 
 Render.drawCells = function drawCells(scene) {
@@ -1379,10 +1407,32 @@ Render.drawCells = function drawCells(scene) {
         if (bl) { g.fillStyle(cornerColor(tsw, -1, 1), 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
         if (br) { g.fillStyle(cornerColor(tse, 1, 1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
       }
-      g.fillStyle(color, 1);
+      // The cell, then its rounded corners. Not a fillRoundedRect: Phaser
+      // steps each of its arcs at 1% of the sweep (~100 points a cell) and
+      // re-triangulates the lot through earcut every frame, since cellGfx is
+      // cleared every frame. A rounded corner is the cell's colour over the
+      // corner square just painted in the neighbour's, as a fan of
+      // CORNER_FAN triangles about the arc's centre — triangles batch
+      // straight, with no earcut, and at CORNER_R the fan is within a tenth
+      // of a pixel of the arc.
       if (tl || tr || bl || br) {
-        g.fillRoundedRect(sx, sy, CELL_PX, CELL_PX, { tl, tr, bl, br });
+        g.fillStyle(color, 1);
+        g.fillRect(sx + CORNER_R, sy, CELL_PX - 2 * CORNER_R, CELL_PX);
+        g.fillRect(sx, sy + CORNER_R, CORNER_R, CELL_PX - 2 * CORNER_R);
+        g.fillRect(sx + CELL_PX - CORNER_R, sy + CORNER_R, CORNER_R, CELL_PX - 2 * CORNER_R);
+        const R = CORNER_R, E = CELL_PX - CORNER_R;
+        // Each corner square: rounded → a quarter fan; square → filled solid.
+        const corner = (on, x0, y0, dx, dy) => {
+          if (!on) { g.fillRect(x0, y0, R, R); return; }
+          const cx = dx < 0 ? x0 + R : x0, cy = dy < 0 ? y0 + R : y0;
+          fillCornerFan(g, cx, cy, R, dx, dy);
+        };
+        corner(tl, sx, sy, -1, -1);
+        corner(tr, sx + E, sy, 1, -1);
+        corner(bl, sx, sy + E, -1, 1);
+        corner(br, sx + E, sy + E, 1, 1);
       } else {
+        g.fillStyle(color, 1);
         g.fillRect(sx, sy, CELL_PX, CELL_PX);
       }
 
@@ -2020,6 +2070,7 @@ Render.drawCells = function drawCells(scene) {
   } else if (atmos) {
     scene.atmosGroundGfx?.clear();
     scene.atmosRimGfx?.clear();
+    scene.atmosRimGfx?.flush?.();
     scene._atmos.rimKey = -1;   // force a rebuild when we surface again
   }
 

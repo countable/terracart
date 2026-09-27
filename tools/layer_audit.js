@@ -29,7 +29,9 @@ const ROOT = path.resolve(__dirname, '..');
 // in source order. setDepth() overrides are handled separately below.
 function displayLayers() {
   const src = fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8');
-  const re = /this\.(\w+)\s*=\s*this\.add\.(graphics|container|image)\(/g;
+  // A BakedGfx (render.js) adds its image to the display list where it is
+  // constructed, so it holds its place exactly like an add.image().
+  const re = /this\.(\w+)\s*=\s*(?:this\.add\.(?:graphics|container|image)|new Render\.BakedGfx)\(/g;
   const out = [];
   const seen = new Set();
   for (const m of src.matchAll(re)) {
