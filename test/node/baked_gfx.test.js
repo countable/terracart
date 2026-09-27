@@ -70,3 +70,26 @@ test('baked gfx: the grid and the borders are baked, and the grid skips crossing
     'with no row band in view a crossing does not repaint the grid');
 });
 })();
+
+test('corner fan: a quarter disc of CORNER_FAN triangles, on the arc, in its quadrant', () => {
+  const tris = [];
+  Render.fillCornerFan({ fillTriangle: (...a) => tris.push(a) }, 6, 6, 6, -1, -1);
+  assert.eq(tris.length, 6, 'six triangles');
+  for (const [cx, cy, ax, ay, bx, by] of tris) {
+    assert.eq(cx, 6); assert.eq(cy, 6);
+    for (const [x, y] of [[ax, ay], [bx, by]]) {
+      assert.truthy(Math.abs(Math.hypot(x - 6, y - 6) - 6) < 1e-9, 'every rim point is on the arc');
+      assert.truthy(x <= 6 + 1e-9 && y <= 6 + 1e-9, 'inside the top-left quadrant');
+    }
+  }
+  assert.truthy(Math.abs(tris[0][2] - 0) < 1e-9 && Math.abs(tris[0][3] - 6) < 1e-9, 'starts on the west edge');
+  assert.truthy(Math.abs(tris[5][4] - 6) < 1e-9 && Math.abs(tris[5][5] - 0) < 1e-9, 'ends on the north edge');
+});
+
+test('corner fan: the cell pass draws no fillRoundedRect, and the rim is baked', () => {
+  const render = RENDER_SRC;
+  assert.falsy(/g\.fillRoundedRect\(/.test(render), 'no earcut arcs in the per-frame cell pass');
+  assert.truthy(/fillCornerFan\(g, cx, cy, R, dx, dy\)/.test(render), 'rounded corners are fans');
+  assert.truthy(/this\.atmosRimGfx = new Render\.BakedGfx\(this, 'atmos_rim_baked', null\);/.test(APP_JS_SRC));
+  assert.truthy(/if \(g\.flush\) g\.flush\(\);   \/\/ BAKED/.test(render), 'the rim uploads once per haze change');
+});

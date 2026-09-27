@@ -339,3 +339,23 @@ upload) and every other frame got ~1 ms cheaper — a good trade at walking
 pace, where a crossing is one frame in dozens. `batchFillPath` is still ~20%
 of busy time: what is left is `cellGfx` (2 052 entries, 3 arcs, cleared every
 frame) and `atmosRimGfx` (1 080). Those are the next candidates.
+
+### And the rest of finding 1 (2026-09-26): the rim is baked, the corners are fans
+
+`atmosRimGfx` is a `BakedGfx` too (its 30 strokeRects change only with the
+haze colour), and `cellGfx`'s rounded zone corners are no longer a
+`fillRoundedRect` — each is the cell's colour as a 6-triangle fan about the
+arc's centre (`fillCornerFan`), which Phaser batches without earcut. The 20
+rounded corners in the sandbox view are within 1/255 of the old pixels.
+The estimate before this step was ~0.3 ms; the measurement was three times
+that — the few `fillRoundedRect`s were most of what `batchFillPath` still
+cost, and it is now gone from the profile.
+
+| (avg ms, two runs)         | after the grid bake | now         |
+|----------------------------|--------------------:|------------:|
+| phaser render              | 1.30 – 1.85         | 0.41 – 0.45 |
+| CPU busy / frame, still    | 2.0 – 2.3           | 1.51 – 1.61 |
+| CPU busy / frame, walking  | 1.90 – 2.00         | 1.12 – 1.26 |
+
+Against the 09-06 baseline (phaser render 3.5 / 4.2, busy 8.1 / 7.9 on that
+run's machine) the render step is now a small fraction of the frame.

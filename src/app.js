@@ -2006,7 +2006,9 @@ class MapScene extends Phaser.Scene {
     // but BEFORE labelContainer — POI name tablets are UI and must stay crisp.
     // Position in the display list is what does this, NOT setDepth: the
     // vignette's depth 90 would put it over the labels as well.
-    this.atmosRimGfx = this.add.graphics();
+    // BAKED (render.js BakedGfx): 30 nested strokeRects Phaser would replay
+    // every frame; they change only with the haze colour.
+    this.atmosRimGfx = new Render.BakedGfx(this, 'atmos_rim_baked', null);
     // THE LIGHTMAP — every light in the world, composed in one canvas texture
     // (src/lighting.js) and MULTIPLIED over everything below it by this image.
     // Each frame the canvas is filled with the ambient darkness and every
