@@ -100,6 +100,7 @@ test('cave story: the first descent below the surface tells its story, once', ()
 
 test('pixel resolve: every dialog painting has an inline thumbnail', () => {
   const keys = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): 'data:image\/webp;base64,[A-Za-z0-9+/=]+',$/gm)].map((m) => m[1]));
+  const cutKeys = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): \[$/gm)].map((m) => m[1]));
   const tones = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): '#[0-9a-f]{6}',$/gm)].map((m) => m[1]));
   const used = new Set();
   for (const src of [APP_JS_SRC, INTERACT_SRC, MODAL_SHELL_SRC_TEXT]) {
@@ -110,15 +111,20 @@ test('pixel resolve: every dialog painting has an inline thumbnail', () => {
   for (const stem of used) {
     assert.truthy(keys.has(stem), `${stem} has a thumbnail (node tools/art_thumbs.js)`);
     assert.truthy(tones.has(stem), `${stem} has a tone`);
+    assert.truthy(cutKeys.has(stem), `${stem} has its baked resolve cuts`);
   }
-  assert.truthy(ART_THUMBS_SRC.length < 40 * 1024, 'the thumbnails stay small — they load with the code');
+  // 48 KB: the 22×28 thumbnails plus the three coarser resolve cuts each. The
+  // cuts are baked rather than cut at runtime (toDataURL was ~200 ms), so
+  // they ride here; keep the file this small — it loads with the code.
+  assert.truthy(ART_THUMBS_SRC.length < 48 * 1024, 'the thumbnails stay small — they load with the code');
 });
 
 test('pixel resolve: an uncached painting resolves out of its tone, then fades in', () => {
   const src = MODAL_SHELL_SRC_TEXT;
   assert.truthy(/ART_TONES\[art\]/.test(src), 'it opens on the painting\'s solid tone');
-  assert.truthy(/const RESOLVE_STEPS = \[3, 6, 11, 22\];/.test(src), 'coarse to fine, ending on the thumbnail');
-  assert.truthy(/mosaicCuts\(art, \(cuts\) =>/.test(src), 'the cuts come off the inline thumbnail');
+  assert.truthy(/const ART_CUT_WIDTHS = \[3,6,11,22\];/.test(ART_THUMBS_SRC), 'coarse to fine, ending on the thumbnail');
+  assert.truthy(/const cuts = mosaicCuts\(art\);/.test(src), 'the cuts are the baked ones');
+  assert.falsy(/toDataURL/.test(src), 'nothing is cut at runtime — toDataURL was ~200 ms of main thread');
   assert.truthy(/modal-art-waiting/.test(src) && /\.modal-art-waiting \{ animation: modal-art-breathe/.test(INDEX_HTML_SRC),
     'the last cut breathes while it still waits');
   assert.truthy(/if \(img\.complete\) \{\s*artLayer\.style\.opacity = '1';/.test(src), 'a cached painting is simply there');

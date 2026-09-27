@@ -383,3 +383,9 @@ and its PIXEL RESOLVE (modal_shell.js `mosaicCuts`) cut the mosaics with
 four `canvas.toDataURL('image/png')` calls — **~200 ms of main thread** in
 both runs (a GPU readback per call under an accelerated 2D canvas). The cuts
 should be baked by tools/art_thumbs.js instead of made at runtime.
+
+**Fixed (2026-09-27):** the resolve cuts are baked by tools/art_thumbs.js
+(`ART_CUTS`, lossy WebP at the thumbnail's quality, ~250 bytes a painting;
+`src/art_thumbs.js` 19 → 41 KB). The shell only picks them up. Re-run of the
+restore phase: `toDataURL` / `modal_shell.js` are gone from the profile, and
+CPU busy for the phase fell from 9.0 to 6.9 ms/frame.

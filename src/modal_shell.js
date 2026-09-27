@@ -95,33 +95,15 @@ const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;
 // `art` is the category's default SCENE painting (assets/art/, see SCENE ART
 // by STORY_MODAL_GROW_PX) — every dialog of the kind opens on it unless its
 // caller hands a painting of its own.
-// PIXEL RESOLVE's cuts: the 22×28 thumbnail redrawn at RESOLVE_STEPS widths
-// (the box's 11:14), coarse to fine, the last the thumbnail itself. Cut once
-// per painting on a canvas and kept; `cb` gets the list once the inline
-// thumbnail has decoded (a few ms — the tone covers that).
-const RESOLVE_STEPS = [3, 6, 11, 22];
+// PIXEL RESOLVE's cuts, coarse to fine: ART_CUTS[stem] then the thumbnail
+// itself (ART_THUMBS), all baked inline by tools/art_thumbs.js at the
+// ART_CUT_WIDTHS it writes beside them. Never cut at runtime — that was four
+// canvas-to-data-URL readbacks, ~200 ms of main thread as the dialog opened.
 const RESOLVE_STEP_MS = 150;
-const mosaicCutsCache = new Map();
-function mosaicCuts(stem, cb) {
-  if (mosaicCutsCache.has(stem)) { cb(mosaicCutsCache.get(stem)); return; }
-  const src = (typeof ART_THUMBS !== 'undefined') && ART_THUMBS[stem];
-  if (!src || typeof document === 'undefined') return;
-  const thumb = new Image();
-  thumb.onload = () => {
-    const cuts = RESOLVE_STEPS.map((w) => {
-      const h = Math.round(w * 14 / 11);
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      const g = c.getContext('2d');
-      g.imageSmoothingEnabled = true;
-      g.imageSmoothingQuality = 'high';
-      g.drawImage(thumb, 0, 0, w, h);
-      return c.toDataURL('image/png');
-    });
-    mosaicCutsCache.set(stem, cuts);
-    cb(cuts);
-  };
-  thumb.src = src;
+function mosaicCuts(stem) {
+  const cuts = (typeof ART_CUTS !== 'undefined') && ART_CUTS[stem];
+  const thumb = (typeof ART_THUMBS !== 'undefined') && ART_THUMBS[stem];
+  return (cuts && thumb) ? [...cuts, thumb] : null;
 }
 // The ONE address of a scene painting — the shell draws it and the boot
 // preloader (app.js _prewarmModalIcons) fetches it, so the warm copy is the
@@ -221,7 +203,7 @@ class SceneModals {
     // PIXEL RESOLVE. The painting is a request; its TONE and thumbnail
     // (ART_TONES / ART_THUMBS, src/art_thumbs.js) are inline. An uncached
     // painting opens on a solid block of its tone and resolves on a MOSAIC
-    // layer through ever finer cuts of the thumbnail (RESOLVE_STEPS, one per
+    // layer through ever finer baked cuts (ART_CUTS, then the thumbnail; one per
     // RESOLVE_STEP_MS), then breathes on the last cut while it still waits —
     // so the wait reads as LOADING, not as a blurry picture. When the
     // painting lands, the mosaic takes the full thumbnail and the painting
@@ -273,18 +255,17 @@ class SceneModals {
         artLayer.style.transition = 'opacity 420ms ease-out';
         const timers = [];
         const setCut = (url) => { mosaicImg = url; paintLayer(mosaicLayer, url); };
-        mosaicCuts(art, (cuts) => {
-          if (img.complete) return;
+        const cuts = mosaicCuts(art);
+        if (cuts) {
           cuts.slice(0, -1).forEach((url, i) =>
             timers.push(setTimeout(() => setCut(url), (i + 1) * RESOLVE_STEP_MS)));
           timers.push(setTimeout(() => mosaicLayer.classList.add('modal-art-waiting'),
             (cuts.length - 1) * RESOLVE_STEP_MS));
-        });
+        }
         img.onload = () => {
           timers.forEach(clearTimeout);
           mosaicLayer.classList.remove('modal-art-waiting');
-          const full = mosaicCutsCache.get(art);
-          if (full) setCut(full[full.length - 1]);
+          if (cuts) setCut(cuts[cuts.length - 1]);
           artLayer.style.opacity = '1';
         };
       }
