@@ -224,6 +224,23 @@ test('traps: countMul scales the surface density, and every extra trap still obe
     'an omitted countMul is identical to the pre-multiplier behaviour');
 });
 
+test('traps: the danger roll reaches the count, on its own stream', () => {
+  const r = rasterize(roadyLayers());
+  // Find a calm tile and a dangerous one with the same verge (the fixture is
+  // the same grid wherever it is called for) — the count follows the danger.
+  let calm = null, bad = null;
+  for (let t = 0; t < 400 && !(calm && bad); t++) {
+    const d = Traps.tileDanger(t, 3);
+    if (d < 0.5 && !calm) calm = t;
+    if (d > 1.5 && !bad) bad = t;
+  }
+  assert.truthy(calm != null && bad != null, 'found both kinds of tile');
+  const n = (tx) => Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, tx, 3, TILE_EDGE_M, optsFor(r), 10).length;
+  assert.gt(n(bad), n(calm) * 2, 'a dangerous tile lays well over twice a calm one\'s traps');
+  assert.truthy(/const mul = \(countMul > 0 \? countMul : 1\) \* tileDanger\(tx, ty\);/.test(ALL_SRC["traps.js"]),
+    'the danger multiplies the mode, not the placement rng');
+});
+
 test('traps: countMul scales cave density the same way', () => {
   const g = caveGrid(CAVE_N);
   const base = Traps.spawnCave(g, CAVE_N, 0, 0, TILE_EDGE_M, 1, ANCHORS, new Set());
@@ -447,7 +464,7 @@ test('traps: answering the how-to card re-lays the traps at that mode\'s density
   // THE BUG: the card that picks easy/hard is answered AFTER boot, and a save
   // with no mode yet reads as easy (difficulty.js). So the starter tile — the
   // one a new save spends its first minutes on — was laid at trapCountMul 10
-  // when the player had just asked for hard's 50. A fifth of the verge, on the only
+  // when the player had just asked for hard's 25. Under half the verge, on the only
   // ground they can see. chooseMode already repairs the purse, the ladder, the
   // crates and the doorstep greeter for exactly this race; the traps were the
   // one thing on that list nobody had put there.
@@ -673,3 +690,20 @@ test('traps: a trapper\'s snare bites at its trapper\'s power — the Home nerf 
     'the bite scales by it');
   assert.truthy(/Traps\.STAND_ENERGY_PER_S \* Traps\.trapPower\(trap\) \* dt/.test(APP_JS_SRC), 'and the bleed');
 });
+
+// ── Danger: the per-tile spread ─────────────────────────────────────────────
+test('traps: every tile rolls its own danger — a fact of the place, mean 1', () => {
+  assert.eq(Traps.tileDanger(12, -7), Traps.tileDanger(12, -7), 'deterministic per tile');
+  let sum = 0, lo = Infinity, hi = -Infinity;
+  const K = 4000;
+  for (let i = 0; i < K; i++) {
+    const d = Traps.tileDanger(i % 97 - 40, Math.floor(i / 97) - 20);
+    assert.gte(d, Traps.DANGER_MIN, 'never under the floor');
+    assert.lt(d, Traps.DANGER_MAX, 'never over the ceiling');
+    sum += d; lo = Math.min(lo, d); hi = Math.max(hi, d);
+  }
+  assert.lte(Math.abs(sum / K - 1), 0.03, `mean ~1, so trapCountMul stays the mode's average (got ${(sum / K).toFixed(3)})`);
+  assert.gt(hi / lo, 4, 'and a real spread: the worst tile several times the calmest');
+  assert.lte(Math.abs((Traps.DANGER_MIN + Traps.DANGER_MAX) / 2 - 1), 1e-9, 'the band is centred on 1');
+});
+

@@ -63,6 +63,20 @@
   // in that case; left alone at the base rate so every existing seed and test
   // keeps drawing the exact same rng sequence.
   const ROADSIDE_SAMPLE = 96;
+  // DANGER: every surface tile rolls how trapped its verges are, a multiplier
+  // on the count uniform in [DANGER_MIN, DANGER_MAX] — mean 1, so the mode's
+  // average density (trapCountMul) is unchanged; the SPREAD is what it buys:
+  // one neighbourhood's roads nearly clean, the next a gauntlet at 5-6x the
+  // first. A fact of the PLACE (seeded from the tile alone, on its own stream
+  // — never the placement stream below, so the draws that pick cells don't
+  // shift), so every player and both modes agree which quarter is the bad one.
+  // Surface only: the caves have their own climb with depth.
+  const DANGER_MIN = 0.3, DANGER_MAX = 1.7;
+  function tileDanger(tx, ty) {
+    const WG = root.WorldGen;
+    const r = WG.makeRng(((tx * 0x6c8e9cf5) ^ (ty * 0x3c6ef372) ^ 0x7feb352d) >>> 0)();
+    return DANGER_MIN + r * (DANGER_MAX - DANGER_MIN);
+  }
   // Caves: fewer, but they climb with depth — and they sit where the player
   // actually walks (around the entrances), like the monsters and coins.
   const CAVE_TRAP_MIN = 5, CAVE_TRAP_SPAN = 5, CAVE_TRAP_PER_DEPTH = 1;
@@ -70,7 +84,7 @@
   const CAVE_SPAWN_R = 25;            // cells around each anchor — matches the monster/coin spread
   // Dungeons are dangerous on EITHER game mode, so their density multiplier is
   // flat rather than read off Difficulty (which only scales the surface rate —
-  // Difficulty.PROFILES[mode].trapCountMul, 10x easy / 50x hard). Named here,
+  // Difficulty.PROFILES[mode].trapCountMul, 10x easy / 25x hard). Named here,
   // beside the base counts it scales, rather than inlined at the one call site
   // in app.js that reads it.
   const DUNGEON_DENSITY_MUL = 100;
@@ -193,7 +207,8 @@
   // frontage rule by construction rather than by a copy of them here.
   // A tile with no charted road gets no traps: there is no roadside to be on.
   // `countMul` scales the base 10..18 rate — the caller passes
-  // Difficulty.get().trapCountMul (10x easy / 50x hard) — so this module stays
+  // Difficulty.get().trapCountMul (10x easy / 25x hard) and
+  // tileDanger's per-tile spread — so this module stays
   // free of a Difficulty dependency and the base rate above stays the number a
   // test can pin without reading the mode.
   function spawnSurface(grid, roadMask, w, h, tx, ty, tileEdgeM, spawnOpts, countMul) {
@@ -203,12 +218,13 @@
     // OWN stream, and "unifying" these constants would move every trap in every
     // existing world. Leave them.
     const rng = WG.makeRng(((tx * 0x7f4a7c15) ^ (ty * 0x2545f491) ^ 0x51ed270b) >>> 0);
-    const mul = countMul > 0 ? countMul : 1;
+    const mul = (countMul > 0 ? countMul : 1) * tileDanger(tx, ty);
     const n = Math.round((ROAD_TRAP_MIN + Math.floor(rng() * ROAD_TRAP_SPAN)) * mul);
     // The base reservoir (96) only needs to comfortably exceed the base rate's
-    // ~18 traps. A density multiplier asks for many more, so it needs many
-    // more distinct roadside cells to draw from — widen the reservoir rather
-    // than let most of the extra traps fail on collisions with each other.
+    // ~18 traps (~31 on the most dangerous tile). A density multiplier asks for
+    // many more, so it needs many more distinct roadside cells to draw from —
+    // widen the reservoir rather than let most of the extra traps fail on
+    // collisions with each other.
     const sampleSize = mul > 1 ? Math.max(ROADSIDE_SAMPLE, n * 6) : ROADSIDE_SAMPLE;
     const cand = sampleRoadsideCells(roadMask, w, h, rng, sampleSize);
     if (!cand.length) return [];
@@ -479,7 +495,7 @@
 
   root.Traps = {
     STEP_ENERGY, STAND_ENERGY_PER_S,
-    ROAD_TRAP_MIN, ROAD_TRAP_SPAN, ROADSIDE_SAMPLE,
+    ROAD_TRAP_MIN, ROAD_TRAP_SPAN, ROADSIDE_SAMPLE, DANGER_MIN, DANGER_MAX, tileDanger,
     CAVE_TRAP_MIN, CAVE_TRAP_SPAN, CAVE_TRAP_PER_DEPTH, CAVE_TRAP_DEPTH_CAP, CAVE_SPAWN_R,
     DUNGEON_DENSITY_MUL,
     isSprung, spring,
