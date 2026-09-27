@@ -268,6 +268,11 @@ const STREET_PREVIEW_COLOR = parseInt(UI_STREET_INK.slice(1), 16);
 // restores metres on nearly every frame, and a "137/200 m" re-drawn sixty
 // times a second is a flicker rather than a readout. The ladder still banks
 // every frame — only the toast waits.
+// How far a street restore's blast and counter trail the restore itself —
+// two loop steps at FPS_LIMIT, so the emitter and the toast's text texture
+// land on neither the restore's frame nor the overlay repaint after it. See
+// _afterRestoreBeat.
+const RESTORE_FX_DELAY_MS = 70;
 const STREET_COUNTER_MIN_MS = 1000;
 // A BUILDING'S BLAST: how far past the footprint's own half-diagonal the flash
 // reaches, in cells. Two, so the light clears the roof and the street either
@@ -3787,7 +3792,9 @@ class MapScene extends Phaser.Scene {
       // gives the first map tiles and Phaser's own assets first claim on the
       // connection. See IconNet for why (treasure-modal icons were blank for
       // the whole first-fetch on slow lines).
-      if (!window.__TEST_MODE) setTimeout(() => this._prewarmModalIcons(), 4000);
+      if (!window.__TEST_MODE) {
+        setTimeout(() => { this._prewarmModalIcons(); this._prewarmFx(); }, 4000);
+      }
     }
     // Keep body.modal-open honest. The MutationObserver in
     // _installModalPadGate misses an overlay that is REMOVED from the document
@@ -11959,14 +11966,31 @@ class MapScene extends Phaser.Scene {
       // street it brought back. durationMs ties the light to the street's own
       // (longer) shine clock rather than Lighting.BLAST_MS's generic default:
       // a street repair's moment is the slower one, whether or not the run
-      // that clock was named for is drawn (STREET_SHINE_ALPHA).
-      this._blastAt(at.x, at.y, {
+      // that clock was named for is drawn (STREET_SHINE_ALPHA). It plays a
+      // beat after the restore itself — see _afterRestoreBeat.
+      this._afterRestoreBeat(() => this._blastAt(at.x, at.y, {
         radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',
         gather: 'stonegather', gatherPts: best.spread, durationMs: STREET_SHINE_MS,
-      });
+      }));
     }
     this._bankStreetMetres(addedM, at, now);
     persistSave(this.save);
+  }
+
+  // A restore's EFFECTS (the stone blast, the metres counter) play
+  // RESTORE_FX_DELAY_MS after it: the restore's own frame does the
+  // bookkeeping and the frame after repaints the restored canvas, and piling
+  // the particle emitter and a fresh text texture onto the first of those
+  // made one ~19 ms frame out of three light ones (render-loop audit,
+  // 2026-09-27). The save, the ladder and every prize move NOW — only the
+  // picture waits, by less than an eye can tell. No clock (a headless stub
+  // scene) runs it at once.
+  _afterRestoreBeat(fn) {
+    if (this.time && typeof this.time.delayedCall === 'function') {
+      this.time.delayedCall(RESTORE_FX_DELAY_MS, fn);
+    } else {
+      fn();
+    }
   }
 
   // The metres a sweep just restored, banked against the one ladder: show the
@@ -12002,10 +12026,11 @@ class MapScene extends Phaser.Scene {
     const due = (now - (this._streetCounterAt || 0)) >= STREET_COUNTER_MIN_MS;
     if (due || out.owed > 0) {
       this._streetCounterAt = now;
-      this._toast(Trail.readout(out, this.save.playerClass).label, {
+      const label = Trail.readout(out, this.save.playerClass).label;
+      this._afterRestoreBeat(() => this._toast(label, {
         tier: 'note', color: UI_STREET_INK,
         ...(at ? this._worldToastAt(at.x, at.y, STREET_COUNTER_LIFT_PX) : {}),
-      });
+      }));
     }
     // THE FIRST REPAIR. The very first metres this save ever banks ARM the one
     // dialog that says what a road is for (TRAIL_INTRO_TITLE) — it opens
@@ -13017,6 +13042,20 @@ class MapScene extends Phaser.Scene {
   // CSS-clip icon sheets (ICON_SHEETS) plus each gear slot's per-tier art.
   // Handed to IconNet.prewarm shortly after boot (see update()) so the
   // treasure / trade / forge modals open with their icons already cached.
+  // FIRST-USE costs, paid while nothing is happening rather than in the
+  // middle of a moment: the street restore's blast (its particle textures and
+  // emitters) and one text in every toast font. The first restore of a
+  // session measured ~18 ms of effects against ~2 ms for the next
+  // (render-loop audit, 2026-09-27); the first toast in a font ~5 ms against
+  // ~1 ms. The warm text is never drawn — made invisible, destroyed at once.
+  _prewarmFx() {
+    if (typeof Particles !== 'undefined') Particles.warm(this, ['stone', 'trailspark', 'stonegather']);
+    try {
+      const fonts = new Set(Object.values(TOAST_TIER).map((t) => fontMono(t.font)));
+      for (const font of fonts) this.add.text(-999, -999, '0m', { font }).setVisible(false).destroy();
+    } catch (e) { /* a warm-up never breaks the game */ }
+  }
+
   _prewarmModalIcons() {
     const urls = new Set();
     for (const s of Object.values(ICON_SHEETS)) urls.add(s.url);

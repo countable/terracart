@@ -70,7 +70,22 @@
   // the same way rasterized into two tiles must restore as one street. The id
   // is carried in the clear so a key is readable in a save dump; the hash is
   // what tells the feature's lines apart.
+  //
+  // Memoised per feature (a WeakMap, so it goes with the tile): every input
+  // is fixed for the life of a parsed feature, and the road overlay asks for
+  // every line's key on every rebuild — the hash was ~1 ms of the repaint
+  // that follows a restore.
+  const _lineKeyMemo = new WeakMap();
   function lineKey(feature, lineIdx) {
+    if (feature && typeof feature === 'object') {
+      let keys = _lineKeyMemo.get(feature);
+      if (!keys) _lineKeyMemo.set(feature, keys = []);
+      const i = lineIdx | 0;
+      return keys[i] || (keys[i] = lineKeyOf(feature, i));
+    }
+    return lineKeyOf(feature, lineIdx);
+  }
+  function lineKeyOf(feature, lineIdx) {
     const f = feature || {};
     const line = (f.geom && f.geom[lineIdx | 0]) || [];
     const n = line.length;

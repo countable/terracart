@@ -447,7 +447,7 @@ const starterWrapper = (name) => {
                    '_sweepStreets() {', '_resetStreetSight() {',
                    '_rescanStreets(p, reachM, now, sight) {',
                    '_setStreetPreview(meta, iv) {', '_streetSpreadPts(meta, s0, s1, k) {',
-                   '_ripenStreets(now, sight) {',
+                   '_ripenStreets(now, sight) {', '_afterRestoreBeat(fn) {',
                    '_bankStreetMetres(addedM, at, now) {', '_showTrailIntro() {',
                    '_armTrailIntro(now) {', '_openTrailIntroIfDue() {',
                    '_drawStreetLive(now) {',
@@ -487,6 +487,7 @@ const starterWrapper = (name) => {
     `globalThis.STREET_PREVIEW_ALPHA = ${constOf('STREET_PREVIEW_ALPHA')};\n` +
     `globalThis.STREET_PREVIEW_COLOR = ${constOf('STREET_PREVIEW_COLOR')};\n` +
     `globalThis.STREET_COUNTER_MIN_MS = ${constOf('STREET_COUNTER_MIN_MS')};\n` +
+    `globalThis.RESTORE_FX_DELAY_MS = ${constOf('RESTORE_FX_DELAY_MS')};\n` +
     `globalThis.STREET_SHINE_ALPHA = ${constOf('STREET_SHINE_ALPHA')};\n` +
     // The one-time first-repair dialog's copy — carried as source so the test
     // reads the shipping sentence and the rung it quotes off Trail.
@@ -507,7 +508,7 @@ const starterWrapper = (name) => {
   for (const k of ['_worldToastAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
                    '_cellAtScreen', 'playerScreen',
                    '_sweepStreets', '_resetStreetSight', '_rescanStreets',
-                   '_setStreetPreview', '_ripenStreets', '_bankStreetMetres', '_showTrailIntro',
+                   '_setStreetPreview', '_ripenStreets', '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro',
                    '_armTrailIntro', '_openTrailIntroIfDue',
                    '_drawStreetLive', '_blastAt']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {

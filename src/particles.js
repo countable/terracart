@@ -470,8 +470,24 @@
     return n;
   }
 
+  // WARM a burst before it is needed: bake its texture, and for a plain kind
+  // its pooled emitter. The first burst of a kind in a session paid both —
+  // a street restore's first blast measured 5-9 ms against ~1 ms after
+  // (render-loop audit, 2026-09-27). Called off the boot's idle prewarm.
+  function warm(scene, kinds) {
+    if (!scene || !scene.add || !scene.textures) return;
+    for (const kind of kinds) {
+      const p = PRESETS[kind];
+      if (!p) continue;
+      try {
+        if (p.converge) ensureTexture(scene, kind);
+        else ensureEmitter(scene, kind);
+      } catch (e) { /* a warm-up never breaks the game */ }
+    }
+  }
+
   root.Particles = {
-    PRESETS, burstCount, emitterConfig, onScreen, burst, texKey, ringPoints, BURST_MAX,
+    PRESETS, burstCount, emitterConfig, onScreen, burst, texKey, ringPoints, BURST_MAX, warm,
     dmgSpeedScale,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
