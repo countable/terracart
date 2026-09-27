@@ -3,7 +3,7 @@
 //
 // What is pinned:
 //   · the row: a MONSTERS kind (an enemy — wards, shots, bounty), a run
-//     (Combat.GHOST_SPEED_MPS, 3 m/s), a touch of 25 before
+//     (Combat.GHOST_SPEED_MPS, 3 m/s), a touch of Combat.GHOST_TOUCH_DMG before
 //     the mode / shield / armour, never drawn by the cave bag, no giant;
 //   · the pump: surface only, only after dark, on its ~5-minute cadence, only
 //     where it is dark, never inside Home's ring;
@@ -107,8 +107,8 @@ test('ghost: a MONSTERS row — an enemy, a jog over the ground', () => {
   assert.truthy(Combat.isEnemy({ kind: 'ghost', id: 'ghost_x' }), 'an enemy: wards, shots, bounty');
   assert.eq(Combat.GHOST_SPEED_MPS, 3, '3 m/s, per the ask');
   assert.eq(g.mps, Combat.GHOST_SPEED_MPS, 'the live row carries it');
-  assert.eq(g.dmg, 25, 'the touch is 25 before the mode, shield and armour');
-  assert.eq(Combat.GHOST_TOUCH_DMG, 25);
+  assert.eq(Combat.GHOST_TOUCH_DMG, 12, 'halved from 25');
+  assert.eq(g.dmg, Combat.GHOST_TOUCH_DMG, 'the touch before the mode, shield and armour');
   assert.falsy(Combat.spawnsUnderground('ghost'), 'never drawn by the cave bag');
   assert.truthy(Combat.spawnsUnderground('goblin'), 'which still draws the cave kinds');
   assert.falsy(MONSTERS.giant_ghost, 'no giant');
@@ -247,7 +247,7 @@ test('ghost: it hovers where it rose, then rushes the player', () => {
   });
 });
 
-test('ghost: a touch lands 25 through armour and spends the ghost — no coin', () => {
+test('ghost: a touch lands GHOST_TOUCH_DMG through armour and spends the ghost — no coin', () => {
   atDaylight(0, () => {
     const g = mkGhost({ x: P.x + 3 * CELL });
     const s = ghostScene([g]);
@@ -255,7 +255,7 @@ test('ghost: a touch lands 25 through armour and spends the ghost — no coin', 
     assert.falsy(alive(s, g), 'spent');
     assert.falsy(g._felledBy, 'by the touch, not by a blow — nobody felled it');
     const mul = Difficulty.get().enemyDmgMul;
-    const want = Combat.playerDamage(25 * mul, {});
+    const want = Combat.playerDamage(Combat.GHOST_TOUCH_DMG * mul, {});
     assert.eq(100 - s.save.energy, want, `the touch cost ${want}`);
     assert.eq(s._hits.length, 1, 'the body flinched, once');
     assert.eq(s._pops.length, 1, 'and the loss popped');
@@ -266,7 +266,7 @@ test('ghost: a touch lands 25 through armour and spends the ghost — no coin', 
     const s2 = ghostScene([g2]);
     s2.save.armor = armor;
     race(s2, g2, 30);
-    assert.eq(100 - s2.save.energy, Combat.playerDamage(25 * mul, armor), 'mitigated by the worn set');
+    assert.eq(100 - s2.save.energy, Combat.playerDamage(Combat.GHOST_TOUCH_DMG * mul, armor), 'mitigated by the worn set');
   });
 });
 

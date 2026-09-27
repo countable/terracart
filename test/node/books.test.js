@@ -255,8 +255,9 @@ test('tips: the ghost page quotes its owners\' numbers', () => {
   assert.truthy(/every five minutes/.test(t), 'and it says five');
   assert.eq(Combat.GHOST_SPEED_MPS, 3, 'a run, as the page says');
   assert.truthy(/at a run/.test(t));
-  assert.eq(Combat.monster('ghost').dmg, 25, 'a 25 touch, as the page says');
-  assert.truthy(/25\u26a1 before armour/.test(t));
+  const touch = Combat.monster('ghost').dmg;
+  assert.eq(touch, Combat.GHOST_TOUCH_DMG, 'the live row carries the touch');
+  assert.truthy(t.includes(`${touch}\u26a1 before armour`), `a ${touch} touch, as the page says`);
   const i = PLAY_TIPS.indexOf(t);
   assert.lt(i, PLAY_TIPS.length / 5, 'taught in the first fifth, beside the snares — the first night can be the first session');
 });

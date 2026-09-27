@@ -147,7 +147,7 @@
   //   HP is small — it dies in the light (creature_ai.js GHOST_PLATEAU_BURN_S) and to
   // two or three honest blows; the bounty is derived from it like any foe's.
   const GHOST_SPEED_MPS = 3;
-  const GHOST_TOUCH_DMG = 25;
+  const GHOST_TOUCH_DMG = 12;   // halved from 25: a quarter of a fresh bar per touch was too deadly
   MONSTERS_BASELINE.ghost = {
     name: 'Ghost', hp: 10, range: 1, dmg: GHOST_TOUCH_DMG / CAVE_ENEMY_MUL,
     mps: GHOST_SPEED_MPS,
