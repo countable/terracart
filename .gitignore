@@ -29,3 +29,6 @@ assets/art/raw/
 
 # Coin generator outbox - the tracked runtime copy is assets/Icons/coin.png
 assets/art/coin_icon.png
+
+# tools/map_review.js output (regenerable, ~3 MB)
+data/map_review*.html
