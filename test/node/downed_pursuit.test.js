@@ -77,12 +77,16 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
     [/isMonster\(c\.kind\) && !unnoticed && !standDown/, "the monster's hit and arrow"],
     [/const charging = !isTame && !standDown && !unnoticed && slimeCharging\(c\)/,
      "the struck slime's charge"],
-    [/!unnoticed && Math\.random\(\) < 0\.5 && distToPlayer/, "the slime's meander"],
-    [/if \(!unnoticed && distToPlayer > 0\.5 \* this\.cellM\)/, "the monsters' stalk"],
+    // The two STALKS read `unseen` — `unnoticed` with the foe's own sight
+    // ORed in (Combat.seesPlayer), so a downed player is unseen by all.
+    [/!unseen && Math\.random\(\) < 0\.5 && distToPlayer/, "the slime's meander"],
+    [/if \(!unseen && distToPlayer > 0\.5 \* this\.cellM\)/, "the monsters' stalk"],
   ];
   for (const [re, what] of gates) {
     assert.truthy(re.test(code), `${what} is gated on unnoticed`);
   }
+  assert.truthy(/const unseen = unnoticed \|\| !Combat\.seesPlayer\(c\.kind, distToPlayer, this\.cellM\);/.test(code),
+    '`unseen` is `unnoticed` plus the foe\'s sight, never a lane of its own');
 });
 
 test('downed: the body FADES on the same expression the hunt drops', () => {

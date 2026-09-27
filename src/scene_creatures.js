@@ -1381,6 +1381,13 @@ class SceneCreatures {
         const homeBias = Math.hypot(dxh, dyh) > homeRadius;
         const dxp = px - c.x, dyp = py - c.y;
         const distToPlayer = Math.hypot(dxp, dyp);
+        // UNSEEN: `unnoticed` (the player is not there to be hunted) OR this
+        // foe cannot see that far (Combat.seesPlayer — slimes are
+        // short-sighted, goblins see across the bubble). Read by the two
+        // STALK branches only: every attack gate below reaches a cell or
+        // three, well inside any sight, and keeps reading `unnoticed`. A
+        // struck slime's charge is not sight either — it knows who hit it.
+        const unseen = unnoticed || !Combat.seesPlayer(c.kind, distToPlayer, this.cellM);
         let tx = c.x, ty = c.y, angle = 0;
         let foundValidTarget = false;
         // Fight resolution: if chasing pet is in fight range, deal damage.
@@ -1510,7 +1517,7 @@ class SceneCreatures {
             // toward them (heavy ±0.7 rad jitter so it's a meander, not a
             // beeline), the rest are aimless. Slimes ignore home-bias — they
             // roam free and home in on whoever's nearby.
-            } else if (!unnoticed && Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
+            } else if (!unseen && Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
               angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 1.4;
             } else {
               angle = Math.random() * Math.PI * 2;
@@ -1524,7 +1531,7 @@ class SceneCreatures {
             // player and circles there (keepDistanceAngle), laying as it goes.
             if (!unnoticed && Combat.monsterLays(c.kind)) {
               angle = keepDistanceAngle(distToPlayer, dxp, dyp, mon.range * this.cellM, this.cellM);
-            } else if (!unnoticed && distToPlayer > 0.5 * this.cellM) {
+            } else if (!unseen && distToPlayer > 0.5 * this.cellM) {
               angle = Math.atan2(dyp, dxp)
                     + (Math.random() - 0.5) * (mon.fly ? STALK_JITTER * 2 : STALK_JITTER);
             } else {

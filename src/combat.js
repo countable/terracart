@@ -91,6 +91,10 @@
   //   dmg    → energy drained per hit (one hit per MONSTER_HIT_MS per monster)
   //   speed  → step cadence multiplier (1 = slime cadence; higher = more often)
   //   weight → relative spawn share among the kinds eligible at a given depth
+  //   sight  → how far off, in cells from the player's feet, it NOTICES you
+  //            and stalks (read via sightCells). A row without one sees
+  //            across the whole sim bubble — the goblins. Slimes are
+  //            short-sighted (SLIME_SIGHT_CELLS).
   //   retreat → how far it goes when it WANDERS OFF (app.js
   //            monsterWanderingOff), as a fraction of its activation range;
   //            the trip is range × retreat × [1, 2]. Default 1 — a full
@@ -102,9 +106,17 @@
   // The cave doubling (see "The first slime is the tutorial" below) — named
   // up here only because the ghost row after the table is authored against it.
   const CAVE_ENEMY_MUL = 2;
+  // SLIMES ARE SHORT-SIGHTED; GOBLINS ARE NOT. A slime — the surface one and
+  // the cave kinds alike — only takes an interest in a player within this many
+  // cells: about the edge of the screen (VIEW_CELLS 11, so 5.5 to the side),
+  // so a slime that is drifting your way is one you can see. A goblin row has
+  // no `sight` and stalks you from anywhere in the sim bubble
+  // (creature_ai.js CREATURE_SIM_CELLS, 12). Named up here because the table
+  // rows below author against it.
+  const SLIME_SIGHT_CELLS = 6;
   const MONSTERS_BASELINE = {
-    cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5 },
-    purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true, retreat: 0.75 },
+    cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5, sight: SLIME_SIGHT_CELLS },
+    purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true, retreat: 0.75, sight: SLIME_SIGHT_CELLS },
     goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 3.38, minDepth: 2, weight: 3, retreat: 0.5 },
     goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 2.7,  minDepth: 3, weight: 2 },
     // THE TRAPPER never lands a blow (dmg 0 — monsterHits says no, so the
@@ -217,6 +229,21 @@
   function retreatMul(kind) {
     const r = MONSTER_STATS[kind]?.retreat;
     return (typeof r === 'number' && r > 0) ? r : 1;
+  }
+  // How far off, in cells, this kind notices the player (the `sight` column;
+  // the surface slime, which has no row, is a slime and so SLIME_SIGHT_CELLS).
+  // Infinity for a row without one: it sees as far as it thinks, the sim
+  // bubble. A giant inherits its base kind's. Lair guards and the ghost have
+  // rings of their own and never ask.
+  function sightCells(kind) {
+    if (kind === 'slime') return SLIME_SIGHT_CELLS;
+    const s = MONSTER_STATS[kind]?.sight;
+    return (typeof s === 'number' && s > 0) ? s : Infinity;
+  }
+  // Can this kind see a player `distM` metres off? The per-creature half of
+  // wanderCreatures' `unseen` (the other half is the per-tick `unnoticed`).
+  function seesPlayer(kind, distM, cellM) {
+    return distM <= sightCells(kind) * cellM;
   }
   // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
   // the surface slime.
@@ -1088,7 +1115,7 @@
 
   const api = {
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
-    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, retreatMul, FAUNA_HP, creatureMaxHp,
+    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,

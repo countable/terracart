@@ -296,6 +296,10 @@ the mechanic.
   arrow, the struck slime's charge, both stalk branches). **When you add a
   hostile behaviour that takes an interest in the player, gate it on
   `unnoticed`, not on `shadowed`.**
+  The two STALK branches read `unseen` = `unnoticed` || the foe can't see
+  that far (`Combat.seesPlayer` / the `sight` column: slimes
+  `SLIME_SIGHT_CELLS`, goblins the whole bubble) — a new sight reason ORs in
+  there, never a third lane.
   `_tickTraps` also stands down on collapse, but reads `Combat.playerDowned`
   DIRECTLY, never `unnoticed` — a Shadow Powder hides you from what notices
   you; iron jaws notice nothing. Ask whether a new rule is about being
