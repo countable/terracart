@@ -53,8 +53,8 @@ const idx = (layers, name) => layers.indexOf(name);
 // these must sit below the lighting layer, or the dim cannot reach them.
 const GROUND = [
   'cellGfx',           // base terrain fill
-  'gridGfx',           // dashed cell grid
-  'borderGfx',         // biome seam borders  <- the reported bug
+  'gridContainer',     // dashed cell grid (a baked image — render.js BakedGfx)
+  'borderContainer',   // biome seam borders (baked)  <- the reported bug
   'cobbleContainer',   // ground decoration (the pier plank)
   'letterContainer',   // road name lettering
   'roadGeomContainer',

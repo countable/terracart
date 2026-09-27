@@ -87,6 +87,105 @@ Render.BUILDING_FACE_PX = BUILDING_FACE_PX;
 // otherwise wipe the grid out wherever a building stands).
 const GRID_LINE = { width: 1, color: 0x000000, alpha: 0.08, dash: 4, gap: 4 };
 Render.GRID_LINE = GRID_LINE;
+
+// ── BAKED GRAPHICS ─────────────────────────────────────────────────────────
+// A cached Graphics layer is NOT free between rebuilds: Phaser's WebGL
+// renderer replays the whole command buffer every frame — every dash of the
+// grid re-batched as a quad, every fillCircle re-run through earcut. The grid
+// (~9 900 entries) and the biome borders (~7 200) were the two largest, still
+// or walking, and batchFillPath was ~30% of all busy time (render-loop audit,
+// finding 1). A BakedGfx takes the same calls — the subset those two layers
+// use — and paints them into a CANVAS texture shown as ONE image, so a frame
+// between rebuilds costs one quad. The fog layer's shape, pointed at them.
+//
+// The canvas covers the viewport plus BAKED_PAD_CELLS each side (the
+// container's sub-cell scroll must never expose an edge) at up to
+// BAKED_MAX_SCALE device pixels per game pixel, LINEAR-filtered, so a 1px
+// grid line stays one game pixel wide under the camera's renderScale zoom
+// rather than being NEAREST-magnified into a fat one. Callers draw as before
+// and call flush() once the rebuild is done; flush uploads only if something
+// was drawn.
+const BAKED_PAD_CELLS = 2;
+const BAKED_MAX_SCALE = 2;
+class BakedGfx {
+  constructor(scene, key, container) {
+    this.scene = scene;
+    this.key = key;
+    this.tex = null;
+    this.image = scene.add.image(0, 0, '__DEFAULT').setOrigin(0, 0);
+    container.add(this.image);
+    this._fill = rgbaOf(0, 1);   // util.js
+    this._stroke = rgbaOf(0, 1);
+    this._lw = 1;
+    this._dirty = false;
+  }
+  // Size the canvas to the CURRENT viewport and scale (both can move on a
+  // resize), and seat the image over it in game pixels.
+  _fit() {
+    const sc = this.scene;
+    const pad = BAKED_PAD_CELLS * CELL_PX;
+    const x = sc.viewLeft - pad, y = sc.viewTop - pad, w = sc.viewSize + 2 * pad;
+    const rs = (typeof RENDER_SCALE === 'number') ? RENDER_SCALE : 1;
+    const k = Math.max(1, Math.min(BAKED_MAX_SCALE, rs));
+    const cw = Math.ceil(w * k);
+    if (!this.tex) {
+      this.tex = sc.textures.exists(this.key)
+        ? sc.textures.get(this.key) : sc.textures.createCanvas(this.key, cw, cw);
+      if (typeof Phaser !== 'undefined') this.tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      this.image.setTexture(this.key);
+    } else if (this.tex.width !== cw) {
+      this.tex.setSize(cw, cw);
+    }
+    this.image.setPosition(x, y).setDisplaySize(w, w);
+    this.ctx = this.tex.context;
+    this._k = k; this._x = x; this._y = y;
+  }
+  clear() {
+    this._fit();
+    const c = this.ctx;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, this.tex.width, this.tex.height);
+    c.setTransform(this._k, 0, 0, this._k, -this._x * this._k, -this._y * this._k);
+    this._dirty = true;
+    return this;
+  }
+  fillStyle(color, alpha = 1) { this._fill = rgbaOf(color, alpha); return this; }
+  lineStyle(width, color, alpha = 1) { this._lw = width; this._stroke = rgbaOf(color, alpha); return this; }
+  fillRect(x, y, w, h) {
+    this.ctx.fillStyle = this._fill;
+    this.ctx.fillRect(x, y, w, h);
+    this._dirty = true;
+    return this;
+  }
+  fillCircle(x, y, r) {
+    const c = this.ctx;
+    c.fillStyle = this._fill;
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fill();
+    this._dirty = true;
+    return this;
+  }
+  // Phaser's lineBetween is a butt-ended quad `width` wide along the segment.
+  lineBetween(x1, y1, x2, y2) {
+    const c = this.ctx;
+    c.strokeStyle = this._stroke;
+    c.lineWidth = this._lw;
+    c.lineCap = 'butt';
+    c.beginPath();
+    c.moveTo(x1, y1);
+    c.lineTo(x2, y2);
+    c.stroke();
+    this._dirty = true;
+    return this;
+  }
+  flush() {
+    if (!this._dirty || !this.tex) return;
+    this.tex.refresh();
+    this._dirty = false;
+  }
+}
+Render.BakedGfx = BakedGfx;
 // Is the POLYGONAL building mode on? When it is, building cells paint as the
 // GROUND around them here and every piece of tiled building art below is
 // skipped — the footprints are drawn from their source rings by
@@ -1919,21 +2018,32 @@ Render.drawCells = function drawCells(scene) {
     scene._atmos.rimKey = -1;   // force a rebuild when we surface again
   }
 
+  // The border layer's rebuild (if this was a crossing) is done: one upload.
+  if (gb2 && gb2.flush) gb2.flush();
+
   // Grid lines align with cell edges. Cells are positioned at
   //   sx = viewCenterX + (ox - fracX) * CELL_PX  (cell center)
   //   left edge = sx - CELL_PX/2 = viewLeft + CELL_PX/2 + (j - fracX) * CELL_PX
   // so grid lines need the same +CELL_PX/2 offset.
-  // Dashed grid lines — cached in gridGfx, only rebuilt on cell crossing.
+  // Dashed grid lines — BAKED (gridGfx is a BakedGfx), only rebuilt on cell crossing.
   // 1,300 lineBetween calls/frame at 60fps fills the GC nursery quickly;
   // the container scroll handles sub-cell movement between redraws.
   const gg = scene.gridGfx;
-  const gridDirty = baseCellIX !== scene._lastGridIX || baseCellIY !== scene._lastGridIY
-    || _bandKey !== scene._lastGridBands;
+  // Without a row band the dashes are laid from the viewport corner and do
+  // not depend on WHICH cell the anchor is in — the container's sub-cell
+  // scroll is the only thing a crossing changes — so the baked image is
+  // reused across crossings and repainted only when a band moves the column
+  // phase or the viewport itself moves (a resize). A band's phase is
+  // per-anchor, so with one in view every crossing still repaints.
+  const gridViewKey = `${scene.viewLeft},${scene.viewTop},${scene.viewSize}`;
+  const gridDirty = _bandKey !== scene._lastGridBands || gridViewKey !== scene._lastGridView
+    || (_bandKey && (baseCellIX !== scene._lastGridIX || baseCellIY !== scene._lastGridIY));
   if (gridDirty) {
     gg.clear();
     scene._lastGridIX = baseCellIX;
     scene._lastGridIY = baseCellIY;
     scene._lastGridBands = _bandKey;
+    scene._lastGridView = gridViewKey;
     gg.lineStyle(GRID_LINE.width, GRID_LINE.color, GRID_LINE.alpha);
     const DASH = GRID_LINE.dash, GAP = GRID_LINE.gap;
     const vTop = scene.viewTop, vLeft = scene.viewLeft, vSize = scene.viewSize;
@@ -1957,6 +2067,7 @@ Render.drawCells = function drawCells(scene) {
       for (let d = vLeft; d < vLeft + vSize; d += DASH + GAP)
         gg.lineBetween(d, y, Math.min(d + DASH, vLeft + vSize), y);
     }
+    if (gg.flush) gg.flush();
   }
   scene.gridContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
 
