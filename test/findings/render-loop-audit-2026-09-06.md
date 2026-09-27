@@ -283,3 +283,37 @@ decode time and debounce rebuilds while a peek is in flight.
 
 Re-measure after each step with `node tools/perf_loop.js`; the "standing
 still" column should fall well below the "walking" column once 1–3 land.
+
+## Re-measure, 2026-09-26
+
+`node tools/perf_loop.js` again, same sandbox world. Two fixes to the
+harness first: `test/perf.html`'s script list had drifted nine modules
+behind `index.html` (it is now copied from index.html's order), and the
+walking phase held WASD down, which the shipped `DEBUG = false` ignores — so
+the old "walking" column may have been standing still too. The walk now moves
+the fix at 10 m/s (`WALK_SPEED_MPS`), and the crossing passes all register.
+Headless SwiftShader, so read shares and ratios, not absolute ms.
+
+| pass (avg / worst ms)        | still       | walking     | 09-06 walking |
+|------------------------------|------------:|------------:|--------------:|
+| phaser render                | 2.32 / 6.8  | 2.78 / 9.0  | 4.2 / 10      |
+| update (all)                 | 0.76 / 4.1  | 1.09 / 6.4  | 2.2 / 22      |
+| drawObjects                  | 0.26 / 3.6  | 0.33 / 1.8  | 0.93 / 5.1    |
+| drawCells                    | 0.24 / 0.6  | 0.36 / 5.3  | 0.95 / 14     |
+| lighting (per paint)         | 0.23 / 0.4  | 0.24 / 1.0  | –             |
+| update @crossing             | –           | 3.09 / 6.4  | 7.2 / 22      |
+| drawCells @crossing          | –           | 2.02 / 5.3  | 5.3 / 14      |
+| fog paint (per crossing)     | –           | 0.55 / 1.1  | 2.1 / 10      |
+| road overlay rebuild         | –           | 0.16 / 0.3  | –             |
+| building overlay rebuild     | –           | 0.01 / 0.1  | –             |
+
+CPU busy: 2.33 ms/frame still, 2.45 walking. `batchFillPath` (Phaser
+re-tessellating Graphics paths every frame) is still the largest single
+inclusive cost at ~30% of busy time in both phases — finding 1 (bake the
+static Graphics layers) is the one recommendation not yet landed:
+`borderGfx` replays 7 197 entries and `gridGfx` 9 860 every frame, still or
+not. The lightmap paints on ~0.3 of still frames and ~0.8 of walking ones.
+
+Not measured: a street RESTORATION (the dwell commit and its feathered
+canvas). The sandbox has no MVT transportation lines, so nothing restores
+there, and perf.html has no fixture-tile mode yet.

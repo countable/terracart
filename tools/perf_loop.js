@@ -7,8 +7,8 @@
 // replays per frame, the pool sizes, and a CDP CPU profile with Phaser-
 // internal time attributed back to the nearest call site of ours.
 //
-// Two phases: standing still, then walking a square at the DEBUG keyboard
-// speed. The baseline and the reading of it are in
+// Two phases: standing still, then walking a square (the fix moved at the
+// DEBUG keyboard's pace). The baseline and the reading of it are in
 // test/findings/render-loop-audit-2026-09-06.md.
 //
 //   npm install                       # playwright-core (devDependency)
@@ -16,7 +16,7 @@
 //
 // Env: PW_CHROMIUM=/path/to/chrome to use a specific binary (the remote
 // sandbox has one at /opt/pw-browsers/chromium); IDLE_MS / WALK_MS to change
-// the phase lengths; PORT for the static server (default 7731).
+// the phase lengths, WALK_SPEED_MPS the walk's pace (default 10); PORT for the static server (default 7731).
 //
 // Read the numbers with the caveats in the findings doc: under headless
 // SwiftShader the frame GAPS are meaningless (rAF runs at ~15 Hz) — the
@@ -70,11 +70,30 @@ async function main() {
 
   await page.evaluate(() => window.__boot.reset());
   await cdp.send('Profiler.start');
-  for (const key of 'DSAW') {
-    await page.evaluate((k) => { const K = window.__scene.keys; for (const n of 'WASD') K[n].isDown = false; K[k].isDown = true; }, key);
-    await page.waitForTimeout(WALK_MS / 4);
-  }
-  await page.evaluate(() => { const K = window.__scene.keys; for (const n of 'WASD') K[n].isDown = false; });
+  // Walk a square by moving the FIX, the way a GPS update does. (This used
+  // to hold WASD down, but the keyboard walk is gated on app.js DEBUG, which
+  // ships false — so the "walking" phase stood still and never exercised
+  // the crossing rebuilds: fog, road and building canvases, tile scans.)
+  // WALK_SPEED_MPS is the DEBUG keyboard's pace, so a phase crosses cells
+  // often enough to measure the per-crossing passes.
+  const WALK_SPEED_MPS = +(process.env.WALK_SPEED_MPS || 10);
+  await page.evaluate(({ ms, v }) => {
+    const s = window.__scene;
+    const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+    const t0 = performance.now();
+    let last = t0;
+    window.__perfWalk = setInterval(() => {
+      const now = performance.now();
+      const d = dirs[Math.min(3, Math.floor((now - t0) / (ms / 4)))];
+      const step = v * (now - last) / 1000;
+      last = now;
+      s.playerM.x += d[0] * step;
+      s.playerM.y += d[1] * step;
+      if (s.syncMoveTarget) s.syncMoveTarget();
+    }, 50);
+  }, { ms: WALK_MS, v: WALK_SPEED_MPS });
+  await page.waitForTimeout(WALK_MS);
+  await page.evaluate(() => clearInterval(window.__perfWalk));
   const walkProf = (await cdp.send('Profiler.stop')).profile;
   const walk = await page.evaluate(() => window.__perfSnap());
 
