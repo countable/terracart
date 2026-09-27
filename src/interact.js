@@ -206,6 +206,7 @@ const TERRAIN = {
   PIER: WorldGen.T.PIER,                     // 23
   CAVE_FLOOR: WorldGen.T.CAVE_FLOOR,         // 24
   CAVE_WALL: WorldGen.T.CAVE_WALL,           // 25
+  CAVE_LAVA: WorldGen.T.CAVE_LAVA,           // 26
 };
 
 // Flavor label per NON-TILLABLE terrain code (the 'flavor' handler below).
@@ -253,6 +254,7 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.PIER]:           'Planking over deep water.',
   [TERRAIN.CAVE_FLOOR]:     'Cave floor, worn smooth.',
   [TERRAIN.CAVE_WALL]:      'Solid rock. A pick opens it.',
+  [TERRAIN.CAVE_LAVA]:      'Lava. It burns to stand in.',
 };
 
 // ── Naming things the player can see ────────────────────────────────────────

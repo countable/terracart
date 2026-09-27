@@ -117,6 +117,9 @@ const BIOME_TEX = {
   // Underground cave biome
   24: { variants: 3, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
   25: { variants: 3, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
+  // CAVE_LAVA (26) — the WATER tile, ember palette (drawLavaTex): same bands,
+  // same animation clock, so it reads as the same kind of thing gone red.
+  26: { variants: 2, draw: drawLavaTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
   // UNMAPPED (30) — render-only pseudo-terrain render.js stamps on cells whose
   // map tile hasn't loaded yet (never appears in a tile's grid). The animated
   // survey-line shimmer is the tile-loading indicator: dark fog with faint
@@ -372,7 +375,19 @@ function drawTilledTex(ctx, size, rng) {
   ctx.restore();
 }
 
-function drawWaterTex(ctx, size, rng, phaseFrac = 0) {
+// The liquid's inks: the crest band, its leading edge and the depth speck.
+// Water is the original; lava is the same drawing in embers (drawLavaTex).
+const WATER_INKS = {
+  crest: 'rgba(150,200,205,0.26)', edge: 'rgba(205,225,225,0.12)', speck: 'rgba(0,20,50,0.18)',
+};
+const LAVA_INKS = {
+  crest: 'rgba(255,170,60,0.42)', edge: 'rgba(255,235,150,0.30)', speck: 'rgba(40,0,0,0.30)',
+};
+function drawLavaTex(ctx, size, rng, phaseFrac = 0) {
+  drawWaterTex(ctx, size, rng, phaseFrac, LAVA_INKS);
+}
+
+function drawWaterTex(ctx, size, rng, phaseFrac = 0, inks = WATER_INKS) {
   // Horizontal highlight bands — top-down water with distinct cyan stripe
   // pattern. `phaseFrac` (0..1) slides the bands downward by that fraction of
   // one band-period; a full unit brings the pattern back to itself, so the
@@ -414,13 +429,13 @@ function drawWaterTex(ctx, size, rng, phaseFrac = 0) {
     for (let x = 0; x < size; x++) {
       if ((x - gapStart + size) % size < gapLen) continue;
       const yy = y + Math.round(Math.sin(x * 2 * Math.PI / waveLen + wavePhase + xPhase) * waveAmp);
-      for (let r = 0; r < bandH; r++) row(x, yy + r, 'rgba(150,200,205,0.26)'); // dull crest band
-      row(x, yy, 'rgba(205,225,225,0.12)');                                    // faint leading edge
+      for (let r = 0; r < bandH; r++) row(x, yy + r, inks.crest); // dull crest band
+      row(x, yy, inks.edge);                                     // faint leading edge
     }
   }
   // Subtle dark depth specks.
   for (let i = 0; i < 4; i++) {
-    ctx.fillStyle = 'rgba(0,20,50,0.18)';
+    ctx.fillStyle = inks.speck;
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
   }
 }

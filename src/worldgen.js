@@ -155,6 +155,12 @@
     // See loadCaveTile + isWalkable (CAVE_WALL is in NON_WALKABLE).
     CAVE_FLOOR: 24,
     CAVE_WALL: 25,
+    // LAVA — the one cave level (LAVA_DEPTH) where a surface BUILDING's
+    // footprint comes down as molten rock instead of solid: walkable, and
+    // everything standing on it burns (Combat.LAVA_DMG_PER_S, app.js
+    // _tickLava / wanderCreatures). Drawn as the water tile in red. The level
+    // below reads it as WALL (see loadCaveTile), so it changes nothing deeper.
+    CAVE_LAVA: 26,
   };
 
   // --- Walkability / spawnability (single source of truth) ---
@@ -5306,6 +5312,10 @@
     }
   }
 
+  // The dungeon level whose rock under the town's BUILDINGS is lava (T.CAVE_LAVA).
+  // Only this level: the one above and every one below keep plain rock there.
+  const LAVA_DEPTH = 5;
+
   async function loadCaveTile(cache, depth, key, x, y, lat) {
     const above = await loadTile.atDepth(depth - 1, x, y, lat);
     if (above.status === 'loading') await above.promise;
@@ -5320,8 +5330,28 @@
     const aboveGrid = above.baseGrid || above.grid;
     const aboveObjects = above.genObjects || above.objects || [];
     const grid = new Uint8Array(N * N);
+    // Lava overhead is ROCK to the level below: walkable as it is, reading it
+    // as floor would open the lava level's building footprints on every level
+    // under it.
     for (let i = 0; i < grid.length; i++) {
-      grid[i] = isWalkable(aboveGrid[i]) ? T.CAVE_FLOOR : T.CAVE_WALL;
+      const a = aboveGrid[i];
+      grid[i] = (isWalkable(a) && a !== T.CAVE_LAVA) ? T.CAVE_FLOOR : T.CAVE_WALL;
+    }
+    // THE LAVA LEVEL. By here a building's footprint is indistinguishable from
+    // a road's or a lake's — every cave level carries them all as CAVE_WALL —
+    // so ask the SURFACE, the one grid that still knows (its generated layer,
+    // like aboveGrid: the same tile bytes give every player the same lava).
+    // Only wall cells turn: a building cell is never walkable overhead, so this
+    // is every building cell, and never a floor something could stand on.
+    if (depth === LAVA_DEPTH) {
+      const surf = await loadTile.atDepth(0, x, y, lat);
+      if (surf.status === 'loading') await surf.promise;
+      const sGrid = surf.baseGrid || surf.grid;
+      if (sGrid && surf.cellsPerEdge === N) {
+        for (let i = 0; i < grid.length; i++) {
+          if (grid[i] === T.CAVE_WALL && isBuildingTerrain(sGrid[i])) grid[i] = T.CAVE_LAVA;
+        }
+      }
     }
     const objects = [];
     // Only GENERATED down-stairs lead down. A `_synthetic` one (the starter
@@ -5535,7 +5565,7 @@
     // exported so world_frame.test.js can pin that binning is frame-free.
     buildBinsFromGeoJSON,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, isWalkable, isRoadTerrain, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,

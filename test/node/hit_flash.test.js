@@ -22,7 +22,7 @@ test('hit flash: every drain on the body flinches at the instant it lands, with 
   assert.truthy(/Energy\.set\(this\.save, before - dmg\);\s*\n\s*const lost = before - this\.save\.energy;\s*\n\s*this\._flashPlayerHit\(lost\);/.test(lose[1]),
     'the flinch lands the instant the loss is banked, with what it cost');
   const sites = app.match(/this\._losePlayerEnergy\(/g) || [];
-  assert.eq(sites.length, 6, 'slime leech, monster melee, arrow, a ghost\'s touch, standing on a sprung trap, a hunted deer\'s butt');
+  assert.eq(sites.length, 7, 'slime leech, monster melee, arrow, a ghost\'s touch, standing on a sprung trap, a hunted deer\'s butt, standing in lava');
   const arrow = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(arrow && /this\._losePlayerEnergy\(dmg/.test(arrow[1]), 'the arrow is one of them');
   // …and the trap's BITE, which lands through the pain effect rather than in

@@ -1078,6 +1078,7 @@ const COLORS = {
   // --- Underground cave biome (depth > 0) ---
   24: 0x4a423b, // CAVE_FLOOR — packed earth/stone floor (walkable)
   25: 0x241f1b, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
+  26: 0x9a2a10, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
   // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately
   // darker than every real biome so "beyond the charted world" reads as the
@@ -3187,6 +3188,48 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // ── Lava ──────────────────────────────────────────────────────────────────
+  // On WorldGen.LAVA_DEPTH the rock under the town's buildings is lava
+  // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
+  // second for as long as the FEET are in it (playerToWorldCell — never the
+  // camera anchor). The trap bleed's shape and lane: the ground, not a foe, so
+  // no mode, shield or armour; a float accumulator banks whole pips through
+  // _losePlayerEnergy (Energy.set, the hit flinch); one throttled pop on the
+  // cell, and no shop dialog closes (a foe's blow does; the ground's, like a
+  // trap's, does not). Stands down on an empty bar (Combat.playerDowned — being upright,
+  // not being noticed; a Shadow Powder does not cool lava).
+  _tickLava(dt) {
+    if (this.depth !== WorldGen.LAVA_DEPTH || !this.startWorldM
+        || Combat.playerDowned(this.save.energy)) {
+      this._lavaAccum = 0;
+      return;
+    }
+    const pc = this.playerToWorldCell();
+    const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+    const N = entry && entry.cellsPerEdge;
+    if (!entry || !entry.grid || lix < 0 || liy < 0 || lix >= N || liy >= N
+        || entry.grid[liy * N + lix] !== WorldGen.T.CAVE_LAVA) {
+      this._lavaAccum = 0;   // stepping out ends the burn: no partial second carries
+      return;
+    }
+    const { cellIX: ix, cellIY: iy } = tileCellToAbs(this, pc.tx, pc.ty, lix, liy);
+    this._lavaAccum = (this._lavaAccum || 0) + Combat.LAVA_DMG_PER_S * dt;
+    const pips = Math.floor(this._lavaAccum);
+    if (pips > 0) {
+      this._lavaAccum -= pips;
+      this._lavaPop = (this._lavaPop || 0) + this._losePlayerEnergy(pips);
+    }
+    const now = performance.now();
+    if (this._lavaPop > 0 && now - (this._lastLavaFlashT || 0) > 1200) {
+      this._lastLavaFlashT = now;
+      const burned = this._lavaPop;
+      this._lavaPop = 0;
+      this._popEnergy(-burned, { ix, iy, label: '🔥 lava' });
+      if (typeof persistSave === 'function') persistSave(this.save);
+    }
+  }
+
   // ── The goblin trapper's snares ───────────────────────────────────────────
   // A trapper (Combat.monsterLays) that has noticed the player lays a snare
   // every TRAPPER_LAY_MS on an EMPTY cell on the line between them
@@ -4314,6 +4357,8 @@ class MapScene extends Phaser.Scene {
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
     this._tickTraps(dt);
+    // …and is the player standing in lava (the lava level only)?
+    this._tickLava(dt);
     // …and did an enemy just walk onto one of the player's Magic Traps?
     this._tickMagicTraps();
     this._revealFog();

@@ -29,7 +29,7 @@
     PARK: 6, ROAD: 7, PATH: 8, BUILDING: 9, ROCK: 10, BUILDING_MED: 11,
     BUILDING_LARGE: 12, ROAD_LG: 13, ROAD_MD: 14, SCHOOL: 15, COMMERCIAL: 16,
     INDUSTRIAL: 17, PLAYGROUND: 18, PITCH: 19, WETLAND: 20, GOLF: 21,
-    ORCHARD: 22, PIER: 23, CAVE_FLOOR: 24, CAVE_WALL: 25,
+    ORCHARD: 22, PIER: 23, CAVE_FLOOR: 24, CAVE_WALL: 25, CAVE_LAVA: 26,
   };
 
   // RNG salts — one independent stream per flora kind per biome so finds scatter
@@ -102,7 +102,7 @@
     [T.ROAD]: 'paved', [T.PATH]: 'paved', [T.BUILDING]: 'paved',
     [T.BUILDING_MED]: 'paved', [T.BUILDING_LARGE]: 'paved',
     [T.ROAD_LG]: 'paved', [T.ROAD_MD]: 'paved',
-    [T.CAVE_FLOOR]: 'paved', [T.CAVE_WALL]: 'paved',
+    [T.CAVE_FLOOR]: 'paved', [T.CAVE_WALL]: 'paved', [T.CAVE_LAVA]: 'paved',
   };
   // Unmapped terrain codes fall back to 'grassland' so a genuinely unknown
   // *biome* still grows something (the "unknown poly type" fallback); every
@@ -334,6 +334,7 @@
     [T.ROCK]:       0x8e857a,   // stone powder
     [T.CAVE_FLOOR]: 0x2a2622,   // underground: no daylight to haze with
     [T.CAVE_WALL]:  0x2a2622,
+    [T.CAVE_LAVA]:  0x2a2622,
   };
 
   // Fallback base colour for a type app.js has no COLORS entry for. Matches the

@@ -147,6 +147,11 @@
   //   HP is small — it dies in the light (creature_ai.js GHOST_PLATEAU_BURN_S) and to
   // two or three honest blows; the bounty is derived from it like any foe's.
   const GHOST_SPEED_MPS = 3;
+  // LAVA (WorldGen.T.CAVE_LAVA, on WorldGen.LAVA_DEPTH) burns whatever stands
+  // in it at this rate — the player's ENERGY (app.js _tickLava) and an enemy's
+  // HP (scene_creatures.js wanderCreatures) alike, one number for both. The
+  // ground, not a foe: no mode, no shield, no armour — the trap bleed's lane.
+  const LAVA_DMG_PER_S = 2;
   const GHOST_TOUCH_DMG = 12;   // halved from 25: a quarter of a fresh bar per touch was too deadly
   MONSTERS_BASELINE.ghost = {
     name: 'Ghost', hp: 10, range: 1, dmg: GHOST_TOUCH_DMG / CAVE_ENEMY_MUL,
@@ -1146,7 +1151,7 @@
 
   const api = {
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
-    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
+    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
     SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,

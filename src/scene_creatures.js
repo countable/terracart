@@ -1083,6 +1083,19 @@ class SceneCreatures {
         }
         return;
       }
+      // LAVA BURNS FOES TOO (Combat.LAVA_DMG_PER_S, the player's rate — see
+      // app.js _tickLava). Whole points once a second off the foe's own HP
+      // through _damageEnemy, so the health bar and the "-2" read as any
+      // other blow; a foe it kills is the ground's kill ('lava' is no player
+      // source — Combat.isPlayerKill), which pays the bounty coin and nothing
+      // past it, the turret's rule. A tamed slime is a pet, never burned.
+      if (!isTame && Combat.isEnemy(c) && this.depth === WorldGen.LAVA_DEPTH
+          && now >= (c._lavaNextT || 0)) {
+        c._lavaNextT = now + 1000;
+        const under = this.cellAt(c.x, c.y);
+        if (under.loaded && under.type === WorldGen.T.CAVE_LAVA
+            && this._damageEnemy(c, Combat.LAVA_DMG_PER_S, 'lava')) return;
+      }
       // Slime energy steal: a slime sitting on/near the player drains 1 energy
       // on a per-slime cooldown. Accumulated across all slimes this frame and
       // surfaced with one throttled flash after the loop (see below) so a swarm

@@ -409,6 +409,9 @@ const BORDER_TRANS_SKIP = new Set([9, 11, 12]); // buildings only; water + sand 
 // than pure white so it reads as foam lit by the same flat daylight as the
 // rest of the map, not as a hard highlight.
 const SURF_COLOR = 0xdff0f7;
+// Lava is drawn as water (the same tile, red — T.CAVE_LAVA), shore and all:
+// its seam edge is this bright crust where water paints its foam.
+const LAVA_CRUST_COLOR = 0xffb040;
 // Does the edge between a cell painted `color` and a neighbour of terrain
 // `nbrType` painted `nbrColor` get the wavy biome border? The rule is just
 // "the painted colours differ", with buildings opted out (their own outline
@@ -1163,6 +1166,7 @@ Render.drawCells = function drawCells(scene) {
   const PIER = 23;
   const PIER_FRAME = 20;
   const WATER = 3;
+  const LAVA = 26;   // WorldGen.T.CAVE_LAVA — takes water's shore, in LAVA_CRUST_COLOR
   // Pre-compute a ring of cell types (VIEW_CELLS+4) — that's the visible 11×11
   // PLUS a 1-cell halo of pre-rendered cells (so the player never sees a black
   // gap at the viewport edge mid-step) PLUS another 1-cell halo for per-corner
@@ -1448,8 +1452,8 @@ Render.drawCells = function drawCells(scene) {
           // PIER deliberately stays hard-edged too: foam on its own outline
           // traced the decking in white like a sticker, and the water cells
           // around it already lap it with their own foam.
-          if (type === WATER) {
-            gb2.fillStyle(SURF_COLOR, 1);
+          if (type === WATER || type === LAVA) {
+            gb2.fillStyle(type === LAVA ? LAVA_CRUST_COLOR : SURF_COLOR, 1);
             if (drawN) strip(0, 0);
             if (drawS) strip(1, 0);
             if (drawW) strip(2, 0);
@@ -1461,16 +1465,17 @@ Render.drawCells = function drawCells(scene) {
           } else {
             // Facing water, keep the old darkened margin rather than blending
             // toward the sea colour — that margin is half of the shoreline.
+            const liquid = (t) => t === WATER || t === LAVA;
             const edgeCol = (t, nbr, k) =>
-              t === WATER ? getDark(color) : getBlend(color, nbr, k);
+              liquid(t) ? getDark(color) : getBlend(color, nbr, k);
             for (let k = 0; k < BLUR_STEPS; k++) {
               const inset = k * BLUR_W;
               // A water-facing side has no ramp to walk: draw its flat margin
               // once, on the outermost step only.
-              if (drawN && (tN !== WATER || k === 0)) { gb2.fillStyle(edgeCol(tN, cN, k), 1); strip(0, inset); }
-              if (drawS && (tS !== WATER || k === 0)) { gb2.fillStyle(edgeCol(tS, cS, k), 1); strip(1, inset); }
-              if (drawW && (tW !== WATER || k === 0)) { gb2.fillStyle(edgeCol(tW, cW, k), 1); strip(2, inset); }
-              if (drawE && (tE !== WATER || k === 0)) { gb2.fillStyle(edgeCol(tE, cE, k), 1); strip(3, inset); }
+              if (drawN && (!liquid(tN) || k === 0)) { gb2.fillStyle(edgeCol(tN, cN, k), 1); strip(0, inset); }
+              if (drawS && (!liquid(tS) || k === 0)) { gb2.fillStyle(edgeCol(tS, cS, k), 1); strip(1, inset); }
+              if (drawW && (!liquid(tW) || k === 0)) { gb2.fillStyle(edgeCol(tW, cW, k), 1); strip(2, inset); }
+              if (drawE && (!liquid(tE) || k === 0)) { gb2.fillStyle(edgeCol(tE, cE, k), 1); strip(3, inset); }
               // Round each step's inner corner, as the single-line border did.
               // The N/S colour wins the shared pixel; at BLUR_W the difference
               // from the E/W ramp is under a level.
