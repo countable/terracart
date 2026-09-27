@@ -620,7 +620,7 @@ const HOME_GREETER_SLACK_CELLS = 2;
 // with per direction (save.caught is checked by id).
 const HOME_GREETER_DIR_VEC = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 // ── Home is pest-free until the first harvest ────────────────────────────
-// A slime sits on your crops and drains 3 energy a second, a crow eats the
+// A slime sits on your crops and drains SLIME_LEECH_ENERGY a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
 // nothing to answer either with: no weapon, no relic, an empty bag and a
 // ladder telling them to stand still and till. Meeting a pest there is not a
@@ -7369,7 +7369,7 @@ class MapScene extends Phaser.Scene {
   // slime / monster drains sat 40px above the same point. Falls back to the
   // toast's own centred default when the cell can't be projected (a headless
   // scene, a splash before the camera exists). Text comes from the delta's
-  // sign; `opts.label` is appended ("−3⚡ 🟢 slime") and `opts.text` replaces
+  // sign; `opts.label` is appended ("−6⚡ 🟢 slime") and `opts.text` replaces
   // it outright.
   _popEnergy(delta, opts = {}) {
     if (!delta || !this.add) return null;
