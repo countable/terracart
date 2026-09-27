@@ -9851,7 +9851,20 @@ class MapScene extends Phaser.Scene {
     const castle = isCastle(house);
     const isStarterSmith = this.isStarterBlacksmith(house);
     const { dealCap, ready: shopReady, waitMs } = this.shopReadiness(house);
-    if (house && !shopReady) {
+    // Effective shop role from the frozen restore-order assignment (falls back
+    // to the address-derived type for legacy saves). Returns 'blacksmith' for
+    // the first-restored starter smithy too, so the forge branch fires
+    // regardless of the underlying house number.
+    const shopType = this.houseShopRole(house);
+    const isFort = !!house && house.tier === 11;
+    // A delivery host (plain house, no shop role) is not a timed shop: it
+    // takes ONE delivery ever (Delivery.isSatisfied), and render.js shows its
+    // wishlist instead of the open/busy plaque. So the hourly deal cap must
+    // not shut its door either — a deal banked while it was the one-off
+    // scarecrow shop used to leave it "busy" under a live potato ask.
+    const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house
+      && !(this.isScarecrowShop(house) && !this.save.scarecrowShopUsed);
+    if (house && !shopReady && !isDeliveryHost) {
       const kindLabel = castle ? 'castle' : (house.tier === 11) ? 'fort' : 'house';
       // Same notation, same number as the plaque over the roof (render.js
       // formats info.waitMs through shortDuration too), so the tap and the
@@ -9865,12 +9878,6 @@ class MapScene extends Phaser.Scene {
       const cur = this.shopBucketState(house);
       cur.deals += 1;
     };
-    // Effective shop role from the frozen restore-order assignment (falls back
-    // to the address-derived type for legacy saves). Returns 'blacksmith' for
-    // the first-restored starter smithy too, so the forge branch fires
-    // regardless of the underlying house number.
-    const shopType = this.houseShopRole(house);
-    const isFort = !!house && house.tier === 11;
     // FLOWER GIFT — tapping a CASH shop (market / fort storefront / castle
     // vault) with Flowers selected offers to charm the keeper: one bouquet
     // buys half prices at THIS building for SHOP_CHARM_MS. Only cash shops —
@@ -9927,7 +9934,7 @@ class MapScene extends Phaser.Scene {
     // sellMul. They don't sell anything or do the old 10% relic swap. Their
     // sign shows the wanted icons so the player can scout a street and gather
     // the matching set.
-    if (!castle && !isFort && !shopType && !isStarterSmith && house) {
+    if (isDeliveryHost) {
       this.presentDeliveryOffer(sx, sy, house, recordDeal);
       return;
     }
