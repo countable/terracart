@@ -1359,7 +1359,7 @@ ctx.COORDS_SRC = readSrc('coords.js');
 // gives the local player; feet_anchor.test.js pins both as text.
 ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
 ctx.INTERACT_SRC = readSrc('interact.js');
-ctx.RUN_JS_SRC = fs.readFileSync(__filename, 'utf8');   // map_review.test.js
+ctx.WORLDGEN_SRC = readSrc('worldgen.js');   // map_review.test.js (the review salt)
 // The dialog-painting generator, for scene_art.test.js's lore and scene() pins.
 ctx.ART_THUMBS_SRC = readSrc('art_thumbs.js');
 ctx.MODAL_SHELL_SRC_TEXT = readSrc('modal_shell.js');
