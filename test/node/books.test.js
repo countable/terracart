@@ -771,3 +771,15 @@ test('books: the wizard\'s calling is in the Book, right after the wizard, and t
   assert.eq(Wizard.OFFER_COUNT, 2);
   assert.truthy(/two gifts from four/.test(PLAY_TIPS[at]), 'and the wizard tip counts them');
 });
+
+test('books: the off-GPS penalty is taught early, and true to combat.js', () => {
+  const tip = PLAY_TIPS.find((t) => /carried you off your real footing/i.test(t));
+  assert.truthy(tip, 'a tip explains fighting off the GPS');
+  // "a third softer" is re-derived, never retyped.
+  assert.eq(Math.round((1 - Combat.OFF_GPS_ATTACK_MUL) * 3), 1, 'the penalty is a third');
+  assert.truthy(/a third softer/i.test(tip), 'and the tip says a third');
+  // Early: in the first-ten-minutes block, before the starter loop's tips.
+  const loop = PLAY_TIPS.findIndex((t) => /^Tilling refuses/.test(t));
+  assert.gt(loop, 0, 'the starter loop block is found');
+  assert.lt(PLAY_TIPS.indexOf(tip), loop, 'taught before the starter loop');
+});

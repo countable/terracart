@@ -1041,6 +1041,10 @@ const PLAY_TIPS = [
   'Selling is home-only. Carry your haul back to your trailer, select a stack, and tap it to cash out.',
   'Every tool works bare-handed — just slowly. A Wood relic is twice as quick, a Frost one thirty times.',
   'How far you can touch is your own light: nothing at all on an empty bar, and half a cell less for every level you descend.',
+  // The off-GPS penalty (combat.js OFF_GPS_ATTACK_MUL, app.js _attackMul):
+  // taught before the first fight, since the stick is the first thing a player
+  // at a desk reaches for. books.test.js re-derives "a third".
+  'Fight where you truly stand. While the stick has carried you off your real footing, every blow and shot lands a third softer — walk there yourself to strike at full strength.',
   'The bar over a foe is its health, not a timer — green, then amber, then red.',
   'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
   'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 3 a second, so step off rather than wait it out.',

@@ -160,7 +160,7 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // spending the clock.
   assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS;/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
-  assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\.isDragonActive\(\) \? 2 : 1(?:, [^)]+)?\)/.test(wheel),
+  assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\)(?:, [^)]+)?\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
   assert.falsy(/const dps = Combat\.meleeDps\(this\.save\.relics\) \* \(this\.isDragonActive/.test(app),
     'no per-frame melee drain may return');
@@ -967,4 +967,15 @@ test('combat: an ENFORCER lands ENFORCER_MELEE_DPS more a second, through the sw
       'one blow is one interval of the bonused rate');
     assert.eq(Combat.meleeSwingDamage(relics, 2, 'enforcer'), 2 * blow, 'the dragon doubles it all');
   }
+});
+
+test('combat: off the GPS the player attacks a third softer, through the one attack multiplier', () => {
+  assert.inRange(Combat.OFF_GPS_ATTACK_MUL - 2 / 3, -1e-12, 1e-12, 'a third off');
+  assert.eq(Combat.meleeSwingDamage({ sword: { tier: 3 } }, Combat.OFF_GPS_ATTACK_MUL) /
+            Combat.meleeSwingDamage({ sword: { tier: 3 } }, 1), Combat.OFF_GPS_ATTACK_MUL, 'the swing scales by it');
+  const m = /_attackMul\(\) \{\s*return \(this\.isDragonActive\(\) \? 2 : 1\) \* \(this\._offGps\(\) \? Combat\.OFF_GPS_ATTACK_MUL : 1\);/;
+  assert.truthy(m.test(APP_JS_SRC), '_attackMul folds the dragon and the off-GPS third');
+  assert.truthy(/const dmgMul = this\._attackMul\(\);/.test(APP_JS_SRC), 'the bow / staff read it');
+  assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\),/.test(APP_JS_SRC), 'and the melee wheel');
+  assert.truthy(/_offGps\(\) \{\s*if \(!this\.gpsM\) return false;/.test(APP_JS_SRC), 'no fix, nothing to be away from');
 });

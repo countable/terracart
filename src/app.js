@@ -3122,7 +3122,9 @@ class MapScene extends Phaser.Scene {
       // Hard mode bites harder on first contact (Difficulty.trapBiteMul,
       // 2.5x — 10⚡ base becomes 25⚡). The bleed rate (STAND_ENERGY_PER_S)
       // is untouched by mode.
-      const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul;
+      // A laid snare bites at its trapper's power (Traps.trapPower — the
+      // Home nerf reaches it); a generated trap at 1.
+      const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul * Traps.trapPower(trap);
       Energy.set(this.save, before - bite);
       const spent = before - this.save.energy;
       this._painFlash(spent);
@@ -3132,7 +3134,8 @@ class MapScene extends Phaser.Scene {
       this._warnIfTiring(before);
       if (this.updateEnergyDOM) this.updateEnergyDOM();
       const ps = this.playerScreen ? this.playerScreen() : null;
-      this.flash(`🪤 a trap! −${Traps.STAND_ENERGY_PER_S}⚡/s — step off`,
+      const bleed = +(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap)).toFixed(1);
+      this.flash(`🪤 a trap! −${bleed}⚡/s — step off`,
         ps ? ps.x : undefined, ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
       // The reveal has to survive a reload, so it is written now rather than
       // waiting on some later caller's persist.
@@ -3156,7 +3159,8 @@ class MapScene extends Phaser.Scene {
     // Still standing on a sprung one. Float accumulator → whole pips, the same
     // shape the passive rests use, so a fractional per-frame drain doesn't
     // churn save.energy and the DOM every frame.
-    this._trapDrainAccum = (this._trapDrainAccum || 0) + Traps.STAND_ENERGY_PER_S * dt;
+    this._trapDrainAccum = (this._trapDrainAccum || 0)
+      + Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap) * dt;
     const pips = Math.floor(this._trapDrainAccum);
     if (pips > 0) {
       this._trapDrainAccum -= pips;
@@ -3223,8 +3227,10 @@ class MapScene extends Phaser.Scene {
       if (!Traps.canLay(entry, cell.ix, cell.iy)) continue;
       const cc = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
       if (magic.some(t => Math.abs(t.x - cc.x) < half && Math.abs(t.y - cc.y) < half)) continue;
+      // The snare bites with its trapper's power (Home nerf × elite), like
+      // every other blow a guard lands — Traps.trapPower reads it back.
       Traps.layTrap(entry, cell.tx, cell.ty, entry.tileEdgeM || this.tileEdgeM,
-        cell.ix, cell.iy, c.id, wall, this.depth || 0);
+        cell.ix, cell.iy, c.id, wall, this.depth || 0, Combat.powerMul(c));
       c._nextLayT = now + TRAPPER_LAY_MS;
       return;
     }
@@ -4392,9 +4398,9 @@ class MapScene extends Phaser.Scene {
     });
 
     const relics = this.save.relics || {};
-    // Dragon Powder doubles attack damage for its minute (same buff the melee
-    // wheel reads), so a dragon's arrows hit twice as hard too.
-    const dmgMul = this.isDragonActive() ? 2 : 1;
+    // The player's attack multiplier (_attackMul — Dragon Powder's ×2, the
+    // off-GPS third), the same one the melee wheel reads.
+    const dmgMul = this._attackMul();
 
     // ── Bow / staff: one shot a second ──────────────────────────────────────
     // The BOW does not home and does not pick a target: the arrow goes where
@@ -5481,7 +5487,7 @@ class MapScene extends Phaser.Scene {
           const d = Math.hypot(dx, dy) || 1;
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
         }
-        const blow = Combat.meleeSwingDamage(this.save.relics, this.isDragonActive() ? 2 : 1, this.save.playerClass);
+        const blow = Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass);
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
       }
     }
@@ -6144,6 +6150,24 @@ class MapScene extends Phaser.Scene {
     }
     const o = this._manualOffsetM;
     return Math.hypot(o.x, o.y);
+  }
+  // Has the player been walked OFF their real position by hand? A GPS fix to
+  // be away from, and either the stick's banked offset past
+  // Combat.OFF_GPS_MIN_CELLS or the keyboard's session-long manual override.
+  // With no fix at all there is nothing to be away from, so no penalty. The
+  // offset drains back as the body walks home (_driftHome), so the penalty
+  // lifts on its own once you let go and it arrives.
+  _offGps() {
+    if (!this.gpsM) return false;
+    if (this._gpsManualOverride) return true;
+    const o = this._manualOffsetM;
+    return !!o && Math.hypot(o.x, o.y) > Combat.OFF_GPS_MIN_CELLS * this.cellM;
+  }
+  // The multiplier on the player's OWN attacks (melee wheel, bow, staff):
+  // Dragon Powder doubles them, being off the GPS takes a third off
+  // (Combat.OFF_GPS_ATTACK_MUL). One answer both attack paths read.
+  _attackMul() {
+    return (this.isDragonActive() ? 2 : 1) * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1);
   }
   // Is the stick actually being PUSHED right now? Pointer-down alone isn't
   // enough — a finger resting on a centred nub holds _movePadHeld true while

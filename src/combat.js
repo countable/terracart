@@ -605,6 +605,20 @@
   // shotDamage discipline, for the blade. `playerClass` is meleeDps's (the
   // enforcer's flat bonus rides inside the rate, so the dragon doubles it too
   // — it multiplies the swing, whatever the swing is made of).
+  // OFF THE GPS, THE BODY FIGHTS SOFTER. While the stick has walked the
+  // player off their real position (app.js _offGps), every blow and shot of
+  // their OWN — the melee wheel, the bow's arrow, the staff's bolt — lands at
+  // OFF_GPS_ATTACK_MUL (a third softer). It rides the same `mul` the Dragon
+  // Powder's ×2 does (app.js _attackMul), never a separate damage path: it
+  // is a per-player state, like the dragon, not a property of the weapon.
+  // Taught early in the Book (PLAY_TIPS, "a third softer" — books.test.js
+  // re-derives it from here). Pets, powders, potions and traps are not the
+  // player's attacks and are untouched.
+  const OFF_GPS_ATTACK_MUL = 2 / 3;
+  // The stick offset past which the body counts as walked off the fix, in
+  // cells: a nudge to line up a tap is not a detour.
+  const OFF_GPS_MIN_CELLS = 0.5;
+
   function meleeSwingDamage(relics, mul = 1, playerClass) {
     return meleeDps(relics, playerClass) * (mul || 1) * MELEE_INTERVAL_MS / 1000;
   }
@@ -1087,6 +1101,7 @@
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
+    OFF_GPS_ATTACK_MUL, OFF_GPS_MIN_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,

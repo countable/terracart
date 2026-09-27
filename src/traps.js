@@ -357,15 +357,27 @@
   // the trapper `byId`. Returns the record. The id names the level and the
   // cell (a cell holds one trap at a time — canLay), which is all it has to
   // be unique for: it never reaches the save.
-  function layTrap(entry, tx, ty, tileEdgeM, lix, liy, byId, now, depth) {
+  // `power` is the laying trapper's own (Combat.powerMul — the Home nerf ×
+  // elite), carried on the snare so it bites as hard as the hand that set it:
+  // a trapper by Home is softened in HP and bounty, and its snare must be
+  // too, or its one attack walks round the nerf. Read through trapPower.
+  function layTrap(entry, tx, ty, tileEdgeM, lix, liy, byId, now, depth, power) {
     const N = entry.cellsPerEdge;
     const t = makeTrap(tx, ty, tileEdgeM, N, lix, liy,
       root.WorldGen.cellId(`laid_d${depth || 0}`, tx, ty, lix, liy));
     t._laid = true;
     t._by = byId;
+    if (Number.isFinite(power) && power > 0) t._power = power;
     t._expiresAt = (now == null ? Date.now() : now) + LAID_LIFE_MS;
     (entry.laidTraps = entry.laidTraps || []).push(t);
     return t;
+  }
+
+  // How hard a trap bites, as a multiplier on STEP_ENERGY and
+  // STAND_ENERGY_PER_S: its trapper's power for a laid snare, 1 for every
+  // generated trap (the world's own, nobody's hand behind it).
+  function trapPower(t) {
+    return (t && Number.isFinite(t._power) && t._power > 0) ? t._power : 1;
   }
 
   // Drop every expired or disarmed snare from `entry.laidTraps`, compacted
@@ -474,7 +486,7 @@
     isDisarmed, disarm,
     isRoadside, sampleRoadsideCells, spawnSurface, spawnCave, trapAt,
     LAID_MAX, LAID_LIFE_MS, isLive, isTrapSprung, isTrapDisarmed, springTrap, disarmTrap,
-    canLay, layTrap, pruneLaid, laidOut, layPoints,
+    canLay, layTrap, trapPower, pruneLaid, laidOut, layPoints,
     magicTrapId,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
