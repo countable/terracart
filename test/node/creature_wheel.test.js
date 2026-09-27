@@ -141,7 +141,7 @@ test('CREATURE_ART entries are complete and sane', () => {
 // app.js can't load headlessly, so the placement is pinned as source text.
 test('static wheel: centred on the cell — snapped to its centre, no flat lift', () => {
   const app = APP_JS_SRC;
-  const m = app.match(/const dyWheel = creature \? SpriteLayout\.creatureWheelDy\(creature\.kind\) : (-?\d+);/);
+  const m = app.match(/const dyWheel = creature \? SpriteLayout\.creatureWheelDy\(creature\.kind(?:, [^;]*?\))? : (-?\d+);/);
   assert.truthy(m, 'the static branch of dyWheel is a literal');
   assert.eq(Number(m[1]), 0, 'and that literal is 0 — no flat lift off the cell centre');
   assert.truthy(/if \(!creature\) \{\s*const ac = worldMetersToAbsCell\(this, ax, ay\);\s*const cc = absCellCenterMeters\(this, ac\.cellIX, ac\.cellIY\);/.test(app),

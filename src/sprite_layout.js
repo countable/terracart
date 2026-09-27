@@ -482,7 +482,17 @@
     return a ? a.foot : 0.9;
   }
   // The renderer's scale and float for `kind`, giant-aware.
-  function creatureScale(kind) { return creatureArt(kind)?.scale ?? 1; }
+  // `inst` is the INSTANCE's own size on top of its kind's (creatureInstScale
+  // — a softened lair guard is drawn smaller); omitted, 1. Every reader of the
+  // art's size below takes it, so the wheel, the health bar and the tap box
+  // stay on the drawn body.
+  function creatureScale(kind, inst = 1) { return (creatureArt(kind)?.scale ?? 1) * inst; }
+  // One creature's own size multiplier: a lair guard softened by Home is
+  // drawn smaller (Lairs.guardDrawScale); everything else is 1.
+  function creatureInstScale(c) {
+    const L = (typeof Lairs !== 'undefined') ? Lairs : null;
+    return L && L.guardDrawScale ? L.guardDrawScale(c) : 1;
+  }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
   // The sheet a kind is drawn from, and how many frames of its row-0 cycle the
   // renderer runs. A GIANT is its base kind's art, so both come through
@@ -551,12 +561,13 @@
   //
   // Returns the offset in screen px from the creature's projected cell centre
   // to the wheel centre (negative = up the screen).
-  function creatureWheelDy(kind) {
+  function creatureWheelDy(kind, inst = 1) {
     const a = creatureArt(kind);
     if (!a) return CREATURE_WHEEL_FALLBACK_DY;
+    const sc = a.scale * inst;
     const anchorY = CREATURE_GROUND_DY - a.float;      // where the origin lands
-    const artTop = anchorY - (a.foot * a.fh - a.minY) * a.scale;
-    const artH = (a.maxY - a.minY) * a.scale;
+    const artTop = anchorY - (a.foot * a.fh - a.minY) * sc;
+    const artH = (a.maxY - a.minY) * sc;
     // Outer edge of the wheel — the backing disc, not the stroked ring.
     return artTop + Math.min(CREATURE_WHEEL_R + 1, artH / 2);
   }
@@ -571,7 +582,7 @@
   //
   // Returns the offset in screen px from the creature's projected cell centre
   // to the bar's TOP edge (negative = up the screen).
-  function creatureHealthBarTop(kind) {
+  function creatureHealthBarTop(kind, inst = 1) {
     const a = creatureArt(kind);
     if (!a) {
       // No art entry: hang the bar over where the fallback wheel's outer edge
@@ -580,7 +591,7 @@
         - HEALTH_BAR_GAP - HEALTH_BAR_H;
     }
     const anchorY = CREATURE_GROUND_DY - a.float;
-    const artTop = anchorY - (a.foot * a.fh - a.minY) * a.scale;
+    const artTop = anchorY - (a.foot * a.fh - a.minY) * a.scale * inst;
     return artTop - HEALTH_BAR_GAP - HEALTH_BAR_H;
   }
 
@@ -592,14 +603,14 @@
   // HOP_PX, or the ~HOP_PX rise a slime's hop row draws). It used to be a
   // second hand table in interact.js that had drifted (cow 1.50 vs 1.30, the
   // crow and butterfly lifts). Returns null for a kind with no art row.
-  function creatureTapSpanPx(kind) {
+  function creatureTapSpanPx(kind, inst = 1) {
     const a = creatureArt(kind);
     if (!a) return null;
     const anchorY = CREATURE_GROUND_DY - a.float;
     const hopPx = creatureHop(kind)?.px ?? (a.hopRow != null ? HOP_PX : 0);
     return {
-      top: anchorY - (a.foot * a.fh - a.minY) * a.scale - hopPx,
-      bottom: anchorY + (a.maxY - a.foot * a.fh) * a.scale,
+      top: anchorY - (a.foot * a.fh - a.minY) * a.scale * inst - hopPx,
+      bottom: anchorY + (a.maxY - a.foot * a.fh) * a.scale * inst,
     };
   }
 
@@ -615,7 +626,7 @@
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, TRAPPER_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
-    creatureFoot, creatureScale, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
+    creatureFoot, creatureScale, creatureInstScale, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

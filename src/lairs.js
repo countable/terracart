@@ -433,6 +433,21 @@
     return (1 + t * (FAR_MUL - 1)) / FAR_MUL;
   }
 
+  // A softened guard LOOKS softened: drawn at GUARD_MIN_DRAW_SCALE of its
+  // size at Home's full nerf (lairMul = LAIR_NEAR_MUL), growing linearly to
+  // full size at lairMul 1. Off the stamped `lairMul` alone — the same number
+  // its HP, blow and bounty read — so what a guard hits for and how big it is
+  // can't disagree. A creature with no lairMul (anything not a guard) is 1.
+  // A LOOK for this player only (the nerf is per player), never the guard's
+  // kind or seat. SpriteLayout.creatureInstScale is the reader.
+  const GUARD_MIN_DRAW_SCALE = 0.5;
+  function guardDrawScale(c) {
+    const m = c && c.lairMul;
+    if (!Number.isFinite(m) || m >= 1) return 1;
+    const f = clamp01((m - LAIR_NEAR_MUL) / (1 - LAIR_NEAR_MUL));
+    return GUARD_MIN_DRAW_SCALE + f * (1 - GUARD_MIN_DRAW_SCALE);
+  }
+
   // The nominal garrison for a structure of `tier` at strength `t` (0..1,
   // the structure's own draw — see garrisonFor). 0 when the tier holds no
   // lair.
@@ -932,6 +947,7 @@
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
     TIER_GUARDS, TIERS, MAX_TIER_GUARDS, FAR_MUL, KIND_ORDER, KIND_LADDER,
+    GUARD_MIN_DRAW_SCALE, guardDrawScale,
     homeRamp, lairMulFor, capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
     hashKey, ringBox,
     bucketKey,

@@ -4883,7 +4883,7 @@ class MapScene extends Phaser.Scene {
       if (!c._hurtUntilT || now >= c._hurtUntilT) continue;
       const screen = this.worldMetersToScreen(c.x, c.y);
       this._drawEnemyHealthBar(g, Math.round(screen.x),
-        Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind)),
+        Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c))),
         Combat.hpFraction(c), 0.62);
     }
   }
@@ -4929,7 +4929,7 @@ class MapScene extends Phaser.Scene {
     // also why it does NOT stack: a lift would undo the scatter.
     const jitter = Math.round((Math.random() - 0.5) * 10);
     const x = Math.round(screen.x) + jitter;
-    const y = Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind)) - 3;
+    const y = Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c))) - 3;
     // Clip to the map viewport like every other world-anchored layer.
     this._toast(`-${amount}`, {
       tier: 'damage', color: UI_DANGER_INK, x, y, stack: false,
@@ -5522,7 +5522,7 @@ class MapScene extends Phaser.Scene {
     }
     const screen = this.worldMetersToScreen(ax, ay);
     const cx = Math.round(screen.x);
-    const dyWheel = creature ? SpriteLayout.creatureWheelDy(creature.kind) : 0;
+    const dyWheel = creature ? SpriteLayout.creatureWheelDy(creature.kind, SpriteLayout.creatureInstScale(creature)) : 0;
     const cy = Math.round(screen.y) + Math.round(dyWheel);
     const g = this._workProgressGfx;
     g.clear();
@@ -5535,7 +5535,7 @@ class MapScene extends Phaser.Scene {
     // other any more; the tool badge below still says what you're swinging.
     if (wp.combat) {
       this._drawEnemyHealthBar(g, cx,
-        Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(wp.combat.kind)),
+        Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(wp.combat.kind, SpriteLayout.creatureInstScale(wp.combat))),
         Combat.hpFraction(wp.combat), 1);
     } else {
       this._strokeWorkRing(g, cx, cy, progress);

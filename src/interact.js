@@ -548,9 +548,12 @@ const TAP_HANDLERS = [
       // renderer draws it with (SpriteLayout.GIANT_ART_SCALE, applied inside
       // creatureArt), so the tappable area stays the drawn body.
       const bk = SpriteLayout.baseKind(c.kind);
-      const gMul = SpriteLayout.isGiantKind(c.kind) ? SpriteLayout.GIANT_ART_SCALE : 1;
-      const span = SpriteLayout.creatureTapSpanPx(c.kind)
-        || SpriteLayout.creatureTapSpanPx('chicken');
+      // A softened lair guard is drawn smaller (creatureInstScale), so its
+      // tap box shrinks with it.
+      const inst = SpriteLayout.creatureInstScale(c);
+      const gMul = (SpriteLayout.isGiantKind(c.kind) ? SpriteLayout.GIANT_ART_SCALE : 1) * inst;
+      const span = SpriteLayout.creatureTapSpanPx(c.kind, inst)
+        || SpriteLayout.creatureTapSpanPx('chicken', inst);
       const halfW = (HALF_W[bk] ?? 2.0) * gMul;
       const topY = c.y + span.top * px2m;                         // crown (or hop peak)
       const botY = c.y + span.bottom * px2m + UNDER_FEET_PAD_M;   // under the feet

@@ -1223,4 +1223,31 @@
       'and the step the chain takes is that one');
   });
 
+  test('lairs: a guard softened by Home is drawn smaller — half size at full nerf', () => {
+    const near = { kind: 'goblin', lairMul: Lairs.LAIR_NEAR_MUL };
+    const mid  = { kind: 'goblin', lairMul: (Lairs.LAIR_NEAR_MUL + 1) / 2 };
+    assert.eq(Lairs.guardDrawScale(near), Lairs.GUARD_MIN_DRAW_SCALE, 'full nerf → the minimum');
+    assert.eq(Lairs.GUARD_MIN_DRAW_SCALE, 0.5, 'which is half size');
+    assert.inRange(Lairs.guardDrawScale(mid) - 0.75, -1e-9, 1e-9, 'linear between');
+    assert.eq(Lairs.guardDrawScale({ kind: 'goblin', lairMul: 1 }), 1, 'full strength, full size');
+    assert.eq(Lairs.guardDrawScale({ kind: 'goblin' }), 1, 'not a guard, not scaled');
+    assert.eq(SpriteLayout.creatureInstScale(near), 0.5, 'SpriteLayout reads the same number');
+    // Everything seated on the art follows the drawn size.
+    const k = 'goblin';
+    assert.eq(SpriteLayout.creatureScale(k, 0.5), SpriteLayout.creatureScale(k) / 2, 'the sprite');
+    const g = SpriteLayout.CREATURE_GROUND_DY - SpriteLayout.creatureFloat(k);
+    const barGap = SpriteLayout.HEALTH_BAR_GAP + SpriteLayout.HEALTH_BAR_H;
+    assert.inRange((SpriteLayout.creatureHealthBarTop(k, 0.5) + barGap - g)
+                 - (SpriteLayout.creatureHealthBarTop(k) + barGap - g) / 2, -1e-9, 1e-9,
+      'the health bar rides a crown half as high');
+    const full = SpriteLayout.creatureTapSpanPx(k), half = SpriteLayout.creatureTapSpanPx(k, 0.5);
+    assert.lt(half.bottom - half.top, full.bottom - full.top, 'and the tap box shrinks');
+    // Every reader passes the instance: render, health bars, wheel, tap.
+    assert.truthy(/setScale\(creatureScale\(c\.kind, creatureInstScale\(c\)\)\)/.test(RENDER_SRC), 'render draws it');
+    assert.eq((APP_JS_SRC.match(/creatureHealthBarTop\([^)]*, SpriteLayout\.creatureInstScale\(/g) || []).length,
+      (APP_JS_SRC.match(/creatureHealthBarTop\(/g) || []).length, 'every health bar seat passes it');
+    assert.truthy(/creatureWheelDy\(creature\.kind, SpriteLayout\.creatureInstScale\(creature\)\)/.test(APP_JS_SRC),
+      'the wheel');
+  });
+
 })();

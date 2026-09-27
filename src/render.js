@@ -4041,6 +4041,7 @@ Render.drawObjects = function drawObjects(scene) {
   // sheet at GIANT_ART_SCALE; the `?? 1` only covers a bare harness with no
   // SpriteLayout loaded.
   const creatureScale = (SL && SL.creatureScale) || ((kind) => 1);
+  const creatureInstScale = (SL && SL.creatureInstScale) || ((c) => 1);
   const creatureFloat = (SL && SL.creatureFloat) || ((kind) => 0);
   // WHICH SHEET, HOW MANY FRAMES, AND IN WHAT COLOUR — the same table, for the
   // same reason. Two monster kinds can share one sheet (the cave slime is the
@@ -4132,7 +4133,8 @@ Render.drawObjects = function drawObjects(scene) {
       const ph = ((performance.now() + c._hopSeed) % hop.ms) / hop.ms;
       lift += Math.round(Math.abs(Math.sin(ph * Math.PI)) * hop.px);
     }
-    s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind))
+    // A softened lair guard is drawn smaller (creatureInstScale).
+    s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
     s.setFlipX(!!c._faceFlip);
     // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
@@ -4184,7 +4186,7 @@ Render.drawObjects = function drawObjects(scene) {
       const { c, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
-      const w = (CRITTER_SHADOW_W[baseKind(c.kind)] || 18) * giantMul(c.kind);
+      const w = (CRITTER_SHADOW_W[baseKind(c.kind)] || 18) * giantMul(c.kind) * creatureInstScale(c);
       // Airborne kinds sit higher off the ground, so their shadow reads
       // smaller and fainter — the standard "how high is it" cue.
       const airborne = creatureAirborne(c.kind);

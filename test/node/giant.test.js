@@ -132,7 +132,7 @@
       'the shadow follows the giant scale');
     assert.falsy(/CA\[kind\]\?\.scale/.test(render), 'render.js no longer reads the art table directly');
     const interact = INTERACT_SRC;
-    assert.truthy(/const span = SpriteLayout\.creatureTapSpanPx\(c\.kind\)/.test(interact),
+    assert.truthy(/const span = SpriteLayout\.creatureTapSpanPx\(c\.kind(?:, inst)?\)/.test(interact),
       'the tap box is read off the art table (creatureArt resolves the giant)');
     assert.falsy(/const SPRITE = \{/.test(interact), 'no second hand table of frame/scale/lift');
     const g = SpriteLayout.creatureTapSpanPx('giant_goblin');
