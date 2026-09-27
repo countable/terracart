@@ -463,6 +463,10 @@ the mechanic.
        `fruittrees`, `placedRocks`, `scarecrows`, `fires`, `released`, and the
        starting area (`starterTrailer` / `starterShopId`, `starterCratesAt`,
        `starterPlotAt`, `starterPondAt`).
+  **One exception, and it is not the game's:** `WorldGen.setReviewSalt`
+  XORs a salt into every `makeRng` seed so `tools/map-review.html` can show
+  OTHER rolls of the same rules ("Reroll"). It is 0 in the game — the
+  identity — and no game code may call it (`map_review.test.js`).
   **Bucket 2 ids must be derived from POSITION** — never a counter, array
   index or `Date.now()` (the pest crow is the one exception, which is why
   `wanderCreatures` prunes its marker). **Salt the roll, never the position**:

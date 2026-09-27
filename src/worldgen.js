@@ -1250,8 +1250,17 @@
   }
 
   // Deterministic small PRNG seeded from integers (mulberry32)
+  // THE REVIEW SALT — tools/map-review.html's "Reroll", and nothing else.
+  // The world has no global seed on purpose (CLAUDE.md "The world is
+  // GENERATED"): every stream is seeded from where it is, so a rebuilt tile
+  // and another player's phone lay the same world. The review page needs to
+  // see OTHER rolls of the same rules, so it may XOR a salt into every seed
+  // here. It is 0 in the game, which leaves every seed exactly as it was, and
+  // no game code may ever call setReviewSalt (map_review.test.js pins that).
+  let _reviewSalt = 0;
+  function setReviewSalt(n) { _reviewSalt = (n >>> 0); }
   function makeRng(seed) {
-    let a = seed >>> 0;
+    let a = (seed ^ _reviewSalt) >>> 0;
     return function () {
       a = (a + 0x6d2b79f5) >>> 0;
       let t = a;
@@ -5574,6 +5583,7 @@
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule
     // end to end (test/node/spawn_roads.test.js).
     rasterizeTile,
+    setReviewSalt,
     // Building-footprint assignment (see assignBuildingFootprints) — exported
     // for the headless footprint tests, which pin the no-overlap /
     // one-cell-each / order-independence invariants.

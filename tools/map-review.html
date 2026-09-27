@@ -1,0 +1,505 @@
+<!doctype html>
+<!--
+  MAP REVIEW — what the world generator places, on a real map, around a Home
+  you choose. Serve the repo root and open this page:
+
+    python3 -m http.server 8000        (from the repo root)
+    http://localhost:8000/tools/map-review.html              the recorded fixture tiles
+    http://localhost:8000/tools/map-review.html?lat=49.28&lon=-123.12&r=1
+                                                              any area, fetched live
+
+  It runs the GAME'S OWN CODE, not a copy of it: the module list is read out of
+  index.html at load (so it can't drift), app.js is loaded against a no-op
+  Phaser stub so it defines MapScene without booting a game, and every tile is
+  built the way the game builds it — WorldGen.rasterizeTile, then the scene's
+  own spawnInTile (fauna, wild slimes, buried X marks, the treasure scatter,
+  traps, fruit trees, and the starting area when Home is in the tile) on a
+  light scene object. Hard-mode ruin garrisons come from Lairs.garrisonFor
+  with Home as their homeM. The world is a pure function of where it is, so
+  this is what a player there would find, minus what their save changed.
+
+  Click "Place Home", then the map: Home moves there and every tile is
+  rebuilt around it — the softwood pines, the chest tiers' home rings, the
+  garrison counts and the starting area all follow. The save is disabled; the
+  page never writes one.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Map review</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  html,body{margin:0;height:100%;font:13px system-ui,sans-serif;background:#111}
+  #map{position:absolute;inset:0 290px 0 0}
+  #side{position:absolute;top:0;right:0;bottom:0;width:290px;overflow:auto;padding:10px;box-sizing:border-box;background:#1b1b1b;color:#ddd}
+  #side h3{margin:12px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#aaa}
+  #side label{display:flex;align-items:center;gap:6px;padding:2px 0;cursor:pointer}
+  .sw{display:inline-block;width:11px;height:11px;border-radius:50%;flex:none}
+  .sq{border-radius:2px}
+  .n{margin-left:auto;color:#888;font-variant-numeric:tabular-nums}
+  .leaflet-image-layer{image-rendering:pixelated}
+  button{margin:2px 4px 2px 0;background:#333;color:#ddd;border:1px solid #555;border-radius:4px;padding:4px 9px;cursor:pointer}
+  button.on{background:#c8a64a;color:#1a1612;border-color:#c8a64a}
+  #status{color:#c8a64a;margin:6px 0;min-height:1.2em}
+  #game{display:none}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="side">
+  <div><b>Map review</b></div>
+  <div id="status">loading the game…</div>
+  <div><button id="placeHome">Place Home</button></div>
+  <h3>Difficulty</h3><div id="modes"></div>
+  <h3>Seed</h3>
+  <div><button id="reroll">Reroll</button><button id="reseed">Original seed</button>
+    <span id="salt" style="color:#888"></span></div>
+  <h3>Tuning <span style="text-transform:none;color:#777">(× the shipped value)</span></h3>
+  <div id="tuning"></div>
+  <div><button id="tuneReset">Reset all</button></div>
+  <pre id="changes" style="white-space:pre-wrap;color:#c8a64a;font-size:11px;margin:6px 0"></pre>
+  <h3>Base map</h3><div id="bases"></div>
+  <h3>Overlays</h3><div id="ovl"></div>
+  <h3>Density band</h3>
+  <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
+    <input id="dmax" type="number" value="20" min="0" style="width:3.5em"></div>
+  <div id="dstats" style="margin-top:4px"></div>
+  <h3>Placed things</h3>
+  <div><button id="all">all</button><button id="none">none</button></div>
+  <div id="kinds"></div>
+  <h3>Terrain legend</h3><div id="legend"></div>
+</div>
+<div id="game"></div>
+<script>
+// ── A Phaser that does nothing ──────────────────────────────────────────────
+// app.js ends by constructing a Phaser.Game and reads Phaser.* constants in
+// its config; MapScene extends Phaser.Scene. Everything here resolves to one
+// inert proxy that is callable, constructible and has every property, so the
+// scripts load and define their classes without a game ever booting.
+(function () {
+  const inert = new Proxy(function () {}, {
+    get: (t, k) => (k === Symbol.toPrimitive ? () => 0 : k === 'prototype' ? {} : inert),
+    apply: () => inert,
+    construct: () => inert,
+  });
+  window.Phaser = inert;
+  // NOT __TEST_MODE: spawnInTile skips its traps and extra X marks under it,
+  // and the GPS / multiplayer it also gates only start in create(), which
+  // never runs here.
+})();
+
+// Load the game's modules in index.html's own order. Phaser itself is
+// skipped (stubbed above); app.js is loaded last, from index.html's boot line.
+async function loadGame() {
+  const html = await (await fetch('/index.html')).text();
+  const srcs = [...html.matchAll(/<script src="(src\/[^"?]+)(?:\?[^"]*)?"><\/script>/g)].map((m) => m[1]);
+  srcs.push('src/app.js');
+  for (const src of srcs) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = '/' + src + '?' + Date.now();
+      s.onload = res;
+      s.onerror = () => rej(new Error('could not load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+  if (typeof disableSave === 'function') disableSave();
+}
+
+// ── Tiles ───────────────────────────────────────────────────────────────────
+const Q = new URLSearchParams(location.search);
+const FIXTURES = !Q.get('lat');
+async function tileBytes(tx, ty) {
+  if (FIXTURES) {
+    const r = await fetch(`/test/fixtures/${tx}_${ty}.pbf`);
+    return r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
+  }
+  if (!tileBytes.tpl) tileBytes.tpl = (await (await fetch(WorldGen.TILEJSON_URL)).json()).tiles[0];
+  const r = await fetch(tileBytes.tpl.replace('{z}', WorldGen.Z).replace('{x}', tx).replace('{y}', ty));
+  return r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
+}
+function tileList() {
+  if (FIXTURES) {
+    const out = [];
+    for (let y = 5565; y <= 5567; y++) for (let x = 2753; x <= 2755; x++) out.push([x, y]);
+    return out;
+  }
+  const lat = +Q.get('lat'), lon = +Q.get('lon'), r = +(Q.get('r') || 1), n = 1 << WorldGen.Z;
+  const cx = Math.floor((lon + 180) / 360 * n);
+  const cy = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
+  const out = [];
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) out.push([cx + dx, cy + dy]);
+  return out;
+}
+const n14 = () => 1 << WorldGen.Z;
+// World metres (tile × tileEdgeM + offset — what the generator places in) ↔ lat/lon.
+const toLL = (x, y, edge) => {
+  const u = x / edge / n14(), v = y / edge / n14();
+  return [Math.atan(Math.sinh(Math.PI * (1 - 2 * v))) * 180 / Math.PI, u * 360 - 180];
+};
+const toM = (lat, lon, edge) => {
+  const u = (lon + 180) / 360;
+  const v = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2;
+  return { x: u * n14() * edge, y: v * n14() * edge };
+};
+
+// ── Building the world around a Home ────────────────────────────────────────
+let raw = null;          // [{ tx, ty, layers }] — decoded once
+let EDGE = 0;            // the one tileEdgeM the scene uses (the start row's, as app.js does)
+async function fetchTiles() {
+  raw = [];
+  const list = tileList();
+  EDGE = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(list[Math.floor(list.length / 2)][1]));
+  for (const [tx, ty] of list) {
+    const b = await tileBytes(tx, ty);
+    if (b) raw.push({ tx, ty, layers: MVT.decodeTile(b) });
+  }
+}
+
+// A scene with the fields spawnInTile and its helpers read, and no-ops for
+// what it would draw or pop. Built on MapScene.prototype so every method
+// spawnInTile calls is the shipping one.
+function reviewScene(home) {
+  const s = Object.create(MapScene.prototype);
+  Object.assign(s, {
+    tileEdgeM: EDGE,
+    depth: 0,
+    save: {},
+    startWorldM: home,
+    playerM: { x: 0, y: 0 },
+    // The frame create() lays: world metres = world px × mPerPx, anchored
+    // on Home (startWorldM), the grid per row (cellsForRow).
+    mPerPx: EDGE / WorldGen.TILE_PX,
+    originPx: { x: home.x / (EDGE / WorldGen.TILE_PX), y: home.y / (EDGE / WorldGen.TILE_PX) },
+    cellM: WorldGen.CELL_M,
+    cellsForRow: WorldGen.cellsPerEdgeForTile,
+    cellPx: 32, feetOffsetM: 0, peekM: { x: 0, y: 0 },
+    _popEnergy() {}, _crowRaids: [], flash() {}, flashLoot() {},
+  });
+  s.cellsPerTile = WorldGen.cellsPerEdgeForTile(raw[Math.floor(raw.length / 2)].ty);
+  return s;
+}
+
+function buildWorld(home) {
+  HomeArea.setOrigin(home.x, home.y);
+  WorldGen.tileCache.clear();
+  const scene = reviewScene(home);
+  const tiles = [];
+  for (const { tx, ty, layers } of raw) {
+    const N = WorldGen.cellsPerEdgeForTile(ty);
+    const r = WorldGen.rasterizeTile(layers, N, tx, ty, EDGE);
+    const entry = Object.assign({ tx, ty, cellsPerEdge: N, tileEdgeM: EDGE, layers }, r);
+    WorldGen.tileCache.set(WorldGen.tileKey(tx, ty), entry);
+    tiles.push(entry);
+  }
+  const errors = [];
+  for (const e of tiles) {
+    try { scene.spawnInTile(e, e.tx, e.ty); } catch (err) { errors.push(`spawnInTile ${e.tx}/${e.ty}: ${err.stack}`); }
+  }
+  // Ruin garrisons, with Home as their homeM — held ruins are a HARD-mode
+  // rule, so on easy there are none.
+  const guards = [];
+  for (const e of (Difficulty.isHard() ? tiles : [])) {
+    try {
+      const cellM = EDGE / e.cellsPerEdge;
+      const idx = Lairs.buildIndex(e, e.tx, e.ty, cellM, EDGE);
+      for (const bucket of idx.buckets.values()) {
+        for (const cand of bucket) {
+          for (const g of Lairs.garrisonFor(e, cand, { tileEdgeM: EDGE, homeM: home })) guards.push(g);
+        }
+      }
+    } catch (err) { errors.push(`garrison ${e.tx}/${e.ty}: ${err.message}`); }
+  }
+  return { tiles, guards, errors };
+}
+
+// ── The map ─────────────────────────────────────────────────────────────────
+const map = L.map('map', { preferCanvas: true, maxZoom: 21 });
+const bases = {
+  'Streets (OSM)': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxNativeZoom: 19, maxZoom: 21, attribution: '© OpenStreetMap' }),
+  'Satellite (Esri)': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 19, maxZoom: 21, attribution: 'Esri' }),
+};
+bases['Streets (OSM)'].addTo(map);
+const $ = (id) => document.getElementById(id);
+const mkRow = (host, type, html, checked, on, name) => {
+  const l = document.createElement('label');
+  l.innerHTML = `<input type="${type}"${name ? ` name="${name}"` : ''}${checked ? ' checked' : ''}> ${html}`;
+  const i = l.querySelector('input'); i.onchange = () => on(i.checked); host.appendChild(l); return i;
+};
+Object.keys(bases).forEach((k, i) => mkRow($('bases'), 'radio', k, i === 0, () => {
+  Object.values(bases).forEach((b) => map.removeLayer(b)); bases[k].addTo(map).bringToBack();
+}, 'base'));
+
+const FIXED = { tree: '#1f9d3a', fruittree: '#9be15d', house: '#8a6a4a', tower: '#6f7fa8',
+  chest: '#ff3b3b', mineralrock: '#c9c9c9', trap: '#ff2bd6', 'enemy: garrison': '#ff7a00',
+  'enemy: slime': '#b000ff', 'X mark': '#ffe600', Home: '#ffffff' };
+const colour = (k, i) => FIXED[k] || `hsl(${Math.round(i * 137.508 % 360)},80%,55%)`;
+// Everything is shown (and so counted for density) but the traps: a trap is
+// hidden until it springs, so it is not something on screen to interact with.
+const onByDefault = (k) => k !== 'trap';
+const state = { layers: {}, shown: {} };
+let drawn = [];
+
+function classify(o) {
+  if (o.kind === 'wildplant') return 'plant:' + (o.crop || '?');
+  if (o.kind === 'treasure' || o.kind === 'xmark' || o.kind === 'buried') return 'X mark';
+  return o.kind;
+}
+function draw(world, home) {
+  drawn.forEach((l) => map.removeLayer(l)); drawn = [];
+  const groups = {};
+  const add = (k, ll, label, id, x, y) => (groups[k] = groups[k] || []).push({ ll, label, id, x, y });
+  for (const e of world.tiles) {
+    for (const o of e.objects || []) {
+      const k = classify(o);
+      const tier = (o.kind === 'chest' && typeof chestRollTier === 'function')
+        ? ' · T' + chestRollTier(o.poiClass, o.x, o.y, 0) : '';
+      add(k, toLL(o.x, o.y, EDGE), [o.kind, o.species, o.poiClass, o.name].filter(Boolean).join(' · ') + tier, o.id, o.x, o.y);
+    }
+    for (const w of e.wildplants || []) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y);
+    for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'roadside trap', t.id, t.x, t.y);
+    // Buried X marks: the scattered ones (spawnInTile), those left in parking
+    // lots, and the beach marks (rasterizeTile).
+    if (e.treasure && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y);
+    for (const t of e.extraTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y);
+    for (const t of e.parkingTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y);
+    for (const t of e.beachTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (beach)', t.id, t.x, t.y);
+    for (const c of e.creatures || []) {
+      const hostile = typeof Combat !== 'undefined' && Combat.isEnemy && Combat.isEnemy(c);
+      add(hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), c.kind + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y);
+    }
+  }
+  for (const g of world.guards) add('enemy: garrison', toLL(g.x, g.y, EDGE), 'hard-mode garrison · ' + g.kind, g.id, g.x, g.y);
+  add('Home', toLL(home.x, home.y, EDGE), 'Home', '');
+  const kinds = Object.keys(groups).sort();
+  $('kinds').innerHTML = '';
+  kinds.forEach((k, i) => {
+    const lg = L.layerGroup();
+    const big = k === 'Home' || k.startsWith('enemy') || k === 'X mark' || k === 'chest';
+    for (const p of groups[k]) {
+      L.circleMarker(p.ll, { radius: k === 'Home' ? 9 : big ? 6 : k.startsWith('plant:') ? 3 : 5,
+        color: '#000', weight: k === 'Home' ? 3 : 1, fillColor: colour(k, i), fillOpacity: 0.9 })
+        .bindPopup(`<b>${p.label}</b><br><code>${p.id || ''}</code>`).addTo(lg);
+    }
+    const on = state.shown[k] ?? onByDefault(k);
+    if (on && !state.markersOff) lg.addTo(map);
+    drawn.push(lg);
+    mkRow($('kinds'), 'checkbox', `<span class="sw" style="background:${colour(k, i)}"></span>${k}<span class="n">${groups[k].length}</span>`,
+      on, (v) => { state.shown[k] = v; (v && !state.markersOff) ? lg.addTo(map) : map.removeLayer(lg); density(); });
+    state.layers[k] = lg;
+  });
+  state.groups = groups;
+  density();
+  // Home's own rings: the rest/ward/light radius and the chest-tier rings.
+  const hll = toLL(home.x, home.y, EDGE);
+  const ring = (r, c, t) => { const l = L.circle(hll, { radius: r, color: c, weight: 1, fill: false, dashArray: '6 4' }).bindTooltip(t).addTo(map); drawn.push(l); };
+  if (typeof CHEST_TIER_HOME_RINGS_M !== 'undefined') CHEST_TIER_HOME_RINGS_M.forEach((r) => ring(r, '#ff3b3b', `chest tier −1 inside ${r} m`));
+  ring(HomeArea.NEAR_M, '#1f9d3a', `softwood pines within ${HomeArea.NEAR_M} m`);
+}
+
+// ── DENSITY: interactables per game view ────────────────────────────────────
+// The game shows a VIEW_CELLS × VIEW_CELLS window (app.js). Every counted
+// thing lands in its cell of one grid over the whole area; a summed-area
+// table then gives the count inside the window centred on EVERY cell, and the
+// overlay paints each cell by where its window falls against the band
+// (DENSITY_MIN..DENSITY_MAX): red under, clear inside, orange over. What is
+// counted is exactly the kinds ticked under "Placed things" — tillable soil
+// is not an object and never counts.
+const densityLayer = L.layerGroup();
+let densityOn = false;
+function density() {
+  const w = window.__world;
+  if (!w || !state.groups) return;
+  densityLayer.clearLayers();
+  const lo = +$('dmin').value, hi = +$('dmax').value;
+  const V = (typeof VIEW_CELLS === 'number') ? VIEW_CELLS : 11, h = (V - 1) / 2;
+  const cellM = EDGE / w.tiles[Math.floor(w.tiles.length / 2)].cellsPerEdge;
+  const txs = w.tiles.map((e) => e.tx), tys = w.tiles.map((e) => e.ty);
+  const x0 = Math.min(...txs) * EDGE, y0 = Math.min(...tys) * EDGE;
+  const G = Math.ceil((Math.max(...txs) + 1) * EDGE / cellM - x0 / cellM);
+  const GH = Math.ceil((Math.max(...tys) + 1) * EDGE / cellM - y0 / cellM);
+  const grid = new Uint16Array(G * GH);
+  let counted = 0;
+  for (const [k, pts] of Object.entries(state.groups)) {
+    if (k === 'Home' || !(state.shown[k] ?? onByDefault(k))) continue;
+    for (const p of pts) {
+      const gx = Math.floor((p.x - x0) / cellM), gy = Math.floor((p.y - y0) / cellM);
+      if (gx >= 0 && gy >= 0 && gx < G && gy < GH) { grid[gy * G + gx]++; counted++; }
+    }
+  }
+  const S = new Float64Array((G + 1) * (GH + 1));
+  for (let y = 0; y < GH; y++) for (let x = 0; x < G; x++) {
+    S[(y + 1) * (G + 1) + x + 1] = grid[y * G + x] + S[y * (G + 1) + x + 1] + S[(y + 1) * (G + 1) + x] - S[y * (G + 1) + x];
+  }
+  const box = (x, y) => {
+    const xa = x - h, ya = y - h, xb = x + h + 1, yb = y + h + 1;
+    return S[yb * (G + 1) + xb] - S[ya * (G + 1) + xb] - S[yb * (G + 1) + xa] + S[ya * (G + 1) + xa];
+  };
+  const c = document.createElement('canvas'); c.width = G; c.height = GH;
+  const g = c.getContext('2d'), img = g.createImageData(G, GH);
+  let under = 0, inside = 0, over = 0;
+  for (let y = h; y < GH - h; y++) for (let x = h; x < G - h; x++) {
+    const n = box(x, y), i = (y * G + x) * 4;
+    if (n < lo) { under++; img.data[i] = 230; img.data[i + 1] = 40; img.data[i + 2] = 40; img.data[i + 3] = 110; }
+    else if (n > hi) { over++; img.data[i] = 255; img.data[i + 1] = 150; img.data[i + 2] = 0; img.data[i + 3] = 120; }
+    else inside++;
+  }
+  g.putImageData(img, 0, 0);
+  const n = n14(), latOf = (yt) => Math.atan(Math.sinh(Math.PI * (1 - 2 * yt / n))) * 180 / Math.PI;
+  const bounds = [[latOf(y0 / EDGE + GH * cellM / EDGE), x0 / EDGE / n * 360 - 180],
+                  [latOf(y0 / EDGE), (x0 / EDGE + G * cellM / EDGE) / n * 360 - 180]];
+  L.imageOverlay(c.toDataURL(), bounds, { opacity: 1 }).addTo(densityLayer);
+  const tot = under + inside + over || 1, pct = (v) => Math.round(v / tot * 100);
+  $('dstats').innerHTML = `${V}×${V} views: <b style="color:#7ddc6f">${pct(inside)}%</b> in ${lo}–${hi}, `
+    + `<b style="color:#ff6b6b">${pct(under)}%</b> under, <b style="color:#ffa53b">${pct(over)}%</b> over`
+    + `<br><span style="color:#888">${counted.toLocaleString()} things counted (the ticked kinds)</span>`;
+}
+
+// Overlays: the road mask and the terrain codes, one pixel per cell, per tile.
+function overlays(world) {
+  const groups = { 'Road mask (no spawns)': L.layerGroup(), 'Terrain codes': L.layerGroup() };
+  const names = Object.fromEntries(Object.entries(WorldGen.T).map(([k, v]) => [v, k]));
+  const used = new Set();
+  const hue = (c) => `hsl(${Math.round(c * 137.508 % 360)},55%,50%)`;
+  for (const e of world.tiles) {
+    const N = e.cellsPerEdge;
+    const mk = (paint) => { const c = document.createElement('canvas'); c.width = N; c.height = N; const g = c.getContext('2d'); paint(g); return c.toDataURL(); };
+    const mask = mk((g) => { g.fillStyle = 'rgba(255,40,200,.6)'; for (let i = 0; i < N * N; i++) if (e.roadMask && e.roadMask[i]) g.fillRect(i % N, (i / N) | 0, 1, 1); });
+    const terr = mk((g) => { for (let i = 0; i < N * N; i++) { used.add(e.grid[i]); g.fillStyle = hue(e.grid[i]); g.fillRect(i % N, (i / N) | 0, 1, 1); } });
+    const n = n14(), latOf = (yt) => Math.atan(Math.sinh(Math.PI * (1 - 2 * yt / n))) * 180 / Math.PI;
+    const b = [[latOf(e.ty + 1), e.tx / n * 360 - 180], [latOf(e.ty), (e.tx + 1) / n * 360 - 180]];
+    L.imageOverlay(mask, b, { opacity: 0.8 }).addTo(groups['Road mask (no spawns)']);
+    L.imageOverlay(terr, b, { opacity: 0.55 }).addTo(groups['Terrain codes']);
+    L.rectangle(b, { color: '#fff', weight: 1, fill: false, dashArray: '4 4' }).bindTooltip(`tile ${e.tx}/${e.ty}`).addTo(map);
+  }
+  for (const [k, g] of Object.entries(groups)) mkRow($('ovl'), 'checkbox', k, false, (on) => on ? g.addTo(map) : map.removeLayer(g));
+  // Markers off keeps them COUNTED — the density heatmap reads best bare.
+  mkRow($('ovl'), 'checkbox', 'Show markers', true, (on) => {
+    state.markersOff = !on;
+    for (const [k, l] of Object.entries(state.layers)) {
+      if (on && (state.shown[k] ?? onByDefault(k))) l.addTo(map); else map.removeLayer(l);
+    }
+  });
+  mkRow($('ovl'), 'checkbox', 'Density per game view', false, (on) => { densityOn = on; on ? densityLayer.addTo(map) : map.removeLayer(densityLayer); });
+  $('legend').innerHTML = [...used].sort((a, b) => a - b)
+    .map((c) => `<div><span class="sw sq" style="background:${hue(c)}"></span> ${names[c] || c}</div>`).join('');
+}
+
+// ── TUNING: sliders over the shipped density tables ─────────────────────────
+// Nothing here is a copy of a game number: each slider scales the LIVE table
+// the generator reads at build time — the per-biome flora ranges
+// (BiomeProfiles.flora, dMin / dMax), the fauna counts (BIOME_FAUNA base /
+// range) and the mode's trap multiplier (Difficulty.PROFILES) — from its
+// shipped value, which is kept aside so Reset puts it back. The page is its
+// own copy of the game; nothing reaches the real one.
+const tune = { knobs: [] };
+function initTuning() {
+  const byCrop = new Map();
+  for (const code of Object.values(WorldGen.T)) {
+    for (const fl of BiomeProfiles.flora(code) || []) {
+      if (!fl || !fl.crop || !Number.isFinite(fl.dMax)) continue;
+      if (!byCrop.has(fl.crop)) byCrop.set(fl.crop, new Set());
+      byCrop.get(fl.crop).add(fl);
+    }
+  }
+  for (const [crop, set] of [...byCrop.entries()].sort()) {
+    const entries = [...set].map((fl) => ({ fl, dMin: fl.dMin, dMax: fl.dMax }));
+    tune.knobs.push({ name: 'plant: ' + crop, mul: 1,
+      apply: (m) => entries.forEach((e) => { e.fl.dMin = e.dMin * m; e.fl.dMax = e.dMax * m; }),
+      describe: (m) => `${crop} density ${entries[0].dMin}–${entries[0].dMax} → ×${m}` });
+  }
+  for (const kind of Object.keys(BIOME_FAUNA).sort()) {
+    const f = BIOME_FAUNA[kind], base = f.base, range = f.range;
+    tune.knobs.push({ name: (Combat.isEnemy({ kind }) ? 'enemy: ' : 'animal: ') + kind, mul: 1,
+      apply: (m) => { f.base = Math.round(base * m); f.range = Math.round(range * m); },
+      describe: (m) => `BIOME_FAUNA.${kind} base ${base} → ${Math.round(base * m)}, range ${range} → ${Math.round(range * m)}` });
+  }
+  const trapBase = Object.fromEntries(Object.entries(Difficulty.PROFILES).map(([k, p]) => [k, p.trapCountMul]));
+  tune.knobs.push({ name: 'traps (per mode)', mul: 1,
+    apply: (m) => Object.entries(Difficulty.PROFILES).forEach(([k, p]) => { p.trapCountMul = trapBase[k] * m; }),
+    describe: (m) => Object.entries(trapBase).map(([k, v]) => `trapCountMul ${k} ${v} → ${+(v * m).toFixed(2)}`).join(', ') });
+  let t = null;
+  const soon = () => { clearTimeout(t); t = setTimeout(() => rebuild(window.__home), 400); };
+  for (const k of tune.knobs) {
+    const row = document.createElement('label');
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 90px 36px;gap:6px';
+    row.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.name}</span>`
+      + `<input type="range" min="0" max="3" step="0.1" value="1"><span class="n">×1</span>`;
+    const r = row.querySelector('input'), v = row.querySelector('.n');
+    r.oninput = () => { k.mul = +r.value; v.textContent = '×' + k.mul; k.apply(k.mul); showChanges(); soon(); };
+    k.input = r; k.label = v;
+    $('tuning').appendChild(row);
+  }
+  $('tuneReset').onclick = () => {
+    for (const k of tune.knobs) { k.mul = 1; k.input.value = 1; k.label.textContent = '×1'; k.apply(1); }
+    showChanges(); rebuild(window.__home);
+  };
+  let salt = 0;
+  const showSalt = () => { $('salt').textContent = salt ? 'salt ' + salt.toString(16) : 'as shipped'; };
+  $('reroll').onclick = () => { salt = (Math.random() * 0xffffffff) >>> 0 || 1; WorldGen.setReviewSalt(salt); showSalt(); rebuild(window.__home); };
+  $('reseed').onclick = () => { salt = 0; WorldGen.setReviewSalt(0); showSalt(); rebuild(window.__home); };
+  showSalt();
+}
+function showChanges() {
+  const lines = tune.knobs.filter((k) => k.mul !== 1).map((k) => k.describe(k.mul));
+  $('changes').textContent = lines.length ? 'changed from shipped:\n' + lines.join('\n') : '';
+}
+
+// ── Go ──────────────────────────────────────────────────────────────────────
+function rebuild(home) {
+  $('status').textContent = 'building the world around Home…';
+  setTimeout(() => {
+    const t0 = performance.now();
+    const world = window.__world = buildWorld(home);
+    draw(world, home);
+    const s = Math.round((performance.now() - t0) / 100) / 10;
+    $('status').textContent = world.errors.length
+      ? `built in ${s}s — ${world.errors.length} error(s), see console` : `built in ${s}s`;
+    if (world.errors.length) console.warn(world.errors.join('\n'));
+    window.__world = world;
+  }, 30);
+}
+(async () => {
+  try {
+    await loadGame();
+    $('status').textContent = 'fetching tiles…';
+    await fetchTiles();
+    if (!raw.length) { $('status').textContent = 'no tiles'; return; }
+    const mid = raw[Math.floor(raw.length / 2)];
+    const home = window.__home = { x: (mid.tx + 0.5) * EDGE, y: (mid.ty + 0.5) * EDGE };
+    map.setView(toLL(home.x, home.y, EDGE), 16);
+    const first = window.__world = buildWorld(home);
+    overlays(first);
+    draw(first, home);
+    $('status').textContent = first.errors.length ? `${first.errors.length} error(s), see console` : 'ready';
+    if (first.errors.length) console.warn(first.errors.join('\n'));
+    window.__world = first;
+    let placing = false;
+    $('placeHome').onclick = () => { placing = !placing; $('placeHome').classList.toggle('on', placing); map.getContainer().style.cursor = placing ? 'crosshair' : ''; };
+    map.on('click', (ev) => {
+      if (!placing) return;
+      placing = false; $('placeHome').classList.remove('on'); map.getContainer().style.cursor = '';
+      rebuild(window.__home = toM(ev.latlng.lat, ev.latlng.lng, EDGE));
+    });
+    for (const m of [Difficulty.EASY, Difficulty.HARD]) {
+      mkRow($('modes'), 'radio', m, Difficulty.mode() === m, () => { Difficulty.setMode(m); rebuild(window.__home); }, 'mode');
+    }
+    $('dmin').onchange = $('dmax').onchange = density;
+    initTuning();
+    const setAll = (v) => {
+      Object.entries(state.layers).forEach(([k, l]) => { state.shown[k] = v; v ? l.addTo(map) : map.removeLayer(l); });
+      document.querySelectorAll('#kinds input').forEach((i) => { i.checked = v; });
+      density();
+    };
+    $('all').onclick = () => setAll(true);
+    $('none').onclick = () => setAll(false);
+  } catch (e) {
+    $('status').textContent = 'failed: ' + e.message;
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>
