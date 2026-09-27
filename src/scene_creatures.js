@@ -262,7 +262,7 @@ class SceneCreatures {
     // energy, and a trap under one of them would charge a run that never asked
     // to step on one.
     // Density scales with the game mode (Difficulty.PROFILES.trapCountMul:
-    // 10x easy, 100x hard) — the base 10..18/tile rate reads as too rare to
+    // 10x easy, 50x hard) — the base 10..18/tile rate reads as too rare to
     // ever meet in practice.
     // Kept ON THE ENTRY so the density can be re-rolled later without rebuilding
     // a second copy of the rule (see _relayTraps): the how-to card is answered

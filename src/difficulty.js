@@ -136,7 +136,7 @@
       monsterCountMul: 1.5,     // 75 + 15/level, still under the spawner's 160 cap
       slimeCountMul: 2,         // 100 surface slimes a tile, and none of them wait for a harvest
       crowCountMul: 1,          // the base 200/tile — easy is the one that's cut
-      trapCountMul: 100,        // hard means it: the verge is closer to a minefield
+      trapCountMul: 50,         // hard means it — halved from 100 (Sep 2026), which read as a minefield
       trapBiteMul: 2.5,         // 10⚡ base bite becomes 25⚡ on first contact
       homeGreeter: 'slime',     // "the slimes are in your yard from the first minute" — literally
       // …the whole yard. One on each side, ten cells out: a slime leeches on
