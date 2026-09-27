@@ -317,3 +317,25 @@ not. The lightmap paints on ~0.3 of still frames and ~0.8 of walking ones.
 Not measured: a street RESTORATION (the dwell commit and its feathered
 canvas). The sandbox has no MVT transportation lines, so nothing restores
 there, and perf.html has no fixture-tile mode yet.
+
+### Finding 1, landed (2026-09-26): the grid and the borders are baked
+
+`gridGfx` and `borderGfx` are `Render.BakedGfx` now — the same calls, painted
+into a canvas texture and shown as one image, uploaded only when a crossing
+rebuilds them. The grid is not repainted on a crossing at all unless a row
+band is in view (without one, its dashes don't depend on the anchor cell):
+40 crossings in the sandbox repainted it 0 times. Their 17 000 per-frame
+command entries are gone from the replay list.
+
+| (avg ms, three runs)       | before | after       |
+|----------------------------|-------:|------------:|
+| phaser render, still       | 2.32   | 1.30 – 1.85 |
+| phaser render, walking     | 2.78   | 1.63 – 1.71 |
+| CPU busy / frame, walking  | 2.45   | 1.90 – 2.00 |
+| update @crossing           | 3.09   | 3.9 – 4.5   |
+
+The crossing got ~1 ms dearer (the border repaint on a 2D canvas plus its
+upload) and every other frame got ~1 ms cheaper — a good trade at walking
+pace, where a crossing is one frame in dozens. `batchFillPath` is still ~20%
+of busy time: what is left is `cellGfx` (2 052 entries, 3 arcs, cleared every
+frame) and `atmosRimGfx` (1 080). Those are the next candidates.

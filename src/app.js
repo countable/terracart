@@ -1858,12 +1858,15 @@ class MapScene extends Phaser.Scene {
     // Layers
     this.cellGfx = this.add.graphics();
     this.gridContainer = this.add.container(0, 0);  // dashed grid — only redrawn on cell crossing
-    this.gridGfx = this.add.graphics();
-    this.gridContainer.add(this.gridGfx);
+    // BAKED, not a live Graphics (render.js BakedGfx): Phaser would replay its
+    // ~10 000 dash commands every frame, still or not.
+    this.gridGfx = new Render.BakedGfx(this, 'grid_baked', this.gridContainer);
     this.noiseContainer = this.add.container(0, 0);
     this.borderContainer = this.add.container(0, 0); // scrolled each frame for sub-cell offset
-    this.borderGfx = this.add.graphics();  // biome-boundary borders — only redrawn on cell crossing
-    this.borderContainer.add(this.borderGfx);
+    // Biome-boundary borders — only redrawn on cell crossing, and BAKED
+    // (render.js BakedGfx) so the frames between cost one quad, not ~7 000
+    // replayed rects and earcut circles.
+    this.borderGfx = new Render.BakedGfx(this, 'border_baked', this.borderContainer);
     // Original OSM road geometry (road_overlay.js) — the raw vector linework
     // the rasterizer turned into road/path cells, as a muted brown band. Sits
     // above the terrain + biome borders but BELOW the ground decoration: the linework is
