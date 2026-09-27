@@ -489,13 +489,33 @@
   // (ensureKindCookie) — a per-frame colour would bake one every tick;
   // the beat lives in the alpha instead. null when not critical.
   // `now == null` means "don't animate", as heartbeatMul.
-  const CRITICAL_LIGHT_MIX = 0.7;
+  //
+  // The lights also burn LOWER, not just redder: CRITICAL_LIGHT_DIM is a
+  // steady cut the stutter dips further from. And the player's OWN light —
+  // most of what there is to see in a cave — is pushed to at least
+  // CRITICAL_PLAYER_TINT_A of the red (critPaintProfile), throbbing on the
+  // beat: lowEnergyFrac's ramp alone puts only a tenth of the red on it at
+  // 20%, which read as nothing underground.
+  // PAINT ONLY, all of it: brightnessAt keeps the plain profile, so what a
+  // ghost counts as light does not change when the player is hurt.
+  const CRITICAL_LIGHT_MIX = 0.95;
+  const CRITICAL_LIGHT_DIM = 0.6;
   const CRITICAL_LIGHT_DIP = 0.55;
+  const CRITICAL_PLAYER_TINT_A = 0.6;
   function criticalLights(scene, now) {
     if (lowEnergyFrac(scene) < CRITICAL_W) return null;
     const beat = now == null ? 0
       : heartbeatShape((now % HEARTBEAT_PERIOD_MS) / HEARTBEAT_PERIOD_MS);
-    return { mix: CRITICAL_LIGHT_MIX, a: 1 - CRITICAL_LIGHT_DIP * beat };
+    return { mix: CRITICAL_LIGHT_MIX, a: CRITICAL_LIGHT_DIM * (1 - CRITICAL_LIGHT_DIP * beat) };
+  }
+  // The profile draw() paints with: `prof` itself, or — critically low — the
+  // same with the plateau's red raised to CRITICAL_PLAYER_TINT_A at least, on
+  // the heartbeat. Never handed to brightnessAt (see above).
+  function critPaintProfile(scene, prof, crit, now) {
+    if (!crit) return prof;
+    const w = lowEnergyFrac(scene);
+    const a = Math.max(LOW_ENERGY_A * w, CRITICAL_PLAYER_TINT_A) * heartbeatMul(w, now);
+    return Object.assign({}, prof, { litColour: mixToWhite(LOW_ENERGY_TINT, Math.min(1, a)) });
   }
   // `a` lerped `t` of the way to `b`, per channel.
   function mixColour(a, b, t) {
@@ -1290,7 +1310,10 @@
     // The live blasts, converted against THIS frame's anchor (they are stored
     // in world metres) and pruned as they burn out.
     collectBlasts(scene, ax, ay, halfM, now);
-    const prof = profile(scene, daylight(scene, now), now);
+    // Critically low: every light red, dimmed and stuttering, and the
+    // player's own red raised (criticalLights / critPaintProfile).
+    const crit = criticalLights(scene, now);
+    const prof = critPaintProfile(scene, profile(scene, daylight(scene, now), now), crit, now);
     const k = CELL_PX / scene.cellM;                 // metres → screen px
     // The ramp's extent: the player row's radius — the viewport's half-
     // diagonal plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay lit.
@@ -1388,8 +1411,6 @@
     // `colour` — a blast is sized to the thing it went off on), and a `dyPx`:
     // a draw-space lift off its own point, for a source that burns up in the
     // air over the ground it stands on (a street lamp's lantern).
-    // Critically low: every light red and stuttering (criticalLights).
-    const crit = criticalLights(scene, now);
     const stamp = (L) => {
       const row = KINDS[L.kind];
       const colour = crit ? mixColour(L.colour == null ? row.colour : L.colour, LOW_ENERGY_TINT, crit.mix)
@@ -1421,7 +1442,7 @@
     KINDS, radiusCells, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
-    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIP, criticalLights, mixColour, mixToWhite, scaleColour, lum, atLuminance,
+    LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, collectFires, collectBolts, objectLightPadCells,

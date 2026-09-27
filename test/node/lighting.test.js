@@ -174,17 +174,32 @@ test('lighting: critically low, every light turns red and stutters on the heartb
   assert.eq(Lighting.criticalLights(ok, 0), null, 'above 20% the lights are untouched');
   const still = Lighting.criticalLights(low, null);
   assert.eq(still.mix, Lighting.CRITICAL_LIGHT_MIX, 'at 20% every light is pulled toward the red');
-  assert.eq(still.a, 1, 'no clock, no stutter');
+  assert.eq(still.a, Lighting.CRITICAL_LIGHT_DIM, 'no clock, no stutter — just the steady dim');
+  assert.truthy(Lighting.CRITICAL_LIGHT_DIM < 1 && Lighting.CRITICAL_LIGHT_MIX >= 0.9,
+    'the lights burn lower and near-fully red');
   // The stutter is the SAME heartbeat the plateau throbs on: strongest dip on
   // the lub, back to full between beats, periodic.
+  const D = Lighting.CRITICAL_LIGHT_DIM;
   let minA = 1, maxA = 0;
   for (let t = 0; t < Lighting.HEARTBEAT_PERIOD_MS; t += 5) {
     const a = Lighting.criticalLights(low, t).a;
-    assert.inRange(a, 1 - Lighting.CRITICAL_LIGHT_DIP - 1e-9, 1, 'dips, never brightens');
+    assert.inRange(a, D * (1 - Lighting.CRITICAL_LIGHT_DIP) - 1e-9, D + 1e-9, 'dips from the dim, never brightens');
     minA = Math.min(minA, a); maxA = Math.max(maxA, a);
   }
-  assert.lt(minA, 1 - Lighting.CRITICAL_LIGHT_DIP * 0.9, 'the beat dips the lights hard');
-  assert.gt(maxA, 0.97, 'and lets them back up between beats');
+  assert.lt(minA, D * (1 - Lighting.CRITICAL_LIGHT_DIP * 0.9), 'the beat dips the lights hard');
+  assert.gt(maxA, D * 0.97, 'and lets them back up to the dim between beats');
+  // The player's own light — most of a cave — goes clearly red at 20%, not
+  // the tenth of a tint lowEnergyFrac's ramp alone gives it there.
+  const plain = Lighting.profile(low);
+  const painted = Lighting.critPaintProfile(low, plain, still, null);
+  assert.eq(painted.litColour, Lighting.mixToWhite(Lighting.LOW_ENERGY_TINT, Lighting.CRITICAL_PLAYER_TINT_A),
+    'the plateau is at least CRITICAL_PLAYER_TINT_A red');
+  assert.eq(Lighting.critPaintProfile(ok, Lighting.profile(ok), null, null).litColour,
+    Lighting.profile(ok).litColour, 'above 20% the paint is the plain profile');
+  assert.truthy(/const prof = critPaintProfile\(scene, profile\(scene, daylight\(scene, now\), now\), crit, now\);/.test(LIGHTING_SRC),
+    'draw() paints with it');
+  assert.falsy(/critPaintProfile/.test(LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('function brightnessAt'),
+    LIGHTING_SRC.indexOf('function brightnessAt') + 3000)), 'brightnessAt does not — a ghost sees the plain light');
   assert.eq(Lighting.criticalLights(low, 0).a,
     Lighting.criticalLights(low, Lighting.HEARTBEAT_PERIOD_MS).a, 'periodic');
   // A Potion of Reach silences it with the rest of the cue.
@@ -673,7 +688,8 @@ test('lighting: the frame reads the real sun at the player, once a minute', () =
   assert.eq(Lighting.daylight(s, Date.parse('2024-06-21T12:00:30Z')), 0.123, 'same minute: cached');
   assert.truthy(Lighting.daylight(s, Date.parse('2024-06-21T12:01:00Z')) !== 0.123, 'next minute: recomputed');
   assert.eq(Lighting.daylight({ depth: 0 }, Date.now()), 1, 'no fix to place the sun by: noon');
-  assert.truthy(/const prof = profile\(scene, daylight\(scene, now\), now\);/.test(LIGHTING_SRC), 'draw() passes the frame\'s daylight, and the clock for the heartbeat pulse');
+  const drawSrc = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
+  assert.truthy(/profile\(scene, daylight\(scene, now\), now\)/.test(drawSrc), 'draw() passes the frame\'s daylight, and the clock for the heartbeat pulse');
 });
 
 // ── Source pins: the old passes are gone, the new path is wired ───────────
