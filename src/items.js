@@ -923,6 +923,11 @@ const revivePct = (id) => Math.round(REVIVE_ITEM_FRAC[id] * 100);
 // to fight: its pocket resurrection only buys the walk home. (It rode the
 // table above at 10% until Sep 2026.)
 const FEATHER_REVIVE_ENERGY = 1;
+// The wild (green) surface slime's leech: energy per bite, one bite a second
+// (scene_creatures.js wanderCreatures), before the shield potion, its power,
+// the mode and armour. Here so the pest tip quotes the live number. (3 until
+// Sep 2026, doubled with the basic goblin's hit.)
+const SLIME_LEECH_ENERGY = 6;
 
 // ── ITEM GUIDES: the Book pages about a THING ──────────────────────────────
 // The one deliberate exception to "what an item does is written on the item,
@@ -1062,7 +1067,7 @@ const PLAY_TIPS = [
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
   'Crows and deer raid your crops, though crows never touch potatoes — and nothing raids the ones growing right by your Home.',
   ITEM_GUIDE_TIPS.scarecrow,
-  'A wild slime beside you drains 3 energy a second. Kill it, walk away, or stand by a fire — they will not come near one.',
+  `A wild slime beside you drains ${SLIME_LEECH_ENERGY} energy a second. Kill it, walk away, or stand by a fire — they will not come near one.`,
   // Placed with the slime it is about, and BEFORE the swing-reach page: the
   // first thing a player does about a slime is hit it, so what a half-hearted
   // swing turns it into is actionable the moment the pest tip above is.

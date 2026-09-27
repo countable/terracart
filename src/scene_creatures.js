@@ -1071,7 +1071,7 @@ class SceneCreatures {
         const STEAL_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
-          c._nextStealT = now + 1000;   // 3 energy/sec
+          c._nextStealT = now + 1000;   // one bite a second
           const before = this.save.energy ?? 0;
           if (!Combat.playerDowned(before)) {
             // Hard mode doubles the leech (Difficulty.enemyDmgMul), shield or not.
@@ -1080,8 +1080,10 @@ class SceneCreatures {
             // result), and never to nothing: a bite always costs at least 1.
             // Scaled by the slime's own power (Combat.powerMul — an elite or a
             // lair guard leeches harder, the same multiplier its HP carries).
-            const slimeRaw = ((this.save.shieldPotionUntil ?? 0) > now ? 2 : 3)
-              * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
+            // The shield potion halves the bite, rounded up — the same
+            // Math.ceil(raw / 2) every monster hit takes.
+            const slimeBite = SLIME_LEECH_ENERGY * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
+            const slimeRaw = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(slimeBite / 2) : slimeBite;
             const slimeDmg = Combat.playerDamage(slimeRaw, this.save.armor);
             this._slimeStealAccum = (this._slimeStealAccum || 0)
               + this._losePlayerEnergy(slimeDmg, { closeShop: true });

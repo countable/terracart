@@ -673,8 +673,10 @@ test('tips: a struck slime charges, and the tip quotes STRUCK_REACTION_MS', () =
     'the tip names the two wards that still turn a charging slime back');
   // No tip may still say a slime is only ever escapable — the pest tip's
   // "walk away" is true of an unprovoked one and this page is what qualifies it.
-  const pest = PLAY_TIPS.find((t) => /drains 3 energy a second/i.test(t));
+  const pest = PLAY_TIPS.find((t) => /drains \d+ energy a second/i.test(t));
   assert.truthy(pest, 'the pest tip is still there');
+  assert.truthy(pest.includes(`drains ${SLIME_LEECH_ENERGY} energy`),
+    `the pest tip quotes SLIME_LEECH_ENERGY (${SLIME_LEECH_ENERGY}): ${pest}`);
   assert.lt(PLAY_TIPS.indexOf(pest), PLAY_TIPS.indexOf(tip),
     'what a slime does is taught before what hitting one does');
 });
