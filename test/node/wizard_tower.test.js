@@ -282,6 +282,7 @@ const DRINKS = {
   speed_potion: ['drinkSpeedPotion', 'speedPotionUntil'],
   shield_potion: ['drinkShieldPotion', 'shieldPotionUntil'],
   blight_potion: ['drinkBlightPotion', 'blightPotionUntil'],
+  raven_potion: ['drinkRavenPotion', 'spiritRavenUntil'],
 };
 const DRINK_SRC = Object.values(DRINKS).map(([m]) => lift(`${m}(opts = {}) {`, m)).join('\n');
 
@@ -300,6 +301,8 @@ function potionScene({ id = 'reach_potion', count = 2, energy = 50, cls = 'encha
   s.playerScreen = () => ({ x: 10, y: 20 });
   s.playerBodyDy = () => 0;
   s.messages = []; s.showMessageModal = (o) => s.messages.push(o);
+  // The raven potion summons through its keeper; the timer is what is pinned.
+  s._tickSpiritRaven = () => {};
   return s;
 }
 
@@ -340,7 +343,7 @@ test('enchanter: drinking still consumes; a channel is refused for others, a sho
 test('enchanter: the Use dialog offers Channel on exactly the timed potions', () => {
   const sync = lift('syncConsumableButton() {', 'syncConsumableButton');
   const rows = [...sync.matchAll(/^\s+([a-z_]+):\s+\{[^\n]*channel: true/gm)].map((m) => m[1]).sort();
-  assert.eq(rows.join(), Object.keys(DRINKS).sort().join(), 'the four timed potions, no more');
+  assert.eq(rows.join(), Object.keys(DRINKS).sort().join(), 'the timed potions, no more');
   assert.truthy(/entry\.channel && typeof Wizard !== 'undefined'\s*\n\s*&& Wizard\.isClass\(this\.save, 'enchanter'\)/.test(sync),
     'only for an enchanter');
   assert.truthy(/label: `Channel −\$\{cost\}⚡`/.test(sync), 'priced on the button');

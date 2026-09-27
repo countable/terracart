@@ -241,6 +241,11 @@
   // tint is a no-op). Replacing it is a sheet in assets.js and this row.
   const GHOST_TINT = 0xc8d8ff;
   const GHOST_ALPHA = 0.6;
+  // The SPIRIT RAVEN (the Potion of the Raven's ally) is the crow drawn
+  // at half opacity — see its CREATURE_ART row. Its own constant rather than
+  // GHOST_ALPHA: the ghost is a foe and this is yours, and a retune of one must
+  // not quietly retune the other.
+  const SPIRIT_RAVEN_ALPHA = 0.5;
   // Its GLOW: a faint cold halo drawn ABOVE the lightmap (render.js, the
   // ghostGlowContainer layer), so a ghost can be seen coming across the dark.
   // It is NOT a light — no Lighting.KINDS row, it lights nothing around it and
@@ -304,6 +309,11 @@
     deer:          { sheet: 'deer',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
     rabbit:        { sheet: 'rabbit',    fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
     crow:          { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
+    // The spirit raven is the CROW'S SHEET — every geometry column matches the
+    // crow row above (one body cannot have two ground lines, and the wheel /
+    // tap / health-bar seating all read these); the alpha is the one thing
+    // that differs (SPIRIT_RAVEN_ALPHA).
+    spirit_raven:  { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31, alpha: SPIRIT_RAVEN_ALPHA },
     // The butterfly's 7 frames are the sheet's whole top row, stepped faster
     // than the common creature beat — a flutter, not a plod.
     butterfly:     { sheet: 'butterfly', frames: 7, frameMs: 100, airborne: true, fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
@@ -415,6 +425,19 @@
                      flee: { cells: 4, jitter: 1.1, stepMs: 300, stepCells: 1.4,
                              pauseMs: [80, 120] } },
     crow:          { wanders: true, game: true, drop: 'crow_feather', avoids: ['scarecrow'] },
+    // THE SPIRIT RAVEN — summoned by the Potion of the Raven (app.js
+    // drinkRavenPotion / _tickSpiritRaven) for SPIRIT_RAVEN_MS. It is a PET's
+    // hunt by another reason, not a second hunter: wanderCreatures' pet scan
+    // runs for it (`summoned`), asks huntsPrey (creature_ai.js) what it may
+    // take — `preysOnFoes`: every Combat.isEnemy foe and every pest crow,
+    // where a pet's `prey` is a list of kinds — and its kill pays as the pet's
+    // ('pet', Combat.isPlayerKill). It FOLLOWS its summoner while nothing is in
+    // range (the cat's `follows` lane, its timer armed for the raven's whole
+    // life). Its stepMs is one bite a second (Combat.MELEE_INTERVAL_MS — the
+    // pet fight resolves once per step), the slime's own cadence. It is NOT an
+    // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
+    // `summoned` kind: there is nothing to catch, tame or pet).
+    spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000 },
     butterfly:     { wanders: true, pollinates: true, stepMs: 1000,
                      flee: { escapes: true, jitter: 1.2, stepMs: 390, stepCells: 1.5 } },
     slime:         { wanders: true },
@@ -453,6 +476,13 @@
   function creatureDrop(kind) { return creatureBehaviour(kind)?.drop || null; }
   // What a fed farm animal gives — { item, verb } — or null.
   function creatureProduce(kind) { return creatureBehaviour(kind)?.produce || null; }
+  // Is this kind SUMMONED — a temporary ally conjured by a potion (the spirit
+  // raven)? It hunts for the player without being tame, and is never a tap
+  // target.
+  function isSummoned(kind) { return !!creatureBehaviour(kind)?.summoned; }
+  // Does this hunter take every FOE (Combat.isEnemy) and every pest crow,
+  // rather than a `prey` list of kinds? creature_ai.js huntsPrey answers it.
+  function preysOnFoes(kind) { return !!creatureBehaviour(kind)?.preysOnFoes; }
   // Does a petted one follow the player? (The cat's five minutes.)
   function creatureFollows(kind) { return !!creatureBehaviour(kind)?.follows; }
   // Is a target cell within a ward of `what` ('scarecrow') refused to it?
@@ -628,12 +658,12 @@
     CROWN_BOUNDS, fruitCrownOffset,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
-    creaturePrey, creatureDrop, creatureProduce, creatureFollows, creatureAvoids,
+    creaturePrey, creatureDrop, creatureProduce, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
     creatureAnim, creatureFrameMs, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
-    CAVE_SLIME_TINT, TRAPPER_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
+    CAVE_SLIME_TINT, TRAPPER_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, SPIRIT_RAVEN_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
     creatureFoot, creatureScale, creatureInstScale, creatureFightsBack, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;

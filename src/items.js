@@ -289,6 +289,9 @@ const MINERAL_ICON_SHEET = {
   vigor_potion:  { sheet: 'icon_potions', frame: 11 },
   speed_potion:  { sheet: 'icon_potions', frame: 12 },
   shield_potion: { sheet: 'icon_potions', frame: 13 },
+  // Potion of the Raven — the blue flask that closes the same row
+  // (frame 14): a cold, ghostly blue for a bird that is not quite there.
+  raven_potion:  { sheet: 'icon_potions', frame: 14 },
   // Potion of Blight — the red flask of the next row down (row 3, y=48:
   // frame 17), so it doesn't read as the Speed potion's red beside it.
   blight_potion: { sheet: 'icon_potions', frame: 17 },
@@ -472,6 +475,8 @@ const BASE_TIER = {
   // Consumables
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   blight_potion: 3,
+  // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
+  raven_potion: 3,
   dragon_powder: 3,
   // Revival: getting up where you fell instead of walking Home at a crawl.
   // A tenth of a bar is a T2 emergency; half a bar is a T5 find.
@@ -584,6 +589,10 @@ const ITEMS = [
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'consumable' },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'consumable' },
   { id: 'blight_potion', name: 'Potion of Blight',    kind: 'consumable' },
+  // Drunk to summon a spirit raven that hunts foes and pest crows for
+  // SPIRIT_RAVEN_MS (app.js drinkRavenPotion; the bird is the creature row
+  // SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven).
+  { id: 'raven_potion',  name: 'Potion of the Raven', kind: 'consumable' },
   // Drunk while DOWN (zero energy) to get back up on the spot — see
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
   { id: 'revive_potion',       name: 'Potion of Revival',       kind: 'consumable' },
@@ -825,6 +834,9 @@ const PRICES = {
   speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura hurting every foe 2 HP/s
+  raven_potion:  90,   // T3 — 1 min of a slime-strength ally (a slime's bite a second
+                       //      on ONE foe, 3× Blight's per-foe rate, but it has to fly
+                       //      to each and can be worn down): Blight's tier and price
   revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
@@ -917,6 +929,11 @@ const SHOP_CHARM_MS = 5 * 60 * 1000;
 // Potion of Thunder: the HP the bolt takes off every foe in sight (app.js
 // drinkThunderPotion). Here so the ✦ line quotes the live number.
 const THUNDER_DMG = 10;
+// Potion of the Raven: how long the summoned raven hunts (app.js
+// drinkRavenPotion stamps save.spiritRavenUntil with it; the Drink dialog and
+// the ✦ line below quote it through shortDuration). Here, not beside app.js's
+// SHIELD_POTION_MS, so the ✦ line can read the live number.
+const SPIRIT_RAVEN_MS = 60 * 1000;
 const REVIVE_ITEM_FRAC = { revive_potion: 0.30, resurrection_potion: 0.60 };
 const revivePct = (id) => Math.round(REVIVE_ITEM_FRAC[id] * 100);
 // The Crow Feather stands you up with a flat 1 energy — enough to crawl, not
@@ -1210,6 +1227,7 @@ const ITEM_EFFECTS = {
   speed_potion:  'Drink for tier-9 amulet walking (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   blight_potion: 'Drink to hurt foes near you 2 HP/s (1 min)',
+  raven_potion:  `Drink: a spirit raven hunts foes & pests for ${shortDuration(SPIRIT_RAVEN_MS)}`,
   thunder_potion:      `Drink: ${THUNDER_DMG} damage to every foe in sight; the rest flee`,
   revive_potion:       `Drink when down to get up with ${revivePct('revive_potion')}% energy`,
   resurrection_potion: `Drink when down to get up with ${revivePct('resurrection_potion')}% energy`,

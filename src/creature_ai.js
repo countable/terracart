@@ -419,3 +419,25 @@ function wardTrip(c, homePos, castleWards, r2) {
   }
   return best;
 }
+
+// ── What a hunter of the player's may take ───────────────────────────────────
+// A PEST CROW: the bird the hard-mode pump dispatches at a planted field
+// (wanderCreatures mints its id `pest_crow_<tx>_<ty>_…`, the same prefix the
+// save.caught prune reads). A wild crow the tile spawned is game, never a pest.
+function isPestCrow(c) {
+  return !!c && typeof c.id === 'string' && c.id.startsWith('pest_crow_');
+}
+// ONE predicate for wanderCreatures' pet scan: may `hunterKind` (a tame pet,
+// or a summoned ally) go for creature `cr`? Two reasons, one lane:
+//   a PET takes the kinds on its row's `prey` list (a cat crows; a dog deer
+//     and slimes);
+//   a hunter that `preysOnFoes` (the spirit raven) takes every Combat.isEnemy
+//     foe and every pest crow — never a deer, a wild crow or anything tame.
+// Nobody's hunter takes a tamed (released_) animal. The caller still skips
+// what is already caught.
+function huntsPrey(hunterKind, cr) {
+  if (!cr || (typeof cr.id === 'string' && cr.id.startsWith('released_'))) return false;
+  if (SpriteLayout.preysOnFoes(hunterKind)) return Combat.isEnemy(cr) || isPestCrow(cr);
+  const prey = SpriteLayout.creaturePrey(hunterKind);
+  return !!prey && prey.has(cr.kind);
+}
