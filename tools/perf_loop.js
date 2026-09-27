@@ -135,6 +135,9 @@ async function main() {
     if (at == null) {
       errs.push('[restore] no road cell on the start tile');
     } else {
+      // The boot's idle prewarm (app.js _prewarmFx) is skipped in test
+      // mode like the icon one beside it; run it, as a real session has.
+      await rp.evaluate(() => window.__scene._prewarmFx && window.__scene._prewarmFx());
       // Let the recorded world finish building first: the neighbour ring
       // rasterizes in the background for several seconds on these tiles, and
       // a phase that overlaps it measures tile builds, not the street.
@@ -143,7 +146,7 @@ async function main() {
         window.__boot.reset();
         const s = window.__scene;
         const st = window.__streetT = { restores: 0, metres: 0, fns: {} };
-        for (const fn of ['_sweepStreets', '_rescanStreets', '_ripenStreets', '_updateStreetLamps']) {
+        for (const fn of ['_sweepStreets', '_rescanStreets', '_ripenStreets', '_updateStreetLamps', '_blastAt', '_toast']) {
           if (typeof s[fn] !== 'function') continue;
           const orig = s[fn].bind(s), rec = st.fns[fn] = { n: 0, sum: 0, worst: 0 };
           s[fn] = function (...a) {

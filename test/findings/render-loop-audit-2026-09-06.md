@@ -389,3 +389,29 @@ should be baked by tools/art_thumbs.js instead of made at runtime.
 `src/art_thumbs.js` 19 → 41 KB). The shell only picks them up. Re-run of the
 restore phase: `toDataURL` / `modal_shell.js` are gone from the profile, and
 CPU busy for the phase fell from 9.0 to 6.9 ms/frame.
+
+**Restore smoothed (2026-09-27).** The ~19 ms restore frame was not the
+street work: `_ripenStreets` without its effects is ~2 ms. It was the blast
+(first particle textures + emitters, 5-9 ms the first time, ~1 ms after) and
+the counter toast (a new text texture, ~5 ms the first time in a font, ~1 ms
+after), both on the restore's own frame, with the road repaint on the next.
+Three changes:
+
+1. `_afterRestoreBeat`: the blast and the counter play `RESTORE_FX_DELAY_MS`
+   (70 ms) later; the save, ladder and prizes move at once.
+2. `_prewarmFx` (the boot's idle prewarm): the street blast's particle kinds
+   (`Particles.warm`) and one text per toast font, made before any moment
+   needs them.
+3. `Streets.lineKey` memoised per feature (WeakMap): every line key of the
+   nine recorded tiles took 5.6 ms to compute and 0.4 ms now; the road overlay
+   asks for them on every rebuild.
+
+| (ms, restore phase)             | before  | after     |
+|---------------------------------|--------:|----------:|
+| restore frame (`_ripenStreets`) | 17 – 20 | 1.8 – 2.2 |
+| effects frame (blast + toast)   | (same frame) ~18 | 7 – 9 |
+| road overlay rebuild, next frame| 5 – 10  | 6 – 9     |
+
+Still open: `_rescanStreets` is 4-8 ms whenever the reach cell changes on a
+real map, and the recorded world's own background work spikes a frame to
+~20 ms now and then, restore or not.

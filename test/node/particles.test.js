@@ -211,7 +211,7 @@ test('particles: a restoring sweep blasts ONCE, on the stretch it brought back',
   assert.truthy(/const at = best \? Streets\.pointAtWorld\(best\.meta, best\.s\) : null;/.test(body),
     'resolved to WORLD metres along the way');
   assert.truthy(
-    /this\._blastAt\(at\.x, at\.y, \{\n\s+radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',\n\s+gather: 'stonegather', gatherPts: best\.spread, durationMs: STREET_SHINE_MS,\n\s+\}\);/
+    /this\._afterRestoreBeat\(\(\) => this\._blastAt\(at\.x, at\.y, \{\n\s+radiusCells: BLAST_STONE_R_CELLS, chips: 'stone', sparks: 'trailspark',\n\s+gather: 'stonegather', gatherPts: best\.spread, durationMs: STREET_SHINE_MS,\n\s+\}\)\);/
       .test(body),
     'one blast: the sett chips, the stone spark ring and the setts gathering back over the whole '
     + 'piece, on the shine\'s own clock');

@@ -439,8 +439,9 @@ test('trail counter: the street reads Trail.readout of the bank, not raw progres
   const at = app.indexOf('  _bankStreetMetres(addedM, at, now) {');
   assert.gt(at, 0, 'found the bank');
   const body = app.slice(at, app.indexOf('\n  }\n', at));
-  assert.truthy(/this\._toast\(Trail\.readout\(out(?:, [^)]+)?\)\.label, \{/.test(body),
-    'the paying sweep reads the completed goal, full — and through the one formatter');
+  assert.truthy(/const label = Trail\.readout\(out(?:, [^)]+)?\)\.label;/.test(body)
+    && /this\._afterRestoreBeat\(\(\) => this\._toast\(label, \{/.test(body),
+    'the paying sweep reads the completed goal, full — and through the one formatter (a beat later)');
   assert.falsy(/Trail\.progress\(/.test(body), 'raw progress is not what the street shows');
 });
 })();
@@ -836,6 +837,24 @@ test('streets: the counter is throttled, but a paying sweep never waits', () => 
   assert.eq(s.toasts[2].text, Trail.label(Trail.GOAL_STEP_M, Trail.GOAL_STEP_M));
 });
 
+test('streets: a restore\'s blast and counter play a beat after it, the ladder moves at once', () => {
+  const app = APP_JS_SRC;
+  const i = app.indexOf('  _afterRestoreBeat(fn) {');
+  const body = app.slice(i, app.indexOf('\n  }\n', i));
+  assert.truthy(/this\.time\.delayedCall\(RESTORE_FX_DELAY_MS, fn\)/.test(body), 'on the scene clock');
+  assert.truthy(/\} else \{\s*fn\(\);/.test(body), 'at once where there is none');
+  assert.truthy(RESTORE_FX_DELAY_MS > 0 && RESTORE_FX_DELAY_MS <= 100, 'a couple of frames, not a visible lag');
+  const s = sweepScene();
+  s.save.trail = { metres: 0, prizes: 0 };
+  const later = [];
+  s.time = { delayedCall: (ms, fn) => later.push(fn) };
+  s._bankStreetMetres(10, null, 1000);
+  assert.inRange(s.save.trail.metres, 9.99, 10.01, 'banked on the restore\'s own frame');
+  assert.eq(s.toasts.length, 0, 'the counter has not drawn yet');
+  later.forEach((fn) => fn());
+  assert.eq(s.toasts.length, 1, 'it draws a beat later');
+});
+
 test('streets: the live pass previews the dwell and shines on the rebuild', () => {
   // Two things the baked canvases can't carry, because they change every
   // frame: the clean carriageway creeping in while the dwell runs, and the
@@ -1097,3 +1116,4 @@ test('trail: a runner\'s goals are halved — goalFor, progress, bank and readou
   assert.eq(T.readout({ metres: 50, prizes: 2, owed: 0 }, 'runner').label, '50/300 m',
     'and the next sweep counts toward the third');
 });
+
