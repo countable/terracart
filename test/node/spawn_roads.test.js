@@ -7,9 +7,9 @@
 //     road-geometry overlay draws it at its real carriageway width — so a
 //     motorway's band covers a full cell past its ROAD_LG cells on both sides,
 //     and anything seated there is drawn sitting in the traffic;
-//   • parking aisles are skipped by the rasterizer entirely, so a lot the
-//     overlay carpets in asphalt is, to the grid, plain landuse — and rocks,
-//     shrubs and buried-X marks scattered all over it.
+//   • parking aisles are not roads at all (WorldGen.isParkingAisle): no
+//     terrain cell, no overlay band, no mask — a lot is open ground, and
+//     things may legitimately spawn all over it.
 // A filter that reads grid[] alone says "grass" for both. WorldGen.rasterizeTile
 // therefore also builds `roadMask` — the ground the overlay actually covers,
 // measured from the same width function the overlay strokes with
@@ -75,8 +75,8 @@ function fixtureLayers() {
       // middle of, so mask === paint.
       { type: 2, tags: { class: 'minor' },
         geom: [line([[0, 10], [CPE - 1, 10]])] },
-      // Parking aisles: skipped by the rasterizer (they'd weld the lot into an
-      // asphalt blob) but drawn by the overlay all the same.
+      // Parking aisles: dropped ENTIRELY (WorldGen.isParkingAisle) — no
+      // terrain, no band, no mask. The lot is open ground with an X on it.
       { type: 2, tags: { class: 'service', service: 'parking_aisle' },
         geom: [line([[44, 20], [56, 20]]), line([[44, 24], [56, 24]])] },
     ] },
@@ -201,11 +201,15 @@ test('roadMask: a 2 m footpath never makes road ground on its own', () => {
   for (const cx of [39, 40, 41, 42]) assert.eq(roadMask[row * CPE + cx], 0, `column ${cx} is not road ground`);
 });
 
-test('roadMask: parking aisles are masked even though they paint no terrain', () => {
+test('roadMask: parking aisles are not roads — masked nowhere on the lot', () => {
   const { grid, roadMask } = rasterize();
-  const i = 20 * CPE + 50;
-  assert.falsy(ROAD_TIERS.has(grid[i]), 'aisle paints no road cell (by design)');
-  assert.eq(roadMask[i], 1, 'but the overlay draws it, so nothing spawns there');
+  for (const row of [20, 24]) {
+    for (let cx = 44; cx <= 56; cx++) {
+      const i = row * CPE + cx;
+      assert.falsy(ROAD_TIERS.has(grid[i]), 'aisle paints no road cell (by design)');
+      assert.eq(roadMask[i], 0, 'aisle draws no band, so the lot is open ground');
+    }
+  }
 });
 
 // ─── The invariant ───────────────────────────────────────────────────────────
@@ -218,6 +222,7 @@ test('roadMask: parking aisles are masked even though they paint no terrain', ()
 function bandsOf(layers) {
   const out = [];
   for (const f of layers.find((l) => l.name === 'transportation').features) {
+    if (WorldGen.isParkingAisle(f.tags)) continue;   // aisles draw no band
     const halfW = WorldGen.roadOverlayWidthM(f.tags) / 7 / 2;
     for (const ln of f.geom) {
       for (let i = 1; i < ln.length; i++) {
@@ -310,16 +315,18 @@ test('no wild plant survives on a road cell or on ground mostly under a road ban
   }
 });
 
-test('a parking X anchored on an aisle is walked off it, not left buried in tarmac', () => {
+test('a parking X anchored on an aisle stays there — an aisle is open ground', () => {
   const { grid, parkingTreasures, roadMask } = rasterize();
   assert.eq(parkingTreasures.length, 1, 'the lot still gets its treasure');
   const t = parkingTreasures[0];
   const ix = cellOf(t.x), iy = cellOf(t.y);
-  assert.eq(roadMask[iy * CPE + ix], 0, 'X is off the aisle band');
+  // The anchor cell is ON an aisle, and an aisle is no longer road: the X is
+  // not walked anywhere, and its own cell is a legitimate spawn cell as-is.
+  assert.eq(ix, 50, 'X kept its anchor column');
+  assert.eq(iy, 20, 'X kept its anchor row');
+  assert.eq(roadMask[iy * CPE + ix], 0, 'no band under the aisle');
   assert.truthy(WorldGen.isSpawnCell(grid, CPE, CPE, ix, iy, { roadMask }),
     'X sits on a legitimate spawn cell');
-  // It moved off its anchor, but only just — the reward stays on its own lot.
-  assert.lt(Math.max(Math.abs(ix - 50), Math.abs(iy - 20)), 5, 'X stayed on the lot');
 });
 
 // ─── The shared rule ─────────────────────────────────────────────────────────

@@ -120,9 +120,10 @@ class SceneCreatures {
     const _spawnOpts = {
       // The tile's road footprint — wider than the road TERRAIN wherever the
       // real carriageway is (a motorway's band covers a cell either side of
-      // the one it paints) and present at all in a parking lot, whose aisles
-      // paint nothing. Without it the X-mark scatter below reads the grid,
-      // is told "grass", and buries treasure in the middle of the asphalt.
+      // the one it paints). Without it a candidate reads the grid, is told
+      // "grass", and lands in the middle of the asphalt. A parking lot is
+      // open ground: its aisles draw no band (WorldGen.isParkingAisle), so
+      // the mask is silent there and spawns are legal.
       roadMask: entry.roadMask,
       occupied: _occupiedIdx,
       pois: genObjects
@@ -148,7 +149,7 @@ class SceneCreatures {
           // (the old code) made the mask unreachable for grass/park/farmland/
           // etc., and a cow or crow could spawn on ground the player sees as
           // asphalt: a motorway's band covers a cell either side of the cells
-          // it paints, and a parking lot's aisles paint no road cells at all.
+          // it paints.
           // This does NOT impose the frontage rule on non-residential terrain:
           // isSpawnCell returns true right after the walkable+roadMask checks
           // for any cell that isn't lot land (WorldGen.isLotTerrain), so grass

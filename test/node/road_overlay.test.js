@@ -481,14 +481,14 @@ test('road overlay: only transportation LINES are drawn', () => {
   assert.eq(scene.roadGeomGfx.lines.length, 1, 'only the transportation line');
 });
 
-test('road overlay: draws the geometry worldgen discards (parking aisles)', () => {
+test('road overlay: parking aisles are not drawn — they are not streets', () => {
   clearTiles();
-  // Aisles are skipped by the rasterizer (worldgen.js) — the whole point of
-  // this overlay is showing the SOURCE ways, including the dropped ones.
+  // Aisles are dropped by BOTH passes (WorldGen.isParkingAisle): no band, no
+  // repairs, no spawn mask. A parking lot reads as open ground with its X.
   putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'service', service: 'parking_aisle' })]);
   const scene = makeOverlayScene();
   RoadOverlay.draw(scene);
-  assert.eq(scene.roadGeomGfx.lines.length, 1, 'parking aisle still drawn');
+  assert.eq(scene.roadGeomGfx.lines.length, 0, 'parking aisle draws no band');
 });
 
 // ── Culling ───────────────────────────────────────────────────────────────
