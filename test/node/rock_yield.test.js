@@ -36,17 +36,11 @@ const caveRock = (v, i) => ({ kind: 'mineralrock', id: `mr-c${v}-${i}`, x: 0, y:
 
 // --- The payout follows the art --------------------------------------------
 PRV.forEach((variant, v) => {
-  test(`plain rock: variant ${v} (col ${variant.col}, ${variant.stones} stone${variant.stones > 1 ? 's' : ''}) drops ${variant.stones}-${variant.stones + 1}`, () => {
-    const seen = new Set();
+  test(`plain rock: variant ${v} (col ${variant.col}, ${variant.stones} stone${variant.stones > 1 ? 's' : ''}) drops exactly ${variant.stones}`, () => {
     for (let i = 0; i < 400; i++) {
-      const qty = mineOnce(surfaceRock(v, i));
-      assert.inRange(qty, variant.stones, variant.stones + 1,
-        `variant ${v} yield tracks its ${variant.stones} drawn stone(s)`);
-      seen.add(qty);
+      assert.eq(mineOnce(surfaceRock(v, i)), variant.stones,
+        `variant ${v} pays exactly its ${variant.stones} drawn stone(s)`);
     }
-    // Both ends of the range must actually occur, or the roll has collapsed to
-    // a constant and the range above is vacuously true.
-    assert.eq(seen.size, 2, `variant ${v} rolls both ${variant.stones} and ${variant.stones + 1}`);
   });
 
   test(`plain rock: variant ${v} draws the frame it pays for`, () => {
@@ -64,8 +58,7 @@ PRV.forEach((variant, v) => {
     assert.eq(SpriteLayout.plainRockFrame(o), PLAIN_ROCK_ROW * MINERALROCK_COLS + variant.col,
       'cave rock picks its frame from the shared table');
     for (let i = 0; i < 100; i++) {
-      assert.inRange(mineOnce(caveRock(v, i)), variant.stones, variant.stones + 1,
-        'cave rock pays what its art shows');
+      assert.eq(mineOnce(caveRock(v, i)), variant.stones, 'cave rock pays what its art shows');
     }
   });
 });
@@ -95,10 +88,8 @@ test('plain rock: the pair variant beats every single variant, always', () => {
   const singles = PRV.filter((p) => p.stones === 1);
   assert.truthy(pair, 'the table still has a pair-of-stones variant');
   assert.truthy(singles.length > 0, 'the table still has single-stone variants');
-  // A pair's WORST roll must be at least a single's BEST roll — otherwise the
-  // art still lies some of the time, which is the whole bug.
-  assert.gte(pair.stones, Math.max(...singles.map((s) => s.stones + 1)),
-    'the pair floor is at or above the single ceiling');
+  // A pair must pay more than any single — otherwise the art lies.
+  assert.gt(pair.stones, Math.max(...singles.map((s) => s.stones)), 'the pair out-pays every single');
 });
 
 // --- Drift guard on the "2 stones" claim ------------------------------------

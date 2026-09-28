@@ -113,12 +113,13 @@ function fixedChestReward(fixedLoot, save) {
 // oversight.
 //
 // `stones` is HOW MANY STONES THE SPRITE SHOWS (SpriteLayout.plainRockStones —
-// 2 for the pair variant, 1 for the singles); the rock pays out that many plus
-// a coin-flip bonus, so what you see is what you get. Flint on
-// PLAIN_ROCK_FLINT_P of breaks.
+// 2 for the pair variant, 1 for the singles); the rock pays out EXACTLY that
+// many — no roll, so a pair is always 2 and a single always 1, and what you
+// see is what you get (until Sep 2026 it was that plus a coin-flip bonus).
+// Flint on PLAIN_ROCK_FLINT_P of breaks.
 const PLAIN_ROCK_FLINT_P = 0.10;
 function plainRockBaseDrop(scene, stones) {
-  const qty = (stones == null ? 1 : stones) + randInt(0, 1);
+  const qty = stones == null ? 1 : stones;
   scene.addToInv('rockfruit', qty);
   if (Math.random() < PLAIN_ROCK_FLINT_P) scene.addToInv('coal', 1);
   return qty;

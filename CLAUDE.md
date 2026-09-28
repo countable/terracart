@@ -143,10 +143,10 @@ the mechanic.
 
 - **What the art SHOWS is what it DROPS.** Variants that differ in COUNT are
   not cosmetic: one table both sides read. `SpriteLayout.PLAIN_ROCK_VARIANTS`
-  carries `col` (drawn) beside `stones` (paid by `plainRockBaseDrop`,
-  `stones + randInt(0,1)`); `SpriteLayout.plainRockFrame` and
-  `plainRockStones` both resolve through the one `plainRockVariant`. A surface
-  with no rock sprite (the cave WALL dig) passes `stones = null`. `stones` is
+  carries `col` (drawn) beside `stones` (paid by `plainRockBaseDrop` —
+  exactly `stones`, no roll); `SpriteLayout.plainRockFrame` and
+  `plainRockStones` both resolve through the one `plainRockVariant`. The cave
+  WALL has no rock sprite and pays its own table (`caveWallDrop`: one stone). `stones` is
   authored (the pair is one blob); the `ART_BOUNDS` width drift check in
   `tools/sprite_audit.js` is the tripwire if the sheet is re-cut. **And say
   the real number: if a loot path rolls a quantity, its flash prints that
