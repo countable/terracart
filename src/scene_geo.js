@@ -161,9 +161,9 @@ class SceneGeo {
         // the trailing flush that catches the tail of the walk before the tab
         // goes away.
         if (typeof Fog !== 'undefined') Fog.flush(this.save);
-        this.save.lastSeenAt = Date.now();
-        this._hiddenAt = Date.now();
-        persistSave(this.save);
+        const hiddenAt = Date.now();
+        this._hiddenAt = hiddenAt;
+        SaveSession.flush(hiddenAt);
       } else {
         // Foregrounded after a background nap. Resume the game loop FIRST:
         // everything after this line is nice-to-have, and a throw from any of
@@ -180,11 +180,11 @@ class SceneGeo {
         try {
           // Pro-rate energy restoration by the gap, just like a fresh page
           // load would do in create().
+          const resumedAt = Date.now();
           if (this.save.lastSeenAt && !window.__TEST_MODE) {
-            this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
+            this.applyOfflineRest(Math.max(0, resumedAt - this.save.lastSeenAt));
           }
-          this.save.lastSeenAt = Date.now();
-          persistSave(this.save);
+          SaveSession.flush(resumedAt);
           this._retryGps();
           // A block that came back short waits out its backoff while hidden
           // (see _scheduleTileRetry). Coming back is the likeliest moment for

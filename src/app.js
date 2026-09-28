@@ -1645,7 +1645,7 @@ class MapScene extends Phaser.Scene {
     if (this.save.lastSeenAt && !window.__TEST_MODE) {
       this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
     }
-    this.save.lastSeenAt = Date.now();
+    SaveSession.attach(this.save);
     // Float accumulator for resting at Home — fractions of an energy point
     // accrue here between integer-pip bumps to save.energy.
     this._restAccrueE = 0;
@@ -4205,11 +4205,9 @@ class MapScene extends Phaser.Scene {
     this._updateWalkHomeCountdown();
     this._updatePlayerAura();
 
-    // Heartbeat the "last seen" timestamp every frame. In-memory only — the
-    // save object is mutated by reference, so the next persistSave (or the
-    // pagehide flush in save.js) carries it. This bounds offline-rest drift
-    // to at most one frame if the tab dies without firing visibilitychange.
-    this.save.lastSeenAt = Date.now();
+    // SaveSession samples the wall clock on its own cadence. Its lifecycle
+    // flush forces an exact timestamp before the tab hides or closes.
+    SaveSession.touch();
 
     // Resting AT HOME slowly fills the bar. Float accumulator avoids per-frame
     // integer churn — we only bump save.energy + refresh the DOM when a whole
