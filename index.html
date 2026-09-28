@@ -1231,7 +1231,7 @@
         </button>
         <button id="howto-hard" type="button" data-mode="hard">
           <span class="mode-name">Hard mode</span>
-          <span class="mode-sub">No tutorial &mdash; thin purse, greedy traders, tougher foes. Fighting pays.</span>
+          <span class="mode-sub">No tutorial &mdash; thin purse, greedy traders, more damage taken.</span>
         </button>
       </div>
       <p id="howto-mode-current" hidden></p>
@@ -2578,25 +2578,27 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=92edfd8d"></script>
-  <script src="src/difficulty.js?v=6ce64e5c"></script>
+  <script src="src/enemy_roster.js?v=64447c14"></script>
+  <script src="src/enemy_spawns.js?v=86889b37"></script>
+  <script src="src/difficulty.js?v=e4d56e7b"></script>
   <script src="src/util.js?v=d6515ee3"></script>
   <script src="src/particles.js?v=29ab521b"></script>
   <script src="src/trail.js?v=96b267d2"></script>
   <script src="src/streets.js?v=120c04d0"></script>
   <script src="src/street_variants.js?v=62720fc1"></script>
   <script src="src/zones.js?v=7b917c2f"></script>
-  <script src="src/sprite_layout.js?v=92bcd58e"></script>
+  <script src="src/sprite_layout.js?v=4f70be28"></script>
   <script src="src/placed_floor.js?v=d6c42e37"></script>
   <script src="src/home.js?v=db93a51e"></script>
   <script src="src/coords.js?v=bbf37615"></script>
   <script src="src/fog.js?v=bdf27172"></script>
   <script src="src/biome_profiles.js?v=8c89737c"></script>
-  <script src="src/traps.js?v=037d55c9"></script>
-  <script src="src/lairs.js?v=c39d3feb"></script>
+  <script src="src/traps.js?v=48fc7cf8"></script>
+  <script src="src/lairs.js?v=862b5b14"></script>
   <script src="src/worldgen.js?v=cfc26559"></script>
   <script src="src/textures.js?v=7cccbc3e"></script>
   <script src="src/save.js?v=b35015cf"></script>
-  <script src="src/items.js?v=01912624"></script>
+  <script src="src/items.js?v=1b792e7f"></script>
   <script src="src/inventory.js?v=26f6d34a"></script>
   <script src="src/energy.js?v=142f2847"></script>
   <script src="src/conditions.js?v=16403bc0"></script>
@@ -2616,16 +2618,16 @@
   <script src="src/interactables.js?v=ae1e5cad"></script>
   <script src="src/houses.js?v=a4e98d59"></script>
   <script src="src/starter.js?v=77ea5172"></script>
-  <script src="src/combat.js?v=06b35812"></script>
-  <script src="src/creature_ai.js?v=10f2b164"></script>
+  <script src="src/combat.js?v=d1188344"></script>
+  <script src="src/creature_ai.js?v=79cf93c0"></script>
   <script src="src/wizard.js?v=3209061e"></script>
   <script src="src/interact.js?v=5cf7619d"></script>
   <script src="src/lighting.js?v=767ebe2a"></script>
-  <script src="src/render.js?v=dc5086f1"></script>
+  <script src="src/render.js?v=34d978c8"></script>
   <script src="src/multiplayer.js?v=9764bed8"></script>
   <script src="src/road_overlay.js?v=957c355c"></script>
   <script src="src/building_overlay.js?v=16f504b9"></script>
-  <script src="src/assets.js?v=bcb4d124"></script>
+  <script src="src/assets.js?v=ea15ef79"></script>
   <script src="src/sandbox.js?v=4167de70"></script>
   <script src="src/testtools.js?v=248582cf"></script>
   <script src="src/geo.js?v=0a205c42"></script>
@@ -2633,7 +2635,7 @@
   <script src="src/modal_shell.js?v=0a3ca6b7"></script>
   <script src="src/scene_geo.js?v=016ab0a0"></script>
   <script src="src/npc.js?v=24851e12"></script>
-  <script src="src/scene_creatures.js?v=91375c11"></script>
+  <script src="src/scene_creatures.js?v=bd5deee3"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2694,7 +2696,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=c38e01f3';
+      const APP_SRC = 'src/app.js?v=872054ff';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

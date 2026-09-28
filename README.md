@@ -69,11 +69,10 @@ kept for the life of the save):
   supply-crate trail, and a pest-free home until the first harvest; farming,
   exploring and rebuilding are the loop.
 - **Hard mode — no tutorial.** A $20 purse (against $50), traders at 1.5× the
-  markup, Home paying 60% for a haul, enemies with 1.5× HP and 2× damage in
-  1.5× the packs, twice the surface slimes, no pest amnesty, crows dispatched
-  at your crops, garrisons in derelict buildings, and a far thicker scatter of
-  roadside traps that bite harder. A kill still pays per HP, so a tougher foe
-  simply pays more.
+  markup, Home paying 60% for a haul, and 2.5× incoming damage after armour.
+  There is no pest amnesty, crows raid your crops, and roadside traps are more
+  common. Enemy health, attacks, ordinary populations and ruin garrisons are
+  shared across modes, so players can fight the same enemies together.
 
 Every number that differs lives in `src/difficulty.js` as a multiplier over
 the base value, read at the site that owns that value;

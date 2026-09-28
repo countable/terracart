@@ -1,43 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Difficulty — the ONE table the two game modes are read from.
 //
-// The How-to-play card (index.html #howto) asks a new save which game it
-// wants, once:
+// Hard penalizes the receiving player's damage after armour. Enemy stats,
+// ordinary populations and lair eligibility remain shared with Easy so players
+// can fight the same creatures together. Tutorial, economy and crop-pest rules
+// retain their per-save settings below.
 //
-//   EASY  — "enable tutorial". The guided opening: the starter ladder chip,
-//           the supply-crate trail, the green arrow, a chicken on the
-//           doorstep, and a pest-free home until the first harvest. The economy as shipped — farming,
-//           exploring and rebuilding are the loop, and a fight is a choice.
-//   HARD  — "no tutorial". No ladder, no crates, no arrow, no amnesty — and
-//           one slime seated beside the trailer before you take a step. The purse is
-//           smaller, the traders greedier, Home pays less for a haul — and
-//           the enemies are tougher, hit harder and come in bigger packs.
-//           Crows are sent to your crops rather than merely lived among, so a
-//           field is a thing you defend.
-//           A kill still pays per HP, so a tougher foe pays more: fighting
-//           is the income rather than the thing you walk around.
-//
-// EVERY number that differs between the two lives HERE, as a multiplier over
-// the BASE value that owns the site — buyMarkupRange keeps its 1.2..3.0×, the
-// bounty keeps its coin-per-5-HP, the cave spawner its 50 + 10/level — so a
-// knob most easy multipliers still leave at 1 (the base value unchanged) is
-// BY CONSTRUCTION the game exactly as it was, and hard mode can't drift into
-// a second copy of the balance. The deliberate exceptions, where easy does
-// NOT leave the base be: `crowCountMul` (easy halves the base crow count) and
-// `trapCountMul` (10× on easy too — the base roadside rate reads as too rare
-// to ever meet). A knob that is not in this table is not a mode difference.
-//
-// The mode is per SAVE (save.mode, 'easy' | 'hard'), chosen once and kept —
-// switching mid-game would let a player sell on easy and hunt on hard. A save
-// that predates the field is easy (SaveMigrate backfills it: it was played
-// with the tutorial); a fresh one carries NO mode until the card is answered,
-// and reads as easy meanwhile so nothing before the choice is harsher than the
-// tutorial. app.js pins the active mode with `setMode` at boot and at the
-// choice, so the pure modules (items.js prices, combat.js HP, energy.js rest)
-// can read it without a save handle.
-//
-// Node-testable: no DOM, no Phaser, no globals read at load.
-// ─────────────────────────────────────────────────────────────────────────
+// app.js pins save.mode at boot; an unset or pre-mode save defaults to Easy.
+// Node-testable: no DOM, Phaser or globals read at load.
 (function (root) {
   'use strict';
 
@@ -62,19 +32,8 @@
       // quiet income you can leave unattended. The tile spawner's own crows
       // are NOT this flag: both modes get those.
       cropPests: false,
-      // DERELICT LAIRS (src/lairs.js): a garrison of immobile monsters
-      // squatting in unclaimed structures, the same garrison for every player
-      // (sized by the building's tier and its own seeded strength), softened
-      // near home by a nerf that fades out by LAIR_FAR_M — the tier
-      // also deciding WHETHER it is held at all (a third of wrecks, most
-      // forts, nearly every castle) and WHAT is in there (a wreck is squatted
-      // by slimes, a fort or a castle is held by goblins). A garrison holds
-      // its ruin until the player comes near, then hunts as a group and gives
-      // up when they get clear. Off on easy —
-      // a ruin there is scenery you may rebuild at your leisure — and on hard
-      // it is what makes the map itself the difficulty curve: the far half of
-      // the world is worth more and costs more to walk into.
-      derelictLairs: false,
+      // Garrison eligibility is shared in both modes (lairs.js).
+      derelictLairs: true,
       // ── Economy ──
       startingMoney: 50,        // items.js STARTING_MONEY — the easy figure IS the base
       buyMul: 1,                // over buyMarkupRange — the trader / castle markup
@@ -82,8 +41,8 @@
                                 // is the same in both modes)
       sellMul: 1,               // over trailerSellMultiplier — what Home pays for a haul
       // ── Combat ──
-      enemyHpMul: 1,            // over Combat.creatureMaxHp, enemies only — and, since
-                                // enemyBounty pays per HP, over the coins a kill pays
+      incomingDamageMul: 1,    // recipient penalty, after armour
+      enemyHpMul: 1,            // compatibility; shared HP and bounty
       enemyDmgMul: 1,           // over the surface slime's leech and every monster hit
       monsterCountMul: 1,       // over the cave spawner's 50 + 10/level
       slimeCountMul: 1,         // over BIOME_FAUNA.slime's per-tile count
@@ -96,9 +55,7 @@
                                  // to ever meet in practice (see traps.test.js).
                                  // Cave traps aren't here: they're flat-scaled by
                                  // Traps.DUNGEON_DENSITY_MUL regardless of mode.
-      trapBiteMul: 1,           // over Traps.STEP_ENERGY (10⚡) — the first-contact
-                                 // bite. The bleed rate (STAND_ENERGY_PER_S) does
-                                 // not scale with mode.
+      trapBiteMul: 1,           // recipient penalty applies centrally after armour
       // ── The doorstep ──
       // The one creature GUARANTEED beside the starting trailer, whatever the
       // biome roll gave the tile (app.js `_placeHomeGreeter`). It is the first
@@ -122,7 +79,7 @@
     [HARD]: {
       id: HARD,
       label: 'Hard mode',
-      blurb: 'Thin purse, greedy traders, tougher foes. Fighting pays.',
+      blurb: 'Thin purse, greedy traders, more damage taken.',
       tutorial: false,
       starterCrates: false,
       pestAmnesty: false,
@@ -131,17 +88,18 @@
       startingMoney: 20,        // $20 against $50 — a bag of seeds, not a plan
       buyMul: 1.5,              // traders want 1.8..4.5× base; a T7 bow still only reaches 1.5× par
       sellMul: 0.6,             // Home pays 60% — farming is a living, not the fastest one
-      enemyHpMul: 1.5,          // 1.5× the pool, 1.5× the time — and 1.5× the coins
-      enemyDmgMul: 2,           // a slime leeches 12/s, a goblin hits for 16 (8/s)
-      monsterCountMul: 1.5,     // 75 + 15/level, still under the spawner's 160 cap
-      slimeCountMul: 2,         // 100 surface slimes a tile, and none of them wait for a harvest
+      incomingDamageMul: 2.5,  // recipient penalty, after armour
+      enemyHpMul: 1,            // shared enemy stats across players
+      enemyDmgMul: 1,           // damage penalty belongs to the recipient
+      monsterCountMul: 1,       // shared enemy population
+      slimeCountMul: 1,         // shared enemy population
       crowCountMul: 1,          // the base 200/tile — easy is the one that's cut
       trapCountMul: 25,         // hard means it — 100 read as a minefield; halved twice (Sep 2026).
                                  // Per tile it spreads 0.3..1.7x around this (Traps.tileDanger)
-      trapBiteMul: 2.5,         // 10⚡ base bite becomes 25⚡ on first contact
+      trapBiteMul: 1,           // receiving-player penalty is applied after armour
       homeGreeter: 'slime',     // "the slimes are in your yard from the first minute" — literally
       // …the whole yard. One on each side, ten cells out: a slime leeches on
-      // contact and hard doubles the bite, so seated at the easy chicken's 2
+      // contact and Hard increases damage taken, so seated at the easy chicken's 2
       // cells it was on the player inside the opening seconds, before the
       // how-to card had been read. Ten is past the viewport corner (7.8 cells)
       // — they are heard of before they are seen — but inside the sim bubble

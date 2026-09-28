@@ -51,11 +51,13 @@
     assert.lt(h.startingMoney, e.startingMoney, 'thinner purse');
     assert.gt(h.buyMul, 1, 'dearer to buy');
     assert.lt(h.sellMul, 1, 'poorer to sell');
-    assert.gt(h.enemyHpMul, 1); assert.gt(h.enemyDmgMul, 1);
-    assert.gt(h.monsterCountMul, 1); assert.gt(h.slimeCountMul, 1);
+    assert.eq(h.enemyHpMul, 1); assert.eq(h.enemyDmgMul, 1);
+    assert.eq(h.incomingDamageMul, 2.5);
+    assert.eq(h.derelictLairs, e.derelictLairs);
+    assert.eq(h.monsterCountMul, 1); assert.eq(h.slimeCountMul, 1);
     assert.gt(h.trapCountMul, e.trapCountMul, 'the verge is denser with traps too');
     assert.gt(h.crowCountMul, e.crowCountMul, 'and more wild crows to begin with');
-    assert.gt(h.trapBiteMul, e.trapBiteMul, 'and bites harder on first contact');
+    assert.eq(h.trapBiteMul, e.trapBiteMul, 'trap penalty applies at the player');
     // What the mode deliberately leaves alone has no knob at all.
     for (const k of ['bountyMul', 'eliteRateMul', 'passOutLossFrac', 'offlineRestCapFrac']) {
       assert.eq(k in h, false, `${k} is not a mode difference`);
@@ -102,16 +104,16 @@
     }
   });
 
-  test('difficulty: hard mode scales enemy HP — and only enemy HP', () => {
+  test('difficulty: hard mode leaves shared enemy HP unchanged', () => {
     const slimeEasy = withMode('easy', () => Combat.creatureMaxHp('slime'));
     const slimeHard = withMode('hard', () => Combat.creatureMaxHp('slime'));
     assert.eq(slimeEasy, Combat.FAUNA_HP.slime, 'the surface slime pool, unscaled');
-    assert.eq(slimeHard, Math.round(Combat.FAUNA_HP.slime * 1.5),
-      'the hard-mode slime is 1.5× the pool');
+    assert.eq(slimeHard, Combat.FAUNA_HP.slime,
+      'the same slime for both players');
     for (const k of Object.keys(MONSTERS)) {
       const e = withMode('easy', () => Combat.creatureMaxHp(k));
       const h = withMode('hard', () => Combat.creatureMaxHp(k));
-      assert.eq(h, Math.round(e * 1.5), `${k} scales by enemyHpMul`);
+      assert.eq(h, e, `${k} is shared`);
     }
     // Game is not an enemy and keeps its fauna HP whatever the mode.
     for (const k of ['crow', 'deer', 'cat', 'dog']) {

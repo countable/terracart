@@ -32,8 +32,8 @@ test('blight potion: the aura bites enemies from the feet, through _damageEnemy'
   assert.truthy(/this\.startWorldM\.x \+ this\.playerM\.x/.test(body), 'measured from the player, not the camera');
   assert.truthy(/Combat\.isEnemy\(c\)/.test(body), 'enemies only');
   assert.truthy(/caughtSet\.has\(c\.id\)/.test(body), 'never a caught creature');
-  assert.truthy(/this\._damageEnemy\(c, step\)/.test(body), 'through the one damage lane');
-  assert.truthy(/const step = BLIGHT_DPS \* dt;/.test(body), 'BLIGHT_DPS per second of wall clock');
+  assert.truthy(/this\._damageEnemy\(c, rate \* dt, 'player', \{ bypassArmor: true \}\)/.test(body), 'through the one damage lane');
+  assert.truthy(/const rate = Combat\.mitigate\(BLIGHT_DPS, Combat\.monster\(c\.kind\)\?\.armor \|\| 0\);/.test(body), 'armour applies once to a one-second damage packet');
 });
 
 test('blight potion: the drawn disc is exactly the damage radius wide', () => {

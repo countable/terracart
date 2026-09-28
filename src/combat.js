@@ -73,169 +73,46 @@
 (function (root) {
   'use strict';
 
-  // ── The monster table ────────────────────────────────────────────────────
-  // Underground wandering MONSTERS. Mechanically they're the surface slime:
-  // each drifts toward the player and drains energy when within RANGE — but
-  // they differ by HP / RANGE / DMG / SPEED. Only the goblin archer reaches
-  // past one cell (range 3), and a kind with range > 1 SHOOTS — a visible
-  // arrow at the player at the castle turret's cadence, carrying
-  // MONSTER_ARROW_HITS hits of `dmg` so its damage per minute is unchanged
-  // (see monsterShot); everything else is melee (range 1) and leeches on
-  // scene_creatures.js's MONSTER_HIT_MS. Tougher kinds are gated to deeper levels via
-  // minDepth, so descending introduces new foes. Placeholder art: every
-  // monster reuses the slime sprite with a per-kind TINT (see render.js) until
-  // dedicated sheets land — swapping in real art is a one-line assets.js +
-  // render.js change per kind.
-  //   hp     → the pool a fight drains (scaled off BASELINE_HP, 15)
-  //   range  → cells within which it drains energy
-  //   dmg    → energy drained per hit (one hit per MONSTER_HIT_MS per monster)
-  //   speed  → step cadence multiplier (1 = slime cadence; higher = more often)
-  //   weight → relative spawn share among the kinds eligible at a given depth
-  //   sight  → how far off, in cells from the player's feet, it NOTICES you
-  //            and stalks (read via sightCells). A row without one sees
-  //            across the whole sim bubble — the goblins. Slimes are
-  //            short-sighted (SLIME_SIGHT_CELLS).
-  //   retreat → how far it goes when it WANDERS OFF (app.js
-  //            monsterWanderingOff), as a fraction of its activation range;
-  //            the trip is range × retreat × [1, 2]. Default 1 — a full
-  //            retreat that leaves the bubble, so it comes back only if you
-  //            follow. Under 1 it can stop inside the bubble and come back on
-  //            its own: the lower, the likelier. Read via retreatMul.
-  // hp and dmg here are the BASELINE: every entry is doubled by CAVE_ENEMY_MUL
-  // below, so what the game runs on is twice what is written.
-  // The cave doubling (see "The first slime is the tutorial" below) — named
-  // up here only because the ghost row after the table is authored against it.
-  const CAVE_ENEMY_MUL = 2;
-  // SLIMES ARE SHORT-SIGHTED; GOBLINS ARE NOT. A slime — the surface one and
-  // the cave kinds alike — only takes an interest in a player within this many
-  // cells: about the edge of the screen (VIEW_CELLS 11, so 5.5 to the side),
-  // so a slime that is drifting your way is one you can see. A goblin row has
-  // no `sight` and stalks you from anywhere in the sim bubble
-  // (creature_ai.js CREATURE_SIM_CELLS, 12). Named up here because the table
-  // rows below author against it.
-  const SLIME_SIGHT_CELLS = 6;
-  const MONSTERS_BASELINE = {
-    cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5, sight: SLIME_SIGHT_CELLS },
-    purple_slime:  { condition: 'poison', name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true, retreat: 0.75, sight: SLIME_SIGHT_CELLS },
-    goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 3.38, minDepth: 2, weight: 3, retreat: 0.5 },
-    goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 2.7,  minDepth: 3, weight: 2 },
-    // THE TRAPPER never lands a blow (dmg 0 — monsterHits says no, so the
-    // melee drain and the arrow both skip it). What it does instead is its
-    // `lays` column: it keeps `range` cells off the player and, on a cadence,
-    // lays a snare on an empty cell on the line between them (app.js
-    // _trapperLay → Traps.layTrap) — the existing trap mechanic, bite and
-    // bleed and all. Introduced beside the archer (the garrison ladder in
-    // lairs.js climbs goblin → archer → trapper, and a rung is never met
-    // shallower than the one below it), with the archer's gait and HP a
-    // touch over it: it is the one you have to walk THROUGH its traps to reach.
-    goblin_trapper: { name: 'Goblin Trapper', hp: 20, range: 3, dmg: 0, speed: 2.7,  minDepth: 3, weight: 2, lays: 'trap', retreat: 0.5 },
-  };
-  // Rooted park enemies use the normal melee/bounty lanes, but never enter
-  // the movement chain. Their own spawner also excludes them from cave bags
-  // and giant variants.
-  MONSTERS_BASELINE.plant = {
-    name: 'Biting Plant', hp: 10, range: 1, dmg: 1,
-    stationary: true, minDepth: 0, weight: 1, spawn: 'park',
-  };
-  // THE GHOST — a surface monster with its own night spawner. Its `spawn` column
-  // says where it comes from instead of the cave bag: 'night' is app.js's
-  // ghost spawner (GHOST_SPAWN_MS — the surface, after dark, a few at a time
-  // in the dark around the player; session state like the pest crow, never
-  // generated and never on a tile). A row with `spawn` is skipped by the cave
-  // bag (spawnsUnderground) and has NO giant (the derivation below skips it,
-  // so no board job can ever name a foe that never appears). Its `minDepth`
-  // is 0 — the surface — so the elite roll's depth bonus reads it plainly.
-  //   SPEED is a run, GHOST_SPEED_MPS metres per second over the ground — its
-  // own glide (creature_ai.js ghostTick), not the step chain's beat, so the
-  // row carries `mps` and no `speed` (the step chain never moves a ghost).
-  //   DMG is its TOUCH: one blow of GHOST_TOUCH_DMG before the mode, the
-  // shield and armour, then it is gone (creature_ai.js ghostTick). Authored at the
-  // baseline so the cave doubling below lands it on exactly that number.
-  //   HP is small — it dies in the light (creature_ai.js GHOST_PLATEAU_BURN_S) and to
-  // two or three honest blows; the bounty is derived from it like any foe's.
-  const GHOST_SPEED_MPS = 3;
-  // LAVA (WorldGen.T.CAVE_LAVA, on WorldGen.LAVA_DEPTH) burns whatever stands
-  // in it at this rate — the player's ENERGY (app.js _tickLava) and an enemy's
-  // HP (scene_creatures.js wanderCreatures) alike, one number for both. The
-  // ground, not a foe: no mode, no shield, no armour — the trap bleed's lane.
-  const LAVA_DMG_PER_S = 2;
-  const GHOST_TOUCH_DMG = 12;   // halved from 25: a quarter of a fresh bar per touch was too deadly
-  MONSTERS_BASELINE.ghost = {
-    name: 'Ghost', hp: 10, range: 1, dmg: GHOST_TOUCH_DMG / CAVE_ENEMY_MUL,
-    mps: GHOST_SPEED_MPS,
-    minDepth: 0, weight: 1, spawn: 'night',
-  };
-  // THE FIRE SLIME — a tar yard's garrison (src/zones.js; lairs.js 'tar'
-  // tier, held at the pumps in every mode). A SURFACE kind, so its `spawn`
-  // column is the ghost's lane ('zone': placed by the zone, never the cave
-  // bag) and it has no giant. A slime's short sight and gait, a touch quicker
-  // than the cave slime; the cave doubling below lands it on hp 20 / dmg 4
-  // and the bounty derives from that like any foe's.
-  // `board: false` — never a quest-board kill job (onQuestBoard): a fire slime
-  // lives only in a tar yard or a burned row, so a job naming it could send a
-  // player across town for a foe their neighbourhood may not hold.
-  MONSTERS_BASELINE.fire_slime = {
-    name: 'Fire Slime', hp: 10, range: 1, dmg: 2, speed: 0.9,
-    minDepth: 0, weight: 1, spawn: 'zone', sight: SLIME_SIGHT_CELLS, board: false,
-  };
-  // Both goblin rows were too slow to feel like a pursuer: ×1.3 (1.0 / 0.8 →
-  // 1.3 / 1.04), then doubled again (2.6 / 2.08). The archer keeps its lag
-  // behind the melee goblin in proportion.
-  // What the game runs on: the authored rows above, plus their giants, all
-  // doubled. Built here rather than mutated in place so MONSTERS_BASELINE
-  // stays readable as what was AUTHORED — the two derivations below are
-  // proved against it by monster_stats.test.js.
-  const MONSTERS = {};
-  for (const [kind, m] of Object.entries(MONSTERS_BASELINE)) MONSTERS[kind] = { ...m };
-
-  // ── GIANTS ───────────────────────────────────────────────────────────────
-  // Every kind above has a GIANT form, `giant_<kind>`: GIANT_HP_MUL (4×) the
-  // HP, introduced GIANT_DEPTH_STEP (2) levels deeper than its base kind, at
-  // half the base kind's spawn share. Damage, range and speed are the base
-  // kind's — it is a bigger, tougher body of the same foe, not a new one.
-  // Derived here from the literal rather than authored, so a kind added above
-  // has a giant the moment it has stats, and the doubling below reaches the
-  // giants too.
-  // There is no giant art: SpriteLayout.creatureArt draws the base kind's
-  // sheet at GIANT_ART_SCALE (1.8), and everything that seats on the body
-  // (wheel, health bar, tap box, shadow) resolves through the same helper. For
-  // the quest board and the Discovery ledger a giant is ITS OWN KIND — a giant
-  // goblin job wants giant goblins, and an elite giant goblin banks its own
-  // badge beside the elite goblin's (app.js resolveDefeat credits victim.kind
-  // as-is; quests.js QUEST_ENEMIES lists the giants). Its elite roll gets the
-  // +2 tier of its deeper introduction for free (eliteRollBonus).
-  const GIANT_HP_MUL = 4;
+  // Approved roster stats are final values: no implicit cave or giant doubling.
+  const roster = root.EnemyRoster || (typeof require === 'function' ? require('./enemy_roster.js') : null);
+  if (!roster) throw new Error('Load enemy_roster.js before combat.js');
+  const CAVE_ENEMY_MUL = 1;
+  const GIANT_HP_MUL = 4; // legacy save aliases only
   const GIANT_DEPTH_STEP = 2;
-  for (const [kind, m] of Object.entries(MONSTERS)) {
-    if (m.spawn) continue;          // not a cave kind: no giant (the ghost)
-    MONSTERS[`giant_${kind}`] = {
-      ...m,
-      name: `Giant ${m.name}`,
-      hp: m.hp * GIANT_HP_MUL,
-      minDepth: m.minDepth + GIANT_DEPTH_STEP,
-      weight: Math.max(1, Math.ceil((m.weight || 1) / 2)),
-      giant: kind,
+  const SLIME_SIGHT_CELLS = roster.get('slime').visionCells;
+  const GHOST_SPEED_MPS = roster.get('ghost').movement.speedMetersPerSecond;
+  const GHOST_TOUCH_DMG = roster.get('ghost').dmg;
+  const LAVA_DMG_PER_S = 2;
+  function combatRow(row) {
+    return {
+      ...row,
+      // Preserve the condition already carried by purple slimes in existing saves.
+      ...(row.id === 'purple_slime' ? { condition: 'poison' } : {}),
+      sight: row.visionCells,
+      retreat: row.movement.retreatDistanceFraction || 1,
+      speed: (row.movement.speedCellsPerSecond || 0) / 0.12,
+      mps: row.movement.speedMetersPerSecond,
+      minDepth: row.cave?.minDepth ?? 0,
+      maxDepth: row.cave?.maxDepth ?? null,
+      weight: row.cave?.weight || 0,
+      spawn: row.attackType === 'touch' ? 'night' : (!row.cave ? 'surface' : undefined),
+      fly: row.movement.pattern === 'orbit_swoop' || row.id === 'purple_slime',
+      giant: row.variantType === 'Giant' ? row.variantOf : undefined,
+      lays: row.attackType === 'trap' ? 'trap' : undefined,
     };
   }
-  // The first slime is the tutorial; everything past it is a real fight.
-  //
-  // The wild surface slime is the only enemy above ground and the first one
-  // anybody meets — deliberately gentle, a crop pest you can walk away from.
-  // Every enemy BEYOND it is underground, chosen by a player who went looking,
-  // and those are twice the foe: double HP and double damage.
-  //
-  // Applied as ONE rule over the baseline above rather than eight retuned
-  // numbers, so the ratio to that first slime stays readable at a glance and a
-  // kind added to the table inherits the doubling the moment it has stats. The
-  // knock-ons are derived and intended: the dps identity is untouched, so
-  // double HP is exactly double the time to kill at any weapon tier, and
-  // enemyBounty pays per HP, so a foe that takes twice as long pays twice as
-  // much.
-  // (CAVE_ENEMY_MUL itself is declared above the table — the ghost row
-  // authors its touch against it.)
-  for (const m of Object.values(MONSTERS)) {
-    m.hp *= CAVE_ENEMY_MUL;
-    m.dmg *= CAVE_ENEMY_MUL;
+  const MONSTERS = Object.fromEntries(roster.ROWS.map(row => [row.id, combatRow(row)]));
+  // Existing zone-only enemy: preserve tar-yard and burned-row encounters.
+  // These are final stats; it stays outside the ordinary cave and quest pools.
+  MONSTERS.fire_slime = { name: 'Fire Slime', hp: 20, armor: 0, tier: 2, range: 1, dmg: 4, speed: 0.9,
+    minDepth: 0, weight: 1, spawn: 'zone', sight: SLIME_SIGHT_CELLS, board: false, eliteEligible: true };
+  const MONSTERS_BASELINE = MONSTERS; // compatibility for tools reading the authored table
+  const LEGACY_MONSTERS = {};
+  for (const kind of ['cave_slime', 'purple_slime', 'goblin', 'goblin_archer', 'goblin_trapper']) {
+    const id = `giant_${kind}`, base = MONSTERS[kind];
+    if (!MONSTERS[id]) LEGACY_MONSTERS[id] = { ...base, id, name: `Giant ${base.name}`,
+      hp: base.hp * GIANT_HP_MUL, giant: kind, surface: null, cave: null,
+      spawn: 'legacy', weight: 0, eliteEligible: false };
   }
 
   // The registered table — the shipping MONSTERS by default. Kept as a
@@ -247,12 +124,12 @@
   // range / dmg / speed / minDepth / fly — app.js's wander loop and the fire
   // ward ask through this rather than reaching for the literal, so a test that
   // registered a synthetic kind is answered about that kind.
-  function monster(kind) { return MONSTER_STATS[kind]; }
+  function monster(kind) { return MONSTER_STATS[kind] || (MONSTER_STATS === MONSTERS ? LEGACY_MONSTERS[kind] : undefined); }
   // How far a kind wanders off, as a fraction of its activation range (the
   // `retreat` column above; 1 — a full retreat — for any kind without one,
   // the surface slime included). A giant inherits its base kind's.
   function retreatMul(kind) {
-    const r = MONSTER_STATS[kind]?.retreat;
+    const r = monster(kind)?.retreat;
     return (typeof r === 'number' && r > 0) ? r : 1;
   }
   // How far off, in cells, this kind notices the player (the `sight` column;
@@ -262,7 +139,7 @@
   // rings of their own and never ask.
   function sightCells(kind) {
     if (kind === 'slime') return SLIME_SIGHT_CELLS;
-    const s = MONSTER_STATS[kind]?.sight;
+    const s = monster(kind)?.sight;
     return (typeof s === 'number' && s > 0) ? s : Infinity;
   }
   // Can this kind see a player `distM` metres off? The per-creature half of
@@ -272,19 +149,19 @@
   }
   // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
   // the surface slime.
-  function isMonster(kind) { return !!MONSTER_STATS[kind]; }
+  function isMonster(kind) { return kind !== 'slime' && !!monster(kind); }
   // Does this monster land blows at all? A row with no `dmg` (the trapper)
   // never hits: app.js's melee drain and monster arrow both ask this, so a
   // harmless kind is harmless by its row, never by a `kind === …`.
-  function monsterHits(kind) { return (MONSTER_STATS[kind]?.dmg || 0) > 0; }
+  function monsterHits(kind) { return (monster(kind)?.dmg || 0) > 0; }
   // What a monster LAYS instead of hitting ('trap'), or null. A giant inherits
   // its base kind's (the giant rows are spreads of the base row).
-  function monsterLays(kind) { return MONSTER_STATS[kind]?.lays || null; }
+  function monsterLays(kind) { return monster(kind)?.lays || null; }
   // Does the cave bag (scene_creatures.js spawnCaveCreatures) draw this kind? Every row
   // without a `spawn` column — the ghost's 'night' is the one that has one.
   function spawnsUnderground(kind) {
-    const m = MONSTER_STATS[kind];
-    return !!m && !m.spawn;
+    const m = monster(kind);
+    return !!m && !m.spawn && !!m.cave;
   }
 
   // Non-monster fauna that can take damage. cat/dog/crow/deer are the pet-combat
@@ -310,16 +187,10 @@
   for (const [kind, model] of Object.entries(SUMMONED_AS)) FAUNA_HP[kind] = FAUNA_HP[model];
   function summonedAs(kind) { return SUMMONED_AS[kind] || null; }
 
-  // Hard mode scales ENEMY pools (Difficulty.enemyHpMul, 1.5×) here, in the
-  // one place both the wheel and the bounty read — so a hard-mode foe takes
-  // 1.5× as long at any weapon tier AND pays 1.5× the wage, by the same
-  // derivation an elite or a giant does. Game (crow, deer) and pets are not
-  // enemies and keep their fauna HP whatever the mode.
+  // Shared enemy pools never depend on the receiving player's mode.
   function creatureMaxHp(kind) {
-    const m = MONSTER_STATS[kind];
-    const base = (m && Number.isFinite(m.hp)) ? m.hp : (FAUNA_HP[kind] ?? 10);
-    if (!isEnemyKind(kind) || typeof Difficulty === 'undefined') return base;
-    return Math.round(base * Difficulty.get().enemyHpMul);
+    const m = monster(kind);
+    return (m && Number.isFinite(m.hp)) ? m.hp : (FAUNA_HP[kind] ?? 10);
   }
 
   // ── Armour: what a blow costs the PLAYER ─────────────────────────────────
@@ -355,8 +226,8 @@
   // every blow; a full Frost set takes a 24-point elite giant's swing to 5.
   //
   // Nothing here is the difficulty mode's or the shield potion's business:
-  // both scale the blow BEFORE it arrives (app.js), and armour spends against
-  // whatever is left — so a hard-mode hit is soaked as a hard-mode hit.
+  // potions scale the blow before armour; the receiving player's Hard penalty
+  // applies afterward so enemy stats remain shared across modes.
   const MITIGATION_ROUNDS = 4;
   const MIN_PLAYER_DAMAGE = 1;
   function mitigate(damage, reduction) {
@@ -378,21 +249,33 @@
   // table in one projectile (scene_creatures.js MONSTER_ARROW_HITS) — armour soaks each
   // of those hits, not the bundle, or a slow archer would out-damage a melee
   // kind against armour precisely because its damage arrives in one lump.
-  function playerDamage(damage, armor, hits = 1) {
+  // Mode belongs to the recipient, after armour. Callers may supply a mode
+  // for another player; local combat defaults to the active save's mode.
+  function playerDamageMultiplier(mode) {
+    if (typeof Difficulty === 'undefined') return mode === 'hard' ? 2.5 : 1;
+    return (mode ? Difficulty.of({ mode }) : Difficulty.get()).incomingDamageMul;
+  }
+  function playerDamage(damage, armor, hits = 1, mode) {
     const n = Math.max(1, Math.round(hits || 1));
     const reduction = (typeof armorReduction === 'function') ? armorReduction(armor) : 0;
-    if (n === 1) return mitigate(damage, reduction);
-    return n * mitigate(damage / n, reduction);
+    return n * mitigate(damage / n, reduction) * playerDamageMultiplier(mode);
+  }
+  // Mitigate whole packets, then integrate the rate. The one-point hit floor
+  // is never applied once per animation frame for an aura or ongoing damage.
+  function playerDamageRate(rawDps, armor, dtSeconds, options = {}) {
+    const packet = options.packetSeconds > 0 ? options.packetSeconds : 1;
+    return playerDamage(rawDps * packet * (options.multiplier ?? 1), armor, 1, options.mode)
+      / packet * Math.max(0, dtSeconds);
   }
 
   // Resolve an incoming blow after the attacker has applied its own power and
-  // difficulty multipliers. Potion expiry is persisted as epoch milliseconds;
+  // instance power. Player difficulty is applied after armour. Potion expiry is persisted as epoch milliseconds;
   // attack cooldowns use performance.now() and must not be passed as `now`.
   // Callers own energy loss, cooldowns and popup accumulation.
   function incomingDamage(save, damage, hits = 1, now = Date.now()) {
     if (playerDowned(save?.energy)) return 0;
     const shielded = (save.shieldPotionUntil ?? 0) > now ? Math.ceil(damage / 2) : damage;
-    return playerDamage(shielded, save.armor, hits);
+    return playerDamage(shielded, save.armor, hits, save.mode);
   }
 
   // ── DOWNED: the bar is empty ─────────────────────────────────────────────
@@ -422,7 +305,7 @@
   // game, and the surface slime never rolls shiny at all.
   const ELITE_MUL = 2;
   function isElite(c) {
-    return !!c && !!c.shiny && isMonster(c.kind);
+    return !!c && !!c.shiny && isEnemyKind(c.kind) && monster(c.kind)?.eliteEligible !== false;
   }
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
 
@@ -467,7 +350,7 @@
   // board is the caller — it used to hand-type these nine kinds, which is how
   // a kind added to MONSTERS could quietly fail to be worth a bounty.
   function enemyKinds() {
-    return ['slime', ...Object.keys(MONSTER_STATS)];
+    return [...new Set(['slime', ...Object.keys(MONSTER_STATS)])];
   }
   // May the quest board name this kind in a kill job? Every enemy but a row
   // that says `board: false` (the fire slime) — the column, never a list.
@@ -575,7 +458,7 @@
   // pet: it must never be shot at, auto-engaged, or counted as "an enemy is on
   // screen" for the auto-fire gate.
   function isEnemy(c) {
-    if (!c) return false;
+    if (!c || c._surfaceInactive) return false;
     if (typeof c.id === 'string' && c.id.startsWith('released_')) return false;
     return isEnemyKind(c.kind);
   }
@@ -591,7 +474,7 @@
   // would bite for its registered `dmg`.
   const PET_BITE = 1;
   function enemyBlow(kind) {
-    const m = MONSTER_STATS[kind];
+    const m = monster(kind);
     if (m) return m.dmg || 0;
     // The surface slime — the one enemy with no MONSTERS row (isEnemyKind).
     if (isEnemyKind(kind) && typeof SLIME_LEECH_ENERGY === 'number') return SLIME_LEECH_ENERGY;
@@ -610,9 +493,18 @@
     if (!Number.isFinite(c._hp)) c._hp = maxHp(c);
     return c._hp;
   }
-  // Apply `amount` damage; returns the HP left (never below 0).
-  function damage(c, amount) {
-    c._hp = Math.max(0, hp(c) - Math.max(0, amount));
+  // Return actual HP removed for damage popups; damage() retains its HP-left
+  // contract for existing defeat checks. Environmental/aura callers can pass
+  // bypassArmor after computing a packet rate, avoiding a per-frame hit floor.
+  function damageDealt(c, amount, options = {}) {
+    const before = hp(c);
+    const raw = Math.max(0, amount);
+    const hit = options.bypassArmor ? raw : mitigate(raw, monster(c.kind)?.armor || 0);
+    c._hp = Math.max(0, before - hit);
+    return before - c._hp;
+  }
+  function damage(c, amount, options) {
+    damageDealt(c, amount, options);
     return c._hp;
   }
   function hpFraction(c) {
@@ -1223,13 +1115,13 @@
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
-    isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, hpFraction,
+    isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
     ELITE_MUL, isElite, eliteMul, lairMul, powerMul, maxHp,
     TRAINING_PERM_STEP, TRAINING_PERM_CAP, TRAINING_PERM_MAX, TRAINING_BUFF_BONUS, TRAINING_BUFF_MS,
     trainingLessons, trainingBuffActive, trainingMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
-    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, incomingDamage, playerDowned,
+    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, playerDowned,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,

@@ -972,7 +972,7 @@ const FEATHER_REVIVE_ENERGY = 1;
 // (scene_creatures.js wanderCreatures), before the shield potion, its power,
 // the mode and armour. Here so the pest tip quotes the live number. (3 until
 // Sep 2026, doubled with the basic goblin's hit.)
-const SLIME_LEECH_ENERGY = 6;
+const SLIME_LEECH_ENERGY = EnemyRoster.get('slime').dmg;
 
 // ── ITEM GUIDES: the Book pages about a THING ──────────────────────────────
 // The one deliberate exception to "what an item does is written on the item,
@@ -1083,6 +1083,7 @@ const ITEM_GUIDE_TIPS = {
 const PLAY_TIPS = [
   // ── The first ten minutes — you cannot act without these ────
   'Actions cost energy. Eat to refill — or just rest; an hour away hands the whole bar back.',
+  'Hard mode makes you take 2.5 times as much damage after armour. Enemies have the same health and attacks in both modes.',
   'Hard mode is harsher on an empty tank: food, a campfire and time away all stop working. Only your trailer, a Crow Feather or a revival potion will put you back on your feet.',
   ITEM_GUIDE_TIPS.crow_feather,
   'Only your OWN home rests you — a full bar in fifty seconds. A stranger\'s roof is just a roof.',
@@ -1193,7 +1194,7 @@ const PLAY_TIPS = [
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
-  'On hard, ruins are held — about a third of wrecked houses, most forts, and nearly every castle — and the bigger the building the bigger the garrison: a castle can hide fifteen. Near home the guards fight at a fifth of their strength, at full strength a kilometre out. Wrecked houses are squatted by slimes; forts and castles are held by goblins.',
+  'In either mode, ruins are held — about a third of wrecked houses, most forts, and nearly every castle — and the bigger the building the bigger the garrison: a castle can hide fifteen. Wrecked houses are squatted by slimes; forts and castles hold goblins, archers and giant skeletons.',
   'On hard, you learn to make a thing only by first finding one out in the world.',
   'A held ruin waits. Come within a few cells and the whole garrison comes at you at once — but it never strays far from its own building, so get seventy metres from the ruin and they give up and walk back to it.',
   // ── Animals — meeting them, then keeping them ───────────────
@@ -1628,14 +1629,11 @@ function gearName(kind, slot, tier) {
 // ARMOR SOAK — what one worn piece takes off an incoming hit: ITS TIER. A Wood
 // helmet is −1, a Frost one is −7, and the four slots sum.
 //
-// LINEAR, AND THAT IS THE WHOLE POINT: the number has to live on the same
-// scale as the damage it is subtracted from. Everything in the game that hits
-// the player deals 1..4 a blow (MONSTERS[].dmg), doubled for an elite and
-// doubled again on hard — so the entire damage space is 1..16. It shipped as
-// tier SQUARED for a day, which put a full Frost set at 196 against a 16-point
-// worst case: every tier from Iron up soaked every blow down to the floor, and
-// the ladder above Wood was invisible. A quadratic reduction needs damage
-// numbers an order of magnitude bigger than this game has.
+// Armour pieces add their tier to the protection pool. Combat.mitigate uses
+// that pool to reduce each blow; Hard's receiving-player penalty follows
+// mitigation. Enemy armour uses the same engine and declared roster pool.
+// Keep this per-piece contribution linear so each equipment tier adds the
+// same amount of protection.
 //
 // This is the ONE place the per-piece number is written. Both sides read it:
 // Combat.mitigate spends the pool against a hit, and the Stats panel / shop

@@ -226,6 +226,17 @@ function ghostSunExposure(day) {
 function ghostSunExposureAt(scene, wall) {
   return (scene.depth || 0) > 0 ? 0 : ghostSunExposure(Lighting.daylight(scene, wall));
 }
+// Surface haunts use the same declared habitat as ordinary foes. Evaluate
+// the candidate's fixed world point, never its later chase position; crossing
+// a biome boundary during pursuit does not make a ghost disappear.
+function ghostSurfaceEligible(scene, x, y, cell) {
+  const habitat = EnemyRoster.get('ghost').surface;
+  const home = scene._starterTrailAnchor?.() || scene.save?.starterCratesAt || scene.startWorldM;
+  if (!home || !Number.isFinite(home.x) || !Number.isFinite(home.y)) return false;
+  const distance = Math.hypot(x - home.x, y - home.y);
+  if (distance < habitat.minDistance || (habitat.maxDistance != null && distance >= habitat.maxDistance)) return false;
+  return habitat.biomes.some(name => WorldGen.T[name] === cell.type);
+}
 // THE NIGHT PUMP — seats a group of ghosts in the dark about the player, once
 // every ghostSpawnDelay while ghostsHaunt says so (the surface after dark, an
 // even cave level always). Returns how many rose. The timer is disarmed
@@ -256,8 +267,9 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
     if (SpriteLayout.creatureHaunts(c.kind) && !caughtSet.has(c.id)) near++;
   });
-  const want = Math.min(GHOST_NEAR_MAX - near,
-    GHOST_GROUP_MIN + Math.floor(Math.random() * (GHOST_GROUP_MAX - GHOST_GROUP_MIN + 1)));
+  const profile = EnemyRoster.ghostProfile(depth);
+  const want = Math.min(profile.nearMax - near,
+    profile.groupMin + Math.floor(Math.random() * (profile.groupMax - profile.groupMin + 1)));
   const R = PEST_CROW_SPAWN_CELLS * scene.cellM;
   let base = Math.random() * Math.PI * 2;
   if (stones) {
@@ -269,10 +281,14 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
     // The fan first; if the dark is not there, anywhere on the ring.
     const a = i < want * 4 ? base + (Math.random() - 0.5) * GHOST_GROUP_SPREAD : Math.random() * Math.PI * 2;
     const x = px + Math.cos(a) * R, y = py + Math.sin(a) * R;
-    if (!scene.cellAt(x, y).loaded) continue;
+    const cell = scene.cellAt(x, y);
+    if (!cell.loaded || (depth === 0 && !ghostSurfaceEligible(scene, x, y, cell))) continue;
     if (wardTrip({ x, y }, homePos, castleWards, wardR2)) continue;
     if (Lighting.brightnessAt(scene, x, y) > GHOST_SPAWN_DARK) continue;
-    entry.creatures.push(makeGhost(x, y, now, pcW.tx, pcW.ty, made));
+    const ghost = makeGhost(x, y, now, pcW.tx, pcW.ty, made);
+    ghost.kind = depth >= 6 && Math.random() < 1 / 3 ? 'pink_ghost' : 'ghost';
+    ghost._artScale = profile.sizeMultiplier;
+    entry.creatures.push(ghost);
     made++;
   }
   return made;
@@ -286,6 +302,8 @@ function makeGhost(x, y, now, tx, ty, tag) {
     { _spawnT: now });
 }
 // A ghost raised AT a point, at any hour — a tapped headstone
+// is an explicit player-triggered encounter, outside ordinary habitat rules.
+// A tapped headstone
 // (INTERACTABLES.headstone, src/zones.js). Pushed into the tile holding the
 // point; refused (null) past GHOST_NEAR_MAX about it, or on an unloaded tile.
 function raiseGhostAt(scene, x, y, now, tag) {
@@ -560,4 +578,225 @@ function huntsPrey(hunterKind, cr) {
   if (SpriteLayout.preysOnFoes(hunterKind)) return Combat.isEnemy(cr) || isPestCrow(cr);
   const prey = SpriteLayout.creaturePrey(hunterKind);
   return !!prey && prey.has(cr.kind);
+}
+
+// Shared crow/bat interpolation. A quadratic leg's peak is twice its mean;
+// hostile flight uses this fact to cap actual metres/second, not just averages.
+function creatureFlightEase(t) {
+  t = Math.max(0, Math.min(1, t));
+  return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+}
+
+// Every segment is swept, including fast flights and lunges. Flying permits
+// low terrain, never rock walls, buildings, unloaded cells or placed rocks.
+function enemyCanStep(scene, c, row, x, y) {
+  const cell = scene.cellAt(x, y);
+  if (!cell.loaded) return false;
+  if (scene._cellBlocked(x, y) || WorldGen.isBuildingTerrain(cell.type)) return false;
+  if (scene.placedRockSet?.size) {
+    const { cellIX, cellIY } = worldMetersToAbsCell(scene, x, y);
+    if (scene.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) return false;
+  }
+  if (row.movement.pattern !== 'orbit_swoop' && Combat.faunaBlocksCell(cell.type)) return false;
+  const fireAverts = !c.lair && (row.tier <= FIRE_WARD_MAX_DEPTH);
+  return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
+}
+function enemySweep(scene, c, row, x, y) {
+  const dx = x - c.x, dy = y - c.y;
+  const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (scene.cellM * 0.2)));
+  const sx = c.x, sy = c.y;
+  for (let i = 1; i <= n; i++) {
+    const nx = sx + dx * i / n, ny = sy + dy * i / n;
+    if (!enemyCanStep(scene, c, row, nx, ny)) return false;
+    c.x = nx; c.y = ny;
+  }
+  if (Math.abs(dx) > 1e-6) c._faceFlip = dx < 0;
+  return true;
+}
+
+// A wind-up is cancellable: leaving range, hiding or a ward cancels it.
+// Cooldowns start when the attack starts, so the declared interval includes
+// the wind-up rather than accidentally extending every attack cycle.
+function enemyAttackReady(c, row, now, eligible) {
+  if (!eligible) { c._attackWindupUntil = null; return false; }
+  if (c._attackWindupUntil != null) {
+    if (now < c._attackWindupUntil) return false;
+    c._attackWindupUntil = null;
+    return true;
+  }
+  if (now < (c._attackNextT || 0)) return false;
+  c._attackNextT = now + row.damageIntervalSeconds * 1000;
+  c._attackWindupUntil = now + row.windupSeconds * 1000;
+  if (row.windupSeconds > 0) return false;
+  c._attackWindupUntil = null;
+  return true;
+}
+function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
+  const dist = Math.hypot(px - c.x, py - c.y);
+  const attentive = !inactive && !Combat.playerDowned(scene.save.energy)
+    && dist <= row.visionCells * scene.cellM;
+  const clear = attentive && Combat.lineOfFire(c.x, c.y, px, py,
+    (x, y) => scene._cellBlocked(x, y), scene.cellM);
+  if (row.aura && clear && dist <= row.aura.radiusCells * scene.cellM) {
+    const a = row.aura;
+    const raw = a.rawDps * Combat.powerMul(c);
+    const shield = (scene.save.shieldPotionUntil ?? 0) > Date.now() ? 0.5 : 1;
+    // Energy.set stores integers. Bank fractions BEFORE calling the scene's
+    // loss writer so 60 tiny frames cannot each become a minimum-one hit.
+    const loss = Combat.playerDamageRate(raw * shield, scene.save.armor, dt,
+      { packetSeconds: a.mitigationPacketSeconds });
+    scene._enemyAuraFraction = (scene._enemyAuraFraction || 0) + loss;
+    const whole = Math.floor(scene._enemyAuraFraction + 1e-9);
+    if (whole > 0) {
+      scene._enemyAuraFraction -= whole;
+      scene._monsterDmgAccum = (scene._monsterDmgAccum || 0)
+        + scene._losePlayerEnergy(whole, { closeShop: true });
+    }
+  }
+  if (row.attackType === 'trap') {
+    if (enemyAttackReady(c, row, now, clear && dist <= row.range * scene.cellM)) {
+      scene._trapperLay(c, now, px, py);
+    }
+    return;
+  }
+  if (!row.dmg || row.attackType === 'touch') return;
+  const swoop = row.movement.pattern === 'orbit_swoop';
+  const eligible = clear && dist <= row.range * scene.cellM
+    && (!swoop || (c._batSwooping && !c._batHit));
+  if (!enemyAttackReady(c, row, now, eligible)) return;
+  c._attackT0 = now;
+  c._attackUntil = now + Math.max(600, row.windupSeconds * 1000);
+  const raw = row.dmg * Combat.powerMul(c);
+  if (row.attackType === 'projectile') {
+    const shot = Combat.monsterShot(c.x, c.y, px, py, scene.cellM,
+      raw * row.attackHits, row.attackHits);
+    if (shot) {
+      shot.projectile = row.projectile || (row.id === 'goblin_archer' ? 'arrow' : 'enemy_magic');
+      shot.enemyKind = row.id;
+      (scene._shots ||= []).push(shot);
+    }
+  } else {
+    const damage = Combat.incomingDamage(scene.save, raw);
+    const lost = scene._losePlayerEnergy(damage, { closeShop: true });
+    scene._monsterDmgAccum = (scene._monsterDmgAccum || 0) + lost;
+    const condition = Combat.monster(c.kind)?.condition;
+    if (lost > 0 && condition) scene._applyCondition(condition);
+  }
+  if (swoop) c._batHit = true;
+}
+
+function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt) {
+  const m = row.movement;
+  const dist = Math.hypot(px - c.x, py - c.y);
+  const sees = !inactive && dist <= row.visionCells * scene.cellM;
+  let angle = Math.atan2(py - c.y, px - c.x);
+  let speed = m.speedMetersPerSecond;
+  let maxDistance = Math.max(0, dist - scene.cellM * 0.35);
+  if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
+    c._hp = Combat.maxHp(c); c._lastDamagedT = null;
+  }
+  if (routed) {
+    const from = c._wardFrom || { x: px, y: py };
+    angle = Math.atan2(c.y - from.y, c.x - from.x);
+    maxDistance = Infinity;
+    // Retreat is brisk but never exceeds the roster's fastest flight.
+    speed = Math.min(6, speed * FLEE_STRIDE_MUL / FLEE_BEAT_MUL);
+    c._batFlight = null; c._batSwooping = false;
+  } else if (lairState === 'return') {
+    angle = Math.atan2(c.seatY - c.y, c.seatX - c.x);
+    maxDistance = Math.hypot(c.seatX - c.x, c.seatY - c.y);
+    c._batFlight = null; c._batSwooping = false;
+  } else if (!sees) {
+    c._batFlight = null; c._batSwooping = false;
+    c._lungeUntil = null; c._lungeWindupUntil = null;
+    if (now >= (c._idleTurnT || 0)) {
+      c._idleAngle = Math.random() * Math.PI * 2; c._idleTurnT = now + 3000;
+    }
+    angle = c._idleAngle; maxDistance = Infinity;
+  } else if (m.pattern === 'orbit_swoop') {
+    enemyBatMove(scene, c, row, now, px, py);
+    return;
+  } else if (m.pattern === 'scuttle_pause') {
+    if (c._scuttleStart == null) c._scuttleStart = now;
+    const cycle = m.scuttleSeconds + m.pauseSeconds;
+    if (((now - c._scuttleStart) / 1000) % cycle >= m.scuttleSeconds) return;
+    // A stable lateral bias for each scuttle, not frame-rate-dependent noise.
+    const leg = Math.floor((now - c._scuttleStart) / (cycle * 1000));
+    angle += (leg % 2 ? 1 : -1) * m.approachAngleJitterRadians / 2;
+  } else if (m.pattern === 'anchor_spit' || m.pattern === 'strafe_cast' || m.pattern === 'keep_distance') {
+    const preferred = m.preferredDistanceCells * scene.cellM;
+    if (c._attackWindupUntil != null) return;
+    if (Math.abs(dist - preferred) < scene.cellM * 0.5) {
+      if (m.pattern === 'anchor_spit') return;
+      angle += Math.PI / 2; maxDistance = Infinity;
+    } else if (dist < preferred) { angle += Math.PI; maxDistance = preferred - dist; }
+    else maxDistance = dist - preferred;
+  } else if (m.pattern === 'lunge_recover') {
+    if (c._lungeUntil != null && now < c._lungeUntil) {
+      angle = c._lungeAngle; speed = m.lungeSpeedMetersPerSecond;
+    } else if (c._lungeUntil != null) {
+      c._lungeUntil = null; c._lungeRecoverUntil = now + m.lungeWindupSeconds * 1000;
+      return;
+    } else if (now < (c._lungeRecoverUntil || 0)) return;
+    else if (c._lungeWindupUntil != null) {
+      if (now < c._lungeWindupUntil) return;
+      c._lungeWindupUntil = null;
+      c._lungeUntil = now + m.lungeSeconds * 1000;
+      c._lungeAngle = angle;
+      c._lungeNextT = now + m.lungeCooldownSeconds * 1000;
+      return;
+    } else if (now >= (c._lungeNextT || 0)) {
+      c._lungeWindupUntil = now + m.lungeWindupSeconds * 1000;
+      return;
+    }
+  } else if (m.pattern === 'ooze' && slimeCharging(c)) {
+    speed = m.chargeSpeedMetersPerSecond || speed;
+  }
+  if (c._attackWindupUntil != null && !routed) return;
+  const step = Math.min(maxDistance, speed * dt);
+  const sx = c.x, sy = c.y;
+  if (!enemySweep(scene, c, row, c.x + Math.cos(angle) * step, c.y + Math.sin(angle) * step)) {
+    // Slide around a blocked approach without spending a second frame's
+    // movement budget. Stable handedness prevents left/right jitter.
+    const remaining = Math.max(0, step - Math.hypot(c.x - sx, c.y - sy));
+    if (c._avoidSide == null) c._avoidSide = Math.random() < 0.5 ? -1 : 1;
+    for (const side of [c._avoidSide, -c._avoidSide]) {
+      const a = angle + side * Math.PI / 2;
+      const x = c.x + Math.cos(a) * remaining, y = c.y + Math.sin(a) * remaining;
+      if (!enemyCanStep(scene, c, row, x, y)) continue;
+      enemySweep(scene, c, row, x, y); c._avoidSide = side; break;
+    }
+  }
+}
+
+function enemyBatMove(scene, c, row, now, px, py) {
+  const m = row.movement;
+  if (c._batFlight) {
+    const f = c._batFlight;
+    const u = creatureFlightEase((now - f.start) / f.duration);
+    const clear = enemySweep(scene, c, row, f.x + (f.tx - f.x) * u, f.y + (f.ty - f.y) * u);
+    if (!clear || now >= f.start + f.duration) {
+      c._batFlight = null;
+      c._batPauseUntil = now + (m.pauseSeconds[0]
+        + Math.random() * (m.pauseSeconds[1] - m.pauseSeconds[0])) * 1000;
+      // Contact remains eligible at the end of a swoop during its recovery,
+      // but _batHit permits just one blow on that leg.
+    }
+    return;
+  }
+  if (now < (c._batPauseUntil || 0)) return;
+  c._batLeg = (c._batLeg || 0) + 1;
+  c._batSwooping = (c._batSwooping && !c._batHit) || c._batLeg % m.swoopEveryLegs === 0;
+  c._batHit = false;
+  const radius = c._batSwooping ? m.swoopTargetRadiusCells
+    : m.orbitRadiusCells[0] + Math.random() * (m.orbitRadiusCells[1] - m.orbitRadiusCells[0]);
+  const a = Math.atan2(c.y - py, c.x - px) + 0.7 + Math.random() * 0.7;
+  const tx = px + Math.cos(a) * radius * scene.cellM;
+  const ty = py + Math.sin(a) * radius * scene.cellM;
+  const distance = Math.hypot(tx - c.x, ty - c.y);
+  const duration = m.flightSeconds[0] + Math.random() * (m.flightSeconds[1] - m.flightSeconds[0]);
+  const leg = Math.min(distance, m.maxLegCells * scene.cellM, m.speedMetersPerSecond * duration / 2);
+  const scale = distance > 0 ? leg / distance : 0;
+  c._batFlight = { start: now, duration: duration * 1000,
+    x: c.x, y: c.y, tx: c.x + (tx - c.x) * scale, ty: c.y + (ty - c.y) * scale };
 }

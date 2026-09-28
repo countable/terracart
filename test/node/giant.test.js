@@ -8,70 +8,28 @@
   const baseKinds = Object.keys(MONSTERS).filter((k) => !MONSTERS[k].giant && Combat.spawnsUnderground(k));
   const giantKinds = Object.keys(MONSTERS).filter((k) => MONSTERS[k].giant);
 
-  test('giants: every base kind has one, at 4× HP and two levels deeper', () => {
-    assert.eq(GIANT_HP_MUL, 4, 'four times the health, per the rule');
-    assert.eq(GIANT_DEPTH_STEP, 2, 'plus two to the dungeon level');
-    assert.gt(baseKinds.length, 0, 'there are base kinds');
-    assert.eq(giantKinds.length, baseKinds.length, 'one giant per base kind');
-    for (const kind of baseKinds) {
-      const base = MONSTERS[kind], g = MONSTERS['giant_' + kind];
-      assert.truthy(g, kind + ' has a giant');
-      assert.eq(g.giant, kind, 'the giant names its base kind');
-      assert.eq(g.hp, base.hp * GIANT_HP_MUL, kind + ' giant HP is 4× (after the cave doubling, both)');
-      assert.eq(g.minDepth, base.minDepth + GIANT_DEPTH_STEP, kind + ' giant is two levels deeper');
-      assert.eq(g.name, 'Giant ' + base.name, kind + ' giant is named');
-      // Damage, reach and cadence are the base kind's — a bigger body, not a
-      // new foe.
-      for (const k of ['dmg', 'range', 'speed', 'fly']) assert.eq(g[k], base[k], kind + ' giant ' + k + ' is the base kind\'s');
-      assert.lte(g.weight, base.weight, kind + ' giant is no commoner than its base');
-      assert.gte(g.weight, 1, kind + ' giant can actually spawn');
-      assert.eq(SpriteLayout.isGiantKind('giant_' + kind), true);
-      assert.eq(SpriteLayout.baseKind('giant_' + kind), kind);
-      assert.eq(SpriteLayout.isGiantKind(kind), false);
-      assert.eq(SpriteLayout.baseKind(kind), kind);
-      // combat.js reads the table, so the pool and the bounty follow.
-      assert.eq(Combat.creatureMaxHp('giant_' + kind), g.hp, kind + ' giant pool from the table');
-      assert.eq(Combat.maxHp({ kind: 'giant_' + kind, shiny: true }), g.hp * Combat.ELITE_MUL, 'an elite giant doubles again');
-      assert.gt(enemyBounty('giant_' + kind, 0), enemyBounty(kind, 0), kind + ' giant pays more');
-      // The deeper introduction buys the elite roll its +2 tier.
-      assert.eq(eliteRollBonus('giant_' + kind, 1), eliteRollBonus(kind, 1) + GIANT_DEPTH_STEP, kind + ' giant elite rolls two tiers higher');
+  test('giants: only declared variants enter the roster, with their own final stats', () => {
+    const declared = EnemyRoster.ROWS.filter(row => row.variantType === 'Giant');
+    assert.eq(giantKinds.length, declared.length);
+    for (const row of declared) {
+      const live = Combat.monster(row.id);
+      assert.eq(live.hp, row.hp);
+      assert.eq(live.giant, row.variantOf);
+      assert.eq(Combat.maxHp({ kind: row.id, shiny: true }), row.hp, 'size and elite do not stack');
+      assert.eq(SpriteLayout.baseKind(row.id), row.variantOf);
     }
+    assert.falsy(MONSTERS.giant_goblin, 'legacy giant is excluded from new encounters');
+    assert.truthy(Combat.monster('giant_goblin'), 'old save still resolves');
   });
 
-  test('giants: a kind that never spawns in a cave has no giant', () => {
-    const night = Object.keys(MONSTERS).filter((k) => !MONSTERS[k].giant && !Combat.spawnsUnderground(k));
-    assert.includes(night, 'ghost', 'the ghost is the night kind');
-    for (const k of night) assert.falsy(MONSTERS['giant_' + k], k + ' has no giant form');
-  });
-
-  test('giants: drawn on the base art at 1.8×, and everything seated on the body follows', () => {
-    assert.eq(SpriteLayout.GIANT_ART_SCALE, 1.8, '1.8× art, per the rule');
-    for (const kind of baseKinds) {
-      const g = 'giant_' + kind;
-      const base = SpriteLayout.CREATURE_ART[kind];
-      assert.truthy(base, kind + ' has art');
-      assert.falsy(SpriteLayout.CREATURE_ART[g], 'no giant row in the art table — it is derived');
-      const art = SpriteLayout.creatureArt(g);
-      assert.truthy(art, g + ' resolves to art');
-      assert.eq(art.scale, base.scale * SpriteLayout.GIANT_ART_SCALE, g + ' is the base scaled up');
-      for (const k of ['fw', 'fh', 'foot', 'float', 'minY', 'maxY']) assert.eq(art[k], base[k], g + ' keeps ' + k);
-      assert.eq(SpriteLayout.creatureScale(g), art.scale, 'creatureScale reads the resolved art');
-      assert.eq(SpriteLayout.creatureFoot(g), base.foot, 'same foot origin');
-      assert.eq(SpriteLayout.creatureFloat(g), base.float, 'same float');
-      // The crown is higher on a taller body, so the wheel and the bar seat
-      // higher (more negative = further up the screen) than on the base kind.
-      assert.lt(SpriteLayout.creatureWheelDy(g), SpriteLayout.creatureWheelDy(kind), g + ' wheel seats higher');
-      assert.lt(SpriteLayout.creatureHealthBarTop(g), SpriteLayout.creatureHealthBarTop(kind), g + ' bar floats higher');
-      // Crown rule, re-derived: the wheel's outer top edge sits on the art
-      // top when the art is tall enough to carry a full radius.
-      const anchorY = SpriteLayout.CREATURE_GROUND_DY - art.float;
-      const artTop = anchorY - (art.foot * art.fh - art.minY) * art.scale;
-      const artH = (art.maxY - art.minY) * art.scale;
-      const R = SpriteLayout.CREATURE_WHEEL_R + 1;
-      const expect = artTop + Math.min(R, artH / 2);
-      assert.eq(SpriteLayout.creatureWheelDy(g), expect, g + ' wheel obeys the crown rule');
+  test('giants: art and seated indicators scale with the declared giant body', () => {
+    assert.eq(SpriteLayout.GIANT_ART_SCALE, 1.6);
+    for (const row of EnemyRoster.ROWS.filter(row => row.variantType === 'Giant')) {
+      const art = SpriteLayout.creatureArt(row.id), base = SpriteLayout.creatureArt(row.variantOf);
+      assert.eq(art.scale, base.scale * SpriteLayout.GIANT_ART_SCALE);
+      assert.lt(SpriteLayout.creatureWheelDy(row.id), SpriteLayout.creatureWheelDy(row.variantOf));
+      assert.lt(SpriteLayout.creatureHealthBarTop(row.id), SpriteLayout.creatureHealthBarTop(row.variantOf));
     }
-    assert.eq(SpriteLayout.creatureArt('giant_nessie'), undefined, 'a giant of nothing has no art');
   });
 
   test('giants: a different kind on the quest board and in the Discovery ledger', () => {
@@ -90,7 +48,7 @@
     // A high enough rank actually rolls a giant job.
     let giantJobs = 0;
     for (let g = 0; g < 200; g++) {
-      const q = Quests.generate(g % QUEST_SLOTS, g + 3, 20, 11);
+      const q = Quests.generate(g % QUEST_SLOTS, g + 3, 100, 11);
       if (q.verb === 'kill' && /^giant_/.test(q.target)) giantJobs++;
       if (q.verb === 'kill') assert.falsy(/undefined/.test(q.body), 'the giant is named: ' + q.body);
     }
