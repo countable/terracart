@@ -243,3 +243,66 @@ test('bed quality: the till banks it, the plant spends it, the harvest reads it'
   assert.falsy(/canCharges/.test(src),
     'the refill charge bank retired with the bonus it fed');
 });
+
+// Magical flowers take hours, but retain the same watering and powder rules.
+test('magical flowers: each crop uses its own hold and advances once offline', () => {
+  const now = 50_000_000;
+  for (const [crop, minutes] of [['berry', 15], ['sunflower', 60], ['fireflower', 120], ['iceflower', 180]]) {
+    const hold = minutes * 60 * 1000;
+    assert.eq(Crops.stageHoldMs(crop), hold, crop);
+    const p = { crop, stage: 0, watered_t: now };
+    const save = { planted: [p] };
+    assert.falsy(Crops.advanceGrowth(save, now + hold - 1), 'not before the boundary');
+    assert.truthy(Crops.advanceGrowth(save, now + hold), 'at the boundary');
+    assert.eq(p.stage, 1);
+    assert.eq(p.watered_t, 0);
+    assert.falsy(Crops.advanceGrowth(save, now + hold * 20), 'no further growth until rewatered');
+  }
+});
+
+test('magical flowers: Frost can halves waits and four powders bypass every wait', () => {
+  for (const crop of ['sunflower', 'fireflower', 'iceflower']) {
+    const p = { crop, x: 0, y: 0, stage: 0, watered_t: 0 };
+    const save = { planted: [p] };
+    const t = 50_000_000;
+    const hold = Crops.stageHoldMs(crop);
+    for (let i = 0; i < 2; i++) {
+      assert.eq(Crops.waterOne(save, p, canOf(7), t + i * hold, alwaysJump), 'jumped');
+      assert.truthy(Crops.advanceGrowth(save, t + (i + 1) * hold));
+    }
+    assert.truthy(Crops.isMature(p), 'two waits mature the crop');
+    p.stage = 0;
+    for (let i = 0; i < 4; i++) assert.eq(Crops.advanceWithin(save, 0, 0, 1), 1);
+    assert.truthy(Crops.isMature(p), 'powder needs neither water nor a timer');
+    assert.eq(p.watered_t, 0);
+  }
+});
+
+test('crop timer migration: preserves fractional progress and pays out ready old stages', () => {
+  const now = 50_000_000;
+  for (const crop of ['sunflower', 'fireflower', 'iceflower']) {
+    const p = { crop, stage: 1, watered_t: now - HOLD() / 2 };
+    const save = { planted: [p] };
+    assert.truthy(Crops.migrateStageTimers(save, now));
+    assert.eq(now - p.watered_t, Crops.stageHoldMs(crop) / 2, 'half the new hold earned');
+    assert.falsy(Crops.advanceGrowth(save, now + Crops.stageHoldMs(crop) / 2 - 1));
+    assert.truthy(Crops.advanceGrowth(save, now + Crops.stageHoldMs(crop) / 2));
+    assert.eq(p.stage, 2);
+  }
+  const ready = { crop: 'iceflower', stage: 2, watered_t: now - HOLD() };
+  const offline = { crop: 'sunflower', stage: 0, watered_t: now - HOLD() * 100 };
+  const mature = { crop: 'fireflower', stage: 4, watered_t: now - HOLD() };
+  const dry = { crop: 'fireflower', stage: 1, watered_t: 0 };
+  const ordinary = { crop: 'berry', stage: 1, watered_t: now - HOLD() / 2 };
+  const save = { planted: [ready, offline, mature, dry, ordinary] };
+  Crops.migrateStageTimers(save, now);
+  assert.eq(ready.stage, 3);
+  assert.eq(ready.watered_t, 0);
+  assert.eq(offline.stage, 1, 'long offline advances only once');
+  assert.eq(offline.watered_t, 0);
+  assert.eq(mature.stage, 4);
+  assert.eq(mature.watered_t, now - HOLD(), 'mature crop untouched');
+  assert.eq(dry.watered_t, 0);
+  assert.eq(dry.stage, 1);
+  assert.eq(ordinary.watered_t, now - HOLD() / 2, 'ordinary in-progress clock unchanged');
+});

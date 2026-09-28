@@ -4083,7 +4083,6 @@ Render.drawObjects = function drawObjects(scene) {
   // has expired (player just needs to tap to advance). Hidden for wildplants
   // (no watered_t), seeds (stage 0 + unwatered), and mature crops.
   // Uses a parallel Phaser.Text pool — Render.renderPool only creates sprites.
-  const STAGE_HOLD_MS = Crops.STAGE_HOLD_MS;   // single source of truth in crops.js
   const now = Date.now();
   const timerList = plantedList.filter(({ p }) =>
     !p.wildId && (p.stage ?? 0) < MAX_GROWTH_STAGE && p.watered_t);
@@ -4102,7 +4101,7 @@ Render.drawObjects = function drawObjects(scene) {
       scene.plantedTimerPool.push(t);
     }
     const { sx, sy } = project(dx, dy);
-    const remaining = STAGE_HOLD_MS - (now - p.watered_t);
+    const remaining = Crops.stageHoldMs(p.crop) - (now - p.watered_t);
     // Largest-unit notation (util.js shortDuration) — the badge used to print
     // a BARE minutes number, the one timer in the game with no unit on it, so
     // "7" over a crop and "7m" over a house meant the same thing and didn't

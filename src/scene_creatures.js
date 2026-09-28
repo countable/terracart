@@ -1183,8 +1183,11 @@ class SceneCreatures {
           const dmg = m.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
           const monDmg = Combat.incomingDamage(this.save, dmg);
           if (monDmg > 0) {
-            this._monsterDmgAccum = (this._monsterDmgAccum || 0)
-              + this._losePlayerEnergy(monDmg, { closeShop: true });
+            const lost = this._losePlayerEnergy(monDmg, { closeShop: true });
+            this._monsterDmgAccum = (this._monsterDmgAccum || 0) + lost;
+            if (lost > 0 && !isTame && Combat.isEnemy(c) && m.condition) {
+              this._applyCondition(m.condition);
+            }
           }
         }
       }

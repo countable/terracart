@@ -330,7 +330,7 @@ test('trapper lays: never on a Magic Trap, never out of its range', () => {
 test('magic trap: a tier-2, cave-only consumable with its own ✦ line', () => {
   const it = ITEM_BY_ID.magic_trap;
   assert.truthy(it, 'registered');
-  assert.eq(it.kind, 'consumable');
+  assert.eq(it.kind, 'supply');
   assert.eq(it.baseTier, 2, 'tier 2');
   assert.truthy(it.caveOnly, 'cave only');
   assert.gt(PRICES.magic_trap, 0, 'priced');

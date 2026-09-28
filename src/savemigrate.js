@@ -48,10 +48,22 @@
   // whole point of the field, and the thing this file spent its life without.
   //   1 — the field itself (Sep 2026).
   //   2 — memories: the 'discovery' bag stack folded into save.memories.
-  const SAVE_SCHEMA = 2;
+  //   3 — Magic/Supplies tabs, crop-specific growth timers and conditions.
+  const SAVE_SCHEMA = 3;
 
   function migrate(save) {
     let needsPersist = false;
+    if ((save.schema || 0) < 3) {
+      if (save.invCat === 'consumables') {
+        const selected = save.inv?.[save.selSlot]?.id;
+        const cat = selected && typeof invCatForItem === 'function' ? invCatForItem(selected) : null;
+        save.invCat = cat === 'magic' ? 'magic' : 'supplies';
+        save.invPage = 0;
+      }
+      if (typeof Crops !== 'undefined') Crops.migrateStageTimers(save);
+      needsPersist = true;
+    }
+    if (typeof Conditions !== 'undefined') Conditions.normalize(save);
 
     // --- Slot / default backfills (idempotent; don't force a persist) --------
     // Stats / equipment: add energy + relic/armor slots to older saves. The
@@ -335,5 +347,5 @@
     return true;
   }
 
-  root.SaveMigrate = { migrate, hasPlayed };
+  root.SaveMigrate = { SAVE_SCHEMA, migrate, hasPlayed };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

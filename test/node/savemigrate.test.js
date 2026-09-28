@@ -55,12 +55,12 @@ test('migrate: re-derives maxEnergy from armor and clamps energy into range', ()
 test('migrate: stamps the save-shape generation, and asks to persist once', () => {
   const save = {};
   const persist = SaveMigrate.migrate(save);
-  assert.eq(save.schema, 2, 'a migrated save carries the generation');
+  assert.eq(save.schema, SaveMigrate.SAVE_SCHEMA, 'a migrated save carries the generation');
   assert.eq(persist, true, 'the first stamp is a real change → persist');
   // Already stamped: nothing left to write.
   const persist2 = SaveMigrate.migrate(save);
   assert.eq(persist2, false, 'a stamped save asks for no further persist');
-  assert.eq(save.schema, 2, 'and the stamp is unchanged');
+  assert.eq(save.schema, SaveMigrate.SAVE_SCHEMA, 'and the stamp is unchanged');
 });
 
 test('migrate: the pre-schema migrations are RETIRED — old saves are forfeit', () => {
@@ -100,7 +100,7 @@ test('migrate: discovery badges in the bag become save.memories', () => {
   assert.falsy(save.inv.find((s) => s.id === 'discovery'), 'and the stack left the bag');
   assert.eq(save.inv.map((s) => s.id).join(','), 'wood,coal', 'the rest of the bag keeps its order');
   assert.eq(save.inv[save.selSlot].id, 'coal', 'the selection still points at what was held');
-  assert.eq(save.schema, 2);
+  assert.eq(save.schema, SaveMigrate.SAVE_SCHEMA);
   // Idempotent: nothing left to fold.
   assert.eq(SaveMigrate.migrate(save), false, 'a second pass is a no-op');
   assert.eq(save.memories, 7);

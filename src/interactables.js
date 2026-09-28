@@ -450,7 +450,7 @@ const INTERACTABLES = {
       // which handles items AND relics (biome-specific weights).
       const held = save.chestHold && save.chestHold[o.id];
       const chestT = (typeof chestRollTier === 'function') ? chestRollTier(o.poiClass, o.x, o.y, o.depth) : 2;
-      const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
+      const theme = chestThemeForPoi(o.poiClass);
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }
         // Starter chests carry a fixed payload (9 wood / 9 rockfruit / 9 seeds,
@@ -462,7 +462,8 @@ const INTERACTABLES = {
             : (stand
                 ? { kind: 'item', id: stand.item, qty: 2 + Math.floor(Math.random() * 3), consolation: 0 }
                 : ((typeof pickReward === 'function')
-                    ? pickReward('chest:' + category, save, undefined, { tier: chestT, depth: o.depth || 0 })
+                    ? pickReward('chest:' + theme, save, undefined, { tier: chestT, depth: o.depth || 0,
+                        venueProduct: venueProductFor(o) })
                     : null)));
       if (!result) {
         addMoney(save, 1);
