@@ -261,6 +261,11 @@ const SHEETS = {
   tar:           { file: 'assets/Objects/Generated/tar.png',                 fw: 16, fh: 16, frames: [0] },
   headstone:     { file: 'assets/Objects/Generated/headstone.png',           fw: 16, fh: 16, frames: [0] },
   grove_shrine:  { file: 'assets/Objects/Generated/shrine.png',              fw: 16, fh: 24, frames: [0] },
+  barrel:         { file: 'assets/Objects/Generated/barrel.png',             fw: 16, fh: 16, frames: [0] },
+  barrel_smashed: { file: 'assets/Objects/Generated/barrel_smashed.png',     fw: 16, fh: 16, frames: [0] },
+  bike_rack:      { file: 'assets/Objects/Generated/bike_rack.png',          fw: 16, fh: 16, frames: [0] },
+  signpost:       { file: 'assets/Objects/Generated/signpost.png',           fw: 16, fh: 16, frames: [0] },
+  gatepost:       { file: 'assets/Objects/Generated/pillar_a.png',           fw: 16, fh: 16, frames: [0] },
 };
 
 // ── Scenarios: one row per representative (sprite, variant). key/frameIdx pick
@@ -305,6 +310,13 @@ const SCENARIOS = [
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'headstone',     frameIdx: 0, scale: 1.6 },
   { name: 'grove shrine',    key: 'grove_shrine',  frameIdx: 0, scale: 1.6 },
+  // The POI props (loot.js chestLook — barrel / bike_rack at render.js
+  // SMALL_POI_SCALE; the notice board and the gate post at 1.6).
+  { name: 'barrel',          key: 'barrel',        frameIdx: 0, scale: 1.3 },
+  { name: 'barrel smashed',  key: 'barrel_smashed', frameIdx: 0, scale: 1.3 },
+  { name: 'bike rack',       key: 'bike_rack',     frameIdx: 0, scale: 1.3 },
+  { name: 'notice board',    key: 'signpost',      frameIdx: 0, scale: 1.6 },
+  { name: 'gate post',       key: 'gatepost',      frameIdx: 0, scale: 1.6 },
 ];
 
 // ── Evaluate one scenario against the rule ─────────────────────────────────

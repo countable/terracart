@@ -90,7 +90,8 @@
   <details class="note">
     <summary><b style="color:var(--gold)">What changed recently</b> (world rules the figures below reflect)</summary>
     <ul>
-      <li><b>Daily crates</b>: the low-tier <b>crate</b> (the <code>box</code> look — a surface POI chest of chest tier 1: not a starter crate, wagon, stall, macro or cauldron) now <b>refills every UTC day</b> at its normal tier, spent in the coin-burst day ledger (<code>refillsDaily</code>). Every other chest (trunks, wagons, nexus chests, cave chests, starter chests) and every X mark / headstone hoard is still <b>one-off</b>. A crate, the chapel's alms and a grove shrine's gift <b>glow</b> (the POI light) while today's take is there. Recurring value if every one were taken daily (36 saved tiles, Home at the block's centre): crate ≈ $8, chapel ≈ $28–34, shrine ≈ $10 per take; per 9-tile city per day — Kelowna 96 crates / 15 chapels / 37 shrines ≈ $1.6k, Vancouver 838 / 31 / 75 ≈ $8.5k, Seattle 767 / 48 / 46 ≈ $8.0k, Berlin 3,517 / 50 / 105 ≈ $30.6k (crates are 80–90% of it).</li>
+      <li><b>Chest tier = density</b> (Sep 2026): a POI chest's tier is how many chests of its <b>own class</b> its tile holds (<code>CHEST_DENSITY_TIERS</code>: 1 → T4, 2–4 → T3, 5–24 → T2, 25+ → T1), + depth, +1 at a nexus. The <b>Home rings are gone</b> — the tier shown is the tier paid. A T1 chest is a <b>crate</b> that restocks after <code>clamp(floor(n / 25), 1, 7)</code> days (25–49 of a kind daily … 175+ weekly; the day ledger now keeps a week). <b>Public art</b> is a fixed T1 one-time trunk. <b>Bins / recycling are barrels</b>: smashed, restock like crates, empty 60% → 90% at 25+ of a kind, else 1–3 coins / an apple / a torch or rope. <b>ATMs</b> alone are pots of gold, spilling 30 coins alone → 3 at 50 per tile → 1 at 150+ (log-linear). <b>Bike racks</b> lend +100% stick speed for 3 min once a day. <b>Gates</b> are two posts round a spawn point (one slime or goblin a UTC day, every mode). <b>Information</b> POIs are notice boards (one Book page each). Traffic signals, crossings, stop signs, fences, power lines and carports are no longer chests (Kelowna's sidecar: 55 removed; the MVT tiles carry none).
+        <br>36 saved tiles, before (Home at the block's centre) → after, per 9-tile city: chests Kelowna 330 → 318, Vancouver 4,293 → 4,181, Berlin 10,507 → 8,794, Seattle 2,322 → 2,006. Crates 73 / 726 / 3,501 / 705 → 0 / 356 / 958 / 58; pots 8 / 735 / 2,381 / 438 → 0 / 19 / 98 / 12; barrels → 1 / 219 / 1,353 / 154 (mean empty 60% / 86% / 89% / 78%); bike racks → 8 / 720 / 2,320 / 429; gate spawn points → 6 / 27 / 558 / 133; notice boards → 1 / 67 / 205 / 70. One-time value per tile $343 / $5.2k / $10.9k / $3.4k → $0.8k / $1.8k / $2.1k / $1.8k; recurring value per day per tile (crates + barrels at their restock cadence, chapels, shrines, pots) $167 / $2.0k / $7.2k / $1.5k → $88 / $474 / $1.1k / $292.</li>
       <li>Unclassified landuse is <b>WASTELAND</b> terrain (was painted as residential).</li>
       <li>Road mask stamps a cell when the drawn band covers <b>≥ 50%</b> of it.</li>
       <li>Surface traps only on <b>bandit stretches</b> of major roads (~1/3 of each street's ~200 m stretches, <code>ROAD_CLASS_BANDIT_VERGE</code>) at <b>6×</b> the ground share, <b>+ wasteland</b>; per-tile totals ~1.5× the old whole-verge rule. Residential streets are safe.</li>
@@ -308,21 +309,25 @@ function chestGrid() {
 
 function defaultTiers() {
   const rows = Object.entries(ChestThemes.themes).map(([theme, def]) => [theme, def.tier]).sort((a, b) => a[1] - b[1]);
-  table($('defaultTiers'), ['theme', 'locations', 'surface interaction', 'base chest tier', 'mirrors underground'], rows.map(([category, tier]) => {
+  table($('defaultTiers'), ['theme', 'locations', 'surface interaction', 'theme tier (loot mix only)', 'mirrors underground'], rows.map(([category, tier]) => {
     const places = Object.keys(POI_CATEGORY).filter((p) => chestThemeForPoi(p) === category);
     const stalls = places.filter((poiClass) => produceStandFor({ kind: 'chest', poiClass }));
     const chestOnly = places.filter((p) => STAND_NEVER_CLASSES.has(p));
     const surface = stalls.length === places.length ? 'Market stalls'
       : stalls.length ? `Market stalls: ${stalls.map((p) => p.replaceAll('_', ' ')).join(', ')}. `
         + (chestOnly.length ? `Chests: ${chestOnly.join(', ')}.` : 'Other locations: chests or name-based stalls.')
-      : category === 'roadside' ? 'Chests; ATMs and bicycle stands also have coin bursts' : 'Chests';
+      : category === 'roadside' ? 'Chests; bins and recycling are barrels, ATMs pots of gold, bike racks a speed boost' : 'Chests';
     return `<tr><td>${category}</td><td style="text-align:left;white-space:normal">${places.map((p) => p.replaceAll('_', ' ')).join(', ')}</td>`
       + `<td style="text-align:left;white-space:normal">${surface}</td><td>T${tier}</td><td>${chestMirrorsUnderground(places[0]) ? 'yes' : 'no'}</td></tr>`;
-  }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>Chests</td><td>T${chestTier()}</td><td>yes</td></tr>`));
-  $('tierRules').textContent = 'Near Home, contents roll lower: '
-    + CHEST_TIER_HOME_RINGS_M.map((m, i) => `within ${m} m, −${i + 1} tier${i ? 's' : ''}`).join('; ')
-    + `. Floor the surface roll at T1, then add one tier per ${CHEST_TIER_DEPTH_STEP} underground levels, capped at T${CHEST_TIER_MAX}. `
-    + 'Home distance does not change the displayed chest tier. Set Reward roll tier below to the resulting tier; Depth applies the cave loot mix.';
+  }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>Chests</td><td>T${CHEST_TIER_UNSTAMPED} (unstamped)</td><td>yes</td></tr>`));
+  $('tierRules').textContent = 'A POI chest\'s tier is how many chests of its class its own tile holds: '
+    + CHEST_DENSITY_TIERS.slice().reverse().map((r, i, a) => {
+      const next = a[i + 1];
+      return `${r.atLeast}${next ? (next.atLeast - 1 > r.atLeast ? '–' + (next.atLeast - 1) : '') : '+'} → T${r.tier}`;
+    }).join(', ')
+    + ` (public art is a fixed T1 one-time trunk). Add one tier per ${CHEST_TIER_DEPTH_STEP} underground levels and +${ZONE_NEXUS_TIER_BONUS} at a zone nexus, capped at T${CHEST_TIER_MAX}. `
+    + `A T1 chest is a crate: it restocks after ceil(count / ${CRATE_RESTORE_PER}) days (1–${CRATE_RESTORE_MAX_DAYS}). Home plays no part. `
+    + 'Set Reward roll tier below to the resulting tier; Depth applies the cave loot mix.';
 }
 
 function syncControls() {
@@ -503,8 +508,8 @@ function wMeasure(e, EDGE, errors) {
     let look = '?';
     try { look = (typeof chestLook === 'function') ? chestLook(c).texKey : '?'; } catch (err) { look = 'error'; }
     m.chests.look[look] = (m.chests.look[look] || 0) + 1;
-    let t = (typeof chestTier === 'function') ? chestTier(c.poiClass, c.x, c.y, 0) : 0;
-    if (c.zoneNexus) { m.chests.nexus++; if (typeof ZONE_NEXUS_TIER_BONUS === 'number') t = Math.min(typeof CHEST_TIER_MAX === 'number' ? CHEST_TIER_MAX : 9, t + ZONE_NEXUS_TIER_BONUS); }
+    const t = (typeof chestTier === 'function') ? chestTier(c) : 0;
+    if (c.zoneNexus) m.chests.nexus++;
     m.chests.tier['T' + t] = (m.chests.tier['T' + t] || 0) + 1;
     if (c.poiClass === 'bus') m.chests.bus++;
     if (c.banditStop) m.chests.wagon++;
@@ -821,17 +826,21 @@ function wRender(w) {
 // What each placement actually PAYS, off the same tiles wBuild() just
 // rasterized + spawned. Every value is pickReward, sampled and valued the
 // way describe() (above) does — list price, items.js itemValue / gear.js
-// gearPrice — never a retyped number. Recurring rows (the crate —
-// interactables.js refillsDaily — the chapel's alms, a grove shrine's gift,
-// the pot of gold's coin burst, the macro stalls and the guildhall's board)
-// pay again every UTC day; every other chest, the wagon look, a zone-nexus
-// chest's own bonus tier, and a headstone hoard pay once per save
-// (interactables.js isSpent). Feature-detects every module it reads, so it
-// renders '(not available)' before a module lands rather than throwing.
+// gearPrice — never a retyped number. Recurring rows pay again at their own
+// cadence and are shown PER DAY: a crate or a barrel (interactables.js
+// restocks) once every loot.js crateRestoreDays(o) UTC days, the chapel's
+// alms, a grove shrine's gift, the pot of gold's burst (loot.js potCoinsFor —
+// its density on the tile), the bike rack, the macro stalls and the
+// guildhall's board once a day. Every other chest (trunks — public art
+// included — wagons, zone-nexus chests) and a headstone hoard pay once per
+// save (interactables.js isSpent). Gate spawn points and notice boards are
+// counted (a foe a day; one Book page once). Feature-detects every module it
+// reads, so it renders '(not available)' before a module lands rather than
+// throwing.
 const WVALUE_N_SAMPLES = 60; // modest — this runs on every "Rebuild tiles"
 function wValueByType(entries) {
   const canChest = typeof pickReward === 'function' && typeof chestLook === 'function'
-    && typeof chestRollTier === 'function' && typeof chestThemeForPoi === 'function' && typeof POI_CATEGORY !== 'undefined';
+    && typeof chestTier === 'function' && typeof chestThemeForPoi === 'function' && typeof POI_CATEGORY !== 'undefined';
   if (!canChest) return null;
   const emptySave = { relics: {}, armor: {}, inv: [], money: 0 };
   const evCache = new Map();
@@ -849,7 +858,18 @@ function wValueByType(entries) {
     const listPrice = Math.max(1, PRICES[id] ?? 1);
     return listPrice - ShopsMath.standPrice(emptySave, listPrice);
   }
-  const COIN_BURST_CAP = 12; // app.js _coinBurst target clamp: [COIN_BURST_MIN, 12]
+  // One smash of a barrel at `count` of its kind: loot.js BARREL_LOOT's
+  // expectation, valued at list price, times the chance it is not empty.
+  function barrelEV(count) {
+    const total = BARREL_LOOT.reduce((s, r) => s + r.w, 0);
+    let full = 0;
+    for (const r of BARREL_LOOT) {
+      const v = r.kind === 'coin' ? (r.min + r.max) / 2
+        : (r.ids || [r.id]).reduce((s, id) => s + (itemValue(id) || 0), 0) / (r.ids || [r.id]).length;
+      full += (r.w / total) * v;
+    }
+    return (1 - barrelEmptyP(count)) * full;
+  }
 
   const rows = new Map(); // label -> { count, oneTimeSum, recurringSum, cadence }
   const bump = (label, cadence, value) => {
@@ -861,10 +881,16 @@ function wValueByType(entries) {
   };
 
   for (const e of entries) {
+    for (const o of e.objects || []) {
+      if (o && o.kind === 'infoboard') bump('Notice board (one Book page)', 'one-time', 0);
+      if (o && o.kind === 'gatepost') bump('Gate post (2 per spawn point)', 'one-time', 0);
+    }
     const chests = (e.objects || []).filter((o) => o && o.kind === 'chest' && !(o.depth > 0));
     for (const o of chests) {
       let look; try { look = chestLook(o); } catch (err) { continue; }
-      if (look.coin) { bump('Pot of gold (coin burst)', 'recurring', COIN_BURST_CAP); continue; }
+      if (look.coin) { bump('Pot of gold (coin burst, daily)', 'recurring', potCoinsFor(o.poiDensity)); continue; }
+      if (look.bike) { bump('Bike rack (speed loan, daily)', 'recurring', 0); continue; }
+      if (look.barrel) { bump('Barrel (per day)', 'recurring', barrelEV(o.poiDensity) / crateRestoreDays(o)); continue; }
       if (look.macro) {
         const kind = look.macro.kind;
         if (kind === 'chapel' && typeof Macros !== 'undefined' && Macros.chapelRollTier) {
@@ -897,13 +923,13 @@ function wValueByType(entries) {
       }
       // Trunk / crate / wagon: a plain consumable chest.
       const cat = POI_CATEGORY[o.poiClass] || '(uncategorised)';
-      const tier = chestRollTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus);
+      const tier = chestTier(o);
       const val = (o.crate || o.fixedLoot) ? 0 : ev('chest:' + chestThemeForPoi(o.poiClass), { tier, depth: o.depth || 0 });
-      const isDaily = (typeof refillsDaily === 'function') ? refillsDaily(o) : (look.box && !look.wagon);
-      if (isDaily) bump('Crate (daily, tier-1 POI chest)', 'recurring', val);
+      const isCrate = (typeof restocks === 'function') ? restocks(o) : (look.box && !look.wagon);
+      if (isCrate) bump('Crate (tier-1 POI chest, per day)', 'recurring', val / crateRestoreDays(o));
       else if (look.wagon) bump('Wagon (bandit stop)', 'one-time', val);
-      else bump('Trunk chest — ' + cat, 'one-time', val);
-      if (o.zoneNexus) bump('Zone-nexus chest (bonus tier)', isDaily ? 'recurring' : 'one-time', val);
+      else bump('Trunk chest — T' + tier, 'one-time', val);
+      if (o.zoneNexus) bump('Zone-nexus chest (bonus tier)', isCrate ? 'recurring' : 'one-time', val);
     }
     // Headstones + grove shrines live in zoneDress.objects, not e.objects
     // (same split wMeasure reads above).
@@ -922,12 +948,16 @@ function wValueByType(entries) {
 }
 
 const WVALUE_ORDER = [
-  (k) => k === 'Crate (daily, tier-1 POI chest)',
+  (k) => k === 'Crate (tier-1 POI chest, per day)',
+  (k) => k === 'Barrel (per day)',
   (k) => k.startsWith('Trunk chest — '),
   (k) => k === 'Wagon (bandit stop)',
   (k) => k === 'Zone-nexus chest (bonus tier)',
   (k) => k === 'Headstone hoard',
-  (k) => k === 'Pot of gold (coin burst)',
+  (k) => k === 'Notice board (one Book page)',
+  (k) => k === 'Gate post (2 per spawn point)',
+  (k) => k === 'Pot of gold (coin burst, daily)',
+  (k) => k === 'Bike rack (speed loan, daily)',
   (k) => k === 'Chapel (daily alms)',
   (k) => k === 'Grove shrine (daily gift)',
   (k) => k === 'Market stall (produce discount)',
@@ -941,7 +971,7 @@ function wRenderValueByType(entries, n, source) {
   let rows;
   try { rows = wValueByType(entries); }
   catch (err) { scopeEl.textContent = 'value by type failed: ' + err.message; el.innerHTML = ''; noteEl.textContent = ''; console.error(err); return; }
-  if (!rows) { scopeEl.textContent = 'chestLook / chestRollTier / pickReward not available in this build.'; el.innerHTML = ''; noteEl.textContent = ''; return; }
+  if (!rows) { scopeEl.textContent = 'chestLook / chestTier / pickReward not available in this build.'; el.innerHTML = ''; noteEl.textContent = ''; return; }
   scopeEl.textContent = `Per tile, avg over ${n} Kelowna ${source === 'fixture' ? 'fixture' : source + '-fetched'} tiles — `
     + `Monte-Carlo pickReward (${WVALUE_N_SAMPLES} samples per distinct context/tier/depth), valued at list price.`;
   const used = new Set(), ordered = [];
@@ -958,7 +988,7 @@ function wRenderValueByType(entries, n, source) {
       const visit = r.count ? fmt$((r.oneTimeSum + r.recurringSum) / r.count) : '—';
       return `<tr><td class="l">${label}</td><td>${f1(r.count / n)}</td><td>${oneTime}</td><td>${recurring}</td><td>${visit}</td></tr>`;
     }));
-  noteEl.textContent = 'The offline 4-city Monte-Carlo (Kelowna/Vancouver/Berlin/Seattle, 200+ samples/context) behind the "What changed recently" note above lives in scratchpad JSON (value_by_category.json, daily_result.json), not in this repo.';
+  noteEl.textContent = 'Recurring rows are per day: a crate or barrel\'s take divided by its restock days (loot.js crateRestoreDays). The offline 4-city Monte-Carlo (Kelowna/Vancouver/Berlin/Seattle) behind the "What changed recently" note above lives in scratchpad JSON, not in this repo.';
 }
 
 let wBusy = false;

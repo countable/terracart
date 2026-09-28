@@ -54,6 +54,15 @@ function collectErrors(page, errors, prefix = '') {
   });
 }
 
+async function waitReady(page, errors) {
+  try { await page.evaluate(() => window.__perfReady); }
+  catch (error) {
+    // Boot failures can prevent the final report from printing captured errors.
+    if (errors.length) throw new Error(error.message + '\n' + errors.slice(0, 10).join('\n'));
+    throw error;
+  }
+}
+
 function serve() {
   const srv = http.createServer((req, res) => {
     const p = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]));
@@ -86,7 +95,7 @@ async function profile(browser) {
   const errs = [];
   collectErrors(page, errs);
   await page.goto(`http://127.0.0.1:${PORT}/test/perf.html?sandbox=true&overpass=off`, { timeout: 60000 });
-  await page.evaluate(() => window.__perfReady);
+  await waitReady(page, errs);
 
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Profiler.enable');
@@ -183,7 +192,7 @@ async function profile(browser) {
     const rp = await browser.newPage({ viewport: { width: 390, height: 844 } });
     collectErrors(rp, errs, '[restore] ');
     await rp.goto(`http://127.0.0.1:${PORT}/test/perf.html?fixtures=1&overpass=off`, { timeout: 60000 });
-    await rp.evaluate(() => window.__perfReady);
+    await waitReady(rp, errs);
     const at = await rp.evaluate(() => {
       const s = window.__scene, pc = s.playerToWorldCell();
       const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));

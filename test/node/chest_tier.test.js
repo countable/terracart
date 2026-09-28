@@ -1,91 +1,133 @@
-// Chest tier vs distance from Home (loot.js chestTier / chestRollTier /
-// chestTierHomeDrop).
-//
-// A chest's TIER is the world's: a fixed lookup from its POI class, raised by
-// cave depth — identical for every player, wherever their Home is. Home
-// softens only the CONTENTS: chestRollTier (the tier the loot rolls at) drops
-// one tier per ring of CHEST_TIER_HOME_RINGS_M the chest stands inside —
-// within 700 m is one down, within 350 m is two — never below T1. Home is
-// HomeArea.worldM, the spawn origin in the same world-metre frame every
-// object's x/y lives in; when it isn't set nothing is softened.
-//
-// The sprite/gem (render.js) and the look (chestLook) read chestTier; the
-// loot roll (interactables.js) reads chestRollTier. The source sweep at the
-// bottom pins each reader to its side.
+// A POI chest's TIER is its class's DENSITY on its own tile (loot.js
+// CHEST_DENSITY_TIERS / chestTier, stamped by worldgen.js stampPoiDensity),
+// raised by cave depth and a zone's nexus — identical for every player,
+// wherever their Home is, and the SAME tier its loot rolls at (there is no
+// roll-side twin any more: the Home rings, CHEST_TIER_HOME_RINGS_M, are
+// gone). Pins: the table (1 → T4, 25 → T1), the fixed classes (public art),
+// no Home input anywhere, the stamp over a real rasterize, the look and the
+// restock following the new tier, and the cave mirrors carrying the count.
 (() => {
-  const HX = 100000, HY = 200000;
-  const withHome = (fn) => {
-    const prev = HomeArea.worldM;
-    HomeArea.setOrigin(HX, HY);
-    try { fn(); } finally { HomeArea.worldM = prev; }
-  };
-  // A point `d` metres due east of Home.
-  const east = (d) => [HX + d, HY];
+  const chest = (poiClass, poiDensity, extra = {}) => ({ kind: 'chest', poiClass, poiDensity, x: 0, y: 0, id: 'c_' + poiClass + '_' + poiDensity, ...extra });
 
-  test('chest tier: the rings are 700 m then 350 m', () => {
-    assert.eq(JSON.stringify(CHEST_TIER_HOME_RINGS_M), '[700,350]', 'rings');
-  });
-
-  test('chest tier: no origin → no softening', () => {
-    const prev = HomeArea.worldM;
-    HomeArea.worldM = null;
-    try {
-      assert.eq(chestTierHomeDrop(0, 0), 0, 'drop without an origin');
-      assert.eq(chestTier('florist', 0, 0), 4, 'flora keeps T4');
-      assert.eq(chestRollTier('florist', 0, 0), 4, 'and rolls at T4');
-      assert.eq(chestTier('florist'), 4, 'position-less lookup is the base tier');
-    } finally { HomeArea.worldM = prev; }
-  });
-
-  test('chest tier: one tier down inside 700 m, two inside 350 m', () => withHome(() => {
-    assert.eq(chestTierHomeDrop(...east(1000)), 0, 'beyond 700 m');
-    assert.eq(chestTierHomeDrop(...east(700)),  1, 'on the 700 m ring counts as inside');
-    assert.eq(chestTierHomeDrop(...east(701)),  0, 'just outside 700 m');
-    assert.eq(chestTierHomeDrop(...east(500)),  1, 'between the rings');
-    assert.eq(chestTierHomeDrop(...east(350)),  2, 'on the 350 m ring');
-    assert.eq(chestTierHomeDrop(...east(100)),  2, 'deep inside');
-    assert.eq(chestTierHomeDrop(HX, HY),        2, 'at Home itself');
-  }));
-
-  test('chest tier: the drop is radial, not axis-aligned', () => withHome(() => {
-    // 300 m at 45°: hypot ≈ 424 m — inside 700, outside 350.
-    assert.eq(chestTierHomeDrop(HX + 300, HY + 300), 1, 'diagonal 424 m');
-    // 500 m at 45°: hypot ≈ 707 m — outside both.
-    assert.eq(chestTierHomeDrop(HX + 500, HY - 500), 0, 'diagonal 707 m');
-  }));
-
-  test('chest roll tier: every class softens by ring, floored at T1', () => withHome(() => {
-    const bands = [[1000, 0], [500, 1], [100, 2]];
-    for (const cls of Object.keys(POI_CATEGORY)) {
-      const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[cls]] || 2;
-      for (const [d, drop] of bands) {
-        const t = chestRollTier(cls, ...east(d));
-        assert.eq(t, Math.max(1, base - drop), cls + ' at ' + d + ' m');
-        assert.gte(t, 1, cls + ' never below T1');
-        assert.lte(t, base, cls + ' never above its base');
-      }
+  test('chest tier: the density table — 1 of a kind is T4, 25 or more is T1', () => {
+    const want = { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 10: 2, 24: 2, 25: 1, 26: 1, 500: 1 };
+    for (const [n, t] of Object.entries(want)) assert.eq(chestDensityTier(Number(n)), t, n + ' of a kind');
+    assert.eq(CHEST_DENSITY_T1_AT, 25, 'dense is 25');
+    assert.eq(chestDensityTier(0), CHEST_TIER_UNSTAMPED, 'no count → the unstamped fallback');
+    assert.eq(chestDensityTier(undefined), CHEST_TIER_UNSTAMPED, 'nor does a missing one');
+    assert.eq(CHEST_TIER_UNSTAMPED, 2, 'which is the old unlisted-class T2');
+    // The table is ordered and total: first row whose threshold is met wins.
+    for (let i = 1; i < CHEST_DENSITY_TIERS.length; i++) {
+      assert.gt(CHEST_DENSITY_TIERS[i - 1].atLeast, CHEST_DENSITY_TIERS[i].atLeast, 'thresholds fall');
+      assert.lt(CHEST_DENSITY_TIERS[i - 1].tier, CHEST_DENSITY_TIERS[i].tier, 'tiers rise as the count falls');
     }
-  }));
+    assert.eq(CHEST_DENSITY_TIERS[CHEST_DENSITY_TIERS.length - 1].atLeast, 1, 'every stamped chest has a row');
+  });
 
-  test('chest roll tier: worked examples — flora, civic, park, lowtier', () => withHome(() => {
-    assert.eq(chestRollTier('florist', ...east(1000)), 4, 'flora far out is T4');
-    assert.eq(chestRollTier('florist', ...east(500)),  3, 'flora inside 700 m is T3');
-    assert.eq(chestRollTier('florist', ...east(100)),  2, 'flora inside 350 m is T2');
-    assert.eq(chestRollTier('school',  ...east(500)),  2, 'civic inside 700 m is T2');
-    assert.eq(chestRollTier('school',  ...east(100)),  1, 'civic inside 350 m is T1');
-    assert.eq(chestRollTier('park',    ...east(500)),  1, 'park inside 700 m is already the floor');
-    assert.eq(chestRollTier('park',    ...east(100)),  1, 'park inside 350 m stays T1');
-    assert.eq(chestRollTier('bus',     ...east(100)),  1, 'lowtier is as it was');
-    assert.eq(chestRollTier('bus',     ...east(1000)), 1, 'lowtier is as it was, far out too');
-  }));
+  test('chest tier: the same rule for every class — density, not category', () => {
+    for (const cls of Object.keys(POI_CATEGORY)) {
+      if (CHEST_CLASS_TIER[cls] != null) continue;
+      assert.eq(chestTier(chest(cls, 1)), 4, cls + ' alone is T4');
+      assert.eq(chestTier(chest(cls, 25)), 1, cls + ' in a crowd is T1');
+    }
+    assert.truthy(typeof CHEST_TIER_BY_CATEGORY === 'undefined', 'the category tier table is gone');
+  });
 
-  test('chest roll tier: an unknown class falls back to T2 and still softens', () => withHome(() => {
-    assert.eq(chestRollTier('no_such_class', ...east(1000)), 2, 'fallback base');
-    assert.eq(chestRollTier('no_such_class', ...east(500)),  1, 'fallback demoted');
-    assert.eq(chestRollTier(undefined, ...east(100)),        1, 'no class at all');
-  }));
+  test('chest tier: public art is a fixed T1 one-time trunk', () => {
+    for (const n of [1, 3, 30]) {
+      const art = chest('art_gallery', n);
+      assert.eq(chestTier(art), 1, 'T1 at ' + n + ' of a kind');
+      assert.eq(chestLook(art).texKey, 'chest', 'wears the trunk, never the crate');
+      assert.falsy(restocks(art), 'and never restocks');
+    }
+    const art = chest('art_gallery', 30);
+    const sets = spentSets(null, { opened: [art.id] });
+    assert.truthy(isSpent(art, sets), 'spent in save.opened, for good');
+    assert.eq(chestTier(chest('art_gallery', 1, { depth: 2 })), 2, 'the depth bonus still applies');
+  });
 
-  // ── Depth: the cave mirrors are promoted ─────────────────────────────
+  test('chest tier: Home is no input — no rings, no roll-side twin, the same tier and look anywhere', () => {
+    assert.truthy(typeof CHEST_TIER_HOME_RINGS_M === 'undefined', 'the Home rings are gone');
+    assert.truthy(typeof chestRollTier === 'undefined', 'and the Home-softened roll with them');
+    assert.truthy(typeof chestTierHomeDrop === 'undefined', 'and its drop');
+    const chests = Object.keys(POI_CATEGORY).flatMap((cls, i) =>
+      [1, 3, 30].map((n) => chest(cls, n, { x: 100 + i, y: 200, depth: i % 3, id: 'c' + i + '_' + n })));
+    const seen = () => chests.map((o) => { const c = { ...o }; return chestTier(c) + ':' + chestLook(c).texKey; }).join(',');
+    const prev = HomeArea.worldM;
+    try {
+      HomeArea.worldM = null;
+      const none = seen();
+      HomeArea.setOrigin(100, 200);
+      const near = seen();
+      HomeArea.setOrigin(1e7, 1e7);
+      const far = seen();
+      assert.eq(near, none, 'a Home on top of the chest changes nothing');
+      assert.eq(far, none, 'nor a Home far away');
+    } finally { HomeArea.worldM = prev; }
+    // Source: the tier code reads no Home at all.
+    const tierSrc = LOOT_SRC.slice(LOOT_SRC.indexOf('const CHEST_DENSITY_TIERS'), LOOT_SRC.indexOf('function chestLook('));
+    assert.falsy(/HomeArea|homeWorldPos|homeM/.test(tierSrc), 'loot.js tier code never reads Home');
+  });
+
+  test('chest tier: depth and nexus stack on the density tier, capped at T5', () => {
+    for (const n of [1, 3, 10, 30]) {
+      const base = chestDensityTier(n);
+      for (let d = 0; d <= 12; d++) {
+        const t = chestTier(chest('park', n, { depth: d }));
+        assert.eq(t, Math.min(CHEST_TIER_MAX, base + Math.floor(d / 2)), `density ${n} at depth ${d}`);
+      }
+      assert.eq(chestTier(chest('park', n, { zoneNexus: 'grove' })), Math.min(CHEST_TIER_MAX, base + ZONE_NEXUS_TIER_BONUS),
+        `density ${n} nexus`);
+    }
+  });
+
+  test('chest tier: the look and the restock follow the tier — a dense class is a crate, a rare one a trunk', () => {
+    const dense = chest('bus', 25), rare = chest('bus', 1), mid = chest('shelter', 7);
+    assert.eq(chestLook(dense).texKey, 'box', '25 bus stops: each is a crate');
+    assert.truthy(restocks(dense), 'and restocks');
+    assert.eq(chestLook(rare).texKey, 'chest', 'the one bus stop: a trunk');
+    assert.falsy(restocks(rare), 'one-time');
+    assert.eq(chestLook(mid).texKey, 'chest', 'a T2 shelter: a trunk');
+    assert.falsy(restocks(mid), 'one-time');
+    const nexus = chest('fuel', 30, { zoneNexus: 'tar' });
+    assert.eq(chestTier(nexus), 2, 'a dense class at a nexus is T2');
+    assert.falsy(restocks(nexus), 'so it is no crate');
+  });
+
+  test('chest tier: stampPoiDensity counts each class on the tile, and only surface POI chests', () => {
+    const objs = [
+      chest('bus', undefined, { id: 'a' }), chest('bus', undefined, { id: 'b' }), chest('bus', undefined, { id: 'c' }),
+      chest('florist', undefined, { id: 'd' }),
+      chest('bus', undefined, { id: 'e', crate: true }),
+      chest('bus', undefined, { id: 'f', depth: 1, caveOf: 'x' }),
+      { kind: 'tree', id: 't', x: 0, y: 0 },
+    ];
+    objs[0]._chestLook = { texKey: 'stale' };
+    WorldGen.stampPoiDensity(objs);
+    assert.eq(objs.slice(0, 3).map((o) => o.poiDensity).join(','), '3,3,3', 'three bus stops');
+    assert.eq(objs[3].poiDensity, 1, 'one florist');
+    assert.eq(objs[4].poiDensity, undefined, 'a starter crate is not counted or stamped');
+    assert.eq(objs[5].poiDensity, undefined, 'nor is a cave copy');
+    assert.falsy(objs[0]._chestLook && objs[0]._chestLook.texKey === 'stale', 'a changed count drops the memoised look');
+  });
+
+  test('chest tier: a real rasterize stamps every POI chest with its class count', () => {
+    const CPE = 64, EXT = 4096, CELL = EXT / CPE, EDGE = 640;
+    const pt = (ix, iy) => [[{ x: (ix + 0.5) * CELL, y: (iy + 0.5) * CELL }]];
+    const feats = [];
+    for (let i = 0; i < 6; i++) feats.push({ type: 1, tags: { class: 'bus' }, geom: pt(4 + i * 3, 10) });
+    feats.push({ type: 1, tags: { class: 'florist', name: 'Bloom' }, geom: pt(30, 30) });
+    const r = WorldGen.rasterizeTile([{ name: 'poi', features: feats }], CPE, 0, 0, EDGE);
+    const chests = r.objects.filter((o) => o.kind === 'chest');
+    const bus = chests.filter((o) => o.poiClass === 'bus');
+    assert.gt(bus.length, 1, 'bus stops survive the build');
+    for (const o of chests) {
+      assert.eq(o.poiDensity, chests.filter((c) => c.poiClass === o.poiClass).length, o.id + ' carries its class count');
+    }
+    const fl = chests.find((o) => o.poiClass === 'florist');
+    if (fl) assert.eq(chestTier(fl), 4, 'the lone florist is T4');
+  });
+
   test('chest tier: the depth step is 2 levels and the cap is T5', () => {
     assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'levels per tier');
     assert.eq(CHEST_TIER_MAX, 5, 'cap');
@@ -101,76 +143,6 @@
     assert.eq(chestTierDepthBonus(undefined), 0, 'surface object (no depth field)');
     assert.eq(chestTierDepthBonus(-2), 0, 'a negative depth is the surface');
   });
-
-  test('chest tier: the TYPE is the world\'s — Home never moves tier or look', () => {
-    // Same chest, three different Homes (none, far, on top of it): the tier,
-    // the gem colour and the look are identical. Only the roll moves.
-    const chests = Object.keys(POI_CATEGORY).map((cls, i) =>
-      ({ kind: 'chest', poiClass: cls, x: HX + 100, y: HY, depth: i % 3, id: 'c' + i }));
-    const seen = () => chests.map(o => {
-      const c = { ...o };
-      return chestTier(c.poiClass, c.x, c.y, c.depth) + ':' + chestLook(c).texKey;
-    }).join(',');
-    const prev = HomeArea.worldM;
-    try {
-      HomeArea.worldM = null;
-      const none = seen();
-      HomeArea.setOrigin(HX + 5000, HY);
-      const far = seen();
-      HomeArea.setOrigin(HX, HY);
-      const near = seen();
-      assert.eq(far, none, 'a far Home changes no chest');
-      assert.eq(near, none, 'a Home 100 m away changes no chest');
-      // …while the roll under the near Home IS softened.
-      assert.eq(chestTier('florist', ...east(100)), 4, 'flora by Home still wears T4');
-      assert.eq(chestRollTier('florist', ...east(100)), 2, 'but rolls at T2');
-      assert.eq(chestLook({ kind: 'chest', poiClass: 'school', x: HX + 100, y: HY }).texKey,
-        'chest', 'a civic chest by Home is the trunk, not the crate');
-    } finally { HomeArea.worldM = prev; }
-  });
-
-  test('chest roll tier: the softened tier is what pickReward is handed near Home', () => withHome(() => {
-    // Contents are softened: at a softened roll tier the curve caps relics
-    // lower (chestTierMod.relicCap), so a T4 flora chest by Home never pays
-    // what the same chest pays far out.
-    const cap = (t) => (RARITY_TUNING.chestTierMod[t] || {}).relicCap;
-    const nearT = chestRollTier('florist', ...east(100));
-    const farT = chestRollTier('florist', ...east(1000));
-    assert.lt(nearT, farT, 'the roll is lower near Home');
-    assert.eq(farT, chestTier('florist', ...east(1000)), 'far out the roll IS the world tier');
-    assert.lte(cap(nearT), cap(farT), 'and its relic ceiling is no higher');
-  }));
-
-  test('chest tier: depth promotes every class, capped at T5', () => {
-    const prev = HomeArea.worldM;
-    HomeArea.worldM = null;
-    try {
-      for (const cls of Object.keys(POI_CATEGORY)) {
-        const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[cls]] || 2;
-        for (let d = 0; d <= 12; d++) {
-          const t = chestTier(cls, 0, 0, d);
-          assert.eq(t, Math.min(5, base + Math.floor(d / 2)), cls + ' at depth ' + d);
-          assert.lte(t, CHEST_TIER_MAX, cls + ' never above the cap');
-        }
-      }
-      assert.eq(chestTier('florist', 0, 0, 1), 4, 'flora at depth 1 is the surface tier');
-      assert.eq(chestTier('florist', 0, 0, 2), 5, 'flora at depth 2 is T5');
-      assert.eq(chestTier('florist', 0, 0, 40), 5, 'and never more');
-      // The ladder is pure math over any class — a lowtier POI never actually
-      // reaches a cave (chestMirrorsUnderground), but the function doesn't care.
-      assert.eq(chestTier('bus', 0, 0, 2), 2, 'the ladder applies to a lowtier base too');
-      assert.eq(chestTier('bus', 0, 0, 8), 5, 'and caps at T5');
-    } finally { HomeArea.worldM = prev; }
-  });
-
-  test('chest roll tier: the Home softening is floored BEFORE the depth bonus', () => withHome(() => {
-    // Park (T2) inside 350 m: surface floor T1; two levels down it is T2, not
-    // clamp(2 - 2 + 1) = T1. Going underground always buys the tier.
-    assert.eq(chestRollTier('park', ...east(100), 0), 1, 'park under Home, surface');
-    assert.eq(chestRollTier('park', ...east(100), 2), 2, 'park under Home, depth 2');
-    assert.eq(chestRollTier('school', ...east(100), 4), 3, 'civic under Home, depth 4');
-    assert.eq(chestRollTier('florist', ...east(1000), 2), 5, 'flora far out, depth 2');
-  }));
 
   test('chest tier: rarity.js carries a T5 curve that the picker honours', () => {
     const mod = RARITY_TUNING.chestTierMod;
@@ -213,7 +185,9 @@
     assert.eq(a.id, 'c_2_2_d1', 'own id per level');
     assert.eq(a.caveOf, 'c_2_2', 'remembers the surface chest');
     assert.truthy(occ.has(2 * N + 2), 'its cell is claimed against the rocks');
-    assert.eq(chestTier(a.poiClass, a.x, a.y, a.depth), 3, 'depth 1 keeps the surface tier');
+    // One school on the tile: density 1, the T4 surface tier, carried down.
+    assert.eq(a.poiDensity, 1, 'the surface chest\'s density rides down');
+    assert.eq(chestTier(a), 4, 'depth 1 keeps the surface tier');
   });
 
   test('cave chests: the recursion keeps the SURFACE id and re-stamps depth', () => {
@@ -223,7 +197,8 @@
     assert.eq(d2[0].id, 'c_2_2_d2', 'depth-2 id off the surface id, not off _d1');
     assert.eq(d2[0].caveOf, 'c_2_2', 'surface id carried');
     assert.eq(d2[0].depth, 2, 'depth re-stamped');
-    assert.eq(chestTier(d2[0].poiClass, d2[0].x, d2[0].y, d2[0].depth), 4, 'civic is T4 two levels down');
+    assert.eq(d2[0].poiDensity, 1, 'the density is carried, not recounted off the cave level');
+    assert.eq(chestTier(d2[0]), 5, 'a lone school is T5 two levels down');
   });
 
   test('cave chests: lowtier street furniture never goes underground', () => {
@@ -319,7 +294,7 @@
       const deep = lvl2.objects.filter(o => o.kind === 'chest');
       assert.eq(deep.length, 2, 'and depth 2');
       assert.eq(deep.find(c => c.caveOf === 'c_lib').id, 'c_lib_d2', 'own id at depth 2');
-      assert.eq(chestTier('library', 0, 0, 2), 4, 'the library chest is T4 two levels down');
+      assert.eq(chestTier(deep.find(c => c.caveOf === 'c_lib')), 5, 'the lone library is T5 two levels down');
     } finally {
       WorldGen.setDepth(0);
       WorldGen.tileCache.delete(key);
@@ -329,43 +304,30 @@
     }
   });
 
-  test('chest: underground, a stand POI is a plain chest and a coin-burst POI is a plain chest', () => {
+  test('chest: underground, a stand POI is a plain chest and a pot / rack / barrel is a plain chest', () => {
     const stall = { kind: 'chest', poiClass: 'bakery', name: 'Corner Bakery', x: 0, y: 0 };
     assert.truthy(produceStandFor(stall), 'a bakery on the surface is a stand');
     const under = { ...stall, depth: 1, id: 'x_d1' };
     assert.eq(produceStandFor(under), null, 'the same bakery one level down is a chest');
-    assert.truthy(/\(o\.poiClass === 'atm' \|\| o\.poiClass === 'bicycle_parking'\) && !\(o\.depth > 0\)/.test(INTERACTABLES_SRC),
-      'the coin-burst hijack stands down underground');
-    // The look is loot.js's chestLook now — the one resolver render.js draws
-    // from AND the treasure ceremony takes its hero icon from — so the gate
-    // is pinned there, and render.js is pinned to ask rather than re-decide.
-    const prevHome = HomeArea.worldM;
-    HomeArea.worldM = null;
-    try {
-      assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'potofgold',
-        'an ATM on the surface wears the pot of gold');
-      assert.eq(chestLook({ kind: 'chest', poiClass: 'library', x: 0, y: 0, depth: 1 }).texKey, 'chest',
-        'and a POI chest underground is the trunk');
-    } finally { HomeArea.worldM = prevHome; }
+    for (const cls of ['atm', 'bicycle_parking', 'waste_basket']) {
+      const o = { kind: 'chest', poiClass: cls, x: 0, y: 0, depth: 2, poiDensity: 1 };
+      assert.falsy(isPotOfGold(o) || isBikeRack(o) || isBarrel(o), cls + ' underground is none of its surface selves');
+      assert.eq(chestLook(o).texKey, 'chest', 'and wears the trunk');
+    }
+    assert.truthy(/if \(isPotOfGold\(o\)\) \{/.test(INTERACTABLES_SRC), 'the pot hijack asks the one predicate');
+    assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'potofgold',
+      'an ATM on the surface wears the pot of gold');
     assert.truthy(!/_isCoinBurst|_chestIsBox/.test(RENDER_SRC),
       'render.js keeps no second copy of the look');
   });
 
-  test('chest tier: the drawer reads the world tier, the roll reads the roll tier', () => {
-    // render.js draws the gem: chestTier, never the Home-softened roll.
-    // interactables.js rolls the loot: chestRollTier, never the bare world tier
-    // (that would pay full price on the trailer's doorstep).
-    const want = { 'render.js': [RENDER_SRC, 'chestTier', 'chestRollTier'],
-                   'interactables.js': [INTERACTABLES_SRC, 'chestRollTier', 'chestTier'] };
-    for (const [f, [src, fn, not]] of Object.entries(want)) {
-      const calls = src.match(new RegExp('\\b' + fn + '\\(o\\.poiClass[^)]*\\)', 'g')) || [];
-      assert.gt(calls.length, 0, f + ' resolves chest tiers through ' + fn);
-      for (const c of calls) {
-        // …and the zone stamp (o.zoneNexus — src/zones.js' nexus bonus), a
-        // fact of the chest both sides read alike.
-        assert.eq(c, fn + '(o.poiClass, o.x, o.y, o.depth, o.zoneNexus)', f + ': ' + c + ' must pass o.x, o.y, o.depth, o.zoneNexus');
-      }
-      assert.falsy(new RegExp('\\b' + not + '\\(o\\.poiClass').test(src), f + ' never calls ' + not);
+  test('chest tier: the drawer and the roll read the one tier', () => {
+    // render.js draws the gem and interactables.js rolls the loot off the SAME
+    // chestTier(o) — there is no Home-softened twin to tell apart.
+    assert.truthy(/const tier = chestTier\(o\);/.test(RENDER_SRC), 'render.js draws chestTier(o)');
+    assert.truthy(/chestTier\(o\) : 2\);/.test(INTERACTABLES_SRC), 'interactables.js rolls at chestTier(o)');
+    for (const src of [RENDER_SRC, INTERACTABLES_SRC, APP_JS_SRC]) {
+      assert.falsy(/chestRollTier|CHEST_TIER_HOME_RINGS_M|chestTierHomeDrop/.test(src), 'no Home ring reader survives');
     }
   });
 })();

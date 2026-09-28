@@ -75,6 +75,11 @@
     'tar:0':           { fw: 16, fh: 16, minX: 0,  minY: 6,  maxX: 16, maxY: 16 },
     'headstone:0':     { fw: 16, fh: 16, minX: 3,  minY: 0,  maxX: 12, maxY: 15 },
     'grove_shrine:0':  { fw: 16, fh: 24, minX: 1,  minY: 3,  maxX: 15, maxY: 23 },
+    'barrel:0':         { fw: 16, fh: 16, minX: 1,  minY: 0,  maxX: 14, maxY: 16 },
+    'barrel_smashed:0': { fw: 16, fh: 16, minX: 0,  minY: 4,  maxX: 16, maxY: 16 },
+    'bike_rack:0':      { fw: 16, fh: 16, minX: 0,  minY: 0,  maxX: 15, maxY: 16 },
+    'signpost:0':       { fw: 16, fh: 16, minX: 3,  minY: 0,  maxX: 13, maxY: 16 },
+    'gatepost:0':       { fw: 16, fh: 16, minX: 0,  minY: 1,  maxX: 16, maxY: 16 },
   };
 
   // ── Plain rock: what the art SHOWS is what it DROPS ───────────────────────

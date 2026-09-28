@@ -111,7 +111,10 @@
     assert.eq(save.coinBurstClaimed['c_x' + Delivery.dayKey(new Date(T0))], 1, 'keyed id + dayKey');
     assert.falsy(Macros.usedToday(save, 'c_x', T0 + DAY), 'free tomorrow');
     Macros.markToday(save, 'c_y', T0 + DAY);
-    assert.eq(Object.keys(save.coinBurstClaimed).length, 1, 'yesterday is pruned on the next write');
+    assert.eq(Object.keys(save.coinBurstClaimed).length, 2, 'yesterday is kept — the ledger holds a week');
+    Macros.markToday(save, 'c_z', T0 + Macros.LEDGER_KEEP_DAYS * DAY);
+    assert.eq(Object.keys(save.coinBurstClaimed).join(','), 'c_y' + Delivery.dayKey(new Date(T0 + DAY)) + ',c_z' + Delivery.dayKey(new Date(T0 + Macros.LEDGER_KEEP_DAYS * DAY)),
+      'a take a week old is pruned on the next write');
   });
 
   // ── Inn ───────────────────────────────────────────────────────────────────
@@ -143,8 +146,8 @@
     const plain = poi('place_of_worship');
     const nexus = poi('place_of_worship', { zoneNexus: 'stones', id: 2 });
     assert.eq(Macros.CHAPEL_TIER_DROP, 1);
-    assert.eq(Macros.chapelRollTier(plain), chestRollTier('place_of_worship', 0, 0) - 1, 'a tier humbler');
-    assert.eq(Macros.chapelRollTier(nexus), chestRollTier('place_of_worship', 0, 0), 'inside a churchyard: the old chest tier');
+    assert.eq(Macros.chapelRollTier(plain), Math.max(1, chestTier(plain) - 1), 'a tier humbler');
+    assert.eq(Macros.chapelRollTier(nexus), chestTier(plain), 'inside a churchyard: the old chest tier');
     assert.eq(Macros.chapelRollTier(nexus) - Macros.chapelRollTier(plain), ZONE_NEXUS_TIER_BONUS, 'the nexus bonus applies');
   }));
 
@@ -525,7 +528,7 @@
       /\(L\.stand \|\| L\.macro\) \? 19\.3/,
       /seat: \(o\) => \{ const L = chestLook\(o\); return !L\.stand && !L\.macro && !L\.coin && !L\.wagon; \}/,
       /if \(produceStandFor\(o\) \|\| macroFor\(o\)\) continue;/,
-      /o\.kind === 'chest' && !chestLook\(o\)\.box && !chestLook\(o\)\.macro\)/,
+      /const L = chestLook\(o\); return !L\.box && !L\.macro && !L\.barrel && !L\.bike && !L\.coin; \}/,
     ]) assert.truthy(re.test(RENDER_SRC), String(re));
   });
 })();

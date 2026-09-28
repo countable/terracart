@@ -310,6 +310,108 @@
     }
     return false;
   }
+  // ── GATES and NOTICE BOARDS (POI_GATE_CLASS / POI_INFO_CLASS) ───────────
+  // Where a gate's two POSTS stand: either side of the gate's own cell, along
+  // the FENCE — i.e. across the way that runs through the gate. The cheap
+  // read of the way: if the cells left/right of the gate are road or path
+  // (terrain or the drawn band) and the ones above/below are not, the way
+  // runs east-west, so the posts stand north and south of it; otherwise east
+  // and west first. `free(ix, iy)` is the caller's seat test (the shared
+  // spawn rule plus its own occupancy). Returns [{ix,iy},{ix,iy}] or null —
+  // a gate with nowhere for both posts is dropped: posts are what mark the
+  // danger, and a spawn point nobody can see is a trap the game did not mean.
+  const GATE_POST_OFFSETS = { ew: [[-1, 0], [1, 0]], ns: [[0, -1], [0, 1]] };
+  function gatePostsAt(grid, N, roadMask, ix, iy, free) {
+    const way = (x, y) => x >= 0 && y >= 0 && x < N && y < N
+      && (isCobbleTerrain(grid[y * N + x]) || (roadMask && roadMask[y * N + x] === 1));
+    const wayEW = way(ix - 1, iy) || way(ix + 1, iy);
+    const wayNS = way(ix, iy - 1) || way(ix, iy + 1);
+    const order = (wayEW && !wayNS) ? ['ns', 'ew'] : ['ew', 'ns'];
+    for (const k of order) {
+      const cells = GATE_POST_OFFSETS[k].map(([dx, dy]) => ({ ix: ix + dx, iy: iy + dy }));
+      if (cells.every((c) => free(c.ix, c.iy))) return cells;
+    }
+    return null;
+  }
+  // Emit the gate posts and notice boards for a tile's gate / information
+  // points (tile-local cells), pushing onto `objects`. ctx: { grid, N,
+  // roadMask, tx, ty, centre(ix, iy) → {x,y} frame metres, taken? (Set of
+  // "ix_iy" already occupied) }. The seat rule is the shared isSpawnCell
+  // with the gate / board itself as the public anchor for the frontage rule
+  // (it IS a public place) — O(1) per cell, however many POIs the tile has.
+  // Ids and seats come from the TILE + CELL (CLAUDE.md, the world frame):
+  //   a post   `gatepost_<tx>_<ty>_<ix>_<iy>`, carrying gateSid
+  //            `gate_<tx>_<ty>_<gix>_<giy>` and the gate's point (gateX/Y) —
+  //            what spawnInTile hands lairs.js as the 'gate' lair;
+  //   a board  `info_<tx>_<ty>_<ix>_<iy>` on the nearest spawn cell.
+  function placeGatesAndBoards(objects, gatePoints, infoPoints, ctx) {
+    const { grid, N, roadMask, tx, ty, centre } = ctx;
+    const taken = ctx.taken || new Set();
+    const inTile = (p) => p.ix >= 0 && p.iy >= 0 && p.ix < N && p.iy < N;
+    const claim = (ix, iy) => taken.add(ix + '_' + iy);
+    for (const g of gatePoints || []) {
+      if (!inTile(g)) continue;
+      const opts = { roadMask, pois: [g] };
+      const free = (ix, iy) => !taken.has(ix + '_' + iy) && !(ix === g.ix && iy === g.iy)
+        && isSpawnCell(grid, N, N, ix, iy, opts);
+      const posts = gatePostsAt(grid, N, roadMask, g.ix, g.iy, free);
+      if (!posts) continue;
+      const gp = centre(g.ix, g.iy);
+      const gateSid = cellId('gate', tx, ty, g.ix, g.iy);
+      for (const c of posts) {
+        claim(c.ix, c.iy);
+        const at = centre(c.ix, c.iy);
+        objects.push(makeObject('gatepost', at.x, at.y, cellId('gatepost', tx, ty, c.ix, c.iy),
+          { gateSid, gateX: gp.x, gateY: gp.y }));
+      }
+      // The spawn point itself stays clear: nothing else is seated on it.
+      claim(g.ix, g.iy);
+    }
+    for (const b of infoPoints || []) {
+      if (!inTile(b)) continue;
+      const opts = { roadMask, pois: [b],
+        occupied: { has: (i) => taken.has((i % N) + '_' + Math.floor(i / N)) } };
+      const at = relocateToSpawnCell(grid, N, N, b.ix, b.iy, opts);
+      if (!at) continue;
+      claim(at.ix, at.iy);
+      const c = centre(at.ix, at.iy);
+      objects.push(makeObject('infoboard', c.x, c.y, cellId('info', tx, ty, at.ix, at.iy)));
+    }
+  }
+  // ── POI DENSITY: how many chests of each class a tile holds ─────────────
+  // The one count loot.js reads for a chest's tier (chestTier), a crate's
+  // restock days (crateRestoreDays), a barrel's empty chance (barrelEmptyP)
+  // and a pot of gold's burst (potCoinsFor) — stamped on each POI chest as
+  // `poiDensity`. Surface POI chests only (a starter crate, a fixed-loot chest
+  // and a cave copy are not counted; a cave copy carries its surface chest's
+  // count — caveChestsFrom). A tile counts ITS OWN chests: a POI belongs to
+  // the tile whose square holds its point (ownsPoint), so a seam never counts
+  // one chest twice, and a class spread over two tiles is two counts — the
+  // tile is the unit, like the lair budget. rasterizeTileSteps stamps the
+  // generated chests; loadTile restamps once the Overpass bin has injected
+  // its own (a settled tile — bin included — counts the same for every
+  // player; a build before the bin lands is the same transient the bin's own
+  // chests are). A changed count drops the chest's memoised look.
+  function isDensityChest(o) {
+    return !!o && o.kind === 'chest' && !!o.poiClass && !o.crate && !o.fixedLoot && !(o.depth > 0) && !o.caveOf;
+  }
+  function poiDensityCounts(objects) {
+    const counts = new Map();
+    for (const o of objects || []) {
+      if (!isDensityChest(o)) continue;
+      counts.set(o.poiClass, (counts.get(o.poiClass) || 0) + 1);
+    }
+    return counts;
+  }
+  function stampPoiDensity(objects) {
+    const counts = poiDensityCounts(objects);
+    for (const o of objects || []) {
+      if (!isDensityChest(o)) continue;
+      const n = counts.get(o.poiClass);
+      if (o.poiDensity !== n) { o.poiDensity = n; delete o._chestLook; }
+    }
+    return counts;
+  }
   // Nudge a cell onto the nearest one that passes isSpawnCell, searching
   // outward in Chebyshev rings up to `maxR`. Returns null when the whole
   // neighbourhood is unusable, so the caller can drop the item instead.
@@ -2033,25 +2135,43 @@
     'pharmacy','hospital','dentist',
     'place_of_worship','school','college',
     'park','garden','playground','pitch',
-    // low-tier street furniture: heavy T1 seed drops
-    'bus','fuel','lodging','gate',
-    // ── New batch — daily-tap civic services (lowtier)
+    // low-tier street furniture (a gate is NOT a chest: it is a spawn point
+    // with two posts — POI_GATE_CLASS below)
+    'bus','fuel','lodging',
+    // ── Civic services (lowtier; the bins are BARRELS — loot.js isBarrel)
     'waste_basket','post','recycling','drinking_water','toilets',
     // ── Athletic facilities (park-class chests)
     'sports_centre','yoga','swimming','swimming_pool','bowls',
     'running','ice_rink','stadium',
     // ── Restful shelters (lowtier chest + safe rest spot)
     'shelter','dog_park','picnic_site',
-    // ── Cultural plaques (civic chests)
-    'art_gallery','information','monument','cemetery','cinema','theatre',
+    // ── Cultural plaques (civic chests; public art is a T1 one-time trunk —
+    // loot.js CHEST_CLASS_TIER). An information board is NOT a chest: it
+    // reads a Book page (POI_INFO_CLASS below).
+    'art_gallery','monument','cemetery','cinema','theatre',
     // ── Authority buildings (civic chests, high-tier feel)
     'police','fire_station','harbor',
-    // ── Bike-related: bicycle_parking + atm get the COIN-BURST
-    // mechanic via a separate render path (see render.js); they
-    // still spawn as objects here so persistent ids work. (motorcycle_parking is NOT here — like car parking it's
+    // ── atm → the pot of gold (a daily coin burst), bicycle_parking → the
+    // bike rack (a daily stick-walk boost) — loot.js isPotOfGold /
+    // isBikeRack; they still spawn as chest objects here so persistent ids
+    // work. (motorcycle_parking is NOT here — like car parking it's
     // diverted to a buried-treasure X below, not a chest.)
     'bicycle_parking','atm',
   ]);
+  // Two POI classes that are PLACES but not chests, placed after the road
+  // mask is resolved (see the gate / notice-board pass in rasterizeTileSteps
+  // and injectTileBin):
+  //   gate        → a pair of GATE POSTS round a spawn point: a foe rises
+  //                 there each UTC day (lairs.js 'gate' tier). gatePostsAt.
+  //   information → a NOTICE BOARD that reads one Book page, once per board
+  //                 (interactables.js INTERACTABLES.infoboard — the
+  //                 waystone's lane, spent in save.opened).
+  const POI_GATE_CLASS = 'gate';
+  const POI_INFO_CLASS = 'information';
+  // Sidecar / Overpass POI kinds that are road furniture and no PLACE at all —
+  // never a chest. SX_CHEST_POI no longer maps them; injectTileBin also drops
+  // them from a bin cached before Sep 2026, which still carries them.
+  const SX_NOT_A_PLACE = new Set(['traffic_signals', 'crossing', 'stop', 'fence', 'powerline', 'carport']);
   // "Park family" POIs synthesize a small park buffer (radius ~18m) around the
   // point so they read as proper meadows / woodland even when OSM hasn't tagged
   // park landcover here. We paint over residential/grass/etc but NEVER over
@@ -2165,6 +2285,9 @@
     // new and must not displace what existing worlds already grow.
     const yardFlora = [];
     const parkingTreasures = []; // one guaranteed treasure-X per parking-POI
+    // Gate and information POI cells (tile-local), placed after the road mask
+    // is resolved — see POI_GATE_CLASS / POI_INFO_CLASS.
+    const gatePoints = [], infoPoints = [];
     // Grid indices of synthesized CONCRETE POI pads (the hospital cross /
     // school pyramid painted around a POI chest). Scatter interactables are
     // culled off these cells in the post-pass — a rock/tree on a POI's plaza
@@ -3070,6 +3193,17 @@
             }
             continue;
           }
+          if (cls === POI_GATE_CLASS || cls === POI_INFO_CLASS) {
+            // Placed after the road mask is resolved (the gate / notice-board
+            // pass) — both want to know what ground they stand beside.
+            for (const ring of f.geom) {
+              const p = ring[0];
+              if (!ownsPoint(p)) continue;
+              const pt = { ix: Math.floor(p.x * mvtToCell), iy: Math.floor(p.y * mvtToCell) };
+              (cls === POI_GATE_CLASS ? gatePoints : infoPoints).push(pt);
+            }
+            continue;
+          }
           if (!POI_USEFUL.has(cls)) continue;
           for (const ring of f.geom) {
             const p = ring[0];
@@ -3724,6 +3858,17 @@
         t.x = mx; t.y = my;
         t.id = cellId('t_park', tx, ty, moved.ix, moved.iy);
       }
+      // GATES and NOTICE BOARDS (POI_GATE_CLASS / POI_INFO_CLASS) — placed
+      // here, on the final grid and road mask, by the shared spawn rule.
+      // A notice board is walked to the nearest spawn cell like the parking X
+      // (dropped only if the whole neighbourhood is paved); a gate seats its
+      // two posts either side of its point (gatePostsAt) or is dropped. The
+      // occupancy pass below settles them against everything else (below a
+      // chest, level with a house).
+      placeGatesAndBoards(objects, gatePoints, infoPoints, {
+        grid, N: w, roadMask, tx, ty,
+        centre: (ix, iy) => { const c = cellCenterMeters(ix, iy); return { x: c.mx, y: c.my }; },
+      });
     }
 
     yield 'mineralrock cleanup';
@@ -3776,7 +3921,7 @@
     //    of a contested cell must be fixed by data, not array order — JS sort
     //    stability isn't guaranteed across engines, and an arbitrary tie-break
     //    would let the same seed resolve a collision differently between reloads.
-    const STRUCT_PRIO = { chest: 6, house: 5, tower: 5, fruittree: 4, tree: 3, mineralrock: 2 };
+    const STRUCT_PRIO = { chest: 6, house: 5, tower: 5, infoboard: 5, gatepost: 5, fruittree: 4, tree: 3, mineralrock: 2 };
     const structs = objects.filter(o => STRUCT_PRIO[o.kind] != null);
     structs.sort((a, b) => {
       const dp = (STRUCT_PRIO[b.kind] || 0) - (STRUCT_PRIO[a.kind] || 0);
@@ -3956,6 +4101,11 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
+    // Each POI chest's DENSITY — how many of its class this tile holds (loot.js
+    // chestTier / crateRestoreDays / barrelEmptyP / potCoinsFor). Stamped once
+    // the tile's chests are final; loadTile restamps once a bin has injected
+    // its own.
+    stampPoiDensity(deduped);
     // STREET DRESSING (StreetVariants.dressSteps) — computed HERE, inside the
     // sliced build, against every cell the tile's own objects and wild plants
     // now hold; spawnInTile lays it (dropping any piece whose cell something
@@ -4270,6 +4420,9 @@
       // wipes the IDB cache).
       entry.hadBin = !!bin;
       injectTileBin(entry, bin, x, y);
+      // The bin's chests count too: restamp every POI chest's density off the
+      // settled tile (stampPoiDensity — the tile is the unit).
+      stampPoiDensity(entry.objects);
 
       // The decoded layers stay on the entry for two consumers only: the road
       // overlay re-strokes `transportation` line geometry on each rebuild, and
@@ -4336,8 +4489,19 @@
       }
       return out;
     };
+    // A bin cached before Sep 2026 still carries road furniture as chests
+    // (SX_NOT_A_PLACE — dropped) and its gates as chests (moved to the gate
+    // cells, seated as posts below).
+    const gateCells = [];
+    const binChests = [];
+    for (const r of (bin.gates || [])) if (r && r.lix != null && r.liy != null) gateCells.push({ ix: r.lix, iy: r.liy });
+    for (const r of (bin.chests || [])) {
+      if (!r || SX_NOT_A_PLACE.has(r.poiClass)) continue;
+      if (r.poiClass === POI_GATE_CLASS) { if (r.lix != null && r.liy != null) gateCells.push({ ix: r.lix, iy: r.liy }); continue; }
+      binChests.push(r);
+    }
     const sx = {
-      chests: _sxRows(bin.chests), trees: _sxRows(bin.trees),
+      chests: _sxRows(binChests), trees: _sxRows(bin.trees),
       fruittrees: _sxRows(bin.fruittrees), shrubs: _sxRows(bin.shrubs),
       poles: _sxRows(bin.poles), wells: _sxRows(bin.wells), parking: _sxRows(bin.parking),
     };
@@ -4483,6 +4647,19 @@
       // A chest blocks its cell for every later chest (kind-checked, exactly
       // as the old per-chest scan of entry.objects would have seen it).
       if (SX_CHEST_BLOCKERS.has(ch.kind)) sxBlockerCells.add(k);
+    }
+    // GATES (a bin's barrier=gate points): two posts round a spawn point,
+    // seated by the same rule the rasterize pass uses (placeGatesAndBoards),
+    // after the chests have won their cells and before any scenery.
+    if (gateCells.length) {
+      const before = entry.objects.length;
+      placeGatesAndBoards(entry.objects, gateCells, null, {
+        grid, N: cpe, roadMask, tx: x, ty: y, taken: occupied,
+        centre: (ix, iy) => _sxCentre(ix, iy),
+      });
+      for (let i = before; i < entry.objects.length; i++) {
+        sxBlockerCells.add(cellKeyOf(entry.objects[i].x, entry.objects[i].y));
+      }
     }
     if (sxEvicted.size) {
       const objs = entry.objects;
@@ -4729,10 +4906,12 @@
         //              poiClass, NOT the castle 'tower' OBJECT kind.
         //   garden   → 'flora' loot (random flower seed) + a flower burst.
         //   bicycle_parking → coin-burst "treasure hunt" chest (interact.js).
+        // Road furniture that is no PLACE (traffic signals, stop signs,
+        // crossings, fences, power lines, carports — SX_NOT_A_PLACE) mints
+        // nothing, and a GATE goes to the bin's `gates` (a spawn point with
+        // two posts, gatePostsAt), not its chests.
         const SX_CHEST_POI = {
-          bus_stop: 'bus', traffic_signals: 'traffic_signals', stop: 'stop',
-          crossing: 'crossing', picnic_table: 'picnic_table', memorial: 'memorial',
-          gate: 'gate', carport: 'carport', fence: 'fence', line: 'powerline',
+          bus_stop: 'bus', picnic_table: 'picnic_table', memorial: 'memorial',
           tower: 'tower', pitch: 'pitch', swimming_pool: 'swimming_pool',
           playground: 'playground', bicycle_parking: 'bicycle_parking',
           garden: 'garden',
@@ -4841,6 +5020,10 @@
               // the MVT parking path's own format.
               lix, liy, id: cellId('t_park', p.tx, p.ty, lix, liy),
             });
+          } else if (kind === POI_GATE_CLASS) {
+            // A gate → its tile-local cell; injectTileBin seats the posts.
+            const p = project(lon, lat0);
+            binFor(p.tx, p.ty).gates.push({ lix: p.lix, liy: p.liy });
           } else if (SX_CHEST_POI[kind]) {
             // Everything else we care about becomes a POI chest.
             const p = project(lon, lat0);
@@ -4943,7 +5126,7 @@
   // Empty bin in the exact shape buildBinsFromGeoJSON / loadTile expect.
   function emptyBin() {
     return { trees: [], fruittrees: [], shrubs: [], poles: [],
-             wells: [], chests: [], parking: [] };
+             wells: [], chests: [], parking: [], gates: [] };
   }
   // ── POI chest dedupe: one real-world place, one chest ─────────────────────
   // Two chests of the same class this close together are the same place, and
@@ -5533,6 +5716,12 @@
   }
   function caveChestsFrom(aboveObjects, grid, N, tx, ty, tileEdgeM, depth, occupied) {
     const out = [];
+    // A cave copy's DENSITY is its surface chest's, counted HERE off the
+    // generated surface objects (never the live entry — a bin's chests are
+    // on it only when the bin happened to be cached), and carried down the
+    // levels unchanged, so loot.js chestTier is the surface tier plus the
+    // depth bonus on every level.
+    const counts = poiDensityCounts(aboveObjects);
     for (const o of aboveObjects || []) {
       if (o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) continue;
       if (typeof chestMirrorsUnderground === 'function' && !chestMirrorsUnderground(o.poiClass)) continue;
@@ -5545,8 +5734,9 @@
       const onSpot = seat.cx === lix && seat.cy === liy;
       const { x: cx, y: cy } = onSpot ? { x: o.x, y: o.y }
         : cellCentreM(tx, ty, seat.cx, seat.cy, tileEdgeM, N);
+      const poiDensity = (o.depth > 0 || o.caveOf) ? o.poiDensity : counts.get(o.poiClass);
       out.push({ kind: 'chest', x: cx, y: cy, id: `${surfaceId}_d${depth}`,
-        caveOf: surfaceId, poiClass: o.poiClass, name: o.name || '', depth });
+        caveOf: surfaceId, poiClass: o.poiClass, name: o.name || '', depth, poiDensity });
     }
     return out;
   }
@@ -6099,7 +6289,7 @@
     // preservation pinned by tile_bin_injection.test.js.
     injectTileBin,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isSpawnCell, relocateToSpawnCell, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,

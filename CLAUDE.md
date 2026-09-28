@@ -55,10 +55,18 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
-- Chests give ONCE (`save.opened`), except what recurs daily: low-tier
-  crates (`refillsDaily`), chapels and grove shrines take the UTC-day ledger
-  (`Macros.markToday` / `usedToday`) and glow while available (`poiLit`). A new
-  daily thing joins that ledger and that glow, never a list of its own.
+- A POI chest's tier is its class's DENSITY on its own tile (`loot.js`
+  `CHEST_DENSITY_TIERS` / `chestTier(o)`, off `o.poiDensity` stamped by
+  `WorldGen.stampPoiDensity`): 1 of a kind → T4 … 25+ → T1, plus depth and
+  nexus. It is the tier shown AND paid; Home never enters it. Pots of gold
+  (`potCoinsFor`), barrels (`barrelEmptyP`) and restock days read the same count.
+- Chests give ONCE (`save.opened`), except what recurs: crates and barrels
+  (`restocks`) come back after `crateRestoreDays` (1 for an ordinary crate, up
+  to 7 for a class crowding its tile); pots of gold, bike racks, chapels and
+  grove shrines daily. All take the one day ledger (`Macros.markToday` — it
+  keeps a week; `usedToday` / `stillBare` / `restockWaitMs` read it) and glow
+  while available (`poiLit`); a refusal prints the wait via `shortDuration`. A
+  new recurring thing joins that ledger and that glow, never a list of its own.
 - Derive generated ids/seeds from tile + local cell or OSM id, never array
   indices, timestamps or save-relative metres. The transient pest crow is the
   id exception. Per-save salts may vary rewards, not positions;
@@ -95,6 +103,12 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   decorative props: every standing piece is interactable or a hazard, one
   art per interactable. Zone mechanics are reasons on existing lanes (tar
   slow, lair tier, `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
+- POIs that are no chest ride existing lanes too: a GATE is two posts round a
+  spawn point (`WorldGen.gatePostsAt`, lairs.js `'gate'` tier — one foe a UTC
+  day, `DAILY_TIERS`); an INFORMATION board reads a Book page like the
+  waystone (`pageStone`); a bike rack's speed is a reason in the stick-walk
+  lane (`_walkRelics` → `steerSpeedMul`); road furniture that is no place
+  (`SX_NOT_A_PLACE`) mints nothing.
 - Tile rebuilds replace the entry. Decide which state survives and which is
   regenerated; gate spawning on `entry._spawned`, not carried `creatures`.
   Do not cache a final answer from a tile still loading (no `layers` yet).
@@ -106,8 +120,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   A profile's worst-block label identifies the block ending at that yield.
 
 Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
-`spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`
-(`test/node/*.test.js`).
+`spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`,
+`chest_tier`, `daily_crates`, `density_pois` (`test/node/*.test.js`).
 
 ## Coordinates, rendering and performance
 

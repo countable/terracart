@@ -108,3 +108,8 @@ same harness with the six changed runtime modules replaced by their unchanged
 errors. These include old shop-method and balance expectations; this change
 does not repair that existing test backlog. The dedicated crop profiler and
 save-notice browser checks validate the new behavior separately.
+
+Before publication, the branch also integrated local main `61223a8` and remote
+main `3e59385`. All 2,939 headless checks passed. The profiler's script list was
+updated for the new enemy and NPC modules, and the complete browser profiler
+passed with zero runtime errors and bounded crop candidate counts.

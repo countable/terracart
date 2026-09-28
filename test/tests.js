@@ -260,8 +260,8 @@ test('every loaded chest is openable — per-cell dedupe, not one collapsed key'
   for (const entry of WorldGen.tileCache.values()) {
     for (const o of (entry.objects || [])) {
       if (o.kind !== 'chest') continue;
-      // atm / bicycle_parking are coin-burst POIs diverted before the open path.
-      if (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') continue;
+      // A pot of gold, a bike rack and a barrel are diverted before the open path.
+      if (isPotOfGold(o) || isBikeRack(o) || isBarrel(o)) continue;
       const k = cellKey(o);
       if (seen.has(k)) continue;   // genuine same-cell dup — correctly deduped
       seen.add(k);
@@ -411,7 +411,7 @@ test('pad-bearing POIs resolve to the single round pad', () => {
   assert.eq(padShapeKeyForPoi('playground'), 'round1', 'playground → round1');
   // Lowtier classes still render a bare chest with no pad.
   assert.eq(padShapeKeyForPoi('bus'), null, 'bus → no pad');
-  assert.eq(padShapeKeyForPoi('gate'), null, 'gate → no pad');
+  assert.eq(padShapeKeyForPoi('toilets'), null, 'toilets → no pad');
 });
 
 test('all pad shape textures registered', (scene) => {
@@ -2414,7 +2414,7 @@ test('trader never barters an item for the same item', (scene) => {
 });
 
 test('lowtier (chestTier 1) chest renders box sprite key', (scene) => {
-  const c = findObject(o => o.kind === 'chest' && chestTier(o.poiClass) === 1);
+  const c = findObject(o => o.kind === 'chest' && chestTier(o) === 1 && chestLook(o).box);
   if (!c) return;
   scene.update(0, 16);
   const { x: ssx, y: ssy } = worldToScreen(scene, c.x, c.y);

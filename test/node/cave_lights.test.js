@@ -34,7 +34,7 @@ test('cave torches: the sites are the lowtier POIs — the chests that do NOT mi
     'precondition: bus is lowtier, park mirrors');
   const surface = { objects: [
     chest(N, 1, 1, 'bus'),                       // lowtier → a site
-    chest(N, 2, 2, 'crossing'),                  // lowtier → a site
+    chest(N, 2, 2, 'post'),                      // lowtier → a site
     chest(N, 3, 3, 'park'),                      // mirrors as a chest → not a site
     chest(N, 4, 4, 'bus', { crate: true }),      // a loose crate is a pickup, not a place
     chest(N, 5, 5, 'bus', { fixedLoot: true }),  // starter-trail box: surface only
