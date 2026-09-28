@@ -71,11 +71,11 @@ test('vendor parity: the class outranks a venue word', () => {
 // ── Stems ────────────────────────────────────────────────────────────────
 test('vendor parity: plurals and word forms resolve to their root', () => {
   const cases = [
-    ['fast_food', 'Tacos',       'meat'],
+    ['fast_food', 'Tacos',       'grilled_meat'],
     ['shop',      'Bakers',      'coffee'],
     ['shop',      'Petals',      'flowers'],
     ['shop',      'The Beanery', 'coffee'],
-    ['cafe',      'Grilled',     'meat'],
+    ['cafe',      'Grilled',     'grilled_meat'],
     ['shop',      'Cherries',    'cherry'],
   ];
   for (const [cls, name, want] of cases) {
@@ -97,9 +97,9 @@ test('vendor parity: a stem never invents a product', () => {
 // ── A product word is the only thing that outranks the class ─────────────
 test('vendor parity: the class speaks unless the name names the goods', () => {
   assert.eq(sells('cafe', ''), 'coffee', 'an unnamed cafe pours coffee');
-  assert.eq(sells('fast_food', 'Chez Pierre'), STAND_CLASS_ITEM.fast_food,
-    'no product word → the class guess');
-  assert.eq(sells('cafe', 'Chez Pierre Steakhouse'), 'meat', 'but a product word overrides it');
+  assert.eq(sells('fast_food', 'Chez Pierre'), 'baked_potato',
+    'no product word → the prepared class guess');
+  assert.eq(sells('cafe', 'Chez Pierre Steakhouse'), 'grilled_meat', 'but a product word overrides it');
   assert.eq(sells('cafe', 'Le Petit Chou Florist'), 'flowers', 'even across the whole name');
 });
 
@@ -148,7 +148,8 @@ test('vendor parity: every class sells something different', () => {
   // three onto meat, which made a street of unnamed shops a row of identical
   // stalls.
   const byItem = new Map();
-  for (const [cls, item] of Object.entries(STAND_CLASS_ITEM)) {
+  for (const cls of Object.keys(STAND_CLASS_ITEM)) {
+    const item = sells(cls, '');
     if (!byItem.has(item)) byItem.set(item, []);
     byItem.get(item).push(cls);
   }
@@ -156,6 +157,54 @@ test('vendor parity: every class sells something different', () => {
     .map(([item, classes]) => `${item}: ${classes.join(' + ')}`);
   assert.eq(shared.length, 0, 'classes sharing an item: ' + shared.join('; '));
   assert.eq(byItem.size, Object.keys(STAND_CLASS_ITEM).length, 'one item per class');
+});
+
+test('vendor parity: prepared food counters sell existing cooked food with its family awning', () => {
+  const cases = [
+    ['restaurant', '', 'mushroom', 'grilled_mushroom'],
+    ['fast_food', '', 'potato', 'baked_potato'],
+    ['restaurant', 'Burger Grill', 'meat', 'grilled_meat'],
+    ['fast_food', 'Fish & Chips', 'salmon', 'grilled_salmon'],
+    ['cafe', 'Apple Corner', 'apple', 'baked_apple'],
+    ['bakery', 'Onion Kitchen', 'onion', 'roast_onion'],
+  ];
+  for (const [cls, name, raw, cooked] of cases) {
+    const stand = produceStandFor(stall(cls, name));
+    assert.eq(stand.item, cooked, `${cls} ${name} serves prepared food`);
+    assert.eq(stand.item, CAMPFIRE_MAKES[raw], 'uses the campfire recipe');
+    assert.eq(stand.frame, STAND_ITEM_FRAME[raw], 'keeps the food family awning');
+    assert.truthy(ITEM_BY_ID[stand.item].cooked, 'stock is an existing cooked item');
+    assert.truthy(PRICES[stand.item] > PRICES[raw], 'the cooked item carries its existing price');
+  }
+});
+
+test('vendor parity: ingredient vendors and foods without cooked twins keep their stock', () => {
+  for (const [cls, name, raw] of [
+    ['butcher', 'Burger Grill', 'meat'],
+    ['grocery', 'Onion Kitchen', 'onion'],
+    ['supermarket', 'Apple Corner', 'apple'],
+    ['shop', 'Fish Market', 'salmon'],
+    ['cafe', '', 'coffee'],
+    ['bakery', '', 'egg'],
+    ['restaurant', 'Freshly Squeezed', 'orange'],
+    ['restaurant', 'Rose Garden', 'flowers'],
+  ]) assert.eq(sells(cls, name), raw, `${cls} ${name} keeps ${raw}`);
+});
+
+test('vendor parity: raw fish dishes stay raw without matching fragments of business names', () => {
+  for (const cls of ['restaurant', 'fast_food']) {
+    for (const name of ['Sushi California', 'Salmon Sashimi', 'POKE Bowl']) {
+      assert.eq(sells(cls, name), 'salmon', `${name} serves raw fish`);
+    }
+    assert.eq(sells(cls, 'Fish Spokes'), 'grilled_salmon', 'poke inside a word is not a dish');
+    assert.eq(sells(cls, 'Apple Sushi'), 'baked_apple', 'a raw fish dish only exempts fish');
+  }
+});
+
+test('vendor parity: a prepared food stall mirrored underground is still a chest', () => {
+  const surface = stall('restaurant', 'Burger Grill');
+  assert.eq(produceStandFor(surface).item, 'grilled_meat', 'surface counter serves cooked meat');
+  assert.eq(produceStandFor({ ...surface, depth: 1 }), null, 'even a cached counter becomes a cave chest');
 });
 
 // ── Table hygiene: every promise is one the stall can keep ───────────────

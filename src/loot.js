@@ -316,7 +316,9 @@ function chestRollTier(poiClass, x, y, depth) {
 // stall instead of a chest, and sell ONE produce/food item themed off the
 // POI's name (or, failing that, its class). The mapping is deterministic — NOT
 // random — keyed off ~100 common shop-name words, so a "Pizzeria" always sells
-// the same thing and every fish stall looks the same. produceStandFor() returns
+// the same thing and every fish stall looks the same. Prepared-food counters
+// sell the existing cooked twin when one exists; the awning keeps its family.
+// produceStandFor() returns
 // { item, frame } (frame = the market_stand awning-colour for the item family)
 // or null. Used by render.js (sprite) and interact.js (loot).
 //
@@ -479,6 +481,9 @@ const STAND_CLASS_ITEM = {
   florist: 'flowers', garden_centre: 'marigold',
 };
 const STAND_RETAIL_CATS = new Set(['food', 'commerce', 'flora']);
+// Prepared-food counters use the campfire's existing cooked twin when there
+// is one. Ingredient shops keep the raw stock selected by their name/class.
+const STAND_COOKED_CLASSES = new Set(['restaurant', 'fast_food', 'cafe', 'bakery']);
 // A stall is a SHOP. These classes land in a retail category for their LOOT
 // (a garden is a flora source, so it hands out flower seeds) but nobody is
 // behind a counter there — they stay crates. Checked before the name, because
@@ -544,7 +549,12 @@ function produceStandFor(o) {
     const item = named.specific || STAND_CLASS_ITEM[o.poiClass] || named.generic || null;
     if (item && STAND_ITEM_FRAME[item] !== undefined &&
         (typeof ITEM_BY_ID === 'undefined' || ITEM_BY_ID[item])) {
-      res = { item, frame: STAND_ITEM_FRAME[item] };
+      // Sushi, sashimi and poke counters still serve their fish raw. Match
+      // whole dish names, not stems that could mistake a business's name.
+      const rawFish = STAND_ITEM_FRAME[item] === STAND_ITEM_FRAME.salmon &&
+        /\b(sushi|sashimi|poke)\b/i.test(o.name || '');
+      const cooked = STAND_COOKED_CLASSES.has(o.poiClass) && !rawFish && CAMPFIRE_MAKES[item];
+      res = { item: cooked || item, frame: STAND_ITEM_FRAME[item] };
     }
   }
   o._standCache = res;
