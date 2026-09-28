@@ -56,7 +56,7 @@
 
 <section>
   <h2>Default chest tiers</h2>
-  <p>Surface tiers by location. The chest’s displayed tier and its reward roll tier can differ near Home.</p>
+  <p>Base chest tiers by location, where a chest is encountered. Surface market stalls sell goods; their underground copies are chests.</p>
   <table id="defaultTiers"></table>
   <p id="tierRules"></p>
   <p>These are chest rules; market stands and coin-burst locations have their own interactions. Fixed starter crates have preset contents.</p>
@@ -222,11 +222,17 @@ function chestGrid() {
 
 function defaultTiers() {
   const rows = Object.entries(CHEST_TIER_BY_CATEGORY).sort((a, b) => a[1] - b[1]);
-  table($('defaultTiers'), ['category', 'locations', 'surface tier', 'mirrors underground'], rows.map(([category, tier]) => {
+  table($('defaultTiers'), ['category', 'locations', 'surface interaction', 'base chest tier', 'mirrors underground'], rows.map(([category, tier]) => {
     const places = Object.keys(POI_CATEGORY).filter((p) => POI_CATEGORY[p] === category);
+    const stalls = places.filter((poiClass) => produceStandFor({ kind: 'chest', poiClass }));
+    const chestOnly = places.filter((p) => STAND_NEVER_CLASSES.has(p));
+    const surface = stalls.length === places.length ? 'Market stalls'
+      : stalls.length ? `Market stalls: ${stalls.map((p) => p.replaceAll('_', ' ')).join(', ')}. `
+        + (chestOnly.length ? `Chests: ${chestOnly.join(', ')}.` : 'Other locations: chests or name-based stalls.')
+      : category === 'lowtier' ? 'Chests; ATMs and bicycle stands also have coin bursts' : 'Chests';
     return `<tr><td>${category}</td><td style="text-align:left;white-space:normal">${places.map((p) => p.replaceAll('_', ' ')).join(', ')}</td>`
-      + `<td>T${tier}</td><td>${chestMirrorsUnderground(places[0]) ? 'yes' : 'no'}</td></tr>`;
-  }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>T${chestTier()}</td><td>yes</td></tr>`));
+      + `<td style="text-align:left;white-space:normal">${surface}</td><td>T${tier}</td><td>${chestMirrorsUnderground(places[0]) ? 'yes' : 'no'}</td></tr>`;
+  }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>Chests</td><td>T${chestTier()}</td><td>yes</td></tr>`));
   $('tierRules').textContent = 'Near Home, contents roll lower: '
     + CHEST_TIER_HOME_RINGS_M.map((m, i) => `within ${m} m, −${i + 1} tier${i ? 's' : ''}`).join('; ')
     + `. Floor the surface roll at T1, then add one tier per ${CHEST_TIER_DEPTH_STEP} underground levels, capped at T${CHEST_TIER_MAX}. `
@@ -243,7 +249,7 @@ function syncControls() {
     ? `Each sample offers up to ${Trail.PRIZE_CHOICES} distinct cards; the player keeps one. Prize #1 includes ${Trail.FIRST_PRIZE_QTY} onion seeds. Tables measure offered cards, not total payout.`
     : ctx === Combat.ELITE_TREASURE_CONTEXT
       ? 'Repeat elite kills pay this reward. The first discovery gives a memory instead. The normal kill wage is separate.'
-      : ctx.startsWith('chest:') ? 'Random chest rewards at the chosen tier. Fixed starter chest contents are not included.'
+      : ctx.startsWith('chest:') ? 'Random chest rewards at the chosen tier. Surface food POIs are market stalls; their underground copies use chest:food. Florists and garden centres are also stalls; gardens stay chests. Fixed starter contents are not included.'
       : 'One buried-treasure reward. Underground finds use the game’s depth-based cave supply weighting.';
 }
 
