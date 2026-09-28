@@ -121,23 +121,32 @@
   // registered table in its own order — and this pins that the derivation
   // still hands back exactly what was typed, in the order it was typed in.
   // (Eleven since the goblin trapper and its giant joined the table; twelve
-  // since the ghost — a surface night kind, so it has no giant; thirteen since
-  // the tar yard's fire slime — a surface zone kind, no giant either.)
-  test('quest board: the enemy list derives to the same thirteen, in the same order', () => {
+  // since the ghost — a surface night kind, so it has no giant. The tar
+  // yard's fire slime is in the table but NOT on the board: its row says
+  // `board: false` (Combat.onQuestBoard) — a zone-only foe.)
+  test('quest board: the enemy list derives to the same twelve, in the same order', () => {
     Combat.registerMonsters(MONSTERS);
     const expected = [
       'slime', 'cave_slime', 'purple_slime', 'goblin', 'goblin_archer', 'goblin_trapper',
-      'ghost', 'fire_slime', 'giant_cave_slime', 'giant_purple_slime', 'giant_goblin', 'giant_goblin_archer',
+      'ghost', 'giant_cave_slime', 'giant_purple_slime', 'giant_goblin', 'giant_goblin_archer',
       'giant_goblin_trapper',
     ];
-    assert.eq(questEnemies().join(','), expected.join(','), 'same thirteen, same order');
+    assert.eq(questEnemies().join(','), expected.join(','), 'same twelve, same order');
     // …and the same names, which the kill job's body reads through
     // Combat.enemyName: the id with its underscores opened out.
     assert.eq(expected.map(Combat.enemyName).join('|'),
-      'slime|cave slime|purple slime|goblin|goblin archer|goblin trapper|ghost|fire slime|giant cave slime|'
+      'slime|cave slime|purple slime|goblin|goblin archer|goblin trapper|ghost|giant cave slime|'
       + 'giant purple slime|giant goblin|giant goblin archer|giant goblin trapper', 'display names');
     // The surface slime leads: the only foe you can meet without going down.
     assert.eq(questEnemies()[0], 'slime', 'the slime is still first');
+    // The fire slime is a registered enemy, kept off the board by its row.
+    assert.truthy(Combat.isEnemyKind('fire_slime'), 'the fire slime is still an enemy');
+    assert.falsy(questEnemies().includes('fire_slime'), 'but never a kill job');
+    assert.falsy(Combat.onQuestBoard('fire_slime'), 'its row says board: false');
+    for (let g = 0; g < 400; g++) {
+      const q = Quests.generate(g % QUEST_SLOTS, g, 30, 3);
+      assert.truthy(q.verb !== 'kill' || q.target !== 'fire_slime', `gen ${g} never names a fire slime`);
+    }
   });
 
   test('quest board: a kind registered into Combat reaches the board on its own', () => {
@@ -147,7 +156,7 @@
     try {
       Combat.registerMonsters({ ...MONSTERS, mud_golem: { name: 'Mud Golem', hp: 30, dmg: 2, minDepth: 4 } });
       assert.includes(questEnemies(), 'mud_golem', 'the new kind is on the list');
-      assert.eq(questEnemies().length, 14, 'appended, not swapped in');
+      assert.eq(questEnemies().length, 13, 'appended, not swapped in');
       assert.eq(Combat.enemyName('mud_golem'), 'mud golem', 'and it has a readable name');
       const seen = new Set();
       for (let g = 0; g < 400; g++) {

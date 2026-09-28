@@ -879,6 +879,14 @@
   function lampRiseCells() {
     return (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_LANTERN_RISE_CELLS) || 0;
   }
+  // A lamp entry's `glow` ('#rrggbb', app.js _streetLampsForTile off
+  // StreetVariants.lampGlowFor) as a light colour: null for the default
+  // UI_LAMP_GLOW (the `cobble` row's own colour) or anything unreadable.
+  function lampColour(glow) {
+    if (typeof glow !== 'string' || !/^#[0-9a-f]{6}$/i.test(glow)) return null;
+    const n = parseInt(glow.slice(1), 16);
+    return n === LAMP_GLOW ? null : n;
+  }
   function collectLamps(scene, ax, ay, halfM) {
     const list = scene && scene._streetLamps;
     if (!list || !list.length) return 0;
@@ -889,7 +897,15 @@
       if (!L.lit) continue;                        // a dark stone is not a light
       const dx = L.x - ax, dy = L.y - ay;
       if (!inRange(scene, dx, dy, 'cobble', halfM)) continue;
-      scene._lights.push({ kind: 'cobble', dx, dy, dyPx, id: L.id });
+      // The lamp's own GLOW (its street's colour, the same `glow` the baked
+      // art is keyed by) as the entry's colour — which frameKey already names
+      // per light, so a lamp changing colour repaints. The default glow is
+      // left off (undefined), so a plain street's lamp keeps the row's own
+      // `cobble` cookie exactly as before. A hue, never a brightness factor.
+      const colour = lampColour(L.glow);
+      scene._lights.push(colour == null
+        ? { kind: 'cobble', dx, dy, dyPx, id: L.id }
+        : { kind: 'cobble', dx, dy, dyPx, id: L.id, colour });
       n++;
     }
     return n;
@@ -1454,7 +1470,7 @@
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, collectFires, collectBolts, objectLightPadCells,
-    collectPlayer, collectLamps, collectMagicTraps, lampRiseCells, brightnessAt,
+    collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
     LIGHT_TICK_MS, lightClock, animates, frameKey,

@@ -67,9 +67,9 @@ const FIRE_WARD_MAX_DEPTH = 1;
 // real beach can. Read by spawnInTile's beach block; pinned by
 // test/node/beach_treasure.test.js.
 const BEACH_X_PER_CELLS = 20;
-// How many verge cells a dog tries before it keeps its drawn seat (see
-// _seatDogsOnBanditRoads).
-const DOG_ROAD_TRIES = 12;
+// How many favourite-ground cells an attracted animal tries before it keeps
+// its drawn seat (see _seatFaunaOnFavouriteGround).
+const FAUNA_ATTRACT_TRIES = 12;
 
 class SceneCreatures {
   spawnInTile(entry, tx, ty) {
@@ -293,13 +293,14 @@ class SceneCreatures {
       for (let i = 0; i < primN; i++) tryPlace(primary,  i, sp);
       for (let i = primN; i < n; i++) tryPlace(fallback, i, sp);
     }
-    // DOGS WORK THE BANDIT ROADS. When the tile has any MAJOR verge
-    // (entry.roadClass, WorldGen.ROAD_CLASS_MAJOR_VERGE), every dog the loop
-    // above placed is re-seated onto it — the draw above is taken exactly as
-    // before (same count, same ids, same stream for every species after it),
-    // and the new seat comes off the dogs' OWN stream. A tile with no major
-    // road keeps its dogs where they were drawn.
-    this._seatDogsOnBanditRoads(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures);
+    // FAUNA ATTRACTORS. A species' favourite ground pulls the tile's OWN
+    // spawns of it (never adds): the dogs work the bandit roads, deer the
+    // orchard lanes and groves, cats Lantern Row, crows the churchyards… —
+    // rows of the `attracts` column (see _seatFaunaOnFavouriteGround). The
+    // draw above is taken exactly as before (same count, same ids, same
+    // stream for every species after it); the new seats come off each
+    // species' OWN stream. A tile without the ground keeps its animals.
+    entry.faunaAttracted = this._seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures, pestFree);
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
@@ -583,35 +584,95 @@ class SceneCreatures {
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
   }
 
-  // DOGS ON THE BANDIT ROADS (see the call in spawnInTile). Re-seats each
-  // placed dog on a MAJOR-verge cell that passes the shared spawn rule, from
-  // the dogs' own stream (DOG_ROAD_SALT, keyed on the tile) — never a draw
-  // from the tile stream. One pass over roadClass collects the verge; a dog
-  // that finds no free verge cell in DOG_ROAD_TRIES keeps its drawn seat.
-  _seatDogsOnBanditRoads(entry, tx, ty, N, cellM, genGrid, spawnOpts, creatures) {
-    const rc = entry.roadClass;
-    if (!rc || !creatures || !creatures.length) return;
-    const dogs = creatures.filter((c) => c && c.kind === 'dog');
-    if (!dogs.length) return;
-    const bit = WorldGen.ROAD_CLASS_MAJOR_VERGE;
-    const verge = [];
-    for (let i = 0; i < rc.length; i++) if (rc[i] & bit) verge.push(i);
-    if (!verge.length) return;
-    const rng = WorldGen.makeRng(fnv1a(`dogs|${tx},${ty}`));
-    const taken = new Set();
-    for (const d of dogs) {
-      for (let a = 0; a < DOG_ROAD_TRIES; a++) {
-        const idx = verge[Math.floor(rng() * verge.length)];
-        if (taken.has(idx)) continue;
-        const cx = idx % N, cy = (idx / N) | 0;
-        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts)) continue;
-        taken.add(idx);
-        d.x = tx * this.tileEdgeM + (cx + 0.5) * cellM;
-        d.y = ty * this.tileEdgeM + (cy + 0.5) * cellM;
-        break;
+  // FAUNA ATTRACTORS (see the call in spawnInTile) — ONE lane, many grounds.
+  // What a ground attracts is a COLUMN on the row that owns the ground, never
+  // per-species code here:
+  //   street variants   StreetVariants.STREET_VARIANTS[].attracts — the
+  //                     cells the dressing marked with that row's code
+  //                     (entry.streetMarks: band + verge of a dressed street)
+  //   the bandit road   StreetVariants.BANDIT_STORY.attracts — every MAJOR
+  //                     verge cell (roadClass, ROAD_CLASS_MAJOR_VERGE)
+  //   influence zones   Zones.ZONE_KINDS[].attracts — the zone's field cells
+  //   terrain           BIOME_ATTRACTS[code] — the LAND's class (the halo's
+  //                     `under` first, like the trap ground)
+  // Each column is { species: p }: every one of the tile's own spawns of that
+  // species moves onto the union of its grounds with probability p (p = 1
+  // draws nothing, so the dogs keep the exact seats they had when this was
+  // their own pass). Seats come off the species' OWN stream (`<kind>s|tx,ty`
+  // — the dogs' old key), pass the shared spawn rule, never share a cell, and
+  // a slime or crow never moves into the starting area's pest amnesty. A
+  // species with no ground on the tile, or an animal that finds no free cell
+  // in FAUNA_ATTRACT_TRIES, keeps its drawn seat. Returns { kind: moved }.
+  _seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, spawnOpts, creatures, pestFree) {
+    const moved = {};
+    if (!creatures || !creatures.length) return moved;
+    const SV = (typeof StreetVariants !== 'undefined') ? StreetVariants : null;
+    const Z = (typeof Zones !== 'undefined') ? Zones : null;
+    const BA = (typeof BIOME_ATTRACTS !== 'undefined') ? BIOME_ATTRACTS : null;
+    // The grounds present on this tile, as [p, test(i)] per species.
+    const want = {};
+    const add = (attracts, test) => {
+      if (!attracts) return;
+      for (const [sp, p] of Object.entries(attracts)) (want[sp] || (want[sp] = [])).push({ p, test });
+    };
+    const marks = entry.streetMarks, rc = entry.roadClass;
+    if (SV) {
+      if (marks) for (const row of SV.STREET_VARIANTS) if (row.attracts) add(row.attracts, (i) => marks[i] === row.code);
+      if (rc) { const bit = WorldGen.ROAD_CLASS_MAJOR_VERGE; add(SV.BANDIT_STORY.attracts, (i) => !!(rc[i] & bit)); }
+    }
+    const zf = entry.zone;
+    if (Z && zf && zf.idx) {
+      for (const [kind, row] of Object.entries(Z.ZONE_KINDS)) {
+        if (row.attracts) add(row.attracts, (i) => zf.idx[i] > 0 && zf.anchors[zf.idx[i] - 1].kind === kind);
       }
     }
+    if (BA) {
+      const under = zf && zf.under;
+      for (const code of Object.keys(BA)) {
+        const c = +code;
+        add(BA[code], (i) => ((under && under[i]) || genGrid[i]) === c);
+      }
+    }
+    // Only species the tile actually spawned; p = 1 first (the dogs keep the
+    // seats they had with an empty `taken`), then FAUNA_ORDER.
+    const order = (typeof FAUNA_ORDER !== 'undefined' ? FAUNA_ORDER : []).slice();
+    for (const sp of Object.keys(want)) if (!order.includes(sp)) order.push(sp);
+    const pOf = (sp) => Math.max(...want[sp].map((g) => g.p));
+    const species = order.filter((sp) => want[sp] && creatures.some((c) => c && c.kind === sp))
+      .sort((a, b) => (pOf(b) >= 1) - (pOf(a) >= 1));
+    if (!species.length) return moved;
+    const taken = new Set();
+    const NN = N * N;
+    for (const sp of species) {
+      const grounds = want[sp];
+      const p = pOf(sp);
+      const pool = [];
+      for (let i = 0; i < NN; i++) {
+        for (const g of grounds) if (g.test(i)) { pool.push(i); break; }
+      }
+      if (!pool.length) continue;
+      const rng = WorldGen.makeRng(fnv1a(`${sp}s|${tx},${ty}`));
+      const pest = (sp === 'slime' || sp === 'crow') ? pestFree : null;
+      for (const c of creatures) {
+        if (!c || c.kind !== sp) continue;
+        if (p < 1 && rng() >= p) continue;
+        for (let a = 0; a < FAUNA_ATTRACT_TRIES; a++) {
+          const idx = pool[Math.floor(rng() * pool.length)];
+          if (taken.has(idx)) continue;
+          const cx = idx % N, cy = (idx / N) | 0;
+          if (pest && pest.has(cx, cy)) continue;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts)) continue;
+          taken.add(idx);
+          c.x = tx * this.tileEdgeM + (cx + 0.5) * cellM;
+          c.y = ty * this.tileEdgeM + (cy + 0.5) * cellM;
+          moved[sp] = (moved[sp] || 0) + 1;
+          break;
+        }
+      }
+    }
+    return moved;
   }
+
 
   // The live-ground cull. spawnInTile draws every creature, trap and X mark
   // off the tile's GENERATED layer so the stream is the same for everyone;

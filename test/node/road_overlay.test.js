@@ -1138,6 +1138,33 @@ test('street lamp: gold ironwork, violet light — one constant each, and they a
       'a light stop is the glow, or the white-hot core of it');
 });
 
+test('street lamp: the glow is a PARAMETER — a themed street bakes its own colour, the metal stays gold', () => {
+  // paintLamp(cx, size, glowHex): the glass, bloom and pool shed the lamp's
+  // own glow (the lamp entry's `glow`, StreetVariants.lampGlowFor off its
+  // street); absent or malformed it is UI_LAMP_GLOW, exactly as before.
+  const S = RoadOverlay.LAMP_TEX_PX;
+  const stopsOf = (glow) => {
+    const { ctx, ops } = roRecorder();
+    RoadOverlay.paintLamp(ctx, S, glow);
+    return ops.filter(([k]) => k === 'addColorStop').map(([, , css]) => roChannels(css)).filter(Boolean);
+  };
+  const has = (stops, h) => stops.some((s) => s.r === h.r && s.g === h.g && s.b === h.b);
+  const violet = roHexChannels(UI_LAMP_GLOW), gold = roHexChannels(UI_LAMP_GOLD);
+  const orange = '#ff8c2a', oc = roHexChannels(orange);
+  const themed = stopsOf(orange);
+  assert.truthy(has(themed, oc), 'a themed lamp sheds its own glow');
+  assert.falsy(has(themed, violet), 'and none of the default violet');
+  assert.truthy(has(themed, gold), 'its ironwork is the same UI_LAMP_GOLD');
+  // The default: no glow, null, or garbage all paint the violet — the same
+  // stops as the one-argument call every existing bake makes.
+  const base = JSON.stringify(stopsOf());
+  assert.eq(JSON.stringify(stopsOf(UI_LAMP_GLOW)), base, 'UI_LAMP_GLOW is the default bake exactly');
+  assert.eq(JSON.stringify(stopsOf(null)), base, 'null is the default');
+  assert.eq(JSON.stringify(stopsOf('violet')), base, 'a malformed colour falls back to the default');
+  assert.eq(RoadOverlay.lampGlowHex(orange), orange);
+  assert.eq(RoadOverlay.lampGlowHex(undefined), UI_LAMP_GLOW);
+});
+
 test('street lamp: the lit glass is glazing in a frame, not a hole in the post', () => {
   // The one part that is not metal: a white-hot core up-left of its middle
   // (the corner every sprite in here is lit from) falling to the lamp's own

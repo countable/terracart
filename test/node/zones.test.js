@@ -272,6 +272,146 @@ test('zones: the patterns — 2-3 per kind, quiet faiths get rocks, never headst
   }
 });
 
+// ── The nexus across a seam ─────────────────────────────────────────────────
+// Two adjacent synthetic tiles (all park, no road, nothing there) see one
+// anchor near their seam in their poi buffers. The pattern is the ANCHOR's:
+// the union of both tiles' pieces is the pattern laid uncut, each piece once,
+// by the tile whose square holds its cell, with that tile + cell's id and the
+// variant the anchor's one stream gives it — whichever tile computed it.
+const SEAM_TAGS = {
+  grove: { class: 'park', subclass: 'park' },
+  stones: { class: 'place_of_worship', subclass: 'christian' },
+  quiet: { class: 'place_of_worship', subclass: 'muslim' },
+  tar: { class: 'fuel', subclass: 'fuel' },
+};
+function seamDress(tag, gx, gy, tx, ty, withChest) {
+  const N = WorldGen.cellsPerEdgeForTile(ty), edge = edgeFor(ty);
+  const lx = gx - tx * EXT, ly = gy - ty * EXT;
+  const poi = { name: 'poi', features: [{ type: 1, geom: [[{ x: lx, y: ly }]], tags: SEAM_TAGS[tag] }] };
+  const fld = Z.field(poi, tx, ty, N);
+  const chests = [];
+  if (withChest) {
+    chests.push({ kind: 'chest', id: `chest_${tx}_${ty}_x`, _poiAt: `${lx},${ly}`,
+      x: tx * edge + (lx / EXT) * edge, y: ty * edge + (ly / EXT) * edge });
+  }
+  const grid = new Uint8Array(N * N).fill(T.PARK);
+  const res = fld ? Z.dress({ field: fld, tx, ty, N, tileEdgeM: edge, grid, chests,
+    spawnOpts: { roadMask: new Uint8Array(N * N), occupied: new Set() } }) : null;
+  return { tx, ty, N, edge, fld, res, chests };
+}
+const PREFIX = { rose: 'wz', flint: 'wz', tree: 'ztree', headstone: 'hs', rock: 'mrz', tar: 'tar' };
+const KIND_OF = { rose: 'wildrose', flint: 'flint', tree: 'tree', headstone: 'headstone', rock: 'mineralrock', tar: 'tar' };
+function checkSeam(tag, A, Bt, gx, gy, label) {
+  const a = seamDress(tag, gx, gy, A[0], A[1], true);
+  const b = seamDress(tag, gx, gy, Bt[0], Bt[1], false);
+  const ra = a.fld && (a.fld.reach || []).find((x) => x.gx === gx && x.gy === gy);
+  const rb = b.fld && (b.fld.reach || []).find((x) => x.gx === gx && x.gy === gy);
+  assert.truthy(ra && rb, `${label}: both tiles reach the anchor`);
+  const planA = Z.nexusPlan(ra), planB = Z.nexusPlan(rb);
+  assert.eq(JSON.stringify(planB), JSON.stringify(planA), `${label}: both tiles replay the same draws`);
+  // The uncut pattern: each anchor-grid cell centre as a global point → its tile.
+  const tyA = Math.floor(gy / EXT), txA = Math.floor(gx / EXT);
+  const Na = WorldGen.cellsPerEdgeForTile(tyA);
+  const ax0 = Math.floor((gx - txA * EXT) * Na / EXT), ay0 = Math.floor((gy - tyA * EXT) * Na / EXT);
+  const expect = new Map();
+  const tiles = [a, b];
+  for (const pc of planA.pieces) {
+    const px = txA * EXT + (ax0 + pc.dx + 0.5) * EXT / Na, py = tyA * EXT + (ay0 + pc.dy + 0.5) * EXT / Na;
+    const t = tiles.find((t) => Math.floor(px / EXT) === t.tx && Math.floor(py / EXT) === t.ty);
+    assert.truthy(t, `${label}: the fixture keeps the pattern on the two tiles`);
+    const ix = Math.floor((px - t.tx * EXT) * t.N / EXT), iy = Math.floor((py - t.ty * EXT) * t.N / EXT);
+    const id = WorldGen.cellId(PREFIX[pc.what], t.tx, t.ty, ix, iy);
+    assert.falsy(expect.has(id), `${label}: pattern cells are distinct`);
+    expect.set(id, { pc, t, ix, iy });
+  }
+  const got = new Map();
+  let inA = 0, inB = 0;
+  for (const t of tiles) {
+    for (const p of [...t.res.objects, ...t.res.wildplants]) {
+      if (p.kind === 'grove_shrine') { assert.eq(t, a, `${label}: the shrine is the owner's`); continue; }
+      assert.falsy(got.has(p.id), `${label}: ${p.id} laid once`);
+      got.set(p.id, p);
+      const ix = Math.floor((p.x - t.tx * t.edge) / (t.edge / t.N)), iy = Math.floor((p.y - t.ty * t.edge) / (t.edge / t.N));
+      assert.truthy(p.id.endsWith(`_${t.tx}_${t.ty}_${ix}_${iy}`), `${label}: ${p.id} is its laying tile + cell`);
+      if (t === a) inA++; else inB++;
+    }
+  }
+  assert.gt(inA, 0, `${label}: the owner laid its side`);
+  assert.gt(inB, 0, `${label}: the neighbour laid its side`);
+  assert.eq([...got.keys()].sort().join(), [...expect.keys()].sort().join(), `${label}: the union is the uncut pattern`);
+  const nRock = SpriteLayout.PLAIN_ROCK_VARIANTS.length;
+  for (const [id, e] of expect) {
+    const p = got.get(id);
+    assert.eq(p.kind === 'wildplant' || p.crop ? p.crop : p.kind, KIND_OF[e.pc.what], `${id}: the pattern's kind`);
+    if (e.pc.what === 'tree') {
+      assert.eq(p.variant, 1 + Math.floor(e.pc.v * 4), `${id}: its variant`);
+      assert.eq(p.species, planA.species, `${id}: the anchor's species`);
+    }
+    if (e.pc.what === 'rock') assert.eq(p.caveVariant, Math.floor(e.pc.v * nRock), `${id}: its variant`);
+  }
+  // The chest is the owner's: stamped there, and only the owner garrisons tar.
+  assert.eq(a.chests[0].zoneNexus, ra.kind, `${label}: the owner stamps its chest`);
+  if (ra.kind === 'tar') {
+    assert.eq(a.res.lairs.length, 1, `${label}: the owner holds the garrison`);
+    assert.eq(b.res.lairs.length, 0, `${label}: the neighbour none`);
+  }
+  if (ra.kind === 'grove') {
+    assert.eq(a.res.objects.filter((o) => o.kind === 'grove_shrine').length, 1, `${label}: one shrine`);
+  }
+  return ra.aspect;
+}
+// An anchor point near the seam whose aspect is one of `want` (the aspect is a
+// hash of the point, so step along the seam until one fits).
+function seamPoint(tag, want, base, step) {
+  for (let k = 0; k < 400; k++) {
+    const gx = base[0] + step[0] * k, gy = base[1] + step[1] * k;
+    const r = Z.resolveAnchors(Z.collectAnchors({ features: [{ type: 1, geom: [[{ x: gx - TILE_TX * EXT, y: gy - TILE_TY * EXT }]], tags: SEAM_TAGS[tag] }] }, TILE_TX, TILE_TY));
+    if (r.length && want.includes(r[0].aspect)) return [gx, gy];
+  }
+  throw new Error(`no ${want} point near the seam`);
+}
+
+test('zones: a nexus straddling an east/west seam is laid whole, once, by the tile each piece lands in', () => {
+  const N = WorldGen.cellsPerEdgeForTile(TILE_TY);
+  const seamX = (TILE_TX + 1) * EXT;
+  const cellU = EXT / N;
+  const cases = [
+    ['grove', ['tree_ring', 'rose_in_trees', 'rose_rings']],
+    ['quiet', Z.ASPECTS.stones_quiet],
+    ['stones', Z.ASPECTS.stones],
+    ['tar', Z.ASPECTS.tar],
+  ];
+  const seen = new Set();
+  for (const [tag, want] of cases) {
+    for (const asp of want) {
+      // 1.5 cells west of the seam: the pattern reaches ±4 cells, both sides.
+      const [gx, gy] = seamPoint(tag, [asp], [seamX - Math.round(1.5 * cellU), TILE_TY * EXT + 2000], [0, 7]);
+      seen.add(checkSeam(tag, [TILE_TX, TILE_TY], [TILE_TX + 1, TILE_TY], gx, gy, `${tag}/${asp} east seam`));
+    }
+  }
+  assert.gte(seen.size, 8, `every aspect crossed a seam (${[...seen].join(', ')})`);
+});
+
+test('zones: a nexus straddling a north/south seam where the rows\' grids differ is laid whole', () => {
+  let ty = -1;
+  for (let r = TILE_TY - 200; r < TILE_TY + 200; r++) {
+    if (WorldGen.cellsPerEdgeForTile(r) !== WorldGen.cellsPerEdgeForTile(r + 1)) { ty = r; break; }
+  }
+  assert.gte(ty, 0, 'a row seam where N changes');
+  const N = WorldGen.cellsPerEdgeForTile(ty);
+  const seamY = (ty + 1) * EXT, cellU = EXT / N;
+  const base = [TILE_TX * EXT + 1500, seamY - Math.round(2.5 * cellU)];
+  for (const [tag, want] of [['grove', ['tree_ring', 'rose_in_trees']], ['quiet', Z.ASPECTS.stones_quiet], ['tar', ['tar_grid', 'tar_cross']]]) {
+    // resolveAnchors' row rule reads the anchor's row — seamPoint only picks
+    // the aspect (a function of the point alone).
+    const [gx, gy] = seamPoint(tag, want, base, [7, 0]);
+    checkSeam(tag, [TILE_TX, ty], [TILE_TX, ty + 1], gx, gy, `${tag} south seam (N ${N} / ${WorldGen.cellsPerEdgeForTile(ty + 1)})`);
+    // …and the neighbour laying the north side, anchor in the southern row.
+    const [gx2, gy2] = seamPoint(tag, want, [base[0], seamY + Math.round(1.5 * cellU)], [7, 0]);
+    checkSeam(tag, [TILE_TX, ty + 1], [TILE_TX, ty], gx2, gy2, `${tag} north seam`);
+  }
+});
+
 // ── Headstones ──────────────────────────────────────────────────────────────
 test('headstone: a fifth hold a one-off find, by the stone\'s own id', () => {
   let n = 0;
@@ -565,5 +705,14 @@ test('tips: the zones\' pages quote the numbers the code rolls', () => {
   // Curriculum: the dusk ghosts come after the first ghost page.
   const firstGhost = PLAY_TIPS.findIndex((t) => /After dark, ghosts rise/.test(t));
   assert.gt(PLAY_TIPS.indexOf(dusk), firstGhost, 'taught after the night\'s ghosts');
+});
+
+test('tar yard: the oily ground takes no hoe, and says why', () => {
+  const T = WorldGen.T;
+  assert.truthy(NON_TILLABLE.has(T.TAR_YARD), 'TAR_YARD is non-tillable');
+  assert.falsy(isTillable(T.TAR_YARD), 'isTillable agrees');
+  assert.truthy(isTillable(T.GROVE) && isTillable(T.CHURCHYARD), 'the grove and churchyard still take one');
+  const line = TERRAIN_FLAVOR[T.TAR_YARD];
+  assert.truthy(line && line.length <= MAP_MSG_MAX, `a refusal that fits the map (${line})`);
 });
 })();

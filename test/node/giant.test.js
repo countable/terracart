@@ -77,7 +77,9 @@
   test('giants: a different kind on the quest board and in the Discovery ledger', () => {
     // Every monster kind, giants included, is a kill target the board can
     // name, with a name to print.
+    // (Less a row that says `board: false` — the zone-only fire slime.)
     for (const kind of Object.keys(MONSTERS)) {
+      if (!Combat.onQuestBoard(kind)) { assert.falsy(QUEST_ENEMIES.includes(kind), kind + ' is kept off the board'); continue; }
       assert.includes(QUEST_ENEMIES, kind, kind + ' is a quest target');
     }
     for (const kind of giantKinds) {

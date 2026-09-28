@@ -16,9 +16,12 @@
 // coordinates and never change.
 //
 // The two placements:
-//   • SURFACE — on the BANDIT ROADS' verges and on WASTELAND, never on a
+//   • SURFACE — on the BANDIT STRETCHES' verges and on WASTELAND, never on a
 //     road. The verge is the MAJOR ways' (entry.roadClass, stamped beside
-//     `entry.roadMask` from WorldGen.roadOverlayWidthM), and the cell a trap
+//     `entry.roadMask` from WorldGen.roadOverlayWidthM) where the bandits work
+//     that stretch of the street (ROAD_CLASS_BANDIT_VERGE, stamped by
+//     StreetVariants.stampBanditStretchesSteps — about a third of each major
+//     street's stretches, at BANDIT_VERGE_DENSITY_MUL × the share), and the cell a trap
 //     lands on is cleared by the shared WorldGen.isSpawnCell rule (mask +
 //     occupied) like every other spawner. See isRoadside.
 //   • CAVES — on CAVE_FLOOR, around the level's up-staircases (the same anchors
@@ -171,17 +174,32 @@
     const bit = (WG && WG.ROAD_CLASS_MAJOR_VERGE) || 2;
     return !!(roadClass[cy * w + cx] & bit);
   }
+  // THE BANDIT STRETCHES: a major road's verge is trap ground only where the
+  // bandits work it — StreetVariants.BANDIT_STRETCH_SHARE of each major
+  // street's stretches, stamped into roadClass as
+  // WorldGen.ROAD_CLASS_BANDIT_VERGE (a subset of the major verge above).
+  function isBanditVerge(roadClass, w, h, cx, cy) {
+    if (!roadClass || cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
+    const WG = root.WorldGen;
+    const bit = (WG && WG.ROAD_CLASS_BANDIT_VERGE) || 4;
+    return !!(roadClass[cy * w + cx] & bit);
+  }
   // `under` (optional): the codes an influence zone's HALO painted over
   // (src/zones.js — entry.zone.under, 0 = untouched). Waste ground a zone
   // repainted is still waste ground to a bandit: the trap ground is the LAND's
   // class, so the reservoir below samples the same cells with or without the
   // zones and no tile's traps re-roll.
   function isTrapGround(grid, roadClass, w, h, cx, cy, under) {
-    if (isRoadside(roadClass, w, h, cx, cy)) return true;
+    return trapGroundKind(grid, roadClass, w, h, cx, cy, under) !== 0;
+  }
+  // Which trap ground a cell is: 1 a bandit stretch's verge, 2 waste ground,
+  // 0 neither. The two are sampled and capped apart (spawnSurface).
+  function trapGroundKind(grid, roadClass, w, h, cx, cy, under) {
+    if (isBanditVerge(roadClass, w, h, cx, cy)) return 1;
     const WG = root.WorldGen;
-    if (!grid || !WG) return false;
+    if (!grid || !WG) return 0;
     const i = cy * w + cx;
-    return ((under && under[i]) || grid[i]) === WG.T.WASTELAND;
+    return ((under && under[i]) || grid[i]) === WG.T.WASTELAND ? 2 : 0;
   }
 
   // Up to `k` trap-ground cells, sampled UNIFORMLY across the tile in a single
@@ -192,21 +210,27 @@
   // The reservoir rather than a list because of the SIZE of the thing being
   // sampled: a dense town tile's trap ground runs to thousands of cells, of
   // which this uses a few dozen. It holds a fixed k and never grows.
+  // TWO reservoirs off the one pass and the one rng — the bandit verge's and
+  // the waste ground's (`road`, `waste`: { cells, seen } each) — because the
+  // two are capped at different densities; `cells` / `seen` are their union,
+  // as before.
   function sampleTrapCells(grid, roadClass, w, h, rng, k, under) {
-    const res = [];
-    let seen = 0;
+    const pools = [null, { cells: [], seen: 0 }, { cells: [], seen: 0 }];
     for (let cy = 0; cy < h; cy++) {
       for (let cx = 0; cx < w; cx++) {
-        if (!isTrapGround(grid, roadClass, w, h, cx, cy, under)) continue;
-        if (res.length < k) res.push(cy * w + cx);
+        const kind = trapGroundKind(grid, roadClass, w, h, cx, cy, under);
+        if (!kind) continue;
+        const P = pools[kind];
+        if (P.cells.length < k) P.cells.push(cy * w + cx);
         else {
-          const r = Math.floor(rng() * (seen + 1));
-          if (r < k) res[r] = cy * w + cx;
+          const r = Math.floor(rng() * (P.seen + 1));
+          if (r < k) P.cells[r] = cy * w + cx;
         }
-        seen++;
+        P.seen++;
       }
     }
-    return { cells: res, seen };
+    return { cells: pools[1].cells.concat(pools[2].cells), seen: pools[1].seen + pools[2].seen,
+      road: pools[1], waste: pools[2] };
   }
 
   // ── Surface spawn ────────────────────────────────────────────────────────
@@ -229,6 +253,14 @@
   // stub of bandit road cannot turn it into a solid minefield. The cap reads
   // the sampled pool's size, not a draw, so no stream moves because of it.
   const TRAP_GROUND_SHARE_PER_MUL = 0.003;
+  // A BANDIT STRETCH's verge carries this many times the share — the bandits
+  // work about a third of the major road (StreetVariants.BANDIT_STRETCH_SHARE;
+  // 31-41% of the major verge by cell on the 36-tile city set), so the traps
+  // they would have spread along all of it bunch onto their own stretches,
+  // and then some: the per-tile totals come out ~1.5x the old whole-verge
+  // rule (measured, Sep 2026: easy 1.51x, hard 1.43x — the count, not the
+  // cap, binds on the densest tiles). Waste ground keeps the plain share.
+  const BANDIT_VERGE_DENSITY_MUL = 6;
   // `under`: the zone halo's replaced codes (see isTrapGround), or omitted.
   function spawnSurface(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under) {
     if (!grid || !roadClass || !root.WorldGen) return [];
@@ -240,12 +272,19 @@
     const mul = (countMul > 0 ? countMul : 1) * tileDanger(tx, ty);
     let n = Math.round((ROAD_TRAP_MIN + Math.floor(rng() * ROAD_TRAP_SPAN)) * mul);
     const sampleSize = mul > 1 ? Math.max(ROADSIDE_SAMPLE, n * 6) : ROADSIDE_SAMPLE;
-    const { cells: cand, seen } = sampleTrapCells(grid, roadClass, w, h, rng, sampleSize, under);
-    if (!cand.length) return [];
-    n = Math.min(n, Math.max(1, Math.floor(seen * TRAP_GROUND_SHARE_PER_MUL * mul)));
+    const { cells: all, road, waste } = sampleTrapCells(grid, roadClass, w, h, rng, sampleSize, under);
+    if (!all.length) return [];
+    // The cap per ground, off the pools' sizes (never a draw): the bandit
+    // verge at BANDIT_VERGE_DENSITY_MUL × the share, waste ground at the share.
+    const capRoad = road.seen * TRAP_GROUND_SHARE_PER_MUL * mul * BANDIT_VERGE_DENSITY_MUL;
+    const capWaste = waste.seen * TRAP_GROUND_SHARE_PER_MUL * mul;
+    n = Math.min(n, Math.max(1, Math.floor(capRoad + capWaste)));
+    const nRoad = road.cells.length
+      ? (waste.cells.length ? Math.round(n * capRoad / (capRoad + capWaste)) : n) : 0;
     const traps = [];
     const taken = new Set();
     for (let k = 0; k < n; k++) {
+      const cand = k < nRoad ? road.cells : waste.cells;
       for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
         const idx = cand[Math.floor(rng() * cand.length)];
         if (taken.has(idx)) continue;
@@ -516,7 +555,7 @@
     DUNGEON_DENSITY_MUL,
     isSprung, spring,
     isDisarmed, disarm,
-    isRoadside, isTrapGround, sampleTrapCells, TRAP_GROUND_SHARE_PER_MUL, spawnSurface, spawnCave, trapAt,
+    isRoadside, isBanditVerge, isTrapGround, trapGroundKind, sampleTrapCells, TRAP_GROUND_SHARE_PER_MUL, BANDIT_VERGE_DENSITY_MUL, spawnSurface, spawnCave, trapAt,
     LAID_MAX, LAID_LIFE_MS, isLive, isTrapSprung, isTrapDisarmed, springTrap, disarmTrap,
     canLay, layTrap, trapPower, pruneLaid, laidOut, layPoints,
     magicTrapId,

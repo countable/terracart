@@ -164,9 +164,12 @@
   // bag) and it has no giant. A slime's short sight and gait, a touch quicker
   // than the cave slime; the cave doubling below lands it on hp 20 / dmg 4
   // and the bounty derives from that like any foe's.
+  // `board: false` — never a quest-board kill job (onQuestBoard): a fire slime
+  // lives only in a tar yard or a burned row, so a job naming it could send a
+  // player across town for a foe their neighbourhood may not hold.
   MONSTERS_BASELINE.fire_slime = {
     name: 'Fire Slime', hp: 10, range: 1, dmg: 2, speed: 0.9,
-    minDepth: 0, weight: 1, spawn: 'zone', sight: SLIME_SIGHT_CELLS,
+    minDepth: 0, weight: 1, spawn: 'zone', sight: SLIME_SIGHT_CELLS, board: false,
   };
   // Both goblin rows were too slow to feel like a pursuer: ×1.3 (1.0 / 0.8 →
   // 1.3 / 1.04), then doubled again (2.6 / 2.08). The archer keeps its lag
@@ -458,6 +461,12 @@
   // a kind added to MONSTERS could quietly fail to be worth a bounty.
   function enemyKinds() {
     return ['slime', ...Object.keys(MONSTER_STATS)];
+  }
+  // May the quest board name this kind in a kill job? Every enemy but a row
+  // that says `board: false` (the fire slime) — the column, never a list.
+  function onQuestBoard(kind) {
+    const m = MONSTER_STATS[kind];
+    return isEnemyKind(kind) && !(m && m.board === false);
   }
   // A kind as the player reads it: 'giant_goblin_archer' → 'giant goblin
   // archer'. The registered `name` ('Giant Goblin Archer') is Title Case for
@@ -1177,7 +1186,7 @@
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
-    isEnemyKind, isEnemy, enemyKinds, enemyName, hp, damage, hpFraction,
+    isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, hpFraction,
     ELITE_MUL, isElite, eliteMul, lairMul, powerMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,

@@ -142,7 +142,11 @@
   // They are NOT buildings: no footprint, no claim key, no part of the tile
   // budget (tileThin reads building shapes only). Street tiers are strings so
   // no terrain code can collide with them.
-  const STREET_TIER_GUARDS = { wagon: 1, close: 1 };
+  // A BARRICADE (StreetVariants.dress, one per barricade on a barricade
+  // road) and a BURNED ROW's stretch (one per (street key, stretch square) —
+  // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
+  // each, always held, every mode.
+  const STREET_TIER_GUARDS = { wagon: 1, close: 1, barricade: 1, burned: 1 };
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
@@ -222,6 +226,12 @@
     close: ['giant_goblin', 'giant_goblin_archer'],
     // A tar yard: fire slimes (combat.js MONSTERS.fire_slime).
     tar: ['fire_slime'],
+    // A barricade: the goblin who holds it.
+    barricade: ['goblin'],
+    // A burned row's stretch: one fire slime in the tar (the fire slimes are
+    // zone-seated, never a tile's wild spawn, so the burned row seats its own
+    // here rather than relocating any).
+    burned: ['fire_slime'],
   };
   const KIND_LADDER = {};
   for (const [tier, kinds] of Object.entries(KIND_ORDER)) {
@@ -252,6 +262,8 @@
     wagon: { rate: 1, thinned: false },    // a bandit road's broken wagon
     close: { rate: 1, thinned: false },    // a hedgerow close's head
     tar:   { rate: 1, thinned: false },    // a tar yard's pumps
+    barricade: { rate: 1, thinned: false },  // a barricade road's barricade
+    burned: { rate: 1, thinned: false },   // a burned row's stretch
   };
 
   // ── The per-tile budget ──────────────────────────────────────────────────

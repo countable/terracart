@@ -185,6 +185,20 @@ test('rocks: only along the chosen minor street — none by the hedgerow, none i
 });
 
 // ── Dressing ────────────────────────────────────────────────────────────
+test('rocks: a rock-lined street runs about one rock per 10 m of its length', () => {
+  // The owner's figure, measured on a real block (the Kelowna fixtures: ~1
+  // per 16 m at the old 20 m pivot, 9.8 m now — sidewalks, moats and yards
+  // cull most of a cluster there). This fixture's open park culls almost
+  // nothing, so the same pivot runs ~2.7 m a rock here (4.5+ m at the old
+  // pivot): the tripwire is on that.
+  const r = rasterize();
+  const rocks = r.objects.filter((o) => o.kind === 'mineralrock' && o._street);
+  const lenM = (CPE - 1) * WorldGen.CELL_M;
+  assert.gt(rocks.length, 0, 'the street is lined');
+  const per = lenM / rocks.length;
+  assert.inRange(per, 2, 3.5, `one rock per ${per.toFixed(1)} m on open ground`);
+});
+
 test('dressing: hedges line the hedgerow, off the band and off anything already there', () => {
   const r = rasterize();
   const { d, before } = dressed(r);
@@ -254,6 +268,26 @@ test('bandit road: a bus stop by a major band wears the wagon — same id; the o
   assert.eq(lairs[0].tier, 'wagon');
   assert.eq(lairs[0].sid, WorldGen.cellId('wagon', TX, TY, cellOf(near.x, TX), cellOf(near.y, TY)),
     'its key is its position');
+  assert.truthy(SV.isWagonStop(near.id), 'this fixture\'s motorway stop is one the hash picks');
+});
+
+test('bandit road: only about a third of the major-road stops are wagons, by the stop\'s own id', () => {
+  assert.inRange(SV.WAGON_STOP_SHARE, 0.3, 0.34, 'about one in three');
+  let n = 0;
+  for (let i = 0; i < 3000; i++) if (SV.isWagonStop(WorldGen.cellId('c', 2000 + (i % 50), 3000 + ((i / 50) | 0), i % 97, i % 89))) n++;
+  assert.inRange(n / 3000, 0.28, 0.39, `a third of stops (${n} / 3000)`);
+  // A stop the hash passes over stays an ordinary chest, and holds no guard.
+  const r = rasterize();
+  const near = r.objects.find((o) => o.kind === 'chest' && o.poiClass === 'bus' && cellOf(o.x, TX) > 40);
+  const plain = Object.assign({}, near, { id: nameWhere((nm) => !SV.isWagonStop(nm), 'c_stop') });
+  const objs = r.objects.map((o) => (o === near ? plain : o));
+  const lairs = SV.markBanditStops(objs, r.roadClass, CPE, TX, TY, TILE_EDGE_M);
+  assert.eq(lairs.length, 0, 'no wagon, no goblin');
+  assert.falsy(plain.banditStop, 'not stamped');
+  assert.eq(chestLook(plain).texKey, chestLook(Object.assign({}, near, { banditStop: false, id: plain.id })).texKey,
+    'it wears the bus-stop look');
+  // Every player agrees: a pure function of the id.
+  assert.eq(SV.isWagonStop(near.id), SV.isWagonStop(String(near.id)), 'the id decides');
 });
 
 test('bandit road: a wagon and a close hold ONE guard each, in either mode', () => {
@@ -282,13 +316,19 @@ test('bandit road: a wagon and a close hold ONE guard each, in either mode', () 
     'seated beside the wagon');
 });
 
-test('bandit road: every dog on a tile with a major verge sits on it, off its own stream', () => {
+// The FAUNA ATTRACTOR lane (scene_creatures.js _seatFaunaOnFavouriteGround),
+// lifted from the source and driven for real.
+function liftAttract() {
   const src = SCENE_CREATURES_SRC;
-  const a = src.indexOf('\n  _seatDogsOnBanditRoads(');
+  const a = src.indexOf('\n  _seatFaunaOnFavouriteGround(');
   const b = src.indexOf('\n  }\n', a);
-  assert.truthy(a > 0 && b > a, 'found _seatDogsOnBanditRoads');
-  const tries = +src.match(/const DOG_ROAD_TRIES = (\d+);/)[1];
-  const m = new Function('DOG_ROAD_TRIES', `return {\n${src.slice(a + 1, b + 4)}\n};`)(tries);
+  assert.truthy(a > 0 && b > a, 'found _seatFaunaOnFavouriteGround');
+  const tries = +src.match(/const FAUNA_ATTRACT_TRIES = (\d+);/)[1];
+  return new Function('FAUNA_ATTRACT_TRIES', `return {\n${src.slice(a + 1, b + 4)}\n};`)(tries);
+}
+
+test('bandit road: every dog on a tile with a major verge sits on it, off its own stream', () => {
+  const m = liftAttract();
   const r = rasterize();
   const cellM = TILE_EDGE_M / CPE;
   const mk = (i) => WorldGen.makeCreature('dog', TX * TILE_EDGE_M + (5 + i) * cellM, TY * TILE_EDGE_M + 5 * cellM, `dog_${TX}_${TY}_${i}`);
@@ -297,17 +337,188 @@ test('bandit road: every dog on a tile with a major verge sits on it, off its ow
   const cowAt = [cow.x, cow.y];
   const opts = { roadMask: r.roadMask, occupied: occupiedOf(r), pois: [] };
   const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, m);
-  scene._seatDogsOnBanditRoads({ roadClass: r.roadClass }, TX, TY, CPE, cellM, r.grid, opts, creatures);
+  const moved = scene._seatFaunaOnFavouriteGround({ roadClass: r.roadClass }, TX, TY, CPE, cellM, r.grid, opts, creatures, null);
+  assert.eq(moved.dog, 2, 'both dogs moved (p = 1 — BANDIT_STORY.attracts)');
+  assert.eq(StreetVariants.BANDIT_STORY.attracts.dog, 1, 'the dogs are the bandits\' own: every one');
   for (const d of creatures.filter((c) => c.kind === 'dog')) {
     const i = cellOf(d.y, TY) * CPE + cellOf(d.x, TX);
     assert.truthy(r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_VERGE, `${d.id} is on the bandit road's verge`);
     assert.eq(r.roadMask[i], 0, `${d.id} is off the band`);
   }
   assert.eq(`${cow.x},${cow.y}`, cowAt.join(), 'no other fauna moves');
+  // The dogs keep the stream they had as a pass of their own: the first dog's
+  // seat is the first verge cell `dogs|tx,ty` draws that passes the rule.
+  const verge = [];
+  for (let i = 0; i < r.roadClass.length; i++) if (r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_VERGE) verge.push(i);
+  const rng = WorldGen.makeRng(fnv1a(`dogs|${TX},${TY}`));
+  let want = -1;
+  for (let a = 0; a < 12 && want < 0; a++) {
+    const idx = verge[Math.floor(rng() * verge.length)];
+    if (WorldGen.isSpawnCell(r.grid, CPE, CPE, idx % CPE, (idx / CPE) | 0, opts)) want = idx;
+  }
+  const d0c = creatures[0];
+  assert.eq(cellOf(d0c.y, TY) * CPE + cellOf(d0c.x, TX), want, 'the first dog sits where the old dog pass put it');
   // No major road: the dogs stay where they were drawn.
   const d0 = mk(0), at = [d0.x, d0.y];
-  scene._seatDogsOnBanditRoads({ roadClass: new Uint8Array(CPE * CPE) }, TX, TY, CPE, cellM, r.grid, opts, [d0]);
+  scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(CPE * CPE) }, TX, TY, CPE, cellM, r.grid, opts, [d0], null);
   assert.eq(`${d0.x},${d0.y}`, at.join(), 'a tile with no bandit road keeps its dogs');
+});
+
+test('fauna attractors: a table, not code — every column names a spawned species and a share', () => {
+  const cols = [...StreetVariants.STREET_VARIANTS.map((r) => [r.id, r.attracts]),
+    ['bandit', StreetVariants.BANDIT_STORY.attracts],
+    ...Object.entries(Zones.ZONE_KINDS).map(([k, r]) => ['zone ' + k, r.attracts]),
+    ...Object.entries(BIOME_ATTRACTS).map(([c, a]) => ['terrain ' + c, a])];
+  const known = new Set([...FAUNA_ORDER, 'rabbit']);
+  for (const [who, a] of cols) {
+    if (!a) continue;
+    for (const [sp, p] of Object.entries(a)) {
+      assert.truthy(known.has(sp), `${who} attracts a creature kind (${sp})`);
+      assert.truthy(p > 0 && p <= 1, `${who}: ${sp} at p ${p}`);
+    }
+  }
+  const row = (id) => StreetVariants.VARIANT_BY_ID[id].attracts || {};
+  assert.eq(row('orchard').deer, 0.5, 'Orchard Lane → deer');
+  assert.eq(row('hedgerow').rabbit, 0.5, 'Hedgerow → rabbits');
+  assert.eq(row('overgrown').rabbit, 0.5, 'Overgrown → rabbits');
+  assert.eq(row('overgrown').butterfly, 0.5, 'Overgrown → butterflies');
+  assert.eq(row('toadstool').butterfly, 0.5, 'Toadstool → butterflies');
+  assert.eq(row('lantern').cat, 0.5, 'Lantern Row → cats');
+  assert.eq(row('pilgrim').crow, 0.5, "Pilgrim's Way → crows");
+  assert.eq(Zones.ZONE_KINDS.stones.attracts.crow, 0.5, 'churchyard → crows');
+  assert.eq(Zones.ZONE_KINDS.grove.attracts.deer, 0.5, 'grove → deer');
+  assert.eq(Zones.ZONE_KINDS.grove.attracts.butterfly, 0.5, 'grove → butterflies');
+  assert.eq(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime, 0.5, 'wasteland → slimes');
+  // The spawner reads the columns; it names no species of its own.
+  const src = SCENE_CREATURES_SRC;
+  const body = src.slice(src.indexOf('\n  _seatFaunaOnFavouriteGround('), src.indexOf('\n  }\n', src.indexOf('\n  _seatFaunaOnFavouriteGround(')));
+  for (const sp of ['deer', 'cat', 'butterfly', 'dog', 'rabbit']) {
+    assert.falsy(new RegExp(`'${sp}'`).test(body), `no '${sp}' literal in the lane`);
+  }
+});
+
+test('fauna attractors: half of a species moves onto its ground, the rest stay; nothing is added', () => {
+  const m = liftAttract();
+  const r = rasterize();
+  const cellM = TILE_EDGE_M / CPE;
+  // A synthetic tile whose left half is WASTE ground (the terrain row: slimes).
+  const N = CPE, grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N / 2; x++) grid[y * N + x] = WorldGen.T.WASTELAND;
+  // Public ground beside it so the lot rule lets a spawn stand (a POI anchor in every row).
+  const pois = []; for (let y = 0; y < N; y += 3) for (let x = 1; x < N / 2; x += 3) pois.push({ ix: x, iy: y });
+  const opts = { roadMask: new Uint8Array(N * N), occupied: new Set(), pois };
+  const slimes = [];
+  for (let i = 0; i < 60; i++) slimes.push(WorldGen.makeCreature('slime', TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + (i % N) * cellM, `slime_${TX}_${TY}_${i}`));
+  const cow = WorldGen.makeCreature('cow', TX * TILE_EDGE_M + (N - 3) * cellM, TY * TILE_EDGE_M, 'cow_y');
+  const creatures = [...slimes, cow];
+  const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, m);
+  const moved = scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) }, TX, TY, N, cellM, grid, opts, creatures, null);
+  assert.eq(creatures.length, 61, 'relocates, never adds');
+  assert.inRange(moved.slime, 18, 42, `about half the slimes moved (${moved.slime} of 60)`);
+  let onWaste = 0;
+  for (const s of slimes) if (grid[cellOf(s.y, TY) * N + cellOf(s.x, TX)] === WorldGen.T.WASTELAND) onWaste++;
+  assert.eq(onWaste, moved.slime, 'every moved slime is on the waste ground, the rest where they were drawn');
+  assert.eq(cow.x, TX * TILE_EDGE_M + (N - 3) * cellM, 'the cow is not attracted');
+  // Deterministic: the same tile moves the same animals to the same cells.
+  const again = slimes.map((s) => WorldGen.makeCreature('slime', TX * TILE_EDGE_M + (N - 2) * cellM, s.y, s.id));
+  scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) }, TX, TY, N, cellM, grid, { ...opts, occupied: new Set() }, again, null);
+  assert.eq(again.map((s) => `${s.x},${s.y}`).join('|'), slimes.map((s) => `${s.x},${s.y}`).join('|'), 'same seats every build');
+  // A pest amnesty cell is never a slime's new seat.
+  const pestAll = { has: () => true };
+  const fresh = slimes.slice(0, 10).map((s, i) => WorldGen.makeCreature('slime', TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + i * cellM, s.id));
+  const m2 = scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) }, TX, TY, N, cellM, grid, { ...opts, occupied: new Set() }, fresh, pestAll);
+  assert.falsy(m2.slime, 'no slime moves into the starting area\'s amnesty');
+});
+
+// ── Toadstool Lane, the barricade's goblins, the burned row's fire slimes ──
+const TOAD = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'toadstool', 'Pale Lane');
+const BARR = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'barricade', 'Gate Road');
+const BURN = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'burned', 'Kiln Road');
+function variantLayers() {
+  const toad = pts([[0, 20], [CPE - 1, 20]]);
+  const barr = pts([[40, 30], [40, CPE - 1]]);     // one owned end inside (row 30)
+  const burn = pts([[20, 0], [20, CPE - 1]]);
+  return [
+    { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+    { name: 'transportation', extent: EXTENT, features: [
+      { type: 2, tags: { class: 'minor' }, geom: [toad] },
+      { type: 2, tags: { class: 'secondary' }, geom: [barr] },
+      { type: 2, tags: { class: 'secondary' }, geom: [burn] },
+    ] },
+    { name: 'transportation_name', extent: EXTENT, features: [
+      { type: 2, tags: { name: TOAD }, geom: [toad] },
+      { type: 2, tags: { name: BARR }, geom: [barr] },
+      { type: 2, tags: { name: BURN }, geom: [burn] },
+    ] },
+  ];
+}
+const dressedVariants = () => {
+  const r = WorldGen.rasterizeTile(variantLayers(), CPE, TX, TY, TILE_EDGE_M);
+  return Object.assign({ r }, dressed(r));
+};
+
+test('toadstool lane: a minor row at 5%, its verge mostly glowing mushrooms, a little long grass', () => {
+  const row = SV.VARIANT_BY_ID.toadstool;
+  assert.eq(row.size, 'minor'); assert.eq(row.share, 0.05);
+  assert.eq(row.story, 'street_toadstool', 'its painting stem');
+  assert.eq(SV.STREET_VARIANTS[SV.STREET_VARIANTS.length - 1].id, 'toadstool', 'appended: no older row\'s code moves');
+  let plain = 0, named = 0;
+  for (let i = 0; i < 20000; i++) {
+    if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;
+    if (SV.variantFor(`s${i}|0,0`, `Mushroom ${i}`, 'minor') === 'toadstool') named++;
+  }
+  assert.gt(named, plain * 3, `a mushroom street is likelier a toadstool lane (${named} vs ${plain})`);
+  const { d, r, before } = dressedVariants();
+  const plants = d.wildplants.filter((w) => w._street === 'toadstool');
+  assert.gt(plants.length, 4, 'the lane is dressed');
+  const mush = plants.filter((w) => w.crop === 'mushroom').length;
+  assert.truthy(plants.every((w) => w.crop === 'mushroom' || w.crop === 'longgrass'), 'mushrooms and long grass only');
+  assert.gt(mush, plants.length / 2, `mostly mushrooms (${mush} of ${plants.length})`);
+  assert.truthy(wildplantLight('mushroom'), 'and a mushroom glows');
+  for (const w of plants) {
+    const i = cellOf(w.y, TY) * CPE + cellOf(w.x, TX);
+    assert.eq(r.roadMask[i], 0, 'off the band');
+    assert.falsy(before.has(i), 'off anything already there');
+  }
+});
+
+test('barricade road: one goblin per barricade, held in either mode', () => {
+  assert.eq(Lairs.capFor('barricade', 1), 1, 'one goblin, whatever the strength');
+  assert.eq(Lairs.KIND_ORDER.barricade.join(), 'goblin');
+  assert.truthy(Lairs.ALWAYS_AWAKE_TIERS.has('barricade'), 'every mode');
+  const { d, r, spawnOpts } = dressedVariants();
+  const bars = d.wildplants.filter((w) => w.crop === 'barricade');
+  const posts = d.lairs.filter((L) => L.tier === 'barricade');
+  assert.gt(bars.length, 0, 'the owned end stands a barricade');
+  assert.eq(posts.length, bars.length, 'one guard post per barricade');
+  for (const b of bars) {
+    assert.truthy(posts.some((L) => L.sid === b.id), `the post keys off its barricade (${b.id})`);
+  }
+  const entry = { grid: r.grid, cellsPerEdge: CPE, buildingShapes: [], _spawnOpts: spawnOpts, streetLairs: posts, creatures: [] };
+  const playerM = { x: TX * TILE_EDGE_M + posts[0].lx, y: TY * TILE_EDGE_M + posts[0].ly };
+  const rep = Lairs.stepResidency([{ entry, tx: TX, ty: TY }], {
+    cellM: TILE_EDGE_M / CPE, tileEdgeM: TILE_EDGE_M, playerM, homeM: { x: 0, y: 0 },
+    caughtSet: new Set(), buildings: false });
+  assert.gt(rep.woken, 0, 'easy (buildings off) still wakes the one beside you');
+  assert.eq(entry.creatures[0].kind, 'goblin');
+});
+
+test('burned row: one fire slime per stretch, keyed on the street and the square', () => {
+  assert.eq(Lairs.capFor('burned', 1), 1);
+  assert.eq(Lairs.KIND_ORDER.burned.join(), 'fire_slime');
+  assert.truthy(Lairs.ALWAYS_AWAKE_TIERS.has('burned'), 'every mode');
+  const { d } = dressedVariants();
+  const posts = d.lairs.filter((L) => L.tier === 'burned');
+  // The burned row runs down col 20 of tile (TX, TY): 8 squares of
+  // BANDIT_STRETCH_UNITS, all inside this tile — one post each.
+  const squares = EXTENT / SV.BANDIT_STRETCH_UNITS;
+  assert.eq(posts.length, squares, `one per stretch (${posts.length})`);
+  assert.eq(new Set(posts.map((L) => L.sid)).size, posts.length, 'distinct keys');
+  const key = SV.streetKey(BURN, TX, TY);
+  for (const L of posts) assert.truthy(L.sid.startsWith(`burned:${key}|`), 'keyed on the street');
+  // The same from a rebuild (no draws, no stored state).
+  const again = dressedVariants().d.lairs.filter((L) => L.tier === 'burned').map((L) => L.sid).join();
+  assert.eq(again, posts.map((L) => L.sid).join(), 'generated, the same every build');
 });
 
 // ── Slow going ──────────────────────────────────────────────────────────

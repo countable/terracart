@@ -86,13 +86,13 @@
     <ul>
       <li>Unclassified landuse is <b>WASTELAND</b> terrain (was painted as residential).</li>
       <li>Road mask stamps a cell when the drawn band covers <b>≥ 50%</b> of it.</li>
-      <li>Surface traps only on <b>major-road verges + wasteland</b>; residential streets are safe.</li>
-      <li>Dogs are re-seated onto <b>major verges</b> when the tile has one.</li>
-      <li>Bus stops on a major road are a <b>broken wagon + goblin</b> guard.</li>
-      <li><b>Street variants</b> per street size (minor: hedgerow, overgrown, orchard, pilgrim; major: lantern, burned, barricade).</li>
-      <li><b>Rocks line ~25%</b> of minor streets (never a hedgerow).</li>
+      <li>Surface traps only on <b>bandit stretches</b> of major roads (~1/3 of each street's ~200 m stretches, <code>ROAD_CLASS_BANDIT_VERGE</code>) at <b>6×</b> the ground share, <b>+ wasteland</b>; per-tile totals ~1.5× the old whole-verge rule. Residential streets are safe.</li>
+      <li><b>Fauna attractors</b> (one lane, <code>attracts</code> columns): dogs → major verges (all); deer → orchard lanes + groves, cats → Lantern Row, crows → Pilgrim's Way + churchyards, butterflies → overgrown / toadstool lanes + groves, slimes → wasteland, rabbits → hedgerow / overgrown (no wild rabbits spawn yet) — half of each species moves, none are added.</li>
+      <li>Only <b>~1 in 3</b> major-road bus stops is a <b>broken wagon + goblin</b>; the rest stay bus-stop chests.</li>
+      <li><b>Street variants</b> per street size (minor: hedgerow, overgrown, orchard, pilgrim, <b>toadstool</b> 5%; major: lantern, burned, barricade). Every <b>barricade</b> holds a goblin; every <b>burned-row stretch</b> one fire slime. Lamps glow in their street's colour.</li>
+      <li><b>Rocks line ~25%</b> of minor streets (never a hedgerow), now <b>~1 per 10 m</b> (was 16 m); <b>wasteland lots keep the rock-cluster scatter</b>.</li>
       <li><b>Tar and stakes slow</b> the body.</li>
-      <li><b>Influence zones</b> (grove / old stones / tar yard) repaint lot ground; each anchor's <b>nexus</b> chest pays <b>tier +1</b>.</li>
+      <li><b>Influence zones</b> (grove / old stones / tar yard) repaint lot ground; each anchor's <b>nexus</b> chest pays <b>tier +1</b>; a nexus pattern is <b>whole across tile seams</b>. Tar-yard ground is untillable; fire slimes are off the quest board.</li>
     </ul>
   </div>
   <div id="wScope" class="scope"></div>
@@ -397,9 +397,18 @@ function wMeasure(e, EDGE, errors) {
     if (e.roadMask && e.roadMask[i]) mask++;
     if (e.roadClass) { if (e.roadClass[i] & BAND) band++; if (e.roadClass[i] & VERGE) verge++; }
   }
+  let bandit = 0;
+  const BANDIT = WorldGen.ROAD_CLASS_BANDIT_VERGE || 0;
+  if (BANDIT && e.roadClass) for (let i = 0; i < NN; i++) if (e.roadClass[i] & BANDIT) bandit++;
   m.mask = e.roadMask ? mask / NN : null;
   m.band = e.roadClass ? band / NN : null;
   m.verge = e.roadClass ? verge / NN : null;
+  m.bandit = (e.roadClass && BANDIT) ? bandit / NN : null;
+  // Street guard posts by tier (wagon / close / barricade / burned / tar), and
+  // the fauna the attractor lane moved (entry.faunaAttracted).
+  m.posts = {};
+  for (const L of (e.streetLairs || [])) m.posts[L.tier] = (m.posts[L.tier] || 0) + 1;
+  m.attracted = Object.assign({}, e.faunaAttracted || {});
   const cellOf = (p) => {
     const ix = Math.floor((p.x - e.tx * EDGE) / (EDGE / N)), iy = Math.floor((p.y - e.ty * EDGE) / (EDGE / N));
     return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
@@ -415,7 +424,7 @@ function wMeasure(e, EDGE, errors) {
     for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
       try {
         const list = Traps.spawnSurface(gen, e.roadClass, N, N, e.tx, e.ty, EDGE, e._spawnOpts || {},
-          Difficulty.PROFILES[mode].trapCountMul);
+          Difficulty.PROFILES[mode].trapCountMul, e.zone && e.zone.under);
         const at = {};
         for (const t of list) { const w = where(t._iy * N + t._ix); at[w] = (at[w] || 0) + 1; }
         m.traps[mode] = { n: list.length, at };
@@ -603,6 +612,7 @@ function wRender(w) {
     ['road mask', (m) => m.mask, true],
     ['major band', (m) => m.band, true],
     ['major verge', (m) => m.verge, true],
+    ['bandit verge', (m) => m.bandit, true],
     ['danger ×', (m) => m.danger],
     [`traps ${E}`, (m) => tr(m, E)], [`traps ${H}`, (m) => tr(m, H)],
     ['dogs (on verge)', (m) => [m.dogs, m.dogsVerge]],
@@ -610,6 +620,8 @@ function wRender(w) {
     ['minor / major streets', (m) => m.streets ? [Object.values(m.streets.keys.minor || {}).reduce((a, s) => a + s.size, 0), Object.values(m.streets.keys.major || {}).reduce((a, s) => a + s.size, 0)] : null, false, ' / '],
     ['chests', (m) => m.chests.n],
     ['bus stops (wagons)', (m) => [m.chests.bus, m.chests.wagon]],
+    ['barricade / burned guards', (m) => [m.posts.barricade || 0, m.posts.burned || 0], false, ' / '],
+    ['fauna moved', (m) => Object.values(m.attracted || {}).reduce((a, b) => a + b, 0)],
   ];
   if (hasZ) cols.push(['zone anchors', (m) => m.zone ? m.zone.anchors.length : 0], ['zone halo', zoneHaloShare, true]);
   const one = (v, p) => v == null || !Number.isFinite(v) ? '—' : p ? wPct(v) : (Number.isInteger(v) ? String(v) : f1(v));
@@ -644,7 +656,8 @@ function wRender(w) {
   // Roads.
   $('wRoadScope').textContent = `Share of cells, ${scope}. Mask = cells the drawn band covers (no spawns); band / verge = entry.roadClass bits.`;
   const roadRows = [['road mask (entry.roadMask)', (m) => m.mask], ['major band (roadClass bit ' + (WorldGen.ROAD_CLASS_MAJOR_BAND || 1) + ')', (m) => m.band],
-    ['major verge (roadClass bit ' + (WorldGen.ROAD_CLASS_MAJOR_VERGE || 2) + ')', (m) => m.verge]];
+    ['major verge (roadClass bit ' + (WorldGen.ROAD_CLASS_MAJOR_VERGE || 2) + ')', (m) => m.verge],
+    ['bandit verge (roadClass bit ' + (WorldGen.ROAD_CLASS_BANDIT_VERGE || 4) + ')', (m) => m.bandit]];
   if (T.WASTELAND != null) roadRows.push(['wasteland terrain', (m) => m.wasteland]);
   table($('wRoad'), ['layer', 'avg share', 'min–max'], roadRows.filter(([, f]) => ms[0] && f(ms[0]) != null).map(([k, f]) => {
     const v = ms.map(f); return `<tr><td>${k}</td>${barCell(avg(f))}<td>${wPct(Math.min(...v))}–${wPct(Math.max(...v))}</td></tr>`;

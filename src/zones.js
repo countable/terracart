@@ -42,8 +42,7 @@
 // X marks) — accepted by the owner for the cells a zone repaints.
 //
 // ── THE NEXUS ────────────────────────────────────────────────────────────
-// Each OWNED anchor (its point in this tile's square — the tile that mints its
-// chest) arranges a PATTERN of interactables around its POI chest, one of
+// Each anchor arranges a PATTERN of interactables around its POI, one of
 // 2-3 per kind picked by the anchor's aspect (a hash of its global point):
 //   grove   rings of wild roses / a ring of trees / roses inside trees, plus
 //           ONE shrine (grove_shrine: a daily gift, a light) beside the chest
@@ -52,9 +51,26 @@
 //   tar     a grid of tar pits (they SLOW — app.js _bodyHold), a ring of tar
 //           with flint inside, or a tar cross; plus a fire-slime garrison
 //           (lairs.js 'tar' tier, every mode, slimeCountMul)
-// Every piece passes WorldGen.isSpawnCell with roadMask + occupied, claims its
-// cell, and has a tile+cell id — the save only ever sees the existing delta
-// lists (picked, chopped, brokenRocks, opened, caught). The chest keeps its id;
+// THE PATTERN IS THE ANCHOR'S, NOT THE TILE'S — so it is whole across a seam.
+// It centres on the anchor's own POI cell in the ANCHOR's tile grid
+// (nexusCentre: floor(local point · N_row / 4096), N_row the anchor row's
+// cellsPerEdgeForTile) — never on the chest's final cell, which worldgen may
+// slide (offsetForPlacement) where no neighbour can see. Each piece's
+// anchor-grid cell centre is taken to a GLOBAL MVT point and then into the
+// observing tile's grid (nexusPieceCell — a north/south seam may change N).
+// EVERY tile whose square a piece lands in lays it (field.reach: the anchors
+// whose pattern box touches the square, whether or not their zone won a
+// cell here), and only that tile — nothing is laid twice. The draws are one
+// stream per anchor (key ^ SALT_NEXUS: the species, then one per piece, laid
+// or not — nexusPlan), replayed alike by every tile, so a piece has the same
+// variant whichever tile lays it. The chest stamp, the grove shrine (seated
+// beside the chest) and the tar garrison stay the OWNER's (the anchor's point
+// in its square — the tile that mints the chest).
+// Every piece passes the LAYING tile's WorldGen.isSpawnCell with its roadMask +
+// occupied (and the grove crowding reads that tile's occupancy), claims its
+// cell, and has a tile+cell id of the tile that lays it (one physical piece,
+// one id) — the save only ever sees the existing delta lists (picked,
+// chopped, brokenRocks, opened, caught). The chest keeps its id;
 // it is stamped `zoneNexus` and loot.js pays it ZONE_NEXUS_TIER_BONUS.
 // NO DECORATIVE PROPS: every standing thing here is interactable or a hazard,
 // one art per interactable.
@@ -91,11 +107,16 @@
   // `code` is the Uint8 kind code and the rarity rank (ties go to the higher).
   // `terrain` names the WorldGen.T code the halo paints. `story` is the
   // _storySplashOnce key AND the painting stem (assets/art/<story>.webp).
+  // `attracts` { species: p }: the FAUNA ATTRACTOR column (scene_creatures.js
+  // _seatFaunaOnFavouriteGround) — each of the tile's own spawns of that
+  // species moves onto the zone's ground with probability p. Not an add.
   const ZONE_KINDS = {
     grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove',
+      attracts: { deer: 0.5, butterfly: 0.5 },
       body: 'The trees lean close around an old stone shrine. Someone still tends it.',
       flash: 'A sacred grove. Hush.' },
     stones: { code: 2, R: 80, terrain: 'CHURCHYARD', story: 'zone_stones', title: 'The old stones',
+      attracts: { crow: 0.5 },
       body: 'Moss-grown stones ring the old chapel. Walk softly here, and be gone by dusk.',
       flash: 'The old stones. Walk softly.' },
     tar: { code: 3, R: 100, terrain: 'TAR_YARD', story: 'zone_tar', title: 'The tar yard',
@@ -287,6 +308,20 @@
     if (!all.length) return null;
     const cellU = EXT / N;
     const ox = tx * EXT, oy = ty * EXT;
+    // THE NEXUS REACH: every anchor whose pattern box can put a piece in this
+    // square — decided off the ANCHOR's own grid (nexusCentre), not off the
+    // field, since a pattern cell may lie past the ragged edge or on a cell
+    // another zone won. dressSteps walks this list, not `anchors`.
+    const reach = [];
+    const PR = nexusReachCells();
+    for (let k = 0; k < all.length; k++) {
+      if ((k & 31) === 31) yield 'zone nexus reach';
+      const c = nexusCentre(all[k], ty, N);
+      const u = EXT / c.Na;
+      const gx0 = c.gx0 + (c.ax0 - PR) * u, gx1 = c.gx0 + (c.ax0 + PR + 1) * u;
+      const gy0 = c.gy0 + (c.ay0 - PR) * u, gy1 = c.gy0 + (c.ay0 + PR + 1) * u;
+      if (gx1 > ox && gx0 < ox + EXT && gy1 > oy && gy0 < oy + EXT) reach.push(all[k]);
+    }
     const anchors = [];
     let idx = null, s = null;
     for (let k = 0; k < all.length; k++) {
@@ -320,8 +355,11 @@
       // An anchor none of whose cells won takes no slot (nothing points at it).
       if (touched) anchors.push(a);
     }
-    if (!anchors.length) return null;
-    return { anchors, idx, s };
+    if (!anchors.length) {
+      if (!reach.length) return null;
+      idx = s = null;                 // a pattern reaches in; no zone ground does
+    }
+    return { anchors, idx, s, reach };
   }
   function field(poiLayer, tx, ty, N) {
     const it = fieldSteps(poiLayer, tx, ty, N);
@@ -456,12 +494,65 @@
     return P;
   }
 
+  // ── Where a nexus sits: the ANCHOR's own POI cell, in the ANCHOR's grid ──
+  // A pure function of the anchor (every tile that sees it in its poi buffer
+  // gets the same answer) — never of the chest, which worldgen may slide off
+  // the point (offsetForPlacement) where only the owner can see it.
+  //   Na        the anchor row's grid (cellsPerEdgeForTile(row); the observing
+  //             tile's own N when the anchor sits in its row — resolveAnchors'
+  //             `self` rule, identical in the game)
+  //   ax0, ay0  floor(local point · Na / 4096) in the anchor's tile
+  //   gx0, gy0  the anchor tile's global MVT origin
+  function nexusCentre(a, ty, N) {
+    const txA = Math.floor(a.gx / EXT), tyA = Math.floor(a.gy / EXT);
+    const Na = (tyA === ty && N > 0) ? N : root.WorldGen.cellsPerEdgeForTile(tyA);
+    const gx0 = txA * EXT, gy0 = tyA * EXT;
+    return { Na, gx0, gy0,
+      ax0: Math.floor((a.gx - gx0) * Na / EXT), ay0: Math.floor((a.gy - gy0) * Na / EXT) };
+  }
+  // The observer's cell {ix, iy} that holds pattern offset (dx, dy) — the
+  // anchor-grid cell's centre as a GLOBAL MVT point, then the observer's grid
+  // (a north/south seam may change N) — or null when it lies in another tile.
+  function nexusPieceCell(c, dx, dy, tx, ty, N) {
+    const u = EXT / c.Na;
+    const lx = c.gx0 + (c.ax0 + dx + 0.5) * u - tx * EXT;
+    const ly = c.gy0 + (c.ay0 + dy + 0.5) * u - ty * EXT;
+    const ix = Math.floor(lx * N / EXT), iy = Math.floor(ly * N / EXT);
+    return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? { ix, iy } : null;
+  }
+  // The widest pattern offset (cells), over every aspect.
+  let _nexusReach = 0;
+  function nexusReachCells() {
+    if (!_nexusReach) {
+      for (const list of Object.values(ASPECTS)) {
+        for (const asp of list) {
+          for (const p of patternPieces(asp)) _nexusReach = Math.max(_nexusReach, Math.abs(p.dx), Math.abs(p.dy));
+        }
+      }
+    }
+    return _nexusReach;
+  }
+  // The anchor's whole draw, replayed alike by every tile: the per-anchor
+  // stream (key ^ SALT_NEXUS), the species first, then ONE draw per piece in
+  // pattern order, laid or not — so a piece's variant is the same whichever
+  // tile lays it. Returns { species, pieces: [{ what, dx, dy, v }] }.
+  function nexusPlan(a) {
+    const rng = root.WorldGen.makeRng((a.key ^ SALT_NEXUS) >>> 0);
+    const species = TREE_SPECIES[Math.floor(rng() * TREE_SPECIES.length)];
+    const pieces = patternPieces(a.aspect).map((pc) => ({ what: pc.what, dx: pc.dx, dy: pc.dy, v: rng() }));
+    return { species, pieces };
+  }
+
   // ── The nexus dressing (a generator, the end of rasterizeTileSteps) ──────
   // ctx: { field, tx, ty, N, tileEdgeM, grid (the finished, haloed grid),
   //        chests (the tile's deduped objects), spawnOpts { roadMask,
   //        occupied (GROWS — each piece claims its cell), pois } }
   // Returns { objects, wildplants, lairs, slowCells (Map cell → 'tar'),
-  //           nexus: [{ kind, aspect, chestId, pieces }] }.
+  //           nexus: [{ kind, aspect, chestId (owner only, else null), pieces }] }.
+  // Walks field.reach (every anchor whose pattern reaches this square, owned
+  // or not) and lays ONLY the pieces whose cell is in this square; the chest
+  // stamp, the grove shrine and the tar garrison stay the OWNER's (a.owned —
+  // they belong to the chest).
   function* dressSteps(ctx) {
     const WG = root.WorldGen;
     const res = { objects: [], wildplants: [], lairs: [], slowCells: new Map(), nexus: [] };
@@ -481,20 +572,25 @@
     }
     const nRock = (root.SpriteLayout && root.SpriteLayout.PLAIN_ROCK_VARIANTS)
       ? root.SpriteLayout.PLAIN_ROCK_VARIANTS.length : 4;
-    for (const a of fld.anchors) {
-      if (!a.owned) continue;
+    const ok = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
+      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts);
+    for (const a of (fld.reach || fld.anchors)) {
       yield 'zone nexus';
-      const chest = chestAt.get(`${a.lx},${a.ly}`);
-      if (!chest) continue;                      // lost the POI dedup
-      const ix0 = Math.floor((chest.x - ox) / frameCellM);
-      const iy0 = Math.floor((chest.y - oy) / frameCellM);
-      if (ix0 < 0 || iy0 < 0 || ix0 >= N || iy0 >= N) continue;
-      chest.zoneNexus = a.kind;
-      delete chest._chestLook;
-      const rng = WG.makeRng((a.key ^ SALT_NEXUS) >>> 0);
-      const rec = { kind: a.kind, aspect: a.aspect, chestId: chest.id, pieces: 0 };
-      const ok = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-        && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts);
+      const c = nexusCentre(a, ty, N);
+      // The owner's chest (it may have lost the POI dedup: no chest, no stamp,
+      // no shrine, no garrison — the pattern is the anchor's and is laid still).
+      let chest = a.owned ? chestAt.get(`${a.lx},${a.ly}`) : null;
+      let ix0 = -1, iy0 = -1;
+      if (chest) {
+        ix0 = Math.floor((chest.x - ox) / frameCellM);
+        iy0 = Math.floor((chest.y - oy) / frameCellM);
+        if (ix0 < 0 || iy0 < 0 || ix0 >= N || iy0 >= N) chest = null;
+      }
+      if (chest) {
+        chest.zoneNexus = a.kind;
+        delete chest._chestLook;
+      }
+      const rec = { kind: a.kind, aspect: a.aspect, chestId: chest ? chest.id : null, pieces: 0 };
       // The tile's own occupancy before this nexus — what "already full" reads.
       const base = a.kind === 'grove' ? new Set(occ) : null;
       const crowded = (ix, iy) => {
@@ -509,7 +605,7 @@
       };
       const claim = (ix, iy) => { occ.add(iy * N + ix); rec.pieces++; };
       const zoneTag = a.kind;
-      if (a.kind === 'grove') {
+      if (a.kind === 'grove' && chest) {
         // THE SHRINE first — it takes the best seat beside the chest.
         let seated = false;
         for (let r = 1; r <= SHRINE_SEAT_R && !seated; r++) {
@@ -524,10 +620,13 @@
           }
         }
       }
-      const species = TREE_SPECIES[Math.floor(rng() * TREE_SPECIES.length)];
-      for (const pc of patternPieces(a.aspect)) {
-        const ix = ix0 + pc.dx, iy = iy0 + pc.dy;
-        const v = rng();                          // one draw per piece, placed or not
+      const plan = nexusPlan(a);
+      const species = plan.species;
+      for (const pc of plan.pieces) {
+        const cell = nexusPieceCell(c, pc.dx, pc.dy, tx, ty, N);
+        if (!cell) continue;                     // another tile's square lays it
+        const { ix, iy } = cell;
+        const v = pc.v;
         if (!ok(ix, iy) || crowded(ix, iy)) continue;
         claim(ix, iy);
         const x = cx(ix), y = cy(iy);
@@ -548,12 +647,12 @@
           res.slowCells.set(iy * N + ix, 'tar');
         }
       }
-      if (a.kind === 'tar') {
+      if (a.kind === 'tar' && chest) {
         // The fire-slime garrison (lairs.js 'tar' tier), held at the pumps.
         res.lairs.push({ tier: 'tar', sid: WG.cellId('taryard', tx, ty, ix0, iy0),
           lx: (ix0 + 0.5) * frameCellM, ly: (iy0 + 0.5) * frameCellM });
       }
-      res.nexus.push(rec);
+      if (chest || rec.pieces) res.nexus.push(rec);
     }
     return res;
   }
@@ -572,6 +671,6 @@
     anchorOf, upmRow, windowM, radiusFor, anchorKey, collectAnchors, resolveAnchors,
     edgeNoise, edgeAt, fieldSteps, field, haloSteps, terrainOf, zoneTerrains, haloOver,
     at, inCore, ghostAnchorAt, anchorFrameM, headstoneHoards,
-    ringOffsets, patternPieces, dressSteps, dress,
+    ringOffsets, patternPieces, nexusCentre, nexusPieceCell, nexusReachCells, nexusPlan, dressSteps, dress,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

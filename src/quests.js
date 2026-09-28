@@ -81,7 +81,10 @@ const QUEST_TEMPLATES = [
 // scene boot, long after this file's <script> tag has run (see
 // Combat.enemyKinds' own note). Hence a function, and hence no constant.
 function questEnemies() {
-  return (typeof Combat !== 'undefined' && Combat.enemyKinds) ? Combat.enemyKinds() : ['slime'];
+  if (typeof Combat === 'undefined' || !Combat.enemyKinds) return ['slime'];
+  // Less the kinds whose row keeps them off the board (Combat.onQuestBoard:
+  // the fire slime, a zone-only foe).
+  return Combat.enemyKinds().filter((k) => !Combat.onQuestBoard || Combat.onQuestBoard(k));
 }
 // POI classes worth sending somebody to look at. Common enough to exist in a
 // real neighbourhood, distinct enough to be a destination.

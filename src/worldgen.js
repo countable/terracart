@@ -220,6 +220,10 @@
   // gates all ask this, so a new lot-like code joins here once.
   const LOT_TYPES = new Set([T.RESIDENTIAL, T.WASTELAND]);
   function isLotTerrain(t) { return LOT_TYPES.has(t); }
+  // Which lot ground takes NO rock-cluster scatter (the walk still runs for
+  // its yard flora): residential yards — their rubble lines the streets now.
+  // Waste ground keeps its rubble.
+  const LOT_ROCK_DRY = new Set([T.RESIDENTIAL]);
 
   // Default Chebyshev radius for the residential-frontage test: a private cell
   // is only spawnable if a public anchor sits within this many cells.
@@ -901,6 +905,11 @@
   // ROAD_MASK_MIN_COVER still has a verge — the cells it paints a lick of.
   const ROAD_CLASS_MAJOR_BAND = 1;
   const ROAD_CLASS_MAJOR_VERGE = 2;
+  //   ROAD_CLASS_BANDIT_VERGE a major-verge cell on a BANDIT STRETCH — the
+  //                          surface traps' road ground (Traps.isTrapGround).
+  //                          Stamped after the street index is built
+  //                          (StreetVariants.stampBanditStretchesSteps).
+  const ROAD_CLASS_BANDIT_VERGE = 4;
   function* resolveRoadClassSteps(majorCover, mask, out, w, h) {
     for (let cy = 0; cy < h; cy++) {
       if ((cy & 63) === 63) yield 'road class bands';
@@ -2363,8 +2372,11 @@
     // a hedgerow); each piece in this tile walks its own arclength, a cluster
     // candidate every STREET_ROCK_PIVOT_M firing at STREET_ROCK_FIRE (denser
     // than the old lot pivots: most of a verge cluster lands on a sidewalk, a
-    // moat or a driveway and is culled — ~20% survive, ~1 rock per 16 m of
-    // rock-lined street, measured), and each fired cluster drops its rocks
+    // moat or a driveway and is culled — ~20% survive; the owner asked for
+    // ~1 rock per 10 m of rock-lined street, up from ~1 per 16 m at a 20 m
+    // pivot: at 10 m the Kelowna block where 16 m was measured runs 9.8 m a
+    // rock — denser cities lose more of a cluster to sidewalks and yards, 20
+    // to 40 m), and each fired cluster drops its rocks
     // on the VERGE: STREET_ROCK_OUT_MIN..+SPAN cells out past the band's
     // edge, jittered STREET_ROCK_ALONG_M along the way. The same tier roll
     // and vein table the residential clusters used, and the same `rc` cluster
@@ -2372,7 +2384,7 @@
     // (fnv1a of street key + tile + lineKey), so no other stream moves; and
     // pushed before the mineralrock cleanup, whose one filter (band, moat,
     // plaza, yard rule) decides what survives. A generator: one yield per line.
-    const STREET_ROCK_PIVOT_M = 20, STREET_ROCK_FIRE = 0.8;
+    const STREET_ROCK_PIVOT_M = 10, STREET_ROCK_FIRE = 0.8;
     const STREET_ROCK_MIN = 6, STREET_ROCK_SPAN = 6;
     const STREET_ROCK_ALONG_M = 7;
     const STREET_ROCK_OUT_MIN = 0.5, STREET_ROCK_OUT_SPAN = 2;
@@ -2805,16 +2817,19 @@
               // random tier is VEIN_MUL× more likely (see rollVeinTable). Pass
               // the raw `weights` so the vein path can rebuild a boosted table.
               const pivots = [];
-              // DRY: residential rubble no longer scatters through the zone —
-              // rocks now LINE a quarter of the minor streets instead
-              // (spawnStreetRocksSteps, off StreetVariants.rocksFor). The walk
-              // still runs, with every draw it always took, only because the
-              // yard flora below grows around the pivots it FIRES — so the
-              // flora is exactly what it was.
+              // DRY on RESIDENTIAL only: residential rubble no longer scatters
+              // through the zone — rocks now LINE a quarter of the minor
+              // streets instead (spawnStreetRocksSteps, off
+              // StreetVariants.rocksFor). The walk still runs there, with
+              // every draw it always took, only because the yard flora below
+              // grows around the pivots it FIRES — so the flora is exactly
+              // what it was. WASTELAND lots keep the old scatter (LOT_ROCK_DRY
+              // names which lot ground is dry): waste ground is where rubble
+              // belongs, same generator, same stream shape.
               yield* _spawnRockClustersSteps(resRng, f.geom, {
                 pivotStep, clusterR, fireChance: 0.585,
                 clusterMin: 25, clusterSpan: 16, tbl: SURFACE_ROCK_CUM, residential: true,
-                weights, veinChance: 0.30, pivots, dry: t === T.RESIDENTIAL });
+                weights, veinChance: 0.30, pivots, dry: LOT_ROCK_DRY.has(t) });
               const yard = BiomeProfiles.yard(t);
               if (yard && pivots.length) {
                 yield* _spawnYardFloraSteps(f.geom, polyKey, pivots, clusterR, yard);
@@ -3384,6 +3399,7 @@
     let streetIndex = null;
     if (typeof StreetVariants !== 'undefined') {
       streetIndex = yield* StreetVariants.buildIndexSteps(layers, tx, ty, mvtToM);
+      yield* StreetVariants.stampBanditStretchesSteps(streetIndex, roadClass, w, tx, ty);
       yield* spawnStreetRocksSteps(streetIndex);
     }
     // Post-pass: pavement-blob erosion. Overlapping/parallel road + path ways
@@ -5944,7 +5960,7 @@
     // preservation pinned by tile_bin_injection.test.js.
     injectTileBin,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
@@ -5988,7 +6004,7 @@
     // …and the width it actually COVERS, large-tier weighting included. The
     // overlay strokes with this and rasterizeTile stamps roadMask with it, so
     // "drawn as road" and "no spawns here" are the same number.
-    roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE,
+    roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,
     // instead of hand-copying the list. (The large tier needs no such export:

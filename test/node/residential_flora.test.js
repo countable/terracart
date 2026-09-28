@@ -61,7 +61,9 @@ const cellIdx = (p) => cellY(p.y) * CPE + cellX(p.x);
 // StreetVariants.rocksFor). The 395 lot rocks this fixture pinned are gone.
 // RE-PINNED with the move: 32 → 40 older plants, because cells the lot rubble
 // used to hold (the occupancy pass: a rock claimed its cell first) are free.
-const OLDER_PLANTS_BEFORE = { n: 40, hash: 2862681102 };
+// RE-PINNED (Sep 2026, denser street rocks — STREET_ROCK_PIVOT_M 20 → 10):
+// 40 → 39, one older plant's cell now holds a street rock (occupancy).
+const OLDER_PLANTS_BEFORE = { n: 39, hash: 3112412394 };
 
 test('residential yard flora: the lots hold no rubble now; older wild plants are exactly where they were', () => {
   const r = rasterize();
@@ -159,5 +161,26 @@ test('residential yard flora: a lawn-wide grass scatter still dies on residentia
     if (grid[cellIdx(p)] !== T.RESIDENTIAL) continue;
     assert.truthy(isYard(p) || p.crop === 'mushroom', `${p.id} (${p.crop}) spilled onto a residential cell`);
   }
+});
+
+test('waste ground keeps its rubble: the lot scatter runs dry on RESIDENTIAL only', () => {
+  // The same street grid over an unclassified landuse (railway → WASTELAND):
+  // the old lot scatter lays its rock clusters there, same generator, same
+  // stream shape, where the residential version of the block holds none.
+  assert.truthy(WorldGen.LOT_ROCK_DRY.has(T.RESIDENTIAL), 'residential yards are dry');
+  assert.falsy(WorldGen.LOT_ROCK_DRY.has(T.WASTELAND), 'waste ground is not');
+  const layers = suburb();
+  layers[0] = { name: 'landuse', features: [
+    { type: 3, tags: { class: 'railway' }, geom: [ring([[0, 0], [CPE - 1, 0], [CPE - 1, CPE - 1], [0, CPE - 1]])] }] };
+  const w = WorldGen.rasterizeTile(layers, CPE, TX, TY, TILE_EDGE_M);
+  const lotRocks = w.objects.filter((o) => o.kind === 'mineralrock' && !o._street
+    && w.grid[cellIdx(o)] === T.WASTELAND);
+  assert.gt(lotRocks.length, 10, `waste lots hold rubble (${lotRocks.length})`);
+  for (const o of lotRocks) {
+    assert.truthy(WorldGen.isSpawnCell(w.grid, CPE, CPE, cellX(o.x), cellY(o.y), { roadMask: w.roadMask, pois: [] }),
+      `${o.id} passes the shared lot rule`);
+  }
+  const res = rasterize().objects.filter((o) => o.kind === 'mineralrock' && !o._street);
+  assert.eq(res.length, 0, 'the residential block holds none');
 });
 })();

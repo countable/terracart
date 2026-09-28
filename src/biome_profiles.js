@@ -430,6 +430,15 @@
     slime:     { base: 50, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
   };
 
+  // The FAUNA ATTRACTOR column for GROUND (terrain code → { species: p }):
+  // each of a tile's own spawns of the species moves onto this ground with
+  // probability p (scene_creatures.js _seatFaunaOnFavouriteGround — the same
+  // lane the street variants' and zones' `attracts` rows feed). The LAND's
+  // class: waste ground a zone halo repainted still counts.
+  const BIOME_ATTRACTS = {
+    [T.WASTELAND]: { slime: 0.5 },
+  };
+
   // The accessors. The raw tables reach app.js as the bare globals below
   // (BIOME_FAUNA / FAUNA_ORDER for the fauna spawner), not through here.
   const api = { T, flora, tint, atmos, mixHex, allows, yard, yardAllows, patch, patchMul, FLORA_PATCH };
@@ -437,5 +446,6 @@
   global.BIOME_PROFILES = BIOME_PROFILES;
   global.BIOME_FAUNA = BIOME_FAUNA;
   global.FAUNA_ORDER = FAUNA_ORDER;
+  global.BIOME_ATTRACTS = BIOME_ATTRACTS;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -36,16 +36,38 @@ const wholeTile = () => ring([[0, 0], [CPE - 1, 0], [CPE - 1, CPE - 1], [0, CPE 
 
 // Open parkland (so the private-yard frontage rule isn't what's under test
 // here) crossed by a motorway and an ordinary street.
+//
+// BANDIT STRETCHES: only StreetVariants.BANDIT_STRETCH_SHARE of a major
+// street's (key, square) stretches are trap ground, so the motorway is NAMED —
+// the first "Bandit Road <k>" whose stretches down tile (0, 0)'s column 32
+// (square column 4, rows 0..7) are bandit on exactly 7 of the 8 — so the
+// verge these tests sample is (almost) all trap ground. Found through the
+// shipping hash, never a copy of it.
+const MOTORWAY_NAME = (() => {
+  const sx = Math.floor(cellToMvt(32) / StreetVariants.BANDIT_STRETCH_UNITS);
+  for (let k = 0; k < 20000; k++) {
+    const key = StreetVariants.streetKey(`Bandit Road ${k}`, 0, 0);
+    let on = 0;
+    for (let sy = 0; sy < EXTENT / StreetVariants.BANDIT_STRETCH_UNITS; sy++) {
+      if (StreetVariants.isBanditStretch(key, sx, sy)) on++;
+    }
+    if (on === 7) return `Bandit Road ${k}`;
+  }
+  return 'Bandit Road';
+})();
 function roadyLayers() {
+  const motorway = line([[32, 0], [32, CPE - 1]]);
   return [
     { name: 'landuse', features: [
       { type: 3, tags: { class: 'park' }, geom: [wholeTile()] },
     ] },
     { name: 'transportation', features: [
-      { type: 2, tags: { class: 'motorway' },
-        geom: [line([[32, 0], [32, CPE - 1]])] },
+      { type: 2, tags: { class: 'motorway' }, geom: [motorway] },
       { type: 2, tags: { class: 'minor' },
         geom: [line([[0, 10], [CPE - 1, 10]])] },
+    ] },
+    { name: 'transportation_name', features: [
+      { type: 2, tags: { class: 'motorway', name: MOTORWAY_NAME }, geom: [motorway] },
     ] },
   ];
 }
@@ -180,16 +202,80 @@ test('traps: wasteland is trap ground; a minor street through it adds nothing', 
 });
 
 test('traps: the count is capped at a share of the trap ground that scales with the mode', () => {
+  // Two grounds, two shares: a bandit stretch's verge at
+  // BANDIT_VERGE_DENSITY_MUL × the share, waste ground at the plain share.
   const r = rasterize(roadyLayers());
-  let ground = 0;
-  for (let y = 0; y < CPE; y++) for (let x = 0; x < CPE; x++) if (Traps.isTrapGround(r.grid, r.roadClass, CPE, CPE, x, y)) ground++;
+  let road = 0, waste = 0;
+  for (let y = 0; y < CPE; y++) for (let x = 0; x < CPE; x++) {
+    const k = Traps.trapGroundKind(r.grid, r.roadClass, CPE, CPE, x, y);
+    if (k === 1) road++; else if (k === 2) waste++;
+  }
+  assert.gt(road, 0, 'the fixture has bandit verge');
   for (const mul of [10, 25]) {
     const n = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), mul).length;
-    const cap = Math.max(1, Math.floor(ground * Traps.TRAP_GROUND_SHARE_PER_MUL * mul * Traps.tileDanger(0, 0)));
+    const m = mul * Traps.tileDanger(0, 0);
+    const cap = Math.max(1, Math.floor(road * Traps.TRAP_GROUND_SHARE_PER_MUL * m * Traps.BANDIT_VERGE_DENSITY_MUL
+      + waste * Traps.TRAP_GROUND_SHARE_PER_MUL * m));
     assert.truthy(n <= cap, `at ${mul}x: ${n} traps over the cap ${cap}`);
   }
-  assert.truthy(/n = Math\.min\(n, Math\.max\(1, Math\.floor\(seen \* TRAP_GROUND_SHARE_PER_MUL \* mul\)\)\);/.test(ALL_SRC['traps.js']),
-    'the cap reads the pool size, never a draw');
+  assert.truthy(/const capRoad = road\.seen \* TRAP_GROUND_SHARE_PER_MUL \* mul \* BANDIT_VERGE_DENSITY_MUL;/.test(ALL_SRC['traps.js'])
+    && /n = Math\.min\(n, Math\.max\(1, Math\.floor\(capRoad \+ capWaste\)\)\);/.test(ALL_SRC['traps.js']),
+    'the cap reads the pool sizes, never a draw');
+});
+
+test('traps: the bandits work STRETCHES — a major verge off a bandit stretch holds no trap', () => {
+  // The same motorway under another name: its stretches roll afresh, and
+  // every trap sits on a cell whose stretch is the bandits'.
+  const r = rasterize(roadyLayers());
+  let verge = 0, bandit = 0;
+  for (let i = 0; i < CPE * CPE; i++) {
+    if (r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_VERGE) verge++;
+    if (r.roadClass[i] & WorldGen.ROAD_CLASS_BANDIT_VERGE) {
+      bandit++;
+      assert.truthy(r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_VERGE, 'a bandit cell is a major-verge cell');
+    }
+  }
+  assert.gt(verge, bandit, 'not the whole verge — one of the 8 stretches is not the bandits\'');
+  const key = StreetVariants.streetKey(MOTORWAY_NAME, 0, 0);
+  for (const tp of Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 25)) {
+    // The stretch is the square the WAY is in (the motorway's column, the
+    // trap's row) — the verge cell itself may be across a square edge.
+    const st = StreetVariants.stretchOf(cellToMvt(32), cellToMvt(tp._iy));
+    assert.truthy(StreetVariants.isBanditStretch(key, st.sx, st.sy), `trap ${tp.id} is on a bandit stretch`);
+    assert.truthy(Traps.isBanditVerge(r.roadClass, CPE, CPE, tp._ix, tp._iy), 'on the bandit verge');
+  }
+  // A clean name (no bandit stretch in the column): a verge, and no traps.
+  let clean = null;
+  for (let k = 0; k < 5000 && !clean; k++) {
+    const key2 = StreetVariants.streetKey(`Quiet Road ${k}`, 0, 0);
+    let on = 0;
+    for (let sy = 0; sy < 8; sy++) if (StreetVariants.isBanditStretch(key2, 4, sy)) on++;
+    if (!on) clean = `Quiet Road ${k}`;
+  }
+  const layers = roadyLayers();
+  layers[2].features[0].tags.name = clean;
+  const q = rasterize(layers);
+  let qb = 0;
+  for (let i = 0; i < CPE * CPE; i++) if (q.roadClass[i] & WorldGen.ROAD_CLASS_BANDIT_VERGE) qb++;
+  assert.eq(qb, 0, 'a road the bandits do not work has no bandit verge');
+  assert.eq(Traps.spawnSurface(q.grid, q.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(q), 25).length, 0,
+    'and no traps');
+});
+
+test('traps: a named street\'s stretch is the same from either side of a seam', () => {
+  // The squares are tile-aligned global MVT squares and the key is the
+  // street's name + parish, so two neighbours agree without seeing each other.
+  const U = StreetVariants.BANDIT_STRETCH_UNITS;
+  assert.eq(EXTENT % U, 0, 'a square never straddles a tile edge');
+  const key = StreetVariants.streetKey('Seam Street', 3, 7);
+  assert.eq(key, StreetVariants.streetKey('Seam Street', 4, 7), 'same key both sides (same parish)');
+  const a = StreetVariants.stretchOf(4 * EXTENT - 1, 7 * EXTENT + 100);
+  const b = StreetVariants.stretchOf(4 * EXTENT, 7 * EXTENT + 100);
+  assert.eq(b.sx - a.sx, 1, 'the seam is a square edge');
+  assert.truthy(StreetVariants.BANDIT_STRETCH_SHARE > 0.25 && StreetVariants.BANDIT_STRETCH_SHARE < 0.4, 'about a third');
+  let on = 0;
+  for (let i = 0; i < 3000; i++) if (StreetVariants.isBanditStretch(key, i, 0)) on++;
+  assert.inRange(on / 3000, 0.29, 0.37, 'about a third of the stretches are the bandits\'');
 });
 
 test('traps: the roadside sample is uniform over the whole verge, and bounded', () => {

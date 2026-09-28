@@ -155,6 +155,16 @@ const GATHER_SPREAD_POINTS = 6;
 // dark is Lighting.KINDS.cobble, on the same point — lifted off it to the
 // LANTERN, which is where a lamp burns (RoadOverlay.LAMP_LANTERN_RISE_CELLS).
 const STREET_LAMP_TEX = 'street_lamp';
+// …and ONE BAKE PER GLOW COLOUR, never per lamp. A lamp sheds its street's
+// colour (StreetVariants.lampGlowFor off the street index — the same value
+// Lighting.collectLamps throws, carried on the lamp entry as `glow`), so the
+// baked art is keyed by that colour: the default UI_LAMP_GLOW keeps the plain
+// STREET_LAMP_TEX key it always had, any other glow is `street_lamp@#rrggbb`.
+// The handful of theme colours is the whole store, however many lamps.
+function streetLampTexKey(glow) {
+  const g = (typeof glow === 'string') ? glow.toLowerCase() : '';
+  return (!g || g === String(UI_LAMP_GLOW).toLowerCase()) ? STREET_LAMP_TEX : `${STREET_LAMP_TEX}@${g}`;
+}
 // Drawn LAMP_DRAW_CELLS cells across — the pool of glow at its foot included;
 // the ironwork inside that is about a fifth of it wide and half of it tall, so
 // a lamp stands on one cell of the verge and reads from a couple away.
@@ -2154,17 +2164,9 @@ class MapScene extends Phaser.Scene {
     //
     // Sized in CELLS (RoadOverlay.LAMP_DRAW_CELLS) by that spec, so the lamp
     // keeps its proportion to the carriageway at any latitude's cell size.
-    if (typeof RoadOverlay !== 'undefined' && RoadOverlay.paintLamp &&
-        typeof document !== 'undefined' && !this.textures.exists(STREET_LAMP_TEX)) {
-      const S = RoadOverlay.LAMP_TEX_PX;
-      const cvs = document.createElement('canvas');
-      cvs.width = cvs.height = S;
-      const lctx = cvs.getContext('2d');
-      if (lctx) {
-        RoadOverlay.paintLamp(lctx, S);
-        this.textures.addCanvas(STREET_LAMP_TEX, cvs);
-      }
-    }
+    // The default glow is baked here at boot; a themed street's colour is
+    // baked the first time a lit lamp of it comes near (_updateStreetLamps).
+    this._ensureStreetLampTex(UI_LAMP_GLOW);
 
     // Road-label pool: compact whole-word street names (one anchor every ~12
     // road cells, rotated along the road by render.js), drawn low-alpha in
@@ -11868,6 +11870,25 @@ class MapScene extends Phaser.Scene {
   // discipline traps.js keeps (generated, never stored — only what the player
   // DID is written down).
 
+  // Bake the lamp art for one GLOW colour, once: RoadOverlay.paintLamp with
+  // that colour as its glass, bloom and pool, under streetLampTexKey(glow).
+  // Cached BY COLOUR (the texture manager is the cache), so a street of forty
+  // orange lamps is one bake. Returns the key render.js draws the lamp by.
+  _ensureStreetLampTex(glow) {
+    const key = streetLampTexKey(glow);
+    if (this.textures.exists(key)) return key;
+    if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintLamp || typeof document === 'undefined') return key;
+    const S = RoadOverlay.LAMP_TEX_PX;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = S;
+    const lctx = cvs.getContext('2d');
+    if (lctx) {
+      RoadOverlay.paintLamp(lctx, S, glow || UI_LAMP_GLOW);
+      this.textures.addCanvas(key, cvs);
+    }
+    return key;
+  }
+
   // Every lamp of ONE tile, in ABSOLUTE world metres — lit or not. Cached on
   // the TILE ENTRY: it is a pure function of that tile's geometry, so it is
   // computed once per tile rather than per frame, and a tile REBUILT under us
@@ -11922,11 +11943,15 @@ class MapScene extends Phaser.Scene {
     // street rolled 'lantern' stands its lamps at StreetVariants.lampSpacingFor
     // — the same lamp, the same lit-when-restored rule, no prop of its own.
     // The index keys lines by (feature, line) position in this same layer.
-    const lanternLines = new Set();
-    if (entry.streetIndex && typeof StreetVariants !== 'undefined') {
-      for (const rec of entry.streetIndex.lines) {
-        if (rec.variant === 'lantern') lanternLines.add(`${rec.fi}:${rec.li}`);
-      }
+    // THE GLOW is the same record's: StreetVariants.lampGlowFor(rec) — the
+    // variant's colour, torch orange for an unthemed major road, else null →
+    // the default UI_LAMP_GLOW. Resolved ONCE per lamp onto `glow`, the one
+    // value both the baked art (streetLampTexKey) and the light
+    // (Lighting.collectLamps) read.
+    const lineRecs = new Map();
+    const hasVariants = typeof StreetVariants !== 'undefined';
+    if (entry.streetIndex && hasVariants) {
+      for (const rec of entry.streetIndex.lines) lineRecs.set(`${rec.fi}:${rec.li}`, rec);
     }
     for (const layer of entry.layers) {
       if (layer.name !== 'transportation') continue;
@@ -11946,9 +11971,11 @@ class MapScene extends Phaser.Scene {
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
-          const at = lanternLines.has(`${fi}:${i}`)
+          const rec = lineRecs.get(`${fi}:${i}`) || null;
+          const at = (rec && rec.variant === 'lantern')
             ? Streets.lampsAlong(line, mvtToM, StreetVariants.lampSpacingFor('lantern'))
             : Streets.lampsAlong(line, mvtToM);
+          const glow = (hasVariants && StreetVariants.lampGlowFor && StreetVariants.lampGlowFor(rec)) || UI_LAMP_GLOW;
           if (!at.length) continue;
           const spans = Streets.tileSpans(line, mvtToM, extent);
           if (!spans.length) continue;
@@ -11957,8 +11984,8 @@ class MapScene extends Phaser.Scene {
             if (!Streets.covers(spans, sM)) continue;   // in the buffer — the neighbour's stone
             const q = Streets.pointAtM(line, mvtToM, sM, offM);
             if (!q) continue;
-            out.push({ tileKey, lineKey, tier, s: sM, x: ox + q.x, y: oy + q.y,
-                       id: `lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
+            out.push({ tileKey, lineKey, tier, glow, s: sM, x: ox + q.x, y: oy + q.y,
+                       id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
           }
         }
       }
@@ -12034,6 +12061,13 @@ class MapScene extends Phaser.Scene {
         out.push({ ...L, lit: Streets.covers(iv, L.s) });
       }
     });
+    // Every LIT lamp's glow has its art baked before the sprite pass asks
+    // for it — once per colour, however many lamps share it.
+    if (this._ensureStreetLampTex) {
+      const glows = new Set();
+      for (const L of out) if (L.lit) glows.add(L.glow);
+      for (const g of glows) this._ensureStreetLampTex(g);
+    }
     this._streetLamps = out;
     this._streetLampKey = pending ? null : key;
   }

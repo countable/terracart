@@ -2572,8 +2572,8 @@ Render.drawObjects = function drawObjects(scene) {
   // drawRoadGeometry a moment before this pass) and the same `lit` flag decides
   // the art here and the light in Lighting.collectLamps.
   const lampList = (scene._streetLamps || []).map(L => ({
-    o: { kind: '_streetlamp', x: L.x, y: L.y, lit: L.lit, tier: L.tier,
-         id: `lamp_${L.x.toFixed(2)}_${L.y.toFixed(2)}` },
+    o: { kind: '_streetlamp', x: L.x, y: L.y, lit: L.lit, tier: L.tier, glow: L.glow,
+         id:`lamp_${L.x.toFixed(2)}_${L.y.toFixed(2)}` },
     dx: L.x - pWorldX, dy: L.y - pWorldY,
   })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
 
@@ -2892,7 +2892,10 @@ Render.drawObjects = function drawObjects(scene) {
     // STREET_LAMP_DARK_CELLS), and setDisplaySize says that without this row
     // having to know either texture's pixel size.
     _streetlamp: {
-      key: (o) => (o.lit ? STREET_LAMP_TEX : STREET_LAMP_DARK_TEX),
+      // A lit lamp draws the bake for ITS glow (streetLampTexKey — the plain
+      // STREET_LAMP_TEX for the default, one texture per colour otherwise,
+      // baked by app.js _ensureStreetLampTex before this pass runs).
+      key: (o) => (o.lit ? streetLampTexKey(o.glow) : STREET_LAMP_DARK_TEX),
       frame: (o) => (o.lit ? '__BASE' : streetLampDarkFrame(o.tier)),
       origin: (o) => (o.lit ? [0.5, STREET_LAMP_ORIGIN_Y] : [0.5, 0.5]),
       // The post's own nudge (see STREET_LAMP_DY_PX): the ART sits a pixel

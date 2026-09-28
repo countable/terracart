@@ -448,6 +448,32 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
     'collectLamps runs between collectFires and collectPlayer, every frame');
 });
 
+test('lighting: a lamp throws its STREET\'s glow — a hue, keyed in frameKey, default unchanged', () => {
+  // app.js resolves each lamp's `glow` once (StreetVariants.lampGlowFor off
+  // its street, default UI_LAMP_GLOW); collectLamps hands it on as the entry's
+  // colour, and a plain street's lamp stays on the cobble row's own colour.
+  const cellM = 5;
+  const mk = (glow) => {
+    const s = scene({ cellM, _streetLamps: [{ x: 1, y: 1, id: 'L', lit: true, glow }] });
+    Lighting.beginFrame(s);
+    Lighting.collectLamps(s, 0, 0, HALF_M);
+    return s;
+  };
+  const plain = mk(UI_LAMP_GLOW), none = mk(undefined), orange = mk('#ff8c2a');
+  assert.eq(plain._lights[0].colour, undefined, 'the default glow is the row\'s own colour — the same cookie as before');
+  assert.eq(none._lights[0].colour, undefined, 'and so is a lamp with no glow');
+  assert.eq(orange._lights[0].colour, 0xff8c2a, 'a themed lamp throws its own glow');
+  assert.eq(Lighting.lampColour('#FF8C2A'), 0xff8c2a, 'case-blind');
+  assert.eq(Lighting.lampColour('orange'), null, 'garbage falls back to the default');
+  // A hue, not a brightness: the entry carries no alpha or scale of its own.
+  assert.eq(orange._lights[0].a, undefined); assert.eq(orange._lights[0].s, undefined);
+  assert.eq(orange._lights[0].r, undefined, 'and the row\'s radius');
+  // frameKey names each light's colour, so a lamp changing colour repaints.
+  const key = (s) => Lighting.frameKey(s, { x: 0, y: 0 }, 0, 0, Lighting.profile(s), 64, 300, 10, null, null, 0);
+  assert.truthy(key(plain) !== key(orange), 'a colour change moves the still-frame key');
+  assert.eq(key(plain), key(none), 'and the default is one key whichever way it is spelt');
+});
+
 test('lighting: a BLAST is a transient light on its own clock, at any size', () => {
   // A restoration moment — a stretch of street rebuilt, a wreck pulled back
   // into a house — throws one wide near-white flash that fades as it swells.

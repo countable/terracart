@@ -14,9 +14,12 @@
 //
 // TWO SIZES, off WorldGen.classifyLine's tiers:
 //   MAJOR — ROAD_MD + ROAD_LG (tertiary / secondary and up): the BANDIT ROADS.
-//           Their verges carry the surface traps (traps.js), their bus stops
-//           are broken wagons with a goblin guard (loot.js chestLook + the
-//           lairs.js 'wagon' tier), and the tile's dogs roam them.
+//           The bandits work STRETCHES of them (BANDIT_STRETCH_SHARE of each
+//           street's (key, square) stretches): the surface traps sit on those
+//           stretches' verge only (traps.js, ROAD_CLASS_BANDIT_VERGE); a third
+//           of their bus stops (WAGON_STOP_SHARE) are broken wagons with a
+//           goblin guard (loot.js chestLook + the lairs.js 'wagon' tier), and
+//           the tile's dogs roam them (BANDIT_STORY.attracts).
 //   MINOR — ROAD with class minor/street (residential streets). Service ways
 //           (driveways, alleys, parking) are neither — they stay plain.
 //   Footpaths are neither.
@@ -61,6 +64,26 @@
   // A bus stop is on a MAJOR road when a major band touches a cell within
   // this many cells (Chebyshev) of its own.
   const BUS_STOP_MAJOR_CELLS = 2;
+  // Only this share of the stops on a major road are a broken wagon (+ its
+  // goblin); the rest stay ordinary bus-stop chests. Decided per stop off a
+  // hash of the chest's own id (its POI cell — generated, the same for every
+  // player), never a draw.
+  const WAGON_STOP_SHARE = 1 / 3;
+
+  // ── Bandit stretches ─────────────────────────────────────────────────────
+  // The bandits do not work a major road end to end: each MAJOR street is cut
+  // into STRETCHES and BANDIT_STRETCH_SHARE of them are theirs — the surface
+  // traps sit on those stretches' verge only (Traps.isTrapGround, off the
+  // roadClass bit WorldGen.ROAD_CLASS_BANDIT_VERGE this pass stamps).
+  // A stretch is (street key, lattice square): the squares are
+  // BANDIT_STRETCH_UNITS on an edge in GLOBAL MVT units (tile·4096 + local —
+  // ~200 m at play latitudes), aligned to the tile grid, so every square lies
+  // inside exactly one tile and a named street's stretch is the same from
+  // either side of a seam (the key is; the square is). An unnamed way keys
+  // off its own piece (anonKey), so it may disagree at a seam — accepted, as
+  // for its variant.
+  const BANDIT_STRETCH_UNITS = 512;
+  const BANDIT_STRETCH_SHARE = 1 / 3;
 
   // ── Closes (the hedgerow's dead-end runs) ────────────────────────────────
   const RUN_MIN_M = 40, RUN_MAX_M = 400;
@@ -74,7 +97,10 @@
   const HEDGE_GAP_MIN = 5, HEDGE_GAP_SPAN = 3;   // a gate-gap every 5..7 cells
   const OVERGROWN_STEP_M = 10, OVERGROWN_MAX = 10;
   const ORCHARD_STEP_M = 40, ORCHARD_MAX = 3;
+  const TOADSTOOL_STEP_M = 8, TOADSTOOL_MAX = 12, TOADSTOOL_MUSHROOM_SHARE = 0.8;
   const BURNED_STEP_M = 25, BURNED_MAX = 8;
+  // How finely a burned row is walked for its one fire slime per stretch.
+  const BURNED_GUARD_STEP_M = 10;
   // Lantern Row: NOT a prop of its own — the street lamps, denser. A lantern
   // street stands its restoration lamps at Streets.lampSpacingM() / this
   // (app.js _streetLampsForTile), same art, same lit-when-restored rule, one
@@ -87,8 +113,12 @@
   const SLOW_KINDS = new Set(['tar', 'stakes']);
 
   // ── The rows ─────────────────────────────────────────────────────────────
+  // `lampGlow` is the colour its lamps shed (lampGlowFor — light and art read
+  // the one value); `attracts` { species: p } is the FAUNA ATTRACTOR column
+  // (scene_creatures.js _seatFaunaOnFavouriteGround): each of the tile's own
+  // spawns of that species moves onto this street's verge with probability p.
   // `share` is the base probability for a key of that size; the minor rows
-  // sum to 0.34 and the major ones to 0.16. The design's shares, rescaled
+  // sum to 0.39 (0.34 + Toadstool Lane's 0.05) and the major ones to 0.16. The design's shares, rescaled
   // now that each row dresses ONE size (the minor rows took the dressed
   // share the design's minor+medium rows gave minor streets, the major rows
   // likewise), keeping its rarity ladder: Common lantern/overgrown,
@@ -98,39 +128,55 @@
   const STREET_VARIANTS = [
     { id: 'hedgerow', size: 'minor', share: 0.10, nudge: 2, rung: 'find',
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
+      lampGlow: '#9be08a', attracts: { rabbit: 0.5 },
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Clipped hedges, a stone arch, a gate at the end. Someone keeps this close, and something keeps it for them.',
       flash: 'A hedged lane. Tread softly.' },
     { id: 'overgrown', size: 'minor', share: 0.10, rung: 'common',
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
+      lampGlow: '#9be08a', attracts: { rabbit: 0.5, butterfly: 0.5 },
       story: 'street_overgrown', title: 'Gone to seed',
       body: 'The green is taking this street back, one crack at a time.',
       flash: 'The green is taking it back.' },
     { id: 'orchard', size: 'minor', share: 0.08, rung: 'uncommon',
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
+      lampGlow: '#ffa6c9', attracts: { deer: 0.5 },
       story: 'street_orchard', title: 'Orchard Lane',
       body: 'The old trees still fruit. Nobody picks them.',
       flash: 'Old trees, still fruiting.' },
     { id: 'pilgrim', size: 'minor', share: 0.06, rung: 'uncommon',
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
+      lampGlow: '#f2eee0', attracts: { crow: 0.5 },
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone, worn smooth by hands. It remembers something.',
       flash: 'A waystone, worn smooth.' },
     { id: 'lantern', size: 'major', share: 0.07, rung: 'common',
       words: /(lantern|lamp|light|candle|latern)/i,
+      lampGlow: '#ffb347', attracts: { cat: 0.5 },
       story: 'street_lantern', title: 'Lantern Row',
       body: 'Lamp posts stand thick along this road, cold and waiting. Rebuild it and it will burn bright.',
       flash: 'Lamp posts, cold and waiting.' },
     { id: 'burned', size: 'major', share: 0.05, rung: 'uncommon',
       words: /(mill|forge|smith|ash|burn|brand|kiln|furnace|cinder|coal|ember|kohle|schmied|asche)/i,
+      lampGlow: '#ff5a3c',
       story: 'street_burned', title: 'Burned Row',
       body: 'Tar in the gutters and iron stakes in the verge. Watch your feet.',
       flash: 'Tar underfoot. Go slow.' },
     { id: 'barricade', size: 'major', share: 0.04, rung: 'rare',
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
+      lampGlow: '#ff8c2a',
       story: 'street_barricade', title: 'The barricade',
       body: 'Barricades across the verge. Goblins held this road once.',
       flash: 'Barricades. Goblins held it.' },
+    // Appended LAST so no older row's code (index + 1) moves; the roll walks
+    // the minor rows in order, so a street that rolled an older minor row
+    // still does — only plain streets can become a toadstool lane.
+    { id: 'toadstool', size: 'minor', share: 0.05, rung: 'uncommon',
+      words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
+      lampGlow: '#4fd8c4', attracts: { butterfly: 0.5 },
+      story: 'street_toadstool', title: 'Toadstool Lane',
+      body: 'Pale caps crowd the verge, and after dark they glow. Step round them. Something here is listening.',
+      flash: 'Toadstools. They glow at dusk.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -141,6 +187,9 @@
     story: 'street_bandit', title: 'The bandit road',
     body: 'Wheel ruts, a broken wagon, a dog that watches you pass. Bandits work the big roads.',
     flash: 'Bandit road. Eyes open.',
+    // Unthemed major road: torch orange. The dogs work its verge (every one,
+    // not a share — the bandits' own dogs).
+    lampGlow: '#ff8c2a', attracts: { dog: 1 },
   };
   // Per-cell marks (dress().marks): a variant's code 1..n, BANDIT_CODE for a
   // plain major cell (resolved from roadClass by the caller).
@@ -203,6 +252,15 @@
   function rocksFor(key, size, variant) {
     return size === 'minor' && variant !== 'hedgerow' && !!key
       && u01('rocks|' + key) < ROCK_STREET_SHARE;
+  }
+
+  // Is the stretch of street `key` through lattice square (sx, sy) a bandit
+  // stretch? A pure hash of the pair — the same for every player and tile.
+  function stretchOf(gx, gy) {
+    return { sx: Math.floor(gx / BANDIT_STRETCH_UNITS), sy: Math.floor(gy / BANDIT_STRETCH_UNITS) };
+  }
+  function isBanditStretch(key, sx, sy) {
+    return !!key && u01(`bandit|${key}|${sx},${sy}`) < BANDIT_STRETCH_SHARE;
   }
 
   // ── The name vote ───────────────────────────────────────────────────────
@@ -392,13 +450,57 @@
     return out;
   }
 
+  // ── Stamping the bandit stretches (rasterizeTileSteps, after roadClass) ──
+  // For every MAJOR line piece in the tile, walk its arclength (buffer
+  // included), and wherever the WAY is on a bandit stretch mark the cells
+  // across the band out to its verge (halfW + BANDIT_STAMP_OUT_CELLS). A
+  // major-VERGE cell (WorldGen.ROAD_CLASS_MAJOR_VERGE) under a mark gains
+  // ROAD_CLASS_BANDIT_VERGE. Generation cells throughout (gM = N·CELL_M/ext),
+  // never frame metres. A generator: one yield per major line.
+  const BANDIT_STAMP_OUT_CELLS = 2;
+  function* stampBanditStretchesSteps(index, roadClass, N, tx, ty) {
+    const WG = root.WorldGen, S = root.Streets;
+    if (!index || !roadClass || !WG || !S || !(N > 0)) return 0;
+    const ext = index.extent || 4096;
+    const CELL_M = WG.CELL_M;
+    const gM = (N * CELL_M) / ext;
+    const VERGE = WG.ROAD_CLASS_MAJOR_VERGE, BANDIT = WG.ROAD_CLASS_BANDIT_VERGE;
+    const ox = tx * ext, oy = ty * ext;
+    let n = 0;
+    for (const rec of index.lines) {
+      if (rec.size !== 'major') continue;
+      yield 'bandit stretches';
+      const r = rec.halfW + BANDIT_STAMP_OUT_CELLS * CELL_M;
+      const memo = new Map();
+      // The WHOLE piece, buffer included (no tileSpans cut): a way running
+      // just past the tile edge still has its verge inside — and the stretch
+      // is the square the WAY is in, the same from either tile.
+      sampleLine(rec.line, gM, CELL_M * 0.7, 0, (s, x, y, nx, ny) => {
+        const st = stretchOf(ox + x / gM, oy + y / gM);
+        const mk = st.sx * 65536 + st.sy;
+        let on = memo.get(mk);
+        if (on === undefined) memo.set(mk, on = isBanditStretch(rec.key, st.sx, st.sy));
+        if (!on) return;
+        for (let o = -r; o <= r; o += CELL_M * 0.7) {
+          const ix = Math.floor((x + nx * o) / CELL_M), iy = Math.floor((y + ny * o) / CELL_M);
+          if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
+          const i = iy * N + ix;
+          if ((roadClass[i] & VERGE) && !(roadClass[i] & BANDIT)) { roadClass[i] |= BANDIT; n++; }
+        }
+      });
+    }
+    return n;
+  }
+
   // ── Bandit stops ────────────────────────────────────────────────────────
-  // Stamp `banditStop` on every bus-stop chest within BUS_STOP_MAJOR_CELLS of
-  // a MAJOR band (roadClass bit 1), and return one lair candidate per stop —
+  // Stamp `banditStop` on the bus-stop chests within BUS_STOP_MAJOR_CELLS of
+  // a MAJOR band (roadClass bit 1) that isWagonStop picks (WAGON_STOP_SHARE),
+  // and return one lair candidate per stop —
   // the wagon's guard (lairs.js 'wagon' tier). The chest itself is untouched
   // otherwise: same id, tier, contents and `opened` semantics; loot.js
   // chestLook reads the flag to wear the wagon. Its memoised look is dropped
   // so a stop drawn before this pass re-resolves.
+  function isWagonStop(id) { return !!id && u01('wagon|' + id) < WAGON_STOP_SHARE; }
   function markBanditStops(objects, roadClass, N, tx, ty, tileEdgeM) {
     const WG = root.WorldGen;
     const lairs = [];
@@ -418,7 +520,7 @@
           if (roadClass[y * N + x] & WG.ROAD_CLASS_MAJOR_BAND) { near = true; break; }
         }
       }
-      if (!near) continue;
+      if (!near || !isWagonStop(o.id)) continue;
       o.banditStop = true;
       delete o._chestLook;
       lairs.push({
@@ -510,6 +612,7 @@
       return out;
     };
 
+    const burnedSeen = new Set();
     for (const rec of idx.lines) {
       const v = rec.variant;
       if (!v) continue;
@@ -556,6 +659,25 @@
             WG.cellId('wp_og', tx, ty, c.ix, c.iy), { _street: v }));
           placed++;
         });
+      } else if (v === 'toadstool') {
+        // TOADSTOOL LANE: the verge crowds with mushrooms (the wild mushroom
+        // — it glows after dark, items.js WILDPLANT_RULES / wildplantLight),
+        // a tuft of long grass among them now and then.
+        const rng = streamFor(rec, v);
+        let placed = 0;
+        sampleLine(rec.line, gM, TOADSTOOL_STEP_M, TOADSTOOL_STEP_M / 2, (s, x, y, nx, ny) => {
+          if (placed >= TOADSTOOL_MAX) return false;
+          const side = rng() < 0.5 ? 1 : -1;
+          const pick = rng();
+          if (!S.covers(spans, s)) return;
+          const c = verge(rec, x, y, nx, ny, side);
+          if (!c) return;
+          const crop = pick < TOADSTOOL_MUSHROOM_SHARE ? 'mushroom' : 'longgrass';
+          claim(c.ix, c.iy);
+          res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy),
+            WG.cellId('wp_ts', tx, ty, c.ix, c.iy), { _street: v }));
+          placed++;
+        });
       } else if (v === 'orchard') {
         const rng = streamFor(rec, v);
         let placed = 0, side = 1;
@@ -592,6 +714,9 @@
           claim(c.ix, c.iy);
           res.wildplants.push(WG.makeWildplant('barricade', cx(c.ix), cy(c.iy),
             WG.cellId('barricade', tx, ty, c.ix, c.iy), { _street: v }));
+          // ...and the goblin who holds it (lairs.js 'barricade' tier).
+          res.lairs.push({ tier: 'barricade', sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
+            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
         }
       } else if (v === 'burned') {
         const rng = streamFor(rec, v);
@@ -609,6 +734,22 @@
             WG.cellId(kind, tx, ty, c.ix, c.iy), { _street: v }));
           res.slowCells.set(c.iy * N + c.ix, kind);
           placed++;
+        });
+        // ONE FIRE SLIME PER STRETCH (lairs.js 'burned' tier): the first
+        // spawnable verge cell of each (street key, stretch square) this piece
+        // walks through inside the tile. The squares are tile-aligned, so a
+        // stretch belongs to one tile; `burnedSeen` keeps a street that is
+        // several line pieces here to one guard per stretch. No draws.
+        sampleLine(rec.line, gM, BURNED_GUARD_STEP_M, BURNED_GUARD_STEP_M / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          const st = stretchOf(tx * ext + x / gM, ty * ext + y / gM);
+          const sk = `burned:${rec.key}|${st.sx},${st.sy}`;
+          if (burnedSeen.has(sk)) return;
+          const c = verge(rec, x, y, nx, ny, 1) || verge(rec, x, y, nx, ny, -1);
+          if (!c) return;
+          burnedSeen.add(sk);
+          res.lairs.push({ tier: 'burned', sid: sk,
+            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
         });
       }
       // lantern: nothing seated here — denser street lamps (lampSpacingFor).
@@ -640,16 +781,32 @@
     return variant === 'lantern' ? base / LANTERN_SPACING_DIV : base;
   }
 
+  // THE LAMP'S GLOW: a street's lamps shed its variant's colour (the row's
+  // `lampGlow`), an unthemed MAJOR road the bandit road's torch orange, and
+  // anything else (a plain minor street, a service way, a footpath) null —
+  // the caller's default, util.js UI_LAMP_GLOW. `rec` is a street-index line
+  // record ({ size, variant }) or null. One value per lamp, read by both the
+  // light and the baked art.
+  function lampGlowFor(rec) {
+    if (!rec) return null;
+    const row = rec.variant ? VARIANT_BY_ID[rec.variant] : null;
+    if (row && row.lampGlow) return row.lampGlow;
+    if (rec.size === 'major') return BANDIT_STORY.lampGlow;
+    return null;
+  }
+
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
     PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, VERGE_MAX_CELLS,
-    BUS_STOP_MAJOR_CELLS, RUN_MIN_M, RUN_MAX_M, JUNCTION_TOUCH_M, CLOSE_SEAT_CELLS,
+    BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
+    stretchOf, isBanditStretch, stampBanditStretchesSteps,
+    BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, RUN_MIN_M, RUN_MAX_M, JUNCTION_TOUCH_M, CLOSE_SEAT_CELLS,
     HEDGE_GAP_MIN, HEDGE_GAP_SPAN, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
-    ORCHARD_MAX, BURNED_STEP_M, BURNED_MAX, LANTERN_SPACING_DIV, SLOW_KINDS,
+    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, TOADSTOOL_MUSHROOM_SHARE, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, SLOW_KINDS,
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     nameVote, lineName, sampleLine, buildIndexSteps, buildIndex, findCloses,
-    markBanditStops, dress, dressSteps, lampSpacingFor, isSlowKind,
+    markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

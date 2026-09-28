@@ -73,9 +73,13 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coin pickups may occupy roads,
   but not objects.
   Cave traps use their occupied-cell set; surface traps sit on the verge.
-- Road rules: surface traps belong only on MAJOR verges (`entry.roadClass` /
-  `ROAD_CLASS_MAJOR_VERGE`) and WASTELAND (`Traps.isTrapGround`, which reads
-  the land's class under a zone halo). SLOW is a reason inside `_bodyHold`
+- Road rules: surface traps belong only on the verges of BANDIT STRETCHES of
+  major roads (`entry.roadClass` bit `ROAD_CLASS_BANDIT_VERGE`, stamped by
+  `stampBanditStretchesSteps`) and on WASTELAND (`Traps.isTrapGround`, which
+  reads the land's class under a zone halo). Where a species prefers to stand
+  is an `attracts` column (street variant rows, `Zones.ZONE_KINDS`,
+  `BIOME_ATTRACTS`) read by `_seatFaunaOnFavouriteGround`: relocate existing
+  spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`
   fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
   hazard joins that map, never a new movement gate.
 - Influence zones (`src/zones.js`): anchors are POI points (park→grove,

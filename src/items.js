@@ -1146,9 +1146,10 @@ const PLAY_TIPS = [
   // ── The land you walk over ──────────────────────────────────
   // StreetVariants.ROCK_STREET_SHARE (a quarter) — books.test.js re-derives it.
   'Wild rock lines about one residential street in four; shrubs grow in parks, woods and industrial lots.',
-  // The bandit roads (src/street_variants.js MAJOR size, lairs.js 'wagon',
-  // traps.js trap ground, scene_creatures.js dogs).
-  'The big roads are bandit country in every mode: snares on the verges, dogs on the prowl, and a goblin guarding each broken wagon at a stop.',
+  // The bandit roads (src/street_variants.js MAJOR size: BANDIT_STRETCH_SHARE
+  // stretches, WAGON_STOP_SHARE wagons; lairs.js 'wagon' / 'barricade';
+  // traps.js BANDIT_VERGE_DENSITY_MUL; the dogs' attracts row).
+  'The big roads are bandit country in every mode, but the bandits work only stretches of them: a clear run, then a verge thick with snares. Dogs prowl the whole road, a goblin guards the odd broken wagon at a stop, and every barricade has its goblin.',
   // app.js SLOW_BODY_M_S / _bodyHold.
   'Tar and iron stakes on a burned road drag at your feet: your body falls behind where you truly stand until you step clear.',
   // The influence zones (src/zones.js): the halo ground, the tar yard's tar
@@ -1930,7 +1931,9 @@ function isLowTierSeed(id) {
 // and render.js' tilled-cell draw. It lived in app.js until Sep 2026, which is
 // why the headless suite had to parse the Set out of app.js' source text to
 // know which codes interact.js' flavour handler had to cover.
-const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25]);
+// 31 = TAR_YARD (an influence zone's halo round a fuel station, src/zones.js):
+// oily ground that weeps tar — nothing takes root in it.
+const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25, 31]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 // The full "can this CELL take a hoe / placement / released animal" test:
 // soil-ish terrain AND no drawn road band over it. A cell's terrain says
