@@ -127,6 +127,37 @@
   };
   const TIERS = [9, 11, 12];
   const MAX_TIER_GUARDS = Math.max(...Object.values(TIER_GUARDS));
+  // ── STREET STRUCTURES — a new REASON for a lair, not a new lane ─────────
+  // Two things on a street are held the way a ruin is: a broken WAGON (a bus
+  // stop on a bandit road — StreetVariants.markBanditStops) and the head of a
+  // hedgerow CLOSE (StreetVariants.dress). They are candidates in the same
+  // index, woken by the same residency pass, seeded from their own key and
+  // seated by the same shared spawn rule — only their rows differ:
+  //   · ONE guard each, whatever the strength (FIXED_GUARD_TIERS: capFor does
+  //     not scale them — a wagon with five goblins is a fort);
+  //   · ALWAYS held (OCCUPANCY rate 1, never thinned — the hedges promise it);
+  //   · held in EVERY mode (ALWAYS_AWAKE_TIERS): the building lairs stay a
+  //     hard-mode thing (stepResidency's `buildings` option), these are the
+  //     street's own.
+  // They are NOT buildings: no footprint, no claim key, no part of the tile
+  // budget (tileThin reads building shapes only). Street tiers are strings so
+  // no terrain code can collide with them.
+  // A BARRICADE (StreetVariants.dress, one per barricade on a barricade
+  // road) and a BURNED ROW's stretch (one per (street key, stretch square) —
+  // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
+  // each, always held, every mode.
+  const STREET_TIER_GUARDS = { wagon: 1, close: 1, barricade: 1, burned: 1 };
+  Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
+  // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
+  // a fuel station's pumps, seated about its chest. Fixed and always held
+  // like a wagon, woken in EVERY mode, and the one tier whose count scales
+  // with the mode (MODE_SCALED_TIERS: Difficulty.slimeCountMul — 2 on easy,
+  // 4 on hard), because what holds it is slimes.
+  const ZONE_TIER_GUARDS = { tar: 2 };
+  Object.assign(TIER_GUARDS, ZONE_TIER_GUARDS);
+  const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS)]);
+  const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS)]);
+  const MODE_SCALED_TIERS = new Set(Object.keys(ZONE_TIER_GUARDS));
   // The strength multiplier — NOT a tuned number. It is exactly what carries
   // the biggest structure from its t = 0 figure to the ceiling, so the ceiling
   // and the tier table are the only things to change.
@@ -185,6 +216,22 @@
     9:  ['slime'],                                 // T.BUILDING       — squatted (surface kind only)
     11: ['goblin', 'goblin_archer', 'goblin_trapper'],   // T.BUILDING_MED   — held
     12: ['goblin', 'goblin_archer', 'goblin_trapper'],   // T.BUILDING_LARGE — held
+    // A bandit road's wagon: one goblin, the bandit.
+    wagon: ['goblin'],
+    // A hedgerow close: the "elite" guard is a GIANT (4× HP, 1.8× art — see
+    // combat.js), not a shiny: a shiny's kill pays the relic-biased elite roll
+    // and every suburban close would flood the map with gear. The guard's own
+    // stream still rolls SHINY_RATE.monster like any lair guard, so about one
+    // close in twenty holds the true elite.
+    close: ['giant_goblin', 'giant_goblin_archer'],
+    // A tar yard: fire slimes (combat.js MONSTERS.fire_slime).
+    tar: ['fire_slime'],
+    // A barricade: the goblin who holds it.
+    barricade: ['goblin'],
+    // A burned row's stretch: one fire slime in the tar (the fire slimes are
+    // zone-seated, never a tile's wild spawn, so the burned row seats its own
+    // here rather than relocating any).
+    burned: ['fire_slime'],
   };
   const KIND_LADDER = {};
   for (const [tier, kinds] of Object.entries(KIND_ORDER)) {
@@ -212,6 +259,11 @@
     9:  { rate: 1 / 3, thinned: true  },   // T.BUILDING       — the commons
     11: { rate: 2 / 3, thinned: false },   // T.BUILDING_MED   — a fort
     12: { rate: 0.95,  thinned: false },   // T.BUILDING_LARGE — a castle
+    wagon: { rate: 1, thinned: false },    // a bandit road's broken wagon
+    close: { rate: 1, thinned: false },    // a hedgerow close's head
+    tar:   { rate: 1, thinned: false },    // a tar yard's pumps
+    barricade: { rate: 1, thinned: false },  // a barricade road's barricade
+    burned: { rate: 1, thinned: false },   // a burned row's stretch
   };
 
   // ── The per-tile budget ──────────────────────────────────────────────────
@@ -454,6 +506,12 @@
   function capFor(tier, t) {
     const base = TIER_GUARDS[tier];
     if (!base) return 0;
+    if (MODE_SCALED_TIERS.has(tier)) {
+      const D = root.Difficulty;
+      const mul = (D && D.get && D.get().slimeCountMul) || 1;
+      return Math.max(1, Math.round(base * mul));
+    }
+    if (FIXED_GUARD_TIERS.has(tier)) return base;
     const u = clamp01(Number.isFinite(t) ? t : 0);
     return Math.min(LAIR_MAX_PER_STRUCTURE,
                     Math.round(base * (1 + u * (FAR_MUL - 1))));
@@ -589,6 +647,24 @@
     }
     idx.next = end;
     idx.done = end >= shapes.length;
+    // The street structures (entry.streetLairs — spawnInTile stamps them off
+    // StreetVariants) join the same buckets once, when the shapes are done.
+    // A handful per tile, so no slicing. Their `sid` is minted where they are
+    // found (a wagon's cell id, a close's global dead-end key).
+    if (idx.done && !idx.streetDone) {
+      idx.streetDone = true;
+      for (const st of (entry && entry.streetLairs) || []) {
+        const wx = ox + st.lx, wy = oy + st.ly;
+        const cand = {
+          tx, ty, ix: Math.floor(st.lx / tcM), iy: Math.floor(st.ly / tcM),
+          tier: st.tier, key: null, sid: st.sid,
+          wx, wy, lx: st.lx, ly: st.ly, ox, oy, halfW: 0, halfH: 0,
+        };
+        const bk = bucketKey(Math.floor(wx / bucketM), Math.floor(wy / bucketM));
+        const b = buckets.get(bk);
+        if (b) b.push(cand); else buckets.set(bk, [cand]);
+      }
+    }
     return idx;
   }
 
@@ -796,6 +872,10 @@
     const liveMax = Number.isFinite(o.liveMax) ? o.liveMax : LAIR_LIVE_MAX;
     const isClaimed = typeof o.isClaimed === 'function' ? o.isClaimed : () => false;
     const hpMemo = o.hpMemo;
+    // The building lairs are hard mode's (Difficulty derelictLairs, handed in
+    // as `buildings`); the street structures wake in every mode. Default on,
+    // so a caller that says nothing gets every lair, as before.
+    const buildings = o.buildings !== false;
 
     // ── Sleep, and count what is left standing ──────────────────────────
     // One compacting walk per entry — never a splice per removal, which is
@@ -890,6 +970,7 @@
             // The structure's own key, built HERE rather than in the index:
             // only the few candidates that reach the wake ring ever need it,
             // and the index runs over every building on the tile.
+            if (!buildings && !ALWAYS_AWAKE_TIERS.has(cand.tier)) continue;
             if (!cand.sid) cand.sid = structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
             if (resident.has(cand.sid)) continue;
             // A structure the player has taken back is not derelict any more —
@@ -946,7 +1027,7 @@
     LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
-    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, FAR_MUL, KIND_ORDER, KIND_LADDER,
+    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     GUARD_MIN_DRAW_SCALE, guardDrawScale,
     homeRamp, lairMulFor, capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
     hashKey, ringBox,

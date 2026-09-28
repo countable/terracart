@@ -54,17 +54,24 @@ const cellIdx = (p) => cellY(p.y) * CPE + cellX(p.x);
 // local cell, `mr_${tx}_${ty}_${ix}_${iy}`: the same 395 rocks on the same
 // cells — the old-format ids rebuilt from these positions still hash to the
 // old 3517605594.)
-const ROCKS_BEFORE = { n: 395, hash: 764627900 };
-const OLDER_PLANTS_BEFORE = { n: 32, hash: 2568163975 };
+// MOVED (Sep 2026, street variants): residential rubble no longer scatters
+// through the lots — the lot walk runs DRY (every draw, no rock) so the yard
+// flora around its fired pivots is exactly what it was, and the rocks now
+// line a quarter of the minor streets (worldgen spawnStreetRocksSteps, off
+// StreetVariants.rocksFor). The 395 lot rocks this fixture pinned are gone.
+// RE-PINNED with the move: 32 → 40 older plants, because cells the lot rubble
+// used to hold (the occupancy pass: a rock claimed its cell first) are free.
+// RE-PINNED (Sep 2026, denser street rocks — STREET_ROCK_PIVOT_M 20 → 10):
+// 40 → 39, one older plant's cell now holds a street rock (occupancy).
+const OLDER_PLANTS_BEFORE = { n: 39, hash: 3112412394 };
 
-test('residential yard flora: rocks and older wild plants are exactly where they were', () => {
+test('residential yard flora: the lots hold no rubble now; older wild plants are exactly where they were', () => {
   const r = rasterize();
-  const rocks = r.objects.filter((o) => o.kind === 'mineralrock').map((o) => o.id).sort();
-  assert.eq(rocks.length, ROCKS_BEFORE.n, 'residential rock count');
-  assert.eq(fnv1a(rocks.join('|')), ROCKS_BEFORE.hash, 'residential rock ids');
+  const rocks = r.objects.filter((o) => o.kind === 'mineralrock');
+  for (const o of rocks) assert.truthy(o._street, `${o.id} is a street rock, not lot rubble`);
   const older = r.wildplants.filter((p) => !isYard(p)).map((p) => p.id).sort();
-  assert.eq(older.length, OLDER_PLANTS_BEFORE.n, 'older wild plant count');
   assert.eq(fnv1a(older.join('|')), OLDER_PLANTS_BEFORE.hash, 'older wild plant ids');
+  assert.eq(older.length, OLDER_PLANTS_BEFORE.n, 'older wild plant count');
 });
 
 test('residential yard flora: both long grass and shrubs grow on residential cells', () => {
@@ -82,32 +89,28 @@ test('residential yard flora: both long grass and shrubs grow on residential cel
   }
 });
 
-test('residential yard flora: about as common as the rocks, roughly half grass half scrub', () => {
-  const { wildplants, objects } = rasterize();
-  const rocks = objects.filter((o) => o.kind === 'mineralrock').length;
+test('residential yard flora: still grows, roughly half grass half scrub', () => {
+  const { wildplants } = rasterize();
   const yard = wildplants.filter(isYard);
   const grass = yard.filter((p) => p.crop === 'longgrass').length;
-  assert.inRange(yard.length / rocks, 0.6, 1.4, 'yard flora per residential rock');
+  assert.gt(yard.length, 50, 'the yards still grow (the dry lot walk keeps its pivots)');
   assert.inRange(grass / yard.length, 0.35, 0.65, 'long grass share of the yard flora');
 });
 
-test('residential yard flora: grows AMONG the rocks — nearly every plant is near a rock', () => {
-  // Not every one: the flora rings a pivot wider than its rocks, so where the
-  // frontage rule culls a cluster's back-yard core the road-side fringe of
-  // grass can outlive every rock of it.
-  const { wildplants, objects } = rasterize();
-  const rockCells = new Set(objects.filter((o) => o.kind === 'mineralrock').map(cellIdx));
-  const yard = wildplants.filter(isYard);
-  let nearN = 0;
-  for (const p of yard) {
-    const cx = cellX(p.x), cy = cellY(p.y);
+test('residential yard flora: the rocks that remain sit on a kerb — within four cells of a road band', () => {
+  // (MOVED: this used to pin the flora growing among the lot rubble.)
+  const { objects, roadMask } = rasterize();
+  for (const o of objects.filter((q) => q.kind === 'mineralrock')) {
+    const cx = cellX(o.x), cy = cellY(o.y);
     let near = false;
-    for (let dy = -3; dy <= 3 && !near; dy++) {
-      for (let dx = -3; dx <= 3 && !near; dx++) near = rockCells.has((cy + dy) * CPE + cx + dx);
+    for (let dy = -4; dy <= 4 && !near; dy++) {
+      for (let dx = -4; dx <= 4 && !near; dx++) {
+        const x = cx + dx, y = cy + dy;
+        near = x >= 0 && y >= 0 && x < CPE && y < CPE && roadMask[y * CPE + x] === 1;
+      }
     }
-    if (near) nearN++;
+    assert.truthy(near, `${o.id} is on a street verge`);
   }
-  assert.gte(nearN / yard.length, 0.9, 'share of yard plants with a rock within three cells');
 });
 
 test('residential yard flora: never on a road, a road band, a building or its moat, nor an occupied cell', () => {
@@ -158,5 +161,26 @@ test('residential yard flora: a lawn-wide grass scatter still dies on residentia
     if (grid[cellIdx(p)] !== T.RESIDENTIAL) continue;
     assert.truthy(isYard(p) || p.crop === 'mushroom', `${p.id} (${p.crop}) spilled onto a residential cell`);
   }
+});
+
+test('waste ground keeps its rubble: the lot scatter runs dry on RESIDENTIAL only', () => {
+  // The same street grid over an unclassified landuse (railway → WASTELAND):
+  // the old lot scatter lays its rock clusters there, same generator, same
+  // stream shape, where the residential version of the block holds none.
+  assert.truthy(WorldGen.LOT_ROCK_DRY.has(T.RESIDENTIAL), 'residential yards are dry');
+  assert.falsy(WorldGen.LOT_ROCK_DRY.has(T.WASTELAND), 'waste ground is not');
+  const layers = suburb();
+  layers[0] = { name: 'landuse', features: [
+    { type: 3, tags: { class: 'railway' }, geom: [ring([[0, 0], [CPE - 1, 0], [CPE - 1, CPE - 1], [0, CPE - 1]])] }] };
+  const w = WorldGen.rasterizeTile(layers, CPE, TX, TY, TILE_EDGE_M);
+  const lotRocks = w.objects.filter((o) => o.kind === 'mineralrock' && !o._street
+    && w.grid[cellIdx(o)] === T.WASTELAND);
+  assert.gt(lotRocks.length, 10, `waste lots hold rubble (${lotRocks.length})`);
+  for (const o of lotRocks) {
+    assert.truthy(WorldGen.isSpawnCell(w.grid, CPE, CPE, cellX(o.x), cellY(o.y), { roadMask: w.roadMask, pois: [] }),
+      `${o.id} passes the shared lot rule`);
+  }
+  const res = rasterize().objects.filter((o) => o.kind === 'mineralrock' && !o._street);
+  assert.eq(res.length, 0, 'the residential block holds none');
 });
 })();

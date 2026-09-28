@@ -14,8 +14,12 @@ test('cauldron: a pot tapped today is spent, yesterday\'s is not', () => {
 test('cauldron: the draw pass hides and unlights it through the same set', () => {
   const src = RENDER_SRC;
   assert.truthy(/const burstSet = coinBurstUsedSet\(scene\.save\);/.test(src), 'built once per frame');
-  assert.truthy(/!openedSet\.has\(o\.id\) && !burstSet\.has\(o\.id\)\) LIGHTS\.consider/.test(src), 'no POI glow');
-  assert.truthy(/opened: openedSet,\s*burst: burstSet,/.test(src), 'and isSpent culls the sprite');
+  assert.truthy(/o\.kind === 'chest' && poiLit\(o, spentIds\)\) LIGHTS\.consider/.test(src), 'no POI glow (poiLit reads the frame sets)');
+  assert.truthy(/opened: openedSet,\s*burst: burstSet,/.test(src), 'the frame sets carry the day ledger');
+  assert.truthy(/objList\.filter\(\(\{ o \}\) => !isSpent\(o, spentIds\)\)/.test(src), 'and isSpent culls the sprite');
+  const pot = { kind: 'chest', id: 'c_12_34', poiClass: 'atm' };
+  const today = String(Delivery.dayKey());
+  assert.falsy(poiLit(pot, spentSets(null, { coinBurstClaimed: { [pot.id + today]: 1 } })), 'a used pot is unlit');
 });
 
 test('cauldron: a burst drops extra coins at the player\'s feet, and claims only what it pays', () => {

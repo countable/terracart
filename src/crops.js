@@ -1,9 +1,7 @@
 // Crops core — pure crop growth / watering / pest rules extracted from app.js
 // so the timing math is testable headlessly (no scene, no DOM).
 //
-// This is also the single source of truth for STAGE_HOLD_MS, which used to be
-// copy-pasted (with a "keep in sync" comment) into app.js, render.js and
-// interact.js. Those now reference Crops.STAGE_HOLD_MS.
+// Growth, countdowns and item descriptions share stageHoldMs(crop).
 //
 // The scene keeps thin wrappers (app.js advanceGrowth / waterCropsWithin /
 // crowEatsCrop) that own the side effects: persistSave and reading the player's
@@ -11,7 +9,7 @@
 //
 // Crop model: save.planted is a list of { x, y, crop, stage, watered_t }.
 //   stage 0..MAX_GROWTH_STAGE (mature); each stage needs one watering then a
-//   STAGE_HOLD_MS hold before it advances.
+//   crop-specific hold before it advances.
 //
 // Depends on the global MAX_GROWTH_STAGE (items.js) and PlacedFloor
 // (placed_floor.js, for legacy surface depth and cave crops).
@@ -20,6 +18,35 @@
   'use strict';
 
   const STAGE_HOLD_MS = 15 * 60 * 1000;          // 15 min per growth stage
+  const STAGE_HOLDS = Object.freeze({
+    sunflower: 60 * 60 * 1000,
+    fireflower: 2 * 60 * 60 * 1000,
+    iceflower: 3 * 60 * 60 * 1000,
+  });
+  function stageHoldMs(crop) {
+    return Object.prototype.hasOwnProperty.call(STAGE_HOLDS, crop)
+      ? STAGE_HOLDS[crop] : STAGE_HOLD_MS;
+  }
+
+  // Called once by save migration. Old watered crops keep the fraction of
+  // their 15-minute stage already earned; a completed stage pays out first.
+  function migrateStageTimers(save, now = Date.now()) {
+    let changed = false;
+    for (const p of save.planted || []) {
+      if (!p.watered_t || isMature(p)) continue;
+      const elapsed = Math.max(0, now - p.watered_t);
+      if (elapsed >= STAGE_HOLD_MS) {
+        p.stage = (p.stage ?? 0) + 1;
+        p.watered_t = 0;
+        changed = true;
+      } else if (stageHoldMs(p.crop) !== STAGE_HOLD_MS) {
+        p.watered_t = now - elapsed / STAGE_HOLD_MS * stageHoldMs(p.crop);
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
   const CROW_IGNORED_CROPS = new Set(['potato']); // crows never notice potatoes
 
   // The save owns the flat crop list; this derived index is deliberately kept
@@ -70,6 +97,21 @@
     return { candidates: nearby.length, rebuiltEntries };
   }
 
+  const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;
+  const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;
+
+  // Shared by tree art and harvesting. Wild trees start mature; planted trees
+  // take four stages, then each pick starts a fresh fruit respawn timer.
+  function fruitTreeState(tree, pickedAt, now = Date.now()) {
+    const elapsed = now - (tree.planted_t || 0);
+    const stage = tree.planted
+      ? Math.max(0, Math.min(4, Math.floor(elapsed / FRUIT_STAGE_MS))) : 4;
+    const mature = stage === 4;
+    const remainingMs = !mature ? 4 * FRUIT_STAGE_MS - elapsed
+      : pickedAt ? Math.max(0, FRUIT_RESPAWN_MS - (now - pickedAt)) : 0;
+    return { stage, mature, ready: mature && remainingMs === 0, remainingMs };
+  }
+
   function maxStage() {
     return (typeof MAX_GROWTH_STAGE !== 'undefined') ? MAX_GROWTH_STAGE : 4;
   }
@@ -84,7 +126,7 @@
     return !CROW_IGNORED_CROPS.has(p?.crop);
   }
 
-  // Advance every watered crop whose STAGE_HOLD_MS hold has elapsed by ONE
+  // Advance every watered crop whose crop-specific hold has elapsed by ONE
   // stage; after advancing it needs re-watering (watered_t reset to 0), so a
   // single call advances each plant by at most one stage and a long-idle plant
   // catches up over subsequent waterings rather than all at once. Mutates
@@ -96,7 +138,7 @@
     for (const p of save.planted || []) {
       if (!p.watered_t) continue;
       if ((p.stage ?? 0) >= maxStage()) continue;
-      if (now - p.watered_t < STAGE_HOLD_MS) continue;
+      if (now - p.watered_t < stageHoldMs(p.crop)) continue;
       p.stage = (p.stage ?? 0) + 1;
       p.watered_t = 0;
       mutated = true;
@@ -111,7 +153,7 @@
   // between (Wood 1/7, Copper 2/7, … Frost 7/7).
   //
   // It buys TIME, which is the one thing a crop costs. Four waterings and four
-  // STAGE_HOLD_MS waits stand between a seed and a harvest, and no relic
+  // stage waits stand between a seed and a harvest, and no relic
   // touched that — a Frost can watered exactly as fast as bare hands and only
   // improved the produce quality it came out with. Now the ladder is worth
   // climbing for the same reason the amulet is: at the top, a crop grows twice
@@ -167,7 +209,7 @@
   //
   // Pass an array as `movedPlants` to be told WHICH ones moved, exactly as
   // waterWithin reports its jumps: the scene bursts a 'sprout' on each, the
-  // same cue a plant gets for reaching a stage by the 15-minute tick or by the
+  // same cue a plant gets for reaching a stage by its growth timer or by the
   // can's jump. Until Sep 2026 this was the one of the three that could not
   // report, so the one moment a whole PLOT springs forward was also the only
   // one with no leaves over it.
@@ -227,7 +269,7 @@
     return q;
   }
 
-  root.Crops = { STAGE_HOLD_MS, CAN_TOP_TIER, maxStage, isMature, crowEats,
+  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, stageHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, crowEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
                  forEachInBox, invalidateSpatialIndex };

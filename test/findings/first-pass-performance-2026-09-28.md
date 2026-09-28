@@ -85,9 +85,26 @@ The browser profiler needs `playwright-core`, Chromium, and recorded `.pbf`
 fixtures under `test/fixtures` (see `test/fetch_fixtures.sh`). A fresh worktree
 does not contain these ignored dependencies or fixtures. `PW_CHROMIUM` is
 optional when Playwright's expected browser is installed.
+The runner disables live Overpass queries through the existing `overpass=off`
+option, so external map services cannot alter or interrupt the fixture run.
 
 Validation on the feature implementation: 2,681 headless checks and 11 relay
 tests passed. The complete browser profiler passed with zero runtime errors.
 A separate run injected `console.error('PERF_REGRESSION_ERROR_SENTINEL')` before
 page scripts and exited with status 1. Only expected offline map-tile network
 failures are excluded; runtime errors on either profiler page fail the command.
+
+## Integration with current main
+
+After merging `origin/main` at `e79b29c`, all 2,865 headless checks passed. The
+crop benchmark retained the same 20,008-to-8 candidate reduction and roughly
+ten-frame payback (0.0535 ms original, 0.0027 ms indexed, 0.4869 ms cold).
+The integrated idle/walk/street profiler passed with zero runtime errors and
+eight crop candidate visits per frame in both farm sizes.
+
+The broader browser harness reported 107 passes and 17 failures. Running the
+same harness with the six changed runtime modules replaced by their unchanged
+`origin/main` versions produced the identical 17 failure messages and zero page
+errors. These include old shop-method and balance expectations; this change
+does not repair that existing test backlog. The dedicated crop profiler and
+save-notice browser checks validate the new behavior separately.

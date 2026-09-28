@@ -1131,11 +1131,11 @@
 
   // ── The two call sites (app.js, scene_creatures.js) ──────────────────────
 
-  test('lairs: the residency pass is hard-mode, surface, throttled, off the feet', () => {
-    const call = APP.slice(APP.indexOf('// DERELICT LAIRS — hard mode only. Wake'),
+  test('lairs: the residency pass runs in both modes, the ruins hard-only, surface, throttled, off the feet', () => {
+    const call = APP.slice(APP.indexOf('// DERELICT LAIRS — the ruins are hard mode'),
                            APP.indexOf('this.wanderCreatures();'));
-    assert.truthy(call.includes('Difficulty.get().derelictLairs'),
-      'the pass must read the mode flag — easy has no lairs at all');
+    assert.truthy(call.includes('buildings: !!Difficulty.get().derelictLairs'),
+      'the pass must read the mode flag — easy wakes no ruins (the street structures wake in both)');
     assert.truthy(call.includes('Lairs.stepResidency'), 'the module owns residency');
     assert.truthy(call.includes('(this.depth || 0) === 0'),
       'the world is GPS-mirrored — a cave level must not wake the ruins above it');
@@ -1178,7 +1178,7 @@
       return i;
     };
     const leech = at("if (c.kind === 'slime' && !isTame && !unnoticed && !standDown) {", 'the slime leech');
-    const attack = at('if (Combat.isMonster(c.kind) && !unnoticed && !standDown) {', 'the monster attack');
+    const attack = at('if (Combat.isMonster(c.kind) && !isTame && !unnoticed && !standDown) {', 'the monster attack');
     const immobile = at("if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;",
       'the at-rest branch');
     const crow = at("if (c.kind === 'crow' && !isTame) {", 'the wild-crow flight');

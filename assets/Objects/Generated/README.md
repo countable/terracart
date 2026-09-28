@@ -9,8 +9,7 @@ opaque or fully clear — no chroma-key fringe) and a 1 px dark-plum outline
 
 **Every file in this folder is a generated placeholder, not hand art.**
 The `Status` column below states that explicitly for each entry; replace
-with hand-drawn art when available (nothing here is wired into the game
-yet).
+with hand-drawn art when available.
 
 ## Batch 1 — `openai/gpt-5.4-image-2` via OpenRouter, 9x9 / 3x3 grid sheets
 
@@ -35,6 +34,22 @@ yet).
 | barricade.png | bandit-style cheval-de-frise: sharpened stakes jutting from a lashed log — redone wider/chunkier | generated placeholder (gpt-image-2, down-res'd; redone) — replace with hand art when available |
 | shrine.png | small lichened stone shrine, tiny green flame, moss look (the only aspect kept — owner cut the blossom/moon/thicket variants) | generated placeholder (gpt-image-2, down-res'd; 16x24) — replace with hand art when available |
 | flint.png | ground-pickup flint nodule, flat flake look (the most distinct of the three candidate looks — owner cut the chipped and rounded-lump variants) | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
+| wagon.png | broken covered wagon, 128x96 (one frame): the look a bus stop on a MAJOR road wears (loot.js chestLook 'wagon', drawn ~1.5 cells wide, foot-anchored) | generated placeholder (picked from three candidates, wagon_b) — replace with hand art when available |
+
+## Batch 3 — macro stalls (in-building POIs), 80x80, true alpha, `market_stand.png`'s frame and box
+
+One frame each, foot-anchored and drawn like the market stall (loot.js `chestLook` → `macro_<kind>`, render.js `RENDER_SPEC.chest`, ~1.35 cells wide, rising north over the POI cell). Picked from two candidates per kind.
+
+| File | Intended use | Status |
+|---|---|---|
+| inn.png | the INN (lodging POIs): rest to full for coin, once a day per inn | generated placeholder — replace with hand art when available (picked from two candidates, inn_b) |
+| chapel.png | the CHAPEL (place_of_worship POIs): daily alms, the Old Stones anchor | generated placeholder — replace with hand art when available (picked from two candidates, chapel_b) |
+| apothecary.png | the APOTHECARY (pharmacy / dentist / hospital POIs): a T2 potion counter + the antidote | generated placeholder — replace with hand art when available (picked from two candidates, apothecary_a) |
+| scriptorium.png | the SCRIPTORIUM (library / college POIs): a free Book page a day, Books for sale | generated placeholder — replace with hand art when available (picked from two candidates, scriptorium_a) |
+| guildhall.png | the GUILDHALL (town_hall / police / fire_station POIs): one daily commission | generated placeholder — replace with hand art when available (picked from two candidates, guildhall_b) |
+| curio.png | the CURIO HALL (museum / theatre / cinema POIs): donate one of each item, once | generated placeholder — replace with hand art when available (picked from two candidates, curio_a) |
+| sundries.png | SUNDRIES (the generic `shop` POIs no produce stall claims): one supply item for sale | generated placeholder — replace with hand art when available (picked from two candidates, sundries_b) |
+| training.png | the TRAINING HALL (sports_centre / yoga POIs): buy damage, for good or for a day | generated placeholder — replace with hand art when available (picked from two candidates, training_a) |
 
 ## Contact sheets
 
@@ -43,4 +58,4 @@ yet).
 | sheet16.png | Batch 1's fifteen files in one fixed 240x16 strip, in the order in Batch 1's table — a fixed layout, kept as-is | generated placeholder, fixed layout — do not resize |
 | sheet_props2.png | labelled contact sheet of every file in this folder (both batches), for review only | generated placeholder, review aid only — not used by the game |
 
-None of the files in this folder is wired into the game yet.
+Batch 3 (the macro stalls) is wired into the game (src/assets.js `macro_<kind>`); see src/assets.js for which of the others are.

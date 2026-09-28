@@ -4,7 +4,7 @@
 // "Gear" spans save.relics (tools/jewelry/weapons) and save.armor (the four
 // wearable slots that soak incoming damage). The scene keeps thin wrappers
 // (app.js _equipGear / buildRelicOffer / blacksmithRecipe / smeltingRecipe /
-// smeltUnlockedBars); interact.js's equipGearReward also routes through equip()
+// smeltUnlockedBars); Rewards.apply also routes through equip()
 // here so every way a piece can be obtained lands in exactly one place.
 //
 // Depends on globals from items.js: MATERIAL_TIERS, RELIC_DEFS, ARMOR_DEFS,

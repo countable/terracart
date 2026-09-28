@@ -361,7 +361,9 @@
       const calls = src.match(new RegExp('\\b' + fn + '\\(o\\.poiClass[^)]*\\)', 'g')) || [];
       assert.gt(calls.length, 0, f + ' resolves chest tiers through ' + fn);
       for (const c of calls) {
-        assert.eq(c, fn + '(o.poiClass, o.x, o.y, o.depth)', f + ': ' + c + ' must pass o.x, o.y, o.depth');
+        // …and the zone stamp (o.zoneNexus — src/zones.js' nexus bonus), a
+        // fact of the chest both sides read alike.
+        assert.eq(c, fn + '(o.poiClass, o.x, o.y, o.depth, o.zoneNexus)', f + ': ' + c + ' must pass o.x, o.y, o.depth, o.zoneNexus');
       }
       assert.falsy(new RegExp('\\b' + not + '\\(o\\.poiClass').test(src), f + ' never calls ' + not);
     }

@@ -712,13 +712,20 @@
   const lampRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const lampMix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 
-  function paintLamp(cx, size) {
+  // `glowHex` ('#rrggbb') is the colour the lamp SHEDS — its glass, bloom and
+  // pool: the lamp entry's `glow` (StreetVariants.lampGlowFor off its street,
+  // the same value Lighting.collectLamps throws). Absent or malformed, it is
+  // LAMP_INK — the plain street's lamp, exactly as it always baked. The
+  // ironwork stays UI_LAMP_GOLD whatever the street: the metal is the lamp,
+  // the glow is the street's.
+  const lampGlowHex = (g) => ((typeof g === 'string' && /^#[0-9a-f]{6}$/i.test(g)) ? g : LAMP_INK);
+  function paintLamp(cx, size, glowHex) {
     const S = size || LAMP_TEX_PX;
     const c = S / 2;
     const gy = S * LAMP_GROUND_FRAC;          // the ground: where the lamp stands
     const r = S * LAMP_FOOT_FRAC;             // the plinth's half-width
     const lw = Math.max(1, S * 0.012);
-    const glow = lampRgb(LAMP_INK), gold = lampRgb(LAMP_GOLD);
+    const glow = lampRgb(lampGlowHex(glowHex)), gold = lampRgb(LAMP_GOLD);
     const edge = lampMix(gold, LAMP_DARK, LAMP_EDGE_MIX);
     const rgba = (c3, al) => `rgba(${c3[0]},${c3[1]},${c3[2]},${al})`;
     // The gild at a tone: + toward a pale gold, − toward the outline's bronze.
@@ -1645,7 +1652,7 @@
   }
 
   global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
-                         paintLamp, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
+                         paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };

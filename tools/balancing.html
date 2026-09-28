@@ -15,7 +15,12 @@
   or items.js shows up here on the next reload.
 
   The world placements (what a tile holds, where Home sits) are the map
-  review's: tools/map-review.html.
+  review's: tools/map-review.html. The "World per tile" section below builds
+  the same tiles the same way (WorldGen.rasterizeTile + the scene's own
+  spawnInTile) and COUNTS them — terrain, road mask, traps, rocks, street
+  variants, chests, influence zones — per tile and averaged. Every section
+  feature-detects the module it reads, so it works before and after a
+  module lands.
 -->
 <html lang="en">
 <head>
@@ -44,6 +49,21 @@
   .scroll{max-height:420px;overflow:auto}
   .heat{color:#111;font-weight:700}
   #status{color:var(--gold)}
+  .scope{color:#b9a77a;font-style:italic}
+  .note{background:#15130f;border-left:3px solid var(--gold);padding:6px 10px;margin:8px 0}
+  .note ul{margin:4px 0;padding-left:18px;color:var(--mute)}
+  .note li{margin:2px 0}
+  details>summary{cursor:pointer}
+  details.explain{margin:6px 0}
+  details.explain>summary{color:var(--mute)}
+  .kpis{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+  .kpi{background:#221d17;border:1px solid #3a322a;border-radius:5px;padding:6px 10px;min-width:120px}
+  .kpi b{display:block;color:#ffd866;font-size:16px}
+  .kpi span{color:var(--mute);font-size:11px}
+  .err{color:#ff7b7b;white-space:pre-wrap}
+  .dim{color:#555}
+  td.l,th.l{text-align:left}
+  #world .grid2>*{min-width:0;overflow-x:auto}
 </style>
 </head>
 <body>
@@ -55,9 +75,73 @@
    forts run slot machines. Older saves can retain a castle relic vendor.</p>
 <p id="status">loading the game…</p>
 
+<section id="world">
+  <h2>World per tile — what the generator places</h2>
+  <details class="explain"><summary>How these figures are built</summary>
+  <p>The Kelowna 3×3 fixture block (the test suite's tiles), rasterized live in this page with the shipping
+     <code>WorldGen.rasterizeTile</code> and the scene's own <code>spawnInTile</code>, exactly as
+     <a href="map-review.html">map review</a> builds them. Home is placed far off the block, so no starting area
+     is counted. Figures are per tile, averaged over the tiles loaded, unless the row says otherwise.</p>
+  </details>
+  <div class="controls"><button id="wGo">Rebuild tiles</button>
+    <label id="wZonesL" style="display:none" title="src/zones.js exists but index.html does not load it yet; worldgen reads Zones at call time, so loading it here previews what ships once it is wired in">
+      <input type="checkbox" id="wZonesPreview" checked> preview src/zones.js (not in index.html yet)</label>
+    <span id="wStatus" style="color:var(--gold)">waiting for the loot tables…</span></div>
+  <details class="note">
+    <summary><b style="color:var(--gold)">What changed recently</b> (world rules the figures below reflect)</summary>
+    <ul>
+      <li><b>Daily crates</b>: the low-tier <b>crate</b> (the <code>box</code> look — a surface POI chest of chest tier 1: not a starter crate, wagon, stall, macro or cauldron) now <b>refills every UTC day</b> at its normal tier, spent in the coin-burst day ledger (<code>refillsDaily</code>). Every other chest (trunks, wagons, nexus chests, cave chests, starter chests) and every X mark / headstone hoard is still <b>one-off</b>. A crate, the chapel's alms and a grove shrine's gift <b>glow</b> (the POI light) while today's take is there. Recurring value if every one were taken daily (36 saved tiles, Home at the block's centre): crate ≈ $8, chapel ≈ $28–34, shrine ≈ $10 per take; per 9-tile city per day — Kelowna 96 crates / 15 chapels / 37 shrines ≈ $1.6k, Vancouver 838 / 31 / 75 ≈ $8.5k, Seattle 767 / 48 / 46 ≈ $8.0k, Berlin 3,517 / 50 / 105 ≈ $30.6k (crates are 80–90% of it).</li>
+      <li>Unclassified landuse is <b>WASTELAND</b> terrain (was painted as residential).</li>
+      <li>Road mask stamps a cell when the drawn band covers <b>≥ 50%</b> of it.</li>
+      <li>Surface traps only on <b>bandit stretches</b> of major roads (~1/3 of each street's ~200 m stretches, <code>ROAD_CLASS_BANDIT_VERGE</code>) at <b>6×</b> the ground share, <b>+ wasteland</b>; per-tile totals ~1.5× the old whole-verge rule. Residential streets are safe.</li>
+      <li><b>Fauna attractors</b> (one lane, <code>attracts</code> columns): dogs → major verges (all); deer → orchard lanes + groves, cats → Lantern Row, crows → Pilgrim's Way + churchyards, butterflies → overgrown / toadstool lanes + groves, slimes → wasteland, rabbits → hedgerow / overgrown (no wild rabbits spawn yet) — half of each species moves, none are added.</li>
+      <li>Only <b>~1 in 3</b> major-road bus stops is a <b>broken wagon + goblin</b>; the rest stay bus-stop chests.</li>
+      <li><b>Street variants</b> per street size (minor: hedgerow, overgrown, orchard, pilgrim, <b>toadstool</b> 5%; major: lantern, burned, barricade). Every <b>barricade</b> holds a goblin; every <b>burned-row stretch</b> one fire slime. Lamps glow in their street's colour.</li>
+      <li><b>Rocks line ~25%</b> of minor streets (never a hedgerow), now <b>~1 per 10 m</b> (was 16 m); <b>wasteland lots keep the rock-cluster scatter</b>.</li>
+      <li><b>Tar and stakes slow</b> the body.</li>
+      <li><b>Influence zones</b> (grove / old stones / tar yard) repaint lot ground; each anchor's <b>nexus</b> chest pays <b>tier +1</b>; a nexus pattern is <b>whole across tile seams</b>. Tar-yard ground is untillable; fire slimes are off the quest board.</li>
+      <li><b>Park characters</b>: every park polygon is a <b>meadow</b> (long grass + wildflowers), <b>wooded</b> (trees, shrubs, mushrooms), <b>formal</b> (clipped hedge rows + marigolds) or <b>common</b> (open lawn) — by a hash of the named-park POI inside it, else its own centroid. The grove, its POI pad and its nexus read the same character.</li>
+      <li><b>Park density ~40% lower</b> (Kelowna fixtures: 18.1% → 10.5% of park cells hold something), still in clumps with near-bare lawn between (<code>FLORA_PATCH.sparse</code> 0.3 → 0.15).</li>
+      <li><b>Park fringe</b>: every park polygon (named or not) spills a ragged <b>≤ 20 m</b> band of GROVE (CHURCHYARD round a cemetery) over lot ground, and a light smattering of its character's filler out to 30 m.</li>
+      <li><b>Churchyards</b>: churches and cemeteries always get <b>headstones</b> — a per-cell rule on the grave-row lattice that wraps the building (no fixed pattern); every place of worship scatters <b>plain rocks</b> (~2.3× before), all one single-stone look. Churchyard ground is a mossier grey-green.</li>
+      <li><b>Grove figures</b>: symmetric nexus aspects (compass roses ~1 park in 6–7, mirrored flower beds, diagonal trees / shrubs) laid whole or not at all; roses stay the rarer prize. A blocked pattern piece walks outward along its ray.</li>
+      <li><b>One barricade (+ goblin) and one waystone per street per tile</b> (was one at every line end: Seattle 220 → 9 barricades, 164 → 28 waystones over 9 tiles).</li>
+      <li>A dog whose spawn draw was only blocked by a generated piece is <b>seated on the bandit verge</b> instead of lost.</li>
+      <li><b>Macro stalls</b>: in-building POIs are no longer chests but places you come back to (looks <code>macro_inn</code>, <code>macro_chapel</code>, <code>macro_apothecary</code>, <code>macro_scriptorium</code>, <code>macro_guildhall</code>, <code>macro_curio</code>, <code>macro_sundries</code>, <code>macro_training</code> in "chests by look"; never opened, no gem, no pad). Inn (lodging) rests to full once a day at half a Vigor potion's coins per energy; chapel (place of worship) pays a daily roll <b>one tier under</b> the chest (+1 nexus in a churchyard); apothecary (pharmacy / dentist / hospital) sells one T2 potion + the antidote; scriptorium (library / college) sells Books + a torch (no free page); apothecary, sundries and scriptorium are <b>plain stalls</b> (<code>ShopsMath.standPrice</code>, the market stall's own counter); guildhall (town hall / police / fire station) posts one <b>monster bounty</b> a day — 1–3 surface foes (slime → goblin / archer by weapon tier) seated ~5 cells off by <code>findWalkableDestination</code>; each kill pays its <code>enemyBounty</code> coin and clearing pays the wages again (surface: $2 at tier 0–1, up to $21–30 at tier 6–7); curio hall (museum / theatre / cinema) pays <b>no coin</b>: one shared list of 22 lasting items, a <b>memory</b> at 5 / 10 / 15 given; sundries (generic <code>shop</code>) sells one supply item; training hall (sports centre / yoga) sells +1% damage for good (to +25%) or +10% for 24 h. A <code>shop</code> whose MVT <b>subclass</b> names produce (convenience, florist, coffee, confectionery…) is now a <b>market stall</b> first.</li>
+    </ul>
+  </details>
+  <div id="wScope" class="scope"></div>
+  <div id="wKpis" class="kpis"></div>
+  <div id="wErrors" class="err"></div>
+  <h2 style="margin-top:12px">Per tile</h2>
+  <div class="scroll"><table id="wTiles"></table></div>
+  <div class="grid2" style="margin-top:12px">
+    <div><h2>Terrain share</h2><p id="wTerrainScope" class="scope"></p><div class="scroll"><table id="wTerrain"></table></div></div>
+    <div><h2>Roads and traps</h2><p id="wRoadScope" class="scope"></p><table id="wRoad"></table>
+      <h2 style="margin-top:12px">Where traps sit</h2><p id="wTrapScope" class="scope"></p><table id="wTraps"></table></div>
+  </div>
+  <div class="grid2" style="margin-top:12px">
+    <div><h2>Street variants</h2><p id="wStreetScope" class="scope"></p><table id="wStreets"></table>
+      <p id="wStreetExtra"></p><table id="wDress"></table></div>
+    <div><h2>Rocks</h2><p id="wRockScope" class="scope"></p><table id="wRocks"></table>
+      <h2 style="margin-top:12px">Chests</h2><p id="wChestScope" class="scope"></p>
+      <div class="grid2"><table id="wChestLook"></table><table id="wChestTier"></table></div>
+      <p id="wChestExtra"></p></div>
+  </div>
+  <h2 style="margin-top:12px">Value by type</h2>
+  <p id="wValueScope" class="scope"></p>
+  <div class="scroll"><table id="wValue"></table></div>
+  <p id="wValueNote" class="dim"></p>
+
+  <h2 style="margin-top:12px">Influence zones</h2>
+  <p id="wZoneScope" class="scope"></p>
+  <div style="overflow-x:auto"><table id="wZones"></table></div>
+  <div style="overflow-x:auto;margin-top:10px;max-width:640px"><table id="wZoneExtra"></table></div>
+</section>
+
 <section>
   <h2>Default chest tiers</h2>
-  <p>Base chest tiers by location, where a chest is encountered. Surface market stalls sell goods; their underground copies are chests.</p>
+  <p>Base chest tiers by location, where a chest is encountered. Surface market stalls sell goods and surface macro stalls (inn, chapel, apothecary, scriptorium, guildhall, curio hall, sundries, training hall) offer a service; the underground copies of both are chests. The chapel's daily alms roll one tier under the tier shown.</p>
   <table id="defaultTiers"></table>
   <p id="tierRules"></p>
   <p>These are chest rules; market stands and coin-burst locations have their own interactions. Fixed starter crates have preset contents.</p>
@@ -108,7 +192,8 @@ const $ = (id) => document.getElementById(id);
 const fmt$ = (v) => '$' + (v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1));
 const pct = (v) => (v * 100).toFixed(1) + '%';
 // The shop:* tuning tables are not called by the game's shop generators.
-const rewardContexts = () => Object.keys(LOOT_CONTEXTS).filter((c) => c.startsWith('chest:') || c.startsWith('treasure:'));
+const chestContexts = () => Object.keys(ChestThemes.themes).map(theme => 'chest:' + theme);
+const rewardContexts = () => [...chestContexts(), ...Object.keys(LOOT_CONTEXTS).filter(c => c.startsWith('treasure:'))];
 
 // A save of a player who owns every relic and armour slot at `tier` — what
 // the rolls read (ring luck, gear upgrades, relic caps).
@@ -212,7 +297,7 @@ function matrix() {
 }
 
 function chestGrid() {
-  const cats = Object.keys(LOOT_CONTEXTS).filter((c) => c.startsWith('chest:'));
+  const cats = chestContexts();
   const tiers = [1, 2, 3, 4, 5], N = 1500, owned = +$('owned').value;
   table($('chestGrid'), ['category', ...tiers.map((t) => 'T' + t)], cats.map((ctx) =>
     `<tr><td>${ctx.slice(6)}</td>${tiers.map((t) => {
@@ -222,15 +307,15 @@ function chestGrid() {
 }
 
 function defaultTiers() {
-  const rows = Object.entries(CHEST_TIER_BY_CATEGORY).sort((a, b) => a[1] - b[1]);
-  table($('defaultTiers'), ['category', 'locations', 'surface interaction', 'base chest tier', 'mirrors underground'], rows.map(([category, tier]) => {
-    const places = Object.keys(POI_CATEGORY).filter((p) => POI_CATEGORY[p] === category);
+  const rows = Object.entries(ChestThemes.themes).map(([theme, def]) => [theme, def.tier]).sort((a, b) => a[1] - b[1]);
+  table($('defaultTiers'), ['theme', 'locations', 'surface interaction', 'base chest tier', 'mirrors underground'], rows.map(([category, tier]) => {
+    const places = Object.keys(POI_CATEGORY).filter((p) => chestThemeForPoi(p) === category);
     const stalls = places.filter((poiClass) => produceStandFor({ kind: 'chest', poiClass }));
     const chestOnly = places.filter((p) => STAND_NEVER_CLASSES.has(p));
     const surface = stalls.length === places.length ? 'Market stalls'
       : stalls.length ? `Market stalls: ${stalls.map((p) => p.replaceAll('_', ' ')).join(', ')}. `
         + (chestOnly.length ? `Chests: ${chestOnly.join(', ')}.` : 'Other locations: chests or name-based stalls.')
-      : category === 'lowtier' ? 'Chests; ATMs and bicycle stands also have coin bursts' : 'Chests';
+      : category === 'roadside' ? 'Chests; ATMs and bicycle stands also have coin bursts' : 'Chests';
     return `<tr><td>${category}</td><td style="text-align:left;white-space:normal">${places.map((p) => p.replaceAll('_', ' ')).join(', ')}</td>`
       + `<td style="text-align:left;white-space:normal">${surface}</td><td>T${tier}</td><td>${chestMirrorsUnderground(places[0]) ? 'yes' : 'no'}</td></tr>`;
   }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>Chests</td><td>T${chestTier()}</td><td>yes</td></tr>`));
@@ -250,7 +335,7 @@ function syncControls() {
     ? `Each sample offers up to ${Trail.PRIZE_CHOICES} distinct cards; the player keeps one. Prize #1 includes ${Trail.FIRST_PRIZE_QTY} onion seeds. Tables measure offered cards, not total payout.`
     : ctx === Combat.ELITE_TREASURE_CONTEXT
       ? 'Repeat elite kills pay this reward. The first discovery gives a memory instead. The normal kill wage is separate.'
-      : ctx.startsWith('chest:') ? 'Random chest rewards at the chosen tier. Surface food POIs are market stalls; their underground copies use chest:food. Florists and garden centres are also stalls; gardens stay chests. Fixed starter contents are not included.'
+      : ctx.startsWith('chest:') ? 'Themed chest rewards at the chosen tier. Cave loot mixes 60% location theme with 40% cave supplies; the cave component increasingly favors magic. Seed odds decrease at high rolled quality. Surface food POIs are market stalls; their underground copies use chest:food. Florists and garden centres are also stalls; gardens stay chests. Fixed starter contents are not included.'
       : 'One buried-treasure reward. Underground finds use the game’s depth-based cave supply weighting.';
 }
 
@@ -271,12 +356,631 @@ function syncControls() {
     $('go').onclick = rollOne;
     syncControls();
     $('status').textContent = 'rolling…';
-    setTimeout(() => { rollOne(); matrix(); chestGrid(); $('status').textContent = ''; }, 20);
+    setTimeout(() => {
+      rollOne(); matrix(); chestGrid(); $('status').textContent = '';
+      if (typeof worldPerTile === 'function') worldPerTile();
+    }, 20);
   } catch (e) {
     $('status').textContent = 'failed: ' + e.message;
     console.error(e);
   }
 })();
+</script>
+<script>
+// ── WORLD PER TILE ──────────────────────────────────────────────────────────
+// Builds the fixture tiles with the game's own code (the map review's
+// recipe: MVT.decodeTile → WorldGen.rasterizeTile → MapScene.prototype.
+// spawnInTile on a light scene) and COUNTS what landed. Nothing here is a
+// copy of a game rule: terrain names come from WorldGen.T, the variants from
+// StreetVariants.STREET_VARIANTS, zone kinds from Zones.ZONE_KINDS, chest
+// looks from loot.js chestLook, traps from Traps.spawnSurface at each mode's
+// Difficulty.PROFILES trapCountMul. Every block feature-detects its module.
+const W_TILES = (() => { const o = []; for (let y = 5565; y <= 5567; y++) for (let x = 2753; x <= 2755; x++) o.push([x, y]); return o; })();
+const wRaw = { tiles: null, source: '' };
+const wZones = { ref: undefined, inIndex: false, previewing: false };
+async function wTileBytes(tx, ty) {
+  const r = await fetch(`../test/fixtures/${tx}_${ty}.pbf`).catch(() => null);
+  if (r && r.ok) return { b: new Uint8Array(await r.arrayBuffer()), src: 'fixture' };
+  // Fixtures are git-ignored, so the published page fetches the same tiles live.
+  if (!wTileBytes.tpl) wTileBytes.tpl = (await (await fetch(WorldGen.TILEJSON_URL)).json()).tiles[0];
+  const r2 = await fetch(wTileBytes.tpl.replace('{z}', WorldGen.Z).replace('{x}', tx).replace('{y}', ty));
+  return r2.ok ? { b: new Uint8Array(await r2.arrayBuffer()), src: 'live' } : null;
+}
+const wTick = () => new Promise((r) => setTimeout(r, 0));
+const wNames = () => Object.fromEntries(Object.entries(WorldGen.T).map(([k, v]) => [v, k]));
+const f1 = (v) => (v >= 100 ? Math.round(v).toLocaleString() : v >= 10 ? v.toFixed(1) : v.toFixed(2));
+const wPct = (v) => (v * 100).toFixed(v < 0.01 && v > 0 ? 2 : 1) + '%';
+
+function wScene(EDGE, home, midTy) {
+  const s = Object.create(MapScene.prototype);
+  Object.assign(s, {
+    tileEdgeM: EDGE, depth: 0, save: {}, startWorldM: home, playerM: { x: 0, y: 0 },
+    mPerPx: EDGE / WorldGen.TILE_PX,
+    originPx: { x: home.x / (EDGE / WorldGen.TILE_PX), y: home.y / (EDGE / WorldGen.TILE_PX) },
+    cellM: WorldGen.CELL_M, cellsForRow: WorldGen.cellsPerEdgeForTile,
+    cellPx: 32, feetOffsetM: 0, peekM: { x: 0, y: 0 },
+    _popEnergy() {}, _crowRaids: [], flash() {}, flashLoot() {},
+  });
+  s.cellsPerTile = WorldGen.cellsPerEdgeForTile(midTy);
+  return s;
+}
+
+// One tile's numbers. `e` is the built entry (rasterize + spawnInTile).
+function wMeasure(e, EDGE, errors) {
+  const N = e.cellsPerEdge, NN = N * N, T = WorldGen.T;
+  const BAND = WorldGen.ROAD_CLASS_MAJOR_BAND || 1, VERGE = WorldGen.ROAD_CLASS_MAJOR_VERGE || 2;
+  const m = { tile: `${e.tx}/${e.ty}`, N, cells: NN, terrain: {}, errors: [] };
+  const grid = e.grid, gen = e.baseGrid || e.grid;
+  for (let i = 0; i < NN; i++) m.terrain[grid[i]] = (m.terrain[grid[i]] || 0) + 1;
+  m.wasteland = T.WASTELAND != null ? (m.terrain[T.WASTELAND] || 0) / NN : null;
+  let mask = 0, band = 0, verge = 0;
+  for (let i = 0; i < NN; i++) {
+    if (e.roadMask && e.roadMask[i]) mask++;
+    if (e.roadClass) { if (e.roadClass[i] & BAND) band++; if (e.roadClass[i] & VERGE) verge++; }
+  }
+  let bandit = 0;
+  const BANDIT = WorldGen.ROAD_CLASS_BANDIT_VERGE || 0;
+  if (BANDIT && e.roadClass) for (let i = 0; i < NN; i++) if (e.roadClass[i] & BANDIT) bandit++;
+  m.mask = e.roadMask ? mask / NN : null;
+  m.band = e.roadClass ? band / NN : null;
+  m.verge = e.roadClass ? verge / NN : null;
+  m.bandit = (e.roadClass && BANDIT) ? bandit / NN : null;
+  // Street guard posts by tier (wagon / close / barricade / burned / tar), and
+  // the fauna the attractor lane moved (entry.faunaAttracted).
+  m.posts = {};
+  for (const L of (e.streetLairs || [])) m.posts[L.tier] = (m.posts[L.tier] || 0) + 1;
+  m.attracted = Object.assign({}, e.faunaAttracted || {});
+  const cellOf = (p) => {
+    const ix = Math.floor((p.x - e.tx * EDGE) / (EDGE / N)), iy = Math.floor((p.y - e.ty * EDGE) / (EDGE / N));
+    return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
+  };
+  const where = (i) => i < 0 ? 'off tile'
+    : (e.roadClass && (e.roadClass[i] & VERGE)) ? 'major verge'
+    : (T.WASTELAND != null && gen[i] === T.WASTELAND) ? 'wasteland'
+    : (T.WASTELAND != null && grid[i] === T.WASTELAND) ? 'wasteland' : 'other';
+  // Traps, both modes, off the tile's own spawn options.
+  m.traps = {}; m.danger = null;
+  if (typeof Traps !== 'undefined' && Traps.spawnSurface && typeof Difficulty !== 'undefined') {
+    if (Traps.tileDanger) m.danger = Traps.tileDanger(e.tx, e.ty);
+    for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
+      try {
+        const list = Traps.spawnSurface(gen, e.roadClass, N, N, e.tx, e.ty, EDGE, e._spawnOpts || {},
+          Difficulty.PROFILES[mode].trapCountMul, e.zone && e.zone.under);
+        const at = {};
+        for (const t of list) { const w = where(t._iy * N + t._ix); at[w] = (at[w] || 0) + 1; }
+        m.traps[mode] = { n: list.length, at };
+      } catch (err) { m.errors.push(`traps ${mode}: ${err.message}`); }
+    }
+  }
+  // Dogs (the bandit roads' other reason).
+  const dogs = (e.creatures || []).filter((c) => c.kind === 'dog');
+  m.dogs = dogs.length; m.dogsVerge = dogs.filter((d) => where(cellOf(d)) === 'major verge').length;
+  // Objects: the tile's own plus the zone dressing when spawnInTile has not
+  // laid it yet (dedupe by id either way).
+  const seen = new Set(), objs = [], plants = [];
+  const zd = e.zoneDress || null;
+  for (const o of [...(e.objects || []), ...((zd && zd.objects) || [])]) { if (o && !seen.has(o.id)) { seen.add(o.id); objs.push(o); } }
+  for (const w of [...(e.wildplants || []), ...((zd && zd.wildplants) || [])]) { if (w && !seen.has(w.id)) { seen.add(w.id); plants.push(w); } }
+  // Rocks.
+  const rocks = objs.filter((o) => o.kind === 'mineralrock');
+  const isPlain = (o) => o.caveVariant != null || (o.yieldTier || 1) <= 1;
+  m.rocks = { all: rocks.length, plain: rocks.filter(isPlain).length, ore: rocks.filter((o) => !isPlain(o)).length,
+    street: rocks.filter((o) => o._street).length, zone: rocks.filter((o) => o.zone).length };
+  // Streets.
+  m.streets = null;
+  const si = e.streetIndex;
+  if (si && si.lines && typeof StreetVariants !== 'undefined') {
+    const ext = si.extent || 4096, mPerU = EDGE / ext;
+    const keys = {}, len = {};
+    for (const r of si.lines) {
+      if (!r.size) continue;
+      const v = r.variant || '(plain)';
+      (keys[r.size] = keys[r.size] || {});
+      (keys[r.size][v] = keys[r.size][v] || new Set()).add(r.key);
+      let L = 0;
+      for (let k = 1; k < r.line.length; k++) {
+        const a = r.line[k - 1], b = r.line[k], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        if (mx < 0 || my < 0 || mx > ext || my > ext) continue;   // tile square only
+        L += Math.hypot(b.x - a.x, b.y - a.y) * mPerU;
+      }
+      (len[r.size] = len[r.size] || {});
+      len[r.size][v] = (len[r.size][v] || 0) + L;
+      if (r.rocks) { (keys.rockKeys = keys.rockKeys || new Set()).add(r.key); }
+    }
+    m.streets = { keys, len, closes: (si.closes || []).length };
+  }
+  const dress = e.streetDress;
+  m.dress = {};
+  if (dress) {
+    for (const o of dress.objects || []) m.dress[o.kind] = (m.dress[o.kind] || 0) + 1;
+    for (const w of dress.wildplants || []) m.dress['plant: ' + w.crop] = (m.dress['plant: ' + w.crop] || 0) + 1;
+    if (dress.treasures) m.dress['buried hoard'] = dress.treasures.length;
+  }
+  // Chests.
+  const chests = objs.filter((o) => o.kind === 'chest' && !(o.depth > 0));
+  m.chests = { n: chests.length, look: {}, tier: {}, bus: 0, wagon: 0, nexus: 0, macro: {} };
+  for (const c of chests) {
+    let look = '?';
+    try { look = (typeof chestLook === 'function') ? chestLook(c).texKey : '?'; } catch (err) { look = 'error'; }
+    m.chests.look[look] = (m.chests.look[look] || 0) + 1;
+    let t = (typeof chestTier === 'function') ? chestTier(c.poiClass, c.x, c.y, 0) : 0;
+    if (c.zoneNexus) { m.chests.nexus++; if (typeof ZONE_NEXUS_TIER_BONUS === 'number') t = Math.min(typeof CHEST_TIER_MAX === 'number' ? CHEST_TIER_MAX : 9, t + ZONE_NEXUS_TIER_BONUS); }
+    m.chests.tier['T' + t] = (m.chests.tier['T' + t] || 0) + 1;
+    if (c.poiClass === 'bus') m.chests.bus++;
+    if (c.banditStop) m.chests.wagon++;
+    let mk = null;
+    try { mk = (typeof chestLook === 'function' && chestLook(c).macro) ? chestLook(c).macro.kind : null; } catch (err) { mk = null; }
+    if (mk) m.chests.macro[mk] = (m.chests.macro[mk] || 0) + 1;
+  }
+  // Slow ground and zone props.
+  const byKind = (k) => objs.filter((o) => o.kind === k);
+  m.tar = { zone: byKind('tar').filter((o) => o.zone).length, street: byKind('tar').filter((o) => !o.zone).length };
+  m.stakes = byKind('stakes').length;
+  m.headstones = byKind('headstone').length;
+  m.shrines = objs.filter((o) => /shrine/.test(o.kind) && o.zone).length;
+  // Parks: occupancy of PARK cells (anything standing), the characters of the
+  // tile's park polygons, the fringe band and its filler (Zones.groundSteps'
+  // tallies on the zone dressing), and the churchyards per anchor.
+  const held = new Set();
+  for (const o of [...objs, ...plants]) { const i = cellOf(o); if (i >= 0) held.add(i); }
+  let parkCells = 0, parkHeld = 0;
+  for (let i = 0; i < NN; i++) if (grid[i] === T.PARK) { parkCells++; if (held.has(i)) parkHeld++; }
+  const fr = (zd && zd.fringe) || null, gr = (zd && zd.ground) || null;
+  let fringeCells = 0;
+  if (e.zone && e.zone.under) for (let i = 0; i < NN; i++) if (e.zone.under[i] && !(e.zone.idx && e.zone.idx[i])) fringeCells++;
+  const stonesOwned = e.zone ? (e.zone.reach || []).filter((a) => a.kind === 'stones' && a.owned) : [];
+  m.parks = { cells: parkCells, held: parkHeld, chars: (fr && fr.chars) || {}, polys: fr ? fr.parks : 0,
+    fringeCells, fill: gr ? gr.fill : 0, graves: gr ? gr.graves : 0, chRocks: gr ? gr.rocks : 0,
+    ghostAnchors: stonesOwned.filter((a) => a.ghosts).length, stonesAnchors: stonesOwned.length };
+  // Zones.
+  m.zone = null;
+  if (typeof Zones !== 'undefined' && 'zone' in e) {
+    const z = e.zone, codes = Zones.zoneTerrains ? Zones.zoneTerrains() : [];
+    const halo = {};
+    for (const kind of Object.keys(Zones.ZONE_KINDS || {})) {
+      const code = Zones.terrainOf ? Zones.terrainOf(kind) : null;
+      halo[kind] = code != null ? (m.terrain[code] || 0) : 0;
+    }
+    const anchors = (z && z.anchors) || [];
+    const cells = {};
+    if (z && z.idx) for (let i = 0; i < NN; i++) if (z.idx[i]) { const a = anchors[z.idx[i] - 1]; if (a) cells[a.kind] = (cells[a.kind] || 0) + 1; }
+    m.zone = {
+      anchors: anchors.map((a) => ({ kind: a.kind, R: a.R, owned: !!a.owned, aspect: a.aspect, key: a.key })),
+      halo, cells, codes,
+      nexus: ((zd && zd.nexus) || []).map((n) => ({ kind: n.kind, aspect: n.aspect, pieces: n.pieces })),
+      lairs: ((zd && zd.lairs) || []).length,
+    };
+  }
+  return m;
+}
+
+async function wBuild() {
+  const st = $('wStatus');
+  if (!wRaw.tiles) {
+    st.textContent = 'fetching tiles…';
+    wRaw.tiles = []; const srcs = new Set();
+    for (const [tx, ty] of W_TILES) {
+      const got = await wTileBytes(tx, ty).catch(() => null);
+      if (got) { wRaw.tiles.push({ tx, ty, layers: MVT.decodeTile(got.b) }); srcs.add(got.src); }
+    }
+    wRaw.source = [...srcs].join(' + ') || 'none';
+  }
+  if (!wRaw.tiles.length) { st.textContent = 'no tiles (no fixtures on disk and the live fetch failed)'; return null; }
+  // INFLUENCE ZONES before index.html loads them: worldgen asks
+  // `typeof Zones` at call time, so loading src/zones.js here previews the
+  // shipping rule; unticking hides it again for a before/after.
+  if (wZones.ref === undefined) {
+    wZones.inIndex = typeof Zones !== 'undefined';
+    wZones.ref = wZones.inIndex ? Zones : null;
+    if (!wZones.inIndex) {
+      const ok = await fetch('../src/zones.js', { method: 'HEAD', cache: 'no-store' }).then((r) => r.ok).catch(() => false);
+      if (ok) {
+        await new Promise((res) => { const sc = document.createElement('script'); sc.src = '../src/zones.js?' + Date.now(); sc.onload = res; sc.onerror = res; document.head.appendChild(sc); });
+        wZones.ref = typeof Zones !== 'undefined' ? Zones : null;
+        if (wZones.ref) $('wZonesL').style.display = '';
+      }
+    }
+  }
+  if (!wZones.inIndex) {
+    if (wZones.ref && $('wZonesPreview').checked) globalThis.Zones = wZones.ref; else delete globalThis.Zones;
+  }
+  wZones.previewing = !wZones.inIndex && typeof Zones !== 'undefined';
+  const mid = wRaw.tiles[Math.floor(wRaw.tiles.length / 2)];
+  const EDGE = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(mid.ty));
+  // Home far off the block: no starting area, no softwood overlay, no home
+  // rings in any count.
+  const home = { x: (mid.tx + 60.5) * EDGE, y: (mid.ty + 60.5) * EDGE };
+  if (typeof HomeArea !== 'undefined') HomeArea.setOrigin(home.x, home.y);
+  WorldGen.tileCache.clear();
+  const scene = wScene(EDGE, home, mid.ty);
+  const entries = [], errors = [];
+  for (const { tx, ty, layers } of wRaw.tiles) {
+    st.textContent = `rasterizing ${tx}/${ty}…`; await wTick();
+    try {
+      const N = WorldGen.cellsPerEdgeForTile(ty);
+      const r = WorldGen.rasterizeTile(layers, N, tx, ty, EDGE);
+      const entry = Object.assign({ tx, ty, cellsPerEdge: N, tileEdgeM: EDGE, layers }, r);
+      WorldGen.tileCache.set(WorldGen.tileKey(tx, ty), entry);
+      entries.push(entry);
+    } catch (err) { errors.push(`rasterize ${tx}/${ty}: ${err.message}`); console.error(err); }
+  }
+  const ms = [];
+  for (const e of entries) {
+    st.textContent = `spawning ${e.tx}/${e.ty}…`; await wTick();
+    try { scene.spawnInTile(e, e.tx, e.ty); } catch (err) { errors.push(`spawnInTile ${e.tx}/${e.ty}: ${err.message}`); console.error(err); }
+    try { const m = wMeasure(e, EDGE); ms.push(m); errors.push(...m.errors.map((x) => `${m.tile} ${x}`)); }
+    catch (err) { errors.push(`measure ${e.tx}/${e.ty}: ${err.message}`); console.error(err); }
+  }
+  WorldGen.tileCache.clear();
+  return { ms, errors, EDGE, source: wRaw.source, entries };
+}
+
+function wRender(w) {
+  const { ms, errors, EDGE } = w, n = ms.length;
+  const T = WorldGen.T, names = wNames();
+  const avg = (f) => ms.reduce((a, m) => a + (f(m) || 0), 0) / (n || 1);
+  const scope = `per tile, avg over ${n} Kelowna ${w.source === 'fixture' ? 'fixture' : w.source + '-fetched'} tiles (z${WorldGen.Z}, ~${(EDGE / 1000).toFixed(2)} km, ${ms[0] ? ms[0].N + '×' + ms[0].N : '?'} cells each)`;
+  $('wScope').textContent = `Scope: ${scope}. Mode for spawnInTile: ${typeof Difficulty !== 'undefined' ? Difficulty.mode() : '?'}; traps are rolled for both modes.`
+    + (wZones.previewing ? ' Influence zones: PREVIEW — src/zones.js loaded by this page, not yet by index.html.' : '');
+  $('wErrors').textContent = errors.length ? `${errors.length} error(s) — the game code may be mid-edit:\n` + errors.join('\n') : '';
+  if (!n) return;
+  const E = typeof Difficulty !== 'undefined' ? Difficulty.EASY : 'easy', H = typeof Difficulty !== 'undefined' ? Difficulty.HARD : 'hard';
+  const tr = (m, mode) => (m.traps[mode] ? m.traps[mode].n : 0);
+  const kpi = (v, label) => `<div class="kpi"><b>${v}</b><span>${label}</span></div>`;
+  const zoneHaloShare = (m) => m.zone ? Object.values(m.zone.halo).reduce((a, b) => a + b, 0) / m.cells : 0;
+  $('wKpis').innerHTML = [
+    T.WASTELAND != null ? kpi(wPct(avg((m) => m.wasteland)), 'wasteland terrain') : '',
+    kpi(wPct(avg((m) => m.mask)), 'road mask (no spawns)'),
+    ms[0].band != null ? kpi(wPct(avg((m) => m.band)), 'major band') : '',
+    ms[0].verge != null ? kpi(wPct(avg((m) => m.verge)), 'major verge') : '',
+    kpi(f1(avg((m) => tr(m, E))) + ' / ' + f1(avg((m) => tr(m, H))), `traps ${E} / ${H}`),
+    kpi(f1(avg((m) => m.rocks.all)), 'rocks'),
+    kpi(f1(avg((m) => m.chests.n)), 'surface chests'),
+    ms.some((m) => m.zone) ? kpi(wPct(avg(zoneHaloShare)), 'zone halo terrain') : '',
+  ].join('') + `<div class="kpi" style="border:0;background:none"><span class="scope">${scope}</span></div>`;
+
+  // Per-tile matrix.
+  const hasZ = ms.some((m) => m.zone);
+  // Each column: [head, value(m) → number | [a, b] | null, pct?]. A pair
+  // prints "a (b)" or "a / b" (sep), and the average row averages each part.
+  const cols = [
+    ['wasteland', (m) => m.wasteland, true],
+    ['road mask', (m) => m.mask, true],
+    ['major band', (m) => m.band, true],
+    ['major verge', (m) => m.verge, true],
+    ['bandit verge', (m) => m.bandit, true],
+    ['danger ×', (m) => m.danger],
+    [`traps ${E}`, (m) => tr(m, E)], [`traps ${H}`, (m) => tr(m, H)],
+    ['dogs (on verge)', (m) => [m.dogs, m.dogsVerge]],
+    ['rocks (street)', (m) => [m.rocks.all, m.rocks.street]],
+    ['minor / major streets', (m) => m.streets ? [Object.values(m.streets.keys.minor || {}).reduce((a, s) => a + s.size, 0), Object.values(m.streets.keys.major || {}).reduce((a, s) => a + s.size, 0)] : null, false, ' / '],
+    ['chests', (m) => m.chests.n],
+    ['bus stops (wagons)', (m) => [m.chests.bus, m.chests.wagon]],
+    ['barricade / burned guards', (m) => [m.posts.barricade || 0, m.posts.burned || 0], false, ' / '],
+    ['fauna moved', (m) => Object.values(m.attracted || {}).reduce((a, b) => a + b, 0)],
+    ['park occupancy', (m) => m.parks && m.parks.cells ? m.parks.held / m.parks.cells : null, true],
+    ['park fringe cells (filler)', (m) => m.parks ? [m.parks.fringeCells, m.parks.fill] : null],
+  ];
+  if (hasZ) cols.push(['zone anchors', (m) => m.zone ? m.zone.anchors.length : 0], ['zone halo', zoneHaloShare, true]);
+  const one = (v, p) => v == null || !Number.isFinite(v) ? '—' : p ? wPct(v) : (Number.isInteger(v) ? String(v) : f1(v));
+  const cell = (v, p, sep) => Array.isArray(v) ? (sep ? v.map((x) => one(x, p)).join(sep) : `${one(v[0], p)} (${one(v[1], p)})`) : one(v, p);
+  const avgOf = (f) => {
+    const vals = ms.map(f);
+    if (vals.some((v) => v == null)) return null;
+    return Array.isArray(vals[0]) ? vals[0].map((_, i) => vals.reduce((a, v) => a + v[i], 0) / n) : vals.reduce((a, v) => a + v, 0) / n;
+  };
+  const favg = (v, p) => Array.isArray(v) ? v.map((x) => (p ? wPct(x) : f1(x))) : v == null ? '—' : p ? wPct(v) : f1(v);
+  table($('wTiles'), ['tile', ...cols.map((c) => c[0])],
+    ms.map((m) => `<tr><td>${m.tile}</td>${cols.map(([, f, p, sep]) => `<td>${cell(f(m), p, sep)}</td>`).join('')}</tr>`)
+      .concat(`<tr style="border-top:2px solid var(--gold)"><td><b>avg / tile</b></td>${cols.map(([, f, p, sep]) => {
+        const v = favg(avgOf(f), p);
+        return `<td><b>${Array.isArray(v) ? (sep ? v.join(sep) : `${v[0]} (${v[1]})`) : v}</b></td>`;
+      }).join('')}</tr>`));
+
+  // Terrain share: top codes plus WASTELAND and every zone code, always.
+  const share = {};
+  for (const m of ms) for (const [c, k] of Object.entries(m.terrain)) (share[c] = share[c] || []).push(k / m.cells);
+  const zoneCodes = new Set(ms.find((m) => m.zone)?.zone.codes || []);
+  const rowsT = Object.entries(share).map(([c, arr]) => ({ c: +c, name: names[c] || c, avg: arr.reduce((a, b) => a + b, 0) / n,
+    lo: arr.length < n ? 0 : Math.min(...arr), hi: Math.max(...arr) })).sort((a, b) => b.avg - a.avg);
+  const keep = rowsT.filter((r, i) => i < 14 || r.c === T.WASTELAND || zoneCodes.has(r.c));
+  for (const c of zoneCodes) if (!share[c]) keep.push({ c, name: names[c] || c, avg: 0, lo: 0, hi: 0 });
+  const rest = rowsT.filter((r) => !keep.includes(r)).reduce((a, r) => a + r.avg, 0);
+  $('wTerrainScope').textContent = `Share of the tile's cells by final terrain code (WorldGen.T names), ${scope}. Min–max across the tiles.`;
+  table($('wTerrain'), ['terrain', 'avg share', 'min–max'], keep.map((r) =>
+    `<tr><td>${r.name}${r.c === T.WASTELAND || zoneCodes.has(r.c) ? ' <span style="color:var(--gold)">★</span>' : ''}</td>${barCell(r.avg)}<td>${wPct(r.lo)}–${wPct(r.hi)}</td></tr>`)
+    .concat(rest > 0 ? [`<tr><td class="dim">(${rowsT.length - keep.length} other codes)</td>${barCell(rest)}<td></td></tr>`] : []));
+
+  // Roads.
+  $('wRoadScope').textContent = `Share of cells, ${scope}. Mask = cells the drawn band covers (no spawns); band / verge = entry.roadClass bits.`;
+  const roadRows = [['road mask (entry.roadMask)', (m) => m.mask], ['major band (roadClass bit ' + (WorldGen.ROAD_CLASS_MAJOR_BAND || 1) + ')', (m) => m.band],
+    ['major verge (roadClass bit ' + (WorldGen.ROAD_CLASS_MAJOR_VERGE || 2) + ')', (m) => m.verge],
+    ['bandit verge (roadClass bit ' + (WorldGen.ROAD_CLASS_BANDIT_VERGE || 4) + ')', (m) => m.bandit]];
+  if (T.WASTELAND != null) roadRows.push(['wasteland terrain', (m) => m.wasteland]);
+  table($('wRoad'), ['layer', 'avg share', 'min–max'], roadRows.filter(([, f]) => ms[0] && f(ms[0]) != null).map(([k, f]) => {
+    const v = ms.map(f); return `<tr><td>${k}</td>${barCell(avg(f))}<td>${wPct(Math.min(...v))}–${wPct(Math.max(...v))}</td></tr>`;
+  }));
+
+  // Traps by where they sit.
+  const places = ['major verge', 'wasteland', 'other', 'off tile'];
+  $('wTrapScope').textContent = `Traps.spawnSurface per tile with its spawn options, both modes; ${scope}. "other" should be 0 (zone halo may repaint wasteland).`;
+  table($('wTraps'), ['mode', 'traps / tile', ...places, 'dogs / tile', 'dogs on verge'], [E, H].map((mode) => {
+    const tot = ms.reduce((a, m) => a + tr(m, mode), 0) || 1;
+    return `<tr><td>${mode} (×${typeof Difficulty !== 'undefined' ? Difficulty.PROFILES[mode].trapCountMul : '?'})</td><td>${f1(avg((m) => tr(m, mode)))}</td>`
+      + places.map((p) => { const k = ms.reduce((a, m) => a + ((m.traps[mode] && m.traps[mode].at[p]) || 0), 0); return `<td>${k ? wPct(k / tot) : '<span class="dim">0</span>'}</td>`; }).join('')
+      + `<td>${f1(avg((m) => m.dogs))}</td><td>${wPct(ms.reduce((a, m) => a + m.dogsVerge, 0) / (ms.reduce((a, m) => a + m.dogs, 0) || 1))}</td></tr>`;
+  }));
+
+  // Street variants.
+  if (typeof StreetVariants !== 'undefined' && ms.some((m) => m.streets)) {
+    const SV = StreetVariants;
+    const sizes = [...new Set(SV.STREET_VARIANTS.map((r) => r.size))];
+    const rows = [];
+    for (const size of sizes) {
+      const ids = [...SV.STREET_VARIANTS.filter((r) => r.size === size).map((r) => r.id), '(plain)'];
+      const all = new Set(), per = {};
+      for (const id of ids) per[id] = new Set();
+      let lenTot = 0; const lenBy = {};
+      for (const m of ms) {
+        const k = (m.streets && m.streets.keys[size]) || {};
+        for (const id of ids) for (const key of k[id] || []) { per[id].add(key); all.add(key); }
+        for (const [id, L] of Object.entries((m.streets && m.streets.len[size]) || {})) { lenBy[id] = (lenBy[id] || 0) + L; lenTot += L; }
+      }
+      for (const id of ids) {
+        const row = SV.VARIANT_BY_ID[id];
+        const perTile = avg((m) => ((m.streets && m.streets.keys[size] && m.streets.keys[size][id]) || new Set()).size);
+        rows.push(`<tr><td>${size}</td><td class="l">${id}${row ? ` <span class="dim">(${row.rung}, base ${wPct(row.share)})</span>` : ''}</td>`
+          + `<td>${per[id].size}</td><td>${all.size ? wPct(per[id].size / all.size) : '—'}</td><td>${f1(perTile)}</td>`
+          + `<td>${lenTot ? wPct((lenBy[id] || 0) / lenTot) : '—'}</td><td>${f1((lenBy[id] || 0) / n)} m</td></tr>`);
+      }
+    }
+    $('wStreetScope').textContent = `Streets = distinct StreetVariants keys (a named street spans tiles, so "distinct" counts it once over all ${n} tiles; "per tile" counts it in each tile it touches). Length = way metres inside each tile square, avg per tile.`;
+    table($('wStreets'), ['size', 'variant', `streets (${n} tiles)`, 'share of size', 'streets / tile', 'length share', 'm / tile'], rows);
+    const rockKeys = new Set(), minorKeys = new Set();
+    for (const m of ms) {
+      for (const k of (m.streets && m.streets.keys.rockKeys) || []) rockKeys.add(k);
+      for (const s of Object.entries((m.streets && m.streets.keys.minor) || {}).filter(([id]) => id !== 'hedgerow').map(([, s]) => s)) for (const k of s) minorKeys.add(k);
+    }
+    $('wStreetExtra').innerHTML = `Rock-lined minor streets: <b>${rockKeys.size}</b> of ${minorKeys.size} non-hedgerow minor streets `
+      + `(<b>${minorKeys.size ? wPct(rockKeys.size / minorKeys.size) : '—'}</b>; target ROCK_STREET_SHARE ${wPct(SV.ROCK_STREET_SHARE)}), distinct over ${n} tiles. `
+      + `Hedgerow closes: <b>${ms.reduce((a, m) => a + (m.streets ? m.streets.closes : 0), 0)}</b> over ${n} tiles (${f1(avg((m) => m.streets ? m.streets.closes : 0))}/tile). `
+      + `Bus stops: <b>${f1(avg((m) => m.chests.bus))}</b>/tile, of which broken wagons (major road): <b>${f1(avg((m) => m.chests.wagon))}</b>/tile.`;
+    const dk = [...new Set(ms.flatMap((m) => Object.keys(m.dress)))].sort();
+    table($('wDress'), ['street dressing piece', 'per tile', `total (${n} tiles)`], dk.map((k) => {
+      const t = ms.reduce((a, m) => a + (m.dress[k] || 0), 0);
+      return `<tr><td>${k}</td><td>${f1(t / n)}</td><td>${t}</td></tr>`;
+    }).concat(dk.length ? [] : ['<tr><td class="dim">no street dressing on these tiles</td><td></td><td></td></tr>']));
+  } else {
+    $('wStreetScope').textContent = 'StreetVariants / entry.streetIndex not present in this build.';
+  }
+
+  // Rocks.
+  $('wRockScope').textContent = `mineralrock objects after spawnInTile (+ zone dressing), ${scope}. Plain = the stone-paying rock (no ore yieldTier > 1).`;
+  const rk = [['all rocks', (m) => m.rocks.all], ['plain', (m) => m.rocks.plain], ['ore (yieldTier ≥ 2)', (m) => m.rocks.ore],
+    ['street-lined (_street)', (m) => m.rocks.street], ['zone nexus rocks', (m) => m.rocks.zone]];
+  table($('wRocks'), ['rocks', 'per tile', 'min–max', 'share'], rk.map(([k, f]) => {
+    const v = ms.map(f), all = avg((m) => m.rocks.all) || 1;
+    return `<tr><td>${k}</td><td>${f1(avg(f))}</td><td>${Math.min(...v)}–${Math.max(...v)}</td><td>${wPct(avg(f) / all)}</td></tr>`;
+  }));
+
+  // Chests.
+  $('wChestScope').textContent = `Surface chests by chestLook texture and chestTier (the tier every player sees${typeof ZONE_NEXUS_TIER_BONUS === 'number' ? `, nexus +${ZONE_NEXUS_TIER_BONUS}` : ''}), ${scope}.`;
+  const agg = (key) => { const o = {}; for (const m of ms) for (const [k, v] of Object.entries(m.chests[key])) o[k] = (o[k] || 0) + v; return o; };
+  const totC = ms.reduce((a, m) => a + m.chests.n, 0) || 1;
+  const lookRows = Object.entries(agg('look')).sort((a, b) => b[1] - a[1]);
+  table($('wChestLook'), ['look', 'per tile', 'share'], lookRows.map(([k, v]) => `<tr><td>${k.replace('_', ' ')}</td><td>${f1(v / n)}</td>${barCell(v / totC)}</tr>`));
+  const tierRows = Object.entries(agg('tier')).sort();
+  table($('wChestTier'), ['tier', 'per tile', 'share'], tierRows.map(([k, v]) => `<tr><td>${k}</td><td>${f1(v / n)}</td>${barCell(v / totC)}</tr>`));
+  const macro = agg('macro');
+  $('wChestExtra').innerHTML = `Zone nexus chests: <b>${f1(avg((m) => m.chests.nexus))}</b>/tile. `
+    + (Object.keys(macro).length ? 'POI macro kinds: ' + Object.entries(macro).map(([k, v]) => `${k} ${f1(v / n)}/tile`).join(', ') + '.' : '<span class="dim">No POI macro kinds on chests in this build.</span>');
+
+  // Zones.
+  const zs = ms.filter((m) => m.zone);
+  if (typeof Zones === 'undefined') {
+    $('wZoneScope').textContent = wZones.ref ? 'Zones preview is unticked: this build is the world without influence zones.'
+      : 'No Zones module in this build (src/zones.js not found).';
+    $('wZones').innerHTML = ''; $('wZoneExtra').innerHTML = '';
+  } else if (!zs.length) {
+    $('wZoneScope').textContent = 'Zones is loaded but no tile entry carries a zone field (the rasterizer is not wiring it yet).';
+    $('wZones').innerHTML = ''; $('wZoneExtra').innerHTML = '';
+  } else {
+    $('wZoneScope').textContent = (wZones.previewing ? 'PREVIEW (src/zones.js loaded by this page). ' : '') + `Anchors that reach a tile (an anchor near a seam counts in each tile it reaches; "owned" = its point is in the tile, so it mints the nexus). Halo = cells repainted to the zone's terrain. ${scope}.`;
+    const kinds = Object.keys(Zones.ZONE_KINDS);
+    table($('wZones'), ['kind', 'terrain', 'row R', 'anchors / tile', 'owned / tile', 'avg R (m)', 'field cells / tile', 'halo cells / tile', 'halo share'], kinds.map((k) => {
+      const as = ms.flatMap((m) => m.zone ? m.zone.anchors.filter((a) => a.kind === k) : []);
+      const own = as.filter((a) => a.owned);
+      return `<tr><td>${k}</td><td>${Zones.ZONE_KINDS[k].terrain}</td><td>${Zones.ZONE_KINDS[k].R} m</td><td>${f1(as.length / n)}</td><td>${f1(own.length / n)}</td>`
+        + `<td>${as.length ? f1(as.reduce((a, x) => a + x.R, 0) / as.length) : '—'}</td>`
+        + `<td>${f1(avg((m) => m.zone ? m.zone.cells[k] || 0 : 0))}</td><td>${f1(avg((m) => m.zone ? m.zone.halo[k] : 0))}</td>`
+        + `<td>${wPct(avg((m) => m.zone ? m.zone.halo[k] / m.cells : 0))}</td></tr>`;
+    }));
+    const asp = {};
+    for (const m of zs) for (const x of m.zone.nexus) { const k = `${x.kind}: ${x.aspect}`; asp[k] = asp[k] || { n: 0, p: 0 }; asp[k].n++; asp[k].p += x.pieces; }
+    const extra = Object.entries(asp).sort().map(([k, v]) => `<tr><td>nexus ${k}</td><td>${v.n}</td><td>${f1(v.p / v.n)} pieces</td></tr>`);
+    const tot = (f) => ms.reduce((a, m) => a + f(m), 0);
+    extra.push(`<tr><td>headstones</td><td>${tot((m) => m.headstones)}</td><td>${f1(avg((m) => m.headstones))} / tile</td></tr>`);
+    extra.push(`<tr><td>tar pits (zone)</td><td>${tot((m) => m.tar.zone)}</td><td>${f1(avg((m) => m.tar.zone))} / tile</td></tr>`);
+    extra.push(`<tr><td>tar (burned rows) · stakes</td><td>${tot((m) => m.tar.street)} · ${tot((m) => m.stakes)}</td><td>${f1(avg((m) => m.tar.street))} · ${f1(avg((m) => m.stakes))} / tile</td></tr>`);
+    extra.push(`<tr><td>grove shrines</td><td>${tot((m) => m.shrines)}</td><td>${f1(avg((m) => m.shrines))} / tile</td></tr>`);
+    extra.push(`<tr><td>tar-yard garrisons (lairs)</td><td>${tot((m) => m.zone ? m.zone.lairs : 0)}</td><td></td></tr>`);
+    // Parks and churchyards (Zones.fringeSteps / groundSteps).
+    const pk = (f) => tot((m) => (m.parks ? f(m.parks) : 0));
+    const chars = {};
+    for (const m of ms) for (const [k, v] of Object.entries((m.parks && m.parks.chars) || {})) chars[k] = (chars[k] || 0) + v;
+    extra.push(`<tr><td>park polygons by character</td><td>${pk((p) => p.polys)}</td><td>${Object.entries(chars).sort().map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}</td></tr>`);
+    extra.push(`<tr><td>park occupancy (PARK cells holding anything)</td><td>${pk((p) => p.held)} / ${pk((p) => p.cells)}</td><td>${wPct(pk((p) => p.held) / (pk((p) => p.cells) || 1))}</td></tr>`);
+    extra.push(`<tr><td>park fringe band cells · filler</td><td>${pk((p) => p.fringeCells)} · ${pk((p) => p.fill)}</td><td>${f1(avg((m) => m.parks ? m.parks.fringeCells : 0))} · ${f1(avg((m) => m.parks ? m.parks.fill : 0))} / tile</td></tr>`);
+    extra.push(`<tr><td>graves (headstones) / church or cemetery owned</td><td>${pk((p) => p.graves)} / ${pk((p) => p.ghostAnchors)}</td><td>${f1(pk((p) => p.graves) / (pk((p) => p.ghostAnchors) || 1))} each (grave cells may sit in a neighbour's tile)</td></tr>`);
+    extra.push(`<tr><td>churchyard rocks / place of worship owned</td><td>${pk((p) => p.chRocks)} / ${pk((p) => p.stonesAnchors)}</td><td>${f1(pk((p) => p.chRocks) / (pk((p) => p.stonesAnchors) || 1))} each</td></tr>`);
+    table($('wZoneExtra'), ['nexus / props', `total (${n} tiles)`, 'per'], extra);
+  }
+}
+
+// ── VALUE BY TYPE ────────────────────────────────────────────────────────
+// What each placement actually PAYS, off the same tiles wBuild() just
+// rasterized + spawned. Every value is pickReward, sampled and valued the
+// way describe() (above) does — list price, items.js itemValue / gear.js
+// gearPrice — never a retyped number. Recurring rows (the crate —
+// interactables.js refillsDaily — the chapel's alms, a grove shrine's gift,
+// the pot of gold's coin burst, the macro stalls and the guildhall's board)
+// pay again every UTC day; every other chest, the wagon look, a zone-nexus
+// chest's own bonus tier, and a headstone hoard pay once per save
+// (interactables.js isSpent). Feature-detects every module it reads, so it
+// renders '(not available)' before a module lands rather than throwing.
+const WVALUE_N_SAMPLES = 60; // modest — this runs on every "Rebuild tiles"
+function wValueByType(entries) {
+  const canChest = typeof pickReward === 'function' && typeof chestLook === 'function'
+    && typeof chestRollTier === 'function' && typeof chestThemeForPoi === 'function' && typeof POI_CATEGORY !== 'undefined';
+  if (!canChest) return null;
+  const emptySave = { relics: {}, armor: {}, inv: [], money: 0 };
+  const evCache = new Map();
+  function ev(context, opts) {
+    const key = context + '|' + JSON.stringify(opts || null);
+    if (evCache.has(key)) return evCache.get(key);
+    let sum = 0;
+    for (let i = 0; i < WVALUE_N_SAMPLES; i++) sum += describe(pickReward(context, emptySave, Math.random, opts)).value;
+    const avg = sum / WVALUE_N_SAMPLES;
+    evCache.set(key, avg);
+    return avg;
+  }
+  function standDiscount(id) {
+    if (!id || typeof PRICES === 'undefined' || typeof ShopsMath === 'undefined' || !ShopsMath.standPrice) return 0;
+    const listPrice = Math.max(1, PRICES[id] ?? 1);
+    return listPrice - ShopsMath.standPrice(emptySave, listPrice);
+  }
+  const COIN_BURST_CAP = 12; // app.js _coinBurst target clamp: [COIN_BURST_MIN, 12]
+
+  const rows = new Map(); // label -> { count, oneTimeSum, recurringSum, cadence }
+  const bump = (label, cadence, value) => {
+    const r = rows.get(label) || { count: 0, oneTimeSum: 0, recurringSum: 0, cadence };
+    r.count++;
+    if (cadence === 'recurring') r.recurringSum += value; else r.oneTimeSum += value;
+    if (cadence !== r.cadence) r.cadence = 'both';
+    rows.set(label, r);
+  };
+
+  for (const e of entries) {
+    const chests = (e.objects || []).filter((o) => o && o.kind === 'chest' && !(o.depth > 0));
+    for (const o of chests) {
+      let look; try { look = chestLook(o); } catch (err) { continue; }
+      if (look.coin) { bump('Pot of gold (coin burst)', 'recurring', COIN_BURST_CAP); continue; }
+      if (look.macro) {
+        const kind = look.macro.kind;
+        if (kind === 'chapel' && typeof Macros !== 'undefined' && Macros.chapelRollTier) {
+          const val = ev('chest:' + chestThemeForPoi(o.poiClass), { tier: Macros.chapelRollTier(o), depth: o.depth || 0 });
+          bump('Chapel (daily alms)', 'recurring', val);
+        } else if (kind === 'guildhall' && typeof Macros !== 'undefined' && typeof Combat !== 'undefined' && Combat.enemyBounty) {
+          const rung = Macros.BOUNTY_LADDER[0], nFoes = Math.min(Macros.BOUNTY_MAX_FOES, 1);
+          const wage = (rung.reduce((s, k) => s + Combat.enemyBounty(k, 0), 0) / rung.length) * nFoes;
+          const pay = Math.max(1, Math.round(wage * Macros.BOUNTY_MATCH));
+          bump('Guildhall bounty (T0 weapon)', 'recurring', Math.round(wage) + pay);
+        } else if (typeof Macros !== 'undefined') {
+          const stockFn = kind === 'apothecary' ? Macros.apothecaryStock
+            : kind === 'sundries' ? Macros.sundriesStock
+            : kind === 'scriptorium' ? Macros.scriptoriumStock : null;
+          if (stockFn) {
+            const ids = stockFn.length ? stockFn(o) : stockFn();
+            const discount = (ids || []).reduce((s, id) => s + standDiscount(id), 0);
+            const label = kind === 'apothecary' ? 'Apothecary (potion discount)' : kind === 'sundries' ? 'Sundries (supply discount)' : 'Scriptorium (book discount)';
+            bump(label, 'recurring', discount);
+          }
+        }
+        continue;
+      }
+      if (look.stand) {
+        if (typeof produceStandFor === 'function') {
+          const stand = produceStandFor(o);
+          if (stand) bump('Market stall (produce discount)', 'recurring', standDiscount(stand.item));
+        }
+        continue;
+      }
+      // Trunk / crate / wagon: a plain consumable chest.
+      const cat = POI_CATEGORY[o.poiClass] || '(uncategorised)';
+      const tier = chestRollTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus);
+      const val = (o.crate || o.fixedLoot) ? 0 : ev('chest:' + chestThemeForPoi(o.poiClass), { tier, depth: o.depth || 0 });
+      const isDaily = (typeof refillsDaily === 'function') ? refillsDaily(o) : (look.box && !look.wagon);
+      if (isDaily) bump('Crate (daily, tier-1 POI chest)', 'recurring', val);
+      else if (look.wagon) bump('Wagon (bandit stop)', 'one-time', val);
+      else bump('Trunk chest — ' + cat, 'one-time', val);
+      if (o.zoneNexus) bump('Zone-nexus chest (bonus tier)', isDaily ? 'recurring' : 'one-time', val);
+    }
+    // Headstones + grove shrines live in zoneDress.objects, not e.objects
+    // (same split wMeasure reads above).
+    const zd = e.zoneDress;
+    if (zd && zd.objects && typeof Zones !== 'undefined') {
+      for (const zo of zd.objects) {
+        if (zo.kind === 'headstone' && Zones.headstoneHoards && Zones.headstoneHoards(zo.id)) {
+          bump('Headstone hoard', 'one-time', ev(Zones.HEADSTONE_CONTEXT || 'chest:lowtier', { tier: Zones.HEADSTONE_TIER || 1, depth: 0 }));
+        } else if (zo.kind === 'grove_shrine') {
+          bump('Grove shrine (daily gift)', 'recurring', ev(Zones.SHRINE_CONTEXT || 'treasure:shrine'));
+        }
+      }
+    }
+  }
+  return rows;
+}
+
+const WVALUE_ORDER = [
+  (k) => k === 'Crate (daily, tier-1 POI chest)',
+  (k) => k.startsWith('Trunk chest — '),
+  (k) => k === 'Wagon (bandit stop)',
+  (k) => k === 'Zone-nexus chest (bonus tier)',
+  (k) => k === 'Headstone hoard',
+  (k) => k === 'Pot of gold (coin burst)',
+  (k) => k === 'Chapel (daily alms)',
+  (k) => k === 'Grove shrine (daily gift)',
+  (k) => k === 'Market stall (produce discount)',
+  (k) => k === 'Apothecary (potion discount)',
+  (k) => k === 'Sundries (supply discount)',
+  (k) => k === 'Scriptorium (book discount)',
+  (k) => k === 'Guildhall bounty (T0 weapon)',
+];
+function wRenderValueByType(entries, n, source) {
+  const scopeEl = $('wValueScope'), el = $('wValue'), noteEl = $('wValueNote');
+  let rows;
+  try { rows = wValueByType(entries); }
+  catch (err) { scopeEl.textContent = 'value by type failed: ' + err.message; el.innerHTML = ''; noteEl.textContent = ''; console.error(err); return; }
+  if (!rows) { scopeEl.textContent = 'chestLook / chestRollTier / pickReward not available in this build.'; el.innerHTML = ''; noteEl.textContent = ''; return; }
+  scopeEl.textContent = `Per tile, avg over ${n} Kelowna ${source === 'fixture' ? 'fixture' : source + '-fetched'} tiles — `
+    + `Monte-Carlo pickReward (${WVALUE_N_SAMPLES} samples per distinct context/tier/depth), valued at list price.`;
+  const used = new Set(), ordered = [];
+  for (const pred of WVALUE_ORDER) {
+    const matched = [...rows.keys()].filter((k) => !used.has(k) && pred(k)).sort((a, b) => rows.get(b).count - rows.get(a).count);
+    for (const k of matched) { ordered.push(k); used.add(k); }
+  }
+  for (const k of rows.keys()) if (!used.has(k)) ordered.push(k);
+  table(el, ['type', 'count / tile', 'one-time value / tile', 'recurring value / day / tile', 'value / visit'],
+    ordered.map((label) => {
+      const r = rows.get(label);
+      const oneTime = r.cadence === 'recurring' ? '—' : fmt$(r.oneTimeSum / n);
+      const recurring = r.cadence === 'one-time' ? '—' : fmt$(r.recurringSum / n);
+      const visit = r.count ? fmt$((r.oneTimeSum + r.recurringSum) / r.count) : '—';
+      return `<tr><td class="l">${label}</td><td>${f1(r.count / n)}</td><td>${oneTime}</td><td>${recurring}</td><td>${visit}</td></tr>`;
+    }));
+  noteEl.textContent = 'The offline 4-city Monte-Carlo (Kelowna/Vancouver/Berlin/Seattle, 200+ samples/context) behind the "What changed recently" note above lives in scratchpad JSON (value_by_category.json, daily_result.json), not in this repo.';
+}
+
+let wBusy = false;
+async function worldPerTile() {
+  if (wBusy) return; wBusy = true;
+  const st = $('wStatus'), t0 = performance.now();
+  try {
+    if (typeof MapScene === 'undefined' || !MapScene.prototype.spawnInTile) throw new Error('MapScene.spawnInTile not defined (app.js failed to load?)');
+    const w = await wBuild();
+    if (w) {
+      wRender(w);
+      wRenderValueByType(w.entries, w.ms.length, w.source);
+      st.textContent = `built ${w.ms.length} tiles in ${((performance.now() - t0) / 1000).toFixed(1)}s (${w.source})`;
+    }
+    window.__worldStats = w;
+  } catch (e) {
+    st.textContent = 'world build failed: ' + e.message + ' — the game code may be mid-edit';
+    console.error(e);
+  } finally { wBusy = false; }
+}
+$('wGo').onclick = worldPerTile;
+$('wZonesPreview').onchange = worldPerTile;
 </script>
 </body>
 </html>

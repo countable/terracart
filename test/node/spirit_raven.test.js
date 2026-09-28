@@ -15,7 +15,7 @@ const methodBody = (sig) => {
 };
 
 test('spirit raven: a potion with an icon, a tier, a price and a ✦ line quoting its length', () => {
-  assert.eq(ITEM_BY_ID.raven_potion?.kind, 'consumable', 'drunk, not eaten');
+  assert.eq(ITEM_BY_ID.raven_potion?.kind, 'magic', 'drunk, not eaten');
   assert.eq(FOOD_ENERGY.raven_potion, undefined, 'never on the Eat button');
   assert.eq(MINERAL_ICON_SHEET.raven_potion?.sheet, 'icon_potions', 'drawn from the potion sheet');
   const frame = MINERAL_ICON_SHEET.raven_potion.frame;

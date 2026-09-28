@@ -117,7 +117,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   // relic / armor reward and cashes out a beaten one.
   const grant = INTERACT_SRC.slice(INTERACT_SRC.indexOf('function grantTreasureRoll('));
   assert.truthy(/reward\.kind === 'relic' \|\| reward\.kind === 'armor'/.test(grant), 'gear rewards handled');
-  assert.truthy(/equipGearReward\(reward, save, scene\)/.test(grant), 'and equipped');
+  assert.truthy(/Rewards\.apply\(save, reward, scene\)/.test(grant), 'and equipped');
 });
 
 test('delivery: the first delivery to a house banks a memory, once', () => {

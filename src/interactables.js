@@ -326,29 +326,16 @@ const INTERACTABLES = {
   fruittree: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // one harvest per 24h
-      // A planted sapling can't be harvested until it has matured (reached its
-      // fruiting stage). 4 days sprout→fruit (4 × 1-day stages).
-      if (o.planted) {
-        const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;
-        const elapsed = Date.now() - (o.planted_t || 0);
-        if (elapsed < 4 * FRUIT_STAGE_MS) {
-          // Largest-unit notation via the shared shortDuration (util.js) — the
-          // hand-rolled d/h ladder that used to live here couldn't say "40m"
-          // on the last stretch and read "1h" for anything under one.
-          const left = shortDuration(4 * FRUIT_STAGE_MS - elapsed);
-          scene.flash(`Still growing — ${left}`, sx, sy);
-          return true;
-        }
-      }
-      save.fruitPicked = save.fruitPicked || {};
-      const pickedAt = save.fruitPicked[o.id];
-      if (pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS) {
-        const left = shortDuration(FRUIT_RESPAWN_MS - (Date.now() - pickedAt));
-        scene.flash(`Picked — ripe again in ${left}`, sx, sy);
+      const now = Date.now();
+      const state = Crops.fruitTreeState(o, save.fruitPicked?.[o.id], now);
+      if (!state.ready) {
+        const left = shortDuration(state.remainingMs);
+        if (state.mature) scene.flash(`Picked — ripe again in ${left}`, sx, sy);
+        else scene.flash(`Still growing — ${left}`, sx, sy);
         return true;
       }
-      save.fruitPicked[o.id] = Date.now();
+      save.fruitPicked = save.fruitPicked || {};
+      save.fruitPicked[o.id] = now;
       // A fruit tree's species IS the item it hands out, so it must be one.
       // The starter provisioning once tamed the fruit tree nearest spawn into
       // species 'pine' (home.js makeStarterUsable — fixed there), and 'pine'
@@ -422,7 +409,49 @@ const INTERACTABLES = {
         scene.presentMarketStandOffer(sx, sy, stand);
         return true;
       }
-      if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
+      // MACRO STALLS (loot.js macroFor — an inn, chapel, apothecary, …): a
+      // place you come back to, never a chest. A tap is a VISIT, so a Scouting
+      // report aimed at its class (QUEST_POIS: library, museum,
+      // place_of_worship) is credited here, on every tap — the chest used to
+      // credit it once, on opening, and a macro never opens. Every kind but
+      // the chapel is a dialog (app.js presentMacro); the chapel pays through
+      // THIS ceremony below, once a UTC day (the coin-burst day ledger,
+      // Macros.usedToday) and a tier humbler (Macros.chapelRollTier), and
+      // never touches save.opened.
+      const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
+      if (macro) {
+        if (typeof Quests !== 'undefined' && o.poiClass && Quests.onPoiVisit(save, o.poiClass)) ctx.dirty = true;
+        if (macro.kind !== 'chapel') {
+          if (typeof scene.presentMacro === 'function') scene.presentMacro(sx, sy, o, macro);
+          return true;
+        }
+      }
+      const chapel = !!macro;
+      const daily = !chapel && refillsDaily(o) && typeof Macros !== 'undefined';
+      const held0 = save.chestHold && save.chestHold[o.id];
+      if (chapel) {
+        // A left-for-later roll is still this chapel's (claimed when taken),
+        // so it replays whatever the day.
+        if (!held0 && typeof Macros !== 'undefined' && Macros.usedToday(save, o.id)) {
+          scene.flash(`The chapel is quiet. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+          return true;
+        }
+        // The first visit tells what the place is, and the alms follow when
+        // the story is tapped away (a story never opens on top of a dialog).
+        if (typeof scene._macroStory === 'function' && scene._macroStory('chapel', () => {
+          const again = { scene, save, sx, sy, dirty: false };
+          INTERACTABLES.chest.custom(again, o);
+          if (again.dirty && typeof persistSave === 'function') persistSave(save);
+        })) return true;
+      } else if (daily) {
+        // A daily crate (refillsDaily) taken today is bare until the UTC day
+        // rolls — the day ledger, never save.opened. A left-for-later roll is
+        // still today's to take.
+        if (!held0 && Macros.usedToday(save, o.id)) {
+          scene.flash(`The crate is bare. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+          return true;
+        }
+      } else if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
       // The hero glyph every ceremony below opens with: the sprite this chest
       // was standing as, off the SAME resolver render.js draws it from
       // (loot.js chestLook), so a crate opens under a crate and a trunk under
@@ -431,11 +460,20 @@ const INTERACTABLES = {
       // here (both return above), so in practice it is the trunk or the box.
       const kindIcon = (typeof chestLook === 'function' && scene.worldIconHTML)
         ? scene.worldIconHTML(chestLook(o).texKey) : '';
+      // The chapel's alms open on the chapel's own painting and name the place.
+      const dress = (chapel && typeof Macros !== 'undefined')
+        ? { art: Macros.KIND_DIALOG.chapel.art, header: Macros.KIND_DIALOG.chapel.label } : {};
       // Every path below that actually spends the chest goes through this, so
       // the starter ladder's "open a crate" step is credited exactly once no
       // matter which branch (item / relic / gold / partial take) claimed it.
-      const markOpened = () => {
-        save.opened.push(o.id);
+      // The chapel's "spend" is the day ledger, not save.opened, and it is no
+      // chest for the 'chest' quest (its visit was credited above).
+      // A daily crate spends into the same day ledger as the chapel, and is
+      // still a chest for both quest credits below — once per crate per UTC
+      // day, because the gate above refuses a second open the same day.
+      const markOpened = chapel ? () => { Macros.markToday(save, o.id); } : () => {
+        if (daily) Macros.markToday(save, o.id);
+        else save.opened.push(o.id);
         scene.questEvent?.('chest');
         // BUG (Scouting report / QUEST_POIS): Quests.onPoiVisit is the only
         // thing that can credit a 'poi' quest, and its ONLY call site used to
@@ -455,17 +493,19 @@ const INTERACTABLES = {
         // shortcuts above, and not the "Picked clean already" / "leave for
         // later" paths that return before this runs) means a chest can only
         // ever award this once — exactly the same guarantee save.opened
-        // already gives the 'chest' quest.
+        // already gives the 'chest' quest (a daily crate: once per UTC day,
+        // the day ledger's guarantee).
         if (typeof Quests !== 'undefined' && o.poiClass) Quests.onPoiVisit(save, o.poiClass);
       };
       // A chest previously left-for-later has its exact loot saved in chestHold;
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).
-      const held = save.chestHold && save.chestHold[o.id];
-      const chestT = (typeof chestRollTier === 'function') ? chestRollTier(o.poiClass, o.x, o.y, o.depth) : 2;
-      const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
+      const held = held0;
+      const chestT = chapel ? Macros.chapelRollTier(o)
+        : ((typeof chestRollTier === 'function') ? chestRollTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) : 2);
+      const theme = chestThemeForPoi(o.poiClass);
       const result = held
-        ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
+        ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }
         // Starter chests carry a fixed payload (9 wood / 9 rockfruit / 9 seeds,
         // or the spawn relic chest's wooden tool) so the first restoration loop
         // is deterministic — skip the rarity picker and synthesize the same
@@ -475,21 +515,18 @@ const INTERACTABLES = {
             : (stand
                 ? { kind: 'item', id: stand.item, qty: 2 + Math.floor(Math.random() * 3), consolation: 0 }
                 : ((typeof pickReward === 'function')
-                    ? pickReward('chest:' + category, save, undefined, { tier: chestT, depth: o.depth || 0 })
+                    ? pickReward('chest:' + theme, save, undefined, { tier: chestT, depth: o.depth || 0,
+                        venueProduct: venueProductFor(o) })
                     : null)));
       if (!result) {
         addMoney(save, 1);
         markOpened();
         ctx.dirty = true;
-        scene.flash('Chest had nothing useful.', sx, sy);
+        scene.flash(`${chapel ? 'The alms box is bare.' : 'Chest had nothing useful.'}`, sx, sy);
         return true;
       }
-      if (result.consolation > 0) addMoney(save, result.consolation);
       if (result.kind === 'relic' || result.kind === 'armor') {
-        // A chest gear roll can yield a relic OR armor (armor is just another
-        // gear slot). equipGearReward handles both — armor also bumps max/cur
-        // energy by the delta.
-        equipGearReward(result, save, scene);
+        Rewards.apply(save, result, scene);
         markOpened();
         ctx.dirty = true;
         const name = (typeof gearName === 'function')
@@ -497,7 +534,7 @@ const INTERACTABLES = {
           : `${result.slot} T${result.tier}`;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
-        scene.showChestRewardModal({ iconHTML, name, sub: 'equipped', color: UI_TREASURE, kindIcon });
+        scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'equipped', color: UI_TREASURE, kindIcon });
         if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(result.jackpot);
         }
@@ -511,8 +548,8 @@ const INTERACTABLES = {
         // interact.js grantTreasureRoll uses.
         markOpened();
         ctx.dirty = true;
-        addMoney(save, result.amount || 0);
-        scene.showChestRewardModal({
+        Rewards.apply(save, result, scene);
+        scene.showChestRewardModal({ ...dress,
           iconHTML: scene.coinIconHTML ? scene.coinIconHTML(48) : '',
           name: `+${result.amount || 0}`, color: UI_GOLD, kindIcon,
         });
@@ -525,14 +562,14 @@ const INTERACTABLES = {
         // Non-upgrade relic consolation (reconcileRelicOffer walked up and cashed out).
         markOpened();
         ctx.dirty = true;
-        addMoney(save, result.amount || 0);
+        Rewards.apply(save, result, scene);
         const gearKind = result.gearKind || 'relic';
         const name = (typeof gearName === 'function')
           ? gearName(gearKind, result.slot, result.tier)
           : `${result.slot} T${result.tier}`;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(gearKind, result.slot, result.tier, 64) : '★';
-        scene.showChestRewardModal({ iconHTML, name, sub: 'already own better — discarded', color: '#aaa',
+        scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'already own better — discarded', color: '#aaa',
                                      kindIcon });
         if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(result.jackpot);
@@ -560,7 +597,7 @@ const INTERACTABLES = {
       // buttons fire after this handler returns, so they persist themselves.
       const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(lootId) : Infinity;
       if (lootQty > room) {
-        scene.showChestRewardModal({
+        scene.showChestRewardModal({ ...dress,
           iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind, kindIcon,
           sub: room > 0
             ? `Bag full — room for only ${room} of ${lootQty}.`
@@ -568,12 +605,14 @@ const INTERACTABLES = {
           actions: [
             { label: 'Leave for later', primary: true, onClick: () => {
               save.chestHold = save.chestHold || {};
-              save.chestHold[o.id] = { id: lootId, n: lootQty };
+              save.chestHold[o.id] = { id: lootId, n: lootQty, consolation: result.consolation || 0 };
               persistSave(save);
               scene.flash?.('Left it in the chest.', sx, sy);
             } },
             { label: room > 0 ? `Take ${room}` : 'Discard', onClick: () => {
-              if (room > 0) scene.addToInv(lootId, lootQty);
+              // Discard still claims the chest's coins, without attempting
+              // an item grant into a full bag.
+              Rewards.apply(save, room > 0 ? result : { kind: 'gold', amount: result.consolation || 0 }, scene);
               markOpened();
               if (save.chestHold) delete save.chestHold[o.id];
               persistSave(save);
@@ -591,11 +630,11 @@ const INTERACTABLES = {
       // once. Queue it and reveal once the "you found a Book" ceremony is
       // dismissed instead (see addToInv / _revealPendingBookReads in app.js);
       // a no-op for every other loot id.
-      scene.addToInv(lootId, lootQty, false, { deferBookRead: true });
+      Rewards.apply(save, result, scene, { deferBookRead: true });
       markOpened();
       if (save.chestHold) delete save.chestHold[o.id];
       ctx.dirty = true;
-      scene.showChestRewardModal({ iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
+      scene.showChestRewardModal({ ...dress, iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
                                    kind: rewardKind, kindIcon,
                                    onDismiss: () => scene._revealPendingBookReads() });
       if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
@@ -623,6 +662,78 @@ const INTERACTABLES = {
         }
       }
       scene.flash('Cool, clear water.', sx, sy);
+      return true;
+    },
+  },
+
+  // ---- Waystone (Pilgrim's Way — src/street_variants.js) ------------------
+  // A stone that remembers a page of the Book: the first tap reads the NEXT
+  // page of the curriculum (app.js _bookRead — the Book's own bookmark,
+  // save.tipsRead) without spending a Book, and records the stone in
+  // save.opened, the POI delta, so each stone gives one page ever. Read, it
+  // is only a stone: it stays standing and says so.
+  waystone: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      if ((save.opened || []).includes(o.id) || typeof scene._bookRead !== 'function') {
+        scene.flash('The stone is worn smooth.', sx, sy);
+        return true;
+      }
+      save.opened = [...(save.opened || []), o.id];
+      const { body } = scene._bookRead();
+      ctx.dirty = true;
+      if (typeof scene.showMessageModal === 'function') {
+        scene.showMessageModal({ title: 'The waystone remembers', body, kind: 'story', art: 'street_pilgrim' });
+      } else {
+        scene.flash('The stone remembers.', sx, sy);
+      }
+      return true;
+    },
+  },
+
+  // ---- Influence zones (src/zones.js) --------------------------------------
+  // A HEADSTONE (an Old Stones churchyard — churches and cemeteries only).
+  // Every tap may raise a ghost (Zones.HEADSTONE_GHOST_P, at any hour — the
+  // night's own ghost, creature_ai.js raiseGhostAt); Zones.headstoneHoards
+  // (a hash of the stone's id — the same stones for every player) says which
+  // hold a one-off find, rolled once from the low-tier chest table and spent
+  // in save.opened, the POI delta. The stone itself stays.
+  headstone: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      let paid = false;
+      if (typeof Zones !== 'undefined' && Zones.headstoneHoards(o.id)
+          && !(save.opened || []).includes(o.id)) {
+        save.opened = [...(save.opened || []), o.id];
+        ctx.dirty = true;
+        paid = true;
+        grantTreasureRoll(scene, save, sx, sy, '\u{1FAA6}', Zones.HEADSTONE_CONTEXT, { tier: Zones.HEADSTONE_TIER });
+      }
+      const ghostP = (typeof Zones !== 'undefined') ? Zones.HEADSTONE_GHOST_P : 0;
+      const ghost = Math.random() < ghostP && typeof raiseGhostAt === 'function'
+        && raiseGhostAt(scene, o.x, o.y, performance.now(), 'hs');
+      if (ghost) scene.flash('The grave stirs\u2026', sx, sy - (paid ? 22 : 0));
+      else if (!paid) scene.flash('Here lies someone. At rest.', sx, sy);
+      return true;
+    },
+  },
+  // A GROVE SHRINE (one per named park's grove). Once per UTC day per shrine
+  // it leaves a gift: one roll of Zones.SHRINE_CONTEXT, claimed in the
+  // coin-burst daily ledger (Macros.usedToday / markToday —
+  // save.coinBurstClaimed[id + dayKey], pruned of other days), the lane the
+  // daily crate and the chapel share. While the gift is there it wears the
+  // POI light (poiLit) on top of its own; not a rest ring, not a ward — its
+  // own light (Lighting.KINDS.shrine) is what keeps the night off.
+  grove_shrine: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      if (Macros.usedToday(save, o.id)) {
+        scene.flash(`The shrine rests. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+        return true;
+      }
+      Macros.markToday(save, o.id);
+      ctx.dirty = true;
+      grantTreasureRoll(scene, save, sx, sy, '\u{1F33F}', Zones.SHRINE_CONTEXT);
       return true;
     },
   },
@@ -684,10 +795,45 @@ function spentSets(scene, save) {
     broken: (scene && scene.brokenRockSet) || new Set(),
   };
 }
+function chestNeverSpent(o) {
+  return !!((typeof produceStandFor === 'function' && produceStandFor(o))
+    || (typeof macroFor === 'function' && macroFor(o)));
+}
+// ── What REFILLS every UTC day ─────────────────────────────────────────────
+// Most chests are offered ONCE (save.opened, the delta, forever — that is what
+// keeps a dense city from being a daily fountain). The one chest that comes
+// back is the LOW-TIER CRATE: a surface POI chest wearing the crate look
+// (loot.js chestLook `box` — the tier-1 roll after Home's rings and a nexus),
+// never a starter supply crate (`o.crate`, fixedLoot), never a cave copy
+// (depth / caveOf), never a wagon, stall, macro or golden cauldron. Taking it
+// is written to the coin-burst DAY LEDGER (Macros.markToday —
+// save.coinBurstClaimed[id + dayKey], pruned of other days), the lane the
+// cauldron, the chapel's alms and the grove shrine's gift already share, so
+// it is spent until the day rolls and then stands again at its normal tier.
+// It is NOT save.opened: an id there (a save from before Sep 2026) is ignored
+// for a crate — savemigrate.js carried those onto the ledger once.
+// X marks, headstones, trunks, wagons, nexus chests and cave chests never
+// refill; the chapel and the shrine are places, not chests — they share the
+// ledger and the glow (poiLit), not this predicate.
+function refillsDaily(o) {
+  if (!o || o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) return false;
+  if (o.depth > 0 || o.caveOf) return false;
+  if (typeof chestLook !== 'function') return false;
+  const L = chestLook(o);
+  return !!(L.box && !L.stand && !L.coin && !L.macro && !L.wagon);
+}
 function isSpent(o, sets) {
   switch (o && o.kind) {
     // A used golden cauldron (coin-burst POI) is spent until the UTC day rolls.
-    case 'chest':       return sets.opened.has(o.id) || !!(sets.burst && sets.burst.has(o.id));
+    // A market stall and a macro stall (loot.js produceStandFor / macroFor)
+    // are never spent: a counter is not a chest, and an id a save put in
+    // save.opened while that POI was still a crate, or in the day ledger for
+    // the inn's rest, leaves the building standing.
+    // A daily crate (refillsDaily) is spent by the day ledger ALONE.
+    case 'chest':
+      if (chestNeverSpent(o)) return false;
+      if (refillsDaily(o)) return !!(sets.burst && sets.burst.has(o.id));
+      return sets.opened.has(o.id) || !!(sets.burst && sets.burst.has(o.id));
     // o.chopped is the in-memory flag the chop wheel sets; save.chopped is the
     // source of truth that survives a tile re-rasterize. Both, as both sites
     // always checked both.
@@ -698,6 +844,24 @@ function isSpent(o, sets) {
     case 'groundstack': return sets.picked.has(o.id);
     default:            return false;
   }
+}
+
+// ── Does this glow as "something to take here"? ────────────────────────────
+// The POI light (Lighting.KINDS.poi) is the one mark for it. A chest wears it
+// until it is spent; the DAILY places — a crate (refillsDaily), the chapel's
+// alms and a grove shrine's gift — wear it exactly while today's take is
+// still there (the day ledger), and go dark once it is taken, until the UTC
+// day rolls. Every other stall and market stays lit (a counter is always
+// open). Takes the frame's sets, like isSpent. Loose starter crates are no
+// place and never lit.
+function poiLit(o, sets) {
+  if (!o) return false;
+  const takenToday = !!(sets.burst && sets.burst.has(o.id));
+  if (o.kind === 'grove_shrine') return !takenToday;
+  if (o.kind !== 'chest' || o.crate || isSpent(o, sets)) return false;
+  const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
+  if (macro && macro.kind === 'chapel') return !takenToday;
+  return true;
 }
 
 // ── One chest per cell ─────────────────────────────────────────────────────

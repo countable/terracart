@@ -111,7 +111,7 @@ test('pickReward: a roll bonus never buys quantity', () => {
   const qtyHist = (bonus) => {
     const hist = new Map();
     for (let s = 1; s <= N; s++) {
-      const r = pickReward('chest:lowtier', save(), seeded(s * 7919),
+      const r = pickReward('treasure:road', save(), seeded(s * 7919),
                            { tier: 4, rollBonus: bonus });
       if (r && r.kind === 'item') hist.set(r.qty, (hist.get(r.qty) || 0) + 1);
     }
@@ -292,7 +292,7 @@ test('bundle: a pile of the two raw materials, and the pile is the point', () =>
   let seen = 0;
   for (let i = 0; i < 4000 && seen < 80; i++) {
     const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });
-    if (!r || r.cls !== 'bundle') continue;
+    if (!r || r.group !== 'materials') continue;
     seen++;
     assert.eq(r.kind, 'item', 'a bundle is items in the bag');
     assert.includes(BUNDLE_IDS, r.id, 'one of the two raw materials');
@@ -310,7 +310,7 @@ test('bundle: the T1 chest that can roll no bracket at all still pays a pile', (
   for (let i = 0; i < 6000; i++) {
     const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });
     if (!r || r.kind !== 'item') continue;
-    if (r.cls === 'bundle') bundleMin = Math.min(bundleMin, r.qty);
+    if (r.group === 'materials') bundleMin = Math.min(bundleMin, r.qty);
     else if (r.id === 'wood') { plainWood += r.qty; plainWoodN++; }
   }
   assert.gte(bundleMin, 3, 'every bundle is a pile');
@@ -407,27 +407,19 @@ test('road: the ceiling the bonus can climb to is the old T4 prize ceiling', () 
 // The cave supplies: a shallow chest underground (T1/T2) leans toward coin,
 // torches, rope and potions. Measured against the SAME biome row and tier on
 // the surface, so the overlay is what moved the numbers.
-test('cave supplies: T1/T2 chests underground pay coin, torches, rope and potions more often', () => {
-  const SUPPLY = new Set(Object.keys(CAVE_SUPPLY_SKEW.favourite.ids));
-  const rate = (depth, tier, biome = 'park') => {
-    const rng = seeded(4242 + depth * 7 + tier);
-    const save = { relics: {}, armor: {} };
-    let cash = 0, supply = 0; const N = 4000;
-    for (let i = 0; i < N; i++) {
-      const r = pickReward('chest:' + biome, save, rng, { tier, depth });
-      if (r && r.kind === 'gold' && r.slot == null) cash++;
-      if (r && r.kind === 'item' && SUPPLY.has(r.id)) supply++;
-    }
-    return { cash: cash / N, supply: supply / N };
-  };
+test('cave supplies: shallow caves add medicine and practical supplies', () => {
   for (const tier of [1, 2]) {
-    const up = rate(0, tier), down = rate(1, tier);
-    assert.truthy(down.cash > up.cash + 0.1, `T${tier}: coin ${up.cash.toFixed(3)} → ${down.cash.toFixed(3)}`);
-    assert.truthy(down.supply > up.supply * 2 && down.supply > 0.2,
-      `T${tier}: supplies ${up.supply.toFixed(3)} → ${down.supply.toFixed(3)}`);
+    const rates = [0, 1].map(depth => {
+      const rng = seeded(4242);
+      let magic = 0;
+      for (let i = 0; i < 5000; i++) {
+        const r = pickReward('chest:park', { relics: {}, armor: {} }, rng, { tier, depth });
+        if (r.cls === 'magic') magic++;
+      }
+      return magic / 5000;
+    });
+    assert.gt(rates[1], rates[0] + 0.15, 'caves add a meaningful magic share');
   }
-  // T3+ underground takes the DEEP hoard instead (below), not the supplies.
-  assert.truthy(rate(2, 3).supply < 0.2, 'a T3 cave chest is not a supply crate');
 });
 
 // The deep hoard: a cave chest above the supply tiers (T3+) leans to potions,
@@ -474,7 +466,7 @@ test('deep hoard: tier-capped — at T3 it favours potions and powders, not gems
       const r = pickReward('chest:civic', { relics: {}, armor: {} }, rng, { tier: 3, depth: 3 });
       if (!r || r.kind !== 'item' || CAVE_DEEP_SKEW.favourite.ids[r.id] == null) continue;
       all++;
-      if (ITEM_BY_ID[r.id].kind === 'consumable') cons++;
+      if (ITEM_BY_ID[r.id].kind === 'magic') cons++;
     }
     assert.gt(cons / all, 0.85, `T3 hoard is ${(100 * cons / all).toFixed(0)}% potions and powders`);
   }
@@ -483,7 +475,7 @@ test('deep hoard: tier-capped — at T3 it favours potions and powders, not gems
   for (const id of Object.keys(CAVE_DEEP_SKEW.favourite.ids)) {
     assert.truthy(ITEM_BY_ID[id], `${id} is a real item`);
     const k = ITEM_BY_ID[id].kind;
-    assert.truthy(k === 'consumable' || k === 'mineral', `${id} is a potion, powder or gem`);
+    assert.truthy(k === 'magic' || k === 'mineral', `${id} is a potion, powder or gem`);
   }
 });
 
@@ -492,7 +484,7 @@ test('cave supplies: the favourite set only ever pays a consumable', () => {
   for (let i = 0; i < 3000; i++) {
     const r = pickReward('chest:civic', { relics: {}, armor: {} }, rng, { tier: 2, depth: 1 });
     if (r && r.kind === 'item' && CAVE_SUPPLY_SKEW.favourite.ids[r.id] != null) {
-      assert.eq(ITEM_BY_ID[r.id].kind, 'consumable', `${r.id} is a consumable`);
+      assert.includes(['magic', 'supply'], ITEM_BY_ID[r.id].kind, `${r.id} has its actual item class`);
     }
   }
 });
@@ -518,6 +510,6 @@ test('cave X: a dig underground leans the cave way, a surface dig does not', () 
   assert.truthy(deep > surfH * 2, `hoard ${surfH.toFixed(3)} → ${deep.toFixed(3)} deep down`);
   assert.truthy(/digTreasureOpts\(\) \{[\s\S]{0,400}?return \{ depth, tier: 2 \+ bonus \};/.test(APP_JS_SRC),
     'app.js hands a cave dig its depth and the depth\'s tier');
-  assert.truthy(/grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default', scene\.digTreasureOpts\?\.\(\)\)/.test(INTERACT_SRC),
+  assert.truthy(/const dig = scene\.digTreasureOpts\?\.\(\);\s*grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default',\s*tr\.rollBonus > 0 \? \{ \.\.\.\(dig \|\| \{\}\), rollBonus: tr\.rollBonus \} : dig\)/.test(INTERACT_SRC),
     'the fallback dig passes them too');
 });

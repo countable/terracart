@@ -95,10 +95,12 @@ test('creature table: a PET is exactly the cat and the dog, and each hunts its o
 test('creature table: what a kill drops is the kind\'s own row', () => {
   assert.eq(CT_SL.creatureDrop('crow'), 'crow_feather');
   assert.eq(CT_SL.creatureDrop('deer'), 'meat');
-  // GAME drops a body part, and livestock is caught alive. One ENEMY carries
-  // a drop too — the goblin trapper's Magic Trap — paid ON TOP of its bounty
-  // (app.js resolveDefeat asks Combat for the wage, this table for the drop).
-  assert.eq(ctKinds((k) => CT_BEH[k].drop), 'crow,deer,goblin_trapper');
+  // GAME drops a body part, and livestock is caught alive. Two ENEMIES carry
+  // a drop too — the goblin trapper's Magic Trap and the tar yard's fire
+  // slime's flint (src/zones.js) — paid ON TOP of the bounty (app.js
+  // resolveDefeat asks Combat for the wage, this table for the drop).
+  assert.eq(ctKinds((k) => CT_BEH[k].drop), 'crow,deer,fire_slime,goblin_trapper');
+  assert.eq(CT_SL.creatureDrop('fire_slime'), 'coal', 'a fire slime drops a flint');
   assert.eq(CT_SL.creatureDrop('goblin_trapper'), 'magic_trap', 'a trapper drops its trap');
   assert.eq(CT_SL.creatureDrop('giant_goblin_trapper'), 'magic_trap', 'and so does its giant');
   assert.truthy(ITEM_BY_ID.magic_trap, 'which is a real item');
@@ -185,7 +187,7 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
   const w = SCENE_CREATURES_SRC;
   assert.truthy(/const gameCharge = enraged && !standDown && !unnoticed;/.test(w),
     'it charges only when noticed and not warded (NOTHING HUNTS A BODY; Home wards it)');
-  assert.truthy(/Combat\.playerDamage\(shielded, this\.save\.armor\), \{ closeShop: true \}\)/.test(w)
+  assert.truthy(/Combat\.incomingDamage\(this\.save, raw\)/.test(w)
     && /fightsBack\.dmg \* Difficulty\.get\(\)\.enemyDmgMul/.test(w), 'the butt is mode-scaled, shielded and soaked');
   assert.truthy(/const bolting = !!bolt && !gameCharge &&/.test(w), 'a charging deer does not bolt');
 });

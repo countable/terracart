@@ -98,6 +98,7 @@ so the wizard tower next to spawn isn't adopted as Home.
 | rabbit, deer | wilderness; deer is GAME (bug-net hunt wheel, drops meat) | FOREST |
 | crow | GAME (feather); scarecrow aversion | RECREATION |
 | butterfly (wild) | catch wheel (bare hands work, slowly; the net speeds it) | FOREST, RECREATION |
+| plant | Rooted park enemy; bites only within one cell | RECREATION |
 | slime | ENEMY — energy leech, combat on HP | FOREST, BARNYARD |
 | fish (minnow→goldenfish) | FISHING — stand on the BEACH pier, tap water | BEACH |
 

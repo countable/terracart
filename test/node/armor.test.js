@@ -33,9 +33,8 @@
 // And it is still NOT IN THE CAP: Energy.maxEnergy must not learn about armour
 // again — the tests below pin that both ways round.
 //
-// Everything here runs the SHIPPING functions; the three app.js call sites
-// (the slime leech, the monster melee, the archer's arrow) can't be loaded
-// headlessly, so they are pinned as source text at the bottom.
+// Everything here runs the shipping functions. Scene call sites are also
+// pinned as source text below so every enemy attack uses the shared resolver.
 
 // ── The per-piece number ────────────────────────────────────────────────────
 
@@ -249,26 +248,57 @@ test('armor: no source still folds a gear bonus into the cap', () => {
     'app.js never asks armour for a cap');
 });
 
-// ── The three call sites (app.js can't load headlessly) ─────────────────────
+// ── Incoming blows share potion and armour resolution ──────────────────────
 
-test('armor: every blow on the player is soaked before it reaches the bar', () => {
-  // The leech and the melee are wanderCreatures' (scene_creatures.js); the
-  // arrow lands in app.js's _combatTick.
-  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
-  // 1. The surface slime's leech.
-  assert.truthy(/const slimeDmg = Combat\.playerDamage\(slimeRaw, this\.save\.armor\);/.test(app),
-    'the slime leech is mitigated');
-  // 2. A cave monster's melee.
-  assert.truthy(/const monDmg = Combat\.playerDamage\(shielded, this\.save\.armor\);/.test(app),
-    'the monster melee is mitigated');
-  // 3. A goblin archer's arrow, per carried hit.
-  assert.truthy(/const dmg = Combat\.playerDamage\(shielded, this\.save\.armor, shot\.hits\);/.test(app),
-    'the arrow is mitigated per hit');
-  // The mode and the potion scale the blow BEFORE armour spends against it,
-  // so a hard-mode hit is soaked as a hard-mode hit. Pinned by ordering: the
-  // shielded/raw value is computed first at each site.
-  assert.truthy(app.indexOf('const slimeRaw =') < app.indexOf('const slimeDmg ='),
-    'the mode/potion scaling comes first, armour soaks the result');
+test('armor: shield expiry uses epoch time, independent of attack cooldown time', () => {
+  const realDateNow = Date.now;
+  const oldPerformance = globalThis.performance;
+  const epoch = 1800000000000;
+  try {
+    Date.now = () => epoch;
+    globalThis.performance = { now: () => 5000 };
+    const save = { energy: 100, shieldPotionUntil: epoch + 1 };
+    assert.eq(Combat.incomingDamage(save, 9), 5, 'active shield halves and rounds up');
+    save.shieldPotionUntil = epoch;
+    assert.eq(Combat.incomingDamage(save, 9), 9, 'shield expires exactly at its epoch deadline');
+    save.shieldPotionUntil = epoch - 1;
+    assert.eq(Combat.incomingDamage(save, 9), 9,
+      'an expired epoch timestamp must not look active against performance.now');
+  } finally {
+    Date.now = realDateNow;
+    if (oldPerformance === undefined) delete globalThis.performance;
+    else globalThis.performance = oldPerformance;
+  }
+});
+
+test('armor: incoming shield mitigation precedes armour and preserves bundled hits', () => {
+  const save = { energy: 100, armor: { helmet: { tier: 1 } }, shieldPotionUntil: 2000 };
+  // 30 damage -> shield halves to 15 -> five hits of 3, each losing 1 to armour.
+  assert.eq(Combat.incomingDamage(save, 30, 5, 1000), 10,
+    'each hit spends the armour pool after the shield halves the bundle');
+  assert.eq(Combat.incomingDamage(save, 30, 1, 1000), 14,
+    'a single blow spends the armour pool once');
+  assert.eq(Combat.incomingDamage(save, 30, 5, 2000), 25,
+    'expiry removes only shield mitigation, retaining per-hit armour');
+  assert.eq(save.energy, 100, 'calculation leaves energy loss to the scene');
+  assert.eq(Combat.incomingDamage(save, 0, 5, 1000), 0, 'non-attacks stay harmless');
+});
+
+test('armor: downed players reject incoming damage before shield or armour', () => {
+  for (const energy of [0, -1, undefined, NaN]) {
+    assert.eq(Combat.incomingDamage({ energy }, 30, 5), 0, 'an empty bar takes no blow');
+  }
+});
+
+test('armor: every enemy blow uses shared incoming damage before reaching the bar', () => {
+  assert.truthy(/Combat\.incomingDamage\(this\.save, slimeBite\)/.test(SCENE_CREATURES_SRC),
+    'slime leech uses shared mitigation');
+  assert.eq((SCENE_CREATURES_SRC.match(/Combat\.incomingDamage\(this\.save, raw\)/g) || []).length, 2,
+    'retaliating fauna and ghost touches use shared mitigation');
+  assert.truthy(/Combat\.incomingDamage\(this\.save, dmg\)/.test(SCENE_CREATURES_SRC),
+    'monster melee uses shared mitigation');
+  assert.truthy(/Combat\.incomingDamage\(this\.save, shot\.damage, shot\.hits(?: \|\| 1)?\)/.test(APP_JS_SRC),
+    'arrows pass their bundled hit count through shared mitigation');
 });
 
 test('armor: what a piece soaks is printed ON the piece', () => {

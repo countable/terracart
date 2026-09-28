@@ -448,6 +448,32 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
     'collectLamps runs between collectFires and collectPlayer, every frame');
 });
 
+test('lighting: a lamp throws its STREET\'s glow — a hue, keyed in frameKey, default unchanged', () => {
+  // app.js resolves each lamp's `glow` once (StreetVariants.lampGlowFor off
+  // its street, default UI_LAMP_GLOW); collectLamps hands it on as the entry's
+  // colour, and a plain street's lamp stays on the cobble row's own colour.
+  const cellM = 5;
+  const mk = (glow) => {
+    const s = scene({ cellM, _streetLamps: [{ x: 1, y: 1, id: 'L', lit: true, glow }] });
+    Lighting.beginFrame(s);
+    Lighting.collectLamps(s, 0, 0, HALF_M);
+    return s;
+  };
+  const plain = mk(UI_LAMP_GLOW), none = mk(undefined), orange = mk('#ff8c2a');
+  assert.eq(plain._lights[0].colour, undefined, 'the default glow is the row\'s own colour — the same cookie as before');
+  assert.eq(none._lights[0].colour, undefined, 'and so is a lamp with no glow');
+  assert.eq(orange._lights[0].colour, 0xff8c2a, 'a themed lamp throws its own glow');
+  assert.eq(Lighting.lampColour('#FF8C2A'), 0xff8c2a, 'case-blind');
+  assert.eq(Lighting.lampColour('orange'), null, 'garbage falls back to the default');
+  // A hue, not a brightness: the entry carries no alpha or scale of its own.
+  assert.eq(orange._lights[0].a, undefined); assert.eq(orange._lights[0].s, undefined);
+  assert.eq(orange._lights[0].r, undefined, 'and the row\'s radius');
+  // frameKey names each light's colour, so a lamp changing colour repaints.
+  const key = (s) => Lighting.frameKey(s, { x: 0, y: 0 }, 0, 0, Lighting.profile(s), 64, 300, 10, null, null, 0);
+  assert.truthy(key(plain) !== key(orange), 'a colour change moves the still-frame key');
+  assert.eq(key(plain), key(none), 'and the default is one key whichever way it is spelt');
+});
+
 test('lighting: a BLAST is a transient light on its own clock, at any size', () => {
   // A restoration moment — a stretch of street rebuilt, a wreck pulled back
   // into a house — throws one wide near-white flash that fades as it swells.
@@ -578,8 +604,8 @@ test('lighting: the halo ping is gone — the POI light replaced it', () => {
   assert.falsy(/poiHaloContainer|halo_poi|POI_HALO_PERIOD_S/.test(APP_JS_SRC + RENDER_SRC),
     'the ring layer, its texture and its period are gone from app.js / render.js');
   const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  assert.truthy(/if \(LIGHTS && o\.kind === 'chest' && !o\.crate && !openedSet\.has\(o\.id\) && !burstSet\.has\(o\.id\)\) LIGHTS\.consider\(scene, o, dx, dy, halfM\);/.test(body),
-    'live POIs are offered to the lightmap from the tile scan, opened (or used-today) ones never');
+  assert.truthy(/if \(LIGHTS && o\.kind === 'chest' && poiLit\(o, spentIds\)\) LIGHTS\.consider\(scene, o, dx, dy, halfM\);/.test(body),
+    'live POIs are offered to the lightmap from the tile scan, opened (or used-today) ones never (interactables.js poiLit)');
   const offer = body.indexOf("if (LIGHTS && o.kind === 'chest'");
   // (`return`, not `continue`: the object walk is forEachItemInBox's callback
   // since the chunk index — see chunk_index.test.js.)
@@ -720,7 +746,8 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // shadow pass, the shop pip and the rampart occluder ask, so a new building
   // kind is offered to the lightmap by joining that group rather than by being
   // remembered here.
-  const offer = body.indexOf("if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);");
+  // (+ the grove shrine, src/zones.js — a standing light like the torch.)
+  const offer = body.indexOf("if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine')) LIGHTS.consider(scene, o, dx, dy, halfM);");
   const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   // The mushroom is a wildplant, scanned in its own loop: offered as itself,
@@ -834,7 +861,11 @@ test('lighting: the reach area is as bright as noon leaves room for', () => {
   };
   // 0x333025 is WASTELAND's dim (COLORS 0x9a8e68 under its khaki dust
   // 0x928a70) — added Sep 2026, and less saturated than the brick/rust pair.
-  const DIMS = [0x35261e, 0x3a2a1e, 0x1a2a1e, 0x000000, 0x8d8272, 0x2a2622, 0x333025];
+  // 0x252e20 / 0x272d27 / 0x1d1b18 are the influence-zone halos' (GROVE,
+  // CHURCHYARD, TAR_YARD — src/zones.js), each under its own dust; none is
+  // more saturated than the brick/rust pair either.
+  const DIMS = [0x35261e, 0x3a2a1e, 0x1a2a1e, 0x000000, 0x8d8272, 0x2a2622, 0x333025,
+    0x252e20, 0x272d27, 0x1d1b18];
   let tightest = Infinity;
   for (const dim of DIMS) {
     const h = headroom(dim);

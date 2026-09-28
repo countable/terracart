@@ -38,10 +38,11 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
       for (const id of stock) assert.truthy(ITEM_BY_ID[id], `${id} is a real item`);
     }
   }
-  // Potions start at T2: a tier-1 potion shop sells the T2 ones.
+  // Antidote fills the T1 Magic shop; other medicines follow at their tiers.
   const p1 = Shops.themedStock('potion', 1);
-  assert.truthy(p1.includes('vigor_potion'), 'T1 potion shop → the T2 potions');
+  assert.truthy(p1.includes('antidote'), 'T1 magic shop stocks the cure');
   assert.falsy(p1.includes('dragon_powder'), 'not the T3 powders');
+  assert.truthy(Shops.themedStock('potion', 6).includes('elixir'), 'T6 magic shop stocks Elixir');
   // A pet shop stocks every pet across its rounds.
   const pets = new Set();
   for (let tier = 1; tier <= 7; tier++) for (const id of Shops.themedStock('pet', tier)) pets.add(id);

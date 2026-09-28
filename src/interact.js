@@ -208,6 +208,7 @@ const TERRAIN = {
   CAVE_FLOOR: WorldGen.T.CAVE_FLOOR,         // 24
   CAVE_WALL: WorldGen.T.CAVE_WALL,           // 25
   CAVE_LAVA: WorldGen.T.CAVE_LAVA,           // 26
+  TAR_YARD: WorldGen.T.TAR_YARD,             // 31
 };
 
 // Flavor label per NON-TILLABLE terrain code (the 'flavor' handler below).
@@ -256,6 +257,7 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.CAVE_FLOOR]:     'Cave floor, worn smooth.',
   [TERRAIN.CAVE_WALL]:      'Solid rock. A pick opens it.',
   [TERRAIN.CAVE_LAVA]:      'Lava. It burns to stand in.',
+  [TERRAIN.TAR_YARD]:       'Oily ground. Nothing roots.',
 };
 
 // ── Naming things the player can see ────────────────────────────────────────
@@ -310,16 +312,6 @@ const GRASSLAND_TILL = new Set([
   WorldGen.T.PITCH, WorldGen.T.GOLF, WorldGen.T.FARMLAND,
 ]);
 
-// Equip a relic or armor reward from a chest / fishing jackpot. Mutates save
-// and calls scene.markRelicsDirty. Caller is responsible for persistence
-// (ctx.dirty or persistSave) and any follow-up UI (modal or flash).
-function equipGearReward(reward, save, scene) {
-  // Equip math (incl. the armor max-energy bump) is shared with app.js'
-  // _equipGear via Gear.equip (gear.js); this only adds the dirty flag.
-  Gear.equip(save, reward.kind, reward.slot, reward.tier);
-  scene.markRelicsDirty?.();
-}
-
 // Grant ONE buried-treasure roll: the pickReward('treasure:default') payout
 // with every branch it can take — an item (low-tier seeds bundled up, jackpot
 // fanfare on a big hit), a gold sum, or the fallback dollar if the pool comes
@@ -352,8 +344,9 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     scene.flashLoot(`${mark} → 1`, '#ffe066', 1, null, scene.coinIconEl?.());
     return;
   }
+  if (reward.kind === 'item' && isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
+  Rewards.apply(save, reward, scene);
   if (reward.kind === 'relic' || reward.kind === 'armor') {
-    equipGearReward(reward, save, scene);
     const label = (typeof gearName === 'function')
       ? gearName(reward.kind, reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
     scene.flashLoot(`${mark} → ✨ ${label} (equipped!)`, '#ffe066', 1.6);
@@ -362,14 +355,10 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     }
   } else if (reward.kind === 'gold' && reward.slot) {
     // A relic roll the player already beats — cashed out by reconcileRelicOffer.
-    addMoney(save, reward.amount);
     const label = (typeof gearName === 'function')
       ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
     scene.flashLoot(`${mark} Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
   } else if (reward.kind === 'item') {
-    // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
-    if (isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
-    scene.addToInv(reward.id, reward.qty);
     const item = ITEM_BY_ID[reward.id];
     const ti = tierInfo(reward.id);
     const color = ti?.color || '#ffe066';
@@ -379,14 +368,12 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
       scene.flashJackpot(reward.jackpot);
     }
   } else if (reward.kind === 'gold') {
-    addMoney(save, reward.amount);
     scene.flashLoot(`${mark} → ${reward.amount}`, '#ffe066', 1, null, scene.coinIconEl?.());
   }
   // Consolation coins for any qty bumps the picker couldn't apply
   // (bracket at cap or single-stack class). Small gold trickle alongside
   // the main loot — never replaces it.
   if (reward.consolation > 0) {
-    addMoney(save, reward.consolation);
     scene.flash(`+${reward.consolation}`, sx, sy + 16);
   }
 }
@@ -470,7 +457,11 @@ const TAP_HANDLERS = [
       // ONE find, paid on the spot — no pick (the road ladder's pick is the
       // only "several finds, keep one"). Underground the roll takes the cave
       // skew (app.js digTreasureOpts).
-      grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default', scene.digTreasureOpts?.());
+      // A mark that carries its own rollBonus (a hedgerow close's hoard —
+      // StreetVariants.dress) pays that many extra roll steps on top.
+      const dig = scene.digTreasureOpts?.();
+      grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default',
+        tr.rollBonus > 0 ? { ...(dig || {}), rollBonus: tr.rollBonus } : dig);
       ctx.dirty = true;
       return true;
     };
@@ -541,7 +532,7 @@ const TAP_HANDLERS = [
     const HALF_W = {
       cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
-      slime: 2.0, cave_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
+      slime: 2.0, cave_slime: 2.0, fire_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
     // distance to the body CENTRE so the most on-target animal wins overlaps.
@@ -1037,14 +1028,16 @@ const TAP_HANDLERS = [
 
   { name: 'object', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    const openedSetTap = new Set(save.opened);
+    // Spent chests (opened for good, or a daily crate taken today) sort last,
+    // off the one test the draw pass hides them by (interactables.js isSpent).
+    const spentTap = spentSets(scene, save);
     const allObjs = [];
     // Wrap push in a block so we don't return its truthy result —
     // forEachItem treats any truthy return as "stop iterating".
     WorldGen.forEachItem('objects', (o) => { allObjs.push(o); });
     allObjs.sort((a, b) => {
-      const ao = a.kind === 'chest' && openedSetTap.has(a.id) ? 1 : 0;
-      const bo = b.kind === 'chest' && openedSetTap.has(b.id) ? 1 : 0;
+      const ao = a.kind === 'chest' && isSpent(a, spentTap) ? 1 : 0;
+      const bo = b.kind === 'chest' && isSpent(b, spentTap) ? 1 : 0;
       return ao - bo;
     });
     // Match render.js exactly: deterministic dedupe by game cell so the tap-target set
@@ -1417,7 +1410,7 @@ const TAP_HANDLERS = [
       if (p.crop === 'potato') return POTATO_STAGE_NAMES[stage];
       return `${CROP_NAMES?.[p.crop] || p.crop} ${stage + 1}/${MAX_GROWTH_STAGE + 1}`;
     };
-    const stageHoldMs = Crops.STAGE_HOLD_MS;   // single source of truth in crops.js
+    const stageHoldMs = Crops.stageHoldMs(p.crop);   // single source of truth in crops.js
     // The wait to the next stage, in the shared largest-unit notation — or ''
     // when the plant isn't counting down (unwatered, or ripe). The corner
     // badge over the cell has always shown this number; the tap that reads the
@@ -1553,16 +1546,15 @@ const TAP_HANDLERS = [
       // upgrade auto-equips; a dupe cashes out as consolation gold.
       if (Math.random() < FISH_JACKPOT_CHANCE) {
         const reward = rollGearUpgrade(undefined, save.relics, 2, save.armor);
+        if (reward) Rewards.apply(save, reward, scene);
         if (reward?.kind === 'relic' || reward?.kind === 'armor') {
-          equipGearReward(reward, save, scene);
           persistSave(save);
           const label = gearName(reward.kind, reward.slot, reward.tier);
           scene.flashLoot(`✨ ${label} (equipped!)`, '#ffe066', 1.6);
           return;
         }
         if (reward?.kind === 'gold') {
-          const label = gearName(reward.gearKind || 'relic', reward.slot, reward.tier);
-          scene.flashLoot(`✨ ${label} (already better)`, '#aaa', 1.2);
+          scene.flashLoot(`✨ Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
           persistSave(save);
           return;
         }
@@ -1742,13 +1734,13 @@ const TAP_HANDLERS = [
       if (pp) blocker = `${cropName(pp.crop)} grows here.`;
     }
     if (!blocker) {
-      const openedSet = new Set(save.opened || []);
+      const spentTill = spentSets(scene, save);
       for (const e of WorldGen.tileCache.values()) {
         const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
         if (wp) { blocker = `Pick the ${cropName(wp.crop)} first.`; break; }
         const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
-          !(o.kind === 'chest' && openedSet.has(o.id)) &&
+          !(o.kind === 'chest' && isSpent(o, spentTill)) &&
           !(o.kind === 'tree' && (o.chopped || choppedSet.has(o.id))) &&
           Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
         if (oo) { blocker = tillBlockerLine(oo); break; }

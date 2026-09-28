@@ -93,6 +93,25 @@
     return (h ^ (h >>> 16)) >>> 0;
   }
 
+  // Rooted park enemies have their own per-cell stream. Filtering one blocked
+  // cell never shifts another candidate, and no fauna/treasure RNG is consumed.
+  const PARK_PLANT_CELL_CHANCE = 1 / 192;
+  const PARK_PLANT_SALT = 0x50a17;
+  function spawnParkPlants(grid, w, h, tx, ty, tileEdgeM, opts = {}) {
+    const plants = [];
+    for (let cy = 0; cy < h; cy++) for (let cx = 0; cx < w; cx++) {
+      if (grid[cy * w + cx] !== T.PARK) continue;
+      const rng = makeRng(cellHash(tx, ty, cx, cy) ^ PARK_PLANT_SALT);
+      if (rng() >= PARK_PLANT_CELL_CHANCE) continue;
+      if (!isSpawnCell(grid, w, h, cx, cy, opts)) continue;
+      plants.push(makeCreature('plant',
+        tx * tileEdgeM + (cx + 0.5) * tileEdgeM / w,
+        ty * tileEdgeM + (cy + 0.5) * tileEdgeM / h,
+        cellId('plant', tx, ty, cx, cy)));
+    }
+    return plants;
+  }
+
   // The id of a generated thing on one CELL of one TILE:
   // `${prefix}_${tx}_${ty}_${ix}_${iy}`. A level or variant goes INTO the
   // prefix (`c_${depth}`), never on the end, so every id minted through here
@@ -170,6 +189,19 @@
     // It is a new REASON in the residential lanes, not a new lane — every
     // "is this someone's lot?" test reads isLotTerrain, never the two codes.
     WASTELAND: 27,
+    // INFLUENCE ZONES (src/zones.js) — the HALO a zone anchor paints over the
+    // lot and commercial ground around it (RESIDENTIAL / COMMERCIAL /
+    // WASTELAND only; Zones.haloSteps, the end of rasterizeTileSteps). Each
+    // is a REASON in an existing family, not a new lane:
+    //   GROVE      — a park's lush sward (grassland; plays like PARK for
+    //                flora and fauna)
+    //   CHURCHYARD — the worn grey-green sward of a church / cemetery's
+    //                old stones (the rocky family)
+    //   TAR_YARD   — a fuel yard's dark oily ground (the industrial family)
+    // 30 is render.js' UNMAPPED pseudo-terrain, so the tar yard is 31.
+    GROVE: 28,
+    CHURCHYARD: 29,
+    TAR_YARD: 31,
   };
 
   // --- Walkability / spawnability (single source of truth) ---
@@ -207,6 +239,10 @@
   // gates all ask this, so a new lot-like code joins here once.
   const LOT_TYPES = new Set([T.RESIDENTIAL, T.WASTELAND]);
   function isLotTerrain(t) { return LOT_TYPES.has(t); }
+  // Which lot ground takes NO rock-cluster scatter (the walk still runs for
+  // its yard flora): residential yards — their rubble lines the streets now.
+  // Waste ground keeps its rubble.
+  const LOT_ROCK_DRY = new Set([T.RESIDENTIAL]);
 
   // Default Chebyshev radius for the residential-frontage test: a private cell
   // is only spawnable if a public anchor sits within this many cells.
@@ -869,6 +905,53 @@
       for (let cx = 0; cx < w; cx++) {
         const bits = cover[row + cx];
         if (bits && popcount16(bits) >= ROAD_MASK_MIN_BITS) mask[row + cx] = 1;
+      }
+    }
+  }
+  // ── The road's CLASS, per cell ────────────────────────────────────────────
+  // Beside the mask, one byte of bits saying which ROAD this is ground of. Only
+  // the MAJOR ways (ROAD_MD + ROAD_LG, the bandit roads — see
+  // src/street_variants.js) are recorded, because that is the question the
+  // spawners ask: the traps' verge (Traps.isRoadside), the wagon bus stops and
+  // the dogs.
+  //   ROAD_CLASS_MAJOR_BAND  a major way's drawn band covers ANY of the cell.
+  //   ROAD_CLASS_MAJOR_VERGE the cell is NOT road ground (roadMask 0) and is
+  //                          either touched by a major band (under half
+  //                          covered) or 8-adjacent to a masked cell a major
+  //                          band touches: the major road's verge.
+  // Derived from the SAME stamp the mask is (majorCover is the major ways'
+  // own copy of roadCover), so a narrow band that masks no cell at all at
+  // ROAD_MASK_MIN_COVER still has a verge — the cells it paints a lick of.
+  const ROAD_CLASS_MAJOR_BAND = 1;
+  const ROAD_CLASS_MAJOR_VERGE = 2;
+  //   ROAD_CLASS_BANDIT_VERGE a major-verge cell on a BANDIT STRETCH — the
+  //                          surface traps' road ground (Traps.isTrapGround).
+  //                          Stamped after the street index is built
+  //                          (StreetVariants.stampBanditStretchesSteps).
+  const ROAD_CLASS_BANDIT_VERGE = 4;
+  function* resolveRoadClassSteps(majorCover, mask, out, w, h) {
+    for (let cy = 0; cy < h; cy++) {
+      if ((cy & 63) === 63) yield 'road class bands';
+      const row = cy * w;
+      for (let cx = 0; cx < w; cx++) if (majorCover[row + cx]) out[row + cx] |= ROAD_CLASS_MAJOR_BAND;
+    }
+    for (let cy = 0; cy < h; cy++) {
+      if ((cy & 63) === 63) yield 'road class verge';
+      for (let cx = 0; cx < w; cx++) {
+        const i = cy * w + cx;
+        if (mask[i]) continue;
+        let verge = !!majorCover[i];
+        for (let dy = -1; dy <= 1 && !verge; dy++) {
+          const ny = cy + dy;
+          if (ny < 0 || ny >= h) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = cx + dx;
+            if (nx < 0 || nx >= w) continue;
+            const j = ny * w + nx;
+            if (mask[j] && majorCover[j]) { verge = true; break; }
+          }
+        }
+        if (verge) out[i] |= ROAD_CLASS_MAJOR_VERGE;
       }
     }
   }
@@ -2034,6 +2117,10 @@
     // layer loop, before anything reads it.
     const roadMask = new Uint8Array(w * h);
     const roadCover = new Uint16Array(w * h);
+    // The same coverage, for the MAJOR ways only, and the per-cell road CLASS
+    // resolved from it beside the mask (resolveRoadClassSteps).
+    const majorCover = new Uint16Array(w * h);
+    const roadClass = new Uint8Array(w * h);
     // Per-cell length of PATH geometry, in cell widths — see accumulateLineSpan.
     // Reduced to the pathCross mask below once every way has been walked.
     const pathSpan = new Float32Array(w * h);
@@ -2108,9 +2195,13 @@
     // multiples of that on a phone). Delegated with `yield*` it breaks every
     // 8 rows, exactly as the polygon fill it follows does. The prng is drawn in
     // the same order either way, so the scatter is identical.
-    function* spawnDebrisSteps(rings, crop, polyKey, dMin, dMax) {
+    // `patch` (optional): the biome's FLORA_PATCH row — the density is scaled
+    // per candidate by the plane noise at its global point (clumps, not a
+    // blanket). Still one draw per candidate: the stream never moves.
+    function* spawnDebrisSteps(rings, crop, polyKey, dMin, dMax, patch) {
       const prng = makeRng(polyKey);
       const density = dMin + prng() * (dMax - dMin);
+      const gx0 = tx * TILE_EXTENT, gy0 = ty * TILE_EXTENT;
       const bb = bboxOf(rings);
       const stepMvt = CELL_M / mvtToM; // one candidate per game-cell-width
       let _row = 0;
@@ -2124,7 +2215,10 @@
           if (localIX < 0 || localIY < 0 || localIX >= w || localIY >= h) continue;
           // Absolute world meters for game positioning — at the local cell center.
           const { mx: cx, my: cy } = cellCenterMeters(localIX, localIY);
-          if (prng() < density) {
+          const d = patch
+            ? density * BiomeProfiles.patchMul(patch, gx0 + xx + stepMvt * 0.5, gy0 + yy + stepMvt * 0.5)
+            : density;
+          if (prng() < d) {
             // Stash local ix/iy on the wp so the post-pass filter can read grid[] directly.
             wildplants.push(makeWildplant(crop, cx, cy,
               cellId('wp', tx, ty, localIX, localIY), { _ix: localIX, _iy: localIY }));
@@ -2174,6 +2268,62 @@
           const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
           wildplants.push(makeWildplant(crop, cx, cy,
             cellId('hm', tx, ty, ix, iy), { _ix: ix, _iy: iy }));
+        }
+      }
+    }
+
+    // A FORMAL park's clipped hedge rows (BiomeProfiles.PARK_CHARACTERS.formal
+    // `hedgeRows`): a row every `period` ABSOLUTE cell rows, cut into
+    // `seg`-cell runs of which `on` stand (a stable coin per run). Keyed on
+    // absolute cells like the hedge maze, so a row runs straight on across
+    // polygons and east/west seams; no rng, no clumps — neat is the point.
+    function* spawnHedgeRowsSteps(rings, crop, row) {
+      const bb = bboxOf(rings);
+      const ix0 = Math.max(0, Math.floor(bb.minX * mvtToCell));
+      const iy0 = Math.max(0, Math.floor(bb.minY * mvtToCell));
+      const ix1 = Math.min(w - 1, Math.floor(bb.maxX * mvtToCell));
+      const iy1 = Math.min(h - 1, Math.floor(bb.maxY * mvtToCell));
+      let _row = 0;
+      for (let iy = iy0; iy <= iy1; iy++) {
+        if ((++_row & 7) === 7) yield 'hedge row rows';
+        const ay = ty * h + iy;
+        if (((ay % row.period) + row.period) % row.period !== 0) continue;
+        for (let ix = ix0; ix <= ix1; ix++) {
+          const ax = tx * w + ix;
+          const run = Math.floor(ax / row.seg);
+          const hsh = ((Math.imul(run, 73856093) ^ Math.imul(ay, 19349663) ^ row.salt) >>> 0);
+          if ((hsh % 1000) >= row.on * 1000) continue;
+          if (!pointInRings(rings, (ix + 0.5) / mvtToCell, (iy + 0.5) / mvtToCell)) continue;
+          const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
+          wildplants.push(makeWildplant(crop, cx, cy,
+            cellId('hr', tx, ty, ix, iy), { _ix: ix, _iy: iy }));
+        }
+      }
+    }
+
+    // A WOODED park's trees (PARK_CHARACTERS.wooded `trees`): one candidate
+    // per cell, kept with chance p (× the FLORA_PATCH clump), off the
+    // polygon's own stream (polyKey ^ salt) — one draw per candidate, then
+    // one for the look. The species is the polygon's, as in a forest.
+    function* spawnParkTreesSteps(rings, polyKey, trees, patch) {
+      const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
+      const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
+      const prng = makeRng((polyKey ^ trees.salt) >>> 0);
+      const gx0 = tx * TILE_EXTENT, gy0 = ty * TILE_EXTENT;
+      const bb = bboxOf(rings);
+      const stepMvt = CELL_M / mvtToM;
+      let _row = 0;
+      for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+        if ((++_row & 7) === 7) yield 'park tree rows';
+        for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
+          if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
+          const ix = Math.floor(xx * mvtToCell), iy = Math.floor(yy * mvtToCell);
+          if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
+          const pm = patch ? BiomeProfiles.patchMul(patch, gx0 + xx + stepMvt * 0.5, gy0 + yy + stepMvt * 0.5) : 1;
+          if (prng() >= trees.p * pm) continue;
+          const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
+          objects.push(makeObject('tree', cx, cy, cellId('ptree', tx, ty, ix, iy),
+            { variant: 1 + Math.floor(prng() * 4), species }));
         }
       }
     }
@@ -2291,6 +2441,63 @@
     // so the unified occupancy pass failed to dedupe them and both survived.
     // Local cells are also fully contained within the tile (indices 0..w/h-1),
     // so no two tiles ever emit an object for the same physical cell.
+    // STREET ROCKS — the residential rubble, moved off the lots and onto the
+    // kerb. StreetVariants.rocksFor picks ROCK_STREET_SHARE of the MINOR
+    // streets (by street key, so a street is rock-lined end to end and never
+    // a hedgerow); each piece in this tile walks its own arclength, a cluster
+    // candidate every STREET_ROCK_PIVOT_M firing at STREET_ROCK_FIRE (denser
+    // than the old lot pivots: most of a verge cluster lands on a sidewalk, a
+    // moat or a driveway and is culled — ~20% survive; the owner asked for
+    // ~1 rock per 10 m of rock-lined street, up from ~1 per 16 m at a 20 m
+    // pivot: at 10 m the Kelowna block where 16 m was measured runs 9.8 m a
+    // rock — denser cities lose more of a cluster to sidewalks and yards, 20
+    // to 40 m), and each fired cluster drops its rocks
+    // on the VERGE: STREET_ROCK_OUT_MIN..+SPAN cells out past the band's
+    // edge, jittered STREET_ROCK_ALONG_M along the way. The same tier roll
+    // and vein table the residential clusters used, and the same `rc` cluster
+    // id (the cave-entrance pass groups by it). Its OWN stream per piece
+    // (fnv1a of street key + tile + lineKey), so no other stream moves; and
+    // pushed before the mineralrock cleanup, whose one filter (band, moat,
+    // plaza, yard rule) decides what survives. A generator: one yield per line.
+    const STREET_ROCK_PIVOT_M = 10, STREET_ROCK_FIRE = 0.8;
+    const STREET_ROCK_MIN = 6, STREET_ROCK_SPAN = 6;
+    const STREET_ROCK_ALONG_M = 7;
+    const STREET_ROCK_OUT_MIN = 0.5, STREET_ROCK_OUT_SPAN = 2;
+    function* spawnStreetRocksSteps(index) {
+      const SV = StreetVariants;
+      const plainP = caveRockP(0);
+      const ext = index.extent || TILE_EXTENT;
+      for (const rec of index.lines) {
+        if (!rec.rocks) continue;
+        yield 'street rocks';
+        const spans = (typeof Streets !== 'undefined') ? Streets.tileSpans(rec.line, mvtToM, ext) : [];
+        if (!spans.length) continue;
+        const rng = makeRng(fnv1a(`rocks|${rec.key}|${tx},${ty}|${rec.lineKey}`));
+        SV.sampleLine(rec.line, mvtToM, STREET_ROCK_PIVOT_M, STREET_ROCK_PIVOT_M / 2, (s, x, y, nx, ny) => {
+          if (rng() > STREET_ROCK_FIRE) return;
+          const n = STREET_ROCK_MIN + Math.floor(rng() * STREET_ROCK_SPAN);
+          const side = rng() < 0.5 ? 1 : -1;
+          const tbl = rollVeinTable(rng, SURFACE_ROCK_TIER_WEIGHTS, 0.30, SURFACE_ROCK_CUM);
+          if (!Streets.covers(spans, s)) return;     // the neighbour's metres
+          const clusterId = cellId('rc', tx, ty, Math.floor(x / CELL_M), Math.floor(y / CELL_M));
+          for (let k = 0; k < n; k++) {
+            const along = (rng() - 0.5) * 2 * STREET_ROCK_ALONG_M;
+            const out = side * (rec.halfW + (STREET_ROCK_OUT_MIN + rng() * STREET_ROCK_OUT_SPAN) * CELL_M);
+            const roll = rollRock(rng, plainP, tbl);
+            // Along the local tangent (-ny, nx) is (ux, uy): left normal (uy, -ux).
+            const px = x - ny * along + nx * out, py = y + nx * along + ny * out;
+            const ix = Math.floor(px / CELL_M), iy = Math.floor(py / CELL_M);
+            if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
+            const { mx, my } = cellCenterMeters(ix, iy);
+            objects.push(roll.plain
+              ? makeObject('mineralrock', mx, my, cellId('mr', tx, ty, ix, iy),
+                  { requiredTier: 1, caveVariant: roll.caveVariant, _clusterId: clusterId, _street: true })
+              : makeObject('mineralrock', mx, my, cellId('mr', tx, ty, ix, iy),
+                  { requiredTier: roll.requiredTier, yieldTier: roll.yieldTier, _street: true }));
+          }
+        });
+      }
+    }
     const snapCell = (mx, my) => {
       const ix = Math.floor(mx * mvtToCell);
       const iy = Math.floor(my * mvtToCell);
@@ -2305,6 +2512,39 @@
     const order = ['landcover', 'landuse', 'park', 'water', 'transportation', 'building', 'poi'];
     const layersByName = {};
     for (const l of layers) layersByName[l.name] = l;
+
+    // PARK CHARACTERS (BiomeProfiles.PARK_CHARACTERS). A park polygon's
+    // character is keyed on a GLOBAL point: the named-park POI inside it (the
+    // grove anchor, so park and grove agree — src/zones.js reads the same
+    // parkCharacterAt off the anchor), else the polygon's own global centroid.
+    // A polygon clipped differently by two tiles may key differently on each
+    // side of a seam — exactly as seam-safe as its flora scatter (polyKey
+    // carries tx, ty) already is. Cemeteries are always a lawn.
+    // `parkPolys` collects every park polygon for the PARK FRINGE (Zones.
+    // fringeSteps, the end of this build).
+    const parkPois = [];
+    if (layersByName['poi']) {
+      for (const f of layersByName['poi'].features) {
+        if (f.type !== 1 || !f.geom || !BiomeProfiles.isParkPoi(f.tags)) continue;
+        for (const ring of f.geom) {
+          const p = ring && ring[0];
+          if (p) parkPois.push({ lx: p.x, ly: p.y, gx: tx * TILE_EXTENT + p.x, gy: ty * TILE_EXTENT + p.y });
+        }
+      }
+      parkPois.sort((a, b) => (a.gy - b.gy) || (a.gx - b.gx));
+    }
+    const parkCharacterFor = (rings, c0, cemetery) => {
+      if (cemetery) return BiomeProfiles.CEMETERY_CHARACTER;
+      if (parkPois.length) {
+        const bb = bboxOf(rings);
+        for (const p of parkPois) {
+          if (p.lx < bb.minX || p.lx > bb.maxX || p.ly < bb.minY || p.ly > bb.maxY) continue;
+          if (pointInRings(rings, p.lx, p.ly)) return BiomeProfiles.parkCharacterAt(p.gx, p.gy);
+        }
+      }
+      return BiomeProfiles.parkCharacterAt(tx * TILE_EXTENT + c0.x, ty * TILE_EXTENT + c0.y);
+    };
+    const parkPolys = [];
 
     // PRE-PASS: measure how far every footpath runs through each cell, BEFORE
     // any painting. A cell only becomes PATH where a way genuinely crosses it
@@ -2486,7 +2726,13 @@
             // unluckiest roll still grows the floor rather than reading
             // barren. Unwired/unknown biomes fall back to their base-family
             // profile, so no walkable zone is ever barren.
-            for (const fl of BiomeProfiles.flora(t)) {
+            // A park polygon reads its CHARACTER's row (meadow / wooded /
+            // formal / common) — the same scatter over a variant profile.
+            const isCemetery = f.tags.class === 'cemetery';
+            const parkChar = t === T.PARK ? parkCharacterFor(f.geom, c0, isCemetery) : null;
+            if (parkChar) parkPolys.push({ rings: f.geom, character: parkChar, cemetery: isCemetery });
+            const floraPatch = BiomeProfiles.patch(t, parkChar);
+            for (const fl of BiomeProfiles.flora(t, parkChar)) {
               const seed = (polyKey ^ (fl.salt >>> 0)) >>> 0;
               if (fl.pattern === 'hedgemaze') {
                 // Deterministic clipped-hedge-maze layout (commercial plazas) —
@@ -2495,11 +2741,16 @@
                 yield* spawnHedgeMazeSteps(f.geom, fl.crop, fl.salt >>> 0);
               } else if (fl.dynamic) {
                 const density = Math.max(fl.dMin, ((seed % 1000) / 1000) * fl.dMax);
-                yield* spawnDebrisSteps(f.geom, fl.crop, seed, density, density);
+                yield* spawnDebrisSteps(f.geom, fl.crop, seed, density, density, floraPatch);
               } else {
-                yield* spawnDebrisSteps(f.geom, fl.crop, seed, fl.dMin, fl.dMax);
+                yield* spawnDebrisSteps(f.geom, fl.crop, seed, fl.dMin, fl.dMax, floraPatch);
               }
             }
+            // The character's own furniture: a wooded park's trees, a formal
+            // park's clipped hedge rows (each on its own stream / lattice).
+            const charRow = parkChar ? BiomeProfiles.parkCharacter(parkChar) : null;
+            if (charRow && charRow.trees) yield* spawnParkTreesSteps(f.geom, polyKey, charRow.trees, floraPatch);
+            if (charRow && charRow.hedgeRows) yield* spawnHedgeRowsSteps(f.geom, 'shrub', charRow.hedgeRows);
 
             // Scattered trees on wood/forest landcover, and fruit trees on
             // orchard landcover — both delegated as generators (see
@@ -2548,10 +2799,11 @@
             // correctness.
             // `tbl` is a cumWeights() table; the roll itself is the shared
             // rollRock (same draws as the cave spawner).
-            const _pushMineralrock = (rng, jx, jy, tbl, clusterId) => {
+            const _pushMineralrock = (rng, jx, jy, tbl, clusterId, dry) => {
               if (!pointInRings(f.geom, jx, jy)) return;
               const { ix, iy, cx, cy } = snapCell(jx, jy);
               const roll = rollRock(rng, _CAVE_ROCK_P, tbl);
+              if (dry) return;          // the draws, never the rock
               if (roll.plain) {
                 objects.push(makeObject('mineralrock', cx, cy,
                   cellId('mr', tx, ty, ix, iy), {
@@ -2610,7 +2862,7 @@
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (rng() - 0.5) * 2 * o.clusterR;
                     const jy = yy + (rng() - 0.5) * 2 * o.clusterR;
-                    _pushMineralrock(rng, jx, jy, tbl, clusterId);
+                    _pushMineralrock(rng, jx, jy, tbl, clusterId, o.dry);
                   }
                 }
               }
@@ -2683,10 +2935,19 @@
               // random tier is VEIN_MUL× more likely (see rollVeinTable). Pass
               // the raw `weights` so the vein path can rebuild a boosted table.
               const pivots = [];
+              // DRY on RESIDENTIAL only: residential rubble no longer scatters
+              // through the zone — rocks now LINE a quarter of the minor
+              // streets instead (spawnStreetRocksSteps, off
+              // StreetVariants.rocksFor). The walk still runs there, with
+              // every draw it always took, only because the yard flora below
+              // grows around the pivots it FIRES — so the flora is exactly
+              // what it was. WASTELAND lots keep the old scatter (LOT_ROCK_DRY
+              // names which lot ground is dry): waste ground is where rubble
+              // belongs, same generator, same stream shape.
               yield* _spawnRockClustersSteps(resRng, f.geom, {
                 pivotStep, clusterR, fireChance: 0.585,
                 clusterMin: 25, clusterSpan: 16, tbl: SURFACE_ROCK_CUM, residential: true,
-                weights, veinChance: 0.30, pivots });
+                weights, veinChance: 0.30, pivots, dry: LOT_ROCK_DRY.has(t) });
               const yard = BiomeProfiles.yard(t);
               if (yard && pivots.length) {
                 yield* _spawnYardFloraSteps(f.geom, polyKey, pivots, clusterR, yard);
@@ -2748,6 +3009,12 @@
             // move with the save's home latitude.
             const widthCells = roadOverlayWidthM(f.tags) / CELL_M;
             for (const line of f.geom) yield* stampCoverLineSteps(roadCover, w, h, line, widthCells, mvtToCell);
+            // The MAJOR ways (the bandit roads) stamp the same band a second
+            // time into their own cover, in this same pass — the one lane
+            // roadClass is resolved from (see ROAD_CLASS_MAJOR_BAND).
+            if (t === T.ROAD_MD || t === T.ROAD_LG) {
+              for (const line of f.geom) yield* stampCoverLineSteps(majorCover, w, h, line, widthCells, mvtToCell);
+            }
           }
           // Parking-lot aisles carpet a lot with parallel service lines spaced
           // closer than one cell, so they rasterize into a solid asphalt blob,
@@ -2813,8 +3080,15 @@
             const poiIY = Math.floor(p.y * mvtToCell);
             const { mx: cx, my: cy } = cellCenterMeters(poiIX, poiIY);
             const id = cellId('c', tx, ty, poiIX, poiIY);
+            // `_poiAt`: the POI's own tile-local point — how an influence
+            // zone (src/zones.js) finds the chest its anchor minted, however
+            // far the placement below slides it.
+            // `subclass`: the MVT's finer kind (shop/convenience, lodging/hotel,
+            // …). Read by loot.js venueProductFor, where a generic `shop`'s
+            // subclass can name a produce stall before the Sundries counter
+            // takes the rest. Tile bytes only, so the same on every device.
             objects.push(makeObject('chest', cx, cy, id,
-              { poiClass: cls, name: f.tags.name || '' }));
+              { poiClass: cls, subclass: f.tags.subclass || '', name: f.tags.name || '', _poiAt: `${p.x},${p.y}` }));
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
             // Building polygons are independent of POIs and never overpainted: if the POI
             // point lands on or right next to a building, slide it to the nearest non-
@@ -2995,8 +3269,18 @@
             if (shapeOffsets) {
               const poiKey = cellHash(tx, ty, poiIX, poiIY);
               const prng = makeRng(poiKey ^ 0xfade5a17);
-              const shrubDensity = 0.18;
-              const longgrassDensity = 0.10;
+              // The pad's greenery reads the park's CHARACTER (keyed on the
+              // POI's own global point — the grove anchor's key too), so a
+              // named park's heart looks like the park it sits in: its `pad`
+              // row (was shrub 0.18 / long grass 0.10 for every park).
+              const padChar = spawnGreenery
+                ? BiomeProfiles.parkCharacterAt(tx * TILE_EXTENT + p.x, ty * TILE_EXTENT + p.y) : null;
+              const padRow = padChar ? BiomeProfiles.parkCharacter(padChar).pad : null;
+              const shrubDensity = padRow ? padRow.shrub : 0;
+              const longgrassDensity = padRow ? padRow.longgrass : 0;
+              // The park's own clumps (BiomeProfiles FLORA_PATCH): the pad's
+              // greenery thins and gathers with the park around it.
+              const padPatch = spawnGreenery ? BiomeProfiles.patch(padType, padChar) : null;
               for (const [dx, dy] of shapeOffsets) {
                 const ix = cellIX + dx, iy = cellIY + dy;
                 if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
@@ -3009,10 +3293,12 @@
                 if (spawnGreenery) {
                   const r1 = prng(), r2 = prng();
                   const { mx: cellCenterMx, my: cellCenterMy } = cellCenterMeters(ix, iy);
-                  if (r1 < shrubDensity) {
+                  const pm = padPatch ? BiomeProfiles.patchMul(padPatch,
+                    tx * TILE_EXTENT + (ix + 0.5) / mvtToCell, ty * TILE_EXTENT + (iy + 0.5) / mvtToCell) : 1;
+                  if (r1 < shrubDensity * pm) {
                     wildplants.push(makeWildplant('shrub', cellCenterMx, cellCenterMy,
                       `wp_${tx}_${ty}_${ix}_${iy}_pp`, { _ix: ix, _iy: iy }));
-                  } else if (r2 < longgrassDensity) {
+                  } else if (r2 < longgrassDensity * pm) {
                     wildplants.push(makeWildplant('longgrass', cellCenterMx, cellCenterMy,
                       `wp_${tx}_${ty}_${ix}_${iy}_pl`, { _ix: ix, _iy: iy }));
                   }
@@ -3234,6 +3520,17 @@
     // Every way is stamped: resolve the road mask from the coverage bits
     // (ROAD_MASK_MIN_COVER). Nothing above reads roadMask; everything below does.
     yield* resolveRoadMaskSteps(roadCover, roadMask, w, h);
+    yield* resolveRoadClassSteps(majorCover, roadMask, roadClass, w, h);
+    // THE STREET INDEX (src/street_variants.js): every street's key, size and
+    // variant, and the hedgerow closes — pure MVT, so a rebuilt entry derives
+    // the same one. Then the street ROCKS it asks for, pushed before the
+    // mineralrock cleanup below so they pass the one post-pass filter.
+    let streetIndex = null;
+    if (typeof StreetVariants !== 'undefined') {
+      streetIndex = yield* StreetVariants.buildIndexSteps(layers, tx, ty, mvtToM);
+      yield* StreetVariants.stampBanditStretchesSteps(streetIndex, roadClass, w, tx, ty);
+      yield* spawnStreetRocksSteps(streetIndex);
+    }
     // Post-pass: pavement-blob erosion. Overlapping/parallel road + path ways
     // (sidewalk meshes, plaza loops, anything denser than one cell apart)
     // weld into solid paved zones; dissolve the strict same-kind interior back
@@ -3659,7 +3956,64 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, buildingShapes };
+    // STREET DRESSING (StreetVariants.dressSteps) — computed HERE, inside the
+    // sliced build, against every cell the tile's own objects and wild plants
+    // now hold; spawnInTile lays it (dropping any piece whose cell something
+    // placed after this pass took — the cave stair) before its other draws.
+    let streetDress = null;
+    // The occupancy both dressings claim into (street first, then the zones'
+    // nexus), built once: every cell the tile's own objects and wild plants
+    // hold. Built lazily so a tile with neither dressing pays nothing.
+    let dressOcc = null, dressPois = null;
+    const dressSpawn = () => {
+      if (dressOcc) return;
+      dressOcc = new Set();
+      const claimAt = (x, y) => {
+        const ix = Math.floor((x - tileOriginMx) / cellWidthM), iy = Math.floor((y - tileOriginMy) / cellWidthM);
+        if (ix >= 0 && iy >= 0 && ix < w && iy < h) dressOcc.add(iy * w + ix);
+      };
+      for (let i = 0; i < deduped.length; i++) claimAt(deduped[i].x, deduped[i].y);
+      for (let i = 0; i < filtered.length; i++) claimAt(filtered[i].x, filtered[i].y);
+      dressPois = [];
+      for (const o of deduped) {
+        if (o.kind !== 'chest') continue;
+        dressPois.push({ ix: Math.floor((o.x - tileOriginMx) / cellWidthM), iy: Math.floor((o.y - tileOriginMy) / cellWidthM) });
+      }
+    };
+    if (streetIndex && typeof StreetVariants !== 'undefined') {
+      yield 'before street dressing';
+      dressSpawn();
+      streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM, grid,
+        spawnOpts: { roadMask, occupied: dressOcc, pois: dressPois } });
+    }
+    // INFLUENCE ZONES (src/zones.js) — LAST, after every cull, the occupancy
+    // pass and the street dressing, so no older stream or filter ever reads a
+    // repainted cell: the field from the tile's own poi layer (+ its buffer),
+    // then the HALO (lot / commercial ground inside a zone takes the zone's
+    // terrain), then the NEXUS around each owned anchor's chest, claiming into
+    // the same occupancy the street dressing grew. spawnInTile lays the nexus
+    // like the street dressing; entry.zone is the field the runtime reads.
+    // THE PARK FRINGE (Zones.fringeSteps) runs right after the halo, on the
+    // ground the halo left: every park polygon collected above spills a
+    // ragged band of GROVE (CHURCHYARD round a cemetery) over the lot /
+    // commercial ground at its edge, and the dressing smatters its
+    // character's filler a little further out. A tile with parks but no zone
+    // still gets a (stub) field, so the land's class (`under`) reaches the
+    // trap ground the same way.
+    let zone = null, zoneDress = null;
+    if (typeof Zones !== 'undefined') {
+      zone = yield* Zones.fieldSteps(layersByName['poi'], tx, ty, w);
+      if (zone) yield* Zones.haloSteps(zone, grid, w, pathUnder);
+      const fringe = parkPolys.length
+        ? yield* Zones.fringeSteps({ parks: parkPolys, grid, N: w, tx, ty, field: zone, pathUnder }) : null;
+      if (fringe && !zone) zone = fringe.field;
+      if (zone) {
+        dressSpawn();
+        zoneDress = yield* Zones.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+          spawnOpts: { roadMask, occupied: dressOcc, pois: dressPois } });
+      }
+    }
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -3833,7 +4187,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -3861,6 +4215,17 @@
       // bursts, the starter provisioner — can ask the same question the
       // rasterize post-pass asks, by passing it as isSpawnCell's opts.roadMask.
       entry.roadMask = roadMask;
+      // The MAJOR road's band and verge (see ROAD_CLASS_MAJOR_BAND) and the
+      // street index (src/street_variants.js) — both pure MVT, re-derived by a
+      // rebuild like the mask. spawnInTile dresses the streets off the index.
+      entry.roadClass = roadClass;
+      entry.streetIndex = streetIndex || null;
+      entry.streetDress = streetDress || null;
+      // The influence-zone field (src/zones.js — per-cell winner anchor and
+      // strength; the story, the ghosts' dusk gate) and the nexus pieces
+      // spawnInTile lays. Pure MVT like the index, re-derived by a rebuild.
+      entry.zone = zone || null;
+      entry.zoneDress = zoneDress || null;
       // Source building polygons (tile-local metres) for building_overlay.js —
       // the polygonal counterpart of entry.layers' road linework.
       entry.buildingShapes = buildingShapes || [];
@@ -3904,339 +4269,7 @@
       // (the start area otherwise loads treeless right after a save reset
       // wipes the IDB cache).
       entry.hadBin = !!bin;
-      if (bin) {
-        const cpe = entry.cellsPerEdge;
-        // World metres -> this tile's local cell (the shared cellIndexOf, on the
-        // tile's own basis tileEdgeM / cpe), and back to that cell's centre.
-        const _sxCell = (wx, wy) => {
-          const { lix, liy } = cellIndexOf(x, y, wx, wy, tileEdgeM, cpe);
-          return { ix: lix, iy: liy };
-        };
-        const _sxCentre = (ix, iy) => cellCentreM(x, y, ix, iy, tileEdgeM, cpe);
-        // A bin row carries its TILE-LOCAL cell (lix, liy on this tile's own
-        // grid — see buildBinsFromGeoJSON), never frame metres, so the same
-        // bin reads the same in every save. It is snapped ONCE, here, onto
-        // this tile's cell centre in this save's frame. And it is CLONED: a
-        // bin is shared (the static sidecar map lives all session, an
-        // Overpass bin is the IndexedDB value), and the passes below write
-        // x/y and relocate rows — mutating the bin in place moved a tree a
-        // second time on the next build of the same tile.
-        const _sxRows = (rows) => {
-          const out = [];
-          for (const r of (rows || [])) {
-            if (r == null || r.lix == null || r.liy == null) continue;
-            const c = _sxCentre(r.lix, r.liy);
-            const o = { ...r, x: c.x, y: c.y };
-            delete o.lix; delete o.liy;
-            out.push(o);
-          }
-          return out;
-        };
-        const sx = {
-          chests: _sxRows(bin.chests), trees: _sxRows(bin.trees),
-          fruittrees: _sxRows(bin.fruittrees), shrubs: _sxRows(bin.shrubs),
-          poles: _sxRows(bin.poles), wells: _sxRows(bin.wells), parking: _sxRows(bin.parking),
-        };
-        const onWater = (wx, wy) => {
-          const { ix: lix, iy: liy } = _sxCell(wx, wy);
-          if (lix < 0 || liy < 0 || lix >= cpe || liy >= cpe) return false;
-          return grid[liy * cpe + lix] === T.WATER;
-        };
-        // Injected OSM features skip the BIOME filter (they belong wherever
-        // the real world puts them) but must still honour one-interactable-
-        // per-cell: stacking two pickables on a cell is unreachable for the
-        // player. Seed the occupancy set from everything already placed, then
-        // drop any tree/bush that would land on a taken cell.
-        const cellKeyOf = (wx, wy) => {
-          const { ix: lix, iy: liy } = _sxCell(wx, wy);
-          return `${lix}_${liy}`;
-        };
-        // Frame metres per cell of this tile — only to turn the cell-unit
-        // dedup radii below into this frame's distances.
-        const _sxCellM = tileEdgeM / cpe;
-        // Occupancy set — seed from everything rasterizeTile already placed so
-        // injected features never land on an existing interactable (a rasterized
-        // tree / rock / house / chest).
-        const occupied = new Set();
-        for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
-        for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
-        // Residential yard rule for the sidecar injections below. These are
-        // pushed AFTER rasterizeTile's residential post-pass, so they'd bypass
-        // it otherwise — re-apply the shared spawn rule here. Like the post-pass,
-        // only RESIDENTIAL cells are gated (non-residential placements pass
-        // through); POI chests — both already placed and the ones we're about to
-        // inject — count as public anchors.
-        const _sxPois = [];
-        for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
-        for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
-        const _sxSpawnOpts = { pois: _sxPois, roadMask };
-        const _sxYardOK = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
-          if (!isLotTerrain(grid[iy * cpe + ix])) return true;
-          return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
-        };
-        // Trees + fruit trees can NEVER sit on a building footprint, road, path,
-        // water or other hard/interactable cell — nor on a manicured open field
-        // (school grounds, playground, sports pitch, golf course), which read
-        // wrong carpeted in OSM trees. When a detection lands on one, relocate
-        // it to a favourable empty neighbour cell; drop it only if no neighbour
-        // works. One tree per cell — process largest crown first so the biggest
-        // tree wins a contested cell and smaller ones spill to neighbours.
-        const TREE_BLOCK = new Set([
-          T.WATER, T.PIER, ...COBBLE_TYPES,
-          ...BUILDING_TYPES,
-          T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
-          T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
-        ]);
-        // Cell at (ix,iy) is hard ground a scatter object must never sit on:
-        // the TREE_BLOCK terrain set, plus anything under a drawn road band
-        // (roadMask) — the injected features are placed from real-world
-        // coordinates, so without the mask an OSM street tree recorded in the
-        // middle of a widened carriageway stays there.
-        const _sxHardCell = (ix, iy) => {
-          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
-          return TREE_BLOCK.has(grid[iy * cpe + ix]) || roadMask[iy * cpe + ix] === 1;
-        };
-        const _sxHard = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          return _sxHardCell(ix, iy);
-        };
-        // Cell at (wx,wy) is a building footprint — wells get a softer rule than
-        // _sxHard (they may supersede a road tile, repainting it) but must still
-        // never land on a building.
-        const _sxBuilding = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
-          return isBuildingTerrain(grid[iy * cpe + ix]);
-        };
-        // One-cell building moat (nearBuildingCell) — same rule the rasterize
-        // post-pass applies, mirrored here for the sidecar GROUND furniture
-        // (poles, wells). Trees are exempt in both passes — yard trees grow
-        // right against real houses (see tryTreeCell). And the one-cell POI
-        // frontage (nearPoiCell): _sxPois already covers both rasterized and
-        // bin chests.
-        const _sxNearBuilding = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          return nearBuildingCell(grid, cpe, cpe, ix, iy);
-        };
-        const _sxNearChest = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          return nearPoiCell(_sxPois, ix, iy);
-        };
-        // POI chests (bus stops, signals, crossings, gates, towers, pitches,
-        // gardens, bicycle racks, …) are injected FIRST: a chest is a real-world
-        // destination, so it must win its cell over a generic tree/shrub/pole
-        // (mirroring the rasterize occupancy pass where chest outranks all).
-        // poiClass drives loot / tier / label / coin-burst via loot.js + the
-        // render/interact chest paths.
-        //
-        // One real-world place, one chest. Two sidecar chests of the same class
-        // within a short distance describe the same thing — see isDupPoiChest
-        // for the two radii and the two bugs behind them — so the later copy is
-        // skipped. Checked against entry.objects as it grows, so the rule
-        // covers MVT chests already on the tile AND the sidecar chests
-        // injected just before this one.
-        // A chest outranks SCENERY on its cell, not just later injections: the
-        // occupied set is seeded from everything rasterizeTile placed, so a
-        // bus stop / crossing whose cell happened to hold a rasterized rock,
-        // tree or grass tuft was silently dropped — a real-world destination
-        // lost to set dressing ("I never see chests at POIs"). Evict the
-        // scenery instead; only another chest or a structure (house / tower /
-        // staircase) genuinely blocks the cell.
-        const SX_CHEST_BLOCKERS = new Set(['chest', 'house', 'tower', 'staircase']);
-        //
-        // O(n) BY CONSTRUCTION — this post-rasterize path has no slicer (see
-        // CLAUDE.md, "A tile build stutters on its WORST BLOCK"). The blocker
-        // cells are indexed ONCE; an eviction only records its cell, and one
-        // in-place compaction after the loop drops every evicted item, order
-        // kept. That is the same result as evicting on the spot: an evicted
-        // cell held no blocker, so everything on it is scenery (never a chest,
-        // so isDupPoiChest never sees the difference), and the only thing the
-        // loop adds to that cell afterwards is the winning chest itself —
-        // which sits past `preLen`, outside the sweep, and is a blocker for
-        // any later chest on the same cell.
-        const sxBlockerCells = new Set();
-        for (const o of entry.objects) {
-          if (SX_CHEST_BLOCKERS.has(o.kind)) sxBlockerCells.add(cellKeyOf(o.x, o.y));
-        }
-        const sxEvicted = new Set();
-        const sxPreLen = entry.objects.length;
-        const evictSceneryAt = (k) => {
-          if (sxBlockerCells.has(k)) return false;
-          sxEvicted.add(k);
-          return true;
-        };
-        for (const ch of sx.chests) {
-          if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
-          if (!_sxYardOK(ch.x, ch.y)) continue;
-          if (isDupPoiChest(entry.objects, ch, _sxCellM)) continue;
-          const k = cellKeyOf(ch.x, ch.y);
-          if (occupied.has(k) && !evictSceneryAt(k)) continue;
-          occupied.add(k);
-          delete ch.garden;   // internal flag — don't leak into the chest object
-          entry.objects.push(ch);
-          // A chest blocks its cell for every later chest (kind-checked, exactly
-          // as the old per-chest scan of entry.objects would have seen it).
-          if (SX_CHEST_BLOCKERS.has(ch.kind)) sxBlockerCells.add(k);
-        }
-        if (sxEvicted.size) {
-          const objs = entry.objects;
-          let wr = 0;
-          for (let i = 0; i < objs.length; i++) {
-            const o = objs[i];
-            if (i < sxPreLen && sxEvicted.has(cellKeyOf(o.x, o.y))) continue;
-            objs[wr++] = o;
-          }
-          objs.length = wr;
-          const wps = entry.wildplants;
-          wr = 0;
-          for (let i = 0; i < wps.length; i++) {
-            const wp = wps[i];
-            if (sxEvicted.has(cellKeyOf(wp.x, wp.y))) continue;
-            wps[wr++] = wp;
-          }
-          wps.length = wr;
-        }
-        const tryTreeCell = (ix, iy) => {
-          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
-          if (_sxHardCell(ix, iy)) return null;
-          if (occupied.has(`${ix}_${iy}`)) return null;
-          // Chest frontage stays clear (the player stands beside the chest),
-          // but trees may hug buildings — no nearBuildingCell here. Yard
-          // trees sit right against real houses; routing them through the
-          // building moat dropped every detection ringing a house (the cells
-          // they'd relocate to are in the moat too) and left home yards bare.
-          if (nearPoiCell(_sxPois, ix, iy)) return null;
-          const { x: wcx, y: wcy } = _sxCentre(ix, iy);
-          if (!_sxYardOK(wcx, wcy)) return null;
-          return { ix, iy, x: wcx, y: wcy, key: `${ix}_${iy}` };
-        };
-        // 4-neighbours first (closer, axis-aligned), then diagonals.
-        const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-        const placeTree = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          let r = tryTreeCell(ix, iy);
-          if (r) return r;
-          for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy); if (r) return r; }
-          return null;
-        };
-        const allTrees = [...sx.trees, ...sx.fruittrees]
-          .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
-        for (const t of allTrees) {
-          const r = placeTree(t.x, t.y);
-          if (!r) continue;
-          occupied.add(r.key);
-          t.x = r.x; t.y = r.y;
-          // A detection with no OSM id is named by the cell it SETTLED on —
-          // unique (one tree per cell, just claimed) and positional. Its bin
-          // cell alone was not: two detections in one cell, or one relocated
-          // onto a cell a forest tree's id already named, shared an id, and
-          // chopping one felled the other.
-          if (!t.id) t.id = cellId(`${t.kind === 'fruittree' ? 'ft' : 'tree'}_sx`, x, y, r.ix, r.iy);
-          entry.objects.push(t);
-        }
-        for (const s of sx.shrubs) {
-          if (onWater(s.x, s.y)) continue;
-          if (_sxHard(s.x, s.y)) continue;            // never on road / building / hard cell
-          if (_sxNearChest(s.x, s.y)) continue;       // keep the POI frontage clear
-          if (!_sxYardOK(s.x, s.y)) continue;
-          const k = cellKeyOf(s.x, s.y);
-          if (occupied.has(k)) continue;
-          occupied.add(k);
-          const c = s;   // already on this tile's cell centre (_sxRows)
-          // Minted HERE rather than where the bin row was built (buildBin's
-          // `shrubs.push`): a bin is CACHED in IndexedDB, so a bin written
-          // before a stream's shape changed would otherwise inject records
-          // missing the new field for as long as it lives in the cache. The
-          // bin carries the facts (position, id); the stream's shape is this
-          // file's, applied at the moment the row joins the stream.
-          entry.wildplants.push(makeWildplant(s.crop, c.x, c.y, s.id));
-        }
-        for (const p of sx.poles) {
-          if (onWater(p.x, p.y)) continue;
-          if (_sxHard(p.x, p.y)) continue;            // never on road / building / hard cell
-          if (_sxNearBuilding(p.x, p.y)) continue;    // nor inside a house sprite's overhang
-          if (_sxNearChest(p.x, p.y)) continue;       // keep the POI frontage clear
-          if (!_sxYardOK(p.x, p.y)) continue;
-          const k = cellKeyOf(p.x, p.y);
-          if (occupied.has(k)) continue;
-          occupied.add(k);
-          entry.objects.push(p);
-        }
-        // Wells (OSM amenity=fountain) → a tappable well object that refills the
-        // watering can (interact.js 'well' branch), rendered as the well sprite.
-        for (const wl of sx.wells) {
-          if (onWater(wl.x, wl.y)) continue;
-          if (_sxBuilding(wl.x, wl.y)) continue;      // never on a building (roads are superseded below)
-          if (_sxNearBuilding(wl.x, wl.y)) continue;  // nor inside a house sprite's overhang
-          if (_sxNearChest(wl.x, wl.y)) continue;     // keep the POI frontage clear
-          if (!_sxYardOK(wl.x, wl.y)) continue;
-          const k = cellKeyOf(wl.x, wl.y);
-          if (occupied.has(k)) continue;
-          occupied.add(k);
-          entry.objects.push(wl);
-          // A well supersedes a road/path tile it lands on — repaint the cell to
-          // the dominant soft neighbour biome (so it blends, not a hard grass
-          // square) and clear the cobble's road-label / path-name so no label
-          // or path-stone tint shows under the well.
-          const { ix: lix, iy: liy } = _sxCell(wl.x, wl.y);
-          if (lix >= 0 && liy >= 0 && lix < cpe && liy < cpe && isCobbleTerrain(grid[liy * cpe + lix])) {
-            const NONSOFT = new Set([T.WATER, T.PIER, ...BUILDING_TYPES]);
-            const counts = {};
-            for (let ddy = -1; ddy <= 1; ddy++) for (let ddx = -1; ddx <= 1; ddx++) {
-              if (!ddx && !ddy) continue;
-              const nnx = lix + ddx, nny = liy + ddy;
-              if (nnx < 0 || nny < 0 || nnx >= cpe || nny >= cpe) continue;
-              const nt = grid[nny * cpe + nnx];
-              if (isCobbleTerrain(nt) || NONSOFT.has(nt)) continue;
-              counts[nt] = (counts[nt] || 0) + 1;
-            }
-            let best = T.GRASS, bestN = 0;
-            for (const t2 in counts) if (counts[t2] > bestN) { bestN = counts[t2]; best = +t2; }
-            grid[liy * cpe + lix] = best;
-            const ck = `${lix}_${liy}`;
-            if (entry.roadLabels) delete entry.roadLabels[ck];
-          }
-        }
-        // (POI chests were injected before the trees above — a chest is a
-        // real-world destination and must win its cell over scenery; the
-        // area-POI ~25 m same-class dedupe moved up with that loop.)
-        // Parking lots (OSM amenity=parking) → a buried-treasure "X marks the
-        // spot" mark, claimed via the treasure handler (same array the MVT
-        // parking path fills). No per-cell occupancy — X marks sit under the
-        // terrain and don't block other interactables.
-        for (const pk of sx.parking) {
-          // Same treatment the MVT parking path gets in the rasterize
-          // post-pass: a lot's anchor lands on its aisle or the street beside
-          // it as often as on standable ground, so walk the X to the nearest
-          // cell that passes the shared spawn rule instead of burying treasure
-          // under the asphalt. Dropped only if nothing nearby works.
-          {
-            const { ix, iy } = _sxCell(pk.x, pk.y);
-            if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) continue;
-            const moved = relocateToSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
-            if (!moved) continue;
-            ({ x: pk.x, y: pk.y } = _sxCentre(moved.ix, moved.iy));
-            // Named by its settled cell, in the MVT parking path's own format,
-            // so the same lot from both sources is the same X.
-            pk.id = cellId('t_park', x, y, moved.ix, moved.iy);
-          }
-          // Skip if an X already sits within ~8m (in CELLS: 8 / CELL_M, so
-          // the same cell or an orthogonal neighbour) — the MVT parking path
-          // fills the SAME array (before this injection), so the same lot
-          // present in both sources would otherwise drop two
-          // separately-claimable treasures.
-          const pkc = _sxCell(pk.x, pk.y);
-          const dupe = entry.parkingTreasures.some(t => {
-            const tc = _sxCell(t.x, t.y);
-            const dx = tc.ix - pkc.ix, dy = tc.iy - pkc.iy;
-            return (dx * dx + dy * dy) * CELL_M * CELL_M <= 8 * 8;
-          });
-          if (dupe) continue;
-          entry.parkingTreasures.push(pk);
-        }
-      }
+      injectTileBin(entry, bin, x, y);
 
       // The decoded layers stay on the entry for two consumers only: the road
       // overlay re-strokes `transportation` line geometry on each rebuild, and
@@ -4267,6 +4300,346 @@
     tileCache.set(key, entry);
     pruneCache(tileCache, key);
     return entry;
+  }
+
+  // Apply cached real-world features to the live tile after its generated
+  // snapshots have been captured. Bin rows are cloned before placement so a
+  // cached bin can be reused across builds and world frames without changing.
+  // Placement order is intentional: destinations win before scenery is seated.
+  function injectTileBin(entry, bin, x, y) {
+    if (!bin) return;
+    const { grid, roadMask, tileEdgeM } = entry;
+    const cpe = entry.cellsPerEdge;
+    // World metres -> this tile's local cell (the shared cellIndexOf, on the
+    // tile's own basis tileEdgeM / cpe), and back to that cell's centre.
+    const _sxCell = (wx, wy) => {
+      const { lix, liy } = cellIndexOf(x, y, wx, wy, tileEdgeM, cpe);
+      return { ix: lix, iy: liy };
+    };
+    const _sxCentre = (ix, iy) => cellCentreM(x, y, ix, iy, tileEdgeM, cpe);
+    // A bin row carries its TILE-LOCAL cell (lix, liy on this tile's own
+    // grid — see buildBinsFromGeoJSON), never frame metres, so the same
+    // bin reads the same in every save. It is snapped ONCE, here, onto
+    // this tile's cell centre in this save's frame. And it is CLONED: a
+    // bin is shared (the static sidecar map lives all session, an
+    // Overpass bin is the IndexedDB value), and the passes below write
+    // x/y and relocate rows — mutating the bin in place moved a tree a
+    // second time on the next build of the same tile.
+    const _sxRows = (rows) => {
+      const out = [];
+      for (const r of (rows || [])) {
+        if (r == null || r.lix == null || r.liy == null) continue;
+        const c = _sxCentre(r.lix, r.liy);
+        const o = { ...r, x: c.x, y: c.y };
+        delete o.lix; delete o.liy;
+        out.push(o);
+      }
+      return out;
+    };
+    const sx = {
+      chests: _sxRows(bin.chests), trees: _sxRows(bin.trees),
+      fruittrees: _sxRows(bin.fruittrees), shrubs: _sxRows(bin.shrubs),
+      poles: _sxRows(bin.poles), wells: _sxRows(bin.wells), parking: _sxRows(bin.parking),
+    };
+    const onWater = (wx, wy) => {
+      const { ix: lix, iy: liy } = _sxCell(wx, wy);
+      if (lix < 0 || liy < 0 || lix >= cpe || liy >= cpe) return false;
+      return grid[liy * cpe + lix] === T.WATER;
+    };
+    // Injected OSM features skip the BIOME filter (they belong wherever
+    // the real world puts them) but must still honour one-interactable-
+    // per-cell: stacking two pickables on a cell is unreachable for the
+    // player. Seed the occupancy set from everything already placed, then
+    // drop any tree/bush that would land on a taken cell.
+    const cellKeyOf = (wx, wy) => {
+      const { ix: lix, iy: liy } = _sxCell(wx, wy);
+      return `${lix}_${liy}`;
+    };
+    // Frame metres per cell of this tile — only to turn the cell-unit
+    // dedup radii below into this frame's distances.
+    const _sxCellM = tileEdgeM / cpe;
+    // Occupancy set — seed from everything rasterizeTile already placed so
+    // injected features never land on an existing interactable (a rasterized
+    // tree / rock / house / chest).
+    const occupied = new Set();
+    for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
+    for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
+    // Residential yard rule for the sidecar injections below. These are
+    // pushed AFTER rasterizeTile's residential post-pass, so they'd bypass
+    // it otherwise — re-apply the shared spawn rule here. Like the post-pass,
+    // only RESIDENTIAL cells are gated (non-residential placements pass
+    // through); POI chests — both already placed and the ones we're about to
+    // inject — count as public anchors.
+    const _sxPois = [];
+    for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
+    for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
+    const _sxSpawnOpts = { pois: _sxPois, roadMask };
+    const _sxYardOK = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
+      if (!isLotTerrain(grid[iy * cpe + ix])) return true;
+      return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
+    };
+    // Trees + fruit trees can NEVER sit on a building footprint, road, path,
+    // water or other hard/interactable cell — nor on a manicured open field
+    // (school grounds, playground, sports pitch, golf course), which read
+    // wrong carpeted in OSM trees. When a detection lands on one, relocate
+    // it to a favourable empty neighbour cell; drop it only if no neighbour
+    // works. One tree per cell — process largest crown first so the biggest
+    // tree wins a contested cell and smaller ones spill to neighbours.
+    const TREE_BLOCK = new Set([
+      T.WATER, T.PIER, ...COBBLE_TYPES,
+      ...BUILDING_TYPES,
+      T.COMMERCIAL, T.INDUSTRIAL, T.TAR_YARD, T.ROCK,
+      T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
+    ]);
+    // Cell at (ix,iy) is hard ground a scatter object must never sit on:
+    // the TREE_BLOCK terrain set, plus anything under a drawn road band
+    // (roadMask) — the injected features are placed from real-world
+    // coordinates, so without the mask an OSM street tree recorded in the
+    // middle of a widened carriageway stays there.
+    const _sxHardCell = (ix, iy) => {
+      if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
+      return TREE_BLOCK.has(grid[iy * cpe + ix]) || roadMask[iy * cpe + ix] === 1;
+    };
+    const _sxHard = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      return _sxHardCell(ix, iy);
+    };
+    // Cell at (wx,wy) is a building footprint — wells get a softer rule than
+    // _sxHard (they may supersede a road tile, repainting it) but must still
+    // never land on a building.
+    const _sxBuilding = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
+      return isBuildingTerrain(grid[iy * cpe + ix]);
+    };
+    // One-cell building moat (nearBuildingCell) — same rule the rasterize
+    // post-pass applies, mirrored here for the sidecar GROUND furniture
+    // (poles, wells). Trees are exempt in both passes — yard trees grow
+    // right against real houses (see tryTreeCell). And the one-cell POI
+    // frontage (nearPoiCell): _sxPois already covers both rasterized and
+    // bin chests.
+    const _sxNearBuilding = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      return nearBuildingCell(grid, cpe, cpe, ix, iy);
+    };
+    const _sxNearChest = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      return nearPoiCell(_sxPois, ix, iy);
+    };
+    // POI chests (bus stops, signals, crossings, gates, towers, pitches,
+    // gardens, bicycle racks, …) are injected FIRST: a chest is a real-world
+    // destination, so it must win its cell over a generic tree/shrub/pole
+    // (mirroring the rasterize occupancy pass where chest outranks all).
+    // poiClass drives loot / tier / label / coin-burst via loot.js + the
+    // render/interact chest paths.
+    //
+    // One real-world place, one chest. Two sidecar chests of the same class
+    // within a short distance describe the same thing — see isDupPoiChest
+    // for the two radii and the two bugs behind them — so the later copy is
+    // skipped. Checked against entry.objects as it grows, so the rule
+    // covers MVT chests already on the tile AND the sidecar chests
+    // injected just before this one.
+    // A chest outranks SCENERY on its cell, not just later injections: the
+    // occupied set is seeded from everything rasterizeTile placed, so a
+    // bus stop / crossing whose cell happened to hold a rasterized rock,
+    // tree or grass tuft was silently dropped — a real-world destination
+    // lost to set dressing ("I never see chests at POIs"). Evict the
+    // scenery instead; only another chest or a structure (house / tower /
+    // staircase) genuinely blocks the cell.
+    const SX_CHEST_BLOCKERS = new Set(['chest', 'house', 'tower', 'staircase']);
+    //
+    // O(n) BY CONSTRUCTION — this post-rasterize path has no slicer (see
+    // CLAUDE.md, "A tile build stutters on its WORST BLOCK"). The blocker
+    // cells are indexed ONCE; an eviction only records its cell, and one
+    // in-place compaction after the loop drops every evicted item, order
+    // kept. That is the same result as evicting on the spot: an evicted
+    // cell held no blocker, so everything on it is scenery (never a chest,
+    // so isDupPoiChest never sees the difference), and the only thing the
+    // loop adds to that cell afterwards is the winning chest itself —
+    // which sits past `preLen`, outside the sweep, and is a blocker for
+    // any later chest on the same cell.
+    const sxBlockerCells = new Set();
+    for (const o of entry.objects) {
+      if (SX_CHEST_BLOCKERS.has(o.kind)) sxBlockerCells.add(cellKeyOf(o.x, o.y));
+    }
+    const sxEvicted = new Set();
+    const sxPreLen = entry.objects.length;
+    const evictSceneryAt = (k) => {
+      if (sxBlockerCells.has(k)) return false;
+      sxEvicted.add(k);
+      return true;
+    };
+    for (const ch of sx.chests) {
+      if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
+      if (!_sxYardOK(ch.x, ch.y)) continue;
+      if (isDupPoiChest(entry.objects, ch, _sxCellM)) continue;
+      const k = cellKeyOf(ch.x, ch.y);
+      if (occupied.has(k) && !evictSceneryAt(k)) continue;
+      occupied.add(k);
+      delete ch.garden;   // internal flag — don't leak into the chest object
+      entry.objects.push(ch);
+      // A chest blocks its cell for every later chest (kind-checked, exactly
+      // as the old per-chest scan of entry.objects would have seen it).
+      if (SX_CHEST_BLOCKERS.has(ch.kind)) sxBlockerCells.add(k);
+    }
+    if (sxEvicted.size) {
+      const objs = entry.objects;
+      let wr = 0;
+      for (let i = 0; i < objs.length; i++) {
+        const o = objs[i];
+        if (i < sxPreLen && sxEvicted.has(cellKeyOf(o.x, o.y))) continue;
+        objs[wr++] = o;
+      }
+      objs.length = wr;
+      const wps = entry.wildplants;
+      wr = 0;
+      for (let i = 0; i < wps.length; i++) {
+        const wp = wps[i];
+        if (sxEvicted.has(cellKeyOf(wp.x, wp.y))) continue;
+        wps[wr++] = wp;
+      }
+      wps.length = wr;
+    }
+    const tryTreeCell = (ix, iy) => {
+      if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
+      if (_sxHardCell(ix, iy)) return null;
+      if (occupied.has(`${ix}_${iy}`)) return null;
+      // Chest frontage stays clear (the player stands beside the chest),
+      // but trees may hug buildings — no nearBuildingCell here. Yard
+      // trees sit right against real houses; routing them through the
+      // building moat dropped every detection ringing a house (the cells
+      // they'd relocate to are in the moat too) and left home yards bare.
+      if (nearPoiCell(_sxPois, ix, iy)) return null;
+      const { x: wcx, y: wcy } = _sxCentre(ix, iy);
+      if (!_sxYardOK(wcx, wcy)) return null;
+      return { ix, iy, x: wcx, y: wcy, key: `${ix}_${iy}` };
+    };
+    // 4-neighbours first (closer, axis-aligned), then diagonals.
+    const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    const placeTree = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      let r = tryTreeCell(ix, iy);
+      if (r) return r;
+      for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy); if (r) return r; }
+      return null;
+    };
+    const allTrees = [...sx.trees, ...sx.fruittrees]
+      .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
+    for (const t of allTrees) {
+      const r = placeTree(t.x, t.y);
+      if (!r) continue;
+      occupied.add(r.key);
+      t.x = r.x; t.y = r.y;
+      // A detection with no OSM id is named by the cell it SETTLED on —
+      // unique (one tree per cell, just claimed) and positional. Its bin
+      // cell alone was not: two detections in one cell, or one relocated
+      // onto a cell a forest tree's id already named, shared an id, and
+      // chopping one felled the other.
+      if (!t.id) t.id = cellId(`${t.kind === 'fruittree' ? 'ft' : 'tree'}_sx`, x, y, r.ix, r.iy);
+      entry.objects.push(t);
+    }
+    for (const s of sx.shrubs) {
+      if (onWater(s.x, s.y)) continue;
+      if (_sxHard(s.x, s.y)) continue;            // never on road / building / hard cell
+      if (_sxNearChest(s.x, s.y)) continue;       // keep the POI frontage clear
+      if (!_sxYardOK(s.x, s.y)) continue;
+      const k = cellKeyOf(s.x, s.y);
+      if (occupied.has(k)) continue;
+      occupied.add(k);
+      const c = s;   // already on this tile's cell centre (_sxRows)
+      // Minted HERE rather than where the bin row was built (buildBin's
+      // `shrubs.push`): a bin is CACHED in IndexedDB, so a bin written
+      // before a stream's shape changed would otherwise inject records
+      // missing the new field for as long as it lives in the cache. The
+      // bin carries the facts (position, id); the stream's shape is this
+      // file's, applied at the moment the row joins the stream.
+      entry.wildplants.push(makeWildplant(s.crop, c.x, c.y, s.id));
+    }
+    for (const p of sx.poles) {
+      if (onWater(p.x, p.y)) continue;
+      if (_sxHard(p.x, p.y)) continue;            // never on road / building / hard cell
+      if (_sxNearBuilding(p.x, p.y)) continue;    // nor inside a house sprite's overhang
+      if (_sxNearChest(p.x, p.y)) continue;       // keep the POI frontage clear
+      if (!_sxYardOK(p.x, p.y)) continue;
+      const k = cellKeyOf(p.x, p.y);
+      if (occupied.has(k)) continue;
+      occupied.add(k);
+      entry.objects.push(p);
+    }
+    // Wells (OSM amenity=fountain) → a tappable well object that refills the
+    // watering can (interact.js 'well' branch), rendered as the well sprite.
+    for (const wl of sx.wells) {
+      if (onWater(wl.x, wl.y)) continue;
+      if (_sxBuilding(wl.x, wl.y)) continue;      // never on a building (roads are superseded below)
+      if (_sxNearBuilding(wl.x, wl.y)) continue;  // nor inside a house sprite's overhang
+      if (_sxNearChest(wl.x, wl.y)) continue;     // keep the POI frontage clear
+      if (!_sxYardOK(wl.x, wl.y)) continue;
+      const k = cellKeyOf(wl.x, wl.y);
+      if (occupied.has(k)) continue;
+      occupied.add(k);
+      entry.objects.push(wl);
+      // A well supersedes a road/path tile it lands on — repaint the cell to
+      // the dominant soft neighbour biome (so it blends, not a hard grass
+      // square) and clear the cobble's road-label / path-name so no label
+      // or path-stone tint shows under the well.
+      const { ix: lix, iy: liy } = _sxCell(wl.x, wl.y);
+      if (lix >= 0 && liy >= 0 && lix < cpe && liy < cpe && isCobbleTerrain(grid[liy * cpe + lix])) {
+        const NONSOFT = new Set([T.WATER, T.PIER, ...BUILDING_TYPES]);
+        const counts = {};
+        for (let ddy = -1; ddy <= 1; ddy++) for (let ddx = -1; ddx <= 1; ddx++) {
+          if (!ddx && !ddy) continue;
+          const nnx = lix + ddx, nny = liy + ddy;
+          if (nnx < 0 || nny < 0 || nnx >= cpe || nny >= cpe) continue;
+          const nt = grid[nny * cpe + nnx];
+          if (isCobbleTerrain(nt) || NONSOFT.has(nt)) continue;
+          counts[nt] = (counts[nt] || 0) + 1;
+        }
+        let best = T.GRASS, bestN = 0;
+        for (const t2 in counts) if (counts[t2] > bestN) { bestN = counts[t2]; best = +t2; }
+        grid[liy * cpe + lix] = best;
+        const ck = `${lix}_${liy}`;
+        if (entry.roadLabels) delete entry.roadLabels[ck];
+      }
+    }
+    // (POI chests were injected before the trees above — a chest is a
+    // real-world destination and must win its cell over scenery; the
+    // area-POI ~25 m same-class dedupe moved up with that loop.)
+    // Parking lots (OSM amenity=parking) → a buried-treasure "X marks the
+    // spot" mark, claimed via the treasure handler (same array the MVT
+    // parking path fills). No per-cell occupancy — X marks sit under the
+    // terrain and don't block other interactables.
+    for (const pk of sx.parking) {
+      // Same treatment the MVT parking path gets in the rasterize
+      // post-pass: a lot's anchor lands on its aisle or the street beside
+      // it as often as on standable ground, so walk the X to the nearest
+      // cell that passes the shared spawn rule instead of burying treasure
+      // under the asphalt. Dropped only if nothing nearby works.
+      {
+        const { ix, iy } = _sxCell(pk.x, pk.y);
+        if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) continue;
+        const moved = relocateToSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
+        if (!moved) continue;
+        ({ x: pk.x, y: pk.y } = _sxCentre(moved.ix, moved.iy));
+        // Named by its settled cell, in the MVT parking path's own format,
+        // so the same lot from both sources is the same X.
+        pk.id = cellId('t_park', x, y, moved.ix, moved.iy);
+      }
+      // Skip if an X already sits within ~8m (in CELLS: 8 / CELL_M, so
+      // the same cell or an orthogonal neighbour) — the MVT parking path
+      // fills the SAME array (before this injection), so the same lot
+      // present in both sources would otherwise drop two
+      // separately-claimable treasures.
+      const pkc = _sxCell(pk.x, pk.y);
+      const dupe = entry.parkingTreasures.some(t => {
+        const tc = _sxCell(t.x, t.y);
+        const dx = tc.ix - pkc.ix, dy = tc.iy - pkc.iy;
+        return (dx * dx + dy * dy) * CELL_M * CELL_M <= 8 * 8;
+      });
+      if (dupe) continue;
+      entry.parkingTreasures.push(pk);
+    }
   }
 
   // LRU prune to bound memory on long-walking sessions. Insertion order is
@@ -5722,8 +6095,11 @@
     // Sidecar / Overpass GeoJSON → per-tile bins of tile-local cells —
     // exported so world_frame.test.js can pin that binning is frame-free.
     buildBinsFromGeoJSON,
+    // Apply cached bins independently of fetching, with placement and snapshot
+    // preservation pinned by tile_bin_injection.test.js.
+    injectTileBin,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
@@ -5767,7 +6143,7 @@
     // …and the width it actually COVERS, large-tier weighting included. The
     // overlay strokes with this and rasterizeTile stamps roadMask with it, so
     // "drawn as road" and "no spawns here" are the same number.
-    roadOverlayWidthM, ROAD_MASK_MIN_COVER,
+    roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,
     // instead of hand-copying the list. (The large tier needs no such export:
@@ -5800,5 +6176,6 @@
     // sandbox.js as well as this file — one shape per stream, reachable from
     // all of them.
     makeWildplant, makeCreature, makeObject,
+    spawnParkPlants, PARK_PLANT_CELL_CHANCE,
   };
 })(window);

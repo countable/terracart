@@ -147,8 +147,8 @@ test('street lamps: an UNLIT lamp draws as the OLD ROAD COBBLE sprite, a lit one
   // ONE RENDER_SPEC row, two arts, picked by the one `lit` flag: the baked
   // lamp for a lit one, the cobble sheet at its tier's frame, size and alpha
   // for a dark one — never one art for both.
-  assert.truthy(/key: \(o\) => \(o\.lit \? STREET_LAMP_TEX : STREET_LAMP_DARK_TEX\)/.test(lampSpecSrc),
-    'the texture branches on o.lit');
+  assert.truthy(/key: \(o\) => \(o\.lit \? streetLampTexKey\(o\.glow\) : STREET_LAMP_DARK_TEX\)/.test(lampSpecSrc),
+    'the texture branches on o.lit — a lit lamp by its own glow\'s bake');
   assert.truthy(/frame: \(o\) => \(o\.lit \? '__BASE' : streetLampDarkFrame\(o\.tier\)\)/.test(lampSpecSrc),
     'a dark lamp takes the frame its own tier drew, the baked canvas its only frame');
   assert.truthy(/streetLampDarkCells\(o\.tier\)/.test(lampSpecSrc), 'and that tier\'s own size');
@@ -212,9 +212,11 @@ test('street lamps: STREET_LAMP_PX is derived from RoadOverlay.LAMP_DRAW_CELLS x
 });
 
 test('street lamps: the texture is baked once with RoadOverlay.paintLamp, keyed off the module\'s own LAMP_TEX_PX', () => {
-  assert.truthy(/RoadOverlay\.paintLamp\(lctx, S\)/.test(app), 'the real painter draws the baked texture');
+  assert.truthy(/RoadOverlay\.paintLamp\(lctx, S, glow \|\| UI_LAMP_GLOW\)/.test(app), 'the real painter draws the baked texture, in the lamp\'s glow');
   assert.truthy(/const S = RoadOverlay\.LAMP_TEX_PX;/.test(app), 'sized off road_overlay.js\'s own texture constant');
-  assert.truthy(/!this\.textures\.exists\(STREET_LAMP_TEX\)/.test(app), 'baked once, not re-painted every boot');
+  assert.truthy(/const key = streetLampTexKey\(glow\);\s*\n\s*if \(this\.textures\.exists\(key\)\) return key;/.test(app),
+    'baked once per colour, not re-painted every boot or every lamp');
+  assert.truthy(/this\._ensureStreetLampTex\(UI_LAMP_GLOW\);/.test(app), 'the default glow is baked at boot');
 });
 
 test('street lamps: the lamp STANDS on its point — the sprite\'s origin is the art\'s own ground line', () => {
@@ -464,6 +466,106 @@ test('street lamps: a cave clears the list — surface only', () => {
   scene._updateStreetLamps();
   assert.eq(scene._streetLamps, null, 'no lamps underground');
   assert.eq(scene._streetLampKey, null, 'and no memo to come back to on the surface');
+});
+
+// ── THE GLOW: one colour per lamp, both halves read it ────────────────────
+// A lamp sheds its STREET's colour: StreetVariants.lampGlowFor(rec) off the
+// street-index record of its (feature, line), resolved ONCE onto the lamp
+// entry's `glow` — null there means the plain UI_LAMP_GLOW. The baked art
+// (streetLampTexKey → _ensureStreetLampTex → RoadOverlay.paintLamp) and the
+// light (Lighting.collectLamps → the entry's colour) both read that one field.
+const withIndex = (lines) => Object.assign(readyEntry(), { streetIndex: { lines } });
+const themedVariant = () => StreetVariants.STREET_VARIANTS.find((v) => v.lampGlow && v.id !== 'lantern');
+
+test('street lamps: each lamp carries its street\'s glow — StreetVariants.lampGlowFor(its line\'s rec), default UI_LAMP_GLOW', () => {
+  // Not in the index at all: the plain violet.
+  const plain = P._streetLampsForTile.call({}, TX, TY, readyEntry());
+  assert.truthy(plain.length > 0 && plain.every((L) => L.glow === UI_LAMP_GLOW), 'a street off the index keeps UI_LAMP_GLOW');
+  // A plain minor street IN the index: lampGlowFor says null → the default.
+  const minorRec = { fi: 0, li: 0, size: 'minor', variant: null };
+  const minor = P._streetLampsForTile.call({}, TX, TY, withIndex([minorRec]));
+  assert.eq(minor[0].glow, StreetVariants.lampGlowFor(minorRec) || UI_LAMP_GLOW, 'a plain minor street: the default');
+  // A themed street: its row's colour, read through lampGlowFor, never retyped.
+  const v = themedVariant();
+  assert.truthy(v, 'some variant row carries a lampGlow');
+  const themedRec = { fi: 0, li: 0, size: v.size, variant: v.id };
+  const themed = P._streetLampsForTile.call({}, TX, TY, withIndex([themedRec]));
+  assert.eq(themed[0].glow, StreetVariants.lampGlowFor(themedRec), 'a themed street: its variant\'s glow');
+  assert.truthy(themed.every((L) => L.glow === themed[0].glow), 'every lamp on the line the same');
+  // An unthemed MAJOR road: whatever lampGlowFor says (the bandit torch).
+  const majorRec = { fi: 0, li: 0, size: 'major', variant: null };
+  const major = P._streetLampsForTile.call({}, TX, TY, withIndex([majorRec]));
+  assert.eq(major[0].glow, StreetVariants.lampGlowFor(majorRec) || UI_LAMP_GLOW, 'an unthemed major road');
+  // A record for a DIFFERENT line does not colour this one.
+  const other = P._streetLampsForTile.call({}, TX, TY, withIndex([{ fi: 0, li: 1, size: v.size, variant: v.id }]));
+  assert.eq(other[0].glow, UI_LAMP_GLOW, 'keyed by fi:li — another line\'s theme stays on that line');
+  // …and the frame list carries it through untouched.
+  assert.truthy(/out\.push\(\{ \.\.\.L, lit:/.test(updateSrc), 'the frame list spreads the tile lamp, glow and all');
+});
+
+test('street lamps: the ART and the LIGHT read the one glow', () => {
+  // The light: collectLamps colours the entry by the lamp's glow; the default
+  // leaves the row's own colour (and cookie) alone.
+  const v = themedVariant();
+  const themed = P._streetLampsForTile.call({}, TX, TY, withIndex([{ fi: 0, li: 0, size: v.size, variant: v.id }]));
+  const plain = P._streetLampsForTile.call({}, TX, TY, readyEntry());
+  const ls = { depth: 0, cellM: CELL_M_T, _lights: [], _streetLamps: [
+    { ...themed[0], lit: true, x: 0, y: 0, id: 't' }, { ...plain[0], lit: true, x: 1, y: 0, id: 'p' }] };
+  Lighting.collectLamps(ls, 0, 0, 1000);
+  const byId = {}; for (const L of ls._lights) byId[L.id] = L;
+  assert.eq(byId.t.colour, parseInt(themed[0].glow.slice(1), 16), 'a themed lamp throws its glow');
+  assert.eq(byId.p.colour, undefined, 'a plain lamp keeps the cobble row\'s colour — UI_LAMP_GLOW');
+  assert.eq(Lighting.KINDS.cobble.colour, parseInt(UI_LAMP_GLOW.slice(1), 16), 'which is the default glow');
+  // The art: the render row keys a lit lamp's texture by the same field.
+  assert.truthy(/glow: L\.glow/.test(lampListSrc), 'the draw list carries the lamp\'s glow');
+  assert.truthy(/streetLampTexKey\(o\.glow\)/.test(lampSpecSrc), 'and the sprite picks the bake for it');
+});
+
+test('street lamps: the baked art is cached PER COLOUR — the default keeps the old key', () => {
+  // Lift the key scheme and the bake, and run them over a fake texture store.
+  const STREET_LAMP_TEX_NAME = app.match(/const STREET_LAMP_TEX = '([^']+)';/)[1];
+  const keySrc = app.slice(app.indexOf('function streetLampTexKey(glow) {'));
+  const keyFn = keySrc.slice(0, keySrc.indexOf('\n}\n') + 2);
+  const ensSrc = app.slice(app.indexOf('  _ensureStreetLampTex(glow) {'), app.indexOf('  // Every lamp of ONE tile'));
+  const painted = [];
+  const fakeRO = { LAMP_TEX_PX: 8, paintLamp: (cx, S, g) => painted.push(g) };
+  const fakeDoc = { createElement: () => ({ getContext: () => ({}) }) };
+  const mk = new Function('RoadOverlay', 'document', 'STREET_LAMP_TEX', 'UI_LAMP_GLOW',
+    `${keyFn}\nreturn { streetLampTexKey, host: { ${ensSrc.trimEnd()} } };`);
+  const { streetLampTexKey, host } = mk(fakeRO, fakeDoc, STREET_LAMP_TEX_NAME, UI_LAMP_GLOW);
+  const store = new Map();
+  host.textures = { exists: (k) => store.has(k), addCanvas: (k, c) => store.set(k, c) };
+  assert.eq(streetLampTexKey(UI_LAMP_GLOW), STREET_LAMP_TEX_NAME, 'the default glow is the plain key, as before');
+  assert.eq(streetLampTexKey(null), STREET_LAMP_TEX_NAME, 'and so is no glow');
+  assert.eq(streetLampTexKey(UI_LAMP_GLOW.toUpperCase()), STREET_LAMP_TEX_NAME, 'case does not split a colour');
+  assert.eq(streetLampTexKey('#FF8C2A'), streetLampTexKey('#ff8c2a'), 'one key per colour');
+  assert.truthy(streetLampTexKey('#ff8c2a') !== STREET_LAMP_TEX_NAME, 'a themed glow gets its own key');
+  // Forty lamps in two colours plus the default: three bakes.
+  const glows = [];
+  for (let i = 0; i < 40; i++) glows.push(i % 3 === 0 ? '#ff8c2a' : i % 3 === 1 ? '#4fd8c4' : UI_LAMP_GLOW);
+  const keys = glows.map((g) => host._ensureStreetLampTex(g));
+  assert.eq(painted.length, 3, 'one bake per distinct colour, not per lamp');
+  assert.eq(store.size, 3);
+  assert.eq(painted.sort().join(','), ['#4fd8c4', '#ff8c2a', UI_LAMP_GLOW].sort().join(','), 'each baked in its own glow');
+  assert.eq(keys[0], streetLampTexKey('#ff8c2a'), 'and the key handed back is the one the sprite asks for');
+});
+
+test('street lamps: the frame pass bakes each LIT glow before the sprite pass draws it', () => {
+  const v = themedVariant();
+  const entry = withIndex([{ fi: 0, li: 0, size: v.size, variant: v.id }]);
+  const baked = [];
+  const scene = lampScene({ _ensureStreetLampTex: (g) => baked.push(g) });
+  const lamps = P._streetLampsForTile.call({}, TX, TY, entry);
+  withTile(entry, () => {
+    scene._updateStreetLamps();
+    assert.eq(baked.length, 0, 'no lamp lit, nothing to bake');
+    restoreAround(scene.save, lamps[0].s, 12);
+    restoreAround(scene.save, lamps[1].s, 12);
+    scene._updateStreetLamps();
+    assert.eq(litOf(scene).length, 2, 'both lamps lit');
+    assert.eq(baked.join(','), StreetVariants.lampGlowFor({ size: v.size, variant: v.id }),
+      'their one colour baked once');
+  });
 });
 }
 })();

@@ -53,11 +53,11 @@ const someTip = (re) => PLAY_TIPS.some((t) => re.test(t));
 test('books: the Book is the heaviest draw in its class/tier pool', () => {
   const book = ITEM_BY_ID['book'];
   assert.truthy(book, 'the Book is in the catalog');
-  assert.eq(book.kind, 'consumable', 'it is a consumable');
+  assert.eq(book.kind, 'supply', 'it is a consumable');
   assert.gt(book.dropWeight || 1, 1, 'it carries a dropWeight above the even draw');
   // Nothing else at its tier in its class may out-weigh it, or "the commonest
   // consumable" is a comment rather than a fact.
-  const peers = ITEMS.filter((i) => i.kind === 'consumable' && i.baseTier === book.baseTier);
+  const peers = ITEMS.filter((i) => i.kind === 'supply' && i.baseTier === book.baseTier);
   assert.gt(peers.length, 1, 'the T2 consumable pool has more than one member');
   for (const p of peers) {
     if (p.id === 'book') continue;
@@ -80,32 +80,10 @@ test('books: a school chest beats every other chest at handing one over', () => 
   }
 });
 
-test('books: the dropWeight lifts books everywhere, not just at school', () => {
-  // An ORDINARY chest, with no favourite to help: of the consumables a T2
-  // civic chest pays out, the Book must be the plurality — an even draw of
-  // the seven-strong T2 pool would put it at 1/7.
-  const peers = ITEMS.filter((i) => i.kind === 'consumable' && i.baseTier === 2);
-  const even = 1 / peers.length;
-  const rng = bookRng(0xD0FF);
-  const seen = {};
-  let consumables = 0;
-  for (let i = 0; i < 6000; i++) {
-    const r = pickReward('chest:civic', BOOK_SAVE(), rng, { tier: 2 });
-    if (!r || r.kind !== 'item' || r.cls !== 'consumable') continue;
-    consumables++;
-    seen[r.id] = (seen[r.id] || 0) + 1;
-  }
-  assert.gt(consumables, 100, 'the sample actually drew consumables');
-  // Measured inside the Book's OWN tier: a T2 chest can jackpot up to the T3
-  // consumable (dragon powder), and that draw says nothing about the weight.
-  let t2 = 0;
-  for (const id of Object.keys(seen)) if (ITEM_BY_ID[id]?.baseTier === 2) t2 += seen[id];
-  const share = (seen.book || 0) / t2;
-  assert.gt(share, even * 2, `the Book out-draws an even share (got ${(share * 100).toFixed(1)}%)`);
-  for (const id of Object.keys(seen)) {
-    if (id === 'book' || ITEM_BY_ID[id]?.baseTier !== 2) continue;
-    assert.lt(seen[id], seen.book, `the Book out-draws ${id}`);
-  }
+test('books: themed civic uses a dedicated Book group', () => {
+  assert.eq(ChestThemes.weights('civic', 3).books, 20);
+  const share = bookShare('chest:civic', 3);
+  assert.inRange(share, 0.12, 0.24, 'low quality can fall back, but civic retains a reliable Book source');
 });
 
 test('books: a school whose roll the Home rings soften to T1 still pays a book', () => {
@@ -118,7 +96,7 @@ test('books: a school whose roll the Home rings soften to T1 still pays a book',
   let books = 0, otherConsumables = 0;
   for (let i = 0; i < 4000; i++) {
     const r = pickReward('chest:school', BOOK_SAVE(), rng, { tier: 1 });
-    if (!r || r.kind !== 'item' || r.cls !== 'consumable') continue;
+    if (!r || r.kind !== 'item' || r.cls !== 'supply') continue;
     if (r.id === 'book') books++; else otherConsumables++;
   }
   assert.gt(books, 0, 'a T1 school chest can still produce a Book');
@@ -148,12 +126,9 @@ test('school category: the split re-priced nothing — tier, pad and cave mirror
   }
 });
 
-test('school category: the row declares the Book, and a heavier consumable share', () => {
-  const ctx = LOOT_CONTEXTS['chest:school'];
-  assert.eq(ctx.favourite?.id, 'book', 'the favourite is the Book');
-  assert.gt(ctx.favourite.p, 0.5, 'and it wins the consumable roll more often than not');
-  assert.gt(ctx.classBias.consumable, LOOT_CONTEXTS['chest:civic'].classBias.consumable,
-    'the consumable share is heavier than civic\'s');
+test('school category: Book odds have one owner, without a second favorite roll', () => {
+  assert.eq(ChestThemes.weights('school', 3).books, 55);
+  assert.eq(LOOT_CONTEXTS['chest:school'].favourite, undefined);
 });
 
 test('school category: the favourite only fires inside its own class', () => {
@@ -220,7 +195,7 @@ test('course: the pages run in the order the player needs them', () => {
     smithy:   idx(/first wreck you rebuild/i),
     chests:   idx(/Treasure X marks are buried in car parks/i),
     village:  idx(/ending in 9 is a Blacksmith/i),
-    land:     idx(/Wild rock grows in residential streets/i),
+    land:     idx(/Wild rock lines about one residential street in four/i),
     streets:  idx(/derelict until you stand by them/i),
     animals:  idx(/Feeding an animal its favourite/i),
     fighting: idx(/Only one weapon is ever in play/i),
@@ -728,10 +703,10 @@ test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
   // own context (Trail.PRIZE_CONTEXT), so the classes the tip names are the
   // classes that context actually carries — never a list typed out here.
   const road = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT].classBias;
-  assert.lt(road.seed, road.produce + road.consumable + road.boots, 'road supplies outweigh seeds');
+  assert.lt(road.seed, road.produce + road.magic + road.supply + road.boots, 'road supplies outweigh seeds');
   assert.falsy(/seeds mostly/i.test(tip), 'the tip reflects the broader pool');
   for (const cls of Object.keys(road)) {
-    const word = ({ cash: 'coin', produce: 'fruit', consumable: 'potions' })[cls] || cls;
+    const word = ({ cash: 'coin', produce: 'fruit', magic: 'potions', supply: 'supplies' })[cls] || cls;
     assert.truthy(new RegExp(word, 'i').test(tip), `the tip names the ${cls} the pool can pay`);
   }
   // And the FIXED first rung: the tip promises a seed, so trail.js had better

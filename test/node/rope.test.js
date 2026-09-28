@@ -24,7 +24,7 @@ const app = APP_JS_SRC;
 test('rope: is a T2 consumable with a price and an effect line', () => {
   const it = ITEM_BY_ID.rope;
   assert.truthy(it, 'rope is registered');
-  assert.eq(it.kind, 'consumable', 'kind — the Use button and the single-stack rarity class key off it');
+  assert.eq(it.kind, 'supply', 'kind — the Use button and the single-stack rarity class key off it');
   assert.eq(it.baseTier, 2, 'baseTier — T2, beside the potions');
   assert.eq(BASE_TIER.rope, 2, 'BASE_TIER row');
   assert.truthy(PRICES.rope > 0, 'a sell price');

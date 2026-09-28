@@ -48,10 +48,55 @@
   // whole point of the field, and the thing this file spent its life without.
   //   1 — the field itself (Sep 2026).
   //   2 — memories: the 'discovery' bag stack folded into save.memories.
-  const SAVE_SCHEMA = 2;
+  //   3 — Magic/Supplies tabs, crop-specific growth timers and conditions.
+  //   4 — daily crates: opened surface POI chest ids copied onto TODAY's day
+  //       ledger (see carryOpenedCratesToLedger).
+  const SAVE_SCHEMA = 4;
+
+  // A surface POI chest's id, by SHAPE: `c_<tx>_<ty>_<ix>_<iy>` (the MVT
+  // POI) or `sxc_<osm id | tx_ty_ix_iy>` (the satextract / Overpass one). A
+  // cave copy (`…_d<depth>`), a starter crate, a headstone or a waystone does
+  // not match. Which of them is a CRATE (interactables.js refillsDaily) needs
+  // the object, which a save does not carry — so every match is carried.
+  const SURFACE_POI_CHEST_ID = /^(?:c_-?\d+_-?\d+_-?\d+_-?\d+|sxc_(?:\d+|-?\d+_-?\d+_-?\d+_-?\d+))$/;
+  // Low-tier crates REFILL every UTC day (Sep 2026) and are spent by the
+  // coin-burst day ledger alone, never save.opened. A crate opened before
+  // this build sits in save.opened, which a crate now ignores — so it would
+  // stand again at once, a windfall of every crate ever cracked. Instead each
+  // opened surface POI id is written into TODAY's ledger
+  // (save.coinBurstClaimed[id + dayKey] = 1): an old crate reads as opened on
+  // the migration day and refills tomorrow. For a trunk the entry is inert
+  // (save.opened still spends it forever) and the ledger prunes other days
+  // on its next write, so the save does not grow.
+  function carryOpenedCratesToLedger(save, now) {
+    if (!Array.isArray(save.opened) || !save.opened.length || typeof Delivery === 'undefined') return 0;
+    const day = Delivery.dayKey(now instanceof Date ? now : new Date(now ?? Date.now()));
+    let n = 0;
+    for (const id of save.opened) {
+      if (typeof id !== 'string' || !SURFACE_POI_CHEST_ID.test(id)) continue;
+      const ledger = save.coinBurstClaimed = save.coinBurstClaimed || {};
+      ledger[id + day] = 1;
+      n++;
+    }
+    return n;
+  }
 
   function migrate(save) {
     let needsPersist = false;
+    if ((save.schema || 0) < 3) {
+      if (save.invCat === 'consumables') {
+        const selected = save.inv?.[save.selSlot]?.id;
+        const cat = selected && typeof invCatForItem === 'function' ? invCatForItem(selected) : null;
+        save.invCat = cat === 'magic' ? 'magic' : 'supplies';
+        save.invPage = 0;
+      }
+      if (typeof Crops !== 'undefined') Crops.migrateStageTimers(save);
+      needsPersist = true;
+    }
+    if (typeof Conditions !== 'undefined') Conditions.normalize(save);
+    if ((save.schema || 0) < 4) {
+      if (carryOpenedCratesToLedger(save)) needsPersist = true;
+    }
 
     // --- Slot / default backfills (idempotent; don't force a persist) --------
     // Stats / equipment: add energy + relic/armor slots to older saves. The
@@ -335,5 +380,5 @@
     return true;
   }
 
-  root.SaveMigrate = { migrate, hasPlayed };
+  root.SaveMigrate = { SAVE_SCHEMA, migrate, hasPlayed, carryOpenedCratesToLedger, SURFACE_POI_CHEST_ID };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

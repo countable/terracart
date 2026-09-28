@@ -18,7 +18,7 @@ test('revive potions: T2 at 30%, T5 at 60%, both drunk not eaten', () => {
   assert.eq(BASE_TIER.revive_potion, 2, 'Revival is tier 2');
   assert.eq(BASE_TIER.resurrection_potion, 5, 'Resurrection is tier 5');
   for (const id of ['revive_potion', 'resurrection_potion']) {
-    assert.eq(ITEM_BY_ID[id]?.kind, 'consumable', `${id} is a consumable`);
+    assert.eq(ITEM_BY_ID[id]?.kind, 'magic', `${id} is a consumable`);
     assert.eq(FOOD_ENERGY[id], undefined, `${id} never reaches the Eat button`);
     assert.gt(PRICES[id], 0, `${id} has a price`);
     assert.truthy(ITEM_EFFECTS[id].includes(`${revivePct(id)}%`), `${id}'s ✦ line prints its own number`);

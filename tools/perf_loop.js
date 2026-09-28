@@ -85,7 +85,7 @@ async function profile(browser) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errs = [];
   collectErrors(page, errs);
-  await page.goto(`http://127.0.0.1:${PORT}/test/perf.html?sandbox=true`, { timeout: 60000 });
+  await page.goto(`http://127.0.0.1:${PORT}/test/perf.html?sandbox=true&overpass=off`, { timeout: 60000 });
   await page.evaluate(() => window.__perfReady);
 
   const cdp = await page.context().newCDPSession(page);
@@ -182,7 +182,7 @@ async function profile(browser) {
   if (RESTORE_MS > 0) {
     const rp = await browser.newPage({ viewport: { width: 390, height: 844 } });
     collectErrors(rp, errs, '[restore] ');
-    await rp.goto(`http://127.0.0.1:${PORT}/test/perf.html?fixtures=1`, { timeout: 60000 });
+    await rp.goto(`http://127.0.0.1:${PORT}/test/perf.html?fixtures=1&overpass=off`, { timeout: 60000 });
     await rp.evaluate(() => window.__perfReady);
     const at = await rp.evaluate(() => {
       const s = window.__scene, pc = s.playerToWorldCell();

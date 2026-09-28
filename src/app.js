@@ -155,6 +155,16 @@ const GATHER_SPREAD_POINTS = 6;
 // dark is Lighting.KINDS.cobble, on the same point — lifted off it to the
 // LANTERN, which is where a lamp burns (RoadOverlay.LAMP_LANTERN_RISE_CELLS).
 const STREET_LAMP_TEX = 'street_lamp';
+// …and ONE BAKE PER GLOW COLOUR, never per lamp. A lamp sheds its street's
+// colour (StreetVariants.lampGlowFor off the street index — the same value
+// Lighting.collectLamps throws, carried on the lamp entry as `glow`), so the
+// baked art is keyed by that colour: the default UI_LAMP_GLOW keeps the plain
+// STREET_LAMP_TEX key it always had, any other glow is `street_lamp@#rrggbb`.
+// The handful of theme colours is the whole store, however many lamps.
+function streetLampTexKey(glow) {
+  const g = (typeof glow === 'string') ? glow.toLowerCase() : '';
+  return (!g || g === String(UI_LAMP_GLOW).toLowerCase()) ? STREET_LAMP_TEX : `${STREET_LAMP_TEX}@${g}`;
+}
 // Drawn LAMP_DRAW_CELLS cells across — the pool of glow at its foot included;
 // the ironwork inside that is about a fifth of it wide and half of it tall, so
 // a lamp stands on one cell of the verge and reads from a couple away.
@@ -280,6 +290,14 @@ const STREET_COUNTER_MIN_MS = 1000;
 // session and it should read from across the block.
 const BLAST_HOUSE_PAD_CELLS = 2;
 const WALK_M_S = 1.4;
+// SLOW GOING: the most the body may cover per second while its feet are on a
+// Burned Row's tar pit or iron stakes (see _bodyHold) — a little under the
+// walk, so the body drops behind a walking fix and the catch-up ramp
+// (FOLLOW_RAMP_M) brings it back once it is off the patch.
+const SLOW_BODY_M_S = 1.2;
+// A variant street's map line (StreetVariants row `flash`) repeats no more
+// often than this per street kind, after its story has been told.
+const STREET_FLASH_GAP_MS = 60000;
 // TIRED WALK: how far the walk CYCLE's pace sags once energy drops below
 // Lighting.LOW_ENERGY_FRAC (30%) — 1 = full frameRate at the threshold, and
 // this is the FLOOR it eases toward at 0 energy (_playDirected). It reads
@@ -988,7 +1006,7 @@ const SHINY_FIND_TITLE = '✨ SHINY FIND ✨';
 // Fort slot machine (presentFortSlots): what can be a prize, and the reels'
 // animation — a flicker every FORT_SLOT_TICK_MS, the first reel stopping at
 // FORT_SLOT_FIRST_STOP_MS and each next one FORT_SLOT_STOP_GAP_MS later.
-const FORT_SLOT_KINDS = ['seed', 'produce', 'consumable', 'mineral'];
+const FORT_SLOT_KINDS = ['seed', 'produce', 'magic', 'supply', 'mineral'];
 const FORT_SLOT_EXCLUDE = new Set(['book']);   // a Book reads itself on pickup
 const FORT_SLOT_TICK_MS = 70;
 const FORT_SLOT_FIRST_STOP_MS = 700;
@@ -1094,6 +1112,13 @@ const COLORS = {
   // neighbourhood outlines). Plays as residential; looks like the abandoned
   // scrub it is: residential's dirty concrete pulled toward dusty khaki.
   27: 0x9a8e68, // WASTELAND  — dusty grey-ochre scrub
+  // INFLUENCE ZONES (src/zones.js) — the halo a park / church / fuel yard
+  // paints over the lot and commercial ground around it.
+  28: 0x5a8a48, // GROVE       — lush green sward, the one fresh green in town
+  29: 0x667d6a, // CHURCHYARD  — mossy grey-green sward among the stones: darker and
+               //                greener than the residential concrete it replaces
+               //                (was 0x7d8672, which read as the same grey at a glance)
+  31: 0x3b3833, // TAR_YARD    — dark oily ground
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
   // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately
   // darker than every real biome so "beyond the charted world" reads as the
@@ -1860,6 +1885,8 @@ class MapScene extends Phaser.Scene {
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
     window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 32, 32);
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
+    // A bandit road's bus stop is a broken wagon (loot.js chestLook).
+    if (this.textures.exists('wagon')) window.WORLD_ICON_URLS.wagon = bakeSheetFrame('wagon', 0, 128, 96);
     // The burn confirm opens with the campfire the player just tapped.
     window.WORLD_ICON_URLS.bonfire = bakeSheetFrame('bonfire', 0, 16, 32);
     // Home's panel opens with the trailer the player just tapped — the whole
@@ -2139,17 +2166,9 @@ class MapScene extends Phaser.Scene {
     //
     // Sized in CELLS (RoadOverlay.LAMP_DRAW_CELLS) by that spec, so the lamp
     // keeps its proportion to the carriageway at any latitude's cell size.
-    if (typeof RoadOverlay !== 'undefined' && RoadOverlay.paintLamp &&
-        typeof document !== 'undefined' && !this.textures.exists(STREET_LAMP_TEX)) {
-      const S = RoadOverlay.LAMP_TEX_PX;
-      const cvs = document.createElement('canvas');
-      cvs.width = cvs.height = S;
-      const lctx = cvs.getContext('2d');
-      if (lctx) {
-        RoadOverlay.paintLamp(lctx, S);
-        this.textures.addCanvas(STREET_LAMP_TEX, cvs);
-      }
-    }
+    // The default glow is baked here at boot; a themed street's colour is
+    // baked the first time a lit lamp of it comes near (_updateStreetLamps).
+    this._ensureStreetLampTex(UI_LAMP_GLOW);
 
     // Road-label pool: compact whole-word street names (one anchor every ~12
     // road cells, rotated along the road by render.js), drawn low-alpha in
@@ -3096,6 +3115,100 @@ class MapScene extends Phaser.Scene {
   // `Combat.playerDowned`, NOT `isUnnoticed()`: a Shadow Powder hides you from
   // whatever takes an INTEREST in you, and iron jaws take none — a powder must
   // not walk you through a minefield.
+  // ── THE STREET UNDER THE FEET ─────────────────────────────────────────────
+  // One read per feet-cell change (playerToWorldCell — never the camera
+  // anchor): the tile's street marks (StreetVariants.dress) and its MAJOR band
+  // (entry.roadClass) say which street this is, and the first entry onto each
+  // variant — and onto a bandit road — tells its story once per save
+  // (_storySplashOnce, keyed and painted by the row's `story` stem); a later
+  // entry after being off it for STREET_FLASH_GAP_MS gets its map line. The
+  // same cell says whether a Burned Row's tar pit or iron stakes are under
+  // the body: `_slowHere`, which _bodyHold reads as the SLOW reason.
+  _tickStreetFeet() {
+    if ((this.depth || 0) !== 0 || typeof StreetVariants === 'undefined' || !this.startWorldM) {
+      this._slowHere = null;
+      this._streetStoryHere = null;
+      return;
+    }
+    const pc = this.playerToWorldCell();
+    const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
+    const key = `${pc.tx}_${pc.ty}_${lix}_${liy}`;
+    if (key === this._streetFeetKey) return;
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+    if (!entry || !entry._spawned) { this._slowHere = null; return; }   // retry next frame
+    this._streetFeetKey = key;
+    const N = entry.cellsPerEdge;
+    if (!(N > 0) || lix < 0 || liy < 0 || lix >= N || liy >= N) return;
+    const i = liy * N + lix;
+    const ps = this.playerScreen ? this.playerScreen() : null;
+    const say = (msg) => this.flash(msg, ps ? ps.x : undefined,
+      ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
+    // SLOW: first contact with a patch says so; standing on it again later
+    // does too (it is a hazard, not a story).
+    const was = this._slowHere;
+    this._slowHere = (entry.slowCells && entry.slowCells.get(i)) || null;
+    if (this._slowHere && !was) {
+      say(this._slowHere === 'tar' ? 'Tar drags at your feet.' : 'Iron stakes. Slow going.');
+    }
+    // THE ZONE: an influence zone's CORE under the feet (src/zones.js — the
+    // tile's field, one Uint8 read) tells its kind's story once per save, and
+    // a later entry gets its map line on the street's gap. It outranks the
+    // street's story on the same step (a zone is the rarer place).
+    const zone = (typeof Zones !== 'undefined') ? Zones.at(entry, lix, liy) : null;
+    const zrow = (zone && Zones.inCore(zone)) ? Zones.ZONE_KINDS[zone.kind] : null;
+    if (zrow && zrow.story !== this._zoneStoryHere) {
+      this._zoneStoryHere = zrow.story;
+      const seenZ = this.save.storySeen && this.save.storySeen[zrow.story];
+      if (!seenZ) {
+        this._storySplashOnce(zrow.story, { art: zrow.story, title: zrow.title, body: zrow.body });
+        return;
+      }
+      const lastZ = (this._streetFlashAt = this._streetFlashAt || {});
+      const nowZ = performance.now();
+      if (nowZ - (lastZ[zrow.story] || -Infinity) >= STREET_FLASH_GAP_MS) {
+        lastZ[zrow.story] = nowZ;
+        say(zrow.flash);
+      }
+    } else if (!zone) {
+      this._zoneStoryHere = null;
+    }
+    // THE STORY: which street is this?
+    const code = entry.streetMarks ? entry.streetMarks[i] : 0;
+    let row = code ? StreetVariants.variantByCode(code) : null;
+    if (!row && entry.roadClass && (entry.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BAND)) {
+      row = StreetVariants.BANDIT_STORY;
+    }
+    if (!row) { this._streetStoryHere = null; return; }
+    if (row.story === this._streetStoryHere) return;
+    this._streetStoryHere = row.story;
+    const seen = this.save.storySeen && this.save.storySeen[row.story];
+    if (!seen) {
+      this._storySplashOnce(row.story, { art: row.story, title: row.title, body: row.body });
+      return;
+    }
+    const last = (this._streetFlashAt = this._streetFlashAt || {});
+    const now = performance.now();
+    if (now - (last[row.story] || -Infinity) < STREET_FLASH_GAP_MS) return;
+    last[row.story] = now;
+    say(row.flash);
+  }
+
+  // ── What holds the BODY back from the fix ─────────────────────────────────
+  // ONE gate, two reasons (the movement block in update() reads it):
+  //   pinned — a trap's jaw holds the body still (_pinnedUntil).
+  //   capMS  — the feet are on a Burned Row's tar pit or iron stakes
+  //            (_tickStreetFeet's `_slowHere`): the body may advance toward
+  //            the target at no more than SLOW_BODY_M_S, so it falls behind
+  //            the GPS fix and catches up, on the ordinary follow ramp, once
+  //            off the patch. Tap-to-walk, the stick and the keyboard all
+  //            move the TARGET, so all of them obey it. No damage, no save.
+  //            (A downed body does not walk anyway.)
+  _bodyHold() {
+    const pinned = performance.now() < (this._pinnedUntil || 0);
+    const capMS = (!pinned && this._slowHere && !this._dragonActive) ? SLOW_BODY_M_S : null;
+    return { pinned, capMS };
+  }
+
   _tickTraps(dt) {
     if (typeof Traps === 'undefined' || !this.startWorldM || !this.originPx) return;
     // The memo goes down with the tick, so the cell is read fresh the moment
@@ -3821,6 +3934,7 @@ class MapScene extends Phaser.Scene {
       this._drainBadgeStories();
     }
     const dt = dtMs / 1000;
+    this._tickConditions();
     // Spring the peek camera home (no-op unless a drag just ended). FIRST, so
     // every projection below — and every draw pass this frame — reads one
     // settled camera position rather than two.
@@ -3953,7 +4067,10 @@ class MapScene extends Phaser.Scene {
     // energy drain while clamped. When the pin expires it clears itself and
     // tells the "pried free" story once per save (a busy screen returns
     // false unmarked; the splash is lost that once, which is fine).
-    if (performance.now() < (this._pinnedUntil || 0)) {
+    // The gate is _bodyHold: the pin above, and SLOW (tar / stakes) as its
+    // second reason — a cap on the follow step rather than a hold.
+    const bodyHold = this._bodyHold();
+    if (bodyHold.pinned) {
       // held fast - no movement this frame
     } else {
       if (this._pinnedUntil) {
@@ -3970,7 +4087,7 @@ class MapScene extends Phaser.Scene {
       else this._driftHome(dt);
       // Keyboard → steer the target directly, free, no offset.
       this._steerTarget(vx, vy, speedMul, dt);
-      this._followStep(dt);
+      this._followStep(dt, bodyHold.capMS);
     }
     // One throttled flash for the stick-walking drain banked in _steerManual,
     // same shape as the slime-leech / monster-hit roll-ups below (1200ms, one
@@ -4231,11 +4348,13 @@ class MapScene extends Phaser.Scene {
     // Pairy chest-compass indicator. Active for 5 minutes after eating a pairy
     // (see eatSelected). Renders a magenta arrow at the viewport edge pointing
     // toward the nearest undiscovered chest, blinking at 1 Hz. Cleared once
-    // the chest is opened (target appears in save.opened) or the timer expires.
+    // the chest is opened (target appears in save.opened, or — a daily crate —
+    // in today's day ledger) or the timer expires.
     if (this.pairyCompass) {
       const opened = setOf(this.save.opened);
       const expired = Date.now() >= this.pairyCompass.until;
-      const claimed = opened.has(this.pairyCompass.targetId);
+      const claimed = opened.has(this.pairyCompass.targetId)
+        || coinBurstUsedSet(this.save).has(this.pairyCompass.targetId);
       if (expired || claimed) {
         this.pairyCompass = null;
       } else {
@@ -4324,7 +4443,10 @@ class MapScene extends Phaser.Scene {
       this.advanceGrowth();
     }
 
-    // DERELICT LAIRS — hard mode only. Wake the garrisons of ruins the player
+    // DERELICT LAIRS — the ruins are hard mode's; the STREET structures (a
+    // bandit road's wagon, a hedgerow close — lairs.js ALWAYS_AWAKE_TIERS)
+    // are held in every mode, so the pass runs in both and `buildings` says
+    // which ruins it may wake. Wake the garrisons of ruins the player
     // has come near and sleep the ones they have left behind (src/lairs.js owns
     // every number). Throttled: the wake ring stands 4 cells outside the sleep
     // ring, which is ~20 seconds of walking, so half a second between passes
@@ -4333,7 +4455,7 @@ class MapScene extends Phaser.Scene {
     // wake a ruin the player has not walked to (CLAUDE.md's camera rule).
     //   Surface only: buildingShapes is a surface tile's data, and the world is
     // GPS-mirrored, so a cave level must not wake the ruins above it.
-    if (typeof Lairs !== 'undefined' && Difficulty.get().derelictLairs &&
+    if (typeof Lairs !== 'undefined' &&
         (this.depth || 0) === 0 && !window.__TEST_MODE &&
         performance.now() - (this._lastLairT || 0) > 500) {
       this._lastLairT = performance.now();
@@ -4359,6 +4481,7 @@ class MapScene extends Phaser.Scene {
           isClaimed: (key) => this.isClaimedKey(key),
           caughtSet: setOf(this.save.caught),
           hpMemo: this._lairHp,
+          buildings: !!Difficulty.get().derelictLairs,
         });
       }
     }
@@ -4377,6 +4500,11 @@ class MapScene extends Phaser.Scene {
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
     this._tickTraps(dt);
+    // …and is a guildhall bounty's pack still about (its leash)?
+    this._tickGuildBounty();
+    // …and which STREET are the feet on — a variant's first-entry story, and
+    // whether tar or stakes are slowing the body (the same feet cell).
+    this._tickStreetFeet();
     // …and is the player standing in lava (the lava level only)?
     this._tickLava(dt);
     // …and did an enemy just walk onto one of the player's Magic Traps?
@@ -4424,7 +4552,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Scan save.planted and bump stage on any watered crop whose stage hold
-  // (Crops.STAGE_HOLD_MS — 15 min) has elapsed. After each advance the crop needs re-watering, so
+  // (Crops.stageHoldMs — depends on crop) has elapsed. After each advance the crop needs re-watering, so
   // a single tick advances each plant by at most one stage; a long-idle
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
@@ -4659,6 +4787,69 @@ class MapScene extends Phaser.Scene {
     this._drawEnemyHealth(enemies);
   }
 
+  _applyCondition(id) {
+    const fresh = Conditions.apply(this.save, id);
+    if (fresh && id === 'poison') {
+      this.flash('Poisoned! Find an Antidote.', this.viewCenterX, this.viewCenterY);
+      if (!this.save.poisonLearned) {
+        this.save.poisonLearned = true;
+        const def = Conditions.DEFINITIONS.poison;
+        this.showMessageModal({ title: 'Poisoned', body:
+          `Purple Slime bites poison you: lose ${def.energyLoss} energy every ${shortDuration(def.intervalMs)} for ${shortDuration(def.durationMs)}. Antidotes from healthcare sites cure poison, even while downed. Rest and food do not cure it.` });
+      }
+    }
+    persistSave(this.save);
+    this._syncConditionHUD();
+  }
+
+  _tickConditions() {
+    if (!this._conditionVisibilityHandler) {
+      this._conditionVisibilityHandler = () => { this._conditionLastT = null; };
+      document.addEventListener('visibilitychange', this._conditionVisibilityHandler);
+      const resetClock = this._conditionVisibilityHandler;
+      this.events?.on('pause', resetClock);
+      this.events?.on('resume', resetClock);
+      this.events?.once('shutdown', () => {
+        document.removeEventListener('visibilitychange', resetClock);
+        this.events?.off('pause', resetClock);
+        this.events?.off('resume', resetClock);
+        this._conditionVisibilityHandler = null;
+        this._conditionLastT = null;
+        document.getElementById('condition-poison')?.remove();
+      });
+    }
+    const now = performance.now();
+    const elapsed = !document.hidden && this._conditionLastT != null ? now - this._conditionLastT : 0;
+    this._conditionLastT = document.hidden ? null : now;
+    const before = this.save.energy ?? 0;
+    const result = Conditions.tick(this.save, elapsed);
+    if (result.lost > 0) {
+      this._flashPlayerHit(result.lost);
+      this._popEnergy(-result.lost);
+      this._warnIfTiring(before);
+      this.updateEnergyDOM();
+    }
+    if (result.ticks || result.expired) persistSave(this.save);
+    this._syncConditionHUD();
+  }
+
+  _syncConditionHUD() {
+    let el = document.getElementById('condition-poison');
+    if (!Conditions.active(this.save, 'poison')) { el?.remove(); return; }
+    if (!el) {
+      const anchor = document.getElementById('energy');
+      if (!anchor) return;
+      el = document.createElement('div');
+      el.id = 'condition-poison';
+      el.style.cssText = 'position:absolute;top:100%;right:0;white-space:nowrap;color:#d9b1ff;background:#22132ee8;padding:3px 6px;border-radius:4px;font:11px monospace;pointer-events:none;';
+      anchor.style.position = 'relative';
+      anchor.appendChild(el);
+    }
+    const def = Conditions.DEFINITIONS.poison;
+    const text = `Poison · ${shortDuration(this.save.conditions.poison.remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}`;
+    if (el.textContent !== text) el.textContent = text;
+  }
+
   // A monster's arrow lands. The same energy hit the melee leech deals
   // (wanderCreatures' monster branch) — the shield potion halves it at the
   // moment of impact, worn armour soaks what is left, and the loss rolls into
@@ -4666,13 +4857,8 @@ class MapScene extends Phaser.Scene {
   // only delivered by a shot you could see coming rather than a silent drain
   // at range.
   _shotHitsPlayer(shot) {
-    const now = performance.now();
-    const before = this.save.energy ?? 0;
-    if (Combat.playerDowned(before) || !(shot.damage > 0)) return false;
-    const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(shot.damage / 2) : shot.damage;
-    // One arrow can carry several hits of the kind's table (shot.hits,
-    // MONSTER_ARROW_HITS) — armour soaks each of them, not the bundle.
-    const dmg = Combat.playerDamage(shielded, this.save.armor, shot.hits);
+    const dmg = Combat.incomingDamage(this.save, shot.damage, shot.hits);
+    if (!(dmg > 0)) return false;
     this._monsterDmgAccum = (this._monsterDmgAccum || 0)
       + this._losePlayerEnergy(dmg, { closeShop: true });
     return true;
@@ -5204,6 +5390,9 @@ class MapScene extends Phaser.Scene {
       const qDone = Quests.onKill(save, victim.kind);
       if (qDone) this.flash('Quest done — see the castle.', this.viewCenterX, this.viewCenterY - 60);
     }
+    // A guildhall bounty's foe: the pack's reward when it was the last one
+    // (whoever felled it — the wage above was paid either way).
+    if (victim.bounty) this._guildBountyDefeat(victim);
     persistSave(save);
     // Rare shiny deer / crow — hunted fauna drop their product (meat /
     // feather), so there's no live shiny animal to keep, but the shiny find
@@ -6236,9 +6425,12 @@ class MapScene extends Phaser.Scene {
   }
   // The multiplier on the player's OWN attacks (melee wheel, bow, staff):
   // Dragon Powder doubles them, being off the GPS takes a third off
-  // (Combat.OFF_GPS_ATTACK_MUL). One answer both attack paths read.
+  // (Combat.OFF_GPS_ATTACK_MUL), and the Training Hall's lessons and drill add
+  // what the player bought (Combat.trainingMul). One answer both attack paths
+  // read.
   _attackMul() {
-    return (this.isDragonActive() ? 2 : 1) * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1);
+    return (this.isDragonActive() ? 2 : 1) * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1)
+      * Combat.trainingMul(this.save);
   }
   // Is the stick actually being PUSHED right now? Pointer-down alone isn't
   // enough — a finger resting on a centred nub holds _movePadHeld true while
@@ -6666,7 +6858,7 @@ class MapScene extends Phaser.Scene {
   // single-cell jog around it (_detourDir) and only dig if no such trivial
   // detour exists. _startAutoMine no-ops unless a wall is really ahead, so a
   // body merely outrun by fast steering on open floor won't dig.
-  _followStep(dt) {
+  _followStep(dt, capMS) {
     // No target yet (surface before the first fix / any steer) — stand still.
     if (!this._targetM) { this._playDirected(this.player, 'idle'); return; }
     // A wheel is running (auto-mine, or a manual chop/mine the player tapped):
@@ -6706,7 +6898,8 @@ class MapScene extends Phaser.Scene {
     const stickMul = this._stickPushed() ? steerSpeedMul(this._walkRelics()) : 1;
     const mul = Math.min(Math.max(DEBUG_SPEED_MUL, stickMul),
                          Math.max(stickMul, 1 + dist / FOLLOW_RAMP_M));
-    const move = Math.min(WALK_M_S * mul * dt, dist);
+    // SLOW (_bodyHold): tar or stakes underfoot cap the body's pace.
+    const move = Math.min(WALK_M_S * mul * dt, dist, capMS > 0 ? capMS * dt : Infinity);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
     const open = (nx, ny) =>
@@ -7837,7 +8030,7 @@ class MapScene extends Phaser.Scene {
   // marking the key seen: the caller falls back to its plain flash, and the
   // next time the moment fires it asks again. Marking seen on a busy screen
   // would burn a first-time moment the player never got to see.
-  _storySplashOnce(key, { art, title, body, okLabel } = {}) {
+  _storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {
     const seen = this.save.storySeen = this.save.storySeen || {};
     if (seen[key]) return false;
     // The modal-open class lags the DOM by a microtask (it is mirrored off a
@@ -7849,7 +8042,7 @@ class MapScene extends Phaser.Scene {
     if (document.body?.classList?.contains('modal-open')) return false;
     seen[key] = 1;
     persistSave(this.save);
-    this.showMessageModal({ title, body, art, okLabel });
+    this.showMessageModal({ title, body, art, okLabel, onDismiss });
     return true;
   }
 
@@ -8356,7 +8549,7 @@ class MapScene extends Phaser.Scene {
     const mul = Difficulty.get().trapCountMul;
     const sprung = setOf(this.save.sprungTraps);
     WorldGen.tileCache?.forEach?.((entry, key) => {
-      if (!entry || !entry.grid || !entry.roadMask || !entry._spawned) return;
+      if (!entry || !entry.grid || !entry.roadClass || !entry._spawned) return;
       if (!entry._spawnOpts) return;
       const [, sx, sy] = String(key).split('/');
       const tx = Number(sx), ty = Number(sy);
@@ -8365,8 +8558,8 @@ class MapScene extends Phaser.Scene {
       // Off the GENERATED grid, like the spawn pass's own roll — the live one
       // carries this player's edits (spawnInTile's genGrid note).
       const genGrid = entry.baseGrid || entry.grid;
-      const laid = Traps.spawnSurface(genGrid, entry.roadMask, N, N, tx, ty,
-        this.tileEdgeM, entry._spawnOpts, mul);
+      const laid = Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty,
+        this.tileEdgeM, entry._spawnOpts, mul, entry.zone && entry.zone.under);
       // Keep any already-discovered trap the new roll missed, one per cell.
       const cells = new Set(laid.map((t) => t._iy * N + t._ix));
       for (const t of (entry.traps || [])) {
@@ -8738,8 +8931,8 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'vigor_potion' || (sel.count ?? 0) <= 0) return false;
     const max = this.getMaxEnergy();
-    const restored = Math.min(40, max - (this.save.energy ?? 0));
-    Energy.set(this.save, (this.save.energy ?? 0) + 40, max);
+    const restored = Math.min(VIGOR_POTION_ENERGY, max - (this.save.energy ?? 0));
+    Energy.set(this.save, (this.save.energy ?? 0) + VIGOR_POTION_ENERGY, max);
     if (restored > 0) this._popEnergy(restored);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return this._finishConsumable(
@@ -8748,6 +8941,31 @@ class MapScene extends Phaser.Scene {
         ? `Warmth spreads through your arms — ${restored} energy back in the tank.`
         : 'You were already brimming. The flask goes down anyway.',
     );
+  }
+
+  drinkAntidote() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'antidote' || !(sel.count > 0)) return false;
+    if (!Conditions.useAntidote(this.save)) {
+      this.flash('No poison — Antidote kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    this._syncConditionHUD();
+    return this._finishConsumable('You drink the Antidote', 'The poison clears. Your energy stays as it was.');
+  }
+
+  drinkElixir() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'elixir' || !(sel.count > 0)) return false;
+    const before = this.save.energy ?? 0;
+    if (!Conditions.useElixir(this.save)) {
+      if (before <= 0) this.flash('Elixir cannot revive you.', this.viewCenterX, this.viewCenterY);
+      else this.flash('Energy full — Elixir kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    this._popEnergy(this.save.energy - before);
+    this.updateEnergyDOM();
+    return this._finishConsumable('You drink the Elixir', 'Your energy is fully restored. Conditions remain.');
   }
 
   // Potion of Speed: a minute of tier-9 boots and amulet walking, even without either
@@ -9297,12 +9515,15 @@ class MapScene extends Phaser.Scene {
   findNearestUnopenedChest() {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
-    const opened = setOf(this.save.opened);
+    const sets = spentSets(this, this.save);
     let best = null, bestD2 = Infinity;
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
         if (o.kind !== 'chest') continue;
-        if (opened.has(o.id)) continue;
+        if (isSpent(o, sets)) continue;
+        // A macro stall (an inn, a chapel, … — loot.js macroFor) is a place,
+        // not a chest to find.
+        if (macroFor(o)) continue;
         const dx = o.x - pWX, dy = o.y - pWY;
         const d2 = dx * dx + dy * dy;
         if (d2 < bestD2) { best = o; bestD2 = d2; }
@@ -9470,11 +9691,10 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         if (!canAfford()) { this.flash(`need ${price}`, sx, sy); return; }
         addMoney(this.save, -price);
-        this.addToInv(id, 1, false, { notWild: true });
+        this.addToInv(id, 1, false, { notWild: true, deferRefresh: true });
         this.save.scarecrowShopUsed = true;
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(`${item?.name || id}\n−${price}`, '#ffe066', 1, id);
       },
     });
@@ -9489,9 +9709,22 @@ class MapScene extends Phaser.Scene {
   // Repeatable: a quantity stepper lets the player buy as many as they can
   // afford and carry, and the stall is never marked save.opened.
   presentMarketStandOffer(sx, sy, stand) {
+    this._presentStallOffer(sx, sy, { items: [stand.item], title: 'The market stall sells fresh:' });
+  }
+
+  // THE STALL COUNTER — the one buy dialog every counter shares: the market
+  // stall above, and the macro stalls that sell (the apothecary's potion and
+  // cure, the sundries' supply, the scriptorium's Book and torch —
+  // src/macros.js; the same price, stepper and no stock limit). A
+  // counter of more than one item shows a tab per item. `items` are ids;
+  // `index` is the tab shown; `kind` / `kindLabel` / `art` dress the dialog
+  // (the market stall keeps the 'shop' kind's own painting).
+  _presentStallOffer(sx, sy, opts) {
     // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
     if (document.getElementById('offer-modal')) return;
-    const id = stand.item;
+    const { items, index = 0, title, kind = 'shop', kindLabel, art } = opts;
+    const id = items && items[index];
+    if (!id) return;
     const item = ITEM_BY_ID[id];
     const unitPrice = ShopsMath.standPrice(this.save, PRICES[id] ?? 1);
     const listPrice = Math.max(1, PRICES[id] ?? 1);
@@ -9516,8 +9749,12 @@ class MapScene extends Phaser.Scene {
     };
     const first = fmt(1);
     this.showOfferModal({
-      kind: 'shop',
-      title: 'The market stall sells fresh:',
+      kind: kind, kindLabel, art,
+      title,
+      tabs: items.length > 1 ? items.map((it, i) => ({
+        label: ITEM_BY_ID[it]?.name || it, active: i === index,
+        onSelect: () => this._presentStallOffer(sx, sy, { ...opts, index: i }),
+      })) : undefined,
       get: first.get,
       cost: first.cost,
       canAfford: first.canAfford,
@@ -9531,10 +9768,285 @@ class MapScene extends Phaser.Scene {
         const pay = unitPrice * take;
         if (money() < pay) { this.flash(`need ${pay}`, sx, sy); return; }
         addMoney(this.save, -pay);
-        this.addToInv(id, take, false, { notWild: true });
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this.addToInv(id, take, false, { notWild: true, deferRefresh: true });
+        this._finishInventoryChange();
         this.flashLoot(`${take}× ${itemName}\n−${pay}`, '#ffe066', 1, id);
+      },
+    });
+  }
+
+  // ── THE MACRO STALLS (loot.js macroFor; the rules are src/macros.js) ─────
+  // An in-building POI is a place you come BACK to: its tap is a service and
+  // it is never consumed (no save.opened). interactables.js INTERACTABLES.chest
+  // routes every kind here except the chapel, which pays through the chest
+  // ceremony. Each kind's FIRST tap tells what the place is (the story
+  // ledger, `macro:<kind>`) and opens the dialog when that is dismissed.
+  presentMacro(sx, sy, o, macro = macroFor(o)) {
+    if (!macro || document.getElementById('offer-modal')) return;
+    const kind = macro.kind;
+    if (this._macroStory(kind, () => this.presentMacro(sx, sy, o, macro))) return;
+    const d = Macros.KIND_DIALOG[kind];
+    const dress = { kind: d.modal, kindLabel: d.label, art: d.art };
+    switch (kind) {
+      case 'inn':         return this._presentInn(sx, sy, o, dress);
+      case 'apothecary':  return this._presentStallOffer(sx, sy,
+        { ...dress, items: Macros.apothecaryStock(o), title: 'The apothecary has on the shelf:' });
+      case 'sundries':    return this._presentStallOffer(sx, sy,
+        { ...dress, items: Macros.sundriesStock(o), title: 'The counter has in stock:' });
+      case 'scriptorium': return this._presentStallOffer(sx, sy,
+        { ...dress, items: Macros.scriptoriumStock(), title: 'The scriptorium sells:' });
+      case 'guildhall':   return this._presentGuildhall(sx, sy, o, dress);
+      case 'curio':       return this._presentCurio(sx, sy, o, dress);
+      case 'training':    return this._presentTraining(sx, sy, o, dress);
+      default:            return undefined;
+    }
+  }
+  // The first-visit story of a macro kind, once per save (_storySplashOnce).
+  // True when it opened now; `onDismiss` runs when it is tapped away.
+  _macroStory(kind, onDismiss) {
+    const st = Macros.KIND_STORY[kind];
+    const d = Macros.KIND_DIALOG[kind];
+    if (!st || !d) return false;
+    return this._storySplashOnce('macro:' + kind, { art: d.art, title: st.title, body: st.body, onDismiss });
+  }
+
+  // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the
+  // Potion of Vigor's coins per energy × INN_RATE). A purchase, not a passive
+  // rest: it is not gated on `working`, and it is not Home's (HOME_R). Hard
+  // mode's empty-tank lockout refuses it like food and the fire.
+  _presentInn(sx, sy, o, dress) {
+    const wait = shortDuration(msToNextUtcDay());
+    if (Macros.usedToday(this.save, o.id)) { this.flash(`Rested. Back in ${wait}.`, sx, sy); return; }
+    if (this._zeroEnergyLocked()) { this.flash('Too far gone for a bed.', sx, sy); return; }
+    const maxE = this.getMaxEnergy();
+    const missing = Math.max(0, maxE - (this.save.energy ?? 0));
+    if (missing <= 0) { this.flash('You\'re already rested.', sx, sy); return; }
+    const price = Macros.innPrice(missing);
+    this.showOfferModal({
+      ...dress, kind: dress.kind,
+      title: 'The innkeeper offers a bed:',
+      get: `Rest to full: +${missing}⚡`,
+      blurb: `One night a day at this inn. The next is in ${wait}.`,
+      cost: this.moneyHTML(price),
+      canAfford: (this.save.money ?? 0) >= price,
+      acceptLabel: 'Rest',
+      cancelLabel: 'Later',
+      onAccept: () => {
+        const cur = this.save.energy ?? 0;
+        const r = Macros.innRest(this.save, o, this.getMaxEnergy());
+        if (!r.ok) {
+          if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy);
+          return;
+        }
+        this._finishInventoryChange();
+        if (this.updateEnergyDOM) this.updateEnergyDOM();
+        // A gain to the BODY: it lands on the player's own cell.
+        this._popEnergy(Math.max(0, (this.save.energy ?? 0) - cur));
+      },
+    });
+  }
+
+  // GUILDHALL: one MONSTER BOUNTY a UTC day per hall (Macros.bountyFor — the
+  // hall's and the day's pack, sized by the player's weapon). Accepting seats
+  // the pack at findWalkableDestination(BOUNTY_DIST_CELLS) and marks the day
+  // (the ledger — one offer a day, taken or lost). Each kill pays its own
+  // wage through resolveDefeat; clearing the pack pays Macros.bountyPay on top
+  // (_guildBountyDefeat). The pack is SESSION state and stands down (removed)
+  // when the player is more than CREATURE_SIM_CELLS from every foe left, when
+  // the UTC day turns, when the player goes underground, or on a reload —
+  // _tickGuildBounty. Nothing about it reaches the save but the ledger.
+  _presentGuildhall(sx, sy, o, dress) {
+    const wait = shortDuration(msToNextUtcDay());
+    if (this._guildBounty) { this.flash('Finish the hunt first.', sx, sy); return; }
+    if (Macros.usedToday(this.save, o.id)) { this.flash(`Board empty. Back in ${wait}.`, sx, sy); return; }
+    const b = Macros.bountyFor(this.save, o);
+    const names = b.kinds.map((k) => Combat.monster(k)?.name || 'Slime');
+    const counts = {};
+    for (const n of names) counts[n] = (counts[n] || 0) + 1;
+    const list = Object.entries(counts).map(([n, c]) => (c > 1 ? `${c}× ${n}` : n)).join(', ');
+    this.showOfferModal({
+      ...dress, kind: dress.kind,
+      title: 'Today\'s bounty:',
+      get: `Clear ${list} nearby`,
+      cost: `pays ${this.moneyHTML(b.pay, 12)} on top of each kill`,
+      blurb: `One bounty a day at this hall. They will come for you. A new one in ${wait}.`,
+      canAfford: true,
+      acceptLabel: 'Take it',
+      cancelLabel: 'Later',
+      onAccept: () => {
+        if (Macros.usedToday(this.save, o.id) || this._guildBounty) return;
+        const n = this._spawnGuildBounty(b);
+        if (!n) { this.flash('No clear ground here.', sx, sy); return; }
+        Macros.markToday(this.save, o.id);
+        persistSave(this.save);
+        const line = n > 1 ? `${n} foes close by!` : 'A foe close by!';
+        this.flash(line, sx, sy);
+      },
+    });
+  }
+  // Seat bounty `b`'s pack: the first foe on the destination cell, the rest on
+  // free cells beside it (WorldGen.relocateToSpawnCell under the same shared
+  // rule, each seat claimed so none stack). Ordinary enemies — the kind's own
+  // row, not shiny — tagged `bounty` with the bounty id, with ids minted off
+  // the clock (`guildfoe_<tx>_<ty>_…`, pruned from save.caught like a ghost's).
+  // Returns how many were seated (0: no ground; nothing is posted).
+  _spawnGuildBounty(b, now = Date.now()) {
+    const homePos = this.homeWorldPos();
+    const dest = this.findWalkableDestination(Macros.BOUNTY_DIST_CELLS, {
+      seed: b.id,
+      // Never inside Home's ward ring — it would only rout them.
+      accept: (x, y) => !homePos || Math.hypot(x - homePos.x, y - homePos.y) > HOME_R * this.cellM,
+    });
+    if (!dest) return 0;
+    const { entry, tx, ty, n: N } = dest;
+    const edge = this.tileEdgeM, cm = edge / N;
+    const base = entry._spawnOpts;
+    const used = new Set();
+    const opts = { ...base, occupied: { has: (k) => used.has(k) || !!(base.occupied && base.occupied.has(k)) } };
+    const foes = [];
+    entry.creatures = entry.creatures || [];
+    b.kinds.forEach((kind, i) => {
+      const seat = i === 0 ? { ix: dest.ix, iy: dest.iy }
+        : WorldGen.relocateToSpawnCell(entry.grid, N, N, dest.ix, dest.iy, opts, 2);
+      if (!seat) return;
+      used.add(seat.iy * N + seat.ix);
+      const id = `guildfoe_${tx}_${ty}_${Math.floor(now)}_${i}`;
+      entry.creatures.push(WorldGen.makeCreature(kind,
+        tx * edge + (seat.ix + 0.5) * cm, ty * edge + (seat.iy + 0.5) * cm, id,
+        { shiny: false, bounty: b.id }));
+      foes.push({ id, tx, ty });
+    });
+    if (!foes.length) return 0;
+    this._guildBounty = { id: b.id, pay: b.pay, day: Delivery.dayKey(new Date(now)), foes };
+    return foes.length;
+  }
+  // A bounty foe fell (resolveDefeat): when the whole pack is down, pay the
+  // hall's reward — once; the pack is forgotten on payment.
+  _guildBountyDefeat(victim) {
+    const gb = this._guildBounty;
+    if (!gb || victim.bounty !== gb.id) return;
+    if (!Macros.bountyCleared(this.save, gb.foes.map((f) => f.id))) return;
+    this._guildBounty = null;
+    addMoney(this.save, gb.pay);
+    this.updateHUD?.();
+    persistSave(this.save);
+    this.flashLoot(`Bounty paid! +${gb.pay}`, '#ffe066', 1);
+    this._storySplashOnce('macro:bounty', {
+      art: Macros.KIND_DIALOG.guildhall.art, title: 'A bounty paid',
+      body: 'The hall keeps its word. Tomorrow there will be another name on the board.',
+    });
+  }
+  // THE BOUNTY'S LEASH, asked each frame there is one: stand the pack down
+  // (lift every foe left off its tile) when the day has turned, the player is
+  // underground, or no foe left is within CREATURE_SIM_CELLS of the feet (the
+  // sim bubble — where a creature stops thinking at all). No payout.
+  _tickGuildBounty() {
+    const gb = this._guildBounty;
+    if (!gb) return;
+    const caught = new Set(this.save.caught || []);
+    const live = [];
+    for (const f of gb.foes) {
+      if (caught.has(f.id)) continue;
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(f.tx, f.ty));
+      const c = entry && entry.creatures && entry.creatures.find((k) => k.id === f.id);
+      if (c) live.push({ c, entry });
+    }
+    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    const R = CREATURE_SIM_CELLS * this.cellM;
+    const near = live.some(({ c }) => Math.hypot(c.x - px, c.y - py) <= R);
+    const stale = gb.day !== Delivery.dayKey(new Date()) || (this.depth || 0) !== 0;
+    if (!stale && near) return;
+    for (const { c, entry } of live) entry.creatures.splice(entry.creatures.indexOf(c), 1);
+    this._guildBounty = null;
+    if (live.length) this.flash('The bounty got away.', this.viewCenterX, this.viewCenterY - 40);
+  }
+
+  // CURIO HALL: the ONE shared collection (Macros.CURIO_COLLECTION — things
+  // that keep). Hold a listed thing the collection lacks and tap to give ONE;
+  // nothing is paid. At each of Macros.CURIO_MILESTONES given, a MEMORY
+  // (_bankDiscovery, `curio:<n>` — once per save; its story rides the memory
+  // queue). Not a sell page and not a delivery: see src/macros.js.
+  _presentCurio(sx, sy, o, dress) {
+    const have = Macros.curioCount(this.save);
+    const next = Macros.curioNextMilestone(have);
+    const progress = next != null ? `${have} / ${next} — next memory at ${next}`
+      : `${have} / ${Macros.curioCollection().length} given`;
+    const sel = getSelectedSlot(this.save);
+    const id = sel && (sel.count ?? 0) > 0 ? sel.id : null;
+    if (!id || !Macros.curioEligible(id) || Macros.curioDonated(this.save, id)) {
+      const missing = Macros.curioMissing(this.save).map((m) => itemName(m));
+      const lacks = missing.length ? `It still lacks: ${missing.join(', ')}.` : 'The collection is whole.';
+      const why = id && Macros.curioDonated(this.save, id) ? 'It has one of those already. '
+        : id ? 'It does not collect that. ' : '';
+      this.showMessageModal({
+        kind: dress.kind, art: dress.art, title: `The curio hall: ${progress}`,
+        body: `${why}Hold a thing it lacks and tap the hall. ${lacks}`,
+      });
+      return;
+    }
+    this.showOfferModal({
+      ...dress, kind: dress.kind,
+      title: `The curio hall: ${progress}`,
+      get: next != null && have + 1 === next ? 'A memory returns' : 'A place in the collection',
+      cost: `${this.iconSpanHTML(id)} ${itemName(id)} ×1`,
+      blurb: 'It takes one of each thing, once, and pays nothing — but every few gifts bring something back.',
+      canAfford: true,
+      acceptLabel: 'Donate',
+      cancelLabel: 'Keep',
+      onAccept: () => {
+        const r = Macros.curioDonate(this.save, id);
+        if (!r.ok) { this.flash(`${r.why === 'given' ? 'The hall has one already.' : 'Nothing to donate.'}`, sx, sy); return; }
+        this._clampSelSlot();
+        this._finishInventoryChange();
+        if (r.milestone) {
+          this._bankDiscovery(Macros.curioMilestoneKey(r.milestone),
+            `the ${r.milestone}th curio given to the hall`);
+        }
+        const nx = Macros.curioNextMilestone(r.count);
+        const line = nx != null ? `Donated! ${r.count} / ${nx}` : `Donated! ${r.count} given`;
+        this.flashLoot(line, '#ffe066', 1, id);
+      },
+    });
+  }
+
+  // TRAINING HALL: a LESSON (+Combat.TRAINING_PERM_STEP damage for good, to
+  // TRAINING_PERM_CAP) or a DRILL (+TRAINING_BUFF_BONUS for TRAINING_BUFF_MS,
+  // one at a time). Both land in Combat.trainingMul, which _attackMul reads.
+  _presentTraining(sx, sy, o, dress) {
+    const pct = (x) => Math.round(x * 100);
+    const lessons = Combat.trainingLessons(this.save);
+    const lp = Macros.lessonPrice(this.save);
+    const dp = Macros.drillPrice();
+    const left = Macros.drillLeftMs(this.save);
+    const money = this.save.money ?? 0;
+    const drillLine = left > 0
+      ? `Today's drill: ${shortDuration(left)} left.`
+      : `A drill: +${pct(Combat.TRAINING_BUFF_BONUS)}% for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`;
+    this.showOfferModal({
+      ...dress, kind: dress.kind,
+      title: 'The master offers training:',
+      get: lp != null ? `A lesson: +${pct(Combat.TRAINING_PERM_STEP)}% damage for good`
+        : `Fully trained: +${pct(Combat.TRAINING_PERM_CAP)}% for good`,
+      cost: lp != null ? this.moneyHTML(lp) : undefined,
+      blurb: `Lessons so far: +${lessons * pct(Combat.TRAINING_PERM_STEP)}% of +${pct(Combat.TRAINING_PERM_CAP)}%. ${drillLine}`,
+      canAfford: lp != null && money >= lp,
+      acceptLabel: 'Lesson',
+      cancelLabel: 'Later',
+      secondary: {
+        label: `Drill ${this.moneyHTML(dp, 12)}`,
+        disabled: left > 0 || money < dp,
+        onClick: () => {
+          const r = Macros.buyDrill(this.save);
+          if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
+          this._finishInventoryChange();
+          this.flash(`+${pct(Combat.TRAINING_BUFF_BONUS)}% damage for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`, sx, sy);
+        },
+      },
+      onAccept: () => {
+        const r = Macros.buyLesson(this.save);
+        if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
+        this._finishInventoryChange();
+        this.flash(`+${pct(Combat.TRAINING_PERM_STEP)}% damage, for good.`, sx, sy);
       },
     });
   }
@@ -9633,8 +10145,7 @@ class MapScene extends Phaser.Scene {
         this._clampSelSlot();
         const gain = unitPrice * sold;
         addMoney(this.save, gain);
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(`+${gain}`, '#ffe066', 1, sellId);
         this.questEvent('sell');
       },
@@ -9698,9 +10209,8 @@ class MapScene extends Phaser.Scene {
         }
         for (const c of rec.cost) Inventory.remove(this.save, c.id, c.qty * q);
         this._clampSelSlot();
-        this.addToInv(rec.id, q, false, { notWild: true });
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this.addToInv(rec.id, q, false, { notWild: true, deferRefresh: true });
+        this._finishInventoryChange();
         this.flashLoot(`✨ ${outName} ×${q}`, '#ffe066', 1.25, rec.id);
       },
     });
@@ -9894,7 +10404,7 @@ class MapScene extends Phaser.Scene {
           // worth the stake was priced on.
           const qty = out.qty || 1;
           const fit = Math.min(qty, Math.max(0, this.invRoomFor(p.id)));
-          if (fit > 0) this.addToInv(p.id, fit, false, { notWild: true });
+          if (fit > 0) this.addToInv(p.id, fit, false, { notWild: true, deferRefresh: true });
           const paid = (qty - fit) * p.value;
           if (paid > 0) { addMoney(this.save, paid); this.updateHUD(); }
           const what = qty > 1 ? `${qty}× ${name}` : name;
@@ -9908,8 +10418,7 @@ class MapScene extends Phaser.Scene {
           const line = p.jackpot ? `🎰 JACKPOT${tag}` : `🎰 You win${tag}`;   // ≤ 13 chars
           this.flashLoot(line, rim, p.jackpot ? 1.5 : 1.2, p.id);
           if (p.jackpot) this.flashJackpot(1, '✨ JACKPOT ✨');
-          persistSave(this.save);
-          this.buildInventoryDOM();
+          this._finishInventoryChange();
         } else if (out.coins > 0) {
           // Two jackpots (not three, no star to finish them), or two stars.
           addMoney(this.save, out.coins);
@@ -10049,8 +10558,7 @@ class MapScene extends Phaser.Scene {
             if (this.save.shopCharm[k] <= Date.now()) delete this.save.shopCharm[k];
           }
           this.save.shopCharm[house.id] = Date.now() + SHOP_CHARM_MS;
-          persistSave(this.save);
-          this.buildInventoryDOM();
+          this._finishInventoryChange();
           this.flashLoot('💐 charmed — half prices!', '#ff8aff', 1.2, 'flowers');
           // Straight back into the shop so the discounted offer is in hand.
           this.shopInteract(sx, sy, house);
@@ -10201,11 +10709,10 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
         offer.consume();
-        this.addToInv(id, buyQty, false, { notWild: true });
+        this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         // Use the loud loot pop so a purchase reads as a real gain.
         // Sprite shows the bought item — drop the item-icon emoji.
         this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
@@ -10957,8 +11464,7 @@ class MapScene extends Phaser.Scene {
         // That ledger key IS the household's "fed" record (Delivery.isSatisfied
         // reads it): it stops asking and shows a smiling face for good.
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(`+${gain}`, '#ffe066', 1, wanted[0]);
         // A new door gets the same fanfare as any other memory — the
         // shiny-find banner + burst, not a bare flash — so every "first time"
@@ -11120,10 +11626,9 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
         offer.consume();
-        this.addToInv(id, buyQty, false, { notWild: true });
+        this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
       // A re-roll can only land on another item of the same stock, so a line
@@ -11299,10 +11804,9 @@ class MapScene extends Phaser.Scene {
           return;
         }
         for (const r of recipe) consume(r.id, r.qty * q);
-        this.addToInv(target, q, false, { notWild: true });
+        this.addToInv(target, q, false, { notWild: true, deferRefresh: true });
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(`✨ ${outItem?.name || target} ×${q}`, '#ffe066', 1.25, target);
       },
     });
@@ -11524,11 +12028,10 @@ class MapScene extends Phaser.Scene {
         }
         Inventory.remove(this.save, offer.askId, offer.askQty);
         this._clampSelSlot();
-        this.addToInv(offer.giveId, giveQty, false, { notWild: true });
+        this.addToInv(offer.giveId, giveQty, false, { notWild: true, deferRefresh: true });
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(
           `${giveQty}× ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
           '#ffe066', 1, offer.giveId,
@@ -11758,6 +12261,25 @@ class MapScene extends Phaser.Scene {
   // discipline traps.js keeps (generated, never stored — only what the player
   // DID is written down).
 
+  // Bake the lamp art for one GLOW colour, once: RoadOverlay.paintLamp with
+  // that colour as its glass, bloom and pool, under streetLampTexKey(glow).
+  // Cached BY COLOUR (the texture manager is the cache), so a street of forty
+  // orange lamps is one bake. Returns the key render.js draws the lamp by.
+  _ensureStreetLampTex(glow) {
+    const key = streetLampTexKey(glow);
+    if (this.textures.exists(key)) return key;
+    if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintLamp || typeof document === 'undefined') return key;
+    const S = RoadOverlay.LAMP_TEX_PX;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = S;
+    const lctx = cvs.getContext('2d');
+    if (lctx) {
+      RoadOverlay.paintLamp(lctx, S, glow || UI_LAMP_GLOW);
+      this.textures.addCanvas(key, cvs);
+    }
+    return key;
+  }
+
   // Every lamp of ONE tile, in ABSOLUTE world metres — lit or not. Cached on
   // the TILE ENTRY: it is a pure function of that tile's geometry, so it is
   // computed once per tile rather than per frame, and a tile REBUILT under us
@@ -11808,11 +12330,26 @@ class MapScene extends Phaser.Scene {
     // half of every verge offset below.
     const cellM = (entry.cellsPerEdge > 0) ? tileEdgeM / entry.cellsPerEdge : (this.cellM || 0);
     const footRM = STREET_LAMP_R_CELLS * cellM;
+    // LANTERN ROW (src/street_variants.js) is this lane, denser: a line whose
+    // street rolled 'lantern' stands its lamps at StreetVariants.lampSpacingFor
+    // — the same lamp, the same lit-when-restored rule, no prop of its own.
+    // The index keys lines by (feature, line) position in this same layer.
+    // THE GLOW is the same record's: StreetVariants.lampGlowFor(rec) — the
+    // variant's colour, torch orange for an unthemed major road, else null →
+    // the default UI_LAMP_GLOW. Resolved ONCE per lamp onto `glow`, the one
+    // value both the baked art (streetLampTexKey) and the light
+    // (Lighting.collectLamps) read.
+    const lineRecs = new Map();
+    const hasVariants = typeof StreetVariants !== 'undefined';
+    if (entry.streetIndex && hasVariants) {
+      for (const rec of entry.streetIndex.lines) lineRecs.set(`${rec.fi}:${rec.li}`, rec);
+    }
     for (const layer of entry.layers) {
       if (layer.name !== 'transportation') continue;
       const extent = layer.extent || 4096;
       const mvtToM = tileEdgeM / extent;
-      for (const f of layer.features) {
+      for (let fi = 0; fi < layer.features.length; fi++) {
+        const f = layer.features[fi];
         if (f.type !== 2 || !f.geom) continue;          // lines only
         const cls = (f.tags && f.tags.class) || '';
         if (cls === 'rail' || cls === 'transit') continue;
@@ -11825,7 +12362,11 @@ class MapScene extends Phaser.Scene {
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
-          const at = Streets.lampsAlong(line, mvtToM);
+          const rec = lineRecs.get(`${fi}:${i}`) || null;
+          const at = (rec && rec.variant === 'lantern')
+            ? Streets.lampsAlong(line, mvtToM, StreetVariants.lampSpacingFor('lantern'))
+            : Streets.lampsAlong(line, mvtToM);
+          const glow = (hasVariants && StreetVariants.lampGlowFor && StreetVariants.lampGlowFor(rec)) || UI_LAMP_GLOW;
           if (!at.length) continue;
           const spans = Streets.tileSpans(line, mvtToM, extent);
           if (!spans.length) continue;
@@ -11834,8 +12375,8 @@ class MapScene extends Phaser.Scene {
             if (!Streets.covers(spans, sM)) continue;   // in the buffer — the neighbour's stone
             const q = Streets.pointAtM(line, mvtToM, sM, offM);
             if (!q) continue;
-            out.push({ tileKey, lineKey, tier, s: sM, x: ox + q.x, y: oy + q.y,
-                       id: `lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
+            out.push({ tileKey, lineKey, tier, glow, s: sM, x: ox + q.x, y: oy + q.y,
+                       id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
           }
         }
       }
@@ -11911,6 +12452,13 @@ class MapScene extends Phaser.Scene {
         out.push({ ...L, lit: Streets.covers(iv, L.s) });
       }
     });
+    // Every LIT lamp's glow has its art baked before the sprite pass asks
+    // for it — once per colour, however many lamps share it.
+    if (this._ensureStreetLampTex) {
+      const glows = new Set();
+      for (const L of out) if (L.lit) glows.add(L.glow);
+      for (const g of glows) this._ensureStreetLampTex(g);
+    }
     this._streetLamps = out;
     this._streetLampKey = pending ? null : key;
   }
@@ -12405,19 +12953,7 @@ class MapScene extends Phaser.Scene {
   _claimTrailReward(reward, opts = {}) {
     const card = this._trailRewardCard(reward);
     if (!card) return null;
-    if (reward.kind === 'item') {
-      this.addToInv(reward.id, reward.qty, false, opts);
-    } else if (reward.kind === 'gold') {
-      addMoney(this.save, reward.amount);
-    } else if (reward.kind === 'relic' || reward.kind === 'armor') {
-      // A gear roll can yield a relic OR armor (armor is just another gear
-      // slot). Both go through Gear.equip — the one equip path chests and
-      // shops use — which files armour under save.armor and bumps energy for
-      // it. (A fallback here used to write ARMOUR into save.relics.)
-      this._equipGear(reward.kind, reward.slot, reward.tier);
-      this.markRelicsDirty?.();
-    }
-    if (reward.consolation > 0) addMoney(this.save, reward.consolation);
+    Rewards.apply(this.save, reward, this, opts);
     return card;
   }
 
@@ -13532,6 +14068,8 @@ class MapScene extends Phaser.Scene {
   // Inventory.add (inventory.js); this wrapper owns only the scene side
   // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
   // flash. Returns the count actually accepted so callers can adjust narration.
+  // opts.deferRefresh keeps pickup feedback but lets a transaction commit once
+  // through _finishInventoryChange after its payment and deal bookkeeping.
   addToInv(id, n = 1, silent = false, opts = {}) {
     // A book triggers its read (a page of the course, or a chest hint) the
     // instant it's picked up rather than waiting in the bag for a manual
@@ -13572,8 +14110,7 @@ class MapScene extends Phaser.Scene {
         const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
         this.save.invPage = pos >= 0 ? Math.floor(pos / 5) : 0;
       }
-      persistSave(this.save);
-      this.buildInventoryDOM();
+      if (!opts.deferRefresh) this._finishInventoryChange();
     }
     // Flash whenever anything was rejected — that's the player attempting to
     // exceed the cap. Deferred via setTimeout so it can't race a flashLoot the
@@ -13593,6 +14130,12 @@ class MapScene extends Phaser.Scene {
     }
     return r.accepted;
   }
+  // Commit a completed inventory transaction after its payment and bookkeeping.
+  _finishInventoryChange() {
+    persistSave(this.save);
+    this.buildInventoryDOM();
+  }
+
   // --- Two-bar inventory helpers ------------------------------------------
   // After a spend spliced a stack out (Inventory.remove leaves the re-clamp
   // to its caller): a selection that fell off the end of save.inv becomes
@@ -13713,7 +14256,7 @@ class MapScene extends Phaser.Scene {
     tabs.id = 'inv-tabs';
     // position:fixed + appended to <body> for the same containing-block reason
     // as the item bar below. Sits just above the item bar.
-    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;';
+    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:flex-start;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;';
     for (const c of INV_CATS) {
       const active = c.key === this.save.invCat;
       const count = c.gear ? this.gearEntriesForCat(c.key).length : this.invEntriesForCat(c.key).length;
@@ -13723,7 +14266,7 @@ class MapScene extends Phaser.Scene {
       // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
       tab.className = active ? 'hud-tab sel' : 'hud-tab';
       tab.style.cssText =
-        'position:relative;flex:1 1 0;min-width:0;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
+        'position:relative;flex:1 0 44px;min-width:44px;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
         'justify-content:center;gap:1px;padding:0;overflow:hidden;';
       // Glyph in its own span so the desaturation targets ONLY the emoji — the
@@ -13761,6 +14304,7 @@ class MapScene extends Phaser.Scene {
       tabs.appendChild(tab);
     }
     document.body.appendChild(tabs);
+    tabs.querySelector('.sel')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 
     // ── Item / gear slot bar (BOTTOM of the two-bar HUD) ──────────────────
     let bar = document.getElementById('inv');
@@ -14197,7 +14741,9 @@ class MapScene extends Phaser.Scene {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       honey: { verb: 'Use',  method: 'useHoney',  title: 'Set out the honey?', get: '🍯 lure nearby chickens & cows' },
       reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: `✨ reach anything in sight for ${shortDuration(REACH_POTION_MS)}`, channel: true },
-      vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
+      antidote: { verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?', get: 'cure poison without restoring energy', usable: () => Conditions.active(this.save, 'poison') },
+      elixir: { verb: 'Drink', method: 'drinkElixir', title: 'Drink the Elixir?', get: 'restore full energy without curing poison or reviving', usable: () => this.save.energy > 0 && this.save.energy < this.getMaxEnergy() },
+      vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: `restore ${VIGOR_POTION_ENERGY} energy` },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `much faster, cheaper stick walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: `half monster damage for ${shortDuration(SHIELD_POTION_MS)}`, channel: true },
       raven_potion:  { verb: 'Drink', method: 'drinkRavenPotion',  title: 'Drink the Potion of the Raven?', get: `🐦 a spirit raven hunts foes & pest crows for ${shortDuration(SPIRIT_RAVEN_MS)}`, channel: true },

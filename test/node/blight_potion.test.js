@@ -11,7 +11,7 @@ const app = APP_JS_SRC;
 
 test('blight potion: an item with a price, a tier, an icon and a ✦ line', () => {
   assert.truthy(ITEM_BY_ID.blight_potion, 'the catalogue knows it');
-  assert.eq(ITEM_BY_ID.blight_potion.kind, 'consumable', 'drunk, not eaten');
+  assert.eq(ITEM_BY_ID.blight_potion.kind, 'magic', 'drunk, not eaten');
   assert.eq(FOOD_ENERGY.blight_potion, undefined, 'it can never reach the Eat button');
   assert.truthy(ITEM_EFFECTS.blight_potion, 'its effect is written on the item');
   assert.truthy(/CONSUMABLE = \{[\s\S]*blight_potion: \{ verb: 'Drink', method: 'drinkBlightPotion'/.test(app),
