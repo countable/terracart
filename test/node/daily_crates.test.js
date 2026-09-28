@@ -115,14 +115,18 @@
     const shrine = { kind: 'grove_shrine', id: 'sh_1_2_3_4', x: 0, y: 0 };
     const none = spentSets(null, {});
     for (const o of [crate, chapel, inn, trunk, shrine]) assert.truthy(poiLit(o, none), `${o.poiClass || o.kind}: lit when untouched`);
-    const used = spentSets(null, { opened: [trunk.id], ...ledger([crate, chapel, inn, shrine].map((o) => [o.id, today()])) });
+    const used = spentSets(null, { opened: [trunk.id], ...ledger([
+      [crate.id, today()], ['macro:' + chapel.id, today()], [inn.id, today()], [shrine.id, today()],
+    ]) });
     assert.falsy(poiLit(crate, used), 'a crate taken today is dark');
     assert.falsy(poiLit(chapel, used), 'the chapel\'s alms taken today: dark');
     assert.falsy(isSpent(chapel, used), '(the chapel itself still stands)');
     assert.falsy(poiLit(shrine, used), 'the shrine\'s gift taken: dark');
     assert.truthy(poiLit(inn, used), 'an inn is a counter and stays lit');
     assert.falsy(poiLit(trunk, used), 'an opened trunk: dark for good');
-    const stale = spentSets(null, ledger([crate, chapel, shrine].map((o) => [o.id, yesterday()])));
+    const stale = spentSets(null, ledger([
+      [crate.id, yesterday()], ['macro:' + chapel.id, yesterday()], [shrine.id, yesterday()],
+    ]));
     for (const o of [crate, chapel, shrine]) assert.truthy(poiLit(o, stale), `${o.poiClass || o.kind}: lit again the next day`);
     assert.falsy(poiLit({ kind: 'chest', id: 'chest_start_0_0_1', crate: true, x: 0, y: 0 }, none), 'a loose starter crate is no place');
   });
@@ -150,6 +154,8 @@
     assert.eq(save.opened.length, 7, 'save.opened is left as it was');
     const crate = { ...poi('bus'), id: 'c_1_2_3_4' };
     assert.truthy(isSpent(crate, spentSets(null, save)), 'an old crate reads as opened today — no windfall');
+    assert.truthy(Macros.usedToday(save, crate.id), 'migration carries the plain crate lane');
+    assert.falsy(Macros.serviceUsedToday(save, crate.id), 'migration leaves the macro service lane available');
     save.coinBurstClaimed = {};
     SaveMigrate.migrate(save);
     assert.eq(Object.keys(save.coinBurstClaimed).length, 0, 'runs once (the schema says so)');

@@ -104,7 +104,7 @@ function fixedChestReward(fixedLoot, save) {
   return { kind: 'item', id: fixedLoot.id, qty: fixedLoot.qty, consolation: 0 };
 }
 
-// Plain-rock base drop: rockfruit + a 20% chance of one coal. Shared by the
+// Plain-rock base drop: rockfruit + a 10% chance of one coal. Shared by the
 // mineralrock 'isPlain' branch below AND the cave-wall dig handler in
 // interact.js (loaded after this module, so the runtime reference is safe) —
 // both used to hardcode this table separately. Only the BASE table lives
@@ -279,7 +279,7 @@ const INTERACTABLES = {
       const isCave = o.caveVariant != null;
       const isPlain = isCave || (o.yieldTier || 1) <= 1;
       if (isPlain) {
-        // Plain rock — stone, coal on ~20% (shared base table, see
+        // Plain rock — stone, coal on ~10% (shared base table, see
         // plainRockBaseDrop), plus a small per-tier chance (1/(2·t²) from
         // copper) of cracking open a bar, on top of the base.
         // The stone count follows the ART: the pair-of-stones variant drops
@@ -473,8 +473,8 @@ const INTERACTABLES = {
       // place_of_worship) is credited here, on every tap — the chest used to
       // credit it once, on opening, and a macro never opens. Every kind but
       // the chapel is a dialog (app.js presentMacro); the chapel pays through
-      // THIS ceremony below, once a UTC day (the coin-burst day ledger,
-      // Macros.usedToday) and a tier humbler (Macros.chapelRollTier), and
+      // THIS ceremony below, once a UTC day (the macro-service lane,
+      // Macros.serviceUsedToday) and a tier humbler (Macros.chapelRollTier), and
       // never touches save.opened.
       const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
       if (macro) {
@@ -490,7 +490,7 @@ const INTERACTABLES = {
       if (chapel) {
         // A left-for-later roll is still this chapel's (claimed when taken),
         // so it replays whatever the day.
-        if (!held0 && typeof Macros !== 'undefined' && Macros.usedToday(save, o.id)) {
+        if (!held0 && typeof Macros !== 'undefined' && Macros.serviceUsedToday(save, o.id)) {
           scene.flash(`The chapel is quiet. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
           return true;
         }
@@ -525,12 +525,12 @@ const INTERACTABLES = {
       // Every path below that actually spends the chest goes through this, so
       // the starter ladder's "open a crate" step is credited exactly once no
       // matter which branch (item / relic / gold / partial take) claimed it.
-      // The chapel's "spend" is the day ledger, not save.opened, and it is no
-      // chest for the 'chest' quest (its visit was credited above).
-      // A daily crate spends into the same day ledger as the chapel, and is
-      // still a chest for both quest credits below — once per crate per UTC
+      // The chapel's "spend" is the day ledger's service lane, not
+      // save.opened, and it is no chest for the 'chest' quest (its visit was
+      // credited above). A daily crate spends into the plain lane beside it,
+      // and is still a chest for both quest credits below — once per crate per UTC
       // day, because the gate above refuses a second open the same day.
-      const markOpened = chapel ? () => { Macros.markToday(save, o.id); } : () => {
+      const markOpened = chapel ? () => { Macros.markServiceToday(save, o.id); } : () => {
         if (daily) Macros.markToday(save, o.id);
         else save.opened.push(o.id);
         scene.questEvent?.('chest');
@@ -768,8 +768,9 @@ const INTERACTABLES = {
   // A GROVE SHRINE (one per named park's grove). Once per UTC day per shrine
   // it leaves a gift: one roll of Zones.SHRINE_CONTEXT, claimed in the
   // coin-burst daily ledger (Macros.usedToday / markToday —
-  // save.coinBurstClaimed[id + dayKey], pruned of other days), the lane the
-  // daily crate and the chapel share. While the gift is there it wears the
+  // save.coinBurstClaimed[id + dayKey], pruned of other days), the plain lane
+  // the daily crate shares. The chapel uses the same ledger's service lane.
+  // While the gift is there it wears the
   // POI light (poiLit) on top of its own; not a rest ring, not a ward — its
   // own light (Lighting.KINDS.shrine) is what keeps the night off.
   grove_shrine: {
@@ -816,10 +817,10 @@ const INTERACTABLES = {
 // `spentAction` with it — those rows are readers of this, not a second lane.
 // And it is not "can this be worked": an unopened chest, a fruit tree between
 // harvests and a house are all un-spent.
-// THE DAY LEDGER, read once per frame: POI id → whole UTC days since it was
-// last taken (0 = today), for every take the ledger still keeps
-// (save.coinBurstClaimed[id + YYYYMMDD], a week — macros.js markToday).
-// A pot of gold, a bike rack, the chapel's alms and a shrine's gift are
+// THE DAY LEDGER, read once per frame: ledger id → whole UTC days since it
+// was last taken (0 = today), for every take the ledger still keeps. Plain
+// ids cover crates and recurring gifts; `macro:` ids cover services such as
+// chapel alms (macros.js). A pot of gold, a bike rack and a shrine's gift are
 // spent while theirs is 0; a crate or a barrel while it is under its own
 // crateRestoreDays. Keys are the id plus an 8-digit day, so the id is all
 // but the last eight characters.
@@ -855,6 +856,9 @@ function spentSets(scene, save) {
 function takenToday(o, sets) {
   return !!(sets && sets.burst && sets.burst.get(o.id) === 0);
 }
+function serviceTakenToday(o, sets) {
+  return !!(sets && sets.burst && sets.burst.get(Macros.serviceLedgerId(o.id)) === 0);
+}
 function chestNeverSpent(o) {
   return !!((typeof produceStandFor === 'function' && produceStandFor(o))
     || (typeof macroFor === 'function' && macroFor(o)));
@@ -869,8 +873,9 @@ function chestNeverSpent(o) {
 // stall, macro, pot of gold or bike rack, never PUBLIC ART (a one-time T1
 // trunk, CHEST_ONE_TIME_CLASSES). Taking one is written to the DAY LEDGER
 // (Macros.markToday — save.coinBurstClaimed[id + dayKey], kept a week), the
-// lane the pot of gold, the bike rack, the chapel's alms and the grove
-// shrine's gift already share, and it stands bare for crateRestoreDays UTC
+// lane the pot of gold, the bike rack and the grove
+// shrine's gift already share (the chapel's alms take the macro: service
+// lane above), and it stands bare for crateRestoreDays UTC
 // days (1 for an ordinary crate, up to CRATE_RESTORE_MAX_DAYS for a class
 // the tile is crowded with) before it restocks at its normal tier.
 // It is NOT save.opened: an id there (a save from before Sep 2026) is ignored
@@ -930,7 +935,7 @@ function poiLit(o, sets) {
   if (o.kind === 'grove_shrine') return !today;
   if (o.kind !== 'chest' || o.crate || isSpent(o, sets)) return false;
   const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
-  if (macro && macro.kind === 'chapel') return !today;
+  if (macro && macro.kind === 'chapel') return !serviceTakenToday(o, sets);
   return true;
 }
 

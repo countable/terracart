@@ -617,3 +617,14 @@ test('slots: the machine fixes a spin\'s deluxe state when it is paid, and saves
   assert.truthy(/if \(out\.deluxe\) \{/.test(body), 'the trigger has its own result branch (no coin)');
   assert.truthy(/this\._bankDiscovery\('slots:deluxe'/.test(body), 'the first deluxe banks a memory, once, under one ledger key');
 });
+
+test('slots: a paid spin cannot be closed before its precomputed payout settles', () => {
+  const app = APP_JS_SRC;
+  const i = app.indexOf('\n  presentFortSlots(sx, sy, house) {');
+  const body = app.slice(i, app.indexOf('\n  }\n', i));
+  assert.truthy(/makeModalShell\('slots-modal',\s*\{ kind: 'slots' \}\)/.test(body),
+    'the backdrop has no close handler');
+  assert.truthy(/later\._setEnabled\(!spinning\)/.test(body), 'Later is disabled while the reels turn');
+  assert.truthy(/later\.addEventListener\('click',[\s\S]*?if \(spinning\) return;[\s\S]*?timers\.forEach\(clearTimeout\)/.test(body),
+    'the cancel handler preserves settle timers during a spin');
+});

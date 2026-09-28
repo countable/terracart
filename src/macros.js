@@ -12,12 +12,11 @@
 // Every macro is a place you come BACK to: never written to save.opened,
 // never "picked clean". Only the player's USE is saved, in one of three
 // lanes that already existed or are this module's own:
-//   • the DAY LEDGER — save.coinBurstClaimed[id + Delivery.dayKey()], the
-//     coin-burst / grove-shrine / crate ledger, pruned of takes older than a
-//     week on every write (inn, chapel, the guildhall's bounty; usedToday / markToday
-//     below are its one reader and writer). A macro's id in it is NOT spent
-//     (interactables.js isSpent — a macro is never spent); the chapel's alms
-//     go dark in it (interactables.js poiLit) until the day rolls;
+//   • the DAY LEDGER — save.coinBurstClaimed, pruned of takes older than a
+//     week on every write. Plain id keys record coin bursts, shrines, crates
+//     and barrels; `macro:` id keys record inn, chapel and guildhall services.
+//     The two lanes share pruning but never keys, because migration carries
+//     old chest openings onto the plain lane and must not spend a new service;
 //   • save.donated — the curio ids this save has given (progress, not world
 //     state), and its milestones in the memory ledger (save.discovered);
 //   • save.trainingPerm / save.trainingBuffUntil — the damage the player
@@ -43,10 +42,12 @@
   'use strict';
 
   // ── The day ledger (the coin-burst one) ────────────────────────────────────
-  // save.coinBurstClaimed[id + dayKey] = 1 — "this place was taken on that UTC
-  // day". usedToday / markToday are its daily readers and ITS ONE WRITER (the
-  // pot of gold, the bike rack, the chapel, the inn, the guildhall, the grove
-  // shrine and every crate and barrel write through markToday). A write
+  // The ledger keeps two lanes because old chest ids can become macro places.
+  // usedToday / markToday own plain `<id><day>` keys for coin bursts, shrines,
+  // crates and barrels. serviceUsedToday / markServiceToday own
+  // `macro:<id><day>` keys for inns, chapels and guildhalls. Both lanes share
+  // one pruning pass, but migration can carry a crate take without spending a
+  // service the player has never used. A write
   // prunes every entry older than LEDGER_KEEP_DAYS, so a take is remembered
   // for a week: long enough for a crate that restocks after several days
   // (loot.js crateRestoreDays, capped at CRATE_RESTORE_MAX_DAYS — the same
@@ -74,6 +75,13 @@
       const d = ledgerKeyDay(k);
       if (!(today - d < LEDGER_KEEP_DAYS)) delete ledger[k];
     }
+  }
+  const serviceLedgerId = (id) => 'macro:' + id;
+  function serviceUsedToday(save, id, now) {
+    return usedToday(save, serviceLedgerId(id), now);
+  }
+  function markServiceToday(save, id, now) {
+    markToday(save, serviceLedgerId(id), now);
   }
   // Whole UTC days since `id` was last taken: 0 = today, 1 = yesterday, …;
   // Infinity when the ledger holds no take within LEDGER_KEEP_DAYS.
@@ -128,7 +136,7 @@
   // Rest `save` to `maxE` at inn `o`. Returns { ok, gain, price, why }:
   // why ∈ 'used' | 'full' | 'money'. Energy goes through Energy.set.
   function innRest(save, o, maxE, now) {
-    if (usedToday(save, o.id, now)) return { ok: false, why: 'used' };
+    if (serviceUsedToday(save, o.id, now)) return { ok: false, why: 'used' };
     const cur = save.energy ?? 0;
     const missing = Math.max(0, maxE - cur);
     if (missing <= 0) return { ok: false, why: 'full' };
@@ -136,7 +144,7 @@
     if ((save.money ?? 0) < price) return { ok: false, why: 'money', price };
     addMoney(save, -price);
     Energy.set(save, maxE, maxE);
-    markToday(save, o.id, now);
+    markServiceToday(save, o.id, now);
     return { ok: true, gain: (save.energy ?? 0) - cur, price };
   }
 
@@ -346,7 +354,8 @@
   };
 
   root.Macros = {
-    usedToday, markToday, daysSinceTaken, stillBare, restockWaitMs, ledgerKeyDay, LEDGER_KEEP_DAYS, stallPrice,
+    usedToday, markToday, serviceLedgerId, serviceUsedToday, markServiceToday,
+    daysSinceTaken, stillBare, restockWaitMs, ledgerKeyDay, LEDGER_KEEP_DAYS, stallPrice,
     INN_RATE, innCoinsPerEnergy, innPrice, innRest,
     CHAPEL_TIER_DROP, chapelRollTier,
     APOTHECARY_POTIONS, APOTHECARY_CURE, apothecaryStock,

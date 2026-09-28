@@ -95,7 +95,7 @@
     const stall = poi('cafe', { name: 'Bean There' });
     const plain = poi('memorial');
     const save = { opened: [inn.id, stall.id, plain.id], coinBurstClaimed: {} };
-    Macros.markToday(save, inn.id);
+    Macros.markServiceToday(save, inn.id);
     const sets = spentSets(null, save);
     assert.falsy(isSpent(inn, sets), 'the inn stands after resting and after a legacy open');
     assert.falsy(isSpent(stall, sets), 'a stall is never spent');
@@ -117,6 +117,19 @@
       'a take a week old is pruned on the next write');
   });
 
+  test('macro: service use has a prefixed lane beside plain crate takes', () => {
+    const id = 'c_1_2_3_4';
+    const day = Delivery.dayKey(new Date(T0));
+    const save = { coinBurstClaimed: { [id + day]: 1 } };
+    assert.truthy(Macros.usedToday(save, id, T0), 'the carried plain key keeps its crate bare');
+    assert.falsy(Macros.serviceUsedToday(save, id, T0), 'the carried chest opening leaves its service available');
+    Macros.markServiceToday(save, id, T0);
+    assert.truthy(Macros.serviceUsedToday(save, id, T0), 'service use spends only the service lane');
+    assert.eq(save.coinBurstClaimed[Macros.serviceLedgerId(id) + day], 1, 'the service key is prefixed');
+    assert.truthy(Macros.usedToday(save, id, T0), 'service use does not disturb the plain crate key');
+    assert.falsy(Macros.serviceUsedToday(save, id, T0 + DAY), 'the service is available tomorrow');
+  });
+
   // ── Inn ───────────────────────────────────────────────────────────────────
   test('inn: the price is the Vigor potion\'s coins per energy × INN_RATE, and it rests once a day', () => {
     assert.eq(VIGOR_POTION_ENERGY, 40, 'a Vigor restores 40');
@@ -133,6 +146,8 @@
     assert.eq(save.energy, 100, 'to full');
     assert.eq(r.gain, 70);
     assert.eq(save.money, 100 - Macros.innPrice(70), 'paid');
+    assert.truthy(Macros.serviceUsedToday(save, o.id, T0), 'the inn spends the service lane');
+    assert.falsy(Macros.usedToday(save, o.id, T0), 'the inn leaves the plain chest lane free');
     save.energy = 10;
     assert.eq(Macros.innRest(save, o, 100, T0 + 60000).why, 'used', 'once a day');
     assert.eq(save.energy, 10, 'nothing given the second time');
@@ -170,7 +185,7 @@
     assert.eq(tiers.join(','), String(Macros.chapelRollTier(o)), 'one roll, at the chapel tier');
     assert.eq(modals, 1, 'one ceremony');
     assert.eq(save.opened.length, 0, 'the chapel is never opened');
-    assert.truthy(Macros.usedToday(save, o.id), 'the day ledger holds it');
+    assert.truthy(Macros.serviceUsedToday(save, o.id), 'the service lane holds it');
     assert.truthy(/^The chapel is quiet\. \d+[smhd]\.$/.test(flashes[flashes.length - 1]), `the wait is shortDuration: ${flashes[flashes.length - 1]}`);
   }));
 
