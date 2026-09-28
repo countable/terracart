@@ -1612,13 +1612,9 @@ const TAP_HANDLERS = [
     scene._toolActionStory?.('dig');
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);
-      // Cave walls take the shared BASE table (interactables.js
-      // plainRockBaseDrop) as-is, unlike the mineralrock isPlain branch, which
-      // layers its own bar-chance loop on top.
-      // `stones` is null deliberately: a wall face draws no rock sprite, so it
-      // promises no particular number of stones and keeps the flat randInt(1,3)
-      // rather than inheriting a rock variant's count.
-      const qty = plainRockBaseDrop(scene, null);
+      // A wall pays the wall's own table (interactables.js caveWallDrop) —
+      // one stone, flint on 30 % — the same one the auto-mine pays.
+      const qty = caveWallDrop(scene);
       persistSave(save);
       const item = ITEM_BY_ID['rockfruit'];
       scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');

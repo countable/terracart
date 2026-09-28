@@ -114,14 +114,26 @@ function fixedChestReward(fixedLoot, save) {
 //
 // `stones` is HOW MANY STONES THE SPRITE SHOWS (SpriteLayout.plainRockStones —
 // 2 for the pair variant, 1 for the singles); the rock pays out that many plus
-// a coin-flip bonus, so what you see is what you get. Pass null for a face with
-// no rock sprite to promise anything — the cave WALL dig, which keeps the flat
-// randInt(1,3) this table had for every rock before Sep 2026.
+// a coin-flip bonus, so what you see is what you get. Flint on
+// PLAIN_ROCK_FLINT_P of breaks.
+const PLAIN_ROCK_FLINT_P = 0.10;
 function plainRockBaseDrop(scene, stones) {
-  const qty = (stones == null) ? randInt(1, 3) : stones + randInt(0, 1);
+  const qty = (stones == null ? 1 : stones) + randInt(0, 1);
   scene.addToInv('rockfruit', qty);
-  if (Math.random() < 0.20) scene.addToInv('coal', 1);
+  if (Math.random() < PLAIN_ROCK_FLINT_P) scene.addToInv('coal', 1);
   return qty;
+}
+
+// A CAVE WALL dug out — by a tap (interact.js cave-wall) or by walking into
+// it (app.js auto-mine), both through here: always one stone, and flint on
+// CAVE_WALL_FLINT_P of digs (a wall is where the flint is — a plain rock
+// gives it a third as often). Until Sep 2026 each path rolled its own
+// randInt(1,3) and 20 % flint.
+const CAVE_WALL_FLINT_P = 0.30;
+function caveWallDrop(scene) {
+  scene.addToInv('rockfruit', 1);
+  if (Math.random() < CAVE_WALL_FLINT_P) scene.addToInv('coal', 1);
+  return 1;
 }
 
 // 'a' or 'an' for a tier name. Iron is the only vowel-initial rung, and both

@@ -6835,9 +6835,9 @@ class MapScene extends Phaser.Scene {
         return;
       }
       this.digCaveWall(c.tx, c.ty, c.ix, c.iy, cellIX, cellIY);
-      const qty = randInt(1, 3);
-      this.addToInv('rockfruit', qty);
-      if (Math.random() < 0.20) this.addToInv('coal', 1);
+      // The wall's own table (interactables.js caveWallDrop), the one a
+      // tapped dig pays too.
+      const qty = caveWallDrop(this);
       this._autoMineKey = null;
       persistSave(this.save);
       const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID['rockfruit'] : null;

@@ -121,18 +121,32 @@ test('plain rock: the pair frame is still the widest art of the four', () => {
   }
 });
 
-// --- The cave WALL keeps its flat roll --------------------------------------
-test('cave wall dig: no sprite, no promise — still a flat 1-3', () => {
-  const seen = new Set();
-  for (let i = 0; i < 400; i++) {
+// --- The cave WALL pays its own table ---------------------------------------
+// One stone every dig, flint on CAVE_WALL_FLINT_P (30 %) — a tapped dig and
+// the auto-mine both through caveWallDrop.
+test('cave wall dig: always one stone, flint on 30%', () => {
+  let flint = 0;
+  const N = 4000;
+  for (let i = 0; i < N; i++) {
     const scene = makeScene();
-    // stones = null is the "this face draws no rock" case (src/interact.js).
-    const qty = plainRockBaseDrop(scene, null);
-    assert.inRange(qty, 1, 3, 'wall rubble keeps the pre-2026 flat range');
-    assert.eq(scene.invCount('rockfruit'), qty, 'returned qty is what went in the bag');
-    seen.add(qty);
+    assert.eq(caveWallDrop(scene), 1, 'one stone');
+    assert.eq(scene.invCount('rockfruit'), 1, 'and one in the bag');
+    flint += scene.invCount('coal');
   }
-  assert.eq(seen.size, 3, 'all of 1/2/3 occur');
+  assert.inRange(flint / N, 0.26, 0.34, 'flint on about 30% of digs');
+  assert.truthy(/const qty = caveWallDrop\(scene\);/.test(INTERACT_SRC), 'the tapped dig pays it');
+  assert.truthy(/const qty = caveWallDrop\(this\);/.test(APP_JS_SRC), 'and so does the auto-mine');
+});
+
+test('plain rock: flint on 10% of breaks', () => {
+  let flint = 0;
+  const N = 4000;
+  for (let i = 0; i < N; i++) {
+    const scene = makeScene();
+    plainRockBaseDrop(scene, 1);
+    flint += scene.invCount('coal');
+  }
+  assert.inRange(flint / N, 0.075, 0.125, 'flint on about 10% of rocks');
 });
 
 // --- The toast tells the truth ----------------------------------------------
