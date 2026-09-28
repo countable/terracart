@@ -207,6 +207,14 @@
     // brightnessAt every lamp and fire does — a refuge at night with no ward
     // code of its own. It is NOT a rest ring and turns no foe away.
     shrine:   { radiusCells: 3.0, colour: 0xc8f5a0, peak: 0.90, flicker: 0, pulse: 0.4 },
+    // A VIEWPOINT's scope (src/scenic.js — the one standing piece at a
+    // vista): a warm, steady lamp out to FIRE_REST_R — the ring its bench
+    // rests the player on (app.js update(), the campfire's rest with a new
+    // reason), so "stand in the light" is "sit and rest" here too. Unlike the
+    // fire it wards nothing: it is a place to sit, not a hearth. Its daily
+    // gift wears the POI light on top while it is there (poiLit).
+    vista:    { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
+                colour: 0xffe2a8, peak: 0.80, flicker: 0 },
     // A STREET LAMP — the gilded lamp a RESTORED street stands, one every
     // Streets.lampSpacingM() metres of rebuilt carriageway (streets.js places
     // them, road_overlay.js paints the lamp, app.js hands this collector the
@@ -676,6 +684,8 @@
     if (o.kind === 'torch') return 'torch';
     // A grove's shrine (src/zones.js) — its own soft green row.
     if (o.kind === 'grove_shrine') return 'shrine';
+    // A viewpoint's scope (src/scenic.js) — its rest ring's steady light.
+    if (o.kind === 'vista_scope') return 'vista';
     // A wild plant is offered as ITSELF from drawObjects' wildplant scan, and
     // which of them glows is items.js' WILDPLANT_RULES to say — the same table
     // the render-side gate asks, so a second glowing plant is one row and not

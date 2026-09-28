@@ -223,6 +223,7 @@ test('kerb: the fast kinds are the ones that out-run a walk, off the roster\'s o
   assert.eq(creatureSpawnClass('goblin'), 'fastEnemy', 'a goblin a fast one');
   assert.truthy(WorldGen.SPAWN_CLASS_BLOCKS.fastEnemy & WorldGen.SPAWN_WHY.KERB, 'fast foes refuse the kerb');
   assert.truthy(WorldGen.SPAWN_CLASS_BLOCKS.fastFauna & WorldGen.SPAWN_WHY.KERB, 'fast fauna too');
+  assert.truthy(WorldGen.SPAWN_CLASS_BLOCKS.reward & WorldGen.SPAWN_WHY.KERB, 'and a find you walk to (src/scenic.js)');
   for (const cls of ['enemy', 'fauna', 'npc', 'headstone', 'attractor', 'cave', 'minor']) {
     assert.falsy(WorldGen.SPAWN_CLASS_BLOCKS[cls] & WorldGen.SPAWN_WHY.KERB, `${cls}: not kept off the kerb`);
   }

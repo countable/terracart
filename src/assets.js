@@ -175,6 +175,13 @@ const ASSETS = {
   headstone:      { kind: 'spritesheet', path: 'assets/Objects/Generated/headstone.png', frameWidth: 16, frameHeight: 16 },
   grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Generated/shrine.png', frameWidth: 16, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Generated/flint.png', frameWidth: 16, frameHeight: 16 },
+  // SCENIC PLACES (src/scenic.js) — generated placeholders, one art per
+  // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC
+  // vista_scope) and the tide line's driftwood and message bottle (wild
+  // plants — items.js CROP_SPRITE).
+  vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Generated/scope.png', frameWidth: 16, frameHeight: 24 },
+  driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Generated/driftwood.png', frameWidth: 16, frameHeight: 16 },
+  bottle:         { kind: 'spritesheet', path: 'assets/Objects/Generated/bottle.png', frameWidth: 16, frameHeight: 16 },
   // POI props (assets/Objects/Generated/README.md — placeholders): a bin is a
   // BARREL (standing, and smashed while it restocks — loot.js isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the

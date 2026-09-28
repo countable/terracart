@@ -212,6 +212,29 @@
       story: 'street_toadstool', title: 'Toadstool Lane',
       body: 'Pale caps crowd the verge, and after dark they glow. Step round them. Something here is listening.',
       flash: 'Toadstools. They glow at dusk.' },
+    // SCENIC PATHS (src/scenic.js) — a third SIZE, 'path', appended LAST so
+    // no older row's code moves. NEVER ROLLED: sizeOfTags never answers
+    // 'path', so variantFor never walks them (share 0); the row is read off a
+    // way's SCENIC CLASS (Scenic.rowFor — shore → promenade, greenway,
+    // park → parkpath). The columns are the street rows' own: `lampGlow` (the
+    // lamps on the scenic metres shed it — lampGlowFor), and the story — one
+    // painting for all three (street_scenic), told on the first scenic metre
+    // restored (app.js _ripenStreets), the `flash` on later walks.
+    { id: 'promenade', size: 'path', share: 0, rung: 'uncommon',
+      lampGlow: '#7fe3d0',
+      story: 'street_scenic', title: 'The promenade',
+      body: 'A path by the water. Every metre of it you mend counts for more. Walk it slow.',
+      flash: 'The promenade. Walk it slow.' },
+    { id: 'greenway', size: 'path', share: 0, rung: 'uncommon',
+      lampGlow: '#a8e07a',
+      story: 'street_scenic', title: 'A greenway',
+      body: 'An old green way, kept clear of the roads. Every metre of it you mend counts for more.',
+      flash: 'A greenway. The green holds.' },
+    { id: 'parkpath', size: 'path', share: 0, rung: 'uncommon',
+      lampGlow: '#a8e07a',
+      story: 'street_scenic', title: 'The park path',
+      body: 'A path winding through the park. Every metre of it you mend counts for more.',
+      flash: 'The park path winds on.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });

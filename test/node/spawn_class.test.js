@@ -398,7 +398,7 @@ test('spawn gate: cemetery land is INVALID, and a church ON it suppresses its wh
 // ── The classes ────────────────────────────────────────────────────────────
 
 test('isSpawnCell: each class refuses every hard reason and its own row\'s typed ones (SPAWN_CLASS_BLOCKS)', () => {
-  assert.eq(W.SPAWN_CLASSES.join(), 'minor,headstone,cave,fauna,fastFauna,npc,attractor,enemy,fastEnemy', 'the classes');
+  assert.eq(W.SPAWN_CLASSES.join(), 'minor,headstone,cave,fauna,fastFauna,npc,attractor,enemy,fastEnemy,reward', 'the classes');
   const B = W.SPAWN_CLASS_BLOCKS;
   // The owner's table (Sep 2026).
   assert.eq(B.minor, 0, 'minor: hard reasons only');
@@ -410,6 +410,7 @@ test('isSpawnCell: each class refuses every hard reason and its own row\'s typed
   assert.eq(B.attractor, WHY.SENSITIVE, 'attractor: sensitive (HOUSE / SCHOOL / FARM dropped Sep 2026)');
   assert.eq(B.enemy, B.attractor, 'enemy: the attractor row');
   assert.eq(B.fastEnemy, B.enemy | WHY.KERB, 'fast enemy: + the kerb');
+  assert.eq(B.reward, B.attractor | WHY.KERB, 'reward (src/scenic.js): the attractor row + the kerb');
   const reasons = Object.values(WHY);
   const g = new Uint8Array(reasons.length + 1).fill(T.GRASS);
   const mask = Uint16Array.from([0, ...reasons]);

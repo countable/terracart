@@ -87,7 +87,10 @@ test('rest/work: the Home rest pauses while working', () => {
 });
 
 test('rest/work: campfire warmth pauses while working', () => {
-  assert.truthy(/if \(!working && !locked && this\._nearAny\('fires', pWX, pWY, FIRE_REST_R\)\)/.test(block),
+  // ONE rest, two reasons: a lit fire OR a viewpoint's scope (src/scenic.js).
+  assert.truthy(/const fireside = this\._nearAny\('fires', pWX, pWY, FIRE_REST_R\) \|\| this\._nearVista\(pWX, pWY, FIRE_REST_R\);/.test(block),
+    'the fireside is a fire or a vista, on the fire\'s own ring');
+  assert.truthy(/if \(!working && !locked && fireside\)/.test(block),
     'the campfire branch carries the !working gate (and, on hard mode, the zero-energy lockout too)');
 });
 

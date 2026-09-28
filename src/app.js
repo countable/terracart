@@ -4270,9 +4270,12 @@ class MapScene extends Phaser.Scene {
       // restores energy — the same accumulator trick as the home rest, but it
       // works out in the wild and is slower (FIRE_FULL_REST_S). Independent of
       // the home rest above; a fire can't sit on a building cell so the two
-      // rarely overlap.
+      // rarely overlap. ONE REST, TWO REASONS: `fireside` is a lit fire OR a
+      // viewpoint's scope (src/scenic.js — a place to sit, on the fire's own
+      // ring and rate; it wards nothing, so it is only a reason HERE).
       if ((this.save.energy ?? 0) < maxE) {
-        if (!working && !locked && this._nearAny('fires', pWX, pWY, FIRE_REST_R)) {
+        const fireside = this._nearAny('fires', pWX, pWY, FIRE_REST_R) || this._nearVista(pWX, pWY, FIRE_REST_R);
+        if (!working && !locked && fireside) {
           this._accrueRestEnergy('_fireAccrueE', maxE * (dt / FIRE_FULL_REST_S), maxE);
         } else {
           this._fireAccrueE = 0;
@@ -7793,6 +7796,28 @@ class MapScene extends Phaser.Scene {
   // campfires repel the surface slime plus the cave's entry-level monsters
   // (FIRE_WARD_MAX_DEPTH), all at the same radius, so the wander/flight target
   // pickers funnel through one check instead of three copies of the loop.
+  // Is a VIEWPOINT's scope (src/scenic.js) within `cells` of (wx, wy)? The
+  // campfire rest's second reason (update()'s `fireside`). Surface only; the
+  // 3x3 tiles round the feet, each tile's scopes listed once per entry (a
+  // rebuilt entry lists its own — generated, re-derived).
+  _nearVista(wx, wy, cells) {
+    if ((this.depth ?? 0) !== 0 || typeof WorldGen === 'undefined' || !this.playerToWorldCell) return false;
+    const r2 = (cells * this.cellM) * (cells * this.cellM);
+    const pc = this.playerToWorldCell();
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
+        if (!entry || !entry._spawned || !entry.objects) continue;
+        const list = entry._vistaScopes || (entry._vistaScopes = entry.objects.filter((o) => o && o.kind === 'vista_scope'));
+        for (const o of list) {
+          const dx = o.x - wx, dy = o.y - wy;
+          if (dx * dx + dy * dy < r2) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   _nearAny(listKey, wx, wy, cells) {
     const list = this.save[listKey];
     if (!list || !list.length) return false;
@@ -8440,7 +8465,7 @@ class MapScene extends Phaser.Scene {
     if (!el || typeof Trail === 'undefined') return;
     const p = this.roadChipProgress();
     const st = this.save?.trail || { metres: 0, prizes: 0 };
-    const total = Trail.distanceLabel(Trail.totalMetres(st.metres, st.prizes, this.save?.playerClass));
+    const total = Trail.distanceLabel(Trail.restoredMetres(st, this.save?.playerClass));
     const pos = Math.floor(p.pos), key = pos + '|' + p.target + '|' + total;
     if (this._roadChipDOM === key) return;
     this._roadChipDOM = key;
@@ -8449,7 +8474,8 @@ class MapScene extends Phaser.Scene {
     const frac = Math.min(1, Math.max(0, pos / Math.max(1, p.target)));
     if (clip) clip.setAttribute('width', (ROAD_CHIP_W * frac).toFixed(1));
     // The number is the whole walk: every metre restored, 2 significant
-    // figures in km. The bar already shows the rung, and a full
+    // figures in km — TRUE metres (Trail.restoredMetres: a scenic path's
+    // bonus shows in the prizes, never in the distance). The bar already shows the rung, and a full
     // "1200/2000m" pushed the top row into the ☰ button on a 375px phone.
     const num = el.querySelector('.road-num');
     if (num) num.textContent = total;
@@ -8461,7 +8487,7 @@ class MapScene extends Phaser.Scene {
     // Metres to the next prize, and every metre restored so far (Trail.totalMetres).
     const toGoM = Math.max(0, Math.ceil(p.target - p.pos));   // metres, not a countdown
     const st = this.save?.trail || { metres: 0, prizes: 0 };
-    const doneM = Trail.totalMetres(st.metres, st.prizes, this.save?.playerClass);
+    const doneM = Trail.restoredMetres(st, this.save?.playerClass);
     this.flash(`${toGoM}m to go · ${Trail.distanceLabel(doneM)} fixed`, this.viewCenterX, 60);
   }
 
@@ -12597,11 +12623,19 @@ class MapScene extends Phaser.Scene {
           const spacingM = Streets.lineLengthM(line, mvtToM) / at.length;
           const path = Streets.isWalkingPath(f.tags || {});
           const creditM = Streets.lampCreditM(spacingM, path);
+          // A SCENIC way's lamps (src/scenic.js — a path by the water, a
+          // greenway, a park path) shed their scenic row's glow on the scenic
+          // metres: StreetVariants' 'path' rows, the same lampGlow column the
+          // street variants' lamps read. Per lamp, off the lamp's own metre.
+          const sIvs = (!rec && hasVariants && typeof Scenic !== 'undefined' && entry.scenic && entry.scenic.lines)
+            ? entry.scenic.lines.get(lineKey) : null;
           for (const sM of at) {
             if (!Streets.covers(spans, sM)) continue;   // in the buffer — the neighbour's stone
             const q = Streets.pointAtM(line, mvtToM, sM, offM);
             if (!q) continue;
-            out.push({ tileKey, lineKey, tier, glow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
+            const sKind = sIvs ? Scenic.kindAt(sIvs, sM, mvtToM) : null;
+            const lampGlow = (sKind && StreetVariants.lampGlowFor({ variant: Scenic.KIND_ROW[sKind] })) || glow;
+            out.push({ tileKey, lineKey, tier, glow: lampGlow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
                        id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
           }
         }
@@ -12708,6 +12742,11 @@ class MapScene extends Phaser.Scene {
     const ripe = sight.ripeAll(now, PATH_STONE_DWELL_MS);
     if (!ripe.length) return;
     let addedM = 0;
+    // SCENIC METRES (src/scenic.js): what the same restore banks ON TOP on the
+    // one ladder — a path by the water, along a greenway or through a park
+    // (Scenic.bonusMetres off the tile's scenic intervals). A new REASON on
+    // the ladder, never a second one; the km chip still reads true metres.
+    let bonusM = 0, scenicKind = null;
     // The blast and the counter land on the LONGEST piece this sweep brought
     // back — the stretch the player will actually be looking at, rather than
     // a metre of driveway at the far rim of the bubble.
@@ -12718,6 +12757,15 @@ class MapScene extends Phaser.Scene {
       const out = Streets.restore(this.save, meta.tileKey, meta.lineKey, intervals);
       if (!(out.addedM > 0)) continue;
       addedM += out.addedM;
+      const sIvs = this._scenicIntervals(meta.tileKey, meta.lineKey);
+      if (sIvs) {
+        const b = Scenic.bonusMetres(sIvs, out.newly, meta.mvtToM);
+        if (b > 0) {
+          bonusM += b;
+          const k = Scenic.kindOfNewly(sIvs, out.newly, meta.mvtToM);
+          if (k && (!scenicKind || Scenic.SCENIC_MUL[k] > Scenic.SCENIC_MUL[scenicKind])) scenicKind = k;
+        }
+      }
       this._markLampsRestored(meta, out.newly, now);
       for (const seg of out.newly) {
         const len = seg[1] - seg[0];
@@ -12764,8 +12812,39 @@ class MapScene extends Phaser.Scene {
         gather: 'stonegather', gatherPts: best.spread, durationMs: STREET_SHINE_MS,
       }));
     }
-    this._bankStreetMetres(addedM, at, now);
+    this._bankStreetMetres(addedM, at, now, bonusM > 0 ? { bonusM } : undefined);
+    if (scenicKind) this._scenicWalkStory(scenicKind);
     persistSave(this.save);
+  }
+
+  // A line's scenic intervals (src/scenic.js, entry.scenic — MVT arclength
+  // units, generated), or null.
+  _scenicIntervals(tileKey, lineKey) {
+    if (typeof Scenic === 'undefined') return null;
+    const entry = WorldGen.tileCache.get(tileKey);
+    const sc = entry && entry.scenic;
+    return (sc && sc.lines && sc.lines.get(lineKey)) || null;
+  }
+
+  // THE SCENIC WALK'S STORY: the first scenic metre a save restores tells its
+  // row's story once (_storySplashOnce, the street_scenic painting —
+  // StreetVariants' 'path' rows); a later restore on a scenic way gets the
+  // row's map line, no oftener than STREET_FLASH_GAP_MS per row.
+  _scenicWalkStory(kind) {
+    const row = Scenic.rowFor(kind);
+    if (!row) return;
+    if (!(this.save.storySeen && this.save.storySeen[row.story])) {
+      this._storySplashOnce(row.story, { art: row.story, title: row.title, body: row.body });
+      return;
+    }
+    const last = (this._streetFlashAt = this._streetFlashAt || {});
+    const t = performance.now();
+    if (t - (last[row.id] || -Infinity) < STREET_FLASH_GAP_MS) return;
+    last[row.id] = t;
+    // The row's map line (≤ MAP_MSG_MAX — scenic.test.js measures every row).
+    const line = row.flash;
+    const ps = this.playerScreen ? this.playerScreen() : null;
+    this.flash(line, ps ? ps.x : undefined, ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
   }
 
   // ── LIVING LAMPS ─────────────────────────────────────────────────────────
@@ -12886,11 +12965,17 @@ class MapScene extends Phaser.Scene {
   // counter and queue whatever prizes the new total has earned.
   // `opts.quiet` (a living-lamp visit): the lamp popped its own +Nm on its
   // cell, so the ladder counter shows only when this banking PAYS a prize.
+  // `opts.bonusM` (a scenic restore, src/scenic.js): extra LADDER metres on
+  // top of the true ones — banked with them, and kept apart in
+  // save.trail.bonusM so the km chip (Trail.restoredMetres) still shows true
+  // metres; the bonus shows in the prizes.
   _bankStreetMetres(addedM, at, now, opts) {
     const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
-    const out = Trail.bank(st.metres, st.prizes, addedM, this.save.playerClass);
+    const bonusM = (opts && opts.bonusM > 0) ? opts.bonusM : 0;
+    const out = Trail.bank(st.metres, st.prizes, addedM + bonusM, this.save.playerClass);
     st.metres = out.metres;
     st.prizes = out.prizes;
+    if (bonusM > 0) st.bonusM = (st.bonusM || 0) + bonusM;
     // The counter: metres banked toward the current goal, popped ON THE STREET
     // in the colour a restored street is made of (UI_STREET_INK — the same
     // constant the chips and the sparks are thrown in), so the number and the

@@ -448,6 +448,10 @@
   //   'enemy'     anything hostile seated at a walk: slow foes and guards,
   //               traps, park plants
   //   'fastEnemy' a foe that out-runs a brisk walk — the enemy row + KERB
+  //   'reward'    a find the player WALKS TO on purpose (src/scenic.js: a
+  //               viewpoint's scope, a vista chest, the tide line) — the
+  //               attractor row + KERB: never a reason to step to the kerb
+  //               of a major road (the safety rule)
   // A creature's class is never typed at the call site: creature_ai.js
   // creatureSpawnClass(kind) derives fauna / enemy and fast / slow from the
   // kind's own speed data.
@@ -481,6 +485,7 @@
     attractor: W_.SENSITIVE,
     enemy: W_.SENSITIVE,
     fastEnemy: W_.SENSITIVE | W_.KERB,
+    reward: W_.SENSITIVE | W_.KERB,
   };
   const SPAWN_CLASSES = Object.keys(SPAWN_CLASS_BLOCKS);
   function spawnBlocks(cls) {
@@ -5165,7 +5170,23 @@
           spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
       }
     }
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes };
+    // SCENIC PLACES (src/scenic.js) — after the zones, on the finished grid:
+    // every walking way's scenic intervals (shore / greenway / park — the
+    // restore ladder's multiplier and the lamps' glow read them off
+    // entry.scenic), the shore sand, the viewpoints; then the dressing — a
+    // viewpoint's chest stamped its grail and the scope beside it, one vista
+    // chest per scenic stretch, the tide pool on the waterline — claiming into
+    // the same occupancy the street and zone dressings grew. spawnInTile lays
+    // it like the zones' nexus. Pure MVT + the grid: a rebuild re-derives it.
+    let scenic = null, scenicDress = null;
+    if (typeof Scenic !== 'undefined') {
+      yield 'before scenic';
+      scenic = yield* Scenic.buildSteps(layersByName, tx, ty, w, grid, false, zone && zone.under);
+      dressSpawn();
+      scenicDress = yield* Scenic.dressSteps({ scenic, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+        spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
+    }
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -5339,7 +5360,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -5387,6 +5408,11 @@
       // spawnInTile lays. Pure MVT like the index, re-derived by a rebuild.
       entry.zone = zone || null;
       entry.zoneDress = zoneDress || null;
+      // The scenic intervals / shore sand / viewpoints (src/scenic.js) and
+      // their dressing spawnInTile lays. Pure MVT + grid, re-derived by a
+      // rebuild like the zone field.
+      entry.scenic = scenic || null;
+      entry.scenicDress = scenicDress || null;
       // Source building polygons (tile-local metres) for building_overlay.js —
       // the polygonal counterpart of entry.layers' road linework.
       entry.buildingShapes = buildingShapes || [];

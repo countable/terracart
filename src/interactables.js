@@ -790,6 +790,41 @@ const INTERACTABLES = {
     },
   },
 
+  // A VIEWPOINT's SCOPE (src/scenic.js — one beside each viewpoint's grail
+  // chest). The first tap tells the vista's story (_storySplashOnce, the
+  // zone_viewpoint painting); the FIRST vista a save ever taps also pays the
+  // walker's relic (Scenic.firstVistaPrize → reconcileRelicOffer, once —
+  // save.vistaRelic); and once per UTC day per scope it leaves a gift — one
+  // roll of Scenic.VISTA_CONTEXT in the coin-burst day ledger, the grove
+  // shrine's lane, lit by poiLit while it is there. Its ring is a rest spot
+  // (app.js update(), a reason on the campfire's rest), not a ward.
+  vista_scope: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      if (typeof Scenic === 'undefined') return true;
+      const st = Scenic.VISTA_STORY;
+      scene._storySplashOnce?.(st.story, { art: st.story, title: st.title, body: st.body });
+      const prize = Scenic.firstVistaPrize(save);
+      if (prize) {
+        save.vistaRelic = 1;
+        ctx.dirty = true;
+        const got = (typeof reconcileRelicOffer === 'function') ? reconcileRelicOffer(prize, save, Math.random) : prize;
+        Rewards.apply(save, got, scene);
+        const label = (typeof gearName === 'function') ? gearName('relic', got.slot, got.tier) : `${got.slot} T${got.tier}`;
+        if (got.kind === 'relic') scene.flashLoot(`\u{1F52D} \u2192 \u2728 ${label}`, '#ffe066', 1.6);
+        else scene.flashLoot(`\u{1F52D} \u2192 ${got.amount}`, '#ffe066', 1.2, null, scene.coinIconEl?.());
+      }
+      if (Macros.usedToday(save, o.id)) {
+        if (!prize) scene.flash(`The view rests. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+        return true;
+      }
+      Macros.markToday(save, o.id);
+      ctx.dirty = true;
+      grantTreasureRoll(scene, save, sx, sy - (prize ? 22 : 0), '\u{1F52D}', Scenic.VISTA_CONTEXT);
+      return true;
+    },
+  },
+
   // ---- Buildings: open their UIs ------------------------------------------
   // House / tower (castle turret) route to the shop. Tall sprites — their
   // wider reach is handled by the tap loop before dispatch.
@@ -853,6 +888,8 @@ function spentSets(scene, save) {
     // The broken-rock ids live on the scene as a Set already (app.js rebuilds
     // it from save.brokenRocks), so it is passed through rather than rebuilt.
     broken: (scene && scene.brokenRockSet) || new Set(),
+    // The UTC day the tide line is laid for (Scenic.tideLive).
+    day: utcDayKey(),
   };
 }
 // Was `o` taken today, by the frame's ledger ages?
@@ -920,6 +957,16 @@ function isSpent(o, sets) {
     // Same key (save.picked) as the wildplant pickup tracking, so a save
     // doesn't grow a field for it.
     case 'groundstack': return sets.picked.has(o.id);
+    // A wild plant is spent once picked (save.picked) — except a TIDE pickup
+    // (src/scenic.js): the day's, so it is spent when it is not on the
+    // waterline today (Scenic.tideLive, which also sets its crop to the day's
+    // find) or was taken today (the day ledger — never save.picked).
+    case 'wildplant':
+      if (o.tide) {
+        const live = typeof Scenic === 'undefined' || Scenic.tideLive(o, sets.day);
+        return !live || takenToday(o, sets);
+      }
+      return sets.picked.has(o.id);
     default:            return false;
   }
 }
@@ -935,7 +982,7 @@ function isSpent(o, sets) {
 function poiLit(o, sets) {
   if (!o) return false;
   const today = takenToday(o, sets);
-  if (o.kind === 'grove_shrine') return !today;
+  if (o.kind === 'grove_shrine' || o.kind === 'vista_scope') return !today;
   if (o.kind !== 'chest' || o.crate || isSpent(o, sets)) return false;
   const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
   if (macro && macro.kind === 'chapel') return !serviceTakenToday(o, sets);

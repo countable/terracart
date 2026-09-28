@@ -64,7 +64,9 @@ const FIRE_WARD_MAX_DEPTH = 1;
 // along a shoreline, and a beach is the one ground people actually dig. So
 // sand gets its own bonus stream, capped at one mark per BEACH_X_PER_CELLS
 // cells of it so a golf bunker or a sandpit can't draw the whole roll while a
-// real beach can. Read by spawnInTile's beach block; pinned by
+// real beach can. That cap now reads INLAND sand only: SHORE sand (by the
+// water, src/scenic.js) lays one mark per Scenic.BEACH_X_SHORE_M of
+// shoreline, up to Scenic.BEACH_X_MAX, on its own stream. Read by spawnInTile's beach block; pinned by
 // test/node/beach_treasure.test.js.
 const BEACH_X_PER_CELLS = 20;
 // How many favourite-ground cells an attracted animal tries before it keeps
@@ -234,6 +236,31 @@ class SceneCreatures {
       for (const guard of (zDress.guards || [])) if (lay(guard)) zoneGuards.push(guard);
       for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
       entry.slowCells = slow.size ? slow : null;
+    }
+    // SCENIC PLACES (src/scenic.js) — laid right after the zones' nexus, on
+    // the same terms (computed in the sliced build, entry.scenicDress; a piece
+    // whose cell something placed since holds is dropped; each laid piece
+    // claims its cell): a viewpoint's scope (and a grail chest the point's own
+    // chest could not be), one vista chest per scenic stretch, and the tide
+    // pool on the waterline (which of it lies there is the day's —
+    // Scenic.tideLive). Skipped in test mode, like the street dressing.
+    const sDress = entry.scenicDress;
+    if (sDress && !window.__TEST_MODE) {
+      const cellIdx = (p) => {
+        const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
+        const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
+        return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
+      };
+      const lay = (p) => {
+        const i = cellIdx(p);
+        if (i < 0 || _occupiedIdx.has(i)) return false;
+        _occupiedIdx.add(i);
+        return true;
+      };
+      entry.objects = entry.objects || [];
+      for (const o of sDress.objects) if (lay(o)) entry.objects.push(o);
+      entry.wildplants = entry.wildplants || [];
+      for (const wp of sDress.wildplants) if (lay(wp)) entry.wildplants.push(wp);
     }
     // BANDIT STOPS: a bus stop on a MAJOR road wears the broken wagon
     // (loot.js chestLook) and holds one goblin (lairs.js 'wagon' tier). Read
@@ -652,13 +679,18 @@ class SceneCreatures {
     // ~43° latitude (349 at the equator), so every path cell in the bottom of
     // the tile decoded to (cx + 1, cy - 256) and its "roadside" X was dropped
     // somewhere else entirely.
+    // SHORE SAND (src/scenic.js — a SAND cell within SCENIC_SHORE_CELLS of
+    // water, entry.scenic.shore.mask) is the BEACH and takes its own stream
+    // below; `sandCells` is the INLAND sand (bunkers, sandpits, volleyball),
+    // which keeps the old capped scatter.
+    const shoreMask = entry.scenic && entry.scenic.shore ? entry.scenic.shore.mask : null;
     const pathCells = [];
     const sandCells = [];
     for (let cy = 0; cy < N; cy++) {
       for (let cx = 0; cx < N; cx++) {
         const t = genGrid[cy * N + cx];
         if (t === 8 /* PATH */) pathCells.push(cy * N + cx);
-        else if (t === WorldGen.T.SAND) sandCells.push(cy * N + cx);
+        else if (t === WorldGen.T.SAND && !(shoreMask && shoreMask[cy * N + cx])) sandCells.push(cy * N + cx);
       }
     }
     if (pathCells.length > 0) {
@@ -705,6 +737,8 @@ class SceneCreatures {
     // neighbour: a footpath is walked, a beach is dug).
     // Capped by the beach's own size the way the path bonus is capped by path
     // density, so a golf bunker or a sandpit doesn't get the whole roll.
+    // INLAND sand only since Sep 2026: SHORE sand is the beach's own stream
+    // (below, Scenic.beachXCount — its count follows the shoreline).
     if (sandCells.length > 0) {
       const BEACH_BONUS_COUNT = Math.min(
         4 + Math.floor(rng() * 5),
@@ -723,6 +757,29 @@ class SceneCreatures {
           entry.extraTreasures.push({ x: wmx, y: wmy, id });
           placed = true;
         }
+      }
+    }
+
+    // THE BEACH'S OWN MARKS (src/scenic.js): the count follows the SHORELINE
+    // — Scenic.beachXCount(shoreM), one per BEACH_X_SHORE_M of waterline,
+    // capped at BEACH_X_MAX — not the tile's flat 4-8, so a long beach carries
+    // marks at its own rate. Its OWN stream (seeded off the tile, salted), so
+    // no other draw moves; each mark on a shore-sand cell that takes a minor
+    // spawn, keyed by position (treasure_sand ids, as before).
+    const shore = entry.scenic && entry.scenic.shore;
+    if (shore && shore.cells.length && typeof Scenic !== 'undefined') {
+      const want = Scenic.beachXCount(shore.shoreM);
+      const brng = WorldGen.makeRng(fnv1a(`beachx|${tx},${ty}`));
+      let placed = 0;
+      for (let attempt = 0; attempt < want * 8 && placed < want; attempt++) {
+        const cell = shore.cells[Math.floor(brng() * shore.cells.length)];
+        const scx = cell % N, scy = Math.floor(cell / N);
+        if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, ambientSpawnOpts, 'minor')) continue;
+        const id = WorldGen.cellId('treasure_sand', tx, ty, scx, scy);
+        if (entry.extraTreasures.some(t => t.id === id)) continue;
+        entry.extraTreasures.push({ x: tx * this.tileEdgeM + (scx + 0.5) * cellM,
+          y: ty * this.tileEdgeM + (scy + 0.5) * cellM, id });
+        placed++;
       }
     }
 

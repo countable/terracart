@@ -184,6 +184,9 @@ const POI_CATEGORY = {
   pharmacy: 'health', hospital: 'health', dentist: 'health',
   // parks: T2-leaning seed drops (garden moved to 'flora' above)
   park: 'park', playground: 'park', pitch: 'park',
+  // A scenic stretch's vista chest (src/scenic.js, poiClass VISTA_POI_CLASS):
+  // a park chest — seeds and a walker's finds — at its stretch's tier.
+  vista: 'park',
   // fountain: special — drops nothing useful; treat as common-seed for now
   fountain: 'park',
   // low-tier: bus stops & similar street-furniture POIs
@@ -338,8 +341,18 @@ const ZONE_NEXUS_TIER_BONUS = 1;
 function chestTierZoneBonus(nexus) { return nexus ? ZONE_NEXUS_TIER_BONUS : 0; }
 // The chest's base tier before depth and nexus: its class's fixed tier, else
 // its density on its tile.
+// A SCENIC chest (src/scenic.js — o.vista: a viewpoint's grail, or the one
+// chest of a scenic stretch) takes its tier from Scenic.VISTA_CHEST_TIER,
+// whatever its class's count: a third reason on the base, beside the fixed
+// classes and the density. Generated (the stamp is the world's), so the gem
+// and the roll agree for every player.
+function chestVistaTier(o) {
+  return (o && o.vista && typeof Scenic !== 'undefined' && Scenic.VISTA_CHEST_TIER[o.vista]) || 0;
+}
 function chestBaseTier(o) {
   if (!o) return CHEST_TIER_UNSTAMPED;
+  const vista = chestVistaTier(o);
+  if (vista) return vista;
   const fixed = CHEST_CLASS_TIER[o.poiClass];
   return fixed != null ? fixed : chestDensityTier(o.poiDensity);
 }

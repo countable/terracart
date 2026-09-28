@@ -898,7 +898,11 @@ const TAP_HANDLERS = [
   { name: 'wildplant', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
     const pickedSet = new Set(save.picked || []);
-    const bestWp = findItemInTapCell(scene, 'wildplants', wm, (wp) => !pickedSet.has(wp.id));
+    // A TIDE pickup (src/scenic.js) is the day's: it answers through the one
+    // spent predicate (isSpent — on the waterline today, not taken today).
+    const tideSets = spentSets(scene, save);
+    const bestWp = findItemInTapCell(scene, 'wildplants', wm,
+      (wp) => (wp.tide ? !isSpent(wp, tideSets) : !pickedSet.has(wp.id)));
     if (bestWp) {
       const wp = bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
@@ -919,8 +923,27 @@ const TAP_HANDLERS = [
         // Re-check picked at callback time. The work wheel runs async — if a
         // save reload or some other path already marked this wp.id as picked
         // between handler start and callback fire, awarding again would dupe.
-        if ((save.picked || []).includes(wp.id)) return;
-        save.picked = [...(save.picked || []), wp.id];
+        // A TIDE pickup is written to the DAY LEDGER (Macros.markToday), never
+        // save.picked: it is back on the waterline another day.
+        if (wp.tide) {
+          if (isSpent(wp, spentSets(scene, save))) return;
+          Macros.markToday(save, wp.id);
+        } else {
+          if ((save.picked || []).includes(wp.id)) return;
+          save.picked = [...(save.picked || []), wp.id];
+        }
+        // A pick that ROLLS instead of handing the crop over (the tide line's
+        // message bottle — items.js WILDPLANT_RULES `roll`): one roll of its
+        // context, and its note read in a story dialog (`note`).
+        const roll = wildplantRoll(wp.crop);
+        if (roll) {
+          persistSave(save);
+          grantTreasureRoll(scene, save, sx, sy, '\u{1F37E}', roll);
+          if (wildplantRule(wp.crop)?.note && typeof Scenic !== 'undefined' && scene.showMessageModal) {
+            scene.showMessageModal({ kind: 'story', title: 'A message in a bottle', body: Scenic.bottleNote(wp) });
+          }
+          return;
+        }
         const outId = wildplantOutput(wp.crop);
         scene.addToInv(outId, 1);
         let bonus = '';

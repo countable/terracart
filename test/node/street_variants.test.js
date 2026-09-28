@@ -512,7 +512,10 @@ test('toadstool lane: a minor row at 5%, its verge mostly glowing mushrooms, a l
   const row = SV.VARIANT_BY_ID.toadstool;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.05);
   assert.eq(row.story, 'street_toadstool', 'its painting stem');
-  assert.eq(SV.STREET_VARIANTS[SV.STREET_VARIANTS.length - 1].id, 'toadstool', 'appended: no older row\'s code moves');
+  // Appended after the seven older rows (code 8), and only the never-rolled
+  // scenic 'path' rows (src/scenic.js) after it: no older row's code moves.
+  assert.eq(row.code, 8, 'appended: no older row\'s code moves');
+  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path'), 'only the scenic path rows after it');
   let plain = 0, named = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;

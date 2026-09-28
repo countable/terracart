@@ -196,6 +196,14 @@
     'treasure:shrine':  { classBias: { seed:0.55, produce:0.30, magic:0.15 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
                           favourite: { id: 'growth_powder', p: 0.5 } },
+    // ── A viewpoint scope's daily gift (src/scenic.js VISTA_CONTEXT,
+    // INTERACTABLES.vista_scope) — and the tide line's message bottle
+    // (Scenic.BOTTLE_CONTEXT). A better grove shrine (~15 value, the design's
+    // daily re-walk target): one chain step over the shrine's flat curve, a
+    // walker's classes — seeds and a magic item, some produce, a supply.
+    // Measured ~15 (scratchpad scenic2/ev.js, the balancing sheet's valuation).
+    'treasure:vista':   { classBias: { seed:0.45, produce:0.30, magic:0.15, supply:0.10 },
+                          chainSteps: 1, chainMax: 2, maxTier: 2, relicCap: 0 },
     // ── Elite monster drop ──────────────────────────────────────
     // What a shiny cave monster pays once its kind's memory is
     // banked (app.js › resolveDefeat). Biased to RELICS — half the class

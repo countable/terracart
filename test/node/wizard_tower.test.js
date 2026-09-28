@@ -244,7 +244,7 @@ test('classes: every player call site passes save.playerClass', () => {
     [/Combat\.shotDamage\(relics, slot, this\.save\.playerClass\)/, 'the bow / staff shot (Hunter)'],
     [/Combat\.meleeDps\(this\.save\.relics, this\.save\.playerClass\)/, 'the melee estimate (Enforcer)'],
     [/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)/, 'the melee blow (Enforcer)'],
-    [/Trail\.bank\(st\.metres, st\.prizes, addedM, this\.save\.playerClass\)/, 'the ladder bank (Runner)'],
+    [/Trail\.bank\(st\.metres, st\.prizes, addedM \+ bonusM, this\.save\.playerClass\)/, 'the ladder bank (Runner)'],
     [/Trail\.readout\(out, this\.save\.playerClass\)/, 'the street counter'],
     [/Trail\.goalFor\(Math\.max\(0, \(n \| 0\) - 1\), this\.save\.playerClass\)/, 'the ceremony goal'],
     [/trailNextPrizeLine\(n \| 0, this\.save\.playerClass\)/, 'the next-rung line'],

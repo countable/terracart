@@ -78,6 +78,10 @@ const FILES = [
   // dressing. Pure (reads WorldGen / Streets at CALL time), before worldgen.js
   // like the page loads it.
   'street_variants.js',
+  // Scenic paths, beaches and viewpoints — the scenic intervals, shore sand,
+  // the tide line and the vistas. Pure (reads WorldGen / Streets /
+  // StreetVariants at CALL time), after street_variants.js like the page.
+  'scenic.js',
   // Influence zones — the anchor field, the halo terrain and the nexus
   // dressing. Pure (reads WorldGen at CALL time), before worldgen.js like the
   // page loads it.
@@ -184,7 +188,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   // hides and whether it glows. wildplant_table.test.js drives the accessors,
   // and interact.js / lighting.js / render.js are the three readers.
   WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
-  wildplantWorkCost, wildplantTreasure, wildplantLight,
+  wildplantWorkCost, wildplantTreasure, wildplantLight, wildplantRoll,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
   Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
@@ -469,7 +473,8 @@ const starterWrapper = (name) => {
                    '_sweepStreets() {', '_resetStreetSight() {',
                    '_rescanStreets(p, reachM, now, sight) {',
                    '_setStreetPreview(meta, iv) {', '_streetSpreadPts(meta, s0, s1, k) {',
-                   '_ripenStreets(now, sight) {', '_afterRestoreBeat(fn) {',
+                   '_ripenStreets(now, sight) {', '_scenicIntervals(tileKey, lineKey) {',
+                   '_scenicWalkStory(kind) {', '_afterRestoreBeat(fn) {',
                    '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro() {',
                    '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',
                    '_armTrailIntro(now) {', '_openTrailIntroIfDue() {',
@@ -512,6 +517,8 @@ const starterWrapper = (name) => {
     `globalThis.STREET_COUNTER_MIN_MS = ${constOf('STREET_COUNTER_MIN_MS')};\n` +
     `globalThis.RESTORE_FX_DELAY_MS = ${constOf('RESTORE_FX_DELAY_MS')};\n` +
     `globalThis.STREET_SHINE_ALPHA = ${constOf('STREET_SHINE_ALPHA')};\n` +
+    // The scenic walk's later map line waits out the street's own gap.
+    `globalThis.STREET_FLASH_GAP_MS = ${constOf('STREET_FLASH_GAP_MS')};\n` +
     // The one-time first-repair dialog's copy — carried as source so the test
     // reads the shipping sentence and the rung it quotes off Trail.
     `globalThis.TRAIL_INTRO_TITLE = ${constOf('TRAIL_INTRO_TITLE')};\n` +
@@ -531,7 +538,8 @@ const starterWrapper = (name) => {
   for (const k of ['_worldToastAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
                    '_cellAtScreen', 'playerScreen',
                    '_sweepStreets', '_resetStreetSight', '_rescanStreets',
-                   '_setStreetPreview', '_ripenStreets', '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro',
+                   '_setStreetPreview', '_ripenStreets', '_scenicIntervals', '_scenicWalkStory',
+                   '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro',
                    '_armTrailIntro', '_openTrailIntroIfDue',
                    '_drawStreetLive', '_blastAt']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {

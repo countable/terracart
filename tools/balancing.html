@@ -92,6 +92,8 @@
   <details class="note">
     <summary><b style="color:var(--gold)">What changed recently</b> (world rules the figures below reflect)</summary>
     <ul>
+      <li><b>Scenic paths, beaches and viewpoints</b> (Sep 2026, <code>src/scenic.js</code>): an off-road walking way (footway / path / cycleway / pedestrian / steps / pier) by the WATER (within 3 cells, <code>SCENIC_SHORE_CELLS</code>) banks <b>2×</b> on the road ladder, one along a GREENWAY or through a named / ≥ 1 ha PARK <b>1.5×</b> (<code>SCENIC_MUL</code>); within 10 m of any road or 15 m of a major one it is a pavement and counts 1× (the safety rule). The km chip shows TRUE km (<code>Trail.restoredMetres</code>); living-lamp re-walk credit is not multiplied. One <b>vista chest</b> per scenic stretch (512-unit square × kind with ≥ 120 m): T3 on the water, T2 else. A <b>viewpoint</b> (poi attraction/viewpoint) turns its chest into a <b>T4 grail</b> and stands a <b>scope</b>: a daily gift (~14, <code>treasure:vista</code>), the first one ever pays an amulet one tier up, and its FIRE_REST_R ring rests like a campfire. <b>Beaches</b>: shore sand's X marks follow the shoreline (1 per 40 m of waterline, cap 24/tile; inland sand keeps its old stream) and a <b>daily tide line</b> of shells / driftwood / a rare message bottle (≤ 12/tile/day, the same for everyone, the day ledger).
+        <br>36 saved tiles, per 9-tile city (Kelowna / Vancouver / Seattle / Berlin): scenic path 1.5 / 7.4 / 5.1 / 7.5 km per tile (shore 0.9 / 4.4 / 1.7 / 0.3); viewpoints 4 / 8 / 5 / 3 scopes (4 / 8 / 5 / 4 grails); shore 296 / 406 / 124 / 0 m of waterline per tile, beach X 6.6 / 6.1 / 2.8 / 0 per tile, tide 4.9 / 4.1 / 1.6 / 0 pickups per tile per day. Value per km walked at 10 km restored (ladder ~229/km): park / greenway path 388 / 378 / 373 / 364, shore path 532 / 514 / 523 / 553 (ladder × mul + vista chests).</li>
       <li><b>Chest tier = density</b> (Sep 2026): a POI chest's tier is how many chests of its <b>own class</b> its tile holds (<code>CHEST_DENSITY_TIERS</code>: 1 → T4, 2–4 → T3, 5–24 → T2, 25+ → T1), + depth, +1 at a nexus. The <b>Home rings are gone</b> — the tier shown is the tier paid. A T1 chest is a <b>crate</b> that restocks after <code>clamp(floor(n / 25), 1, 7)</code> days (25–49 of a kind daily … 175+ weekly; the day ledger now keeps a week). <b>Public art</b> is a fixed T1 one-time trunk. <b>Bins / recycling are barrels</b>: smashed, restock like crates, empty 60% → 90% at 25+ of a kind, else 1–3 coins / an apple / a torch or rope. <b>ATMs</b> alone are pots of gold, spilling 30 coins alone → 3 at 50 per tile → 1 at 150+ (log-linear). <b>Bike racks</b> lend +100% stick speed for 3 min once a day. <b>Gates</b> are two posts round a spawn point (one slime or goblin a UTC day, every mode). <b>Information</b> POIs are notice boards (one Book page each). Traffic signals, crossings, stop signs, fences, power lines and carports are no longer chests (Kelowna's sidecar: 55 removed; the MVT tiles carry none).
         <br>36 saved tiles, before (Home at the block's centre) → after, per 9-tile city: chests Kelowna 330 → 318, Vancouver 4,293 → 4,181, Berlin 10,507 → 8,794, Seattle 2,322 → 2,006. Crates 73 / 726 / 3,501 / 705 → 0 / 356 / 958 / 58; pots 8 / 735 / 2,381 / 438 → 0 / 19 / 98 / 12; barrels → 1 / 219 / 1,353 / 154 (mean empty 60% / 86% / 89% / 78%); bike racks → 8 / 720 / 2,320 / 429; gate spawn points → 6 / 27 / 558 / 133; notice boards → 1 / 67 / 205 / 70. One-time value per tile $343 / $5.2k / $10.9k / $3.4k → $0.8k / $1.8k / $2.1k / $1.8k; recurring value per day per tile (crates + barrels at their restock cadence, chapels, shrines, pots) $167 / $2.0k / $7.2k / $1.5k → $88 / $474 / $1.1k / $292.</li>
       <li><b>Living street lamps</b> (Sep 2026): a lit lamp fades from 150% to 50% of its light over <b>24 h</b> since you last came within its range (<code>Streets.LAMP_FADE_MS</code>, 16 steps); a visit flares it back to 150% and banks <b>ladder metres = its spacing × min(1, hours since / 24)</b> (<code>Streets.lampCredit</code>) — nothing while too fast. Walking paths (footway / path / cycleway / pedestrian / track / steps) lay lamps at <b>50 m</b> (streets 100 m; a path under 50 m has none), each paying the street gap it halves (<code>lampCreditM</code>), so re-walking after a full day away pays <b>≈ 1 km per km on a street, ≈ 2 km per km on a path</b> — and 1/24 of that (≈ 42 m / 83 m per km) an hour later. Lamps lit by the restore itself start bright and pay nothing.</li>
@@ -447,6 +449,8 @@ function syncControls() {
 const W_TILES = (() => { const o = []; for (let y = 5565; y <= 5567; y++) for (let x = 2753; x <= 2755; x++) o.push([x, y]); return o; })();
 const wRaw = { tiles: null, source: '' };
 const wZones = { ref: undefined, inIndex: false, previewing: false };
+// src/scenic.js before index.html loads it: loaded by this page once (see wBuild).
+const wScenic = { tried: false, previewing: false };
 async function wTileBytes(tx, ty) {
   const r = await fetch(`../test/fixtures/${tx}_${ty}.pbf`).catch(() => null);
   if (r && r.ok) return { b: new Uint8Array(await r.arrayBuffer()), src: 'fixture' };
@@ -654,6 +658,19 @@ async function wBuild() {
     if (wZones.ref && $('wZonesPreview').checked) globalThis.Zones = wZones.ref; else delete globalThis.Zones;
   }
   wZones.previewing = !wZones.inIndex && typeof Zones !== 'undefined';
+  // SCENIC PLACES (src/scenic.js) the same way: worldgen asks `typeof Scenic`
+  // at call time, so loading it here previews the scopes, vista chests and the
+  // tide line in the value rows below before index.html carries the tag.
+  if (!wScenic.tried) {
+    wScenic.tried = true;
+    if (typeof Scenic === 'undefined') {
+      const ok = await fetch('../src/scenic.js', { method: 'HEAD', cache: 'no-store' }).then((r) => r.ok).catch(() => false);
+      if (ok) {
+        await new Promise((res) => { const sc = document.createElement('script'); sc.src = '../src/scenic.js?' + Date.now(); sc.onload = res; sc.onerror = res; document.head.appendChild(sc); });
+        wScenic.previewing = typeof Scenic !== 'undefined';
+      }
+    }
+  }
   const mid = wRaw.tiles[Math.floor(wRaw.tiles.length / 2)];
   const EDGE = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(mid.ty));
   // Home far off the block: no starting area, no softwood overlay, no home
@@ -690,7 +707,8 @@ function wRender(w) {
   const avg = (f) => ms.reduce((a, m) => a + (f(m) || 0), 0) / (n || 1);
   const scope = `per tile, avg over ${n} Kelowna ${w.source === 'fixture' ? 'fixture' : w.source + '-fetched'} tiles (z${WorldGen.Z}, ~${(EDGE / 1000).toFixed(2)} km, ${ms[0] ? ms[0].N + '×' + ms[0].N : '?'} cells each)`;
   $('wScope').textContent = `Scope: ${scope}. Mode for spawnInTile: ${typeof Difficulty !== 'undefined' ? Difficulty.mode() : '?'}; traps are rolled for both modes.`
-    + (wZones.previewing ? ' Influence zones: PREVIEW — src/zones.js loaded by this page, not yet by index.html.' : '');
+    + (wZones.previewing ? ' Influence zones: PREVIEW — src/zones.js loaded by this page, not yet by index.html.' : '')
+    + (wScenic.previewing ? ' Scenic places: PREVIEW — src/scenic.js loaded by this page, not yet by index.html.' : '');
   $('wErrors').textContent = errors.length ? `${errors.length} error(s) — the game code may be mid-edit:\n` + errors.join('\n') : '';
   if (!n) return;
   const E = typeof Difficulty !== 'undefined' ? Difficulty.EASY : 'easy', H = typeof Difficulty !== 'undefined' ? Difficulty.HARD : 'hard';
@@ -952,6 +970,22 @@ function wValueByType(entries) {
     for (const o of e.objects || []) {
       if (o && o.kind === 'infoboard') bump('Notice board (one Book page)', 'one-time', 0);
       if (o && o.kind === 'gatepost') bump('Gate post (2 per spawn point)', 'one-time', 0);
+      // A viewpoint's scope (src/scenic.js): its daily gift (Scenic.VISTA_CONTEXT).
+      if (o && o.kind === 'vista_scope' && typeof Scenic !== 'undefined') {
+        bump('Viewpoint scope (daily gift)', 'recurring', ev(Scenic.VISTA_CONTEXT, undefined, true));
+      }
+    }
+    // THE TIDE LINE (src/scenic.js): each waterline pickup lies there on a day
+    // with its tideP; a pick is a shell, driftwood (wood) or — rarely — a
+    // bottle (one roll of Scenic.BOTTLE_CONTEXT). Per day, per tile.
+    if (typeof Scenic !== 'undefined') {
+      const tideP = (e.wildplants || []).filter((w) => w && w.tide).reduce((s, w) => s + (w.tideP || 0), 0);
+      if (tideP > 0) {
+        const pick = Scenic.TIDE_BOTTLE_P * ev(Scenic.BOTTLE_CONTEXT, undefined, true)
+          + Scenic.TIDE_DRIFTWOOD_P * (itemValue('wood') || 0)
+          + (1 - Scenic.TIDE_BOTTLE_P - Scenic.TIDE_DRIFTWOOD_P) * (itemValue('shell') || 0);
+        bump('Tide line (daily pickups)', 'recurring', tideP * pick);
+      }
     }
     const chests = (e.objects || []).filter((o) => o && o.kind === 'chest' && !(o.depth > 0));
     for (const o of chests) {
@@ -998,6 +1032,10 @@ function wValueByType(entries) {
       else if (look.wagon) bump('Wagon (bandit stop)', 'one-time', val);
       else bump('Trunk chest — T' + tier, 'one-time', val);
       if (o.zoneNexus) bump('Zone-nexus chest (bonus tier)', isCrate ? 'recurring' : 'one-time', val);
+      // SCENIC chests (src/scenic.js — the o.vista stamp, loot.js chestVistaTier):
+      // a viewpoint's grail, and one chest per scenic stretch of path.
+      if (o.vista === 'grail') bump('Viewpoint grail chest', 'one-time', val);
+      else if (o.vista) bump('Vista chest (scenic stretch)', 'one-time', val);
     }
     // Headstones + grove shrines live in zoneDress.objects, not e.objects
     // (same split wMeasure reads above).
@@ -1028,6 +1066,10 @@ const WVALUE_ORDER = [
   (k) => k === 'Bike rack (speed loan, daily)',
   (k) => k === 'Chapel (daily alms)',
   (k) => k === 'Grove shrine (daily gift)',
+  (k) => k === 'Viewpoint grail chest',
+  (k) => k === 'Vista chest (scenic stretch)',
+  (k) => k === 'Viewpoint scope (daily gift)',
+  (k) => k === 'Tide line (daily pickups)',
   (k) => k === 'Market stall (produce discount)',
   (k) => k === 'Apothecary (potion discount)',
   (k) => k === 'Sundries (supply discount)',

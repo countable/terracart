@@ -26,7 +26,12 @@ test('road chip: the tap hint adds every metre restored (Trail.totalMetres)', ()
   assert.eq(Trail.distanceLabel(1500), '1.5km');
   assert.eq(Trail.distanceLabel(26400), '26km', 'two significant figures');
   assert.eq(Trail.distanceLabel(134000), '130km');
-  assert.truthy(/_showRoadChipHelp\(\) \{[\s\S]{0,500}?Trail\.totalMetres\(/.test(APP_JS_SRC), 'the hint reads the total');
+  // The TRUE total (Trail.restoredMetres — the ladder's less the scenic
+  // bonus, src/scenic.js): a kilometre by the water is one on the chip.
+  assert.truthy(/_showRoadChipHelp\(\) \{[\s\S]{0,500}?Trail\.restoredMetres\(/.test(APP_JS_SRC), 'the hint reads the total');
+  assert.eq(Trail.restoredMetres({ metres: 120, prizes: 2 }), 720, 'no bonus: the ladder\'s total');
+  assert.eq(Trail.restoredMetres({ metres: 120, prizes: 2, bonusM: 300 }), 420, 'a scenic bonus is not distance');
+  assert.eq(Trail.restoredMetres(null), 0);
   // Longest plausible line still fits a map message.
   const line = `${9999}m to go · ${Trail.distanceLabel(999999)} fixed`;
   assert.lte(line.length, MAP_MSG_MAX, line);

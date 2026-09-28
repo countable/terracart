@@ -79,6 +79,17 @@
     for (let k = 0; k < Math.max(0, prizes | 0); k++) sum += goalFor(k, playerClass);
     return sum;
   }
+  // Every metre of road TRULY restored — the road chip's number. The ladder
+  // banks a SCENIC path's metres heavier (src/scenic.js SCENIC_MUL, through
+  // app.js _bankStreetMetres), and keeps that extra apart in
+  // save.trail.bonusM, so the total here is the ladder's less the bonus: a
+  // kilometre walked by the water is one kilometre on the chip and more than
+  // one toward the next prize. `trail` is save.trail.
+  function restoredMetres(trail, playerClass) {
+    const t = trail || {};
+    const bonus = Math.max(0, Number.isFinite(t.bonusM) ? t.bonusM : 0);
+    return Math.max(0, totalMetres(t.metres, t.prizes, playerClass) - bonus);
+  }
   // A distance at a glance: kilometres to TWO significant figures (0.72km,
   // 1.5km, 26km, 130km) — the road chip's number and the tap hint both print
   // the running total through this one formatter. FLOORED, never rounded up
@@ -249,7 +260,7 @@
   }
 
   root.Trail = {
-    GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, distanceLabel, progress, bank, readout, label,
+    GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, restoredMetres, distanceLabel, progress, bank, readout, label,
     PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, rollChoices,
     PRIZE_ROLL_BONUS, PRIZE_ROLL_BONUS_MAX, rollBonusFor,

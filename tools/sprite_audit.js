@@ -261,6 +261,7 @@ const SHEETS = {
   tar:           { file: 'assets/Objects/Generated/tar.png',                 fw: 16, fh: 16, frames: [0] },
   headstone:     { file: 'assets/Objects/Generated/headstone.png',           fw: 16, fh: 16, frames: [0] },
   grove_shrine:  { file: 'assets/Objects/Generated/shrine.png',              fw: 16, fh: 24, frames: [0] },
+  vista_scope:   { file: 'assets/Objects/Generated/scope.png',               fw: 16, fh: 24, frames: [0] },
   barrel:         { file: 'assets/Objects/Generated/barrel.png',             fw: 16, fh: 16, frames: [0] },
   barrel_smashed: { file: 'assets/Objects/Generated/barrel_smashed.png',     fw: 16, fh: 16, frames: [0] },
   bike_rack:      { file: 'assets/Objects/Generated/bike_rack.png',          fw: 16, fh: 16, frames: [0] },
@@ -310,6 +311,7 @@ const SCENARIOS = [
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'headstone',     frameIdx: 0, scale: 1.6 },
   { name: 'grove shrine',    key: 'grove_shrine',  frameIdx: 0, scale: 1.6 },
+  { name: 'vista scope',     key: 'vista_scope',   frameIdx: 0, scale: 1.6 },
   // The POI props (loot.js chestLook — barrel / bike_rack at render.js
   // SMALL_POI_SCALE; the notice board and the gate post at 1.6).
   { name: 'barrel',          key: 'barrel',        frameIdx: 0, scale: 1.3 },

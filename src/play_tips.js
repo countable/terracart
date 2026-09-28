@@ -139,7 +139,11 @@ const PLAY_TIPS = [
   'A job one tier past your equipment is not refused outright: you can grind it out for 15\u26a1 and half a minute. Two tiers short is a flat no.',
   // ── What is already lying around — chests, X marks, foraging ───
   'Treasure X marks are buried in car parks — every parking lot hides one.',
-  'Sand is dug ground: a beach hides X marks far thicker than the streets and fields inland.',
+  // THE BEACH (src/scenic.js): shore sand's X marks follow the shoreline
+  // (Scenic.BEACH_X_SHORE_M, BEACH_X_MAX) and the tide line is the UTC day's
+  // (Scenic.tideLive, the day ledger) — books.test.js re-derives both.
+  `Sand by the water is dug ground: a beach hides an X mark for every ${typeof Scenic !== 'undefined' ? Scenic.BEACH_X_SHORE_M : 40}m of shoreline, far thicker than anywhere inland.`,
+  'The sea leaves shells, driftwood and now and then a bottle along the waterline. What you take is gone for the day; a fresh tide comes in at midnight UTC.',
   'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
   // THE TIER IS DENSITY (loot.js CHEST_DENSITY_TIERS / chestTier): how many
   // of the chest's kind its tile holds. books.test.js re-derives "the only
@@ -230,6 +234,14 @@ const PLAY_TIPS = [
   // lampCredit (the gap to the next lamp x how dim), LAMP_PATH_SPACING_DIV
   // (twice) — books.test.js re-derives all three.
   'A rebuilt street\'s lamps fade over a day. Walk by one again and it flares, adding road to your total — a full lamp\'s worth once it has gone a day dark. Footpaths stand their lamps twice as close, and pay as much apiece.',
+  // SCENIC PATHS and VIEWPOINTS (src/scenic.js): Scenic.SCENIC_MUL (the
+  // shore's and the park / greenway's multiplier on the ladder, never the
+  // distance — Trail.restoredMetres), the sidewalk rule, and the vista:
+  // VISTA_CHEST_TIER.grail (the violet gem), the daily gift (the day
+  // ledger), the rest on the fire's ring and the first vista's relic —
+  // books.test.js re-derives the numbers.
+  `A path by the water counts ${typeof Scenic !== 'undefined' ? Scenic.SCENIC_MUL.shore : 2}\u00d7 toward your next road prize, and one through a named park or along a greenway ${typeof Scenic !== 'undefined' ? Scenic.SCENIC_MUL.park : 1.5}\u00d7 — but a pavement beside a road is just road. The distance you have mended still reads true.`,
+  `A viewpoint's old scope gives once — the chest beside it wears ${typeof Scenic !== 'undefined' && Scenic.VISTA_CHEST_TIER.grail === 4 ? 'violet' : 'a fine gem'} — and a little every day after. Sit within its light and you rest as by a fire. The first one you find hands you something for the walking.`,
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',

@@ -57,6 +57,14 @@ One frame each, foot-anchored and drawn like the market stall (loot.js `chestLoo
 |---|---|---|
 | bike_rack.png | bicycle_parking POI: a bike rack — tap for a stick-walking speed boost | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
 
+## Batch 5 — scenic places (`gpt-image-2`, down-res'd)
+
+| File | Intended use | Status |
+|---|---|---|
+| scope.png | the VIEWPOINT's scope (src/scenic.js): tap for the daily gift; the first vista ever pays a relic; a rest spot | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
+| driftwood.png | the TIDE LINE's driftwood (a daily shore pickup, gives wood) | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
+| bottle.png | the TIDE LINE's rare message bottle (a daily shore pickup that reads a note) | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
+
 ## Contact sheets
 
 | File | Contents | Status |

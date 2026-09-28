@@ -780,6 +780,42 @@ function overlays(world) {
           .addTo(layer);
       }
     }
+    // SCENIC STRETCHES (src/scenic.js — feature-detected: the page only has
+    // it once index.html loads the module): every walking way's scenic
+    // intervals (entry.scenic.lines, MVT arclength units) drawn as the
+    // sub-polyline they cover, in their look row's colour (StreetVariants'
+    // 'path' rows: promenade / greenway / park path). Counted in km.
+    const scenicKm = {};
+    if (typeof Scenic !== 'undefined' && typeof Streets !== 'undefined') {
+      for (const e of world.tiles) {
+        const sc = e.scenic;
+        if (!sc || !sc.lines || !sc.lines.size) continue;
+        const tr = (e.layers || []).find((l) => l.name === 'transportation');
+        if (!tr) continue;
+        const ext = tr.extent || 4096;
+        const gM = (e.cellsPerEdge * WorldGen.CELL_M) / ext;
+        for (const f of tr.features) {
+          if (f.type !== 2 || !f.geom) continue;
+          for (let li = 0; li < f.geom.length; li++) {
+            const ivs = sc.lines.get(Streets.lineKey(f, li));
+            if (!ivs) continue;
+            for (const iv of ivs) {
+              const row = Scenic.rowFor(iv[2]);
+              const id = row ? row.id : iv[2];
+              const lk = look[id] || (look[id] = { colour: '#0ff', label: id });
+              (keys[id] || (keys[id] = new Set())).add(`${e.tx},${e.ty}|${li}|${f.id}`);
+              scenicKm[id] = (scenicKm[id] || 0) + (iv[1] - iv[0]) * gM / 1000;
+              const sub = Streets.subLineM(f.geom[li], 1, iv[0], iv[1]);
+              if (sub.length < 2) continue;
+              const pts = sub.map((p) => toLL((e.tx + p.x / ext) * EDGE, (e.ty + p.y / ext) * EDGE, EDGE));
+              L.polyline(pts, { color: lk.colour, weight: 4, opacity: 0.95 })
+                .bindPopup(`<b>${esc(lk.label)}</b> · ×${Scenic.SCENIC_MUL[iv[2]]} on the ladder<br>${((iv[1] - iv[0]) * gM).toFixed(0)} m`)
+                .addTo(layer);
+            }
+          }
+        }
+      }
+    }
     mkRow($('ovl'), 'checkbox', 'Street variants', false, (on) => on ? layer.addTo(map) : map.removeLayer(layer));
     const order = [...rows.map((r) => r.id), '__major', '__minor'].filter((id) => keys[id]);
     for (const id of Object.keys(keys)) if (!order.includes(id)) order.push(id);
@@ -787,7 +823,7 @@ function overlays(world) {
     div.style.margin = '2px 0 4px';
     div.innerHTML = order.map((id) => `<div style="display:flex;gap:6px;align-items:baseline">`
       + `<span class="sw sq" style="background:${look[id].colour}"></span><span>${esc(look[id].label)}</span>`
-      + `<span class="n">${keys[id].size.toLocaleString()}</span></div>`).join('')
+      + `<span class="n">${keys[id].size.toLocaleString()}${scenicKm[id] ? ` · ${scenicKm[id].toFixed(1)} km` : ''}</span></div>`).join('')
       + `<div style="display:flex;gap:6px;align-items:baseline"><span style="color:#888">dashed: rock-lined</span>`
       + `<span class="n">${rocky.size.toLocaleString()}</span></div>`;
     $('ovl').appendChild(div);

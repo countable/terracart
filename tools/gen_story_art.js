@@ -347,6 +347,16 @@ const PIECES = {
   street_toadstool: scene(
     'A quiet residential lane at dusk, its verges crowded with clusters of pale glowing ' +
     'mushrooms and toadstools casting a soft blue-green glow, the lane leading away into the dark.'),
+
+  // Scenic places (src/scenic.js): the viewpoint's story panel and the first
+  // scenic-path walk.
+  zone_viewpoint: scene(
+    'Close and large in frame: an old brass spyglass on a weathered wooden post beside a ' +
+    'low stone rail at a high lookout, a wide view of a sunlit bay and distant rooftops ' +
+    'beyond it, golden-hour light.'),
+  street_scenic: scene(
+    'A winding gravel footpath along a calm shoreline promenade, old lamp posts glowing ' +
+    'soft sea-green, reeds and a low sea wall beside it, gulls far off over the water, dusk light.'),
 };
 
 function loadKey() {

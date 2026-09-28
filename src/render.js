@@ -2501,6 +2501,8 @@ Render.drawObjects = function drawObjects(scene) {
     chopped: setOf(scene.save.chopped),
     picked: pickedSet,
     broken: scene.brokenRockSet || new Set(),
+    // The UTC day the tide line is laid for (Scenic.tideLive) — once a frame.
+    day: utcDayKey(),
   };
   const pc = scene.playerToWorldCell();
   // Counted alongside the loop below, not derived after it: "how much does
@@ -2544,6 +2546,13 @@ Render.drawObjects = function drawObjects(scene) {
           // A grove shrine whose gift is still there today ALSO wears the POI
           // light — the one "something to take here" mark (poiLit).
           if (LIGHTS && o.kind === 'grove_shrine' && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
+          // A VIEWPOINT's scope (src/scenic.js): its rest ring's own light
+          // (Lighting.KINDS.vista, out to FIRE_REST_R) always, and the POI
+          // light on top while today's gift is there — the shrine's rule.
+          if (LIGHTS && o.kind === 'vista_scope') {
+            LIGHTS.consider(scene, o, dx, dy, halfM);
+            if (poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
+          }
           if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;
           if (o.kind === 'chest' && isDupChest(o)) return;
           // A live POI is a light too — offered AFTER the dedup (a per-frame
@@ -2581,7 +2590,10 @@ Render.drawObjects = function drawObjects(scene) {
       if (entry.wildplants) {
         WorldGen.forEachItemInBox(entry, 'wildplants', qx0, qy0, qx1, qy1, (wp) => {
           _boot_scanned++;
-          if (pickedSet.has(wp.id)) return;
+          // Gone: picked (save.picked), or a TIDE pickup (src/scenic.js) that
+          // is not on the waterline today or was taken today — one predicate,
+          // interactables.js isSpent, the tap asks the same.
+          if (wp.tide ? isSpent(wp, spentIds) : pickedSet.has(wp.id)) return;
           const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
           // A mushroom is a (faint) light as well as a sprite — offered before
           // the cull like a building, with its own radius as the margin. The
@@ -3310,6 +3322,10 @@ Render.drawObjects = function drawObjects(scene) {
     // light (Lighting.KINDS.shrine).
     headstone:    { key: 'headstone',    frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     grove_shrine: { key: 'grove_shrine', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    // A VIEWPOINT's scope (src/scenic.js — generated 16×24 placeholder, the
+    // shrine's size and seat): its daily gift, the first vista's relic, its
+    // story, and the rest ring its light shows (Lighting.KINDS.vista).
+    vista_scope:  { key: 'vista_scope',  frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. Tap
     // refills the watering can (interact.js). scale 0.9 draws the 30px frame at
     // ~27px, inside its one cell (QC rule); the seat pass centres it there off

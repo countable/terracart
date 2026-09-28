@@ -73,8 +73,8 @@ test('lockout: a campfire is not the trailer — its rest is blocked too while l
   const a = app.indexOf('const atHome = this.isRestingAtHome(pWX, pWY);');
   const b = app.indexOf('this._sweepStreets();', a);
   const block = app.slice(a, b);
-  assert.truthy(/if \(!working && !locked && this\._nearAny\('fires', pWX, pWY, FIRE_REST_R\)\)/.test(block),
-    'the campfire branch is gated on !locked, same as !working');
+  assert.truthy(/if \(!working && !locked && fireside\)/.test(block),
+    'the campfire branch (a fire or a vista — `fireside`) is gated on !locked, same as !working');
 });
 
 test('lockout: time away does not revive you either', () => {
