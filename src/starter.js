@@ -158,13 +158,18 @@
     const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
     const ROAD_TYPES = new Set([7 /* ROAD */, 13 /* ROAD_LG */, 14 /* ROAD_MD */, 8 /* PATH */]);
     const BLOCKED_FOR_X = new Set([3 /* WATER */, 9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
-    // A crate is seated on the shoulder of the road it's found beside, so
-    // "which cells are the road" has to mean the ground the player SEES as
-    // road, not just the one cell per way the rasterizer paints. See
-    // entry.roadMask (worldgen). Undefined on tiles built before the mask
-    // existed (or underground) — then the terrain test stands alone.
+    // THE SPAWN GATE (WorldGen.isSpawnCell), a 'minor' spawn — a crate is
+    // scenery, same as the relic chest below (_placeStarterRelicChest's
+    // spawnOpts). Not a bare entry.roadMask read: "which cells are the road"
+    // has to mean the ground the player SEES as road (the drawn band, not
+    // just the one cell per way the rasterizer paints), and the gate catches
+    // the same reasons the relic chest already avoids (a churchyard corner, a
+    // yard behind a house) that a roadMask-only test let through here.
+    // Undefined roadMask/spawnWhy on a tile built before the mask existed (or
+    // underground) falls back to isSpawnCell's own no-mask reading.
+    const spawnOpts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
     const onRoadBand = (cx, cy) =>
-      !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
+      !WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'minor');
     const spawnIX = Math.floor((anchor.x - tx0) / cellM);
     const spawnIY = Math.floor((anchor.y - ty0) / cellM);
     // Forensics for the ☰ Dump-tile readout (dumpTileDebug): which mode this
@@ -538,7 +543,11 @@
         const cy = spawnIY + Math.round(Math.sin(ang) * r);
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (BLOCKED.has(entry.grid[cy * N + cx])) continue;
-        if (entry.roadMask && entry.roadMask[cy * N + cx] === 1) continue;
+        // THE SPAWN GATE, a 'minor' spawn (the stash crate is scenery, same
+        // as the trail's) — off the road band AND out of a quiet corner or a
+        // yard behind a house, not a bare roadMask read.
+        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy,
+          { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy }, 'minor')) continue;
         if (occupied.has(cx + ',' + cy)) continue;
         const { cellIX, cellIY } = worldMetersToAbsCell(scene,
           tx0 + (cx + 0.5) * cellM, ty0 + (cy + 0.5) * cellM);
@@ -839,10 +848,13 @@
       if (Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1) return false;
       if (usedSeats.has(cx + ',' + cy)) return false;
       if (occupied.has(cx + ',' + cy)) return false;
-      // UNPAINTABLE is the road TERRAIN; the mask is the rest of the band the
-      // player sees drawn over it (see entry.roadMask). Soil tilled under the
-      // asphalt reads as a plot in the middle of the street.
-      if (entry.roadMask && entry.roadMask[cy * N + cx] === 1) return false;
+      // UNPAINTABLE is the road TERRAIN; THE SPAWN GATE (a 'minor' spawn —
+      // the plot is placed scenery like the trail crates) catches the rest
+      // of the band the player sees drawn over it (entry.roadMask) plus a
+      // quiet corner or a yard behind a house. Soil tilled under the asphalt
+      // reads as a plot in the middle of the street either way.
+      if (!WorldGen.isSpawnCell(grid, N, N, cx, cy,
+        { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy }, 'minor')) return false;
       return !UNPAINTABLE.has(grid[cy * N + cx]);
     };
     const blockUsable = (cx, cy) => inTile(cx, cy) &&
@@ -947,7 +959,17 @@
       return read(e, iy * nN + ix);
     };
     const gridAt = (cx, cy) => cellAt(cx, cy, (e, i) => e.grid[i], null);
-    const roadMaskAt = (cx, cy) => cellAt(cx, cy, (e, i) => (e.roadMask ? e.roadMask[i] : 0), 0);
+    // THE SPAWN GATE, crossing tile seams the same way gridAt does: resolves
+    // which tile entry actually owns (cx, cy) and asks THAT entry's own
+    // isSpawnCell — its own roadMask AND spawnWhy — never a bare roadMask
+    // read, which only answered the band question and missed every other
+    // hard reason (RESTRICTED, QUIET, a yard behind a house, …). Unresolved
+    // (an unloaded neighbour) reads as refused, like every other cellAt read.
+    const spawnOkAt = (cx, cy, cls) => cellAt(cx, cy, (e, i) => {
+      const eN = e.cellsPerEdge;
+      return WorldGen.isSpawnCell(e.grid, eN, eN, i % eN, Math.floor(i / eN),
+        { roadMask: e.roadMask, spawnWhy: e.spawnWhy }, cls);
+    }, false);
     // A synthesized POI plaza (the hospital cross, the school pyramid) —
     // a pond punched into one reads as a bug.
     const padAt = (cx, cy) => cellAt(cx, cy, (e, i) => !!(e.poiPadCells && e.poiPadCells.has(i)), false);
@@ -1046,7 +1068,10 @@
       24 /* CAVE_FLOOR */, 25 /* CAVE_WALL */]);
     const fillable = (cx, cy) => {
       if (!reached.has(key(cx, cy)) || taken.has(key(cx, cy))) return false;
-      if (roadMaskAt(cx, cy) || padAt(cx, cy)) return false;
+      // THE SPAWN GATE, a 'minor' spawn (the pond is placed scenery, like the
+      // plot) — off the drawn road band, a quiet corner or a yard behind a
+      // house, not a bare roadMask read.
+      if (!spawnOkAt(cx, cy, 'minor') || padAt(cx, cy)) return false;
       const t = gridAt(cx, cy);
       return t != null && !UNPAINTABLE.has(t);
     };
@@ -1057,7 +1082,7 @@
     const SHORE_BLOCKED = new Set([3, 7, 9, 11, 12, 13, 14]);
     const shoreOK = (cx, cy) => {
       const t = gridAt(cx, cy);
-      return t != null && !SHORE_BLOCKED.has(t) && !roadMaskAt(cx, cy);
+      return t != null && !SHORE_BLOCKED.has(t) && spawnOkAt(cx, cy, 'minor');
     };
     // Chebyshev distance from the 2x2 (top-left cx,cy) to the nearest POI
     // chest; Infinity when there is none in range.
@@ -1402,12 +1427,18 @@
       return read(e, iy * nN + ix);
     };
     const gridAt = (cx, cy) => cellAt(cx, cy, (e, i) => (e.grid ? e.grid[i] : null), null);
-    // The same lookup for the road FOOTPRINT (see entry.roadMask in worldgen):
-    // the terrain code alone under-reports the road, because every way
-    // rasterizes one cell wide however wide it really is and parking aisles
-    // rasterize to nothing at all. Truthy = the cell is under a drawn road
-    // band. Unresolvable cells read as 0 — gridAt already refused them.
-    const roadMaskAt = (cx, cy) => cellAt(cx, cy, (e, i) => (e.roadMask ? e.roadMask[i] : 0), 0);
+    // THE SPAWN GATE, crossing tile seams the same way gridAt does: resolves
+    // which tile entry actually owns (cx, cy) and asks THAT entry's own
+    // isSpawnCell — its own roadMask AND spawnWhy — never a bare roadMask
+    // read (which only answered the band question and, before this, let the
+    // ring seed a tree or rock in a quiet corner or a yard behind a house).
+    // Unresolvable cells read as refused — gridAt already refused them too.
+    const spawnOkAt = (cx, cy, cls) => cellAt(cx, cy, (e, i) => {
+      if (!e.grid) return false;
+      const eN = e.cellsPerEdge;
+      return WorldGen.isSpawnCell(e.grid, eN, eN, i % eN, Math.floor(i / eN),
+        { roadMask: e.roadMask, spawnWhy: e.spawnWhy }, cls);
+    }, false);
     // The anchor's own tile has to be readable before anything can be planned.
     if (gridAt(spawnIX, spawnIY) == null) return;
     // And don't plan against HALF A MAP. Seating is spatial: a first pass that
@@ -1444,13 +1475,21 @@
     }
     // Nothing goes in the Home trailer's moat (clearHomeTrailerOverlap would
     // sweep it away) or on a crate seat.
+    // Every kind seated here (tree, rock, wreck, mushroom, and the 'ladder' —
+    // a real cave entrance, see _starterHomeObject) shares this one candidate
+    // pool, so it reads as the loosest class the ring seats: 'minor'. The
+    // ladder's own row (SPAWN_CLASS_BLOCKS.cave) would also refuse SENSITIVE
+    // ground (a churchyard corner) — a difference from 'minor' only a starter
+    // ring beside a real graveyard would ever hit, and not worth splitting
+    // this shared pool per kind for.
     const free = (cx, cy) => {
       if (Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1) return false;
       if (usedSeats.has(key(cx, cy)) || taken.has(key(cx, cy))) return false;
-      // BLOCKED covers the road TERRAIN; the mask covers the rest of the band
-      // the player sees drawn over it. The first thing a new player is taught
-      // to chop cannot be standing in the street.
-      if (roadMaskAt(cx, cy)) return false;
+      // BLOCKED covers the road TERRAIN; THE SPAWN GATE covers the rest of
+      // the band the player sees drawn over it, plus a quiet corner or a
+      // yard behind a house. The first thing a new player is taught to chop
+      // cannot be standing in the street.
+      if (!spawnOkAt(cx, cy, 'minor')) return false;
       const t = gridAt(cx, cy);
       return t != null && !BLOCKED.has(t);
     };
@@ -1722,6 +1761,15 @@
     // The doorstep greeter is the starting area's (a MINOR spawn — see the
     // starter trail's note): the land the spawn gate refuses, not its buffers.
     const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
+    // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): NOT the seat
+    // test (that's `pick`'s primary pass below, THE SPAWN GATE via
+    // isSpawnCell(..., opts, 'minor')). This is the "always" greeter's
+    // fallback ONLY — a mode that promises a seat on every save must still
+    // never stand an animal in the carriageway, but is allowed to ignore
+    // every softer reason (frontage, a yard behind a house, quiet land) the
+    // gate would otherwise refuse. Deliberately not isSpawnCell: routing the
+    // fallback through the gate would refuse cells "always" is supposed to
+    // still fill. See the doorstep-greeter comment above.
     const onRoad = (cx, cy) => !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
     const standable = (cx, cy) =>
       cx >= 0 && cx < N && cy >= 0 && cy < N &&

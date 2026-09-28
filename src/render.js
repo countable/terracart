@@ -1569,6 +1569,9 @@ Render.drawCells = function drawCells(scene) {
       // (e.g. an old save where a GPS jump tilled an unloaded-then-building cell),
       // silently drop it — UNLESS a planted crop still references this cell. Removing
       // the tilled flag from under a live plant produces an "occupied: crop" orphan.
+      // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): TILLING,
+      // not a spawn decision — draw-side self-heal for a cell already marked
+      // tilled, mirroring items.js isTillableCell's own roadMask read.
       // Road-BAND cells heal away too: tilling now consults the roadMask
       // (app.js isTillableCell), so soil tilled in the middle of a street
       // under the old type-only rule shouldn't keep rendering there. The mask

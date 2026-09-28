@@ -58,9 +58,14 @@ test('cauldron: coins never lie in the road or a yard, wait ten minutes, and sta
   assert.truthy(/WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, opts, 'minor'\)/.test(nearBody), 'the feet scatter too (a minor spawn: the player is there)');
   assert.truthy(/WorldGen\.privateVetoAt\(tx, ty, cx, cy\)/.test(nearBody), 'with the veto');
   assert.truthy(/sameSideAs\(this, /.test(nearBody), 'same side at the feet too');
-  // A kill's coin is stepped off a road cell onto the ground beside it.
+  // A kill's coin is stepped off a road cell (or a yard) onto ground the
+  // shared spawn rule allows, same as every other coin drop — not a bare
+  // road/terrain test any more (Sep 2026: routed through THE SPAWN GATE).
   const drop = app.slice(app.indexOf('  _dropBountyCoin(victim, amount) {'));
-  assert.truthy(/NEVER IN THE ROAD/.test(drop.slice(0, drop.indexOf('\n  }\n'))), 'a bounty coin never lies in the road');
+  const dropBody = drop.slice(0, drop.indexOf('\n  }\n'));
+  assert.truthy(/NEVER ON A ROAD OR IN A YARD/.test(dropBody), 'a bounty coin never lies in the road or a yard');
+  assert.truthy(/WorldGen\.isSpawnCell\(entry\.grid, N, N, x, y, spawnOpts, 'minor'\)/.test(dropBody),
+    'the nudge asks the shared spawn rule (a minor spawn), not a bare roadMask/terrain test');
 });
 
 test('pot of gold: the burst is its density on its tile — 30 alone, 3 at 50, 1 at 150+', () => {

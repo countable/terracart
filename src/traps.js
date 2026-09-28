@@ -182,7 +182,13 @@
   const TRAP_ROAD_CLEAR_CELLS = 2;
   const landAt = (grid, under, i) => (under && under[i]) || grid[i];
   function isRoadCode(T, t) { return t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG; }
-  // Is any road cell within TRAP_ROAD_CLEAR_CELLS of (cx, cy)?
+  // Is any road cell within TRAP_ROAD_CLEAR_CELLS of (cx, cy)? ALLOWLISTED
+  // raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY, not the gate —
+  // this defines the SHAPE of trap ground (how close a road may come before
+  // a cell stops counting as path-side/park-edge at all), read by
+  // trapGroundKind/sampleTrapCells to build the candidate pool. Whether a
+  // candidate may actually be SEATED is spawnSurface's isSpawnCell('enemy')
+  // call below, the gate proper.
   function nearRoad(grid, roadMask, w, h, cx, cy) {
     const T = root.WorldGen.T;
     const R = TRAP_ROAD_CLEAR_CELLS;
@@ -210,6 +216,8 @@
     const i = cy * w + cx;
     const here = grid[i];
     if (here === T.PATH || !WG.isWalkable(here)) return 0;
+    // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY, not
+    // the gate — see the note below.
     if (roadMask && roadMask[i]) return 0;
     // The GROUND's shape, not the gate: the pool (and so the per-ground caps)
     // counts only ground a snare could ever hold. Whether one may be SEATED
@@ -467,26 +475,29 @@
 
   // Can a snare go down on LOCAL cell (lix, liy) of `entry`? Walkable ground
   // on the LIVE grid (a dug wall is floor now), off the drawn road band
-  // (entry.roadMask — the half of the spawn rule the terrain under-reports)
-  // and on ground the spawn gate gives an 'enemy' (entry.spawnWhy),
-  // not under anything the spawn pass seated (entry._spawnOpts.occupied — the
-  // other half), and not on a trap already there, generated or laid. The
-  // caller adds what only it knows: not the player's cell, not the layer's.
+  // (entry.roadMask) and on ground the spawn gate gives an 'enemy'
+  // (entry.spawnWhy), not under anything the spawn pass seated
+  // (entry._spawnOpts.occupied — the other half of the rule), and not on a
+  // trap already there, generated or laid. The caller adds what only it
+  // knows: not the player's cell, not the layer's.
   function canLay(entry, lix, liy) {
     if (!entry || !entry.grid || !root.WorldGen) return false;
     const N = entry.cellsPerEdge;
     if (!(N > 0) || lix < 0 || liy < 0 || lix >= N || liy >= N) return false;
     const i = liy * N + lix;
     if (!root.WorldGen.isWalkable(entry.grid[i])) return false;
-    if (entry.roadMask && entry.roadMask[i]) return false;
     // THE SPAWN GATE: a snare is an 'enemy' spawn (off the house buffer,
-    // school and sensitive ground, fields, hard land — entry.spawnWhy). It
-    // does not move, so the gate's KERB reason is not its; the kerb buffer is
-    // its own GROUND rule instead (trapGroundKind's — a snare there is a
-    // reason to step off the kerb). Underground entries carry neither mask,
-    // so a cave is untouched.
+    // school and sensitive ground, fields, hard land — entry.spawnWhy; and
+    // the road band, entry.roadMask — isSpawnCell reads that unconditionally,
+    // mask or no mask, so one call covers both halves and there is no raw
+    // roadMask read to keep separately). It does not move, so the gate's
+    // KERB reason is not its; the kerb buffer is its own GROUND rule instead
+    // (trapGroundKind's — a snare there is a reason to step off the kerb).
+    // Underground entries carry neither mask, so a cave reads through
+    // isSpawnCell's own no-mask fallback (open ground, never a lot) — still
+    // untouched.
     const WG = root.WorldGen;
-    if (entry.spawnWhy && !WG.isSpawnCell(entry.grid, N, N, lix, liy,
+    if (!WG.isSpawnCell(entry.grid, N, N, lix, liy,
       { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy }, 'enemy')) return false;
     if (WG.inMajorBuffer && WG.inMajorBuffer(entry.roadClass, N, lix, liy)) return false;
     const occ = entry._spawnOpts && entry._spawnOpts.occupied;

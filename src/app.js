@@ -5464,19 +5464,24 @@ class MapScene extends Phaser.Scene {
     const cellSizeM = edge / N;
     let cx = Math.floor((victim.x - tx * edge) / cellSizeM);
     let cy = Math.floor((victim.y - ty * edge) / cellSizeM);
-    // NEVER IN THE ROAD (the coin rule — COIN_BURST_LIFE_MS's note): a foe
-    // felled on a street leaves its coin on the nearest ground beside it
-    // (off the road band and the road's own cells), within three cells.
-    const onRoad = (x, y) => !!(entry.roadMask && entry.roadMask[y * N + x])
-      || WorldGen.isRoadTerrain(entry.grid[y * N + x]);
-    if ((this.depth || 0) === 0 && entry.grid && cx >= 0 && cy >= 0 && cx < N && cy < N && onRoad(cx, cy)) {
+    // NEVER ON A ROAD OR IN A YARD (the coin rule — COIN_BURST_LIFE_MS's
+    // note above, the same shared spawn rule _coinCellsNearPlayer uses for a
+    // coin at the player's own feet): a foe felled off legitimate ground
+    // leaves its coin on the nearest THE SPAWN GATE allows (a 'minor' spawn),
+    // within three cells. Not just the road band — this used to read
+    // entry.roadMask directly and miss every other hard reason (a kill in a
+    // quiet corner or somebody's back garden) the general coin rule already
+    // promises to avoid.
+    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy };
+    const blocked = (x, y) => !WorldGen.isSpawnCell(entry.grid, N, N, x, y, spawnOpts, 'minor');
+    if ((this.depth || 0) === 0 && entry.grid && cx >= 0 && cy >= 0 && cx < N && cy < N && blocked(cx, cy)) {
       outer: for (let r = 1; r <= 3; r++) {
         for (let dy = -r; dy <= r; dy++) {
           for (let dx = -r; dx <= r; dx++) {
             if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
             const nx = cx + dx, ny = cy + dy;
             if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
-            if (!WorldGen.isWalkable(entry.grid[ny * N + nx]) || onRoad(nx, ny)) continue;
+            if (blocked(nx, ny)) continue;
             cx = nx; cy = ny;
             break outer;
           }
@@ -7263,11 +7268,16 @@ class MapScene extends Phaser.Scene {
     const iy = Math.floor((wy - ty * TILE_PX) / cps);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     const loaded = !!(entry && entry.grid);
-    // Road-band flag. The terrain grid under-reports roads (QC rules: a way
-    // rasterizes exactly ONE cell wide however wide its drawn band really
-    // is), so "is this ground road" must come from entry.roadMask — stamped
-    // from the same WorldGen.roadOverlayWidthM the overlay strokes with.
-    // Checking road TERRAIN alone is the bug, not the fix.
+    // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): NOT a spawn
+    // decision — cellAt() is a general-purpose cell query (isTillableCell in
+    // items.js, the terrain-flavour text in interact.js, an NPC's own
+    // walk-blocked test in npc.js all read this .underRoad flag; nothing
+    // here places anything). Road-band flag. The terrain grid under-reports
+    // roads (QC rules: a way rasterizes exactly ONE cell wide however wide
+    // its drawn band really is), so "is this ground road" must come from
+    // entry.roadMask — stamped from the same WorldGen.roadOverlayWidthM the
+    // overlay strokes with. Checking road TERRAIN alone is the bug, not the
+    // fix.
     const underRoad = !!(loaded && entry.roadMask
       && entry.roadMask[iy * N + ix]);
     // cellIX / cellIY: the same cell as an ABSOLUTE key (coords.js encoding) —

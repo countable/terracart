@@ -444,6 +444,8 @@
     // (the starter pond, a dug wall) can differ from the one the mask was
     // stamped over.
     if (!isWalkable(here)) return false;          // never on water/road/building
+    // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): this IS THE
+    // GATE — every other spawner's roadMask question resolves here.
     const roadMask = opts && opts.roadMask;
     if (roadMask && roadMask[cy * w + cx]) return false;   // under a drawn road band
     const occupied = opts && opts.occupied;
@@ -491,6 +493,10 @@
   // danger, and a spawn point nobody can see is a trap the game did not mean.
   const GATE_POST_OFFSETS = { ew: [[-1, 0], [1, 0]], ns: [[0, -1], [0, 1]] };
   function gatePostsAt(grid, N, roadMask, ix, iy, free) {
+    // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY, not
+    // the gate — `way` only asks which direction the fence runs, so the posts
+    // land along it. Whether a post's cell may actually be SEATED is `free`,
+    // the caller's own isSpawnCell test (placeGatesAndBoards, below).
     const way = (x, y) => x >= 0 && y >= 0 && x < N && y < N
       && (isCobbleTerrain(grid[y * N + x]) || (roadMask && roadMask[y * N + x] === 1));
     const wayEW = way(ix - 1, iy) || way(ix + 1, iy);
@@ -2846,6 +2852,10 @@
         const t = grid[i];
         let v = land[i];
         if (!isWalkable(t)) v |= W_.TERRAIN;
+        // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): THE
+        // GATE'S OWN CONSTRUCTION — this is what stamps the ROAD reason
+        // into entry.spawnWhy in the first place (see spawn_class.test.js's
+        // "ROAD is the roadMask" pin).
         if (roadMask[i]) v |= W_.ROAD;
         if (quietMask && quietMask[i]) v |= W_.QUIET;
         if (sensPt[i]) v |= W_.SENSITIVE_SITE;
@@ -4404,10 +4414,15 @@
     //   (2) any whose FINAL cell is residential and fails the shared spawn
     //       rule (isSpawnCell), whichever polygon spawned it
     {
-      // Under a drawn road band — see roadMask. Checked everywhere a road TIER
-      // is checked: the two answer the same question, and the tier alone gets
-      // it wrong on exactly the cells players notice (the flanks of a big road,
-      // the whole of a parking lot).
+      // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): THE GATE'S
+      // OWN POST-RASTERIZE CULL, not a second spawn decision — this sweep is
+      // what the isSpawnCell/landRefused calls a few lines below sit inside
+      // (_mrDrop), reimplemented as a direct grid+mask read here for the
+      // hot O(n) object sweep rather than a per-object isSpawnCell call.
+      // Under a drawn road band. Checked everywhere a road TIER is checked:
+      // the two answer the same question, and the tier alone gets it wrong on
+      // exactly the cells players notice (the flanks of a big road, the
+      // whole of a parking lot).
       const _underRoadBand = (ix, iy) => roadMask[iy * w + ix] === 1;
       const _mrIsBlocked = (ix, iy) => {
         const tc = grid[iy * w + ix];
@@ -5295,13 +5310,18 @@
       T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
     ]);
     // Cell at (ix,iy) is hard ground a scatter object must never sit on:
-    // the TREE_BLOCK terrain set, plus anything under a drawn road band
-    // (roadMask) — the injected features are placed from real-world
-    // coordinates, so without the mask an OSM street tree recorded in the
-    // middle of a widened carriageway stays there.
+    // the TREE_BLOCK terrain set, plus anything under a drawn road band —
+    // the injected features are placed from real-world coordinates, so
+    // without the band an OSM street tree recorded in the middle of a
+    // widened carriageway stays there. Routed through THE SPAWN GATE (a
+    // 'minor' spawn, no spawnWhy — the LAND half of the rule is
+    // tryTreeCell/_sxYardOK's separate call, right below) rather than a bare
+    // roadMask read, so this and every other spawner answer "is this under
+    // the band" the same one way.
     const _sxHardCell = (ix, iy) => {
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
-      return TREE_BLOCK.has(grid[iy * cpe + ix]) || roadMask[iy * cpe + ix] === 1
+      return TREE_BLOCK.has(grid[iy * cpe + ix])
+        || !isSpawnCell(grid, cpe, cpe, ix, iy, { roadMask }, 'minor')
         || !!(quiet && quiet[iy * cpe + ix]);
     };
     const _sxHard = (wx, wy) => {

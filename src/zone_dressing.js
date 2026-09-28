@@ -212,6 +212,12 @@
         let x = Math.round(s.poi[0] + dx * n / length), y = Math.round(s.poi[1] + dy * n / length);
         if (!owns(x, y)) continue;
         const i = y * N + x;
+        // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY,
+        // not the gate — this only decides where the connecting avenue's
+        // WALK stops (never crossing a road), same as trapGroundKind's own
+        // road clearance. Whether a marker actually gets PLACED on any cell
+        // this walk visits is `allowed()`/`place()` above, which always
+        // calls WG.isSpawnCell — the gate proper.
         if ((opts.roadMask && opts.roadMask[i]) || (WG.inMajorBuffer && WG.inMajorBuffer(opts.roadClass, N, x, y))) break;
         const shape = c.shape;
         if (shape === 'clear_aisle' || shape === 'aligned_ring_gaps' || shape === 'follow_grid_lane') {
