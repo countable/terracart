@@ -2358,6 +2358,10 @@ Render.drawObjects = function drawObjects(scene) {
     sy: scene.viewCenterY + (dy / scene.cellM) * CELL_PX,
   });
   const objList = [], creatureList = [], plantedList = [], trapList = [];
+  // Each visible house resolves one display role from Houses, then carries it
+  // on its frame item. The o-based render-spec helpers read this frame cache so
+  // art, shadows, labels and readiness never rebuild a competing verdict.
+  const houseRoles = new WeakMap();
   // The frame's light sources (src/lighting.js). Filled by the tile scan
   // below as it passes each restored building, then by the campfire list and
   // the player inside Lighting.draw at the end of this pass. Reset here so a
@@ -2467,7 +2471,9 @@ Render.drawObjects = function drawObjects(scene) {
           // plaque for an off-screen building would be clamped to the screen
           // edge, pointing at nothing.
           const wide = Math.abs(dx) > halfM || Math.abs(dy) > halfM;
-          objList.push({ o, dx, dy, wide });
+          const houseRole = o.kind === 'house' ? Houses.displayRole(scene.save, o) : null;
+          if (o.kind === 'house') houseRoles.set(o, houseRole);
+          objList.push({ o, dx, dy, wide, houseRole });
           _boot_kept++;
         });
       }
@@ -2707,35 +2713,10 @@ Render.drawObjects = function drawObjects(scene) {
   // bottom edge (half a cell, less that pixel, plus the 2 blank rows scaled).
   const WAGON_SCALE = 0.55;
   const WAGON_DY_PX = CELL_PX * 0.5 - 1 + 2 * WAGON_SCALE;
-  // Pick the themed-sprite role for a 'house' object. 'plain' falls back
-  // to the generic 'house' texture (the tinted shared sprite). Order
-  // matters: starter wins over tier wins over shopType — so a tier-11
-  // fort that happens to also be the starter shop renders as a trailer.
-  //
-  // 'wreck' is the universal pre-restoration role for tier-9 houses:
-  // any non-restored, non-starter, non-fort house renders as the wreck
-  // sprite. Once the player feeds it the right materials at
-  // shopInteract, it goes into save.restoredHouses and reverts to its
-  // "true" role (plain / blacksmith / etc.).
-  const _restored = scene.save.restoredHouses || {};
-  const _houseTrueRole = (o) => {
-    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
-    if (o.tier === 11) return 'fort';
-    // Frozen restore-order role: 'blacksmith' | 'trader' | 'market' | 'wizard',
-    // or null → plain residential.
-    const t = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
-    return t || 'plain';
-  };
-  const _houseRole = (o) => {
-    const trueRole = _houseTrueRole(o);
-    // Forts (tier 11) and the starter trailer skip wreck status — forts
-    // are civic structures, the trailer is the player's already-furnished
-    // home. Everything else (plain residential + themed tier-9 shops) is
-    // a wreck until restored.
-    if (trueRole === 'fort' || trueRole === 'trailer') return trueRole;
-    if (_restored[o.id]) return trueRole;
-    return 'wreck';
-  };
+  // Render-spec callbacks receive the world object, while the object walk
+  // carries the role on its frame item. This map bridges those APIs without
+  // resolving the role again; Houses.displayRole owns the verdict.
+  const _houseRole = (o) => houseRoles.get(o);
   // ── Tree size + fruit-tree growth helpers (shared by the specs below) ──
   // Four discrete in-game size tiers from the DeepForest crown size class —
   // the smallest ('bush') renders as a bush, the rest as trees. OSM trees carry
@@ -3366,7 +3347,7 @@ Render.drawObjects = function drawObjects(scene) {
       //     half the (scaled) sprite height SOUTH of the centroid. Read the
       //     sprite's frame height so the shadow tracks the real art, not a guess.
       // The small extra lift tucks the ellipse's bulk behind the building.
-      const role = o.kind === 'house' ? _houseRole(o) : null;
+      const role = o.kind === 'house' ? item.houseRole : null;
       let w = CELL_PX * 1.5, footY = sy - 4;
       if (o.kind === 'tower') { w = CELL_PX * 1.1; footY = sy + 2; }
       else if (role === 'wizard') { footY = sy + CELL_PX * 0.5 - 4; }
@@ -3674,20 +3655,20 @@ Render.drawObjects = function drawObjects(scene) {
     role === 'market' && typeof scene.marketTheme === 'function' ? scene.marketTheme(o).theme : null,
     role === 'trader' && typeof scene.traderGoodsName === 'function' ? scene.traderGoodsName(o) : null);
   const _houseSignText = (o) => {
-    // Wrecks have no sign — their identity is hidden until the player
-    // restores them. Once _houseRole stops returning 'wreck', the
-    // sign re-emerges with the correct shop / house label.
-    if (_houseRole(o) === 'wreck') return null;
-    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return 'Home';
-    // Forced scarecrow shop — signed only while it still has one to sell.
+    const role = _houseRole(o);
+    // Wrecks have no sign - their identity is hidden until the player
+    // restores them. The owner then returns the correct shop / house role.
+    if (role === 'wreck') return null;
+    if (role === 'trailer') return 'Home';
+    // Forced scarecrow shop - signed only while it still has one to sell.
     // After the sale it reverts to its underlying role (handled below).
     if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
         && !scene.save.scarecrowShopUsed) {
       return 'Scarecrows';
     }
     // Frozen restore-order shop role (blacksmith / trader / market / wizard).
-    const role = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
-    const label = role ? _roleLabel(role, o) : null;
+    const ordinary = role === 'plain' || role === 'fort';
+    const label = ordinary ? null : _roleLabel(role, o);
     if (label) return label;
     // No specialty? Still give the building a label so the map reads as a
     // populated street instead of rows of anonymous huts.
@@ -3709,13 +3690,9 @@ Render.drawObjects = function drawObjects(scene) {
   // roof callout: a wishlist while hungry, a happy face once fed (for good).
   const _houseIsHost = (o) => {
     if (!o || o.kind !== 'house' || o.tier !== 9) return false;
-    if (_houseRole(o) === 'wreck') return false;                          // hidden until restored
-    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return false;             // Home
+    if (_houseRole(o) !== 'plain') return false;                          // wreck, Home or storefront
     if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
         && !scene.save.scarecrowShopUsed) return false;                   // active scarecrow shop (text sign instead)
-    // Any frozen shop role (blacksmith / trader / market / wizard, incl. the
-    // starter smithy) is a storefront, not a residential delivery host.
-    if (typeof scene.houseShopRole === 'function' && scene.houseShopRole(o)) return false;
     const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
     return wanted.length > 0;
   };
@@ -3739,11 +3716,10 @@ Render.drawObjects = function drawObjects(scene) {
   const _FORT_INK   = '#9aa49a';   // mossy stone — military
   const _HOUSE_INK  = '#d6c9a8';   // warm parchment — plain residential
   const _houseSignInk = (o) => {
-    if (scene.save.starterShopId && scene.save.starterShopId === o.id) return _ROLE_INK.trailer;
+    const role = _houseRole(o);
     if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
         && !scene.save.scarecrowShopUsed) return '#cdb07a';   // straw-gold scarecrow sign
-    const t = (typeof scene.houseShopRole === 'function') ? scene.houseShopRole(o) : null;
-    if (t && _ROLE_INK[t]) return _ROLE_INK[t];
+    if (role && _ROLE_INK[role]) return _ROLE_INK[role];
     if (o.tier === 12) return _CASTLE_INK;
     if (o.tier === 11) return _FORT_INK;
     if (o.tier === 9)  return _HOUSE_INK;
@@ -3945,8 +3921,8 @@ Render.drawObjects = function drawObjects(scene) {
     // The player's own starting building (home / trailer) isn't a timed shop
     // to the player — no open/busy pip on your own house.
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
-    // Wrecks aren't shops yet — the pip would read as a contradiction.
-    if (typeof scene._isHouseWreck === 'function' && scene._isHouseWreck(o)) continue;
+    // Wrecks aren't shops yet - the pip would read as a contradiction.
+    if (item.houseRole === 'wreck') continue;
     // Sealed castles (delivery gate not yet met) aren't open for business —
     // a "ready" pip would lie about the lock. (Castles report dealCap Infinity
     // and bail above, but keep this for safety.)

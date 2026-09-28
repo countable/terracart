@@ -117,13 +117,27 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return until && now < until ? 0.5 : 1;
   }
 
-  // by shopInteract to route to the restore modal and by the render layer
-  // indirectly via save.restoredHouses (see _houseRole in render.js).
+  // isHouseWreck routes taps to restoration and is also the display owner's
+  // wreck verdict. Keeping both consumers on this predicate prevents a fort or
+  // castle-shaped house from wearing wreck art.
   function isHouseWreck(save, house) {
     if (!house || house.kind !== 'house') return false;
     if (house.tier !== 9) return false;   // forts (11) + castles (12) skip wreck
     if (save.starterShopId && save.starterShopId === house.id) return false;
     return !save.restoredHouses?.[house.id];
+  }
+
+  // Resolve the one role every visual surface reads. Home wins before tier so
+  // a starter building always keeps its trailer identity; isHouseWreck owns
+  // whether a tier-9 house still needs restoration; houseShopRole then names
+  // the frozen shop behind a restored facade.
+  function displayRole(save, house) {
+    save = save || {};
+    if (!house || house.kind !== 'house') return null;
+    if (save.starterShopId && save.starterShopId === house.id) return 'trailer';
+    if (house.tier === 11) return 'fort';
+    if (isHouseWreck(save, house)) return 'wreck';
+    return houseShopRole(save, house) || 'plain';
   }
 
   // Restoration cost: stone (rockfruit — wild residential debris, gatherable
@@ -257,7 +271,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 
   root.Houses = {
     PRESEED_RESTORE_ROLES,
-    isStarterBlacksmith, houseShopRole, hasBlacksmith, preseedRestoreRole,
+    isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith, preseedRestoreRole,
     shopCharmMul,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,

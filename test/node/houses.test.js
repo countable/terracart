@@ -35,6 +35,39 @@ test('hasBlacksmith: the stamped starter smith or any restored one', () => {
   assert.falsy(Houses.hasBlacksmith({}));
 });
 
+test('displayRole: one verdict covers Home, forts, wrecks and frozen shops', () => {
+  const cases = [
+    ['unrestored tier-9 house', {}, { kind: 'house', tier: 9, id: 'h' }, 'wreck'],
+    ['restored plain house', { restoredHouses: { h: 'plain' } }, { kind: 'house', tier: 9, id: 'h' }, 'plain'],
+    ['fort', {}, { kind: 'house', tier: 11, id: 'f' }, 'fort'],
+    ['Home trailer', { starterShopId: 'home' }, { kind: 'house', tier: 9, id: 'home' }, 'trailer'],
+    ['non-house', {}, { kind: 'tower', tier: 9, id: 't' }, null],
+  ];
+  for (const role of ['blacksmith', 'trader', 'market', 'wizard']) {
+    cases.push([`frozen ${role}`, { restoredHouses: { h: role } },
+      { kind: 'house', tier: 9, id: 'h' }, role]);
+  }
+  for (const [label, save, house, expected] of cases) {
+    assert.eq(Houses.displayRole(save, house), expected, label);
+  }
+});
+
+test('displayRole: Home wins over a tier-derived role', () => {
+  const save = { starterShopId: 'home', restoredHouses: { home: 'wizard' } };
+  assert.eq(Houses.displayRole(save, { kind: 'house', tier: 11, id: 'home' }), 'trailer');
+  assert.eq(Houses.displayRole({}, { kind: 'house', tier: 12, id: 'castle-house' }), 'plain',
+    'isHouseWreck keeps non-tier-9 buildings out of the wreck role');
+});
+
+test('render: each visible house carries one owner-resolved display role', () => {
+  const resolves = RENDER_SRC.match(/Houses\.displayRole\(scene\.save, o\)/g) || [];
+  assert.eq(resolves.length, 1, 'render resolves the owner once per collected house');
+  assert.truthy(/objList\.push\(\{ o, dx, dy, wide, houseRole \}\)/.test(RENDER_SRC),
+    'the frame item carries the resolved role');
+  assert.falsy(/scene\.houseShopRole/.test(RENDER_SRC),
+    'render does not reconstruct the shop part of the display role');
+});
+
 // ── Pre-seeded restore roles ─────────────────────────────────────────────────
 
 test('preseedRestoreRole: the fixed opening run, then the address, and the wizard at 15', () => {
