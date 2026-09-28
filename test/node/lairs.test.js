@@ -192,7 +192,10 @@
     for (const tier of [11, 12]) {
       const ks = all(tier);
       assert.truthy(ks.length > 0, `tier ${tier} holds something`);
-      for (const k of ks) assert.truthy(/^goblin/.test(k), `tier ${tier} is a garrison, not ${k}`);
+      for (const k of ks) {
+        assert.truthy(EnemyRoster.get(k).surface, `${k} is surface eligible`);
+        assert.lte(EnemyRoster.get(k).tier, 3, `${k} obeys the ordinary surface cap`);
+      }
     }
     // And the melee goblin comes before the archer, the same order the caves
     // introduce them in (MONSTERS.minDepth) — the ladder never runs backwards.
@@ -282,20 +285,15 @@
         seen.set(look, kind);
       }
     }
-    // And the specific pair that was wrong: same sheet, different colour.
-    assert.eq(SpriteLayout.creatureSheet('cave_slime'), SpriteLayout.creatureSheet('slime'),
-      'the cave slime is still the surface slime\'s art');
-    assert.eq(SpriteLayout.creatureTint('slime'), 0xffffff, 'the surface slime wears its own colours');
-    assert.eq(SpriteLayout.creatureTint('cave_slime'), SpriteLayout.CAVE_SLIME_TINT,
-      'and the cave slime is tinted apart from it');
-    // A GIANT is its base kind's art, so it inherits the tint rather than
-    // reverting to white — a giant cave slime is still a cave slime.
-    assert.eq(SpriteLayout.creatureTint('giant_cave_slime'), SpriteLayout.CAVE_SLIME_TINT,
-      'a giant inherits its base kind\'s tint');
+    // Blue cave slime now has distinct shipped art, not a multiply tint.
+    assert.truthy(SpriteLayout.creatureSheet('cave_slime') !== SpriteLayout.creatureSheet('slime'));
+    assert.eq(SpriteLayout.creatureTint('slime'), 0xffffff);
+    assert.eq(SpriteLayout.creatureTint('cave_slime'), 0xffffff);
+    assert.eq(SpriteLayout.creatureSheet('giant_cave_slime'), SpriteLayout.creatureSheet('cave_slime'));
     // The renderer must READ that, not branch on the kind.
-    assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : c\.shiny \? SHINY_TINT : creatureTint\(c\.kind\)\)/
+    assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
       .test(RENDER_SRC), 'render.js tints a creature from the table, not a blanket white');
-    assert.truthy(/const texKey = creatureSheet\(c\.kind\);/.test(RENDER_SRC),
+    assert.truthy(/const texKey = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(RENDER_SRC),
       'and picks the monster sheet from the table, not an if-else chain');
   });
 
@@ -521,7 +519,7 @@
       if (runs[0].n) checked++;
       if (runs[0].elites) withElite++;
       // Only the nerf differs: the doorstep Home softens, the far one does not.
-      for (const m of runs[0].muls) assert.lt(m, 1, `ruin ${k}: a doorstep guard is softened`);
+      for (const m of runs[0].muls) assert.eq(m, 1, `ruin ${k}: shared guard stats near Home`);
       for (const m of runs[1].muls) assert.eq(m, 1, `ruin ${k}: a far guard is at full power`);
     }
     assert.gt(checked, 20, 'too few of the fixture castles were held to prove anything');
@@ -538,9 +536,9 @@
       step(entry, { x: (8 + (k % 24)) * CELL_M, y: (8 + Math.floor(k / 24) * 8) * CELL_M });
       for (const g of guardsOf(entry)) {
         seen++;
-        const want = Combat.isMonster(g.kind) && isShiny(g.id, SHINY_RATE.monster);
+        const want = Combat.monster(g.kind).eliteEligible && isShiny(g.id, SHINY_RATE.monster);
         assert.eq(!!g.shiny, want, `${g.id} (${g.kind}): elite flag is not its id's`);
-        if (g.kind === 'slime') assert.falsy(g.shiny, 'a surface slime guard went shiny');
+        if (Combat.monster(g.kind).variantType === 'Giant') assert.falsy(g.shiny, 'giants cannot be elites');
       }
     }
     assert.gt(seen, 10, 'the fixture woke too few guards');
@@ -829,7 +827,7 @@
     assert.eq(guardsOf(claimed).length, 0, 'a ruin the player has taken back still held monsters');
   });
 
-  test('lairs: a structure next to Home is held the SAME — only softened', () => {
+  test('lairs: a structure next to Home has identical shared guard stats', () => {
     // No safe ring: presence is the world's. Home on the ruin's doorstep wakes
     // the very garrison a far Home does, each guard stamped with the nerf.
     const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M);
@@ -842,8 +840,7 @@
     assert.eq(sig(near), sig(far), 'a Home next door changed the garrison');
     for (const g of guardsOf(far)) assert.eq(g.lairMul, undefined, 'a far guard carries no nerf');
     for (const g of guardsOf(near)) {
-      assert.truthy(g.lairMul > 0 && g.lairMul < 1, 'a guard by Home is softened');
-      assert.truthy(Math.abs(g.lairMul - Lairs.LAIR_NEAR_MUL) < 0.05, 'to about the near power');
+      assert.eq(g.lairMul, undefined, 'Home does not change shared enemy HP or damage');
     }
   });
 
@@ -1150,7 +1147,7 @@
     assert.falsy(call.includes('homeWorldPos'),
       'the live Home resolver would re-rank every ruin the moment Home moves');
     assert.truthy(call.includes('caughtSet'), 'a defeated guard must not be woken again');
-    assert.falsy(Difficulty.PROFILES.easy.derelictLairs, 'easy: a ruin is scenery');
+    assert.truthy(Difficulty.PROFILES.easy.derelictLairs, 'Easy shares garrisons with Hard');
     assert.truthy(Difficulty.PROFILES.hard.derelictLairs, 'hard: a ruin is held');
   });
 
@@ -1177,8 +1174,8 @@
       assert.gte(i, 0, `could not find ${what} in wanderCreatures — update this test`);
       return i;
     };
-    const leech = at("if (c.kind === 'slime' && !isTame && !unnoticed && !standDown) {", 'the slime leech');
-    const attack = at('if (Combat.isMonster(c.kind) && !isTame && !unnoticed && !standDown) {', 'the monster attack');
+    const leech = at('rosterEnemyAttack(this, c, rosterRow', 'the roster attack');
+    const attack = leech;
     const immobile = at("if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;",
       'the at-rest branch');
     const crow = at("if (c.kind === 'crow' && !isTame) {", 'the wild-crow flight');

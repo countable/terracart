@@ -363,8 +363,8 @@
   //     arrays must be derived from a generated position, and a laid one is
   //     gone at the next reload anyway.
   //   • it EXPIRES, LAID_LIFE_MS after it went down: two full rounds of a
-  //     trapper's cap (LAID_MAX) at its laying cadence (app.js
-  //     TRAPPER_LAY_MS, the archer's arrow beat — 10 s), so a trapper you
+  //     trapper's cap (LAID_MAX) at its roster's ten-second attack interval,
+  //     so a trapper you
   //     walk away from leaves a minute of mess, not a minefield.
   const LAID_MAX = 3;
   const LAID_LIFE_MS = 60 * 1000;

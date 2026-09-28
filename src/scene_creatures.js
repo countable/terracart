@@ -273,7 +273,7 @@ class SceneCreatures {
           // for this one player (CLAUDE.md "Every player sees the SAME
           // generated world": per-player state may hide a thing, never move
           // the others). Thinning the starting area is the point anyway.
-          if ((kindStr === 'slime' || kindStr === 'crow') && pestFree && pestFree.has(cx, cy)) return;
+          if ((kindStr === 'crow') && pestFree && pestFree.has(cx, cy)) return;
           // ~5% of wild animals spawn as the rare shiny variant — stamped at
           // spawn off the stable id so it survives reloads and rides along
           // through tame/release/re-catch. The slime exception (an energy pest
@@ -307,12 +307,19 @@ class SceneCreatures {
       if (sp === 'slime') n = Math.round(n * Difficulty.get().slimeCountMul);
       // Easy mode halves the wild crow count (Difficulty.crowCountMul); the
       // dropped ids just count off short, so seeds still reproduce.
-      if (sp === 'crow') n = Math.round(n * Difficulty.get().crowCountMul);
-      const primary  = new Set(cfg.primary);
-      const fallback = new Set(cfg.fallback || cfg.primary);
+      // Draw the same crow candidates in both modes; thin only after placement.
+      const emittedCrowN = sp === 'crow' ? Math.round(n * Difficulty.get().crowCountMul) : n;
+      const enemyTerrain = sp === 'slime' ? Object.values(WorldGen.T).filter(t => EnemySpawns.surfaceRows(t).length) : null;
+      const primary  = new Set(enemyTerrain || cfg.primary);
+      const fallback = new Set(enemyTerrain || cfg.fallback || cfg.primary);
       const primN = Math.round(n * (cfg.share ?? 0.8));
       for (let i = 0; i < primN; i++) tryPlace(primary,  i, sp);
       for (let i = primN; i < n; i++) tryPlace(fallback, i, sp);
+      if (sp === 'crow' && emittedCrowN < n) {
+        for (let j = creatures.length - 1; j >= 0; j--) {
+          if (creatures[j].kind === 'crow' && Number(creatures[j].id.split('_').at(-1)) >= emittedCrowN) creatures.splice(j, 1);
+        }
+      }
     }
     // Independent park stream; reserve generated fauna seats before any
     // save-specific filtering so catching an animal cannot reveal a plant.
@@ -324,6 +331,10 @@ class SceneCreatures {
       const cy = Math.floor((plant.y - ty * this.tileEdgeM) / cellM);
       plantCells.add(cy * N + cx);
       if (caughtSet.has(plant.id) || (pestFree && pestFree.has(cx, cy))) continue;
+      // Keep the park stream's stable seat and id; habitat is a per-player
+      // overlay just as it is for the ordinary surface encounter budget.
+      plant._surfaceSpawn = { x: plant.x, y: plant.y, tx, ty, cx, cy };
+      EnemySpawns.surfaceActive(this, plant);
       creatures.push(plant);
     }
     // FAUNA ATTRACTORS. A species' favourite ground pulls the tile's OWN
@@ -337,6 +348,28 @@ class SceneCreatures {
     // (the same for every save), and handed every generated plant cell
     // (caught or not) so no animal is pulled onto a plant.
     entry.faunaAttracted = this._seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures, pestFree, unseated, plantCells);
+    // Replace the existing enemy budget, without adding a population per kind.
+    // Identity depends on the candidate cell, never species or this player's Home.
+    const enemySeats = new Set();
+    let enemyWrite = 0;
+    for (const creature of creatures) {
+      if (creature.kind !== 'slime') { creatures[enemyWrite++] = creature; continue; }
+      const cx = Math.floor((creature.x - tx * this.tileEdgeM) / cellM);
+      const cy = Math.floor((creature.y - ty * this.tileEdgeM) / cellM);
+      const id = EnemySpawns.surfaceId(tx, ty, cx, cy);
+      if (caughtSet.has(id) || enemySeats.has(id)) continue;
+      enemySeats.add(id);
+      const kind = EnemySpawns.surfaceKind(genGrid[cy * N + cx], id);
+      if (!kind) continue;
+      const row = EnemyRoster.get(kind);
+      const replacement = WorldGen.makeCreature(kind, creature.x, creature.y, id, {
+        shiny: row.eliteEligible && isShiny(id, SHINY_RATE.monster),
+        _surfaceSpawn: { x: creature.x, y: creature.y, tx, ty, cx, cy },
+      });
+      EnemySpawns.surfaceActive(this, replacement);
+      creatures[enemyWrite++] = replacement;
+    }
+    creatures.length = enemyWrite;
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
@@ -354,6 +387,7 @@ class SceneCreatures {
     // Stash the one object rather than let that pass rebuild a near-copy: the
     // road rule has to be THE shared rule (CLAUDE.md), not a second reading of
     // it, and the POI anchors are already gathered here.
+    creatures.push(...NPC.spawn(this, entry, tx, ty, _spawnOpts));
     entry._spawnOpts = _spawnOpts;
     entry._spawned = true;
     // KEEP creatures the entry already carries. On a rebuild they are the live
@@ -361,6 +395,7 @@ class SceneCreatures {
     // by rebuildTileWithBin; the set just rolled is the same deterministic
     // draw they came from, so replacing them would only teleport them home.
     entry.creatures = entry.creatures || creatures;
+    NPC.shrineResidents(this, entry, tx, ty);
 
     // Starter loot now lives entirely in the road-side starter chests placed
     // below (entry.objects, kind:'chest' with fixedLoot). No loose groundstack
@@ -809,15 +844,10 @@ class SceneCreatures {
     // ~3500 calls at max depth), each an O(save.caught length) scan without
     // this. Same fix as spawnInTile above / setOf's own doc comment.
     const caughtSet = setOf(this.save.caught);
-    // Weighted bag of the kinds that may appear at this depth.
-    const bag = [];
-    // Only the cave kinds: a row with its own `spawn` (the ghost, which the
-    // night spawner seats on the surface) is never drawn here.
-    for (const [kind, m] of Object.entries(Combat.MONSTERS)) {
-      if (!Combat.spawnsUnderground(kind)) continue;
-      if (depth >= m.minDepth) for (let w = 0; w < (m.weight || 1); w++) bag.push(kind);
-    }
-    if (!bag.length) { entry._spawned = true; entry.creatures = entry.creatures || creatures; return; }
+    const eligible = EnemySpawns.caveRows(depth);
+    const legacyDefeats = EnemySpawns.legacyCaveDefeats(caughtSet, depth, tx, ty);
+    const monsterSeats = new Set();
+    if (!eligible.length) { entry._spawned = true; entry.creatures = entry.creatures || creatures; return; }
     // Anchor spawns near the up-staircases (where the player enters) so
     // monsters are immediately visible rather than scattered across the
     // ~229×229 cell tile. A level has an up-stair at EVERY surface entrance
@@ -892,11 +922,10 @@ class SceneCreatures {
     // odds each), so 2 anchors on a tile is typical, not an edge case.
     // The 160 cap is a dead-but-harmless safety net at today's depths — keep
     // it in case a much deeper level or a MONSTERS-table change changes that.
-    // Hard mode packs the level tighter (Difficulty.monsterCountMul, 1.5×) —
-    // still under the cap at every depth that exists today.
+    // Both modes share this population; Hard applies only at the recipient.
     const count = Math.min(160, Math.round((50 + depth * 10) * Difficulty.get().monsterCountMul));
     for (let i = 0; i < count; i++) {
-      const kind = bag[Math.floor(rng() * bag.length)];
+      const kind = EnemySpawns.caveKind(depth, rng());
       for (let attempt = 0; attempt < 20; attempt++) {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
@@ -907,8 +936,8 @@ class SceneCreatures {
         // attempt, so the draw sequence every existing cave level was seeded
         // with is untouched.
         if (occupiedIdx.has(cy * N + cx)) continue;
-        const id = `mon_${kind}_${depth}_${tx}_${ty}_${i}`;
-        if (caughtSet.has(id)) break;   // already defeated — stays dead
+        const id = EnemySpawns.caveId(depth, tx, ty, cx, cy);
+        if (caughtSet.has(id) || legacyDefeats.pack.has(i) || legacyDefeats.cells.has(`${cx}_${cy}`) || monsterSeats.has(id)) break;   // already defeated — stays dead
         if (heldByPlayer.has(cy * N + cx)) break;   // on the player's own stair
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
@@ -918,7 +947,8 @@ class SceneCreatures {
         // double HP and damage (Combat.isElite), and resolveDefeat pays the
         // memory-or-treasure it promises.
         creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
-          { shiny: isShiny(id, SHINY_RATE.monster) }));
+          { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster) }));
+        monsterSeats.add(id);
         break;
       }
     }
@@ -956,20 +986,21 @@ class SceneCreatures {
     for (let py = 0; py < N; py += ROAM_PIVOT) {
       for (let px = 0; px < N; px += ROAM_PIVOT) {
         if (roamRng() >= roamP) continue;
-        const kind = bag[Math.floor(roamRng() * bag.length)];
+        const kind = EnemySpawns.caveKind(depth, roamRng());
         for (let attempt = 0; attempt < ROAM_TRIES; attempt++) {
           const cx = px + Math.floor(roamRng() * ROAM_PIVOT);
           const cy = py + Math.floor(roamRng() * ROAM_PIVOT);
           if (cx >= N || cy >= N) continue;
           if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
           if (occupiedIdx.has(cy * N + cx)) continue;
-          const id = `mon_${kind}_${depth}_${tx}_${ty}_r${cx}_${cy}`;
-          if (caughtSet.has(id)) break;
+          const id = EnemySpawns.caveId(depth, tx, ty, cx, cy);
+          if (caughtSet.has(id) || legacyDefeats.cells.has(`${cx}_${cy}`) || monsterSeats.has(id)) break;
           if (heldByPlayer.has(cy * N + cx)) break;
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
           creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
-            { shiny: isShiny(id, SHINY_RATE.monster) }));
+            { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster) }));
+          monsterSeats.add(id);
           break;
         }
       }
@@ -1066,6 +1097,8 @@ class SceneCreatures {
   // _stepT0, _nextChooseT, _homeX/Y, _faceFlip.
   wanderCreatures() {
     const now = performance.now();
+    const npcDt = this._npcTickAt == null ? 0 : Math.min(0.1, (now - this._npcTickAt) / 1000);
+    this._npcTickAt = now;
     // NOT THERE TO BE HUNTED: a Shadow Powder's minute, or a bar run to zero.
     // isUnnoticed() ORs the two (see it for why they are one state), and
     // everywhere a hostile would take an interest in the player reads THIS —
@@ -1214,10 +1247,15 @@ class SceneCreatures {
     ghostSpawnPass(this, now, px, py, pcW, homePos, castleWards, HOME_WARD_R2, caughtSet);
 
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
+      if (c._surfaceSpawn && !EnemySpawns.surfaceActive(this, c)) return;
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
       const ddx = c.x - px, ddy = c.y - py;
-      if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
+      if (ddx * ddx + ddy * ddy > RANGE_SQ) {
+        if (c.kind === 'npc') c._moving = false;
+        return;
+      }
+      if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
       // HUNTS FOR THE PLAYER: a tame pet, or a summoned ally (the spirit
       // raven, conjured by a potion — yours without being tame). One flag
@@ -1322,6 +1360,9 @@ class SceneCreatures {
       // `warded` by name: an away-from-the-ward angle and a walk back to a seat
       // are two mechanisms, not one, whatever they have in common here.
       const standDown = warded || wanderOff || (!!lairState && lairState !== 'hunt');
+      const rosterRow = !isTame ? EnemyRoster.get(c.kind) : null;
+      const enemyDt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
+      c._enemyTickT = now;
       // A HUNTED DEER CHARGES: enraged, and neither warded nor ignoring you
       // (`unnoticed` — a powder, or a body on an empty bar). Read by the butt
       // below, the stride and the angle chain, so the three agree.
@@ -1336,7 +1377,7 @@ class SceneCreatures {
         const pace = gm.mps / 1000;
         const fate = ghostTick(this, c, now, px, py, unnoticed, warded, pace);
         if (fate === 'touch') {
-          const raw = gm.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
+          const raw = gm.dmg * Combat.powerMul(c);
           const dmg = Combat.incomingDamage(this.save, raw);
           if (dmg > 0) {
             const lost = this._losePlayerEnergy(dmg, { closeShop: true });
@@ -1367,14 +1408,17 @@ class SceneCreatures {
       // surfaced with one throttled flash after the loop (see below) so a swarm
       // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
       // independent of the slime's slow step cadence.
-      if (c.kind === 'slime' && !isTame && !unnoticed && !standDown) {
+      if (rosterRow && !haunts) {
+        rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt);
+      }
+      if (c.kind === 'slime' && !isTame && !unnoticed && !standDown && !rosterRow) {
         // The same one cell the player now swings at (Combat.MELEE_REACH_CELLS)
         // — one number for "melee is arm's length", read by both sides.
         const STEAL_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + 1000;   // one bite a second
-          const slimeBite = SLIME_LEECH_ENERGY * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
+          const slimeBite = SLIME_LEECH_ENERGY * Combat.powerMul(c);
           const slimeDmg = Combat.incomingDamage(this.save, slimeBite);
           if (slimeDmg > 0) {
             this._slimeStealAccum = (this._slimeStealAccum || 0)
@@ -1391,7 +1435,7 @@ class SceneCreatures {
         const BUTT_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + fightsBack.hitMs;
-          const raw = fightsBack.dmg * Difficulty.get().enemyDmgMul;
+          const raw = fightsBack.dmg;
           const dmg = Combat.incomingDamage(this.save, raw);
           if (dmg > 0) {
             this._monsterDmgAccum = (this._monsterDmgAccum || 0)
@@ -1411,7 +1455,7 @@ class SceneCreatures {
       // would answer from, and the ring tightens underground / grows with
       // Inner Light upgrades exactly as the staff's does. Accumulated +
       // flashed once per window after the loop, like the slime swarm.
-      if (Combat.isMonster(c.kind) && !isTame && !unnoticed && !standDown) {
+      if (Combat.isMonster(c.kind) && !isTame && !unnoticed && !standDown && !rosterRow) {
         const m = Combat.monster(c.kind);
         // A kind whose row lands no blow (Combat.monsterHits — the trapper,
         // dmg 0) skips both halves below: it is not a melee drain at strength
@@ -1437,7 +1481,7 @@ class SceneCreatures {
           // dmg, doubled for an elite, scaled by the mode — so the slower
           // cadence costs the archer none of its damage per minute.
           c._nextShotT = now + Combat.MONSTER_SHOT_INTERVAL_MS;
-          const dmg = m.dmg * MONSTER_ARROW_HITS * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
+          const dmg = m.dmg * MONSTER_ARROW_HITS * Combat.powerMul(c);
           // The arrow carries its hit COUNT as well as its damage, so armour
           // can soak the volley one hit at a time when it lands
           // (_shotHitsPlayer) — mitigating the bundle in one lump would make
@@ -1450,7 +1494,7 @@ class SceneCreatures {
           c._attackT0 = now;
           c._attackUntil = now + 600;
           // Elite and lair power scale the attack before shield and armour.
-          const dmg = m.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
+          const dmg = m.dmg * Combat.powerMul(c);
           const monDmg = Combat.incomingDamage(this.save, dmg);
           if (monDmg > 0) {
             const lost = this._losePlayerEnergy(monDmg, { closeShop: true });
@@ -1482,13 +1526,17 @@ class SceneCreatures {
       // `standDown` (a ward, a wander-off, a garrison at rest) — because laying
       // a trap for the player is taking an interest in them. Above the lair
       // guard's hold line like the blows, so a hunting garrison lays too.
-      if (Combat.monsterLays(c.kind) && !isTame && !unnoticed && !standDown) {
+      if (Combat.monsterLays(c.kind) && !isTame && !unnoticed && !standDown && !rosterRow) {
         this._trapperLay(c, now, px, py);
       }
       // Rooted kinds can bite above, but even a provoked or warded one stays
       // on its park cell. Unlike a guard, it never hunts or returns to a seat.
       if (stationary) return;
       if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;
+      if (rosterRow) {
+        rosterEnemyMove(this, c, rosterRow, now, px, py, unnoticed || standDown, routed, lairState, enemyDt);
+        return;
+      }
       // Wild-crow flight rhythm: perch (still 2-4 s) → one long flight
       // burst (500-800 ms, eased) → perch again. Targets a nearest planted
       // crop by ORBITING it — most flight legs end on the ring 1.5-3.5
@@ -1987,7 +2035,7 @@ class SceneCreatures {
       if (c._flightUntilT && now < c._flightUntilT && c._fleeDash) {
         const dur = c._flightUntilT - c._flightT0;
         const t = Math.min(1, (now - c._flightT0) / dur);
-        const u = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const u = creatureFlightEase(t);
         c.x = c._startX + (c._targetX - c._startX) * u;
         c.y = c._startY + (c._targetY - c._startY) * u;
         return;
@@ -2049,7 +2097,7 @@ class SceneCreatures {
     if (c._flightUntilT && now < c._flightUntilT) {
       const dur = c._flightUntilT - c._flightT0;
       const t = Math.min(1, (now - c._flightT0) / dur);
-      const u = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const u = creatureFlightEase(t);
       c.x = c._startX + (c._targetX - c._startX) * u;
       c.y = c._startY + (c._targetY - c._startY) * u;
       return;

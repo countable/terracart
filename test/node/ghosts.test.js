@@ -119,17 +119,16 @@ test('ghost: a MONSTERS row — an enemy, a jog over the ground', () => {
   assert.gt(Combat.enemyBounty('ghost', 0), 0, 'a kill pays a bounty');
 });
 
-test('ghost: the cave bag skips a row with its own spawn', () => {
-  const src = SCENE_CREATURES_SRC;   // spawnCaveCreatures is the SceneCreatures mixin's
-  const body = src.slice(src.indexOf('  spawnCaveCreatures(entry, tx, ty, depth) {'));
-  assert.truthy(/if \(!Combat\.spawnsUnderground\(kind\)\) continue;/.test(body.slice(0, 3000)),
-    'spawnCaveCreatures asks the row before bagging it');
+test('ghost: the cave bag skips touch ghosts at every depth', () => {
+  for (let depth = 1; depth <= 20; depth++) {
+    assert.falsy(EnemySpawns.caveRows(depth).some(row => row.attackType === 'touch'));
+  }
 });
 
 // ── The pump ────────────────────────────────────────────────────────────────
 function pumpScene(over) {
   const entry = { creatures: [] };
-  const scene = ghostScene(entry.creatures, over);
+  const scene = ghostScene(entry.creatures, { _starterTrailAnchor: () => ({ x: -1000, y: 0 }), ...over });
   scene._entry = entry;
   return scene;
 }
@@ -492,6 +491,62 @@ test('brightnessAt: a campfire, a lit lamp and a scanned light add; a dark lamp 
       'at Home\'s centre: its peak at its colour\'s luminance');
     assert.eq(s._lights.length, 1, 'the frame\'s list is left as it was');
   });
+});
+
+
+test('ghost pump: D4 enlarges groups and D6 enlarges both ghost colours', () => {
+  atDaylight(0, () => {
+    const random = Math.random;
+    try {
+      Math.random = () => 0.99;
+      for (const depth of [0, 2, 4, 6]) {
+        const s = pumpScene({ depth });
+        pump(s, 0);
+        const n = pump(s, 400000);
+        assert.eq(n, depth >= 4 ? 4 : 3);
+        for (const c of s._entry.creatures) {
+          assert.eq(c.kind, 'ghost');
+          assert.eq(c._artScale, depth >= 6 ? 1.5 : 1);
+        }
+      }
+      Math.random = () => 0;
+      const s = pumpScene({ depth: 6 });
+      pump(s, 0); pump(s, 400000);
+      assert.eq(s._entry.creatures.length, 2);
+      for (const c of s._entry.creatures) {
+        assert.eq(c.kind, 'pink_ghost'); assert.eq(c._artScale, 1.5);
+      }
+    } finally { Math.random = random; }
+  });
+});
+
+
+test('ghost pump: surface habitat rejects near Home and forbidden biomes', () => {
+  atDaylight(0, () => {
+    for (const over of [
+      { _starterTrailAnchor: () => ({ x: P.x, y: P.y }) },
+      { cellAt: () => ({ loaded: true, type: WorldGen.T.WATER }) },
+      { cellAt: () => ({ loaded: true, type: WorldGen.T.BUILDING }) },
+    ]) {
+      const s = pumpScene(over);
+      pump(s, 0);
+      assert.eq(pump(s, 400000), 0, 'no candidate on this ring has an eligible habitat');
+    }
+    const allowed = pumpScene({ cellAt: () => ({ loaded: true, type: WorldGen.T.FOREST }) });
+    pump(allowed, 0);
+    assert.gt(pump(allowed, 400000), 0, 'far woodland still spawns the nighttime group');
+    const cave = pumpScene({ depth: 4, _starterTrailAnchor: () => ({ x: P.x, y: P.y }),
+      cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }) });
+    pump(cave, 0);
+    assert.gt(pump(cave, 400000), 0, 'surface distance and biome never constrain haunted caves');
+  });
+});
+test('ghost habitat: candidate eligibility has an exact deterministic distance boundary', () => {
+  const s = pumpScene({ _starterTrailAnchor: () => ({ x: 0, y: 0 }) });
+  const cell = { loaded: true, type: WorldGen.T.GRASS };
+  const minimum = EnemyRoster.get('ghost').surface.minDistance;
+  assert.falsy(ghostSurfaceEligible(s, minimum - 0.01, 0, cell));
+  for (let i = 0; i < 10; i++) assert.truthy(ghostSurfaceEligible(s, minimum, 0, cell));
 });
 
 })();

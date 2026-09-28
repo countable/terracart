@@ -33,6 +33,7 @@
 (function (root) {
   'use strict';
   const CELL_PX = 32;
+  const roster = root.EnemyRoster || (typeof require === 'function' ? require('./enemy_roster.js') : null);
 
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
@@ -316,7 +317,30 @@
   // idle frame 0 — hop, pause, hop, for as long as the glide lasts.
   const SLIME_HOP_FRAME_MS = 150;
   const SLIME_HOP_REST_MS = 600;
+  // All citizen sheets share six real frames in each directional row:
+  // front, back, left, right. Dialog portraits use the same front-facing art.
+  const NPC_FRAME = { width: 48, height: 48, cols: 6, frames: [0, 1, 2, 3, 4, 5], portraitFrame: 0 };
+  const NPC_SHEETS = [
+    { idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png' },
+    { idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png' },
+    { idle: 'npc_2_idle', walk: 'npc_2_walk', path: 'assets/NPC/Citizen_woman03_idle.png' },
+  ];
+  function npcAppearance(c, now) {
+    const sheets = NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
+    const dx = (c._targetX ?? c.x) - (c._startX ?? c.x);
+    const dy = (c._targetY ?? c.y) - (c._startY ?? c.y);
+    const moving = !!c._moving && (dx !== 0 || dy !== 0);
+    // World Y and the projection both increase south.
+    const row = dx || dy ? (Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 2 : 3) : (dy < 0 ? 1 : 0)) : 0;
+    const beat = moving ? 260 : 550;
+    return {
+      sheet: moving ? sheets.walk : sheets.idle,
+      frame: row * NPC_FRAME.cols + NPC_FRAME.frames[Math.floor(now / beat) % NPC_FRAME.frames.length],
+      tint: c.tint ?? 0xffffff,
+    };
+  }
   const CREATURE_ART = {
+    npc:           { sheet: 'npc_0_idle', frames: 6, fw: 48, fh: 48, scale: 1.50, foot: 32 / 48, float: 0, minY: 12, maxY: 32 },
     chicken:       { sheet: 'chicken',   anim: 'chicken-idle', fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
     cow:           { sheet: 'cow',       anim: 'cow-idle',     fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
     cat:           { sheet: 'cat',       anim: 'cat-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
@@ -349,7 +373,7 @@
     purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hopRow: SLIME_HOP_ROW, hopFrameMs: SLIME_HOP_FRAME_MS, hopRestMs: SLIME_HOP_REST_MS, cols: 4, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
     // The fire slime is the SURFACE SLIME'S SHEET too — every geometry column
     // matches the slime row; the tint is the one thing that differs.
-    fire_slime:    { sheet: 'slime',     frames: 4, frameMs: SLIME_FRAME_MS, hopRow: SLIME_HOP_ROW, hopFrameMs: SLIME_HOP_FRAME_MS, hopRestMs: SLIME_HOP_REST_MS, cols: 4, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: FIRE_SLIME_TINT },
+    fire_slime:    { sheet: 'fire_slime',     frames: 4, frameMs: SLIME_FRAME_MS, hopRow: SLIME_HOP_ROW, hopFrameMs: SLIME_HOP_FRAME_MS, hopRestMs: SLIME_HOP_REST_MS, cols: 4, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: FIRE_SLIME_TINT },
     goblin:        { sheet: 'goblin',        frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
     goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
     // The trapper is the GOBLIN'S SHEET — every geometry column matches the
@@ -363,28 +387,46 @@
     // No hop/float: the roots stay at the same ground line during the bite.
     plant:         { sheet: 'plant', frames: 4, frameMs: 150, attackFrames: [24, 25, 26, 27], fw: 16, fh: 16, scale: 1.60, foot: 1, float: 0, minY: 0, maxY: 16 },
   };
-  // ── GIANTS ────────────────────────────────────────────────────────────────
-  // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
-  // times the HP, two levels deeper). A giant has NO art of its own: it is its
-  // base kind's sheet drawn GIANT_ART_SCALE larger. So there is no giant row in
-  // CREATURE_ART — creatureArt() below resolves a giant to the base row with
-  // its scale multiplied, and every consumer (the renderer's scale and foot,
-  // the wheel and health-bar seating, interact.js's tap box) goes through it.
-  // One number here is what makes the drawn size, the tap box and the wheel
-  // seat agree; a second 1.8 anywhere is the drift the crown rule warns about.
+  // New art consists of four 16px idle frames. Bounds measured from frame 0;
+  // the audit checks these against the shipped pixels. Old 32px goblins and
+  // purple slime retain their existing geometry and animation.
+  const enemyBounds = { slime: [5, 16], cave_slime: [5, 16], bat: [3, 11],
+    vampire_bat: [3, 11], spider: [1, 16], poison_spider: [1, 16],
+    ghost: [1, 15], pink_ghost: [1, 15] };
   const GIANT_PREFIX = 'giant_';
-  const GIANT_ART_SCALE = 1.8;
-  function isGiantKind(kind) { return typeof kind === 'string' && kind.startsWith(GIANT_PREFIX); }
-  // The kind whose art (and, in app.js, whose quest credit) a kind draws on.
-  function baseKind(kind) { return isGiantKind(kind) ? kind.slice(GIANT_PREFIX.length) : kind; }
+  const GIANT_ART_SCALE = roster?.GIANT_SCALE ?? 1.6;
+  function isGiantKind(kind) { return roster?.get(kind)?.variantType === 'Giant'
+    || (typeof kind === 'string' && kind.startsWith(GIANT_PREFIX)); }
+  function baseKind(kind) { return roster?.get(kind) ? roster.baseKind(kind)
+    : isGiantKind(kind) ? kind.slice(GIANT_PREFIX.length) : kind; }
+  if (roster) for (const row of roster.ROWS) {
+    if (row.variantOf) continue;
+    const old = CREATURE_ART[row.id];
+    const fw = row.art.frameWidth, fh = row.art.frameHeight;
+    const [minY, maxY] = enemyBounds[row.id] || [0, 16];
+    const flying = ['orbit_swoop', 'ghost_glide'].includes(row.movement.pattern);
+    const ghost = row.movement.pattern === 'ghost_glide';
+    CREATURE_ART[row.id] = fw === 32 ? { ...old, sheet: row.id === 'goblin_trapper' ? 'goblin' : row.id }
+      : { sheet: row.id, frames: 4, frameMs: flying ? 120 : 240,
+        fw, fh, scale: 2, foot: maxY / fh, minY, maxY,
+        ...(row.art.attackFrames ? { attackFrames: row.art.attackFrames } : {}),
+        float: flying ? 6 : 0, airborne: flying,
+        ...(ghost ? { hop: true, hopMs: 1600, hopPx: 3,
+          alpha: GHOST_ALPHA, glow: GHOST_GLOW } : {}) };
+    CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : 0xffffff;
+  }
   const _giantArt = {};
-  // The CREATURE_ART row for `kind` — the base row, scaled up, for a giant.
   function creatureArt(kind) {
-    if (!isGiantKind(kind)) return CREATURE_ART[kind];
+    if (CREATURE_ART[kind]) return CREATURE_ART[kind];
     if (_giantArt[kind]) return _giantArt[kind];
+    const row = roster?.get(kind);
     const base = CREATURE_ART[baseKind(kind)];
-    if (!base) return undefined;
-    return (_giantArt[kind] = { ...base, scale: base.scale * GIANT_ART_SCALE });
+    if (!base || (!row?.variantOf && !isGiantKind(kind))) return undefined;
+    const scale = row?.variantType === 'Mini' ? roster.MINI_SCALE
+      : isGiantKind(kind) ? GIANT_ART_SCALE : 1;
+    return (_giantArt[kind] = { ...base, scale: base.scale * scale,
+      sheet: row && (row.palette || row.tint) ? row.id : base.sheet,
+      tint: row?.tint ? parseInt(row.tint.slice(1), 16) : base.tint });
   }
 
   // ── CREATURE BEHAVIOUR ────────────────────────────────────────────────────
@@ -424,6 +466,7 @@
   // SLIME_HOP_CELLS) are app.js's own, beside the note that tunes them, and a
   // monster's cadence comes from the MONSTERS row it is registered in.
   const CREATURE_BEHAVIOUR = {
+    npc:           { wanders: true },
     chicken:       { wanders: true, produce: { item: 'egg',  verb: 'laid' } },
     // A cow takes twice the netting (catchMul) — the one catch worth a whole
     // bar of energy when eaten, for 3 to net (economy audit, 2026-09-27).
@@ -482,6 +525,11 @@
     plant:         { wanders: true }, // thinks/attacks in the sim bubble; Combat keeps it rooted
   };
   // The behaviour row for `kind` — the base row for a giant, like its art.
+  if (roster) for (const row of roster.ROWS) {
+    if (row.variantOf) continue;
+    CREATURE_BEHAVIOUR[row.id] = { ...CREATURE_BEHAVIOUR[row.id], wanders: true,
+      ...(row.movement.pattern === 'ghost_glide' ? { haunts: true } : {}) };
+  }
   function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[baseKind(kind)]; }
   // Does this kind think at all? wanderCreatures culls on it before anything
   // else, so a kind with no row is furniture.
@@ -558,7 +606,7 @@
   // drawn smaller (Lairs.guardDrawScale); everything else is 1.
   function creatureInstScale(c) {
     const L = (typeof Lairs !== 'undefined') ? Lairs : null;
-    return L && L.guardDrawScale ? L.guardDrawScale(c) : 1;
+    return (L && L.guardDrawScale ? L.guardDrawScale(c) : 1) * (c._artScale ?? c.artScale ?? 1);
   }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
   // The sheet a kind is drawn from, and how many frames of its row-0 cycle the
@@ -699,6 +747,7 @@
     CELL_PX, ART_BOUNDS, seatInCell,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
+    NPC_FRAME, NPC_SHEETS, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,

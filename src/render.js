@@ -2474,6 +2474,8 @@ Render.drawObjects = function drawObjects(scene) {
         for (const c of entry.creatures) {
           _boot_scanned++;
           if (caughtSet.has(c.id)) continue;
+          if (c._surfaceSpawn && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
+          if (c._surfaceInactive) continue;
           const dx = c.x - pWorldX, dy = c.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           creatureList.push({ c, dx, dy });
@@ -4257,7 +4259,7 @@ Render.drawObjects = function drawObjects(scene) {
   const creatureAirborne = (SL && SL.creatureAirborne) || (() => false);
   // A giant's sheet, frame count and shadow are its base kind's.
   const baseKind = (SL && SL.baseKind) || ((kind) => kind);
-  const giantMul = (kind) => (SL && SL.isGiantKind && SL.isGiantKind(kind)) ? SL.GIANT_ART_SCALE : 1;
+  const giantMul = (kind) => SL ? SL.creatureScale(kind) / SL.creatureScale(baseKind(kind)) : 1;
   // The ground line a creature stands on, relative to its cell centre. Shared
   // with the shadow pass below so the sprite and its shadow can never drift:
   // with the origin above, placing the sprite at sy + this lands the art's
@@ -4277,9 +4279,14 @@ Render.drawObjects = function drawObjects(scene) {
     // frameMs / frames / hop / float / foot / scale). A chain like that is
     // where two kinds sharing a sheet quietly drift apart, which is why the
     // TINT was pulled into the table before it.
-    const texKey = creatureSheet(c.kind);
+    const npcArt = c.kind === 'npc' ? SL.npcAppearance(c, performance.now()) : null;
+    const texKey = npcArt ? npcArt.sheet : creatureSheet(c.kind);
     const anim = creatureAnim(c.kind);
-    if (anim) {
+    if (npcArt) {
+      s.anims?.stop();
+      if (s.texture.key !== texKey) s.setTexture(texKey, npcArt.frame);
+      else s.setFrame(npcArt.frame);
+    } else if (anim) {
       // An animated kind: Phaser owns the cycle (the anims are defined in
       // app.js create()), so the frame is never set here.
       if (setTextureIfDifferent(s, texKey)) s.play(anim);
@@ -4318,7 +4325,7 @@ Render.drawObjects = function drawObjects(scene) {
     // A softened lair guard is drawn smaller (creatureInstScale).
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
-    s.setFlipX(!!c._faceFlip);
+    s.setFlipX(npcArt ? false : !!c._faceFlip);
     // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
     // sheen. Pooled sprites keep their last tint, so set an explicit colour
     // every frame (white for the common, plain case). A foe the Frost Powder
@@ -4328,7 +4335,11 @@ Render.drawObjects = function drawObjects(scene) {
     // (SpriteLayout.CAVE_SLIME_TINT). Frozen and shiny still win over it —
     // both say something about this INSTANCE, which outranks what it is.
     const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
-    s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : creatureTint(c.kind));
+    s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    // Wind-ups are observable before damage or a lunge lands. A brief amber
+    // flash alternates with the original palette; frozen bodies keep ice.
+    const winding = Math.max(c._attackWindupUntil || 0, c._lungeWindupUntil || 0) > performance.now();
+    if (winding && !frozen && Math.floor(performance.now() / 100) % 2 === 0) s.setTintFill(0xffdb72);
     Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
     // sprite keeps whatever alpha its last creature wore.
@@ -4347,12 +4358,27 @@ Render.drawObjects = function drawObjects(scene) {
       const glow = creatureGlow(item.c.kind);
       const { sx } = project(item.dx, item.dy);
       setTextureIfDifferent(s, 'ghost_glow');
-      s.setOrigin(0.5, 0.5).setDisplaySize(glow.px, glow.px)
+      s.setOrigin(0.5, 0.5).setDisplaySize(glow.px * creatureInstScale(item.c), glow.px * creatureInstScale(item.c))
        .setPosition(Math.round(sx), Math.round(item._bodyY))
        .setAlpha(glow.alpha).setTint(0xffffff);
     });
   }
 
+
+  // Use the player's Blight disc: its visible edge is the actual damage
+  // radius. Instance size never changes the aura's reach.
+  if (scene.auraContainer && typeof EnemyRoster !== 'undefined') {
+    scene.enemyAuraPool ||= [];
+    const auraList = creatureList.filter(it => EnemyRoster.get(it.c.kind)?.aura);
+    Render.renderPool(scene, scene.enemyAuraPool, scene.auraContainer, auraList, (s, item) => {
+      const aura = EnemyRoster.get(item.c.kind).aura;
+      const { sx, sy } = project(item.dx, item.dy);
+      const diameter = 2 * aura.radiusCells * CELL_PX;
+      setTextureIfDifferent(s, 'aura_blight');
+      s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
+       .setPosition(sx, sy).setAlpha(0.9).setTint(0xffffff);
+    });
+  }
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays
   // pinned to the CELL — it never rides the hop/hover offset — so a bouncing

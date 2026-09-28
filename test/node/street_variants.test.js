@@ -294,7 +294,10 @@ test('bandit road: a wagon and a close hold ONE guard each, in either mode', () 
   assert.eq(Lairs.capFor('wagon', 1), 1, 'a strong wagon is still one goblin');
   assert.eq(Lairs.capFor('close', 1), 1, 'a strong close is still one guard');
   assert.eq(Lairs.KIND_ORDER.wagon.join(), 'goblin', 'a wagon holds a goblin');
-  assert.truthy(Lairs.KIND_ORDER.close.every((k) => /^giant_goblin/.test(k)), 'a close holds a giant goblin');
+  assert.truthy(Lairs.KIND_ORDER.close.every((kind) => {
+    const row = EnemyRoster.get(kind);
+    return row && row.variantType === 'Giant' && row.surface && row.tier <= 3 && !row.eliteEligible;
+  }), 'a close holds an approved surface giant, capped at T3 without Elite stacking');
   const r = rasterize();
   const { spawnOpts } = dressed(r);
   const entry = { grid: r.grid, cellsPerEdge: CPE, buildingShapes: [], _spawnOpts: spawnOpts,

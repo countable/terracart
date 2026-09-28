@@ -524,19 +524,17 @@ test('traps: the bite is a tenth of a full bar and the bleed is 3⚡/s', () => {
     'the bite is stated against the bar it comes out of');
 });
 
-test('traps: hard mode bites 25⚡ on first contact, the bleed rate is untouched', () => {
-  assert.eq(Difficulty.PROFILES.easy.trapBiteMul, 1, 'easy is the base 10⚡ bite');
-  assert.eq(Traps.STEP_ENERGY * Difficulty.PROFILES.hard.trapBiteMul, 25,
-    'hard scales the base bite to 25⚡');
-  const block = (() => {
-    const a = APP_JS_SRC.indexOf('  _tickTraps(dt) {');
-    const b = APP_JS_SRC.indexOf('\n  }\n', a);
-    return APP_JS_SRC.slice(a, b);
-  })();
-  assert.truthy(/Traps\.STEP_ENERGY \* Difficulty\.get\(\)\.trapBiteMul/.test(block),
-    'the bite reads the mode multiplier, not the bare constant');
-  assert.falsy(/STAND_ENERGY_PER_S \* Difficulty/.test(block),
-    'the bleed rate must not scale with mode');
+test('traps: hard mode penalizes the player after boots mitigate the shared bite', () => {
+  assert.eq(Difficulty.PROFILES.easy.trapBiteMul, 1, 'shared raw bite');
+  assert.eq(Difficulty.PROFILES.hard.trapBiteMul, 1, 'no enemy-side multiplier');
+  assert.eq(Combat.playerDamage(Traps.STEP_ENERGY, 0, 1, 'hard'), 25,
+    'unarmoured player takes 2.5 times the shared bite');
+  const bootsPool = 3;
+  assert.eq(Combat.playerDamage(Traps.STEP_ENERGY, bootsPool, 1, 'hard'),
+    Combat.playerDamage(Traps.STEP_ENERGY, bootsPool, 1, 'easy') * 2.5,
+    'penalty follows mitigation');
+  assert.eq(Combat.playerDamage(Traps.STAND_ENERGY_PER_S, 0, 1, 'hard'), 7.5,
+    'the receiving player also takes the penalty on bleed');
 });
 
 test('traps: standing on one out-drains the fastest passive rest in the game', () => {

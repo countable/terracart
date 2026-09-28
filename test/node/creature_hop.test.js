@@ -6,14 +6,15 @@
 // their idle ooze: two rhythms out of step, bouncing in place, reading as
 // rapid and airborne.
 
-test('creature hop: the slimes play their sheet\'s own hop row, with no code bounce', () => {
-  for (const k of ['slime', 'cave_slime', 'purple_slime', 'giant_cave_slime']) {
+test('creature hop: purple slimes retain their sheet hop; new idle sheets do not read nonexistent frames', () => {
+  for (const k of ['purple_slime', 'giant_purple_slime']) {
     const r = SpriteLayout.creatureHopRow(k);
     assert.truthy(r, `${k} has a hop row`);
     assert.eq(r.row, SpriteLayout.SLIME_HOP_ROW, `${k}: row ${SpriteLayout.SLIME_HOP_ROW}`);
     assert.eq(r.cols, 4, 'four frames a row');
     assert.eq(SpriteLayout.creatureHop(k), null, `${k}: no code bounce on top`);
   }
+  assert.eq(SpriteLayout.creatureHopRow('slime'), null, '16px idle sheet has no hop row');
   assert.eq(JSON.stringify(SpriteLayout.creatureHopRow('slime')), JSON.stringify(SpriteLayout.creatureHopRow('cave_slime')),
     'the cave slime is the surface slime\'s body — one hop');
 });
@@ -27,7 +28,7 @@ test('creature hop: goblins keep the code bounce; a cow does neither', () => {
 });
 
 test('creature hop: while moving, hop on a beat — the row, then a rest on idle frame 0', () => {
-  const hr = SpriteLayout.creatureHopRow('cave_slime');
+  const hr = SpriteLayout.creatureHopRow('purple_slime');
   const F = SpriteLayout.SLIME_HOP_FRAME_MS, R = SpriteLayout.SLIME_HOP_REST_MS;
   const f = (t) => SpriteLayout.hopRowFrame(hr, t);
   assert.eq(f(0), 12, 'row 3, frame 0 (3 × 4 + 0)');

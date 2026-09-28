@@ -527,6 +527,7 @@ function zonePump(entry, day, minutes) {
   const CELL = 7;
   const scene = {
     cellM: CELL, depth: 0, tileEdgeM: entry.cellsPerEdge * CELL,
+    _starterTrailAnchor: () => ({ x: -1000, y: 0 }),
     save: { energy: 100, caught: [], fires: [], planted: [], released: [] },
     startWorldM: { x: 0, y: 0 }, playerM: { x: 14, y: 14 }, feetOffsetM: 0,
     originPx: { x: 0, y: 0 }, mPerPx: CELL, cellsPerTile: WorldGen.TILE_PX,
@@ -580,13 +581,13 @@ test('tar yard: every tar pit is a slow cell (the burned row\'s lane, _bodyHold)
   assert.truthy(/'Tar drags at your feet\.'/.test(APP_JS_SRC), 'tar SLOWS — it drags, it does not grip');
 });
 
-test('tar yard: fire slimes hold the pumps in every mode, two on easy and four on hard', () => {
+test('tar yard: fire slimes hold the pumps with a shared count in every mode', () => {
   assert.truthy(Lairs.ALWAYS_AWAKE_TIERS.has('tar'), 'every mode');
   assert.eq(Lairs.KIND_ORDER.tar.join(), 'fire_slime');
   const was = Difficulty.mode();
   try {
     Difficulty.setMode('easy'); assert.eq(Lairs.capFor('tar', 0.5), 2, 'easy');
-    Difficulty.setMode('hard'); assert.eq(Lairs.capFor('tar', 0.5), 4, 'hard');
+    Difficulty.setMode('hard'); assert.eq(Lairs.capFor('tar', 0.5), 2, 'hard shares the same garrison');
   } finally { Difficulty.setMode(was); }
   assert.truthy(Combat.isEnemyKind('fire_slime'), 'an enemy');
   assert.falsy(Combat.spawnsUnderground('fire_slime'), 'never the cave bag');

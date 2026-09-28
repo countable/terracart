@@ -70,13 +70,13 @@ test('trapper: the goblin sheet drawn red, and a Magic Trap on its kill', () => 
   assert.truthy(SL.creatureWanders('goblin_trapper'), 'and it thinks');
 });
 
-test('trapper: the third rung of the fort and castle garrison', () => {
+test('trapper: dungeon-only roster excludes it from surface garrisons', () => {
+  assert.eq(EnemyRoster.get('goblin_trapper').surface, null);
   for (const tier of [11, 12]) {
-    assert.eq(Lairs.KIND_ORDER[tier].join(), 'goblin,goblin_archer,goblin_trapper', `tier ${tier}`);
-    assert.eq(Lairs.kindsAt(tier, 0.5).indexOf('goblin_trapper'), -1, 'not in a middling ruin');
-    assert.truthy(Lairs.kindsAt(tier, 1).includes('goblin_trapper'), 'but in a strong one');
+    assert.eq(Lairs.KIND_ORDER[tier].join(), 'goblin,goblin_archer,giant_skeleton', `tier ${tier}`);
+    assert.falsy(Lairs.kindsAt(tier, 1).includes('goblin_trapper'));
+    for (const kind of Lairs.kindsAt(tier, 1)) assert.lte(EnemyRoster.get(kind).tier, 3);
   }
-  assert.falsy(Lairs.KIND_ORDER[9].includes('goblin_trapper'), 'a wreck is still slimes');
 });
 
 test('trapper: the hit and the arrow ask the row, never the kind', () => {
@@ -85,8 +85,11 @@ test('trapper: the hit and the arrow ask the row, never the kind', () => {
   assert.truthy(/const hits = Combat\.monsterHits\(c\.kind\);/.test(w), 'the attack reads monsterHits');
   assert.truthy(/const clear = hits && \(m\.range <= 1 \|\|/.test(w), 'and both halves are behind it');
   assert.falsy(/goblin_trapper/.test(w), 'no kind literal in the sim loop');
-  assert.truthy(/if \(Combat\.monsterLays\(c\.kind\) && !isTame && !unnoticed && !standDown\) \{\s*\n\s*this\._trapperLay\(c, now, px, py\);/.test(w),
-    'laying is gated like a blow: unnoticed (NOTHING HUNTS A BODY) and standDown (wards, rest)');
+  assert.truthy(w.includes('rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt)'),
+    'trap laying shares the roster attack gate');
+  assert.truthy(CREATURE_AI_SRC.includes("if (row.attackType === 'trap')"));
+  assert.truthy(CREATURE_AI_SRC.includes('scene._trapperLay(c, now, px, py)'));
+
 });
 
 // ── The trapper, simmed through the REAL wanderCreatures ───────────────────
@@ -259,13 +262,11 @@ test('laid traps: every consumer reads both lists — tick, draw, kit, rebuild',
 });
 
 // _trapperLay, lifted and RUN on a one-tile stub.
-const makeLay = new Function('TRAPPER_LAY_MS', 'TRAPPER_LAY_SLACK_CELLS', 'absCellCenterMeters',
+const makeLay = new Function('TRAPPER_LAY_SLACK_CELLS', 'absCellCenterMeters',
   `return {\n${liftMethod('_trapperLay(c, now, px, py) {')}\n};`);
 function layScene(entry, over = {}) {
-  // The cadence is pinned as source below (the archer's arrow beat).
-  const LAY_MS = Combat.MONSTER_SHOT_INTERVAL_MS;
   const SLACK = Number(liftLine(/const TRAPPER_LAY_SLACK_CELLS = (\d+);/, 'slack').match(/(\d+);/)[1]);
-  const methods = makeLay(LAY_MS, SLACK, (s, ix, iy) => ({ x: (ix + 0.5) * CELL, y: (iy + 0.5) * CELL }));
+  const methods = makeLay(SLACK, (s, ix, iy) => ({ x: (ix + 0.5) * CELL, y: (iy + 0.5) * CELL }));
   const cellAt = (x, y) => {
     const ix = Math.floor(x / CELL), iy = Math.floor(y / CELL);
     return { tx: 0, ty: 0, ix, iy, cellIX: ix, cellIY: iy, loaded: true };
@@ -298,7 +299,7 @@ test('trapper lays: on the empty cell midway, up to its cap, on the cadence', ()
     assert.eq(t.id, 'laid_d2_0_0_3_5', 'at the scene\'s depth');
     scene._trapperLay(g, 1, px, py);
     assert.eq(e.laidTraps.length, 1, 'not again before its cadence');
-    for (let k = 1; k < 10; k++) scene._trapperLay(g, k * Combat.MONSTER_SHOT_INTERVAL_MS, px, py);
+    for (let k = 1; k < 10; k++) scene._trapperLay(g, k * EnemyRoster.get('goblin_trapper').damageIntervalSeconds * 1000, px, py);
     assert.eq(e.laidTraps.length, Traps.LAID_MAX, `never more than ${Traps.LAID_MAX} out`);
     for (const s of e.laidTraps) {
       assert.truthy(!(s._ix === 1 && s._iy === 5), 'never the player\'s cell');
@@ -455,7 +456,8 @@ test('magic trap: the numbers are derived from the tables they stand for', () =>
   assert.truthy(/const MAGIC_TRAP_HOLD_MS = Combat\.fireIntervalMs\('staff'\);/.test(APP), 'hold = one staff beat');
   assert.truthy(/return Combat\.shotDamage\(\{ bow: \{ tier: BASE_TIER\.magic_trap \} \}, 'bow'\);/.test(APP),
     'damage = one bow shot at the item\'s own tier');
-  assert.truthy(/const TRAPPER_LAY_MS = Combat\.MONSTER_SHOT_INTERVAL_MS;/.test(APP), 'the lay cadence is the archer\'s');
+  assert.truthy(/const layIntervalMs = m\.damageIntervalSeconds \* 1000;/.test(APP), 'the lay cadence reads the roster');
+  assert.falsy(/const TRAPPER_LAY_MS/.test(APP), 'no second cadence constant');
   assert.truthy(/this\._tickMagicTraps\(\);/.test(APP), 'the scan runs in update()');
 });
 
