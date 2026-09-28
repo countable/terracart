@@ -198,6 +198,48 @@ test('cave spawn source: spawnCaveCreatures no longer calls save.caught.includes
     'spawnCaveCreatures source still calls save.caught.includes -- regressed back off the Set');
 });
 
+test('cave spawn shares mushroom and floor-torch occupancy with creatures and laid traps', () => {
+  const N = 200, EDGE = 1000, CAVE_FLOOR = 24;
+  const run = (wildplants = [], genWildplants = wildplants) => {
+    const grid = new Array(N * N).fill(CAVE_FLOOR);
+    const entry = {
+      cellsPerEdge: N, tileEdgeM: EDGE,
+      grid, baseGrid: grid.slice(), objects: [], genObjects: [], wildplants, genWildplants,
+    };
+    new Function('entry', 'tx', 'ty', 'depth', SPAWN_CAVE_BODY)
+      .call({ tileEdgeM: EDGE, save: { caught: [] } }, entry, 0, 0, 1);
+    return entry;
+  };
+  const baseline = run();
+  const cells = [];
+  for (const c of baseline.creatures.filter(Combat.isEnemy)) {
+    const ix = Math.floor(c.x / (EDGE / N)), iy = Math.floor(c.y / (EDGE / N));
+    const idx = iy * N + ix;
+    if (!cells.some(cell => cell.idx === idx)) cells.push({ ix, iy, idx, x: c.x, y: c.y });
+    if (cells.length === 2) break;
+  }
+  assert.eq(cells.length, 2, 'the control produced two distinct cave creature seats');
+
+  const generatedFlora = [
+    WorldGen.makeWildplant('mushroom', cells[0].x, cells[0].y, 'mushroom_test'),
+    WorldGen.makeWildplant('torch', cells[1].x, cells[1].y, 'floor_torch_test'),
+  ];
+  // A player's synthetic stair may filter the live wildplant list. The
+  // generated snapshot still owns the deterministic spawn draw.
+  const blocked = run([], generatedFlora);
+  assert.truthy(/genWildplants: wildplants\.slice\(\)/.test(WORLDGEN_SRC),
+    'loadCaveTile preserves the generated flora snapshot');
+  assert.truthy(blocked._spawnOpts, 'the cave publishes its shared spawn options');
+  for (const cell of cells) {
+    assert.truthy(blocked._spawnOpts.occupied.has(cell.idx), 'the wildplant cell is occupied');
+    assert.falsy(blocked.creatures.some(c =>
+      Math.floor(c.x / (EDGE / N)) === cell.ix && Math.floor(c.y / (EDGE / N)) === cell.iy),
+    'a cave creature refuses the wildplant cell');
+    assert.falsy(Traps.canLay(blocked, cell.ix, cell.iy),
+      'a goblin trapper refuses the same wildplant cell');
+  }
+});
+
 // ── FINDING 3(a): the save.caught pest-crow prune ──────────────────────────
 function runPrune(self, now) {
   return new Function('now', CAUGHT_PRUNE_SRC).call(self, now);

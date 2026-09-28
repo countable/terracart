@@ -9,6 +9,7 @@
 //   loadSave()            — synchronous read; returns {} on parse error / missing key
 //   persistSave(save)     — debounced write (coalesced ≤ SAVE_DEBOUNCE_MS)
 //   flushSave()           — synchronous write of any pending save; safe to call multiple times
+//   SaveSession           — owns the live save's heartbeat and lifecycle flush
 //
 // Multiple saved games:
 //   A small registry (SAVES_KEY) tracks named slots and which one is active.
@@ -150,9 +151,14 @@ function loadSave() {
 // flushing immediately when the page is hidden/closing so nothing is lost.
 let _saveTimer = null;
 let _pendingSave = null;
+let _pendingSaveKey = null;
 let _savingDisabled = false;
 let _saveFailed = false;
 const SAVE_DEBOUNCE_MS = 500;
+const SAVE_HEARTBEAT_MS = 10 * 1000;
+let _sessionSave = null;
+let _sessionSaveKey = null;
+let _sessionHeartbeatAt = null;
 
 function _setSaveFailed(failed) {
   if (_saveFailed === failed) return;
@@ -171,8 +177,9 @@ function flushSave() {
     try {
       const serialized = JSON.stringify(_pendingSave);
       boot?.count?.('save serialized chars', serialized.length);
-      localStorage.setItem(SAVE_KEY, serialized);
+      localStorage.setItem(_pendingSaveKey || SAVE_KEY, serialized);
       _pendingSave = null;
+      _pendingSaveKey = null;
       _setSaveFailed(false);
     } catch (e) {
       // QuotaExceededError (~5MB), private-mode disabled, etc. Keep _pendingSave
@@ -189,6 +196,7 @@ function flushSave() {
 function persistSave(s) {
   if (_savingDisabled) return;
   _pendingSave = s;
+  _pendingSaveKey = SAVE_KEY;
   if (_saveTimer) return;
   // When the debounce lapses, land the actual stringify + localStorage write
   // in an idle slice rather than at the timer's arbitrary point mid-frame:
@@ -204,6 +212,53 @@ function persistSave(s) {
   }, SAVE_DEBOUNCE_MS);
 }
 
+function _detachSaveSession() {
+  _sessionSave = null;
+  _sessionSaveKey = null;
+  _sessionHeartbeatAt = null;
+}
+
+function _touchSaveSession(now, force) {
+  if (_savingDisabled || !_sessionSave) return false;
+  const wallNow = Number.isFinite(now) ? now : Date.now();
+  if (!force && _sessionHeartbeatAt != null && wallNow >= _sessionHeartbeatAt
+      && wallNow - _sessionHeartbeatAt < SAVE_HEARTBEAT_MS) return false;
+  _sessionSave.lastSeenAt = wallNow;
+  _sessionHeartbeatAt = wallNow;
+  return true;
+}
+
+// SaveSession owns the live save reference because a page can hide after the
+// last gameplay write. A lifecycle flush forces a fresh wall-clock heartbeat
+// and writes that object even when the debounce queue is empty.
+const SaveSession = Object.freeze({
+  heartbeatMs: SAVE_HEARTBEAT_MS,
+  attach(save, now = Date.now()) {
+    if (!save || typeof save !== 'object') { _detachSaveSession(); return false; }
+    _sessionSave = save;
+    // Capture the slot with the object so a switch followed by pagehide cannot
+    // write the old scene into the newly selected slot.
+    _sessionSaveKey = SAVE_KEY;
+    _sessionHeartbeatAt = null;
+    return _touchSaveSession(now, true);
+  },
+  detach: _detachSaveSession,
+  touch(now = Date.now()) {
+    return _touchSaveSession(now, false);
+  },
+  flush(now = Date.now()) {
+    if (_savingDisabled) return false;
+    if (_sessionSave) {
+      _touchSaveSession(now, true);
+      _pendingSave = _sessionSave;
+      _pendingSaveKey = _sessionSaveKey;
+    }
+    flushSave();
+    return true;
+  },
+});
+window.SaveSession = SaveSession;
+
 // Hard-disable all writes. Used by the menu's "Reset save" path: once
 // localStorage is wiped, the in-memory _pendingSave (and any in-flight
 // persistSave calls between here and location.reload) must NOT make it back
@@ -212,6 +267,8 @@ function persistSave(s) {
 function disableSave() {
   _savingDisabled = true;
   _pendingSave = null;
+  _pendingSaveKey = null;
+  _detachSaveSession();
   _setSaveFailed(false);
   if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
 }
@@ -225,10 +282,11 @@ function getSelectedSlot(save) {
   return save.inv?.[save.selSlot] || null;
 }
 
-// Don't lose pending writes when the tab is backgrounded or closed.
-window.addEventListener('pagehide', flushSave);
+// The session flush writes the current heartbeat even when gameplay left no
+// pending mutation. Exit-time writes remain synchronous and best-effort.
+window.addEventListener('pagehide', () => SaveSession.flush());
 window.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') flushSave();
+  if (document.visibilityState === 'hidden') SaveSession.flush();
 });
 
 // Resolve the active slot (and migrate a legacy single save into a default
