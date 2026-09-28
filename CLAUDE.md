@@ -69,7 +69,9 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   data/anchor ownership, not tile load order; cached Overpass bins are frame-free.
 - Every spawner passes `roadMask` and `occupied` through `_spawnOpts` to
   `WorldGen.isSpawnCell`. Road terrain alone misses drawn roads; the mask uses
-  `WorldGen.roadOverlayWidthM`. Coin pickups may occupy roads, but not objects.
+  `WorldGen.roadOverlayWidthM` and masks cells when the drawn bands cover
+  `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coin pickups may occupy roads,
+  but not objects.
   Cave traps use their occupied-cell set; surface traps sit on the verge.
 - Tile rebuilds replace the entry. Decide which state survives and which is
   regenerated; gate spawning on `entry._spawned`, not carried `creatures`.

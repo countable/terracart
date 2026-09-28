@@ -124,7 +124,7 @@ test('every timed readout formats through shortDuration', () => {
 test('each timed readout that lost its hand-rolled ladder gained the helper', () => {
   // One assertion per file that owns a countdown the player reads.
   const needs = {
-    'interactables.js': 2,   // fruit tree: sapling growth + regrow after picking
+    'interactables.js': 1,   // shared fruit state covers growth and regrowth
     'interact.js': 3,        // produce cooldown, pet boost, crop stage wait
     'render.js': 2,          // crop stage badge + the shop's busy plaque
     'app.js': 6,             // shop busy, blacksmith ×2 (via shopWaitLabel), day gates, dragon, move pad

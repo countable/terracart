@@ -326,29 +326,16 @@ const INTERACTABLES = {
   fruittree: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // one harvest per 24h
-      // A planted sapling can't be harvested until it has matured (reached its
-      // fruiting stage). 4 days sprout→fruit (4 × 1-day stages).
-      if (o.planted) {
-        const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;
-        const elapsed = Date.now() - (o.planted_t || 0);
-        if (elapsed < 4 * FRUIT_STAGE_MS) {
-          // Largest-unit notation via the shared shortDuration (util.js) — the
-          // hand-rolled d/h ladder that used to live here couldn't say "40m"
-          // on the last stretch and read "1h" for anything under one.
-          const left = shortDuration(4 * FRUIT_STAGE_MS - elapsed);
-          scene.flash(`Still growing — ${left}`, sx, sy);
-          return true;
-        }
-      }
-      save.fruitPicked = save.fruitPicked || {};
-      const pickedAt = save.fruitPicked[o.id];
-      if (pickedAt && Date.now() - pickedAt < FRUIT_RESPAWN_MS) {
-        const left = shortDuration(FRUIT_RESPAWN_MS - (Date.now() - pickedAt));
-        scene.flash(`Picked — ripe again in ${left}`, sx, sy);
+      const now = Date.now();
+      const state = Crops.fruitTreeState(o, save.fruitPicked?.[o.id], now);
+      if (!state.ready) {
+        const left = shortDuration(state.remainingMs);
+        if (state.mature) scene.flash(`Picked — ripe again in ${left}`, sx, sy);
+        else scene.flash(`Still growing — ${left}`, sx, sy);
         return true;
       }
-      save.fruitPicked[o.id] = Date.now();
+      save.fruitPicked = save.fruitPicked || {};
+      save.fruitPicked[o.id] = now;
       // A fruit tree's species IS the item it hands out, so it must be one.
       // The starter provisioning once tamed the fruit tree nearest spawn into
       // species 'pine' (home.js makeStarterUsable — fixed there), and 'pine'
@@ -465,7 +452,7 @@ const INTERACTABLES = {
       const chestT = (typeof chestRollTier === 'function') ? chestRollTier(o.poiClass, o.x, o.y, o.depth) : 2;
       const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
       const result = held
-        ? { kind: 'item', id: held.id, qty: held.n, consolation: 0 }
+        ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }
         // Starter chests carry a fixed payload (9 wood / 9 rockfruit / 9 seeds,
         // or the spawn relic chest's wooden tool) so the first restoration loop
         // is deterministic — skip the rarity picker and synthesize the same
@@ -484,12 +471,8 @@ const INTERACTABLES = {
         scene.flash('Chest had nothing useful.', sx, sy);
         return true;
       }
-      if (result.consolation > 0) addMoney(save, result.consolation);
       if (result.kind === 'relic' || result.kind === 'armor') {
-        // A chest gear roll can yield a relic OR armor (armor is just another
-        // gear slot). equipGearReward handles both — armor also bumps max/cur
-        // energy by the delta.
-        equipGearReward(result, save, scene);
+        Rewards.apply(save, result, scene);
         markOpened();
         ctx.dirty = true;
         const name = (typeof gearName === 'function')
@@ -511,7 +494,7 @@ const INTERACTABLES = {
         // interact.js grantTreasureRoll uses.
         markOpened();
         ctx.dirty = true;
-        addMoney(save, result.amount || 0);
+        Rewards.apply(save, result, scene);
         scene.showChestRewardModal({
           iconHTML: scene.coinIconHTML ? scene.coinIconHTML(48) : '',
           name: `+${result.amount || 0}`, color: UI_GOLD, kindIcon,
@@ -525,7 +508,7 @@ const INTERACTABLES = {
         // Non-upgrade relic consolation (reconcileRelicOffer walked up and cashed out).
         markOpened();
         ctx.dirty = true;
-        addMoney(save, result.amount || 0);
+        Rewards.apply(save, result, scene);
         const gearKind = result.gearKind || 'relic';
         const name = (typeof gearName === 'function')
           ? gearName(gearKind, result.slot, result.tier)
@@ -568,12 +551,14 @@ const INTERACTABLES = {
           actions: [
             { label: 'Leave for later', primary: true, onClick: () => {
               save.chestHold = save.chestHold || {};
-              save.chestHold[o.id] = { id: lootId, n: lootQty };
+              save.chestHold[o.id] = { id: lootId, n: lootQty, consolation: result.consolation || 0 };
               persistSave(save);
               scene.flash?.('Left it in the chest.', sx, sy);
             } },
             { label: room > 0 ? `Take ${room}` : 'Discard', onClick: () => {
-              if (room > 0) scene.addToInv(lootId, lootQty);
+              // Discard still claims the chest's coins, without attempting
+              // an item grant into a full bag.
+              Rewards.apply(save, room > 0 ? result : { kind: 'gold', amount: result.consolation || 0 }, scene);
               markOpened();
               if (save.chestHold) delete save.chestHold[o.id];
               persistSave(save);
@@ -591,7 +576,7 @@ const INTERACTABLES = {
       // once. Queue it and reveal once the "you found a Book" ceremony is
       // dismissed instead (see addToInv / _revealPendingBookReads in app.js);
       // a no-op for every other loot id.
-      scene.addToInv(lootId, lootQty, false, { deferBookRead: true });
+      Rewards.apply(save, result, scene, { deferBookRead: true });
       markOpened();
       if (save.chestHold) delete save.chestHold[o.id];
       ctx.dirty = true;

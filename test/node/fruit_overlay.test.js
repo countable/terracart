@@ -124,3 +124,49 @@ test('fruit overlay: the fruit pass renders through its own pool', () => {
     'and lives in the world layer, where the depth sort can interleave it');
 });
 })();
+
+// Execute the per-pass resolver with small render specs: these regressions
+// exercise animated bounds and missing-frame semantics without a Phaser scene.
+(() => {
+  const start = RENDER_SRC.indexOf('  const resolveAppearance = (o) => {');
+  const end = RENDER_SRC.indexOf('  for (const item of filteredObj) item._appearance', start);
+  const makeResolver = new Function('RENDER_SPEC', 'scene', 'window', 'CELL_PX',
+    RENDER_SRC.slice(start, end) + '\nreturn resolveAppearance;');
+  const scene = { textures: { exists: (key) => key === 'tree' } };
+
+  test('appearance: animated frame and seatFrame resolve once with shared foot geometry', () => {
+    let frames = 0, seats = 0;
+    const spec = { key: 'tree', frame: () => ++frames, scale: 2,
+      scaleYMul: 1.5, origin: [0.5, 1], seat: true, seatFrame: 0 };
+    const layout = { ART_BOUNDS: { 'tree:0': { minX: 1, maxX: 6, minY: 2, maxY: 18 } },
+      seatInCell: (bounds, ox, oy, sx, sy) => {
+        seats++;
+        assert.eq(sx, 2);
+        assert.eq(sy, 3);
+        return { dxPx: 4, dyPx: -5 };
+      } };
+    const resolve = makeResolver({ tree: spec }, scene, { SpriteLayout: layout }, 32);
+    const appearance = resolve({ kind: 'tree' });
+    assert.eq(frames, 1);
+    assert.eq(seats, 1);
+    assert.eq(appearance.frameVal, 1, 'draw the animated frame');
+    assert.eq(appearance.dxPx, 4);
+    assert.eq(appearance.dyPx, -5);
+    assert.eq(appearance.foot.w, 10, 'shadow uses the stable bounds and sprite scale');
+    assert.eq(appearance.foot.footFromCentre, 15, 'tall art sits one pixel above the cell bottom');
+    assert.eq(resolve({ kind: 'tree' }).frameVal, 2, 'another draw gets a fresh animation frame');
+  });
+
+  test('appearance: absent frames and untabulated art preserve fallback placement', () => {
+    const spec = { key: 'tree', scale: 1, origin: [0.5, 0.5], seat: true, dxPx: 3, dyPx: 7 };
+    const resolve = makeResolver({ tree: spec }, scene,
+      { SpriteLayout: { ART_BOUNDS: {} } }, 32);
+    const appearance = resolve({ kind: 'tree' });
+    assert.eq(appearance.frameVal, undefined);
+    assert.eq(appearance.spec.frame, undefined, 'sprite must not force frame zero');
+    assert.eq(appearance.dxPx, 3);
+    assert.eq(appearance.dyPx, 7);
+    assert.eq(appearance.foot, null, 'no guessed contact shadow');
+    assert.eq(resolve({ kind: 'unknown' }), null);
+  });
+})();

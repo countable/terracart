@@ -483,7 +483,7 @@ const _WAVE_TABLE = (() => {
 // Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
 // (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
 const WATERED_TINT = 0xc7c7c7;
-const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 30]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, unmapped fog
+const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 27, 30]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, wasteland, unmapped fog
 // Fog of war — the wash over land the player has never visited.
 //
 // Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
@@ -2716,22 +2716,10 @@ Render.drawObjects = function drawObjects(scene) {
     peach: { grow: [0, 2, 3, 4, 3], mature: 3 },
   };
   const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
-  const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;   // 1 day/stage → 4 days sprout→fruit
-  const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;   // fruit yields once per 24h
-  // Growth stage 0..4 of a planted sapling from elapsed real time.
-  const _ftStage = (o) => Math.min(4,
-    Math.floor((Date.now() - (o.planted_t || 0)) / FRUIT_STAGE_MS));
-  const _ftPicked = (o) => {
-    const fp = scene.save.fruitPicked;
-    const at = fp && fp[o.id];
-    return at && Date.now() - at < FRUIT_RESPAWN_MS;
-  };
-  // Is this tree carrying ripe fruit right now? Wild trees are mature from the
-  // start; a planted sapling has to reach its fruiting stage first. Either way
-  // a pick empties it until the fruit regrows. This is the ONE condition the
-  // fruit overlay draws on (see the fruit pass) — the tree's own art doesn't
-  // change either side of it.
-  const _ftBearing = (o) => (!o.planted || _ftStage(o) >= 4) && !_ftPicked(o);
+  const fruitNow = Date.now();
+  const _ftState = (o) => Crops.fruitTreeState(o, scene.save.fruitPicked?.[o.id], fruitNow);
+  const _ftStage = (o) => _ftState(o).stage;
+  const _ftBearing = (o) => _ftState(o).ready;
   // Gentle hue nudge: lighten the sampled crown colour halfway to white so the
   // multiplicative tint shifts the sprite's hue without darkening it to mud.
   const _crownTint = (hex) => {
@@ -3220,33 +3208,37 @@ Render.drawObjects = function drawObjects(scene) {
   // a floating slab).
   const SEATED_SHADOW_KINDS = new Set(
     Object.keys(RENDER_SPEC).filter((k) => RENDER_SPEC[k].shadow));
-  // Ground geometry for a seated sprite: where its art actually meets the
-  // cell, and how wide that contact is. Returns null — i.e. no shadow — when
-  // the sprite isn't seated after all (a `chest` that resolved to a produce
-  // stand or a pot of gold) or when its frame has no ART_BOUNDS entry. Better
-  // no shadow than one placed by guesswork.
-  const _seatedFoot = (o) => {
+  // Resolve once per draw pass: animated frames, seating and shadow geometry
+  // all use the same appearance. Nothing is cached on the world object.
+  const resolveAppearance = (o) => {
     const spec = RENDER_SPEC[o.kind];
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    if (!spec || !SL) return null;
-    const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
-    if (!wantSeat) return null;
+    if (!spec) return null;
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
-    if (texKey == null || !scene.textures.exists(texKey)) return null;
-    const frameVal = spec.frame === undefined ? 0
-                   : (typeof spec.frame === 'function' ? spec.frame(o) : spec.frame);
-    const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
-    const bb = SL.ART_BOUNDS[`${texKey}:${bframe}`];
-    if (!bb) return null;
+    if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
+    const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
+    const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
-    const artW = (bb.maxX - bb.minX) * scl;
-    const artH = (bb.maxY - bb.minY) * scl * scaleYMul;
-    // seatInCell centres art that fits and bottom-seats art that doesn't, so
-    // the art's bottom edge relative to the cell centre is one of two values.
-    const footFromCentre = artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1;
-    return { w: artW, footFromCentre };
+    let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
+    let dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
+    const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
+    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+    let foot = null;
+    if (wantSeat && SL) {
+      // Animated sheets use stable bounds so neither art nor shadow bobs.
+      const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
+      const bb = SL.ART_BOUNDS[`${texKey}:${bframe}`];
+      if (bb) {
+        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul);
+        dxPx = seat.dxPx; dyPx = seat.dyPx;
+        const artH = (bb.maxY - bb.minY) * scl * scaleYMul;
+        foot = { w: (bb.maxX - bb.minX) * scl,
+          footFromCentre: artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1 };
+      }
+    }
+    return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot };
   };
+  for (const item of filteredObj) item._appearance = resolveAppearance(item.o);
   // Soft contact shadows under everything that stands up off the ground —
   // buildings, trees, rocks, chests, wells, poles. Rendered into
   // shadowContainer — z-ordered just below objectsContainer — so each sprite
@@ -3254,15 +3246,12 @@ Render.drawObjects = function drawObjects(scene) {
   // feathered dark ellipse placed at the sprite's ground foot, sized to what
   // actually touches the cell (forts widest, saplings slimmest).
   if (scene.shadowPool && scene.shadowContainer) {
-    // _seatedFoot is measured once per object per frame here and carried on
-    // the list entry — the configure callback below runs on the same entries,
-    // so measuring again there would just repeat the work every frame.
     const shadowList = [];
     for (const item of filteredObj) {
       const k = item.o.kind;
       if (isBuilding(k)) { shadowList.push(item); continue; }
       if (!SEATED_SHADOW_KINDS.has(k)) continue;
-      const foot = _seatedFoot(item.o);
+      const foot = item._appearance?.foot;
       if (foot) shadowList.push({ ...item, _foot: foot });
     }
     Render.renderPool(scene, scene.shadowPool, scene.shadowContainer, shadowList, (s, item) => {
@@ -3301,12 +3290,13 @@ Render.drawObjects = function drawObjects(scene) {
         // Same art + scale the sprite pass will use, so a house shrunk to fit a
         // small footprint gets a shadow that shrinks with it — in width as well
         // as position, or a shrunk house would sit on an oversized ellipse.
-        const hkey = _houseKey(o);
-        const hscale = _houseScale(o);
+        const appearance = item._appearance;
+        const hkey = appearance.texKey ?? _houseKey(o);
+        const hscale = appearance.scl ?? _houseScale(o);
         w *= hscale / _houseBaseScale(o);
         let fh = CELL_PX;
         if (scene.textures.exists(hkey)) {
-          const fr = scene.textures.get(hkey).get(_houseFrame(o));
+          const fr = scene.textures.get(hkey).get(appearance.frameVal);
           if (fr && fr.height) fh = fr.height;
         }
         footY = sy + 0.5 * fh * hscale - 6;   // centred-house base, tucked up 6px
@@ -3327,56 +3317,22 @@ Render.drawObjects = function drawObjects(scene) {
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     Render.setShine(s, isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree), o.id);
-    const spec = RENDER_SPEC[o.kind];
-    if (!spec) return;
-    const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
-    if (texKey == null || !scene.textures.exists(texKey)) { s.setVisible(false); return; }
+    const appearance = item._appearance;
+    if (!appearance) return;
+    if (!appearance.visible) { s.setVisible(false); return; }
+    const { spec, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx } = appearance;
     setTextureIfDifferent(s, texKey);
-    let frameVal;
-    if (spec.frame !== undefined) {
-      frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
-      if (s.frame.name !== frameVal) s.setFrame(frameVal);
-    }
+    // An absent frame leaves the texture's default frame untouched, while a
+    // frame function returning undefined still explicitly selects that frame.
+    if (spec.frame !== undefined && s.frame.name !== frameVal) s.setFrame(frameVal);
     const tint = Render.spriteTint(o, scene);
-    const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
-    const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
-    const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
-    let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
-    let dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
-    // "One cell" placement rule (single source of truth: src/sprite_layout.js).
-    // Non-building world sprites are seated from their trimmed art bounds so
-    // they sit centred in their cell — or, when taller than a cell, with the
-    // bottom 1px above the cell's bottom edge — and never spill into the cell
-    // below; horizontally always centred. seatFrame pins the bounds lookup to
-    // a stable frame for animated sheets (e.g. the flickering bonfire) so the
-    // art doesn't bob frame-to-frame.
-    //
-    // A seated spec therefore CANNOT carry a placement of its own. dxPx/dyPx
-    // are overwritten outright, and the origin cancels: seatInCell measures the
-    // art relative to the anchor and then subtracts exactly that, so the art
-    // lands in the same place at origin [0.5,0.5], [0.406,0.62] or [0,1]. Both
-    // survive only as the fallback for a frame with no ART_BOUNDS entry (a
-    // mineralrock ore variant that hasn't been tabulated). Anything else is a
-    // tuned number that does nothing — three of these shipped, with comments
-    // explaining offsets that had not moved a sprite in months. If a seated
-    // sprite sits wrong, its ART_BOUNDS row is wrong; regenerate the table.
-    const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    if (wantSeat && SL) {
-      const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
-      const bb = SL.ART_BOUNDS[`${texKey}:${bframe}`];
-      if (bb) {
-        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul);
-        dxPx = seat.dxPx; dyPx = seat.dyPx;
-      }
-    }
     s.setOrigin(origin[0], origin[1])
      .setScale(scl, scl * scaleYMul)
      .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
      .setAlpha(1).setTint(tint);
     // Per-kind post-config hook — runs AFTER the generic alpha/tint reset so
-    // hooks can override (the tool-gate fade on trees / rocks, the fruittree
-    // picked-dim). Handed the scene so a hook can read the save (tool tiers).
+    // hooks can override (such as the tool-gate fade on trees / rocks).
+    // Handed the scene so a hook can read the save (tool tiers).
     if (typeof spec.after === 'function') spec.after(s, o, scene);
   };
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');

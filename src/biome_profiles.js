@@ -30,6 +30,7 @@
     BUILDING_LARGE: 12, ROAD_LG: 13, ROAD_MD: 14, SCHOOL: 15, COMMERCIAL: 16,
     INDUSTRIAL: 17, PLAYGROUND: 18, PITCH: 19, WETLAND: 20, GOLF: 21,
     ORCHARD: 22, PIER: 23, CAVE_FLOOR: 24, CAVE_WALL: 25, CAVE_LAVA: 26,
+    WASTELAND: 27,
   };
 
   // RNG salts — one independent stream per flora kind per biome so finds scatter
@@ -91,7 +92,9 @@
     [T.SAND]: 'sand',
     [T.ROCK]: 'rocky', [T.COMMERCIAL]: 'rocky', [T.INDUSTRIAL]: 'rocky',
     [T.FARMLAND]: 'farm',
-    [T.RESIDENTIAL]: 'urban',
+    // WASTELAND plays as residential land (worldgen isLotTerrain), so it is
+    // the same family: yard rubble, yard flora, the odd mushroom.
+    [T.RESIDENTIAL]: 'urban', [T.WASTELAND]: 'urban',
     [T.WATER]: 'water', [T.PIER]: 'water',
     // Hard surfaces + underground rock — never grow flora. These MUST be mapped
     // explicitly: roads/buildings are painted AFTER landuse/landcover, so a
@@ -163,8 +166,8 @@
   //        same shared sprite reads differently per biome (golden field grass,
   //        swampy reeds, rusty industrial rock, …).
   // A biome with no row here inherits its family's profile above — GRASS,
-  // SAND, RESIDENTIAL and ROCK are exactly their family defaults (grassland /
-  // sand / urban / rocky), so they have no row.
+  // SAND, RESIDENTIAL, WASTELAND and ROCK are exactly their family defaults
+  // (grassland / sand / urban / urban / rocky), so they have no row.
   const BIOME_PROFILES = {
     [T.FOREST]: {
       flora: [fix('shrub', D_MIN, D_MAX, S.SHRUB),
@@ -275,7 +278,7 @@
   for (const [type, profile] of Object.entries(BIOME_PROFILES)) addAllowed(profile, familyOf(Number(type)));
   for (const [fam, profile] of Object.entries(FAMILY_PROFILE)) addAllowed(profile, fam);
   // Soft-ground fallback set for crops no profile lists (rockfruit / generic).
-  const GROUND = new Set([T.RESIDENTIAL, T.PARK, T.FOREST, T.GRASS, T.SAND,
+  const GROUND = new Set([T.RESIDENTIAL, T.WASTELAND, T.PARK, T.FOREST, T.GRASS, T.SAND,
     T.FARMLAND, T.ROCK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.WETLAND, T.GOLF,
     T.ORCHARD, T.COMMERCIAL, T.INDUSTRIAL]);
   const allows = (crop, type) => {
@@ -332,6 +335,7 @@
     [T.WATER]:      0x74808c,   // flat grey water-light
     [T.PIER]:       0x74808c,
     [T.ROCK]:       0x8e857a,   // stone powder
+    [T.WASTELAND]:  0x928a70,   // dry khaki grit off the scrub
     [T.CAVE_FLOOR]: 0x2a2622,   // underground: no daylight to haze with
     [T.CAVE_WALL]:  0x2a2622,
     [T.CAVE_LAVA]:  0x2a2622,
@@ -373,14 +377,18 @@
   // newly-wired biomes is what finally puts fauna in wetland / commercial /
   // industrial zones. count = base + floor(rng()*range).
   const FAUNA_ORDER = ['chicken', 'cow', 'cat', 'dog', 'deer', 'crow', 'butterfly', 'slime'];
-  const ALL_NATURAL = [T.GRASS, T.FOREST, T.SAND, T.FARMLAND, T.RESIDENTIAL,
+  // Lot land (residential + the wasteland that used to be painted as it) —
+  // spread wherever a species lists residential ground, so wasteland keeps
+  // exactly the fauna it had before it had a code of its own.
+  const LOT = [T.RESIDENTIAL, T.WASTELAND];
+  const ALL_NATURAL = [T.GRASS, T.FOREST, T.SAND, T.FARMLAND, ...LOT,
     T.PARK, T.ROCK, T.SCHOOL, T.COMMERCIAL, T.INDUSTRIAL, T.PLAYGROUND, T.PITCH,
     T.WETLAND, T.GOLF, T.ORCHARD];
   const BIOME_FAUNA = {
-    chicken:   { base: 30, range: 15, share: 0.80, primary: [T.FARMLAND, T.GRASS], fallback: [T.GRASS, T.FARMLAND, T.RESIDENTIAL, T.PARK, T.SCHOOL] },
-    cow:       { base: 12, range: 12, share: 0.90, primary: [T.GRASS], fallback: [T.GRASS, T.FARMLAND, T.RESIDENTIAL, T.PARK, T.PITCH, T.GOLF] },
-    cat:       { base: 6,  range: 8,  share: 0.80, primary: [T.RESIDENTIAL, T.COMMERCIAL], fallback: ALL_NATURAL },
-    dog:       { base: 6,  range: 8,  share: 0.80, primary: [T.RESIDENTIAL], fallback: ALL_NATURAL },
+    chicken:   { base: 30, range: 15, share: 0.80, primary: [T.FARMLAND, T.GRASS], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.SCHOOL] },
+    cow:       { base: 12, range: 12, share: 0.90, primary: [T.GRASS], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.PITCH, T.GOLF] },
+    cat:       { base: 6,  range: 8,  share: 0.80, primary: [...LOT, T.COMMERCIAL], fallback: ALL_NATURAL },
+    dog:       { base: 6,  range: 8,  share: 0.80, primary: [...LOT], fallback: ALL_NATURAL },
     deer:      { base: 8,  range: 6,  share: 1.00, primary: [T.FOREST, T.PARK, T.ORCHARD, T.WETLAND], fallback: [T.FOREST, T.PARK, T.ORCHARD, T.WETLAND, T.GOLF] },
     crow:      { base: 200, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
     butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.FOREST, T.WETLAND, T.ORCHARD, T.GOLF], fallback: [T.PARK, T.FOREST, T.WETLAND, T.ORCHARD, T.GOLF, T.SCHOOL, T.PLAYGROUND] },

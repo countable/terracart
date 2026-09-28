@@ -21,6 +21,21 @@
   const STAGE_HOLD_MS = 15 * 60 * 1000;          // 15 min per growth stage
   const CROW_IGNORED_CROPS = new Set(['potato']); // crows never notice potatoes
 
+  const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;
+  const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;
+
+  // Shared by tree art and harvesting. Wild trees start mature; planted trees
+  // take four stages, then each pick starts a fresh fruit respawn timer.
+  function fruitTreeState(tree, pickedAt, now = Date.now()) {
+    const elapsed = now - (tree.planted_t || 0);
+    const stage = tree.planted
+      ? Math.max(0, Math.min(4, Math.floor(elapsed / FRUIT_STAGE_MS))) : 4;
+    const mature = stage === 4;
+    const remainingMs = !mature ? 4 * FRUIT_STAGE_MS - elapsed
+      : pickedAt ? Math.max(0, FRUIT_RESPAWN_MS - (now - pickedAt)) : 0;
+    return { stage, mature, ready: mature && remainingMs === 0, remainingMs };
+  }
+
   function maxStage() {
     return (typeof MAX_GROWTH_STAGE !== 'undefined') ? MAX_GROWTH_STAGE : 4;
   }
@@ -178,7 +193,7 @@
     return q;
   }
 
-  root.Crops = { STAGE_HOLD_MS, CAN_TOP_TIER, maxStage, isMature, crowEats,
+  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, CAN_TOP_TIER, maxStage, isMature, crowEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

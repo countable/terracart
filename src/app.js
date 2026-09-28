@@ -1090,6 +1090,10 @@ const COLORS = {
   24: 0x4a423b, // CAVE_FLOOR — packed earth/stone floor (walkable)
   25: 0x241f1b, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
   26: 0x9a2a10, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
+  // WASTELAND (27) — unclassified landuse (railway yards, brownfield,
+  // neighbourhood outlines). Plays as residential; looks like the abandoned
+  // scrub it is: residential's dirty concrete pulled toward dusty khaki.
+  27: 0x9a8e68, // WASTELAND  — dusty grey-ochre scrub
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
   // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately
   // darker than every real biome so "beyond the charted world" reads as the
@@ -4661,13 +4665,8 @@ class MapScene extends Phaser.Scene {
   // only delivered by a shot you could see coming rather than a silent drain
   // at range.
   _shotHitsPlayer(shot) {
-    const now = performance.now();
-    const before = this.save.energy ?? 0;
-    if (Combat.playerDowned(before) || !(shot.damage > 0)) return false;
-    const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(shot.damage / 2) : shot.damage;
-    // One arrow can carry several hits of the kind's table (shot.hits,
-    // MONSTER_ARROW_HITS) — armour soaks each of them, not the bundle.
-    const dmg = Combat.playerDamage(shielded, this.save.armor, shot.hits);
+    const dmg = Combat.incomingDamage(this.save, shot.damage, shot.hits);
+    if (!(dmg > 0)) return false;
     this._monsterDmgAccum = (this._monsterDmgAccum || 0)
       + this._losePlayerEnergy(dmg, { closeShop: true });
     return true;
@@ -9472,11 +9471,10 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         if (!canAfford()) { this.flash(`need ${price}`, sx, sy); return; }
         addMoney(this.save, -price);
-        this.addToInv(id, 1, false, { notWild: true });
+        this.addToInv(id, 1, false, { notWild: true, deferRefresh: true });
         this.save.scarecrowShopUsed = true;
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(`${item?.name || id}\n−${price}`, '#ffe066', 1, id);
       },
     });
@@ -9533,9 +9531,8 @@ class MapScene extends Phaser.Scene {
         const pay = unitPrice * take;
         if (money() < pay) { this.flash(`need ${pay}`, sx, sy); return; }
         addMoney(this.save, -pay);
-        this.addToInv(id, take, false, { notWild: true });
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this.addToInv(id, take, false, { notWild: true, deferRefresh: true });
+        this._finishInventoryChange();
         this.flashLoot(`${take}× ${itemName}\n−${pay}`, '#ffe066', 1, id);
       },
     });
@@ -9635,8 +9632,7 @@ class MapScene extends Phaser.Scene {
         this._clampSelSlot();
         const gain = unitPrice * sold;
         addMoney(this.save, gain);
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(`+${gain}`, '#ffe066', 1, sellId);
         this.questEvent('sell');
       },
@@ -9700,9 +9696,8 @@ class MapScene extends Phaser.Scene {
         }
         for (const c of rec.cost) Inventory.remove(this.save, c.id, c.qty * q);
         this._clampSelSlot();
-        this.addToInv(rec.id, q, false, { notWild: true });
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this.addToInv(rec.id, q, false, { notWild: true, deferRefresh: true });
+        this._finishInventoryChange();
         this.flashLoot(`✨ ${outName} ×${q}`, '#ffe066', 1.25, rec.id);
       },
     });
@@ -9896,7 +9891,7 @@ class MapScene extends Phaser.Scene {
           // worth the stake was priced on.
           const qty = out.qty || 1;
           const fit = Math.min(qty, Math.max(0, this.invRoomFor(p.id)));
-          if (fit > 0) this.addToInv(p.id, fit, false, { notWild: true });
+          if (fit > 0) this.addToInv(p.id, fit, false, { notWild: true, deferRefresh: true });
           const paid = (qty - fit) * p.value;
           if (paid > 0) { addMoney(this.save, paid); this.updateHUD(); }
           const what = qty > 1 ? `${qty}× ${name}` : name;
@@ -9910,8 +9905,7 @@ class MapScene extends Phaser.Scene {
           const line = p.jackpot ? `🎰 JACKPOT${tag}` : `🎰 You win${tag}`;   // ≤ 13 chars
           this.flashLoot(line, rim, p.jackpot ? 1.5 : 1.2, p.id);
           if (p.jackpot) this.flashJackpot(1, '✨ JACKPOT ✨');
-          persistSave(this.save);
-          this.buildInventoryDOM();
+          this._finishInventoryChange();
         } else if (out.coins > 0) {
           // Two jackpots (not three, no star to finish them), or two stars.
           addMoney(this.save, out.coins);
@@ -10051,8 +10045,7 @@ class MapScene extends Phaser.Scene {
             if (this.save.shopCharm[k] <= Date.now()) delete this.save.shopCharm[k];
           }
           this.save.shopCharm[house.id] = Date.now() + SHOP_CHARM_MS;
-          persistSave(this.save);
-          this.buildInventoryDOM();
+          this._finishInventoryChange();
           this.flashLoot('💐 charmed — half prices!', '#ff8aff', 1.2, 'flowers');
           // Straight back into the shop so the discounted offer is in hand.
           this.shopInteract(sx, sy, house);
@@ -10203,11 +10196,10 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
         offer.consume();
-        this.addToInv(id, buyQty, false, { notWild: true });
+        this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         // Use the loud loot pop so a purchase reads as a real gain.
         // Sprite shows the bought item — drop the item-icon emoji.
         this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
@@ -10959,8 +10951,7 @@ class MapScene extends Phaser.Scene {
         // That ledger key IS the household's "fed" record (Delivery.isSatisfied
         // reads it): it stops asking and shows a smiling face for good.
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(`+${gain}`, '#ffe066', 1, wanted[0]);
         // A new door gets the same fanfare as any other memory — the
         // shiny-find banner + burst, not a bare flash — so every "first time"
@@ -11122,10 +11113,9 @@ class MapScene extends Phaser.Scene {
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
         offer.consume();
-        this.addToInv(id, buyQty, false, { notWild: true });
+        this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
       // A re-roll can only land on another item of the same stock, so a line
@@ -11301,10 +11291,9 @@ class MapScene extends Phaser.Scene {
           return;
         }
         for (const r of recipe) consume(r.id, r.qty * q);
-        this.addToInv(target, q, false, { notWild: true });
+        this.addToInv(target, q, false, { notWild: true, deferRefresh: true });
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(`✨ ${outItem?.name || target} ×${q}`, '#ffe066', 1.25, target);
       },
     });
@@ -11526,11 +11515,10 @@ class MapScene extends Phaser.Scene {
         }
         Inventory.remove(this.save, offer.askId, offer.askQty);
         this._clampSelSlot();
-        this.addToInv(offer.giveId, giveQty, false, { notWild: true });
+        this.addToInv(offer.giveId, giveQty, false, { notWild: true, deferRefresh: true });
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
         recordDeal();
-        persistSave(this.save);
-        this.buildInventoryDOM();
+        this._finishInventoryChange();
         this.flashLoot(
           `${giveQty}× ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
           '#ffe066', 1, offer.giveId,
@@ -12407,19 +12395,7 @@ class MapScene extends Phaser.Scene {
   _claimTrailReward(reward, opts = {}) {
     const card = this._trailRewardCard(reward);
     if (!card) return null;
-    if (reward.kind === 'item') {
-      this.addToInv(reward.id, reward.qty, false, opts);
-    } else if (reward.kind === 'gold') {
-      addMoney(this.save, reward.amount);
-    } else if (reward.kind === 'relic' || reward.kind === 'armor') {
-      // A gear roll can yield a relic OR armor (armor is just another gear
-      // slot). Both go through Gear.equip — the one equip path chests and
-      // shops use — which files armour under save.armor and bumps energy for
-      // it. (A fallback here used to write ARMOUR into save.relics.)
-      this._equipGear(reward.kind, reward.slot, reward.tier);
-      this.markRelicsDirty?.();
-    }
-    if (reward.consolation > 0) addMoney(this.save, reward.consolation);
+    Rewards.apply(this.save, reward, this, opts);
     return card;
   }
 
@@ -13533,6 +13509,8 @@ class MapScene extends Phaser.Scene {
   // Inventory.add (inventory.js); this wrapper owns only the scene side
   // effects: persist + rebuild the inventory DOM, and the deferred 'bag full'
   // flash. Returns the count actually accepted so callers can adjust narration.
+  // opts.deferRefresh keeps pickup feedback but lets a transaction commit once
+  // through _finishInventoryChange after its payment and deal bookkeeping.
   addToInv(id, n = 1, silent = false, opts = {}) {
     // A book triggers its read (a page of the course, or a chest hint) the
     // instant it's picked up rather than waiting in the bag for a manual
@@ -13573,8 +13551,7 @@ class MapScene extends Phaser.Scene {
         const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
         this.save.invPage = pos >= 0 ? Math.floor(pos / 5) : 0;
       }
-      persistSave(this.save);
-      this.buildInventoryDOM();
+      if (!opts.deferRefresh) this._finishInventoryChange();
     }
     // Flash whenever anything was rejected — that's the player attempting to
     // exceed the cap. Deferred via setTimeout so it can't race a flashLoot the
@@ -13594,6 +13571,12 @@ class MapScene extends Phaser.Scene {
     }
     return r.accepted;
   }
+  // Commit a completed inventory transaction after its payment and bookkeeping.
+  _finishInventoryChange() {
+    persistSave(this.save);
+    this.buildInventoryDOM();
+  }
+
   // --- Two-bar inventory helpers ------------------------------------------
   // After a spend spliced a stack out (Inventory.remove leaves the re-clamp
   // to its caller): a selection that fell off the end of save.inv becomes

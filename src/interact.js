@@ -309,16 +309,6 @@ const GRASSLAND_TILL = new Set([
   WorldGen.T.PITCH, WorldGen.T.GOLF, WorldGen.T.FARMLAND,
 ]);
 
-// Equip a relic or armor reward from a chest / fishing jackpot. Mutates save
-// and calls scene.markRelicsDirty. Caller is responsible for persistence
-// (ctx.dirty or persistSave) and any follow-up UI (modal or flash).
-function equipGearReward(reward, save, scene) {
-  // Equip math (incl. the armor max-energy bump) is shared with app.js'
-  // _equipGear via Gear.equip (gear.js); this only adds the dirty flag.
-  Gear.equip(save, reward.kind, reward.slot, reward.tier);
-  scene.markRelicsDirty?.();
-}
-
 // Grant ONE buried-treasure roll: the pickReward('treasure:default') payout
 // with every branch it can take — an item (low-tier seeds bundled up, jackpot
 // fanfare on a big hit), a gold sum, or the fallback dollar if the pool comes
@@ -351,8 +341,9 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     scene.flashLoot(`${mark} → 1`, '#ffe066', 1, null, scene.coinIconEl?.());
     return;
   }
+  if (reward.kind === 'item' && isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
+  Rewards.apply(save, reward, scene);
   if (reward.kind === 'relic' || reward.kind === 'armor') {
-    equipGearReward(reward, save, scene);
     const label = (typeof gearName === 'function')
       ? gearName(reward.kind, reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
     scene.flashLoot(`${mark} → ✨ ${label} (equipped!)`, '#ffe066', 1.6);
@@ -361,14 +352,10 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     }
   } else if (reward.kind === 'gold' && reward.slot) {
     // A relic roll the player already beats — cashed out by reconcileRelicOffer.
-    addMoney(save, reward.amount);
     const label = (typeof gearName === 'function')
       ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
     scene.flashLoot(`${mark} Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
   } else if (reward.kind === 'item') {
-    // Low-tier seeds dig up in a slightly larger bundle (planted in bulk).
-    if (isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
-    scene.addToInv(reward.id, reward.qty);
     const item = ITEM_BY_ID[reward.id];
     const ti = tierInfo(reward.id);
     const color = ti?.color || '#ffe066';
@@ -378,14 +365,12 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
       scene.flashJackpot(reward.jackpot);
     }
   } else if (reward.kind === 'gold') {
-    addMoney(save, reward.amount);
     scene.flashLoot(`${mark} → ${reward.amount}`, '#ffe066', 1, null, scene.coinIconEl?.());
   }
   // Consolation coins for any qty bumps the picker couldn't apply
   // (bracket at cap or single-stack class). Small gold trickle alongside
   // the main loot — never replaces it.
   if (reward.consolation > 0) {
-    addMoney(save, reward.consolation);
     scene.flash(`+${reward.consolation}`, sx, sy + 16);
   }
 }
@@ -1551,16 +1536,15 @@ const TAP_HANDLERS = [
       // upgrade auto-equips; a dupe cashes out as consolation gold.
       if (Math.random() < FISH_JACKPOT_CHANCE) {
         const reward = rollGearUpgrade(undefined, save.relics, 2, save.armor);
+        if (reward) Rewards.apply(save, reward, scene);
         if (reward?.kind === 'relic' || reward?.kind === 'armor') {
-          equipGearReward(reward, save, scene);
           persistSave(save);
           const label = gearName(reward.kind, reward.slot, reward.tier);
           scene.flashLoot(`✨ ${label} (equipped!)`, '#ffe066', 1.6);
           return;
         }
         if (reward?.kind === 'gold') {
-          const label = gearName(reward.gearKind || 'relic', reward.slot, reward.tier);
-          scene.flashLoot(`✨ ${label} (already better)`, '#aaa', 1.2);
+          scene.flashLoot(`✨ Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
           persistSave(save);
           return;
         }
