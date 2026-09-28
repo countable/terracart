@@ -3904,339 +3904,7 @@
       // (the start area otherwise loads treeless right after a save reset
       // wipes the IDB cache).
       entry.hadBin = !!bin;
-      if (bin) {
-        const cpe = entry.cellsPerEdge;
-        // World metres -> this tile's local cell (the shared cellIndexOf, on the
-        // tile's own basis tileEdgeM / cpe), and back to that cell's centre.
-        const _sxCell = (wx, wy) => {
-          const { lix, liy } = cellIndexOf(x, y, wx, wy, tileEdgeM, cpe);
-          return { ix: lix, iy: liy };
-        };
-        const _sxCentre = (ix, iy) => cellCentreM(x, y, ix, iy, tileEdgeM, cpe);
-        // A bin row carries its TILE-LOCAL cell (lix, liy on this tile's own
-        // grid — see buildBinsFromGeoJSON), never frame metres, so the same
-        // bin reads the same in every save. It is snapped ONCE, here, onto
-        // this tile's cell centre in this save's frame. And it is CLONED: a
-        // bin is shared (the static sidecar map lives all session, an
-        // Overpass bin is the IndexedDB value), and the passes below write
-        // x/y and relocate rows — mutating the bin in place moved a tree a
-        // second time on the next build of the same tile.
-        const _sxRows = (rows) => {
-          const out = [];
-          for (const r of (rows || [])) {
-            if (r == null || r.lix == null || r.liy == null) continue;
-            const c = _sxCentre(r.lix, r.liy);
-            const o = { ...r, x: c.x, y: c.y };
-            delete o.lix; delete o.liy;
-            out.push(o);
-          }
-          return out;
-        };
-        const sx = {
-          chests: _sxRows(bin.chests), trees: _sxRows(bin.trees),
-          fruittrees: _sxRows(bin.fruittrees), shrubs: _sxRows(bin.shrubs),
-          poles: _sxRows(bin.poles), wells: _sxRows(bin.wells), parking: _sxRows(bin.parking),
-        };
-        const onWater = (wx, wy) => {
-          const { ix: lix, iy: liy } = _sxCell(wx, wy);
-          if (lix < 0 || liy < 0 || lix >= cpe || liy >= cpe) return false;
-          return grid[liy * cpe + lix] === T.WATER;
-        };
-        // Injected OSM features skip the BIOME filter (they belong wherever
-        // the real world puts them) but must still honour one-interactable-
-        // per-cell: stacking two pickables on a cell is unreachable for the
-        // player. Seed the occupancy set from everything already placed, then
-        // drop any tree/bush that would land on a taken cell.
-        const cellKeyOf = (wx, wy) => {
-          const { ix: lix, iy: liy } = _sxCell(wx, wy);
-          return `${lix}_${liy}`;
-        };
-        // Frame metres per cell of this tile — only to turn the cell-unit
-        // dedup radii below into this frame's distances.
-        const _sxCellM = tileEdgeM / cpe;
-        // Occupancy set — seed from everything rasterizeTile already placed so
-        // injected features never land on an existing interactable (a rasterized
-        // tree / rock / house / chest).
-        const occupied = new Set();
-        for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
-        for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
-        // Residential yard rule for the sidecar injections below. These are
-        // pushed AFTER rasterizeTile's residential post-pass, so they'd bypass
-        // it otherwise — re-apply the shared spawn rule here. Like the post-pass,
-        // only RESIDENTIAL cells are gated (non-residential placements pass
-        // through); POI chests — both already placed and the ones we're about to
-        // inject — count as public anchors.
-        const _sxPois = [];
-        for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
-        for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
-        const _sxSpawnOpts = { pois: _sxPois, roadMask };
-        const _sxYardOK = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
-          if (!isLotTerrain(grid[iy * cpe + ix])) return true;
-          return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
-        };
-        // Trees + fruit trees can NEVER sit on a building footprint, road, path,
-        // water or other hard/interactable cell — nor on a manicured open field
-        // (school grounds, playground, sports pitch, golf course), which read
-        // wrong carpeted in OSM trees. When a detection lands on one, relocate
-        // it to a favourable empty neighbour cell; drop it only if no neighbour
-        // works. One tree per cell — process largest crown first so the biggest
-        // tree wins a contested cell and smaller ones spill to neighbours.
-        const TREE_BLOCK = new Set([
-          T.WATER, T.PIER, ...COBBLE_TYPES,
-          ...BUILDING_TYPES,
-          T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
-          T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
-        ]);
-        // Cell at (ix,iy) is hard ground a scatter object must never sit on:
-        // the TREE_BLOCK terrain set, plus anything under a drawn road band
-        // (roadMask) — the injected features are placed from real-world
-        // coordinates, so without the mask an OSM street tree recorded in the
-        // middle of a widened carriageway stays there.
-        const _sxHardCell = (ix, iy) => {
-          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
-          return TREE_BLOCK.has(grid[iy * cpe + ix]) || roadMask[iy * cpe + ix] === 1;
-        };
-        const _sxHard = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          return _sxHardCell(ix, iy);
-        };
-        // Cell at (wx,wy) is a building footprint — wells get a softer rule than
-        // _sxHard (they may supersede a road tile, repainting it) but must still
-        // never land on a building.
-        const _sxBuilding = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
-          return isBuildingTerrain(grid[iy * cpe + ix]);
-        };
-        // One-cell building moat (nearBuildingCell) — same rule the rasterize
-        // post-pass applies, mirrored here for the sidecar GROUND furniture
-        // (poles, wells). Trees are exempt in both passes — yard trees grow
-        // right against real houses (see tryTreeCell). And the one-cell POI
-        // frontage (nearPoiCell): _sxPois already covers both rasterized and
-        // bin chests.
-        const _sxNearBuilding = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          return nearBuildingCell(grid, cpe, cpe, ix, iy);
-        };
-        const _sxNearChest = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          return nearPoiCell(_sxPois, ix, iy);
-        };
-        // POI chests (bus stops, signals, crossings, gates, towers, pitches,
-        // gardens, bicycle racks, …) are injected FIRST: a chest is a real-world
-        // destination, so it must win its cell over a generic tree/shrub/pole
-        // (mirroring the rasterize occupancy pass where chest outranks all).
-        // poiClass drives loot / tier / label / coin-burst via loot.js + the
-        // render/interact chest paths.
-        //
-        // One real-world place, one chest. Two sidecar chests of the same class
-        // within a short distance describe the same thing — see isDupPoiChest
-        // for the two radii and the two bugs behind them — so the later copy is
-        // skipped. Checked against entry.objects as it grows, so the rule
-        // covers MVT chests already on the tile AND the sidecar chests
-        // injected just before this one.
-        // A chest outranks SCENERY on its cell, not just later injections: the
-        // occupied set is seeded from everything rasterizeTile placed, so a
-        // bus stop / crossing whose cell happened to hold a rasterized rock,
-        // tree or grass tuft was silently dropped — a real-world destination
-        // lost to set dressing ("I never see chests at POIs"). Evict the
-        // scenery instead; only another chest or a structure (house / tower /
-        // staircase) genuinely blocks the cell.
-        const SX_CHEST_BLOCKERS = new Set(['chest', 'house', 'tower', 'staircase']);
-        //
-        // O(n) BY CONSTRUCTION — this post-rasterize path has no slicer (see
-        // CLAUDE.md, "A tile build stutters on its WORST BLOCK"). The blocker
-        // cells are indexed ONCE; an eviction only records its cell, and one
-        // in-place compaction after the loop drops every evicted item, order
-        // kept. That is the same result as evicting on the spot: an evicted
-        // cell held no blocker, so everything on it is scenery (never a chest,
-        // so isDupPoiChest never sees the difference), and the only thing the
-        // loop adds to that cell afterwards is the winning chest itself —
-        // which sits past `preLen`, outside the sweep, and is a blocker for
-        // any later chest on the same cell.
-        const sxBlockerCells = new Set();
-        for (const o of entry.objects) {
-          if (SX_CHEST_BLOCKERS.has(o.kind)) sxBlockerCells.add(cellKeyOf(o.x, o.y));
-        }
-        const sxEvicted = new Set();
-        const sxPreLen = entry.objects.length;
-        const evictSceneryAt = (k) => {
-          if (sxBlockerCells.has(k)) return false;
-          sxEvicted.add(k);
-          return true;
-        };
-        for (const ch of sx.chests) {
-          if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
-          if (!_sxYardOK(ch.x, ch.y)) continue;
-          if (isDupPoiChest(entry.objects, ch, _sxCellM)) continue;
-          const k = cellKeyOf(ch.x, ch.y);
-          if (occupied.has(k) && !evictSceneryAt(k)) continue;
-          occupied.add(k);
-          delete ch.garden;   // internal flag — don't leak into the chest object
-          entry.objects.push(ch);
-          // A chest blocks its cell for every later chest (kind-checked, exactly
-          // as the old per-chest scan of entry.objects would have seen it).
-          if (SX_CHEST_BLOCKERS.has(ch.kind)) sxBlockerCells.add(k);
-        }
-        if (sxEvicted.size) {
-          const objs = entry.objects;
-          let wr = 0;
-          for (let i = 0; i < objs.length; i++) {
-            const o = objs[i];
-            if (i < sxPreLen && sxEvicted.has(cellKeyOf(o.x, o.y))) continue;
-            objs[wr++] = o;
-          }
-          objs.length = wr;
-          const wps = entry.wildplants;
-          wr = 0;
-          for (let i = 0; i < wps.length; i++) {
-            const wp = wps[i];
-            if (sxEvicted.has(cellKeyOf(wp.x, wp.y))) continue;
-            wps[wr++] = wp;
-          }
-          wps.length = wr;
-        }
-        const tryTreeCell = (ix, iy) => {
-          if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
-          if (_sxHardCell(ix, iy)) return null;
-          if (occupied.has(`${ix}_${iy}`)) return null;
-          // Chest frontage stays clear (the player stands beside the chest),
-          // but trees may hug buildings — no nearBuildingCell here. Yard
-          // trees sit right against real houses; routing them through the
-          // building moat dropped every detection ringing a house (the cells
-          // they'd relocate to are in the moat too) and left home yards bare.
-          if (nearPoiCell(_sxPois, ix, iy)) return null;
-          const { x: wcx, y: wcy } = _sxCentre(ix, iy);
-          if (!_sxYardOK(wcx, wcy)) return null;
-          return { ix, iy, x: wcx, y: wcy, key: `${ix}_${iy}` };
-        };
-        // 4-neighbours first (closer, axis-aligned), then diagonals.
-        const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-        const placeTree = (wx, wy) => {
-          const { ix, iy } = _sxCell(wx, wy);
-          let r = tryTreeCell(ix, iy);
-          if (r) return r;
-          for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy); if (r) return r; }
-          return null;
-        };
-        const allTrees = [...sx.trees, ...sx.fruittrees]
-          .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
-        for (const t of allTrees) {
-          const r = placeTree(t.x, t.y);
-          if (!r) continue;
-          occupied.add(r.key);
-          t.x = r.x; t.y = r.y;
-          // A detection with no OSM id is named by the cell it SETTLED on —
-          // unique (one tree per cell, just claimed) and positional. Its bin
-          // cell alone was not: two detections in one cell, or one relocated
-          // onto a cell a forest tree's id already named, shared an id, and
-          // chopping one felled the other.
-          if (!t.id) t.id = cellId(`${t.kind === 'fruittree' ? 'ft' : 'tree'}_sx`, x, y, r.ix, r.iy);
-          entry.objects.push(t);
-        }
-        for (const s of sx.shrubs) {
-          if (onWater(s.x, s.y)) continue;
-          if (_sxHard(s.x, s.y)) continue;            // never on road / building / hard cell
-          if (_sxNearChest(s.x, s.y)) continue;       // keep the POI frontage clear
-          if (!_sxYardOK(s.x, s.y)) continue;
-          const k = cellKeyOf(s.x, s.y);
-          if (occupied.has(k)) continue;
-          occupied.add(k);
-          const c = s;   // already on this tile's cell centre (_sxRows)
-          // Minted HERE rather than where the bin row was built (buildBin's
-          // `shrubs.push`): a bin is CACHED in IndexedDB, so a bin written
-          // before a stream's shape changed would otherwise inject records
-          // missing the new field for as long as it lives in the cache. The
-          // bin carries the facts (position, id); the stream's shape is this
-          // file's, applied at the moment the row joins the stream.
-          entry.wildplants.push(makeWildplant(s.crop, c.x, c.y, s.id));
-        }
-        for (const p of sx.poles) {
-          if (onWater(p.x, p.y)) continue;
-          if (_sxHard(p.x, p.y)) continue;            // never on road / building / hard cell
-          if (_sxNearBuilding(p.x, p.y)) continue;    // nor inside a house sprite's overhang
-          if (_sxNearChest(p.x, p.y)) continue;       // keep the POI frontage clear
-          if (!_sxYardOK(p.x, p.y)) continue;
-          const k = cellKeyOf(p.x, p.y);
-          if (occupied.has(k)) continue;
-          occupied.add(k);
-          entry.objects.push(p);
-        }
-        // Wells (OSM amenity=fountain) → a tappable well object that refills the
-        // watering can (interact.js 'well' branch), rendered as the well sprite.
-        for (const wl of sx.wells) {
-          if (onWater(wl.x, wl.y)) continue;
-          if (_sxBuilding(wl.x, wl.y)) continue;      // never on a building (roads are superseded below)
-          if (_sxNearBuilding(wl.x, wl.y)) continue;  // nor inside a house sprite's overhang
-          if (_sxNearChest(wl.x, wl.y)) continue;     // keep the POI frontage clear
-          if (!_sxYardOK(wl.x, wl.y)) continue;
-          const k = cellKeyOf(wl.x, wl.y);
-          if (occupied.has(k)) continue;
-          occupied.add(k);
-          entry.objects.push(wl);
-          // A well supersedes a road/path tile it lands on — repaint the cell to
-          // the dominant soft neighbour biome (so it blends, not a hard grass
-          // square) and clear the cobble's road-label / path-name so no label
-          // or path-stone tint shows under the well.
-          const { ix: lix, iy: liy } = _sxCell(wl.x, wl.y);
-          if (lix >= 0 && liy >= 0 && lix < cpe && liy < cpe && isCobbleTerrain(grid[liy * cpe + lix])) {
-            const NONSOFT = new Set([T.WATER, T.PIER, ...BUILDING_TYPES]);
-            const counts = {};
-            for (let ddy = -1; ddy <= 1; ddy++) for (let ddx = -1; ddx <= 1; ddx++) {
-              if (!ddx && !ddy) continue;
-              const nnx = lix + ddx, nny = liy + ddy;
-              if (nnx < 0 || nny < 0 || nnx >= cpe || nny >= cpe) continue;
-              const nt = grid[nny * cpe + nnx];
-              if (isCobbleTerrain(nt) || NONSOFT.has(nt)) continue;
-              counts[nt] = (counts[nt] || 0) + 1;
-            }
-            let best = T.GRASS, bestN = 0;
-            for (const t2 in counts) if (counts[t2] > bestN) { bestN = counts[t2]; best = +t2; }
-            grid[liy * cpe + lix] = best;
-            const ck = `${lix}_${liy}`;
-            if (entry.roadLabels) delete entry.roadLabels[ck];
-          }
-        }
-        // (POI chests were injected before the trees above — a chest is a
-        // real-world destination and must win its cell over scenery; the
-        // area-POI ~25 m same-class dedupe moved up with that loop.)
-        // Parking lots (OSM amenity=parking) → a buried-treasure "X marks the
-        // spot" mark, claimed via the treasure handler (same array the MVT
-        // parking path fills). No per-cell occupancy — X marks sit under the
-        // terrain and don't block other interactables.
-        for (const pk of sx.parking) {
-          // Same treatment the MVT parking path gets in the rasterize
-          // post-pass: a lot's anchor lands on its aisle or the street beside
-          // it as often as on standable ground, so walk the X to the nearest
-          // cell that passes the shared spawn rule instead of burying treasure
-          // under the asphalt. Dropped only if nothing nearby works.
-          {
-            const { ix, iy } = _sxCell(pk.x, pk.y);
-            if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) continue;
-            const moved = relocateToSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
-            if (!moved) continue;
-            ({ x: pk.x, y: pk.y } = _sxCentre(moved.ix, moved.iy));
-            // Named by its settled cell, in the MVT parking path's own format,
-            // so the same lot from both sources is the same X.
-            pk.id = cellId('t_park', x, y, moved.ix, moved.iy);
-          }
-          // Skip if an X already sits within ~8m (in CELLS: 8 / CELL_M, so
-          // the same cell or an orthogonal neighbour) — the MVT parking path
-          // fills the SAME array (before this injection), so the same lot
-          // present in both sources would otherwise drop two
-          // separately-claimable treasures.
-          const pkc = _sxCell(pk.x, pk.y);
-          const dupe = entry.parkingTreasures.some(t => {
-            const tc = _sxCell(t.x, t.y);
-            const dx = tc.ix - pkc.ix, dy = tc.iy - pkc.iy;
-            return (dx * dx + dy * dy) * CELL_M * CELL_M <= 8 * 8;
-          });
-          if (dupe) continue;
-          entry.parkingTreasures.push(pk);
-        }
-      }
+      injectTileBin(entry, bin, x, y);
 
       // The decoded layers stay on the entry for two consumers only: the road
       // overlay re-strokes `transportation` line geometry on each rebuild, and
@@ -4267,6 +3935,346 @@
     tileCache.set(key, entry);
     pruneCache(tileCache, key);
     return entry;
+  }
+
+  // Apply cached real-world features to the live tile after its generated
+  // snapshots have been captured. Bin rows are cloned before placement so a
+  // cached bin can be reused across builds and world frames without changing.
+  // Placement order is intentional: destinations win before scenery is seated.
+  function injectTileBin(entry, bin, x, y) {
+    if (!bin) return;
+    const { grid, roadMask, tileEdgeM } = entry;
+    const cpe = entry.cellsPerEdge;
+    // World metres -> this tile's local cell (the shared cellIndexOf, on the
+    // tile's own basis tileEdgeM / cpe), and back to that cell's centre.
+    const _sxCell = (wx, wy) => {
+      const { lix, liy } = cellIndexOf(x, y, wx, wy, tileEdgeM, cpe);
+      return { ix: lix, iy: liy };
+    };
+    const _sxCentre = (ix, iy) => cellCentreM(x, y, ix, iy, tileEdgeM, cpe);
+    // A bin row carries its TILE-LOCAL cell (lix, liy on this tile's own
+    // grid — see buildBinsFromGeoJSON), never frame metres, so the same
+    // bin reads the same in every save. It is snapped ONCE, here, onto
+    // this tile's cell centre in this save's frame. And it is CLONED: a
+    // bin is shared (the static sidecar map lives all session, an
+    // Overpass bin is the IndexedDB value), and the passes below write
+    // x/y and relocate rows — mutating the bin in place moved a tree a
+    // second time on the next build of the same tile.
+    const _sxRows = (rows) => {
+      const out = [];
+      for (const r of (rows || [])) {
+        if (r == null || r.lix == null || r.liy == null) continue;
+        const c = _sxCentre(r.lix, r.liy);
+        const o = { ...r, x: c.x, y: c.y };
+        delete o.lix; delete o.liy;
+        out.push(o);
+      }
+      return out;
+    };
+    const sx = {
+      chests: _sxRows(bin.chests), trees: _sxRows(bin.trees),
+      fruittrees: _sxRows(bin.fruittrees), shrubs: _sxRows(bin.shrubs),
+      poles: _sxRows(bin.poles), wells: _sxRows(bin.wells), parking: _sxRows(bin.parking),
+    };
+    const onWater = (wx, wy) => {
+      const { ix: lix, iy: liy } = _sxCell(wx, wy);
+      if (lix < 0 || liy < 0 || lix >= cpe || liy >= cpe) return false;
+      return grid[liy * cpe + lix] === T.WATER;
+    };
+    // Injected OSM features skip the BIOME filter (they belong wherever
+    // the real world puts them) but must still honour one-interactable-
+    // per-cell: stacking two pickables on a cell is unreachable for the
+    // player. Seed the occupancy set from everything already placed, then
+    // drop any tree/bush that would land on a taken cell.
+    const cellKeyOf = (wx, wy) => {
+      const { ix: lix, iy: liy } = _sxCell(wx, wy);
+      return `${lix}_${liy}`;
+    };
+    // Frame metres per cell of this tile — only to turn the cell-unit
+    // dedup radii below into this frame's distances.
+    const _sxCellM = tileEdgeM / cpe;
+    // Occupancy set — seed from everything rasterizeTile already placed so
+    // injected features never land on an existing interactable (a rasterized
+    // tree / rock / house / chest).
+    const occupied = new Set();
+    for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
+    for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
+    // Residential yard rule for the sidecar injections below. These are
+    // pushed AFTER rasterizeTile's residential post-pass, so they'd bypass
+    // it otherwise — re-apply the shared spawn rule here. Like the post-pass,
+    // only RESIDENTIAL cells are gated (non-residential placements pass
+    // through); POI chests — both already placed and the ones we're about to
+    // inject — count as public anchors.
+    const _sxPois = [];
+    for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
+    for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
+    const _sxSpawnOpts = { pois: _sxPois, roadMask };
+    const _sxYardOK = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
+      if (!isLotTerrain(grid[iy * cpe + ix])) return true;
+      return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
+    };
+    // Trees + fruit trees can NEVER sit on a building footprint, road, path,
+    // water or other hard/interactable cell — nor on a manicured open field
+    // (school grounds, playground, sports pitch, golf course), which read
+    // wrong carpeted in OSM trees. When a detection lands on one, relocate
+    // it to a favourable empty neighbour cell; drop it only if no neighbour
+    // works. One tree per cell — process largest crown first so the biggest
+    // tree wins a contested cell and smaller ones spill to neighbours.
+    const TREE_BLOCK = new Set([
+      T.WATER, T.PIER, ...COBBLE_TYPES,
+      ...BUILDING_TYPES,
+      T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
+      T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
+    ]);
+    // Cell at (ix,iy) is hard ground a scatter object must never sit on:
+    // the TREE_BLOCK terrain set, plus anything under a drawn road band
+    // (roadMask) — the injected features are placed from real-world
+    // coordinates, so without the mask an OSM street tree recorded in the
+    // middle of a widened carriageway stays there.
+    const _sxHardCell = (ix, iy) => {
+      if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
+      return TREE_BLOCK.has(grid[iy * cpe + ix]) || roadMask[iy * cpe + ix] === 1;
+    };
+    const _sxHard = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      return _sxHardCell(ix, iy);
+    };
+    // Cell at (wx,wy) is a building footprint — wells get a softer rule than
+    // _sxHard (they may supersede a road tile, repainting it) but must still
+    // never land on a building.
+    const _sxBuilding = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
+      return isBuildingTerrain(grid[iy * cpe + ix]);
+    };
+    // One-cell building moat (nearBuildingCell) — same rule the rasterize
+    // post-pass applies, mirrored here for the sidecar GROUND furniture
+    // (poles, wells). Trees are exempt in both passes — yard trees grow
+    // right against real houses (see tryTreeCell). And the one-cell POI
+    // frontage (nearPoiCell): _sxPois already covers both rasterized and
+    // bin chests.
+    const _sxNearBuilding = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      return nearBuildingCell(grid, cpe, cpe, ix, iy);
+    };
+    const _sxNearChest = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      return nearPoiCell(_sxPois, ix, iy);
+    };
+    // POI chests (bus stops, signals, crossings, gates, towers, pitches,
+    // gardens, bicycle racks, …) are injected FIRST: a chest is a real-world
+    // destination, so it must win its cell over a generic tree/shrub/pole
+    // (mirroring the rasterize occupancy pass where chest outranks all).
+    // poiClass drives loot / tier / label / coin-burst via loot.js + the
+    // render/interact chest paths.
+    //
+    // One real-world place, one chest. Two sidecar chests of the same class
+    // within a short distance describe the same thing — see isDupPoiChest
+    // for the two radii and the two bugs behind them — so the later copy is
+    // skipped. Checked against entry.objects as it grows, so the rule
+    // covers MVT chests already on the tile AND the sidecar chests
+    // injected just before this one.
+    // A chest outranks SCENERY on its cell, not just later injections: the
+    // occupied set is seeded from everything rasterizeTile placed, so a
+    // bus stop / crossing whose cell happened to hold a rasterized rock,
+    // tree or grass tuft was silently dropped — a real-world destination
+    // lost to set dressing ("I never see chests at POIs"). Evict the
+    // scenery instead; only another chest or a structure (house / tower /
+    // staircase) genuinely blocks the cell.
+    const SX_CHEST_BLOCKERS = new Set(['chest', 'house', 'tower', 'staircase']);
+    //
+    // O(n) BY CONSTRUCTION — this post-rasterize path has no slicer (see
+    // CLAUDE.md, "A tile build stutters on its WORST BLOCK"). The blocker
+    // cells are indexed ONCE; an eviction only records its cell, and one
+    // in-place compaction after the loop drops every evicted item, order
+    // kept. That is the same result as evicting on the spot: an evicted
+    // cell held no blocker, so everything on it is scenery (never a chest,
+    // so isDupPoiChest never sees the difference), and the only thing the
+    // loop adds to that cell afterwards is the winning chest itself —
+    // which sits past `preLen`, outside the sweep, and is a blocker for
+    // any later chest on the same cell.
+    const sxBlockerCells = new Set();
+    for (const o of entry.objects) {
+      if (SX_CHEST_BLOCKERS.has(o.kind)) sxBlockerCells.add(cellKeyOf(o.x, o.y));
+    }
+    const sxEvicted = new Set();
+    const sxPreLen = entry.objects.length;
+    const evictSceneryAt = (k) => {
+      if (sxBlockerCells.has(k)) return false;
+      sxEvicted.add(k);
+      return true;
+    };
+    for (const ch of sx.chests) {
+      if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
+      if (!_sxYardOK(ch.x, ch.y)) continue;
+      if (isDupPoiChest(entry.objects, ch, _sxCellM)) continue;
+      const k = cellKeyOf(ch.x, ch.y);
+      if (occupied.has(k) && !evictSceneryAt(k)) continue;
+      occupied.add(k);
+      delete ch.garden;   // internal flag — don't leak into the chest object
+      entry.objects.push(ch);
+      // A chest blocks its cell for every later chest (kind-checked, exactly
+      // as the old per-chest scan of entry.objects would have seen it).
+      if (SX_CHEST_BLOCKERS.has(ch.kind)) sxBlockerCells.add(k);
+    }
+    if (sxEvicted.size) {
+      const objs = entry.objects;
+      let wr = 0;
+      for (let i = 0; i < objs.length; i++) {
+        const o = objs[i];
+        if (i < sxPreLen && sxEvicted.has(cellKeyOf(o.x, o.y))) continue;
+        objs[wr++] = o;
+      }
+      objs.length = wr;
+      const wps = entry.wildplants;
+      wr = 0;
+      for (let i = 0; i < wps.length; i++) {
+        const wp = wps[i];
+        if (sxEvicted.has(cellKeyOf(wp.x, wp.y))) continue;
+        wps[wr++] = wp;
+      }
+      wps.length = wr;
+    }
+    const tryTreeCell = (ix, iy) => {
+      if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
+      if (_sxHardCell(ix, iy)) return null;
+      if (occupied.has(`${ix}_${iy}`)) return null;
+      // Chest frontage stays clear (the player stands beside the chest),
+      // but trees may hug buildings — no nearBuildingCell here. Yard
+      // trees sit right against real houses; routing them through the
+      // building moat dropped every detection ringing a house (the cells
+      // they'd relocate to are in the moat too) and left home yards bare.
+      if (nearPoiCell(_sxPois, ix, iy)) return null;
+      const { x: wcx, y: wcy } = _sxCentre(ix, iy);
+      if (!_sxYardOK(wcx, wcy)) return null;
+      return { ix, iy, x: wcx, y: wcy, key: `${ix}_${iy}` };
+    };
+    // 4-neighbours first (closer, axis-aligned), then diagonals.
+    const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    const placeTree = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      let r = tryTreeCell(ix, iy);
+      if (r) return r;
+      for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy); if (r) return r; }
+      return null;
+    };
+    const allTrees = [...sx.trees, ...sx.fruittrees]
+      .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
+    for (const t of allTrees) {
+      const r = placeTree(t.x, t.y);
+      if (!r) continue;
+      occupied.add(r.key);
+      t.x = r.x; t.y = r.y;
+      // A detection with no OSM id is named by the cell it SETTLED on —
+      // unique (one tree per cell, just claimed) and positional. Its bin
+      // cell alone was not: two detections in one cell, or one relocated
+      // onto a cell a forest tree's id already named, shared an id, and
+      // chopping one felled the other.
+      if (!t.id) t.id = cellId(`${t.kind === 'fruittree' ? 'ft' : 'tree'}_sx`, x, y, r.ix, r.iy);
+      entry.objects.push(t);
+    }
+    for (const s of sx.shrubs) {
+      if (onWater(s.x, s.y)) continue;
+      if (_sxHard(s.x, s.y)) continue;            // never on road / building / hard cell
+      if (_sxNearChest(s.x, s.y)) continue;       // keep the POI frontage clear
+      if (!_sxYardOK(s.x, s.y)) continue;
+      const k = cellKeyOf(s.x, s.y);
+      if (occupied.has(k)) continue;
+      occupied.add(k);
+      const c = s;   // already on this tile's cell centre (_sxRows)
+      // Minted HERE rather than where the bin row was built (buildBin's
+      // `shrubs.push`): a bin is CACHED in IndexedDB, so a bin written
+      // before a stream's shape changed would otherwise inject records
+      // missing the new field for as long as it lives in the cache. The
+      // bin carries the facts (position, id); the stream's shape is this
+      // file's, applied at the moment the row joins the stream.
+      entry.wildplants.push(makeWildplant(s.crop, c.x, c.y, s.id));
+    }
+    for (const p of sx.poles) {
+      if (onWater(p.x, p.y)) continue;
+      if (_sxHard(p.x, p.y)) continue;            // never on road / building / hard cell
+      if (_sxNearBuilding(p.x, p.y)) continue;    // nor inside a house sprite's overhang
+      if (_sxNearChest(p.x, p.y)) continue;       // keep the POI frontage clear
+      if (!_sxYardOK(p.x, p.y)) continue;
+      const k = cellKeyOf(p.x, p.y);
+      if (occupied.has(k)) continue;
+      occupied.add(k);
+      entry.objects.push(p);
+    }
+    // Wells (OSM amenity=fountain) → a tappable well object that refills the
+    // watering can (interact.js 'well' branch), rendered as the well sprite.
+    for (const wl of sx.wells) {
+      if (onWater(wl.x, wl.y)) continue;
+      if (_sxBuilding(wl.x, wl.y)) continue;      // never on a building (roads are superseded below)
+      if (_sxNearBuilding(wl.x, wl.y)) continue;  // nor inside a house sprite's overhang
+      if (_sxNearChest(wl.x, wl.y)) continue;     // keep the POI frontage clear
+      if (!_sxYardOK(wl.x, wl.y)) continue;
+      const k = cellKeyOf(wl.x, wl.y);
+      if (occupied.has(k)) continue;
+      occupied.add(k);
+      entry.objects.push(wl);
+      // A well supersedes a road/path tile it lands on — repaint the cell to
+      // the dominant soft neighbour biome (so it blends, not a hard grass
+      // square) and clear the cobble's road-label / path-name so no label
+      // or path-stone tint shows under the well.
+      const { ix: lix, iy: liy } = _sxCell(wl.x, wl.y);
+      if (lix >= 0 && liy >= 0 && lix < cpe && liy < cpe && isCobbleTerrain(grid[liy * cpe + lix])) {
+        const NONSOFT = new Set([T.WATER, T.PIER, ...BUILDING_TYPES]);
+        const counts = {};
+        for (let ddy = -1; ddy <= 1; ddy++) for (let ddx = -1; ddx <= 1; ddx++) {
+          if (!ddx && !ddy) continue;
+          const nnx = lix + ddx, nny = liy + ddy;
+          if (nnx < 0 || nny < 0 || nnx >= cpe || nny >= cpe) continue;
+          const nt = grid[nny * cpe + nnx];
+          if (isCobbleTerrain(nt) || NONSOFT.has(nt)) continue;
+          counts[nt] = (counts[nt] || 0) + 1;
+        }
+        let best = T.GRASS, bestN = 0;
+        for (const t2 in counts) if (counts[t2] > bestN) { bestN = counts[t2]; best = +t2; }
+        grid[liy * cpe + lix] = best;
+        const ck = `${lix}_${liy}`;
+        if (entry.roadLabels) delete entry.roadLabels[ck];
+      }
+    }
+    // (POI chests were injected before the trees above — a chest is a
+    // real-world destination and must win its cell over scenery; the
+    // area-POI ~25 m same-class dedupe moved up with that loop.)
+    // Parking lots (OSM amenity=parking) → a buried-treasure "X marks the
+    // spot" mark, claimed via the treasure handler (same array the MVT
+    // parking path fills). No per-cell occupancy — X marks sit under the
+    // terrain and don't block other interactables.
+    for (const pk of sx.parking) {
+      // Same treatment the MVT parking path gets in the rasterize
+      // post-pass: a lot's anchor lands on its aisle or the street beside
+      // it as often as on standable ground, so walk the X to the nearest
+      // cell that passes the shared spawn rule instead of burying treasure
+      // under the asphalt. Dropped only if nothing nearby works.
+      {
+        const { ix, iy } = _sxCell(pk.x, pk.y);
+        if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) continue;
+        const moved = relocateToSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
+        if (!moved) continue;
+        ({ x: pk.x, y: pk.y } = _sxCentre(moved.ix, moved.iy));
+        // Named by its settled cell, in the MVT parking path's own format,
+        // so the same lot from both sources is the same X.
+        pk.id = cellId('t_park', x, y, moved.ix, moved.iy);
+      }
+      // Skip if an X already sits within ~8m (in CELLS: 8 / CELL_M, so
+      // the same cell or an orthogonal neighbour) — the MVT parking path
+      // fills the SAME array (before this injection), so the same lot
+      // present in both sources would otherwise drop two
+      // separately-claimable treasures.
+      const pkc = _sxCell(pk.x, pk.y);
+      const dupe = entry.parkingTreasures.some(t => {
+        const tc = _sxCell(t.x, t.y);
+        const dx = tc.ix - pkc.ix, dy = tc.iy - pkc.iy;
+        return (dx * dx + dy * dy) * CELL_M * CELL_M <= 8 * 8;
+      });
+      if (dupe) continue;
+      entry.parkingTreasures.push(pk);
+    }
   }
 
   // LRU prune to bound memory on long-walking sessions. Insertion order is
@@ -5722,6 +5730,9 @@
     // Sidecar / Overpass GeoJSON → per-tile bins of tile-local cells —
     // exported so world_frame.test.js can pin that binning is frame-free.
     buildBinsFromGeoJSON,
+    // Apply cached bins independently of fetching, with placement and snapshot
+    // preservation pinned by tile_bin_injection.test.js.
+    injectTileBin,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, isSpawnCell, relocateToSpawnCell, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,

@@ -365,6 +365,16 @@
     return n * mitigate(damage / n, reduction);
   }
 
+  // Resolve an incoming blow after the attacker has applied its own power and
+  // difficulty multipliers. Potion expiry is persisted as epoch milliseconds;
+  // attack cooldowns use performance.now() and must not be passed as `now`.
+  // Callers own energy loss, cooldowns and popup accumulation.
+  function incomingDamage(save, damage, hits = 1, now = Date.now()) {
+    if (playerDowned(save?.energy)) return 0;
+    const shielded = (save.shieldPotionUntil ?? 0) > now ? Math.ceil(damage / 2) : damage;
+    return playerDamage(shielded, save.armor, hits);
+  }
+
   // ── DOWNED: the bar is empty ─────────────────────────────────────────────
   // At zero energy the player has collapsed. They cannot reach (coords.js's
   // reachRadiusM returns 0 at 0 energy, so no cell is tappable), and none of
@@ -1161,7 +1171,7 @@
     ELITE_MUL, isElite, eliteMul, lairMul, powerMul, maxHp,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
-    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDowned,
+    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, incomingDamage, playerDowned,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,

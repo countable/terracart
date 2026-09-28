@@ -13,6 +13,7 @@ const lift = (sig) => {
   return APP_JS_SRC.slice(start + 1, end + 4);
 };
 const HOME = (0, eval)('({\n' + [
+  lift('_finishInventoryChange() {'),
   lift('_homeTabs(active, sx, sy) {'),
   lift('_homeKindIcon() {'),
   lift('presentHomeCraft(sx, sy, targetId = null) {'),
@@ -142,7 +143,7 @@ test('home craft: the wild-finds ledger — every grant counts except bought, ba
   const add = APP_JS_SRC.slice(APP_JS_SRC.indexOf('\n  addToInv(id, n = 1, silent = false, opts = {}) {'));
   assert.truthy(/if \(!opts\.notWild\) \(this\.save\.foundWild = this\.save\.foundWild \|\| \{\}\)\[id\] = 1;/.test(add.slice(0, 3000)),
     'addToInv records the find');
-  const notWild = (APP_JS_SRC.match(/\{ notWild: true \}/g) || []).length;
+  const notWild = (APP_JS_SRC.match(/\{ notWild: true(?:, deferRefresh: true)? \}/g) || []).length;
   assert.eq(notWild, 10, 'the ten non-wild grants in app.js: craft, smelt, trader, stand, farmhand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund');
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });

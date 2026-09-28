@@ -73,7 +73,7 @@ test('hit flash: the haptic sits between a pickup and a refusal', () => {
 const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
 test('hit flash: a FOE\'s blow closes an open shop dialog — a trap\'s does not', () => {
   const sites = app.match(/this\._losePlayerEnergy\([^)]*\{ closeShop: true \}\)/g) || [];
-  assert.eq(sites.length, 4, 'the slime leech, the monster melee, the arrow and a ghost\'s touch all close it');
+  assert.eq(sites.length, 5, 'slime leech, retaliating fauna, monster melee, arrows and ghost touches all close it');
   const lose = app.match(/\n  _losePlayerEnergy\(dmg, [^)]*\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(/if \(closeShop\) this\._closeShopOnHit\(\);/.test(lose[1]), 'only when the caller asks — a trap does not');
   const m = app.match(/\n  _closeShopOnHit\(\) \{([\s\S]*?)\n  \}\n/);

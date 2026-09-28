@@ -160,20 +160,21 @@ test('downed: everything hung on the body\'s centre goes down WITH it', () => {
     'no label, arrow or sprite in update() is left on the standing nudge');
 });
 
-test('downed: the pursuit gate and the damage guard are the SAME expression', () => {
-  // Three places a foe reaches the player; each guards with the predicate the
-  // pursuit gate is built from, so "cannot be hurt" and "is not hunted" can
-  // never drift apart into a foe chasing someone it may not bite.
+test('downed: pursuit and incoming damage agree on whether the player is down', () => {
   const wander = methodBody('wanderCreatures');
   const leech = wander.indexOf("c._nextStealT = now + 1000;");
   const melee = wander.indexOf('c._nextStealT = now + MONSTER_HIT_MS;');
   assert.truthy(leech > 0 && melee > 0, 'found both melee cooldown stamps');
   for (const [at, what] of [[leech, "the slime's leech"], [melee, "the monster's melee"]]) {
-    assert.truthy(/if \(!Combat\.playerDowned\(before\)\) \{/.test(wander.slice(at, at + 220)),
-      `${what} refuses a downed player through Combat.playerDowned`);
+    assert.truthy(/Combat\.incomingDamage\(this\.save,/.test(wander.slice(at, at + 400)),
+      `${what} uses the shared incoming damage guard`);
   }
   const arrow = methodBody('_shotHitsPlayer');
-  assert.truthy(/if \(Combat\.playerDowned\(before\) \|\| !\(shot\.damage > 0\)\) return false;/.test(arrow),
-    "an arrow already in flight lands for nothing on a downed player");
+  assert.truthy(/Combat\.incomingDamage\(this\.save, shot\.damage/.test(arrow),
+    'an arrow already in flight uses the same damage guard');
+  for (const energy of [undefined, NaN, -1, 0, 1, 100]) {
+    assert.eq(Combat.incomingDamage({ energy }, 10) === 0, Combat.playerDowned(energy),
+      'damage and pursuit agree, including missing or corrupt energy');
+  }
 });
 })();

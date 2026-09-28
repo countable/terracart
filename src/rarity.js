@@ -244,7 +244,8 @@
     // TIER only, so a longer walk lands a finer seed rather than a taller
     // stack. chainMax 4 is the ceiling those bonus steps can reach — the same
     // T4 ceiling the prize had on the lowtier curve; T5/T6 stay a jackpot.
-    'treasure:road':    { classBias: { seed:0.56, produce:0.24, cash:0.20 },
+    // Road cash pays half the ordinary cash value; other rewards and odds stay the same.
+    'treasure:road':    { classBias: { seed:0.56, produce:0.24, cash:0.20 }, cashMul: 0.5,
                           chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0 },
     // ── Elite monster drop ──────────────────────────────────────
     // What a shiny cave monster pays once its kind's memory is
@@ -687,7 +688,7 @@
       let qty = 1;
       const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(tier, 7)] || 1;
       if (!ctx.singleItem) for (let i = 0; i < bracket; i++) qty += 1 + Math.floor(rng() * perBump);
-      return { kind: 'gold', amount: cashValue(tier, qty, rng), tier, cls: 'cash',
+      return { kind: 'gold', amount: Math.max(1, Math.round(cashValue(tier, qty, rng) * (ctx.cashMul ?? 1))), tier, cls: 'cash',
                jackpot: jackpotApplied, consolation: 0 };
     }
     // BUNDLE — a pile of wood or stone. Tier never climbs on this class (see

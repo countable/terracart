@@ -64,11 +64,11 @@ test('#1 armor equip: upgrading a slot replaces its tier (and its soak)', () => 
   assert.eq(save.energy, 50, 'and the bar is where it was');
 });
 
-test('#1 equipGearReward: the interact path equips the same way', () => {
-  // equipGearReward is the global from interact.js. It delegates to Gear.equip.
+test('#1 reward grant: the interact path equips the same way', () => {
+  // Reward grants delegate gear to Gear.equip.
   const save = { relics: {}, armor: {}, energy: 100, maxEnergy: 100 };
   const scene = makeScene();
-  equipGearReward({ kind: 'armor', slot: 'legs', tier: 2 }, save, scene);
+  Rewards.apply(save, { kind: 'armor', slot: 'legs', tier: 2 }, scene);
   assert.eq(save.armor.legs.tier, 2, 'looted armour lands in its slot');
   assert.eq(armorReduction(save.armor), 2, 'and starts soaking immediately');
   assert.eq(save.energy, 100, 'without touching the bar');

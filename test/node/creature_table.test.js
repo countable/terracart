@@ -185,7 +185,7 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
   const w = SCENE_CREATURES_SRC;
   assert.truthy(/const gameCharge = enraged && !standDown && !unnoticed;/.test(w),
     'it charges only when noticed and not warded (NOTHING HUNTS A BODY; Home wards it)');
-  assert.truthy(/Combat\.playerDamage\(shielded, this\.save\.armor\), \{ closeShop: true \}\)/.test(w)
+  assert.truthy(/Combat\.incomingDamage\(this\.save, raw\)/.test(w)
     && /fightsBack\.dmg \* Difficulty\.get\(\)\.enemyDmgMul/.test(w), 'the butt is mode-scaled, shielded and soaked');
   assert.truthy(/const bolting = !!bolt && !gameCharge &&/.test(w), 'a charging deer does not bolt');
 });

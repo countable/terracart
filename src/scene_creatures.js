@@ -1068,11 +1068,9 @@ class SceneCreatures {
         const pace = gm.mps / 1000;
         const fate = ghostTick(this, c, now, px, py, unnoticed, warded, pace);
         if (fate === 'touch') {
-          const before = this.save.energy ?? 0;
-          if (!Combat.playerDowned(before)) {
-            const raw = gm.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
-            const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(raw / 2) : raw;
-            const dmg = Combat.playerDamage(shielded, this.save.armor);
+          const raw = gm.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
+          const dmg = Combat.incomingDamage(this.save, raw);
+          if (dmg > 0) {
             const lost = this._losePlayerEnergy(dmg, { closeShop: true });
             this._popEnergy(-lost, { label: '👻 ghost' });
           }
@@ -1108,19 +1106,9 @@ class SceneCreatures {
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + 1000;   // one bite a second
-          const before = this.save.energy ?? 0;
-          if (!Combat.playerDowned(before)) {
-            // Hard mode doubles the leech (Difficulty.enemyDmgMul), shield or not.
-            // WORN ARMOUR SOAKS WHAT IS LEFT (Combat.playerDamage — the mode and
-            // the potion scale the blow, armour spends its pool against the
-            // result), and never to nothing: a bite always costs at least 1.
-            // Scaled by the slime's own power (Combat.powerMul — an elite or a
-            // lair guard leeches harder, the same multiplier its HP carries).
-            // The shield potion halves the bite, rounded up — the same
-            // Math.ceil(raw / 2) every monster hit takes.
-            const slimeBite = SLIME_LEECH_ENERGY * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
-            const slimeRaw = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(slimeBite / 2) : slimeBite;
-            const slimeDmg = Combat.playerDamage(slimeRaw, this.save.armor);
+          const slimeBite = SLIME_LEECH_ENERGY * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
+          const slimeDmg = Combat.incomingDamage(this.save, slimeBite);
+          if (slimeDmg > 0) {
             this._slimeStealAccum = (this._slimeStealAccum || 0)
               + this._losePlayerEnergy(slimeDmg, { closeShop: true });
           }
@@ -1128,19 +1116,18 @@ class SceneCreatures {
       }
       // THE HUNTED DEER'S BUTT: at arm's length (Combat.meleeReachM, the reach
       // the player swings at) every `hitMs`, for its row's `dmg` — through the
-      // mode, the shield and the armour like every blow (Combat.playerDamage),
+      // mode, the shield and the armour like every blow (Combat.incomingDamage),
       // banked by _losePlayerEnergy (Energy.set + the hit flash) and popped on
       // the player's cell with the monsters' roll-up (_monsterDmgAccum).
       if (gameCharge) {
         const BUTT_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + fightsBack.hitMs;
-          const before = this.save.energy ?? 0;
-          if (!Combat.playerDowned(before)) {
-            const raw = fightsBack.dmg * Difficulty.get().enemyDmgMul;
-            const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(raw / 2) : raw;
+          const raw = fightsBack.dmg * Difficulty.get().enemyDmgMul;
+          const dmg = Combat.incomingDamage(this.save, raw);
+          if (dmg > 0) {
             this._monsterDmgAccum = (this._monsterDmgAccum || 0)
-              + this._losePlayerEnergy(Combat.playerDamage(shielded, this.save.armor), { closeShop: true });
+              + this._losePlayerEnergy(dmg, { closeShop: true });
           }
         }
       }
@@ -1192,16 +1179,10 @@ class SceneCreatures {
         } else if (clear && m.range <= 1 && ddx * ddx + ddy * ddy <= R * R
                    && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + MONSTER_HIT_MS;
-          const before = this.save.energy ?? 0;
-          if (!Combat.playerDowned(before)) {
-            // An elite (shiny) monster hits for double, and a lair guard for its
-            // garrison's multiplier — Combat.powerMul (eliteMul × lairMul) is
-            // the one multiplier its HP and bounty are scaled by too.
-            const dmg = m.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
-            const shielded = (this.save.shieldPotionUntil ?? 0) > now ? Math.ceil(dmg / 2) : dmg;
-            // Worn armour soaks the rest — see the slime leech above; the same
-            // pool, the same floor of 1.
-            const monDmg = Combat.playerDamage(shielded, this.save.armor);
+          // Elite and lair power scale the attack before shield and armour.
+          const dmg = m.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
+          const monDmg = Combat.incomingDamage(this.save, dmg);
+          if (monDmg > 0) {
             this._monsterDmgAccum = (this._monsterDmgAccum || 0)
               + this._losePlayerEnergy(monDmg, { closeShop: true });
           }
