@@ -981,31 +981,38 @@
   // Plain-rock fraction of a mineralrock roll (vs an ore-bearing rock).
   //   surface (depth 0) → 0.90 plain → 0.10 ore, spread over every tier
   //                       (SURFACE_ROCK_TIER_WEIGHTS) — ~2.5 % copper-bearing
-  //   underground       → CAVE_PLAIN_P plain; the ore is the LEVEL'S OWN
-  //                       (caveOreWeights, below)
-  const CAVE_PLAIN_P = 0.80;
+  //   underground       → CAVE_ORE_SHARE of the rocks for each of the
+  //                       level's ore tiers (caveOreTiers, below), the rest
+  //                       plain: level 1 all plain, level 2 90 %, then 80 %
+  const CAVE_ORE_SHARE = 0.10;
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
-    return CAVE_PLAIN_P;
+    return 1 - CAVE_ORE_SHARE * caveOreTiers(depth).length;
   }
 
-  // EACH LEVEL IS ITS TIER'S MINE. Level N's ore is tier N and the tier below,
-  // in equal shares — with CAVE_PLAIN_P plain that is 10 % of each: level 3
-  // is 10 % iron, 10 % copper. It is the progression ladder in the rocks: a
-  // tier-N ore wants a pick of tier N-1 (requiredTier), so the copper of
-  // level 2 forges the pick that opens level 3's iron, whose pick opens level
-  // 4's gold, down to frost and crimson on level 7 (and below — the table
-  // tops out there). Ore tier 1 breaks into copper too (interactables.js
-  // BARS), so levels 1 and 2 are copper mines. Tier 4+ ore carries its gem
-  // (sapphire, ruby, emerald, then the diamond on 7). Until Sep 2026 every
-  // level below the first used the surface's spread, so frost was 3 % of ore
-  // on level 7 exactly as on level 2, and the diamonds T7 jewellery needs had
-  // no place to be mined.
-  function caveOreWeights(depth) {
+  // EACH LEVEL IS ITS TIER'S MINE. Level N's ORE ROCKS — the ones drawn with
+  // ore in them, which always break into their bar — are tier N and the tier
+  // below, CAVE_ORE_SHARE (10 %) of the rocks each: level 3 is 10 % iron,
+  // 10 % copper. Only REAL ore counts (tier 2, copper, and up): a "tier 1" ore
+  // rock breaks as plain stone (interactables.js isPlain), so level 1 is all
+  // plain rock and level 2 is 10 % copper. It is the progression ladder in
+  // the rocks: a tier-N ore wants a pick of tier N-1 (requiredTier), so level
+  // 2's copper forges the pick that opens level 3's iron, down to frost and
+  // crimson on level 7 (and below — the table tops out there). Tier 4+ ore
+  // carries its gem (sapphire, ruby, emerald, then the diamond on 7).
+  // Plain rocks keep their own hidden bar roll on break (interactables.js,
+  // 1/(2t²) per tier) on every level — this table is only the visible ore.
+  // Until Sep 2026 every level below the first used the surface's spread, so
+  // frost was 3 % of ore on level 7 exactly as on level 2.
+  function caveOreTiers(depth) {
     const top = Math.max(1, Math.min(7, depth | 0));
+    return [top - 1, top].filter((t) => t >= 2);
+  }
+  function caveOreWeights(depth) {
+    const tiers = caveOreTiers(depth);
     const w = [0, 0, 0, 0, 0, 0, 0];
-    w[top - 1] += 0.5;
-    w[Math.max(1, top - 1) - 1] += 0.5;
+    for (const t of tiers) w[t - 1] += 1 / tiers.length;
+    if (!tiers.length) w[1] = 1;   // never rolled (all plain) — a valid table
     return w;
   }
 
@@ -5624,7 +5631,7 @@
     // starter home provisioner (app.js) so a hand-seeded starter rock gets the
     // exact odds a real residential deposit gets, and exported for the
     // headless tests that pin those odds.
-    rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights,
+    rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers,
     // Per-class road width — the road-geometry overlay strokes with it.
     roadWidthM,
     // …and the width it actually COVERS, large-tier weighting included. The

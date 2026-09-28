@@ -1,23 +1,27 @@
-// EACH LEVEL IS ITS TIER'S MINE (worldgen.js caveOreWeights / caveRockP):
-// underground rocks are CAVE_PLAIN_P plain, and the ore is the level's own
-// tier and the tier below in equal shares — level 3 is 10 % iron, 10 % copper.
-// A tier-N ore wants a tier N-1 pick, so each level's ore forges the pick for
-// the next. The table tops out at 7 (frost + crimson) for every level below.
+// EACH LEVEL IS ITS TIER'S MINE (worldgen.js caveOreTiers / caveOreWeights /
+// caveRockP): underground, each of the level's ore tiers — its own and the one
+// below, real ore only (tier 2, copper, and up) — is CAVE_ORE_SHARE (10 %) of
+// the rocks, the rest plain. Level 1 is all plain, level 2 10 % copper, level 3
+// 10 % copper + 10 % iron … level 7 and below crimson + frost. This table is
+// the VISIBLE ore rocks only; plain rocks keep their hidden bar roll on break.
 (function () {
-test('cave ore: level N holds tier N and tier N-1 ore, half each', () => {
-  for (let d = 2; d <= 7; d++) {
+test('cave ore: level N\'s ore rocks are tier N and N-1, real ore only', () => {
+  assert.eq(JSON.stringify(WorldGen.caveOreTiers(1)), '[]', 'level 1: no ore');
+  assert.eq(JSON.stringify(WorldGen.caveOreTiers(2)), '[2]', 'level 2: copper');
+  assert.eq(JSON.stringify(WorldGen.caveOreTiers(3)), '[2,3]', 'level 3: copper + iron');
+  assert.eq(JSON.stringify(WorldGen.caveOreTiers(7)), '[6,7]', 'level 7: crimson + frost');
+  assert.eq(JSON.stringify(WorldGen.caveOreTiers(12)), '[6,7]', 'and every level below');
+  for (let d = 2; d <= 9; d++) {
     const w = WorldGen.caveOreWeights(d);
-    assert.eq(w.reduce((a, b) => a + b, 0), 1, `level ${d} sums to 1`);
-    assert.eq(w[d - 1], 0.5, `level ${d}: half its own tier`);
-    assert.eq(w[d - 2], 0.5, `level ${d}: half the tier below`);
+    assert.truthy(Math.abs(w.reduce((a, b) => a + b, 0) - 1) < 1e-9, `level ${d} weights sum to 1`);
+    for (const t of WorldGen.caveOreTiers(d)) assert.truthy(w[t - 1] > 0, `level ${d} rolls tier ${t}`);
   }
-  assert.eq(WorldGen.caveOreWeights(1)[0], 1, 'level 1: all tier 1 (which breaks into copper)');
-  assert.eq(JSON.stringify(WorldGen.caveOreWeights(9)), JSON.stringify(WorldGen.caveOreWeights(7)),
-    'below 7 stays frost + crimson');
 });
 
-test('cave ore: underground is four fifths plain rock, the surface nine tenths', () => {
-  for (let d = 1; d <= 9; d++) assert.eq(WorldGen.caveRockP(d), 0.8, `level ${d}`);
+test('cave ore: 10% of the rocks per ore tier, the rest plain', () => {
+  assert.eq(WorldGen.caveRockP(1), 1, 'level 1 all plain');
+  assert.truthy(Math.abs(WorldGen.caveRockP(2) - 0.9) < 1e-9, 'level 2 90% plain');
+  for (let d = 3; d <= 9; d++) assert.truthy(Math.abs(WorldGen.caveRockP(d) - 0.8) < 1e-9, `level ${d} 80% plain`);
   assert.eq(WorldGen.caveRockP(0), 0.9, 'the surface is unchanged');
 });
 })();
