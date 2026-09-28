@@ -59,7 +59,7 @@ test('elite: the treasure pool is biased to relics and pays a real reward', () =
   assert.gt(bias.relic, (LOOT_CONTEXTS['chest:civic'].classBias.relic || 0),
     'heavier relic share than the richest chest');
   const KINDS = new Set(['item', 'relic', 'armor', 'gold']);
-  let gear = 0, n = 0;
+  let gear = 0, relics = 0, n = 0;
   for (let seed = 1; seed <= 300; seed++) {
     const r = pickReward('treasure:elite', { relics: {}, armor: {} }, seeded(seed), { rollBonus: 2 });
     assert.truthy(r && KINDS.has(r.kind), 'seed ' + seed + ' produced a valid reward');
@@ -69,8 +69,13 @@ test('elite: the treasure pool is biased to relics and pays a real reward', () =
       assert.lte(r.tier, ctx.maxTier, 'item tier within the context ceiling');
       assert.truthy(ITEM_BY_ID[r.id], r.id + ' is a real item');
     }
-    if (r.kind === 'relic') assert.lte(r.tier, ctx.relicCap - 1, 'relic tier under the cap');
+    if (r.kind === 'relic') {
+      relics++;
+      assert.lte(r.tier, ctx.relicCap - 1, 'relic tier under the cap');
+      assert.falsy(r.slot === 'ring', 'elite drops preserve the wizard-exclusive Ring');
+    }
   }
+  assert.gt(relics, 0, 'the sample reaches the relic branch');
   assert.gt(gear / n, 0.3, 'a third or more of elite drops are gear rolls');
   // Commensurate tier: the depth bonus buys tier. Compare mean item tier
   // with and without the bonus over the same seeds.

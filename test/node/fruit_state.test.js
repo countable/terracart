@@ -10,6 +10,10 @@
     assert.eq(state.remainingMs, 0);
   });
 
+  test('fruit state: fruit and timber saplings share one four-day window', () => {
+    assert.eq(Crops.FRUIT_STAGE_MS * 4, PLANTED_TREE_GROW_MS);
+  });
+
   test('fruit state: planted trees advance at daily boundaries and mature at four days', () => {
     for (let stage = 0; stage < 4; stage++) {
       const state = Crops.fruitTreeState(planted, undefined, 1000 + stage * day);

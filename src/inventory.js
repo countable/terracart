@@ -42,9 +42,8 @@
     return have;
   }
 
-  // How many more of `id` would fit right now (0 = full, Infinity for
-  // cap-exempt items). Mirrors add()'s cap so a caller can detect overflow
-  // before committing (chest "leave it for later").
+  // How many more of `id` would fit right now (0 = full). Mirrors add()'s
+  // cap so a caller can detect overflow before committing a reward.
   function roomFor(save, id) {
     return Math.max(0, stackCapFor(save, id) - count(save, id));
   }
