@@ -132,9 +132,9 @@
   test('zone dressing: work-yard copper lines remain continuous and POI slots touch the chest', () => {
     const ctx = context('work_yard'), out = ZoneDressing.dress(ctx), origin = 32;
     const background = new Map(all(out).filter(o => o.zoneLayer === 'background').map(o => [`${o._ix},${o._iy}`, o]));
-    // First boundary of the fixed 31 x 31 figure sits 15 cells from its origin.
-    for (let x = origin - 15; x <= origin + 15; x++) {
-      const o = background.get(`${x},${origin - 15}`);
+    // First boundary of the fixed 21 x 21 figure sits 10 cells from its origin.
+    for (let x = origin - 10; x <= origin + 10; x++) {
+      const o = background.get(`${x},${origin - 10}`);
       assert.truthy(o, `unbroken copper line ${x}`); assert.eq(o.yieldTier, 2);
     }
     for (const o of all(out).filter(o => o.zoneLayer === 'poi')) assert.eq(Math.max(Math.abs(o._ix - origin), Math.abs(o._iy - origin)), 1);
@@ -148,7 +148,26 @@
     assert.eq(chestOut.objects.filter(o => o.kind === 'grove_shrine').length, 0, 'no extra adjacent shrine');
     assert.eq(chestOut.nexus[0].chestId, null);
     assert.eq(chestOut.nexus[0].poiId, 'church');
-    for (const o of all(chestOut).filter(o => o.zoneLayer === 'poi')) assert.eq(Math.max(Math.abs(o._ix - 35), Math.abs(o._iy - 33)), 1);
+    const composition = all(chestOut).filter(o => o.zoneLayer === 'poi');
+    assert.eq(composition.filter(o => o.crop === 'longgrass').length, 28, 'full radius-three grass disk around settled POI');
+    assert.eq(composition.filter(o => o.crop === 'shrub').length, 20, 'continuous bush rim');
+    for (const o of chestOut.wildplants) {
+      const d2 = (o._ix - 35) ** 2 + (o._iy - 33) ** 2;
+      if (o.zoneLayer === 'poi') assert.eq(o.crop, d2 <= 9 ? 'longgrass' : 'shrub');
+      if (o.crop === 'longgrass') assert.lte(d2, 9, 'no grass outside the clearing');
+      if (o.zoneLayer === 'background') assert.eq(o.crop, 'shrub', 'outer background is bushes only');
+    }
+  });
+  test('zone dressing: Flint Field has a central flint disk, rubble rim and rubble-only scatter', () => {
+    const out = ZoneDressing.dress(context('flint_field'));
+    const poi = out.wildplants.filter(o => o.zoneLayer === 'poi');
+    assert.eq(poi.filter(o => o.crop === 'flint').length, 28);
+    assert.eq(poi.filter(o => o.crop === 'rockfruit').length, 20);
+    for (const o of out.wildplants) {
+      const d2 = (o._ix - 32) ** 2 + (o._iy - 32) ** 2;
+      if (o.crop === 'flint') assert.lte(d2, 9, 'flint stays in the circle');
+      if (o.zoneLayer === 'background') assert.eq(o.crop, 'rockfruit');
+    }
   });
   test('zone dressing: different tile-row grids sample the same anchor phase across their seam', () => {
     const owner = context('ancient_grove'), a = owner.field.anchors[0];

@@ -226,9 +226,7 @@
         "orientation": "quarter_turn_toward_approach",
         "nominalDensity": 0.15,
         "materialDensity": {
-          "grass": 0.1,
-          "blue": 0.04,
-          "orange": 0.01
+          "shrub": 0.15
         },
         "type": "seeded_scatter",
         "seed": "anchor_key + variant_id + global_cell_coordinates",
@@ -246,50 +244,344 @@
         }
       },
       "poi": {
-        "id": "flower_ring",
+        "id": "grassy_clearing_with_bush_rim",
         "origin": "settled_poi",
         "slots": [
           {
             "at": [
               0,
+              -4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -2,
+              -3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -1,
+              -3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              0,
+              -3
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              -3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              -3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -3,
+              -2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -2,
+              -2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              -1,
+              -2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              0,
+              -2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              -2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              2,
+              -2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              3,
+              -2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -3,
               -1
             ],
-            "material": "blue"
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -2,
+              -1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              2,
+              -1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              3,
+              -1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -4,
+              0
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -3,
+              0
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              -2,
+              0
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "grass"
           },
           {
             "at": [
               1,
               0
             ],
-            "material": "orange"
+            "material": "grass"
+          },
+          {
+            "at": [
+              2,
+              0
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              3,
+              0
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              4,
+              0
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -3,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -2,
+              1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              -1,
+              1
+            ],
+            "material": "grass"
           },
           {
             "at": [
               0,
               1
             ],
-            "material": "blue"
-          },
-          {
-            "at": [
-              -1,
-              0
-            ],
-            "material": "orange"
+            "material": "grass"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "blue"
+            "material": "grass"
+          },
+          {
+            "at": [
+              2,
+              1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              3,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -3,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -2,
+              2
+            ],
+            "material": "grass"
           },
           {
             "at": [
               -1,
-              -1
+              2
             ],
-            "material": "orange"
+            "material": "grass"
+          },
+          {
+            "at": [
+              0,
+              2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              3,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -2,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -1,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              0,
+              3
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              0,
+              4
+            ],
+            "material": "shrub"
           }
         ],
         "relocation": {
@@ -303,44 +595,338 @@
             {
               "at": [
                 0,
+                -4
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -2,
+                -3
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -1,
+                -3
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                0,
+                -3
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                1,
+                -3
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                2,
+                -3
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -3,
                 -2
               ],
-              "material": "blue"
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -2,
+                -2
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                -1,
+                -2
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                1,
+                -2
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                2,
+                -2
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                3,
+                -2
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -3,
+                -1
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -2,
+                -1
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                -1,
+                -1
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                0,
+                -1
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                1,
+                -1
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                2,
+                -1
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                3,
+                -1
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -4,
+                0
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -3,
+                0
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                -1,
+                0
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                1,
+                0
+              ],
+              "material": "grass"
             },
             {
               "at": [
                 2,
                 0
               ],
-              "material": "orange"
+              "material": "grass"
+            },
+            {
+              "at": [
+                3,
+                0
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                4,
+                0
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -3,
+                1
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -2,
+                1
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                -1,
+                1
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                0,
+                1
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                1,
+                1
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                2,
+                1
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                3,
+                1
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -3,
+                2
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -2,
+                2
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                -1,
+                2
+              ],
+              "material": "grass"
             },
             {
               "at": [
                 0,
                 2
               ],
-              "material": "blue"
+              "material": "grass"
             },
             {
               "at": [
-                -2,
-                0
+                1,
+                2
               ],
-              "material": "orange"
+              "material": "grass"
             },
             {
               "at": [
                 2,
                 2
               ],
-              "material": "blue"
+              "material": "grass"
+            },
+            {
+              "at": [
+                3,
+                2
+              ],
+              "material": "shrub"
             },
             {
               "at": [
                 -2,
-                -2
+                3
               ],
-              "material": "orange"
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -1,
+                3
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                0,
+                3
+              ],
+              "material": "grass"
+            },
+            {
+              "at": [
+                1,
+                3
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                2,
+                3
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                0,
+                4
+              ],
+              "material": "shrub"
             }
           ],
           "origin": "settled_poi",
@@ -351,10 +937,16 @@
           }
         },
         "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
-        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap",
+        "adjacency": "grass_disk_touches_poi; continuous_one_cell_shrub_rim",
         "composition": {
           "replaceBackgroundAt": "poi_cell_and_declared_slots_only",
           "preserveUntouchedNeighbors": true
+        },
+        "clearing": {
+          "radiusCells": 3,
+          "rimWidthCells": 1,
+          "material": "grass",
+          "rimMaterial": "shrub"
         }
       },
       "finds": {
@@ -393,18 +985,12 @@
         "count": 3
       },
       "connection": {
-        "shape": "alternating_markers",
-        "material": "blue",
-        "spacingCells": 3,
-        "from": "poi",
-        "to": "finds",
-        "withinCoverageBudget": true,
-        "crossMajorRoad": false
+        "shape": "none"
       },
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Irregular grass and small flowers cover the meadow; blue markers lead to three roses in an outer arc.",
+      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, bushes occupy 15% of cells; no grass or ordinary flowers. Three wild roses remain as special finds.",
       "attracts": {
         "rabbit": 0.5,
         "butterfly": 0.65
@@ -1484,97 +2070,139 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          9,
-          9
+          7,
+          7
         ],
         "slots": [
           {
             "at": [
-              4,
-              3
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              5,
-              3
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              6,
-              3
+              2,
+              1
             ],
             "material": "grass"
           },
           {
             "at": [
               3,
-              4
+              1
             ],
             "material": "grass"
           },
           {
             "at": [
               4,
-              4
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              5,
-              4
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              6,
-              4
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              7,
-              4
+              1
             ],
             "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "shrub"
           },
           {
             "at": [
               3,
-              5
+              2
             ],
-            "material": "grass"
+            "material": "shrub"
           },
           {
             "at": [
               4,
-              5
+              2
             ],
             "material": "shrub"
           },
           {
             "at": [
               5,
-              5
+              2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              3
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              2,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              3
             ],
             "material": "tree"
           },
           {
             "at": [
-              6,
-              5
+              4,
+              3
             ],
             "material": "shrub"
           },
           {
             "at": [
-              7,
+              5,
+              3
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              4
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              2,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              5,
+              4
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              2,
               5
             ],
             "material": "grass"
@@ -1582,56 +2210,14 @@
           {
             "at": [
               3,
-              6
+              5
             ],
             "material": "grass"
           },
           {
             "at": [
               4,
-              6
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              5,
-              6
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              6,
-              6
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              7,
-              6
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              4,
-              7
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              5,
-              7
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              6,
-              7
+              5
             ],
             "material": "grass"
           }
@@ -1639,17 +2225,17 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.28888888888888886,
+        "nominalDensity": 0.4514285714285714,
         "materialDensity": {
-          "tree": 0.012345679012345678,
-          "shrub": 0.09876543209876543,
-          "grass": 0.17777777777777776
+          "tree": 0.02040816326530612,
+          "shrub": 0.16326530612244897,
+          "grass": 0.2677551020408163
         },
         "type": "repeat_motif",
         "cluster": {
           "centerCell": [
-            5,
-            5
+            3,
+            3
           ],
           "shape": "rounded_concentric_rings",
           "outerRadiusSquaredCells": 6,
@@ -1670,8 +2256,8 @@
         },
         "poiOrigin": {
           "cell": [
-            5,
-            5
+            3,
+            3
           ],
           "role": "cluster_center_replacing_center_tree"
         },
@@ -1842,7 +2428,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Rounded tree, bush and grass clusters repeat nine cells apart. A light scatter of grass crosses the gaps; stone markers lead from the central grove to its guarded starflower.",
+      "atmosphere": "Rounded tree, bush and grass clusters repeat seven cells apart. A light scatter of grass crosses the gaps; stone markers lead from the central grove to its guarded starflower.",
       "attracts": {
         "deer": 0.6
       }
@@ -1865,17 +2451,6 @@
         "stoneRings": [
           {
             "radiusCells": 3,
-            "count": 10,
-            "sequence": [
-              "iron_ore",
-              "stone",
-              "stone",
-              "stone",
-              "stone"
-            ]
-          },
-          {
-            "radiusCells": 6,
             "count": 20,
             "sequence": [
               "iron_ore",
@@ -1886,8 +2461,19 @@
             ]
           },
           {
+            "radiusCells": 6,
+            "count": 40,
+            "sequence": [
+              "iron_ore",
+              "stone",
+              "stone",
+              "stone",
+              "stone"
+            ]
+          },
+          {
             "radiusCells": 9,
-            "count": 30,
+            "count": 60,
             "sequence": [
               "iron_ore",
               "stone",
@@ -1919,7 +2505,21 @@
           },
           {
             "at": [
+              11,
+              7
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               12,
+              8
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              13,
               8
             ],
             "material": "stone"
@@ -1930,6 +2530,13 @@
               9
             ],
             "material": "stone"
+          },
+          {
+            "at": [
+              13,
+              10
+            ],
+            "material": "iron_ore"
           },
           {
             "at": [
@@ -1947,7 +2554,21 @@
           },
           {
             "at": [
+              11,
+              13
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               10,
+              13
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              9,
               13
             ],
             "material": "iron_ore"
@@ -1962,7 +2583,21 @@
           {
             "at": [
               7,
+              12
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              7,
               11
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              7,
+              10
             ],
             "material": "stone"
           },
@@ -1971,12 +2606,33 @@
               7,
               9
             ],
+            "material": "iron_ore"
+          },
+          {
+            "at": [
+              7,
+              8
+            ],
             "material": "stone"
           },
           {
             "at": [
               8,
               8
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              8,
+              7
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              9,
+              7
             ],
             "material": "stone"
           },
@@ -1989,8 +2645,22 @@
           },
           {
             "at": [
+              11,
+              4
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               12,
               4
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              13,
+              5
             ],
             "material": "stone"
           },
@@ -2003,6 +2673,13 @@
           },
           {
             "at": [
+              14,
+              6
+            ],
+            "material": "iron_ore"
+          },
+          {
+            "at": [
               15,
               6
             ],
@@ -2010,8 +2687,22 @@
           },
           {
             "at": [
+              15,
+              7
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               16,
               8
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              16,
+              9
             ],
             "material": "stone"
           },
@@ -2025,7 +2716,21 @@
           {
             "at": [
               16,
+              11
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              16,
               12
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              15,
+              13
             ],
             "material": "stone"
           },
@@ -2039,6 +2744,20 @@
           {
             "at": [
               14,
+              14
+            ],
+            "material": "iron_ore"
+          },
+          {
+            "at": [
+              14,
+              15
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              13,
               15
             ],
             "material": "stone"
@@ -2052,6 +2771,13 @@
           },
           {
             "at": [
+              11,
+              16
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               10,
               16
             ],
@@ -2059,8 +2785,22 @@
           },
           {
             "at": [
+              9,
+              16
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               8,
               16
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              7,
+              15
             ],
             "material": "stone"
           },
@@ -2073,8 +2813,22 @@
           },
           {
             "at": [
+              6,
+              14
+            ],
+            "material": "iron_ore"
+          },
+          {
+            "at": [
               5,
               14
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              5,
+              13
             ],
             "material": "stone"
           },
@@ -2088,6 +2842,13 @@
           {
             "at": [
               4,
+              11
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              4,
               10
             ],
             "material": "iron_ore"
@@ -2095,7 +2856,21 @@
           {
             "at": [
               4,
+              9
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              4,
               8
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              5,
+              7
             ],
             "material": "stone"
           },
@@ -2109,6 +2884,20 @@
           {
             "at": [
               6,
+              6
+            ],
+            "material": "iron_ore"
+          },
+          {
+            "at": [
+              6,
+              5
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              7,
               5
             ],
             "material": "stone"
@@ -2122,6 +2911,13 @@
           },
           {
             "at": [
+              9,
+              4
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               10,
               1
             ],
@@ -2129,8 +2925,22 @@
           },
           {
             "at": [
+              11,
+              1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               12,
               1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              13,
+              2
             ],
             "material": "stone"
           },
@@ -2146,6 +2956,20 @@
               15,
               3
             ],
+            "material": "iron_ore"
+          },
+          {
+            "at": [
+              16,
+              3
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              16,
+              4
+            ],
             "material": "stone"
           },
           {
@@ -2157,15 +2981,36 @@
           },
           {
             "at": [
+              17,
+              5
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               18,
-              6
+              5
             ],
             "material": "iron_ore"
           },
           {
             "at": [
-              19,
+              18,
+              6
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              18,
               7
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              19,
+              8
             ],
             "material": "stone"
           },
@@ -2179,6 +3024,13 @@
           {
             "at": [
               19,
+              10
+            ],
+            "material": "iron_ore"
+          },
+          {
+            "at": [
+              19,
               11
             ],
             "material": "stone"
@@ -2186,6 +3038,13 @@
           {
             "at": [
               19,
+              12
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              18,
               13
             ],
             "material": "stone"
@@ -2194,6 +3053,13 @@
             "at": [
               18,
               14
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              17,
+              15
             ],
             "material": "iron_ore"
           },
@@ -2206,6 +3072,20 @@
           },
           {
             "at": [
+              16,
+              16
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              16,
+              17
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               15,
               17
             ],
@@ -2213,7 +3093,21 @@
           },
           {
             "at": [
+              15,
+              18
+            ],
+            "material": "iron_ore"
+          },
+          {
+            "at": [
               14,
+              18
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              13,
               18
             ],
             "material": "stone"
@@ -2227,6 +3121,13 @@
           },
           {
             "at": [
+              11,
+              19
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               10,
               19
             ],
@@ -2234,8 +3135,22 @@
           },
           {
             "at": [
+              9,
+              19
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               8,
               19
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              7,
+              18
             ],
             "material": "stone"
           },
@@ -2249,7 +3164,28 @@
           {
             "at": [
               5,
+              18
+            ],
+            "material": "iron_ore"
+          },
+          {
+            "at": [
+              5,
               17
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              4,
+              17
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              4,
+              16
             ],
             "material": "stone"
           },
@@ -2262,14 +3198,28 @@
           },
           {
             "at": [
-              2,
+              3,
               15
             ],
             "material": "iron_ore"
           },
           {
             "at": [
-              1,
+              2,
+              15
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
+              14
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
               13
             ],
             "material": "stone"
@@ -2277,7 +3227,21 @@
           {
             "at": [
               1,
+              12
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
               11
+            ],
+            "material": "iron_ore"
+          },
+          {
+            "at": [
+              1,
+              10
             ],
             "material": "stone"
           },
@@ -2291,6 +3255,13 @@
           {
             "at": [
               1,
+              8
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
               7
             ],
             "material": "stone"
@@ -2298,9 +3269,16 @@
           {
             "at": [
               2,
-              5
+              6
             ],
             "material": "iron_ore"
+          },
+          {
+            "at": [
+              3,
+              5
+            ],
+            "material": "stone"
           },
           {
             "at": [
@@ -2311,10 +3289,24 @@
           },
           {
             "at": [
-              5,
+              4,
+              4
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              4,
               3
             ],
             "material": "stone"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "iron_ore"
           },
           {
             "at": [
@@ -2325,7 +3317,21 @@
           },
           {
             "at": [
+              7,
+              2
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               8,
+              1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              9,
               1
             ],
             "material": "stone"
@@ -2541,10 +3547,10 @@
             "material": "grass"
           }
         ],
-        "nominalDensity": 0.20408163265306123,
+        "nominalDensity": 0.3401360544217687,
         "materialDensity": {
-          "iron_ore": 0.027210884353741496,
-          "stone": 0.10884353741496598,
+          "iron_ore": 0.05442176870748299,
+          "stone": 0.21768707482993196,
           "grass": 0.06802721088435375
         },
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -2686,7 +3692,8 @@
         "from": "poi",
         "to": "finds",
         "withinCoverageBudget": true,
-        "crossMajorRoad": false
+        "crossMajorRoad": false,
+        "preserveLines": true
       },
       "guards": {
         "mode": "none"
@@ -3905,8 +4912,7 @@
         "orientation": "quarter_turn_toward_approach",
         "nominalDensity": 0.15,
         "materialDensity": {
-          "flint": 0.1,
-          "rubble": 0.05
+          "rubble": 0.15
         },
         "type": "seeded_scatter",
         "seed": "anchor_key + variant_id + global_cell_coordinates",
@@ -3924,13 +4930,174 @@
         }
       },
       "poi": {
-        "id": "flint_ring",
+        "id": "flint_circle_with_rubble_rim",
         "origin": "settled_poi",
         "slots": [
           {
             "at": [
               0,
+              -4
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -2,
+              -3
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -1,
+              -3
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              0,
+              -3
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              1,
+              -3
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              2,
+              -3
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -3,
+              -2
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -2,
+              -2
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              -1,
+              -2
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              0,
+              -2
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              1,
+              -2
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              2,
+              -2
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              3,
+              -2
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -3,
               -1
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -2,
+              -1
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              2,
+              -1
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              3,
+              -1
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -4,
+              0
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -3,
+              0
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              -2,
+              0
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              -1,
+              0
             ],
             "material": "flint"
           },
@@ -3943,7 +5110,35 @@
           },
           {
             "at": [
-              0,
+              2,
+              0
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              3,
+              0
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              4,
+              0
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -3,
+              1
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -2,
               1
             ],
             "material": "flint"
@@ -3951,9 +5146,128 @@
           {
             "at": [
               -1,
-              0
+              1
             ],
             "material": "flint"
+          },
+          {
+            "at": [
+              0,
+              1
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              2,
+              1
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              3,
+              1
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -3,
+              2
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -2,
+              2
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              -1,
+              2
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              0,
+              2
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              1,
+              2
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              3,
+              2
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -2,
+              3
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              -1,
+              3
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              0,
+              3
+            ],
+            "material": "flint"
+          },
+          {
+            "at": [
+              1,
+              3
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              2,
+              3
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              0,
+              4
+            ],
+            "material": "rubble"
           }
         ],
         "relocation": {
@@ -3967,7 +5281,175 @@
             {
               "at": [
                 0,
+                -4
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -2,
+                -3
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -1,
+                -3
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                0,
+                -3
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                1,
+                -3
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                2,
+                -3
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -3,
                 -2
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -2,
+                -2
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                -1,
+                -2
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                1,
+                -2
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                2,
+                -2
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                3,
+                -2
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -3,
+                -1
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -2,
+                -1
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                -1,
+                -1
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                0,
+                -1
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                1,
+                -1
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                2,
+                -1
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                3,
+                -1
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -4,
+                0
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -3,
+                0
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                -1,
+                0
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                1,
+                0
               ],
               "material": "flint"
             },
@@ -3980,6 +5462,90 @@
             },
             {
               "at": [
+                3,
+                0
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                4,
+                0
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -3,
+                1
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -2,
+                1
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                -1,
+                1
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                0,
+                1
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                1,
+                1
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                2,
+                1
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                3,
+                1
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -3,
+                2
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -2,
+                2
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                -1,
+                2
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
                 0,
                 2
               ],
@@ -3987,10 +5553,66 @@
             },
             {
               "at": [
-                -2,
-                0
+                1,
+                2
               ],
               "material": "flint"
+            },
+            {
+              "at": [
+                2,
+                2
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                3,
+                2
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -2,
+                3
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -1,
+                3
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                0,
+                3
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                1,
+                3
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                2,
+                3
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                0,
+                4
+              ],
+              "material": "rubble"
             }
           ],
           "origin": "settled_poi",
@@ -4001,10 +5623,16 @@
           }
         },
         "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
-        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap",
+        "adjacency": "flint_disk_touches_poi; continuous_one_cell_rubble_rim",
         "composition": {
           "replaceBackgroundAt": "poi_cell_and_declared_slots_only",
           "preserveUntouchedNeighbors": true
+        },
+        "clearing": {
+          "radiusCells": 3,
+          "rimWidthCells": 1,
+          "material": "flint",
+          "rimMaterial": "rubble"
         }
       },
       "finds": {
@@ -4043,18 +5671,12 @@
         "count": 3
       },
       "connection": {
-        "shape": "stepping_stones",
-        "material": "rubble",
-        "spacingCells": 3,
-        "from": "poi",
-        "to": "finds",
-        "withinCoverageBudget": true,
-        "crossMajorRoad": false
+        "shape": "none"
       },
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Loose flint and rubble lie unevenly across the field; stepping stones link three mineral finds.",
+      "atmosphere": "A radius-three flint circle surrounds the POI, edged with a continuous rubble rim. Rubble scatters at 15% outside; three gemfruit finds remain.",
       "attracts": {}
     },
     {
@@ -4377,8 +5999,8 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          8,
+          8
         ],
         "slots": [
           {
@@ -4397,14 +6019,14 @@
           },
           {
             "at": [
-              6,
+              5,
               1
             ],
             "material": "tar"
           },
           {
             "at": [
-              7,
+              6,
               1
             ],
             "material": "tar"
@@ -4425,14 +6047,14 @@
           },
           {
             "at": [
-              6,
+              5,
               2
             ],
             "material": "tar"
           },
           {
             "at": [
-              7,
+              6,
               2
             ],
             "material": "tar"
@@ -4440,42 +6062,42 @@
           {
             "at": [
               1,
-              6
+              5
             ],
             "material": "rubble"
           },
           {
             "at": [
               2,
-              6
+              5
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              5,
+              5
             ],
             "material": "rubble"
           },
           {
             "at": [
               6,
-              6
+              5
             ],
             "material": "rubble"
           },
           {
             "at": [
-              7,
-              6
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              4,
-              4
+              3,
+              3
             ],
             "material": "tar"
           },
           {
             "at": [
-              8,
-              8
+              6,
+              6
             ],
             "material": "tar"
           }
@@ -4483,19 +6105,19 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.04,
+        "nominalDensity": 0.0625,
         "materialDensity": {
-          "rubble": 0.04
+          "rubble": 0.0625
         },
         "type": "repeat_motif",
         "hazardDensity": {
-          "tar": 0.1
+          "tar": 0.15625
         },
-        "totalOccupiedDensity": 0.14,
+        "totalOccupiedDensity": 0.21875,
         "poiOrigin": {
           "cell": [
-            4,
-            4
+            3,
+            3
           ],
           "role": "central_seep_replaced_by_poi"
         }
@@ -4655,7 +6277,7 @@
       "weight": 1,
       "background": {
         "type": "bounded_line_grid",
-        "spacingCells": 6,
+        "spacingCells": 4,
         "horizontalMaterial": "copper_rock",
         "verticalMaterial": "rubble",
         "intersectionMaterial": "copper_rock",
@@ -4667,10 +6289,10 @@
         "phaseOrigin": "settled_poi_at_plot_center",
         "orientation": "quarter_turn_toward_approach",
         "densityFalloff": "none",
-        "nominalDensity": 0.34963579604578565,
+        "nominalDensity": 0.4897959183673469,
         "materialDensity": {
-          "copper_rock": 0.1935483870967742,
-          "rubble": 0.15608740894901144
+          "copper_rock": 0.2857142857142857,
+          "rubble": 0.20408163265306123
         },
         "plots": [
           5,
@@ -4681,11 +6303,11 @@
           2
         ],
         "extentPolicy": "fixed_5_by_5_plots_clipped_to_coverage_union",
-        "densityBasis": "finite_31_by_31_footprint_before_poi_decoration",
+        "densityBasis": "finite_21_by_21_footprint_before_poi_decoration",
         "poiOrigin": {
           "cell": [
-            15,
-            15
+            10,
+            10
           ],
           "role": "plot_center"
         }
@@ -4849,14 +6471,21 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          8,
+          8
         ],
         "slots": [
           {
             "at": [
               3,
-              1
+              0
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              4,
+              0
             ],
             "material": "rubble"
           },
@@ -4869,115 +6498,150 @@
           },
           {
             "at": [
-              7,
+              6,
+              1
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              6,
               2
             ],
             "material": "rubble"
           },
           {
             "at": [
-              8,
+              6,
+              3
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              6,
               4
             ],
             "material": "rubble"
           },
           {
             "at": [
-              8,
-              6
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              6,
-              8
+              5,
+              5
             ],
             "material": "rubble"
           },
           {
             "at": [
               4,
-              8
+              6
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              3,
+              6
             ],
             "material": "rubble"
           },
           {
             "at": [
               2,
-              7
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              1,
-              5
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              1,
-              3
-            ],
-            "material": "tar"
-          },
-          {
-            "at": [
-              3,
-              3
-            ],
-            "material": "tar"
-          },
-          {
-            "at": [
-              5,
-              3
-            ],
-            "material": "tar"
-          },
-          {
-            "at": [
-              6,
-              5
-            ],
-            "material": "tar"
-          },
-          {
-            "at": [
-              4,
               6
             ],
-            "material": "tar"
+            "material": "rubble"
           },
           {
             "at": [
-              3,
+              1,
               5
             ],
-            "material": "tar"
+            "material": "rubble"
           },
           {
             "at": [
-              4,
+              0,
+              5
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              0,
+              4
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              0,
+              3
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              0,
+              2
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              0,
               1
             ],
             "material": "rubble"
           },
           {
             "at": [
-              8,
-              5
+              1,
+              1
             ],
             "material": "rubble"
           },
           {
             "at": [
-              5,
-              8
+              1,
+              0
             ],
             "material": "rubble"
+          },
+          {
+            "at": [
+              2,
+              0
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "tar"
+          },
+          {
+            "at": [
+              3,
+              2
+            ],
+            "material": "tar"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "material": "tar"
+          },
+          {
+            "at": [
+              2,
+              3
+            ],
+            "material": "tar"
           },
           {
             "at": [
@@ -4988,8 +6652,22 @@
           },
           {
             "at": [
+              2,
+              4
+            ],
+            "material": "tar"
+          },
+          {
+            "at": [
               3,
-              6
+              4
+            ],
+            "material": "tar"
+          },
+          {
+            "at": [
+              4,
+              4
             ],
             "material": "tar"
           }
@@ -4997,21 +6675,29 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.12,
+        "nominalDensity": 0.3125,
         "materialDensity": {
-          "rubble": 0.12
+          "rubble": 0.3125
         },
         "type": "repeat_motif",
         "hazardDensity": {
-          "tar": 0.08
+          "tar": 0.125
         },
-        "totalOccupiedDensity": 0.2,
+        "totalOccupiedDensity": 0.4375,
         "poiOrigin": {
           "cell": [
-            5,
-            5
+            3,
+            3
           ],
           "role": "inner_ring_clearing"
+        },
+        "ring": {
+          "centerCell": [
+            3,
+            3
+          ],
+          "outerRadiusCells": 3,
+          "innerRadiusCells": 1
         }
       },
       "poi": {
@@ -5138,7 +6824,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Thicker rubble clusters and dark tar patches trace broken rings around shared openings. Two gold-bearing rocks stand at the far side.",
+      "atmosphere": "Smaller, near-continuous rubble circles enclose tight tar rings. The circles repeat every eight cells; two gold-bearing rocks stand at the far side.",
       "attracts": {}
     }
   ]
