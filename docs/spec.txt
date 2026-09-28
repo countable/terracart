@@ -1030,12 +1030,14 @@ STREET RESTORATION (the road band itself)
    weathering tile on the base canvas); wherever a stretch has sat inside the
    player's lit reach CONTINUOUSLY for PATH_STONE_DWELL_MS (2000 ms, app.js) it
    turns to clean near-black cobble with a hairline kerb, forever, saved.
-   Footpaths restore too, to a darker packed earth. Rail never.
+   Footpaths restore too, to a darker packed earth. Rail never; neither do
+   parking aisles (WorldGen.isParkingAisle — an aisle draws no band at all,
+   so there is nothing to rebuild and no metres paid for it).
  - A STRETCH IS METRES, NOT CELLS. What restores is an INTERVAL OF ARCLENGTH
    along ONE LINE of one OSM way, in tile-local metres — the same coordinate
    the band is stroked in. The terrain grid under-reports a road every time (a
    way rasterizes exactly one cell wide however wide it is; parking aisles
-   rasterize to no cell at all), so a per-cell rule could never line up with
+   draw no cell and no band at all), so a per-cell rule could never line up with
    what the player sees restored. Until Sep 2026 this was LIT PEBBLES — one
    sprite per 20 m of path, thinned by the renderer — and half a street
    restored between two of them paid nothing at all. The pebbles, their lit
@@ -1058,8 +1060,9 @@ STREET RESTORATION (the road band itself)
        radius: standing still can't bring fresh street into the bubble, and the
        only things that can are moving to another cell or the reach changing.
        It walks the 3×3 tiles' transportation layers, skips rail ('rail' /
-       'transit') and KEEPS everything else (parking aisles included — the
-       overlay draws them), bbox-prefilters each line against the reach circle
+       'transit') and parking aisles (WorldGen.isParkingAisle — an aisle is
+       not a street: no band, no mask, no lamps, no repairs), bbox-prefilters
+       each line against the reach circle
        in tile-local metres, then takes Streets.reachIntervals (an EXACT grid
        traversal per segment, never sampling) ∩ tileSpans − what is already
        restored, and pushes it as a SNAPSHOT onto the dwell sight.
@@ -1134,7 +1137,7 @@ STREET RESTORATION (the road band itself)
        the spacing dark, bunch two lamps either side of an OSM split, and
        stand one on every junction. So a 300 m street gets three 100 m apart,
        a 1 km one ten 100 m apart, and anything under half a spacing (a
-       driveway, a slip road, a parking aisle) gets none, which is what stops
+       driveway, a slip road) gets none, which is what stops
        a dense block reading as a lit car park. Lamps outside the tile SQUARE
        are dropped, or the neighbour's buffer copy would stand a second lamp
        on the same stretch.
