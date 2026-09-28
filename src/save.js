@@ -9,6 +9,7 @@
 //   loadSave()            — synchronous read; returns {} on parse error / missing key
 //   persistSave(save)     — debounced write (coalesced ≤ SAVE_DEBOUNCE_MS)
 //   flushSave()           — synchronous write of any pending save; safe to call multiple times
+//   bindIdSet(save, field) - Set-like id collection backed by one save array
 //   SaveSession           — owns the live save's heartbeat and lifecycle flush
 //
 // Multiple saved games:
@@ -210,6 +211,45 @@ function persistSave(s) {
     if (typeof requestIdleCallback === 'function') requestIdleCallback(() => flushSave(), { timeout: 1000 });
     else flushSave();
   }, SAVE_DEBOUNCE_MS);
+}
+
+// Bind one persisted id array to a Set-like runtime view. The binding owns
+// both representations because a one-sided mutation otherwise works only
+// until reload. Every real mutation parks the same save object in the normal
+// debounce lane; repeated adds and missing deletes stay no-ops.
+function bindIdSet(save, field) {
+  if (!save || typeof save !== 'object') throw new TypeError('bindIdSet needs a save object');
+  if (typeof field !== 'string' || !field) throw new TypeError('bindIdSet needs a field name');
+
+  const ids = new Set(Array.isArray(save[field]) ? save[field] : []);
+  save[field] = [...ids];
+  let binding;
+  const sync = () => {
+    save[field] = [...ids];
+    persistSave(save);
+  };
+  binding = {
+    has(id) { return ids.has(id); },
+    add(id) {
+      if (!ids.has(id)) { ids.add(id); sync(); }
+      return binding;
+    },
+    delete(id) {
+      if (!ids.delete(id)) return false;
+      sync();
+      return true;
+    },
+    clear() {
+      if (!ids.size) return false;
+      ids.clear();
+      sync();
+      return true;
+    },
+    iterate() { return ids.values(); },
+    get size() { return ids.size; },
+    [Symbol.iterator]() { return ids[Symbol.iterator](); },
+  };
+  return binding;
 }
 
 function _detachSaveSession() {

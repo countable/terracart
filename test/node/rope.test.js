@@ -111,7 +111,9 @@ test('rope: the landing cell is stamped into dugWalls at the TARGET depth, befor
   assert.truthy(stamp, 'a target-depth block');
   assert.truthy(/this\.dugWallSet\.add\(`\$\{target\}:\$\{cellKeyFromAbsCell\(/.test(stamp[1]),
     'keyed on the TARGET depth, in digCaveWall\'s own "<depth>:<absIX>_<absIY>" format');
-  assert.truthy(/this\.save\.dugWalls = \[\.\.\.this\.dugWallSet\];/.test(stamp[1]), 'persisted with the save');
+  assert.truthy(/this\.dugWallSet = bindIdSet\(this\.save, 'dugWalls'\)/.test(app),
+    'the bound set persists every added wall through save.js');
+  assert.falsy(/this\.save\.dugWalls\s*=/.test(stamp[1]), 'the rope does not hand-sync the save array');
   assert.truthy(body.indexOf('this.dugWallSet.add(') < body.indexOf('this.changeDepth(delta, anchor);'),
     'stamped before changeDepth, so the ensureTilesAround it triggers re-applies it');
   // And the re-apply really does run on every pass, cached tile or fresh —

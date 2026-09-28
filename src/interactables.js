@@ -272,7 +272,6 @@ const INTERACTABLES = {
     complete: (ctx, o) => {
       const { scene, save } = ctx;
       scene.brokenRockSet.add(o.id);
-      save.brokenRocks = [...scene.brokenRockSet];
       // Slot 0/1 unused for the primary drop (ore starts at copper = T2); each
       // tier T2+ yields its OWN namesake bar.
       const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];

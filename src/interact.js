@@ -1257,7 +1257,6 @@ const TAP_HANDLERS = [
     if (!scene.placedRockSet.has(cellKey)) return false;
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.placedRockSet.delete(cellKey);
-      save.placedRocks = [...scene.placedRockSet];
       scene.addToInv('rockfruit', 1);
       persistSave(save);
       scene.flash('⛏ rock', sx, sy);
@@ -1379,9 +1378,8 @@ const TAP_HANDLERS = [
   { name: 'place-rock', try: (ctx) => placeOnEmptyCell(ctx, {
     itemId: 'rockfruit',
     energyKey: 'rockPlace',
-    place: ({ scene, save, cellKey }) => {
+    place: ({ scene, cellKey }) => {
       scene.placedRockSet.add(cellKey);
-      save.placedRocks = [...scene.placedRockSet];
     },
     flashMsg: '🪨 Stone set.',
   })},
@@ -1447,7 +1445,6 @@ const TAP_HANDLERS = [
       save.planted.splice(plantedIdx, 1);
       Crops.invalidateSpatialIndex(save);
       scene.tilledSet.delete(cellKey);
-      save.tilled = [...scene.tilledSet];
       Crops.clearBedQuality(save, cellKey);
       // The BED's quality, banked on the crop when it was planted (the hoe
       // tier that tilled the cell — Crops.bedQuality). Each quality tier
@@ -1679,9 +1676,8 @@ const TAP_HANDLERS = [
         save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t, id,
                                ...(asTree ? { kind: 'tree' } : {}) });
       }
-      // It's a tree now, not soil — drop the tilled marker and its bed quality.
+      // It's a tree now, not soil - drop the tilled marker and its bed quality.
       scene.tilledSet.delete(cellKey);
-      save.tilled = [...scene.tilledSet];
       Crops.clearBedQuality(save, cellKey);
       // Inject the growing fruittree straight into the covering tile's LIVE
       // cache entry (mirrors spawnInTile's fruittree block) so it appears at
@@ -1770,8 +1766,7 @@ const TAP_HANDLERS = [
     scene._toolActionStory?.('till');
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.tilledSet.add(cellKey);
-      save.tilled = [...scene.tilledSet];
-      // The bed remembers the hoe that made it — that's the produce QUALITY a
+      // The bed remembers the hoe that made it - that's the produce QUALITY a
       // crop planted here will carry (Crops.bedQuality). A better hoe is
       // therefore a better harvest, not just a cheaper one.
       const bedQ = Crops.setBedQuality(save, cellKey, save.relics?.hoe?.tier || 0);

@@ -1586,8 +1586,6 @@ Render.drawCells = function drawCells(scene) {
           Math.abs(pp.x - cc.x) < 0.1 && Math.abs(pp.y - cc.y) < 0.1);
         if (!hasPlant) {
           scene.tilledSet.delete(tilledKey);
-          scene.save.tilled = [...scene.tilledSet];
-          persistSave(scene.save);
           isTilled = false;
         }
       }

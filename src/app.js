@@ -1613,16 +1613,16 @@ class MapScene extends Phaser.Scene {
     // The chest stays out of save.opened (so it still renders + reopens) and
     // remembers exactly what it rolled, so reopening can't re-roll the loot.
     this.save.chestHold = this.save.chestHold || {};
-    this.tilledSet = new Set(this.save.tilled);
-    this.save.brokenRocks = this.save.brokenRocks || [];
-    this.brokenRockSet = new Set(this.save.brokenRocks);
-    this.save.placedRocks = this.save.placedRocks || [];
-    this.placedRockSet = new Set(this.save.placedRocks);
+    // These runtime membership views write through to their save arrays. Each
+    // mutation also joins the normal debounced persistence lane, so no caller
+    // can update the live Set while leaving reload with stale progress.
+    this.tilledSet = bindIdSet(this.save, 'tilled');
+    this.brokenRockSet = bindIdSet(this.save, 'brokenRocks');
+    this.placedRockSet = bindIdSet(this.save, 'placedRocks');
     // Cave walls the player has mined into walkable floor. Keys are
     // "<depth>:<absCellIX>_<absCellIY>" so the same GPS-mirrored cell can be dug
     // independently on each level. Re-applied to a cave tile's grid on load.
-    this.save.dugWalls = this.save.dugWalls || [];
-    this.dugWallSet = new Set(this.save.dugWalls);
+    this.dugWallSet = bindIdSet(this.save, 'dugWalls');
     // Per-save relic salt, mixed into the starter chest's SLOT roll (see
     // _placeStarterRelicChest). World generation is deliberately seedless —
     // everything hashes off location so the world survives tile eviction —
@@ -6325,7 +6325,6 @@ class MapScene extends Phaser.Scene {
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (entry && entry.grid) entry.grid[iy * entry.cellsPerEdge + ix] = 24;   // CAVE_FLOOR
     this.dugWallSet.add(`${this.depth}:${cellKeyFromAbsCell(cellIX, cellIY)}`);
-    this.save.dugWalls = [...this.dugWallSet];
   }
   // Re-apply previously-dug walls to a freshly (re)generated cave tile's grid.
   // Cave tiles are derived from the surface on demand, so a dug-out cell would
@@ -9589,7 +9588,6 @@ class MapScene extends Phaser.Scene {
     if (target > 0) {
       const c = this.cellAt(anchor.x, anchor.y);
       this.dugWallSet.add(`${target}:${cellKeyFromAbsCell(c.cellIX, c.cellIY)}`);
-      this.save.dugWalls = [...this.dugWallSet];
     }
     consumeSelected(this.save);
     this.buildInventoryDOM();

@@ -763,12 +763,10 @@
                             cellsPerEdge, tileEdgeM, cellM) {
     const save = scene.save;
     save.planted = [];
-    save.placedRocks = [];
+    scene.placedRockSet.clear();
     save.scarecrows = [];
-    save.tilled = [];
+    scene.tilledSet.clear();
     save.released = [];
-    scene.tilledSet = new Set();
-    scene.placedRockSet = new Set();
     save.restoredHouses = save.restoredHouses || {};
     const centreEntry = WorldGen.tileCache.get(WorldGen.tileKey(centreTX, centreTY));
 
@@ -825,7 +823,7 @@
     for (let stage = 0; stage < 5; stage++) {
       const { cellIX, cellIY } = sceneCell('FARMLAND', 2 + stage, 2);
       const key = absKey(cellIX, cellIY);
-      scene.tilledSet.add(key); save.tilled.push(key);
+      scene.tilledSet.add(key);
       const { x, y } = cellCenter(cellIX, cellIY);
       save.planted.push({ x, y, crop: CROPS_AT_STAGE[stage], stage, watered_t: 0 });
     }
@@ -847,7 +845,7 @@
       const ring = (dx, dy) => {
         const { cellIX, cellIY } = sceneCell('BARNYARD', dx, dy);
         const key = absKey(cellIX, cellIY);
-        if (!scene.placedRockSet.has(key)) { scene.placedRockSet.add(key); save.placedRocks.push(key); }
+        if (!scene.placedRockSet.has(key)) scene.placedRockSet.add(key);
       };
       for (let d = 0; d < s.w; d++) { ring(d, 0); ring(d, s.h - 1); }
       for (let d = 0; d < s.h; d++) { ring(0, d); ring(s.w - 1, d); }
@@ -856,7 +854,7 @@
     {
       const { cellIX, cellIY } = sceneCell('PLAZA', 2, 6);
       const key = absKey(cellIX, cellIY);
-      if (!scene.placedRockSet.has(key)) { scene.placedRockSet.add(key); save.placedRocks.push(key); }
+      if (!scene.placedRockSet.has(key)) scene.placedRockSet.add(key);
     }
 
     // ── PADDOCK: one RELEASED (tame) pet of each tameable kind. Tame animals
