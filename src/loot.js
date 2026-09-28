@@ -294,9 +294,17 @@ function chestTierDepthBonus(depth) {
 // They stay in the signature so this and its roll-side twin chestRollTier
 // take the same arguments at every call site.
 // Omit x/y/depth for the class's plain base tier.
-function chestTier(poiClass, x, y, depth) {
+// `nexus` (optional) is the chest's zone stamp (o.zoneNexus — src/zones.js):
+// the chest at the heart of a grove, churchyard or tar yard is a zone's
+// NEXUS and wears ZONE_NEXUS_TIER_BONUS more, to measure up to the fanfare
+// around it — a second reason on the same ladder as the depth bonus, capped
+// at the same CHEST_TIER_MAX. It is the world's (the zone is generated), so it
+// shows in the gem and pays in the roll alike.
+const ZONE_NEXUS_TIER_BONUS = 1;
+function chestTierZoneBonus(nexus) { return nexus ? ZONE_NEXUS_TIER_BONUS : 0; }
+function chestTier(poiClass, x, y, depth, nexus) {
   const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
-  return Math.min(CHEST_TIER_MAX, base + chestTierDepthBonus(depth));
+  return Math.min(CHEST_TIER_MAX, base + chestTierDepthBonus(depth) + chestTierZoneBonus(nexus));
 }
 // The tier a chest's CONTENTS roll at (the `tier` handed to pickReward).
 // The world tier, softened near Home: the Home drop is applied to the class
@@ -305,10 +313,10 @@ function chestTier(poiClass, x, y, depth) {
 // (or with no origin) it IS chestTier — the drop is the only difference, and
 // it never shows on the map. The loot roll in interactables.js reads this;
 // nothing that draws a chest may.
-function chestRollTier(poiClass, x, y, depth) {
+function chestRollTier(poiClass, x, y, depth, nexus) {
   const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
   const surface = Math.max(1, base - chestTierHomeDrop(x, y));
-  return Math.min(CHEST_TIER_MAX, surface + chestTierDepthBonus(depth));
+  return Math.min(CHEST_TIER_MAX, surface + chestTierDepthBonus(depth) + chestTierZoneBonus(nexus));
 }
 
 // === Themed produce / food stands ==========================================
@@ -591,7 +599,7 @@ function chestLook(o) {
   const coin = (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') && !(o.depth > 0);
   // Starter supply crates always use the box sprite; so does a tier-1 chest.
   const box = !!o.crate
-    || ((typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth) : 2) === 1;
+    || ((typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) : 2) === 1;
   const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !coin;
   const texKey = coin ? 'potofgold' : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest')));
   return (o._chestLook = { stand, coin, box: box && !wagon, wagon, texKey });

@@ -483,7 +483,7 @@ const _WAVE_TABLE = (() => {
 // Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
 // (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
 const WATERED_TINT = 0xc7c7c7;
-const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 27, 30]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, wasteland, unmapped fog
+const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
 // Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
@@ -2422,7 +2422,7 @@ Render.drawObjects = function drawObjects(scene) {
           // its light reaches further than its art: offered to the lightmap
           // before the sprite cull, with its own radius as the margin, so a
           // lantern a cell off-screen still lights the edge it stands past.
-          if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);
+          if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine')) LIGHTS.consider(scene, o, dx, dy, halfM);
           if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;
           if (o.kind === 'chest' && isDupChest(o)) return;
           // A live POI is a light too — offered AFTER the dedup (a per-frame
@@ -3177,6 +3177,13 @@ Render.drawObjects = function drawObjects(scene) {
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     stakes:   { key: 'stakes',   frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true },
+    // INFLUENCE ZONE PROPS (src/zones.js) — generated 16px art at the same
+    // 1.6, seated. A headstone stands in an Old Stones churchyard (a tap may
+    // raise a ghost or pay a one-off find — INTERACTABLES.headstone); the
+    // grove shrine (16×24, so it bottom-seats) gives a daily gift and is a
+    // light (Lighting.KINDS.shrine).
+    headstone:    { key: 'headstone',    frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    grove_shrine: { key: 'grove_shrine', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. Tap
     // refills the watering can (interact.js). scale 0.9 draws the 30px frame at
     // ~27px, inside its one cell (QC rule); the seat pass centres it there off
@@ -3944,7 +3951,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const item of chestObjs) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
-    const tier = chestTier(o.poiClass, o.x, o.y, o.depth);
+    const tier = chestTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
     const cx = Math.round(sx + 1);   // +2px right (was sx - 1)
@@ -4322,7 +4329,7 @@ Render.drawObjects = function drawObjects(scene) {
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
       cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, rabbit: 14, chicken: 14,
-      butterfly: 9, slime: 22, cave_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18,
+      butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
       const { c, dx, dy } = item;

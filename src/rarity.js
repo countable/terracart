@@ -247,6 +247,16 @@
     // Road cash pays half the ordinary cash value; other rewards and odds stay the same.
     'treasure:road':    { classBias: { seed:0.56, produce:0.24, cash:0.20 }, cashMul: 0.5,
                           chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0 },
+    // ── A grove shrine's daily gift (src/zones.js, INTERACTABLES.grove_shrine)
+    // One roll a day per shrine, worth about a buried X: the X's flat curve
+    // (no chain, T1-2, no relics), a gardener's classes — seeds first, then
+    // produce, then a consumable — and the growth powder as its FAVOURITE,
+    // the way a school is known for its Book: a grove is where things grow.
+    // (No sapling share: saplings start at T3, past this curve's ceiling, so
+    // a sapling draw would pay nothing.)
+    'treasure:shrine':  { classBias: { seed:0.55, produce:0.30, consumable:0.15 },
+                          chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
+                          favourite: { id: 'growth_powder', p: 0.5 } },
     // ── Elite monster drop ──────────────────────────────────────
     // What a shiny cave monster pays once its kind's memory is
     // banked (app.js › resolveDefeat). Biased to RELICS — half the class

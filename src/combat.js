@@ -158,6 +158,16 @@
     mps: GHOST_SPEED_MPS,
     minDepth: 0, weight: 1, spawn: 'night',
   };
+  // THE FIRE SLIME — a tar yard's garrison (src/zones.js; lairs.js 'tar'
+  // tier, held at the pumps in every mode). A SURFACE kind, so its `spawn`
+  // column is the ghost's lane ('zone': placed by the zone, never the cave
+  // bag) and it has no giant. A slime's short sight and gait, a touch quicker
+  // than the cave slime; the cave doubling below lands it on hp 20 / dmg 4
+  // and the bounty derives from that like any foe's.
+  MONSTERS_BASELINE.fire_slime = {
+    name: 'Fire Slime', hp: 10, range: 1, dmg: 2, speed: 0.9,
+    minDepth: 0, weight: 1, spawn: 'zone', sight: SLIME_SIGHT_CELLS,
+  };
   // Both goblin rows were too slow to feel like a pursuer: ×1.3 (1.0 / 0.8 →
   // 1.3 / 1.04), then doubled again (2.6 / 2.08). The archer keeps its lag
   // behind the melee goblin in proportion.

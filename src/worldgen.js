@@ -170,6 +170,19 @@
     // It is a new REASON in the residential lanes, not a new lane — every
     // "is this someone's lot?" test reads isLotTerrain, never the two codes.
     WASTELAND: 27,
+    // INFLUENCE ZONES (src/zones.js) — the HALO a zone anchor paints over the
+    // lot and commercial ground around it (RESIDENTIAL / COMMERCIAL /
+    // WASTELAND only; Zones.haloSteps, the end of rasterizeTileSteps). Each
+    // is a REASON in an existing family, not a new lane:
+    //   GROVE      — a park's lush sward (grassland; plays like PARK for
+    //                flora and fauna)
+    //   CHURCHYARD — the worn grey-green sward of a church / cemetery's
+    //                old stones (the rocky family)
+    //   TAR_YARD   — a fuel yard's dark oily ground (the industrial family)
+    // 30 is render.js' UNMAPPED pseudo-terrain, so the tar yard is 31.
+    GROVE: 28,
+    CHURCHYARD: 29,
+    TAR_YARD: 31,
   };
 
   // --- Walkability / spawnability (single source of truth) ---
@@ -2154,9 +2167,13 @@
     // multiples of that on a phone). Delegated with `yield*` it breaks every
     // 8 rows, exactly as the polygon fill it follows does. The prng is drawn in
     // the same order either way, so the scatter is identical.
-    function* spawnDebrisSteps(rings, crop, polyKey, dMin, dMax) {
+    // `patch` (optional): the biome's FLORA_PATCH row — the density is scaled
+    // per candidate by the plane noise at its global point (clumps, not a
+    // blanket). Still one draw per candidate: the stream never moves.
+    function* spawnDebrisSteps(rings, crop, polyKey, dMin, dMax, patch) {
       const prng = makeRng(polyKey);
       const density = dMin + prng() * (dMax - dMin);
+      const gx0 = tx * TILE_EXTENT, gy0 = ty * TILE_EXTENT;
       const bb = bboxOf(rings);
       const stepMvt = CELL_M / mvtToM; // one candidate per game-cell-width
       let _row = 0;
@@ -2170,7 +2187,10 @@
           if (localIX < 0 || localIY < 0 || localIX >= w || localIY >= h) continue;
           // Absolute world meters for game positioning — at the local cell center.
           const { mx: cx, my: cy } = cellCenterMeters(localIX, localIY);
-          if (prng() < density) {
+          const d = patch
+            ? density * BiomeProfiles.patchMul(patch, gx0 + xx + stepMvt * 0.5, gy0 + yy + stepMvt * 0.5)
+            : density;
+          if (prng() < d) {
             // Stash local ix/iy on the wp so the post-pass filter can read grid[] directly.
             wildplants.push(makeWildplant(crop, cx, cy,
               cellId('wp', tx, ty, localIX, localIY), { _ix: localIX, _iy: localIY }));
@@ -2586,6 +2606,7 @@
             // unluckiest roll still grows the floor rather than reading
             // barren. Unwired/unknown biomes fall back to their base-family
             // profile, so no walkable zone is ever barren.
+            const floraPatch = BiomeProfiles.patch(t);
             for (const fl of BiomeProfiles.flora(t)) {
               const seed = (polyKey ^ (fl.salt >>> 0)) >>> 0;
               if (fl.pattern === 'hedgemaze') {
@@ -2595,9 +2616,9 @@
                 yield* spawnHedgeMazeSteps(f.geom, fl.crop, fl.salt >>> 0);
               } else if (fl.dynamic) {
                 const density = Math.max(fl.dMin, ((seed % 1000) / 1000) * fl.dMax);
-                yield* spawnDebrisSteps(f.geom, fl.crop, seed, density, density);
+                yield* spawnDebrisSteps(f.geom, fl.crop, seed, density, density, floraPatch);
               } else {
-                yield* spawnDebrisSteps(f.geom, fl.crop, seed, fl.dMin, fl.dMax);
+                yield* spawnDebrisSteps(f.geom, fl.crop, seed, fl.dMin, fl.dMax, floraPatch);
               }
             }
 
@@ -2926,8 +2947,11 @@
             const poiIY = Math.floor(p.y * mvtToCell);
             const { mx: cx, my: cy } = cellCenterMeters(poiIX, poiIY);
             const id = cellId('c', tx, ty, poiIX, poiIY);
+            // `_poiAt`: the POI's own tile-local point — how an influence
+            // zone (src/zones.js) finds the chest its anchor minted, however
+            // far the placement below slides it.
             objects.push(makeObject('chest', cx, cy, id,
-              { poiClass: cls, name: f.tags.name || '' }));
+              { poiClass: cls, name: f.tags.name || '', _poiAt: `${p.x},${p.y}` }));
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
             // Building polygons are independent of POIs and never overpainted: if the POI
             // point lands on or right next to a building, slide it to the nearest non-
@@ -3110,6 +3134,9 @@
               const prng = makeRng(poiKey ^ 0xfade5a17);
               const shrubDensity = 0.18;
               const longgrassDensity = 0.10;
+              // The park's own clumps (BiomeProfiles FLORA_PATCH): the pad's
+              // greenery thins and gathers with the park around it.
+              const padPatch = spawnGreenery ? BiomeProfiles.patch(padType) : null;
               for (const [dx, dy] of shapeOffsets) {
                 const ix = cellIX + dx, iy = cellIY + dy;
                 if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
@@ -3122,10 +3149,12 @@
                 if (spawnGreenery) {
                   const r1 = prng(), r2 = prng();
                   const { mx: cellCenterMx, my: cellCenterMy } = cellCenterMeters(ix, iy);
-                  if (r1 < shrubDensity) {
+                  const pm = padPatch ? BiomeProfiles.patchMul(padPatch,
+                    tx * TILE_EXTENT + (ix + 0.5) / mvtToCell, ty * TILE_EXTENT + (iy + 0.5) / mvtToCell) : 1;
+                  if (r1 < shrubDensity * pm) {
                     wildplants.push(makeWildplant('shrub', cellCenterMx, cellCenterMy,
                       `wp_${tx}_${ty}_${ix}_${iy}_pp`, { _ix: ix, _iy: iy }));
-                  } else if (r2 < longgrassDensity) {
+                  } else if (r2 < longgrassDensity * pm) {
                     wildplants.push(makeWildplant('longgrass', cellCenterMx, cellCenterMy,
                       `wp_${tx}_${ty}_${ix}_${iy}_pl`, { _ix: ix, _iy: iy }));
                   }
@@ -3787,24 +3816,49 @@
     // now hold; spawnInTile lays it (dropping any piece whose cell something
     // placed after this pass took — the cave stair) before its other draws.
     let streetDress = null;
-    if (streetIndex && typeof StreetVariants !== 'undefined') {
-      yield 'before street dressing';
-      const occ = new Set();
+    // The occupancy both dressings claim into (street first, then the zones'
+    // nexus), built once: every cell the tile's own objects and wild plants
+    // hold. Built lazily so a tile with neither dressing pays nothing.
+    let dressOcc = null, dressPois = null;
+    const dressSpawn = () => {
+      if (dressOcc) return;
+      dressOcc = new Set();
       const claimAt = (x, y) => {
         const ix = Math.floor((x - tileOriginMx) / cellWidthM), iy = Math.floor((y - tileOriginMy) / cellWidthM);
-        if (ix >= 0 && iy >= 0 && ix < w && iy < h) occ.add(iy * w + ix);
+        if (ix >= 0 && iy >= 0 && ix < w && iy < h) dressOcc.add(iy * w + ix);
       };
       for (let i = 0; i < deduped.length; i++) claimAt(deduped[i].x, deduped[i].y);
       for (let i = 0; i < filtered.length; i++) claimAt(filtered[i].x, filtered[i].y);
-      const pois = [];
+      dressPois = [];
       for (const o of deduped) {
         if (o.kind !== 'chest') continue;
-        pois.push({ ix: Math.floor((o.x - tileOriginMx) / cellWidthM), iy: Math.floor((o.y - tileOriginMy) / cellWidthM) });
+        dressPois.push({ ix: Math.floor((o.x - tileOriginMx) / cellWidthM), iy: Math.floor((o.y - tileOriginMy) / cellWidthM) });
       }
+    };
+    if (streetIndex && typeof StreetVariants !== 'undefined') {
+      yield 'before street dressing';
+      dressSpawn();
       streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM, grid,
-        spawnOpts: { roadMask, occupied: occ, pois } });
+        spawnOpts: { roadMask, occupied: dressOcc, pois: dressPois } });
     }
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, roadClass, streetIndex, streetDress, buildingShapes };
+    // INFLUENCE ZONES (src/zones.js) — LAST, after every cull, the occupancy
+    // pass and the street dressing, so no older stream or filter ever reads a
+    // repainted cell: the field from the tile's own poi layer (+ its buffer),
+    // then the HALO (lot / commercial ground inside a zone takes the zone's
+    // terrain), then the NEXUS around each owned anchor's chest, claiming into
+    // the same occupancy the street dressing grew. spawnInTile lays the nexus
+    // like the street dressing; entry.zone is the field the runtime reads.
+    let zone = null, zoneDress = null;
+    if (typeof Zones !== 'undefined') {
+      zone = yield* Zones.fieldSteps(layersByName['poi'], tx, ty, w);
+      if (zone) {
+        yield* Zones.haloSteps(zone, grid, w, pathUnder);
+        dressSpawn();
+        zoneDress = yield* Zones.dressSteps({ field: zone, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+          spawnOpts: { roadMask, occupied: dressOcc, pois: dressPois } });
+      }
+    }
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -3978,7 +4032,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, roadClass, streetIndex, streetDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -4012,6 +4066,11 @@
       entry.roadClass = roadClass;
       entry.streetIndex = streetIndex || null;
       entry.streetDress = streetDress || null;
+      // The influence-zone field (src/zones.js — per-cell winner anchor and
+      // strength; the story, the ghosts' dusk gate) and the nexus pieces
+      // spawnInTile lays. Pure MVT like the index, re-derived by a rebuild.
+      entry.zone = zone || null;
+      entry.zoneDress = zoneDress || null;
       // Source building polygons (tile-local metres) for building_overlay.js —
       // the polygonal counterpart of entry.layers' road linework.
       entry.buildingShapes = buildingShapes || [];
@@ -4176,7 +4235,7 @@
     const TREE_BLOCK = new Set([
       T.WATER, T.PIER, ...COBBLE_TYPES,
       ...BUILDING_TYPES,
-      T.COMMERCIAL, T.INDUSTRIAL, T.ROCK,
+      T.COMMERCIAL, T.INDUSTRIAL, T.TAR_YARD, T.ROCK,
       T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
     ]);
     // Cell at (ix,iy) is hard ground a scatter object must never sit on:

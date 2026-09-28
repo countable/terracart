@@ -30,7 +30,7 @@
     BUILDING_LARGE: 12, ROAD_LG: 13, ROAD_MD: 14, SCHOOL: 15, COMMERCIAL: 16,
     INDUSTRIAL: 17, PLAYGROUND: 18, PITCH: 19, WETLAND: 20, GOLF: 21,
     ORCHARD: 22, PIER: 23, CAVE_FLOOR: 24, CAVE_WALL: 25, CAVE_LAVA: 26,
-    WASTELAND: 27,
+    WASTELAND: 27, GROVE: 28, CHURCHYARD: 29, TAR_YARD: 31,
   };
 
   // RNG salts — one independent stream per flora kind per biome so finds scatter
@@ -78,6 +78,19 @@
   // location — the same school/park/pitch would read empty on every visit).
   const DYN_MIN = 0.04;
   const dyn = (crop, max, salt) => ({ crop, dynamic: true, dMin: DYN_MIN, dMax: max, salt });
+
+  // FLORA PATCHES — a park grows in CLUMPS, not a blanket (owner, Sep 2026:
+  // "areas in the park could be dense but shouldn't pack the entire thing").
+  // A profile row's `patch` column scales each debris candidate's density by
+  // the plane noise at its GLOBAL point (util.js valueNoise2 — the one helper
+  // src/zones.js's ragged edge reads too): `dense` inside a clump — the top
+  // `share` of the plane, `cut` being valueNoise2's measured quantile for it
+  // (zones.test.js re-measures) — and `sparse` outside, `units` MVT units
+  // (~25 m) to a lattice step. The scatter still takes exactly ONE draw per
+  // candidate, so no rng stream moves: only which candidates survive.
+  // 0.3·2.0 + 0.7·0.3 ≈ 0.8 of the old blanket's plants, gathered into the
+  // clumps.
+  const FLORA_PATCH = { units: 64, salt: 5.1, share: 0.30, cut: 0.585, dense: 2.0, sparse: 0.3 };
   const fix = (crop, dMin, dMax, salt) => ({ crop, dMin, dMax, salt });
 
   // ── Families ──────────────────────────────────────────────────────────────
@@ -95,6 +108,11 @@
     // WASTELAND plays as residential land (worldgen isLotTerrain), so it is
     // the same family: yard rubble, yard flora, the odd mushroom.
     [T.RESIDENTIAL]: 'urban', [T.WASTELAND]: 'urban',
+    // The influence-zone halos (src/zones.js): a grove is grassland (its
+    // BIOME_PROFILES row is the park's), the churchyard's sward and the tar
+    // yard's oily ground are rocky, like the commercial / industrial lots
+    // they are painted over.
+    [T.GROVE]: 'grassland', [T.CHURCHYARD]: 'rocky', [T.TAR_YARD]: 'rocky',
     [T.WATER]: 'water', [T.PIER]: 'water',
     // Hard surfaces + underground rock — never grow flora. These MUST be mapped
     // explicitly: roads/buildings are painted AFTER landuse/landcover, so a
@@ -193,6 +211,8 @@
               dyn('longgrass', 0.15, S.LONGGRASS),
               fix('forgetmenot', 0.003, 0.010, S.FORGETMENOT),
               fix('marigold', 0.002, 0.006, S.MARIGOLD)],
+      // …in clumps, not a blanket (FLORA_PATCH above).
+      patch: FLORA_PATCH,
       tint: {},
     },
     [T.SCHOOL]: {
@@ -247,6 +267,7 @@
       // turf, subtle enough at tree size to just read as "well kept".
       tint: { longgrass: 0xa5d878, tree: 0xdcf0c8 },    // bright fairway green
     },
+    // (T.GROVE takes the PARK row — assigned below the table.)
     [T.ORCHARD]: {
       // Fruit trees (worldgen canopy) + grassy understory with wildflowers.
       flora: [dyn('longgrass', 0.08, S.ORCH_LG),
@@ -255,9 +276,18 @@
     },
   };
 
+  // A GROVE (the influence-zone halo round a park, src/zones.js) plays like
+  // the park itself for flora and fauna: the same row, not a copy.
+  BIOME_PROFILES[T.GROVE] = BIOME_PROFILES[T.PARK];
+
   // ── Accessors ───────────────────────────────────────────────────────────────
   const get = (type) => BIOME_PROFILES[type] || FAMILY_PROFILE[familyOf(type)] || FAMILY_PROFILE.grassland;
   const flora = (type) => get(type).flora || [];
+  // The row's FLORA_PATCH (or null), and the density multiplier it gives the
+  // candidate at GLOBAL MVT point (gx, gy).
+  const patch = (type) => get(type).patch || null;
+  const patchMul = (row, gx, gy) =>
+    (valueNoise2(gx / row.units, gy / row.units, row.salt) >= row.cut ? row.dense : row.sparse);
   const tint = (type, kind) => {
     const p = get(type);
     return (p.tint && p.tint[kind]) || null;
@@ -280,7 +310,7 @@
   // Soft-ground fallback set for crops no profile lists (rockfruit / generic).
   const GROUND = new Set([T.RESIDENTIAL, T.WASTELAND, T.PARK, T.FOREST, T.GRASS, T.SAND,
     T.FARMLAND, T.ROCK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.WETLAND, T.GOLF,
-    T.ORCHARD, T.COMMERCIAL, T.INDUSTRIAL]);
+    T.ORCHARD, T.COMMERCIAL, T.INDUSTRIAL, T.GROVE, T.CHURCHYARD, T.TAR_YARD]);
   const allows = (crop, type) => {
     const fams = ALLOWED_FAMILIES[crop];
     if (fams) return fams.has(familyOf(type));
@@ -336,6 +366,9 @@
     [T.PIER]:       0x74808c,
     [T.ROCK]:       0x8e857a,   // stone powder
     [T.WASTELAND]:  0x928a70,   // dry khaki grit off the scrub
+    [T.GROVE]:      0x7d8570,   // the forest's damp leaf-mould air
+    [T.CHURCHYARD]: 0x8a8a7c,   // stone powder gone mossy
+    [T.TAR_YARD]:   0x6a6258,   // oily soot
     [T.CAVE_FLOOR]: 0x2a2622,   // underground: no daylight to haze with
     [T.CAVE_WALL]:  0x2a2622,
     [T.CAVE_LAVA]:  0x2a2622,
@@ -381,23 +414,25 @@
   // spread wherever a species lists residential ground, so wasteland keeps
   // exactly the fauna it had before it had a code of its own.
   const LOT = [T.RESIDENTIAL, T.WASTELAND];
+  // The zone halos (src/zones.js) join every "anywhere natural" list; a GROVE
+  // also stands wherever a species lists the park (it plays like one).
   const ALL_NATURAL = [T.GRASS, T.FOREST, T.SAND, T.FARMLAND, ...LOT,
     T.PARK, T.ROCK, T.SCHOOL, T.COMMERCIAL, T.INDUSTRIAL, T.PLAYGROUND, T.PITCH,
-    T.WETLAND, T.GOLF, T.ORCHARD];
+    T.WETLAND, T.GOLF, T.ORCHARD, T.GROVE, T.CHURCHYARD, T.TAR_YARD];
   const BIOME_FAUNA = {
-    chicken:   { base: 30, range: 15, share: 0.80, primary: [T.FARMLAND, T.GRASS], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.SCHOOL] },
-    cow:       { base: 12, range: 12, share: 0.90, primary: [T.GRASS], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.PITCH, T.GOLF] },
+    chicken:   { base: 30, range: 15, share: 0.80, primary: [T.FARMLAND, T.GRASS], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.GROVE, T.SCHOOL] },
+    cow:       { base: 12, range: 12, share: 0.90, primary: [T.GRASS], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.GROVE, T.PITCH, T.GOLF] },
     cat:       { base: 6,  range: 8,  share: 0.80, primary: [...LOT, T.COMMERCIAL], fallback: ALL_NATURAL },
     dog:       { base: 6,  range: 8,  share: 0.80, primary: [...LOT], fallback: ALL_NATURAL },
-    deer:      { base: 8,  range: 6,  share: 1.00, primary: [T.FOREST, T.PARK, T.ORCHARD, T.WETLAND], fallback: [T.FOREST, T.PARK, T.ORCHARD, T.WETLAND, T.GOLF] },
+    deer:      { base: 8,  range: 6,  share: 1.00, primary: [T.FOREST, T.PARK, T.GROVE, T.ORCHARD, T.WETLAND], fallback: [T.FOREST, T.PARK, T.GROVE, T.ORCHARD, T.WETLAND, T.GOLF] },
     crow:      { base: 200, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
-    butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.FOREST, T.WETLAND, T.ORCHARD, T.GOLF], fallback: [T.PARK, T.FOREST, T.WETLAND, T.ORCHARD, T.GOLF, T.SCHOOL, T.PLAYGROUND] },
+    butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.GROVE, T.FOREST, T.WETLAND, T.ORCHARD, T.GOLF], fallback: [T.PARK, T.GROVE, T.FOREST, T.WETLAND, T.ORCHARD, T.GOLF, T.SCHOOL, T.PLAYGROUND] },
     slime:     { base: 50, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
   };
 
   // The accessors. The raw tables reach app.js as the bare globals below
   // (BIOME_FAUNA / FAUNA_ORDER for the fauna spawner), not through here.
-  const api = { T, flora, tint, atmos, mixHex, allows, yard, yardAllows };
+  const api = { T, flora, tint, atmos, mixHex, allows, yard, yardAllows, patch, patchMul, FLORA_PATCH };
   global.BiomeProfiles = api;
   global.BIOME_PROFILES = BIOME_PROFILES;
   global.BIOME_FAUNA = BIOME_FAUNA;

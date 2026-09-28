@@ -152,11 +152,21 @@ function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // levels never. The sun never reaches them either (ghostSunExposureAt).
 const GHOST_DARK_DAYLIGHT = 0.25;
 const GHOST_CAVE_EVERY = 2;
+// THE OLD STONES — a second reason on the same lane (src/zones.js): inside a
+// church's or a cemetery's zone (Zones.ghostAnchorAt — other faiths' places
+// of worship carry no ghost boost) the dead rise from DUSK, the sun on the
+// horizon (GHOST_ZONE_DUSK, 0.5) instead of dusk gone to dark; the pump runs
+// GHOST_ZONE_CADENCE_MUL as long between groups; and the fan is aimed at the
+// anchor, so they come up from among the stones. Every ward, the dark test,
+// GHOST_NEAR_MAX and the burn are unchanged.
+const GHOST_ZONE_DUSK = 0.5;
+const GHOST_ZONE_CADENCE_MUL = 0.5;
 // Is this a time and place ghosts rise? One predicate the pump reads: the
-// surface after dark, or a haunted cave level at any hour.
-function ghostsHaunt(depth, day) {
+// surface after dark (from dusk in a churchyard — `zone`), or a haunted cave
+// level at any hour.
+function ghostsHaunt(depth, day, zone) {
   if (depth > 0) return depth % GHOST_CAVE_EVERY === 0;
-  return day < GHOST_DARK_DAYLIGHT;
+  return day < (zone ? GHOST_ZONE_DUSK : GHOST_DARK_DAYLIGHT);
 }
 // The cadence: one group every GHOST_SPAWN_MS (5 minutes), ± the jitter, so a
 // night reads as "every so often", not as a clock.
@@ -225,17 +235,22 @@ function ghostSunExposureAt(scene, wall) {
 // ghost never rises inside a ring that would only rout it.
 function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {
   const depth = scene.depth || 0;
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
+  // The churchyard reason: the stones anchor under the player's feet, read
+  // once per pump (one Uint8 read), surface only.
+  const stones = (depth === 0 && typeof Zones !== 'undefined' && entry)
+    ? Zones.ghostAnchorAt(entry, Math.floor(pcW.cx), Math.floor(pcW.cy)) : null;
+  const cadence = stones ? GHOST_ZONE_CADENCE_MUL : 1;
   // Daylight is only asked on the surface (a cave level has no sun).
-  if (!ghostsHaunt(depth, depth > 0 ? 0 : Lighting.daylight(scene, Date.now()))) {
+  if (!ghostsHaunt(depth, depth > 0 ? 0 : Lighting.daylight(scene, Date.now()), !!stones)) {
     scene._nextGhostT = null; return 0;
   }
   // The stairs repoint the level: a timer armed on another depth is not this
   // level's, so a group can't rise the instant you arrive.
   if (scene._ghostDepth !== depth) { scene._ghostDepth = depth; scene._nextGhostT = null; }
-  if (scene._nextGhostT == null) { scene._nextGhostT = now + ghostSpawnDelay(Math.random()); return 0; }
+  if (scene._nextGhostT == null) { scene._nextGhostT = now + ghostSpawnDelay(Math.random()) * cadence; return 0; }
   if (now < scene._nextGhostT) return 0;
-  scene._nextGhostT = now + ghostSpawnDelay(Math.random());
-  const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
+  scene._nextGhostT = now + ghostSpawnDelay(Math.random()) * cadence;
   if (!entry || !entry.creatures) return 0;
   let near = 0;
   WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
@@ -244,7 +259,11 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   const want = Math.min(GHOST_NEAR_MAX - near,
     GHOST_GROUP_MIN + Math.floor(Math.random() * (GHOST_GROUP_MAX - GHOST_GROUP_MIN + 1)));
   const R = PEST_CROW_SPAWN_CELLS * scene.cellM;
-  const base = Math.random() * Math.PI * 2;
+  let base = Math.random() * Math.PI * 2;
+  if (stones) {
+    const a = Zones.anchorFrameM(stones, scene.tileEdgeM);
+    if (a.x !== px || a.y !== py) base = Math.atan2(a.y - py, a.x - px);
+  }
   let made = 0;
   for (let i = 0; made < want && i < want * 8; i++) {
     // The fan first; if the dark is not there, anywhere on the ring.
@@ -253,12 +272,37 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
     if (!scene.cellAt(x, y).loaded) continue;
     if (wardTrip({ x, y }, homePos, castleWards, wardR2)) continue;
     if (Lighting.brightnessAt(scene, x, y) > GHOST_SPAWN_DARK) continue;
-    entry.creatures.push(WorldGen.makeCreature('ghost', x, y,
-      `ghost_${pcW.tx}_${pcW.ty}_${Math.floor(now)}_${made}_${Math.floor(Math.random() * 1e4)}`,
-      { _spawnT: now }));
+    entry.creatures.push(makeGhost(x, y, now, pcW.tx, pcW.ty, made));
     made++;
   }
   return made;
+}
+// One risen ghost — session state, id minted off the clock (the pest crow's
+// shape, pruned by the same pass). The pump and a disturbed headstone both
+// mint through here.
+function makeGhost(x, y, now, tx, ty, tag) {
+  return WorldGen.makeCreature('ghost', x, y,
+    `ghost_${tx}_${ty}_${Math.floor(now)}_${tag}_${Math.floor(Math.random() * 1e4)}`,
+    { _spawnT: now });
+}
+// A ghost raised AT a point, at any hour — a tapped headstone
+// (INTERACTABLES.headstone, src/zones.js). Pushed into the tile holding the
+// point; refused (null) past GHOST_NEAR_MAX about it, or on an unloaded tile.
+function raiseGhostAt(scene, x, y, now, tag) {
+  const edge = scene.tileEdgeM;
+  if (!(edge > 0)) return null;
+  const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+  if (!entry || !entry.creatures) return null;
+  const caught = new Set((scene.save && scene.save.caught) || []);
+  let near = 0;
+  WorldGen.forEachItemNear('creatures', tx, ty, (c) => {
+    if (SpriteLayout.creatureHaunts(c.kind) && !caught.has(c.id)) near++;
+  });
+  if (near >= GHOST_NEAR_MAX) return null;
+  const g = makeGhost(x, y, now, tx, ty, tag);
+  entry.creatures.push(g);
+  return g;
 }
 // ── THE FISHED SLIME ─────────────────────────────────────────────────────────
 // Now and then a cast hooks a wild slime instead of a fish (items.js

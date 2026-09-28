@@ -116,6 +116,10 @@ const CROP_SPRITE = {
   // generated 16px piece.
   hedge:       { sheet: 'props32', custom: true, frame: 67, scale: 0.9 },
   barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
+  // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
+  // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
+  // frame of art, listed.
+  flint:       { sheet: 'flint', custom: true, frames: [0], scale: 1.36 },
 };
 
 // ── Which frame does THIS wild plant draw? ─────────────────────────────────
@@ -177,6 +181,9 @@ const WILDPLANT_RULES = {
   // one lane, two more things standing on it: axe work, wood, `picked`.
   hedge:     { output: 'wood', workRelic: 'axe', workCharged: true },
   barricade: { output: 'wood', workRelic: 'axe', workCharged: true },
+  // A tar yard's flint nodule (src/zones.js) is picked instantly for nothing,
+  // like a shell, and hands over the Flint item (id 'coal').
+  flint:     { output: 'coal' },
   // Stone debris. The pick relic's ladder times the wheel the same way a rock
   // does — but gathering loose rubble off the ground costs no energy, so no
   // `workCharged`. The one wild plant that hides something.
@@ -1112,6 +1119,14 @@ const PLAY_TIPS = [
   'One stone in ten gathered off the ground hides a gemfruit.',
   'Every new kind of thing you discover brings back a memory, and a full tank with it. Unspent, they hum with a power you might yet learn to use.',
   'A shiny flower or tree is worth ten times the money, and brings back a memory with it.',
+  // THE INFLUENCE ZONES' finds (src/zones.js): the shrine's daily gift (the
+  // coin-burst ledger), the headstones' ghost and one-off hoard rates
+  // (Zones.HEADSTONE_GHOST_P / HEADSTONE_HOARD_SHARE — zones.test.js
+  // re-derives both) and the nexus chest's extra tier (loot.js
+  // ZONE_NEXUS_TIER_BONUS, "one").
+  'A stone shrine at the heart of a named park leaves one gift a day for whoever touches it.',
+  `Touch a church's headstone and one time in ${typeof Zones !== 'undefined' ? Math.round(1 / Zones.HEADSTONE_GHOST_P) : 3} the grave gives up a ghost, at any hour. About one stone in ${typeof Zones !== 'undefined' ? Math.round(1 / Zones.HEADSTONE_HOARD_SHARE) : 5} still hides a find, once.`,
+  'The chest at the heart of a grove, a churchyard or a fuel yard wears a gem one tier finer than its kind.',
   // Fishing: available from the first water tile with nothing in hand, so it
   // is taught here beside the other things already lying around — and what
   // the ✦ row on the rod cannot carry is which fish arrives at which tier.
@@ -1136,6 +1151,9 @@ const PLAY_TIPS = [
   'The big roads are bandit country in every mode: snares on the verges, dogs on the prowl, and a goblin guarding each broken wagon at a stop.',
   // app.js SLOW_BODY_M_S / _bodyHold.
   'Tar and iron stakes on a burned road drag at your feet: your body falls behind where you truly stand until you step clear.',
+  // The influence zones (src/zones.js): the halo ground, the tar yard's tar
+  // (the same slow) and its fire slimes (lairs.js 'tar', every mode).
+  'Parks, churches and fuel yards spread their own ground around them. A fuel yard weeps tar that drags at your feet the same way, and fire slimes hold its pumps in every mode.',
   // interactables.js INTERACTABLES.waystone.
   'Touch a waystone on a pilgrim\'s way and it tells you one page of old lore — once per stone.',
   // StreetVariants closes + lairs.js 'close' (a giant goblin, every mode).
@@ -1169,6 +1187,9 @@ const PLAY_TIPS = [
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
   'Anything hostile you put down drops its pay as one coin where it fell — about a coin per 5 hit points, a little more for every level down. Walk over and pick it up.',
+  // creature_ai.js GHOST_ZONE_DUSK / GHOST_ZONE_CADENCE_MUL (the churchyard
+  // reason — churches and cemeteries only); zones.test.js re-derives "twice".
+  'Around a church or a graveyard the dead do not wait for full dark: from dusk they rise twice as often, and they come up from among the stones.',
   'Towers on a castle you have CLAIMED fight on your side: any in sight looses an arrow at the nearest foe, at a fifth of your own rate, and a foe that strays near its walls turns and runs, as it would from Home. A tower\'s kill leaves its coin and nothing more. An unclaimed castle\'s walls stay silent.',
   // ── Underground, which you go looking for ───────────────────
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore; underground, every level is a mine of its own metal and the one before it — iron and copper three levels down, and so on to the deepest.',

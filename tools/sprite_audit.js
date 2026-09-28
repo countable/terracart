@@ -259,6 +259,8 @@ const SHEETS = {
   waystone:      { file: 'assets/Objects/Generated/waystone.png',            fw: 16, fh: 16, frames: [0] },
   stakes:        { file: 'assets/Objects/Generated/stakes_a.png',            fw: 16, fh: 16, frames: [0] },
   tar:           { file: 'assets/Objects/Generated/tar.png',                 fw: 16, fh: 16, frames: [0] },
+  headstone:     { file: 'assets/Objects/Generated/headstone.png',           fw: 16, fh: 16, frames: [0] },
+  grove_shrine:  { file: 'assets/Objects/Generated/shrine.png',              fw: 16, fh: 24, frames: [0] },
 };
 
 // ── Scenarios: one row per representative (sprite, variant). key/frameIdx pick
@@ -301,6 +303,8 @@ const SCENARIOS = [
   { name: 'waystone',        key: 'waystone',      frameIdx: 0, scale: 1.6 },
   { name: 'stakes',          key: 'stakes',        frameIdx: 0, scale: 1.6 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
+  { name: 'headstone',       key: 'headstone',     frameIdx: 0, scale: 1.6 },
+  { name: 'grove shrine',    key: 'grove_shrine',  frameIdx: 0, scale: 1.6 },
 ];
 
 // ── Evaluate one scenario against the rule ─────────────────────────────────

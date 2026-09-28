@@ -182,6 +182,37 @@ class SceneCreatures {
       entry.slowCells = slow.size ? slow : null;
       entry.streetMarks = dressing.marks;
     }
+    // THE ZONES' NEXUS (src/zones.js) — laid right after the street dressing,
+    // on the same terms: computed in the sliced build (entry.zoneDress, after
+    // the street pieces claimed their cells), a piece whose cell something
+    // placed since holds is dropped, and each laid piece claims its cell for
+    // every later draw. Its tar pits join the SAME slow map (_bodyHold's slow
+    // reason) and its fire-slime garrison the same lair list — one lane each.
+    const zDress = entry.zoneDress;
+    if (zDress && !window.__TEST_MODE) {
+      const cellIdx = (p) => {
+        const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
+        const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
+        return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
+      };
+      const lay = (p) => {
+        const i = cellIdx(p);
+        if (i < 0 || _occupiedIdx.has(i)) return false;
+        _occupiedIdx.add(i);
+        return true;
+      };
+      entry.objects = entry.objects || [];
+      const slow = entry.slowCells || new Map();
+      for (const o of zDress.objects) {
+        if (!lay(o)) continue;
+        entry.objects.push(o);
+        if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
+      }
+      entry.wildplants = entry.wildplants || [];
+      for (const wp of zDress.wildplants) if (lay(wp)) entry.wildplants.push(wp);
+      for (const L of zDress.lairs) entry.streetLairs.push(L);
+      entry.slowCells = slow.size ? slow : null;
+    }
     // BANDIT STOPS: a bus stop on a MAJOR road wears the broken wagon
     // (loot.js chestLook) and holds one goblin (lairs.js 'wagon' tier). Read
     // off the live objects so an Overpass bin's stops are included.
@@ -337,7 +368,7 @@ class SceneCreatures {
     entry._spawnOpts = _spawnOpts;
     entry.traps = (typeof Traps !== 'undefined' && !window.__TEST_MODE)
       ? Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
-          Difficulty.get().trapCountMul)
+          Difficulty.get().trapCountMul, entry.zone && entry.zone.under)
       : [];
 
     // Treasure marks. Three streams:

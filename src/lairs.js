@@ -144,8 +144,16 @@
   // no terrain code can collide with them.
   const STREET_TIER_GUARDS = { wagon: 1, close: 1 };
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
-  const FIXED_GUARD_TIERS = new Set(Object.keys(STREET_TIER_GUARDS));
-  const ALWAYS_AWAKE_TIERS = new Set(Object.keys(STREET_TIER_GUARDS));
+  // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
+  // a fuel station's pumps, seated about its chest. Fixed and always held
+  // like a wagon, woken in EVERY mode, and the one tier whose count scales
+  // with the mode (MODE_SCALED_TIERS: Difficulty.slimeCountMul — 2 on easy,
+  // 4 on hard), because what holds it is slimes.
+  const ZONE_TIER_GUARDS = { tar: 2 };
+  Object.assign(TIER_GUARDS, ZONE_TIER_GUARDS);
+  const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS)]);
+  const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS)]);
+  const MODE_SCALED_TIERS = new Set(Object.keys(ZONE_TIER_GUARDS));
   // The strength multiplier — NOT a tuned number. It is exactly what carries
   // the biggest structure from its t = 0 figure to the ceiling, so the ceiling
   // and the tier table are the only things to change.
@@ -212,6 +220,8 @@
     // stream still rolls SHINY_RATE.monster like any lair guard, so about one
     // close in twenty holds the true elite.
     close: ['giant_goblin', 'giant_goblin_archer'],
+    // A tar yard: fire slimes (combat.js MONSTERS.fire_slime).
+    tar: ['fire_slime'],
   };
   const KIND_LADDER = {};
   for (const [tier, kinds] of Object.entries(KIND_ORDER)) {
@@ -241,6 +251,7 @@
     12: { rate: 0.95,  thinned: false },   // T.BUILDING_LARGE — a castle
     wagon: { rate: 1, thinned: false },    // a bandit road's broken wagon
     close: { rate: 1, thinned: false },    // a hedgerow close's head
+    tar:   { rate: 1, thinned: false },    // a tar yard's pumps
   };
 
   // ── The per-tile budget ──────────────────────────────────────────────────
@@ -483,6 +494,11 @@
   function capFor(tier, t) {
     const base = TIER_GUARDS[tier];
     if (!base) return 0;
+    if (MODE_SCALED_TIERS.has(tier)) {
+      const D = root.Difficulty;
+      const mul = (D && D.get && D.get().slimeCountMul) || 1;
+      return Math.max(1, Math.round(base * mul));
+    }
     if (FIXED_GUARD_TIERS.has(tier)) return base;
     const u = clamp01(Number.isFinite(t) ? t : 0);
     return Math.min(LAIR_MAX_PER_STRUCTURE,
@@ -999,7 +1015,7 @@
     LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
-    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
+    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     GUARD_MIN_DRAW_SCALE, guardDrawScale,
     homeRamp, lairMulFor, capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
     hashKey, ringBox,

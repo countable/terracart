@@ -449,7 +449,7 @@ const INTERACTABLES = {
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).
       const held = save.chestHold && save.chestHold[o.id];
-      const chestT = (typeof chestRollTier === 'function') ? chestRollTier(o.poiClass, o.x, o.y, o.depth) : 2;
+      const chestT = (typeof chestRollTier === 'function') ? chestRollTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) : 2;
       const category = (typeof POI_CATEGORY !== 'undefined' && POI_CATEGORY[o.poiClass]) || 'lowtier';
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }
@@ -633,6 +633,55 @@ const INTERACTABLES = {
       } else {
         scene.flash('The stone remembers.', sx, sy);
       }
+      return true;
+    },
+  },
+
+  // ---- Influence zones (src/zones.js) --------------------------------------
+  // A HEADSTONE (an Old Stones churchyard — churches and cemeteries only).
+  // Every tap may raise a ghost (Zones.HEADSTONE_GHOST_P, at any hour — the
+  // night's own ghost, creature_ai.js raiseGhostAt); Zones.headstoneHoards
+  // (a hash of the stone's id — the same stones for every player) says which
+  // hold a one-off find, rolled once from the low-tier chest table and spent
+  // in save.opened, the POI delta. The stone itself stays.
+  headstone: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      let paid = false;
+      if (typeof Zones !== 'undefined' && Zones.headstoneHoards(o.id)
+          && !(save.opened || []).includes(o.id)) {
+        save.opened = [...(save.opened || []), o.id];
+        ctx.dirty = true;
+        paid = true;
+        grantTreasureRoll(scene, save, sx, sy, '\u{1FAA6}', Zones.HEADSTONE_CONTEXT, { tier: Zones.HEADSTONE_TIER });
+      }
+      const ghostP = (typeof Zones !== 'undefined') ? Zones.HEADSTONE_GHOST_P : 0;
+      const ghost = Math.random() < ghostP && typeof raiseGhostAt === 'function'
+        && raiseGhostAt(scene, o.x, o.y, performance.now(), 'hs');
+      if (ghost) scene.flash('The grave stirs\u2026', sx, sy - (paid ? 22 : 0));
+      else if (!paid) scene.flash('Here lies someone. At rest.', sx, sy);
+      return true;
+    },
+  },
+  // A GROVE SHRINE (one per named park's grove). Once per UTC day per shrine
+  // it leaves a gift: one roll of Zones.SHRINE_CONTEXT, claimed in the
+  // coin-burst daily ledger (save.coinBurstClaimed[id + dayKey], pruned of
+  // other days as the cauldron prunes it). Not a rest ring, not a ward — its
+  // light (Lighting.KINDS.shrine) is what keeps the night off.
+  grove_shrine: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      const day = Delivery.dayKey();
+      const key = o.id + day;
+      const ledger = save.coinBurstClaimed = save.coinBurstClaimed || {};
+      if (ledger[key] === 1) {
+        scene.flash(`The shrine rests. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+        return true;
+      }
+      ledger[key] = 1;
+      for (const k of Object.keys(ledger)) if (!k.endsWith(day)) delete ledger[k];
+      ctx.dirty = true;
+      grantTreasureRoll(scene, save, sx, sy, '\u{1F33F}', Zones.SHRINE_CONTEXT);
       return true;
     },
   },

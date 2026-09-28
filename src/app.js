@@ -1102,6 +1102,11 @@ const COLORS = {
   // neighbourhood outlines). Plays as residential; looks like the abandoned
   // scrub it is: residential's dirty concrete pulled toward dusty khaki.
   27: 0x9a8e68, // WASTELAND  — dusty grey-ochre scrub
+  // INFLUENCE ZONES (src/zones.js) — the halo a park / church / fuel yard
+  // paints over the lot and commercial ground around it.
+  28: 0x5a8a48, // GROVE       — lush green sward, the one fresh green in town
+  29: 0x7d8672, // CHURCHYARD  — worn grey-green sward among the stones
+  31: 0x3b3833, // TAR_YARD    — dark oily ground
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
   // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately
   // darker than every real biome so "beyond the charted world" reads as the
@@ -3139,7 +3144,29 @@ class MapScene extends Phaser.Scene {
     const was = this._slowHere;
     this._slowHere = (entry.slowCells && entry.slowCells.get(i)) || null;
     if (this._slowHere && !was) {
-      say(this._slowHere === 'tar' ? 'Tar grips your boots.' : 'Iron stakes. Slow going.');
+      say(this._slowHere === 'tar' ? 'Tar drags at your feet.' : 'Iron stakes. Slow going.');
+    }
+    // THE ZONE: an influence zone's CORE under the feet (src/zones.js — the
+    // tile's field, one Uint8 read) tells its kind's story once per save, and
+    // a later entry gets its map line on the street's gap. It outranks the
+    // street's story on the same step (a zone is the rarer place).
+    const zone = (typeof Zones !== 'undefined') ? Zones.at(entry, lix, liy) : null;
+    const zrow = (zone && Zones.inCore(zone)) ? Zones.ZONE_KINDS[zone.kind] : null;
+    if (zrow && zrow.story !== this._zoneStoryHere) {
+      this._zoneStoryHere = zrow.story;
+      const seenZ = this.save.storySeen && this.save.storySeen[zrow.story];
+      if (!seenZ) {
+        this._storySplashOnce(zrow.story, { art: zrow.story, title: zrow.title, body: zrow.body });
+        return;
+      }
+      const lastZ = (this._streetFlashAt = this._streetFlashAt || {});
+      const nowZ = performance.now();
+      if (nowZ - (lastZ[zrow.story] || -Infinity) >= STREET_FLASH_GAP_MS) {
+        lastZ[zrow.story] = nowZ;
+        say(zrow.flash);
+      }
+    } else if (!zone) {
+      this._zoneStoryHere = null;
     }
     // THE STORY: which street is this?
     const code = entry.streetMarks ? entry.streetMarks[i] : 0;
@@ -8460,7 +8487,7 @@ class MapScene extends Phaser.Scene {
       // carries this player's edits (spawnInTile's genGrid note).
       const genGrid = entry.baseGrid || entry.grid;
       const laid = Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty,
-        this.tileEdgeM, entry._spawnOpts, mul);
+        this.tileEdgeM, entry._spawnOpts, mul, entry.zone && entry.zone.under);
       // Keep any already-discovered trap the new roll missed, one per cell.
       const cells = new Set(laid.map((t) => t._iy * N + t._ix));
       for (const t of (entry.traps || [])) {

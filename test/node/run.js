@@ -78,6 +78,10 @@ const FILES = [
   // dressing. Pure (reads WorldGen / Streets at CALL time), before worldgen.js
   // like the page loads it.
   'street_variants.js',
+  // Influence zones — the anchor field, the halo terrain and the nexus
+  // dressing. Pure (reads WorldGen at CALL time), before worldgen.js like the
+  // page loads it.
+  'zones.js',
   'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
   // loads either side of worldgen.js; index.html puts it first, so do we.
@@ -157,7 +161,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   // a stall's name promises is what it sells.
   POI_CATEGORY, CHEST_TIER_BY_CATEGORY, CHEST_TIER_HOME_RINGS_M,
   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_TIER_COLOR,
-  chestTierHomeDrop, chestTierDepthBonus, chestTier, chestRollTier, chestMirrorsUnderground,
+  chestTierHomeDrop, chestTierDepthBonus, ZONE_NEXUS_TIER_BONUS, chestTierZoneBonus, chestTier, chestRollTier, chestMirrorsUnderground,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
@@ -1258,7 +1262,11 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     num('GHOST_PLATEAU_BURN_S'), num('GHOST_LIGHT_TICK_MS'), num('GHOST_LIFETIME_MS'),
     fn('function ghostSpawnDelay(r) {'),
     fn('function ghostSunExposure(day) {'),
+    num('GHOST_ZONE_DUSK'), num('GHOST_ZONE_CADENCE_MUL'),
+    fn('function ghostsHaunt(depth, day, zone) {'),
     fn('function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {'),
+    fn('function makeGhost(x, y, now, tx, ty, tag) {'),
+    fn('function raiseGhostAt(scene, x, y, now, tag) {'),
     fn('function fireWardTrip(scene, c) {'),
     fn('function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {'),
     // The fished slime: a cast's slime, seated beside the player, angry.
@@ -1269,7 +1277,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   // land on the context global; that is what the BRIDGE above exists for).
   // The method text is a class method, so it is wrapped as an object literal
   // and the property taken off it.
-  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, GHOST_CAVE_EVERY, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN, GHOST_GROUP_MAX, GHOST_NEAR_MAX, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, monsterStrideCells, ghostSunExposure, ghostSpawnDelay };\n})();`,
+  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__raiseGhostAt = raiseGhostAt;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, GHOST_ZONE_DUSK, GHOST_ZONE_CADENCE_MUL, GHOST_CAVE_EVERY, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN, GHOST_GROUP_MAX, GHOST_NEAR_MAX, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, monsterStrideCells, ghostSunExposure, ghostSpawnDelay };\n})();`,
     ctx, { filename: 'scene_creatures.js#wanderCreatures' });
   if (typeof ctx.__wander !== 'function') {
     console.error('__wander did not come back as a function — update run.js');
@@ -1314,6 +1322,13 @@ ctx.webpDims = (rel) => {
 // two halves of that handshake against each other; nothing else can, because
 // each half is unreachable from the other's language.
 ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+// The Kelowna 3×3 MVT fixture tiles (test/fixtures/<tx>_<ty>.pbf), raw bytes
+// keyed '<tx>_<ty>' — the vm has no fs. zones.test.js decodes them (MVT) to
+// pin the influence-zone field's seam determinism on real OpenFreeMap data.
+ctx.FIXTURE_TILES = {};
+for (const f of fs.readdirSync(path.join(ROOT, 'test', 'fixtures')).filter((n) => /^\d+_\d+\.pbf$/.test(n))) {
+  ctx.FIXTURE_TILES[f.replace('.pbf', '')] = new Uint8Array(fs.readFileSync(path.join(ROOT, 'test', 'fixtures', f)));
+}
 // The canvas-resolution rule itself (app.js, the note beside W/H): lifted so
 // canvas_scale.test.js drives the shipping cap/floor rather than a copy of it.
 {

@@ -73,6 +73,20 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coin pickups may occupy roads,
   but not objects.
   Cave traps use their occupied-cell set; surface traps sit on the verge.
+- Road rules: surface traps belong only on MAJOR verges (`entry.roadClass` /
+  `ROAD_CLASS_MAJOR_VERGE`) and WASTELAND (`Traps.isTrapGround`, which reads
+  the land's class under a zone halo). SLOW is a reason inside `_bodyHold`
+  fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
+  hazard joins that map, never a new movement gate.
+- Influence zones (`src/zones.js`): anchors are POI points (park→grove,
+  fuel→tar, place of worship / cemetery→stones), sized from local crowding
+  inside the poi buffer so every tile agrees. The halo repaints ONLY
+  RESIDENTIAL / COMMERCIAL / WASTELAND, last in `rasterizeTileSteps`. Each
+  owned anchor's chest (id unchanged, `zoneNexus` → `ZONE_NEXUS_TIER_BONUS`)
+  gets a nexus pattern laid like street dressing (roadMask + occupied). No
+  decorative props: every standing piece is interactable or a hazard, one
+  art per interactable. Zone mechanics are reasons on existing lanes (tar
+  slow, lair tier, `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
 - Tile rebuilds replace the entry. Decide which state survives and which is
   regenerated; gate spawning on `entry._spawned`, not carried `creatures`.
   Do not cache a final answer from a tile still loading (no `layers` yet).
@@ -84,7 +98,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   A profile's worst-block label identifies the block ending at that yield.
 
 Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
-`spawn_rebuild`, `tile_url`, `tile_build_blocks` (`test/node/*.test.js`).
+`spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`
+(`test/node/*.test.js`).
 
 ## Coordinates, rendering and performance
 

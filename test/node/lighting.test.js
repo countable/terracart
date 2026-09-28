@@ -720,7 +720,8 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // shadow pass, the shop pip and the rampart occluder ask, so a new building
   // kind is offered to the lightmap by joining that group rather than by being
   // remembered here.
-  const offer = body.indexOf("if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);");
+  // (+ the grove shrine, src/zones.js — a standing light like the torch.)
+  const offer = body.indexOf("if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine')) LIGHTS.consider(scene, o, dx, dy, halfM);");
   const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   // The mushroom is a wildplant, scanned in its own loop: offered as itself,
@@ -834,7 +835,11 @@ test('lighting: the reach area is as bright as noon leaves room for', () => {
   };
   // 0x333025 is WASTELAND's dim (COLORS 0x9a8e68 under its khaki dust
   // 0x928a70) — added Sep 2026, and less saturated than the brick/rust pair.
-  const DIMS = [0x35261e, 0x3a2a1e, 0x1a2a1e, 0x000000, 0x8d8272, 0x2a2622, 0x333025];
+  // 0x252e20 / 0x2d2e29 / 0x1d1b18 are the influence-zone halos' (GROVE,
+  // CHURCHYARD, TAR_YARD — src/zones.js), each under its own dust; none is
+  // more saturated than the brick/rust pair either.
+  const DIMS = [0x35261e, 0x3a2a1e, 0x1a2a1e, 0x000000, 0x8d8272, 0x2a2622, 0x333025,
+    0x252e20, 0x2d2e29, 0x1d1b18];
   let tightest = Infinity;
   for (const dim of DIMS) {
     const h = headroom(dim);

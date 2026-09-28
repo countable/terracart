@@ -161,6 +161,12 @@ const ASSETS = {
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Generated/tar.png', frameWidth: 16, frameHeight: 16 },
   stakes:         { kind: 'spritesheet', path: 'assets/Objects/Generated/stakes_a.png', frameWidth: 16, frameHeight: 16 },
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/Generated/wagon.png', frameWidth: 128, frameHeight: 96 },
+  // INFLUENCE ZONES (src/zones.js) — generated 16px placeholders, one art per
+  // interactable: the churchyard's headstone, the grove's shrine (16×24) and
+  // the tar yard's flint nodule (a wild plant — items.js CROP_SPRITE.flint).
+  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Generated/headstone.png', frameWidth: 16, frameHeight: 16 },
+  grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Generated/shrine.png', frameWidth: 16, frameHeight: 24 },
+  flint:          { kind: 'spritesheet', path: 'assets/Objects/Generated/flint.png', frameWidth: 16, frameHeight: 16 },
   // Stone well — the in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch).

@@ -72,6 +72,8 @@
     'waystone:0':      { fw: 16, fh: 16, minX: 0,  minY: 1,  maxX: 16, maxY: 16 },
     'stakes:0':        { fw: 16, fh: 16, minX: 4,  minY: 0,  maxX: 12, maxY: 16 },
     'tar:0':           { fw: 16, fh: 16, minX: 0,  minY: 6,  maxX: 16, maxY: 16 },
+    'headstone:0':     { fw: 16, fh: 16, minX: 3,  minY: 0,  maxX: 12, maxY: 15 },
+    'grove_shrine:0':  { fw: 16, fh: 24, minX: 1,  minY: 3,  maxX: 15, maxY: 23 },
   };
 
   // ── Plain rock: what the art SHOWS is what it DROPS ───────────────────────
@@ -236,6 +238,12 @@
   // (there is no red to lift), which is why the hue shift is the whole of it
   // rather than a shade: a merely darker goblin would read as one in shadow.
   const TRAPPER_TINT = 0xff4a3a;
+  // THE FIRE SLIME (a tar yard's garrison — src/zones.js, lairs.js 'tar') —
+  // the surface slime's sheet taken to RUST-ORANGE, by the cave slime's
+  // reasoning: the lime body has red 0x7e and almost no blue, so the free move
+  // is to strip green toward half and blue to nothing — an ember-brown slime,
+  // a different hue from both the lime surface slime and the olive cave one.
+  const FIRE_SLIME_TINT = 0xff5a28;
   // THE GHOST — TEMPORARY ART. It has no sheet yet, so it is the purple
   // slime's drawn pale and see-through: a cold tint (a multiply can only take
   // colour away, so the purple is cooled toward blue-grey rather than made
@@ -335,6 +343,9 @@
     // shadow. Its combat `fly` (combat.js) is a MOVEMENT trait — long steps,
     // a wider stalk jitter — and never a look.
     purple_slime:  { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hopRow: SLIME_HOP_ROW, hopFrameMs: SLIME_HOP_FRAME_MS, hopRestMs: SLIME_HOP_REST_MS, cols: 4, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 0,  minY: 10, maxY: 21 },
+    // The fire slime is the SURFACE SLIME'S SHEET too — every geometry column
+    // matches the slime row; the tint is the one thing that differs.
+    fire_slime:    { sheet: 'slime',     frames: 4, frameMs: SLIME_FRAME_MS, hopRow: SLIME_HOP_ROW, hopFrameMs: SLIME_HOP_FRAME_MS, hopRestMs: SLIME_HOP_REST_MS, cols: 4, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: FIRE_SLIME_TINT },
     goblin:        { sheet: 'goblin',        frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
     goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
     // The trapper is the GOBLIN'S SHEET — every geometry column matches the
@@ -448,6 +459,9 @@
     slime:         { wanders: true },
     cave_slime:    { wanders: true },
     purple_slime:  { wanders: true },
+    // A fire slime's kill (player or pet) hands over a flint (items.js 'coal')
+    // — the tar yard's thematic prize, on top of its bounty coin.
+    fire_slime:    { wanders: true, drop: 'coal' },
     goblin:        { wanders: true },
     goblin_archer: { wanders: true },
     // A trapper's kill (by the player or their pet — resolveDefeat pays a
@@ -671,7 +685,7 @@
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
-    CAVE_SLIME_TINT, TRAPPER_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, SPIRIT_RAVEN_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
+    CAVE_SLIME_TINT, TRAPPER_TINT, FIRE_SLIME_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, SPIRIT_RAVEN_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
     creatureFoot, creatureScale, creatureInstScale, creatureFightsBack, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;

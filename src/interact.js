@@ -529,7 +529,7 @@ const TAP_HANDLERS = [
     const HALF_W = {
       cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
-      slime: 2.0, cave_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
+      slime: 2.0, cave_slime: 2.0, fire_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
     // distance to the body CENTRE so the most on-target animal wins overlaps.

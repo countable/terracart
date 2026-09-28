@@ -201,6 +201,12 @@
     // — lighting.test.js pins the order — so a lit cave reads as "a torch
     // there, some fungus here", never two of the same lamp.
     mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.50, flicker: 0, pulse: 0.35 },
+    // A GROVE SHRINE (src/zones.js — the one standing prop at a park's heart):
+    // a pale green light breathing on the POI's slow beat, a little wider than
+    // a POI's. It is a COLLECTED light, so it burns ghosts through the same
+    // brightnessAt every lamp and fire does — a refuge at night with no ward
+    // code of its own. It is NOT a rest ring and turns no foe away.
+    shrine:   { radiusCells: 3.0, colour: 0xc8f5a0, peak: 0.90, flicker: 0, pulse: 0.4 },
     // A STREET LAMP — the gilded lamp a RESTORED street stands, one every
     // Streets.lampSpacingM() metres of rebuilt carriageway (streets.js places
     // them, road_overlay.js paints the lamp, app.js hands this collector the
@@ -668,6 +674,8 @@
     if (o.kind === '_fire') return 'fire';
     if (o.kind === '_magic_trap') return 'magic_trap';
     if (o.kind === 'torch') return 'torch';
+    // A grove's shrine (src/zones.js) — its own soft green row.
+    if (o.kind === 'grove_shrine') return 'shrine';
     // A wild plant is offered as ITSELF from drawObjects' wildplant scan, and
     // which of them glows is items.js' WILDPLANT_RULES to say — the same table
     // the render-side gate asks, so a second glowing plant is one row and not

@@ -171,10 +171,17 @@
     const bit = (WG && WG.ROAD_CLASS_MAJOR_VERGE) || 2;
     return !!(roadClass[cy * w + cx] & bit);
   }
-  function isTrapGround(grid, roadClass, w, h, cx, cy) {
+  // `under` (optional): the codes an influence zone's HALO painted over
+  // (src/zones.js — entry.zone.under, 0 = untouched). Waste ground a zone
+  // repainted is still waste ground to a bandit: the trap ground is the LAND's
+  // class, so the reservoir below samples the same cells with or without the
+  // zones and no tile's traps re-roll.
+  function isTrapGround(grid, roadClass, w, h, cx, cy, under) {
     if (isRoadside(roadClass, w, h, cx, cy)) return true;
     const WG = root.WorldGen;
-    return !!(grid && WG && grid[cy * w + cx] === WG.T.WASTELAND);
+    if (!grid || !WG) return false;
+    const i = cy * w + cx;
+    return ((under && under[i]) || grid[i]) === WG.T.WASTELAND;
   }
 
   // Up to `k` trap-ground cells, sampled UNIFORMLY across the tile in a single
@@ -185,12 +192,12 @@
   // The reservoir rather than a list because of the SIZE of the thing being
   // sampled: a dense town tile's trap ground runs to thousands of cells, of
   // which this uses a few dozen. It holds a fixed k and never grows.
-  function sampleTrapCells(grid, roadClass, w, h, rng, k) {
+  function sampleTrapCells(grid, roadClass, w, h, rng, k, under) {
     const res = [];
     let seen = 0;
     for (let cy = 0; cy < h; cy++) {
       for (let cx = 0; cx < w; cx++) {
-        if (!isTrapGround(grid, roadClass, w, h, cx, cy)) continue;
+        if (!isTrapGround(grid, roadClass, w, h, cx, cy, under)) continue;
         if (res.length < k) res.push(cy * w + cx);
         else {
           const r = Math.floor(rng() * (seen + 1));
@@ -222,7 +229,8 @@
   // stub of bandit road cannot turn it into a solid minefield. The cap reads
   // the sampled pool's size, not a draw, so no stream moves because of it.
   const TRAP_GROUND_SHARE_PER_MUL = 0.003;
-  function spawnSurface(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul) {
+  // `under`: the zone halo's replaced codes (see isTrapGround), or omitted.
+  function spawnSurface(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under) {
     if (!grid || !roadClass || !root.WorldGen) return [];
     const WG = root.WorldGen;
     // Deliberately NOT WorldGen.tileStreamSeed / HASH_MUL_X/Y: traps seed their
@@ -232,7 +240,7 @@
     const mul = (countMul > 0 ? countMul : 1) * tileDanger(tx, ty);
     let n = Math.round((ROAD_TRAP_MIN + Math.floor(rng() * ROAD_TRAP_SPAN)) * mul);
     const sampleSize = mul > 1 ? Math.max(ROADSIDE_SAMPLE, n * 6) : ROADSIDE_SAMPLE;
-    const { cells: cand, seen } = sampleTrapCells(grid, roadClass, w, h, rng, sampleSize);
+    const { cells: cand, seen } = sampleTrapCells(grid, roadClass, w, h, rng, sampleSize, under);
     if (!cand.length) return [];
     n = Math.min(n, Math.max(1, Math.floor(seen * TRAP_GROUND_SHARE_PER_MUL * mul)));
     const traps = [];
