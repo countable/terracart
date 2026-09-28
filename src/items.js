@@ -1059,7 +1059,8 @@ const ITEM_GUIDE_TIPS = {
 // coords.js (reach), crops.js (growth), combat.js (weapons, HP, the health
 // BAR), traps.js (the snares), quests.js (the castle board), delivery.js
 // (wishlists), shops_math.js (deal caps + stall prices), rarity.js
-// (chest/shop tables), loot.js (chest tiers, the Home demotion), gear.js
+// (chest/shop tables), loot.js (chest tiers by density, restock days,
+// barrels, pots of gold), gear.js
 // (recipes), interactables.js (the slow grind, mining gates), items.js above
 // (foods, relics, animal foods), interact.js (taming / hunting / placeables)
 // and worldgen.js (biomes, caves).
@@ -1128,13 +1129,29 @@ const PLAY_TIPS = [
   'Treasure X marks are buried in car parks — every parking lot hides one.',
   'Sand is dug ground: a beach hides X marks far thicker than the streets and fields inland.',
   'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
-  'Chests near home pay humbler: whatever their gem, they give a tier less within 700m of your trailer, two within 350m. The prizes are a walk away.',
-  // THE DAILY CRATE (interactables.js refillsDaily): the gemless crate comes
-  // back every UTC day at its own tier (the coin-burst day ledger); every
-  // other chest, and every X mark, is one-off (save.opened / foundTreasures).
-  'A plain crate refills every day, at midnight UTC. A trunk, a wagon, a cave chest or an X mark gives once, for good.',
-  // The POI light (interactables.js poiLit) — one mark for "still there today".
-  'A chest, crate, chapel or park shrine that glows still has something for you. Take it and the light goes out until the day turns.',
+  // THE TIER IS DENSITY (loot.js CHEST_DENSITY_TIERS / chestTier): how many
+  // of the chest's kind its tile holds. books.test.js re-derives "the only
+  // one" (T4 at 1, the violet gem) and "twenty-five" (CHEST_DENSITY_T1_AT).
+  'A chest\'s gem says how rare its kind is on that stretch of map: the only one of its kind wears violet, and where twenty-five or more of a kind crowd together each is a plain crate.',
+  // THE CRATE (interactables.js restocks): the gemless crate comes back at
+  // its own tier after loot.js crateRestoreDays (the day ledger) — a day for
+  // an ordinary crate, one more per further CRATE_RESTORE_PER of its kind,
+  // up to CRATE_RESTORE_MAX_DAYS ("a week"); every other chest, public art
+  // and every X mark is one-off (save.opened / foundTreasures).
+  // books.test.js re-derives the day and the week.
+  'A plain crate refills at midnight UTC a day after you take it — or up to a week later where its kind crowds the streets. A trunk, a wagon, public art, a cave chest or an X mark gives once, for good.',
+  // THE BARREL (loot.js isBarrel / rollBarrel / barrelEmptyP): bins and
+  // recycling points. books.test.js re-derives "most" (BARREL_EMPTY_P_BASE
+  // over a half) and the torch / rope (BARREL_LOOT).
+  'Bins and recycling points are barrels: smash one for a coin or three, an apple, now and then a torch or a rope. Most are empty, and the more of them crowd a street the emptier they run. A smashed barrel mends like a crate.',
+  // THE POT OF GOLD (an ATM — loot.js potCoinsFor off POT_COINS_BY_DENSITY):
+  // books.test.js re-derives "thirty" (the lone pot) and "one" (the crowd).
+  'A pot of gold spills coins once a day: thirty where it stands alone, fewer the more of them share its streets, down to a single coin in a crowd.',
+  // THE BIKE RACK (loot.js isBikeRack, items.js BIKE_RACK_SPEED_MUL /
+  // BIKE_RACK_MS): books.test.js re-derives "twice" and "three minutes".
+  'A bike rack lends you a bike once a day: for three minutes the stick carries you twice as fast.',
+  // The POI light (interactables.js poiLit) — one mark for "still there".
+  'A chest, crate, barrel, bike rack, pot of gold, chapel or park shrine that glows still has something for you. Take it and the light goes out until it comes back.',
   'One stone in ten gathered off the ground hides a gemfruit.',
   'Every new kind of thing you discover brings back a memory, and a full tank with it. Unspent, they hum with a power you might yet learn to use.',
   'A shiny flower or tree is worth ten times the money, and brings back a memory with it.',
@@ -1183,8 +1200,11 @@ const PLAY_TIPS = [
   // The influence zones (src/zones.js): the halo ground, the tar yard's tar
   // (the same slow) and its fire slimes (lairs.js 'tar', every mode).
   'Parks, churches and fuel yards spread their own ground around them. A fuel yard weeps tar that drags at your feet the same way, and fire slimes hold its pumps in every mode.',
-  // interactables.js INTERACTABLES.waystone.
-  'Touch a waystone on a pilgrim\'s way and it tells you one page of old lore — once per stone.',
+  // interactables.js INTERACTABLES.waystone / .infoboard (one lane).
+  'Touch a waystone on a pilgrim\'s way, or read a notice board, and it tells you one page of old lore — once per stone or board.',
+  // THE GATES (worldgen.js gatePostsAt, lairs.js 'gate' — DAILY_TIERS, the
+  // slime / goblin ladder, every mode).
+  'A gate between two posts is a way something comes through: every day a slime or a goblin rises there, in every mode.',
   // StreetVariants closes + lairs.js 'close' (a giant goblin, every mode).
   'A hedged lane that ends in a dead end is held by a giant goblin, and something is buried at the end of it.',
   // StreetVariants.LANTERN_SPACING_DIV (twice).
@@ -1852,14 +1872,25 @@ const STEER_MUL_FLOOR = 6;      // bare hands
 // deliberately lifted from 5 because one cell a second read as a drag — so the
 // whole widening lands in the per-tier step, which goes 1.36x -> 2.57x.
 const STEER_MUL_FROST = 24;   // tier 7 boots
+// THE BIKE RACK (a bicycle_parking POI — loot.js isBikeRack): a tap lends
+// the stick walk BIKE_RACK_SPEED_MUL (+100%) for BIKE_RACK_MS, once a UTC day
+// per rack. It is one more REASON in this lane, not a speed system of its
+// own: app.js _walkRelics reads save.bikeUntil and hands the factor on the
+// boots as `boost`, and steerSpeedMul multiplies it in — so it rides every
+// path the stick speed rides (the stick, the drift home) and none of the GPS
+// walk's, which never reads this function. A multiplier rather than lent
+// tiers because the promise is "twice as fast", whatever boots are worn.
+const BIKE_RACK_SPEED_MUL = 2;
+const BIKE_RACK_MS = 3 * 60 * 1000;
 function steerSpeedMul(gear) {
   const t = gear?.boots?.tier || 0;
+  const boost = gear?.boots?.boost > 0 ? gear.boots.boost : 1;
   // The FLOOR was lifted 20% (5 → 6): one cell a second is the speed the
   // player spends the whole opening at, and it sat right on the edge of
   // reading as a drag. The Frost end is its own tuned endpoint
   // (STEER_MUL_FROST, above), so the per-tier step absorbs both instead of
   // every tier shifting up with the floor.
-  return STEER_MUL_FLOOR + ((STEER_MUL_FROST - STEER_MUL_FLOOR) / 7) * t;
+  return (STEER_MUL_FLOOR + ((STEER_MUL_FROST - STEER_MUL_FLOOR) / 7) * t) * boost;
 }
 function steerEnergyCost(relics) {
   const t = relics?.amulet?.tier || 0;

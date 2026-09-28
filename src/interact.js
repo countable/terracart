@@ -293,6 +293,8 @@ const TILL_BLOCKER_LINE = {
   staircase:   'A stairway drops away here.',
   house:       'A building stands here.',
   tower:       'A watchtower stands here.',
+  infoboard:   'A notice board stands here.',
+  gatepost:    'A gate post stands here.',
   // No shrine / trailer rows: no world object has either kind — Home is a
   // `house` (its role is the trailer) and the wizard's tower draws on the
   // shrine art as a house too — so both land on the `house` line above.
@@ -301,7 +303,11 @@ function tillBlockerLine(o) {
   // NOT the chest's name: a POI name is arbitrary OSM text ('Saint Someone
   // Memorial Library and Reading Room'), and a line with a thirty-character
   // budget cannot interpolate something unbounded. The kind says enough.
-  if (o.kind === 'chest') return 'A chest — open it first.';
+  if (o.kind === 'chest') {
+    if (typeof isBarrel === 'function' && isBarrel(o)) return 'A barrel stands here.';
+    if (typeof isBikeRack === 'function' && isBikeRack(o)) return 'A bike rack stands here.';
+    return 'A chest — open it first.';
+  }
   return TILL_BLOCKER_LINE[o.kind] || `${cropName(o.kind)} is in the way.`;
 }
 
@@ -1738,7 +1744,7 @@ const TAP_HANDLERS = [
         if (wp) { blocker = `Pick the ${cropName(wp.crop)} first.`; break; }
         const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
-          !(o.kind === 'chest' && isSpent(o, spentTill)) &&
+          !(o.kind === 'chest' && isSpent(o, spentTill) && !isBarrel(o)) &&   // a smashed barrel still stands
           !(o.kind === 'tree' && (o.chopped || choppedSet.has(o.id))) &&
           Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
         if (oo) { blocker = tillBlockerLine(oo); break; }

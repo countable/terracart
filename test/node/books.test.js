@@ -86,12 +86,12 @@ test('books: themed civic uses a dedicated Book group', () => {
   assert.inRange(share, 0.12, 0.24, 'low quality can fall back, but civic retains a reliable Book source');
 });
 
-test('books: a school whose roll the Home rings soften to T1 still pays a book', () => {
-  // The Home rings drop a school chest's ROLL to T1 within 350 m of the
-  // trailer (loot.js chestRollTier; the chest keeps its world tier), and the whole T1 consumable pool is the
-  // scarecrow — so without the pin the school on your own street would be the
-  // one that never handed over a book. The favourite ignores the rolled tier
-  // for exactly this case.
+test('books: a school dense enough to be T1 still pays a book', () => {
+  // A school in a district full of schools is T1 (loot.js chestTier — the
+  // tier is its class's density on its tile), and the whole T1 consumable
+  // pool is the scarecrow — so without the pin the schools of a dense town
+  // would be the ones that never handed over a book. The favourite ignores
+  // the rolled tier for exactly this case.
   const rng = bookRng(0x5C4001);
   let books = 0, otherConsumables = 0;
   for (let i = 0; i < 4000; i++) {
@@ -117,8 +117,12 @@ test('school category: every place of learning maps to it', () => {
 });
 
 test('school category: the split re-priced nothing — tier, pad and cave mirror match civic', () => {
-  assert.eq(CHEST_TIER_BY_CATEGORY.school, CHEST_TIER_BY_CATEGORY.civic,
-    'a school chest is the tier it always was');
+  // The tier is density (loot.js chestTier), the same rule for every class:
+  // a school and a town hall equally common on a tile wear the same gem.
+  for (const n of [1, 3, 10, 40]) {
+    assert.eq(chestTier({ kind: 'chest', poiClass: 'school', poiDensity: n }),
+      chestTier({ kind: 'chest', poiClass: 'town_hall', poiDensity: n }), `the same tier at ${n} of a kind`);
+  }
   assert.eq(padShapeKeyForPoi('school'), padShapeKeyForPoi('town_hall'),
     'and it keeps the civic pad');
   for (const cls of SCHOOL_CLASSES) {
@@ -427,18 +431,49 @@ test('tips: the castle board replaced the three-step chain, and the Book knows',
   assert.falsy(/old well/i.test(TIPS_BLOB), 'including its second step');
 });
 
-test('tips: the chest rings and the depth step are the ones loot.js applies', () => {
-  assert.eq(JSON.stringify(CHEST_TIER_HOME_RINGS_M), JSON.stringify([700, 350]),
-    'the Home rings are 700 m and 350 m');
-  assert.truthy(someTip(/700m/) && someTip(/350m/), 'and a tip quotes both');
-  // The rings soften what a chest PAYS, never its gem (chestTier is the
-  // world's, chestRollTier the roll's): the tip must not say the chest is
-  // a lower tier, only that it gives less.
-  assert.truthy(someTip(/whatever their gem/i), 'and the tip says the gem is unchanged');
+test('tips: the density tiers and the depth step are the ones loot.js applies', () => {
+  // THE TIER IS DENSITY (loot.js CHEST_DENSITY_TIERS): the only one of its
+  // kind is the violet gem, twenty-five or more of a kind are plain crates.
+  assert.eq(chestDensityTier(1), 4, 'the only one of its kind is T4');
+  assert.eq(CHEST_TIER_COLOR[4], 0xc77dff, 'which is the violet gem');
+  assert.truthy(someTip(/only one of its kind wears violet/i), 'and a tip says so');
+  assert.eq(CHEST_DENSITY_T1_AT, 25, 'a crowd of twenty-five is T1');
+  assert.eq(chestDensityTier(CHEST_DENSITY_T1_AT), 1, '…which is the crate');
+  assert.truthy(someTip(/twenty-five or more of a kind/i), 'and a tip says so');
+  assert.falsy(/700m|350m|near home pay humbler/i.test(TIPS_BLOB), 'the Home rings are gone from the Book');
   assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'a chest climbs a tier every two levels down');
   assert.truthy(someTip(/every two levels down/i), 'and a tip says so');
   assert.eq(CHEST_TIER_COLOR[CHEST_TIER_MAX], 0xffc23d, 'the deepest chest wears a gold gem');
   assert.truthy(someTip(/violet and the gold ones/i), 'and the gem tip names both top gems');
+});
+
+test('tips: crates, barrels, pots of gold, bike racks and gates are told truthfully', () => {
+  // Crate restock: a day, up to a week (CRATE_RESTORE_MAX_DAYS).
+  assert.eq(CRATE_RESTORE_MAX_DAYS, 7, 'the longest restock is a week');
+  assert.eq(crateRestoreDays({ poiDensity: CHEST_DENSITY_T1_AT }), 1, 'an ordinary crate: a day');
+  assert.truthy(someTip(/a day after you take it — or up to a week later/i), 'and a tip says so');
+  // Barrels: most are empty (the base empty chance is over a half), and the
+  // rare supply is a torch or a rope.
+  assert.gt(BARREL_EMPTY_P_BASE, 0.5, '"most are empty"');
+  const supply = BARREL_LOOT.find((r) => r.kind === 'supply');
+  assert.eq(JSON.stringify(supply.ids), JSON.stringify(['torch', 'rope']), 'the supply is a torch or a rope');
+  const coin = BARREL_LOOT.find((r) => r.kind === 'coin');
+  assert.eq(coin.min + '-' + coin.max, '1-3', '"a coin or three"');
+  assert.truthy(someTip(/coin or three, an apple, now and then a torch or a rope/i), 'and a tip says so');
+  // Pot of gold: thirty alone, a single coin in a crowd.
+  assert.eq(potCoinsFor(1), 30, 'a lone pot spills thirty');
+  assert.eq(potCoinsFor(1000), 1, 'a crowded one a single coin');
+  assert.truthy(someTip(/thirty where it stands alone/i) && someTip(/single coin in a crowd/i), 'and a tip says so');
+  // Bike rack: twice as fast for three minutes.
+  assert.eq(BIKE_RACK_SPEED_MUL, 2, '"twice as fast"');
+  assert.eq(BIKE_RACK_MS, 3 * 60 * 1000, '"three minutes"');
+  assert.truthy(someTip(/three minutes the stick carries you twice as fast/i), 'and a tip says so');
+  // Gates: a slime or a goblin, every day, every mode.
+  assert.eq(JSON.stringify(Lairs.KIND_ORDER.gate), JSON.stringify(['slime', 'goblin']), 'a slime or a goblin');
+  assert.truthy(Lairs.DAILY_TIERS.has('gate') && Lairs.ALWAYS_AWAKE_TIERS.has('gate'), 'every day, every mode');
+  assert.truthy(someTip(/every day a slime or a goblin rises there, in every mode/i), 'and a tip says so');
+  // Notice boards share the waystone's page.
+  assert.truthy(someTip(/read a notice board, and it tells you one page/i), 'the notice board reads a page');
 });
 
 test('books: the derelict-lair tip is re-derived from lairs.js', () => {
