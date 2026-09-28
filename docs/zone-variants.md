@@ -49,8 +49,8 @@ Connection operators are specifications for a shared interpreter, not currently 
 | grove | Orchard | 4% fruit_tree, 6% grass, 2% blue | paired trees | 3 medium: gemfruit | none |
 | grove | Formal Garden | 10% shrub, 6% blue, 2% orange | hedge flanks flower diamond | 2 medium: rose | none |
 | grove | Hedge Garden | 36% shrub, 1.76% blue, 0.64% orange | flowers in hedge room | 2 medium: rose | none |
-| grove | Ancient Grove | 3% tree, 7% shrub, 5% grass | stone tree ring | 1 rare: star | 2 slime at find |
-| stones | Stone Garden | 10% stone, 5% grass | four stones | 3 medium: gemfruit | none |
+| grove | Ancient Grove | 0.69% tree, 5.56% shrub, 11.11% grass (dense layered clusters) | stone tree ring | 1 rare: star | 2 slime at find |
+| stones | Stone Garden | 8% stone, 2% iron_ore, 5% grass | four stones | 3 medium: gemfruit | none |
 | stones | Ordered Graves | 6% grave, 6% stone, 3% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction |
 | stones | Overgrown Graves | 8% grass, 4% shrub, 4% stone, 2% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction |
 | stones | Broken Masonry | 12% rubble, 8% stone | stone square | 1 rare: platinum_ore | 1 slime at find |
@@ -97,3 +97,11 @@ The generator validates material densities across full repeat cycles, distinct P
 - Work Yard: one crimson-bearing rock at (0, 0.5), replacing its three gemfruit finds. Copper-bearing rocks remain its background material.
 - Broken Masonry: one platinum-bearing rock at (0, 0.6), replacing its three gemfruit finds. Its one slime guard follows this find.
 - These use existing mineral-rock interactions: yield tiers 4, 6, and 5 respectively, with normal required pick tiers 3, 5, and 4. Valuable placements use attractor eligibility. Counts are per anchor and do not multiply across tiles or fringe coverage.
+
+## Ancient Grove clusters
+
+A 12 × 12-cell repeat contains one compact 5 × 5 cluster: one central tree, eight shrubs in the immediately surrounding ring, and sixteen longgrass cells in the outer ring. This raises nominal coverage from 15% to 17.36%, while making every cluster locally full and keeping open ground between clusters. The POI arrangement, one starflower find, and two slime guards remain. Stone stepping markers connect the POI to that find.
+
+## Stone Garden iron rhythm
+
+Each background stone row repeats four ordinary stones and one iron-bearing rock. The two five-stone rows in each motif put their iron at matching row ends: iron is exactly one fifth of background stones, never a random roll. Overall coverage stays 15%: 8% ordinary stone, 2% iron ore, and 5% grass. The compact four-stone POI arrangement stays ordinary stone. Iron uses the existing tier-3 ore rock with the usual tier-2 pick requirement.
