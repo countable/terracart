@@ -2587,51 +2587,51 @@
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=92edfd8d"></script>
   <script src="src/enemy_roster.js?v=64447c14"></script>
-  <script src="src/enemy_spawns.js?v=86889b37"></script>
+  <script src="src/enemy_spawns.js?v=c6aca1a8"></script>
   <script src="src/difficulty.js?v=e4d56e7b"></script>
   <script src="src/util.js?v=d6515ee3"></script>
   <script src="src/particles.js?v=29ab521b"></script>
   <script src="src/trail.js?v=96b267d2"></script>
   <script src="src/streets.js?v=120c04d0"></script>
   <script src="src/street_variants.js?v=62720fc1"></script>
-  <script src="src/zones.js?v=7b917c2f"></script>
+  <script src="src/zones.js?v=4aeb49e2"></script>
   <script src="src/sprite_layout.js?v=737a33d7"></script>
   <script src="src/placed_floor.js?v=d6c42e37"></script>
   <script src="src/home.js?v=db93a51e"></script>
   <script src="src/coords.js?v=bbf37615"></script>
   <script src="src/fog.js?v=bdf27172"></script>
   <script src="src/biome_profiles.js?v=8c89737c"></script>
-  <script src="src/traps.js?v=48fc7cf8"></script>
-  <script src="src/lairs.js?v=8c4d2bf5"></script>
-  <script src="src/worldgen.js?v=ece6cd5b"></script>
+  <script src="src/traps.js?v=41e2db50"></script>
+  <script src="src/lairs.js?v=6b4e3b80"></script>
+  <script src="src/worldgen.js?v=3e3580b3"></script>
   <script src="src/textures.js?v=e325adb3"></script>
   <script src="src/save.js?v=8e285e00"></script>
-  <script src="src/items.js?v=14d3f3df"></script>
-  <script src="src/inventory.js?v=26f6d34a"></script>
-  <script src="src/energy.js?v=142f2847"></script>
+  <script src="src/items.js?v=c13e4a56"></script>
+  <script src="src/inventory.js?v=61f97d28"></script>
+  <script src="src/energy.js?v=4bff22d5"></script>
   <script src="src/conditions.js?v=16403bc0"></script>
-  <script src="src/crops.js?v=24ec5017"></script>
+  <script src="src/crops.js?v=fa3fa25f"></script>
   <script src="src/delivery.js?v=eef02cca"></script>
-  <script src="src/savemigrate.js?v=5cd40a1e"></script>
+  <script src="src/savemigrate.js?v=4dcc3e2c"></script>
   <script src="src/gear.js?v=3a9b356e"></script>
   <script src="src/rewards.js?v=ce4f21b3"></script>
   <script src="src/shops_math.js?v=b473e276"></script>
   <script src="src/shops.js?v=26fa77c9"></script>
   <script src="src/egg_hatch.js?v=c84b1ce8"></script>
   <script src="src/chest_themes.js?v=16edf8c7"></script>
-  <script src="src/rarity.js?v=c53b3233"></script>
+  <script src="src/rarity.js?v=c2bc9470"></script>
   <script src="src/loot.js?v=1e1495f0"></script>
-  <script src="src/macros.js?v=84f4e933"></script>
+  <script src="src/macros.js?v=1461531d"></script>
   <script src="src/quests.js?v=7d060987"></script>
-  <script src="src/interactables.js?v=39bf75fb"></script>
+  <script src="src/interactables.js?v=5b572e81"></script>
   <script src="src/houses.js?v=a4e98d59"></script>
-  <script src="src/starter.js?v=77ea5172"></script>
-  <script src="src/combat.js?v=d1188344"></script>
-  <script src="src/creature_ai.js?v=79cf93c0"></script>
+  <script src="src/starter.js?v=2982f575"></script>
+  <script src="src/combat.js?v=8c435e75"></script>
+  <script src="src/creature_ai.js?v=049985e3"></script>
   <script src="src/wizard.js?v=3209061e"></script>
   <script src="src/interact.js?v=36e5e823"></script>
-  <script src="src/lighting.js?v=767ebe2a"></script>
-  <script src="src/render.js?v=bbb86fe9"></script>
+  <script src="src/lighting.js?v=57b02125"></script>
+  <script src="src/render.js?v=a148819e"></script>
   <script src="src/multiplayer.js?v=a4181a1f"></script>
   <script src="src/road_overlay.js?v=957c355c"></script>
   <script src="src/building_overlay.js?v=16f504b9"></script>
@@ -2641,9 +2641,9 @@
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=76ff05c4"></script>
   <script src="src/modal_shell.js?v=0a3ca6b7"></script>
-  <script src="src/scene_geo.js?v=016ab0a0"></script>
+  <script src="src/scene_geo.js?v=ba215566"></script>
   <script src="src/npc.js?v=24851e12"></script>
-  <script src="src/scene_creatures.js?v=933c0e17"></script>
+  <script src="src/scene_creatures.js?v=ccc5c86e"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2704,7 +2704,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=523abd36';
+      const APP_SRC = 'src/app.js?v=fcdfca7e';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
