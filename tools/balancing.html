@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  BALANCING — what the treasure and store rolls actually pay.
+  BALANCING — what chest and treasure rewards actually pay.
 
     https://countable.github.io/terracart/tools/balancing.html     (published)
     Locally: python3 -m http.server 8000 from the repo root, then
@@ -9,7 +9,7 @@
   Every number here comes out of the game's own roll: tools/game-loader.js
   loads the shipping modules (the list read out of index.html), and each
   table is thousands of calls to rarity.js pickReward — the one function a
-  chest, a buried X, a road prize, an elite kill and every shop's offer all
+  chest, a buried X, a road prize and a repeat elite kill all
   resolve through — valued at the catalog's list prices (items.js PRICES /
   itemValue, gear.js gearPrice). Nothing is retyped, so a retune in rarity.js
   or items.js shows up here on the next reload.
@@ -47,22 +47,36 @@
 </style>
 </head>
 <body>
-<h1>Balancing — treasure and store rolls</h1>
+<h1>Balancing — chest and treasure rewards</h1>
 <p>Every figure is the game's own <code>pickReward</code>, sampled, valued at list price.
    World placements: <a href="map-review.html">map review</a>.</p>
+<p>Shop offers use separate generators and are not simulated here. Restored castles offer daily favours;
+   forts run slot machines. Older saves can retain a castle relic vendor.</p>
 <p id="status">loading the game…</p>
+
+<section>
+  <h2>Default chest tiers</h2>
+  <p>Surface tiers by location. The chest’s displayed tier and its reward roll tier can differ near Home.</p>
+  <table id="defaultTiers"></table>
+  <p id="tierRules"></p>
+  <p>These are chest rules; market stands and coin-burst locations have their own interactions. Fixed starter crates have preset contents.</p>
+</section>
 
 <section>
   <h2>Roll one context</h2>
   <div class="controls">
     <label>Context <select id="ctx"></select></label>
-    <label id="tierL">Chest tier <select id="tier"></select></label>
+    <label id="tierL">Reward roll tier <select id="tier"></select></label>
     <label id="depthL">Depth <select id="depth"></select></label>
     <label id="bonusL">Road prize # <select id="bonus"></select></label>
-    <label>Player gear up to <select id="owned"></select></label>
+    <label id="monsterL">Elite monster <select id="monster"></select></label>
+    <label>Current gear tier <select id="owned"></select></label>
+    <label>Wizard quantity upgrades <select id="qty"></select></label>
     <label>Samples <select id="n"><option>1000</option><option selected>5000</option><option>20000</option></select></label>
     <button id="go">Roll</button>
   </div>
+  <p>Current gear tier sets every relic and armour slot, including the luck ring. Each sample uses the same starting gear.</p>
+  <p id="contextNote"></p>
   <div id="summary"></div>
   <div class="grid2">
     <div><h2>By class</h2><table id="byClass"></table></div>
@@ -76,7 +90,8 @@
 
 <section>
   <h2>Every context at a glance</h2>
-  <p>Share of rolls by class and the average list value of one roll. Chest rows use the tier and depth above.</p>
+  <p>Share by class and average list value per reward. Road figures describe offered cards, of which the player keeps one.
+     Chest rows use the selected tier and depth; elite rewards use the selected monster and depth.</p>
   <div class="scroll"><table id="matrix"></table></div>
 </section>
 
@@ -91,6 +106,8 @@
 const $ = (id) => document.getElementById(id);
 const fmt$ = (v) => '$' + (v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1));
 const pct = (v) => (v * 100).toFixed(1) + '%';
+// The shop:* tuning tables are not called by the game's shop generators.
+const rewardContexts = () => Object.keys(LOOT_CONTEXTS).filter((c) => c.startsWith('chest:') || c.startsWith('treasure:'));
 
 // A save of a player who owns every relic and armour slot at `tier` — what
 // the rolls read (ring luck, gear upgrades, relic caps).
@@ -100,7 +117,7 @@ function saveAt(tier) {
     for (const s of Object.keys(RELIC_DEFS)) relics[s] = { tier };
     for (const s of Object.keys(ARMOR_DEFS)) armor[s] = { tier };
   }
-  return { relics, armor, inv: [], money: 0 };
+  return { relics, armor, inv: [], money: 0, qtyUpgrades: +$('qty').value };
 }
 
 // What a roll is worth, and what to call it. The shapes pickReward returns:
@@ -111,40 +128,51 @@ function describe(r) {
   if (r.kind === 'gold') {
     const cls = r.cls === 'cash' ? 'cash' : (r.slot ? 'gear → coins' : 'cash');
     return { cls, key: cls === 'cash' ? 'coins' : `coins (${r.slot} T${r.tier} owned)`,
-      value: r.amount || 0, tier: r.tier || 0, text: `$${r.amount}${r.slot ? ` (for ${r.slot} T${r.tier}, owned)` : ''}` };
+      value: (r.amount || 0) + (r.consolation || 0), tier: r.tier || 0, text: `$${r.amount}${r.slot ? ` (for ${r.slot} T${r.tier}, owned)` : ''}${r.consolation ? ` + $${r.consolation}` : ''}` };
   }
   if (r.slot && r.tier && (r.kind === 'relic' || r.kind === 'armor' || !r.kind)) {
     const kind = r.kind === 'armor' ? 'armor' : 'relic';
     const v = (typeof gearPrice === 'function') ? gearPrice(kind, r.slot, r.tier) : 0;
-    return { cls: kind, key: `${kind}: ${r.slot} T${r.tier}`, value: v || 0, tier: r.tier,
-      text: `${r.slot} T${r.tier}` };
+    return { cls: kind, key: `${kind}: ${r.slot} T${r.tier}`, value: (v || 0) + (r.consolation || 0), tier: r.tier,
+      text: `${r.slot} T${r.tier}${r.consolation ? ` + $${r.consolation}` : ''}` };
   }
   const id = r.id, qty = r.qty || 1;
   const item = ITEM_BY_ID[id];
   const unit = (typeof itemValue === 'function') ? itemValue(id) : (PRICES[id] ?? 1);
   return { cls: r.cls || item?.kind || '?', key: item?.name || id, id, value: unit * qty + (r.consolation || 0),
-    tier: r.tier || item?.baseTier || 0, qty, text: `${qty}× ${item?.name || id}` };
+    tier: r.tier || item?.baseTier || 0, qty, text: `${qty}× ${item?.name || id}${r.consolation ? ` + $${r.consolation}` : ''}` };
 }
 
 function sample(ctx, opts, owned, n) {
   const save = saveAt(owned);
   const rows = [];
-  for (let i = 0; i < n; i++) rows.push(describe(pickReward(ctx, save, Math.random, opts)));
+  const roll = () => pickReward(ctx, save, Math.random, opts);
+  for (let i = 0; i < n; i++) {
+    if (ctx === Trail.PRIZE_CONTEXT) {
+      const fixed = Trail.firstPrize(+$('bonus').value);
+      rows.push(...Trail.rollChoices(roll, Trail.PRIZE_CHOICES, Trail.PRIZE_ROLL_TRIES, fixed ? [fixed] : []).map(describe));
+    } else rows.push(describe(roll()));
+  }
   return rows;
 }
 function optsFor(ctx) {
   const o = {};
   if (ctx.startsWith('chest:')) o.tier = +$('tier').value;
-  if (ctx.startsWith('chest:') || ctx.startsWith('treasure:')) o.depth = +$('depth').value;
-  if (ctx === 'treasure:road') o.rollBonus = +$('bonus').value;
+  if (ctx.startsWith('chest:')) o.depth = +$('depth').value;
+  if (ctx === 'treasure:default' && +$('depth').value > 0) {
+    o.depth = +$('depth').value;
+    o.tier = 2 + chestTierDepthBonus(o.depth);
+  }
+  if (ctx === Trail.PRIZE_CONTEXT) o.rollBonus = Trail.rollBonusFor(+$('bonus').value - 1);
+  if (ctx === Combat.ELITE_TREASURE_CONTEXT) o.rollBonus = Combat.eliteRollBonus($('monster').value, +$('depth').value);
   return o;
 }
 const table = (el, head, body) => { el.innerHTML = `<tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr>` + body.join(''); };
 const barCell = (share) => `<td><span class="bar" style="width:${Math.round(share * 120)}px"></span>${pct(share)}</td>`;
 
 function rollOne() {
-  const ctx = $('ctx').value, n = +$('n').value, opts = optsFor(ctx);
-  const rows = sample(ctx, opts, +$('owned').value, n);
+  const ctx = $('ctx').value, trials = +$('n').value, opts = optsFor(ctx);
+  const rows = sample(ctx, opts, +$('owned').value, trials), n = rows.length;
   const ev = rows.reduce((a, r) => a + r.value, 0) / n;
   const group = (keyOf) => {
     const m = new Map();
@@ -155,7 +183,7 @@ function rollOne() {
     return [...m.entries()].sort((a, b) => b[1].n - a[1].n);
   };
   $('summary').innerHTML = `<p><b style="color:#ffd866">${ctx}</b> ${JSON.stringify(opts)} — `
-    + `average list value per roll <b style="color:#ffd866">${fmt$(ev)}</b> over ${n.toLocaleString()} rolls</p>`;
+    + `average list value per ${ctx === Trail.PRIZE_CONTEXT ? 'offered card' : 'reward'} <b style="color:#ffd866">${fmt$(ev)}</b> over ${trials.toLocaleString()} samples (${n.toLocaleString()} rewards)</p>`;
   table($('byClass'), ['class', 'share', 'avg value when rolled'],
     group((r) => r.cls).map(([k, g]) => `<tr><td>${k}</td>${barCell(g.n / n)}<td>${fmt$(g.v / g.n)}</td></tr>`));
   table($('byTier'), ['tier', 'share'],
@@ -168,18 +196,18 @@ function rollOne() {
 }
 
 function matrix() {
-  const ctxs = Object.keys(LOOT_CONTEXTS);
+  const ctxs = rewardContexts();
   const N = 2000, owned = +$('owned').value;
   const data = ctxs.map((ctx) => {
     const rows = sample(ctx, optsFor(ctx), owned, N);
     const by = {};
     for (const r of rows) by[r.cls] = (by[r.cls] || 0) + 1;
-    return { ctx, by, ev: rows.reduce((a, r) => a + r.value, 0) / N };
+    return { ctx, by, n: rows.length, ev: rows.reduce((a, r) => a + r.value, 0) / rows.length };
   });
   const classes = [...new Set(data.flatMap((d) => Object.keys(d.by)))].sort();
   const heat = (s) => s ? `<td class="heat" style="background:hsla(45,80%,${Math.round(85 - s * 45)}%,${Math.min(1, 0.15 + s)})">${Math.round(s * 100)}%</td>` : '<td style="color:#444">·</td>';
   table($('matrix'), ['context', 'avg value', ...classes],
-    data.map((d) => `<tr><td>${d.ctx}</td><td>${fmt$(d.ev)}</td>${classes.map((c) => heat((d.by[c] || 0) / N)).join('')}</tr>`));
+    data.map((d) => `<tr><td>${d.ctx}</td><td>${fmt$(d.ev)}</td>${classes.map((c) => heat((d.by[c] || 0) / d.n)).join('')}</tr>`));
 }
 
 function chestGrid() {
@@ -192,24 +220,47 @@ function chestGrid() {
     }).join('')}</tr>`));
 }
 
+function defaultTiers() {
+  const rows = Object.entries(CHEST_TIER_BY_CATEGORY).sort((a, b) => a[1] - b[1]);
+  table($('defaultTiers'), ['category', 'locations', 'surface tier', 'mirrors underground'], rows.map(([category, tier]) => {
+    const places = Object.keys(POI_CATEGORY).filter((p) => POI_CATEGORY[p] === category);
+    return `<tr><td>${category}</td><td style="text-align:left;white-space:normal">${places.map((p) => p.replaceAll('_', ' ')).join(', ')}</td>`
+      + `<td>T${tier}</td><td>${chestMirrorsUnderground(places[0]) ? 'yes' : 'no'}</td></tr>`;
+  }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>T${chestTier()}</td><td>yes</td></tr>`));
+  $('tierRules').textContent = 'Near Home, contents roll lower: '
+    + CHEST_TIER_HOME_RINGS_M.map((m, i) => `within ${m} m, −${i + 1} tier${i ? 's' : ''}`).join('; ')
+    + `. Floor the surface roll at T1, then add one tier per ${CHEST_TIER_DEPTH_STEP} underground levels, capped at T${CHEST_TIER_MAX}. `
+    + 'Home distance does not change the displayed chest tier. Set Reward roll tier below to the resulting tier; Depth applies the cave loot mix.';
+}
+
 function syncControls() {
   const ctx = $('ctx').value;
   $('tierL').style.display = ctx.startsWith('chest:') ? '' : 'none';
-  $('depthL').style.display = (ctx.startsWith('chest:') || ctx.startsWith('treasure:')) ? '' : 'none';
-  $('bonusL').style.display = ctx === 'treasure:road' ? '' : 'none';
+  $('depthL').style.display = ctx !== Trail.PRIZE_CONTEXT ? '' : 'none';
+  $('bonusL').style.display = ctx === Trail.PRIZE_CONTEXT ? '' : 'none';
+  $('monsterL').style.display = ctx === Combat.ELITE_TREASURE_CONTEXT ? '' : 'none';
+  $('contextNote').textContent = ctx === Trail.PRIZE_CONTEXT
+    ? `Each sample offers up to ${Trail.PRIZE_CHOICES} distinct cards; the player keeps one. Prize #1 includes ${Trail.FIRST_PRIZE_QTY} onion seeds. Tables measure offered cards, not total payout.`
+    : ctx === Combat.ELITE_TREASURE_CONTEXT
+      ? 'Repeat elite kills pay this reward. The first discovery gives a memory instead. The normal kill wage is separate.'
+      : ctx.startsWith('chest:') ? 'Random chest rewards at the chosen tier. Fixed starter chest contents are not included.'
+      : 'One buried-treasure reward. Underground finds use the game’s depth-based cave supply weighting.';
 }
 
 (async () => {
   try {
     await loadGame();
+    defaultTiers();
     const opt = (el, vals, sel) => { el.innerHTML = vals.map(([v, t]) => `<option value="${v}"${v == sel ? ' selected' : ''}>${t}</option>`).join(''); };
-    opt($('ctx'), Object.keys(LOOT_CONTEXTS).map((c) => [c, c]), 'chest:park');
+    opt($('ctx'), rewardContexts().map((c) => [c, c]), 'chest:park');
     opt($('tier'), [1, 2, 3, 4, 5].map((t) => [t, 'T' + t]), 2);
     opt($('depth'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 10].map((d) => [d, d ? 'level ' + d : 'surface']), 0);
-    opt($('bonus'), [0, 1, 2, 3, 4, 5, 6].map((b) => [b, b ? '#' + b + (b === 6 ? '+' : '') : 'none']), 1);
+    opt($('bonus'), Array.from({ length: Trail.PRIZE_ROLL_BONUS_MAX }, (_, i) => i + 1).map((b) => [b, '#' + b + (b === Trail.PRIZE_ROLL_BONUS_MAX ? '+' : '')]), 1);
+    opt($('monster'), Object.keys(Combat.MONSTERS).filter((k) => Combat.spawnsUnderground(k)).map((k) => [k, k]), 'cave_slime');
     opt($('owned'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'nothing']), 0);
+    opt($('qty'), Array.from({ length: RARITY_TUNING.qtyLuckLevels + 1 }, (_, i) => [i, i]), 0);
     $('ctx').onchange = () => { syncControls(); rollOne(); };
-    for (const id of ['tier', 'depth', 'bonus', 'owned', 'n']) $(id).onchange = () => { rollOne(); matrix(); if (id === 'owned') chestGrid(); };
+    for (const id of ['tier', 'depth', 'bonus', 'monster', 'owned', 'qty', 'n']) $(id).onchange = () => { rollOne(); matrix(); if (id === 'owned' || id === 'qty') chestGrid(); };
     $('go').onclick = rollOne;
     syncControls();
     $('status').textContent = 'rolling…';
