@@ -171,7 +171,7 @@ test('waste ground keeps its rubble: the lot scatter runs dry on RESIDENTIAL onl
   assert.falsy(WorldGen.LOT_ROCK_DRY.has(T.WASTELAND), 'waste ground is not');
   const layers = suburb();
   layers[0] = { name: 'landuse', features: [
-    { type: 3, tags: { class: 'railway' }, geom: [ring([[0, 0], [CPE - 1, 0], [CPE - 1, CPE - 1], [0, CPE - 1]])] }] };
+    { type: 3, tags: { class: 'brownfield' }, geom: [ring([[0, 0], [CPE - 1, 0], [CPE - 1, CPE - 1], [0, CPE - 1]])] }] };
   const w = WorldGen.rasterizeTile(layers, CPE, TX, TY, TILE_EDGE_M);
   const lotRocks = w.objects.filter((o) => o.kind === 'mineralrock' && !o._street
     && w.grid[cellIdx(o)] === T.WASTELAND);

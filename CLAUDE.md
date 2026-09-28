@@ -82,13 +82,19 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Every spawner passes `roadMask` and `occupied` through `_spawnOpts` to
   `WorldGen.isSpawnCell`. Road terrain alone misses drawn roads; the mask uses
   `WorldGen.roadOverlayWidthM` and masks cells when the drawn bands cover
-  `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coin pickups may occupy roads,
-  but not objects.
-  Cave traps use their occupied-cell set; surface traps sit on the verge.
-- Road rules: surface traps belong only on the verges of BANDIT STRETCHES of
-  major roads (`entry.roadClass` bit `ROAD_CLASS_BANDIT_VERGE`, stamped by
-  `stampBanditStretchesSteps`) and on WASTELAND (`Traps.isTrapGround`, which
-  reads the land's class under a zone halo). Where a species prefers to stand
+  `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coins never land on road cells
+  or in yards, and every timed reward (coin bursts, bounty packs,
+  `findWalkableDestination`) stays on the player's SIDE of any MD/LG road
+  (`sameSideField`, creature_ai.js) — nothing urgent across a major road.
+  Cave traps use their occupied-cell set; surface traps sit beside footpaths
+  or on park edges, never near a road (`Traps.isTrapGround`).
+- The road is never a refuge and never a lure. MD/LG roads carry a KERB
+  BUFFER (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no fast
+  foe or wild animal spawns in or enters the buffer, and a player standing in
+  it is left alone — the pavement ends a chase, the street adds nothing
+  (`test/node/kerb_refuge_sim.test.js`). Above a run (`util.js` speed helper,
+  shared with egg hatching) nothing restores, pays or taps and foes ignore the
+  player via `unnoticed`. Where a species prefers to stand
   is an `attracts` column (street variant rows, `Zones.ZONE_KINDS`,
   `BIOME_ATTRACTS`) read by `_seatFaunaOnFavouriteGround`: relocate existing
   spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`

@@ -1247,7 +1247,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   const preamble = [
     // The numbers the loop reads. Lifted, never retyped: a retune has to move
     // the simulation with it or these tests are measuring last week's game.
-    num('CREATURE_SIM_CELLS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'),
+    num('CREATURE_SIM_CELLS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'), num('WANDER_STEP_MS'),
     num('SLIME_HOP_CELLS'), num('SLIME_STEP_MUL'), num('STALK_JITTER'),
     num('PEST_CROW_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
     // What a creature in a hurry costs — the struck-prey flee and Home's rout
@@ -1275,8 +1275,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     num('GHOST_PLATEAU_BURN_S'), num('GHOST_LIGHT_TICK_MS'), num('GHOST_LIFETIME_MS'),
     fn('function ghostSpawnDelay(r) {'),
     fn('function ghostSunExposure(day) {'),
-    num('GHOST_ZONE_DUSK'), num('GHOST_ZONE_CADENCE_MUL'),
-    fn('function ghostsHaunt(depth, day, zone) {'),
+    fn('function ghostsHaunt(depth, day) {'),
     fn('function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {'),
     fn('function makeGhost(x, y, now, tx, ty, tag) {'),
     fn('function raiseGhostAt(scene, x, y, now, tag) {'),
@@ -1290,7 +1289,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   // land on the context global; that is what the BRIDGE above exists for).
   // The method text is a class method, so it is wrapped as an object literal
   // and the property taken off it.
-  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__raiseGhostAt = raiseGhostAt;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nconst surfaceGhosts = EnemyRoster.ghostProfile(0);\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, GHOST_ZONE_DUSK, GHOST_ZONE_CADENCE_MUL, GHOST_CAVE_EVERY, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN: surfaceGhosts.groupMin, GHOST_GROUP_MAX: surfaceGhosts.groupMax, GHOST_NEAR_MAX: surfaceGhosts.nearMax, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, monsterStrideCells, ghostSunExposure, ghostSpawnDelay };\n})();`,
+  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__raiseGhostAt = raiseGhostAt;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nconst surfaceGhosts = EnemyRoster.ghostProfile(0);\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, GHOST_CAVE_EVERY, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN: surfaceGhosts.groupMin, GHOST_GROUP_MAX: surfaceGhosts.groupMax, GHOST_NEAR_MAX: surfaceGhosts.nearMax, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, monsterStrideCells, ghostSunExposure, ghostSpawnDelay };\n})();`,
     ctx, { filename: 'scene_creatures.js#wanderCreatures' });
   if (typeof ctx.__wander !== 'function') {
     console.error('__wander did not come back as a function — update run.js');

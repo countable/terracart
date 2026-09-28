@@ -3,7 +3,9 @@
 //
 // What is pinned:
 //   · DETECTION: which POIs anchor which kind (charging stations, bbq pits
-//     never; other faiths' places of worship are stones without ghosts).
+//     never; a church is the stones; a real cemetery, a memorial and every
+//     other faith's place — or one whose faith is not given — anchor
+//     nothing: WorldGen.isSensitivePoi answers first).
 //   · THE FIELD: R = clamp(R_kind / (1 + q), R_MIN, R_kind), the merge
 //     survivor rule, the window, and — on the real Kelowna 3×3 fixtures —
 //     every anchor gets the same key, q, R and aspect from every tile that
@@ -15,10 +17,10 @@
 //     there, one per cell, position-derived; the nexus chest keeps its id and
 //     wears one tier more.
 //   · HEADSTONES: the hoard share by id, the one-off pay, the ghost roll.
-//   · GHOSTS: the churchyard reason — churches and cemeteries only — opens
-//     the pump at dusk and runs it twice as often.
-//   · TAR slows (the burned row's lane), the fire slimes are a lair tier in
-//     every mode, the shrine's gift is daily, the story keys and tips.
+//     (The churchyard's dusk / cadence reason is gone — ghosts.test.js.)
+//   · TAR slows (the burned row's lane) and holds NO garrison (an oil-stained
+//     lot, no fire enemies), the shrine's gift is daily, the story keys and
+//     tips.
 (function () {
 const Z = Zones;
 const T = WorldGen.T;
@@ -54,15 +56,26 @@ test('zones: which POIs anchor which kind', () => {
   assert.eq(a('park', 'bbq'), null, 'a grill is not a park');
   assert.eq(a('fuel', 'fuel').kind, 'tar', 'a fuel station is a tar yard');
   assert.eq(a('fuel', 'charging_station'), null, 'charging stations are excluded');
-  assert.eq(a('place_of_worship', 'christian').kind, 'stones');
-  assert.truthy(a('place_of_worship', 'christian').ghosts, 'a church: the dead walk');
-  assert.truthy(a('place_of_worship', undefined).ghosts, 'no subclass reads as a church');
-  for (const faith of ['muslim', 'jewish', 'buddhist']) {
-    assert.eq(a('place_of_worship', faith).kind, 'stones', `${faith}: the old stones`);
-    assert.falsy(a('place_of_worship', faith).ghosts, `${faith}: no ghost boost`);
+  assert.eq(a('place_of_worship', 'christian').kind, 'stones', 'a church: the invented churchyard');
+  // Every other faith, and a place whose faith the tile does not name, is no
+  // anchor at all — no stones, no rocks (fails closed: unknown is not ours).
+  for (const faith of ['muslim', 'jewish', 'buddhist', 'hindu', 'sikh', undefined, '', 'place_of_worship']) {
+    assert.eq(a('place_of_worship', faith), null, `${faith || 'no faith given'}: no anchor`);
   }
-  assert.truthy(a('cemetery', 'cemetery').ghosts, 'a cemetery is a stones anchor, with ghosts');
-  assert.truthy(a('cemetery', 'grave_yard').ghosts);
+  // No faith given, but the NAME names a church: a church (worshipFaith). A
+  // faith that IS given wins over the name.
+  assert.eq(Z.anchorOf({ class: 'place_of_worship', name: 'Kelowna Gospel Fellowship' }).kind, 'stones');
+  assert.eq(Z.anchorOf({ class: 'place_of_worship', name: 'St. Paul Kirche' }).kind, 'stones');
+  assert.eq(Z.anchorOf({ class: 'place_of_worship', name: 'Beth Tikvah' }), null, 'a name that names no church: unknown, quiet');
+  assert.eq(Z.anchorOf({ class: 'place_of_worship', subclass: 'scientologist', name: 'Church of Scientology' }), null);
+  // A real cemetery is quiet green space: no stones zone, so no headstones,
+  // no hoards and no ghosts.
+  assert.eq(a('cemetery', 'cemetery'), null, 'a real cemetery anchors nothing');
+  assert.eq(a('cemetery', 'grave_yard'), null);
+  assert.eq(a('memorial', 'memorial'), null);
+  // The sensitive-place table answers first, even for a kind that would anchor.
+  assert.eq(Z.anchorOf({ class: 'park', subclass: 'park', name: 'Gedenkstätte am Park' }), null,
+    'a memorial ground by name is no grove');
   assert.eq(a('school', 'school'), null);
 });
 
@@ -82,9 +95,9 @@ test('zones: the merge drops the later key within MERGE_M, and q is symmetric', 
   const u = (m) => Math.round(m / upm);
   const gx0 = TILE_TX * EXT + 1000, gy0 = TILE_TY * EXT + 1000;
   const list = [
-    { kind: 'tar', ghosts: false, gx: gx0, gy: gy0, owned: true },
-    { kind: 'tar', ghosts: false, gx: gx0 + u(20), gy: gy0, owned: true },    // 20 m: merged
-    { kind: 'tar', ghosts: false, gx: gx0, gy: gy0 + u(100), owned: true },   // 100 m: a neighbour
+    { kind: 'tar', gx: gx0, gy: gy0, owned: true },
+    { kind: 'tar', gx: gx0 + u(20), gy: gy0, owned: true },    // 20 m: merged
+    { kind: 'tar', gx: gx0, gy: gy0 + u(100), owned: true },   // 100 m: a neighbour
   ];
   const out = Z.resolveAnchors(list.map((a) => ({ ...a })));
   assert.eq(out.length, 2, 'the double-mapped station merges');
@@ -269,22 +282,22 @@ test('zones: the nexus chest keeps its id and wears one tier more, capped', () =
     chestTier({ kind: 'chest', poiClass: 'park', poiDensity: 10 }) + 1, 'the roll pays it too');
 });
 
-test('zones: the patterns — groves by character, graves are a per-cell rule, quiet faiths get rocks, never headstones', () => {
+test('zones: the patterns — groves by character, graves are a per-cell rule, no other stones pattern', () => {
   assert.gte(Z.ASPECTS.grove.length, 3);
   assert.inRange(Z.ASPECTS.tar.length, 2, 3);
-  // A ghost anchor lays no fixed pattern: its headstones are the per-cell
-  // GRAVE rule over the churchyard halo (zone_ground.test.js).
+  // A church lays no fixed pattern: its headstones are the per-cell GRAVE
+  // rule over the churchyard halo (zone_ground.test.js). The other faiths'
+  // rock squares / rings went with their anchors.
   assert.eq(Z.ASPECTS.stones.join(), 'graves');
   assert.eq(Z.patternPieces('graves').length, 0, 'no fixed stones pattern');
-  for (const asp of Z.ASPECTS.stones_quiet) {
-    assert.falsy(Z.patternPieces(asp).some((p) => p.what === 'headstone'), `${asp}: no headstones`);
-  }
+  assert.eq(Z.ASPECTS.stones_quiet, undefined, 'no quiet-faith pattern left');
+  assert.eq(Object.keys(Z.ASPECTS).sort().join(), 'grove,stones,tar');
   // Every grove character's aspects are grove aspects.
   for (const [ch, list] of Object.entries(Z.GROVE_ASPECTS)) {
     assert.truthy(BiomeProfiles.PARK_CHARACTERS[ch], `${ch} is a park character`);
     for (const [asp, wt] of list) { assert.includes(Z.ASPECTS.grove, asp); assert.gt(wt, 0); }
   }
-  for (const asp of [...Z.ASPECTS.grove, ...Z.ASPECTS.tar, ...Z.ASPECTS.stones_quiet]) {
+  for (const asp of [...Z.ASPECTS.grove, ...Z.ASPECTS.tar]) {
     const P = Z.patternPieces(asp);
     assert.gt(P.length, 3, `${asp} lays a pattern`);
     assert.falsy(P.some((p) => p.dx === 0 && p.dy === 0), `${asp} leaves the chest's cell alone`);
@@ -300,7 +313,6 @@ test('zones: the patterns — groves by character, graves are a per-cell rule, q
 const SEAM_TAGS = {
   grove: { class: 'park', subclass: 'park' },
   stones: { class: 'place_of_worship', subclass: 'christian' },
-  quiet: { class: 'place_of_worship', subclass: 'muslim' },
   tar: { class: 'fuel', subclass: 'fuel' },
 };
 function seamDress(tag, gx, gy, tx, ty, withChest) {
@@ -318,8 +330,8 @@ function seamDress(tag, gx, gy, tx, ty, withChest) {
     spawnOpts: { roadMask: new Uint8Array(N * N), occupied: new Set() } }) : null;
   return { tx, ty, N, edge, fld, res, chests };
 }
-const PREFIX = { rose: 'wz', flint: 'wz', tree: 'ztree', headstone: 'hs', rock: 'mrz', tar: 'tar' };
-const KIND_OF = { rose: 'wildrose', flint: 'flint', tree: 'tree', headstone: 'headstone', rock: 'mineralrock', tar: 'tar' };
+const PREFIX = { rose: 'wz', flint: 'wz', tree: 'ztree', headstone: 'hs', tar: 'tar' };
+const KIND_OF = { rose: 'wildrose', flint: 'flint', tree: 'tree', headstone: 'headstone', tar: 'tar' };
 function checkSeam(tag, A, Bt, gx, gy, label) {
   const a = seamDress(tag, gx, gy, A[0], A[1], true);
   const b = seamDress(tag, gx, gy, Bt[0], Bt[1], false);
@@ -365,17 +377,11 @@ function checkSeam(tag, A, Bt, gx, gy, label) {
       assert.eq(p.variant, 1 + Math.floor(e.pc.v * 4), `${id}: its variant`);
       assert.eq(p.species, planA.species, `${id}: the anchor's species`);
     }
-    if (e.pc.what === 'rock') {
-      assert.eq(p.rockVariant, SpriteLayout.CHURCHYARD_ROCK_VARIANT, `${id}: the churchyard's one look`);
-      assert.eq(SpriteLayout.plainRockStones(p), 1, `${id}: one stone drawn, one paid`);
-    }
   }
-  // The chest is the owner's: stamped there, and only the owner garrisons tar.
+  // The chest is the owner's: stamped there. No zone holds a garrison — the
+  // tar yard's fire slimes are gone (an oil-stained lot, Sep 2026).
   assert.eq(a.chests[0].zoneNexus, ra.kind, `${label}: the owner stamps its chest`);
-  if (ra.kind === 'tar') {
-    assert.eq(a.res.lairs.length, 1, `${label}: the owner holds the garrison`);
-    assert.eq(b.res.lairs.length, 0, `${label}: the neighbour none`);
-  }
+  assert.eq(a.res.lairs.length + b.res.lairs.length, 0, `${label}: no garrison on either side`);
   if (ra.kind === 'grove') {
     assert.eq(a.res.objects.filter((o) => o.kind === 'grove_shrine').length, 1, `${label}: one shrine`);
   }
@@ -398,10 +404,9 @@ test('zones: a nexus straddling an east/west seam is laid whole, once, by the ti
   const cellU = EXT / N;
   const cases = [
     ['grove', ['tree_ring', 'rose_in_trees', 'rose_rings']],
-    ['quiet', Z.ASPECTS.stones_quiet],
     ['tar', Z.ASPECTS.tar],
   ];
-  // (A ghost anchor's graves are per cell — each cell one tile's — and the
+  // (A church's graves are per cell — each cell one tile's — and the
   // grove's SYMMETRIC figures are the owner's alone: zone_ground.test.js.)
   const seen = new Set();
   for (const [tag, want] of cases) {
@@ -411,7 +416,7 @@ test('zones: a nexus straddling an east/west seam is laid whole, once, by the ti
       seen.add(checkSeam(tag, [TILE_TX, TILE_TY], [TILE_TX + 1, TILE_TY], gx, gy, `${tag}/${asp} east seam`));
     }
   }
-  assert.gte(seen.size, 8, `every aspect crossed a seam (${[...seen].join(', ')})`);
+  assert.gte(seen.size, 6, `every aspect crossed a seam (${[...seen].join(', ')})`);
 });
 
 test('zones: a nexus straddling a north/south seam where the rows\' grids differ is laid whole', () => {
@@ -423,7 +428,7 @@ test('zones: a nexus straddling a north/south seam where the rows\' grids differ
   const N = WorldGen.cellsPerEdgeForTile(ty);
   const seamY = (ty + 1) * EXT, cellU = EXT / N;
   const base = [TILE_TX * EXT + 1500, seamY - Math.round(2.5 * cellU)];
-  for (const [tag, want] of [['grove', ['tree_ring', 'rose_in_trees']], ['quiet', Z.ASPECTS.stones_quiet], ['tar', ['tar_grid', 'tar_cross']]]) {
+  for (const [tag, want] of [['grove', ['tree_ring', 'rose_in_trees']], ['tar', ['tar_grid', 'tar_cross']]]) {
     // resolveAnchors' row rule reads the anchor's row — seamPoint only picks
     // the aspect (a function of the point alone).
     const [gx, gy] = seamPoint(tag, want, base, [7, 0]);
@@ -506,67 +511,7 @@ test('raiseGhostAt: the night\'s own ghost, refused past GHOST_NEAR_MAX', () => 
   } finally { WorldGen.tileCache.get = realGet; WorldGen.forEachItemNear = realNear; }
 });
 
-// ── Ghosts at churches and cemeteries ───────────────────────────────────────
-function stonesEntry(ghosts) {
-  const N = 4;
-  const anchor = { kind: 'stones', ghosts, gx: 5 * EXT, gy: 0, code: 2 };
-  return { creatures: [], cellsPerEdge: N,
-    zone: { anchors: [anchor], idx: new Uint8Array(N * N).fill(1), s: new Uint8Array(N * N).fill(255) } };
-}
-test('ghosts: the churchyard reason — churches and cemeteries only', () => {
-  assert.truthy(Z.ghostAnchorAt(stonesEntry(true), 1, 1), 'a church\'s stones');
-  assert.eq(Z.ghostAnchorAt(stonesEntry(false), 1, 1), null, 'another faith\'s: no');
-  const grove = stonesEntry(true); grove.zone.anchors[0].kind = 'grove';
-  assert.eq(Z.ghostAnchorAt(grove, 1, 1), null, 'a grove: no');
-  assert.eq(__ghost.GHOST_ZONE_DUSK, 0.5, 'dusk: the sun on the horizon');
-  assert.truthy(__ghost.ghostsHaunt(0, 0.4, true) && !__ghost.ghostsHaunt(0, 0.4, false), 'from dusk in a churchyard only');
-  assert.truthy(__ghost.ghostsHaunt(0, 0.1, false), 'full dark everywhere, as before');
-  assert.falsy(__ghost.ghostsHaunt(0, 0.6, true), 'never by day');
-  assert.eq(__ghost.GHOST_ZONE_CADENCE_MUL, 0.5, 'twice as often');
-});
-
-function zonePump(entry, day, minutes) {
-  const CELL = 7;
-  const scene = {
-    cellM: CELL, depth: 0, tileEdgeM: entry.cellsPerEdge * CELL,
-    _starterTrailAnchor: () => ({ x: -1000, y: 0 }),
-    save: { energy: 100, caught: [], fires: [], planted: [], released: [] },
-    startWorldM: { x: 0, y: 0 }, playerM: { x: 14, y: 14 }, feetOffsetM: 0,
-    originPx: { x: 0, y: 0 }, mPerPx: CELL, cellsPerTile: WorldGen.TILE_PX,
-    viewCenterX: 0, viewCenterY: 0, _shots: [],
-    isShadowActive: () => false, homeWorldPos: () => null, _castleWardPoints: () => [],
-    cellAt: () => ({ loaded: true, type: 0 }),
-  };
-  const realGet = WorldGen.tileCache.get, realNear = WorldGen.forEachItemNear;
-  const was = window.__DAYLIGHT;
-  WorldGen.tileCache.get = () => entry;
-  WorldGen.forEachItemNear = () => {};
-  window.__DAYLIGHT = day;
-  let groups = 0;
-  try {
-    for (let t = 0; t <= minutes * 60000; t += 1000) {
-      const n = __ghostSpawnPass(scene, t, 14, 14, { tx: 0, ty: 0, cx: 2, cy: 2 }, null, [], 0, new Set());
-      if (n > 0) groups++;
-    }
-  } finally { WorldGen.tileCache.get = realGet; WorldGen.forEachItemNear = realNear; window.__DAYLIGHT = was; }
-  return { groups, ghosts: entry.creatures };
-}
-test('ghost pump: at dusk the dead rise in a churchyard, and nowhere else', () => {
-  assert.gt(zonePump(stonesEntry(true), 0.4, 30).groups, 0, 'a church\'s stones at dusk');
-  assert.eq(zonePump(stonesEntry(false), 0.4, 30).groups, 0, 'another faith\'s stones: not before dark');
-  assert.eq(zonePump({ creatures: [], cellsPerEdge: 4 }, 0.4, 30).groups, 0, 'the street: not before dark');
-});
-test('ghost pump: a churchyard runs the pump twice as often, and aims the fan at the stones', () => {
-  const inside = zonePump(stonesEntry(true), 0, 240).groups;
-  const outside = zonePump({ creatures: [], cellsPerEdge: 4 }, 0, 240).groups;
-  assert.inRange(inside / outside, 1.6, 2.5, `twice the groups (${inside} vs ${outside})`);
-  // The anchor sits due east of the player (gx = 5 tiles out): the fan faces it.
-  const { ghosts } = zonePump(stonesEntry(true), 0, 60);
-  const east = ghosts.filter((g) => g.x > 14).length;
-  assert.gt(east, ghosts.length * 0.7, `they come up toward the stones (${east}/${ghosts.length})`);
-});
-
-// ── Tar, fire slimes, the shrine ────────────────────────────────────────────
+// ── Tar, the shrine ─────────────────────────────────────────────────────────
 test('tar yard: every tar pit is a slow cell (the burned row\'s lane, _bodyHold)', () => {
   const { on, N, edge } = rasterPair();
   const d = on.zoneDress;
@@ -583,20 +528,24 @@ test('tar yard: every tar pit is a slow cell (the burned row\'s lane, _bodyHold)
   assert.truthy(/'Tar drags at your feet\.'/.test(APP_JS_SRC), 'tar SLOWS — it drags, it does not grip');
 });
 
-test('tar yard: fire slimes hold the pumps with a shared count in every mode', () => {
-  assert.truthy(Lairs.ALWAYS_AWAKE_TIERS.has('tar'), 'every mode');
-  assert.eq(Lairs.KIND_ORDER.tar.join(), 'fire_slime');
-  const was = Difficulty.mode();
-  try {
-    Difficulty.setMode('easy'); assert.eq(Lairs.capFor('tar', 0.5), 2, 'easy');
-    Difficulty.setMode('hard'); assert.eq(Lairs.capFor('tar', 0.5), 2, 'hard shares the same garrison');
-  } finally { Difficulty.setMode(was); }
-  assert.truthy(Combat.isEnemyKind('fire_slime'), 'an enemy');
-  assert.falsy(Combat.spawnsUnderground('fire_slime'), 'never the cave bag');
-  assert.falsy(Combat.monster('giant_fire_slime'), 'no giant');
-  assert.eq(SpriteLayout.creatureDrop('fire_slime'), 'coal', 'a kill drops a flint');
+// The tar yard is an OIL-STAINED LOT (Sep 2026): a live fuel forecourt must
+// never hold fire enemies. The pits still slow (above); nothing is pushed as
+// a lair, and the copy promises no fire. (lairs.js keeps its 'tar' tier row
+// for its own tests — it is simply never asked for.)
+test('tar yard: no garrison — no fire slimes at a fuel station, and the copy promises none', () => {
   const { on } = rasterPair();
-  assert.truthy(on.zoneDress.lairs.some((L) => L.tier === 'tar'), 'the fixture\'s fuel yard is a lair');
+  assert.truthy(on.zoneDress.objects.some((o) => o.kind === 'tar'), 'the fixture\'s fuel yard is still a tar yard');
+  assert.eq(on.zoneDress.lairs.length, 0, 'no zone pushes a lair');
+  assert.falsy(on.zoneDress.lairs.some((L) => L.tier === 'tar'), 'no fire-slime garrison');
+  const k = Z.ZONE_KINDS.tar;
+  for (const line of [k.title, k.body, k.flash]) {
+    assert.falsy(/flame|fire|burn|slime|moving/i.test(line), `no fire, no foe: ${line}`);
+  }
+  const tarPiece = STORY_ART_GEN_SRC.slice(STORY_ART_GEN_SRC.indexOf('zone_tar: scene('),
+    STORY_ART_GEN_SRC.indexOf('zone_stones: scene('));
+  const tarSubject = (tarPiece.match(/'(?:[^'\\]|\\.)*'/g) || []).join(' ');
+  assert.truthy(/fuel/.test(tarSubject), 'the painting\'s subject was read');
+  assert.falsy(/flame|aflame|fire|slime/i.test(tarSubject), `nor does its painting: ${tarSubject}`);
 });
 
 test('flint: a ground pickup that hands over the Flint item, its frames listed', () => {
@@ -732,15 +681,17 @@ test('tips: the zones\' pages quote the numbers the code rolls', () => {
   assert.truthy(head, 'the headstone page');
   assert.truthy(head.includes(`one time in ${Math.round(1 / Z.HEADSTONE_GHOST_P)}`), head);
   assert.truthy(head.includes(`one stone in ${Math.round(1 / Z.HEADSTONE_HOARD_SHARE)}`), head);
-  const dusk = PLAY_TIPS.find((t) => /graveyard/.test(t));
-  assert.truthy(dusk && /twice as often/.test(dusk) && 1 / __ghost.GHOST_ZONE_CADENCE_MUL === 2, 'twice');
   assert.truthy(PLAY_TIPS.some((t) => /shrine/.test(t) && /one gift a day/.test(t)), 'the shrine page');
   assert.truthy(PLAY_TIPS.some((t) => /fuel yard/.test(t) && /drag/.test(t)), 'the tar page');
+  // No page promises what is gone: the churchyard's dusk rise, the fuel
+  // yard's fire slimes, a cemetery's stones.
+  for (const t of PLAY_TIPS) {
+    assert.falsy(/(graveyard|churchyard)/i.test(t) && /(dusk|twice as often)/i.test(t), `no churchyard dusk rise: ${t}`);
+    assert.falsy(/fuel yard/i.test(t) && /(fire slime|flame)/i.test(t), `no fire at a fuel yard: ${t}`);
+    assert.falsy(/cemeter/i.test(t) && /(headstone|ghost|stones)/i.test(t), `no cemetery stones: ${t}`);
+  }
   const tier = PLAY_TIPS.find((t) => /one tier finer/.test(t));
   assert.truthy(tier && ZONE_NEXUS_TIER_BONUS === 1, 'the nexus tier page says one');
-  // Curriculum: the dusk ghosts come after the first ghost page.
-  const firstGhost = PLAY_TIPS.findIndex((t) => /After dark, ghosts rise/.test(t));
-  assert.gt(PLAY_TIPS.indexOf(dusk), firstGhost, 'taught after the night\'s ghosts');
 });
 
 test('tar yard: the oily ground takes no hoe, and says why', () => {

@@ -513,3 +513,14 @@ test('cave X: a dig underground leans the cave way, a surface dig does not', () 
   assert.truthy(/const dig = scene\.digTreasureOpts\?\.\(\);\s*grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default',\s*tr\.rollBonus > 0 \? \{ \.\.\.\(dig \|\| \{\}\), rollBonus: tr\.rollBonus \} : dig\)/.test(INTERACT_SRC),
     'the fallback dig passes them too');
 });
+
+// The bike rack is a COURIER'S POST in the world (Sep 2026): the old copy
+// implied riding a bicycle while playing. Ids and the texture key stay.
+test('courier\'s post: the rack\'s name and flash say walk, never ride', () => {
+  assert.eq(POI_CLASS_FALLBACK.bicycle_parking, 'Courier\'s Post');
+  const line = bikeRackFlash();
+  assert.eq(line, `Swift step! Stick ×${BIKE_RACK_SPEED_MUL} for ${shortDuration(BIKE_RACK_MS)}`);
+  assert.lte([...line].length, MAP_MSG_MAX, line);
+  assert.falsy(/pedal|bike|cycl|ride/i.test(line + POI_CLASS_FALLBACK.bicycle_parking), 'no bicycle in the copy');
+  assert.eq(chestLook({ kind: 'chest', poiClass: 'bicycle_parking', x: 0, y: 0 }).texKey, 'bike_rack', 'the key is unchanged');
+});

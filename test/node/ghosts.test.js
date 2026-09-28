@@ -165,6 +165,17 @@ test('ghost pump: nothing by day', () => {
   });
 });
 
+test('ghost pump: no churchyard reason — dusk is dusk at a church too (safety, Sep 2026)', () => {
+  // The Old Stones used to raise the dead from DUSK round a church or a
+  // cemetery, twice as often, fanned from the stones — pulling players to
+  // graveyards at closing time. Gone: one predicate, the same night everywhere.
+  assert.eq(__ghost.ghostsHaunt.length, 2, 'ghostsHaunt(depth, day) — no zone argument');
+  assert.falsy('GHOST_ZONE_DUSK' in __ghost || 'GHOST_ZONE_CADENCE_MUL' in __ghost, 'the boost constants are gone');
+  assert.falsy(/ghostAnchorAt|Zones\./.test(CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function ghostSpawnPass('),
+    CREATURE_AI_SRC.indexOf('function makeGhost('))), 'the pump reads no zone');
+  assert.falsy(__ghost.ghostsHaunt(0, 0.4), 'dusk, not yet dark: nothing, anywhere');
+});
+
 test('ghost pump: nothing on an ODD cave level, night or not', () => {
   for (const depth of [1, 3, 5]) {
     atDaylight(0, () => {

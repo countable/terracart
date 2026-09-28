@@ -132,6 +132,166 @@ const PEST_CROW_SPAWN_CELLS = 10;
 // walks. Its PACE is this over its beat (the loop's STEP_MS / its row's
 // speed). The ghost does not step — it glides at its row's `mps`.
 function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
+// ── THE KERB: the major roads' buffer, and who may come near it ─────────────
+// SAFETY (owner, Sep 2026): there must never be a need, or an advantage, to
+// step onto a busy road to get away from something. The worldgen stamps a
+// KERB BUFFER beside every MD/LG road (ROAD_CLASS_MAJOR_BUFFER — the band plus
+// MAJOR_BUFFER_CELLS, about one base reach, either side), and the creature
+// sim reads it three ways, each a REASON on a lane that already exists:
+//   · NOTHING HOSTILE STEPS ONTO THE BAND — a refused target cell in the step
+//     chain's cell tests, beside water, rocks and fires. Wild fauna neither.
+//   · A FAST FOE (isFastFoe — anything that out-runs a walk, WALK_M_S) never
+//     steps INTO the buffer from outside it (the same refused-cell test), and
+//     never spawns in it (WorldGen.isFoeCell). A slow foe may stand anywhere
+//     off the band: you out-walk it.
+//   · A PLAYER WHOSE FEET ARE IN THE BUFFER IS WHERE EVERY CHASE ENDS
+//     (`kerbLeash` in wanderCreatures): every hostile turns its back — one
+//     more reason in the wander-off lane (standDown + an away angle), a lair
+//     guard gives up and walks home, a ghost stops short. It reads the
+//     player's FEET (playerM), never the camera anchor. Because the band is
+//     inside the buffer, standing on the carriageway buys exactly what
+//     standing on the pavement beside it does — nothing more — so the road is
+//     never a refuge (test/node/kerb_refuge_sim.test.js runs it for every
+//     hostile kind).
+// What this is NOT: `unnoticed`. A Shadow Powder / an empty bar / a passenger's
+// speed hide you from what would notice you, anywhere; the kerb is a place a
+// chase gives up at, and only for as long as you stand in it.
+// wanderCreatures' base beat (its STEP_MS): one cell a step at this cadence
+// is the plain wander; a slime's gait and a monster's `speed` scale it.
+const WANDER_STEP_MS = 5000;
+// The tile bits under a world-metre point on the surface (0 underground, on
+// an unloaded tile, or before its roadClass exists).
+function roadClassBitsAt(scene, x, y) {
+  if ((scene.depth || 0) !== 0) return 0;
+  const edge = scene.tileEdgeM;
+  if (!(edge > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return 0;
+  const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+  if (!entry || !entry.roadClass) return 0;
+  const N = entry.cellsPerEdge;
+  if (!(N > 0)) return 0;
+  const ix = Math.floor((x - tx * edge) / (edge / N)), iy = Math.floor((y - ty * edge) / (edge / N));
+  if (ix < 0 || iy < 0 || ix >= N || iy >= N) return 0;
+  return entry.roadClass[iy * N + ix] | 0;
+}
+function inKerbAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER); }
+function onMajorRoadAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BAND); }
+// How fast this creature COMES AT YOU, metres per second, at the quickest the
+// step chain ever moves it toward the player (a flee or a rout is away, and
+// does not count): a ghost's glide (`mps`); the surface slime's charge (its
+// hop at the base beat — the struck slime's quickened pace); a monster's
+// stride over its `speed`-scaled beat; a hunted game animal's charge (its
+// flee stride and beat — `fightsBack`). 0 for a rooted foe or anything that
+// never comes at you. Derived from the same numbers the loop moves by, never
+// a table of its own.
+function foeChaseMps(c, cellM) {
+  if (!c) return 0;
+  const cm = cellM > 0 ? cellM : WorldGen.CELL_M;
+  const m = Combat.monster(c.kind);
+  if (m && m.stationary) return 0;
+  // A ROSTER foe (enemy_roster.js — the one table rosterEnemyMove moves it
+  // by): the quickest of its row's own speeds — the base pace, a slime's
+  // charge, a fiend's lunge, a bat's peak flight. A legacy giant alias
+  // (giant_goblin …) reads its base kind's row.
+  const row = (typeof EnemyRoster !== 'undefined')
+    && (EnemyRoster.get(c.kind) || (m && m.giant && EnemyRoster.get(m.giant)));
+  if (row) return rosterChaseMps(row);
+  if (m && m.mps) return m.mps;
+  if (c.kind === 'slime') return SLIME_HOP_CELLS * cm / (WANDER_STEP_MS / 1000);
+  if (m && m.speed) return monsterStrideCells(m) * cm * m.speed / (WANDER_STEP_MS / 1000);
+  const fb = SpriteLayout.creatureFightsBack(c.kind);
+  const flee = fb && SpriteLayout.creatureBehaviour(c.kind)?.flee;
+  if (flee) return (flee.stepCells ?? 1) * cm / ((flee.stepMs ?? WANDER_STEP_MS) / 1000);
+  return 0;
+}
+// Every `…speedMetersPerSecond` a roster row's movement declares, at its
+// quickest (0 for a row that declares none). Derived from the row, never a
+// list of fast kinds: a new kind or a retuned pace classifies itself.
+function rosterChaseMps(row) {
+  const mv = (row && row.movement) || {};
+  let best = 0;
+  for (const k of Object.keys(mv)) {
+    if (/(^s|S)peedMetersPerSecond$/.test(k) && Number.isFinite(mv[k])) best = Math.max(best, mv[k]);
+  }
+  return best;
+}
+// A FAST FOE: one a walking player cannot simply out-walk.
+function isFastFoe(c, cellM) { return foeChaseMps(c, cellM) > WALK_M_S; }
+
+// ── SAME SIDE: nothing time-sensitive across a major road ────────────────────
+// A timed or place-bound reward seated near the player (a pot of gold's coin
+// burst, a guild bounty's pack, anything walkableDestination finds) must be
+// reachable WITHOUT crossing an MD/LG band: sameSideField floods the surface
+// from the player's cell over a lattice of cellM steps, 4-connected, refusing
+// every ROAD_CLASS_MAJOR_BAND cell, out to SAME_SIDE_R_CELLS. A point is same
+// side when its lattice node was reached. An unloaded tile (no grid yet) counts as a wall
+// (unknown is not safe), and a field that met one is not memoised — the
+// street-lamp rule: never stamp a memo read off a tile still loading.
+// Memoised on the player's lattice cell + depth; built only on demand (a
+// burst, a bounty, a destination), never per frame. Standing ON the band the
+// flood starts from the nearest node off it (fixed ring order), so a player
+// in the road gets the side they are nearest, not both.
+const SAME_SIDE_R_CELLS = 24;
+// `fx, fy` (optional): the feet, in world metres — the scene's own playerM
+// when omitted (walkableDestination hands over the point it measures from).
+function sameSideField(scene, fx, fy) {
+  const cm = scene.cellM, edge = scene.tileEdgeM;
+  const px = fx != null ? fx : scene.startWorldM.x + scene.playerM.x;
+  const py = fy != null ? fy : scene.startWorldM.y + scene.playerM.y;
+  const R = SAME_SIDE_R_CELLS, W = 2 * R + 1;
+  const cx = Math.floor(px / cm), cy = Math.floor(py / cm);
+  const key = `${scene.depth || 0}|${cx}|${cy}`;
+  const memo = scene._sameSide;
+  if (memo && memo.key === key) return memo;
+  const ox = (cx + 0.5) * cm - R * cm, oy = (cy + 0.5) * cm - R * cm;
+  const reached = new Uint8Array(W * W);
+  const field = { key, ox, oy, cm, R, W, reached,
+    test(x, y) {
+      const i = Math.round((x - this.ox) / this.cm), j = Math.round((y - this.oy) / this.cm);
+      return i >= 0 && j >= 0 && i < this.W && j < this.W && this.reached[j * this.W + i] === 1;
+    } };
+  // Underground there are no roads: everything in range is the same side.
+  if ((scene.depth || 0) !== 0 || !(edge > 0) || !(cm > 0)) { reached.fill(1); return field; }
+  let partial = false;
+  const wall = new Uint8Array(W * W);   // 1 open, 2 blocked
+  const blocked = (i, j) => {
+    const k = j * W + i;
+    if (!wall[k]) {
+      const x = ox + i * cm, y = oy + j * cm;
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(Math.floor(x / edge), Math.floor(y / edge)));
+      if (!entry || !entry.grid) { partial = true; wall[k] = 2; }
+      else wall[k] = (roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BAND) ? 2 : 1;
+    }
+    return wall[k] === 2;
+  };
+  let si = R, sj = R;
+  if (blocked(si, sj)) {
+    let found = false;
+    for (let r = 1; r <= R && !found; r++) {
+      for (let d = -r; d <= r && !found; d++) {
+        for (const [i, j] of [[R + d, R - r], [R + r, R + d], [R - d, R + r], [R - r, R - d]]) {
+          if (!blocked(i, j)) { si = i; sj = j; found = true; break; }
+        }
+      }
+    }
+    if (!found) return field;
+  }
+  const queue = new Int32Array(W * W);
+  let head = 0, tail = 0;
+  reached[sj * W + si] = 1; queue[tail++] = sj * W + si;
+  while (head < tail) {
+    const k = queue[head++], i = k % W, j = (k / W) | 0;
+    for (const [ni, nj] of [[i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]]) {
+      if (ni < 0 || nj < 0 || ni >= W || nj >= W) continue;
+      const nk = nj * W + ni;
+      if (reached[nk] || blocked(ni, nj)) continue;
+      reached[nk] = 1; queue[tail++] = nk;
+    }
+  }
+  if (!partial) scene._sameSide = field;
+  return field;
+}
+function sameSideAs(scene, x, y, fx, fy) { return sameSideField(scene, fx, fy).test(x, y); }
 // ── GHOSTS ───────────────────────────────────────────────────────────────────
 // After dark (and at any hour on an even cave level — ghostsHaunt) a few
 // ghosts rise in the dark around the player, hover a moment,
@@ -153,21 +313,16 @@ function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // (ghostSunExposureAt).
 const GHOST_DARK_DAYLIGHT = 0.25;
 const GHOST_CAVE_EVERY = EnemyRoster.GHOST_SCALING.hauntedDepthEvery;
-// THE OLD STONES — a second reason on the same lane (src/zones.js): inside a
-// church's or a cemetery's zone (Zones.ghostAnchorAt — other faiths' places
-// of worship carry no ghost boost) the dead rise from DUSK, the sun on the
-// horizon (GHOST_ZONE_DUSK, 0.5) instead of dusk gone to dark; the pump runs
-// GHOST_ZONE_CADENCE_MUL as long between groups; and the fan is aimed at the
-// anchor, so they come up from among the stones. Every ward, the dark test,
-// the roster's nearby cap and the burn are unchanged.
-const GHOST_ZONE_DUSK = 0.5;
-const GHOST_ZONE_CADENCE_MUL = 0.5;
+// (THE OLD STONES used to be a second reason here - from DUSK inside a
+// church's or cemetery's zone, twice as often, fanned from the stones. Gone,
+// Sep 2026, owner: it pulled players to churchyards at closing time and sent
+// them fleeing through dark streets. A churchyard's headstone can still raise
+// one when TAPPED (raiseGhostAt); the night itself is the same everywhere.)
 // Is this a time and place ghosts rise? One predicate the pump reads: the
-// surface after dark (from dusk in a churchyard — `zone`), or a haunted cave
-// level at any hour.
-function ghostsHaunt(depth, day, zone) {
+// surface after dark, or a haunted cave level at any hour.
+function ghostsHaunt(depth, day) {
   if (depth > 0) return depth % GHOST_CAVE_EVERY === 0;
-  return day < (zone ? GHOST_ZONE_DUSK : GHOST_DARK_DAYLIGHT);
+  return day < GHOST_DARK_DAYLIGHT;
 }
 // The roster sets the cadence and jitter so the pump and every balance tool
 // answer to the same table. Five minutes plus or minus one minute reads as
@@ -244,21 +399,16 @@ function ghostSurfaceEligible(scene, x, y, cell) {
 function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {
   const depth = scene.depth || 0;
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
-  // The churchyard reason: the stones anchor under the player's feet, read
-  // once per pump (one Uint8 read), surface only.
-  const stones = (depth === 0 && typeof Zones !== 'undefined' && entry)
-    ? Zones.ghostAnchorAt(entry, Math.floor(pcW.cx), Math.floor(pcW.cy)) : null;
-  const cadence = stones ? GHOST_ZONE_CADENCE_MUL : 1;
   // Daylight is only asked on the surface (a cave level has no sun).
-  if (!ghostsHaunt(depth, depth > 0 ? 0 : Lighting.daylight(scene, Date.now()), !!stones)) {
+  if (!ghostsHaunt(depth, depth > 0 ? 0 : Lighting.daylight(scene, Date.now()))) {
     scene._nextGhostT = null; return 0;
   }
   // The stairs repoint the level: a timer armed on another depth is not this
   // level's, so a group can't rise the instant you arrive.
   if (scene._ghostDepth !== depth) { scene._ghostDepth = depth; scene._nextGhostT = null; }
-  if (scene._nextGhostT == null) { scene._nextGhostT = now + ghostSpawnDelay(Math.random()) * cadence; return 0; }
+  if (scene._nextGhostT == null) { scene._nextGhostT = now + ghostSpawnDelay(Math.random()); return 0; }
   if (now < scene._nextGhostT) return 0;
-  scene._nextGhostT = now + ghostSpawnDelay(Math.random()) * cadence;
+  scene._nextGhostT = now + ghostSpawnDelay(Math.random());
   if (!entry || !entry.creatures) return 0;
   let near = 0;
   WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
@@ -268,11 +418,7 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   const want = Math.min(profile.nearMax - near,
     profile.groupMin + Math.floor(Math.random() * (profile.groupMax - profile.groupMin + 1)));
   const R = PEST_CROW_SPAWN_CELLS * scene.cellM;
-  let base = Math.random() * Math.PI * 2;
-  if (stones) {
-    const a = Zones.anchorFrameM(stones, scene.tileEdgeM);
-    if (a.x !== px || a.y !== py) base = Math.atan2(a.y - py, a.x - px);
-  }
+  const base = Math.random() * Math.PI * 2;
   let made = 0;
   for (let i = 0; made < want && i < want * 8; i++) {
     // The fan first; if the dark is not there, anywhere on the ring.
@@ -280,6 +426,8 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
     const x = px + Math.cos(a) * R, y = py + Math.sin(a) * R;
     const cell = scene.cellAt(x, y);
     if (!cell.loaded || (depth === 0 && !ghostSurfaceEligible(scene, x, y, cell))) continue;
+    // A ghost is a FAST foe: never risen in a major road's kerb buffer.
+    if (inKerbAt(scene, x, y)) continue;
     if (wardTrip({ x, y }, homePos, castleWards, wardR2)) continue;
     if (Lighting.brightnessAt(scene, x, y) > GHOST_SPAWN_DARK) continue;
     const ghost = makeGhost(x, y, now, pcW.tx, pcW.ty, made);
@@ -309,6 +457,8 @@ function raiseGhostAt(scene, x, y, now, tag) {
   const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
   if (!entry || !entry.creatures) return null;
+  // Never in a major road's kerb buffer (a ghost is a fast foe — see THE KERB).
+  if (inKerbAt(scene, x, y)) return null;
   const caught = new Set((scene.save && scene.save.caught) || []);
   let near = 0;
   WorldGen.forEachItemNear('creatures', tx, ty, (c) => {
@@ -372,6 +522,11 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
 // (no _spawnOpts — the shared rule is not ready to answer).
 // `opts.accept(x, y)` may refuse a candidate for the caller's own reason
 // (the bounty keeps out of Home's ward ring).
+//   SAME SIDE, always: a destination is only one the player can reach without
+// crossing a major road's band (sameSideAs — the flood from their cell), so
+// nothing it seats ever sits across a busy road from them.
+//   `opts.foe`: the thing seated is alive and hostile (a bounty's pack) — the
+// seat rule is WorldGen.isFoeCell, which also keeps it out of the kerb buffer.
 function walkableDestinationRings(dist) {
   const d = Math.max(1, Math.round(dist));
   const out = [d];
@@ -399,8 +554,10 @@ function walkableDestination(scene, px, py, dist, opts) {
       if (!(N > 0)) continue;
       const cm = edge / N;
       const ix = Math.floor((wx - tx * edge) / cm), iy = Math.floor((wy - ty * edge) / cm);
-      if (!WorldGen.isSpawnCell(entry.grid, N, N, ix, iy, entry._spawnOpts)) continue;
+      const seat = o.foe ? WorldGen.isFoeCell : WorldGen.isSpawnCell;
+      if (!seat(entry.grid, N, N, ix, iy, entry._spawnOpts)) continue;
       const x = tx * edge + (ix + 0.5) * cm, y = ty * edge + (iy + 0.5) * cm;
+      if (!sameSideAs(scene, x, y, px, py)) continue;
       if (o.accept && !o.accept(x, y)) continue;
       return { tx, ty, ix, iy, x, y, n: N, entry };
     }
@@ -463,6 +620,10 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
   const toPlayer = Math.hypot(px - c.x, py - c.y);
   const step = Math.min(pace * dt, warded ? Infinity : toPlayer);
   const nx = c.x + Math.cos(ang) * step, ny = c.y + Math.sin(ang) * step;
+  // It glides over any terrain — but a ghost is a FAST foe, so it never
+  // crosses INTO a major road's kerb buffer (THE KERB). One already inside
+  // (risen before the rule, or routed through it) may still leave.
+  if (inKerbAt(scene, nx, ny) && !inKerbAt(scene, c.x, c.y)) return null;
   c.x = nx; c.y = ny;
   if (Math.abs(Math.cos(ang)) > 1e-6) c._faceFlip = Math.cos(ang) < 0;
   if (warded) return null;
@@ -596,6 +757,14 @@ function enemyCanStep(scene, c, row, x, y) {
     if (scene.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) return false;
   }
   if (row.movement.pattern !== 'orbit_swoop' && Combat.faunaBlocksCell(cell.type)) return false;
+  // THE KERB (above): nothing hostile — flier or not — steps onto a major
+  // road's band, and a FAST foe never steps INTO the buffer from outside it
+  // (one already inside may leave). The same refused-cell reasons the old
+  // step chain reads, on the roster's swept mover.
+  const road = roadClassBitsAt(scene, x, y);
+  if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return false;
+  if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && !inKerbAt(scene, c.x, c.y)
+      && isFastFoe(c, scene.cellM)) return false;
   const fireAverts = !c.lair && (row.tier <= FIRE_WARD_MAX_DEPTH);
   return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
 }

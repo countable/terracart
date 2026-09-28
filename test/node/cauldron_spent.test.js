@@ -36,17 +36,28 @@ test('cauldron: a burst drops extra coins at the player\'s feet, and claims only
   assert.truthy(/Scattered \$\{drops\.length\} coins!/.test(body), 'the flash says the real count');
 });
 
-test('cauldron: coins may lie on a road, never in water or under anything', () => {
+test('cauldron: coins never lie in the road or a yard, wait ten minutes, and stay on the player\'s side', () => {
+  // SAFETY (owner, Sep 2026): a coin used to be allowed in the carriageway and
+  // in front gardens and to vanish after a minute — the strongest "run into
+  // the street" push the audit found.
   const app = APP_JS_SRC;
-  assert.truthy(/function coinGround\(t\) \{ return WorldGen\.isWalkable\(t\) \|\| WorldGen\.isRoadTerrain\(t\); \}/.test(app),
-    'walkable ground or the road');
-  const T = WorldGen.T;
-  assert.truthy(WorldGen.isRoadTerrain(T.ROAD) && WorldGen.isRoadTerrain(T.ROAD_LG), 'the road tiers');
-  assert.falsy(WorldGen.isRoadTerrain(T.WATER) || WorldGen.isRoadTerrain(T.GRASS), 'nothing else');
+  assert.falsy(/function coinGround|function coinRoadCell/.test(app), 'the road-welcoming coin ground is gone');
+  const life = Number(/const COIN_BURST_LIFE_MS = (\d+) \* 60 \* 1000;/.exec(app)?.[1]);
+  assert.gte(life, 10, 'a burst waits at least ten minutes');
   const body = app.slice(app.indexOf('  _coinBurstInteract(sx, sy, poi) {'), app.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
-  assert.truthy(/const onRoad = coinRoadCell\(entry, i\);/.test(body), 'the pot scatter takes road cells');
+  assert.truthy(/const expiresAt = Date\.now\(\) \+ COIN_BURST_LIFE_MS;/.test(body), 'the burst expires on it');
+  assert.falsy(/60_000/.test(body), 'no one-minute coin');
+  assert.truthy(/if \(!WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, burstOpts\)\) continue;/.test(body),
+    'the pot scatter is the shared spawn rule: off the road band, under nothing, no private yard');
+  assert.falsy(/strict|relax/i.test(body.replace(/\/\/.*$/gm, '')), 'no relaxed pass');
+  assert.truthy(/sameSideAs\(this, /.test(body), 'and on the player\'s side of any major road');
   const near = app.slice(app.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
-  assert.falsy(/roadMask/.test(near.slice(0, near.indexOf('\n  }\n'))), 'the feet scatter does not refuse the road');
+  const nearBody = near.slice(0, near.indexOf('\n  }\n'));
+  assert.truthy(/WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, opts\)/.test(nearBody), 'the feet scatter too');
+  assert.truthy(/sameSideAs\(this, /.test(nearBody), 'same side at the feet too');
+  // A kill's coin is stepped off a road cell onto the ground beside it.
+  const drop = app.slice(app.indexOf('  _dropBountyCoin(victim, amount) {'));
+  assert.truthy(/NEVER IN THE ROAD/.test(drop.slice(0, drop.indexOf('\n  }\n'))), 'a bounty coin never lies in the road');
 });
 
 test('pot of gold: the burst is its density on its tile — 30 alone, 3 at 50, 1 at 150+', () => {

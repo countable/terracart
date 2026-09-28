@@ -232,8 +232,8 @@
   ]);
   function isWalkable(t) { return !NON_WALKABLE.has(t); }
   // The road tiers as terrain. Nothing SPAWNS here (isSpawnCell, the road
-  // mask) — but a coin is a pickup, not scenery, and may lie in the street
-  // (app.js coinGround).
+  // mask), and since Sep 2026 no coin lies here either (the safety rule — a
+  // kill's coin is stepped off the road, app.js _dropBountyCoin).
   function isRoadTerrain(t) { return t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG; }
 
   // THE LOT SET: built-up land that models somebody's lot — a residential
@@ -288,12 +288,37 @@
   //                   under a tree, undiggable until the tree is felled. Caves
   //                   check the same thing directly (Traps.spawnCave's
   //                   `occupiedIdx`); this is the surface side of that rule.
+  //   opts.quiet    : the tile's QUIET-LAND mask (entry.quietMask — see
+  //                   QUIET_LAND below): military ground, railway land, First
+  //                   Nations reserve land and real cemeteries. A quiet cell
+  //                   keeps its look and stays walkable, but hosts NOTHING —
+  //                   no creature, trap, pickup, chest or hoard. It is the
+  //                   roadMask's lane (a masked cell just can't host a spawn)
+  //                   with a different reason, not a new gate.
+  // THE FOE / FAUNA SEAT RULE: the shared spawn rule, and outside the major
+  // roads' kerb buffer (ROAD_CLASS_MAJOR_BUFFER, read off `opts.roadClass` —
+  // the tile's entry.roadClass, carried on spawnInTile's _spawnOpts). Every
+  // spawner that seats something alive (wild fauna, a lair's guards, the
+  // gate's foe, a bounty pack, the night's ghosts) asks this; a pickup or a
+  // piece of scenery asks isSpawnCell. No roadClass → no buffer to read.
+  function inMajorBuffer(roadClass, w, cx, cy) {
+    return !!(roadClass && (roadClass[cy * w + cx] & ROAD_CLASS_MAJOR_BUFFER));
+  }
+  function onMajorBand(roadClass, w, cx, cy) {
+    return !!(roadClass && (roadClass[cy * w + cx] & ROAD_CLASS_MAJOR_BAND));
+  }
+  function isFoeCell(grid, w, h, cx, cy, opts) {
+    if (!isSpawnCell(grid, w, h, cx, cy, opts)) return false;
+    return !inMajorBuffer(opts && opts.roadClass, w, cx, cy);
+  }
   function isSpawnCell(grid, w, h, cx, cy, opts) {
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
     const here = grid[cy * w + cx];
     if (!isWalkable(here)) return false;          // never on water/road/building
     const roadMask = opts && opts.roadMask;
     if (roadMask && roadMask[cy * w + cx]) return false;   // under a drawn road band
+    const quiet = opts && opts.quiet;
+    if (quiet && quiet[cy * w + cx]) return false;         // quiet land (QUIET_LAND)
     const occupied = opts && opts.occupied;
     if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
     if (!isLotTerrain(here)) return true;         // public / open ground — always ok
@@ -338,7 +363,7 @@
   }
   // Emit the gate posts and notice boards for a tile's gate / information
   // points (tile-local cells), pushing onto `objects`. ctx: { grid, N,
-  // roadMask, tx, ty, centre(ix, iy) → {x,y} frame metres, taken? (Set of
+  // roadMask, quiet (the quiet-land mask, optional), tx, ty, centre(ix, iy) → {x,y} frame metres, taken? (Set of
   // "ix_iy" already occupied) }. The seat rule is the shared isSpawnCell
   // with the gate / board itself as the public anchor for the frontage rule
   // (it IS a public place) — O(1) per cell, however many POIs the tile has.
@@ -348,13 +373,16 @@
   //            what spawnInTile hands lairs.js as the 'gate' lair;
   //   a board  `info_<tx>_<ty>_<ix>_<iy>` on the nearest spawn cell.
   function placeGatesAndBoards(objects, gatePoints, infoPoints, ctx) {
-    const { grid, N, roadMask, tx, ty, centre } = ctx;
+    const { grid, N, roadMask, quiet, tx, ty, centre } = ctx;
     const taken = ctx.taken || new Set();
     const inTile = (p) => p.ix >= 0 && p.iy >= 0 && p.ix < N && p.iy < N;
     const claim = (ix, iy) => taken.add(ix + '_' + iy);
     for (const g of gatePoints || []) {
       if (!inTile(g)) continue;
-      const opts = { roadMask, pois: [g] };
+      // A gate on quiet land (a base's gate, a level crossing's) is no
+      // spawn point: its foe would stand where nothing may (QUIET_LAND).
+      if (quiet && quiet[g.iy * N + g.ix]) continue;
+      const opts = { roadMask, quiet, pois: [g] };
       const free = (ix, iy) => !taken.has(ix + '_' + iy) && !(ix === g.ix && iy === g.iy)
         && isSpawnCell(grid, N, N, ix, iy, opts);
       const posts = gatePostsAt(grid, N, roadMask, g.ix, g.iy, free);
@@ -372,7 +400,7 @@
     }
     for (const b of infoPoints || []) {
       if (!inTile(b)) continue;
-      const opts = { roadMask, pois: [b],
+      const opts = { roadMask, quiet, pois: [b],
         occupied: { has: (i) => taken.has((i % N) + '_' + Math.floor(i / N)) } };
       const at = relocateToSpawnCell(grid, N, N, b.ix, b.iy, opts);
       if (!at) continue;
@@ -573,9 +601,15 @@
           c === 'recreation_ground' || c === 'track') return T.PITCH;
       if (c === 'dog_park') return T.PARK;
       if (c === 'cemetery' || c === 'park' || c === 'garden') return T.PARK;
-      // Anything else is land nobody here has a name for — railway yards,
-      // brownfield, garages, military ground. It plays as residential
-      // land (isLotTerrain) but looks like the scrub it is. See T.WASTELAND.
+      // Military ground and railway land keep the scrub look, as explicit
+      // rows rather than the catch-all below — because they are QUIET LAND
+      // (QUIET_LAND, stamped into entry.quietMask): nothing spawns on them,
+      // so nothing lures a player over a base's fence or onto the tracks.
+      // What paints them is not what keeps them empty; the mask does that.
+      if (c === 'military' || c === 'railway') return T.WASTELAND;
+      // Anything else is land nobody here has a name for — brownfield,
+      // garages, yards. It plays as residential land (isLotTerrain) but
+      // looks like the scrub it is. See T.WASTELAND.
       return T.WASTELAND;
     }
     if (layer === 'park') return T.PARK;
@@ -709,6 +743,12 @@
   // Yields by row, which is the natural seam — the scanline state is rebuilt
   // per row, so pausing between rows costs nothing.
   function* paintPolygonSteps(grid, w, h, rings, type, mvtToCell) {
+    yield* forEachPolygonCellSteps(w, h, rings, mvtToCell,
+      (x, y) => paintCell(grid, w, h, x, y, type));
+  }
+  // The scanline itself, for any per-cell stamp (the terrain paint above, the
+  // quiet-land mask): visit(x, y) once per cell whose centre is inside.
+  function* forEachPolygonCellSteps(w, h, rings, mvtToCell, visit) {
     // Use signed area to know outer vs inner. For simplicity, rasterize all rings with
     // even-odd fill across all rings combined per feature.
     // Build cell-space polygon, then scanline fill.
@@ -744,7 +784,7 @@
         // ceil/floor with -0.5 offsets which could clip the rightmost cell column.
         const xa = Math.max(0, Math.floor(xs[k] + 0.5));
         const xb = Math.min(w - 1, Math.floor(xs[k + 1] - 0.5));
-        for (let x = xa; x <= xb; x++) paintCell(grid, w, h, x, y, type);
+        for (let x = xa; x <= xb; x++) visit(x, y);
       }
     }
   }
@@ -907,7 +947,7 @@
   // out of play for spawns, tilling and trap verges. At a half the mask is the
   // cells the player reads as MOSTLY road; a verge cell with a lick of paint
   // on its edge is ground again. One number, the mask's own definition, so
-  // every reader (isSpawnCell, Traps.isRoadside, starter.js, stairs, tilling)
+  // every reader (isSpawnCell, Traps.canLay, starter.js, stairs, tilling)
   // moves with it.
   //
   // Coverage is ESTIMATED from ROAD_MASK_SAMPLES sample points per cell, laid
@@ -1015,9 +1055,9 @@
   }
   // ── The road's CLASS, per cell ────────────────────────────────────────────
   // Beside the mask, one byte of bits saying which ROAD this is ground of. Only
-  // the MAJOR ways (ROAD_MD + ROAD_LG, the bandit roads — see
+  // the MAJOR ways (ROAD_MD + ROAD_LG, the old trade roads — see
   // src/street_variants.js) are recorded, because that is the question the
-  // spawners ask: the traps' verge (Traps.isRoadside), the wagon bus stops and
+  // spawners ask: the kerb buffer (ROAD_CLASS_MAJOR_BUFFER), the wagon bus stops and
   // the dogs.
   //   ROAD_CLASS_MAJOR_BAND  a major way's drawn band covers ANY of the cell.
   //   ROAD_CLASS_MAJOR_VERGE the cell is NOT road ground (roadMask 0) and is
@@ -1029,16 +1069,37 @@
   // ROAD_MASK_MIN_COVER still has a verge — the cells it paints a lick of.
   const ROAD_CLASS_MAJOR_BAND = 1;
   const ROAD_CLASS_MAJOR_VERGE = 2;
-  //   ROAD_CLASS_BANDIT_VERGE a major-verge cell on a BANDIT STRETCH — the
-  //                          surface traps' road ground (Traps.isTrapGround).
+  //   ROAD_CLASS_BANDIT_VERGE a major-verge cell on an old trade road's
+  //                          stretch — the look only since Sep 2026 (no trap
+  //                          reads it: snares keep off every road).
   //                          Stamped after the street index is built
   //                          (StreetVariants.stampBanditStretchesSteps).
   const ROAD_CLASS_BANDIT_VERGE = 4;
-  function* resolveRoadClassSteps(majorCover, mask, out, w, h) {
+  //   ROAD_CLASS_MAJOR_BUFFER the KERB BUFFER: within MAJOR_BUFFER_CELLS of a
+  //                          major band (the band's own cells included) —
+  //                          stamped off the same lines, widened, so it is
+  //                          seam-safe the way the band is. THE SAFETY RULE
+  //                          (owner, Sep 2026): no foe and no animal spawns or
+  //                          seats in it (WorldGen.isFoeCell), a FAST foe
+  //                          (Combat.isFastFoe) never steps into it and gives
+  //                          up on a player standing in it, and nothing
+  //                          hostile steps onto the band itself — so the
+  //                          sidewalk is where a chase ENDS and nobody ever
+  //                          needs the carriageway to get away. It is NOT a
+  //                          spawn veto for pickups or scenery (X marks,
+  //                          rocks, chests keep isSpawnCell).
+  const ROAD_CLASS_MAJOR_BUFFER = 8;
+  // About one base reach radius (coords.js reachCells: 2.5 cells) past the
+  // band's edge — the ring a player standing on the kerb can act inside.
+  const MAJOR_BUFFER_CELLS = 2.5;
+  function* resolveRoadClassSteps(majorCover, mask, out, w, h, bufCover) {
     for (let cy = 0; cy < h; cy++) {
       if ((cy & 63) === 63) yield 'road class bands';
       const row = cy * w;
-      for (let cx = 0; cx < w; cx++) if (majorCover[row + cx]) out[row + cx] |= ROAD_CLASS_MAJOR_BAND;
+      for (let cx = 0; cx < w; cx++) {
+        if (majorCover[row + cx]) out[row + cx] |= ROAD_CLASS_MAJOR_BAND | ROAD_CLASS_MAJOR_BUFFER;
+        else if (bufCover && bufCover[row + cx]) out[row + cx] |= ROAD_CLASS_MAJOR_BUFFER;
+      }
     }
     for (let cy = 0; cy < h; cy++) {
       if ((cy & 63) === 63) yield 'road class verge';
@@ -2137,7 +2198,7 @@
     // specialty shops — themed loot via shopCategory()
     'florist','garden_centre','books','pet','fountain',
     // civic / attractions
-    'attraction','museum','library','town_hall','memorial',
+    'attraction','museum','library','town_hall',
     'pharmacy','hospital','dentist',
     'place_of_worship','school','college',
     'park','garden','playground','pitch',
@@ -2151,10 +2212,11 @@
     'running','ice_rink','stadium',
     // ── Restful shelters (lowtier chest + safe rest spot)
     'shelter','dog_park','picnic_site',
-    // ── Cultural plaques (civic chests; public art is a T1 one-time trunk —
-    // loot.js CHEST_CLASS_TIER). An information board is NOT a chest: it
-    // reads a Book page (POI_INFO_CLASS below).
-    'art_gallery','monument','cemetery','cinema','theatre',
+    // ── Culture (civic chests; public art is a T1 one-time trunk — loot.js
+    // CHEST_CLASS_TIER). An information board is NOT a chest: it reads a
+    // Book page (POI_INFO_CLASS below). Memorials, monuments and cemeteries
+    // are NOT here and never will be: they are SENSITIVE (isSensitivePoi).
+    'art_gallery','cinema','theatre',
     // ── Authority buildings (civic chests, high-tier feel)
     'police','fire_station','harbor',
     // ── atm → the pot of gold (a daily coin burst), bicycle_parking → the
@@ -2178,6 +2240,110 @@
   // never a chest. SX_CHEST_POI no longer maps them; injectTileBin also drops
   // them from a bin cached before Sep 2026, which still carries them.
   const SX_NOT_A_PLACE = new Set(['traffic_signals', 'crossing', 'stop', 'fence', 'powerline', 'carport']);
+  // ── THE SENSITIVE-PLACE TABLE (Sep 2026) — the ONE answer to "may this
+  // real place become game content?". A place of grief or of another faith's
+  // prayer MINTS NOTHING: no chest, no macro stall, no zone anchor (zones.js
+  // anchorOf asks this first), no enemy, no hoard — like SX_NOT_A_PLACE, but
+  // for the opposite reason: not too trivial to be a place, too serious to be
+  // a prize. Players of location games were sent to Holocaust sites and onto
+  // Stolpersteine; this is the line that stops ours. Every reader of a POI
+  // (the MVT poi pass, the sidecar / Overpass bin, a bin cached before this
+  // table, the zone anchors) asks isSensitivePoi — never its own list.
+  //   classes  — an MVT poi `class` / sidecar `kind` that is sensitive whole
+  //   osm      — an OSM tag (Overpass / sidecar `tags`) whose presence, or
+  //              listed value, marks the point: every memorial=* (the
+  //              Stolperstein is memorial=stolperstein), historic memorial /
+  //              monument / tomb, amenity=grave_yard, landuse=cemetery
+  //   name     — a name that says what the tags may not (a Gedenkstätte, a
+  //              Holocaust museum tagged only tourism=museum). Deliberately
+  //              narrow: "Memorial Park" / "Memorial Hospital" are ordinary
+  //              places and stay so.
+  // A PLACE OF WORSHIP is sensitive unless it is a CHRISTIAN one: the chapel
+  // stall and the churchyard are invented Christian scenery, and wearing them
+  // over a synagogue, mosque or temple is exactly the offence. OpenMapTiles
+  // carries the OSM `religion` tag as the poi `subclass` (christian, jewish,
+  // muslim, buddhist, …) and omits it when OSM has none. A place with NO
+  // religion given is a church only when its NAME says so (`churchName`:
+  // "… Church", "… Kirche", "St … Chapel", "Gospel …", a denomination) —
+  // otherwise it is unknown, and unknown fails CLOSED: it mints nothing.
+  // (22 of Kelowna's 30 are untagged, and not all of those are churches.) A
+  // subclass that IS given always wins over the name ("Church of
+  // Scientology" is tagged scientologist and stays quiet).
+  // What this is NOT: the quiet LAND (QUIET_LAND) — that is per cell over a
+  // polygon; this is per point, deciding what a POI mints.
+  const SENSITIVE_POI = {
+    classes: new Set(['memorial', 'monument', 'cemetery', 'grave_yard']),
+    osm: { memorial: true, historic: new Set(['memorial', 'monument', 'tomb']),
+      amenity: new Set(['grave_yard']), landuse: new Set(['cemetery']) },
+    name: /holocaust|shoah|genocide|stolperstein|gedenkst(?:ä|ae)tte|mahnmal|konzentrationslager|concentration camp/i,
+    worshipClass: 'place_of_worship',
+    worshipOk: new Set(['christian']),
+    churchName: /\b(church|chapel|kirche|kapelle|cathedral|parish|gospel|baptist|lutheran|anglican|catholic|methodist|presbyterian|pentecostal|evangelical|evangelisch|abbey|basilica)\b/i,
+  };
+  // The faith a place of worship is taken to have: its subclass / religion
+  // tag, else 'christian' when its name names a church, else '' (unknown).
+  function worshipFaith(tags) {
+    if (!tags) return '';
+    const faith = tags.subclass || tags.religion;
+    if (faith && faith !== SENSITIVE_POI.worshipClass) return faith;
+    return (tags.name && SENSITIVE_POI.churchName.test(tags.name)) ? 'christian' : '';
+  }
+  // `tags`: an MVT poi's { class, subclass, name } or an OSM tag set (both
+  // may be merged — the sidecar hands { class: kind, ...tags }).
+  function isSensitivePoi(tags) {
+    if (!tags) return false;
+    const S = SENSITIVE_POI;
+    if (S.classes.has(tags.class)) return true;
+    for (const k in S.osm) {
+      const v = tags[k];
+      if (v == null || v === '' || v === 'no') continue;
+      if (S.osm[k] === true || S.osm[k].has(v)) return true;
+    }
+    if ((tags.class === S.worshipClass || tags.amenity === S.worshipClass)
+        && !S.worshipOk.has(worshipFaith(tags))) return true;
+    return !!(tags.name && S.name.test(tags.name));
+  }
+  // ── QUIET LAND (Sep 2026) — polygons whose cells host NOTHING. Military
+  // ground (a lure over a guarded fence), railway land (onto the tracks),
+  // First Nations reserve land (not ours to fill with loot: OpenMapTiles
+  // carries boundary=aboriginal_lands as a `boundary` polygon), and a real
+  // CEMETERY (grave land is quiet green space — its lawn draws, nothing on it
+  // spawns, and no invented headstone may stand on a real grave). Keyed by
+  // layer → classes. The land keeps its LOOK (classifyPolygon); rasterize
+  // stamps these into `quietMask` (a Uint8Array over the tile's cells, 1 =
+  // quiet), carried on the entry as entry.quietMask and handed to isSpawnCell
+  // as opts.quiet. Per cell, from polygons the tile's own layers carry, so a
+  // cell is decided by the one tile that owns it (seam-safe). A rebuild re-
+  // derives it like roadMask. What this is NOT: a terrain code, nor the
+  // point table above (a memorial's POINT mints nothing; the land round it is
+  // whatever it is).
+  const QUIET_LAND = {
+    landuse: new Set(['military', 'railway', 'cemetery']),
+    boundary: new Set(['aboriginal_lands']),
+    park: new Set(['aboriginal_lands']),
+  };
+  function isQuietLand(layerName, tags) {
+    const row = QUIET_LAND[layerName];
+    return !!(row && tags && row.has(tags.class));
+  }
+  // Stamp every quiet polygon the tile's layers carry into `mask` (w·h).
+  // Yields per feature and per 8 rows (forEachPolygonCellSteps) — a reserve
+  // polygon can cover the whole tile. Returns the count of quiet cells.
+  function* stampQuietLandSteps(layers, mask, w, h, mvtToCell) {
+    let n = 0;
+    for (const L of layers || []) {
+      if (!L || !QUIET_LAND[L.name] || !L.features) continue;
+      for (const f of L.features) {
+        if (f.type !== 3 || !f.geom || !isQuietLand(L.name, f.tags)) continue;
+        yield 'quiet land';
+        yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => {
+          const i = y * w + x;
+          if (!mask[i]) { mask[i] = 1; n++; }
+        });
+      }
+    }
+    return n;
+  }
   // "Park family" POIs synthesize a small park buffer (radius ~18m) around the
   // point so they read as proper meadows / woodland even when OSM hasn't tagged
   // park landcover here. We paint over residential/grass/etc but NEVER over
@@ -2246,6 +2412,9 @@
     // The same coverage, for the MAJOR ways only, and the per-cell road CLASS
     // resolved from it beside the mask (resolveRoadClassSteps).
     const majorCover = new Uint16Array(w * h);
+    // The major ways' band once more, widened by MAJOR_BUFFER_CELLS each side
+    // — the KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER) no foe or fauna spawns in.
+    const majorBufCover = new Uint16Array(w * h);
     const roadClass = new Uint8Array(w * h);
     // Per-cell length of PATH geometry, in cell widths — see accumulateLineSpan.
     // Reduced to the pathCross mask below once every way has been walked.
@@ -3136,11 +3305,17 @@
             // move with the save's home latitude.
             const widthCells = roadOverlayWidthM(f.tags) / CELL_M;
             for (const line of f.geom) yield* stampCoverLineSteps(roadCover, w, h, line, widthCells, mvtToCell);
-            // The MAJOR ways (the bandit roads) stamp the same band a second
+            // The MAJOR ways (the old trade roads) stamp the same band a second
             // time into their own cover, in this same pass — the one lane
             // roadClass is resolved from (see ROAD_CLASS_MAJOR_BAND).
             if (t === T.ROAD_MD || t === T.ROAD_LG) {
               for (const line of f.geom) yield* stampCoverLineSteps(majorCover, w, h, line, widthCells, mvtToCell);
+              // And the kerb buffer: the same line, MAJOR_BUFFER_CELLS wider
+              // each side (see ROAD_CLASS_MAJOR_BUFFER). Lines in the tile's
+              // MVT buffer stamp too, so a band just over the seam still
+              // buffers this side of it.
+              const bufCells = widthCells + 2 * MAJOR_BUFFER_CELLS;
+              for (const line of f.geom) yield* stampCoverLineSteps(majorBufCover, w, h, line, bufCells, mvtToCell);
             }
           }
           // Parking-lot aisles carpet a lot with parallel service lines spaced
@@ -3186,6 +3361,10 @@
           // a fact of the point, not of the load order — and the neighbour
           // that owns it mints it. Same for the parking X below.
           const ownsPoint = (p) => p.x >= 0 && p.y >= 0 && p.x < TILE_EXTENT && p.y < TILE_EXTENT;
+          // A sensitive place (a memorial, a cemetery, another faith's house
+          // of prayer — isSensitivePoi) mints NOTHING: no chest, no stall,
+          // no X, no gate, no board. First, before any branch can mint.
+          if (isSensitivePoi(f.tags)) continue;
           if (cls === 'parking' || cls === 'motorcycle_parking') {
             // Car + motorcycle parking → guaranteed treasure X (no chest).
             for (const ring of f.geom) {
@@ -3658,7 +3837,14 @@
     // Every way is stamped: resolve the road mask from the coverage bits
     // (ROAD_MASK_MIN_COVER). Nothing above reads roadMask; everything below does.
     yield* resolveRoadMaskSteps(roadCover, roadMask, w, h);
-    yield* resolveRoadClassSteps(majorCover, roadMask, roadClass, w, h);
+    yield* resolveRoadClassSteps(majorCover, roadMask, roadClass, w, h, majorBufCover);
+    // QUIET LAND (QUIET_LAND): military, railway, reserve and cemetery cells
+    // host nothing. Stamped here, beside the road mask, so every cull and
+    // spawner below reads it (the mineralrock cleanup, the gates and boards,
+    // the street and zone dressing) — and carried on the entry for the ones
+    // outside the build (spawnInTile's _spawnOpts.quiet, the stair pass).
+    const quietMask = new Uint8Array(w * h);
+    yield* stampQuietLandSteps(layers, quietMask, w, h, mvtToCell);
     // THE STREET INDEX (src/street_variants.js): every street's key, size and
     // variant, and the hedgerow closes — pure MVT, so a rebuilt entry derives
     // the same one. Then the street ROCKS it asks for, pushed before the
@@ -3735,6 +3921,7 @@
       // before we start splicing `objects`.
       const _mrSpawnOpts = {
         roadMask,
+        quiet: quietMask,
         pois: objects
           .filter(o => o.kind === 'chest')
           .map(o => paintCellOf(o.x, o.y)),
@@ -3748,6 +3935,10 @@
         const { ix, iy } = paintCellOf(o.x, o.y);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) return false;   // off-tile objects belong to a neighbour pass
         const here = grid[iy * w + ix];
+        // Quiet land hosts nothing at all — not even a POI chest (a café on
+        // railway land, a kiosk on a base): the mask's whole promise is that
+        // nothing there asks to be walked to.
+        if (quietMask[iy * w + ix]) return true;
         // Blanket cull: nothing but a POI chest may sit on a road tier or a
         // building footprint. A chest is a real-world destination deliberately
         // placed at its coordinates — and a POI inside a building is allowed
@@ -3835,6 +4026,7 @@
           // Concrete POI pads stay bare — a shrub/marigold that survived the
           // biome filter (rocky-family crops) still doesn't belong on the plaza.
           if (_onRoadOrBuilding(wtc, ix, iy)) drop = true;
+          else if (quietMask[iy * w + ix]) drop = true;          // quiet land
           else if (poiPadCells.has(iy * w + ix)) drop = true;
           else if (isLotTerrain(wtc) && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) drop = true;
         }
@@ -3870,7 +4062,7 @@
       // occupancy pass below settles them against everything else (below a
       // chest, level with a house).
       placeGatesAndBoards(objects, gatePoints, infoPoints, {
-        grid, N: w, roadMask, tx, ty,
+        grid, N: w, roadMask, quiet: quietMask, tx, ty,
         centre: (ix, iy) => { const c = cellCenterMeters(ix, iy); return { x: c.mx, y: c.my }; },
       });
     }
@@ -4138,7 +4330,7 @@
       yield 'before street dressing';
       dressSpawn();
       streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM, grid,
-        spawnOpts: { roadMask, occupied: dressOcc, pois: dressPois } });
+        spawnOpts: { roadMask, quiet: quietMask, occupied: dressOcc, pois: dressPois } });
     }
     // INFLUENCE ZONES (src/zones.js) — LAST, after every cull, the occupancy
     // pass and the street dressing, so no older stream or filter ever reads a
@@ -4164,10 +4356,10 @@
       if (zone) {
         dressSpawn();
         zoneDress = yield* Zones.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
-          spawnOpts: { roadMask, occupied: dressOcc, pois: dressPois } });
+          spawnOpts: { roadMask, quiet: quietMask, occupied: dressOcc, pois: dressPois } });
       }
     }
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes };
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -4341,7 +4533,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -4369,6 +4561,11 @@
       // bursts, the starter provisioner — can ask the same question the
       // rasterize post-pass asks, by passing it as isSpawnCell's opts.roadMask.
       entry.roadMask = roadMask;
+      // QUIET LAND (see QUIET_LAND / isSpawnCell's opts.quiet): 1 = a military,
+      // railway, reserve or cemetery cell that hosts nothing. Pure MVT,
+      // re-derived by a rebuild like the mask; spawnInTile hands it on as
+      // _spawnOpts.quiet.
+      entry.quietMask = quietMask;
       // The MAJOR road's band and verge (see ROAD_CLASS_MAJOR_BAND) and the
       // street index (src/street_variants.js) — both pure MVT, re-derived by a
       // rebuild like the mask. spawnInTile dresses the streets off the index.
@@ -4466,6 +4663,7 @@
   function injectTileBin(entry, bin, x, y) {
     if (!bin) return;
     const { grid, roadMask, tileEdgeM } = entry;
+    const quiet = entry.quietMask || null;
     const cpe = entry.cellsPerEdge;
     // World metres -> this tile's local cell (the shared cellIndexOf, on the
     // tile's own basis tileEdgeM / cpe), and back to that cell's centre.
@@ -4499,8 +4697,11 @@
     const gateCells = [];
     const binChests = [];
     for (const r of (bin.gates || [])) if (r && r.lix != null && r.liy != null) gateCells.push({ ix: r.lix, iy: r.liy });
+    // A bin cached before the sensitive-place table (isSensitivePoi) still
+    // carries memorials as chests — dropped here too, mints nothing.
     for (const r of (bin.chests || [])) {
       if (!r || SX_NOT_A_PLACE.has(r.poiClass)) continue;
+      if (isSensitivePoi({ class: r.poiClass, name: r.name })) continue;
       if (r.poiClass === POI_GATE_CLASS) { if (r.lix != null && r.liy != null) gateCells.push({ ix: r.lix, iy: r.liy }); continue; }
       binChests.push(r);
     }
@@ -4539,10 +4740,11 @@
     const _sxPois = [];
     for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
     for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
-    const _sxSpawnOpts = { pois: _sxPois, roadMask };
+    const _sxSpawnOpts = { pois: _sxPois, roadMask, quiet };
     const _sxYardOK = (wx, wy) => {
       const { ix, iy } = _sxCell(wx, wy);
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
+      if (quiet && quiet[iy * cpe + ix]) return false;   // quiet land hosts nothing
       if (!isLotTerrain(grid[iy * cpe + ix])) return true;
       return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
     };
@@ -4566,7 +4768,8 @@
     // middle of a widened carriageway stays there.
     const _sxHardCell = (ix, iy) => {
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
-      return TREE_BLOCK.has(grid[iy * cpe + ix]) || roadMask[iy * cpe + ix] === 1;
+      return TREE_BLOCK.has(grid[iy * cpe + ix]) || roadMask[iy * cpe + ix] === 1
+        || !!(quiet && quiet[iy * cpe + ix]);
     };
     const _sxHard = (wx, wy) => {
       const { ix, iy } = _sxCell(wx, wy);
@@ -4656,7 +4859,7 @@
     if (gateCells.length) {
       const before = entry.objects.length;
       placeGatesAndBoards(entry.objects, gateCells, null, {
-        grid, N: cpe, roadMask, tx: x, ty: y, taken: occupied,
+        grid, N: cpe, roadMask, quiet, tx: x, ty: y, taken: occupied,
         centre: (ix, iy) => _sxCentre(ix, iy),
       });
       for (let i = before; i < entry.objects.length; i++) {
@@ -4912,7 +5115,9 @@
         // nothing, and a GATE goes to the bin's `gates` (a spawn point with
         // two posts, gatePostsAt), not its chests.
         const SX_CHEST_POI = {
-          bus_stop: 'bus', picnic_table: 'picnic_table', memorial: 'memorial',
+          // (No `memorial`: a memorial is a SENSITIVE place — isSensitivePoi —
+          // and mints nothing; the live Overpass query no longer asks for it.)
+          bus_stop: 'bus', picnic_table: 'picnic_table',
           tower: 'tower', pitch: 'pitch', swimming_pool: 'swimming_pool',
           playground: 'playground', bicycle_parking: 'bicycle_parking',
           garden: 'garden',
@@ -5026,10 +5231,13 @@
             const p = project(lon, lat0);
             binFor(p.tx, p.ty).gates.push({ lix: p.lix, liy: p.liy });
           } else if (SX_CHEST_POI[kind]) {
-            // Everything else we care about becomes a POI chest.
+            // Everything else we care about becomes a POI chest — unless its
+            // tags make it a sensitive place (a bench with memorial=plaque,
+            // a garden of remembrance: isSensitivePoi), which mints nothing.
+            const tags = (f.properties && f.properties.tags) || {};
+            if (isSensitivePoi({ ...tags, class: SX_CHEST_POI[kind] })) continue;
             const p = project(lon, lat0);
             const { lix, liy } = p;
-            const tags = (f.properties && f.properties.tags) || {};
             binFor(p.tx, p.ty).chests.push({
               kind: 'chest', lix, liy,
               poiClass: SX_CHEST_POI[kind],
@@ -5196,7 +5404,6 @@
     if (tags.highway === 'street_lamp') return 'street_lamp';
     if (tags.amenity === 'fountain') return 'fountain';
     if (tags.leisure === 'picnic_table') return 'picnic_table';
-    if (tags.historic === 'memorial') return 'memorial';
     if (tags.barrier === 'gate') return 'gate';
     if (tags.amenity === 'bicycle_parking') return 'bicycle_parking';
     if (tags.leisure === 'garden') return 'garden';
@@ -5220,7 +5427,9 @@
       'node["power"="pole"]', 'node["man_made"="utility_pole"]',
       'node["man_made"="mast"]', 'node["highway"="street_lamp"]',
       'node["amenity"="fountain"]',
-      'node["leisure"="picnic_table"]', 'node["historic"="memorial"]',
+      // (Never historic=memorial: memorials and Stolpersteine are sensitive
+      // places that mint nothing — isSensitivePoi.)
+      'node["leisure"="picnic_table"]',
       'node["barrier"="gate"]', 'node["amenity"="bicycle_parking"]',
       'node["leisure"="garden"]', 'way["leisure"="garden"]',
       'node["man_made"="tower"]',
@@ -5552,7 +5761,8 @@
       !used.has(idx) && isWalkable(grid[idx]) && !tooClose(lix, liy)
       && !objCells.has(idx) && !(pads && pads.has(idx))
       && !nearBuildingCell(grid, N, N, lix, liy) && !nearPoiCell(chestCells, lix, liy)
-      && !(roadMask && roadMask[idx]);   // never under a drawn road band (see above)
+      && !(roadMask && roadMask[idx])    // never under a drawn road band (see above)
+      && !(entry.quietMask && entry.quietMask[idx]);   // nor on quiet land (QUIET_LAND)
 
     // Drop a down-staircase on the first walkable cell touching `rock`. Returns
     // true on success; de-dupes so two clusters can't stack stairs on one cell,
@@ -6290,7 +6500,7 @@
     // preservation pinned by tile_bin_injection.test.js.
     injectTileBin,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isSpawnCell, relocateToSpawnCell, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, setDepth, tidyFootprintCells,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isSpawnCell, relocateToSpawnCell, SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
@@ -6338,6 +6548,7 @@
     // overlay strokes with this and rasterizeTile stamps roadMask with it, so
     // "drawn as road" and "no spawns here" are the same number.
     roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
+    ROAD_CLASS_MAJOR_BUFFER, MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand, isFoeCell,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,
     // instead of hand-copying the list. (The large tier needs no such export:

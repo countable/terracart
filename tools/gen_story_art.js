@@ -66,10 +66,23 @@ const LORE = {
   glint:   'Very subtle detail: a faint red ember glint in the survivor\'s eyes, barely visible.',
   wary:    'Very subtle detail: one onlooker glances at the survivor with quiet unease.',
 };
-const scene = (subject, lore) => ({
-  size: '1024x1536', width: 512, aspect: SCENE_ASPECT, colors: 128,
-  subject: `${subject}${lore ? ' ' + LORE[lore] : ''}\n\n${SCENE_RULE}`,
-});
+// NO LORE ON HOLY OR GRAVE GROUND (Sep 2026). A demon hint on a church, a
+// chapel, a shrine, a churchyard or a grave reads as the game calling the
+// place demonic — the one reading the paintings must never invite. So a piece
+// whose SUBJECT is sacred or funereal carries no hint at all: scene() refuses
+// one (the generator throws before a single image is paid for), and
+// scene_art.test.js pins the rule. The churchyard painting (zone_stones) is
+// the chapel stall's painting too (macros.js KIND_DIALOG.chapel).
+const LORE_FREE_SUBJECT = /\b(chapel|church|churchyard|shrine|temple|mosque|synagogue|headstones?|graves?|gravestones?|cemetery|tomb|memorial|worship|altar|cherub)\b/i;
+const scene = (subject, lore) => {
+  if (lore && LORE_FREE_SUBJECT.test(subject)) {
+    throw new Error(`no LORE hint ('${lore}') on a sacred / grave subject: ${subject.slice(0, 60)}…`);
+  }
+  return {
+    size: '1024x1536', width: 512, aspect: SCENE_ASPECT, colors: 128,
+    subject: `${subject}${lore ? ' ' + LORE[lore] : ''}\n\n${SCENE_RULE}`,
+  };
+};
 
 // A piece is either a subject string (landscape 1536x1024 -> 512px banner)
 // or { subject, size, width } for a different frame - the safety screen's
@@ -223,7 +236,7 @@ const PIECES = {
     'Torches lit, the vault door ajar with gold beyond.', 'mural'),
   fort_unseal:
     scene(
-    'A squat stone frontier fort, its heavy timber gates swinging open for the first time in years, ' +
+    'A stout stone frontier fort, its heavy timber gates swinging open for the first time in years, ' +
     'dust falling, a quartermaster in boiled leather stepping out with a relic-laden rack behind him.', 'claws'),
   book_read: scene(
     'A young survivor sits on a fallen log reading a worn leather book by lantern light at dusk, a small stack of books beside them, fireflies drifting. Quiet learning.', 'mural'),
@@ -284,11 +297,13 @@ const PIECES = {
   // zone:stones by _tickZone.
   zone_grove: scene(
     'Moss-hung ancient trees crowding close around a small lichened stone shrine glowing with ' +
-    'a faint green light, fireflies drifting in the dusk air, a deep quiet woodland.', 'sigil'),
+    'a faint green light, fireflies drifting in the dusk air, a deep quiet woodland.'),
   zone_tar: scene(
-    'A cracked old fuel-yard forecourt, black tar pools scattered across broken asphalt, one ' +
-    'pool bubbling and aflame, a rusted fuel pump leaning nearby, a small glowing orange slime ' +
-    'crouched at the tar\'s edge.'),
+    // An OIL-STAINED LOT, nothing more (Sep 2026): no flames and no fire
+    // slime - the tar yard holds no garrison, and a fire at a real forecourt
+    // is the last thing to paint.
+    'A cracked old fuel-yard lot, dark oil stains and black tar pools scattered across broken ' +
+    'asphalt, a rusted fuel pump leaning nearby, weeds pushing through the cracks, still dusk.'),
   zone_stones: scene(
     'A weathered stone cherub statue and leaning mossy headstones before a ruined chapel door, ' +
     'one iron lantern lit beside the door, pale misty shapes drifting faintly among the stones ' +
@@ -297,8 +312,8 @@ const PIECES = {
   // Street variants (scratchpad/design/street_variants.md §3): first-visit
   // story panels for each street flavour.
   street_hedgerow: scene(
-    'A narrow lane between tall clipped hedges leading to a mossy stone archway, ending at a ' +
-    'dead end where the earth is disturbed in a low mound, dusk light.'),
+    'A narrow lane between tall clipped hedges leading to a mossy stone archway, a garden gate ' +
+    'half open in the green wall, dusk light.'),
   street_lantern: scene(
     'A long cobbled road at dusk lined with old iron lantern posts, some glowing warm amber ' +
     'light, others dark and unlit, stretching toward a village.'),
@@ -317,9 +332,8 @@ const PIECES = {
     'sharpened wooden stakes and charred fence posts along the verge, ash drifting in the dusk ' +
     'air, no buildings alight.'),
   street_bandit: scene(
-    'A major road with a broken wagon tipped over at the verge, canvas torn and spilling ' +
-    'supplies, a wheel splintered, a goblin silhouette crouched low in the roadside ditch ' +
-    'watching, dusk light.'),
+    'An old trade road, deep wheel ruts worn into it, a broken wagon long abandoned at the ' +
+    'verge, canvas torn and a wheel splintered, nobody about, dusk light.'),
   street_barricade: scene(
     'A stake-and-log barricade built across half a wide road, crates and barrels stacked behind ' +
     'it, an abandoned watch post, dusk light.'),

@@ -2,11 +2,12 @@
 //
 // The three things this file exists to hold still:
 //
-//  1. NOTHING SPAWNS ON A ROAD (CLAUDE.md). A trap goes ALONGSIDE the band, on
-//     the verge it stops at — never under it. The terrain grid under-reports
-//     the road, so the test drives the REAL rasterizer over synthetic MVT
-//     layers and judges every trap against `roadMask`, exactly as the roadside
-//     collector does. A trap on drawn asphalt is the bug this pins.
+//  1. NOTHING SPAWNS ON — OR BY — A ROAD (CLAUDE.md, and the owner's safety
+//     pass, Sep 2026). A trap lies BESIDE A FOOTPATH or on a PARK'S EDGE,
+//     never within TRAP_ROAD_CLEAR_CELLS of any road and never inside the
+//     major roads' kerb buffer. The terrain grid under-reports the road, so
+//     the test drives the REAL rasterizer over synthetic MVT layers and
+//     judges every trap against `roadMask` and `roadClass`.
 //
 //  2. NOTHING IS STORED UNTIL IT IS SPRUNG. Placement is a pure function of the
 //     tile's coordinates: the same tile rasterized twice lays the same traps in
@@ -34,50 +35,28 @@ const ring = (cells) => cells.map(([cx, cy]) => ({ x: cellToMvt(cx), y: cellToMv
 const line = (cells) => cells.map(([cx, cy]) => ({ x: cellToMvt(cx), y: cellToMvt(cy) }));
 const wholeTile = () => ring([[0, 0], [CPE - 1, 0], [CPE - 1, CPE - 1], [0, CPE - 1]]);
 
-// Open parkland (so the private-yard frontage rule isn't what's under test
-// here) crossed by a motorway and an ordinary street.
-//
-// BANDIT STRETCHES: only StreetVariants.BANDIT_STRETCH_SHARE of a major
-// street's (key, square) stretches are trap ground, so the motorway is NAMED —
-// the first "Bandit Road <k>" whose stretches down tile (0, 0)'s column 32
-// (square column 4, rows 0..7) are bandit on exactly 7 of the 8 — so the
-// verge these tests sample is (almost) all trap ground. Found through the
-// shipping hash, never a copy of it.
-const MOTORWAY_NAME = (() => {
-  const sx = Math.floor(cellToMvt(32) / StreetVariants.BANDIT_STRETCH_UNITS);
-  for (let k = 0; k < 20000; k++) {
-    const key = StreetVariants.streetKey(`Bandit Road ${k}`, 0, 0);
-    let on = 0;
-    for (let sy = 0; sy < EXTENT / StreetVariants.BANDIT_STRETCH_UNITS; sy++) {
-      if (StreetVariants.isBanditStretch(key, sx, sy)) on++;
-    }
-    if (on === 7) return `Bandit Road ${k}`;
-  }
-  return 'Bandit Road';
-})();
+// Parkland on the tile's LEFT (cols 0..24 — so the private-yard frontage rule
+// isn't what's under test, and the park has an EDGE at col 24), plain grass on
+// the right, crossed by a motorway down col 32 and an ordinary street along
+// row 10, with three footpaths: one along row 50 inside the park, one down
+// col 50 in the open grass, and one down col 36 hard by the motorway's kerb.
 function roadyLayers() {
-  const motorway = line([[32, 0], [32, CPE - 1]]);
   return [
     { name: 'landuse', features: [
-      { type: 3, tags: { class: 'park' }, geom: [wholeTile()] },
+      { type: 3, tags: { class: 'park' }, geom: [ring([[0, 0], [24, 0], [24, CPE - 1], [0, CPE - 1]])] },
     ] },
     { name: 'transportation', features: [
-      { type: 2, tags: { class: 'motorway' }, geom: [motorway] },
-      { type: 2, tags: { class: 'minor' },
-        geom: [line([[0, 10], [CPE - 1, 10]])] },
-    ] },
-    { name: 'transportation_name', features: [
-      { type: 2, tags: { class: 'motorway', name: MOTORWAY_NAME }, geom: [motorway] },
+      { type: 2, tags: { class: 'motorway' }, geom: [line([[32, 0], [32, CPE - 1]])] },
+      { type: 2, tags: { class: 'minor' }, geom: [line([[0, 10], [CPE - 1, 10]])] },
+      { type: 2, tags: { class: 'path' }, geom: [line([[0, 50], [20, 50]])] },
+      { type: 2, tags: { class: 'path' }, geom: [line([[50, 20], [50, 60]])] },
+      { type: 2, tags: { class: 'path' }, geom: [line([[36, 20], [36, 60]])] },
     ] },
   ];
 }
-// The same parkland with no ways at all.
+// Plain ground with no ways and no park at all.
 function roadlessLayers() {
-  return [
-    { name: 'landuse', features: [
-      { type: 3, tags: { class: 'park' }, geom: [wholeTile()] },
-    ] },
-  ];
+  return [{ name: 'landuse', features: [] }];
 }
 
 const rasterize = (layers, tx = 0, ty = 0) =>
@@ -88,24 +67,36 @@ const optsFor = (r) => ({ roadMask: r.roadMask, pois: [] });
 
 const spawnFor = (r, tx = 0, ty = 0) =>
   Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, tx, ty, TILE_EDGE_M, optsFor(r));
+const kindAt = (r, x, y) => Traps.trapGroundKind(r.grid, r.roadClass, CPE, CPE, x, y, null, r.roadMask);
 
 // Trap world-metres → this tile's local cell index.
 const cellOf = (v) => Math.floor(v / (TILE_EDGE_M / CPE));
 
+// Is any road cell (a road tier, or the drawn band) within R cells?
+const roadWithin = (r, x0, y0, R) => {
+  for (let y = y0 - R; y <= y0 + R; y++) for (let x = x0 - R; x <= x0 + R; x++) {
+    if (x < 0 || y < 0 || x >= CPE || y >= CPE) continue;
+    if (ROAD_TIERS.has(r.grid[y * CPE + x]) || r.roadMask[y * CPE + x]) return true;
+  }
+  return false;
+};
+
 // ─── Surface placement ───────────────────────────────────────────────────────
 
-test('traps: a tile with roads lays some, and every one is off the road band', () => {
+test('traps: a tile with paths lays some, and every one is clear of every road', () => {
   const r = rasterize(roadyLayers());
-  const traps = spawnFor(r);
-  assert.gt(traps.length, 0, 'the fixture produced traps to check');
-  for (const tp of traps) {
-    const ix = cellOf(tp.x), iy = cellOf(tp.y);
-    assert.inRange(ix, 0, CPE - 1, 'trap x inside the tile');
-    assert.inRange(iy, 0, CPE - 1, 'trap y inside the tile');
-    assert.falsy(ROAD_TIERS.has(r.grid[iy * CPE + ix]),
-      `trap on road terrain at ${ix},${iy}`);
-    assert.eq(r.roadMask[iy * CPE + ix], 0,
-      `trap under the drawn road band at ${ix},${iy}`);
+  for (const mul of [undefined, 25, 100]) {
+    const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), mul);
+    assert.gt(traps.length, 0, 'the fixture produced traps to check');
+    for (const tp of traps) {
+      const ix = cellOf(tp.x), iy = cellOf(tp.y), i = iy * CPE + ix;
+      assert.falsy(ROAD_TIERS.has(r.grid[i]), `trap on road terrain at ${ix},${iy}`);
+      assert.eq(r.roadMask[i], 0, `trap under the drawn road band at ${ix},${iy}`);
+      assert.falsy(roadWithin(r, ix, iy, Traps.TRAP_ROAD_CLEAR_CELLS),
+        `trap at ${ix},${iy} is within ${Traps.TRAP_ROAD_CLEAR_CELLS} cells of a road`);
+      assert.falsy(r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_VERGE, `trap at ${ix},${iy} on a major verge`);
+      assert.falsy(WorldGen.inMajorBuffer(r.roadClass, CPE, ix, iy), `trap at ${ix},${iy} inside the kerb buffer`);
+    }
   }
 });
 
@@ -119,71 +110,79 @@ test('traps: every trap passes the SHARED spawn rule, not a copy of it', () => {
 });
 
 test('traps: opts.occupied keeps a trap off a cell an object already holds', () => {
-  // Same fixture as the road test — the verge produces plenty of candidate
-  // cells — but every roadside cell the reservoir sample would ever pick is
-  // pre-claimed, exactly as if worldgen had already put a tree or a rock on
-  // it. No occupied cell may host a trap, so the whole surface pass comes
-  // back empty rather than spawning through the claim.
+  // Every trap-ground cell the reservoir sample would ever pick is pre-claimed,
+  // exactly as if worldgen had already put a tree or a rock on it. No occupied
+  // cell may host a trap, so the whole surface pass comes back empty rather
+  // than spawning through the claim.
   const r = rasterize(roadyLayers());
   const occupied = new Set();
   for (let cy = 0; cy < CPE; cy++) {
     for (let cx = 0; cx < CPE; cx++) {
-      if (Traps.isRoadside(r.roadClass, CPE, CPE, cx, cy)) occupied.add(cy * CPE + cx);
+      if (kindAt(r, cx, cy)) occupied.add(cy * CPE + cx);
     }
   }
   const opts = { roadMask: r.roadMask, pois: [], occupied };
   const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
-  assert.eq(traps.length, 0, 'every verge cell was claimed, so nothing could seat');
-  // Freeing every other verge cell (a checkerboard over the claim, not one
-  // single cell) lets the pass seat again — deterministically, since the
-  // reservoir sample and the placement attempts are both fixed-seed, but
-  // freeing only one specific cell risks the fixed rng never drawing it
-  // inside the attempt budget. Every trap that DOES land must land on a cell
-  // that was freed, whichever ones the rng happens to pick.
+  assert.eq(traps.length, 0, 'every trap-ground cell was claimed, so nothing could seat');
+  // Free every other claimed cell: traps come back, only on freed cells.
   for (const idx of [...occupied]) if (idx % 2 === 0) occupied.delete(idx);
   const partial = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
-  assert.gt(partial.length, 0, 'freeing half the verge lets traps back in');
+  assert.gt(partial.length, 0, 'freeing half the ground lets traps back in');
   for (const tp of partial) {
     const idx = cellOf(tp.y) * CPE + cellOf(tp.x);
     assert.falsy(occupied.has(idx), `trap at ${idx} landed on a cell still marked occupied`);
   }
 });
 
-test('traps: "along the road" means it — every trap is on the verge of a band', () => {
+test('traps: BESIDE the path, never on it — or on a park\'s edge', () => {
   const r = rasterize(roadyLayers());
-  const traps = spawnFor(r);
-  assert.gt(traps.length, 0, 'there are traps to check');
+  const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 25);
+  let path = 0, park = 0;
   for (const tp of traps) {
-    const ix = cellOf(tp.x), iy = cellOf(tp.y);
-    // Pinned against the SHIPPING predicate, not a restatement of it: if the
-    // definition of "roadside" is ever widened, this asks the new question.
-    assert.truthy(Traps.isRoadside(r.roadClass, CPE, CPE, ix, iy),
-      `trap at ${ix},${iy} is not on the verge of any road band`);
+    const ix = tp._ix, iy = tp._iy, i = iy * CPE + ix;
+    // Pinned against the SHIPPING predicate, and then its meaning checked.
+    const k = kindAt(r, ix, iy);
+    assert.truthy(k === 1 || k === 2, `trap at ${ix},${iy} is on trap ground`);
+    assert.truthy(r.grid[i] !== T.PATH, `trap at ${ix},${iy} is ON the path — it would force a detour`);
+    let besidePath = false, besideOther = false;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = ix + dx, y = iy + dy;
+      if ((!dx && !dy) || x < 0 || y < 0 || x >= CPE || y >= CPE) continue;
+      if (r.grid[y * CPE + x] === T.PATH) besidePath = true;
+      if (r.grid[y * CPE + x] !== T.PARK) besideOther = true;
+    }
+    if (k === 1) { path++; assert.truthy(besidePath, `${tp.id} is 8-adjacent to a footpath`); }
+    else { park++; assert.eq(r.grid[i], T.PARK, `${tp.id} is park`); assert.truthy(besideOther, `${tp.id} is on the park's edge`); }
   }
+  assert.gt(path, 0, 'the footpaths carry traps');
+  assert.gt(park, 0, 'and so does the park\'s edge');
+  // The predicate itself: the open park interior and plain grass are not
+  // trap ground; the footpath cell never is.
+  assert.eq(kindAt(r, 12, 30), 0, 'the park interior');
+  assert.eq(kindAt(r, 58, 5), 0, 'open grass');
+  for (let y = 22; y < 58; y++) if (r.grid[y * CPE + 50] === T.PATH) assert.eq(kindAt(r, 50, y), 0, 'the path cell itself');
+  assert.eq(kindAt(r, 51, 40), 1, 'beside the grass footpath');
+  assert.eq(kindAt(r, 24, 40) || kindAt(r, 23, 40), 2, 'the park\'s east edge');
 });
 
-test('traps: the verge is the MAJOR band\'s edge, never the band itself, never a minor street', () => {
-  // MOVED (street variants): surface traps are the bandit roads' — the MAJOR
-  // ways' verge (WorldGen.ROAD_CLASS_MAJOR_VERGE) and wasteland. The ordinary
-  // street along row 10 is masked but has NO roadside any more.
+test('traps: a footpath hard by a major road carries none — the kerb buffer and the road clearance win', () => {
   const r = rasterize(roadyLayers());
-  const col = 12;                               // clear of the motorway at col 32
-  assert.eq(r.roadMask[10 * CPE + col], 1, 'the street cell is masked');
-  for (const y of [9, 10, 11]) {
-    assert.falsy(Traps.isRoadside(r.roadClass, CPE, CPE, col, y), `a minor street has no trap verge (row ${y})`);
+  for (let y = 0; y < CPE; y++) for (let x = 0; x < CPE; x++) {
+    const k = kindAt(r, x, y);
+    if (WorldGen.inMajorBuffer(r.roadClass, CPE, x, y)) assert.eq(k, 0, `buffer cell ${x},${y} is no trap ground`);
+    if (roadWithin(r, x, y, Traps.TRAP_ROAD_CLEAR_CELLS)) assert.eq(k, 0, `cell ${x},${y} by a road is no trap ground`);
   }
-  // The motorway down col 32 (18 m band): masked at 31..33, verge at 30 and 34.
-  const row = 40;
-  for (const x of [31, 32, 33]) {
-    assert.eq(r.roadMask[row * CPE + x], 1, `motorway cell ${x} is masked`);
-    assert.falsy(Traps.isRoadside(r.roadClass, CPE, CPE, x, row), 'a masked cell is never roadside — that IS the road');
-  }
-  assert.truthy(Traps.isRoadside(r.roadClass, CPE, CPE, 30, row), 'west shoulder');
-  assert.truthy(Traps.isRoadside(r.roadClass, CPE, CPE, 34, row), 'east shoulder');
-  assert.falsy(Traps.isRoadside(r.roadClass, CPE, CPE, 28, row), 'two cells out is not');
+  // The minor street across the park: its park-edge cells are cleared too.
+  for (const y of [8, 9, 10, 11, 12]) assert.eq(kindAt(r, 5, y), 0, `row ${y} by the street`);
+  // No roadClass / no bandit bit is read any more: the old trade road's
+  // stretches are no trap ground at all.
+  assert.eq(Traps.isRoadside, undefined, 'the verge predicate is gone');
+  assert.eq(Traps.isBanditVerge, undefined, 'and the bandit lane with it');
+  assert.falsy(/ROAD_CLASS_BANDIT_VERGE|ROAD_CLASS_MAJOR_VERGE/.test(ALL_SRC['traps.js'].replace(/\/\/.*$/gm, '')),
+    'traps.js reads neither verge bit in code');
 });
 
-test('traps: wasteland is trap ground; a minor street through it adds nothing', () => {
+test('traps: wasteland is no longer trap ground (only paths and park edges)', () => {
   const layers = [
     { name: 'landuse', features: [{ type: 3, tags: { class: 'railway' }, geom: [wholeTile()] }] },
     { name: 'transportation', features: [
@@ -193,78 +192,30 @@ test('traps: wasteland is trap ground; a minor street through it adds nothing', 
   let waste = 0;
   for (let i = 0; i < r.grid.length; i++) if (r.grid[i] === T.WASTELAND) waste++;
   assert.gt(waste, 0, 'the fixture is waste ground');
-  const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 10);
-  assert.gt(traps.length, 0, 'waste ground holds traps');
-  for (const tp of traps) {
-    assert.eq(r.grid[tp._iy * CPE + tp._ix], T.WASTELAND, 'every one on the waste ground');
-    assert.eq(r.roadMask[tp._iy * CPE + tp._ix], 0, 'never under the band');
-  }
+  assert.eq(Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 25).length, 0,
+    'waste ground holds no traps');
 });
 
 test('traps: the count is capped at a share of the trap ground that scales with the mode', () => {
-  // Two grounds, two shares: a bandit stretch's verge at
-  // BANDIT_VERGE_DENSITY_MUL × the share, waste ground at the plain share.
   const r = rasterize(roadyLayers());
-  let road = 0, waste = 0;
-  for (let y = 0; y < CPE; y++) for (let x = 0; x < CPE; x++) {
-    const k = Traps.trapGroundKind(r.grid, r.roadClass, CPE, CPE, x, y);
-    if (k === 1) road++; else if (k === 2) waste++;
-  }
-  assert.gt(road, 0, 'the fixture has bandit verge');
+  let ground = 0;
+  for (let y = 0; y < CPE; y++) for (let x = 0; x < CPE; x++) if (kindAt(r, x, y)) ground++;
+  assert.gt(ground, 0, 'the fixture has trap ground');
   for (const mul of [10, 25]) {
     const n = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), mul).length;
     const m = mul * Traps.tileDanger(0, 0);
-    const cap = Math.max(1, Math.floor(road * Traps.TRAP_GROUND_SHARE_PER_MUL * m * Traps.BANDIT_VERGE_DENSITY_MUL
-      + waste * Traps.TRAP_GROUND_SHARE_PER_MUL * m));
+    const cap = Math.max(1, Math.floor(ground * Traps.TRAP_GROUND_SHARE_PER_MUL * m * Traps.TRAP_GROUND_DENSITY_MUL) + 1);
     assert.truthy(n <= cap, `at ${mul}x: ${n} traps over the cap ${cap}`);
   }
-  assert.truthy(/const capRoad = road\.seen \* TRAP_GROUND_SHARE_PER_MUL \* mul \* BANDIT_VERGE_DENSITY_MUL;/.test(ALL_SRC['traps.js'])
-    && /n = Math\.min\(n, Math\.max\(1, Math\.floor\(capRoad \+ capWaste\)\)\);/.test(ALL_SRC['traps.js']),
+  assert.truthy(/const share = TRAP_GROUND_SHARE_PER_MUL \* mul \* TRAP_GROUND_DENSITY_MUL;/.test(ALL_SRC['traps.js'])
+    && /n = Math\.min\(n, Math\.max\(1, Math\.floor\(capPath \+ capPark\)\)\);/.test(ALL_SRC['traps.js']),
     'the cap reads the pool sizes, never a draw');
-});
-
-test('traps: the bandits work STRETCHES — a major verge off a bandit stretch holds no trap', () => {
-  // The same motorway under another name: its stretches roll afresh, and
-  // every trap sits on a cell whose stretch is the bandits'.
-  const r = rasterize(roadyLayers());
-  let verge = 0, bandit = 0;
-  for (let i = 0; i < CPE * CPE; i++) {
-    if (r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_VERGE) verge++;
-    if (r.roadClass[i] & WorldGen.ROAD_CLASS_BANDIT_VERGE) {
-      bandit++;
-      assert.truthy(r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_VERGE, 'a bandit cell is a major-verge cell');
-    }
-  }
-  assert.gt(verge, bandit, 'not the whole verge — one of the 8 stretches is not the bandits\'');
-  const key = StreetVariants.streetKey(MOTORWAY_NAME, 0, 0);
-  for (const tp of Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 25)) {
-    // The stretch is the square the WAY is in (the motorway's column, the
-    // trap's row) — the verge cell itself may be across a square edge.
-    const st = StreetVariants.stretchOf(cellToMvt(32), cellToMvt(tp._iy));
-    assert.truthy(StreetVariants.isBanditStretch(key, st.sx, st.sy), `trap ${tp.id} is on a bandit stretch`);
-    assert.truthy(Traps.isBanditVerge(r.roadClass, CPE, CPE, tp._ix, tp._iy), 'on the bandit verge');
-  }
-  // A clean name (no bandit stretch in the column): a verge, and no traps.
-  let clean = null;
-  for (let k = 0; k < 5000 && !clean; k++) {
-    const key2 = StreetVariants.streetKey(`Quiet Road ${k}`, 0, 0);
-    let on = 0;
-    for (let sy = 0; sy < 8; sy++) if (StreetVariants.isBanditStretch(key2, 4, sy)) on++;
-    if (!on) clean = `Quiet Road ${k}`;
-  }
-  const layers = roadyLayers();
-  layers[2].features[0].tags.name = clean;
-  const q = rasterize(layers);
-  let qb = 0;
-  for (let i = 0; i < CPE * CPE; i++) if (q.roadClass[i] & WorldGen.ROAD_CLASS_BANDIT_VERGE) qb++;
-  assert.eq(qb, 0, 'a road the bandits do not work has no bandit verge');
-  assert.eq(Traps.spawnSurface(q.grid, q.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(q), 25).length, 0,
-    'and no traps');
 });
 
 test('traps: a named street\'s stretch is the same from either side of a seam', () => {
   // The squares are tile-aligned global MVT squares and the key is the
   // street's name + parish, so two neighbours agree without seeing each other.
+  // (The stretches no longer carry traps — they key the burned row's slime.)
   const U = StreetVariants.BANDIT_STRETCH_UNITS;
   assert.eq(EXTENT % U, 0, 'a square never straddles a tile edge');
   const key = StreetVariants.streetKey('Seam Street', 3, 7);
@@ -272,31 +223,27 @@ test('traps: a named street\'s stretch is the same from either side of a seam', 
   const a = StreetVariants.stretchOf(4 * EXTENT - 1, 7 * EXTENT + 100);
   const b = StreetVariants.stretchOf(4 * EXTENT, 7 * EXTENT + 100);
   assert.eq(b.sx - a.sx, 1, 'the seam is a square edge');
-  assert.truthy(StreetVariants.BANDIT_STRETCH_SHARE > 0.25 && StreetVariants.BANDIT_STRETCH_SHARE < 0.4, 'about a third');
-  let on = 0;
-  for (let i = 0; i < 3000; i++) if (StreetVariants.isBanditStretch(key, i, 0)) on++;
-  assert.inRange(on / 3000, 0.29, 0.37, 'about a third of the stretches are the bandits\'');
 });
 
-test('traps: the roadside sample is uniform over the whole verge, and bounded', () => {
+test('traps: the trap-ground sample is uniform over the whole ground, and bounded', () => {
   const r = rasterize(roadyLayers());
-  let verge = 0;
+  let ground = 0;
   for (let y = 0; y < CPE; y++) {
-    for (let x = 0; x < CPE; x++) if (Traps.isRoadside(r.roadClass, CPE, CPE, x, y)) verge++;
+    for (let x = 0; x < CPE; x++) if (kindAt(r, x, y)) ground++;
   }
-  assert.gt(verge, Traps.ROADSIDE_SAMPLE,
-    'the fixture has more verge than the reservoir holds — the sampling path is exercised');
+  const K = 48;
+  assert.gt(ground, K * 2, 'the fixture has more ground than the reservoir holds — the sampling path is exercised');
   const rng = WorldGen.makeRng(12345);
-  const s = Traps.sampleTrapCells(r.grid, r.roadClass, CPE, CPE, rng, Traps.ROADSIDE_SAMPLE).cells;
-  assert.eq(s.length, Traps.ROADSIDE_SAMPLE,
-    'the reservoir fills, and never grows past its size however big the tile');
-  for (const idx of s) {
-    assert.truthy(Traps.isRoadside(r.roadClass, CPE, CPE, idx % CPE, (idx / CPE) | 0),
-      'every sampled cell is on the verge');
+  const smp = Traps.sampleTrapCells(r.grid, r.roadClass, CPE, CPE, rng, K, null, r.roadMask);
+  assert.eq(smp.path.cells.length, Math.min(K, smp.path.seen), 'the path reservoir fills, never past its size');
+  assert.eq(smp.park.cells.length, Math.min(K, smp.park.seen), 'the park reservoir too');
+  assert.eq(smp.seen, ground, 'seen counts all the ground');
+  for (const idx of smp.cells) {
+    assert.truthy(kindAt(r, idx % CPE, (idx / CPE) | 0), 'every sampled cell is trap ground');
   }
-  // Uniform, not "the first 96 cells in scan order": the reservoir must reach
+  // Uniform, not "the first K cells in scan order": the reservoir must reach
   // the bottom of the tile, which a plain head-of-list take never would.
-  assert.gt(Math.max(...s.map((i) => (i / CPE) | 0)), CPE / 2,
+  assert.gt(Math.max(...smp.park.cells.map((i) => (i / CPE) | 0)), CPE / 2,
     'the sample reaches past halfway down the tile');
 });
 
@@ -319,10 +266,27 @@ test('traps: no two traps share a cell', () => {
   }
 });
 
-test('traps: a tile with no charted road has no roadside, so it has no traps', () => {
+test('traps: a tile with no footpath and no park has no trap ground, so it has no traps', () => {
   const r = rasterize(roadlessLayers());
-  assert.eq(r.roadMask.reduce((a, b) => a + b, 0), 0, 'fixture really has no band');
-  assert.eq(spawnFor(r).length, 0, 'and therefore no traps');
+  assert.eq(spawnFor(r).length, 0, 'no traps');
+  assert.eq(Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 100).length, 0,
+    'not even at 100x');
+});
+
+test('traps: a goblin trapper\'s snare refuses the kerb buffer (canLay reads entry.roadClass)', () => {
+  const r = rasterize(roadyLayers());
+  const entry = { grid: r.grid, cellsPerEdge: CPE, roadMask: r.roadMask, roadClass: r.roadClass,
+    _spawnOpts: { occupied: new Set() }, traps: [] };
+  let inBuf = 0, outside = 0;
+  for (let y = 0; y < CPE; y++) for (let x = 0; x < CPE; x++) {
+    if (!WorldGen.isWalkable(r.grid[y * CPE + x]) || r.roadMask[y * CPE + x]) continue;
+    if (WorldGen.inMajorBuffer(r.roadClass, CPE, x, y)) {
+      inBuf++;
+      assert.falsy(Traps.canLay(entry, x, y), `no snare in the buffer at ${x},${y}`);
+    } else if (Traps.canLay(entry, x, y)) outside++;
+  }
+  assert.gt(inBuf, 0, 'the fixture has walkable buffer cells');
+  assert.gt(outside, 0, 'and a snare still goes down beyond it');
 });
 
 test('traps: countMul scales the surface density, and every extra trap still obeys the rules', () => {

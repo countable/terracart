@@ -546,4 +546,30 @@
       /const L = chestLook\(o\); return !L\.box && !L\.macro && !L\.barrel && !L\.bike && !L\.coin; \}/,
     ]) assert.truthy(re.test(RENDER_SRC), String(re));
   });
+
+  // ── The chapel's copy (Sep 2026): the player LEAVES an offering and is GIVEN
+  // a blessing — never takes alms from a box the keeper watches. A church
+  // only: every other faith's place mints nothing (sensitive_places.test.js).
+  test('macro: the chapel gives a blessing; nobody takes alms', () => {
+    const story = Macros.KIND_STORY.chapel;
+    assert.truthy(/blessing/i.test(story.body), `a blessing: ${story.body}`);
+    assert.falsy(/\balms\b|\btake\b|watches you/i.test(story.title + ' ' + story.body), `no alms taken: ${story.body}`);
+    assert.falsy(/alms box/i.test(INTERACTABLES_SRC), 'the bare flash names no alms box');
+    assert.truthy(/'A quiet blessing\. Go well\.'/.test(INTERACTABLES_SRC), 'the empty roll is a blessing too');
+    assert.lte('A quiet blessing. Go well.'.length, MAP_MSG_MAX);
+    assert.eq(Macros.KIND_DIALOG.chapel.art, 'zone_stones', 'the chapel opens on the churchyard (a lore-free painting)');
+  });
+
+  test('macro: a chapel is minted for a church only — a synagogue, mosque or temple mints nothing', () => {
+    const r = (tags) => WorldGen.rasterizeTile([
+      { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'park' },
+        geom: [[{ x: -64, y: -64 }, { x: 4160, y: -64 }, { x: 4160, y: 4160 }, { x: -64, y: 4160 }, { x: -64, y: -64 }]] }] },
+      { name: 'poi', features: [{ type: 1, tags, geom: [[{ x: 2048, y: 2048 }]] }] },
+    ], 64, 0, 0, 640).objects.filter((o) => o.kind === 'chest');
+    assert.eq(r({ class: 'place_of_worship', subclass: 'christian' }).map((o) => macroFor(o) && macroFor(o).kind).join(), 'chapel');
+    for (const faith of ['jewish', 'muslim', 'buddhist', 'hindu']) {
+      assert.eq(r({ class: 'place_of_worship', subclass: faith }).length, 0, `${faith}: no chest, no chapel`);
+    }
+    assert.eq(r({ class: 'place_of_worship' }).length, 0, 'no faith given and no church name: nothing');
+  });
 })();
