@@ -1097,6 +1097,7 @@ const PLAY_TIPS = [
   // Placed with the slime it is about, and BEFORE the swing-reach page: the
   // first thing a player does about a slime is hit it, so what a half-hearted
   // swing turns it into is actionable the moment the pest tip above is.
+  'Hostile plants in parks stay rooted. Walk around them to stay out of biting range.',
   'Strike a slime and it stops meandering: for eight seconds it comes straight at you, and a pet\'s bite provokes it just the same. Home\'s circle and a lit fire still turn it back.',
   'Swinging reaches one cell — exactly as far as a monster\'s bite. Your light reaches further, but only for work: closing in is what a fight costs.',
   'Your home turns enemies away inside its circle, and they cannot bite while they go. Strike one there and it does not merely leave — it runs until it is out of sight.',
