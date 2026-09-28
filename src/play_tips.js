@@ -226,6 +226,10 @@ const PLAY_TIPS = [
   // StreetVariants.LANTERN_SPACING_DIV (twice).
   'A lantern row, once rebuilt, stands its lamps twice as thick as any other street.',
   'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds, coin, fruit, potions, supplies, feathers, or boots — some wearable, some old junk.',
+  // LIVING LAMPS (src/streets.js): Streets.LAMP_FADE_MS (a day) fade,
+  // lampCredit (the gap to the next lamp x how dim), LAMP_PATH_SPACING_DIV
+  // (twice) — books.test.js re-derives all three.
+  'A rebuilt street\'s lamps fade over a day. Walk by one again and it flares, adding road to your total — a full lamp\'s worth once it has gone a day dark. Footpaths stand their lamps twice as close, and pay as much apiece.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',

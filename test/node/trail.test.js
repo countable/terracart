@@ -436,7 +436,7 @@ test('trail prize: every ceremony says where the next rung is', () => {
 
 test('trail counter: the street reads Trail.readout of the bank, not raw progress', () => {
   const app = APP_JS_SRC;
-  const at = app.indexOf('  _bankStreetMetres(addedM, at, now) {');
+  const at = app.indexOf('  _bankStreetMetres(addedM, at, now, opts) {');
   assert.gt(at, 0, 'found the bank');
   const body = app.slice(at, app.indexOf('\n  }\n', at));
   assert.truthy(/const label = Trail\.readout\(out(?:, [^)]+)?\)\.label;/.test(body)
@@ -757,9 +757,10 @@ test('streets: no light, no watch — a cave and a flat battery rebuild nothing'
   });
 });
 
-test('streets: rail is never rebuilt, and a parking aisle is', () => {
-  // The overlay DRAWS a parking aisle, so it restores like any other way; a
-  // railway is not a street to rebuild at all.
+test('streets: rail is never rebuilt, and neither is a parking aisle', () => {
+  // A parking aisle is not a street at all (WorldGen.isParkingAisle): no
+  // band to rebuild, no metres to pay. A railway is not a street to rebuild
+  // either.
   const run = (cls) => withStreet((clock) => {
     const s = sweepScene();
     clock.at(0);                   s._sweepStreets();
@@ -768,7 +769,7 @@ test('streets: rail is never rebuilt, and a parking aisle is', () => {
   }, { id: 9, type: 2, tags: { class: cls, service: 'parking_aisle' }, geom: straightWay().geom });
   assert.eq(run('rail'), 0, 'a railway is left alone');
   assert.eq(run('transit'), 0, 'and so is a tramway');
-  assert.gt(run('service'), 0, 'a parking aisle comes back like any street');
+  assert.eq(run('service'), 0, 'and so is a parking aisle');
 });
 
 test('streets: only the tile SQUARE is ever paid for', () => {

@@ -4284,6 +4284,9 @@ class MapScene extends Phaser.Scene {
       // cell, so a frame spent standing still costs one string compare plus a
       // walk of the small in-sight map.
       this._sweepStreets();
+      // …and the LIVING LAMPS the feet just came by: a visit flares a lit
+      // lamp and pays the ladder for how dim it had got (_visitStreetLamps).
+      this._visitStreetLamps(Date.now());
     }
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
@@ -12338,8 +12341,9 @@ class MapScene extends Phaser.Scene {
   // buffer, and the same metres come back inside the NEIGHBOUR tile's copy of
   // the way — so `tileSpans` clips to the square and nothing is paid twice.
   //
-  // Rail is skipped (a railway is not a street to rebuild); parking aisles are
-  // NOT — the overlay draws them, so they restore like any other way.
+  // Rail is skipped (a railway is not a street to rebuild), and so are
+  // parking aisles — they draw no band anywhere (WorldGen.isParkingAisle),
+  // so there is no street to rebuild and no metres to be paid for them.
   _rescanStreets(p, reachM, now, sight) {
     const lines = this._streetLines || (this._streetLines = new Map());
     const seen = new Set();
@@ -12372,6 +12376,7 @@ class MapScene extends Phaser.Scene {
           if (f.type !== 2 || !f.geom) continue;      // lines only
           const cls = (f.tags && f.tags.class) || '';
           if (cls === 'rail' || cls === 'transit') continue;
+          if (WorldGen.isParkingAisle(f.tags)) continue;
           for (let i = 0; i < f.geom.length; i++) {
             const line = f.geom[i];
             if (!line || line.length < 2) continue;
@@ -12501,7 +12506,9 @@ class MapScene extends Phaser.Scene {
   // copy, so without the tileSpans test the two tiles would each stand a stone
   // on the same stretch — two sprites and two stacked lights on one street.
   //
-  // Rail is skipped: a railway is not a street to rebuild, so it never lights.
+  // Rail is skipped: a railway is not a street to rebuild, so it never
+  // lights. Parking aisles are skipped too (WorldGen.isParkingAisle) — no
+  // band, no lamps beside it.
   //
   // Each lamp carries the way's TIER (WorldGen.classifyLine — the terrain
   // code the grid was painted with), which is what picks its unlit stone's
@@ -12563,6 +12570,7 @@ class MapScene extends Phaser.Scene {
         if (f.type !== 2 || !f.geom) continue;          // lines only
         const cls = (f.tags && f.tags.class) || '';
         if (cls === 'rail' || cls === 'transit') continue;
+        if (WorldGen.isParkingAisle(f.tags)) continue;
         const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
         // How far off the centreline this way's lamps stand: its own band's
         // half-width plus the stone. Per FEATURE — the width is a function of
@@ -12573,19 +12581,27 @@ class MapScene extends Phaser.Scene {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
           const rec = lineRecs.get(`${fi}:${i}`) || null;
-          const at = (rec && rec.variant === 'lantern')
-            ? Streets.lampsAlong(line, mvtToM, StreetVariants.lampSpacingFor('lantern'))
-            : Streets.lampsAlong(line, mvtToM);
+          // How this line lays its lamps (Streets.lampLayFor): Lantern Row's
+          // own spacing, else a WALKING PATH's denser one (with the street's
+          // floor), else the street's. `spacingM` rides on every lamp as the
+          // gap it was actually laid at (length / count) — the metres a
+          // living-lamp visit pays (Streets.lampCredit).
+          const lay = Streets.lampLayFor(f.tags || {},
+            (rec && rec.variant === 'lantern') ? StreetVariants.lampSpacingFor('lantern') : 0);
+          const at = Streets.lampsAlong(line, mvtToM, lay.spacingM, lay.minLenM);
           const glow = (hasVariants && StreetVariants.lampGlowFor && StreetVariants.lampGlowFor(rec)) || UI_LAMP_GLOW;
           if (!at.length) continue;
           const spans = Streets.tileSpans(line, mvtToM, extent);
           if (!spans.length) continue;
           const lineKey = Streets.lineKey(f, i);
+          const spacingM = Streets.lineLengthM(line, mvtToM) / at.length;
+          const path = Streets.isWalkingPath(f.tags || {});
+          const creditM = Streets.lampCreditM(spacingM, path);
           for (const sM of at) {
             if (!Streets.covers(spans, sM)) continue;   // in the buffer — the neighbour's stone
             const q = Streets.pointAtM(line, mvtToM, sM, offM);
             if (!q) continue;
-            out.push({ tileKey, lineKey, tier, glow, s: sM, x: ox + q.x, y: oy + q.y,
+            out.push({ tileKey, lineKey, tier, glow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
                        id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
           }
         }
@@ -12620,7 +12636,14 @@ class MapScene extends Phaser.Scene {
     // 3×3, so a peek at a tile edge still finds the lamps it drags into view.
     const a = viewAnchorCell(this);
     const { cellIX, cellIY } = viewAnchorAbsCell(this, a);
-    const key = `${cellIX},${cellIY}|${Streets.epoch(this.save)}`;
+    // …and the LIVING-LAMP inputs: a visit (this._lampVisitEpoch, bumped by
+    // _visitStreetLamps / _markLampsRestored) and the fade's clock, bucketed
+    // at Streets.LAMP_REFRESH_MS — each lamp's `bright` is quantised
+    // (Streets.lampBrightness), so the lightmap repaints only when a step
+    // actually changes, not on every rebuild of this list.
+    const now = Date.now();
+    const key = `${cellIX},${cellIY}|${Streets.epoch(this.save)}|${this._lampVisitEpoch | 0}`
+      + `|${Math.floor(now / Streets.LAMP_REFRESH_MS)}`;
     if (this._streetLampKey === key && this._streetLamps) return;
     const c = absCellCenterMeters(this, cellIX, cellIY);
     // Reach of the pass: the furthest a lamp can be and still show. The
@@ -12659,7 +12682,10 @@ class MapScene extends Phaser.Scene {
         // the plain cobble and throws no light. A fresh object per frame
         // the list rebuilds, never a flag written onto the tile's cached
         // geometry — that cache is per tile, this answer is per save.
-        out.push({ ...L, lit: Streets.covers(iv, L.s) });
+        // `bright`: the living lamp's gain on the cobble row (Streets
+        // .lampBrightness off save.lampVisits) — read by collectLamps.
+        out.push({ ...L, lit: Streets.covers(iv, L.s),
+                   bright: Streets.lampBrightness(Streets.lampVisitAt(this.save, L.id), now) });
       }
     });
     // Every LIT lamp's glow has its art baked before the sprite pass asks
@@ -12692,6 +12718,7 @@ class MapScene extends Phaser.Scene {
       const out = Streets.restore(this.save, meta.tileKey, meta.lineKey, intervals);
       if (!(out.addedM > 0)) continue;
       addedM += out.addedM;
+      this._markLampsRestored(meta, out.newly, now);
       for (const seg of out.newly) {
         const len = seg[1] - seg[0];
         if (len > bestLen) {
@@ -12741,6 +12768,104 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
   }
 
+  // ── LIVING LAMPS ─────────────────────────────────────────────────────────
+  // A lit lamp fades over a day (Streets.lampBrightness off save.lampVisits)
+  // and a VISIT flares it: the player's FEET (playerM — gameplay, never the
+  // camera anchor) coming within the lamp's range, the wider of its own light
+  // radius (Lighting.radiusCells('cobble')) and the player's reach. EDGE-
+  // triggered: a lamp is visited when it ENTERS range (this._lampsInRange is
+  // the session's set of lamps the feet are already by), so standing beside
+  // one pays once, and stepping out and back pays only the fade since.
+  //
+  // THE CREDIT is restore-ladder metres (Streets.lampCredit: the lamp's own
+  // spacing x how dim it had got) banked through _bankStreetMetres — the ONE
+  // lane the restore sweep adds metres by — and popped quietly as +Nm on the
+  // lamp's own cell (_popCellNumber, the cell toast tier).
+  //
+  // THE SAME GATES AS THE SWEEP: surface only, no auto-walk home, no
+  // passenger (isTooFast) and no reach (downed). While any holds, nothing is
+  // visited, brightened or paid, and the in-range set is forgotten.
+  // Re-derived from the same fix every call, memoised on the feet's cell +
+  // Streets.epoch, so standing still costs one string compare.
+  _visitStreetLamps(now) {
+    if (typeof Streets === 'undefined') return 0;
+    const surface = (this.depth ?? 0) === 0;
+    const reachM = surface ? reachRadiusM(this) : 0;
+    if (!surface || this._driftingHome || this.isTooFast?.() || !(reachM > 0)
+        || !this.startWorldM || !this.playerM) {
+      this._lampsInRange = null;
+      this._lampVisitKey = null;
+      return 0;
+    }
+    const p = playerReachCell(this);
+    const key = `${p.cellIX},${p.cellIY}|${Math.round(reachM)}|${Streets.epoch(this.save)}`;
+    if (this._lampVisitKey === key) return 0;
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    const lightR = ((typeof Lighting !== 'undefined' && Lighting.radiusCells)
+      ? Lighting.radiusCells('cobble') : 2.5) * this.cellM;
+    const R = Math.max(lightR, reachM);
+    const pt = absCellToTile(this, p.cellIX, p.cellIY);
+    const inRange = new Set();
+    const entered = [];
+    let pending = false;
+    const prev = this._lampsInRange || new Set();
+    eachTile3x3(pt.tx, pt.ty, (tx, ty) => {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) { pending = true; return; }
+      const lamps = this._streetLampsForTile(tx, ty, entry);
+      const restored = new Map();
+      for (const L of lamps) {
+        if (Math.abs(L.x - px) > R || Math.abs(L.y - py) > R) continue;
+        if (Math.hypot(L.x - px, L.y - py) > R) continue;
+        let iv = restored.get(L.lineKey);
+        if (iv === undefined) {
+          iv = Streets.restoredList(this.save, L.tileKey, L.lineKey);
+          restored.set(L.lineKey, iv);
+        }
+        if (!Streets.covers(iv, L.s)) continue;      // a dark stone is nobody's lamp yet
+        inRange.add(L.id);
+        if (!prev.has(L.id)) entered.push(L);
+      }
+    });
+    this._lampsInRange = inRange;
+    this._lampVisitKey = pending ? null : key;
+    if (!entered.length) return 0;
+    let paid = 0;
+    for (const L of entered) {
+      const m = Streets.visitLamp(this.save, L, now);
+      if (!(m > 0)) continue;
+      paid += m;
+      const shown = Math.round(m);
+      if (shown >= 1 && this._popCellNumber && typeof worldMetersToAbsCell === 'function') {
+        const c = worldMetersToAbsCell(this, L.x, L.y);
+        this._popCellNumber(`+${shown}m`, UI_STREET_INK, c.cellIX, c.cellIY);
+      }
+    }
+    this._lampVisitEpoch = (this._lampVisitEpoch | 0) + 1;
+    if (paid > 0) this._bankStreetMetres(paid, null, now, { quiet: true });
+    if (typeof persistSave === 'function') persistSave(this.save);
+    return paid;
+  }
+
+  // A lamp LIT BY THE RESTORE ITSELF is visited now, for nothing: the sweep
+  // just paid those metres, and the player is standing at it — so a freshly
+  // rebuilt street's lamps flare, and pay again only when walked a later day.
+  // `newly` is one line's intervals Streets.restore just added.
+  _markLampsRestored(meta, newly, now) {
+    if (!meta || !newly || !newly.length || typeof Streets === 'undefined' || !this._streetLampsForTile) return;
+    const entry = WorldGen.tileCache.get(meta.tileKey);
+    if (!entry || !entry.layers) return;
+    let n = 0;
+    for (const L of this._streetLampsForTile(meta.tx, meta.ty, entry)) {
+      if (L.lineKey !== meta.lineKey || !Streets.covers(newly, L.s)) continue;
+      Streets.visitLamp(this.save, L, now, false);
+      if (this._lampsInRange) this._lampsInRange.add(L.id);
+      n++;
+    }
+    if (n) this._lampVisitEpoch = (this._lampVisitEpoch | 0) + 1;
+  }
+
   // A restore's EFFECTS (the stone blast, the metres counter) play
   // RESTORE_FX_DELAY_MS after it: the restore's own frame does the
   // bookkeeping and the frame after repaints the restored canvas, and piling
@@ -12759,7 +12884,9 @@ class MapScene extends Phaser.Scene {
 
   // The metres a sweep just restored, banked against the one ladder: show the
   // counter and queue whatever prizes the new total has earned.
-  _bankStreetMetres(addedM, at, now) {
+  // `opts.quiet` (a living-lamp visit): the lamp popped its own +Nm on its
+  // cell, so the ladder counter shows only when this banking PAYS a prize.
+  _bankStreetMetres(addedM, at, now, opts) {
     const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
     const out = Trail.bank(st.metres, st.prizes, addedM, this.save.playerClass);
     st.metres = out.metres;
@@ -12787,7 +12914,7 @@ class MapScene extends Phaser.Scene {
     // reads the goal just completed ("200/200 m"), so the street and the prize
     // modal agree; the carried remainder against the next, longer goal shows
     // from the next sweep on.
-    const due = (now - (this._streetCounterAt || 0)) >= STREET_COUNTER_MIN_MS;
+    const due = !(opts && opts.quiet) && (now - (this._streetCounterAt || 0)) >= STREET_COUNTER_MIN_MS;
     if (due || out.owed > 0) {
       this._streetCounterAt = now;
       const label = Trail.readout(out, this.save.playerClass).label;

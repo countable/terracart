@@ -470,7 +470,8 @@ const starterWrapper = (name) => {
                    '_rescanStreets(p, reachM, now, sight) {',
                    '_setStreetPreview(meta, iv) {', '_streetSpreadPts(meta, s0, s1, k) {',
                    '_ripenStreets(now, sight) {', '_afterRestoreBeat(fn) {',
-                   '_bankStreetMetres(addedM, at, now) {', '_showTrailIntro() {',
+                   '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro() {',
+                   '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',
                    '_armTrailIntro(now) {', '_openTrailIntroIfDue() {',
                    '_drawStreetLive(now) {',
                    '_blastAt(wmx, wmy, opts) {']
