@@ -1149,7 +1149,7 @@ const PLAY_TIPS = [
   'Anything hostile you put down drops its pay as one coin where it fell — about a coin per 5 hit points, a little more for every level down. Walk over and pick it up.',
   'Towers on a castle you have CLAIMED fight on your side: any in sight looses an arrow at the nearest foe, at a fifth of your own rate, and a foe that strays near its walls turns and runs, as it would from Home. A tower\'s kill leaves its coin and nothing more. An unclaimed castle\'s walls stay silent.',
   // ── Underground, which you go looking for ───────────────────
-  'Tap a staircase to go down. Barely a tenth of surface rock bears ore — underground, half of it does.',
+  'Tap a staircase to go down. Barely a tenth of surface rock bears ore; underground, every level is a mine of its own metal and the one before it — iron and copper three levels down, and so on to the deepest.',
   ITEM_GUIDE_TIPS.torch,
   ITEM_GUIDE_TIPS.rope,
   'A cave wall mines out like any rock, bare-handed, and the passage you dig stays open.',

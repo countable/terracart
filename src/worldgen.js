@@ -978,18 +978,35 @@
     return tileCache;
   }
 
-  // Plain-rock fraction of a mineralrock roll (vs an ore-bearing rock), scaled
-  // by DEPTH so ore is rare in daylight and grows richer the deeper you mine.
-  // Tier weights in spawnCaveRocks make depth-1 copper-heavy (~80 % of ores):
-  //   surface (depth 0) → 0.90 plain → 0.10 ore → ~2.5 % copper-bearing rock
-  //   depth 1           → 0.50 plain → 0.50 ore → ~40 % copper, ~10 % rarer
-  //   depth 2           → 0.45 plain → 0.55 ore  (balanced ore table kicks in)
-  //   depth 3           → 0.40 plain
-  //   depth 4           → 0.35 plain
-  //   depth 5+          → floors at 0.30 plain
+  // Plain-rock fraction of a mineralrock roll (vs an ore-bearing rock).
+  //   surface (depth 0) → 0.90 plain → 0.10 ore, spread over every tier
+  //                       (SURFACE_ROCK_TIER_WEIGHTS) — ~2.5 % copper-bearing
+  //   underground       → CAVE_PLAIN_P plain; the ore is the LEVEL'S OWN
+  //                       (caveOreWeights, below)
+  const CAVE_PLAIN_P = 0.80;
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
-    return Math.max(0.30, 0.50 - 0.05 * (depth - 1));
+    return CAVE_PLAIN_P;
+  }
+
+  // EACH LEVEL IS ITS TIER'S MINE. Level N's ore is tier N and the tier below,
+  // in equal shares — with CAVE_PLAIN_P plain that is 10 % of each: level 3
+  // is 10 % iron, 10 % copper. It is the progression ladder in the rocks: a
+  // tier-N ore wants a pick of tier N-1 (requiredTier), so the copper of
+  // level 2 forges the pick that opens level 3's iron, whose pick opens level
+  // 4's gold, down to frost and crimson on level 7 (and below — the table
+  // tops out there). Ore tier 1 breaks into copper too (interactables.js
+  // BARS), so levels 1 and 2 are copper mines. Tier 4+ ore carries its gem
+  // (sapphire, ruby, emerald, then the diamond on 7). Until Sep 2026 every
+  // level below the first used the surface's spread, so frost was 3 % of ore
+  // on level 7 exactly as on level 2, and the diamonds T7 jewellery needs had
+  // no place to be mined.
+  function caveOreWeights(depth) {
+    const top = Math.max(1, Math.min(7, depth | 0));
+    const w = [0, 0, 0, 0, 0, 0, 0];
+    w[top - 1] += 0.5;
+    w[Math.max(1, top - 1) - 1] += 0.5;
+    return w;
   }
 
   // Ore-subset tier weights for a SURFACE deposit — the residential/yard table
@@ -4921,13 +4938,8 @@
   function spawnCaveRocks(grid, N, tx, ty, tileEdgeM, depth, objects, occupied) {
     const rng = makeRng(tileStreamSeed(tx, ty, 0x85EBCA6B, depth));
     const plainP = caveRockP(depth);
-    // Depth-1 is the intro cave: ~80 % of ore rolls land on T2 (copper) so
-    // the player reliably finds copper without grinding. Deeper levels use
-    // the surface's balanced spread, which grows richer in rarer ores as the
-    // plain fraction (caveRockP) falls.
-    const weights = depth === 1
-      ? [0.05, 0.80, 0.09, 0.03, 0.02, 0.01, 0.00]
-      : SURFACE_ROCK_TIER_WEIGHTS;
+    // The level's own ore — tier `depth` and the tier below (caveOreWeights).
+    const weights = caveOreWeights(depth);
     const baseTbl = cumWeights(weights);
     const PIVOT = 6;             // a cluster candidate every 6 cells
     const FIRE = 0.85;           // most candidates fire
@@ -5612,7 +5624,7 @@
     // starter home provisioner (app.js) so a hand-seeded starter rock gets the
     // exact odds a real residential deposit gets, and exported for the
     // headless tests that pin those odds.
-    rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0),
+    rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights,
     // Per-class road width — the road-geometry overlay strokes with it.
     roadWidthM,
     // …and the width it actually COVERS, large-tier weighting included. The
