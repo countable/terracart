@@ -123,6 +123,22 @@ test('creature table: PRODUCE is the chicken and the cow, item and verb together
     assert.truthy(ITEM_BY_ID[CT_SL.creatureProduce(k).item], `${k}'s yield is a real item`);
 });
 
+test('creature table: animal interaction timing has one owner beside behaviour', () => {
+  const a = CT_SL.ANIMAL_INTERACTION;
+  assert.truthy(a, 'the interaction table is exported');
+  assert.eq(a.produceCooldownMs, 60 * 60 * 1000, 'one yield per hour');
+  assert.eq(a.petBoostMs, 10 * 60 * 1000, 'petting boosts the next yield for ten minutes');
+  assert.eq(a.doubleYieldChance, 0.5, 'the boosted yield has a coin-flip chance');
+  assert.eq(a.followMs, 5 * 60 * 1000, 'a following cat trails for five minutes');
+  assert.truthy(/ANIMAL_INTERACTION\.petBoostMs/.test(INTERACT_SRC)
+    && /ANIMAL_INTERACTION\.produceCooldownMs/.test(INTERACT_SRC)
+    && /ANIMAL_INTERACTION\.doubleYieldChance/.test(INTERACT_SRC)
+    && /ANIMAL_INTERACTION\.followMs/.test(INTERACT_SRC),
+    'interact.js reads every number from the owner');
+  assert.truthy(/SpriteLayout\.creatureProduce\(c\.kind\)/.test(APP_JS_SRC),
+    'honey asks the producer predicate instead of naming chicken and cow again');
+});
+
 test('creature table: a scarecrow turns back the crow and the deer, and nothing else', () => {
   assert.eq(ctKinds((k) => CT_SL.creatureAvoids(k, 'scarecrow')), 'crow,deer');
   assert.falsy(CT_SL.creatureAvoids('slime', 'scarecrow'),

@@ -32,8 +32,16 @@ test('starter chain: teaches the loop in a playable order', () => {
   assert.lt(order.indexOf('till'), order.indexOf('plant'), 'till before plant');
   assert.lt(order.indexOf('plant'), order.indexOf('harvest'), 'plant before harvest');
   assert.lt(order.indexOf('harvest'), order.indexOf('sell'), 'harvest before sell');
-  // A crop needs real time to mature — the restore step is what fills it.
+  // A crop needs real time to mature - the restore step is what fills it.
   assert.lt(order.indexOf('restore'), order.indexOf('harvest'), 'restore fills the grow wait');
+});
+
+test('starter chain: harvest copy derives the crop wait and stage count', () => {
+  const harvest = STARTER_CHAIN.find((s) => s.event === 'harvest');
+  assert.truthy(harvest.body.includes(shortDuration(Crops.STAGE_HOLD_MS)),
+    'the chip formats the owning crop wait');
+  assert.truthy(harvest.body.includes(`${MAX_GROWTH_STAGE} times`),
+    'the chip reads the live number of waterings');
 });
 
 // ── Starter chain: progression ──────────────────────────────────────────────

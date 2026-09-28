@@ -293,15 +293,12 @@ const STARTER_CHAIN = [
   {
     id: 's5_harvest', event: 'harvest',
     title: 'Bring in the crop',
-    // Says the LOOP, because the loop is what the player has to know. The old
-    // copy — "grows a stage every 15 minutes, tap it when it is ripe" — read
-    // as one wait: sow, come back, harvest. What actually happens is four
-    // rounds of tap-to-water plus a 15-minute hold each (Crops.advanceGrowth
-    // only advances a WATERED plant, and clears the watering as it does), so a
-    // player who took the old line at its word came back to a plant that had
-    // not moved and no explanation of why.
-    body: 'Tap to water. A stage grows 15 min later, then water again — '
-        + 'four times to ripe.',
+    // Says the LOOP, because the loop is what the player has to know. A crop
+    // advances only while watered, then clears that watering, so each stage
+    // needs another tap. The owner supplies both the wait and stage count;
+    // tuning growth cannot leave the starter chip teaching the old loop.
+    body: `Tap to water. A stage grows ${shortDuration(Crops.STAGE_HOLD_MS)} later, then water again - `
+        + `${MAX_GROWTH_STAGE} times to ripe.`,
     reward: { money: 5 },
   },
   {

@@ -470,6 +470,16 @@
   // The surface slime's gait is NOT here: its two numbers (SLIME_STEP_MUL /
   // SLIME_HOP_CELLS) are app.js's own, beside the note that tunes them, and a
   // monster's cadence comes from the MONSTERS row it is registered in.
+  //
+  // Animal feeding and petting read one timing row beside the kind table.
+  // The Book derives its lessons from this row, so changing a live interval
+  // cannot leave the player learning the old one.
+  const ANIMAL_INTERACTION = Object.freeze({
+    produceCooldownMs: 60 * 60 * 1000,
+    petBoostMs: 10 * 60 * 1000,
+    doubleYieldChance: 0.5,
+    followMs: 5 * 60 * 1000,
+  });
   const CREATURE_BEHAVIOUR = {
     npc:           { wanders: true },
     chicken:       { wanders: true, produce: { item: 'egg',  verb: 'laid' } },
@@ -565,7 +575,7 @@
   // Does this hunter take every FOE (Combat.isEnemy) and every pest crow,
   // rather than a `prey` list of kinds? creature_ai.js huntsPrey answers it.
   function preysOnFoes(kind) { return !!creatureBehaviour(kind)?.preysOnFoes; }
-  // Does a petted one follow the player? (The cat's five minutes.)
+  // Does a petted one follow the player? ANIMAL_INTERACTION owns the window.
   function creatureFollows(kind) { return !!creatureBehaviour(kind)?.follows; }
   // Is a target cell within a ward of `what` ('scarecrow') refused to it?
   function creatureAvoids(kind, what) {
@@ -754,7 +764,7 @@
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
-    CREATURE_BEHAVIOUR, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
+    CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
     creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,

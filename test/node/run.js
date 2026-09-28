@@ -109,6 +109,9 @@ const FILES = [
   // RARITY_TUNING at call time), so wizard.test.js drives the shipping rules.
   'wizard.js',
   'interact.js',
+  // The ordered Book curriculum loads after the mechanic owners whose values
+  // it teaches. It stays before app.js, which reads the saved page bookmark.
+  'play_tips.js',
   // Pure save-state ladders (castle chain + starter chain), no Phaser/DOM.
   'quests.js',
   // Pure draw-math module: it only touches WorldGen + a stub Graphics, so the
@@ -1300,12 +1303,11 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
 // interact.js loads headlessly, but the burst call sites in its crop handler are
 // pinned as source text (particles.test.js) beside the app.js ones.
 ctx.INTERACT_JS_SRC = readSrc('interact.js');
-// items.js loads fine, but its PLAY_TIPS / comments are prose the rope test
-// sweeps as text, and a new icon's PNG has to exist on disk at the size the
-// ICON_SHEETS row claims — the two-table rule (docs/QC_RULES.md §1) is a
-// promise between items.js, app.js and a file, and only a test that reads
-// all three can hold it. pngDims reads the IHDR of an asset under ROOT.
+// Item descriptions and the separate Book curriculum are prose the tests
+// sweep as source. A new icon's PNG also has to match its ICON_SHEETS row;
+// pngDims reads the IHDR of an asset under ROOT.
 ctx.ITEMS_JS_SRC = readSrc('items.js');
+ctx.PLAY_TIPS_JS_SRC = readSrc('play_tips.js');
 ctx.pngDims = (rel) => {
   const p = path.join(ROOT, rel.replace(/\?.*$/, ''));
   if (!fs.existsSync(p)) return null;

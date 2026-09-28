@@ -173,7 +173,7 @@ const POI_CATEGORY = {
   // college, a scriptorium and a scrivener's shop are where the written word
   // lives, so their chests hand out BOOKS by the shelf-load (rarity.js
   // 'chest:school' pins the consumable roll to one). The Book is the game's
-  // documentation — see PLAY_TIPS in items.js — so it needs a place on the
+  // documentation - see PLAY_TIPS in play_tips.js - so it needs a place on the
   // map a player can walk to and reliably come back with one.
   school: 'school', college: 'school', library: 'school', books: 'school',
   // civic/educational: rare-weighted seed drops

@@ -223,8 +223,8 @@ test('sapphire: the slime taming is hinted in the riddle and nowhere else', () =
 });
 
 test('tips: the source comment tells the next author where a description goes', () => {
-  const m = src.match(/\/\/ === Book of Tips =+\n([\s\S]*?)\nconst PLAY_TIPS = \[/);
-  assert.truthy(m, 'the Book of Tips header comment is still there');
+  const m = PLAY_TIPS_JS_SRC.match(/\/\/ === Book of Tips =+\n([\s\S]*?)\nconst PLAY_TIPS = \[/);
+  assert.truthy(m, 'play_tips.js keeps the Book of Tips header comment');
   const note = m[1];
   assert.truthy(/ITEM_EFFECTS/.test(note) && /RELIC_DEFS/.test(note),
     'it names both description tables');

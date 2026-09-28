@@ -8790,8 +8790,8 @@ class MapScene extends Phaser.Scene {
   // Returns true if eaten, false if not edible / nothing selected.
   // Side-effects read their duration and radius from CONSUMABLE_SPEC.
   // === Consumables ============================================
-  // Set out honey (consumed): every wandering chicken / cow inside its
-  // home position re-anchored to ~3m from the player so they wander toward you
+  // Set out honey (consumed): every wandering producer inside its radius has
+  // its home position re-anchored to ~3m from the player so it wanders toward you
   // over the next few seconds. Doesn't teleport — that would feel cheesy.
   // Shared tail for modal-feedback consumables (honey, book): consume the
   // selected item, persist, rebuild the inventory bar, and pop a message
@@ -8821,7 +8821,7 @@ class MapScene extends Phaser.Scene {
       if (!entry.creatures) continue;
       for (const c of entry.creatures) {
         if (this.save.caught.includes(c.id)) continue;
-        if (c.kind !== 'chicken' && c.kind !== 'cow') continue;
+        if (!SpriteLayout.creatureProduce(c.kind)) continue;
         const d = Math.hypot(c.x - pWX, c.y - pWY);
         if (d > CONSUMABLE_SPEC.honey.radiusM) continue;
         // Re-anchor the wander home toward the player. The wanderer's next

@@ -5,7 +5,7 @@
 // see by looking at the world. Two things follow from that, and this file
 // pins both.
 //
-//   1. IT HAS TO BE TRUE. Every tip in PLAY_TIPS (items.js) is a claim about
+//   1. IT HAS TO BE TRUE. Every tip in PLAY_TIPS (play_tips.js) is a claim about
 //      live behaviour, so the tests below re-derive the numbers the tips quote
 //      from the modules that own them — the rest rates, the firing cadence,
 //      the growth hold, the delivery ladder, the chest rings — and fail when a
@@ -154,6 +154,16 @@ test('school category: the favourite only fires inside its own class', () => {
 // THE COURSE — a Book is read front to back, so the ORDER is behaviour
 // ─────────────────────────────────────────────────────────────────────────────
 
+test('course: play_tips loads after its mechanic owners and before app', () => {
+  const at = (src) => INDEX_HTML_SRC.indexOf(src);
+  const tips = at('src/play_tips.js');
+  assert.gt(tips, at('src/items.js'), 'item guides exist before the course uses them');
+  assert.gt(tips, at('src/energy.js'), 'offline-rest timing exists before the course quotes it');
+  assert.gt(tips, at('src/crops.js'), 'crop timing exists before the course quotes it');
+  assert.gt(tips, at('src/interact.js'), 'animal interaction code and owners load before the course');
+  assert.lt(tips, at("const APP_SRC = 'src/app.js"), 'the course exists before app boots');
+});
+
 test('course: readBook walks the list in order and bookmarks its place', () => {
   // The pin is on source text: app.js cannot load headlessly (no Phaser), and
   // this is the one line where the ordering stops being decoration.
@@ -272,8 +282,10 @@ test('tips: the home rest quotes HOME_FULL_REST_S, and no tip rests you in a str
 });
 
 test('tips: the offline rest quotes Energy.OFFLINE_FULL_REST_MS', () => {
+  const wait = shortDuration(Energy.OFFLINE_FULL_REST_MS);
+  const tip = PLAY_TIPS.find((t) => /hands the whole bar back/i.test(t));
   assert.eq(Energy.OFFLINE_FULL_REST_MS, 60 * 60 * 1000, 'an hour away refills the bar');
-  assert.truthy(someTip(/an hour away hands the whole bar back/i), 'and a tip says an hour, not just "trickles back"');
+  assert.truthy(tip && tip.includes(`${wait} away`), 'the course formats the owning duration');
 });
 
 test('tips: working-is-not-resting is documented, because it is enforced', () => {
@@ -348,8 +360,10 @@ test('tips: reach — the underground trim and the zero-energy floor are documen
 });
 
 test('tips: the crop clock and the seed-back rate are the ones the code rolls', () => {
+  const tip = PLAY_TIPS.find((t) => /ordinary watered crop/i.test(t));
   assert.eq(Crops.STAGE_HOLD_MS, 15 * 60 * 1000, 'a stage is 15 minutes');
-  assert.truthy(someTip(/every 15 minutes/i), 'and a tip says so');
+  assert.truthy(tip && tip.includes(`every ${shortDuration(Crops.STAGE_HOLD_MS)}`),
+    'the course formats the owning growth duration');
   // interact.js: yieldN = randInt(1,3) + …, gotSeed at 0.25 + qual × 0.10.
   assert.truthy(/randInt\(1, 3\) \+ Math\.floor\(qual \/ 3\)/.test(INTERACT_SRC),
     'a pick still pays one to three');
@@ -357,6 +371,20 @@ test('tips: the crop clock and the seed-back rate are the ones the code rolls', 
     'and hands a seed back a quarter of the time bare-handed');
   assert.truthy(someTip(/one to three of itself/i) && someTip(/one pick in four/i),
     'and a tip quotes both');
+});
+
+test('tips: animal lessons quote the interaction table', () => {
+  const a = SpriteLayout.ANIMAL_INTERACTION;
+  const produce = PLAY_TIPS.find((t) => /Feed any plant or crop/i.test(t));
+  const boost = PLAY_TIPS.find((t) => /next yield/i.test(t));
+  const follow = PLAY_TIPS.find((t) => /tame cat/i.test(t) && /trails/i.test(t));
+  assert.truthy(produce && produce.includes(shortDuration(a.produceCooldownMs)),
+    'the produce lesson formats the cooldown owner');
+  assert.truthy(boost && boost.includes(shortDuration(a.petBoostMs))
+    && boost.includes(`${Math.round(a.doubleYieldChance * 100)}%`),
+    'the pet lesson formats both boost owners');
+  assert.truthy(follow && follow.includes(shortDuration(a.followMs)),
+    'the cat lesson formats the follow owner');
 });
 
 test('tips: the shot cadence lives on the weapons, and no tip contradicts it', () => {
