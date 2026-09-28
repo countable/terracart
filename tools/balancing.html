@@ -139,7 +139,7 @@ function describe(r) {
   const id = r.id, qty = r.qty || 1;
   const item = ITEM_BY_ID[id];
   const unit = (typeof itemValue === 'function') ? itemValue(id) : (PRICES[id] ?? 1);
-  return { cls: r.cls || item?.kind || '?', key: item?.name || id, id, value: unit * qty + (r.consolation || 0),
+  return { cls: r.cls === 'bundle' ? 'Building materials' : (r.cls || item?.kind || '?'), key: item?.name || id, id, value: unit * qty + (r.consolation || 0),
     tier: r.tier || item?.baseTier || 0, qty, text: `${qty}× ${item?.name || id}${r.consolation ? ` + $${r.consolation}` : ''}` };
 }
 
