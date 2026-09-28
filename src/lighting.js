@@ -1005,7 +1005,7 @@
   //     list — the scan has not looked there.
   // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
   // or pulse and the entry's own alpha / scale, at the colour's luminance.
-  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'fire', 'magic_trap', 'cobble', 'blast']);
+  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
   function cookieLevel(L, qx, qy, cellM, now) {
     const row = KINDS[L.kind];
     if (!row || !(row.peak > 0)) return 0;

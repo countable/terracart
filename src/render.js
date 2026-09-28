@@ -2104,7 +2104,9 @@ Render.drawCells = function drawCells(scene) {
   // reused across crossings and repainted only when a band moves the column
   // phase or the viewport itself moves (a resize). A band's phase is
   // per-anchor, so with one in view every crossing still repaints.
-  const gridViewKey = `${scene.viewLeft},${scene.viewTop},${scene.viewSize}`;
+  const gridScale = Math.max(1, Math.min(BAKED_MAX_SCALE,
+    (typeof RENDER_SCALE === 'number') ? RENDER_SCALE : 1));
+  const gridViewKey = `${scene.viewLeft},${scene.viewTop},${scene.viewSize},${gridScale}`;
   const gridDirty = _bandKey !== scene._lastGridBands || gridViewKey !== scene._lastGridView
     || (_bandKey && (baseCellIX !== scene._lastGridIX || baseCellIY !== scene._lastGridIY));
   if (gridDirty) {

@@ -53,6 +53,18 @@ test('lighting: a staff bolt lights by its tier — radius, strength and metal',
   assert.eq(Lighting.collectBolts(far, 0, 0, HALF_M), 1, 'only the Frost bolt\'s wider light is kept');
 });
 
+test('lighting: a staff bolt stays paint-only', () => {
+  const sc = scene({
+    depth: 1,
+    playerM: null,
+    startWorldM: null,
+    _lightAnchor: { x: 0, y: 0 },
+    _lights: [{ kind: 'bolt', dx: 0, dy: 0, r: Lighting.radiusCells('bolt'), id: 'bolt_test' }],
+  });
+  assert.eq(Lighting.brightnessAt(sc, 0, 0, 0, { playerGlow: false }), 0,
+    'the brightness gameplay check ignores the staff bolt painted at this point');
+});
+
 test('lighting: a fire and a Home light exactly the ring they warm you in', () => {
   assert.eq(Lighting.radiusCells('fire'), FIRE_REST_R,
     'the fire light radius is FIRE_REST_R — stand in the light, stand in the warmth');
