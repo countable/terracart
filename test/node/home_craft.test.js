@@ -26,6 +26,7 @@ function scene(inv) {
     showOfferModal(o) { this.modals.push(o); },
     flash(t) { this.flashes.push(t); },
     flashLoot(t) { this.loots.push(t); },
+    invRoomFor(id) { return Inventory.roomFor(this.save, id); },
     addToInv(id, n) { Inventory.add(this.save, id, n); },
     iconSpanHTML: () => '', worldIconHTML: () => '',
     buildInventoryDOM() {}, _clampSelSlot() {},
@@ -71,6 +72,25 @@ test('home craft: crafting spends the wood and hands over the item', () => {
   last(s).onAccept(2);
   assert.eq(Inventory.count(s.save, 'wood'), 0, 'a torch is one wood each');
   assert.eq(Inventory.count(s.save, 'torch'), 2, 'two torches');
+});
+
+test('home craft: bag room caps the stepper and is rechecked before ingredients are spent', () => {
+  const s = scene([['wood', 5], ['torch', 8]]);
+  s.presentHomeCraft(0, 0, 'torch');
+  let m = last(s);
+  assert.eq(m.quantity.max, 1, 'one open stack place permits one torch');
+  m.onAccept(1);
+  assert.eq(Inventory.count(s.save, 'wood'), 4, 'one wood spent');
+  assert.eq(Inventory.count(s.save, 'torch'), 9, 'the last place filled');
+
+  s.presentHomeCraft(0, 0, 'torch');
+  m = last(s);
+  assert.falsy(m.canAfford, 'a full output stack disables Craft');
+  assert.eq(m.quantity, undefined, 'no quantity stepper when nothing fits');
+  m.onAccept(1);
+  assert.eq(Inventory.count(s.save, 'wood'), 4, 'the full-bag recheck preserves ingredients');
+  assert.eq(Inventory.count(s.save, 'torch'), 9, 'the full output stack stays unchanged');
+  assert.truthy(/Bag full for Torch/.test(s.flashes.at(-1) || ''), `names the full stack: ${s.flashes.at(-1)}`);
 });
 
 test('home craft: short on wood, the page says so and nothing changes hands', () => {

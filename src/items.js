@@ -861,10 +861,10 @@ const PRICES = {
   vigor_potion:  35,   // T2 — instant 40-energy restore
   speed_potion:  55,   // T2 — tier-9 boots + amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
-  blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura hurting every foe 2 HP/s
-  raven_potion:  90,   // T3 — 1 min of a slime-strength ally (a slime's bite a second
-                       //      on ONE foe, 3× Blight's per-foe rate, but it has to fly
-                       //      to each and can be worn down): Blight's tier and price
+  blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
+  raven_potion:  90,   // T3 — 1 min of a slime-strength ally (one roster-slime bite
+                       //      each second on one foe, below Blight's per-foe rate, but
+                       //      it hunts pests and keeps fighting while you move): Blight's tier and price
   revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
@@ -1349,7 +1349,6 @@ const ITEM_EFFECTS = {
   vigor_potion:  `Drink to restore ${VIGOR_POTION_ENERGY} energy`,
   speed_potion:  'Drink for faster control-stick walking at lower energy cost (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
-  blight_potion: 'Drink to hurt foes near you 2 HP/s (1 min)',
   raven_potion:  `Drink: a spirit raven hunts foes & pests for ${shortDuration(SPIRIT_RAVEN_MS)}`,
   thunder_potion:      `Drink: ${THUNDER_DMG} damage to every foe in sight; the rest flee`,
   revive_potion:       `Drink when down to get up with ${revivePct('revive_potion')}% energy`,
@@ -1374,6 +1373,13 @@ const ITEM_EFFECTS = {
   meat:         `Hold over a campfire to grill it: ${GRILL_ENERGY_MUL}× energy; feed raw to tame a wild dog`,
   wood:         'Make a torch at a campfire; craft scarecrows at Home; forge wooden equipment at a blacksmith',
 };
+// app.js owns Blight's damage. The getter reads it after app.js loads; tools
+// that load the item table alone still receive useful copy without a stale number.
+Object.defineProperty(ITEM_EFFECTS, 'blight_potion', {
+  enumerable: true,
+  get: () => 'Drink to hurt foes near you'
+    + (typeof BLIGHT_DPS === 'number' ? ` ${BLIGHT_DPS} HP/s` : '') + ' (1 min)',
+});
 // Every raw food the fire cooks says so, in the meat's words.
 for (const raw of Object.keys(COOKED_FOODS)) {
   ITEM_EFFECTS[raw] = ITEM_EFFECTS[raw] || `Hold over a campfire to cook it: ${GRILL_ENERGY_MUL}× energy`;

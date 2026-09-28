@@ -11,8 +11,8 @@
 (function () {
 test('map review: no game code sets the review salt', () => {
   assert.truthy(typeof WorldGen.setReviewSalt === 'function', 'the hook exists');
-  for (const [name, src] of [['app.js', APP_JS_SRC], ['interact.js', INTERACT_SRC], ['render.js', RENDER_SRC]]) {
-    assert.falsy(/setReviewSalt\(/.test(src), `${name} never calls it`);
+  for (const [name, src] of Object.entries(ALL_SRC)) {
+    assert.falsy(/\bWorldGen\.setReviewSalt\s*\(/.test(src), `${name} never calls it`);
   }
   assert.truthy(/let _reviewSalt = 0;/.test(WORLDGEN_SRC), 'and it starts at 0');
 });

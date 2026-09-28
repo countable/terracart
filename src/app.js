@@ -3355,11 +3355,11 @@ class MapScene extends Phaser.Scene {
   // On WorldGen.LAVA_DEPTH the rock under the town's buildings is lava
   // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
   // second for as long as the FEET are in it (playerToWorldCell — never the
-  // camera anchor). The trap bleed's shape and lane: the ground, not a foe, so
-  // no mode, shield or armour; a float accumulator banks whole pips through
-  // _losePlayerEnergy (Energy.set, the hit flinch); one throttled pop on the
-  // cell, and no shop dialog closes (a foe's blow does; the ground's, like a
-  // trap's, does not). Stands down on an empty bar (Combat.playerDowned — being upright,
+  // camera anchor). Lava owns an environmental damage lane because the ground,
+  // not a foe, deals it: mode, shield and armour never change the burn. A float
+  // accumulator banks whole pips through _losePlayerEnergy (Energy.set, the hit
+  // flinch); one throttled pop names the cell, and the burn leaves shop dialogs
+  // open. Stands down on an empty bar (Combat.playerDowned — being upright,
   // not being noticed; a Shadow Powder does not cool lava).
   _tickLava(dt) {
     if (this.depth !== WorldGen.LAVA_DEPTH || !this.startWorldM
@@ -9981,7 +9981,7 @@ class MapScene extends Phaser.Scene {
   // mode's empty-tank lockout refuses it like food and the fire.
   _presentInn(sx, sy, o, dress) {
     const wait = shortDuration(msToNextUtcDay());
-    if (Macros.usedToday(this.save, o.id)) { this.flash(`Rested. Back in ${wait}.`, sx, sy); return; }
+    if (Macros.serviceUsedToday(this.save, o.id)) { this.flash(`Rested. Back in ${wait}.`, sx, sy); return; }
     if (this._zeroEnergyLocked()) { this.flash('Too far gone for a bed.', sx, sy); return; }
     const maxE = this.getMaxEnergy();
     const missing = Math.max(0, maxE - (this.save.energy ?? 0));
@@ -10027,7 +10027,7 @@ class MapScene extends Phaser.Scene {
   _presentGuildhall(sx, sy, o, dress) {
     const wait = shortDuration(msToNextUtcDay());
     if (this._guildBountyNow()) { this.flash('Finish the hunt first.', sx, sy); return; }
-    if (Macros.usedToday(this.save, o.id)) { this.flash(`Board empty. Back in ${wait}.`, sx, sy); return; }
+    if (Macros.serviceUsedToday(this.save, o.id)) { this.flash(`Board empty. Back in ${wait}.`, sx, sy); return; }
     const b = Macros.bountyFor(this.save, o);
     const names = b.kinds.map((k) => Combat.monster(k)?.name || 'Slime');
     const counts = {};
@@ -10043,10 +10043,10 @@ class MapScene extends Phaser.Scene {
       acceptLabel: 'Take it',
       cancelLabel: 'Later',
       onAccept: () => {
-        if (Macros.usedToday(this.save, o.id) || this._guildBountyNow()) return;
+        if (Macros.serviceUsedToday(this.save, o.id) || this._guildBountyNow()) return;
         const n = this._spawnGuildBounty(b);
         if (!n) { this.flash('No clear ground here.', sx, sy); return; }
-        Macros.markToday(this.save, o.id);
+        Macros.markServiceToday(this.save, o.id);
         persistSave(this.save);
         const line = n > 1 ? `${n} foes close by!` : 'A foe close by!';
         this.flash(line, sx, sy);
@@ -10364,7 +10364,8 @@ class MapScene extends Phaser.Scene {
   // bag can make, so the page opens on something usable.
   presentHomeCraft(sx, sy, targetId = null) {
     const held = (id) => Inventory.count(this.save, id);
-    const capOf = (r) => recipeCap(r.cost, held);
+    const ingredientCap = (r) => recipeCap(r.cost, held);
+    const capOf = (r) => Math.min(ingredientCap(r), Math.max(0, this.invRoomFor(r.id)));
     const locked = (r) => homeRecipeLocked(this.save, r.id, Difficulty.isHard());
     const rec = HOME_RECIPES.find(r => r.id === targetId)
       || HOME_RECIPES.find(r => !locked(r) && capOf(r) >= 1) || HOME_RECIPES[0];
@@ -10406,7 +10407,11 @@ class MapScene extends Phaser.Scene {
       onAccept: (n) => {
         const q = Math.max(1, n ?? 1);
         if (locked(rec)) { this.flash(`Find a ${outName} first.`, sx, sy); return; }
-        if (capOf(rec) < q) {
+        if (this.invRoomFor(rec.id) < q) {
+          this.flash(`Bag full for ${outName}.`, sx, sy);
+          return;
+        }
+        if (ingredientCap(rec) < q) {
           const missing = rec.cost.find(c => held(c.id) < c.qty * q);
           const short = missing ? missing.qty * q - held(missing.id) : 0;
           this.flash(missing ? `Need ${short} more ${itemName(missing.id)}.`
@@ -10473,7 +10478,7 @@ class MapScene extends Phaser.Scene {
     const m = this.fortSlotMachine(house);
     if (!m.prizes.length) { this.flash('The machine is broken.', sx, sy); return; }
     const { wrap, box, mount, mkBtn } = this.makeModalShell('slots-modal',
-      { onClose: () => {}, kind: 'slots' });
+      { kind: 'slots' });
     const GOLD = '#ffd24a';
     const TITLE = "The quartermaster's slot machine — three of a kind wins, and a star completes a pair:";
     const title = document.createElement('div');
@@ -10543,8 +10548,14 @@ class MapScene extends Phaser.Scene {
     const setSpinEnabled = () => {
       const ok = !spinning && (this.save.money ?? 0) >= m.cost;
       spin._setEnabled(ok);   // mkBtn's one enabled/disabled look
+      later._setEnabled(!spinning);
     };
-    later.addEventListener('click', (e) => { e.stopPropagation(); timers.forEach(clearTimeout); wrap.remove(); });
+    later.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (spinning) return;
+      timers.forEach(clearTimeout);
+      wrap.remove();
+    });
     spin.addEventListener('click', (e) => {
       e.stopPropagation();
       if (spinning) return;
@@ -10912,9 +10923,13 @@ class MapScene extends Phaser.Scene {
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
       cost: offer.label,
-      canAfford: offer.canAfford(),
+      canAfford: offer.canAfford() && this.invRoomFor(id) >= buyQty,
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
+        if (this.invRoomFor(id) < buyQty) {
+          this.flash(`Bag full for ${item?.name || id}.`, sx, sy);
+          return;
+        }
         offer.consume();
         this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
@@ -11831,9 +11846,13 @@ class MapScene extends Phaser.Scene {
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
       cost: offer.label,
-      canAfford: offer.canAfford(),
+      canAfford: offer.canAfford() && this.invRoomFor(id) >= buyQty,
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
+        if (this.invRoomFor(id) < buyQty) {
+          this.flash(`Bag full for ${item?.name || id}.`, sx, sy);
+          return;
+        }
         offer.consume();
         this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
         recordDeal();

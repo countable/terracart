@@ -429,22 +429,14 @@
   //   { kind: 'gold',  slot, tier, amount, jackpot }     ← from walk-up
   // ────────────────────────────────────────────────────────────────
   // ────────────────────────────────────────────────────────────────
-  // CAVE SUPPLIES. A shallow chest underground (T1/T2 — the tiers a cave
-  // mirror of an ordinary surface chest still rolls; deeper ones promote past
-  // it, loot.js chestTier) leans toward what a player DOWN THERE runs out of:
-  // coin, light, a way back up, and a potion. Not a new context — it is an
-  // OVERLAY on the chest's own biome row, so a park chest below a park is
-  // still a park chest, only better stocked for the dark:
-  //   classAdd  — added to the row's classBias before the pick (weightedPick
-  //               renormalises, so this draws share off the row's other classes)
-  //   favourite — the row's favourite widened to a weighted SET: when the
-  //               class comes up consumable, `p` of the time the item is drawn
-  //               from `ids` (torch, rope, one of the four potions — equal
-  //               shares for light / rope / potion — or, at half a share, the
-  //               cave-only Magic Trap) instead of the T1/T2 pool.
-  //               It REPLACES the row's own favourite down here, so a school
-  //               chest in a cave hands over a torch rather than a Book.
-  // Caller passes opts.depth (the chest's cave level; 0/absent = surface).
+  // CAVE SUPPLIES. A shallow buried X underground (T1/T2) leans toward
+  // what a player down there runs out of: coin, light, a way back up and a
+  // potion. This overlay belongs to treasure:default. Themed chests return
+  // through pickChestReward before lootContext and own their cave mix in
+  // ChestThemes.weights.
+  //   classAdd  - adds weights to the X mark's classBias before the pick.
+  //   favourite - chooses a weighted supply set when that class comes up.
+  // Caller passes opts.depth (the cave level; 0/absent = surface).
   const CAVE_SUPPLY_MAX_TIER = 2;
   const CAVE_SUPPLY_SKEW = {
     classAdd:  { cash: 0.25, legacyConsumable: 0.25 },
@@ -457,9 +449,8 @@
       magic_trap: 0.5,
     } },
   };
-  // Which pools a cave skew reaches: every chest, and a buried X dug
-  // underground ('treasure:default' — app.js digTreasureOpts hands it the
-  // depth and the depth's tier, the same ramp a cave chest's tier climbs).
+  // A cave skew reaches only a buried X dug underground. app.js
+  // digTreasureOpts passes its depth and tier; themed chests use ChestThemes.
   function caveSkewable(contextKey) {
     return contextKey === 'treasure:default';
   }
@@ -672,7 +663,9 @@
 
     // 4) Resolve to a concrete item / relic / gold.
     if (cls === 'relic') {
-      const slots = Object.keys(_RELIC_DEFS);
+      // The wizard tower alone awards the Ring, so every random gear lane
+      // shares rollGearUpgrade's exclusion.
+      const slots = Object.keys(_RELIC_DEFS).filter(slot => slot !== 'ring');
       if (!slots.length) return null;
       const slot = slots[Math.floor(rng() * slots.length)];
       // Relics deduct one tier off whatever the chain rolled — a T2 chest
@@ -720,22 +713,12 @@
                tier: _ITEM_BY_ID[bid]?.baseTier ?? 1,
                jackpot: jackpotApplied, consolation: 0 };
     }
-    // FAVOURITE — a context may pin ONE item id inside its own class: when
-    // that class is rolled, the pinned id wins with probability `p` instead of
-    // an even draw from the class/tier pool. The school chest's Book and the
-    // lowtier box's Torch are its users, and it is deliberately NOT a
-    // dropWeight: a weight is global to every context, while this says "at a
-    // SCHOOL, the consumable you find is a book" without making books the
-    // commonest thing in a hospital.
-    //
-    // The pin ignores the rolled TIER on purpose. A school in a district
-    // full of schools rolls tier 1 (loot.js chestTier — the tier is how
-    // common its kind is on its tile), where the whole consumable pool is
-    // the scarecrow — so the schools of a dense town, the first a new
-    // player reaches, would be the ones that never handed over a book. A Book is the one item whose worth is the same at
-    // every tier, so letting it out of a humble chest costs nothing.
-    // A favourite is one `id`, or a weighted set `ids` ({ id: weight }) — the
-    // cave supplies' torch / rope / potions (CAVE_SUPPLY_SKEW). Only members
+    // FAVOURITE - a non-chest context may pin one item id, or a weighted set,
+    // inside its own class. The road prize and grove shrine use this lane;
+    // themed chests resolve through ChestThemes before lootContext runs.
+    // This remains separate from dropWeight because dropWeight affects every
+    // context, while a favourite identifies what makes one place distinctive.
+    // The pin may ignore tier unless tierCapped says otherwise. Only members
     // of the rolled class count, so a set never hands over the wrong kind.
     const fav = ctx.favourite;
     let favId = null;

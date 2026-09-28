@@ -59,7 +59,7 @@ Every named group is an explicit, tier-filtered list or a catalog query with cle
 
 | Group | Proposed contents |
 |---|---|
-| General supplies | Torch, Rope, Trap Disarm Kit, Honey; Torch weight 3, others weight 1 |
+| General supplies | Torch, Rope, Trap Disarm Kit, Honey; authored weights are Torch 3, others 1; effective odds by tier are below |
 | Exploration / field supplies | Torch, Rope, Trap Disarm Kit; equal weights |
 | Farm supplies | Scarecrow, Honey; equal weights |
 | Building materials | Wood or stone (`rockfruit`); equal weights |
@@ -76,16 +76,41 @@ Every named group is an explicit, tier-filtered list or a catalog query with cle
 | Animal food | Existing cat/dog/rabbit feeding items, resolved from the feeding rules |
 | Recovery magic | Vigor T2; Elixir T6; food fallback at T1 |
 | Antidote | Antidote T1; one per chest |
-| Healing magic (protective locations) | Vigor weight 3, Revival weight 2, Resurrection weight 1; Elixir from T6 |
-| Revival magic | Revival weight 3, Resurrection weight 1 |
-| Study magic | Reach weight 2, Raven weight 1, Shielding weight 1 |
-| Raven / Shadow | Raven Potion and Shadow Powder; equal weights |
+| Healing magic (protective locations) | Vigor weight 3, Revival weight 2, Resurrection weight 1; Elixir from T6; effective odds by tier are below |
+| Revival magic | Revival weight 3, Resurrection weight 1; effective odds by tier are below |
+| Study magic | Reach weight 2, Raven weight 1, Shielding weight 1; effective odds by tier are below |
+| Raven / Shadow | Raven Potion and Shadow Powder; tier discipline makes them sequential rather than a live 50/50 choice |
 | Gems | Sapphire, Ruby, Emerald, Diamond |
 | Noncombat gear | Amulet, bags, watering can, hoe, fishing rod, bug net; equal slot weights |
 | Protective gear | Armor slots only, equally weighted |
 | Cultural gear | Existing chest gear pool, excluding the wizard-exclusive Ring |
 
-For each item group, first select the highest eligible item tier, then apply the stated weights within that tier. Missing tiers fall downward. This lets a T5 revival draw reach Resurrection instead of being permanently diluted by lower-tier Revival. Healthcare gives recovery magic its own 35% group: Vigor at T2–T5, Elixir at T6+. This keeps immediate restoration separate from revival. Antidote has its own 25% group and remains eligible at every tier.
+The picker first selects the highest eligible item tier in a non-mixed group, then applies item weights within that tier. Lower tiers remain eligible only until a higher tier enters the pool. Missing tiers fall downward. This lets a T5 revival draw reach Resurrection instead of being diluted by lower-tier Revival.
+
+The 14 theme rows in section 2 keep their stated reward-group percentages because the picker chooses a group before it filters that group's items by tier. The tier rule changes only the effective item odds inside a group. The following table audits every fixed-membership group whose equal or authored item weights cross tiers:
+
+| Group | Effective item odds by rolled tier |
+|---|---|
+| General supplies | T1: Torch 100%. T2+: Rope, Trap Disarm Kit and Honey 33.3% each. Torch's authored weight 3 never competes with the T2 items. |
+| Exploration / field supplies | T1: Torch 100%. T2+: Rope and Trap Disarm Kit 50% each. |
+| Farm supplies | T1: Scarecrow 100%. T2+: Honey 100%. |
+| Provisions / restorative food | T1: Berry, cress, potato and egg 25% each. T2+: Milk 100%. |
+| Flower seeds | T1-T3: Flowers fallback. T4: Sunflower Seed 100%. T5: Fireflower Seed 100%. T6+: Iceflower Seed 100%. |
+| Flowers | T1: Flowers 100%. T2: Forget-me-not 100%. T3: Marigold and Wild Rose 50% each. T4: Sunflower 100%. T5: Starflower and Fireflower 50% each. T6+: Iceflower 100%. |
+| Park forage | T1: Flowers, berry and mushroom 33.3% each. T2: Forget-me-not 100%. T3-T4: Marigold and Wild Rose 50% each. T5+: Starflower 100%. |
+| Saplings / acorns | T1: the theme fallback. T2: Acorn 100%. T3-T4: Apple Sapling 100%. T5+: Peach Sapling 100%. |
+| Farm animals | T1-T4: Chicken and rabbit 50% each. T5+: Cow 100%. |
+| Companion animals | T1: Dog and rabbit 50% each. T2+: Cat 100%. |
+| Recovery magic | T1: restorative-food fallback. T2-T5: Vigor 100%. T6+: Elixir 100%. |
+| Healing magic | T1: restorative-food fallback. T2-T4: Vigor 60%, Revival 40%. T5: Resurrection 100%. T6+: Elixir 100%. |
+| Revival magic | T1: restorative-food fallback. T2-T4: Revival 100%. T5+: Resurrection 100%. |
+| Study magic | T1: Book in schools, Torch elsewhere. T2: Reach 66.7%, Shielding 33.3%. T3+: Raven 100%. |
+| Raven / Shadow | T1: Flowers fallback. T2: Shadow Powder 100%. T3+: Raven 100%. |
+| Gems | T1-T3: the theme fallback. T4: Sapphire 100%. T5: Ruby 100%. T6: Emerald 100%. T7: Diamond 100%. |
+
+Catalog-query groups - food, crop seeds, produce and animal food - apply the same highest-tier rule to their live catalog membership, then use `dropWeight` within that tier. The document does not freeze those changing percentages. Gear groups choose slots rather than item tiers and therefore do not use this filter.
+
+Healthcare gives recovery magic its own 35% group: Vigor at T2-T5, Elixir at T6+. This keeps immediate restoration separate from revival. Antidote has its own 25% group and remains eligible at every tier.
 
 Books have an explicit weight through their group; the old additional 70% school-favorite roll is removed for themed chests. The same applies to the old Torch favorite: one table owns its probability. Catalog `dropWeight` remains the default for groups without an explicit item weight.
 

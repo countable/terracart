@@ -77,7 +77,7 @@
     assert.falsy(isSpent(rack, yday), 'so is a rack');
     assert.falsy(restocks(pot) || restocks(rack), 'neither is a crate');
     const src = INTERACTABLES_SRC;
-    assert.truthy(/Macros\.usedToday\(save, o\.id\)\) \{\s*scene\.flash\(`The chapel is quiet/.test(src), 'the chapel reads the daily gate');
+    assert.truthy(/Macros\.serviceUsedToday\(save, o\.id\)\) \{\s*scene\.flash\(`The chapel is quiet/.test(src), 'the chapel reads the service-day gate');
     assert.truthy(/grove_shrine: \{[\s\S]{0,200}Macros\.usedToday\(save, o\.id\)/.test(src), 'and the shrine');
   });
 

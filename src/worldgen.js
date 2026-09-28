@@ -7,6 +7,9 @@
   const TILE_PX = 256;          // standard
   const TILE_EXTENT = 4096;     // MVT units
   const CELL_M = 7;             // game cell size in meters
+  // Park, forest and grove trees share this ordered set so a species change
+  // reaches every generated tree lane.
+  const TREE_SPECIES = Object.freeze(['maple', 'pine', 'birch', 'mahogany']);
 
   // ── Where the tiles come from ──────────────────────────────────────────
   // OpenFreeMap serves each weekly planet build from a DATED directory
@@ -1596,13 +1599,16 @@
   // tier's weight multiplied by VEIN_MUL for that cluster only, so a pocket
   // reads as "an iron vein" / "a gold seam" rather than evenly-mixed ore. The
   // plain-vs-ore split is untouched, and the random tier pick spreads the
-  // boost across all tiers over many clusters, so the global rarity barely
+  // boost across every tier the table offers over many clusters, so global rarity barely
   // moves. Two draws (the chance, then the tier) — callers that never want a
   // vein must not call this, so their seeds reproduce exactly.
   const VEIN_MUL = 10;
   function rollVeinTable(rng, weights, veinChance, baseTbl) {
     if (rng() >= veinChance) return baseTbl;
-    const veinTier = Math.floor(rng() * weights.length);
+    const offered = [];
+    for (let i = 0; i < weights.length; i++) if (weights[i] > 0) offered.push(i);
+    if (!offered.length) return baseTbl;
+    const veinTier = offered[Math.floor(rng() * offered.length)];
     const boosted = weights.slice();
     boosted[veinTier] *= VEIN_MUL;
     return cumWeights(boosted);
@@ -3117,7 +3123,6 @@
     // polygon's own stream (polyKey ^ salt) — one draw per candidate, then
     // one for the look. The species is the polygon's, as in a forest.
     function* spawnParkTreesSteps(rings, polyKey, trees, patch) {
-      const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
       const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
       const prng = makeRng((polyKey ^ trees.salt) >>> 0);
       const gx0 = tx * TILE_EXTENT, gy0 = ty * TILE_EXTENT;
@@ -3153,7 +3158,6 @@
       // Each polygon picks ONE species (maple/pine/birch/mahogany) so a single
       // forest reads as a single woodland type instead of a jumbled mix. Each
       // species has its own real sprite sheet (no tint pass needed).
-      const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
       const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
       const bb = bboxOf(rings);
       // ~one candidate per 11.3m. Every in-polygon candidate becomes a tree
@@ -5254,12 +5258,10 @@
     const occupied = new Set();
     for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
     for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
-    // Residential yard rule for the sidecar injections below. These are
-    // pushed AFTER rasterizeTile's residential post-pass, so they'd bypass
-    // it otherwise — re-apply the shared spawn rule here. Like the post-pass,
-    // only RESIDENTIAL cells are gated (non-residential placements pass
-    // through); POI chests — both already placed and the ones we're about to
-    // inject — count as public anchors.
+    // Lot-yard rule for the sidecar injections below. These land after
+    // rasterizeTile's lot post-pass, so they re-apply the shared spawn rule.
+    // Residential and wasteland lot cells are gated (LOT_TYPES); other
+    // terrain passes through. POI chests, both placed and pending, count as anchors.
     const _sxPois = [];
     for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
     for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
@@ -5594,7 +5596,6 @@
   // (fetchOverpassBin) — both feed the SAME feature shape through here, so
   // there is exactly one binning / projection / species-fallback code path.
   function buildBinsFromGeoJSON(gj, lat) {
-    const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
     // DeepForest detections below this confidence are dropped on load. OSM
     // trees carry no `score` and are always kept. The z20 classified run is
     // already filtered at 0.30 (the reviewed sweet spot), so match it here.
@@ -7221,6 +7222,9 @@
     // exact odds a real residential deposit gets, and exported for the
     // headless tests that pin those odds.
     rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers,
+    // One tree-species table feeds parks, forests and zone groves. The vein
+    // helper is exported for the deterministic cave distribution regression.
+    TREE_SPECIES, rollVeinTable,
     // Per-class road width — the road-geometry overlay strokes with it.
     roadWidthM,
     // …and the width it actually COVERS, large-tier weighting included. The

@@ -71,8 +71,10 @@
   // opened surface POI id is written into TODAY's ledger
   // (save.coinBurstClaimed[id + dayKey] = 1): an old crate reads as opened on
   // the migration day and refills tomorrow. For a trunk the entry is inert
-  // (save.opened still spends it forever) and the ledger prunes other days
-  // on its next write, so the save does not grow.
+  // because save.opened still spends it forever. Macro services prefix their
+  // ledger ids, so this plain carried key never spends an inn, chapel or
+  // guildhall visit. The next ledger write prunes old days, so the save stays
+  // bounded.
   function carryOpenedCratesToLedger(save, now) {
     if (!Array.isArray(save.opened) || !save.opened.length || typeof Delivery === 'undefined') return 0;
     const day = Delivery.dayKey(now instanceof Date ? now : new Date(now ?? Date.now()));

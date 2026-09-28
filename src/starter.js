@@ -478,14 +478,14 @@
             if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) break;
             const t = entry.grid[ncy * N + ncx];
             if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t) && !onRoadBand(ncx, ncy)
-                && !usedSeats.has(ncx + ',' + ncy)) break;
+                && !usedSeats.has(ncx + ',' + ncy) && !occupied.has(ncx + ',' + ncy)) break;
             ncx += Math.sign(bdx) || 0;
             ncy += Math.sign(bdy) || 0;
           }
           if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) continue;
           const tt = entry.grid[ncy * N + ncx];
           if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt) || onRoadBand(ncx, ncy)
-              || usedSeats.has(ncx + ',' + ncy)) continue;
+              || usedSeats.has(ncx + ',' + ncy) || occupied.has(ncx + ',' + ncy)) continue;
           seatCrate(ncx, ncy, i);
           seated = true;
         }

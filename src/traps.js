@@ -59,8 +59,8 @@
   // major roads' verges until Sep 2026.) The mode and the depth scale up from here — see countMul below.
   const ROAD_TRAP_MIN = 10, ROAD_TRAP_SPAN = 9;    // 10..18 per surface tile, base rate
   // How many trap-ground cells the one-pass scan below keeps to choose from.
-  // Only needs to comfortably exceed the trap count — it is a uniform sample
-  // of the whole ground (see sampleTrapCells), so more of them buys nothing but
+  // It only needs to exceed the trap count comfortably because it samples the
+  // whole ground uniformly (see sampleTrapCells); more buys nothing but
   // room for the isSpawnCell rejections. A countMul > 1 asks for more traps
   // than this reservoir can supply candidates for, so spawnSurface widens it
   // in that case; left alone at the base rate so every existing seed and test

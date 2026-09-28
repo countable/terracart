@@ -53,7 +53,8 @@ const SCENE_RULE =
 // ones that do are noticed on a second look rather than announced. Two kinds:
 //   the FALL   — what the demon did (claw scorches, a horned mural, a sigil)
 //   the SECRET — that it is the survivor (horned shadow, leaning sparks, an
-//                ember glint, a wary glance) — the subtlest, and rarest.
+//                ember glint, a wary glance) — the subtlest, and rarest. Keep
+// SECRET hints fewer than every FALL kind so they remain a rare second look.
 const LORE = {
   claws:   'Subtle background detail: a ruined wall carries three huge blackened claw-rake scorch marks, old and weathered.',
   // The mural is the easiest hint to over-draw: asked for 'a vast horned

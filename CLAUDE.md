@@ -197,8 +197,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   Game animals (crow/deer) are not enemies or projectile targets; released
   slime pets are never targets.
 - Route incoming damage through `Combat.playerDamage` and armour mitigation,
-  including per-hit arrow bundles. Difficulty/potion scaling precedes armour;
-  armour reduces blows rather than increasing maximum energy.
+  including per-hit arrow bundles. A shield potion halves the raw blow before
+  armour; difficulty multiplies the mitigated blow after armour. Armour reduces
+  blows rather than increasing maximum energy.
 - `Energy.set` is the only runtime energy writer (save migration is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds

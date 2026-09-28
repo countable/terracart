@@ -2104,7 +2104,9 @@ Render.drawCells = function drawCells(scene) {
   // reused across crossings and repainted only when a band moves the column
   // phase or the viewport itself moves (a resize). A band's phase is
   // per-anchor, so with one in view every crossing still repaints.
-  const gridViewKey = `${scene.viewLeft},${scene.viewTop},${scene.viewSize}`;
+  const gridScale = Math.max(1, Math.min(BAKED_MAX_SCALE,
+    (typeof RENDER_SCALE === 'number') ? RENDER_SCALE : 1));
+  const gridViewKey = `${scene.viewLeft},${scene.viewTop},${scene.viewSize},${gridScale}`;
   const gridDirty = _bandKey !== scene._lastGridBands || gridViewKey !== scene._lastGridView
     || (_bandKey && (baseCellIX !== scene._lastGridIX || baseCellIY !== scene._lastGridIY));
   if (gridDirty) {
@@ -3067,11 +3069,11 @@ Render.drawObjects = function drawObjects(scene) {
               // CRATE_SCALE — 16 × 0.8 = ~13px inside the 32px cell, so a crate
               // reads as a small prop rather than filling its cell; trunk is
               // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
-              // are structures, not chests, and kept their scale.
+              // are structures, not chests. The pot is a further 20% smaller.
               // A barrel and a bike rack are 16px generated props drawn at
               // SMALL_POI_SCALE (~21px) and seated like the crate.
               scale: (o) => { const L = chestLook(o);
-                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.4
+                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
                                 : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : 0.72)))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
@@ -4078,7 +4080,7 @@ Render.drawObjects = function drawObjects(scene) {
       // coin_drop is the 64px pixel-art asset now (was a baked 16px disc).
       // The drop still draws COIN_DROP_PX across, derived off the frame's own
       // width so a re-cut asset can't silently resize what the player sees.
-      const COIN_DROP_PX = 24;
+      const COIN_DROP_PX = 16.8;
       s.setOrigin(0.5, 0.5)
        .setScale((COIN_DROP_PX / s.width) * pulse)
        .setPosition(Math.round(sx), Math.round(sy))

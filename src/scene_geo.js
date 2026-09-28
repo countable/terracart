@@ -722,13 +722,17 @@ class SceneGeo {
     // ask, so hand it back rather than starting a rival.
     const passKey = `${cell.tx}/${cell.ty}/${this.depth || 0}`;
     if (this._tilePass && this._tilePassKey === passKey) return this._tilePass;
+    const passSeq = (this._tilePassSeq || 0) + 1;
+    this._tilePassSeq = passSeq;
     this._tilePassKey = passKey;
-    this._tilePass = this._ensureTilesAroundPass(cell)
-      .finally(() => { if (this._tilePassKey === passKey) { this._tilePass = null; } });
+    this._tilePass = this._ensureTilesAroundPass(cell, passSeq)
+      .finally(() => {
+        if (this._tilePassKey === passKey && this._tilePassSeq === passSeq) this._tilePass = null;
+      });
     return this._tilePass;
   }
 
-  async _ensureTilesAroundPass(cell) {
+  async _ensureTilesAroundPass(cell, passSeq) {
     const needed = new Set();
     eachTile3x3(cell.tx, cell.ty, (tx, ty) => needed.add(`${tx}/${ty}`));
     // The tile the player is standing in — the only one they can see or reach
@@ -841,9 +845,13 @@ class SceneGeo {
     // and if the player does walk that way the tile becomes the centre and
     // earns the banner then.
     const settle = () => {
+      // Only the newest centre owns the banner and retry timer. A neighbour
+      // ring can finish after GPS has moved the player into another tile.
+      if (passSeq !== this._tilePassSeq) return false;
       this.showBanner(centreFailed, centreWhy);
       this._tilesReady = [...WorldGen.tileCache.values()].filter(t => t.status === 'ready').length;
       this._scheduleTileRetry(anyRetry);
+      return true;
     };
 
     // THE CENTRE TILE FIRST, and hand control back the moment it is done.
@@ -865,8 +873,21 @@ class SceneGeo {
     _endCentre?.(centreKey);
     settle();
     const ring = [...needed].filter(k => k !== centreKey);
-    if (!ring.length || this._ringBuild) return;
-    this._ringBuild = (async () => {
+    if (!ring.length || passSeq !== this._tilePassSeq) return;
+    if (this._ringBuild) {
+      // The current ring belongs to an older centre. Re-enter after it clears
+      // so this centre streams its own neighbours and settles their outcome.
+      const activeRing = this._ringBuild;
+      activeRing.finally(() => {
+        // Run after this pass releases _tilePass; an already-settled ring can
+        // otherwise re-enter while ensureTilesAround still returns this pass.
+        setTimeout(() => {
+          if (passSeq === this._tilePassSeq) this.ensureTilesAround().catch(() => {});
+        }, 0);
+      });
+      return;
+    }
+    const ringWork = (async () => {
       // One at a time, each waiting for an IDLE moment first. Fired together
       // they queue straight onto the heavy chain and spend the player's first
       // seconds of play the same way the boot did — a 300-800 ms stall, eight
@@ -881,7 +902,12 @@ class SceneGeo {
         await buildOne(k);
       }
       endRing?.(`${ring.length} tiles`);
-    })().catch(() => {}).then(() => { this._ringBuild = null; settle(); });
+    })().catch(() => {});
+    const ringDone = ringWork.then(() => {
+      if (this._ringBuild === ringDone) this._ringBuild = null;
+      settle();
+    });
+    this._ringBuild = ringDone;
   }
 
   // Resolve on the next idle slice, or after RING_IDLE_TIMEOUT_MS at the
