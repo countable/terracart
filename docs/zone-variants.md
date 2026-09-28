@@ -49,8 +49,8 @@ Connection operators are specifications for a shared interpreter, not currently 
 | grove | Orchard | 4% fruit_tree, 6% grass, 2% blue | paired trees | 3 medium: gemfruit | none | deer 65% |
 | grove | Formal Garden | 10% shrub, 6% blue, 2% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
 | grove | Hedge Garden | 36% shrub, 1.76% blue, 0.64% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
-| grove | Ancient Grove | 0.69% tree, 5.56% shrub, 11.11% grass | stone tree ring | 1 rare: star | 2 slime at find | deer 60% |
-| stones | Stone Garden | 8% stone, 2% iron_ore, 5% grass | four stones | 3 medium: gemfruit | none | none |
+| grove | Ancient Grove | 1% tree, 8% shrub, 12% grass | stone tree ring | 1 rare: star | 2 slime at find | deer 60% |
+| stones | Stone Garden | 2.72% iron_ore, 10.88% stone, 6.8% grass | four stones | 3 medium: gemfruit | none | none |
 | stones | Ordered Graves | 6% grave, 6% stone, 3% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction | crow 65% |
 | stones | Overgrown Graves | 8% grass, 4% shrub, 4% stone, 2% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction | crow 40%, butterfly 35% |
 | stones | Broken Masonry | 12% rubble, 8% stone | stone square | 1 rare: platinum_ore | 1 slime at find | none |
@@ -73,7 +73,7 @@ Generate directly from the table:
 python3 tools/preview_zone_variants.py docs/zone-variants.json /tmp/zone-variants-preview
 ```
 
-The generator validates material densities across full repeat cycles, distinct POI positions, grid continuity, find counts, and tar guard exclusions. It displays the background plus the POI arrangement, marked POI point, and an exact-offset POI close-up. Toggles reveal the background beneath the reserved POI area. Finds, guards, fauna affinities, connection routes, actual obstacles, and real map boundaries are not drawn; the coverage-union diagram is schematic.
+The generator validates material densities across full repeat cycles, distinct POI positions, grid continuity, find counts, and tar guard exclusions. It displays the background plus the POI arrangement, marked POI point, and an exact-offset POI close-up. Toggles reveal the original background beneath the POI cells. Each motif uses its declared POI-relative phase; no arbitrary square clearing is cut into it. Finds, guards, fauna affinities, connection routes, actual obstacles, and real map boundaries are not drawn; the coverage-union diagram is schematic.
 
 ## Hedge Garden geometry
 
@@ -100,11 +100,11 @@ The generator validates material densities across full repeat cycles, distinct P
 
 ## Ancient Grove clusters
 
-A 12 × 12-cell repeat contains one compact 5 × 5 cluster: one central tree, eight shrubs in the immediately surrounding ring, and sixteen longgrass cells in the outer ring. This raises nominal coverage from 15% to 17.36%, while making every cluster locally full and keeping open ground between clusters. The POI arrangement, one starflower find, and two slime guards remain. Stone stepping markers connect the POI to that find.
+A 10 × 10-cell repeat contains one rounded cluster: one central tree, eight shrubs around it, and twelve longgrass cells on the outer edge. The four square corners are removed. Clusters repeat every ten cells instead of twelve, raising nominal coverage to 21% while retaining open ground between them. The POI replaces the central tree of the anchor cluster; its adjacent decorations replace only the slots they occupy. The starflower find and two slime guards remain.
 
-## Stone Garden iron rhythm
+## Stone Garden concentric rings
 
-Each background stone row repeats four ordinary stones and one iron-bearing rock. The two five-stone rows in each motif put their iron at matching row ends: iron is exactly one fifth of background stones, never a random roll. Overall coverage stays 15%: 8% ordinary stone, 2% iron ore, and 5% grass. The compact four-stone POI arrangement stays ordinary stone. Iron uses the existing tier-3 ore rock with the usual tier-2 pick requirement.
+Three rings centered on the POI have radii 3, 6 and 9 cells and contain 10, 20 and 30 stones respectively. Each ring follows iron, stone, stone, stone, stone clockwise from north: exactly twelve of sixty stones are iron. Two staggered longgrass rings between them contain ten and twenty cells. The complete 21 × 21-cell footprint holds 48 ordinary stones, 12 iron rocks and 30 grass cells (20.41% background coverage). The central four-stone POI arrangement remains additional to these rings. Iron uses the existing tier-3 ore rock with a tier-2 pick requirement. The finite radial composition is clipped to the eligible coverage union rather than repeated from each tile.
 
 ## Fauna affinities
 
@@ -132,3 +132,28 @@ The 5 × 5 plots share six continuous boundaries on each axis, at cell coordinat
 ## Silent Circle continuity
 
 Each 10 × 10 repeat contains a radius-three circle of sixteen neighboring positions: fifteen stones form one continuous arc, with one grass-marked opening. Coverage is 15% stone and 1% grass. The outdoor POI ring has seven immediately adjacent stones and one open entrance to the south. The wider indoor/frontage arrangement remains available separately.
+
+## POI-relative pattern origins
+
+Every variant declares `background.poiOrigin.cell`. The world-to-pattern mapping is `inverse_rotate(world_cell - settled_poi_cell) + poiOrigin.cell`, with repeat-block indices derived in the same frame. This aligns the composition once for the whole zone rather than restarting its phase at each tile or at the preview corner. The preview uses this mapping, including its contextual close-ups.
+
+Only the POI cell and actual decoration slots replace existing background slots. Ancient Grove's central tree becomes the POI, retaining the outer grass ring; Silent Circle retains its enclosing ring around the POI. Other motif positions remain intact. Missing settled-chest information requires a stable anchor fallback resolved consistently across tiles during integration.
+
+| Variant | POI position in motif | Intended alignment |
+|---|---|---|
+| Meadow | [0, 0] | scatter seed origin |
+| Mushroom Grove | [4, 3] | clearing between mushroom pairs |
+| Orchard | [5, 5] | aisle between four trees |
+| Formal Garden | [4, 4] | central aisle between flower beds |
+| Hedge Garden | [9, 9] | plot center |
+| Ancient Grove | [5, 5] | cluster center replacing center tree |
+| Stone Garden | [10, 10] | center of three concentric stone rings |
+| Ordered Graves | [5, 4] | central stone row between graves |
+| Overgrown Graves | [5, 4] | middle of shrub row |
+| Broken Masonry | [4, 4] | clearing between masonry groups |
+| Silent Circle | [5, 5] | circle center |
+| Flint Field | [0, 0] | scatter seed origin |
+| Broken Depot | [5, 4] | middle of material row |
+| Seep | [4, 4] | central seep replaced by poi |
+| Work Yard | [15, 15] | plot center |
+| Black Ring | [5, 5] | inner ring clearing |

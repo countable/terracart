@@ -47,6 +47,10 @@ def background_at(v, x, y):
                 return None
             return cycle(b['plotCenters']['material'], x // step, y // step)
         return None
+    if b['type'] == 'concentric_rings':
+        if not (0 <= x < b['extentCells'][0] and 0 <= y < b['extentCells'][1]):
+            return None
+        return next((slot['material'] for slot in b['slots'] if slot['at']==[x,y]),None)
     w, h = b['repeatCells']
     for slot in b['slots']:
         if slot['at'] == [x % w, y % h]:
@@ -64,6 +68,14 @@ def validate(d):
         assert all(0 < chance <= 1 for chance in v['attracts'].values())
     for v in d['variants']:
         b = v['background']
+        origin = b['poiOrigin']['cell']
+        assert len(origin)==2 and all(isinstance(c,int) for c in origin)
+        if b['type']=='repeat_motif':
+            assert all(0 <= origin[i] < b['repeatCells'][i] for i in (0,1))
+        if b.get('ring'):
+            assert origin == b['ring']['centerCell']
+        if b.get('cluster'):
+            assert origin == b['cluster']['centerCell']
         assert abs(sum(b['materialDensity'].values()) - b['nominalDensity']) < 1e-9
         assert set(b['materialDensity']) <= d['materials'].keys()
         coords = [tuple(s['at']) for s in v['poi']['slots']]
@@ -89,7 +101,7 @@ def validate(d):
             assert all(background_at(v, px+s['at'][0], py+s['at'][1]) is None for s in v['poi']['slots']), 'POI decoration stays inside its room'
         # Derive coverage over a full four-cycle tile for deterministic motifs.
         if b['type'] != 'seeded_scatter':
-            period = (b['spacingCells'] * b['plots'][0] + 1 if b['type']=='bounded_line_grid' else b.get('spacingCells', b.get('repeatCells', [10])[0]) * 4)
+            period = (b['extentCells'][0] if b['type']=='concentric_rings' else b['spacingCells'] * b['plots'][0] + 1 if b['type']=='bounded_line_grid' else b.get('spacingCells', b.get('repeatCells', [10])[0]) * 4)
             counted = collections.Counter(background_at(v, x, y) for x in range(period) for y in range(period))
             for material, density in {**b['materialDensity'], **b.get('hazardDensity',{})}.items():
                 assert abs(counted[material] / period**2 - density) < 1e-9, (v['id'], material)
@@ -97,18 +109,18 @@ def validate(d):
 
 def svg_for(v, d, detail=False):
     b = v['background']
-    side = 9 if detail else (b['spacingCells'] * b['previewPlots'][0] + 1 if b['type'] in ('line_grid', 'bounded_line_grid') else 24)
+    side = 9 if detail else (b['extentCells'][0] if b['type']=='concentric_rings' else b['spacingCells'] * b['previewPlots'][0] + 1 if b['type'] in ('line_grid', 'bounded_line_grid') else 25)
     unit = 10
     center = side // 2
-    aligned = b['type'] == 'bounded_line_grid'
-    poi_x, poi_y = ([p*b['spacingCells'] + b['spacingCells']//2 for p in b['poiPlot']] if aligned else [center,center])
-    draw_x, draw_y = ([center,center] if detail else [poi_x,poi_y])
+    aligned = b['type'] in ('bounded_line_grid','concentric_rings')
+    poi_x, poi_y = b['poiOrigin']['cell']
+    draw_x, draw_y = ([poi_x,poi_y] if aligned and not detail else [center,center])
     parts = [f'<svg role="img" aria-label="{html.escape(v["name"])} {"POI pattern" if detail else "background and POI"}" viewBox="0 0 {side*unit} {side*unit}">', f'<rect width="100%" height="100%" fill="#172820"/>']
-    if not detail or aligned:
+    if not detail or b['type'] != 'seeded_scatter':
         parts.append('<g class="background">')
         for y in range(side):
             for x in range(side):
-                gx, gy = (x + poi_x - center, y + poi_y - center) if detail else (x,y)
+                gx, gy = x + poi_x - draw_x, y + poi_y - draw_y
                 material = background_at(v, gx, gy)
                 if material:
                     color = d['materials'][material]['color']
@@ -116,8 +128,9 @@ def svg_for(v, d, detail=False):
                     parts.append(f'<rect x="{x*unit+gap}" y="{y*unit+gap}" width="{unit-2*gap}" height="{unit-2*gap}" fill="{color}"><title>{material}</title></rect>')
         parts.append('</g>')
     parts.append('<g class="poi-layer">')
-    if not detail and not aligned:
-        parts.append(f'<rect x="{(center-1)*unit}" y="{(center-1)*unit}" width="30" height="30" fill="#172820" stroke="#d5b263" stroke-dasharray="3 3" stroke-width=".7"/>')
+    # Replace only actual POI cells, not a square cut out of the motif.
+    for x,y in [(0,0)] + [slot['at'] for slot in v['poi']['slots']]:
+        parts.append(f'<rect x="{(draw_x+x)*unit}" y="{(draw_y+y)*unit}" width="10" height="10" fill="#172820"/>')
     for s in v['poi']['slots']:
         x, y = s['at']; color = d['materials'][s['material']]['color']
         parts.append(f'<rect x="{(draw_x+x)*unit+1}" y="{(draw_y+y)*unit+1}" width="8" height="8" fill="{color}"><title>POI: {s["material"]} ({x}, {y})</title></rect>')
@@ -138,17 +151,17 @@ def render(d, out):
         if hazards:
             mix += '; hazards: ' + ', '.join(f'{n*100:g}% {m}' for m,n in hazards.items())
         coverage_label = 'interactables + ' + f'{sum(hazards.values())*100:g}% hazards' if hazards else ('expected' if b['type']=='seeded_scatter' else 'nominal')
-        mode = {'bounded_line_grid':f'{b.get("plots",[0,0])[0]} × {b.get("plots",[0,0])[1]} plots · POI centered in a plot', 'line_grid':'3 × 3 plots · continuous lines', 'seeded_scatter':'Seeded scatter · no repeating tile', 'repeat_motif':'Repeating cell pattern'}[b['type']]
+        mode = {'concentric_rings':'Three concentric rings · POI at common center', 'bounded_line_grid':f'{b.get("plots",[0,0])[0]} × {b.get("plots",[0,0])[1]} plots · POI centered in a plot', 'line_grid':'3 × 3 plots · continuous lines', 'seeded_scatter':'Seeded scatter · no repeating tile', 'repeat_motif':'Repeating cell pattern'}[b['type']]
         fauna = ', '.join(f'{kind} {chance*100:g}%' for kind,chance in v.get('attracts',{}).items()) or 'No zone affinity'
         guard = v['guards']; guard_text = 'None' if guard['mode'] == 'none' else (f'{guard["count"]} {guard["kind"]} at the find' if guard['mode']=='guard_find' else 'Ghosts on tombstone interaction')
-        cards.append(f'''<article id="{v['id']}"><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>● marked center · 1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p><dl><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Finds</dt><dd>{len(v['finds']['targets'])} {v['finds']['rarity']} · {v['finds']['material']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Guards</dt><dd>{guard_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
+        cards.append(f'''<article id="{v['id']}"><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>● marked center · 1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p><dl><dt>Alignment</dt><dd>{b["poiOrigin"]["role"].replace("_"," ")}</dd><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Finds</dt><dd>{len(v['finds']['targets'])} {v['finds']['rarity']} · {v['finds']['material']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Guards</dt><dd>{guard_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
     legend = ''.join(f'<span><i style="background:{m["color"]}"></i>{name}</span>' for name,m in d['materials'].items())
     page = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Zone variants · pattern review</title><style>
 *{box-sizing:border-box}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;gap:24px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
     counts = collections.Counter(v['zone'] for v in d['variants'])
     page += f'<h1>{len(d["variants"])} zone variants</h1><p>Design for review · {counts["grove"]} groves, {counts["stones"]} churchyards, {counts["tar"]} tar yards. These definitions are not yet connected to live world generation.</p><p><a href="zone-variants.json">Complete JSON table</a> · <a href="zone-variants.md">Placement contract and summary</a></p>'
     page += '''<section class="coverage"><div><h2>Geometry first</h2><p>Density follows recognizable shapes; 15% is a guide, not a cap. Hedge Garden has 4 × 4 plots; Work Yard has 5 × 5. Both use continuous lines spaced six cells apart. The POI fixes the phase of the entire grid.</p><h2>Cover the union</h2><p><b>Influence footprint ∪ associated park footprint ∪ its placement fringe.</b> The fringe includes the full 30 m placement reach, beyond the 12–20 m painted band. Count overlap once; apply the existing spawn restrictions afterward.</p><p>Without an associated park, use the influence footprint alone. Nearby unrelated parks do not expand the zone. Special finds remain one set per anchor.</p></div><svg viewBox="0 0 420 230" role="img" aria-label="Diagram of the union of influence area and park with fringe"><rect x="25" y="35" width="250" height="160" rx="28" fill="#749762" fill-opacity=".4" stroke="#a2c483" stroke-dasharray="5 4"/><rect x="48" y="58" width="204" height="114" rx="8" fill="#426e44"/><circle cx="285" cy="118" r="90" fill="#679fac" fill-opacity=".4" stroke="#8ac9da"/><circle cx="285" cy="118" r="5" fill="#fff6ca"/><g fill="#fff" font-size="14" font-family="system-ui"><text x="98" y="117">Park footprint</text><text x="40" y="25">30 m placement fringe</text><text x="270" y="104">Influence</text><text x="297" y="136">POI</text><text x="98" y="218">Schematic · not to scale</text></g></svg></section>'''
-    page += '<div class="legend">'+legend+'</div><p>Backgrounds are representative unclipped samples. Hedge Garden shows its complete 4 × 4 footprint, with the POI at the center of plot (2, 2), counting from the top left. Work Yard shows its 5 × 5 footprint, with the POI in plot (3, 3). Their close-ups include the surrounding grid lines. Elsewhere, gold boxes show space reserved for the actual POI pattern; the light circle with a cross is the POI point. Close-ups show the outdoor arrangement, using only the eight cells touching the POI. Building POIs retain their wider frontage arrangement in the table. Finds, guards, fauna affinities and connection routes are listed but not drawn. Fauna percentages are chances to relocate existing animals onto eligible ground, not extra spawn rates. Obstacles and real zone boundaries will clip placement. Grid lines are unbroken except where POI space or an ineligible cell requires clearance.</p><div class="controls"><label><input id="show-poi" type="checkbox" checked> Show POI in background</label><label><input id="show-bg" type="checkbox" checked> Show background</label></div><main class="cards">'+''.join(cards)+'</main></body></html>'
+    page += '<div class="legend">'+legend+'</div><p>Backgrounds are representative unclipped samples. Hedge Garden shows its complete 4 × 4 footprint, with the POI at the center of plot (2, 2), counting from the top left. Work Yard shows its 5 × 5 footprint, with the POI in plot (3, 3). Every repeating motif is phased from its declared POI origin, not the image corner. The close-ups include the surrounding pattern. Only occupied POI slots replace background cells; no square clearing is cut out. The light circle with a cross is the POI point. Close-ups show the outdoor arrangement, using only the eight cells touching the POI. Building POIs retain their wider frontage arrangement in the table. Finds, guards, fauna affinities and connection routes are listed but not drawn. Fauna percentages are chances to relocate existing animals onto eligible ground, not extra spawn rates. Obstacles and real zone boundaries will clip placement. Grid lines are unbroken except where POI space or an ineligible cell requires clearance.</p><div class="controls"><label><input id="show-poi" type="checkbox" checked> Show POI in background</label><label><input id="show-bg" type="checkbox" checked> Show background</label></div><main class="cards">'+''.join(cards)+'</main></body></html>'
     (out/'index.html').write_text(page)
     (out/'zone-variants.json').write_text(json.dumps(d,indent=2)+'\n')
     print(f'Validated and rendered {len(d["variants"])} variants: {dict(counts)}')
