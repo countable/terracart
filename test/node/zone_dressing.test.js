@@ -26,6 +26,37 @@
       }
     }
   });
+  test('zone dressing: blocked guards choose the nearest eligible seat and retain their identity', () => {
+    const pristine = ZoneDressing.dress(context('mushroom_grove')).guards[0];
+    function blockedContext() {
+      const ctx = context('mushroom_grove'), { _ix: x, _iy: y } = pristine, N = ctx.N;
+      ctx.spawnOpts.occupied.add(y * N + x);
+      ctx.spawnOpts.roadMask[(y - 1) * N + x] = 1;
+      ctx.field.coverage[y * N + x - 1] = 0;
+      ctx.spawnOpts.spawnWhy[y * N + x + 1] = WorldGen.SPAWN_WHY.SENSITIVE;
+      return ctx;
+    }
+    const out = ZoneDressing.dress(blockedContext()), repeat = ZoneDressing.dress(blockedContext());
+    assert.eq(out.guards.length, 1);
+    const guard = out.guards[0];
+    assert.eq(guard._ix, pristine._ix); assert.eq(guard._iy, pristine._iy + 1);
+    assert.eq(guard.id, pristine.id); assert.eq(guard.homeX, pristine.homeX); assert.eq(guard.homeY, pristine.homeY);
+    assert.eq(JSON.stringify(out.guards), JSON.stringify(repeat.guards));
+    assert.eq(out.diagnostics[0].guardsPlaced, 1); assert.eq(out.diagnostics[0].shortfalls.length, 0);
+  });
+  test('zone dressing: guards report a shortfall when the nearby spawn gate has no eligible seat', () => {
+    const ctx = context('mushroom_grove'), pristine = ZoneDressing.dress(context('mushroom_grove'));
+    const guard = pristine.guards[0], find = finds(pristine)[0];
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      if (dx * dx + dy * dy > 4) continue;
+      const x = guard._ix + dx, y = guard._iy + dy;
+      if (x === find._ix && y === find._iy) continue; // The find itself occupies this cell.
+      ctx.spawnOpts.spawnWhy[y * ctx.N + x] = WorldGen.SPAWN_WHY.SENSITIVE;
+    }
+    const out = ZoneDressing.dress(ctx);
+    assert.eq(finds(out).length, 1); assert.eq(out.guards.length, 0);
+    assert.eq(out.diagnostics[0].guardsPlaced, 0); assert.includes(out.diagnostics[0].shortfalls, 'guard:0');
+  });
   test('zone dressing: buffered anchors cannot mint another finite reward or guard', () => {
     for (const id of ['black_ring', 'ancient_grove', 'seep']) {
       const ctx = context(id); ctx.field.anchors[0].owned = false;
