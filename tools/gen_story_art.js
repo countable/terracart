@@ -53,7 +53,8 @@ const SCENE_RULE =
 // ones that do are noticed on a second look rather than announced. Two kinds:
 //   the FALL   — what the demon did (claw scorches, a horned mural, a sigil)
 //   the SECRET — that it is the survivor (horned shadow, leaning sparks, an
-//                ember glint, a wary glance) — the subtlest, and rarest.
+//                ember glint, a wary glance) — the subtlest, and rarest. Keep
+// SECRET hints fewer than every FALL kind so they remain a rare second look.
 const LORE = {
   claws:   'Subtle background detail: a ruined wall carries three huge blackened claw-rake scorch marks, old and weathered.',
   // The mural is the easiest hint to over-draw: asked for 'a vast horned
@@ -287,11 +288,11 @@ const PIECES = {
   zone_tar: scene(
     'A cracked old fuel-yard forecourt, black tar pools scattered across broken asphalt, one ' +
     'pool bubbling and aflame, a rusted fuel pump leaning nearby, a small glowing orange slime ' +
-    'crouched at the tar\'s edge.', 'embers'),
+    'crouched at the tar\'s edge.'),
   zone_stones: scene(
     'A weathered stone cherub statue and leaning mossy headstones before a ruined chapel door, ' +
     'one iron lantern lit beside the door, pale misty shapes drifting faintly among the stones ' +
-    'at dusk.', 'wary'),
+    'at dusk.'),
 
   // Street variants (scratchpad/design/street_variants.md §3): first-visit
   // story panels for each street flavour.

@@ -203,7 +203,6 @@
   // of these rings (radius 1..SHRINE_SEAT_R, N first, clockwise).
   const SHRINE_SEAT_R = 3;
   const RING_ORDER = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
-  const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
   // NO STACKING ON A FULL PARK: a grove piece is skipped when this many of its
   // eight neighbours already hold something the TILE put there (the park's
   // own flora clumps, a tree, the pad's greenery) — the rings thin out where
@@ -784,7 +783,8 @@
   // tile lays it. Returns { species, pieces: [{ what, dx, dy, v }] }.
   function nexusPlan(a) {
     const rng = root.WorldGen.makeRng((a.key ^ SALT_NEXUS) >>> 0);
-    const species = TREE_SPECIES[Math.floor(rng() * TREE_SPECIES.length)];
+    const treeSpecies = root.WorldGen.TREE_SPECIES;
+    const species = treeSpecies[Math.floor(rng() * treeSpecies.length)];
     const pieces = patternPieces(a.aspect).map((pc) => ({ what: pc.what, dx: pc.dx, dy: pc.dy, v: rng() }));
     return { species, pieces };
   }

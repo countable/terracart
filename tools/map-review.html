@@ -331,12 +331,11 @@ function draw(world, home) {
     }
     for (const w of e.wildplants || []) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, popupHTML(e, w, w.crop));
     for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'roadside trap', t.id, t.x, t.y);
-    // Buried X marks: the scattered ones (spawnInTile), those left in parking
-    // lots, and the beach marks (rasterizeTile).
+    // Buried X marks: the tile's own mark, spawned and rasterized marks in
+    // extraTreasures, and parking-lot marks.
     if (e.treasure && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y);
     for (const t of e.extraTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y);
     for (const t of e.parkingTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y);
-    for (const t of e.beachTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (beach)', t.id, t.x, t.y);
     for (const c of e.creatures || []) {
       const hostile = typeof Combat !== 'undefined' && Combat.isEnemy && Combat.isEnemy(c);
       add(hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), c.kind + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y);

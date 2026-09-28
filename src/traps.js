@@ -58,7 +58,7 @@
   const ROAD_TRAP_MIN = 10, ROAD_TRAP_SPAN = 9;    // 10..18 per surface tile, base rate
   // How many roadside cells the one-pass scan below keeps to choose from. Only
   // needs to comfortably exceed the trap count — it is a uniform sample of the
-  // whole verge (see sampleRoadsideCells), so more of them buys nothing but
+  // whole verge (see sampleTrapCells), so more of them buys nothing but
   // room for the isSpawnCell rejections. A countMul > 1 asks for more traps
   // than this reservoir can supply candidates for, so spawnSurface widens it
   // in that case; left alone at the base rate so every existing seed and test

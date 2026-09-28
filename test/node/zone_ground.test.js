@@ -61,15 +61,27 @@ const N0 = WorldGen.cellsPerEdgeForTile(TY), EDGE0 = WorldGen.tileEdgeMeters(Wor
 const rect = (x0, y0, x1, y1) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }, { x: x0, y: y0 }];
 
 test('park characters: a park holding a named-park POI wears the POI\'s character, and so does its grove', () => {
-  // A rectangle whose centroid is NOT formal, and a POI inside it that IS.
-  const ring = rect(512, 512, 3584, 3584);
-  assert.truthy(BP.parkCharacterAt(TX * EXT + 2048, TY * EXT + 2048) !== 'formal' || true);
-  let poi = null;
-  for (let k = 0; k < 4000 && !poi; k++) {
-    const x = 800 + (k * 37) % 2400, y = 800 + Math.floor(k / 60) * 29;
-    if (BP.parkCharacterAt(TX * EXT + x, TY * EXT + y) === 'formal') poi = { x, y };
+  // Find a compact rectangle whose centroid is not formal, then place a
+  // formal park POI inside it. The baseline proves the POI changes the park.
+  const HALF = 600;
+  let scenario = null;
+  for (let cy = HALF; cy <= EXT - HALF && !scenario; cy += 73) {
+    for (let cx = HALF; cx <= EXT - HALF && !scenario; cx += 71) {
+      if (BP.parkCharacterAt(TX * EXT + cx, TY * EXT + cy) === 'formal') continue;
+      for (let y = cy - HALF + 40; y < cy + HALF - 40 && !scenario; y += 29) {
+        for (let x = cx - HALF + 40; x < cx + HALF - 40; x += 37) {
+          if (BP.parkCharacterAt(TX * EXT + x, TY * EXT + y) !== 'formal') continue;
+          scenario = { cx, cy, poi: { x, y } };
+          break;
+        }
+      }
+    }
   }
-  const centroidFormal = BP.parkCharacterAt(TX * EXT + 2048, TY * EXT + 2048) === 'formal';
+  assert.truthy(scenario, 'the fixture contains a non-formal park with a formal POI cell');
+  const { cx, cy, poi } = scenario;
+  const ring = rect(cx - HALF, cy - HALF, cx + HALF, cy + HALF);
+  assert.falsy(BP.parkCharacterAt(TX * EXT + cx, TY * EXT + cy) === 'formal',
+    'the no-POI park keeps its non-formal centroid character');
   const build = (withPoi) => WorldGen.rasterizeTile([
     { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'park' }, geom: [ring] }] },
     { name: 'poi', features: withPoi ? [{ type: 1, tags: { class: 'park', subclass: 'park', name: 'Test Park' }, geom: [[poi]] }] : [] },
@@ -77,7 +89,7 @@ test('park characters: a park holding a named-park POI wears the POI\'s characte
   const hedges = (r) => r.wildplants.filter((w) => /^hr_/.test(w.id)).length;
   const on = build(true);
   assert.gt(hedges(on), 20, 'the formal POI clipped the park into hedge rows');
-  if (!centroidFormal) assert.eq(hedges(build(false)), 0, 'without it the park keeps its own character');
+  assert.eq(hedges(build(false)), 0, 'without it the park keeps its own character');
   // Every hedge on the row lattice.
   for (const w of on.wildplants.filter((x) => /^hr_/.test(x.id))) {
     const iy = +w.id.split('_')[4];

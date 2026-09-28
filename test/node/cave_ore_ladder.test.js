@@ -24,4 +24,18 @@ test('cave ore: 10% of the rocks per ore tier, the rest plain', () => {
   for (let d = 3; d <= 9; d++) assert.truthy(Math.abs(WorldGen.caveRockP(d) - 0.8) < 1e-9, `level ${d} 80% plain`);
   assert.eq(WorldGen.caveRockP(0), 0.9, 'the surface is unchanged');
 });
+
+test('cave ore: every fired vein boosts one ore tier the level offers', () => {
+  const weights = WorldGen.caveOreWeights(3);
+  const baseTotal = weights.reduce((sum, weight) => sum + weight, 0);
+  for (let seed = 1; seed <= 100; seed++) {
+    const table = WorldGen.rollVeinTable(WorldGen.makeRng(seed), weights, 1, null);
+    const boosted = table.tierW.map((total, i) => total - (i ? table.tierW[i - 1] : 0));
+    const changed = boosted.map((weight, i) => weight !== weights[i] ? i : -1).filter((i) => i >= 0);
+    assert.eq(changed.length, 1, `seed ${seed}: one tier is boosted`);
+    assert.truthy(weights[changed[0]] > 0, `seed ${seed}: the boosted tier is offered`);
+    assert.eq(boosted[changed[0]], weights[changed[0]] * 10, `seed ${seed}: the offered tier gets the vein multiplier`);
+    assert.gt(table.totalW, baseTotal, `seed ${seed}: every fired vein changes the table`);
+  }
+});
 })();
