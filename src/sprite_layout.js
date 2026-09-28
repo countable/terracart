@@ -321,7 +321,30 @@
   // idle frame 0 — hop, pause, hop, for as long as the glide lasts.
   const SLIME_HOP_FRAME_MS = 150;
   const SLIME_HOP_REST_MS = 600;
+  // All citizen sheets share six real frames in each directional row:
+  // front, back, left, right. Dialog portraits use the same front-facing art.
+  const NPC_FRAME = { width: 48, height: 48, cols: 6, frames: [0, 1, 2, 3, 4, 5], portraitFrame: 0 };
+  const NPC_SHEETS = [
+    { idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png' },
+    { idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png' },
+    { idle: 'npc_2_idle', walk: 'npc_2_walk', path: 'assets/NPC/Citizen_woman03_idle.png' },
+  ];
+  function npcAppearance(c, now) {
+    const sheets = NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
+    const dx = (c._targetX ?? c.x) - (c._startX ?? c.x);
+    const dy = (c._targetY ?? c.y) - (c._startY ?? c.y);
+    const moving = !!c._moving && (dx !== 0 || dy !== 0);
+    // World Y and the projection both increase south.
+    const row = dx || dy ? (Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 2 : 3) : (dy < 0 ? 1 : 0)) : 0;
+    const beat = moving ? 260 : 550;
+    return {
+      sheet: moving ? sheets.walk : sheets.idle,
+      frame: row * NPC_FRAME.cols + NPC_FRAME.frames[Math.floor(now / beat) % NPC_FRAME.frames.length],
+      tint: c.tint ?? 0xffffff,
+    };
+  }
   const CREATURE_ART = {
+    npc:           { sheet: 'npc_0_idle', frames: 6, fw: 48, fh: 48, scale: 1.50, foot: 32 / 48, float: 0, minY: 12, maxY: 32 },
     chicken:       { sheet: 'chicken',   anim: 'chicken-idle', fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
     cow:           { sheet: 'cow',       anim: 'cow-idle',     fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
     cat:           { sheet: 'cat',       anim: 'cat-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
@@ -429,6 +452,7 @@
   // SLIME_HOP_CELLS) are app.js's own, beside the note that tunes them, and a
   // monster's cadence comes from the MONSTERS row it is registered in.
   const CREATURE_BEHAVIOUR = {
+    npc:           { wanders: true },
     chicken:       { wanders: true, produce: { item: 'egg',  verb: 'laid' } },
     // A cow takes twice the netting (catchMul) — the one catch worth a whole
     // bar of energy when eaten, for 3 to net (economy audit, 2026-09-27).
@@ -704,6 +728,7 @@
     CELL_PX, ART_BOUNDS, seatInCell,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
+    NPC_FRAME, NPC_SHEETS, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,

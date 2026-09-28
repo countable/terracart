@@ -108,7 +108,7 @@ function mosaicCuts(stem) {
 // The ONE address of a scene painting — the shell draws it and the boot
 // preloader (app.js _prewarmModalIcons) fetches it, so the warm copy is the
 // very URL the dialog asks for.
-const sceneArtUrl = (stem) => `assets/art/${stem}.webp`;
+const sceneArtUrl = (stem) => stem.startsWith('data:image/') ? stem : `assets/art/${stem}.webp`;
 const MODAL_KINDS = {
   quest:    { icon: '🏰', label: 'Quest', art: 'kind_quest' },   // castle quest board
   treasure: { icon: '💎', label: 'Treasure', art: 'kind_treasure' },   // chests, boxes, loot ceremonies
