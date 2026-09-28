@@ -988,7 +988,7 @@ const SHINY_FIND_TITLE = '✨ SHINY FIND ✨';
 // Fort slot machine (presentFortSlots): what can be a prize, and the reels'
 // animation — a flicker every FORT_SLOT_TICK_MS, the first reel stopping at
 // FORT_SLOT_FIRST_STOP_MS and each next one FORT_SLOT_STOP_GAP_MS later.
-const FORT_SLOT_KINDS = ['seed', 'produce', 'consumable', 'mineral'];
+const FORT_SLOT_KINDS = ['seed', 'produce', 'magic', 'supply', 'mineral'];
 const FORT_SLOT_EXCLUDE = new Set(['book']);   // a Book reads itself on pickup
 const FORT_SLOT_TICK_MS = 70;
 const FORT_SLOT_FIRST_STOP_MS = 700;
@@ -3821,6 +3821,7 @@ class MapScene extends Phaser.Scene {
       this._drainBadgeStories();
     }
     const dt = dtMs / 1000;
+    this._tickConditions();
     // Spring the peek camera home (no-op unless a drag just ended). FIRST, so
     // every projection below — and every draw pass this frame — reads one
     // settled camera position rather than two.
@@ -4424,7 +4425,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Scan save.planted and bump stage on any watered crop whose stage hold
-  // (Crops.STAGE_HOLD_MS — 15 min) has elapsed. After each advance the crop needs re-watering, so
+  // (Crops.stageHoldMs — depends on crop) has elapsed. After each advance the crop needs re-watering, so
   // a single tick advances each plant by at most one stage; a long-idle
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
@@ -4657,6 +4658,69 @@ class MapScene extends Phaser.Scene {
     }
 
     this._drawEnemyHealth(enemies);
+  }
+
+  _applyCondition(id) {
+    const fresh = Conditions.apply(this.save, id);
+    if (fresh && id === 'poison') {
+      this.flash('Poisoned! Find an Antidote.', this.viewCenterX, this.viewCenterY);
+      if (!this.save.poisonLearned) {
+        this.save.poisonLearned = true;
+        const def = Conditions.DEFINITIONS.poison;
+        this.showMessageModal({ title: 'Poisoned', body:
+          `Purple Slime bites poison you: lose ${def.energyLoss} energy every ${shortDuration(def.intervalMs)} for ${shortDuration(def.durationMs)}. Antidotes from healthcare sites cure poison, even while downed. Rest and food do not cure it.` });
+      }
+    }
+    persistSave(this.save);
+    this._syncConditionHUD();
+  }
+
+  _tickConditions() {
+    if (!this._conditionVisibilityHandler) {
+      this._conditionVisibilityHandler = () => { this._conditionLastT = null; };
+      document.addEventListener('visibilitychange', this._conditionVisibilityHandler);
+      const resetClock = this._conditionVisibilityHandler;
+      this.events?.on('pause', resetClock);
+      this.events?.on('resume', resetClock);
+      this.events?.once('shutdown', () => {
+        document.removeEventListener('visibilitychange', resetClock);
+        this.events?.off('pause', resetClock);
+        this.events?.off('resume', resetClock);
+        this._conditionVisibilityHandler = null;
+        this._conditionLastT = null;
+        document.getElementById('condition-poison')?.remove();
+      });
+    }
+    const now = performance.now();
+    const elapsed = !document.hidden && this._conditionLastT != null ? now - this._conditionLastT : 0;
+    this._conditionLastT = document.hidden ? null : now;
+    const before = this.save.energy ?? 0;
+    const result = Conditions.tick(this.save, elapsed);
+    if (result.lost > 0) {
+      this._flashPlayerHit(result.lost);
+      this._popEnergy(-result.lost);
+      this._warnIfTiring(before);
+      this.updateEnergyDOM();
+    }
+    if (result.ticks || result.expired) persistSave(this.save);
+    this._syncConditionHUD();
+  }
+
+  _syncConditionHUD() {
+    let el = document.getElementById('condition-poison');
+    if (!Conditions.active(this.save, 'poison')) { el?.remove(); return; }
+    if (!el) {
+      const anchor = document.getElementById('energy');
+      if (!anchor) return;
+      el = document.createElement('div');
+      el.id = 'condition-poison';
+      el.style.cssText = 'position:absolute;top:100%;right:0;white-space:nowrap;color:#d9b1ff;background:#22132ee8;padding:3px 6px;border-radius:4px;font:11px monospace;pointer-events:none;';
+      anchor.style.position = 'relative';
+      anchor.appendChild(el);
+    }
+    const def = Conditions.DEFINITIONS.poison;
+    const text = `Poison · ${shortDuration(this.save.conditions.poison.remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}`;
+    if (el.textContent !== text) el.textContent = text;
   }
 
   // A monster's arrow lands. The same energy hit the melee leech deals
@@ -8743,6 +8807,31 @@ class MapScene extends Phaser.Scene {
         ? `Warmth spreads through your arms — ${restored} energy back in the tank.`
         : 'You were already brimming. The flask goes down anyway.',
     );
+  }
+
+  drinkAntidote() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'antidote' || !(sel.count > 0)) return false;
+    if (!Conditions.useAntidote(this.save)) {
+      this.flash('No poison — Antidote kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    this._syncConditionHUD();
+    return this._finishConsumable('You drink the Antidote', 'The poison clears. Your energy stays as it was.');
+  }
+
+  drinkElixir() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'elixir' || !(sel.count > 0)) return false;
+    const before = this.save.energy ?? 0;
+    if (!Conditions.useElixir(this.save)) {
+      if (before <= 0) this.flash('Elixir cannot revive you.', this.viewCenterX, this.viewCenterY);
+      else this.flash('Energy full — Elixir kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    this._popEnergy(this.save.energy - before);
+    this.updateEnergyDOM();
+    return this._finishConsumable('You drink the Elixir', 'Your energy is fully restored. Conditions remain.');
   }
 
   // Potion of Speed: a minute of tier-9 boots and amulet walking, even without either
@@ -13692,7 +13781,7 @@ class MapScene extends Phaser.Scene {
     tabs.id = 'inv-tabs';
     // position:fixed + appended to <body> for the same containing-block reason
     // as the item bar below. Sits just above the item bar.
-    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;';
+    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:flex-start;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;';
     for (const c of INV_CATS) {
       const active = c.key === this.save.invCat;
       const count = c.gear ? this.gearEntriesForCat(c.key).length : this.invEntriesForCat(c.key).length;
@@ -13702,7 +13791,7 @@ class MapScene extends Phaser.Scene {
       // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
       tab.className = active ? 'hud-tab sel' : 'hud-tab';
       tab.style.cssText =
-        'position:relative;flex:1 1 0;min-width:0;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
+        'position:relative;flex:1 0 44px;min-width:44px;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
         'justify-content:center;gap:1px;padding:0;overflow:hidden;';
       // Glyph in its own span so the desaturation targets ONLY the emoji — the
@@ -13740,6 +13829,7 @@ class MapScene extends Phaser.Scene {
       tabs.appendChild(tab);
     }
     document.body.appendChild(tabs);
+    tabs.querySelector('.sel')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 
     // ── Item / gear slot bar (BOTTOM of the two-bar HUD) ──────────────────
     let bar = document.getElementById('inv');
@@ -14176,6 +14266,8 @@ class MapScene extends Phaser.Scene {
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       honey: { verb: 'Use',  method: 'useHoney',  title: 'Set out the honey?', get: '🍯 lure nearby chickens & cows' },
       reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: `✨ reach anything in sight for ${shortDuration(REACH_POTION_MS)}`, channel: true },
+      antidote: { verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?', get: 'cure poison without restoring energy', usable: () => Conditions.active(this.save, 'poison') },
+      elixir: { verb: 'Drink', method: 'drinkElixir', title: 'Drink the Elixir?', get: 'restore full energy without curing poison or reviving', usable: () => this.save.energy > 0 && this.save.energy < this.getMaxEnergy() },
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `much faster, cheaper stick walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: `half monster damage for ${shortDuration(SHIELD_POTION_MS)}`, channel: true },

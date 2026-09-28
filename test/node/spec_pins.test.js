@@ -74,76 +74,29 @@ test('#1 reward grant: the interact path equips the same way', () => {
   assert.eq(save.energy, 100, 'without touching the bar');
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FINDING #6 — Chest relic/armor odds are NOT a flat 10%
-// Spec: "10% of opens roll a RELIC or ARMOR instead of normal loot."
-// Code: uses per-biome classBias.relic weights (3.75%–15% unnormalised share).
-//
-// Because weightedPick normalises against the full bias sum, the effective
-// relic probability is bias.relic / sum(all bias weights). We pin the actual
-// computed effective probability for each biome — none equal 10%.
-// SPEC BUG (audit #6): spec wants a flat 10% relic/armor rate for all chests;
-// code uses per-biome weights that produce different effective probabilities.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function effectiveRelicP(contextKey) {
-  const ctx = LOOT_CONTEXTS[contextKey];
-  if (!ctx || !ctx.classBias) return 0;
-  const bias = ctx.classBias;
-  const total = Object.values(bias).reduce((a, b) => a + b, 0);
-  return (bias.relic || 0) / total;
-}
-
-test('#6 chest relic probability varies by biome, is NOT a flat 10% (SPEC BUG)', () => {
-  // SPEC BUG (audit #6): spec requires flat 10%; code produces biome-specific rates.
-  // Assert the ACTUAL values from the current LOOT_CONTEXTS table.
-
-  // lowtier: classBias.relic = 0.0375; total ≈ 1.0325 (sum of declared weights)
-  const ltP = effectiveRelicP('chest:lowtier');
-  assert.gt(ltP, 0, 'lowtier has a nonzero relic share');
-  assert.lt(ltP, 0.10, 'lowtier relic rate is below the spec-required 10%');
-  // SPEC BUG: should be 0.10, is actually ~3.6%
-
-  // civic: classBias.relic = 0.15; sum ≈ 1.0; effectively ~15%
-  const civicP = effectiveRelicP('chest:civic');
-  assert.gt(civicP, 0.10, 'civic relic rate exceeds the spec-required 10%');
-  // SPEC BUG: should be 0.10, is actually ~15%
-
-  // flora: classBias.relic = 0.15; sum ≈ 1.0; effectively ~15%
-  const floraP = effectiveRelicP('chest:flora');
-  assert.gt(floraP, 0.10, 'flora relic rate exceeds the spec-required 10%');
-  // SPEC BUG: should be 0.10, is actually ~15%
-
-  // food: classBias.relic = 0.06; sum ≈ 0.92 → ~6.5%
-  const foodP = effectiveRelicP('chest:food');
-  assert.lt(foodP, 0.10, 'food relic rate is below 10%');
-  // SPEC BUG: should be 0.10, is actually ~6.5%
+// The approved thematic chest design supersedes the old flat-gear-rate spec.
+// These are surface group probabilities before quality eligibility/fallbacks.
+test('chest themes: gear belongs to civic, cultural and protective groups', () => {
+  for (const theme of ['roadside', 'commerce', 'food', 'health', 'park', 'farm', 'flora', 'worship', 'memorial', 'pets']) {
+    const gearShare = Object.entries(ChestThemes.weights(theme, 4))
+      .filter(([group]) => ChestThemes.groups[group].kind === 'gear')
+      .reduce((sum, [, weight]) => sum + weight, 0);
+    assert.eq(gearShare, 0, `${theme}: no unrelated gear`);
+  }
+  assert.eq(ChestThemes.weights('civic', 4).noncombatGear, 15);
+  assert.eq(ChestThemes.weights('school', 4).noncombatGear, 10);
+  assert.eq(ChestThemes.weights('culture', 4).culturalGear, 35);
+  assert.eq(ChestThemes.weights('authority', 4).protectiveGear, 40);
 });
 
-test('#6 relic odds across biomes are not equal to each other', () => {
-  // Confirms the odds genuinely differ (they are not accidentally all 10%).
-  const biomes = ['chest:lowtier','chest:commerce','chest:food','chest:civic','chest:health','chest:park','chest:farm','chest:flora'];
-  const probs = biomes.map(effectiveRelicP);
-  const min = Math.min(...probs);
-  const max = Math.max(...probs);
-  assert.gt(max - min, 0.05, 'spread between biome relic rates exceeds 5pp');
+test('chest themes: roadside never awards gear, even at high quality', () => {
+  const rng = seededPrng(0x51de);
+  for (let i = 0; i < 2000; i++) {
+    const reward = pickReward('chest:lowtier', { relics: {}, armor: {} }, rng, { tier: 5 });
+    assert.truthy(reward.kind === 'item' || reward.kind === 'gold');
+    assert.truthy(['supplies', 'materials', 'cash'].includes(reward.group));
+  }
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// FINDING #7 — Chests CAN produce ARMOR via rollGearUpgrade; milestone gating
-// was removed; T1 chests cannot roll relics/armor (relicCap=0).
-//
-// Spec: chest opens roll relic OR ARMOR, "gated by your harvest/catch
-// milestones." Code: ARMOR is producible (rollGearUpgrade returns armor/relic);
-// every gear tier 1..7 is rollable (milestone gating removed).
-// T1 chests: relicCap=0 → relic weight is scrubbed → no relic/armor at all.
-//
-// SPEC BUG (audit #7 partial): milestone gating is absent; the only ceiling
-// is the chest tier's `preferred` clamp in rollGearUpgrade.
-// NOTE: The claim "ARMOR is never producible" was TRUE at audit time but the
-// code has since been updated — rollGearUpgrade now handles armor. We pin the
-// CURRENT (fixed) behaviour.
-// ─────────────────────────────────────────────────────────────────────────────
 
 test('#7 no milestone gate on gear tiers: a top chest can roll every tier', () => {
   // SPEC BUG (audit #7): spec requires harvest/catch milestone gating; the
@@ -162,46 +115,44 @@ test('#7 no milestone gate on gear tiers: a top chest can roll every tier', () =
     'with no progress at all, a tier-5 chest reaches every gear tier');
 });
 
-test('#7 T1 chests (relicCap=0) cannot produce relic or armor', () => {
-  // T1 chests: chestTierMod[1].relicCap=0 → relic weight scrubbed from bias.
-  // This matches the behavior that lowtier/bus chests can't offer any relic.
-  const RELIC_KINDS = new Set(['relic', 'armor', 'gold']); // gold = consolation from relic path
-  let relicRolls = 0;
-  const N = 400;
-  for (let s = 1; s <= N; s++) {
-    const r = pickReward('chest:lowtier', { relics: {}, armor: {} }, seededPrng(s * 7), { tier: 1 });
-    if (r && (r.kind === 'relic' || r.kind === 'armor')) relicRolls++;
-    // Gold consolation from the walk-up ladder is allowed even from T1 relic rolls —
-    // but T1 has relicCap=0 so the relic class is scrubbed and rollGearUpgrade is never called.
+test('chest themes: T1 excludes gear for every location, even on jackpot rolls', () => {
+  for (const theme of Object.keys(ChestThemes.themes)) {
+    for (const depth of [0, 2]) {
+      const rng = seededPrng(771);
+      for (let i = 0; i < 300; i++) {
+        const reward = pickReward('chest:' + theme, { relics: {}, armor: {} }, rng, { tier: 1, depth });
+        assert.falsy(reward.kind === 'relic' || reward.kind === 'armor', `${theme}, depth ${depth}: T1 gear`);
+      }
+    }
   }
-  assert.eq(relicRolls, 0, 'T1 chest: zero relic/armor rolls across ' + N + ' seeds (relicCap=0)');
 });
 
-test('#7 T2+ chests can produce armor via rollGearUpgrade', () => {
-  // rollGearUpgrade includes armor slots in slotPool — so a T2 chest can produce armor.
-  // Drive many seeds until we find at least one armor result.
-  let armorFound = false;
-  // With an empty save, every slot is upgradeable — armor should appear eventually.
-  for (let s = 1; s <= 2000 && !armorFound; s++) {
-    const r = pickReward('chest:civic', { relics: {}, armor: {} }, seededPrng(s * 13), { tier: 4 });
-    if (r && r.kind === 'armor') armorFound = true;
-  }
-  assert.truthy(armorFound, 'T4 civic chest produced at least one armor result across 2000 seeds');
-});
-
-test('#7 T2 chest relic path resolves via rollGearUpgrade (relic or armor or gold)', () => {
-  // Verify that when the relic class is chosen for a T2 chest, rollGearUpgrade
-  // is invoked and the result is a valid gear outcome.
-  const GEAR_KINDS = new Set(['relic', 'armor', 'gold']);
+test('chest themes: civic gear is restricted to noncombat tools', () => {
+  const allowed = new Set(['amulet', 'bags', 'can', 'hoe', 'rod', 'bugnet']);
+  const rng = seededPrng(8301);
   let gearCount = 0;
-  const N = 200;
-  for (let s = 1; s <= N; s++) {
-    // Use civic which has highest relic bias (15%) to maximise gear rolls.
-    const r = pickReward('chest:civic', { relics: {}, armor: {} }, seededPrng(s * 31), { tier: 2 });
-    if (r && GEAR_KINDS.has(r.kind)) gearCount++;
+  for (let i = 0; i < 3000; i++) {
+    const reward = pickReward('chest:civic', { relics: {}, armor: {} }, rng, { tier: 4 });
+    assert.falsy(reward.kind === 'armor', 'civic cannot award protective gear');
+    if (reward.kind === 'relic') {
+      gearCount++;
+      assert.truthy(allowed.has(reward.slot), `civic gear slot ${reward.slot}`);
+    }
   }
-  // With civic's ~15% relic share at T2, expect some gear results across 200 seeds.
-  assert.gt(gearCount, 0, 'T2 civic chest produced at least one gear (relic/armor/gold) result');
+  assert.gt(gearCount, 0, 'the noncombat gear group actually resolves');
+});
+
+test('chest themes: culture can award relics and armor; authority awards protective gear only', () => {
+  for (const theme of ['culture', 'authority']) {
+    const kinds = new Set();
+    const rng = seededPrng(55121);
+    for (let i = 0; i < 3000; i++) {
+      const reward = pickReward('chest:' + theme, { relics: {}, armor: {} }, rng, { tier: 4 });
+      if (reward.kind === 'relic' || reward.kind === 'armor') kinds.add(reward.kind);
+    }
+    assert.truthy(kinds.has('armor'), `${theme} provides armor`);
+    assert.eq(kinds.has('relic'), theme === 'culture', 'only culture includes relics');
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

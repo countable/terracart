@@ -913,7 +913,7 @@
     const inv = [];
     // Most-tested kinds first (seeds → produce → animals → minerals →
     // consumables).
-    const ORDER = ['seed', 'produce', 'animal', 'mineral', 'consumable'];
+    const ORDER = ['seed', 'produce', 'animal', 'mineral', 'magic', 'supply'];
     const byKind = {};
     for (const it of ITEMS) {
       if (!it || !it.id || !it.kind) continue;

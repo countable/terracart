@@ -286,6 +286,8 @@ const MINERAL_ICON_SHEET = {
   reach_potion: { sheet: 'icon_potion', frame: 0 },
   // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
   // Row 2 (y=32): frame 11=green (vigor), 12=red (speed), 13=purple (shield).
+  antidote:     { sheet: 'icon_potions', frame: 26 }, // green conical flask
+  elixir:       { sheet: 'icon_potions', frame: 33 }, // large violet flask
   vigor_potion:  { sheet: 'icon_potions', frame: 11 },
   speed_potion:  { sheet: 'icon_potions', frame: 12 },
   shield_potion: { sheet: 'icon_potions', frame: 13 },
@@ -473,6 +475,7 @@ const BASE_TIER = {
   deer: 4,
   cow: 5,
   // Consumables
+  antidote: 1, elixir: 6,
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
@@ -572,7 +575,7 @@ const ITEMS = [
   // Honey: set it out to lure wandering chickens + cows within 30m toward
   //        you (eaten, so it's consumed — hence not a flute any more).
   // Book:  reveals a play tip or a directional hint to a nearby chest.
-  { id: 'honey', name: 'Honey', kind: 'consumable' },
+  { id: 'honey', name: 'Honey', kind: 'supply' },
   // dropWeight 3: a Book is THE documentation (see PLAY_TIPS below), so it is
   // the one consumable that has to turn up often enough to be read. At an even
   // draw it was one of seven T2 consumables — a sliver of an already-thin
@@ -581,63 +584,65 @@ const ITEMS = [
   // and school chests pin it outright on top of that (rarity.js
   // 'chest:school'). This is the one item whose SCARCITY is a documentation
   // bug rather than a balance choice.
-  { id: 'book',  name: 'Book',  kind: 'consumable', dropWeight: 3 },
+  { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
-  { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'consumable' },
-  { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'consumable' },
-  { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'consumable' },
-  { id: 'shield_potion', name: 'Potion of Shielding', kind: 'consumable' },
-  { id: 'blight_potion', name: 'Potion of Blight',    kind: 'consumable' },
+  { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
+  { id: 'elixir', name: 'Elixir', kind: 'magic', potion: true },
+  { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'magic', potion: true },
+  { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'magic', potion: true },
+  { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'magic', potion: true },
+  { id: 'shield_potion', name: 'Potion of Shielding', kind: 'magic', potion: true },
+  { id: 'blight_potion', name: 'Potion of Blight',    kind: 'magic', potion: true },
   // Drunk to summon a spirit raven that hunts foes and pest crows for
   // SPIRIT_RAVEN_MS (app.js drinkRavenPotion; the bird is the creature row
   // SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven).
-  { id: 'raven_potion',  name: 'Potion of the Raven', kind: 'consumable' },
+  { id: 'raven_potion',  name: 'Potion of the Raven', kind: 'magic', potion: true },
   // Drunk while DOWN (zero energy) to get back up on the spot — see
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
-  { id: 'revive_potion',       name: 'Potion of Revival',       kind: 'consumable' },
-  { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'consumable' },
+  { id: 'revive_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
+  { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'magic', potion: true },
   // Drunk to strike every foe on screen (app.js drinkThunderPotion).
-  { id: 'thunder_potion',      name: 'Potion of Thunder',      kind: 'consumable' },
+  { id: 'thunder_potion',      name: 'Potion of Thunder',      kind: 'magic', potion: true },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
   // for one minute — tier-8 boots and amulet on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
-  { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
+  { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'magic' },
   // Growth Powder: every crop within 20 m springs ahead one stage on the spot,
   // no watering needed (useGrowthPowder). Refused — and kept — when no crop is
   // in range.
-  { id: 'growth_powder', name: 'Growth Powder',       kind: 'consumable' },
+  { id: 'growth_powder', name: 'Growth Powder',       kind: 'magic' },
   // Shadow Powder: for one minute monsters lose interest in you — they neither
   // stalk nor drain you (useShadowPowder). You may still hit them.
-  { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'consumable' },
+  { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'magic' },
   // Frost Powder: every enemy within reach is frozen solid for 30 s — no
   // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
   // hostile is in reach.
-  { id: 'frost_powder',  name: 'Frost Powder',        kind: 'consumable' },
+  { id: 'frost_powder',  name: 'Frost Powder',        kind: 'magic' },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
   // climb UP a level or lower yourself DOWN one — right where you stand, no
   // staircase needed. One rope per climb. Unlike the sapphire portal it goes
   // both ways, so it is also the way out of a dead-end dig (useRope in app.js).
-  { id: 'rope',          name: 'Rope',                kind: 'consumable' },
+  { id: 'rope',          name: 'Rope',                kind: 'supply' },
   // Torch: light it (Use button with it selected) and for three minutes the
   // player's own light reaches twice as far — the `torch` row of
   // Lighting.KINDS, stamped at the feet on top of the reach ramp. The reach
   // plateau (what you can tap) is untouched; only the dark around it lifts.
   // Lighting another while one burns EXTENDS the time (useTorch in app.js).
-  { id: 'torch',         name: 'Torch',               kind: 'consumable' },
+  { id: 'torch',         name: 'Torch',               kind: 'supply' },
   // Trap Disarm Kit: hold it and tap a trap (hidden scuff or already-sprung
   // jaw, surface or cave) to remove it for good — see Traps.disarm in
   // src/traps.js and the 'disarm-trap' tap handler in interact.js. A kit
   // usually SURVIVES the job (TRAP_KIT_KEEP_CHANCE); unlike stepping on a
   // trap, disarming never costs energy.
-  { id: 'trap_kit',      name: 'Trap Disarm Kit',     kind: 'consumable' },
+  { id: 'trap_kit',      name: 'Trap Disarm Kit',     kind: 'supply' },
   // Magic Trap: hold it and tap an empty cell in reach to set it (interact.js
   // 'place-magic-trap' → save.magicTraps). The first ENEMY to step on the
   // cell is held and hurt, and the trap is spent (app.js _tickMagicTraps; the
   // numbers are in traps.js's MAGIC TRAP note). `caveOnly`: it is never in
   // the surface class/tier pool — rarity.js reaches it only through the cave
   // supply favourite — and a slain goblin trapper drops one.
-  { id: 'magic_trap',    name: 'Magic Trap',          kind: 'consumable', caveOnly: true },
+  { id: 'magic_trap',    name: 'Magic Trap',          kind: 'supply', caveOnly: true },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -663,7 +668,7 @@ const ITEMS = [
   // Scarecrow — placeable on tillable cells. Wild crows and deer steer
   // around it (4-cell aversion radius in wanderCreatures). Stack of N can
   // be deployed across the farm.
-  { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable' },
+  { id: 'scarecrow',    name: 'Scarecrow',    kind: 'supply' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
@@ -776,7 +781,7 @@ const GRILL_ENERGY_MUL = 1.5;
 const POTION_FIRE_TRANSMUTE = { vigor_potion: 'revive_potion', speed_potion: 'reach_potion' };
 const POTION_BLAST_DMG_PER_TIER = 3;
 function isPotion(id) {
-  return /_potion$/.test(id) && ITEM_BY_ID[id]?.kind === 'consumable';
+  return ITEM_BY_ID[id]?.potion === true;
 }
 // What the fire does with one of `id`, burned. One answer both the dialog's
 // hint and the accept read: { transmute: id } | { blastDmg: n } | {} (ash).
@@ -830,6 +835,8 @@ const PRICES = {
   honey: 12,
   book:  20,
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
+  antidote:     12,
+  elixir:       360,
   vigor_potion:  35,   // T2 — instant 40-energy restore
   speed_potion:  55,   // T2 — tier-9 boots + amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
@@ -1079,7 +1086,8 @@ const PLAY_TIPS = [
   'After dark, ghosts rise out of the dark every five minutes or so. One hovers a moment, then rushes you at a run, and its touch costs 12\u26a1 before armour. Below ground, every second level is haunted at every hour. A torch or a lamp burns them, a campfire drives them off, and none will linger near Home or a castle you\'ve taken back.',
   // ── The starter loop — till, plant, rebuild, harvest, sell ───
   'Tilling refuses a cell holding a wildplant, rock, or building.',
-  'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
+  'An ordinary watered crop climbs one stage every 15 minutes, even while you are away, then needs watering again. Magical flowers take hours per stage; check their growing timer.',
+  'Pack an Antidote before exploring underground. Purple Slimes leave a sickness that follows you after the fight.',
   'A ripe crop pays one to three of itself, and about one pick in four hands a seed back as well.',
   'A ruined house can be rebuilt for 1 stone, and each one you rebuild adds a stone to the next, up to 20.',
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
@@ -1109,7 +1117,7 @@ const PLAY_TIPS = [
   'Now and then a cast hooks a slime instead of a fish. It lands beside you, and it is not happy about it.',
   // ── The village economy, once you have a house to trade with ───
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
-  'Addresses ending 2 or 6 are shops. Each one you rebuild sells the next line — seeds, supplies, potions, ore, relics, pets — then round again, a tier up. Endings 1 and 8 are Traders, who barter only.',
+  'Addresses ending 2 or 6 are shops. Each one you rebuild sells the next line — seeds, supplies, magic, ore, relics, pets — then round again, a tier up. Endings 1 and 8 are Traders, who barter only.',
   'Plain houses sell nothing. Each posts a wishlist of produce and pays half again what the same goods would fetch sold loose — for up to five sets, once.',
   'A household never changes its mind about what it wants — and one bundle keeps it happy for good.',
   'Every 20 deliveries behind you, the houses you rebuild from then on start asking for the next tier of crop.',
@@ -1120,7 +1128,7 @@ const PLAY_TIPS = [
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
   // ── The land you walk over ──────────────────────────────────
   'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
-  'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds, coin, fruit, potions, feathers, or boots — some wearable, some old junk.',
+  'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds, coin, fruit, potions, supplies, feathers, or boots — some wearable, some old junk.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
@@ -1153,7 +1161,7 @@ const PLAY_TIPS = [
   'Gems come only out of the deeper stone: sapphire from gold-bearing rock, ruby from platinum, emerald from crimson, and a diamond only from frost.',
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
   'A chest mirrored underground climbs a tier every two levels down, to a gold gem no surface chest ever wears.',
-  'The shallow chests and X marks underground are packed for the dark: more coin, torches, rope and potions than their twins overhead.',
+  'Underground chests keep their location’s specialty, with extra potions, powders and travelling supplies. Buried X marks keep their own coin and supply mix.',
   'The deeper chests and X marks underground hoard instead: potions, powders, and — once they run rich enough — gems.',
   'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
   // The trapper: what it does (lays snares, never swings) and what it pays
@@ -1236,6 +1244,8 @@ const ITEM_EFFECTS = {
   honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',
   reach_potion:  'Drink to reach anything in sight (1 min)',
+  antidote:     'Drink to cure poison',
+  elixir:       'Drink to fill energy; no cooldown; does not revive or cure poison',
   vigor_potion:  'Drink to restore 40 energy',
   speed_potion:  'Drink for faster control-stick walking at lower energy cost (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
@@ -1271,7 +1281,11 @@ for (const raw of Object.keys(COOKED_FOODS)) {
 
 // Seeds can be offered directly to wild chickens as well as planted.
 for (const item of ITEMS.filter(item => item.kind === 'seed')) {
-  ITEM_EFFECTS[item.id] = 'Plant in a tilled bed; feed to tame a wild chicken';
+  Object.defineProperty(ITEM_EFFECTS, item.id, {
+    enumerable: true,
+    get: () => 'Plant in a tilled bed; feed to tame a wild chicken'
+      + (typeof Crops !== 'undefined' ? `; watered stage: ${shortDuration(Crops.stageHoldMs(item.grows))}` : ''),
+  });
 }
 
 const STARTING_ENERGY = 100;
@@ -1922,7 +1936,8 @@ const INV_CATS = [
   { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic' },
   { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
   { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
-  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable'] },
+  { key: 'magic',       label: 'Magic',       sym: '🧪', kinds: ['magic'] },
+  { key: 'supplies',    label: 'Supplies',    sym: '🎒', kinds: ['supply'] },
 ];
 const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
 // Items whose TAB is not their kind's. Rock is the `rockfruit` crop — a

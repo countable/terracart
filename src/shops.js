@@ -109,7 +109,7 @@
   // (never at or below what the player already wears), so it has no pool here.
   const THEMES = ['seed', 'supply', 'potion', 'ore', 'relic', 'pet'];
   const THEME_LABEL = {
-    seed: 'Seed Shop', supply: 'Supply Shop', potion: 'Potion Shop',
+    seed: 'Seed Shop', supply: 'Supply Shop', potion: 'Magic Shop',
     ore: 'Ore Shop', relic: 'Relic Shop', pet: 'Pet Shop',
   };
   // Resolved at CALL time: items.js (BUY_LIST, the catalogue) is read when a
@@ -119,9 +119,7 @@
     // flowers stay find-only).
     seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
     supply: () => ['wood', 'rockfruit', 'torch', 'rope', 'trap_kit', 'scarecrow', 'book'],
-    potion: () => ['reach_potion', 'vigor_potion', 'speed_potion', 'shield_potion', 'blight_potion', 'raven_potion',
-                   'revive_potion', 'thunder_potion', 'resurrection_potion',
-                   'growth_powder', 'shadow_powder', 'dragon_powder', 'frost_powder'],
+    potion: () => ITEMS.filter(item => item.kind === 'magic').map(item => item.id),
     ore:    () => ['coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar',
                    'frost_bar', 'sapphire', 'ruby', 'emerald', 'diamond'],
     pet:    () => ['chicken', 'dog', 'rabbit', 'cat', 'butterfly', 'crow', 'deer', 'cow'],

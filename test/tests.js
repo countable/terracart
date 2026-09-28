@@ -1237,23 +1237,26 @@ test('fishing rod reduces cast energy (18 bare → 6 Wood → 2 Frost)', () => {
   assert.eq(effectiveFishCost({ rod: { tier: 7 } }), 2, 'Frost rod = 2');
 });
 
-test('ring relic boosts loot tier roll (forced RNG)', () => {
-  // pickReward('chest:park', save, rng, {tier:2}) — chainSteps=1, chainMax=2.
-  // ring T7 reduces qtyP: 0.33 → 0.26. With rng chain-step=0.30:
-  //   no ring:   0.30 < 0.33 → qty-up  → tier stays 1
-  //   ring T7:   0.30 >= 0.26 → tier-up → tier becomes 2
-  // RNG call order: class-pick, chain-step, amulet-roll, jackpot-entry, item-pick.
-  // Trailing calls default to 0.99 (no jackpot, last pool item).
-  const tierOf = (id) => SEED_TIER[id] ?? SEED_TIER[`${id}_seed`];
-  const makeSeq = (...vals) => { let i = 0; return () => i < vals.length ? vals[i++] : 0.99; };
-  const noRing  = pickReward('chest:park', { relics: {} },
-                             makeSeq(0.01, 0.30, 0.99, 0.99, 0.01), { tier: 2 });
-  const withRing = pickReward('chest:park', { relics: { ring: { tier: 7 } } },
-                              makeSeq(0.01, 0.30, 0.99, 0.99, 0.01), { tier: 2 });
-  assert.eq(noRing.kind,   'item', 'no-ring result is an item');
-  assert.eq(withRing.kind, 'item', 'with-ring result is an item');
-  assert.eq(tierOf(noRing.id), 1, 'no-ring loot is T1');
-  assert.gt(tierOf(withRing.id), 1, 'with ring, loot tier upgraded');
+test('ring relic raises average chest quality across deterministic rolls', () => {
+  function rngFor(seed) {
+    let state = seed >>> 0;
+    return () => {
+      state += 0x6D2B79F5;
+      let n = state;
+      n = Math.imul(n ^ n >>> 15, n | 1);
+      n ^= n + Math.imul(n ^ n >>> 7, n | 61);
+      return ((n ^ n >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  let plain = 0, ring = 0;
+  const count = 4000;
+  for (let i = 1; i <= count; i++) {
+    plain += pickReward('chest:park', { relics: {} }, rngFor(i), { tier: 2 }).rolledTier;
+    ring += pickReward('chest:park', { relics: { ring: { tier: 7 } } }, rngFor(i), { tier: 2 }).rolledTier;
+  }
+  // Check reward quality, not the item tier: a thematic fallback may offer
+  // the same lower-tier item even when the Ring improves the reward roll.
+  assert.gt(ring / count, plain / count, 'Ring improves average rolled quality');
 });
 
 test('amulet relic does NOT double chest qty (job is stick walking)', () => {
@@ -1569,17 +1572,17 @@ test('buildRelicOffer never offers a same-or-lower tier than equipped', (scene) 
 // Consumables, watering can, hoe, mineral drops — new this round.
 // ───────────────────────────────────────────────────────────────────────
 
-test('honey consumable is registered with the right shape', () => {
+test('honey supply is registered with the right shape', () => {
   const f = ITEM_BY_ID['honey'];
   assert.truthy(f, 'honey item exists');
-  assert.eq(f.kind, 'consumable', 'kind=consumable');
+  assert.eq(f.kind, 'supply', 'kind=supply');
   assert.truthy(PRICES.honey > 0, 'has a sell price');
 });
 
-test('book consumable is registered with the right shape', () => {
+test('book supply is registered with the right shape', () => {
   const b = ITEM_BY_ID['book'];
   assert.truthy(b, 'book item exists');
-  assert.eq(b.kind, 'consumable', 'kind=consumable');
+  assert.eq(b.kind, 'supply', 'kind=supply');
 });
 
 test('mineral items registered with expected price ladder', () => {

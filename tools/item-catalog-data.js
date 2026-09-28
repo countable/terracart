@@ -5,46 +5,25 @@
 (function (root) {
   function chestContents(context, tier, depth = 0) {
     if (!context.startsWith('chest:')) return [];
-    const ctx = lootContext(context, { tier, depth });
-    if (!ctx) return [];
+    const theme = ChestThemes.normalize(context.slice(6));
     const out = new Set();
-    for (const [cls, weight] of Object.entries(ctx.classBias)) {
-      if (!(weight > 0)) continue;
-      if (cls === 'relic') {
-        if (!(ctx.relicCap > 0)) continue;
-        // rollGearUpgrade uses the chest tier directly, not the item jackpot
-        // tier or relicCap. Already-owned gear can turn into coins, not upgrade
-        // past this ceiling. The wizard's ring is excluded by that picker.
-        const cap = Math.min(7, Math.max(1, Math.round(1 + (tier - 1) * 2)));
-        for (const [kind, defs] of [['relic', RELIC_DEFS], ['armor', ARMOR_DEFS]]) {
-          for (const slot of Object.keys(defs)) {
-            if (kind === 'relic' && slot === 'ring') continue;
+    // Include rare jackpot qualities through the actual context ceiling.
+    // Share the game's group weights, eligibility and fallbacks, rather than
+    // maintaining a second item pool just for this catalogue.
+    const maxTier = lootContext(context, { tier, depth }).maxTier;
+    for (let quality = 1; quality <= maxTier; quality++) {
+      const opts = { theme, depth, chestTier: tier };
+      for (const [group, weight] of Object.entries(ChestThemes.weights(theme, quality, opts))) {
+        if (!(weight > 0)) continue;
+        const resolved = ChestThemes.resolve(group, quality, opts);
+        if (resolved.kind === 'item') {
+          for (const id of ChestThemes.selectableIds(resolved, opts)) out.add(id);
+        } else if (resolved.kind === 'gear') {
+          const cap = Math.min(7, Math.max(1, Math.round(1 + (tier - 1) * 2)));
+          for (const { kind, slot } of ChestThemes.gearSlots(resolved.group)) {
             for (let t = 1; t <= cap; t++) out.add(`${kind}:${slot}:${t}`);
           }
         }
-        continue;
-      }
-      if (cls === 'bundle') {
-        for (const id of BUNDLE_IDS) out.add(id);
-        continue;
-      }
-      const pools = ITEMS_BY_CLASS_TIER[cls];
-      if (!pools) continue;
-      const cap = Math.min(ctx.maxTier ?? 7, Math.max(...Object.keys(pools).map(Number)));
-      // The chain can spend every step on quantity, leaving tier 1; up to
-      // seven jackpot steps can reach every tier through the class/context cap.
-      // Missing tiers fall back DOWN to the nearest populated pool.
-      for (let t = 1; t <= cap; t++) {
-        const fav = ctx.favourite;
-        const candidates = !fav ? [] : fav.ids
-          ? Object.entries(fav.ids).filter(([id, w]) => w > 0 && ITEM_BY_ID[id]?.kind === cls
-              && (!fav.tierCapped || (ITEM_BY_ID[id].baseTier ?? 1) <= t)).map(([id]) => id)
-          : (ITEM_BY_ID[fav.id]?.kind === cls ? [fav.id] : []);
-        if (fav?.p > 0) for (const id of candidates) out.add(id);
-        if (fav?.p >= 1 && candidates.length) continue;
-        let pool = pools[t];
-        for (let lower = t - 1; lower >= 1 && !pool?.length; lower--) pool = pools[lower];
-        for (const id of pool || []) out.add(id);
       }
     }
     return [...out];
@@ -52,12 +31,12 @@
 
   function build() {
     const sources = new Map();
-    for (const context of Object.keys(LOOT_CONTEXTS).filter(key => key.startsWith('chest:'))) {
-      const biome = context.slice('chest:'.length);
-      const baseTier = CHEST_TIER_BY_CATEGORY[biome] || 2;
+    for (const [biome, definition] of Object.entries(ChestThemes.themes)) {
+      const context = 'chest:' + biome;
+      const baseTier = definition.tier;
       const minTier = Math.max(1, baseTier - CHEST_TIER_HOME_RINGS_M.length);
       for (const depth of [0, 1]) {
-        if (depth && CHEST_CAVE_SKIP_CATEGORIES.has(biome)) continue;
+        if (depth && biome === 'roadside') continue;
         for (let tier = minTier; tier <= (depth ? CHEST_TIER_MAX : baseTier); tier++) {
           const source = { context, tier, depth,
             label: `${biome} · T${tier} · ${depth ? 'underground' : 'surface'}` };
@@ -96,6 +75,7 @@
       id: it.id, itemId: it.id, name: it.name, category: it.kind,
       inventoryCategory: invCatForItem(it.id), tier: it.baseTier,
       value: itemValue(it.id), description: ITEM_EFFECTS[it.id] || '',
+      growthStageMs: it.kind === 'seed' && it.grows ? Crops.stageHoldMs(it.grows) : null,
       chests: sources.get(it.id) || [],
     }));
     for (const [kind, defs] of [['relic', RELIC_DEFS], ['armor', ARMOR_DEFS]]) {

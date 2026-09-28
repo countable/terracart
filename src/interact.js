@@ -1402,7 +1402,7 @@ const TAP_HANDLERS = [
       if (p.crop === 'potato') return POTATO_STAGE_NAMES[stage];
       return `${CROP_NAMES?.[p.crop] || p.crop} ${stage + 1}/${MAX_GROWTH_STAGE + 1}`;
     };
-    const stageHoldMs = Crops.STAGE_HOLD_MS;   // single source of truth in crops.js
+    const stageHoldMs = Crops.stageHoldMs(p.crop);   // single source of truth in crops.js
     // The wait to the next stage, in the shared largest-unit notation — or ''
     // when the plant isn't counting down (unwatered, or ripe). The corner
     // badge over the cell has always shown this number; the tap that reads the

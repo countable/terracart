@@ -116,7 +116,7 @@
   const SLIME_SIGHT_CELLS = 6;
   const MONSTERS_BASELINE = {
     cave_slime:    { name: 'Cave Slime',    hp: 15, range: 1, dmg: 2, speed: 0.7, minDepth: 1, weight: 5, sight: SLIME_SIGHT_CELLS },
-    purple_slime:  { name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true, retreat: 0.75, sight: SLIME_SIGHT_CELLS },
+    purple_slime:  { condition: 'poison', name: 'Purple Slime',  hp: 6,  range: 1, dmg: 1, speed: 1.8, minDepth: 1, weight: 4, fly: true, retreat: 0.75, sight: SLIME_SIGHT_CELLS },
     goblin:        { name: 'Goblin',        hp: 25, range: 1, dmg: 4, speed: 3.38, minDepth: 2, weight: 3, retreat: 0.5 },
     goblin_archer: { name: 'Goblin Archer', hp: 18, range: 3, dmg: 3, speed: 2.7,  minDepth: 3, weight: 2 },
     // THE TRAPPER never lands a blow (dmg 0 — monsterHits says no, so the

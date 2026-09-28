@@ -47,7 +47,7 @@ test('powders: three consumables with tiers, prices, effect lines and a Book tip
   for (const [id, want] of Object.entries(POWDERS)) {
     const it = ITEM_BY_ID[id];
     assert.truthy(it, `${id} is registered`);
-    assert.eq(it.kind, 'consumable', `${id}: kind — the Use button and the rarity class key off it`);
+    assert.eq(it.kind, 'magic', `${id}: kind — the Use button and the rarity class key off it`);
     assert.eq(it.baseTier, want.tier, `${id}: baseTier`);
     assert.eq(BASE_TIER[id], want.tier, `${id}: BASE_TIER row`);
     assert.eq(PRICES[id], want.price, `${id}: price`);
@@ -100,7 +100,7 @@ test('powders: the rarity picker can hand each one out', () => {
   const seen = { growth_powder: 0, shadow_powder: 0, frost_powder: 0 };
   for (let s = 1; s <= 1500; s++) {
     for (const tier of [2, 3]) {
-      const r = pickReward('chest:civic', { relics: {}, armor: {} }, seeded(s * 7 + tier), { tier });
+      const r = pickReward('chest:civic', { relics: {}, armor: {} }, seeded(s * 7 + tier), { tier, depth: 1 });
       if (r && r.kind === 'item' && seen[r.id] != null) seen[r.id]++;
     }
   }
