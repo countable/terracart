@@ -93,6 +93,25 @@
     return (h ^ (h >>> 16)) >>> 0;
   }
 
+  // Rooted park enemies have their own per-cell stream. Filtering one blocked
+  // cell never shifts another candidate, and no fauna/treasure RNG is consumed.
+  const PARK_PLANT_CELL_CHANCE = 1 / 192;
+  const PARK_PLANT_SALT = 0x50a17;
+  function spawnParkPlants(grid, w, h, tx, ty, tileEdgeM, opts = {}) {
+    const plants = [];
+    for (let cy = 0; cy < h; cy++) for (let cx = 0; cx < w; cx++) {
+      if (grid[cy * w + cx] !== T.PARK) continue;
+      const rng = makeRng(cellHash(tx, ty, cx, cy) ^ PARK_PLANT_SALT);
+      if (rng() >= PARK_PLANT_CELL_CHANCE) continue;
+      if (!isSpawnCell(grid, w, h, cx, cy, opts)) continue;
+      plants.push(makeCreature('plant',
+        tx * tileEdgeM + (cx + 0.5) * tileEdgeM / w,
+        ty * tileEdgeM + (cy + 0.5) * tileEdgeM / h,
+        cellId('plant', tx, ty, cx, cy)));
+    }
+    return plants;
+  }
+
   // The id of a generated thing on one CELL of one TILE:
   // `${prefix}_${tx}_${ty}_${ix}_${iy}`. A level or variant goes INTO the
   // prefix (`c_${depth}`), never on the end, so every id minted through here
@@ -5811,5 +5830,6 @@
     // sandbox.js as well as this file — one shape per stream, reachable from
     // all of them.
     makeWildplant, makeCreature, makeObject,
+    spawnParkPlants, PARK_PLANT_CELL_CHANCE,
   };
 })(window);

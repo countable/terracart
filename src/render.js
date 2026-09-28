@@ -4179,7 +4179,6 @@ Render.drawObjects = function drawObjects(scene) {
   // here has one); the fallback is only so an unknown kind cannot ask Phaser
   // for a null texture.
   const creatureSheet = (kind) => (SL && SL.creatureSheet ? SL.creatureSheet(kind) : kind) || 'chicken';
-  const creatureFrames = (SL && SL.creatureFrames) || (() => 1);
   const creatureTint = (SL && SL.creatureTint) || (() => 0xffffff);
   const creatureAlpha = (SL && SL.creatureAlpha) || (() => 1);
   const creatureGlow = (SL && SL.creatureGlow) || (() => null);
@@ -4189,7 +4188,7 @@ Render.drawObjects = function drawObjects(scene) {
   // on frame 0. `hop` is the continuous bounce a slime and every cave monster
   // wear, and `airborne` is a flier's smaller, fainter contact shadow.
   const creatureAnim = (SL && SL.creatureAnim) || (() => null);
-  const creatureFrameMs = (SL && SL.creatureFrameMs) || (() => 0);
+  const creatureCycleFrame = (SL && SL.creatureCycleFrame) || (() => 0);
   const creatureHop = (SL && SL.creatureHop) || (() => null);
   const creatureHopRow = (SL && SL.creatureHopRow) || (() => null);
   const hopRowFrame = (SL && SL.hopRowFrame) || (() => 0);
@@ -4236,8 +4235,7 @@ Render.drawObjects = function drawObjects(scene) {
       if (stepping) {
         s.setFrame(hopRowFrame(hopRow, tStep + (c._hopSeed ?? 0)));
       } else {
-        const frameMs = creatureFrameMs(c.kind);
-        s.setFrame(frameMs ? Math.floor(performance.now() / frameMs) % creatureFrames(c.kind) : 0);
+        s.setFrame(creatureCycleFrame(c, performance.now()));
       }
     }
     // How far off the ground the body is drawn: its constant float (a crow
@@ -4302,7 +4300,7 @@ Render.drawObjects = function drawObjects(scene) {
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
       cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, rabbit: 14, chicken: 14,
-      butterfly: 9, slime: 22, cave_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18,
+      butterfly: 9, slime: 22, cave_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
       const { c, dx, dy } = item;

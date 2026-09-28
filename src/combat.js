@@ -130,7 +130,14 @@
     // touch over it: it is the one you have to walk THROUGH its traps to reach.
     goblin_trapper: { name: 'Goblin Trapper', hp: 20, range: 3, dmg: 0, speed: 2.7,  minDepth: 3, weight: 2, lays: 'trap', retreat: 0.5 },
   };
-  // THE GHOST — the one monster that is not a cave kind. Its `spawn` column
+  // Rooted park enemies use the normal melee/bounty lanes, but never enter
+  // the movement chain. Their own spawner also excludes them from cave bags
+  // and giant variants.
+  MONSTERS_BASELINE.plant = {
+    name: 'Biting Plant', hp: 10, range: 1, dmg: 1,
+    stationary: true, minDepth: 0, weight: 1, spawn: 'park',
+  };
+  // THE GHOST — a surface monster with its own night spawner. Its `spawn` column
   // says where it comes from instead of the cave bag: 'night' is app.js's
   // ghost spawner (GHOST_SPAWN_MS — the surface, after dark, a few at a time
   // in the dark around the player; session state like the pest crow, never

@@ -307,6 +307,8 @@
       s.creature('crow', 4, 0, 1);            // pest; scarecrow seeded at (4,1)
       s.creature('butterfly', 7, 2, 2);       // second wild butterfly
       s.chest('park', 'Sandbox Park', 4, 4);
+      s.creature('plant', 3, 8, 1);
+      s.creature('plant', 6, 6, 2);
       s.chest('playground', 'Sandbox Playground', 12, 6);
       s.chest('pitch', 'Sandbox Pitch', 20, 6);
     },

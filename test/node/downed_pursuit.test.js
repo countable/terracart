@@ -74,7 +74,7 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
     // guards learned to give up and walk home: same lane, one more reason
     // (Home's ward, or a garrison that is not hunting you).
     [/c\.kind === 'slime' && !isTame && !unnoticed && !standDown/, 'the slime leech'],
-    [/isMonster\(c\.kind\) && !unnoticed && !standDown/, "the monster's hit and arrow"],
+    [/isMonster\(c\.kind\) && !isTame && !unnoticed && !standDown/, "the monster's hit and arrow"],
     [/const charging = !isTame && !standDown && !unnoticed && slimeCharging\(c\)/,
      "the struck slime's charge"],
     // The two STALKS read `unseen` — `unnoticed` with the foe's own sight

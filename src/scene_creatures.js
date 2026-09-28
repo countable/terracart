@@ -136,6 +136,7 @@ class SceneCreatures {
     // PEST_FREE_CELLS). Resolved once per tile build; null once the grace has
     // lapsed, which is the common case.
     const pestFree = this._pestFreeZone(tx, ty);
+    const faunaSeats = new Set(_occupiedIdx);
     const tryPlace = (classesOK, idx, kindStr) => {
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
@@ -159,6 +160,7 @@ class SceneCreatures {
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
+          faunaSeats.add(cy * N + cx);
           if (caughtSet.has(id)) return;
           // The pest amnesty DROPS a slime or crow that lands in the zone —
           // after the cell was drawn exactly as it would be for anyone else.
@@ -203,6 +205,16 @@ class SceneCreatures {
       const primN = Math.round(n * (cfg.share ?? 0.8));
       for (let i = 0; i < primN; i++) tryPlace(primary,  i, sp);
       for (let i = primN; i < n; i++) tryPlace(fallback, i, sp);
+    }
+    // Independent park stream; reserve generated fauna seats before any
+    // save-specific filtering so catching an animal cannot reveal a plant.
+    const parkPlants = WorldGen.spawnParkPlants(genGrid, N, N, tx, ty, this.tileEdgeM,
+      { ..._spawnOpts, occupied: faunaSeats });
+    for (const plant of parkPlants) {
+      const cx = Math.floor((plant.x - tx * this.tileEdgeM) / cellM);
+      const cy = Math.floor((plant.y - ty * this.tileEdgeM) / cellM);
+      if (caughtSet.has(plant.id) || (pestFree && pestFree.has(cx, cy))) continue;
+      creatures.push(plant);
     }
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
@@ -1003,6 +1015,7 @@ class SceneCreatures {
       //   A GHOST has one more ward point: a campfire (fireWardTrip) — the
       // same latch, a third reason, asked only for a haunting kind.
       const haunts = SpriteLayout.creatureHaunts(c.kind);
+      const stationary = !!Combat.monster(c.kind)?.stationary;
       // An ENRAGED game animal (a hunted deer — `fightsBack`, _rageUntil) is
       // hostile for as long as it is angry, so it takes Home's ward exactly as
       // an enemy does: one lane, another reason. Warded, it is turned away
@@ -1013,7 +1026,9 @@ class SceneCreatures {
         && (Combat.isEnemy(c) || enraged);
       if (wardFoe) {
         const from = c._wardFrom;
-        if (from) {
+        // A rooted foe cannot retreat to release a latch. Recheck the live
+        // ward each tick so relocating Home does not suppress it forever.
+        if (from && !stationary) {
           const fd2 = (c.x - from.x) * (c.x - from.x) + (c.y - from.y) * (c.y - from.y);
           if (fd2 > HOME_ROUT_R2) c._wardFrom = null;                   // released
         } else {
@@ -1026,7 +1041,7 @@ class SceneCreatures {
       // wild foe turns its back and walks to the edge of its range, so none
       // piles up forever against a campfire's refused ring. A lair guard has
       // its own leash (Lairs.guardState) and is left to it.
-      const wanderOff = !isTame && !c.lair && Combat.isEnemy(c)
+      const wanderOff = !stationary && !isTame && !c.lair && Combat.isEnemy(c)
         && monsterWanderingOff(c, now, Math.sqrt(ddx * ddx + ddy * ddy), this.cellM);
       // ROUTED: turned onto an away angle at the flee pace — by Home's ward, or
       // by wandering off. Two reasons, one pace; the angle chain says away from
@@ -1143,7 +1158,7 @@ class SceneCreatures {
       // would answer from, and the ring tightens underground / grows with
       // Inner Light upgrades exactly as the staff's does. Accumulated +
       // flashed once per window after the loop, like the slime swarm.
-      if (Combat.isMonster(c.kind) && !unnoticed && !standDown) {
+      if (Combat.isMonster(c.kind) && !isTame && !unnoticed && !standDown) {
         const m = Combat.monster(c.kind);
         // A kind whose row lands no blow (Combat.monsterHits — the trapper,
         // dmg 0) skips both halves below: it is not a melee drain at strength
@@ -1179,6 +1194,8 @@ class SceneCreatures {
         } else if (clear && m.range <= 1 && ddx * ddx + ddy * ddy <= R * R
                    && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + MONSTER_HIT_MS;
+          c._attackT0 = now;
+          c._attackUntil = now + 600;
           // Elite and lair power scale the attack before shield and armour.
           const dmg = m.dmg * Combat.powerMul(c) * Difficulty.get().enemyDmgMul;
           const monDmg = Combat.incomingDamage(this.save, dmg);
@@ -1215,6 +1232,9 @@ class SceneCreatures {
       if (Combat.monsterLays(c.kind) && !isTame && !unnoticed && !standDown) {
         this._trapperLay(c, now, px, py);
       }
+      // Rooted kinds can bite above, but even a provoked or warded one stays
+      // on its park cell. Unlike a guard, it never hunts or returns to a seat.
+      if (stationary) return;
       if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;
       // Wild-crow flight rhythm: perch (still 2-4 s) → one long flight
       // burst (500-800 ms, eased) → perch again. Targets a nearest planted
