@@ -29,8 +29,8 @@ raises culture and authority rewards; removing generic gear lowers other themes.
 The simulation does not weight real-world POI frequency or player routes.
 
 Eighteen comparison cells exceed the design's +20% review threshold, including
-some unreachable surface-tier stress cases. **Decision pending:** retain the
-reviewed specialist gear rates or rebalance them before merging/publishing.
+some unreachable surface-tier stress cases. **Decision approved:** retain the reviewed specialist gear rates and resulting
+payouts. The user approved these measured changes and publication to main.
 
 Magical seeds now drop singly and less often at higher rolled quality. Existing
 harvest returns remain 25% + 10% per bed-quality tier, at most one returned seed.
