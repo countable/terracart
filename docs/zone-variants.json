@@ -50,7 +50,20 @@
     "findCoverage": "find_and_connection_fallbacks_search_the_coverage_union; finite_count_remains_per_anchor",
     "densityPriority": "recognizable_geometry_before_density; density_is_measured_not_a_15_percent_cap; do_not_thin_structured_lines",
     "trapPlacement": "surface_trap_records_go_to_entry.traps; enemy_spawn_gate_and_Traps.isTrapGround; no_fallback_to_forbidden_ground",
-    "finiteFindCounts": "explicit_per_variant_count; black_ring_has_two_rare_gold_ore_rocks; other_counts_as_declared"
+    "finiteFindCounts": "explicit_per_variant_count; black_ring_has_two_rare_gold_ore_rocks; other_counts_as_declared",
+    "faunaAffinities": {
+      "column": "attracts",
+      "semantics": "per_species_probability_of_relocating_existing_tile_fauna_to_eligible_variant_coverage",
+      "spawnAdditional": false,
+      "coverage": "same_union_as_variant_materials",
+      "zoneKindDefaults": "replace_not_merge; empty_attracts_means_no_zone_affinity",
+      "otherAttractors": "retain_existing_street_and_terrain_preferences",
+      "eligibility": "existing_fauna_spawn_gate_occupied_cells_and_pest_amnesty",
+      "fallback": "retain_original_seat_if_no_eligible_destination",
+      "guards": "independent_finite_guard_budget",
+      "assignedVariants": 8
+    },
+    "poiAdjacency": "outdoor_POI_uses_immediate_neighbors; building_POI_retains_frontage_pattern"
   },
   "materials": {
     "grass": {
@@ -220,13 +233,13 @@
           {
             "at": [
               0,
-              -2
+              -1
             ],
             "material": "blue"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "orange"
@@ -234,37 +247,92 @@
           {
             "at": [
               0,
-              2
+              1
             ],
             "material": "blue"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "orange"
           },
           {
             "at": [
-              2,
-              2
+              1,
+              1
             ],
             "material": "blue"
           },
           {
             "at": [
-              -2,
-              -2
+              -1,
+              -1
             ],
             "material": "orange"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "blue"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "orange"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "blue"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "orange"
+            },
+            {
+              "at": [
+                2,
+                2
+              ],
+              "material": "blue"
+            },
+            {
+              "at": [
+                -2,
+                -2
+              ],
+              "material": "orange"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "medium",
@@ -313,7 +381,11 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Irregular grass and small flowers cover the meadow; blue markers lead to three roses in an outer arc."
+      "atmosphere": "Irregular grass and small flowers cover the meadow; blue markers lead to three roses in an outer arc.",
+      "attracts": {
+        "rabbit": 0.5,
+        "butterfly": 0.65
+      }
     },
     {
       "id": "mushroom_grove",
@@ -449,14 +521,14 @@
         "slots": [
           {
             "at": [
-              -2,
+              -1,
               -1
             ],
             "material": "mushroom"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "mushroom"
@@ -464,37 +536,92 @@
           {
             "at": [
               -1,
-              2
+              1
             ],
             "material": "mushroom"
           },
           {
             "at": [
               0,
-              2
+              1
             ],
             "material": "mushroom"
           },
           {
             "at": [
               1,
-              2
+              1
             ],
             "material": "mushroom"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "mushroom"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                -2,
+                -1
+              ],
+              "material": "mushroom"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "mushroom"
+            },
+            {
+              "at": [
+                -1,
+                2
+              ],
+              "material": "mushroom"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "mushroom"
+            },
+            {
+              "at": [
+                1,
+                2
+              ],
+              "material": "mushroom"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "mushroom"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "rare",
@@ -539,7 +666,10 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Paired caps lead to a crescent with a luminous flower in its missing segment."
+      "atmosphere": "Paired caps lead to a crescent with a luminous flower in its missing segment.",
+      "attracts": {
+        "butterfly": 0.5
+      }
     },
     {
       "id": "orchard",
@@ -654,24 +784,51 @@
         "slots": [
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "fruit_tree"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "fruit_tree"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "fruit_tree"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "fruit_tree"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "medium",
@@ -720,7 +877,10 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Repeated tree avenues end at three unfamiliar fruits."
+      "atmosphere": "Repeated tree avenues end at three unfamiliar fruits.",
+      "attracts": {
+        "deer": 0.65
+      }
     },
     {
       "id": "formal_garden",
@@ -941,52 +1101,31 @@
         "slots": [
           {
             "at": [
-              -2,
+              -1,
               -1
             ],
             "material": "shrub"
           },
           {
             "at": [
-              -2,
+              -1,
               0
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              -2,
-              1
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              2,
-              -1
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              2,
-              0
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              2,
-              1
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              0,
-              -1
             ],
             "material": "orange"
+          },
+          {
+            "at": [
+              -1,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "shrub"
           },
           {
             "at": [
@@ -997,24 +1136,114 @@
           },
           {
             "at": [
-              0,
+              1,
               1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              0,
+              -1
             ],
             "material": "orange"
           },
           {
             "at": [
-              -1,
-              0
+              0,
+              1
             ],
             "material": "orange"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                -2,
+                -1
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -2,
+                1
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                2,
+                -1
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                2,
+                1
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                0,
+                -1
+              ],
+              "material": "orange"
+            },
+            {
+              "at": [
+                1,
+                0
+              ],
+              "material": "orange"
+            },
+            {
+              "at": [
+                0,
+                1
+              ],
+              "material": "orange"
+            },
+            {
+              "at": [
+                -1,
+                0
+              ],
+              "material": "orange"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "medium",
@@ -1056,7 +1285,8 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "An orderly aisle connects mirrored beds; two matching roses break the repeated blue and gold."
+      "atmosphere": "An orderly aisle connects mirrored beds; two matching roses break the repeated blue and gold.",
+      "attracts": {}
     },
     {
       "id": "hedge_garden",
@@ -1144,11 +1374,52 @@
           }
         ],
         "relocation": {
-          "unit": "whole_grid_with_poi",
+          "unit": "fixed_to_poi",
           "maxCells": 0,
-          "preserveApproach": true
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
         },
-        "alignment": "plot_center; no_independent_pattern_translation"
+        "alignment": "plot_center; no_independent_pattern_translation",
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                0,
+                -1
+              ],
+              "material": "orange"
+            },
+            {
+              "at": [
+                1,
+                0
+              ],
+              "material": "orange"
+            },
+            {
+              "at": [
+                0,
+                1
+              ],
+              "material": "orange"
+            },
+            {
+              "at": [
+                -1,
+                0
+              ],
+              "material": "orange"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_grid_with_poi",
+            "maxCells": 0,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "medium",
@@ -1194,7 +1465,10 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Sixteen garden rooms form a clear 4 \u00d7 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms."
+      "atmosphere": "Sixteen garden rooms form a clear 4 \u00d7 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms.",
+      "attracts": {
+        "rabbit": 0.6
+      }
     },
     {
       "id": "ancient_grove",
@@ -1422,13 +1696,13 @@
           {
             "at": [
               0,
-              -2
+              -1
             ],
             "material": "stone"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "tree"
@@ -1436,37 +1710,92 @@
           {
             "at": [
               0,
-              2
+              1
             ],
             "material": "stone"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "tree"
           },
           {
             "at": [
-              -2,
-              -2
+              -1,
+              -1
             ],
             "material": "stone"
           },
           {
             "at": [
-              2,
-              2
+              1,
+              1
             ],
             "material": "tree"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "tree"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "tree"
+            },
+            {
+              "at": [
+                -2,
+                -2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                2
+              ],
+              "material": "tree"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "rare",
@@ -1515,7 +1844,10 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Dense little groves repeat across open ground: a tree at each center, a close ring of bushes, and grass around the outside. Stone markers connect the shrine to a guarded starflower."
+      "atmosphere": "Dense little groves repeat across open ground: a tree at each center, a close ring of bushes, and grass around the outside. Stone markers connect the shrine to a guarded starflower.",
+      "attracts": {
+        "deer": 0.6
+      }
     },
     {
       "id": "stone_garden",
@@ -1663,13 +1995,13 @@
           {
             "at": [
               0,
-              -2
+              -1
             ],
             "material": "stone"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "stone"
@@ -1677,23 +2009,64 @@
           {
             "at": [
               0,
-              2
+              1
             ],
             "material": "stone"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "stone"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "stone"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "medium",
@@ -1742,7 +2115,8 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Short rows repeat four ordinary stones followed by one iron-bearing rock. Regular iron row ends mark the rhythm, while grass rows leave space around the POI."
+      "atmosphere": "Short rows repeat four ordinary stones followed by one iron-bearing rock. Regular iron row ends mark the rhythm, while grass rows leave space around the POI.",
+      "attracts": {}
     },
     {
       "id": "ordered_graves",
@@ -1878,52 +2252,107 @@
         "slots": [
           {
             "at": [
-              -2,
+              -1,
               -1
             ],
             "material": "stone"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "stone"
           },
           {
             "at": [
-              -2,
+              -1,
               1
             ],
             "material": "stone"
           },
           {
             "at": [
-              2,
+              1,
               -1
             ],
             "material": "stone"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "stone"
           },
           {
             "at": [
-              2,
+              1,
               1
             ],
             "material": "stone"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                -2,
+                -1
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                -2,
+                1
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                -1
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                1
+              ],
+              "material": "stone"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "medium",
@@ -1967,7 +2396,10 @@
         "ghostChance": 0.3333333333333333,
         "spawnClass": "enemy"
       },
-      "atmosphere": "Short grave rows leave an aisle; matching finds occupy two empty row ends."
+      "atmosphere": "Short grave rows leave an aisle; matching finds occupy two empty row ends.",
+      "attracts": {
+        "crow": 0.65
+      }
     },
     {
       "id": "overgrown_graves",
@@ -2125,14 +2557,14 @@
         "slots": [
           {
             "at": [
-              -2,
+              -1,
               -1
             ],
             "material": "shrub"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "stone"
@@ -2140,37 +2572,92 @@
           {
             "at": [
               -1,
-              2
+              1
             ],
             "material": "shrub"
           },
           {
             "at": [
               0,
-              2
+              1
             ],
             "material": "stone"
           },
           {
             "at": [
               1,
-              2
+              1
             ],
             "material": "shrub"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "stone"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                -2,
+                -1
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                -1,
+                2
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                1,
+                2
+              ],
+              "material": "shrub"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "stone"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "rare",
@@ -2207,7 +2694,11 @@
         "ghostChance": 0.3333333333333333,
         "spawnClass": "enemy"
       },
-      "atmosphere": "Vegetation follows the old rows; a deliberate gap opens onto a lone flower."
+      "atmosphere": "Vegetation follows the old rows; a deliberate gap opens onto a lone flower.",
+      "attracts": {
+        "crow": 0.4,
+        "butterfly": 0.35
+      }
     },
     {
       "id": "broken_masonry",
@@ -2405,10 +2896,51 @@
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                -1,
+                -1
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                1,
+                -1
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                1,
+                1
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                -1,
+                1
+              ],
+              "material": "stone"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "rare",
@@ -2453,7 +2985,8 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated piles suggest fallen walls; one displaced line ends at a platinum-bearing rock guarded by a slime."
+      "atmosphere": "Repeated piles suggest fallen walls; one displaced line ends at a platinum-bearing rock guarded by a slime.",
+      "attracts": {}
     },
     {
       "id": "silent_circle",
@@ -2468,22 +3001,29 @@
         "slots": [
           {
             "at": [
-              3,
-              1
+              4,
+              2
             ],
             "material": "stone"
           },
           {
             "at": [
               5,
-              1
+              2
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              6,
+              2
             ],
             "material": "stone"
           },
           {
             "at": [
               7,
-              2
+              3
             ],
             "material": "stone"
           },
@@ -2497,7 +3037,21 @@
           {
             "at": [
               8,
+              5
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              8,
               6
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              7,
+              7
             ],
             "material": "stone"
           },
@@ -2510,6 +3064,13 @@
           },
           {
             "at": [
+              5,
+              8
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
               4,
               8
             ],
@@ -2517,35 +3078,62 @@
           },
           {
             "at": [
-              2,
+              3,
               7
             ],
             "material": "stone"
           },
           {
             "at": [
-              1,
-              5
+              2,
+              6
             ],
-            "material": "grass"
+            "material": "stone"
           },
           {
             "at": [
-              1,
+              2,
+              5
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
+              4
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              3,
               3
             ],
-            "material": "grass"
+            "material": "stone"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "anchor",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.1,
+        "nominalDensity": 0.16,
         "materialDensity": {
-          "stone": 0.08,
-          "grass": 0.02
+          "stone": 0.15,
+          "grass": 0.01
         },
-        "type": "repeat_motif"
+        "type": "repeat_motif",
+        "ring": {
+          "centerCell": [
+            5,
+            5
+          ],
+          "radiusCells": 3,
+          "entranceOffsetCells": [
+            0,
+            3
+          ],
+          "entranceMaterial": "grass",
+          "connectivity": "8_neighbor_continuous_stone_arc"
+        }
       },
       "poi": {
         "id": "inner_stone_ring",
@@ -2553,38 +3141,100 @@
         "slots": [
           {
             "at": [
-              0,
-              -2
+              -1,
+              -1
             ],
             "material": "stone"
           },
           {
             "at": [
-              2,
+              0,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
               0
             ],
             "material": "stone"
           },
           {
             "at": [
-              0,
-              2
+              1,
+              1
             ],
             "material": "stone"
           },
           {
             "at": [
-              -2,
+              -1,
+              1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              -1,
               0
             ],
             "material": "stone"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "stone"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "rare",
@@ -2619,7 +3269,10 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Sparse broken circles share an opening, with one flower beyond it."
+      "atmosphere": "Nearly closed stone circles share a single grass-marked opening. Their repeated entrances point toward the POI and a lone flower beyond.",
+      "attracts": {
+        "crow": 0.5
+      }
     },
     {
       "id": "flint_field",
@@ -2650,13 +3303,13 @@
           {
             "at": [
               0,
-              -2
+              -1
             ],
             "material": "flint"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "flint"
@@ -2664,23 +3317,64 @@
           {
             "at": [
               0,
-              2
+              1
             ],
             "material": "flint"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "flint"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "flint"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "flint"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "medium",
@@ -2729,7 +3423,8 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Loose flint and rubble lie unevenly across the field; stepping stones link three mineral finds."
+      "atmosphere": "Loose flint and rubble lie unevenly across the field; stepping stones link three mineral finds.",
+      "attracts": {}
     },
     {
       "id": "broken_depot",
@@ -2888,52 +3583,107 @@
         "slots": [
           {
             "at": [
-              -2,
+              -1,
               -1
             ],
             "material": "rubble"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "trap"
           },
           {
             "at": [
-              -2,
+              -1,
               1
             ],
             "material": "rubble"
           },
           {
             "at": [
-              2,
+              1,
               -1
             ],
             "material": "trap"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "rubble"
           },
           {
             "at": [
-              2,
+              1,
               1
             ],
             "material": "trap"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                -2,
+                -1
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "trap"
+            },
+            {
+              "at": [
+                -2,
+                1
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                2,
+                -1
+              ],
+              "material": "trap"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                2,
+                1
+              ],
+              "material": "trap"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "medium",
@@ -2975,7 +3725,8 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush."
+      "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush.",
+      "attracts": {}
     },
     {
       "id": "seep",
@@ -3106,14 +3857,14 @@
         "slots": [
           {
             "at": [
-              -2,
+              -1,
               -1
             ],
             "material": "tar"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "tar"
@@ -3121,37 +3872,92 @@
           {
             "at": [
               -1,
-              2
+              1
             ],
             "material": "tar"
           },
           {
             "at": [
               0,
-              2
+              1
             ],
             "material": "tar"
           },
           {
             "at": [
               1,
-              2
+              1
             ],
             "material": "tar"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "tar"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                -2,
+                -1
+              ],
+              "material": "tar"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "tar"
+            },
+            {
+              "at": [
+                -1,
+                2
+              ],
+              "material": "tar"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "tar"
+            },
+            {
+              "at": [
+                1,
+                2
+              ],
+              "material": "tar"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "tar"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "rare",
@@ -3186,7 +3992,8 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands. A lone flower survives beyond the last dark crescent."
+      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands. A lone flower survives beyond the last dark crescent.",
+      "attracts": {}
     },
     {
       "id": "work_yard",
@@ -3194,24 +4001,34 @@
       "name": "Work Yard",
       "weight": 1,
       "background": {
-        "type": "line_grid",
-        "spacingCells": 13,
+        "type": "bounded_line_grid",
+        "spacingCells": 6,
         "horizontalMaterial": "copper_rock",
         "verticalMaterial": "rubble",
         "intersectionMaterial": "copper_rock",
         "lineWidthCells": 1,
         "previewPlots": [
-          3,
-          3
+          5,
+          5
         ],
-        "phaseOrigin": "anchor",
+        "phaseOrigin": "settled_poi_at_plot_center",
         "orientation": "quarter_turn_toward_approach",
         "densityFalloff": "none",
-        "nominalDensity": 0.14792899408284024,
+        "nominalDensity": 0.34963579604578565,
         "materialDensity": {
-          "copper_rock": 0.07692307692307693,
-          "rubble": 0.07100591715976332
-        }
+          "copper_rock": 0.1935483870967742,
+          "rubble": 0.15608740894901144
+        },
+        "plots": [
+          5,
+          5
+        ],
+        "poiPlot": [
+          2,
+          2
+        ],
+        "extentPolicy": "fixed_5_by_5_plots_clipped_to_coverage_union",
+        "densityBasis": "finite_31_by_31_footprint_before_poi_decoration"
       },
       "poi": {
         "id": "material_grid",
@@ -3219,52 +4036,108 @@
         "slots": [
           {
             "at": [
-              -2,
-              -2
+              -1,
+              -1
             ],
             "material": "copper_rock"
           },
           {
             "at": [
               0,
-              -2
+              -1
             ],
             "material": "rubble"
           },
           {
             "at": [
-              2,
-              -2
+              1,
+              -1
             ],
             "material": "copper_rock"
           },
           {
             "at": [
-              -2,
-              2
+              -1,
+              1
             ],
             "material": "rubble"
           },
           {
             "at": [
               0,
-              2
+              1
             ],
             "material": "copper_rock"
           },
           {
             "at": [
-              2,
-              2
+              1,
+              1
             ],
             "material": "rubble"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "alignment": "plot_center; no_independent_pattern_translation",
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                -2,
+                -2
+              ],
+              "material": "copper_rock"
+            },
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                2,
+                -2
+              ],
+              "material": "copper_rock"
+            },
+            {
+              "at": [
+                -2,
+                2
+              ],
+              "material": "rubble"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "copper_rock"
+            },
+            {
+              "at": [
+                2,
+                2
+              ],
+              "material": "rubble"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_grid_with_poi",
+            "maxCells": 0,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "rare",
@@ -3272,10 +4145,11 @@
         "targets": [
           {
             "id": "1",
-            "radiusFraction": [
-              0,
-              0.5
-            ]
+            "plot": [
+              2,
+              4
+            ],
+            "position": "center"
           }
         ],
         "spawnClass": "attractor",
@@ -3285,7 +4159,8 @@
           "maxCells": 4,
           "stayInZone": true
         },
-        "count": 1
+        "count": 1,
+        "placement": "plot_center"
       },
       "connection": {
         "shape": "follow_grid_lane",
@@ -3294,12 +4169,14 @@
         "to": "finds",
         "withinCoverageBudget": true,
         "crossMajorRoad": false,
-        "preserveLines": true
+        "preserveLines": true,
+        "endpoint": "center_of_plot_2_4"
       },
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Unbroken copper-rock rows and rubble columns enclose nine open plots. One crimson-bearing rock stands at the far end of the central lane."
+      "atmosphere": "Copper-rock rows and rubble columns enclose twenty-five plots. The POI sits in the central room; a crimson-bearing rock marks the far end of its lane.",
+      "attracts": {}
     },
     {
       "id": "black_ring",
@@ -3416,20 +4293,55 @@
               5
             ],
             "material": "tar"
+          },
+          {
+            "at": [
+              4,
+              1
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              8,
+              5
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              5,
+              8
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              4,
+              3
+            ],
+            "material": "tar"
+          },
+          {
+            "at": [
+              3,
+              6
+            ],
+            "material": "tar"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "anchor",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.09,
+        "nominalDensity": 0.12,
         "materialDensity": {
-          "rubble": 0.09
+          "rubble": 0.12
         },
         "type": "repeat_motif",
         "hazardDensity": {
-          "tar": 0.06
+          "tar": 0.08
         },
-        "totalOccupiedDensity": 0.15
+        "totalOccupiedDensity": 0.2
       },
       "poi": {
         "id": "tar_ring",
@@ -3438,13 +4350,13 @@
           {
             "at": [
               0,
-              -2
+              -1
             ],
             "material": "tar"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "tar"
@@ -3452,23 +4364,64 @@
           {
             "at": [
               0,
-              2
+              1
             ],
             "material": "tar"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "tar"
           }
         ],
         "relocation": {
-          "unit": "whole_pattern",
-          "maxCells": 4,
-          "preserveApproach": true
-        }
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "tar"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "tar"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "tar"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "tar"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap"
       },
       "finds": {
         "rarity": "rare",
@@ -3510,7 +4463,8 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Broken rings alternate rubble and tar around a shared opening; two gold-bearing rocks stand at the far side of the ring."
+      "atmosphere": "Thicker rubble clusters and dark tar patches trace broken rings around shared openings. Two gold-bearing rocks stand at the far side.",
+      "attracts": {}
     }
   ]
 }
