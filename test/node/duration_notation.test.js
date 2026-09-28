@@ -153,3 +153,28 @@ test('the day-gated messages name the wait to the UTC roll', () => {
   const n = (src.match(/msToNextUtcDay\(\)/g) || []).length;
   assert.gte(n, 3, `expected the 2 day-gated messages + the castle blurb, found ${n}`);
 });
+
+test('timed consumable copy derives from CONSUMABLE_SPEC', () => {
+  const timed = [
+    'pairy', 'coffee', 'reach_potion', 'speed_potion', 'shield_potion',
+    'raven_potion', 'blight_potion', 'dragon_powder', 'shadow_powder',
+    'frost_powder', 'torch',
+  ];
+  for (const id of timed) {
+    const spec = CONSUMABLE_SPEC[id];
+    assert.truthy(spec && spec.durationMs > 0, `${id}: duration row`);
+    assert.truthy((ITEM_EFFECTS[id] || '').includes(shortDuration(spec.durationMs)),
+      `${id}: effect line formats the owning duration`);
+  }
+  const app = DURATION_SOURCES['app.js'];
+  const aliases = {
+    REACH_POTION_MS: 'reach_potion', SPEED_POTION_MS: 'speed_potion',
+    SHIELD_POTION_MS: 'shield_potion', DRAGON_POWDER_MS: 'dragon_powder',
+    SHADOW_POWDER_MS: 'shadow_powder', FROST_POWDER_MS: 'frost_powder',
+    BLIGHT_MS: 'blight_potion', COFFEE_BUFF_MS: 'coffee', TORCH_MS: 'torch',
+  };
+  for (const [name, id] of Object.entries(aliases)) {
+    assert.truthy(new RegExp(`const ${name} = CONSUMABLE_SPEC\\.${id}\\.durationMs;`).test(app),
+      `${name}: app derives from CONSUMABLE_SPEC.${id}`);
+  }
+});

@@ -957,24 +957,15 @@ const WALK_HOME_SPEED_MUL = 1.5;
 // past the walk's start only ever appears on very long journeys home. Tracks
 // WALK_HOME_IDLE_MS — it is that plus a beat and a half.
 const WALK_HOME_HINT_IDLE_MS = 6500;
-// Shared unit for the consumable-buff durations below (reach/speed/shield
-// potion, dragon powder, coffee, pairy compass) so a duration reads as a
-// count of minutes instead of a repeated 60 * 1000 literal.
-const MINUTE_MS = 60 * 1000;
-// The timed consumables' lengths — each read by the method that starts the
-// buff AND by the Drink / Use dialog line that quotes it (syncConsumableButton,
-// through shortDuration), so the copy can't drift from the timer.
-const REACH_POTION_MS = MINUTE_MS;
-const SPEED_POTION_MS = MINUTE_MS;
-const SHIELD_POTION_MS = MINUTE_MS;
-// (The Potion of the Raven's length, SPIRIT_RAVEN_MS, lives in items.js
-// beside the ✦ line that quotes it.)
-const DRAGON_POWDER_MS = MINUTE_MS;
-const SHADOW_POWDER_MS = MINUTE_MS;
-// The powders' reach: Growth sweeps the rainberry's crop radius; Frost holds a
-// foe for half a minute (useGrowthPowder / useFrostPowder).
-const GROWTH_POWDER_R_M = 20;
-const FROST_POWDER_MS = 30 * 1000;
+// Runtime names derive from items.js's CONSUMABLE_SPEC, the one owner read by
+// gameplay, item copy and the Drink / Use button.
+const REACH_POTION_MS = CONSUMABLE_SPEC.reach_potion.durationMs;
+const SPEED_POTION_MS = CONSUMABLE_SPEC.speed_potion.durationMs;
+const SHIELD_POTION_MS = CONSUMABLE_SPEC.shield_potion.durationMs;
+const DRAGON_POWDER_MS = CONSUMABLE_SPEC.dragon_powder.durationMs;
+const SHADOW_POWDER_MS = CONSUMABLE_SPEC.shadow_powder.durationMs;
+const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
+const FROST_POWDER_MS = CONSUMABLE_SPEC.frost_powder.durationMs;
 // The Potion of Thunder's flash (drinkThunderPotion) — long enough to read as
 // lightning, short enough not to blind the next tap. Its damage is items.js
 // THUNDER_DMG, beside the ✦ line that quotes it.
@@ -985,13 +976,13 @@ const THUNDER_FLASH_MS = 350;
 // purpose — it is a smooth circle, not the per-cell reach staircase — and the
 // baked 'aura_blight' texture is drawn exactly that wide, so the edge the
 // player sees is the edge that bites.
-const BLIGHT_MS = MINUTE_MS;
-const BLIGHT_R_CELLS = 1.5;
-const BLIGHT_DPS = 2;
+const BLIGHT_MS = CONSUMABLE_SPEC.blight_potion.durationMs;
+const BLIGHT_R_CELLS = CONSUMABLE_SPEC.blight_potion.radiusCells;
+const BLIGHT_DPS = CONSUMABLE_SPEC.blight_potion.damagePerSecond;
 // SHOP_CHARM_MS (the Flowers charm) lives in items.js beside the Flowers ✦
 // line that quotes it.
-const DRAGON_AMULET_TIER = 8;
-const SPEED_POTION_AMULET_TIER = 9;
+const DRAGON_AMULET_TIER = CONSUMABLE_SPEC.dragon_powder.movementTier;
+const SPEED_POTION_AMULET_TIER = CONSUMABLE_SPEC.speed_potion.movementTier;
 // Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the walking
 // tier used for stick-walking to a fixed high number), coffee is a common
 // crop, not a rare potion — so it just gives a caffeine buzz of
@@ -1001,11 +992,11 @@ const SPEED_POTION_AMULET_TIER = 9;
 // out-tier the rarest buff. The number is TWO — the comment said "+1 tier"
 // for a while after the constant went to 2, and so did the item-effect line
 // the player reads (items.js ITEM_EFFECTS); both quote the constant now.
-const COFFEE_BOOT_BOOST = 2;
-const COFFEE_BUFF_MS = 3 * MINUTE_MS;
+const COFFEE_BOOT_BOOST = CONSUMABLE_SPEC.coffee.speedTierBoost;
+const COFFEE_BUFF_MS = CONSUMABLE_SPEC.coffee.durationMs;
 // Torch: how long one burns (useTorch). Lighting another while one burns
 // extends from the current end, so a bag of them is one long light.
-const TORCH_MS = 3 * MINUTE_MS;
+const TORCH_MS = CONSUMABLE_SPEC.torch.durationMs;
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
 // debug "taps randomly stop working". On by default in DEBUG builds; force on
@@ -6482,8 +6473,8 @@ class MapScene extends Phaser.Scene {
   // what the player bought (Combat.trainingMul). One answer both attack paths
   // read.
   _attackMul() {
-    return (this.isDragonActive() ? 2 : 1) * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1)
-      * Combat.trainingMul(this.save);
+    return (this.isDragonActive() ? CONSUMABLE_SPEC.dragon_powder.damageMul : 1)
+      * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1) * Combat.trainingMul(this.save);
   }
   // Is the stick actually being PUSHED right now? Pointer-down alone isn't
   // enough — a finger resting on a centred nub holds _movePadHeld true while
@@ -8798,9 +8789,9 @@ class MapScene extends Phaser.Scene {
 
   // Eat one of the selected food stack (consumes 1, restores FOOD_ENERGY[id]).
   // Returns true if eaten, false if not edible / nothing selected.
-  // Side-effects: pairy → arm chest compass for 5 min; rainberry → water all crops within 20m.
+  // Side-effects read their duration and radius from CONSUMABLE_SPEC.
   // === Consumables ============================================
-  // Set out honey (consumed): every wandering chicken / cow within 30m has its
+  // Set out honey (consumed): every wandering chicken / cow inside its
   // home position re-anchored to ~3m from the player so they wander toward you
   // over the next few seconds. Doesn't teleport — that would feel cheesy.
   // Shared tail for modal-feedback consumables (honey, book): consume the
@@ -8833,7 +8824,7 @@ class MapScene extends Phaser.Scene {
         if (this.save.caught.includes(c.id)) continue;
         if (c.kind !== 'chicken' && c.kind !== 'cow') continue;
         const d = Math.hypot(c.x - pWX, c.y - pWY);
-        if (d > 30) continue;
+        if (d > CONSUMABLE_SPEC.honey.radiusM) continue;
         // Re-anchor the wander home toward the player. The wanderer's next
         // step picks a direction biased back toward _homeX/_homeY when it
         // drifts beyond ~3 cells, so this pulls them in over a few ticks.
@@ -8980,7 +8971,7 @@ class MapScene extends Phaser.Scene {
     this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
     return this._finishConsumable(
       `✨ You ${opts.channel ? 'channel' : 'drink'} the Potion of Reach`,
-      'The whole world snaps into reach — for one minute, everything in sight is yours to touch.',
+      `The whole world snaps into reach — for ${shortDuration(REACH_POTION_MS)}, everything in sight is yours to touch.`,
       opts,
     );
   }
@@ -9035,7 +9026,7 @@ class MapScene extends Phaser.Scene {
     this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS;
     return this._finishConsumable(
       `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Speed`,
-      'Your legs blaze. For one minute the stick carries you faster than any boots could.',
+      `Your legs blaze. For ${shortDuration(SPEED_POTION_MS)} the stick carries you faster than any boots could.`,
       opts,
     );
   }
@@ -9046,7 +9037,7 @@ class MapScene extends Phaser.Scene {
     this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS;
     return this._finishConsumable(
       `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Shielding`,
-      'A shimmering barrier wraps you — for one minute every monster blow lands at half its weight.',
+      `A shimmering barrier wraps you — for ${shortDuration(SHIELD_POTION_MS)} every monster blow lands with ${Math.round((1 - CONSUMABLE_SPEC.shield_potion.damageMul) * 100)}% less force.`,
       opts,
     );
   }
@@ -9164,7 +9155,7 @@ class MapScene extends Phaser.Scene {
     this.save.blightPotionUntil = Date.now() + BLIGHT_MS;
     return this._finishConsumable(
       `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Blight`,
-      `A sickly crimson haze seeps out around you — for one minute every monster within ${BLIGHT_R_CELLS} cells of you loses ${BLIGHT_DPS} HP a second.`,
+      `A sickly crimson haze seeps out around you — for ${shortDuration(BLIGHT_MS)} every monster within ${BLIGHT_R_CELLS} cells of you loses ${BLIGHT_DPS} HP a second.`,
       opts,
     );
   }
@@ -9261,7 +9252,7 @@ class MapScene extends Phaser.Scene {
     this._dragonUntil = Date.now() + DRAGON_POWDER_MS;
     return this._finishConsumable(
       '🐉 You toss the Dragon Powder',
-      'Scales erupt across your skin — you ARE a dragon for one minute: dragon legs on the stick, and every blow lands twice as hard.',
+      `Scales erupt across your skin — you ARE a dragon for ${shortDuration(DRAGON_POWDER_MS)}: dragon legs on the stick, and every blow lands ${CONSUMABLE_SPEC.dragon_powder.damageMul}× as hard.`,
     );
   }
 
@@ -9430,7 +9421,7 @@ class MapScene extends Phaser.Scene {
     this._shadowUntil = Date.now() + SHADOW_POWDER_MS;
     return this._finishConsumable(
       '🌑 You cast the Shadow Powder',
-      'The dark takes you in — for one minute no monster can find you: none will stalk you, none will strike. Your own blows still land.',
+      `The dark takes you in — for ${shortDuration(SHADOW_POWDER_MS)} no monster can find you: none will stalk you, none will strike. Your own blows still land.`,
     );
   }
 
@@ -9455,7 +9446,7 @@ class MapScene extends Phaser.Scene {
     this._torchUntil = Math.max(now, this._torchUntil ?? 0) + TORCH_MS;
     return this._finishConsumable(
       burning ? '🔥 You light another Torch' : '🔥 You light the Torch',
-      `The flame takes and the dark draws back — your light reaches twice as far for ${shortDuration(this._torchUntil - now)}.`,
+      `The flame takes and the dark draws back — your light reaches ${CONSUMABLE_SPEC.torch.radiusMul}× as far for ${shortDuration(this._torchUntil - now)}.`,
     );
   }
 
@@ -9648,18 +9639,18 @@ class MapScene extends Phaser.Scene {
       const target = this.findNearestUnopenedChest();
       if (target) {
         this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
-          until: Date.now() + 5 * MINUTE_MS };
-        extra = `\n🧭 chest compass: 5 min`;
+          until: Date.now() + CONSUMABLE_SPEC.pairy.durationMs };
+        extra = `\n🧭 chest compass: ${shortDuration(CONSUMABLE_SPEC.pairy.durationMs)}`;
       } else {
         extra = `\n🧭 no chests nearby`;
       }
     } else if (sel.id === 'rainberry') {
-      const { n: watered, jumped } = this.waterCropsWithin(20);
+      const { n: watered, jumped } = this.waterCropsWithin(CONSUMABLE_SPEC.rainberry.radiusM);
       extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
       if (jumped > 0) extra += `\n🌱 ${jumped} sprang ahead a stage`;
     } else if (sel.id === 'coffee') {
       this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
-      extra = `\n☕ faster stick walking, 3 min`;
+      extra = `\n☕ faster stick walking, ${shortDuration(COFFEE_BUFF_MS)}`;
     }
     if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(sel.id)} max ⚡`;
     // Armed only now, after a bite has actually landed.
@@ -14962,58 +14953,12 @@ class MapScene extends Phaser.Scene {
   syncConsumableButton() {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');
-    const CONSUMABLE = {
-      egg: { verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the egg?',
-             get: 'a random pet in your bag, ready to release',
-             label: () => EggHatch.ready(this.save) ? 'Hatch' : `Hatch · ${EggHatch.remaining(this.save)} m left`,
-             disabled: () => !EggHatch.ready(this.save), usable: () => EggHatch.ready(this.save) },
-      book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
-      honey: { verb: 'Use',  method: 'useHoney',  title: 'Set out the honey?', get: '🍯 lure nearby chickens & cows' },
-      reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: `✨ reach anything in sight for ${shortDuration(REACH_POTION_MS)}`, channel: true },
-      antidote: { verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?', get: 'cure poison without restoring energy', usable: () => Conditions.active(this.save, 'poison') },
-      elixir: { verb: 'Drink', method: 'drinkElixir', title: 'Drink the Elixir?', get: 'restore full energy without curing poison or reviving', usable: () => this.save.energy > 0 && this.save.energy < this.getMaxEnergy() },
-      vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: `restore ${VIGOR_POTION_ENERGY} energy` },
-      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `much faster, cheaper stick walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
-      shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: `half monster damage for ${shortDuration(SHIELD_POTION_MS)}`, channel: true },
-      raven_potion:  { verb: 'Drink', method: 'drinkRavenPotion',  title: 'Drink the Potion of the Raven?', get: `🐦 a spirit raven hunts foes & pest crows for ${shortDuration(SPIRIT_RAVEN_MS)}`, channel: true },
-      thunder_potion: { verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?', get: `⚡ every foe in sight takes ${THUNDER_DMG} damage, and the rest flee` },
-      blight_potion: { verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',    get: `☠ foes within ${BLIGHT_R_CELLS} cells lose ${BLIGHT_DPS} HP/s for ${shortDuration(BLIGHT_MS)}`, channel: true },
-      // `channel: true` marks the TIMED potions — the ones an Enchanter
-      // (src/wizard.js CLASSES) may channel for Wizard.ENCHANTER_ENERGY_COST
-      // energy instead of drinking (channelPotion); see the dialog below.
-      // Revival: only while down (drinkRevivePotion refuses otherwise, and
-      // `usable` greys the dialog's Drink off the same Combat.playerDowned).
-      revive_potion:       { verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Revival?',
-                             get: () => this._reviveGetLine('revive_potion'),
-                             usable: () => Combat.playerDowned(this.save.energy) },
-      resurrection_potion: { verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Resurrection?',
-                             get: () => this._reviveGetLine('resurrection_potion'),
-                             usable: () => Combat.playerDowned(this.save.energy) },
-      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: `🐉 become a dragon for ${shortDuration(DRAGON_POWDER_MS)} — faster, cheaper stick walking + 2× damage` },
-      growth_powder: { verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',       get: `🌱 every crop within ${GROWTH_POWDER_R_M}m springs ahead a stage` },
-      shadow_powder: { verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',       get: `🌑 monsters ignore you for ${shortDuration(SHADOW_POWDER_MS)} — no stalking, no hits` },
-      frost_powder:  { verb: 'Use', method: 'useFrostPowder',  title: 'Use the Frost Powder?',        get: `❄ every enemy in reach frozen for ${shortDuration(FROST_POWDER_MS)}` },
-      // Torch: `get` is a function so that, with one already burning, the line
-      // says the new one ADDS to it (useTorch extends from the current end).
-      torch: { verb: 'Light', method: 'useTorch', title: 'Light the Torch?',
-               get: () => (this.isTorchActive()
-                 ? `🔥 adds ${shortDuration(TORCH_MS)} to the ${shortDuration(this._torchUntil - Date.now())} still burning — your light reaches twice as far`
-                 : `🔥 your light reaches twice as far for ${shortDuration(TORCH_MS)}`) },
-      sapphire: { verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?', get: '💎 descend one level' },
-      // Rope: the ONE consumable whose dialog is a choice, not a yes/no. The
-      // primary button lowers you a level (useRopeDown), the `secondary` one
-      // climbs (useRopeUp) — greyed on the surface, where there is no up. `get`
-      // is a function so the line can say which way is open right now.
-      rope: { verb: 'Climb', method: 'useRopeDown', acceptLabel: 'Down', title: 'Use the rope — which way?',
-              get: () => (this.depth > 0 ? '🪢 climb up a level, or lower yourself down one' : '🪢 lower yourself down a level'),
-              secondary: { label: 'Up', method: 'useRopeUp', disabled: () => !(this.depth > 0) } },
-    };
-    const cfg = sel && CONSUMABLE[sel.id];
+    const cfg = sel && CONSUMABLE_SPEC[sel.id];
     if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
     const iconHtml = this.iconSpanHTML(sel.id, 20);
-    const label = `${iconHtml} ${cfg.label ? cfg.label() : cfg.verb}`;
+    const label = `${iconHtml} ${cfg.label ? cfg.label(this, cfg) : cfg.verb}`;
     const syncState = button => {
-      button.disabled = !!cfg.disabled?.();
+      button.disabled = !!cfg.disabled?.(this, cfg);
       button.style.opacity = button.disabled ? '0.55' : '1';
       button.style.cursor = button.disabled ? 'default' : 'pointer';
       // Eggs keep Eat and Hatch available without overlapping the controls.
@@ -15044,7 +14989,7 @@ class MapScene extends Phaser.Scene {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.id;
-      const entry = CONSUMABLE[id];
+      const entry = CONSUMABLE_SPEC[id];
       const fn = entry?.method;
       if (!fn || typeof this[fn] !== 'function') return;
       // Mirror the interact.js use-consumable flow: confirmation modal,
@@ -15056,7 +15001,7 @@ class MapScene extends Phaser.Scene {
       const sec = entry.secondary;
       let secondary = sec ? {
         label: sec.label,
-        disabled: typeof sec.disabled === 'function' ? sec.disabled() : !!sec.disabled,
+        disabled: typeof sec.disabled === 'function' ? sec.disabled(this, entry) : !!sec.disabled,
         onClick: () => {
           if (typeof this[sec.method] === 'function') this[sec.method]();
           this.syncConsumableButton();
@@ -15078,9 +15023,9 @@ class MapScene extends Phaser.Scene {
       this.showOfferModal({
         kind: 'use',
         title: entry.title,
-        get: typeof entry.get === 'function' ? entry.get() : entry.get,
+        get: typeof entry.get === 'function' ? entry.get(this, entry) : entry.get,
         cost: `1× ${this.iconSpanHTML(id)} ${item?.name || id}`,
-        canAfford: typeof entry.usable === 'function' ? entry.usable() : true,
+        canAfford: typeof entry.usable === 'function' ? entry.usable(this, entry) : true,
         acceptLabel: entry.acceptLabel || entry.verb,
         secondary,
         onAccept: () => { this[fn](); this.syncConsumableButton(); },

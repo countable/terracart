@@ -125,7 +125,7 @@
   // out-of-reach ground up to the plateau's level, and the edge step that
   // IS the reach affordance vanished. Underground there is no sun, so a
   // torch always burns at full strength.
-  const TORCH_RADIUS_MUL = 2;
+  const TORCH_RADIUS_MUL = CONSUMABLE_SPEC.torch.radiusMul;
   const TORCH_DAY_FLOOR = 0.15;
   function torchStrength(depth, day) {
     if ((depth ?? 0) > 0) return 1;

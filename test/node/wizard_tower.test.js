@@ -342,7 +342,8 @@ test('enchanter: drinking still consumes; a channel is refused for others, a sho
 
 test('enchanter: the Use dialog offers Channel on exactly the timed potions', () => {
   const sync = lift('syncConsumableButton() {', 'syncConsumableButton');
-  const rows = [...sync.matchAll(/^\s+([a-z_]+):\s+\{[^\n]*channel: true/gm)].map((m) => m[1]).sort();
+  const rows = Object.entries(CONSUMABLE_SPEC)
+    .filter(([, row]) => row.channel).map(([id]) => id).sort();
   assert.eq(rows.join(), Object.keys(DRINKS).sort().join(), 'the timed potions, no more');
   assert.truthy(/entry\.channel && typeof Wizard !== 'undefined'\s*\n\s*&& Wizard\.isClass\(this\.save, 'enchanter'\)/.test(sync),
     'only for an enchanter');

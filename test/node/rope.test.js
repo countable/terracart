@@ -72,14 +72,13 @@ test('rope: the rarity picker can hand one out of a consumable-heavy chest', () 
 
 // ── The dialog is a choice ─────────────────────────────────────────────────
 test('rope: the Use dialog offers Down (primary) and Up (secondary), Up greyed on the surface', () => {
-  const m = app.match(/\n      rope: \{([\s\S]*?)\},\n    \};/);
-  assert.truthy(m, 'a rope row in the CONSUMABLE table');
-  const row = m[1];
-  assert.truthy(/method: 'useRopeDown'/.test(row), 'primary → useRopeDown');
-  assert.truthy(/acceptLabel: 'Down'/.test(row), 'primary button reads Down');
-  assert.truthy(/secondary: \{ label: 'Up', method: 'useRopeUp', disabled: \(\) => !\(this\.depth > 0\) \}/.test(row),
-    'secondary → useRopeUp, disabled unless underground');
-  assert.truthy(/title: 'Use the rope — which way\?'/.test(row), 'the title asks which way');
+  const row = CONSUMABLE_SPEC.rope;
+  assert.eq(row.method, 'useRopeDown', 'primary → useRopeDown');
+  assert.eq(row.acceptLabel, 'Down', 'primary button reads Down');
+  assert.eq(row.secondary.method, 'useRopeUp', 'secondary → useRopeUp');
+  assert.truthy(row.secondary.disabled({ depth: 0 }), 'Up is disabled on the surface');
+  assert.falsy(row.secondary.disabled({ depth: 1 }), 'Up is enabled underground');
+  assert.eq(row.title, 'Use the rope — which way?', 'the title asks which way');
   // The handler actually threads the row through to the modal.
   assert.truthy(/secondary,\n        onAccept: \(\) => \{ this\[fn\]\(\); this\.syncConsumableButton\(\); \},/.test(app),
     'syncConsumableButton passes `secondary` to showOfferModal');

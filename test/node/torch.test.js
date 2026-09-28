@@ -74,7 +74,10 @@ test('torch: a KINDS row, TORCH_RADIUS_MUL player radii of the player\'s own whi
   const P = Lighting.KINDS.player, T = Lighting.KINDS.handtorch;
   assert.truthy(P, 'the player has a row');
   assert.truthy(T, 'and so does the torch');
-  assert.eq(Lighting.TORCH_RADIUS_MUL, 2, 'twice the player\'s radius');
+  assert.eq(Lighting.TORCH_RADIUS_MUL, CONSUMABLE_SPEC.torch.radiusMul,
+    'the player-light radius multiplier comes from the consumable owner');
+  assert.truthy(/const TORCH_RADIUS_MUL = CONSUMABLE_SPEC\.torch\.radiusMul;/.test(LIGHTING_SRC),
+    'lighting derives rather than retyping it');
   assert.eq(Lighting.radiusCells('handtorch'), Lighting.radiusCells('player') * Lighting.TORCH_RADIUS_MUL,
     'the torch radius IS the player radius × TORCH_RADIUS_MUL — one derivation, not a second number');
   assert.eq(T.colour, P.colour, 'the same colour as the player\'s own light');
@@ -150,8 +153,10 @@ test('torch: the plateau is untouched — reach, the profile and the tap gate ig
 });
 
 // ── app.js: the timer, the readout, the Use button ─────────────────────────
-test('torch: TORCH_MS is three minutes, derived from MINUTE_MS', () => {
-  assert.truthy(/\nconst TORCH_MS = 3 \* MINUTE_MS;/.test(app), 'TORCH_MS = 3 * MINUTE_MS');
+test('torch: its three-minute runtime alias derives from CONSUMABLE_SPEC', () => {
+  assert.eq(CONSUMABLE_SPEC.torch.durationMs, 3 * 60 * 1000, 'three minutes');
+  assert.truthy(/\nconst TORCH_MS = CONSUMABLE_SPEC\.torch\.durationMs;/.test(app),
+    'runtime derives the duration');
 });
 
 test('torch: useTorch lights it for TORCH_MS, extending from the current end, in memory only', () => {
@@ -177,16 +182,17 @@ test('torch: the readout beside the dragon\'s and the shadow\'s, via shortDurati
     'stacked above whichever of the other two are showing');
 });
 
-test('torch: the Use button row — confirm dialog → useTorch, and the `get` line says a second one adds', () => {
-  const m = app.match(/\n      torch: \{([\s\S]*?)\},\n(?=      sapphire:)/);
-  assert.truthy(m, 'a torch row in the CONSUMABLE table');
-  const row = m[1];
-  assert.truthy(/method: 'useTorch'/.test(row), '→ useTorch');
-  assert.truthy(/verb: 'Light'/.test(row), 'the button reads Light');
-  assert.truthy(/get: \(\) => \(this\.isTorchActive\(\)/.test(row), '`get` is a function that asks whether one burns');
-  assert.truthy(/adds \$\{shortDuration\(TORCH_MS\)\} to the \$\{shortDuration\(this\._torchUntil - Date\.now\(\)\)\} still burning/.test(row),
+test('torch: the Use button row says a second one adds', () => {
+  const row = CONSUMABLE_SPEC.torch;
+  assert.eq(row.method, 'useTorch', '→ useTorch');
+  assert.eq(row.verb, 'Light', 'the button reads Light');
+  const now = Date.now();
+  const lit = row.get({ isTorchActive: () => true, _torchUntil: now + 30_000 }, row);
+  const dark = row.get({ isTorchActive: () => false, _torchUntil: now }, row);
+  assert.truthy(/adds/.test(lit) && lit.includes(shortDuration(row.durationMs)),
     'with one lit, the line says the new one ADDS to what is left');
-  assert.truthy(/for \$\{shortDuration\(TORCH_MS\)\}/.test(row), 'otherwise, how long it burns — shortDuration, never a bare number');
+  assert.truthy(/for/.test(dark) && dark.includes(shortDuration(row.durationMs)),
+    'otherwise, how long it burns comes from the owner');
 });
 test('torch: the sun outshines it on the surface — full by night, TORCH_DAY_FLOOR at noon', () => {
   const F = Lighting.TORCH_DAY_FLOOR;

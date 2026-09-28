@@ -108,15 +108,13 @@ test('powders: the rarity picker can hand each one out', () => {
 });
 
 // ── The Use button ─────────────────────────────────────────────────────────
-test('powders: each has a CONSUMABLE row (Use verb, its own method) and the method exists', () => {
-  const table = app.match(/const CONSUMABLE = \{([\s\S]*?)\n    \};/);
-  assert.truthy(table, 'the CONSUMABLE table in syncConsumableButton');
+test('powders: each has a CONSUMABLE_SPEC action row and the method exists', () => {
   for (const [id, want] of Object.entries(POWDERS)) {
-    const row = table[1].match(new RegExp(`\\n      ${id}:\\s*\\{([^\\n]*)\\}`));
+    const row = CONSUMABLE_SPEC[id];
     assert.truthy(row, `${id}: a row`);
-    assert.truthy(/verb: 'Use'/.test(row[1]), `${id}: Use verb`);
-    assert.truthy(new RegExp(`method: '${want.method}'`).test(row[1]), `${id}: → ${want.method}`);
-    assert.truthy(/title: 'Use the \w+ Powder\?'/.test(row[1]), `${id}: the confirm title`);
+    assert.eq(row.verb, 'Use', `${id}: Use verb`);
+    assert.eq(row.method, want.method, `${id}: method`);
+    assert.truthy(/^Use the \w+ Powder\?$/.test(row.title), `${id}: the confirm title`);
     const body = methodBody(want.method);
     assert.truthy(new RegExp(`sel\\.id !== '${id}'`).test(body), `${want.method}: only a selected ${id}`);
   }
@@ -146,7 +144,10 @@ test('growth: Crops.advanceWithin springs one stage, unwatered, within the radiu
 });
 
 test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE consuming when nothing moved', () => {
-  assert.truthy(/const GROWTH_POWDER_R_M = 20;/.test(app), 'the radius is the rainberry\'s 20 m');
+  assert.eq(CONSUMABLE_SPEC.growth_powder.radiusM, CONSUMABLE_SPEC.rainberry.radiusM,
+    'growth and rainberry share the owned crop radius');
+  assert.truthy(/const GROWTH_POWDER_R_M = CONSUMABLE_SPEC\.growth_powder\.radiusM;/.test(app),
+    'runtime derives the radius');
   const wrap = app.match(/\n  advanceCropsWithin\(radius\) \{\n([\s\S]*?)\n  \}\n/);
   assert.truthy(wrap, 'advanceCropsWithin beside waterCropsWithin');
   assert.truthy(/Crops\.advanceWithin\(this\.save, pWX, pWY, radius, movedPlants\);/.test(wrap[1]),
@@ -177,7 +178,9 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
 test('shadow: a 1-minute in-memory buff, read out with shortDuration beside the dragon\'s', () => {
   const body = methodBody('useShadowPowder');
   assert.truthy(/this\._shadowUntil = Date\.now\(\) \+ SHADOW_POWDER_MS;/.test(body), 'one SHADOW_POWDER_MS on this._shadowUntil');
-  assert.truthy(/const SHADOW_POWDER_MS = MINUTE_MS;/.test(app), 'and that is one minute');
+  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 60 * 1000, 'and that is one minute');
+  assert.truthy(/const SHADOW_POWDER_MS = CONSUMABLE_SPEC\.shadow_powder\.durationMs;/.test(app),
+    'runtime derives the duration');
   assert.truthy(/return this\._finishConsumable\(/.test(body), 'consumed through the shared tail');
   assert.truthy(/isShadowActive\(\) \{\n    return \(this\._shadowUntil \?\? 0\) > Date\.now\(\);/.test(app),
     'isShadowActive reads the timer');
@@ -219,7 +222,9 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
 
 // ── Frost ──────────────────────────────────────────────────────────────────
 test('frost: freezes every Combat.isEnemy in cellInReach for 30 s, refusing BEFORE consuming when none is', () => {
-  assert.truthy(/const FROST_POWDER_MS = 30 \* 1000;/.test(app), '30 s');
+  assert.eq(CONSUMABLE_SPEC.frost_powder.durationMs, 30 * 1000, '30 s');
+  assert.truthy(/const FROST_POWDER_MS = CONSUMABLE_SPEC\.frost_powder\.durationMs;/.test(app),
+    'runtime derives the duration');
   const body = methodBody('useFrostPowder');
   assert.truthy(/if \(!Combat\.isEnemy\(c\)\) return;/.test(body), 'enemies only — never crow, deer or a pet');
   assert.truthy(/caughtSet\.has\(c\.id\)\) return;/.test(body), 'not a caught one');

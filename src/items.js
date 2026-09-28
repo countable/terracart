@@ -807,10 +807,138 @@ function fireBurnOutcome(id) {
   if (isPotion(id)) return { blastDmg: POTION_BLAST_DMG_PER_TIER * (ITEM_BY_ID[id]?.baseTier || 1) };
   return {};
 }
-// What one Potion of Vigor puts back on the bar. ONE number: the potion's own
-// drink (app.js drinkVigorPotion), its ✦ line, and the inn's coins-per-energy
-// rate (src/macros.js innPrice — PRICES.vigor_potion / this) all read it.
-const VIGOR_POTION_ENERGY = 40;
+// Consumables own their gameplay numbers and button metadata in one table.
+// Runtime methods, item copy and the Drink / Use dialog all read these rows,
+// so a balance edit cannot leave one surface behind. Function fields receive
+// the live scene at click time; items.js loads before those scene dependencies.
+const _CONSUMABLE_MINUTE_MS = 60 * 1000;
+const CONSUMABLE_SPEC = {
+  // Foods with an extra effect use the Eat button, so they own mechanics but
+  // no separate action row here.
+  rainberry: { radiusM: 20 },
+  pairy: { durationMs: 5 * _CONSUMABLE_MINUTE_MS },
+  coffee: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, speedTierBoost: 2 },
+
+  egg: {
+    verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the egg?',
+    get: 'a random pet in your bag, ready to release',
+    label: scene => EggHatch.ready(scene.save) ? 'Hatch' : `Hatch · ${EggHatch.remaining(scene.save)} m left`,
+    disabled: scene => !EggHatch.ready(scene.save),
+    usable: scene => EggHatch.ready(scene.save),
+  },
+  book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: '📖 a tip from the elders' },
+  honey: {
+    radiusM: 30,
+    verb: 'Use', method: 'useHoney', title: 'Set out the honey?',
+    get: '🍯 lure nearby chickens & cows',
+  },
+  reach_potion: {
+    durationMs: _CONSUMABLE_MINUTE_MS,
+    verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?',
+    get: (_scene, row) => `✨ reach anything in sight for ${shortDuration(row.durationMs)}`,
+    channel: true,
+  },
+  antidote: {
+    verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?',
+    get: 'cure poison without restoring energy',
+    usable: scene => Conditions.active(scene.save, 'poison'),
+  },
+  elixir: {
+    verb: 'Drink', method: 'drinkElixir', title: 'Drink the Elixir?',
+    get: 'restore full energy without curing poison or reviving',
+    usable: scene => scene.save.energy > 0 && scene.save.energy < scene.getMaxEnergy(),
+  },
+  vigor_potion: {
+    energy: 40,
+    verb: 'Drink', method: 'drinkVigorPotion', title: 'Drink the Potion of Vigor?',
+    get: (_scene, row) => `restore ${row.energy} energy`,
+  },
+  speed_potion: {
+    durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 9,
+    verb: 'Drink', method: 'drinkSpeedPotion', title: 'Drink the Potion of Speed?',
+    get: (_scene, row) => `much faster, cheaper stick walking for ${shortDuration(row.durationMs)}`,
+    channel: true,
+  },
+  shield_potion: {
+    durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.5,
+    verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?',
+    get: (_scene, row) => `${Math.round((1 - row.damageMul) * 100)}% less monster damage for ${shortDuration(row.durationMs)}`,
+    channel: true,
+  },
+  raven_potion: {
+    durationMs: _CONSUMABLE_MINUTE_MS,
+    verb: 'Drink', method: 'drinkRavenPotion', title: 'Drink the Potion of the Raven?',
+    get: (_scene, row) => `🐦 a spirit raven hunts foes & pest crows for ${shortDuration(row.durationMs)}`,
+    channel: true,
+  },
+  thunder_potion: {
+    damage: 10,
+    verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?',
+    get: (_scene, row) => `⚡ every foe in sight takes ${row.damage} damage, and the rest flee`,
+  },
+  blight_potion: {
+    durationMs: _CONSUMABLE_MINUTE_MS, radiusCells: 1.5, damagePerSecond: 2,
+    verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',
+    get: (_scene, row) => `☠ foes within ${row.radiusCells} cells lose ${row.damagePerSecond} HP/s for ${shortDuration(row.durationMs)}`,
+    channel: true,
+  },
+  revive_potion: {
+    energyFrac: 0.30,
+    verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Revival?',
+    get: scene => scene._reviveGetLine('revive_potion'),
+    usable: scene => Combat.playerDowned(scene.save.energy),
+  },
+  resurrection_potion: {
+    energyFrac: 0.60,
+    verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Resurrection?',
+    get: scene => scene._reviveGetLine('resurrection_potion'),
+    usable: scene => Combat.playerDowned(scene.save.energy),
+  },
+  dragon_powder: {
+    durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 8, damageMul: 2,
+    verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',
+    get: (_scene, row) => `🐉 become a dragon for ${shortDuration(row.durationMs)} — faster, cheaper stick walking + ${row.damageMul}× damage`,
+  },
+  growth_powder: {
+    get radiusM() { return CONSUMABLE_SPEC.rainberry.radiusM; },
+    verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',
+    get: (_scene, row) => `🌱 every crop within ${row.radiusM}m springs ahead a stage`,
+  },
+  shadow_powder: {
+    durationMs: _CONSUMABLE_MINUTE_MS,
+    verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',
+    get: (_scene, row) => `🌑 monsters ignore you for ${shortDuration(row.durationMs)} — no stalking, no hits`,
+  },
+  frost_powder: {
+    durationMs: 30 * 1000,
+    verb: 'Use', method: 'useFrostPowder', title: 'Use the Frost Powder?',
+    get: (_scene, row) => `❄ every enemy in reach frozen for ${shortDuration(row.durationMs)}`,
+  },
+  torch: {
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, radiusMul: 2,
+    verb: 'Light', method: 'useTorch', title: 'Light the Torch?',
+    get: (scene, row) => scene.isTorchActive()
+      ? `🔥 adds ${shortDuration(row.durationMs)} to the ${shortDuration(scene._torchUntil - Date.now())} still burning — your light reaches ${row.radiusMul}× as far`
+      : `🔥 your light reaches ${row.radiusMul}× as far for ${shortDuration(row.durationMs)}`,
+  },
+  sapphire: {
+    verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?',
+    get: '💎 descend one level',
+  },
+  rope: {
+    verb: 'Climb', method: 'useRopeDown', acceptLabel: 'Down', title: 'Use the rope — which way?',
+    get: scene => scene.depth > 0
+      ? '🪢 climb up a level, or lower yourself down one'
+      : '🪢 lower yourself down a level',
+    secondary: { label: 'Up', method: 'useRopeUp', disabled: scene => !(scene.depth > 0) },
+  },
+};
+
+// Compatibility names keep existing consumers concise while the table remains
+// the only numeric owner.
+const VIGOR_POTION_ENERGY = CONSUMABLE_SPEC.vigor_potion.energy;
+const THUNDER_DMG = CONSUMABLE_SPEC.thunder_potion.damage;
+const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_potion.durationMs;
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
@@ -954,15 +1082,10 @@ const SHOP_CHARM_MS = 5 * 60 * 1000;
 // energy, either mode), because above zero they would just be Vigor potions.
 // One table, read by the eat / drink, the ✦ lines below, the Eat button and
 // the Drink dialog.
-// Potion of Thunder: the HP the bolt takes off every foe in sight (app.js
-// drinkThunderPotion). Here so the ✦ line quotes the live number.
-const THUNDER_DMG = 10;
-// Potion of the Raven: how long the summoned raven hunts (app.js
-// drinkRavenPotion stamps save.spiritRavenUntil with it; the Drink dialog and
-// the ✦ line below quote it through shortDuration). Here, not beside app.js's
-// SHIELD_POTION_MS, so the ✦ line can read the live number.
-const SPIRIT_RAVEN_MS = 60 * 1000;
-const REVIVE_ITEM_FRAC = { revive_potion: 0.30, resurrection_potion: 0.60 };
+const REVIVE_ITEM_FRAC = {
+  revive_potion: CONSUMABLE_SPEC.revive_potion.energyFrac,
+  resurrection_potion: CONSUMABLE_SPEC.resurrection_potion.energyFrac,
+};
 const revivePct = (id) => Math.round(REVIVE_ITEM_FRAC[id] * 100);
 // The Crow Feather stands you up with a flat 1 energy — enough to crawl, not
 // to fight: its pocket resurrection only buys the walk home. (It rode the
@@ -1299,9 +1422,9 @@ const ITEM_EFFECTS = {
   // meets by accident (tapping a shop with Flowers selected).
   flowers:   `Gift to a shopkeeper: half prices there for ${shortDuration(SHOP_CHARM_MS)}`,
   // Foods with a side-effect when eaten (on top of their energy restore).
-  rainberry: 'Eat to water every crop within 20m',
-  pairy:     'Eat to reveal the nearest unfound chest for 5 min; feed to tame a wild cow',
-  coffee:    'Eat to walk faster with the control stick (3 min)',
+  rainberry: `Eat to water every crop within ${CONSUMABLE_SPEC.rainberry.radiusM}m`,
+  pairy:     `Eat to reveal the nearest unfound chest for ${shortDuration(CONSUMABLE_SPEC.pairy.durationMs)}; feed to tame a wild cow`,
+  coffee:    `Eat to walk faster with the control stick (${shortDuration(CONSUMABLE_SPEC.coffee.durationMs)})`,
   // Universal tame treat — fed to any wild creature. Cave monsters are the
   // one exception, and the line says so: it is the only place that caveat is
   // written now that the Book no longer repeats the mango's effect.
@@ -1341,24 +1464,25 @@ const ITEM_EFFECTS = {
   // lockout actually holds.
   crow_feather: `Eat at zero to get up with ${FEATHER_REVIVE_ENERGY} energy (hard mode)`,
   // Consumables used on yourself / the world.
-  honey:        'Set out to lure chickens & cows within 30m',
+  honey:        `Set out to lure chickens & cows within ${CONSUMABLE_SPEC.honey.radiusM}m`,
   book:         'Read for a play tip or a hint toward a chest',
-  reach_potion:  'Drink to reach anything in sight (1 min)',
+  reach_potion:  `Drink to reach anything in sight (${shortDuration(CONSUMABLE_SPEC.reach_potion.durationMs)})`,
   antidote:     'Drink to cure poison',
   elixir:       'Drink to fill energy; no cooldown; does not revive or cure poison',
-  vigor_potion:  `Drink to restore ${VIGOR_POTION_ENERGY} energy`,
-  speed_potion:  'Drink for faster control-stick walking at lower energy cost (1 min)',
-  shield_potion: 'Drink for half monster damage (1 min)',
-  raven_potion:  `Drink: a spirit raven hunts foes & pests for ${shortDuration(SPIRIT_RAVEN_MS)}`,
-  thunder_potion:      `Drink: ${THUNDER_DMG} damage to every foe in sight; the rest flee`,
+  vigor_potion:  `Drink to restore ${CONSUMABLE_SPEC.vigor_potion.energy} energy`,
+  speed_potion:  `Drink for faster control-stick walking at lower energy cost (${shortDuration(CONSUMABLE_SPEC.speed_potion.durationMs)})`,
+  shield_potion: `Drink for ${Math.round((1 - CONSUMABLE_SPEC.shield_potion.damageMul) * 100)}% less monster damage (${shortDuration(CONSUMABLE_SPEC.shield_potion.durationMs)})`,
+  raven_potion:  `Drink: a spirit raven hunts foes & pests for ${shortDuration(CONSUMABLE_SPEC.raven_potion.durationMs)}`,
+  thunder_potion:      `Drink: ${CONSUMABLE_SPEC.thunder_potion.damage} damage to every foe in sight; the rest flee`,
+  blight_potion:       `Drink to hurt foes near you ${CONSUMABLE_SPEC.blight_potion.damagePerSecond} HP/s (${shortDuration(CONSUMABLE_SPEC.blight_potion.durationMs)})`,
   revive_potion:       `Drink when down to get up with ${revivePct('revive_potion')}% energy`,
   resurrection_potion: `Drink when down to get up with ${revivePct('resurrection_potion')}% energy`,
-  dragon_powder: 'Use to become a dragon for 1 min: faster legs, 2× damage',
-  growth_powder: 'Use to spring every crop within 20m ahead a stage',
-  shadow_powder: 'Use to make monsters ignore you (1 min)',
-  frost_powder:  'Use to freeze every enemy in reach for 30s',
+  dragon_powder: `Use to become a dragon for ${shortDuration(CONSUMABLE_SPEC.dragon_powder.durationMs)}: faster legs, ${CONSUMABLE_SPEC.dragon_powder.damageMul}× damage`,
+  growth_powder: `Use to spring every crop within ${CONSUMABLE_SPEC.growth_powder.radiusM}m ahead a stage`,
+  shadow_powder: `Use to make monsters ignore you (${shortDuration(CONSUMABLE_SPEC.shadow_powder.durationMs)})`,
+  frost_powder:  `Use to freeze every enemy in reach for ${shortDuration(CONSUMABLE_SPEC.frost_powder.durationMs)}`,
   rope:          'Use to climb up or lower down one level, right here',
-  torch:         'Use to make your light reach twice as far (3 min)',
+  torch:         `Use to make your light reach ${CONSUMABLE_SPEC.torch.radiusMul}× as far (${shortDuration(CONSUMABLE_SPEC.torch.durationMs)})`,
   trap_kit:      `Hold and tap a trap to disarm it (${Math.round(TRAP_KIT_KEEP_CHANCE * 100)}% kept)`,
   magic_trap:    'Hold and tap a cell to set; a foe stepping in is held',
   scarecrow:    'Place on a tilled cell to ward off crows & deer',
@@ -1373,13 +1497,6 @@ const ITEM_EFFECTS = {
   meat:         `Hold over a campfire to grill it: ${GRILL_ENERGY_MUL}× energy; feed raw to tame a wild dog`,
   wood:         'Make a torch at a campfire; craft scarecrows at Home; forge wooden equipment at a blacksmith',
 };
-// app.js owns Blight's damage. The getter reads it after app.js loads; tools
-// that load the item table alone still receive useful copy without a stale number.
-Object.defineProperty(ITEM_EFFECTS, 'blight_potion', {
-  enumerable: true,
-  get: () => 'Drink to hurt foes near you'
-    + (typeof BLIGHT_DPS === 'number' ? ` ${BLIGHT_DPS} HP/s` : '') + ' (1 min)',
-});
 // Every raw food the fire cooks says so, in the meat's words.
 for (const raw of Object.keys(COOKED_FOODS)) {
   ITEM_EFFECTS[raw] = ITEM_EFFECTS[raw] || `Hold over a campfire to cook it: ${GRILL_ENERGY_MUL}× energy`;

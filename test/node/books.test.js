@@ -586,7 +586,8 @@ test('tips: the shiny multiplier quotes PRICES', () => {
 test('descriptions: coffee explains its movement effect', () => {
   assert.truthy(/walk faster.*control stick/.test(ITEM_EFFECTS.coffee),
     'the effect names faster control-stick walking');
-  assert.truthy(/3 min/.test(ITEM_EFFECTS.coffee), 'the duration remains visible');
+  assert.truthy(ITEM_EFFECTS.coffee.includes(shortDuration(CONSUMABLE_SPEC.coffee.durationMs)),
+    'the duration remains visible and comes from the owner');
 });
 
 test('tips: the gem ladder is the table interactables.js rolls', () => {

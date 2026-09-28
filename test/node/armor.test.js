@@ -273,6 +273,7 @@ test('armor: shield expiry uses epoch time, independent of attack cooldown time'
 });
 
 test('armor: incoming shield mitigation precedes armour and preserves bundled hits', () => {
+  assert.eq(CONSUMABLE_SPEC.shield_potion.damageMul, 0.5, 'the consumable spec owns the half blow');
   const save = { energy: 100, armor: { helmet: { tier: 1 } }, shieldPotionUntil: 2000 };
   // 30 damage -> shield halves to 15 -> five hits of 3, each losing 1 to armour.
   assert.eq(Combat.incomingDamage(save, 30, 5, 1000), 10,

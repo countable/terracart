@@ -239,6 +239,48 @@ test('flowers: the ✦ line names the shop charm and quotes its live length', ()
   assert.truthy(line.length <= 55, `fits the ✦ row (${line.length} chars)`);
 });
 
+test('consumables: one action row names every button method', () => {
+  const ids = [
+    'egg', 'book', 'honey', 'reach_potion', 'antidote', 'elixir',
+    'vigor_potion', 'speed_potion', 'shield_potion', 'raven_potion',
+    'thunder_potion', 'blight_potion', 'revive_potion',
+    'resurrection_potion', 'dragon_powder', 'growth_powder', 'shadow_powder',
+    'frost_powder', 'torch', 'sapphire', 'rope',
+  ];
+  const actionIds = Object.keys(CONSUMABLE_SPEC).filter(id => CONSUMABLE_SPEC[id].method);
+  assert.eq(actionIds.slice().sort().join('|'), ids.slice().sort().join('|'),
+    'the button action set and the spec are the same set');
+  for (const id of ids) {
+    const row = CONSUMABLE_SPEC[id];
+    assert.truthy(ITEM_BY_ID[id], `${id}: real item`);
+    assert.truthy(row && row.verb && row.title && row.method, `${id}: complete action row`);
+    assert.truthy(new RegExp(`\\n  ${row.method}\\(`).test(APP_JS_SRC),
+      `${id}: MapScene implements ${row.method}`);
+  }
+  assert.truthy(/const cfg = sel && CONSUMABLE_SPEC\[sel\.id\];/.test(APP_JS_SRC),
+    'the button reads the static owner instead of rebuilding a local registry');
+  assert.falsy(/const CONSUMABLE = \{/.test(APP_JS_SRC),
+    'app.js has no second action registry');
+});
+
+test('consumables: gameplay numbers and player copy read the same spec rows', () => {
+  const shieldPct = Math.round((1 - CONSUMABLE_SPEC.shield_potion.damageMul) * 100);
+  assert.truthy(ITEM_EFFECTS.shield_potion.includes(`${shieldPct}%`), 'shield item copy');
+  assert.truthy(CONSUMABLE_SPEC.shield_potion.get(null, CONSUMABLE_SPEC.shield_potion)
+    .includes(`${shieldPct}%`), 'shield modal copy');
+  assert.truthy(ITEM_EFFECTS.dragon_powder.includes(`${CONSUMABLE_SPEC.dragon_powder.damageMul}×`),
+    'dragon item copy');
+  assert.truthy(CONSUMABLE_SPEC.dragon_powder.get(null, CONSUMABLE_SPEC.dragon_powder)
+    .includes(`${CONSUMABLE_SPEC.dragon_powder.damageMul}×`), 'dragon modal copy');
+  assert.truthy(ITEM_EFFECTS.torch.includes(`${CONSUMABLE_SPEC.torch.radiusMul}×`), 'torch item copy');
+  assert.eq(CONSUMABLE_SPEC.growth_powder.radiusM, CONSUMABLE_SPEC.rainberry.radiusM,
+    'growth powder reuses the rainberry crop radius');
+  assert.truthy(/const DRAGON_AMULET_TIER = CONSUMABLE_SPEC\.dragon_powder\.movementTier;/.test(APP_JS_SRC),
+    'dragon walking derives from the row');
+  assert.truthy(/const SPEED_POTION_AMULET_TIER = CONSUMABLE_SPEC\.speed_potion\.movementTier;/.test(APP_JS_SRC),
+    'speed-potion walking derives from the row');
+});
+
 test('effect line: a tap opens the whole description in a dialog', () => {
   const m = APP_JS_SRC.match(/\n  _effectLineEl\(text, titleHTML\) \{[\s\S]*?\n  \}\n/);
   assert.truthy(m, '_effectLineEl exists');
