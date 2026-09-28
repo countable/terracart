@@ -1137,10 +1137,6 @@ const PLAY_TIPS = [
   'A held ruin waits. Come within a few cells and the whole garrison comes at you at once — but it never strays far from its own building, so get seventy metres from the ruin and they give up and walk back to it.',
   // ── Animals — meeting them, then keeping them ───────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
-  'Chickens peck at any seed — hold one to befriend a wild chicken.',
-  'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
-  'Cats take milk, or any fish you land. Nothing else will win one over.',
-  'Dogs only follow a hunter — hold raw meat to catch one.',
   'Feed any plant or crop to a chicken or cow for an egg or milk — but only once an hour from each.',
   'Tap a tame animal to pet it. Pet a cow or chicken and for ten minutes its next yield has a coin-flip chance of doubling.',
   'Pet a tame cat and it trails after you for five minutes.',
@@ -1190,8 +1186,7 @@ const PLAY_TIPS = [
 ];
 
 // === Item special effects ====================================
-// Short, one-line disclosure for items that DO something beyond their plain
-// sell value / energy restore. Shown under the inventory bar (the inv-name
+// Short descriptions explain actions, ingredients and ambiguous collectibles. Shown under the inventory bar (the inv-name
 // strip) whenever such an item is selected, so a non-obvious power isn't a
 // secret the player only learns from a Book. Keyed by item id; absent = no
 // special effect (a plain crop / mineral that's just worth money or energy).
@@ -1205,7 +1200,7 @@ const ITEM_EFFECTS = {
   flowers:   `Gift to a shopkeeper: half prices there for ${shortDuration(SHOP_CHARM_MS)}`,
   // Foods with a side-effect when eaten (on top of their energy restore).
   rainberry: 'Eat to water every crop within 20m',
-  pairy:     'Eat to reveal the nearest unfound chest for 5 min',
+  pairy:     'Eat to reveal the nearest unfound chest for 5 min; feed to tame a wild cow',
   coffee:    'Eat to walk faster with the control stick (3 min)',
   // Universal tame treat — fed to any wild creature. Cave monsters are the
   // one exception, and the line says so: it is the only place that caveat is
@@ -1215,14 +1210,28 @@ const ITEM_EFFECTS = {
   longgrass: 'Twist 5 into a Rope on Home\'s Craft page',
   // A rock is both: an ingredient (the Craft page's kit) and a placeable
   // (interact.js 'place-rock' — held-and-tapped, so the line has to say so).
-  rockfruit: 'Set on a bare tile as a stone; 4 make a Trap Disarm Kit',
-  // The sapphire's ADVERTISED use — the one its Portal button opens, and the
-  // only one this line may name. Until Sep 2026 it read "Offer to a slime to
-  // tame it": the game's one real secret, printed on the inventory bar the
-  // instant anyone selected a sapphire, while its actual function went
-  // undescribed. The taming is hinted in exactly one place now — the closing
-  // riddle in PLAY_TIPS — which is what makes it a secret rather than a label.
-  sapphire:  'Use to open a portal one level down',
+  rockfruit: 'Set on a bare tile as a stone; rebuild houses; 4 make a Trap Disarm Kit',
+  // Name the portal and forging uses; keep slime taming in the Book's riddle.
+  sapphire:  'Open a portal one level down; forge Copper through Crimson amulets at a blacksmith',
+  emerald:   'Forge Copper through Crimson staffs at a blacksmith; Frost staffs need Diamonds',
+  ruby:      'Sell, barter, or deliver when a house requests it',
+  milk:      'Feed to tame a wild cat where it stands',
+  boot:      'Old fishing junk to sell, barter, or deliver on request; not wearable',
+  shell:     'Beach collectible to sell, barter, or deliver on request',
+  rabbit_pelt: 'Hunting trophy to sell, barter, or deliver on request',
+  forgetmenot: 'Wild flower to sell, barter, or deliver on request',
+  marigold:    'Wild flower to sell, barter, or deliver on request',
+  wildrose:    'Wild flower to sell, barter, or deliver on request',
+  starflower:  'Wild flower to sell, barter, or deliver on request',
+  copper_bar:   'Forge Copper equipment at a blacksmith',
+  iron_bar:     'Forge Iron equipment at a blacksmith',
+  gold_bar:     'Forge Gold equipment; smelt with Sunflower into Platinum at a blacksmith',
+  platinum_bar: 'Forge Platinum equipment; smelt with Fireflower into Crimson at a blacksmith',
+  crimson_bar:  'Forge Crimson equipment; smelt with Iceflower into Frost at a blacksmith',
+  frost_bar:    'Forge Frost equipment at a blacksmith',
+  sunflower:   'Edible; smelt with Gold into Platinum at a blacksmith',
+  fireflower:  'Edible; smelt with Platinum into Crimson at a blacksmith',
+  iceflower:   'Edible; smelt with Crimson into Frost at a blacksmith',
   // The Frost jewel: where it comes from and what it is for, in one line.
   diamond:   'Mined from Frost ore; Frost jewelry is cut around it',
   // The one FOOD that still works through the hard-mode zero-energy lockout
@@ -1262,12 +1271,17 @@ const ITEM_EFFECTS = {
   // say so or nothing does (the rock's line is `rockfruit`, above — its id).
   coal:         'Strike on bare ground to make a campfire',
   // The campfire's recipes (CAMPFIRE_MAKES) — nothing else says a fire cooks.
-  meat:         `Hold over a campfire to grill it: ${GRILL_ENERGY_MUL}× energy`,
-  wood:         'Hold over a campfire to make a torch',
+  meat:         `Hold over a campfire to grill it: ${GRILL_ENERGY_MUL}× energy; feed raw to tame a wild dog`,
+  wood:         'Make a torch at a campfire; craft scarecrows at Home; forge wooden equipment at a blacksmith',
 };
 // Every raw food the fire cooks says so, in the meat's words.
 for (const raw of Object.keys(COOKED_FOODS)) {
   ITEM_EFFECTS[raw] = ITEM_EFFECTS[raw] || `Hold over a campfire to cook it: ${GRILL_ENERGY_MUL}× energy`;
+}
+
+// Seeds can be offered directly to wild chickens as well as planted.
+for (const item of ITEMS.filter(item => item.kind === 'seed')) {
+  ITEM_EFFECTS[item.id] = 'Plant in a tilled bed; feed to tame a wild chicken';
 }
 
 const STARTING_ENERGY = 100;
@@ -1342,6 +1356,10 @@ const ANIMAL_FOOD = {
   // before the favourite-food path, and no "it wants X" hint ever names this.
   slime:   ['sapphire'],
 };
+for (const id of ANIMAL_FOOD.cat) {
+  if (COOKED_FOODS[id]) ITEM_EFFECTS[id] += '; feed raw to tame a wild cat';
+}
+
 function animalLikesFood(kind, foodId) {
   // Chickens peck ANY seed — they're omnivorous and the rainberry-only gate
   // felt arbitrary. Other species keep their explicit list.
