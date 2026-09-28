@@ -12,8 +12,15 @@
 //     shrubs and buried-X marks scattered all over it.
 // A filter that reads grid[] alone says "grass" for both. WorldGen.rasterizeTile
 // therefore also builds `roadMask` — the ground the overlay actually covers,
-// stamped from the same width function the overlay strokes with
+// measured from the same width function the overlay strokes with
 // (roadOverlayWidthM) — and every spawn filter consults it.
+//
+// "Road ground" is a cell the UNION of the drawn bands covers at least
+// WorldGen.ROAD_MASK_MIN_COVER (a half) of. It used to be ANY overlap; since
+// Sep 2026 a cell with a sliver of band across its edge is ground again, and
+// may host a spawn. The invariant tests below restate that rule on their own
+// (bandCover: a fine sample of the fixture's bands) rather than trusting the
+// mask to police itself.
 //
 // These tests drive the REAL rasterizer over synthetic MVT layers, so they fail
 // if any future spawner is added that checks terrain and forgets the mask.
@@ -64,7 +71,8 @@ function fixtureLayers() {
       // cells, so the mask is 3 cells wide where the paint is 1.
       { type: 2, tags: { class: 'motorway' },
         geom: [line([[32, 0], [32, CPE - 1]])] },
-      // An ordinary street — 5 m, narrower than a cell, so mask === paint.
+      // An ordinary street — 5.5 m, 79 % of the cell it runs down the
+      // middle of, so mask === paint.
       { type: 2, tags: { class: 'minor' },
         geom: [line([[0, 10], [CPE - 1, 10]])] },
       // Parking aisles: skipped by the rasterizer (they'd weld the lot into an
@@ -108,50 +116,89 @@ test('roadMask: a 5 m street masks no more than the cell it paints', () => {
   assert.eq(roadMask[11 * CPE + col], 0, 'both shoulders');
 });
 
-// The band is a CONTINUOUS stroke, not a run of whole cells — a way running
-// near a cell boundary draws asphalt into a cell its centerline never enters.
-// Those partially-covered cells must mask too (they're what made "tilled soil
-// overlapping the road" possible: underRoad is read straight off this mask).
-test('roadMask: a street straddling a cell boundary masks both cells it draws over', () => {
-  // 5 m band down the boundary between columns 19 and 20 → 2.5 m of asphalt
-  // in each. Only one of them can ever be PAINTED road; both must be masked.
-  const layers = [
+// The band is a CONTINUOUS stroke, not a run of whole cells — and a cell is
+// road only once the drawn band covers HALF of it. A band that clips a cell's
+// edge leaves it ground.
+// A tile with one landuse under a list of [class, x-in-cells] vertical ways.
+function verticalWays(ways) {
+  return [
     { name: 'landuse', features: [
       { type: 3, tags: { class: 'residential' }, geom: [wholeTile()] },
     ] },
-    { name: 'transportation', features: [
-      { type: 2, tags: { class: 'minor' },
-        geom: [[{ x: 20 * CELL_MVT, y: 0 }, { x: 20 * CELL_MVT, y: EXTENT }]] },
-    ] },
+    { name: 'transportation', features: ways.map(([cls, x]) => (
+      { type: 2, tags: { class: cls },
+        geom: [[{ x: x * CELL_MVT, y: 0 }, { x: x * CELL_MVT, y: EXTENT }]] })) },
   ];
-  const { roadMask } = WorldGen.rasterizeTile(layers, CPE, 0, 0, TILE_EDGE_M);
+}
+// The band's width in cells (the fixture's cells are exactly CELL_M = 7 m).
+const bandCells = (cls) => WorldGen.roadOverlayWidthM({ class: cls }) / 7;
+// Centre a way of class `cls` so its band spans [x0, x0 + width] in cells.
+const wayFrom = (cls, x0) => [cls, x0 + bandCells(cls) / 2];
+
+test('roadMask: the threshold is half the cell', () => {
+  assert.eq(WorldGen.ROAD_MASK_MIN_COVER, 0.5, 'a cell is road once the band covers half of it');
+});
+
+test('roadMask: a band covering ~30% of a cell leaves it ground', () => {
+  // A 2.5 m cycleway band from x = 19.943 to 20.3: 30 % of column 20.
+  const x0 = 20.3 - bandCells('cycleway');
+  const { roadMask } = WorldGen.rasterizeTile(verticalWays([wayFrom('cycleway', x0)]), CPE, 0, 0, TILE_EDGE_M);
+  assert.eq(roadMask[30 * CPE + 20], 0, 'a 30 % sliver is not road ground');
+  assert.eq(roadMask[30 * CPE + 19], 0, 'nor the 6 % the band leaves in the west neighbour');
+});
+
+test('roadMask: a band covering ~70% of a cell masks it', () => {
+  // A 6 m pedestrian band from x = 19.843 to 20.7: 70 % of column 20.
+  const x0 = 20.7 - bandCells('pedestrian');
+  const { roadMask } = WorldGen.rasterizeTile(verticalWays([wayFrom('pedestrian', x0)]), CPE, 0, 0, TILE_EDGE_M);
+  assert.eq(roadMask[30 * CPE + 20], 1, '70 % is road ground');
+  assert.eq(roadMask[30 * CPE + 19], 0, 'the 16 % spill west is not');
+  assert.eq(roadMask[30 * CPE + 21], 0, 'nor anything east of the band');
+});
+
+test('roadMask: two parallel bands, each under half, mask the cell their UNION half-covers', () => {
+  // Two 2.5 m cycleways side by side across column 20: [20.02, 20.377] and
+  // [20.35, 20.707]. Each alone covers ~36 %; together ~69 %.
+  const a = wayFrom('cycleway', 20.02), b = wayFrom('cycleway', 20.35);
+  const at = (ways) => WorldGen.rasterizeTile(verticalWays(ways), CPE, 0, 0, TILE_EDGE_M).roadMask[30 * CPE + 20];
+  assert.eq(at([a]), 0, 'the first band alone is under half');
+  assert.eq(at([b]), 0, 'the second band alone is under half');
+  assert.eq(at([a, b]), 1, 'their union is over half — coverage is summed across bands');
+  // …as a UNION: the same ground drawn twice is still the same ground.
+  assert.eq(at([a, a]), 0, 'one band stamped twice does not count double');
+});
+
+test('roadMask: a 5.5 m street straddling a cell boundary masks neither side', () => {
+  // The band runs down the boundary between columns 19 and 20 → 2.75 m of
+  // asphalt in each 7 m cell, 39 %. Neither is MOSTLY road. (One of them is
+  // still painted ROAD terrain by the rasterizer, and that cell is refused on
+  // walkability — the mask is only the half of the rule the grid can't see.)
+  const { grid, roadMask } = WorldGen.rasterizeTile(verticalWays([['minor', 20]]), CPE, 0, 0, TILE_EDGE_M);
   const row = 30;
-  assert.eq(roadMask[row * CPE + 19], 1, 'west side of the boundary masked');
-  assert.eq(roadMask[row * CPE + 20], 1, 'east side masked — the band covers 2.5 m of it');
+  assert.eq(roadMask[row * CPE + 19], 0, 'west side: 39 % is not road ground');
+  assert.eq(roadMask[row * CPE + 20], 0, 'east side neither');
+  assert.truthy(ROAD_TIERS.has(grid[row * CPE + 19]) || ROAD_TIERS.has(grid[row * CPE + 20]),
+    'the way still paints one of the two as road terrain');
+});
+
+test('roadMask: a 9 m street straddling a cell boundary masks both sides', () => {
+  // 4.5 m of a secondary's band in each 7 m cell, 64 %: both mostly road.
+  const { roadMask } = WorldGen.rasterizeTile(verticalWays([['secondary', 20]]), CPE, 0, 0, TILE_EDGE_M);
+  const row = 30;
+  assert.eq(roadMask[row * CPE + 19], 1, 'west side masked');
+  assert.eq(roadMask[row * CPE + 20], 1, 'east side masked');
   assert.eq(roadMask[row * CPE + 18], 0, 'one cell further west is open ground');
   assert.eq(roadMask[row * CPE + 21], 0, 'one cell further east too');
 });
 
-test('roadMask: a footpath hugging a cell edge masks the neighbour its band spills into', () => {
-  // 2 m footway centred half a metre west of the boundary between columns 40
-  // and 41: its band reaches 0.5 m across the line, so column 41 shows drawn
-  // path and must refuse tilling/spawns even though the way never enters it.
-  const wayX = (41 - 0.5 / 7) * CELL_MVT;
-  const layers = [
-    { name: 'landuse', features: [
-      { type: 3, tags: { class: 'residential' }, geom: [wholeTile()] },
-    ] },
-    { name: 'transportation', features: [
-      { type: 2, tags: { class: 'footway' },
-        geom: [[{ x: wayX, y: 0 }, { x: wayX, y: EXTENT }]] },
-    ] },
-  ];
-  const { roadMask } = WorldGen.rasterizeTile(layers, CPE, 0, 0, TILE_EDGE_M);
+test('roadMask: a 2 m footpath never makes road ground on its own', () => {
+  // A 2 m band is 29 % of a 7 m cell wherever it runs — a footpath's cells
+  // are PATH terrain (walkable), and with the half rule the mask no longer
+  // claims them. What lies next to a footpath is ground.
+  const wayX = 41 - 0.5 / 7;   // hugging the 40|41 boundary, spilling 0.5 m east
+  const { roadMask } = WorldGen.rasterizeTile(verticalWays([['footway', wayX]]), CPE, 0, 0, TILE_EDGE_M);
   const row = 30;
-  assert.eq(roadMask[row * CPE + 40], 1, 'the cell carrying the way is masked');
-  assert.eq(roadMask[row * CPE + 41], 1, 'the neighbour the band spills into is masked');
-  assert.eq(roadMask[row * CPE + 39], 0, 'the band stops 1 m short of the west neighbour');
-  assert.eq(roadMask[row * CPE + 42], 0, 'two cells east is open ground');
+  for (const cx of [39, 40, 41, 42]) assert.eq(roadMask[row * CPE + cx], 0, `column ${cx} is not road ground`);
 });
 
 test('roadMask: parking aisles are masked even though they paint no terrain', () => {
@@ -162,8 +209,73 @@ test('roadMask: parking aisles are masked even though they paint no terrain', ()
 });
 
 // ─── The invariant ───────────────────────────────────────────────────────────
+//
+// bandCover(cx, cy): how much of cell (cx, cy) the fixture's drawn bands cover,
+// measured here on a fine 32 × 32 grid — an independent restatement of the
+// rule, not a read of the mask. Every fixture way is axis-aligned, which is
+// where the mask's 16-sample lattice is exact to a sixteenth, so a spawn must
+// sit on a cell covered under half plus that sixteenth.
+function bandsOf(layers) {
+  const out = [];
+  for (const f of layers.find((l) => l.name === 'transportation').features) {
+    const halfW = WorldGen.roadOverlayWidthM(f.tags) / 7 / 2;
+    for (const ln of f.geom) {
+      for (let i = 1; i < ln.length; i++) {
+        out.push({ ax: ln[i - 1].x / CELL_MVT, ay: ln[i - 1].y / CELL_MVT,
+                   bx: ln[i].x / CELL_MVT,     by: ln[i].y / CELL_MVT, r2: halfW * halfW });
+      }
+    }
+  }
+  return out;
+}
+const FIXTURE_BANDS = bandsOf(fixtureLayers());
+function bandCover(cx, cy, bands = FIXTURE_BANDS) {
+  const S = 32;
+  let hit = 0;
+  for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+    const px = cx + (i + 0.5) / S, py = cy + (j + 0.5) / S;
+    for (const b of bands) {
+      const dx = b.bx - b.ax, dy = b.by - b.ay, l2 = dx * dx + dy * dy;
+      let t = l2 > 0 ? ((px - b.ax) * dx + (py - b.ay) * dy) / l2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      const qx = b.ax + t * dx - px, qy = b.ay + t * dy - py;
+      if (qx * qx + qy * qy < b.r2) { hit++; break; }
+    }
+  }
+  return hit / (S * S);
+}
+const SPAWN_COVER_MAX = WorldGen.ROAD_MASK_MIN_COVER + 1 / 16;
 
-test('no scatter object survives on a road cell or under a road band', () => {
+// The mask against the fine restatement, cell by cell: the fixture (bands
+// centred in their cells) and a layout of ways that CLIP cells — edges at
+// awkward offsets, two bands sharing a cell — so both sides of the line get
+// exercised. Axis-aligned, where the mask's lattice is good to a sixteenth.
+function assertMaskAgrees(layers, label) {
+  const { roadMask } = WorldGen.rasterizeTile(layers, CPE, 0, 0, TILE_EDGE_M);
+  const bands = bandsOf(layers);
+  let over = 0, under = 0;
+  for (let cy = 0; cy < CPE; cy++) for (let cx = 0; cx < CPE; cx++) {
+    const c = bandCover(cx, cy, bands);
+    if (c >= SPAWN_COVER_MAX) { over++; assert.eq(roadMask[cy * CPE + cx], 1, `${label} ${cx},${cy} is ${Math.round(c * 100)}% band, unmasked`); }
+    else if (c > 0 && c <= WorldGen.ROAD_MASK_MIN_COVER - 1 / 16) { under++; assert.eq(roadMask[cy * CPE + cx], 0, `${label} ${cx},${cy} is ${Math.round(c * 100)}% band, masked`); }
+  }
+  return { over, under };
+}
+test('roadMask agrees with the drawn bands: mostly covered is masked, clipped is not', () => {
+  const fx = assertMaskAgrees(fixtureLayers(), 'fixture');
+  assert.gt(fx.over, 0, 'fixture has cells mostly under a band');
+  const clip = assertMaskAgrees(verticalWays([
+    wayFrom('cycleway', 10.3 - bandCells('cycleway')),   // 30 % of column 10
+    wayFrom('pedestrian', 15.1),                          // 86 % of 15
+    ['minor', 20], ['secondary', 26],                     // straddling boundaries
+    wayFrom('track', 33.6), wayFrom('cycleway', 33.2),    // two bands sharing column 33
+    ['tertiary', 40.8],
+  ]), 'clip');
+  assert.gt(clip.over, 0, 'clip layout has cells mostly under a band');
+  assert.gt(clip.under, 0, 'clip layout has cells a band only clips');
+});
+
+test('no scatter object survives on a road cell or on ground mostly under a road band', () => {
   const { grid, objects, roadMask } = rasterize();
   let checked = 0;
   for (const o of objects) {
@@ -177,11 +289,13 @@ test('no scatter object survives on a road cell or under a road band', () => {
       `${o.kind} on road terrain at ${ix},${iy}`);
     assert.eq(roadMask[iy * CPE + ix], 0,
       `${o.kind} under the road band at ${ix},${iy}`);
+    assert.lt(bandCover(ix, iy), SPAWN_COVER_MAX,
+      `${o.kind} on a cell mostly under a drawn band at ${ix},${iy}`);
   }
   assert.gt(checked, 0, 'fixture produced scatter objects to check');
 });
 
-test('no wild plant survives on a road cell or under a road band', () => {
+test('no wild plant survives on a road cell or on ground mostly under a road band', () => {
   const { grid, wildplants, roadMask } = rasterize();
   assert.gt(wildplants.length, 0, 'fixture produced wild plants to check');
   for (const wp of wildplants) {
@@ -191,6 +305,8 @@ test('no wild plant survives on a road cell or under a road band', () => {
       `${wp.crop} on road terrain at ${ix},${iy}`);
     assert.eq(roadMask[iy * CPE + ix], 0,
       `${wp.crop} under the road band at ${ix},${iy}`);
+    assert.lt(bandCover(ix, iy), SPAWN_COVER_MAX,
+      `${wp.crop} on a cell mostly under a drawn band at ${ix},${iy}`);
   }
 });
 

@@ -30,7 +30,7 @@
 //        ── Garden Row (road) ──
 //     Band 5  RECREATION      PARK+PLAYGROUND+PITCH · CASTLE+FORT
 //
-//   Every terrain code 0..23, every interactable object kind + sub-variant,
+//   Every terrain code 0..23 (and 27, WASTELAND), every interactable object kind + sub-variant,
 //   and every fauna kind (incl. slime, wild net-gated butterfly, fishing, and
 //   released/tame pets) has a home. See docs/SANDBOX.md for the coverage matrix.
 //
@@ -236,6 +236,9 @@
       for (const [hx, hy] of [[1, 0], [7, 0], [1, 7], [7, 7]]) {
         p.cell(hx, hy, T.BUILDING); p.cell(hx + 1, hy, T.BUILDING);
       }
+      // A vacant lot across the street from the houses — WASTELAND, the
+      // unclassified landuse that plays as residential but looks like scrub.
+      p.rect(4, 5, 3, 2, T.WASTELAND);
     },
     populate(s) {
       s.house(1, 0, 9);   // blacksmith — top-left

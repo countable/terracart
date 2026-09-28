@@ -80,7 +80,9 @@ the mechanic.
   "road" is not a terrain code.** The terrain grid rasterizes a way one cell
   wide and parking aisles to nothing, so `grid[]` under-reports the road. The
   answer is **`entry.roadMask`** (built in `rasterizeTile`, stamped from
-  **`WorldGen.roadOverlayWidthM`**, the width `road_overlay.js` strokes). It
+  **`WorldGen.roadOverlayWidthM`**, the width `road_overlay.js` strokes; a
+  cell is masked once the union of the drawn bands covers
+  **`WorldGen.ROAD_MASK_MIN_COVER`** — half — of it). It
   sets no terrain; a masked cell just can't host a spawn. The other half is
   **`opts.occupied`**, a Set of flat cell indices (`cy*w+cx`) claimed by an
   object or wild plant, built once by `spawnInTile` (`scene_creatures.js`) and handed to

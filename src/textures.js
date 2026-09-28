@@ -102,6 +102,7 @@ const BIOME_TEX = {
   15: { variants: 2, draw: drawSchoolTex },       // SCHOOL — mown grass bands
   16: { variants: 2, draw: drawCommercialTex },   // COMMERCIAL — grey ceramic floor tile
   17: { variants: 1, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
+  27: { variants: 2, draw: drawWastelandTex },    // WASTELAND — dry grit + dead scrub tufts
   18: { variants: 2, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
   19: { variants: 2, draw: drawPitchTex },        // PITCH — mown stripes + chalk
   20: { variants: 2, draw: drawWetlandTex },      // WETLAND — marsh mottle + glints
@@ -762,6 +763,37 @@ function drawIndustrialTex(ctx, size, rng) {
   if (rng() < 0.5) {
     ctx.fillStyle = 'rgba(0,0,0,0.16)';
     ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 2 + rng() * 2, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawWastelandTex(ctx, size, rng) {
+  // Wasteland — abandoned lot gone to scrub: dry grit, a hairline crack or
+  // two, and a few pale dead-grass ticks. Same family as residential's
+  // concrete flecks, but looser and dustier, so a vacant lot reads as
+  // neglected ground rather than a yard.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 16; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.6 ? 'rgba(52,42,26,0.22)' : 'rgba(236,224,190,0.12)';
+    ctx.fillRect(x, y, rng() < 0.3 ? 2 : 1, 1);
+  }
+  ctx.strokeStyle = 'rgba(40,32,20,0.20)';
+  ctx.lineWidth = 1;
+  for (let c = 0; c < 2; c++) {
+    let x = rng() * size, y = rng() * size;
+    ctx.beginPath(); ctx.moveTo(x, y);
+    for (let k = 0; k < 3; k++) {
+      x += (rng() - 0.5) * 8; y += (rng() - 0.5) * 8;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  for (let t = 0; t < 4; t++) {
+    const x = 2 + Math.floor(rng() * (size - 4)), y = 3 + Math.floor(rng() * (size - 5));
+    ctx.fillStyle = 'rgba(214,196,140,0.28)';
+    ctx.fillRect(x, y - 2, 1, 2);
+    ctx.fillRect(x + 1, y - 1, 1, 1);
+    ctx.fillRect(x - 1, y - 1, 1, 1);
   }
 }
 

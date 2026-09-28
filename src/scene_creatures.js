@@ -151,7 +151,7 @@ class SceneCreatures {
           // it paints, and a parking lot's aisles paint no road cells at all.
           // This does NOT impose the frontage rule on non-residential terrain:
           // isSpawnCell returns true right after the walkable+roadMask checks
-          // for any `here !== T.RESIDENTIAL` cell (worldgen.js:132), so grass
+          // for any cell that isn't lot land (WorldGen.isLotTerrain), so grass
           // etc. only ever pays the (cheap) roadMask lookup, never the
           // frontage scan. See CLAUDE.md's road-mask invariant / FINDING 2 /
           // test/node/fauna_spawn.test.js.
@@ -288,7 +288,7 @@ class SceneCreatures {
     entry.extraTreasures = [];
     // Spawnability for all three treasure streams below is decided by
     // WorldGen.isSpawnCell (the single shared rule): walkable, off-road, and —
-    // on RESIDENTIAL cells — only near a public anchor (road/path, public area,
+    // on lot cells (residential / wasteland) — only near a public anchor (road/path, public area,
     // or POI). The `_spawnOpts` POI-anchor list was already built at the top of
     // this method for creature placement; reuse it here.
     // Guaranteed starter trail: when this tile holds the starter-trail

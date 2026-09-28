@@ -1090,6 +1090,10 @@ const COLORS = {
   24: 0x4a423b, // CAVE_FLOOR — packed earth/stone floor (walkable)
   25: 0x241f1b, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
   26: 0x9a2a10, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
+  // WASTELAND (27) — unclassified landuse (railway yards, brownfield,
+  // neighbourhood outlines). Plays as residential; looks like the abandoned
+  // scrub it is: residential's dirty concrete pulled toward dusty khaki.
+  27: 0x9a8e68, // WASTELAND  — dusty grey-ochre scrub
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
   // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately
   // darker than every real biome so "beyond the charted world" reads as the
