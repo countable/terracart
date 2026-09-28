@@ -233,6 +233,7 @@ class SceneCreatures {
     // Stash the one object rather than let that pass rebuild a near-copy: the
     // road rule has to be THE shared rule (CLAUDE.md), not a second reading of
     // it, and the POI anchors are already gathered here.
+    creatures.push(...NPC.spawn(this, entry, tx, ty, _spawnOpts));
     entry._spawnOpts = _spawnOpts;
     entry._spawned = true;
     // KEEP creatures the entry already carries. On a rebuild they are the live
@@ -240,6 +241,7 @@ class SceneCreatures {
     // by rebuildTileWithBin; the set just rolled is the same deterministic
     // draw they came from, so replacing them would only teleport them home.
     entry.creatures = entry.creatures || creatures;
+    NPC.shrineResidents(this, entry, tx, ty);
 
     // Starter loot now lives entirely in the road-side starter chests placed
     // below (entry.objects, kind:'chest' with fixedLoot). No loose groundstack
@@ -814,6 +816,8 @@ class SceneCreatures {
   // _stepT0, _nextChooseT, _homeX/Y, _faceFlip.
   wanderCreatures() {
     const now = performance.now();
+    const npcDt = this._npcTickAt == null ? 0 : Math.min(0.1, (now - this._npcTickAt) / 1000);
+    this._npcTickAt = now;
     // NOT THERE TO BE HUNTED: a Shadow Powder's minute, or a bar run to zero.
     // isUnnoticed() ORs the two (see it for why they are one state), and
     // everywhere a hostile would take an interest in the player reads THIS —
@@ -964,7 +968,11 @@ class SceneCreatures {
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
       const ddx = c.x - px, ddy = c.y - py;
-      if (ddx * ddx + ddy * ddy > RANGE_SQ) return;
+      if (ddx * ddx + ddy * ddy > RANGE_SQ) {
+        if (c.kind === 'npc') c._moving = false;
+        return;
+      }
+      if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
       // HUNTS FOR THE PLAYER: a tame pet, or a summoned ally (the spirit
       // raven, conjured by a potion — yours without being tame). One flag

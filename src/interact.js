@@ -524,7 +524,7 @@ const TAP_HANDLERS = [
     const UNDER_FEET_PAD_M = 0.3;          // a little grace below the art's bottom row
     // Per-kind horizontal grab half-width (m) — the old footprint-tuned radii.
     const HALF_W = {
-      cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
+      npc: 1.8, cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
       slime: 2.0, cave_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
@@ -564,6 +564,7 @@ const TAP_HANDLERS = [
     // the lit-area ⇔ tap-accept invariant (QC §7). Gated on the FOOT cell
     // (target.x, target.y) so reach matches the lit highlight, not the body.
     if (tooFar(ctx, target.x, target.y)) return 'far';
+    if (target.kind === 'npc') { NPC.interact(scene, target, sx, sy); return true; }
 
     // MANGO — the universal tame treat. Feeding a mango to ANY wild creature
     // (livestock, cats/dogs, even pests like slimes / crows / deer) befriends

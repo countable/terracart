@@ -4229,9 +4229,14 @@ Render.drawObjects = function drawObjects(scene) {
     // frameMs / frames / hop / float / foot / scale). A chain like that is
     // where two kinds sharing a sheet quietly drift apart, which is why the
     // TINT was pulled into the table before it.
-    const texKey = creatureSheet(c.kind);
+    const npcArt = c.kind === 'npc' ? SL.npcAppearance(c, performance.now()) : null;
+    const texKey = npcArt ? npcArt.sheet : creatureSheet(c.kind);
     const anim = creatureAnim(c.kind);
-    if (anim) {
+    if (npcArt) {
+      s.anims?.stop();
+      if (s.texture.key !== texKey) s.setTexture(texKey, npcArt.frame);
+      else s.setFrame(npcArt.frame);
+    } else if (anim) {
       // An animated kind: Phaser owns the cycle (the anims are defined in
       // app.js create()), so the frame is never set here.
       if (setTextureIfDifferent(s, texKey)) s.play(anim);
@@ -4270,7 +4275,7 @@ Render.drawObjects = function drawObjects(scene) {
     // A softened lair guard is drawn smaller (creatureInstScale).
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
-    s.setFlipX(!!c._faceFlip);
+    s.setFlipX(npcArt ? false : !!c._faceFlip);
     // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
     // sheen. Pooled sprites keep their last tint, so set an explicit colour
     // every frame (white for the common, plain case). A foe the Frost Powder
@@ -4280,7 +4285,7 @@ Render.drawObjects = function drawObjects(scene) {
     // (SpriteLayout.CAVE_SLIME_TINT). Frozen and shiny still win over it —
     // both say something about this INSTANCE, which outranks what it is.
     const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
-    s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : creatureTint(c.kind));
+    s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
     Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
     // sprite keeps whatever alpha its last creature wore.

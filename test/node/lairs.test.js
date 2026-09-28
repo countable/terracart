@@ -293,9 +293,9 @@
     assert.eq(SpriteLayout.creatureTint('giant_cave_slime'), SpriteLayout.CAVE_SLIME_TINT,
       'a giant inherits its base kind\'s tint');
     // The renderer must READ that, not branch on the kind.
-    assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : c\.shiny \? SHINY_TINT : creatureTint\(c\.kind\)\)/
+    assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
       .test(RENDER_SRC), 'render.js tints a creature from the table, not a blanket white');
-    assert.truthy(/const texKey = creatureSheet\(c\.kind\);/.test(RENDER_SRC),
+    assert.truthy(/const texKey = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(RENDER_SRC),
       'and picks the monster sheet from the table, not an if-else chain');
   });
 

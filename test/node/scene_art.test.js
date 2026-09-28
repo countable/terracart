@@ -137,8 +137,9 @@ test('pixel resolve: an uncached painting resolves out of its tone, then fades i
 });
 
 test('preload: every kind painting is warmed after boot, at the address the shell draws', () => {
-  assert.truthy(/const sceneArtUrl = \(stem\) => `assets\/art\/\$\{stem\}\.webp`;/.test(MODAL_SHELL_SRC_TEXT),
-    'one address for a painting');
+  assert.eq(sceneArtUrl('house'), 'assets/art/house.webp', 'one address for a painting');
+  const portrait = 'data:image/png;base64,dGVzdA==';
+  assert.eq(sceneArtUrl(portrait), portrait, 'generated tinted portraits keep their data URL');
   assert.falsy(/`assets\/art\/\$\{art\}\.webp`/.test(MODAL_SHELL_SRC_TEXT), 'the shell builds no second one');
   const i = APP_JS_SRC.indexOf('  _prewarmModalIcons() {');
   const body = APP_JS_SRC.slice(i, APP_JS_SRC.indexOf('\n  }\n', i));
