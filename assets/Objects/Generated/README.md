@@ -31,6 +31,7 @@ yet).
 |---|---|---|
 | hedge_end.png | end-cap for a hedge row (matches `sprites_32.png`'s hedges, at 16px) — rounded clipped-hedge block, redone to fill the frame | generated placeholder (gpt-image-2, down-res'd; redone) — replace with hand art when available |
 | waystone.png | small weathered roadside waystone/milestone, carved cross, mossy — redone squat and wide | generated placeholder (gpt-image-2, down-res'd; redone) — replace with hand art when available |
+| headstone.png | grave marker with a cross — tap may raise a ghost; 20% hold a one-off low-tier treasure (Old Stones zones) | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
 | barricade.png | bandit-style cheval-de-frise: sharpened stakes jutting from a lashed log — redone wider/chunkier | generated placeholder (gpt-image-2, down-res'd; redone) — replace with hand art when available |
 | shrine.png | small lichened stone shrine, tiny green flame, moss look (the only aspect kept — owner cut the blossom/moon/thicket variants) | generated placeholder (gpt-image-2, down-res'd; 16x24) — replace with hand art when available |
 | flint.png | ground-pickup flint nodule, flat flake look (the most distinct of the three candidate looks — owner cut the chipped and rounded-lump variants) | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
