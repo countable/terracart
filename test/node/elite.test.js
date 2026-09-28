@@ -12,29 +12,21 @@ function seeded(seed) {
   };
 }
 
-test('elite: a shiny cave monster has double HP; nothing else does', () => {
-  assert.eq(Combat.ELITE_MUL, 2, 'double, per the rule');
-  for (const kind of Object.keys(MONSTERS)) {
-    const plain = { kind, id: 'p', shiny: false };
-    const elite = { kind, id: 'e', shiny: true };
-    assert.eq(Combat.isElite(elite), true, kind + ' shiny is an elite');
-    assert.eq(Combat.isElite(plain), false, kind + ' plain is not');
-    assert.eq(Combat.eliteMul(elite), 2, kind + ' elite multiplier');
-    assert.eq(Combat.eliteMul(plain), 1, kind + ' plain multiplier');
-    assert.eq(Combat.maxHp(plain), MONSTERS[kind].hp, kind + ' plain max = table');
-    assert.eq(Combat.maxHp(elite), MONSTERS[kind].hp * 2, kind + ' elite max = 2× table');
-    assert.eq(Combat.hp(elite), MONSTERS[kind].hp * 2, kind + ' elite seeds its pool at 2×');
-    // Half the pool gone reads as half a health bar — the bar is against the
-    // instance's max, not the kind's.
-    Combat.damage(elite, MONSTERS[kind].hp);
-    assert.eq(Combat.hpFraction(elite), 0.5, kind + ' elite bar at half after table-hp damage');
+test('elite: only eligible rows double HP and damage; armour remains the same', () => {
+  assert.eq(Combat.ELITE_MUL, 2);
+  for (const row of EnemyRoster.ROWS) {
+    const plain = { kind: row.id, shiny: false };
+    const elite = { kind: row.id, shiny: true };
+    const multiplier = row.eliteEligible ? 2 : 1;
+    assert.eq(Combat.isElite(elite), row.eliteEligible);
+    assert.eq(Combat.maxHp(plain), row.hp);
+    assert.eq(Combat.maxHp(elite), row.hp * multiplier);
+    assert.eq(Combat.powerMul(elite), multiplier);
+    const removed = Combat.damageDealt(elite, row.hp);
+    assert.eq(removed, Math.min(row.hp * multiplier, Combat.mitigate(row.hp, row.armor)));
+    assert.eq(Combat.hpFraction(elite), (row.hp * multiplier - removed) / (row.hp * multiplier));
   }
-  // The surface slime and game animals never become elites, shiny or not.
-  assert.eq(Combat.isElite({ kind: 'slime', shiny: true }), false, 'shiny surface slime is not an elite');
-  assert.eq(Combat.maxHp({ kind: 'slime', shiny: true }), Combat.creatureMaxHp('slime'),
-    'and keeps its own fauna HP');
-  assert.eq(Combat.isElite({ kind: 'deer', shiny: true }), false, 'a shiny deer is game, not an elite');
-  assert.eq(Combat.maxHp({ kind: 'deer', shiny: true }), Combat.creatureMaxHp('deer'), 'unchanged HP');
+  assert.falsy(Combat.isElite({ kind: 'deer', shiny: true }));
 });
 
 test('elite: the bounty pays per HP, so an elite pays double the wage', () => {
@@ -99,9 +91,9 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
   assert.inRange(SHINY_RATE.monster, 0.001, 0.5, 'monsters have a shiny rate');
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
-  assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: isShiny\(id, SHINY_RATE\.monster\) \}\)\)/.test(spawn),
+  assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemyRoster\.get\(kind\)\.eliteEligible && isShiny\(id, SHINY_RATE\.monster\) \}\)\)/.test(spawn),
     'spawnCaveCreatures stamps shiny off the stable id at the monster rate');
-  assert.truthy(/const dmg = m\.dmg \* Combat\.powerMul\(c\) \* Difficulty\.get\(\)\.enemyDmgMul;/.test(app),
+  assert.truthy(/const dmg = m\.dmg \* Combat\.powerMul\(c\);/.test(app),
     'the monster hit is scaled by Combat.powerMul — elite × lair (and the mode)');
   assert.truthy(/c\._hp = Combat\.maxHp\(c\);/.test(app), 'the heal refills to the instance max');
   assert.falsy(/c\._hp = Combat\.creatureMaxHp\(c\.kind\)/.test(app),

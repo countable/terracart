@@ -200,7 +200,7 @@ test('cave extras: monsters roam the whole level, not just the stair mouths', ()
   const scene = { tileEdgeM: 1600, save: { caught: [] } };
   new Function('entry', 'tx', 'ty', 'depth', BODY).call(scene, entry, 0, 0, 1);
   const m = 1600 / NN;
-  const far = entry.creatures.filter(c => c.id.startsWith('mon_'))
+  const far = entry.creatures.filter(c => Combat.isEnemy(c))
     .filter(c => Math.max(c.x / m, c.y / m) > 60);
   assert.gt(far.length, 40, 'plenty of foes far from the only stair');
   const ids = new Set(entry.creatures.map(c => c.id));

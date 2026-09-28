@@ -271,4 +271,40 @@ const ASSETS = {
   house_wreck:      { kind: 'image', path: 'assets/Objects/Houses/Wreck.png?v=1' },
 };
 
+// Enemy sheets and colour variants share the approved roster with the catalogue.
+// Recolour luminance instead of multiplying RGB: dark red art must be able to
+// become bright cyan. Alpha and the original source files remain untouched.
+function recolorEnemyPixels(pixels, palette) {
+  const rgb = (hex) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  const stops = ['#000000', palette.shadow, palette.mid, palette.highlight].map(rgb);
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (!pixels[i + 3]) continue;
+    const luma = (0.2126 * pixels[i] + 0.7152 * pixels[i + 1] + 0.0722 * pixels[i + 2]) / 255;
+    const t = Math.pow(luma, palette.gamma ?? 1) * 3;
+    const segment = Math.min(2, Math.floor(t));
+    const a = stops[segment], b = stops[segment + 1];
+    const f = t - segment;
+    for (let ch = 0; ch < 3; ch++) pixels[i + ch] = Math.round(a[ch] + (b[ch] - a[ch]) * f);
+  }
+  return pixels;
+}
+if (typeof EnemyRoster !== 'undefined') {
+  for (const row of EnemyRoster.ROWS) {
+    const { path, frameWidth, frameHeight } = row.art;
+    ASSETS[row.id] = { kind: 'spritesheet', path, frameWidth, frameHeight };
+    if (row.palette) ASSETS[row.id].onLoad = (scene) => {
+      const src = scene.textures.get(row.id).getSourceImage();
+      const canvas = document.createElement('canvas');
+      canvas.width = src.width; canvas.height = src.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(src, 0, 0);
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      recolorEnemyPixels(image.data, row.palette);
+      ctx.putImageData(image, 0, 0);
+      scene.textures.remove(row.id);
+      scene.textures.addSpriteSheet(row.id, canvas, { frameWidth, frameHeight });
+    };
+  }
+}
+window.recolorEnemyPixels = recolorEnemyPixels;
 window.ASSETS = ASSETS;

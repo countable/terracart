@@ -1,70 +1,36 @@
-// The cave-enemy difficulty rule (src/combat.js › MONSTERS + CAVE_ENEMY_MUL).
-//
-// The first slime is the tutorial. The wild surface slime is the only enemy
-// above ground and the first one anybody meets — a crop pest you can walk away
-// from. Every enemy BEYOND it is underground, met by a player who went looking
-// for it, and those are twice the foe: double HP, double damage.
-//
-// The rule is applied as one multiplier over the authored baseline rather than
-// as retuned numbers, so what these tests defend is that it is applied — once,
-// to the two stats it is about, and to every kind in the table including any
-// added later. run.js lifts both the doubled table and the baseline literal out
-// of app.js, so this runs against the real shipping numbers.
-
-// Wrapped in an IIFE: every *.test.js shares one global scope in the runner.
+// Approved enemy roster owns final stats, declared habitats and variant limits.
 (() => {
-  const msKinds = Object.keys(MONSTERS_BASELINE);
-
-  test('cave enemies: the table is authored at a baseline and doubled from it', () => {
-    assert.eq(CAVE_ENEMY_MUL, 2, 'double, per the rule');
-    assert.gt(msKinds.length, 0, 'there are kinds to check');
-    for (const kind of msKinds) {
-      const base = MONSTERS_BASELINE[kind], live = MONSTERS[kind];
-      assert.truthy(live, `${kind} survives into the live table`);
-      assert.eq(live.hp, base.hp * CAVE_ENEMY_MUL, `${kind} hp is doubled`);
-      assert.eq(live.dmg, base.dmg * CAVE_ENEMY_MUL, `${kind} dmg is doubled`);
-    }
-  });
-
-  test('cave enemies: doubling touches HP and damage, nothing else', () => {
-    // Range, speed, depth gating and spawn weight are not difficulty knobs the
-    // rule is about — doubling a goblin archer's REACH, or its share of the
-    // spawn table, would be a different (and much worse) game.
-    for (const kind of msKinds) {
-      const base = MONSTERS_BASELINE[kind], live = MONSTERS[kind];
-      for (const k of ['range', 'speed', 'minDepth', 'weight', 'name']) {
-        assert.eq(live[k], base[k], `${kind}.${k} is untouched`);
+  test('roster: combat uses approved values without cave or giant multipliers', () => {
+    assert.eq(CAVE_ENEMY_MUL, 1);
+    for (const row of EnemyRoster.ROWS) {
+      const live = Combat.monster(row.id);
+      for (const key of ['hp', 'armor', 'dmg', 'tier', 'range', 'damageIntervalSeconds', 'attackHits']) {
+        assert.eq(live[key], row[key], `${row.id}.${key}`);
       }
+      assert.eq(Combat.sightCells(row.id), row.visionCells);
+      assert.eq(Combat.spawnsUnderground(row.id), !!row.cave && row.attackType !== 'touch');
     }
   });
-
-  test('cave enemies: every one of them hurts, and none is free to kill', () => {
-    // A kind added to the table with no stats would slip through the loop as
-    // NaN and quietly become unkillable / harmless.
-    for (const kind of msKinds) {
-      assert.gt(MONSTERS[kind].hp, 0, `${kind} has HP`);
-      // A LAYER (the goblin trapper, `lays: 'trap'`) lands no blow of its own
-      // — its snares do the hurting (the trap's bite, Traps.STEP_ENERGY) — so
-      // "hurts" is a blow OR a trap, and a row with neither is the bug.
-      assert.truthy(MONSTERS[kind].dmg > 0 || !!MONSTERS[kind].lays,
-        `${kind} deals damage, or lays something that does`);
+  test('roster: surface tiers stop at three and at least half are dungeon-only', () => {
+    let dungeonOnly = 0;
+    for (const row of EnemyRoster.ROWS) {
+      assert.gt(row.hp, 0);
+      if (row.surface) assert.lte(row.tier, 3, row.id);
+      if (row.cave && !row.surface) dungeonOnly++;
     }
+    assert.gte(dungeonOnly, EnemyRoster.ROWS.length / 2);
   });
-
-  test('cave enemies: the first slime is NOT one of them', () => {
-    // The surface slime is the tutorial fight and keeps its own numbers: it is
-    // fauna, not a monster-table kind, so the multiplier can never reach it.
-    assert.falsy(MONSTERS.slime, 'the surface slime is not in the monster table');
-    assert.eq(Combat.creatureMaxHp('slime'), Combat.FAUNA_HP.slime,
-      'and still answers from the fauna ladder');
+  test('roster: legacy giant saves resolve without entering spawn or quest pools', () => {
+    assert.truthy(Combat.monster('giant_goblin'));
+    assert.falsy(Combat.spawnsUnderground('giant_goblin'));
+    assert.falsy(Combat.enemyKinds().includes('giant_goblin'));
+    assert.eq(Combat.monster('giant_plant').hp, EnemyRoster.get('giant_plant').hp);
   });
-
-  test('cave enemies: a doubled foe still pays a bounty, and a bigger one', () => {
-    // enemyBounty derives from hp, so doubling the pool doubles the wage for
-    // a fight that now takes twice as long. Relational, not a pinned number.
-    for (const kind of msKinds) {
-      const base = Math.max(1, Math.round(MONSTERS_BASELINE[kind].hp * ENEMY_COIN_PER_HP));
-      assert.gte(enemyBounty(kind, 0), base, `${kind} pays at least what it used to`);
+  test('roster: elites respect eligibility and never stack with size variants', () => {
+    for (const row of EnemyRoster.ROWS) {
+      const c = { kind: row.id, shiny: true };
+      assert.eq(Combat.isElite(c), row.eliteEligible);
+      assert.eq(Combat.maxHp(c), row.hp * (row.eliteEligible ? 2 : 1));
     }
   });
 })();

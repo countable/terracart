@@ -108,15 +108,9 @@ test('combat: melee dps reproduces the OLD timed wheel exactly', () => {
   }
 });
 
-test('combat: the surface slime is the softest enemy in the game', () => {
-  // It is the FIRST enemy — met above ground, often with no sword at all — so
-  // nothing hostile may be cheaper to kill than it is. Pinned against the real
-  // monster table rather than a literal, so a soft new cave kind fails here
-  // rather than quietly stealing the tutorial foe's job.
-  for (const kind of Object.keys(MONSTERS)) {
-    assert.gt(Combat.creatureMaxHp(kind), Combat.creatureMaxHp('slime'),
-      `${kind} should be tougher than the surface slime`);
-  }
+test('combat: the surface slime and minis remain approachable', () => {
+  assert.eq(Combat.creatureMaxHp('slime'), 10);
+  assert.lt(Combat.creatureMaxHp('mini_slime'), Combat.creatureMaxHp('slime'));
   // And bare hands still finish it: the tier-0 rung is 9000 ms per 15 HP.
   const bareMs = (Combat.creatureMaxHp('slime') / Combat.meleeDps({})) * 1000;
   assert.lt(bareMs, 9000, 'a bare-handed slime kill is under the old 9 s');
@@ -269,7 +263,7 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
     'the flee window is the shared constant, not a hand-typed number');
 
   // And the player's own blow turns it round at once — but only once.
-  const dmg = app.slice(app.indexOf("_damageEnemy(c, amount, source = 'player') {"));
+  const dmg = app.slice(app.indexOf("_damageEnemy(c, amount, source = 'player'"));
   const dmgHead = code(dmg.slice(0, dmg.indexOf('c._hurtUntilT')));
   assert.truthy(/const wasCharging = slimeCharging\(c\);[\s\S]*c\._lastDamagedT = Date\.now\(\);/
     .test(dmgHead), 'the "was it already charging" question is asked before the stamp');
@@ -984,24 +978,12 @@ test('combat: off the GPS the player attacks a third softer, through the one att
 // Goblins see further than slimes: every slime (the surface one, the cave
 // kinds, their giants) notices the player only within SLIME_SIGHT_CELLS, and
 // every goblin across the whole sim bubble (CREATURE_SIM_CELLS).
-test('sight: slimes are short-sighted, goblins see across the bubble', () => {
-  const S = Combat.SLIME_SIGHT_CELLS;
-  assert.gt(S, 0, 'a slime sees something');
-  assert.lt(S, 12, 'and less than the sim bubble (CREATURE_SIM_CELLS 12), or it is no limit');
-  for (const k of ['slime', 'cave_slime', 'purple_slime', 'giant_cave_slime', 'giant_purple_slime']) {
-    assert.eq(Combat.sightCells(k), S, `${k} is a slime`);
-  }
-  for (const k of ['goblin', 'goblin_archer', 'goblin_trapper', 'giant_goblin']) {
-    assert.gt(Combat.sightCells(k), 12, `${k} sees past the bubble's edge`);
-    assert.gt(Combat.sightCells(k), Combat.sightCells('slime'), `${k} sees further than a slime`);
-  }
-  const m = 7;
-  assert.truthy(Combat.seesPlayer('slime', S * m, m), 'a slime sees to the edge of its sight');
-  assert.falsy(Combat.seesPlayer('slime', (S + 0.5) * m, m), 'and not past it');
-  assert.truthy(Combat.seesPlayer('goblin', 11.9 * m, m), 'a goblin sees you from the bubble edge');
-  // A ranged kind must be able to see as far as it shoots, or it would fire
-  // at a player it is not stalking.
-  for (const k of Object.keys(MONSTERS)) {
-    assert.gte(Combat.sightCells(k), MONSTERS[k].range, `${k} sees at least its own range`);
+test('sight: each approved kind uses its declared vision', () => {
+  for (const row of EnemyRoster.ROWS) {
+    const sight = row.visionCells, m = 7;
+    assert.eq(Combat.sightCells(row.id), sight);
+    assert.truthy(Combat.seesPlayer(row.id, sight * m, m));
+    assert.falsy(Combat.seesPlayer(row.id, (sight + 0.5) * m, m));
+    assert.gte(sight, row.range);
   }
 });

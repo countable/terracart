@@ -467,31 +467,16 @@ test('tips: the chest rings and the depth step are the ones loot.js applies', ()
 });
 
 test('books: the derelict-lair tip is re-derived from lairs.js', () => {
-  // A hard-mode ruin's garrison is invisible until you are standing in it, and
-  // the RULE behind it — the same garrison for everyone, more for a bigger
-  // building, softer guards near Home — is not visible at all. So it is
-  // Book-documented, and the figures the sentence quotes come from the module
-  // that owns them.
-  assert.eq(Lairs.LAIR_FAR_M, 1000, 'the tip says "a kilometre out"');
+  // Garrisons and their enemies are shared across player modes.
   assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 15, 'the tip says "can hide fifteen"');
-  // And the sentence's claim is the module's actual answer, not a nearby one.
-  assert.eq(Lairs.capFor(12, 1), 15,
-    'a castle at full strength no longer holds the fifteen the tip promises');
-  assert.gt(Lairs.TIER_GUARDS[12], Lairs.TIER_GUARDS[9],
-    'the tip says "the bigger the building the bigger the garrison"');
-  // The Home nerf: "a fifth of their strength" at Home, full a kilometre out.
-  assert.eq(Lairs.lairMulFor(0), 1 / 5, 'the tip says "a fifth of their strength" near home');
-  assert.eq(Lairs.lairMulFor(Lairs.LAIR_FAR_M), 1, 'and "full strength a kilometre out"');
-  assert.truthy(someTip(/a castle can hide fifteen/i), 'a tip names the ceiling');
-  assert.truthy(someTip(/a fifth of their strength, at full strength a kilometre out/i),
-    'and the Home nerf');
-  // No safe ring is promised any more — a ruin by Home is held like any other.
-  assert.falsy(someTip(/a dozen cells of home/i), 'the retired safe ring is gone from the Book');
-  // It has to say WHICH GAME it is describing: easy has no lairs at all
-  // (Difficulty derelictLairs), and a Book is read in both modes.
+  assert.eq(Lairs.capFor(12, 1), 15);
+  assert.gt(Lairs.TIER_GUARDS[12], Lairs.TIER_GUARDS[9]);
   const tip = PLAY_TIPS.find((t) => /a castle can hide fifteen/i.test(t));
-  assert.truthy(/^On hard,/.test(tip), 'the tip must name the mode — it is false on easy');
-  assert.falsy(Difficulty.PROFILES.easy.derelictLairs, 'which is only worth saying while easy has none');
+  assert.truthy(/^In either mode,/.test(tip), 'garrisons occur in both modes');
+  assert.truthy(Difficulty.PROFILES.easy.derelictLairs);
+  assert.truthy(Difficulty.PROFILES.hard.derelictLairs);
+  assert.falsy(/a fifth of their strength|full strength a kilometre out/i.test(tip),
+    'do not promise per-player changes to shared enemy stats');
   // THE ODDS — the part that makes looking in a building worth doing, and the
   // part a player can least infer: an empty ruin looks exactly like one they
   // have not reached yet. Re-derived from the table the roll uses.
@@ -503,13 +488,13 @@ test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   // WHAT is in there is the tier's answer, and it is re-derived from the same
   // ladder table the guards are rolled off — a tip that still promised slimes
   // in a castle would send a player in expecting the wrong fight.
-  const family = (tier) => new Set(Lairs.kindsAt(tier, 1).map(
-    (k) => (/^goblin/.test(k) ? 'goblin' : /slime$/.test(k) ? 'slime' : k)));
-  assert.eq([...family(9)].join(), 'slime', 'a wrecked house is squatted by slimes');
-  assert.eq([...family(11)].join(), 'goblin', 'a fort is held by goblins');
-  assert.eq([...family(12)].join(), 'goblin', 'and so is a castle');
-  assert.truthy(/houses are squatted by slimes/i.test(tip), 'the tip names the wreck\'s family');
-  assert.truthy(/forts and castles are held by goblins/i.test(tip), 'and the fortification\'s');
+  assert.eq(Lairs.kindsAt(9, 1).join(), 'slime');
+  for (const tier of [11, 12]) {
+    assert.eq(Lairs.kindsAt(tier, 1).join(), 'goblin,goblin_archer,giant_skeleton');
+  }
+  assert.truthy(/houses are squatted by slimes/i.test(tip));
+  assert.truthy(/forts and castles hold goblins, archers and giant skeletons/i.test(tip));
+
 });
 
 test('books: the chase tip is re-derived from the leash lairs.js owns', () => {

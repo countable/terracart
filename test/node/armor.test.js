@@ -287,3 +287,40 @@ test('boots: protect against the trap bite and ongoing bleed', () => {
   assert.truthy(APP_JS_SRC.includes('Combat.playerDamage(bite, { boots: this.save.armor?.boots })'));
   assert.truthy(APP_JS_SRC.includes('Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt'));
 });
+
+test('armor: enemy armour uses the player mitigation engine and returns actual damage', () => {
+  const c = { kind: 'skeleton' }, raw = 10;
+  const before = Combat.hp(c);
+  const actual = Combat.damageDealt(c, raw);
+  assert.eq(actual, Combat.mitigate(raw, Combat.monster(c.kind).armor));
+  assert.eq(Combat.hp(c), before - actual);
+  const left = Combat.damage(c, 0.25, { bypassArmor: true });
+  assert.eq(left, before - actual - 0.25);
+  assert.eq(Combat.damageDealt(c, 10000), left, 'overkill popups report only HP removed');
+});
+
+test('armor: Hard penalty applies once after mitigation and aura damage is frame independent', () => {
+  const armor = { boots: { tier: 7 }, helmet: { tier: 7 } };
+  const easy = Combat.playerDamage(12, armor, 1, 'easy');
+  assert.eq(Combat.playerDamage(12, armor, 1, 'hard'), easy * 2.5);
+  assert.eq(Combat.playerDamage(24, armor, 2, 'hard'), easy * 2 * 2.5);
+  const whole = Combat.playerDamageRate(2, armor, 1, { mode: 'hard' });
+  const tick = Combat.playerDamageRate(2, armor, 0.01, { mode: 'hard' });
+  assert.inRange(tick * 100, whole - 1e-9, whole + 1e-9);
+  assert.lt(tick, 1, 'fractional rate has no per-frame minimum');
+});
+
+test('armor: the real damage handler preserves fractional ghost light burn across frames', () => {
+  const start = APP_JS_SRC.indexOf("  _damageEnemy(c, amount, source = 'player'");
+  assert.gte(start, 0);
+  const end = APP_JS_SRC.indexOf('\n  }\n', start) + '\n  }'.length;
+  const damageEnemy = new Function('ENEMY_HEALTH_RING_MS', 'DMG_POPUP_BEAT_MS',
+    'return ({' + APP_JS_SRC.slice(start, end) + '})._damageEnemy;')(1000, 100);
+  const scene = { _popDamageNumber() {}, resolveDefeat() { throw new Error('fractional burn killed too soon'); } };
+  const split = { kind: 'ghost' }, whole = { kind: 'ghost' };
+  const total = 2;
+  for (let frame = 0; frame < 60; frame++) damageEnemy.call(scene, split, total / 60, 'light');
+  damageEnemy.call(scene, whole, total, 'light');
+  assert.inRange(Combat.hp(split), Combat.hp(whole) - 1e-9, Combat.hp(whole) + 1e-9);
+  assert.eq(Combat.hp(whole), Combat.maxHp(whole) - total);
+});

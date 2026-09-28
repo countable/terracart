@@ -563,13 +563,9 @@ const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
 // real foe once app.js had booted and handed the table over, and every
 // headless test of one ran on a copy lifted out of this file by regex.
 
-// THE GOBLIN TRAPPER'S CADENCE — one snare per archer's arrow
-// (Combat.MONSTER_SHOT_INTERVAL_MS, 10 s): the garrison's two ranged rungs
-// work at one pace, and at Traps.LAID_MAX out it has a full set down in half
-// a minute. Its lay RANGE is its keep distance (its MONSTERS row `range`)
-// plus TRAPPER_LAY_SLACK_CELLS — it lays while it closes to that ring, not
-// only once it stands on it.
-const TRAPPER_LAY_MS = Combat.MONSTER_SHOT_INTERVAL_MS;
+// The trapper's interval and wind-up live on its enemy roster row. A laid
+// snare may occupy a point on the approach up to this many cells beyond the
+// row's preferred distance; the AI still acquires targets at declared range.
 const TRAPPER_LAY_SLACK_CELLS = 2;
 // THE MAGIC TRAP (traps.js MAGIC TRAP note): what it does to the enemy that
 // steps on it, both DERIVED —
@@ -3142,9 +3138,8 @@ class MapScene extends Phaser.Scene {
     // springTrap: a laid snare springs on its record and mints no save id.
     if (Traps.springTrap(this.save, trap)) {
       const before = this.save.energy ?? 0;
-      // Hard mode bites harder on first contact (Difficulty.trapBiteMul,
-      // 2.5x — 10⚡ base becomes 25⚡). The bleed rate (STAND_ENERGY_PER_S)
-      // is untouched by mode.
+      // The raw trap is shared. Combat.playerDamage applies the receiving
+      // player's Hard penalty after boots mitigate both bite and bleed.
       // A laid snare bites at its trapper's power (Traps.trapPower — the
       // Home nerf reaches it); a generated trap at 1.
       // Only boots protect against traps; apply their soak before banking pips.
@@ -3250,7 +3245,7 @@ class MapScene extends Phaser.Scene {
 
   // ── The goblin trapper's snares ───────────────────────────────────────────
   // A trapper (Combat.monsterLays) that has noticed the player lays a snare
-  // every TRAPPER_LAY_MS on an EMPTY cell on the line between them
+  // at its declared attack interval on an EMPTY cell on the line between them
   // (Traps.layPoints — midpoint first, never either body's own cell), up to
   // Traps.LAID_MAX live snares of its own at once. The cell must pass
   // Traps.canLay (walkable on the live grid, off the drawn road, under no
@@ -3265,6 +3260,7 @@ class MapScene extends Phaser.Scene {
     if (typeof Traps === 'undefined') return;
     if (c._nextLayT && now < c._nextLayT) return;
     const m = Combat.monster(c.kind);
+    const layIntervalMs = m.damageIntervalSeconds * 1000;
     const dist = Math.hypot(px - c.x, py - c.y);
     if (dist > ((m?.range || 1) + TRAPPER_LAY_SLACK_CELLS) * this.cellM) return;
     const wall = Date.now();
@@ -3279,7 +3275,7 @@ class MapScene extends Phaser.Scene {
       }
     }
     if (Traps.laidOut(ring, c.id, wall) >= Traps.LAID_MAX) {
-      c._nextLayT = now + TRAPPER_LAY_MS;
+      c._nextLayT = now + layIntervalMs;
       return;
     }
     const same = (a, b) => a.tx === b.tx && a.ty === b.ty && a.ix === b.ix && a.iy === b.iy;
@@ -3297,7 +3293,7 @@ class MapScene extends Phaser.Scene {
       // every other blow a guard lands — Traps.trapPower reads it back.
       Traps.layTrap(entry, cell.tx, cell.ty, entry.tileEdgeM || this.tileEdgeM,
         cell.ix, cell.iy, c.id, wall, this.depth || 0, Combat.powerMul(c));
-      c._nextLayT = now + TRAPPER_LAY_MS;
+      c._nextLayT = now + layIntervalMs;
       return;
     }
     // Nowhere on the line will take one (rock, road, the player too close):
@@ -4724,7 +4720,15 @@ class MapScene extends Phaser.Scene {
   // caller, where the blow's own shield/armour inputs are.
   _losePlayerEnergy(dmg, { closeShop = false } = {}) {
     const before = this.save.energy ?? 0;
-    Energy.set(this.save, before - dmg);
+    if (!(before > 0) || !(dmg > 0)) return 0;
+    // Hard's post-armour penalty can leave half-pips. Bank them across hits
+    // instead of rounding every attack into a different damage rate.
+    this._incomingDamageFraction = (this._incomingDamageFraction || 0) + dmg;
+    const whole = Math.floor(this._incomingDamageFraction + 1e-9);
+    this._incomingDamageFraction -= whole;
+    if (!whole) return 0;
+    Energy.set(this.save, before - whole);
+    if (!this.save.energy) this._incomingDamageFraction = 0;
     const lost = before - this.save.energy;
     this._flashPlayerHit(lost);
     if (closeShop) this._closeShopOnHit();
@@ -4787,6 +4791,7 @@ class MapScene extends Phaser.Scene {
     this._boltUsed = 0;
     for (const s of this._shots) {
       const spec = Combat.SHOT[s.slot];
+      if (s.projectile === 'blight_magic') { s.dotPx = 3; s.color = 0x85e64b; }
       const head = this.worldMetersToScreen(s.x, s.y);
       // Shots travel between FOOT positions (that's where the player and every
       // creature are anchored), but drawing them down at ankle height would
@@ -5045,9 +5050,10 @@ class MapScene extends Phaser.Scene {
   // feeds the existing 20-minute regen in wanderCreatures, so a foe you wound
   // and abandon does heal back up. `source` names the killer for
   // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
-  _damageEnemy(c, amount, source = 'player') {
+  _damageEnemy(c, amount, source = 'player', options = {}) {
     if (!(amount > 0)) return false;
-    const left = Combat.damage(c, amount);
+    const dealt = Combat.damageDealt(c, amount, (source === 'lava' || source === 'light') ? { bypassArmor: true } : options);
+    const left = Combat.hp(c);
     // Asked BEFORE the stamp below, which is what makes it "was it already
     // charging" rather than "is it a slime".
     const wasCharging = slimeCharging(c);
@@ -5072,7 +5078,7 @@ class MapScene extends Phaser.Scene {
     // frame with a fraction of a point — see DMG_POPUP_BEAT_MS. The kill blow
     // flushes whatever the throttle was still holding, so the numbers a fight
     // shows always sum to the HP it took.
-    c._dmgPopupAccum = (c._dmgPopupAccum || 0) + amount;
+    c._dmgPopupAccum = (c._dmgPopupAccum || 0) + dealt;
     const dead = left <= 0;
     if (dead || now >= (c._dmgPopupNextT || 0)) {
       const n = Math.round(c._dmgPopupAccum);
@@ -8958,8 +8964,12 @@ class MapScene extends Phaser.Scene {
       if (caughtSet.has(c.id)) return;
       inside.push(c);
     });
-    const step = BLIGHT_DPS * dt;
-    for (const c of inside) this._damageEnemy(c, step);
+    // Mitigate one logical second, then integrate the rate. Applying a
+    // minimum-one hit every frame would turn an aura into hundreds of DPS.
+    for (const c of inside) {
+      const rate = Combat.mitigate(BLIGHT_DPS, Combat.monster(c.kind)?.armor || 0);
+      this._damageEnemy(c, rate * dt, 'player', { bypassArmor: true });
+    }
   }
 
   // True while a Dragon Powder is active. The buff is a 1-minute in-memory

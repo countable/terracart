@@ -67,7 +67,7 @@
     assert.falsy(saZone(saScene({ save: null })), 'and a missing save is not a crash');
   });
 
-  test('pest amnesty: the spawner DROPS both pests, and only pests', () => {
+  test('pest amnesty: crows are culled and all enemy kinds use the personal overlay', () => {
     // The spawner's whole use of the zone is one line; run.js hands its source
     // text over so this can't drift silently. Both pest kinds must be in it —
     // checking one and shipping was exactly the previous gap. It CULLS
@@ -76,7 +76,11 @@
     // the one player with a grace running (CLAUDE.md "Every player sees the
     // SAME generated world" — per-player state may hide a thing, never move
     // the others).
-    assert.truthy(PEST_FREE_GUARD_SRC.includes("kindStr === 'slime'"), 'slimes are dropped');
+    const c = { kind: 'slime', id: 'enemy_guard', _surfaceSpawn: { x: 0, y: 0, tx: 0, ty: 0, cx: 1, cy: 1 } };
+    const scene = { _pestFreeZone: () => ({ has: () => true }) };
+    assert.falsy(EnemySpawns.surfaceActive(scene, c));
+    assert.truthy(c._surfaceInactive);
+    assert.falsy(Combat.isEnemy(c), 'hidden enemy is not a combat target');
     assert.truthy(PEST_FREE_GUARD_SRC.includes("kindStr === 'crow'"), 'and so are crows');
     assert.truthy(PEST_FREE_GUARD_SRC.includes('return'), 'culled');
     assert.falsy(PEST_FREE_GUARD_SRC.includes('continue'), 'never re-rolled onto another cell');

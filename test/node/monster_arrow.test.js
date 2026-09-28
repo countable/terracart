@@ -102,23 +102,11 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   // The trigger and the cadence consts are wanderCreatures' (scene_creatures.js,
   // the SceneCreatures mixin); the shot list and _shotHitsPlayer are app.js's.
   const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
-  assert.truthy(/if \(clear && m\.range > 1 && ddx \* ddx \+ ddy \* ddy <= R \* R\s*\n\s*&& \(!c\._nextShotT \|\| now >= c\._nextShotT\)\) \{/.test(app),
-    'a ranged monster fires on its own clock, inside its range, with a clear line');
-  assert.truthy(/c\._nextShotT = now \+ Combat\.MONSTER_SHOT_INTERVAL_MS;/.test(app),
-    'at the turret cadence');
-  // The slower cadence costs no damage per minute: one arrow carries the hits
-  // the leech would have landed in the same time, derived from the two
-  // cadences rather than typed in.
-  assert.truthy(/const MONSTER_ARROW_HITS = Combat\.MONSTER_SHOT_INTERVAL_MS \/ MONSTER_HIT_MS;/.test(app),
-    'MONSTER_ARROW_HITS is the ratio of the two cadences');
-  assert.truthy(/const dmg = m\.dmg \* MONSTER_ARROW_HITS \* Combat\.powerMul\(c\) \* Difficulty\.get\(\)\.enemyDmgMul;/.test(app),
-    'and the arrow carries that many hits');
-  const hitMs = Number(app.match(/const MONSTER_HIT_MS = (\d+);/)[1]);
-  assert.eq(Combat.MONSTER_SHOT_INTERVAL_MS / hitMs, 5, 'five hits an arrow at today\'s cadences');
-  assert.truthy(/const shot = Combat\.monsterShot\(c\.x, c\.y, px, py, this\.cellM, dmg, MONSTER_ARROW_HITS\);\s*\n\s*if \(shot\) this\._shots\.push\(shot\);/.test(app),
-    'the arrow joins the one shot list, carrying its hit COUNT as well as its damage');
-  assert.truthy(/\} else if \(clear && m\.range <= 1 && ddx \* ddx \+ ddy \* ddy <= R \* R/.test(app),
-    'the melee leech is now for range-1 kinds only — an archer never double-dips');
+  assert.truthy(CREATURE_AI_SRC.includes("if (row.attackType === 'projectile')"));
+  assert.truthy(CREATURE_AI_SRC.includes('raw * row.attackHits, row.attackHits'));
+  assert.truthy(CREATURE_AI_SRC.includes('enemyAttackReady(c, row, now, eligible)'));
+  assert.eq(EnemyRoster.get('goblin_archer').attackHits, 1);
+  assert.falsy(CREATURE_AI_SRC.includes('enemyDmgMul'), 'Hard belongs to the recipient at impact');
   assert.truthy(/const playerTarget = \{ id: 'player', x: px, y: py \};/.test(app),
     'the player is the hostile target, at the feet');
   assert.truthy(/\(target, shot\) => \(shot\.hostile \? this\._shotHitsPlayer\(shot\)\s*\n\s*: this\._damageEnemy\(target, shot\.damage, Combat\.shotSource\(shot\)\)\)/.test(app),
@@ -139,24 +127,11 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
     'it comes off energy, and rolls into the monsters-hit flash');
 });
 
-// ── The archer's trigger range IS the staff's range ─────────────────────────
-// A flat 3-cell trigger let the archer open fire from further than a
-// low-reach player could ever answer from, and never got any closer as the
-// player upgraded their reach. It is the player's own live ring now — the
-// exact number Combat.rangeCellsFor('staff', reachCells(this)) resolves — so
-// the archer can never outrange your own ranged weapon, and it tracks the
-// same Inner-Light growth / underground tightening the staff does.
-test('monster arrow: the ranged trigger radius is the player\'s live reach, same as the staff', () => {
-  const app = SCENE_CREATURES_SRC;   // the trigger is wanderCreatures'
-  assert.truthy(
-    /const rangeCells = m\.range > 1 \? Combat\.rangeCellsFor\('staff', reachCells\(this\)\) : m\.range;/.test(app),
-    'a ranged kind\'s trigger radius is resolved off the SAME call the staff uses for its own range');
-  assert.truthy(/const R = rangeCells \* this\.cellM;/.test(app), 'and that IS the radius the trigger checks');
-  // The melee branch (range 1, adjacent) is untouched — only a ranged kind's
-  // radius is derived from reach.
-  const reach25 = Combat.rangeCellsFor('staff', 2.5);   // starting surface reach
-  assert.eq(reach25, 3.5, 'a fresh save\'s archer trigger is 3.5 cells, one more than the old flat 3');
-  const reach55 = Combat.rangeCellsFor('staff', 5.5);   // maxed Inner Light
-  assert.gt(reach55, reach25, 'and it grows with the player\'s own reach upgrades, like the staff\'s bolt');
+// Attack ranges are declared independently of the player's equipment.
+test('monster arrow: the ranged trigger radius comes from the enemy row', () => {
+  assert.truthy(CREATURE_AI_SRC.includes('dist <= row.range * scene.cellM'));
+  assert.eq(EnemyRoster.get('goblin_archer').range, 3);
+  assert.eq(EnemyRoster.get('succubus').range, 4);
+  assert.falsy(CREATURE_AI_SRC.includes("rangeCellsFor('staff'"));
 });
 })();

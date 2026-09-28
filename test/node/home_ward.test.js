@@ -183,10 +183,9 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
   // for the same thing — one read, three reasons (CLAUDE.md).
   assert.truthy(/const standDown = warded \|\| /.test(wander),
     'standDown is built from warded');
-  assert.truthy(/if \(c\.kind === 'slime' && !isTame &&[^)]*!standDown\) \{/.test(wander),
-    "the slime's leech is off inside the ring");
-  assert.truthy(/if \(Combat\.isMonster\(c\.kind\) &&[^)]*!standDown\) \{/.test(wander),
-    "and so is a monster's melee and its arrow");
+  assert.truthy(wander.includes('rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt)'),
+    'all roster attacks receive the combined ward and unnoticed gate');
+
 });
 
 test('ward: away-from-home actually LEAVES, from anywhere in the ring', () => {
@@ -328,8 +327,8 @@ test('ward: the ring is one number, and Home out-rests and out-reaches a fire', 
 
 test('fire ward: the depth cap is a named number, and the real table agrees with it', () => {
   assert.eq(FIRE_WARD_MAX_DEPTH, 1, 'only the first cave level is warded off by fire');
-  assert.lte(MONSTERS.cave_slime.minDepth, FIRE_WARD_MAX_DEPTH, 'cave slime is warded');
-  assert.lte(MONSTERS.purple_slime.minDepth, FIRE_WARD_MAX_DEPTH, 'purple slime is warded');
+  assert.lte(MONSTERS.cave_slime.tier, FIRE_WARD_MAX_DEPTH, 'cave slime is warded');
+  assert.lte(MONSTERS.purple_slime.tier, FIRE_WARD_MAX_DEPTH, 'purple slime is warded');
   assert.gt(MONSTERS.goblin.minDepth, FIRE_WARD_MAX_DEPTH, "a goblin is past a campfire's reach");
   assert.gt(MONSTERS.goblin_archer.minDepth, FIRE_WARD_MAX_DEPTH, 'so is its archer');
   // Giants are pushed GIANT_DEPTH_STEP deeper than their base kind, so none of
@@ -340,26 +339,13 @@ test('fire ward: the depth cap is a named number, and the real table agrees with
   }
 });
 
-test('fire ward: wanderCreatures reads the same cap the table is built on', () => {
-  assert.truthy(
-    /const fireAverts = !c\.lair && \(c\.kind === 'slime' \|\|\s*\(isMon && \(mon\.minDepth \|\| 1\) <= FIRE_WARD_MAX_DEPTH\)\);/.test(wander),
-    'the surface slime and any monster at or under the depth cap are averted');
-  assert.truthy(/if \(fireAverts && this\._nearAny\('fires', tx, ty, FIRE_REST_R\)\) continue;/.test(wander),
-    "a refused target cell, exactly like the scarecrow ward above it — a fire never triggers a home-style flee");
-  // The fire ward never gates a monster's ATTACK the way warded does — it
-  // only keeps a warded kind from wandering closer, so a monster already in
-  // range when the fire is lit can still land its hit. Weaker than Home on
-  // purpose: a campfire is a field expedient, not a doorstep.
-  assert.falsy(/Combat\.isMonster\(c\.kind\) && !unnoticed && !standDown && !fireAverts/.test(wander),
-    "a monster's attack check is untouched by the fire ward");
-  assert.truthy(/Combat\.isMonster\(c\.kind\) && !unnoticed && !standDown\) \{/.test(wander),
-    'and the gate it is absent from is the one that ships');
-  // Nor does it reach a LAIR GUARD — `!c.lair` is the first thing it asks. A
-  // campfire cannot empty a ruin (a goblin garrison is past the depth cap
-  // anyway; this covers the slime ones), and more to the point a guard walking
-  // home past a fire would have all six attempts refused and freeze in the
-  // street — the scarecrow stall, arriving through the ward it warns about.
-  assert.truthy(/const fireAverts = !c\.lair &&/.test(wander),
-    'a garrison is not wandering fauna and the fire ward skips it');
+test('fire ward: roster movement checks the tier cap and excludes lair guards', () => {
+  const scene = { cellM: 7, _cellBlocked: () => false,
+    cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }), _nearAny: () => true };
+  for (const kind of ['slime', 'cave_slime', 'purple_slime']) {
+    assert.falsy(enemyCanStep(scene, { kind }, EnemyRoster.get(kind), 0, 0), kind + ' refuses the fire ring');
+    assert.truthy(enemyCanStep(scene, { kind, lair: 'guard' }, EnemyRoster.get(kind), 0, 0), kind + ' guard can return through fire');
+  }
+  assert.truthy(enemyCanStep(scene, { kind: 'goblin' }, EnemyRoster.get('goblin'), 0, 0));
 });
 })();

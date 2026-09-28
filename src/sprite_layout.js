@@ -33,6 +33,7 @@
 (function (root) {
   'use strict';
   const CELL_PX = 32;
+  const roster = root.EnemyRoster || (typeof require === 'function' ? require('./enemy_roster.js') : null);
 
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
@@ -366,28 +367,45 @@
     // its shadow and bobbing slowly — `airborne`, so the shadow reads small.
     ghost:         { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hop: true, hopMs: 1600, hopPx: 3, airborne: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 6,  minY: 10, maxY: 21, tint: GHOST_TINT, alpha: GHOST_ALPHA, glow: GHOST_GLOW },
   };
-  // ── GIANTS ────────────────────────────────────────────────────────────────
-  // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
-  // times the HP, two levels deeper). A giant has NO art of its own: it is its
-  // base kind's sheet drawn GIANT_ART_SCALE larger. So there is no giant row in
-  // CREATURE_ART — creatureArt() below resolves a giant to the base row with
-  // its scale multiplied, and every consumer (the renderer's scale and foot,
-  // the wheel and health-bar seating, interact.js's tap box) goes through it.
-  // One number here is what makes the drawn size, the tap box and the wheel
-  // seat agree; a second 1.8 anywhere is the drift the crown rule warns about.
+  // New art consists of four 16px idle frames. Bounds measured from frame 0;
+  // the audit checks these against the shipped pixels. Old 32px goblins and
+  // purple slime retain their existing geometry and animation.
+  const enemyBounds = { slime: [5, 16], cave_slime: [5, 16], bat: [3, 11],
+    vampire_bat: [3, 11], spider: [1, 16], poison_spider: [1, 16],
+    ghost: [1, 15], pink_ghost: [1, 15] };
   const GIANT_PREFIX = 'giant_';
-  const GIANT_ART_SCALE = 1.8;
-  function isGiantKind(kind) { return typeof kind === 'string' && kind.startsWith(GIANT_PREFIX); }
-  // The kind whose art (and, in app.js, whose quest credit) a kind draws on.
-  function baseKind(kind) { return isGiantKind(kind) ? kind.slice(GIANT_PREFIX.length) : kind; }
+  const GIANT_ART_SCALE = roster?.GIANT_SCALE ?? 1.6;
+  function isGiantKind(kind) { return roster?.get(kind)?.variantType === 'Giant'
+    || (typeof kind === 'string' && kind.startsWith(GIANT_PREFIX)); }
+  function baseKind(kind) { return roster?.get(kind) ? roster.baseKind(kind)
+    : isGiantKind(kind) ? kind.slice(GIANT_PREFIX.length) : kind; }
+  if (roster) for (const row of roster.ROWS) {
+    if (row.variantOf) continue;
+    const old = CREATURE_ART[row.id];
+    const fw = row.art.frameWidth, fh = row.art.frameHeight;
+    const [minY, maxY] = enemyBounds[row.id] || [0, 16];
+    const flying = ['orbit_swoop', 'ghost_glide'].includes(row.movement.pattern);
+    const ghost = row.movement.pattern === 'ghost_glide';
+    CREATURE_ART[row.id] = fw === 32 ? { ...old, sheet: row.id === 'goblin_trapper' ? 'goblin' : row.id }
+      : { sheet: row.id, frames: 4, frameMs: flying ? 120 : 240,
+        fw, fh, scale: 2, foot: maxY / fh, minY, maxY,
+        float: flying ? 6 : 0, airborne: flying,
+        ...(ghost ? { hop: true, hopMs: 1600, hopPx: 3,
+          alpha: GHOST_ALPHA, glow: GHOST_GLOW } : {}) };
+    CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : 0xffffff;
+  }
   const _giantArt = {};
-  // The CREATURE_ART row for `kind` — the base row, scaled up, for a giant.
   function creatureArt(kind) {
-    if (!isGiantKind(kind)) return CREATURE_ART[kind];
+    if (CREATURE_ART[kind]) return CREATURE_ART[kind];
     if (_giantArt[kind]) return _giantArt[kind];
+    const row = roster?.get(kind);
     const base = CREATURE_ART[baseKind(kind)];
-    if (!base) return undefined;
-    return (_giantArt[kind] = { ...base, scale: base.scale * GIANT_ART_SCALE });
+    if (!base || (!row?.variantOf && !isGiantKind(kind))) return undefined;
+    const scale = row?.variantType === 'Mini' ? roster.MINI_SCALE
+      : isGiantKind(kind) ? GIANT_ART_SCALE : 1;
+    return (_giantArt[kind] = { ...base, scale: base.scale * scale,
+      sheet: row && (row.palette || row.tint) ? row.id : base.sheet,
+      tint: row?.tint ? parseInt(row.tint.slice(1), 16) : base.tint });
   }
 
   // ── CREATURE BEHAVIOUR ────────────────────────────────────────────────────
@@ -482,6 +500,11 @@
     ghost:         { wanders: true, haunts: true },
   };
   // The behaviour row for `kind` — the base row for a giant, like its art.
+  if (roster) for (const row of roster.ROWS) {
+    if (row.variantOf) continue;
+    CREATURE_BEHAVIOUR[row.id] = { ...CREATURE_BEHAVIOUR[row.id], wanders: true,
+      ...(row.movement.pattern === 'ghost_glide' ? { haunts: true } : {}) };
+  }
   function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[baseKind(kind)]; }
   // Does this kind think at all? wanderCreatures culls on it before anything
   // else, so a kind with no row is furniture.
@@ -558,7 +581,7 @@
   // drawn smaller (Lairs.guardDrawScale); everything else is 1.
   function creatureInstScale(c) {
     const L = (typeof Lairs !== 'undefined') ? Lairs : null;
-    return L && L.guardDrawScale ? L.guardDrawScale(c) : 1;
+    return (L && L.guardDrawScale ? L.guardDrawScale(c) : 1) * (c._artScale ?? c.artScale ?? 1);
   }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
   // The sheet a kind is drawn from, and how many frames of its row-0 cycle the
