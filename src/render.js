@@ -3167,11 +3167,9 @@ Render.drawObjects = function drawObjects(scene) {
                 if (o.caveVariant != null || tier <= 1) {
                   return SpriteLayout.plainRockFrame(o);   // row 15, cols 3..6
                 }
-                // T2-T7 → ore-stone column. Index by yieldTier; col 4 is
-                // skipped in the art (copper 0, iron 1, gold 2, platinum 3,
-                // crimson 5, frost 6).
-                const ORE_COL_BY_TIER = [0, 0, 0, 1, 2, 3, 5, 6];
-                return ORE_COL_BY_TIER[tier] ?? 0;   // row 0, so frame === col
+                // MINERAL_TIERS owns the ore-stone column beside the bar the
+                // rock pays. Row 0 means the sheet frame equals that column.
+                return mineralRockFrame(tier);
               },
               // Origin (0.5, 0.5) — centre the sprite in its cell. The
               // previous (0.5, 0.9) foot-anchor was meant for standing

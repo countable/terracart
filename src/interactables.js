@@ -272,9 +272,6 @@ const INTERACTABLES = {
     complete: (ctx, o) => {
       const { scene, save } = ctx;
       scene.brokenRockSet.add(o.id);
-      // Slot 0/1 unused for the primary drop (ore starts at copper = T2); each
-      // tier T2+ yields its OWN namesake bar.
-      const BARS = ['', 'copper_bar', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
       const isCave = o.caveVariant != null;
       const isPlain = isCave || (o.yieldTier || 1) <= 1;
       if (isPlain) {
@@ -289,7 +286,7 @@ const INTERACTABLES = {
         let flashId = 'rockfruit';
         for (let t = 2; t <= 7; t++) {
           if (Math.random() < 1 / (2 * t * t)) {
-            const bar = BARS[t];
+            const bar = mineralBarId(t);
             if (bar) { scene.addToInv(bar, 1); flashId = bar; }
           }
         }
@@ -308,7 +305,7 @@ const INTERACTABLES = {
       // nugget and a tier-rolled gem on T4+.
       scene.addToInv('coal', randInt(1, 2));
       const t = o.yieldTier || 1;
-      const primaryBar = BARS[t] || 'copper_bar';
+      const primaryBar = mineralBarId(t) || mineralBarId(2);
       scene.addToInv(primaryBar, 1);
       let flashId = primaryBar;
       let gemsFound = 0;

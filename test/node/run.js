@@ -174,7 +174,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   BIKE_RACK_SPEED_MUL, BIKE_RACK_MS, steerSpeedMul,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
-  CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MAX_GROWTH_STAGE, PRODUCE_COL,
+  CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, mineralRockFrame, mineralBarId,
+  MAX_GROWTH_STAGE, PRODUCE_COL,
   // The other half of the crop table: what a WILD plant does when tapped —
   // what it drops, which relic times its wheel, what that costs, the bonus it
   // hides and whether it glows. wildplant_table.test.js drives the accessors,

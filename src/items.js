@@ -10,6 +10,7 @@
 // Exports as globals:
 //   CROP_ROW, MAX_GROWTH_STAGE, PRODUCE_COL, SEEDBOX_COL, CROPS_SHEET_COLS
 //   SPRING_CROPS_COLS, CROP_SPRITE, wildplantFrame, inventoryIconSource
+//   MINERAL_TIERS, mineralRockFrame, mineralBarId
 //   CROP_NAMES, ITEMS, ITEM_BY_ID
 //   PRICES, BUY_LIST, STARTING_MONEY
 //   NON_TILLABLE, isTillable, isTillableCell   (which ground takes a hoe)
@@ -242,6 +243,22 @@ const COOKED_FOODS = {
 // a sheet key (resolved to a real .png path by the SHEETS table in
 // app.js' renderItemIcon) plus a frame index. One line per item; the
 // renderer handles the rest. Used by trader / shop / inventory modals.
+// Ore-bearing rock identity. One row owns the material shown, paid and
+// catalogued because changing any one without the others lies to the player.
+// The mineralrock sheet's top row orders copper through platinum at columns
+// 0..3, leaves column 4 for unrelated art, then puts crimson/frost at 5/6.
+// Yield tier 1 is a plain rock and therefore has no row or namesake bar.
+const MINERAL_TIERS = Object.freeze({
+  2: Object.freeze({ barId: 'copper_bar',   rockFrame: 0 }),
+  3: Object.freeze({ barId: 'iron_bar',     rockFrame: 1 }),
+  4: Object.freeze({ barId: 'gold_bar',     rockFrame: 2 }),
+  5: Object.freeze({ barId: 'platinum_bar', rockFrame: 3 }),
+  6: Object.freeze({ barId: 'crimson_bar',  rockFrame: 5 }),
+  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 6 }),
+});
+function mineralRockFrame(tier) { return MINERAL_TIERS[tier]?.rockFrame ?? 0; }
+function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }
+
 const MINERAL_ICON_SHEET = {
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
   wood:     { sheet: 'wood',      frame: 2 },
@@ -464,10 +481,9 @@ const BASE_TIER = {
   // gear tier (sunflower → Platinum recipes, fireflower → Crimson,
   // iceflower → Frost). Tier follows gear_tier - 1.
   sunflower: 4, fireflower: 5, iceflower: 6,
-  // Smelted metal bars dropped by mineralrocks. Each tier is the recipe
-  // ingredient for that tier's tool/weapon/armor at the blacksmith.
-  copper_bar: 2, iron_bar: 3, gold_bar: 4,
-  platinum_bar: 5, crimson_bar: 6, frost_bar: 7,
+  // Mineral bars inherit the same tier that chooses their rock art and drop.
+  ...Object.fromEntries(Object.entries(MINERAL_TIERS)
+    .map(([tier, row]) => [row.barId, Number(tier)])),
   // Wild produce / animal output
   longgrass: 1, flowers: 1, mushroom: 1, boot: 1,
   // Rare wild flora — foraged flowers, climbing from meadow-common
