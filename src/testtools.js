@@ -314,10 +314,12 @@
     },
 
     // 6) Open a chest. Stand adjacent, tap, expect entry in save.opened AND
-    //    at least one new inventory entry.
+    //    at least one new inventory entry. A one-off chest only: a daily crate
+    //    (interactables.js refillsDaily) spends into the day ledger instead.
     async open_chest() {
       const s = S();
-      const chest = nearestObject(o => o.kind === 'chest' && !s.save.opened.includes(o.id));
+      const chest = nearestObject(o => o.kind === 'chest' && !refillsDaily(o) && !chestNeverSpent(o)
+        && !s.save.opened.includes(o.id));
       if (!chest) return { name: 'open_chest', pass: false, details: 'no unopened chest' };
       teleportAdjacent(chest, 'south', 1);
       const invLenBefore = (s.save.inv || []).length;

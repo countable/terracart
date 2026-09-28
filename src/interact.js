@@ -1028,14 +1028,16 @@ const TAP_HANDLERS = [
 
   { name: 'object', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    const openedSetTap = new Set(save.opened);
+    // Spent chests (opened for good, or a daily crate taken today) sort last,
+    // off the one test the draw pass hides them by (interactables.js isSpent).
+    const spentTap = spentSets(scene, save);
     const allObjs = [];
     // Wrap push in a block so we don't return its truthy result —
     // forEachItem treats any truthy return as "stop iterating".
     WorldGen.forEachItem('objects', (o) => { allObjs.push(o); });
     allObjs.sort((a, b) => {
-      const ao = a.kind === 'chest' && openedSetTap.has(a.id) ? 1 : 0;
-      const bo = b.kind === 'chest' && openedSetTap.has(b.id) ? 1 : 0;
+      const ao = a.kind === 'chest' && isSpent(a, spentTap) ? 1 : 0;
+      const bo = b.kind === 'chest' && isSpent(b, spentTap) ? 1 : 0;
       return ao - bo;
     });
     // Match render.js exactly: deterministic dedupe by game cell so the tap-target set
@@ -1730,13 +1732,13 @@ const TAP_HANDLERS = [
       if (pp) blocker = `${cropName(pp.crop)} grows here.`;
     }
     if (!blocker) {
-      const openedSet = new Set(save.opened || []);
+      const spentTill = spentSets(scene, save);
       for (const e of WorldGen.tileCache.values()) {
         const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
         if (wp) { blocker = `Pick the ${cropName(wp.crop)} first.`; break; }
         const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
-          !(o.kind === 'chest' && openedSet.has(o.id) && !chestNeverSpent(o)) &&
+          !(o.kind === 'chest' && isSpent(o, spentTill)) &&
           !(o.kind === 'tree' && (o.chopped || choppedSet.has(o.id))) &&
           Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
         if (oo) { blocker = tillBlockerLine(oo); break; }

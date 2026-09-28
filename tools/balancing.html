@@ -53,6 +53,9 @@
   .note{background:#15130f;border-left:3px solid var(--gold);padding:6px 10px;margin:8px 0}
   .note ul{margin:4px 0;padding-left:18px;color:var(--mute)}
   .note li{margin:2px 0}
+  details>summary{cursor:pointer}
+  details.explain{margin:6px 0}
+  details.explain>summary{color:var(--mute)}
   .kpis{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
   .kpi{background:#221d17;border:1px solid #3a322a;border-radius:5px;padding:6px 10px;min-width:120px}
   .kpi b{display:block;color:#ffd866;font-size:16px}
@@ -74,17 +77,20 @@
 
 <section id="world">
   <h2>World per tile — what the generator places</h2>
+  <details class="explain"><summary>How these figures are built</summary>
   <p>The Kelowna 3×3 fixture block (the test suite's tiles), rasterized live in this page with the shipping
      <code>WorldGen.rasterizeTile</code> and the scene's own <code>spawnInTile</code>, exactly as
      <a href="map-review.html">map review</a> builds them. Home is placed far off the block, so no starting area
      is counted. Figures are per tile, averaged over the tiles loaded, unless the row says otherwise.</p>
+  </details>
   <div class="controls"><button id="wGo">Rebuild tiles</button>
     <label id="wZonesL" style="display:none" title="src/zones.js exists but index.html does not load it yet; worldgen reads Zones at call time, so loading it here previews what ships once it is wired in">
       <input type="checkbox" id="wZonesPreview" checked> preview src/zones.js (not in index.html yet)</label>
     <span id="wStatus" style="color:var(--gold)">waiting for the loot tables…</span></div>
-  <div class="note">
-    <b style="color:var(--gold)">What changed recently</b> (world rules the figures below reflect)
+  <details class="note">
+    <summary><b style="color:var(--gold)">What changed recently</b> (world rules the figures below reflect)</summary>
     <ul>
+      <li><b>Daily crates</b>: the low-tier <b>crate</b> (the <code>box</code> look — a surface POI chest of chest tier 1: not a starter crate, wagon, stall, macro or cauldron) now <b>refills every UTC day</b> at its normal tier, spent in the coin-burst day ledger (<code>refillsDaily</code>). Every other chest (trunks, wagons, nexus chests, cave chests, starter chests) and every X mark / headstone hoard is still <b>one-off</b>. A crate, the chapel's alms and a grove shrine's gift <b>glow</b> (the POI light) while today's take is there. Recurring value if every one were taken daily (36 saved tiles, Home at the block's centre): crate ≈ $8, chapel ≈ $28–34, shrine ≈ $10 per take; per 9-tile city per day — Kelowna 96 crates / 15 chapels / 37 shrines ≈ $1.6k, Vancouver 838 / 31 / 75 ≈ $8.5k, Seattle 767 / 48 / 46 ≈ $8.0k, Berlin 3,517 / 50 / 105 ≈ $30.6k (crates are 80–90% of it).</li>
       <li>Unclassified landuse is <b>WASTELAND</b> terrain (was painted as residential).</li>
       <li>Road mask stamps a cell when the drawn band covers <b>≥ 50%</b> of it.</li>
       <li>Surface traps only on <b>bandit stretches</b> of major roads (~1/3 of each street's ~200 m stretches, <code>ROAD_CLASS_BANDIT_VERGE</code>) at <b>6×</b> the ground share, <b>+ wasteland</b>; per-tile totals ~1.5× the old whole-verge rule. Residential streets are safe.</li>
@@ -103,7 +109,7 @@
       <li>A dog whose spawn draw was only blocked by a generated piece is <b>seated on the bandit verge</b> instead of lost.</li>
       <li><b>Macro stalls</b>: in-building POIs are no longer chests but places you come back to (looks <code>macro_inn</code>, <code>macro_chapel</code>, <code>macro_apothecary</code>, <code>macro_scriptorium</code>, <code>macro_guildhall</code>, <code>macro_curio</code>, <code>macro_sundries</code>, <code>macro_training</code> in "chests by look"; never opened, no gem, no pad). Inn (lodging) rests to full once a day at half a Vigor potion's coins per energy; chapel (place of worship) pays a daily roll <b>one tier under</b> the chest (+1 nexus in a churchyard); apothecary (pharmacy / dentist / hospital) sells one T2 potion + the antidote; scriptorium (library / college) sells Books + a torch (no free page); apothecary, sundries and scriptorium are <b>plain stalls</b> (<code>ShopsMath.standPrice</code>, the market stall's own counter); guildhall (town hall / police / fire station) posts one <b>monster bounty</b> a day — 1–3 surface foes (slime → goblin / archer by weapon tier) seated ~5 cells off by <code>findWalkableDestination</code>; each kill pays its <code>enemyBounty</code> coin and clearing pays the wages again (surface: $2 at tier 0–1, up to $21–30 at tier 6–7); curio hall (museum / theatre / cinema) pays <b>no coin</b>: one shared list of 22 lasting items, a <b>memory</b> at 5 / 10 / 15 given; sundries (generic <code>shop</code>) sells one supply item; training hall (sports centre / yoga) sells +1% damage for good (to +25%) or +10% for 24 h. A <code>shop</code> whose MVT <b>subclass</b> names produce (convenience, florist, coffee, confectionery…) is now a <b>market stall</b> first.</li>
     </ul>
-  </div>
+  </details>
   <div id="wScope" class="scope"></div>
   <div id="wKpis" class="kpis"></div>
   <div id="wErrors" class="err"></div>

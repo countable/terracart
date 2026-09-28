@@ -1129,6 +1129,12 @@ const PLAY_TIPS = [
   'Sand is dug ground: a beach hides X marks far thicker than the streets and fields inland.',
   'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
   'Chests near home pay humbler: whatever their gem, they give a tier less within 700m of your trailer, two within 350m. The prizes are a walk away.',
+  // THE DAILY CRATE (interactables.js refillsDaily): the gemless crate comes
+  // back every UTC day at its own tier (the coin-burst day ledger); every
+  // other chest, and every X mark, is one-off (save.opened / foundTreasures).
+  'A plain crate refills every day, at midnight UTC. A trunk, a wagon, a cave chest or an X mark gives once, for good.',
+  // The POI light (interactables.js poiLit) — one mark for "still there today".
+  'A chest, crate, chapel or park shrine that glows still has something for you. Take it and the light goes out until the day turns.',
   'One stone in ten gathered off the ground hides a gemfruit.',
   'Every new kind of thing you discover brings back a memory, and a full tank with it. Unspent, they hum with a power you might yet learn to use.',
   'A shiny flower or tree is worth ten times the money, and brings back a memory with it.',

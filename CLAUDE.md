@@ -55,6 +55,10 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
+- Chests give ONCE (`save.opened`), except what recurs daily: low-tier
+  crates (`refillsDaily`), chapels and grove shrines take the UTC-day ledger
+  (`Macros.markToday` / `usedToday`) and glow while available (`poiLit`). A new
+  daily thing joins that ledger and that glow, never a list of its own.
 - Derive generated ids/seeds from tile + local cell or OSM id, never array
   indices, timestamps or save-relative metres. The transient pest crow is the
   id exception. Per-save salts may vary rewards, not positions;

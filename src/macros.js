@@ -13,9 +13,11 @@
 // never "picked clean". Only the player's USE is saved, in one of three
 // lanes that already existed or are this module's own:
 //   • the DAY LEDGER — save.coinBurstClaimed[id + Delivery.dayKey()], the
-//     coin-burst / grove-shrine ledger, pruned of other days on every write
-//     (inn, chapel, the guildhall's bounty). A chest id in it is NOT spent
-//     (interactables.js isSpent — a macro is never spent);
+//     coin-burst / grove-shrine / daily-crate ledger, pruned of other days on
+//     every write (inn, chapel, the guildhall's bounty; usedToday / markToday
+//     below are its one reader and writer). A macro's id in it is NOT spent
+//     (interactables.js isSpent — a macro is never spent); the chapel's alms
+//     go dark in it (interactables.js poiLit) until the day rolls;
 //   • save.donated — the curio ids this save has given (progress, not world
 //     state), and its milestones in the memory ledger (save.discovered);
 //   • save.trainingPerm / save.trainingBuffUntil — the damage the player

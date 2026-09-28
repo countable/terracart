@@ -427,6 +427,7 @@ const INTERACTABLES = {
         }
       }
       const chapel = !!macro;
+      const daily = !chapel && refillsDaily(o) && typeof Macros !== 'undefined';
       const held0 = save.chestHold && save.chestHold[o.id];
       if (chapel) {
         // A left-for-later roll is still this chapel's (claimed when taken),
@@ -442,6 +443,14 @@ const INTERACTABLES = {
           INTERACTABLES.chest.custom(again, o);
           if (again.dirty && typeof persistSave === 'function') persistSave(save);
         })) return true;
+      } else if (daily) {
+        // A daily crate (refillsDaily) taken today is bare until the UTC day
+        // rolls — the day ledger, never save.opened. A left-for-later roll is
+        // still today's to take.
+        if (!held0 && Macros.usedToday(save, o.id)) {
+          scene.flash(`The crate is bare. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+          return true;
+        }
       } else if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
       // The hero glyph every ceremony below opens with: the sprite this chest
       // was standing as, off the SAME resolver render.js draws it from
@@ -459,8 +468,12 @@ const INTERACTABLES = {
       // matter which branch (item / relic / gold / partial take) claimed it.
       // The chapel's "spend" is the day ledger, not save.opened, and it is no
       // chest for the 'chest' quest (its visit was credited above).
+      // A daily crate spends into the same day ledger as the chapel, and is
+      // still a chest for both quest credits below — once per crate per UTC
+      // day, because the gate above refuses a second open the same day.
       const markOpened = chapel ? () => { Macros.markToday(save, o.id); } : () => {
-        save.opened.push(o.id);
+        if (daily) Macros.markToday(save, o.id);
+        else save.opened.push(o.id);
         scene.questEvent?.('chest');
         // BUG (Scouting report / QUEST_POIS): Quests.onPoiVisit is the only
         // thing that can credit a 'poi' quest, and its ONLY call site used to
@@ -480,7 +493,8 @@ const INTERACTABLES = {
         // shortcuts above, and not the "Picked clean already" / "leave for
         // later" paths that return before this runs) means a chest can only
         // ever award this once — exactly the same guarantee save.opened
-        // already gives the 'chest' quest.
+        // already gives the 'chest' quest (a daily crate: once per UTC day,
+        // the day ledger's guarantee).
         if (typeof Quests !== 'undefined' && o.poiClass) Quests.onPoiVisit(save, o.poiClass);
       };
       // A chest previously left-for-later has its exact loot saved in chestHold;
@@ -705,21 +719,19 @@ const INTERACTABLES = {
   },
   // A GROVE SHRINE (one per named park's grove). Once per UTC day per shrine
   // it leaves a gift: one roll of Zones.SHRINE_CONTEXT, claimed in the
-  // coin-burst daily ledger (save.coinBurstClaimed[id + dayKey], pruned of
-  // other days as the cauldron prunes it). Not a rest ring, not a ward — its
-  // light (Lighting.KINDS.shrine) is what keeps the night off.
+  // coin-burst daily ledger (Macros.usedToday / markToday —
+  // save.coinBurstClaimed[id + dayKey], pruned of other days), the lane the
+  // daily crate and the chapel share. While the gift is there it wears the
+  // POI light (poiLit) on top of its own; not a rest ring, not a ward — its
+  // own light (Lighting.KINDS.shrine) is what keeps the night off.
   grove_shrine: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      const day = Delivery.dayKey();
-      const key = o.id + day;
-      const ledger = save.coinBurstClaimed = save.coinBurstClaimed || {};
-      if (ledger[key] === 1) {
+      if (Macros.usedToday(save, o.id)) {
         scene.flash(`The shrine rests. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
         return true;
       }
-      ledger[key] = 1;
-      for (const k of Object.keys(ledger)) if (!k.endsWith(day)) delete ledger[k];
+      Macros.markToday(save, o.id);
       ctx.dirty = true;
       grantTreasureRoll(scene, save, sx, sy, '\u{1F33F}', Zones.SHRINE_CONTEXT);
       return true;
@@ -787,6 +799,29 @@ function chestNeverSpent(o) {
   return !!((typeof produceStandFor === 'function' && produceStandFor(o))
     || (typeof macroFor === 'function' && macroFor(o)));
 }
+// ── What REFILLS every UTC day ─────────────────────────────────────────────
+// Most chests are offered ONCE (save.opened, the delta, forever — that is what
+// keeps a dense city from being a daily fountain). The one chest that comes
+// back is the LOW-TIER CRATE: a surface POI chest wearing the crate look
+// (loot.js chestLook `box` — the tier-1 roll after Home's rings and a nexus),
+// never a starter supply crate (`o.crate`, fixedLoot), never a cave copy
+// (depth / caveOf), never a wagon, stall, macro or golden cauldron. Taking it
+// is written to the coin-burst DAY LEDGER (Macros.markToday —
+// save.coinBurstClaimed[id + dayKey], pruned of other days), the lane the
+// cauldron, the chapel's alms and the grove shrine's gift already share, so
+// it is spent until the day rolls and then stands again at its normal tier.
+// It is NOT save.opened: an id there (a save from before Sep 2026) is ignored
+// for a crate — savemigrate.js carried those onto the ledger once.
+// X marks, headstones, trunks, wagons, nexus chests and cave chests never
+// refill; the chapel and the shrine are places, not chests — they share the
+// ledger and the glow (poiLit), not this predicate.
+function refillsDaily(o) {
+  if (!o || o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) return false;
+  if (o.depth > 0 || o.caveOf) return false;
+  if (typeof chestLook !== 'function') return false;
+  const L = chestLook(o);
+  return !!(L.box && !L.stand && !L.coin && !L.macro && !L.wagon);
+}
 function isSpent(o, sets) {
   switch (o && o.kind) {
     // A used golden cauldron (coin-burst POI) is spent until the UTC day rolls.
@@ -794,8 +829,10 @@ function isSpent(o, sets) {
     // are never spent: a counter is not a chest, and an id a save put in
     // save.opened while that POI was still a crate, or in the day ledger for
     // the inn's rest, leaves the building standing.
+    // A daily crate (refillsDaily) is spent by the day ledger ALONE.
     case 'chest':
       if (chestNeverSpent(o)) return false;
+      if (refillsDaily(o)) return !!(sets.burst && sets.burst.has(o.id));
       return sets.opened.has(o.id) || !!(sets.burst && sets.burst.has(o.id));
     // o.chopped is the in-memory flag the chop wheel sets; save.chopped is the
     // source of truth that survives a tile re-rasterize. Both, as both sites
@@ -807,6 +844,24 @@ function isSpent(o, sets) {
     case 'groundstack': return sets.picked.has(o.id);
     default:            return false;
   }
+}
+
+// ── Does this glow as "something to take here"? ────────────────────────────
+// The POI light (Lighting.KINDS.poi) is the one mark for it. A chest wears it
+// until it is spent; the DAILY places — a crate (refillsDaily), the chapel's
+// alms and a grove shrine's gift — wear it exactly while today's take is
+// still there (the day ledger), and go dark once it is taken, until the UTC
+// day rolls. Every other stall and market stays lit (a counter is always
+// open). Takes the frame's sets, like isSpent. Loose starter crates are no
+// place and never lit.
+function poiLit(o, sets) {
+  if (!o) return false;
+  const takenToday = !!(sets.burst && sets.burst.has(o.id));
+  if (o.kind === 'grove_shrine') return !takenToday;
+  if (o.kind !== 'chest' || o.crate || isSpent(o, sets)) return false;
+  const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
+  if (macro && macro.kind === 'chapel') return !takenToday;
+  return true;
 }
 
 // ── One chest per cell ─────────────────────────────────────────────────────

@@ -681,8 +681,8 @@
     // the render-side gate asks, so a second glowing plant is one row and not
     // a second literal here.
     if (o.kind === 'wildplant') return wildplantLight(o.crop);
-    // Opened chests are the CALLER's to drop (drawObjects already builds the
-    // per-frame Set of save.opened it culls the sprite with).
+    // Opened chests (and a daily crate / chapel taken today) are the CALLER's
+    // to drop: drawObjects asks interactables.js poiLit off the frame's sets.
     if (o.kind === 'chest') return o.crate ? null : 'poi';
     return null;
   }
@@ -815,6 +815,16 @@
   function offerShiny(scene, id, dx, dy, halfM) {
     if (!inRange(scene, dx, dy, 'shiny', halfM)) return false;
     scene._lights.push({ kind: 'shiny', dx, dy, id: `shiny_${id}` });
+    return true;
+  }
+
+  // Offer the POI light at a thing that is not a chest — a grove shrine whose
+  // daily gift is still there (interactables.js poiLit, the one "something to
+  // take here" reason). The same `poi` row every live chest wears, under its
+  // own id so it sits beside the thing's own light (the shrine's green one).
+  function offerPoi(scene, id, dx, dy, halfM) {
+    if (!inRange(scene, dx, dy, 'poi', halfM)) return false;
+    scene._lights.push({ kind: 'poi', dx, dy, id: `poi_${id}` });
     return true;
   }
 
@@ -1469,7 +1479,7 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
-    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, collectFires, collectBolts, objectLightPadCells,
+    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells,
     collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,

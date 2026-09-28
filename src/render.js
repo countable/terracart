@@ -2395,9 +2395,21 @@ Render.drawObjects = function drawObjects(scene) {
   // Opened chests: dropped from the sprite list below AND never offered to the
   // lightmap — an emptied POI is no longer a place that glows.
   const openedSet = setOf(scene.save.opened);
-  // Golden cauldrons used today (interactables.js coinBurstUsedSet): hidden,
-  // and unlit, exactly like an opened chest until the UTC day rolls.
+  // The day ledger (interactables.js coinBurstUsedSet): a golden cauldron, a
+  // daily crate, the chapel's alms or a grove shrine's gift taken TODAY —
+  // unlit (and a cauldron / crate hidden) until the UTC day rolls.
   const burstSet = coinBurstUsedSet(scene.save);
+  // The frame's spent sets, built ONCE and handed to isSpent (the sprite cull
+  // below) and poiLit (the POI light) alike.
+  const spentIds = {
+    opened: openedSet,
+    burst: burstSet,
+    // In-memory o.chopped is set by the chop wheel; save.chopped is the source
+    // of truth that survives a tile re-rasterize. isSpent checks both.
+    chopped: setOf(scene.save.chopped),
+    picked: pickedSet,
+    broken: scene.brokenRockSet || new Set(),
+  };
   const pc = scene.playerToWorldCell();
   // Counted alongside the loop below, not derived after it: "how much does
   // this walk touch" is the number the case for a spatial index needs, and
@@ -2437,6 +2449,9 @@ Render.drawObjects = function drawObjects(scene) {
           // before the sprite cull, with its own radius as the margin, so a
           // lantern a cell off-screen still lights the edge it stands past.
           if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine')) LIGHTS.consider(scene, o, dx, dy, halfM);
+          // A grove shrine whose gift is still there today ALSO wears the POI
+          // light — the one "something to take here" mark (poiLit).
+          if (LIGHTS && o.kind === 'grove_shrine' && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
           if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;
           if (o.kind === 'chest' && isDupChest(o)) return;
           // A live POI is a light too — offered AFTER the dedup (a per-frame
@@ -2444,7 +2459,9 @@ Render.drawObjects = function drawObjects(scene) {
           // order the sprite pass does) and inside the sprite cull, which its
           // small radius makes near enough: a cell off-screen it shows a hand's
           // width of glow at most.
-          if (LIGHTS && o.kind === 'chest' && !o.crate && !openedSet.has(o.id) && !burstSet.has(o.id)) LIGHTS.consider(scene, o, dx, dy, halfM);
+          // Lit while there is something to take (interactables.js poiLit): an
+          // unopened chest, and a daily crate / chapel only until today's take.
+          if (LIGHTS && o.kind === 'chest' && poiLit(o, spentIds)) LIGHTS.consider(scene, o, dx, dy, halfM);
           // Anchor outside the ordinary viewport: the SPRITE (and its shadow)
           // still draw, but the label passes skip it — a sign or open/busy
           // plaque for an off-screen building would be clamped to the screen
@@ -2600,15 +2617,7 @@ Render.drawObjects = function drawObjects(scene) {
   // `opened` and `picked` are the ones the POI-light and wildplant passes above
   // already built. (isSpent takes sets rather than the save for exactly this:
   // it runs over every object of the 3×3 ring, every frame.)
-  const spentIds = {
-    opened: openedSet,
-    burst: burstSet,
-    // In-memory o.chopped is set by the chop wheel; save.chopped is the source
-    // of truth that survives a tile re-rasterize. isSpent checks both.
-    chopped: setOf(scene.save.chopped),
-    picked: pickedSet,
-    broken: scene.brokenRockSet || new Set(),
-  };
+  // (spentIds is the frame's sets, built above the object walk.)
   // EVERY opened chest vanishes, crates included. A looted crate used to stay
   // put as an open-lid "already cracked this one" marker, but the empty-crate
   // sprite read as broken art wherever it sat, and an emptied crate is worth

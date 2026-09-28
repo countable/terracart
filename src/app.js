@@ -4348,11 +4348,13 @@ class MapScene extends Phaser.Scene {
     // Pairy chest-compass indicator. Active for 5 minutes after eating a pairy
     // (see eatSelected). Renders a magenta arrow at the viewport edge pointing
     // toward the nearest undiscovered chest, blinking at 1 Hz. Cleared once
-    // the chest is opened (target appears in save.opened) or the timer expires.
+    // the chest is opened (target appears in save.opened, or — a daily crate —
+    // in today's day ledger) or the timer expires.
     if (this.pairyCompass) {
       const opened = setOf(this.save.opened);
       const expired = Date.now() >= this.pairyCompass.until;
-      const claimed = opened.has(this.pairyCompass.targetId);
+      const claimed = opened.has(this.pairyCompass.targetId)
+        || coinBurstUsedSet(this.save).has(this.pairyCompass.targetId);
       if (expired || claimed) {
         this.pairyCompass = null;
       } else {
@@ -9513,12 +9515,12 @@ class MapScene extends Phaser.Scene {
   findNearestUnopenedChest() {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
-    const opened = setOf(this.save.opened);
+    const sets = spentSets(this, this.save);
     let best = null, bestD2 = Infinity;
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
         if (o.kind !== 'chest') continue;
-        if (opened.has(o.id)) continue;
+        if (isSpent(o, sets)) continue;
         // A macro stall (an inn, a chapel, … — loot.js macroFor) is a place,
         // not a chest to find.
         if (macroFor(o)) continue;
