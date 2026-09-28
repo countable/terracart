@@ -90,7 +90,10 @@
       ...(row.id === 'purple_slime' ? { condition: 'poison' } : {}),
       sight: row.visionCells,
       retreat: row.movement.retreatDistanceFraction || 1,
-      speed: (row.movement.speedCellsPerSecond || 0) / 0.12,
+      // The legacy step lane needs a positive pace. The roster owns movement
+      // in metres per second, so aliases inherit that value instead of a dead
+      // speedCellsPerSecond field that froze them at zero.
+      speed: row.movement.speedMetersPerSecond || 1,
       mps: row.movement.speedMetersPerSecond,
       minDepth: row.cave?.minDepth ?? 0,
       maxDepth: row.cave?.maxDepth ?? null,

@@ -229,7 +229,10 @@ test('course: the pages run in the order the player needs them', () => {
 test('tips: the ghost page quotes its owners\' numbers', () => {
   const t = PLAY_TIPS.find((x) => /ghosts rise/i.test(x));
   assert.truthy(t, 'the ghost page is in the course');
-  const ms = Number(CREATURE_AI_SRC.match(/const GHOST_SPAWN_MS = (\d+);/)?.[1]);
+  const ms = EnemyRoster.GHOST_SCALING.cadenceSeconds * 1000;
+  assert.eq(__ghost.GHOST_SPAWN_MS, ms, 'the pump derives the roster cadence');
+  assert.eq(__ghost.GHOST_SPAWN_JITTER_MS, EnemyRoster.GHOST_SCALING.jitterSeconds * 1000,
+    'the pump derives the roster jitter');
   assert.eq(ms, 5 * 60000, 'every five minutes, as the page says');
   assert.truthy(/every five minutes/.test(t), 'and it says five');
   assert.eq(Combat.GHOST_SPEED_MPS, 3, 'a run, as the page says');
@@ -237,7 +240,8 @@ test('tips: the ghost page quotes its owners\' numbers', () => {
   const touch = Combat.monster('ghost').dmg;
   assert.eq(touch, Combat.GHOST_TOUCH_DMG, 'the live row carries the touch');
   assert.truthy(t.includes(`${touch}\u26a1 before armour`), `a ${touch} touch, as the page says`);
-  const every = Number(CREATURE_AI_SRC.match(/const GHOST_CAVE_EVERY = (\d+);/)?.[1]);
+  const every = EnemyRoster.GHOST_SCALING.hauntedDepthEvery;
+  assert.eq(__ghost.GHOST_CAVE_EVERY, every, 'the pump derives the roster haunted-depth interval');
   assert.eq(every, 2, 'every second cave level is haunted');
   assert.truthy(/every second level is haunted at every hour/.test(t), 'and the page says so');
   const i = PLAY_TIPS.indexOf(t);

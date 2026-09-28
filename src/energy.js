@@ -74,9 +74,10 @@
   }
 
   // THE ONE WRITER of save.energy. Energy is a WHOLE number: the bar, the
-  // pops and every gate read it as one. Blows are not — a hit is scaled by
-  // Combat.powerMul (elite / lair) and Difficulty.enemyDmgMul, so a raw
-  // `save.energy = before - dmg` left saves on 99.948…⚡. Every write goes
+  // pops and every gate read it as one. Blows are not - attacker power scales
+  // them first, then Combat.playerDamage applies armour and the recipient's
+  // incomingDamageMul, so a raw `save.energy = before - dmg` left saves on
+  // 99.948…⚡. Every write goes
   // through here: rounded, floored at 0, and capped at `maxE` when the caller
   // passes one (a gain; a loss needs no cap). A non-finite value keeps the
   // current reading rather than poisoning the save with NaN. Returns the new

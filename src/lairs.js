@@ -165,7 +165,7 @@
   // ids are pruned from save.caught (scene_creatures.js). WHO rises is the
   // gate's own strength `t` on its ladder (a slime or a goblin) — the world's,
   // the same for every player; the mode scales its blow like every foe's
-  // (Difficulty.enemyDmgMul), not its count.
+  // (Combat.playerDamage's incomingDamageMul), not its count.
   const GATE_TIER_GUARDS = { gate: 1 };
   Object.assign(TIER_GUARDS, GATE_TIER_GUARDS);
   const DAILY_TIERS = new Set(Object.keys(GATE_TIER_GUARDS));

@@ -147,18 +147,19 @@ function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 //   "After dark" is the daylight (Lighting.daylight, 1 noon .. 0 night) under
 // GHOST_DARK_DAYLIGHT: 0.5 is the sun on the horizon, and 0.25 is a few
 // degrees under it — dusk gone to dark.
-//   Underground there is no night, so the gate is the LEVEL instead: every
-// GHOST_CAVE_EVERY-th depth (2, 4, 6, …) is haunted at every hour, the odd
-// levels never. The sun never reaches them either (ghostSunExposureAt).
+//   Underground there is no night, so the roster's haunted-depth interval
+// gates the LEVEL instead: every second depth (2, 4, 6, …) is haunted at every
+// hour, while odd levels stay empty. The sun never reaches them either
+// (ghostSunExposureAt).
 const GHOST_DARK_DAYLIGHT = 0.25;
-const GHOST_CAVE_EVERY = 2;
+const GHOST_CAVE_EVERY = EnemyRoster.GHOST_SCALING.hauntedDepthEvery;
 // THE OLD STONES — a second reason on the same lane (src/zones.js): inside a
 // church's or a cemetery's zone (Zones.ghostAnchorAt — other faiths' places
 // of worship carry no ghost boost) the dead rise from DUSK, the sun on the
 // horizon (GHOST_ZONE_DUSK, 0.5) instead of dusk gone to dark; the pump runs
 // GHOST_ZONE_CADENCE_MUL as long between groups; and the fan is aimed at the
 // anchor, so they come up from among the stones. Every ward, the dark test,
-// GHOST_NEAR_MAX and the burn are unchanged.
+// the roster's nearby cap and the burn are unchanged.
 const GHOST_ZONE_DUSK = 0.5;
 const GHOST_ZONE_CADENCE_MUL = 0.5;
 // Is this a time and place ghosts rise? One predicate the pump reads: the
@@ -168,15 +169,11 @@ function ghostsHaunt(depth, day, zone) {
   if (depth > 0) return depth % GHOST_CAVE_EVERY === 0;
   return day < (zone ? GHOST_ZONE_DUSK : GHOST_DARK_DAYLIGHT);
 }
-// The cadence: one group every GHOST_SPAWN_MS (5 minutes), ± the jitter, so a
-// night reads as "every so often", not as a clock.
-const GHOST_SPAWN_MS = 300000;
-const GHOST_SPAWN_JITTER_MS = 60000;
-// How many rise at once, and the most that may be about the player at a time
-// (a long night with the pump outpacing the light must not become a swarm).
-const GHOST_GROUP_MIN = 1;
-const GHOST_GROUP_MAX = 3;
-const GHOST_NEAR_MAX = 6;
+// The roster sets the cadence and jitter so the pump and every balance tool
+// answer to the same table. Five minutes plus or minus one minute reads as
+// "every so often", not as a clock.
+const GHOST_SPAWN_MS = EnemyRoster.GHOST_SCALING.cadenceSeconds * 1000;
+const GHOST_SPAWN_JITTER_MS = EnemyRoster.GHOST_SCALING.jitterSeconds * 1000;
 // A group rises together: its members' angles about the player fan across
 // this much of a turn (radians), on the pest crow's ring (PEST_CROW_SPAWN_CELLS
 // — past the viewport corner, inside the sim bubble, for the same reason).
@@ -305,7 +302,7 @@ function makeGhost(x, y, now, tx, ty, tag) {
 // is an explicit player-triggered encounter, outside ordinary habitat rules.
 // A tapped headstone
 // (INTERACTABLES.headstone, src/zones.js). Pushed into the tile holding the
-// point; refused (null) past GHOST_NEAR_MAX about it, or on an unloaded tile.
+// point; refused (null) past the roster's nearby cap, or on an unloaded tile.
 function raiseGhostAt(scene, x, y, now, tag) {
   const edge = scene.tileEdgeM;
   if (!(edge > 0)) return null;
@@ -317,7 +314,8 @@ function raiseGhostAt(scene, x, y, now, tag) {
   WorldGen.forEachItemNear('creatures', tx, ty, (c) => {
     if (SpriteLayout.creatureHaunts(c.kind) && !caught.has(c.id)) near++;
   });
-  if (near >= GHOST_NEAR_MAX) return null;
+  const nearMax = EnemyRoster.ghostProfile(scene.depth || 0)?.nearMax ?? 0;
+  if (near >= nearMax) return null;
   const g = makeGhost(x, y, now, tx, ty, tag);
   entry.creatures.push(g);
   return g;
@@ -724,6 +722,8 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     const leg = Math.floor((now - c._scuttleStart) / (cycle * 1000));
     angle += (leg % 2 ? 1 : -1) * m.approachAngleJitterRadians / 2;
   } else if (m.pattern === 'anchor_spit' || m.pattern === 'strafe_cast' || m.pattern === 'keep_distance') {
+    // The roster owns each ranged foe's movement. anchor_spit closes to its
+    // preferred range and holds there; the other patterns may strafe or retreat.
     const preferred = m.preferredDistanceCells * scene.cellM;
     if (c._attackWindupUntil != null) return;
     if (Math.abs(dist - preferred) < scene.cellM * 0.5) {

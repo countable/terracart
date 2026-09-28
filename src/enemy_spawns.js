@@ -2,6 +2,9 @@
 (function (root) {
   'use strict';
   const rows = () => root.EnemyRoster.ROWS;
+  // Surface foes own their night threshold. Ghost dusk is a separate haunt
+  // rule, so retuning ghosts cannot move ordinary foes between day and night.
+  const SURFACE_NIGHT_DAYLIGHT = 0.25;
   const hash = value => {
     let h = 2166136261;
     for (const c of String(value)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
@@ -52,7 +55,7 @@
         && roll(creature.id + ':activation') < tierAcceptance(row.tier, distance);
     }
     if (active && habitat.time === 'night') {
-      active = !!root.Lighting && root.Lighting.daylight(scene, Date.now()) < (typeof GHOST_DARK_DAYLIGHT === 'number' ? GHOST_DARK_DAYLIGHT : 0.25);
+      active = !!root.Lighting && root.Lighting.daylight(scene, Date.now()) < SURFACE_NIGHT_DAYLIGHT;
     }
     if (active && scene._pestFreeZone) active = !scene._pestFreeZone(at.tx, at.ty)?.has(at.cx, at.cy);
     creature._surfaceInactive = !active;
@@ -91,7 +94,7 @@
     }
     return { pack, cells };
   }
-  const api = { hash, roll, surfaceRows, surfaceKind, surfaceActive, tierAcceptance, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
+  const api = { SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceKind, surfaceActive, tierAcceptance, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
   root.EnemySpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

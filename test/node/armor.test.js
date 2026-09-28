@@ -330,6 +330,8 @@ test('armor: enemy armour uses the player mitigation engine and returns actual d
 });
 
 test('armor: Hard penalty applies once after mitigation and aura damage is frame independent', () => {
+  // Difficulty scales the mitigated result, so armour keeps the same relative
+  // value in each mode while Hard still raises every received blow by 2.5x.
   const armor = { boots: { tier: 7 }, helmet: { tier: 7 } };
   const easy = Combat.playerDamage(12, armor, 1, 'easy');
   assert.eq(Combat.playerDamage(12, armor, 1, 'hard'), easy * 2.5);

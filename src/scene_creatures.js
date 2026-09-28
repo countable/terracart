@@ -246,8 +246,8 @@ class SceneCreatures {
     // dogs and the bandit road). No extra draws: the shared stream is
     // untouched, only the verdict on a spent attempt is remembered.
     const unseated = [];
-    // The rooted park plants' reservation (below): every drawn seat, taken
-    // before any save-specific filtering.
+    // Generated park plants reserve every drawn seat before save-specific
+    // filtering, so player progress cannot move another generated spawn.
     const faunaSeats = new Set(_occupiedIdx);
     const tryPlace = (classesOK, idx, kindStr) => {
       let displaced = false;
@@ -357,9 +357,9 @@ class SceneCreatures {
     // draw above is taken exactly as before (same count, same ids, same
     // stream for every species after it); the new seats come off each
     // species' OWN stream. A tile without the ground keeps its animals.
-    // Run AFTER the rooted park plants, which reserve only the DRAWN seats
-    // (the same for every save), and handed every generated plant cell
-    // (caught or not) so no animal is pulled onto a plant.
+    // Run after generated park plants reserve their drawn seats (the same for
+    // every save), and pass every generated plant cell (caught or not) so no
+    // animal is pulled onto a plant.
     entry.faunaAttracted = this._seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures, pestFree, unseated, plantCells);
     // Replace the existing enemy budget, without adding a population per kind.
     // Identity depends on the candidate cell, never species or this player's Home.
@@ -693,7 +693,7 @@ class SceneCreatures {
   // generated already held — a p = 1 species' are seated the same way and
   // join `creatures` (counted in `moved`); the rest stay lost, as before.
   // `blocked` (optional): cells no animal may be pulled onto (the tile's
-  // rooted park plants).
+  // generated park plants).
   // Returns { kind: moved }.
   _seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, spawnOpts, creatures, pestFree, unseated, blocked) {
     const moved = {};
@@ -1334,8 +1334,8 @@ class SceneCreatures {
         && (Combat.isEnemy(c) || enraged);
       if (wardFoe) {
         const from = c._wardFrom;
-        // A rooted foe cannot retreat to release a latch. Recheck the live
-        // ward each tick so relocating Home does not suppress it forever.
+        // A declared stationary foe cannot retreat to release a latch. Recheck
+        // the live ward each tick so relocating Home does not suppress it forever.
         if (from && !stationary) {
           const fd2 = (c.x - from.x) * (c.x - from.x) + (c.y - from.y) * (c.y - from.y);
           if (fd2 > HOME_ROUT_R2) c._wardFrom = null;                   // released
@@ -1546,8 +1546,8 @@ class SceneCreatures {
       if (Combat.monsterLays(c.kind) && !isTame && !unnoticed && !standDown && !rosterRow) {
         this._trapperLay(c, now, px, py);
       }
-      // Rooted kinds can bite above, but even a provoked or warded one stays
-      // on its park cell. Unlike a guard, it never hunts or returns to a seat.
+      // A declared stationary kind can bite above but never enters a movement
+      // lane. Roster plants instead use anchor_spit to hold their preferred range.
       if (stationary) return;
       if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;
       if (rosterRow) {

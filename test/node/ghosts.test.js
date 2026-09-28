@@ -117,6 +117,12 @@ test('ghost: a MONSTERS row — an enemy, a jog over the ground', () => {
   assert.lt(SpriteLayout.creatureAlpha('ghost'), 1, 'see-through');
   assert.eq(SpriteLayout.creatureAlpha('goblin'), 1, 'and nothing else is');
   assert.gt(Combat.enemyBounty('ghost', 0), 0, 'a kill pays a bounty');
+  for (const row of EnemyRoster.ROWS) {
+    assert.gt(Combat.monster(row.id).speed, 0, `${row.id} keeps a positive legacy-step pace`);
+  }
+  assert.gt(Combat.monster('giant_goblin').speed, 0, 'a legacy alias cannot freeze at speed zero');
+  assert.eq(EnemySpawns.SURFACE_NIGHT_DAYLIGHT, 0.25,
+    'ordinary surface foes own their night threshold outside ghost tuning');
 });
 
 test('ghost: the cave bag skips touch ghosts at every depth', () => {
@@ -180,7 +186,8 @@ test('ghost pump: an EVEN cave level is haunted at every hour', () => {
       });
     }
   }
-  assert.eq(__ghost.GHOST_CAVE_EVERY, 2, 'every other level: 2, 4, 6…');
+  assert.eq(__ghost.GHOST_CAVE_EVERY, EnemyRoster.GHOST_SCALING.hauntedDepthEvery,
+    'the pump derives the roster-owned haunted-depth interval');
   assert.truthy(__ghost.ghostsHaunt(2, 1) && !__ghost.ghostsHaunt(3, 0) && !__ghost.ghostsHaunt(0, 1) && __ghost.ghostsHaunt(0, 0),
     'the one predicate: even levels always, the surface only after dark');
 });
@@ -206,6 +213,10 @@ test('ghost pump: after dark, a small group every ~5 minutes', () => {
     }
     assert.gte(groups.length, 10, `an hour of night: ${groups.length} groups`);
     assert.lte(groups.length, 15, 'but not more than one per four minutes');
+    assert.eq(__ghost.GHOST_SPAWN_MS, EnemyRoster.GHOST_SCALING.cadenceSeconds * 1000,
+      'the pump derives the roster cadence');
+    assert.eq(__ghost.GHOST_SPAWN_JITTER_MS, EnemyRoster.GHOST_SCALING.jitterSeconds * 1000,
+      'the pump derives the roster jitter');
     const lo = __ghost.GHOST_SPAWN_MS - __ghost.GHOST_SPAWN_JITTER_MS;
     const hi = __ghost.GHOST_SPAWN_MS + __ghost.GHOST_SPAWN_JITTER_MS;
     assert.gte(groups[0].t, lo - 1000, 'the first group comes one delay after dark, not at once');
@@ -213,7 +224,9 @@ test('ghost pump: after dark, a small group every ~5 minutes', () => {
       const gap = groups[i].t - groups[i - 1].t;
       assert.inRange(gap, lo - 1000, hi + 1000, `group ${i} came ${gap / 1000}s after the last`);
     }
-    for (const g of groups) assert.inRange(g.n, __ghost.GHOST_GROUP_MIN, __ghost.GHOST_GROUP_MAX, 'group size');
+    const surfaceProfile = EnemyRoster.ghostProfile(0);
+    for (const g of groups) assert.inRange(g.n, surfaceProfile.groupMin, surfaceProfile.groupMax,
+      'group size derives from the roster profile');
     // Seated on the dispatch ring: off-screen, inside the sim bubble.
     for (const c of s._entry.creatures) {
       assert.eq(c.kind, 'ghost');
