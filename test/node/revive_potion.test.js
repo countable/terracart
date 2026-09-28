@@ -12,8 +12,12 @@
 const app = APP_JS_SRC;
 
 test('revive potions: T2 at 30%, T5 at 60%, both drunk not eaten', () => {
-  assert.eq(REVIVE_ITEM_FRAC.revive_potion, 0.30, 'Revival stands you up with 30%');
-  assert.eq(REVIVE_ITEM_FRAC.resurrection_potion, 0.60, 'Resurrection with 60%');
+  assert.eq(REVIVE_ITEM_FRAC.revive_potion, CONSUMABLE_SPEC.revive_potion.energyFrac,
+    'Revival runtime derives its 30% from the consumable owner');
+  assert.eq(REVIVE_ITEM_FRAC.resurrection_potion, CONSUMABLE_SPEC.resurrection_potion.energyFrac,
+    'Resurrection runtime derives its 60% from the consumable owner');
+  assert.eq(CONSUMABLE_SPEC.revive_potion.energyFrac, 0.30);
+  assert.eq(CONSUMABLE_SPEC.resurrection_potion.energyFrac, 0.60);
   assert.eq(FEATHER_REVIVE_ENERGY, 1, 'the Crow Feather with a flat 1 energy');
   assert.eq(BASE_TIER.revive_potion, 2, 'Revival is tier 2');
   assert.eq(BASE_TIER.resurrection_potion, 5, 'Resurrection is tier 5');
@@ -22,7 +26,7 @@ test('revive potions: T2 at 30%, T5 at 60%, both drunk not eaten', () => {
     assert.eq(FOOD_ENERGY[id], undefined, `${id} never reaches the Eat button`);
     assert.gt(PRICES[id], 0, `${id} has a price`);
     assert.truthy(ITEM_EFFECTS[id].includes(`${revivePct(id)}%`), `${id}'s ✦ line prints its own number`);
-    assert.truthy(new RegExp(`${id}: +\\{ verb: 'Drink', method: 'drinkRevivePotion'`).test(app),
+    assert.eq(CONSUMABLE_SPEC[id].method, 'drinkRevivePotion',
       `the Drink button offers ${id}`);
   }
   assert.truthy(Shops.themedStock('potion', 2).includes('revive_potion'), 'a T2 potion shop stocks Revival');
@@ -66,9 +70,9 @@ test('revive potions: refused above zero, so they are never a top-up', () => {
   assert.eq(r.out, false, 'refused');
   assert.eq(r.save.energy, 5, 'bar untouched');
   assert.eq(r.save.inv[0].count, 1, 'flask kept');
-  assert.truthy(/usable: \(\) => Combat\.playerDowned\(this\.save\.energy\)/.test(app),
+  assert.falsy(CONSUMABLE_SPEC.resurrection_potion.usable({ save: { energy: 5 } }),
     'the Drink dialog greys its button on the same downed test');
-  assert.truthy(/canAfford: typeof entry\.usable === 'function' \? entry\.usable\(\) : true,/.test(app),
+  assert.truthy(/canAfford: typeof entry\.usable === 'function' \? entry\.usable\(this, entry\) : true,/.test(app),
     'and the dialog reads it');
 });
 })();

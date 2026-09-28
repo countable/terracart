@@ -112,6 +112,39 @@ test('plain rock: the pair frame is still the widest art of the four', () => {
   }
 });
 
+// --- Ore art and payout share one material table ----------------------------
+test('ore tiers: one table owns the frame, dropped bar and item tier', () => {
+  const rows = Object.entries(MINERAL_TIERS).map(([tier, row]) => [Number(tier), row]);
+  assert.eq(rows.map(([tier]) => tier).join(','), '2,3,4,5,6,7',
+    'every ore-bearing tier has one identity row');
+  assert.eq(rows.map(([, row]) => row.rockFrame).join(','), '0,1,2,3,5,6',
+    'the table records that ore-art column 4 is intentionally unused');
+  assert.truthy(/return mineralRockFrame\(tier\);/.test(RENDER_SRC),
+    'render asks the table helper instead of owning a frame array');
+  assert.truthy(/const primaryBar = mineralBarId\(t\)/.test(INTERACTABLES_SRC),
+    'the payout asks the table helper instead of owning a bar array');
+  assert.falsy(/ORE_COL_BY_TIER/.test(RENDER_SRC) || /const BARS =/.test(INTERACTABLES_SRC),
+    'no parallel ore identity array remains');
+
+  for (const [tier, row] of rows) {
+    assert.eq(mineralRockFrame(tier), row.rockFrame, `T${tier}: render frame comes from its row`);
+    assert.eq(mineralBarId(tier), row.barId, `T${tier}: primary drop comes from its row`);
+    assert.eq(BASE_TIER[row.barId], tier, `T${tier}: bar tier comes from its row`);
+    assert.eq(ITEM_BY_ID[row.barId].baseTier, tier, `T${tier}: catalog item inherits its row`);
+
+    const scene = makeScene();
+    const save = { relics: { pick: { tier: 7 } } };
+    runInteractable(makeCtx(scene, save), {
+      kind: 'mineralrock', id: `ore-table-${tier}`, x: 0, y: 0, yieldTier: tier,
+    });
+    assert.eq(scene.invCount(row.barId), 1, `T${tier}: the rock pays its namesake bar`);
+    for (const [, other] of rows) {
+      if (other.barId !== row.barId) assert.eq(scene.invCount(other.barId), 0,
+        `T${tier}: the rock never pays ${other.barId}`);
+    }
+  }
+});
+
 // --- The cave WALL pays its own table ---------------------------------------
 // One stone every dig, flint on CAVE_WALL_FLINT_P (30 %) — a tapped dig and
 // the auto-mine both through caveWallDrop.

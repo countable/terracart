@@ -164,9 +164,10 @@
     const a = src.indexOf('\n  _walkRelics() {');
     const b = src.indexOf('\n  }\n', a);
     const body = src.slice(src.indexOf('{', a) + 1, b);
-    const num = (name) => +src.match(new RegExp(`const ${name} = (\\d+);`))[1];
     return new Function('DRAGON_AMULET_TIER', 'SPEED_POTION_AMULET_TIER', 'COFFEE_BOOT_BOOST', 'BIKE_RACK_SPEED_MUL',
-      `return function () {${body}\n};`)(num('DRAGON_AMULET_TIER'), num('SPEED_POTION_AMULET_TIER'), num('COFFEE_BOOT_BOOST'), BIKE_RACK_SPEED_MUL);
+      `return function () {${body}\n};`)(CONSUMABLE_SPEC.dragon_powder.movementTier,
+        CONSUMABLE_SPEC.speed_potion.movementTier, CONSUMABLE_SPEC.coffee.speedTierBoost,
+        BIKE_RACK_SPEED_MUL);
   };
 
   test('bike rack: a tap lends the bike for three minutes, once a UTC day', () => {
@@ -288,7 +289,7 @@
       'scene_creatures.js prunes the other days');
     assert.truthy(/o\.kind !== 'gatepost' \|\| !o\.gateSid \|\| seen\.has\(o\.gateSid\)/.test(SCENE_CREATURES_SRC),
       'spawnInTile hands in one lair per gate');
-    assert.truthy(/dayKey: Delivery\.dayKey\(\),/.test(APP_JS_SRC), 'app.js hands the residency pass today');
+    assert.truthy(/dayKey: utcDayKey\(\),/.test(APP_JS_SRC), 'app.js hands the residency pass today');
   });
 
   test('gate: an Overpass bin\'s gates become posts; road furniture mints nothing', () => {

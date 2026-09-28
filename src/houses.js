@@ -10,8 +10,8 @@
 // deciding anything about quests itself.
 //
 // Depends on globals from interactables.js (isCastle), shops.js (Shops),
-// delivery.js (Delivery.dayKey) and items.js (wreckRestoreQty) — all resolved
-// at CALL time, so load order only needs this module after those three (and
+// util.js (utcDayKey) and items.js (wreckRestoreQty) - all resolved
+// at CALL time, so load order only needs this module after those modules (and
 // after shops_math.js, which shops.js itself depends on).
 //
 // FORT_UNLOCK_WOOD / FORT_UNLOCK_WOOD_START / FORT_UNLOCK_WOOD_STEP are kept as
@@ -117,13 +117,27 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return until && now < until ? 0.5 : 1;
   }
 
-  // by shopInteract to route to the restore modal and by the render layer
-  // indirectly via save.restoredHouses (see _houseRole in render.js).
+  // isHouseWreck routes taps to restoration and is also the display owner's
+  // wreck verdict. Keeping both consumers on this predicate prevents a fort or
+  // castle-shaped house from wearing wreck art.
   function isHouseWreck(save, house) {
     if (!house || house.kind !== 'house') return false;
     if (house.tier !== 9) return false;   // forts (11) + castles (12) skip wreck
     if (save.starterShopId && save.starterShopId === house.id) return false;
     return !save.restoredHouses?.[house.id];
+  }
+
+  // Resolve the one role every visual surface reads. Home wins before tier so
+  // a starter building always keeps its trailer identity; isHouseWreck owns
+  // whether a tier-9 house still needs restoration; houseShopRole then names
+  // the frozen shop behind a restored facade.
+  function displayRole(save, house) {
+    save = save || {};
+    if (!house || house.kind !== 'house') return null;
+    if (save.starterShopId && save.starterShopId === house.id) return 'trailer';
+    if (house.tier === 11) return 'fort';
+    if (isHouseWreck(save, house)) return 'wreck';
+    return houseShopRole(save, house) || 'plain';
   }
 
   // Restoration cost: stone (rockfruit — wild residential debris, gatherable
@@ -234,18 +248,17 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return true;
   }
 
-  // The castle's daily favour, gated to once per castle per UTC day. Reuses
-  // the scene's one day key (Delivery.dayKey) rather than the
-  // coin-burst POI's composite-key idiom, since there's only ever one thing to
-  // remember per castle: the day its service was last used.
+  // The castle's daily favour, gated to once per castle per UTC day. Uses the
+  // same utcDayKey as recurring POIs; each castle only remembers the day its
+  // service was last used.
   function castleServiceUsedToday(save, house, now = new Date()) {
     const key = castleKey(house);
-    return !!key && save.castleServiceClaimed?.[key] === Delivery.dayKey(now);
+    return !!key && save.castleServiceClaimed?.[key] === utcDayKey(now);
   }
   function markCastleServiceUsed(save, house, now = new Date()) {
     const key = castleKey(house);
     if (!key) return;
-    const dayKey = Delivery.dayKey(now);
+    const dayKey = utcDayKey(now);
     save.castleServiceClaimed = save.castleServiceClaimed || {};
     // Prune every OTHER castle's stale day stamp while we're here — the map
     // can't grow without bound across weeks of play.
@@ -257,7 +270,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 
   root.Houses = {
     PRESEED_RESTORE_ROLES,
-    isStarterBlacksmith, houseShopRole, hasBlacksmith, preseedRestoreRole,
+    isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith, preseedRestoreRole,
     shopCharmMul,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,

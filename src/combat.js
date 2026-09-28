@@ -277,7 +277,8 @@
   // Callers own energy loss, cooldowns and popup accumulation.
   function incomingDamage(save, damage, hits = 1, now = Date.now()) {
     if (playerDowned(save?.energy)) return 0;
-    const shielded = (save.shieldPotionUntil ?? 0) > now ? Math.ceil(damage / 2) : damage;
+    const shielded = (save.shieldPotionUntil ?? 0) > now
+      ? Math.ceil(damage * CONSUMABLE_SPEC.shield_potion.damageMul) : damage;
     return playerDamage(shielded, save.armor, hits, save.mode);
   }
 

@@ -328,7 +328,7 @@ test('same side: the timed rewards read it, and none waits under ten minutes', (
   const tickB = app.slice(app.indexOf('  _tickGuildBounty() {'));
   const body = tickB.slice(0, tickB.indexOf('\n  }\n'));
   assert.falsy(/CREATURE_SIM_CELLS/.test(body), 'the bounty has no walk-away leash');
-  assert.truthy(/gb\.day !== Delivery\.dayKey\(new Date\(\)\)/.test(body), 'it waits until the UTC day turns');
+  assert.truthy(/gb\.day !== utcDayKey\(\)/.test(body), 'it waits until the UTC day turns');
 });
 
 })();

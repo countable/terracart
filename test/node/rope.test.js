@@ -72,14 +72,13 @@ test('rope: the rarity picker can hand one out of a consumable-heavy chest', () 
 
 // ── The dialog is a choice ─────────────────────────────────────────────────
 test('rope: the Use dialog offers Down (primary) and Up (secondary), Up greyed on the surface', () => {
-  const m = app.match(/\n      rope: \{([\s\S]*?)\},\n    \};/);
-  assert.truthy(m, 'a rope row in the CONSUMABLE table');
-  const row = m[1];
-  assert.truthy(/method: 'useRopeDown'/.test(row), 'primary → useRopeDown');
-  assert.truthy(/acceptLabel: 'Down'/.test(row), 'primary button reads Down');
-  assert.truthy(/secondary: \{ label: 'Up', method: 'useRopeUp', disabled: \(\) => !\(this\.depth > 0\) \}/.test(row),
-    'secondary → useRopeUp, disabled unless underground');
-  assert.truthy(/title: 'Use the rope — which way\?'/.test(row), 'the title asks which way');
+  const row = CONSUMABLE_SPEC.rope;
+  assert.eq(row.method, 'useRopeDown', 'primary → useRopeDown');
+  assert.eq(row.acceptLabel, 'Down', 'primary button reads Down');
+  assert.eq(row.secondary.method, 'useRopeUp', 'secondary → useRopeUp');
+  assert.truthy(row.secondary.disabled({ depth: 0 }), 'Up is disabled on the surface');
+  assert.falsy(row.secondary.disabled({ depth: 1 }), 'Up is enabled underground');
+  assert.eq(row.title, 'Use the rope — which way?', 'the title asks which way');
   // The handler actually threads the row through to the modal.
   assert.truthy(/secondary,\n        onAccept: \(\) => \{ this\[fn\]\(\); this\.syncConsumableButton\(\); \},/.test(app),
     'syncConsumableButton passes `secondary` to showOfferModal');
@@ -112,7 +111,9 @@ test('rope: the landing cell is stamped into dugWalls at the TARGET depth, befor
   assert.truthy(stamp, 'a target-depth block');
   assert.truthy(/this\.dugWallSet\.add\(`\$\{target\}:\$\{cellKeyFromAbsCell\(/.test(stamp[1]),
     'keyed on the TARGET depth, in digCaveWall\'s own "<depth>:<absIX>_<absIY>" format');
-  assert.truthy(/this\.save\.dugWalls = \[\.\.\.this\.dugWallSet\];/.test(stamp[1]), 'persisted with the save');
+  assert.truthy(/this\.dugWallSet = bindIdSet\(this\.save, 'dugWalls'\)/.test(app),
+    'the bound set persists every added wall through save.js');
+  assert.falsy(/this\.save\.dugWalls\s*=/.test(stamp[1]), 'the rope does not hand-sync the save array');
   assert.truthy(body.indexOf('this.dugWallSet.add(') < body.indexOf('this.changeDepth(delta, anchor);'),
     'stamped before changeDepth, so the ensureTilesAround it triggers re-applies it');
   // And the re-apply really does run on every pass, cached tile or fresh —

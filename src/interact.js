@@ -717,9 +717,8 @@ const TAP_HANDLERS = [
     // ── TAME PETS — released animals (id starts with 'released_'). Tame
     // pets never get "yuck'd"; tapping them with any item (or none) plays
     // a brief species-specific happy interaction (cluck / purr / etc.),
-    // arms a petting-boost timer that gives the next produce roll a +50%
-    // double chance, and — for cats — kicks off a 5-minute follow timer
-    // the wander loop honours. (isTame is decided above, before the mango path.)
+    // arms the shared petting-boost timer and its next-yield double chance,
+    // and - for cats - kicks off the shared follow timer the wander loop honours. (isTame is decided above, before the mango path.)
     // A tame PRODUCER (cow / chicken) fed PLANT PRODUCE must fall through to the
     // produce path below — that's where milk / eggs are granted and where the
     // petting boost armed here is consumed. Without this exception the isTame
@@ -738,21 +737,21 @@ const TAP_HANDLERS = [
       const likesTame = sel && animalLikesFood(target.kind, sel.id);
       const isTreat = sel && (sel.count ?? 0) > 0
         && (likesTame || isPlantProduce);
-      // Pet the animal: arm the +50% double-yield boost and (for treats) eat
+      // Pet the animal: arm the shared double-yield boost and (for treats) eat
       // the held item. Both the in-memory timer and a persisted EPOCH-ms mirror
       // are set — creatures are re-spawned from tile data on every reload and
       // lose their in-memory _pettedUntilT (a performance.now value that also
       // resets to ~0 on reload), so the produce path below reads the persisted
       // copy; otherwise the boost would silently never survive a tile change.
-      const PET_BOOST_MS = 10 * 60 * 1000;
+      const ANIMAL_INTERACTION = SpriteLayout.ANIMAL_INTERACTION;
       const doPet = () => {
-        target._pettedUntilT = performance.now() + PET_BOOST_MS;
+        target._pettedUntilT = performance.now() + ANIMAL_INTERACTION.petBoostMs;
         save.petBoost = save.petBoost || {};
-        save.petBoost[target.id] = Date.now() + PET_BOOST_MS;
-        // A kind that FOLLOWS once petted (the cat) starts its five minutes —
-        // the same `follows` flag wanderCreatures reads to honour the timer.
+        save.petBoost[target.id] = Date.now() + ANIMAL_INTERACTION.petBoostMs;
+        // A kind that FOLLOWS once petted (the cat) starts the shared follow
+        // window - the same `follows` flag wanderCreatures reads to honour it.
         if (SpriteLayout.creatureFollows(target.kind)) {
-          target._followUntilT = performance.now() + 5 * 60 * 1000;
+          target._followUntilT = performance.now() + ANIMAL_INTERACTION.followMs;
         }
         if (isTreat) {
           consumeSelected(save);
@@ -761,7 +760,7 @@ const TAP_HANDLERS = [
         // The boost is timed, so the flash says for how long — before this it
         // was the one buff in the game with no readout at all, and a player
         // who petted a cow had no way to know the double-yield window.
-        scene.flashLoot(`💗 ${sound} — ${shortDuration(PET_BOOST_MS)}`, '#ff8aff', 0.85);
+        scene.flashLoot(`💗 ${sound} - ${shortDuration(ANIMAL_INTERACTION.petBoostMs)}`, '#ff8aff', 0.85);
         persistSave(save);
       };
       // A treat is FED → confirm what's going to the pet first. An empty-handed
@@ -790,16 +789,16 @@ const TAP_HANDLERS = [
       return true;
     }
     // 2. Plant produce → produce (chicken / cow only). Recently-petted
-    // tame animals roll a +50% chance for a double yield.
+    // tame animals roll the shared chance for a double yield.
     //
     // Per-creature production cooldown: each chicken / cow only yields once
-    // per PRODUCE_COOLDOWN_MS (1 hour). The last-yield timestamp lives on
+    // per ANIMAL_INTERACTION.produceCooldownMs. The last-yield timestamp lives on
     // the creature object as `_lastProduceT` (epoch ms, NOT performance.now
     // — must survive save reloads + tile re-rasterise). The save also
     // persists save.lastProduce[id] so the timer survives across reloads:
     // creature objects are re-spawned each tile load and lose any in-memory
     // _lastProduceT, but the save-side mirror is read back below.
-    const PRODUCE_COOLDOWN_MS = 60 * 60 * 1000;
+    const ANIMAL_INTERACTION = SpriteLayout.ANIMAL_INTERACTION;
     if (sel && isPlantProduce && (sel.count ?? 0) > 0) {
       // WHAT A FED FARM ANIMAL GIVES, and what it is called having given it,
       // are one row of the creature table (`produce`) — so "is this a
@@ -810,11 +809,11 @@ const TAP_HANDLERS = [
         const now = Date.now();
         save.lastProduce = save.lastProduce || {};
         const lastT = save.lastProduce[target.id] || target._lastProduceT || 0;
-        if (now - lastT < PRODUCE_COOLDOWN_MS) {
+        if (now - lastT < ANIMAL_INTERACTION.produceCooldownMs) {
           // Still on cooldown — refuse without consuming the produce. Bail
           // before the confirm dialog so we don't ask about a feed that can't
           // happen yet.
-          const left = shortDuration(PRODUCE_COOLDOWN_MS - (now - lastT));
+          const left = shortDuration(ANIMAL_INTERACTION.produceCooldownMs - (now - lastT));
           const verb = produce.verb;
           scene.flash(`already ${verb} — in ${left}`, sx, sy);
           return true;
@@ -827,7 +826,7 @@ const TAP_HANDLERS = [
           save.petBoost = save.petBoost || {};
           const petted = (save.petBoost[target.id] || 0) > Date.now()
             || (target._pettedUntilT && target._pettedUntilT > performance.now());
-          const yieldN = petted && Math.random() < 0.5 ? 2 : 1;
+          const yieldN = petted && Math.random() < ANIMAL_INTERACTION.doubleYieldChance ? 2 : 1;
           if (petted) {                            // consume the boost (both copies)
             delete save.petBoost[target.id];
             target._pettedUntilT = 0;
@@ -1257,7 +1256,6 @@ const TAP_HANDLERS = [
     if (!scene.placedRockSet.has(cellKey)) return false;
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.placedRockSet.delete(cellKey);
-      save.placedRocks = [...scene.placedRockSet];
       scene.addToInv('rockfruit', 1);
       persistSave(save);
       scene.flash('⛏ rock', sx, sy);
@@ -1379,9 +1377,8 @@ const TAP_HANDLERS = [
   { name: 'place-rock', try: (ctx) => placeOnEmptyCell(ctx, {
     itemId: 'rockfruit',
     energyKey: 'rockPlace',
-    place: ({ scene, save, cellKey }) => {
+    place: ({ scene, cellKey }) => {
       scene.placedRockSet.add(cellKey);
-      save.placedRocks = [...scene.placedRockSet];
     },
     flashMsg: '🪨 Stone set.',
   })},
@@ -1447,7 +1444,6 @@ const TAP_HANDLERS = [
       save.planted.splice(plantedIdx, 1);
       Crops.invalidateSpatialIndex(save);
       scene.tilledSet.delete(cellKey);
-      save.tilled = [...scene.tilledSet];
       Crops.clearBedQuality(save, cellKey);
       // The BED's quality, banked on the crop when it was planted (the hoe
       // tier that tilled the cell — Crops.bedQuality). Each quality tier
@@ -1679,9 +1675,8 @@ const TAP_HANDLERS = [
         save.fruittrees.push({ x: cwmx, y: cwmy, species: item.grows, planted_t, id,
                                ...(asTree ? { kind: 'tree' } : {}) });
       }
-      // It's a tree now, not soil — drop the tilled marker and its bed quality.
+      // It's a tree now, not soil - drop the tilled marker and its bed quality.
       scene.tilledSet.delete(cellKey);
-      save.tilled = [...scene.tilledSet];
       Crops.clearBedQuality(save, cellKey);
       // Inject the growing fruittree straight into the covering tile's LIVE
       // cache entry (mirrors spawnInTile's fruittree block) so it appears at
@@ -1770,8 +1765,7 @@ const TAP_HANDLERS = [
     scene._toolActionStory?.('till');
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.tilledSet.add(cellKey);
-      save.tilled = [...scene.tilledSet];
-      // The bed remembers the hoe that made it — that's the produce QUALITY a
+      // The bed remembers the hoe that made it - that's the produce QUALITY a
       // crop planted here will carry (Crops.bedQuality). A better hoe is
       // therefore a better harvest, not just a cheaper one.
       const bedQ = Crops.setBedQuality(save, cellKey, save.relics?.hoe?.tier || 0);

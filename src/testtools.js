@@ -401,9 +401,9 @@
     sv.opened = [];
     sv.chopped = [];
     sv.planted = [];
-    sv.tilled = [];
-    sv.placedRocks = [];
-    sv.brokenRocks = [];
+    s.tilledSet.clear();
+    s.placedRockSet.clear();
+    s.brokenRockSet.clear();
     sv.foundTreasures = [];
     sv.sprungTraps = [];
     sv.scarecrows = [];
@@ -417,9 +417,6 @@
     sv.eatReadyAt = 0;
     Energy.set(sv, sv.maxEnergy ?? 100);
     sv.relics = sv.relics || {};
-    s.tilledSet = new Set();
-    s.placedRockSet = new Set();
-    s.brokenRockSet = new Set();
     // Clear in-memory `chopped` flag on every cached tree object so prior
     // chop_tree runs don't poison nearestObject's filter.
     for (const e of WorldGen.tileCache.values()) {

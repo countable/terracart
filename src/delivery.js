@@ -25,7 +25,8 @@
 // app.js is knownDeliveryHouses — it scans WorldGen.tileCache and uses the
 // player's world position.
 //
-// Depends on globals from items.js: ITEM_BY_ID, ITEMS, BASE_TIER.
+// Depends on globals from util.js (utcDayKey) and items.js: ITEM_BY_ID, ITEMS,
+// BASE_TIER.
 
 (function (root) {
   'use strict';
@@ -99,10 +100,10 @@
   };
   const BUNDLE_THEME_KEYS = Object.keys(BUNDLE_THEMES);
 
-  // UTC day stamp "YYYYMMDD" — the scene's one day key (the castle favour,
-  // the coin-burst POIs). Deliveries no longer read it: a fed house stays fed.
+  // Compatibility alias for callers that still reach the general UTC clock
+  // through Delivery. New daily mechanics call util.js's owner directly.
   function dayKey(now = new Date()) {
-    return now.toISOString().slice(0, 10).replace(/-/g, '');
+    return utcDayKey(now);
   }
 
   // Per-house RNG: FNV-1a hash of the house id seeds a small PRNG so a house

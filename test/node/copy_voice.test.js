@@ -401,13 +401,25 @@ test('copy: item descriptions explain effects without tier jargon', () => {
 });
 
 test('copy: the Drink / Use descriptions derive durations and omit tiers', () => {
-  const m = APP_JS_SRC.match(/\n    const CONSUMABLE = \{([\s\S]*?)\n    \};/);
-  assert.truthy(m, 'the CONSUMABLE table is findable');
-  assert.falsy(/\b1 min\b/.test(m[1]), 'no hand-typed "1 min"');
-  assert.falsy(/tier-/.test(m[1]), 'descriptions do not expose gear tiers');
-  for (const k of ['REACH_POTION_MS', 'SPEED_POTION_MS', 'SHIELD_POTION_MS', 'DRAGON_POWDER_MS', 'SHADOW_POWDER_MS']) {
-    assert.truthy(new RegExp('shortDuration\\(' + k + '\\)').test(m[1]), k + ' is quoted through shortDuration');
-    assert.truthy(new RegExp('Date\\.now\\(\\) \\+ ' + k + ';').test(APP_JS_SRC), k + ' is also what starts the buff');
+  const timed = Object.entries(CONSUMABLE_SPEC).filter(([, row]) => row.method && row.durationMs);
+  assert.gt(timed.length, 5, 'timed action rows are in the shared spec');
+  for (const [id, row] of timed) {
+    const text = typeof row.get === 'function' ? row.get({
+      isTorchActive: () => false, _torchUntil: Date.now(),
+    }, row) : row.get;
+    assert.falsy(/\b1 min\b/.test(text), `${id}: no hand-typed "1 min"`);
+    assert.falsy(/tier-/.test(text), `${id}: descriptions do not expose gear tiers`);
+    assert.truthy(text.includes(shortDuration(row.durationMs)), `${id}: quotes the owning duration`);
+  }
+  for (const [name, id] of Object.entries({
+    REACH_POTION_MS: 'reach_potion', SPEED_POTION_MS: 'speed_potion',
+    SHIELD_POTION_MS: 'shield_potion', DRAGON_POWDER_MS: 'dragon_powder',
+    SHADOW_POWDER_MS: 'shadow_powder',
+  })) {
+    assert.truthy(new RegExp(`const ${name} = CONSUMABLE_SPEC\\.${id}\\.durationMs;`).test(APP_JS_SRC),
+      `${name}: runtime derives from the spec`);
+    assert.truthy(new RegExp('Date\\.now\\(\\) \\+ ' + name + ';').test(APP_JS_SRC),
+      `${name}: the derived duration starts the buff`);
   }
 });
 })();

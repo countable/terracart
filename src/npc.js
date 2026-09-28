@@ -2,7 +2,6 @@
 // Keep this stream separate from fauna so adding people never moves animals.
 const NPC = (() => {
   const COUNT = 40;
-  const DAY = 86400000;
   const PROFILES = {
     village: { prefixes: ['Al', 'Bel', 'Mar', 'Ros'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], colors: [0xe8bb91, 0xbfc8ee, 0xeeb3cb], roles: ['scout', 'scout', 'scout', 'scout', 'merchant', 'merchant', 'trader', 'trader', 'trader', 'scholar'], theme: 'supply' },
     farm: { prefixes: ['Br', 'Fen', 'Haz', 'Row'], roots: ['am', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], colors: [0xdec58d, 0xe9ba96, 0xc6ce9c], roles: ['scout', 'scout', 'merchant', 'trader'], theme: 'seed' },
@@ -139,7 +138,7 @@ const NPC = (() => {
     }
   }
   function dialogue(scene, c, now = Date.now()) {
-    const day = Math.floor(now / DAY), seed = fnv1a(`${c.id}:talk`);
+    const day = utcDayIndex(now), seed = fnv1a(`${c.id}:talk`);
     const title = `${c.name} · ${c.roleLabel || LABELS[c.zone || 'village'][c.role]}`;
     const daily = a => a[((seed + day) >>> 0) % a.length];
     let body;

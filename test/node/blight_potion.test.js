@@ -14,16 +14,17 @@ test('blight potion: an item with a price, a tier, an icon and a ✦ line', () =
   assert.eq(ITEM_BY_ID.blight_potion.kind, 'magic', 'drunk, not eaten');
   assert.eq(FOOD_ENERGY.blight_potion, undefined, 'it can never reach the Eat button');
   assert.truthy(ITEM_EFFECTS.blight_potion, 'its effect is written on the item');
-  assert.truthy(/Object\.defineProperty\(ITEM_EFFECTS, 'blight_potion',[\s\S]*typeof BLIGHT_DPS/.test(ITEMS_JS_SRC),
+  assert.truthy(ITEM_EFFECTS.blight_potion.includes(`${CONSUMABLE_SPEC.blight_potion.damagePerSecond} HP/s`),
     'the effect line reads the damage owner instead of retyping it');
-  assert.truthy(/CONSUMABLE = \{[\s\S]*blight_potion: \{ verb: 'Drink', method: 'drinkBlightPotion'/.test(app),
-    'the Drink button offers it');
+  assert.eq(CONSUMABLE_SPEC.blight_potion.method, 'drinkBlightPotion', 'the Drink button offers it');
 });
 
 test('blight potion: 1.5 cells, 2 HP a second, one minute', () => {
-  assert.truthy(/const BLIGHT_R_CELLS = 1\.5;/.test(app), 'radius');
-  assert.truthy(/const BLIGHT_DPS = 2;/.test(app), 'damage per second');
-  assert.truthy(/const BLIGHT_MS = MINUTE_MS;/.test(app), 'duration');
+  assert.eq(CONSUMABLE_SPEC.blight_potion.radiusCells, 1.5, 'radius');
+  assert.eq(CONSUMABLE_SPEC.blight_potion.damagePerSecond, 2, 'damage per second');
+  assert.eq(CONSUMABLE_SPEC.blight_potion.durationMs, 60 * 1000, 'duration');
+  assert.truthy(/const BLIGHT_R_CELLS = CONSUMABLE_SPEC\.blight_potion\.radiusCells;/.test(app),
+    'runtime derives the radius');
 });
 
 test('blight potion: the aura bites enemies from the feet, through _damageEnemy', () => {
