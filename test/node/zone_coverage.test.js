@@ -30,8 +30,8 @@
     return inside || d2 <= margin ** 2;
   }
 
-  function paint(field, grid, pathUnder, roadMask) {
-    const it = ZoneCoverage.paintSteps(field, grid, N, pathUnder, roadMask);
+  function paint(field, grid, pathUnder, roadMask, spawnWhy) {
+    const it = ZoneCoverage.paintSteps(field, grid, N, pathUnder, roadMask, spawnWhy);
     let result, slices = 0;
     do { result = it.next(); if (!result.done) slices++; } while (!result.done);
     return { painted: result.value, slices };
@@ -112,6 +112,32 @@
     assert.eq(field.under, under);
     assert.eq(under[0], T.RESIDENTIAL); assert.eq(under[1], T.PARK);
     assert.eq(grid[0], T.CHURCHYARD); assert.eq(grid[1], T.CHURCHYARD);
+  });
+
+  test('zone coverage: painted ground lifts only inferred lot reasons, including existing halo paint', () => {
+    const T = WorldGen.T, W = WorldGen.SPAWN_WHY;
+    const original = [T.RESIDENTIAL, T.COMMERCIAL, T.GROVE, T.PATH, T.ROAD,
+      T.BUILDING, T.WATER, T.PIER, T.RESIDENTIAL, T.RESIDENTIAL];
+    const grid = new Uint8Array(N * N).fill(T.GRASS); grid.set(original);
+    const coverage = new Uint16Array(N * N); coverage.fill(1, 0, 9);
+    const roadMask = new Uint8Array(N * N); roadMask[8] = 1;
+    const spawnWhy = new Uint16Array(N * N);
+    const everyReason = Object.values(W).reduce((bits, v) => bits | v, 0);
+    spawnWhy.fill(everyReason, 0, original.length);
+    const field = { anchors: [anchor(1000, 1000)], coverage };
+    paint(field, grid, {}, roadMask, spawnWhy);
+    for (let i = 0; i < original.length; i++) {
+      assert.eq(spawnWhy[i], i < 3 ? everyReason & ~(W.PRIVATE | W.BEHIND_HOUSE) : everyReason,
+        `cell ${i}: site restrictions survive; transport, structures and uncovered ground keep lot reasons too`);
+    }
+    spawnWhy[0] = W.PRIVATE | W.BEHIND_HOUSE;
+    paint(field, grid, {}, roadMask, spawnWhy);
+    assert.truthy(WorldGen.isSpawnCell(grid, N, N, 0, 0, { spawnWhy, roadMask }, 'minor'),
+      'live spawn gate admits variant material on the repainted lot');
+    spawnWhy[0] = W.PRIVATE | W.RESTRICTED;
+    paint(field, grid, {}, roadMask, spawnWhy);
+    assert.falsy(WorldGen.isSpawnCell(grid, N, N, 0, 0, { spawnWhy, roadMask }, 'minor'),
+      'a real restricted site stays blocked even under zone ground');
   });
 
   test('zone coverage: associated footprint and exact 30m fringe include holes and diagonal corners correctly', () => {

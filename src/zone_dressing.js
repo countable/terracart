@@ -3,7 +3,6 @@
 (function (root) {
   'use strict';
   const EXT = 4096;
-  const NEIGHBOURS = [[0,1],[1,0],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
   function* dressSteps(ctx) {
     const WG = root.WorldGen, V = root.ZoneVariants, Z = root.Zones;
     const out = { objects: [], wildplants: [], traps: [], guards: [], lairs: [], slowCells: new Map(), nexus: [], diagnostics: [] };
@@ -144,19 +143,16 @@
         }
       }
       if (s.chest) {
-        s.chest.zoneNexus = a.kind; s.chest.zoneVariant = v.id; delete s.chest._chestLook;
+        s.chest.zoneVariant = v.id; delete s.chest._chestLook;
         if (a.kind === 'grove') {
-          let done = false;
-          for (let r = 1; r <= Z.SHRINE_SEAT_R && !done; r++) for (const [dx, dy] of NEIGHBOURS) {
-            const ix = s.poi[0] + dx * r, iy = s.poi[1] + dy * r;
-            if (!owns(s, ix, iy) || !WG.isSpawnCell(grid, N, N, ix, iy, opts, 'attractor')) continue;
-            const [x, y] = position(ix, iy);
-            out.objects.push(WG.makeObject('grove_shrine', x, y, WG.cellId('sh', tx, ty, ix, iy), { zone: a.kind, zoneVariant: v.id }));
-            occ.add(iy * N + ix); done = true; break;
-          }
-        }
+          // The park's place becomes its daily shrine, keeping its name,
+          // stable POI identity and settled seat at the composition's centre.
+          s.chest.kind = 'grove_shrine';
+          s.chest.zone = a.kind; s.chest.zoneLayer = 'shrine';
+          delete s.chest.zoneNexus;
+        } else s.chest.zoneNexus = a.kind;
       }
-      // Outdoor slots touch the chest. Buildings use the wider table pattern.
+      // Outdoor slots touch the POI. Buildings use the wider table pattern.
       const pattern = s.indoor && v.poi.whenInsideBuilding ? v.poi.whenInsideBuilding : v.poi;
       if (owns(s, s.poi[0], s.poi[1])) s.clear.add(s.poi[1] * N + s.poi[0]);
       for (const slot of pattern.slots || []) {
@@ -166,7 +162,7 @@
       yield* connectionSteps(s, opts, N, WG, motifAt);
       for (const [i, material] of s.poiSlots) place(s, i % N, Math.floor(i / N), material, 'poi');
       for (const [i, material] of s.connections) if (!s.poiSlots.has(i)) place(s, i % N, Math.floor(i / N), material, 'connection');
-      out.nexus.push({ kind: a.kind, aspect: v.id, variant: v.id, chestId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
+      out.nexus.push({ kind: a.kind, aspect: v.id, variant: v.id, chestId: s.chest && s.chest.kind === 'chest' ? s.chest.id : null, poiId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
     }
     const ground = { graves: 0, rocks: 0, fill: 0 };
     for (let iy = 0; iy < N; iy++) {

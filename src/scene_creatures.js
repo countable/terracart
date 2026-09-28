@@ -145,7 +145,7 @@ class SceneCreatures {
       quiet: entry.quietMask,
       occupied: _occupiedIdx,
       pois: genObjects
-        .filter(o => o.kind === 'chest')
+        .filter(o => o.kind === 'chest' || o.kind === 'grove_shrine')
         .map(o => ({
           ix: Math.floor((o.x - tx * this.tileEdgeM) / cellM),
           iy: Math.floor((o.y - ty * this.tileEdgeM) / cellM),

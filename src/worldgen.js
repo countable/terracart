@@ -5142,9 +5142,9 @@
             if ((i & 511) === 0) yield 'zone cave source';
             if (zone.under[i]) caveGrid[i] = zone.under[i];
           }
-          zone.caveSource = { grid: caveGrid, objects: deduped.slice(), wildplants: filtered.slice() };
+          zone.caveSource = { grid: caveGrid, objects: deduped.slice(), wildplants: filtered.slice(), spawnWhy: spawnWhy.slice() };
         }
-        if (typeof ZoneCoverage !== 'undefined') yield* ZoneCoverage.paintSteps(zone, grid, w, pathUnder, roadMask);
+        if (typeof ZoneCoverage !== 'undefined') yield* ZoneCoverage.paintSteps(zone, grid, w, pathUnder, roadMask, spawnWhy);
         zone.legacyRemoved = yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
           wildplants: filtered, occupied: dressOcc, streetDress, tx, ty, N: w, tileEdgeM });
         dressSpawn();
@@ -6684,6 +6684,9 @@
     // sensitive ground and a field's edge — but NOT the house buffer, so the
     // mouths players already know by the houses stay where they were.
     const stairOpts = { roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, roadClass: entry.roadClass };
+    // Surface zones can reopen inferred lot ground; existing mine identities
+    // still use the mask saved alongside their original terrain and objects.
+    if (source && source.spawnWhy) stairOpts.spawnWhy = source.spawnWhy;
     // The mouth's own rules (everything but the gate's reasons)…
     const stairSiteOK = (lix, liy, idx) =>
       !used.has(idx) && !tooClose(lix, liy)

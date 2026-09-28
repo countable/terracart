@@ -59,6 +59,9 @@
     const r = WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, edge);
     const poi = r.objects.find(o => /windermere park/i.test(o.name || ''));
     assert.truthy(poi, 'real Windermere Park fixture');
+    assert.eq(poi.kind, 'grove_shrine', 'park POI is the shrine');
+    assert.falsy(r.objects.some(o => o.kind === 'chest' && o._poiAt === poi._poiAt));
+    assert.falsy(r.zoneDress.objects.some(o => o.kind === 'grove_shrine'), 'no second shrine beside the POI');
     const anchor = r.zone.anchors.find(a => `${a.lx},${a.ly}` === poi._poiAt);
     assert.truthy(anchor, 'park anchor');
     const slot = r.zone.anchors.indexOf(anchor) + 1;

@@ -1143,6 +1143,7 @@
           <button id="debug-slime-pack">Call slime pack (6)</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
           <button id="debug-road-ids">Road IDs (debug)</button>
+          <button id="debug-variant-labels" aria-pressed="false">Variant labels: off</button>
           <button id="debug-load-profile">Load profile</button>
           <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
             <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
@@ -1935,6 +1936,15 @@
       if (scene && scene.debugRoadIds) scene.debugRoadIds();
       else if (window.showError) window.showError('road ids unavailable', 'scene not ready');
     });
+    document.getElementById('debug-variant-labels').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const scene = window.__scene;
+      if (!scene) return;
+      scene.debugVariantLabels = !scene.debugVariantLabels;
+      e.currentTarget.textContent = `Variant labels: ${scene.debugVariantLabels ? 'on' : 'off'}`;
+      e.currentTarget.setAttribute('aria-pressed', String(scene.debugVariantLabels));
+      const m = document.getElementById('menu'); if (m) m.open = false;
+    });
     document.getElementById('debug-wood-relics').addEventListener('click', (e) => {
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
@@ -2595,6 +2605,10 @@
   <script src="src/streets.js?v=120c04d0"></script>
   <script src="src/street_variants.js?v=d6c75a5f"></script>
   <script src="src/zones.js?v=1f630464"></script>
+  <script src="src/zone_variant_data.js?v=8c83e88e"></script>
+  <script src="src/zone_variants.js?v=10cd7931"></script>
+  <script src="src/zone_coverage.js?v=d2a76eb7"></script>
+  <script src="src/zone_dressing.js?v=9a15878c"></script>
   <script src="src/sprite_layout.js?v=24492a5e"></script>
   <script src="src/placed_floor.js?v=d6c42e37"></script>
   <script src="src/home.js?v=db93a51e"></script>
@@ -2603,7 +2617,7 @@
   <script src="src/biome_profiles.js?v=8c89737c"></script>
   <script src="src/traps.js?v=5b34d59c"></script>
   <script src="src/lairs.js?v=845b5b6d"></script>
-  <script src="src/worldgen.js?v=db435753"></script>
+  <script src="src/worldgen.js?v=48f67036"></script>
   <script src="src/textures.js?v=e325adb3"></script>
   <script src="src/save.js?v=781185a3"></script>
   <script src="src/items.js?v=b2f0ee89"></script>
@@ -2632,7 +2646,7 @@
   <script src="src/interact.js?v=68f852cc"></script>
   <script src="src/play_tips.js?v=6f7e5d7e"></script>
   <script src="src/lighting.js?v=300814a0"></script>
-  <script src="src/render.js?v=ecea411b"></script>
+  <script src="src/render.js?v=04d0837a"></script>
   <script src="src/multiplayer.js?v=a4181a1f"></script>
   <script src="src/road_overlay.js?v=957c355c"></script>
   <script src="src/building_overlay.js?v=16f504b9"></script>
@@ -2644,7 +2658,7 @@
   <script src="src/modal_shell.js?v=82b09ccb"></script>
   <script src="src/scene_geo.js?v=51b2a403"></script>
   <script src="src/npc.js?v=40b5368f"></script>
-  <script src="src/scene_creatures.js?v=bdfe332f"></script>
+  <script src="src/scene_creatures.js?v=2e83231f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────

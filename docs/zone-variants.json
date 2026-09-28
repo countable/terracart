@@ -415,112 +415,56 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          6,
+          6
         ],
         "slots": [
           {
             "at": [
+              0,
+              0
+            ],
+            "material": "mushroom"
+          },
+          {
+            "at": [
               1,
-              1
-            ],
-            "material": "mushroom"
-          },
-          {
-            "at": [
-              2,
-              1
-            ],
-            "material": "mushroom"
-          },
-          {
-            "at": [
-              6,
-              2
-            ],
-            "material": "mushroom"
-          },
-          {
-            "at": [
-              7,
-              2
-            ],
-            "material": "mushroom"
-          },
-          {
-            "at": [
-              2,
-              6
+              0
             ],
             "material": "mushroom"
           },
           {
             "at": [
               3,
-              6
-            ],
-            "material": "mushroom"
-          },
-          {
-            "at": [
-              7,
-              7
-            ],
-            "material": "mushroom"
-          },
-          {
-            "at": [
-              8,
-              7
-            ],
-            "material": "mushroom"
-          },
-          {
-            "at": [
-              1,
               3
             ],
-            "material": "shrub"
+            "material": "mushroom"
           },
           {
             "at": [
-              6,
-              4
+              4,
+              3
             ],
-            "material": "shrub"
+            "material": "mushroom"
           },
           {
             "at": [
               2,
-              8
+              2
             ],
             "material": "shrub"
-          },
-          {
-            "at": [
-              7,
-              9
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              4,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              4,
-              5
-            ],
-            "material": "grass"
           },
           {
             "at": [
               5,
-              8
+              5
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              1
             ],
             "material": "grass"
           }
@@ -528,17 +472,17 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.15,
+        "nominalDensity": 0.19444444444444445,
         "materialDensity": {
-          "mushroom": 0.08,
-          "shrub": 0.04,
-          "grass": 0.03
+          "mushroom": 0.1111111111111111,
+          "shrub": 0.05555555555555555,
+          "grass": 0.027777777777777776
         },
         "type": "repeat_motif",
         "poiOrigin": {
           "cell": [
-            4,
-            3
+            3,
+            2
           ],
           "role": "clearing_between_mushroom_pairs"
         }
@@ -698,7 +642,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Paired caps lead to a crescent with a luminous flower in its missing segment.",
+      "atmosphere": "Staggered mushroom pairs repeat every six cells, with shrubs and grass between them. The close-set caps lead to a crescent and its luminous flower.",
       "attracts": {
         "butterfly": 0.5
       }
@@ -1348,8 +1292,8 @@
       "name": "Hedge Garden",
       "weight": 1,
       "background": {
-        "type": "bounded_line_grid",
-        "spacingCells": 6,
+        "type": "line_grid",
+        "spacingCells": 4,
         "horizontalMaterial": "shrub",
         "verticalMaterial": "shrub",
         "intersectionMaterial": "shrub",
@@ -1366,8 +1310,8 @@
           },
           "excludePoiPlot": true,
           "offsetCells": [
-            3,
-            3
+            2,
+            2
           ]
         },
         "previewPlots": [
@@ -1377,26 +1321,22 @@
         "phaseOrigin": "settled_poi_at_plot_center",
         "orientation": "quarter_turn_toward_approach",
         "densityFalloff": "none",
-        "nominalDensity": 0.384,
+        "nominalDensity": 0.5,
         "materialDensity": {
-          "shrub": 0.36,
-          "blue": 0.0176,
-          "orange": 0.0064
+          "shrub": 0.4375,
+          "blue": 0.046875,
+          "orange": 0.015625
         },
-        "plots": [
-          4,
-          4
-        ],
         "poiPlot": [
           1,
           1
         ],
-        "extentPolicy": "fixed_4_by_4_plots_clipped_to_coverage_union",
-        "densityBasis": "finite_25_by_25_footprint_before_poi_decoration",
+        "extentPolicy": "repeat_to_coverage_union",
+        "densityBasis": "repeating_cells_before_poi_replacement",
         "poiOrigin": {
           "cell": [
-            9,
-            9
+            6,
+            6
           ],
           "role": "plot_center"
         }
@@ -1542,8 +1482,8 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          9,
+          9
         ],
         "slots": [
           {
@@ -1697,11 +1637,11 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.21,
+        "nominalDensity": 0.28888888888888886,
         "materialDensity": {
-          "tree": 0.01,
-          "shrub": 0.08,
-          "grass": 0.12
+          "tree": 0.012345679012345678,
+          "shrub": 0.09876543209876543,
+          "grass": 0.17777777777777776
         },
         "type": "repeat_motif",
         "cluster": {
@@ -1732,7 +1672,14 @@
             5
           ],
           "role": "cluster_center_replacing_center_tree"
-        }
+        },
+        "gapScatter": {
+          "material": "grass",
+          "chance": 0.04,
+          "placement": "empty_motif_cells_only",
+          "seed": "anchor_variant_global_cell"
+        },
+        "densityBasis": "fixed_cluster_plus_expected_gap_scatter"
       },
       "poi": {
         "id": "stone_tree_ring",
@@ -1893,7 +1840,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Rounded clusters sit closer together: a tree at each center, a ring of bushes, and a soft grass edge. The central cluster frames the POI; stone markers lead to its guarded starflower.",
+      "atmosphere": "Rounded tree, bush and grass clusters repeat nine cells apart. A light scatter of grass crosses the gaps; stone markers lead from the central grove to its guarded starflower.",
       "attracts": {
         "deer": 0.6
       }

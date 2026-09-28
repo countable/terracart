@@ -203,7 +203,8 @@ test('zones: covered ambience is replaced while every preserved item keeps its i
     const y = Math.floor((o.y - TILE_TY * edge) / (edge / N));
     return !(/^(wp|hr|hm|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id) && on.zone.coverage[y * N + x]);
   };
-  const sig = (arr) => arr.map((o) => `${o.kind}|${o.id}|${o.x.toFixed(3)}|${o.y.toFixed(3)}|${o.crop || ''}`).join('\n');
+  // The park's chest becomes its shrine in place; all identities stay fixed.
+  const sig = (arr) => arr.map((o) => `${o.kind === 'grove_shrine' ? 'chest' : o.kind}|${o.id}|${o.x.toFixed(3)}|${o.y.toFixed(3)}|${o.crop || ''}`).join('\n');
   assert.eq(sig(on.objects), sig(off.objects.filter(keep)), 'preserved objects keep ids and positions');
   assert.eq(sig(on.wildplants), sig(off.wildplants.filter(keep)), 'preserved wild plants keep ids and positions');
   assert.gt(off.wildplants.length - on.wildplants.length, 0, 'covered legacy flora is actually replaced');
