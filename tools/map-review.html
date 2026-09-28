@@ -314,12 +314,15 @@ function popupHTML(e, o, label) {
   const category = (e.creatures || []).includes(o) ? 'creature' : '';
   rows.push(`Source: <b>${esc(ZoneReview.SOURCES[ZoneReview.source(e,o,category)].label)}</b>`);
   if (o.zoneVariant) rows.push(`Variant: <b>${esc(ZoneVariants.byId(o.zoneVariant)?.name || o.zoneVariant)}</b>${o.zoneLayer ? ' · '+esc(o.zoneLayer) : ''}`);
-  if (o.kind === 'chest') {
+  if (o.kind === 'chest' || o.kind === 'grove_shrine') {
     const tags = (o._poiAt && poiTagsOf(e).get(o._poiAt)) || {};
     rows.push(`POI: ${esc(o.poiClass || tags.class || '?')}${tags.subclass && tags.subclass !== o.poiClass ? ' / ' + esc(tags.subclass) : ''}`);
-    const look = typeof chestLook === 'function' ? chestLook(o) : null;
-    const wt = typeof chestTier === 'function' ? chestTier(o) : '?';
-    rows.push(`look: ${esc(look ? (look.texKey || look.kind || JSON.stringify(look)) : '?')} · tier T${wt} (${o.poiDensity || '?'} of its kind on the tile)`);
+    if (o.kind === 'grove_shrine') rows.push('Grove shrine · daily gift');
+    else {
+      const look = typeof chestLook === 'function' ? chestLook(o) : null;
+      const wt = typeof chestTier === 'function' ? chestTier(o) : '?';
+      rows.push(`look: ${esc(look ? (look.texKey || look.kind || JSON.stringify(look)) : '?')} · tier T${wt} (${o.poiDensity || '?'} of its kind on the tile)`);
+    }
     const z = zoneAnchorOf(e, o);
     if (z) {
       rows.push(`zone anchor: <b>${esc(z.kind)}</b>${z.kind === 'stones' ? (z.ghosts ? ' (ghosts)' : ' (quiet)') : ''}`

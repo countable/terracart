@@ -8,7 +8,7 @@ const source = path.join(root, 'docs/zone-variants.json');
 const target = path.join(root, 'src/zone_variant_data.js');
 const data = JSON.parse(fs.readFileSync(source, 'utf8'));
 const ids = new Set();
-const types = new Set(['seeded_scatter', 'repeat_motif', 'bounded_line_grid', 'concentric_rings']);
+const types = new Set(['seeded_scatter', 'repeat_motif', 'line_grid', 'bounded_line_grid', 'concentric_rings']);
 function fail(message) { throw new Error(`zone variants: ${message}`); }
 function material(value) {
   if (value && Array.isArray(value.cycle)) return value.cycle.forEach(material);
@@ -32,6 +32,10 @@ for (const row of data.variants) {
     if (b[field]) material(b[field]);
   }
   if (b.plotCenters) material(b.plotCenters.material);
+  if (b.gapScatter) {
+    material(b.gapScatter.material);
+    if (b.type !== 'repeat_motif' || !(b.gapScatter.chance > 0 && b.gapScatter.chance <= 1)) fail(`gap scatter ${row.id}`);
+  }
   for (const id of Object.keys(b.materialDensity)) material(id);
   for (const id of Object.keys(b.hazardDensity || {})) material(id);
   for (const pattern of [row.poi, row.poi.whenInsideBuilding]) {

@@ -12341,8 +12341,9 @@ class MapScene extends Phaser.Scene {
   // buffer, and the same metres come back inside the NEIGHBOUR tile's copy of
   // the way — so `tileSpans` clips to the square and nothing is paid twice.
   //
-  // Rail is skipped (a railway is not a street to rebuild); parking aisles are
-  // NOT — the overlay draws them, so they restore like any other way.
+  // Rail is skipped (a railway is not a street to rebuild), and so are
+  // parking aisles — they draw no band anywhere (WorldGen.isParkingAisle),
+  // so there is no street to rebuild and no metres to be paid for them.
   _rescanStreets(p, reachM, now, sight) {
     const lines = this._streetLines || (this._streetLines = new Map());
     const seen = new Set();
@@ -12375,6 +12376,7 @@ class MapScene extends Phaser.Scene {
           if (f.type !== 2 || !f.geom) continue;      // lines only
           const cls = (f.tags && f.tags.class) || '';
           if (cls === 'rail' || cls === 'transit') continue;
+          if (WorldGen.isParkingAisle(f.tags)) continue;
           for (let i = 0; i < f.geom.length; i++) {
             const line = f.geom[i];
             if (!line || line.length < 2) continue;
@@ -12504,7 +12506,9 @@ class MapScene extends Phaser.Scene {
   // copy, so without the tileSpans test the two tiles would each stand a stone
   // on the same stretch — two sprites and two stacked lights on one street.
   //
-  // Rail is skipped: a railway is not a street to rebuild, so it never lights.
+  // Rail is skipped: a railway is not a street to rebuild, so it never
+  // lights. Parking aisles are skipped too (WorldGen.isParkingAisle) — no
+  // band, no lamps beside it.
   //
   // Each lamp carries the way's TIER (WorldGen.classifyLine — the terrain
   // code the grid was painted with), which is what picks its unlit stone's
@@ -12566,6 +12570,7 @@ class MapScene extends Phaser.Scene {
         if (f.type !== 2 || !f.geom) continue;          // lines only
         const cls = (f.tags && f.tags.class) || '';
         if (cls === 'rail' || cls === 'transit') continue;
+        if (WorldGen.isParkingAisle(f.tags)) continue;
         const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
         // How far off the centreline this way's lamps stand: its own band's
         // half-width plus the stone. Per FEATURE — the width is a function of

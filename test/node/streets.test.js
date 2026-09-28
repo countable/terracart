@@ -566,8 +566,9 @@
   });
 
   test('streets lamps: a line under half a spacing gets none', () => {
-    // The floor that keeps a dense block of driveways and parking aisles from
-    // reading as a lit car park.
+    // The floor that keeps a dense block of driveways and service roads from
+    // reading as a lit car park. (Parking aisles never get this far at all —
+    // WorldGen.isParkingAisle drops them before the lamp pass.)
     const line = [pt(0, 0), pt(99, 0)];   // just under 100 m = half of 200
     assert.eq(S.lampsAlong(line, MVT_TO_M, 200).length, 0);
   });

@@ -32,10 +32,14 @@ test('zone variants: repeated geometry preserves densities and phase across nega
   for (const row of V.rows.filter(v => v.background.type === 'repeat_motif')) {
     const b = row.background, [w, h] = b.repeatCells;
     // Four block phases include the full flower-bed color cycle.
-    const counts = count(row, -2 * w, -h, 4 * w, h, 'anchor');
+    const fixed = { ...row, background: { ...b, gapScatter: null } };
+    const counts = count(fixed, -2 * w, -h, 4 * w, h, 'anchor');
+    const area = 4 * w * h;
+    const empty = area - Object.values(counts).reduce((n, value) => n + value, 0);
     const expected = Object.assign({}, b.materialDensity, b.hazardDensity);
     for (const [material, density] of Object.entries(expected)) {
-      assert.eq(counts[material] / (4 * w * h), density, `${row.id}/${material}`);
+      const scatter = b.gapScatter && material === b.gapScatter.material ? empty / area * b.gapScatter.chance : 0;
+      assert.lt(Math.abs(counts[material] / area + scatter - density), 1e-12, `${row.id}/${material}`);
     }
   }
   const formal = V.byId('formal_garden');
@@ -61,10 +65,46 @@ test('zone variants: seeded scatter has declared mix without dependence on trave
     assert.gt(differences, 100, 'different anchors produce different scatter');
   }
 });
-test('zone variants: continuous bounded grids have centered POIs and exact extent', () => {
+test('zone variants: Mushroom Grove avoids wide empty strips at every repeated phase', () => {
+  const row = V.byId('mushroom_grove');
+  assert.eq(row.background.repeatCells.join(','), '6,6');
+  for (let x = -6; x < 6; x++) {
+    assert.gt(Object.values(count(row, x, -6, 1, 6, 'a')).reduce((sum, n) => sum + n, 0), 0);
+  }
+  for (let y = -6; y < 6; y++) {
+    assert.gt(Object.values(count(row, -6, y, 6, 2, 'a')).reduce((sum, n) => sum + n, 0), 0);
+  }
+  assert.eq(V.sample(row, 0, 0, 'a'), 'mushroom');
+  assert.eq(V.sample(row, 1, 0, 'a'), 'mushroom');
+  assert.eq(V.sample(row, 3, 3, 'a'), 'mushroom');
+  assert.eq(V.sample(row, 4, 3, 'a'), 'mushroom');
+});
+test('zone variants: Ancient Grove keeps rounded clusters and scatters grass only between them', () => {
+  const row = V.byId('ancient_grove'), b = row.background;
+  assert.eq(b.repeatCells.join(','), '9,9');
+  const fixed = { ...row, background: { ...b, gapScatter: null } };
+  let empty = 0, grass = 0, changed = 0;
+  for (let y = -90; y < 90; y++) for (let x = -90; x < 90; x++) {
+    const material = V.sample(row, x, y, 'one'), slot = V.sample(fixed, x, y, 'one');
+    assert.eq(V.sample(row, x, y, 'one'), material, 'stable across revisits');
+    if (slot) assert.eq(material, slot, 'the rounded cluster is never replaced');
+    else {
+      empty++;
+      assert.truthy(material === null || material === 'grass');
+      if (material === 'grass') grass++;
+      if (material !== V.sample(row, x, y, 'two')) changed++;
+    }
+  }
+  assert.lt(Math.abs(grass / empty - b.gapScatter.chance), 0.005);
+  assert.gt(changed, 100, 'gap grass varies by anchor');
+  assert.eq(V.sample(row, 5, 5, 'one'), 'tree');
+  assert.eq(V.sample(row, 14, 5, 'one'), 'tree', 'tree centers are nine cells apart');
+});
+test('zone variants: continuous grids have centered POIs and their declared extent', () => {
   for (const [id, plots] of [['hedge_garden', 4], ['work_yard', 5]]) {
     const row = V.byId(id), b = row.background, edge = b.spacingCells * plots;
-    assert.eq(b.plots[0], plots);
+    assert.eq((b.plots || b.previewPlots)[0], plots);
+    assert.eq(b.spacingCells, id === 'hedge_garden' ? 4 : 6);
     const [ox, oy] = V.poiOrigin(row);
     assert.eq(ox % b.spacingCells, b.spacingCells / 2);
     assert.eq(oy % b.spacingCells, b.spacingCells / 2);
@@ -74,11 +114,13 @@ test('zone variants: continuous bounded grids have centered POIs and exact exten
       assert.truthy(V.sample(row, i, line), 'unbroken row');
     }
     for (const [x, y] of [[-1, 0], [0, -1], [edge + 1, 0], [0, edge + 1]]) {
-      assert.eq(V.sample(row, x, y), null, 'finite footprint');
+      if (id === 'work_yard') assert.eq(V.sample(row, x, y), null, 'finite work-yard footprint');
+      else assert.truthy(V.sample(row, x, y), 'hedge lines continue across the whole union');
     }
-    const counts = count(row, 0, 0, edge + 1, edge + 1);
+    const side = id === 'hedge_garden' ? 16 : edge + 1, start = id === 'hedge_garden' ? 32 : 0;
+    const counts = count(row, start, start, side, side);
     for (const [material, density] of Object.entries(b.materialDensity)) {
-      assert.lt(Math.abs((counts[material] || 0) / ((edge + 1) ** 2) - density), 1e-10);
+      assert.lt(Math.abs((counts[material] || 0) / (side ** 2) - density), 1e-10);
     }
   }
 });

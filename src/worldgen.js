@@ -876,6 +876,18 @@
     if (c === 'pier') return T.PIER;
     return T.ROAD;
   }
+  // A parking-lot aisle (OSM service=parking_aisle) IS NOT A ROAD IN THIS
+  // GAME. A lot carpets itself in parallel service lines spaced closer than
+  // one cell, so painting them would weld the lot into a solid asphalt blob —
+  // instead the aisle is dropped EVERYWHERE, by ONE rule with every reader:
+  // no terrain cell and no roadMask footprint (worldgen's two line walks
+  // below — it bars no spawns and no tilling), no overlay band
+  // (road_overlay.js eachTransportLine), no restoration (app.js
+  // _rescanStreets) and no lamps (app.js _streetLampsForTile). A parking lot
+  // reads as open ground carrying its treasure X, nothing else.
+  function isParkingAisle(tags) {
+    return !!(tags && tags.service === 'parking_aisle');
+  }
   // Approximate real-world carriageway width, in metres, per transportation
   // class. The rasterizer only reads this for PIER (roads and paths always
   // rasterize one cell wide — see the wCells comment in rasterizeTile), but
@@ -3157,11 +3169,11 @@
     const ownerKeys = [];
     // Road FOOTPRINT mask (1 = under a drawn road band). The terrain grid is a
     // lossy record of where the roads are: every way rasterizes exactly ONE
-    // cell wide whatever its class, and parking aisles are skipped entirely —
-    // while the road-geometry overlay draws each way at its real carriageway
-    // width (roadOverlayWidthM), so a motorway's band covers a full cell past
-    // its ROAD_LG cells on either side and a parking lot is carpeted in
-    // asphalt the grid still calls landuse. Anything seated on those cells
+    // cell wide whatever its class, while the road-geometry overlay draws each
+    // way at its real carriageway width (roadOverlayWidthM), so a motorway's
+    // band covers a full cell past its ROAD_LG cells on either side. Parking
+    // aisles are nobody's road at all (isParkingAisle: no cell, no band, no
+    // mask — a lot is open ground). Anything seated on a masked cell
     // reads as sitting in the road, which is precisely the bug that kept
     // coming back: the spawn filters were checking terrain, and terrain wasn't
     // the question. This mask IS the question. It changes no terrain — masked
@@ -3621,7 +3633,7 @@
       if (tl) {
         for (const f of tl.features) {
           if (f.type !== 2 || !f.geom) continue;
-          if (f.tags && f.tags.service === 'parking_aisle') continue;   // never painted
+          if (isParkingAisle(f.tags)) continue;   // aisles are nothing at all
           if (classifyLine('transportation', f.tags) !== T.PATH) continue;
           for (const line of f.geom) accumulateLineSpan(pathSpan, w, h, line, mvtToCell);
         }
@@ -4061,10 +4073,16 @@
         } else if (f.type === 2 && name === 'transportation') {
           const t = classifyLine(name, f.tags);
           if (t == null) continue;
-          // Record the way's full drawn footprint FIRST — before the
-          // parking-aisle skip and regardless of how narrow a band the
-          // rasterizer is about to paint. This is the mask the spawn filters
-          // read; see roadMask above.
+          // Parking-lot aisles are dropped ENTIRELY — and BEFORE the footprint
+          // stamp below, so they bar no spawns and no tilling either. A lot
+          // carpeted in parallel service lines spaced closer than one cell
+          // would rasterize into a solid asphalt blob, not a road network; the
+          // lot keeps its landuse paint and the parking-POI treasure X already
+          // marks it. See isParkingAisle for the full reach of the rule.
+          if (isParkingAisle(f.tags)) continue;
+          // Record the way's full drawn footprint — regardless of how narrow a
+          // band the rasterizer is about to paint. This is the mask the spawn
+          // filters read; see roadMask above.
           {
             // Fractional width, no rounding: the stamp samples the band's
             // own coverage of each cell, so how much of a cell the band
@@ -4087,11 +4105,6 @@
               for (const line of f.geom) yield* stampCoverLineSteps(majorBufCover, w, h, line, bufCells, mvtToCell);
             }
           }
-          // Parking-lot aisles carpet a lot with parallel service lines spaced
-          // closer than one cell, so they rasterize into a solid asphalt blob,
-          // not a road network. Skip them entirely: the lot keeps its landuse
-          // paint and the parking-POI treasure X already marks it.
-          if (f.tags.service === 'parking_aisle') continue;
           // Roads and paths rasterize exactly ONE cell wide regardless of
           // their OSM width: the cobble tile fills the whole cell, so wider
           // disk stamping only made the band wobble between 1 and 2 rows
@@ -5142,9 +5155,9 @@
             if ((i & 511) === 0) yield 'zone cave source';
             if (zone.under[i]) caveGrid[i] = zone.under[i];
           }
-          zone.caveSource = { grid: caveGrid, objects: deduped.slice(), wildplants: filtered.slice() };
+          zone.caveSource = { grid: caveGrid, objects: deduped.slice(), wildplants: filtered.slice(), spawnWhy: spawnWhy.slice() };
         }
-        if (typeof ZoneCoverage !== 'undefined') yield* ZoneCoverage.paintSteps(zone, grid, w, pathUnder, roadMask);
+        if (typeof ZoneCoverage !== 'undefined') yield* ZoneCoverage.paintSteps(zone, grid, w, pathUnder, roadMask, spawnWhy);
         zone.legacyRemoved = yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
           wildplants: filtered, occupied: dressOcc, streetDress, tx, ty, N: w, tileEdgeM });
         dressSpawn();
@@ -6684,6 +6697,9 @@
     // sensitive ground and a field's edge — but NOT the house buffer, so the
     // mouths players already know by the houses stay where they were.
     const stairOpts = { roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, roadClass: entry.roadClass };
+    // Surface zones can reopen inferred lot ground; existing mine identities
+    // still use the mask saved alongside their original terrain and objects.
+    if (source && source.spawnWhy) stairOpts.spawnWhy = source.spawnWhy;
     // The mouth's own rules (everything but the gate's reasons)…
     const stairSiteOK = (lix, liy, idx) =>
       !used.has(idx) && !tooClose(lix, liy)
@@ -7461,7 +7477,7 @@
     // preservation pinned by tile_bin_injection.test.js.
     injectTileBin,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isSpawnCell, relocateToSpawnCell,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isSpawnCell, relocateToSpawnCell,
     // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
     // stamp and its numbers, and the live per-player private-ground veto.
     SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,

@@ -289,8 +289,8 @@
   //
   // SPREAD ALONG THE LINE, NOT STAMPED FROM ITS START. OSM splits a street
   // wherever a tag changes, so lamps at s = 200, 400, … would leave every way
-  // shorter than the spacing — most of a suburb, and every parking aisle —
-  // with no lamp at all, and would bunch two stones either side of a split.
+  // shorter than the spacing — most of a suburb — with no lamp at all, and
+  // would bunch two stones either side of a split.
   // Each line instead gets the whole number of intervals NEAREST its own
   // length, spread evenly with a half interval at each end: a 300 m street
   // gets two lamps 150 m apart, a 1 km one five 200 m apart, and any way at
