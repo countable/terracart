@@ -824,7 +824,7 @@ function dayLedgerAges(save) {
   const out = new Map();
   const m = save && save.coinBurstClaimed;
   if (!m || typeof Macros === 'undefined') return out;
-  const today = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  const today = utcDayIndex(Date.now());
   for (const k of Object.keys(m)) {
     if (m[k] !== 1 || k.length <= 8) continue;
     const age = today - Macros.ledgerKeyDay(k);

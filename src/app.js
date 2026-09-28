@@ -4504,7 +4504,7 @@ class MapScene extends Phaser.Scene {
           caughtSet: setOf(this.save.caught),
           hpMemo: this._lairHp,
           // A gate's guard re-rises each UTC day (lairs.js DAILY_TIERS).
-          dayKey: Delivery.dayKey(),
+          dayKey: utcDayKey(),
           buildings: !!Difficulty.get().derelictLairs,
         });
       }
@@ -6110,7 +6110,7 @@ class MapScene extends Phaser.Scene {
   // day flash a hint and spawn no coins. Coins themselves are in-memory only
   // (entry.coinDrops); only the ledger persists.
   _coinBurstInteract(sx, sy, poi) {
-    const dayKey = Delivery.dayKey();
+    const dayKey = utcDayKey();
     if (Macros.usedToday(this.save, poi.id)) {
       // Same UTC day key as the dayKey above, so the reset is msToNextUtcDay.
       this.flash(`Already used — back in ${shortDuration(msToNextUtcDay())}.`, sx, sy);
@@ -9355,7 +9355,7 @@ class MapScene extends Phaser.Scene {
     const day = Lighting.daylight(this, now);
     const was = this._safetyLastDay;
     this._safetyLastDay = day;
-    const key = Delivery.dayKey(new Date(now));
+    const key = utcDayKey(now);
     if (was != null && was >= SAFETY_DUSK_DAYLIGHT && day < SAFETY_DUSK_DAYLIGHT && this._safetyDuskKey !== key) {
       this._safetyDuskKey = key;
       this._showSafetyCard('dusk');
@@ -10072,7 +10072,7 @@ class MapScene extends Phaser.Scene {
       foes.push({ id, tx, ty, kind, x, y });
     });
     if (!foes.length) return 0;
-    this._guildBounty = { id: b.id, pay: b.pay, day: Delivery.dayKey(new Date(now)), foes };
+    this._guildBounty = { id: b.id, pay: b.pay, day: utcDayKey(now), foes };
     this.save.guildBounty = this._guildBounty;
     return foes.length;
   }
@@ -10081,7 +10081,7 @@ class MapScene extends Phaser.Scene {
   _guildBountyNow() {
     if (!this._guildBounty && this.save.guildBounty) this._guildBounty = this.save.guildBounty;
     const gb = this._guildBounty;
-    if (gb && gb.day !== Delivery.dayKey(new Date())) {
+    if (gb && gb.day !== utcDayKey()) {
       this._guildBounty = null;
       delete this.save.guildBounty;
       return null;
@@ -10117,7 +10117,7 @@ class MapScene extends Phaser.Scene {
   _tickGuildBounty() {
     const gb = this._guildBounty || this.save.guildBounty;
     if (!gb) return;
-    if (gb.day !== Delivery.dayKey(new Date())) {
+    if (gb.day !== utcDayKey()) {
       const caught = new Set(this.save.caught || []);
       let left = 0;
       for (const f of gb.foes) {
@@ -10418,7 +10418,7 @@ class MapScene extends Phaser.Scene {
     const kinds = new Set(FORT_SLOT_KINDS);
     const cands = ITEMS.filter((it) => kinds.has(it.kind) && (PRICES[it.id] ?? 0) > 0
       && !FORT_SLOT_EXCLUDE.has(it.id)).map((it) => it.id);
-    const ids = ShopsMath.slotPrizes(`slots:${house.id}:${Delivery.dayKey()}`, cands);
+    const ids = ShopsMath.slotPrizes(`slots:${house.id}:${utcDayKey()}`, cands);
     return ShopsMath.slotMachine(ids, (id) => PRICES[id] ?? 0,
       (id) => ITEM_BY_ID[id]?.kind !== 'relic');
   }
@@ -11549,7 +11549,7 @@ class MapScene extends Phaser.Scene {
   // Delivery wishlist logic lives in delivery.js (headlessly tested). These stay
   // as scene methods because render.js + the interact/present handlers call them
   // as scene.wantedProduce(o) / scene.isHouseSatisfied(o) / etc. The day key
-  // itself is Delivery.dayKey(), asked directly.
+  // itself is utcDayKey(), asked directly.
 
   // 1-3 produce ids this plain house wants — locked to its FIRST ask for the
   // life of the house (pinned in save.houseWishlists by delivery.js, cached on
@@ -13381,7 +13381,7 @@ class MapScene extends Phaser.Scene {
   // relics: it's home turf, so instead of a trade it's a favour, once a day.
   presentCastleServiceOffer(sx, sy, house) {
     if (this._castleServiceUsedToday(house)) {
-      // The favour is one per UTC day (Delivery.dayKey),
+      // The favour is one per UTC day (utcDayKey),
       // so the castellan names the wait rather than saying "tomorrow".
       this.flash(`My lord! Come back in ${shortDuration(msToNextUtcDay())}.`,
                  sx, sy);

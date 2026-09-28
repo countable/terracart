@@ -112,15 +112,29 @@ function shortDuration(ms) {
   return `${Math.ceil(h / 24)}d`;
 }
 
-// Milliseconds from `now` to the next UTC midnight — the reset the game's
+// One UTC boundary owns both the persistent YYYYMMDD key and the numeric day
+// used for rotation/age arithmetic, so every daily mechanic flips together.
+// Callers may pass a Date or epoch milliseconds.
+const UTC_DAY_MS = 24 * 60 * 60 * 1000;
+function _utcTimeMs(now) {
+  return now instanceof Date ? now.getTime() : now;
+}
+function utcDayIndex(now = Date.now()) {
+  return Math.floor(_utcTimeMs(now) / UTC_DAY_MS);
+}
+function utcDayKey(now = Date.now()) {
+  return new Date(_utcTimeMs(now)).toISOString().slice(0, 10).replace(/-/g, '');
+}
+
+// Milliseconds from `now` to the next UTC midnight - the reset the game's
 // day-gated things actually run on. The castle's daily favour and the
-// coin-burst POIs both key off a UTC "YYYYMMDD" stamp, so "come back tomorrow" can mean anything from a minute to 24 hours.
-// Feeding this to shortDuration() turns that into the honest number ("in 23h",
-// "in 40m"). Use it wherever a UTC day key is the gate; a LOCAL-midnight gate
-// would need its own helper, and there isn't one because there isn't one.
+// coin-burst POIs both key off utcDayKey(), so "come back tomorrow" can mean
+// anything from a minute to 24 hours. Feeding this to shortDuration() turns
+// that into the honest number ("in 23h", "in 40m").
 function msToNextUtcDay(now = Date.now()) {
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  return DAY_MS - (now % DAY_MS);
+  const t = _utcTimeMs(now);
+  const elapsed = ((t % UTC_DAY_MS) + UTC_DAY_MS) % UTC_DAY_MS;
+  return UTC_DAY_MS - elapsed;
 }
 
 // === Shared hashing / seeded RNG ============================================

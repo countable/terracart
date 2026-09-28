@@ -52,19 +52,32 @@ test('shortDuration: every output carries a unit letter and a plain integer', ()
   }
 });
 
-test('msToNextUtcDay: counts to the UTC midnight the day keys actually roll on', () => {
+test('UTC day identity and countdown share the same midnight', () => {
   const midnight = Date.UTC(2026, 8, 5);            // 2026-09-05T00:00:00Z
+  const before = midnight - 1;
+  assert.eq(utcDayKey(before), '20260904', 'the prior key holds until midnight');
+  assert.eq(utcDayKey(new Date(midnight)), '20260905', 'Date inputs use the same UTC key');
+  assert.eq(utcDayIndex(midnight) - utcDayIndex(before), 1, 'the index advances at midnight');
+  assert.eq(utcDayIndex(new Date(midnight)), utcDayIndex(midnight), 'Date and epoch inputs agree');
+  assert.eq(Delivery.dayKey(new Date(before)), utcDayKey(before), 'Delivery keeps a compatibility alias');
+  assert.eq(Delivery.dayKey(new Date(midnight)), utcDayKey(midnight), 'the alias flips at the same instant');
   assert.eq(msToNextUtcDay(midnight), DN_DAY, 'a full day stands at the stroke of midnight');
   assert.eq(msToNextUtcDay(midnight + DN_HOUR), 23 * DN_HOUR);
   assert.eq(msToNextUtcDay(midnight + DN_DAY - DN_MIN), DN_MIN, 'a minute before the roll');
-  // The gate it has to agree with: Delivery.dayKey is a UTC YYYYMMDD stamp, so
-  // the key must be unchanged right up to the instant this hits zero and
-  // different immediately after.
-  const dk = Delivery.dayKey(new Date(midnight + DN_HOUR));
-  assert.eq(Delivery.dayKey(new Date(midnight + DN_DAY - 1)), dk, 'same day until the roll');
-  assert.truthy(Delivery.dayKey(new Date(midnight + DN_DAY)) !== dk, 'new day at the roll');
-  // And "in 23h" is what the message says an hour in.
   assert.eq(shortDuration(msToNextUtcDay(midnight + DN_HOUR)), '23h');
+});
+
+test('UTC day consumers read util.js instead of inventing another boundary', () => {
+  assert.truthy(/function dayKey\(now = new Date\(\)\) \{\s*return utcDayKey\(now\);\s*\}/.test(ALL_SRC['delivery.js']),
+    'Delivery.dayKey delegates to the UTC owner');
+  assert.falsy(/Delivery\.dayKey/.test(ALL_SRC['houses.js']), 'houses read utcDayKey directly');
+  assert.falsy(/Delivery\.dayKey/.test(ALL_SRC['app.js']), 'app reads utcDayKey directly');
+  assert.truthy(/const today = utcDayIndex\(Date\.now\(\)\);/.test(ALL_SRC['interactables.js']),
+    'the spent ledger shares the UTC day index');
+  assert.falsy(/const DAY = 86400000|Math\.floor\(now \/ DAY\)/.test(ALL_SRC['npc.js']),
+    'NPC dialogue does not own another day constant');
+  assert.truthy(/const day = utcDayIndex\(now\)/.test(ALL_SRC['npc.js']),
+    'NPC dialogue rotates on the shared UTC day');
 });
 
 test('msToNextBucket: a busy shop counts to ITS OWN staggered hour', () => {
