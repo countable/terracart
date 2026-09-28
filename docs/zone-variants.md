@@ -53,17 +53,17 @@ Connection operators are specifications for a shared interpreter, not currently 
 | stones | Stone Garden | 10% stone, 5% grass | four stones | 3 medium: gemfruit | none |
 | stones | Ordered Graves | 6% grave, 6% stone, 3% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction |
 | stones | Overgrown Graves | 8% grass, 4% shrub, 4% stone, 2% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction |
-| stones | Broken Masonry | 12% rubble, 8% stone | stone square | 3 medium: gemfruit | 1 slime at find |
+| stones | Broken Masonry | 12% rubble, 8% stone | stone square | 1 rare: platinum_ore | 1 slime at find |
 | stones | Silent Circle | 8% stone, 2% grass | inner stone ring | 1 rare: star | none |
 | tar | Flint Field | 10% flint, 5% rubble | flint ring | 3 medium: gemfruit | none |
 | tar | Broken Depot | 12% rubble; hazards: 6% trap | rubble and trap flanks | 2 medium: gemfruit | none |
 | tar | Seep | 4% rubble; hazards: 10% tar | tar crescent | 1 rare: star | none |
-| tar | Work Yard | 7.69% copper_rock, 7.1% rubble | material grid | 3 medium: gemfruit | none |
-| tar | Black Ring | 9% rubble; hazards: 6% tar | tar ring | 1 rare: star | none |
+| tar | Work Yard | 7.69% copper_rock, 7.1% rubble | material grid | 1 rare: crimson_ore | none |
+| tar | Black Ring | 9% rubble; hazards: 6% tar | tar ring | 2 rare: gold_ore | none |
 
 ## Before runtime integration
 
-Implement and test the shared motif/connection interpreter, stable cross-tile orientation and finite-find ownership. Measure coverage at Kelowna Gospel Fellowship, including the outer zone, and verify collisions, blocked beds, rebuild stability, guard eligibility, and one-versus-two/three find counts. Special finds use existing starflower (T5), wildrose (T3), and gemfruit (T3) pickups.
+Implement and test the shared motif/connection interpreter, stable cross-tile orientation and finite-find ownership. Measure coverage at Kelowna Gospel Fellowship, including the outer zone, and verify collisions, blocked beds, rebuild stability, guard eligibility, and the declared per-variant find counts. Special finds use existing starflower (T5), wildrose (T3), gemfruit (T3), and gold/platinum/crimson mineral rocks (T4/T5/T6). Each variant declares an explicit count; Black Ring intentionally has two rare gold rocks.
 
 ## Review preview
 
@@ -89,4 +89,11 @@ The generator validates material densities across full repeat cycles, distinct P
 - Seep replaces all flint with tar pits, including the crescent and connection markers. Background coverage is 4% gatherable rubble plus 10% tar hazards; the latter includes its two existing extra pits per repeat tile.
 - Broken Depot replaces all flint with traps, including the POI flanks and offset-row markers. Background coverage is 12% rubble plus 6% trap hazards. Surface trap records must enter the existing trap collection and pass both the enemy spawn gate and `Traps.isTrapGround`. This can omit traps where the real location has no eligible footpath or park edge.
 - Black Ring replaces all flint with tar pits. Background coverage is 9% rubble plus 6% tar hazards; its adjacent tar ring remains.
-- These changes retain the finite special-find counts. Tar pits and traps are shown separately from gatherable coverage.
+- Material replacements retain the declared finite special-find counts. Tar pits and traps are shown separately from gatherable coverage.
+
+## Ore finds
+
+- Black Ring: two gold-bearing rocks, at normalized offsets (−0.4, 0.55) and (0.4, 0.55) from the POI, replacing its former starflower.
+- Work Yard: one crimson-bearing rock at (0, 0.5), replacing its three gemfruit finds. Copper-bearing rocks remain its background material.
+- Broken Masonry: one platinum-bearing rock at (0, 0.6), replacing its three gemfruit finds. Its one slime guard follows this find.
+- These use existing mineral-rock interactions: yield tiers 4, 6, and 5 respectively, with normal required pick tiers 3, 5, and 4. Valuable placements use attractor eligibility. Counts are per anchor and do not multiply across tiles or fringe coverage.

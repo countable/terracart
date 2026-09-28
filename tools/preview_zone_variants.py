@@ -65,7 +65,7 @@ def validate(d):
         assert len(coords) == len(set(coords)) and (0, 0) not in coords
         assert all(s['material'] in d['materials'] for s in v['poi']['slots'])
         assert v['finds']['material'] in d['materials']
-        assert len(v['finds']['targets']) in ([1] if v['finds']['rarity'] == 'rare' else [2, 3])
+        assert v['finds']['count'] == len(v['finds']['targets']) and v['finds']['count'] > 0
         if v['zone'] == 'tar':
             assert v['guards']['mode'] == 'none'
         if b['type'] in ('line_grid', 'bounded_line_grid'):
