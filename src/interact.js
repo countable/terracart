@@ -1745,10 +1745,10 @@ const TAP_HANDLERS = [
       for (const e of WorldGen.tileCache.values()) {
         const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
         if (wp) { blocker = `Pick the ${cropName(wp.crop)} first.`; break; }
-        const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
-          !(o.kind === 'chest' && isSpent(o, spentTill) && !isBarrel(o)) &&   // a smashed barrel still stands
-          !(o.kind === 'tree' && (o.chopped || choppedSet.has(o.id))) &&
+          // Spent generated objects leave their cell. A spent barrel remains
+          // a blocker because its smashed art still stands in the world.
+          !(isSpent(o, spentTill) && !isBarrel(o)) &&
           Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
         if (oo) { blocker = tillBlockerLine(oo); break; }
       }
