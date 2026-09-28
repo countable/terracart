@@ -30,7 +30,7 @@ vm.runInContext(`
   for (const it of ITEMS) {
     const row = byId.get(it.id);
     assert.equal(row.value, itemValue(it.id));
-    assert.equal(row.description, (ITEM_EFFECTS[it.id] || '') + (it.kind === 'seed' && it.grows ? ' Watered stage: ' + shortDuration(Crops.stageHoldMs(it.grows)) + '.' : ''));
+    assert.equal(row.description, ITEM_EFFECTS[it.id] || '');
     if (it.kind === 'seed' && it.grows) assert.equal(row.growthStageMs, Crops.stageHoldMs(it.grows));
     if (it.shiny || it.cooked) assert.equal(row.chests.length, 0, it.id);
   }

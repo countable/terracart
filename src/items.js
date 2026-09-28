@@ -1281,7 +1281,11 @@ for (const raw of Object.keys(COOKED_FOODS)) {
 
 // Seeds can be offered directly to wild chickens as well as planted.
 for (const item of ITEMS.filter(item => item.kind === 'seed')) {
-  ITEM_EFFECTS[item.id] = 'Plant in a tilled bed; feed to tame a wild chicken';
+  Object.defineProperty(ITEM_EFFECTS, item.id, {
+    enumerable: true,
+    get: () => 'Plant in a tilled bed; feed to tame a wild chicken'
+      + (typeof Crops !== 'undefined' ? `; watered stage: ${shortDuration(Crops.stageHoldMs(item.grows))}` : ''),
+  });
 }
 
 const STARTING_ENERGY = 100;

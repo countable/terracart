@@ -47,3 +47,9 @@ test('new medicines have distinct nonempty art and fixed tiers', () => {
     used.add(key);
   }
 });
+
+test('seed descriptions disclose the shared stage timer before planting', () => {
+  for (const crop of ['potato', 'sunflower', 'fireflower', 'iceflower']) {
+    assert.includes(ITEM_EFFECTS[crop + '_seed'], shortDuration(Crops.stageHoldMs(crop)));
+  }
+});

@@ -74,8 +74,7 @@
     const rows = ITEMS.map(it => ({
       id: it.id, itemId: it.id, name: it.name, category: it.kind,
       inventoryCategory: invCatForItem(it.id), tier: it.baseTier,
-      value: itemValue(it.id), description: (ITEM_EFFECTS[it.id] || '')
-        + (it.kind === 'seed' && it.grows ? ` Watered stage: ${shortDuration(Crops.stageHoldMs(it.grows))}.` : ''),
+      value: itemValue(it.id), description: ITEM_EFFECTS[it.id] || '',
       growthStageMs: it.kind === 'seed' && it.grows ? Crops.stageHoldMs(it.grows) : null,
       chests: sources.get(it.id) || [],
     }));
