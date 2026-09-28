@@ -128,6 +128,11 @@
       <div class="grid2"><table id="wChestLook"></table><table id="wChestTier"></table></div>
       <p id="wChestExtra"></p></div>
   </div>
+  <h2 style="margin-top:12px">Value by type</h2>
+  <p id="wValueScope" class="scope"></p>
+  <div class="scroll"><table id="wValue"></table></div>
+  <p id="wValueNote" class="dim"></p>
+
   <h2 style="margin-top:12px">Influence zones</h2>
   <p id="wZoneScope" class="scope"></p>
   <div style="overflow-x:auto"><table id="wZones"></table></div>
@@ -607,7 +612,7 @@ async function wBuild() {
     catch (err) { errors.push(`measure ${e.tx}/${e.ty}: ${err.message}`); console.error(err); }
   }
   WorldGen.tileCache.clear();
-  return { ms, errors, EDGE, source: wRaw.source };
+  return { ms, errors, EDGE, source: wRaw.source, entries };
 }
 
 function wRender(w) {
@@ -812,6 +817,150 @@ function wRender(w) {
   }
 }
 
+// ── VALUE BY TYPE ────────────────────────────────────────────────────────
+// What each placement actually PAYS, off the same tiles wBuild() just
+// rasterized + spawned. Every value is pickReward, sampled and valued the
+// way describe() (above) does — list price, items.js itemValue / gear.js
+// gearPrice — never a retyped number. Recurring rows (the crate —
+// interactables.js refillsDaily — the chapel's alms, a grove shrine's gift,
+// the pot of gold's coin burst, the macro stalls and the guildhall's board)
+// pay again every UTC day; every other chest, the wagon look, a zone-nexus
+// chest's own bonus tier, and a headstone hoard pay once per save
+// (interactables.js isSpent). Feature-detects every module it reads, so it
+// renders '(not available)' before a module lands rather than throwing.
+const WVALUE_N_SAMPLES = 60; // modest — this runs on every "Rebuild tiles"
+function wValueByType(entries) {
+  const canChest = typeof pickReward === 'function' && typeof chestLook === 'function'
+    && typeof chestRollTier === 'function' && typeof chestThemeForPoi === 'function' && typeof POI_CATEGORY !== 'undefined';
+  if (!canChest) return null;
+  const emptySave = { relics: {}, armor: {}, inv: [], money: 0 };
+  const evCache = new Map();
+  function ev(context, opts) {
+    const key = context + '|' + JSON.stringify(opts || null);
+    if (evCache.has(key)) return evCache.get(key);
+    let sum = 0;
+    for (let i = 0; i < WVALUE_N_SAMPLES; i++) sum += describe(pickReward(context, emptySave, Math.random, opts)).value;
+    const avg = sum / WVALUE_N_SAMPLES;
+    evCache.set(key, avg);
+    return avg;
+  }
+  function standDiscount(id) {
+    if (!id || typeof PRICES === 'undefined' || typeof ShopsMath === 'undefined' || !ShopsMath.standPrice) return 0;
+    const listPrice = Math.max(1, PRICES[id] ?? 1);
+    return listPrice - ShopsMath.standPrice(emptySave, listPrice);
+  }
+  const COIN_BURST_CAP = 12; // app.js _coinBurst target clamp: [COIN_BURST_MIN, 12]
+
+  const rows = new Map(); // label -> { count, oneTimeSum, recurringSum, cadence }
+  const bump = (label, cadence, value) => {
+    const r = rows.get(label) || { count: 0, oneTimeSum: 0, recurringSum: 0, cadence };
+    r.count++;
+    if (cadence === 'recurring') r.recurringSum += value; else r.oneTimeSum += value;
+    if (cadence !== r.cadence) r.cadence = 'both';
+    rows.set(label, r);
+  };
+
+  for (const e of entries) {
+    const chests = (e.objects || []).filter((o) => o && o.kind === 'chest' && !(o.depth > 0));
+    for (const o of chests) {
+      let look; try { look = chestLook(o); } catch (err) { continue; }
+      if (look.coin) { bump('Pot of gold (coin burst)', 'recurring', COIN_BURST_CAP); continue; }
+      if (look.macro) {
+        const kind = look.macro.kind;
+        if (kind === 'chapel' && typeof Macros !== 'undefined' && Macros.chapelRollTier) {
+          const val = ev('chest:' + chestThemeForPoi(o.poiClass), { tier: Macros.chapelRollTier(o), depth: o.depth || 0 });
+          bump('Chapel (daily alms)', 'recurring', val);
+        } else if (kind === 'guildhall' && typeof Macros !== 'undefined' && typeof Combat !== 'undefined' && Combat.enemyBounty) {
+          const rung = Macros.BOUNTY_LADDER[0], nFoes = Math.min(Macros.BOUNTY_MAX_FOES, 1);
+          const wage = (rung.reduce((s, k) => s + Combat.enemyBounty(k, 0), 0) / rung.length) * nFoes;
+          const pay = Math.max(1, Math.round(wage * Macros.BOUNTY_MATCH));
+          bump('Guildhall bounty (T0 weapon)', 'recurring', Math.round(wage) + pay);
+        } else if (typeof Macros !== 'undefined') {
+          const stockFn = kind === 'apothecary' ? Macros.apothecaryStock
+            : kind === 'sundries' ? Macros.sundriesStock
+            : kind === 'scriptorium' ? Macros.scriptoriumStock : null;
+          if (stockFn) {
+            const ids = stockFn.length ? stockFn(o) : stockFn();
+            const discount = (ids || []).reduce((s, id) => s + standDiscount(id), 0);
+            const label = kind === 'apothecary' ? 'Apothecary (potion discount)' : kind === 'sundries' ? 'Sundries (supply discount)' : 'Scriptorium (book discount)';
+            bump(label, 'recurring', discount);
+          }
+        }
+        continue;
+      }
+      if (look.stand) {
+        if (typeof produceStandFor === 'function') {
+          const stand = produceStandFor(o);
+          if (stand) bump('Market stall (produce discount)', 'recurring', standDiscount(stand.item));
+        }
+        continue;
+      }
+      // Trunk / crate / wagon: a plain consumable chest.
+      const cat = POI_CATEGORY[o.poiClass] || '(uncategorised)';
+      const tier = chestRollTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus);
+      const val = (o.crate || o.fixedLoot) ? 0 : ev('chest:' + chestThemeForPoi(o.poiClass), { tier, depth: o.depth || 0 });
+      const isDaily = (typeof refillsDaily === 'function') ? refillsDaily(o) : (look.box && !look.wagon);
+      if (isDaily) bump('Crate (daily, tier-1 POI chest)', 'recurring', val);
+      else if (look.wagon) bump('Wagon (bandit stop)', 'one-time', val);
+      else bump('Trunk chest — ' + cat, 'one-time', val);
+      if (o.zoneNexus) bump('Zone-nexus chest (bonus tier)', isDaily ? 'recurring' : 'one-time', val);
+    }
+    // Headstones + grove shrines live in zoneDress.objects, not e.objects
+    // (same split wMeasure reads above).
+    const zd = e.zoneDress;
+    if (zd && zd.objects && typeof Zones !== 'undefined') {
+      for (const zo of zd.objects) {
+        if (zo.kind === 'headstone' && Zones.headstoneHoards && Zones.headstoneHoards(zo.id)) {
+          bump('Headstone hoard', 'one-time', ev(Zones.HEADSTONE_CONTEXT || 'chest:lowtier', { tier: Zones.HEADSTONE_TIER || 1, depth: 0 }));
+        } else if (zo.kind === 'grove_shrine') {
+          bump('Grove shrine (daily gift)', 'recurring', ev(Zones.SHRINE_CONTEXT || 'treasure:shrine'));
+        }
+      }
+    }
+  }
+  return rows;
+}
+
+const WVALUE_ORDER = [
+  (k) => k === 'Crate (daily, tier-1 POI chest)',
+  (k) => k.startsWith('Trunk chest — '),
+  (k) => k === 'Wagon (bandit stop)',
+  (k) => k === 'Zone-nexus chest (bonus tier)',
+  (k) => k === 'Headstone hoard',
+  (k) => k === 'Pot of gold (coin burst)',
+  (k) => k === 'Chapel (daily alms)',
+  (k) => k === 'Grove shrine (daily gift)',
+  (k) => k === 'Market stall (produce discount)',
+  (k) => k === 'Apothecary (potion discount)',
+  (k) => k === 'Sundries (supply discount)',
+  (k) => k === 'Scriptorium (book discount)',
+  (k) => k === 'Guildhall bounty (T0 weapon)',
+];
+function wRenderValueByType(entries, n, source) {
+  const scopeEl = $('wValueScope'), el = $('wValue'), noteEl = $('wValueNote');
+  let rows;
+  try { rows = wValueByType(entries); }
+  catch (err) { scopeEl.textContent = 'value by type failed: ' + err.message; el.innerHTML = ''; noteEl.textContent = ''; console.error(err); return; }
+  if (!rows) { scopeEl.textContent = 'chestLook / chestRollTier / pickReward not available in this build.'; el.innerHTML = ''; noteEl.textContent = ''; return; }
+  scopeEl.textContent = `Per tile, avg over ${n} Kelowna ${source === 'fixture' ? 'fixture' : source + '-fetched'} tiles — `
+    + `Monte-Carlo pickReward (${WVALUE_N_SAMPLES} samples per distinct context/tier/depth), valued at list price.`;
+  const used = new Set(), ordered = [];
+  for (const pred of WVALUE_ORDER) {
+    const matched = [...rows.keys()].filter((k) => !used.has(k) && pred(k)).sort((a, b) => rows.get(b).count - rows.get(a).count);
+    for (const k of matched) { ordered.push(k); used.add(k); }
+  }
+  for (const k of rows.keys()) if (!used.has(k)) ordered.push(k);
+  table(el, ['type', 'count / tile', 'one-time value / tile', 'recurring value / day / tile', 'value / visit'],
+    ordered.map((label) => {
+      const r = rows.get(label);
+      const oneTime = r.cadence === 'recurring' ? '—' : fmt$(r.oneTimeSum / n);
+      const recurring = r.cadence === 'one-time' ? '—' : fmt$(r.recurringSum / n);
+      const visit = r.count ? fmt$((r.oneTimeSum + r.recurringSum) / r.count) : '—';
+      return `<tr><td class="l">${label}</td><td>${f1(r.count / n)}</td><td>${oneTime}</td><td>${recurring}</td><td>${visit}</td></tr>`;
+    }));
+  noteEl.textContent = 'The offline 4-city Monte-Carlo (Kelowna/Vancouver/Berlin/Seattle, 200+ samples/context) behind the "What changed recently" note above lives in scratchpad JSON (value_by_category.json, daily_result.json), not in this repo.';
+}
+
 let wBusy = false;
 async function worldPerTile() {
   if (wBusy) return; wBusy = true;
@@ -819,7 +968,11 @@ async function worldPerTile() {
   try {
     if (typeof MapScene === 'undefined' || !MapScene.prototype.spawnInTile) throw new Error('MapScene.spawnInTile not defined (app.js failed to load?)');
     const w = await wBuild();
-    if (w) { wRender(w); st.textContent = `built ${w.ms.length} tiles in ${((performance.now() - t0) / 1000).toFixed(1)}s (${w.source})`; }
+    if (w) {
+      wRender(w);
+      wRenderValueByType(w.entries, w.ms.length, w.source);
+      st.textContent = `built ${w.ms.length} tiles in ${((performance.now() - t0) / 1000).toFixed(1)}s (${w.source})`;
+    }
     window.__worldStats = w;
   } catch (e) {
     st.textContent = 'world build failed: ' + e.message + ' — the game code may be mid-edit';
