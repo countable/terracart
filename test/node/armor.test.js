@@ -253,15 +253,16 @@ test('armor: no source still folds a gear bonus into the cap', () => {
 test('armor: shield expiry uses epoch time, independent of attack cooldown time', () => {
   const realDateNow = Date.now;
   const oldPerformance = globalThis.performance;
-  const epoch = 1800000000000;
+  const wallNow = 1800000000000;
+  let current = wallNow + 999;
   try {
-    Date.now = () => epoch;
+    Date.now = () => current;
     globalThis.performance = { now: () => 5000 };
-    const save = { energy: 100, shieldPotionUntil: epoch + 1 };
-    assert.eq(Combat.incomingDamage(save, 9), 5, 'active shield halves and rounds up');
-    save.shieldPotionUntil = epoch;
+    const save = { energy: 100, shieldPotionUntil: wallNow + 1000 };
+    assert.eq(Combat.incomingDamage(save, 9), 5, 'shield protects through the final millisecond');
+    current = wallNow + 1000;
     assert.eq(Combat.incomingDamage(save, 9), 9, 'shield expires exactly at its epoch deadline');
-    save.shieldPotionUntil = epoch - 1;
+    current = wallNow + 1001;
     assert.eq(Combat.incomingDamage(save, 9), 9,
       'an expired epoch timestamp must not look active against performance.now');
   } finally {
