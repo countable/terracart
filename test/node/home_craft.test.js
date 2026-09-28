@@ -34,11 +34,11 @@ function scene(inv) {
 }
 const last = (s) => s.modals[s.modals.length - 1];
 
-test('home craft: the recipes are a Torch from 1 wood, a Scarecrow from 3, a Rope from 3 long grass', () => {
+test('home craft: the recipes are a Torch from 1 wood, a Scarecrow from 3, a Rope from 5 long grass', () => {
   const by = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r.cost]));
   assert.eq(JSON.stringify(by.torch), JSON.stringify([{ id: 'wood', qty: 1 }]), 'torch');
   assert.eq(JSON.stringify(by.scarecrow), JSON.stringify([{ id: 'wood', qty: 3 }]), 'scarecrow');
-  assert.eq(JSON.stringify(by.rope), JSON.stringify([{ id: 'longgrass', qty: 3 }]), 'rope from three long grass');
+  assert.eq(JSON.stringify(by.rope), JSON.stringify([{ id: 'longgrass', qty: 5 }]), 'rope from five long grass');
   assert.eq(JSON.stringify(by.trap_kit), JSON.stringify([{ id: 'rockfruit', qty: 4 }]), 'a disarm kit from four stones');
   assert.truthy(/Trap Disarm Kit/.test(ITEM_EFFECTS.rockfruit || ''), 'the stone line names the recipe');
   assert.truthy(/Rope/.test(ITEM_EFFECTS.longgrass || ''), 'the long grass line names the recipe');

@@ -874,6 +874,8 @@ const TAP_HANDLERS = [
     // a shiny animal (which also flees at SHINY_SPEED_MUL, app.js) is much harder to net: it
     // has more time to slip out of reach and escape. Plain kinds are unchanged.
     if (target.shiny) catchMs *= 2;
+    // …and a kind's own row may ask for longer still (a cow: twice).
+    catchMs *= SpriteLayout.creatureCatchMul(target.kind);
     // Catching costs energy (refunded if the player cancels the wheel; not
     // refunded if the animal escapes the player's reach — the attempt was made).
     const catchCost = effectiveCatchCost(save.relics);
@@ -1465,6 +1467,13 @@ const TAP_HANDLERS = [
       // slimes spawn at home like anywhere else. Persisted with this tap's
       // ctx.dirty save.
       save.hasHarvested = true;
+      // The FIRST harvest of each crop type is a memory — the same ledger a
+      // shiny find and a first delivery bank in (app.js _bankDiscovery), keyed
+      // `harvest:<crop>` so it can't collide with an item id and pays once.
+      // Farming was the one income with no memory of its own (economy
+      // audit, 2026-09-27).
+      scene._bankDiscovery?.(`harvest:${p.crop}`,
+        `your first ${ITEM_BY_ID[p.crop]?.name || p.crop} harvest`);
       scene.questEvent?.('harvest');
       return true;
     }

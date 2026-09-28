@@ -779,7 +779,10 @@
     const capped = GEAR_ROLL_TIERS.filter(t => t <= preferred);
     const weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
     const pickedTier = weightedPickBy(weighted, (w) => w.w, random).t;
-    const relicSlots = Object.keys(_RELIC_DEFS);
+    // Never the ring: it is the wizard tower's exclusive gift (gear.js, the
+    // shop offer skips it for the same reason), and a chest handing one out
+    // undercut his ladder (economy audit, 2026-09-27).
+    const relicSlots = Object.keys(_RELIC_DEFS).filter((s) => s !== 'ring');
     const armorSlots = Object.keys(_ARMOR_DEFS);
     const slotPool = [
       ...relicSlots.map(s => ({ kind: 'relic', slot: s })),
