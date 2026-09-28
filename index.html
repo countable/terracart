@@ -357,6 +357,13 @@
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #0008;
     }
+    #save-notice {
+      position: fixed; top: calc(env(safe-area-inset-top, 0px) + 56px); left: 50%; transform: translateX(-50%);
+      max-width: 90%; padding: 8px 12px; border-radius: 6px;
+      background: var(--danger); color: #fff; z-index: 104;
+      font-size: 12px; text-align: center; pointer-events: none;
+      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+    }
     /* Copyable error overlay. Unlike #banner (a transient connection-status
        flash), this stays on screen until dismissed and is fully selectable so
        the whole message + stack can be read or copied on a phone where
@@ -1077,6 +1084,7 @@
       </div>
     </div>
   </div>
+  <div id="save-notice" role="status" hidden>Progress isn’t saving</div>
   <!-- All HUD overlays live OUTSIDE #game so position:fixed actually anchors
        to the viewport — a position:fixed element inside a transformed parent
        (#game uses transform:scale) takes the transformed parent as its
@@ -2597,12 +2605,12 @@
   <script src="src/lairs.js?v=8c4d2bf5"></script>
   <script src="src/worldgen.js?v=ece6cd5b"></script>
   <script src="src/textures.js?v=7cccbc3e"></script>
-  <script src="src/save.js?v=b35015cf"></script>
+  <script src="src/save.js?v=8e285e00"></script>
   <script src="src/items.js?v=14d3f3df"></script>
   <script src="src/inventory.js?v=26f6d34a"></script>
   <script src="src/energy.js?v=142f2847"></script>
   <script src="src/conditions.js?v=16403bc0"></script>
-  <script src="src/crops.js?v=0e5d56c0"></script>
+  <script src="src/crops.js?v=24ec5017"></script>
   <script src="src/delivery.js?v=eef02cca"></script>
   <script src="src/savemigrate.js?v=5cd40a1e"></script>
   <script src="src/gear.js?v=3a9b356e"></script>
@@ -2621,10 +2629,10 @@
   <script src="src/combat.js?v=d1188344"></script>
   <script src="src/creature_ai.js?v=79cf93c0"></script>
   <script src="src/wizard.js?v=3209061e"></script>
-  <script src="src/interact.js?v=c2a52253"></script>
+  <script src="src/interact.js?v=36e5e823"></script>
   <script src="src/lighting.js?v=767ebe2a"></script>
-  <script src="src/render.js?v=fea4f3b7"></script>
-  <script src="src/multiplayer.js?v=9764bed8"></script>
+  <script src="src/render.js?v=aaf0a9f3"></script>
+  <script src="src/multiplayer.js?v=a4181a1f"></script>
   <script src="src/road_overlay.js?v=957c355c"></script>
   <script src="src/building_overlay.js?v=16f504b9"></script>
   <script src="src/assets.js?v=b0846e48"></script>
@@ -2635,7 +2643,7 @@
   <script src="src/modal_shell.js?v=0a3ca6b7"></script>
   <script src="src/scene_geo.js?v=016ab0a0"></script>
   <script src="src/npc.js?v=24851e12"></script>
-  <script src="src/scene_creatures.js?v=041ccc56"></script>
+  <script src="src/scene_creatures.js?v=933c0e17"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────

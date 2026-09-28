@@ -151,19 +151,36 @@ function loadSave() {
 let _saveTimer = null;
 let _pendingSave = null;
 let _savingDisabled = false;
+let _saveFailed = false;
 const SAVE_DEBOUNCE_MS = 500;
+
+function _setSaveFailed(failed) {
+  if (_saveFailed === failed) return;
+  _saveFailed = failed;
+  // A headless caller may have no DOM. The page supplies one persistent notice
+  // so repeated failed writes never stack up alerts or transient messages.
+  const notice = typeof document !== 'undefined' && document.getElementById?.('save-notice');
+  if (notice) notice.hidden = !failed;
+}
 
 function flushSave() {
   if (_savingDisabled) return;
   if (_pendingSave) {
+    const boot = window.__boot;
+    const started = boot?.tick ? performance.now() : 0;
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(_pendingSave));
+      const serialized = JSON.stringify(_pendingSave);
+      boot?.count?.('save serialized chars', serialized.length);
+      localStorage.setItem(SAVE_KEY, serialized);
       _pendingSave = null;
+      _setSaveFailed(false);
     } catch (e) {
       // QuotaExceededError (~5MB), private-mode disabled, etc. Keep _pendingSave
-      // around so a later persistSave call can retry; surface to console so the
-      // failure isn't completely silent.
+      // around so a later persistSave call can retry.
+      _setSaveFailed(true);
       console.warn('flushSave failed:', e?.message || e);
+    } finally {
+      if (boot?.tick) boot.tick('save write', performance.now() - started);
     }
   }
   if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
@@ -195,6 +212,7 @@ function persistSave(s) {
 function disableSave() {
   _savingDisabled = true;
   _pendingSave = null;
+  _setSaveFailed(false);
   if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
 }
 

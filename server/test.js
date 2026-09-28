@@ -4,7 +4,8 @@
 
 const assert = require('assert');
 const WebSocket = require('ws');
-const { createServer, cleanName, cleanLabel, INTEREST_PX, MAX_MSGS_PER_S } = require('./index.js');
+const { createServer, cleanName, cleanLabel, INTEREST_PX, MAX_MSGS_PER_S,
+        sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT } = require('./index.js');
 
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
@@ -58,6 +59,40 @@ test('cleanName strips control chars, collapses space, clamps length', () => {
   // Clamp by code point: 15 chars + an emoji stays whole, no lone surrogate.
   assert.strictEqual(cleanName('x'.repeat(15) + '😀'), 'x'.repeat(15) + '😀');
   assert.strictEqual(cleanLabel('Blackberry bush by the church gate'), 'Blackberry bush by the church ga');
+});
+
+test('outbound queue drops obsolete positions, recovers, and caps control frames', () => {
+  const ws = {
+    OPEN: 1, readyState: 1, bufferedAmount: 0, frames: [], terminated: 0,
+    send(frame) { this.frames.push(JSON.parse(frame)); this.bufferedAmount += Buffer.byteLength(frame); },
+    terminate() { this.terminated++; this.readyState = 3; },
+  };
+  ws.bufferedAmount = POSITION_BUFFER_BYTES - 1;
+  sendFrame(ws, { t: 'p', x: 1 });
+  assert.strictEqual(ws.frames.length, 0, 'position skipped before queue crosses soft cap');
+  sendFrame(ws, { t: 'join', id: 1 });
+  assert.strictEqual(ws.frames.length, 1, 'control frame survives soft pressure');
+  ws.bufferedAmount = 0; // transport drained
+  sendFrame(ws, { t: 'p', x: 2 });
+  assert.deepStrictEqual(ws.frames[1], { t: 'p', x: 2 }, 'position resumes after drain');
+  ws.bufferedAmount = MAX_OUTBOUND_BYTES - 1;
+  sendFrame(ws, { t: 'ping', label: 'too much' });
+  assert.strictEqual(ws.terminated, 1, 'control frame cannot grow queue past hard cap');
+  assert.strictEqual(ws.frames.length, 2);
+});
+
+test('heartbeat reaps persistently slow receivers, but a drained queue resets strikes', () => {
+  const ws = { bufferedAmount: POSITION_BUFFER_BYTES, slowPings: 0, terminated: 0,
+               terminate() { this.terminated++; } };
+  assert.ok(SLOW_PING_LIMIT > 1);
+  assert.strictEqual(checkSlowConsumer(ws), false);
+  ws.bufferedAmount = 0;
+  assert.strictEqual(checkSlowConsumer(ws), false);
+  assert.strictEqual(ws.slowPings, 0);
+  ws.bufferedAmount = POSITION_BUFFER_BYTES;
+  for (let i = 1; i < SLOW_PING_LIMIT; i++) assert.strictEqual(checkSlowConsumer(ws), false);
+  assert.strictEqual(checkSlowConsumer(ws), true);
+  assert.strictEqual(ws.terminated, 1);
 });
 
 test('hello → welcome with the current roster; late joiner is announced', async () => {

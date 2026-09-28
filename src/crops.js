@@ -11,7 +11,8 @@
 //   stage 0..MAX_GROWTH_STAGE (mature); each stage needs one watering then a
 //   crop-specific hold before it advances.
 //
-// Depends on the global MAX_GROWTH_STAGE (items.js).
+// Depends on the global MAX_GROWTH_STAGE (items.js) and PlacedFloor
+// (placed_floor.js, for legacy surface depth and cave crops).
 
 (function (root) {
   'use strict';
@@ -47,6 +48,54 @@
   }
 
   const CROW_IGNORED_CROPS = new Set(['potato']); // crows never notice potatoes
+
+  // The save owns the flat crop list; this derived index is deliberately kept
+  // outside it so persistence never serializes buckets. Crops do not move in
+  // place: growth and watering only change fields on the same live objects.
+  const SPATIAL_BUCKET_M = 20;
+  const spatialIndexes = new WeakMap();
+  function invalidateSpatialIndex(save) { spatialIndexes.delete(save); }
+
+  // Visit crops in the closed metre box, at one depth, in save.planted order.
+  // The order matters when two crops share a depth/screen position: the sprite
+  // pass used to receive them in their saved order. Return work counts for the
+  // frame profiler; a rebuild costs one visit to every saved crop once.
+  function forEachInBox(save, depth, x0, y0, x1, y1, visit) {
+    const planted = save?.planted || [];
+    if (!planted.length) return { candidates: 0, rebuiltEntries: 0 };
+    let idx = spatialIndexes.get(save);
+    let rebuiltEntries = 0;
+    if (!idx || idx.array !== planted || idx.length !== planted.length) {
+      const buckets = new Map();
+      for (let i = 0; i < planted.length; i++) {
+        const p = planted[i];
+        const level = PlacedFloor.placedDepth(p);
+        const key = level + ':' + Math.floor(p.x / SPATIAL_BUCKET_M) + ',' + Math.floor(p.y / SPATIAL_BUCKET_M);
+        let bucket = buckets.get(key);
+        if (!bucket) buckets.set(key, bucket = []);
+        bucket.push(i);
+      }
+      idx = { array: planted, length: planted.length, buckets };
+      spatialIndexes.set(save, idx);
+      rebuiltEntries = planted.length;
+    }
+    const level = depth ?? 0;
+    const bx0 = Math.floor(x0 / SPATIAL_BUCKET_M), bx1 = Math.floor(x1 / SPATIAL_BUCKET_M);
+    const by0 = Math.floor(y0 / SPATIAL_BUCKET_M), by1 = Math.floor(y1 / SPATIAL_BUCKET_M);
+    const nearby = [];
+    for (let by = by0; by <= by1; by++) {
+      for (let bx = bx0; bx <= bx1; bx++) {
+        const bucket = idx.buckets.get(level + ':' + bx + ',' + by);
+        if (bucket) for (const i of bucket) nearby.push(i);
+      }
+    }
+    nearby.sort((a, b) => a - b);
+    for (const i of nearby) {
+      const p = planted[i];
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1) visit(p);
+    }
+    return { candidates: nearby.length, rebuiltEntries };
+  }
 
   const FRUIT_STAGE_MS = 24 * 60 * 60 * 1000;
   const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;
@@ -222,5 +271,6 @@
 
   root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, stageHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, crowEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
-                 bedQuality, setBedQuality, clearBedQuality, takeBedQuality };
+                 bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
+                 forEachInBox, invalidateSpatialIndex };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
