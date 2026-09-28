@@ -604,9 +604,15 @@ function overlays(world) {
     const layer = L.layerGroup();
     const rows = (SVx.STREET_VARIANTS || []).slice();
     const look = {};
-    for (const r of rows) look[r.id] = { colour: r.lampGlow || '#fff', label: `${r.title || r.id} (${r.size})` };
+    // A review palette, not the lamp glows: the glows are chosen to suit each
+    // theme at night, so several sit close together (two soft greens); here
+    // every variant needs a hue of its own. Maximally distinct categorical
+    // colours, assigned in table order.
+    const PALETTE = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
+      '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9a6324', '#800000'];
+    rows.forEach((r, i) => { look[r.id] = { colour: PALETTE[i % PALETTE.length], label: `${r.title || r.id} (${r.size})` }; });
     const trade = (SVx.BANDIT_STORY && SVx.BANDIT_STORY.title) || 'old trade road';
-    look.__major = { colour: (SVx.BANDIT_STORY && SVx.BANDIT_STORY.lampGlow) || '#ff8c2a', label: `${trade} (major, plain)` };
+    look.__major = { colour: '#ffffff', label: `${trade} (major, plain)` };
     look.__minor = { colour: '#8a8a8a', label: 'plain street (minor)' };
     const keys = {};
     const rocky = new Set();
