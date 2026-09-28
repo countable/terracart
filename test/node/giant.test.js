@@ -126,7 +126,7 @@
       'a giant goblin draws the goblin sheet');
     assert.eq(SpriteLayout.creatureFrames('giant_goblin'), SpriteLayout.creatureFrames('goblin'),
       'and runs the same cycle');
-    assert.truthy(/const texKey = creatureSheet\(c\.kind\);/.test(render),
+    assert.truthy(/const texKey = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(render),
       'render.js picks the sheet from the table');
     assert.truthy(/CRITTER_SHADOW_W\[baseKind\(c\.kind\)\] \|\| 18\) \* giantMul\(c\.kind\)/.test(render),
       'the shadow follows the giant scale');

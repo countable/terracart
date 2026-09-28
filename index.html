@@ -2583,7 +2583,7 @@
   <script src="src/particles.js?v=29ab521b"></script>
   <script src="src/trail.js?v=96b267d2"></script>
   <script src="src/streets.js?v=120c04d0"></script>
-  <script src="src/sprite_layout.js?v=4fd7f110"></script>
+  <script src="src/sprite_layout.js?v=fb168092"></script>
   <script src="src/placed_floor.js?v=d6c42e37"></script>
   <script src="src/home.js?v=db93a51e"></script>
   <script src="src/coords.js?v=bbf37615"></script>
@@ -2613,20 +2613,21 @@
   <script src="src/combat.js?v=a9fb7317"></script>
   <script src="src/creature_ai.js?v=4cabcdc3"></script>
   <script src="src/wizard.js?v=3209061e"></script>
-  <script src="src/interact.js?v=a7450dce"></script>
+  <script src="src/interact.js?v=919f976d"></script>
   <script src="src/lighting.js?v=982ee019"></script>
-  <script src="src/render.js?v=3e951be3"></script>
+  <script src="src/render.js?v=03c97b48"></script>
   <script src="src/multiplayer.js?v=9764bed8"></script>
   <script src="src/road_overlay.js?v=9d19b124"></script>
   <script src="src/building_overlay.js?v=16f504b9"></script>
-  <script src="src/assets.js?v=7e4fe112"></script>
+  <script src="src/assets.js?v=67443bb1"></script>
   <script src="src/sandbox.js?v=b3d45f3e"></script>
   <script src="src/testtools.js?v=cbd1d4fa"></script>
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=70aad1a2"></script>
-  <script src="src/modal_shell.js?v=b5154ba5"></script>
+  <script src="src/modal_shell.js?v=0a3ca6b7"></script>
   <script src="src/scene_geo.js?v=016ab0a0"></script>
-  <script src="src/scene_creatures.js?v=3118c8f4"></script>
+  <script src="src/npc.js?v=20c97b32"></script>
+  <script src="src/scene_creatures.js?v=f3fc698f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2687,7 +2688,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=09942414';
+      const APP_SRC = 'src/app.js?v=b8d2b9ae';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

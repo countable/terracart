@@ -10194,6 +10194,7 @@ class MapScene extends Phaser.Scene {
     this.showOfferModal({
       kind: 'shop',
       title: this.buildingFlavorTitle(house, 'buy'),
+      ...NPC.offerArt(this, house),
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
       cost: offer.label,
@@ -10619,6 +10620,7 @@ class MapScene extends Phaser.Scene {
   // beginner's T1 seed shop. The sign, the offer title, the restoration card
   // and the stock all read this one answer.
   marketTheme(house) {
+    if (house?.kind === 'npc') return { theme: house.shopTheme, tier: 1 };
     return Shops.themeAt(Shops.shopOrder(this.save, house));
   }
 
@@ -11113,6 +11115,7 @@ class MapScene extends Phaser.Scene {
     this.showOfferModal({
       kind: 'shop',
       title: this.buildingFlavorTitle(house, 'buy'),
+      ...NPC.offerArt(this, house),
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
       cost: offer.label,
@@ -11512,6 +11515,7 @@ class MapScene extends Phaser.Scene {
       // Spell out who gives what so the barter can't be read backwards:
       // "Trader offers <giveItem> for your <askItem>".
       title: 'The trader offers:',
+      ...NPC.offerArt(this, house),
       forLabel: 'for your',
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${giveQty}`,
@@ -12520,6 +12524,7 @@ class MapScene extends Phaser.Scene {
         const order = Object.keys(this.save.restoredHouses).length;
         const restoredRole = this._preseedRestoreRole(order, house);
         this.save.restoredHouses[house.id] = restoredRole;   // role string, not bare `true`
+        if (restoredRole === 'wizard') NPC.restoreShrine(this, house);
         // The first wreck restored becomes the starter blacksmith (wooden-tool
         // forge). Stamp its id so isStarterBlacksmith / shopDealCap pick it up.
         if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
