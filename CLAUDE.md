@@ -86,11 +86,24 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   band; road proximity is KERB, never hard), RESTRICTED land, QUIET land,
   KINDERGARTEN grounds, a SENSITIVE_SITE point, BEHIND_HOUSE, PRIVATE (no
   public frontage; a POI in reach lifts it), FARM_INTERIOR (a field past
-  `FARM_EDGE_CELLS` of other ground). TYPED reasons refuse only the classes
-  whose row of ONE table, `WorldGen.SPAWN_CLASS_BLOCKS`, names them: HOUSE
-  (40 m, lot / field land only — never parks, plazas, paths or any
-  park-family polygon), KERB (fast movers only), SCHOOL (school / college
-  grounds' own cells), SENSITIVE, FARM (a field's edge). Every spawner calls
+  `FARM_EDGE_CELLS` of other ground — the EDGE band itself carries no reason
+  at all: every class may spawn there). TYPED reasons refuse only the classes
+  whose row of ONE table, `WorldGen.SPAWN_CLASS_BLOCKS`, names them: KERB
+  (fast movers only), SENSITIVE. (Sep 2026, owner's call: the typed HOUSE
+  reason — a 40 m house buffer on lot land — and the typed SCHOOL reason —
+  school / college grounds, plus its school-hours timing — are both dropped
+  entirely; KINDERGARTEN stays hard. FARM was inverted the same day: the
+  field EDGE band used to be typed-suppressed, now it carries no reason.)
+  RESTRICTED and KINDERGARTEN hold only where the cell's FINAL terrain paint
+  still agrees with the class's own look (`restrictedExpectedTerrain`,
+  T.SCHOOL for kindergarten) — COMMERCIAL WELCOMES VISITORS (Sep 2026): a
+  later or higher-priority commercial/retail polygon overlapping a stray
+  restricted-class or kindergarten polygon in the source data wins the cell
+  and reopens it, though a real hospital campus IS its own commercial paint
+  and keeps RESTRICTED. The military/railway rows of QUIET_LAND get the same
+  paint check (`stampQuietLandSteps`'s optional `grid` arg); cemetery and the
+  boundary/park aboriginal_lands rows do not (no own paint to compare, or
+  never ours to reopen on a data coincidence). Every spawner calls
   `WorldGen.isSpawnCell(grid, w, h, cx, cy, opts, cls)` with `_spawnOpts`
   (`spawnWhy`, `roadMask`, `occupied`) AND its class (the source sweep in
   `test/node/spawn_class.test.js`): `minor` (flora, rocks, scenery — hard
@@ -99,10 +112,7 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   (creature_ai.js `creatureSpawnClass`: fast = top speed over
   `BRISK_WALK_MPS`), never typed at a call site. A new refusal is a new
   reason bit plus its column in the table, never a separate check at a
-  spawner. Per-player timed spawns (coin bursts, bounty packs,
-  `walkableDestination`) pass `schoolHours` (`WorldGen.isSchoolHours`,
-  weekdays 07–17 local) — the generated world never reads a clock. POI
-  chests are the place itself (`landRefused` —
+  spawner. POI chests are the place itself (`landRefused` —
   land reasons only). The live Overpass fence veto (`privateVetoAt`) is for per-player
   things only and fails open. Road terrain alone misses drawn roads; the mask uses
   `WorldGen.roadOverlayWidthM` and masks cells when the drawn bands cover

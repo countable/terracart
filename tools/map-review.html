@@ -468,19 +468,19 @@ for (const f of TERRAIN_FAMILIES) {
 // per cell, per tile: every hard reason as one layer, each TYPED reason as
 // its own, and "refused for class" (a picker over SPAWN_CLASS_BLOCKS).
 const SPAWN_GATE_COLOUR = { invalid: 'rgba(230,40,40,.62)', suppressed: 'rgba(255,190,40,.58)' };
-// One colour per typed reason (the hard ones share the invalid red).
+// One colour per typed reason (the hard ones share the invalid red). (Sep
+// 2026: HOUSE and SCHOOL dropped entirely; FARM dropped too — a field's edge
+// now carries no reason, only FARM_INTERIOR still refuses.)
 const SPAWN_WHY_COLOUR = {
-  HOUSE: 'rgba(255,150,40,.62)', KERB: 'rgba(255,60,200,.62)', SCHOOL: 'rgba(60,140,255,.62)',
-  SENSITIVE: 'rgba(170,90,255,.62)', FARM: 'rgba(140,210,40,.62)',
+  KERB: 'rgba(255,60,200,.62)', SENSITIVE: 'rgba(170,90,255,.62)',
 };
 const SPAWN_WHY_WHAT = {
   TERRAIN: 'water / building / road terrain', ROAD: 'the drawn band covers ≥ half the cell',
   RESTRICTED: 'hospital, rail, military, garages, building site', QUIET: 'quiet land',
   KINDERGARTEN: 'kindergarten grounds', SENSITIVE_SITE: 'a sensitive POI\'s own point',
-  BEHIND_HOUSE: 'a back yard', PRIVATE: 'lot with no public frontage', FARM_INTERIOR: 'mid-field',
-  HOUSE: '40 m of a house, lot land only — no draws, no foes', KERB: 'major road kerb — fast movers only',
-  SCHOOL: 'school / college grounds — minor things only', SENSITIVE: 'round a sensitive place — no creature, draw or stone',
-  FARM: 'a field\'s edge — minor things only',
+  BEHIND_HOUSE: 'a back yard', PRIVATE: 'lot with no public frontage',
+  FARM_INTERIOR: 'mid-field (the edge band carries no reason at all)',
+  KERB: 'major road kerb — fast movers only', SENSITIVE: 'round a sensitive place — no creature, draw or stone',
 };
 function overlays(world) {
   const groups = { 'Road mask (no spawns)': L.layerGroup(), 'Terrain codes': L.layerGroup(),

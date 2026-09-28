@@ -200,7 +200,7 @@
     assert.truthy(/const stairOpts = \{ roadMask, quiet: entry\.quietMask, spawnWhy: entry\.spawnWhy/.test(WORLDGEN_SRC), 'the cave stair refuses it');
     assert.truthy(/const _sxSpawnOpts = \{ pois: _sxPois, roadMask, quiet, spawnWhy \};/.test(WORLDGEN_SRC), 'the bin injection reads it');
     assert.truthy(/\(quietMask && quietMask\[i\]\)/.test(WORLDGEN_SRC), 'the gate folds the quiet land in as INVALID');
-    assert.truthy(/yield\* stampQuietLandSteps\(layers, quietMask, w, h, mvtToCell\);/.test(WORLDGEN_SRC),
+    assert.truthy(/yield\* stampQuietLandSteps\(layers, quietMask, w, h, mvtToCell, grid\);/.test(WORLDGEN_SRC),
       'stamped inside the sliced build, yielding (tile_build_blocks)');
   });
 })();

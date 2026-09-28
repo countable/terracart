@@ -559,8 +559,7 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
 // nothing it seats ever sits across a busy road from them.
 //   `opts.cls`: the spawn class of what is seated (WorldGen.SPAWN_CLASS_BLOCKS
 // — a bounty's pack passes its foes' class); default 'attractor' (a
-// destination a timed reward waits at). A timed, per-player spawn, so it
-// also keeps off school grounds in school hours (WorldGen.isSchoolHours).
+// destination a timed reward waits at).
 //   PRIVATE GROUND: a destination is per-player already, so it also reads this
 // player's live fence / private-area veto (WorldGen.privateVetoAt — none when
 // the fetch failed or has not landed).
@@ -581,7 +580,6 @@ function walkableDestination(scene, px, py, dist, opts) {
   if (!(edge > 0) || !(cellM > 0)) return null;
   const a0 = (fnv1a(String(o.seed ?? '')) / 4294967296) * Math.PI * 2;
   const cls = o.cls || 'attractor';
-  const schoolHours = WorldGen.isSchoolHours(new Date());
   for (const r of walkableDestinationRings(dist)) {
     const steps = Math.max(8, Math.ceil(2 * Math.PI * r));
     for (let k = 0; k < steps; k++) {
@@ -594,8 +592,7 @@ function walkableDestination(scene, px, py, dist, opts) {
       if (!(N > 0)) continue;
       const cm = edge / N;
       const ix = Math.floor((wx - tx * edge) / cm), iy = Math.floor((wy - ty * edge) / cm);
-      const sOpts = schoolHours ? Object.assign({}, entry._spawnOpts, { schoolHours }) : entry._spawnOpts;
-      if (!WorldGen.isSpawnCell(entry.grid, N, N, ix, iy, sOpts, cls)) continue;
+      if (!WorldGen.isSpawnCell(entry.grid, N, N, ix, iy, entry._spawnOpts, cls)) continue;
       if (WorldGen.privateVetoAt(tx, ty, ix, iy)) continue;
       const x = tx * edge + (ix + 0.5) * cm, y = ty * edge + (iy + 0.5) * cm;
       if (!sameSideAs(scene, x, y, px, py)) continue;

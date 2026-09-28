@@ -305,10 +305,6 @@
   //                   `quiet` / `roadClass` / `frontage` are not read; without
   //                   it (a synthetic grid) those parts answer as they always
   //                   did.
-  //   opts.schoolHours : a PER-PLAYER TIMED spawn (a coin burst, a bounty
-  //                   pack, walkableDestination) passes isSchoolHours(now):
-  //                   while it holds, school GROUNDS refuse every class. The
-  //                   generated world never passes it (it never reads a clock).
   // THE KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER, off entry.roadClass) is the
   // mask's KERB reason. inMajorBuffer / onMajorBand stay for the MOVEMENT
   // rules (where a chase may go), which are not spawns.
@@ -345,23 +341,23 @@
   //                   by a POI within that reach (opts.pois: a chest is a
   //                   public place)
   //     FARM_INTERIOR orchard / farmland further than FARM_EDGE_CELLS from
-  //                   any other ground: nothing grows or stands in a field
+  //                   any other ground: nothing grows or stands in a field.
+  //                   The EDGE band (within FARM_EDGE_CELLS) carries no
+  //                   reason at all — every class may spawn there, same as
+  //                   any other open ground.
   //   TYPED SUPPRESSION — refuse only the classes whose row names them:
-  //     HOUSE         within SPAWN_HOUSE_BUFFER_M of a house — on LOT land
-  //                   only (residential, waste ground, a field), never public
-  //                   ground (park, grass, beach, path, plaza, or any cell of
-  //                   a park-family polygon): a park by the houses stays open
   //     KERB          a major way's band touches the cell, or its kerb buffer
   //                   — refused ONLY by FAST MOVERS (fastEnemy / fastFauna:
   //                   creature_ai.js creatureSpawnClass, off BRISK_WALK_MPS)
-  //     SCHOOL        school / college / university GROUNDS, the polygon's
-  //                   own cells only (mostly public fields — not hard;
-  //                   opts.schoolHours makes them so)
   //     SENSITIVE     round a sensitive POI, real cemetery land, a church on
   //                   cemetery land (churchyardBufferM)
-  //     FARM          an orchard / farmland EDGE cell (within FARM_EDGE_CELLS
-  //                   of other ground): trees and flora grow there, no draw
-  //                   or foe stands there
+  // (Superseded Sep 2026: the typed HOUSE reason — a 40 m buffer round every
+  // house on lot land — and the typed SCHOOL reason — school / college /
+  // university grounds, plus the school-hours timing — are both dropped: the
+  // owner reviewed the table and decided a house's yard is covered by
+  // PRIVATE/BEHIND_HOUSE already and a school field is ordinary public ground.
+  // KINDERGARTEN stays hard. The FARM reason was inverted at the same time —
+  // see FARM_INTERIOR above.)
   // The spawn's class — isSpawnCell's 7th argument, required of every caller
   // (test/node/spawn_class.test.js sweeps the source) — is a ROW of
   // SPAWN_CLASS_BLOCKS: which typed reasons it refuses (hard ones always).
@@ -385,28 +381,30 @@
   // reads, never a spawn.
   // What this is NOT: a movement rule. A fast foe's leash at the kerb reads
   // roadClass (inMajorBuffer) because it is about where a chase may GO.
+  // Bit values kept stable across the Sep 2026 drop of HOUSE (512), SCHOOL
+  // (2048) and FARM (8192) — the gaps cost nothing in a Uint16 mask.
   const SPAWN_WHY = {
     TERRAIN: 1, ROAD: 2, RESTRICTED: 4, QUIET: 8, KINDERGARTEN: 16,
     SENSITIVE_SITE: 32, BEHIND_HOUSE: 64, PRIVATE: 128, FARM_INTERIOR: 256,
-    HOUSE: 512, KERB: 1024, SCHOOL: 2048, SENSITIVE: 4096, FARM: 8192,
+    KERB: 1024, SENSITIVE: 4096,
   };
   const W_ = SPAWN_WHY;
   const SPAWN_WHY_HARD = W_.TERRAIN | W_.ROAD | W_.RESTRICTED | W_.QUIET | W_.KINDERGARTEN
     | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR;
-  const SPAWN_WHY_TYPED = W_.HOUSE | W_.KERB | W_.SCHOOL | W_.SENSITIVE | W_.FARM;
+  const SPAWN_WHY_TYPED = W_.KERB | W_.SENSITIVE;
   // The hard reasons that are about the LAND (not terrain, not the band).
   const SPAWN_WHY_LAND = SPAWN_WHY_HARD & ~(W_.TERRAIN | W_.ROAD);
   // THE ONE TABLE: what each spawn class refuses beyond the hard reasons.
   const SPAWN_CLASS_BLOCKS = {
     minor: 0,
     headstone: W_.SENSITIVE,
-    cave: W_.SENSITIVE | W_.FARM,
-    fauna: W_.SCHOOL | W_.SENSITIVE,
-    fastFauna: W_.SCHOOL | W_.SENSITIVE | W_.KERB,
-    npc: W_.SCHOOL | W_.SENSITIVE | W_.FARM,
-    attractor: W_.HOUSE | W_.SCHOOL | W_.SENSITIVE | W_.FARM,
-    enemy: W_.HOUSE | W_.SCHOOL | W_.SENSITIVE | W_.FARM,
-    fastEnemy: W_.HOUSE | W_.SCHOOL | W_.SENSITIVE | W_.FARM | W_.KERB,
+    cave: W_.SENSITIVE,
+    fauna: W_.SENSITIVE,
+    fastFauna: W_.SENSITIVE | W_.KERB,
+    npc: W_.SENSITIVE,
+    attractor: W_.SENSITIVE,
+    enemy: W_.SENSITIVE,
+    fastEnemy: W_.SENSITIVE | W_.KERB,
   };
   const SPAWN_CLASSES = Object.keys(SPAWN_CLASS_BLOCKS);
   function spawnBlocks(cls) {
@@ -419,13 +417,6 @@
   const SPAWN_OPEN = 0, SPAWN_SUPPRESSED = 1, SPAWN_INVALID = 2;
   function spawnClassOf(v) {
     return (v & SPAWN_WHY_HARD) ? SPAWN_INVALID : (v & SPAWN_WHY_TYPED) ? SPAWN_SUPPRESSED : SPAWN_OPEN;
-  }
-  // SCHOOL HOURS — weekdays 07:00–17:00 LOCAL time. Per-player timed spawns
-  // only (opts.schoolHours); the generated world never reads a clock.
-  function isSchoolHours(date) {
-    const d = date || new Date();
-    const day = d.getDay(), hr = d.getHours();
-    return day >= 1 && day <= 5 && hr >= 7 && hr < 17;
   }
   // Does the mask refuse cell `i` for a reason of the LAND — restricted,
   // quiet, kindergarten, sensitive site, behind a house, a field's interior,
@@ -462,7 +453,6 @@
       const v = mask[cy * w + cx];
       if (v & (SPAWN_WHY_HARD & ~W_.PRIVATE)) return false;
       if (v & spawnBlocks(cls)) return false;
-      if ((v & W_.SCHOOL) && opts.schoolHours) return false;
       if (!(v & W_.PRIVATE)) return true;
       return poiWithin(opts.pois, cx, cy, SPAWN_FRONTAGE);
     }
@@ -2492,15 +2482,30 @@
   // Stamp every quiet polygon the tile's layers carry into `mask` (w·h).
   // Yields per feature and per 8 rows (forEachPolygonCellSteps) — a reserve
   // polygon can cover the whole tile. Returns the count of quiet cells.
-  function* stampQuietLandSteps(layers, mask, w, h, mvtToCell) {
+  //   `grid` (optional): the tile's terrain grid, painted by the time this
+  // runs. Same "paint wins" carve-out as RESTRICTED (COMMERCIAL WELCOMES
+  // VISITORS, Sep 2026): military / railway land (landuse) is quiet only
+  // where the ground still actually paints as that class's own look
+  // (T.WASTELAND) — a commercial polygon overlapping a stray railway/
+  // military polygon in the source data wins the cell and reopens it.
+  // cemetery (real grave land, always quiet regardless of any overlap) and
+  // the boundary/park aboriginal_lands rows are NOT paint-gated: they have
+  // no "own paint" of their own to compare against (boundary paints
+  // nothing; park always paints T.PARK, so gating on it would be a no-op at
+  // best) and reserve land is never ours to reopen on a data coincidence.
+  function* stampQuietLandSteps(layers, mask, w, h, mvtToCell, grid) {
     let n = 0;
     for (const L of layers || []) {
       if (!L || !QUIET_LAND[L.name] || !L.features) continue;
+      const gated = grid && L.name === 'landuse';
       for (const f of L.features) {
         if (f.type !== 3 || !f.geom || !isQuietLand(L.name, f.tags)) continue;
+        const c = f.tags.class;
+        const checkPaint = gated && (c === 'military' || c === 'railway');
         yield 'quiet land';
         yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => {
           const i = y * w + x;
+          if (checkPaint && grid[i] !== T.WASTELAND) return;
           if (!mask[i]) { mask[i] = 1; n++; }
         });
       }
@@ -2510,12 +2515,6 @@
   // ── THE SPAWN GATE'S MASK: entry.spawnWhy (see isSpawnCell) ───────────────
   // One pass beside the road mask, over the tile's own layers, per cell of the
   // tile's own grid — generated, the same for every player. The numbers:
-  //   SPAWN_HOUSE_BUFFER_M     a HOUSE is a footprint of HOUSE_AREA_M2 whose
-  //                            render height is under HOUSE_MAX_HEIGHT_M and
-  //                            whose centre stands on residential landuse;
-  //                            within this of one no draw and no foe
-  //                            spawns (the HOUSE reason — animals, villagers,
-  //                            headstones and cave mouths ignore it)
   //   SPAWN_SENSITIVE_BUFFER_M round a sensitive POI (isSensitivePoi) and real
   //                            cemetery land
   //   churchyardBufferM()      round a church that stands ON cemetery land:
@@ -2524,31 +2523,51 @@
   //                            read), so no headstone of it stands on the
   //                            streets round a real graveyard
   // Buffers are measured on a grid SPAWN margin cells wider than the tile, off
-  // the geometry the tile's MVT carries past its edge, so a house just over
+  // the geometry the tile's MVT carries past its edge, so a source just over
   // the seam still buffers this side of it (as far as the MVT buffer reaches).
   // Distances are a chamfer (1, √2) transform — deterministic arithmetic.
-  const SPAWN_HOUSE_BUFFER_M = 40;
+  // (No HOUSE buffer since Sep 2026: a lot's own yard is already covered by
+  // PRIVATE (no public frontage) and BEHIND_HOUSE — a flat 40 m ring round
+  // every house on top of those was the owner's call to drop.)
   const SPAWN_SENSITIVE_BUFFER_M = 40;
-  const HOUSE_AREA_M2 = [30, 400];
-  const HOUSE_MAX_HEIGHT_M = 12;
   // RESTRICTED LAND — the hard RESTRICTED reason over the whole polygon
   // (landuse classes): hospital, railway, military, garages and building
   // sites. (Quiet land — QUIET_LAND — folds in beside it.) School grounds are
-  // NOT here (owner, Sep 2026: most school fields are public) — they are the
-  // typed SCHOOL_GROUNDS reason; KINDERGARTEN grounds stay hard.
+  // NOT here, and carry no reason at all since Sep 2026 (the owner: most
+  // school fields are public, and the typed SCHOOL reason plus its
+  // school-hours timing were dropped along with it); KINDERGARTEN grounds
+  // stay hard.
   const RESTRICTED_LAND = new Set(['hospital', 'railway', 'military', 'garages', 'construction']);
-  const SCHOOL_LAND = new Set(['school', 'college', 'university', 'education']);
   const KINDERGARTEN_LAND = new Set(['kindergarten']);
   // (No CHILD buffer since Sep 2026: a radius round a school spilled into the
-  // parks beside it. SCHOOL is the grounds' own cells; kindergarten grounds
-  // are hard; a playground is public ground.)
+  // parks beside it. Kindergarten grounds are hard; a playground is public
+  // ground.)
+  // COMMERCIAL WELCOMES VISITORS (owner, Sep 2026): a shop wants foot
+  // traffic, so commercial / retail ground stays open even when its polygon
+  // happens to overlap a RESTRICTED or KINDERGARTEN one in the source data
+  // (a kindergarten's own play-yard polygon overlapping the block a nearby
+  // shop's landuse polygon also covers; a hospital campus with a pharmacy's
+  // retail unit inside it). RESTRICTED / KINDERGARTEN are stamped only on
+  // the cells whose FINAL terrain paint still agrees with the class's own
+  // look (classifyPolygon: hospital and railway/military/garages/
+  // construction alike are never COMMERCIAL's own paint) — the same "paint
+  // wins" discipline as BEHIND_HOUSE's park-family carve-out. A cell a later
+  // polygon (or a civic-building pad) repaints COMMERCIAL is judged as
+  // commercial ground, not as whatever used to be under it. hospital IS its
+  // own COMMERCIAL paint, so a real hospital campus keeps its RESTRICTED —
+  // this only lifts the reason where the ground no longer reads as its
+  // source class at all.
+  function restrictedExpectedTerrain(c) {
+    return c === 'hospital' ? T.COMMERCIAL : T.WASTELAND;   // railway/military/garages/construction
+  }
   // Industrial yards are somebody's working ground: ROADSIDE ONLY — a cell
   // needs a public anchor within SPAWN_FRONTAGE, like a lot (the PRIVATE
   // reason).
   const ROADSIDE_ONLY = new Set([T.INDUSTRIAL]);
-  // FIELDS (orchard / farmland, owner Sep 2026): only the EDGE hosts — a cell
-  // within FARM_EDGE_CELLS (Chebyshev) of any other ground is the typed FARM
-  // reason (minor things only: a fruit tree, flora); deeper in is the hard
+  // FIELDS (orchard / farmland): only the EDGE hosts — a cell within
+  // FARM_EDGE_CELLS (Chebyshev) of any other ground carries no reason at all
+  // (every class may spawn there, same as any other open ground, since the
+  // typed FARM reason was dropped Sep 2026); deeper in is the hard
   // FARM_INTERIOR reason. Draws and foes never stand on a field at all.
   const FARM_TYPES = new Set([T.FARMLAND, T.ORCHARD]);
   // Which `park`-layer polygons are PARK FAMILY for the house rules (the
@@ -2619,7 +2638,7 @@
     for (const L of layers || []) if (L && L.name) byName[L.name] = L;
     const feats = (n) => (byName[n] && byName[n].features) || [];
     const churchM = churchyardBufferM();
-    const M = Math.ceil(Math.max(SPAWN_HOUSE_BUFFER_M, SPAWN_SENSITIVE_BUFFER_M, churchM) / CELL_M);
+    const M = Math.ceil(Math.max(SPAWN_SENSITIVE_BUFFER_M, churchM) / CELL_M);
     const E = w + 2 * M, EE = E * E;
     const extOf = (p) => {
       const x = Math.floor(p.x * mvtToCell) + M, y = Math.floor(p.y * mvtToCell) + M;
@@ -2627,33 +2646,37 @@
     };
     const INF = 1e9;
     const newDist = () => { const d = new Float32Array(EE); d.fill(INF); return d; };
-    const houseD = newDist(), sensD = newDist(), churchD = newDist();
-    let nHouse = 0, nSens = 0, nChurch = 0;
-    const resExt = new Uint8Array(EE), cemExt = new Uint8Array(EE);
+    const sensD = newDist(), churchD = newDist();
+    let nSens = 0, nChurch = 0;
+    const cemExt = new Uint8Array(EE);
     const sensPt = new Uint8Array(NN);
     // Per-cell land reasons stamped straight off a polygon (RESTRICTED,
-    // KINDERGARTEN, SCHOOL).
+    // KINDERGARTEN).
     const land = new Uint16Array(NN);
-    // ── Landuse polygons: residential (the house test), cemetery (sensitive
-    // land), restricted land, school / kindergarten grounds.
+    // ── Landuse polygons: cemetery (sensitive land), restricted land,
+    // kindergarten grounds.
     let k = 0;
     for (const f of feats('landuse')) {
       if (f.type !== 3 || !f.geom || !f.tags) continue;
       const c = f.tags.class;
-      const res = c === 'residential', cem = c === 'cemetery';
-      const why = RESTRICTED_LAND.has(c) ? W_.RESTRICTED : KINDERGARTEN_LAND.has(c) ? W_.KINDERGARTEN
-        : SCHOOL_LAND.has(c) ? W_.SCHOOL : 0;
+      const cem = c === 'cemetery';
+      const why = RESTRICTED_LAND.has(c) ? W_.RESTRICTED : KINDERGARTEN_LAND.has(c) ? W_.KINDERGARTEN : 0;
       const rst = !!why;
-      if (!res && !cem && !rst) continue;
+      if (!cem && !rst) continue;
       if ((++k & 7) === 0) yield 'spawn gate landuse';
-      if (res || cem) {
+      if (cem) {
         yield* forEachPolygonCellSteps(E, E, f.geom, mvtToCell, (x, y) => {
           const i = y * E + x;
-          if (res) resExt[i] = 1;
-          if (cem) { cemExt[i] = 1; sensD[i] = 0; nSens++; }
+          cemExt[i] = 1; sensD[i] = 0; nSens++;
         }, M);
       }
-      if (rst) yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { land[y * w + x] |= why; });
+      if (rst) {
+        const expect = why === W_.RESTRICTED ? restrictedExpectedTerrain(c) : T.SCHOOL;
+        yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => {
+          const i = y * w + x;
+          if (grid[i] === expect) land[i] |= why;
+        });
+      }
     }
     // ── POI points: sensitive places (the point SENSITIVE_SITE, the ground round it
     // SENSITIVE), and a church on cemetery land.
@@ -2680,28 +2703,6 @@
       }
     }
     yield 'spawn gate points';
-    // ── HOUSES: every footprint ring the house rule takes, stamped as a source.
-    k = 0;
-    const [aMin, aMax] = HOUSE_AREA_M2;
-    for (const f of feats('building')) {
-      if (f.type !== 3 || !f.geom) continue;
-      const hM = +(f.tags && f.tags.render_height) || 0;
-      if (hM >= HOUSE_MAX_HEIGHT_M) continue;
-      for (const ring of f.geom) {
-        if (!ring || ring.length < 3) continue;
-        const a = Math.abs(ringSignedArea(ring)) * mvtToM * mvtToM;
-        if (a < aMin || a > aMax) continue;
-        let sx = 0, sy = 0;
-        for (const p of ring) { sx += p.x; sy += p.y; }
-        const e = extOf({ x: sx / ring.length, y: sy / ring.length });
-        if (e < 0 || !resExt[e]) continue;
-        if ((++k & 15) === 0) yield 'spawn gate houses';
-        let hit = 0;
-        yield* forEachPolygonCellSteps(E, E, [ring], mvtToCell, (x, y) => { houseD[y * E + x] = 0; hit++; }, M);
-        if (!hit) houseD[e] = 0;
-        nHouse++;
-      }
-    }
     // ── Ways: which cells a PRIVATE way paints and which a public one does
     // (the paint's own one-cell walk, forEachLineCell).
     const privWay = new Uint8Array(NN), pubWay = new Uint8Array(NN);
@@ -2743,10 +2744,8 @@
     }
     const anchorAt = (i) => pubArea[i] !== 0 || (PUBLIC_NEAR.has(grid[i]) && !privateOnly(i));
     // ── Distances (only where there is a source at all).
-    if (nHouse) yield* chamferSteps(houseD, E);
     if (nSens) yield* chamferSteps(sensD, E);
     if (nChurch) yield* chamferSteps(churchD, E);
-    const houseR = SPAWN_HOUSE_BUFFER_M / CELL_M;
     const sensR = SPAWN_SENSITIVE_BUFFER_M / CELL_M, churchR = churchM / CELL_M;
     // ── FRONTAGE: a public anchor (PUBLIC_NEAR ground that is not a private
     // way's, or public land by polygon) within SPAWN_FRONTAGE cells,
@@ -2836,9 +2835,10 @@
       }
     }
     // ── The reasons, per cell (every one that applies — the classes decide).
-    // HOUSE and BEHIND_HOUSE are about somebody's LOT: they never touch
-    // public ground (a park-family polygon's cell, whatever paint won it, or
-    // any ground that is not lot / field).
+    // BEHIND_HOUSE is about somebody's LOT: it never touches public ground (a
+    // park-family polygon's cell, whatever paint won it, or any ground that
+    // is not lot / field). A field's EDGE band (within FARM_EDGE_CELLS)
+    // carries no reason at all — only its INTERIOR is refused.
     for (let y = 0; y < h; y++) {
       if ((y & 15) === 15) yield 'spawn gate classify';
       for (let x = 0; x < w; x++) {
@@ -2853,10 +2853,9 @@
         const lotLike = (lot || FARM_TYPES.has(t)) && !(pubArea[i] & 2);
         if (lot && lotLike && front[i] && behind(i)) v |= W_.BEHIND_HOUSE;
         if ((lot || ROADSIDE_ONLY.has(t)) && !front[i]) v |= W_.PRIVATE;
-        if (FARM_TYPES.has(t)) v |= farmEdge[i] ? W_.FARM : W_.FARM_INTERIOR;
+        if (FARM_TYPES.has(t) && !farmEdge[i]) v |= W_.FARM_INTERIOR;
         const e = (y + M) * E + (x + M);
         if (roadClass && (roadClass[i] & (ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_MAJOR_BAND))) v |= W_.KERB;
-        if (lotLike && houseD[e] <= houseR) v |= W_.HOUSE;
         if (sensD[e] <= sensR || churchD[e] <= churchR) v |= W_.SENSITIVE;
         mask[i] = v;
       }
@@ -4363,7 +4362,7 @@
     // the street and zone dressing) — and carried on the entry for the ones
     // outside the build (spawnInTile's _spawnOpts.quiet, the stair pass).
     const quietMask = new Uint8Array(w * h);
-    yield* stampQuietLandSteps(layers, quietMask, w, h, mvtToCell);
+    yield* stampQuietLandSteps(layers, quietMask, w, h, mvtToCell, grid);
     // THE STREET INDEX (src/street_variants.js): every street's key, size and
     // variant, and the hedgerow closes — pure MVT, so a rebuilt entry derives
     // the same one. Then the street ROCKS it asks for, pushed before the
@@ -7178,10 +7177,10 @@
     // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
     // stamp and its numbers, and the live per-player private-ground veto.
     SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,
-    SPAWN_OPEN, SPAWN_SUPPRESSED, SPAWN_INVALID, spawnClassOf, isSchoolHours,
+    SPAWN_OPEN, SPAWN_SUPPRESSED, SPAWN_INVALID, spawnClassOf,
     landRefused, stampSpawnWhySteps, isPrivateWay, churchyardBufferM, SPAWN_FRONTAGE,
-    SPAWN_HOUSE_BUFFER_M, SPAWN_SENSITIVE_BUFFER_M, HOUSE_AREA_M2, HOUSE_MAX_HEIGHT_M,
-    RESTRICTED_LAND, SCHOOL_LAND, KINDERGARTEN_LAND, ROADSIDE_ONLY, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
+    SPAWN_SENSITIVE_BUFFER_M,
+    RESTRICTED_LAND, KINDERGARTEN_LAND, ROADSIDE_ONLY, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
     SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,

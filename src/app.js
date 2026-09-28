@@ -6166,10 +6166,8 @@ class MapScene extends Phaser.Scene {
     // alone, which exists before `_spawned`), so fall back to no occupancy
     // check rather than crash on a missing entry._spawnOpts.
     const occupiedIdx = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
-    // A timed, per-player spawn: off school grounds in school hours too.
     const burstOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy,
-      roadClass: entry.roadClass, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }],
-      schoolHours: WorldGen.isSchoolHours(new Date()) };
+      roadClass: entry.roadClass, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
     // Cells within `r` that will take a coin: the shared spawn rule (the pot
     // itself is the public anchor, so the cells right round it pass the
     // frontage test) and the player's side of any major road. No relaxed
@@ -10076,10 +10074,10 @@ class MapScene extends Phaser.Scene {
     const edge = this.tileEdgeM, cm = edge / N;
     const base = entry._spawnOpts;
     const used = new Set();
-    // The pack's other seats: the shared rule at each foe's own class, off
-    // school grounds in school hours, never stacked, and never on this
-    // player's live private-ground veto (a vetoed cell reads as taken).
-    const opts = { ...base, schoolHours: WorldGen.isSchoolHours(new Date(now)), occupied: { has: (k) => used.has(k) || !!(base.occupied && base.occupied.has(k))
+    // The pack's other seats: the shared rule at each foe's own class, never
+    // stacked, and never on this player's live private-ground veto (a
+    // vetoed cell reads as taken).
+    const opts = { ...base, occupied: { has: (k) => used.has(k) || !!(base.occupied && base.occupied.has(k))
       || WorldGen.privateVetoAt(tx, ty, k % N, Math.floor(k / N)) } };
     const foes = [];
     entry.creatures = entry.creatures || [];
