@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  BALANCING — what chest and treasure rewards actually pay.
+  BALANCING — what chest, treasure and fishing rewards actually pay.
 
     https://countable.github.io/terracart/tools/balancing.html     (published)
     Locally: python3 -m http.server 8000 from the repo root, then
@@ -8,11 +8,13 @@
 
   Every number here comes out of the game's own roll: tools/game-loader.js
   loads the shipping modules (the list read out of index.html), and each
-  table is thousands of calls to rarity.js pickReward — the one function a
+  chest/treasure table samples rarity.js pickReward — the one function a
   chest, a buried X, a road prize and a repeat elite kill all
   resolve through — valued at the catalog's list prices (items.js PRICES /
   itemValue, gear.js gearPrice). Nothing is retyped, so a retune in rarity.js
-  or items.js shows up here on the next reload.
+  or items.js shows up here on the next reload. Treasure includes the seed
+  payout bonus. Fishing executes the actual tap handler with a recording scene
+  and a fresh disposable save per cast; game-loader disables persistence.
 
   The world placements (what a tile holds, where Home sits) are the map
   review's: tools/map-review.html.
@@ -47,8 +49,8 @@
 </style>
 </head>
 <body>
-<h1>Balancing — chest and treasure rewards</h1>
-<p>Every figure is the game's own <code>pickReward</code>, sampled, valued at list price.
+<h1>Balancing — chest, treasure and fishing rewards</h1>
+<p>Sampled game rewards, including treasure seed bonuses and complete fishing casts, valued at list price.
    Browse every item: <a href="items.html">item catalogue</a>.
    World placements: <a href="map-review.html">map review</a>.</p>
 <p>Shop offers use separate generators and are not simulated here. Restored castles offer daily favours;
@@ -71,12 +73,14 @@
     <label id="depthL">Depth <select id="depth"></select></label>
     <label id="bonusL">Road prize # <select id="bonus"></select></label>
     <label id="monsterL">Elite monster <select id="monster"></select></label>
+    <label id="rodL">Fishing rod <select id="rod"></select></label>
+    <label id="slimeL">Slime landing space <select id="slime"><option value="yes">Available</option><option value="no">Blocked</option></select></label>
     <label>Current gear tier <select id="owned"></select></label>
     <label>Wizard quantity upgrades <select id="qty"></select></label>
     <label>Samples <select id="n"><option>1000</option><option selected>5000</option><option>20000</option></select></label>
     <button id="go">Roll</button>
   </div>
-  <p>Current gear tier sets every relic and armour slot, including the luck ring. Each sample uses the same starting gear.</p>
+  <p>Current gear tier sets every relic and armour slot, including the luck ring. Fishing uses the separate rod selection. Each sample uses the same starting gear.</p>
   <p id="contextNote"></p>
   <div id="summary"></div>
   <div class="grid2">
@@ -92,7 +96,7 @@
 <section>
   <h2>Every context at a glance</h2>
   <p>Share by class and average list value per reward. Road figures describe offered cards, of which the player keeps one.
-     Chest rows use the selected tier and depth; elite rewards use the selected monster and depth.</p>
+     Chest rows use the selected tier and depth; elite rewards use the selected monster and depth. Fishing averages include every cast, using the selected rod and slime landing space.</p>
   <div class="scroll"><table id="matrix"></table></div>
 </section>
 
@@ -108,7 +112,7 @@ const $ = (id) => document.getElementById(id);
 const fmt$ = (v) => '$' + (v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1));
 const pct = (v) => (v * 100).toFixed(1) + '%';
 // The shop:* tuning tables are not called by the game's shop generators.
-const rewardContexts = () => Object.keys(LOOT_CONTEXTS).filter((c) => c.startsWith('chest:') || c.startsWith('treasure:'));
+const rewardContexts = () => Object.keys(LOOT_CONTEXTS).filter((c) => c.startsWith('chest:') || c.startsWith('treasure:')).concat('fishing');
 
 // A save of a player who owns every relic and armour slot at `tier` — what
 // the rolls read (ring luck, gear upgrades, relic caps).
@@ -144,6 +148,46 @@ function describe(r) {
     tier: r.tier || item?.baseTier || 0, qty, text: `${qty}× ${item?.name || id}${r.consolation ? ` + $${r.consolation}` : ''}` };
 }
 
+// Exercise the shipping handler, including its branch order and actual payouts.
+// The loader disables persistence. Gear changes belong to this cast only.
+function sampleFishing(start, opts) {
+  const save = structuredClone(start);
+  if (opts.rodTier) save.relics.rod = { tier: opts.rodTier };
+  else delete save.relics.rod;
+  let result = { ...describe(null), cls: 'no payout', key: 'No payout' };
+  const scene = {
+    spendEnergy() { return true; },
+    startWorkProgress(x, y, complete) { complete(); },
+    addToInv(id, qty) { result = describe({ kind: 'item', id, qty,
+      cls: id === 'boot' ? 'junk' : 'fish' }); },
+    flashLoot(text) {
+      result.text = text;
+      if (result.cls === 'no payout') result.key = text;
+    },
+    spawnFishedSlime() {
+      if (!opts.slimeSpace) return false;
+      result = { ...describe(null), cls: 'slime encounter', key: 'Slime encounter' };
+      return true;
+    },
+    markRelicsDirty() {
+      for (const [kind, slots] of [['relic', save.relics], ['armor', save.armor]]) {
+        for (const [slot, gear] of Object.entries(slots)) {
+          const before = kind === 'relic' && slot === 'rod' ? opts.rodTier
+            : start[kind === 'relic' ? 'relics' : 'armor'][slot]?.tier || 0;
+          if (gear.tier > before) result = describe({ kind, slot, tier: gear.tier });
+        }
+      }
+    },
+  };
+  TAP_HANDLERS.find((h) => h.name === 'fishing').try({
+    scene, save, cell: { type: TERRAIN.WATER }, sx: 0, sy: 0, cwmx: 0, cwmy: 0,
+  });
+  // Count only coins the handler actually credits (duplicate fishing gear
+  // currently shows a message but does not credit its rolled cash-out).
+  result.value += save.money - start.money;
+  return result;
+}
+
 function sample(ctx, opts, owned, n) {
   const save = saveAt(owned);
   const rows = [];
@@ -152,12 +196,22 @@ function sample(ctx, opts, owned, n) {
     if (ctx === Trail.PRIZE_CONTEXT) {
       const fixed = Trail.firstPrize(+$('bonus').value);
       rows.push(...Trail.rollChoices(roll, Trail.PRIZE_CHOICES, Trail.PRIZE_ROLL_TRIES, fixed ? [fixed] : []).map(describe));
-    } else rows.push(describe(roll()));
+    } else if (ctx === 'fishing') rows.push(sampleFishing(save, opts));
+    else {
+      const reward = roll();
+      // grantTreasureRoll applies this after pickReward, to digs and elite kills.
+      if ((ctx === 'treasure:default' || ctx === Combat.ELITE_TREASURE_CONTEXT)
+          && reward?.kind === 'item' && isLowTierSeed(reward.id)) {
+        reward.qty += LOW_TIER_SEED_QTY_BONUS;
+      }
+      rows.push(describe(reward));
+    }
   }
   return rows;
 }
 function optsFor(ctx) {
   const o = {};
+  if (ctx === 'fishing') return { rodTier: +$('rod').value, slimeSpace: $('slime').value === 'yes' };
   if (ctx.startsWith('chest:')) o.tier = +$('tier').value;
   if (ctx.startsWith('chest:')) o.depth = +$('depth').value;
   if (ctx === 'treasure:default' && +$('depth').value > 0) {
@@ -184,7 +238,7 @@ function rollOne() {
     return [...m.entries()].sort((a, b) => b[1].n - a[1].n);
   };
   $('summary').innerHTML = `<p><b style="color:#ffd866">${ctx}</b> ${JSON.stringify(opts)} — `
-    + `average list value per ${ctx === Trail.PRIZE_CONTEXT ? 'offered card' : 'reward'} <b style="color:#ffd866">${fmt$(ev)}</b> over ${trials.toLocaleString()} samples (${n.toLocaleString()} rewards)</p>`;
+    + `average list value per ${ctx === Trail.PRIZE_CONTEXT ? 'offered card' : ctx === 'fishing' ? 'cast' : 'reward'} <b style="color:#ffd866">${fmt$(ev)}</b> over ${trials.toLocaleString()} samples (${n.toLocaleString()} rewards)</p>`;
   table($('byClass'), ['class', 'share', 'avg value when rolled'],
     group((r) => r.cls).map(([k, g]) => `<tr><td>${k}</td>${barCell(g.n / n)}<td>${fmt$(g.v / g.n)}</td></tr>`));
   table($('byTier'), ['tier', 'share'],
@@ -243,15 +297,18 @@ function defaultTiers() {
 function syncControls() {
   const ctx = $('ctx').value;
   $('tierL').style.display = ctx.startsWith('chest:') ? '' : 'none';
-  $('depthL').style.display = ctx !== Trail.PRIZE_CONTEXT ? '' : 'none';
+  $('depthL').style.display = ctx !== Trail.PRIZE_CONTEXT && ctx !== 'fishing' ? '' : 'none';
+  $('rodL').style.display = $('slimeL').style.display = ctx === 'fishing' ? '' : 'none';
   $('bonusL').style.display = ctx === Trail.PRIZE_CONTEXT ? '' : 'none';
   $('monsterL').style.display = ctx === Combat.ELITE_TREASURE_CONTEXT ? '' : 'none';
-  $('contextNote').textContent = ctx === Trail.PRIZE_CONTEXT
+  $('contextNote').textContent = ctx === 'fishing'
+    ? 'One completed cast, including misses, boots, slime encounters and gear jackpots. Blocked slime landing space falls through to a fish. Values are gross rewards before energy costs; no value is assigned to fighting a caught slime. Duplicate gear currently pays no coins in the game.'
+    : ctx === Trail.PRIZE_CONTEXT
     ? `Each sample offers up to ${Trail.PRIZE_CHOICES} distinct cards; the player keeps one. Prize #1 includes ${Trail.FIRST_PRIZE_QTY} onion seeds. Tables measure offered cards, not total payout.`
     : ctx === Combat.ELITE_TREASURE_CONTEXT
-      ? 'Repeat elite kills pay this reward. The first discovery gives a memory instead. The normal kill wage is separate.'
+      ? 'Repeat elite kills pay this reward. The first discovery gives a memory instead. The normal kill wage is separate. Includes the extra low-tier seeds paid by the game.'
       : ctx.startsWith('chest:') ? 'Random chest rewards at the chosen tier. Surface food POIs are market stalls; their underground copies use chest:food. Florists and garden centres are also stalls; gardens stay chests. Fixed starter contents are not included.'
-      : 'One buried-treasure reward. Underground finds use the game’s depth-based cave supply weighting.';
+      : 'One buried-treasure reward. Underground finds use the game’s depth-based cave supply weighting. Includes the extra low-tier seeds paid by the game.';
 }
 
 (async () => {
@@ -265,9 +322,10 @@ function syncControls() {
     opt($('bonus'), Array.from({ length: Trail.PRIZE_ROLL_BONUS_MAX }, (_, i) => i + 1).map((b) => [b, '#' + b + (b === Trail.PRIZE_ROLL_BONUS_MAX ? '+' : '')]), 1);
     opt($('monster'), Object.keys(Combat.MONSTERS).filter((k) => Combat.spawnsUnderground(k)).map((k) => [k, k]), 'cave_slime');
     opt($('owned'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'nothing']), 0);
+    opt($('rod'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'bare hands']), 0);
     opt($('qty'), Array.from({ length: RARITY_TUNING.qtyLuckLevels + 1 }, (_, i) => [i, i]), 0);
     $('ctx').onchange = () => { syncControls(); rollOne(); };
-    for (const id of ['tier', 'depth', 'bonus', 'monster', 'owned', 'qty', 'n']) $(id).onchange = () => { rollOne(); matrix(); if (id === 'owned' || id === 'qty') chestGrid(); };
+    for (const id of ['tier', 'depth', 'bonus', 'monster', 'owned', 'qty', 'rod', 'slime', 'n']) $(id).onchange = () => { rollOne(); matrix(); if (id === 'owned' || id === 'qty') chestGrid(); };
     $('go').onclick = rollOne;
     syncControls();
     $('status').textContent = 'rolling…';
