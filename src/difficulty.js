@@ -67,7 +67,7 @@
       // (sized by the building's tier and its own seeded strength), softened
       // near home by a nerf that fades out by LAIR_FAR_M — the tier
       // also deciding WHETHER it is held at all (a third of wrecks, most
-      // forts, nearly every castle) and WHAT is in there (a wreck is squatted
+      // forts, nearly every castle) and WHAT is in there (a wreck is infested
       // by slimes, a fort or a castle is held by goblins). A garrison holds
       // its ruin until the player comes near, then hunts as a group and gives
       // up when they get clear. Off on easy —

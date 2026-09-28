@@ -305,7 +305,7 @@ function tillBlockerLine(o) {
   // budget cannot interpolate something unbounded. The kind says enough.
   if (o.kind === 'chest') {
     if (typeof isBarrel === 'function' && isBarrel(o)) return 'A barrel stands here.';
-    if (typeof isBikeRack === 'function' && isBikeRack(o)) return 'A bike rack stands here.';
+    if (typeof isBikeRack === 'function' && isBikeRack(o)) return 'A courier\'s post stands here.';
     return 'A chest — open it first.';
   }
   return TILL_BLOCKER_LINE[o.kind] || `${cropName(o.kind)} is in the way.`;

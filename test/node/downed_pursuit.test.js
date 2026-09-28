@@ -48,14 +48,14 @@ test('downed: an empty bar is down, and so is a bar that is not a number', () =>
   assert.falsy(Combat.playerDowned(0.5), 'and so is half of one');
 });
 
-test('downed: isUnnoticed ORs the two wards, and wanderCreatures reads it once per tick', () => {
+test('downed: isUnnoticed ORs the three wards, and wanderCreatures reads it once per tick', () => {
   // The OR lives on the SCENE, not in the sim loop, because the picture reads
   // it too: _updatePlayerAura fades the body on the same expression (see the
   // ghost test below). One state, two reasons, both sides.
   const pred = methodBody('isUnnoticed');
   assert.truthy(
-    /return this\.isShadowActive\(\) \|\| Combat\.playerDowned\(this\.save\.energy\);/.test(pred),
-    'the Shadow Powder ward ORed with the downed test, off the LIVE bar');
+    /return this\.isShadowActive\(\) \|\| Combat\.playerDowned\(this\.save\.energy\) \|\| this\.isTooFast\(\);/.test(pred),
+    'the Shadow Powder ward ORed with the downed test, off the LIVE bar, and the passenger gate (a third reason, one lane)');
   const body = methodBody('wanderCreatures');
   assert.truthy(/const unnoticed = this\.isUnnoticed\(\);/.test(body),
     'wanderCreatures reads it once per tick, not per creature');

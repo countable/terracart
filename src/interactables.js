@@ -494,7 +494,7 @@ const INTERACTABLES = {
           scene.flash(`The chapel is quiet. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
           return true;
         }
-        // The first visit tells what the place is, and the alms follow when
+        // The first visit tells what the place is, and the blessing follows when
         // the story is tapped away (a story never opens on top of a dialog).
         if (typeof scene._macroStory === 'function' && scene._macroStory('chapel', () => {
           const again = { scene, save, sx, sy, dirty: false };
@@ -519,7 +519,7 @@ const INTERACTABLES = {
       // here (both return above), so in practice it is the trunk or the box.
       const kindIcon = (typeof chestLook === 'function' && scene.worldIconHTML)
         ? scene.worldIconHTML(chestLook(o).texKey) : '';
-      // The chapel's alms open on the chapel's own painting and name the place.
+      // The chapel's blessing opens on the chapel's own painting and name the place.
       const dress = (chapel && typeof Macros !== 'undefined')
         ? { art: Macros.KIND_DIALOG.chapel.art, header: Macros.KIND_DIALOG.chapel.label } : {};
       // Every path below that actually spends the chest goes through this, so
@@ -581,7 +581,7 @@ const INTERACTABLES = {
         addMoney(save, 1);
         markOpened();
         ctx.dirty = true;
-        scene.flash(`${chapel ? 'The alms box is bare.' : 'Chest had nothing useful.'}`, sx, sy);
+        scene.flash(`${chapel ? 'A quiet blessing. Go well.' : 'Chest had nothing useful.'}`, sx, sy);
         return true;
       }
       if (result.kind === 'relic' || result.kind === 'armor') {
@@ -819,7 +819,7 @@ const INTERACTABLES = {
 // THE DAY LEDGER, read once per frame: POI id → whole UTC days since it was
 // last taken (0 = today), for every take the ledger still keeps
 // (save.coinBurstClaimed[id + YYYYMMDD], a week — macros.js markToday).
-// A pot of gold, a bike rack, the chapel's alms and a shrine's gift are
+// A pot of gold, a bike rack, the chapel's blessing and a shrine's gift are
 // spent while theirs is 0; a crate or a barrel while it is under its own
 // crateRestoreDays. Keys are the id plus an 8-digit day, so the id is all
 // but the last eight characters.
@@ -869,7 +869,7 @@ function chestNeverSpent(o) {
 // stall, macro, pot of gold or bike rack, never PUBLIC ART (a one-time T1
 // trunk, CHEST_ONE_TIME_CLASSES). Taking one is written to the DAY LEDGER
 // (Macros.markToday — save.coinBurstClaimed[id + dayKey], kept a week), the
-// lane the pot of gold, the bike rack, the chapel's alms and the grove
+// lane the pot of gold, the bike rack, the chapel's blessing and the grove
 // shrine's gift already share, and it stands bare for crateRestoreDays UTC
 // days (1 for an ordinary crate, up to CRATE_RESTORE_MAX_DAYS for a class
 // the tile is crowded with) before it restocks at its normal tier.
@@ -919,7 +919,7 @@ function isSpent(o, sets) {
 // ── Does this glow as "something to take here"? ────────────────────────────
 // The POI light (Lighting.KINDS.poi) is the one mark for it. A chest wears it
 // until it is spent; the RECURRING places — a crate or a barrel (restocks,
-// dark until it restocks), a pot of gold, a bike rack, the chapel's alms and
+// dark until it restocks), a pot of gold, a bike rack, the chapel's blessing and
 // a grove shrine's gift — wear it exactly while the take is there (the day
 // ledger), and go dark once it is taken. Every other stall and market stays lit (a counter is always
 // open). Takes the frame's sets, like isSpent. Loose starter crates are no

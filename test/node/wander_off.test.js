@@ -97,7 +97,7 @@ test('wander-off: one more reason in the lanes that exist, not a lane of its own
     'while it goes it does not leech, hit, shoot or charge (standDown)');
   assert.truthy(/const routed = warded \|\| wanderOff;/.test(w), 'it runs at the rout pace');
   const ward = w.indexOf('} else if (warded) {');
-  const off = w.indexOf('} else if (wanderOff) {');
+  const off = w.indexOf('} else if (wanderOff || (kerbTurn && !c.lair)) {');
   const slime = w.indexOf("} else if (c.kind === 'slime') {");
   const mon = w.indexOf('} else if (isMon) {');
   assert.gt(off, ward, "Home's ward outranks it");

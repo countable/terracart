@@ -653,7 +653,7 @@
     // The shared spawn rule — walkable, off anyone's road BAND (not merely off
     // the one cell per way the grid paints), out of the back gardens. A chest
     // in the street is the bug this mask exists to stop.
-    const spawnOpts = { roadMask: entry.roadMask };
+    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask };
     const cellKey = (cx, cy) => cx + ',' + cy;
     // ── The walk there ──────────────────────────────────────────────────
     // Flood out from the anchor over ground a ROUTE may be drawn across. This

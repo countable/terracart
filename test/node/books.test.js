@@ -515,10 +515,10 @@ test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   // in a castle would send a player in expecting the wrong fight.
   const family = (tier) => new Set(Lairs.kindsAt(tier, 1).map(
     (k) => (/^goblin/.test(k) ? 'goblin' : /slime$/.test(k) ? 'slime' : k)));
-  assert.eq([...family(9)].join(), 'slime', 'a wrecked house is squatted by slimes');
+  assert.eq([...family(9)].join(), 'slime', 'a wrecked house is infested by slimes');
   assert.eq([...family(11)].join(), 'goblin', 'a fort is held by goblins');
   assert.eq([...family(12)].join(), 'goblin', 'and so is a castle');
-  assert.truthy(/houses are squatted by slimes/i.test(tip), 'the tip names the wreck\'s family');
+  assert.truthy(/houses are infested by slimes/i.test(tip), 'the tip names the wreck\'s family');
   assert.truthy(/forts and castles are held by goblins/i.test(tip), 'and the fortification\'s');
 });
 

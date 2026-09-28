@@ -251,7 +251,7 @@
   // (there is no red to lift), which is why the hue shift is the whole of it
   // rather than a shade: a merely darker goblin would read as one in shadow.
   const TRAPPER_TINT = 0xff4a3a;
-  // THE FIRE SLIME (a tar yard's garrison — src/zones.js, lairs.js 'tar') —
+  // THE FIRE SLIME (a burned row's foe — StreetVariants, lairs.js 'burned') —
   // the surface slime's sheet taken to RUST-ORANGE, by the cave slime's
   // reasoning: the lime body has red 0x7e and almost no blue, so the free move
   // is to strip green toward half and blue to nothing — an ember-brown slime,

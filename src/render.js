@@ -2396,7 +2396,7 @@ Render.drawObjects = function drawObjects(scene) {
   // lightmap — an emptied POI is no longer a place that glows.
   const openedSet = setOf(scene.save.opened);
   // The day ledger (interactables.js dayLedgerAges — id → days since taken):
-  // a pot of gold, a bike rack, the chapel's alms or a grove shrine's gift
+  // a pot of gold, a courier's post, the chapel's blessing or a grove shrine's gift
   // taken TODAY, or a crate / barrel inside its restock days — unlit (and a
   // pot, rack or crate hidden, a barrel smashed) until it comes back.
   const burstSet = dayLedgerAges(scene.save);
@@ -2697,7 +2697,7 @@ Render.drawObjects = function drawObjects(scene) {
   // A BARREL (a bin — loot.js isBarrel) and a BIKE RACK (isBikeRack): 16px
   // generated props, a touch bigger than the crate they stand in for.
   const SMALL_POI_SCALE = 1.3;
-  // The broken WAGON a bandit-road bus stop wears (loot.js chestLook): the
+  // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
   // 128×96 frame's art is 88 px wide (x 20..108) and ends 2 px above the frame
   // bottom, so 0.55 draws it ~1.5 cells wide, and WAGON_DY_PX drops the
   // foot-anchored frame so the art's bottom row sits 1 px above the POI cell's
@@ -3043,7 +3043,7 @@ Render.drawObjects = function drawObjects(scene) {
               // A macro stall (loot.js macroFor) is one 80×80 frame per kind.
               frame: (o) => { const L = chestLook(o);
                               return L.coin ? undefined : (L.stand ? L.stand.frame : 0); },
-              // THE WAGON (a bus stop on a bandit road): 128×96 art, drawn at
+              // THE WAGON (a bus stop on an old trade road): 128×96 art, drawn at
               // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
               // a structure, not a chest, so it is not seated; its wheels sit
               // on the POI cell's bottom edge and the body rises north over it.
@@ -4003,8 +4003,8 @@ Render.drawObjects = function drawObjects(scene) {
   // Crates (the `box` sprite — starter supply crates and tier-1 chests) are
   // excluded: the gem is a treasure-chest cue, so it shouldn't float over a crate.
   // Nor over a macro stall (loot.js macroFor): an inn or a chapel is a
-  // service, not a chest, and its tier is only what a chapel's alms roll from.
-  // Nor over a barrel, a bike rack or a pot of gold: none of them is a chest
+  // service, not a chest, and its tier is only what a chapel's blessing rolls from.
+  // Nor over a barrel, a courier's post or a pot of gold: none of them is a chest
   // with a tier to show.
   const chestObjs = filteredObj.filter(({ o }) => { if (o.kind !== 'chest') return false;
     const L = chestLook(o); return !L.box && !L.macro && !L.barrel && !L.bike && !L.coin; });

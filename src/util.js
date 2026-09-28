@@ -646,3 +646,75 @@ function houseArtScale(area, frameW, isFort, cellM, cellPx) {
     : a.def;
   return buildingCellsToScale(cells, frameW, cellPx);
 }
+
+// ── GPS SPEED — one lane, two readers ─────────────────────────────────────
+// What a RELIABLE leg of the player's real GPS track looks like, and how fast
+// it went. Read by the egg's hatch walk (egg_hatch.js — only a walked leg
+// counts) and by the PASSENGER GATE below (a sustained ride switches rewards
+// and foes off). Raw WGS84 fixes only, never playerM or the stick.
+//   GPS_MAX_WALK_MPS  4.5 m/s ≈ 16 km/h: a brisk run. Above it the player is
+//                     riding something (Niantic's speed lock sits about here).
+//   GPS_MAX_ACCURACY_M / GPS_MAX_GAP_MS: a fix blurrier than this, or a gap
+//                     longer, breaks the leg — no speed can be read across it.
+const GPS_MAX_WALK_MPS = 4.5;
+const GPS_MAX_ACCURACY_M = 35;
+const GPS_MAX_GAP_MS = 30000;
+// Great-circle metres between two { lat, lon } points.
+function gpsDistanceM(a, b) {
+  const rad = Math.PI / 180;
+  const lat = (b.lat - a.lat) * rad;
+  const lon = (b.lon - a.lon) * rad;
+  const h = Math.sin(lat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(lon / 2) ** 2;
+  return 6371000 * 2 * Math.asin(Math.sqrt(Math.min(1, h)));
+}
+// Is this fix one a leg can be read from? { lat, lon, accuracy, timestamp }.
+function gpsFixReliable(fix, now = Date.now()) {
+  return !!fix && Number.isFinite(fix.lat) && Math.abs(fix.lat) <= 90 &&
+    Number.isFinite(fix.lon) && Math.abs(fix.lon) <= 180 &&
+    Number.isFinite(fix.accuracy) && fix.accuracy >= 0 && fix.accuracy <= GPS_MAX_ACCURACY_M &&
+    Number.isFinite(fix.timestamp) && now - fix.timestamp <= GPS_MAX_GAP_MS && fix.timestamp <= now + 1000;
+}
+// The speed of the leg prev → fix in m/s, or null when no speed can be read
+// (no earlier fix, time not moving forward, or a gap past GPS_MAX_GAP_MS).
+function gpsLegMps(prev, fix) {
+  if (!prev || !fix) return null;
+  const dt = fix.timestamp - prev.timestamp;
+  if (!(dt > 0) || dt > GPS_MAX_GAP_MS) return null;
+  return gpsDistanceM(prev, fix) / (dt / 1000);
+}
+// THE PASSENGER GATE (safety, owner Sep 2026). While the player's real track
+// runs faster than GPS_MAX_WALK_MPS, SUSTAINED — fast samples spanning
+// SPEED_GATE_TRIP_MS — they are riding, not walking: no street restores, no
+// trail metres, no pickups and no taps, and nothing hostile notices them (the
+// scene's isTooFast, ORed into isUnnoticed). Slow samples spanning
+// SPEED_GATE_CLEAR_MS clear it. A sample is the device's own `speed` when it
+// reports one (coords.speed), else the leg from the last reliable fix; an
+// unreliable fix neither trips nor clears. No fix for SPEED_GATE_STALE_MS
+// clears it (the phone stopped reporting: nothing left to judge by).
+// Pure: state in, state out — the scene keeps it (never the save).
+const SPEED_GATE_TRIP_MS = 8000;
+const SPEED_GATE_CLEAR_MS = 20000;
+const SPEED_GATE_STALE_MS = 120000;
+function speedGateStep(state, fix, now = Date.now()) {
+  const s = state ? { ...state } : { last: null, fastSince: null, slowSince: null, tooFast: false, lastT: null };
+  if (s.tooFast && s.lastT != null && now - s.lastT > SPEED_GATE_STALE_MS) {
+    s.tooFast = false; s.fastSince = null; s.slowSince = null;
+  }
+  if (!gpsFixReliable(fix, now)) return s;
+  const own = Number.isFinite(fix.speed) && fix.speed >= 0 ? fix.speed : null;
+  const mps = own != null ? own : gpsLegMps(s.last, fix);
+  s.last = { lat: fix.lat, lon: fix.lon, accuracy: fix.accuracy, timestamp: fix.timestamp };
+  s.lastT = now;
+  if (mps == null) return s;
+  const t = fix.timestamp;
+  if (mps > GPS_MAX_WALK_MPS) {
+    s.slowSince = null;
+    if (s.fastSince == null) s.fastSince = t;
+    if (!s.tooFast && t - s.fastSince >= SPEED_GATE_TRIP_MS) s.tooFast = true;
+  } else {
+    s.fastSince = null;
+    if (s.slowSince == null) s.slowSince = t;
+    if (s.tooFast && t - s.slowSince >= SPEED_GATE_CLEAR_MS) s.tooFast = false;
+  }
+  return s;
+}

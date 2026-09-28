@@ -86,6 +86,31 @@ test('scene art: the lore rides in the generator, one hint per piece at most', (
   assert.truthy(/const scene = \(subject, lore\) =>/.test(gen), 'scene() takes one hint');
   assert.truthy(/LORE\[lore\]/.test(gen), 'and appends it');
 });
+
+// NO LORE ON HOLY OR GRAVE GROUND (Sep 2026): a demon hint on a church, a
+// chapel, a shrine or a grave reads as the game calling the place demonic.
+// scene() throws on such a pairing; every sacred piece here carries none.
+test('scene art: no lore hint on a chapel, church, shrine or grave painting', () => {
+  const gen = STORY_ART_GEN_SRC;
+  const re = gen.match(/const LORE_FREE_SUBJECT = (\/.*\/i);/);
+  assert.truthy(re, 'the one subject rule');
+  const SACRED = new RegExp(re[1].slice(1, -2), 'i');
+  assert.truthy(/if \(lore && LORE_FREE_SUBJECT\.test\(subject\)\) \{\s*throw/.test(gen), 'scene() refuses the pairing');
+  // Every scene(...) call: its subject strings and its lore argument.
+  const calls = [...gen.matchAll(/^  (\w+): scene\(([\s\S]*?)\),?\n(?=  \w+:|\n|  \/\/|\})/gm)];
+  assert.gt(calls.length, 30, `the pieces were read (${calls.length})`);
+  const sacred = [];
+  for (const [, key, body] of calls) {
+    const strs = body.match(/'(?:[^'\\]|\\.)*'/g) || [];
+    const last = strs.length > 1 && /,\s*'\w+'\s*$/.test(body) ? strs[strs.length - 1].slice(1, -1) : null;
+    const lore = last && /^[a-z]+$/.test(last) && new RegExp(`^  ${last}:`, 'm').test(gen) ? last : null;
+    const subject = (lore ? strs.slice(0, -1) : strs).join(' ');
+    if (SACRED.test(subject)) { sacred.push(key); assert.eq(lore, null, `${key} carries no lore (${lore})`); }
+  }
+  for (const key of ['zone_stones', 'zone_grove']) assert.includes(sacred, key);
+  // The chapel stall opens on the churchyard painting — one of the lore-free.
+  assert.eq(Macros.KIND_DIALOG.chapel.art, 'zone_stones', 'the chapel\'s painting is zone_stones');
+});
 })();
 
 test('cave story: the first descent below the surface tells its story, once', () => {
