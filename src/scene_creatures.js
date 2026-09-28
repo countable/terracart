@@ -203,7 +203,8 @@ class SceneCreatures {
     // the street pieces claimed their cells), a piece whose cell something
     // placed since holds is dropped, and each laid piece claims its cell for
     // every later draw. Its tar pits join the SAME slow map (_bodyHold's slow
-    // reason) and its fire-slime garrison the same lair list — one lane each.
+    // reason); traps and guards join the existing persistent entity lanes.
+    const zoneTraps = [], zoneGuards = [];
     const zDress = entry.zoneDress;
     if (zDress && !window.__TEST_MODE) {
       const cellIdx = (p) => {
@@ -226,7 +227,11 @@ class SceneCreatures {
       }
       entry.wildplants = entry.wildplants || [];
       for (const wp of zDress.wildplants) if (lay(wp)) entry.wildplants.push(wp);
-      for (const L of zDress.lairs) entry.streetLairs.push(L);
+      // Claim every generated seat even after a kill/disarm. Player progress
+      // may hide a piece, but must never reveal a different spawn underneath.
+      for (const trap of (zDress.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
+      for (const guard of (zDress.guards || [])) if (lay(guard)) zoneGuards.push(guard);
+      for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
       entry.slowCells = slow.size ? slow : null;
     }
     // BANDIT STOPS: a bus stop on a MAJOR road wears the broken wagon
@@ -429,6 +434,18 @@ class SceneCreatures {
       creatures[enemyWrite++] = replacement;
     }
     creatures.length = enemyWrite;
+    // Zone guards already have an authored species and seat. Append after
+    // attraction and surface-roster replacement so neither can move or turn
+    // them into an unrelated enemy. Their kills use the usual caught ledger.
+    for (const guard of zoneGuards) {
+      if (caughtSet.has(guard.id)) continue;
+      creatures.push(WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
+        ...guard, shiny: false, immobile: true,
+        lair: guard.lair || guard.id,
+        lairX: guard.homeX ?? guard.x, lairY: guard.homeY ?? guard.y,
+        lairR: 0, seatX: guard.x, seatY: guard.y,
+      }));
+    }
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
@@ -454,6 +471,14 @@ class SceneCreatures {
     // by rebuildTileWithBin; the set just rolled is the same deterministic
     // draw they came from, so replacing them would only teleport them home.
     entry.creatures = entry.creatures || creatures;
+    // A rebuilt tile carries its live creatures. Preserve their positions and
+    // wounds, while admitting a newly discovered zone guard exactly once.
+    const liveIds = new Set(entry.creatures.map(c => c.id));
+    for (const guard of creatures) {
+      if (!guard.zoneVariant || liveIds.has(guard.id)) continue;
+      entry.creatures.push(guard);
+      liveIds.add(guard.id);
+    }
     NPC.shrineResidents(this, entry, tx, ty);
 
     // Starter loot now lives entirely in the road-side starter chests placed
@@ -501,6 +526,7 @@ class SceneCreatures {
       ? Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
           Difficulty.get().trapCountMul, entry.zone && entry.zone.under)
       : [];
+    entry.traps.push(...zoneTraps);
 
     // Treasure marks. Three streams:
     //  1) entry.treasure       — single legacy slot. Starter tile (guaranteed)
@@ -721,7 +747,8 @@ class SceneCreatures {
   //   street variants   StreetVariants.STREET_VARIANTS[].attracts — the
   //                     cells the dressing marked with that row's code
   //                     (entry.streetMarks: band + verge of a dressed street)
-  //   influence zones   Zones.ZONE_KINDS[].attracts — the zone's field cells
+  //   influence zones   ZoneVariants.rows[].attracts — union coverage cells
+  //                     (legacy anchors fall back to Zones.ZONE_KINDS)
   //   terrain           BIOME_ATTRACTS[code] — the LAND's class (the halo's
   //                     `under` first, like the trap ground)
   // Each column is { species: p }: every one of the tile's own spawns of that
@@ -757,10 +784,24 @@ class SceneCreatures {
       if (marks) for (const row of SV.STREET_VARIANTS) if (row.attracts) add(row.attracts, (i) => marks[i] === row.code);
     }
     const zf = entry.zone;
-    if (Z && zf && zf.idx) {
-      for (const [kind, row] of Object.entries(Z.ZONE_KINDS)) {
-        if (row.attracts) add(row.attracts, (i) => zf.idx[i] > 0 && zf.anchors[zf.idx[i] - 1].kind === kind);
+    if (zf && zf.anchors && (zf.coverage || zf.idx)) {
+      const coverage = zf.coverage || zf.idx;
+      const groups = new Map();
+      for (const owner of new Set(coverage)) {
+        const anchor = zf.anchors[owner - 1];
+        if (!anchor) continue;
+        // An explicit empty affinity is intentional: it must not inherit the
+        // old grove/churchyard defaults. Terrain and street pulls still apply.
+        const row = anchor.variant
+          ? (typeof ZoneVariants !== 'undefined' && ZoneVariants.byId(anchor.variant))
+          : Z && Z.ZONE_KINDS[anchor.kind];
+        if (!row || !row.attracts) continue;
+        if (!groups.has(row)) groups.set(row, new Set());
+        groups.get(row).add(owner);
       }
+      // Group matching variants so the cell scan scales with variant count,
+      // not every POI in a dense neighbourhood.
+      for (const [row, owners] of groups) add(row.attracts, (i) => owners.has(coverage[i]));
     }
     if (BA) {
       const under = zf && zf.under;

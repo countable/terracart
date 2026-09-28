@@ -101,7 +101,7 @@ test('park characters: a park holding a named-park POI wears the POI\'s characte
   assert.truthy(Z.GROVE_ASPECTS.formal.some(([asp]) => asp === a.aspect), `a formal aspect (${a.aspect})`);
 });
 
-test('park density: the Kelowna fixtures\' park ground is ~40% emptier than the old single PARK row', () => {
+test('park density: ambient flora stays sparse beneath declarative zone layouts', () => {
   // MEASURED before the characters (rasterize + zone dressing, the nine
   // Kelowna fixtures): 1797 of 10277 park cells held something — 0.1749.
   const BEFORE = 0.1749;
@@ -112,7 +112,7 @@ test('park density: the Kelowna fixtures\' park ground is ~40% emptier than the 
     const r = WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[key]), N, tx, ty, edge);
     const occ = new Set();
     const zd = r.zoneDress || { objects: [], wildplants: [] };
-    for (const o of [...r.objects, ...r.wildplants, ...zd.objects, ...zd.wildplants]) {
+    for (const o of [...r.objects, ...r.wildplants]) {
       occ.add(Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N)));
     }
     for (let i = 0; i < N * N; i++) if (r.grid[i] === T.PARK) { park++; if (occ.has(i)) held++; }
@@ -220,55 +220,27 @@ test('park fringe: the same band from either side of a seam (the park in the nei
 });
 
 // ── The graves and the churchyard rocks ─────────────────────────────────────
-test('graves: headstones wrap the church — per-cell, on the lattice, on churchyard ground only', () => {
+test('churchyards: the selected variant dresses the Gospel Fellowship coverage beyond its POI', () => {
   const tx = 2754, ty = 5567;
   const N = WorldGen.cellsPerEdgeForTile(ty), edge = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty));
-  const r = WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, edge);
-  const f = r.zone, d = r.zoneDress;
-  const cellOf = (o) => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
-  const stones = d.objects.filter((o) => o.kind === 'headstone');
-  // THE SPAWN GATE (Sep 2026): a headstone is a 'headstone' spawn (a tap
-  // raises a ghost; a fifth hold a hoard): never on hard ground, never on
-  // SENSITIVE ground (round a church that stands on real grave land, a
-  // sensitive POI) — but the house buffer and the kerb are not its reasons,
-  // so a churchyard by the houses keeps its stones.
-  assert.gt(stones.length, 0, `the tile's churchyards hold headstones (${stones.length})`);
-  for (const h of stones) {
-    const i = cellOf(h), ix = i % N, iy = (i / N) | 0;
-    assert.eq(r.grid[i], T.CHURCHYARD, `${h.id} on churchyard ground`);
-    const why = r.spawnWhy[i];
-    assert.eq(why & WorldGen.SPAWN_WHY_HARD, 0, `${h.id} on no hard ground`);
-    assert.eq(why & WorldGen.SPAWN_CLASS_BLOCKS.headstone, 0, `${h.id} off sensitive ground (its class's reasons)`);
-    assert.eq(r.roadMask[i], 0, `${h.id} off the road`);
-    const a = f.anchors[f.idx[i] - 1];
-    assert.truthy(a && a.kind === 'stones', `${h.id} in a church's disc`);
-    assert.eq(r.quietMask[i], 0, `${h.id} never on real grave land (quiet)`);
-    assert.eq((ty * N + iy) % Z.GRAVE_ROW, 0, `${h.id} on a grave row`);
-    assert.eq((tx * N + ix) % Z.GRAVE_COL, 0, `${h.id} in a grave column`);
-    assert.truthy(h.id === WorldGen.cellId('hs', tx, ty, ix, iy), 'a tile + cell id');
+  const build = () => WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, edge);
+  const r = build(), f = r.zone, d = r.zoneDress;
+  const cellOf = o => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
+  const gospel = f.anchors.findIndex(a => a.lx === 1747 && a.ly === 655);
+  assert.gte(gospel, 0);
+  assert.truthy(ZoneVariants.byId(f.anchors[gospel].variant));
+  const mine = [...d.objects, ...d.wildplants].filter(o => f.coverage[cellOf(o)] === gospel + 1);
+  assert.gt(mine.filter(o => o.zoneLayer === 'background').length, 6, 'recognizable background beyond the old six POI pieces');
+  for (const o of mine) {
+    const i = cellOf(o), cls = o.kind === 'headstone' ? 'headstone' : 'minor';
+    assert.truthy(WorldGen.isSpawnCell(r.grid, N, N, i % N, Math.floor(i / N), { roadMask: r.roadMask, spawnWhy: r.spawnWhy }, cls));
+    assert.eq(o.zoneVariant, f.anchors[gospel].variant);
+    if (o.kind === 'mineralrock' && (o.yieldTier || 1) === 1) {
+      assert.eq(o.rockVariant, SpriteLayout.CHURCHYARD_ROCK_VARIANT);
+      assert.eq(SpriteLayout.plainRockStones(o), 1);
+    }
   }
-  // Kelowna Gospel Fellowship (POI mvt 1747,655 — inside its building): the
-  // fixed rock_square left 2 of 8 rocks; the per-cell rule wraps the hall —
-  // with its churchyard rocks (minor spawns); its headstones only where the
-  // ground is OPEN (it stands among houses, so the house buffer takes them).
-  const gospel = f.anchors.findIndex((a) => a.lx === 1747 && a.ly === 655);
-  assert.gte(gospel, 0, 'the Gospel Fellowship anchor');
-  assert.eq(f.anchors[gospel].aspect, 'graves');
-  const mine = [...d.objects].filter((o) => { const i = cellOf(o); return i >= 0 && i < N * N && f.idx[i] === gospel + 1; });
-  assert.gte(mine.filter((o) => o.kind === 'mineralrock').length, 2, 'the churchyard wraps the building');
-  // Every churchyard rock wears the one look — and pays what it shows.
-  const rocks = d.objects.filter((o) => o.kind === 'mineralrock' && o.zone === 'stones');
-  // (Fewer since the spawn gate: a halo painted over a back yard is still a
-  // back yard — the mask is stamped on the land, before the halo.)
-  assert.gte(rocks.length, 3, `churchyard rocks (${rocks.length})`);
-  for (const o of rocks) {
-    assert.eq(o.rockVariant, SpriteLayout.CHURCHYARD_ROCK_VARIANT, `${o.id}: the one look`);
-    assert.eq(SpriteLayout.plainRockStones(o), 1, `${o.id}: one stone`);
-    assert.eq(r.grid[cellOf(o)], T.CHURCHYARD, `${o.id} on churchyard ground`);
-  }
-  // A pure function of the cell: rebuilt, the same stones.
-  const again = WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, edge);
-  assert.eq(again.zoneDress.objects.filter((o) => o.kind === 'headstone').map((o) => o.id).join(), stones.map((o) => o.id).join());
+  assert.eq(JSON.stringify(build().zoneDress.objects), JSON.stringify(d.objects), 'rebuild keeps geometry and identities');
 });
 
 // ── Rescue and symmetric figures (synthetic all-park tiles) ─────────────────

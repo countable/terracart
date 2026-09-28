@@ -959,7 +959,7 @@
       const arr = entry.creatures;
       if (!entry._lairResident) {
         const derived = new Set();
-        if (arr) for (const c of arr) { if (c && c.lair) derived.add(c.lair); }
+        if (arr) for (const c of arr) { if (c && c.lair && !c.zoneVariant) derived.add(c.lair); }
         entry._lairResident = derived;
       }
       if (!arr || !arr.length) continue;
@@ -968,7 +968,8 @@
       let w = 0;
       for (let i = 0; i < arr.length; i++) {
         const c = arr[i];
-        if (c && c.lair) {
+        // Zone guards persist with the tile; only indexed lairs sleep/wake.
+        if (c && c.lair && !c.zoneVariant) {
           const dx = c.lairX - p.x, dy = c.lairY - p.y;
           if (dx * dx + dy * dy > sleepR2) {
             // Remember the wound before letting it go, then drop it.
