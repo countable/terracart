@@ -34,8 +34,8 @@ test('coin icon: the world coin scale derives from the 64px texture', () => {
     'the old 16px-disc scale is gone');
   assert.truthy(/setScale\(\(COIN_DROP_PX \/ s\.width\) \* pulse\)/.test(RENDER_SRC),
     'the draw scales the 64px frame down to a fixed displayed width');
-  assert.truthy(/const COIN_DROP_PX = 24;/.test(RENDER_SRC),
-    'the displayed width is the old 24px, a named constant');
+  assert.truthy(/const COIN_DROP_PX = 16\.8;/.test(RENDER_SRC),
+    'the displayed width is 30% smaller than 24px, a named constant');
 });
 
 // ── No other face of money survives ───────────────────────────────────────

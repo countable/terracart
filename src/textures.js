@@ -1049,8 +1049,8 @@ function makePotOfGoldTexture(scene) {
   ctx.fillRect(cx - 1, 20, 3, 2);
   ctx.fillRect(cx + 4, 19, 3, 2);
 
-  // ── Gold pile overflowing the mouth ─────────────────────────────────
-  const gold = '#ffcf3a', goldHi = '#ffe98a', goldLo = '#e0a020';
+  // ── Green coin pile overflowing the mouth ───────────────────────────
+  const gold = '#45c878', goldHi = '#b2f5ba', goldLo = '#21894f';
   ctx.fillStyle = gold;                        // base mound
   ctx.beginPath();
   ctx.ellipse(cx, 7, 8, 4, 0, 0, Math.PI * 2);
