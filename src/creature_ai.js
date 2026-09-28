@@ -337,6 +337,60 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
   }
   return null;
 }
+// ── WHERE A THING CAN BE PUT NEAR THE PLAYER ────────────────────────────────
+// walkableDestination — the one answer to "a free surface cell about `dist`
+// cells from the player": walkable, off the road band, under nothing already
+// there. It asks the SHARED spawn rule (WorldGen.isSpawnCell with the tile's
+// own entry._spawnOpts — the road mask and occupied set spawnInTile stashed),
+// never a second reading of "is this a road" (CLAUDE.md "Nothing spawns on a
+// road"). The scene's findWalkableDestination (scene_creatures.js) is the
+// wrapper callers use; the guildhall's bounty (app.js) is the first.
+//   DETERMINISTIC: the first angle comes from `opts.seed` (fnv1a, util.js) and
+// the ring order is fixed — `dist`, then one nearer, one farther, two nearer,
+// … down to one cell and out to twice `dist` — each ring walked from that
+// angle in steps of about a cell. First hit wins, no Math.random.
+//   Each cell is resolved on ITS tile's own grid (entry.cellsPerEdge — the
+// world-frame rule), and returned as { tx, ty, ix, iy, x, y, n, entry } with
+// x/y the cell's centre in world metres. Null underground, when nothing
+// within reach will take it, or on a tile that has not run spawnInTile yet
+// (no _spawnOpts — the shared rule is not ready to answer).
+// `opts.accept(x, y)` may refuse a candidate for the caller's own reason
+// (the bounty keeps out of Home's ward ring).
+function walkableDestinationRings(dist) {
+  const d = Math.max(1, Math.round(dist));
+  const out = [d];
+  for (let k = 1; k <= d; k++) {
+    if (d - k >= 1) out.push(d - k);
+    out.push(d + k);
+  }
+  return out;
+}
+function walkableDestination(scene, px, py, dist, opts) {
+  const o = opts || {};
+  if ((scene.depth || 0) !== 0) return null;
+  const edge = scene.tileEdgeM, cellM = scene.cellM;
+  if (!(edge > 0) || !(cellM > 0)) return null;
+  const a0 = (fnv1a(String(o.seed ?? '')) / 4294967296) * Math.PI * 2;
+  for (const r of walkableDestinationRings(dist)) {
+    const steps = Math.max(8, Math.ceil(2 * Math.PI * r));
+    for (let k = 0; k < steps; k++) {
+      const a = a0 + (k / steps) * Math.PI * 2;
+      const wx = px + Math.cos(a) * r * cellM, wy = py + Math.sin(a) * r * cellM;
+      const tx = Math.floor(wx / edge), ty = Math.floor(wy / edge);
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      if (!entry || !entry.grid || !entry._spawnOpts) continue;
+      const N = entry.cellsPerEdge;
+      if (!(N > 0)) continue;
+      const cm = edge / N;
+      const ix = Math.floor((wx - tx * edge) / cm), iy = Math.floor((wy - ty * edge) / cm);
+      if (!WorldGen.isSpawnCell(entry.grid, N, N, ix, iy, entry._spawnOpts)) continue;
+      const x = tx * edge + (ix + 0.5) * cm, y = ty * edge + (iy + 0.5) * cm;
+      if (o.accept && !o.accept(x, y)) continue;
+      return { tx, ty, ix, iy, x, y, n: N, entry };
+    }
+  }
+  return null;
+}
 // A CAMPFIRE ROUTS A GHOST — Home's mechanism (the ward latch: turned onto
 // an away-from-the-fire angle and run to the sim bubble's edge), not the
 // fire's own ward on other foes (a refused target cell, which held a ghost

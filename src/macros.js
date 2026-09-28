@@ -14,18 +14,27 @@
 // lanes that already existed or are this module's own:
 //   • the DAY LEDGER — save.coinBurstClaimed[id + Delivery.dayKey()], the
 //     coin-burst / grove-shrine ledger, pruned of other days on every write
-//     (inn, chapel, scriptorium's free page, guildhall). A chest id in it is
-//     NOT spent (interactables.js isSpent — a macro is never spent);
+//     (inn, chapel, the guildhall's bounty). A chest id in it is NOT spent
+//     (interactables.js isSpent — a macro is never spent);
 //   • save.donated — the curio ids this save has given (progress, not world
-//     state);
+//     state), and its milestones in the memory ledger (save.discovered);
 //   • save.trainingPerm / save.trainingBuffUntil — the damage the player
 //     bought (read by combat.js Combat.trainingMul through app.js _attackMul).
-// The stalls (apothecary, sundries, the scriptorium's Book) have no gate at
-// all: a counter, like the market stall they share their dialog with.
+// The stalls (apothecary, sundries, scriptorium) have no gate at all: a
+// counter, like the market stall they share their dialog with (app.js
+// _presentStallOffer — one price lane, ShopsMath.standPrice).
+//
+// THE ECONOMY GOAL (Sep 2026): these POIs used to be free chests, and the
+// commonest of them injected the most coin. So a macro either SELLS at the
+// stall price, charges for a service, or pays in something that is not coin
+// (the curio hall's memories). The chapel's daily roll and the guildhall's
+// bounty (a fight, paid by the kill lane plus a matched wage) are the only
+// coin-positive taps left.
 //
 // Depends on (call time): items.js (PRICES, ITEMS, ITEM_BY_ID,
 // VIGOR_POTION_ENERGY), util.js (fnv1a, makeRng32), delivery.js (Delivery),
 // shops.js (Shops.THEME_POOL), shops_math.js (ShopsMath.standPrice),
+// combat.js (Combat.enemyBounty — the bounty's wage),
 // loot.js (chestRollTier), combat.js (Combat.training*), energy.js (Energy),
 // inventory.js (Inventory), save.js (addMoney).
 (function (root) {
@@ -114,75 +123,107 @@
     return id ? [id] : [];
   }
 
-  // ── SCRIPTORIUM: a free page a day, and Books for sale ───────────────────
-  // The page is the Book's own next page (app.js _bookRead — the PLAY_TIPS
-  // curriculum and its bookmark) read without spending a Book, once per
-  // scriptorium per UTC day (the day ledger). The Book is a stall item.
+  // ── SCRIPTORIUM: a book counter ───────────────────────────────────────────
+  // A plain stall (no free page any more — it was a free daily Book read,
+  // i.e. a Book's worth of value a day per scriptorium). It sells the Book and
+  // the one other scholarly thing the game has, a Torch to read by. Priced by
+  // stallPrice like every counter; no gate, no cooldown.
   const SCRIPTORIUM_BOOK = 'book';
+  const SCRIPTORIUM_STOCK = [SCRIPTORIUM_BOOK, 'torch'];
+  function scriptoriumStock() { return SCRIPTORIUM_STOCK.filter((id) => ITEM_BY_ID[id]); }
 
-  // ── GUILDHALL: one commission a day ───────────────────────────────────────
-  // The board wants COMMISSION_ITEMS produce, drawn by the delivery rules — the
-  // hall's bundle theme (Delivery.bundleTheme off its id) under the player's
-  // own tier cap (Delivery.tierCap) — from a stream seeded by the hall's id AND
-  // the UTC day, so it changes daily and two players at the same progress see
-  // the same board. It pays `mul` (app.js DELIVERY_BONUS_MULT) × par, like a
-  // household. One set, once a day per hall (the day ledger). It is a delivery,
-  // not a sell page (selling stays at Home), and not a household (never "happy
-  // for good": the ledger is the only memory).
-  const COMMISSION_ITEMS = 2;
-  function commissionWants(save, o, now) {
-    const cap = Delivery.tierCap(save);
-    const tierOk = (id) => ITEM_BY_ID[id] && Delivery.produceTier(id) <= cap;
-    let pool = (Delivery.BUNDLE_THEMES[Delivery.bundleTheme(o)] || []).filter(tierOk);
-    if (pool.length < COMMISSION_ITEMS) {
-      pool = ITEMS.filter((i) => i.kind === 'produce').map((i) => i.id).filter(tierOk);
-    }
-    const rng = makeRng32(fnv1a(String(o && o.id) + '|commission|' + _day(now)));
-    const picks = [];
-    while (picks.length < COMMISSION_ITEMS && pool.length) {
-      picks.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
-    }
-    return picks;
+  // ── GUILDHALL: a monster bounty a day ─────────────────────────────────────
+  // Once a UTC day per hall (the day ledger) the board posts a BOUNTY: a small
+  // pack of ordinary surface enemies (Combat.isEnemy kinds — the slime, then
+  // goblins and archers) seated near the player by the scene's
+  // findWalkableDestination (scene_creatures.js; the shared spawn rule, so
+  // never on a road band or anything already there). Each foe dies through
+  // the ONE kill lane (app.js resolveDefeat — its own wage, Combat.enemyBounty,
+  // dropped as a coin); clearing the pack pays the hall's reward on top, which
+  // is the pack's wages again × BOUNTY_MATCH — derived from enemyBounty, never
+  // a table of its own. Modest by design (the economy goal above).
+  //   WHICH pack is the hall's and the day's (a stream seeded by the hall id
+  // and the UTC day), read against the player's WEAPON (the best of sword /
+  // bow / staff, the tier that decides how long a fight takes): the rung picks
+  // the kinds, the tier the count. Two players with the same weapon see the
+  // same board.
+  //   What it is NOT: not a lair (no ruin, no leash, no seat — it hunts you
+  //   like any wild foe) and not a quest (the castle board's kill jobs still
+  //   count these kills, through resolveDefeat, like any other).
+  const BOUNTY_LADDER = [['slime'], ['slime', 'goblin'], ['goblin', 'goblin_archer']];
+  const BOUNTY_TIERS_PER_RUNG = 2;       // weapon tier 0-1 → rung 0, 2-3 → 1, 4+ → 2
+  const BOUNTY_TIERS_PER_FOE = 3;        // weapon tier 0-2 → 1 foe, 3-5 → 2, 6+ → 3
+  const BOUNTY_MAX_FOES = 3;
+  const BOUNTY_MATCH = 1;                // the hall matches the pack's wages, once
+  const BOUNTY_DIST_CELLS = 5;           // seated inside the view (VIEW_CELLS 11 / 2)
+  function bountyWeaponTier(save) {
+    const r = (save && save.relics) || {};
+    return Math.max(0, ...['sword', 'bow', 'staff'].map((k) => Math.floor(Number(r[k] && r[k].tier) || 0)));
   }
-  function commissionPay(wanted, mul) {
-    return Math.max(1, Math.round(wanted.reduce((s, id) => s + Math.max(1, PRICES[id] ?? 1), 0) * mul));
+  function bountyFor(save, o, now) {
+    const t = bountyWeaponTier(save);
+    const rung = BOUNTY_LADDER[Math.min(BOUNTY_LADDER.length - 1, Math.floor(t / BOUNTY_TIERS_PER_RUNG))];
+    const n = Math.min(BOUNTY_MAX_FOES, 1 + Math.floor(t / BOUNTY_TIERS_PER_FOE));
+    const day = _day(now);
+    const rng = makeRng32(fnv1a(String(o && o.id) + '|bounty|' + day));
+    const kinds = [];
+    for (let i = 0; i < n; i++) kinds.push(rung[Math.floor(rng() * rung.length)]);
+    const wage = kinds.reduce((sum, k) => sum + Combat.enemyBounty(k, 0), 0);
+    return { id: String(o && o.id) + '|' + day, kinds, wage, pay: bountyPay(kinds) };
   }
-  // Hand the set in: { ok, gain, why } with why ∈ 'used' | 'missing'.
-  function commissionDeliver(save, o, mul, now) {
-    if (usedToday(save, o.id, now)) return { ok: false, why: 'used' };
-    const wanted = commissionWants(save, o, now);
-    if (!wanted.length || wanted.some((id) => Inventory.count(save, id) < 1)) return { ok: false, why: 'missing', wanted };
-    for (const id of wanted) Inventory.remove(save, id, 1);
-    const gain = commissionPay(wanted, mul);
-    addMoney(save, gain);
-    markToday(save, o.id, now);
-    return { ok: true, gain, wanted };
+  // The hall's reward for clearing `kinds`: their surface wages × BOUNTY_MATCH.
+  function bountyPay(kinds) {
+    return Math.max(1, Math.round(kinds.reduce((sum, k) => sum + Combat.enemyBounty(k, 0), 0) * BOUNTY_MATCH));
+  }
+  // Is a posted bounty cleared? Every foe id is in save.caught (resolveDefeat's
+  // one mark).
+  function bountyCleared(save, foeIds) {
+    const caught = new Set((save && save.caught) || []);
+    return foeIds.length > 0 && foeIds.every((id) => caught.has(id));
   }
 
-  // ── CURIO HALL: donate one of each thing, once ───────────────────────────
-  // A NEW lane, and what it is NOT: not a sell page (selling stays at Home, and
-  // an id pays here once per save, ever) and not a delivery (it wants whatever
-  // you have not given yet, not a set). Any priced item but seeds pays
-  // CURIO_DONATE_MUL × PRICES[id]; the ids given are save.donated, shared by
-  // every hall (the collection is the player's, the halls are its doors).
-  const CURIO_DONATE_MUL = 2;
-  function curioEligible(id) {
-    const it = ITEM_BY_ID[id];
-    return !!it && it.kind !== 'seed' && (PRICES[id] ?? 0) > 0;
-  }
-  function curioCollection() { return ITEMS.filter((i) => curioEligible(i.id)).map((i) => i.id); }
-  function curioDonated(save, id) { return (save.donated || []).includes(id); }
-  function curioPay(id) { return Math.max(1, Math.round((PRICES[id] ?? 0) * CURIO_DONATE_MUL)); }
-  // Give ONE `id`: { ok, gain, why } with why ∈ 'ineligible' | 'given' | 'none'.
+  // ── CURIO HALL: one shared collection, paid in MEMORIES ──────────────────
+  // A NEW lane, and what it is NOT: not a sell page (it pays no coin at all —
+  // selling stays at Home) and not a delivery (it wants whatever of its list
+  // you have not given yet, not a set). Every hall shares ONE list,
+  // CURIO_COLLECTION — things that keep: metal, gems, shells, feathers, the
+  // old boot, a Book, the lasting supplies. Nothing that spoils or grows
+  // (no food, produce, seed, flower or potion). Each id is given once, one
+  // copy, into save.donated (the collection is the player's; the halls are its
+  // doors). The reward is a MEMORY (app.js _bankDiscovery, keyed
+  // `curio:<n>`) when the count reaches each of CURIO_MILESTONES — once per
+  // save, because the memory ledger pays each key once.
+  const CURIO_COLLECTION = [
+    'coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar',
+    'sapphire', 'ruby', 'emerald', 'diamond',
+    'shell', 'crow_feather', 'rabbit_pelt', 'boot', 'book', 'honey',
+    'rope', 'torch', 'trap_kit', 'magic_trap', 'scarecrow',
+  ];
+  const CURIO_MILESTONES = [5, 10, 15];
+  const _curioSet = new Set(CURIO_COLLECTION);
+  function curioEligible(id) { return _curioSet.has(id) && !!ITEM_BY_ID[id]; }
+  function curioCollection() { return CURIO_COLLECTION.filter((id) => ITEM_BY_ID[id]); }
+  function curioDonated(save, id) { return ((save && save.donated) || []).includes(id); }
+  // How many listed ids this save has given (a legacy save.donated from the
+  // paid build may hold ids that are not on the list; they do not count).
+  function curioCount(save) { return ((save && save.donated) || []).filter((id) => _curioSet.has(id)).length; }
+  // The next milestone above `count`, or null once the last is reached.
+  function curioNextMilestone(count) { return CURIO_MILESTONES.find((m) => m > count) ?? null; }
+  // The memory-ledger key a milestone banks under.
+  function curioMilestoneKey(m) { return 'curio:' + m; }
+  // Listed ids not yet given, in list order.
+  function curioMissing(save) { return curioCollection().filter((id) => !curioDonated(save, id)); }
+  // Give ONE `id`: { ok, count, milestone, why } with why ∈ 'ineligible' |
+  // 'given' | 'none'. `milestone` is the milestone this gift reached (5, 10,
+  // 15) or null — the caller banks its memory. Nothing is paid.
   function curioDonate(save, id) {
     if (!curioEligible(id)) return { ok: false, why: 'ineligible' };
     if (curioDonated(save, id)) return { ok: false, why: 'given' };
     if (Inventory.count(save, id) < 1) return { ok: false, why: 'none' };
     Inventory.remove(save, id, 1);
     save.donated = [...(save.donated || []), id];
-    const gain = curioPay(id);
-    addMoney(save, gain);
-    return { ok: true, gain };
+    const count = curioCount(save);
+    return { ok: true, count, milestone: CURIO_MILESTONES.includes(count) ? count : null };
   }
 
   // ── TRAINING HALL: buy damage, for good or for a day ─────────────────────
@@ -249,9 +290,9 @@
     inn:         { title: 'An inn', body: 'A bed, a hearth and a keeper who takes coin. Once a day it will see you rested.' },
     chapel:      { title: 'A chapel', body: 'Somebody still tends it. Each day there are alms by the door for whoever comes, and the keeper watches you take them.' },
     apothecary:  { title: 'An apothecary', body: 'Shelves of small bottles, and a counter that never runs dry.' },
-    scriptorium: { title: 'A scriptorium', body: 'The written word, kept. A page a day is yours to read here, and Books are for sale.' },
-    guildhall:   { title: 'A guildhall', body: 'The board by the door posts one commission a day, and pays well for it.' },
-    curio:       { title: 'A curio hall', body: 'The hall is rebuilding a collection. It pays for one of anything it lacks.' },
+    scriptorium: { title: 'A scriptorium', body: 'The written word, kept, copied and sold. Books are on the counter.' },
+    guildhall:   { title: 'A guildhall', body: 'The board by the door posts one bounty a day: something prowling close by that the hall wants gone.' },
+    curio:       { title: 'A curio hall', body: 'The hall is rebuilding a collection of things that last. It pays nothing, but every gift brings something back.' },
     sundries:    { title: 'A sundries shop', body: 'A counter of useful things, always stocked.' },
     training:    { title: 'A training hall', body: 'Lessons that stay with you, or a hard day’s drill that wears off by tomorrow.' },
   };
@@ -262,9 +303,11 @@
     CHAPEL_TIER_DROP, chapelRollTier,
     APOTHECARY_POTIONS, APOTHECARY_CURE, apothecaryStock,
     SUNDRIES_SKIP, sundriesStock,
-    SCRIPTORIUM_BOOK,
-    COMMISSION_ITEMS, commissionWants, commissionPay, commissionDeliver,
-    CURIO_DONATE_MUL, curioEligible, curioCollection, curioDonated, curioPay, curioDonate,
+    SCRIPTORIUM_BOOK, SCRIPTORIUM_STOCK, scriptoriumStock,
+    BOUNTY_LADDER, BOUNTY_TIERS_PER_RUNG, BOUNTY_TIERS_PER_FOE, BOUNTY_MAX_FOES, BOUNTY_MATCH, BOUNTY_DIST_CELLS,
+    bountyWeaponTier, bountyFor, bountyPay, bountyCleared,
+    CURIO_COLLECTION, CURIO_MILESTONES, curioEligible, curioCollection, curioDonated, curioCount,
+    curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
     TRAINING_LESSON_RAMP, TRAINING_DRILL_PRICE_MUL, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
     KIND_DIALOG, KIND_STORY,

@@ -4498,6 +4498,8 @@ class MapScene extends Phaser.Scene {
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
     this._tickTraps(dt);
+    // …and is a guildhall bounty's pack still about (its leash)?
+    this._tickGuildBounty();
     // …and which STREET are the feet on — a variant's first-entry story, and
     // whether tar or stakes are slowing the body (the same feet cell).
     this._tickStreetFeet();
@@ -5386,6 +5388,9 @@ class MapScene extends Phaser.Scene {
       const qDone = Quests.onKill(save, victim.kind);
       if (qDone) this.flash('Quest done — see the castle.', this.viewCenterX, this.viewCenterY - 60);
     }
+    // A guildhall bounty's foe: the pack's reward when it was the last one
+    // (whoever felled it — the wage above was paid either way).
+    if (victim.bounty) this._guildBountyDefeat(victim);
     persistSave(save);
     // Rare shiny deer / crow — hunted fauna drop their product (meat /
     // feather), so there's no live shiny animal to keep, but the shiny find
@@ -9707,7 +9712,8 @@ class MapScene extends Phaser.Scene {
 
   // THE STALL COUNTER — the one buy dialog every counter shares: the market
   // stall above, and the macro stalls that sell (the apothecary's potion and
-  // cure, the sundries' supply, the scriptorium's Book — src/macros.js). A
+  // cure, the sundries' supply, the scriptorium's Book and torch —
+  // src/macros.js; the same price, stepper and no stock limit). A
   // counter of more than one item shows a tab per item. `items` are ids;
   // `index` is the tab shown; `kind` / `kindLabel` / `art` dress the dialog
   // (the market stall keeps the 'shop' kind's own painting).
@@ -9785,7 +9791,8 @@ class MapScene extends Phaser.Scene {
         { ...dress, items: Macros.apothecaryStock(o), title: 'The apothecary has on the shelf:' });
       case 'sundries':    return this._presentStallOffer(sx, sy,
         { ...dress, items: Macros.sundriesStock(o), title: 'The counter has in stock:' });
-      case 'scriptorium': return this._presentScriptorium(sx, sy, o, dress);
+      case 'scriptorium': return this._presentStallOffer(sx, sy,
+        { ...dress, items: Macros.scriptoriumStock(), title: 'The scriptorium sells:' });
       case 'guildhall':   return this._presentGuildhall(sx, sy, o, dress);
       case 'curio':       return this._presentCurio(sx, sy, o, dress);
       case 'training':    return this._presentTraining(sx, sy, o, dress);
@@ -9837,92 +9844,150 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // SCRIPTORIUM: the next page of the Book, free, once a UTC day per
-  // scriptorium (the day ledger) — and Books for sale at the stall price.
-  _presentScriptorium(sx, sy, o, dress) {
-    const bookId = Macros.SCRIPTORIUM_BOOK;
-    const buyBooks = (title) => this._presentStallOffer(sx, sy, { ...dress, items: [bookId], title });
-    if (Macros.usedToday(this.save, o.id)) {
-      buyBooks(`Read here today. Back in ${shortDuration(msToNextUtcDay())}. For sale:`);
-      return;
-    }
-    const price = Macros.stallPrice(this.save, bookId);
-    this.showOfferModal({
-      ...dress, kind: dress.kind,
-      title: 'The scribes lend a page:',
-      get: 'The next page of the Book, free',
-      blurb: 'One page a day at this scriptorium.',
-      canAfford: true,
-      acceptLabel: 'Read',
-      cancelLabel: 'Later',
-      secondary: {
-        label: `Buy a Book ${this.moneyHTML(price, 12)}`,
-        onClick: () => buyBooks('The scriptorium sells:'),
-      },
-      onAccept: () => {
-        if (Macros.usedToday(this.save, o.id)) return;
-        Macros.markToday(this.save, o.id);
-        this._presentBookRead();   // persists the bookmark and the ledger
-      },
-    });
-  }
-
-  // GUILDHALL: one commission a UTC day per hall (Macros.commissionWants —
-  // the delivery rules, seeded by the hall and the day), paid at
-  // DELIVERY_BONUS_MULT × par like a household's set.
+  // GUILDHALL: one MONSTER BOUNTY a UTC day per hall (Macros.bountyFor — the
+  // hall's and the day's pack, sized by the player's weapon). Accepting seats
+  // the pack at findWalkableDestination(BOUNTY_DIST_CELLS) and marks the day
+  // (the ledger — one offer a day, taken or lost). Each kill pays its own
+  // wage through resolveDefeat; clearing the pack pays Macros.bountyPay on top
+  // (_guildBountyDefeat). The pack is SESSION state and stands down (removed)
+  // when the player is more than CREATURE_SIM_CELLS from every foe left, when
+  // the UTC day turns, when the player goes underground, or on a reload —
+  // _tickGuildBounty. Nothing about it reaches the save but the ledger.
   _presentGuildhall(sx, sy, o, dress) {
     const wait = shortDuration(msToNextUtcDay());
-    if (Macros.usedToday(this.save, o.id)) { this.flash(`Commission paid. Back in ${wait}.`, sx, sy); return; }
-    const wanted = Macros.commissionWants(this.save, o);
-    if (!wanted.length) { this.flash('No commission today.', sx, sy); return; }
-    const invCount = (id) => Inventory.count(this.save, id);
-    const ready = wanted.every((id) => invCount(id) >= 1);
-    const pay = Macros.commissionPay(wanted, DELIVERY_BONUS_MULT);
-    const setIcons = wanted.map((id) => this.iconSpanHTML(id)).join(' ');
-    const setNames = wanted.map((id) => itemName(id)).join(' + ');
+    if (this._guildBounty) { this.flash('Finish the hunt first.', sx, sy); return; }
+    if (Macros.usedToday(this.save, o.id)) { this.flash(`Board empty. Back in ${wait}.`, sx, sy); return; }
+    const b = Macros.bountyFor(this.save, o);
+    const names = b.kinds.map((k) => Combat.monster(k)?.name || 'Slime');
+    const counts = {};
+    for (const n of names) counts[n] = (counts[n] || 0) + 1;
+    const list = Object.entries(counts).map(([n, c]) => (c > 1 ? `${c}× ${n}` : n)).join(', ');
     this.showOfferModal({
       ...dress, kind: dress.kind,
-      title: 'Today\'s commission pays:',
-      get: this.moneyHTML(`+${pay}`),
-      cost: `[ ${setIcons} ${setNames} ]`,
-      blurb: ready ? `One a day at this hall. A new one in ${wait}.`
-        : Delivery.missingLine(wanted, invCount, (id) => itemName(id)).line,
-      canAfford: ready,
-      acceptLabel: 'Deliver',
+      title: 'Today\'s bounty:',
+      get: `Clear ${list} nearby`,
+      cost: `pays ${this.moneyHTML(b.pay, 12)} on top of each kill`,
+      blurb: `One bounty a day at this hall. They will come for you. A new one in ${wait}.`,
+      canAfford: true,
+      acceptLabel: 'Take it',
       cancelLabel: 'Later',
       onAccept: () => {
-        const r = Macros.commissionDeliver(this.save, o, DELIVERY_BONUS_MULT);
-        if (!r.ok) { this.flash(`${r.why === 'used' ? 'Already paid today.' : 'Set incomplete now.'}`, sx, sy); return; }
-        this._clampSelSlot();
-        this._finishInventoryChange();
-        this.flashLoot(`+${r.gain}`, '#ffe066', 1, r.wanted[0]);
+        if (Macros.usedToday(this.save, o.id) || this._guildBounty) return;
+        const n = this._spawnGuildBounty(b);
+        if (!n) { this.flash('No clear ground here.', sx, sy); return; }
+        Macros.markToday(this.save, o.id);
+        persistSave(this.save);
+        const line = n > 1 ? `${n} foes close by!` : 'A foe close by!';
+        this.flash(line, sx, sy);
       },
     });
   }
+  // Seat bounty `b`'s pack: the first foe on the destination cell, the rest on
+  // free cells beside it (WorldGen.relocateToSpawnCell under the same shared
+  // rule, each seat claimed so none stack). Ordinary enemies — the kind's own
+  // row, not shiny — tagged `bounty` with the bounty id, with ids minted off
+  // the clock (`guildfoe_<tx>_<ty>_…`, pruned from save.caught like a ghost's).
+  // Returns how many were seated (0: no ground; nothing is posted).
+  _spawnGuildBounty(b, now = Date.now()) {
+    const homePos = this.homeWorldPos();
+    const dest = this.findWalkableDestination(Macros.BOUNTY_DIST_CELLS, {
+      seed: b.id,
+      // Never inside Home's ward ring — it would only rout them.
+      accept: (x, y) => !homePos || Math.hypot(x - homePos.x, y - homePos.y) > HOME_R * this.cellM,
+    });
+    if (!dest) return 0;
+    const { entry, tx, ty, n: N } = dest;
+    const edge = this.tileEdgeM, cm = edge / N;
+    const base = entry._spawnOpts;
+    const used = new Set();
+    const opts = { ...base, occupied: { has: (k) => used.has(k) || !!(base.occupied && base.occupied.has(k)) } };
+    const foes = [];
+    entry.creatures = entry.creatures || [];
+    b.kinds.forEach((kind, i) => {
+      const seat = i === 0 ? { ix: dest.ix, iy: dest.iy }
+        : WorldGen.relocateToSpawnCell(entry.grid, N, N, dest.ix, dest.iy, opts, 2);
+      if (!seat) return;
+      used.add(seat.iy * N + seat.ix);
+      const id = `guildfoe_${tx}_${ty}_${Math.floor(now)}_${i}`;
+      entry.creatures.push(WorldGen.makeCreature(kind,
+        tx * edge + (seat.ix + 0.5) * cm, ty * edge + (seat.iy + 0.5) * cm, id,
+        { shiny: false, bounty: b.id }));
+      foes.push({ id, tx, ty });
+    });
+    if (!foes.length) return 0;
+    this._guildBounty = { id: b.id, pay: b.pay, day: Delivery.dayKey(new Date(now)), foes };
+    return foes.length;
+  }
+  // A bounty foe fell (resolveDefeat): when the whole pack is down, pay the
+  // hall's reward — once; the pack is forgotten on payment.
+  _guildBountyDefeat(victim) {
+    const gb = this._guildBounty;
+    if (!gb || victim.bounty !== gb.id) return;
+    if (!Macros.bountyCleared(this.save, gb.foes.map((f) => f.id))) return;
+    this._guildBounty = null;
+    addMoney(this.save, gb.pay);
+    this.updateHUD?.();
+    persistSave(this.save);
+    this.flashLoot(`Bounty paid! +${gb.pay}`, '#ffe066', 1);
+    this._storySplashOnce('macro:bounty', {
+      art: Macros.KIND_DIALOG.guildhall.art, title: 'A bounty paid',
+      body: 'The hall keeps its word. Tomorrow there will be another name on the board.',
+    });
+  }
+  // THE BOUNTY'S LEASH, asked each frame there is one: stand the pack down
+  // (lift every foe left off its tile) when the day has turned, the player is
+  // underground, or no foe left is within CREATURE_SIM_CELLS of the feet (the
+  // sim bubble — where a creature stops thinking at all). No payout.
+  _tickGuildBounty() {
+    const gb = this._guildBounty;
+    if (!gb) return;
+    const caught = new Set(this.save.caught || []);
+    const live = [];
+    for (const f of gb.foes) {
+      if (caught.has(f.id)) continue;
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(f.tx, f.ty));
+      const c = entry && entry.creatures && entry.creatures.find((k) => k.id === f.id);
+      if (c) live.push({ c, entry });
+    }
+    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    const R = CREATURE_SIM_CELLS * this.cellM;
+    const near = live.some(({ c }) => Math.hypot(c.x - px, c.y - py) <= R);
+    const stale = gb.day !== Delivery.dayKey(new Date()) || (this.depth || 0) !== 0;
+    if (!stale && near) return;
+    for (const { c, entry } of live) entry.creatures.splice(entry.creatures.indexOf(c), 1);
+    this._guildBounty = null;
+    if (live.length) this.flash('The bounty got away.', this.viewCenterX, this.viewCenterY - 40);
+  }
 
-  // CURIO HALL: donate ONE of the held item if this save has never given one
-  // (Macros.curioDonate — CURIO_DONATE_MUL × par, save.donated). Not a sell
-  // page and not a delivery: see src/macros.js.
+  // CURIO HALL: the ONE shared collection (Macros.CURIO_COLLECTION — things
+  // that keep). Hold a listed thing the collection lacks and tap to give ONE;
+  // nothing is paid. At each of Macros.CURIO_MILESTONES given, a MEMORY
+  // (_bankDiscovery, `curio:<n>` — once per save; its story rides the memory
+  // queue). Not a sell page and not a delivery: see src/macros.js.
   _presentCurio(sx, sy, o, dress) {
-    const total = Macros.curioCollection().length;
-    const have = (this.save.donated || []).length;
+    const have = Macros.curioCount(this.save);
+    const next = Macros.curioNextMilestone(have);
+    const progress = next != null ? `${have} / ${next} — next memory at ${next}`
+      : `${have} / ${Macros.curioCollection().length} given`;
     const sel = getSelectedSlot(this.save);
     const id = sel && (sel.count ?? 0) > 0 ? sel.id : null;
-    if (!id || !Macros.curioEligible(id)) {
+    if (!id || !Macros.curioEligible(id) || Macros.curioDonated(this.save, id)) {
+      const missing = Macros.curioMissing(this.save).map((m) => itemName(m));
+      const lacks = missing.length ? `It still lacks: ${missing.join(', ')}.` : 'The collection is whole.';
+      const why = id && Macros.curioDonated(this.save, id) ? 'It has one of those already. '
+        : id ? 'It does not collect that. ' : '';
       this.showMessageModal({
-        kind: dress.kind, art: dress.art, title: 'The curio hall',
-        body: `The collection holds ${have} of ${total} curios. Hold one it lacks and tap the hall.`,
+        kind: dress.kind, art: dress.art, title: `The curio hall: ${progress}`,
+        body: `${why}Hold a thing it lacks and tap the hall. ${lacks}`,
       });
       return;
     }
-    if (Macros.curioDonated(this.save, id)) { this.flash('The hall has one already.', sx, sy); return; }
-    const pay = Macros.curioPay(id);
     this.showOfferModal({
       ...dress, kind: dress.kind,
-      title: 'The curio hall offers:',
-      get: this.moneyHTML(`+${pay}`),
+      title: `The curio hall: ${progress}`,
+      get: next != null && have + 1 === next ? 'A memory returns' : 'A place in the collection',
       cost: `${this.iconSpanHTML(id)} ${itemName(id)} ×1`,
-      blurb: `It holds ${have} of ${total} curios, and takes one of each, once.`,
+      blurb: 'It takes one of each thing, once, and pays nothing — but every few gifts bring something back.',
       canAfford: true,
       acceptLabel: 'Donate',
       cancelLabel: 'Keep',
@@ -9931,7 +9996,13 @@ class MapScene extends Phaser.Scene {
         if (!r.ok) { this.flash(`${r.why === 'given' ? 'The hall has one already.' : 'Nothing to donate.'}`, sx, sy); return; }
         this._clampSelSlot();
         this._finishInventoryChange();
-        this.flashLoot(`Donated! +${r.gain}`, '#ffe066', 1, id);
+        if (r.milestone) {
+          this._bankDiscovery(Macros.curioMilestoneKey(r.milestone),
+            `the ${r.milestone}th curio given to the hall`);
+        }
+        const nx = Macros.curioNextMilestone(r.count);
+        const line = nx != null ? `Donated! ${r.count} / ${nx}` : `Donated! ${r.count} given`;
+        this.flashLoot(line, '#ffe066', 1, id);
       },
     });
   }

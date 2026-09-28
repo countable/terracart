@@ -1159,12 +1159,12 @@ const PLAY_TIPS = [
   'A castle you have claimed offers one favour a day: a rest, or its taxes.',
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
   // THE MACRO STALLS (loot.js macroFor, src/macros.js): the in-building POIs.
-  // books.test.js re-derives "half" (Macros.INN_RATE), "a tier"
-  // (CHAPEL_TIER_DROP), "half again" (DELIVERY_BONUS_MULT) and "twice"
-  // (CURIO_DONATE_MUL). The day gate is the coin-burst ledger.
+  // macro_poi.test.js re-derives "half" (Macros.INN_RATE), "a tier"
+  // (CHAPEL_TIER_DROP), "the same again" (BOUNTY_MATCH) and the curio
+  // milestones (CURIO_MILESTONES). The day gate is the coin-burst ledger.
   'A building-front on the map is a place, not a chest, and it is never picked clean. An inn rests you to full once a day for half what a Potion of Vigor charges for the same energy; a chapel leaves alms once a day, a tier humbler than a chest of its kind.',
-  'A guildhall posts one commission a day and pays half again what the goods would fetch. A scriptorium lends you one page of its lore a day, free.',
-  'A curio hall pays twice an item\'s price for one of anything it lacks — once for each kind of thing, ever, whichever hall you give it to. It takes no seeds.',
+  'A guildhall posts one bounty a day: take it and a pack comes for you close by. Each kill drops its own coin, and clearing the pack pays the same again. Walk away from them, or let the day turn, and the bounty is lost.',
+  'A curio hall pays no coin. Every hall keeps the one collection of things that last — metal, gems, shells, feathers, lasting supplies — one of each, and a memory comes back at the 5th, 10th and 15th thing given.',
   // ── The land you walk over ──────────────────────────────────
   // StreetVariants.ROCK_STREET_SHARE (a quarter) — books.test.js re-derives it.
   'Wild rock lines about one residential street in four; shrubs grow in parks, woods and industrial lots.',

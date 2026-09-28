@@ -782,6 +782,17 @@ class SceneCreatures {
     if (entry.treasure && off(entry.treasure)) entry.treasure = null;
   }
 
+  // A free surface cell about `dist` cells from the player's FEET (playerM,
+  // never the camera anchor): walkable, off the road band, under nothing —
+  // the shared spawn rule. The rules and the search order are
+  // walkableDestination's (creature_ai.js); this is the scene's door to it.
+  // Returns { tx, ty, ix, iy, x, y, n, entry } or null.
+  findWalkableDestination(dist, opts) {
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    return walkableDestination(this, px, py, dist, opts);
+  }
+
   // Cave fauna: hostile wandering MONSTERS on CAVE_FLOOR cells (depth > 0).
   // Unlike surface animals these stalk the player and drain energy in range
   // (see wanderCreatures + MONSTERS). Eligible kinds are gated by depth
@@ -1116,10 +1127,11 @@ class SceneCreatures {
         now - (this._lastCaughtPruneT || 0) > 90000) {
       this._lastCaughtPruneT = now;
       this.save.caught = this.save.caught.filter((id) => {
-        // The ghosts (ghostSpawnPass), the fished slime (fishedSlimeSpawn)
-        // and a dismissed spirit raven (app.js _tickSpiritRaven) mint their
-        // ids the same way and are pruned by the same rule.
-        const m = typeof id === 'string' && /^(?:pest_crow|ghost|fished_slime|spirit_raven)_(-?\d+)_(-?\d+)_/.exec(id);
+        // The ghosts (ghostSpawnPass), the fished slime (fishedSlimeSpawn),
+        // a dismissed spirit raven (app.js _tickSpiritRaven) and a
+        // guildhall bounty's foes (app.js _spawnGuildBounty) mint their ids
+        // the same way and are pruned by the same rule.
+        const m = typeof id === 'string' && /^(?:pest_crow|ghost|fished_slime|spirit_raven|guildfoe)_(-?\d+)_(-?\d+)_/.exec(id);
         return !m || WorldGen.tileCache.has(WorldGen.tileKey(+m[1], +m[2]));
       });
     }

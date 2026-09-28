@@ -22,7 +22,7 @@
   };
   const DAY = 24 * 60 * 60 * 1000;
   const T0 = Date.UTC(2026, 8, 28, 10, 0, 0);
-  const DELIVERY_MUL = Number(APP_JS_SRC.match(/const DELIVERY_BONUS_MULT = ([\d.]+);/)[1]);
+  const TIPS_BLOB_ALL = () => PLAY_TIPS.join(' ');
 
   // ── The table ─────────────────────────────────────────────────────────────
   test('macro: the census classes map to their eight kinds', () => {
@@ -222,53 +222,221 @@
     assert.eq(seen.size, line.length - 1, 'every other supply item turns up');
   });
 
-  test('scriptorium: the Book is a stall item; the free page is day-gated', () => {
+  test('scriptorium: a plain stall — Books (and a torch) at the stall price, no free page', () => {
     assert.eq(Macros.SCRIPTORIUM_BOOK, 'book');
-    assert.eq(Macros.stallPrice({ relics: {} }, 'book'), ShopsMath.standPrice({ relics: {} }, PRICES.book));
-    assert.truthy(/_presentScriptorium\(sx, sy, o, dress\) \{[\s\S]*?Macros\.usedToday\(this\.save, o\.id\)[\s\S]*?Macros\.markToday\(this\.save, o\.id\);\s*this\._presentBookRead\(\);/.test(APP_JS_SRC),
-      'the page reads the Book\'s own curriculum and marks the day');
+    assert.eq(Macros.scriptoriumStock().join(), 'book,torch', 'what the counter sells');
+    const save = { relics: {} };
+    for (const id of Macros.scriptoriumStock()) {
+      assert.eq(Macros.stallPrice(save, id), ShopsMath.standPrice(save, PRICES[id]), `${id} at the stall price`);
+    }
+    assert.falsy(/_presentScriptorium/.test(APP_JS_SRC), 'the free-page dialog is gone');
+    assert.truthy(/case 'scriptorium': return this\._presentStallOffer\(sx, sy,\s*\{ \.\.\.dress, items: Macros\.scriptoriumStock\(\)/.test(APP_JS_SRC),
+      'the scriptorium opens the stall counter');
+    assert.falsy(/_presentBookRead\(\)/.test(APP_JS_SRC.slice(APP_JS_SRC.indexOf('presentMacro('), APP_JS_SRC.indexOf('buildingFlavorTitle('))),
+      'no macro reads a Book page for free');
+  });
+
+  test('stalls: apothecary, sundries and scriptorium share the market stall\'s one counter', () => {
+    // presentMarketStandOffer is _presentStallOffer with the stall's item —
+    // the same price (standPrice), stepper cap (money and bag room) and no
+    // stock limit; the three macro counters route to the very same method.
+    assert.truthy(/presentMarketStandOffer\(sx, sy, stand\) \{\s*this\._presentStallOffer\(/.test(APP_JS_SRC), 'the stall is the counter');
+    for (const kind of ['apothecary', 'sundries', 'scriptorium']) {
+      assert.truthy(new RegExp(`case '${kind}':\\s*return this\\._presentStallOffer\\(`).test(APP_JS_SRC), `${kind} opens the counter`);
+    }
+    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const unitPrice = ShopsMath\.standPrice\(this\.save, PRICES\[id\] \?\? 1\);/.test(APP_JS_SRC),
+      'priced by ShopsMath.standPrice');
   });
 
   // ── Guildhall ─────────────────────────────────────────────────────────────
-  test('guildhall: a daily commission, the same for everyone that day, paid at the delivery premium', () => {
+  test('guildhall: a daily bounty — the hall\'s and the day\'s pack, sized by the weapon, paid from enemyBounty', () => {
     const o = poi('town_hall');
-    const save = { inv: [], deliveryCount: 0, money: 0 };
-    const a = Macros.commissionWants(save, o, T0);
-    assert.eq(a.length, Macros.COMMISSION_ITEMS, 'two things wanted');
-    assert.eq(Macros.commissionWants({ ...save }, { ...o }, T0 + 3600000).join(), a.join(), 'the same all day');
-    let changed = false;
-    for (let d = 1; d <= 6 && !changed; d++) changed = Macros.commissionWants(save, o, T0 + d * DAY).join() !== a.join();
-    assert.truthy(changed, 'and a new one on other days');
-    for (const id of a) assert.lte(Delivery.produceTier(id), Delivery.tierCap(save), `${id} under the tier cap`);
-    const pay = Macros.commissionPay(a, DELIVERY_MUL);
-    assert.eq(pay, Math.max(1, Math.round(a.reduce((s, id) => s + Math.max(1, PRICES[id]), 0) * DELIVERY_MUL)), 'par × premium');
-    assert.eq(Macros.commissionDeliver(save, o, DELIVERY_MUL, T0).why, 'missing', 'nothing in the bag');
-    for (const id of a) Inventory.add(save, id, 1);
-    const r = Macros.commissionDeliver(save, o, DELIVERY_MUL, T0);
-    assert.truthy(r.ok, 'delivered');
-    assert.eq(save.money, pay, 'paid');
-    for (const id of a) assert.eq(Inventory.count(save, id), 0, `${id} handed over`);
-    for (const id of a) Inventory.add(save, id, 1);
-    assert.eq(Macros.commissionDeliver(save, o, DELIVERY_MUL, T0 + 60000).why, 'used', 'once a day');
+    const bare = { relics: {} };
+    const a = Macros.bountyFor(bare, o, T0);
+    assert.eq(a.kinds.join(), 'slime', 'no weapon: one slime');
+    assert.eq(Macros.bountyFor(bare, { ...o }, T0 + 3600000).id, a.id, 'the same all day');
+    assert.truthy(Macros.bountyFor(bare, o, T0 + DAY).id !== a.id, 'a new one tomorrow');
+    for (let t = 0; t <= 7; t++) {
+      const save = { relics: { sword: { tier: t } } };
+      const b = Macros.bountyFor(save, o, T0);
+      const rung = Macros.BOUNTY_LADDER[Math.min(2, Math.floor(t / Macros.BOUNTY_TIERS_PER_RUNG))];
+      assert.eq(b.kinds.length, Math.min(3, 1 + Math.floor(t / Macros.BOUNTY_TIERS_PER_FOE)), `tier ${t}: the count`);
+      for (const k of b.kinds) {
+        assert.truthy(rung.includes(k), `tier ${t}: ${k} is on its rung`);
+        assert.truthy(Combat.isEnemyKind(k), `${k} is an enemy`);
+      }
+      const wage = b.kinds.reduce((s, k) => s + Combat.enemyBounty(k, 0), 0);
+      assert.eq(b.wage, wage, 'the wage is the kill lane\'s');
+      assert.eq(b.pay, Math.max(1, Math.round(wage * Macros.BOUNTY_MATCH)), 'the reward matches it');
+    }
+    assert.eq(Macros.BOUNTY_MATCH, 1, 'the Book says "the same again"');
+    assert.eq(Macros.bountyWeaponTier({ relics: { bow: { tier: 4 }, sword: { tier: 2 } } }), 4, 'the best weapon counts');
+  });
+
+  test('guildhall: the bounty is cleared only when every foe is in save.caught', () => {
+    assert.falsy(Macros.bountyCleared({ caught: ['a'] }, ['a', 'b']));
+    assert.truthy(Macros.bountyCleared({ caught: ['b', 'x', 'a'] }, ['a', 'b']));
+    assert.falsy(Macros.bountyCleared({ caught: [] }, []), 'an empty pack is never cleared');
+  });
+
+  // findWalkableDestination's core (creature_ai.js walkableDestination) on a
+  // synthetic tile: grass, a road band down one column, an occupied cell.
+  const destWorld = (setup) => {
+    const N = 20, edge = 140;   // 7 m cells
+    const grid = new Uint8Array(N * N).fill(TERRAIN.GRASS);
+    const roadMask = new Uint8Array(N * N);
+    const occupied = new Set();
+    setup && setup({ N, grid, roadMask, occupied });
+    const entry = { grid, cellsPerEdge: N, roadMask, creatures: [], _spawnOpts: { roadMask, occupied, pois: [] } };
+    const scene = { depth: 0, tileEdgeM: edge, cellM: edge / N };
+    return { scene, entry, N, edge };
+  };
+  const withTile = (entry, fn) => {
+    const realGet = WorldGen.tileCache.get;
+    WorldGen.tileCache.get = (k) => (k === WorldGen.tileKey(0, 0) ? entry : undefined);
+    try { return fn(); } finally { WorldGen.tileCache.get = realGet; }
+  };
+
+  test('findWalkableDestination: about `dist` cells off, deterministic, never on a road band or an occupied cell', () => {
+    const { scene, entry } = destWorld();
+    const P = { x: 70 + 3.5, y: 70 + 3.5 };   // cell (10, 10)
+    const d = withTile(entry, () => walkableDestination(scene, P.x, P.y, 5, { seed: 'b1' }));
+    assert.truthy(d, 'a cell');
+    const r = Math.hypot(d.x - P.x, d.y - P.y) / scene.cellM;
+    assert.inRange(r, 4, 6, `about five cells off (${r})`);
+    const again = withTile(entry, () => walkableDestination(scene, P.x, P.y, 5, { seed: 'b1' }));
+    assert.eq(`${again.ix},${again.iy}`, `${d.ix},${d.iy}`, 'the same seed, the same cell');
+    // Block every cell on the first choice's column with road, and its row
+    // with occupants: the answer moves off both, and still passes the rule.
+    const w2 = destWorld(({ N, roadMask, occupied }) => {
+      for (let i = 0; i < N; i++) { roadMask[i * N + d.ix] = 1; occupied.add(d.iy * N + i); }
+    });
+    const e = withTile(w2.entry, () => walkableDestination(w2.scene, P.x, P.y, 5, { seed: 'b1' }));
+    assert.truthy(e, 'still a cell');
+    assert.truthy(e.ix !== d.ix && e.iy !== d.iy, 'off the road band and the occupied row');
+    assert.truthy(WorldGen.isSpawnCell(w2.entry.grid, 20, 20, e.ix, e.iy, w2.entry._spawnOpts), 'the shared spawn rule passes it');
+    // Nothing free anywhere: null. Underground: null.
+    const w3 = destWorld(({ roadMask }) => roadMask.fill(1));
+    assert.eq(withTile(w3.entry, () => walkableDestination(w3.scene, P.x, P.y, 5, { seed: 'b1' })), null, 'all road: nowhere');
+    assert.eq(withTile(entry, () => walkableDestination({ ...scene, depth: 1 }, P.x, P.y, 5, { seed: 'b1' })), null, 'surface only');
+    // accept() may refuse: the answer is the next one that passes.
+    const f = withTile(entry, () => walkableDestination(scene, P.x, P.y, 5, { seed: 'b1', accept: (x, y) => !(x === d.x && y === d.y) }));
+    assert.truthy(f && (f.ix !== d.ix || f.iy !== d.iy), 'accept refuses a cell');
+    assert.eq(walkableDestinationRings(3).join(), '3,2,4,1,5,6', 'the ring order: dist, nearer, farther');
+    assert.truthy(/findWalkableDestination\(dist, opts\) \{[\s\S]*?this\.startWorldM\.x \+ this\.playerM\.x[\s\S]*?walkableDestination\(this, px, py, dist, opts\)/.test(SCENE_CREATURES_SRC),
+      'the scene method measures from the FEET');
+  });
+
+  test('guildhall: the pack is seated at findWalkableDestination\'s cell, off the road, and pays once on clear', () => {
+    // The app.js methods, run whole against a stub scene on the synthetic tile.
+    const grab = (name) => {
+      const at = APP_JS_SRC.indexOf(`  ${name}(`);
+      const open = APP_JS_SRC.indexOf('{\n', at);
+      const end = APP_JS_SRC.indexOf('\n  }\n', open);
+      const sig = APP_JS_SRC.slice(at + 2, open).trim();
+      return { args: sig.slice(sig.indexOf('(') + 1, sig.lastIndexOf(')')), body: APP_JS_SRC.slice(open + 2, end) };
+    };
+    const mk = (name) => { const g = grab(name); return new Function(...g.args.split(',').map((x) => x.trim().replace(/ = .*/, '')), g.body); };
+    const spawn = mk('_spawnGuildBounty');
+    const onDefeat = mk('_guildBountyDefeat');
+    const { scene: base, entry, N } = destWorld(({ N, roadMask }) => { for (let i = 0; i < N; i++) roadMask[i * N + 14] = 1; });
+    const flashes = [];
+    const stories = [];
+    const scene = {
+      ...base, startWorldM: { x: 0, y: 0 }, playerM: { x: 73.5, y: 73.5 },
+      save: { caught: [], money: 0 },
+      homeWorldPos: () => null,
+      findWalkableDestination(dist, opts) { return walkableDestination(this, 73.5, 73.5, dist, opts); },
+      flashLoot: (m) => flashes.push(m), updateHUD: () => {},
+      _storySplashOnce: (k) => stories.push(k),
+    };
+    scene._guildBountyDefeat = onDefeat;
+    const b = Macros.bountyFor({ relics: { sword: { tier: 7 } } }, poi('town_hall'), T0);
+    assert.eq(b.kinds.length, 3, 'a full pack');
+    const realPersist = globalThis.persistSave;
+    globalThis.persistSave = () => {};
+    try {
+      withTile(entry, () => {
+        const want = scene.findWalkableDestination(Macros.BOUNTY_DIST_CELLS, { seed: b.id, accept: () => true });
+        const n = spawn.call(scene, b, T0);
+        assert.eq(n, 3, 'three seated');
+        const foes = entry.creatures;
+        assert.eq(`${Math.floor(foes[0].x / 7)},${Math.floor(foes[0].y / 7)}`, `${want.ix},${want.iy}`, 'the first on the destination cell');
+        const cells = new Set();
+        for (const c of foes) {
+          const ix = Math.floor(c.x / 7), iy = Math.floor(c.y / 7);
+          assert.falsy(entry.roadMask[iy * N + ix], `${c.id} is off the road band`);
+          assert.truthy(WorldGen.isSpawnCell(entry.grid, N, N, ix, iy, entry._spawnOpts), `${c.id} passes the spawn rule`);
+          cells.add(ix + ',' + iy);
+          assert.eq(c.bounty, b.id, 'tagged');
+          assert.truthy(/^guildfoe_0_0_/.test(c.id), 'a session id the caught-prune knows');
+          assert.truthy(Combat.isEnemy(c), 'an ordinary enemy');
+        }
+        assert.eq(cells.size, 3, 'none stacked');
+        // Kill them through the lane's one mark; the reward lands on the last.
+        for (const [i, c] of foes.entries()) {
+          scene.save.caught.push(c.id);
+          scene._guildBountyDefeat(c);
+          assert.eq(scene.save.money, i < 2 ? 0 : b.pay, `after kill ${i + 1}`);
+        }
+        assert.eq(scene._guildBounty, null, 'forgotten once paid');
+        scene._guildBountyDefeat(foes[2]);
+        assert.eq(scene.save.money, b.pay, 'paid once');
+        assert.eq(flashes.join('|'), `Bounty paid! +${b.pay}`);
+        assert.eq(stories.join(), 'macro:bounty', 'the first bounty tells its story');
+      });
+    } finally { globalThis.persistSave = realPersist; }
+    assert.truthy(/if \(victim\.bounty\) this\._guildBountyDefeat\(victim\);/.test(APP_JS_SRC), 'resolveDefeat calls it');
+    assert.truthy(/guildfoe\)_\(-\?\\d\+\)_/.test(SCENE_CREATURES_SRC), 'the caught-prune knows the prefix');
+    assert.truthy(/this\._tickTraps\(dt\);\s*\/\/[^\n]*\n\s*this\._tickGuildBounty\(\);/.test(APP_JS_SRC), 'the leash ticks');
   });
 
   // ── Curio hall ────────────────────────────────────────────────────────────
-  test('curio: one of each thing, once per save, at CURIO_DONATE_MUL × par — no seeds', () => {
-    assert.eq(Macros.CURIO_DONATE_MUL, 2, 'the Book says "twice"');
-    assert.falsy(Macros.curioEligible('potato_seed'), 'no seeds');
-    assert.truthy(Macros.curioEligible('potato'), 'produce');
-    const all = Macros.curioCollection();
-    assert.gt(all.length, 20, 'a real collection');
-    assert.falsy(all.some((id) => ITEM_BY_ID[id].kind === 'seed'), 'and no seed in it');
+  test('curio: one shared list of things that keep — nothing that spoils or grows', () => {
+    const list = Macros.curioCollection();
+    assert.eq(list.length, Macros.CURIO_COLLECTION.length, 'every listed id is a real item');
+    assert.inRange(list.length, 20, 30, 'a real collection');
+    assert.eq(new Set(list).size, list.length, 'no duplicates');
+    const keeps = new Set(['shell', 'crow_feather', 'rabbit_pelt', 'boot']);
+    for (const id of list) {
+      const it = ITEM_BY_ID[id];
+      assert.falsy(id in FOOD_ENERGY, `${id} is not food`);
+      assert.falsy(['seed', 'sapling', 'magic', 'animal'].includes(it.kind), `${id} is no seed, sapling, potion or animal`);
+      assert.truthy(it.kind === 'mineral' || it.kind === 'supply' || keeps.has(id), `${id} is a lasting thing (${it.kind})`);
+    }
+    for (const id of ['potato', 'apple', 'flowers', 'vigor_potion', 'egg', 'potato_seed', 'acorn']) {
+      assert.falsy(Macros.curioEligible(id), `${id} is not collected`);
+    }
+    assert.eq(Macros.CURIO_MILESTONES.join(), '5,10,15', 'the milestones');
+    assert.lte(Macros.CURIO_MILESTONES[2], list.length, 'the last is reachable');
+  });
+
+  test('curio: one of each, nothing paid, a milestone at 5 / 10 / 15 exactly once', () => {
     const save = { inv: [], money: 0 };
-    Inventory.add(save, 'potato', 2);
-    const r = Macros.curioDonate(save, 'potato');
-    assert.truthy(r.ok);
-    assert.eq(r.gain, PRICES.potato * Macros.CURIO_DONATE_MUL, 'paid at twice par');
-    assert.eq(Inventory.count(save, 'potato'), 1, 'took ONE');
-    assert.eq(Macros.curioDonate(save, 'potato').why, 'given', 'once per id');
-    assert.eq(save.money, r.gain, 'paid once');
-    assert.eq(Macros.curioDonate(save, 'onion').why, 'none', 'you have to hold it');
+    const list = Macros.curioCollection();
+    const hits = [];
+    for (const [i, id] of list.entries()) {
+      Inventory.add(save, id, 2);
+      const r = Macros.curioDonate(save, id);
+      assert.truthy(r.ok, id);
+      assert.eq(r.count, i + 1);
+      if (r.milestone) hits.push(r.milestone);
+      assert.eq(Inventory.count(save, id), 1, `${id}: took ONE`);
+      assert.eq(Macros.curioDonate(save, id).why, 'given', `${id}: once`);
+    }
+    assert.eq(hits.join(), '5,10,15', 'each milestone fires once, at its count');
+    assert.eq(save.money, 0, 'nothing is paid');
+    assert.eq(Macros.curioNextMilestone(7), 10);
+    assert.eq(Macros.curioNextMilestone(15), null);
+    assert.eq(Macros.curioMissing(save).length, 0, 'the collection is whole');
+    assert.eq(Macros.curioDonate({ inv: [] }, 'iron_bar').why, 'none', 'you have to hold it');
+    // A legacy paid-build donation off the list does not count.
+    assert.eq(Macros.curioCount({ donated: ['potato', 'iron_bar'] }), 1);
+    // The memory is the discovery ledger's, keyed per milestone — once per save.
+    assert.eq(Macros.curioMilestoneKey(10), 'curio:10');
+    assert.truthy(/if \(r\.milestone\) \{\s*this\._bankDiscovery\(Macros\.curioMilestoneKey\(r\.milestone\)/.test(APP_JS_SRC), 'banked as a memory');
+    const curioSrc = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _presentCurio(sx, sy, o, dress) {'), APP_JS_SRC.indexOf('  // TRAINING HALL'));
+    assert.truthy(curioSrc.length > 100 && !/addMoney/.test(curioSrc), 'the hall pays no coin');
   });
 
   // ── Training hall ─────────────────────────────────────────────────────────
@@ -315,9 +483,12 @@
     assert.truthy(inn && Macros.INN_RATE === 0.5 && /half what a Potion of Vigor/.test(inn), 'the inn page says half');
     assert.truthy(Macros.CHAPEL_TIER_DROP === 1 && /a tier humbler/.test(inn), 'the chapel is a tier humbler');
     const guild = PLAY_TIPS.find((t) => /guildhall/.test(t));
-    assert.truthy(guild && DELIVERY_MUL === 1.5 && /half again/.test(guild), 'the guildhall pays half again');
+    assert.truthy(guild && Macros.BOUNTY_MATCH === 1 && /pays the same again/.test(guild), 'the bounty pays the wage again');
     const curio = PLAY_TIPS.find((t) => /curio hall/.test(t));
-    assert.truthy(curio && Macros.CURIO_DONATE_MUL === 2 && /twice/.test(curio), 'the curio hall pays twice');
+    const nth = (n) => `${n}th`;
+    assert.truthy(curio && /pays no coin/.test(curio), 'the curio hall pays no coin');
+    assert.truthy(curio.includes(`${nth(Macros.CURIO_MILESTONES[0])}, ${nth(Macros.CURIO_MILESTONES[1])} and ${nth(Macros.CURIO_MILESTONES[2])} thing given`), curio);
+    assert.falsy(/scriptorium lends/i.test(TIPS_BLOB_ALL()), 'no free page');
     const tr = PLAY_TIPS.find((t) => /training hall/.test(t));
     const pct = (x) => `${Math.round(x * 100)}%`;
     assert.truthy(tr, 'the training page');
