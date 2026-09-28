@@ -733,9 +733,12 @@
     if (!WG || !entry || !entry.grid || !(tileEdgeM > 0)) return [];
     const N = entry.cellsPerEdge;
     if (!(N > 0)) return [];
-    // The tile's OWN cell — a seat is a cell on this tile's grid, so every
-    // player seats the same guard on the same cell.
+    // Draw seats from the tile's generated layer. Player overlays may hide a
+    // drawn guard below, but they never make its seat search consume another
+    // random number and move the guards that follow it.
     const cellM = tileEdgeM / N;
+    const genGrid = entry.baseGrid || entry.grid;
+    const genObjects = entry.genObjects || entry.objects || [];
     if (!cand.sid) cand.sid = structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
 
     // ONE STREAM PER STRUCTURE, seeded from the structure's own key. Nothing
@@ -765,6 +768,23 @@
     // reads the entry's own — the same array, never a second derivation.
     const foeOpts = (spawnOpts && !spawnOpts.roadClass && entry.roadClass)
       ? Object.assign({}, spawnOpts, { roadClass: entry.roadClass }) : spawnOpts;
+    // The live-ground cull matches SceneCreatures._cullOffLiveGround: objects
+    // added after generation claim their cell, and a player-repainted cell
+    // drops its guard only when the live terrain is no longer walkable.
+    const generated = new Set(genObjects);
+    const liveOccupied = new Set();
+    for (const obj of entry.objects || []) {
+      if (generated.has(obj)) continue;
+      const ix = Math.floor((obj.x - cand.ox) / cellM);
+      const iy = Math.floor((obj.y - cand.oy) / cellM);
+      if (ix >= 0 && iy >= 0 && ix < N && iy < N) liveOccupied.add(iy * N + ix);
+    }
+    const liveBlocks = (ix, iy) => {
+      const at = iy * N + ix;
+      if (liveOccupied.has(at)) return true;
+      return entry.grid !== genGrid && entry.grid[at] !== genGrid[at]
+        && !WG.isWalkable(entry.grid[at]);
+    };
     const seatR = Math.hypot(cand.halfW, cand.halfH) + LAIR_RING_PAD_CELLS * cellM;
     const C = root.Combat;
     const out = [];
@@ -786,20 +806,23 @@
         const ly = cand.ly + Math.sin(ang) * r;
         const ix = Math.floor(lx / cellM), iy = Math.floor(ly / cellM);
         if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
-        // The FOE seat rule (WorldGen.isFoeCell): the one shared spawn rule,
-        // road mask included — a guard on the carriageway is the bug
-        // CLAUDE.md's road invariant is about — AND outside the major roads'
+        // The shared seat rule (WorldGen.isSpawnCell at the guard's own
+        // class): road mask included - a guard on the carriageway is the bug
+        // CLAUDE.md's road invariant is about - AND outside the major roads'
         // kerb buffer (ROAD_CLASS_MAJOR_BUFFER), so no guard of any lair
-        // stands where a chase would begin at the kerb. The options come off
+        // stands where a chase would begin at the kerb. The verdict runs on
+        // the GENERATED grid (baseGrid): player edits cull seats afterwards,
+        // they never reroll them. The options come off
         // THE ENTRY (spawnInTile stashes the very object it spawned the tile's
         // fauna, traps and treasure with), never rebuilt here: a second
         // reading of "is this a road" is how the two drift. Only the VERDICT
         // changed (Sep 2026): the draws are the same, so every seat that
         // passes both rules is the seat it always was.
-        if (!WG.isSpawnCell(entry.grid, N, N, ix, iy, foeOpts, guardClass)) continue;
-        seat = { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM };
+        if (!WG.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, guardClass)) continue;
+        seat = { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM, ix, iy };
       }
       if (!seat) continue;                    // ringed by water / road / building
+      if (liveBlocks(seat.ix, seat.iy)) continue; // player overlay: drop, never reroll
       // Already killed. The draws above ran anyway — see the note below.
       if (caught && caught.has(id)) continue;
       // WG.makeCreature is the tile stream's one shape (worldgen.js) — reached

@@ -7017,8 +7017,9 @@
       objects, wildplants, parkingTreasures: [], extraTreasures, caveCoinSeeds,
       roadLabels: {}, pathUnder: {}, torchSites,
       // The generated layer, frozen for the level below (see loadTile): app.js
-      // digs walls into `grid` and lays the home up-stair into `objects`.
-      baseGrid: grid.slice(), genObjects: objects.slice(),
+      // digs walls into `grid`, filters flora and lays the home up-stair into
+      // the live lists.
+      baseGrid: grid.slice(), genObjects: objects.slice(), genWildplants: wildplants.slice(),
     };
     cache.set(key, entry);
     pruneCache(cache, key);
@@ -7092,32 +7093,40 @@
     let idx = store[prop];
     if (idx && idx.arr === arr && idx.n === arr.length && idx.last === last) return idx;
     const buckets = new Map();
-    for (const o of arr) {
+    for (let i = 0; i < arr.length; i++) {
+      const o = arr[i];
       const k = chunkKey(o.x, o.y);
       let b = buckets.get(k);
       if (!b) buckets.set(k, b = []);
-      b.push(o);
+      b.push(i);
     }
     idx = store[prop] = { arr, n: arr.length, last, buckets, builds: (idx ? idx.builds : 0) + 1 };
     return idx;
   }
   // Every item of entry[prop] whose (x, y) may lie in the box [x0,x1]×[y0,y1]
-  // (metres) — the chunks the box touches, in array order within a chunk, so
-  // a first-seen-wins dedup reads the copies in the order the array holds
-  // them. The caller still applies its own exact cull: a chunk is coarser
-  // than the box.
-  function forEachItemInBox(entry, prop, x0, y0, x1, y1, fn) {
+  // (metres). The default visits row-major chunks and preserves array order
+  // inside each chunk, which avoids collecting candidates in the hot object
+  // pass. A caller whose final output depends on flat-array order passes
+  // `preserveSourceOrder`; the index then merges the touched bucket positions
+  // before calling it. The caller still applies its own exact cull because a
+  // chunk is coarser than the box.
+  function forEachItemInBox(entry, prop, x0, y0, x1, y1, fn, preserveSourceOrder = false) {
     const idx = chunkIndex(entry, prop);
     if (!idx) return;
     const bx0 = Math.floor(x0 / CHUNK_M), bx1 = Math.floor(x1 / CHUNK_M);
     const by0 = Math.floor(y0 / CHUNK_M), by1 = Math.floor(y1 / CHUNK_M);
+    const positions = preserveSourceOrder ? [] : null;
     for (let by = by0; by <= by1; by++) {
       for (let bx = bx0; bx <= bx1; bx++) {
         const b = idx.buckets.get(bx + ',' + by);
         if (!b) continue;
-        for (const o of b) fn(o);
+        if (positions) positions.push(...b);
+        else for (const i of b) fn(idx.arr[i]);
       }
     }
+    if (!positions) return;
+    positions.sort((a, b) => a - b);
+    for (const i of positions) fn(idx.arr[i]);
   }
 
   function forEachItemNear(prop, tx, ty, fn) {

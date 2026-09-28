@@ -926,6 +926,7 @@ class SceneCreatures {
     // (`heldByPlayer` below), never a re-roll.
     const genGrid = entry.baseGrid || entry.grid;
     const genObjects = (entry.genObjects || entry.objects || []).filter(o => !o._synthetic);
+    const genWildplants = entry.genWildplants || entry.wildplants || [];
     const anchors = genObjects
       .filter(o => o.kind === 'staircase' && o.dir === 'up')
       .map(s => ({
@@ -946,11 +947,14 @@ class SceneCreatures {
     // an object sitting on top of it, same as the surface roadMask can't see
     // an object sitting on top of a grass cell.
     const occupiedIdx = new Set();
-    for (const o of genObjects) {
+    for (const o of [...genObjects, ...genWildplants]) {
       const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
-      occupiedIdx.add(oy * N + ox);
+      if (ox >= 0 && oy >= 0 && ox < N && oy < N) occupiedIdx.add(oy * N + ox);
     }
+    // Cave spawners share this generated occupancy because terrain alone
+    // cannot reveal a rock, mushroom or floor torch seated on its floor cell.
+    entry._spawnOpts = { roadMask: null, occupied: occupiedIdx, pois: [] };
     // Cells THIS player's live entry holds that the generated layer doesn't —
     // their stairs. A seat drawn onto one is dropped (the attempt still ends
     // exactly where it would for anyone else).

@@ -195,6 +195,82 @@ test('save: flushSave is safe to call multiple times (idempotent)', () => {
   }
 });
 
+test('save: lifecycle flush writes the attached save after a clean flush', () => {
+  const id = createSave(_uid('test_session_flush'));
+  const save = { money: 10, lastSeenAt: 1000 };
+  try {
+    persistSave(save);
+    flushSave();
+    SaveSession.attach(save, 1000);
+    save.money = 25;
+
+    SaveSession.flush(2000);
+
+    const loaded = loadSave();
+    assert.eq(loaded.money, 25, 'lifecycle flush writes a mutation with no pending save');
+    assert.eq(loaded.lastSeenAt, 2000, 'lifecycle flush writes its wall-time heartbeat');
+  } finally {
+    SaveSession.detach();
+    deleteSave(id);
+  }
+});
+
+test('save: offline rest starts at the lifecycle heartbeat', () => {
+  const id = createSave(_uid('test_session_rest'));
+  const hour = Energy.OFFLINE_FULL_REST_MS;
+  const hiddenAt = 5 * hour;
+  const save = { energy: 0, maxEnergy: 100, armor: {}, lastSeenAt: hiddenAt - hour };
+  try {
+    persistSave(save);
+    flushSave();
+    SaveSession.attach(save, hiddenAt - hour);
+    SaveSession.flush(hiddenAt);
+
+    const loaded = loadSave();
+    const gained = Energy.applyOfflineRest(loaded, hiddenAt + 1000 - loaded.lastSeenAt);
+    assert.eq(loaded.lastSeenAt, hiddenAt, 'reload reads the lifecycle heartbeat');
+    assert.eq(gained, 0, 'one second hidden does not restore an hour of energy');
+  } finally {
+    SaveSession.detach();
+    deleteSave(id);
+  }
+});
+
+test('save: session heartbeat updates on its owning cadence', () => {
+  const save = { lastSeenAt: 1000 };
+  try {
+    SaveSession.attach(save, 1000);
+    assert.falsy(SaveSession.touch(1000 + SaveSession.heartbeatMs - 1), 'early frame does not rewrite the heartbeat');
+    assert.eq(save.lastSeenAt, 1000, 'early frame keeps the prior heartbeat');
+    assert.truthy(SaveSession.touch(1000 + SaveSession.heartbeatMs), 'cadence boundary advances the heartbeat');
+    assert.eq(save.lastSeenAt, 1000 + SaveSession.heartbeatMs, 'heartbeat uses the supplied wall time');
+  } finally {
+    SaveSession.detach();
+  }
+});
+
+test('save: session flush stays with the attached slot', () => {
+  const idA = createSave(_uid('test_session_slot_a'));
+  const saveA = { money: 1, lastSeenAt: 1000 };
+  persistSave(saveA);
+  flushSave();
+  SaveSession.attach(saveA, 1000);
+  const idB = createSave(_uid('test_session_slot_b'));
+  try {
+    saveA.money = 2;
+    SaveSession.flush(2000);
+
+    switchSave(idA);
+    assert.eq(loadSave().money, 2, 'attached slot receives the lifecycle write');
+    switchSave(idB);
+    assert.eq(loadSave().money, undefined, 'newly active slot is not overwritten by the old scene');
+  } finally {
+    SaveSession.detach();
+    deleteSave(idA);
+    deleteSave(idB);
+  }
+});
+
 test('save: failed storage write keeps progress and one notice until a successful retry', () => {
   const id = createSave(_uid('test_write_retry'));
   const originalSet = localStorage.setItem;

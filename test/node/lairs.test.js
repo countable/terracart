@@ -395,9 +395,47 @@
     const all = mkEntry([castle]);
     all._spawnOpts.roadClass = new Uint8Array(N * N).fill(WorldGen.ROAD_CLASS_MAJOR_BUFFER);
     assert.eq(wake(all).length, 0, 'a lair wholly inside the buffer seats no guard');
-    assert.truthy(/WG\.isSpawnCell\(entry\.grid, N, N, ix, iy, foeOpts, guardClass\)/.test(ALL_SRC['lairs.js'])
+    assert.truthy(/WG\.isSpawnCell\(genGrid, N, N, ix, iy, foeOpts, guardClass\)/.test(ALL_SRC['lairs.js'])
       && /root\.creatureSpawnClass\(kind\)/.test(ALL_SRC['lairs.js']),
-      'the seat asks the shared rule at the guard\'s own class (a fast guard keeps off the kerb)');
+      'the generated-grid seat asks the shared rule at the guard\'s own class (a fast guard keeps off the kerb)');
+  });
+
+  test('lairs: a live-grid blocker drops its guard without moving the others', () => {
+    const castle = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'live-grid-cull');
+    const wake = (entry) => {
+      const idx = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
+      const cand = [...idx.buckets.values()].flat()[0];
+      return Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M, homeM: HOME });
+    };
+    const generated = mkEntry([castle]);
+    generated.baseGrid = generated.grid.slice();
+    generated.genObjects = [];
+    const before = wake(generated);
+    assert.gt(before.length, 1, 'the castle needs several guards to prove later draws stay fixed');
+
+    const seats = new Map();
+    for (const guard of before) {
+      const ix = Math.floor(guard.seatX / CELL_M), iy = Math.floor(guard.seatY / CELL_M);
+      const key = iy * N + ix;
+      seats.set(key, (seats.get(key) || 0) + 1);
+    }
+    const blocked = before.find((guard) => {
+      const ix = Math.floor(guard.seatX / CELL_M), iy = Math.floor(guard.seatY / CELL_M);
+      return seats.get(iy * N + ix) === 1;
+    });
+    assert.truthy(blocked, 'the fixture has no unique guard seat to block');
+    const bx = Math.floor(blocked.seatX / CELL_M), by = Math.floor(blocked.seatY / CELL_M);
+
+    const edited = mkEntry([castle]);
+    edited.baseGrid = edited.grid.slice();
+    edited.genObjects = [];
+    edited.grid[by * N + bx] = WorldGen.T.WATER;
+    const after = wake(edited);
+    const sig = (guard) => `${guard.id}:${guard.kind}:${guard.seatX},${guard.seatY}`;
+    const expected = before.filter((guard) => guard.id !== blocked.id).map(sig);
+    assert.eq(after.map(sig).join('|'), expected.join('|'),
+      'a player overlay rerolled or moved an unaffected guard');
+    assert.eq(after.length, before.length - 1, 'the blocked seat did not drop exactly its guard');
   });
 
   // ── Is it held at all ────────────────────────────────────────────────────

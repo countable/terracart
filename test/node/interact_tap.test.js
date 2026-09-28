@@ -270,6 +270,66 @@ test('TAP_HANDLERS: till is the last or near-last handler', () => {
     'till must be a terminal handler — only fires when nothing else matched the cell');
 });
 
+function tillAttemptWithObject(object, progress = {}) {
+  const priorEntries = [...WorldGen.tileCache.entries()];
+  WorldGen.tileCache.clear();
+  WorldGen.tileCache.set('till-test', { objects: [object], wildplants: [] });
+  try {
+    let workStarted = 0;
+    const flashes = [];
+    const save = {
+      planted: [], picked: progress.picked || [], chopped: progress.chopped || [],
+      opened: progress.opened || [], relics: {},
+    };
+    if (progress.takenToday) Macros.markToday(save, object.id);
+    const scene = makeScene({
+      cellM: 1,
+      placedRockSet: new Set(),
+      brokenRockSet: new Set(progress.broken || []),
+      tilledSet: new Set(),
+      startWorkProgress: () => { workStarted++; },
+      flash: (line) => flashes.push(line),
+    });
+    const ctx = Object.assign(makeCtx(scene, save), {
+      cell: { type: TERRAIN.GRASS }, cellKey: '0_0', cwmx: 0, cwmy: 0,
+    });
+    TAP_HANDLERS.find(h => h.name === 'till').try(ctx);
+    return { workStarted, flashes };
+  } finally {
+    WorldGen.tileCache.clear();
+    for (const [key, entry] of priorEntries) WorldGen.tileCache.set(key, entry);
+  }
+}
+
+test('till handler: every spent generated object leaves its cell tillable', () => {
+  const cases = [
+    [{ kind: 'mineralrock', id: 'spent-rock', x: 0, y: 0 }, { broken: ['spent-rock'] }],
+    [{ kind: 'groundstack', id: 'spent-stack', x: 0, y: 0 }, { picked: ['spent-stack'] }],
+    [{ kind: 'tree', id: 'spent-tree', x: 0, y: 0 }, { chopped: ['spent-tree'] }],
+    [{ kind: 'chest', id: 'spent-chest', x: 0, y: 0 }, { opened: ['spent-chest'] }],
+  ];
+  for (const [object, progress] of cases) {
+    const result = tillAttemptWithObject(object, progress);
+    assert.eq(result.workStarted, 1, `${object.kind} no longer occupies its cell after it is spent`);
+    assert.eq(result.flashes.length, 0, `${object.kind} leaves no invisible blocker message`);
+  }
+});
+
+test('till handler: every fresh generated object still blocks its cell', () => {
+  for (const kind of ['mineralrock', 'groundstack', 'tree', 'chest']) {
+    const result = tillAttemptWithObject({ kind, id: `fresh-${kind}`, x: 0, y: 0 });
+    assert.eq(result.workStarted, 0, `${kind} blocks tilling while it still stands`);
+    assert.eq(result.flashes.length, 1, `${kind} explains why the hoe was refused`);
+  }
+});
+
+test('till handler: a spent barrel still blocks because its smashed art stands', () => {
+  const barrel = { kind: 'chest', id: 'spent-barrel', poiClass: 'waste_basket', x: 0, y: 0 };
+  const result = tillAttemptWithObject(barrel, { takenToday: true });
+  assert.eq(result.workStarted, 0, 'the smashed barrel still occupies its cell');
+  assert.eq(result.flashes.length, 1, 'the barrel explains why the hoe was refused');
+});
+
 // ─── 3. work-progress handler behaviour ─────────────────────────────────────
 
 test('work-progress: returns false when no work in progress', () => {

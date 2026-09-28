@@ -54,6 +54,26 @@
     rosterEnemyAttack(s, c, row, 13000, 1, 0, false, 1);
     assert.eq(s.save.energy, 0);
   });
+  test('enemy AI: draining aura shield expires on the wall-clock boundary', () => {
+    const realDateNow = Date.now;
+    const wallNow = 1800000000000;
+    let current = wallNow + 999;
+    try {
+      Date.now = () => current;
+      const row = { ...EnemyRoster.get('lich'), dmg: 0 };
+      const active = scene(), activeFoe = foe('lich');
+      active.save.shieldPotionUntil = wallNow + 1000;
+      rosterEnemyAttack(active, activeFoe, row, 10000, 1, 0, false, 1);
+
+      current = wallNow + 1001;
+      const expired = scene(), expiredFoe = foe('lich');
+      expired.save.shieldPotionUntil = wallNow + 1000;
+      rosterEnemyAttack(expired, expiredFoe, row, 10000, 1, 0, false, 1);
+
+      assert.eq(100 - expired.save.energy, 2 * (100 - active.save.energy),
+        'expiry restores the full aura rate after the final protected millisecond');
+    } finally { Date.now = realDateNow; }
+  });
   test('enemy AI: swept movement stops at a wall even with a clear endpoint', () => {
     const s = scene(), c = foe('bat'), row = EnemyRoster.get('bat');
     s._cellBlocked = x => x >= 3 && x <= 5;

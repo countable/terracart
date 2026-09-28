@@ -2515,14 +2515,15 @@ Render.drawObjects = function drawObjects(scene) {
       // is the one case that IS dropped — the kit's whole promise is that the
       // mark is gone, not just retextured.
       if (entry.traps) {
-        for (const tr of entry.traps) {
-          _boot_scanned++;
-          if (disarmedSet.has(tr.id)) continue;
-          const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
-          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
-          trapList.push({ tr, dx, dy, sprung: sprungSet.has(tr.id) });
-          _boot_kept++;
-        }
+        WorldGen.forEachItemInBox(entry, 'traps',
+          pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, (tr) => {
+            _boot_scanned++;
+            if (disarmedSet.has(tr.id)) return;
+            const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
+            if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
+            trapList.push({ tr, dx, dy, sprung: sprungSet.has(tr.id) });
+            _boot_kept++;
+          }, true);   // renderPool assigns sprite slots in source-array order
       }
       // A goblin trapper's snares (traps.js LAID traps) — the same mark in the
       // same two textures, on their own session list. Their state is on the
