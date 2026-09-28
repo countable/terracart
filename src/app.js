@@ -280,6 +280,14 @@ const STREET_COUNTER_MIN_MS = 1000;
 // session and it should read from across the block.
 const BLAST_HOUSE_PAD_CELLS = 2;
 const WALK_M_S = 1.4;
+// SLOW GOING: the most the body may cover per second while its feet are on a
+// Burned Row's tar pit or iron stakes (see _bodyHold) — a little under the
+// walk, so the body drops behind a walking fix and the catch-up ramp
+// (FOLLOW_RAMP_M) brings it back once it is off the patch.
+const SLOW_BODY_M_S = 1.2;
+// A variant street's map line (StreetVariants row `flash`) repeats no more
+// often than this per street kind, after its story has been told.
+const STREET_FLASH_GAP_MS = 60000;
 // TIRED WALK: how far the walk CYCLE's pace sags once energy drops below
 // Lighting.LOW_ENERGY_FRAC (30%) — 1 = full frameRate at the threshold, and
 // this is the FLOOR it eases toward at 0 energy (_playDirected). It reads
@@ -1860,6 +1868,8 @@ class MapScene extends Phaser.Scene {
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
     window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 32, 32);
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
+    // A bandit road's bus stop is a broken wagon (loot.js chestLook).
+    if (this.textures.exists('wagon')) window.WORLD_ICON_URLS.wagon = bakeSheetFrame('wagon', 0, 128, 96);
     // The burn confirm opens with the campfire the player just tapped.
     window.WORLD_ICON_URLS.bonfire = bakeSheetFrame('bonfire', 0, 16, 32);
     // Home's panel opens with the trailer the player just tapped — the whole
@@ -3096,6 +3106,78 @@ class MapScene extends Phaser.Scene {
   // `Combat.playerDowned`, NOT `isUnnoticed()`: a Shadow Powder hides you from
   // whatever takes an INTEREST in you, and iron jaws take none — a powder must
   // not walk you through a minefield.
+  // ── THE STREET UNDER THE FEET ─────────────────────────────────────────────
+  // One read per feet-cell change (playerToWorldCell — never the camera
+  // anchor): the tile's street marks (StreetVariants.dress) and its MAJOR band
+  // (entry.roadClass) say which street this is, and the first entry onto each
+  // variant — and onto a bandit road — tells its story once per save
+  // (_storySplashOnce, keyed and painted by the row's `story` stem); a later
+  // entry after being off it for STREET_FLASH_GAP_MS gets its map line. The
+  // same cell says whether a Burned Row's tar pit or iron stakes are under
+  // the body: `_slowHere`, which _bodyHold reads as the SLOW reason.
+  _tickStreetFeet() {
+    if ((this.depth || 0) !== 0 || typeof StreetVariants === 'undefined' || !this.startWorldM) {
+      this._slowHere = null;
+      this._streetStoryHere = null;
+      return;
+    }
+    const pc = this.playerToWorldCell();
+    const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
+    const key = `${pc.tx}_${pc.ty}_${lix}_${liy}`;
+    if (key === this._streetFeetKey) return;
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+    if (!entry || !entry._spawned) { this._slowHere = null; return; }   // retry next frame
+    this._streetFeetKey = key;
+    const N = entry.cellsPerEdge;
+    if (!(N > 0) || lix < 0 || liy < 0 || lix >= N || liy >= N) return;
+    const i = liy * N + lix;
+    const ps = this.playerScreen ? this.playerScreen() : null;
+    const say = (msg) => this.flash(msg, ps ? ps.x : undefined,
+      ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
+    // SLOW: first contact with a patch says so; standing on it again later
+    // does too (it is a hazard, not a story).
+    const was = this._slowHere;
+    this._slowHere = (entry.slowCells && entry.slowCells.get(i)) || null;
+    if (this._slowHere && !was) {
+      say(this._slowHere === 'tar' ? 'Tar grips your boots.' : 'Iron stakes. Slow going.');
+    }
+    // THE STORY: which street is this?
+    const code = entry.streetMarks ? entry.streetMarks[i] : 0;
+    let row = code ? StreetVariants.variantByCode(code) : null;
+    if (!row && entry.roadClass && (entry.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BAND)) {
+      row = StreetVariants.BANDIT_STORY;
+    }
+    if (!row) { this._streetStoryHere = null; return; }
+    if (row.story === this._streetStoryHere) return;
+    this._streetStoryHere = row.story;
+    const seen = this.save.storySeen && this.save.storySeen[row.story];
+    if (!seen) {
+      this._storySplashOnce(row.story, { art: row.story, title: row.title, body: row.body });
+      return;
+    }
+    const last = (this._streetFlashAt = this._streetFlashAt || {});
+    const now = performance.now();
+    if (now - (last[row.story] || -Infinity) < STREET_FLASH_GAP_MS) return;
+    last[row.story] = now;
+    say(row.flash);
+  }
+
+  // ── What holds the BODY back from the fix ─────────────────────────────────
+  // ONE gate, two reasons (the movement block in update() reads it):
+  //   pinned — a trap's jaw holds the body still (_pinnedUntil).
+  //   capMS  — the feet are on a Burned Row's tar pit or iron stakes
+  //            (_tickStreetFeet's `_slowHere`): the body may advance toward
+  //            the target at no more than SLOW_BODY_M_S, so it falls behind
+  //            the GPS fix and catches up, on the ordinary follow ramp, once
+  //            off the patch. Tap-to-walk, the stick and the keyboard all
+  //            move the TARGET, so all of them obey it. No damage, no save.
+  //            (A downed body does not walk anyway.)
+  _bodyHold() {
+    const pinned = performance.now() < (this._pinnedUntil || 0);
+    const capMS = (!pinned && this._slowHere && !this._dragonActive) ? SLOW_BODY_M_S : null;
+    return { pinned, capMS };
+  }
+
   _tickTraps(dt) {
     if (typeof Traps === 'undefined' || !this.startWorldM || !this.originPx) return;
     // The memo goes down with the tick, so the cell is read fresh the moment
@@ -3952,7 +4034,10 @@ class MapScene extends Phaser.Scene {
     // energy drain while clamped. When the pin expires it clears itself and
     // tells the "pried free" story once per save (a busy screen returns
     // false unmarked; the splash is lost that once, which is fine).
-    if (performance.now() < (this._pinnedUntil || 0)) {
+    // The gate is _bodyHold: the pin above, and SLOW (tar / stakes) as its
+    // second reason — a cap on the follow step rather than a hold.
+    const bodyHold = this._bodyHold();
+    if (bodyHold.pinned) {
       // held fast - no movement this frame
     } else {
       if (this._pinnedUntil) {
@@ -3969,7 +4054,7 @@ class MapScene extends Phaser.Scene {
       else this._driftHome(dt);
       // Keyboard → steer the target directly, free, no offset.
       this._steerTarget(vx, vy, speedMul, dt);
-      this._followStep(dt);
+      this._followStep(dt, bodyHold.capMS);
     }
     // One throttled flash for the stick-walking drain banked in _steerManual,
     // same shape as the slime-leech / monster-hit roll-ups below (1200ms, one
@@ -4323,7 +4408,10 @@ class MapScene extends Phaser.Scene {
       this.advanceGrowth();
     }
 
-    // DERELICT LAIRS — hard mode only. Wake the garrisons of ruins the player
+    // DERELICT LAIRS — the ruins are hard mode's; the STREET structures (a
+    // bandit road's wagon, a hedgerow close — lairs.js ALWAYS_AWAKE_TIERS)
+    // are held in every mode, so the pass runs in both and `buildings` says
+    // which ruins it may wake. Wake the garrisons of ruins the player
     // has come near and sleep the ones they have left behind (src/lairs.js owns
     // every number). Throttled: the wake ring stands 4 cells outside the sleep
     // ring, which is ~20 seconds of walking, so half a second between passes
@@ -4332,7 +4420,7 @@ class MapScene extends Phaser.Scene {
     // wake a ruin the player has not walked to (CLAUDE.md's camera rule).
     //   Surface only: buildingShapes is a surface tile's data, and the world is
     // GPS-mirrored, so a cave level must not wake the ruins above it.
-    if (typeof Lairs !== 'undefined' && Difficulty.get().derelictLairs &&
+    if (typeof Lairs !== 'undefined' &&
         (this.depth || 0) === 0 && !window.__TEST_MODE &&
         performance.now() - (this._lastLairT || 0) > 500) {
       this._lastLairT = performance.now();
@@ -4358,6 +4446,7 @@ class MapScene extends Phaser.Scene {
           isClaimed: (key) => this.isClaimedKey(key),
           caughtSet: setOf(this.save.caught),
           hpMemo: this._lairHp,
+          buildings: !!Difficulty.get().derelictLairs,
         });
       }
     }
@@ -4376,6 +4465,9 @@ class MapScene extends Phaser.Scene {
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
     this._tickTraps(dt);
+    // …and which STREET are the feet on — a variant's first-entry story, and
+    // whether tar or stakes are slowing the body (the same feet cell).
+    this._tickStreetFeet();
     // …and is the player standing in lava (the lava level only)?
     this._tickLava(dt);
     // …and did an enemy just walk onto one of the player's Magic Traps?
@@ -6667,7 +6759,7 @@ class MapScene extends Phaser.Scene {
   // single-cell jog around it (_detourDir) and only dig if no such trivial
   // detour exists. _startAutoMine no-ops unless a wall is really ahead, so a
   // body merely outrun by fast steering on open floor won't dig.
-  _followStep(dt) {
+  _followStep(dt, capMS) {
     // No target yet (surface before the first fix / any steer) — stand still.
     if (!this._targetM) { this._playDirected(this.player, 'idle'); return; }
     // A wheel is running (auto-mine, or a manual chop/mine the player tapped):
@@ -6707,7 +6799,8 @@ class MapScene extends Phaser.Scene {
     const stickMul = this._stickPushed() ? steerSpeedMul(this._walkRelics()) : 1;
     const mul = Math.min(Math.max(DEBUG_SPEED_MUL, stickMul),
                          Math.max(stickMul, 1 + dist / FOLLOW_RAMP_M));
-    const move = Math.min(WALK_M_S * mul * dt, dist);
+    // SLOW (_bodyHold): tar or stakes underfoot cap the body's pace.
+    const move = Math.min(WALK_M_S * mul * dt, dist, capMS > 0 ? capMS * dt : Infinity);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
     const open = (nx, ny) =>
@@ -8357,7 +8450,7 @@ class MapScene extends Phaser.Scene {
     const mul = Difficulty.get().trapCountMul;
     const sprung = setOf(this.save.sprungTraps);
     WorldGen.tileCache?.forEach?.((entry, key) => {
-      if (!entry || !entry.grid || !entry.roadMask || !entry._spawned) return;
+      if (!entry || !entry.grid || !entry.roadClass || !entry._spawned) return;
       if (!entry._spawnOpts) return;
       const [, sx, sy] = String(key).split('/');
       const tx = Number(sx), ty = Number(sy);
@@ -8366,7 +8459,7 @@ class MapScene extends Phaser.Scene {
       // Off the GENERATED grid, like the spawn pass's own roll — the live one
       // carries this player's edits (spawnInTile's genGrid note).
       const genGrid = entry.baseGrid || entry.grid;
-      const laid = Traps.spawnSurface(genGrid, entry.roadMask, N, N, tx, ty,
+      const laid = Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty,
         this.tileEdgeM, entry._spawnOpts, mul);
       // Keep any already-discovered trap the new roll missed, one per cell.
       const cells = new Set(laid.map((t) => t._iy * N + t._ix));
@@ -11798,11 +11891,22 @@ class MapScene extends Phaser.Scene {
     // half of every verge offset below.
     const cellM = (entry.cellsPerEdge > 0) ? tileEdgeM / entry.cellsPerEdge : (this.cellM || 0);
     const footRM = STREET_LAMP_R_CELLS * cellM;
+    // LANTERN ROW (src/street_variants.js) is this lane, denser: a line whose
+    // street rolled 'lantern' stands its lamps at StreetVariants.lampSpacingFor
+    // — the same lamp, the same lit-when-restored rule, no prop of its own.
+    // The index keys lines by (feature, line) position in this same layer.
+    const lanternLines = new Set();
+    if (entry.streetIndex && typeof StreetVariants !== 'undefined') {
+      for (const rec of entry.streetIndex.lines) {
+        if (rec.variant === 'lantern') lanternLines.add(`${rec.fi}:${rec.li}`);
+      }
+    }
     for (const layer of entry.layers) {
       if (layer.name !== 'transportation') continue;
       const extent = layer.extent || 4096;
       const mvtToM = tileEdgeM / extent;
-      for (const f of layer.features) {
+      for (let fi = 0; fi < layer.features.length; fi++) {
+        const f = layer.features[fi];
         if (f.type !== 2 || !f.geom) continue;          // lines only
         const cls = (f.tags && f.tags.class) || '';
         if (cls === 'rail' || cls === 'transit') continue;
@@ -11815,7 +11919,9 @@ class MapScene extends Phaser.Scene {
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
-          const at = Streets.lampsAlong(line, mvtToM);
+          const at = lanternLines.has(`${fi}:${i}`)
+            ? Streets.lampsAlong(line, mvtToM, StreetVariants.lampSpacingFor('lantern'))
+            : Streets.lampsAlong(line, mvtToM);
           if (!at.length) continue;
           const spans = Streets.tileSpans(line, mvtToM, extent);
           if (!spans.length) continue;

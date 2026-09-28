@@ -65,7 +65,7 @@ const rasterize = (layers, tx = 0, ty = 0) =>
 const optsFor = (r) => ({ roadMask: r.roadMask, pois: [] });
 
 const spawnFor = (r, tx = 0, ty = 0) =>
-  Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, tx, ty, TILE_EDGE_M, optsFor(r));
+  Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, tx, ty, TILE_EDGE_M, optsFor(r));
 
 // Trap world-metres → this tile's local cell index.
 const cellOf = (v) => Math.floor(v / (TILE_EDGE_M / CPE));
@@ -106,11 +106,11 @@ test('traps: opts.occupied keeps a trap off a cell an object already holds', () 
   const occupied = new Set();
   for (let cy = 0; cy < CPE; cy++) {
     for (let cx = 0; cx < CPE; cx++) {
-      if (Traps.isRoadside(r.roadMask, CPE, CPE, cx, cy)) occupied.add(cy * CPE + cx);
+      if (Traps.isRoadside(r.roadClass, CPE, CPE, cx, cy)) occupied.add(cy * CPE + cx);
     }
   }
   const opts = { roadMask: r.roadMask, pois: [], occupied };
-  const traps = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
+  const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
   assert.eq(traps.length, 0, 'every verge cell was claimed, so nothing could seat');
   // Freeing every other verge cell (a checkerboard over the claim, not one
   // single cell) lets the pass seat again — deterministically, since the
@@ -119,7 +119,7 @@ test('traps: opts.occupied keeps a trap off a cell an object already holds', () 
   // inside the attempt budget. Every trap that DOES land must land on a cell
   // that was freed, whichever ones the rng happens to pick.
   for (const idx of [...occupied]) if (idx % 2 === 0) occupied.delete(idx);
-  const partial = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
+  const partial = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
   assert.gt(partial.length, 0, 'freeing half the verge lets traps back in');
   for (const tp of partial) {
     const idx = cellOf(tp.y) * CPE + cellOf(tp.x);
@@ -135,37 +135,77 @@ test('traps: "along the road" means it — every trap is on the verge of a band'
     const ix = cellOf(tp.x), iy = cellOf(tp.y);
     // Pinned against the SHIPPING predicate, not a restatement of it: if the
     // definition of "roadside" is ever widened, this asks the new question.
-    assert.truthy(Traps.isRoadside(r.roadMask, CPE, CPE, ix, iy),
+    assert.truthy(Traps.isRoadside(r.roadClass, CPE, CPE, ix, iy),
       `trap at ${ix},${iy} is not on the verge of any road band`);
   }
 });
 
-test('traps: the verge is the band\'s EDGE neighbours, and never the band itself', () => {
+test('traps: the verge is the MAJOR band\'s edge, never the band itself, never a minor street', () => {
+  // MOVED (street variants): surface traps are the bandit roads' — the MAJOR
+  // ways' verge (WorldGen.ROAD_CLASS_MAJOR_VERGE) and wasteland. The ordinary
+  // street along row 10 is masked but has NO roadside any more.
   const r = rasterize(roadyLayers());
-  // The ordinary street runs along row 10; its shoulders are rows 9 and 11.
   const col = 12;                               // clear of the motorway at col 32
   assert.eq(r.roadMask[10 * CPE + col], 1, 'the street cell is masked');
-  assert.falsy(Traps.isRoadside(r.roadMask, CPE, CPE, col, 10),
-    'a masked cell is never roadside — that IS the road');
-  assert.truthy(Traps.isRoadside(r.roadMask, CPE, CPE, col, 9), 'north shoulder');
-  assert.truthy(Traps.isRoadside(r.roadMask, CPE, CPE, col, 11), 'south shoulder');
-  assert.falsy(Traps.isRoadside(r.roadMask, CPE, CPE, col, 8), 'two cells out is not');
+  for (const y of [9, 10, 11]) {
+    assert.falsy(Traps.isRoadside(r.roadClass, CPE, CPE, col, y), `a minor street has no trap verge (row ${y})`);
+  }
+  // The motorway down col 32 (18 m band): masked at 31..33, verge at 30 and 34.
+  const row = 40;
+  for (const x of [31, 32, 33]) {
+    assert.eq(r.roadMask[row * CPE + x], 1, `motorway cell ${x} is masked`);
+    assert.falsy(Traps.isRoadside(r.roadClass, CPE, CPE, x, row), 'a masked cell is never roadside — that IS the road');
+  }
+  assert.truthy(Traps.isRoadside(r.roadClass, CPE, CPE, 30, row), 'west shoulder');
+  assert.truthy(Traps.isRoadside(r.roadClass, CPE, CPE, 34, row), 'east shoulder');
+  assert.falsy(Traps.isRoadside(r.roadClass, CPE, CPE, 28, row), 'two cells out is not');
+});
+
+test('traps: wasteland is trap ground; a minor street through it adds nothing', () => {
+  const layers = [
+    { name: 'landuse', features: [{ type: 3, tags: { class: 'railway' }, geom: [wholeTile()] }] },
+    { name: 'transportation', features: [
+      { type: 2, tags: { class: 'minor' }, geom: [line([[0, 10], [CPE - 1, 10]])] }] },
+  ];
+  const r = rasterize(layers);
+  let waste = 0;
+  for (let i = 0; i < r.grid.length; i++) if (r.grid[i] === T.WASTELAND) waste++;
+  assert.gt(waste, 0, 'the fixture is waste ground');
+  const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 10);
+  assert.gt(traps.length, 0, 'waste ground holds traps');
+  for (const tp of traps) {
+    assert.eq(r.grid[tp._iy * CPE + tp._ix], T.WASTELAND, 'every one on the waste ground');
+    assert.eq(r.roadMask[tp._iy * CPE + tp._ix], 0, 'never under the band');
+  }
+});
+
+test('traps: the count is capped at a share of the trap ground that scales with the mode', () => {
+  const r = rasterize(roadyLayers());
+  let ground = 0;
+  for (let y = 0; y < CPE; y++) for (let x = 0; x < CPE; x++) if (Traps.isTrapGround(r.grid, r.roadClass, CPE, CPE, x, y)) ground++;
+  for (const mul of [10, 25]) {
+    const n = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), mul).length;
+    const cap = Math.max(1, Math.floor(ground * Traps.TRAP_GROUND_SHARE_PER_MUL * mul * Traps.tileDanger(0, 0)));
+    assert.truthy(n <= cap, `at ${mul}x: ${n} traps over the cap ${cap}`);
+  }
+  assert.truthy(/n = Math\.min\(n, Math\.max\(1, Math\.floor\(seen \* TRAP_GROUND_SHARE_PER_MUL \* mul\)\)\);/.test(ALL_SRC['traps.js']),
+    'the cap reads the pool size, never a draw');
 });
 
 test('traps: the roadside sample is uniform over the whole verge, and bounded', () => {
   const r = rasterize(roadyLayers());
   let verge = 0;
   for (let y = 0; y < CPE; y++) {
-    for (let x = 0; x < CPE; x++) if (Traps.isRoadside(r.roadMask, CPE, CPE, x, y)) verge++;
+    for (let x = 0; x < CPE; x++) if (Traps.isRoadside(r.roadClass, CPE, CPE, x, y)) verge++;
   }
   assert.gt(verge, Traps.ROADSIDE_SAMPLE,
     'the fixture has more verge than the reservoir holds — the sampling path is exercised');
   const rng = WorldGen.makeRng(12345);
-  const s = Traps.sampleRoadsideCells(r.roadMask, CPE, CPE, rng, Traps.ROADSIDE_SAMPLE);
+  const s = Traps.sampleTrapCells(r.grid, r.roadClass, CPE, CPE, rng, Traps.ROADSIDE_SAMPLE).cells;
   assert.eq(s.length, Traps.ROADSIDE_SAMPLE,
     'the reservoir fills, and never grows past its size however big the tile');
   for (const idx of s) {
-    assert.truthy(Traps.isRoadside(r.roadMask, CPE, CPE, idx % CPE, (idx / CPE) | 0),
+    assert.truthy(Traps.isRoadside(r.roadClass, CPE, CPE, idx % CPE, (idx / CPE) | 0),
       'every sampled cell is on the verge');
   }
   // Uniform, not "the first 96 cells in scan order": the reservoir must reach
@@ -176,7 +216,7 @@ test('traps: the roadside sample is uniform over the whole verge, and bounded', 
 
 test('traps: the local cell indices agree with the world metres they carry', () => {
   const r = rasterize(roadyLayers(), 3, -2);
-  for (const tp of Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 3, -2, TILE_EDGE_M, optsFor(r))) {
+  for (const tp of Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 3, -2, TILE_EDGE_M, optsFor(r))) {
     const mPerCell = TILE_EDGE_M / CPE;
     assert.eq(Math.floor((tp.x - 3 * TILE_EDGE_M) / mPerCell), tp._ix, 'x → _ix');
     assert.eq(Math.floor((tp.y - -2 * TILE_EDGE_M) / mPerCell), tp._iy, 'y → _iy');
@@ -201,9 +241,13 @@ test('traps: a tile with no charted road has no roadside, so it has no traps', (
 
 test('traps: countMul scales the surface density, and every extra trap still obeys the rules', () => {
   const r = rasterize(roadyLayers());
-  const base = spawnFor(r);
-  const mul10 = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 10);
-  const mul100 = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 100);
+  // A dangerous tile, so the ground cap (a share scaled by the same
+  // multiplier) leaves room at 1x vs 10x on this small fixture's verge.
+  let TX = 0;
+  while (Traps.tileDanger(TX, 0) < 1.5) TX++;
+  const base = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, TX, 0, TILE_EDGE_M, optsFor(r));
+  const mul10 = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, TX, 0, TILE_EDGE_M, optsFor(r), 10);
+  const mul100 = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, TX, 0, TILE_EDGE_M, optsFor(r), 100);
   assert.gt(mul10.length, base.length, '10x lays more traps than the base rate');
   assert.gt(mul100.length, mul10.length, '100x lays more again than 10x');
   const seen = new Set();
@@ -219,7 +263,7 @@ test('traps: countMul scales the surface density, and every extra trap still obe
   // No multiplier passed (undefined, as every existing call site pre-dating
   // countMul does) must reproduce the exact base-rate rng draw — the reservoir
   // stays at ROADSIDE_SAMPLE rather than widening.
-  const implicit = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r));
+  const implicit = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, TX, 0, TILE_EDGE_M, optsFor(r), undefined);
   assert.eq(JSON.stringify(implicit.map((t) => t.id)), JSON.stringify(base.map((t) => t.id)),
     'an omitted countMul is identical to the pre-multiplier behaviour');
 });
@@ -235,7 +279,7 @@ test('traps: the danger roll reaches the count, on its own stream', () => {
     if (d > 1.5 && !bad) bad = t;
   }
   assert.truthy(calm != null && bad != null, 'found both kinds of tile');
-  const n = (tx) => Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, tx, 3, TILE_EDGE_M, optsFor(r), 10).length;
+  const n = (tx) => Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, tx, 3, TILE_EDGE_M, optsFor(r), 10).length;
   assert.gt(n(bad), n(calm) * 2, 'a dangerous tile lays well over twice a calm one\'s traps');
   assert.truthy(/const mul = \(countMul > 0 \? countMul : 1\) \* tileDanger\(tx, ty\);/.test(ALL_SRC["traps.js"]),
     'the danger multiplies the mode, not the placement rng');
@@ -261,7 +305,7 @@ test('traps: the same tile lays the same traps every time it is built', () => {
 test('traps: a different tile lays a different set', () => {
   const r = rasterize(roadyLayers());
   const here = spawnFor(r, 0, 0).map((t) => t.id);
-  const there = Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 7, 11, TILE_EDGE_M, optsFor(r))
+  const there = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 7, 11, TILE_EDGE_M, optsFor(r))
     .map((t) => t.id);
   assert.falsy(here.length === there.length && here.every((id, i) => id === there[i]),
     'the tile coordinates are actually in the seed');
@@ -269,7 +313,7 @@ test('traps: a different tile lays a different set', () => {
 
 test('traps: the id carries the tile and cell, so it is stable across a reload', () => {
   const r = rasterize(roadyLayers(), 5, 6);
-  for (const tp of Traps.spawnSurface(r.grid, r.roadMask, CPE, CPE, 5, 6, TILE_EDGE_M, optsFor(r))) {
+  for (const tp of Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 5, 6, TILE_EDGE_M, optsFor(r))) {
     assert.eq(tp.id, `trap_5_6_${tp._ix}_${tp._iy}`, 'id is derived, not counted');
   }
 });
@@ -424,9 +468,9 @@ test('traps: standing on one out-drains the fastest passive rest in the game', (
 
 test('traps: the surface spawn passes the SHARED spawn options, mask and all', () => {
   assert.truthy(
-    /Traps\.spawnSurface\(genGrid, entry\.roadMask, N, N, tx, ty, this\.tileEdgeM, _spawnOpts,/
+    /Traps\.spawnSurface\(genGrid, entry\.roadClass, N, N, tx, ty, this\.tileEdgeM, _spawnOpts,/
       .test(SCENE_CREATURES_SRC),
-    'spawnInTile hands Traps.spawnSurface entry.roadMask and _spawnOpts — the same '
+    'spawnInTile hands Traps.spawnSurface entry.roadClass and _spawnOpts (the mask) — the same '
     + 'options every other spawner in that method uses — over the GENERATED grid '
     + '(genGrid), like every other draw in the pass');
   assert.truthy(/Traps\.spawnSurface\([^;]*Difficulty\.get\(\)\.trapCountMul/.test(SCENE_CREATURES_SRC),
@@ -491,8 +535,8 @@ test('traps: answering the how-to card re-lays the traps at that mode\'s density
   assert.truthy(/entry\._spawnOpts/.test(relay),
     'through the tile\'s OWN shared spawn options — a second copy of the road '
     + 'rule here is how drawn-as-road and no-spawn-here drift apart');
-  assert.truthy(/entry\.roadMask/.test(relay),
-    'and the mask itself, never the terrain grid');
+  assert.truthy(/entry\.roadClass/.test(relay),
+    'and the road class (the major verge) itself, never the terrain grid');
   assert.truthy(/\(this\.depth \|\| 0\) !== 0/.test(relay),
     'surface only: cave traps are flat-scaled by DUNGEON_DENSITY_MUL, and '
     + 'WorldGen.tileCache is repointed underground');

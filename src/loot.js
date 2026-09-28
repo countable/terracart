@@ -570,6 +570,10 @@ function produceStandFor(o) {
 //   coin  → the pot of gold: a coin-burst POI. A cave-level mirror of one
 //           (worldgen.js caveChestsFrom) is a plain chest — the burst is a
 //           street thing, the same gate interactables.js puts on the burst.
+//   wagon → the broken wagon: a bus stop on a BANDIT ROAD (a MAJOR way —
+//           StreetVariants.markBanditStops stamps `banditStop`). The same
+//           chest: id, tier, contents and `opened` are untouched; only the
+//           look (and the one goblin lairs.js seats beside it) changes.
 //   box   → the small crate sprite: a starter supply crate, or a tier-1 chest
 //   —     → the trunk chest
 // `texKey` is the texture key the RENDERER draws, so a caller that wants the
@@ -588,8 +592,9 @@ function chestLook(o) {
   // Starter supply crates always use the box sprite; so does a tier-1 chest.
   const box = !!o.crate
     || ((typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth) : 2) === 1;
-  const texKey = coin ? 'potofgold' : (stand ? 'market_stand' : (box ? 'box' : 'chest'));
-  return (o._chestLook = { stand, coin, box, texKey });
+  const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !coin;
+  const texKey = coin ? 'potofgold' : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest')));
+  return (o._chestLook = { stand, coin, box: box && !wagon, wagon, texKey });
 }
 
 

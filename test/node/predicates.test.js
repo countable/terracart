@@ -224,8 +224,10 @@ test('the literal spellings are gone from the readers', () => {
     // The nine that cast one, and the four that deliberately do not:
     // house/tower take the bespoke footprint math, groundstack already lies on
     // the ground, staircase is a hole cut into it.
+    // (+ the street variants' standing props: the waystone and the stakes;
+    // the tar pit lies flat and casts none.)
     const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well', 'pole',
-                      '_scarecrow', '_fire', 'torch'];
+                      '_scarecrow', '_fire', 'torch', 'waystone', 'stakes'];
     for (const k of expected) assert.truthy(flagged.has(k), `${k} casts a contact shadow`);
     for (const k of ['house', 'tower', 'groundstack', 'staircase']) {
       assert.falsy(flagged.has(k), `${k} does not`);

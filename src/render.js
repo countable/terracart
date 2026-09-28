@@ -2663,6 +2663,13 @@ Render.drawObjects = function drawObjects(scene) {
   // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
   // 32px cell.
   const CRATE_SCALE = 0.8;
+  // The broken WAGON a bandit-road bus stop wears (loot.js chestLook): the
+  // 128×96 frame's art is 88 px wide (x 20..108) and ends 2 px above the frame
+  // bottom, so 0.55 draws it ~1.5 cells wide, and WAGON_DY_PX drops the
+  // foot-anchored frame so the art's bottom row sits 1 px above the POI cell's
+  // bottom edge (half a cell, less that pixel, plus the 2 blank rows scaled).
+  const WAGON_SCALE = 0.55;
+  const WAGON_DY_PX = CELL_PX * 0.5 - 1 + 2 * WAGON_SCALE;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
   // to the generic 'house' texture (the tinted shared sprite). Order
   // matters: starter wins over tier wins over shopType — so a tier-11
@@ -2996,10 +3003,14 @@ Render.drawObjects = function drawObjects(scene) {
               // awning frame for their product family (see produceStandFor).
               frame: (o) => { const L = chestLook(o);
                               return L.coin ? undefined : (L.stand ? L.stand.frame : 0); },
+              // THE WAGON (a bus stop on a bandit road): 128×96 art, drawn at
+              // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
+              // a structure, not a chest, so it is not seated; its wheels sit
+              // on the POI cell's bottom edge and the body rises north over it.
               // Stand: 80×80 stall art, foot-anchored like a small house so its
               // body rises north over the POI cell.
               origin: (o) => { const L = chestLook(o);
-                               return L.stand ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
+                               return (L.stand || L.wagon) ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
               // Every chest kind and the market stall were drawn 10% smaller
               // than they used to be (per playtest — they crowded their cell),
               // about the SAME centre: the seated kinds (trunk chest, crates)
@@ -3012,7 +3023,7 @@ Render.drawObjects = function drawObjects(scene) {
               // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
               // are structures, not chests, and kept their scale.
               scale: (o) => { const L = chestLook(o);
-                              return L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.72)); },
+                              return L.wagon ? WAGON_SCALE : (L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.72))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -3036,10 +3047,10 @@ Render.drawObjects = function drawObjects(scene) {
               // (= 45px art-centre-above-anchor × 0.54 - 5), which keeps the
               // stall exactly where it was, just 10% smaller.
               dyPx: (o) => { const L = chestLook(o);
-                             return L.stand ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0)); },
+                             return L.wagon ? WAGON_DY_PX : (L.stand ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0))); },
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => { const L = chestLook(o); return !L.stand && !L.coin; },
+              seat: (o) => { const L = chestLook(o); return !L.stand && !L.coin && !L.wagon; },
               shadow: true },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
@@ -3158,6 +3169,14 @@ Render.drawObjects = function drawObjects(scene) {
     // so a plain frame-centred origin works — the seat pass refines the
     // final offsets from the trimmed bounds.
     pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, seat: true, shadow: true },
+    // STREET VARIANT PROPS (src/street_variants.js). All 16px generated art
+    // drawn at 1.6 (~26px) and SEATED in their one cell. The waystone stands
+    // (a tap reads a page of the Book — INTERACTABLES.waystone); the tar pit
+    // and the iron stakes are the Burned Row's hazards (they SLOW the body —
+    // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
+    waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    stakes:   { key: 'stakes',   frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. Tap
     // refills the watering can (interact.js). scale 0.9 draws the 30px frame at
     // ~27px, inside its one cell (QC rule); the seat pass centres it there off

@@ -454,7 +454,11 @@ const TAP_HANDLERS = [
       // ONE find, paid on the spot — no pick (the road ladder's pick is the
       // only "several finds, keep one"). Underground the roll takes the cave
       // skew (app.js digTreasureOpts).
-      grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default', scene.digTreasureOpts?.());
+      // A mark that carries its own rollBonus (a hedgerow close's hoard —
+      // StreetVariants.dress) pays that many extra roll steps on top.
+      const dig = scene.digTreasureOpts?.();
+      grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default',
+        tr.rollBonus > 0 ? { ...(dig || {}), rollBonus: tr.rollBonus } : dig);
       ctx.dirty = true;
       return true;
     };

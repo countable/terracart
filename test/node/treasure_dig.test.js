@@ -7,7 +7,9 @@
 
 test('treasure dig: the mark is spent, then ONE roll pays from the X pool', () => {
   const src = INTERACT_SRC;
-  assert.truthy(/save\.foundTreasures = \[\.\.\.found, tr\.id\];[\s\S]{0,300}?\n\s*grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default', scene\.digTreasureOpts\?\.\(\)\);/.test(src),
+  // A mark may carry its own rollBonus (a hedgerow close's hoard —
+  // StreetVariants.dress); every other mark rolls exactly as before.
+  assert.truthy(/save\.foundTreasures = \[\.\.\.found, tr\.id\];[\s\S]{0,500}?\n\s*grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default',\s*tr\.rollBonus > 0 \? \{ \.\.\.\(dig \|\| \{\}\), rollBonus: tr\.rollBonus \} : dig\);/.test(src),
     'the mark is spent (no reload re-roll), then the single roll pays, cave-skewed underground');
   assert.falsy(/digTreasurePick/.test(src), 'no pick on the dig');
   assert.falsy(/digTreasurePick/.test(APP_JS_SRC), 'and no pick method left behind');

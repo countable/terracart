@@ -41,9 +41,12 @@ const TOOL_SRC = lift(app, '_toolActionStory(action) {', '_toolActionStory');
 
 // The gated movement block inside update(): from the pin gate to the closing
 // brace of its else. Run for real below with (stick, vx, vy, speedMul, dt).
+// The gate is _bodyHold (the pin, plus SLOW as its second reason — see
+// street_slow.test.js); the block starts where update() asks it.
+const HOLD_SRC = lift(app, '_bodyHold() {', '_bodyHold');
 const MOVE_SRC = (() => {
-  const a = app.indexOf('if (performance.now() < (this._pinnedUntil || 0)) {');
-  const mark = 'this._followStep(dt);\n    }';
+  const a = app.indexOf('const bodyHold = this._bodyHold();');
+  const mark = 'this._followStep(dt, bodyHold.capMS);\n    }';
   const b = a < 0 ? -1 : app.indexOf(mark, a);
   assert.truthy(a > 0 && b > a, 'found the trap-pin movement gate in update()');
   return app.slice(a, b + mark.length);
@@ -51,6 +54,7 @@ const MOVE_SRC = (() => {
 const moveStep = new Function('stick', 'vx', 'vy', 'speedMul', 'dt', MOVE_SRC);
 
 const tickMethods = new Function(`return {\n${TICK_SRC}\n};`)();
+const holdMethods = new Function(`return {\n${HOLD_SRC}\n};`)();
 const storyMethods = new Function(`return {\n${STORY_SRC},\n${TOOL_SRC}\n};`)();
 
 const TRAP_STEMS = ['trap_jaw', 'trap_free'];
@@ -76,12 +80,13 @@ test('trap pin: the spring branch stamps _pinnedUntil 3 s out', () => {
 });
 
 test('trap pin: the movement block is gated on the pin, all four steps together', () => {
-  assert.truthy(/if \(performance\.now\(\) < \(this\._pinnedUntil \|\| 0\)\) \{/.test(app),
-    'update() reads the pin');
+  assert.truthy(/const pinned = performance\.now\(\) < \(this\._pinnedUntil \|\| 0\);/.test(HOLD_SRC),
+    '_bodyHold reads the pin');
+  assert.truthy(/if \(bodyHold\.pinned\) \{/.test(MOVE_SRC), 'update() gates on it');
   for (const step of ['this._steerManual(stick.x, stick.y, dt);',
                       'this._driftHome(dt);',
                       'this._steerTarget(vx, vy, speedMul, dt);',
-                      'this._followStep(dt);']) {
+                      'this._followStep(dt, bodyHold.capMS);']) {
     assert.truthy(MOVE_SRC.includes(step), `${step} sits inside the gate`);
   }
   const clear = MOVE_SRC.indexOf('this._pinnedUntil = 0;');
@@ -100,6 +105,7 @@ function pinScene() {
     _driftHome: () => { calls.drift++; },
     _steerTarget: () => { calls.target++; },
     _followStep: () => { calls.follow++; },
+    _bodyHold: holdMethods._bodyHold,
     _storySplashOnce: (key, opts) => { calls.splashes.push([key, opts]); return true; },
   };
   return { scene, calls };

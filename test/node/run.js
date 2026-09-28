@@ -74,6 +74,10 @@ const FILES = [
   // grid traversal and the dwell sight. Pure — no Phaser, no scene — so it
   // loads here beside trail.js, whose ladder it feeds.
   'streets.js',
+  // Street variants — the street key, the variant roll, the index and the
+  // dressing. Pure (reads WorldGen / Streets at CALL time), before worldgen.js
+  // like the page loads it.
+  'street_variants.js',
   'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
   // loads either side of worldgen.js; index.html puts it first, so do we.

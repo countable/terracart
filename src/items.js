@@ -110,6 +110,12 @@ const CROP_SPRITE = {
   marigold:    { sheet: 'props', custom: true, frame: 34,  scale: 1.13 },  // golden marigold (row 1, col 12)
   wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.13 },  // red wild rose (row 1, col 8)
   starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.13 },  // glowing purple star-flower (row 4, col 14)
+  // ── Street variants (src/street_variants.js) — both CHOPPED like a shrub
+  // (WILDPLANT_RULES below), never scenery. The hedgerow's clipped hedge is
+  // props32 r8c5 (frame 7*9+4 = 67); the barricade road's barricade is the
+  // generated 16px piece.
+  hedge:       { sheet: 'props32', custom: true, frame: 67, scale: 0.9 },
+  barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
 };
 
 // ── Which frame does THIS wild plant draw? ─────────────────────────────────
@@ -167,6 +173,10 @@ const WILDPLANT_RULES = {
   // work: the axe relic's ladder times the wheel and `workCharged` puts the
   // shared 9/3/1 tool curve on the bar.
   shrub:     { output: 'wood', workRelic: 'axe', workCharged: true },
+  // A hedgerow's hedge and a barricade road's barricade are the shrub's row —
+  // one lane, two more things standing on it: axe work, wood, `picked`.
+  hedge:     { output: 'wood', workRelic: 'axe', workCharged: true },
+  barricade: { output: 'wood', workRelic: 'axe', workCharged: true },
   // Stone debris. The pick relic's ladder times the wheel the same way a rock
   // does — but gathering loose rubble off the ground costs no energy, so no
   // `workCharged`. The one wild plant that hides something.
@@ -1069,7 +1079,7 @@ const PLAY_TIPS = [
   'Fight where you truly stand. While the stick has carried you off your real footing, every blow and shot lands a third softer — walk there yourself to strike at full strength.',
   'The bar over a foe is its health, not a timer — green, then amber, then red.',
   'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
-  'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 3 a second, so step off rather than wait it out.',
+  'Snares lie hidden on the verges of the big roads, in waste ground, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 3 a second, so step off rather than wait it out.',
   ITEM_GUIDE_TIPS.trap_kit,
   // The ghosts (app.js GHOST_*, combat.js MONSTERS.ghost): the first night
   // can be the first session, and a touch is an eighth of a fresh bar — so
@@ -1119,7 +1129,19 @@ const PLAY_TIPS = [
   'A castle you have claimed offers one favour a day: a rest, or its taxes.',
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
   // ── The land you walk over ──────────────────────────────────
-  'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
+  // StreetVariants.ROCK_STREET_SHARE (a quarter) — books.test.js re-derives it.
+  'Wild rock lines about one residential street in four; shrubs grow in parks, woods and industrial lots.',
+  // The bandit roads (src/street_variants.js MAJOR size, lairs.js 'wagon',
+  // traps.js trap ground, scene_creatures.js dogs).
+  'The big roads are bandit country in every mode: snares on the verges, dogs on the prowl, and a goblin guarding each broken wagon at a stop.',
+  // app.js SLOW_BODY_M_S / _bodyHold.
+  'Tar and iron stakes on a burned road drag at your feet: your body falls behind where you truly stand until you step clear.',
+  // interactables.js INTERACTABLES.waystone.
+  'Touch a waystone on a pilgrim\'s way and it tells you one page of old lore — once per stone.',
+  // StreetVariants closes + lairs.js 'close' (a giant goblin, every mode).
+  'A hedged lane that ends in a dead end is held by a giant goblin, and something is buried at the end of it.',
+  // StreetVariants.LANTERN_SPACING_DIV (twice).
+  'A lantern row, once rebuilt, stands its lamps twice as thick as any other street.',
   'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds mostly, sometimes coin or produce.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',

@@ -612,6 +612,31 @@ const INTERACTABLES = {
     },
   },
 
+  // ---- Waystone (Pilgrim's Way — src/street_variants.js) ------------------
+  // A stone that remembers a page of the Book: the first tap reads the NEXT
+  // page of the curriculum (app.js _bookRead — the Book's own bookmark,
+  // save.tipsRead) without spending a Book, and records the stone in
+  // save.opened, the POI delta, so each stone gives one page ever. Read, it
+  // is only a stone: it stays standing and says so.
+  waystone: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      if ((save.opened || []).includes(o.id) || typeof scene._bookRead !== 'function') {
+        scene.flash('The stone is worn smooth.', sx, sy);
+        return true;
+      }
+      save.opened = [...(save.opened || []), o.id];
+      const { body } = scene._bookRead();
+      ctx.dirty = true;
+      if (typeof scene.showMessageModal === 'function') {
+        scene.showMessageModal({ title: 'The waystone remembers', body, kind: 'story', art: 'street_pilgrim' });
+      } else {
+        scene.flash('The stone remembers.', sx, sy);
+      }
+      return true;
+    },
+  },
+
   // ---- Buildings: open their UIs ------------------------------------------
   // House / tower (castle turret) route to the shop. Tall sprites — their
   // wider reach is handled by the tap loop before dispatch.

@@ -872,6 +872,48 @@
       }
     }
   }
+  // ── The road's CLASS, per cell ────────────────────────────────────────────
+  // Beside the mask, one byte of bits saying which ROAD this is ground of. Only
+  // the MAJOR ways (ROAD_MD + ROAD_LG, the bandit roads — see
+  // src/street_variants.js) are recorded, because that is the question the
+  // spawners ask: the traps' verge (Traps.isRoadside), the wagon bus stops and
+  // the dogs.
+  //   ROAD_CLASS_MAJOR_BAND  a major way's drawn band covers ANY of the cell.
+  //   ROAD_CLASS_MAJOR_VERGE the cell is NOT road ground (roadMask 0) and is
+  //                          either touched by a major band (under half
+  //                          covered) or 8-adjacent to a masked cell a major
+  //                          band touches: the major road's verge.
+  // Derived from the SAME stamp the mask is (majorCover is the major ways'
+  // own copy of roadCover), so a narrow band that masks no cell at all at
+  // ROAD_MASK_MIN_COVER still has a verge — the cells it paints a lick of.
+  const ROAD_CLASS_MAJOR_BAND = 1;
+  const ROAD_CLASS_MAJOR_VERGE = 2;
+  function* resolveRoadClassSteps(majorCover, mask, out, w, h) {
+    for (let cy = 0; cy < h; cy++) {
+      if ((cy & 63) === 63) yield 'road class bands';
+      const row = cy * w;
+      for (let cx = 0; cx < w; cx++) if (majorCover[row + cx]) out[row + cx] |= ROAD_CLASS_MAJOR_BAND;
+    }
+    for (let cy = 0; cy < h; cy++) {
+      if ((cy & 63) === 63) yield 'road class verge';
+      for (let cx = 0; cx < w; cx++) {
+        const i = cy * w + cx;
+        if (mask[i]) continue;
+        let verge = !!majorCover[i];
+        for (let dy = -1; dy <= 1 && !verge; dy++) {
+          const ny = cy + dy;
+          if (ny < 0 || ny >= h) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = cx + dx;
+            if (nx < 0 || nx >= w) continue;
+            const j = ny * w + nx;
+            if (mask[j] && majorCover[j]) { verge = true; break; }
+          }
+        }
+        if (verge) out[i] |= ROAD_CLASS_MAJOR_VERGE;
+      }
+    }
+  }
   // `allow`, when given, vetoes individual cells — the traversal still walks
   // the whole way, but only the cells it approves are painted. Footpaths use it
   // to skip cells they merely clip (see pathCross).
@@ -2034,6 +2076,10 @@
     // layer loop, before anything reads it.
     const roadMask = new Uint8Array(w * h);
     const roadCover = new Uint16Array(w * h);
+    // The same coverage, for the MAJOR ways only, and the per-cell road CLASS
+    // resolved from it beside the mask (resolveRoadClassSteps).
+    const majorCover = new Uint16Array(w * h);
+    const roadClass = new Uint8Array(w * h);
     // Per-cell length of PATH geometry, in cell widths — see accumulateLineSpan.
     // Reduced to the pathCross mask below once every way has been walked.
     const pathSpan = new Float32Array(w * h);
@@ -2291,6 +2337,60 @@
     // so the unified occupancy pass failed to dedupe them and both survived.
     // Local cells are also fully contained within the tile (indices 0..w/h-1),
     // so no two tiles ever emit an object for the same physical cell.
+    // STREET ROCKS — the residential rubble, moved off the lots and onto the
+    // kerb. StreetVariants.rocksFor picks ROCK_STREET_SHARE of the MINOR
+    // streets (by street key, so a street is rock-lined end to end and never
+    // a hedgerow); each piece in this tile walks its own arclength, a cluster
+    // candidate every STREET_ROCK_PIVOT_M firing at STREET_ROCK_FIRE (denser
+    // than the old lot pivots: most of a verge cluster lands on a sidewalk, a
+    // moat or a driveway and is culled — ~20% survive, ~1 rock per 16 m of
+    // rock-lined street, measured), and each fired cluster drops its rocks
+    // on the VERGE: STREET_ROCK_OUT_MIN..+SPAN cells out past the band's
+    // edge, jittered STREET_ROCK_ALONG_M along the way. The same tier roll
+    // and vein table the residential clusters used, and the same `rc` cluster
+    // id (the cave-entrance pass groups by it). Its OWN stream per piece
+    // (fnv1a of street key + tile + lineKey), so no other stream moves; and
+    // pushed before the mineralrock cleanup, whose one filter (band, moat,
+    // plaza, yard rule) decides what survives. A generator: one yield per line.
+    const STREET_ROCK_PIVOT_M = 20, STREET_ROCK_FIRE = 0.8;
+    const STREET_ROCK_MIN = 6, STREET_ROCK_SPAN = 6;
+    const STREET_ROCK_ALONG_M = 7;
+    const STREET_ROCK_OUT_MIN = 0.5, STREET_ROCK_OUT_SPAN = 2;
+    function* spawnStreetRocksSteps(index) {
+      const SV = StreetVariants;
+      const plainP = caveRockP(0);
+      const ext = index.extent || TILE_EXTENT;
+      for (const rec of index.lines) {
+        if (!rec.rocks) continue;
+        yield 'street rocks';
+        const spans = (typeof Streets !== 'undefined') ? Streets.tileSpans(rec.line, mvtToM, ext) : [];
+        if (!spans.length) continue;
+        const rng = makeRng(fnv1a(`rocks|${rec.key}|${tx},${ty}|${rec.lineKey}`));
+        SV.sampleLine(rec.line, mvtToM, STREET_ROCK_PIVOT_M, STREET_ROCK_PIVOT_M / 2, (s, x, y, nx, ny) => {
+          if (rng() > STREET_ROCK_FIRE) return;
+          const n = STREET_ROCK_MIN + Math.floor(rng() * STREET_ROCK_SPAN);
+          const side = rng() < 0.5 ? 1 : -1;
+          const tbl = rollVeinTable(rng, SURFACE_ROCK_TIER_WEIGHTS, 0.30, SURFACE_ROCK_CUM);
+          if (!Streets.covers(spans, s)) return;     // the neighbour's metres
+          const clusterId = cellId('rc', tx, ty, Math.floor(x / CELL_M), Math.floor(y / CELL_M));
+          for (let k = 0; k < n; k++) {
+            const along = (rng() - 0.5) * 2 * STREET_ROCK_ALONG_M;
+            const out = side * (rec.halfW + (STREET_ROCK_OUT_MIN + rng() * STREET_ROCK_OUT_SPAN) * CELL_M);
+            const roll = rollRock(rng, plainP, tbl);
+            // Along the local tangent (-ny, nx) is (ux, uy): left normal (uy, -ux).
+            const px = x - ny * along + nx * out, py = y + nx * along + ny * out;
+            const ix = Math.floor(px / CELL_M), iy = Math.floor(py / CELL_M);
+            if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
+            const { mx, my } = cellCenterMeters(ix, iy);
+            objects.push(roll.plain
+              ? makeObject('mineralrock', mx, my, cellId('mr', tx, ty, ix, iy),
+                  { requiredTier: 1, caveVariant: roll.caveVariant, _clusterId: clusterId, _street: true })
+              : makeObject('mineralrock', mx, my, cellId('mr', tx, ty, ix, iy),
+                  { requiredTier: roll.requiredTier, yieldTier: roll.yieldTier, _street: true }));
+          }
+        });
+      }
+    }
     const snapCell = (mx, my) => {
       const ix = Math.floor(mx * mvtToCell);
       const iy = Math.floor(my * mvtToCell);
@@ -2548,10 +2648,11 @@
             // correctness.
             // `tbl` is a cumWeights() table; the roll itself is the shared
             // rollRock (same draws as the cave spawner).
-            const _pushMineralrock = (rng, jx, jy, tbl, clusterId) => {
+            const _pushMineralrock = (rng, jx, jy, tbl, clusterId, dry) => {
               if (!pointInRings(f.geom, jx, jy)) return;
               const { ix, iy, cx, cy } = snapCell(jx, jy);
               const roll = rollRock(rng, _CAVE_ROCK_P, tbl);
+              if (dry) return;          // the draws, never the rock
               if (roll.plain) {
                 objects.push(makeObject('mineralrock', cx, cy,
                   cellId('mr', tx, ty, ix, iy), {
@@ -2610,7 +2711,7 @@
                   for (let k = 0; k < clusterN; k++) {
                     const jx = xx + (rng() - 0.5) * 2 * o.clusterR;
                     const jy = yy + (rng() - 0.5) * 2 * o.clusterR;
-                    _pushMineralrock(rng, jx, jy, tbl, clusterId);
+                    _pushMineralrock(rng, jx, jy, tbl, clusterId, o.dry);
                   }
                 }
               }
@@ -2683,10 +2784,16 @@
               // random tier is VEIN_MUL× more likely (see rollVeinTable). Pass
               // the raw `weights` so the vein path can rebuild a boosted table.
               const pivots = [];
+              // DRY: residential rubble no longer scatters through the zone —
+              // rocks now LINE a quarter of the minor streets instead
+              // (spawnStreetRocksSteps, off StreetVariants.rocksFor). The walk
+              // still runs, with every draw it always took, only because the
+              // yard flora below grows around the pivots it FIRES — so the
+              // flora is exactly what it was.
               yield* _spawnRockClustersSteps(resRng, f.geom, {
                 pivotStep, clusterR, fireChance: 0.585,
                 clusterMin: 25, clusterSpan: 16, tbl: SURFACE_ROCK_CUM, residential: true,
-                weights, veinChance: 0.30, pivots });
+                weights, veinChance: 0.30, pivots, dry: t === T.RESIDENTIAL });
               const yard = BiomeProfiles.yard(t);
               if (yard && pivots.length) {
                 yield* _spawnYardFloraSteps(f.geom, polyKey, pivots, clusterR, yard);
@@ -2748,6 +2855,12 @@
             // move with the save's home latitude.
             const widthCells = roadOverlayWidthM(f.tags) / CELL_M;
             for (const line of f.geom) yield* stampCoverLineSteps(roadCover, w, h, line, widthCells, mvtToCell);
+            // The MAJOR ways (the bandit roads) stamp the same band a second
+            // time into their own cover, in this same pass — the one lane
+            // roadClass is resolved from (see ROAD_CLASS_MAJOR_BAND).
+            if (t === T.ROAD_MD || t === T.ROAD_LG) {
+              for (const line of f.geom) yield* stampCoverLineSteps(majorCover, w, h, line, widthCells, mvtToCell);
+            }
           }
           // Parking-lot aisles carpet a lot with parallel service lines spaced
           // closer than one cell, so they rasterize into a solid asphalt blob,
@@ -3234,6 +3347,16 @@
     // Every way is stamped: resolve the road mask from the coverage bits
     // (ROAD_MASK_MIN_COVER). Nothing above reads roadMask; everything below does.
     yield* resolveRoadMaskSteps(roadCover, roadMask, w, h);
+    yield* resolveRoadClassSteps(majorCover, roadMask, roadClass, w, h);
+    // THE STREET INDEX (src/street_variants.js): every street's key, size and
+    // variant, and the hedgerow closes — pure MVT, so a rebuilt entry derives
+    // the same one. Then the street ROCKS it asks for, pushed before the
+    // mineralrock cleanup below so they pass the one post-pass filter.
+    let streetIndex = null;
+    if (typeof StreetVariants !== 'undefined') {
+      streetIndex = yield* StreetVariants.buildIndexSteps(layers, tx, ty, mvtToM);
+      yield* spawnStreetRocksSteps(streetIndex);
+    }
     // Post-pass: pavement-blob erosion. Overlapping/parallel road + path ways
     // (sidewalk meshes, plaza loops, anything denser than one cell apart)
     // weld into solid paved zones; dissolve the strict same-kind interior back
@@ -3659,7 +3782,29 @@
       else keptChests.push(o);
     }
     const deduped = objects.filter(o => !o._drop);
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, buildingShapes };
+    // STREET DRESSING (StreetVariants.dressSteps) — computed HERE, inside the
+    // sliced build, against every cell the tile's own objects and wild plants
+    // now hold; spawnInTile lays it (dropping any piece whose cell something
+    // placed after this pass took — the cave stair) before its other draws.
+    let streetDress = null;
+    if (streetIndex && typeof StreetVariants !== 'undefined') {
+      yield 'before street dressing';
+      const occ = new Set();
+      const claimAt = (x, y) => {
+        const ix = Math.floor((x - tileOriginMx) / cellWidthM), iy = Math.floor((y - tileOriginMy) / cellWidthM);
+        if (ix >= 0 && iy >= 0 && ix < w && iy < h) occ.add(iy * w + ix);
+      };
+      for (let i = 0; i < deduped.length; i++) claimAt(deduped[i].x, deduped[i].y);
+      for (let i = 0; i < filtered.length; i++) claimAt(filtered[i].x, filtered[i].y);
+      const pois = [];
+      for (const o of deduped) {
+        if (o.kind !== 'chest') continue;
+        pois.push({ ix: Math.floor((o.x - tileOriginMx) / cellWidthM), iy: Math.floor((o.y - tileOriginMy) / cellWidthM) });
+      }
+      streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM, grid,
+        spawnOpts: { roadMask, occupied: occ, pois } });
+    }
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, roadClass, streetIndex, streetDress, buildingShapes };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -3833,7 +3978,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, roadClass, streetIndex, streetDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -3861,6 +4006,12 @@
       // bursts, the starter provisioner — can ask the same question the
       // rasterize post-pass asks, by passing it as isSpawnCell's opts.roadMask.
       entry.roadMask = roadMask;
+      // The MAJOR road's band and verge (see ROAD_CLASS_MAJOR_BAND) and the
+      // street index (src/street_variants.js) — both pure MVT, re-derived by a
+      // rebuild like the mask. spawnInTile dresses the streets off the index.
+      entry.roadClass = roadClass;
+      entry.streetIndex = streetIndex || null;
+      entry.streetDress = streetDress || null;
       // Source building polygons (tile-local metres) for building_overlay.js —
       // the polygonal counterpart of entry.layers' road linework.
       entry.buildingShapes = buildingShapes || [];
@@ -5778,7 +5929,7 @@
     // …and the width it actually COVERS, large-tier weighting included. The
     // overlay strokes with this and rasterizeTile stamps roadMask with it, so
     // "drawn as road" and "no spawns here" are the same number.
-    roadOverlayWidthM, ROAD_MASK_MIN_COVER,
+    roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,
     // instead of hand-copying the list. (The large tier needs no such export:

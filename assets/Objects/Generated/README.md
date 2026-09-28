@@ -35,6 +35,7 @@ yet).
 | barricade.png | bandit-style cheval-de-frise: sharpened stakes jutting from a lashed log — redone wider/chunkier | generated placeholder (gpt-image-2, down-res'd; redone) — replace with hand art when available |
 | shrine.png | small lichened stone shrine, tiny green flame, moss look (the only aspect kept — owner cut the blossom/moon/thicket variants) | generated placeholder (gpt-image-2, down-res'd; 16x24) — replace with hand art when available |
 | flint.png | ground-pickup flint nodule, flat flake look (the most distinct of the three candidate looks — owner cut the chipped and rounded-lump variants) | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
+| wagon.png | broken covered wagon, 128x96 (one frame): the look a bus stop on a MAJOR road wears (loot.js chestLook 'wagon', drawn ~1.5 cells wide, foot-anchored) | generated placeholder (picked from three candidates, wagon_b) — replace with hand art when available |
 
 ## Contact sheets
 

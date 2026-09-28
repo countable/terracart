@@ -67,6 +67,9 @@ const FIRE_WARD_MAX_DEPTH = 1;
 // real beach can. Read by spawnInTile's beach block; pinned by
 // test/node/beach_treasure.test.js.
 const BEACH_X_PER_CELLS = 20;
+// How many verge cells a dog tries before it keeps its drawn seat (see
+// _seatDogsOnBanditRoads).
+const DOG_ROAD_TRIES = 12;
 
 class SceneCreatures {
   spawnInTile(entry, tx, ty) {
@@ -132,6 +135,61 @@ class SceneCreatures {
           iy: Math.floor((o.y - ty * this.tileEdgeM) / cellM),
         })),
     };
+    // STREET DRESSING (src/street_variants.js) — laid FIRST, before any other
+    // spawner draws: the hedges, verge plants, lane fruit trees, waystones,
+    // tar pits, stakes and barricades a street's variant puts on its verge
+    // are GENERATED scenery like the rocks, so every later draw (fauna,
+    // traps, X marks) must see their cells as taken — each piece claims its
+    // cell in `_spawnOpts.occupied` here. The pieces were computed inside
+    // the sliced tile build (rasterizeTileSteps → StreetVariants.dressSteps,
+    // entry.streetDress) against the tile's own objects; a piece whose cell
+    // something placed after that pass holds (the cave stair) is dropped —
+    // a fact of the generated layer, the same for every player. A rebuilt
+    // entry carries a fresh streetDress and re-runs this pass (the
+    // `_spawned` gate). The per-cell marks (story trigger), the slow cells
+    // (tar / stakes — app.js _bodyHold) and the street lair candidates (the
+    // close heads here, the wagons below — lairs.js's index reads
+    // entry.streetLairs) ride on the entry for the same reason. Skipped in
+    // test mode, like the traps and the X scatter.
+    let streetTreasures = [];
+    entry.streetLairs = [];
+    entry.slowCells = null;
+    entry.streetMarks = null;
+    const dressing = entry.streetDress;
+    if (dressing && typeof StreetVariants !== 'undefined' && !window.__TEST_MODE) {
+      const cellIdx = (p) => {
+        const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
+        const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
+        return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
+      };
+      const lay = (p) => {
+        const i = cellIdx(p);
+        if (i < 0 || _occupiedIdx.has(i)) return false;
+        _occupiedIdx.add(i);
+        return true;
+      };
+      entry.objects = entry.objects || [];
+      const slow = new Map();
+      for (const o of dressing.objects) {
+        if (!lay(o)) continue;
+        entry.objects.push(o);
+        if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
+      }
+      entry.wildplants = entry.wildplants || [];
+      for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
+      streetTreasures = dressing.treasures.filter(lay);
+      entry.streetLairs = dressing.lairs.slice();
+      entry.slowCells = slow.size ? slow : null;
+      entry.streetMarks = dressing.marks;
+    }
+    // BANDIT STOPS: a bus stop on a MAJOR road wears the broken wagon
+    // (loot.js chestLook) and holds one goblin (lairs.js 'wagon' tier). Read
+    // off the live objects so an Overpass bin's stops are included.
+    if (typeof StreetVariants !== 'undefined' && entry.roadClass) {
+      for (const L of StreetVariants.markBanditStops(entry.objects, entry.roadClass, N, tx, ty, this.tileEdgeM)) {
+        entry.streetLairs.push(L);
+      }
+    }
     // Home holds no slimes or crows until the first harvest (see
     // PEST_FREE_CELLS). Resolved once per tile build; null once the grace has
     // lapsed, which is the common case.
@@ -204,6 +262,13 @@ class SceneCreatures {
       for (let i = 0; i < primN; i++) tryPlace(primary,  i, sp);
       for (let i = primN; i < n; i++) tryPlace(fallback, i, sp);
     }
+    // DOGS WORK THE BANDIT ROADS. When the tile has any MAJOR verge
+    // (entry.roadClass, WorldGen.ROAD_CLASS_MAJOR_VERGE), every dog the loop
+    // above placed is re-seated onto it — the draw above is taken exactly as
+    // before (same count, same ids, same stream for every species after it),
+    // and the new seat comes off the dogs' OWN stream. A tile with no major
+    // road keeps its dogs where they were drawn.
+    this._seatDogsOnBanditRoads(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures);
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
@@ -271,7 +336,7 @@ class SceneCreatures {
     // entry drops it along with `_spawned`, and this pass puts it back.
     entry._spawnOpts = _spawnOpts;
     entry.traps = (typeof Traps !== 'undefined' && !window.__TEST_MODE)
-      ? Traps.spawnSurface(genGrid, entry.roadMask, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
+      ? Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
           Difficulty.get().trapCountMul)
       : [];
 
@@ -286,6 +351,9 @@ class SceneCreatures {
     // All three render + interact through the same code path.
     entry.treasure = null;
     entry.extraTreasures = [];
+    // A hedgerow close's buried hoard (StreetVariants.dress) — an X like any
+    // other, carrying its rollBonus into the dig's roll.
+    for (const t of streetTreasures) entry.extraTreasures.push(t);
     // Spawnability for all three treasure streams below is decided by
     // WorldGen.isSpawnCell (the single shared rule): walkable, off-road, and —
     // on lot cells (residential / wasteland) — only near a public anchor (road/path, public area,
@@ -482,6 +550,36 @@ class SceneCreatures {
     }
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
+  }
+
+  // DOGS ON THE BANDIT ROADS (see the call in spawnInTile). Re-seats each
+  // placed dog on a MAJOR-verge cell that passes the shared spawn rule, from
+  // the dogs' own stream (DOG_ROAD_SALT, keyed on the tile) — never a draw
+  // from the tile stream. One pass over roadClass collects the verge; a dog
+  // that finds no free verge cell in DOG_ROAD_TRIES keeps its drawn seat.
+  _seatDogsOnBanditRoads(entry, tx, ty, N, cellM, genGrid, spawnOpts, creatures) {
+    const rc = entry.roadClass;
+    if (!rc || !creatures || !creatures.length) return;
+    const dogs = creatures.filter((c) => c && c.kind === 'dog');
+    if (!dogs.length) return;
+    const bit = WorldGen.ROAD_CLASS_MAJOR_VERGE;
+    const verge = [];
+    for (let i = 0; i < rc.length; i++) if (rc[i] & bit) verge.push(i);
+    if (!verge.length) return;
+    const rng = WorldGen.makeRng(fnv1a(`dogs|${tx},${ty}`));
+    const taken = new Set();
+    for (const d of dogs) {
+      for (let a = 0; a < DOG_ROAD_TRIES; a++) {
+        const idx = verge[Math.floor(rng() * verge.length)];
+        if (taken.has(idx)) continue;
+        const cx = idx % N, cy = (idx / N) | 0;
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts)) continue;
+        taken.add(idx);
+        d.x = tx * this.tileEdgeM + (cx + 0.5) * cellM;
+        d.y = ty * this.tileEdgeM + (cy + 0.5) * cellM;
+        break;
+      }
+    }
   }
 
   // The live-ground cull. spawnInTile draws every creature, trap and X mark
