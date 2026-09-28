@@ -33,10 +33,10 @@
   const exportName = (m) => m.charAt(1).toLowerCase() + m.slice(2);
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  test('starter module: Starter exports all seventeen placers, and nothing else', () => {
+  test('starter module: Starter exports all seventeen placers and supply payloads', () => {
     assert.truthy(typeof Starter === 'object' && Starter, 'starter.js defines window.Starter');
     const want = Object.keys(MOVED).map(exportName).sort();
-    assert.eq(Object.keys(Starter).sort().join(), want.join(), 'the export list');
+    assert.eq(Object.keys(Starter).sort().join(), [...want, 'STARTER_LOOT'].sort().join(), 'the export list');
     for (const k of want) assert.eq(typeof Starter[k], 'function', `Starter.${k} is a function`);
   });
 

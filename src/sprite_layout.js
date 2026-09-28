@@ -252,12 +252,8 @@
   // is to strip green toward half and blue to nothing — an ember-brown slime,
   // a different hue from both the lime surface slime and the olive cave one.
   const FIRE_SLIME_TINT = 0xff5a28;
-  // THE GHOST — TEMPORARY ART. It has no sheet yet, so it is the purple
-  // slime's drawn pale and see-through: a cold tint (a multiply can only take
-  // colour away, so the purple is cooled toward blue-grey rather than made
-  // white) and GHOST_ALPHA, the one creature drawn part-transparent
-  // (creatureAlpha — alpha still renders under the Canvas fallback, where the
-  // tint is a no-op). Replacing it is a sheet in assets.js and this row.
+  // The ghost keeps its translucent body and cold halo with its own artwork.
+  // GHOST_TINT colours only the halo; the supplied body needs no tint.
   const GHOST_TINT = 0xc8d8ff;
   const GHOST_ALPHA = 0.6;
   // The SPIRIT RAVEN (the Potion of the Raven's ally) is the crow drawn
@@ -360,10 +356,12 @@
     // goblin row above (one body cannot have two ground lines); the tint is
     // the one thing that differs (TRAPPER_TINT).
     goblin_trapper: { sheet: 'goblin',       frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27, tint: TRAPPER_TINT },
-    // The ghost (temporary — see GHOST_TINT): the purple slime's sheet and
-    // geometry, oozing on row 0 with no hop row (it never lands), floated off
-    // its shadow and bobbing slowly — `airborne`, so the shadow reads small.
-    ghost:         { sheet: 'purple_slime',  frames: 4, frameMs: SLIME_FRAME_MS * 2, hop: true, hopMs: 1600, hopPx: 3, airborne: true, fw: 32, fh: 32, scale: 0.95, foot: 21 / 32, float: 6,  minY: 10, maxY: 21, tint: GHOST_TINT, alpha: GHOST_ALPHA, glow: GHOST_GLOW },
+    // Front-facing idle cycle from the supplied 16px sheet. Keep the spectral
+    // float and halo; its white/blue artwork replaces the tinted slime.
+    ghost:         { sheet: 'ghost', frames: 4, frameMs: 200, hop: true, hopMs: 1600, hopPx: 3, airborne: true, fw: 16, fh: 16, scale: 1.70, foot: 15 / 16, float: 6, minY: 1, maxY: 15, alpha: GHOST_ALPHA, glow: GHOST_GLOW },
+    // Rooted plant: front idle (row 0) and bite (row 2), four frames each.
+    // No hop/float: the roots stay at the same ground line during the bite.
+    plant:         { sheet: 'plant', frames: 4, frameMs: 150, attackFrames: [24, 25, 26, 27], fw: 16, fh: 16, scale: 1.60, foot: 1, float: 0, minY: 0, maxY: 16 },
   };
   // ── GIANTS ────────────────────────────────────────────────────────────────
   // Every cave monster has a giant form (app.js MONSTERS: `giant_<kind>`, four
@@ -481,6 +479,7 @@
     // rush at the player, over any terrain; a touch spends it; light burns
     // it). `haunts` is what hands it there instead of the step chain.
     ghost:         { wanders: true, haunts: true },
+    plant:         { wanders: true }, // thinks/attacks in the sim bubble; Combat keeps it rooted
   };
   // The behaviour row for `kind` — the base row for a giant, like its art.
   function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[baseKind(kind)]; }
@@ -574,6 +573,20 @@
   // replaced, and what let the branches drift apart.
   function creatureAnim(kind) { return creatureArt(kind)?.anim ?? null; }
   function creatureFrameMs(kind) { return creatureArt(kind)?.frameMs ?? 0; }
+  // A timed attack may select an authored cycle; other creatures keep their
+  // existing idle cycle. Both clocks are performance.now() in the sim/render.
+  function creatureCycleFrame(c, now) {
+    const art = creatureArt(c.kind);
+    const frameMs = art?.frameMs ?? 0;
+    const tick = frameMs ? Math.floor(now / frameMs) : 0;
+    const attack = now < (c._attackUntil ?? 0) ? art?.attackFrames : null;
+    if (attack && c._attackT0 != null && c._attackUntil > c._attackT0) {
+      const progress = Math.max(0, (now - c._attackT0) / (c._attackUntil - c._attackT0));
+      return attack[Math.min(attack.length - 1, Math.floor(progress * attack.length))];
+    }
+    return attack ? attack[tick % attack.length] : tick % (art?.frames ?? 1);
+  }
+
   function creatureHops(kind) { return !!creatureArt(kind)?.hop; }
   // The code bounce a hopping kind wears: { ms, px } (null if it doesn't).
   function creatureHop(kind) {
@@ -689,7 +702,7 @@
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
-    creatureAnim, creatureFrameMs, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
+    creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,

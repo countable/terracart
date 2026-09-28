@@ -110,6 +110,8 @@ const ASSETS = {
   slime:         { kind: 'spritesheet', path: 'assets/Enemy/Slime Green.png',   frameWidth: 32, frameHeight: 32 },
   // Underground monster sheets. Goblins: 32×32 frames, 6 cols × 3 rows — row 0 (frames 0-5) is the walk cycle.
   purple_slime:  { kind: 'spritesheet', path: 'assets/Enemy/Purple Slime.png',  frameWidth: 32, frameHeight: 32 },
+  ghost:         { kind: 'spritesheet', path: 'assets/Enemy/Ghost/1Fullsheet_Ghost.png', frameWidth: 16, frameHeight: 16 },
+  plant:         { kind: 'spritesheet', path: 'assets/Enemy/Plant/1Fullsheet_Plant.png', frameWidth: 16, frameHeight: 16 },
   goblin:        { kind: 'spritesheet', path: 'assets/Enemy/Goblin.png',        frameWidth: 32, frameHeight: 32 },
   goblin_archer: { kind: 'spritesheet', path: 'assets/Enemy/Goblin Archer.png', frameWidth: 32, frameHeight: 32 },
   // Fruit trees — 32x48 frames (2 cells wide x 3 cells tall), same shape as

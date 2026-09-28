@@ -47,7 +47,7 @@ test('powders: three consumables with tiers, prices, effect lines and a Book tip
   for (const [id, want] of Object.entries(POWDERS)) {
     const it = ITEM_BY_ID[id];
     assert.truthy(it, `${id} is registered`);
-    assert.eq(it.kind, 'consumable', `${id}: kind — the Use button and the rarity class key off it`);
+    assert.eq(it.kind, 'magic', `${id}: kind — the Use button and the rarity class key off it`);
     assert.eq(it.baseTier, want.tier, `${id}: baseTier`);
     assert.eq(BASE_TIER[id], want.tier, `${id}: BASE_TIER row`);
     assert.eq(PRICES[id], want.price, `${id}: price`);
@@ -100,7 +100,7 @@ test('powders: the rarity picker can hand each one out', () => {
   const seen = { growth_powder: 0, shadow_powder: 0, frost_powder: 0 };
   for (let s = 1; s <= 1500; s++) {
     for (const tier of [2, 3]) {
-      const r = pickReward('chest:civic', { relics: {}, armor: {} }, seeded(s * 7 + tier), { tier });
+      const r = pickReward('chest:civic', { relics: {}, armor: {} }, seeded(s * 7 + tier), { tier, depth: 1 });
       if (r && r.kind === 'item' && seen[r.id] != null) seen[r.id]++;
     }
   }
@@ -203,7 +203,7 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
   // Other conjuncts may join these gates (Home's ward does — home_ward.test.js),
   // so pin that !unnoticed is IN the gate, not that it is the whole of it.
   assert.truthy(/if \(c\.kind === 'slime' && !isTame && !unnoticed[^)]*\) \{/.test(w), 'the slime leech is gated');
-  assert.truthy(/if \(Combat\.isMonster\(c\.kind\) && !unnoticed[^)]*\) \{\n\s*const m = Combat\.monster\(c\.kind\);/.test(w),
+  assert.truthy(/if \(Combat\.isMonster\(c\.kind\) && !isTame && !unnoticed[^)]*\) \{\n\s*const m = Combat\.monster\(c\.kind\);/.test(w),
     'the monster drain is gated');
   // The pursuits.
   // (through `unseen`, which is `unnoticed` plus the foe's own sight).
@@ -241,7 +241,7 @@ test('frost: a frozen creature is skipped in the wander step before it can hit o
   const gate = w.indexOf('if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;');
   assert.truthy(gate >= 0, 'the frozen gate');
   assert.truthy(gate < w.search(/if \(c\.kind === 'slime' && !isTame && !unnoticed[^)]*\) \{/), 'before the slime leech');
-  assert.truthy(gate < w.search(/if \(Combat\.isMonster\(c\.kind\) && !unnoticed[^)]*\) \{/), 'before the monster drain');
+  assert.truthy(gate < w.search(/if \(Combat\.isMonster\(c\.kind\) && !isTame && !unnoticed[^)]*\) \{/), 'before the monster drain');
   assert.truthy(gate < w.indexOf('if (now >= c._nextChooseT) {'), 'before the step is chosen');
   assert.truthy(gate < w.indexOf('c.x = c._startX + (c._targetX - c._startX) * u;'), 'before the hop is interpolated');
   // The ice tint rides the same flag.

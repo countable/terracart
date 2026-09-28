@@ -364,7 +364,9 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
   hidePoolFrom(pool, i);
 };
 
-// The SHINE on a shiny: a bright band that sweeps across the sprite's own
+// A persistent gold halo makes shinies visible even on fully lit ground,
+// where the multiply lightmap cannot brighten them further. The SHINE is
+// a bright band that sweeps across the sprite's own
 // pixels (Phaser 3.60+ preFX Shine), so the glint is ON the object rather
 // than a star hovering over it. WebGL-only — under the Canvas fallback the
 // FX draws nothing (Phaser may still hand out a preFX controller), so the
@@ -377,16 +379,28 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
 const SHINE_SPEED = 0.35;       // sweeps per second, roughly — a slow glint, not a strobe
 const SHINE_LINE_W = 0.35;      // the band's width, as a fraction of the sprite
 const SHINE_GRADIENT = 3;       // how soft the band's edges are
+const SHINY_GLOW_PADDING = 12; // texture pixels reserved around the silhouette
 Render.setShine = function setShine(s, on, id) {
   const fx = s && s.preFX;
   if (!fx) return false;
   if (on) {
+    if (!s._shinyGlowFx) {
+      s._shinyGlowPadding = fx.padding;
+      fx.setPadding(Math.max(fx.padding, SHINY_GLOW_PADDING));
+      s._shinyGlowFx = fx.addGlow(SHINY_TINT, 4, 0.5, false);
+    }
     if (!s._shineFx) s._shineFx = fx.addShine(SHINE_SPEED, SHINE_LINE_W, SHINE_GRADIENT, false);
     return true;
   }
   if (s._shineFx) {
     fx.remove(s._shineFx);
     s._shineFx = null;
+  }
+  if (s._shinyGlowFx) {
+    fx.remove(s._shinyGlowFx);
+    s._shinyGlowFx = null;
+    fx.setPadding(s._shinyGlowPadding);
+    s._shinyGlowPadding = null;
   }
   return false;
 };
@@ -4112,7 +4126,6 @@ Render.drawObjects = function drawObjects(scene) {
   // has expired (player just needs to tap to advance). Hidden for wildplants
   // (no watered_t), seeds (stage 0 + unwatered), and mature crops.
   // Uses a parallel Phaser.Text pool — Render.renderPool only creates sprites.
-  const STAGE_HOLD_MS = Crops.STAGE_HOLD_MS;   // single source of truth in crops.js
   const now = Date.now();
   const timerList = plantedList.filter(({ p }) =>
     !p.wildId && (p.stage ?? 0) < MAX_GROWTH_STAGE && p.watered_t);
@@ -4131,7 +4144,7 @@ Render.drawObjects = function drawObjects(scene) {
       scene.plantedTimerPool.push(t);
     }
     const { sx, sy } = project(dx, dy);
-    const remaining = STAGE_HOLD_MS - (now - p.watered_t);
+    const remaining = Crops.stageHoldMs(p.crop) - (now - p.watered_t);
     // Largest-unit notation (util.js shortDuration) — the badge used to print
     // a BARE minutes number, the one timer in the game with no unit on it, so
     // "7" over a crop and "7m" over a house meant the same thing and didn't
@@ -4209,7 +4222,6 @@ Render.drawObjects = function drawObjects(scene) {
   // here has one); the fallback is only so an unknown kind cannot ask Phaser
   // for a null texture.
   const creatureSheet = (kind) => (SL && SL.creatureSheet ? SL.creatureSheet(kind) : kind) || 'chicken';
-  const creatureFrames = (SL && SL.creatureFrames) || (() => 1);
   const creatureTint = (SL && SL.creatureTint) || (() => 0xffffff);
   const creatureAlpha = (SL && SL.creatureAlpha) || (() => 1);
   const creatureGlow = (SL && SL.creatureGlow) || (() => null);
@@ -4219,7 +4231,7 @@ Render.drawObjects = function drawObjects(scene) {
   // on frame 0. `hop` is the continuous bounce a slime and every cave monster
   // wear, and `airborne` is a flier's smaller, fainter contact shadow.
   const creatureAnim = (SL && SL.creatureAnim) || (() => null);
-  const creatureFrameMs = (SL && SL.creatureFrameMs) || (() => 0);
+  const creatureCycleFrame = (SL && SL.creatureCycleFrame) || (() => 0);
   const creatureHop = (SL && SL.creatureHop) || (() => null);
   const creatureHopRow = (SL && SL.creatureHopRow) || (() => null);
   const hopRowFrame = (SL && SL.hopRowFrame) || (() => 0);
@@ -4266,8 +4278,7 @@ Render.drawObjects = function drawObjects(scene) {
       if (stepping) {
         s.setFrame(hopRowFrame(hopRow, tStep + (c._hopSeed ?? 0)));
       } else {
-        const frameMs = creatureFrameMs(c.kind);
-        s.setFrame(frameMs ? Math.floor(performance.now() / frameMs) % creatureFrames(c.kind) : 0);
+        s.setFrame(creatureCycleFrame(c, performance.now()));
       }
     }
     // How far off the ground the body is drawn: its constant float (a crow
@@ -4332,7 +4343,7 @@ Render.drawObjects = function drawObjects(scene) {
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
       cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, rabbit: 14, chicken: 14,
-      butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18,
+      butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
       const { c, dx, dy } = item;

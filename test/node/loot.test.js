@@ -111,7 +111,7 @@ test('pickReward: a roll bonus never buys quantity', () => {
   const qtyHist = (bonus) => {
     const hist = new Map();
     for (let s = 1; s <= N; s++) {
-      const r = pickReward('chest:lowtier', save(), seeded(s * 7919),
+      const r = pickReward('treasure:road', save(), seeded(s * 7919),
                            { tier: 4, rollBonus: bonus });
       if (r && r.kind === 'item') hist.set(r.qty, (hist.get(r.qty) || 0) + 1);
     }
@@ -292,7 +292,7 @@ test('bundle: a pile of the two raw materials, and the pile is the point', () =>
   let seen = 0;
   for (let i = 0; i < 4000 && seen < 80; i++) {
     const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });
-    if (!r || r.cls !== 'bundle') continue;
+    if (!r || r.group !== 'materials') continue;
     seen++;
     assert.eq(r.kind, 'item', 'a bundle is items in the bag');
     assert.includes(BUNDLE_IDS, r.id, 'one of the two raw materials');
@@ -310,7 +310,7 @@ test('bundle: the T1 chest that can roll no bracket at all still pays a pile', (
   for (let i = 0; i < 6000; i++) {
     const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });
     if (!r || r.kind !== 'item') continue;
-    if (r.cls === 'bundle') bundleMin = Math.min(bundleMin, r.qty);
+    if (r.group === 'materials') bundleMin = Math.min(bundleMin, r.qty);
     else if (r.id === 'wood') { plainWood += r.qty; plainWoodN++; }
   }
   assert.gte(bundleMin, 3, 'every bundle is a pile');
@@ -320,33 +320,49 @@ test('bundle: the T1 chest that can roll no bracket at all still pays a pile', (
   }
 });
 
-test('road: the ladder has its OWN context, centred on seeds', () => {
-  const ctx = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT];
-  assert.truthy(ctx, 'treasure:road exists');
-  assert.eq(Trail.PRIZE_CONTEXT, 'treasure:road', 'and trail.js names it');
-  const bias = ctx.classBias;
-  // SEEDS FIRST — the thing you plant beside the road you just rebuilt.
-  const top = Object.keys(bias).sort((a, b) => bias[b] - bias[a])[0];
-  assert.eq(top, 'seed', 'seeds are the heaviest class');
-  assert.gt(bias.seed, 0.5, 'and carry the roll outright');
-  // …with coins and produce as the other faces of the pick, and nothing else:
-  // a pool of six classes makes both options of a two-way choice a lottery.
-  assert.eq(Object.keys(bias).sort().join(','), 'cash,produce,seed', 'three classes, no more');
-  assert.eq(ctx.relicCap, 0, 'gear belongs to the chests');
+test('road: repair choices include supplies and boots with fewer seeds', () => {
+  assert.eq(Trail.PRIZE_CONTEXT, 'treasure:road', 'the ceremony uses the road pool');
+  for (const bonus of [Trail.rollBonusFor(0), Trail.PRIZE_ROLL_BONUS_MAX]) {
+    const tally = { seed: 0, boot: 0, armor: 0, potion: 0, pairy: 0, feather: 0, gold: 0 };
+    for (let i = 0; i < 4000; i++) {
+      const r = pickReward(Trail.PRIZE_CONTEXT, SAVE(), seeded(i + 1), { rollBonus: bonus });
+      assert.truthy(r, 'every road roll resolves');
+      if (r.kind === 'armor') {
+        assert.eq(r.slot, 'boots', 'road equipment is boots');
+        assert.inRange(r.tier, 1, 7, 'valid armor tier');
+        tally.armor++;
+      }
+      if (r.kind === 'gold') tally.gold++;
+      if (r.kind !== 'item') continue;
+      if (r.cls === 'seed') tally.seed++;
+      if (r.id === 'boot') tally.boot++;
+      if (r.id === 'pairy') tally.pairy++;
+      if (r.id === 'crow_feather') tally.feather++;
+      if (/_potion$/.test(r.id)) tally.potion++;
+    }
+    assert.gt(tally.feather, 10, 'feathers appear occasionally');
+    assert.lt(tally.feather, tally.pairy, 'feathers are rarer than Pairy');
+    assert.inRange(tally.seed / 4000, 0.10, 0.30, 'seeds remain available without dominating');
+    for (const kind of ['boot', 'armor', 'potion', 'pairy', 'gold']) {
+      assert.gt(tally[kind], 100, `${kind} appears regularly at bonus ${bonus}`);
+    }
+  }
 });
 
-test('road: what the ladder actually pays is seeds, coins and produce', () => {
-  const tally = {};
-  for (let i = 0; i < 4000; i++) {
-    const r = pickReward('treasure:road', SAVE(), seeded(i + 1), { rollBonus: 2 });
-    if (!r) continue;
-    const cls = r.cls || r.kind;
-    tally[cls] = (tally[cls] || 0) + 1;
+test('road: boots never downgrade owned armor and maxed boots pay coins', () => {
+  for (const owned of [4, 7]) {
+    let bootsRolls = 0;
+    for (let i = 0; i < 4000; i++) {
+      const r = pickReward(Trail.PRIZE_CONTEXT, { relics: {}, armor: { boots: { tier: owned } } },
+        seeded(i + 1), { rollBonus: 2 });
+      if (r.slot !== 'boots') continue;
+      bootsRolls++;
+      if (owned === 7) assert.eq(r.kind, 'gold', 'maxed boots give consolation');
+      if (r.kind === 'armor') assert.gt(r.tier, owned, 'a wearable offer is an upgrade');
+      else assert.gt(r.amount, 0, 'duplicate boots give coins');
+    }
+    assert.gt(bootsRolls, 100, 'sampled the equipment option');
   }
-  assert.eq(Object.keys(tally).sort().join(','), 'cash,produce,seed', 'only the three');
-  assert.gt(tally.seed / 4000, 0.5, 'over half the rolls are seed');
-  assert.gt(tally.cash / 4000, 0.1, 'and coins are a real option, not a rounding error');
-  assert.gt(tally.produce / 4000, 0.1, 'as is produce');
 });
 
 test('road: a longer walk buys a FINER seed, not a taller stack', () => {
@@ -391,27 +407,19 @@ test('road: the ceiling the bonus can climb to is the old T4 prize ceiling', () 
 // The cave supplies: a shallow chest underground (T1/T2) leans toward coin,
 // torches, rope and potions. Measured against the SAME biome row and tier on
 // the surface, so the overlay is what moved the numbers.
-test('cave supplies: T1/T2 chests underground pay coin, torches, rope and potions more often', () => {
-  const SUPPLY = new Set(Object.keys(CAVE_SUPPLY_SKEW.favourite.ids));
-  const rate = (depth, tier, biome = 'park') => {
-    const rng = seeded(4242 + depth * 7 + tier);
-    const save = { relics: {}, armor: {} };
-    let cash = 0, supply = 0; const N = 4000;
-    for (let i = 0; i < N; i++) {
-      const r = pickReward('chest:' + biome, save, rng, { tier, depth });
-      if (r && r.kind === 'gold' && r.slot == null) cash++;
-      if (r && r.kind === 'item' && SUPPLY.has(r.id)) supply++;
-    }
-    return { cash: cash / N, supply: supply / N };
-  };
+test('cave supplies: shallow caves add medicine and practical supplies', () => {
   for (const tier of [1, 2]) {
-    const up = rate(0, tier), down = rate(1, tier);
-    assert.truthy(down.cash > up.cash + 0.1, `T${tier}: coin ${up.cash.toFixed(3)} → ${down.cash.toFixed(3)}`);
-    assert.truthy(down.supply > up.supply * 2 && down.supply > 0.2,
-      `T${tier}: supplies ${up.supply.toFixed(3)} → ${down.supply.toFixed(3)}`);
+    const rates = [0, 1].map(depth => {
+      const rng = seeded(4242);
+      let magic = 0;
+      for (let i = 0; i < 5000; i++) {
+        const r = pickReward('chest:park', { relics: {}, armor: {} }, rng, { tier, depth });
+        if (r.cls === 'magic') magic++;
+      }
+      return magic / 5000;
+    });
+    assert.gt(rates[1], rates[0] + 0.15, 'caves add a meaningful magic share');
   }
-  // T3+ underground takes the DEEP hoard instead (below), not the supplies.
-  assert.truthy(rate(2, 3).supply < 0.2, 'a T3 cave chest is not a supply crate');
 });
 
 // The deep hoard: a cave chest above the supply tiers (T3+) leans to potions,
@@ -458,7 +466,7 @@ test('deep hoard: tier-capped — at T3 it favours potions and powders, not gems
       const r = pickReward('chest:civic', { relics: {}, armor: {} }, rng, { tier: 3, depth: 3 });
       if (!r || r.kind !== 'item' || CAVE_DEEP_SKEW.favourite.ids[r.id] == null) continue;
       all++;
-      if (ITEM_BY_ID[r.id].kind === 'consumable') cons++;
+      if (ITEM_BY_ID[r.id].kind === 'magic') cons++;
     }
     assert.gt(cons / all, 0.85, `T3 hoard is ${(100 * cons / all).toFixed(0)}% potions and powders`);
   }
@@ -467,7 +475,7 @@ test('deep hoard: tier-capped — at T3 it favours potions and powders, not gems
   for (const id of Object.keys(CAVE_DEEP_SKEW.favourite.ids)) {
     assert.truthy(ITEM_BY_ID[id], `${id} is a real item`);
     const k = ITEM_BY_ID[id].kind;
-    assert.truthy(k === 'consumable' || k === 'mineral', `${id} is a potion, powder or gem`);
+    assert.truthy(k === 'magic' || k === 'mineral', `${id} is a potion, powder or gem`);
   }
 });
 
@@ -476,7 +484,7 @@ test('cave supplies: the favourite set only ever pays a consumable', () => {
   for (let i = 0; i < 3000; i++) {
     const r = pickReward('chest:civic', { relics: {}, armor: {} }, rng, { tier: 2, depth: 1 });
     if (r && r.kind === 'item' && CAVE_SUPPLY_SKEW.favourite.ids[r.id] != null) {
-      assert.eq(ITEM_BY_ID[r.id].kind, 'consumable', `${r.id} is a consumable`);
+      assert.includes(['magic', 'supply'], ITEM_BY_ID[r.id].kind, `${r.id} has its actual item class`);
     }
   }
 });

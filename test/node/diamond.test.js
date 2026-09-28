@@ -155,7 +155,7 @@ test('diamond: the rarity picker can hand one out of a mineral-heavy cave chest'
   // rungs — rare by design, which is why the seed count is generous.
   let seen = 0;
   for (let s = 1; s <= 6000; s++) {
-    const r = pickReward('chest:health', { relics: {}, armor: {} }, seeded(s), { tier: 5 });
+    const r = pickReward('chest:culture', { relics: {}, armor: {} }, seeded(s), { tier: 5 });
     if (r && r.kind === 'item' && r.id === 'diamond') {
       seen++;
       assert.eq(r.tier, 7, 'rolled as a T7 item');
@@ -163,6 +163,6 @@ test('diamond: the rarity picker can hand one out of a mineral-heavy cave chest'
       assert.truthy(r.qty >= 1, 'at least one');
     }
   }
-  assert.truthy(seen > 0, 'diamond rolled at least once in 6000 T5 health chests');
+  assert.truthy(seen > 0, 'diamond rolled at least once in 6000 T5 cultural chests');
 });
 })();

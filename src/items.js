@@ -303,6 +303,8 @@ const MINERAL_ICON_SHEET = {
   reach_potion: { sheet: 'icon_potion', frame: 0 },
   // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
   // Row 2 (y=32): frame 11=green (vigor), 12=red (speed), 13=purple (shield).
+  antidote:     { sheet: 'icon_potions', frame: 26 }, // green conical flask
+  elixir:       { sheet: 'icon_potions', frame: 33 }, // large violet flask
   vigor_potion:  { sheet: 'icon_potions', frame: 11 },
   speed_potion:  { sheet: 'icon_potions', frame: 12 },
   shield_potion: { sheet: 'icon_potions', frame: 13 },
@@ -490,6 +492,7 @@ const BASE_TIER = {
   deer: 4,
   cow: 5,
   // Consumables
+  antidote: 1, elixir: 6,
   honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
@@ -589,7 +592,7 @@ const ITEMS = [
   // Honey: set it out to lure wandering chickens + cows within 30m toward
   //        you (eaten, so it's consumed — hence not a flute any more).
   // Book:  reveals a play tip or a directional hint to a nearby chest.
-  { id: 'honey', name: 'Honey', kind: 'consumable' },
+  { id: 'honey', name: 'Honey', kind: 'supply' },
   // dropWeight 3: a Book is THE documentation (see PLAY_TIPS below), so it is
   // the one consumable that has to turn up often enough to be read. At an even
   // draw it was one of seven T2 consumables — a sliver of an already-thin
@@ -598,63 +601,65 @@ const ITEMS = [
   // and school chests pin it outright on top of that (rarity.js
   // 'chest:school'). This is the one item whose SCARCITY is a documentation
   // bug rather than a balance choice.
-  { id: 'book',  name: 'Book',  kind: 'consumable', dropWeight: 3 },
+  { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
-  { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'consumable' },
-  { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'consumable' },
-  { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'consumable' },
-  { id: 'shield_potion', name: 'Potion of Shielding', kind: 'consumable' },
-  { id: 'blight_potion', name: 'Potion of Blight',    kind: 'consumable' },
+  { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
+  { id: 'elixir', name: 'Elixir', kind: 'magic', potion: true },
+  { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'magic', potion: true },
+  { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'magic', potion: true },
+  { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'magic', potion: true },
+  { id: 'shield_potion', name: 'Potion of Shielding', kind: 'magic', potion: true },
+  { id: 'blight_potion', name: 'Potion of Blight',    kind: 'magic', potion: true },
   // Drunk to summon a spirit raven that hunts foes and pest crows for
   // SPIRIT_RAVEN_MS (app.js drinkRavenPotion; the bird is the creature row
   // SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven).
-  { id: 'raven_potion',  name: 'Potion of the Raven', kind: 'consumable' },
+  { id: 'raven_potion',  name: 'Potion of the Raven', kind: 'magic', potion: true },
   // Drunk while DOWN (zero energy) to get back up on the spot — see
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
-  { id: 'revive_potion',       name: 'Potion of Revival',       kind: 'consumable' },
-  { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'consumable' },
+  { id: 'revive_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
+  { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'magic', potion: true },
   // Drunk to strike every foe on screen (app.js drinkThunderPotion).
-  { id: 'thunder_potion',      name: 'Potion of Thunder',      kind: 'consumable' },
+  { id: 'thunder_potion',      name: 'Potion of Thunder',      kind: 'magic', potion: true },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
-  // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
+  // for one minute — tier-8 boots and amulet on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
-  { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
+  { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'magic' },
   // Growth Powder: every crop within 20 m springs ahead one stage on the spot,
   // no watering needed (useGrowthPowder). Refused — and kept — when no crop is
   // in range.
-  { id: 'growth_powder', name: 'Growth Powder',       kind: 'consumable' },
+  { id: 'growth_powder', name: 'Growth Powder',       kind: 'magic' },
   // Shadow Powder: for one minute monsters lose interest in you — they neither
   // stalk nor drain you (useShadowPowder). You may still hit them.
-  { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'consumable' },
+  { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'magic' },
   // Frost Powder: every enemy within reach is frozen solid for 30 s — no
   // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
   // hostile is in reach.
-  { id: 'frost_powder',  name: 'Frost Powder',        kind: 'consumable' },
+  { id: 'frost_powder',  name: 'Frost Powder',        kind: 'magic' },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
   // climb UP a level or lower yourself DOWN one — right where you stand, no
   // staircase needed. One rope per climb. Unlike the sapphire portal it goes
   // both ways, so it is also the way out of a dead-end dig (useRope in app.js).
-  { id: 'rope',          name: 'Rope',                kind: 'consumable' },
+  { id: 'rope',          name: 'Rope',                kind: 'supply' },
   // Torch: light it (Use button with it selected) and for three minutes the
   // player's own light reaches twice as far — the `torch` row of
   // Lighting.KINDS, stamped at the feet on top of the reach ramp. The reach
   // plateau (what you can tap) is untouched; only the dark around it lifts.
   // Lighting another while one burns EXTENDS the time (useTorch in app.js).
-  { id: 'torch',         name: 'Torch',               kind: 'consumable' },
+  { id: 'torch',         name: 'Torch',               kind: 'supply' },
   // Trap Disarm Kit: hold it and tap a trap (hidden scuff or already-sprung
   // jaw, surface or cave) to remove it for good — see Traps.disarm in
   // src/traps.js and the 'disarm-trap' tap handler in interact.js. A kit
   // usually SURVIVES the job (TRAP_KIT_KEEP_CHANCE); unlike stepping on a
   // trap, disarming never costs energy.
-  { id: 'trap_kit',      name: 'Trap Disarm Kit',     kind: 'consumable' },
+  { id: 'trap_kit',      name: 'Trap Disarm Kit',     kind: 'supply' },
   // Magic Trap: hold it and tap an empty cell in reach to set it (interact.js
   // 'place-magic-trap' → save.magicTraps). The first ENEMY to step on the
   // cell is held and hurt, and the trap is spent (app.js _tickMagicTraps; the
   // numbers are in traps.js's MAGIC TRAP note). `caveOnly`: it is never in
   // the surface class/tier pool — rarity.js reaches it only through the cave
   // supply favourite — and a slain goblin trapper drops one.
-  { id: 'magic_trap',    name: 'Magic Trap',          kind: 'consumable', caveOnly: true },
+  { id: 'magic_trap',    name: 'Magic Trap',          kind: 'supply', caveOnly: true },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -680,7 +685,7 @@ const ITEMS = [
   // Scarecrow — placeable on tillable cells. Wild crows and deer steer
   // around it (4-cell aversion radius in wanderCreatures). Stack of N can
   // be deployed across the farm.
-  { id: 'scarecrow',    name: 'Scarecrow',    kind: 'consumable' },
+  { id: 'scarecrow',    name: 'Scarecrow',    kind: 'supply' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
@@ -793,7 +798,7 @@ const GRILL_ENERGY_MUL = 1.5;
 const POTION_FIRE_TRANSMUTE = { vigor_potion: 'revive_potion', speed_potion: 'reach_potion' };
 const POTION_BLAST_DMG_PER_TIER = 3;
 function isPotion(id) {
-  return /_potion$/.test(id) && ITEM_BY_ID[id]?.kind === 'consumable';
+  return ITEM_BY_ID[id]?.potion === true;
 }
 // What the fire does with one of `id`, burned. One answer both the dialog's
 // hint and the accept read: { transmute: id } | { blastDmg: n } | {} (ash).
@@ -847,8 +852,10 @@ const PRICES = {
   honey: 12,
   book:  20,
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
+  antidote:     12,
+  elixir:       360,
   vigor_potion:  35,   // T2 — instant 40-energy restore
-  speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
+  speed_potion:  55,   // T2 — tier-9 boots + amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura hurting every foe 2 HP/s
   raven_potion:  90,   // T3 — 1 min of a slime-strength ally (a slime's bite a second
@@ -857,7 +864,7 @@ const PRICES = {
   revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
-  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
+  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 boots + amulet walking + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 1 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
@@ -1096,7 +1103,8 @@ const PLAY_TIPS = [
   'After dark, ghosts rise out of the dark every five minutes or so. One hovers a moment, then rushes you at a run, and its touch costs 12\u26a1 before armour. Below ground, every second level is haunted at every hour. A torch or a lamp burns them, a campfire drives them off, and none will linger near Home or a castle you\'ve taken back.',
   // ── The starter loop — till, plant, rebuild, harvest, sell ───
   'Tilling refuses a cell holding a wildplant, rock, or building.',
-  'A watered crop climbs one stage every 15 minutes, even while you\'re away — then it wants watering again.',
+  'An ordinary watered crop climbs one stage every 15 minutes, even while you are away, then needs watering again. Magical flowers take hours per stage; check their growing timer.',
+  'Pack an Antidote before exploring underground. Purple Slimes leave a sickness that follows you after the fight.',
   'A ripe crop pays one to three of itself, and about one pick in four hands a seed back as well.',
   'A ruined house can be rebuilt for 1 stone, and each one you rebuild adds a stone to the next, up to 20.',
   'The first wreck you rebuild becomes your own smithy, and it will beat out a wooden pickaxe, axe or hoe for 5 wood apiece.',
@@ -1106,6 +1114,7 @@ const PLAY_TIPS = [
   // Placed with the slime it is about, and BEFORE the swing-reach page: the
   // first thing a player does about a slime is hit it, so what a half-hearted
   // swing turns it into is actionable the moment the pest tip above is.
+  'Hostile plants in parks stay rooted. Walk around them to stay out of biting range.',
   'Strike a slime and it stops meandering: for eight seconds it comes straight at you, and a pet\'s bite provokes it just the same. Home\'s circle and a lit fire still turn it back.',
   'Swinging reaches one cell — exactly as far as a monster\'s bite. Your light reaches further, but only for work: closing in is what a fight costs.',
   'Your home turns enemies away inside its circle, and they cannot bite while they go. Strike one there and it does not merely leave — it runs until it is out of sight.',
@@ -1134,7 +1143,7 @@ const PLAY_TIPS = [
   'Now and then a cast hooks a slime instead of a fish. It lands beside you, and it is not happy about it.',
   // ── The village economy, once you have a house to trade with ───
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
-  'Addresses ending 2 or 6 are shops. Each one you rebuild sells the next line — seeds, supplies, potions, ore, relics, pets — then round again, a tier up. Endings 1 and 8 are Traders, who barter only.',
+  'Addresses ending 2 or 6 are shops. Each one you rebuild sells the next line — seeds, supplies, magic, ore, relics, pets — then round again, a tier up. Endings 1 and 8 are Traders, who barter only.',
   'Plain houses sell nothing. Each posts a wishlist of produce and pays half again what the same goods would fetch sold loose — for up to five sets, once.',
   'A household never changes its mind about what it wants — and one bundle keeps it happy for good.',
   'Every 20 deliveries behind you, the houses you rebuild from then on start asking for the next tier of crop.',
@@ -1161,7 +1170,7 @@ const PLAY_TIPS = [
   'A hedged lane that ends in a dead end is held by a giant goblin, and something is buried at the end of it.',
   // StreetVariants.LANTERN_SPACING_DIV (twice).
   'A lantern row, once rebuilt, stands its lamps twice as thick as any other street.',
-  'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds mostly, sometimes coin or produce.',
+  'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds, coin, fruit, potions, supplies, feathers, or boots — some wearable, some old junk.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
@@ -1170,10 +1179,6 @@ const PLAY_TIPS = [
   'A held ruin waits. Come within a few cells and the whole garrison comes at you at once — but it never strays far from its own building, so get seventy metres from the ruin and they give up and walk back to it.',
   // ── Animals — meeting them, then keeping them ───────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
-  'Chickens peck at any seed — hold one to befriend a wild chicken.',
-  'Cows can\'t resist a ripe pairy — the only food a cow will pause for.',
-  'Cats take milk, or any fish you land. Nothing else will win one over.',
-  'Dogs only follow a hunter — hold raw meat to catch one.',
   'Feed any plant or crop to a chicken or cow for an egg or milk — but only once an hour from each.',
   'Tap a tame animal to pet it. Pet a cow or chicken and for ten minutes its next yield has a coin-flip chance of doubling.',
   'Pet a tame cat and it trails after you for five minutes.',
@@ -1201,7 +1206,7 @@ const PLAY_TIPS = [
   'Gems come only out of the deeper stone: sapphire from gold-bearing rock, ruby from platinum, emerald from crimson, and a diamond only from frost.',
   'Some cave clusters are veins: one ore tier concentrated tenfold. Work the whole seam once you strike it.',
   'A chest mirrored underground climbs a tier every two levels down, to a gold gem no surface chest ever wears.',
-  'The shallow chests and X marks underground are packed for the dark: more coin, torches, rope and potions than their twins overhead.',
+  'Underground chests keep their location’s specialty, with extra potions, powders and travelling supplies. Buried X marks keep their own coin and supply mix.',
   'The deeper chests and X marks underground hoard instead: potions, powders, and — once they run rich enough — gems.',
   'Goblins hold the deep — level 2 and below. By level 3 their archers shoot from three cells off.',
   // The trapper: what it does (lays snares, never swings) and what it pays
@@ -1226,38 +1231,54 @@ const PLAY_TIPS = [
 ];
 
 // === Item special effects ====================================
-// Short, one-line disclosure for items that DO something beyond their plain
-// sell value / energy restore. Shown under the inventory bar (the inv-name
+// Short descriptions explain actions, ingredients and ambiguous collectibles. Shown under the inventory bar (the inv-name
 // strip) whenever such an item is selected, so a non-obvious power isn't a
 // secret the player only learns from a Book. Keyed by item id; absent = no
 // special effect (a plain crop / mineral that's just worth money or energy).
 
+const EGG_HATCH_METERS = 500;
+
 const ITEM_EFFECTS = {
+  egg: `Walk ${EGG_HATCH_METERS}m with GPS and the game open to hatch one carried egg into a random pet`,
   // Not a secret: the charm is a cash-shop mechanic the player otherwise only
   // meets by accident (tapping a shop with Flowers selected).
   flowers:   `Gift to a shopkeeper: half prices there for ${shortDuration(SHOP_CHARM_MS)}`,
   // Foods with a side-effect when eaten (on top of their energy restore).
   rainberry: 'Eat to water every crop within 20m',
-  pairy:     'Eat to reveal the nearest unfound chest for 5 min',
-  coffee:    'Eat for +2 amulet tiers of stick-walking speed (3 min)',
+  pairy:     'Eat to reveal the nearest unfound chest for 5 min; feed to tame a wild cow',
+  coffee:    'Eat to walk faster with the control stick (3 min)',
   // Universal tame treat — fed to any wild creature. Cave monsters are the
   // one exception, and the line says so: it is the only place that caveat is
   // written now that the Book no longer repeats the mango's effect.
   mango:     'Feed to tame any wild animal — never a cave monster',
   // An ingredient: the Craft page at Home is the only place that says so.
-  longgrass: 'Twist 3 into a Rope on Home\'s Craft page',
+  longgrass: 'Twist 5 into a Rope on Home\'s Craft page',
   // A rock is both: an ingredient (the Craft page's kit) and a placeable
   // (interact.js 'place-rock' — held-and-tapped, so the line has to say so).
-  rockfruit: 'Set on a bare tile as a stone; 4 make a Trap Disarm Kit',
-  // The sapphire's ADVERTISED use — the one its Portal button opens, and the
-  // only one this line may name. Until Sep 2026 it read "Offer to a slime to
-  // tame it": the game's one real secret, printed on the inventory bar the
-  // instant anyone selected a sapphire, while its actual function went
-  // undescribed. The taming is hinted in exactly one place now — the closing
-  // riddle in PLAY_TIPS — which is what makes it a secret rather than a label.
-  sapphire:  'Use to open a portal one level down',
+  rockfruit: 'Set on a bare tile as a stone; rebuild houses; 4 make a Trap Disarm Kit',
+  // Name the portal and forging uses; keep slime taming in the Book's riddle.
+  sapphire:  'Open a portal one level down; forge Copper through Crimson amulets at a blacksmith',
+  emerald:   'Forge Copper through Crimson staffs at a blacksmith; Frost staffs need Diamonds',
+  ruby:      'Sell, barter, or deliver when a house requests it',
+  milk:      'Feed to tame a wild cat where it stands',
+  boot:      'Old fishing junk to sell, barter, or deliver on request; not wearable',
+  shell:     'Beach collectible to sell, barter, or deliver on request',
+  rabbit_pelt: 'Hunting trophy to sell, barter, or deliver on request',
+  forgetmenot: 'Wild flower to sell, barter, or deliver on request',
+  marigold:    'Wild flower to sell, barter, or deliver on request',
+  wildrose:    'Wild flower to sell, barter, or deliver on request',
+  starflower:  'Wild flower to sell, barter, or deliver on request',
+  copper_bar:   'Forge Copper equipment at a blacksmith',
+  iron_bar:     'Forge Iron equipment at a blacksmith',
+  gold_bar:     'Forge Gold equipment; smelt with Sunflower into Platinum at a blacksmith',
+  platinum_bar: 'Forge Platinum equipment; smelt with Fireflower into Crimson at a blacksmith',
+  crimson_bar:  'Forge Crimson equipment; smelt with Iceflower into Frost at a blacksmith',
+  frost_bar:    'Forge Frost equipment at a blacksmith',
+  sunflower:   'Edible; smelt with Gold into Platinum at a blacksmith',
+  fireflower:  'Edible; smelt with Platinum into Crimson at a blacksmith',
+  iceflower:   'Edible; smelt with Crimson into Frost at a blacksmith',
   // The Frost jewel: where it comes from and what it is for, in one line.
-  diamond:   'Mined from Frost-tier ore; Frost jewelry is cut around it',
+  diamond:   'Mined from Frost ore; Frost jewelry is cut around it',
   // The one FOOD that still works through the hard-mode zero-energy lockout
   // (see PLAY_TIPS; the revival potions are drunk, not eaten) — a tenth of
   // the bar (REVIVE_ITEM_FRAC). Never a normal food: it carries no
@@ -1268,8 +1289,10 @@ const ITEM_EFFECTS = {
   honey:        'Set out to lure chickens & cows within 30m',
   book:         'Read for a play tip or a hint toward a chest',
   reach_potion:  'Drink to reach anything in sight (1 min)',
+  antidote:     'Drink to cure poison',
+  elixir:       'Drink to fill energy; no cooldown; does not revive or cure poison',
   vigor_potion:  'Drink to restore 40 energy',
-  speed_potion:  'Drink for tier-9 amulet walking (1 min)',
+  speed_potion:  'Drink for faster control-stick walking at lower energy cost (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   blight_potion: 'Drink to hurt foes near you 2 HP/s (1 min)',
   raven_potion:  `Drink: a spirit raven hunts foes & pests for ${shortDuration(SPIRIT_RAVEN_MS)}`,
@@ -1293,12 +1316,21 @@ const ITEM_EFFECTS = {
   // say so or nothing does (the rock's line is `rockfruit`, above — its id).
   coal:         'Strike on bare ground to make a campfire',
   // The campfire's recipes (CAMPFIRE_MAKES) — nothing else says a fire cooks.
-  meat:         `Hold over a campfire to grill it: ${GRILL_ENERGY_MUL}× energy`,
-  wood:         'Hold over a campfire to make a torch',
+  meat:         `Hold over a campfire to grill it: ${GRILL_ENERGY_MUL}× energy; feed raw to tame a wild dog`,
+  wood:         'Make a torch at a campfire; craft scarecrows at Home; forge wooden equipment at a blacksmith',
 };
 // Every raw food the fire cooks says so, in the meat's words.
 for (const raw of Object.keys(COOKED_FOODS)) {
   ITEM_EFFECTS[raw] = ITEM_EFFECTS[raw] || `Hold over a campfire to cook it: ${GRILL_ENERGY_MUL}× energy`;
+}
+
+// Seeds can be offered directly to wild chickens as well as planted.
+for (const item of ITEMS.filter(item => item.kind === 'seed')) {
+  Object.defineProperty(ITEM_EFFECTS, item.id, {
+    enumerable: true,
+    get: () => 'Plant in a tilled bed; feed to tame a wild chicken'
+      + (typeof Crops !== 'undefined' ? `; watered stage: ${shortDuration(Crops.stageHoldMs(item.grows))}` : ''),
+  });
 }
 
 const STARTING_ENERGY = 100;
@@ -1373,6 +1405,10 @@ const ANIMAL_FOOD = {
   // before the favourite-food path, and no "it wants X" hint ever names this.
   slime:   ['sapphire'],
 };
+for (const id of ANIMAL_FOOD.cat) {
+  if (COOKED_FOODS[id]) ITEM_EFFECTS[id] += '; feed raw to tame a wild cat';
+}
+
 function animalLikesFood(kind, foodId) {
   // Chickens peck ANY seed — they're omnivorous and the rainberry-only gate
   // felt arbitrary. Other species keep their explicit list.
@@ -1418,7 +1454,7 @@ const RELIC_DEFS = {
   // (a chance at a bigger stack of loot) until Sep 2026, when that became the
   // wizard's Full Measure rung at the same ceiling — see rarity.js qtyLuck.
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
-             effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
+             effectKey: 'stickWalk',     blurb: 'reduces stick-walking stamina cost' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on
@@ -1436,7 +1472,7 @@ const RELIC_DEFS = {
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'auto-shoots along the compass · 1 wood/20 shots · cheaper buys' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt · bigger bolt per tier' },
+             effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt' },
   // Watering can — HOW SOON, not what. Every watering has a tier/7 chance
   // (Crops.waterJumpChance) of springing the plant a whole growth stage on the
   // spot: nothing bare-handed, certain at Frost. It used to set produce
@@ -1444,7 +1480,7 @@ const RELIC_DEFS = {
   // quality is the HOE's now (it belongs to the bed, see Crops.bedQuality)
   // and the charge bank retired with it.
   can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
-             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward · surer per tier' },
+             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward a growth stage' },
   // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
   // effects, all per tier: the till wheel shortens on the shared tool ladder;
   // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a
@@ -1513,7 +1549,7 @@ function stackCapForBags(bagsRelic) {
 }
 // The four wearable slots. Armor carries NO per-slot effect number: what a
 // piece is worth is its TIER, and every slot pays the same for it
-// (armorSlotReduction below) — they differ in PRICE, not in what they do.
+// (armorSlotReduction below). Boots also speed up stick walking and soak traps.
 // Until Sep 2026 each slot carried its own `energyPerTier` and armour raised
 // the max-energy CAP — a bigger bar, which helped exactly as much whether or
 // not anything was hitting you. It soaks damage now, so it is worth wearing
@@ -1525,7 +1561,8 @@ const ARMOR_DEFS = {
   helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 135 },
   chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 165 },
   legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150 },
-  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost: 130 },
+  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost: 130,
+           blurb: 'faster control-stick walking; reduces trap damage' },
 };
 function gearDef(kind, slot) {
   return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);
@@ -1779,34 +1816,20 @@ function toolDurationMs(relics, slot) {
   if (!eq) return 9000;   // tier 0 (bare hands) = 2.25 × wood
   return TOOL_DURATION_MS[eq.tier] ?? 9000;
 }
-// Amulet relic: powers STICK WALKING — steering yourself somewhere other than
-// where the GPS says you are. The stick is always there and always works; the
-// amulet is purely an upgrade to it, so both functions answer for a bare hand
-// too (no amulet = tier 0 = the baseline, never "unavailable").
-//   steerSpeedMul   no amulet → STEER_MUL_FLOOR× walk, tier 7 → STEER_MUL_FROST×
-//                   (linear between; the numbers are the two constants below).
-//   steerEnergyCost no amulet → 1.0 / cell, tier 1 → 1.0, tier 7 → 0.15 (linear).
-// The bare baseline is 6× walk pace deliberately: at WALK_M_S that is a little
-// over one 7 m cell per second, about the slowest the stick can move and still
-// feel like a control rather than a drag — real walk pace crawls across a view
-// that is 11 cells wide. The stamina cost is per CELL, so a faster baseline
-// doesn't make travel cheaper, only less tedious.
-// Walking with the GPS costs nothing — that's you actually walking. Stick
-// walking is the character covering ground you didn't, which is what the
-// stamina pays for, and what the amulet makes cheap.
-// Ghost-walk (stick) speed endpoints, in multiples of WALK_M_S. Both ends are
-// named so the ladder between them is one subtraction rather than a magic
-// slope constant.
+// Stick walking: boots set speed; the amulet reduces energy per cell.
+// GPS walking stays free and uses its own pace. Buffs can lend tiers to both.
+// Speed runs from 6× walk without boots to 24× at Frost; cost runs from
+// 1 pip/cell without an amulet to 0.15 at Frost.
 const STEER_MUL_FLOOR = 6;      // bare hands
 // 24, up from 15.5. The ladder ran 6x to 15.5x, which sounds wide and does not
-// PLAY wide: 1.2 cells a second bare-handed against 3.1 at the top, so a tier-8
-// amulet felt like a tier-0 one with a tailwind and a coffee (+1 tier, ~9% at
+// PLAY wide: 1.2 cells a second bare-handed against 3.1 at the top, so tier-8
+// boots felt like tier-0 boots with a tailwind and a coffee (+1 tier, ~9% at
 // the top end) did nothing you could feel. The floor stays at 6 — it was
 // deliberately lifted from 5 because one cell a second read as a drag — so the
 // whole widening lands in the per-tier step, which goes 1.36x -> 2.57x.
-const STEER_MUL_FROST = 24;   // tier 7 amulet
-function steerSpeedMul(relics) {
-  const t = relics?.amulet?.tier || 0;
+const STEER_MUL_FROST = 24;   // tier 7 boots
+function steerSpeedMul(gear) {
+  const t = gear?.boots?.tier || 0;
   // The FLOOR was lifted 20% (5 → 6): one cell a second is the speed the
   // player spends the whole opening at, and it sat right on the edge of
   // reading as a drag. The Frost end is its own tuned endpoint
@@ -1960,7 +1983,8 @@ const INV_CATS = [
   { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic' },
   { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
   { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
-  { key: 'consumables', label: 'Items',       sym: '🧪', kinds: ['consumable'] },
+  { key: 'magic',       label: 'Magic',       sym: '🧪', kinds: ['magic'] },
+  { key: 'supplies',    label: 'Supplies',    sym: '🎒', kinds: ['supply'] },
 ];
 const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
 // Items whose TAB is not their kind's. Rock is the `rockfruit` crop — a

@@ -142,18 +142,14 @@
   // ── Which pool the prize comes out of ────────────────────────────────────
   // Its OWN context (rarity.js › 'treasure:road'), not the lowtier chest curve
   // the ladder used to borrow: what the survivors hand over for a rebuilt
-  // street is SEEDS, with coins and produce as the other faces of the pick.
+  // street includes seeds, walking supplies, fruit, boots and coins.
   // The key lives here rather than in app.js so trail.test.js pins the pool
   // the shipping ceremony actually rolls.
   const PRIZE_CONTEXT = 'treasure:road';
 
   // ── The FIRST prize is an ONION SEED ─────────────────────────────────────
-  // Prize #1 always OFFERS the onion seed. The road ladder pays in seeds, and
-  // the first rung says so out loud instead of sampling a pool that might hand
-  // a new player coins and leave them none the wiser about what the road is
-  // for — the same reason the starter chests carry a fixed payload. It is
-  // still a choice like every other rung: the seed is the first card, and
-  // rollChoices fills the rest of the row from PRIZE_CONTEXT (`preset`).
+  // Prize #1 always offers onion seeds to introduce planting. The remaining
+  // cards come from the broader road pool, just like every later rung.
   //
   // The shape is exactly what pickReward returns, so the ceremony, the card
   // and the payout all take it without a special case.
@@ -184,8 +180,7 @@
   // description behind an ⓘ so the row stays one line of pictures).
   const PRIZE_CHOICES = 3;
   // Rolls to spend looking for a distinct option before settling for fewer.
-  // The road curve is seed-heavy and pays coins a fifth of the time, so rolls
-  // land on the same card often enough that a few retries per option is the
+  // Rolls can land on the same card, so a few retries per option is the
   // difference between an offer and a formality; past that it's just burning
   // entropy. Three tries per card offered.
   const PRIZE_ROLL_TRIES = 3 * PRIZE_CHOICES;
@@ -201,7 +196,7 @@
   // quantity bracket whenever the tier had nowhere left to climb — which, on
   // the curve the trail rolls at its own chainMax, was nearly every prize: the
   // ceremony handed over "× 2" so reliably that the quantity read as fixed.
-  // The walk is meant to change WHAT you find: a finer seed, not a taller
+  // The walk is meant to change WHAT you find: finer gear or seeds, not a taller
   // stack of the same one.
   //
   // Capped, because a bonus step stops buying tiers once the context's own

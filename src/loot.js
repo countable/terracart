@@ -208,6 +208,16 @@ const POI_CATEGORY = {
   // ── Authority buildings — civic T3 chests
   police: 'civic', fire_station: 'civic', harbor: 'civic',
 };
+// Loot identity is separate from world category: no map IDs, tiers or pads change.
+const CHEST_THEME_BY_POI = {
+  museum: 'culture', art_gallery: 'culture', cinema: 'culture', theatre: 'culture',
+  place_of_worship: 'worship', cemetery: 'memorial', memorial: 'memorial', monument: 'memorial',
+  police: 'authority', fire_station: 'authority', pet: 'pets',
+};
+function chestThemeForPoi(poiClass) {
+  return CHEST_THEME_BY_POI[poiClass] || ChestThemes.normalize(POI_CATEGORY[poiClass]);
+}
+
 // === POI pad mapping ===
 // Every POI that gets a pad gets the SAME pad: a single rounded slab sitting in
 // the one cell directly under the chest (see PAD_SHAPES.round1 in textures.js).
@@ -543,6 +553,12 @@ function standNameItems(name) {
   return { specific, generic };
 }
 
+// Raw venue product shared by surface stalls and themed underground mirrors.
+function venueProductFor(o) {
+  const named = standNameItems(o?.name);
+  return named.specific || STAND_CLASS_ITEM[o?.poiClass] || named.generic || null;
+}
+
 function produceStandFor(o) {
   if (!o || o.kind !== 'chest') return null;
   // A POI's cave-level mirror (worldgen.js caveChestsFrom) is a plain chest:
@@ -553,8 +569,7 @@ function produceStandFor(o) {
   if (STAND_RETAIL_CATS.has(POI_CATEGORY[o.poiClass]) && !STAND_NEVER_CLASSES.has(o.poiClass)) {
     // A product word in the shop's own branding wins; then what kind of shop it
     // is; then, for a class that names no goods, a venue word from the name.
-    const named = standNameItems(o.name);
-    const item = named.specific || STAND_CLASS_ITEM[o.poiClass] || named.generic || null;
+    const item = venueProductFor(o);
     if (item && STAND_ITEM_FRAME[item] !== undefined &&
         (typeof ITEM_BY_ID === 'undefined' || ITEM_BY_ID[item])) {
       // Sushi, sashimi and poke counters still serve their fish raw. Match

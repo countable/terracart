@@ -1,5 +1,5 @@
 // A themed shop (role key 'market') is named for the LINE IT SELLS, not for the
-// trade idiom: "Potion Shop" on the map sign, on the restoration card and in
+// trade idiom: "Magic Shop" on the map sign, on the restoration card and in
 // the offer modal — never a "Market". The line comes from its restore order
 // (Shops.themeAt via app.js marketTheme), so no sign promises stock the shop
 // doesn't have.
@@ -20,7 +20,7 @@ const render = RENDER_SRC;
 
 test('shop naming: a themed shop is named for its line, not "Market"', () => {
   assert.eq(Shops.roleLabel('market', 'seed'), 'Seed Shop');
-  assert.eq(Shops.roleLabel('market', 'potion'), 'Potion Shop');
+  assert.eq(Shops.roleLabel('market', 'potion'), 'Magic Shop');
   assert.eq(Shops.roleLabel('market', 'pet'), 'Pet Shop');
   for (const t of Shops.THEMES) assert.truthy(Shops.roleLabel('market', t), 'every line has a name: ' + t);
   assert.eq(Shops.roleLabel('market'), 'Shop', 'no line to name → a bare Shop');

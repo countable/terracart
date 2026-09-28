@@ -1,7 +1,7 @@
 // Torches you can pick up: the Torch consumable lying on the first cave
 // level's floor (worldgen.js caveFloorTorches) — one at the foot of every
 // up-ladder, where a descent lands, and a few dozen strewn over the rest —
-// plus the lowtier roadside box's torch favourite (rarity.js 'chest:lowtier').
+// plus the roadside box's themed supply group (rarity.js 'chest:lowtier').
 // The floor ones are `torch` WILDPLANTS, so they ride the lane every floor
 // pickup already walks: generated, drawn by CROP_SPRITE, picked by the
 // wildplant tap, remembered only as an id in save.picked.
@@ -57,7 +57,7 @@ test('floor torches: a few dozen strewn per tile, on free floor, as the Torch it
     assert.eq(w.kind, 'wildplant', 'a floor pickup, not a wall-torch object');
     assert.eq(w.crop, 'torch', 'crop');
     assert.eq(wildplantOutput(w.crop), 'torch', 'picking one hands over the Torch consumable');
-    assert.eq(ITEM_BY_ID.torch.kind, 'consumable', 'which is the usable item');
+    assert.eq(ITEM_BY_ID.torch.kind, 'supply', 'which is the usable item');
     const { lix, liy } = cellOf(w);
     assert.eq(grid[liy * N + lix], CAVE_FLOOR, 'on floor');
     assert.falsy(before.has(liy * N + lix), 'never on a cell something already holds');
@@ -107,18 +107,33 @@ function xorRng(seed) {
   return () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
 }
 
-test('lowtier chest: the Torch is its favourite, and a common find at every tier', () => {
-  const ctx = LOOT_CONTEXTS['chest:lowtier'];
-  assert.eq(ctx.favourite?.id, 'torch', 'the favourite is the Torch');
-  for (const tier of [1, 2, 3]) {
+test('roadside chest: 45% supplies, with Torches available at T1 and no unrelated items', () => {
+  assert.eq(ChestThemes.weights('roadside', 1).supplies, 45);
+  const supplyIds = new Set(['torch', 'rope', 'trap_kit', 'honey']);
+  for (const tier of [1, 2, 3, 5]) {
     const rng = xorRng(0x70C4 + tier);
-    let torches = 0;
+    let supplies = 0, torches = 0;
     const n = 4000;
     for (let i = 0; i < n; i++) {
       const r = pickReward('chest:lowtier', { relics: {}, armor: {} }, rng, { tier });
-      if (r && r.kind === 'item' && r.id === 'torch') torches++;
+      assert.truthy(r, 'every roadside roll resolves');
+      if (r.group === 'supplies') {
+        supplies++;
+        assert.eq(r.kind, 'item');
+        assert.truthy(supplyIds.has(r.id), `roadside supply ${r.id}`);
+        assert.eq(ITEM_BY_ID[r.id].kind, 'supply');
+        assert.inRange(r.qty, 1, 5, 'supplies keep their stack cap');
+        if (r.rolledTier === 1) assert.eq(r.id, 'torch', 'T1 supplies always offer usable light');
+        if (r.id === 'torch') torches++;
+      } else if (r.group === 'materials') {
+        assert.truthy(r.id === 'wood' || r.id === 'rockfruit');
+      } else {
+        assert.eq(r.group, 'cash');
+        assert.eq(r.kind, 'gold');
+      }
     }
-    assert.inRange(torches / n, 0.07, 0.16, `T${tier}: about one box in nine (${(torches / n).toFixed(3)})`);
+    assert.inRange(supplies / n, 0.42, 0.48, `T${tier}: supplies retain 45% of rolls`);
+    if (tier === 1) assert.gt(torches / n, 0.30, 'roadside T1 is a dependable Torch source');
   }
 });
 

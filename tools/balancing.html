@@ -66,6 +66,7 @@
 <body>
 <h1>Balancing — chest and treasure rewards</h1>
 <p>Every figure is the game's own <code>pickReward</code>, sampled, valued at list price.
+   Browse every item: <a href="items.html">item catalogue</a>.
    World placements: <a href="map-review.html">map review</a>.</p>
 <p>Shop offers use separate generators and are not simulated here. Restored castles offer daily favours;
    forts run slot machines. Older saves can retain a castle relic vendor.</p>
@@ -179,7 +180,8 @@ const $ = (id) => document.getElementById(id);
 const fmt$ = (v) => '$' + (v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1));
 const pct = (v) => (v * 100).toFixed(1) + '%';
 // The shop:* tuning tables are not called by the game's shop generators.
-const rewardContexts = () => Object.keys(LOOT_CONTEXTS).filter((c) => c.startsWith('chest:') || c.startsWith('treasure:'));
+const chestContexts = () => Object.keys(ChestThemes.themes).map(theme => 'chest:' + theme);
+const rewardContexts = () => [...chestContexts(), ...Object.keys(LOOT_CONTEXTS).filter(c => c.startsWith('treasure:'))];
 
 // A save of a player who owns every relic and armour slot at `tier` — what
 // the rolls read (ring luck, gear upgrades, relic caps).
@@ -283,7 +285,7 @@ function matrix() {
 }
 
 function chestGrid() {
-  const cats = Object.keys(LOOT_CONTEXTS).filter((c) => c.startsWith('chest:'));
+  const cats = chestContexts();
   const tiers = [1, 2, 3, 4, 5], N = 1500, owned = +$('owned').value;
   table($('chestGrid'), ['category', ...tiers.map((t) => 'T' + t)], cats.map((ctx) =>
     `<tr><td>${ctx.slice(6)}</td>${tiers.map((t) => {
@@ -293,15 +295,15 @@ function chestGrid() {
 }
 
 function defaultTiers() {
-  const rows = Object.entries(CHEST_TIER_BY_CATEGORY).sort((a, b) => a[1] - b[1]);
-  table($('defaultTiers'), ['category', 'locations', 'surface interaction', 'base chest tier', 'mirrors underground'], rows.map(([category, tier]) => {
-    const places = Object.keys(POI_CATEGORY).filter((p) => POI_CATEGORY[p] === category);
+  const rows = Object.entries(ChestThemes.themes).map(([theme, def]) => [theme, def.tier]).sort((a, b) => a[1] - b[1]);
+  table($('defaultTiers'), ['theme', 'locations', 'surface interaction', 'base chest tier', 'mirrors underground'], rows.map(([category, tier]) => {
+    const places = Object.keys(POI_CATEGORY).filter((p) => chestThemeForPoi(p) === category);
     const stalls = places.filter((poiClass) => produceStandFor({ kind: 'chest', poiClass }));
     const chestOnly = places.filter((p) => STAND_NEVER_CLASSES.has(p));
     const surface = stalls.length === places.length ? 'Market stalls'
       : stalls.length ? `Market stalls: ${stalls.map((p) => p.replaceAll('_', ' ')).join(', ')}. `
         + (chestOnly.length ? `Chests: ${chestOnly.join(', ')}.` : 'Other locations: chests or name-based stalls.')
-      : category === 'lowtier' ? 'Chests; ATMs and bicycle stands also have coin bursts' : 'Chests';
+      : category === 'roadside' ? 'Chests; ATMs and bicycle stands also have coin bursts' : 'Chests';
     return `<tr><td>${category}</td><td style="text-align:left;white-space:normal">${places.map((p) => p.replaceAll('_', ' ')).join(', ')}</td>`
       + `<td style="text-align:left;white-space:normal">${surface}</td><td>T${tier}</td><td>${chestMirrorsUnderground(places[0]) ? 'yes' : 'no'}</td></tr>`;
   }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>Chests</td><td>T${chestTier()}</td><td>yes</td></tr>`));
@@ -321,7 +323,7 @@ function syncControls() {
     ? `Each sample offers up to ${Trail.PRIZE_CHOICES} distinct cards; the player keeps one. Prize #1 includes ${Trail.FIRST_PRIZE_QTY} onion seeds. Tables measure offered cards, not total payout.`
     : ctx === Combat.ELITE_TREASURE_CONTEXT
       ? 'Repeat elite kills pay this reward. The first discovery gives a memory instead. The normal kill wage is separate.'
-      : ctx.startsWith('chest:') ? 'Random chest rewards at the chosen tier. Surface food POIs are market stalls; their underground copies use chest:food. Florists and garden centres are also stalls; gardens stay chests. Fixed starter contents are not included.'
+      : ctx.startsWith('chest:') ? 'Themed chest rewards at the chosen tier. Cave loot mixes 60% location theme with 40% cave supplies; the cave component increasingly favors magic. Seed odds decrease at high rolled quality. Surface food POIs are market stalls; their underground copies use chest:food. Florists and garden centres are also stalls; gardens stay chests. Fixed starter contents are not included.'
       : 'One buried-treasure reward. Underground finds use the game’s depth-based cave supply weighting.';
 }
 

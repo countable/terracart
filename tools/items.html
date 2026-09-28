@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Item catalogue · Mending Lane</title>
+<style>
+:root{color-scheme:dark;--bg:#111;--panel:#1a1612;--ink:#ddd;--muted:#aaa;--gold:#ffd866;--line:#393126}
+*{box-sizing:border-box}body{margin:0 auto;padding:24px;max-width:1500px;background:var(--bg);color:var(--ink);font:14px system-ui,sans-serif}a{color:#8ec5ff}h1{font-size:26px;color:var(--gold);margin:18px 0 8px}p{color:var(--muted);line-height:1.5;margin:6px 0}.controls{display:flex;flex-wrap:wrap;gap:14px;margin:22px 0 14px;align-items:end}label{display:grid;gap:6px;font-size:12px;color:var(--muted)}input,select{font:inherit;color:var(--ink);background:#211d18;border:1px solid #65553d;border-radius:5px;padding:9px}input{width:300px;max-width:100%}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:14px}table{border-collapse:collapse;width:100%;background:var(--panel);font-size:13px}th,td{padding:12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{background:#282119;color:var(--gold);white-space:nowrap}td.name{min-width:180px}td.description{min-width:220px;max-width:370px;line-height:1.5}td.sources{min-width:230px;max-width:430px;line-height:1.6}td.value{white-space:nowrap;font-variant-numeric:tabular-nums}.muted,small{color:var(--muted)}small{display:block;margin-top:5px;font:11px ui-monospace,monospace}.art{min-width:64px;text-align:center;vertical-align:middle}.art span{background-repeat:no-repeat}.tag{display:inline-block;background:#2b251d;border:1px solid #4c4030;border-radius:4px;padding:1px 6px;margin:2px;font-size:11px}summary{cursor:pointer;color:#8ec5ff}#status{margin-top:12px}#empty{padding:30px;text-align:center}button{font:inherit;color:var(--ink);background:#30291f;border:1px solid #65553d;padding:9px;border-radius:5px;cursor:pointer}@media(max-width:600px){body{padding:14px}.controls>label:first-child{width:100%}input{width:100%}h1{font-size:22px}}
+</style>
+</head>
+<body>
+<nav><a href="balancing.html">← Balancing dashboard</a></nav>
+<h1>Item catalogue</h1>
+<p>Every inventory item and equipment tier, with game art, list value, and the description shown in-game.</p>
+<p>Chest sources show possible drops, including rare rolls. Actual odds depend on chest tier, depth, and player gear. “No chest drops” items come from other activities. Values are per item, before shop or equipment modifiers.</p>
+<div class="controls">
+<label>Search items<input type="search" id="search" placeholder="Name, description, or item ID"></label>
+<label>Category<select id="category"><option value="">All categories</option></select></label>
+<label>Tier<select id="tier"><option value="">All tiers</option></select></label>
+<label>Chest type<select id="chest"><option value="">All sources</option><option value="none">No chest drops</option></select></label>
+<label>Sort<select id="sort"><option value="name">Name</option><option value="value-desc">Value: high to low</option><option value="value-asc">Value: low to high</option><option value="tier">Tier</option><option value="category">Category</option></select></label>
+<button id="reset" type="button">Reset</button>
+</div>
+<p id="status" role="status" aria-live="polite">Loading game items…</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Art</th><th scope="col">Item</th><th scope="col">Value</th><th scope="col">Category</th><th scope="col">Tier</th><th scope="col">Chest types</th><th scope="col">In-game description</th></tr></thead><tbody id="rows"></tbody></table><p id="empty" hidden>No items match these filters.</p></div>
+<script src="game-loader.js"></script>
+<script src="item-catalog-data.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+let catalogue = [];
+const iconScene = () => MapScene.prototype;
+const sourceName = context => context.replace(/^(chest|fixed):/, '').replaceAll('-', ' ');
+function iconHTML(row) {
+  const game = iconScene();
+  const html = row.gear ? game.gearIconHTML(row.gear.kind, row.gear.slot, row.gear.tier, 40) : game.iconSpanHTML(row.itemId, 40);
+  return html.replaceAll('assets/', '../assets/');
+}
+function sourceHTML(row) {
+  const names = [...new Set(row.chests.map(source => sourceName(source.context)))];
+  if (!names.length) return '<span class="muted">No chest drops</span>';
+  const tags = names.map(name => `<span class="tag">${escapeHTML(name)}</span>`).join('');
+  const details = [...new Set(row.chests.map(source => source.label))].join('; ');
+  return tags + `<details><summary>Tier &amp; depth details</summary><span class="muted">${escapeHTML(details)}</span></details>`;
+}
+function render() {
+  const query = el('search').value.trim().toLowerCase(), category = el('category').value, tier = el('tier').value, chest = el('chest').value;
+  const rows = catalogue.filter(row => (!query || `${row.name} ${row.id} ${row.description}`.toLowerCase().includes(query))
+    && (!category || row.category === category) && (!tier || String(row.tier) === tier)
+    && (!chest || (chest === 'none' ? !row.chests.length : row.chests.some(source => source.context === chest))));
+  const sort = el('sort').value;
+  rows.sort((a,b) => (sort === 'value-desc' ? b.value-a.value : sort === 'value-asc' ? a.value-b.value : sort === 'tier' ? a.tier-b.tier : sort === 'category' ? a.category.localeCompare(b.category) : 0) || a.name.localeCompare(b.name));
+  el('rows').innerHTML = rows.map(row => `<tr data-item="${escapeHTML(row.id)}"><td class="art">${iconHTML(row)}</td><td class="name"><strong>${escapeHTML(row.name)}</strong><small>${escapeHTML(row.id)}</small></td><td class="value">$${Number(row.value).toLocaleString()}</td><td>${escapeHTML(row.category)}</td><td>${row.tier ? 'T'+escapeHTML(row.tier) : '—'}</td><td class="sources">${sourceHTML(row)}</td><td class="description">${row.description ? escapeHTML(row.description) : '<span class="muted">No in-game description</span>'}</td></tr>`).join('');
+  el('status').textContent = `${rows.length} of ${catalogue.length} items`;
+  el('empty').hidden = rows.length > 0;
+}
+// World animals use a representative sprite frame in the game's inventory.
+// The inert tool loader does not run Phaser's create(), so bake those frames here.
+async function prepareWorldIcons() {
+  window.ITEM_DATA_URLS = window.ITEM_DATA_URLS || {};
+  const ids = [...new Set(ITEMS.map(item => item.base || item.id))];
+  await Promise.all(ids.map(async id => {
+    if (inventoryIconSource(id)) return;
+    const asset = ASSETS[id];
+    if (!asset) return;
+    const image = new Image(); image.src = '../' + asset.path;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = asset.frameWidth || image.width; canvas.height = asset.frameHeight || image.height;
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+    window.ITEM_DATA_URLS[id] = canvas.toDataURL();
+  }));
+}
+(async () => {
+  try {
+    await loadGame();
+    // Game icon prewarming uses game-root URLs; fix them before any render.
+    const ready = IconNet.ready.bind(IconNet);
+    IconNet.ready = path => ready(path.startsWith('assets/') ? '../' + path : path);
+    await prepareWorldIcons();
+    catalogue = ItemCatalog.build();
+    const fill = (id, values, label = value => value) => values.forEach(value => el(id).add(new Option(label(value), value)));
+    fill('category', [...new Set(catalogue.map(row => row.category))].sort());
+    fill('tier', [...new Set(catalogue.map(row => row.tier))].sort((a,b) => a-b), value => 'T'+value);
+    fill('chest', [...new Set(catalogue.flatMap(row => row.chests.map(source => source.context)))].sort(), sourceName);
+    for (const id of ['search','category','tier','chest','sort']) el(id).addEventListener('input', render);
+    el('reset').addEventListener('click', () => { for (const id of ['search','category','tier','chest']) el(id).value = ''; el('sort').value = 'name'; render(); });
+    render();
+  } catch (error) { el('status').textContent = 'Could not load the catalogue: ' + error.message; console.error(error); }
+})();
+</script>
+</body>
+</html>

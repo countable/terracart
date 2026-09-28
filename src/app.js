@@ -750,7 +750,7 @@ function crowEatsCrop(p) { return Crops.crowEats(p); }
 const DEBUG = false;
 const DEBUG_SPEED_MUL = 10;
 // Dragon Powder is not a movement mode — it's a stat buff wearing a dragon
-// sprite. For its minute the player walks as if they had an amulet of this
+// sprite. For its minute the player walks as if they had boots and an amulet of this
 // tier (one past Frost, see items.js steerSpeedMul / steerEnergyCost) and hits
 // twice as hard (interact.js). The Speed potion stands in a tier higher still.
 // Straying from your real position, in cells. Inside this ring stick walking is
@@ -914,7 +914,7 @@ const WALK_HOME_RAMP_MS = 1100;
 // by frame, so the return should read as purposeful, not as the same stroll
 // that opened it — but it is still a walk (the too-far case below places the
 // body outright), so it stays well under the 2× that would read as running.
-// Multiplies the stick pace (walk × amulet) once the ramp is at full.
+// Multiplies the stick pace (walk × boots) once the ramp is at full.
 const WALK_HOME_SPEED_MUL = 1.5;
 // ...and how long before the walk home SHOWS ITSELF (_drawWalkHomeHint). The
 // hint is deliberately quieter than the walk: a player who has just let go of
@@ -962,16 +962,16 @@ const BLIGHT_DPS = 2;
 // line that quotes it.
 const DRAGON_AMULET_TIER = 8;
 const SPEED_POTION_AMULET_TIER = 9;
-// Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the amulet
+// Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the walking
 // tier used for stick-walking to a fixed high number), coffee is a common
 // crop, not a rare potion — so it just gives a caffeine buzz of
-// COFFEE_AMULET_BOOST tiers for 3 minutes, stacking additively on top of
-// whatever tier is already in play (worn amulet, Dragon, or the Speed
+// COFFEE_BOOT_BOOST tiers for 3 minutes, stacking additively on top of
+// whatever tier is already in play (worn boots, Dragon, or the Speed
 // potion), capped at the same ceiling those top out at so a coffee can't
 // out-tier the rarest buff. The number is TWO — the comment said "+1 tier"
 // for a while after the constant went to 2, and so did the item-effect line
 // the player reads (items.js ITEM_EFFECTS); both quote the constant now.
-const COFFEE_AMULET_BOOST = 2;
+const COFFEE_BOOT_BOOST = 2;
 const COFFEE_BUFF_MS = 3 * MINUTE_MS;
 // Torch: how long one burns (useTorch). Lighting another while one burns
 // extends from the current end, so a bag of them is one long light.
@@ -1006,7 +1006,7 @@ const SHINY_FIND_TITLE = '✨ SHINY FIND ✨';
 // Fort slot machine (presentFortSlots): what can be a prize, and the reels'
 // animation — a flicker every FORT_SLOT_TICK_MS, the first reel stopping at
 // FORT_SLOT_FIRST_STOP_MS and each next one FORT_SLOT_STOP_GAP_MS later.
-const FORT_SLOT_KINDS = ['seed', 'produce', 'consumable', 'mineral'];
+const FORT_SLOT_KINDS = ['seed', 'produce', 'magic', 'supply', 'mineral'];
 const FORT_SLOT_EXCLUDE = new Set(['book']);   // a Book reads itself on pickup
 const FORT_SLOT_TICK_MS = 70;
 const FORT_SLOT_FIRST_STOP_MS = 700;
@@ -2902,8 +2902,8 @@ class MapScene extends Phaser.Scene {
     });
 
     // Movement-stick state. The stick is ALWAYS on screen — it's the control
-    // that walks you somewhere other than where the GPS puts you, and an amulet only
-    // makes that walking faster and cheaper. joystickVec is driven by pointer
+    // that walks you somewhere other than where the GPS puts you, with boots
+    // increasing speed and an amulet reducing the energy cost. joystickVec is driven by pointer
     // events on the pad, _movePadHeld says whether the pointer is currently
     // down, and _manualOffsetM accumulates how far the stick has walked you
     // from your real position: every fix targets gpsM + this offset, so the
@@ -3260,8 +3260,9 @@ class MapScene extends Phaser.Scene {
       // is untouched by mode.
       // A laid snare bites at its trapper's power (Traps.trapPower — the
       // Home nerf reaches it); a generated trap at 1.
+      // Only boots protect against traps; apply their soak before banking pips.
       const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul * Traps.trapPower(trap);
-      Energy.set(this.save, before - bite);
+      Energy.set(this.save, before - Combat.playerDamage(bite, { boots: this.save.armor?.boots }));
       const spent = before - this.save.energy;
       this._painFlash(spent);
       // Say the real number: an empty bar loses nothing, so nothing is popped —
@@ -3270,7 +3271,7 @@ class MapScene extends Phaser.Scene {
       this._warnIfTiring(before);
       if (this.updateEnergyDOM) this.updateEnergyDOM();
       const ps = this.playerScreen ? this.playerScreen() : null;
-      const bleed = +(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap)).toFixed(1);
+      const bleed = +Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }).toFixed(1);
       this.flash(`🪤 a trap! −${bleed}⚡/s — step off`,
         ps ? ps.x : undefined, ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
       // The reveal has to survive a reload, so it is written now rather than
@@ -3296,7 +3297,7 @@ class MapScene extends Phaser.Scene {
     // shape the passive rests use, so a fractional per-frame drain doesn't
     // churn save.energy and the DOM every frame.
     this._trapDrainAccum = (this._trapDrainAccum || 0)
-      + Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap) * dt;
+      + Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt;
     const pips = Math.floor(this._trapDrainAccum);
     if (pips > 0) {
       this._trapDrainAccum -= pips;
@@ -3933,6 +3934,7 @@ class MapScene extends Phaser.Scene {
       this._drainBadgeStories();
     }
     const dt = dtMs / 1000;
+    this._tickConditions();
     // Spring the peek camera home (no-op unless a drag just ended). FIRST, so
     // every projection below — and every draw pass this frame — reads one
     // settled camera position rather than two.
@@ -3955,8 +3957,8 @@ class MapScene extends Phaser.Scene {
     this.playerShadow?.setPosition(pScreen.x, pScreen.y - 1);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
-    // a dragon walks the same way everyone walks, just with a tier-8 amulet's
-    // legs (DRAGON_AMULET_TIER, see _walkRelics) and double damage. All the
+    // a dragon walks the same way everyone walks, just with tier-8 boots and an amulet's
+    // efficiency (DRAGON_AMULET_TIER, see _walkRelics) and double damage. All the
     // edge does is swap the sprite skin; the countdown label is refreshed
     // every frame below.
     const dragonActive = this.isDragonActive();
@@ -4546,7 +4548,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Scan save.planted and bump stage on any watered crop whose stage hold
-  // (Crops.STAGE_HOLD_MS — 15 min) has elapsed. After each advance the crop needs re-watering, so
+  // (Crops.stageHoldMs — depends on crop) has elapsed. After each advance the crop needs re-watering, so
   // a single tick advances each plant by at most one stage; a long-idle
   // plant catches up over subsequent waterings, not all at once.
   advanceGrowth() {
@@ -4779,6 +4781,69 @@ class MapScene extends Phaser.Scene {
     }
 
     this._drawEnemyHealth(enemies);
+  }
+
+  _applyCondition(id) {
+    const fresh = Conditions.apply(this.save, id);
+    if (fresh && id === 'poison') {
+      this.flash('Poisoned! Find an Antidote.', this.viewCenterX, this.viewCenterY);
+      if (!this.save.poisonLearned) {
+        this.save.poisonLearned = true;
+        const def = Conditions.DEFINITIONS.poison;
+        this.showMessageModal({ title: 'Poisoned', body:
+          `Purple Slime bites poison you: lose ${def.energyLoss} energy every ${shortDuration(def.intervalMs)} for ${shortDuration(def.durationMs)}. Antidotes from healthcare sites cure poison, even while downed. Rest and food do not cure it.` });
+      }
+    }
+    persistSave(this.save);
+    this._syncConditionHUD();
+  }
+
+  _tickConditions() {
+    if (!this._conditionVisibilityHandler) {
+      this._conditionVisibilityHandler = () => { this._conditionLastT = null; };
+      document.addEventListener('visibilitychange', this._conditionVisibilityHandler);
+      const resetClock = this._conditionVisibilityHandler;
+      this.events?.on('pause', resetClock);
+      this.events?.on('resume', resetClock);
+      this.events?.once('shutdown', () => {
+        document.removeEventListener('visibilitychange', resetClock);
+        this.events?.off('pause', resetClock);
+        this.events?.off('resume', resetClock);
+        this._conditionVisibilityHandler = null;
+        this._conditionLastT = null;
+        document.getElementById('condition-poison')?.remove();
+      });
+    }
+    const now = performance.now();
+    const elapsed = !document.hidden && this._conditionLastT != null ? now - this._conditionLastT : 0;
+    this._conditionLastT = document.hidden ? null : now;
+    const before = this.save.energy ?? 0;
+    const result = Conditions.tick(this.save, elapsed);
+    if (result.lost > 0) {
+      this._flashPlayerHit(result.lost);
+      this._popEnergy(-result.lost);
+      this._warnIfTiring(before);
+      this.updateEnergyDOM();
+    }
+    if (result.ticks || result.expired) persistSave(this.save);
+    this._syncConditionHUD();
+  }
+
+  _syncConditionHUD() {
+    let el = document.getElementById('condition-poison');
+    if (!Conditions.active(this.save, 'poison')) { el?.remove(); return; }
+    if (!el) {
+      const anchor = document.getElementById('energy');
+      if (!anchor) return;
+      el = document.createElement('div');
+      el.id = 'condition-poison';
+      el.style.cssText = 'position:absolute;top:100%;right:0;white-space:nowrap;color:#d9b1ff;background:#22132ee8;padding:3px 6px;border-radius:4px;font:11px monospace;pointer-events:none;';
+      anchor.style.position = 'relative';
+      anchor.appendChild(el);
+    }
+    const def = Conditions.DEFINITIONS.poison;
+    const text = `Poison · ${shortDuration(this.save.conditions.poison.remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}`;
+    if (el.textContent !== text) el.textContent = text;
   }
 
   // A monster's arrow lands. The same energy hit the melee leech deals
@@ -6365,25 +6430,21 @@ class MapScene extends Phaser.Scene {
     const v = this.joystickVec;
     return !!(this._movePadHeld && v && (v.x || v.y));
   }
-  // Effective amulet for WALKING: the best of what the player is wearing and
-  // what they're currently buffed with. Dragon Powder and the Speed potion are
-  // both just borrowed amulet tiers now — no modes, no separate speed ladders
-  // — so every walking site (stick speed, stamina cost, the body's catch-up
-  // floor, the debug dump) asks this one question. Returns a relics-shaped
-  // object so it can be handed straight to items.js's steer* helpers; tier 0
-  // is a bare hand, which those answer for.
+  // Boots set walking speed; the amulet sets cost. Dragon and Speed lend
+  // tiers to both; coffee adds speed tiers only.
   _walkRelics() {
-    let tier = this.save.relics?.amulet?.tier || 0;
-    if (this.isDragonActive()) tier = Math.max(tier, DRAGON_AMULET_TIER);
+    let speedTier = this.save.armor?.boots?.tier || 0;
+    let costTier = this.save.relics?.amulet?.tier || 0;
+    let buffTier = this.isDragonActive() ? DRAGON_AMULET_TIER : 0;
     if ((this.save.speedPotionUntil ?? 0) > Date.now()) {
-      tier = Math.max(tier, SPEED_POTION_AMULET_TIER);
+      buffTier = Math.max(buffTier, SPEED_POTION_AMULET_TIER);
     }
-    // Coffee ADDS a tier rather than overriding to one — a caffeine buzz on
-    // top of whatever's already active, not a replacement for it.
+    speedTier = Math.max(speedTier, buffTier);
+    costTier = Math.max(costTier, buffTier);
     if ((this.save.coffeeUntil ?? 0) > Date.now()) {
-      tier = Math.min(SPEED_POTION_AMULET_TIER, tier + COFFEE_AMULET_BOOST);
+      speedTier = Math.min(SPEED_POTION_AMULET_TIER, speedTier + COFFEE_BOOT_BOOST);
     }
-    return { amulet: { tier } };
+    return { boots: { tier: speedTier }, amulet: { tier: costTier } };
   }
   // Steer with the STICK — the one control that walks you somewhere other than
   // where the GPS says you are. Unlike _steerTarget (the keyboard, which is
@@ -6396,11 +6457,8 @@ class MapScene extends Phaser.Scene {
   //     ground you didn't. Walking with the GPS stays free — that's you
   //     actually walking.
   //
-  // The amulet is the upgrade to exactly this: steerSpeedMul scales how fast
-  // the stick walks you (STEER_MUL_FLOOR× bare → STEER_MUL_FROST× at Frost) and
-  // steerEnergyCost scales what it costs (1 pip/cell bare → 0.15 at Frost).
-  // Dragon Powder and the speed potion stand in for tier 8 / 9 amulets on both
-  // counts for their minute (see _walkRelics).
+  // Boots scale stick speed; the amulet scales energy cost per cell.
+  // Dragon Powder and Speed lend tier 8 / 9 to both for their duration.
   _steerManual(vx, vy, dt) {
     // Steering by hand is the opposite of walking home — clear the flag the
     // hint draws from, or it would stay lit from the last drift frame.
@@ -6823,7 +6881,7 @@ class MapScene extends Phaser.Scene {
     // (steerSpeedMul - 1) cells behind a stick that's being held down — at
     // Frost that's a 20 m tail, and 20 m of coasting after you let go, which
     // reads as lag rather than speed. The floor is deliberately NOT applied
-    // when the stick is idle: an amulet would otherwise have the body darting
+    // when the stick is idle: boots would otherwise have the body darting
     // after every few metres of GPS jitter. The cap has to clear the floor —
     // stick speeds run past DEBUG_SPEED_MUL from tier 4 up, and a cap under
     // the floor would silently cancel it.
@@ -8875,7 +8933,32 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // Potion of Speed: a minute of tier-9 amulet walking, even without an amulet
+  drinkAntidote() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'antidote' || !(sel.count > 0)) return false;
+    if (!Conditions.useAntidote(this.save)) {
+      this.flash('No poison — Antidote kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    this._syncConditionHUD();
+    return this._finishConsumable('You drink the Antidote', 'The poison clears. Your energy stays as it was.');
+  }
+
+  drinkElixir() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'elixir' || !(sel.count > 0)) return false;
+    const before = this.save.energy ?? 0;
+    if (!Conditions.useElixir(this.save)) {
+      if (before <= 0) this.flash('Elixir cannot revive you.', this.viewCenterX, this.viewCenterY);
+      else this.flash('Energy full — Elixir kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    this._popEnergy(this.save.energy - before);
+    this.updateEnergyDOM();
+    return this._finishConsumable('You drink the Elixir', 'Your energy is fully restored. Conditions remain.');
+  }
+
+  // Potion of Speed: a minute of tier-9 boots and amulet walking, even without either
   // — the stick moves you faster and costs almost no stamina (_walkRelics
   // reads speedPotionUntil).
   drinkSpeedPotion(opts = {}) {
@@ -8884,7 +8967,7 @@ class MapScene extends Phaser.Scene {
     this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS;
     return this._finishConsumable(
       `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Speed`,
-      'Your legs blaze. For one minute the stick carries you faster than any amulet could.',
+      'Your legs blaze. For one minute the stick carries you faster than any boots could.',
       opts,
     );
   }
@@ -9096,7 +9179,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Dragon Powder: for ONE MINUTE you wear a red dragon and get its stats —
-  // a tier-8 amulet's legs (DRAGON_AMULET_TIER, so the stick walks you faster
+  // tier-8 boots and amulet (DRAGON_AMULET_TIER, so the stick walks you faster
   // and for less stamina than any forged amulet can) and 2× attack damage
   // (interact.js halves the kill-wheel duration while in dragon form). No
   // flight, no separate movement mode: a dragon walks the way everyone walks.
@@ -9403,7 +9486,7 @@ class MapScene extends Phaser.Scene {
       if (jumped > 0) extra += `\n🌱 ${jumped} sprang ahead a stage`;
     } else if (sel.id === 'coffee') {
       this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
-      extra = `\n☕ amulet buzz: +${COFFEE_AMULET_BOOST} tier, 3 min`;
+      extra = `\n☕ faster stick walking, 3 min`;
     }
     if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(sel.id)} max ⚡`;
     // Armed only now, after a bite has actually landed.
@@ -11262,7 +11345,7 @@ class MapScene extends Phaser.Scene {
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = offer.kind === 'relic'
       ? (gearDef(offer.kind, offer.slot)?.blurb || '')
-      : `−${armorSlotReduction(offer.tier)} damage soaked`;
+      : `−${armorSlotReduction(offer.tier)} damage soaked${offer.slot === 'boots' ? '; ' + ARMOR_DEFS.boots.blurb : ''}`;
     // Flower charm halves the asking price for the charm window (floor $1).
     const price = Math.max(1, Math.ceil(offer.price * this.shopCharmMul(house)));
     this.showOfferModal({
@@ -12552,7 +12635,7 @@ class MapScene extends Phaser.Scene {
       return (typeof gearDef === 'function' ? gearDef('relic', reward.slot)?.blurb : null) || null;
     }
     if (reward.kind === 'armor' && typeof armorSlotReduction === 'function') {
-      return `−${armorSlotReduction(reward.tier)} damage soaked`;
+      return `−${armorSlotReduction(reward.tier)} damage soaked${reward.slot === 'boots' ? '; ' + ARMOR_DEFS.boots.blurb : ''}`;
     }
     return null;
   }
@@ -12969,6 +13052,7 @@ class MapScene extends Phaser.Scene {
       title: this.buildingFlavorTitle(house, 'forge'),
       cancelLabel: 'Later',
       get: `${iconHtml} ${name}`,
+      blurb: this._trailRewardBlurb(offer),
       cost: costHTML,
       canAfford: canAfford(),
       acceptLabel: 'Forge',
@@ -13866,7 +13950,7 @@ class MapScene extends Phaser.Scene {
     tabs.id = 'inv-tabs';
     // position:fixed + appended to <body> for the same containing-block reason
     // as the item bar below. Sits just above the item bar.
-    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:center;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;';
+    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:flex-start;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;';
     for (const c of INV_CATS) {
       const active = c.key === this.save.invCat;
       const count = c.gear ? this.gearEntriesForCat(c.key).length : this.invEntriesForCat(c.key).length;
@@ -13876,7 +13960,7 @@ class MapScene extends Phaser.Scene {
       // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
       tab.className = active ? 'hud-tab sel' : 'hud-tab';
       tab.style.cssText =
-        'position:relative;flex:1 1 0;min-width:0;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
+        'position:relative;flex:1 0 44px;min-width:44px;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
         'justify-content:center;gap:1px;padding:0;overflow:hidden;';
       // Glyph in its own span so the desaturation targets ONLY the emoji — the
@@ -13914,6 +13998,7 @@ class MapScene extends Phaser.Scene {
       tabs.appendChild(tab);
     }
     document.body.appendChild(tabs);
+    tabs.querySelector('.sel')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 
     // ── Item / gear slot bar (BOTTOM of the two-bar HUD) ──────────────────
     let bar = document.getElementById('inv');
@@ -14148,9 +14233,9 @@ class MapScene extends Phaser.Scene {
           nameSpan.textContent = (typeof gearName === 'function') ? gearName(g.kind, g.slot, this.save[g.kind === 'armor' ? 'armor' : 'relics']?.[g.slot]?.tier) : g.slot;
           nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(nameSpan);
-          const def = (g.kind === 'relic' && typeof RELIC_DEFS !== 'undefined') ? RELIC_DEFS[g.slot] : null;
+          const def = gearDef(g.kind, g.slot);
           if (def && def.blurb) {
-            const tier = this.save.relics?.[g.slot]?.tier;
+            const tier = this.save[g.kind === 'armor' ? 'armor' : 'relics']?.[g.slot]?.tier;
             nameLbl.appendChild(this._effectLineEl(def.blurb,
               `${this.gearIconHTML(g.kind, g.slot, tier)} ${nameSpan.textContent}`));
           }
@@ -14322,15 +14407,38 @@ class MapScene extends Phaser.Scene {
   // is THE way to use a self-targeted consumable: the old tap-your-own-feet
   // gesture (interact.js 'use-consumable') was removed because it was easy
   // to trigger accidentally while tilling / planting under the player.
+  hatchEgg() {
+    const selectedId = this.save.inv?.[this.save.selSlot]?.id;
+    const result = EggHatch.hatch(this.save);
+    if (!result.ok) {
+      if (result.reason === 'full') this.flash('Make room for a pet first.');
+      return false;
+    }
+    this._eggHatchTracker = null;
+    this.save.selSlot = this.save.inv.findIndex(item => item.id === selectedId);
+    this._clampSelSlot();
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    const pet = ITEM_BY_ID[result.petId];
+    this.flashLoot(`Hatched ${pet.name}!`, UI_GREEN, 1, result.petId);
+    return true;
+  }
+
   syncConsumableButton() {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');
     const CONSUMABLE = {
+      egg: { verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the egg?',
+             get: 'a random pet in your bag, ready to release',
+             label: () => EggHatch.ready(this.save) ? 'Hatch' : `Hatch · ${EggHatch.remaining(this.save)} m left`,
+             disabled: () => !EggHatch.ready(this.save), usable: () => EggHatch.ready(this.save) },
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       honey: { verb: 'Use',  method: 'useHoney',  title: 'Set out the honey?', get: '🍯 lure nearby chickens & cows' },
       reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: `✨ reach anything in sight for ${shortDuration(REACH_POTION_MS)}`, channel: true },
+      antidote: { verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?', get: 'cure poison without restoring energy', usable: () => Conditions.active(this.save, 'poison') },
+      elixir: { verb: 'Drink', method: 'drinkElixir', title: 'Drink the Elixir?', get: 'restore full energy without curing poison or reviving', usable: () => this.save.energy > 0 && this.save.energy < this.getMaxEnergy() },
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
-      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `tier-${SPEED_POTION_AMULET_TIER} amulet walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
+      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `much faster, cheaper stick walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: `half monster damage for ${shortDuration(SHIELD_POTION_MS)}`, channel: true },
       raven_potion:  { verb: 'Drink', method: 'drinkRavenPotion',  title: 'Drink the Potion of the Raven?', get: `🐦 a spirit raven hunts foes & pest crows for ${shortDuration(SPIRIT_RAVEN_MS)}`, channel: true },
       thunder_potion: { verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?', get: `⚡ every foe in sight takes ${THUNDER_DMG} damage, and the rest flee` },
@@ -14346,7 +14454,7 @@ class MapScene extends Phaser.Scene {
       resurrection_potion: { verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Resurrection?',
                              get: () => this._reviveGetLine('resurrection_potion'),
                              usable: () => Combat.playerDowned(this.save.energy) },
-      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: `🐉 become a dragon for ${shortDuration(DRAGON_POWDER_MS)} — tier-${DRAGON_AMULET_TIER} amulet legs + 2× damage` },
+      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: `🐉 become a dragon for ${shortDuration(DRAGON_POWDER_MS)} — faster, cheaper stick walking + 2× damage` },
       growth_powder: { verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',       get: `🌱 every crop within ${GROWTH_POWDER_R_M}m springs ahead a stage` },
       shadow_powder: { verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',       get: `🌑 monsters ignore you for ${shortDuration(SHADOW_POWDER_MS)} — no stalking, no hits` },
       frost_powder:  { verb: 'Use', method: 'useFrostPowder',  title: 'Use the Frost Powder?',        get: `❄ every enemy in reach frozen for ${shortDuration(FROST_POWDER_MS)}` },
@@ -14368,8 +14476,17 @@ class MapScene extends Phaser.Scene {
     const cfg = sel && CONSUMABLE[sel.id];
     if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
     const iconHtml = this.iconSpanHTML(sel.id, 20);
-    const label = `${iconHtml} ${cfg.verb}`;
-    if (existing) { existing.innerHTML = label; existing.dataset.id = sel.id; return; }
+    const label = `${iconHtml} ${cfg.label ? cfg.label() : cfg.verb}`;
+    const syncState = button => {
+      button.disabled = !!cfg.disabled?.();
+      button.style.opacity = button.disabled ? '0.55' : '1';
+      button.style.cursor = button.disabled ? 'default' : 'pointer';
+      // Eggs keep Eat and Hatch available without overlapping the controls.
+      button.style.bottom = sel.id === 'egg'
+        ? 'calc(46px + env(safe-area-inset-bottom, 0px))'
+        : 'calc(4px + env(safe-area-inset-bottom, 0px))';
+    };
+    if (existing) { existing.innerHTML = label; existing.dataset.id = sel.id; syncState(existing); return; }
     const btn = document.createElement('button');
     btn.id = 'consumable-btn';
     btn.dataset.id = sel.id;
@@ -14388,6 +14505,7 @@ class MapScene extends Phaser.Scene {
       'color:#ffe066;border:2px solid #c8a64a;' +
       'font:700 12px ui-monospace,monospace;';
     btn.innerHTML = label;
+    syncState(btn);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.id;
