@@ -600,7 +600,7 @@ const ITEMS = [
   // Drunk to strike every foe on screen (app.js drinkThunderPotion).
   { id: 'thunder_potion',      name: 'Potion of Thunder',      kind: 'consumable' },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
-  // for one minute — a tier-8 amulet's legs on the movement stick AND 2× attack
+  // for one minute — tier-8 boots and amulet on the movement stick AND 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
   { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'consumable' },
   // Growth Powder: every crop within 20 m springs ahead one stage on the spot,
@@ -831,7 +831,7 @@ const PRICES = {
   book:  20,
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   vigor_potion:  35,   // T2 — instant 40-energy restore
-  speed_potion:  55,   // T2 — tier-9 amulet stick-walking for 1 min
+  speed_potion:  55,   // T2 — tier-9 boots + amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura hurting every foe 2 HP/s
   raven_potion:  90,   // T3 — 1 min of a slime-strength ally (a slime's bite a second
@@ -840,7 +840,7 @@ const PRICES = {
   revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
-  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 amulet legs + 2× damage
+  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 boots + amulet walking + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 1 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
@@ -1120,7 +1120,7 @@ const PLAY_TIPS = [
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
   // ── The land you walk over ──────────────────────────────────
   'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
-  'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds mostly, sometimes coin or produce.',
+  'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds, coin, fruit, potions, feathers, or boots — some wearable, some old junk.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
@@ -1188,20 +1188,23 @@ const PLAY_TIPS = [
 // secret the player only learns from a Book. Keyed by item id; absent = no
 // special effect (a plain crop / mineral that's just worth money or energy).
 
+const EGG_HATCH_METERS = 500;
+
 const ITEM_EFFECTS = {
+  egg: `Walk ${EGG_HATCH_METERS}m with GPS and the game open to hatch one carried egg into a random pet`,
   // Not a secret: the charm is a cash-shop mechanic the player otherwise only
   // meets by accident (tapping a shop with Flowers selected).
   flowers:   `Gift to a shopkeeper: half prices there for ${shortDuration(SHOP_CHARM_MS)}`,
   // Foods with a side-effect when eaten (on top of their energy restore).
   rainberry: 'Eat to water every crop within 20m',
   pairy:     'Eat to reveal the nearest unfound chest for 5 min',
-  coffee:    'Eat for +2 amulet tiers of stick-walking speed (3 min)',
+  coffee:    'Eat to walk faster with the control stick (3 min)',
   // Universal tame treat — fed to any wild creature. Cave monsters are the
   // one exception, and the line says so: it is the only place that caveat is
   // written now that the Book no longer repeats the mango's effect.
   mango:     'Feed to tame any wild animal — never a cave monster',
   // An ingredient: the Craft page at Home is the only place that says so.
-  longgrass: 'Twist 3 into a Rope on Home\'s Craft page',
+  longgrass: 'Twist 5 into a Rope on Home\'s Craft page',
   // A rock is both: an ingredient (the Craft page's kit) and a placeable
   // (interact.js 'place-rock' — held-and-tapped, so the line has to say so).
   rockfruit: 'Set on a bare tile as a stone; 4 make a Trap Disarm Kit',
@@ -1213,7 +1216,7 @@ const ITEM_EFFECTS = {
   // riddle in PLAY_TIPS — which is what makes it a secret rather than a label.
   sapphire:  'Use to open a portal one level down',
   // The Frost jewel: where it comes from and what it is for, in one line.
-  diamond:   'Mined from Frost-tier ore; Frost jewelry is cut around it',
+  diamond:   'Mined from Frost ore; Frost jewelry is cut around it',
   // The one FOOD that still works through the hard-mode zero-energy lockout
   // (see PLAY_TIPS; the revival potions are drunk, not eaten) — a tenth of
   // the bar (REVIVE_ITEM_FRAC). Never a normal food: it carries no
@@ -1225,7 +1228,7 @@ const ITEM_EFFECTS = {
   book:         'Read for a play tip or a hint toward a chest',
   reach_potion:  'Drink to reach anything in sight (1 min)',
   vigor_potion:  'Drink to restore 40 energy',
-  speed_potion:  'Drink for tier-9 amulet walking (1 min)',
+  speed_potion:  'Drink for faster control-stick walking at lower energy cost (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   blight_potion: 'Drink to hurt foes near you 2 HP/s (1 min)',
   raven_potion:  `Drink: a spirit raven hunts foes & pests for ${shortDuration(SPIRIT_RAVEN_MS)}`,
@@ -1374,7 +1377,7 @@ const RELIC_DEFS = {
   // (a chance at a bigger stack of loot) until Sep 2026, when that became the
   // wizard's Full Measure rung at the same ceiling — see rarity.js qtyLuck.
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
-             effectKey: 'stickWalk',     blurb: 'walk off the GPS faster + cheaper per tier' },
+             effectKey: 'stickWalk',     blurb: 'reduces stick-walking stamina cost' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on
@@ -1392,7 +1395,7 @@ const RELIC_DEFS = {
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'auto-shoots along the compass · 1 wood/20 shots · cheaper buys' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt · bigger bolt per tier' },
+             effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt' },
   // Watering can — HOW SOON, not what. Every watering has a tier/7 chance
   // (Crops.waterJumpChance) of springing the plant a whole growth stage on the
   // spot: nothing bare-handed, certain at Frost. It used to set produce
@@ -1400,7 +1403,7 @@ const RELIC_DEFS = {
   // quality is the HOE's now (it belongs to the bed, see Crops.bedQuality)
   // and the charge bank retired with it.
   can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
-             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward · surer per tier' },
+             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward a growth stage' },
   // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
   // effects, all per tier: the till wheel shortens on the shared tool ladder;
   // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a
@@ -1469,7 +1472,7 @@ function stackCapForBags(bagsRelic) {
 }
 // The four wearable slots. Armor carries NO per-slot effect number: what a
 // piece is worth is its TIER, and every slot pays the same for it
-// (armorSlotReduction below) — they differ in PRICE, not in what they do.
+// (armorSlotReduction below). Boots also speed up stick walking and soak traps.
 // Until Sep 2026 each slot carried its own `energyPerTier` and armour raised
 // the max-energy CAP — a bigger bar, which helped exactly as much whether or
 // not anything was hitting you. It soaks damage now, so it is worth wearing
@@ -1481,7 +1484,8 @@ const ARMOR_DEFS = {
   helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 135 },
   chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 165 },
   legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150 },
-  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost: 130 },
+  boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost: 130,
+           blurb: 'faster control-stick walking; reduces trap damage' },
 };
 function gearDef(kind, slot) {
   return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);
@@ -1735,34 +1739,20 @@ function toolDurationMs(relics, slot) {
   if (!eq) return 9000;   // tier 0 (bare hands) = 2.25 × wood
   return TOOL_DURATION_MS[eq.tier] ?? 9000;
 }
-// Amulet relic: powers STICK WALKING — steering yourself somewhere other than
-// where the GPS says you are. The stick is always there and always works; the
-// amulet is purely an upgrade to it, so both functions answer for a bare hand
-// too (no amulet = tier 0 = the baseline, never "unavailable").
-//   steerSpeedMul   no amulet → STEER_MUL_FLOOR× walk, tier 7 → STEER_MUL_FROST×
-//                   (linear between; the numbers are the two constants below).
-//   steerEnergyCost no amulet → 1.0 / cell, tier 1 → 1.0, tier 7 → 0.15 (linear).
-// The bare baseline is 6× walk pace deliberately: at WALK_M_S that is a little
-// over one 7 m cell per second, about the slowest the stick can move and still
-// feel like a control rather than a drag — real walk pace crawls across a view
-// that is 11 cells wide. The stamina cost is per CELL, so a faster baseline
-// doesn't make travel cheaper, only less tedious.
-// Walking with the GPS costs nothing — that's you actually walking. Stick
-// walking is the character covering ground you didn't, which is what the
-// stamina pays for, and what the amulet makes cheap.
-// Ghost-walk (stick) speed endpoints, in multiples of WALK_M_S. Both ends are
-// named so the ladder between them is one subtraction rather than a magic
-// slope constant.
+// Stick walking: boots set speed; the amulet reduces energy per cell.
+// GPS walking stays free and uses its own pace. Buffs can lend tiers to both.
+// Speed runs from 6× walk without boots to 24× at Frost; cost runs from
+// 1 pip/cell without an amulet to 0.15 at Frost.
 const STEER_MUL_FLOOR = 6;      // bare hands
 // 24, up from 15.5. The ladder ran 6x to 15.5x, which sounds wide and does not
-// PLAY wide: 1.2 cells a second bare-handed against 3.1 at the top, so a tier-8
-// amulet felt like a tier-0 one with a tailwind and a coffee (+1 tier, ~9% at
+// PLAY wide: 1.2 cells a second bare-handed against 3.1 at the top, so tier-8
+// boots felt like tier-0 boots with a tailwind and a coffee (+1 tier, ~9% at
 // the top end) did nothing you could feel. The floor stays at 6 — it was
 // deliberately lifted from 5 because one cell a second read as a drag — so the
 // whole widening lands in the per-tier step, which goes 1.36x -> 2.57x.
-const STEER_MUL_FROST = 24;   // tier 7 amulet
-function steerSpeedMul(relics) {
-  const t = relics?.amulet?.tier || 0;
+const STEER_MUL_FROST = 24;   // tier 7 boots
+function steerSpeedMul(gear) {
+  const t = gear?.boots?.tier || 0;
   // The FLOOR was lifted 20% (5 → 6): one cell a second is the speed the
   // player spends the whole opening at, and it sat right on the edge of
   // reading as a drag. The Frost end is its own tuned endpoint

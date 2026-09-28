@@ -96,7 +96,7 @@ test('tips: the sweep actually catches a restatement', () => {
     ['A Rope goes both ways: use one to climb up a level or lower yourself down one, right where you stand.',
      ITEM_EFFECTS.rope],
     ['Rainberry waters every crop within 20m when you eat it.', ITEM_EFFECTS.rainberry],
-    ['An Amulet powers the stick: higher tier walks you off the GPS faster, for less stamina.',
+    ['An Amulet reduces stick-walking stamina cost.',
      RELIC_DEFS.amulet.blurb],
     ['Set out a jar of Honey to draw every chicken and cow within 30m toward you.', ITEM_EFFECTS.honey],
     ['Eat a Pairy to point the way to the nearest undiscovered chest for 5 minutes.', ITEM_EFFECTS.pairy],

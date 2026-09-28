@@ -370,7 +370,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
 });
 
 // ── THE FIRST PRIZE IS AN ONION SEED ──────────────────────────────────────
-// Prize #1 always offers the onion seed. What the road pays in is seeds, and the first rung
+// Prize #1 always offers the onion seed. This first planting reward
 // says so out loud rather than sampling a pool that could hand a new player
 // coins and leave them none the wiser.
 test('trail prize: the first rung is the onion seed, and only the first', () => {
@@ -379,7 +379,7 @@ test('trail prize: the first rung is the onion seed, and only the first', () => 
   assert.eq(first.id, 'onion_seed', 'an onion seed');
   assert.eq(first.id, Trail.FIRST_PRIZE_ID, 'through the constant');
   assert.truthy(ITEM_BY_ID[first.id], 'which is a real item');
-  assert.eq(ITEM_BY_ID[first.id].kind, 'seed', 'of the class the road pays in');
+  assert.eq(ITEM_BY_ID[first.id].kind, 'seed', 'a planting option');
   assert.eq(first.tier, ITEM_BY_ID[first.id].baseTier, 'carrying its own tier');
   assert.gt(first.qty, 1, 'as a pack, since seeds are planted in bulk');
   assert.eq(first.kind, 'item', 'in exactly the shape pickReward returns');

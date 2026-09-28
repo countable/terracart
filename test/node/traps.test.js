@@ -525,7 +525,7 @@ test('traps: the tick asks where the PLAYER is, never where the camera is', () =
   assert.truthy(/persistSave\(this\.save\)/.test(block),
     'and it is written straight away, so a discovered trap stays discovered');
   assert.truthy(/this\._painFlash\(spent\)/.test(block), 'the bite carries the pain effect');
-  assert.truthy(/Traps\.STAND_ENERGY_PER_S \* Traps\.trapPower\(trap\) \* dt/.test(block),
+  assert.truthy(/Combat\.playerDamage\(Traps\.STAND_ENERGY_PER_S \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}\) \* dt/.test(block),
     'the bleed is per SECOND, accumulated off the frame delta');
 });
 
@@ -688,7 +688,7 @@ test('traps: a trapper\'s snare bites at its trapper\'s power — the Home nerf 
   assert.truthy(/Traps\.layTrap\([\s\S]*?Combat\.powerMul\(c\)\);/.test(APP_JS_SRC), 'the trapper hands over its powerMul');
   assert.truthy(/Traps\.STEP_ENERGY \* Difficulty\.get\(\)\.trapBiteMul \* Traps\.trapPower\(trap\)/.test(APP_JS_SRC),
     'the bite scales by it');
-  assert.truthy(/Traps\.STAND_ENERGY_PER_S \* Traps\.trapPower\(trap\) \* dt/.test(APP_JS_SRC), 'and the bleed');
+  assert.truthy(/Combat\.playerDamage\(Traps\.STAND_ENERGY_PER_S \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}\) \* dt/.test(APP_JS_SRC), 'and the bleed');
 });
 
 // ── Danger: the per-tile spread ─────────────────────────────────────────────
