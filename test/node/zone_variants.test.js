@@ -42,12 +42,20 @@ test('zone variants: repeated geometry preserves densities and phase across nega
       assert.lt(Math.abs(counts[material] / area + scatter - density), 1e-12, `${row.id}/${material}`);
     }
   }
-  const formal = V.byId('formal_garden');
+  const formal = V.byId('formal_garden'), [w, h] = formal.background.repeatCells;
   for (let bx = -4; bx <= 4; bx++) {
-    const material = V.sample(formal, bx * 10 + 1, -7, 'a');
-    for (const [x, y] of [[1, 3], [2, 3], [1, 4], [2, 4]]) {
-      assert.eq(V.sample(formal, bx * 10 + x, y - 10, 'b'), material, 'one species per bed');
+    let blueBeds = 0, orangeBeds = 0;
+    for (const [x0, y0] of [[2, 2], [7, 2], [2, 7], [7, 7]]) {
+      const material = V.sample(formal, bx * w + x0, y0 - h, 'a');
+      if (material === 'blue') blueBeds++;
+      if (material === 'orange') orangeBeds++;
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+        assert.eq(V.sample(formal, bx * w + x0 + dx, y0 - h + dy, 'b'), material, 'one species per bed');
+      }
     }
+    assert.eq(blueBeds, 3, 'forget-me-not beds dominate every repeat');
+    assert.eq(orangeBeds, 1, 'one accent bed per repeat');
+    for (let y = 2; y <= 8; y++) assert.eq(V.sample(formal, bx * w + 5, y - h, 'a'), null, 'central aisle remains open');
   }
 });
 test('zone variants: seeded scatter has declared mix without dependence on traversal order', () => {

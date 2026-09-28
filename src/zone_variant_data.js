@@ -1464,8 +1464,8 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          11,
+          11
         ],
         "slots": [
           {
@@ -1505,50 +1505,93 @@
           },
           {
             "at": [
+              7,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              8,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              9
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
               3,
-              6
+              9
             ],
             "material": "shrub"
           },
           {
             "at": [
               4,
-              6
+              9
             ],
             "material": "shrub"
           },
           {
             "at": [
               5,
-              6
+              9
             ],
             "material": "shrub"
           },
           {
             "at": [
               6,
-              6
+              9
             ],
             "material": "shrub"
           },
           {
             "at": [
               7,
-              6
+              9
             ],
             "material": "shrub"
           },
           {
             "at": [
-              1,
-              3
+              8,
+              9
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              2
             ],
             "material": {
               "cycle": [
+                "orange",
                 "blue",
                 "blue",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
+          },
+          {
+            "at": [
+              3,
+              2
+            ],
+            "material": {
+              "cycle": [
+                "orange",
                 "blue",
-                "orange"
+                "blue",
+                "blue"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1560,25 +1603,85 @@
             ],
             "material": {
               "cycle": [
+                "orange",
                 "blue",
                 "blue",
-                "blue",
-                "orange"
+                "blue"
               ],
               "index": "block_x_plus_block_y"
             }
           },
           {
             "at": [
-              1,
-              4
+              3,
+              3
+            ],
+            "material": {
+              "cycle": [
+                "orange",
+                "blue",
+                "blue",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
+          },
+          {
+            "at": [
+              7,
+              2
             ],
             "material": {
               "cycle": [
                 "blue",
+                "orange",
                 "blue",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
+          },
+          {
+            "at": [
+              8,
+              2
+            ],
+            "material": {
+              "cycle": [
                 "blue",
-                "orange"
+                "orange",
+                "blue",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
+          },
+          {
+            "at": [
+              7,
+              3
+            ],
+            "material": {
+              "cycle": [
+                "blue",
+                "orange",
+                "blue",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
+          },
+          {
+            "at": [
+              8,
+              3
+            ],
+            "material": {
+              "cycle": [
+                "blue",
+                "orange",
+                "blue",
+                "blue"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1586,7 +1689,67 @@
           {
             "at": [
               2,
-              4
+              7
+            ],
+            "material": {
+              "cycle": [
+                "blue",
+                "blue",
+                "orange",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
+          },
+          {
+            "at": [
+              3,
+              7
+            ],
+            "material": {
+              "cycle": [
+                "blue",
+                "blue",
+                "orange",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
+          },
+          {
+            "at": [
+              2,
+              8
+            ],
+            "material": {
+              "cycle": [
+                "blue",
+                "blue",
+                "orange",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
+          },
+          {
+            "at": [
+              3,
+              8
+            ],
+            "material": {
+              "cycle": [
+                "blue",
+                "blue",
+                "orange",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
+          },
+          {
+            "at": [
+              7,
+              7
             ],
             "material": {
               "cycle": [
@@ -1600,15 +1763,15 @@
           },
           {
             "at": [
-              6,
-              3
+              8,
+              7
             ],
             "material": {
               "cycle": [
                 "blue",
                 "blue",
-                "orange",
-                "blue"
+                "blue",
+                "orange"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1616,44 +1779,29 @@
           {
             "at": [
               7,
-              3
+              8
             ],
             "material": {
               "cycle": [
                 "blue",
                 "blue",
-                "orange",
-                "blue"
+                "blue",
+                "orange"
               ],
               "index": "block_x_plus_block_y"
             }
           },
           {
             "at": [
-              6,
-              4
+              8,
+              8
             ],
             "material": {
               "cycle": [
                 "blue",
                 "blue",
-                "orange",
-                "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              7,
-              4
-            ],
-            "material": {
-              "cycle": [
                 "blue",
-                "blue",
-                "orange",
-                "blue"
+                "orange"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1662,19 +1810,19 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.18,
+        "nominalDensity": 0.24793388429752067,
         "materialDensity": {
-          "shrub": 0.1,
-          "blue": 0.06,
-          "orange": 0.02
+          "shrub": 0.11570247933884298,
+          "blue": 0.09917355371900827,
+          "orange": 0.03305785123966942
         },
         "type": "repeat_motif",
         "poiOrigin": {
           "cell": [
-            4,
-            4
+            5,
+            5
           ],
-          "role": "central_aisle_between_flower_beds"
+          "role": "cross_aisle_center_between_four_mirrored_flower_beds"
         }
       },
       "poi": {
@@ -1693,7 +1841,7 @@
               -1,
               0
             ],
-            "material": "orange"
+            "material": "blue"
           },
           {
             "at": [
@@ -1714,7 +1862,7 @@
               1,
               0
             ],
-            "material": "orange"
+            "material": "blue"
           },
           {
             "at": [
@@ -1728,14 +1876,14 @@
               0,
               -1
             ],
-            "material": "orange"
+            "material": "blue"
           },
           {
             "at": [
               0,
               1
             ],
-            "material": "orange"
+            "material": "blue"
           }
         ],
         "relocation": {
@@ -1871,7 +2019,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "An orderly aisle connects mirrored beds; two matching roses break the repeated blue and gold.",
+      "atmosphere": "Four mirrored flower beds frame a central cross aisle beneath straight hedge rows; three beds of forget-me-nots and one orange accent rotate through each repeat.",
       "attracts": {}
     },
     {

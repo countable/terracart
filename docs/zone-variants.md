@@ -49,7 +49,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | grove | Meadow | 15% shrub outside the clearing; no grass outside | R=3 grass disk with bush rim | 3 medium: rose | none | rabbit 50%, butterfly 65% |
 | grove | Mushroom Grove | 11.11% mushroom, 5.56% shrub, 2.78% grass | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
 | grove | Orchard | 4% fruit_tree, 6% grass, 2% blue | paired trees | 3 medium: gemfruit | none | deer 65% |
-| grove | Formal Garden | 10% shrub, 6% blue, 2% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
+| grove | Formal Garden | 11.57% shrub, 9.92% blue, 3.31% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
 | grove | Hedge Garden | 43.75% shrub, 4.69% blue, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
 | grove | Ancient Grove | 2.04% tree, 16.33% shrub, 26.78% grass (expected) | stone tree ring | 1 rare: star | 2 slime at find | deer 60% |
 | stones | Stone Garden | 4.54% iron_ore, 18.14% stone, 6.8% grass | four stones | 3 medium: gemfruit | none | none |
@@ -150,7 +150,7 @@ Only the POI cell and actual decoration slots replace existing background slots.
 | Meadow | [0, 0] | scatter seed origin |
 | Mushroom Grove | [3, 2] | clearing between mushroom pairs |
 | Orchard | [5, 5] | aisle between four trees |
-| Formal Garden | [4, 4] | central aisle between flower beds |
+| Formal Garden | [5, 5] | central cross aisle between four mirrored flower beds |
 | Hedge Garden | [6, 6] | plot center |
 | Ancient Grove | [3, 3] | cluster center replacing center tree |
 | Stone Garden | [10, 10] | center of three concentric stone rings |

@@ -2835,6 +2835,37 @@
   // — drawn over whole neighbourhoods). Landuse / landcover park, playground,
   // pitch, garden, beach … polygons always are.
   const PARK_FAMILY_LAYER_CLASS = new Set(['park', 'nature_reserve', 'national_park']);
+  // Named park labels can live only in the `park` layer (Wilson Creek
+  // Linear Park is a nature_reserve). Feed these points through the ordinary
+  // POI pipeline so they receive one place, grove anchor and variant. Never
+  // derive a centre from clipped polygons: neighbouring tiles must agree.
+  function parkPoiLayer(poiLayer, parkLayer) {
+    const original = poiLayer && poiLayer.features || [], additions = [];
+    const ids = new Set(), points = new Set();
+    for (const f of original) {
+      if (f.type !== 1 || !BiomeProfiles.isParkPoi(f.tags)) continue;
+      if (f.id != null) ids.add(f.id);
+      for (const ring of f.geom || []) if (ring[0]) points.add(`${ring[0].x},${ring[0].y}`);
+    }
+    const buffer = typeof Zones !== 'undefined' ? Zones.POI_BUFFER_UNITS : 1024;
+    for (const f of parkLayer && parkLayer.features || []) {
+      if (f.type !== 1 || !f.tags || !f.tags.name || !PARK_FAMILY_LAYER_CLASS.has(f.tags.class)
+          || isSensitivePoi(f.tags) || (f.id != null && ids.has(f.id))) continue;
+      const geom = (f.geom || []).filter(ring => {
+        const p = ring[0];
+        // The park label buffer is wider than the POI buffer. Use the same
+        // observation window so crowding and merge decisions stay seam-safe.
+        return p && p.x >= -buffer && p.y >= -buffer
+          && p.x < TILE_EXTENT + buffer && p.y < TILE_EXTENT + buffer
+          && !points.has(`${p.x},${p.y}`);
+      });
+      if (!geom.length) continue;
+      additions.push({ ...f, geom, tags: { ...f.tags, class: 'park', subclass: 'park' } });
+      if (f.id != null) ids.add(f.id);
+      for (const ring of geom) points.add(`${ring[0].x},${ring[0].y}`);
+    }
+    return additions.length ? { ...(poiLayer || { name: 'poi' }), features: original.concat(additions) } : poiLayer;
+  }
   const FARM_EDGE_CELLS = 2;
   // How far (cells) the behind-a-house line is walked; a lot cell further
   // than this from its nearest public way is left to the frontage rule.
@@ -3594,6 +3625,7 @@
     const order = ['landcover', 'landuse', 'park', 'water', 'transportation', 'building', 'poi'];
     const layersByName = {};
     for (const l of layers) layersByName[l.name] = l;
+    layersByName['poi'] = parkPoiLayer(layersByName['poi'], layersByName['park']);
 
     // PARK CHARACTERS (BiomeProfiles.PARK_CHARACTERS). A park polygon's
     // character is keyed on a GLOBAL point: the named-park POI inside it (the
@@ -7512,7 +7544,7 @@
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
-    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, setDepth, tidyFootprintCells,
+    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,

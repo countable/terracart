@@ -74,7 +74,9 @@ function preview(row) {
     slowKinds: [...new Set(objects.filter((o) => SV.isSlowKind(o.kind)).map((o) => o.kind))] };
 }
 
-const rows = SV.STREET_VARIANTS.map(preview);
+// Scenic path looks are selected by geography, not the street-key roll.
+// This straight-road fixture previews the rolled minor/major street variants.
+const rows = SV.STREET_VARIANTS.filter(row => row.size !== 'path').map(preview);
 const rules = {
   hedgerow: `Both verges, one hedge per ${cellM} m cell; a gate gap every ${SV.HEDGE_GAP_MIN}–${SV.HEDGE_GAP_MIN + SV.HEDGE_GAP_SPAN - 1} cells.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; at most ${SV.OVERGROWN_MAX} plants per line piece.`,

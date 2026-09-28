@@ -197,7 +197,7 @@ function buildWorld(home) {
       }
     } catch (err) { errors.push(`garrison ${e.tx}/${e.ty}: ${err.message}`); }
   }
-  return { tiles, guards, errors };
+  return { tiles, guards, errors, scene };
 }
 
 // ── The map ─────────────────────────────────────────────────────────────────
@@ -241,6 +241,14 @@ function shapeOf(k) {
   if (k === 'trap') return 'cross';
   return 'square';
 }
+// Screen pixels keep shared cells readable at every zoom; world positions
+// remain unchanged for inspection, zone membership and density counts.
+function markerOffset(k) {
+  if (k.startsWith('animal:')) return [6, -6];
+  if (k.startsWith('enemy:')) return [-6, -6];
+  if (k.startsWith('resident:')) return [6, 6];
+  return [0, 0];
+}
 function shapePath(ctx, shape, x, y, r) {
   ctx.beginPath();
   if (shape === 'triangle') {
@@ -265,6 +273,13 @@ function shapePath(ctx, shape, x, y, r) {
   ctx.closePath();
 }
 const ShapeMarker = L.CircleMarker.extend({
+  _project() {
+    L.CircleMarker.prototype._project.call(this);
+    this._point = this._point.add(this.options.pixelOffset || [0, 0]);
+    this._updateBounds();
+  },
+  _getPopupAnchor() { return this.options.pixelOffset || [0, 0]; },
+  _getTooltipAnchor() { return this.options.pixelOffset || [0, 0]; },
   _updatePath() {
     const rd = this._renderer;
     if (!rd._drawing || this._empty()) return;
@@ -294,7 +309,8 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 function poiTagsOf(e) {
   if (e._poiTags) return e._poiTags;
   const m = new Map();
-  const poi = (e.layers || []).find((l) => l.name === 'poi');
+  const layers = e.layers || [];
+  const poi = WorldGen.parkPoiLayer(layers.find(l => l.name === 'poi'), layers.find(l => l.name === 'park'));
   for (const f of (poi && poi.features) || []) {
     for (const ring of f.geom || []) { const p = ring && ring[0]; if (p) m.set(`${p.x},${p.y}`, f.tags || {}); }
   }
@@ -314,7 +330,15 @@ function popupHTML(e, o, label) {
   const category = (e.creatures || []).includes(o) ? 'creature' : '';
   rows.push(`Source: <b>${esc(ZoneReview.SOURCES[ZoneReview.source(e,o,category)].label)}</b>`);
   if (o.zoneVariant) rows.push(`Variant: <b>${esc(ZoneVariants.byId(o.zoneVariant)?.name || o.zoneVariant)}</b>${o.zoneLayer ? ' · '+esc(o.zoneLayer) : ''}`);
-  if (o.kind === 'chest' || o.kind === 'grove_shrine') {
+  if (o.kind === 'npc') {
+    rows.push(`Role: <b>${esc(o.roleLabel || o.role)}</b> (${esc(o.role)})`);
+    rows.push(`Home zone: ${esc(o.zone)} · trade theme: ${esc(o.shopTheme || 'none')}`);
+    rows.push(`Appearance: ${esc((o.npcVariant ?? 0) + 1)} · tint #${(o.tint ?? 0xffffff).toString(16).padStart(6, '0')}`);
+    rows.push('Combat stats: noncombatant');
+    const talk = NPC.dialogue(window.__world.scene, o);
+    rows.push(`<b>Today's dialogue</b><br>${esc(talk.body).replace(/\n/g, '<br>')}`);
+    rows.push('<small>Daily dialogue for this review world, with no player progress.</small>');
+  } else if (o.kind === 'chest' || o.kind === 'grove_shrine') {
     const tags = (o._poiAt && poiTagsOf(e).get(o._poiAt)) || {};
     rows.push(`POI: ${esc(o.poiClass || tags.class || '?')}${tags.subclass && tags.subclass !== o.poiClass ? ' / ' + esc(tags.subclass) : ''}`);
     if (o.kind === 'grove_shrine') rows.push('Grove shrine · daily gift');
@@ -426,7 +450,7 @@ function draw(world, home) {
     for (const t of e.parkingTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y, popupHTML(e,t,'Parking treasure'), ZoneReview.source(e,t));
     for (const c of e.creatures || []) {
       const hostile = typeof Combat !== 'undefined' && Combat.isEnemy && Combat.isEnemy(c);
-      add(c.kind === 'npc' ? 'resident: npc' : hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), c.kind + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y, popupHTML(e,c,c.kind), ZoneReview.source(e,c,'creature'));
+      add(c.kind === 'npc' ? 'resident: npc' : hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), (c.name || c.kind) + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y, () => popupHTML(e,c,c.kind), ZoneReview.source(e,c,'creature'));
     }
   }
   for (const g of world.guards) add('enemy: garrison', toLL(g.x, g.y, EDGE), 'hard-mode garrison · ' + g.kind, g.id, g.x, g.y);
@@ -443,7 +467,7 @@ function draw(world, home) {
     const lg = L.layerGroup();
     const big = k === 'Home' || k.startsWith('enemy') || k === 'X mark' || k === 'chest';
     for (const p of groups[k]) {
-      new ShapeMarker(p.ll, { shape: shapeOf(k), radius: k === 'Home' ? 9 : big ? 6 : k.startsWith('plant:') ? 3.5 : 5,
+      new ShapeMarker(p.ll, { shape: shapeOf(k), pixelOffset: markerOffset(k), radius: k === 'Home' ? 9 : big ? 6 : k.startsWith('plant:') ? 3.5 : 5,
         color: '#000', weight: k === 'Home' ? 3 : 1, fillColor: $('sourceColors').checked && k !== 'Home' ? ZoneReview.SOURCES[p.source].color : colour(k, i), fillOpacity: 0.9 })
         .bindTooltip(p.label, { direction: 'top', offset: [0, -4], opacity: 0.92 })
         .bindPopup(p.popup || `<b>${esc(p.label)}</b><br><code>${esc(p.id || '')}</code>`).addTo(lg);

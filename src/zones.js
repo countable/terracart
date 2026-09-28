@@ -7,7 +7,8 @@
 //             christian — its subclass, or a church's name when the tile
 //             gives no faith): the invented churchyard round it
 //   tar     — a fuel station (fuel / fuel; charging stations are NOT anchors)
-// Unnamed parks (no POI), nature reserves and charging stations are no anchor.
+// Unnamed parks (no POI) and charging stations are no anchor. Named park-layer
+// labels (including nature reserves) enter through WorldGen.parkPoiLayer.
 // Nor is anything SENSITIVE (WorldGen.isSensitivePoi — the one table): a
 // REAL cemetery is quiet green space (no stones zone, no headstones, no
 // hoards, no ghosts; its cells are quiet land, WorldGen.QUIET_LAND), and a
@@ -323,7 +324,7 @@
         const id = `${k.kind}|${gx}|${gy}`;
         if (seen.has(id)) continue;
         seen.add(id);
-        out.push({ kind: k.kind, gx, gy, lx: p.x, ly: p.y,
+        out.push({ kind: k.kind, gx, gy, lx: p.x, ly: p.y, name: f.tags.name || '',
           owned: p.x >= 0 && p.y >= 0 && p.x < EXT && p.y < EXT });
       }
     }

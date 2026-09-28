@@ -42,7 +42,7 @@
         if (!zones.has(id)) zones.set(id, { id, anchor: a, variant: ZoneVariants.byId(a.variant), name: '', fragments: [],
           coverage: 0, eligible: 0, suppressed: {ambient:0,street:0}, sources: {}, fauna: {}, layers: {}, finds: [0, 0], guards: [0, 0], background: {}, shortfalls: [] });
         const z = zones.get(id);
-        z.name = z.name || names.get(`${a.lx},${a.ly}`) || '';
+        z.name = z.name || a.name || names.get(`${a.lx},${a.ly}`) || '';
         z.fragments.push({ entry: e, slot: i + 1 });
         const suppressed = f.legacyRemovedByAnchor?.[id];
         if (suppressed) for (const k of ['ambient','street']) z.suppressed[k] += suppressed[k] || 0;
