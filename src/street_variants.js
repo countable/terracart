@@ -611,11 +611,15 @@
       && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'attractor');
     const claim = (ix, iy) => { occ.add(iy * N + ix); };
     // THE KERB BUFFER: the caller's roadClass, else the one the stamp pass
-    // left on the index. A foe's seat is WorldGen.isFoeCell (the shared rule
-    // AND outside ROAD_CLASS_MAJOR_BUFFER), found by foeSeat.
+    // left on the index (nearestSeat keeps a seat on its side of the band).
+    // A STREET GUARD'S POINT (a waystone's, a barricade's, a guarded hoard's)
+    // is where a runner stands — the barricade's goblin, the hoard's giant —
+    // so it takes the FAST foe's class ('fastEnemy': the attractor row plus
+    // the kerb): a point in the buffer would leave its guard ring nowhere to
+    // seat. Found by foeSeat, seated BACK from the kerb.
     const rc = spawnOpts.roadClass || idx.roadClass || null;
     const foeOpts = rc && !spawnOpts.roadClass ? Object.assign({}, spawnOpts, { roadClass: rc }) : spawnOpts;
-    const foeOk = (ix, iy) => WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'enemy');
+    const foeOk = (ix, iy) => WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'fastEnemy');
     // Seat a foe BACK: its natural cell if it is a foe cell, else the nearest
     // within FOE_SEAT_BACK_CELLS on the same side of any major band — or null
     // (the foe is dropped).

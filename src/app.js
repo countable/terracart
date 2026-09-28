@@ -6166,8 +6166,10 @@ class MapScene extends Phaser.Scene {
     // alone, which exists before `_spawned`), so fall back to no occupancy
     // check rather than crash on a missing entry._spawnOpts.
     const occupiedIdx = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
-    const burstOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnClass: entry.spawnClass,
-      roadClass: entry.roadClass, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
+    // A timed, per-player spawn: off school grounds in school hours too.
+    const burstOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy,
+      roadClass: entry.roadClass, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }],
+      schoolHours: WorldGen.isSchoolHours(new Date()) };
     // Cells within `r` that will take a coin: the shared spawn rule (the pot
     // itself is the public anchor, so the cells right round it pass the
     // frontage test) and the player's side of any major road. No relaxed
@@ -6278,7 +6280,7 @@ class MapScene extends Phaser.Scene {
     if (!entry || !entry.grid) return out;
     const N = entry.cellsPerEdge || rowCells(this, ty);
     const cellM = tileEdgeM / N;
-    const opts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnClass: entry.spawnClass,
+    const opts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy,
       occupied: (entry._spawnOpts && entry._spawnOpts.occupied) || null };
     for (let ring = 1; ring <= r && out.length < count; ring++) {
       const cells = [];
@@ -10059,11 +10061,13 @@ class MapScene extends Phaser.Scene {
   // Returns how many were seated (0: no ground; nothing is posted).
   _spawnGuildBounty(b, now = Date.now()) {
     const homePos = this.homeWorldPos();
+    const packClass = b.kinds.some((k) => creatureSpawnClass(k) === 'fastEnemy') ? 'fastEnemy' : 'enemy';
     const dest = this.findWalkableDestination(Macros.BOUNTY_DIST_CELLS, {
       seed: b.id,
-      // Alive and hostile: the foe seat rule (off the kerb buffer). Same side
-      // of any major road is walkableDestination's own rule.
-      foe: true,
+      // Alive and hostile: the pack's seat class (a fast pack keeps off the
+      // kerb too — creatureSpawnClass). Same side of any major road is
+      // walkableDestination's own rule.
+      cls: packClass,
       // Never inside Home's ward ring — it would only rout them.
       accept: (x, y) => !homePos || Math.hypot(x - homePos.x, y - homePos.y) > HOME_R * this.cellM,
     });
@@ -10072,17 +10076,16 @@ class MapScene extends Phaser.Scene {
     const edge = this.tileEdgeM, cm = edge / N;
     const base = entry._spawnOpts;
     const used = new Set();
-    // The pack's other seats: the shared rule as an 'enemy' spawn (OPEN
-    // ground — out of the kerb buffer and every other), never stacked, and
-    // never on this player's live private-ground veto (a vetoed cell reads
-    // as taken).
-    const opts = { ...base, occupied: { has: (k) => used.has(k) || !!(base.occupied && base.occupied.has(k))
+    // The pack's other seats: the shared rule at each foe's own class, off
+    // school grounds in school hours, never stacked, and never on this
+    // player's live private-ground veto (a vetoed cell reads as taken).
+    const opts = { ...base, schoolHours: WorldGen.isSchoolHours(new Date(now)), occupied: { has: (k) => used.has(k) || !!(base.occupied && base.occupied.has(k))
       || WorldGen.privateVetoAt(tx, ty, k % N, Math.floor(k / N)) } };
     const foes = [];
     entry.creatures = entry.creatures || [];
     b.kinds.forEach((kind, i) => {
       const seat = i === 0 ? { ix: dest.ix, iy: dest.iy }
-        : WorldGen.relocateToSpawnCell(entry.grid, N, N, dest.ix, dest.iy, opts, 2, 'enemy');
+        : WorldGen.relocateToSpawnCell(entry.grid, N, N, dest.ix, dest.iy, opts, 2, creatureSpawnClass(kind));
       if (!seat) return;
       used.add(seat.iy * N + seat.ix);
       const id = `guildfoe_${tx}_${ty}_${Math.floor(now)}_${i}`;

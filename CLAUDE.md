@@ -79,19 +79,31 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Reward rolls, recurring events, mode-dependent creature/trap counts and
   player progress may differ. Restoration remains per-save. Deduplication uses
   data/anchor ownership, not tile load order; cached Overpass bins are frame-free.
-- THE SPAWN GATE is `entry.spawnClass` (`WorldGen.stampSpawnClassSteps`,
-  beside the road mask in the sliced build) read through
-  `WorldGen.isSpawnCell(grid, w, h, cx, cy, opts, cls)` — every spawner passes
-  `_spawnOpts` (`spawnClass`, `roadMask`, `occupied`) AND its class: `'minor'`
-  (flora, rocks, X marks, scenery) takes OPEN + SUPPRESSED; `'attractor'`
-  (hoards, lair points, cave entrances, shrines, NPCs, a burst's scatter) and
-  `'enemy'` (fauna, guards, traps, headstones) take OPEN only
-  (`test/node/spawn_class.test.js` sweeps for it). INVALID: road band, water,
-  buildings, restricted / quiet land, sensitive points, back yards (no public
-  frontage, or behind a house); SUPPRESSED: the house, kerb, school and
-  sensitive buffers. A new refusal is a new reason in that mask, never a
-  separate check at a spawner. POI chests are the place itself (quiet land
-  only). The live Overpass fence veto (`privateVetoAt`) is for per-player
+- THE SPAWN GATE is `entry.spawnWhy` (`WorldGen.stampSpawnWhySteps`, beside
+  the road mask in the sliced build): per cell, the REASONS it is refused
+  (`WorldGen.SPAWN_WHY` bits), never a single verdict. HARD reasons refuse
+  every spawn: TERRAIN, ROAD (the roadMask only — ≥ half the cell under the
+  band; road proximity is KERB, never hard), RESTRICTED land, QUIET land,
+  KINDERGARTEN grounds, a SENSITIVE_SITE point, BEHIND_HOUSE, PRIVATE (no
+  public frontage; a POI in reach lifts it), FARM_INTERIOR (a field past
+  `FARM_EDGE_CELLS` of other ground). TYPED reasons refuse only the classes
+  whose row of ONE table, `WorldGen.SPAWN_CLASS_BLOCKS`, names them: HOUSE
+  (40 m, lot / field land only — never parks, plazas, paths or any
+  park-family polygon), KERB (fast movers only), SCHOOL (school / college
+  grounds' own cells), SENSITIVE, FARM (a field's edge). Every spawner calls
+  `WorldGen.isSpawnCell(grid, w, h, cx, cy, opts, cls)` with `_spawnOpts`
+  (`spawnWhy`, `roadMask`, `occupied`) AND its class (the source sweep in
+  `test/node/spawn_class.test.js`): `minor` (flora, rocks, scenery — hard
+  reasons only), `headstone`, `cave`, `fauna` / `fastFauna`, `npc`,
+  `attractor`, `enemy` / `fastEnemy`. A creature's class is DERIVED
+  (creature_ai.js `creatureSpawnClass`: fast = top speed over
+  `BRISK_WALK_MPS`), never typed at a call site. A new refusal is a new
+  reason bit plus its column in the table, never a separate check at a
+  spawner. Per-player timed spawns (coin bursts, bounty packs,
+  `walkableDestination`) pass `schoolHours` (`WorldGen.isSchoolHours`,
+  weekdays 07–17 local) — the generated world never reads a clock. POI
+  chests are the place itself (`landRefused` —
+  land reasons only). The live Overpass fence veto (`privateVetoAt`) is for per-player
   things only and fails open. Road terrain alone misses drawn roads; the mask uses
   `WorldGen.roadOverlayWidthM` and masks cells when the drawn bands cover
   `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coins never land on road cells
@@ -101,8 +113,9 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
 - The road is never a refuge and never a lure. MD/LG roads carry a KERB
-  BUFFER (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no fast
-  foe or wild animal spawns in or enters the buffer, and a player standing in
+  BUFFER (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no FAST
+  mover (foe or animal over `BRISK_WALK_MPS` — `isFastMover`; the wild
+  slime's charge is under it) spawns in or enters the buffer, and a player standing in
   it is left alone — the pavement ends a chase, the street adds nothing
   (`test/node/kerb_refuge_sim.test.js`). Above a run (`util.js` speed helper,
   shared with egg hatching) nothing restores, pays or taps and foes ignore the

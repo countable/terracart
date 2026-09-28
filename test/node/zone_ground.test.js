@@ -215,15 +215,18 @@ test('graves: headstones wrap the church — per-cell, on the lattice, on church
   const f = r.zone, d = r.zoneDress;
   const cellOf = (o) => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
   const stones = d.objects.filter((o) => o.kind === 'headstone');
-  // THE SPAWN GATE (Sep 2026): a headstone is an 'enemy' spawn (a tap raises
-  // a ghost; a fifth hold a hoard), so it stands on OPEN ground only — never
-  // within the 40 m house buffer, the kerb buffer, or round a church that
-  // stands on real grave land. Most of this tile's churchyard lies by houses.
+  // THE SPAWN GATE (Sep 2026): a headstone is a 'headstone' spawn (a tap
+  // raises a ghost; a fifth hold a hoard): never on hard ground, never on
+  // SENSITIVE ground (round a church that stands on real grave land, a
+  // sensitive POI) — but the house buffer and the kerb are not its reasons,
+  // so a churchyard by the houses keeps its stones.
   assert.gt(stones.length, 0, `the tile's churchyards hold headstones (${stones.length})`);
   for (const h of stones) {
     const i = cellOf(h), ix = i % N, iy = (i / N) | 0;
     assert.eq(r.grid[i], T.CHURCHYARD, `${h.id} on churchyard ground`);
-    assert.eq(WorldGen.spawnClassOf(r.spawnClass[i]), WorldGen.SPAWN_OPEN, `${h.id} on OPEN ground (an enemy spawn)`);
+    const why = r.spawnWhy[i];
+    assert.eq(why & WorldGen.SPAWN_WHY_HARD, 0, `${h.id} on no hard ground`);
+    assert.eq(why & WorldGen.SPAWN_CLASS_BLOCKS.headstone, 0, `${h.id} off sensitive ground (its class's reasons)`);
     assert.eq(r.roadMask[i], 0, `${h.id} off the road`);
     const a = f.anchors[f.idx[i] - 1];
     assert.truthy(a && a.kind === 'stones', `${h.id} in a church's disc`);

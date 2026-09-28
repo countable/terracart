@@ -131,12 +131,13 @@ class SceneCreatures {
       // paint nothing. Without it the X-mark scatter below reads the grid,
       // is told "grass", and buries treasure in the middle of the asphalt.
       roadMask: entry.roadMask,
-      // THE SPAWN GATE (worldgen stampSpawnClassSteps — entry.spawnClass):
-      // what each cell may host. Every spawner below names its class to
-      // isSpawnCell ('minor' / 'attractor' / 'enemy'), and the mask answers —
-      // the kerb buffer, the house / school / sensitive buffers (SUPPRESSED:
-      // minor things only), quiet and restricted land, back yards (INVALID).
-      spawnClass: entry.spawnClass,
+      // THE SPAWN GATE (worldgen stampSpawnWhySteps — entry.spawnWhy): WHY
+      // each cell is refused, as reason bits. Every spawner below names its
+      // class to isSpawnCell (WorldGen.SPAWN_CLASS_BLOCKS — a creature's via
+      // creatureSpawnClass), and the class's row says which typed reasons
+      // (house, kerb, school, sensitive, field edge) it refuses; the hard ones
+      // (road band, quiet / restricted land, back yards, …) refuse all.
+      spawnWhy: entry.spawnWhy,
       // The major roads' band / verge / KERB BUFFER bits (worldgen
       // ROAD_CLASS_*) and the QUIET LAND: read by isSpawnCell only on an
       // entry built without a mask (the parts the mask folds together).
@@ -250,14 +251,14 @@ class SceneCreatures {
       }
     }
     // A LAIR POINT IS AN ATTRACTOR: a gate's daily foe, a street's guard, a
-    // café hoard's giant — each is kept only where OPEN ground (the spawn
-    // gate: out of the kerb buffer, the house / school / sensitive buffers,
-    // off restricted land) lies within LAIR_POINT_SLACK_CELLS of its point —
+    // café hoard's giant — each is kept only where attractor ground (the
+    // spawn gate: out of the house buffer, off school and sensitive ground and
+    // fields, off hard land) lies within LAIR_POINT_SLACK_CELLS of its point —
     // a gate's point sits on its own way, so the ground BESIDE it answers.
-    // A gate across a major road, or in a school's fence, gets no foe. The
-    // guards' own seats are 'enemy' spawns (lairs.js) for the same reason.
+    // A gate in a school's fence or a field gets no foe. The guards' own
+    // seats are their kind's class (lairs.js, creatureSpawnClass).
     if (entry.streetLairs.length) {
-      const lairOpts = { roadMask: entry.roadMask, spawnClass: entry.spawnClass,
+      const lairOpts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
         roadClass: entry.roadClass, quiet: entry.quietMask };
       entry.streetLairs = entry.streetLairs.filter((L) => {
         const ix = Math.floor(L.lx / cellM), iy = Math.floor(L.ly / cellM);
@@ -305,7 +306,7 @@ class SceneCreatures {
           if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, 'minor')) {
             if (!displaced && _spawnOpts.occupied && _spawnOpts.occupied.has(cy * N + cx)
                 && WorldGen.isSpawnCell(genGrid, N, N, cx, cy, { roadMask: _spawnOpts.roadMask, pois: _spawnOpts.pois,
-                  spawnClass: _spawnOpts.spawnClass, quiet: _spawnOpts.quiet }, 'minor')) displaced = true;
+                  spawnWhy: _spawnOpts.spawnWhy, quiet: _spawnOpts.quiet }, 'minor')) displaced = true;
             continue;
           }
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
@@ -313,14 +314,14 @@ class SceneCreatures {
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
           faunaSeats.add(cy * N + cx);
           if (caughtSet.has(id)) return;
-          // AN ANIMAL IS AN 'enemy' SPAWN (the spawn gate): nothing alive is
-          // seated on SUPPRESSED ground — the kerb buffer (no foe to flee and
-          // no animal to chase beside fast traffic), the house buffer, the
-          // school and sensitive buffers. DROPPED after the draw, like the
+          // AN ANIMAL (or a wild slime) IS SEATED BY ITS OWN CLASS (the spawn
+          // gate, creatureSpawnClass): fauna keep off school grounds and
+          // sensitive ground; a FAST one off the kerb too; a foe also off the
+          // house buffer and every field. DROPPED after the draw, like the
           // pest amnesty below, never re-rolled: the stream stays the same
           // for every later spawn, and the mask is generated, so every player
           // loses the same animals.
-          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, 'enemy')) return;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, creatureSpawnClass(kindStr))) return;
           // The pest amnesty DROPS a slime or crow that lands in the zone —
           // after the cell was drawn exactly as it would be for anyone else.
           // It used to re-roll (`continue`) instead, which took extra draws out
@@ -789,12 +790,13 @@ class SceneCreatures {
       if (!pool.length) continue;
       const rng = WorldGen.makeRng(fnv1a(`${sp}s|${tx},${ty}`));
       const pest = (sp === 'slime' || sp === 'crow') ? pestFree : null;
+      const spClass = creatureSpawnClass(sp);
       const free = (idx) => {
         if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
-        // The seat rule for anything alive: an 'enemy' spawn (OPEN only).
-        return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts, 'enemy');
+        // The seat rule for anything alive: its own spawn class.
+        return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts, spClass);
       };
       const seatOn = (c) => {
         let k = -1, at = -1;
@@ -1978,8 +1980,8 @@ class SceneCreatures {
           const dest = this.cellAt(tx, ty);
           if (dest.loaded && Combat.faunaBlocksCell(dest.type)) continue;
           // THE KERB (creature_ai.js): nothing wild steps onto a major road's
-          // band, and a FAST foe (isFastFoe) or a wild animal never steps
-          // INTO its kerb buffer from outside it — so no chase ever runs
+          // band, and a FAST mover (isFastMover — a foe or an animal over
+          // BRISK_WALK_MPS) never steps INTO its kerb buffer from outside it — so no chase ever runs
           // along or across the carriageway. One already inside may move
           // anywhere off the band (a refused cell for it would freeze it
           // there — the stall the scarecrow note below warns about). A pet
@@ -1987,7 +1989,7 @@ class SceneCreatures {
           if (!isTame && !summoned) {
             const road = roadClassBitsAt(this, tx, ty);
             if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) continue;
-            if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && (!Combat.isEnemy(c) || isFastFoe(c, this.cellM))
+            if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && isFastMover(c, this.cellM)
                 && !inKerbAt(this, c.x, c.y)) continue;
           }
           // Scarecrow aversion — refuse any target cell within 4 cells of an

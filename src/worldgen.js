@@ -296,88 +296,145 @@
   //                   no creature, trap, pickup, chest or hoard. It is the
   //                   roadMask's lane (a masked cell just can't host a spawn)
   //                   with a different reason, not a new gate.
-  //   opts.spawnClass : THE SPAWN GATE (entry.spawnClass — see below). With it
+  //   opts.spawnWhy : THE SPAWN GATE (entry.spawnWhy — see below). With it
   //                   the mask answers every land question (quiet, restricted,
-  //                   frontage, behind a house, the buffers) and `quiet` /
-  //                   `roadClass` / `frontage` are not read; without it (a
-  //                   synthetic grid) those parts answer as they always did.
-  // THE KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER, off entry.roadClass) is one of
-  // the mask's SUPPRESSED reasons: an 'enemy' or 'attractor' spawn refuses it.
-  // inMajorBuffer / onMajorBand stay for the MOVEMENT rules (where a chase
-  // may go), which are not spawns.
+  //                   frontage, behind a house, the typed buffers) and
+  //                   `quiet` / `roadClass` / `frontage` are not read; without
+  //                   it (a synthetic grid) those parts answer as they always
+  //                   did.
+  //   opts.schoolHours : a PER-PLAYER TIMED spawn (a coin burst, a bounty
+  //                   pack, walkableDestination) passes isSchoolHours(now):
+  //                   while it holds, school GROUNDS refuse every class. The
+  //                   generated world never passes it (it never reads a clock).
+  // THE KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER, off entry.roadClass) is the
+  // mask's KERB reason. inMajorBuffer / onMajorBand stay for the MOVEMENT
+  // rules (where a chase may go), which are not spawns.
   function inMajorBuffer(roadClass, w, cx, cy) {
     return !!(roadClass && (roadClass[cy * w + cx] & ROAD_CLASS_MAJOR_BUFFER));
   }
   function onMajorBand(roadClass, w, cx, cy) {
     return !!(roadClass && (roadClass[cy * w + cx] & ROAD_CLASS_MAJOR_BAND));
   }
-  // Sugar for isSpawnCell(…, 'enemy') — kept for its many readers (tests,
-  // sims). It is NOT a second rule: the kerb buffer is a SUPPRESSED cell of
-  // entry.spawnClass, and an 'enemy' spawn refuses every SUPPRESSED cell.
+  // A cell ANY foe may take: sugar for isSpawnCell(…, 'fastEnemy') — the
+  // strictest foe row (kerb included) — kept for its readers (tests, sims).
+  // It is NOT a second rule.
   function isFoeCell(grid, w, h, cx, cy, opts) {
-    return isSpawnCell(grid, w, h, cx, cy, opts, 'enemy');
+    return isSpawnCell(grid, w, h, cx, cy, opts, 'fastEnemy');
   }
-  // ── THE SPAWN GATE (Sep 2026): entry.spawnClass + the spawn's CLASS ────────
-  // One per-tile mask (stampSpawnClassSteps, beside roadMask, in the sliced
-  // build) says what each cell may host, and every spawner names what it is
-  // seating. The cell, in the mask's low bits:
-  //   SPAWN_OPEN        anything
-  //   SPAWN_SUPPRESSED  MINOR things only — flora, rocks, ordinary pickups,
-  //                     scenery. The 40 m house buffer, the major roads' kerb
-  //                     buffer, the school / kindergarten / playground buffer
-  //                     and the ground round a sensitive place.
-  //   SPAWN_INVALID     nothing: road band, water / building, restricted land
-  //                     (school grounds, hospital, rail, military, garages,
-  //                     construction), quiet land (QUIET_LAND), a sensitive
-  //                     point, a lot cell BEHIND a house (its line to the
-  //                     nearest public way crosses a building).
-  //   + SPAWN_NEEDS_FRONTAGE (a flag): a lot / farm / orchard / industrial cell
-  //                     with no public anchor (road, path, park, …; never a
-  //                     private way, never a golf course) within
-  //                     SPAWN_FRONTAGE cells — INVALID unless the caller names
-  //                     a POI within that reach (opts.pois: a chest is a
-  //                     public place), then its low bits.
+  // ── THE SPAWN GATE (Sep 2026): entry.spawnWhy + the spawn's CLASS ─────────
+  // One per-tile mask (stampSpawnWhySteps, beside roadMask, in the sliced
+  // build) records WHY each cell is refused — a Uint16 of reason bits, never
+  // a single verdict — and every spawner names what it is seating. Two kinds
+  // of reason:
+  //   HARD (SPAWN_WHY_HARD) — refuse EVERY class:
+  //     TERRAIN       water / building / road tier on the terrain grid
+  //     ROAD          the drawn band covers ≥ half the cell (the roadMask,
+  //                   ROAD_MASK_MIN_COVER) — nothing narrower: a cell a band
+  //                   only licks is not road (road proximity is KERB)
+  //     RESTRICTED    hospital, railway, military, garages, building sites
+  //     QUIET         quiet land (QUIET_LAND)
+  //     KINDERGARTEN  kindergarten grounds
+  //     SENSITIVE_SITE a sensitive POI's own point (3×3)
+  //     BEHIND_HOUSE  a lot cell whose line to its nearest public way crosses
+  //                   a building (somebody's back garden)
+  //     PRIVATE       a lot / industrial cell no public anchor fronts within
+  //                   SPAWN_FRONTAGE (private ways vouch for nobody) — lifted
+  //                   by a POI within that reach (opts.pois: a chest is a
+  //                   public place)
+  //     FARM_INTERIOR orchard / farmland further than FARM_EDGE_CELLS from
+  //                   any other ground: nothing grows or stands in a field
+  //   TYPED SUPPRESSION — refuse only the classes whose row names them:
+  //     HOUSE         within SPAWN_HOUSE_BUFFER_M of a house — on LOT land
+  //                   only (residential, waste ground, a field), never public
+  //                   ground (park, grass, beach, path, plaza, or any cell of
+  //                   a park-family polygon): a park by the houses stays open
+  //     KERB          a major way's band touches the cell, or its kerb buffer
+  //                   — refused ONLY by FAST MOVERS (fastEnemy / fastFauna:
+  //                   creature_ai.js creatureSpawnClass, off BRISK_WALK_MPS)
+  //     SCHOOL        school / college / university GROUNDS, the polygon's
+  //                   own cells only (mostly public fields — not hard;
+  //                   opts.schoolHours makes them so)
+  //     SENSITIVE     round a sensitive POI, real cemetery land, a church on
+  //                   cemetery land (churchyardBufferM)
+  //     FARM          an orchard / farmland EDGE cell (within FARM_EDGE_CELLS
+  //                   of other ground): trees and flora grow there, no draw
+  //                   or foe stands there
   // The spawn's class — isSpawnCell's 7th argument, required of every caller
-  // (test/node/spawn_class.test.js sweeps the source):
-  //   'minor'     flora, rocks, X marks, crates, scenery, gate posts, boards,
-  //               the starting area's own things         → OPEN + SUPPRESSED
-  //   'attractor' what a player is drawn to: hoards (café / hedgerow), lair
-  //               points (gates, street guards), cave entrances, grove
-  //               shrines, NPCs, a coin burst's scatter  → OPEN only
-  //   'enemy'     anything alive or hostile seated: fauna, lair guards, a
-  //               bounty pack, park plants, traps, headstones (a tap raises a
-  //               ghost)                                  → OPEN only
+  // (test/node/spawn_class.test.js sweeps the source) — is a ROW of
+  // SPAWN_CLASS_BLOCKS: which typed reasons it refuses (hard ones always).
+  //   'minor'     flora, rocks, X marks, crates, scenery, gate posts, boards
+  //   'headstone' a churchyard stone (it raises a ghost) — not the house
+  //               buffer: stones stand on the streets round a church
+  //   'cave'      a cave entrance ("the ladder") — not the house buffer
+  //   'fauna'     friendly / wild animals at a walk (cats, dogs, crows, …)
+  //   'fastFauna' an animal that out-runs a brisk walk (deer, rabbits, …)
+  //   'npc'       villagers — fauna's row, plus no villager in a field
+  //   'attractor' hoards, lair points, events (coin bursts), grove shrines
+  //   'enemy'     anything hostile seated at a walk: slow foes and guards,
+  //               traps, park plants
+  //   'fastEnemy' a foe that out-runs a brisk walk — the enemy row + KERB
+  // A creature's class is never typed at the call site: creature_ai.js
+  // creatureSpawnClass(kind) derives fauna / enemy and fast / slow from the
+  // kind's own speed data.
+  // An unknown / missing class reads as 'minor'.
   // POI chests are the PLACE itself: they sit at their POI point and read
-  // only the quiet land (the rasterize cleanup) — they are the anchor other
-  // spawns' frontage reads, never a spawn.
+  // only the land (landRefused) — they are the anchor other spawns' frontage
+  // reads, never a spawn.
   // What this is NOT: a movement rule. A fast foe's leash at the kerb reads
   // roadClass (inMajorBuffer) because it is about where a chase may GO.
+  const SPAWN_WHY = {
+    TERRAIN: 1, ROAD: 2, RESTRICTED: 4, QUIET: 8, KINDERGARTEN: 16,
+    SENSITIVE_SITE: 32, BEHIND_HOUSE: 64, PRIVATE: 128, FARM_INTERIOR: 256,
+    HOUSE: 512, KERB: 1024, SCHOOL: 2048, SENSITIVE: 4096, FARM: 8192,
+  };
+  const W_ = SPAWN_WHY;
+  const SPAWN_WHY_HARD = W_.TERRAIN | W_.ROAD | W_.RESTRICTED | W_.QUIET | W_.KINDERGARTEN
+    | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR;
+  const SPAWN_WHY_TYPED = W_.HOUSE | W_.KERB | W_.SCHOOL | W_.SENSITIVE | W_.FARM;
+  // The hard reasons that are about the LAND (not terrain, not the band).
+  const SPAWN_WHY_LAND = SPAWN_WHY_HARD & ~(W_.TERRAIN | W_.ROAD);
+  // THE ONE TABLE: what each spawn class refuses beyond the hard reasons.
+  const SPAWN_CLASS_BLOCKS = {
+    minor: 0,
+    headstone: W_.SENSITIVE,
+    cave: W_.SENSITIVE | W_.FARM,
+    fauna: W_.SCHOOL | W_.SENSITIVE,
+    fastFauna: W_.SCHOOL | W_.SENSITIVE | W_.KERB,
+    npc: W_.SCHOOL | W_.SENSITIVE | W_.FARM,
+    attractor: W_.HOUSE | W_.SCHOOL | W_.SENSITIVE | W_.FARM,
+    enemy: W_.HOUSE | W_.SCHOOL | W_.SENSITIVE | W_.FARM,
+    fastEnemy: W_.HOUSE | W_.SCHOOL | W_.SENSITIVE | W_.FARM | W_.KERB,
+  };
+  const SPAWN_CLASSES = Object.keys(SPAWN_CLASS_BLOCKS);
+  function spawnBlocks(cls) {
+    const b = SPAWN_CLASS_BLOCKS[cls];
+    return b == null ? 0 : b;
+  }
+  // The derived VERDICT of a cell (the overlays' and measurements'
+  // convenience — never what a spawner reads): INVALID for any hard reason,
+  // SUPPRESSED for any typed one, else OPEN.
   const SPAWN_OPEN = 0, SPAWN_SUPPRESSED = 1, SPAWN_INVALID = 2;
-  const SPAWN_CLASS_BITS = 3;
-  const SPAWN_NEEDS_FRONTAGE = 4;
-  const SPAWN_CEILING = { minor: SPAWN_SUPPRESSED, attractor: SPAWN_OPEN, enemy: SPAWN_OPEN };
-  const SPAWN_CLASSES = Object.keys(SPAWN_CEILING);
-  // A cell's effective class (the frontage flag reads as INVALID) — what the
-  // map review draws and the measurements count.
   function spawnClassOf(v) {
-    return (v & SPAWN_NEEDS_FRONTAGE) ? SPAWN_INVALID : (v & SPAWN_CLASS_BITS);
+    return (v & SPAWN_WHY_HARD) ? SPAWN_INVALID : (v & SPAWN_WHY_TYPED) ? SPAWN_SUPPRESSED : SPAWN_OPEN;
+  }
+  // SCHOOL HOURS — weekdays 07:00–17:00 LOCAL time. Per-player timed spawns
+  // only (opts.schoolHours); the generated world never reads a clock.
+  function isSchoolHours(date) {
+    const d = date || new Date();
+    const day = d.getDay(), hr = d.getHours();
+    return day >= 1 && day <= 5 && hr >= 7 && hr < 17;
   }
   // Does the mask refuse cell `i` for a reason of the LAND — restricted,
-  // quiet, sensitive, behind a house, no frontage (lifted by a POI in
-  // `pois`) — rather than of its terrain (water, building) or the road band?
-  // For the passes that have their own terrain rule and seat on a road on
-  // purpose (a POI chest, a well that repaints the cobble, a gate on its way).
+  // quiet, kindergarten, sensitive site, behind a house, a field's interior,
+  // no frontage (lifted by a POI in `pois`) — rather than of its terrain
+  // (water, building) or the road band? For the passes that have their own
+  // terrain rule and seat on a road on purpose (a POI chest, a well that
+  // repaints the cobble, a gate on its way).
   function landRefused(mask, grid, roadMask, i, pois, cx, cy) {
     if (!mask) return false;
     const v = mask[i];
-    if ((v & SPAWN_CLASS_BITS) !== SPAWN_INVALID) {
-      return !!(v & SPAWN_NEEDS_FRONTAGE) && !poiWithin(pois, cx, cy, SPAWN_FRONTAGE);
-    }
-    return isWalkable(grid[i]) && !(roadMask && roadMask[i]);
-  }
-  function spawnCeiling(cls) {
-    const c = SPAWN_CEILING[cls];
-    return c == null ? SPAWN_SUPPRESSED : c;
+    if (v & SPAWN_WHY_LAND & ~W_.PRIVATE) return true;
+    return !!(v & W_.PRIVATE) && !poiWithin(pois, cx, cy, SPAWN_FRONTAGE);
   }
   function poiWithin(pois, cx, cy, r) {
     if (!pois) return false;
@@ -397,19 +454,21 @@
     if (roadMask && roadMask[cy * w + cx]) return false;   // under a drawn road band
     const occupied = opts && opts.occupied;
     if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
-    const mask = opts && opts.spawnClass;
+    const mask = opts && opts.spawnWhy;
     if (mask) {
       const v = mask[cy * w + cx];
-      if ((v & SPAWN_CLASS_BITS) > spawnCeiling(cls)) return false;
-      if (!(v & SPAWN_NEEDS_FRONTAGE)) return true;
+      if (v & (SPAWN_WHY_HARD & ~W_.PRIVATE)) return false;
+      if (v & spawnBlocks(cls)) return false;
+      if ((v & W_.SCHOOL) && opts.schoolHours) return false;
+      if (!(v & W_.PRIVATE)) return true;
       return poiWithin(opts.pois, cx, cy, SPAWN_FRONTAGE);
     }
     // ── No mask (a synthetic grid, a caller outside a built tile): the same
-    // rules read from their parts — quiet land, the lot frontage and, for an
-    // attractor or an enemy, the kerb buffer.
+    // rules read from their parts — quiet land, the lot frontage and, for a
+    // class that refuses KERB, the kerb buffer.
     const quiet = opts && opts.quiet;
     if (quiet && quiet[cy * w + cx]) return false;         // quiet land (QUIET_LAND)
-    if (spawnCeiling(cls) < SPAWN_SUPPRESSED && inMajorBuffer(opts && opts.roadClass, w, cx, cy)) return false;
+    if ((spawnBlocks(cls) & W_.KERB) && inMajorBuffer(opts && opts.roadClass, w, cx, cy)) return false;
     if (!isLotTerrain(here)) return true;         // public / open ground — always ok
     const frontage = (opts && opts.frontage != null) ? opts.frontage : SPAWN_FRONTAGE;
     for (let dy = -frontage; dy <= frontage; dy++) {
@@ -462,7 +521,7 @@
   //            what spawnInTile hands lairs.js as the 'gate' lair;
   //   a board  `info_<tx>_<ty>_<ix>_<iy>` on the nearest spawn cell.
   function placeGatesAndBoards(objects, gatePoints, infoPoints, ctx) {
-    const { grid, N, roadMask, quiet, spawnClass, tx, ty, centre } = ctx;
+    const { grid, N, roadMask, quiet, spawnWhy, tx, ty, centre } = ctx;
     const taken = ctx.taken || new Set();
     const inTile = (p) => p.ix >= 0 && p.iy >= 0 && p.ix < N && p.iy < N;
     const claim = (ix, iy) => taken.add(ix + '_' + iy);
@@ -473,8 +532,8 @@
       if (quiet && quiet[g.iy * N + g.ix]) continue;
       // …nor one on land the spawn gate refuses (school grounds, a yard
       // behind a house): the mask's reading of the same question.
-      if (landRefused(spawnClass, grid, roadMask, g.iy * N + g.ix, null, g.ix, g.iy)) continue;
-      const opts = { roadMask, quiet, spawnClass, pois: [g] };
+      if (landRefused(spawnWhy, grid, roadMask, g.iy * N + g.ix, null, g.ix, g.iy)) continue;
+      const opts = { roadMask, quiet, spawnWhy, pois: [g] };
       // The posts are scenery (a minor spawn); the gate's daily FOE is a lair
       // point spawnInTile holds to the attractor rule.
       const free = (ix, iy) => !taken.has(ix + '_' + iy) && !(ix === g.ix && iy === g.iy)
@@ -494,7 +553,7 @@
     }
     for (const b of infoPoints || []) {
       if (!inTile(b)) continue;
-      const opts = { roadMask, quiet, spawnClass, pois: [b],
+      const opts = { roadMask, quiet, spawnWhy, pois: [b],
         occupied: { has: (i) => taken.has((i % N) + '_' + Math.floor(i / N)) } };
       const at = relocateToSpawnCell(grid, N, N, b.ix, b.iy, opts, null, 'minor');
       if (!at) continue;
@@ -846,7 +905,7 @@
   // quiet-land mask): visit(x, y) once per cell whose centre is inside.
   // `off` (optional, cells): shift the polygon by this much on both axes —
   // the spawn gate stamps onto a grid wider than the tile by `off` each side
-  // (stampSpawnClassSteps), so a house just over the seam still buffers.
+  // (stampSpawnWhySteps), so a house just over the seam still buffers.
   function* forEachPolygonCellSteps(w, h, rings, mvtToCell, visit, off) {
     // Use signed area to know outer vs inner. For simplicity, rasterize all rings with
     // even-odd fill across all rings combined per feature.
@@ -1179,10 +1238,11 @@
   //                          major band (the band's own cells included) —
   //                          stamped off the same lines, widened, so it is
   //                          seam-safe the way the band is. THE SAFETY RULE
-  //                          (owner, Sep 2026): no foe and no animal spawns or
-  //                          seats in it (WorldGen.isFoeCell), a FAST foe
-  //                          (Combat.isFastFoe) never steps into it and gives
-  //                          up on a player standing in it, and nothing
+  //                          (owner, Sep 2026): no FAST mover (foe or animal
+  //                          over creature_ai.js BRISK_WALK_MPS) spawns in it
+  //                          (the spawn gate's KERB reason) or steps into it,
+  //                          every hostile gives up on a player standing in
+  //                          it, and nothing
   //                          hostile steps onto the band itself — so the
   //                          sidewalk is where a chase ENDS and nobody ever
   //                          needs the carriageway to get away. It is NOT a
@@ -2441,16 +2501,15 @@
     }
     return n;
   }
-  // ── THE SPAWN GATE'S MASK: entry.spawnClass (see isSpawnCell) ─────────────
+  // ── THE SPAWN GATE'S MASK: entry.spawnWhy (see isSpawnCell) ───────────────
   // One pass beside the road mask, over the tile's own layers, per cell of the
   // tile's own grid — generated, the same for every player. The numbers:
   //   SPAWN_HOUSE_BUFFER_M     a HOUSE is a footprint of HOUSE_AREA_M2 whose
   //                            render height is under HOUSE_MAX_HEIGHT_M and
   //                            whose centre stands on residential landuse;
-  //                            within this of one nothing important spawns
-  //                            (nobody is sent to loiter by a front window)
-  //   SPAWN_CHILD_BUFFER_M     round school / kindergarten grounds, playgrounds
-  //                            and their POIs
+  //                            within this of one no draw and no foe
+  //                            spawns (the HOUSE reason — animals, villagers,
+  //                            headstones and cave mouths ignore it)
   //   SPAWN_SENSITIVE_BUFFER_M round a sensitive POI (isSensitivePoi) and real
   //                            cemetery land
   //   churchyardBufferM()      round a church that stands ON cemetery land:
@@ -2463,21 +2522,35 @@
   // the seam still buffers this side of it (as far as the MVT buffer reaches).
   // Distances are a chamfer (1, √2) transform — deterministic arithmetic.
   const SPAWN_HOUSE_BUFFER_M = 40;
-  const SPAWN_CHILD_BUFFER_M = 50;
   const SPAWN_SENSITIVE_BUFFER_M = 40;
   const HOUSE_AREA_M2 = [30, 400];
   const HOUSE_MAX_HEIGHT_M = 12;
-  // RESTRICTED LAND — INVALID over the whole polygon (landuse classes):
-  // school / kindergarten grounds, hospital, railway, military, garages and
-  // building sites. (Quiet land — QUIET_LAND — folds in beside it.)
-  const RESTRICTED_LAND = new Set(['school', 'kindergarten', 'hospital', 'railway', 'military', 'garages', 'construction']);
-  // The children's places the CHILD buffer rings (landuse classes) and their
-  // POIs (poi subclass school / kindergarten, class playground).
-  const CHILD_LAND = new Set(['school', 'kindergarten', 'playground']);
-  const CHILD_POI_SUBCLASS = new Set(['school', 'kindergarten', 'playground']);
-  // Land that is somebody's working ground: ROADSIDE ONLY — a cell needs a
-  // public anchor within SPAWN_FRONTAGE, like a lot (owner pick, Sep 2026).
-  const ROADSIDE_ONLY = new Set([T.FARMLAND, T.ORCHARD, T.INDUSTRIAL]);
+  // RESTRICTED LAND — the hard RESTRICTED reason over the whole polygon
+  // (landuse classes): hospital, railway, military, garages and building
+  // sites. (Quiet land — QUIET_LAND — folds in beside it.) School grounds are
+  // NOT here (owner, Sep 2026: most school fields are public) — they are the
+  // typed SCHOOL_GROUNDS reason; KINDERGARTEN grounds stay hard.
+  const RESTRICTED_LAND = new Set(['hospital', 'railway', 'military', 'garages', 'construction']);
+  const SCHOOL_LAND = new Set(['school', 'college', 'university', 'education']);
+  const KINDERGARTEN_LAND = new Set(['kindergarten']);
+  // (No CHILD buffer since Sep 2026: a radius round a school spilled into the
+  // parks beside it. SCHOOL is the grounds' own cells; kindergarten grounds
+  // are hard; a playground is public ground.)
+  // Industrial yards are somebody's working ground: ROADSIDE ONLY — a cell
+  // needs a public anchor within SPAWN_FRONTAGE, like a lot (the PRIVATE
+  // reason).
+  const ROADSIDE_ONLY = new Set([T.INDUSTRIAL]);
+  // FIELDS (orchard / farmland, owner Sep 2026): only the EDGE hosts — a cell
+  // within FARM_EDGE_CELLS (Chebyshev) of any other ground is the typed FARM
+  // reason (minor things only: a fruit tree, flora); deeper in is the hard
+  // FARM_INTERIOR reason. Draws and foes never stand on a field at all.
+  const FARM_TYPES = new Set([T.FARMLAND, T.ORCHARD]);
+  // Which `park`-layer polygons are PARK FAMILY for the house rules (the
+  // layer also carries designations — protected_area, historic, conservation
+  // — drawn over whole neighbourhoods). Landuse / landcover park, playground,
+  // pitch, garden, beach … polygons always are.
+  const PARK_FAMILY_LAYER_CLASS = new Set(['park', 'nature_reserve', 'national_park']);
+  const FARM_EDGE_CELLS = 2;
   // How far (cells) the behind-a-house line is walked; a lot cell further
   // than this from its nearest public way is left to the frontage rule.
   const BEHIND_HOUSE_MAX_CELLS = 12;
@@ -2531,16 +2604,16 @@
     }
   }
   // ctx: { layers, grid, w, h, mvtToCell, mvtToM, roadMask, roadClass,
-  // quietMask }. Returns the Uint8Array mask (encoding: isSpawnCell).
-  function* stampSpawnClassSteps(ctx) {
+  // quietMask }. Returns the Uint16Array of reason bits (SPAWN_WHY).
+  function* stampSpawnWhySteps(ctx) {
     const { layers, grid, w, h, mvtToCell, mvtToM, roadMask, roadClass, quietMask } = ctx;
     const NN = w * h;
-    const mask = new Uint8Array(NN);
+    const mask = new Uint16Array(NN);
     const byName = {};
     for (const L of layers || []) if (L && L.name) byName[L.name] = L;
     const feats = (n) => (byName[n] && byName[n].features) || [];
     const churchM = churchyardBufferM();
-    const M = Math.ceil(Math.max(SPAWN_HOUSE_BUFFER_M, SPAWN_CHILD_BUFFER_M, SPAWN_SENSITIVE_BUFFER_M, churchM) / CELL_M);
+    const M = Math.ceil(Math.max(SPAWN_HOUSE_BUFFER_M, SPAWN_SENSITIVE_BUFFER_M, churchM) / CELL_M);
     const E = w + 2 * M, EE = E * E;
     const extOf = (p) => {
       const x = Math.floor(p.x * mvtToCell) + M, y = Math.floor(p.y * mvtToCell) + M;
@@ -2548,39 +2621,42 @@
     };
     const INF = 1e9;
     const newDist = () => { const d = new Float32Array(EE); d.fill(INF); return d; };
-    const houseD = newDist(), childD = newDist(), sensD = newDist(), churchD = newDist();
-    let nHouse = 0, nChild = 0, nSens = 0, nChurch = 0;
+    const houseD = newDist(), sensD = newDist(), churchD = newDist();
+    let nHouse = 0, nSens = 0, nChurch = 0;
     const resExt = new Uint8Array(EE), cemExt = new Uint8Array(EE);
-    const restricted = new Uint8Array(NN), sensPt = new Uint8Array(NN);
+    const sensPt = new Uint8Array(NN);
+    // Per-cell land reasons stamped straight off a polygon (RESTRICTED,
+    // KINDERGARTEN, SCHOOL).
+    const land = new Uint16Array(NN);
     // ── Landuse polygons: residential (the house test), cemetery (sensitive
-    // land), restricted land, the children's land.
+    // land), restricted land, school / kindergarten grounds.
     let k = 0;
     for (const f of feats('landuse')) {
       if (f.type !== 3 || !f.geom || !f.tags) continue;
       const c = f.tags.class;
       const res = c === 'residential', cem = c === 'cemetery';
-      const rst = RESTRICTED_LAND.has(c), child = CHILD_LAND.has(c);
-      if (!res && !cem && !rst && !child) continue;
+      const why = RESTRICTED_LAND.has(c) ? W_.RESTRICTED : KINDERGARTEN_LAND.has(c) ? W_.KINDERGARTEN
+        : SCHOOL_LAND.has(c) ? W_.SCHOOL : 0;
+      const rst = !!why;
+      if (!res && !cem && !rst) continue;
       if ((++k & 7) === 0) yield 'spawn gate landuse';
-      if (res || cem || child) {
+      if (res || cem) {
         yield* forEachPolygonCellSteps(E, E, f.geom, mvtToCell, (x, y) => {
           const i = y * E + x;
           if (res) resExt[i] = 1;
           if (cem) { cemExt[i] = 1; sensD[i] = 0; nSens++; }
-          if (child) { childD[i] = 0; nChild++; }
         }, M);
       }
-      if (rst) yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { restricted[y * w + x] = 1; });
+      if (rst) yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { land[y * w + x] |= why; });
     }
-    // ── POI points: sensitive places (the point INVALID, the ground round it
-    // SUPPRESSED), children's places, and a church on cemetery land.
+    // ── POI points: sensitive places (the point SENSITIVE_SITE, the ground round it
+    // SENSITIVE), and a church on cemetery land.
     for (const f of feats('poi')) {
       if (f.type !== 1 || !f.geom || !f.tags) continue;
       const t = f.tags;
       const sens = isSensitivePoi(t);
-      const child = CHILD_POI_SUBCLASS.has(t.subclass) || t.class === 'playground';
       const church = !sens && t.class === SENSITIVE_POI.worshipClass;
-      if (!sens && !child && !church) continue;
+      if (!sens && !church) continue;
       for (const ring of f.geom) {
         const p = ring && ring[0];
         if (!p) continue;
@@ -2594,7 +2670,6 @@
             if (x >= 0 && y >= 0 && x < w && y < h) sensPt[y * w + x] = 1;
           }
         }
-        if (child) { childD[e] = 0; nChild++; }
         if (church && cemExt[e]) { churchD[e] = 0; nChurch++; }
       }
     }
@@ -2643,6 +2718,10 @@
     // inside a residential landuse polygon is painted residential, and is
     // still public ground). Quiet land vouches for nobody (a cemetery still
     // does — its lawn is a public place, it just hosts nothing itself).
+    // Bit 1: public land (frontage). Bit 2: a PARK-FAMILY polygon — the
+    // leisure ground the house rules never touch (PARK_FAMILY_LAYER_CLASS: a
+    // designation polygon — a heritage conservation area over a whole
+    // neighbourhood — is not a park).
     const pubArea = new Uint8Array(NN);
     k = 0;
     for (const name of ['landcover', 'landuse', 'park']) {
@@ -2651,16 +2730,17 @@
         if (!PUBLIC_NEAR.has(classifyPolygon(name, f.tags))) continue;
         if (isQuietLand(name, f.tags) && f.tags.class !== 'cemetery') continue;
         if ((++k & 7) === 0) yield 'spawn gate public land';
-        yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { pubArea[y * w + x] = 1; });
+        const park = (name !== 'park' || PARK_FAMILY_LAYER_CLASS.has(f.tags.class)) && f.tags.class !== 'cemetery';
+        const bits = park ? 3 : 1;
+        yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { pubArea[y * w + x] |= bits; });
       }
     }
-    const anchorAt = (i) => pubArea[i] === 1 || (PUBLIC_NEAR.has(grid[i]) && !privateOnly(i));
+    const anchorAt = (i) => pubArea[i] !== 0 || (PUBLIC_NEAR.has(grid[i]) && !privateOnly(i));
     // ── Distances (only where there is a source at all).
     if (nHouse) yield* chamferSteps(houseD, E);
-    if (nChild) yield* chamferSteps(childD, E);
     if (nSens) yield* chamferSteps(sensD, E);
     if (nChurch) yield* chamferSteps(churchD, E);
-    const houseR = SPAWN_HOUSE_BUFFER_M / CELL_M, childR = SPAWN_CHILD_BUFFER_M / CELL_M;
+    const houseR = SPAWN_HOUSE_BUFFER_M / CELL_M;
     const sensR = SPAWN_SENSITIVE_BUFFER_M / CELL_M, churchR = churchM / CELL_M;
     // ── FRONTAGE: a public anchor (PUBLIC_NEAR ground that is not a private
     // way's, or public land by polygon) within SPAWN_FRONTAGE cells,
@@ -2720,23 +2800,58 @@
       }
       return false;
     };
-    // ── The verdict, per cell.
+    // ── FIELDS: an orchard / farmland cell is an EDGE when any other ground
+    // lies within FARM_EDGE_CELLS (Chebyshev, the frontage's separable
+    // window), else its INTERIOR.
+    const FE = FARM_EDGE_CELLS;
+    const notFarm = (i) => !FARM_TYPES.has(grid[i]);
+    const farmRow = new Uint8Array(NN), farmEdge = new Uint8Array(NN);
+    for (let y = 0; y < h; y++) {
+      if ((y & 31) === 31) yield 'spawn gate field rows';
+      const row = y * w;
+      let run = 0;
+      for (let x = 0; x < Math.min(FE, w); x++) if (notFarm(row + x)) run++;
+      for (let x = 0; x < w; x++) {
+        const add = x + FE, drop = x - FE - 1;
+        if (add < w && notFarm(row + add)) run++;
+        if (drop >= 0 && notFarm(row + drop)) run--;
+        farmRow[row + x] = run > 0 ? 1 : 0;
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      if ((x & 31) === 31) yield 'spawn gate field cols';
+      let run = 0;
+      for (let y = 0; y < Math.min(FE, h); y++) run += farmRow[y * w + x];
+      for (let y = 0; y < h; y++) {
+        const add = y + FE, drop = y - FE - 1;
+        if (add < h) run += farmRow[add * w + x];
+        if (drop >= 0) run -= farmRow[drop * w + x];
+        farmEdge[y * w + x] = run > 0 ? 1 : 0;
+      }
+    }
+    // ── The reasons, per cell (every one that applies — the classes decide).
+    // HOUSE and BEHIND_HOUSE are about somebody's LOT: they never touch
+    // public ground (a park-family polygon's cell, whatever paint won it, or
+    // any ground that is not lot / field).
     for (let y = 0; y < h; y++) {
       if ((y & 15) === 15) yield 'spawn gate classify';
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
         const t = grid[i];
-        if (!isWalkable(t) || roadMask[i] || (quietMask && quietMask[i]) || restricted[i] || sensPt[i]) {
-          mask[i] = SPAWN_INVALID; continue;
-        }
+        let v = land[i];
+        if (!isWalkable(t)) v |= W_.TERRAIN;
+        if (roadMask[i]) v |= W_.ROAD;
+        if (quietMask && quietMask[i]) v |= W_.QUIET;
+        if (sensPt[i]) v |= W_.SENSITIVE_SITE;
         const lot = isLotTerrain(t);
-        if (lot && front[i] && behind(i)) { mask[i] = SPAWN_INVALID; continue; }
+        const lotLike = (lot || FARM_TYPES.has(t)) && !(pubArea[i] & 2);
+        if (lot && lotLike && front[i] && behind(i)) v |= W_.BEHIND_HOUSE;
+        if ((lot || ROADSIDE_ONLY.has(t)) && !front[i]) v |= W_.PRIVATE;
+        if (FARM_TYPES.has(t)) v |= farmEdge[i] ? W_.FARM : W_.FARM_INTERIOR;
         const e = (y + M) * E + (x + M);
-        let v = SPAWN_OPEN;
-        if ((roadClass && (roadClass[i] & ROAD_CLASS_MAJOR_BUFFER))
-            || houseD[e] <= houseR || childD[e] <= childR
-            || sensD[e] <= sensR || churchD[e] <= churchR) v = SPAWN_SUPPRESSED;
-        if ((lot || ROADSIDE_ONLY.has(t)) && !front[i]) v |= SPAWN_NEEDS_FRONTAGE;
+        if (roadClass && (roadClass[i] & (ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_MAJOR_BAND))) v |= W_.KERB;
+        if (lotLike && houseD[e] <= houseR) v |= W_.HOUSE;
+        if (sensD[e] <= sensR || churchD[e] <= churchR) v |= W_.SENSITIVE;
         mask[i] = v;
       }
     }
@@ -2811,7 +2926,7 @@
     // resolved from it beside the mask (resolveRoadClassSteps).
     const majorCover = new Uint16Array(w * h);
     // The major ways' band once more, widened by MAJOR_BUFFER_CELLS each side
-    // — the KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER) no foe or fauna spawns in.
+    // — the KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER) no fast mover spawns in.
     const majorBufCover = new Uint16Array(w * h);
     const roadClass = new Uint8Array(w * h);
     // Per-cell length of PATH geometry, in cell widths — see accumulateLineSpan.
@@ -4271,10 +4386,10 @@
     // is) and before the naming pass below.
     pruneShortPathRuns(grid, w, h, pathUnder, roadUnder);
     yield 'short path runs';
-    // THE SPAWN GATE (entry.spawnClass — see isSpawnCell): on the final
+    // THE SPAWN GATE (entry.spawnWhy — see isSpawnCell): on the final
     // grid, the road mask, the kerb buffer and the quiet land, before the
     // first cull below reads it. Pure MVT, re-derived by a rebuild.
-    const spawnClass = yield* stampSpawnClassSteps({ layers, grid, w, h, mvtToCell, mvtToM,
+    const spawnWhy = yield* stampSpawnWhySteps({ layers, grid, w, h, mvtToCell, mvtToM,
       roadMask, roadClass, quietMask });
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
     // landuse, roads, and buildings in MVT-supplied order, so a mineralrock
@@ -4327,7 +4442,7 @@
       const _mrSpawnOpts = {
         roadMask,
         quiet: quietMask,
-        spawnClass,
+        spawnWhy,
         pois: objects
           .filter(o => o.kind === 'chest')
           .map(o => paintCellOf(o.x, o.y)),
@@ -4380,7 +4495,7 @@
         // residential cell after the grid is fully painted. A POI chest is
         // the place itself (isSpawnCell's note) and reads only the quiet land
         // above. Forts, castles, houses and towers are already exempt above.
-        if (o.kind !== 'chest' && landRefused(spawnClass, grid, roadMask, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) return true;
+        if (o.kind !== 'chest' && landRefused(spawnWhy, grid, roadMask, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) return true;
         return false;
       };
       // COMPACTED IN PLACE, not spliced — the same change the wildplant sweep
@@ -4430,7 +4545,7 @@
           if (_onRoadOrBuilding(wtc, ix, iy)) drop = true;
           else if (poiPadCells.has(iy * w + ix)) drop = true;
           // The spawn gate, a MINOR spawn (quiet land folded in).
-          else if (landRefused(spawnClass, grid, roadMask, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) drop = true;
+          else if (landRefused(spawnWhy, grid, roadMask, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) drop = true;
         }
         if (!drop) wildplants[wpKeep++] = wp;
       }
@@ -4464,7 +4579,7 @@
       // occupancy pass below settles them against everything else (below a
       // chest, level with a house).
       placeGatesAndBoards(objects, gatePoints, infoPoints, {
-        grid, N: w, roadMask, quiet: quietMask, spawnClass, tx, ty,
+        grid, N: w, roadMask, quiet: quietMask, spawnWhy, tx, ty,
         centre: (ix, iy) => { const c = cellCenterMeters(ix, iy); return { x: c.mx, y: c.my }; },
       });
     }
@@ -4732,7 +4847,7 @@
       yield 'before street dressing';
       dressSpawn();
       streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM, grid,
-        spawnOpts: { roadMask, quiet: quietMask, spawnClass, roadClass, occupied: dressOcc, pois: dressPois } });
+        spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
     // INFLUENCE ZONES (src/zones.js) — LAST, after every cull, the occupancy
     // pass and the street dressing, so no older stream or filter ever reads a
@@ -4758,10 +4873,10 @@
       if (zone) {
         dressSpawn();
         zoneDress = yield* Zones.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
-          spawnOpts: { roadMask, quiet: quietMask, spawnClass, roadClass, occupied: dressOcc, pois: dressPois } });
+          spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
       }
     }
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnClass, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes };
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -4935,7 +5050,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnClass, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -4968,10 +5083,10 @@
       // re-derived by a rebuild like the mask; spawnInTile hands it on as
       // _spawnOpts.quiet.
       entry.quietMask = quietMask;
-      // THE SPAWN GATE (see isSpawnCell / stampSpawnClassSteps): what each
+      // THE SPAWN GATE (see isSpawnCell / stampSpawnWhySteps): what each
       // cell may host — OPEN, SUPPRESSED (minor things only) or INVALID.
-      // Every spawner reads it through isSpawnCell's opts.spawnClass.
-      entry.spawnClass = spawnClass;
+      // Every spawner reads it through isSpawnCell's opts.spawnWhy.
+      entry.spawnWhy = spawnWhy;
       // The MAJOR road's band and verge (see ROAD_CLASS_MAJOR_BAND) and the
       // street index (src/street_variants.js) — both pure MVT, re-derived by a
       // rebuild like the mask. spawnInTile dresses the streets off the index.
@@ -5148,8 +5263,8 @@
     const _sxPois = [];
     for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
     for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
-    const spawnClass = entry.spawnClass || null;
-    const _sxSpawnOpts = { pois: _sxPois, roadMask, quiet, spawnClass };
+    const spawnWhy = entry.spawnWhy || null;
+    const _sxSpawnOpts = { pois: _sxPois, roadMask, quiet, spawnWhy };
     // THE SPAWN GATE for the bin's scenery (a MINOR spawn): the land the mask
     // refuses — quiet, restricted, sensitive, behind a house, no frontage
     // (the chests above and in the bin vouch for their frontage). Terrain and
@@ -5157,7 +5272,7 @@
     const _sxYardOK = (wx, wy) => {
       const { ix, iy } = _sxCell(wx, wy);
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
-      if (spawnClass) return !landRefused(spawnClass, grid, roadMask, iy * cpe + ix, _sxPois, ix, iy);
+      if (spawnWhy) return !landRefused(spawnWhy, grid, roadMask, iy * cpe + ix, _sxPois, ix, iy);
       if (quiet && quiet[iy * cpe + ix]) return false;   // quiet land hosts nothing
       if (!isLotTerrain(grid[iy * cpe + ix])) return true;
       return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts, 'minor');
@@ -5273,7 +5388,7 @@
     if (gateCells.length) {
       const before = entry.objects.length;
       placeGatesAndBoards(entry.objects, gateCells, null, {
-        grid, N: cpe, roadMask, quiet, spawnClass, tx: x, ty: y, taken: occupied,
+        grid, N: cpe, roadMask, quiet, spawnWhy, tx: x, ty: y, taken: occupied,
         centre: (ix, iy) => _sxCentre(ix, iy),
       });
       for (let i = before; i < entry.objects.length; i++) {
@@ -6284,16 +6399,24 @@
       objCells.add(liy * N + lix);
     }
     const pads = entry.poiPadCells;
-    // THE SPAWN GATE: a mine mouth is an ATTRACTOR (the stairs down — the
-    // owner's "ladders"), so it takes OPEN ground only: off the road band
-    // (see above), off quiet and restricted land, out of every buffer — the
-    // 40 m house buffer included — and never in a back yard.
-    const stairOpts = { roadMask, quiet: entry.quietMask, spawnClass: entry.spawnClass, roadClass: entry.roadClass };
-    const stairCellOK = (lix, liy, idx) =>
+    // THE SPAWN GATE: a mine mouth is a 'cave' spawn (the stairs down — the
+    // owner's "ladders"): off the road band (see above), every hard reason
+    // (quiet / restricted land, a back yard, a field's interior), the kerb,
+    // sensitive ground and a field's edge — but NOT the house buffer, so the
+    // mouths players already know by the houses stay where they were.
+    const stairOpts = { roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, roadClass: entry.roadClass };
+    // The mouth's own rules (everything but the gate's reasons)…
+    const stairSiteOK = (lix, liy, idx) =>
       !used.has(idx) && !tooClose(lix, liy)
       && !objCells.has(idx) && !(pads && pads.has(idx))
-      && !nearBuildingCell(grid, N, N, lix, liy) && !nearPoiCell(chestCells, lix, liy)
-      && isSpawnCell(grid, N, N, lix, liy, stairOpts, 'attractor');
+      && !nearBuildingCell(grid, N, N, lix, liy) && !nearPoiCell(chestCells, lix, liy);
+    const stairCellOK = (lix, liy, idx) => stairSiteOK(lix, liy, idx)
+      && isSpawnCell(grid, N, N, lix, liy, stairOpts, 'cave');
+    // …and would the mouth have stood here but for the gate's reasons (the
+    // plain spawn rule with no mask)? Only a mouth the GATE displaced walks.
+    const gateOnlyRefused = (lix, liy, idx) => stairSiteOK(lix, liy, idx)
+      && isSpawnCell(grid, N, N, lix, liy, { roadMask }, 'minor')
+      && !isSpawnCell(grid, N, N, lix, liy, stairOpts, 'cave');
 
     // Drop a down-staircase on the first walkable cell touching `rock`. Returns
     // true on success; de-dupes so two clusters can't stack stairs on one cell,
@@ -6304,8 +6427,19 @@
     const placeBeside = (rock) => {
       const { lix: rlix, liy: rliy } = cellIndexOf(tx, ty, rock.x, rock.y, tileEdgeM, N);
       const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
-      for (let r = 2; r <= CAVE_MOUTH_RELOCATE_CELLS; r++) {
-        for (let d = -r; d <= r; d++) dirs.push([d, -r], [r, d], [-d, r], [-r, -d]);
+      // The walk outward is only for a mouth the GATE displaced: one whose
+      // own ring held a cell the mask alone refused. A rock whose ring was
+      // never usable (walls, the moat, neighbours) has no mouth, as always —
+      // the walk must not ADD mouths the world never had.
+      let displaced = false;
+      for (const [dx, dy] of dirs) {
+        const lix = rlix + dx, liy = rliy + dy;
+        if (lix >= 0 && liy >= 0 && lix < N && liy < N && gateOnlyRefused(lix, liy, liy * N + lix)) { displaced = true; break; }
+      }
+      if (displaced) {
+        for (let r = 2; r <= CAVE_MOUTH_RELOCATE_CELLS; r++) {
+          for (let d = -r; d <= r; d++) dirs.push([d, -r], [r, d], [-d, r], [-r, -d]);
+        }
       }
       for (const [dx, dy] of dirs) {
         const lix = rlix + dx, liy = rliy + dy;
@@ -7040,12 +7174,13 @@
     injectTileBin,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isSpawnCell, relocateToSpawnCell,
-    // THE SPAWN GATE (entry.spawnClass): the mask's encoding, the classes, the
+    // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
     // stamp and its numbers, and the live per-player private-ground veto.
-    SPAWN_OPEN, SPAWN_SUPPRESSED, SPAWN_INVALID, SPAWN_CLASS_BITS, SPAWN_NEEDS_FRONTAGE, SPAWN_CEILING, SPAWN_CLASSES,
-    spawnClassOf, landRefused, stampSpawnClassSteps, isPrivateWay, churchyardBufferM, SPAWN_FRONTAGE,
-    SPAWN_HOUSE_BUFFER_M, SPAWN_CHILD_BUFFER_M, SPAWN_SENSITIVE_BUFFER_M, HOUSE_AREA_M2, HOUSE_MAX_HEIGHT_M,
-    RESTRICTED_LAND, CHILD_LAND, ROADSIDE_ONLY, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
+    SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,
+    SPAWN_OPEN, SPAWN_SUPPRESSED, SPAWN_INVALID, spawnClassOf, isSchoolHours,
+    landRefused, stampSpawnWhySteps, isPrivateWay, churchyardBufferM, SPAWN_FRONTAGE,
+    SPAWN_HOUSE_BUFFER_M, SPAWN_SENSITIVE_BUFFER_M, HOUSE_AREA_M2, HOUSE_MAX_HEIGHT_M,
+    RESTRICTED_LAND, SCHOOL_LAND, KINDERGARTEN_LAND, ROADSIDE_ONLY, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
     SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,

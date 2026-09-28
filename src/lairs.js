@@ -775,6 +775,9 @@
       const id = day ? `lair_${cand.sid}_${day}_${i}` : `lair_${cand.sid}_${i}`;
       const kind = kindFor(cand.tier, t, rng);
       if (!kind) continue;                    // no ladder for this tier
+      // Its seat class (the spawn gate): a fast guard also keeps off the kerb.
+      const guardClass = (typeof root.creatureSpawnClass === 'function')
+        ? root.creatureSpawnClass(kind) : 'fastEnemy';
       let seat = null;
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
         const ang = (i / n) * Math.PI * 2 + (rng() - 0.5) * 0.8 + a * 0.7;
@@ -793,7 +796,7 @@
         // reading of "is this a road" is how the two drift. Only the VERDICT
         // changed (Sep 2026): the draws are the same, so every seat that
         // passes both rules is the seat it always was.
-        if (!WG.isSpawnCell(entry.grid, N, N, ix, iy, foeOpts, 'enemy')) continue;
+        if (!WG.isSpawnCell(entry.grid, N, N, ix, iy, foeOpts, guardClass)) continue;
         seat = { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM };
       }
       if (!seat) continue;                    // ringed by water / road / building

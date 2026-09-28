@@ -1,23 +1,23 @@
-// THE SPAWN GATE (Sep 2026): entry.spawnClass + isSpawnCell's spawn class.
+// THE SPAWN GATE (Sep 2026): entry.spawnWhy + isSpawnCell's spawn class.
 //
-// One per-tile mask (WorldGen.stampSpawnClassSteps, beside the road mask, in
-// the sliced build) says what each cell may host — OPEN, SUPPRESSED (minor
-// things only) or INVALID (nothing) — and every spawner names what it seats:
-// 'minor' (flora, rocks, X marks, scenery) takes OPEN + SUPPRESSED;
-// 'attractor' (hoards, lair points, cave entrances, shrines, NPCs, a coin
-// burst's scatter) and 'enemy' (fauna, guards, traps, headstones) take OPEN.
+// One per-tile mask (WorldGen.stampSpawnWhySteps, beside the road mask, in
+// the sliced build) records WHY each cell is refused — reason bits
+// (WorldGen.SPAWN_WHY): HARD ones refuse every spawn, TYPED ones only the
+// classes whose row of WorldGen.SPAWN_CLASS_BLOCKS names them. Every spawner
+// names its class; a creature's comes from creature_ai.js creatureSpawnClass.
 //
 // What is pinned:
-//   · each rule of the classifier on a synthetic tile: the road band, water /
-//     buildings, restricted land, farm / orchard / industrial roadside only,
-//     behind-a-house, private ways are no frontage, golf vouches for nobody,
-//     the house / kerb / child / sensitive / churchyard buffers, quiet land,
-//     commercial stays open;
-//   · isSpawnCell's classes, and the POI lift of the frontage flag;
+//   · each reason on a synthetic tile: ROAD = the roadMask exactly, water /
+//     buildings, restricted and kindergarten land (hard), school / college
+//     grounds (typed, own cells only), fields (edge typed, interior hard),
+//     industrial roadside only, behind-a-house, private ways, golf, the
+//     house buffer on lot land only (a park beside houses stays open), the
+//     kerb (fast movers only), sensitive ground, churchyards, quiet land;
+//   · the class table, and the POI lift of PRIVATE;
 //   · seam determinism: a house over the seam buffers this side of it, the
 //     same distance from either tile, and a rebuild is byte-identical;
 //   · every spawner in src/ passes a class (a source sweep);
-//   · cave entrances only ever stand on OPEN ground (the fixture tiles);
+//   · cave entrances only ever stand on cave ground (the fixture tiles);
 //   · the live private-ground veto is per-player only and fails open.
 (function () {
 const W = WorldGen;
@@ -37,8 +37,8 @@ const OPEN = W.SPAWN_OPEN, SUP = W.SPAWN_SUPPRESSED, INV = W.SPAWN_INVALID;
 function build(layers, tx = 0, ty = 0) {
   return W.rasterizeTile(layers, CPE, tx, ty, TILE_EDGE_M);
 }
-const at = (r, cx, cy) => W.spawnClassOf(r.spawnClass[cy * CPE + cx]);
-const raw = (r, cx, cy) => r.spawnClass[cy * CPE + cx];
+const at = (r, cx, cy) => W.spawnClassOf(r.spawnWhy[cy * CPE + cx]);
+const raw = (r, cx, cy) => r.spawnWhy[cy * CPE + cx];
 // A grid of public footpaths every 6 cells: every lot cell has frontage, so a
 // test isolates ONE rule.
 function paths(extra) {
@@ -52,37 +52,60 @@ function paths(extra) {
 const residential = () => ({ type: 3, tags: { class: 'residential' }, geom: [whole()] });
 
 // ── The classifier, rule by rule ───────────────────────────────────────────
+const WHY = W.SPAWN_WHY;
+const has = (r, cx, cy, bit) => !!(raw(r, cx, cy) & bit);
+const grass = () => ({ name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] }] });
 
-test('spawn gate: the mask rides the build and the entry, one byte a cell', () => {
+test('spawn gate: the mask rides the build and the entry — reason bits, a Uint16 a cell', () => {
   const r = build([{ name: 'landuse', features: [residential()] }, paths()]);
-  assert.truthy(r.spawnClass instanceof Uint8Array, 'a Uint8Array');
-  assert.eq(r.spawnClass.length, CPE * CPE, 'one per cell');
-  assert.truthy(/entry\.spawnClass = spawnClass;/.test(WORLDGEN_SRC), 'loadTile carries it');
-  assert.truthy(/const spawnClass = yield\* stampSpawnClassSteps\(/.test(WORLDGEN_SRC), 'stamped in the sliced build (yields)');
-  assert.eq(W.spawnClassOf(W.SPAWN_NEEDS_FRONTAGE), INV, 'the frontage flag reads as INVALID');
-  assert.eq(W.spawnClassOf(W.SPAWN_NEEDS_FRONTAGE | SUP), INV, 'whatever its low bits');
+  assert.truthy(r.spawnWhy instanceof Uint16Array, 'a Uint16Array of reasons');
+  assert.eq(r.spawnWhy.length, CPE * CPE, 'one per cell');
+  assert.truthy(/entry\.spawnWhy = spawnWhy;/.test(WORLDGEN_SRC), 'loadTile carries it');
+  assert.truthy(/const spawnWhy = yield\* stampSpawnWhySteps\(/.test(WORLDGEN_SRC), 'stamped in the sliced build (yields)');
+  // The verdict is DERIVED (the overlays' convenience): any hard reason is
+  // INVALID, any typed one SUPPRESSED.
+  assert.eq(W.SPAWN_WHY_HARD & W.SPAWN_WHY_TYPED, 0, 'hard and typed reasons are disjoint bits');
+  for (const [k, bit] of Object.entries(WHY)) {
+    assert.eq(W.spawnClassOf(bit), (bit & W.SPAWN_WHY_HARD) ? INV : SUP, `${k} reads as ${(bit & W.SPAWN_WHY_HARD) ? 'INVALID' : 'SUPPRESSED'}`);
+  }
+  assert.eq(W.spawnClassOf(WHY.HOUSE | WHY.ROAD), INV, 'a hard reason wins');
+  assert.eq(W.spawnClassOf(0), OPEN, 'no reason: OPEN');
 });
 
-test('spawn gate: road band, water and buildings are INVALID; open grass is OPEN', () => {
+test('spawn gate: ROAD is the roadMask (≥ half the cell under the band) — a band\'s lick is not road', () => {
   const r = build([
-    { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] }] },
+    grass(),
     { name: 'water', features: [{ type: 3, tags: { class: 'lake' }, geom: [box(50, 50, 60, 60)] }] },
-    { name: 'transportation', features: [{ type: 2, tags: { class: 'minor' }, geom: [line([[0, 20], [CPE - 1, 20]])] }] },
+    { name: 'transportation', features: [
+      { type: 2, tags: { class: 'minor' }, geom: [line([[0, 20], [CPE - 1, 20]])] },
+      { type: 2, tags: { class: 'primary' }, geom: [line([[0, 40], [CPE - 1, 40]])] }] },
   ]);
   assert.eq(r.roadMask[20 * CPE + 10], 1, 'the street is road ground');
-  assert.eq(at(r, 10, 20), INV, 'the road band hosts nothing');
-  assert.eq(at(r, 55, 55), INV, 'water hosts nothing');
-  assert.eq(at(r, 10, 40), OPEN, 'plain grass is open to anything');
+  assert.truthy(has(r, 10, 20, WHY.ROAD), 'the road band hosts nothing (ROAD)');
+  assert.truthy(has(r, 55, 55, WHY.TERRAIN), 'water hosts nothing (TERRAIN)');
+  assert.eq(raw(r, 10, 30), 0, 'plain grass carries no reason');
+  // Every cell: ROAD iff the roadMask.
+  for (let i = 0; i < CPE * CPE; i++) {
+    if (!!(r.spawnWhy[i] & WHY.ROAD) !== !!r.roadMask[i]) { assert.truthy(false, `cell ${i}: ROAD disagrees with the roadMask`); break; }
+  }
+  // A cell the primary's band only licks (MAJOR_BAND, under half covered):
+  // KERB — typed, never ROAD.
+  let lick = -1;
+  for (let y = 34; y < 47 && lick < 0; y++) {
+    const i = y * CPE + 10;
+    if ((r.roadClass[i] & W.ROAD_CLASS_MAJOR_BAND) && !r.roadMask[i]) lick = y;
+  }
+  if (lick >= 0) {
+    assert.falsy(has(r, 10, lick, WHY.ROAD), 'a licked cell is not ROAD');
+    assert.truthy(has(r, 10, lick, WHY.KERB), 'it is KERB');
+  }
 });
 
-test('spawn gate: restricted land — school, kindergarten, hospital, rail, military, garages, construction — is INVALID', () => {
-  for (const cls of ['school', 'kindergarten', 'hospital', 'railway', 'military', 'garages', 'construction']) {
-    assert.truthy(W.RESTRICTED_LAND.has(cls), `${cls} is restricted`);
-    const r = build([
-      { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] }] },
-      { name: 'landuse', features: [{ type: 3, tags: { class: cls }, geom: [box(20, 20, 40, 40)] }] },
-    ]);
+test('spawn gate: restricted land — hospital, rail, military, garages, construction — and KINDERGARTEN grounds are hard', () => {
+  for (const cls of ['hospital', 'railway', 'military', 'garages', 'construction', 'kindergarten']) {
+    const r = build([grass(), { name: 'landuse', features: [{ type: 3, tags: { class: cls }, geom: [box(20, 20, 40, 40)] }] }]);
     assert.eq(at(r, 30, 30), INV, `${cls} grounds host nothing`);
+    assert.truthy(has(r, 30, 30, cls === 'kindergarten' ? WHY.KINDERGARTEN : WHY.RESTRICTED), `${cls}: by its reason`);
     assert.eq(at(r, 5, 5), OPEN, `${cls}: far outside is open`);
     const flora = r.wildplants.concat(r.objects.filter((o) => o.kind !== 'chest')).filter((o) => {
       const ix = Math.floor(o.x / 7), iy = Math.floor(o.y / 7);
@@ -92,19 +115,60 @@ test('spawn gate: restricted land — school, kindergarten, hospital, rail, mili
   }
 });
 
-test('spawn gate: farmland, orchard and industrial land are ROADSIDE only', () => {
-  for (const [layer, tags] of [['landcover', { class: 'farmland', subclass: 'farmland' }],
-    ['landcover', { class: 'farmland', subclass: 'orchard' }], ['landuse', { class: 'industrial' }]]) {
-    const r = build([
-      { name: layer, features: [{ type: 3, tags, geom: [whole()] }] },
-      { name: 'transportation', features: [{ type: 2, tags: { class: 'minor' }, geom: [line([[0, 10], [CPE - 1, 10]])] }] },
-    ]);
-    const t = r.grid[40 * CPE + 30];
-    assert.truthy(W.ROADSIDE_ONLY.has(t), `${tags.class} paints roadside-only ground (${t})`);
-    assert.truthy(at(r, 30, 12) !== INV, `${tags.class}: two cells off the road is frontage`);
-    assert.eq(at(r, 30, 40), INV, `${tags.class}: the interior is somebody's working ground`);
-    assert.truthy(raw(r, 30, 40) & W.SPAWN_NEEDS_FRONTAGE, 'by the frontage flag');
+test('spawn gate: SCHOOL / college grounds are TYPED (minor things only), on the grounds\' own cells — no buffer', () => {
+  for (const cls of ['school', 'college', 'university']) {
+    assert.truthy(W.SCHOOL_LAND.has(cls) && !W.RESTRICTED_LAND.has(cls), `${cls}: school land, not restricted`);
+    const r = build([grass(), { name: 'landuse', features: [{ type: 3, tags: { class: cls }, geom: [box(20, 20, 40, 40)] }] }]);
+    assert.eq(at(r, 30, 30), SUP, `${cls}: suppressed, not refused`);
+    assert.truthy(has(r, 30, 30, WHY.SCHOOL), 'by SCHOOL');
+    assert.eq(raw(r, 43, 30), 0, `${cls}: the park beside it is untouched (no radius spills)`);
+    const g = r.grid;
+    assert.truthy(W.isSpawnCell(g, CPE, CPE, 30, 30, { spawnWhy: r.spawnWhy }, 'minor'), 'flora may grow on the field');
+    for (const c of ['fauna', 'npc', 'attractor', 'enemy']) {
+      assert.falsy(W.isSpawnCell(g, CPE, CPE, 30, 30, { spawnWhy: r.spawnWhy }, c), `${c}: not on school grounds`);
+    }
+    assert.falsy(W.isSpawnCell(g, CPE, CPE, 30, 30, { spawnWhy: r.spawnWhy, schoolHours: true }, 'minor'),
+      'in school hours a timed spawn refuses the grounds whatever its class');
   }
+  // School hours: weekdays 07:00–17:00, local.
+  assert.truthy(W.isSchoolHours(new Date(2026, 8, 28, 9)), 'a Monday morning');
+  assert.falsy(W.isSchoolHours(new Date(2026, 8, 28, 18)), 'a Monday evening');
+  assert.falsy(W.isSchoolHours(new Date(2026, 8, 27, 11)), 'a Sunday');
+  // The generated world never reads a clock.
+  const gen = ['worldgen.js', 'zones.js', 'street_variants.js', 'lairs.js', 'npc.js', 'traps.js']
+    .map((f) => ALL_SRC[f].replace(/\/\/.*$/gm, '')).join('\n');
+  assert.falsy(/schoolHours:|isSchoolHours\(/.test(gen.replace(/function isSchoolHours[\s\S]*?\n  }\n/, '')
+    .replace(/opts\.schoolHours/g, '')), 'no generated spawner passes schoolHours');
+});
+
+test('spawn gate: FIELDS — an orchard / farm EDGE hosts minor things, its INTERIOR nothing; industrial is roadside only', () => {
+  for (const tags of [{ class: 'farmland', subclass: 'farmland' }, { class: 'farmland', subclass: 'orchard' }]) {
+    const r = build([{ name: 'landcover', features: [
+      { type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] },
+      { type: 3, tags, geom: [box(10, 10, 50, 50)] }] }]);
+    const t = r.grid[30 * CPE + 30];
+    assert.truthy(W.FARM_TYPES.has(t), `${tags.subclass} paints a field (${t})`);
+    assert.truthy(has(r, 30, 30, WHY.FARM_INTERIOR), `${tags.subclass}: the interior is FARM_INTERIOR`);
+    assert.eq(at(r, 30, 30), INV, 'nothing grows or stands mid-field');
+    // Find the field's west edge on row 30 and check the edge band.
+    let x0 = 0;
+    while (x0 < CPE && !W.FARM_TYPES.has(r.grid[30 * CPE + x0])) x0++;
+    for (let k = 0; k < W.FARM_EDGE_CELLS; k++) {
+      assert.truthy(has(r, x0 + k, 30, WHY.FARM) && !has(r, x0 + k, 30, WHY.FARM_INTERIOR), `${k} in from the edge: FARM`);
+      assert.truthy(W.isSpawnCell(r.grid, CPE, CPE, x0 + k, 30, { spawnWhy: r.spawnWhy }, 'minor'), 'a fruit tree may stand there');
+      for (const c of ['attractor', 'enemy', 'npc', 'cave']) {
+        assert.falsy(W.isSpawnCell(r.grid, CPE, CPE, x0 + k, 30, { spawnWhy: r.spawnWhy }, c), `no ${c} on a field`);
+      }
+    }
+    assert.truthy(has(r, x0 + W.FARM_EDGE_CELLS + 1, 30, WHY.FARM_INTERIOR), 'past the edge band: interior');
+  }
+  const ind = build([
+    { name: 'landuse', features: [{ type: 3, tags: { class: 'industrial' }, geom: [whole()] }] },
+    { name: 'transportation', features: [{ type: 2, tags: { class: 'minor' }, geom: [line([[0, 10], [CPE - 1, 10]])] }] },
+  ]);
+  assert.truthy(W.ROADSIDE_ONLY.has(ind.grid[40 * CPE + 30]), 'industrial is roadside-only ground');
+  assert.truthy(at(ind, 30, 12) !== INV, 'two cells off the road is frontage');
+  assert.truthy(has(ind, 30, 40, WHY.PRIVATE), 'the interior has no frontage (PRIVATE)');
 });
 
 test('spawn gate: COMMERCIAL ground stays spawnable, frontage or not', () => {
@@ -158,12 +222,13 @@ test('spawn gate: a golf course vouches for nobody', () => {
   assert.eq(at(r, 20, 33), INV, 'the yard backing onto it has no frontage');
 });
 
-test('spawn gate: within 40 m of a HOUSE is SUPPRESSED (minor things only)', () => {
+test('spawn gate: within 40 m of a HOUSE is the typed HOUSE reason — on lot land only', () => {
   // A 7 m × 14 m (98 m²) single-storey house on residential land.
   const house = { type: 3, tags: { render_height: 6 }, geom: [box(30, 30, 31, 32)] };
   const r = build([{ name: 'landuse', features: [residential()] }, paths(), { name: 'building', features: [house] }]);
   const R = W.SPAWN_HOUSE_BUFFER_M / 7;
   assert.eq(at(r, 35, 31), SUP, '4 cells (28 m) off is buffered');
+  assert.truthy(has(r, 35, 31, WHY.HOUSE), 'by HOUSE');
   assert.eq(at(r, 31 + Math.ceil(R) + 3, 31), OPEN, 'past 40 m is open');
   // Not a house: too big, too tall, or not on residential land.
   const tall = build([{ name: 'landuse', features: [residential()] }, paths(),
@@ -172,30 +237,45 @@ test('spawn gate: within 40 m of a HOUSE is SUPPRESSED (minor things only)', () 
   const shop = build([{ name: 'landuse', features: [{ type: 3, tags: { class: 'commercial' }, geom: [whole()] }] }, paths(),
     { name: 'building', features: [house] }]);
   assert.eq(at(shop, 35, 31), OPEN, 'a shop on commercial land is no house');
+  // PUBLIC LAND is never suppressed by the houses: a park polygon beside the
+  // house (whatever paint won its cells) stays open.
+  const park = build([{ name: 'landuse', features: [residential()] }, paths(),
+    { name: 'park', features: [{ type: 3, tags: { class: 'park' }, geom: [box(34, 26, 44, 36)] }] },
+    { name: 'building', features: [house] }]);
+  assert.falsy(has(park, 36, 31, WHY.HOUSE), 'a park by the houses carries no HOUSE');
+  assert.falsy(has(park, 36, 31, WHY.BEHIND_HOUSE), 'nor BEHIND_HOUSE');
+  assert.truthy(has(park, 31, 35, WHY.HOUSE), 'the yard next door still does');
+  // …but a DESIGNATION polygon (a heritage conservation area drawn over the
+  // whole neighbourhood) is no park: its yards keep the house rule.
+  const heritage = build([{ name: 'landuse', features: [residential()] }, paths(),
+    { name: 'park', features: [{ type: 3, tags: { class: 'protected_area' }, geom: [whole()] }] },
+    { name: 'building', features: [house] }]);
+  assert.truthy(has(heritage, 35, 31, WHY.HOUSE), 'a conservation area\'s yards still carry HOUSE');
+  // The classes: animals, villagers, headstones and cave mouths ignore it.
+  const g = r.grid, o = { spawnWhy: r.spawnWhy };
+  for (const c of ['minor', 'fauna', 'fastFauna', 'npc', 'headstone', 'cave']) {
+    assert.truthy(W.isSpawnCell(g, CPE, CPE, 35, 31, o, c), `${c}: by the houses is fine`);
+  }
+  for (const c of ['attractor', 'enemy', 'fastEnemy']) {
+    assert.falsy(W.isSpawnCell(g, CPE, CPE, 35, 31, o, c), `${c}: not by a front window`);
+  }
 });
 
-test('spawn gate: the major road\'s KERB BUFFER is SUPPRESSED', () => {
+test('spawn gate: the major road\'s KERB BUFFER is the typed KERB reason — fast movers only', () => {
   const r = build([
-    { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] }] },
+    grass(),
     { name: 'transportation', features: [{ type: 2, tags: { class: 'primary' }, geom: [line([[0, 30], [CPE - 1, 30]])] }] },
   ]);
   let i = 30;
   while (r.roadMask[i * CPE + 10]) i++;
   assert.truthy(r.roadClass[i * CPE + 10] & W.ROAD_CLASS_MAJOR_BUFFER, 'the verge is in the kerb buffer');
   assert.eq(at(r, 10, i), SUP, 'and suppressed');
+  assert.truthy(has(r, 10, i, WHY.KERB), 'by KERB');
   assert.eq(at(r, 10, i + 6), OPEN, 'well back is open');
-});
-
-test('spawn gate: schools, kindergartens and playgrounds carry a 50 m buffer', () => {
-  const R = Math.floor(W.SPAWN_CHILD_BUFFER_M / 7);
-  for (const f of [
-    { name: 'poi', features: [{ type: 1, tags: { class: 'school', subclass: 'kindergarten' }, geom: [[pt(32, 32)]] }] },
-    { name: 'poi', features: [{ type: 1, tags: { class: 'school', subclass: 'school' }, geom: [[pt(32, 32)]] }] },
-    { name: 'landuse', features: [{ type: 3, tags: { class: 'playground' }, geom: [box(31, 31, 33, 33)] }] },
-  ]) {
-    const r = build([{ name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] }] }, f]);
-    assert.eq(at(r, 32 + R - 1, 32), SUP, `${JSON.stringify(f.features[0].tags)}: inside 50 m`);
-    assert.eq(at(r, 32 + R + 3, 32), OPEN, 'outside it');
+  const o = { spawnWhy: r.spawnWhy };
+  for (const c of ['fastEnemy', 'fastFauna']) assert.falsy(W.isSpawnCell(r.grid, CPE, CPE, 10, i, o, c), `${c}: off the kerb`);
+  for (const c of ['minor', 'enemy', 'fauna', 'npc', 'headstone', 'attractor', 'cave']) {
+    assert.truthy(W.isSpawnCell(r.grid, CPE, CPE, 10, i, o, c), `${c}: the kerb is not its reason`);
   }
 });
 
@@ -225,35 +305,49 @@ test('spawn gate: cemetery land is INVALID, and a church ON it suppresses its wh
 
 // ── The classes ────────────────────────────────────────────────────────────
 
-test('isSpawnCell: minor takes OPEN + SUPPRESSED; attractor and enemy take OPEN; nothing takes INVALID', () => {
-  const g = new Uint8Array(9).fill(T.GRASS);
-  const mask = Uint8Array.from([OPEN, SUP, INV, W.SPAWN_NEEDS_FRONTAGE, W.SPAWN_NEEDS_FRONTAGE | SUP, OPEN, OPEN, OPEN, OPEN]);
-  const opts = { spawnClass: mask };
-  const ok = (i, cls, o = opts) => W.isSpawnCell(g, 3, 3, i % 3, (i / 3) | 0, o, cls);
-  assert.eq(W.SPAWN_CLASSES.join(), 'minor,attractor,enemy', 'three classes');
-  assert.truthy(ok(0, 'minor') && ok(0, 'attractor') && ok(0, 'enemy'), 'OPEN: anything');
-  assert.truthy(ok(1, 'minor'), 'SUPPRESSED: minor');
-  assert.falsy(ok(1, 'attractor') || ok(1, 'enemy'), 'SUPPRESSED: no attractor, no enemy');
-  assert.falsy(ok(2, 'minor') || ok(2, 'attractor') || ok(2, 'enemy'), 'INVALID: nothing');
-  assert.falsy(ok(3, 'minor'), 'no frontage: nothing…');
-  const withPoi = { spawnClass: mask, pois: [{ ix: 2, iy: 2 }] };
-  assert.truthy(ok(3, 'minor', withPoi) && ok(3, 'enemy', withPoi), '…unless a POI in reach vouches (then its low bits: OPEN)');
-  assert.truthy(ok(4, 'minor', withPoi), 'a vouched SUPPRESSED cell: minor');
-  assert.falsy(ok(4, 'enemy', withPoi), 'still no enemy');
-  assert.truthy(W.isFoeCell(g, 3, 3, 0, 0, opts) && !W.isFoeCell(g, 3, 3, 1, 0, opts), 'isFoeCell is the enemy class');
+test('isSpawnCell: each class refuses every hard reason and its own row\'s typed ones (SPAWN_CLASS_BLOCKS)', () => {
+  assert.eq(W.SPAWN_CLASSES.join(), 'minor,headstone,cave,fauna,fastFauna,npc,attractor,enemy,fastEnemy', 'the classes');
+  const B = W.SPAWN_CLASS_BLOCKS;
+  // The owner's table (Sep 2026).
+  assert.eq(B.minor, 0, 'minor: hard reasons only');
+  assert.eq(B.headstone, WHY.SENSITIVE, 'headstone: sensitive ground');
+  assert.eq(B.cave, WHY.SENSITIVE | WHY.FARM, 'cave: sensitive ground, fields');
+  assert.eq(B.fauna, WHY.SCHOOL | WHY.SENSITIVE, 'fauna: school, sensitive');
+  assert.eq(B.fastFauna, B.fauna | WHY.KERB, 'fast fauna: + the kerb');
+  assert.eq(B.npc, WHY.SCHOOL | WHY.SENSITIVE | WHY.FARM, 'npc: school, sensitive, fields');
+  assert.eq(B.attractor, WHY.HOUSE | WHY.SCHOOL | WHY.SENSITIVE | WHY.FARM, 'attractor: houses, school, sensitive, fields');
+  assert.eq(B.enemy, B.attractor, 'enemy: the attractor row');
+  assert.eq(B.fastEnemy, B.enemy | WHY.KERB, 'fast enemy: + the kerb');
+  const reasons = Object.values(WHY);
+  const g = new Uint8Array(reasons.length + 1).fill(T.GRASS);
+  const mask = Uint16Array.from([0, ...reasons]);
+  const ok = (i, cls, extra) => W.isSpawnCell(g, g.length, 1, i, 0, { spawnWhy: mask, ...extra }, cls);
+  for (const cls of W.SPAWN_CLASSES) {
+    assert.truthy(ok(0, cls), `${cls}: a cell with no reason`);
+    reasons.forEach((bit, k) => {
+      const want = !(bit & W.SPAWN_WHY_HARD) && !(bit & B[cls]);
+      assert.eq(ok(k + 1, cls), want, `${cls} on ${Object.keys(WHY)[k]}`);
+    });
+  }
+  assert.truthy(ok(0, undefined), 'no class reads as minor');
+  // PRIVATE (no frontage) is lifted by a POI in reach.
+  const iP = reasons.indexOf(WHY.PRIVATE) + 1;
+  assert.truthy(ok(iP, 'enemy', { pois: [{ ix: iP, iy: 0 }] }), 'a POI in reach vouches for a PRIVATE cell');
+  assert.truthy(W.isFoeCell(g, g.length, 1, 0, 0, { spawnWhy: mask }), 'isFoeCell: the fast foe row');
+  assert.falsy(W.isFoeCell(g, g.length, 1, reasons.indexOf(WHY.KERB) + 1, 0, { spawnWhy: mask }), 'kerb included');
   // Live terrain still refuses (a pond carved after the mask was stamped).
   const pond = g.slice(); pond[0] = T.WATER;
-  assert.falsy(W.isSpawnCell(pond, 3, 3, 0, 0, opts, 'minor'), 'water on the live grid');
-  assert.falsy(W.isSpawnCell(g, 3, 3, 0, 0, { spawnClass: mask, occupied: new Set([0]) }, 'minor'), 'and what stands there');
+  assert.falsy(W.isSpawnCell(pond, g.length, 1, 0, 0, { spawnWhy: mask }, 'minor'), 'water on the live grid');
+  assert.falsy(ok(0, 'minor', { occupied: new Set([0]) }), 'and what stands there');
 });
 
 test('relocateToSpawnCell: walks to the nearest cell THE CLASS may take', () => {
   const g = new Uint8Array(25).fill(T.GRASS);
-  const mask = new Uint8Array(25).fill(SUP);
-  mask[2 * 5 + 4] = OPEN;
-  const opts = { spawnClass: mask };
-  assert.eq(JSON.stringify(W.relocateToSpawnCell(g, 5, 5, 2, 2, opts, 3, 'minor')), JSON.stringify({ ix: 2, iy: 2 }), 'minor stays put');
-  assert.eq(JSON.stringify(W.relocateToSpawnCell(g, 5, 5, 2, 2, opts, 3, 'attractor')), JSON.stringify({ ix: 4, iy: 2 }), 'an attractor walks to OPEN');
+  const mask = new Uint16Array(25).fill(WHY.HOUSE);
+  mask[2 * 5 + 4] = 0;
+  const opts = { spawnWhy: mask };
+  assert.eq(JSON.stringify(W.relocateToSpawnCell(g, 5, 5, 2, 2, opts, 3, 'fauna')), JSON.stringify({ ix: 2, iy: 2 }), 'fauna stays put by the house');
+  assert.eq(JSON.stringify(W.relocateToSpawnCell(g, 5, 5, 2, 2, opts, 3, 'attractor')), JSON.stringify({ ix: 4, iy: 2 }), 'an attractor walks off it');
   assert.eq(W.relocateToSpawnCell(g, 5, 5, 2, 2, opts, 1, 'enemy'), null, 'or is dropped');
 });
 
@@ -269,17 +363,18 @@ test('spawn gate: a house over the seam buffers this side of it — the same fro
     geom: [[{ x: -200, y: -200 }, { x: EXTENT + 200, y: -200 }, { x: EXTENT + 200, y: EXTENT + 200 }, { x: -200, y: EXTENT + 200 }, { x: -200, y: -200 }]] }] };
   const east = build([lu, paths(), houseIn(0)], 1, 0);
   const west = build([lu, paths(), houseIn(EXTENT)], 0, 0);
-  assert.eq(at(east, 3, 30), SUP, 'the house\'s own tile buffers it');
+  // (Column 3 and column 63 are footpaths — public ground, never HOUSE.)
+  assert.eq(at(east, 4, 30), SUP, 'the house\'s own tile buffers it');
   let n = 0;
-  for (let k = 1; k <= 4; k++) {
+  for (let k = 2; k <= 4; k++) {
     assert.eq(at(west, CPE - k, 30), SUP, `the neighbour buffers it too, ${k} cell(s) from the seam`);
     n++;
   }
-  assert.eq(n, 4, 'across the seam');
+  assert.eq(n, 3, 'across the seam');
   const bare = build([lu, paths()], 0, 0);
   assert.eq(at(bare, CPE - 2, 30), OPEN, 'the control: without the house that ground is open');
   const again = build([lu, paths(), houseIn(EXTENT)], 0, 0);
-  assert.eq(Array.from(again.spawnClass).join(''), Array.from(west.spawnClass).join(''), 'a rebuild is byte-identical');
+  assert.eq(Array.from(again.spawnWhy).join(''), Array.from(west.spawnWhy).join(''), 'a rebuild is byte-identical');
 });
 
 test('spawn gate: the fixture tiles build the same mask twice (no load-order or frame input)', () => {
@@ -287,10 +382,10 @@ test('spawn gate: the fixture tiles build the same mask twice (no load-order or 
   const N = W.cellsPerEdgeForTile(ty);
   const a = W.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, W.tileEdgeMeters(W.latOfRowCentre(ty)));
   const b = W.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, W.tileEdgeMeters(47));
-  assert.eq(Array.from(a.spawnClass).join(''), Array.from(b.spawnClass).join(''),
+  assert.eq(Array.from(a.spawnWhy).join(''), Array.from(b.spawnWhy).join(''),
     'the mask is generated: the save\'s frame (tileEdgeM) never moves it');
   const cls = [0, 0, 0];
-  for (const v of a.spawnClass) cls[W.spawnClassOf(v)]++;
+  for (const v of a.spawnWhy) cls[W.spawnClassOf(v)]++;
   assert.truthy(cls[0] > 0 && cls[1] > 0 && cls[2] > 0, `all three classes occur on a real tile (${cls})`);
 });
 
@@ -315,7 +410,7 @@ test('spawn gate: every isSpawnCell / relocateToSpawnCell call in src/ passes a 
     if (cur.trim()) out.push(cur.trim());
     return out;
   };
-  const CLASS_ARG = /^(?:'(?:minor|attractor|enemy)'|cls|classOf\(what\)|o\.foe \? 'enemy' : 'attractor')$/;
+  const CLASS_ARG = new RegExp(`^(?:'(?:${W.SPAWN_CLASSES.join('|')})'|cls|classOf\\(what\\)|spClass|guardClass|creatureSpawnClass\\((?:kind|kindStr)\\))$`);
   let calls = 0;
   const bad = [];
   for (const [file, src] of Object.entries(ALL_SRC)) {
@@ -339,8 +434,8 @@ test('spawn gate: every isSpawnCell / relocateToSpawnCell call in src/ passes a 
 
 // ── Cave entrances (the owner's "ladders") ─────────────────────────────────
 
-test('cave entrances: an ATTRACTOR — never on SUPPRESSED or INVALID ground (the fixture tiles)', () => {
-  let stairs = 0;
+test('cave entrances: a CAVE spawn — never on hard ground, sensitive ground or a field (the fixture tiles)', () => {
+  let stairs = 0, byHouse = 0;
   for (const key of Object.keys(FIXTURE_TILES)) {
     const [tx, ty] = key.split('_').map(Number);
     const N = W.cellsPerEdgeForTile(ty), edge = W.tileEdgeMeters(W.latOfRowCentre(ty));
@@ -351,40 +446,54 @@ test('cave entrances: an ATTRACTOR — never on SUPPRESSED or INVALID ground (th
       if (o.kind !== 'staircase') continue;
       stairs++;
       const ix = Math.floor((o.x - tx * edge) / (edge / N)), iy = Math.floor((o.y - ty * edge) / (edge / N));
-      assert.eq(W.spawnClassOf(r.spawnClass[iy * N + ix]), OPEN, `${o.id} on OPEN ground`);
+      const v = r.spawnWhy[iy * N + ix];
+      assert.eq(v & (W.SPAWN_WHY_HARD | W.SPAWN_CLASS_BLOCKS.cave), 0, `${o.id} on cave ground`);
+      if (v & WHY.HOUSE) byHouse++;
     }
   }
   assert.gt(stairs, 0, `the fixtures hold mine mouths (${stairs})`);
-  assert.truthy(/isSpawnCell\(grid, N, N, lix, liy, stairOpts, 'attractor'\)/.test(WORLDGEN_SRC), 'the stair asks as an attractor');
+  assert.truthy(/isSpawnCell\(grid, N, N, lix, liy, stairOpts, 'cave'\)/.test(WORLDGEN_SRC), 'the stair asks as a cave spawn');
   assert.gte(W.CAVE_MOUTH_RELOCATE_CELLS, 2, 'a displaced mouth walks outward from its rock');
 });
 
-test('cave entrances: a displaced mouth walks off its rock to OPEN ground, deterministically', () => {
-  // A rock cluster in a yard: the cells round the rock are SUPPRESSED, OPEN
-  // ground three cells east.
+test('cave entrances: a displaced mouth walks off its rock to cave ground, deterministically', () => {
+  // A rock cluster on sensitive ground: the cells round the rock are
+  // SENSITIVE, clear ground three cells east.
   const N = 16, edge = N * 7;
   const grid = new Uint8Array(N * N).fill(T.GRASS);
-  const spawnClass = new Uint8Array(N * N).fill(SUP);
-  for (let y = 0; y < N; y++) for (let x = 11; x < N; x++) spawnClass[y * N + x] = OPEN;
+  const spawnWhy = new Uint16Array(N * N).fill(WHY.SENSITIVE);
+  for (let y = 0; y < N; y++) for (let x = 11; x < N; x++) spawnWhy[y * N + x] = 0;
   const rock = W.makeObject('mineralrock', 8.5 * 7, 8.5 * 7, 'mr_x', { caveVariant: 0, _clusterId: 'c1' });
-  const mk = () => ({ grid, cellsPerEdge: N, objects: [rock], wildplants: [], roadMask: new Uint8Array(N * N), spawnClass });
+  const mk = () => ({ grid, cellsPerEdge: N, objects: [rock], wildplants: [], roadMask: new Uint8Array(N * N), spawnWhy });
   const a = mk(), b = mk();
   W.maybePlaceCaveEntrance(a, 0, 0, edge, [rock], []);
   W.maybePlaceCaveEntrance(b, 0, 0, edge, [rock], []);
   const sa = a.objects.filter((o) => o.kind === 'staircase');
   assert.eq(sa.length, 1, 'the tile keeps its way down');
   const ix = Math.floor(sa[0].x / 7);
-  assert.gte(ix, 11, 'on the OPEN ground');
+  assert.gte(ix, 11, 'on the clear ground');
   assert.lte(ix - 8, W.CAVE_MOUTH_RELOCATE_CELLS, 'within the walk');
   assert.eq(sa[0].id, b.objects.find((o) => o.kind === 'staircase').id, 'the same cell every build');
+  // …and the house buffer is NOT a cave's reason: a mouth by the houses stays.
+  const house = mk();
+  house.spawnWhy = new Uint16Array(N * N).fill(WHY.HOUSE);
+  W.maybePlaceCaveEntrance(house, 0, 0, edge, [rock], []);
+  const sh = house.objects.filter((o) => o.kind === 'staircase');
+  assert.eq(sh.length, 1, 'a mouth by the houses');
+  assert.lte(Math.abs(Math.floor(sh[0].x / 7) - 8), 1, 'right beside its rock');
 });
 
 // ── Headstones and the churchyard ──────────────────────────────────────────
 
-test('headstones: an ENEMY spawn — only on OPEN ground (the zone dressing names it)', () => {
-  assert.truthy(/what\.what === 'headstone'\) \? 'enemy'/.test(ALL_SRC['zones.js']), 'a pattern headstone is an enemy');
-  assert.truthy(/HEADSTONE_P \* s && ok\(ix, iy, 'enemy'\)/.test(ALL_SRC['zones.js']), 'a grave-lattice headstone too');
+test('headstones: a HEADSTONE spawn — by the houses is fine, sensitive ground never (the zone dressing names it)', () => {
+  assert.truthy(/what\.what === 'headstone'\) \? 'headstone'/.test(ALL_SRC['zones.js']), 'a pattern headstone');
+  assert.truthy(/HEADSTONE_P \* s && ok\(ix, iy, 'headstone'\)/.test(ALL_SRC['zones.js']), 'a grave-lattice headstone too');
   assert.truthy(/ok\(ix, iy, 'attractor'\)/.test(ALL_SRC['zones.js']), 'the grove shrine is an attractor');
+  const g = new Uint8Array(4).fill(T.CHURCHYARD);
+  const mask = Uint16Array.from([0, WHY.HOUSE, WHY.KERB, WHY.SENSITIVE]);
+  const ok = (i) => W.isSpawnCell(g, 4, 1, i, 0, { spawnWhy: mask }, 'headstone');
+  assert.truthy(ok(1) && ok(2), 'by a house or a busy road');
+  assert.falsy(ok(3), 'never on sensitive ground (round a real graveyard, a memorial)');
 });
 
 // ── The live private-ground veto (per-player only) ─────────────────────────

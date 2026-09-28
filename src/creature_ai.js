@@ -140,7 +140,8 @@ function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // sim reads it three ways, each a REASON on a lane that already exists:
 //   · NOTHING HOSTILE STEPS ONTO THE BAND — a refused target cell in the step
 //     chain's cell tests, beside water, rocks and fires. Wild fauna neither.
-//   · A FAST FOE (isFastFoe — anything that out-runs a walk, WALK_M_S) never
+//   · A FAST FOE (isFastFoe — anything that out-runs a BRISK walk,
+//     BRISK_WALK_MPS) never
 //     steps INTO the buffer from outside it (the same refused-cell test), and
 //     never spawns in it (WorldGen.isFoeCell). A slow foe may stand anywhere
 //     off the band: you out-walk it.
@@ -215,8 +216,39 @@ function rosterChaseMps(row) {
   }
   return best;
 }
-// A FAST FOE: one a walking player cannot simply out-walk.
-function isFastFoe(c, cellM) { return foeChaseMps(c, cellM) > WALK_M_S; }
+// THE FAST-MOVER LINE (owner, Sep 2026): a BRISK walk. Only a mover whose top
+// speed is over it is kept off the kerb (the spawn gate's KERB reason, and
+// the step rule into the kerb buffer). The wild slime's 1.6 m/s charge is
+// under it: you out-walk a slime by stepping out, so it is NOT fast.
+const BRISK_WALK_MPS = 1.8;
+// A FAST FOE: one a briskly walking player cannot simply out-walk.
+function isFastFoe(c, cellM) { return foeChaseMps(c, cellM) > BRISK_WALK_MPS; }
+// An ANIMAL's top speed, m/s: the quicker of its gait hop and its bolt (the
+// CREATURE_BEHAVIOUR row — the numbers the wander loop moves it by; the base
+// beat WANDER_STEP_MS and one cell where the row is silent).
+function faunaTopMps(kind, cellM) {
+  const beh = SpriteLayout.creatureBehaviour(kind);
+  if (!beh) return 0;
+  const cm = cellM > 0 ? cellM : WorldGen.CELL_M;
+  const pace = (g) => (g.stepCells ?? 1) * cm / ((g.stepMs ?? WANDER_STEP_MS) / 1000);
+  return Math.max(pace(beh), beh.flee ? pace(beh.flee) : 0);
+}
+// Anything wild — foe or animal — that out-runs a brisk walk.
+function isFastMover(c, cellM) {
+  if (!c) return false;
+  const mps = Combat.isEnemy(c) ? foeChaseMps(c, cellM) : faunaTopMps(c.kind, cellM);
+  return mps > BRISK_WALK_MPS;
+}
+// A creature's SPAWN CLASS (WorldGen.SPAWN_CLASS_BLOCKS): enemy or fauna, and
+// fast or not — derived from the kind's own data, never typed at a call
+// site. Read at the GENERATION cell size (WorldGen.CELL_M) so every player's
+// tile seats the same creatures.
+function creatureSpawnClass(kind) {
+  const c = { kind };
+  const fast = isFastMover(c, WorldGen.CELL_M);
+  if (Combat.isEnemy(c)) return fast ? 'fastEnemy' : 'enemy';
+  return fast ? 'fastFauna' : 'fauna';
+}
 
 // ── SAME SIDE: nothing time-sensitive across a major road ────────────────────
 // A timed or place-bound reward seated near the player (a pot of gold's coin
@@ -527,9 +559,10 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
 //   SAME SIDE, always: a destination is only one the player can reach without
 // crossing a major road's band (sameSideAs — the flood from their cell), so
 // nothing it seats ever sits across a busy road from them.
-//   `opts.foe`: the thing seated is alive and hostile (a bounty's pack) — an
-// 'enemy' spawn; anything else found here is an 'attractor' (a destination a
-// timed reward waits at). Both take OPEN ground only (the spawn gate).
+//   `opts.cls`: the spawn class of what is seated (WorldGen.SPAWN_CLASS_BLOCKS
+// — a bounty's pack passes its foes' class); default 'attractor' (a
+// destination a timed reward waits at). A timed, per-player spawn, so it
+// also keeps off school grounds in school hours (WorldGen.isSchoolHours).
 //   PRIVATE GROUND: a destination is per-player already, so it also reads this
 // player's live fence / private-area veto (WorldGen.privateVetoAt — none when
 // the fetch failed or has not landed).
@@ -549,6 +582,8 @@ function walkableDestination(scene, px, py, dist, opts) {
   const edge = scene.tileEdgeM, cellM = scene.cellM;
   if (!(edge > 0) || !(cellM > 0)) return null;
   const a0 = (fnv1a(String(o.seed ?? '')) / 4294967296) * Math.PI * 2;
+  const cls = o.cls || 'attractor';
+  const schoolHours = WorldGen.isSchoolHours(new Date());
   for (const r of walkableDestinationRings(dist)) {
     const steps = Math.max(8, Math.ceil(2 * Math.PI * r));
     for (let k = 0; k < steps; k++) {
@@ -561,7 +596,8 @@ function walkableDestination(scene, px, py, dist, opts) {
       if (!(N > 0)) continue;
       const cm = edge / N;
       const ix = Math.floor((wx - tx * edge) / cm), iy = Math.floor((wy - ty * edge) / cm);
-      if (!WorldGen.isSpawnCell(entry.grid, N, N, ix, iy, entry._spawnOpts, o.foe ? 'enemy' : 'attractor')) continue;
+      const sOpts = schoolHours ? Object.assign({}, entry._spawnOpts, { schoolHours }) : entry._spawnOpts;
+      if (!WorldGen.isSpawnCell(entry.grid, N, N, ix, iy, sOpts, cls)) continue;
       if (WorldGen.privateVetoAt(tx, ty, ix, iy)) continue;
       const x = tx * edge + (ix + 0.5) * cm, y = ty * edge + (iy + 0.5) * cm;
       if (!sameSideAs(scene, x, y, px, py)) continue;

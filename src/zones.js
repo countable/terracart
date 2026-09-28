@@ -822,12 +822,13 @@
     // the explicit `rockVariant` — SpriteLayout.plainRockVariant reads it first).
     const rockLook = (root.SpriteLayout && root.SpriteLayout.CHURCHYARD_ROCK_VARIANT != null)
       ? root.SpriteLayout.CHURCHYARD_ROCK_VARIANT : 3;
-    // THE SPAWN GATE: each piece names its class — a headstone is an 'enemy'
-    // spawn (a tap raises a ghost), the grove shrine an 'attractor' (a daily
-    // gift and a light), everything else scenery ('minor'). `what` is a class
-    // name or a pattern piece.
+    // THE SPAWN GATE: each piece names its class — a headstone is a
+    // 'headstone' spawn (a tap raises a ghost: never on sensitive ground, but
+    // by the houses round a church is fine), the grove shrine an 'attractor'
+    // (a daily gift and a light), everything else scenery ('minor'). `what`
+    // is a class name or a pattern piece.
     const classOf = (what) => (typeof what === 'string' ? what
-      : (what && what.what === 'headstone') ? 'enemy' : 'minor');
+      : (what && what.what === 'headstone') ? 'headstone' : 'minor');
     const ok = (ix, iy, what) => ix >= 0 && iy >= 0 && ix < N && iy < N
       && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, classOf(what));
     for (const a of (fld.reach || fld.anchors)) {
@@ -1011,7 +1012,7 @@
         const x = ox + (ix + 0.5) * frameCellM, y = oy + (iy + 0.5) * frameCellM;
         if (a && a.kind === 'stones' && grid[i] === T.CHURCHYARD) {
           if (((gy % GRAVE_ROW) + GRAVE_ROW) % GRAVE_ROW === 0 && ((gx % GRAVE_COL) + GRAVE_COL) % GRAVE_COL === 0
-              && cellU01(gx, gy, SALT_GRAVE) < HEADSTONE_P * s && ok(ix, iy, 'enemy')) {
+              && cellU01(gx, gy, SALT_GRAVE) < HEADSTONE_P * s && ok(ix, iy, 'headstone')) {
             occ.add(i); graves++;
             res.objects.push(WG.makeObject('headstone', x, y, WG.cellId('hs', tx, ty, ix, iy), { zone: 'stones' }));
             continue;

@@ -656,7 +656,7 @@
     // (THE STARTING AREA is the player's own — the placed bucket — so its
     // things are MINOR spawns: out of the land the spawn gate refuses, but
     // free of the buffers round the player's own street.)
-    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnClass: entry.spawnClass };
+    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy };
     const cellKey = (cx, cy) => cx + ',' + cy;
     // ── The walk there ──────────────────────────────────────────────────
     // Flood out from the anchor over ground a ROUTE may be drawn across. This
@@ -1721,7 +1721,7 @@
     for (const w of (entry.wildplants || [])) occupied.add(cellKeyAt(w.x, w.y));
     // The doorstep greeter is the starting area's (a MINOR spawn — see the
     // starter trail's note): the land the spawn gate refuses, not its buffers.
-    const opts = { roadMask: entry.roadMask, spawnClass: entry.spawnClass };
+    const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
     const onRoad = (cx, cy) => !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
     const standable = (cx, cy) =>
       cx >= 0 && cx < N && cy >= 0 && cy < N &&

@@ -194,11 +194,11 @@
 
   test('quiet land: the entry carries it, and every seat outside the build can read it', () => {
     assert.truthy(/entry\.quietMask = quietMask;/.test(WORLDGEN_SRC), 'loadTile carries it on the entry (a rebuild re-derives it)');
-    // Folded into the spawn gate (entry.spawnClass): every reader below reads
+    // Folded into the spawn gate (entry.spawnWhy): every reader below reads
     // the mask, and the quiet mask is one of its INVALID reasons.
-    assert.truthy(/entry\.spawnClass = spawnClass;/.test(WORLDGEN_SRC), 'loadTile carries the spawn gate too');
-    assert.truthy(/const stairOpts = \{ roadMask, quiet: entry\.quietMask, spawnClass: entry\.spawnClass/.test(WORLDGEN_SRC), 'the cave stair refuses it');
-    assert.truthy(/const _sxSpawnOpts = \{ pois: _sxPois, roadMask, quiet, spawnClass \};/.test(WORLDGEN_SRC), 'the bin injection reads it');
+    assert.truthy(/entry\.spawnWhy = spawnWhy;/.test(WORLDGEN_SRC), 'loadTile carries the spawn gate too');
+    assert.truthy(/const stairOpts = \{ roadMask, quiet: entry\.quietMask, spawnWhy: entry\.spawnWhy/.test(WORLDGEN_SRC), 'the cave stair refuses it');
+    assert.truthy(/const _sxSpawnOpts = \{ pois: _sxPois, roadMask, quiet, spawnWhy \};/.test(WORLDGEN_SRC), 'the bin injection reads it');
     assert.truthy(/\(quietMask && quietMask\[i\]\)/.test(WORLDGEN_SRC), 'the gate folds the quiet land in as INVALID');
     assert.truthy(/yield\* stampQuietLandSteps\(layers, quietMask, w, h, mvtToCell\);/.test(WORLDGEN_SRC),
       'stamped inside the sliced build, yielding (tile_build_blocks)');

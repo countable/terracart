@@ -49,7 +49,7 @@ test('cauldron: coins never lie in the road or a yard, wait ten minutes, and sta
   assert.falsy(/60_000/.test(body), 'no one-minute coin');
   assert.truthy(/if \(!WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, burstOpts, 'attractor'\)\) continue;/.test(body),
     'the pot scatter is the shared spawn rule as an ATTRACTOR: off the road band, under nothing, no private yard, no buffer');
-  assert.truthy(/spawnClass: entry\.spawnClass/.test(body), 'reading the tile\'s spawn gate');
+  assert.truthy(/spawnWhy: entry\.spawnWhy/.test(body), 'reading the tile\'s spawn gate');
   assert.truthy(/if \(WorldGen\.privateVetoAt\(tx, ty, cx, cy\)\) continue;/.test(body), 'and the live private-ground veto');
   assert.falsy(/strict|relax/i.test(body.replace(/\/\/.*$/gm, '')), 'no relaxed pass');
   assert.truthy(/sameSideAs\(this, /.test(body), 'and on the player\'s side of any major road');

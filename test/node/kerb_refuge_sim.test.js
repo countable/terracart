@@ -4,8 +4,9 @@
 // away from an enemy." The rules (creature_ai.js THE KERB, worldgen
 // ROAD_CLASS_MAJOR_BUFFER):
 //   · nothing hostile steps onto a major road's band;
-//   · a FAST foe (isFastFoe) never steps into the kerb buffer, never spawns
-//     in it (WorldGen.isFoeCell), and a ghost never glides into it;
+//   · a FAST mover (isFastFoe / isFastMover — over BRISK_WALK_MPS) never
+//     steps into the kerb buffer, never spawns in it (the spawn gate's KERB
+//     reason, 'fastEnemy' / 'fastFauna'), and a ghost never glides into it;
 //   · a player whose feet are in the buffer is where every chase ends
 //     (`kerbTurn`): every hostile stands down and turns away.
 // Because the band lies inside the buffer, the carriageway buys exactly what
@@ -200,16 +201,31 @@ test('kerb: the fast kinds are the ones that out-run a walk, off the roster\'s o
     const mv = row.movement;
     const declared = Math.max(...Object.keys(mv).filter((k) => /peedMetersPerSecond$/.test(k)).map((k) => mv[k]));
     assert.eq(pace(row.id), declared, `${row.id}: paced off its row`);
-    assert.eq(isFastFoe({ kind: row.id }, CELL), declared > WALK_M_S, `${row.id}: fast iff it out-runs a walk`);
+    assert.eq(isFastFoe({ kind: row.id }, CELL), declared > BRISK_WALK_MPS, `${row.id}: fast iff it out-runs a brisk walk`);
   }
+  assert.truthy(BRISK_WALK_MPS > WALK_M_S, 'the line is a BRISK walk, over the stick\'s pace');
   assert.eq(pace('slime'), EnemyRoster.get('slime').movement.chargeSpeedMetersPerSecond, 'the wild slime at its charge');
-  assert.gt(pace('slime'), WALK_M_S, 'which out-runs a walk: the slime is a FAST foe now');
-  assert.lt(pace('zombie'), WALK_M_S, 'a zombie you out-walk');
-  assert.lt(pace('fire_slime'), WALK_M_S, 'the fire slime too (its own combat row)');
-  assert.gt(pace('goblin'), WALK_M_S, 'a goblin runs');
-  assert.gt(pace('bat'), WALK_M_S, 'a bat swoops');
+  assert.lt(pace('slime'), BRISK_WALK_MPS, 'under a brisk walk: the wild slime is NOT fast (owner, Sep 2026)');
+  assert.falsy(isFastFoe({ kind: 'slime' }, CELL), 'so it is no fast foe');
+  assert.lt(pace('zombie'), BRISK_WALK_MPS, 'a zombie you out-walk');
+  assert.lt(pace('fire_slime'), BRISK_WALK_MPS, 'the fire slime too (its own combat row)');
+  assert.gt(pace('goblin'), BRISK_WALK_MPS, 'a goblin runs');
+  assert.gt(pace('bat'), BRISK_WALK_MPS, 'a bat swoops');
   assert.eq(pace('ghost'), Combat.GHOST_SPEED_MPS, 'a ghost glides at its row\'s mps');
-  assert.gt(pace('deer'), WALK_M_S, 'a hunted deer charges');
+  assert.gt(pace('deer'), BRISK_WALK_MPS, 'a hunted deer charges');
+  // FAUNA: fast off their own gait / bolt rows (faunaTopMps) — the spawn
+  // class follows (creatureSpawnClass), never a list of kinds.
+  assert.gt(faunaTopMps('deer', CELL), BRISK_WALK_MPS, 'a deer bolts');
+  assert.lt(faunaTopMps('cow', CELL), BRISK_WALK_MPS, 'a cow ambles');
+  assert.eq(creatureSpawnClass('deer'), 'fastFauna', 'a deer is fast fauna');
+  assert.eq(creatureSpawnClass('cat'), 'fauna', 'a cat is fauna');
+  assert.eq(creatureSpawnClass('slime'), 'enemy', 'the wild slime a slow foe');
+  assert.eq(creatureSpawnClass('goblin'), 'fastEnemy', 'a goblin a fast one');
+  assert.truthy(WorldGen.SPAWN_CLASS_BLOCKS.fastEnemy & WorldGen.SPAWN_WHY.KERB, 'fast foes refuse the kerb');
+  assert.truthy(WorldGen.SPAWN_CLASS_BLOCKS.fastFauna & WorldGen.SPAWN_WHY.KERB, 'fast fauna too');
+  for (const cls of ['enemy', 'fauna', 'npc', 'headstone', 'attractor', 'cave', 'minor']) {
+    assert.falsy(WorldGen.SPAWN_CLASS_BLOCKS[cls] & WorldGen.SPAWN_WHY.KERB, `${cls}: not kept off the kerb`);
+  }
   assert.eq(pace('giant_goblin'), pace('goblin'), 'a legacy giant keeps its kind\'s gait');
 });
 
@@ -221,15 +237,17 @@ test('kerb: the rules live on the lanes that exist (source pins)', () => {
   assert.truthy(/if \(road & WorldGen\.ROAD_CLASS_MAJOR_BAND\) continue;/.test(w), 'the band is a refused cell');
   const spawn = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  spawnInTile(entry, tx, ty) {'));
   assert.truthy(/roadClass: entry\.roadClass,/.test(spawn), 'the shared spawn options carry the bits');
-  // The buffer is a SUPPRESSED cell of the spawn gate (entry.spawnClass):
-  // an animal is an 'enemy' spawn, a lair point an 'attractor' — both OPEN only.
-  assert.truthy(/spawnClass: entry\.spawnClass,/.test(spawn), 'the shared spawn options carry the gate');
-  assert.truthy(/if \(!WorldGen\.isSpawnCell\(genGrid, N, N, cx, cy, _spawnOpts, 'enemy'\)\) return;/.test(spawn), 'fauna and foes are dropped from the buffer');
+  // The buffer is the spawn gate's KERB reason (entry.spawnWhy): each animal
+  // or foe is seated at its own class (creatureSpawnClass — a fast one
+  // refuses the kerb), a lair point an 'attractor'.
+  assert.truthy(/spawnWhy: entry\.spawnWhy,/.test(spawn), 'the shared spawn options carry the gate');
+  assert.truthy(/if \(!WorldGen\.isSpawnCell\(genGrid, N, N, cx, cy, _spawnOpts, creatureSpawnClass\(kindStr\)\)\) return;/.test(spawn), 'fast fauna and foes are dropped from the buffer');
+  assert.truthy(/&& isFastMover\(c, this\.cellM\)/.test(w), 'only a FAST mover is kept out of the buffer');
   assert.truthy(/relocateToSpawnCell\(genGrid, N, N, ix, iy, lairOpts, LAIR_POINT_SLACK_CELLS, 'attractor'\)/.test(spawn), 'and every lair candidate');
   assert.falsy(/BANDIT_STORY\.attracts/.test(SCENE_CREATURES_SRC), 'no animal is pulled onto a major verge');
 });
 
-test('kerb: WorldGen.isFoeCell is the spawn rule minus the buffer', () => {
+test('kerb: WorldGen.isFoeCell (any foe — the fast row) is the spawn rule minus the buffer', () => {
   const e = street();
   const opts = { roadMask: null, occupied: new Set(), roadClass: e.roadClass };
   const g = e.grid;   // GRASS
@@ -237,6 +255,8 @@ test('kerb: WorldGen.isFoeCell is the spawn rule minus the buffer', () => {
   assert.falsy(WorldGen.isFoeCell(g, N, N, 5, VERGE_ROW, opts), 'but no foe or animal seat');
   assert.truthy(WorldGen.isFoeCell(g, N, N, 5, OPEN_ROW, opts), 'open ground takes one');
   assert.truthy(WorldGen.isFoeCell(g, N, N, 5, VERGE_ROW, { ...opts, roadClass: null }), 'no bits, no buffer');
+  assert.truthy(WorldGen.isSpawnCell(g, N, N, 5, VERGE_ROW, opts, 'enemy'), 'a SLOW foe may take the verge');
+  assert.falsy(WorldGen.isSpawnCell(g, N, N, 5, VERGE_ROW, opts, 'fastFauna'), 'a fast animal may not');
 });
 
 test('kerb: a ghost never rises in the buffer', () => {
@@ -288,7 +308,7 @@ test('same side: walkableDestination (the bounty\'s seat) never lands across the
     for (const seed of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
       const feet = at(20, VERGE_ROW + 4);
       const s = sideScene(e, feet);
-      const d = walkableDestination(s, feet.x, feet.y, 5, { seed, foe: true });
+      const d = walkableDestination(s, feet.x, feet.y, 5, { seed, cls: 'fastEnemy' });
       assert.truthy(d, `${seed}: a seat`);
       assert.gt(d.iy, BAND_ROWS[1], `${seed}: on the player's side (row ${d.iy})`);
       assert.falsy(e.roadClass[d.iy * N + d.ix] & K, `${seed}: a foe seat is off the kerb buffer`);
@@ -302,7 +322,7 @@ test('same side: the timed rewards read it, and none waits under ten minutes', (
   assert.truthy(/sameSideAs\(this, /.test(burst), 'the coin burst');
   assert.truthy(/const COIN_BURST_LIFE_MS = 10 \* 60 \* 1000;/.test(app), 'coins wait ten minutes');
   const spawn = app.slice(app.indexOf('  _spawnGuildBounty(b, now = Date.now()) {'));
-  assert.truthy(/foe: true,/.test(spawn.slice(0, 800)), 'the bounty seats as a foe (walkableDestination is same-side)');
+  assert.truthy(/cls: packClass,/.test(spawn.slice(0, 1000)), 'the bounty seats as its foes (walkableDestination is same-side)');
   const tickB = app.slice(app.indexOf('  _tickGuildBounty() {'));
   const body = tickB.slice(0, tickB.indexOf('\n  }\n'));
   assert.falsy(/CREATURE_SIM_CELLS/.test(body), 'the bounty has no walk-away leash');
