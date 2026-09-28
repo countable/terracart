@@ -10,7 +10,7 @@ The game and map review load this declarative table through `src/zone_variant_da
 - `material.cycle` advances by repeat-block x + y modulo cycle length. Every slot in a bed uses the same phase, keeping beds monochrome. Density values are derived from complete material cycles.
 - Recognizable geometry takes priority over the earlier approximate 15% guide. Never thin a continuous line to meet a density target. Density is measured from the declared geometry, or is the expected seeded-scatter coverage, before obstacles. Report actual eligible-ground coverage separately. Variant coverage replaces procedural biome scatter and street dressing, including their empty lanes. Mapped POIs, buildings and authored features remain occupied. Generic runtime rooted plants, traps and treasure scatter stay outside coverage; authored finds and traps retain their budgets.
 - POI material arrangements and connection markers replace occupied background slots where they coincide. For fixed geometry, density is an outcome: do not delete unrelated line cells to compensate for POI decoration. Special finds and guards have separate finite counts. Tar is a hazard and does not count as coverage.
-- POI coordinates are offsets from the accessible settled chest. Outdoor arrangements touch the POI: Meadow and Flint Field expand into radius-three disks of grass and flint with one-cell bush and rubble rims, while other variants use the eight immediately adjacent cells. They stay fixed to the POI; blocked slots are omitted rather than pushed outward. When the original POI lies inside a building, use its stored `whenInsideBuilding` arrangement beside the settled frontage, preserving the previous relocation rules. Both grid variants fix their phase to the settled POI.
+- POI coordinates are offsets from the accessible settled chest. Outdoor arrangements touch the POI: Meadow has a radius-three grass disk and Flint Field a radius-two flint disk, each with a one-cell bush or rubble rim, while other variants use the eight immediately adjacent cells. They stay fixed to the POI; blocked slots are omitted rather than pushed outward. When the original POI lies inside a building, use its stored `whenInsideBuilding` arrangement beside the settled frontage, preserving the previous relocation rules. Both grid variants fix their phase to the settled POI.
 - Find coordinates are fractions of zone radius, or explicit plot coordinates when specified, in the same oriented frame. Resolve and own their finite plan once per anchor across tile boundaries. Try deterministic fallback seats within the zone; report an unmet count instead of spawning on forbidden ground.
 - Keep compact beds whole when blocked. Continuous grid lines are clipped only by the coverage boundary, reserved POI space, and ineligible or occupied cells; never discard an entire long line because one cell is blocked. Do not introduce decorative gaps or replace missing segments with random scatter. Existing roads, buildings, restricted land and spawn buffers remain authoritative.
 - Common material uses the minor spawn gate. Finds use attractor eligibility. Guards and headstones use enemy eligibility. A blocked headstone falls back to ordinary stone; a blocked guard is omitted without removing its find.
@@ -57,7 +57,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | stones | Overgrown Graves | 8% grass, 4% shrub, 4% stone, 2% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction | crow 40%, butterfly 35% |
 | stones | Broken Masonry | 12% rubble, 8% stone | stone square | 1 rare: platinum_ore | 1 slime at find | none |
 | stones | Silent Circle | 15% stone, 1% grass | inner stone ring | 1 rare: star | none | crow 50% |
-| tar | Flint Field | 15% rubble outside the circle | R=3 flint disk with rubble rim | 3 medium: gemfruit | none | none |
+| tar | Flint Field | 15% rubble outside the circle | R=2 flint disk with rubble rim | 3 medium: gemfruit | none | none |
 | tar | Broken Depot | 12% rubble; hazards: 6% trap | rubble and trap flanks | 2 medium: gemfruit | none | none |
 | tar | Seep | 6.25% rubble; hazards: 15.63% tar | tar crescent | 1 rare: star | none | none |
 | tar | Work Yard | 28.57% copper_rock, 20.41% rubble | material grid | 1 rare: crimson_ore | none | none |
@@ -174,7 +174,7 @@ The POI is the center of a radius-three-cell disk (21 m). Its 28 surrounding cel
 
 ## Flint Field circle
 
-Uses the Meadow arrangement with materials swapped: 28 flint cells within radius three around the POI, 20 rubble cells forming the rim up to radius four, then 15% seeded rubble outside. The three gemfruit finds remain.
+Uses a smaller version of the Meadow arrangement: 12 flint cells within radius two around the POI, 16 rubble cells forming the rim up to radius three, then 15% seeded rubble outside. The three gemfruit finds remain.
 
 ## Black Ring spacing
 

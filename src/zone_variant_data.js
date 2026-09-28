@@ -4799,49 +4799,7 @@
           {
             "at": [
               0,
-              -4
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              -2,
               -3
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              -1,
-              -3
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              0,
-              -3
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              1,
-              -3
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              2,
-              -3
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              -3,
-              -2
             ],
             "material": "rubble"
           },
@@ -4850,14 +4808,14 @@
               -2,
               -2
             ],
-            "material": "flint"
+            "material": "rubble"
           },
           {
             "at": [
               -1,
               -2
             ],
-            "material": "flint"
+            "material": "rubble"
           },
           {
             "at": [
@@ -4871,26 +4829,12 @@
               1,
               -2
             ],
-            "material": "flint"
+            "material": "rubble"
           },
           {
             "at": [
               2,
               -2
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              3,
-              -2
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              -3,
-              -1
             ],
             "material": "rubble"
           },
@@ -4899,7 +4843,7 @@
               -2,
               -1
             ],
-            "material": "flint"
+            "material": "rubble"
           },
           {
             "at": [
@@ -4926,20 +4870,6 @@
             "at": [
               2,
               -1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              3,
-              -1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              -4,
-              0
             ],
             "material": "rubble"
           },
@@ -4948,7 +4878,7 @@
               -3,
               0
             ],
-            "material": "flint"
+            "material": "rubble"
           },
           {
             "at": [
@@ -4983,20 +4913,6 @@
               3,
               0
             ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              4,
-              0
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              -3,
-              1
-            ],
             "material": "rubble"
           },
           {
@@ -5004,7 +4920,7 @@
               -2,
               1
             ],
-            "material": "flint"
+            "material": "rubble"
           },
           {
             "at": [
@@ -5032,20 +4948,6 @@
               2,
               1
             ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              3,
-              1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              -3,
-              2
-            ],
             "material": "rubble"
           },
           {
@@ -5053,14 +4955,14 @@
               -2,
               2
             ],
-            "material": "flint"
+            "material": "rubble"
           },
           {
             "at": [
               -1,
               2
             ],
-            "material": "flint"
+            "material": "rubble"
           },
           {
             "at": [
@@ -5074,33 +4976,12 @@
               1,
               2
             ],
-            "material": "flint"
+            "material": "rubble"
           },
           {
             "at": [
               2,
               2
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              3,
-              2
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              -2,
-              3
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              -1,
-              3
             ],
             "material": "rubble"
           },
@@ -5108,27 +4989,6 @@
             "at": [
               0,
               3
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              1,
-              3
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              2,
-              3
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              0,
-              4
             ],
             "material": "rubble"
           }
@@ -5144,49 +5004,7 @@
             {
               "at": [
                 0,
-                -4
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                -2,
                 -3
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                -1,
-                -3
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                0,
-                -3
-              ],
-              "material": "flint"
-            },
-            {
-              "at": [
-                1,
-                -3
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                2,
-                -3
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                -3,
-                -2
               ],
               "material": "rubble"
             },
@@ -5195,14 +5013,14 @@
                 -2,
                 -2
               ],
-              "material": "flint"
+              "material": "rubble"
             },
             {
               "at": [
                 -1,
                 -2
               ],
-              "material": "flint"
+              "material": "rubble"
             },
             {
               "at": [
@@ -5216,26 +5034,12 @@
                 1,
                 -2
               ],
-              "material": "flint"
+              "material": "rubble"
             },
             {
               "at": [
                 2,
                 -2
-              ],
-              "material": "flint"
-            },
-            {
-              "at": [
-                3,
-                -2
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                -3,
-                -1
               ],
               "material": "rubble"
             },
@@ -5244,7 +5048,7 @@
                 -2,
                 -1
               ],
-              "material": "flint"
+              "material": "rubble"
             },
             {
               "at": [
@@ -5271,20 +5075,6 @@
               "at": [
                 2,
                 -1
-              ],
-              "material": "flint"
-            },
-            {
-              "at": [
-                3,
-                -1
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                -4,
-                0
               ],
               "material": "rubble"
             },
@@ -5293,7 +5083,7 @@
                 -3,
                 0
               ],
-              "material": "flint"
+              "material": "rubble"
             },
             {
               "at": [
@@ -5328,20 +5118,6 @@
                 3,
                 0
               ],
-              "material": "flint"
-            },
-            {
-              "at": [
-                4,
-                0
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                -3,
-                1
-              ],
               "material": "rubble"
             },
             {
@@ -5349,7 +5125,7 @@
                 -2,
                 1
               ],
-              "material": "flint"
+              "material": "rubble"
             },
             {
               "at": [
@@ -5377,20 +5153,6 @@
                 2,
                 1
               ],
-              "material": "flint"
-            },
-            {
-              "at": [
-                3,
-                1
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                -3,
-                2
-              ],
               "material": "rubble"
             },
             {
@@ -5398,14 +5160,14 @@
                 -2,
                 2
               ],
-              "material": "flint"
+              "material": "rubble"
             },
             {
               "at": [
                 -1,
                 2
               ],
-              "material": "flint"
+              "material": "rubble"
             },
             {
               "at": [
@@ -5419,33 +5181,12 @@
                 1,
                 2
               ],
-              "material": "flint"
+              "material": "rubble"
             },
             {
               "at": [
                 2,
                 2
-              ],
-              "material": "flint"
-            },
-            {
-              "at": [
-                3,
-                2
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                -2,
-                3
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                -1,
-                3
               ],
               "material": "rubble"
             },
@@ -5453,27 +5194,6 @@
               "at": [
                 0,
                 3
-              ],
-              "material": "flint"
-            },
-            {
-              "at": [
-                1,
-                3
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                2,
-                3
-              ],
-              "material": "rubble"
-            },
-            {
-              "at": [
-                0,
-                4
               ],
               "material": "rubble"
             }
@@ -5492,7 +5212,7 @@
           "preserveUntouchedNeighbors": true
         },
         "clearing": {
-          "radiusCells": 3,
+          "radiusCells": 2,
           "rimWidthCells": 1,
           "material": "flint",
           "rimMaterial": "rubble"
@@ -5539,7 +5259,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A radius-three flint circle surrounds the POI, edged with a continuous rubble rim. Rubble scatters at 15% outside; three gemfruit finds remain.",
+      "atmosphere": "A radius-two flint circle surrounds the POI, edged with a continuous rubble rim. Rubble scatters at 15% outside; three gemfruit finds remain.",
       "attracts": {}
     },
     {

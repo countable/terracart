@@ -161,11 +161,11 @@
   test('zone dressing: Flint Field has a central flint disk, rubble rim and rubble-only scatter', () => {
     const out = ZoneDressing.dress(context('flint_field'));
     const poi = out.wildplants.filter(o => o.zoneLayer === 'poi');
-    assert.eq(poi.filter(o => o.crop === 'flint').length, 28);
-    assert.eq(poi.filter(o => o.crop === 'rockfruit').length, 20);
+    assert.eq(poi.filter(o => o.crop === 'flint').length, 12);
+    assert.eq(poi.filter(o => o.crop === 'rockfruit').length, 16);
     for (const o of out.wildplants) {
       const d2 = (o._ix - 32) ** 2 + (o._iy - 32) ** 2;
-      if (o.crop === 'flint') assert.lte(d2, 9, 'flint stays in the circle');
+      if (o.crop === 'flint') assert.lte(d2, 4, 'flint stays in the circle');
       if (o.zoneLayer === 'background') assert.eq(o.crop, 'rockfruit');
     }
   });
