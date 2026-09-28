@@ -9718,33 +9718,24 @@ class MapScene extends Phaser.Scene {
   // to WHICH fauna (icon + name on each side) and runs onConfirm() only if the
   // player accepts; Cancel or a backdrop tap aborts without consuming anything.
   showFeedConfirm({ foodId, faunaKind, onConfirm }) {
-    // A confirm dialog is already open (rapid double-tap) — ignore the new one
-    // so we never stack two over the same animal.
-    if (document.getElementById('feed-confirm-modal')) return;
     const foodName  = itemName(foodId);
     const faunaName = itemName(faunaKind);
-    const { wrap, box, mount, mkBtn } =
-      this.makeModalShell('feed-confirm-modal', { zIndex: 60, onClose: () => {}, kind: 'farm' });
     const side = (iconId, label) =>
       `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:3px">` +
         `${this.iconSpanHTML(iconId, 32)}<span style="font-size:11px">${label}</span></span>`;
-    box.innerHTML =
-      `<div style="opacity:.85;font-size:13px;margin-bottom:10px;color:#ffe066">Feed the ${faunaName}?</div>` +
-      `<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 14px">` +
-        side(foodId, foodName) +
-        `<span style="font-size:18px;opacity:.7">→</span>` +
-        side(faunaKind, faunaName) +
-      `</div>`;
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;justify-content:center';
-    const cancel = mkBtn('Cancel', false);
-    const feed   = mkBtn('Feed', true);
-    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    feed.addEventListener('click',   (e) => { e.stopPropagation(); wrap.remove(); onConfirm?.(); });
-    row.appendChild(cancel);
-    row.appendChild(feed);
-    box.appendChild(row);
-    mount();
+    this.showConfirmModal({
+      id: 'feed-confirm-modal',
+      kind: 'farm',
+      title: `Feed the ${faunaName}?`,
+      body:
+        `<div style="display:flex;align-items:center;justify-content:center;gap:12px">` +
+          side(foodId, foodName) +
+          `<span style="font-size:18px;opacity:.7">→</span>` +
+          side(faunaKind, faunaName) +
+        `</div>`,
+      acceptLabel: 'Feed',
+      onAccept: onConfirm,
+    });
   }
 
   // Stats / Relics menu — shows energy and every equipped relic / armor slot.
@@ -11272,30 +11263,23 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const cost = Math.min(500, Math.floor((this.save.money ?? 0) / 2));
-    const { wrap, box, mount, mkBtn } =
-      this.makeModalShell('move-home-modal', { zIndex: 60, onClose: () => {}, kind: 'build' });
-    box.innerHTML =
-      `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">Move Home here?</div>` +
-      `<div style="margin:6px 0 12px">Your Home trailer relocates to where you're standing.` +
-      `<br><br>Cost: <b style="color:#ffe066">${this.moneyHTML(cost)}</b>` +
-      `<span style="opacity:.7"> (half your coins, max ${this.moneyHTML(500, 12)})</span></div>`;
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;justify-content:center';
-    const cancel = mkBtn('Cancel', false);
-    const move   = mkBtn(`Move (${this.moneyHTML(cost, 12)})`, true);
-    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    move.addEventListener('click', (e) => {
-      e.stopPropagation(); wrap.remove();
-      addMoney(this.save, -cost);
-      this.moveHomeTrailerHere();
-      this.updateHUD();
-      if (typeof persistSave === 'function') persistSave(this.save);
-      this.flashLoot('🏠 Home moved!');
+    this.showConfirmModal({
+      id: 'move-home-modal',
+      kind: 'build',
+      title: 'Move Home here?',
+      body:
+        `Your Home trailer relocates to where you're standing.` +
+        `<br><br>Cost: <b style="color:#ffe066">${this.moneyHTML(cost)}</b>` +
+        `<span style="opacity:.7"> (half your coins, max ${this.moneyHTML(500, 12)})</span>`,
+      acceptLabel: `Move (${this.moneyHTML(cost, 12)})`,
+      onAccept: () => {
+        addMoney(this.save, -cost);
+        this.moveHomeTrailerHere();
+        this.updateHUD();
+        if (typeof persistSave === 'function') persistSave(this.save);
+        this.flashLoot('🏠 Home moved!');
+      },
     });
-    row.appendChild(cancel);
-    row.appendChild(move);
-    box.appendChild(row);
-    mount();
   }
 
   // Relocate Home to the player's current position by (re)synthesizing the

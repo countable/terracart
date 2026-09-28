@@ -2,7 +2,8 @@
 // in: makeModalShell (the box seated on the map square, the scene painting as
 // its full-bleed background, the kind header, and mount(), which MEASURES the
 // copy and switches a text-heavy dialog to THE BAND), the three stock dialogs
-// built on it (showMessageModal, showOfferModal, showChestRewardModal), and
+// built on it (showMessageModal, showConfirmModal, showOfferModal,
+// showChestRewardModal), and
 // the gate that mirrors "a dialog is open" onto body.modal-open
 // (_installModalPadGate). Plus the tables they read: MODAL_KINDS and the
 // scene-art frame constants (STORY_MODAL_GROW_PX, ART_FRAME_ASPECT,
@@ -418,6 +419,58 @@ class SceneModals {
       return b;
     };
     return { wrap, box, mount, mkBtn };
+  }
+
+  // Canonical accept/cancel modal for a simple decision. The caller supplies
+  // trusted body HTML because feed icons and prices are richer than plain
+  // text; this method owns dismissal so every exit closes before one callback.
+  showConfirmModal({ id = 'confirm-modal', kind = 'note', title, body,
+    acceptLabel = 'OK', cancelLabel = 'Cancel', onAccept, onCancel, art, kindIcon }) {
+    // A rapid second tap must not replace the first decision or transfer its
+    // action to a fresh set of buttons.
+    if (document.getElementById(id)) return;
+
+    let wrap;
+    let settled = false;
+    const settle = (callback) => {
+      if (settled) return;
+      settled = true;
+      wrap.remove();
+      if (typeof callback === 'function') callback();
+    };
+    const shell = this.makeModalShell(id, {
+      zIndex: 60,
+      onClose: () => settle(onCancel),
+      kind,
+      kindIcon,
+      art,
+    });
+    ({ wrap } = shell);
+    const { box, mount, mkBtn } = shell;
+
+    if (title) {
+      const titleNode = document.createElement('div');
+      titleNode.style.cssText = 'opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066';
+      titleNode.textContent = title;
+      box.appendChild(titleNode);
+    }
+    if (body != null && body !== '') {
+      const bodyNode = document.createElement('div');
+      bodyNode.style.cssText = 'margin:6px 0 12px';
+      bodyNode.innerHTML = body;
+      box.appendChild(bodyNode);
+    }
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;justify-content:center';
+    const cancel = mkBtn(cancelLabel, false);
+    const accept = mkBtn(acceptLabel, true);
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); settle(onCancel); });
+    accept.addEventListener('click', (e) => { e.stopPropagation(); settle(onAccept); });
+    row.appendChild(cancel);
+    row.appendChild(accept);
+    box.appendChild(row);
+    mount();
   }
 
   // Simple OK-button modal for ambient game messages (eat effects, status, etc.).
