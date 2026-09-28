@@ -37,6 +37,7 @@ function consumeSelected(save, n = 1) {
   sel.count -= n;
   if (sel.count > 0) return;
   save.inv.splice(save.selSlot, 1);
+  if (sel.id === 'egg' && Inventory.count(save, 'egg') === 0) save.eggHatchM = 0;
   save.selSlot = -1;
 }
 

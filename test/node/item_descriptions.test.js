@@ -44,7 +44,9 @@ const words = (s) => (s.toLowerCase().match(/[a-z⚡]+/g) || [])
 const descriptions = () => [
   ...Object.entries(ITEM_EFFECTS).map(([k, v]) => [`ITEM_EFFECTS.${k}`, v]),
   ...Object.entries(RELIC_DEFS).map(([k, d]) => [`RELIC_DEFS.${k}.blurb`, d.blurb || '']),
-].filter(([, v]) => v);
+// Multi-use items carry separate actions; do not combine unrelated words
+// from forging, crafting and campfires into a false restatement.
+].filter(([, v]) => v).flatMap(([key, text]) => text.split(/;\s*/).map(line => [key, line]));
 
 // How many distinct meaningful words a tip shares with a description. Three is
 // the line: the tips that survive the prune peak at two (an animal tip that
@@ -96,7 +98,7 @@ test('tips: the sweep actually catches a restatement', () => {
     ['A Rope goes both ways: use one to climb up a level or lower yourself down one, right where you stand.',
      ITEM_EFFECTS.rope],
     ['Rainberry waters every crop within 20m when you eat it.', ITEM_EFFECTS.rainberry],
-    ['An Amulet powers the stick: higher tier walks you off the GPS faster, for less stamina.',
+    ['An Amulet reduces stick-walking stamina cost.',
      RELIC_DEFS.amulet.blurb],
     ['Set out a jar of Honey to draw every chicken and cow within 30m toward you.', ITEM_EFFECTS.honey],
     ['Eat a Pairy to point the way to the nearest undiscovered chest for 5 minutes.', ITEM_EFFECTS.pairy],
@@ -150,6 +152,30 @@ test('items: every fact moved off a tip is readable on the thing itself', () => 
 });
 
 // ── The two survivors that had gone stale ─────────────────────────────────
+test('audited ingredients: descriptions name their implemented smelting and taming uses', () => {
+  for (const output of Gear.smeltUnlockedBars()) {
+    const recipe = Gear.smeltingRecipe(output);
+    for (const ingredient of recipe) {
+      const line = ITEM_EFFECTS[ingredient.id];
+      assert.truthy(/smelt/i.test(line), `${ingredient.id} explains smelting`);
+      assert.truthy(line.includes(ITEM_BY_ID[output].name), `${ingredient.id} names its smelting result`);
+      for (const other of recipe.filter(part => part.id !== ingredient.id)) {
+        assert.truthy(line.includes(ITEM_BY_ID[other.id].name), `${ingredient.id} names its partner`);
+      }
+    }
+  }
+  for (const animal of ['cat', 'cow', 'dog']) {
+    for (const food of ANIMAL_FOOD[animal]) {
+      assert.truthy(new RegExp(`tame a wild ${animal}`).test(ITEM_EFFECTS[food]), `${food} explains taming ${animal}`);
+    }
+  }
+  for (const item of ITEMS.filter(item => item.kind === 'seed')) {
+    assert.truthy(/plant.*tame a wild chicken/i.test(ITEM_EFFECTS[item.id]), `${item.id} explains both uses`);
+  }
+  assert.falsy(/forge|craft|ring/i.test(ITEM_EFFECTS.ruby), 'Ruby does not advertise the inaccessible ring recipe');
+  assert.truthy(/not wearable/.test(ITEM_EFFECTS.boot), 'Old Boot is distinct from armour boots');
+});
+
 test('tips: the surviving claims still match the code', () => {
   const tool = PLAY_TIPS.find((t) => /bare-handed/.test(t) && /Wood relic/.test(t));
   assert.truthy(tool, 'the tool-ladder tip is still there');

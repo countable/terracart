@@ -1,0 +1,135 @@
+// Distances use WGS84 raw fixes, independent of player/control-stick position.
+const eggFix = (meters, timestamp, accuracy = 4) => ({ lat: meters / 6371000 * 180 / Math.PI, lon: 0, accuracy, timestamp });
+const eggSave = (count = 1) => ({ inv: [{ id: 'egg', count }], eggHatchM: 0 });
+
+test('egg: slow GPS walks accumulate past the jitter threshold and survive reload', () => {
+  const save = eggSave();
+  let tracker = null;
+  for (let m = 0; m <= 12; m++) {
+    const fix = eggFix(m, m * 1000);
+    tracker = EggHatch.track(save, tracker, fix, fix.timestamp).tracker;
+  }
+  assert.inRange(save.eggHatchM, 9.9, 10.1);
+  const restored = JSON.parse(JSON.stringify(save));
+  EggHatch.track(restored, null, eggFix(200, 20000), 20000);
+  assert.eq(restored.eggHatchM, save.eggHatchM, 'first fix after reload earns nothing');
+});
+
+test('egg: stationary jitter does not incubate', () => {
+  const save = eggSave();
+  let tracker = null;
+  for (let i = 0; i < 100; i++) {
+    tracker = EggHatch.track(save, tracker, eggFix(i % 3, i * 1000), i * 1000).tracker;
+  }
+  assert.eq(save.eggHatchM, 0);
+});
+
+test('egg: inaccurate fixes, jumps, stale fixes and long gaps earn no metres', () => {
+  for (const [fix, now] of [
+    [eggFix(10, 10000, 80), 10000],
+    [eggFix(100, 1000), 1000],
+    [eggFix(10, 10000), 50000],
+    [eggFix(50, 60000), 60000],
+    [{ ...eggFix(10, 10000), lat: NaN }, 10000],
+  ]) {
+    const save = eggSave();
+    const tracker = EggHatch.track(save, null, eggFix(0, 0), 0).tracker;
+    EggHatch.track(save, tracker, fix, now);
+    assert.eq(save.eggHatchM, 0);
+  }
+});
+
+test('egg: duplicate timestamps cannot advance GPS progress', () => {
+  const save = eggSave();
+  const tracker = EggHatch.track(save, null, eggFix(0, 10000), 10000).tracker;
+  const result = EggHatch.track(save, tracker, eggFix(10, 10000), 10000);
+  assert.eq(result.tracker, tracker);
+  assert.eq(save.eggHatchM, 0);
+});
+
+test('egg: no egg and a newly acquired egg cannot receive earlier walking', () => {
+  const save = eggSave();
+  const tracker = EggHatch.track(save, null, eggFix(0, 0), 0).tracker;
+  save.inv = [];
+  assert.eq(EggHatch.track(save, tracker, eggFix(10, 10000), 10000).tracker, null);
+  Inventory.add(save, 'egg');
+  EggHatch.track(save, tracker, eggFix(10, 10000), 10000);
+  assert.eq(save.eggHatchM, 0, 'acquisition session invalidates old anchor');
+});
+
+test('egg: remaining distance rounds up and only one stacked egg incubates', () => {
+  const save = eggSave(3);
+  save.eggHatchM = EggHatch.METERS - 0.1;
+  assert.eq(EggHatch.remaining(save), 1);
+  assert.falsy(EggHatch.ready(save));
+  const tracker = EggHatch.track(save, null, eggFix(0, 0), 0).tracker;
+  EggHatch.track(save, tracker, eggFix(10, 10000), 10000);
+  assert.eq(save.eggHatchM, EggHatch.METERS);
+  assert.truthy(EggHatch.ready(save));
+  assert.truthy(EggHatch.hatch(save, () => 0).ok);
+  assert.eq(Inventory.count(save, 'egg'), 2);
+  assert.eq(Inventory.count(save, Shops.petItems()[0]), 1);
+  assert.eq(save.eggHatchM, 0);
+  assert.falsy(EggHatch.ready(save));
+  EggHatch.track(save, tracker, eggFix(20, 20000), 20000);
+  assert.eq(save.eggHatchM, 0, 'hatching resets GPS anchor for next egg');
+});
+
+test('egg: each pet-shop species can hatch, consuming exactly one egg', () => {
+  const pets = Shops.petItems();
+  pets.forEach((petId, i) => {
+    const save = eggSave();
+    save.eggHatchM = EggHatch.METERS;
+    const result = EggHatch.hatch(save, () => (i + 0.5) / pets.length);
+    assert.truthy(result.ok);
+    assert.eq(result.petId, petId);
+    assert.eq(Inventory.count(save, petId), 1);
+    assert.eq(Inventory.count(save, 'egg'), 0);
+    assert.eq(save.eggHatchM, 0);
+  });
+});
+
+test('egg: unavailable hatches and full pet stacks leave inventory and progress intact', () => {
+  assert.eq(EggHatch.hatch(eggSave()).reason, 'not_ready');
+  assert.eq(EggHatch.hatch({ inv: [], eggHatchM: EggHatch.METERS }).reason, 'no_egg');
+  const save = eggSave();
+  save.eggHatchM = EggHatch.METERS;
+  Inventory.add(save, Shops.petItems()[0], Inventory.stackCap(save));
+  const before = JSON.stringify(save);
+  assert.eq(EggHatch.hatch(save, () => 0).reason, 'full');
+  assert.eq(JSON.stringify(save), before);
+});
+
+test('egg: the GPS consumer saves progress and refreshes the selected Hatch action', () => {
+  let saved = 0, refreshed = 0;
+  const document = { hidden: false };
+  const track = new Function('EggHatch', '_teleportOverride', 'document', 'persistSave',
+    SCENE_GEO_SRC + '; return SceneGeo.prototype._trackEggHatch;')(EggHatch, null, document, () => saved++);
+  const scene = { save: eggSave(), playerM: { x: 9999, y: 9999 }, syncConsumableButton: () => refreshed++ };
+  scene.save.selSlot = 0;
+  const now = Date.now();
+  const pos = (m, timestamp) => ({ coords: { latitude: eggFix(m, timestamp).lat, longitude: 0, accuracy: 4 }, timestamp });
+  track.call(scene, pos(0, now - 10000));
+  track.call(scene, pos(10, now));
+  assert.inRange(scene.save.eggHatchM, 9.9, 10.1);
+  assert.eq(saved, 1);
+  assert.eq(refreshed, 1);
+  for (const flag of ['_sandboxMode', '_gpsManualOverride']) {
+    scene[flag] = true;
+    track.call(scene, pos(20, now));
+    assert.eq(scene._eggHatchTracker, null);
+    scene[flag] = false;
+  }
+  document.hidden = true;
+  track.call(scene, pos(30, now));
+  assert.eq(saved, 1, 'hidden/manual/sandbox fixes earn nothing');
+});
+
+test('egg: losing the last egg clears incubation before another egg arrives', () => {
+  const save = eggSave();
+  save.eggHatchM = 300;
+  Inventory.remove(save, 'egg');
+  assert.eq(save.eggHatchM, 0);
+  Inventory.add(save, 'egg');
+  assert.eq(EggHatch.remaining(save), EggHatch.METERS);
+});

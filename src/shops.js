@@ -127,6 +127,9 @@
     pet:    () => ['chicken', 'dog', 'rabbit', 'cat', 'butterfly', 'crow', 'deer', 'cow'],
   };
 
+  // Shared by pet shops and egg hatching; callers receive their own array.
+  function petItems() { return THEME_POOL.pet(); }
+
   // The line + tier for the Nth shop restored (0-based).
   function themeAt(order) {
     const o = Math.max(0, order | 0);
@@ -182,6 +185,6 @@
   global.Shops = {
     shopType, shopInk,
     ROLE_LABEL, roleLabel,
-    THEMES, THEME_LABEL, themeAt, shopOrder, themedStock, pickThemed,
+    THEMES, THEME_LABEL, themeAt, shopOrder, themedStock, pickThemed, petItems,
   };
 })(window);
