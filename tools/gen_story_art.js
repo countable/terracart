@@ -295,24 +295,29 @@ const PIECES = {
   // story panels for the three zone kinds, keyed zone:grove / zone:tar /
   // zone:stones by _tickZone.
   zone_grove: scene(
+    // No sigil (Sep 2026): the shrine itself is the hint, no lore layered
+    // beside it — see NO LORE ON HOLY OR GRAVE GROUND above.
     'Moss-hung ancient trees crowding close around a small lichened stone shrine glowing with ' +
     'a faint green light, fireflies drifting in the dusk air, a deep quiet woodland.'),
   zone_tar: scene(
-    // An OIL-STAINED LOT, nothing more (Sep 2026): no flames and no fire
-    // slime — the tar yard holds no garrison, and a fire at a real forecourt
-    // is the last thing to paint.
-    'A cracked old fuel-yard lot, dark oil stains and black tar pools scattered across broken ' +
-    'asphalt, a rusted fuel pump leaning nearby, weeds pushing through the cracks, still dusk.'),
+    // A QUIET ABANDONED FORECOURT CORNER, nothing more (Sep 2026): no
+    // creature, no fire — the tar yard holds no garrison and no flame.
+    'A quiet abandoned oil-stained forecourt corner on cracked industrial ground: black tar ' +
+    'puddles pooled in the broken concrete, a single rusted fuel pump leaning at an angle, a ' +
+    'scatter of flint shards among the weeds, nobody about, still dusk light.'),
   zone_stones: scene(
-    'A weathered stone cherub statue and leaning mossy headstones before a ruined chapel door, ' +
-    'one iron lantern lit beside the door, pale misty shapes drifting faintly among the stones ' +
-    'at dusk.'),
+    // A CHURCHYARD, nothing more (Sep 2026): no ghosts, no pale figures —
+    // and no lore hint on sacred ground (LORE_FREE_SUBJECT / scene() throws).
+    'A small stone church and its churchyard: weathered headstones leaning in quiet rows across ' +
+    'the grass, one iron lantern lit beside the church door, dusk light.'),
 
   // Street variants (scratchpad/design/street_variants.md §3): first-visit
   // story panels for each street flavour.
   street_hedgerow: scene(
-    'A narrow lane between tall clipped hedges leading to a mossy stone archway, a garden gate ' +
-    'half open in the green wall, dusk light.'),
+    // The lane just continues out of frame (Sep 2026): no dead end, no
+    // disturbed mound — that hoard moved to the coffee-shop POIs.
+    'An empty narrow lane between tall clipped hedges, a mossy stone archway straddling the ' +
+    'path, the hedgerow lane continuing on out of view beyond it, nobody about, dusk light.'),
   street_lantern: scene(
     'A long cobbled road at dusk lined with old iron lantern posts, some glowing warm amber ' +
     'light, others dark and unlit, stretching toward a village.'),
@@ -331,6 +336,8 @@ const PIECES = {
     'sharpened wooden stakes and charred fence posts along the verge, ash drifting in the dusk ' +
     'air, no buildings alight.'),
   street_bandit: scene(
+    // No goblin, no watcher (Sep 2026): the road's theme is now the "Old
+    // trade road" itself, not an ambush — see street_variants.js's title.
     'An old trade road, deep wheel ruts worn into it, a broken wagon long abandoned at the ' +
     'verge, canvas torn and a wheel splintered, nobody about, dusk light.'),
   street_barricade: scene(
