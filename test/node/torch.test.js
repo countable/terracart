@@ -43,7 +43,7 @@ test('torch: a T1 consumable with a price, an effect line and a Book tip', () =>
   assert.eq(it.kind, 'consumable', 'kind — the Use button and the rarity class key off it');
   assert.eq(it.baseTier, 1, 'baseTier — T1, the cave staple');
   assert.eq(BASE_TIER.torch, 1, 'BASE_TIER row');
-  assert.eq(PRICES.torch, 15, 'price');
+  assert.eq(PRICES.torch, 5, 'price (one wood crafts it, so it stays low)');
   assert.lt(PRICES.torch, PRICES.rope, 'cheaper than the rope');
   assert.truthy(/^Use /.test(ITEM_EFFECTS.torch || ''), 'an ITEM_EFFECTS line that starts "Use"');
   assert.truthy(/light/i.test(ITEM_EFFECTS.torch), 'and says it is light');

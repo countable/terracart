@@ -1027,6 +1027,12 @@ const EAT_COOLING_EDGE = '#37522f';
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
+// The most sets of its wishlist one household takes. A house is fed ONCE (its
+// first delivery is its memory, and it stays satisfied for good), so this
+// caps everything a door can ever pay. Uncapped, one hand-over of a big
+// stack paid 1.5x list on all of it — 4x what Home pays for the same goods
+// (economy audit, 2026-09-27).
+const DELIVERY_MAX_SETS = 5;
 // The fort unlock wood ladder (FORT_UNLOCK_WOOD*) and the pre-seeded restore
 // roles (Houses.PRESEED_RESTORE_ROLES) live in houses.js with the rules that read them.
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
@@ -10886,7 +10892,10 @@ class MapScene extends Phaser.Scene {
     const invCount = (id) => Inventory.count(this.save, id);
     // Full set requires at least one of every wanted item. maxSets is how many
     // complete sets the current bags can fulfil (0 if any item is missing).
-    const maxSets = wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity);
+    // …and never more than DELIVERY_MAX_SETS: the household is fed once, for
+    // good, so the one hand-over is the whole of what it will ever pay.
+    const maxSets = Math.min(DELIVERY_MAX_SETS,
+      wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity));
     const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
     if (!maxSets) {
       // Only what is still missing — not the whole list (Delivery.missingLine).
@@ -10924,7 +10933,7 @@ class MapScene extends Phaser.Scene {
       quantity: { min: 1, max: maxSets, initial: 1, format: fmt },
       onAccept: (q) => {
         // Re-validate against live bags so a stale modal can't over-deliver.
-        const sets = Math.max(1, Math.min(q ?? 1,
+        const sets = Math.max(1, Math.min(q ?? 1, DELIVERY_MAX_SETS,
           wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity)));
         if (!sets || sets === Infinity) {
           this.flash(single ? 'Nothing to deliver now.' : 'Set incomplete now.', sx, sy);
