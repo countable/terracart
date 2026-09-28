@@ -21,6 +21,15 @@
 (function (root) {
   'use strict';
 
+  // Fixed supply-crate payloads, shared with the item catalogue.
+  const STARTER_LOOT = [
+    { id: 'potato_seed',    qty: 9 },
+    { id: 'rockfruit_seed', qty: 9 },
+    { id: 'rockfruit',      qty: 9 },
+    { id: 'wood',           qty: 9 },
+  ];
+
+
   // Resolve — and freeze — the world-metre anchor of the starter crate
   // trail (save.starterCratesAt).
   //
@@ -233,12 +242,6 @@
     // unseals a fort) rides at the far end instead, arriving about when step 4
     // asks for it — and the green arrow, which always points at the nearest
     // unopened crate, now agrees with the chip instead of contradicting it.
-    const STARTER_LOOT = [
-      { id: 'potato_seed',    qty: 9 },
-      { id: 'rockfruit_seed', qty: 9 },
-      { id: 'rockfruit',      qty: 9 },
-      { id: 'wood',           qty: 9 },
-    ];
     const COUNT = STARTER_LOOT.length;
     const usedSeats = new Set();          // 'cx,cy' of cells already holding a chest
     const placedIdx = new Set();          // loot indices successfully seated
@@ -1774,6 +1777,7 @@
   }
 
   root.Starter = {
+    STARTER_LOOT,
     starterTrailAnchor,
     pestFreeZone,
     setStarterCratesAt,

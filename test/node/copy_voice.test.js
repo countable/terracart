@@ -387,7 +387,7 @@ test('copy: a consumable dialog reads as a sensation, not a stat line', () => {
     assert.falsy(/tier-\d+ amulet/i.test(b), 'no dialog quotes a relic tier: ' + b.slice(0, 90));
   }
   // The effect lines are where the numbers belong, and they still carry them.
-  assert.truthy(/tier-9 amulet/.test(ITEM_EFFECTS.speed_potion),
+  assert.truthy(/tier-9 boots \+ amulet/.test(ITEM_EFFECTS.speed_potion),
     'the speed potion still states its tier where the player can re-read it');
 });
 

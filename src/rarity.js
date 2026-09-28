@@ -230,22 +230,16 @@
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
     // ── The ROAD ladder's prize ─────────────────────────────────────────
     // What restoring a street pays (src/trail.js, app.js _fireTrailPrize).
-    // Its own context rather than the lowtier chest curve it used to borrow,
-    // because a walk is not a box: the survivors thank you in SEEDS — the
-    // thing you plant beside the road you just rebuilt — with coins and a
-    // basket of produce as the alternatives on the pick.
-    //
-    // No minerals, no consumables, no relics: the ladder's variety is the
-    // CHOICE between two of these three, and a pool of six classes made both
-    // options a lottery instead of a decision. Gear has the chests.
-    //
-    // The chain is one step; the rest of the climb is bought by the caller's
-    // rollBonus (Trail.rollBonusFor — one per prize already won), which buys
-    // TIER only, so a longer walk lands a finer seed rather than a taller
-    // stack. chainMax 4 is the ceiling those bonus steps can reach — the same
-    // T4 ceiling the prize had on the lowtier curve; T5/T6 stay a jackpot.
-    'treasure:road':    { classBias: { seed:0.56, produce:0.24, cash:0.20 },
-                          chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0 },
+    // Seeds share the choices with walking supplies, fruit, boots and coins.
+    // Favourites keep Old Boots, Pairy and occasional feathers available even on later rungs,
+    // and make the consumable option usually a potion.
+    // The caller's rollBonus buys tiers up to T4; higher tiers need a jackpot.
+    'treasure:road':    { classBias: { seed:0.20, produce:0.25, consumable:0.25, boots:0.15, cash:0.15 },
+                          chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0,
+                          favourite: { p: 0.85, ids: {
+                            boot: 1, pairy: 3, crow_feather: 0.3, reach_potion: 1, vigor_potion: 1,
+                            speed_potion: 1, shield_potion: 1, revive_potion: 1,
+                          } } },
     // ── Elite monster drop ──────────────────────────────────────
     // What a shiny cave monster pays once its kind's memory is
     // banked (app.js › resolveDefeat). Biased to RELICS — half the class
@@ -373,6 +367,7 @@
   // instead of the tier, which is exactly what a bundle is.
   CLASS_MAX_TIER.cash = 7;
   CLASS_MAX_TIER.bundle = 1;
+  CLASS_MAX_TIER.boots = 7;
   // Relics span every tier 1..7 for every slot — pickItemInClass handles this
   // without needing an entry in ITEMS_BY_CLASS_TIER.
 
@@ -530,8 +525,7 @@
       && ((opts?.tier) || 2) > CAVE_SUPPLY_MAX_TIER;
   }
 
-  function pickReward(contextKey, save, rng, opts) {
-    rng = rng || Math.random;
+  function lootContext(contextKey, opts) {
     const baseCtx = LOOT_CONTEXTS[contextKey];
     if (!baseCtx) return null;
     // For chest contexts, merge in the per-tier modifier (default T2 if the
@@ -551,6 +545,14 @@
       for (const [c, w] of Object.entries(caveSkew.classAdd)) classBias[c] = (classBias[c] || 0) + w;
       ctx = { ...ctx, classBias, favourite: caveSkew.favourite };
     }
+
+    return ctx;
+  }
+
+  function pickReward(contextKey, save, rng, opts) {
+    rng = rng || Math.random;
+    const ctx = lootContext(contextKey, opts);
+    if (!ctx) return null;
 
     // 1) Pick class. If the context's relicCap is 0, scrub the relic weight so
     // it can't be chosen at all (a market never offers a relic, no matter how
@@ -607,7 +609,7 @@
     //
     // The context's maxTier / chainMax still bound the result, so a bonus can
     // lift a roll toward its ceiling but never above it. It does not touch a
-    // gear roll — those go through rollGearUpgrade on the chest tier alone.
+    // chest gear roll — those use rollGearUpgrade on the chest tier alone.
     const bonusSteps = Math.max(0, Math.floor((opts && opts.rollBonus) || 0));
     for (let i = 0; i < bonusSteps; i++) {
       if (tier < chainCap) tier += 1;
@@ -674,6 +676,15 @@
       if (!ctx.singleItem) wastedQtyBumps += bracket;
       const out = reconcileRelicOffer({ slot, tier: relicTier, jackpot: jackpotApplied }, save, rng);
       if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(relicTier);
+      return out;
+    }
+    // BOOTS — the road's equipment option, with the same duplicate/upgrade
+    // handling as other gear so a reward never replaces better owned boots.
+    if (cls === 'boots') {
+      if (!ctx.singleItem) wastedQtyBumps += bracket;
+      const out = reconcileRelicOffer({ kind: 'armor', slot: 'boots', tier,
+        jackpot: jackpotApplied }, save, rng);
+      if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(tier);
       return out;
     }
     // CASH — coins, worth what an item of the rolled tier is worth
@@ -804,6 +815,7 @@
   global.CASH_TIER_VALUE        = CASH_TIER_VALUE;
   global.BUNDLE_IDS             = BUNDLE_IDS;
   global.LOOT_CONTEXTS          = LOOT_CONTEXTS;
+  global.lootContext            = lootContext;
   global.CAVE_SUPPLY_SKEW       = CAVE_SUPPLY_SKEW;
   global.CAVE_DEEP_SKEW         = CAVE_DEEP_SKEW;
   global.ITEMS_BY_CLASS_TIER    = ITEMS_BY_CLASS_TIER;

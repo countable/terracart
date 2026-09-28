@@ -279,3 +279,11 @@ test('armor: what a piece soaks is printed ON the piece', () => {
   assert.truthy(/armorSlotReduction\(offer\.tier\)/.test(app),
     'a shop/castle offer quotes the real per-piece soak before you buy');
 });
+
+test('boots: protect against the trap bite and ongoing bleed', () => {
+  const boots = { boots: { tier: 3 } };
+  assert.lt(Combat.playerDamage(Traps.STEP_ENERGY, boots), Traps.STEP_ENERGY);
+  assert.lt(Combat.playerDamage(Traps.STAND_ENERGY_PER_S, boots), Traps.STAND_ENERGY_PER_S);
+  assert.truthy(APP_JS_SRC.includes('Combat.playerDamage(bite, { boots: this.save.armor?.boots })'));
+  assert.truthy(APP_JS_SRC.includes('Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt'));
+});

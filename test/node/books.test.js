@@ -584,11 +584,11 @@ test('tips: the shiny multiplier quotes PRICES', () => {
   assert.truthy(someTip(/ten times its plain kind/i), 'and a tip says so');
 });
 
-test('descriptions: the coffee line quotes COFFEE_AMULET_BOOST', () => {
-  const m = APP_JS_SRC.match(/const COFFEE_AMULET_BOOST = (\d+);/);
+test('descriptions: the coffee line quotes COFFEE_BOOT_BOOST', () => {
+  const m = APP_JS_SRC.match(/const COFFEE_BOOT_BOOST = (\d+);/);
   assert.truthy(m, 'app.js still owns the boost');
-  assert.eq(Number(m[1]), 2, 'a coffee is worth two amulet tiers, not one');
-  assert.truthy(/\+2 amulet tiers/.test(ITEM_EFFECTS.coffee),
+  assert.eq(Number(m[1]), 2, 'a coffee is worth two boot tiers, not one');
+  assert.truthy(/\+2 boot tiers/.test(ITEM_EFFECTS.coffee),
     'and the inventory effect line says two — it read "+1" for a while');
 });
 
@@ -730,11 +730,10 @@ test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
   // own context (Trail.PRIZE_CONTEXT), so the classes the tip names are the
   // classes that context actually carries — never a list typed out here.
   const road = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT].classBias;
-  const heaviest = Object.keys(road).sort((a, b) => road[b] - road[a])[0];
-  assert.eq(heaviest, 'seed', 'the pool is centred on seeds');
-  assert.truthy(/seeds mostly/i.test(tip), 'and the tip says so');
+  assert.lt(road.seed, road.produce + road.consumable + road.boots, 'road supplies outweigh seeds');
+  assert.falsy(/seeds mostly/i.test(tip), 'the tip reflects the broader pool');
   for (const cls of Object.keys(road)) {
-    const word = cls === 'cash' ? 'coin' : cls;
+    const word = ({ cash: 'coin', produce: 'fruit', consumable: 'potions' })[cls] || cls;
     assert.truthy(new RegExp(word, 'i').test(tip), `the tip names the ${cls} the pool can pay`);
   }
   // And the FIXED first rung: the tip promises a seed, so trail.js had better

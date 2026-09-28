@@ -353,7 +353,7 @@ MOVEMENT & REACH
    where you are and walk back.
  - the MOVEMENT STICK (bottom-right) is always on screen and needs no relic:
    it walks you off the GPS target for stamina. Nothing ever replaces it —
-   Dragon Powder and the Speed potion just lend it a better amulet tier (8 and
+   Dragon Powder and the Speed potion just lend it better boots and amulet tiers (8 and
    9), coffee adds +1 tier on top of whatever's active for 3 minutes, and the
    ☰ "Free walking (debug)" toggle only makes it cost nothing.
  - device compass (deviceorientation) drives a facing-arrow indicator above the
@@ -443,7 +443,7 @@ ENERGY & FOOD
    Cats and dogs have NO FOOD_ENERGY entry — companions are never edible.
  - special food side effects: eating a rainberry waters every crop within 20m;
    eating a pairy points you to the nearest undiscovered chest for 5 minutes;
-   eating coffee ADDS +1 amulet tier to stick-walking speed for 3 minutes —
+   eating coffee ADDS +2 boot tiers to stick-walking speed for 3 minutes —
    unlike Dragon Powder / the Speed potion (which override the tier to a
    fixed 8/9), coffee stacks on top of whatever tier is already in play,
    capped at the Speed potion's ceiling.
@@ -1397,7 +1397,7 @@ GEAR: RELICS & ARMOR
      bags   — raises the per-item stack cap (9 with none → 249 at T7)
      ring   — TIER luck: +1%/tier chance to bump chest loot up a tier; granted
               ONLY by the wizard tower's Keen Eye rung (see ECONOMY)
-     amulet — powers STICK WALKING (see below); higher tier = faster + cheaper.
+     amulet — powers STICK WALKING (see below); higher tier = cheaper walking. Boots increase speed.
               It carried the QUANTITY luck too until Sep 2026; that is the
               wizard's Full Measure rung now.
      sword  — MELEE weapon (drains an enemy's HP on the combat wheel, and
@@ -1418,8 +1418,9 @@ GEAR: RELICS & ARMOR
      net's — see FAUNA.)
  - ARMOR SLOTS (helmet / chest / legs / boots) SOAK blows — each worn piece
    adds its tier to a reduction pool spent against each hit (see ENERGY &
-   FOOD); they no longer raise max energy.
- - STICK WALKING (amulet): the movement stick is ALWAYS on screen — no relic
+   FOOD); they no longer raise max energy. Boots also reduce the initial trap
+   bite and ongoing trap damage, and increase stick-walking speed.
+ - STICK WALKING (boots + amulet): the movement stick is ALWAYS on screen — no relic
    needed and no separate mode. It walks the character somewhere OTHER than
    the GPS target, and what it walks is the body itself: there is no ghost and
    no snap-back on release. The distance walked is banked as an offset from
@@ -1430,9 +1431,9 @@ GEAR: RELICS & ARMOR
    underground a snap would drop you inside solid rock, so down there the body
    always mines its way over, however far it is. Walking WITH the GPS is
    free — that's you actually walking. Stick walking costs energy per cell,
-   and the AMULET is the upgrade to it: speed 6× walk bare (a little over one
+   and BOOTS upgrade speed: 6× walk bare (a little over one
    cell per second — real walk pace is unusably slow on an 11-cell view) → 24×
-   at Frost (items.js steerSpeedMul), cost 1/cell bare → 0.15/cell at Frost. At 0 energy the stick stops
+   at Frost (items.js steerSpeedMul). The AMULET reduces cost: 1/cell bare → 0.15/cell at Frost. At 0 energy the stick stops
    ("too tired"); the GPS still moves you.
    Straying is shaped by a 3-cell ring around your real position: INSIDE it
    stick walking costs 80% less (pottering about where you're actually

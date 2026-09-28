@@ -320,33 +320,49 @@ test('bundle: the T1 chest that can roll no bracket at all still pays a pile', (
   }
 });
 
-test('road: the ladder has its OWN context, centred on seeds', () => {
-  const ctx = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT];
-  assert.truthy(ctx, 'treasure:road exists');
-  assert.eq(Trail.PRIZE_CONTEXT, 'treasure:road', 'and trail.js names it');
-  const bias = ctx.classBias;
-  // SEEDS FIRST — the thing you plant beside the road you just rebuilt.
-  const top = Object.keys(bias).sort((a, b) => bias[b] - bias[a])[0];
-  assert.eq(top, 'seed', 'seeds are the heaviest class');
-  assert.gt(bias.seed, 0.5, 'and carry the roll outright');
-  // …with coins and produce as the other faces of the pick, and nothing else:
-  // a pool of six classes makes both options of a two-way choice a lottery.
-  assert.eq(Object.keys(bias).sort().join(','), 'cash,produce,seed', 'three classes, no more');
-  assert.eq(ctx.relicCap, 0, 'gear belongs to the chests');
+test('road: repair choices include supplies and boots with fewer seeds', () => {
+  assert.eq(Trail.PRIZE_CONTEXT, 'treasure:road', 'the ceremony uses the road pool');
+  for (const bonus of [Trail.rollBonusFor(0), Trail.PRIZE_ROLL_BONUS_MAX]) {
+    const tally = { seed: 0, boot: 0, armor: 0, potion: 0, pairy: 0, feather: 0, gold: 0 };
+    for (let i = 0; i < 4000; i++) {
+      const r = pickReward(Trail.PRIZE_CONTEXT, SAVE(), seeded(i + 1), { rollBonus: bonus });
+      assert.truthy(r, 'every road roll resolves');
+      if (r.kind === 'armor') {
+        assert.eq(r.slot, 'boots', 'road equipment is boots');
+        assert.inRange(r.tier, 1, 7, 'valid armor tier');
+        tally.armor++;
+      }
+      if (r.kind === 'gold') tally.gold++;
+      if (r.kind !== 'item') continue;
+      if (r.cls === 'seed') tally.seed++;
+      if (r.id === 'boot') tally.boot++;
+      if (r.id === 'pairy') tally.pairy++;
+      if (r.id === 'crow_feather') tally.feather++;
+      if (/_potion$/.test(r.id)) tally.potion++;
+    }
+    assert.gt(tally.feather, 10, 'feathers appear occasionally');
+    assert.lt(tally.feather, tally.pairy, 'feathers are rarer than Pairy');
+    assert.inRange(tally.seed / 4000, 0.10, 0.30, 'seeds remain available without dominating');
+    for (const kind of ['boot', 'armor', 'potion', 'pairy', 'gold']) {
+      assert.gt(tally[kind], 100, `${kind} appears regularly at bonus ${bonus}`);
+    }
+  }
 });
 
-test('road: what the ladder actually pays is seeds, coins and produce', () => {
-  const tally = {};
-  for (let i = 0; i < 4000; i++) {
-    const r = pickReward('treasure:road', SAVE(), seeded(i + 1), { rollBonus: 2 });
-    if (!r) continue;
-    const cls = r.cls || r.kind;
-    tally[cls] = (tally[cls] || 0) + 1;
+test('road: boots never downgrade owned armor and maxed boots pay coins', () => {
+  for (const owned of [4, 7]) {
+    let bootsRolls = 0;
+    for (let i = 0; i < 4000; i++) {
+      const r = pickReward(Trail.PRIZE_CONTEXT, { relics: {}, armor: { boots: { tier: owned } } },
+        seeded(i + 1), { rollBonus: 2 });
+      if (r.slot !== 'boots') continue;
+      bootsRolls++;
+      if (owned === 7) assert.eq(r.kind, 'gold', 'maxed boots give consolation');
+      if (r.kind === 'armor') assert.gt(r.tier, owned, 'a wearable offer is an upgrade');
+      else assert.gt(r.amount, 0, 'duplicate boots give coins');
+    }
+    assert.gt(bootsRolls, 100, 'sampled the equipment option');
   }
-  assert.eq(Object.keys(tally).sort().join(','), 'cash,produce,seed', 'only the three');
-  assert.gt(tally.seed / 4000, 0.5, 'over half the rolls are seed');
-  assert.gt(tally.cash / 4000, 0.1, 'and coins are a real option, not a rounding error');
-  assert.gt(tally.produce / 4000, 0.1, 'as is produce');
 });
 
 test('road: a longer walk buys a FINER seed, not a taller stack', () => {
