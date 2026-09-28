@@ -6418,9 +6418,12 @@ class MapScene extends Phaser.Scene {
   }
   // The multiplier on the player's OWN attacks (melee wheel, bow, staff):
   // Dragon Powder doubles them, being off the GPS takes a third off
-  // (Combat.OFF_GPS_ATTACK_MUL). One answer both attack paths read.
+  // (Combat.OFF_GPS_ATTACK_MUL), and the Training Hall's lessons and drill add
+  // what the player bought (Combat.trainingMul). One answer both attack paths
+  // read.
   _attackMul() {
-    return (this.isDragonActive() ? 2 : 1) * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1);
+    return (this.isDragonActive() ? 2 : 1) * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1)
+      * Combat.trainingMul(this.save);
   }
   // Is the stick actually being PUSHED right now? Pointer-down alone isn't
   // enough — a finger resting on a centred nub holds _movePadHeld true while
@@ -8020,7 +8023,7 @@ class MapScene extends Phaser.Scene {
   // marking the key seen: the caller falls back to its plain flash, and the
   // next time the moment fires it asks again. Marking seen on a busy screen
   // would burn a first-time moment the player never got to see.
-  _storySplashOnce(key, { art, title, body, okLabel } = {}) {
+  _storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {
     const seen = this.save.storySeen = this.save.storySeen || {};
     if (seen[key]) return false;
     // The modal-open class lags the DOM by a microtask (it is mirrored off a
@@ -8032,7 +8035,7 @@ class MapScene extends Phaser.Scene {
     if (document.body?.classList?.contains('modal-open')) return false;
     seen[key] = 1;
     persistSave(this.save);
-    this.showMessageModal({ title, body, art, okLabel });
+    this.showMessageModal({ title, body, art, okLabel, onDismiss });
     return true;
   }
 
@@ -8921,8 +8924,8 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'vigor_potion' || (sel.count ?? 0) <= 0) return false;
     const max = this.getMaxEnergy();
-    const restored = Math.min(40, max - (this.save.energy ?? 0));
-    Energy.set(this.save, (this.save.energy ?? 0) + 40, max);
+    const restored = Math.min(VIGOR_POTION_ENERGY, max - (this.save.energy ?? 0));
+    Energy.set(this.save, (this.save.energy ?? 0) + VIGOR_POTION_ENERGY, max);
     if (restored > 0) this._popEnergy(restored);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return this._finishConsumable(
@@ -9511,6 +9514,9 @@ class MapScene extends Phaser.Scene {
       for (const o of (e.objects || [])) {
         if (o.kind !== 'chest') continue;
         if (opened.has(o.id)) continue;
+        // A macro stall (an inn, a chapel, … — loot.js macroFor) is a place,
+        // not a chest to find.
+        if (macroFor(o)) continue;
         const dx = o.x - pWX, dy = o.y - pWY;
         const d2 = dx * dx + dy * dy;
         if (d2 < bestD2) { best = o; bestD2 = d2; }
@@ -9696,9 +9702,21 @@ class MapScene extends Phaser.Scene {
   // Repeatable: a quantity stepper lets the player buy as many as they can
   // afford and carry, and the stall is never marked save.opened.
   presentMarketStandOffer(sx, sy, stand) {
+    this._presentStallOffer(sx, sy, { items: [stand.item], title: 'The market stall sells fresh:' });
+  }
+
+  // THE STALL COUNTER — the one buy dialog every counter shares: the market
+  // stall above, and the macro stalls that sell (the apothecary's potion and
+  // cure, the sundries' supply, the scriptorium's Book — src/macros.js). A
+  // counter of more than one item shows a tab per item. `items` are ids;
+  // `index` is the tab shown; `kind` / `kindLabel` / `art` dress the dialog
+  // (the market stall keeps the 'shop' kind's own painting).
+  _presentStallOffer(sx, sy, opts) {
     // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
     if (document.getElementById('offer-modal')) return;
-    const id = stand.item;
+    const { items, index = 0, title, kind = 'shop', kindLabel, art } = opts;
+    const id = items && items[index];
+    if (!id) return;
     const item = ITEM_BY_ID[id];
     const unitPrice = ShopsMath.standPrice(this.save, PRICES[id] ?? 1);
     const listPrice = Math.max(1, PRICES[id] ?? 1);
@@ -9723,8 +9741,12 @@ class MapScene extends Phaser.Scene {
     };
     const first = fmt(1);
     this.showOfferModal({
-      kind: 'shop',
-      title: 'The market stall sells fresh:',
+      kind: kind, kindLabel, art,
+      title,
+      tabs: items.length > 1 ? items.map((it, i) => ({
+        label: ITEM_BY_ID[it]?.name || it, active: i === index,
+        onSelect: () => this._presentStallOffer(sx, sy, { ...opts, index: i }),
+      })) : undefined,
       get: first.get,
       cost: first.cost,
       canAfford: first.canAfford,
@@ -9741,6 +9763,217 @@ class MapScene extends Phaser.Scene {
         this.addToInv(id, take, false, { notWild: true, deferRefresh: true });
         this._finishInventoryChange();
         this.flashLoot(`${take}× ${itemName}\n−${pay}`, '#ffe066', 1, id);
+      },
+    });
+  }
+
+  // ── THE MACRO STALLS (loot.js macroFor; the rules are src/macros.js) ─────
+  // An in-building POI is a place you come BACK to: its tap is a service and
+  // it is never consumed (no save.opened). interactables.js INTERACTABLES.chest
+  // routes every kind here except the chapel, which pays through the chest
+  // ceremony. Each kind's FIRST tap tells what the place is (the story
+  // ledger, `macro:<kind>`) and opens the dialog when that is dismissed.
+  presentMacro(sx, sy, o, macro = macroFor(o)) {
+    if (!macro || document.getElementById('offer-modal')) return;
+    const kind = macro.kind;
+    if (this._macroStory(kind, () => this.presentMacro(sx, sy, o, macro))) return;
+    const d = Macros.KIND_DIALOG[kind];
+    const dress = { kind: d.modal, kindLabel: d.label, art: d.art };
+    switch (kind) {
+      case 'inn':         return this._presentInn(sx, sy, o, dress);
+      case 'apothecary':  return this._presentStallOffer(sx, sy,
+        { ...dress, items: Macros.apothecaryStock(o), title: 'The apothecary has on the shelf:' });
+      case 'sundries':    return this._presentStallOffer(sx, sy,
+        { ...dress, items: Macros.sundriesStock(o), title: 'The counter has in stock:' });
+      case 'scriptorium': return this._presentScriptorium(sx, sy, o, dress);
+      case 'guildhall':   return this._presentGuildhall(sx, sy, o, dress);
+      case 'curio':       return this._presentCurio(sx, sy, o, dress);
+      case 'training':    return this._presentTraining(sx, sy, o, dress);
+      default:            return undefined;
+    }
+  }
+  // The first-visit story of a macro kind, once per save (_storySplashOnce).
+  // True when it opened now; `onDismiss` runs when it is tapped away.
+  _macroStory(kind, onDismiss) {
+    const st = Macros.KIND_STORY[kind];
+    const d = Macros.KIND_DIALOG[kind];
+    if (!st || !d) return false;
+    return this._storySplashOnce('macro:' + kind, { art: d.art, title: st.title, body: st.body, onDismiss });
+  }
+
+  // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the
+  // Potion of Vigor's coins per energy × INN_RATE). A purchase, not a passive
+  // rest: it is not gated on `working`, and it is not Home's (HOME_R). Hard
+  // mode's empty-tank lockout refuses it like food and the fire.
+  _presentInn(sx, sy, o, dress) {
+    const wait = shortDuration(msToNextUtcDay());
+    if (Macros.usedToday(this.save, o.id)) { this.flash(`Rested. Back in ${wait}.`, sx, sy); return; }
+    if (this._zeroEnergyLocked()) { this.flash('Too far gone for a bed.', sx, sy); return; }
+    const maxE = this.getMaxEnergy();
+    const missing = Math.max(0, maxE - (this.save.energy ?? 0));
+    if (missing <= 0) { this.flash('You\'re already rested.', sx, sy); return; }
+    const price = Macros.innPrice(missing);
+    this.showOfferModal({
+      ...dress, kind: dress.kind,
+      title: 'The innkeeper offers a bed:',
+      get: `Rest to full: +${missing}⚡`,
+      blurb: `One night a day at this inn. The next is in ${wait}.`,
+      cost: this.moneyHTML(price),
+      canAfford: (this.save.money ?? 0) >= price,
+      acceptLabel: 'Rest',
+      cancelLabel: 'Later',
+      onAccept: () => {
+        const cur = this.save.energy ?? 0;
+        const r = Macros.innRest(this.save, o, this.getMaxEnergy());
+        if (!r.ok) {
+          if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy);
+          return;
+        }
+        this._finishInventoryChange();
+        if (this.updateEnergyDOM) this.updateEnergyDOM();
+        // A gain to the BODY: it lands on the player's own cell.
+        this._popEnergy(Math.max(0, (this.save.energy ?? 0) - cur));
+      },
+    });
+  }
+
+  // SCRIPTORIUM: the next page of the Book, free, once a UTC day per
+  // scriptorium (the day ledger) — and Books for sale at the stall price.
+  _presentScriptorium(sx, sy, o, dress) {
+    const bookId = Macros.SCRIPTORIUM_BOOK;
+    const buyBooks = (title) => this._presentStallOffer(sx, sy, { ...dress, items: [bookId], title });
+    if (Macros.usedToday(this.save, o.id)) {
+      buyBooks(`Read here today. Back in ${shortDuration(msToNextUtcDay())}. For sale:`);
+      return;
+    }
+    const price = Macros.stallPrice(this.save, bookId);
+    this.showOfferModal({
+      ...dress, kind: dress.kind,
+      title: 'The scribes lend a page:',
+      get: 'The next page of the Book, free',
+      blurb: 'One page a day at this scriptorium.',
+      canAfford: true,
+      acceptLabel: 'Read',
+      cancelLabel: 'Later',
+      secondary: {
+        label: `Buy a Book ${this.moneyHTML(price, 12)}`,
+        onClick: () => buyBooks('The scriptorium sells:'),
+      },
+      onAccept: () => {
+        if (Macros.usedToday(this.save, o.id)) return;
+        Macros.markToday(this.save, o.id);
+        this._presentBookRead();   // persists the bookmark and the ledger
+      },
+    });
+  }
+
+  // GUILDHALL: one commission a UTC day per hall (Macros.commissionWants —
+  // the delivery rules, seeded by the hall and the day), paid at
+  // DELIVERY_BONUS_MULT × par like a household's set.
+  _presentGuildhall(sx, sy, o, dress) {
+    const wait = shortDuration(msToNextUtcDay());
+    if (Macros.usedToday(this.save, o.id)) { this.flash(`Commission paid. Back in ${wait}.`, sx, sy); return; }
+    const wanted = Macros.commissionWants(this.save, o);
+    if (!wanted.length) { this.flash('No commission today.', sx, sy); return; }
+    const invCount = (id) => Inventory.count(this.save, id);
+    const ready = wanted.every((id) => invCount(id) >= 1);
+    const pay = Macros.commissionPay(wanted, DELIVERY_BONUS_MULT);
+    const setIcons = wanted.map((id) => this.iconSpanHTML(id)).join(' ');
+    const setNames = wanted.map((id) => itemName(id)).join(' + ');
+    this.showOfferModal({
+      ...dress, kind: dress.kind,
+      title: 'Today\'s commission pays:',
+      get: this.moneyHTML(`+${pay}`),
+      cost: `[ ${setIcons} ${setNames} ]`,
+      blurb: ready ? `One a day at this hall. A new one in ${wait}.`
+        : Delivery.missingLine(wanted, invCount, (id) => itemName(id)).line,
+      canAfford: ready,
+      acceptLabel: 'Deliver',
+      cancelLabel: 'Later',
+      onAccept: () => {
+        const r = Macros.commissionDeliver(this.save, o, DELIVERY_BONUS_MULT);
+        if (!r.ok) { this.flash(`${r.why === 'used' ? 'Already paid today.' : 'Set incomplete now.'}`, sx, sy); return; }
+        this._clampSelSlot();
+        this._finishInventoryChange();
+        this.flashLoot(`+${r.gain}`, '#ffe066', 1, r.wanted[0]);
+      },
+    });
+  }
+
+  // CURIO HALL: donate ONE of the held item if this save has never given one
+  // (Macros.curioDonate — CURIO_DONATE_MUL × par, save.donated). Not a sell
+  // page and not a delivery: see src/macros.js.
+  _presentCurio(sx, sy, o, dress) {
+    const total = Macros.curioCollection().length;
+    const have = (this.save.donated || []).length;
+    const sel = getSelectedSlot(this.save);
+    const id = sel && (sel.count ?? 0) > 0 ? sel.id : null;
+    if (!id || !Macros.curioEligible(id)) {
+      this.showMessageModal({
+        kind: dress.kind, art: dress.art, title: 'The curio hall',
+        body: `The collection holds ${have} of ${total} curios. Hold one it lacks and tap the hall.`,
+      });
+      return;
+    }
+    if (Macros.curioDonated(this.save, id)) { this.flash('The hall has one already.', sx, sy); return; }
+    const pay = Macros.curioPay(id);
+    this.showOfferModal({
+      ...dress, kind: dress.kind,
+      title: 'The curio hall offers:',
+      get: this.moneyHTML(`+${pay}`),
+      cost: `${this.iconSpanHTML(id)} ${itemName(id)} ×1`,
+      blurb: `It holds ${have} of ${total} curios, and takes one of each, once.`,
+      canAfford: true,
+      acceptLabel: 'Donate',
+      cancelLabel: 'Keep',
+      onAccept: () => {
+        const r = Macros.curioDonate(this.save, id);
+        if (!r.ok) { this.flash(`${r.why === 'given' ? 'The hall has one already.' : 'Nothing to donate.'}`, sx, sy); return; }
+        this._clampSelSlot();
+        this._finishInventoryChange();
+        this.flashLoot(`Donated! +${r.gain}`, '#ffe066', 1, id);
+      },
+    });
+  }
+
+  // TRAINING HALL: a LESSON (+Combat.TRAINING_PERM_STEP damage for good, to
+  // TRAINING_PERM_CAP) or a DRILL (+TRAINING_BUFF_BONUS for TRAINING_BUFF_MS,
+  // one at a time). Both land in Combat.trainingMul, which _attackMul reads.
+  _presentTraining(sx, sy, o, dress) {
+    const pct = (x) => Math.round(x * 100);
+    const lessons = Combat.trainingLessons(this.save);
+    const lp = Macros.lessonPrice(this.save);
+    const dp = Macros.drillPrice();
+    const left = Macros.drillLeftMs(this.save);
+    const money = this.save.money ?? 0;
+    const drillLine = left > 0
+      ? `Today's drill: ${shortDuration(left)} left.`
+      : `A drill: +${pct(Combat.TRAINING_BUFF_BONUS)}% for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`;
+    this.showOfferModal({
+      ...dress, kind: dress.kind,
+      title: 'The master offers training:',
+      get: lp != null ? `A lesson: +${pct(Combat.TRAINING_PERM_STEP)}% damage for good`
+        : `Fully trained: +${pct(Combat.TRAINING_PERM_CAP)}% for good`,
+      cost: lp != null ? this.moneyHTML(lp) : undefined,
+      blurb: `Lessons so far: +${lessons * pct(Combat.TRAINING_PERM_STEP)}% of +${pct(Combat.TRAINING_PERM_CAP)}%. ${drillLine}`,
+      canAfford: lp != null && money >= lp,
+      acceptLabel: 'Lesson',
+      cancelLabel: 'Later',
+      secondary: {
+        label: `Drill ${this.moneyHTML(dp, 12)}`,
+        disabled: left > 0 || money < dp,
+        onClick: () => {
+          const r = Macros.buyDrill(this.save);
+          if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
+          this._finishInventoryChange();
+          this.flash(`+${pct(Combat.TRAINING_BUFF_BONUS)}% damage for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`, sx, sy);
+        },
+      },
+      onAccept: () => {
+        const r = Macros.buyLesson(this.save);
+        if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
+        this._finishInventoryChange();
+        this.flash(`+${pct(Combat.TRAINING_PERM_STEP)}% damage, for good.`, sx, sy);
       },
     });
   }
@@ -14437,7 +14670,7 @@ class MapScene extends Phaser.Scene {
       reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: `✨ reach anything in sight for ${shortDuration(REACH_POTION_MS)}`, channel: true },
       antidote: { verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?', get: 'cure poison without restoring energy', usable: () => Conditions.active(this.save, 'poison') },
       elixir: { verb: 'Drink', method: 'drinkElixir', title: 'Drink the Elixir?', get: 'restore full energy without curing poison or reviving', usable: () => this.save.energy > 0 && this.save.energy < this.getMaxEnergy() },
-      vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
+      vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: `restore ${VIGOR_POTION_ENERGY} energy` },
       speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `much faster, cheaper stick walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: `half monster damage for ${shortDuration(SHIELD_POTION_MS)}`, channel: true },
       raven_potion:  { verb: 'Drink', method: 'drinkRavenPotion',  title: 'Drink the Potion of the Raven?', get: `🐦 a spirit raven hunts foes & pest crows for ${shortDuration(SPIRIT_RAVEN_MS)}`, channel: true },

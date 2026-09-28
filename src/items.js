@@ -807,6 +807,10 @@ function fireBurnOutcome(id) {
   if (isPotion(id)) return { blastDmg: POTION_BLAST_DMG_PER_TIER * (ITEM_BY_ID[id]?.baseTier || 1) };
   return {};
 }
+// What one Potion of Vigor puts back on the bar. ONE number: the potion's own
+// drink (app.js drinkVigorPotion), its ✦ line, and the inn's coins-per-energy
+// rate (src/macros.js innPrice — PRICES.vigor_potion / this) all read it.
+const VIGOR_POTION_ENERGY = 40;
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
@@ -1135,7 +1139,9 @@ const PLAY_TIPS = [
   // ZONE_NEXUS_TIER_BONUS, "one").
   'A stone shrine at the heart of a named park leaves one gift a day for whoever touches it.',
   `Touch a church's headstone and one time in ${typeof Zones !== 'undefined' ? Math.round(1 / Zones.HEADSTONE_GHOST_P) : 3} the grave gives up a ghost, at any hour. About one stone in ${typeof Zones !== 'undefined' ? Math.round(1 / Zones.HEADSTONE_HOARD_SHARE) : 5} still hides a find, once.`,
-  'The chest at the heart of a grove, a churchyard or a fuel yard wears a gem one tier finer than its kind.',
+  // A churchyard's anchor is a CHAPEL now (a macro stall — loot.js macroFor),
+  // which wears no gem: its alms roll the bonus instead (Macros.chapelRollTier).
+  'The chest at the heart of a grove or a fuel yard wears a gem one tier finer than its kind, and a churchyard\'s chapel gives alms one tier finer.',
   // Fishing: available from the first water tile with nothing in hand, so it
   // is taught here beside the other things already lying around — and what
   // the ✦ row on the rod cannot carry is which fish arrives at which tier.
@@ -1152,6 +1158,13 @@ const PLAY_TIPS = [
   'A fort runs a slot machine: three prizes a day, and three of a kind wins one — a natural three pays double, and a star completes any pair. The dearest is the jackpot — two of it pays 3 coin back. Two stars pay back double your stake; three stars bring back a memory the first time, then 100 coin. Two stars beside the jackpot turn the machine deluxe: the next 10 spins pay every prize and coin double, and the first time brings back a memory. A spin costs exactly what it wins on average, each memory counted as 100 coin.',
   'A castle you have claimed offers one favour a day: a rest, or its taxes.',
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
+  // THE MACRO STALLS (loot.js macroFor, src/macros.js): the in-building POIs.
+  // books.test.js re-derives "half" (Macros.INN_RATE), "a tier"
+  // (CHAPEL_TIER_DROP), "half again" (DELIVERY_BONUS_MULT) and "twice"
+  // (CURIO_DONATE_MUL). The day gate is the coin-burst ledger.
+  'A building-front on the map is a place, not a chest, and it is never picked clean. An inn rests you to full once a day for half what a Potion of Vigor charges for the same energy; a chapel leaves alms once a day, a tier humbler than a chest of its kind.',
+  'A guildhall posts one commission a day and pays half again what the goods would fetch. A scriptorium lends you one page of its lore a day, free.',
+  'A curio hall pays twice an item\'s price for one of anything it lacks — once for each kind of thing, ever, whichever hall you give it to. It takes no seeds.',
   // ── The land you walk over ──────────────────────────────────
   // StreetVariants.ROCK_STREET_SHARE (a quarter) — books.test.js re-derives it.
   'Wild rock lines about one residential street in four; shrubs grow in parks, woods and industrial lots.',
@@ -1189,6 +1202,11 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.slime,
   // ── Fighting, once you are armed ────────────────────────────
   'Only one weapon is ever in play. Tap another in the Relics tab to make it the one that answers a foe.',
+  // The Training Hall (combat.js TRAINING_*, src/macros.js lesson prices):
+  // books.test.js re-derives every number here.
+  // (combat.js loads after this file, so the numbers are written out here and
+  // macro_poi.test.js pins each against Combat.)
+  'A training hall sells lessons: +1% damage for good each, up to +25%, and every lesson dearer than the last. Or a drill: +10% for a day, one at a time. Both ride on every blow and shot of your own, never a pet\'s.',
   'Worn armour soaks what a blow takes off your bar, and a set stacks: the pool covers half a hit, then half of what is left, four times over. It can never soak a blow to nothing — something always gets through.',
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
@@ -1291,7 +1309,7 @@ const ITEM_EFFECTS = {
   reach_potion:  'Drink to reach anything in sight (1 min)',
   antidote:     'Drink to cure poison',
   elixir:       'Drink to fill energy; no cooldown; does not revive or cure poison',
-  vigor_potion:  'Drink to restore 40 energy',
+  vigor_potion:  `Drink to restore ${VIGOR_POTION_ENERGY} energy`,
   speed_potion:  'Drink for faster control-stick walking at lower energy cost (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   blight_potion: 'Drink to hurt foes near you 2 HP/s (1 min)',

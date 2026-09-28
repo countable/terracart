@@ -119,7 +119,9 @@ Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
-  Buildings, moving creatures and canvas-baked street lamps have separate seating.
+  Buildings, foot-anchored stalls (market stands and the in-building macro
+  stalls, `src/macros.js`), moving creatures and canvas-baked street lamps have
+  separate seating.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
 - List actual crop `frames`, not sheet-cell counts. Hash the full id for

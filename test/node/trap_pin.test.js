@@ -35,7 +35,7 @@ const lift = (src, sig, what) => {
 };
 
 const TICK_SRC = lift(app, '_tickTraps(dt) {', '_tickTraps');
-const STORY_SRC = lift(app, '_storySplashOnce(key, { art, title, body, okLabel } = {}) {',
+const STORY_SRC = lift(app, '_storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {',
   '_storySplashOnce');
 const TOOL_SRC = lift(app, '_toolActionStory(action) {', '_toolActionStory');
 

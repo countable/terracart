@@ -101,6 +101,7 @@
       <li><b>Grove figures</b>: symmetric nexus aspects (compass roses ~1 park in 6–7, mirrored flower beds, diagonal trees / shrubs) laid whole or not at all; roses stay the rarer prize. A blocked pattern piece walks outward along its ray.</li>
       <li><b>One barricade (+ goblin) and one waystone per street per tile</b> (was one at every line end: Seattle 220 → 9 barricades, 164 → 28 waystones over 9 tiles).</li>
       <li>A dog whose spawn draw was only blocked by a generated piece is <b>seated on the bandit verge</b> instead of lost.</li>
+      <li><b>Macro stalls</b>: in-building POIs are no longer chests but places you come back to (looks <code>macro_inn</code>, <code>macro_chapel</code>, <code>macro_apothecary</code>, <code>macro_scriptorium</code>, <code>macro_guildhall</code>, <code>macro_curio</code>, <code>macro_sundries</code>, <code>macro_training</code> in "chests by look"; never opened, no gem, no pad). Inn (lodging) rests to full once a day at half a Vigor potion's coins per energy; chapel (place of worship) pays a daily roll <b>one tier under</b> the chest (+1 nexus in a churchyard); apothecary (pharmacy / dentist / hospital) sells one T2 potion + the antidote; scriptorium (library / college) a free Book page a day + Books; guildhall (town hall / police / fire station) one daily commission at the delivery premium; curio hall (museum / theatre / cinema) buys one of each item once at 2× par; sundries (generic <code>shop</code>) sells one supply item; training hall (sports centre / yoga) sells +1% damage for good (to +25%) or +10% for 24 h. A <code>shop</code> whose MVT <b>subclass</b> names produce (convenience, florist, coffee, confectionery…) is now a <b>market stall</b> first.</li>
     </ul>
   </div>
   <div id="wScope" class="scope"></div>
@@ -129,7 +130,7 @@
 
 <section>
   <h2>Default chest tiers</h2>
-  <p>Base chest tiers by location, where a chest is encountered. Surface market stalls sell goods; their underground copies are chests.</p>
+  <p>Base chest tiers by location, where a chest is encountered. Surface market stalls sell goods and surface macro stalls (inn, chapel, apothecary, scriptorium, guildhall, curio hall, sundries, training hall) offer a service; the underground copies of both are chests. The chapel's daily alms roll one tier under the tier shown.</p>
   <table id="defaultTiers"></table>
   <p id="tierRules"></p>
   <p>These are chest rules; market stands and coin-burst locations have their own interactions. Fixed starter crates have preset contents.</p>
@@ -496,7 +497,8 @@ function wMeasure(e, EDGE, errors) {
     m.chests.tier['T' + t] = (m.chests.tier['T' + t] || 0) + 1;
     if (c.poiClass === 'bus') m.chests.bus++;
     if (c.banditStop) m.chests.wagon++;
-    const mk = c.macro || c.poiMacro || c.macroKind;
+    let mk = null;
+    try { mk = (typeof chestLook === 'function' && chestLook(c).macro) ? chestLook(c).macro.kind : null; } catch (err) { mk = null; }
     if (mk) m.chests.macro[mk] = (m.chests.macro[mk] || 0) + 1;
   }
   // Slow ground and zone props.

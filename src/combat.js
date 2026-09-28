@@ -718,6 +718,36 @@
   // cells: a nudge to line up a tap is not a detour.
   const OFF_GPS_MIN_CELLS = 0.5;
 
+  // ── Training (the Training Hall — loot.js MACRO_KIND_BY_CLASS 'training') ─
+  // Damage the player BOUGHT, on the same `mul` the Dragon Powder and the
+  // off-GPS third ride (app.js _attackMul — the player's own melee, arrows and
+  // bolts; pets, turrets, powders and potions are not the player's attacks).
+  // Two purchases, one reason each:
+  //   • a LESSON: +TRAINING_PERM_STEP for good, per lesson, up to
+  //     TRAINING_PERM_CAP in total (so TRAINING_PERM_MAX lessons) — the count
+  //     is save.trainingPerm;
+  //   • a DRILL: +TRAINING_BUFF_BONUS for TRAINING_BUFF_MS, the expiry stamp
+  //     in save.trainingBuffUntil. One at a time: the hall sells no second
+  //     drill while one runs, so it never stacks.
+  // The two ADD (a +25% veteran on a drill hits at +35%). A bought bonus like
+  // the enforcer's, not a fudge factor on the ladder: the rung itself
+  // (15000 / toolDurationMs) is untouched. The prices are src/macros.js's.
+  const TRAINING_PERM_STEP = 0.01;
+  const TRAINING_PERM_CAP = 0.25;
+  const TRAINING_PERM_MAX = Math.round(TRAINING_PERM_CAP / TRAINING_PERM_STEP);
+  const TRAINING_BUFF_BONUS = 0.10;
+  const TRAINING_BUFF_MS = 24 * 60 * 60 * 1000;
+  function trainingLessons(save) {
+    return clamp(Math.floor(Number(save && save.trainingPerm) || 0), 0, TRAINING_PERM_MAX);
+  }
+  function trainingBuffActive(save, now = Date.now()) {
+    return (Number(save && save.trainingBuffUntil) || 0) > now;
+  }
+  function trainingMul(save, now = Date.now()) {
+    return 1 + trainingLessons(save) * TRAINING_PERM_STEP
+      + (trainingBuffActive(save, now) ? TRAINING_BUFF_BONUS : 0);
+  }
+
   function meleeSwingDamage(relics, mul = 1, playerClass) {
     return meleeDps(relics, playerClass) * (mul || 1) * MELEE_INTERVAL_MS / 1000;
   }
@@ -1195,6 +1225,8 @@
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, hpFraction,
     ELITE_MUL, isElite, eliteMul, lairMul, powerMul, maxHp,
+    TRAINING_PERM_STEP, TRAINING_PERM_CAP, TRAINING_PERM_MAX, TRAINING_BUFF_BONUS, TRAINING_BUFF_MS,
+    trainingLessons, trainingBuffActive, trainingMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, incomingDamage, playerDowned,

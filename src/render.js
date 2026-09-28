@@ -3018,6 +3018,7 @@ Render.drawObjects = function drawObjects(scene) {
               // exactly like the themed-house sprites. The pot art is already
               // gold, so no tint is applied. Produce stands pick the market_stand
               // awning frame for their product family (see produceStandFor).
+              // A macro stall (loot.js macroFor) is one 80×80 frame per kind.
               frame: (o) => { const L = chestLook(o);
                               return L.coin ? undefined : (L.stand ? L.stand.frame : 0); },
               // THE WAGON (a bus stop on a bandit road): 128×96 art, drawn at
@@ -3026,8 +3027,12 @@ Render.drawObjects = function drawObjects(scene) {
               // on the POI cell's bottom edge and the body rises north over it.
               // Stand: 80×80 stall art, foot-anchored like a small house so its
               // body rises north over the POI cell.
+              // A MACRO STALL (inn, chapel, apothecary, … — loot.js macroFor)
+              // is drawn exactly as the stall is: its art shares market_stand's
+              // 80×80 frame and box (x:[12,80) y:[0,70), feet on row 70), so
+              // every stall number below holds for it (a structure, not seated).
               origin: (o) => { const L = chestLook(o);
-                               return (L.stand || L.wagon) ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
+                               return (L.stand || L.macro || L.wagon) ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
               // Every chest kind and the market stall were drawn 10% smaller
               // than they used to be (per playtest — they crowded their cell),
               // about the SAME centre: the seated kinds (trunk chest, crates)
@@ -3040,7 +3045,7 @@ Render.drawObjects = function drawObjects(scene) {
               // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
               // are structures, not chests, and kept their scale.
               scale: (o) => { const L = chestLook(o);
-                              return L.wagon ? WAGON_SCALE : (L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.72))); },
+                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.72))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -3050,7 +3055,9 @@ Render.drawObjects = function drawObjects(scene) {
               // over its POI cell in situ. Both terms are re-derived whenever
               // the scale changes so shrinking the stall leaves its art centre
               // exactly where it was.
-              dxPx: (o) => { const L = chestLook(o); return L.stand ? -0.24 : (L.coin ? 4 : 0); },
+              // The macro art is centred in the same 12..80 box (trimmed centres
+              // x 45.5..46 against the stall's 46), so the stall's -0.24 holds.
+              dxPx: (o) => { const L = chestLook(o); return (L.stand || L.macro) ? -0.24 : (L.coin ? 4 : 0); },
               // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in
               // its cell, so the anchor is pushed down by the distance from the
               // art's middle to that anchor: (0.9-0.5)·16·scale. This is only the
@@ -3064,10 +3071,10 @@ Render.drawObjects = function drawObjects(scene) {
               // (= 45px art-centre-above-anchor × 0.54 - 5), which keeps the
               // stall exactly where it was, just 10% smaller.
               dyPx: (o) => { const L = chestLook(o);
-                             return L.wagon ? WAGON_DY_PX : (L.stand ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0))); },
+                             return L.wagon ? WAGON_DY_PX : ((L.stand || L.macro) ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0))); },
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => { const L = chestLook(o); return !L.stand && !L.coin && !L.wagon; },
+              seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.coin && !L.wagon; },
               shadow: true },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
@@ -3439,7 +3446,8 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.kind !== 'chest') continue;
     // Produce/food stands render their own 80×80 stall structure — a concrete
     // slab poking out from under the stall reads wrong, so they skip the pad.
-    if (produceStandFor(o)) continue;
+    // A macro stall (loot.js macroFor) is a building-front drawn the same way.
+    if (produceStandFor(o) || macroFor(o)) continue;
     const shapeKey = padShapeKeyForPoi(o.poiClass);
     if (!shapeKey) {
       if (o.crate) continue;
@@ -3962,7 +3970,9 @@ Render.drawObjects = function drawObjects(scene) {
   // labels, and pads — never gets occluded.
   // Crates (the `box` sprite — starter supply crates and tier-1 chests) are
   // excluded: the gem is a treasure-chest cue, so it shouldn't float over a crate.
-  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest' && !chestLook(o).box);
+  // Nor over a macro stall (loot.js macroFor): an inn or a chapel is a
+  // service, not a chest, and its tier is only what a chapel's alms roll from.
+  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest' && !chestLook(o).box && !chestLook(o).macro);
   const g = scene.tierGfx;
   g.clear();
   for (const item of chestObjs) {

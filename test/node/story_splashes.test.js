@@ -26,7 +26,7 @@ const lift = (sig, what, src = app, file = 'app.js') => {
   return src.slice(start + 1, end + 4);
 };
 
-const SPLASH_SRC = lift('_storySplashOnce(key, { art, title, body, okLabel } = {}) {',
+const SPLASH_SRC = lift('_storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {',
   '_storySplashOnce');
 
 // The restored-wreck card, for the restore-role pins.

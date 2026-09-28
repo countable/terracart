@@ -90,7 +90,12 @@ const FILES = [
   // reads WorldGen at CALL time like traps.js, so it loads beside it.
   'lairs.js',
   'worldgen.js', 'save.js',
-  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js', 'interactables.js', 'houses.js',
+  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js',
+  // The macro stalls' rules (inn, chapel, apothecary, … — prices, stock, the
+  // day gate, the curio collection, the training bought). Pure; reads the
+  // modules around it at CALL time.
+  'macros.js',
+  'interactables.js', 'houses.js',
   // The starter-area placers (trail, stash, relic chest, plot, pond, starter
   // home, greeter, pest amnesty) — moved out of app.js's MapScene. They read
   // the scene they are handed plus app.js's starter constants as GLOBALS at

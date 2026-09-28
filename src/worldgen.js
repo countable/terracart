@@ -3083,8 +3083,12 @@
             // `_poiAt`: the POI's own tile-local point — how an influence
             // zone (src/zones.js) finds the chest its anchor minted, however
             // far the placement below slides it.
+            // `subclass`: the MVT's finer kind (shop/convenience, lodging/hotel,
+            // …). Read by loot.js venueProductFor, where a generic `shop`'s
+            // subclass can name a produce stall before the Sundries counter
+            // takes the rest. Tile bytes only, so the same on every device.
             objects.push(makeObject('chest', cx, cy, id,
-              { poiClass: cls, name: f.tags.name || '', _poiAt: `${p.x},${p.y}` }));
+              { poiClass: cls, subclass: f.tags.subclass || '', name: f.tags.name || '', _poiAt: `${p.x},${p.y}` }));
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
             // Building polygons are independent of POIs and never overpainted: if the POI
             // point lands on or right next to a building, slide it to the nearest non-

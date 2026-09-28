@@ -169,6 +169,20 @@ const ASSETS = {
   headstone:      { kind: 'spritesheet', path: 'assets/Objects/Generated/headstone.png', frameWidth: 16, frameHeight: 16 },
   grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Generated/shrine.png', frameWidth: 16, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Generated/flint.png', frameWidth: 16, frameHeight: 16 },
+  // THE MACRO STALLS (loot.js MACRO_KIND_BY_CLASS / macroFor): the in-building
+  // POIs that are places you come back to. One 80×80 frame each, the same
+  // frame and box as market_stand (art in x:[12,80) y:[0,70)), drawn by
+  // RENDER_SPEC.chest exactly like the stall. Generated placeholders (see
+  // assets/Objects/Generated/README.md, Batch 3). The key is the look's
+  // texKey (`macro_<kind>`), so the renderer and the dialog icon agree.
+  macro_inn:         { kind: 'spritesheet', path: 'assets/Objects/Generated/inn.png', frameWidth: 80, frameHeight: 80 },
+  macro_chapel:      { kind: 'spritesheet', path: 'assets/Objects/Generated/chapel.png', frameWidth: 80, frameHeight: 80 },
+  macro_apothecary:  { kind: 'spritesheet', path: 'assets/Objects/Generated/apothecary.png', frameWidth: 80, frameHeight: 80 },
+  macro_scriptorium: { kind: 'spritesheet', path: 'assets/Objects/Generated/scriptorium.png', frameWidth: 80, frameHeight: 80 },
+  macro_guildhall:   { kind: 'spritesheet', path: 'assets/Objects/Generated/guildhall.png', frameWidth: 80, frameHeight: 80 },
+  macro_curio:       { kind: 'spritesheet', path: 'assets/Objects/Generated/curio.png', frameWidth: 80, frameHeight: 80 },
+  macro_sundries:    { kind: 'spritesheet', path: 'assets/Objects/Generated/sundries.png', frameWidth: 80, frameHeight: 80 },
+  macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training.png', frameWidth: 80, frameHeight: 80 },
   // Stone well — the in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch).

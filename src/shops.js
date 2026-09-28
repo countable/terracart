@@ -183,6 +183,6 @@
   global.Shops = {
     shopType, shopInk,
     ROLE_LABEL, roleLabel,
-    THEMES, THEME_LABEL, themeAt, shopOrder, themedStock, pickThemed, petItems,
+    THEMES, THEME_LABEL, THEME_POOL, themeAt, shopOrder, themedStock, pickThemed, petItems,
   };
 })(window);

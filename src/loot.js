@@ -18,7 +18,8 @@
 //   chestMirrorsUnderground
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
 //   STAND_NEVER_CLASSES,
-//   standWordItem, standNameItems, produceStandFor
+//   standWordItem, standNameItems, subclassProductFor, produceStandFor
+//   MACRO_KIND_BY_CLASS, MACRO_KINDS, macroFor
 //   chestLook
 //
 // Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade)
@@ -554,9 +555,25 @@ function standNameItems(name) {
 }
 
 // Raw venue product shared by surface stalls and themed underground mirrors.
+// The MVT `subclass` (worldgen.js carries it onto the chest) speaks for the
+// generic `shop` class, which names no goods of its own: a shop/convenience,
+// shop/florist, shop/confectionery or shop/coffee is the stall its subclass
+// says, BEFORE the Sundries counter (MACRO_KIND_BY_CLASS) takes the rest of
+// `shop`. It is read as a class first (STAND_CLASS_ITEM — convenience,
+// florist, bakery, butcher…) and then as a product word (confectionery,
+// coffee, cheese…), specific words only — a venue word is the name's job.
+// It sits AFTER a product word in the name (the sign's promise still wins)
+// and BEFORE a venue word, like the class it stands in for.
+function subclassProductFor(o) {
+  const sub = String((o && o.subclass) || '').toLowerCase();
+  if (!sub || !o || o.poiClass !== 'shop') return null;
+  if (STAND_CLASS_ITEM[sub]) return STAND_CLASS_ITEM[sub];
+  const hit = standWordItem(sub);
+  return hit && hit.specific ? hit.item : null;
+}
 function venueProductFor(o) {
   const named = standNameItems(o?.name);
-  return named.specific || STAND_CLASS_ITEM[o?.poiClass] || named.generic || null;
+  return named.specific || STAND_CLASS_ITEM[o?.poiClass] || subclassProductFor(o) || named.generic || null;
 }
 
 function produceStandFor(o) {
@@ -584,11 +601,55 @@ function produceStandFor(o) {
   return res;
 }
 
+// === Macro stalls — the in-building POIs that are places you come BACK to ===
+// A POI that is consistently INSIDE a building (the 36-tile census: lodging
+// 97%, place_of_worship 99%, pharmacy 96%, library 97%, …) is not a chest you
+// empty once: it stands as a building-front (80×80 art on market_stand's
+// frame, drawn like the stall — ~1.35 cells, foot-anchored, rising north over
+// its cell) and its tap is a SERVICE that is never consumed. One table, class
+// → kind, a pure function of the POI class (the MVT's, so every player sees
+// the same place); what the tap DOES lives in src/macros.js (Macros) and
+// app.js presentMacro, and only the player's USE reaches the save (the
+// coin-burst day ledger, save.donated, save.training*).
+//
+// It is NOT the market stall (produceStandFor): a stall sells the produce its
+// awning shows. The one overlap is the generic `shop`, and the stall wins it
+// — a shop whose name, subclass or class names produce is a stall; the rest is
+// a Sundries counter. A macro is never a chest either: never in save.opened,
+// no gem, no pad, and a cave-level mirror (o.depth > 0, worldgen.js
+// caveChestsFrom) stays a plain chest, as it does for the stall.
+const MACRO_KIND_BY_CLASS = {
+  lodging: 'inn',
+  place_of_worship: 'chapel',
+  pharmacy: 'apothecary', dentist: 'apothecary', hospital: 'apothecary',
+  library: 'scriptorium', college: 'scriptorium',
+  town_hall: 'guildhall', police: 'guildhall', fire_station: 'guildhall',
+  museum: 'curio', theatre: 'curio', cinema: 'curio',
+  shop: 'sundries',
+  sports_centre: 'training', yoga: 'training',
+};
+// Every kind, in a fixed order (the balancing page, the tests).
+const MACRO_KINDS = ['inn', 'chapel', 'apothecary', 'scriptorium', 'guildhall', 'curio', 'sundries', 'training'];
+// { kind, texKey } for a chest that stands as a macro, else null. Cached on
+// the object like produceStandFor's answer (every input is fixed at spawn and
+// a rebuilt tile is a NEW object). A scripted chest (a starter crate, the
+// spawn relic chest — o.crate / o.fixedLoot) is never one.
+function macroFor(o) {
+  if (!o || o.kind !== 'chest' || o.depth > 0 || o.crate || o.fixedLoot) return null;
+  if (o._macroCache !== undefined) return o._macroCache;
+  const kind = MACRO_KIND_BY_CLASS[o.poiClass] || null;
+  const res = (kind && !produceStandFor(o)) ? { kind, texKey: 'macro_' + kind } : null;
+  o._macroCache = res;
+  return res;
+}
+
 // Which of a chest's four LOOKS this object wears — the ONE resolver, so the
 // sprite the world drew and the picture a dialog shows can't drift apart. It
 // lived in render.js as a per-frame closure until the treasure ceremony needed
 // the same answer for its hero icon (a chest that stands on the map as a crate
 // opened under a diamond).
+//   macro → a macro stall (macroFor): an inn, chapel, apothecary, … — a
+//           building-front whose tap is a service; texKey `macro_<kind>`
 //   stand → the market stall: a shop, not a chest (produceStandFor)
 //   coin  → the pot of gold: a coin-burst POI. A cave-level mirror of one
 //           (worldgen.js caveChestsFrom) is a plain chest — the burst is a
@@ -615,9 +676,11 @@ function chestLook(o) {
   // Starter supply crates always use the box sprite; so does a tier-1 chest.
   const box = !!o.crate
     || ((typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) : 2) === 1;
-  const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !coin;
-  const texKey = coin ? 'potofgold' : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest')));
-  return (o._chestLook = { stand, coin, box: box && !wagon, wagon, texKey });
+  const macro = (!coin && typeof macroFor === 'function') ? macroFor(o) : null;
+  const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !coin && !macro;
+  const texKey = coin ? 'potofgold' : (macro ? macro.texKey
+    : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
+  return (o._chestLook = { stand, coin, macro, box: box && !wagon && !macro, wagon, texKey });
 }
 
 
