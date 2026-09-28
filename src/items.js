@@ -110,6 +110,16 @@ const CROP_SPRITE = {
   marigold:    { sheet: 'props', custom: true, frame: 34,  scale: 1.13 },  // golden marigold (row 1, col 12)
   wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.13 },  // red wild rose (row 1, col 8)
   starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.13 },  // glowing purple star-flower (row 4, col 14)
+  // ── Street variants (src/street_variants.js) — both CHOPPED like a shrub
+  // (WILDPLANT_RULES below), never scenery. The hedgerow's clipped hedge is
+  // props32 r8c5 (frame 7*9+4 = 67); the barricade road's barricade is the
+  // generated 16px piece.
+  hedge:       { sheet: 'props32', custom: true, frame: 67, scale: 0.9 },
+  barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
+  // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
+  // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
+  // frame of art, listed.
+  flint:       { sheet: 'flint', custom: true, frames: [0], scale: 1.36 },
 };
 
 // ── Which frame does THIS wild plant draw? ─────────────────────────────────
@@ -167,6 +177,13 @@ const WILDPLANT_RULES = {
   // work: the axe relic's ladder times the wheel and `workCharged` puts the
   // shared 9/3/1 tool curve on the bar.
   shrub:     { output: 'wood', workRelic: 'axe', workCharged: true },
+  // A hedgerow's hedge and a barricade road's barricade are the shrub's row —
+  // one lane, two more things standing on it: axe work, wood, `picked`.
+  hedge:     { output: 'wood', workRelic: 'axe', workCharged: true },
+  barricade: { output: 'wood', workRelic: 'axe', workCharged: true },
+  // A tar yard's flint nodule (src/zones.js) is picked instantly for nothing,
+  // like a shell, and hands over the Flint item (id 'coal').
+  flint:     { output: 'coal' },
   // Stone debris. The pick relic's ladder times the wheel the same way a rock
   // does — but gathering loose rubble off the ground costs no energy, so no
   // `workCharged`. The one wild plant that hides something.
@@ -790,6 +807,10 @@ function fireBurnOutcome(id) {
   if (isPotion(id)) return { blastDmg: POTION_BLAST_DMG_PER_TIER * (ITEM_BY_ID[id]?.baseTier || 1) };
   return {};
 }
+// What one Potion of Vigor puts back on the bar. ONE number: the potion's own
+// drink (app.js drinkVigorPotion), its ✦ line, and the inn's coins-per-energy
+// rate (src/macros.js innPrice — PRICES.vigor_potion / this) all read it.
+const VIGOR_POTION_ENERGY = 40;
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
@@ -1076,7 +1097,7 @@ const PLAY_TIPS = [
   'Fight where you truly stand. While the stick has carried you off your real footing, every blow and shot lands a third softer — walk there yourself to strike at full strength.',
   'The bar over a foe is its health, not a timer — green, then amber, then red.',
   'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
-  'Snares lie hidden on the verges beside roads, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 3 a second, so step off rather than wait it out.',
+  'Snares lie hidden on the verges of the big roads, in waste ground, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 3 a second, so step off rather than wait it out.',
   ITEM_GUIDE_TIPS.trap_kit,
   // The ghosts (app.js GHOST_*, combat.js MONSTERS.ghost): the first night
   // can be the first session, and a touch is an eighth of a fresh bar — so
@@ -1108,9 +1129,25 @@ const PLAY_TIPS = [
   'Sand is dug ground: a beach hides X marks far thicker than the streets and fields inland.',
   'The gem above a chest is its tier. Gemless chests never hold relics; only the violet and the gold ones reach Frost.',
   'Chests near home pay humbler: whatever their gem, they give a tier less within 700m of your trailer, two within 350m. The prizes are a walk away.',
+  // THE DAILY CRATE (interactables.js refillsDaily): the gemless crate comes
+  // back every UTC day at its own tier (the coin-burst day ledger); every
+  // other chest, and every X mark, is one-off (save.opened / foundTreasures).
+  'A plain crate refills every day, at midnight UTC. A trunk, a wagon, a cave chest or an X mark gives once, for good.',
+  // The POI light (interactables.js poiLit) — one mark for "still there today".
+  'A chest, crate, chapel or park shrine that glows still has something for you. Take it and the light goes out until the day turns.',
   'One stone in ten gathered off the ground hides a gemfruit.',
   'Every new kind of thing you discover brings back a memory, and a full tank with it. Unspent, they hum with a power you might yet learn to use.',
   'A shiny flower or tree is worth ten times the money, and brings back a memory with it.',
+  // THE INFLUENCE ZONES' finds (src/zones.js): the shrine's daily gift (the
+  // coin-burst ledger), the headstones' ghost and one-off hoard rates
+  // (Zones.HEADSTONE_GHOST_P / HEADSTONE_HOARD_SHARE — zones.test.js
+  // re-derives both) and the nexus chest's extra tier (loot.js
+  // ZONE_NEXUS_TIER_BONUS, "one").
+  'A stone shrine at the heart of a named park leaves one gift a day for whoever touches it.',
+  `Touch a church's headstone and one time in ${typeof Zones !== 'undefined' ? Math.round(1 / Zones.HEADSTONE_GHOST_P) : 3} the grave gives up a ghost, at any hour. About one stone in ${typeof Zones !== 'undefined' ? Math.round(1 / Zones.HEADSTONE_HOARD_SHARE) : 5} still hides a find, once.`,
+  // A churchyard's anchor is a CHAPEL now (a macro stall — loot.js macroFor),
+  // which wears no gem: its alms roll the bonus instead (Macros.chapelRollTier).
+  'The chest at the heart of a grove or a fuel yard wears a gem one tier finer than its kind, and a churchyard\'s chapel gives alms one tier finer.',
   // Fishing: available from the first water tile with nothing in hand, so it
   // is taught here beside the other things already lying around — and what
   // the ✦ row on the rod cannot carry is which fish arrives at which tier.
@@ -1127,8 +1164,31 @@ const PLAY_TIPS = [
   'A fort runs a slot machine: three prizes a day, and three of a kind wins one — a natural three pays double, and a star completes any pair. The dearest is the jackpot — two of it pays 3 coin back. Two stars pay back double your stake; three stars bring back a memory the first time, then 100 coin. Two stars beside the jackpot turn the machine deluxe: the next 10 spins pay every prize and coin double, and the first time brings back a memory. A spin costs exactly what it wins on average, each memory counted as 100 coin.',
   'A castle you have claimed offers one favour a day: a rest, or its taxes.',
   'A roadside stall undercuts the listed price, and the finer your sword the smaller that discount gets — there is no buying cheap from one and selling on at a profit.',
+  // THE MACRO STALLS (loot.js macroFor, src/macros.js): the in-building POIs.
+  // macro_poi.test.js re-derives "half" (Macros.INN_RATE), "a tier"
+  // (CHAPEL_TIER_DROP), "the same again" (BOUNTY_MATCH) and the curio
+  // milestones (CURIO_MILESTONES). The day gate is the coin-burst ledger.
+  'A building-front on the map is a place, not a chest, and it is never picked clean. An inn rests you to full once a day for half what a Potion of Vigor charges for the same energy; a chapel leaves alms once a day, a tier humbler than a chest of its kind.',
+  'A guildhall posts one bounty a day: take it and a pack comes for you close by. Each kill drops its own coin, and clearing the pack pays the same again. Walk away from them, or let the day turn, and the bounty is lost.',
+  'A curio hall pays no coin. Every hall keeps the one collection of things that last — metal, gems, shells, feathers, lasting supplies — one of each, and a memory comes back at the 5th, 10th and 15th thing given.',
   // ── The land you walk over ──────────────────────────────────
-  'Wild rock grows in residential streets; shrubs in parks, woods and industrial lots.',
+  // StreetVariants.ROCK_STREET_SHARE (a quarter) — books.test.js re-derives it.
+  'Wild rock lines about one residential street in four; shrubs grow in parks, woods and industrial lots.',
+  // The bandit roads (src/street_variants.js MAJOR size: BANDIT_STRETCH_SHARE
+  // stretches, WAGON_STOP_SHARE wagons; lairs.js 'wagon' / 'barricade';
+  // traps.js BANDIT_VERGE_DENSITY_MUL; the dogs' attracts row).
+  'The big roads are bandit country in every mode, but the bandits work only stretches of them: a clear run, then a verge thick with snares. Dogs prowl the whole road, a goblin guards the odd broken wagon at a stop, and every barricade has its goblin.',
+  // app.js SLOW_BODY_M_S / _bodyHold.
+  'Tar and iron stakes on a burned road drag at your feet: your body falls behind where you truly stand until you step clear.',
+  // The influence zones (src/zones.js): the halo ground, the tar yard's tar
+  // (the same slow) and its fire slimes (lairs.js 'tar', every mode).
+  'Parks, churches and fuel yards spread their own ground around them. A fuel yard weeps tar that drags at your feet the same way, and fire slimes hold its pumps in every mode.',
+  // interactables.js INTERACTABLES.waystone.
+  'Touch a waystone on a pilgrim\'s way and it tells you one page of old lore — once per stone.',
+  // StreetVariants closes + lairs.js 'close' (a giant goblin, every mode).
+  'A hedged lane that ends in a dead end is held by a giant goblin, and something is buried at the end of it.',
+  // StreetVariants.LANTERN_SPACING_DIV (twice).
+  'A lantern row, once rebuilt, stands its lamps twice as thick as any other street.',
   'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds, coin, fruit, potions, supplies, feathers, or boots — some wearable, some old junk.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
@@ -1148,10 +1208,18 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.slime,
   // ── Fighting, once you are armed ────────────────────────────
   'Only one weapon is ever in play. Tap another in the Relics tab to make it the one that answers a foe.',
+  // The Training Hall (combat.js TRAINING_*, src/macros.js lesson prices):
+  // books.test.js re-derives every number here.
+  // (combat.js loads after this file, so the numbers are written out here and
+  // macro_poi.test.js pins each against Combat.)
+  'A training hall sells lessons: +1% damage for good each, up to +25%, and every lesson dearer than the last. Or a drill: +10% for a day, one at a time. Both ride on every blow and shot of your own, never a pet\'s.',
   'Worn armour soaks what a blow takes off your bar, and a set stacks: the pool covers half a hit, then half of what is left, four times over. It can never soak a blow to nothing — something always gets through.',
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
   'Anything hostile you put down drops its pay as one coin where it fell — about a coin per 5 hit points, a little more for every level down. Walk over and pick it up.',
+  // creature_ai.js GHOST_ZONE_DUSK / GHOST_ZONE_CADENCE_MUL (the churchyard
+  // reason — churches and cemeteries only); zones.test.js re-derives "twice".
+  'Around a church or a graveyard the dead do not wait for full dark: from dusk they rise twice as often, and they come up from among the stones.',
   'Towers on a castle you have CLAIMED fight on your side: any in sight looses an arrow at the nearest foe, at a fifth of your own rate, and a foe that strays near its walls turns and runs, as it would from Home. A tower\'s kill leaves its coin and nothing more. An unclaimed castle\'s walls stay silent.',
   // ── Underground, which you go looking for ───────────────────
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore; underground, every level is a mine of its own metal and the one before it — iron and copper three levels down, and so on to the deepest.',
@@ -1247,7 +1315,7 @@ const ITEM_EFFECTS = {
   reach_potion:  'Drink to reach anything in sight (1 min)',
   antidote:     'Drink to cure poison',
   elixir:       'Drink to fill energy; no cooldown; does not revive or cure poison',
-  vigor_potion:  'Drink to restore 40 energy',
+  vigor_potion:  `Drink to restore ${VIGOR_POTION_ENERGY} energy`,
   speed_potion:  'Drink for faster control-stick walking at lower energy cost (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   blight_potion: 'Drink to hurt foes near you 2 HP/s (1 min)',
@@ -1910,7 +1978,9 @@ function isLowTierSeed(id) {
 // and render.js' tilled-cell draw. It lived in app.js until Sep 2026, which is
 // why the headless suite had to parse the Set out of app.js' source text to
 // know which codes interact.js' flavour handler had to cover.
-const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25]);
+// 31 = TAR_YARD (an influence zone's halo round a fuel station, src/zones.js):
+// oily ground that weeps tar — nothing takes root in it.
+const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25, 31]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 // The full "can this CELL take a hoe / placement / released animal" test:
 // soil-ish terrain AND no drawn road band over it. A cell's terrain says

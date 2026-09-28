@@ -80,6 +80,37 @@
     }
   });
 
+  test('NPC zones: grove and churchyard halos have elves; tar influence excludes residents', () => {
+    for (const terrain of [T.GROVE, T.CHURCHYARD]) {
+      const residents = NPC.spawn(scene(), entry(terrain), 0, 0, {});
+      assert.eq(residents.length, NPC.COUNT);
+      for (const c of residents) {
+        assert.eq(c.zone, 'shrine');
+        assert.truthy(/^(Ae|Eli|Gala|Syl)/.test(c.name), 'uses elvish name prefixes');
+        assert.gte((c.tint >> 8) & 255, (c.tint >> 16) & 255);
+        assert.gte((c.tint >> 8) & 255, c.tint & 255);
+      }
+    }
+    for (const kind of ['grove', 'stones', 'tar']) {
+      // Named zones cover unchanged underlying terrain as well as halos.
+      const e = entry(T.PARK);
+      e.zone = { idx: new Uint8Array(N * N).fill(1), s: new Uint8Array(N * N).fill(255), anchors: [{ kind }] };
+      e.genObjects.push({ id: 'grove_shrine', kind: 'grove_shrine', x: EDGE_M / 2, y: EDGE_M / 2 });
+      const residents = NPC.spawn(scene(), e, 0, 0, {});
+      assert.eq(residents.length, kind === 'tar' ? 0 : NPC.COUNT);
+      assert.truthy(residents.every(c => c.zone === 'shrine'));
+    }
+    assert.eq(NPC.spawn(scene(), entry(T.TAR_YARD), 0, 0, {}).length, 0);
+  });
+
+  test('NPC spawn: grove shrine landmarks attract elves outside their painted halo', () => {
+    const e = entry(T.FOREST);
+    e.genObjects.push({ id: 'grove_shrine', kind: 'grove_shrine', x: EDGE_M / 2, y: EDGE_M / 2 });
+    const residents = NPC.spawn(scene(), e, 0, 0, {});
+    assert.gt(residents.length, 0);
+    assert.truthy(residents.every(c => c.zone === 'shrine'));
+  });
+
   test('NPC shrine residents: restored wizard house adds four stable elves without rerolling neighbours', () => {
     const e = entry(), s = scene();
     const house = { kind: 'house', id: 'house_0_0_16_16', x: EDGE_M / 2, y: EDGE_M / 2 };

@@ -497,7 +497,7 @@ const _WAVE_TABLE = (() => {
 // Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
 // (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
 const WATERED_TINT = 0xc7c7c7;
-const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 27, 30]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, wasteland, unmapped fog
+const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
 // Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
@@ -2395,9 +2395,21 @@ Render.drawObjects = function drawObjects(scene) {
   // Opened chests: dropped from the sprite list below AND never offered to the
   // lightmap — an emptied POI is no longer a place that glows.
   const openedSet = setOf(scene.save.opened);
-  // Golden cauldrons used today (interactables.js coinBurstUsedSet): hidden,
-  // and unlit, exactly like an opened chest until the UTC day rolls.
+  // The day ledger (interactables.js coinBurstUsedSet): a golden cauldron, a
+  // daily crate, the chapel's alms or a grove shrine's gift taken TODAY —
+  // unlit (and a cauldron / crate hidden) until the UTC day rolls.
   const burstSet = coinBurstUsedSet(scene.save);
+  // The frame's spent sets, built ONCE and handed to isSpent (the sprite cull
+  // below) and poiLit (the POI light) alike.
+  const spentIds = {
+    opened: openedSet,
+    burst: burstSet,
+    // In-memory o.chopped is set by the chop wheel; save.chopped is the source
+    // of truth that survives a tile re-rasterize. isSpent checks both.
+    chopped: setOf(scene.save.chopped),
+    picked: pickedSet,
+    broken: scene.brokenRockSet || new Set(),
+  };
   const pc = scene.playerToWorldCell();
   // Counted alongside the loop below, not derived after it: "how much does
   // this walk touch" is the number the case for a spatial index needs, and
@@ -2436,7 +2448,10 @@ Render.drawObjects = function drawObjects(scene) {
           // its light reaches further than its art: offered to the lightmap
           // before the sprite cull, with its own radius as the margin, so a
           // lantern a cell off-screen still lights the edge it stands past.
-          if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch')) LIGHTS.consider(scene, o, dx, dy, halfM);
+          if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine')) LIGHTS.consider(scene, o, dx, dy, halfM);
+          // A grove shrine whose gift is still there today ALSO wears the POI
+          // light — the one "something to take here" mark (poiLit).
+          if (LIGHTS && o.kind === 'grove_shrine' && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
           if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;
           if (o.kind === 'chest' && isDupChest(o)) return;
           // A live POI is a light too — offered AFTER the dedup (a per-frame
@@ -2444,7 +2459,9 @@ Render.drawObjects = function drawObjects(scene) {
           // order the sprite pass does) and inside the sprite cull, which its
           // small radius makes near enough: a cell off-screen it shows a hand's
           // width of glow at most.
-          if (LIGHTS && o.kind === 'chest' && !o.crate && !openedSet.has(o.id) && !burstSet.has(o.id)) LIGHTS.consider(scene, o, dx, dy, halfM);
+          // Lit while there is something to take (interactables.js poiLit): an
+          // unopened chest, and a daily crate / chapel only until today's take.
+          if (LIGHTS && o.kind === 'chest' && poiLit(o, spentIds)) LIGHTS.consider(scene, o, dx, dy, halfM);
           // Anchor outside the ordinary viewport: the SPRITE (and its shadow)
           // still draw, but the label passes skip it — a sign or open/busy
           // plaque for an off-screen building would be clamped to the screen
@@ -2586,8 +2603,8 @@ Render.drawObjects = function drawObjects(scene) {
   // drawRoadGeometry a moment before this pass) and the same `lit` flag decides
   // the art here and the light in Lighting.collectLamps.
   const lampList = (scene._streetLamps || []).map(L => ({
-    o: { kind: '_streetlamp', x: L.x, y: L.y, lit: L.lit, tier: L.tier,
-         id: `lamp_${L.x.toFixed(2)}_${L.y.toFixed(2)}` },
+    o: { kind: '_streetlamp', x: L.x, y: L.y, lit: L.lit, tier: L.tier, glow: L.glow,
+         id:`lamp_${L.x.toFixed(2)}_${L.y.toFixed(2)}` },
     dx: L.x - pWorldX, dy: L.y - pWorldY,
   })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
 
@@ -2600,15 +2617,7 @@ Render.drawObjects = function drawObjects(scene) {
   // `opened` and `picked` are the ones the POI-light and wildplant passes above
   // already built. (isSpent takes sets rather than the save for exactly this:
   // it runs over every object of the 3×3 ring, every frame.)
-  const spentIds = {
-    opened: openedSet,
-    burst: burstSet,
-    // In-memory o.chopped is set by the chop wheel; save.chopped is the source
-    // of truth that survives a tile re-rasterize. isSpent checks both.
-    chopped: setOf(scene.save.chopped),
-    picked: pickedSet,
-    broken: scene.brokenRockSet || new Set(),
-  };
+  // (spentIds is the frame's sets, built above the object walk.)
   // EVERY opened chest vanishes, crates included. A looted crate used to stay
   // put as an open-lid "already cracked this one" marker, but the empty-crate
   // sprite read as broken art wherever it sat, and an emptied crate is worth
@@ -2677,6 +2686,13 @@ Render.drawObjects = function drawObjects(scene) {
   // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
   // 32px cell.
   const CRATE_SCALE = 0.8;
+  // The broken WAGON a bandit-road bus stop wears (loot.js chestLook): the
+  // 128×96 frame's art is 88 px wide (x 20..108) and ends 2 px above the frame
+  // bottom, so 0.55 draws it ~1.5 cells wide, and WAGON_DY_PX drops the
+  // foot-anchored frame so the art's bottom row sits 1 px above the POI cell's
+  // bottom edge (half a cell, less that pixel, plus the 2 blank rows scaled).
+  const WAGON_SCALE = 0.55;
+  const WAGON_DY_PX = CELL_PX * 0.5 - 1 + 2 * WAGON_SCALE;
   // Pick the themed-sprite role for a 'house' object. 'plain' falls back
   // to the generic 'house' texture (the tinted shared sprite). Order
   // matters: starter wins over tier wins over shopType — so a tier-11
@@ -2899,7 +2915,10 @@ Render.drawObjects = function drawObjects(scene) {
     // STREET_LAMP_DARK_CELLS), and setDisplaySize says that without this row
     // having to know either texture's pixel size.
     _streetlamp: {
-      key: (o) => (o.lit ? STREET_LAMP_TEX : STREET_LAMP_DARK_TEX),
+      // A lit lamp draws the bake for ITS glow (streetLampTexKey — the plain
+      // STREET_LAMP_TEX for the default, one texture per colour otherwise,
+      // baked by app.js _ensureStreetLampTex before this pass runs).
+      key: (o) => (o.lit ? streetLampTexKey(o.glow) : STREET_LAMP_DARK_TEX),
       frame: (o) => (o.lit ? '__BASE' : streetLampDarkFrame(o.tier)),
       origin: (o) => (o.lit ? [0.5, STREET_LAMP_ORIGIN_Y] : [0.5, 0.5]),
       // The post's own nudge (see STREET_LAMP_DY_PX): the ART sits a pixel
@@ -3008,12 +3027,21 @@ Render.drawObjects = function drawObjects(scene) {
               // exactly like the themed-house sprites. The pot art is already
               // gold, so no tint is applied. Produce stands pick the market_stand
               // awning frame for their product family (see produceStandFor).
+              // A macro stall (loot.js macroFor) is one 80×80 frame per kind.
               frame: (o) => { const L = chestLook(o);
                               return L.coin ? undefined : (L.stand ? L.stand.frame : 0); },
+              // THE WAGON (a bus stop on a bandit road): 128×96 art, drawn at
+              // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
+              // a structure, not a chest, so it is not seated; its wheels sit
+              // on the POI cell's bottom edge and the body rises north over it.
               // Stand: 80×80 stall art, foot-anchored like a small house so its
               // body rises north over the POI cell.
+              // A MACRO STALL (inn, chapel, apothecary, … — loot.js macroFor)
+              // is drawn exactly as the stall is: its art shares market_stand's
+              // 80×80 frame and box (x:[12,80) y:[0,70), feet on row 70), so
+              // every stall number below holds for it (a structure, not seated).
               origin: (o) => { const L = chestLook(o);
-                               return L.stand ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
+                               return (L.stand || L.macro || L.wagon) ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
               // Every chest kind and the market stall were drawn 10% smaller
               // than they used to be (per playtest — they crowded their cell),
               // about the SAME centre: the seated kinds (trunk chest, crates)
@@ -3026,7 +3054,7 @@ Render.drawObjects = function drawObjects(scene) {
               // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
               // are structures, not chests, and kept their scale.
               scale: (o) => { const L = chestLook(o);
-                              return L.stand ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.72)); },
+                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.72))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -3036,7 +3064,9 @@ Render.drawObjects = function drawObjects(scene) {
               // over its POI cell in situ. Both terms are re-derived whenever
               // the scale changes so shrinking the stall leaves its art centre
               // exactly where it was.
-              dxPx: (o) => { const L = chestLook(o); return L.stand ? -0.24 : (L.coin ? 4 : 0); },
+              // The macro art is centred in the same 12..80 box (trimmed centres
+              // x 45.5..46 against the stall's 46), so the stall's -0.24 holds.
+              dxPx: (o) => { const L = chestLook(o); return (L.stand || L.macro) ? -0.24 : (L.coin ? 4 : 0); },
               // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in
               // its cell, so the anchor is pushed down by the distance from the
               // art's middle to that anchor: (0.9-0.5)·16·scale. This is only the
@@ -3050,10 +3080,10 @@ Render.drawObjects = function drawObjects(scene) {
               // (= 45px art-centre-above-anchor × 0.54 - 5), which keeps the
               // stall exactly where it was, just 10% smaller.
               dyPx: (o) => { const L = chestLook(o);
-                             return L.stand ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0)); },
+                             return L.wagon ? WAGON_DY_PX : ((L.stand || L.macro) ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0))); },
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => { const L = chestLook(o); return !L.stand && !L.coin; },
+              seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.coin && !L.wagon; },
               shadow: true },
     fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
               frame: (o) => {
@@ -3172,6 +3202,21 @@ Render.drawObjects = function drawObjects(scene) {
     // so a plain frame-centred origin works — the seat pass refines the
     // final offsets from the trimmed bounds.
     pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, seat: true, shadow: true },
+    // STREET VARIANT PROPS (src/street_variants.js). All 16px generated art
+    // drawn at 1.6 (~26px) and SEATED in their one cell. The waystone stands
+    // (a tap reads a page of the Book — INTERACTABLES.waystone); the tar pit
+    // and the iron stakes are the Burned Row's hazards (they SLOW the body —
+    // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
+    waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    stakes:   { key: 'stakes',   frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true },
+    // INFLUENCE ZONE PROPS (src/zones.js) — generated 16px art at the same
+    // 1.6, seated. A headstone stands in an Old Stones churchyard (a tap may
+    // raise a ghost or pay a one-off find — INTERACTABLES.headstone); the
+    // grove shrine (16×24, so it bottom-seats) gives a daily gift and is a
+    // light (Lighting.KINDS.shrine).
+    headstone:    { key: 'headstone',    frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    grove_shrine: { key: 'grove_shrine', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. Tap
     // refills the watering can (interact.js). scale 0.9 draws the 30px frame at
     // ~27px, inside its one cell (QC rule); the seat pass centres it there off
@@ -3410,7 +3455,8 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.kind !== 'chest') continue;
     // Produce/food stands render their own 80×80 stall structure — a concrete
     // slab poking out from under the stall reads wrong, so they skip the pad.
-    if (produceStandFor(o)) continue;
+    // A macro stall (loot.js macroFor) is a building-front drawn the same way.
+    if (produceStandFor(o) || macroFor(o)) continue;
     const shapeKey = padShapeKeyForPoi(o.poiClass);
     if (!shapeKey) {
       if (o.crate) continue;
@@ -3933,13 +3979,15 @@ Render.drawObjects = function drawObjects(scene) {
   // labels, and pads — never gets occluded.
   // Crates (the `box` sprite — starter supply crates and tier-1 chests) are
   // excluded: the gem is a treasure-chest cue, so it shouldn't float over a crate.
-  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest' && !chestLook(o).box);
+  // Nor over a macro stall (loot.js macroFor): an inn or a chapel is a
+  // service, not a chest, and its tier is only what a chapel's alms roll from.
+  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest' && !chestLook(o).box && !chestLook(o).macro);
   const g = scene.tierGfx;
   g.clear();
   for (const item of chestObjs) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
-    const tier = chestTier(o.poiClass, o.x, o.y, o.depth);
+    const tier = chestTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
     const cx = Math.round(sx + 1);   // +2px right (was sx - 1)
@@ -4319,7 +4367,7 @@ Render.drawObjects = function drawObjects(scene) {
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
       cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, rabbit: 14, chicken: 14,
-      butterfly: 9, slime: 22, cave_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
+      butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
       const { c, dx, dy } = item;

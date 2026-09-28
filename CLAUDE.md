@@ -55,6 +55,10 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
+- Chests give ONCE (`save.opened`), except what recurs daily: low-tier
+  crates (`refillsDaily`), chapels and grove shrines take the UTC-day ledger
+  (`Macros.markToday` / `usedToday`) and glow while available (`poiLit`). A new
+  daily thing joins that ledger and that glow, never a list of its own.
 - Derive generated ids/seeds from tile + local cell or OSM id, never array
   indices, timestamps or save-relative metres. The transient pest crow is the
   id exception. Per-save salts may vary rewards, not positions;
@@ -73,6 +77,24 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coin pickups may occupy roads,
   but not objects.
   Cave traps use their occupied-cell set; surface traps sit on the verge.
+- Road rules: surface traps belong only on the verges of BANDIT STRETCHES of
+  major roads (`entry.roadClass` bit `ROAD_CLASS_BANDIT_VERGE`, stamped by
+  `stampBanditStretchesSteps`) and on WASTELAND (`Traps.isTrapGround`, which
+  reads the land's class under a zone halo). Where a species prefers to stand
+  is an `attracts` column (street variant rows, `Zones.ZONE_KINDS`,
+  `BIOME_ATTRACTS`) read by `_seatFaunaOnFavouriteGround`: relocate existing
+  spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`
+  fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
+  hazard joins that map, never a new movement gate.
+- Influence zones (`src/zones.js`): anchors are POI points (park→grove,
+  fuel→tar, place of worship / cemetery→stones), sized from local crowding
+  inside the poi buffer so every tile agrees. The halo repaints ONLY
+  RESIDENTIAL / COMMERCIAL / WASTELAND, last in `rasterizeTileSteps`. Each
+  owned anchor's chest (id unchanged, `zoneNexus` → `ZONE_NEXUS_TIER_BONUS`)
+  gets a nexus pattern laid like street dressing (roadMask + occupied). No
+  decorative props: every standing piece is interactable or a hazard, one
+  art per interactable. Zone mechanics are reasons on existing lanes (tar
+  slow, lair tier, `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
 - Tile rebuilds replace the entry. Decide which state survives and which is
   regenerated; gate spawning on `entry._spawned`, not carried `creatures`.
   Do not cache a final answer from a tile still loading (no `layers` yet).
@@ -84,7 +106,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   A profile's worst-block label identifies the block ending at that yield.
 
 Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
-`spawn_rebuild`, `tile_url`, `tile_build_blocks` (`test/node/*.test.js`).
+`spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`
+(`test/node/*.test.js`).
 
 ## Coordinates, rendering and performance
 
@@ -100,7 +123,9 @@ Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
-  Buildings, moving creatures and canvas-baked street lamps have separate seating.
+  Buildings, foot-anchored stalls (market stands and the in-building macro
+  stalls, `src/macros.js`), moving creatures and canvas-baked street lamps have
+  separate seating.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
 - List actual crop `frames`, not sheet-cell counts. Hash the full id for

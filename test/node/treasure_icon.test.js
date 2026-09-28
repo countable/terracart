@@ -32,7 +32,9 @@ const lift = (sig, what) => {
 const WORLD_ICON_SRC = lift('worldIconHTML(texKey, sizePx = 26) {', 'worldIconHTML');
 
 // ── The one resolver, run for real ────────────────────────────────────────
-const chest = (over) => ({ kind: 'chest', poiClass: 'library', x: 0, y: 0, ...over });
+// A memorial: an ordinary civic T3 trunk. (It was a library until the library
+// became a macro stall — a Scriptorium — and stopped being a chest at all.)
+const chest = (over) => ({ kind: 'chest', poiClass: 'memorial', x: 0, y: 0, ...over });
 // A chest's tier (chestTier) is the world's — Home softens only what it
 // PAYS (chestRollTier), never its look. These still run with no origin so
 // each case says only what it means.
@@ -55,6 +57,12 @@ test('treasure icon: chestLook names the sprite each chest wears', () => noHome(
   const stall = chestLook(chest({ poiClass: 'bakery', name: 'Corner Bakery' }));
   assert.eq(stall.texKey, 'market_stand', 'a produce stand is the stall');
   assert.truthy(stall.stand, 'and carries the stand it resolved');
+  // A macro stall (loot.js macroFor) wears its kind's building-front, and is
+  // neither a box nor a stall; a cave mirror of one is a plain chest again.
+  const inn = chestLook(chest({ poiClass: 'lodging' }));
+  assert.eq(inn.texKey, 'macro_inn', 'a lodging POI is the inn');
+  assert.truthy(inn.macro && inn.macro.kind === 'inn' && !inn.box && !inn.stand, 'and only the inn');
+  assert.eq(chestLook(chest({ poiClass: 'library', depth: 1 })).texKey, 'chest', 'a scriptorium underground is a chest');
 }));
 
 test('treasure icon: the look is resolved once and cached on the object', () => {

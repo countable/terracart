@@ -186,6 +186,16 @@
                             boot: 1, pairy: 3, crow_feather: 0.3, reach_potion: 1, vigor_potion: 1,
                             speed_potion: 1, shield_potion: 1, revive_potion: 1,
                           } } },
+    // ── A grove shrine's daily gift (src/zones.js, INTERACTABLES.grove_shrine)
+    // One roll a day per shrine, worth about a buried X: the X's flat curve
+    // (no chain, T1-2, no relics), a gardener's classes — seeds first, then
+    // produce, then a magic item — and the growth powder as its FAVOURITE,
+    // the way a school is known for its Book: a grove is where things grow.
+    // (No sapling share: saplings start at T3, past this curve's ceiling, so
+    // a sapling draw would pay nothing.)
+    'treasure:shrine':  { classBias: { seed:0.55, produce:0.30, magic:0.15 },
+                          chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
+                          favourite: { id: 'growth_powder', p: 0.5 } },
     // ── Elite monster drop ──────────────────────────────────────
     // What a shiny cave monster pays once its kind's memory is
     // banked (app.js › resolveDefeat). Biased to RELICS — half the class

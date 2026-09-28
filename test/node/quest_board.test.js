@@ -121,7 +121,10 @@
   // registered table in its own order — and this pins that the derivation
   // still hands back exactly what was typed, in the order it was typed in.
   // (Eleven since the goblin trapper and its giant joined the table; twelve
-  // since the ghost — a surface night kind, so it has no giant.)
+  // since the ghost — a surface night kind, so it has no giant; thirteen
+  // since the park's rooted plant. The tar yard's fire slime is in the table
+  // but NOT on the board: its row says `board: false` (Combat.onQuestBoard) —
+  // a zone-only foe.)
   test('quest board: the enemy list derives to the same thirteen, in the same order', () => {
     Combat.registerMonsters(MONSTERS);
     const expected = [
@@ -137,6 +140,14 @@
       + 'giant purple slime|giant goblin|giant goblin archer|giant goblin trapper', 'display names');
     // The surface slime leads: the only foe you can meet without going down.
     assert.eq(questEnemies()[0], 'slime', 'the slime is still first');
+    // The fire slime is a registered enemy, kept off the board by its row.
+    assert.truthy(Combat.isEnemyKind('fire_slime'), 'the fire slime is still an enemy');
+    assert.falsy(questEnemies().includes('fire_slime'), 'but never a kill job');
+    assert.falsy(Combat.onQuestBoard('fire_slime'), 'its row says board: false');
+    for (let g = 0; g < 400; g++) {
+      const q = Quests.generate(g % QUEST_SLOTS, g, 30, 3);
+      assert.truthy(q.verb !== 'kill' || q.target !== 'fire_slime', `gen ${g} never names a fire slime`);
+    }
   });
 
   test('quest board: a kind registered into Combat reaches the board on its own', () => {

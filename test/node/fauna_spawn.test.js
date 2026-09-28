@@ -41,12 +41,15 @@ function makeTryPlace(scene, rng, N, pestFree, entry, _spawnOpts, tx, ty, caught
   // entry has one — these stubs don't, so it is the grid itself).
   const cellM = scene.cellM;
   const genGrid = entry.baseGrid || entry.grid;
+  // `unseated`: the displaced-not-lost list (an animal whose every draw
+  // failed, one of them only on a generated piece's cell).
+  const unseated = [];
   const factory = new Function(
     'rng', 'N', 'pestFree', 'entry', '_spawnOpts', 'tx', 'ty', 'caughtSet', 'creatures',
-    'cellM', 'genGrid', 'faunaSeats',
+    'cellM', 'genGrid', 'unseated', 'faunaSeats',
     'return (kindWant, classesOK, idx, kindStr) => {\n' + TRY_PLACE_SRC + '\n};');
   return factory.call(scene, rng, N, pestFree, entry, _spawnOpts, tx, ty, caughtSet, creatures,
-    cellM, genGrid, faunaSeats);
+    cellM, genGrid, unseated, faunaSeats);
 }
 
 const GRASS = 0, RESIDENTIAL = 5, ROAD = 7;

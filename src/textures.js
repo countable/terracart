@@ -103,6 +103,10 @@ const BIOME_TEX = {
   16: { variants: 2, draw: drawCommercialTex },   // COMMERCIAL — grey ceramic floor tile
   17: { variants: 1, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
   27: { variants: 2, draw: drawWastelandTex },    // WASTELAND — dry grit + dead scrub tufts
+  // The influence-zone halos (src/zones.js).
+  28: { variants: 2, draw: drawGroveTex },        // GROVE — lush clover sward
+  29: { variants: 2, draw: drawChurchyardTex },   // CHURCHYARD — worn sward, stone chips
+  31: { variants: 2, draw: drawTarYardTex },      // TAR_YARD — oily ground, black pools
   18: { variants: 2, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
   19: { variants: 2, draw: drawPitchTex },        // PITCH — mown stripes + chalk
   20: { variants: 2, draw: drawWetlandTex },      // WETLAND — marsh mottle + glints
@@ -794,6 +798,62 @@ function drawWastelandTex(ctx, size, rng) {
     ctx.fillRect(x, y - 2, 1, 2);
     ctx.fillRect(x + 1, y - 1, 1, 1);
     ctx.fillRect(x - 1, y - 1, 1, 1);
+  }
+}
+
+function drawGroveTex(ctx, size, rng) {
+  // Grove — the lush sward around a park's heart: the lawn's specks, denser
+  // and greener, with clover clumps and a pale blossom or two. Never yellow
+  // (the interaction colour).
+  drawGrassTex(ctx, size, rng);
+  for (let i = 0; i < 5; i++) {
+    const x = Math.floor(rng() * (size - 2)), y = Math.floor(rng() * (size - 2));
+    ctx.fillStyle = 'rgba(70,120,55,0.40)';
+    ctx.fillRect(x, y, 2, 1); ctx.fillRect(x, y + 1, 1, 1);
+  }
+  for (let i = 0; i < 2; i++) {
+    ctx.fillStyle = rng() < 0.5 ? 'rgba(230,225,240,0.45)' : 'rgba(216,160,175,0.45)';
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  }
+}
+
+function drawChurchyardTex(ctx, size, rng) {
+  // Churchyard — mossy grey-green sward: moss tufts and grass specks over
+  // the cool grey-green ground, and small pale stone chips working up
+  // through it.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 22; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    const k = rng();
+    ctx.fillStyle = k < 0.45 ? 'rgba(62,92,58,0.34)' : k < 0.75 ? 'rgba(96,128,84,0.26)' : 'rgba(150,160,140,0.20)';
+    ctx.fillRect(x, y, k < 0.25 ? 2 : 1, 1);
+  }
+  for (let i = 0; i < 3; i++) {
+    const x = Math.floor(rng() * (size - 2)), y = Math.floor(rng() * (size - 2));
+    ctx.fillStyle = 'rgba(200,200,190,0.30)';
+    ctx.fillRect(x, y, 2, 1);
+    ctx.fillStyle = 'rgba(40,40,36,0.25)';
+    ctx.fillRect(x, y + 1, 2, 1);
+  }
+}
+
+function drawTarYardTex(ctx, size, rng) {
+  // Tar yard — dark oily ground: grit, a black pool or two with a dull
+  // blue-violet sheen on its lip.
+  ctx.clearRect(0, 0, size, size);
+  for (let i = 0; i < 16; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.6 ? 'rgba(0,0,0,0.30)' : 'rgba(255,255,255,0.07)';
+    ctx.fillRect(x, y, 1, 1);
+  }
+  const pools = 1 + Math.floor(rng() * 2);
+  for (let p = 0; p < pools; p++) {
+    const x = rng() * size, y = rng() * size, r = 2 + rng() * 3;
+    ctx.fillStyle = 'rgba(8,8,10,0.45)';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,110,170,0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.6); ctx.stroke();
   }
 }
 

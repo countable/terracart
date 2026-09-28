@@ -510,6 +510,6 @@ test('cave X: a dig underground leans the cave way, a surface dig does not', () 
   assert.truthy(deep > surfH * 2, `hoard ${surfH.toFixed(3)} → ${deep.toFixed(3)} deep down`);
   assert.truthy(/digTreasureOpts\(\) \{[\s\S]{0,400}?return \{ depth, tier: 2 \+ bonus \};/.test(APP_JS_SRC),
     'app.js hands a cave dig its depth and the depth\'s tier');
-  assert.truthy(/grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default', scene\.digTreasureOpts\?\.\(\)\)/.test(INTERACT_SRC),
+  assert.truthy(/const dig = scene\.digTreasureOpts\?\.\(\);\s*grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default',\s*tr\.rollBonus > 0 \? \{ \.\.\.\(dig \|\| \{\}\), rollBonus: tr\.rollBonus \} : dig\)/.test(INTERACT_SRC),
     'the fallback dig passes them too');
 });

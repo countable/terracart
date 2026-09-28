@@ -270,18 +270,67 @@ function classify(o) {
   if (o.kind === 'treasure' || o.kind === 'xmark' || o.kind === 'buried') return 'X mark';
   return o.kind;
 }
+// THE CLICK LABEL: what a marker IS, in full — a POI chest's name, its OSM
+// class / subclass (read back off the tile's own poi layer by the chest's
+// `_poiAt` point), its look and tier (world tier, and the roll tier Home
+// softens), and the influence zone it anchors (src/zones.js), if any; any
+// other object's kind, species / crop, zone piece and id. The hover label
+// stays the one-liner.
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function poiTagsOf(e) {
+  if (e._poiTags) return e._poiTags;
+  const m = new Map();
+  const poi = (e.layers || []).find((l) => l.name === 'poi');
+  for (const f of (poi && poi.features) || []) {
+    for (const ring of f.geom || []) { const p = ring && ring[0]; if (p) m.set(`${p.x},${p.y}`, f.tags || {}); }
+  }
+  return (e._poiTags = m);
+}
+function zoneAnchorOf(e, o) {
+  if (!o._poiAt || !e.zone || typeof Zones === 'undefined') return null;
+  const tags = poiTagsOf(e).get(o._poiAt);
+  const k = tags && Zones.anchorOf(tags);
+  if (!k) return null;
+  const [lx, ly] = o._poiAt.split(',').map(Number);
+  const a = e.zone.anchors.find((z) => z.owned && z.lx === lx && z.ly === ly);
+  return { kind: k.kind, ghosts: k.ghosts, a };
+}
+function popupHTML(e, o, label) {
+  const rows = [`<b>${esc(o.name || label)}</b>`];
+  if (o.kind === 'chest') {
+    const tags = (o._poiAt && poiTagsOf(e).get(o._poiAt)) || {};
+    rows.push(`POI: ${esc(o.poiClass || tags.class || '?')}${tags.subclass && tags.subclass !== o.poiClass ? ' / ' + esc(tags.subclass) : ''}`);
+    const look = typeof chestLook === 'function' ? chestLook(o) : null;
+    const wt = typeof chestTier === 'function' ? chestTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) : '?';
+    const rt = typeof chestRollTier === 'function' ? chestRollTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) : '?';
+    rows.push(`look: ${esc(look ? (look.texKey || look.kind || JSON.stringify(look)) : '?')} · tier T${wt} (rolls T${rt})`);
+    const z = zoneAnchorOf(e, o);
+    if (z) {
+      rows.push(`zone anchor: <b>${esc(z.kind)}</b>${z.kind === 'stones' ? (z.ghosts ? ' (ghosts)' : ' (quiet)') : ''}`
+        + (z.a ? ` · R ${z.a.R.toFixed(0)} m · q ${z.a.q.toFixed(2)} · ${esc(z.a.aspect)}` : ' · merged / off-tile')
+        + (o.zoneNexus ? ' · nexus +tier' : ''));
+    }
+  } else {
+    const what = [o.kind === 'wildplant' ? o.crop : o.kind, o.species, o.poiClass].filter(Boolean).join(' · ');
+    if (what) rows.push(esc(what));
+    if (o.zone) rows.push(`zone piece: ${esc(o.zone)}`);
+  }
+  rows.push(`<code>${esc(o.id || '')}</code>`);
+  return rows.join('<br>');
+}
 function draw(world, home) {
   drawn.forEach((l) => map.removeLayer(l)); drawn = [];
   const groups = {};
-  const add = (k, ll, label, id, x, y) => (groups[k] = groups[k] || []).push({ ll, label, id, x, y });
+  const add = (k, ll, label, id, x, y, popup) => (groups[k] = groups[k] || []).push({ ll, label, id, x, y, popup });
   for (const e of world.tiles) {
     for (const o of e.objects || []) {
       const k = classify(o);
       const tier = (o.kind === 'chest' && typeof chestRollTier === 'function')
-        ? ' · T' + chestRollTier(o.poiClass, o.x, o.y, 0) : '';
-      add(k, toLL(o.x, o.y, EDGE), [o.kind, o.species, o.poiClass, o.name].filter(Boolean).join(' · ') + tier, o.id, o.x, o.y);
+        ? ' · T' + chestRollTier(o.poiClass, o.x, o.y, 0, o.zoneNexus) : '';
+      const label = [o.kind, o.species, o.poiClass, o.name].filter(Boolean).join(' · ') + tier;
+      add(k, toLL(o.x, o.y, EDGE), label, o.id, o.x, o.y, popupHTML(e, o, label));
     }
-    for (const w of e.wildplants || []) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y);
+    for (const w of e.wildplants || []) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, popupHTML(e, w, w.crop));
     for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'roadside trap', t.id, t.x, t.y);
     // Buried X marks: the scattered ones (spawnInTile), those left in parking
     // lots, and the beach marks (rasterizeTile).
@@ -310,7 +359,7 @@ function draw(world, home) {
       new ShapeMarker(p.ll, { shape: shapeOf(k), radius: k === 'Home' ? 9 : big ? 6 : k.startsWith('plant:') ? 3.5 : 5,
         color: '#000', weight: k === 'Home' ? 3 : 1, fillColor: colour(k, i), fillOpacity: 0.9 })
         .bindTooltip(p.label, { direction: 'top', offset: [0, -4], opacity: 0.92 })
-        .bindPopup(`<b>${p.label}</b><br><code>${p.id || ''}</code>`).addTo(lg);
+        .bindPopup(p.popup || `<b>${esc(p.label)}</b><br><code>${esc(p.id || '')}</code>`).addTo(lg);
     }
     const on = state.shown[k] ?? onByDefault(k);
     if (on && !state.markersOff) lg.addTo(map);
@@ -403,6 +452,8 @@ const TERRAIN_FAMILIES = [
   { name: 'Commerce & industry', hue: 30, sat: 75, members: ['COMMERCIAL', 'INDUSTRIAL'] },
   { name: 'Sand & rock', hue: 42, sat: 40, members: ['SAND', 'ROCK'] },
   { name: 'Cave', hue: 15, sat: 30, members: ['CAVE_FLOOR', 'CAVE_WALL', 'CAVE_LAVA'] },
+  // The influence-zone halos (src/zones.js): grove, churchyard, tar yard.
+  { name: 'Influence zones', hue: 160, sat: 65, members: ['GROVE', 'CHURCHYARD', 'TAR_YARD'] },
 ];
 const TERRAIN_COLOUR = {}, TERRAIN_FAMILY = {};
 for (const f of TERRAIN_FAMILIES) {
@@ -430,6 +481,26 @@ function overlays(world) {
     L.imageOverlay(mask, b, { opacity: 0.8 }).addTo(groups['Road mask (no spawns)']);
     L.imageOverlay(terr, b, { opacity: 0.55 }).addTo(groups['Terrain codes']);
     L.rectangle(b, { color: '#fff', weight: 1, fill: false, dashArray: '4 4' }).bindTooltip(`tile ${e.tx}/${e.ty}`).addTo(map);
+  }
+  // Influence zones (src/zones.js): each anchor's disc at its R, by kind,
+  // with its numbers on click.
+  if (typeof Zones !== 'undefined') {
+    const zg = groups['Influence zones (anchors, R)'] = L.layerGroup();
+    const ZC = { grove: '#3fd06a', stones: '#b8c0d0', tar: '#ff8a2a' };
+    const seen = new Set();
+    for (const e of world.tiles) {
+      for (const a of (e.zone && e.zone.anchors) || []) {
+        const key = `${a.kind}|${a.gx}|${a.gy}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const ll = toLL(a.gx * EDGE / 4096, a.gy * EDGE / 4096, EDGE);
+        L.circle(ll, { radius: a.R, color: ZC[a.kind] || '#fff', weight: 1, fillOpacity: 0.08 })
+          .bindTooltip(`${a.kind} · R ${a.R.toFixed(0)} m`)
+          .bindPopup(`<b>${esc(a.kind)}</b>${a.kind === 'stones' ? (a.ghosts ? ' (ghosts)' : ' (quiet)') : ''}<br>`
+            + `R ${a.R.toFixed(1)} m · q ${a.q.toFixed(2)} · ${esc(a.aspect)}<br><code>${a.gx},${a.gy}</code>`)
+          .addTo(zg);
+      }
+    }
   }
   for (const [k, g] of Object.entries(groups)) mkRow($('ovl'), 'checkbox', k, false, (on) => on ? g.addTo(map) : map.removeLayer(g));
   // Markers off keeps them COUNTED — the density heatmap reads best bare.

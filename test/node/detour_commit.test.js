@@ -34,7 +34,7 @@ const COMMIT_MS = num('DETOUR_COMMIT_MS');
 const clock = { t: 0, now() { return this.t; } };
 const methods = new Function('WALK_M_S', 'DEBUG_SPEED_MUL', 'FOLLOW_RAMP_M',
   'DETOUR_COMMIT_MS', 'performance', 'steerSpeedMul',
-  `return {\n${lift('_followStep(dt) {')},\n${lift('_detourDir(ux, uy) {')}\n};`)(
+  `return {\n${lift('_followStep(dt, capMS) {')},\n${lift('_detourDir(ux, uy) {')}\n};`)(
   num('WALK_M_S'), num('DEBUG_SPEED_MUL'), num('FOLLOW_RAMP_M'), COMMIT_MS, clock, () => 1);
 
 const M = 7;   // cell edge, metres

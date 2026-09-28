@@ -148,6 +148,34 @@ function fnv1aFrom(seed, str) {
   return h >>> 0;
 }
 
+// === Smooth value noise over the plane ========================================
+// A pure function of the point — no rng, no tile — so the same world point
+// reads the same number from either side of a seam and on every device: two
+// octaves of hashed lattice values, smoothstep-blended. Callers pass GLOBAL
+// coordinates (tile · 4096 + the MVT point) scaled to their own lattice.
+// `salt` shifts the second octave's lattice so two readers of the plane
+// (src/zones.js's ragged edge, biome_profiles.js's flora patches) do not
+// line up. Output 0..1, clustered about 0.5 (not uniform — a caller that
+// wants a share of the plane takes a measured quantile, see FLORA_PATCH).
+function _noiseLattice(ix, iy) {
+  let h = Math.imul(ix | 0, 0x27d4eb2d) ^ Math.imul(iy | 0, 0x165667b1);
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function _valueNoise1(x, y) {
+  const fx = Math.floor(x), fy = Math.floor(y);
+  let u = x - fx, v = y - fy;
+  u = u * u * (3 - 2 * u); v = v * v * (3 - 2 * v);
+  const a = _noiseLattice(fx, fy), b = _noiseLattice(fx + 1, fy);
+  const c = _noiseLattice(fx, fy + 1), d = _noiseLattice(fx + 1, fy + 1);
+  return (a + (b - a) * u) + ((c + (d - c) * u) - (a + (b - a) * u)) * v;
+}
+function valueNoise2(x, y, salt = 0) {
+  return 0.65 * _valueNoise1(x + salt, y - salt)
+    + 0.35 * _valueNoise1(x * 2 + 17.3 + salt, y * 2 + 41.7);
+}
+
 // The OTHER string hash in the codebase: Java's `h * 31 + charCode`, seeded at
 // zero. It is NOT fnv1a and must not be folded into it — it keys the little
 // per-id visual desyncs (a creature's hop phase, a shiny's twinkle, a POI

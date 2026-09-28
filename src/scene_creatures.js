@@ -67,6 +67,9 @@ const FIRE_WARD_MAX_DEPTH = 1;
 // real beach can. Read by spawnInTile's beach block; pinned by
 // test/node/beach_treasure.test.js.
 const BEACH_X_PER_CELLS = 20;
+// How many favourite-ground cells an attracted animal tries before it keeps
+// its drawn seat (see _seatFaunaOnFavouriteGround).
+const FAUNA_ATTRACT_TRIES = 12;
 
 class SceneCreatures {
   spawnInTile(entry, tx, ty) {
@@ -132,12 +135,109 @@ class SceneCreatures {
           iy: Math.floor((o.y - ty * this.tileEdgeM) / cellM),
         })),
     };
+    // STREET DRESSING (src/street_variants.js) — laid FIRST, before any other
+    // spawner draws: the hedges, verge plants, lane fruit trees, waystones,
+    // tar pits, stakes and barricades a street's variant puts on its verge
+    // are GENERATED scenery like the rocks, so every later draw (fauna,
+    // traps, X marks) must see their cells as taken — each piece claims its
+    // cell in `_spawnOpts.occupied` here. The pieces were computed inside
+    // the sliced tile build (rasterizeTileSteps → StreetVariants.dressSteps,
+    // entry.streetDress) against the tile's own objects; a piece whose cell
+    // something placed after that pass holds (the cave stair) is dropped —
+    // a fact of the generated layer, the same for every player. A rebuilt
+    // entry carries a fresh streetDress and re-runs this pass (the
+    // `_spawned` gate). The per-cell marks (story trigger), the slow cells
+    // (tar / stakes — app.js _bodyHold) and the street lair candidates (the
+    // close heads here, the wagons below — lairs.js's index reads
+    // entry.streetLairs) ride on the entry for the same reason. Skipped in
+    // test mode, like the traps and the X scatter.
+    let streetTreasures = [];
+    entry.streetLairs = [];
+    entry.slowCells = null;
+    entry.streetMarks = null;
+    const dressing = entry.streetDress;
+    if (dressing && typeof StreetVariants !== 'undefined' && !window.__TEST_MODE) {
+      const cellIdx = (p) => {
+        const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
+        const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
+        return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
+      };
+      const lay = (p) => {
+        const i = cellIdx(p);
+        if (i < 0 || _occupiedIdx.has(i)) return false;
+        _occupiedIdx.add(i);
+        return true;
+      };
+      entry.objects = entry.objects || [];
+      const slow = new Map();
+      for (const o of dressing.objects) {
+        if (!lay(o)) continue;
+        entry.objects.push(o);
+        if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
+      }
+      entry.wildplants = entry.wildplants || [];
+      for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
+      streetTreasures = dressing.treasures.filter(lay);
+      entry.streetLairs = dressing.lairs.slice();
+      entry.slowCells = slow.size ? slow : null;
+      entry.streetMarks = dressing.marks;
+    }
+    // THE ZONES' NEXUS (src/zones.js) — laid right after the street dressing,
+    // on the same terms: computed in the sliced build (entry.zoneDress, after
+    // the street pieces claimed their cells), a piece whose cell something
+    // placed since holds is dropped, and each laid piece claims its cell for
+    // every later draw. Its tar pits join the SAME slow map (_bodyHold's slow
+    // reason) and its fire-slime garrison the same lair list — one lane each.
+    const zDress = entry.zoneDress;
+    if (zDress && !window.__TEST_MODE) {
+      const cellIdx = (p) => {
+        const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
+        const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
+        return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
+      };
+      const lay = (p) => {
+        const i = cellIdx(p);
+        if (i < 0 || _occupiedIdx.has(i)) return false;
+        _occupiedIdx.add(i);
+        return true;
+      };
+      entry.objects = entry.objects || [];
+      const slow = entry.slowCells || new Map();
+      for (const o of zDress.objects) {
+        if (!lay(o)) continue;
+        entry.objects.push(o);
+        if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
+      }
+      entry.wildplants = entry.wildplants || [];
+      for (const wp of zDress.wildplants) if (lay(wp)) entry.wildplants.push(wp);
+      for (const L of zDress.lairs) entry.streetLairs.push(L);
+      entry.slowCells = slow.size ? slow : null;
+    }
+    // BANDIT STOPS: a bus stop on a MAJOR road wears the broken wagon
+    // (loot.js chestLook) and holds one goblin (lairs.js 'wagon' tier). Read
+    // off the live objects so an Overpass bin's stops are included.
+    if (typeof StreetVariants !== 'undefined' && entry.roadClass) {
+      for (const L of StreetVariants.markBanditStops(entry.objects, entry.roadClass, N, tx, ty, this.tileEdgeM)) {
+        entry.streetLairs.push(L);
+      }
+    }
     // Home holds no slimes or crows until the first harvest (see
     // PEST_FREE_CELLS). Resolved once per tile build; null once the grace has
     // lapsed, which is the common case.
     const pestFree = this._pestFreeZone(tx, ty);
+    // DISPLACED, NOT LOST: an animal every one of whose 12 draws failed, at
+    // least one of them only because something GENERATED already stood on
+    // the cell (the street dressing, the nexus — opts.occupied), is kept
+    // aside here instead of dropped; the attractor lane below seats it on its
+    // favourite ground if its species has one it always takes (p = 1: the
+    // dogs and the bandit road). No extra draws: the shared stream is
+    // untouched, only the verdict on a spent attempt is remembered.
+    const unseated = [];
+    // The rooted park plants' reservation (below): every drawn seat, taken
+    // before any save-specific filtering.
     const faunaSeats = new Set(_occupiedIdx);
     const tryPlace = (classesOK, idx, kindStr) => {
+      let displaced = false;
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
@@ -156,7 +256,11 @@ class SceneCreatures {
           // etc. only ever pays the (cheap) roadMask lookup, never the
           // frontage scan. See CLAUDE.md's road-mask invariant / FINDING 2 /
           // test/node/fauna_spawn.test.js.
-          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) continue;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) {
+            if (!displaced && _spawnOpts.occupied && _spawnOpts.occupied.has(cy * N + cx)
+                && WorldGen.isSpawnCell(genGrid, N, N, cx, cy, { roadMask: _spawnOpts.roadMask, pois: _spawnOpts.pois })) displaced = true;
+            continue;
+          }
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
@@ -179,6 +283,10 @@ class SceneCreatures {
             { shiny: faunaShiny(kindStr, id) }));
           return;
         }
+      }
+      if (displaced) {
+        const id = `${kindStr}_${tx}_${ty}_${idx}`;
+        if (!caughtSet.has(id)) unseated.push(WorldGen.makeCreature(kindStr, NaN, NaN, id, { shiny: faunaShiny(kindStr, id) }));
       }
     };
     // Biome-biased fauna spawn — each species' primary (dominant) biome set,
@@ -210,12 +318,25 @@ class SceneCreatures {
     // save-specific filtering so catching an animal cannot reveal a plant.
     const parkPlants = WorldGen.spawnParkPlants(genGrid, N, N, tx, ty, this.tileEdgeM,
       { ..._spawnOpts, occupied: faunaSeats });
+    const plantCells = new Set();
     for (const plant of parkPlants) {
       const cx = Math.floor((plant.x - tx * this.tileEdgeM) / cellM);
       const cy = Math.floor((plant.y - ty * this.tileEdgeM) / cellM);
+      plantCells.add(cy * N + cx);
       if (caughtSet.has(plant.id) || (pestFree && pestFree.has(cx, cy))) continue;
       creatures.push(plant);
     }
+    // FAUNA ATTRACTORS. A species' favourite ground pulls the tile's OWN
+    // spawns of it (never adds): the dogs work the bandit roads, deer the
+    // orchard lanes and groves, cats Lantern Row, crows the churchyards… —
+    // rows of the `attracts` column (see _seatFaunaOnFavouriteGround). The
+    // draw above is taken exactly as before (same count, same ids, same
+    // stream for every species after it); the new seats come off each
+    // species' OWN stream. A tile without the ground keeps its animals.
+    // Run AFTER the rooted park plants, which reserve only the DRAWN seats
+    // (the same for every save), and handed every generated plant cell
+    // (caught or not) so no animal is pulled onto a plant.
+    entry.faunaAttracted = this._seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures, pestFree, unseated, plantCells);
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
@@ -285,8 +406,8 @@ class SceneCreatures {
     // entry drops it along with `_spawned`, and this pass puts it back.
     entry._spawnOpts = _spawnOpts;
     entry.traps = (typeof Traps !== 'undefined' && !window.__TEST_MODE)
-      ? Traps.spawnSurface(genGrid, entry.roadMask, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
-          Difficulty.get().trapCountMul)
+      ? Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
+          Difficulty.get().trapCountMul, entry.zone && entry.zone.under)
       : [];
 
     // Treasure marks. Three streams:
@@ -300,6 +421,9 @@ class SceneCreatures {
     // All three render + interact through the same code path.
     entry.treasure = null;
     entry.extraTreasures = [];
+    // A hedgerow close's buried hoard (StreetVariants.dress) — an X like any
+    // other, carrying its rollBonus into the dig's roll.
+    for (const t of streetTreasures) entry.extraTreasures.push(t);
     // Spawnability for all three treasure streams below is decided by
     // WorldGen.isSpawnCell (the single shared rule): walkable, off-road, and —
     // on lot cells (residential / wasteland) — only near a public anchor (road/path, public area,
@@ -498,6 +622,123 @@ class SceneCreatures {
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
   }
 
+  // FAUNA ATTRACTORS (see the call in spawnInTile) — ONE lane, many grounds.
+  // What a ground attracts is a COLUMN on the row that owns the ground, never
+  // per-species code here:
+  //   street variants   StreetVariants.STREET_VARIANTS[].attracts — the
+  //                     cells the dressing marked with that row's code
+  //                     (entry.streetMarks: band + verge of a dressed street)
+  //   the bandit road   StreetVariants.BANDIT_STORY.attracts — every MAJOR
+  //                     verge cell (roadClass, ROAD_CLASS_MAJOR_VERGE)
+  //   influence zones   Zones.ZONE_KINDS[].attracts — the zone's field cells
+  //   terrain           BIOME_ATTRACTS[code] — the LAND's class (the halo's
+  //                     `under` first, like the trap ground)
+  // Each column is { species: p }: every one of the tile's own spawns of that
+  // species moves onto the union of its grounds with probability p (p = 1
+  // draws nothing, so the dogs keep the exact seats they had when this was
+  // their own pass). Seats come off the species' OWN stream (`<kind>s|tx,ty`
+  // — the dogs' old key), pass the shared spawn rule, never share a cell, and
+  // a slime or crow never moves into the starting area's pest amnesty. A
+  // species with no ground on the tile, or an animal that finds no free cell
+  // in FAUNA_ATTRACT_TRIES, keeps its drawn seat — except a species the
+  // ground takes WHOLE (p = 1: the dogs), which walks on FURTHER ALONG the
+  // ground's cells from its last draw to the first free one. `unseated`
+  // (optional): animals spawnInTile's draw lost only to a cell something
+  // generated already held — a p = 1 species' are seated the same way and
+  // join `creatures` (counted in `moved`); the rest stay lost, as before.
+  // `blocked` (optional): cells no animal may be pulled onto (the tile's
+  // rooted park plants).
+  // Returns { kind: moved }.
+  _seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, spawnOpts, creatures, pestFree, unseated, blocked) {
+    const moved = {};
+    if (!creatures || (!creatures.length && !(unseated && unseated.length))) return moved;
+    const SV = (typeof StreetVariants !== 'undefined') ? StreetVariants : null;
+    const Z = (typeof Zones !== 'undefined') ? Zones : null;
+    const BA = (typeof BIOME_ATTRACTS !== 'undefined') ? BIOME_ATTRACTS : null;
+    // The grounds present on this tile, as [p, test(i)] per species.
+    const want = {};
+    const add = (attracts, test) => {
+      if (!attracts) return;
+      for (const [sp, p] of Object.entries(attracts)) (want[sp] || (want[sp] = [])).push({ p, test });
+    };
+    const marks = entry.streetMarks, rc = entry.roadClass;
+    if (SV) {
+      if (marks) for (const row of SV.STREET_VARIANTS) if (row.attracts) add(row.attracts, (i) => marks[i] === row.code);
+      if (rc) { const bit = WorldGen.ROAD_CLASS_MAJOR_VERGE; add(SV.BANDIT_STORY.attracts, (i) => !!(rc[i] & bit)); }
+    }
+    const zf = entry.zone;
+    if (Z && zf && zf.idx) {
+      for (const [kind, row] of Object.entries(Z.ZONE_KINDS)) {
+        if (row.attracts) add(row.attracts, (i) => zf.idx[i] > 0 && zf.anchors[zf.idx[i] - 1].kind === kind);
+      }
+    }
+    if (BA) {
+      const under = zf && zf.under;
+      for (const code of Object.keys(BA)) {
+        const c = +code;
+        add(BA[code], (i) => ((under && under[i]) || genGrid[i]) === c);
+      }
+    }
+    // Only species the tile actually spawned; p = 1 first (the dogs keep the
+    // seats they had with an empty `taken`), then FAUNA_ORDER.
+    const order = (typeof FAUNA_ORDER !== 'undefined' ? FAUNA_ORDER : []).slice();
+    for (const sp of Object.keys(want)) if (!order.includes(sp)) order.push(sp);
+    const pOf = (sp) => Math.max(...want[sp].map((g) => g.p));
+    const has = (sp) => creatures.some((c) => c && c.kind === sp) || !!(unseated && unseated.some((c) => c && c.kind === sp));
+    const species = order.filter((sp) => want[sp] && has(sp))
+      .sort((a, b) => (pOf(b) >= 1) - (pOf(a) >= 1));
+    if (!species.length) return moved;
+    const taken = new Set();
+    const NN = N * N;
+    for (const sp of species) {
+      const grounds = want[sp];
+      const p = pOf(sp);
+      const pool = [];
+      for (let i = 0; i < NN; i++) {
+        for (const g of grounds) if (g.test(i)) { pool.push(i); break; }
+      }
+      if (!pool.length) continue;
+      const rng = WorldGen.makeRng(fnv1a(`${sp}s|${tx},${ty}`));
+      const pest = (sp === 'slime' || sp === 'crow') ? pestFree : null;
+      const free = (idx) => {
+        if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
+        const cx = idx % N, cy = (idx / N) | 0;
+        if (pest && pest.has(cx, cy)) return false;
+        return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts);
+      };
+      const seatOn = (c) => {
+        let k = -1, at = -1;
+        for (let a = 0; a < FAUNA_ATTRACT_TRIES; a++) {
+          k = Math.floor(rng() * pool.length);
+          if (free(pool[k])) { at = pool[k]; break; }
+        }
+        // A whole-species pull walks on along the ground from its last draw.
+        if (at < 0 && p >= 1 && k >= 0) {
+          for (let j = 1; j < pool.length; j++) {
+            const idx = pool[(k + j) % pool.length];
+            if (free(idx)) { at = idx; break; }
+          }
+        }
+        if (at < 0) return false;
+        taken.add(at);
+        c.x = tx * this.tileEdgeM + ((at % N) + 0.5) * cellM;
+        c.y = ty * this.tileEdgeM + (((at / N) | 0) + 0.5) * cellM;
+        moved[sp] = (moved[sp] || 0) + 1;
+        return true;
+      };
+      for (const c of creatures) {
+        if (!c || c.kind !== sp) continue;
+        if (p < 1 && rng() >= p) continue;
+        seatOn(c);
+      }
+      if (p >= 1 && unseated) {
+        for (const c of unseated) if (c && c.kind === sp && seatOn(c)) creatures.push(c);
+      }
+    }
+    return moved;
+  }
+
+
   // The live-ground cull. spawnInTile draws every creature, trap and X mark
   // off the tile's GENERATED layer so the stream is the same for everyone;
   // this then takes back, for THIS player, whatever landed where their live
@@ -541,6 +782,17 @@ class SceneCreatures {
     keep(entry.traps);
     keep(entry.extraTreasures);
     if (entry.treasure && off(entry.treasure)) entry.treasure = null;
+  }
+
+  // A free surface cell about `dist` cells from the player's FEET (playerM,
+  // never the camera anchor): walkable, off the road band, under nothing —
+  // the shared spawn rule. The rules and the search order are
+  // walkableDestination's (creature_ai.js); this is the scene's door to it.
+  // Returns { tx, ty, ix, iy, x, y, n, entry } or null.
+  findWalkableDestination(dist, opts) {
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    return walkableDestination(this, px, py, dist, opts);
   }
 
   // Cave fauna: hostile wandering MONSTERS on CAVE_FLOOR cells (depth > 0).
@@ -879,10 +1131,11 @@ class SceneCreatures {
         now - (this._lastCaughtPruneT || 0) > 90000) {
       this._lastCaughtPruneT = now;
       this.save.caught = this.save.caught.filter((id) => {
-        // The ghosts (ghostSpawnPass), the fished slime (fishedSlimeSpawn)
-        // and a dismissed spirit raven (app.js _tickSpiritRaven) mint their
-        // ids the same way and are pruned by the same rule.
-        const m = typeof id === 'string' && /^(?:pest_crow|ghost|fished_slime|spirit_raven)_(-?\d+)_(-?\d+)_/.exec(id);
+        // The ghosts (ghostSpawnPass), the fished slime (fishedSlimeSpawn),
+        // a dismissed spirit raven (app.js _tickSpiritRaven) and a
+        // guildhall bounty's foes (app.js _spawnGuildBounty) mint their ids
+        // the same way and are pruned by the same rule.
+        const m = typeof id === 'string' && /^(?:pest_crow|ghost|fished_slime|spirit_raven|guildfoe)_(-?\d+)_(-?\d+)_/.exec(id);
         return !m || WorldGen.tileCache.has(WorldGen.tileKey(+m[1], +m[2]));
       });
     }

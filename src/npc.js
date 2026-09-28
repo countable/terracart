@@ -25,9 +25,13 @@ const NPC = (() => {
     const role = pick(p.roles);
     return { name, role, zone, roleLabel: LABELS[zone][role], npcVariant: Math.floor(rng() * 3), tint: pick(p.colors), shopTheme: p.theme };
   }
-  function zoneFor(type, nearShrine = false) {
-    if (nearShrine) return 'shrine';
+  function zoneFor(type, nearShrine = false, influence = null) {
     const T = WorldGen.T;
+    // Zone influence also covers ground that the halo cannot repaint.
+    // Hostile yards stay empty even when a shrine stands nearby.
+    if (type === T.TAR_YARD || influence?.kind === 'tar') return null;
+    if (nearShrine || type === T.GROVE || type === T.CHURCHYARD
+      || influence?.kind === 'grove' || influence?.kind === 'stones') return 'shrine';
     if (type === T.RESIDENTIAL || type === T.SCHOOL) return 'village';
     if (type === T.FARMLAND || type === T.ORCHARD) return 'farm';
     if (type === T.COMMERCIAL) return 'market';
@@ -35,7 +39,7 @@ const NPC = (() => {
     return null;
   }
   function isShrine(o) {
-    return o.kind === 'shrine' || o.poiClass === 'place_of_worship' || o.role === 'wizard';
+    return o.kind === 'shrine' || o.kind === 'grove_shrine' || o.poiClass === 'place_of_worship' || o.role === 'wizard';
   }
   function spawn(scene, entry, tx, ty, opts) {
     const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;
@@ -61,7 +65,8 @@ const NPC = (() => {
       const x = (tx + (cx + 0.5) / N) * scene.tileEdgeM;
       const y = (ty + (cy + 0.5) / N) * scene.tileEdgeM;
       const shrine = shrines.some(o => Math.hypot(o.x - x, o.y - y) <= cellM * 6);
-      const zone = zoneFor(grid[idx], shrine);
+      const influence = typeof Zones !== 'undefined' ? Zones.at(entry, cx, cy) : null;
+      const zone = zoneFor(grid[idx], shrine, influence);
       if (!zone || !WorldGen.isSpawnCell(grid, N, N, cx, cy, opts)) continue;
       used.add(idx);
       const id = `npc_${tx}_${ty}_${cx}_${cy}`;
@@ -84,6 +89,8 @@ const NPC = (() => {
         const cx = Math.floor((house.x / scene.tileEdgeM - tx) * N) + Math.floor(rng() * 11) - 5;
         const cy = Math.floor((house.y / scene.tileEdgeM - ty) * N) + Math.floor(rng() * 11) - 5;
         if (cx < 0 || cy < 0 || cx >= N || cy >= N || used.has(cy * N + cx)) continue;
+        const influence = typeof Zones !== 'undefined' ? Zones.at(entry, cx, cy) : null;
+        if (!zoneFor(grid[cy * N + cx], true, influence)) continue;
         if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, entry._spawnOpts)) continue;
         used.add(cy * N + cx);
         const id = `npc_shrine_${house.id}_${cx}_${cy}`;

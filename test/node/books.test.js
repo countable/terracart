@@ -195,7 +195,7 @@ test('course: the pages run in the order the player needs them', () => {
     smithy:   idx(/first wreck you rebuild/i),
     chests:   idx(/Treasure X marks are buried in car parks/i),
     village:  idx(/ending in 9 is a Blacksmith/i),
-    land:     idx(/Wild rock grows in residential streets/i),
+    land:     idx(/Wild rock lines about one residential street in four/i),
     streets:  idx(/derelict until you stand by them/i),
     animals:  idx(/Feeding an animal its favourite/i),
     fighting: idx(/Only one weapon is ever in play/i),

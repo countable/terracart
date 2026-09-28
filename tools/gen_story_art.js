@@ -322,6 +322,9 @@ const PIECES = {
   street_barricade: scene(
     'A stake-and-log barricade built across half a wide road, crates and barrels stacked behind ' +
     'it, an abandoned watch post, dusk light.'),
+  street_toadstool: scene(
+    'A quiet residential lane at dusk, its verges crowded with clusters of pale glowing ' +
+    'mushrooms and toadstools casting a soft blue-green glow, the lane leading away into the dark.'),
 };
 
 function loadKey() {

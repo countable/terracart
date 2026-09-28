@@ -208,6 +208,7 @@ const TERRAIN = {
   CAVE_FLOOR: WorldGen.T.CAVE_FLOOR,         // 24
   CAVE_WALL: WorldGen.T.CAVE_WALL,           // 25
   CAVE_LAVA: WorldGen.T.CAVE_LAVA,           // 26
+  TAR_YARD: WorldGen.T.TAR_YARD,             // 31
 };
 
 // Flavor label per NON-TILLABLE terrain code (the 'flavor' handler below).
@@ -256,6 +257,7 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.CAVE_FLOOR]:     'Cave floor, worn smooth.',
   [TERRAIN.CAVE_WALL]:      'Solid rock. A pick opens it.',
   [TERRAIN.CAVE_LAVA]:      'Lava. It burns to stand in.',
+  [TERRAIN.TAR_YARD]:       'Oily ground. Nothing roots.',
 };
 
 // ── Naming things the player can see ────────────────────────────────────────
@@ -455,7 +457,11 @@ const TAP_HANDLERS = [
       // ONE find, paid on the spot — no pick (the road ladder's pick is the
       // only "several finds, keep one"). Underground the roll takes the cave
       // skew (app.js digTreasureOpts).
-      grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default', scene.digTreasureOpts?.());
+      // A mark that carries its own rollBonus (a hedgerow close's hoard —
+      // StreetVariants.dress) pays that many extra roll steps on top.
+      const dig = scene.digTreasureOpts?.();
+      grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default',
+        tr.rollBonus > 0 ? { ...(dig || {}), rollBonus: tr.rollBonus } : dig);
       ctx.dirty = true;
       return true;
     };
@@ -526,7 +532,7 @@ const TAP_HANDLERS = [
     const HALF_W = {
       npc: 1.8, cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
       chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
-      slime: 2.0, cave_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
+      slime: 2.0, cave_slime: 2.0, fire_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
     // distance to the body CENTRE so the most on-target animal wins overlaps.
@@ -1023,14 +1029,16 @@ const TAP_HANDLERS = [
 
   { name: 'object', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    const openedSetTap = new Set(save.opened);
+    // Spent chests (opened for good, or a daily crate taken today) sort last,
+    // off the one test the draw pass hides them by (interactables.js isSpent).
+    const spentTap = spentSets(scene, save);
     const allObjs = [];
     // Wrap push in a block so we don't return its truthy result —
     // forEachItem treats any truthy return as "stop iterating".
     WorldGen.forEachItem('objects', (o) => { allObjs.push(o); });
     allObjs.sort((a, b) => {
-      const ao = a.kind === 'chest' && openedSetTap.has(a.id) ? 1 : 0;
-      const bo = b.kind === 'chest' && openedSetTap.has(b.id) ? 1 : 0;
+      const ao = a.kind === 'chest' && isSpent(a, spentTap) ? 1 : 0;
+      const bo = b.kind === 'chest' && isSpent(b, spentTap) ? 1 : 0;
       return ao - bo;
     });
     // Match render.js exactly: deterministic dedupe by game cell so the tap-target set
@@ -1725,13 +1733,13 @@ const TAP_HANDLERS = [
       if (pp) blocker = `${cropName(pp.crop)} grows here.`;
     }
     if (!blocker) {
-      const openedSet = new Set(save.opened || []);
+      const spentTill = spentSets(scene, save);
       for (const e of WorldGen.tileCache.values()) {
         const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
         if (wp) { blocker = `Pick the ${cropName(wp.crop)} first.`; break; }
         const choppedSet = new Set(save.chopped || []);
         const oo = (e.objects || []).find(o =>
-          !(o.kind === 'chest' && openedSet.has(o.id)) &&
+          !(o.kind === 'chest' && isSpent(o, spentTill)) &&
           !(o.kind === 'tree' && (o.chopped || choppedSet.has(o.id))) &&
           Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
         if (oo) { blocker = tillBlockerLine(oo); break; }

@@ -201,6 +201,12 @@
     // — lighting.test.js pins the order — so a lit cave reads as "a torch
     // there, some fungus here", never two of the same lamp.
     mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.50, flicker: 0, pulse: 0.35 },
+    // A GROVE SHRINE (src/zones.js — the one standing prop at a park's heart):
+    // a pale green light breathing on the POI's slow beat, a little wider than
+    // a POI's. It is a COLLECTED light, so it burns ghosts through the same
+    // brightnessAt every lamp and fire does — a refuge at night with no ward
+    // code of its own. It is NOT a rest ring and turns no foe away.
+    shrine:   { radiusCells: 3.0, colour: 0xc8f5a0, peak: 0.90, flicker: 0, pulse: 0.4 },
     // A STREET LAMP — the gilded lamp a RESTORED street stands, one every
     // Streets.lampSpacingM() metres of rebuilt carriageway (streets.js places
     // them, road_overlay.js paints the lamp, app.js hands this collector the
@@ -668,13 +674,15 @@
     if (o.kind === '_fire') return 'fire';
     if (o.kind === '_magic_trap') return 'magic_trap';
     if (o.kind === 'torch') return 'torch';
+    // A grove's shrine (src/zones.js) — its own soft green row.
+    if (o.kind === 'grove_shrine') return 'shrine';
     // A wild plant is offered as ITSELF from drawObjects' wildplant scan, and
     // which of them glows is items.js' WILDPLANT_RULES to say — the same table
     // the render-side gate asks, so a second glowing plant is one row and not
     // a second literal here.
     if (o.kind === 'wildplant') return wildplantLight(o.crop);
-    // Opened chests are the CALLER's to drop (drawObjects already builds the
-    // per-frame Set of save.opened it culls the sprite with).
+    // Opened chests (and a daily crate / chapel taken today) are the CALLER's
+    // to drop: drawObjects asks interactables.js poiLit off the frame's sets.
     if (o.kind === 'chest') return o.crate ? null : 'poi';
     return null;
   }
@@ -810,6 +818,16 @@
     return true;
   }
 
+  // Offer the POI light at a thing that is not a chest — a grove shrine whose
+  // daily gift is still there (interactables.js poiLit, the one "something to
+  // take here" reason). The same `poi` row every live chest wears, under its
+  // own id so it sits beside the thing's own light (the shrine's green one).
+  function offerPoi(scene, id, dx, dy, halfM) {
+    if (!inRange(scene, dx, dy, 'poi', halfM)) return false;
+    scene._lights.push({ kind: 'poi', dx, dy, id: `poi_${id}` });
+    return true;
+  }
+
   // The placed campfires on this depth, within light range of the view.
   function collectFires(scene, ax, ay, halfM) {
     const PF = window.PlacedFloor;
@@ -871,6 +889,14 @@
   function lampRiseCells() {
     return (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_LANTERN_RISE_CELLS) || 0;
   }
+  // A lamp entry's `glow` ('#rrggbb', app.js _streetLampsForTile off
+  // StreetVariants.lampGlowFor) as a light colour: null for the default
+  // UI_LAMP_GLOW (the `cobble` row's own colour) or anything unreadable.
+  function lampColour(glow) {
+    if (typeof glow !== 'string' || !/^#[0-9a-f]{6}$/i.test(glow)) return null;
+    const n = parseInt(glow.slice(1), 16);
+    return n === LAMP_GLOW ? null : n;
+  }
   function collectLamps(scene, ax, ay, halfM) {
     const list = scene && scene._streetLamps;
     if (!list || !list.length) return 0;
@@ -881,7 +907,15 @@
       if (!L.lit) continue;                        // a dark stone is not a light
       const dx = L.x - ax, dy = L.y - ay;
       if (!inRange(scene, dx, dy, 'cobble', halfM)) continue;
-      scene._lights.push({ kind: 'cobble', dx, dy, dyPx, id: L.id });
+      // The lamp's own GLOW (its street's colour, the same `glow` the baked
+      // art is keyed by) as the entry's colour — which frameKey already names
+      // per light, so a lamp changing colour repaints. The default glow is
+      // left off (undefined), so a plain street's lamp keeps the row's own
+      // `cobble` cookie exactly as before. A hue, never a brightness factor.
+      const colour = lampColour(L.glow);
+      scene._lights.push(colour == null
+        ? { kind: 'cobble', dx, dy, dyPx, id: L.id }
+        : { kind: 'cobble', dx, dy, dyPx, id: L.id, colour });
       n++;
     }
     return n;
@@ -1445,8 +1479,8 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
-    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, collectFires, collectBolts, objectLightPadCells,
-    collectPlayer, collectLamps, collectMagicTraps, lampRiseCells, brightnessAt,
+    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells,
+    collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
     LIGHT_TICK_MS, lightClock, animates, frameKey,
