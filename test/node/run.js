@@ -1122,7 +1122,7 @@ Object.assign(ctx, {
 // code rather than a transcription: the cap, the cell packing (which was
 // wrong above 256 cells per edge) and the "on the sand, beside the path"
 // difference are all decided in here. It closes over entry / tx / ty / N /
-// rng / _spawnOpts and `this` (tileEdgeM), all cheap to stub.
+// rng / ambientSpawnOpts and `this` (tileEdgeM), all cheap to stub.
 {
   const appSrc = readSrc('scene_creatures.js');   // spawnInTile's home now
   const from = appSrc.indexOf('    // ONE pass over the grid for both bonus streams below');
@@ -1132,7 +1132,7 @@ Object.assign(ctx, {
     process.exit(2);
   }
   vm.runInContext(
-    'globalThis.__bonusXMarks = function (entry, tx, ty, N, rng, _spawnOpts) {\n'
+    'globalThis.__bonusXMarks = function (entry, tx, ty, N, rng, ambientSpawnOpts) {\n'
     // The two locals spawnInTile declares up top that the block reads: the
     // tile's own cell size and its generated grid.
     + 'const cellM = this.tileEdgeM / N;\n'

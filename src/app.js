@@ -8625,7 +8625,7 @@ class MapScene extends Phaser.Scene {
       // carries this player's edits (spawnInTile's genGrid note).
       const genGrid = entry.baseGrid || entry.grid;
       const laid = Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty,
-        this.tileEdgeM, entry._spawnOpts, mul, entry.zone && entry.zone.under);
+        this.tileEdgeM, entry._ambientSpawnOpts || entry._spawnOpts, mul, entry.zone && entry.zone.under);
       // Keep authored zone traps and already-discovered traps, one per cell.
       const cells = new Set(laid.map((t) => t._iy * N + t._ix));
       for (const t of (entry.traps || [])) {

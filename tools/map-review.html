@@ -46,6 +46,10 @@
   button.on{background:#c8a64a;color:#1a1612;border-color:#c8a64a}
   #status{color:#c8a64a;margin:6px 0;min-height:1.2em}
   #game{display:none}
+  #zonePick,#sourceFilter{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
+  #zoneDetails{font-size:12px;line-height:1.5;margin:8px 0;padding:8px;background:#242c2c}
+  #zoneDetails p{margin:6px 0} #sourceLegend{font-size:11px;line-height:1.5}
+  .zone-label{background:#122f2be8;border:1px solid #3c8f80;color:#fff;font-weight:600;font-size:11px}
 </style>
 </head>
 <body>
@@ -54,6 +58,14 @@
   <div><b>Map review</b></div>
   <div id="status">loading the game…</div>
   <div><button id="placeHome">Place Home</button></div>
+  <h3>Park / zone variants</h3>
+  <label><input id="zoneLabels" type="checkbox" checked> Show variant labels</label>
+  <select id="zonePick" aria-label="Park or zone"><option value="">Loading zones…</option></select>
+  <div id="zoneDetails">Select a park or zone to inspect its layout and other spawns.</div>
+  <label for="sourceFilter">Show placements</label>
+  <select id="sourceFilter"><option value="all">All sources</option><option value="ground">Ground placements (hide fauna)</option><option value="variant">Variant only + POIs</option><option value="other">Other spawns + POIs</option></select>
+  <label><input id="sourceColors" type="checkbox"> Color markers by source</label>
+  <details><summary>Source colors</summary><div id="sourceLegend"></div></details>
   <h3>Difficulty</h3><div id="modes"></div>
   <h3>Seed</h3>
   <div><button id="reroll">Reroll</button><button id="reseed">Original seed</button>
@@ -76,6 +88,7 @@
 </div>
 <div id="game"></div>
 <script src="game-loader.js"></script>
+<script src="map-review-zones.js"></script>
 <script>
 // ── Tiles ───────────────────────────────────────────────────────────────────
 const Q = new URLSearchParams(location.search);
@@ -162,6 +175,7 @@ function buildWorld(home) {
     const N = WorldGen.cellsPerEdgeForTile(ty);
     const r = WorldGen.rasterizeTile(layers, N, tx, ty, EDGE);
     const entry = Object.assign({ tx, ty, cellsPerEdge: N, tileEdgeM: EDGE, layers }, r);
+    ZoneReview.capture(entry);
     WorldGen.tileCache.set(WorldGen.tileKey(tx, ty), entry);
     tiles.push(entry);
   }
@@ -297,6 +311,9 @@ function zoneAnchorOf(e, o) {
 }
 function popupHTML(e, o, label) {
   const rows = [`<b>${esc(o.name || label)}</b>`];
+  const category = (e.creatures || []).includes(o) ? 'creature' : '';
+  rows.push(`Source: <b>${esc(ZoneReview.SOURCES[ZoneReview.source(e,o,category)].label)}</b>`);
+  if (o.zoneVariant) rows.push(`Variant: <b>${esc(ZoneVariants.byId(o.zoneVariant)?.name || o.zoneVariant)}</b>${o.zoneLayer ? ' · '+esc(o.zoneLayer) : ''}`);
   if (o.kind === 'chest') {
     const tags = (o._poiAt && poiTagsOf(e).get(o._poiAt)) || {};
     rows.push(`POI: ${esc(o.poiClass || tags.class || '?')}${tags.subclass && tags.subclass !== o.poiClass ? ' / ' + esc(tags.subclass) : ''}`);
@@ -320,28 +337,93 @@ function popupHTML(e, o, label) {
   rows.push(`<code>${esc(o.id || '')}</code>`);
   return rows.join('<br>');
 }
+// Zone selection names the actual row, including parks whose chest was clipped.
+const zoneLabels = L.layerGroup().addTo(map), zoneSelection = L.layerGroup().addTo(map);
+let zoneReviews = new Map();
+function zoneTitle(z) { return `${z.name || z.anchor.kind} · ${z.variant?.name || 'No variant'}`; }
+function selectZone(id, focus) {
+  $('zonePick').value = id;
+  zoneSelection.clearLayers();
+  const z = zoneReviews.get(id);
+  if (!z) { $('zoneDetails').textContent = 'Select a park or zone to inspect its layout and other spawns.'; return; }
+  const bg = z.background;
+  const lines = [`<b>${esc(z.variant?.name || 'No variant')}</b> · ${esc(z.name || z.anchor.kind)}`,
+    `${z.coverage} coverage cells · ${z.eligible} free eligible cells before placement`,
+    `Finds ${z.finds.join('/')} · guards ${z.guards.join('/')}`];
+  if (bg.planned != null) lines.push(`<b>Background: ${bg.placed || 0}/${bg.planned} slots placed</b><br>`
+    + `${bg.occupied || 0} occupied by earlier spawns · ${bg.blocked || 0} refused by terrain/spawn rules · ${bg.reserved || 0} used by POI/find/connection layout`);
+  lines.push(`Suppressed earlier placements: ${z.suppressed.ambient} general · ${z.suppressed.street} street`);
+  lines.push(Object.entries(z.sources).map(([s, n]) => `<span style="color:${ZoneReview.SOURCES[s].color}">${esc(ZoneReview.SOURCES[s].label)}: ${n}</span>`).join('<br>'));
+  if (Object.keys(z.fauna).length) lines.push('Fauna here: ' + Object.entries(z.fauna).map(([s,n]) => `${n} ${esc(s)}`).join(', '));
+  const affinity = Object.entries(z.variant?.attracts || {});
+  lines.push('Variant fauna attraction: ' + (affinity.length ? affinity.map(([s,p]) => `${esc(s)} ${Math.round(p*100)}%`).join(', ') + ' of existing tile fauna; no population cap.' : 'none.'));
+  if (z.shortfalls.length) lines.push('Unplaced: ' + esc(z.shortfalls.join(', ')));
+  lines.push('<small>Counts cover the loaded part of this zone. Fauna counts are separate from layout coverage.</small>');
+  $('zoneDetails').innerHTML = lines.join('<p></p>');
+  const bounds = L.latLngBounds([]);
+  for (const { entry: e, slot } of z.fragments) {
+    const N = e.cellsPerEdge, c = document.createElement('canvas'); c.width = c.height = N;
+    const g = c.getContext('2d'); g.fillStyle = '#27d9c0';
+    const coverage = e.zone.coverage || e.zone.idx;
+    let minX=N,minY=N,maxX=-1,maxY=-1;
+    for (let i=0;i<coverage.length;i++) if (coverage[i]===slot) {
+      const x=i%N,y=Math.floor(i/N);g.fillRect(x,y,1,1);
+      minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);
+    }
+    if (maxX<0) continue;
+    bounds.extend(toLL((e.tx+minX/N)*EDGE,(e.ty+minY/N)*EDGE,EDGE));
+    bounds.extend(toLL((e.tx+(maxX+1)/N)*EDGE,(e.ty+(maxY+1)/N)*EDGE,EDGE));
+    L.imageOverlay(c.toDataURL(), [toLL(e.tx*EDGE,(e.ty+1)*EDGE,EDGE),toLL((e.tx+1)*EDGE,e.ty*EDGE,EDGE)], {opacity:.22}).addTo(zoneSelection);
+  }
+  if (focus && bounds.isValid()) map.fitBounds(bounds.pad(.18), {maxZoom:19});
+}
+function updateZoneReview(world) {
+  const selected = $('zonePick').value;
+  zoneReviews = ZoneReview.analyse(world, EDGE);
+  zoneLabels.clearLayers();
+  $('zonePick').replaceChildren(new Option('Select a park or zone…', ''));
+  for (const z of [...zoneReviews.values()].sort((a,b)=>zoneTitle(a).localeCompare(zoneTitle(b)))) {
+    $('zonePick').appendChild(new Option(zoneTitle(z),z.id));
+    const a=z.anchor, ll=toLL(a.gx*EDGE/4096,a.gy*EDGE/4096,EDGE);
+    L.circleMarker(ll,{radius:4,color:'#fff',weight:1,fillColor:'#27d9c0',fillOpacity:1})
+      .bindTooltip(esc(z.variant?.name || 'No variant'), {permanent:true,direction:'top',className:'zone-label'})
+      .on('click',()=>selectZone(z.id,true)).addTo(zoneLabels);
+  }
+  selectZone(zoneReviews.has(selected) ? selected : '', false);
+}
+$('zonePick').onchange=()=>selectZone($('zonePick').value,true);
+$('zoneLabels').onchange=()=> $('zoneLabels').checked ? zoneLabels.addTo(map) : map.removeLayer(zoneLabels);
+const showSource = source => $('sourceFilter').value === 'all' || source === 'place'
+  || ($('sourceFilter').value === 'ground' ? source !== 'fauna'
+    : $('sourceFilter').value === 'variant' ? source === 'variant' : source !== 'variant');
+$('sourceFilter').onchange=$('sourceColors').onchange=()=>draw(window.__world,window.__home);
+$('sourceLegend').innerHTML=Object.values(ZoneReview.SOURCES).map(s=>`<span style="color:${s.color}">● ${esc(s.label)}</span>`).join('<br>');
+
 function draw(world, home) {
   drawn.forEach((l) => map.removeLayer(l)); drawn = [];
   const groups = {};
-  const add = (k, ll, label, id, x, y, popup) => (groups[k] = groups[k] || []).push({ ll, label, id, x, y, popup });
+  const add = (k, ll, label, id, x, y, popup, source = 'runtime') => {
+    if (k !== 'Home' && !showSource(source)) return;
+    (groups[k] = groups[k] || []).push({ ll, label, id, x, y, popup, source });
+  };
   for (const e of world.tiles) {
     for (const o of e.objects || []) {
       const k = classify(o);
       const tier = (o.kind === 'chest' && typeof chestTier === 'function')
         ? ' · T' + chestTier(o) : '';
       const label = [o.kind, o.species, o.poiClass, o.name].filter(Boolean).join(' · ') + tier;
-      add(k, toLL(o.x, o.y, EDGE), label, o.id, o.x, o.y, popupHTML(e, o, label));
+      add(k, toLL(o.x, o.y, EDGE), label, o.id, o.x, o.y, popupHTML(e, o, label), ZoneReview.source(e,o));
     }
-    for (const w of e.wildplants || []) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, popupHTML(e, w, w.crop));
-    for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'roadside trap', t.id, t.x, t.y);
+    for (const w of e.wildplants || []) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, popupHTML(e, w, w.crop), ZoneReview.source(e,w));
+    for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'trap', t.id, t.x, t.y, popupHTML(e,t,'trap'), ZoneReview.source(e,t));
     // Buried X marks: the tile's own mark, spawned and rasterized marks in
     // extraTreasures, and parking-lot marks.
-    if (e.treasure && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y);
-    for (const t of e.extraTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y);
-    for (const t of e.parkingTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y);
+    if (e.treasure && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y, popupHTML(e,e.treasure,'Buried X'), ZoneReview.source(e,e.treasure));
+    for (const t of e.extraTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y, popupHTML(e,t,'Buried X'), ZoneReview.source(e,t));
+    for (const t of e.parkingTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y, popupHTML(e,t,'Parking treasure'), ZoneReview.source(e,t));
     for (const c of e.creatures || []) {
       const hostile = typeof Combat !== 'undefined' && Combat.isEnemy && Combat.isEnemy(c);
-      add(hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), c.kind + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y);
+      add(c.kind === 'npc' ? 'resident: npc' : hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), c.kind + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y, popupHTML(e,c,c.kind), ZoneReview.source(e,c,'creature'));
     }
   }
   for (const g of world.guards) add('enemy: garrison', toLL(g.x, g.y, EDGE), 'hard-mode garrison · ' + g.kind, g.id, g.x, g.y);
@@ -353,12 +435,13 @@ function draw(world, home) {
     + (side * side === nT && nT > 1 ? ` (${side}×${side}, ~${(EDGE / 1000).toFixed(1)} km each)` : ` (~${(EDGE / 1000).toFixed(1)} km each)`)
     + ' — total, then per tile.';
   $('kinds').innerHTML = '';
+  state.layers = {};
   kinds.forEach((k, i) => {
     const lg = L.layerGroup();
     const big = k === 'Home' || k.startsWith('enemy') || k === 'X mark' || k === 'chest';
     for (const p of groups[k]) {
       new ShapeMarker(p.ll, { shape: shapeOf(k), radius: k === 'Home' ? 9 : big ? 6 : k.startsWith('plant:') ? 3.5 : 5,
-        color: '#000', weight: k === 'Home' ? 3 : 1, fillColor: colour(k, i), fillOpacity: 0.9 })
+        color: '#000', weight: k === 'Home' ? 3 : 1, fillColor: $('sourceColors').checked && k !== 'Home' ? ZoneReview.SOURCES[p.source].color : colour(k, i), fillOpacity: 0.9 })
         .bindTooltip(p.label, { direction: 'top', offset: [0, -4], opacity: 0.92 })
         .bindPopup(p.popup || `<b>${esc(p.label)}</b><br><code>${esc(p.id || '')}</code>`).addTo(lg);
     }
@@ -747,6 +830,7 @@ function rebuild(home) {
   setTimeout(() => {
     const t0 = performance.now();
     const world = window.__world = buildWorld(home);
+    updateZoneReview(world);
     draw(world, home);
     const s = Math.round((performance.now() - t0) / 100) / 10;
     $('status').textContent = world.errors.length
@@ -766,6 +850,7 @@ function rebuild(home) {
     map.setView(toLL(home.x, home.y, EDGE), 16);
     const first = window.__world = buildWorld(home);
     overlays(first);
+    updateZoneReview(first);
     draw(first, home);
     $('status').textContent = first.errors.length ? `${first.errors.length} error(s), see console` : 'ready';
     if (first.errors.length) console.warn(first.errors.join('\n'));

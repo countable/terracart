@@ -516,11 +516,11 @@ test('traps: standing on one out-drains the fastest passive rest in the game', (
 
 test('traps: the surface spawn passes the SHARED spawn options, mask and all', () => {
   assert.truthy(
-    /Traps\.spawnSurface\(genGrid, entry\.roadClass, N, N, tx, ty, this\.tileEdgeM, _spawnOpts,/
+    /Traps\.spawnSurface\(genGrid, entry\.roadClass, N, N, tx, ty, this\.tileEdgeM, ambientSpawnOpts,/
       .test(SCENE_CREATURES_SRC),
-    'spawnInTile hands Traps.spawnSurface entry.roadClass and _spawnOpts (the mask) — the same '
-    + 'options every other spawner in that method uses — over the GENERATED grid '
-    + '(genGrid), like every other draw in the pass');
+    'surface traps retain the shared mask and generated grid while respecting authored coverage');
+  assert.truthy(/const ambientSpawnOpts = \{ \.\.\._spawnOpts, occupied: ambientOccupied \}/.test(SCENE_CREATURES_SRC),
+    'ambient placement retains all shared spawn-gate options');
   assert.truthy(/Traps\.spawnSurface\([^;]*Difficulty\.get\(\)\.trapCountMul/.test(SCENE_CREATURES_SRC),
     'the surface density scales with the game mode, not a fixed rate');
 });

@@ -30,6 +30,90 @@
     return inside || d2 <= margin ** 2;
   }
 
+  function paint(field, grid, pathUnder, roadMask) {
+    const it = ZoneCoverage.paintSteps(field, grid, N, pathUnder, roadMask);
+    let result, slices = 0;
+    do { result = it.next(); if (!result.done) slices++; } while (!result.done);
+    return { painted: result.value, slices };
+  }
+  test('zone coverage: zone ground overrides ordinary terrain throughout the coverage union', () => {
+    const T = WorldGen.T, original = [T.GRASS, T.PARK, T.FOREST, T.FARMLAND, T.ROCK,
+      T.SCHOOL, T.COMMERCIAL, T.INDUSTRIAL, T.RESIDENTIAL, T.WASTELAND, T.SAND, T.WETLAND,
+      T.GOLF, T.ORCHARD, T.PLAYGROUND, T.PITCH];
+    for (const kind of Object.keys(Zones.ZONE_KINDS)) {
+      const grid = new Uint8Array(N * N).fill(T.FOREST), coverage = new Uint16Array(N * N);
+      grid.set(original); coverage.fill(1, 0, original.length);
+      const field = { anchors: [anchor(1000, 1000, kind)], coverage, idx: new Uint8Array(N * N) };
+      const result = paint(field, grid);
+      assert.eq(result.painted, original.length);
+      assert.gt(result.slices, 0);
+      for (let i = 0; i < original.length; i++) {
+        assert.eq(grid[i], Zones.terrainOf(kind), `${kind} overrides ${original[i]} beyond influence`);
+        assert.eq(field.under[i], original[i], 'original land recorded');
+      }
+      assert.eq(grid[original.length], T.FOREST, 'outside coverage unchanged');
+      assert.eq(paint(field, grid).painted, 0, 'repainting preserves the original underlay');
+      for (let i = 0; i < original.length; i++) assert.eq(field.under[i], original[i]);
+    }
+  });
+  test('zone coverage: zero-valued grass remains original land across paint and legacy underlays', () => {
+    const T = WorldGen.T, grid = new Uint8Array(N * N).fill(T.GRASS);
+    const coverage = new Uint16Array(N * N); coverage[0] = 1;
+    const field = { anchors: [anchor(1000, 1000)], coverage };
+    paint(field, grid);
+    assert.eq(grid[0], T.GROVE);
+    assert.eq(Zones.landAt(grid, field.under, 0), T.GRASS);
+    assert.eq(field.under.present[0], 1);
+    field.anchors[0].kind = 'stones';
+    paint(field, grid);
+    assert.eq(grid[0], T.CHURCHYARD);
+    assert.eq(Zones.landAt(grid, field.under, 0), T.GRASS, 'repaint cannot replace saved grass with the first zone');
+    const legacy = new Uint8Array(N * N); legacy[1] = T.PARK;
+    assert.eq(Zones.landAt(grid, legacy, 0), T.CHURCHYARD, 'legacy zero still means untouched');
+    assert.eq(Zones.landAt(grid, legacy, 1), T.PARK, 'legacy nonzero land still works');
+    assert.eq(Zones.landAt(grid, null, 0), T.CHURCHYARD);
+  });
+  test('zone coverage: road bands, paths, water and structures retain their visible footprint', () => {
+    const T = WorldGen.T, original = [T.ROAD, T.ROAD_MD, T.ROAD_LG, T.WATER,
+      T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.CAVE_WALL, T.PIER, T.PATH, T.PARK];
+    const grid = new Uint8Array(N * N).fill(T.FOREST); grid.set(original);
+    const coverage = new Uint16Array(N * N).fill(1), roadMask = new Uint8Array(N * N);
+    roadMask[10] = 1;
+    const pathUnder = { '9_0': T.FOREST, '20_0': T.FARMLAND };
+    const field = { anchors: [anchor(1000, 1000)], coverage };
+    paint(field, grid, pathUnder, roadMask);
+    for (let i = 0; i < original.length; i++) assert.eq(grid[i], original[i], `protected terrain ${i}`);
+    assert.eq(pathUnder['9_0'], T.GROVE, 'zone ground beneath the still visible path');
+    assert.eq(pathUnder['20_0'], T.FARMLAND, 'stale path metadata does not paint non-path cells');
+    for (let i = 0; i < original.length; i++) assert.eq(field.under[i], 0, 'unpainted cell adds no underlay');
+    assert.eq(grid[11], T.GROVE, 'ordinary adjacent ground still changes');
+  });
+  test('zone coverage: road bands restore earlier halo and fringe paint even outside the union', () => {
+    const T = WorldGen.T, grid = new Uint8Array(N * N).fill(T.FOREST);
+    const under = new Uint8Array(N * N), coverage = new Uint16Array(N * N), roadMask = new Uint8Array(N * N);
+    grid[0] = T.CHURCHYARD; under[0] = T.RESIDENTIAL; coverage[0] = 1; roadMask[0] = 1;
+    grid[1] = T.GROVE; under[1] = T.COMMERCIAL; roadMask[1] = 1;
+    grid[2] = T.ROAD; under[2] = T.RESIDENTIAL; coverage[2] = 1; roadMask[2] = 1;
+    grid[3] = T.PATH; under[3] = T.PARK; coverage[3] = 1; roadMask[3] = 1;
+    const field = { anchors: [anchor(1000, 1000)], coverage, under };
+    paint(field, grid, {}, roadMask);
+    assert.eq(grid[0], T.RESIDENTIAL, 'covered road band restored');
+    assert.eq(grid[1], T.COMMERCIAL, 'fringe road band outside coverage restored');
+    assert.eq(grid[2], T.ROAD, 'actual road keeps its footprint');
+    assert.eq(grid[3], T.PATH, 'actual path keeps its footprint');
+    assert.eq(under[0], T.RESIDENTIAL); assert.eq(under[1], T.COMMERCIAL);
+  });
+  test('zone coverage: expanded paint preserves original land saved by halo and fringe passes', () => {
+    const T = WorldGen.T, grid = new Uint8Array(N * N).fill(T.GROVE);
+    const under = new Uint8Array(N * N); under[0] = T.RESIDENTIAL; under[1] = T.PARK;
+    const coverage = new Uint16Array(N * N); coverage[0] = coverage[1] = 1;
+    const field = { anchors: [anchor(1000, 1000, 'stones')], coverage, under };
+    assert.eq(paint(field, grid).painted, 2);
+    assert.eq(field.under, under);
+    assert.eq(under[0], T.RESIDENTIAL); assert.eq(under[1], T.PARK);
+    assert.eq(grid[0], T.CHURCHYARD); assert.eq(grid[1], T.CHURCHYARD);
+  });
+
   test('zone coverage: associated footprint and exact 30m fringe include holes and diagonal corners correctly', () => {
     const rings = [[{ x: 300, y: 600 }, { x: 3600, y: 350 }, { x: 3400, y: 3650 }, { x: 400, y: 3400 }],
       rect(1300, 1300, 2700, 2700)];

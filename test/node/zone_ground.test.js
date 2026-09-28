@@ -60,7 +60,7 @@ const TX = 2754, TY = 5566;
 const N0 = WorldGen.cellsPerEdgeForTile(TY), EDGE0 = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(TY));
 const rect = (x0, y0, x1, y1) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }, { x: x0, y: y0 }];
 
-test('park characters: a park holding a named-park POI wears the POI\'s character, and so does its grove', () => {
+test('park characters: a named park keeps its character while declarative coverage replaces its old hedge rows', () => {
   // Find a compact rectangle whose centroid is not formal, then place a
   // formal park POI inside it. The baseline proves the POI changes the park.
   const HALF = 600;
@@ -87,11 +87,19 @@ test('park characters: a park holding a named-park POI wears the POI\'s characte
     { name: 'poi', features: withPoi ? [{ type: 1, tags: { class: 'park', subclass: 'park', name: 'Test Park' }, geom: [[poi]] }] : [] },
   ], N0, TX, TY, EDGE0);
   const hedges = (r) => r.wildplants.filter((w) => /^hr_/.test(w.id)).length;
+  let legacy;
+  const coverage = globalThis.ZoneCoverage;
+  try {
+    globalThis.ZoneCoverage = undefined;
+    legacy = build(true);
+  } finally { globalThis.ZoneCoverage = coverage; }
   const on = build(true);
-  assert.gt(hedges(on), 20, 'the formal POI clipped the park into hedge rows');
+  assert.gt(hedges(legacy), 20, 'the legacy formal character generated hedge rows');
+  assert.eq(hedges(on), 0, 'the declared variant replaces those rows throughout its park');
+  assert.gt(on.zoneDress.wildplants.length + on.zoneDress.objects.length, 0, 'the replacement has interactables');
   assert.eq(hedges(build(false)), 0, 'without it the park keeps its own character');
   // Every hedge on the row lattice.
-  for (const w of on.wildplants.filter((x) => /^hr_/.test(x.id))) {
+  for (const w of legacy.wildplants.filter((x) => /^hr_/.test(x.id))) {
     const iy = +w.id.split('_')[4];
     assert.eq((TY * N0 + iy) % BP.PARK_CHARACTERS.formal.hedgeRows.period, 0, `${w.id} on a hedge row`);
   }
@@ -101,11 +109,11 @@ test('park characters: a park holding a named-park POI wears the POI\'s characte
   assert.truthy(Z.GROVE_ASPECTS.formal.some(([asp]) => asp === a.aspect), `a formal aspect (${a.aspect})`);
 });
 
-test('park density: ambient flora stays sparse beneath declarative zone layouts', () => {
+test('park density: covered parks replace ambience and unrelated park ground keeps it', () => {
   // MEASURED before the characters (rasterize + zone dressing, the nine
   // Kelowna fixtures): 1797 of 10277 park cells held something — 0.1749.
   const BEFORE = 0.1749;
-  let park = 0, held = 0;
+  let park = 0, held = 0, outsideHeld = 0;
   for (const key of Object.keys(FIXTURE_TILES).sort()) {
     const [tx, ty] = key.split('_').map(Number);
     const N = WorldGen.cellsPerEdgeForTile(ty), edge = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty));
@@ -115,12 +123,19 @@ test('park density: ambient flora stays sparse beneath declarative zone layouts'
     for (const o of [...r.objects, ...r.wildplants]) {
       occ.add(Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N)));
     }
-    for (let i = 0; i < N * N; i++) if (r.grid[i] === T.PARK) { park++; if (occ.has(i)) held++; }
+    for (let i = 0; i < N * N; i++) if ((r.zone?.under?.[i] || r.grid[i]) === T.PARK) {
+      park++;
+      if (occ.has(i)) { held++; if (!r.zone?.coverage?.[i]) outsideHeld++; }
+    }
+    for (const o of [...r.objects, ...r.wildplants].filter(o => /^(wp|hr|ptree)_/.test(o.id))) {
+      const i = Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
+      assert.falsy(r.zone?.coverage?.[i], `${o.id}: no old ambience under a declared pattern`);
+    }
   }
   assert.gt(park, 5000, 'the fixtures have parks');
   const now = held / park;
   assert.lte(now, BEFORE * 0.62, `park occupancy ${now.toFixed(4)} vs ${BEFORE} before`);
-  assert.gte(now, BEFORE * 0.4, 'thinned, not stripped');
+  assert.gt(outsideHeld, 0, 'uncovered parks retain their ambient decoration');
 });
 
 // ── The park fringe ─────────────────────────────────────────────────────────

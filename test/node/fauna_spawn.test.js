@@ -35,7 +35,7 @@
 // `const tryPlace = (...) => {` head and the closing `};`), so re-wrap it as
 // an arrow function (to keep the original's `this` semantics) inside a host
 // function that supplies the variables tryPlace closes over.
-function makeTryPlace(scene, rng, N, pestFree, entry, _spawnOpts, tx, ty, caughtSet, creatures, faunaSeats = new Set()) {
+function makeTryPlace(scene, rng, N, pestFree, entry, _spawnOpts, tx, ty, caughtSet, creatures, enemyGroundSeats = new Set()) {
   // spawnInTile's own locals the closure also reads: the tile's cell size in
   // frame metres, and the GENERATED grid its draws ask (baseGrid when the
   // entry has one — these stubs don't, so it is the grid itself).
@@ -46,10 +46,10 @@ function makeTryPlace(scene, rng, N, pestFree, entry, _spawnOpts, tx, ty, caught
   const unseated = [];
   const factory = new Function(
     'rng', 'N', 'pestFree', 'entry', '_spawnOpts', 'tx', 'ty', 'caughtSet', 'creatures',
-    'cellM', 'genGrid', 'unseated', 'faunaSeats',
+    'cellM', 'genGrid', 'unseated', 'enemyGroundSeats', 'faunaSpawnOpts',
     'return (kindWant, classesOK, idx, kindStr) => {\n' + TRY_PLACE_SRC + '\n};');
   return factory.call(scene, rng, N, pestFree, entry, _spawnOpts, tx, ty, caughtSet, creatures,
-    cellM, genGrid, unseated, faunaSeats);
+    cellM, genGrid, unseated, enemyGroundSeats, { ..._spawnOpts, occupied: null });
 }
 
 const GRASS = 0, RESIDENTIAL = 5, ROAD = 7;
@@ -138,15 +138,15 @@ test('fauna spawn (FINDING 3b): tryPlace consults the memoised Set, never Array.
     'setOf() Set instead of rescanning save.caught (O(save lifetime) per spawn attempt)');
 });
 
-test('fauna spawn: caught fauna still reserve their generated seats from plants', () => {
-  const faunaSeats = new Set();
+test('fauna spawn: caught fauna do not reserve ground against plant enemies', () => {
+  const enemyGroundSeats = new Set();
   const creatures = [];
   const tryPlace = makeTryPlace({ tileEdgeM: 14, cellM: 7 }, () => 0, 2,
     null, { grid: [GRASS, GRASS, GRASS, GRASS] }, { pois: [] }, 0, 0,
-    new Set(['cow_0_0_0']), creatures, faunaSeats);
+    new Set(['cow_0_0_0']), creatures, enemyGroundSeats);
   tryPlace('cow', new Set([GRASS]), 0, 'cow');
   assert.eq(creatures.length, 0);
-  assert.truthy(faunaSeats.has(0));
+  assert.falsy(enemyGroundSeats.has(0));
 });
 
 test('fauna spawn source: tryPlace no longer calls save.caught.includes directly', () => {

@@ -89,6 +89,37 @@
     assert.eq(fallback.objects.filter(o => o.kind === 'headstone').length, 0);
     assert.gt(fallback.objects.filter(o => o.kind === 'mineralrock').length, 0, 'safe stone replaces refused graves');
   });
+  test('zone dressing: background diagnostics distinguish legacy occupancy, gates and composition', () => {
+    const pristine = ZoneDressing.dress(context('ordered_graves'));
+    const cells = all(pristine).filter(o => o.zoneLayer === 'background' && o._iy < 10);
+    assert.gte(cells.length, 2);
+    const ctx = context('ordered_graves'), occupied = cells[0]._iy * ctx.N + cells[0]._ix;
+    const blocked = cells[1]._iy * ctx.N + cells[1]._ix;
+    ctx.spawnOpts.occupied.add(occupied);
+    ctx.spawnOpts.spawnWhy[blocked] = WorldGen.SPAWN_WHY.RESTRICTED;
+    const out = ZoneDressing.dress(ctx), counts = out.diagnostics[0].background;
+    const row = ZoneVariants.byId('ordered_graves'), origin = ZoneVariants.poiOrigin(row);
+    let nominal = 0;
+    for (let y = 0; y < ctx.N; y++) for (let x = 0; x < ctx.N; x++) {
+      if (ZoneVariants.sample(row, x - 32 + origin[0], y - 32 + origin[1], ctx.field.anchors[0].key)) nominal++;
+    }
+    assert.eq(counts.planned, nominal, 'includes motif samples replaced by POI and connections');
+    assert.eq(counts.occupied, 1, 'only occupancy present before dressing');
+    assert.eq(counts.blocked, 1, 'hard gate refusals');
+    assert.eq(counts.reserved, pristine.diagnostics[0].background.reserved);
+    assert.gt(counts.reserved, 0, 'own composition has a distinct budget');
+    assert.eq(counts.placed, all(out).filter(o => o.zoneLayer === 'background').length);
+    assert.eq(counts.planned, counts.placed + counts.occupied + counts.blocked + counts.reserved);
+  });
+  test('zone dressing: successful headstone fallback is placed, not blocked', () => {
+    const ctx = context('ordered_graves');
+    ctx.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
+    const out = ZoneDressing.dress(ctx), counts = out.diagnostics[0].background;
+    assert.eq(counts.blocked, 0);
+    assert.eq(counts.placed, all(out).filter(o => o.zoneLayer === 'background').length);
+    assert.gt(counts.placed, 0);
+    assert.eq(counts.planned, counts.placed + counts.occupied + counts.blocked + counts.reserved);
+  });
   test('zone dressing: surface traps obey the existing trap-ground predicate', () => {
     const ctx = context('broken_depot'), N = ctx.N;
     for (let x = 0; x < N; x++) ctx.grid[30 * N + x] = WorldGen.T.PATH;

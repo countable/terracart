@@ -121,4 +121,75 @@
       }
     }
   });
+
+  test('fauna overlap: static interactables permit animals while blocking enemies and traps', () => {
+    const N = 32, scene = Object.assign(new SceneCreatures(), {
+      tileEdgeM: N * 10, save: { caught: [] }, startWorldM: { x: -5000, y: 0 },
+      _pestFreeZone: () => null,
+    });
+    const entry = { cellsPerEdge: N, grid: new Array(N * N).fill(WorldGen.T.GRASS),
+      objects: Array.from({ length: N * N }, (_, i) => ({ kind: 'mineralrock', id: `rock_${i}`,
+        x: (i % N + .5) * 10, y: (Math.floor(i / N) + .5) * 10 })),
+      roadClass: new Uint8Array(N * N),
+    };
+    const prior = window.__TEST_MODE;
+    window.__TEST_MODE = false;
+    try { spawn.call(scene, entry, 0, 0); } finally { window.__TEST_MODE = prior; }
+    assert.gt(entry.creatures.filter(c => c.kind === 'crow').length, 0);
+    assert.falsy(entry.creatures.some(c => Combat.isEnemy(c)));
+    assert.eq(entry.traps.length, 0);
+    assert.eq(entry._spawnOpts.occupied.size, N * N, 'animals do not alter static occupancy');
+  });
+
+  test('fauna overlap: attraction shares interactable cells but retains road and private gates', () => {
+    const N = 16, grid = new Array(N * N).fill(WorldGen.T.GRASS);
+    const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
+    const entry = { zone: { coverage: new Uint16Array(N * N).fill(1),
+      anchors: [{ kind: 'stones', variant: 'silent_circle' }] } };
+    const opts = { occupied: new Set(Array.from({ length: N * N }, (_, i) => i)),
+      spawnWhy: new Uint16Array(N * N) };
+    for (let i = 0; i < N * N / 2; i++) opts.spawnWhy[i] = WorldGen.SPAWN_WHY.ROAD;
+    for (let i = N * N / 2; i < N * N * 3 / 4; i++) opts.spawnWhy[i] = WorldGen.SPAWN_WHY.PRIVATE;
+    const creatures = Array.from({ length: 100 }, (_, i) => ({ kind: 'crow', id: `crow_${i}`, x: -10, y: -10 }));
+    const moved = scene._seatFaunaOnFavouriteGround(entry, 0, 0, N, 10, grid, opts, creatures, null, [], new Set());
+    assert.gt(moved.crow, 0);
+    for (const c of creatures.filter(c => c.x >= 0)) assert.eq(opts.spawnWhy[Math.floor(c.y / 10) * N + Math.floor(c.x / 10)], 0);
+  });
+
+  test('fauna overlap: live scenery keeps animals; flooded ground and scenery still remove foes and traps', () => {
+    const N = 4, grid = new Array(N * N).fill(WorldGen.T.GRASS);
+    const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
+    const creatures = [{ kind: 'crow', x: 5, y: 5 }, { kind: 'slime', x: 5, y: 5 },
+      { kind: 'crow', x: 15, y: 5 }];
+    const entry = { grid: grid.slice(), objects: [{ kind: 'tree', x: 5, y: 5 }],
+      traps: [{ x: 5, y: 5 }], extraTreasures: [] };
+    entry.grid[1] = WorldGen.T.WATER;
+    scene._cullOffLiveGround(entry, 0, 0, N, 10, grid, [], creatures);
+    assert.eq(creatures.length, 1);
+    assert.eq(creatures[0].kind, 'crow');
+    assert.eq(creatures[0].x, 5);
+    assert.eq(entry.traps.length, 0);
+  });
+
+  test('zone runtime: authored coverage keeps ambient rooted enemies and traps out of empty pattern lanes', () => {
+    const N = 64, scene = Object.assign(new SceneCreatures(), {
+      tileEdgeM: N * 10, save: { caught: [] }, startWorldM: { x: -5000, y: 0 },
+      _pestFreeZone: () => null,
+    });
+    const trap = { id: 'authored_trap', x: 105, y: 105, zoneVariant: 'broken_depot' };
+    const entry = { cellsPerEdge: N, grid: new Array(N * N).fill(WorldGen.T.PARK),
+      objects: [], roadClass: new Uint8Array(N * N),
+      zone: { coverage: new Uint16Array(N * N).fill(1), anchors: [] },
+      zoneDress: { objects: [], wildplants: [], lairs: [], guards: [], traps: [trap] },
+    };
+    const prior = window.__TEST_MODE;
+    window.__TEST_MODE = false;
+    try { spawn.call(scene, entry, 0, 0); } finally { window.__TEST_MODE = prior; }
+    assert.falsy(entry.creatures.some(c => c.id.startsWith('plant_')));
+    assert.gt(entry.creatures.filter(c => c.kind === 'crow').length, 0);
+    assert.eq(entry.traps.length, 1);
+    assert.eq(entry.traps[0].id, trap.id);
+    assert.eq(entry._ambientSpawnOpts.occupied.size, N * N);
+    assert.eq(entry._spawnOpts.occupied.size, 1, 'authored trap reserves only its own cell for story placements');
+  });
 })();

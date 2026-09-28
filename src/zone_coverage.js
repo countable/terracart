@@ -123,5 +123,47 @@
     f.coverage = coverage;
     return f;
   }
-  root.ZoneCoverage = { buildSteps };
+  // Zone ground owns the full placement union, while built structures and
+  // transport surfaces retain their visible footprint. The old land remains
+  // available to trap-ground rules through the existing underlay ledger.
+  function* paintSteps(field, grid, N, pathUnder, roadMask) {
+    if (!field || !field.coverage) return 0;
+    const WG = root.WorldGen, T = WG.T, coverage = field.coverage;
+    const codes = field.anchors.map(a => root.Zones.terrainOf(a.kind));
+    const zoneGround = new Set(root.Zones.zoneTerrains());
+    const under = field.under || (field.under = new Uint8Array(N * N));
+    const present = under.present || (under.present = new Uint8Array(N * N));
+    let painted = 0;
+    for (let y = 0; y < N; y++) {
+      if ((y & 31) === 0) yield 'zone ground rows';
+      for (let x = 0; x < N; x++) {
+        const i = y * N + x, code = codes[coverage[i] - 1], here = grid[i];
+        // ALLOWLISTED raw roadMask read: terrain geometry preserves the visible
+        // road band. This pass paints land; it does not authorize any spawn.
+        if (roadMask && roadMask[i]) {
+          // Earlier halo/fringe passes may already have painted the band.
+          // Restore their saved land, even outside this coverage winner.
+          if (zoneGround.has(here)) grid[i] = root.Zones.landAt(grid, under, i);
+          continue;
+        }
+        if (code == null) continue;
+        if (WG.isRoadTerrain(here) || WG.isBuildingTerrain(here) || !WG.isWalkable(here) || here === T.PIER) continue;
+        if (here === T.PATH) {
+          const key = `${x}_${y}`;
+          if (pathUnder && pathUnder[key] != null) {
+            const land = pathUnder[key];
+            if (WG.isWalkable(land) && !WG.isRoadTerrain(land) && !WG.isBuildingTerrain(land) && land !== T.PIER) pathUnder[key] = code;
+          }
+          continue;
+        }
+        if (here === code) continue;
+        if (!under[i] && !present[i]) under[i] = here;
+        present[i] = 1;
+        grid[i] = code;
+        painted++;
+      }
+    }
+    return painted;
+  }
+  root.ZoneCoverage = { buildSteps, paintSteps };
 })(typeof window !== 'undefined' ? window : globalThis);

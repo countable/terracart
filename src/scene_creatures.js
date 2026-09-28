@@ -283,10 +283,24 @@ class SceneCreatures {
     // as it seated animals beside fast traffic). No extra draws: the shared stream is
     // untouched, only the verdict on a spent attempt is remembered.
     const unseated = [];
-    // Generated park plants reserve every drawn seat before save-specific
-    // filtering, so player progress cannot move another generated spawn.
-    const faunaSeats = new Set(_occupiedIdx);
+    // Animals can share interactable cells. Enemies still reserve their seats
+    // before save-specific filtering, including the rooted park enemies.
+    const ambientOccupied = new Set(_occupiedIdx);
+    const zoneCoverage = entry.zone && entry.zone.coverage;
+    if (zoneCoverage) for (let i = 0; i < zoneCoverage.length; i++) {
+      if (zoneCoverage[i]) ambientOccupied.add(i);
+    }
+    // Empty lanes are part of the authored layout, so ambient rewards and
+    // rooted enemies cannot fill them. Story and player placements keep the
+    // ordinary options; fauna use their own overlap rules below.
+    const ambientSpawnOpts = { ..._spawnOpts, occupied: ambientOccupied };
+    entry._ambientSpawnOpts = ambientSpawnOpts;
+    const enemyGroundSeats = new Set(ambientOccupied);
+    const faunaSpawnOpts = { ..._spawnOpts, occupied: null };
     const tryPlace = (classesOK, idx, kindStr) => {
+      const spClass = creatureSpawnClass(kindStr);
+      const fauna = spClass === 'fauna' || spClass === 'fastFauna';
+      const seatOpts = fauna ? faunaSpawnOpts : _spawnOpts;
       let displaced = false;
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
@@ -308,8 +322,8 @@ class SceneCreatures {
           // test/node/fauna_spawn.test.js.
           // The draw loop re-rolls on ground nothing may take (a MINOR
           // spawn's refusal — INVALID); SUPPRESSED ground is judged below.
-          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, 'minor')) {
-            if (!displaced && _spawnOpts.occupied && _spawnOpts.occupied.has(cy * N + cx)
+          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, seatOpts, 'minor')) {
+            if (!fauna && !displaced && _spawnOpts.occupied && _spawnOpts.occupied.has(cy * N + cx)
                 && WorldGen.isSpawnCell(genGrid, N, N, cx, cy, { roadMask: _spawnOpts.roadMask, pois: _spawnOpts.pois,
                   spawnWhy: _spawnOpts.spawnWhy, quiet: _spawnOpts.quiet }, 'minor')) displaced = true;
             continue;
@@ -317,7 +331,7 @@ class SceneCreatures {
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
-          faunaSeats.add(cy * N + cx);
+          if (!fauna) enemyGroundSeats.add(cy * N + cx);
           if (caughtSet.has(id)) return;
           // AN ANIMAL (or a wild slime) IS SEATED BY ITS OWN CLASS (the spawn
           // gate, creatureSpawnClass): fauna keep off school grounds and
@@ -326,7 +340,7 @@ class SceneCreatures {
           // pest amnesty below, never re-rolled: the stream stays the same
           // for every later spawn, and the mask is generated, so every player
           // loses the same animals.
-          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, creatureSpawnClass(kindStr))) return;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, seatOpts, spClass)) return;
           // The pest amnesty DROPS a slime or crow that lands in the zone —
           // after the cell was drawn exactly as it would be for anyone else.
           // It used to re-roll (`continue`) instead, which took extra draws out
@@ -382,10 +396,10 @@ class SceneCreatures {
         }
       }
     }
-    // Independent park stream; reserve generated fauna seats before any
-    // save-specific filtering so catching an animal cannot reveal a plant.
+    // Independent park stream; only static pieces and enemy seats reserve
+    // ground. An animal cannot prevent an interactable or rooted enemy spawn.
     const parkPlants = WorldGen.spawnParkPlants(genGrid, N, N, tx, ty, this.tileEdgeM,
-      { ..._spawnOpts, occupied: faunaSeats });
+      { ..._spawnOpts, occupied: enemyGroundSeats });
     const plantCells = new Set();
     for (const plant of parkPlants) {
       const cx = Math.floor((plant.x - tx * this.tileEdgeM) / cellM);
@@ -503,8 +517,8 @@ class SceneCreatures {
     // stepped on: the placement is a pure function of the tile's coordinates
     // (Traps.spawnSurface seeds its own rng off tx/ty, so it takes no draws out
     // of the stream above and every existing world seed is untouched), and only
-    // save.sprungTraps ever reaches disk. Handed `_spawnOpts` — the SAME shared
-    // spawn options every other spawner in this method uses — so the road rule
+    // save.sprungTraps ever reaches disk. The ambient options preserve the
+    // shared spawn gate and also reserve authored zone coverage, so the road rule
     // is the one in WorldGen.isSpawnCell, not a copy of it: a trap sits on the
     // VERGE the drawn band stops at, never under the band. Plain assignment,
     // not `||`: a rebuilt entry (see CLAUDE.md) arrives carrying nothing and
@@ -523,7 +537,7 @@ class SceneCreatures {
     // entry drops it along with `_spawned`, and this pass puts it back.
     entry._spawnOpts = _spawnOpts;
     entry.traps = (typeof Traps !== 'undefined' && !window.__TEST_MODE)
-      ? Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, _spawnOpts,
+      ? Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, ambientSpawnOpts,
           Difficulty.get().trapCountMul, entry.zone && entry.zone.under)
       : [];
     entry.traps.push(...zoneTraps);
@@ -592,7 +606,7 @@ class SceneCreatures {
         const cy = Math.floor(rng() * N);
         // Walkable, off-road, and not deep in a private yard — one shared rule
         // (an X mark is an ordinary pickup: a MINOR spawn).
-        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, 'minor')) continue;
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, ambientSpawnOpts, 'minor')) continue;
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
         if (!isStarterTile) entry.treasure = { x: wmx, y: wmy, id: `treasure_${tx}_${ty}` };
@@ -612,7 +626,7 @@ class SceneCreatures {
       for (let attempt = 0; attempt < 8 && !placed; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
-        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, 'minor')) continue;
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, ambientSpawnOpts, 'minor')) continue;
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
         entry.extraTreasures.push({ x: wmx, y: wmy, id: WorldGen.cellId('treasure_x', tx, ty, cx, cy) });
@@ -671,7 +685,7 @@ class SceneCreatures {
           // and otherwise a legitimate spawn cell (walkable, off-road, out of
           // private yards). Avoid stacking on an existing X below.
           if (genGrid[ncy * N + ncx] === 8 /* PATH */) continue;
-          if (!WorldGen.isSpawnCell(genGrid, N, N, ncx, ncy, _spawnOpts, 'minor')) continue;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, ncx, ncy, ambientSpawnOpts, 'minor')) continue;
           const wmx = tx * this.tileEdgeM + (ncx + 0.5) * cellM;
           const wmy = ty * this.tileEdgeM + (ncy + 0.5) * cellM;
           const id = WorldGen.cellId('treasure_path', tx, ty, ncx, ncy);
@@ -700,7 +714,7 @@ class SceneCreatures {
         for (let attempt = 0; attempt < 8 && !placed; attempt++) {
           const cell = sandCells[Math.floor(rng() * sandCells.length)];
           const scx = cell % N, scy = Math.floor(cell / N);
-          if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, _spawnOpts, 'minor')) continue;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, ambientSpawnOpts, 'minor')) continue;
           const wmx = tx * this.tileEdgeM + (scx + 0.5) * cellM;
           const wmy = ty * this.tileEdgeM + (scy + 0.5) * cellM;
           const id = WorldGen.cellId('treasure_sand', tx, ty, scx, scy);
@@ -807,7 +821,7 @@ class SceneCreatures {
       const under = zf && zf.under;
       for (const code of Object.keys(BA)) {
         const c = +code;
-        add(BA[code], (i) => ((under && under[i]) || genGrid[i]) === c);
+        add(BA[code], (i) => (Z ? Z.landAt(genGrid, under, i) : genGrid[i]) === c);
       }
     }
     // Only species the tile actually spawned; p = 1 first (the dogs keep the
@@ -832,12 +846,14 @@ class SceneCreatures {
       const rng = WorldGen.makeRng(fnv1a(`${sp}s|${tx},${ty}`));
       const pest = (sp === 'slime' || sp === 'crow') ? pestFree : null;
       const spClass = creatureSpawnClass(sp);
+      const seatOpts = spClass === 'fauna' || spClass === 'fastFauna'
+        ? { ...spawnOpts, occupied: null } : spawnOpts;
       const free = (idx) => {
         if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
         // The seat rule for anything alive: its own spawn class.
-        return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts, spClass);
+        return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, seatOpts, spClass);
       };
       const seatOn = (c) => {
         let k = -1, at = -1;
@@ -897,21 +913,24 @@ class SceneCreatures {
       if (i >= 0) held.add(i);
     }
     const repainted = grid !== genGrid;
-    const off = (t) => {
+    const off = (t, allowOverlap = false) => {
       const i = idxOf(t.x, t.y);
       if (i < 0) return false;
-      if (held.has(i)) return true;
+      if (!allowOverlap && held.has(i)) return true;
       return repainted && grid[i] !== genGrid[i] && !WorldGen.isWalkable(grid[i]);
     };
     if (!held.size && !repainted) return;
-    const keep = (arr) => {
+    const keep = (arr, faunaOverlap = false) => {
       if (!arr) return arr;
       let w = 0;
-      for (let r = 0; r < arr.length; r++) if (!off(arr[r])) arr[w++] = arr[r];
+      for (const record of arr) {
+        const cls = faunaOverlap && record.kind !== 'npc' && creatureSpawnClass(record.kind);
+        if (!off(record, cls === 'fauna' || cls === 'fastFauna')) arr[w++] = record;
+      }
       arr.length = w;
       return arr;
     };
-    keep(creatures);
+    keep(creatures, true);
     keep(entry.traps);
     keep(entry.extraTreasures);
     if (entry.treasure && off(entry.treasure)) entry.treasure = null;
@@ -1064,12 +1083,9 @@ class SceneCreatures {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
-        // Same seat-time occupancy check as the monster loop above — a rabbit
-        // is no less able to spawn inside a rock than a slime is.
-        if (occupiedIdx.has(cy * N + cx)) continue;
+        // Cave rabbits share interactable cells, like surface fauna.
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
         if (caughtSet.has(id)) break;   // already caught — stays gone
-        if (heldByPlayer.has(cy * N + cx)) break;   // on the player's own stair
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
         creatures.push(WorldGen.makeCreature('rabbit', wmx, wmy, id));
