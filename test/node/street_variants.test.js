@@ -269,7 +269,10 @@ test('café hoards: beside the café, public ground, guarded only outside the ke
 
 test('café hoards: the guard is a giant, seated by Lairs on the foe rule (outside the buffer)', () => {
   assert.eq(Lairs.capFor('cafe', 1), 1, 'a strong hoard is still one guard');
-  assert.truthy(Lairs.KIND_ORDER.cafe.every((k) => /^giant_goblin/.test(k)), 'a café hoard holds a giant goblin');
+  assert.truthy(Lairs.KIND_ORDER.cafe.every((kind) => {
+    const row = EnemyRoster.get(kind);
+    return row && row.variantType === 'Giant' && row.surface && row.tier <= 3 && !row.eliteEligible;
+  }), 'a café hoard holds an approved surface giant, capped at T3 without Elite stacking');
   assert.truthy(Lairs.ALWAYS_AWAKE_TIERS.has('cafe'), 'every mode');
   assert.eq(Lairs.KIND_ORDER.close, undefined, 'the hedgerow close tier is gone');
   const r = rasterize();

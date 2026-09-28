@@ -1,8 +1,8 @@
-// Drive the real scene loop: a rooted enemy still attacks but never pursues.
+// Drive the real scene loop: plants reposition slowly and spit from their declared range.
 (function () {
   const CELL = 7;
   function setup(extra = {}) {
-    const plant = { kind: 'plant', id: 'plant_0_0_1_1', x: CELL, y: 0, ...extra };
+    const plant = { kind: 'plant', id: 'plant_0_0_1_1', x: 2 * CELL, y: 0, ...extra };
     const scene = {
       cellM: CELL, depth: 0, creatures: [plant],
       save: { energy: 1000, caught: [], armor: {}, planted: [], fires: [], released: [] },
@@ -25,7 +25,7 @@
     };
     return { plant, scene };
   }
-  function tick(scene, ms = 250) {
+  function tick(scene, ms = 100) {
     const previous = [WorldGen.forEachItem, WorldGen.forEachItemNear, performance.now];
     scene._simT = (scene._simT || 1e6) + ms;
     const walk = (what, fn) => { if (what === 'creatures') scene.creatures.forEach(c => fn(c, 0, 0)); };
@@ -35,42 +35,52 @@
     try { __wander.call(scene); }
     finally { [WorldGen.forEachItem, WorldGen.forEachItemNear, performance.now] = previous; }
   }
-  test('park plant: registered melee enemy with bounty, no cave or giant variant', () => {
+
+  test('park plant: roster declares a ranged surface and cave enemy with a giant', () => {
+    const row = Combat.monster('plant');
     assert.truthy(Combat.isEnemy({ kind: 'plant', id: 'plant_0_0_1_1' }));
-    assert.eq(Combat.monster('plant').range, Combat.MELEE_REACH_CELLS);
-    assert.truthy(Combat.monster('plant').stationary);
-    assert.falsy(Combat.spawnsUnderground('plant'));
-    assert.falsy(Combat.monster('giant_plant'));
+    assert.eq(row.attackType, 'projectile'); assert.eq(row.range, 2);
+    assert.eq(row.movement.pattern, 'anchor_spit');
+    assert.truthy(Combat.spawnsUnderground('plant'));
+    assert.truthy(Combat.monster('giant_plant'));
     assert.gt(Combat.enemyBounty('plant', 0), 0);
     const { plant } = setup();
-    const hp = Combat.hp(plant);
-    Combat.damage(plant, hp);
+    Combat.damage(plant, Combat.hp(plant));
     assert.eq(Combat.hp(plant), 0);
   });
-  test('park plant: proximity bite has cooldown and art timing; leaving stops damage', () => {
+  test('park plant: a telegraphed single-hit projectile replaces the contact bite', () => {
     const { plant, scene } = setup();
+    const row = EnemyRoster.get('plant');
     tick(scene);
-    assert.lt(scene.save.energy, 1000);
+    assert.eq(scene._shots.length, 0); assert.eq(scene.save.energy, 1000);
+    assert.gt(plant._attackWindupUntil, scene._simT);
+    tick(scene, row.windupSeconds * 1000);
+    assert.eq(scene._shots.length, 1);
+    assert.eq(scene._shots[0].hits, 1);
     assert.eq(plant._attackT0, scene._simT);
-    assert.eq(plant._attackUntil - plant._attackT0, 600);
-    const energy = scene.save.energy;
+    assert.gt(plant._attackUntil, plant._attackT0);
+    assert.eq(scene.save.energy, 1000, 'launching does not also deal contact damage');
+    let impacts = 0;
+    let shots = scene._shots.slice();
+    for (let i = 0; i < 300 && shots.length; i++) {
+      shots = Combat.stepShots(shots, 1 / 60, [], Combat.HIT_RADIUS_CELLS * CELL,
+        (target, shot) => { impacts++; scene._losePlayerEnergy(Combat.incomingDamage(scene.save, shot.damage, shot.hits)); },
+        { cellM: CELL, hostileTargets: [{ id: 'player', x: 0, y: 0 }], blocked: () => false });
+    }
+    assert.eq(impacts, 1); assert.lt(scene.save.energy, 1000);
     tick(scene, 100);
-    assert.eq(scene.save.energy, energy, 'no repeated damage during cooldown');
-    scene.playerM.x = -0.01;
-    for (let i = 0; i < 160; i++) tick(scene);
-    assert.eq(scene.save.energy, energy, 'outside one cell never bites');
-    assert.eq(plant.x, CELL); assert.eq(plant.y, 0);
-    scene.playerM.x = 0;
-    tick(scene);
-    assert.lt(scene.save.energy, energy, 'bites again when player returns');
+    assert.eq(scene._shots.length, 1, 'the row cooldown prevents another shot');
   });
-  test('park plant: provocation and wander-off timers never uproot it', () => {
-    const { plant, scene } = setup({ _struckT: 1e6, _wanderOffInMs: 1, _wanderOffSimT: 1e6 });
-    scene.playerM.x = -CELL * 4;
-    for (let i = 0; i < 1400; i++) tick(scene);
-    assert.eq(plant.x, CELL); assert.eq(plant.y, 0);
-    assert.eq(scene.save.energy, 1000);
-    assert.eq(plant._wanderOffUntilT, undefined, 'never schedules a wander-off');
+  test('park plant: moves at declared metres per second and anchors at firing distance', () => {
+    const { plant, scene } = setup({ x: 4 * CELL });
+    for (let i = 0; i < 20; i++) tick(scene);
+    const expected = EnemyRoster.get('plant').movement.speedMetersPerSecond * 1.9;
+    assert.inRange(4 * CELL - plant.x, expected - 1e-6, expected + 1e-6);
+    assert.inRange(plant.y, -1e-9, 1e-9); assert.eq(scene._shots.length, 0, 'outside declared range');
+    plant.x = 2 * CELL;
+    for (let i = 0; i < 10; i++) tick(scene);
+    assert.eq(plant.x, 2 * CELL, 'holds its preferred firing distance');
+    assert.gt(scene._shots.length, 0);
   });
   test('park plant: Home, castle, shadow, downed, frozen and released safety', () => {
     for (const guard of ['home', 'castle', 'shadow', 'downed', 'frozen', 'released']) {
@@ -83,20 +93,23 @@
       if (guard === 'released') plant.id = 'released_plant';
       const energy = scene.save.energy;
       for (let i = 0; i < 32; i++) tick(scene);
-      assert.eq(scene.save.energy, energy, guard + ' prevents attack');
-      assert.eq(plant.x, CELL, guard + ' leaves roots in place');
-      assert.eq(plant.y, 0);
+      assert.eq(scene.save.energy, energy, guard + ' prevents damage');
+      assert.eq(scene._shots.length, 0, guard + ' prevents shooting');
+      if (guard === 'home' || guard === 'castle') assert.gt(plant.x, 2 * CELL, guard + ' drives the plant away');
+      if (guard === 'frozen') { assert.eq(plant.x, 2 * CELL); assert.eq(plant.y, 0); }
     }
   });
-  test('park plant: moving Home away clears suppression without requiring a retreat', () => {
+  test('park plant: a blocked line cancels wind-up; wandering off suppresses shots', () => {
     const { plant, scene } = setup();
-    let home = { x: 0, y: 0 };
-    scene.homeWorldPos = () => home;
     tick(scene);
-    assert.eq(scene.save.energy, 1000);
-    home = { x: CELL * 100, y: 0 };
-    tick(scene);
-    assert.lt(scene.save.energy, 1000);
-    assert.falsy(plant._wardFrom);
+    scene._cellBlocked = () => true;
+    tick(scene, 600);
+    assert.eq(scene._shots.length, 0); assert.eq(plant._attackWindupUntil, null);
+    scene._cellBlocked = () => false;
+    plant._wanderOffInMs = 1;
+    plant._wanderOffSimT = scene._simT;
+    for (let i = 0; i < 30; i++) tick(scene);
+    assert.gt(plant.x, 2 * CELL); assert.eq(scene._shots.length, 0);
+    assert.gt(plant._wanderOffUntilT, scene._simT);
   });
 })();

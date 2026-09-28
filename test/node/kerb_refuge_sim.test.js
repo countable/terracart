@@ -77,12 +77,16 @@ function tick(scene, entry) {
 // loosed, a snare laid.
 const attacks = (s) => (1e6 - s.save.energy) + s._shots.length + s._laid;
 
-// Every hostile the SURFACE can hold: the wild slime, the burned row's fire
-// slime, every goblin rung a gate / a ruin / a bounty / a café's guard seats
-// (and their giants), the rooted park plant, the night's ghost, and a hunted
-// deer while it is angry — as a free foe, a lair guard and a bounty foe.
-const KINDS = ['slime', 'fire_slime', 'goblin', 'goblin_archer', 'goblin_trapper',
-  'giant_goblin', 'giant_goblin_archer', 'plant', 'ghost'];
+// Every hostile the SURFACE can hold, off the tables that seat them (never a
+// hand list — a kind added to the roster or a lair ladder is audited here the
+// moment it exists): every EnemyRoster row with a `surface` habitat (the wild
+// encounter budget, the park plants, the night's ghost), every kind on a
+// Lairs.KIND_ORDER ladder (ruins, gates, cafés, barricades, the burned row's
+// fire slime), the wild slime — plus a hunted deer while it is angry, as a
+// free foe, a lair guard and a bounty foe.
+const KINDS = [...new Set(['slime',
+  ...EnemyRoster.ROWS.filter((row) => row.surface).map((row) => row.id),
+  ...Object.values(Lairs.KIND_ORDER).flat()])];
 function foes() {
   const out = KINDS.map((kind) => ({ label: kind, make: (p) => ({ kind, id: `${kind}_0_0_1`, x: p.x, y: p.y }) }));
   out.push({ label: 'hunted deer', make: (p) => ({ kind: 'deer', id: 'deer_0_0_1', x: p.x, y: p.y, _rageUntil: Date.now() + 1e9 }) });
@@ -162,16 +166,51 @@ test('kerb: a fast foe never crosses into the buffer — the chase ends at its e
   }
 });
 
-test('kerb: the fast kinds are the ones that out-run a walk, off the loop\'s own numbers', () => {
+test('kerb: a foe hunting a player ACROSS the road never cuts over it — the band refused, the buffer too if fast', () => {
+  // The player stands on the far pavement's outer edge (outside the buffer,
+  // so nothing turns back): the straight line to them crosses the road, and
+  // only the refused cells stop a foe taking it. Also exercises the idle
+  // wander of a foe that has not seen them yet.
+  const far = at(10, BAND_ROWS[0] - BUF - 1);
+  let crossed = 0;
+  for (const spec of foes()) {
+    const c = spec.make(at(0, 0));
+    const fast = isFastFoe(c, CELL);
+    const r = walk(spec, at(10, BAND_ROWS[1] + BUF + 1), () => far, 60);
+    assert.falsy(r.trace.some((p) => p.b & B), `${spec.label}: never on the band`);
+    if (fast) assert.falsy(r.trace.some((p) => p.b & K), `${spec.label} (fast) stepped into the kerb buffer`);
+    else if (r.trace.some((p) => p.b & K)) crossed++;
+    if (!fast) {
+      // A slow foe may stand on the pavement: start it right at the band's
+      // edge and let it hunt / wander there — it still never sets foot on it.
+      const edge = walk(spec, at(10, BAND_ROWS[1] + 1), () => far, 60);
+      assert.falsy(edge.trace.some((p) => p.b & B), `${spec.label}: from the kerb, never on the band`);
+      if (edge.trace.some((p) => rowOf(p) === BAND_ROWS[1] + 1 && Math.abs(p.x - edge.trace[0].x) > CELL)) crossed++;
+    }
+  }
+  assert.gt(crossed, 0, 'the harness bites: a slow foe does walk into the buffer toward them');
+});
+
+test('kerb: the fast kinds are the ones that out-run a walk, off the roster\'s own numbers', () => {
   const pace = (kind, over = {}) => foeChaseMps({ kind, ...over }, CELL);
-  assert.lt(pace('slime'), WALK_M_S, 'the wild slime: you out-walk it, even charging');
-  assert.lt(pace('fire_slime'), WALK_M_S, 'the fire slime too');
+  assert.gt(KINDS.length, 15, `the merged roster is audited (${KINDS.length} kinds)`);
+  // ONE TABLE: a roster kind's chase pace IS the quickest speed its movement
+  // row declares (base, charge, lunge, peak flight) — no list of fast kinds.
+  for (const row of EnemyRoster.ROWS) {
+    const mv = row.movement;
+    const declared = Math.max(...Object.keys(mv).filter((k) => /peedMetersPerSecond$/.test(k)).map((k) => mv[k]));
+    assert.eq(pace(row.id), declared, `${row.id}: paced off its row`);
+    assert.eq(isFastFoe({ kind: row.id }, CELL), declared > WALK_M_S, `${row.id}: fast iff it out-runs a walk`);
+  }
+  assert.eq(pace('slime'), EnemyRoster.get('slime').movement.chargeSpeedMetersPerSecond, 'the wild slime at its charge');
+  assert.gt(pace('slime'), WALK_M_S, 'which out-runs a walk: the slime is a FAST foe now');
+  assert.lt(pace('zombie'), WALK_M_S, 'a zombie you out-walk');
+  assert.lt(pace('fire_slime'), WALK_M_S, 'the fire slime too (its own combat row)');
   assert.gt(pace('goblin'), WALK_M_S, 'a goblin runs');
-  assert.gt(pace('goblin_archer'), WALK_M_S, 'so does the archer');
+  assert.gt(pace('bat'), WALK_M_S, 'a bat swoops');
   assert.eq(pace('ghost'), Combat.GHOST_SPEED_MPS, 'a ghost glides at its row\'s mps');
   assert.gt(pace('deer'), WALK_M_S, 'a hunted deer charges');
-  assert.eq(pace('plant'), 0, 'a rooted plant comes at nobody');
-  assert.eq(pace('giant_goblin'), pace('goblin'), 'a giant keeps its kind\'s gait');
+  assert.eq(pace('giant_goblin'), pace('goblin'), 'a legacy giant keeps its kind\'s gait');
 });
 
 test('kerb: the rules live on the lanes that exist (source pins)', () => {

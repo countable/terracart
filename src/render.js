@@ -36,6 +36,7 @@
 //   textures.js  — BIOME_TEX, TILLED_VARIANTS, PAD_SHAPES
 //   items.js     — CROP_SPRITE, CROP_ROW, CROPS_SHEET_COLS,
 //                  SPRING_CROPS_COLS, MAX_GROWTH_STAGE
+//   crops.js     — Crops.forEachInBox (saved crop viewport query)
 //   loot.js      — POI_CLASS_FALLBACK, CHEST_TIER_COLOR,
 //                  padShapeKeyForPoi, chestTier, rusticifyName
 //   save.js      — persistSave (used by drawCells self-heal path)
@@ -1150,22 +1151,20 @@ Render.drawCells = function drawCells(scene) {
   // is resolved once, in the ring pass below (a row band across a tile-row
   // seam can sit on a different grid: coords.js viewBand).
   const { cellIX: baseCellIX, cellIY: baseCellIY } = viewAnchorAbsCell(scene, pc);
-  // Planted entries near the viewport, filtered ONCE per pass. The tilled-cell
-  // loop below matches each visible tilled cell against save.planted (watered
-  // tint + the orphaned-soil self-heal); scanning the whole planted list per
-  // cell made that O(visible-tilled × every-crop-ever-planted). The filter
-  // keeps every entry that could possibly match an on-screen cell (±0.1 m
-  // tolerance, so a one-cell margin is plenty) and the per-cell tests below
-  // are unchanged.
+  // The tilled-cell loop matches visible cells against nearby crops for
+  // watering tint and orphaned-soil self-heal. Query a margin around the
+  // camera once; the per-cell tolerance checks below remain unchanged.
   const _plantedNear = [];
-  if (scene.save.planted && scene.save.planted.length) {
+  {
     const _a = viewAnchorWorldM(scene);
     const _pcx = _a.x;
     const _pcy = _a.y;
     const _spanM = (VIEW_CELLS / 2 + 2) * scene.cellM;
-    for (const pp of scene.save.planted) {
-      if (Math.abs(pp.x - _pcx) <= _spanM && Math.abs(pp.y - _pcy) <= _spanM) _plantedNear.push(pp);
-    }
+    const cropWork = Crops.forEachInBox(scene.save, scene.depth ?? 0,
+      _pcx - _spanM, _pcy - _spanM, _pcx + _spanM, _pcy + _spanM,
+      pp => _plantedNear.push(pp));
+    window.__boot?.count?.('crop candidates', cropWork.candidates);
+    window.__boot?.count?.('crop index rebuild entries', cropWork.rebuiltEntries);
   }
   // Border layer: only redraw geometry when the camera crosses a cell boundary.
   // Between crossings scroll the container for sub-cell fractional movement.
@@ -2476,6 +2475,8 @@ Render.drawObjects = function drawObjects(scene) {
         for (const c of entry.creatures) {
           _boot_scanned++;
           if (caughtSet.has(c.id)) continue;
+          if (c._surfaceSpawn && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
+          if (c._surfaceInactive) continue;
           const dx = c.x - pWorldX, dy = c.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           creatureList.push({ c, dx, dy });
@@ -2548,12 +2549,13 @@ Render.drawObjects = function drawObjects(scene) {
   // on, so surface farms don't render underground (and future cave crops won't
   // render on the surface).
   const _curDepth = scene.depth ?? 0;
-  for (const p of scene.save.planted) {
-    if (!PlacedFloor.onDepth(p, _curDepth)) continue;   // same-level crops only
+  const cropWork = Crops.forEachInBox(scene.save, _curDepth,
+    pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, p => {
     const dx = p.x - pWorldX, dy = p.y - pWorldY;
-    if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
     plantedList.push({ p, dx, dy });
-  }
+  });
+  window.__boot?.count?.('crop candidates', cropWork.candidates);
+  window.__boot?.count?.('crop index rebuild entries', cropWork.rebuiltEntries);
   // Placed rockfruit stones — overlay the produce icon on each cell in placedRockSet
   // so the player can see what's there. The cell terrain is already rendered as rock
   // (type 10) by drawCells; this adds the visual icon on top.
@@ -4283,7 +4285,7 @@ Render.drawObjects = function drawObjects(scene) {
   const creatureAirborne = (SL && SL.creatureAirborne) || (() => false);
   // A giant's sheet, frame count and shadow are its base kind's.
   const baseKind = (SL && SL.baseKind) || ((kind) => kind);
-  const giantMul = (kind) => (SL && SL.isGiantKind && SL.isGiantKind(kind)) ? SL.GIANT_ART_SCALE : 1;
+  const giantMul = (kind) => SL ? SL.creatureScale(kind) / SL.creatureScale(baseKind(kind)) : 1;
   // The ground line a creature stands on, relative to its cell centre. Shared
   // with the shadow pass below so the sprite and its shadow can never drift:
   // with the origin above, placing the sprite at sy + this lands the art's
@@ -4360,6 +4362,10 @@ Render.drawObjects = function drawObjects(scene) {
     // both say something about this INSTANCE, which outranks what it is.
     const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
     s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    // Wind-ups are observable before damage or a lunge lands. A brief amber
+    // flash alternates with the original palette; frozen bodies keep ice.
+    const winding = Math.max(c._attackWindupUntil || 0, c._lungeWindupUntil || 0) > performance.now();
+    if (winding && !frozen && Math.floor(performance.now() / 100) % 2 === 0) s.setTintFill(0xffdb72);
     Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
     // sprite keeps whatever alpha its last creature wore.
@@ -4378,12 +4384,27 @@ Render.drawObjects = function drawObjects(scene) {
       const glow = creatureGlow(item.c.kind);
       const { sx } = project(item.dx, item.dy);
       setTextureIfDifferent(s, 'ghost_glow');
-      s.setOrigin(0.5, 0.5).setDisplaySize(glow.px, glow.px)
+      s.setOrigin(0.5, 0.5).setDisplaySize(glow.px * creatureInstScale(item.c), glow.px * creatureInstScale(item.c))
        .setPosition(Math.round(sx), Math.round(item._bodyY))
        .setAlpha(glow.alpha).setTint(0xffffff);
     });
   }
 
+
+  // Use the player's Blight disc: its visible edge is the actual damage
+  // radius. Instance size never changes the aura's reach.
+  if (scene.auraContainer && typeof EnemyRoster !== 'undefined') {
+    scene.enemyAuraPool ||= [];
+    const auraList = creatureList.filter(it => EnemyRoster.get(it.c.kind)?.aura);
+    Render.renderPool(scene, scene.enemyAuraPool, scene.auraContainer, auraList, (s, item) => {
+      const aura = EnemyRoster.get(item.c.kind).aura;
+      const { sx, sy } = project(item.dx, item.dy);
+      const diameter = 2 * aura.radiusCells * CELL_PX;
+      setTextureIfDifferent(s, 'aura_blight');
+      s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
+       .setPosition(sx, sy).setAlpha(0.9).setTint(0xffffff);
+    });
+  }
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays
   // pinned to the CELL — it never rides the hop/hover offset — so a bouncing

@@ -231,14 +231,14 @@
   // rung the player cannot see is not an escalation.
   const KIND_ORDER = {
     9:  ['slime'],                                 // T.BUILDING       — infested (surface kind only)
-    11: ['goblin', 'goblin_archer', 'goblin_trapper'],   // T.BUILDING_MED   — held
-    12: ['goblin', 'goblin_archer', 'goblin_trapper'],   // T.BUILDING_LARGE — held
-    // A café hoard: the "elite" guard is a GIANT (4× HP, 1.8× art — see
-    // combat.js), not a shiny: a shiny's kill pays the relic-biased elite roll
-    // and every café would flood the map with gear. The guard's own stream
-    // still rolls SHINY_RATE.monster like any lair guard, so about one hoard
-    // in twenty holds the true elite.
-    cafe: ['giant_goblin', 'giant_goblin_archer'],
+    11: ['goblin', 'goblin_archer', 'giant_skeleton'],   // T.BUILDING_MED   — held
+    12: ['goblin', 'goblin_archer', 'giant_skeleton'],   // T.BUILDING_LARGE — held
+    // A café hoard: its guard is one of the approved surface T3 GIANTS
+    // (EnemyRoster rows, variantType 'Giant', not eliteEligible — size never
+    // stacks with Elite), never a shiny: a shiny's kill pays the relic-biased
+    // elite roll and every café would flood the map with gear. (The old
+    // 'close' tier's ladder; there is no 'wagon' tier — the safety pass.)
+    cafe: ['giant_skeleton', 'giant_spider'],
     // A tar yard: fire slimes (combat.js MONSTERS.fire_slime).
     tar: ['fire_slime'],
     // A barricade: the goblin who holds it.
@@ -756,10 +756,6 @@
     const cap = capFor(cand.tier, t);
     if (cap <= 0) return [];
     const n = countFor(cap, rng);
-    // The Home nerf: how hard THIS player's guards hit. Read after every draw.
-    const home = o.homeM;
-    const lairMul = (home && Number.isFinite(home.x) && Number.isFinite(home.y))
-      ? lairMulFor(Math.hypot(cand.wx - home.x, cand.wy - home.y)) : 1;
     const ox = cand.ox, oy = cand.oy;
     const caught = o.caughtSet;
     const hpMemo = o.hpMemo;
@@ -814,7 +810,7 @@
       // SHINY_RATE by bare name: a top-level `const` in util.js is a script-
       // global binding, never a property of window, so reading it off root is
       // undefined in the browser (the node bridge used to hide that).
-      const shiny = !!(C && C.isMonster(kind)) && root.isShiny(id, SHINY_RATE.monster);
+      const shiny = !!(C && C.monster(kind)?.eliteEligible) && root.isShiny(id, SHINY_RATE.monster);
       const g = WG.makeCreature(kind, seat.x, seat.y, id, {
         shiny,
         // `immobile` still means "this creature does not wander": app.js reads
@@ -825,9 +821,6 @@
         // from (see LAIR_AGGRO_CELLS).
         immobile: true, lair: cand.sid, lairX: cand.wx, lairY: cand.wy,
         lairR: seatR, seatX: seat.x, seatY: seat.y,
-        // The Home nerf (Combat.powerMul). Omitted at full strength so a far
-        // guard is exactly the creature it always was.
-        ...(lairMul < 1 ? { lairMul } : {}),
       });
       // A guard the player wounded and walked away from comes back wounded.
       // Session-only, like every other creature's `_hp` (combat.js) — it is

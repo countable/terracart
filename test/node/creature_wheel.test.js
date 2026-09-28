@@ -55,7 +55,7 @@ test('creature wheel: an animal shorter than the wheel centres on its midline', 
   // A butterfly is 12 px of art under a 20 px ring — seating the ring's top on
   // its crown would hang the wheel off its feet, so the drop is capped at half
   // the art and the wheel straddles the body instead.
-  for (const kind of ['butterfly', 'purple_slime', 'slime', 'cat']) {
+  for (const kind of ['butterfly', 'purple_slime', 'bat', 'cat']) {
     const h = artBottom(kind) - artTop(kind);
     assert.lt(h, 2 * WHEEL_R, `${kind} is expected to be a short kind`);
     const mid = artTop(kind) + h / 2;

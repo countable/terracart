@@ -1445,6 +1445,7 @@ const TAP_HANDLERS = [
     if (Crops.isMature(p)) {
       if (!scene.spendEnergy(ENERGY_COST?.harvest ?? 0, sx, sy)) return true;
       save.planted.splice(plantedIdx, 1);
+      Crops.invalidateSpatialIndex(save);
       scene.tilledSet.delete(cellKey);
       save.tilled = [...scene.tilledSet];
       Crops.clearBedQuality(save, cellKey);
@@ -1716,6 +1717,7 @@ const TAP_HANDLERS = [
     // cell (Crops.takeBedQuality clears the cell's entry as it hands it over).
     save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0,
       depth: scene.depth ?? 0, qualBoost: Crops.takeBedQuality(save, cellKey) });
+    Crops.invalidateSpatialIndex(save);
     consumeSelected(save);
     ctx.dirty = true;
     scene.buildInventoryDOM();

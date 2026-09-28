@@ -212,7 +212,7 @@ const treeScale = treeCtx.treeScale;
 // A top-level `const` in a script lands in the script scope, not on the global
 // object (unlike a `function`, which is why treeScale above needs no bridge),
 // so hand it over explicitly.
-const itemsCtx = { Math, console };
+const itemsCtx = { Math, console, EnemyRoster: require('../src/enemy_roster.js') };
 vm.createContext(itemsCtx);
 // util.js first, as index.html orders them: the catalog formats a ✦ line with
 // util.js' shortDuration at load time.
@@ -227,7 +227,7 @@ const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 // ── …and the texture table from assets.js, so the wildplant-frame audit below
 //    reads the SAME sheet geometry the game loads (path + frame size) rather
 //    than a third copy of it. The onLoad hooks are never called here.
-const assetsCtx = { Math, console, window: {} };
+const assetsCtx = { Math, console, window: {}, EnemyRoster: require('../src/enemy_roster.js') };
 vm.createContext(assetsCtx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'assets.js'), 'utf8'),
   assetsCtx, { filename: 'assets.js' });

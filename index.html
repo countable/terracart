@@ -357,6 +357,13 @@
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #0008;
     }
+    #save-notice {
+      position: fixed; top: calc(env(safe-area-inset-top, 0px) + 56px); left: 50%; transform: translateX(-50%);
+      max-width: 90%; padding: 8px 12px; border-radius: 6px;
+      background: var(--danger); color: #fff; z-index: 104;
+      font-size: 12px; text-align: center; pointer-events: none;
+      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+    }
     /* Copyable error overlay. Unlike #banner (a transient connection-status
        flash), this stays on screen until dismissed and is fully selectable so
        the whole message + stack can be read or copied on a phone where
@@ -1077,6 +1084,7 @@
       </div>
     </div>
   </div>
+  <div id="save-notice" role="status" hidden>Progress isn’t saving</div>
   <!-- All HUD overlays live OUTSIDE #game so position:fixed actually anchors
        to the viewport — a position:fixed element inside a transformed parent
        (#game uses transform:scale) takes the transformed parent as its
@@ -1231,7 +1239,7 @@
         </button>
         <button id="howto-hard" type="button" data-mode="hard">
           <span class="mode-name">Hard mode</span>
-          <span class="mode-sub">No tutorial &mdash; thin purse, greedy traders, tougher foes. Fighting pays.</span>
+          <span class="mode-sub">No tutorial &mdash; thin purse, greedy traders, more damage taken.</span>
         </button>
       </div>
       <p id="howto-mode-current" hidden></p>
@@ -2578,29 +2586,31 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=92edfd8d"></script>
-  <script src="src/difficulty.js?v=33bd03a5"></script>
+  <script src="src/enemy_roster.js?v=64447c14"></script>
+  <script src="src/enemy_spawns.js?v=86889b37"></script>
+  <script src="src/difficulty.js?v=e4d56e7b"></script>
   <script src="src/util.js?v=1ba56808"></script>
   <script src="src/particles.js?v=29ab521b"></script>
   <script src="src/trail.js?v=96b267d2"></script>
   <script src="src/streets.js?v=120c04d0"></script>
   <script src="src/street_variants.js?v=2fffc72c"></script>
   <script src="src/zones.js?v=93c15c6f"></script>
-  <script src="src/sprite_layout.js?v=06d0f3d8"></script>
+  <script src="src/sprite_layout.js?v=30fbac03"></script>
   <script src="src/placed_floor.js?v=d6c42e37"></script>
   <script src="src/home.js?v=db93a51e"></script>
   <script src="src/coords.js?v=bbf37615"></script>
   <script src="src/fog.js?v=bdf27172"></script>
   <script src="src/biome_profiles.js?v=8c89737c"></script>
-  <script src="src/traps.js?v=0a590080"></script>
-  <script src="src/lairs.js?v=a8581814"></script>
+  <script src="src/traps.js?v=b724069f"></script>
+  <script src="src/lairs.js?v=7fff8bf4"></script>
   <script src="src/worldgen.js?v=fd0c6d5d"></script>
   <script src="src/textures.js?v=7cccbc3e"></script>
-  <script src="src/save.js?v=b35015cf"></script>
-  <script src="src/items.js?v=657c7734"></script>
+  <script src="src/save.js?v=8e285e00"></script>
+  <script src="src/items.js?v=84f84b09"></script>
   <script src="src/inventory.js?v=26f6d34a"></script>
   <script src="src/energy.js?v=142f2847"></script>
   <script src="src/conditions.js?v=16403bc0"></script>
-  <script src="src/crops.js?v=0e5d56c0"></script>
+  <script src="src/crops.js?v=24ec5017"></script>
   <script src="src/delivery.js?v=eef02cca"></script>
   <script src="src/savemigrate.js?v=5cd40a1e"></script>
   <script src="src/gear.js?v=3a9b356e"></script>
@@ -2616,16 +2626,16 @@
   <script src="src/interactables.js?v=78b4cb56"></script>
   <script src="src/houses.js?v=a4e98d59"></script>
   <script src="src/starter.js?v=a1f179f2"></script>
-  <script src="src/combat.js?v=06b35812"></script>
-  <script src="src/creature_ai.js?v=9450f250"></script>
+  <script src="src/combat.js?v=d1188344"></script>
+  <script src="src/creature_ai.js?v=6a3e5294"></script>
   <script src="src/wizard.js?v=3209061e"></script>
-  <script src="src/interact.js?v=ccc7ef49"></script>
+  <script src="src/interact.js?v=acf4a47e"></script>
   <script src="src/lighting.js?v=767ebe2a"></script>
-  <script src="src/render.js?v=633737a4"></script>
-  <script src="src/multiplayer.js?v=9764bed8"></script>
+  <script src="src/render.js?v=4f3d6db6"></script>
+  <script src="src/multiplayer.js?v=a4181a1f"></script>
   <script src="src/road_overlay.js?v=957c355c"></script>
   <script src="src/building_overlay.js?v=16f504b9"></script>
-  <script src="src/assets.js?v=c65a95dc"></script>
+  <script src="src/assets.js?v=b0846e48"></script>
   <script src="src/sandbox.js?v=16062123"></script>
   <script src="src/testtools.js?v=c33f3638"></script>
   <script src="src/geo.js?v=0a205c42"></script>
@@ -2633,7 +2643,7 @@
   <script src="src/modal_shell.js?v=0a3ca6b7"></script>
   <script src="src/scene_geo.js?v=4aa3d314"></script>
   <script src="src/npc.js?v=24851e12"></script>
-  <script src="src/scene_creatures.js?v=0dbb80b1"></script>
+  <script src="src/scene_creatures.js?v=ca148228"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2694,7 +2704,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=a01a363b';
+      const APP_SRC = 'src/app.js?v=ad886ce2';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

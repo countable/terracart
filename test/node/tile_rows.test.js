@@ -356,6 +356,6 @@ test('tile rows: the pest-free zone leaves the tile\'s later draws unchanged', (
   assert.eq(graced.first, free.first, 'the pest in the zone took exactly the draws it takes anywhere');
   assert.eq(graced.total, free.total, 'and every later draw is the one everyone else makes');
   assert.eq(free.creatures.length, 2, 'without the zone both slimes stand');
-  assert.eq(graced.creatures.length, 1, 'with it, the one in the zone is simply not there');
+  assert.eq(graced.creatures.length, 2, 'enemy candidates stay shared; EnemySpawns applies the personal visibility overlay');
 });
 })();

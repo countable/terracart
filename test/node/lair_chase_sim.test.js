@@ -318,12 +318,11 @@ test('chase sim: the sim bubble is a HARD cut, and resuming does not snap', () =
     'the sim bubble is inside the sprite cull — a freeze would be visible');
 });
 
-test('chase sim: an ordinary wild monster is untouched by any of it', () => {
-  // The guard branches must not have changed how a normal cave monster moves:
-  // no lair, no seat, no leash — it stalks and keeps stalking.
-  // Inside the sim bubble (CREATURE_SIM_CELLS) or nothing thinks at all.
+test('chase sim: an ordinary wild monster pursues within its declared vision', () => {
+  // A normal foe has no lair seat or leash. Start within its declared sight;
+  // the larger simulation bubble alone no longer grants target acquisition.
   const m = { kind: 'goblin', id: 'wild_1', x: 0, y: 0 };
-  const scene = mkScene(m, { playerM: { x: 10 * CELL, y: 0 }, depth: 1 });
+  const scene = mkScene(m, { playerM: { x: (EnemyRoster.get('goblin').visionCells - 1) * CELL, y: 0 }, depth: 1 });
   const start = Math.hypot(m.x - scene.playerM.x, m.y - scene.playerM.y);
   run(scene, 60);
   assert.lt(Math.hypot(m.x - scene.playerM.x, m.y - scene.playerM.y), start - 5 * CELL,

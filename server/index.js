@@ -52,6 +52,28 @@ const MAX_MSGS_PER_S = 30;
 const PING_MS = 20000;
 // A socket that connects but never says hello is holding a slot for nothing.
 const HELLO_DEADLINE_MS = 10000;
+// Keep one stalled receiver from retaining an unlimited stream of frames.
+// Positions become obsolete as soon as a newer position arrives; roster and
+// ping frames still go through until the hard byte cap closes the socket.
+const POSITION_BUFFER_BYTES = 64 * 1024;
+const MAX_OUTBOUND_BYTES = 256 * 1024;
+const SLOW_PING_LIMIT = 2;
+
+function sendFrame(ws, msg) {
+  if (ws.readyState !== ws.OPEN) return;
+  const frame = JSON.stringify(msg);
+  const queued = ws.bufferedAmount + Buffer.byteLength(frame);
+  if (queued > MAX_OUTBOUND_BYTES) { ws.terminate(); return; }
+  if (msg.t === 'p' && queued > POSITION_BUFFER_BYTES) return;
+  ws.send(frame);
+}
+
+function checkSlowConsumer(ws) {
+  ws.slowPings = ws.bufferedAmount >= POSITION_BUFFER_BYTES ? (ws.slowPings || 0) + 1 : 0;
+  if (ws.slowPings < SLOW_PING_LIMIT) return false;
+  ws.terminate();
+  return true;
+}
 
 function cleanName(raw) {
   return cleanText(raw, NAME_MAX);
@@ -78,19 +100,18 @@ function createRelay(server) {
   let nextId = 1;
 
   const peerView = (c) => ({ id: c.id, name: c.name, color: c.color, x: c.x, y: c.y, fx: c.fx, fy: c.fy, m: c.m, d: c.d });
-  const send = (ws, msg) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg)); };
-  const broadcast = (msg, except) => { for (const c of clients.values()) if (c !== except) send(c.ws, msg); };
+  const broadcast = (msg, except) => { for (const c of clients.values()) if (c !== except) sendFrame(c.ws, msg); };
   const applyPos = (c, msg) => {
     c.x = num(msg.x, c.x); c.y = num(msg.y, c.y);
     c.fx = num(msg.fx, c.fx); c.fy = num(msg.fy, c.fy);
     c.m = msg.m ? 1 : 0; c.d = Math.max(0, num(msg.d, c.d) | 0);
   };
-  const fail = (ws, reason) => { send(ws, { t: 'error', reason }); ws.close(1008, reason); };
+  const fail = (ws, reason) => { sendFrame(ws, { t: 'error', reason }); if (ws.readyState === ws.OPEN) ws.close(1008, reason); };
   // Fan a frame out to everyone within earshot of `me` (never back to me).
   const nearby = (me, out) => {
     for (const c of clients.values()) {
       if (c === me) continue;
-      if (Math.hypot(c.x - me.x, c.y - me.y) <= INTEREST_PX) send(c.ws, out);
+      if (Math.hypot(c.x - me.x, c.y - me.y) <= INTEREST_PX) sendFrame(c.ws, out);
     }
   };
 
@@ -115,7 +136,7 @@ function createRelay(server) {
         me = { ws, id: nextId++, name, color: cleanColor(msg.color), x: 0, y: 0, fx: 0, fy: 1, m: 0, d: 0 };
         applyPos(me, msg);
         clients.set(me.id, me);
-        send(ws, { t: 'welcome', id: me.id, peers: [...clients.values()].filter(c => c !== me).map(peerView) });
+        sendFrame(ws, { t: 'welcome', id: me.id, peers: [...clients.values()].filter(c => c !== me).map(peerView) });
         broadcast({ t: 'join', ...peerView(me) }, me);
         return;
       }
@@ -148,6 +169,7 @@ function createRelay(server) {
   const budgetTimer = setInterval(() => { for (const c of wss.clients) c.budget = MAX_MSGS_PER_S; }, 1000);
   const pingTimer = setInterval(() => {
     for (const c of wss.clients) {
+      if (checkSlowConsumer(c)) continue;
       if (!c.alive) { c.terminate(); continue; }
       c.alive = false;
       c.ping();
@@ -181,4 +203,5 @@ if (require.main === module) {
 }
 
 // What server/test.js drives; nothing else requires this module.
-module.exports = { createServer, cleanName, cleanLabel, INTEREST_PX, MAX_MSGS_PER_S };
+module.exports = { createServer, cleanName, cleanLabel, INTEREST_PX, MAX_MSGS_PER_S,
+                   sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT };
