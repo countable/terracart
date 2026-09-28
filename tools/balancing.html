@@ -182,9 +182,13 @@ function sampleFishing(start, opts) {
   TAP_HANDLERS.find((h) => h.name === 'fishing').try({
     scene, save, cell: { type: TERRAIN.WATER }, sx: 0, sy: 0, cwmx: 0, cwmy: 0,
   });
-  // Count only coins the handler actually credits (duplicate fishing gear
-  // currently shows a message but does not credit its rolled cash-out).
-  result.value += save.money - start.money;
+  // Count coins actually credited, including duplicate-gear cash-outs.
+  const coins = save.money - start.money;
+  if (coins > 0 && result.cls === 'no payout') {
+    result.cls = 'cash';
+    result.key = 'coins';
+  }
+  result.value += coins;
   return result;
 }
 
@@ -302,7 +306,7 @@ function syncControls() {
   $('bonusL').style.display = ctx === Trail.PRIZE_CONTEXT ? '' : 'none';
   $('monsterL').style.display = ctx === Combat.ELITE_TREASURE_CONTEXT ? '' : 'none';
   $('contextNote').textContent = ctx === 'fishing'
-    ? 'One completed cast, including misses, boots, slime encounters and gear jackpots. Blocked slime landing space falls through to a fish. Values are gross rewards before energy costs; no value is assigned to fighting a caught slime. Duplicate gear currently pays no coins in the game.'
+    ? 'One completed cast, including misses, boots, slime encounters and gear jackpots. Blocked slime landing space falls through to a fish. Values are gross rewards before energy costs; no value is assigned to fighting a caught slime. Coin values reflect the payout actually credited by the game.'
     : ctx === Trail.PRIZE_CONTEXT
     ? `Each sample offers up to ${Trail.PRIZE_CHOICES} distinct cards; the player keeps one. Prize #1 includes ${Trail.FIRST_PRIZE_QTY} onion seeds. Tables measure offered cards, not total payout.`
     : ctx === Combat.ELITE_TREASURE_CONTEXT
