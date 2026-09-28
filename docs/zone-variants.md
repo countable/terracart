@@ -52,7 +52,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | grove | Formal Garden | 10% shrub, 6% blue, 2% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
 | grove | Hedge Garden | 43.75% shrub, 4.69% blue, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
 | grove | Ancient Grove | 2.04% tree, 16.33% shrub, 26.78% grass (expected) | stone tree ring | 1 rare: star | 2 slime at find | deer 60% |
-| stones | Stone Garden | 5.44% iron_ore, 21.77% stone, 6.8% grass | four stones | 3 medium: gemfruit | none | none |
+| stones | Stone Garden | 4.54% iron_ore, 18.14% stone, 6.8% grass | four stones | 3 medium: gemfruit | none | none |
 | stones | Ordered Graves | 6% grave, 6% stone, 3% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction | crow 65% |
 | stones | Overgrown Graves | 8% grass, 4% shrub, 4% stone, 2% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction | crow 40%, butterfly 35% |
 | stones | Broken Masonry | 12% rubble, 8% stone | stone square | 1 rare: platinum_ore | 1 slime at find | none |
@@ -61,7 +61,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | tar | Broken Depot | 12% rubble; hazards: 6% trap | rubble and trap flanks | 2 medium: gemfruit | none | none |
 | tar | Seep | 6.25% rubble; hazards: 15.63% tar | tar crescent | 1 rare: star | none | none |
 | tar | Work Yard | 28.57% copper_rock, 20.41% rubble | material grid | 1 rare: crimson_ore | none | none |
-| tar | Black Ring | 31.25% rubble; hazards: 12.5% tar | tar ring | 2 rare: gold_ore | none | none |
+| tar | Black Ring | 25% rubble; hazards: 12.5% tar | tar ring | 2 rare: gold_ore | none | none |
 
 ## Runtime placement
 
@@ -94,7 +94,7 @@ Mushroom pairs occupy opposite halves of a 6 × 6 repeat. Two shrubs and one gra
 - Work Yard uses copper-bearing mineral rocks (`yieldTier: 2`, `requiredTier: 1`) in place of flint, including its adjacent POI pattern. Vertical rubble lines remain.
 - Seep replaces all flint with tar pits, including the crescent and connection markers. Its 8 × 8 repeat has 6.25% gatherable rubble plus 15.625% tar hazards; the latter includes its two existing extra pits per repeat tile.
 - Broken Depot replaces all flint with traps, including the POI flanks and offset-row markers. Background coverage is 12% rubble plus 6% trap hazards. Surface trap records must enter the existing trap collection and pass both the enemy spawn gate and `Traps.isTrapGround`. This can omit traps where the real location has no eligible footpath or park edge.
-- Black Ring replaces all flint with tar pits. Background coverage is 31.25% rubble plus 12.5% tar hazards in an 8 × 8 repeat, with a smaller, near-continuous outer circle.
+- Black Ring replaces all flint with tar pits. Background coverage is 25% rubble plus 12.5% tar hazards in an 8 × 8 repeat, with a smaller, near-continuous outer circle.
 - Material replacements retain the declared finite special-find counts. Tar pits and traps are shown separately from gatherable coverage.
 
 ## Ore finds
@@ -110,7 +110,7 @@ A 7 × 7-cell repeat contains one rounded cluster: one central tree, eight shrub
 
 ## Stone Garden concentric rings
 
-Three rings centered on the POI have radii 3, 6 and 9 cells and contain 20, 40 and 60 touching stones respectively. Each ring follows iron, stone, stone, stone, stone clockwise from north: exactly twenty-four of 120 stones are iron. Two staggered longgrass rings between them contain ten and twenty cells. The complete 21 × 21-cell footprint holds 96 ordinary stones, 24 iron rocks and 30 grass cells (34.01% background coverage). The central four-stone POI arrangement remains additional to these rings. Iron uses the existing tier-3 ore rock with a tier-2 pick requirement. The finite radial composition is clipped to the eligible coverage union rather than repeated from each tile.
+Three rings centered on the POI have radii 3, 6 and 9 cells and contain 16, 32 and 52 touching stones respectively. The rings use symmetric pixel-circle outlines. Continuing clockwise through the inner, middle and outer rings, every fifth stone is iron: exactly twenty of 100 stones. Two staggered longgrass rings between them contain ten and twenty cells. The complete 21 × 21-cell footprint holds 80 ordinary stones, 20 iron rocks and 30 grass cells (29.48% background coverage). The central four-stone POI arrangement remains additional to these rings. Iron uses the existing tier-3 ore rock with a tier-2 pick requirement. The finite radial composition is clipped to the eligible coverage union rather than repeated from each tile.
 
 ## Fauna affinities
 
@@ -178,4 +178,4 @@ Uses the Meadow arrangement with materials swapped: 28 flint cells within radius
 
 ## Black Ring spacing
 
-An 8 × 8 repeat holds a radius-three circle of twenty touching rubble cells and a tight inner ring of eight tar cells. The POI replaces its center. This makes the circles smaller and two cells closer than the previous repeat.
+An 8 × 8 repeat holds a radius-three circle of sixteen touching rubble cells and a tight inner ring of eight tar cells. The POI replaces its center. This makes the circles smaller and two cells closer than the previous repeat.

@@ -129,8 +129,8 @@ test('zone variants: Stone Garden is centered rings with every fifth stone iron'
   assert.eq(x, row.background.centerCell[0]);
   assert.eq(y, row.background.centerCell[1]);
   const counts = count(row, 0, 0, 21, 21);
-  assert.eq(counts.iron_ore, 24);
-  assert.eq(counts.stone, 96);
+  assert.eq(counts.iron_ore, 20);
+  assert.eq(counts.stone, 80);
   assert.eq(counts.grass, 30);
   let start = 0;
   for (const ring of row.background.stoneRings) {
@@ -138,7 +138,7 @@ test('zone variants: Stone Garden is centered rings with every fifth stone iron'
     for (let i = 0; i < slots.length; i++) {
       const a = slots[i], b = slots[(i + 1) % slots.length];
       assert.lte(Math.max(Math.abs(a.at[0] - b.at[0]), Math.abs(a.at[1] - b.at[1])), 1, 'ring has no empty cell between neighbouring stones');
-      assert.eq(a.material, ring.sequence[i % ring.sequence.length], 'iron rhythm follows the circle');
+      assert.eq(a.material, ring.sequence[(i + ring.sequenceOffset) % ring.sequence.length], 'iron rhythm follows the circle');
     }
     start += ring.count;
   }

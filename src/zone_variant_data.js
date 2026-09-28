@@ -2451,36 +2451,39 @@
         "stoneRings": [
           {
             "radiusCells": 3,
-            "count": 20,
+            "count": 16,
             "sequence": [
               "iron_ore",
               "stone",
               "stone",
               "stone",
               "stone"
-            ]
+            ],
+            "sequenceOffset": 0
           },
           {
             "radiusCells": 6,
-            "count": 40,
+            "count": 32,
             "sequence": [
               "iron_ore",
               "stone",
               "stone",
               "stone",
               "stone"
-            ]
+            ],
+            "sequenceOffset": 1
           },
           {
             "radiusCells": 9,
-            "count": 60,
+            "count": 52,
             "sequence": [
               "iron_ore",
               "stone",
               "stone",
               "stone",
               "stone"
-            ]
+            ],
+            "sequenceOffset": 3
           }
         ],
         "grassRings": [
@@ -2520,13 +2523,6 @@
           {
             "at": [
               13,
-              8
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              13,
               9
             ],
             "material": "stone"
@@ -2536,14 +2532,14 @@
               13,
               10
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
               13,
               11
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
@@ -2571,21 +2567,14 @@
               9,
               13
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
               8,
               12
             ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              7,
-              12
-            ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
@@ -2606,26 +2595,12 @@
               7,
               9
             ],
-            "material": "iron_ore"
-          },
-          {
-            "at": [
-              7,
-              8
-            ],
             "material": "stone"
           },
           {
             "at": [
               8,
               8
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              8,
-              7
             ],
             "material": "stone"
           },
@@ -2634,14 +2609,14 @@
               9,
               7
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
               10,
               4
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
@@ -2667,23 +2642,9 @@
           {
             "at": [
               14,
-              5
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              14,
               6
             ],
             "material": "iron_ore"
-          },
-          {
-            "at": [
-              15,
-              6
-            ],
-            "material": "stone"
           },
           {
             "at": [
@@ -2711,14 +2672,14 @@
               16,
               10
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
               16,
               11
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
@@ -2736,22 +2697,8 @@
           },
           {
             "at": [
-              15,
-              14
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
               14,
               14
-            ],
-            "material": "iron_ore"
-          },
-          {
-            "at": [
-              14,
-              15
             ],
             "material": "stone"
           },
@@ -2767,7 +2714,7 @@
               12,
               16
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
@@ -2781,7 +2728,7 @@
               10,
               16
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
@@ -2802,25 +2749,11 @@
               7,
               15
             ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              6,
-              15
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              6,
-              14
-            ],
             "material": "iron_ore"
           },
           {
             "at": [
-              5,
+              6,
               14
             ],
             "material": "stone"
@@ -2876,22 +2809,8 @@
           },
           {
             "at": [
-              5,
-              6
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
               6,
               6
-            ],
-            "material": "iron_ore"
-          },
-          {
-            "at": [
-              6,
-              5
             ],
             "material": "stone"
           },
@@ -2900,7 +2819,7 @@
               7,
               5
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
@@ -2921,7 +2840,7 @@
               10,
               1
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
@@ -2935,7 +2854,7 @@
               12,
               1
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
@@ -2956,7 +2875,7 @@
               15,
               3
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
@@ -2967,31 +2886,17 @@
           },
           {
             "at": [
-              16,
-              4
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
               17,
               4
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              17,
-              5
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              18,
-              5
             ],
             "material": "iron_ore"
+          },
+          {
+            "at": [
+              17,
+              5
+            ],
+            "material": "stone"
           },
           {
             "at": [
@@ -3019,14 +2924,14 @@
               19,
               9
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
               19,
               10
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
@@ -3054,14 +2959,14 @@
               18,
               14
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
               17,
               15
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
@@ -3073,13 +2978,6 @@
           {
             "at": [
               16,
-              16
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              16,
               17
             ],
             "material": "stone"
@@ -3090,20 +2988,13 @@
               17
             ],
             "material": "stone"
-          },
-          {
-            "at": [
-              15,
-              18
-            ],
-            "material": "iron_ore"
           },
           {
             "at": [
               14,
               18
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
@@ -3131,14 +3022,14 @@
               10,
               19
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
               9,
               19
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
@@ -3164,30 +3055,16 @@
           {
             "at": [
               5,
-              18
+              17
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              4,
+              17
             ],
             "material": "iron_ore"
-          },
-          {
-            "at": [
-              5,
-              17
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              4,
-              17
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              4,
-              16
-            ],
-            "material": "stone"
           },
           {
             "at": [
@@ -3199,13 +3076,6 @@
           {
             "at": [
               3,
-              15
-            ],
-            "material": "iron_ore"
-          },
-          {
-            "at": [
-              2,
               15
             ],
             "material": "stone"
@@ -3229,14 +3099,14 @@
               1,
               12
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
               1,
               11
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
@@ -3264,14 +3134,14 @@
               2,
               7
             ],
-            "material": "stone"
+            "material": "iron_ore"
           },
           {
             "at": [
               2,
               6
             ],
-            "material": "iron_ore"
+            "material": "stone"
           },
           {
             "at": [
@@ -3283,13 +3153,6 @@
           {
             "at": [
               3,
-              4
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              4,
               4
             ],
             "material": "stone"
@@ -3547,10 +3410,10 @@
             "material": "grass"
           }
         ],
-        "nominalDensity": 0.3401360544217687,
+        "nominalDensity": 0.2947845804988662,
         "materialDensity": {
-          "iron_ore": 0.05442176870748299,
-          "stone": 0.21768707482993196,
+          "iron_ore": 0.045351473922902494,
+          "stone": 0.18140589569160998,
           "grass": 0.06802721088435375
         },
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -6499,13 +6362,6 @@
           {
             "at": [
               6,
-              1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              6,
               2
             ],
             "material": "rubble"
@@ -6562,13 +6418,6 @@
           {
             "at": [
               0,
-              5
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              0,
               4
             ],
             "material": "rubble"
@@ -6589,22 +6438,8 @@
           },
           {
             "at": [
-              0,
-              1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
               1,
               1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              1,
-              0
             ],
             "material": "rubble"
           },
@@ -6675,15 +6510,15 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.3125,
+        "nominalDensity": 0.25,
         "materialDensity": {
-          "rubble": 0.3125
+          "rubble": 0.25
         },
         "type": "repeat_motif",
         "hazardDensity": {
           "tar": 0.125
         },
-        "totalOccupiedDensity": 0.4375,
+        "totalOccupiedDensity": 0.375,
         "poiOrigin": {
           "cell": [
             3,
