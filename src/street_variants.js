@@ -13,16 +13,29 @@
 // what anything IS for a given player.
 //
 // TWO SIZES, off WorldGen.classifyLine's tiers:
-//   MAJOR — ROAD_MD + ROAD_LG (tertiary / secondary and up): the BANDIT ROADS.
-//           The bandits work STRETCHES of them (BANDIT_STRETCH_SHARE of each
-//           street's (key, square) stretches): the surface traps sit on those
-//           stretches' verge only (traps.js, ROAD_CLASS_BANDIT_VERGE); a third
-//           of their bus stops (WAGON_STOP_SHARE) are broken wagons with a
-//           goblin guard (loot.js chestLook + the lairs.js 'wagon' tier), and
-//           the tile's dogs roam them (BANDIT_STORY.attracts).
+//   MAJOR — ROAD_MD + ROAD_LG (tertiary / secondary and up): the OLD TRADE
+//           ROADS (internally still "bandit": BANDIT_STORY, banditStop). The
+//           theme is a LOOK only — its story, its torch-orange lamps and the
+//           broken wagon a third of its bus stops wear (WAGON_STOP_SHARE,
+//           loot.js chestLook). Since Sep 2026 (the owner's safety pass) NOTHING
+//           hostile or alive is seated for it: no wagon goblin, no dogs pulled
+//           onto its verge, no traps on its stretches (traps.js reads footpaths
+//           and park edges now). The stretches are still stamped
+//           (ROAD_CLASS_BANDIT_VERGE) but no spawner reads them for a foe.
 //   MINOR — ROAD with class minor/street (residential streets). Service ways
 //           (driveways, alleys, parking) are neither — they stay plain.
 //   Footpaths are neither.
+//
+// THE KERB BUFFER (WorldGen.ROAD_CLASS_MAJOR_BUFFER, ~one reach radius round
+// every MAJOR band): the few foes the variants still seat — a barricade's
+// goblin, a burned row's fire slime, a café hoard's giant — are seated BACK
+// beyond it (foeSeat: the nearest cell outside it, reached without crossing a
+// major band) or not at all. Never a player's reason to step toward the road.
+//
+// THE CAFÉ HOARDS: a buried hoard (and usually its giant-goblin guard) beside
+// a coffee shop — HOARDS_PER_TILE of the tile's own café points, lowest hash
+// of the GLOBAL point first (commercial POIs where a tile has no café). Until
+// Sep 2026 it sat at the head of a hedgerow's residential dead end.
 //
 // THE VARIANTS are rows of STREET_VARIANTS, each on ONE size. The roll
 // (variantFor) walks the size's rows in order off one hash of the key; a
@@ -64,17 +77,28 @@
   // A bus stop is on a MAJOR road when a major band touches a cell within
   // this many cells (Chebyshev) of its own.
   const BUS_STOP_MAJOR_CELLS = 2;
-  // Only this share of the stops on a major road are a broken wagon (+ its
-  // goblin); the rest stay ordinary bus-stop chests. Decided per stop off a
-  // hash of the chest's own id (its POI cell — generated, the same for every
-  // player), never a draw.
+  // Only this share of the stops on a major road wear the broken wagon; the
+  // rest stay ordinary bus-stop chests. Decided per stop off a hash of the
+  // chest's own id (its POI cell — generated, the same for every player),
+  // never a draw. A LOOK only: no guard (the owner, Sep 2026 — no wagon
+  // goblins at all).
   const WAGON_STOP_SHARE = 1 / 3;
+
+  // ── The kerb buffer: seating a foe BACK ─────────────────────────────────
+  // A foe the dressing seats (barricade goblin, burned-row fire slime, café
+  // giant) takes the nearest cell within this many cells of its natural spot
+  // that passes WorldGen.isFoeCell (outside ROAD_CLASS_MAJOR_BUFFER) and is
+  // reached by a straight walk crossing no MAJOR band cell — so it stays on
+  // its own side of the road. None → the foe is dropped.
+  const FOE_SEAT_BACK_CELLS = 4;
 
   // ── Bandit stretches ─────────────────────────────────────────────────────
   // The bandits do not work a major road end to end: each MAJOR street is cut
-  // into STRETCHES and BANDIT_STRETCH_SHARE of them are theirs — the surface
-  // traps sit on those stretches' verge only (Traps.isTrapGround, off the
-  // roadClass bit WorldGen.ROAD_CLASS_BANDIT_VERGE this pass stamps).
+  // into STRETCHES and BANDIT_STRETCH_SHARE of them are theirs, stamped as
+  // the roadClass bit WorldGen.ROAD_CLASS_BANDIT_VERGE. Until Sep 2026 the
+  // surface traps sat on those verges; they read footpaths and park edges now
+  // (traps.js) and NOTHING reads this bit for a foe or a trap — it stays for
+  // the look and the story (and the burned row's per-stretch key).
   // A stretch is (street key, lattice square): the squares are
   // BANDIT_STRETCH_UNITS on an edge in GLOBAL MVT units (tile·4096 + local —
   // ~200 m at play latitudes), aligned to the tile grid, so every square lies
@@ -85,13 +109,21 @@
   const BANDIT_STRETCH_UNITS = 512;
   const BANDIT_STRETCH_SHARE = 1 / 3;
 
-  // ── Closes (the hedgerow's dead-end runs) ────────────────────────────────
-  const RUN_MIN_M = 40, RUN_MAX_M = 400;
-  // A line END with no other vehicle way within this is a dead end; walking
-  // back, the first vertex another vehicle way comes within this of is the
-  // junction (the close's mouth).
-  const JUNCTION_TOUCH_M = 3;
-  const CLOSE_SEAT_CELLS = 4;           // relocate reach for the arch / hoard
+  // ── Café hoards ─────────────────────────────────────────────────────────
+  // The POI classes a hoard is buried beside: a coffee shop, or — on a tile
+  // with no café point of its own — the other commercial food / shop classes.
+  const HOARD_POI_CLASSES = new Set(['cafe']);
+  const HOARD_POI_FALLBACK = new Set(['bakery', 'ice_cream', 'restaurant', 'fast_food', 'grocery', 'shop']);
+  // At most this many hoards per tile (~2.5 km²): lowest hash of the POI's
+  // GLOBAL point first, so a tile's pick is a pure function of its own bytes
+  // and a seam café is only ever the owning tile's. Keeps the guarded hoards
+  // under ~1 per km² even in Berlin (353 cafés over nine tiles).
+  const HOARDS_PER_TILE = 2;
+  // How far from the POI's cell a hoard may be seated (cells).
+  const HOARD_SEAT_CELLS = 5;
+
+  // Relocate reach for an end piece (waystone / barricade) off its line end.
+  const END_SEAT_CELLS = 4;
 
   // ── Dressing density (generation metres along the way) ───────────────────
   const HEDGE_GAP_MIN = 5, HEDGE_GAP_SPAN = 3;   // a gate-gap every 5..7 cells
@@ -130,8 +162,8 @@
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5 },
       story: 'street_hedgerow', title: 'The hedged lane',
-      body: 'Clipped hedges, a stone arch, a gate at the end. Someone keeps this close, and something keeps it for them.',
-      flash: 'A hedged lane. Tread softly.' },
+      body: 'Clipped hedges both sides, a gap at every garden gate. The green still knows its shape.',
+      flash: 'A hedged lane, still kept.' },
     { id: 'overgrown', size: 'minor', share: 0.10, rung: 'common',
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5, butterfly: 0.5 },
@@ -152,7 +184,9 @@
       flash: 'A waystone, worn smooth.' },
     { id: 'lantern', size: 'major', share: 0.07, rung: 'common',
       words: /(lantern|lamp|light|candle|latern)/i,
-      lampGlow: '#ffb347', attracts: { cat: 0.5 },
+      // No `attracts`: its marks lie on the major band + verge, all inside
+      // the kerb buffer, where no animal is seated (WorldGen.isFoeCell).
+      lampGlow: '#ffb347',
       story: 'street_lantern', title: 'Lantern Row',
       body: 'Lamp posts stand thick along this road, cold and waiting. Rebuild it and it will burn bright.',
       flash: 'Lamp posts, cold and waiting.' },
@@ -180,16 +214,17 @@
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
-  // The bandit road: every MAJOR road, variant or not. Not a row of the table
-  // (it dresses nothing of its own — its traps, wagons and dogs are other
-  // modules' reasons); its story is here beside the others.
+  // The OLD TRADE ROAD (internally "bandit"): every MAJOR road, variant or
+  // not. Not a row of the table (it dresses nothing of its own — the wagon
+  // look is loot.js chestLook's); its story is here beside the others. A LOOK
+  // and a story only: no `attracts` (the dogs no longer work major verges —
+  // the owner's safety pass, Sep 2026), no foe, no trap.
   const BANDIT_STORY = {
-    story: 'street_bandit', title: 'The bandit road',
-    body: 'Wheel ruts, a broken wagon, a dog that watches you pass. Bandits work the big roads.',
-    flash: 'Bandit road. Eyes open.',
-    // Unthemed major road: torch orange. The dogs work its verge (every one,
-    // not a share — the bandits' own dogs).
-    lampGlow: '#ff8c2a', attracts: { dog: 1 },
+    story: 'street_bandit', title: 'Old trade road',
+    body: 'Wheel ruts, and a broken wagon at the odd stop. The carts ran this way once.',
+    flash: 'Old trade road. Wheel ruts.',
+    // Unthemed major road: torch orange.
+    lampGlow: '#ff8c2a',
   };
   // Per-cell marks (dress().marks): a variant's code 1..n, BANDIT_CODE for a
   // plain major cell (resolved from roadClass by the caller).
@@ -317,57 +352,57 @@
   // lines: every MAJOR line and every MINOR line of the transportation layer
   //   { fi, li, line, tags, size, name, key, variant, rocks, halfW, lineKey }
   //   (halfW in metres, WorldGen.roadOverlayWidthM / 2: the drawn band's).
-  // closes: the dead-end runs of hedgerow lines this tile OWNS (the dead end
-  //   is inside the square)
-  //   { rk, lineRef, atStart, runM, head: {x,y}, mouth: {x,y} } (MVT units)
+  // hoardPois: the POI points a café hoard may be buried beside — the tile's
+  //   OWN café points (inside the square: point ownership, never a neighbour
+  //   scan), or its own commercial points when it has no café — each
+  //   { x, y, gk } (tile-local MVT, gk the GLOBAL point), sorted by
+  //   hoardPick(gk). dress seats the first HOARDS_PER_TILE that seat.
+  // roadClass: stamped on by stampBanditStretchesSteps (the tile's resolved
+  //   roadClass, kerb buffer included) so the dressing can read the buffer.
   // A generator for the tile-build rule: one yield per INDEX_YIELD_LINES.
   const INDEX_YIELD_LINES = 256;
   function* buildIndexSteps(layers, tx, ty, mvtToM) {
     const WG = root.WorldGen, S = root.Streets;
-    const out = { lines: [], closes: [], extent: 4096 };
+    const out = { lines: [], hoardPois: [], extent: 4096 };
     if (!layers || !WG) return out;
-    let tr = null, tn = null;
+    let tr = null, tn = null, poi = null;
     for (const l of layers) {
       if (l.name === 'transportation') tr = l;
       else if (l.name === 'transportation_name') tn = l;
+      else if (l.name === 'poi') poi = l;
     }
-    if (!tr) return out;
-    const ext = tr.extent || 4096;
-    out.extent = ext;
-    const vote = nameVote(tn);
-    yield 'street names';
-    let n = 0;
-    const veh = [];
-    for (let fi = 0; fi < tr.features.length; fi++) {
-      const f = tr.features[fi];
-      if (f.type !== 2 || !f.geom) continue;
-      const vehicle = isVehicleTags(f.tags);
-      const size = sizeOfTags(f.tags);
-      for (let li = 0; li < f.geom.length; li++) {
-        const line = f.geom[li];
-        if (!line || line.length < 2) continue;
-        if ((++n % INDEX_YIELD_LINES) === 0) yield 'street index lines';
-        const rec = { fi, li, line, tags: f.tags, size, vehicle };
-        if (vehicle) veh.push(rec);
+    if (tr) {
+      const ext = tr.extent || 4096;
+      out.extent = ext;
+      const vote = nameVote(tn);
+      yield 'street names';
+      let n = 0;
+      for (let fi = 0; fi < tr.features.length; fi++) {
+        const f = tr.features[fi];
+        if (f.type !== 2 || !f.geom) continue;
+        const size = sizeOfTags(f.tags);
         if (!size) continue;
-        const name = lineName(line, vote);
-        const key = name ? streetKey(name, tx, ty) : anonKey(tx, ty, line);
-        const variant = variantFor(key, name, size);
-        rec.name = name;
-        rec.key = key;
-        rec.variant = variant;
-        rec.rocks = rocksFor(key, size, variant);
-        rec.halfW = WG.roadOverlayWidthM(f.tags || {}) / 2;
-        rec.lineKey = S ? S.lineKey(f, li) : `${fi}:${li}`;
-        out.lines.push(rec);
+        for (let li = 0; li < f.geom.length; li++) {
+          const line = f.geom[li];
+          if (!line || line.length < 2) continue;
+          if ((++n % INDEX_YIELD_LINES) === 0) yield 'street index lines';
+          const rec = { fi, li, line, tags: f.tags, size };
+          const name = lineName(line, vote);
+          const key = name ? streetKey(name, tx, ty) : anonKey(tx, ty, line);
+          const variant = variantFor(key, name, size);
+          rec.name = name;
+          rec.key = key;
+          rec.variant = variant;
+          rec.rocks = rocksFor(key, size, variant);
+          rec.halfW = WG.roadOverlayWidthM(f.tags || {}) / 2;
+          rec.lineKey = S ? S.lineKey(f, li) : `${fi}:${li}`;
+          out.lines.push(rec);
+        }
       }
+      yield 'street index';
     }
-    yield 'street index';
-    const hedges = out.lines.filter((r) => r.variant === 'hedgerow');
-    if (hedges.length) {
-      out.closes = findCloses(hedges, veh, tx, ty, ext, mvtToM);
-      yield 'street closes';
-    }
+    out.hoardPois = hoardPoisOf(poi, tx, ty, out.extent);
+    yield 'street hoard pois';
     return out;
   }
   function buildIndex(layers, tx, ty, mvtToM) {
@@ -377,77 +412,32 @@
     return r.value;
   }
 
-  // The dead-end runs of `lines` (hedgerow pieces), against every vehicle
-  // way `veh`. Segments are bucketed at BUCKET MVT units, so each touch test
-  // probes a 3×3 of buckets — linear in the tile's road length.
-  const BUCKET = 64;
-  function segDist2(px, py, ax, ay, bx, by) {
-    const dx = bx - ax, dy = by - ay;
-    const l = dx * dx + dy * dy;
-    let t = l ? ((px - ax) * dx + (py - ay) * dy) / l : 0;
-    t = t < 0 ? 0 : (t > 1 ? 1 : t);
-    const x = ax + t * dx - px, y = ay + t * dy - py;
-    return x * x + y * y;
-  }
-  function findCloses(lines, veh, tx, ty, ext, mvtToM) {
-    const buckets = new Map();
-    const bk = (bx, by) => (bx + 1024) * 4096 + (by + 1024);
-    for (const rec of veh) {
-      const L = rec.line;
-      for (let i = 1; i < L.length; i++) {
-        const a = L[i - 1], b = L[i];
-        const x0 = Math.floor(Math.min(a.x, b.x) / BUCKET), x1 = Math.floor(Math.max(a.x, b.x) / BUCKET);
-        const y0 = Math.floor(Math.min(a.y, b.y) / BUCKET), y1 = Math.floor(Math.max(a.y, b.y) / BUCKET);
-        for (let bx = x0; bx <= x1; bx++) {
-          for (let by = y0; by <= y1; by++) {
-            const k = bk(bx, by);
-            let arr = buckets.get(k);
-            if (!arr) buckets.set(k, arr = []);
-            arr.push(rec, i);
-          }
-        }
+  // The café hoard's pick: a pure hash of the POI's GLOBAL MVT point, the
+  // same for every player and whichever tile asks.
+  function hoardPick(gk) { return u01('hoard|' + gk); }
+  // The tile's own hoard POIs (see buildIndexSteps' hoardPois). Linear in
+  // the poi layer.
+  function hoardPoisOf(poiLayer, tx, ty, ext) {
+    const cafes = [], other = [];
+    if (!poiLayer || !poiLayer.features) return cafes;
+    const seen = new Set();
+    for (const f of poiLayer.features) {
+      if (f.type !== 1 || !f.geom) continue;
+      const cls = (f.tags && f.tags.class) || '';
+      const isCafe = HOARD_POI_CLASSES.has(cls);
+      if (!isCafe && !HOARD_POI_FALLBACK.has(cls)) continue;
+      for (const ring of f.geom) {
+        const p = ring && ring[0];
+        if (!p || p.x < 0 || p.y < 0 || p.x >= ext || p.y >= ext) continue;   // the neighbour's
+        const gk = `${tx * ext + p.x},${ty * ext + p.y}`;
+        if (seen.has(gk)) continue;
+        seen.add(gk);
+        (isCafe ? cafes : other).push({ x: p.x, y: p.y, gk, u: hoardPick(gk) });
       }
     }
-    const R = JUNCTION_TOUCH_M / mvtToM, R2 = R * R;
-    const touched = (p, self) => {
-      const bx = Math.floor(p.x / BUCKET), by = Math.floor(p.y / BUCKET);
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          const arr = buckets.get(bk(bx + dx, by + dy));
-          if (!arr) continue;
-          for (let j = 0; j < arr.length; j += 2) {
-            const rec = arr[j];
-            if (rec.line === self) continue;
-            const i = arr[j + 1], a = rec.line[i - 1], b = rec.line[i];
-            if (segDist2(p.x, p.y, a.x, a.y, b.x, b.y) <= R2) return true;
-          }
-        }
-      }
-      return false;
-    };
-    const out = [];
-    for (const rec of lines) {
-      const L = rec.line;
-      for (const atStart of [true, false]) {
-        const p = atStart ? L[0] : L[L.length - 1];
-        if (p.x < 0 || p.y < 0 || p.x >= ext || p.y >= ext) continue;   // owned by the neighbour
-        if (touched(p, L)) continue;                                     // not a dead end
-        const dir = atStart ? 1 : -1;
-        let s = 0, mouth = null;
-        for (let k = atStart ? 1 : L.length - 2; k >= 0 && k < L.length; k += dir) {
-          s += Math.hypot(L[k].x - L[k - dir].x, L[k].y - L[k - dir].y) * mvtToM;
-          if (touched(L[k], L)) { mouth = L[k]; break; }
-        }
-        if (!mouth) mouth = atStart ? L[L.length - 1] : L[0];
-        if (s < RUN_MIN_M || s > RUN_MAX_M) continue;
-        out.push({
-          rk: `close:${tx * ext + p.x},${ty * ext + p.y}`,
-          lineRef: rec, atStart, runM: s,
-          head: { x: p.x, y: p.y }, mouth: { x: mouth.x, y: mouth.y },
-        });
-      }
-    }
-    return out;
+    const list = cafes.length ? cafes : other;
+    list.sort((a, b) => a.u - b.u || (a.gk < b.gk ? -1 : 1));
+    return list;
   }
 
   // ── Stamping the bandit stretches (rasterizeTileSteps, after roadClass) ──
@@ -461,6 +451,10 @@
   function* stampBanditStretchesSteps(index, roadClass, N, tx, ty) {
     const WG = root.WorldGen, S = root.Streets;
     if (!index || !roadClass || !WG || !S || !(N > 0)) return 0;
+    // The tile's resolved roadClass, kept on the index so the dressing (run
+    // later in the same build) can read the kerb buffer when its caller's
+    // spawn options carry none — one array, never a second reading.
+    index.roadClass = roadClass;
     const ext = index.extent || 4096;
     const CELL_M = WG.CELL_M;
     const gM = (N * CELL_M) / ext;
@@ -492,14 +486,16 @@
     return n;
   }
 
-  // ── Bandit stops ────────────────────────────────────────────────────────
+  // ── Bandit stops (the old trade road's wagons — a LOOK) ─────────────────
   // Stamp `banditStop` on the bus-stop chests within BUS_STOP_MAJOR_CELLS of
-  // a MAJOR band (roadClass bit 1) that isWagonStop picks (WAGON_STOP_SHARE),
-  // and return one lair candidate per stop —
-  // the wagon's guard (lairs.js 'wagon' tier). The chest itself is untouched
-  // otherwise: same id, tier, contents and `opened` semantics; loot.js
-  // chestLook reads the flag to wear the wagon. Its memoised look is dropped
-  // so a stop drawn before this pass re-resolves.
+  // a MAJOR band (roadClass bit 1) that isWagonStop picks (WAGON_STOP_SHARE).
+  // The chest itself is untouched otherwise: same id, tier, contents and
+  // `opened` semantics; loot.js chestLook reads the flag to wear the wagon.
+  // Its memoised look is dropped so a stop drawn before this pass re-resolves.
+  // NO GUARD (the owner, Sep 2026: no wagon goblins at all — a stop is on the
+  // kerb of a major road by definition). Returns the lair candidates it adds
+  // — always NONE now; kept an (empty) array so a caller that still iterates
+  // it (scene_creatures.js spawnInTile) needs no change.
   function isWagonStop(id) { return !!id && u01('wagon|' + id) < WAGON_STOP_SHARE; }
   function markBanditStops(objects, roadClass, N, tx, ty, tileEdgeM) {
     const WG = root.WorldGen;
@@ -523,18 +519,64 @@
       if (!near || !isWagonStop(o.id)) continue;
       o.banditStop = true;
       delete o._chestLook;
-      lairs.push({
-        tier: 'wagon', sid: WG.cellId('wagon', tx, ty, ix, iy),
-        lx: (ix + 0.5) * cellM, ly: (iy + 0.5) * cellM,
-      });
     }
     return lairs;
   }
 
+  // ── Seating a foe back from the kerb ────────────────────────────────────
+  // The offsets within FOE_SEAT_BACK_CELLS / HOARD_SEAT_CELLS, nearest first
+  // (ties row-major) — built once, so the search order is a constant.
+  function offsetsWithin(R) {
+    const out = [];
+    for (let dy = -R; dy <= R; dy++) {
+      for (let dx = -R; dx <= R; dx++) {
+        const d2 = dx * dx + dy * dy;
+        if (d2 <= R * R) out.push({ dx, dy, d2 });
+      }
+    }
+    out.sort((a, b) => a.d2 - b.d2 || a.dy - b.dy || a.dx - b.dx);
+    return out;
+  }
+  const BACK_OFFSETS = offsetsWithin(FOE_SEAT_BACK_CELLS);
+  const HOARD_OFFSETS = offsetsWithin(HOARD_SEAT_CELLS);
+  // Does the straight walk from cell (x0, y0) to (x1, y1) touch a MAJOR band
+  // cell? Sampled four times a cell, so a band a cell wide is never stepped
+  // over. The "same side of the road" test: a seat reached without crossing
+  // the band is on the side it started. The START cell is not asked: the
+  // band bit covers every cell the band so much as grazes (wider than
+  // roadMask), so a verge cell or a café's own cell may carry it, and a walk
+  // AWAY from the road must still be allowed out of it.
+  function crossesMajorBand(roadClass, N, x0, y0, x1, y1) {
+    if (!roadClass) return false;
+    const WG = root.WorldGen;
+    const dx = x1 - x0, dy = y1 - y0;
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) * 4));
+    for (let k = 1; k <= steps; k++) {
+      const x = Math.floor(x0 + 0.5 + dx * k / steps), y = Math.floor(y0 + 0.5 + dy * k / steps);
+      if (x === x0 && y === y0) continue;
+      if (x < 0 || y < 0 || x >= N || y >= N) continue;
+      if (WG.onMajorBand(roadClass, N, x, y)) return true;
+    }
+    return false;
+  }
+  // The first cell of `offsets` round (ix, iy) that passes `ok` and is
+  // reached without crossing a major band, or null.
+  function nearestSeat(ix, iy, N, roadClass, offsets, ok) {
+    for (const o of offsets) {
+      const x = ix + o.dx, y = iy + o.dy;
+      if (x < 0 || y < 0 || x >= N || y >= N) continue;
+      if (!ok(x, y)) continue;
+      if (crossesMajorBand(roadClass, N, ix, iy, x, y)) continue;
+      return { ix: x, iy: y };
+    }
+    return null;
+  }
+
   // ── Dressing (the end of rasterizeTileSteps; laid by spawnInTile) ─────────
   // ctx: { index, tx, ty, N, tileEdgeM, grid (the GENERATED grid), spawnOpts
-  //        (roadMask + occupied + pois — occupied GROWS: each placed piece
-  //        claims its cell, so later spawners and later pieces see it) }
+  //        (roadMask + occupied + pois [+ roadClass] — occupied GROWS: each
+  //        placed piece claims its cell, so later spawners and later pieces
+  //        see it; roadClass, when absent, is read off index.roadClass) }
   // Returns { objects, wildplants, treasures, lairs, slowCells (Map cell
   // index → 'tar' | 'stakes'), marks } —
   // marks is a Uint8Array (N*N) of variant codes on each dressed line's band
@@ -563,6 +605,16 @@
     const cellOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
       && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts);
     const claim = (ix, iy) => { occ.add(iy * N + ix); };
+    // THE KERB BUFFER: the caller's roadClass, else the one the stamp pass
+    // left on the index. A foe's seat is WorldGen.isFoeCell (the shared rule
+    // AND outside ROAD_CLASS_MAJOR_BUFFER), found by foeSeat.
+    const rc = spawnOpts.roadClass || idx.roadClass || null;
+    const foeOpts = rc && !spawnOpts.roadClass ? Object.assign({}, spawnOpts, { roadClass: rc }) : spawnOpts;
+    const foeOk = (ix, iy) => WG.isFoeCell(grid, N, N, ix, iy, foeOpts);
+    // Seat a foe BACK: its natural cell if it is a foe cell, else the nearest
+    // within FOE_SEAT_BACK_CELLS on the same side of any major band — or null
+    // (the foe is dropped).
+    const foeSeat = (ix, iy) => nearestSeat(ix, iy, N, rc, BACK_OFFSETS, foeOk);
     const cx = (ix) => ox + (ix + 0.5) * frameCellM;
     const cy = (iy) => oy + (iy + 0.5) * frameCellM;
     const cellOfM = (m) => Math.floor(m / CELL_M);
@@ -578,9 +630,9 @@
     };
     const seat = (px, py) => {
       const ix = cellOfM(px * gM), iy = cellOfM(py * gM);
-      if (ix < -CLOSE_SEAT_CELLS || iy < -CLOSE_SEAT_CELLS
-          || ix >= N + CLOSE_SEAT_CELLS || iy >= N + CLOSE_SEAT_CELLS) return null;
-      return WG.relocateToSpawnCell(grid, N, N, ix, iy, spawnOpts, CLOSE_SEAT_CELLS);
+      if (ix < -END_SEAT_CELLS || iy < -END_SEAT_CELLS
+          || ix >= N + END_SEAT_CELLS || iy >= N + END_SEAT_CELLS) return null;
+      return WG.relocateToSpawnCell(grid, N, N, ix, iy, spawnOpts, END_SEAT_CELLS);
     };
     const marks = new Uint8Array(N * N);
     let marked = false;
@@ -731,7 +783,14 @@
           const st = stretchOf(tx * ext + x / gM, ty * ext + y / gM);
           const sk = `burned:${rec.key}|${st.sx},${st.sy}`;
           if (burnedSeen.has(sk)) return;
-          const c = verge(rec, x, y, nx, ny, 1) || verge(rec, x, y, nx, ny, -1);
+          // Seated BACK beyond the kerb buffer (foeSeat), from whichever
+          // verge side seats; neither → try the stretch's next sample.
+          let c = null;
+          for (const side of [1, -1]) {
+            const v = verge(rec, x, y, nx, ny, side);
+            c = v && foeSeat(v.ix, v.iy);
+            if (c) break;
+          }
           if (!c) return;
           burnedSeen.add(sk);
           res.lairs.push({ tier: 'burned', sid: sk,
@@ -774,26 +833,43 @@
         } else {
           res.wildplants.push(WG.makeWildplant('barricade', cx(c.ix), cy(c.iy),
             WG.cellId('barricade', tx, ty, c.ix, c.iy), { _street: grp.v }));
-          res.lairs.push({ tier: 'barricade', sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
-            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
+          // Its goblin stands BACK from the kerb (foeSeat), keyed on the
+          // barricade — or there is none.
+          const g = foeSeat(c.ix, c.iy);
+          if (g) {
+            res.lairs.push({ tier: 'barricade', sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
+              lx: (g.ix + 0.5) * frameCellM, ly: (g.iy + 0.5) * frameCellM });
+          }
         }
         break;
       }
     }
 
-    // The hedgerow's closes: the hoard at the head, and the head as a lair
-    // candidate (lairs.js 'close' tier, keyed on the dead end in GLOBAL MVT
-    // units — the same key from either tile). No arch at the mouth: it would
-    // be a standing thing with nothing to do (the owner's rule — nothing
-    // non-interactable that reads as interactable).
-    for (const cl of idx.closes || []) {
-      const h = seat(cl.head.x, cl.head.y);
+    // THE CAFÉ HOARDS: the index's hoard POIs in hash order, the first
+    // HOARDS_PER_TILE that seat. A hoard lies BESIDE its POI on public ground
+    // (the shared spawn rule) within HOARD_SEAT_CELLS, on the POI's side of
+    // any major band (nearestSeat). GUARDED when the hoard's own cell is a foe
+    // cell (outside the kerb buffer): a lair candidate on it (lairs.js 'cafe'
+    // tier — Lairs seats the giant on isFoeCell too). Else the nearest plain
+    // seat, unguarded. Else nothing, and the next café may take the slot.
+    // Keyed on the POI's GLOBAL point; the id from the hoard's cell.
+    let hoards = 0;
+    for (const hp of idx.hoardPois || []) {
+      if (hoards >= HOARDS_PER_TILE) break;
+      yield 'street hoards';
+      const pix = cellOfM(hp.x * gM), piy = cellOfM(hp.y * gM);
+      let h = nearestSeat(pix, piy, N, rc, HOARD_OFFSETS, foeOk);
+      const guarded = !!h;
+      if (!h) h = nearestSeat(pix, piy, N, rc, HOARD_OFFSETS, cellOk);
       if (!h) continue;
       claim(h.ix, h.iy);
+      hoards++;
       res.treasures.push({ x: cx(h.ix), y: cy(h.iy),
-        id: WG.cellId('treasure_close', tx, ty, h.ix, h.iy), rollBonus: 1 });
-      res.lairs.push({ tier: 'close', sid: cl.rk,
-        lx: (h.ix + 0.5) * frameCellM, ly: (h.iy + 0.5) * frameCellM });
+        id: WG.cellId('treasure_cafe', tx, ty, h.ix, h.iy), rollBonus: 1, guarded });
+      if (guarded) {
+        res.lairs.push({ tier: 'cafe', sid: `cafe:${hp.gk}`,
+          lx: (h.ix + 0.5) * frameCellM, ly: (h.iy + 0.5) * frameCellM });
+      }
     }
     if (marked) res.marks = marks;
     return res;
@@ -827,12 +903,14 @@
     PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,
-    BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, RUN_MIN_M, RUN_MAX_M, JUNCTION_TOUCH_M, CLOSE_SEAT_CELLS,
+    BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
+    FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
+    hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GAP_MIN, HEDGE_GAP_SPAN, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, TOADSTOOL_MUSHROOM_SHARE, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, SLOW_KINDS,
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
-    nameVote, lineName, sampleLine, buildIndexSteps, buildIndex, findCloses,
+    nameVote, lineName, sampleLine, buildIndexSteps, buildIndex,
     markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

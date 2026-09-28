@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Lairs — the monsters squatting in a derelict structure, HARD MODE ONLY.
+// Lairs — the monsters nesting in a derelict structure, HARD MODE ONLY.
 //
 // A ruin you walk past is scenery. A ruin with something living in it is a
 // decision: go around, or go in for what the building is worth. On hard
@@ -12,7 +12,7 @@
 //   fort more than a house. The tiers are the world's own building tiers
 //   (T.BUILDING 9 / BUILDING_MED 11 / BUILDING_LARGE 12), so "bigger" is the
 //   same judgement the map already draws. The tier also picks WHAT is in
-//   there: a wrecked house is SQUATTED by slimes, a fort or a castle is HELD
+//   there: a wrecked house is INFESTED by slimes, a fort or a castle is HELD
 //   by goblins — see KIND_ORDER.
 //
 //   ITS OWN STRENGTH — a world-fixed value `t` in [0, 1] drawn from the
@@ -128,14 +128,14 @@
   const TIERS = [9, 11, 12];
   const MAX_TIER_GUARDS = Math.max(...Object.values(TIER_GUARDS));
   // ── STREET STRUCTURES — a new REASON for a lair, not a new lane ─────────
-  // Two things on a street are held the way a ruin is: a broken WAGON (a bus
-  // stop on a bandit road — StreetVariants.markBanditStops) and the head of a
-  // hedgerow CLOSE (StreetVariants.dress). They are candidates in the same
-  // index, woken by the same residency pass, seeded from their own key and
-  // seated by the same shared spawn rule — only their rows differ:
-  //   · ONE guard each, whatever the strength (FIXED_GUARD_TIERS: capFor does
-  //     not scale them — a wagon with five goblins is a fort);
-  //   · ALWAYS held (OCCUPANCY rate 1, never thinned — the hedges promise it);
+  // A CAFÉ HOARD (StreetVariants.dress — the buried hoard beside a coffee
+  // shop) is held the way a ruin is. It is a candidate in the same index,
+  // woken by the same residency pass, seeded from its own key and seated by
+  // the same foe rule — only its row differs:
+  //   · ONE guard, whatever the strength (FIXED_GUARD_TIERS: capFor does
+  //     not scale it — a hoard with five giants is a fort);
+  //   · ALWAYS held (OCCUPANCY rate 1, never thinned — the dressing only
+  //     hands in a guarded hoard);
   //   · held in EVERY mode (ALWAYS_AWAKE_TIERS): the building lairs stay a
   //     hard-mode thing (stepResidency's `buildings` option), these are the
   //     street's own.
@@ -145,12 +145,15 @@
   // A BARRICADE (StreetVariants.dress, one per barricade on a barricade
   // road) and a BURNED ROW's stretch (one per (street key, stretch square) —
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
-  // each, always held, every mode.
-  const STREET_TIER_GUARDS = { wagon: 1, close: 1, barricade: 1, burned: 1 };
+  // each, always held, every mode. (Until Sep 2026 a 'wagon' tier put a goblin
+  // at a third of the bus stops on every major road; the owner's safety pass
+  // removed it — a stop is on the kerb by definition. The hoard's tier was
+  // 'close', the head of a hedgerow's residential dead end.)
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1 };
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
-  // like a wagon, woken in EVERY mode, and the one tier whose count scales
+  // like a barricade, woken in EVERY mode, and the one tier whose count scales
   // with the mode (MODE_SCALED_TIERS: Difficulty.slimeCountMul — 2 on easy,
   // 4 on hard), because what holds it is slimes.
   const ZONE_TIER_GUARDS = { tar: 2 };
@@ -158,7 +161,7 @@
   // ── A GATE — the same reason again (Sep 2026): an OSM barrier=gate is no
   // chest any more but a SPAWN POINT marked by two posts (worldgen.js
   // gatePostsAt; spawnInTile hands the candidate in). ONE guard, fixed and
-  // always held like a wagon, woken in EVERY mode — and it RE-RISES: the one
+  // always held like a barricade, woken in EVERY mode — and it RE-RISES: the one
   // DAILY tier (DAILY_TIERS). Its guard's id carries the UTC day
   // (`lair_<sid>_<dayKey>_<i>`, garrisonFor), so killing it spends only
   // today's in save.caught and tomorrow's rises in the same seat; yesterday's
@@ -199,14 +202,14 @@
   // structure's own strength `t` picks the rung within it — the same two
   // facts the count is already made of, saying a second thing.
   //
-  //   A WRECKED HOUSE IS SQUATTED. Nobody holds it; slimes have simply moved
-  //   into the damp — the SURFACE slime and nothing else. Until Sep 2026 the
+  //   A WRECKED HOUSE IS INFESTED. Nobody holds it; slimes are nesting in
+  //   the damp — the SURFACE slime and nothing else. Until Sep 2026 the
   //   ladder climbed on to the cave slime and the purple, which put cave
   //   kinds on the surface; the cave keeps its own now, so a wreck's
   //   escalation is its COUNT (countFor), not its kind.
   //
   //   A FORT OR A CASTLE IS HELD. A fortification with nobody in it is not
-  //   derelict, it is empty — so what squats a ruined keep is a GARRISON, and
+  //   derelict, it is empty — so what holds a ruined keep is a GARRISON, and
   //   goblins are the only thing in the game that reads as one. This is the
   //   line the slimes-all-the-way ladder was drawn to avoid ("a goblin on the
   //   surface is a different decision about where the cave ends"), and the
@@ -227,13 +230,15 @@
   // ladder may be drawn the same — see the tint rule in sprite_layout.js; a
   // rung the player cannot see is not an escalation.
   const KIND_ORDER = {
-    9:  ['slime'],                                 // T.BUILDING       — squatted (surface kind only)
+    9:  ['slime'],                                 // T.BUILDING       — infested (surface kind only)
     11: ['goblin', 'goblin_archer', 'giant_skeleton'],   // T.BUILDING_MED   — held
     12: ['goblin', 'goblin_archer', 'giant_skeleton'],   // T.BUILDING_LARGE — held
-    // A bandit road's wagon: one goblin, the bandit.
-    wagon: ['goblin'],
-    // A hedgerow close uses approved T3 giants; size never stacks with Elite.
-    close: ['giant_skeleton', 'giant_spider'],
+    // A café hoard: its guard is one of the approved surface T3 GIANTS
+    // (EnemyRoster rows, variantType 'Giant', not eliteEligible — size never
+    // stacks with Elite), never a shiny: a shiny's kill pays the relic-biased
+    // elite roll and every café would flood the map with gear. (The old
+    // 'close' tier's ladder; there is no 'wagon' tier — the safety pass.)
+    cafe: ['giant_skeleton', 'giant_spider'],
     // A tar yard: fire slimes (combat.js MONSTERS.fire_slime).
     tar: ['fire_slime'],
     // A barricade: the goblin who holds it.
@@ -272,8 +277,7 @@
     9:  { rate: 1 / 3, thinned: true  },   // T.BUILDING       — the commons
     11: { rate: 2 / 3, thinned: false },   // T.BUILDING_MED   — a fort
     12: { rate: 0.95,  thinned: false },   // T.BUILDING_LARGE — a castle
-    wagon: { rate: 1, thinned: false },    // a bandit road's broken wagon
-    close: { rate: 1, thinned: false },    // a hedgerow close's head
+    cafe:  { rate: 1, thinned: false },    // a café hoard
     tar:   { rate: 1, thinned: false },    // a tar yard's pumps
     barricade: { rate: 1, thinned: false },  // a barricade road's barricade
     burned: { rate: 1, thinned: false },   // a burned row's stretch
@@ -664,7 +668,7 @@
     // The street structures (entry.streetLairs — spawnInTile stamps them off
     // StreetVariants) join the same buckets once, when the shapes are done.
     // A handful per tile, so no slicing. Their `sid` is minted where they are
-    // found (a wagon's cell id, a close's global dead-end key).
+    // found (a barricade's cell id, a café's global POI point).
     if (idx.done && !idx.streetDone) {
       idx.streetDone = true;
       for (const st of (entry && entry.streetLairs) || []) {
@@ -756,6 +760,11 @@
     const caught = o.caughtSet;
     const hpMemo = o.hpMemo;
     const spawnOpts = entry._spawnOpts || o.spawnOpts;
+    // The kerb buffer is read off the spawn options' roadClass (spawnInTile
+    // carries entry.roadClass there); an older options object without one
+    // reads the entry's own — the same array, never a second derivation.
+    const foeOpts = (spawnOpts && !spawnOpts.roadClass && entry.roadClass)
+      ? Object.assign({}, spawnOpts, { roadClass: entry.roadClass }) : spawnOpts;
     const seatR = Math.hypot(cand.halfW, cand.halfH) + LAIR_RING_PAD_CELLS * cellM;
     const C = root.Combat;
     const out = [];
@@ -774,12 +783,17 @@
         const ly = cand.ly + Math.sin(ang) * r;
         const ix = Math.floor(lx / cellM), iy = Math.floor(ly / cellM);
         if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
-        // The ONE shared spawn rule, road mask included — a guard on the
-        // carriageway is the bug CLAUDE.md's road invariant is about. The
-        // options come off THE ENTRY (spawnInTile stashes the very object it
-        // spawned the tile's fauna, traps and treasure with), never rebuilt
-        // here: a second reading of "is this a road" is how the two drift.
-        if (!WG.isSpawnCell(entry.grid, N, N, ix, iy, spawnOpts)) continue;
+        // The FOE seat rule (WorldGen.isFoeCell): the one shared spawn rule,
+        // road mask included — a guard on the carriageway is the bug
+        // CLAUDE.md's road invariant is about — AND outside the major roads'
+        // kerb buffer (ROAD_CLASS_MAJOR_BUFFER), so no guard of any lair
+        // stands where a chase would begin at the kerb. The options come off
+        // THE ENTRY (spawnInTile stashes the very object it spawned the tile's
+        // fauna, traps and treasure with), never rebuilt here: a second
+        // reading of "is this a road" is how the two drift. Only the VERDICT
+        // changed (Sep 2026): the draws are the same, so every seat that
+        // passes both rules is the seat it always was.
+        if (!WG.isFoeCell(entry.grid, N, N, ix, iy, foeOpts)) continue;
         seat = { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM };
       }
       if (!seat) continue;                    // ringed by water / road / building

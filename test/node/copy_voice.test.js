@@ -425,7 +425,8 @@ test('map copy: the barrel, the bike rack and the page stones fit a map line', (
   }
   assert.eq(barrelFlash({ kind: 'empty' }), 'Empty.', 'an empty barrel says so');
   assert.lte([...bikeRackFlash()].length, MAP_MSG_MAX, `bike rack: ${bikeRackFlash()}`);
-  assert.eq(bikeRackFlash(), 'Pedal power! Faster 3m', 'off the boost\'s own length');
+  assert.eq(bikeRackFlash(), `Swift step! Stick ×2 for ${shortDuration(BIKE_RACK_MS)}`, 'off the boost\'s own length');
+  assert.falsy(/pedal|bike|cycl/i.test(bikeRackFlash()), 'the courier\'s post never says ride a bike (safety, Sep 2026)');
   // pageStone's literal lines (INTERACTABLES.waystone / .infoboard).
   for (const m of INTERACTABLES_SRC.matchAll(/(?:spent|read): '([^']+)'/g)) {
     assert.lte([...m[1]].length, MAP_MSG_MAX, `page stone: ${m[1]}`);

@@ -16,8 +16,8 @@
 //     coin-burst / grove-shrine / crate ledger, pruned of takes older than a
 //     week on every write (inn, chapel, the guildhall's bounty; usedToday / markToday
 //     below are its one reader and writer). A macro's id in it is NOT spent
-//     (interactables.js isSpent — a macro is never spent); the chapel's alms
-//     go dark in it (interactables.js poiLit) until the day rolls;
+//     (interactables.js isSpent — a macro is never spent); the chapel's
+//     blessing goes dark in it (interactables.js poiLit) until the day rolls;
 //   • save.donated — the curio ids this save has given (progress, not world
 //     state), and its milestones in the memory ledger (save.discovered);
 //   • save.trainingPerm / save.trainingBuffUntil — the damage the player
@@ -140,7 +140,10 @@
     return { ok: true, gain: (save.energy ?? 0) - cur, price };
   }
 
-  // ── CHAPEL: daily alms, a tier humbler than the chest it replaced ────────
+  // ── CHAPEL: a daily blessing, a tier humbler than the chest it replaced ──
+  // (A church only: every other faith's place mints nothing —
+  // WorldGen.isSensitivePoi. The player LEAVES an offering and is GIVEN a
+  // blessing; the copy never has them take alms from a box.)
   // The roll is the chest's own (chestTier — its density on its tile, the
   // depth bonus and the churchyard's ZONE_NEXUS_TIER_BONUS all still apply)
   // less CHAPEL_TIER_DROP, floored at T1: it pays every day, where the chest
@@ -336,7 +339,7 @@
   // Book.
   const KIND_STORY = {
     inn:         { title: 'An inn', body: 'A bed, a hearth and a keeper who takes coin. Once a day it will see you rested.' },
-    chapel:      { title: 'A chapel', body: 'Somebody still tends it. Each day there are alms by the door for whoever comes, and the keeper watches you take them.' },
+    chapel:      { title: 'A chapel', body: 'Somebody still tends it. Light a candle by the door and you leave with a blessing, once a day.' },
     apothecary:  { title: 'An apothecary', body: 'Shelves of small bottles, and a counter that never runs dry.' },
     scriptorium: { title: 'A scriptorium', body: 'The written word, kept, copied and sold. Books are on the counter.' },
     guildhall:   { title: 'A guildhall', body: 'The board by the door posts one bounty a day: something prowling close by that the hall wants gone.' },

@@ -1,4 +1,4 @@
-// DERELICT LAIRS — the hard-mode garrison squatting in an unclaimed ruin
+// DERELICT LAIRS — the hard-mode garrison nesting in an unclaimed ruin
 // (src/lairs.js), plus the two places app.js has to meet it: the residency
 // pass that wakes them and the one line in wanderCreatures that keeps them
 // still.
@@ -183,7 +183,7 @@
               'TIER_GUARDS and KIND_ORDER name different tiers');
   });
 
-  test('lairs: the tier picks the family — a wreck is squatted, a fort or castle is HELD', () => {
+  test('lairs: the tier picks the family — a wreck is infested, a fort or castle is HELD', () => {
     // The line this crossed deliberately: goblins are not loose in the fields,
     // they are inside a fortification. Every wreck on the map is still slimes,
     // which is what keeps a goblin a thing you walk INTO rather than past.
@@ -355,6 +355,49 @@
     }
     throw new Error(`no held seat for tier ${tier} near ${cxM},${cyM}`);
   }
+
+  // ── The kerb buffer (Sep 2026 safety pass) ───────────────────────────────
+  test('lairs: no guard of any lair seats inside the major roads\' kerb buffer (WorldGen.isFoeCell)', () => {
+    const castle = mkHeldShape(12, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M);
+    const cand = () => Lairs.buildIndex({ buildingShapes: [castle] }, 0, 0, CELL_M, TILE_M);
+    const wake = (entry) => {
+      const idx = cand();
+      const c = [...idx.buckets.values()].flat()[0];
+      return Lairs.garrisonFor(entry, c, { tileEdgeM: TILE_M, homeM: HOME });
+    };
+    // No buffer: the garrison as it always was.
+    const plain = mkEntry([castle]);
+    const before = wake(plain);
+    assert.gt(before.length, 1, 'the castle holds a garrison');
+    // Paint the buffer over the castle's WEST half, carried on the spawn
+    // options exactly as spawnInTile carries entry.roadClass.
+    const rc = new Uint8Array(N * N);
+    for (let y = 0; y < N; y++) for (let x = 0; x < 20; x++) rc[y * N + x] = WorldGen.ROAD_CLASS_MAJOR_BUFFER;
+    const buf = mkEntry([castle]);
+    buf._spawnOpts.roadClass = rc;
+    const after = wake(buf);
+    for (const g of after) {
+      const ix = Math.floor(g.x / CELL_M), iy = Math.floor(g.y / CELL_M);
+      assert.falsy(rc[iy * N + ix], `${g.id} is seated outside the kerb buffer`);
+    }
+    // The verdict changed, not the stream: the first guard, if its old seat
+    // was already clear of the buffer, keeps it exactly.
+    const g0 = before[0];
+    if (!rc[Math.floor(g0.y / CELL_M) * N + Math.floor(g0.x / CELL_M)]) {
+      assert.eq(`${after[0].id} ${after[0].x},${after[0].y}`, `${g0.id} ${g0.x},${g0.y}`, 'same guard, same seat');
+    }
+    // An entry whose options carry no roadClass reads the entry's own.
+    const legacy = mkEntry([castle]);
+    legacy.roadClass = rc;
+    assert.eq(wake(legacy).map((g) => `${g.x},${g.y}`).join('|'), after.map((g) => `${g.x},${g.y}`).join('|'),
+      'entry.roadClass is the same buffer');
+    // All buffer: nobody is seated (dropped, never forced into it).
+    const all = mkEntry([castle]);
+    all._spawnOpts.roadClass = new Uint8Array(N * N).fill(WorldGen.ROAD_CLASS_MAJOR_BUFFER);
+    assert.eq(wake(all).length, 0, 'a lair wholly inside the buffer seats no guard');
+    assert.truthy(/WG\.isFoeCell\(entry\.grid, N, N, ix, iy, foeOpts\)/.test(ALL_SRC['lairs.js']),
+      'the seat asks the shared FOE rule');
+  });
 
   // ── Is it held at all ────────────────────────────────────────────────────
 
@@ -1188,7 +1231,9 @@
     // `standDown` — the one read those blocks ask — is built from it.
     const state = at("const lairState = c.lair ? Lairs.guardState(", 'the guard state');
     assert.lt(state, leech, 'the state is resolved before anything reads standDown');
-    assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed\)/.test(body),
+    // `!unnoticed`, optionally AND further reasons to stand down (the kerb
+    // turn of the Sep 2026 safety pass) — never a lane that drops unnoticed.
+    assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed(?: && [^)]+)?\)/.test(body),
       'measured from the FEET, and told whether the player is worth noticing at all');
     assert.truthy(/c\._hunting = lairState === 'hunt';/.test(body),
       'the hysteresis is stored back on the creature');

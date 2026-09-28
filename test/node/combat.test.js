@@ -172,7 +172,7 @@ test('combat: the surface slime oozes slowly enough to walk away from', () => {
   const app = SCENE_CREATURES_SRC;
   const mul = Number(/const SLIME_STEP_MUL = ([\d.]+);/.exec(CREATURE_AI_SRC)?.[1]);
   const hop = Number(/const SLIME_HOP_CELLS = ([\d.]+);/.exec(CREATURE_AI_SRC)?.[1]);
-  const beat = Number(/const STEP_MS = (\d+);/.exec(app)?.[1]);
+  const beat = /const STEP_MS = WANDER_STEP_MS;/.test(app) ? Number(/const WANDER_STEP_MS = (\d+);/.exec(CREATURE_AI_SRC)?.[1]) : NaN;
   assert.truthy(mul > 0 && hop > 0 && beat > 0, 'the gait constants are readable');
   assert.truthy(/c\.kind === 'slime' \? STEP_MS \* \(charging \? 1 : SLIME_STEP_MUL\)/.test(app),
     'the cadence branch reads the constant');
@@ -215,7 +215,7 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
     'it reads the one damage stamp, not a second aggro flag');
   assert.truthy(/STRUCK_REACTION_MS/.test(fn[1]), 'and the shared reaction window');
   const win = Number(/const STRUCK_REACTION_MS = (\d+);/.exec(CREATURE_AI_SRC)?.[1]);
-  const beat = Number(/const STEP_MS = (\d+);/.exec(app)?.[1]);
+  const beat = /const STEP_MS = WANDER_STEP_MS;/.test(app) ? Number(/const WANDER_STEP_MS = (\d+);/.exec(CREATURE_AI_SRC)?.[1]) : NaN;
   assert.gt(win, beat, 'a reaction must outlast the wander step it interrupts');
 
   // The charge itself: every hop at the player, on the monsters' own jitter.
@@ -239,8 +239,8 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   for (const ward of ['!isTame', '!standDown', '!unnoticed']) {
     assert.truthy(gate.includes(ward), `the charge is off when ${ward}`);
   }
-  assert.truthy(/const standDown = warded \|\| wanderOff \|\| \(!!lairState && lairState !== 'hunt'\);/.test(app),
-    'and standDown is still built from Home\'s ward, the wander-off and the lair state');
+  assert.truthy(/const standDown = warded \|\| wanderOff \|\| kerbTurn \|\| \(!!lairState && lairState !== 'hunt'\);/.test(app),
+    'and standDown is still built from Home\'s ward, the wander-off, the kerb (creature_ai.js THE KERB) and the lair state');
   // Home's ward is checked EARLIER in the same chain, so a warded slime is
   // walking out whether or not it has been hit.
   assert.lt(app.indexOf('} else if (warded) {'),

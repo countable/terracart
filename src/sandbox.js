@@ -879,7 +879,7 @@
     }
 
     // ── PLAYER PLAZA: a little coin-drop burst (the coindrop tap path). In the
-    //    real game these expire after 60s; here we omit expiresAt so they
+    //    real game these expire after COIN_BURST_LIFE_MS; here we omit expiresAt so they
     //    persist across reloads. They live in entry.coinDrops, not objects[].
     if (centreEntry) {
       centreEntry.coinDrops = [];

@@ -162,6 +162,7 @@ class SceneGeo {
         // goes away.
         if (typeof Fog !== 'undefined') Fog.flush(this.save);
         this.save.lastSeenAt = Date.now();
+        this._hiddenAt = Date.now();
         persistSave(this.save);
       } else {
         // Foregrounded after a background nap. Resume the game loop FIRST:
@@ -171,6 +172,11 @@ class SceneGeo {
         // a dead screen that no longer took taps. Guard the rest so one bad
         // step can't skip the others either.
         if (this.game && this.game.isPaused) this.game.resume();
+        // The safety card's RESUME reminder (app.js _safetyOnResume).
+        try {
+          if (this._hiddenAt != null) this._safetyOnResume?.(Date.now() - this._hiddenAt);
+          this._hiddenAt = null;
+        } catch (e) { this._reportLoopError?.(e); }
         try {
           // Pro-rate energy restoration by the gap, just like a fresh page
           // load would do in create().
@@ -231,6 +237,24 @@ class SceneGeo {
     }
   }
 
+  // THE PASSENGER GATE (util.js speedGateStep): every physical fix steps it;
+  // tripping it shows the "are you a passenger?" card once per ride. Off in
+  // the sandbox, under a teleport or once the player took manual control —
+  // then the body is not following the phone at all.
+  _trackSpeedGate(pos) {
+    if (this._sandboxMode || this._gpsManualOverride || _teleportOverride) {
+      this._speedGate = null;
+      return;
+    }
+    const was = !!(this._speedGate && this._speedGate.tooFast);
+    this._speedGate = speedGateStep(this._speedGate, {
+      lat: pos.coords.latitude, lon: pos.coords.longitude,
+      accuracy: pos.coords.accuracy, timestamp: pos.timestamp,
+      speed: pos.coords.speed,
+    });
+    if (!was && this._speedGate.tooFast) this._showPassengerCard?.();
+  }
+
   startGps() {
     // Sandbox mode parks the player at a synthetic biome-grid plot and uses
     // keyboard / joystick movement only — GPS would snap them away to their
@@ -281,6 +305,7 @@ class SceneGeo {
         pos => {
           const { latitude, longitude } = pos.coords;
           this._trackEggHatch(pos);
+          this._trackSpeedGate(pos);
           // First GPS fix on a brand-new save: freeze THIS location as the
           // save's home origin and reload so the whole projection re-anchors
           // here. Only reload after VERIFYING the write landed (read it back) —
