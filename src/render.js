@@ -36,6 +36,7 @@
 //   textures.js  — BIOME_TEX, TILLED_VARIANTS, PAD_SHAPES
 //   items.js     — CROP_SPRITE, CROP_ROW, CROPS_SHEET_COLS,
 //                  SPRING_CROPS_COLS, MAX_GROWTH_STAGE
+//   crops.js     — Crops.forEachInBox (saved crop viewport query)
 //   loot.js      — POI_CLASS_FALLBACK, CHEST_TIER_COLOR,
 //                  padShapeKeyForPoi, chestTier, rusticifyName
 //   save.js      — persistSave (used by drawCells self-heal path)
@@ -1150,22 +1151,20 @@ Render.drawCells = function drawCells(scene) {
   // is resolved once, in the ring pass below (a row band across a tile-row
   // seam can sit on a different grid: coords.js viewBand).
   const { cellIX: baseCellIX, cellIY: baseCellIY } = viewAnchorAbsCell(scene, pc);
-  // Planted entries near the viewport, filtered ONCE per pass. The tilled-cell
-  // loop below matches each visible tilled cell against save.planted (watered
-  // tint + the orphaned-soil self-heal); scanning the whole planted list per
-  // cell made that O(visible-tilled × every-crop-ever-planted). The filter
-  // keeps every entry that could possibly match an on-screen cell (±0.1 m
-  // tolerance, so a one-cell margin is plenty) and the per-cell tests below
-  // are unchanged.
+  // The tilled-cell loop matches visible cells against nearby crops for
+  // watering tint and orphaned-soil self-heal. Query a margin around the
+  // camera once; the per-cell tolerance checks below remain unchanged.
   const _plantedNear = [];
-  if (scene.save.planted && scene.save.planted.length) {
+  {
     const _a = viewAnchorWorldM(scene);
     const _pcx = _a.x;
     const _pcy = _a.y;
     const _spanM = (VIEW_CELLS / 2 + 2) * scene.cellM;
-    for (const pp of scene.save.planted) {
-      if (Math.abs(pp.x - _pcx) <= _spanM && Math.abs(pp.y - _pcy) <= _spanM) _plantedNear.push(pp);
-    }
+    const cropWork = Crops.forEachInBox(scene.save, scene.depth ?? 0,
+      _pcx - _spanM, _pcy - _spanM, _pcx + _spanM, _pcy + _spanM,
+      pp => _plantedNear.push(pp));
+    window.__boot?.count?.('crop candidates', cropWork.candidates);
+    window.__boot?.count?.('crop index rebuild entries', cropWork.rebuiltEntries);
   }
   // Border layer: only redraw geometry when the camera crosses a cell boundary.
   // Between crossings scroll the container for sub-cell fractional movement.
@@ -2530,12 +2529,13 @@ Render.drawObjects = function drawObjects(scene) {
   // on, so surface farms don't render underground (and future cave crops won't
   // render on the surface).
   const _curDepth = scene.depth ?? 0;
-  for (const p of scene.save.planted) {
-    if (!PlacedFloor.onDepth(p, _curDepth)) continue;   // same-level crops only
+  const cropWork = Crops.forEachInBox(scene.save, _curDepth,
+    pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, p => {
     const dx = p.x - pWorldX, dy = p.y - pWorldY;
-    if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
     plantedList.push({ p, dx, dy });
-  }
+  });
+  window.__boot?.count?.('crop candidates', cropWork.candidates);
+  window.__boot?.count?.('crop index rebuild entries', cropWork.rebuiltEntries);
   // Placed rockfruit stones — overlay the produce icon on each cell in placedRockSet
   // so the player can see what's there. The cell terrain is already rendered as rock
   // (type 10) by drawCells; this adds the visual icon on top.

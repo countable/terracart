@@ -7,9 +7,13 @@
 // replays per frame, the pool sizes, and a CDP CPU profile with Phaser-
 // internal time attributed back to the nearest call site of ours.
 //
-// Three phases: standing still, walking a square (the fix moved at the
+// Phases: standing still, walking a square (the fix moved at the
 // DEBUG keyboard's pace), then standing on a real street while it restores
-// (the recorded fixture tiles — the sandbox has no road lines). The baseline and the reading of it are in
+// (the recorded fixture tiles — the sandbox has no road lines). A crop check
+// compares both render passes with a small farm and 10,000 distant crops.
+// Runtime errors and crop work-count regressions exit nonzero. Timings are
+// reported for comparison, without machine-dependent pass/fail thresholds.
+// The baseline and the reading of it are in
 // test/findings/render-loop-audit-2026-09-06.md.
 //
 //   npm install                       # playwright-core (devDependency)
@@ -37,6 +41,19 @@ const RESTORE_MS = +(process.env.RESTORE_MS ?? 8000);
 const RESTORE_SETTLE_MS = +(process.env.RESTORE_SETTLE_MS || 15000);
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 
+function collectErrors(page, errors, prefix = '') {
+  page.on('pageerror', e => errors.push(prefix + String(e)));
+  page.on('console', message => {
+    if (message.type() !== 'error') return;
+    const text = message.text(), url = message.location().url || '';
+    // The offline harness deliberately refuses tiles outside its fixture ring.
+    // Only that network noise is expected; JavaScript errors still fail the run.
+    if (/^Failed to load resource:.*\b(?:404|504)\b/.test(text) &&
+        (/\/test\/fixtures\//.test(url) || /tiles\.openfreemap\.org\//.test(url))) return;
+    errors.push(prefix + text + (url ? ` (${url})` : ''));
+  });
+}
+
 function serve() {
   const srv = http.createServer((req, res) => {
     const p = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]));
@@ -52,13 +69,22 @@ function serve() {
 
 async function main() {
   const srv = await serve();
-  const launch = { headless: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] };
-  if (process.env.PW_CHROMIUM) launch.executablePath = process.env.PW_CHROMIUM;
-  const browser = await chromium.launch(launch);
+  let browser;
+  try {
+    const launch = { headless: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] };
+    if (process.env.PW_CHROMIUM) launch.executablePath = process.env.PW_CHROMIUM;
+    browser = await chromium.launch(launch);
+    await profile(browser);
+  } finally {
+    if (browser) await browser.close();
+    await new Promise((resolve) => srv.close(resolve));
+  }
+}
+
+async function profile(browser) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errs = [];
-  page.on('pageerror', (e) => errs.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error' && !/404/.test(m.text())) errs.push(m.text()); });
+  collectErrors(page, errs);
   await page.goto(`http://127.0.0.1:${PORT}/test/perf.html?sandbox=true`, { timeout: 60000 });
   await page.evaluate(() => window.__perfReady);
 
@@ -101,6 +127,50 @@ async function main() {
   const walkProf = (await cdp.send('Profiler.stop')).profile;
   const walk = await page.evaluate(() => window.__perfSnap());
 
+  // Exercise the shipping render paths, including the first index build.
+  // Synchronous samples keep camera position and gameplay mutations fixed.
+  const farm = await page.evaluate(() => {
+    const s = window.__scene, B = window.__boot;
+    const original = s.save.planted;
+    const anchor = viewAnchorWorldM(s);
+    const local = Array.from({ length: 4 }, (_, i) => ({
+      x: anchor.x + (i % 2) * s.cellM,
+      y: anchor.y + Math.floor(i / 2) * s.cellM,
+      crop: 'potato', stage: MAX_GROWTH_STAGE, watered_t: 0, depth: s.depth || 0,
+    }));
+    const sample = (planted) => {
+      s.save.planted = planted;
+      B.reset();
+      const coldStart = performance.now();
+      s.drawCells(); s.drawObjects();
+      const coldMs = performance.now() - coldStart;
+      const rebuilt = B.counts['crop index rebuild entries']?.sum;
+      B.reset();
+      const frames = 40, start = performance.now();
+      for (let i = 0; i < frames; i++) { s.drawCells(); s.drawObjects(); }
+      return { crops: planted.length, frames, coldMs, rebuilt,
+        warmMsPerFrame: (performance.now() - start) / frames,
+        candidates: B.counts['crop candidates'],
+        warmRebuilt: B.counts['crop index rebuild entries']?.sum };
+    };
+    try {
+      const small = sample(local);
+      const large = sample(local.concat(Array.from({ length: 10000 }, (_, i) => ({
+        ...local[0], x: anchor.x + 100000 + i * s.cellM,
+      }))));
+      if (!small.candidates || small.candidates.n !== small.frames * 2 ||
+          small.candidates.sum <= 0 || large.candidates?.n !== large.frames * 2 ||
+          large.candidates.sum !== small.candidates.sum ||
+          small.warmRebuilt !== 0 || large.warmRebuilt !== 0 ||
+          small.rebuilt !== small.crops || large.rebuilt !== large.crops) {
+        throw new Error('Crop work regression: ' + JSON.stringify({ small, large }));
+      }
+      return { small, large };
+    } finally {
+      s.save.planted = original;
+    }
+  });
+
   // ── RESTORE: stand on a real street while it rebuilds ──────────────────
   // The sandbox carries no transportation lines, so nothing restores there;
   // this phase loads a second page on the recorded tiles (perf.html
@@ -111,7 +181,7 @@ async function main() {
   let restore = null, restoreProf = null, restoreStats = null;
   if (RESTORE_MS > 0) {
     const rp = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    rp.on('pageerror', (e) => errs.push('[restore] ' + String(e)));
+    collectErrors(rp, errs, '[restore] ');
     await rp.goto(`http://127.0.0.1:${PORT}/test/perf.html?fixtures=1`, { timeout: 60000 });
     await rp.evaluate(() => window.__perfReady);
     const at = await rp.evaluate(() => {
@@ -179,11 +249,15 @@ async function main() {
     }
   }
 
-  await browser.close();
-  srv.close();
-  if (OUT) fs.writeFileSync(OUT, JSON.stringify({ idle, walk, restore, restoreStats, errs, idleProf, walkProf, restoreProf }));
+  if (OUT) fs.writeFileSync(OUT, JSON.stringify({ idle, walk, farm, restore, restoreStats, errs, idleProf, walkProf, restoreProf }));
   print('STANDING STILL', idle, idleProf);
   print('WALKING', walk, walkProf);
+  console.log('\nCROP SCALING (two render passes per frame):');
+  for (const sample of [farm.small, farm.large]) {
+    console.log(`  ${sample.crops} crops: ${sample.candidates.sum / sample.frames} candidates/frame, ` +
+      `${sample.coldMs.toFixed(2)} ms cold, ${sample.warmMsPerFrame.toFixed(3)} ms/frame warm, ` +
+      `${sample.warmRebuilt} entries rebuilt warm`);
+  }
   if (restore) {
     print('RESTORING A STREET (recorded tiles)', restore, restoreProf);
     console.log(`street restores: ${restoreStats.restores} (${restoreStats.metres.toFixed(0)} m) — feet moved ${restoreStats.movedCells.toFixed(1)} cells onto the road`);
@@ -191,7 +265,7 @@ async function main() {
       console.log(`  ${k.padEnd(20)} ${(v.sum / Math.max(1, v.n)).toFixed(3)} / ${v.worst.toFixed(2)} ms  (${v.n})`);
     }
   }
-  if (errs.length) console.log('\nERRORS:\n' + errs.slice(0, 10).join('\n'));
+  if (errs.length) throw new Error('Browser runtime errors:\n' + errs.slice(0, 10).join('\n'));
 }
 
 // ── CPU-profile digestion ─────────────────────────────────────────────────

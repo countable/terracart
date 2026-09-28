@@ -14,6 +14,53 @@ function mpScene() {
   };
 }
 
+test('welcome paints the near count once after a large roster', () => {
+  const oldDocument = globalThis.document, oldWebSocket = globalThis.WebSocket;
+  let paints = 0, metreScaleReads = 0, button;
+  class FakeWebSocket {
+    constructor() { this.readyState = 1; FakeWebSocket.last = this; }
+    send() {}
+    close() {}
+  }
+  globalThis.WebSocket = FakeWebSocket;
+  globalThis.document = {
+    visibilityState: 'visible', addEventListener() {},
+    createElement() {
+      button = { style: {}, addEventListener() {} };
+      Object.defineProperty(button, 'textContent', { set(v) { paints++; this.text = v; } });
+      return button;
+    },
+    body: { appendChild() {} },
+  };
+  const sc = mpScene();
+  sc.save = { multiplayer: true, playerName: 'Ada', playerColor: 0x9fd8ff };
+  sc.add = {
+    container() { return { setDepth() { return this; }, add() {} }; },
+    graphics() { return {}; },
+  };
+  try {
+    Multiplayer.start(sc);
+    const at = Multiplayer.toWorldPx(sc);
+    const peers = Array.from({ length: 100 }, (_, i) => ({
+      id: i + 2, name: `P${i}`, color: 0x9fd8ff, x: at.x, y: at.y,
+      fx: 0, fy: 1, m: 0, d: 0,
+    }));
+    const mPerPx = sc.mPerPx;
+    Object.defineProperty(sc, 'mPerPx', { get() { metreScaleReads++; return mPerPx; } });
+    const before = paints;
+    // Before batching, this roster made 101 HUD writes and 5,050 nearCount
+    // visits (10,100 metre-scale reads). Now it makes one pass over 100 peers.
+    FakeWebSocket.last.onmessage({ data: JSON.stringify({ t: 'welcome', id: 1, peers }) });
+    assert.eq(paints - before, 1);
+    assert.eq(metreScaleReads, 200);
+    assert.eq(button.text, '📍 · 👥 100');
+  } finally {
+    Multiplayer.stop(sc);
+    globalThis.document = oldDocument;
+    globalThis.WebSocket = oldWebSocket;
+  }
+});
+
 test('cleanName mirrors the server: printable, single-spaced, ≤16', () => {
   assert.eq(Multiplayer.cleanName('  Ada   Lovelace '), 'Ada Lovelace');
   assert.eq(Multiplayer.cleanName('a b​c'), 'a bc');

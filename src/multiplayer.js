@@ -231,8 +231,9 @@ const Multiplayer = (function () {
     const now = performance.now();
     switch (msg.t) {
       case 'welcome':
-        S.id = msg.id; S.backoff = RECONNECT_MIN_MS; S.everOnline = true; setStatus('online');
-        for (const p of msg.peers || []) upsertPeer(p, now);
+        S.id = msg.id; S.backoff = RECONNECT_MIN_MS; S.everOnline = true;
+        for (const p of msg.peers || []) upsertPeer(p, now, false);
+        setStatus('online'); // one HUD count after the whole roster is ready
         break;
       case 'join': upsertPeer(msg, now); break;
       case 'p': {
@@ -245,11 +246,11 @@ const Multiplayer = (function () {
       case 'error': setStatus('error'); break;
     }
   }
-  function upsertPeer(p, now) {
+  function upsertPeer(p, now, repaint = true) {
     let cur = S.peers.get(p.id);
     if (!cur) { cur = { id: p.id, dx: null, dy: null }; S.peers.set(p.id, cur); }
     Object.assign(cur, { name: p.name, color: p.color, x: p.x, y: p.y, fx: p.fx, fy: p.fy, m: p.m, d: p.d, seenAt: now });
-    paintButton();
+    if (repaint) paintButton();
   }
   function dropPeer(id) {
     const p = S.peers.get(id);

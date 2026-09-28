@@ -195,6 +195,113 @@ test('save: flushSave is safe to call multiple times (idempotent)', () => {
   }
 });
 
+test('save: failed storage write keeps progress and one notice until a successful retry', () => {
+  const id = createSave(_uid('test_write_retry'));
+  const originalSet = localStorage.setItem;
+  const originalLookup = document.getElementById;
+  const originalWarn = console.warn;
+  const notice = { hidden: true };
+  let lookups = 0, writes = 0;
+  document.getElementById = () => { lookups++; return notice; };
+  console.warn = () => {};
+  localStorage.setItem = (key, value) => {
+    if (key === SAVE_KEY && ++writes <= 2) throw new Error('storage unavailable');
+    return originalSet(key, value);
+  };
+  try {
+    persistSave({ money: 123 });
+    flushSave();
+    assert.eq(notice.hidden, false, 'failure shows the persistent notice');
+    assert.eq(loadSave().money, undefined, 'failed write did not reach storage');
+    flushSave();
+    assert.eq(lookups, 1, 'repeated failure does not present another notice');
+    assert.eq(writes, 2, 'pending save was retained for retry');
+    flushSave();
+    assert.eq(loadSave().money, 123, 'retry writes the retained save');
+    assert.eq(notice.hidden, true, 'successful retry clears the notice');
+    assert.eq(lookups, 2, 'notice updated once on recovery');
+  } finally {
+    localStorage.setItem = originalSet;
+    document.getElementById = originalLookup;
+    console.warn = originalWarn;
+    deleteSave(id);
+  }
+});
+
+test('save: storage error is safe without a notice element', () => {
+  const id = createSave(_uid('test_no_notice'));
+  const originalSet = localStorage.setItem;
+  const originalWarn = console.warn;
+  try {
+    console.warn = () => {};
+    localStorage.setItem = (key, value) => {
+      if (key === SAVE_KEY) throw new Error('storage unavailable');
+      return originalSet(key, value);
+    };
+    persistSave({ money: 8 });
+    flushSave();
+    localStorage.setItem = originalSet;
+    flushSave();
+    assert.eq(loadSave().money, 8, 'retry works without DOM notice');
+  } finally {
+    localStorage.setItem = originalSet;
+    console.warn = originalWarn;
+    deleteSave(id);
+  }
+});
+
+test('save: profiler measures each serialized write only when present', () => {
+  const id = createSave(_uid('test_profile'));
+  const originalBoot = window.__boot;
+  const counts = [], ticks = [];
+  try {
+    window.__boot = { count: (name, n) => counts.push({ name, n }), tick: (name, ms) => ticks.push({ name, ms }) };
+    persistSave({ money: 9 });
+    flushSave();
+    assert.eq(counts.length, 1, 'one size count for one write');
+    assert.eq(counts[0].name, 'save serialized chars', 'size unit is explicit');
+    assert.eq(counts[0].n, JSON.stringify({ money: 9 }).length, 'size is the serialized string length');
+    assert.eq(ticks.length, 1, 'one duration for one write');
+    assert.eq(ticks[0].name, 'save write', 'write duration is named');
+    assert.gte(ticks[0].ms, 0, 'write duration is non-negative');
+    flushSave();
+    assert.eq(ticks.length, 1, 'empty flush is not counted');
+  } finally {
+    window.__boot = originalBoot;
+    deleteSave(id);
+  }
+});
+
+test('save: disabling after failure clears pending progress and the notice', () => {
+  const id = createSave(_uid('test_disable_failed'));
+  const originalSet = localStorage.setItem;
+  const originalLookup = document.getElementById;
+  const originalWarn = console.warn;
+  const notice = { hidden: true };
+  try {
+    document.getElementById = () => notice;
+    console.warn = () => {};
+    localStorage.setItem = (key, value) => {
+      if (key === SAVE_KEY) throw new Error('storage unavailable');
+      return originalSet(key, value);
+    };
+    persistSave({ money: 31 });
+    flushSave();
+    assert.eq(notice.hidden, false, 'failure shown before disable');
+    disableSave();
+    assert.eq(notice.hidden, true, 'disabled pipeline clears the notice');
+    localStorage.setItem = originalSet;
+    flushSave();
+    assert.eq(loadSave().money, undefined, 'disabled flush does not restore pending progress');
+  } finally {
+    _savingDisabled = false; // Restore the shared VM for subsequent save tests.
+    localStorage.setItem = originalSet;
+    document.getElementById = originalLookup;
+    console.warn = originalWarn;
+    deleteSave(id);
+  }
+});
+
 test('save: complex nested data round-trips faithfully', () => {
   const id = createSave(_uid('test_complex'));
   try {

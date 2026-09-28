@@ -1633,6 +1633,7 @@ class SceneCreatures {
             });
             if (idx >= 0) {
               this.save.planted.splice(idx, 1);
+              Crops.invalidateSpatialIndex(this.save);
               this.flash?.('🦌 crop eaten!', this.viewCenterX, this.viewCenterY - 60);
             }
           }
@@ -1774,6 +1775,7 @@ class SceneCreatures {
       const idx = c._destroyCropRef ? this.save.planted.indexOf(c._destroyCropRef) : -1;
       if (idx >= 0) {
         this.save.planted.splice(idx, 1);
+        Crops.invalidateSpatialIndex(this.save);
         this.flash?.('🐦 crop eaten!', this.viewCenterX, this.viewCenterY - 60);
         // Sated: after a meal the crow takes off and stays away for a few
         // minutes before it will case the field again.
