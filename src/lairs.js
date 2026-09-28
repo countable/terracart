@@ -793,7 +793,7 @@
         // reading of "is this a road" is how the two drift. Only the VERDICT
         // changed (Sep 2026): the draws are the same, so every seat that
         // passes both rules is the seat it always was.
-        if (!WG.isFoeCell(entry.grid, N, N, ix, iy, foeOpts)) continue;
+        if (!WG.isSpawnCell(entry.grid, N, N, ix, iy, foeOpts, 'enemy')) continue;
         seat = { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM };
       }
       if (!seat) continue;                    // ringed by water / road / building

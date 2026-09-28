@@ -215,10 +215,15 @@ test('graves: headstones wrap the church — per-cell, on the lattice, on church
   const f = r.zone, d = r.zoneDress;
   const cellOf = (o) => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
   const stones = d.objects.filter((o) => o.kind === 'headstone');
-  assert.gt(stones.length, 10, `the tile's churchyards hold headstones (${stones.length})`);
+  // THE SPAWN GATE (Sep 2026): a headstone is an 'enemy' spawn (a tap raises
+  // a ghost; a fifth hold a hoard), so it stands on OPEN ground only — never
+  // within the 40 m house buffer, the kerb buffer, or round a church that
+  // stands on real grave land. Most of this tile's churchyard lies by houses.
+  assert.gt(stones.length, 0, `the tile's churchyards hold headstones (${stones.length})`);
   for (const h of stones) {
     const i = cellOf(h), ix = i % N, iy = (i / N) | 0;
     assert.eq(r.grid[i], T.CHURCHYARD, `${h.id} on churchyard ground`);
+    assert.eq(WorldGen.spawnClassOf(r.spawnClass[i]), WorldGen.SPAWN_OPEN, `${h.id} on OPEN ground (an enemy spawn)`);
     assert.eq(r.roadMask[i], 0, `${h.id} off the road`);
     const a = f.anchors[f.idx[i] - 1];
     assert.truthy(a && a.kind === 'stones', `${h.id} in a church's disc`);
@@ -228,15 +233,19 @@ test('graves: headstones wrap the church — per-cell, on the lattice, on church
     assert.truthy(h.id === WorldGen.cellId('hs', tx, ty, ix, iy), 'a tile + cell id');
   }
   // Kelowna Gospel Fellowship (POI mvt 1747,655 — inside its building): the
-  // fixed rock_square left 2 of 8 rocks; the per-cell rule wraps the hall.
+  // fixed rock_square left 2 of 8 rocks; the per-cell rule wraps the hall —
+  // with its churchyard rocks (minor spawns); its headstones only where the
+  // ground is OPEN (it stands among houses, so the house buffer takes them).
   const gospel = f.anchors.findIndex((a) => a.lx === 1747 && a.ly === 655);
   assert.gte(gospel, 0, 'the Gospel Fellowship anchor');
   assert.eq(f.anchors[gospel].aspect, 'graves');
   const mine = [...d.objects].filter((o) => { const i = cellOf(o); return i >= 0 && i < N * N && f.idx[i] === gospel + 1; });
-  assert.gte(mine.filter((o) => o.kind === 'headstone').length, 8, 'the graves wrap the building');
+  assert.gte(mine.filter((o) => o.kind === 'mineralrock').length, 2, 'the churchyard wraps the building');
   // Every churchyard rock wears the one look — and pays what it shows.
   const rocks = d.objects.filter((o) => o.kind === 'mineralrock' && o.zone === 'stones');
-  assert.gte(rocks.length, 5, `churchyard rocks (${rocks.length})`);
+  // (Fewer since the spawn gate: a halo painted over a back yard is still a
+  // back yard — the mask is stamped on the land, before the halo.)
+  assert.gte(rocks.length, 3, `churchyard rocks (${rocks.length})`);
   for (const o of rocks) {
     assert.eq(o.rockVariant, SpriteLayout.CHURCHYARD_ROCK_VARIANT, `${o.id}: the one look`);
     assert.eq(SpriteLayout.plainRockStones(o), 1, `${o.id}: one stone`);

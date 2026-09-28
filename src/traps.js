@@ -211,6 +211,10 @@
     const here = grid[i];
     if (here === T.PATH || !WG.isWalkable(here)) return 0;
     if (roadMask && roadMask[i]) return 0;
+    // The GROUND's shape, not the gate: the pool (and so the per-ground caps)
+    // counts only ground a snare could ever hold. Whether one may be SEATED
+    // is the spawn gate's answer ('enemy' — spawnSurface), which folds this
+    // same kerb buffer into entry.spawnClass with every other buffer.
     if (WG.inMajorBuffer && WG.inMajorBuffer(roadClass, w, cx, cy)) return 0;
     let kind = 0;
     for (let dy = -1; dy <= 1 && !kind; dy++) {
@@ -342,7 +346,10 @@
         const lix = idx % w, liy = (idx / w) | 0;
         // The shared rule: walkable, off the band, off anything already there,
         // and out of a private yard.
-        if (!WG.isSpawnCell(grid, w, h, lix, liy, spawnOpts)) continue;
+        // A trap is a hazard seated for the player: an 'enemy' spawn (the
+        // spawn gate — OPEN ground only: out of the kerb, house, school and
+        // sensitive buffers).
+        if (!WG.isSpawnCell(grid, w, h, lix, liy, spawnOpts, 'enemy')) continue;
         taken.add(idx);
         traps.push(makeTrap(tx, ty, tileEdgeM, w, lix, liy,
           WG.cellId('trap', tx, ty, lix, liy)));
@@ -460,7 +467,7 @@
   // Can a snare go down on LOCAL cell (lix, liy) of `entry`? Walkable ground
   // on the LIVE grid (a dug wall is floor now), off the drawn road band
   // (entry.roadMask — the half of the spawn rule the terrain under-reports)
-  // and out of the major roads' kerb buffer (entry.roadClass),
+  // and on ground the spawn gate gives an 'enemy' (entry.spawnClass),
   // not under anything the spawn pass seated (entry._spawnOpts.occupied — the
   // other half), and not on a trap already there, generated or laid. The
   // caller adds what only it knows: not the player's cell, not the layer's.
@@ -471,11 +478,17 @@
     const i = liy * N + lix;
     if (!root.WorldGen.isWalkable(entry.grid[i])) return false;
     if (entry.roadMask && entry.roadMask[i]) return false;
-    // Never inside the major roads' kerb buffer (entry.roadClass — the same
-    // bit WorldGen.isFoeCell reads): a snare there is a reason to step off
-    // the kerb. Underground entries carry no roadClass, so a cave is untouched.
+    // THE SPAWN GATE: a snare is an 'enemy' spawn — OPEN ground only, so
+    // never in the kerb buffer (a snare there is a reason to step off the
+    // kerb), the house, school or sensitive buffers. A surface entry answers
+    // through its mask (entry.spawnClass); an entry without one reads the
+    // kerb buffer off roadClass. Underground entries carry neither, so a cave
+    // is untouched.
     const WG = root.WorldGen;
-    if (WG.inMajorBuffer && WG.inMajorBuffer(entry.roadClass, N, lix, liy)) return false;
+    if (entry.spawnClass) {
+      if (!WG.isSpawnCell(entry.grid, N, N, lix, liy,
+        { roadMask: entry.roadMask, spawnClass: entry.spawnClass }, 'enemy')) return false;
+    } else if (WG.inMajorBuffer && WG.inMajorBuffer(entry.roadClass, N, lix, liy)) return false;
     const occ = entry._spawnOpts && entry._spawnOpts.occupied;
     if (occ && occ.has(i)) return false;
     return !trapAt(entry, lix, liy);

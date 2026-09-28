@@ -28,17 +28,20 @@ const ring = (cells) => cells.map(([cx, cy]) => ({ x: cellToMvt(cx), y: cellToMv
 // feeds the polygon's hashed seed — varies the roll.
 const schoolRing = () => ring([[2, 2], [28, 2], [28, 28], [2, 28]]);
 
-test('a landuse=school polygon never grows zero longgrass, across many locations', () => {
+// (School grounds themselves are RESTRICTED land since Sep 2026 — the spawn
+// gate, WorldGen.RESTRICTED_LAND — so they grow nothing at all; the floor is
+// pinned on a sports pitch, the same open-field flora row family.)
+test('a landuse=pitch polygon never grows zero longgrass, across many locations', () => {
   const N = 400;
   let zeroCount = 0;
   for (let tx = 0; tx < N; tx++) {
     const out = WorldGen.rasterizeTile([
-      { name: 'landuse', features: [{ type: 3, tags: { class: 'school' }, geom: [schoolRing()] }] },
+      { name: 'landuse', features: [{ type: 3, tags: { class: 'pitch' }, geom: [schoolRing()] }] },
     ], CPE, tx, 5, TILE_EDGE_M);
     const longgrass = out.wildplants.filter((wp) => wp.crop === 'longgrass').length;
     if (longgrass === 0) zeroCount++;
   }
-  assert.eq(zeroCount, 0, `${zeroCount}/${N} synthetic school tiles grew no longgrass at all`);
+  assert.eq(zeroCount, 0, `${zeroCount}/${N} synthetic pitch tiles grew no longgrass at all`);
 });
 
 test('BiomeProfiles.flora floors every dynamic longgrass entry at DYN_MIN (0.04)', () => {

@@ -103,7 +103,8 @@
       if (grid[cy * w + cx] !== T.PARK) continue;
       const rng = makeRng(cellHash(tx, ty, cx, cy) ^ PARK_PLANT_SALT);
       if (rng() >= PARK_PLANT_CELL_CHANCE) continue;
-      if (!isSpawnCell(grid, w, h, cx, cy, opts)) continue;
+      // A biting plant is a foe: the enemy class (OPEN cells only).
+      if (!isSpawnCell(grid, w, h, cx, cy, opts, 'enemy')) continue;
       plants.push(makeCreature('plant',
         tx * tileEdgeM + (cx + 0.5) * tileEdgeM / w,
         ty * tileEdgeM + (cy + 0.5) * tileEdgeM / h,
@@ -253,10 +254,13 @@
   // edge of public space rather than someone's back garden:
   //   - every road tier + footpaths/pedestrian squares (the kerb / sidewalk)
   //   - clearly public open space we can detect from OSM: parks, playgrounds,
-  //     sports pitches, golf courses, beaches, piers.
+  //     sports pitches, beaches, piers.
+  // NOT a golf course (Sep 2026): a club's fairway is members' ground, so a
+  // yard backing onto one is still a back yard. (Golf ground itself stays
+  // open ground — it is not lot land — it just vouches for nobody else.)
   const PUBLIC_NEAR = new Set([
     T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH,
-    T.PARK, T.PLAYGROUND, T.PITCH, T.GOLF, T.SAND, T.PIER,
+    T.PARK, T.PLAYGROUND, T.PITCH, T.SAND, T.PIER,
   ]);
 
   // Is (cx,cy) a legitimate place to spawn a pickup? THE single rule every
@@ -292,32 +296,120 @@
   //                   no creature, trap, pickup, chest or hoard. It is the
   //                   roadMask's lane (a masked cell just can't host a spawn)
   //                   with a different reason, not a new gate.
-  // THE FOE / FAUNA SEAT RULE: the shared spawn rule, and outside the major
-  // roads' kerb buffer (ROAD_CLASS_MAJOR_BUFFER, read off `opts.roadClass` —
-  // the tile's entry.roadClass, carried on spawnInTile's _spawnOpts). Every
-  // spawner that seats something alive (wild fauna, a lair's guards, the
-  // gate's foe, a bounty pack, the night's ghosts) asks this; a pickup or a
-  // piece of scenery asks isSpawnCell. No roadClass → no buffer to read.
+  //   opts.spawnClass : THE SPAWN GATE (entry.spawnClass — see below). With it
+  //                   the mask answers every land question (quiet, restricted,
+  //                   frontage, behind a house, the buffers) and `quiet` /
+  //                   `roadClass` / `frontage` are not read; without it (a
+  //                   synthetic grid) those parts answer as they always did.
+  // THE KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER, off entry.roadClass) is one of
+  // the mask's SUPPRESSED reasons: an 'enemy' or 'attractor' spawn refuses it.
+  // inMajorBuffer / onMajorBand stay for the MOVEMENT rules (where a chase
+  // may go), which are not spawns.
   function inMajorBuffer(roadClass, w, cx, cy) {
     return !!(roadClass && (roadClass[cy * w + cx] & ROAD_CLASS_MAJOR_BUFFER));
   }
   function onMajorBand(roadClass, w, cx, cy) {
     return !!(roadClass && (roadClass[cy * w + cx] & ROAD_CLASS_MAJOR_BAND));
   }
+  // Sugar for isSpawnCell(…, 'enemy') — kept for its many readers (tests,
+  // sims). It is NOT a second rule: the kerb buffer is a SUPPRESSED cell of
+  // entry.spawnClass, and an 'enemy' spawn refuses every SUPPRESSED cell.
   function isFoeCell(grid, w, h, cx, cy, opts) {
-    if (!isSpawnCell(grid, w, h, cx, cy, opts)) return false;
-    return !inMajorBuffer(opts && opts.roadClass, w, cx, cy);
+    return isSpawnCell(grid, w, h, cx, cy, opts, 'enemy');
   }
-  function isSpawnCell(grid, w, h, cx, cy, opts) {
+  // ── THE SPAWN GATE (Sep 2026): entry.spawnClass + the spawn's CLASS ────────
+  // One per-tile mask (stampSpawnClassSteps, beside roadMask, in the sliced
+  // build) says what each cell may host, and every spawner names what it is
+  // seating. The cell, in the mask's low bits:
+  //   SPAWN_OPEN        anything
+  //   SPAWN_SUPPRESSED  MINOR things only — flora, rocks, ordinary pickups,
+  //                     scenery. The 40 m house buffer, the major roads' kerb
+  //                     buffer, the school / kindergarten / playground buffer
+  //                     and the ground round a sensitive place.
+  //   SPAWN_INVALID     nothing: road band, water / building, restricted land
+  //                     (school grounds, hospital, rail, military, garages,
+  //                     construction), quiet land (QUIET_LAND), a sensitive
+  //                     point, a lot cell BEHIND a house (its line to the
+  //                     nearest public way crosses a building).
+  //   + SPAWN_NEEDS_FRONTAGE (a flag): a lot / farm / orchard / industrial cell
+  //                     with no public anchor (road, path, park, …; never a
+  //                     private way, never a golf course) within
+  //                     SPAWN_FRONTAGE cells — INVALID unless the caller names
+  //                     a POI within that reach (opts.pois: a chest is a
+  //                     public place), then its low bits.
+  // The spawn's class — isSpawnCell's 7th argument, required of every caller
+  // (test/node/spawn_class.test.js sweeps the source):
+  //   'minor'     flora, rocks, X marks, crates, scenery, gate posts, boards,
+  //               the starting area's own things         → OPEN + SUPPRESSED
+  //   'attractor' what a player is drawn to: hoards (café / hedgerow), lair
+  //               points (gates, street guards), cave entrances, grove
+  //               shrines, NPCs, a coin burst's scatter  → OPEN only
+  //   'enemy'     anything alive or hostile seated: fauna, lair guards, a
+  //               bounty pack, park plants, traps, headstones (a tap raises a
+  //               ghost)                                  → OPEN only
+  // POI chests are the PLACE itself: they sit at their POI point and read
+  // only the quiet land (the rasterize cleanup) — they are the anchor other
+  // spawns' frontage reads, never a spawn.
+  // What this is NOT: a movement rule. A fast foe's leash at the kerb reads
+  // roadClass (inMajorBuffer) because it is about where a chase may GO.
+  const SPAWN_OPEN = 0, SPAWN_SUPPRESSED = 1, SPAWN_INVALID = 2;
+  const SPAWN_CLASS_BITS = 3;
+  const SPAWN_NEEDS_FRONTAGE = 4;
+  const SPAWN_CEILING = { minor: SPAWN_SUPPRESSED, attractor: SPAWN_OPEN, enemy: SPAWN_OPEN };
+  const SPAWN_CLASSES = Object.keys(SPAWN_CEILING);
+  // A cell's effective class (the frontage flag reads as INVALID) — what the
+  // map review draws and the measurements count.
+  function spawnClassOf(v) {
+    return (v & SPAWN_NEEDS_FRONTAGE) ? SPAWN_INVALID : (v & SPAWN_CLASS_BITS);
+  }
+  // Does the mask refuse cell `i` for a reason of the LAND — restricted,
+  // quiet, sensitive, behind a house, no frontage (lifted by a POI in
+  // `pois`) — rather than of its terrain (water, building) or the road band?
+  // For the passes that have their own terrain rule and seat on a road on
+  // purpose (a POI chest, a well that repaints the cobble, a gate on its way).
+  function landRefused(mask, grid, roadMask, i, pois, cx, cy) {
+    if (!mask) return false;
+    const v = mask[i];
+    if ((v & SPAWN_CLASS_BITS) !== SPAWN_INVALID) {
+      return !!(v & SPAWN_NEEDS_FRONTAGE) && !poiWithin(pois, cx, cy, SPAWN_FRONTAGE);
+    }
+    return isWalkable(grid[i]) && !(roadMask && roadMask[i]);
+  }
+  function spawnCeiling(cls) {
+    const c = SPAWN_CEILING[cls];
+    return c == null ? SPAWN_SUPPRESSED : c;
+  }
+  function poiWithin(pois, cx, cy, r) {
+    if (!pois) return false;
+    for (let i = 0; i < pois.length; i++) {
+      if (Math.max(Math.abs(pois[i].ix - cx), Math.abs(pois[i].iy - cy)) <= r) return true;
+    }
+    return false;
+  }
+  function isSpawnCell(grid, w, h, cx, cy, opts, cls) {
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
     const here = grid[cy * w + cx];
+    // Terrain and band are read LIVE as well as through the mask: a live grid
+    // (the starter pond, a dug wall) can differ from the one the mask was
+    // stamped over.
     if (!isWalkable(here)) return false;          // never on water/road/building
     const roadMask = opts && opts.roadMask;
     if (roadMask && roadMask[cy * w + cx]) return false;   // under a drawn road band
-    const quiet = opts && opts.quiet;
-    if (quiet && quiet[cy * w + cx]) return false;         // quiet land (QUIET_LAND)
     const occupied = opts && opts.occupied;
     if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
+    const mask = opts && opts.spawnClass;
+    if (mask) {
+      const v = mask[cy * w + cx];
+      if ((v & SPAWN_CLASS_BITS) > spawnCeiling(cls)) return false;
+      if (!(v & SPAWN_NEEDS_FRONTAGE)) return true;
+      return poiWithin(opts.pois, cx, cy, SPAWN_FRONTAGE);
+    }
+    // ── No mask (a synthetic grid, a caller outside a built tile): the same
+    // rules read from their parts — quiet land, the lot frontage and, for an
+    // attractor or an enemy, the kerb buffer.
+    const quiet = opts && opts.quiet;
+    if (quiet && quiet[cy * w + cx]) return false;         // quiet land (QUIET_LAND)
+    if (spawnCeiling(cls) < SPAWN_SUPPRESSED && inMajorBuffer(opts && opts.roadClass, w, cx, cy)) return false;
     if (!isLotTerrain(here)) return true;         // public / open ground — always ok
     const frontage = (opts && opts.frontage != null) ? opts.frontage : SPAWN_FRONTAGE;
     for (let dy = -frontage; dy <= frontage; dy++) {
@@ -370,7 +462,7 @@
   //            what spawnInTile hands lairs.js as the 'gate' lair;
   //   a board  `info_<tx>_<ty>_<ix>_<iy>` on the nearest spawn cell.
   function placeGatesAndBoards(objects, gatePoints, infoPoints, ctx) {
-    const { grid, N, roadMask, quiet, tx, ty, centre } = ctx;
+    const { grid, N, roadMask, quiet, spawnClass, tx, ty, centre } = ctx;
     const taken = ctx.taken || new Set();
     const inTile = (p) => p.ix >= 0 && p.iy >= 0 && p.ix < N && p.iy < N;
     const claim = (ix, iy) => taken.add(ix + '_' + iy);
@@ -379,9 +471,14 @@
       // A gate on quiet land (a base's gate, a level crossing's) is no
       // spawn point: its foe would stand where nothing may (QUIET_LAND).
       if (quiet && quiet[g.iy * N + g.ix]) continue;
-      const opts = { roadMask, quiet, pois: [g] };
+      // …nor one on land the spawn gate refuses (school grounds, a yard
+      // behind a house): the mask's reading of the same question.
+      if (landRefused(spawnClass, grid, roadMask, g.iy * N + g.ix, null, g.ix, g.iy)) continue;
+      const opts = { roadMask, quiet, spawnClass, pois: [g] };
+      // The posts are scenery (a minor spawn); the gate's daily FOE is a lair
+      // point spawnInTile holds to the attractor rule.
       const free = (ix, iy) => !taken.has(ix + '_' + iy) && !(ix === g.ix && iy === g.iy)
-        && isSpawnCell(grid, N, N, ix, iy, opts);
+        && isSpawnCell(grid, N, N, ix, iy, opts, 'minor');
       const posts = gatePostsAt(grid, N, roadMask, g.ix, g.iy, free);
       if (!posts) continue;
       const gp = centre(g.ix, g.iy);
@@ -397,9 +494,9 @@
     }
     for (const b of infoPoints || []) {
       if (!inTile(b)) continue;
-      const opts = { roadMask, quiet, pois: [b],
+      const opts = { roadMask, quiet, spawnClass, pois: [b],
         occupied: { has: (i) => taken.has((i % N) + '_' + Math.floor(i / N)) } };
-      const at = relocateToSpawnCell(grid, N, N, b.ix, b.iy, opts);
+      const at = relocateToSpawnCell(grid, N, N, b.ix, b.iy, opts, null, 'minor');
       if (!at) continue;
       claim(at.ix, at.iy);
       const c = centre(at.ix, at.iy);
@@ -451,14 +548,16 @@
   // as often as it lands on tarmac you can stand on. Dropping those outright
   // would cost the lot its reward, so walk the X into the lot instead.
   // Deterministic: fixed ring order, first hit wins, no rng.
-  function relocateToSpawnCell(grid, w, h, cx, cy, opts, maxR) {
-    if (isSpawnCell(grid, w, h, cx, cy, opts)) return { ix: cx, iy: cy };
+  // `cls` is the spawn's class (isSpawnCell's — 'minor' / 'attractor' /
+  // 'enemy'), required like isSpawnCell's.
+  function relocateToSpawnCell(grid, w, h, cx, cy, opts, maxR, cls) {
+    if (isSpawnCell(grid, w, h, cx, cy, opts, cls)) return { ix: cx, iy: cy };
     const R = maxR == null ? 4 : maxR;
     for (let r = 1; r <= R; r++) {
       for (let dy = -r; dy <= r; dy++) {
         for (let dx = -r; dx <= r; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
-          if (isSpawnCell(grid, w, h, cx + dx, cy + dy, opts)) return { ix: cx + dx, iy: cy + dy };
+          if (isSpawnCell(grid, w, h, cx + dx, cy + dy, opts, cls)) return { ix: cx + dx, iy: cy + dy };
         }
       }
     }
@@ -745,13 +844,17 @@
   }
   // The scanline itself, for any per-cell stamp (the terrain paint above, the
   // quiet-land mask): visit(x, y) once per cell whose centre is inside.
-  function* forEachPolygonCellSteps(w, h, rings, mvtToCell, visit) {
+  // `off` (optional, cells): shift the polygon by this much on both axes —
+  // the spawn gate stamps onto a grid wider than the tile by `off` each side
+  // (stampSpawnClassSteps), so a house just over the seam still buffers.
+  function* forEachPolygonCellSteps(w, h, rings, mvtToCell, visit, off) {
     // Use signed area to know outer vs inner. For simplicity, rasterize all rings with
     // even-odd fill across all rings combined per feature.
     // Build cell-space polygon, then scanline fill.
+    const o = off || 0;
     const polys = rings.map(r => r.map(p => ({
-      x: p.x * mvtToCell,
-      y: p.y * mvtToCell,
+      x: p.x * mvtToCell + o,
+      y: p.y * mvtToCell + o,
     })));
     // Bounding box
     let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity;
@@ -2338,6 +2441,307 @@
     }
     return n;
   }
+  // ── THE SPAWN GATE'S MASK: entry.spawnClass (see isSpawnCell) ─────────────
+  // One pass beside the road mask, over the tile's own layers, per cell of the
+  // tile's own grid — generated, the same for every player. The numbers:
+  //   SPAWN_HOUSE_BUFFER_M     a HOUSE is a footprint of HOUSE_AREA_M2 whose
+  //                            render height is under HOUSE_MAX_HEIGHT_M and
+  //                            whose centre stands on residential landuse;
+  //                            within this of one nothing important spawns
+  //                            (nobody is sent to loiter by a front window)
+  //   SPAWN_CHILD_BUFFER_M     round school / kindergarten grounds, playgrounds
+  //                            and their POIs
+  //   SPAWN_SENSITIVE_BUFFER_M round a sensitive POI (isSensitivePoi) and real
+  //                            cemetery land
+  //   churchyardBufferM()      round a church that stands ON cemetery land:
+  //                            its whole would-be churchyard halo (Zones'
+  //                            stones R, jitter included — one number both
+  //                            read), so no headstone of it stands on the
+  //                            streets round a real graveyard
+  // Buffers are measured on a grid SPAWN margin cells wider than the tile, off
+  // the geometry the tile's MVT carries past its edge, so a house just over
+  // the seam still buffers this side of it (as far as the MVT buffer reaches).
+  // Distances are a chamfer (1, √2) transform — deterministic arithmetic.
+  const SPAWN_HOUSE_BUFFER_M = 40;
+  const SPAWN_CHILD_BUFFER_M = 50;
+  const SPAWN_SENSITIVE_BUFFER_M = 40;
+  const HOUSE_AREA_M2 = [30, 400];
+  const HOUSE_MAX_HEIGHT_M = 12;
+  // RESTRICTED LAND — INVALID over the whole polygon (landuse classes):
+  // school / kindergarten grounds, hospital, railway, military, garages and
+  // building sites. (Quiet land — QUIET_LAND — folds in beside it.)
+  const RESTRICTED_LAND = new Set(['school', 'kindergarten', 'hospital', 'railway', 'military', 'garages', 'construction']);
+  // The children's places the CHILD buffer rings (landuse classes) and their
+  // POIs (poi subclass school / kindergarten, class playground).
+  const CHILD_LAND = new Set(['school', 'kindergarten', 'playground']);
+  const CHILD_POI_SUBCLASS = new Set(['school', 'kindergarten', 'playground']);
+  // Land that is somebody's working ground: ROADSIDE ONLY — a cell needs a
+  // public anchor within SPAWN_FRONTAGE, like a lot (owner pick, Sep 2026).
+  const ROADSIDE_ONLY = new Set([T.FARMLAND, T.ORCHARD, T.INDUSTRIAL]);
+  // How far (cells) the behind-a-house line is walked; a lot cell further
+  // than this from its nearest public way is left to the frontage rule.
+  const BEHIND_HOUSE_MAX_CELLS = 12;
+  // A PRIVATE WAY vouches for nobody: a driveway, access=no (OpenMapTiles
+  // folds private into it) or foot=private|no. It still paints and still
+  // masks its band — it just is not frontage.
+  function isPrivateWay(tags) {
+    if (!tags) return false;
+    if (tags.service === 'driveway') return true;
+    if (tags.access === 'no' || tags.access === 'private') return true;
+    return tags.foot === 'private' || tags.foot === 'no';
+  }
+  function churchyardBufferM() {
+    const Z = (typeof Zones !== 'undefined') ? Zones : null;
+    const k = Z && Z.ZONE_KINDS && Z.ZONE_KINDS.stones;
+    return k ? k.R * (1 + (Z.EDGE_JITTER || 0)) : 100;
+  }
+  // Two-pass chamfer distance (in cells) over an E×E Float32 grid whose
+  // sources hold 0 and everything else a big number.
+  function* chamferSteps(d, E) {
+    const D = Math.SQRT2;
+    for (let y = 0; y < E; y++) {
+      if ((y & 31) === 31) yield 'spawn gate distance';
+      const row = y * E;
+      for (let x = 0; x < E; x++) {
+        const i = row + x;
+        let v = d[i];
+        if (x > 0 && d[i - 1] + 1 < v) v = d[i - 1] + 1;
+        if (y > 0) {
+          if (d[i - E] + 1 < v) v = d[i - E] + 1;
+          if (x > 0 && d[i - E - 1] + D < v) v = d[i - E - 1] + D;
+          if (x < E - 1 && d[i - E + 1] + D < v) v = d[i - E + 1] + D;
+        }
+        d[i] = v;
+      }
+    }
+    for (let y = E - 1; y >= 0; y--) {
+      if ((y & 31) === 0) yield 'spawn gate distance';
+      const row = y * E;
+      for (let x = E - 1; x >= 0; x--) {
+        const i = row + x;
+        let v = d[i];
+        if (x < E - 1 && d[i + 1] + 1 < v) v = d[i + 1] + 1;
+        if (y < E - 1) {
+          if (d[i + E] + 1 < v) v = d[i + E] + 1;
+          if (x < E - 1 && d[i + E + 1] + D < v) v = d[i + E + 1] + D;
+          if (x > 0 && d[i + E - 1] + D < v) v = d[i + E - 1] + D;
+        }
+        d[i] = v;
+      }
+    }
+  }
+  // ctx: { layers, grid, w, h, mvtToCell, mvtToM, roadMask, roadClass,
+  // quietMask }. Returns the Uint8Array mask (encoding: isSpawnCell).
+  function* stampSpawnClassSteps(ctx) {
+    const { layers, grid, w, h, mvtToCell, mvtToM, roadMask, roadClass, quietMask } = ctx;
+    const NN = w * h;
+    const mask = new Uint8Array(NN);
+    const byName = {};
+    for (const L of layers || []) if (L && L.name) byName[L.name] = L;
+    const feats = (n) => (byName[n] && byName[n].features) || [];
+    const churchM = churchyardBufferM();
+    const M = Math.ceil(Math.max(SPAWN_HOUSE_BUFFER_M, SPAWN_CHILD_BUFFER_M, SPAWN_SENSITIVE_BUFFER_M, churchM) / CELL_M);
+    const E = w + 2 * M, EE = E * E;
+    const extOf = (p) => {
+      const x = Math.floor(p.x * mvtToCell) + M, y = Math.floor(p.y * mvtToCell) + M;
+      return (x >= 0 && y >= 0 && x < E && y < E) ? y * E + x : -1;
+    };
+    const INF = 1e9;
+    const newDist = () => { const d = new Float32Array(EE); d.fill(INF); return d; };
+    const houseD = newDist(), childD = newDist(), sensD = newDist(), churchD = newDist();
+    let nHouse = 0, nChild = 0, nSens = 0, nChurch = 0;
+    const resExt = new Uint8Array(EE), cemExt = new Uint8Array(EE);
+    const restricted = new Uint8Array(NN), sensPt = new Uint8Array(NN);
+    // ── Landuse polygons: residential (the house test), cemetery (sensitive
+    // land), restricted land, the children's land.
+    let k = 0;
+    for (const f of feats('landuse')) {
+      if (f.type !== 3 || !f.geom || !f.tags) continue;
+      const c = f.tags.class;
+      const res = c === 'residential', cem = c === 'cemetery';
+      const rst = RESTRICTED_LAND.has(c), child = CHILD_LAND.has(c);
+      if (!res && !cem && !rst && !child) continue;
+      if ((++k & 7) === 0) yield 'spawn gate landuse';
+      if (res || cem || child) {
+        yield* forEachPolygonCellSteps(E, E, f.geom, mvtToCell, (x, y) => {
+          const i = y * E + x;
+          if (res) resExt[i] = 1;
+          if (cem) { cemExt[i] = 1; sensD[i] = 0; nSens++; }
+          if (child) { childD[i] = 0; nChild++; }
+        }, M);
+      }
+      if (rst) yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { restricted[y * w + x] = 1; });
+    }
+    // ── POI points: sensitive places (the point INVALID, the ground round it
+    // SUPPRESSED), children's places, and a church on cemetery land.
+    for (const f of feats('poi')) {
+      if (f.type !== 1 || !f.geom || !f.tags) continue;
+      const t = f.tags;
+      const sens = isSensitivePoi(t);
+      const child = CHILD_POI_SUBCLASS.has(t.subclass) || t.class === 'playground';
+      const church = !sens && t.class === SENSITIVE_POI.worshipClass;
+      if (!sens && !child && !church) continue;
+      for (const ring of f.geom) {
+        const p = ring && ring[0];
+        if (!p) continue;
+        const e = extOf(p);
+        if (e < 0) continue;
+        if (sens) {
+          sensD[e] = 0; nSens++;
+          const px = Math.floor(p.x * mvtToCell), py = Math.floor(p.y * mvtToCell);
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            const x = px + dx, y = py + dy;
+            if (x >= 0 && y >= 0 && x < w && y < h) sensPt[y * w + x] = 1;
+          }
+        }
+        if (child) { childD[e] = 0; nChild++; }
+        if (church && cemExt[e]) { churchD[e] = 0; nChurch++; }
+      }
+    }
+    yield 'spawn gate points';
+    // ── HOUSES: every footprint ring the house rule takes, stamped as a source.
+    k = 0;
+    const [aMin, aMax] = HOUSE_AREA_M2;
+    for (const f of feats('building')) {
+      if (f.type !== 3 || !f.geom) continue;
+      const hM = +(f.tags && f.tags.render_height) || 0;
+      if (hM >= HOUSE_MAX_HEIGHT_M) continue;
+      for (const ring of f.geom) {
+        if (!ring || ring.length < 3) continue;
+        const a = Math.abs(ringSignedArea(ring)) * mvtToM * mvtToM;
+        if (a < aMin || a > aMax) continue;
+        let sx = 0, sy = 0;
+        for (const p of ring) { sx += p.x; sy += p.y; }
+        const e = extOf({ x: sx / ring.length, y: sy / ring.length });
+        if (e < 0 || !resExt[e]) continue;
+        if ((++k & 15) === 0) yield 'spawn gate houses';
+        let hit = 0;
+        yield* forEachPolygonCellSteps(E, E, [ring], mvtToCell, (x, y) => { houseD[y * E + x] = 0; hit++; }, M);
+        if (!hit) houseD[e] = 0;
+        nHouse++;
+      }
+    }
+    // ── Ways: which cells a PRIVATE way paints and which a public one does
+    // (the paint's own one-cell walk, forEachLineCell).
+    const privWay = new Uint8Array(NN), pubWay = new Uint8Array(NN);
+    k = 0;
+    for (const f of feats('transportation')) {
+      if (f.type !== 2 || !f.geom) continue;
+      const t = classifyLine('transportation', f.tags || {});
+      if (t == null || !COBBLE_TYPES.has(t)) continue;
+      if ((++k & 31) === 0) yield 'spawn gate ways';
+      const arr = isPrivateWay(f.tags) ? privWay : pubWay;
+      for (const line of f.geom) {
+        forEachLineCell(line, 1, mvtToCell, (x, y) => {
+          if (x >= 0 && y >= 0 && x < w && y < h) arr[y * w + x] = 1;
+        });
+      }
+    }
+    const privateOnly = (i) => privWay[i] && !pubWay[i];
+    // ── Public LAND by polygon: a park / playground / pitch / beach polygon
+    // vouches for its neighbours whatever paint won its cells (a small park
+    // inside a residential landuse polygon is painted residential, and is
+    // still public ground). Quiet land vouches for nobody (a cemetery still
+    // does — its lawn is a public place, it just hosts nothing itself).
+    const pubArea = new Uint8Array(NN);
+    k = 0;
+    for (const name of ['landcover', 'landuse', 'park']) {
+      for (const f of feats(name)) {
+        if (f.type !== 3 || !f.geom || !f.tags) continue;
+        if (!PUBLIC_NEAR.has(classifyPolygon(name, f.tags))) continue;
+        if (isQuietLand(name, f.tags) && f.tags.class !== 'cemetery') continue;
+        if ((++k & 7) === 0) yield 'spawn gate public land';
+        yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { pubArea[y * w + x] = 1; });
+      }
+    }
+    const anchorAt = (i) => pubArea[i] === 1 || (PUBLIC_NEAR.has(grid[i]) && !privateOnly(i));
+    // ── Distances (only where there is a source at all).
+    if (nHouse) yield* chamferSteps(houseD, E);
+    if (nChild) yield* chamferSteps(childD, E);
+    if (nSens) yield* chamferSteps(sensD, E);
+    if (nChurch) yield* chamferSteps(churchD, E);
+    const houseR = SPAWN_HOUSE_BUFFER_M / CELL_M, childR = SPAWN_CHILD_BUFFER_M / CELL_M;
+    const sensR = SPAWN_SENSITIVE_BUFFER_M / CELL_M, churchR = churchM / CELL_M;
+    // ── FRONTAGE: a public anchor (PUBLIC_NEAR ground that is not a private
+    // way's, or public land by polygon) within SPAWN_FRONTAGE cells,
+    // Chebyshev — a separable window.
+    const F = SPAWN_FRONTAGE;
+    const rowAny = new Uint8Array(NN), front = new Uint8Array(NN);
+    for (let y = 0; y < h; y++) {
+      if ((y & 31) === 31) yield 'spawn gate frontage rows';
+      const row = y * w;
+      let run = 0;   // anchors in the window [x-F, x+F]
+      for (let x = 0; x < Math.min(F, w); x++) if (anchorAt(row + x)) run++;
+      for (let x = 0; x < w; x++) {
+        const add = x + F, drop = x - F - 1;
+        if (add < w && anchorAt(row + add)) run++;
+        if (drop >= 0 && anchorAt(row + drop)) run--;
+        rowAny[row + x] = run > 0 ? 1 : 0;
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      if ((x & 31) === 31) yield 'spawn gate frontage cols';
+      let run = 0;
+      for (let y = 0; y < Math.min(F, h); y++) run += rowAny[y * w + x];
+      for (let y = 0; y < h; y++) {
+        const add = y + F, drop = y - F - 1;
+        if (add < h) run += rowAny[add * w + x];
+        if (drop >= 0) run -= rowAny[drop * w + x];
+        front[y * w + x] = run > 0 ? 1 : 0;
+      }
+    }
+    // ── BEHIND A HOUSE: every cell's nearest public WAY (a multi-source BFS,
+    // 4-connected, queue order — deterministic), then for each lot cell with
+    // frontage the straight line to it: crossing a building footprint means
+    // the cell is somebody's back garden.
+    const near = new Int32Array(NN).fill(-1);
+    const queue = new Int32Array(NN);
+    let qh = 0, qt = 0;
+    for (let i = 0; i < NN; i++) {
+      if (isCobbleTerrain(grid[i]) && !privateOnly(i)) { near[i] = i; queue[qt++] = i; }
+    }
+    while (qh < qt) {
+      if ((qh & 8191) === 8191) yield 'spawn gate nearest way';
+      const i = queue[qh++], x = i % w, y = (i / w) | 0, s = near[i];
+      if (x + 1 < w && near[i + 1] < 0) { near[i + 1] = s; queue[qt++] = i + 1; }
+      if (x > 0 && near[i - 1] < 0) { near[i - 1] = s; queue[qt++] = i - 1; }
+      if (y + 1 < h && near[i + w] < 0) { near[i + w] = s; queue[qt++] = i + w; }
+      if (y > 0 && near[i - w] < 0) { near[i - w] = s; queue[qt++] = i - w; }
+    }
+    const behind = (i) => {
+      const s = near[i];
+      if (s < 0) return false;
+      const x0 = i % w, y0 = (i / w) | 0, x1 = s % w, y1 = (s / w) | 0;
+      const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+      if (n > BEHIND_HOUSE_MAX_CELLS) return false;
+      for (let t = 1; t < n; t++) {
+        const x = Math.round(x0 + (x1 - x0) * t / n), y = Math.round(y0 + (y1 - y0) * t / n);
+        if (BUILDING_TYPES.has(grid[y * w + x])) return true;
+      }
+      return false;
+    };
+    // ── The verdict, per cell.
+    for (let y = 0; y < h; y++) {
+      if ((y & 15) === 15) yield 'spawn gate classify';
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        const t = grid[i];
+        if (!isWalkable(t) || roadMask[i] || (quietMask && quietMask[i]) || restricted[i] || sensPt[i]) {
+          mask[i] = SPAWN_INVALID; continue;
+        }
+        const lot = isLotTerrain(t);
+        if (lot && front[i] && behind(i)) { mask[i] = SPAWN_INVALID; continue; }
+        const e = (y + M) * E + (x + M);
+        let v = SPAWN_OPEN;
+        if ((roadClass && (roadClass[i] & ROAD_CLASS_MAJOR_BUFFER))
+            || houseD[e] <= houseR || childD[e] <= childR
+            || sensD[e] <= sensR || churchD[e] <= churchR) v = SPAWN_SUPPRESSED;
+        if ((lot || ROADSIDE_ONLY.has(t)) && !front[i]) v |= SPAWN_NEEDS_FRONTAGE;
+        mask[i] = v;
+      }
+    }
+    return mask;
+  }
   // "Park family" POIs synthesize a small park buffer (radius ~18m) around the
   // point so they read as proper meadows / woodland even when OSM hasn't tagged
   // park landcover here. We paint over residential/grass/etc but NEVER over
@@ -3867,6 +4271,11 @@
     // is) and before the naming pass below.
     pruneShortPathRuns(grid, w, h, pathUnder, roadUnder);
     yield 'short path runs';
+    // THE SPAWN GATE (entry.spawnClass — see isSpawnCell): on the final
+    // grid, the road mask, the kerb buffer and the quiet land, before the
+    // first cull below reads it. Pure MVT, re-derived by a rebuild.
+    const spawnClass = yield* stampSpawnClassSteps({ layers, grid, w, h, mvtToCell, mvtToM,
+      roadMask, roadClass, quietMask });
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
     // landuse, roads, and buildings in MVT-supplied order, so a mineralrock
     // spawned by a residential polygon might have been placed on a cell
@@ -3918,6 +4327,7 @@
       const _mrSpawnOpts = {
         roadMask,
         quiet: quietMask,
+        spawnClass,
         pois: objects
           .filter(o => o.kind === 'chest')
           .map(o => paintCellOf(o.x, o.y)),
@@ -3960,21 +4370,17 @@
         }
         if (o.kind === 'mineralrock') {
           if (_mrIsBlocked(ix, iy)) return true;
-          // A rock whose FINAL cell turned out to be residential must pass the
-          // same shared spawn rule as every other object (isSpawnCell: near a
-          // road/path, a detectable public area, or a POI) — otherwise it'd
-          // bait the player into someone's back yard. Terrain-based, NOT tied
-          // to which polygon spawned the rock: a wilderness ROCK or INDUSTRIAL
-          // cluster can drop a rock that ends up on a residential cell after
-          // the grid is fully painted.
-          if (isLotTerrain(here) && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) return true;
-          return false;
         }
-        // Every OTHER object that landed on a residential cell must pass the
-        // shared spawn rule (isSpawnCell): near a road/path, a detectable
-        // public area, or a POI — otherwise it'd bait the player into someone's
-        // back yard. Forts, castles, houses and towers are already exempt above.
-        if (isLotTerrain(here) && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) return true;
+        // THE SPAWN GATE, as a MINOR spawn (flora, rocks, scenery — they may
+        // stand on SUPPRESSED ground): whatever its FINAL cell's land refuses
+        // goes — a back yard with no frontage (a POI in reach vouches for
+        // it), a yard behind a house, restricted or sensitive land. Terrain-
+        // based, NOT tied to which polygon spawned the thing: a wilderness
+        // ROCK or INDUSTRIAL cluster can drop a rock that ends up on a
+        // residential cell after the grid is fully painted. A POI chest is
+        // the place itself (isSpawnCell's note) and reads only the quiet land
+        // above. Forts, castles, houses and towers are already exempt above.
+        if (o.kind !== 'chest' && landRefused(spawnClass, grid, roadMask, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) return true;
         return false;
       };
       // COMPACTED IN PLACE, not spliced — the same change the wildplant sweep
@@ -4022,9 +4428,9 @@
           // Concrete POI pads stay bare — a shrub/marigold that survived the
           // biome filter (rocky-family crops) still doesn't belong on the plaza.
           if (_onRoadOrBuilding(wtc, ix, iy)) drop = true;
-          else if (quietMask[iy * w + ix]) drop = true;          // quiet land
           else if (poiPadCells.has(iy * w + ix)) drop = true;
-          else if (isLotTerrain(wtc) && !isSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts)) drop = true;
+          // The spawn gate, a MINOR spawn (quiet land folded in).
+          else if (landRefused(spawnClass, grid, roadMask, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) drop = true;
         }
         if (!drop) wildplants[wpKeep++] = wp;
       }
@@ -4043,7 +4449,7 @@
         const t = parkingTreasures[i];
         const { ix, iy } = paintCellOf(t.x, t.y);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) continue;
-        const moved = relocateToSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts);
+        const moved = relocateToSpawnCell(grid, w, h, ix, iy, _mrSpawnOpts, null, 'minor');
         if (!moved) { parkingTreasures.splice(i, 1); continue; }
         if (moved.ix === ix && moved.iy === iy) continue;
         const { mx, my } = cellCenterMeters(moved.ix, moved.iy);
@@ -4058,7 +4464,7 @@
       // occupancy pass below settles them against everything else (below a
       // chest, level with a house).
       placeGatesAndBoards(objects, gatePoints, infoPoints, {
-        grid, N: w, roadMask, quiet: quietMask, tx, ty,
+        grid, N: w, roadMask, quiet: quietMask, spawnClass, tx, ty,
         centre: (ix, iy) => { const c = cellCenterMeters(ix, iy); return { x: c.mx, y: c.my }; },
       });
     }
@@ -4326,7 +4732,7 @@
       yield 'before street dressing';
       dressSpawn();
       streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM, grid,
-        spawnOpts: { roadMask, quiet: quietMask, occupied: dressOcc, pois: dressPois } });
+        spawnOpts: { roadMask, quiet: quietMask, spawnClass, roadClass, occupied: dressOcc, pois: dressPois } });
     }
     // INFLUENCE ZONES (src/zones.js) — LAST, after every cull, the occupancy
     // pass and the street dressing, so no older stream or filter ever reads a
@@ -4352,10 +4758,10 @@
       if (zone) {
         dressSpawn();
         zoneDress = yield* Zones.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
-          spawnOpts: { roadMask, quiet: quietMask, occupied: dressOcc, pois: dressPois } });
+          spawnOpts: { roadMask, quiet: quietMask, spawnClass, roadClass, occupied: dressOcc, pois: dressPois } });
       }
     }
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes };
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnClass, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -4529,7 +4935,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnClass, roadClass, streetIndex, streetDress, zone, zoneDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -4562,6 +4968,10 @@
       // re-derived by a rebuild like the mask; spawnInTile hands it on as
       // _spawnOpts.quiet.
       entry.quietMask = quietMask;
+      // THE SPAWN GATE (see isSpawnCell / stampSpawnClassSteps): what each
+      // cell may host — OPEN, SUPPRESSED (minor things only) or INVALID.
+      // Every spawner reads it through isSpawnCell's opts.spawnClass.
+      entry.spawnClass = spawnClass;
       // The MAJOR road's band and verge (see ROAD_CLASS_MAJOR_BAND) and the
       // street index (src/street_variants.js) — both pure MVT, re-derived by a
       // rebuild like the mask. spawnInTile dresses the streets off the index.
@@ -4738,13 +5148,19 @@
     const _sxPois = [];
     for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
     for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
-    const _sxSpawnOpts = { pois: _sxPois, roadMask, quiet };
+    const spawnClass = entry.spawnClass || null;
+    const _sxSpawnOpts = { pois: _sxPois, roadMask, quiet, spawnClass };
+    // THE SPAWN GATE for the bin's scenery (a MINOR spawn): the land the mask
+    // refuses — quiet, restricted, sensitive, behind a house, no frontage
+    // (the chests above and in the bin vouch for their frontage). Terrain and
+    // band keep each stream's own rule below (a well may repaint a road).
     const _sxYardOK = (wx, wy) => {
       const { ix, iy } = _sxCell(wx, wy);
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
+      if (spawnClass) return !landRefused(spawnClass, grid, roadMask, iy * cpe + ix, _sxPois, ix, iy);
       if (quiet && quiet[iy * cpe + ix]) return false;   // quiet land hosts nothing
       if (!isLotTerrain(grid[iy * cpe + ix])) return true;
-      return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
+      return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts, 'minor');
     };
     // Trees + fruit trees can NEVER sit on a building footprint, road, path,
     // water or other hard/interactable cell — nor on a manicured open field
@@ -4857,7 +5273,7 @@
     if (gateCells.length) {
       const before = entry.objects.length;
       placeGatesAndBoards(entry.objects, gateCells, null, {
-        grid, N: cpe, roadMask, quiet, tx: x, ty: y, taken: occupied,
+        grid, N: cpe, roadMask, quiet, spawnClass, tx: x, ty: y, taken: occupied,
         centre: (ix, iy) => _sxCentre(ix, iy),
       });
       for (let i = before; i < entry.objects.length; i++) {
@@ -4999,7 +5415,7 @@
       {
         const { ix, iy } = _sxCell(pk.x, pk.y);
         if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) continue;
-        const moved = relocateToSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts);
+        const moved = relocateToSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts, null, 'minor');
         if (!moved) continue;
         ({ x: pk.x, y: pk.y } = _sxCentre(moved.ix, moved.iy));
         // Named by its settled cell, in the MVT parking path's own format,
@@ -5578,6 +5994,113 @@
     return null;   // not cached yet; caller must call warmOverpass() to schedule the fetch
   }
 
+  // ── THE LIVE PRIVATE-GROUND VETO (Sep 2026) — per-player things ONLY ──────
+  // What the vector tiles cannot say — a fence line, a walled or gated
+  // private area — the live Overpass API can. But a live fetch is NETWORK
+  // LUCK (one player's lands, another's fails), so it may never decide
+  // anything generated (CLAUDE.md: every player sees the SAME world). It is
+  // one more REASON on the spawn gate for the things that are per-player
+  // already: a coin burst's cells, a bounty pack's seats, anything
+  // walkableDestination finds. A failed, pending or missing fetch is NO veto.
+  // Cached per tile in IndexedDB under PRIVATE_VETO_IDB_PREFIX as a
+  // frame-free cell mask on the tile's own grid (cellsPerEdgeForTile), and
+  // re-asked after PRIVATE_VETO_TTL_MS. Fetched beside the tile's Overpass
+  // decoration (warmOverpass: the tile the player stands in).
+  const PRIVATE_VETO_IDB_PREFIX = 'pvt1';
+  const PRIVATE_VETO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  const PRIVATE_BARRIERS = 'fence|wall|hedge|retaining_wall|guard_rail|city_wall';
+  const _privateVeto = new Map();          // `${x}_${y}` → Uint8Array (1 = vetoed)
+  const _privateVetoInflight = new Map();
+  function buildPrivateVetoQL(x, y) {
+    const bb = `(${tileLat(y + 1)},${tileLon(x)},${tileLat(y)},${tileLon(x + 1)})`;
+    const sels = [
+      `way["barrier"~"^(${PRIVATE_BARRIERS})$"]`,
+      'way["access"~"^(private|no)$"][!"highway"]',
+    ];
+    return `[out:json][timeout:20];(` + sels.map((q) => q + bb + ';').join('') + `);out geom;`;
+  }
+  // Overpass `out geom` ways → the tile's veto mask. A barrier stamps its
+  // line; a CLOSED private way stamps its area (and its edge).
+  function privateVetoMask(elements, x, y) {
+    const N = cellsPerEdgeForTile(y);
+    const mask = new Uint8Array(N * N);
+    const toMvt = (pt) => {
+      const px = lonLatToWorldPx(pt.lon, pt.lat, Z);
+      return { x: (px.x / TILE_PX - x) * TILE_EXTENT, y: (px.y / TILE_PX - y) * TILE_EXTENT };
+    };
+    const mvtToCell = N / TILE_EXTENT;
+    const set = (cx, cy) => { if (cx >= 0 && cy >= 0 && cx < N && cy < N) mask[cy * N + cx] = 1; };
+    for (const el of elements || []) {
+      if (!el || el.type !== 'way' || !Array.isArray(el.geometry) || el.geometry.length < 2) continue;
+      const line = el.geometry.filter((g) => g && g.lat != null && g.lon != null).map(toMvt);
+      if (line.length < 2) continue;
+      forEachLineCell(line, 1, mvtToCell, set);
+      const tags = el.tags || {};
+      const g0 = el.geometry[0], gz = el.geometry[el.geometry.length - 1];
+      const closed = g0.lat === gz.lat && g0.lon === gz.lon;
+      if (closed && !tags.barrier && line.length >= 4) {
+        const it = forEachPolygonCellSteps(N, N, [line], mvtToCell, set);
+        while (!it.next().done) { /* drain: a small polygon, off the frame path */ }
+      }
+    }
+    return mask;
+  }
+  async function fetchPrivateVeto(x, y) {
+    const key = `${PRIVATE_VETO_IDB_PREFIX}/${Z}/${x}/${y}`;
+    const k = `${x}_${y}`;
+    const cached = await idbGet(key);
+    if (cached && Date.now() < (cached.until ?? 0)) {
+      if (cached.mask) _privateVeto.set(k, cached.mask);
+      return cached.mask || null;
+    }
+    if (_privateVetoInflight.has(key)) return _privateVetoInflight.get(key);
+    if (typeof fetch !== 'function') return null;
+    const p = (async () => {
+      await overpassAcquire();
+      try {
+        const body = 'data=' + encodeURIComponent(buildPrivateVetoQL(x, y));
+        for (const ep of OVERPASS_ENDPOINTS) {
+          const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+          const timer = ctrl ? setTimeout(() => ctrl.abort(), OVERPASS_TIMEOUT_MS) : null;
+          try {
+            const resp = await fetch(ep, { method: 'POST', body,
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              signal: ctrl ? ctrl.signal : undefined });
+            if (!resp.ok) continue;
+            const j = await resp.json();
+            if (!j || j.remark) continue;        // partial answer: no veto from it
+            const mask = privateVetoMask(j.elements, x, y);
+            _privateVeto.set(k, mask);
+            await idbPut(key, { mask, until: Date.now() + PRIVATE_VETO_TTL_MS });
+            return mask;
+          } catch (_) { /* next mirror */ }
+          finally { if (timer) clearTimeout(timer); }
+        }
+        // Failed: no veto, and a short negative cache so a reload does not
+        // hammer the server (the decoration's own backoff).
+        idbPut(key, { mask: null, until: Date.now() + OVERPASS_FAIL_TTL_MS });
+        return null;
+      } finally { overpassRelease(); _privateVetoInflight.delete(key); }
+    })();
+    _privateVetoInflight.set(key, p);
+    return p;
+  }
+  function warmPrivateVeto(x, y) {
+    if (!overpassLiveEnabled()) return Promise.resolve(null);
+    return fetchPrivateVeto(x, y).catch(() => null);
+  }
+  // Is local cell (ix, iy) of tile (tx, ty) fenced or private ground, as far
+  // as this player's live fetch knows? Synchronous; unknown is false.
+  function privateVetoAt(tx, ty, ix, iy) {
+    const m = _privateVeto.get(`${tx}_${ty}`);
+    if (!m) return false;
+    const N = cellsPerEdgeForTile(ty);
+    return ix >= 0 && iy >= 0 && ix < N && iy < N && m[iy * N + ix] === 1;
+  }
+  // Tests / tools: install or clear a tile's veto mask directly.
+  function setPrivateVeto(tx, ty, mask) {
+    if (mask) _privateVeto.set(`${tx}_${ty}`, mask); else _privateVeto.delete(`${tx}_${ty}`);
+  }
   // Schedule a background Overpass fetch for one tile. Call this only for the
   // tile the player is currently in — not for every neighbour loaded on startup.
   //
@@ -5591,6 +6114,8 @@
   // save reset wipes the IDB — stayed treeless until the next full reload.
   function warmOverpass(x, y, lat) {
     if (!overpassLiveEnabled()) return Promise.resolve(false);
+    // The live private-ground veto rides the same tile (per-player things only).
+    warmPrivateVeto(x, y);
     ovpNote(x, y, 'fetching');
     return fetchOverpassBin(x, y, lat).then(async (bin) => {
       if (!bin) return false;
@@ -5709,6 +6234,9 @@
   // build a synthetic entry). `stableWildplants` is the rasterizer's
   // separate, already-filtered wildplant list; loadTile passes it before
   // assigning entry.wildplants so those cells are occupied too.
+  // How far (cells, Chebyshev) a mine mouth may walk off its rock to find
+  // OPEN ground (the spawn gate) before its cluster goes without one.
+  const CAVE_MOUTH_RELOCATE_CELLS = 6;
   function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM, stableObjects, stableWildplants) {
     const occupancySource = stableObjects || entry.objects || [];
     const wildplantSource = stableWildplants || entry.wildplants || [];
@@ -5756,19 +6284,29 @@
       objCells.add(liy * N + lix);
     }
     const pads = entry.poiPadCells;
+    // THE SPAWN GATE: a mine mouth is an ATTRACTOR (the stairs down — the
+    // owner's "ladders"), so it takes OPEN ground only: off the road band
+    // (see above), off quiet and restricted land, out of every buffer — the
+    // 40 m house buffer included — and never in a back yard.
+    const stairOpts = { roadMask, quiet: entry.quietMask, spawnClass: entry.spawnClass, roadClass: entry.roadClass };
     const stairCellOK = (lix, liy, idx) =>
-      !used.has(idx) && isWalkable(grid[idx]) && !tooClose(lix, liy)
+      !used.has(idx) && !tooClose(lix, liy)
       && !objCells.has(idx) && !(pads && pads.has(idx))
       && !nearBuildingCell(grid, N, N, lix, liy) && !nearPoiCell(chestCells, lix, liy)
-      && !(roadMask && roadMask[idx])    // never under a drawn road band (see above)
-      && !(entry.quietMask && entry.quietMask[idx]);   // nor on quiet land (QUIET_LAND)
+      && isSpawnCell(grid, N, N, lix, liy, stairOpts, 'attractor');
 
     // Drop a down-staircase on the first walkable cell touching `rock`. Returns
     // true on success; de-dupes so two clusters can't stack stairs on one cell,
     // and skips cells too near an entrance already placed on this tile.
+    // DISPLACED, NOT LOST: when no cell touching the rock is OPEN ground, the
+    // mouth walks outward from it, ring by ring (fixed order, no draws) to
+    // CAVE_MOUTH_RELOCATE_CELLS — the same cluster's mine, a few steps on.
     const placeBeside = (rock) => {
       const { lix: rlix, liy: rliy } = cellIndexOf(tx, ty, rock.x, rock.y, tileEdgeM, N);
       const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+      for (let r = 2; r <= CAVE_MOUTH_RELOCATE_CELLS; r++) {
+        for (let d = -r; d <= r; d++) dirs.push([d, -r], [r, d], [-d, r], [-r, -d]);
+      }
       for (const [dx, dy] of dirs) {
         const lix = rlix + dx, liy = rliy + dy;
         if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
@@ -5824,9 +6362,11 @@
 
     // Guarantee at least one cave per tile: beside a random cave rock if the
     // tile has any, otherwise on a random walkable cell.
+    // (A rock whose ground the spawn gate refuses all round — a yard's rubble
+    // inside the house buffer — hands the guarantee on to a random OPEN
+    // cell, deterministically, rather than leave the tile without a way down.)
     if (placed === 0) {
-      if (caveRocks.length) placeBeside(caveRocks[Math.floor(rng() * caveRocks.length)]);
-      else placeRandomWalkable();
+      if (!(caveRocks.length && placeBeside(caveRocks[Math.floor(rng() * caveRocks.length)]))) placeRandomWalkable();
     }
   }
 
@@ -6499,7 +7039,15 @@
     // preservation pinned by tile_bin_injection.test.js.
     injectTileBin,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isSpawnCell, relocateToSpawnCell, SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, setDepth, tidyFootprintCells,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isSpawnCell, relocateToSpawnCell,
+    // THE SPAWN GATE (entry.spawnClass): the mask's encoding, the classes, the
+    // stamp and its numbers, and the live per-player private-ground veto.
+    SPAWN_OPEN, SPAWN_SUPPRESSED, SPAWN_INVALID, SPAWN_CLASS_BITS, SPAWN_NEEDS_FRONTAGE, SPAWN_CEILING, SPAWN_CLASSES,
+    spawnClassOf, landRefused, stampSpawnClassSteps, isPrivateWay, churchyardBufferM, SPAWN_FRONTAGE,
+    SPAWN_HOUSE_BUFFER_M, SPAWN_CHILD_BUFFER_M, SPAWN_SENSITIVE_BUFFER_M, HOUSE_AREA_M2, HOUSE_MAX_HEIGHT_M,
+    RESTRICTED_LAND, CHILD_LAND, ROADSIDE_ONLY, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
+    PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
+    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,

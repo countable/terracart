@@ -221,8 +221,11 @@ test('kerb: the rules live on the lanes that exist (source pins)', () => {
   assert.truthy(/if \(road & WorldGen\.ROAD_CLASS_MAJOR_BAND\) continue;/.test(w), 'the band is a refused cell');
   const spawn = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  spawnInTile(entry, tx, ty) {'));
   assert.truthy(/roadClass: entry\.roadClass,/.test(spawn), 'the shared spawn options carry the bits');
-  assert.truthy(/if \(WorldGen\.inMajorBuffer\(entry\.roadClass, N, cx, cy\)\) return;/.test(spawn), 'fauna and foes are dropped from the buffer');
-  assert.truthy(/WorldGen\.inMajorBuffer\(entry\.roadClass, N, ix, iy\)/.test(spawn), 'and every lair candidate');
+  // The buffer is a SUPPRESSED cell of the spawn gate (entry.spawnClass):
+  // an animal is an 'enemy' spawn, a lair point an 'attractor' — both OPEN only.
+  assert.truthy(/spawnClass: entry\.spawnClass,/.test(spawn), 'the shared spawn options carry the gate');
+  assert.truthy(/if \(!WorldGen\.isSpawnCell\(genGrid, N, N, cx, cy, _spawnOpts, 'enemy'\)\) return;/.test(spawn), 'fauna and foes are dropped from the buffer');
+  assert.truthy(/relocateToSpawnCell\(genGrid, N, N, ix, iy, lairOpts, LAIR_POINT_SLACK_CELLS, 'attractor'\)/.test(spawn), 'and every lair candidate');
   assert.falsy(/BANDIT_STORY\.attracts/.test(SCENE_CREATURES_SRC), 'no animal is pulled onto a major verge');
 });
 

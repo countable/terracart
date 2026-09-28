@@ -464,9 +464,14 @@ for (const f of TERRAIN_FAMILIES) {
   });
 }
 
-// Overlays: the road mask and the terrain codes, one pixel per cell, per tile.
+// Overlays: the road mask, the terrain codes and THE SPAWN GATE
+// (entry.spawnClass — WorldGen.stampSpawnClassSteps / isSpawnCell), one pixel
+// per cell, per tile.
+const SPAWN_GATE_COLOUR = { invalid: 'rgba(230,40,40,.62)', suppressed: 'rgba(255,190,40,.58)' };
 function overlays(world) {
-  const groups = { 'Road mask (no spawns)': L.layerGroup(), 'Terrain codes': L.layerGroup() };
+  const groups = { 'Road mask (no spawns)': L.layerGroup(), 'Terrain codes': L.layerGroup(),
+    'Invalid (no spawns)': L.layerGroup(), 'Suppressed (nothing important)': L.layerGroup() };
+  const gate = [0, 0, 0];   // OPEN, SUPPRESSED, INVALID cells over the loaded tiles
   const names = Object.fromEntries(Object.entries(WorldGen.T).map(([k, v]) => [v, k]));
   const used = new Set();
   const hue = (c) => TERRAIN_COLOUR[names[c]] || 'hsl(0,0%,50%)';
@@ -475,10 +480,19 @@ function overlays(world) {
     const mk = (paint) => { const c = document.createElement('canvas'); c.width = N; c.height = N; const g = c.getContext('2d'); paint(g); return c.toDataURL(); };
     const mask = mk((g) => { g.fillStyle = 'rgba(255,40,200,.6)'; for (let i = 0; i < N * N; i++) if (e.roadMask && e.roadMask[i]) g.fillRect(i % N, (i / N) | 0, 1, 1); });
     const terr = mk((g) => { for (let i = 0; i < N * N; i++) { used.add(e.grid[i]); g.fillStyle = hue(e.grid[i]); g.fillRect(i % N, (i / N) | 0, 1, 1); } });
+    // The spawn gate: a cell's effective class (the frontage flag reads as
+    // INVALID — WorldGen.spawnClassOf), one layer per refusal.
+    const cls = e.spawnClass ? Uint8Array.from(e.spawnClass, (v) => WorldGen.spawnClassOf(v)) : null;
+    if (cls) for (let i = 0; i < N * N; i++) gate[cls[i]]++;
+    const gateImg = (want, colour) => mk((g) => { g.fillStyle = colour; if (cls) for (let i = 0; i < N * N; i++) if (cls[i] === want) g.fillRect(i % N, (i / N) | 0, 1, 1); });
+    const inv = gateImg(WorldGen.SPAWN_INVALID, SPAWN_GATE_COLOUR.invalid);
+    const sup = gateImg(WorldGen.SPAWN_SUPPRESSED, SPAWN_GATE_COLOUR.suppressed);
     const n = n14(), latOf = (yt) => Math.atan(Math.sinh(Math.PI * (1 - 2 * yt / n))) * 180 / Math.PI;
     const b = [[latOf(e.ty + 1), e.tx / n * 360 - 180], [latOf(e.ty), (e.tx + 1) / n * 360 - 180]];
     L.imageOverlay(mask, b, { opacity: 0.8 }).addTo(groups['Road mask (no spawns)']);
     L.imageOverlay(terr, b, { opacity: 0.55 }).addTo(groups['Terrain codes']);
+    L.imageOverlay(inv, b, { opacity: 0.85 }).addTo(groups['Invalid (no spawns)']);
+    L.imageOverlay(sup, b, { opacity: 0.85 }).addTo(groups['Suppressed (nothing important)']);
     L.rectangle(b, { color: '#fff', weight: 1, fill: false, dashArray: '4 4' }).bindTooltip(`tile ${e.tx}/${e.ty}`).addTo(map);
   }
   // Influence zones (src/zones.js): each anchor's disc at its R, by kind,
@@ -502,6 +516,22 @@ function overlays(world) {
     }
   }
   for (const [k, g] of Object.entries(groups)) mkRow($('ovl'), 'checkbox', k, false, (on) => on ? g.addTo(map) : map.removeLayer(g));
+  // The spawn gate's legend and counts: what each colour refuses, and how
+  // much of the loaded ground it covers.
+  {
+    const tot = gate[0] + gate[1] + gate[2] || 1;
+    const pct = (n) => `${(100 * n / tot).toFixed(1)}%`;
+    const row = (colour, name, what, n) => `<div style="display:flex;gap:6px;align-items:baseline">`
+      + `<span class="sw sq" style="background:${colour}"></span><span>${name} <span style="color:#888">— ${what}</span></span>`
+      + `<span class="n">${n.toLocaleString()} · ${pct(n)}</span></div>`;
+    const div = document.createElement('div');
+    div.style.margin = '4px 0 2px';
+    div.innerHTML = `<div style="color:#aaa">Spawn gate (entry.spawnClass)</div>`
+      + row(SPAWN_GATE_COLOUR.invalid, 'invalid', 'nothing spawns: road, water, buildings, restricted / quiet land, back yards', gate[2])
+      + row(SPAWN_GATE_COLOUR.suppressed, 'suppressed', 'minor things only: house, kerb, school, sensitive buffers', gate[1])
+      + row('transparent;border:1px solid #666', 'open', 'anything: attractors, enemies, fauna', gate[0]);
+    $('ovl').appendChild(div);
+  }
   // Markers off keeps them COUNTED — the density heatmap reads best bare.
   mkRow($('ovl'), 'checkbox', 'Show markers', true, (on) => {
     state.markersOff = !on;

@@ -527,8 +527,13 @@ function fishedSlimeSpawn(scene, now, px, py, pcW) {
 //   SAME SIDE, always: a destination is only one the player can reach without
 // crossing a major road's band (sameSideAs — the flood from their cell), so
 // nothing it seats ever sits across a busy road from them.
-//   `opts.foe`: the thing seated is alive and hostile (a bounty's pack) — the
-// seat rule is WorldGen.isFoeCell, which also keeps it out of the kerb buffer.
+//   `opts.foe`: the thing seated is alive and hostile (a bounty's pack) — an
+// 'enemy' spawn; anything else found here is an 'attractor' (a destination a
+// timed reward waits at). Both take OPEN ground only (the spawn gate).
+//   PRIVATE GROUND: a destination is per-player already, so it also reads this
+// player's live fence / private-area veto (WorldGen.privateVetoAt — none when
+// the fetch failed or has not landed).
+// (the minor class never applies: nothing is sent to wait on SUPPRESSED ground)
 function walkableDestinationRings(dist) {
   const d = Math.max(1, Math.round(dist));
   const out = [d];
@@ -556,8 +561,8 @@ function walkableDestination(scene, px, py, dist, opts) {
       if (!(N > 0)) continue;
       const cm = edge / N;
       const ix = Math.floor((wx - tx * edge) / cm), iy = Math.floor((wy - ty * edge) / cm);
-      const seat = o.foe ? WorldGen.isFoeCell : WorldGen.isSpawnCell;
-      if (!seat(entry.grid, N, N, ix, iy, entry._spawnOpts)) continue;
+      if (!WorldGen.isSpawnCell(entry.grid, N, N, ix, iy, entry._spawnOpts, o.foe ? 'enemy' : 'attractor')) continue;
+      if (WorldGen.privateVetoAt(tx, ty, ix, iy)) continue;
       const x = tx * edge + (ix + 0.5) * cm, y = ty * edge + (iy + 0.5) * cm;
       if (!sameSideAs(scene, x, y, px, py)) continue;
       if (o.accept && !o.accept(x, y)) continue;

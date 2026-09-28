@@ -87,8 +87,10 @@
 //           stones wrap the church building (a POI inside a footprint put
 //           most of a fixed pattern on BUILDING cells) and are seam-safe by
 //           construction. A grave is INVENTED: it passes the laying tile's
-//           isSpawnCell with the quiet-land mask, so no headstone ever
-//           stands on a real cemetery / grave_yard cell (QUIET_LAND).
+//           isSpawnCell as an 'enemy' spawn (a tap raises a ghost), so no
+//           headstone ever stands on a real cemetery / grave_yard cell
+//           (QUIET_LAND — INVALID) nor on the streets round a church that
+//           stands ON cemetery land (WorldGen.churchyardBufferM — SUPPRESSED).
 //           EVERY stones anchor also scatters plain rocks over its halo
 //           (CHURCHYARD_ROCK_P · s, denser at the core), all wearing ONE
 //           look (SpriteLayout.CHURCHYARD_ROCK_VARIANT, the `rockVariant`
@@ -820,8 +822,14 @@
     // the explicit `rockVariant` — SpriteLayout.plainRockVariant reads it first).
     const rockLook = (root.SpriteLayout && root.SpriteLayout.CHURCHYARD_ROCK_VARIANT != null)
       ? root.SpriteLayout.CHURCHYARD_ROCK_VARIANT : 3;
-    const ok = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts);
+    // THE SPAWN GATE: each piece names its class — a headstone is an 'enemy'
+    // spawn (a tap raises a ghost), the grove shrine an 'attractor' (a daily
+    // gift and a light), everything else scenery ('minor'). `what` is a class
+    // name or a pattern piece.
+    const classOf = (what) => (typeof what === 'string' ? what
+      : (what && what.what === 'headstone') ? 'enemy' : 'minor');
+    const ok = (ix, iy, what) => ix >= 0 && iy >= 0 && ix < N && iy < N
+      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, classOf(what));
     for (const a of (fld.reach || fld.anchors)) {
       yield 'zone nexus';
       const c = nexusCentre(a, ty, N);
@@ -859,7 +867,7 @@
         for (let r = 1; r <= SHRINE_SEAT_R && !seated; r++) {
           for (const [ux, uy] of RING_ORDER) {
             const ix = ix0 + ux * r, iy = iy0 + uy * r;
-            if (!ok(ix, iy)) continue;
+            if (!ok(ix, iy, 'attractor')) continue;
             claim(ix, iy);
             res.objects.push(WG.makeObject('grove_shrine', cx(ix), cy(iy),
               WG.cellId('sh', tx, ty, ix, iy), { zone: zoneTag }));
@@ -886,11 +894,11 @@
         const v = pc.v;
         if (figure) {
           // (already checked whole)
-        } else if (!ok(ix, iy)) {
+        } else if (!ok(ix, iy, pc)) {
           // BLOCKED (a building, the road, something there): walk outward
           // along the piece's ray to the first free cell, RESCUE_CELLS at
           // most, inside this tile's square only.
-          const moved = rescueCell(c, pc.dx, pc.dy, tx, ty, N, ok, crowded);
+          const moved = rescueCell(c, pc.dx, pc.dy, tx, ty, N, (x, y) => ok(x, y, pc), crowded);
           if (!moved) continue;
           ix = moved.ix; iy = moved.iy;
         } else if (crowded(ix, iy)) continue;
@@ -940,7 +948,7 @@
         const cell = nexusPieceCell(c, ddx, ddy, tx, ty, N);
         if (!cell || seen.has(cell.iy * N + cell.ix)) { good = false; break; }
         seen.add(cell.iy * N + cell.ix);
-        if (!ok(cell.ix, cell.iy) || crowded(cell.ix, cell.iy)) { good = false; break; }
+        if (!ok(cell.ix, cell.iy, pc) || crowded(cell.ix, cell.iy)) { good = false; break; }
         cells.push(cell);
       }
       if (good) return cells;
@@ -972,7 +980,8 @@
   // + occupied) and claiming its cell:
   //   THE GRAVES      a church's walkable CHURCHYARD cell on the grave
   //                   lattice → a headstone with chance HEADSTONE_P · s —
-  //                   never on real grave land (`ok` reads the quiet mask)
+  //                   never on real grave land nor round a church standing
+  //                   on it (`ok`, an 'enemy' spawn, reads the spawn gate)
   //   CHURCHYARD ROCKS every stones anchor's CHURCHYARD cell → a plain rock
   //                   (the one look) with chance CHURCHYARD_ROCK_P · s
   //   THE FRINGE FILL past a park's edge (fringeSteps' edgeM) the park
@@ -1002,12 +1011,12 @@
         const x = ox + (ix + 0.5) * frameCellM, y = oy + (iy + 0.5) * frameCellM;
         if (a && a.kind === 'stones' && grid[i] === T.CHURCHYARD) {
           if (((gy % GRAVE_ROW) + GRAVE_ROW) % GRAVE_ROW === 0 && ((gx % GRAVE_COL) + GRAVE_COL) % GRAVE_COL === 0
-              && cellU01(gx, gy, SALT_GRAVE) < HEADSTONE_P * s && ok(ix, iy)) {
+              && cellU01(gx, gy, SALT_GRAVE) < HEADSTONE_P * s && ok(ix, iy, 'enemy')) {
             occ.add(i); graves++;
             res.objects.push(WG.makeObject('headstone', x, y, WG.cellId('hs', tx, ty, ix, iy), { zone: 'stones' }));
             continue;
           }
-          if (cellU01(gx, gy, SALT_CHROCK) < CHURCHYARD_ROCK_P * s && ok(ix, iy)) {
+          if (cellU01(gx, gy, SALT_CHROCK) < CHURCHYARD_ROCK_P * s && ok(ix, iy, 'minor')) {
             occ.add(i); rocks++;
             res.objects.push(WG.makeObject('mineralrock', x, y, WG.cellId('mrz', tx, ty, ix, iy),
               { requiredTier: 1, yieldTier: 1, rockVariant: rockLook, zone: 'stones' }));
@@ -1026,7 +1035,7 @@
           p = GROVE_FILL_P * s;
           crop = fillerOf(a.character);
         }
-        if (!(p > 0) || cellU01(gx, gy, SALT_FILL) >= p || !ok(ix, iy)) continue;
+        if (!(p > 0) || cellU01(gx, gy, SALT_FILL) >= p || !ok(ix, iy, 'minor')) continue;
         occ.add(i); fill++;
         res.wildplants.push(WG.makeWildplant(crop, x, y, WG.cellId('wpf', tx, ty, ix, iy), { fringe: true }));
       }

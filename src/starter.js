@@ -653,7 +653,10 @@
     // The shared spawn rule — walkable, off anyone's road BAND (not merely off
     // the one cell per way the grid paints), out of the back gardens. A chest
     // in the street is the bug this mask exists to stop.
-    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask };
+    // (THE STARTING AREA is the player's own — the placed bucket — so its
+    // things are MINOR spawns: out of the land the spawn gate refuses, but
+    // free of the buffers round the player's own street.)
+    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnClass: entry.spawnClass };
     const cellKey = (cx, cy) => cx + ',' + cy;
     // ── The walk there ──────────────────────────────────────────────────
     // Flood out from the anchor over ground a ROUTE may be drawn across. This
@@ -689,7 +692,7 @@
     // for the chest at the end of one.
     const free = (cx, cy) => !taken.has(cellKey(cx, cy)) &&
       cameFrom.has(cellKey(cx, cy)) &&
-      WorldGen.isSpawnCell(grid, N, N, cx, cy, spawnOpts);
+      WorldGen.isSpawnCell(grid, N, N, cx, cy, spawnOpts, 'minor');
     const seed =
       ((tx * 0x1f1f1f1f) ^ (ty * 0x9e3779b1) ^ (spawnIX * 73856093) ^ (spawnIY * 19349663)) >>> 0;
     const rng = WorldGen.makeRng(seed);
@@ -1716,7 +1719,9 @@
       Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM);
     for (const o of (entry.objects || [])) occupied.add(cellKeyAt(o.x, o.y));
     for (const w of (entry.wildplants || [])) occupied.add(cellKeyAt(w.x, w.y));
-    const opts = { roadMask: entry.roadMask };
+    // The doorstep greeter is the starting area's (a MINOR spawn — see the
+    // starter trail's note): the land the spawn gate refuses, not its buffers.
+    const opts = { roadMask: entry.roadMask, spawnClass: entry.spawnClass };
     const onRoad = (cx, cy) => !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
     const standable = (cx, cy) =>
       cx >= 0 && cx < N && cy >= 0 && cy < N &&
@@ -1755,7 +1760,7 @@
       const ix = ax + (vec ? vec[0] * dist : 0);
       const iy = ay + (vec ? vec[1] * dist : 0);
       const slack = vec ? HOME_GREETER_SLACK_CELLS : dist + HOME_GREETER_SLACK_CELLS;
-      const seat = pick(ix, iy, slack, (cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts))
+      const seat = pick(ix, iy, slack, (cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'minor'))
                 || pick(ix, iy, slack, (cx, cy) => !onRoad(cx, cy));
       if (!seat) continue;
       occupied.add(seat.cx + ',' + seat.cy);   // no two seats on the one cell

@@ -47,13 +47,16 @@ test('cauldron: coins never lie in the road or a yard, wait ten minutes, and sta
   const body = app.slice(app.indexOf('  _coinBurstInteract(sx, sy, poi) {'), app.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
   assert.truthy(/const expiresAt = Date\.now\(\) \+ COIN_BURST_LIFE_MS;/.test(body), 'the burst expires on it');
   assert.falsy(/60_000/.test(body), 'no one-minute coin');
-  assert.truthy(/if \(!WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, burstOpts\)\) continue;/.test(body),
-    'the pot scatter is the shared spawn rule: off the road band, under nothing, no private yard');
+  assert.truthy(/if \(!WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, burstOpts, 'attractor'\)\) continue;/.test(body),
+    'the pot scatter is the shared spawn rule as an ATTRACTOR: off the road band, under nothing, no private yard, no buffer');
+  assert.truthy(/spawnClass: entry\.spawnClass/.test(body), 'reading the tile\'s spawn gate');
+  assert.truthy(/if \(WorldGen\.privateVetoAt\(tx, ty, cx, cy\)\) continue;/.test(body), 'and the live private-ground veto');
   assert.falsy(/strict|relax/i.test(body.replace(/\/\/.*$/gm, '')), 'no relaxed pass');
   assert.truthy(/sameSideAs\(this, /.test(body), 'and on the player\'s side of any major road');
   const near = app.slice(app.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
   const nearBody = near.slice(0, near.indexOf('\n  }\n'));
-  assert.truthy(/WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, opts\)/.test(nearBody), 'the feet scatter too');
+  assert.truthy(/WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, opts, 'minor'\)/.test(nearBody), 'the feet scatter too (a minor spawn: the player is there)');
+  assert.truthy(/WorldGen\.privateVetoAt\(tx, ty, cx, cy\)/.test(nearBody), 'with the veto');
   assert.truthy(/sameSideAs\(this, /.test(nearBody), 'same side at the feet too');
   // A kill's coin is stepped off a road cell onto the ground beside it.
   const drop = app.slice(app.indexOf('  _dropBountyCoin(victim, amount) {'));

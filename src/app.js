@@ -382,6 +382,11 @@ const COIN_BURST_NEAR_PLAYER = 3;
 // WHERE A COIN MAY LIE: where the SHARED SPAWN RULE says (WorldGen.isSpawnCell
 // — walkable, off the road band, under nothing, and on residential ground only
 // near a public anchor), on the player's SIDE of any major road (sameSideAs).
+// A burst's SCATTER round the pot is a timed reward — an 'attractor' spawn
+// (OPEN ground only: never by a house, a school or a major road's kerb); the
+// few coins at the player's own feet are 'minor' (the player is already
+// there). Both are per-player, so both read the live private-ground veto
+// (WorldGen.privateVetoAt — fences, private areas; none when the fetch fails).
 // SAFETY (owner, Sep 2026): a coin used to be allowed in the carriageway and in
 // front gardens, and to vanish after a minute — the strongest "run into the
 // street" push the safety audit found. Now it never lies on a road or in a
@@ -6161,7 +6166,8 @@ class MapScene extends Phaser.Scene {
     // alone, which exists before `_spawned`), so fall back to no occupancy
     // check rather than crash on a missing entry._spawnOpts.
     const occupiedIdx = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
-    const burstOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
+    const burstOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnClass: entry.spawnClass,
+      roadClass: entry.roadClass, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
     // Cells within `r` that will take a coin: the shared spawn rule (the pot
     // itself is the public anchor, so the cells right round it pass the
     // frontage test) and the player's side of any major road. No relaxed
@@ -6175,7 +6181,8 @@ class MapScene extends Phaser.Scene {
           if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
           // Skip the POI's own cell (chest sprite sits there).
           if (dx === 0 && dy === 0) continue;
-          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, burstOpts)) continue;
+          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, burstOpts, 'attractor')) continue;
+          if (WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
           if (!sameSideAs(this, tx * tileEdgeM + (cx + 0.5) * cellM, ty * tileEdgeM + (cy + 0.5) * cellM)) continue;
           out.push({ cx, cy });
         }
@@ -6271,7 +6278,8 @@ class MapScene extends Phaser.Scene {
     if (!entry || !entry.grid) return out;
     const N = entry.cellsPerEdge || rowCells(this, ty);
     const cellM = tileEdgeM / N;
-    const opts = { roadMask: entry.roadMask, quiet: entry.quietMask, occupied: (entry._spawnOpts && entry._spawnOpts.occupied) || null };
+    const opts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnClass: entry.spawnClass,
+      occupied: (entry._spawnOpts && entry._spawnOpts.occupied) || null };
     for (let ring = 1; ring <= r && out.length < count; ring++) {
       const cells = [];
       for (let dy = -ring; dy <= ring; dy++) {
@@ -6279,7 +6287,8 @@ class MapScene extends Phaser.Scene {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
           const cx = pcx + dx, cy = pcy + dy;
           if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts)) continue;
+          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'minor')) continue;
+          if (WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
           if (!sameSideAs(this, tx * tileEdgeM + (cx + 0.5) * cellM, ty * tileEdgeM + (cy + 0.5) * cellM)) continue;
           if (taken.has(`${tx}_${ty}_${cx}_${cy}`)) continue;
           cells.push({ cx, cy });
@@ -10063,15 +10072,17 @@ class MapScene extends Phaser.Scene {
     const edge = this.tileEdgeM, cm = edge / N;
     const base = entry._spawnOpts;
     const used = new Set();
-    // The pack's other seats: the shared rule, never stacked, and — the foe
-    // seat rule — never in the kerb buffer (a buffer cell reads as taken).
+    // The pack's other seats: the shared rule as an 'enemy' spawn (OPEN
+    // ground — out of the kerb buffer and every other), never stacked, and
+    // never on this player's live private-ground veto (a vetoed cell reads
+    // as taken).
     const opts = { ...base, occupied: { has: (k) => used.has(k) || !!(base.occupied && base.occupied.has(k))
-      || WorldGen.inMajorBuffer(base.roadClass, N, k % N, Math.floor(k / N)) } };
+      || WorldGen.privateVetoAt(tx, ty, k % N, Math.floor(k / N)) } };
     const foes = [];
     entry.creatures = entry.creatures || [];
     b.kinds.forEach((kind, i) => {
       const seat = i === 0 ? { ix: dest.ix, iy: dest.iy }
-        : WorldGen.relocateToSpawnCell(entry.grid, N, N, dest.ix, dest.iy, opts, 2);
+        : WorldGen.relocateToSpawnCell(entry.grid, N, N, dest.ix, dest.iy, opts, 2, 'enemy');
       if (!seat) return;
       used.add(seat.iy * N + seat.ix);
       const id = `guildfoe_${tx}_${ty}_${Math.floor(now)}_${i}`;

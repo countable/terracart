@@ -395,8 +395,8 @@
     const all = mkEntry([castle]);
     all._spawnOpts.roadClass = new Uint8Array(N * N).fill(WorldGen.ROAD_CLASS_MAJOR_BUFFER);
     assert.eq(wake(all).length, 0, 'a lair wholly inside the buffer seats no guard');
-    assert.truthy(/WG\.isFoeCell\(entry\.grid, N, N, ix, iy, foeOpts\)/.test(ALL_SRC['lairs.js']),
-      'the seat asks the shared FOE rule');
+    assert.truthy(/WG\.isSpawnCell\(entry\.grid, N, N, ix, iy, foeOpts, 'enemy'\)/.test(ALL_SRC['lairs.js']),
+      'the seat asks the shared rule as an ENEMY spawn');
   });
 
   // ── Is it held at all ────────────────────────────────────────────────────

@@ -70,6 +70,10 @@ const BEACH_X_PER_CELLS = 20;
 // How many favourite-ground cells an attracted animal tries before it keeps
 // its drawn seat (see _seatFaunaOnFavouriteGround).
 const FAUNA_ATTRACT_TRIES = 12;
+// How far (cells, Chebyshev) from a street lair's point OPEN ground may lie
+// for the lair to stand (spawnInTile's attractor test): a gate's point is on
+// its own way, so the verge beside it is what answers.
+const LAIR_POINT_SLACK_CELLS = 1;
 
 class SceneCreatures {
   spawnInTile(entry, tx, ty) {
@@ -127,14 +131,16 @@ class SceneCreatures {
       // paint nothing. Without it the X-mark scatter below reads the grid,
       // is told "grass", and buries treasure in the middle of the asphalt.
       roadMask: entry.roadMask,
+      // THE SPAWN GATE (worldgen stampSpawnClassSteps — entry.spawnClass):
+      // what each cell may host. Every spawner below names its class to
+      // isSpawnCell ('minor' / 'attractor' / 'enemy'), and the mask answers —
+      // the kerb buffer, the house / school / sensitive buffers (SUPPRESSED:
+      // minor things only), quiet and restricted land, back yards (INVALID).
+      spawnClass: entry.spawnClass,
       // The major roads' band / verge / KERB BUFFER bits (worldgen
-      // ROAD_CLASS_*). isSpawnCell never reads them; WorldGen.isFoeCell —
-      // the seat rule for anything alive (fauna, lair guards, a gate's foe,
-      // a bounty pack) — refuses the kerb buffer off this field.
+      // ROAD_CLASS_*) and the QUIET LAND: read by isSpawnCell only on an
+      // entry built without a mask (the parts the mask folds together).
       roadClass: entry.roadClass,
-      // QUIET LAND (worldgen QUIET_LAND — military, railway, cemetery,
-      // reserve land): isSpawnCell refuses every cell of it, so nothing is
-      // seated there by any spawner that shares these options.
       quiet: entry.quietMask,
       occupied: _occupiedIdx,
       pois: genObjects
@@ -243,16 +249,19 @@ class SceneCreatures {
           lx: o.gateX - tx * this.tileEdgeM, ly: o.gateY - ty * this.tileEdgeM });
       }
     }
-    // THE KERB: no lair candidate — a gate's daily foe, a street's guard, a
-    // zone's garrison — holds a point inside a major road's kerb buffer
-    // (WorldGen.ROAD_CLASS_MAJOR_BUFFER). A gate across a major road gets no
-    // foe; the street dressing already seats its guards back from the kerb
-    // (StreetVariants), so for those this is a backstop. The guards' own
-    // seats go through WorldGen.isFoeCell (lairs.js) for the same reason.
-    if (entry.roadClass && entry.streetLairs.length) {
+    // A LAIR POINT IS AN ATTRACTOR: a gate's daily foe, a street's guard, a
+    // café hoard's giant — each is kept only where OPEN ground (the spawn
+    // gate: out of the kerb buffer, the house / school / sensitive buffers,
+    // off restricted land) lies within LAIR_POINT_SLACK_CELLS of its point —
+    // a gate's point sits on its own way, so the ground BESIDE it answers.
+    // A gate across a major road, or in a school's fence, gets no foe. The
+    // guards' own seats are 'enemy' spawns (lairs.js) for the same reason.
+    if (entry.streetLairs.length) {
+      const lairOpts = { roadMask: entry.roadMask, spawnClass: entry.spawnClass,
+        roadClass: entry.roadClass, quiet: entry.quietMask };
       entry.streetLairs = entry.streetLairs.filter((L) => {
         const ix = Math.floor(L.lx / cellM), iy = Math.floor(L.ly / cellM);
-        return !(ix >= 0 && iy >= 0 && ix < N && iy < N && WorldGen.inMajorBuffer(entry.roadClass, N, ix, iy));
+        return !!WorldGen.relocateToSpawnCell(genGrid, N, N, ix, iy, lairOpts, LAIR_POINT_SLACK_CELLS, 'attractor');
       });
     }
     // Home holds no slimes or crows until the first harvest (see
@@ -291,9 +300,12 @@ class SceneCreatures {
           // etc. only ever pays the (cheap) roadMask lookup, never the
           // frontage scan. See CLAUDE.md's road-mask invariant / FINDING 2 /
           // test/node/fauna_spawn.test.js.
-          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) {
+          // The draw loop re-rolls on ground nothing may take (a MINOR
+          // spawn's refusal — INVALID); SUPPRESSED ground is judged below.
+          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, 'minor')) {
             if (!displaced && _spawnOpts.occupied && _spawnOpts.occupied.has(cy * N + cx)
-                && WorldGen.isSpawnCell(genGrid, N, N, cx, cy, { roadMask: _spawnOpts.roadMask, pois: _spawnOpts.pois })) displaced = true;
+                && WorldGen.isSpawnCell(genGrid, N, N, cx, cy, { roadMask: _spawnOpts.roadMask, pois: _spawnOpts.pois,
+                  spawnClass: _spawnOpts.spawnClass, quiet: _spawnOpts.quiet }, 'minor')) displaced = true;
             continue;
           }
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
@@ -301,13 +313,14 @@ class SceneCreatures {
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
           faunaSeats.add(cy * N + cx);
           if (caughtSet.has(id)) return;
-          // THE KERB: nothing alive is seated in a major road's kerb buffer
-          // (WorldGen.isFoeCell) — no foe to flee and no animal to chase
-          // beside fast traffic. DROPPED after the draw, like the pest
-          // amnesty below, never re-rolled: the stream stays the same for
-          // every later spawn, and the buffer is generated, so every player
+          // AN ANIMAL IS AN 'enemy' SPAWN (the spawn gate): nothing alive is
+          // seated on SUPPRESSED ground — the kerb buffer (no foe to flee and
+          // no animal to chase beside fast traffic), the house buffer, the
+          // school and sensitive buffers. DROPPED after the draw, like the
+          // pest amnesty below, never re-rolled: the stream stays the same
+          // for every later spawn, and the mask is generated, so every player
           // loses the same animals.
-          if (WorldGen.inMajorBuffer(entry.roadClass, N, cx, cy)) return;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, 'enemy')) return;
           // The pest amnesty DROPS a slime or crow that lands in the zone —
           // after the cell was drawn exactly as it would be for anyone else.
           // It used to re-roll (`continue`) instead, which took extra draws out
@@ -373,8 +386,7 @@ class SceneCreatures {
       const cy = Math.floor((plant.y - ty * this.tileEdgeM) / cellM);
       plantCells.add(cy * N + cx);
       if (caughtSet.has(plant.id) || (pestFree && pestFree.has(cx, cy))) continue;
-      // A biting plant is a foe: never in the kerb buffer (dropped, as above).
-      if (WorldGen.inMajorBuffer(entry.roadClass, N, cx, cy)) continue;
+      // (A biting plant is a foe: spawnParkPlants seats it as an 'enemy'.)
       // Keep the park stream's stable seat and id; habitat is a per-player
       // overlay just as it is for the ordinary surface encounter budget.
       plant._surfaceSpawn = { x: plant.x, y: plant.y, tx, ty, cx, cy };
@@ -402,9 +414,8 @@ class SceneCreatures {
       const cy = Math.floor((creature.y - ty * this.tileEdgeM) / cellM);
       const id = EnemySpawns.surfaceId(tx, ty, cx, cy);
       if (caughtSet.has(id) || enemySeats.has(id)) continue;
-      // THE KERB backstop: the slime seat was already dropped from the buffer
-      // (tryPlace); whatever kind the roster puts on it obeys the same rule.
-      if (WorldGen.inMajorBuffer(entry.roadClass, N, cx, cy)) continue;
+      // (The seat was an 'enemy' spawn already — tryPlace / the attractor
+      // lane — so whatever kind the roster puts on it stands on OPEN ground.)
       enemySeats.add(id);
       const kind = EnemySpawns.surfaceKind(genGrid[cy * N + cx], id);
       if (!kind) continue;
@@ -552,8 +563,9 @@ class SceneCreatures {
       for (let attempt = 0; attempt < 16; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
-        // Walkable, off-road, and not deep in a private yard — one shared rule.
-        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) continue;
+        // Walkable, off-road, and not deep in a private yard — one shared rule
+        // (an X mark is an ordinary pickup: a MINOR spawn).
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, 'minor')) continue;
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
         if (!isStarterTile) entry.treasure = { x: wmx, y: wmy, id: `treasure_${tx}_${ty}` };
@@ -573,7 +585,7 @@ class SceneCreatures {
       for (let attempt = 0; attempt < 8 && !placed; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
-        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) continue;
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts, 'minor')) continue;
         const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
         const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
         entry.extraTreasures.push({ x: wmx, y: wmy, id: WorldGen.cellId('treasure_x', tx, ty, cx, cy) });
@@ -632,7 +644,7 @@ class SceneCreatures {
           // and otherwise a legitimate spawn cell (walkable, off-road, out of
           // private yards). Avoid stacking on an existing X below.
           if (genGrid[ncy * N + ncx] === 8 /* PATH */) continue;
-          if (!WorldGen.isSpawnCell(genGrid, N, N, ncx, ncy, _spawnOpts)) continue;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, ncx, ncy, _spawnOpts, 'minor')) continue;
           const wmx = tx * this.tileEdgeM + (ncx + 0.5) * cellM;
           const wmy = ty * this.tileEdgeM + (ncy + 0.5) * cellM;
           const id = WorldGen.cellId('treasure_path', tx, ty, ncx, ncy);
@@ -661,7 +673,7 @@ class SceneCreatures {
         for (let attempt = 0; attempt < 8 && !placed; attempt++) {
           const cell = sandCells[Math.floor(rng() * sandCells.length)];
           const scx = cell % N, scy = Math.floor(cell / N);
-          if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, _spawnOpts)) continue;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, _spawnOpts, 'minor')) continue;
           const wmx = tx * this.tileEdgeM + (scx + 0.5) * cellM;
           const wmy = ty * this.tileEdgeM + (scy + 0.5) * cellM;
           const id = WorldGen.cellId('treasure_sand', tx, ty, scx, scy);
@@ -781,8 +793,8 @@ class SceneCreatures {
         if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
-        // The seat rule for anything alive: never into the kerb buffer.
-        return WorldGen.isFoeCell(genGrid, N, N, cx, cy, spawnOpts);
+        // The seat rule for anything alive: an 'enemy' spawn (OPEN only).
+        return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts, 'enemy');
       };
       const seatOn = (c) => {
         let k = -1, at = -1;

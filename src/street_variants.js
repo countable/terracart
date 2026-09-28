@@ -87,7 +87,8 @@
   // ── The kerb buffer: seating a foe BACK ─────────────────────────────────
   // A foe the dressing seats (barricade goblin, burned-row fire slime, café
   // giant) takes the nearest cell within this many cells of its natural spot
-  // that passes WorldGen.isFoeCell (outside ROAD_CLASS_MAJOR_BUFFER) and is
+  // that takes an 'enemy' spawn (the spawn gate: OPEN ground — outside the
+  // kerb buffer ROAD_CLASS_MAJOR_BUFFER and every other buffer) and is
   // reached by a straight walk crossing no MAJOR band cell — so it stays on
   // its own side of the road. None → the foe is dropped.
   const FOE_SEAT_BACK_CELLS = 4;
@@ -602,15 +603,19 @@
     const frameCellM = tileEdgeM / N;
     const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
     const occ = spawnOpts.occupied || (spawnOpts.occupied = new Set());
+    // The verge dressing is scenery — a MINOR spawn (the spawn gate).
     const cellOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts);
+      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor');
+    // A hoard is an ATTRACTOR: OPEN ground only.
+    const hoardOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
+      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'attractor');
     const claim = (ix, iy) => { occ.add(iy * N + ix); };
     // THE KERB BUFFER: the caller's roadClass, else the one the stamp pass
     // left on the index. A foe's seat is WorldGen.isFoeCell (the shared rule
     // AND outside ROAD_CLASS_MAJOR_BUFFER), found by foeSeat.
     const rc = spawnOpts.roadClass || idx.roadClass || null;
     const foeOpts = rc && !spawnOpts.roadClass ? Object.assign({}, spawnOpts, { roadClass: rc }) : spawnOpts;
-    const foeOk = (ix, iy) => WG.isFoeCell(grid, N, N, ix, iy, foeOpts);
+    const foeOk = (ix, iy) => WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'enemy');
     // Seat a foe BACK: its natural cell if it is a foe cell, else the nearest
     // within FOE_SEAT_BACK_CELLS on the same side of any major band — or null
     // (the foe is dropped).
@@ -632,7 +637,7 @@
       const ix = cellOfM(px * gM), iy = cellOfM(py * gM);
       if (ix < -END_SEAT_CELLS || iy < -END_SEAT_CELLS
           || ix >= N + END_SEAT_CELLS || iy >= N + END_SEAT_CELLS) return null;
-      return WG.relocateToSpawnCell(grid, N, N, ix, iy, spawnOpts, END_SEAT_CELLS);
+      return WG.relocateToSpawnCell(grid, N, N, ix, iy, spawnOpts, END_SEAT_CELLS, 'minor');
     };
     const marks = new Uint8Array(N * N);
     let marked = false;
@@ -847,11 +852,14 @@
 
     // THE CAFÉ HOARDS: the index's hoard POIs in hash order, the first
     // HOARDS_PER_TILE that seat. A hoard lies BESIDE its POI on public ground
-    // (the shared spawn rule) within HOARD_SEAT_CELLS, on the POI's side of
-    // any major band (nearestSeat). GUARDED when the hoard's own cell is a foe
-    // cell (outside the kerb buffer): a lair candidate on it (lairs.js 'cafe'
-    // tier — Lairs seats the giant on isFoeCell too). Else the nearest plain
-    // seat, unguarded. Else nothing, and the next café may take the slot.
+    // within HOARD_SEAT_CELLS, on the POI's side of any major band
+    // (nearestSeat). A hoard is an ATTRACTOR (the spawn gate: OPEN ground
+    // only — out of the kerb, house, school and sensitive buffers). GUARDED
+    // when the hoard's own cell is a foe cell: a lair candidate on it
+    // (lairs.js 'cafe' tier — Lairs seats the giant as an 'enemy' too). With
+    // the mask an attractor's ground IS a foe's, so every seated hoard is
+    // guarded; the unguarded fallback remains for an entry built without
+    // one (the legacy parts). Else nothing, and the next café may take it.
     // Keyed on the POI's GLOBAL point; the id from the hoard's cell.
     let hoards = 0;
     for (const hp of idx.hoardPois || []) {
@@ -860,7 +868,7 @@
       const pix = cellOfM(hp.x * gM), piy = cellOfM(hp.y * gM);
       let h = nearestSeat(pix, piy, N, rc, HOARD_OFFSETS, foeOk);
       const guarded = !!h;
-      if (!h) h = nearestSeat(pix, piy, N, rc, HOARD_OFFSETS, cellOk);
+      if (!h) h = nearestSeat(pix, piy, N, rc, HOARD_OFFSETS, hoardOk);
       if (!h) continue;
       claim(h.ix, h.iy);
       hoards++;

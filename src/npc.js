@@ -67,7 +67,9 @@ const NPC = (() => {
       const shrine = shrines.some(o => Math.hypot(o.x - x, o.y - y) <= cellM * 6);
       const influence = typeof Zones !== 'undefined' ? Zones.at(entry, cx, cy) : null;
       const zone = zoneFor(grid[idx], shrine, influence);
-      if (!zone || !WorldGen.isSpawnCell(grid, N, N, cx, cy, opts)) continue;
+      // A villager is someone a player walks up to (a shop, the day's talk):
+      // an ATTRACTOR spawn — OPEN ground only (the spawn gate).
+      if (!zone || !WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, 'attractor')) continue;
       used.add(idx);
       const id = `npc_${tx}_${ty}_${cx}_${cy}`;
       result.push(WorldGen.makeCreature('npc', x, y, id, { ...identity(id, zone), homeX: x, homeY: y }));
@@ -91,7 +93,7 @@ const NPC = (() => {
         if (cx < 0 || cy < 0 || cx >= N || cy >= N || used.has(cy * N + cx)) continue;
         const influence = typeof Zones !== 'undefined' ? Zones.at(entry, cx, cy) : null;
         if (!zoneFor(grid[cy * N + cx], true, influence)) continue;
-        if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, entry._spawnOpts)) continue;
+        if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, entry._spawnOpts, 'attractor')) continue;
         used.add(cy * N + cx);
         const id = `npc_shrine_${house.id}_${cx}_${cy}`;
         if (ids.has(id)) continue;

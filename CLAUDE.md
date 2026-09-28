@@ -79,8 +79,20 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Reward rolls, recurring events, mode-dependent creature/trap counts and
   player progress may differ. Restoration remains per-save. Deduplication uses
   data/anchor ownership, not tile load order; cached Overpass bins are frame-free.
-- Every spawner passes `roadMask` and `occupied` through `_spawnOpts` to
-  `WorldGen.isSpawnCell`. Road terrain alone misses drawn roads; the mask uses
+- THE SPAWN GATE is `entry.spawnClass` (`WorldGen.stampSpawnClassSteps`,
+  beside the road mask in the sliced build) read through
+  `WorldGen.isSpawnCell(grid, w, h, cx, cy, opts, cls)` — every spawner passes
+  `_spawnOpts` (`spawnClass`, `roadMask`, `occupied`) AND its class: `'minor'`
+  (flora, rocks, X marks, scenery) takes OPEN + SUPPRESSED; `'attractor'`
+  (hoards, lair points, cave entrances, shrines, NPCs, a burst's scatter) and
+  `'enemy'` (fauna, guards, traps, headstones) take OPEN only
+  (`test/node/spawn_class.test.js` sweeps for it). INVALID: road band, water,
+  buildings, restricted / quiet land, sensitive points, back yards (no public
+  frontage, or behind a house); SUPPRESSED: the house, kerb, school and
+  sensitive buffers. A new refusal is a new reason in that mask, never a
+  separate check at a spawner. POI chests are the place itself (quiet land
+  only). The live Overpass fence veto (`privateVetoAt`) is for per-player
+  things only and fails open. Road terrain alone misses drawn roads; the mask uses
   `WorldGen.roadOverlayWidthM` and masks cells when the drawn bands cover
   `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coins never land on road cells
   or in yards, and every timed reward (coin bursts, bounty packs,
@@ -127,7 +139,7 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 
 Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
 `spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`,
-`chest_tier`, `daily_crates`, `density_pois` (`test/node/*.test.js`).
+`chest_tier`, `daily_crates`, `density_pois`, `spawn_class` (`test/node/*.test.js`).
 
 ## Coordinates, rendering and performance
 
