@@ -415,7 +415,7 @@ class SceneCreatures {
     }
     // FAUNA ATTRACTORS. A species' favourite ground pulls the tile's OWN
     // spawns of it (never adds): deer the
-    // orchard lanes and groves, cats Lantern Row, crows the churchyards… —
+    // orchard lanes and groves, cats the walking-path lamps, crows the churchyards… —
     // rows of the `attracts` column (see _seatFaunaOnFavouriteGround). The
     // draw above is taken exactly as before (same count, same ids, same
     // stream for every species after it); the new seats come off each
@@ -797,6 +797,14 @@ class SceneCreatures {
     if (SV) {
       if (marks) for (const row of SV.STREET_VARIANTS) if (row.attracts) add(row.attracts, (i) => marks[i] === row.code);
     }
+    // WALKING-PATH LAMPS: the cells beside every lamp a footway / path /
+    // cycleway stands (Streets.PATH_LAMP_ATTRACTS — the cats, moved here from
+    // Lantern Row). Every GENERATED lamp, lit or not: where an animal sits is
+    // the same for every player, and restoration is per-save.
+    const lampCells = this._pathLampCells ? this._pathLampCells(entry, tx, ty, N) : null;
+    if (lampCells && lampCells.size && typeof Streets !== 'undefined' && Streets.PATH_LAMP_ATTRACTS) {
+      add(Streets.PATH_LAMP_ATTRACTS, (i) => lampCells.has(i));
+    }
     const zf = entry.zone;
     if (zf && zf.anchors && (zf.coverage || zf.idx)) {
       const coverage = zf.coverage || zf.idx;
@@ -887,6 +895,32 @@ class SceneCreatures {
     return moved;
   }
 
+
+  // The flat cell indices (cy*N+cx, this tile's own grid) BESIDE each lamp a
+  // WALKING PATH stands — the lamp's own cell and its eight neighbours — for
+  // the fauna attractor lane above. The lamps are app.js's generated
+  // geometry (_streetLampsForTile, tile-cached, flagged `path`); a scene
+  // without that pass (a headless stub) has no lamp ground. The spawn gate
+  // (isSpawnCell, the species' own class) still judges every seat, so a
+  // cell on the band is never taken.
+  _pathLampCells(entry, tx, ty, N) {
+    if (!this._streetLampsForTile || !entry || !entry.layers || !(entry.tileEdgeM > 0)) return null;
+    const lamps = this._streetLampsForTile(tx, ty, entry);
+    const out = new Set();
+    const cellM = entry.tileEdgeM / N;
+    const ox = tx * entry.tileEdgeM, oy = ty * entry.tileEdgeM;
+    for (const L of lamps) {
+      if (!L.path) continue;
+      const cx = Math.floor((L.x - ox) / cellM), cy = Math.floor((L.y - oy) / cellM);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const x = cx + dx, y = cy + dy;
+          if (x >= 0 && y >= 0 && x < N && y < N) out.add(y * N + x);
+        }
+      }
+    }
+    return out;
+  }
 
   // The live-ground cull. spawnInTile draws every creature, trap and X mark
   // off the tile's GENERATED layer so the stream is the same for everyone;

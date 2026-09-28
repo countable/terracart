@@ -436,7 +436,7 @@ test('trail prize: every ceremony says where the next rung is', () => {
 
 test('trail counter: the street reads Trail.readout of the bank, not raw progress', () => {
   const app = APP_JS_SRC;
-  const at = app.indexOf('  _bankStreetMetres(addedM, at, now) {');
+  const at = app.indexOf('  _bankStreetMetres(addedM, at, now, opts) {');
   assert.gt(at, 0, 'found the bank');
   const body = app.slice(at, app.indexOf('\n  }\n', at));
   assert.truthy(/const label = Trail\.readout\(out(?:, [^)]+)?\)\.label;/.test(body)

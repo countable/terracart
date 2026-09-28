@@ -64,8 +64,11 @@ test('street lamps: the memo key carries Streets.epoch and the anchor cell', () 
   // lamps on the very next frame a restore completes. The anchor cell is
   // there so standing still (the common case, every frame) costs nothing:
   // the whole tile scan below only runs when one of the two moves.
-  assert.truthy(/const key = `\$\{cellIX\},\$\{cellIY\}\|\$\{Streets\.epoch\(this\.save\)\}`;/.test(updateSrc),
-    'the key is the anchor cell plus Streets.epoch — nothing else');
+  // …plus the LIVING-LAMP inputs: the session's visit epoch and the fade's
+  // clock bucketed at Streets.LAMP_REFRESH_MS (each lamp's `bright` is
+  // quantised, so the lightmap moves only on a real step).
+  assert.truthy(/const key = `\$\{cellIX\},\$\{cellIY\}\|\$\{Streets\.epoch\(this\.save\)\}\|\$\{this\._lampVisitEpoch \| 0\}`\s*\n\s*\+ `\|\$\{Math\.floor\(now \/ Streets\.LAMP_REFRESH_MS\)\}`;/.test(updateSrc),
+    'the key is the anchor cell, Streets.epoch, the visit epoch and the fade bucket — nothing else');
   assert.truthy(/if \(this\._streetLampKey === key && this\._streetLamps\) return;/.test(updateSrc),
     'an unchanged key does no work at all');
 });
@@ -173,7 +176,7 @@ test('street lamps: the light collector reads the same list and skips the dark o
   // by Streets.covers over the restored intervals; the draw pass and
   // Lighting.collectLamps both read that flag, so a stone can never be drawn
   // lit while throwing no light, or the reverse.
-  assert.truthy(/out\.push\(\{ \.\.\.L, lit: Streets\.covers\(iv, L\.s\) \}\);/.test(updateSrc),
+  assert.truthy(/out\.push\(\{ \.\.\.L, lit: Streets\.covers\(iv, L\.s\),/.test(updateSrc),
     'the flag is Streets.covers over the line\'s restored list, on a fresh object (never written onto the tile cache)');
   assert.falsy(/if \(!Streets\.covers\(iv, L\.s\)\) continue;/.test(updateSrc), 'a dark lamp is no longer dropped from the list');
   assert.truthy(/if \(!L\.lit\) continue;/.test(LIGHTING_SRC), 'collectLamps skips a dark lamp');
@@ -250,7 +253,9 @@ test('street lamps: nothing here reaches the save — generated, never stored, l
   // and scene._streetLamps (the lit subset, frame-cached) — neither is
   // save.* or JSON that survives a reload. What DOES survive is exactly what
   // it always was: save.streets, the restored intervals — a lamp is lit
-  // purely as a function of those, recomputed every time.
+  // purely as a function of those, recomputed every time. (The one thing a
+  // lamp adds is the LIVING-LAMP delta, save.lampVisits — when the player
+  // last came by, keyed by the lamp's position-derived id; living_lamps.test.js.)
   assert.falsy(/save\.streetLamps/.test(app), 'no save.streetLamps field exists');
   assert.falsy(/save\._streetLamps/.test(app), 'and the live lists are never written onto save at all');
 });

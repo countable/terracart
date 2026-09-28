@@ -301,16 +301,140 @@
   // The first and last are a HALF interval in, so a lamp never lands on a
   // junction (which is where OSM ends its lines) and two lamps either side of
   // a split sit a full spacing apart, as if the way had never been cut.
-  function lampsAlong(line, mvtToM, spacingM) {
+  //
+  // `minLenM` (optional) raises that floor above half a step: a WALKING PATH
+  // lays its lamps at LAMP_PATH_SPACING_M but keeps the STREET's floor
+  // (LAMP_PATH_MIN_LEN_M) — see lampLayFor.
+  function lampsAlong(line, mvtToM, spacingM, minLenM) {
     const step = (spacingM > 0) ? spacingM : lampSpacingM();
     const len = lineLengthM(line, mvtToM);
     if (!(len > 0) || !(step > 0)) return [];
+    if (minLenM > 0 && len < minLenM) return [];
     const n = Math.round(len / step);
     if (n < 1) return [];
     const gap = len / n;
     const out = [];
     for (let i = 0; i < n; i++) out.push((i + 0.5) * gap);
     return out;
+  }
+
+  // ── WALKING PATHS: denser lamps ────────────────────────────────────────
+  // A restored footway / path / cycleway / pedestrian way (the classes
+  // WorldGen.classifyLine calls T.PATH — WorldGen.PATH_CLASSES, one table)
+  // stands its lamps LAMP_PATH_SPACING_DIV times closer than a street, so
+  // re-walking a path pays more per km (lampCredit pays one spacing per lamp).
+  // The FLOOR stays the street's: a path under half a STREET spacing stands no
+  // lamp at all. Halving the floor with the spacing would light every
+  // pavement crossing and garden stub (OSM draws a crossing as a footway a
+  // carriageway wide) — a reward standing in the road.
+  const LAMP_PATH_SPACING_DIV = 2;
+  const LAMP_PATH_SPACING_M = LAMP_SPACING_M / LAMP_PATH_SPACING_DIV;
+  const LAMP_PATH_MIN_LEN_M = LAMP_SPACING_M / 2;
+  function isWalkingPath(tags) {
+    const WG = root.WorldGen;
+    const c = (tags && tags.class) || '';
+    return !!(WG && WG.PATH_CLASSES && WG.PATH_CLASSES.has(c));
+  }
+  // { spacingM, minLenM } for one line: a variant's own spacing (Lantern Row,
+  // handed in) wins, else a walking path's, else the street's.
+  function lampLayFor(tags, variantSpacingM) {
+    if (variantSpacingM > 0) return { spacingM: variantSpacingM, minLenM: 0 };
+    if (isWalkingPath(tags)) return { spacingM: LAMP_PATH_SPACING_M, minLenM: LAMP_PATH_MIN_LEN_M };
+    return { spacingM: LAMP_SPACING_M, minLenM: 0 };
+  }
+
+  // ── LIVING LAMPS: a lamp remembers being visited ─────────────────────────
+  // A lit lamp's brightness is a function of ONE stored number: when the
+  // player's feet last came into its range (save.lampVisits[id], ms). A visit
+  // flares it to LAMP_BRIGHT_PEAK of its row's base; it then fades linearly to
+  // LAMP_DIM_FLOOR over LAMP_FADE_MS and stays there. No record = fully dim —
+  // the default, which is why a record older than the fade is PRUNED
+  // (pruneLampVisits): it says nothing the absence doesn't. The save stays a
+  // DELTA (what the player did to a generated thing, keyed by the lamp's
+  // position-derived id) and is bounded (LAMP_VISITS_MAX, oldest dropped).
+  //
+  // Brightness is QUANTISED to LAMP_BRIGHT_STEPS over the dim..peak range, so
+  // the lightmap's frameKey moves once per step (~90 min of fade), never
+  // every frame.
+  //
+  // THE CREDIT (lampCredit): a visit pays restore-ladder metres = the lamp's
+  // own spacing (the gap it was laid with; a path lamp its street-equivalent,
+  // lampCreditM) x how DIM it had got,
+  // min(1, elapsed / LAMP_FADE_MS). A lamp unseen for a day pays its whole
+  // spacing — the walk between two lamps, again — and standing by one pays
+  // nothing, so no lamp pays more than its spacing per fade.
+  const LAMP_DIM_FLOOR = 0.5;
+  const LAMP_BRIGHT_PEAK = 1.5;
+  const LAMP_FADE_MS = 24 * 3600 * 1000;
+  const LAMP_BRIGHT_STEPS = 16;
+  const LAMP_VISITS_MAX = 2000;
+  // How often app.js's lamp list re-reads the fade (its memo bucket). A step
+  // of LAMP_BRIGHT_STEPS is LAMP_FADE_MS / 16 = 90 min, so a minute's lag on
+  // a step is invisible; the quantised value is what the lightmap keys on.
+  const LAMP_REFRESH_MS = 60 * 1000;
+  // What pulls a species to a walking path's lamps — the `attracts` column
+  // of the ground those lamps stand on (scene_creatures.js
+  // _seatFaunaOnFavouriteGround, cells beside each path lamp). The owner
+  // moved the cats here from Lantern Row (Sep 2026).
+  const PATH_LAMP_ATTRACTS = { cat: 0.5 };
+
+  function lampFade(lastMs, now) {
+    if (!Number.isFinite(lastMs)) return 1;
+    return Math.max(0, Math.min(1, (now - lastMs) / LAMP_FADE_MS));
+  }
+  function quantBrightness(b) {
+    const span = LAMP_BRIGHT_PEAK - LAMP_DIM_FLOOR;
+    const t = Math.max(0, Math.min(1, (b - LAMP_DIM_FLOOR) / span));
+    return LAMP_DIM_FLOOR + Math.round(t * LAMP_BRIGHT_STEPS) / LAMP_BRIGHT_STEPS * span;
+  }
+  // The lamp's gain on its row's base light, quantised. `lastMs` undefined =
+  // never visited (or pruned) = the floor.
+  function lampBrightness(lastMs, now) {
+    const f = lampFade(lastMs, now);
+    return quantBrightness(LAMP_BRIGHT_PEAK - (LAMP_BRIGHT_PEAK - LAMP_DIM_FLOOR) * f);
+  }
+  // The metres ONE lamp stands for on the ladder: the gap it was laid at —
+  // except on a WALKING PATH, where a lamp stands in for the street gap it
+  // halves (x LAMP_PATH_SPACING_DIV). Twice the lamps at the street's price
+  // each is what makes re-walking a path pay MORE per km (2 km a km after a
+  // full day, a street 1 km) rather than the same km cut finer.
+  function lampCreditM(gapM, isPath) {
+    if (!(gapM > 0)) return 0;
+    return isPath ? gapM * LAMP_PATH_SPACING_DIV : gapM;
+  }
+  function lampCredit(spacingM, lastMs, now) {
+    if (!(spacingM > 0)) return 0;
+    return spacingM * lampFade(lastMs, now);
+  }
+  function lampVisitAt(save, id) {
+    const v = save && save.lampVisits;
+    const t = v ? v[id] : undefined;
+    return Number.isFinite(t) ? t : undefined;
+  }
+  // Drop every record the fade has run out on, then the oldest past the cap.
+  function pruneLampVisits(save, now) {
+    const v = save && save.lampVisits;
+    if (!v || typeof v !== 'object') return;
+    for (const id of Object.keys(v)) {
+      const t = v[id];
+      if (!Number.isFinite(t) || now - t >= LAMP_FADE_MS) delete v[id];
+    }
+    const ids = Object.keys(v);
+    if (ids.length > LAMP_VISITS_MAX) {
+      ids.sort((a, b) => v[a] - v[b]);
+      for (let i = 0; i < ids.length - LAMP_VISITS_MAX; i++) delete v[ids[i]];
+    }
+  }
+  // Record a visit and return the metres it earned (0 when `credit` is false:
+  // a lamp lit by the restore itself, whose metres the sweep already paid).
+  function visitLamp(save, lamp, now, credit) {
+    if (!save || !lamp || !lamp.id) return 0;
+    const perLamp = lamp.creditM != null ? lamp.creditM : lamp.spacingM;
+    const earned = credit === false ? 0 : lampCredit(perLamp, lampVisitAt(save, lamp.id), now);
+    if (!save.lampVisits || typeof save.lampVisits !== 'object') save.lampVisits = {};
+    save.lampVisits[lamp.id] = now;
+    pruneLampVisits(save, now);
+    return earned;
   }
 
   // ── ACROSS the way: THE VERGE ───────────────────────────────────────────
@@ -581,6 +705,10 @@
     lineKey, lineLengthM, pointAtM, subLineM, tileSpans, reachIntervals,
     runPtsWorld, pointAtWorld,
     LAMP_SPACING_M, lampSpacingM, lampsAlong, lampOffsetM, covers,
+    LAMP_PATH_SPACING_DIV, LAMP_PATH_SPACING_M, LAMP_PATH_MIN_LEN_M, isWalkingPath, lampLayFor,
+    LAMP_DIM_FLOOR, LAMP_BRIGHT_PEAK, LAMP_FADE_MS, LAMP_BRIGHT_STEPS, LAMP_VISITS_MAX, LAMP_REFRESH_MS,
+    PATH_LAMP_ATTRACTS, lampFade, quantBrightness, lampBrightness, lampCreditM, lampCredit,
+    lampVisitAt, pruneLampVisits, visitLamp,
     mergeIntervals, intersect, subtract, union, totalM, flatten, unflatten,
     createSight, restoredList, restore, epoch,
   };

@@ -913,9 +913,16 @@
       // left off (undefined), so a plain street's lamp keeps the row's own
       // `cobble` cookie exactly as before. A hue, never a brightness factor.
       const colour = lampColour(L.glow);
-      scene._lights.push(colour == null
+      const e = colour == null
         ? { kind: 'cobble', dx, dy, dyPx, id: L.id }
-        : { kind: 'cobble', dx, dy, dyPx, id: L.id, colour });
+        : { kind: 'cobble', dx, dy, dyPx, id: L.id, colour };
+      // THE LIVING LAMP's brightness (app.js, Streets.lampBrightness —
+      // already quantised to LAMP_BRIGHT_STEPS) as the entry's GAIN `g`: a
+      // STEADY multiplier, not the animated `a` (which would put the clock in
+      // frameKey and repaint every tick). frameKey names it, so a step moves
+      // the key; 1 (or none) leaves the row's cookie exactly as it was.
+      if (Number.isFinite(L.bright) && L.bright !== 1) e.g = L.bright;
+      scene._lights.push(e);
       n++;
     }
     return n;
@@ -1015,7 +1022,7 @@
     const d = Math.hypot(qx, qy);
     if (!(R > 0) || d >= R) return 0;
     const t = 1 - d / R;
-    return clamp01(a) * row.peak * t * t * lum(L.colour == null ? row.colour : L.colour);
+    return clamp01(a) * (L.g == null ? 1 : L.g) * row.peak * t * t * lum(L.colour == null ? row.colour : L.colour);
   }
   // A light's draw-space lift (a lamp's lantern), back in metres.
   function liftM(L, cellM) {
@@ -1130,7 +1137,7 @@
     if (animates(scene)) k += `|t${now}`;
     const crit = criticalLights(scene, now);           // every light's tint + stutter
     if (crit) k += `|crit${crit.mix},${crit.a.toFixed(4)}`;
-    for (const L of scene._lights) k += `|${L.kind},${L.id},${L.dx},${L.dy},${L.dyPx},${L.r},${L.colour},${L.a},${L.s}`;
+    for (const L of scene._lights) k += `|${L.kind},${L.id},${L.dx},${L.dy},${L.dyPx},${L.r},${L.colour},${L.a},${L.s},${L.g}`;
     return k;
   }
 
@@ -1454,10 +1461,17 @@
         * (crit ? crit.a : 1);
       const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
       const d = 2 * ck.R * sc;
-      ctx.globalAlpha = clamp01(a);
-      ctx.drawImage(ck.canvas,
-        scene.viewCenterX + L.dx * k - ox - d / 2,
-        scene.viewCenterY + L.dy * k + (L.dyPx || 0) - oy - d / 2, d, d);
+      // A steady GAIN `g` (a living lamp) scales the stamp; past 1 it is
+      // stamped again — the composite is 'lighter', so two stamps ADD, which
+      // is the only way over the cookie's own alpha ceiling.
+      let left = clamp01(a) * (L.g == null ? 1 : L.g);
+      while (left > 0.001) {
+        ctx.globalAlpha = clamp01(left);
+        ctx.drawImage(ck.canvas,
+          scene.viewCenterX + L.dx * k - ox - d / 2,
+          scene.viewCenterY + L.dy * k + (L.dyPx || 0) - oy - d / 2, d, d);
+        left -= 1;
+      }
     };
     for (const L of scene._lights) stamp(L);
     ctx.globalAlpha = 1;

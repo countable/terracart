@@ -249,6 +249,12 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   width and lamp footprint; art and light share the same world point. Lantern
   rise is a draw-space offset; retune height through `LAMP_PROFILE`.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
+- Living lamps: a lit lamp's brightness and visit credit come from ONE delta,
+  `save.lampVisits[id]` (Streets `lampBrightness` / `lampCredit` / `visitLamp`,
+  pruned at `LAMP_FADE_MS`); brightness rides the lamp list as `bright` and
+  the light as a steady gain `g` in `frameKey` (never the animated `a`).
+  Credit banks through `_bankStreetMetres`, gated like the sweep (passenger,
+  surface, drift home). Walking paths lay lamps via `Streets.lampLayFor`.
 - Trail rewards use `Trail.PRIZE_CONTEXT`; the first reward uses `firstPrize`.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.
