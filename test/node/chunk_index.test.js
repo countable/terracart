@@ -155,4 +155,81 @@ test('chunk index: a light past the sprite cull is still offered, one past the q
   }
 });
 
+function visibleTrapsFlat(entries, halfM, disarmed, sprung) {
+  const out = [];
+  let candidates = 0;
+  for (const entry of entries) {
+    for (const tr of entry.traps || []) {
+      candidates++;
+      if (disarmed.has(tr.id)) continue;
+      if (Math.abs(tr.x) > halfM || Math.abs(tr.y) > halfM) continue;
+      out.push(`${tr.id}:${sprung.has(tr.id)}`);
+    }
+  }
+  return { out, candidates };
+}
+
+function visibleTrapsIndexed(entries, halfM, disarmed, sprung) {
+  const out = [];
+  let candidates = 0;
+  for (const entry of entries) {
+    WorldGen.forEachItemInBox(entry, 'traps', -halfM, -halfM, halfM, halfM, tr => {
+      candidates++;
+      if (disarmed.has(tr.id)) return;
+      if (Math.abs(tr.x) > halfM || Math.abs(tr.y) > halfM) return;
+      out.push(`${tr.id}:${sprung.has(tr.id)}`);
+    }, true);
+  }
+  return { out, candidates };
+}
+
+test('chunk index: trap queries preserve flat-scan visibility and draw order at viewport and tile edges', () => {
+  const halfM = WorldGen.CHUNK_M;
+  // Tile iteration order stays outside the index. Within each tile, positions
+  // cross chunk boundaries in source-array order so this pins the order that
+  // Render.renderPool assigns to trap sprites.
+  const entries = [
+    { traps: [
+      { id: 'west-edge', x: -halfM, y: 0 },
+      { id: 'east-edge', x: halfM, y: 0 },
+      { id: 'sprung', x: 4, y: 4 },
+      { id: 'far', x: halfM + WorldGen.CHUNK_M + 1, y: 0 },
+    ] },
+    { traps: [
+      { id: 'tile-east', x: halfM - 1, y: 3 },
+      { id: 'tile-west', x: -halfM + 1, y: -3 },
+      { id: 'disarmed', x: 0, y: 0 },
+    ] },
+  ];
+  const disarmed = new Set(['disarmed']);
+  const sprung = new Set(['sprung']);
+  const flat = visibleTrapsFlat(entries, halfM, disarmed, sprung);
+  const indexed = visibleTrapsIndexed(entries, halfM, disarmed, sprung);
+  assert.eq(indexed.out.join('|'), flat.out.join('|'), 'the indexed query keeps visible traps and their flat-scan order');
+});
+
+test('chunk index: a dense hard-mode trap tile visits a bounded candidate set', () => {
+  const traps = [];
+  // Hard mode can lay hundreds of traps on a tile. Spread 450 static marks
+  // across a 640 m tile, then query a 160 m viewport at its centre.
+  for (let i = 0; i < 450; i++) {
+    traps.push({ id: `hard_${i}`, x: -320 + (i % 30) * 22, y: -320 + Math.floor(i / 30) * 44 });
+  }
+  const halfM = 80;
+  const flat = visibleTrapsFlat([{ traps }], halfM, new Set(), new Set());
+  const indexed = visibleTrapsIndexed([{ traps }], halfM, new Set(), new Set());
+  assert.eq(indexed.out.join('|'), flat.out.join('|'), 'the bounded walk keeps the dense tile result and order');
+  assert.lt(indexed.candidates, flat.candidates / 3, `the index visits ${indexed.candidates} candidates instead of ${flat.candidates}`);
+});
+
+test('chunk index: drawObjects indexes generated traps and keeps laid traps flat', () => {
+  const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
+  assert.truthy(/WorldGen\.forEachItemInBox\(entry, 'traps',\s*pWorldX - halfM, pWorldY - halfM, pWorldX \+ halfM, pWorldY \+ halfM, \(tr\) => \{/.test(body),
+    'generated traps query only the static chunks that can touch the viewport');
+  assert.falsy(/for \(const tr of entry\.traps\)/.test(body), 'the generated flat scan is gone');
+  const generated = body.slice(body.indexOf("WorldGen.forEachItemInBox(entry, 'traps'"), body.indexOf('if (entry.laidTraps'));
+  assert.truthy(/\}, true\);/.test(generated), 'the indexed query preserves the old source-array draw order');
+  assert.truthy(/for \(const tr of entry\.laidTraps\)/.test(body), 'mutable laid traps keep their flat scan');
+});
+
 })();

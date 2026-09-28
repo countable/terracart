@@ -674,8 +674,8 @@ test('traps: a disarmed trap is dropped from the render list, not retextured', (
   assert.truthy(/const disarmedSet = setOf\(scene\.save\.disarmedTraps\);/.test(RENDER_SRC),
     'the disarmed ids are read once per frame, like sprungSet');
   const block = RENDER_SRC.slice(RENDER_SRC.indexOf('if (entry.traps) {'));
-  assert.truthy(/if \(disarmedSet\.has\(tr\.id\)\) continue;/.test(block.slice(0, 400)),
-    'a disarmed trap never reaches trapList, so it never draws either texture');
+  assert.truthy(/if \(disarmedSet\.has\(tr\.id\)\) return;/.test(block.slice(0, 500)),
+    'the indexed callback drops a disarmed trap before it reaches either texture');
 });
 
 test('traps: the tick treats a disarmed trap as no trap at all', () => {
