@@ -1,16 +1,18 @@
 <!doctype html>
 <!--
   MAP REVIEW — what the world generator places, on a real map, around a Home
-  you choose. Serve the repo root and open this page:
+  you choose.
 
-    python3 -m http.server 8000        (from the repo root)
-    http://localhost:8000/tools/map-review.html              the recorded fixture tiles
-    http://localhost:8000/tools/map-review.html?lat=49.28&lon=-123.12&r=1
-                                                              any area, fetched live
+    https://countable.github.io/terracart/tools/map-review.html     (published)
+    ?lat=49.28&lon=-123.12&r=1        any area, fetched live ((2r+1)² tiles)
+    Locally: python3 -m http.server 8000 from the repo root, then
+    http://localhost:8000/tools/map-review.html — the recorded fixture tiles
+    when they are on disk (git-ignored, so Pages fetches the same tiles live).
 
-  It runs the GAME'S OWN CODE, not a copy of it: the module list is read out of
-  index.html at load (so it can't drift), app.js is loaded against a no-op
-  Phaser stub so it defines MapScene without booting a game, and every tile is
+  It runs the GAME'S OWN CODE, not a copy of it: tools/game-loader.js reads
+  the module list out of index.html at load (so it can't drift) and loads
+  app.js against a no-op Phaser stub so it defines MapScene without booting a
+  game. Every tile is
   built the way the game builds it — WorldGen.rasterizeTile, then the scene's
   own spawnInTile (fauna, wild slimes, buried X marks, the treasure scatter,
   traps, fruit trees, and the starting area when Home is in the tile) on a
@@ -72,49 +74,17 @@
   <h3>Terrain legend</h3><div id="legend"></div>
 </div>
 <div id="game"></div>
+<script src="game-loader.js"></script>
 <script>
-// ── A Phaser that does nothing ──────────────────────────────────────────────
-// app.js ends by constructing a Phaser.Game and reads Phaser.* constants in
-// its config; MapScene extends Phaser.Scene. Everything here resolves to one
-// inert proxy that is callable, constructible and has every property, so the
-// scripts load and define their classes without a game ever booting.
-(function () {
-  const inert = new Proxy(function () {}, {
-    get: (t, k) => (k === Symbol.toPrimitive ? () => 0 : k === 'prototype' ? {} : inert),
-    apply: () => inert,
-    construct: () => inert,
-  });
-  window.Phaser = inert;
-  // NOT __TEST_MODE: spawnInTile skips its traps and extra X marks under it,
-  // and the GPS / multiplayer it also gates only start in create(), which
-  // never runs here.
-})();
-
-// Load the game's modules in index.html's own order. Phaser itself is
-// skipped (stubbed above); app.js is loaded last, from index.html's boot line.
-async function loadGame() {
-  const html = await (await fetch('/index.html')).text();
-  const srcs = [...html.matchAll(/<script src="(src\/[^"?]+)(?:\?[^"]*)?"><\/script>/g)].map((m) => m[1]);
-  srcs.push('src/app.js');
-  for (const src of srcs) {
-    await new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = '/' + src + '?' + Date.now();
-      s.onload = res;
-      s.onerror = () => rej(new Error('could not load ' + src));
-      document.head.appendChild(s);
-    });
-  }
-  if (typeof disableSave === 'function') disableSave();
-}
-
 // ── Tiles ───────────────────────────────────────────────────────────────────
 const Q = new URLSearchParams(location.search);
 const FIXTURES = !Q.get('lat');
 async function tileBytes(tx, ty) {
   if (FIXTURES) {
-    const r = await fetch(`/test/fixtures/${tx}_${ty}.pbf`);
-    return r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
+    // The recorded tiles, when the page is served from a checkout (they are
+    // git-ignored, so GitHub Pages has none) — else the same tiles, live.
+    const r = await fetch(`../test/fixtures/${tx}_${ty}.pbf`).catch(() => null);
+    if (r && r.ok) return new Uint8Array(await r.arrayBuffer());
   }
   if (!tileBytes.tpl) tileBytes.tpl = (await (await fetch(WorldGen.TILEJSON_URL)).json()).tiles[0];
   const r = await fetch(tileBytes.tpl.replace('{z}', WorldGen.Z).replace('{x}', tx).replace('{y}', ty));
@@ -242,6 +212,58 @@ const onByDefault = (k) => k !== 'trap';
 const state = { layers: {}, shown: {} };
 let drawn = [];
 
+// ── SHAPES: related kinds share a marker shape ─────────────────────────────
+// Circles are animals, triangles grow (plants and trees), diamonds are foes,
+// stars are loot, squares are built or stone, crosses are traps. Drawn on
+// Leaflet's canvas renderer as one more CircleMarker (same hit test, same
+// speed), so tens of thousands stay cheap.
+function shapeOf(k) {
+  if (k === 'Home') return 'circle';
+  if (k.startsWith('animal:')) return 'circle';
+  if (k.startsWith('plant:') || k === 'tree' || k === 'fruittree') return 'triangle';
+  if (k.startsWith('enemy:')) return 'diamond';
+  if (k === 'chest' || k === 'X mark' || k === 'staircase') return 'star';
+  if (k === 'trap') return 'cross';
+  return 'square';
+}
+function shapePath(ctx, shape, x, y, r) {
+  ctx.beginPath();
+  if (shape === 'triangle') {
+    ctx.moveTo(x, y - r * 1.15); ctx.lineTo(x + r, y + r * 0.75); ctx.lineTo(x - r, y + r * 0.75);
+  } else if (shape === 'diamond') {
+    ctx.moveTo(x, y - r * 1.2); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r * 1.2); ctx.lineTo(x - r, y);
+  } else if (shape === 'square') {
+    ctx.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7);
+  } else if (shape === 'star') {
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.5 : r * 1.25;
+      ctx[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+    }
+  } else if (shape === 'cross') {
+    const w = r * 0.45;
+    ctx.moveTo(x - w, y - r); ctx.lineTo(x + w, y - r); ctx.lineTo(x + w, y - w); ctx.lineTo(x + r, y - w);
+    ctx.lineTo(x + r, y + w); ctx.lineTo(x + w, y + w); ctx.lineTo(x + w, y + r); ctx.lineTo(x - w, y + r);
+    ctx.lineTo(x - w, y + w); ctx.lineTo(x - r, y + w); ctx.lineTo(x - r, y - w); ctx.lineTo(x - w, y - w);
+  } else {
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+  }
+  ctx.closePath();
+}
+const ShapeMarker = L.CircleMarker.extend({
+  _updatePath() {
+    const rd = this._renderer;
+    if (!rd._drawing || this._empty()) return;
+    shapePath(rd._ctx, this.options.shape, this._point.x, this._point.y, Math.max(Math.round(this._radius), 1));
+    rd._fillStroke(rd._ctx, this);
+  },
+});
+const shapeSwatch = (shape, colour) => {
+  const c = document.createElement('canvas'); c.width = c.height = 14;
+  const g = c.getContext('2d'); shapePath(g, shape, 7, 7, 5);
+  g.fillStyle = colour; g.fill(); g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke();
+  return `<img src="${c.toDataURL()}" width="14" height="14" style="flex:none">`;
+};
+
 function classify(o) {
   if (o.kind === 'wildplant') return 'plant:' + (o.crop || '?');
   if (o.kind === 'treasure' || o.kind === 'xmark' || o.kind === 'buried') return 'X mark';
@@ -279,14 +301,15 @@ function draw(world, home) {
     const lg = L.layerGroup();
     const big = k === 'Home' || k.startsWith('enemy') || k === 'X mark' || k === 'chest';
     for (const p of groups[k]) {
-      L.circleMarker(p.ll, { radius: k === 'Home' ? 9 : big ? 6 : k.startsWith('plant:') ? 3 : 5,
+      new ShapeMarker(p.ll, { shape: shapeOf(k), radius: k === 'Home' ? 9 : big ? 6 : k.startsWith('plant:') ? 3.5 : 5,
         color: '#000', weight: k === 'Home' ? 3 : 1, fillColor: colour(k, i), fillOpacity: 0.9 })
+        .bindTooltip(p.label, { direction: 'top', offset: [0, -4], opacity: 0.92 })
         .bindPopup(`<b>${p.label}</b><br><code>${p.id || ''}</code>`).addTo(lg);
     }
     const on = state.shown[k] ?? onByDefault(k);
     if (on && !state.markersOff) lg.addTo(map);
     drawn.push(lg);
-    mkRow($('kinds'), 'checkbox', `<span class="sw" style="background:${colour(k, i)}"></span>${k}<span class="n">${groups[k].length}</span>`,
+    mkRow($('kinds'), 'checkbox', `${shapeSwatch(shapeOf(k), colour(k, i))}${k}<span class="n">${groups[k].length}</span>`,
       on, (v) => { state.shown[k] = v; (v && !state.markersOff) ? lg.addTo(map) : map.removeLayer(lg); density(); });
     state.layers[k] = lg;
   });
