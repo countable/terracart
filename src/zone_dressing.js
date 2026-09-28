@@ -120,9 +120,21 @@
       if (a.owned && v.guards.mode === 'guard_find') {
         for (let n = 0; n < v.guards.count; n++) {
           const target = s.findCells[n % s.findCells.length], off = v.guards.offsetCells[n % v.guards.offsetCells.length];
-          const [dx, dy] = V.rotate(off[0], off[1], s.rotation), ix = target && target[0] + dx, iy = target && target[1] + dy;
+          const [dx, dy] = V.rotate(off[0], off[1], s.rotation);
           const cls = typeof root.creatureSpawnClass === 'function' ? root.creatureSpawnClass(v.guards.kind) : 'enemy';
-          if (!target || !owns(s, ix, iy) || !WG.isSpawnCell(grid, N, N, ix, iy, opts, cls)) { s.rec.shortfalls.push(`guard:${n}`); continue; }
+          if (!target) { s.rec.shortfalls.push(`guard:${n}`); continue; }
+          const desiredX = target[0] + dx, desiredY = target[1] + dy;
+          // Keep the declared seat when possible. A blocked seat can move at
+          // most two cells, still beside its find and inside eligible coverage.
+          // Distance then row/column order makes the fallback replay identically.
+          let ix = -1, iy = -1, bestDistance = Infinity;
+          for (let sy = -2; sy <= 2; sy++) for (let sx = -2; sx <= 2; sx++) {
+            const distance = sx * sx + sy * sy, x = desiredX + sx, y = desiredY + sy;
+            if (distance > 4 || distance >= bestDistance || !owns(s, x, y)
+                || !WG.isSpawnCell(grid, N, N, x, y, opts, cls)) continue;
+            ix = x; iy = y; bestDistance = distance;
+          }
+          if (ix < 0) { s.rec.shortfalls.push(`guard:${n}`); continue; }
           const [x, y] = position(ix, iy), [homeX, homeY] = position(target[0], target[1]);
           out.guards.push({ kind: v.guards.kind, id: `zg_${a.kind}_${a.gx}_${a.gy}_${n}`, x, y, homeX, homeY,
             zone: a.kind, zoneVariant: v.id, _ix: ix, _iy: iy });
